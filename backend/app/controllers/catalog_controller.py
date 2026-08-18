@@ -4,7 +4,15 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from backend.app.core.database import get_db
 from backend.app.repositories.catalog_repository import CatalogRepository
-from backend.app.schemas.catalog import CategoryOut, ProductSummaryOut, ProductDetailOut, StoreInventoryOut
+from backend.app.services.search_service import SearchService
+from backend.app.schemas.catalog import (
+    CategoryOut,
+    ProductSummaryOut,
+    ProductDetailOut,
+    StoreInventoryOut,
+    SearchResponseOut,
+    AutocompleteResponse
+)
 from backend.app.core.exceptions import ResourceNotFoundError
 
 router = APIRouter(prefix="/catalog", tags=["Catalog & Products"])
@@ -14,6 +22,47 @@ router = APIRouter(prefix="/catalog", tags=["Catalog & Products"])
 def get_categories(db: Session = Depends(get_db)):
     repo = CatalogRepository(db)
     return repo.get_categories()
+
+
+# =========================================================================
+# Enhanced Full-Text Search, Ranking, Facets & Autocomplete Endpoints
+# =========================================================================
+@router.get("/search", response_model=SearchResponseOut)
+def search_catalog(
+    q: str = Query(..., min_length=1, max_length=100, description="Search query string"),
+    category: Optional[str] = Query(None),
+    brand_id: Optional[int] = Query(None),
+    color: Optional[str] = Query(None),
+    occasion: Optional[str] = Query(None),
+    min_price: Optional[float] = Query(None),
+    max_price: Optional[float] = Query(None),
+    sort_by: str = Query("relevance", description="'relevance', 'price_asc', 'price_desc', 'rating', 'newest'"),
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100),
+    db: Session = Depends(get_db)
+):
+    service = SearchService(db)
+    return service.search_products(
+        query=q,
+        category=category,
+        brand_id=brand_id,
+        color=color,
+        occasion=occasion,
+        min_price=min_price,
+        max_price=max_price,
+        page=page,
+        limit=limit,
+        sort_by=sort_by
+    )
+
+
+@router.get("/autocomplete", response_model=AutocompleteResponse)
+def autocomplete_catalog(
+    q: str = Query(..., min_length=1, max_length=50, description="Prefix search term"),
+    db: Session = Depends(get_db)
+):
+    service = SearchService(db)
+    return service.autocomplete(query=q)
 
 
 @router.get("/products", response_model=List[ProductSummaryOut])

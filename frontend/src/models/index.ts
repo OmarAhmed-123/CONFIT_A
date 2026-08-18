@@ -474,6 +474,57 @@ export interface BrandAnalyticsDashboard {
   ad_revenue_total: number;
 }
 
+export interface FacetCount {
+  label: string;
+  value: string;
+  count: number;
+  selected?: boolean;
+}
+
+export interface PriceRangeFacet {
+  min_price: number;
+  max_price: number;
+  avg_price: number;
+}
+
+export interface SearchFacets {
+  categories: FacetCount[];
+  brands: FacetCount[];
+  colors: FacetCount[];
+  price_range: PriceRangeFacet;
+}
+
+export interface SearchResultItem extends Product {
+  relevance_score: number;
+  matched_field: string;
+  highlighted_snippet?: string;
+  in_stock: boolean;
+}
+
+export interface SearchResponse {
+  query: string;
+  total_matches: number;
+  page: number;
+  limit: number;
+  results: SearchResultItem[];
+  facets: SearchFacets;
+  did_you_mean?: string;
+  execution_time_ms: number;
+}
+
+export interface AutocompleteSuggestion {
+  title: string;
+  type: 'product' | 'category' | 'brand';
+  slug_or_query: string;
+  subtitle?: string;
+  thumbnail_url?: string;
+}
+
+export interface AutocompleteResponse {
+  query: string;
+  suggestions: AutocompleteSuggestion[];
+}
+
 export interface AdminPlatformAnalytics {
   total_users_count: number;
   total_brands_count: number;

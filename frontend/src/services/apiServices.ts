@@ -21,6 +21,8 @@ import {
   BrandAnalyticsDashboard,
   SponsoredPlacement,
   AdminPlatformAnalytics,
+  SearchResponse,
+  AutocompleteResponse,
 } from '../models';
 
 // 1. Auth & Identity Services (G1)
@@ -101,6 +103,29 @@ export const catalogService = {
   getProductDetail: (slugOrId: string | number) => request<Product>(`/catalog/products/${slugOrId}`),
 
   getBopisStoresForSKU: (skuId: number) => request<StoreInventoryLocation[]>(`/catalog/skus/${skuId}/stores`),
+
+  searchCatalog: (params: {
+    q: string;
+    category?: string;
+    brand_id?: number;
+    color?: string;
+    occasion?: string;
+    min_price?: number;
+    max_price?: number;
+    sort_by?: string;
+    page?: number;
+    limit?: number;
+  }) => {
+    const query = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && v !== '') {
+        query.append(k, String(v));
+      }
+    });
+    return request<SearchResponse>(`/catalog/search?${query.toString()}`);
+  },
+
+  autocompleteCatalog: (q: string) => request<AutocompleteResponse>(`/catalog/autocomplete?q=${encodeURIComponent(q)}`),
 };
 
 // 4. AI Stylist & Outfits Services (G2)

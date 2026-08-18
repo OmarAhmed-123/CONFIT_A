@@ -102,3 +102,57 @@ class ProductFilterParams(BaseModel):
     max_price: Optional[float] = None
     search: Optional[str] = None
     sort_by: Optional[str] = "recommended"  # "recommended", "price_asc", "price_desc", "rating", "newest"
+
+
+# =========================================================================
+# Production Search, Facets & Autocomplete Schemas
+# =========================================================================
+class FacetCount(BaseModel):
+    label: str
+    value: str
+    count: int
+    selected: bool = False
+
+
+class PriceRangeFacet(BaseModel):
+    min_price: float
+    max_price: float
+    avg_price: float
+
+
+class SearchFacetsOut(BaseModel):
+    categories: List[FacetCount] = []
+    brands: List[FacetCount] = []
+    colors: List[FacetCount] = []
+    price_range: PriceRangeFacet
+
+
+class SearchResultItemOut(ProductSummaryOut):
+    relevance_score: float = 1.0
+    matched_field: str = "title"
+    highlighted_snippet: Optional[str] = None
+    in_stock: bool = True
+
+
+class SearchResponseOut(BaseModel):
+    query: str
+    total_matches: int
+    page: int
+    limit: int
+    results: List[SearchResultItemOut]
+    facets: SearchFacetsOut
+    did_you_mean: Optional[str] = None
+    execution_time_ms: float
+
+
+class AutocompleteSuggestion(BaseModel):
+    title: str
+    type: str  # "product", "category", "brand"
+    slug_or_query: str
+    subtitle: Optional[str] = None
+    thumbnail_url: Optional[str] = None
+
+
+class AutocompleteResponse(BaseModel):
+    query: str
+    suggestions: List[AutocompleteSuggestion]

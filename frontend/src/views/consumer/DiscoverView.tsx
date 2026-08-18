@@ -1,10 +1,12 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useCatalogViewModel } from '../../viewmodels/useCatalogViewModel';
 import { useUIStore } from '../../stores/uiStore';
 import { useCartStore } from '../../stores/cartStore';
-import { TryOnIcon, RulerIcon, BagIcon, VisualSearchIcon } from '../../components/icons/ConfitIcons';
+import { catalogService } from '../../services/apiServices';
+import { AutocompleteSuggestion, SearchResponse } from '../../models';
+import { TryOnIcon, RulerIcon, BagIcon, VisualSearchIcon, SparkleIcon } from '../../components/icons/ConfitIcons';
 import { FitScoreBadge, BNPLBadge, SkeletonCard, EmptyState } from '../../components/common/CommonComponents';
 
 export const DiscoverView: React.FC = () => {
@@ -27,6 +29,27 @@ export const DiscoverView: React.FC = () => {
   const { openTryOn, openRuler, openVisualSearch } = useUIStore();
   const { addItem } = useCartStore();
 
+  const [autocompleteSuggestions, setAutocompleteSuggestions] = useState<AutocompleteSuggestion[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [didYouMean, setDidYouMean] = useState<string | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Live Autocomplete
+  useEffect(() => {
+    if (searchQuery.trim().length >= 2) {
+      catalogService
+        .autocompleteCatalog(searchQuery.trim())
+        .then((res) => {
+          setAutocompleteSuggestions(res.suggestions || []);
+          setShowSuggestions((res.suggestions || []).length > 0);
+        })
+        .catch(() => setAutocompleteSuggestions([]));
+    } else {
+      setAutocompleteSuggestions([]);
+      setShowSuggestions(false);
+    }
+  }, [searchQuery]);
+
   return (
     <div className="space-y-8 pb-24">
       {/* Header & Search Bar */}
@@ -41,24 +64,76 @@ export const DiscoverView: React.FC = () => {
         </div>
 
         {/* Search & Visual Match Button */}
-        <div className="flex items-center gap-2 max-w-md w-full">
+        <div className="flex items-center gap-2 max-w-md w-full relative">
           <div className="relative flex-1">
             <input
+              ref={searchInputRef}
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              onFocus={() => {
+                if (autocompleteSuggestions.length > 0) setShowSuggestions(true);
+              }}
+              onBlur={() => {
+                // Delay hiding so clicks register
+                setTimeout(() => setShowSuggestions(false), 200);
+              }}
               placeholder="Search blazers, shirts, dresses, colors..."
               className="w-full pl-4 pr-10 py-2.5 rounded-2xl border border-slate-200 text-xs focus:outline-none focus:border-[#C5A059] bg-white shadow-2xs"
             />
             {searchQuery && (
               <button
-                onClick={() => setSearchQuery('')}
+                onClick={() => {
+                  setSearchQuery('');
+                  setShowSuggestions(false);
+                }}
                 className="absolute right-3 top-2.5 text-xs text-slate-400"
               >
                 ✕
               </button>
             )}
+
+            {/* Instant Autocomplete Dropdown */}
+            {showSuggestions && autocompleteSuggestions.length > 0 && (
+              <div className="absolute top-full left-0 right-0 mt-1.5 bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden z-40 animate-in fade-in duration-100 divide-y divide-slate-100">
+                <div className="p-2 bg-slate-50 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  Instant Suggestions
+                </div>
+                {autocompleteSuggestions.map((sug, idx) => (
+                  <div
+                    key={idx}
+                    onMouseDown={() => {
+                      if (sug.type === 'product') {
+                        navigate(`/product/${sug.slug_or_query}`);
+                      } else {
+                        setSearchQuery(sug.title);
+                        setShowSuggestions(false);
+                      }
+                    }}
+                    className="p-2.5 hover:bg-[#FAF9F6] cursor-pointer flex items-center justify-between text-xs transition-colors"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      {sug.thumbnail_url ? (
+                        <img src={sug.thumbnail_url} alt="" className="w-8 h-8 rounded-lg object-cover" />
+                      ) : (
+                        <div className="w-8 h-8 rounded-lg bg-[#FDF8EE] text-[#C5A059] flex items-center justify-center font-bold text-[10px]">
+                          {sug.type === 'brand' ? '🏷️' : '📁'}
+                        </div>
+                      )}
+                      <div>
+                        <span className="font-bold text-[#1B1F3B] block">{sug.title}</span>
+                        {sug.subtitle && <span className="text-[10px] text-slate-400 font-light">{sug.subtitle}</span>}
+                      </div>
+                    </div>
+                    <span className="text-[9px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-semibold uppercase">
+                      {sug.type}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
+
           <button
             onClick={openVisualSearch}
             className="px-4 py-2.5 rounded-2xl bg-[#FDF8EE] hover:bg-[#C5A059] hover:text-white border border-[#C5A059]/40 text-[#C5A059] text-xs font-semibold shadow-2xs transition-all flex items-center gap-1.5 shrink-0"
@@ -125,7 +200,7 @@ export const DiscoverView: React.FC = () => {
               onChange={(e) => setSortBy(e.target.value)}
               className="text-xs font-semibold bg-white border border-slate-200 rounded-xl px-3 py-1.5 focus:outline-none focus:border-[#C5A059]"
             >
-              <option value="recommended">CONFIT Recommended</option>
+              <option value="recommended">CONFIT Recommended (Relevance)</option>
               <option value="price_asc">Price: Low to High</option>
               <option value="price_desc">Price: High to Low</option>
               <option value="rating">Customer Rating</option>
@@ -146,7 +221,7 @@ export const DiscoverView: React.FC = () => {
       ) : products.length === 0 ? (
         <EmptyState
           title="No products matched your filters"
-          description="Try broadening your category or occasion filters to explore more luxury garments."
+          description="Try broadening your search query or selecting a different occasion category."
           actionText="Reset Filters"
           onAction={() => {
             setSelectedCategory('');

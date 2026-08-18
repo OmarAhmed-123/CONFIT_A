@@ -12,7 +12,17 @@ dist/
 .venv/
 env/
 venv/
+
+# Environment Variables & Secrets
 .env
+.env.*
+backend/.env
+backend/.env.*
+frontend/.env
+frontend/.env.*
+!*.example
+!backend/.env.example
+!frontend/.env.example
 
 # SQLite and database data
 backend/data/*.db

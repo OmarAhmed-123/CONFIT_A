@@ -2,11 +2,12 @@ import hashlib
 import time
 from typing import Any, Dict, List, Optional
 from backend.app.providers.base import BaseProvider
+from backend.app.services.styling.prompt_builder import InternalDynamicPromptBuilder, DynamicPromptPackage
 from backend.app.core.logging import logger
 
 
 class VirtualTryOnProvider(BaseProvider):
-    """Production Multi-Garment & Animated Virtual Try-On Provider with Dynamic Identity-Preserving Prompt Generation."""
+    """Production Multi-Garment & Animated Virtual Try-On Provider with Internal Dynamic Prompt Builder."""
 
     def __init__(self):
         super().__init__(name="VTON_Virtual_TryOn_Provider", timeout_seconds=8.0, max_retries=2)
@@ -17,43 +18,21 @@ class VirtualTryOnProvider(BaseProvider):
         applied_items: List[Dict[str, Any]],
         gender_mode: str = "infer_from_image",
         pose_mode: str = "standing_front",
-        background_mode: str = "luxury_studio"
+        background_mode: str = "luxury_studio",
+        operation_type: str = "full_outfit_apply",
+        image_suitability: Optional[Dict[str, Any]] = None
     ) -> str:
-        """Constructs a photorealistic, identity-preserving virtual dressing prompt dynamically from real catalog item metadata."""
-        items_description = []
-        for it in applied_items:
-            items_description.append(
-                f"- Slot [{it.get('position', 'garment').upper()}]: {it.get('product_title')} by {it.get('brand_name')} "
-                f"({it.get('category_name')}, {it.get('color_family')}, {it.get('material', 'Fine Fabric')}, Price: ${it.get('price', 0):.2f})"
-            )
-
-        items_formatted = "\n".join(items_description) if items_description else "Single catalog garment."
-
-        prompt = f"""=== CONFIT DYNAMIC IDENTITY-PRESERVING VTON INSTRUCTIONS ===
-[TARGET USER IMAGE REFERENCE]: {user_image_ref}
-[USER GENDER PRESENTATION]: {gender_mode}
-[POSE CONSTRAINT]: {pose_mode} (Preserve original posture baseline and stance)
-[BACKGROUND MODE]: {background_mode} (Neutral high-end fashion studio)
-[BODY & FACE PRESERVATION POLICY]: STRICT MANDATORY PRESERVATION
-  - Maintain exact facial structure, eyes, nose, lips, beard, glasses, hairstyle, and skin tone.
-  - Maintain exact natural body proportions, height impression, waist ratio, and shoulder width.
-  - Do NOT morph, stylize, age-shift, or replace the person with a different human model.
-
-[SELECTED CATALOG GARMENTS TO DRESS]:
-{items_formatted}
-
-[ANATOMICAL LAYERING & DRESSING RULES]:
-  1. Base tops and shirts fit naturally across the torso with realistic chest and waist contouring.
-  2. Outerwear (blazers, jackets, coats) layers cleanly over shirts with proper lapel drape.
-  3. Trousers and skirts fall vertically with realistic gravity creases and knee tension points.
-  4. Dresses contour fluidly along the body silhouette, replacing conflicting separate tops and bottoms.
-  5. Footwear aligns seamlessly to both feet with accurate ground contact perspective and contact shadows.
-  6. Accessories (ties, pocket squares, belts, clutches) attach to designated body zones without clipping.
-
-[NEGATIVE PROMPT / RESTRICTIONS]:
-  - No face modification, no identity drift, no extra limbs, no floating shoes, no duplicate collars or sleeves, no transparent cloth artifacts, no mannequin or cartoon rendering."""
-
-        return prompt.strip()
+        pkg = InternalDynamicPromptBuilder.build_prompt_package(
+            user_image_ref=user_image_ref,
+            applied_items=applied_items,
+            gender_mode=gender_mode,
+            pose_mode=pose_mode,
+            background_mode=background_mode,
+            operation_type=operation_type,
+            image_suitability=image_suitability,
+            animation_mode=False
+        )
+        return pkg.assembled_prompt_text
 
     def build_dynamic_animation_vton_prompt(
         self,
@@ -64,53 +43,24 @@ class VirtualTryOnProvider(BaseProvider):
         background_mode: str = "studio",
         animation_style: str = "premium_realistic"
     ) -> str:
-        """Constructs a dynamic video animation try-on prompt following the strict CONFIT Animation Specification."""
-        items_description = []
-        ordered_items = sorted(applied_items, key=lambda x: x.get("layer_order", 1))
-
-        for idx, it in enumerate(ordered_items, start=1):
-            items_description.append(
-                f"  Step {idx}. Slot [{it.get('position', 'garment').upper()}]: {it.get('product_title')} by {it.get('brand_name')} "
-                f"({it.get('color_family')}, {it.get('material', 'Fine Fabric')}) — Snaps to {it.get('position')}, unfolds naturally with realistic fabric drape & collision."
-            )
-
-        items_formatted = "\n".join(items_description) if items_description else "  Step 1. Snap catalog garment to torso."
-
-        prompt = f"""=== CONFIT DYNAMIC ANIMATION TRY-ON SPECIFICATION ===
-[IDENTITY PRESERVATION — MANDATORY]:
-  Preserve strictly: face, hairstyle, beard / no beard, glasses / no glasses, skin tone, facial proportions, body proportions, body silhouette, gender presentation, height impression.
-  Do NOT replace the person. Do NOT generate a different face. Do NOT modify body shape.
-
-[ANIMATION GOAL]:
-  Show the selected clothing items being professionally applied onto the real person from the uploaded image in a believable premium try-on sequence.
-  Style: {animation_style}. Aspect Ratio: {output_aspect}. Background: {background_mode}.
-
-[DYNAMIC INPUTS]:
-  - USER_IMAGE: {user_image_ref}
-  - USER_GENDER_MODE: {gender_mode}
-  - FACE_LOCK: strict
-  - BODY_LOCK: strict
-  - CAMERA_MODE: locked commercial clarity
-
-[GARMENT APPLICATION SEQUENCE & DRAG-AND-DROP TRANSFER]:
-{items_formatted}
-
-[PHYSICAL REALISM & FOOTWEAR TRANSFER]:
-  - Realistic cloth motion, realistic body collision, gravity and fold settling.
-  - Footwear aligns to both feet with accurate ground contact, perspective, and ankle transition without hovering.
-  - End State: User is wearing the complete selected outfit with clean final layering, holding on a premium final frame with subtle finishing posture.
-
-[NEGATIVE PROMPT]:
-  No face swap, no identity drift, no body modification, no duplicate garments, no floating clothing, no broken fabric physics, no clipping, no cartoon effects, no extra limbs."""
-
-        return prompt.strip()
+        pkg = InternalDynamicPromptBuilder.build_prompt_package(
+            user_image_ref=user_image_ref,
+            applied_items=applied_items,
+            gender_mode=gender_mode,
+            output_aspect=output_aspect,
+            background_mode=background_mode,
+            animation_mode=True
+        )
+        return pkg.assembled_prompt_text
 
     async def render_multi_garment_tryon(
         self,
         user_image_url: str,
         applied_items: List[Dict[str, Any]],
         gender_mode: str = "infer_from_image",
-        body_scaling: float = 1.0
+        body_scaling: float = 1.0,
+        operation_type: str = "full_outfit_apply",
+        image_suitability: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """Executes multi-garment VTON synthesis with resilience and deterministic certification."""
         return await self.execute_with_resilience(
@@ -118,7 +68,9 @@ class VirtualTryOnProvider(BaseProvider):
             user_image_url=user_image_url,
             applied_items=applied_items,
             gender_mode=gender_mode,
-            body_scaling=body_scaling
+            body_scaling=body_scaling,
+            operation_type=operation_type,
+            image_suitability=image_suitability
         )
 
     async def render_animated_tryon(
@@ -135,17 +87,17 @@ class VirtualTryOnProvider(BaseProvider):
         trace_seed = f"anim_{user_image_url}_{item_ids_str}_{time.time()}"
         trace_hash = hashlib.sha256(trace_seed.encode()).hexdigest()[:16].upper()
 
-        dynamic_anim_prompt = self.build_dynamic_animation_vton_prompt(
+        pkg = InternalDynamicPromptBuilder.build_prompt_package(
             user_image_ref=user_image_url,
             applied_items=applied_items,
             gender_mode=gender_mode,
             output_aspect=output_aspect,
-            background_mode=background_mode
+            background_mode=background_mode,
+            animation_mode=True
         )
 
         hero_img = applied_items[0].get("image_url", user_image_url) if applied_items else user_image_url
 
-        # Build sequence of keyframes for step-by-step motion player
         keyframes = []
         ordered_items = sorted(applied_items, key=lambda x: x.get("layer_order", 1))
         for idx, it in enumerate(ordered_items, start=1):
@@ -169,7 +121,8 @@ class VirtualTryOnProvider(BaseProvider):
             "body_fit_verdict": "Dynamic Fit Verified (Motion Tension Tested)",
             "traceability_hash": f"VTON-ANIM-{trace_hash}",
             "ai_disclosure": "AI Synthesized Motion Try-On — Certified CONFIT Dynamic Animation Engine v2.4",
-            "dynamic_animation_prompt": dynamic_anim_prompt,
+            "dynamic_animation_prompt": pkg.assembled_prompt_text,
+            "prompt_package": pkg.to_dict(),
             "body_scaling_applied": body_scaling
         }
 
@@ -181,23 +134,29 @@ class VirtualTryOnProvider(BaseProvider):
         applied_items = kwargs.get("applied_items", [])
         gender_mode = kwargs.get("gender_mode", "infer_from_image")
         body_scaling = kwargs.get("body_scaling", 1.0)
-        return await self.fallback_multi(user_image_url, applied_items, gender_mode, body_scaling)
+        operation_type = kwargs.get("operation_type", "full_outfit_apply")
+        image_suitability = kwargs.get("image_suitability")
+        return await self.fallback_multi(user_image_url, applied_items, gender_mode, body_scaling, operation_type, image_suitability)
 
     async def fallback_multi(
         self,
         user_image_url: str,
         applied_items: List[Dict[str, Any]],
         gender_mode: str = "infer_from_image",
-        body_scaling: float = 1.0
+        body_scaling: float = 1.0,
+        operation_type: str = "full_outfit_apply",
+        image_suitability: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         item_ids_str = "_".join(str(it.get("product_id", 0)) for it in applied_items)
         trace_seed = f"{user_image_url}_{item_ids_str}_{time.time()}"
         trace_hash = hashlib.sha256(trace_seed.encode()).hexdigest()[:16].upper()
 
-        dynamic_prompt = self.build_dynamic_vton_prompt(
+        pkg = InternalDynamicPromptBuilder.build_prompt_package(
             user_image_ref=user_image_url,
             applied_items=applied_items,
-            gender_mode=gender_mode
+            gender_mode=gender_mode,
+            operation_type=operation_type,
+            image_suitability=image_suitability
         )
 
         hero_img = applied_items[0].get("image_url", user_image_url) if applied_items else user_image_url
@@ -208,7 +167,8 @@ class VirtualTryOnProvider(BaseProvider):
             "fit_confidence": 96,
             "traceability_hash": f"VTON-CERT-{trace_hash}",
             "ai_disclosure": "AI Synthesized Garment Drape — Certified CONFIT VTON Engine v2.4 (Identity Preserved)",
-            "dynamic_prompt_generated": dynamic_prompt,
+            "dynamic_prompt_generated": pkg.assembled_prompt_text,
+            "prompt_package": pkg.to_dict(),
             "body_scaling_applied": body_scaling
         }
 
@@ -228,7 +188,6 @@ class VirtualTryOnProvider(BaseProvider):
 
     def validate_uploaded_image(self, image_url_or_base64: str) -> Dict[str, Any]:
         """Validates uploaded user photo quality, aspect ratio, and body suitability."""
-        is_portrait = True
         return {
             "is_valid": True,
             "detected_gender": "Inferred from Image (Male Subject)",

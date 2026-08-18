@@ -3,6 +3,7 @@ from backend.app.services.styling.color_harmony import ColorHarmonyEngine
 from backend.app.services.styling.rules import StylingRulesEngine, BaseStylingRule, RuleResult
 from backend.app.services.styling.composer import OutfitComposer
 from backend.app.services.styling.grounding import GroundingGenerator
+from backend.app.services.styling.prompt_builder import DynamicPromptPackage, InternalDynamicPromptBuilder
 
 __all__ = [
     "SlotType",
@@ -15,5 +16,7 @@ __all__ = [
     "BaseStylingRule",
     "RuleResult",
     "OutfitComposer",
-    "GroundingGenerator"
+    "GroundingGenerator",
+    "DynamicPromptPackage",
+    "InternalDynamicPromptBuilder"
 ]

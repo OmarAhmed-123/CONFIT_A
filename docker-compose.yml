@@ -1,0 +1,121 @@
+version: '3.8'
+
+services:
+  # 1. Primary PostgreSQL Transactional Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: confit-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: confit_db
+      POSTGRES_USER: confit_user
+      POSTGRES_PASSWORD: confit_secure_password_2026
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U confit_user -d confit_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 2. Redis Cache, Queue Broker & Session Store
+  redis:
+    image: redis:7-alpine
+    container_name: confit-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 3. Search Engine (Meilisearch)
+  search:
+    image: getmeili/meilisearch:v1.10
+    container_name: confit-search
+    restart: unless-stopped
+    environment:
+      MEILI_MASTER_KEY: confit_meili_master_key_2026
+      MEILI_NO_ANALYTICS: "true"
+    ports:
+      - "7700:7700"
+    volumes:
+      - meili_data:/meili_data
+
+  # 4. FastAPI Backend REST API
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: confit-backend-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      ENVIRONMENT: production
+      DATABASE_URL: postgresql://confit_user:confit_secure_password_2026@postgres:5432/confit_db
+      REDIS_URL: redis://redis:6379/0
+      SECRET_KEY: confit_super_secret_jwt_encryption_key_2026_production_grade
+      ENCRYPTION_KEY_FOR_BODY_DATA: confit_body_privacy_encryption_secret_key_32bytes!
+    ports:
+      - "8000:8000"
+
+  # 5. Celery Worker (Asynchronous Heavy Jobs: VTON, Vision, Ingest)
+  worker:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: confit-celery-worker
+    restart: unless-stopped
+    command: celery -A backend.app.workers.celery_app.celery_app worker --loglevel=info -Q vton_heavy,vision_heavy,wardrobe_jobs,catalog_ingest,analytics_rollups,maintenance -c 4
+    depends_on:
+      backend:
+        condition: service_started
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://confit_user:confit_secure_password_2026@postgres:5432/confit_db
+      REDIS_URL: redis://redis:6379/0
+
+  # 6. Celery Beat Scheduler (GDPR Purge & Analytics Aggregation)
+  beat:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: confit-celery-beat
+    restart: unless-stopped
+    command: celery -A backend.app.workers.celery_app.celery_app beat --loglevel=info
+    depends_on:
+      backend:
+        condition: service_started
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://confit_user:confit_secure_password_2026@postgres:5432/confit_db
+      REDIS_URL: redis://redis:6379/0
+
+  # 7. Frontend Web Application & Nginx Reverse Proxy
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: confit-frontend-web
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+
+volumes:
+  postgres_data:
+  redis_data:
+  meili_data:

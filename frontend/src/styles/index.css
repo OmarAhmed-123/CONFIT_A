@@ -1,0 +1,50 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --confit-navy: #1B1F3B;
+    --confit-gold: #B8935A;
+    --confit-cream: #FAF9F6;
+    --confit-grey: #777777;
+  }
+
+  body {
+    background-color: #FAF9F6;
+    color: #1B1F3B;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+
+  body.font-arabic {
+    font-family: 'Cairo', 'Tajawal', 'IBM Plex Sans Arabic', system-ui, sans-serif;
+  }
+}
+
+/* RTL Layout adjustments */
+[dir="rtl"] {
+  text-align: right;
+}
+
+[dir="rtl"] .font-serif {
+  font-family: 'Cairo', 'Tajawal', serif !important;
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
+}

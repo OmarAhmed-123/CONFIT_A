@@ -6,6 +6,7 @@ from backend.app.repositories.catalog_repository import CatalogRepository
 from backend.app.repositories.profile_repository import ProfileRepository
 from backend.app.providers.tryon_provider import VirtualTryOnProvider
 from backend.app.services.styling.ontology import SlotType, classify_product_slot
+from backend.app.services.styling.slot_layering_engine import SlotLayeringEngine, SlotResolutionResult
 from backend.app.core.exceptions import ResourceNotFoundError
 
 
@@ -16,23 +17,11 @@ class TryOnService:
         self.catalog_repo = CatalogRepository(db)
         self.profile_repo = ProfileRepository(db)
         self.vton_provider = VirtualTryOnProvider()
+        self.slot_engine = SlotLayeringEngine()
 
     def resolve_product_slot_and_layer(self, product: Any) -> Tuple[str, int]:
-        slot_type, _ = classify_product_slot(product)
-        st_val = slot_type.value
-
-        if st_val == "dress":
-            return "dress", 2
-        elif st_val in ["formal_outer", "semi_formal_outer", "casual_outer"]:
-            return "upper_outer", 4
-        elif st_val in ["formal_shirt", "casual_shirt", "knit_layer", "t_shirt", "inner_layer"]:
-            return "upper_inner", 2
-        elif st_val in ["formal_bottom", "semi_formal_bottom", "casual_bottom", "shorts", "activewear_bottom"]:
-            return "lower", 10
-        elif st_val in ["formal_shoes", "semi_formal_shoes", "casual_shoes", "boots", "athletic_shoes", "sandals"]:
-            return "footwear", 20
-        else:
-            return "accessory", 30
+        slot, layer, _ = self.slot_engine.map_category_to_slot(product)
+        return slot, layer
 
     async def execute_multi_garment_tryon(
         self,
@@ -70,40 +59,15 @@ class TryOnService:
                 if body.get("height_cm"):
                     scaling = round(float(body["height_cm"]) / 175.0, 2)
 
-        applied_items = []
-        has_dress = any("dress" in p.category.slug.lower() for p in products if p.category)
-
-        recommended_sizes = {}
-        computed_slot_map = {}
-
+        # Run SlotLayeringEngine to incrementally resolve each product with conflict handling
+        accumulated_items = []
         for p in products:
-            pos, layer_order = self.resolve_product_slot_and_layer(p)
+            res = self.slot_engine.resolve_and_apply(accumulated_items, p)
+            accumulated_items = res.final_applied_items
 
-            # Conflict resolution: If dress exists, skip separate top/bottom
-            if has_dress and (pos in ["upper_inner", "lower"]):
-                continue
-
-            first_sku = p.skus[0] if p.skus else None
-            rec_size = first_sku.size if first_sku else "M"
-            recommended_sizes[pos] = rec_size
-            computed_slot_map[pos] = p.id
-
-            applied_items.append({
-                "product_id": p.id,
-                "product_title": p.title,
-                "brand_name": p.brand.brand_name if p.brand else "CONFIT Partner",
-                "category_name": p.category.name if p.category else "Apparel",
-                "position": pos,
-                "image_url": p.thumbnail_url,
-                "color_family": getattr(p, "color_family", "Neutral"),
-                "color_hex": getattr(p, "dominant_hex", "#1B1F3B"),
-                "material": getattr(p, "material", "Fine Fabric"),
-                "price": float(p.base_price),
-                "selected_size": rec_size,
-                "layer_order": layer_order
-            })
-
-        applied_items.sort(key=lambda it: it["layer_order"])
+        applied_items = accumulated_items
+        computed_slot_map = {(it.get("slot_type") or it.get("position")): it["product_id"] for it in applied_items}
+        recommended_sizes = {it["position"]: it.get("selected_size", "M") for it in applied_items}
 
         effective_input_image = user_image_url or (f"https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=600&auto=format&fit=crop&q=80" if "female" in (avatar_model_id or "") else f"https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600&auto=format&fit=crop&q=80")
 
@@ -189,41 +153,31 @@ class TryOnService:
         user_id: Optional[int] = None
     ) -> Dict[str, Any]:
         sess = self.tryon_repo.get_tryon_session(session_id)
-        current_product_ids = []
+        current_items = []
         user_img = None
 
         if sess:
             user_img = sess.input_user_image_url
             try:
-                existing_items = json.loads(sess.applied_items_json)
-                current_product_ids = [it["product_id"] for it in existing_items]
+                current_items = json.loads(sess.applied_items_json) if sess.applied_items_json else []
             except Exception:
-                current_product_ids = [sess.product_id] if sess.product_id else []
+                current_items = []
 
         target_prod = self.catalog_repo.get_product_by_id(product_id)
         if not target_prod:
             raise ResourceNotFoundError("Product", product_id)
 
-        target_slot, _ = self.resolve_product_slot_and_layer(target_prod)
-        effective_slot = slot or target_slot
+        # Run SlotLayeringEngine for slot resolution & conflict replacement
+        res: SlotResolutionResult = self.slot_engine.resolve_and_apply(
+            existing_items=current_items,
+            new_product=target_prod,
+            target_slot_override=slot
+        )
 
-        updated_product_ids = []
-        for pid in current_product_ids:
-            p = self.catalog_repo.get_product_by_id(pid)
-            if p:
-                p_slot, _ = self.resolve_product_slot_and_layer(p)
-                if effective_slot == "dress" and p_slot in ["upper_inner", "lower"]:
-                    continue
-                elif effective_slot in ["upper_inner", "lower"] and p_slot == "dress":
-                    continue
-                elif p_slot == effective_slot and replace_if_occupied:
-                    continue
-                updated_product_ids.append(pid)
-
-        updated_product_ids.append(product_id)
+        updated_pids = [it["product_id"] for it in res.final_applied_items]
 
         return await self.execute_multi_garment_tryon(
-            product_ids=updated_product_ids,
+            product_ids=updated_pids,
             user_image_url=user_img,
             existing_session_id=session_id,
             user_id=user_id
@@ -237,30 +191,27 @@ class TryOnService:
         user_id: Optional[int] = None
     ) -> Dict[str, Any]:
         sess = self.tryon_repo.get_tryon_session(session_id)
-        current_product_ids = []
+        current_items = []
         user_img = None
 
         if sess:
             user_img = sess.input_user_image_url
             try:
-                existing_items = json.loads(sess.applied_items_json)
-                current_product_ids = [it["product_id"] for it in existing_items]
+                current_items = json.loads(sess.applied_items_json) if sess.applied_items_json else []
             except Exception:
-                current_product_ids = [sess.product_id] if sess.product_id else []
+                current_items = []
 
-        remaining_ids = []
-        for pid in current_product_ids:
-            p = self.catalog_repo.get_product_by_id(pid)
-            if p:
-                p_slot, _ = self.resolve_product_slot_and_layer(p)
-                if product_id and pid == product_id:
-                    continue
-                if slot and p_slot == slot:
-                    continue
-                remaining_ids.append(pid)
+        # Run SlotLayeringEngine to remove target item/slot
+        res: SlotResolutionResult = self.slot_engine.resolve_and_remove(
+            existing_items=current_items,
+            product_id=product_id,
+            slot=slot
+        )
+
+        updated_pids = [it["product_id"] for it in res.final_applied_items]
 
         return await self.execute_multi_garment_tryon(
-            product_ids=remaining_ids,
+            product_ids=updated_pids,
             user_image_url=user_img,
             existing_session_id=session_id,
             user_id=user_id

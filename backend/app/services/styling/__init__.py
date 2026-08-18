@@ -4,6 +4,7 @@ from backend.app.services.styling.rules import StylingRulesEngine, BaseStylingRu
 from backend.app.services.styling.composer import OutfitComposer
 from backend.app.services.styling.grounding import GroundingGenerator
 from backend.app.services.styling.prompt_builder import DynamicPromptPackage, InternalDynamicPromptBuilder
+from backend.app.services.styling.slot_layering_engine import SlotResolutionResult, SlotLayeringEngine
 
 __all__ = [
     "SlotType",
@@ -18,5 +19,7 @@ __all__ = [
     "OutfitComposer",
     "GroundingGenerator",
     "DynamicPromptPackage",
-    "InternalDynamicPromptBuilder"
+    "InternalDynamicPromptBuilder",
+    "SlotResolutionResult",
+    "SlotLayeringEngine"
 ]

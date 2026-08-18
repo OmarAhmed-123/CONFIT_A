@@ -25,7 +25,7 @@ def test_dynamic_multi_garment_male_suit_tryon(client: TestClient):
     assert "upper_outer" in positions
     assert "lower" in positions
     assert "footwear" in positions
-    assert "accessory" in positions
+    assert "accessory_neck" in positions or "accessory" in positions
 
     assert "STRICT MANDATORY PRESERVATION" in data["dynamic_prompt_generated"]
     assert "NEGATIVE PROMPT" in data["dynamic_prompt_generated"]

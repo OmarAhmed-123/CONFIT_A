@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Header, Query, HTTPException, status
 from sqlalchemy.orm import Session
 from backend.app.core.database import get_db
 from backend.app.core.dependencies import get_current_user_optional, get_current_user
-from backend.app.models.user import User
+from backend.app.models.user import User, UserRole
 from backend.app.services.commerce_service import CommerceService
 from backend.app.providers.bnpl_provider import BNPLProvider
 from backend.app.providers.payment.orchestrator import PaymentOrchestrator
@@ -20,6 +20,7 @@ from backend.app.schemas.commerce import (
     BNPLQuoteRequest,
     BNPLQuoteResponse
 )
+from backend.app.core.exceptions import AuthenticationError, AuthorizationError
 from pydantic import BaseModel
 
 router = APIRouter(tags=["Commerce, Payments & Fulfillment"])
@@ -29,7 +30,7 @@ class CartMergeRequest(BaseModel):
     guest_token: str
 
 
-# 1. Market-Aware Payment Methods Discovery (Egypt & GCC Spec)
+# 1. Market-Aware Payment Methods Discovery (Egypt & GCC Spec) — Public
 @router.get("/payments/methods", response_model=MarketPaymentCapabilitiesResponse)
 @router.get("/commerce/payment-methods", response_model=MarketPaymentCapabilitiesResponse)
 def get_payment_methods_for_market(
@@ -39,7 +40,7 @@ def get_payment_methods_for_market(
     return orchestrator.get_market_methods(country_code or "EG")
 
 
-# 2. Cart Endpoints
+# 2. Cart Endpoints — Public & Guest Accessible
 @router.get("/commerce/cart", response_model=CartOut)
 @router.get("/cart", response_model=CartOut)
 def get_cart(
@@ -105,20 +106,20 @@ def merge_guest_cart(
     return service.get_cart(payload.guest_token, user_id=user.id)
 
 
-# 3. Checkout Endpoints
+# 3. Checkout Endpoints — Strictly Gated with Mandatory Authentication (PDF G5.1 / G5.2)
 @router.post("/commerce/checkout", response_model=OrderOut)
 @router.post("/checkout", response_model=OrderOut)
 async def checkout_order(
     payload: CheckoutRequest,
     x_session_token: Optional[str] = Header("guest_session_default"),
-    user: Optional[User] = Depends(get_current_user_optional),
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     service = CommerceService(db)
     return await service.checkout(
         session_token=x_session_token,
         checkout_data=payload.model_dump(),
-        user_id=user.id if user else None
+        user_id=user.id
     )
 
 
@@ -155,18 +156,18 @@ async def confirm_checkout_session(
     token: str,
     payload: CheckoutRequest,
     x_session_token: Optional[str] = Header("guest_session_default"),
-    user: Optional[User] = Depends(get_current_user_optional),
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     service = CommerceService(db)
     return await service.checkout(
         session_token=x_session_token,
         checkout_data=payload.model_dump(),
-        user_id=user.id if user else None
+        user_id=user.id
     )
 
 
-# 4. Orders & Tracking
+# 4. Orders & Tracking — Scoped to Authenticated User
 @router.get("/commerce/orders", response_model=List[OrderOut])
 @router.get("/orders", response_model=List[OrderOut])
 def get_user_orders(
@@ -180,9 +181,17 @@ def get_user_orders(
 
 @router.get("/commerce/orders/{order_number}", response_model=OrderOut)
 @router.get("/orders/{order_number}", response_model=OrderOut)
-def get_order_by_number(order_number: str, db: Session = Depends(get_db)):
+def get_order_by_number(
+    order_number: str,
+    user: Optional[User] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
     service = CommerceService(db)
-    return service.get_order(order_number)
+    order = service.get_order(order_number)
+    # If user is authenticated, ensure customer isolation (unless Admin)
+    if user and user.role != UserRole.ADMIN and order["user_id"] and order["user_id"] != user.id:
+        raise AuthorizationError("Access denied: You cannot view order details of another customer.")
+    return order
 
 
 @router.get("/commerce/orders/{order_number}/tracking", response_model=OrderTrackingTimelineOut)

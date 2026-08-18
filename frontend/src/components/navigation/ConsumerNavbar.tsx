@@ -17,6 +17,7 @@ import {
   OrdersIcon,
   UserIcon,
   BrandDashboardIcon,
+  ShieldIcon,
 } from '../icons/ConfitIcons';
 import { ConfitLogo } from '../common/ConfitLogo';
 import { useCartStore } from '../../stores/cartStore';
@@ -32,11 +33,13 @@ export const ConsumerNavbar: React.FC = () => {
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
 
   const { cart, openCart } = useCartStore();
-  const { user, isAuthenticated } = useAuthStore();
+  const { user, isAuthenticated, logout } = useAuthStore();
   const { openStylist, openVisualSearch, openAuthModal } = useUIStore();
 
   const itemsCount = cart?.items_count || 0;
   const isActive = (path: string) => location.pathname === path;
+  const isPrivileged = user?.role && ['brand_owner', 'brand_manager', 'brand_staff', 'admin'].includes(user.role.toLowerCase());
+  const isAdmin = user?.role?.toLowerCase() === 'admin';
 
   return (
     <>
@@ -50,13 +53,23 @@ export const ConsumerNavbar: React.FC = () => {
           <span className="sm:hidden text-slate-300">CONFIT AI Studio</span>
         </div>
         <div className="flex items-center gap-4">
-          <Link
-            to="/b2b"
-            className="inline-flex items-center gap-1.5 text-[#C5A059] hover:text-[#E2BF70] font-semibold transition-colors text-xs"
-          >
-            <BrandDashboardIcon size={14} color="#C5A059" />
-            <span>{t('nav.switch_to_b2b')}</span>
-          </Link>
+          {isPrivileged ? (
+            <Link
+              to={isAdmin ? '/admin' : '/b2b'}
+              className="inline-flex items-center gap-1.5 text-[#C5A059] hover:text-[#E2BF70] font-semibold transition-colors text-xs"
+            >
+              {isAdmin ? <ShieldIcon size={14} color="#C5A059" /> : <BrandDashboardIcon size={14} color="#C5A059" />}
+              <span>{isAdmin ? 'Admin Governance' : 'Brand Partner Hub'}</span>
+            </Link>
+          ) : (
+            <Link
+              to="/b2b"
+              className="inline-flex items-center gap-1.5 text-slate-400 hover:text-[#C5A059] font-medium transition-colors text-xs"
+            >
+              <BrandDashboardIcon size={14} color="#C5A059" />
+              <span>Partner Portal</span>
+            </Link>
+          )}
           <div className="h-3 w-px bg-slate-800" />
           <LanguageSwitcher />
         </div>
@@ -71,7 +84,7 @@ export const ConsumerNavbar: React.FC = () => {
               <ConfitLogo variant="full" theme="dark" size="md" />
             </Link>
 
-            {/* Desktop Primary Nav (Task-Oriented Groups matching PDF spec) */}
+            {/* Desktop Primary Nav */}
             <nav className="hidden lg:flex items-center gap-1 xl:gap-2">
               {/* 1. Home Anchor */}
               <Link
@@ -207,14 +220,14 @@ export const ConsumerNavbar: React.FC = () => {
                       </div>
                       <div>
                         <div className="text-xs font-bold text-[#1B1F3B] group-hover:text-[#C5A059]">
-                          {t('nav.virtual_tryon')}
+                          {t('nav.vton_studio')}
                         </div>
-                        <div className="text-[11px] text-slate-500">AI garment drape simulation</div>
+                        <div className="text-[11px] text-slate-500">Interactive drape & multi-garment try-on</div>
                       </div>
                     </Link>
 
                     <Link
-                      to="/tryon-studio"
+                      to="/fit"
                       onClick={() => setActiveDropdown(null)}
                       className="flex items-start gap-3 p-2.5 rounded-xl hover:bg-slate-50 transition-colors group"
                     >
@@ -223,16 +236,16 @@ export const ConsumerNavbar: React.FC = () => {
                       </div>
                       <div>
                         <div className="text-xs font-bold text-[#1B1F3B] group-hover:text-[#C5A059]">
-                          {t('nav.no_photo_fit')}
+                          {t('nav.fit_finder')}
                         </div>
-                        <div className="text-[11px] text-slate-500">Zero-photo anthropometric sizing</div>
+                        <div className="text-[11px] text-slate-500">Zero-photo size & measurement engine</div>
                       </div>
                     </Link>
                   </div>
                 )}
               </div>
 
-              {/* 4. My Wardrobe Dropdown */}
+              {/* 4. Wardrobe Dropdown */}
               <div
                 className="relative"
                 onMouseEnter={() => setActiveDropdown('wardrobe')}
@@ -247,7 +260,7 @@ export const ConsumerNavbar: React.FC = () => {
                   }`}
                 >
                   <WardrobeIcon size={18} isActive={isActive('/wardrobe')} />
-                  <span>{t('nav.my_wardrobe')}</span>
+                  <span>{t('nav.wardrobe')}</span>
                   <span className="text-[9px] text-slate-400">▼</span>
                 </Link>
 
@@ -385,18 +398,81 @@ export const ConsumerNavbar: React.FC = () => {
 
             {/* User Account / Profile */}
             {isAuthenticated && user ? (
-              <div className="relative group">
+              <div
+                className="relative"
+                onMouseEnter={() => setActiveDropdown('user_menu')}
+                onMouseLeave={() => setActiveDropdown(null)}
+              >
                 <Link
                   to="/profile"
                   className="flex items-center gap-2 p-1.5 pr-3 rounded-full hover:bg-slate-100 border border-slate-200/80 transition-all"
                 >
-                  <div className="w-8 h-8 rounded-full bg-[#1B1F3B] text-white flex items-center justify-center font-bold text-xs shadow-2xs">
+                  <div className="w-8 h-8 rounded-full bg-[#1B1F3B] text-[#C5A059] flex items-center justify-center font-bold text-xs shadow-2xs">
                     {user.full_name.charAt(0)}
                   </div>
                   <span className="hidden md:inline text-xs font-semibold text-slate-800">
                     {user.full_name.split(' ')[0]}
                   </span>
                 </Link>
+
+                {activeDropdown === 'user_menu' && (
+                  <div className="absolute top-full right-0 w-60 bg-white border border-slate-100 rounded-2xl shadow-xl p-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150 text-xs">
+                    <div className="p-2.5 border-b border-slate-100 mb-1">
+                      <div className="font-bold text-slate-900 truncate">{user.full_name}</div>
+                      <div className="text-[10px] text-slate-500 truncate">{user.email}</div>
+                      <div className="mt-1 inline-block px-2 py-0.5 rounded bg-slate-100 text-[10px] font-medium text-slate-700 capitalize">
+                        Role: {user.role?.replace('_', ' ')}
+                      </div>
+                    </div>
+
+                    <Link
+                      to="/profile"
+                      onClick={() => setActiveDropdown(null)}
+                      className="block px-3 py-2 rounded-xl hover:bg-slate-50 text-slate-700 font-medium"
+                    >
+                      Style Profile (USP)
+                    </Link>
+
+                    <Link
+                      to="/orders"
+                      onClick={() => setActiveDropdown(null)}
+                      className="block px-3 py-2 rounded-xl hover:bg-slate-50 text-slate-700 font-medium"
+                    >
+                      My Orders & Tracking
+                    </Link>
+
+                    <Link
+                      to="/wardrobe"
+                      onClick={() => setActiveDropdown(null)}
+                      className="block px-3 py-2 rounded-xl hover:bg-slate-50 text-slate-700 font-medium"
+                    >
+                      Virtual Wardrobe
+                    </Link>
+
+                    {isPrivileged && (
+                      <Link
+                        to={isAdmin ? '/admin' : '/b2b'}
+                        onClick={() => setActiveDropdown(null)}
+                        className="block px-3 py-2 rounded-xl bg-[#FDF8EE] text-[#C5A059] font-bold hover:bg-[#C5A059] hover:text-white transition-colors mt-1"
+                      >
+                        {isAdmin ? 'Admin Governance Panel' : 'Brand Partner Dashboard'}
+                      </Link>
+                    )}
+
+                    <div className="border-t border-slate-100 mt-1 pt-1">
+                      <button
+                        onClick={() => {
+                          setActiveDropdown(null);
+                          logout();
+                          navigate('/');
+                        }}
+                        className="w-full text-left px-3 py-2 rounded-xl text-rose-600 hover:bg-rose-50 font-semibold"
+                      >
+                        Sign Out
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <button
@@ -410,60 +486,6 @@ export const ConsumerNavbar: React.FC = () => {
           </div>
         </div>
       </header>
-
-      {/* Mobile Bottom Navigation Bar (5 Primary Items matching PDF spec) */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t border-slate-200/80 shadow-2xl px-2 py-1 flex items-center justify-around">
-        {/* 1. Home */}
-        <Link
-          to="/"
-          className={`flex flex-col items-center justify-center min-w-[56px] py-1 ${
-            isActive('/') ? 'text-[#1B1F3B] font-bold' : 'text-slate-500'
-          }`}
-        >
-          <HomeIcon size={20} isActive={isActive('/')} />
-          <span className="text-[10px] mt-0.5">{t('nav.home')}</span>
-        </Link>
-
-        {/* 2. Discover */}
-        <Link
-          to="/discover"
-          className={`flex flex-col items-center justify-center min-w-[56px] py-1 ${
-            isActive('/discover') ? 'text-[#C5A059] font-bold' : 'text-slate-500'
-          }`}
-        >
-          <SparkleIcon size={20} isActive={isActive('/discover')} color="#C5A059" />
-          <span className="text-[10px] mt-0.5">Discover</span>
-        </Link>
-
-        {/* 3. Virtual Try-On Raised FAB (Elevated Navy Circle with Gold Sparkle) */}
-        <button
-          onClick={() => navigate('/tryon-studio')}
-          className="-mt-5 w-13 h-13 rounded-full bg-[#1B1F3B] text-white flex items-center justify-center shadow-xl border-3 border-white hover:scale-105 active:scale-95 transition-transform"
-          aria-label="Virtual Try-On"
-        >
-          <TryOnIcon size={24} color="#C5A059" isAi={true} />
-        </button>
-
-        {/* 4. Wardrobe */}
-        <Link
-          to="/wardrobe"
-          className={`flex flex-col items-center justify-center min-w-[56px] py-1 ${
-            isActive('/wardrobe') ? 'text-[#1B1F3B] font-bold' : 'text-slate-500'
-          }`}
-        >
-          <WardrobeIcon size={20} isActive={isActive('/wardrobe')} />
-          <span className="text-[10px] mt-0.5">{t('nav.my_wardrobe')}</span>
-        </Link>
-
-        {/* 5. Cart */}
-        <button
-          onClick={openCart}
-          className="flex flex-col items-center justify-center min-w-[56px] py-1 text-slate-500 relative"
-        >
-          <BagIcon size={20} badge={itemsCount} />
-          <span className="text-[10px] mt-0.5">{t('nav.shop')}</span>
-        </button>
-      </div>
     </>
   );
 };

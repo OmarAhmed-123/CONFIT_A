@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ConsumerLayout } from '../layouts/ConsumerLayout';
 import { BrandLayout } from '../layouts/BrandLayout';
+import { RoleGuard, ProtectedRoute } from '../components/auth/RoleGuard';
 
 // Consumer Views
 import { HomeView } from '../views/consumer/HomeView';
@@ -23,10 +24,13 @@ import { BrandPlacementsView } from '../views/b2b/BrandPlacementsView';
 import { AdminAnalyticsView } from '../views/b2b/AdminAnalyticsView';
 
 export const AppRoutes: React.FC = () => {
+  const BRAND_ROLES = ['brand_owner', 'brand_manager', 'brand_staff', 'admin'];
+  const ADMIN_ROLES = ['admin'];
+
   return (
     <BrowserRouter>
       <Routes>
-        {/* Consumer Storefront Routes */}
+        {/* 1. Consumer Storefront Routes (Browse-First / Guest-Friendly) */}
         <Route path="/" element={<ConsumerLayout />}>
           <Route index element={<HomeView />} />
           <Route path="discover" element={<DiscoverView />} />
@@ -51,27 +55,88 @@ export const AppRoutes: React.FC = () => {
           
           <Route path="cart" element={<CheckoutView />} />
           <Route path="checkout" element={<CheckoutView />} />
-          <Route path="orders" element={<OrderTrackingView />} />
-          <Route path="orders/:orderNumber" element={<OrderTrackingView />} />
-          <Route path="returns" element={<OrderTrackingView />} />
+
+          {/* Customer Authenticated Routes */}
+          <Route
+            path="orders"
+            element={
+              <ProtectedRoute>
+                <OrderTrackingView />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="orders/:orderNumber"
+            element={<OrderTrackingView />}
+          />
+          <Route
+            path="returns"
+            element={
+              <ProtectedRoute>
+                <OrderTrackingView />
+              </ProtectedRoute>
+            }
+          />
           
-          <Route path="profile" element={<UserProfileView />} />
-          <Route path="settings" element={<UserProfileView />} />
-          <Route path="notifications" element={<UserProfileView />} />
+          <Route
+            path="profile"
+            element={
+              <ProtectedRoute>
+                <UserProfileView />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="settings"
+            element={
+              <ProtectedRoute>
+                <UserProfileView />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="notifications"
+            element={
+              <ProtectedRoute>
+                <UserProfileView />
+              </ProtectedRoute>
+            }
+          />
         </Route>
 
-        {/* B2B Brand Partner & Platform Admin Routes */}
-        <Route path="/b2b" element={<BrandLayout />}>
+        {/* 2. B2B Brand Partner Routes (Protected by BRAND_ROLES) */}
+        <Route
+          path="/b2b"
+          element={
+            <RoleGuard allowedRoles={BRAND_ROLES} fallbackTitle="Brand Partner Hub Access">
+              <BrandLayout />
+            </RoleGuard>
+          }
+        >
           <Route index element={<BrandDashboardView />} />
           <Route path="catalog" element={<BrandCatalogView />} />
           <Route path="inventory" element={<BrandInventoryView />} />
           <Route path="analytics" element={<BrandAnalyticsView />} />
           <Route path="placements" element={<BrandPlacementsView />} />
-          <Route path="admin-platform" element={<AdminAnalyticsView />} />
+          <Route
+            path="admin-platform"
+            element={
+              <RoleGuard allowedRoles={ADMIN_ROLES} fallbackTitle="Platform Governance Only">
+                <AdminAnalyticsView />
+              </RoleGuard>
+            }
+          />
         </Route>
 
-        {/* Partner & Admin Aliases */}
-        <Route path="/partner" element={<BrandLayout />}>
+        {/* 3. Partner Aliases */}
+        <Route
+          path="/partner"
+          element={
+            <RoleGuard allowedRoles={BRAND_ROLES} fallbackTitle="Brand Partner Portal">
+              <BrandLayout />
+            </RoleGuard>
+          }
+        >
           <Route index element={<BrandDashboardView />} />
           <Route path="dashboard" element={<BrandDashboardView />} />
           <Route path="catalog" element={<BrandCatalogView />} />
@@ -80,7 +145,15 @@ export const AppRoutes: React.FC = () => {
           <Route path="placements" element={<BrandPlacementsView />} />
         </Route>
 
-        <Route path="/admin" element={<BrandLayout />}>
+        {/* 4. Platform Admin Governance Routes (Protected by ADMIN_ROLES) */}
+        <Route
+          path="/admin"
+          element={
+            <RoleGuard allowedRoles={ADMIN_ROLES} fallbackTitle="Platform Super-Admin Portal">
+              <BrandLayout />
+            </RoleGuard>
+          }
+        >
           <Route index element={<AdminAnalyticsView />} />
           <Route path="overview" element={<AdminAnalyticsView />} />
           <Route path="analytics" element={<AdminAnalyticsView />} />
@@ -88,7 +161,7 @@ export const AppRoutes: React.FC = () => {
           <Route path="audit" element={<AdminAnalyticsView />} />
         </Route>
 
-        {/* Fallback */}
+        {/* 5. Fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

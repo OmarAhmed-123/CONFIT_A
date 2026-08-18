@@ -2,7 +2,7 @@ from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, Query, HTTPException, status
 from sqlalchemy.orm import Session
 from backend.app.core.database import get_db
-from backend.app.core.dependencies import get_current_user, require_role
+from backend.app.core.dependencies import get_current_user, require_role, BRAND_ROLES
 from backend.app.models.user import User, UserRole
 from backend.app.services.brand_service import BrandService
 from backend.app.schemas.brand import (
@@ -18,7 +18,7 @@ from pydantic import BaseModel
 
 router = APIRouter(tags=["Brand & Admin Management (B2B)"])
 
-brand_auth = require_role([UserRole.BRAND_MANAGER, UserRole.ADMIN])
+brand_auth = require_role(BRAND_ROLES)
 
 
 class StoreCreateRequest(BaseModel):
@@ -36,7 +36,7 @@ def get_brand_profile(
     db: Session = Depends(get_db)
 ):
     service = BrandService(db)
-    return service.get_brand_profile_by_user(user.id)
+    return service.get_brand_profile_by_user(user)
 
 
 # 2. Brand Analytics & Conversion
@@ -48,15 +48,15 @@ def get_brand_analytics(
     db: Session = Depends(get_db)
 ):
     service = BrandService(db)
-    bp = service.get_brand_profile_by_user(user.id)
-    return service.get_brand_analytics_dashboard(bp["id"])
+    bp = service.get_brand_profile_by_user(user)
+    return service.get_brand_analytics_dashboard(user, bp["id"])
 
 
 @router.get("/partner/analytics/conversion", response_model=Dict[str, Any])
 def get_conversion_analytics(user: User = Depends(brand_auth), db: Session = Depends(get_db)):
     service = BrandService(db)
-    bp = service.get_brand_profile_by_user(user.id)
-    an = service.get_brand_analytics_dashboard(bp["id"])
+    bp = service.get_brand_profile_by_user(user)
+    an = service.get_brand_analytics_dashboard(user, bp["id"])
     return {
         "views": an["total_views"],
         "tryons": an["total_tryons"],
@@ -69,16 +69,16 @@ def get_conversion_analytics(user: User = Depends(brand_auth), db: Session = Dep
 @router.get("/partner/analytics/outfits", response_model=List[Dict[str, Any]])
 def get_outfit_rankings(user: User = Depends(brand_auth), db: Session = Depends(get_db)):
     service = BrandService(db)
-    bp = service.get_brand_profile_by_user(user.id)
-    an = service.get_brand_analytics_dashboard(bp["id"])
+    bp = service.get_brand_profile_by_user(user)
+    an = service.get_brand_analytics_dashboard(user, bp["id"])
     return an["outfit_appearance_rankings"]
 
 
 @router.get("/partner/analytics/returns", response_model=Dict[str, Any])
 def get_returns_analytics(user: User = Depends(brand_auth), db: Session = Depends(get_db)):
     service = BrandService(db)
-    bp = service.get_brand_profile_by_user(user.id)
-    an = service.get_brand_analytics_dashboard(bp["id"])
+    bp = service.get_brand_profile_by_user(user)
+    an = service.get_brand_analytics_dashboard(user, bp["id"])
     return {
         "return_rate_before_vton": an["return_rate_before_vton"],
         "return_rate_after_vton": an["return_rate_after_vton"],
@@ -103,8 +103,8 @@ def get_brand_products(
     db: Session = Depends(get_db)
 ):
     service = BrandService(db)
-    bp = service.get_brand_profile_by_user(user.id)
-    return service.get_brand_products(bp["id"])
+    bp = service.get_brand_profile_by_user(user)
+    return service.get_brand_products(user, bp["id"])
 
 
 @router.post("/partner/catalog/import", status_code=status.HTTP_202_ACCEPTED)
@@ -141,15 +141,15 @@ def update_sku_inventory(
     db: Session = Depends(get_db)
 ):
     service = BrandService(db)
-    return service.update_sku(sku_id, stock_level, price_override)
+    return service.update_sku(user, sku_id, stock_level, price_override)
 
 
 # 4. Inventory & Store Management
 @router.get("/partner/inventory")
 def get_partner_inventory(user: User = Depends(brand_auth), db: Session = Depends(get_db)):
     service = BrandService(db)
-    bp = service.get_brand_profile_by_user(user.id)
-    prods = service.get_brand_products(bp["id"])
+    bp = service.get_brand_profile_by_user(user)
+    prods = service.get_brand_products(user, bp["id"])
     return [{"product_id": p["id"], "title": p["title"], "skus": p["skus"]} for p in prods]
 
 
@@ -189,8 +189,8 @@ def get_placements(
     db: Session = Depends(get_db)
 ):
     service = BrandService(db)
-    bp = service.get_brand_profile_by_user(user.id)
-    return service.get_placements(bp["id"])
+    bp = service.get_brand_profile_by_user(user)
+    return service.get_placements(user, bp["id"])
 
 
 @router.post("/brand/placements", response_model=SponsoredPlacementOut, status_code=status.HTTP_201_CREATED)
@@ -201,8 +201,8 @@ def create_placement(
     db: Session = Depends(get_db)
 ):
     service = BrandService(db)
-    bp = service.get_brand_profile_by_user(user.id)
-    return service.create_sponsored_placement(bp["id"], payload.model_dump())
+    bp = service.get_brand_profile_by_user(user)
+    return service.create_sponsored_placement(user, bp["id"], payload.model_dump())
 
 
 @router.patch("/partner/placements/{placement_id}")

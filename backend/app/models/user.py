@@ -7,7 +7,9 @@ from backend.app.core.database import Base
 
 class UserRole(str, enum.Enum):
     CONSUMER = "consumer"
+    BRAND_OWNER = "brand_owner"
     BRAND_MANAGER = "brand_manager"
+    BRAND_STAFF = "brand_staff"
     ADMIN = "admin"
 
 

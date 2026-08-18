@@ -2,9 +2,9 @@ import json
 from typing import List, Dict, Any, Optional
 from sqlalchemy.orm import Session
 from backend.app.models.catalog import Product, ProductSKU, Category
-from backend.app.models.user import BrandProfile
+from backend.app.models.user import BrandProfile, User, UserRole
 from backend.app.repositories.brand_repository import BrandRepository
-from backend.app.core.exceptions import ResourceNotFoundError, ValidationDomainError
+from backend.app.core.exceptions import ResourceNotFoundError, ValidationDomainError, AuthorizationError
 
 
 class BrandService:
@@ -12,20 +12,27 @@ class BrandService:
         self.db = db
         self.brand_repo = BrandRepository(db)
 
-    def get_brand_profile_by_user(self, user_id: int) -> Dict[str, Any]:
-        bp = self.brand_repo.get_by_user_id(user_id)
+    def get_brand_profile_by_user(self, user: User) -> Dict[str, Any]:
+        """Resolves Brand Organization for the requesting user with strict tenant validation."""
+        bp = self.brand_repo.get_by_user_id(user.id)
         if not bp:
-            # Fallback to first brand for demo/admin convenience
-            all_b = self.brand_repo.get_all_brands()
-            bp = all_b[0] if all_b else None
-            if not bp:
-                raise ResourceNotFoundError("BrandProfile for user", user_id)
+            if user.role == UserRole.ADMIN:
+                all_b = self.brand_repo.get_all_brands()
+                bp = all_b[0] if all_b else None
+                if not bp:
+                    raise ResourceNotFoundError("BrandProfile for admin", user.id)
+            else:
+                raise AuthorizationError(f"User {user.email} is not associated with an active Brand Organization.")
         return self._format_brand(bp)
 
-    def get_brand_analytics_dashboard(self, brand_id: int) -> Dict[str, Any]:
+    def get_brand_analytics_dashboard(self, user: User, brand_id: int) -> Dict[str, Any]:
+        """Returns analytics strictly scoped to the user's verified brand tenant."""
+        self._assert_brand_ownership(user, brand_id)
         return self.brand_repo.get_brand_analytics(brand_id)
 
-    def get_brand_products(self, brand_id: int) -> List[Dict[str, Any]]:
+    def get_brand_products(self, user: User, brand_id: int) -> List[Dict[str, Any]]:
+        """Returns product catalog strictly scoped to the user's brand tenant."""
+        self._assert_brand_ownership(user, brand_id)
         products = self.brand_repo.get_brand_products(brand_id)
         results = []
         for p in products:
@@ -67,23 +74,40 @@ class BrandService:
             })
         return results
 
-    def update_sku(self, sku_id: int, stock_level: int, price_override: Optional[float] = None) -> Dict[str, Any]:
-        sku = self.brand_repo.update_sku_stock(sku_id, stock_level, price_override)
+    def update_sku(self, user: User, sku_id: int, stock_level: int, price_override: Optional[float] = None) -> Dict[str, Any]:
+        """Updates SKU inventory and price with strict tenant ownership verification."""
+        sku = self.db.query(ProductSKU).filter(ProductSKU.id == sku_id).first()
         if not sku:
             raise ResourceNotFoundError("ProductSKU", sku_id)
+
+        product = self.db.query(Product).filter(Product.id == sku.product_id).first()
+        if not product:
+            raise ResourceNotFoundError("Product for SKU", sku_id)
+
+        # Enforce Tenant Isolation: Only SKU owner or Platform Admin can mutate
+        self._assert_brand_ownership(user, product.brand_id)
+
+        updated_sku = self.brand_repo.update_sku_stock(sku_id, stock_level, price_override)
         return {
-            "id": sku.id,
-            "product_id": sku.product_id,
-            "sku_code": sku.sku_code,
-            "size": sku.size,
-            "color": sku.color,
-            "color_hex": sku.color_hex,
-            "price_override": sku.price_override,
-            "stock_level": sku.stock_level,
-            "is_in_stock": sku.is_in_stock
+            "id": updated_sku.id,
+            "product_id": updated_sku.product_id,
+            "sku_code": updated_sku.sku_code,
+            "size": updated_sku.size,
+            "color": updated_sku.color,
+            "color_hex": updated_sku.color_hex,
+            "price_override": updated_sku.price_override,
+            "stock_level": updated_sku.stock_level,
+            "is_in_stock": updated_sku.is_in_stock
         }
 
-    def create_sponsored_placement(self, brand_id: int, data: Dict[str, Any]) -> Dict[str, Any]:
+    def create_sponsored_placement(self, user: User, brand_id: int, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Creates sponsored ad placement with tenant and product ownership verification."""
+        self._assert_brand_ownership(user, brand_id)
+
+        product = self.db.query(Product).filter(Product.id == data["product_id"]).first()
+        if not product or product.brand_id != brand_id:
+            raise ValidationDomainError(f"Product {data['product_id']} does not belong to your brand organization.")
+
         p = self.brand_repo.create_placement(
             brand_id=brand_id,
             product_id=data["product_id"],
@@ -108,7 +132,9 @@ class BrandService:
             "created_at": p.created_at
         }
 
-    def get_placements(self, brand_id: int) -> List[Dict[str, Any]]:
+    def get_placements(self, user: User, brand_id: int) -> List[Dict[str, Any]]:
+        """Returns sponsored placements strictly scoped to the verified brand tenant."""
+        self._assert_brand_ownership(user, brand_id)
         placements = self.brand_repo.get_brand_placements(brand_id)
         return [
             {
@@ -129,6 +155,20 @@ class BrandService:
             }
             for p in placements
         ]
+
+    def _assert_brand_ownership(self, user: User, target_brand_id: int) -> None:
+        """Verifies that the user has tenant authorization for target_brand_id."""
+        if user.role == UserRole.ADMIN:
+            return  # Platform Admin has global oversight
+
+        if not user.brand_profile:
+            raise AuthorizationError("Access denied: User is not linked to any Brand Organization.")
+
+        if user.brand_profile.id != target_brand_id:
+            raise AuthorizationError(
+                f"Tenant scope violation: Your account belongs to Brand #{user.brand_profile.id} ({user.brand_profile.brand_name}) "
+                f"and cannot access or mutate resources of Brand #{target_brand_id}."
+            )
 
     def _format_brand(self, bp: BrandProfile) -> Dict[str, Any]:
         return {

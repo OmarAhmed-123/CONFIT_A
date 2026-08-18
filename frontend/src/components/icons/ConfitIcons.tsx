@@ -294,3 +294,26 @@ export const BrandDashboardIcon: React.FC<IconProps> = ({ size = 24, className =
     </IconWrapper>
   );
 };
+
+// 19. Lock Icon (Security & Auth Gating)
+export const LockIcon: React.FC<IconProps> = ({ size = 24, className = '', isActive = false, color, ariaLabel = 'Security Lock' }) => {
+  const strokeColor = color || (isActive ? ConfitColors.gold : ConfitColors.navy);
+  return (
+    <IconWrapper size={size} className={className} ariaLabel={ariaLabel}>
+      <rect x="5" y="11" width="14" height="10" rx="2" stroke={strokeColor} fill={isActive ? `${ConfitColors.gold}15` : 'none'} />
+      <path d="M8 11V7C8 4.79 9.79 3 12 3C14.21 3 16 4.79 16 7V11" stroke={strokeColor} />
+      <circle cx="12" cy="16" r="1.5" fill={strokeColor} />
+    </IconWrapper>
+  );
+};
+
+// 20. Shield Icon (Governance & RBAC)
+export const ShieldIcon: React.FC<IconProps> = ({ size = 24, className = '', isActive = false, color, ariaLabel = 'Security Shield' }) => {
+  const strokeColor = color || (isActive ? ConfitColors.gold : ConfitColors.navy);
+  return (
+    <IconWrapper size={size} className={className} ariaLabel={ariaLabel}>
+      <path d="M12 3L4 7V13C4 17.5 7.5 21.5 12 22.5C16.5 21.5 20 17.5 20 13V7L12 3Z" stroke={strokeColor} fill={isActive ? `${ConfitColors.gold}15` : 'none'} />
+      <path d="M9 12L11 14L15 10" stroke={strokeColor} strokeLinecap="round" strokeLinejoin="round" />
+    </IconWrapper>
+  );
+};

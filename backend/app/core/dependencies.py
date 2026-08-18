@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, List, Union
 from fastapi import Depends, HTTPException, status, Header
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
@@ -9,6 +9,10 @@ from backend.app.repositories.user_repository import UserRepository
 from backend.app.core.exceptions import AuthenticationError, AuthorizationError
 
 security = HTTPBearer(auto_error=False)
+
+BRAND_ROLES = [UserRole.BRAND_OWNER, UserRole.BRAND_MANAGER, UserRole.BRAND_STAFF, UserRole.ADMIN]
+ADMIN_ROLES = [UserRole.ADMIN]
+CUSTOMER_ROLES = [UserRole.CONSUMER, UserRole.BRAND_OWNER, UserRole.BRAND_MANAGER, UserRole.BRAND_STAFF, UserRole.ADMIN]
 
 
 def get_current_user_optional(
@@ -45,9 +49,21 @@ def get_current_user(
         raise AuthenticationError(f"Authentication failed: {str(exc)}")
 
 
-def require_role(allowed_roles: list[UserRole]):
+def require_role(allowed_roles: List[UserRole]):
+    """Enforces role-based access control (RBAC) with hierarchical administrative privileges."""
     def role_checker(user: User = Depends(get_current_user)) -> User:
         if user.role not in allowed_roles and user.role != UserRole.ADMIN:
-            raise AuthorizationError(f"Access restricted to {', '.join(r.value for r in allowed_roles)}.")
+            raise AuthorizationError(f"Access restricted to {', '.join(r.value for r in allowed_roles)}. Current user role: {user.role.value}")
         return user
     return role_checker
+
+
+def require_brand_scope(user: User = Depends(get_current_user)) -> User:
+    """Enforces that the user belongs to an active Brand Organization or is a Platform Admin."""
+    if user.role == UserRole.ADMIN:
+        return user
+    if user.role not in [UserRole.BRAND_OWNER, UserRole.BRAND_MANAGER, UserRole.BRAND_STAFF]:
+        raise AuthorizationError("Access denied: Brand Organization membership required.")
+    if not user.brand_profile:
+        raise AuthorizationError("Access denied: No brand organization linked to this account.")
+    return user

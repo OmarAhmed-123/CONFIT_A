@@ -65,15 +65,15 @@ def test_search_autocomplete_speed_and_suggestions(client: TestClient):
     assert "Oxford" in first["title"] or "oxf" in first["title"].lower()
 
 
-def test_search_security_and_sanitization():
-    """Verifies input length bounding, SQL injection protection, and control character stripping."""
+def test_search_security_and_sanitization(client: TestClient):
+    """Verifies input length bounding, SQL injection protection, XSS prevention, and sort allowlist."""
     from backend.app.core.database import SessionLocal
     from backend.app.services.search_service import SearchService
 
     db = SessionLocal()
     srv = SearchService(db)
 
-    # 1. Very long query
+    # 1. Very long query bounded to 100 chars
     long_q = "blazer " * 50
     clean = srv.sanitize_query(long_q)
     assert len(clean) <= 100
@@ -83,8 +83,23 @@ def test_search_security_and_sanitization():
     clean_nasty = srv.sanitize_query(nasty_q)
     assert "\x00" not in clean_nasty
     assert "\x1f" not in clean_nasty
+    assert "'" in clean_nasty or "OR" in clean_nasty
 
-    res = srv.search_products(query=nasty_q)
-    assert res.execution_time_ms >= 0
+    # 3. Invalid sort field gracefully falls back to relevance
+    res_bad_sort = client.get("/api/v1/catalog/search?q=blazer&sort_by=UNTRUSTED_INJECTED_COLUMN;DROP TABLE products;")
+    assert res_bad_sort.status_code == 200
+    assert len(res_bad_sort.json()["results"]) >= 1
+
+    # 4. XSS Script Injection payload in query
+    res_xss = client.get("/api/v1/catalog/search?q=<script>alert('XSS')</script>")
+    assert res_xss.status_code == 200
+    for r in res_xss.json()["results"]:
+        if r["highlighted_snippet"]:
+            assert "<script>" not in r["highlighted_snippet"]
+
+    # 5. Bounded Pagination limits
+    res_huge_page = client.get("/api/v1/catalog/search?q=blazer&page=999999&limit=100")
+    assert res_huge_page.status_code == 200
+    assert res_huge_page.json()["page"] == 1000
 
     db.close()

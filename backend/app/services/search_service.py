@@ -47,15 +47,18 @@ class SearchService:
     def __init__(self, db: Session):
         self.db = db
 
+    ALLOWED_SORT_FIELDS = {"relevance", "price_asc", "price_desc", "rating", "newest"}
+
     def sanitize_query(self, raw_query: str) -> str:
         """Sanitizes user input: bounds length to 100 chars, strips control chars, escapes metacharacters."""
         if not raw_query:
             return ""
         # Bound length
         q = raw_query.strip()[:100]
-        # Remove dangerous control chars
+        # Remove dangerous control chars & SQL wildcard abuse
         q = re.sub(r'[\x00-\x1f\x7f]', '', q)
-        return q
+        q = re.sub(r'[%_\*\+\?\^\$\{\}\(\)\|\[\]\\]', '', q)
+        return q.strip()
 
     def correct_typos(self, tokens: List[str]) -> Tuple[List[str], Optional[str]]:
         corrected_tokens = []
@@ -125,14 +128,19 @@ class SearchService:
             if not clean_q or score > 0:
                 scored_results.append((score, matched_field, snippet, p))
 
+        # Validate and bound sort_by against strict allowlist
+        effective_sort = sort_by.lower().strip() if sort_by else "relevance"
+        if effective_sort not in self.ALLOWED_SORT_FIELDS:
+            effective_sort = "relevance"
+
         # 4. Sorting Strategy
-        if sort_by == "price_asc":
+        if effective_sort == "price_asc":
             scored_results.sort(key=lambda x: x[3].base_price)
-        elif sort_by == "price_desc":
+        elif effective_sort == "price_desc":
             scored_results.sort(key=lambda x: x[3].base_price, reverse=True)
-        elif sort_by == "rating":
+        elif effective_sort == "rating":
             scored_results.sort(key=lambda x: x[3].rating, reverse=True)
-        elif sort_by == "newest":
+        elif effective_sort == "newest":
             scored_results.sort(key=lambda x: x[3].created_at, reverse=True)
         else:
             # Relevance sorting with secondary rating boost
@@ -140,8 +148,8 @@ class SearchService:
 
         total_matches = len(scored_results)
 
-        # 5. Bounded Pagination
-        safe_page = max(1, page)
+        # 5. Bounded Pagination (DoS Prevention)
+        safe_page = max(1, min(1000, page))
         safe_limit = min(100, max(1, limit))
         start_idx = (safe_page - 1) * safe_limit
         paged_items = scored_results[start_idx : start_idx + safe_limit]
@@ -303,15 +311,15 @@ class SearchService:
 
         cat_facets = [
             FacetCount(label=slug.replace('-', ' ').title(), value=slug, count=cnt, selected=(selected_cat == slug))
-            for slug, cnt in cat_counts.items()
+            for slug, cnt in sorted(cat_counts.items(), key=lambda x: x[1], reverse=True)[:20]
         ]
         brand_facets = [
             FacetCount(label=bname, value=bname, count=cnt, selected=False)
-            for bname, cnt in brand_counts.items()
+            for bname, cnt in sorted(brand_counts.items(), key=lambda x: x[1], reverse=True)[:20]
         ]
         color_facets = [
             FacetCount(label=cname, value=cname, count=cnt, selected=(selected_color == cname))
-            for cname, cnt in color_counts.items()
+            for cname, cnt in sorted(color_counts.items(), key=lambda x: x[1], reverse=True)[:20]
         ]
 
         min_p = min(prices) if prices else 0.0

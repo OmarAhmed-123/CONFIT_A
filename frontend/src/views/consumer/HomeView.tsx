@@ -1,5 +1,5 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   SparkleIcon,
@@ -8,6 +8,9 @@ import {
   FlameIcon,
   BagIcon,
   RulerIcon,
+  ShieldIcon,
+  BopisIcon,
+  HeartIcon,
 } from '../../components/icons/ConfitIcons';
 import { useUIStore } from '../../stores/uiStore';
 import { useCatalogViewModel } from '../../viewmodels/useCatalogViewModel';
@@ -17,66 +20,182 @@ import { useCartStore } from '../../stores/cartStore';
 export const HomeView: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { openStylist, openTryOn, openRuler } = useUIStore();
+  const { openStylist, openTryOn, openRuler, openVisualSearch } = useUIStore();
   const { products, isLoading } = useCatalogViewModel();
   const { addItem } = useCartStore();
 
+  const brandShowcase = [
+    {
+      name: 'Massimo Dutti',
+      origin: 'Barcelona / Italian Fabrics',
+      aesthetic: 'Quiet Luxury & Tailored Architecture',
+      slug: 'massimo-dutti',
+      image: 'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?w=600&auto=format&fit=crop&q=80',
+      badge: '100% Virgin Wool & Cashmere',
+    },
+    {
+      name: 'COS',
+      origin: 'London / Modern Classics',
+      aesthetic: 'Sculptural Minimalism & Organic Poplin',
+      slug: 'cos',
+      image: 'https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=600&auto=format&fit=crop&q=80',
+      badge: 'Sustainable Organic Cotton',
+    },
+    {
+      name: 'Reiss',
+      origin: 'London / Heritage Modern',
+      aesthetic: 'Evening Glamour & Mulberry Silks',
+      slug: 'reiss',
+      image: 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=600&auto=format&fit=crop&q=80',
+      badge: 'Pure Mulberry Silk',
+    },
+    {
+      name: 'Arket',
+      origin: 'Stockholm / Nordic Essentials',
+      aesthetic: 'Durable Foundations & Structured Linens',
+      slug: 'arket',
+      image: 'https://images.unsplash.com/photo-1533867617858-e7b97e060509?w=600&auto=format&fit=crop&q=80',
+      badge: 'Nordic Circular Tailoring',
+    },
+  ];
+
   const occasionCards = [
-    { title: t('home.occasion_work'), tag: 'work', img: 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=600&auto=format&fit=crop&q=80', desc: 'Modern Tailoring & Clean Lines' },
-    { title: t('home.occasion_party'), tag: 'party', img: 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=600&auto=format&fit=crop&q=80', desc: 'Silks, Textures & Evening Luster' },
-    { title: t('home.occasion_wedding'), tag: 'wedding', img: 'https://images.unsplash.com/photo-1519741497674-611481863552?w=600&auto=format&fit=crop&q=80', desc: 'Formal Refinement & Elegance' },
-    { title: t('home.occasion_casual'), tag: 'casual', img: 'https://images.unsplash.com/photo-1576566588028-4147f3842f27?w=600&auto=format&fit=crop&q=80', desc: 'Relaxed Cashmere & Neutral Chinos' },
+    {
+      title: t('home.occasion_wedding'),
+      tag: 'wedding',
+      img: 'https://images.unsplash.com/photo-1519741497674-611481863552?w=700&auto=format&fit=crop&q=80',
+      desc: 'Champagne Silk Gowns & Tuxedo Tailoring',
+      palette: ['#D4AF37', '#111111', '#FAF9F6'],
+    },
+    {
+      title: t('home.occasion_work'),
+      tag: 'work',
+      img: 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=700&auto=format&fit=crop&q=80',
+      desc: 'Executive Virgin Wool Double-Breasted Layers',
+      palette: ['#1B1F3B', '#FAF9F6', '#64748B'],
+    },
+    {
+      title: t('home.occasion_party'),
+      tag: 'party',
+      img: 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=700&auto=format&fit=crop&q=80',
+      desc: 'Fluid Cowl Necklines & Strappy Metallic Heels',
+      palette: ['#D4AF37', '#C5A059', '#1B1F3B'],
+    },
+    {
+      title: t('home.occasion_casual'),
+      tag: 'casual',
+      img: 'https://images.unsplash.com/photo-1576566588028-4147f3842f27?w=700&auto=format&fit=crop&q=80',
+      desc: 'Relaxed Organic Poplin & Tapered Chinos',
+      palette: ['#FAF9F6', '#D8C7B5', '#1B1F3B'],
+    },
   ];
 
   return (
-    <div className="space-y-16 pb-24">
-      {/* 1. Hero Luxury Banner with 3 Quick Action CTAs */}
-      <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#0C0E1E] via-[#1B1F3B] to-[#14182E] text-white p-8 sm:p-14 lg:p-20 shadow-xl border border-slate-800/80">
-        <div className="absolute -top-24 -right-24 w-96 h-96 bg-[#C5A059]/15 rounded-full blur-3xl pointer-events-none"></div>
+    <div className="space-y-16 sm:space-y-24 pb-24">
+      {/* 1. Hero Luxury Editorial Banner */}
+      <section className="relative overflow-hidden rounded-3xl sm:rounded-[36px] bg-gradient-to-br from-[#0C0E1E] via-[#1B1F3B] to-[#0A0C18] text-white p-6 sm:p-12 lg:p-20 shadow-2xl border border-slate-800/80">
+        <div className="absolute -top-32 -right-32 w-[500px] h-[500px] bg-[#C5A059]/15 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-32 -left-32 w-[400px] h-[400px] bg-[#3D5296]/20 rounded-full blur-3xl pointer-events-none" />
+
         <div className="relative z-10 max-w-2xl space-y-6">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#C5A059]/20 border border-[#C5A059]/40 text-[#E2BF70] text-xs font-semibold uppercase tracking-wider backdrop-blur-sm">
-            <SparkleIcon size={14} color="#E2BF70" />
-            <span>AI-Driven Precision Fashion Studio</span>
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#C5A059]/15 border border-[#C5A059]/30 text-[#E2BF70] text-[11px] font-semibold uppercase tracking-widest backdrop-blur-md">
+            <SparkleIcon size={13} color="#E2BF70" />
+            <span>CONFIT Fashion Tech · Where Style Meets Character</span>
           </div>
 
-          <h1 className="font-serif text-3xl sm:text-5xl lg:text-6xl font-bold leading-[1.12] text-white tracking-tight">
+          <h1 className="font-serif text-3xl sm:text-5xl lg:text-6xl font-bold leading-[1.1] text-white tracking-tight">
             {t('home.hero_title')}
           </h1>
 
-          <p className="text-sm sm:text-base text-slate-300 leading-relaxed font-light">
+          <p className="text-xs sm:text-sm sm:leading-relaxed text-slate-300 font-light max-w-xl">
             {t('home.hero_subtitle')}
           </p>
 
-          {/* 3 Core Quick Action CTAs (PDF Spec) */}
-          <div className="pt-2 flex flex-wrap gap-3 sm:gap-4">
+          {/* Core Action CTAs */}
+          <div className="pt-2 flex flex-wrap items-center gap-3 sm:gap-4">
             <button
-              onClick={() => navigate('/builder')}
-              className="px-6 py-3.5 rounded-xl bg-[#C5A059] hover:bg-[#A37E44] text-slate-950 font-bold text-xs sm:text-sm shadow-md hover:scale-[1.02] active:scale-98 transition-all flex items-center gap-2"
+              onClick={() => openStylist()}
+              className="px-6 py-3.5 rounded-2xl bg-[#C5A059] hover:bg-[#E2BF70] text-[#0C0E1E] font-bold text-xs sm:text-sm tracking-wide shadow-lg hover:shadow-[#C5A059]/20 transition-all flex items-center gap-2 active:scale-98"
             >
-              <OutfitBuilderIcon size={18} color="#0C0E1E" />
-              <span>{t('home.cta_build_outfit')}</span>
+              <SparkleIcon size={16} color="#0C0E1E" />
+              <span>{t('home.cta_find_style')}</span>
             </button>
 
             <button
               onClick={() => navigate('/tryon-studio')}
-              className="px-6 py-3.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold text-xs sm:text-sm backdrop-blur-md transition-all flex items-center gap-2"
+              className="px-6 py-3.5 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold text-xs sm:text-sm backdrop-blur-md transition-all flex items-center gap-2 active:scale-98"
             >
-              <TryOnIcon size={18} color="#FFFFFF" isAi={true} />
+              <TryOnIcon size={16} color="#FFFFFF" isAi={true} />
               <span>{t('home.cta_try_on')}</span>
             </button>
 
             <button
-              onClick={() => openStylist()}
-              className="px-6 py-3.5 rounded-xl bg-white text-[#1B1F3B] hover:bg-slate-100 font-bold text-xs sm:text-sm shadow-md transition-all flex items-center gap-2"
+              onClick={() => navigate('/builder')}
+              className="px-5 py-3.5 rounded-2xl bg-slate-900/80 hover:bg-slate-800 border border-slate-700 text-slate-200 font-semibold text-xs sm:text-sm transition-all flex items-center gap-2"
             >
-              <SparkleIcon size={18} color="#C5A059" />
-              <span>{t('home.cta_find_style')}</span>
+              <OutfitBuilderIcon size={16} color="#C5A059" />
+              <span>{t('home.cta_build_outfit')}</span>
             </button>
           </div>
         </div>
       </section>
 
-      {/* 2. Today's Style Picks (AI Curated Daily Outfits) */}
+      {/* 2. Luxury Brand Pavilion */}
+      <section className="space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2 border-b border-slate-200/80 pb-4">
+          <div>
+            <span className="text-[10px] font-bold text-[#C5A059] uppercase tracking-widest block">
+              Curated European & Scandinavian Houses
+            </span>
+            <h2 className="font-serif text-2xl font-bold text-[#1B1F3B]">
+              Multi-Brand Boutique Partners
+            </h2>
+          </div>
+          <Link
+            to="/discover"
+            className="text-xs font-semibold text-[#1B1F3B] hover:text-[#C5A059] transition-colors flex items-center gap-1"
+          >
+            <span>Explore All 4 Brand Catalogs</span>
+            <span>→</span>
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          {brandShowcase.map((brand) => (
+            <div
+              key={brand.slug}
+              onClick={() => navigate(`/discover`)}
+              className="group relative rounded-3xl overflow-hidden bg-white border border-slate-200/80 shadow-2xs hover:shadow-lg transition-all duration-300 cursor-pointer flex flex-col justify-between p-5"
+            >
+              <div className="relative h-44 rounded-2xl overflow-hidden bg-slate-100 mb-4">
+                <img
+                  src={brand.image}
+                  alt={brand.name}
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                />
+                <span className="absolute top-2.5 right-2.5 px-2.5 py-1 rounded-full bg-slate-950/80 backdrop-blur-md text-[9px] font-medium text-[#C5A059] border border-[#C5A059]/30">
+                  {brand.badge}
+                </span>
+              </div>
+
+              <div>
+                <h3 className="font-serif text-base font-bold text-[#1B1F3B] group-hover:text-[#C5A059] transition-colors">
+                  {brand.name}
+                </h3>
+                <span className="text-[11px] text-slate-400 font-light block">{brand.origin}</span>
+                <p className="text-xs text-slate-600 font-light mt-1.5 line-clamp-2">{brand.aesthetic}</p>
+              </div>
+
+              <div className="pt-4 border-t border-slate-100 mt-4 flex items-center justify-between text-xs font-semibold text-[#1B1F3B] group-hover:text-[#C5A059]">
+                <span>Browse Collection</span>
+                <span>→</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* 3. Today's AI Curated Daily Ensembles (Grounded & Multi-Brand) */}
       <section className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2 border-b border-slate-200/80 pb-4">
           <div>
@@ -86,7 +205,7 @@ export const HomeView: React.FC = () => {
                 {t('home.todays_picks')}
               </h2>
             </div>
-            <p className="text-xs sm:text-sm text-slate-500 mt-1 font-light">
+            <p className="text-xs sm:text-sm text-slate-500 mt-0.5 font-light">
               {t('home.todays_picks_desc')}
             </p>
           </div>
@@ -101,22 +220,22 @@ export const HomeView: React.FC = () => {
 
         {/* Curated Ensemble Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {/* Ensemble 1 */}
-          <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm p-6 flex flex-col justify-between group hover:shadow-md transition-all">
+          {/* Ensemble 1: Executive Tailored */}
+          <div className="bg-white rounded-3xl border border-slate-200/80 shadow-2xs p-6 flex flex-col justify-between group hover:shadow-md transition-all">
             <div>
               <div className="flex justify-between items-start mb-3">
                 <div>
                   <span className="text-[10px] font-bold text-[#C5A059] uppercase tracking-wider">
-                    Executive Morning
+                    Executive Metropolitan Look
                   </span>
                   <h3 className="font-serif text-lg font-bold text-[#1B1F3B]">
-                    The Italian Wool & Linen Layer
+                    Italian Virgin Wool & Organic Poplin
                   </h3>
                 </div>
                 <FitScoreBadge score={98} verdict="Optimal Proportions" />
               </div>
               <p className="text-xs text-slate-500 mb-4 font-light">
-                Structured double-breasted navy blazer with crisp organic poplin and tailored sand chinos.
+                Tailored Italian wool double-breasted blazer by Massimo Dutti paired with crisp organic poplin by COS and pleated wool trousers.
               </p>
 
               <div className="grid grid-cols-3 gap-3">
@@ -126,7 +245,7 @@ export const HomeView: React.FC = () => {
                     alt="Blazer"
                     className="w-full h-full object-cover"
                   />
-                  <span className="absolute bottom-2 left-2 px-2 py-0.5 rounded bg-black/60 text-[9px] text-white">Massimo Dutti</span>
+                  <span className="absolute bottom-2 left-2 px-2 py-0.5 rounded bg-black/70 text-[9px] text-white">Massimo Dutti</span>
                 </div>
                 <div className="h-44 rounded-2xl overflow-hidden bg-slate-100 relative">
                   <img
@@ -134,23 +253,23 @@ export const HomeView: React.FC = () => {
                     alt="Shirt"
                     className="w-full h-full object-cover"
                   />
-                  <span className="absolute bottom-2 left-2 px-2 py-0.5 rounded bg-black/60 text-[9px] text-white">COS</span>
+                  <span className="absolute bottom-2 left-2 px-2 py-0.5 rounded bg-black/70 text-[9px] text-white">COS</span>
                 </div>
                 <div className="h-44 rounded-2xl overflow-hidden bg-slate-100 relative">
                   <img
                     src="https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=500&auto=format&fit=crop&q=80"
-                    alt="Chinos"
+                    alt="Trousers"
                     className="w-full h-full object-cover"
                   />
-                  <span className="absolute bottom-2 left-2 px-2 py-0.5 rounded bg-black/60 text-[9px] text-white">Massimo Dutti</span>
+                  <span className="absolute bottom-2 left-2 px-2 py-0.5 rounded bg-black/70 text-[9px] text-white">Massimo Dutti</span>
                 </div>
               </div>
             </div>
 
             <div className="flex items-center justify-between pt-5 border-t border-slate-100 mt-6">
               <div>
-                <span className="text-[10px] text-slate-400 font-semibold block">Total Ensemble</span>
-                <span className="text-base font-bold text-[#1B1F3B]">$529.00</span>
+                <span className="text-[10px] text-slate-400 font-semibold block">Total Look (3 Pieces)</span>
+                <span className="text-base font-bold text-[#1B1F3B]">$549.00</span>
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -171,22 +290,22 @@ export const HomeView: React.FC = () => {
             </div>
           </div>
 
-          {/* Ensemble 2 */}
-          <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm p-6 flex flex-col justify-between group hover:shadow-md transition-all">
+          {/* Ensemble 2: Evening Silk */}
+          <div className="bg-white rounded-3xl border border-slate-200/80 shadow-2xs p-6 flex flex-col justify-between group hover:shadow-md transition-all">
             <div>
               <div className="flex justify-between items-start mb-3">
                 <div>
                   <span className="text-[10px] font-bold text-[#C5A059] uppercase tracking-wider">
-                    Contemporary Evening
+                    Contemporary Gala & Evening
                   </span>
                   <h3 className="font-serif text-lg font-bold text-[#1B1F3B]">
-                    Silk Drape Column & Tailored Outerwear
+                    Silk Slip Column & Metallic Accessories
                   </h3>
                 </div>
-                <FitScoreBadge score={96} verdict="Fluid Harmony" />
+                <FitScoreBadge score={97} verdict="Fluid Harmony" />
               </div>
               <p className="text-xs text-slate-500 mb-4 font-light">
-                Mulberry silk champagne slip dress paired with structured wool tailoring and calfskin loafers.
+                Mulberry silk champagne slip column maxi dress by Reiss with metallic leather heeled sandals and box clutch.
               </p>
 
               <div className="grid grid-cols-3 gap-3">
@@ -196,35 +315,35 @@ export const HomeView: React.FC = () => {
                     alt="Dress"
                     className="w-full h-full object-cover"
                   />
-                  <span className="absolute bottom-2 left-2 px-2 py-0.5 rounded bg-black/60 text-[9px] text-white">Reiss</span>
+                  <span className="absolute bottom-2 left-2 px-2 py-0.5 rounded bg-black/70 text-[9px] text-white">Reiss</span>
                 </div>
                 <div className="h-44 rounded-2xl overflow-hidden bg-slate-100 relative">
                   <img
-                    src="https://images.unsplash.com/photo-1594938298603-c8148c4dae35?w=500&auto=format&fit=crop&q=80"
-                    alt="Blazer"
+                    src="https://images.unsplash.com/photo-1543163521-1bf539c55dd2?w=500&auto=format&fit=crop&q=80"
+                    alt="Sandals"
                     className="w-full h-full object-cover"
                   />
-                  <span className="absolute bottom-2 left-2 px-2 py-0.5 rounded bg-black/60 text-[9px] text-white">Massimo Dutti</span>
+                  <span className="absolute bottom-2 left-2 px-2 py-0.5 rounded bg-black/70 text-[9px] text-white">Reiss</span>
                 </div>
                 <div className="h-44 rounded-2xl overflow-hidden bg-slate-100 relative">
                   <img
-                    src="https://images.unsplash.com/photo-1533867617858-e7b97e060509?w=500&auto=format&fit=crop&q=80"
-                    alt="Loafers"
+                    src="https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=500&auto=format&fit=crop&q=80"
+                    alt="Clutch"
                     className="w-full h-full object-cover"
                   />
-                  <span className="absolute bottom-2 left-2 px-2 py-0.5 rounded bg-black/60 text-[9px] text-white">Arket</span>
+                  <span className="absolute bottom-2 left-2 px-2 py-0.5 rounded bg-black/70 text-[9px] text-white">Reiss</span>
                 </div>
               </div>
             </div>
 
             <div className="flex items-center justify-between pt-5 border-t border-slate-100 mt-6">
               <div>
-                <span className="text-[10px] text-slate-400 font-semibold block">Total Ensemble</span>
-                <span className="text-base font-bold text-[#1B1F3B]">$849.00</span>
+                <span className="text-[10px] text-slate-400 font-semibold block">Total Look (3 Pieces)</span>
+                <span className="text-base font-bold text-[#1B1F3B]">$770.00</span>
               </div>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => openTryOn(products[3] || products[0])}
+                  onClick={() => openTryOn(products[4] || products[0])}
                   className="px-4 py-2 rounded-xl border border-slate-200 hover:border-[#1B1F3B] text-xs font-semibold text-slate-700 transition-all flex items-center gap-1.5"
                 >
                   <TryOnIcon size={14} color="#1B1F3B" />
@@ -243,7 +362,7 @@ export const HomeView: React.FC = () => {
         </div>
       </section>
 
-      {/* 3. Occasion Shortcuts */}
+      {/* 4. Occasion Portals */}
       <section className="space-y-6">
         <div className="flex items-center justify-between border-b border-slate-200/80 pb-4">
           <div>
@@ -251,7 +370,7 @@ export const HomeView: React.FC = () => {
               {t('home.occasions')}
             </h2>
             <p className="text-xs sm:text-sm text-slate-500 mt-0.5 font-light">
-              Tap any occasion to instantly generate complete shoppable styling options
+              Tap any occasion to activate instant grounded stylist recommendations
             </p>
           </div>
         </div>
@@ -261,21 +380,30 @@ export const HomeView: React.FC = () => {
             <button
               key={occ.tag}
               onClick={() => openStylist(occ.title)}
-              className="group relative h-72 rounded-3xl overflow-hidden shadow-2xs hover:shadow-lg transition-all duration-300 text-left border border-slate-200/60"
+              className="group relative h-80 rounded-3xl overflow-hidden shadow-2xs hover:shadow-xl transition-all duration-300 text-left border border-slate-200/60"
             >
               <img
                 src={occ.img}
                 alt={occ.title}
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 brightness-75 group-hover:brightness-90"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent p-6 flex flex-col justify-end">
+              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/35 to-transparent p-6 flex flex-col justify-end">
                 <span className="text-[10px] font-bold text-[#C5A059] uppercase tracking-wider mb-1 flex items-center gap-1">
                   <SparkleIcon size={12} color="#C5A059" />
                   <span>Instant AI Stylist</span>
                 </span>
                 <h4 className="font-serif text-xl font-bold text-white mb-1">{occ.title}</h4>
-                <p className="text-xs text-slate-300 line-clamp-1 font-light">{occ.desc}</p>
-                <div className="mt-3 flex items-center gap-1 text-xs font-semibold text-[#C5A059] group-hover:translate-x-1 transition-transform">
+                <p className="text-xs text-slate-300 line-clamp-1 font-light mb-2">{occ.desc}</p>
+                <div className="flex gap-1.5 mb-3">
+                  {occ.palette.map((c, idx) => (
+                    <span
+                      key={idx}
+                      className="w-3 h-3 rounded-full border border-white/40"
+                      style={{ backgroundColor: c }}
+                    />
+                  ))}
+                </div>
+                <div className="flex items-center gap-1 text-xs font-semibold text-[#C5A059] group-hover:translate-x-1 transition-transform">
                   <span>Style this occasion →</span>
                 </div>
               </div>
@@ -284,7 +412,7 @@ export const HomeView: React.FC = () => {
         </div>
       </section>
 
-      {/* 4. Trending Silhouettes & New Drops from Brands */}
+      {/* 5. Trending Catalog Silhouettes */}
       <section className="space-y-6">
         <div className="flex items-center justify-between border-b border-slate-200/80 pb-4">
           <div>
@@ -295,7 +423,7 @@ export const HomeView: React.FC = () => {
               </h2>
             </div>
             <p className="text-xs sm:text-sm text-slate-500 mt-0.5 font-light">
-              High-confidence silhouettes matching your style profile
+              High-confidence garments available across regional boutique stores
             </p>
           </div>
           <button
@@ -307,36 +435,36 @@ export const HomeView: React.FC = () => {
         </div>
 
         {isLoading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
             <SkeletonCard />
             <SkeletonCard />
             <SkeletonCard />
             <SkeletonCard />
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
             {products.slice(0, 4).map((p) => (
               <div
                 key={p.id}
-                className="bg-white rounded-3xl border border-slate-200/80 p-3.5 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between group"
+                className="bg-white rounded-3xl border border-slate-200/80 p-3 sm:p-4 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between group"
               >
                 <div>
-                  <div className="relative h-64 rounded-2xl overflow-hidden bg-slate-100 mb-3">
+                  <div className="relative aspect-[3/4] rounded-2xl overflow-hidden bg-slate-100 mb-3">
                     <img
                       src={p.thumbnail_url}
                       alt={p.title}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 cursor-pointer"
                       onClick={() => navigate(`/product/${p.slug}`)}
                     />
-                    <div className="absolute top-2.5 left-2.5 flex flex-col gap-1">
-                      <FitScoreBadge score={p.style_compatibility_score} verdict="Color Match" />
+                    <div className="absolute top-2 left-2 flex flex-col gap-1">
+                      <FitScoreBadge score={p.style_compatibility_score} verdict="Color Harmony" />
                     </div>
 
-                    <div className="absolute bottom-2.5 right-2.5 flex items-center gap-1.5">
+                    <div className="absolute bottom-2 right-2 flex items-center gap-1.5">
                       <button
                         onClick={() => openRuler(p)}
                         className="p-2 rounded-full bg-white/90 hover:bg-white text-slate-800 shadow-sm backdrop-blur-xs transition-all"
-                        title="No-Photo Fit Sizing"
+                        title="No-Photo Measurement Fit"
                       >
                         <RulerIcon size={14} color="#1B1F3B" />
                       </button>
@@ -355,20 +483,20 @@ export const HomeView: React.FC = () => {
                   </span>
                   <h4
                     onClick={() => navigate(`/product/${p.slug}`)}
-                    className="font-serif text-sm font-bold text-[#1B1F3B] line-clamp-1 hover:text-[#C5A059] cursor-pointer"
+                    className="font-serif text-xs sm:text-sm font-bold text-[#1B1F3B] line-clamp-1 hover:text-[#C5A059] cursor-pointer mt-0.5"
                   >
                     {p.title}
                   </h4>
                   <div className="flex items-center justify-between mt-1">
-                    <span className="text-sm font-bold text-[#1B1F3B]">${p.base_price}</span>
-                    <span className="text-xs text-slate-500 font-light">{p.color_family}</span>
+                    <span className="text-xs sm:text-sm font-bold text-[#1B1F3B]">${p.base_price}</span>
+                    <span className="text-[11px] text-slate-500 font-light truncate max-w-[80px]">{p.color_family}</span>
                   </div>
-                  <div className="mt-2">
+                  <div className="mt-1.5">
                     <BNPLBadge price={p.base_price} provider="Tabby" />
                   </div>
                 </div>
 
-                <div className="pt-3 border-t border-slate-100 mt-3 flex items-center gap-2">
+                <div className="pt-3 border-t border-slate-100 mt-3">
                   <button
                     onClick={async () => {
                       const sku = p.skus?.[0];
@@ -376,7 +504,7 @@ export const HomeView: React.FC = () => {
                         await addItem(sku.id, { id: p.id, title: p.title, category: p.category_name, color: p.color_family });
                       }
                     }}
-                    className="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-[#1B1F3B] hover:text-white text-xs font-semibold text-slate-800 transition-all flex items-center justify-center gap-1.5"
+                    className="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-[#1B1F3B] hover:text-white text-xs font-semibold text-slate-800 transition-all flex items-center justify-center gap-1.5"
                   >
                     <BagIcon size={14} color="currentColor" />
                     <span>Add to Bag</span>
@@ -386,6 +514,51 @@ export const HomeView: React.FC = () => {
             ))}
           </div>
         )}
+      </section>
+
+      {/* 6. Precision Luxury Technology Reassurance */}
+      <section className="rounded-3xl bg-[#FAF9F6] border border-[#C5A059]/30 p-6 sm:p-10 shadow-2xs">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 text-center sm:text-left">
+          <div className="space-y-2">
+            <div className="w-10 h-10 rounded-2xl bg-[#1B1F3B] text-[#C5A059] flex items-center justify-center font-bold shadow-xs mx-auto sm:mx-0">
+              <SparkleIcon size={20} color="#C5A059" />
+            </div>
+            <h4 className="font-serif text-sm font-bold text-[#1B1F3B]">On-Device Biometric Vision</h4>
+            <p className="text-xs text-slate-500 font-light leading-relaxed">
+              Camera frames are analyzed locally in browser memory with zero permanent server photo retention.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <div className="w-10 h-10 rounded-2xl bg-[#1B1F3B] text-[#C5A059] flex items-center justify-center font-bold shadow-xs mx-auto sm:mx-0">
+              <BopisIcon size={20} color="#C5A059" />
+            </div>
+            <h4 className="font-serif text-sm font-bold text-[#1B1F3B]">2-Hour BOPIS Boutique Pickup</h4>
+            <p className="text-xs text-slate-500 font-light leading-relaxed">
+              Collect your tailored garments in 2 hours with dedicated fitting suites in Dubai & Riyadh.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <div className="w-10 h-10 rounded-2xl bg-[#1B1F3B] text-[#C5A059] flex items-center justify-center font-bold shadow-xs mx-auto sm:mx-0">
+              <ShieldIcon size={20} color="#C5A059" />
+            </div>
+            <h4 className="font-serif text-sm font-bold text-[#1B1F3B]">30-Day Zero-Fee Returns</h4>
+            <p className="text-xs text-slate-500 font-light leading-relaxed">
+              Virtual try-on reduces sizing mismatch by 71%. If not fully satisfied, enjoy instant courier collection.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <div className="w-10 h-10 rounded-2xl bg-[#1B1F3B] text-[#C5A059] flex items-center justify-center font-bold shadow-xs mx-auto sm:mx-0">
+              <BagIcon size={20} color="#C5A059" />
+            </div>
+            <h4 className="font-serif text-sm font-bold text-[#1B1F3B]">0% Interest BNPL Payments</h4>
+            <p className="text-xs text-slate-500 font-light leading-relaxed">
+              Split any luxury ensemble into 4 monthly payments with Tabby or Tamara at zero added cost.
+            </p>
+          </div>
+        </div>
       </section>
     </div>
   );

@@ -23,7 +23,7 @@ async def chat_with_stylist(
     db: Session = Depends(get_db)
 ):
     service = StylistService(db)
-    user_id = user.id if user else 1 # Guest uses default style seed context
+    user_id = user.id if user else None
     return await service.interact_with_stylist(
         user_id=user_id,
         prompt=payload.prompt,

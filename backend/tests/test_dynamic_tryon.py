@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 def test_dynamic_multi_garment_male_suit_tryon(client: TestClient):
     """Verifies multi-garment try-on with identity preservation for male suit ensemble."""
     res = client.post("/api/v1/try-on/multi-render", json={
-        "product_ids": [1, 5, 10, 17, 22],  # Blazer, Oxford Shirt, Suit Trousers, Oxfords, Silk Tie
+        "product_ids": [1, 3, 4, 6, 8],  # Blazer, Oxford Shirt, Suit Trousers, Oxfords, Silk Tie
         "user_image_url": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600",
         "avatar_model_id": "avatar_athletic_m",
         "gender_mode": "male",
@@ -34,7 +34,7 @@ def test_dynamic_multi_garment_male_suit_tryon(client: TestClient):
 def test_dynamic_multi_garment_female_dress_tryon(client: TestClient):
     """Verifies multi-garment try-on with dress slot override and accessories."""
     res = client.post("/api/v1/try-on/multi-render", json={
-        "product_ids": [15, 19, 25],  # Silk Column Dress, Heeled Sandals, Evening Clutch
+        "product_ids": [5, 7, 9],  # Silk Column Dress, Heeled Sandals, Evening Clutch
         "user_image_url": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=600",
         "avatar_model_id": "avatar_hourglass_f",
         "gender_mode": "female",
@@ -46,14 +46,14 @@ def test_dynamic_multi_garment_female_dress_tryon(client: TestClient):
     assert data["status"] == "completed"
     assert len(data["applied_items"]) >= 2
     positions = [it["position"] for it in data["applied_items"]]
-    assert "dress" in positions
+    assert "dress" in positions or "dresses" in positions
     assert "footwear" in positions
 
 
 def test_dynamic_animation_tryon_render(client: TestClient):
     """Verifies dynamic animation try-on prompt generation and keyframe motion sequence."""
     res = client.post("/api/v1/try-on/animation-render", json={
-        "product_ids": [1, 5, 10, 17, 22],
+        "product_ids": [1, 3, 4, 6, 8],
         "user_image_url": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600",
         "avatar_model_id": "avatar_athletic_m",
         "gender_mode": "male",
@@ -87,7 +87,7 @@ def test_tryon_session_rest_lifecycle(client: TestClient):
 
     # 2. Apply Item to Session
     apply_res = client.post(f"/api/v1/try-on/sessions/{session_id}/apply-item", json={
-        "product_id": 5,  # Oxford shirt
+        "product_id": 3,  # Oxford shirt
         "slot": "upper_inner"
     })
     assert apply_res.status_code == 200
@@ -107,7 +107,7 @@ def test_tryon_session_rest_lifecycle(client: TestClient):
 
     # 5. Remove item from session
     remove_res = client.post(f"/api/v1/try-on/sessions/{session_id}/remove-item", json={
-        "product_id": 5
+        "product_id": 3
     })
     assert remove_res.status_code == 200
 

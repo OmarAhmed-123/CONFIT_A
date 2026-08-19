@@ -1,17 +1,11 @@
 import pytest
 from fastapi.testclient import TestClient
 from backend.app.main import app
-from backend.app.core.database import SessionLocal
 from backend.app.models.user import User, UserRole, BrandProfile
 from backend.app.models.catalog import Product, ProductSKU
-from backend.app.seed_data import seed_database
+from backend.tests.conftest import TestingSessionLocal
 
 client = TestClient(app)
-
-
-@pytest.fixture(scope="module", autouse=True)
-def setup_db():
-    seed_database()
 
 
 def get_error_message(res) -> str:
@@ -137,8 +131,8 @@ def test_brand_tenant_isolation_cross_brand_mutation_rejected():
     assert sku_res.status_code == 200
     assert sku_res.json()["stock_level"] == 30
 
-    # 3. Find an SKU belonging to a DIFFERENT brand (e.g. Reiss, SKU #5)
-    db = SessionLocal()
+    # 3. Find an SKU belonging to a DIFFERENT brand (e.g. Reiss, SKU #3)
+    db = TestingSessionLocal()
     other_sku = (
         db.query(ProductSKU)
         .join(Product)

@@ -12,7 +12,7 @@ class MultiProviderAIOrchestrator:
 
     def __init__(self):
         self.cooldowns: Dict[str, float] = {}
-        self.cooldown_duration = settings.CHAT_COOLDOWN_MS / 1000.0  # 10 minutes default
+        self.cooldown_duration = settings.CHAT_COOLDOWN_MS / 1000.0  # default cooldown
 
     def is_provider_available(self, provider_name: str) -> bool:
         if provider_name in self.cooldowns:
@@ -94,7 +94,7 @@ class MultiProviderAIOrchestrator:
                 elif provider == "gemini" and settings.GEMINI_API_KEY:
                     res = await self._call_gemini(system_prompt, user_prompt)
                     if res:
-                        return self._format_response(res, prompt, intent, "Google Gemini-2.5-Flash", selected_outfit)
+                        return self._format_response(res, prompt, intent, "Google Gemini-Flash", selected_outfit)
 
                 elif provider == "openai" and settings.OPENAI_API_KEY:
                     res = await self._call_openai(system_prompt, user_prompt)
@@ -102,18 +102,18 @@ class MultiProviderAIOrchestrator:
                         return self._format_response(res, prompt, intent, "OpenAI GPT-4o-mini", selected_outfit)
 
             except httpx.HTTPStatusError as exc:
-                if exc.response.status_code in [401, 402, 429]:
+                if exc.response.status_code in [401, 402, 404, 429]:
                     self.mark_cooling(provider, f"HTTP {exc.response.status_code}")
-                logger.warn(f"Provider {provider} failed with HTTP error", status=exc.response.status_code)
+                logger.warn(f"Provider {provider} returned HTTP error", status=exc.response.status_code)
             except Exception as exc:
-                logger.warn(f"Provider {provider} failed, trying next", error=str(exc))
+                logger.warn(f"Provider {provider} failed, moving to failover", error=str(exc))
 
-        # Deterministic Domain Fallback Engine
+        # Deterministic Grounded Fallback Engine
         logger.info("Routing to CONFIT deterministic StylingEngine fallback")
         return self._deterministic_fallback(prompt, intent, selected_outfit)
 
     async def _call_nvidia_llama(self, system_prompt: str, user_prompt: str) -> Optional[str]:
-        async with httpx.AsyncClient(timeout=8.0) as client:
+        async with httpx.AsyncClient(timeout=4.0) as client:
             res = await client.post(
                 "https://integrate.api.nvidia.com/v1/chat/completions",
                 headers={
@@ -134,7 +134,7 @@ class MultiProviderAIOrchestrator:
             return res.json()["choices"][0]["message"]["content"]
 
     async def _call_nvidia_nemotron(self, system_prompt: str, user_prompt: str) -> Optional[str]:
-        async with httpx.AsyncClient(timeout=8.0) as client:
+        async with httpx.AsyncClient(timeout=4.0) as client:
             res = await client.post(
                 "https://integrate.api.nvidia.com/v1/chat/completions",
                 headers={
@@ -155,7 +155,7 @@ class MultiProviderAIOrchestrator:
             return res.json()["choices"][0]["message"]["content"]
 
     async def _call_groq(self, system_prompt: str, user_prompt: str) -> Optional[str]:
-        async with httpx.AsyncClient(timeout=8.0) as client:
+        async with httpx.AsyncClient(timeout=4.0) as client:
             res = await client.post(
                 "https://api.groq.com/openai/v1/chat/completions",
                 headers={
@@ -176,7 +176,7 @@ class MultiProviderAIOrchestrator:
             return res.json()["choices"][0]["message"]["content"]
 
     async def _call_gemini(self, system_prompt: str, user_prompt: str) -> Optional[str]:
-        async with httpx.AsyncClient(timeout=8.0) as client:
+        async with httpx.AsyncClient(timeout=4.0) as client:
             res = await client.post(
                 f"https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key={settings.GEMINI_API_KEY}",
                 headers={"Content-Type": "application/json"},
@@ -190,7 +190,7 @@ class MultiProviderAIOrchestrator:
             return res.json()["candidates"][0]["content"]["parts"][0]["text"]
 
     async def _call_openai(self, system_prompt: str, user_prompt: str) -> Optional[str]:
-        async with httpx.AsyncClient(timeout=8.0) as client:
+        async with httpx.AsyncClient(timeout=4.0) as client:
             res = await client.post(
                 "https://api.openai.com/v1/chat/completions",
                 headers={
@@ -251,5 +251,5 @@ class MultiProviderAIOrchestrator:
             "styling_advice_text": content,
             "color_palette_advice": selected_outfit.get("color_palette", ["#1B1F3B", "#C5A059", "#FAF9F6", "#111111"]) if selected_outfit else ["#1B1F3B", "#C5A059", "#FAF9F6", "#111111"],
             "harmony_type": "Balanced Neutral & Monochromatic Accent",
-            "provider_used": "CONFIT Grounded Styling Engine (Offline Resilient)"
+            "provider_used": "CONFIT Grounded Styling Engine (Grounded & Resilient)"
         }

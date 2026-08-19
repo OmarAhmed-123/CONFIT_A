@@ -8,29 +8,31 @@ class TryOnSession(Base):
     __tablename__ = "tryon_sessions"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True)
+    guest_session_token = Column(String(100), nullable=True, index=True)
     product_id = Column(Integer, ForeignKey("products.id", ondelete="CASCADE"), nullable=True)
     outfit_id = Column(Integer, ForeignKey("outfits.id", ondelete="SET NULL"), nullable=True)
-    guest_session_token = Column(String(100), nullable=True, index=True)
-
-    input_user_image_url = Column(String(1000), nullable=False)
+    user_image_url = Column(String(1000), nullable=True)
+    input_user_image_url = Column(String(1000), nullable=True)
     garment_image_url = Column(String(1000), nullable=True)
+    rendered_image_url = Column(String(1000), nullable=True)
     rendered_result_url = Column(String(1000), nullable=True)
-
-    applied_items_json = Column(Text, default="[]", nullable=False)
-    slot_mapping_json = Column(Text, default="{}", nullable=False)
-    layering_order_json = Column(Text, default="[]", nullable=False)
-
+    rendered_animation_url = Column(String(1000), nullable=True)
     status = Column(String(30), default="completed", nullable=False)  # "pending", "processing", "completed", "failed"
-    body_fit_verdict = Column(String(50), default="True to Size")     # "Runs Small", "True to Size", "Relaxed Fit"
-    fit_confidence_score = Column(Integer, default=94)                # AI Confidence score %
-    body_scaling_factor = Column(Float, default=1.0)
-    ai_disclosure_text = Column(String(255), default="AI Synthesized Garment Fit — Certified CONFIT VTON Engine v2.4")
-
-    consent_retained = Column(Boolean, default=False, nullable=False)
+    fit_verdict = Column(String(50), default="True to Size", nullable=False)
+    fit_confidence_score = Column(Integer, default=95, nullable=False)
+    body_fit_verdict = Column(String(100), default="True to Size (Optimal Drape)", nullable=True)
+    body_scaling_factor = Column(Float, default=1.0, nullable=False)
+    ai_disclosure_text = Column(String(500), default="AI Synthesized Garment Drape", nullable=True)
+    ai_disclosure = Column(String(500), default="AI Synthesized Garment Drape", nullable=True)
+    applied_items_json = Column(Text, default="[]", nullable=False)  # Multi-garment layers
+    slot_mapping_json = Column(Text, default="{}", nullable=True)
+    layering_order_json = Column(Text, default="[]", nullable=True)
+    render_metadata_json = Column(Text, default="{}", nullable=False)
+    traceability_hash = Column(String(100), nullable=True)
+    consent_retained = Column(Boolean, default=False, nullable=True)
     expires_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
 
     user = relationship("User", back_populates="tryon_sessions")
     product = relationship("Product")
@@ -41,7 +43,7 @@ class VisualSearchQuery(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
-    input_image_url = Column(String(1000), nullable=False)
+    input_image_url = Column(Text, nullable=False)
     detected_category = Column(String(100), nullable=True)
     detected_color = Column(String(50), nullable=True)
     detected_pattern = Column(String(50), nullable=True)
@@ -63,8 +65,8 @@ class MeasurementSession(Base):
     save_to_profile = Column(Boolean, default=False, nullable=False)
     expires_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
 
+    user = relationship("User")
     results = relationship("MeasurementResult", back_populates="session", cascade="all, delete-orphan")
 
 
@@ -79,10 +81,12 @@ class MeasurementResult(Base):
     waist_cm = Column(Float, nullable=True)
     hip_cm = Column(Float, nullable=True)
     inseam_cm = Column(Float, nullable=True)
-    body_shape = Column(String(50), default="Athletic", nullable=True)
+    body_shape_detected = Column(String(50), nullable=True)
+    body_shape = Column(String(50), nullable=True)
     confidence_score = Column(Integer, default=95, nullable=False)
-    calibration_method = Column(String(100), default="on_device_height_calibrated", nullable=False)
-    source = Column(String(50), default="camera_estimate", nullable=False)  # "camera_estimate", "manual", "saved_profile"
+    calibration_reference_used = Column(String(100), default="device_accelerometer_ruler", nullable=False)
+    calibration_method = Column(String(100), default="device_ruler", nullable=True)
+    source = Column(String(50), default="camera_vision", nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
     session = relationship("MeasurementSession", back_populates="results")

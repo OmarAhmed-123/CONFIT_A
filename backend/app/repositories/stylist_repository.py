@@ -9,9 +9,12 @@ class StylistRepository:
     def __init__(self, db: Session):
         self.db = db
 
-    def get_or_create_session(self, user_id: int, session_id: Optional[int] = None) -> StylistSession:
+    def get_or_create_session(self, user_id: Optional[int], session_id: Optional[int] = None) -> StylistSession:
         if session_id:
-            session = self.db.query(StylistSession).filter(StylistSession.id == session_id, StylistSession.user_id == user_id).first()
+            query = self.db.query(StylistSession).filter(StylistSession.id == session_id)
+            if user_id is not None:
+                query = query.filter(StylistSession.user_id == user_id)
+            session = query.first()
             if session:
                 return session
         new_session = StylistSession(user_id=user_id, session_title="Personal AI Styling")

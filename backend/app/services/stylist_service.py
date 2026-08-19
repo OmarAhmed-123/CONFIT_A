@@ -22,14 +22,14 @@ class StylistService:
 
     async def interact_with_stylist(
         self,
-        user_id: int,
+        user_id: Optional[int],
         prompt: str,
         session_id: Optional[int] = None,
         occasion: Optional[str] = None,
         budget_limit: Optional[float] = None,
         voice_input_used: bool = False
     ) -> Dict[str, Any]:
-        # 1. Retrieve or create session
+        # 1. Retrieve or create session (supports guest user_id=None)
         session = self.stylist_repo.get_or_create_session(user_id, session_id)
 
         # 2. Add user message
@@ -39,8 +39,8 @@ class StylistService:
             content=prompt
         )
 
-        # 3. Retrieve user profile
-        usp = self.profile_repo.get_by_user_id(user_id)
+        # 3. Retrieve user profile if authenticated
+        usp = self.profile_repo.get_by_user_id(user_id) if user_id else None
         user_styles = json.loads(usp.style_archetypes) if usp and usp.style_archetypes else ["Smart Casual", "Quiet Luxury"]
         user_colors = json.loads(usp.preferred_colors) if usp and usp.preferred_colors else ["Navy", "Beige", "Black"]
         max_budget = budget_limit or (usp.budget_per_outfit_max if usp else 450.0)
@@ -54,7 +54,7 @@ class StylistService:
             user_colors=user_colors
         )
 
-        # 5. Retrieve candidate products from catalog
+        # 5. Retrieve candidate products from real database catalog
         all_products = self.catalog_repo.filter_products(limit=100)
 
         # 6. Compose strict slot-based complete outfits grounded in the catalog

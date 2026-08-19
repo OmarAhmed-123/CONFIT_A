@@ -3,16 +3,27 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
 from backend.app.core.config import settings
 
-# Ensure data directory exists
-os.makedirs(os.path.dirname(settings.DATABASE_URL.replace("sqlite:///", "")), exist_ok=True)
-os.makedirs(settings.STORAGE_LOCAL_DIR, exist_ok=True)
+db_url = settings.DATABASE_URL or "sqlite:///./backend/data/confit.db"
+if db_url.startswith("postgres://"):
+    db_url = db_url.replace("postgres://", "postgresql://", 1)
 
-connect_args = {"check_same_thread": False} if "sqlite" in settings.DATABASE_URL else {}
+# Ensure local data directory only for SQLite in local development
+if "sqlite" in db_url:
+    try:
+        sqlite_path = db_url.replace("sqlite:///", "")
+        dir_name = os.path.dirname(sqlite_path)
+        if dir_name:
+            os.makedirs(dir_name, exist_ok=True)
+    except Exception:
+        pass
+
+connect_args = {"check_same_thread": False} if "sqlite" in db_url else {}
 
 engine = create_engine(
-    settings.DATABASE_URL,
+    db_url,
     connect_args=connect_args,
     pool_pre_ping=True,
+    pool_recycle=300,
     echo=False
 )
 

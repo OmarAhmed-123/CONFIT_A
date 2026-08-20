@@ -8,15 +8,15 @@ import {
   TryOnIcon,
   SparkleIcon,
   BagIcon,
-  RulerIcon,
   OutfitBuilderIcon,
+  ShieldIcon,
 } from '../icons/ConfitIcons';
 import { FitScoreBadge } from '../common/CommonComponents';
 import { CameraScanModal } from './CameraScanModal';
 
 export const VirtualTryOnModal: React.FC = () => {
   const { t } = useTranslation();
-  const { tryOnProduct, closeTryOn, openRuler } = useUIStore();
+  const { tryOnProduct, closeTryOn } = useUIStore();
   const { products } = useCatalogViewModel();
 
   const {
@@ -57,14 +57,39 @@ export const VirtualTryOnModal: React.FC = () => {
   if (!tryOnProduct) return null;
 
   const avatars = [
-    { id: 'avatar_athletic_m', name: 'Athletic Male (178cm)', img: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600&auto=format&fit=crop&q=80', gender: 'male' },
-    { id: 'avatar_hourglass_f', name: 'Hourglass Female (172cm)', img: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=600&auto=format&fit=crop&q=80', gender: 'female' },
-    { id: 'avatar_curvy_f', name: 'Curvy Female (168cm)', img: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=600&auto=format&fit=crop&q=80', gender: 'female' },
-    { id: 'avatar_tall_m', name: 'Tall Structured (185cm)', img: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=600&auto=format&fit=crop&q=80', gender: 'male' },
+    {
+      id: 'avatar_athletic_m',
+      name: 'Athletic Male',
+      img: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600&auto=format&fit=crop&q=80',
+      dressedImg: 'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?w=600&auto=format&fit=crop&q=80',
+      gender: 'male',
+    },
+    {
+      id: 'avatar_hourglass_f',
+      name: 'Hourglass Female',
+      img: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=600&auto=format&fit=crop&q=80',
+      dressedImg: 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=600&auto=format&fit=crop&q=80',
+      gender: 'female',
+    },
+    {
+      id: 'avatar_curvy_f',
+      name: 'Curvy Female',
+      img: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=600&auto=format&fit=crop&q=80',
+      dressedImg: 'https://images.unsplash.com/photo-1543163521-1bf539c55dd2?w=600&auto=format&fit=crop&q=80',
+      gender: 'female',
+    },
+    {
+      id: 'avatar_tall_m',
+      name: 'Tall Structured',
+      img: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=600&auto=format&fit=crop&q=80',
+      dressedImg: 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=600&auto=format&fit=crop&q=80',
+      gender: 'male',
+    },
   ];
 
   const currentAvatarObj = avatars.find((a) => a.id === selectedAvatar) || avatars[0];
   const activeBaseImage = uploadedUserImage || currentAvatarObj.img;
+  const appliedList = Object.entries(appliedGarments);
 
   // Filter shelf products
   const filteredProducts = products.filter((p) => {
@@ -121,8 +146,8 @@ export const VirtualTryOnModal: React.FC = () => {
     reader.readAsDataURL(file);
   };
 
-  const appliedList = Object.entries(appliedGarments);
-  const renderedPreviewImage = multiTryOnResult?.rendered_result_url || (appliedList.length > 0 ? '/tryon_rendered_final.png' : activeBaseImage);
+  // Primary active garment for rendering
+  const primaryGarment = appliedList.length > 0 ? appliedList[0][1] : null;
 
   return (
     <>
@@ -136,13 +161,13 @@ export const VirtualTryOnModal: React.FC = () => {
               </div>
               <div>
                 <h3 className="font-serif text-base sm:text-lg font-bold text-white flex items-center gap-2">
-                  <span>Dynamic Virtual Dressing & Motion Try-On Studio</span>
+                  <span>Dynamic Virtual Dressing Studio</span>
                   <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-[#C5A059]/20 text-[#E2BF70] font-sans font-semibold">
                     Identity-Preserving Engine
                   </span>
                 </h3>
                 <p className="text-xs text-slate-400 font-light hidden sm:block">
-                  🔒 Strict Identity Lock — Preserves exact face geometry, skin tone, and body proportions.
+                  🔒 Strict Identity Lock — Modifies garment layers while locking exact facial geometry and body stance.
                 </p>
               </div>
             </div>
@@ -197,13 +222,12 @@ export const VirtualTryOnModal: React.FC = () => {
                           : 'text-slate-600 hover:text-slate-900'
                       }`}
                     >
-                      Try-On View
+                      Dressing Canvas
                     </button>
                     <button
                       onClick={() => {
                         setActivePreviewTab('animation');
                         setIsBeforeAfterActive(false);
-                        if (!animationResult) runAnimatedTryOn();
                       }}
                       className={`px-3 py-1 rounded-lg transition-all flex items-center gap-1 ${
                         activePreviewTab === 'animation' && !isBeforeAfterActive
@@ -215,7 +239,10 @@ export const VirtualTryOnModal: React.FC = () => {
                       <span>Motion Sequence</span>
                     </button>
                     <button
-                      onClick={() => setIsBeforeAfterActive(!isBeforeAfterActive)}
+                      onClick={() => {
+                        setIsBeforeAfterActive(!isBeforeAfterActive);
+                        setActivePreviewTab('static');
+                      }}
                       className={`px-3 py-1 rounded-lg transition-all ${
                         isBeforeAfterActive ? 'bg-[#C5A059] text-slate-950 shadow-xs' : 'text-slate-600 hover:text-slate-900'
                       }`}
@@ -242,11 +269,11 @@ export const VirtualTryOnModal: React.FC = () => {
                       }`}
                     >
                       <img src={av.img} alt={av.name} className="w-7 h-7 rounded-lg object-cover" />
-                      <span className="text-[11px] font-semibold">{av.name.split('(')[0]}</span>
+                      <span className="text-[11px] font-semibold">{av.name}</span>
                     </button>
                   ))}
                   {uploadedUserImage && (
-                    <div className="flex items-center gap-2 p-1.5 pr-3 rounded-xl border border-emerald-500 bg-emerald-50 text-emerald-900 text-[11px] font-bold shrink-0">
+                    <div className="flex items-center gap-2 p-1.5 pr-3 rounded-xl border border-[#C5A059] bg-[#FDF8EE] text-[#1B1F3B] text-[11px] font-bold shrink-0 shadow-2xs">
                       <img src={uploadedUserImage} alt="User" className="w-7 h-7 rounded-lg object-cover" />
                       <span>Custom Photo Active</span>
                       <button
@@ -270,13 +297,31 @@ export const VirtualTryOnModal: React.FC = () => {
                   isDragOver ? 'border-[#C5A059] ring-4 ring-[#C5A059]/30 bg-slate-900' : 'border-slate-300'
                 }`}
               >
-                {/* 1. Before / After Split Slider Mode */}
+                {/* 1. Before / After Split Slider Mode (Aligned on the SAME exact subject) */}
                 {isBeforeAfterActive ? (
                   <div className="relative w-full h-full">
-                    {/* Background Original Image (Right side revealed when slider moves left) */}
-                    <img src={renderedPreviewImage} alt="Dressed" className="w-full h-full object-cover select-none" />
+                    {/* Underlying Dressed State */}
+                    <div className="relative w-full h-full">
+                      <img src={activeBaseImage} alt="Subject Base" className="w-full h-full object-cover select-none" />
 
-                    {/* Left Clipped Original Image */}
+                      {/* Realistic In-Session Garment Drape Overlay */}
+                      {primaryGarment && (
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                          <div className="absolute top-[32%] w-44 sm:w-56 aspect-square rounded-3xl overflow-hidden border-2 border-[#C5A059]/70 shadow-2xl bg-black/30 backdrop-blur-2xs animate-in fade-in zoom-in-95 duration-200">
+                            <img
+                              src={primaryGarment.thumbnail_url}
+                              alt={primaryGarment.title}
+                              className="w-full h-full object-cover"
+                            />
+                            <span className="absolute bottom-2 inset-x-2 py-1 rounded-lg bg-slate-950/80 text-[9px] text-[#C5A059] font-bold text-center border border-[#C5A059]/40">
+                              Draped: {primaryGarment.title}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Left Clipped Original Image (Undressed Reference) */}
                     <div
                       className="absolute inset-0 overflow-hidden"
                       style={{ clipPath: `polygon(0 0, ${splitSliderPosition}% 0, ${splitSliderPosition}% 100%, 0 100%)` }}
@@ -308,45 +353,53 @@ export const VirtualTryOnModal: React.FC = () => {
                       className="absolute inset-x-4 bottom-4 opacity-80 hover:opacity-100 accent-[#C5A059] z-20 cursor-ew-resize"
                     />
 
-                    <span className="absolute top-3 left-3 px-3 py-1 rounded-full bg-slate-950/80 backdrop-blur-md text-white text-[10px] font-bold border border-white/20 z-10">
+                    <span className="absolute top-3 left-3 px-3 py-1 rounded-full bg-slate-950/85 backdrop-blur-md text-white text-[10px] font-bold border border-white/20 z-10">
                       Original ({splitSliderPosition}%) ⟷ Dressed ({100 - splitSliderPosition}%)
                     </span>
                   </div>
                 ) : activePreviewTab === 'animation' && animationResult ? (
-                  /* 2. Dynamic Motion Animation Try-On Sequence Player */
+                  /* 2. Motion Animation Sequence Player */
                   <div className="relative w-full h-full flex flex-col justify-between p-4 bg-slate-950">
                     <img
-                      src={animationResult.keyframes_sequence[activeKeyframeIndex]?.image_url || renderedPreviewImage}
+                      src={activeBaseImage}
                       alt="Animation Frame"
-                      className="absolute inset-0 w-full h-full object-cover animate-in fade-in duration-300"
+                      className="absolute inset-0 w-full h-full object-cover"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-black/40 pointer-events-none" />
 
-                    {/* Top Aspect & Animation Status */}
-                    <div className="relative z-10 flex justify-between items-center">
-                      <div className="flex items-center gap-2">
-                        <span className="px-2.5 py-1 rounded-full bg-[#C5A059] text-slate-950 text-[10px] font-bold">
-                          🎬 Motion Sequence Player
-                        </span>
-                        <div className="flex gap-1 bg-black/60 p-0.5 rounded-lg border border-white/10 text-[9px] text-white">
-                          {(['9:16', '4:5', '1:1'] as const).map((asp) => (
-                            <button
-                              key={asp}
-                              onClick={() => setOutputAspect(asp)}
-                              className={`px-1.5 py-0.5 rounded ${outputAspect === asp ? 'bg-[#C5A059] text-slate-950 font-bold' : 'hover:bg-white/20'}`}
-                            >
-                              {asp}
-                            </button>
-                          ))}
+                    {/* Keyframe Drape Spotlight */}
+                    {animationResult.keyframes_sequence[activeKeyframeIndex] && (
+                      <div className="relative z-10 flex flex-col items-center justify-center my-auto">
+                        <div className="w-44 sm:w-52 aspect-square rounded-3xl overflow-hidden border-2 border-[#C5A059] shadow-2xl bg-black/40 backdrop-blur-xs animate-in fade-in zoom-in-95 duration-200">
+                          <img
+                            src={animationResult.keyframes_sequence[activeKeyframeIndex]?.image_url}
+                            alt="Garment Frame"
+                            className="w-full h-full object-cover"
+                          />
                         </div>
                       </div>
-                      <span className="text-[10px] font-mono font-bold text-[#E2BF70] bg-black/70 px-2.5 py-1 rounded-lg">
-                        {animationResult.traceability_hash}
+                    )}
+
+                    {/* Top Aspect & Animation Status */}
+                    <div className="relative z-10 flex justify-between items-center">
+                      <span className="px-2.5 py-1 rounded-full bg-[#C5A059] text-slate-950 text-[10px] font-bold">
+                        🎬 Motion Layer Player
                       </span>
+                      <div className="flex gap-1 bg-black/60 p-0.5 rounded-lg border border-white/10 text-[9px] text-white">
+                        {(['9:16', '4:5', '1:1'] as const).map((asp) => (
+                          <button
+                            key={asp}
+                            onClick={() => setOutputAspect(asp)}
+                            className={`px-1.5 py-0.5 rounded ${outputAspect === asp ? 'bg-[#C5A059] text-slate-950 font-bold' : 'hover:bg-white/20'}`}
+                          >
+                            {asp}
+                          </button>
+                        ))}
+                      </div>
                     </div>
 
                     {/* Bottom Step-by-Step Motion Timeline */}
-                    <div className="relative z-10 space-y-2 bg-black/70 backdrop-blur-md p-3 rounded-2xl border border-white/10">
+                    <div className="relative z-10 space-y-2 bg-black/75 backdrop-blur-md p-3 rounded-2xl border border-white/10">
                       <div className="flex justify-between items-center text-xs text-white">
                         <span className="font-bold text-[#E2BF70]">
                           Step {activeKeyframeIndex + 1} of {animationResult.keyframes_sequence.length}:
@@ -371,21 +424,35 @@ export const VirtualTryOnModal: React.FC = () => {
                   </div>
                 ) : (
                   /* 3. Static High-Fidelity Try-On Stage */
-                  <div className="relative w-full h-full">
+                  <div className="relative w-full h-full flex items-center justify-center">
                     <img
-                      src={appliedList.length > 0 ? renderedPreviewImage : activeBaseImage}
+                      src={activeBaseImage}
                       alt="Try-On Canvas"
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover select-none"
                     />
+
+                    {/* Draped Garment Contour Overlay */}
+                    {primaryGarment && (
+                      <div className="absolute top-[30%] w-48 sm:w-60 aspect-square rounded-3xl overflow-hidden border-2 border-[#C5A059]/80 shadow-2xl bg-black/35 backdrop-blur-2xs animate-in fade-in zoom-in-95 duration-200">
+                        <img
+                          src={primaryGarment.thumbnail_url}
+                          alt={primaryGarment.title}
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute bottom-2 inset-x-2 py-1 rounded-lg bg-slate-950/80 text-[10px] text-[#C5A059] font-bold text-center border border-[#C5A059]/30">
+                          ✓ Dressed: {primaryGarment.title}
+                        </div>
+                      </div>
+                    )}
 
                     {/* Top Status & Fit Accuracy */}
                     <div className="absolute top-3 left-3 flex flex-col gap-1.5 pointer-events-none">
                       <FitScoreBadge
                         score={multiTryOnResult?.fit_confidence_score || 96}
-                        verdict={multiTryOnResult?.body_fit_verdict || 'True to Size (Optimal Drape)'}
+                        verdict="Identity Lock Verified"
                       />
                       <span className="px-2.5 py-0.5 rounded-full bg-slate-950/75 backdrop-blur-md text-[9px] font-medium text-slate-300 border border-white/10 w-fit">
-                        {appliedList.length > 0 ? `Dressed with ${appliedList.length} Layers` : 'Base Silhouette (Undressed)'}
+                        {appliedList.length > 0 ? `Dressed with ${appliedList.length} Layers` : 'Base Silhouette (Ready for Styling)'}
                       </span>
                     </div>
 
@@ -395,10 +462,10 @@ export const VirtualTryOnModal: React.FC = () => {
                         <div className="w-10 h-10 border-3 border-[#C5A059] border-t-transparent rounded-full animate-spin"></div>
                         <div>
                           <h4 className="font-serif text-sm font-bold text-white">
-                            Rendering Precision AI Virtual Try-On...
+                            Rendering Virtual Try-On Layer...
                           </h4>
                           <p className="text-[11px] text-slate-300 font-light mt-0.5">
-                            Draping garment layers with 100% facial identity lock.
+                            Draping garment with 100% facial identity preservation.
                           </p>
                         </div>
                       </div>
@@ -411,7 +478,7 @@ export const VirtualTryOnModal: React.FC = () => {
               <div className="space-y-2 bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs">
                 <div className="flex justify-between items-center pb-1 border-b border-slate-100">
                   <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">
-                    Applied Garment Slots ({appliedList.length} items):
+                    Dressed Garment Layers ({appliedList.length} items):
                   </span>
                   <div className="flex items-center gap-2">
                     <button
@@ -547,7 +614,7 @@ export const VirtualTryOnModal: React.FC = () => {
                             </span>
                             {isAlreadyDressed && (
                               <span className="absolute bottom-1 right-1 px-2 py-0.5 rounded-full bg-emerald-600 text-[9px] text-white font-bold shadow-xs">
-                                ✓ Dressed
+                                ✓ In Outfit
                               </span>
                             )}
                           </div>

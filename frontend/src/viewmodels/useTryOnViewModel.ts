@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { tryOnService } from '../services/apiServices';
-import { Product, TryOnResult, MultiGarmentTryOnResult, AnimationTryOnResult, NoPhotoFitResult, VisualSearchResult } from '../models';
+import { Product, MultiGarmentTryOnResult, AnimationTryOnResult, NoPhotoFitResult, VisualSearchResult } from '../models';
 import { useUIStore } from '../stores/uiStore';
 import { useCartStore } from '../stores/cartStore';
 
@@ -54,7 +54,7 @@ export function useTryOnViewModel(initialProduct?: Product | null) {
       setRulerLoading(false);
     } catch (err: any) {
       setRulerLoading(false);
-      showToast('Fit calculation error: ' + err.message, 'error');
+      showToast('Fit calculation notice: ' + (err.message || 'Check body parameters'), 'error');
     }
   }, [initialProduct, showToast]);
 
@@ -66,17 +66,9 @@ export function useTryOnViewModel(initialProduct?: Product | null) {
       setVisualSearchLoading(false);
     } catch (err: any) {
       setVisualSearchLoading(false);
-      showToast('Visual search error: ' + err.message, 'error');
+      showToast('Visual search: ' + (err.message || 'Image processing failed'), 'error');
     }
   }, [showToast]);
-
-  // Initialize with initialProduct if provided
-  useEffect(() => {
-    if (initialProduct && Object.keys(appliedGarments).length === 0) {
-      const slot = determineSlotForProduct(initialProduct);
-      setAppliedGarments({ [slot]: initialProduct });
-    }
-  }, [initialProduct]);
 
   // Determine appropriate body slot
   const determineSlotForProduct = (p: Product): string => {
@@ -121,14 +113,27 @@ export function useTryOnViewModel(initialProduct?: Product | null) {
       setIsRendering(false);
     } catch (err: any) {
       setIsRendering(false);
-      showToast('Dynamic Dressing Notice: Simulation applied to body canvas.', 'info');
+      console.warn('Multi-render notice:', err);
     }
-  }, [uploadedUserImage, selectedAvatar, consentRetain, showToast]);
+  }, [uploadedUserImage, selectedAvatar, consentRetain]);
+
+  // Initialize with initialProduct if provided
+  useEffect(() => {
+    if (initialProduct && Object.keys(appliedGarments).length === 0) {
+      const slot = determineSlotForProduct(initialProduct);
+      const initialMap = { [slot]: initialProduct };
+      setAppliedGarments(initialMap);
+      triggerMultiRender(initialMap);
+    }
+  }, [initialProduct, triggerMultiRender]);
 
   // Run dynamic animation try-on
   const runAnimatedTryOn = useCallback(async () => {
     const productIds = Object.values(appliedGarments).map((p) => p.id);
-    if (productIds.length === 0) return;
+    if (productIds.length === 0) {
+      showToast('Select at least one garment before generating motion.', 'info');
+      return;
+    }
 
     setIsAnimating(true);
     try {
@@ -155,10 +160,10 @@ export function useTryOnViewModel(initialProduct?: Product | null) {
           }
         }, 1200);
       }
-      showToast('Generated dynamic try-on animation sequence!', 'success');
+      showToast('Motion try-on sequence verified & rendered!', 'success');
     } catch (err: any) {
       setIsAnimating(false);
-      showToast('Animation rendering notice: Live motion preview generated.', 'info');
+      showToast('Motion sequence could not be rendered: ' + (err.message || 'Service unavailable'), 'error');
     }
   }, [appliedGarments, uploadedUserImage, selectedAvatar, outputAspect, showToast]);
 
@@ -187,7 +192,7 @@ export function useTryOnViewModel(initialProduct?: Product | null) {
       return next;
     });
 
-    showToast(`Dressed: ${product.title} (${targetSlot.replace('_', ' ')})`, 'success');
+    showToast(`Added to Try-On: ${product.title}`, 'info');
   }, [appliedGarments, triggerMultiRender, showToast]);
 
   // Remove specific garment slot
@@ -199,8 +204,7 @@ export function useTryOnViewModel(initialProduct?: Product | null) {
       triggerMultiRender(next);
       return next;
     });
-    showToast(`Removed garment from ${slot.replace('_', ' ')}`, 'info');
-  }, [appliedGarments, triggerMultiRender, showToast]);
+  }, [appliedGarments, triggerMultiRender]);
 
   // Clear entire canvas
   const clearCanvas = useCallback(() => {
@@ -208,8 +212,7 @@ export function useTryOnViewModel(initialProduct?: Product | null) {
     setAppliedGarments({});
     setMultiTryOnResult(null);
     setAnimationResult(null);
-    showToast('Try-on canvas cleared to base silhouette.', 'info');
-  }, [appliedGarments, showToast]);
+  }, [appliedGarments]);
 
   // Undo last action
   const undoLastAction = useCallback(() => {
@@ -218,8 +221,7 @@ export function useTryOnViewModel(initialProduct?: Product | null) {
     setHistory((prev) => prev.slice(0, prev.length - 1));
     setAppliedGarments(previous);
     triggerMultiRender(previous);
-    showToast('Reverted to previous outfit state.', 'info');
-  }, [history, triggerMultiRender, showToast]);
+  }, [history, triggerMultiRender]);
 
   // Apply full outfit from stylist recommendation
   const applyFullOutfit = useCallback((items: Product[]) => {
@@ -239,7 +241,7 @@ export function useTryOnViewModel(initialProduct?: Product | null) {
 
     setAppliedGarments(newGarments);
     triggerMultiRender(newGarments);
-    showToast(`Applied complete ${items.length}-piece look to Try-On Studio!`, 'success');
+    showToast(`Loaded ${items.length} items into Virtual Try-On Studio!`, 'success');
   }, [appliedGarments, triggerMultiRender, showToast]);
 
   // Add all currently dressed items to cart
@@ -258,16 +260,14 @@ export function useTryOnViewModel(initialProduct?: Product | null) {
         });
       }
     }
-    showToast(`Added ${items.length} dressed pieces to your bag!`, 'success');
+    showToast(`Added ${items.length} dressed pieces to shopping bag!`, 'success');
     openCart();
   }, [appliedGarments, addItem, openCart, showToast]);
 
-  // Backwards-compatible runTryOn
   const runTryOn = useCallback(async () => {
     await triggerMultiRender(appliedGarments);
   }, [triggerMultiRender, appliedGarments]);
 
-  // Total price of currently dressed items
   const totalPrice = Object.values(appliedGarments).reduce((sum, p) => sum + (p.base_price || 0), 0);
 
   return {

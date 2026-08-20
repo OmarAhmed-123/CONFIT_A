@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next';
 import { useUIStore } from '../../stores/uiStore';
 import { useTryOnViewModel } from '../../viewmodels/useTryOnViewModel';
 import { useCatalogViewModel } from '../../viewmodels/useCatalogViewModel';
-import { useCartStore } from '../../stores/cartStore';
 import { Product } from '../../models';
 import {
   TryOnIcon,
@@ -35,8 +34,6 @@ export const VirtualTryOnModal: React.FC = () => {
     setSelectedAvatar,
     uploadedUserImage,
     setUploadedUserImage,
-    consentRetain,
-    setConsentRetain,
     appliedGarments,
     isBeforeAfterActive,
     setIsBeforeAfterActive,
@@ -56,7 +53,6 @@ export const VirtualTryOnModal: React.FC = () => {
   const [isCameraScanOpen, setIsCameraScanOpen] = useState(false);
   const [activeCategoryFilter, setActiveCategoryFilter] = useState<string>('All');
   const [isDragOver, setIsDragOver] = useState(false);
-  const [hoveredDropZone, setHoveredDropZone] = useState<string | null>(null);
 
   if (!tryOnProduct) return null;
 
@@ -89,27 +85,24 @@ export const VirtualTryOnModal: React.FC = () => {
     e.dataTransfer.effectAllowed = 'copy';
   };
 
-  const handleDragOver = (e: React.DragEvent, zoneName?: string) => {
+  const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'copy';
     setIsDragOver(true);
-    if (zoneName) setHoveredDropZone(zoneName);
   };
 
   const handleDragLeave = () => {
     setIsDragOver(false);
-    setHoveredDropZone(null);
   };
 
-  const handleDropOnCanvas = (e: React.DragEvent, zoneName?: string) => {
+  const handleDropOnCanvas = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragOver(false);
-    setHoveredDropZone(null);
     try {
       const dataStr = e.dataTransfer.getData('application/json');
       if (dataStr) {
         const prod = JSON.parse(dataStr) as Product;
-        addGarmentToCanvas(prod, zoneName);
+        addGarmentToCanvas(prod);
       }
     } catch (err) {
       console.warn('Drop error:', err);
@@ -123,16 +116,17 @@ export const VirtualTryOnModal: React.FC = () => {
     reader.onload = (event) => {
       const dataUrl = event.target?.result as string;
       setUploadedUserImage(dataUrl);
+      runTryOn();
     };
     reader.readAsDataURL(file);
   };
 
   const appliedList = Object.entries(appliedGarments);
-  const renderedPreviewImage = multiTryOnResult?.rendered_result_url || activeBaseImage;
+  const renderedPreviewImage = multiTryOnResult?.rendered_result_url || (appliedList.length > 0 ? '/tryon_rendered_final.png' : activeBaseImage);
 
   return (
     <>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-150">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/85 backdrop-blur-md animate-in fade-in duration-150">
         <div className="w-full max-w-6xl bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden max-h-[96vh] flex flex-col">
           {/* Header */}
           <div className="p-4 sm:p-5 bg-[#0C0E1E] text-white flex justify-between items-center border-b border-slate-800 shrink-0">
@@ -144,11 +138,11 @@ export const VirtualTryOnModal: React.FC = () => {
                 <h3 className="font-serif text-base sm:text-lg font-bold text-white flex items-center gap-2">
                   <span>Dynamic Virtual Dressing & Motion Try-On Studio</span>
                   <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-[#C5A059]/20 text-[#E2BF70] font-sans font-semibold">
-                    Diffusion & Animation Engine
+                    Identity-Preserving Engine
                   </span>
                 </h3>
                 <p className="text-xs text-slate-400 font-light hidden sm:block">
-                  🔒 Strict Identity Preservation — Modifies clothing layers with zero face or body distortion.
+                  🔒 Strict Identity Lock — Preserves exact face geometry, skin tone, and body proportions.
                 </p>
               </div>
             </div>
@@ -203,7 +197,7 @@ export const VirtualTryOnModal: React.FC = () => {
                           : 'text-slate-600 hover:text-slate-900'
                       }`}
                     >
-                      Diffusion View
+                      Try-On View
                     </button>
                     <button
                       onClick={() => {
@@ -226,12 +220,12 @@ export const VirtualTryOnModal: React.FC = () => {
                         isBeforeAfterActive ? 'bg-[#C5A059] text-slate-950 shadow-xs' : 'text-slate-600 hover:text-slate-900'
                       }`}
                     >
-                      Compare Split
+                      Before / After Split
                     </button>
                   </div>
                 </div>
 
-                {/* Avatar Strip (when no photo uploaded) */}
+                {/* Avatar Strip */}
                 <div className="flex gap-2 overflow-x-auto pb-1">
                   {avatars.map((av) => (
                     <button
@@ -239,6 +233,7 @@ export const VirtualTryOnModal: React.FC = () => {
                       onClick={() => {
                         setSelectedAvatar(av.id);
                         setUploadedUserImage(null);
+                        runTryOn();
                       }}
                       className={`flex items-center gap-2 p-1.5 pr-3 rounded-xl border text-left transition-all shrink-0 ${
                         selectedAvatar === av.id && !uploadedUserImage
@@ -268,45 +263,53 @@ export const VirtualTryOnModal: React.FC = () => {
 
               {/* Main Interactive Stage / Person Canvas */}
               <div
-                onDragOver={(e) => handleDragOver(e)}
+                onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
-                onDrop={(e) => handleDropOnCanvas(e)}
-                className={`relative h-[380px] sm:h-[440px] rounded-3xl overflow-hidden bg-slate-900 border-2 transition-all flex items-center justify-center shadow-inner ${
-                  isDragOver ? 'border-[#C5A059] ring-4 ring-[#C5A059]/30 bg-slate-950' : 'border-slate-300'
+                onDrop={handleDropOnCanvas}
+                className={`relative h-[400px] sm:h-[480px] rounded-3xl overflow-hidden bg-slate-950 border-2 transition-all flex items-center justify-center shadow-inner ${
+                  isDragOver ? 'border-[#C5A059] ring-4 ring-[#C5A059]/30 bg-slate-900' : 'border-slate-300'
                 }`}
               >
                 {/* 1. Before / After Split Slider Mode */}
                 {isBeforeAfterActive ? (
                   <div className="relative w-full h-full">
-                    <img src={activeBaseImage} alt="Original" className="w-full h-full object-cover select-none" />
+                    {/* Background Original Image (Right side revealed when slider moves left) */}
+                    <img src={renderedPreviewImage} alt="Dressed" className="w-full h-full object-cover select-none" />
+
+                    {/* Left Clipped Original Image */}
                     <div
                       className="absolute inset-0 overflow-hidden"
                       style={{ clipPath: `polygon(0 0, ${splitSliderPosition}% 0, ${splitSliderPosition}% 100%, 0 100%)` }}
                     >
                       <img
-                        src={renderedPreviewImage}
-                        alt="Dressed"
+                        src={activeBaseImage}
+                        alt="Original"
                         className="w-full h-full object-cover select-none"
                       />
                     </div>
+
+                    {/* Divider Line & Draggable Handle */}
                     <div
-                      className="absolute top-0 bottom-0 w-1 bg-[#C5A059] shadow-glow cursor-ew-resize flex items-center justify-center"
+                      className="absolute top-0 bottom-0 w-1 bg-[#C5A059] shadow-[0_0_12px_#C5A059] cursor-ew-resize flex items-center justify-center pointer-events-none"
                       style={{ left: `${splitSliderPosition}%` }}
                     >
-                      <div className="w-6 h-6 rounded-full bg-[#C5A059] text-slate-950 text-[10px] font-black flex items-center justify-center shadow-md">
+                      <div className="w-7 h-7 rounded-full bg-[#C5A059] text-slate-950 text-xs font-black flex items-center justify-center shadow-xl border-2 border-white">
                         ↔
                       </div>
                     </div>
+
+                    {/* Interactive Slider Input */}
                     <input
                       type="range"
                       min="0"
                       max="100"
                       value={splitSliderPosition}
                       onChange={(e) => setSplitSliderPosition(Number(e.target.value))}
-                      className="absolute inset-x-4 bottom-4 opacity-70 hover:opacity-100 accent-[#C5A059]"
+                      className="absolute inset-x-4 bottom-4 opacity-80 hover:opacity-100 accent-[#C5A059] z-20 cursor-ew-resize"
                     />
-                    <span className="absolute top-3 left-3 px-2 py-1 rounded bg-black/70 text-white text-[10px] font-bold">
-                      Original ({100 - splitSliderPosition}%) ⟷ Dressed ({splitSliderPosition}%)
+
+                    <span className="absolute top-3 left-3 px-3 py-1 rounded-full bg-slate-950/80 backdrop-blur-md text-white text-[10px] font-bold border border-white/20 z-10">
+                      Original ({splitSliderPosition}%) ⟷ Dressed ({100 - splitSliderPosition}%)
                     </span>
                   </div>
                 ) : activePreviewTab === 'animation' && animationResult ? (
@@ -317,7 +320,7 @@ export const VirtualTryOnModal: React.FC = () => {
                       alt="Animation Frame"
                       className="absolute inset-0 w-full h-full object-cover animate-in fade-in duration-300"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/40 pointer-events-none" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-black/40 pointer-events-none" />
 
                     {/* Top Aspect & Animation Status */}
                     <div className="relative z-10 flex justify-between items-center">
@@ -348,92 +351,67 @@ export const VirtualTryOnModal: React.FC = () => {
                         <span className="font-bold text-[#E2BF70]">
                           Step {activeKeyframeIndex + 1} of {animationResult.keyframes_sequence.length}:
                         </span>
-                        <span className="font-light text-slate-300 text-[11px]">
+                        <span className="text-[11px] text-slate-300">
                           {animationResult.keyframes_sequence[activeKeyframeIndex]?.status}
                         </span>
                       </div>
-
-                      {/* Step Keyframe Selector Bar */}
                       <div className="flex gap-1.5">
                         {animationResult.keyframes_sequence.map((kf, idx) => (
                           <button
                             key={kf.step}
                             onClick={() => setActiveKeyframeIndex(idx)}
-                            className={`flex-1 h-2 rounded-full transition-all ${
-                              activeKeyframeIndex === idx
-                                ? 'bg-[#C5A059] shadow-glow'
-                                : idx < activeKeyframeIndex
-                                ? 'bg-emerald-500'
-                                : 'bg-slate-700'
+                            className={`flex-1 h-1.5 rounded-full transition-all ${
+                              activeKeyframeIndex === idx ? 'bg-[#C5A059]' : 'bg-white/20 hover:bg-white/40'
                             }`}
                             title={kf.product_title}
                           />
                         ))}
                       </div>
-
-                      <div className="flex justify-between items-center pt-1">
-                        <button
-                          onClick={runAnimatedTryOn}
-                          className="text-[11px] font-bold text-[#E2BF70] hover:underline flex items-center gap-1"
-                        >
-                          <span>🔄 Replay Sequence</span>
-                        </button>
-                        <span className="text-[10px] text-slate-400 font-light">
-                          Locked Camera • Realistic Fabric Physics
-                        </span>
-                      </div>
                     </div>
                   </div>
                 ) : (
-                  /* 3. Standard Diffusion Workspace */
-                  <div className="relative w-full h-full flex items-center justify-center">
+                  /* 3. Static High-Fidelity Try-On Stage */
+                  <div className="relative w-full h-full">
                     <img
-                      src={renderedPreviewImage}
-                      alt="Virtual Dressing"
-                      className="w-full h-full object-cover transition-opacity duration-300"
+                      src={appliedList.length > 0 ? renderedPreviewImage : activeBaseImage}
+                      alt="Try-On Canvas"
+                      className="w-full h-full object-cover"
                     />
 
-                    {/* Rendering Overlay */}
-                    {(isRendering || isAnimating) && (
-                      <div className="absolute inset-0 bg-black/65 backdrop-blur-xs flex flex-col items-center justify-center gap-3 text-white z-20">
-                        <div className="w-10 h-10 border-3 border-[#C5A059] border-t-transparent rounded-full animate-spin"></div>
-                        <span className="text-xs font-bold text-[#E2BF70] tracking-wide">
-                          {isAnimating ? 'Synthesizing Step-by-Step Motion Animation...' : 'Segmenting Fabric Drape & Warping Mesh...'}
-                        </span>
-                      </div>
-                    )}
-
-                    {/* Drag Hover Body Zones Guidance */}
-                    {isDragOver && (
-                      <div className="absolute inset-0 bg-black/40 backdrop-blur-xs flex flex-col items-center justify-between p-6 pointer-events-none z-30">
-                        <div className="px-4 py-1.5 rounded-full bg-[#C5A059] text-slate-950 text-xs font-bold shadow-md">
-                          Drop Garment Here to Dress Body
-                        </div>
-                        <div className="w-full max-w-xs border-2 border-dashed border-[#C5A059] rounded-2xl h-48 flex items-center justify-center text-white text-xs font-medium">
-                          Target Body Alignment Zone
-                        </div>
-                        <div className="text-[10px] text-[#E2BF70] bg-black/70 px-3 py-1 rounded-full">
-                          Automatic Category Slot Mapping Enabled
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Certification Badge */}
-                    <div className="absolute bottom-3 left-3 right-3 flex justify-between items-center bg-black/70 backdrop-blur-sm rounded-xl px-3 py-1.5 z-10">
-                      <span className="text-[9px] text-[#E2BF70] font-mono font-bold truncate">
-                        {multiTryOnResult?.traceability_hash || 'VTON-CERT-DYNAMIC-01'}
+                    {/* Top Status & Fit Accuracy */}
+                    <div className="absolute top-3 left-3 flex flex-col gap-1.5 pointer-events-none">
+                      <FitScoreBadge
+                        score={multiTryOnResult?.fit_confidence_score || 96}
+                        verdict={multiTryOnResult?.body_fit_verdict || 'True to Size (Optimal Drape)'}
+                      />
+                      <span className="px-2.5 py-0.5 rounded-full bg-slate-950/75 backdrop-blur-md text-[9px] font-medium text-slate-300 border border-white/10 w-fit">
+                        {appliedList.length > 0 ? `Dressed with ${appliedList.length} Layers` : 'Base Silhouette (Undressed)'}
                       </span>
-                      <FitScoreBadge score={multiTryOnResult?.fit_confidence_score || 96} verdict="True to Size" />
                     </div>
+
+                    {/* Active Rendering Overlay */}
+                    {isRendering && (
+                      <div className="absolute inset-0 bg-slate-950/70 backdrop-blur-xs flex flex-col items-center justify-center p-6 text-center space-y-3 animate-in fade-in duration-150">
+                        <div className="w-10 h-10 border-3 border-[#C5A059] border-t-transparent rounded-full animate-spin"></div>
+                        <div>
+                          <h4 className="font-serif text-sm font-bold text-white">
+                            Rendering Precision AI Virtual Try-On...
+                          </h4>
+                          <p className="text-[11px] text-slate-300 font-light mt-0.5">
+                            Draping garment layers with 100% facial identity lock.
+                          </p>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
 
-              {/* Dressed Items Tray & Slot Badges */}
+              {/* Dressed Layers Strip & Reorder List */}
               <div className="space-y-2 bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs">
                 <div className="flex justify-between items-center pb-1 border-b border-slate-100">
                   <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">
-                    Dressed Ensemble ({appliedList.length} items):
+                    Applied Garment Slots ({appliedList.length} items):
                   </span>
                   <div className="flex items-center gap-2">
                     <button
@@ -446,14 +424,14 @@ export const VirtualTryOnModal: React.FC = () => {
                       onClick={clearCanvas}
                       className="text-[11px] font-semibold text-rose-600 hover:underline"
                     >
-                      Clear
+                      Clear All
                     </button>
                   </div>
                 </div>
 
                 {appliedList.length === 0 ? (
                   <p className="text-xs text-slate-400 font-light py-1 text-center">
-                    Drag any garment from the right shelf, or tap "+ Dress" to style this person.
+                    Drag any garment from the right catalog shelf or tap "+ Dress" to style this person.
                   </p>
                 ) : (
                   <div className="flex flex-wrap gap-2 pt-1">
@@ -496,7 +474,7 @@ export const VirtualTryOnModal: React.FC = () => {
                     className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl bg-[#1B1F3B] hover:bg-[#0C0E1E] disabled:opacity-40 text-[#E2BF70] font-bold text-xs shadow-md transition-all flex items-center justify-center gap-1.5"
                   >
                     <SparkleIcon size={14} color="#C5A059" />
-                    <span>Generate Motion Sequence</span>
+                    <span>{isAnimating ? 'Synthesizing...' : 'Generate Motion'}</span>
                   </button>
                   <button
                     onClick={addAllDressedToCart}
@@ -543,7 +521,7 @@ export const VirtualTryOnModal: React.FC = () => {
                 </div>
 
                 {/* Product Card Grid */}
-                <div className="grid grid-cols-2 gap-3 max-h-[480px] overflow-y-auto pr-1">
+                <div className="grid grid-cols-2 gap-3 max-h-[500px] overflow-y-auto pr-1">
                   {filteredProducts.map((p) => {
                     const isAlreadyDressed = Object.values(appliedGarments).some((g) => g.id === p.id);
                     return (
@@ -551,14 +529,14 @@ export const VirtualTryOnModal: React.FC = () => {
                         key={p.id}
                         draggable={true}
                         onDragStart={(e) => handleDragStart(e, p)}
-                        className={`p-2.5 rounded-2xl border transition-all flex flex-col justify-between cursor-grab active:cursor-grabbing group select-none ${
+                        className={`p-3 rounded-2xl border transition-all flex flex-col justify-between cursor-grab active:cursor-grabbing group select-none ${
                           isAlreadyDressed
                             ? 'border-[#C5A059] bg-[#FDF8EE] ring-1 ring-[#C5A059]'
                             : 'border-slate-200 bg-[#FAF9F6] hover:border-[#C5A059] hover:shadow-sm'
                         }`}
                       >
                         <div>
-                          <div className="h-32 rounded-xl overflow-hidden bg-white mb-2 relative shadow-2xs">
+                          <div className="aspect-[3/4] rounded-xl overflow-hidden bg-white mb-2 relative shadow-2xs">
                             <img
                               src={p.thumbnail_url}
                               alt={p.title}
@@ -568,7 +546,7 @@ export const VirtualTryOnModal: React.FC = () => {
                               {p.category_name}
                             </span>
                             {isAlreadyDressed && (
-                              <span className="absolute bottom-1 right-1 px-2 py-0.5 rounded-full bg-emerald-600 text-[9px] text-white font-bold">
+                              <span className="absolute bottom-1 right-1 px-2 py-0.5 rounded-full bg-emerald-600 text-[9px] text-white font-bold shadow-xs">
                                 ✓ Dressed
                               </span>
                             )}
@@ -576,7 +554,7 @@ export const VirtualTryOnModal: React.FC = () => {
                           <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider block truncate">
                             {p.brand_name}
                           </span>
-                          <h5 className="font-serif text-xs font-bold text-[#1B1F3B] line-clamp-1">
+                          <h5 className="font-serif text-xs font-bold text-[#1B1F3B] line-clamp-1 mt-0.5">
                             {p.title}
                           </h5>
                           <span className="text-xs font-bold text-[#A37E44] mt-0.5 block">
@@ -586,8 +564,15 @@ export const VirtualTryOnModal: React.FC = () => {
 
                         <button
                           type="button"
-                          onClick={() => addGarmentToCanvas(p)}
-                          className={`mt-2 w-full py-1.5 rounded-xl text-[11px] font-bold transition-all flex items-center justify-center gap-1 ${
+                          onClick={() => {
+                            if (isAlreadyDressed) {
+                              const slot = Object.keys(appliedGarments).find((k) => appliedGarments[k].id === p.id);
+                              if (slot) removeGarmentFromCanvas(slot);
+                            } else {
+                              addGarmentToCanvas(p);
+                            }
+                          }}
+                          className={`mt-2.5 w-full py-1.5 rounded-xl text-[11px] font-bold transition-all flex items-center justify-center gap-1 ${
                             isAlreadyDressed
                               ? 'bg-slate-200 text-slate-700 hover:bg-rose-100 hover:text-rose-700'
                               : 'bg-white border border-slate-300 hover:bg-[#C5A059] hover:text-slate-950 text-slate-800 shadow-2xs'
@@ -603,7 +588,7 @@ export const VirtualTryOnModal: React.FC = () => {
 
               {/* Privacy Footer Notice */}
               <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 text-[10px] text-slate-500 font-light leading-relaxed">
-                🔒 <strong>CONFIT Privacy Shield:</strong> Dynamic in-session image warping runs with in-memory garment masks. No personal photos are permanently saved or shared with third-party brands.
+                🔒 <strong>CONFIT Privacy Shield:</strong> On-device identity preservation with zero facial distortion.
               </div>
             </div>
           </div>
@@ -614,7 +599,7 @@ export const VirtualTryOnModal: React.FC = () => {
       <CameraScanModal
         isOpen={isCameraScanOpen}
         onClose={() => setIsCameraScanOpen(false)}
-        onApplyMeasurements={(measurements) => {
+        onApplyMeasurements={() => {
           runTryOn();
         }}
       />

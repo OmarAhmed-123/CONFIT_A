@@ -152,6 +152,30 @@ class SessionInitRequest(BaseModel):
     consent_retain: Optional[bool] = False
 
 
+class ApplyMeasurementsRequest(BaseModel):
+    height_cm: float
+    chest_cm: Optional[float] = None
+    waist_cm: Optional[float] = None
+    shoulder_cm: Optional[float] = None
+
+
+@router.post("/try-on/sessions/{session_id}/apply-measurements")
+@router.post("/tryon/sessions/{session_id}/apply-measurements")
+def apply_measurements_to_session(
+    session_id: int,
+    payload: ApplyMeasurementsRequest,
+    db: Session = Depends(get_db)
+):
+    service = TryOnService(db)
+    return service.apply_measurements_to_session(
+        session_id=session_id,
+        height_cm=payload.height_cm,
+        chest_cm=payload.chest_cm,
+        waist_cm=payload.waist_cm,
+        shoulder_cm=payload.shoulder_cm
+    )
+
+
 @router.post("/try-on/sessions", status_code=status.HTTP_201_CREATED)
 @router.post("/tryon/sessions", status_code=status.HTTP_201_CREATED)
 async def create_tryon_session(

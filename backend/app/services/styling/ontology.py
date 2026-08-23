@@ -279,7 +279,7 @@ def classify_product_slot(product: Any) -> Tuple[SlotType, FormalityLevel]:
 
     # Bottoms
     if "bottom" in cat_slug or "trouser" in title or "chino" in title or "pant" in title or "skirt" in title:
-        if "suit trouser" in title or "tuxedo" in title or "pleated suit" in title:
+        if "suit trouser" in title or "tuxedo" in title or "pleated" in title or "virgin wool" in title or "formal" in style_tags:
             return SlotType.FORMAL_BOTTOM, FormalityLevel.FORMAL
         elif "chino" in title or "wide-leg" in title or "wool trouser" in title:
             return SlotType.SEMI_FORMAL_BOTTOM, FormalityLevel.SMART_CASUAL

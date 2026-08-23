@@ -90,6 +90,8 @@ export const VirtualTryOnModal: React.FC = () => {
   const currentAvatarObj = avatars.find((a) => a.id === selectedAvatar) || avatars[0];
   const activeBaseImage = uploadedUserImage || currentAvatarObj.img;
   const appliedList = Object.entries(appliedGarments);
+  const renderedResultImage = multiTryOnResult?.rendered_result_url || null;
+  const activeDisplayImage = appliedList.length > 0 && renderedResultImage ? renderedResultImage : activeBaseImage;
 
   // Filter shelf products
   const filteredProducts = products.filter((p) => {
@@ -301,25 +303,13 @@ export const VirtualTryOnModal: React.FC = () => {
                 {/* 1. Before / After Split Slider Mode */}
                 {isBeforeAfterActive ? (
                   <div className="relative w-full h-full">
-                    {/* Underlying Dressed State */}
+                    {/* Underlying Dressed State (AI-Generated Image) */}
                     <div className="relative w-full h-full">
-                      <img src={activeBaseImage} alt="Subject Base" className="w-full h-full object-cover select-none" />
-
-                      {/* Draped Garment Overlay */}
-                      {primaryGarment && (
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                          <div className="absolute top-[32%] w-44 sm:w-56 aspect-square rounded-3xl overflow-hidden border-2 border-[#C5A059]/70 shadow-2xl bg-black/30 backdrop-blur-2xs animate-in fade-in zoom-in-95 duration-200">
-                            <img
-                              src={primaryGarment.thumbnail_url}
-                              alt={primaryGarment.title}
-                              className="w-full h-full object-cover"
-                            />
-                            <span className="absolute bottom-2 inset-x-2 py-1 rounded-lg bg-slate-950/80 text-[9px] text-[#C5A059] font-bold text-center border border-[#C5A059]/40">
-                              Draped: {primaryGarment.title}
-                            </span>
-                          </div>
-                        </div>
-                      )}
+                      <img
+                        src={activeDisplayImage}
+                        alt="Dressed State"
+                        className="w-full h-full object-cover select-none"
+                      />
                     </div>
 
                     {/* Left Clipped Original Image (Undressed Reference) */}
@@ -329,7 +319,7 @@ export const VirtualTryOnModal: React.FC = () => {
                     >
                       <img
                         src={activeBaseImage}
-                        alt="Original"
+                        alt="Original Reference"
                         className="w-full h-full object-cover select-none"
                       />
                     </div>
@@ -362,24 +352,11 @@ export const VirtualTryOnModal: React.FC = () => {
                   /* 2. Layer Assembly Sequence Player */
                   <div className="relative w-full h-full flex flex-col justify-between p-4 bg-slate-950">
                     <img
-                      src={activeBaseImage}
+                      src={animationResult.keyframes_sequence[activeKeyframeIndex]?.image_url || activeDisplayImage}
                       alt="Animation Frame"
                       className="absolute inset-0 w-full h-full object-cover"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-black/40 pointer-events-none" />
-
-                    {/* Keyframe Drape Spotlight */}
-                    {animationResult.keyframes_sequence[activeKeyframeIndex] && (
-                      <div className="relative z-10 flex flex-col items-center justify-center my-auto">
-                        <div className="w-44 sm:w-52 aspect-square rounded-3xl overflow-hidden border-2 border-[#C5A059] shadow-2xl bg-black/40 backdrop-blur-xs animate-in fade-in zoom-in-95 duration-200">
-                          <img
-                            src={animationResult.keyframes_sequence[activeKeyframeIndex]?.image_url}
-                            alt="Garment Frame"
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                      </div>
-                    )}
 
                     {/* Top Aspect & Animation Status */}
                     <div className="relative z-10 flex justify-between items-center">
@@ -424,27 +401,13 @@ export const VirtualTryOnModal: React.FC = () => {
                     </div>
                   </div>
                 ) : (
-                  /* 3. Static High-Fidelity Try-On Stage */
+                  /* 3. Static High-Fidelity Generative Try-On Stage */
                   <div className="relative w-full h-full flex items-center justify-center">
                     <img
-                      src={activeBaseImage}
+                      src={activeDisplayImage}
                       alt="Try-On Canvas"
                       className="w-full h-full object-cover select-none"
                     />
-
-                    {/* Draped Garment Contour Overlay */}
-                    {primaryGarment && (
-                      <div className="absolute top-[30%] w-48 sm:w-60 aspect-square rounded-3xl overflow-hidden border-2 border-[#C5A059]/80 shadow-2xl bg-black/35 backdrop-blur-2xs animate-in fade-in zoom-in-95 duration-200">
-                        <img
-                          src={primaryGarment.thumbnail_url}
-                          alt={primaryGarment.title}
-                          className="w-full h-full object-cover"
-                        />
-                        <div className="absolute bottom-2 inset-x-2 py-1 rounded-lg bg-slate-950/80 text-[10px] text-[#C5A059] font-bold text-center border border-[#C5A059]/30">
-                          ✓ Dressed: {primaryGarment.title}
-                        </div>
-                      </div>
-                    )}
 
                     {/* Top Status & Fit Accuracy (Dynamic calculations) */}
                     <div className="absolute top-3 left-3 flex flex-col gap-1.5 pointer-events-none">
@@ -465,7 +428,7 @@ export const VirtualTryOnModal: React.FC = () => {
                         <div className="w-10 h-10 border-3 border-[#C5A059] border-t-transparent rounded-full animate-spin"></div>
                         <div>
                           <h4 className="font-serif text-sm font-bold text-white">
-                            Rendering Virtual Try-On Layer...
+                            Synthesizing Virtual Try-On Layer...
                           </h4>
                           <p className="text-[11px] text-slate-300 font-light mt-0.5">
                             Draping garment with 100% facial identity preservation.

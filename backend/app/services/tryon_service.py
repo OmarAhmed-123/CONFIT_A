@@ -500,6 +500,34 @@ class TryOnService:
             "layering_order": slot_order
         }
 
+    def apply_measurements_to_session(
+        self,
+        session_id: int,
+        height_cm: float,
+        chest_cm: Optional[float] = None,
+        waist_cm: Optional[float] = None,
+        shoulder_cm: Optional[float] = None
+    ) -> Dict[str, Any]:
+        session = self.tryon_repo.get_tryon_session(session_id)
+        if not session:
+            raise ResourceNotFoundError("TryOnSession", session_id)
+
+        scaling = round(float(height_cm) / 175.0, 2)
+        session.body_scaling_factor = scaling
+        self.db.commit()
+
+        return {
+            "session_id": session.id,
+            "status": "scaling_applied",
+            "scaling_factor": scaling,
+            "applied_measurements": {
+                "height_cm": height_cm,
+                "chest_cm": chest_cm,
+                "waist_cm": waist_cm,
+                "shoulder_cm": shoulder_cm
+            }
+        }
+
     def purge_tryon_session(self, session_id: int) -> Dict[str, Any]:
         purged = self.tryon_repo.purge_session(session_id)
         if not purged:

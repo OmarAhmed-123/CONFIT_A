@@ -24,7 +24,11 @@ class TryOnJob(Base):
     job_id = Column(String(64), unique=True, index=True, nullable=False)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     session_id = Column(Integer, ForeignKey("tryon_sessions.id", ondelete="SET NULL"), nullable=True)
-    status = Column(Enum(TryOnJobStatus), default=TryOnJobStatus.QUEUED, nullable=False)
+    status = Column(
+        Enum(TryOnJobStatus, values_callable=lambda obj: [e.value for e in obj], name="tryonjobstatus"),
+        default=TryOnJobStatus.QUEUED,
+        nullable=False
+    )
     progress_pct = Column(Integer, default=0, nullable=False)
     current_stage = Column(String(50), default="queued", nullable=False)
     input_person_image_url = Column(Text, nullable=False)

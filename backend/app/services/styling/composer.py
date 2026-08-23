@@ -207,8 +207,9 @@ class OutfitComposer:
             if outer and formality in ["formal", "black_tie"]:
                 # Match color with jacket
                 outer_color = getattr(outer, "color_family", "").lower()
-                matching_bottoms = [b for b in slot_map[SlotType.FORMAL_BOTTOM] if b.color_family.lower() in outer_color or outer_color in b.color_family.lower()]
-                bottom = matching_bottoms[0] if matching_bottoms else (slot_map[SlotType.FORMAL_BOTTOM][0] if slot_map[SlotType.FORMAL_BOTTOM] else None)
+                all_formal_bottoms = slot_map[SlotType.FORMAL_BOTTOM] + slot_map[SlotType.SEMI_FORMAL_BOTTOM]
+                matching_bottoms = [b for b in all_formal_bottoms if b.color_family.lower() in outer_color or outer_color in b.color_family.lower()]
+                bottom = matching_bottoms[0] if matching_bottoms else (all_formal_bottoms[0] if all_formal_bottoms else None)
             elif formality == "casual":
                 bottom_cands = slot_map[SlotType.CASUAL_BOTTOM] + slot_map[SlotType.SEMI_FORMAL_BOTTOM]
                 bottom = bottom_cands[0] if bottom_cands else None

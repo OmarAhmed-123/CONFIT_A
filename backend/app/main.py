@@ -19,6 +19,8 @@ from backend.app.controllers.commerce_controller import router as commerce_route
 from backend.app.controllers.brand_controller import router as brand_router
 from backend.app.controllers.admin_controller import router as admin_router
 from backend.app.controllers.telemetry_controller import router as telemetry_router
+from fastapi.staticfiles import StaticFiles
+import os
 
 setup_logging(debug=settings.DEBUG)
 
@@ -101,6 +103,15 @@ app.include_router(wardrobe_router, prefix=api_prefix)
 app.include_router(commerce_router, prefix=api_prefix)
 app.include_router(brand_router, prefix=api_prefix)
 app.include_router(admin_router, prefix=api_prefix)
+
+# Mount static files for uploads and generated try-on imagery
+uploads_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "data", "uploads"))
+os.makedirs(uploads_dir, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=uploads_dir), name="uploads")
+
+tryon_res_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "data", "uploads", "tryon_results"))
+os.makedirs(tryon_res_dir, exist_ok=True)
+app.mount("/tryon_results", StaticFiles(directory=tryon_res_dir), name="tryon_results")
 
 # Root route
 @app.get("/")

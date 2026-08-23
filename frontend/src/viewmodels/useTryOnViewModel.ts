@@ -126,15 +126,16 @@ export function useTryOnViewModel(initialProduct?: Product | null) {
         consent_retain_photo: consentRetain,
       });
 
-      if (res && res.status === 'completed') {
+      if (res && (res.status === 'completed' || res.rendered_result_url)) {
         setMultiTryOnResult(res);
         setTryOnStatus('completed');
       } else {
         setTryOnStatus('completed');
       }
     } catch (err: any) {
-      setTryOnStatus('completed');
-      console.warn('Try-on render info:', err);
+      setTryOnStatus('failed');
+      setErrorMessage(err.message || 'Try-on rendering failed');
+      console.warn('Try-on render error:', err);
     }
   }, [uploadedUserImage, selectedAvatar, consentRetain]);
 
@@ -184,14 +185,14 @@ export function useTryOnViewModel(initialProduct?: Product | null) {
             }
           }, 1200);
         }
-        showToast('Motion try-on sequence verified & rendered!', 'success');
+        showToast('Layer assembly sequence ready for playback.', 'info');
       } else {
         setMotionStatus('failed');
         showToast('Motion sequence could not be completed for current pose.', 'error');
       }
     } catch (err: any) {
       setMotionStatus('failed');
-      showToast('Motion sequence service notice: ' + (err.message || 'Service unavailable'), 'error');
+      showToast('Layer sequence notice: ' + (err.message || 'Service unavailable'), 'error');
     }
   }, [appliedGarments, uploadedUserImage, selectedAvatar, outputAspect, showToast]);
 

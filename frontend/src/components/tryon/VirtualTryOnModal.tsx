@@ -10,6 +10,7 @@ import {
   BagIcon,
   OutfitBuilderIcon,
   ShieldIcon,
+  LockIcon,
 } from '../icons/ConfitIcons';
 import { FitScoreBadge } from '../common/CommonComponents';
 import { CameraScanModal } from './CameraScanModal';
@@ -20,6 +21,8 @@ export const VirtualTryOnModal: React.FC = () => {
   const { products } = useCatalogViewModel();
 
   const {
+    tryOnStatus,
+    motionStatus,
     isRendering,
     isAnimating,
     multiTryOnResult,
@@ -40,6 +43,7 @@ export const VirtualTryOnModal: React.FC = () => {
     splitSliderPosition,
     setSplitSliderPosition,
     totalPrice,
+    dynamicFitScore,
     addGarmentToCanvas,
     removeGarmentFromCanvas,
     clearCanvas,
@@ -61,28 +65,24 @@ export const VirtualTryOnModal: React.FC = () => {
       id: 'avatar_athletic_m',
       name: 'Athletic Male',
       img: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600&auto=format&fit=crop&q=80',
-      dressedImg: 'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?w=600&auto=format&fit=crop&q=80',
       gender: 'male',
     },
     {
       id: 'avatar_hourglass_f',
       name: 'Hourglass Female',
       img: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=600&auto=format&fit=crop&q=80',
-      dressedImg: 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=600&auto=format&fit=crop&q=80',
       gender: 'female',
     },
     {
       id: 'avatar_curvy_f',
       name: 'Curvy Female',
       img: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=600&auto=format&fit=crop&q=80',
-      dressedImg: 'https://images.unsplash.com/photo-1543163521-1bf539c55dd2?w=600&auto=format&fit=crop&q=80',
       gender: 'female',
     },
     {
       id: 'avatar_tall_m',
       name: 'Tall Structured',
       img: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=600&auto=format&fit=crop&q=80',
-      dressedImg: 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=600&auto=format&fit=crop&q=80',
       gender: 'male',
     },
   ];
@@ -297,14 +297,14 @@ export const VirtualTryOnModal: React.FC = () => {
                   isDragOver ? 'border-[#C5A059] ring-4 ring-[#C5A059]/30 bg-slate-900' : 'border-slate-300'
                 }`}
               >
-                {/* 1. Before / After Split Slider Mode (Aligned on the SAME exact subject) */}
+                {/* 1. Before / After Split Slider Mode */}
                 {isBeforeAfterActive ? (
                   <div className="relative w-full h-full">
                     {/* Underlying Dressed State */}
                     <div className="relative w-full h-full">
                       <img src={activeBaseImage} alt="Subject Base" className="w-full h-full object-cover select-none" />
 
-                      {/* Realistic In-Session Garment Drape Overlay */}
+                      {/* Draped Garment Overlay */}
                       {primaryGarment && (
                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                           <div className="absolute top-[32%] w-44 sm:w-56 aspect-square rounded-3xl overflow-hidden border-2 border-[#C5A059]/70 shadow-2xl bg-black/30 backdrop-blur-2xs animate-in fade-in zoom-in-95 duration-200">
@@ -445,14 +445,16 @@ export const VirtualTryOnModal: React.FC = () => {
                       </div>
                     )}
 
-                    {/* Top Status & Fit Accuracy */}
+                    {/* Top Status & Fit Accuracy (Dynamic calculations) */}
                     <div className="absolute top-3 left-3 flex flex-col gap-1.5 pointer-events-none">
                       <FitScoreBadge
-                        score={multiTryOnResult?.fit_confidence_score || 96}
+                        score={dynamicFitScore}
                         verdict="Identity Lock Verified"
                       />
                       <span className="px-2.5 py-0.5 rounded-full bg-slate-950/75 backdrop-blur-md text-[9px] font-medium text-slate-300 border border-white/10 w-fit">
-                        {appliedList.length > 0 ? `Dressed with ${appliedList.length} Layers` : 'Base Silhouette (Ready for Styling)'}
+                        {appliedList.length > 0
+                          ? `Dressed with ${appliedList.length} Garment Layer${appliedList.length === 1 ? '' : 's'}`
+                          : 'Base Silhouette (Ready for Styling)'}
                       </span>
                     </div>
 

@@ -13,7 +13,7 @@ interface UIState {
   authModalMode: 'login' | 'register';
 
   // Toast
-  toast: { message: string; type: 'success' | 'error' | 'info' } | null;
+  toast: { message: string; type: 'success' | 'error' | 'info'; id: string } | null;
 
   // Language
   language: 'en' | 'ar';
@@ -33,6 +33,10 @@ interface UIState {
   hideToast: () => void;
   setLanguage: (lang: 'en' | 'ar') => void;
 }
+
+let toastTimer: any = null;
+let lastToastMessage = '';
+let lastToastTime = 0;
 
 export const useUIStore = create<UIState>((set) => ({
   tryOnProduct: null,
@@ -61,12 +65,30 @@ export const useUIStore = create<UIState>((set) => ({
   closeAuthModal: () => set({ isAuthModalOpen: false }),
 
   showToast: (message, type = 'info') => {
-    set({ toast: { message, type } });
-    setTimeout(() => {
+    const now = Date.now();
+    // Debounce duplicate messages within 1.5 seconds
+    if (message === lastToastMessage && now - lastToastTime < 1500) {
+      return;
+    }
+    lastToastMessage = message;
+    lastToastTime = now;
+
+    if (toastTimer) clearTimeout(toastTimer);
+
+    const toastId = `toast_${now}_${Math.random().toString(36).substring(2, 7)}`;
+    set({ toast: { message, type, id: toastId } });
+
+    toastTimer = setTimeout(() => {
       set({ toast: null });
+      toastTimer = null;
     }, 4000);
   },
-  hideToast: () => set({ toast: null }),
+
+  hideToast: () => {
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = null;
+    set({ toast: null });
+  },
 
   setLanguage: (lang) => {
     setAppLanguage(lang);

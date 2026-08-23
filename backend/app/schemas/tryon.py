@@ -3,6 +3,46 @@ from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, Field, ConfigDict
 
 
+class TryOnJobCreate(BaseModel):
+    product_ids: List[int]
+    user_image_url: Optional[str] = None
+    user_image_base64: Optional[str] = None
+    avatar_model_id: Optional[str] = "avatar_athletic_m"
+    gender_mode: Optional[str] = "infer_from_image"
+    output_aspect: Optional[str] = "9:16"
+    background_mode: Optional[str] = "studio"
+    consent_retain_photo: bool = False
+
+
+class TryOnJobOut(BaseModel):
+    id: int
+    job_id: str
+    status: str
+    progress_pct: int
+    current_stage: str
+    model_used: str
+    output_image_url: Optional[str] = None
+    metrics: Dict[str, Any] = {}
+    error_code: Optional[str] = None
+    error_message: Optional[str] = None
+    created_at: datetime
+    completed_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class GarmentAssetOut(BaseModel):
+    id: int
+    product_id: int
+    slot_type: str
+    flat_image_url: str
+    segmented_garment_url: Optional[str] = None
+    garment_mask_url: Optional[str] = None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class ApplyItemRequest(BaseModel):
     product_id: int
     slot: Optional[str] = None
@@ -198,7 +238,7 @@ class VisualSearchResponse(BaseModel):
     matches: List[VisualSearchResultItem]
 
 
-# Measurement Flow Schemas (Section 12 & 13)
+# Measurement Flow Schemas
 class MeasurementSessionCreate(BaseModel):
     capture_mode: str = Field(default="client_side", description="'client_side', 'server_side', 'manual'")
     consent_granted: bool = True

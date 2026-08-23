@@ -259,3 +259,8 @@ class SlotLayeringEngine:
             requires_render=True,
             truthfulness_flags={"is_supported": True, "conflict_cleared": False}
         )
+
+    @classmethod
+    def reorder_layers(cls, existing_items: List[Dict[str, Any]], slot_order: List[str]) -> List[Dict[str, Any]]:
+        order_map = {slot: idx for idx, slot in enumerate(slot_order)}
+        return sorted(existing_items, key=lambda it: order_map.get(it.get("position", ""), 99))

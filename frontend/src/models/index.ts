@@ -548,3 +548,38 @@ export interface AdminPlatformAnalytics {
     trending_colors: string[];
   };
 }
+
+export type TryOnJobStatusType =
+  | 'queued'
+  | 'parsing_person'
+  | 'warping_garment'
+  | 'diffusion_rendering'
+  | 'harmonizing'
+  | 'completed'
+  | 'failed'
+  | 'cancelled';
+
+export interface TryOnJob {
+  id: number;
+  job_id: string;
+  status: TryOnJobStatusType;
+  progress_pct: number;
+  current_stage: string;
+  model_used: string;
+  output_image_url?: string | null;
+  metrics: Record<string, any>;
+  error_code?: string | null;
+  error_message?: string | null;
+  created_at: string;
+  completed_at?: string | null;
+}
+
+export interface GarmentAsset {
+  id: number;
+  product_id: number;
+  slot_type: string;
+  flat_image_url: string;
+  segmented_garment_url?: string;
+  garment_mask_url?: string;
+  created_at: string;
+}

@@ -1,9 +1,8 @@
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Optional, List, Dict, Any
-from sqlalchemy.orm import Session, joinedload
-from backend.app.models.tryon import TryOnSession, VisualSearchQuery
-from backend.app.models.catalog import Product
+from sqlalchemy.orm import Session
+from backend.app.models.tryon import TryOnSession, VisualSearchQuery, MeasurementSession, MeasurementResult
 
 
 class TryOnRepository:
@@ -33,13 +32,16 @@ class TryOnRepository:
             guest_session_token=guest_token,
             product_id=product_id,
             outfit_id=outfit_id,
+            user_image_url=input_user_image_url,
             input_user_image_url=input_user_image_url,
             garment_image_url=garment_image_url or (applied_items[0]["image_url"] if applied_items else None),
+            rendered_image_url=rendered_result_url,
             rendered_result_url=rendered_result_url,
             applied_items_json=json.dumps(applied_items or []),
             slot_mapping_json=json.dumps(slot_mapping or {}),
             layering_order_json=json.dumps([it.get("position") for it in (applied_items or [])]),
             status="completed",
+            fit_verdict=fit_verdict,
             body_fit_verdict=fit_verdict,
             fit_confidence_score=fit_confidence_score,
             body_scaling_factor=body_scaling_factor,

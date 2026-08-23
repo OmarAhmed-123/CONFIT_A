@@ -163,7 +163,7 @@ export const VirtualTryOnModal: React.FC = () => {
                 <h3 className="font-serif text-base sm:text-lg font-bold text-white flex items-center gap-2">
                   <span>Dynamic Virtual Dressing Studio</span>
                   <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-[#C5A059]/20 text-[#E2BF70] font-sans font-semibold">
-                    Identity-Preserving Engine
+                    Multi-Layer Dressing Engine
                   </span>
                 </h3>
                 <p className="text-xs text-slate-400 font-light hidden sm:block">
@@ -209,7 +209,7 @@ export const VirtualTryOnModal: React.FC = () => {
                     />
                   </div>
 
-                  {/* Mode Selector Tabs: Static / Motion Animation / Compare */}
+                  {/* Mode Selector Tabs: Static / Layer Assembly / Compare */}
                   <div className="flex items-center bg-white p-1 rounded-xl border border-slate-200 text-xs font-bold shadow-2xs">
                     <button
                       onClick={() => {
@@ -228,6 +228,7 @@ export const VirtualTryOnModal: React.FC = () => {
                       onClick={() => {
                         setActivePreviewTab('animation');
                         setIsBeforeAfterActive(false);
+                        if (!animationResult) runAnimatedTryOn();
                       }}
                       className={`px-3 py-1 rounded-lg transition-all flex items-center gap-1 ${
                         activePreviewTab === 'animation' && !isBeforeAfterActive
@@ -236,7 +237,7 @@ export const VirtualTryOnModal: React.FC = () => {
                       }`}
                     >
                       <SparkleIcon size={12} color="#C5A059" />
-                      <span>Motion Sequence</span>
+                      <span>Layer Assembly</span>
                     </button>
                     <button
                       onClick={() => {
@@ -358,7 +359,7 @@ export const VirtualTryOnModal: React.FC = () => {
                     </span>
                   </div>
                 ) : activePreviewTab === 'animation' && animationResult ? (
-                  /* 2. Motion Animation Sequence Player */
+                  /* 2. Layer Assembly Sequence Player */
                   <div className="relative w-full h-full flex flex-col justify-between p-4 bg-slate-950">
                     <img
                       src={activeBaseImage}
@@ -383,7 +384,7 @@ export const VirtualTryOnModal: React.FC = () => {
                     {/* Top Aspect & Animation Status */}
                     <div className="relative z-10 flex justify-between items-center">
                       <span className="px-2.5 py-1 rounded-full bg-[#C5A059] text-slate-950 text-[10px] font-bold">
-                        🎬 Motion Layer Player
+                        🎬 Layer Assembly Sequence
                       </span>
                       <div className="flex gap-1 bg-black/60 p-0.5 rounded-lg border border-white/10 text-[9px] text-white">
                         {(['9:16', '4:5', '1:1'] as const).map((asp) => (
@@ -543,7 +544,7 @@ export const VirtualTryOnModal: React.FC = () => {
                     className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl bg-[#1B1F3B] hover:bg-[#0C0E1E] disabled:opacity-40 text-[#E2BF70] font-bold text-xs shadow-md transition-all flex items-center justify-center gap-1.5"
                   >
                     <SparkleIcon size={14} color="#C5A059" />
-                    <span>{isAnimating ? 'Synthesizing...' : 'Generate Motion'}</span>
+                    <span>{isAnimating ? 'Synthesizing...' : 'Play Layer Sequence'}</span>
                   </button>
                   <button
                     onClick={addAllDressedToCart}

@@ -25,6 +25,8 @@ class Settings(BaseSettings):
 
     # CORS (Explicit Origins only when credentials enabled)
     CORS_ORIGINS: List[str] = [
+        "https://confit-a.vercel.app",
+        "https://confit.vercel.app",
         "http://localhost:5173",
         "http://127.0.0.1:5173",
         "http://localhost:3000",
@@ -68,7 +70,7 @@ class Settings(BaseSettings):
     DUPLICATE_ALERT_SIMILARITY_THRESHOLD: float = 0.82
 
     model_config = SettingsConfigDict(
-        env_file="backend/.env",
+        env_file=("backend/.env", ".env"),
         extra="allow",
         case_sensitive=True
     )

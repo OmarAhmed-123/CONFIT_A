@@ -79,9 +79,11 @@ export async function request<T>(
       const err = errJson.error || {};
       let userFriendlyMessage = err.message || `Request failed with status ${res.status}`;
 
-      // Normalize raw auth errors into polite, human-readable microcopy (Section 5.4)
+      // Normalize raw auth and routing errors into polite, human-readable microcopy
       if (res.status === 401 || (userFriendlyMessage && userFriendlyMessage.toLowerCase().includes('bearer token'))) {
         userFriendlyMessage = 'Sign in to access your personal style profile and account features.';
+      } else if (res.status === 405) {
+        userFriendlyMessage = 'Service endpoint updating. Please try again in a moment.';
       }
 
       throw new ApiError(

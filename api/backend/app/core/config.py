@@ -53,6 +53,7 @@ class Settings(BaseSettings):
     AI_PROVIDERS: str = "nvidia,groq,gemini,openai"
     AI_STYLIST_PROVIDER: str = "hybrid"
     VTON_PROVIDER: str = "hybrid"
+    VTON_WORKER_URL: Optional[str] = None
     CHAT_COOLDOWN_MS: int = 600000
 
     # Market & Commerce defaults

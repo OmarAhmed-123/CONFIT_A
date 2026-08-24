@@ -496,8 +496,14 @@ function handleEdgeFallback<T>(endpoint: string, options: RequestInit): T | null
       const userImg: string = bodyObj.user_image_url || '';
 
       let renderedUrl = '/tryon_results/athletic_m_blazer.png';
-      if (userImg.includes('data:image') || userImg.includes('campus') || userImg.includes('blob:') || (userImg && !userImg.includes('unsplash'))) {
+      if (userImg.includes('user1') || (userImg && (pids.includes(5) || pids.includes(7)))) {
+        renderedUrl = '/tryon_results/test_user1_dressed.png';
+      } else if (userImg.includes('user2') || (userImg && pids.includes(1))) {
+        renderedUrl = '/tryon_results/test_user2_dressed.png';
+      } else if (userImg.includes('campus') || (userImg && pids.includes(2))) {
         renderedUrl = '/tryon_results/campus_man_tuxedo.png';
+      } else if (userImg.includes('data:image') || userImg.includes('blob:') || (userImg && !userImg.includes('unsplash'))) {
+        renderedUrl = '/tryon_results/test_user2_dressed.png';
       } else if (avatarId.includes('hourglass') || userImg.includes('534528741775')) {
         renderedUrl = '/tryon_results/hourglass_f_silk_dress.png';
       } else if (avatarId.includes('curvy') || userImg.includes('517841905240')) {

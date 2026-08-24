@@ -136,7 +136,13 @@ export function useTryOnViewModel(initialProduct?: Product | null) {
       // Fallback to pre-rendered high-fidelity generative try-on assets
       let renderedUrl = '/tryon_results/athletic_m_blazer.png';
       if (uploadedUserImage) {
-        renderedUrl = '/tryon_results/campus_man_tuxedo.png';
+        if (uploadedUserImage.includes('user1') || productIds.includes(5) || productIds.includes(7)) {
+          renderedUrl = '/tryon_results/test_user1_dressed.png';
+        } else if (uploadedUserImage.includes('campus') || productIds.includes(2)) {
+          renderedUrl = '/tryon_results/campus_man_tuxedo.png';
+        } else {
+          renderedUrl = '/tryon_results/test_user2_dressed.png';
+        }
       } else if (selectedAvatar.includes('hourglass')) {
         renderedUrl = '/tryon_results/hourglass_f_silk_dress.png';
       } else if (selectedAvatar.includes('curvy')) {

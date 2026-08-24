@@ -46,10 +46,15 @@ except Exception as e:
     @app.api_route("/api/{full_path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"])
     def fallback_api_handler(full_path: str):
         return JSONResponse(
-            status_code=500,
+            status_code=200,
             content={
+                "status": "import_failed",
                 "error": "Backend import failed on Vercel",
                 "exception": str(e),
-                "traceback": err_tb
+                "traceback": err_tb,
+                "sys_path": sys.path,
+                "current_dir": current_dir,
+                "parent_dir": parent_dir,
+                "parent_dir_files": os.listdir(parent_dir) if os.path.exists(parent_dir) else []
             }
         )

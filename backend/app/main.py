@@ -28,7 +28,10 @@ setup_logging(debug=settings.DEBUG)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Initializing CONFIT API Engine", version=settings.VERSION, env=settings.ENVIRONMENT)
-    Base.metadata.create_all(bind=engine)
+    try:
+        Base.metadata.create_all(bind=engine)
+    except Exception as exc:
+        logger.warn("Database initialization notice", error=str(exc))
     yield
     logger.info("Shutting down CONFIT API Engine")
 

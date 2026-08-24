@@ -3,7 +3,13 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
 from backend.app.core.config import settings
 
-db_url = settings.DATABASE_URL or "sqlite:///./backend/data/confit.db"
+is_serverless = bool(os.environ.get("VERCEL") or os.environ.get("AWS_LAMBDA_FUNCTION_NAME"))
+prod_neon_db = "postgresql://neondb_owner:npg_LV59RjkGCHeZ@ep-frosty-term-b2ivqwuz-pooler.c-6.eu-central-1.aws.neon.tech/neondb?sslmode=require"
+
+db_url = settings.DATABASE_URL or (prod_neon_db if is_serverless else "sqlite:///./backend/data/confit.db")
+if is_serverless and ("sqlite" in db_url or not db_url):
+    db_url = prod_neon_db
+
 if db_url.startswith("postgres://"):
     db_url = db_url.replace("postgres://", "postgresql://", 1)
 

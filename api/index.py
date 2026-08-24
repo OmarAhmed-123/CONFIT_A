@@ -8,6 +8,6 @@ from backend.app.main import app
 
 try:
     from mangum import Mangum
-    handler = Mangum(app)
+    handler = Mangum(app, lifespan="off")
 except Exception:
     handler = app

@@ -128,6 +128,30 @@ def root():
     }
 
 
+@app.get("/api/v1/diagnostic")
+def diagnostic():
+    try:
+        from backend.app.core.database import SessionLocal, engine
+        from backend.app.models.user import User
+        db = SessionLocal()
+        users = db.query(User).all()
+        u_data = [{"id": u.id, "email": u.email, "role": str(u.role)} for u in users]
+        db.close()
+        return {
+            "status": "ok",
+            "db_engine": str(engine.url),
+            "users_count": len(users),
+            "users": u_data
+        }
+    except Exception as e:
+        import traceback
+        return {
+            "status": "db_error",
+            "error": str(e),
+            "traceback": traceback.format_exc()
+        }
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("backend.app.main:app", host="0.0.0.0", port=8000, reload=True)

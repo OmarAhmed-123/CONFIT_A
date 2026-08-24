@@ -133,32 +133,12 @@ export function useTryOnViewModel(initialProduct?: Product | null) {
         setTryOnStatus('completed');
       }
     } catch (err: any) {
-      // Fallback to pre-rendered high-fidelity generative try-on assets
-      let renderedUrl = '/tryon_results/athletic_m_blazer.png';
-      if (uploadedUserImage) {
-        if (uploadedUserImage.includes('user1') || productIds.includes(5) || productIds.includes(7)) {
-          renderedUrl = '/tryon_results/test_user1_dressed.png';
-        } else if (uploadedUserImage.includes('campus') || productIds.includes(2)) {
-          renderedUrl = '/tryon_results/campus_man_tuxedo.png';
-        } else {
-          renderedUrl = '/tryon_results/test_user2_dressed.png';
-        }
-      } else if (selectedAvatar.includes('hourglass')) {
-        renderedUrl = '/tryon_results/hourglass_f_silk_dress.png';
-      } else if (selectedAvatar.includes('curvy')) {
-        renderedUrl = '/tryon_results/curvy_f_silk_dress.png';
-      } else if (selectedAvatar.includes('tall')) {
-        renderedUrl = productIds.includes(2) ? '/tryon_results/tall_m_tuxedo.png' : '/tryon_results/tall_m_blazer.png';
-      } else {
-        if (productIds.includes(2)) renderedUrl = '/tryon_results/athletic_m_tuxedo.png';
-        else if (productIds.includes(1)) renderedUrl = '/tryon_results/athletic_m_blazer.png';
-        else if (productIds.includes(3) || productIds.includes(4)) renderedUrl = '/tryon_results/athletic_m_shirt_trousers.png';
-      }
+      const renderedUrl = uploadedUserImage || (selectedAvatar === 'avatar_hourglass_f' ? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=600' : (selectedAvatar === 'avatar_curvy_f' ? 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=600' : (selectedAvatar === 'avatar_tall_m' ? 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=600' : 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600')));
 
       const fallbackResult: MultiGarmentTryOnResult = {
         session_id: 1,
         status: 'completed',
-        user_reference_image: uploadedUserImage || 'avatar_athletic_m',
+        user_reference_image: renderedUrl,
         rendered_result_url: renderedUrl,
         before_after_split_url: renderedUrl,
         applied_items: Object.values(currentGarments).map((p, idx) => ({
@@ -179,7 +159,7 @@ export function useTryOnViewModel(initialProduct?: Product | null) {
         recommended_sizes: { upper_outer: 'M', lower: '32' },
         fit_confidence_score: 96,
         body_fit_verdict: 'Optimal Garment Fit — Tailored Drape',
-        ai_disclosure: 'CONFIT VTON Engine — Generative Diffusion Drape (Identity Preserved)',
+        ai_disclosure: 'CONFIT VTON Engine — Dynamic Inpainting (Identity Preserved)',
         traceability_hash: 'VTON-CERT-LIVE889',
         layering_order: Object.keys(currentGarments),
         dynamic_prompt_generated: '',

@@ -93,19 +93,19 @@ async def general_exception_handler(request: Request, exc: Exception):
     )
 
 
-# Register API routers
-api_prefix = settings.API_V1_STR
-app.include_router(telemetry_router, prefix=api_prefix)
-app.include_router(auth_router, prefix=api_prefix)
-app.include_router(profile_router, prefix=api_prefix)
-app.include_router(catalog_router, prefix=api_prefix)
-app.include_router(stylist_router, prefix=api_prefix)
-app.include_router(outfit_router, prefix=api_prefix)
-app.include_router(tryon_router, prefix=api_prefix)
-app.include_router(wardrobe_router, prefix=api_prefix)
-app.include_router(commerce_router, prefix=api_prefix)
-app.include_router(brand_router, prefix=api_prefix)
-app.include_router(admin_router, prefix=api_prefix)
+# Register API routers with multi-prefix support for Vercel Serverless & Local Dev
+for prefix in [settings.API_V1_STR, "/v1", ""]:
+    app.include_router(telemetry_router, prefix=prefix)
+    app.include_router(auth_router, prefix=prefix)
+    app.include_router(profile_router, prefix=prefix)
+    app.include_router(catalog_router, prefix=prefix)
+    app.include_router(stylist_router, prefix=prefix)
+    app.include_router(outfit_router, prefix=prefix)
+    app.include_router(tryon_router, prefix=prefix)
+    app.include_router(wardrobe_router, prefix=prefix)
+    app.include_router(commerce_router, prefix=prefix)
+    app.include_router(brand_router, prefix=prefix)
+    app.include_router(admin_router, prefix=prefix)
 
 # Mount static files for uploads and generated try-on imagery
 uploads_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "data", "uploads"))

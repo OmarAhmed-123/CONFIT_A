@@ -134,7 +134,7 @@ export function useTryOnViewModel(initialProduct?: Product | null) {
       }
     } catch (err: any) {
       // Fallback to pre-rendered high-fidelity generative try-on assets
-      let renderedUrl = '/tryon_results/athletic_m_tuxedo.png';
+      let renderedUrl = '/tryon_results/athletic_m_blazer.png';
       if (uploadedUserImage) {
         renderedUrl = '/tryon_results/campus_man_tuxedo.png';
       } else if (selectedAvatar.includes('hourglass')) {

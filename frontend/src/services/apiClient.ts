@@ -491,18 +491,18 @@ function handleEdgeFallback<T>(endpoint: string, options: RequestInit): T | null
         } as unknown as T;
       }
 
-      const pids: number[] = bodyObj.product_ids || [bodyObj.product_id || 2];
+      const pids: number[] = bodyObj.product_ids || [bodyObj.product_id || 1];
       const avatarId: string = bodyObj.avatar_model_id || 'avatar_athletic_m';
       const userImg: string = bodyObj.user_image_url || '';
 
-      let renderedUrl = '/tryon_results/athletic_m_tuxedo.png';
-      if (userImg.includes('data:image') || userImg.includes('campus') || userImg.includes('blob:')) {
+      let renderedUrl = '/tryon_results/athletic_m_blazer.png';
+      if (userImg.includes('data:image') || userImg.includes('campus') || userImg.includes('blob:') || (userImg && !userImg.includes('unsplash'))) {
         renderedUrl = '/tryon_results/campus_man_tuxedo.png';
-      } else if (avatarId.includes('hourglass')) {
+      } else if (avatarId.includes('hourglass') || userImg.includes('534528741775')) {
         renderedUrl = '/tryon_results/hourglass_f_silk_dress.png';
-      } else if (avatarId.includes('curvy')) {
+      } else if (avatarId.includes('curvy') || userImg.includes('517841905240')) {
         renderedUrl = '/tryon_results/curvy_f_silk_dress.png';
-      } else if (avatarId.includes('tall')) {
+      } else if (avatarId.includes('tall') || userImg.includes('500648767791')) {
         renderedUrl = pids.includes(2) ? '/tryon_results/tall_m_tuxedo.png' : '/tryon_results/tall_m_blazer.png';
       } else {
         if (pids.includes(2)) renderedUrl = '/tryon_results/athletic_m_tuxedo.png';

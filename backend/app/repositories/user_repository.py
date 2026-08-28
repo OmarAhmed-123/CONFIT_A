@@ -1,6 +1,6 @@
-from typing import Optional, List
+from typing import Optional
 from sqlalchemy.orm import Session
-from backend.app.models.user import User, UserRole, BrandProfile, AuditLog
+from backend.app.models.user import User, UserRole, AuditLog
 from backend.app.core.security import get_password_hash
 
 

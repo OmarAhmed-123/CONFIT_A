@@ -1,7 +1,6 @@
 import re
 from typing import Any, Dict, List, Optional
 from backend.app.providers.base import BaseProvider
-from backend.app.core.logging import logger
 
 
 class StylistAIProvider(BaseProvider):

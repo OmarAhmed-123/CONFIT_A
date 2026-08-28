@@ -20,7 +20,6 @@ class BasePaymentAdapter(ABC):
         metadata: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """Creates a payment intent, checkout session, or tokenized payload with the PSP."""
-        pass
 
     @abstractmethod
     async def verify_webhook_signature(
@@ -30,9 +29,7 @@ class BasePaymentAdapter(ABC):
         secret: str
     ) -> bool:
         """Verifies cryptographic HMAC signature on incoming PSP webhook callbacks."""
-        pass
 
     @abstractmethod
     async def get_transaction_status(self, provider_tx_id: str) -> Dict[str, Any]:
         """Queries PSP for current settled status."""
-        pass

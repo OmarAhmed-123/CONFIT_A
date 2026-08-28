@@ -1,9 +1,8 @@
 import asyncio
 import time
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable
 from backend.app.core.logging import logger
-from backend.app.core.exceptions import ProviderIntegrationError
 
 
 class BaseProvider(ABC):

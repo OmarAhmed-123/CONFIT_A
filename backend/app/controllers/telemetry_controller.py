@@ -1,7 +1,9 @@
+import os
 import time
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from sqlalchemy import text
+from backend.app.core.config import settings
 from backend.app.core.database import get_db
 
 router = APIRouter(tags=["System & Observability"])
@@ -17,6 +19,11 @@ def health_check(db: Session = Depends(get_db)):
     except Exception as exc:
         db_status = f"unhealthy: {str(exc)}"
 
+    # Report the try-on pipeline's real state: it is only operational when a
+    # GPU inference worker is configured. Never claim "operational" for a
+    # pipeline that cannot render.
+    worker_configured = bool(settings.VTON_WORKER_URL or os.environ.get("VTON_WORKER_URL"))
+
     return {
         "status": "healthy" if db_status == "healthy" else "degraded",
         "timestamp": time.time(),
@@ -24,7 +31,7 @@ def health_check(db: Session = Depends(get_db)):
         "version": "1.0.0",
         "checks": {
             "database": db_status,
-            "vton_pipeline": "operational",
+            "vton_pipeline": "operational" if worker_configured else "unavailable: no GPU worker configured (VTON_WORKER_URL)",
             "ai_stylist_engine": "operational",
             "bnpl_gateway": "operational"
         }

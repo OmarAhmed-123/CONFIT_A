@@ -3,7 +3,6 @@ from typing import Dict, Any, Optional
 from sqlalchemy.orm import Session
 from backend.app.models.profile import UserStyleProfile
 from backend.app.repositories.profile_repository import ProfileRepository
-from backend.app.core.exceptions import ResourceNotFoundError
 
 
 class ProfileService:

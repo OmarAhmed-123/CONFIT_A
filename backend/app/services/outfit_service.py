@@ -1,11 +1,10 @@
 import json
 from typing import List, Dict, Any, Optional
 from sqlalchemy.orm import Session
-from backend.app.models.stylist import Outfit, OutfitItem
+from backend.app.models.stylist import Outfit
 from backend.app.repositories.stylist_repository import StylistRepository
 from backend.app.repositories.catalog_repository import CatalogRepository
 from backend.app.services.styling_engine import StylingEngine
-from backend.app.core.exceptions import ResourceNotFoundError, StylingEngineRuleError
 
 
 class OutfitService:

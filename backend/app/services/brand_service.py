@@ -1,7 +1,7 @@
 import json
 from typing import List, Dict, Any, Optional
 from sqlalchemy.orm import Session
-from backend.app.models.catalog import Product, ProductSKU, Category
+from backend.app.models.catalog import Product, ProductSKU
 from backend.app.models.user import BrandProfile, User, UserRole
 from backend.app.repositories.brand_repository import BrandRepository
 from backend.app.core.exceptions import ResourceNotFoundError, ValidationDomainError, AuthorizationError

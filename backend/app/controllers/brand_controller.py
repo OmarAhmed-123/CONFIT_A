@@ -1,17 +1,15 @@
 from typing import List, Optional, Dict, Any
-from fastapi import APIRouter, Depends, Query, HTTPException, status
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 from backend.app.core.database import get_db
-from backend.app.core.dependencies import get_current_user, require_role, BRAND_ROLES
-from backend.app.models.user import User, UserRole
+from backend.app.core.dependencies import require_role, BRAND_ROLES
+from backend.app.models.user import User
 from backend.app.services.brand_service import BrandService
 from backend.app.schemas.brand import (
     BrandProfileOut,
     BrandAnalyticsDashboardOut,
     SponsoredPlacementCreate,
-    SponsoredPlacementOut,
-    CatalogBulkImportRequest,
-    SKUCreateOrUpdate
+    SponsoredPlacementOut
 )
 from backend.app.schemas.catalog import ProductSummaryOut, ProductSKUOut
 from pydantic import BaseModel

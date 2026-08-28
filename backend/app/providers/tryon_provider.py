@@ -1,11 +1,9 @@
 import hashlib
 import time
-import os
 from typing import Any, Dict, List, Optional
 from backend.app.providers.base import BaseProvider
-from backend.app.services.styling.prompt_builder import InternalDynamicPromptBuilder, DynamicPromptPackage
+from backend.app.services.styling.prompt_builder import InternalDynamicPromptBuilder
 from backend.app.core.exceptions import TryOnEngineUnavailableError
-from backend.app.core.logging import logger
 
 
 class VirtualTryOnProvider(BaseProvider):

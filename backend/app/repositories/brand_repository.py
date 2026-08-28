@@ -1,11 +1,10 @@
-import json
 from typing import Optional, List, Dict, Any
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func, desc
+from sqlalchemy import func
 from backend.app.models.user import BrandProfile, User
-from backend.app.models.catalog import Product, ProductSKU, StoreLocation, StoreInventory
-from backend.app.models.brand_analytics import SponsoredPlacement, StyleHeatmapAggregate
-from backend.app.models.commerce import Order, OrderItem, ReturnRequest
+from backend.app.models.catalog import Product, ProductSKU
+from backend.app.models.brand_analytics import SponsoredPlacement
+from backend.app.models.commerce import Order
 
 
 class BrandRepository:

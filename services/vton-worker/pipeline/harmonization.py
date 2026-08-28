@@ -1,6 +1,5 @@
 import numpy as np
 from PIL import Image, ImageFilter, ImageEnhance
-from typing import Tuple
 
 
 class LightingHarmonizer:

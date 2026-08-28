@@ -1,4 +1,3 @@
-import pytest
 from backend.app.services.styling.prompt_builder import InternalDynamicPromptBuilder, DynamicPromptPackage
 
 

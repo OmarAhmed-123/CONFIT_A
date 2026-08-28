@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import List, Dict, Any, Optional, Set, Tuple
-from backend.app.services.styling.ontology import SlotType, FormalityLevel, SLOT_DEFINITIONS, classify_product_slot
+from typing import List, Dict, Any
 from backend.app.services.styling.color_harmony import ColorHarmonyEngine
 
 

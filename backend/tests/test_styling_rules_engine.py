@@ -1,15 +1,9 @@
-import pytest
-from backend.app.services.styling.ontology import SlotType, FormalityLevel, classify_product_slot
 from backend.app.services.styling.color_harmony import ColorHarmonyEngine
 from backend.app.services.styling.rules import (
     CategoryCompatibilityRule,
     FormalityCoherenceRule,
-    OccasionAppropriatenessRule,
-    CompletenessRule,
-    BudgetRule,
-    StylingRulesEngine
+    CompletenessRule
 )
-from backend.app.services.styling.composer import OutfitComposer
 from backend.app.services.styling.grounding import GroundingGenerator
 
 

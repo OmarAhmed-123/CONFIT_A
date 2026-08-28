@@ -1,7 +1,6 @@
 import math
-import numpy as np
 from PIL import Image
-from typing import Dict, Any, List, Tuple, Optional
+from typing import Tuple
 from pydantic import BaseModel
 
 

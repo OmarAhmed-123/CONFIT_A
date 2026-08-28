@@ -1,6 +1,6 @@
 import uuid
 from typing import List, Optional, Dict, Any
-from fastapi import APIRouter, Depends, Header, Query, HTTPException, status
+from fastapi import APIRouter, Depends, Header, Query, status
 from sqlalchemy.orm import Session
 from backend.app.core.database import get_db
 from backend.app.core.dependencies import get_current_user_optional, get_current_user
@@ -20,7 +20,7 @@ from backend.app.schemas.commerce import (
     BNPLQuoteRequest,
     BNPLQuoteResponse
 )
-from backend.app.core.exceptions import AuthenticationError, AuthorizationError
+from backend.app.core.exceptions import AuthorizationError
 from pydantic import BaseModel
 
 router = APIRouter(tags=["Commerce, Payments & Fulfillment"])

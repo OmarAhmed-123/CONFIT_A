@@ -1,8 +1,8 @@
 import io
 import time
 import base64
-from typing import Dict, Any, List, Optional
-from fastapi import FastAPI, HTTPException, status
+from typing import Dict, Any, List
+from fastapi import FastAPI
 from pydantic import BaseModel
 from PIL import Image
 

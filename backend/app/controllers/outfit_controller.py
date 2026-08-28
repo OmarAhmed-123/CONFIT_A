@@ -3,7 +3,7 @@ from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from backend.app.core.database import get_db
-from backend.app.core.dependencies import get_current_user, get_current_user_optional
+from backend.app.core.dependencies import get_current_user_optional
 from backend.app.models.user import User
 from backend.app.services.outfit_service import OutfitService
 from backend.app.services.commerce_service import CommerceService

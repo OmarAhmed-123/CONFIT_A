@@ -1,10 +1,8 @@
-import json
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional
 from sqlalchemy.orm import Session
 from backend.app.repositories.catalog_repository import CatalogRepository
 from backend.app.repositories.tryon_repository import TryOnRepository
 from backend.app.providers.tryon_provider import VisualSearchAIProvider
-from backend.app.models.catalog import Product
 
 
 class VisualSearchService:

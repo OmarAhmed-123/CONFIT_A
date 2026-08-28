@@ -2,7 +2,6 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-import structlog
 
 from backend.app.core.config import settings
 from backend.app.core.logging import setup_logging, logger
@@ -30,6 +29,16 @@ async def lifespan(app: FastAPI):
     logger.info("Initializing CONFIT API Engine", version=settings.VERSION, env=settings.ENVIRONMENT)
     try:
         Base.metadata.create_all(bind=engine)
+        # Seed the catalogue only when the database is empty — never touches
+        # existing rows. Keeps a fresh deployment (or a fresh checkout) usable
+        # without a manual seed step, while production data stays intact.
+        from sqlalchemy.orm import Session as _Session
+        from backend.app.models.catalog import Category
+        with _Session(engine) as _s:
+            if _s.query(Category).count() == 0:
+                from backend.app.seed_data import seed_database
+                seed_database(target_engine=engine)
+                logger.info("Database was empty — seeded the default catalogue")
     except Exception as exc:
         logger.warn("Database initialization notice", error=str(exc))
     yield

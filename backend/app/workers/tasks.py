@@ -6,7 +6,6 @@ from backend.app.core.database import SessionLocal
 from backend.app.core.logging import logger
 from backend.app.models.tryon import TryOnSession
 from backend.app.models.wardrobe import WardrobeItem
-from backend.app.models.catalog import Product
 
 
 @celery_app.task(bind=True, max_retries=3, default_retry_delay=10)

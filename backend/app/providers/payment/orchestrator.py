@@ -1,7 +1,7 @@
 import uuid
 import hmac
 import hashlib
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 from backend.app.core.config import settings
 from backend.app.core.logging import logger
 from backend.app.providers.payment.capability_registry import MarketPaymentCapabilityRegistry

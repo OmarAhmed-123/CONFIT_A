@@ -1,5 +1,5 @@
 import json
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 from sqlalchemy.orm import Session
 from backend.app.repositories.wardrobe_repository import WardrobeRepository
 from backend.app.repositories.catalog_repository import CatalogRepository

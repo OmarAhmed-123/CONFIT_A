@@ -1,7 +1,5 @@
-import io
-import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
-from typing import Dict, Any, Tuple, Optional
+from typing import Dict, Any, Optional
 
 
 class HumanParsingEngine:

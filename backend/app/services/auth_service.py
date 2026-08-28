@@ -5,7 +5,7 @@ from backend.app.models.user import User, UserRole, BrandProfile
 from backend.app.repositories.user_repository import UserRepository
 from backend.app.repositories.profile_repository import ProfileRepository
 from backend.app.core.security import verify_password, create_access_token, create_refresh_token, decode_token
-from backend.app.core.exceptions import AuthenticationError, ValidationDomainError, ResourceNotFoundError
+from backend.app.core.exceptions import AuthenticationError, ValidationDomainError
 
 
 class AuthService:

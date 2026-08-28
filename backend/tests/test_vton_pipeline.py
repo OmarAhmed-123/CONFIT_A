@@ -1,8 +1,5 @@
-import pytest
 from fastapi.testclient import TestClient
 from backend.app.main import app
-from backend.tests.conftest import TestingSessionLocal
-from backend.app.models.tryon import TryOnJob, GarmentAsset, TryOnJobStatus
 
 client = TestClient(app)
 

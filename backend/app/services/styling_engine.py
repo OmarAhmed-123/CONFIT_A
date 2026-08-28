@@ -1,5 +1,4 @@
 from typing import List, Dict, Any, Optional
-from backend.app.services.styling.ontology import SlotType, FormalityLevel, classify_product_slot, SLOT_DEFINITIONS
 from backend.app.services.styling.color_harmony import ColorHarmonyEngine
 from backend.app.services.styling.rules import StylingRulesEngine
 from backend.app.services.styling.composer import OutfitComposer

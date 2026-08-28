@@ -2,7 +2,7 @@ import json
 from datetime import datetime, timezone, timedelta
 from typing import Optional, List, Dict, Any
 from sqlalchemy.orm import Session
-from backend.app.models.tryon import TryOnSession, VisualSearchQuery, MeasurementSession, MeasurementResult
+from backend.app.models.tryon import TryOnSession, VisualSearchQuery
 
 
 class TryOnRepository:

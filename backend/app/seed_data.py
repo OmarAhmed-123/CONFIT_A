@@ -1,15 +1,14 @@
 import json
-from datetime import datetime, timezone
 from sqlalchemy.orm import Session, sessionmaker
-from backend.app.core.database import SessionLocal, Base, engine
+from backend.app.core.database import Base, engine
 from backend.app.core.security import get_password_hash, encrypt_sensitive_data
-from backend.app.models.user import User, UserRole, BrandProfile, AuditLog
+from backend.app.models.user import User, UserRole, BrandProfile
 from backend.app.models.profile import UserStyleProfile
 from backend.app.models.catalog import Category, Product, ProductSKU, StoreLocation, StoreInventory
-from backend.app.models.stylist import StylistSession, StylistMessage, Outfit, OutfitItem
-from backend.app.models.wardrobe import WardrobeItem, WardrobeGapAnalysis
-from backend.app.models.commerce import Cart, CartItem, Order, OrderItem
-from backend.app.models.brand_analytics import SponsoredPlacement, StyleHeatmapAggregate
+from backend.app.models.stylist import Outfit, OutfitItem
+from backend.app.models.wardrobe import WardrobeItem
+from backend.app.models.commerce import Order, OrderItem
+from backend.app.models.brand_analytics import SponsoredPlacement
 
 
 def seed_database(target_engine=None):

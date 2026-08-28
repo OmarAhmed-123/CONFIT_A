@@ -1,6 +1,5 @@
-from typing import List, Dict, Any, Optional, Set, Tuple
-from dataclasses import dataclass, field
-from backend.app.services.styling.ontology import SlotType, FormalityLevel, classify_product_slot
+from typing import List, Dict, Any, Optional, Tuple
+from dataclasses import dataclass
 
 
 @dataclass

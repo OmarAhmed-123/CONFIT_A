@@ -1,7 +1,6 @@
-import json
 from typing import Optional, List, Dict, Any
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import or_, and_, desc, asc
+from sqlalchemy import or_, desc, asc
 from backend.app.models.catalog import Category, Product, ProductSKU, StoreLocation, StoreInventory
 
 

@@ -1,14 +1,12 @@
-import uuid
-import json
 from typing import List, Optional, Dict, Any
-from fastapi import APIRouter, Depends, Query, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
 from backend.app.core.database import get_db
-from backend.app.core.dependencies import get_current_user_optional, get_current_user
+from backend.app.core.dependencies import get_current_user_optional
 from backend.app.models.user import User
-from backend.app.models.tryon import MeasurementSession, MeasurementResult, TryOnJob, TryOnJobStatus, GarmentAsset
+from backend.app.models.tryon import MeasurementSession, MeasurementResult
 from backend.app.services.tryon_service import TryOnService
 from backend.app.services.visual_search_service import VisualSearchService
 from backend.app.services.no_photo_fit_service import NoPhotoFitService

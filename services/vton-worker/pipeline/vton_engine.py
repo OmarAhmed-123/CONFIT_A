@@ -1,8 +1,7 @@
-import io
 import time
 import numpy as np
-from PIL import Image, ImageChops, ImageFilter
-from typing import Dict, Any, List, Optional, Tuple
+from PIL import Image
+from typing import List, Optional
 from pydantic import BaseModel
 from .segmentation import AgnosticMaskGenerator
 from .pose import BodyLandmarks

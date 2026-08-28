@@ -1,7 +1,6 @@
 from datetime import datetime
 from typing import Optional, List, Dict, Any
-from pydantic import BaseModel, Field, ConfigDict
-from backend.app.schemas.catalog import ProductOut, ProductSKUOut
+from pydantic import BaseModel, ConfigDict
 
 
 class BrandProfileOut(BaseModel):

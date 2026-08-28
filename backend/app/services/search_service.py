@@ -2,10 +2,10 @@ import time
 import json
 import html
 import re
-from typing import List, Dict, Any, Optional, Tuple
+from typing import List, Dict, Optional, Tuple
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import or_, and_, func
-from backend.app.models.catalog import Product, Category, ProductSKU
+from sqlalchemy import or_
+from backend.app.models.catalog import Product, Category
 from backend.app.models.user import BrandProfile
 from backend.app.schemas.catalog import (
     SearchResponseOut,

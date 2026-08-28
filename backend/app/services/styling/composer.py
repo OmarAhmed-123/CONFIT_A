@@ -1,6 +1,6 @@
 import re
-from typing import List, Dict, Any, Optional, Set, Tuple
-from backend.app.services.styling.ontology import SlotType, FormalityLevel, classify_product_slot, SLOT_DEFINITIONS
+from typing import List, Dict, Any, Optional
+from backend.app.services.styling.ontology import SlotType, classify_product_slot
 from backend.app.services.styling.rules import StylingRulesEngine
 
 

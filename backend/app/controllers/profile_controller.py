@@ -1,5 +1,5 @@
 from typing import Dict, Any, Optional
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from backend.app.core.database import get_db
 from backend.app.core.dependencies import get_current_user, get_current_user_optional

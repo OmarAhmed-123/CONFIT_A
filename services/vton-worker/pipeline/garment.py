@@ -1,7 +1,6 @@
-import io
 import numpy as np
-from PIL import Image, ImageOps
-from typing import Dict, Any, Tuple, Optional
+from PIL import Image
+from typing import Tuple
 from pydantic import BaseModel
 
 

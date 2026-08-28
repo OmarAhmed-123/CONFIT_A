@@ -1,8 +1,6 @@
 import json
-from typing import List, Dict, Any, Optional
+from typing import Dict, Any, Optional
 from sqlalchemy.orm import Session
-from backend.app.models.user import User
-from backend.app.models.catalog import Product
 from backend.app.repositories.stylist_repository import StylistRepository
 from backend.app.repositories.catalog_repository import CatalogRepository
 from backend.app.repositories.profile_repository import ProfileRepository

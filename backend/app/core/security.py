@@ -2,7 +2,7 @@ import base64
 import hashlib
 import bcrypt
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Optional
 from jose import JWTError, jwt
 from cryptography.fernet import Fernet
 from backend.app.core.config import settings

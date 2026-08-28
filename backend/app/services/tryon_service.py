@@ -1,26 +1,20 @@
 import json
 import uuid
-import time
 import os
-import hashlib
 from typing import List, Dict, Any, Optional
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 
-from backend.app.models.catalog import Product
 from backend.app.models.tryon import (
-    TryOnSession,
     TryOnJob,
     TryOnJobStatus,
-    GarmentAsset,
-    PersonScanCache
+    GarmentAsset
 )
 from backend.app.repositories.catalog_repository import CatalogRepository
 from backend.app.repositories.tryon_repository import TryOnRepository
 from backend.app.repositories.profile_repository import ProfileRepository
 from backend.app.providers.tryon_provider import VirtualTryOnProvider
 from backend.app.services.styling.slot_layering_engine import SlotLayeringEngine
-from backend.app.services.styling.ontology import SlotType
 from backend.app.core.config import settings
 from backend.app.core.exceptions import ResourceNotFoundError, ValidationDomainError, AuthorizationError
 
@@ -68,7 +62,7 @@ class TryOnService:
             raise ValidationDomainError("At least one garment product_id is required to start a Try-On job.")
 
         job_id = f"vton_job_{uuid.uuid4().hex[:12]}"
-        effective_image = user_image_url or user_image_base64 or f"https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600"
+        effective_image = user_image_url or user_image_base64 or "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600"
 
         # Validate products exist
         products = [self.catalog_repo.get_product_by_id(pid) for pid in product_ids]

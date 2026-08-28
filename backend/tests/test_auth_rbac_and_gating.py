@@ -1,7 +1,6 @@
-import pytest
 from fastapi.testclient import TestClient
 from backend.app.main import app
-from backend.app.models.user import User, UserRole, BrandProfile
+from backend.app.models.user import BrandProfile
 from backend.app.models.catalog import Product, ProductSKU
 from backend.tests.conftest import TestingSessionLocal
 

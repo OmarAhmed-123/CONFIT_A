@@ -1,5 +1,4 @@
-import pytest
-from backend.app.services.styling.slot_layering_engine import SlotLayeringEngine, SlotResolutionResult
+from backend.app.services.styling.slot_layering_engine import SlotLayeringEngine
 
 
 class MockProduct:

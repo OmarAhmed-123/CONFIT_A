@@ -28,6 +28,10 @@ frontend/.env.*
 backend/data/*.db
 backend/data/*.db-wal
 backend/data/*.db-shm
+# Exception: the seeded development catalogue is versioned intentionally so a
+# fresh checkout runs with real data. Production data lives in the managed
+# Postgres (DATABASE_URL) and is never committed.
+!backend/data/confit.db
 backend/data/uploads/*
 !backend/data/uploads/.gitkeep
 uploads/*

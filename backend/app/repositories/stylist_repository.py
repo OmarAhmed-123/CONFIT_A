@@ -2,7 +2,7 @@ import json
 from typing import Optional, List, Dict, Any
 from sqlalchemy.orm import Session, joinedload
 from backend.app.models.stylist import StylistSession, StylistMessage, Outfit, OutfitItem
-from backend.app.models.catalog import Product, ProductSKU
+from backend.app.models.catalog import Product
 
 
 class StylistRepository:

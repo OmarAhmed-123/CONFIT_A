@@ -1,15 +1,21 @@
+"""Vercel serverless entrypoint for the CONFIT API.
+
+Imports the canonical backend package from the repository root. The vendored
+copy previously kept under api/backend/ was removed (it drifted from the real
+backend and every fix had to be applied twice); Vercel bundles the whole
+project, so the root backend/ package is always available here.
+"""
+
 import sys
 import os
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
-api_backend_dir = os.path.join(current_dir, "backend")
 
-for p in [current_dir, parent_dir, api_backend_dir, "/var/task", "/var/task/api"]:
+for p in [parent_dir, current_dir, "/var/task"]:
     if p not in sys.path and os.path.exists(p):
         sys.path.insert(0, p)
 
-try:
-    from backend.app.main import app
-except Exception:
-    from api.backend.app.main import app
+from backend.app.main import app  # noqa: E402
+
+__all__ = ["app"]

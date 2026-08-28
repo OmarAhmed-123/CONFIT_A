@@ -61,29 +61,29 @@ export const authService = {
 
 // 2. User Style Profile (USP) Services (G1.2)
 export const profileService = {
-  getProfile: () => request<UserStyleProfile>('/profile'),
-  getUSP: () => request<UserStyleProfile>('/profile'),
+  getProfile: () => request<UserStyleProfile>('/profile/me'),
+  getUSP: () => request<UserStyleProfile>('/profile/me'),
 
   updateProfile: (data: Partial<UserStyleProfile>) =>
-    request<UserStyleProfile>('/profile', {
+    request<UserStyleProfile>('/profile/preferences', {
       method: 'PUT',
       body: JSON.stringify(data),
     }),
 
   updateBodyAttributes: (attributes: any) =>
-    request<UserStyleProfile>('/profile/body', {
+    request<UserStyleProfile>('/me/body-profile', {
       method: 'PATCH',
       body: JSON.stringify(attributes),
     }),
 
   submitQuiz: (quizData: any) =>
-    request<UserStyleProfile>('/profile', {
+    request<UserStyleProfile>('/profile/preferences', {
       method: 'PUT',
       body: JSON.stringify(quizData),
     }),
 
   updateConsents: (consents: { privacy_consent_tryon_storage?: boolean; privacy_consent_share_with_brands?: boolean }) =>
-    request<UserStyleProfile>('/profile/consents', {
+    request<UserStyleProfile>('/me/consents', {
       method: 'PATCH',
       body: JSON.stringify(consents),
     }),
@@ -110,7 +110,7 @@ export const catalogService = {
 
   getCategories: () => request<Category[]>('/catalog/categories'),
 
-  getFeaturedCollections: () => request<Product[]>('/catalog/featured'),
+  getFeaturedCollections: () => request<Product[]>('/catalog/products?is_featured=true'),
 
   searchCatalog: (params: {
     q: string;
@@ -288,8 +288,8 @@ export const wardrobeService = {
 
   deleteItem: (itemId: number) => request<{ status: string }>(`/wardrobe/items/${itemId}`, { method: 'DELETE' }),
 
-  getGaps: () => request<GapAnalysisItem[]>('/wardrobe/gaps'),
-  getGapAnalysis: () => request<GapAnalysisItem[]>('/wardrobe/gaps'),
+  getGaps: () => request<GapAnalysisItem[]>('/wardrobe/gap-analysis'),
+  getGapAnalysis: () => request<GapAnalysisItem[]>('/wardrobe/gap-analysis'),
 
   autoTagImage: (image_data_url: string) =>
     request<Partial<WardrobeItem>>('/wardrobe/auto-tag', {

@@ -230,10 +230,12 @@ class VisualSearchResultItem(BaseModel):
 
 class VisualSearchResponse(BaseModel):
     query_id: int
-    detected_category: str
-    detected_color: str
-    detected_pattern: str
-    detected_style: str
+    analysis_available: bool = False
+    analysis_source: Optional[str] = None
+    detected_category: Optional[str] = None
+    detected_color: Optional[str] = None
+    detected_pattern: Optional[str] = None
+    detected_style: Optional[str] = None
     results_count: int
     matches: List[VisualSearchResultItem]
 

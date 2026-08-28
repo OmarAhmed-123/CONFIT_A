@@ -1,8 +1,12 @@
 import hashlib
 import time
 from typing import Any, Dict, List, Optional
+
+import httpx
+
 from backend.app.providers.base import BaseProvider
 from backend.app.services.styling.prompt_builder import InternalDynamicPromptBuilder
+from backend.app.core.config import settings
 from backend.app.core.exceptions import TryOnEngineUnavailableError
 
 
@@ -222,25 +226,90 @@ class VirtualTryOnProvider(BaseProvider):
 
 
 class VisualSearchAIProvider(BaseProvider):
+    """Real vision analysis via Gemini Flash (multimodal). Requires GEMINI_API_KEY.
+
+    The previous implementation returned the SAME hardcoded "Navy blazer"
+    analysis for every uploaded image — that fabrication is removed. When no
+    vision model is reachable, the honest answer is analysis_available=False
+    and the caller degrades to neutral ranking; it never invents a detection.
+    """
+
+    VISION_PROMPT = (
+        "Analyze this fashion image. Respond with STRICT JSON only, no prose, with keys: "
+        "detected_category (one of: Outerwear, Tops, Bottoms, Dresses, Footwear, Accessories), "
+        "detected_color (simple color family), detected_pattern, detected_style, "
+        "detected_attributes (object of extra visible attributes). "
+        "If the image does not show a fashion item, set detected_category to null."
+    )
+
     def __init__(self):
-        super().__init__(name="Visual_Search_Provider", timeout_seconds=4.0, max_retries=2)
+        # Vision inference on a real image takes longer than text completion —
+        # 10s was observed to time out on cold Gemini calls in production-like
+        # conditions; 30s matches the inner httpx timeout.
+        super().__init__(name="Visual_Search_Provider", timeout_seconds=30.0, max_retries=2)
 
     async def analyze_fashion_image(self, image_url_or_base64: str) -> Dict[str, Any]:
         return await self.execute_with_resilience(self._call_vision_model, image_url_or_base64=image_url_or_base64)
 
-    async def _call_vision_model(self, **kwargs) -> Dict[str, Any]:
-        return await self.fallback(**kwargs)
+    async def _image_to_base64(self, ref: str) -> tuple[str, str]:
+        """Returns (base64_data, mime_type). Downloads http(s) images with validation."""
+        import base64 as _b64
+
+        if ref.startswith("data:image"):
+            header, encoded = ref.split(",", 1)
+            mime = header.split(";")[0].replace("data:", "") or "image/jpeg"
+            return encoded, mime
+        if ref.startswith(("http://", "https://")):
+            async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
+                resp = await client.get(ref)
+                resp.raise_for_status()
+                mime = resp.headers.get("content-type", "").split(";")[0].strip().lower()
+                if mime not in ("image/jpeg", "image/png", "image/webp"):
+                    raise ValueError(f"Unsupported image content type: {mime or 'unknown'}")
+                if len(resp.content) > 15 * 1024 * 1024:
+                    raise ValueError("Image exceeds 15MB limit")
+                return _b64.b64encode(resp.content).decode(), mime
+        raise ValueError("Image reference must be a data URL or http(s) URL")
+
+    async def _call_vision_model(self, image_url_or_base64: str) -> Dict[str, Any]:
+        import json as _json
+
+        if not settings.GEMINI_API_KEY:
+            raise TryOnEngineUnavailableError(reason="vision_model_not_configured")
+
+        b64_data, mime = await self._image_to_base64(image_url_or_base64)
+
+        async with httpx.AsyncClient(timeout=25.0) as client:
+            res = await client.post(
+                f"https://generativelanguage.googleapis.com/v1beta/models/{settings.VISION_MODEL}:generateContent?key={settings.GEMINI_API_KEY}",
+                headers={"Content-Type": "application/json"},
+                json={
+                    "contents": [{
+                        "parts": [
+                            {"text": self.VISION_PROMPT},
+                            {"inline_data": {"mime_type": mime, "data": b64_data}},
+                        ]
+                    }],
+                    "generationConfig": {"response_mime_type": "application/json"},
+                },
+            )
+            res.raise_for_status()
+            text = res.json()["candidates"][0]["content"]["parts"][0]["text"]
+            parsed = _json.loads(text)
+            parsed["analysis_available"] = True
+            parsed["analysis_source"] = "gemini-flash-vision"
+            return parsed
 
     async def fallback(self, image_url_or_base64: str) -> Dict[str, Any]:
+        # Honest degradation: no detection is fabricated. The service layer
+        # renders matches with neutral ranking and marks the analysis as
+        # unavailable instead of claiming a blazer was detected in every image.
         return {
-            "detected_category": "Blazers & Jackets",
-            "detected_color": "Navy Blue",
-            "detected_pattern": "Solid / Fine Weave",
-            "detected_style": "Modern Tailored / Smart Casual",
-            "confidence_score": 0.94,
-            "detected_attributes": {
-                "lapel_type": "Notched Lapel",
-                "fit_type": "Structured Slim",
-                "fabric_appearance": "Wool Blend"
-            }
+            "analysis_available": False,
+            "analysis_source": "unavailable (set GEMINI_API_KEY)",
+            "detected_category": None,
+            "detected_color": None,
+            "detected_pattern": None,
+            "detected_style": None,
+            "detected_attributes": {},
         }

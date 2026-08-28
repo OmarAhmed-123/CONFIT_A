@@ -38,6 +38,12 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: Optional[str] = None
     GROK_API_KEY: Optional[str] = None
     KLING_API_KEY: Optional[str] = None
+    # Gemini model ids — verified live (2026-08): 'gemini-flash-latest' serves
+    # text but 503s under vision load; the lite alias answers vision calls
+    # fast and correctly, so it is the vision default. The 2.5 flash line is
+    # closed to new keys; the 3.1 lite preview 503s — neither is a default.
+    GEMINI_TEXT_MODEL: str = "gemini-flash-latest"
+    VISION_MODEL: str = "gemini-flash-lite-latest"
 
     # NVIDIA Build Master & Slot Keys
     NVIDIA_API_KEY: Optional[str] = None

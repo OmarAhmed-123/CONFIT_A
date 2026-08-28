@@ -278,10 +278,12 @@ export interface VisualSearchResultItem {
 
 export interface VisualSearchResult {
   query_id: number;
-  detected_category: string;
-  detected_color: string;
-  detected_pattern: string;
-  detected_style: string;
+  analysis_available: boolean;
+  analysis_source?: string | null;
+  detected_category: string | null;
+  detected_color: string | null;
+  detected_pattern: string | null;
+  detected_style: string | null;
   results_count: number;
   matches: VisualSearchResultItem[];
 }

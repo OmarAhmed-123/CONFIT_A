@@ -1,5 +1,6 @@
 from typing import Dict, Any, Optional
 from sqlalchemy.orm import Session
+from backend.app.core.exceptions import ValidationDomainError
 from backend.app.repositories.catalog_repository import CatalogRepository
 from backend.app.repositories.tryon_repository import TryOnRepository
 from backend.app.providers.tryon_provider import VisualSearchAIProvider
@@ -22,44 +23,49 @@ class VisualSearchService:
         max_price: Optional[float] = None,
         in_stock_only: bool = True
     ) -> Dict[str, Any]:
-        target_img = image_url or image_base64 or "https://images.unsplash.com/photo-1594938298603-c8148c4dae35?w=600"
+        target_img = image_url or image_base64
+        if not target_img:
+            raise ValidationDomainError("An image_url or image_base64 is required for visual search.")
 
-        # 1. Vision AI Analysis (Extracts Category, Color, Texture, Style)
+        # 1. Vision AI Analysis (Extracts Category, Color, Texture, Style).
+        #    When no vision model is configured the provider returns
+        #    analysis_available=False and we degrade honestly — no fabricated
+        #    "navy blazer" detection is invented.
         analysis = await self.ai_provider.analyze_fashion_image(target_img)
-        detected_cat = analysis.get("detected_category", "Blazers & Jackets")
-        detected_col = analysis.get("detected_color", "Navy Blue")
-        detected_pat = analysis.get("detected_pattern", "Solid / Fine Weave")
-        detected_sty = analysis.get("detected_style", "Modern Tailored / Smart Casual")
+        analysis_available = bool(analysis.get("analysis_available"))
+        detected_cat = analysis.get("detected_category")
+        detected_col = analysis.get("detected_color")
+        detected_pat = analysis.get("detected_pattern")
+        detected_sty = analysis.get("detected_style")
 
         # 2. Retrieve real catalog products from database
         all_prods = self.catalog_repo.filter_products(max_price=max_price, limit=50)
 
-        # 3. Compute deterministic visual similarity scores against real catalog items
+        # 3. Score real catalog items against what the vision model ACTUALLY
+        #    detected — the old code hard-coded blazer/navy bonuses for every
+        #    image, so any upload returned the same ranking.
+        cat_tokens = [t for t in (detected_cat or "").lower().replace("&", " ").split() if len(t) > 2]
+        col_tokens = [t for t in (detected_col or "").lower().split() if len(t) > 2]
+        sty_tokens = [t.replace(" ", "_") for t in (detected_sty or "").lower().split("/") if t.strip()]
+
         scored_matches = []
         for p in all_prods:
-            score = 70.0
+            score = 50.0  # neutral base — ranking comes only from real signals
             p_cat = (p.category.name if p.category else "").lower()
             p_title = p.title.lower()
-            p_color = p.color_family.lower()
+            p_color = (p.color_family or "").lower()
             p_tags = (p.style_tags or "").lower()
 
-            # Category match bonus
-            if "blazer" in p_title or "jacket" in p_title or "outerwear" in p_cat:
-                score += 18.0
-            elif "shirt" in p_title or "top" in p_cat:
-                score += 10.0
-            elif "trouser" in p_title or "bottom" in p_cat:
-                score += 8.0
-
-            # Color family match bonus
-            if "navy" in p_color or "blue" in p_color or "black" in p_color:
-                score += 10.0
-            elif "white" in p_color or "beige" in p_color:
-                score += 5.0
-
-            # Style tag bonus
-            if "tailored" in p_tags or "smart_casual" in p_tags or "quiet_luxury" in p_tags:
-                score += 4.0
+            if analysis_available:
+                # Category match: detected category words against product category/title
+                if any(t in p_cat or t in p_title for t in cat_tokens):
+                    score += 30.0
+                # Color family match
+                if any(t in p_color for t in col_tokens):
+                    score += 15.0
+                # Style tag match
+                if any(t in p_tags for t in sty_tokens):
+                    score += 8.0
 
             score = min(98.0, round(score, 1))
             scored_matches.append((score, p))
@@ -83,7 +89,7 @@ class VisualSearchService:
 
         # 4. Log visual search query to database for telemetry & analytics
         log_image_ref = target_img if (image_url and len(target_img) < 2000) else "data:image/jpeg;base64,[Client Uploaded Vision Image]"
-        self.tryon_repo.log_visual_search(
+        logged = self.tryon_repo.log_visual_search(
             input_image_url=log_image_ref,
             user_id=user_id,
             detected_category=detected_cat,
@@ -95,7 +101,9 @@ class VisualSearchService:
         )
 
         return {
-            "query_id": 901,
+            "query_id": logged.id,
+            "analysis_available": analysis_available,
+            "analysis_source": analysis.get("analysis_source"),
             "detected_category": detected_cat,
             "detected_color": detected_col,
             "detected_pattern": detected_pat,

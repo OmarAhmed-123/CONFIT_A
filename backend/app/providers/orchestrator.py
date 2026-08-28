@@ -177,7 +177,7 @@ class MultiProviderAIOrchestrator:
     async def _call_gemini(self, system_prompt: str, user_prompt: str) -> Optional[str]:
         async with httpx.AsyncClient(timeout=4.0) as client:
             res = await client.post(
-                f"https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key={settings.GEMINI_API_KEY}",
+                f"https://generativelanguage.googleapis.com/v1beta/models/{settings.GEMINI_TEXT_MODEL}:generateContent?key={settings.GEMINI_API_KEY}",
                 headers={"Content-Type": "application/json"},
                 json={
                     "contents": [{

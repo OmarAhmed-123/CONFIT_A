@@ -99,13 +99,22 @@ export const VisualSearchModal: React.FC = () => {
           {/* Vision Detection Result */}
           {visualSearchResult && (
             <div className="space-y-4 pt-2 border-t border-slate-100">
-              <div className="flex items-center gap-2 bg-[#FDF8EE] border border-[#B8935A]/30 p-3 rounded-xl text-xs text-slate-800">
-                <SparkleIcon size={16} color="#B8935A" />
-                <span>
-                  Detected: <strong className="text-[#1B1F3B]">{visualSearchResult.detected_category}</strong> in{' '}
-                  <strong className="text-[#1B1F3B]">{visualSearchResult.detected_color}</strong> · Style: {visualSearchResult.detected_style}
-                </span>
-              </div>
+              {visualSearchResult.analysis_available ? (
+                <div className="flex items-center gap-2 bg-[#FDF8EE] border border-[#B8935A]/30 p-3 rounded-xl text-xs text-slate-800">
+                  <SparkleIcon size={16} color="#B8935A" />
+                  <span>
+                    Detected: <strong className="text-[#1B1F3B]">{visualSearchResult.detected_category}</strong> in{' '}
+                    <strong className="text-[#1B1F3B]">{visualSearchResult.detected_color}</strong> · Style: {visualSearchResult.detected_style}
+                  </span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 p-3 rounded-xl text-xs text-slate-600">
+                  <SparkleIcon size={16} color="#94A3B8" />
+                  <span>
+                    Vision analysis is unavailable right now — showing catalog matches without image detection.
+                  </span>
+                </div>
+              )}
 
               {/* Match Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">

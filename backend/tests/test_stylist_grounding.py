@@ -61,14 +61,22 @@ def test_stylist_prompt_diversity(client: TestClient):
 
 def test_measurement_session_tryon_scaling(client: TestClient):
     """Verifies that biometric measurements apply scaling factors to try-on sessions."""
-    # 1. Create try-on session
-    tryon_res = client.post("/api/v1/try-on/sessions", json={
-        "product_id": 1,
-        "avatar_model_id": "avatar_athletic_m",
-        "consent_retain": False
-    })
-    assert tryon_res.status_code == 201
-    tryon_sess_id = tryon_res.json()["session_id"]
+    # 1. Create try-on session directly in the repository — the HTTP creation
+    # endpoint requires a render backend (covered by the 503 truthful-failure
+    # tests); measurement scaling itself is a pure state operation.
+    from backend.tests.conftest import TestingSessionLocal
+    from backend.app.repositories.tryon_repository import TryOnRepository
+
+    db = TestingSessionLocal()
+    try:
+        repo = TryOnRepository(db)
+        session = repo.create_tryon_session(
+            product_id=1,
+            input_user_image_url="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600",
+        )
+        tryon_sess_id = session.id
+    finally:
+        db.close()
 
     # 2. Apply derived measurements
     apply_res = client.post(f"/api/v1/try-on/sessions/{tryon_sess_id}/apply-measurements", json={

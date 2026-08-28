@@ -169,7 +169,7 @@ export const VirtualTryOnModal: React.FC = () => {
                   </span>
                 </h3>
                 <p className="text-xs text-slate-400 font-light hidden sm:block">
-                  🔒 Strict Identity Lock — Modifies garment layers while locking exact facial geometry and body stance.
+                  Applies the selected garments to the person in your photo.
                 </p>
               </div>
             </div>
@@ -413,7 +413,7 @@ export const VirtualTryOnModal: React.FC = () => {
                     <div className="absolute top-3 left-3 flex flex-col gap-1.5 pointer-events-none">
                       <FitScoreBadge
                         score={dynamicFitScore}
-                        verdict="Identity Lock Verified"
+                        verdict="Style Compatibility"
                       />
                       <span className="px-2.5 py-0.5 rounded-full bg-slate-950/75 backdrop-blur-md text-[9px] font-medium text-slate-300 border border-white/10 w-fit">
                         {appliedList.length > 0

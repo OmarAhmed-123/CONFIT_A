@@ -58,6 +58,23 @@ class ProviderIntegrationError(ConfitException):
         )
 
 
+class TryOnEngineUnavailableError(ConfitException):
+    """Raised when virtual try-on rendering cannot be performed.
+
+    A generation feature must never convert a failed generation into a
+    successful response: if the render backend did not run, the honest
+    answer is a 503 with this error code — never a substitute image and
+    never a fabricated metric.
+    """
+    def __init__(self, reason: str = "gpu_worker_not_configured"):
+        super().__init__(
+            "Virtual try-on rendering is temporarily unavailable.",
+            code="VTON_ENGINE_UNAVAILABLE",
+            details={"reason": reason},
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE
+        )
+
+
 class StylingEngineRuleError(ConfitException):
     def __init__(self, reason: str, incompatible_items: Optional[list] = None):
         super().__init__(

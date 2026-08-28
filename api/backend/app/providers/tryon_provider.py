@@ -4,6 +4,7 @@ import os
 from typing import Any, Dict, List, Optional
 from backend.app.providers.base import BaseProvider
 from backend.app.services.styling.prompt_builder import InternalDynamicPromptBuilder, DynamicPromptPackage
+from backend.app.core.exceptions import TryOnEngineUnavailableError
 from backend.app.core.logging import logger
 
 
@@ -121,10 +122,10 @@ class VirtualTryOnProvider(BaseProvider):
             "output_aspect": output_aspect,
             "rendered_animation_url": rendered_final,
             "keyframes_sequence": keyframes,
-            "fit_confidence_score": 96,
-            "body_fit_verdict": "Layered Composition Validated",
+            "fit_confidence_score": 0,
+            "body_fit_verdict": "No Garments Applied",
             "traceability_hash": f"VTON-ANIM-{trace_hash}",
-            "ai_disclosure": "CONFIT VTON Engine — Step-by-Step Multi-Layer Dressing",
+            "ai_disclosure": "CONFIT — no rendering performed; the original photo is returned unchanged.",
             "dynamic_animation_prompt": pkg.assembled_prompt_text,
             "prompt_package": pkg.to_dict(),
             "body_scaling_applied": body_scaling
@@ -168,10 +169,10 @@ class VirtualTryOnProvider(BaseProvider):
 
         return {
             "rendered_image_url": rendered_url,
-            "fit_verdict": "Optimal Garment Fit — Tailored Drape",
-            "fit_confidence": 96,
+            "fit_verdict": "No Garments Applied",
+            "fit_confidence": 0,
             "traceability_hash": f"VTON-CERT-{trace_hash}",
-            "ai_disclosure": "CONFIT VTON Engine — Generative Diffusion Drape (Identity Preserved)",
+            "ai_disclosure": "CONFIT — no rendering performed; the original photo is returned unchanged.",
             "dynamic_prompt_generated": pkg.assembled_prompt_text,
             "prompt_package": pkg.to_dict(),
             "body_scaling_applied": body_scaling
@@ -182,49 +183,17 @@ class VirtualTryOnProvider(BaseProvider):
         user_image_url: str,
         applied_items: List[Dict[str, Any]]
     ) -> str:
-        """Deterministically resolves the generated generative AI try-on image for the outfit."""
+        """Returns a rendered try-on image reference ONLY when a real render exists.
+
+        Never returns a substitute, cached, or placeholder image. The static
+        /tryon_results/* assets were purged and no render backend exists in
+        this process: dressing a photo requires the GPU worker path in
+        TryOnService, which fails truthfully when it is not configured.
+        """
         if not applied_items:
+            # Nothing to dress — the unmodified photo itself is the correct output.
             return user_image_url
-
-        item_titles = " ".join([str(it.get("product_title", "")).lower() for it in applied_items])
-        item_slugs = " ".join([str(it.get("category_name", "")).lower() for it in applied_items])
-        product_ids = [it.get("product_id") for it in applied_items]
-
-        # 1. Custom User Photo (e.g. campus or uploaded photo)
-        if user_image_url and ("data:image" in user_image_url or "campus" in user_image_url or "user" in user_image_url or "blob:" in user_image_url or ("unsplash" not in user_image_url)):
-            # If tuxedo or outerwear or blazer
-            if 2 in product_ids or "tuxedo" in item_titles or "dinner jacket" in item_titles or "blazer" in item_titles:
-                return "/tryon_results/campus_man_tuxedo.png"
-            return "/tryon_results/campus_man_tuxedo.png"
-
-        # 2. Female Avatars
-        if "534528741775" in user_image_url or "hourglass" in user_image_url:
-            # Hourglass Female
-            if 5 in product_ids or "dress" in item_titles or "dress" in item_slugs or "gown" in item_titles:
-                return "/tryon_results/hourglass_f_silk_dress.png"
-            return "/tryon_results/hourglass_f_silk_dress.png"
-
-        if "517841905240" in user_image_url or "curvy" in user_image_url:
-            # Curvy Female
-            if 5 in product_ids or "dress" in item_titles or "dress" in item_slugs or "gown" in item_titles:
-                return "/tryon_results/curvy_f_silk_dress.png"
-            return "/tryon_results/curvy_f_silk_dress.png"
-
-        # 3. Tall Male Avatar
-        if "500648767791" in user_image_url or "tall" in user_image_url:
-            if 2 in product_ids or "tuxedo" in item_titles:
-                return "/tryon_results/tall_m_tuxedo.png"
-            return "/tryon_results/tall_m_blazer.png"
-
-        # 4. Athletic Male Avatar (Default: 1507003211169)
-        if 2 in product_ids or "tuxedo" in item_titles or "dinner jacket" in item_titles:
-            return "/tryon_results/athletic_m_tuxedo.png"
-        elif 1 in product_ids or "blazer" in item_titles:
-            return "/tryon_results/athletic_m_blazer.png"
-        elif 3 in product_ids or 4 in product_ids or "shirt" in item_titles or "trouser" in item_titles:
-            return "/tryon_results/athletic_m_shirt_trousers.png"
-
-        return "/tryon_results/athletic_m_tuxedo.png"
+        raise TryOnEngineUnavailableError(reason="no_render_backend")
 
     async def render_tryon(
         self,

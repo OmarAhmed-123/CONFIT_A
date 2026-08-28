@@ -42,25 +42,58 @@ class VTONJobResponse(BaseModel):
     quality_audit: Dict[str, Any]
 
 
+def _cuda_available() -> bool:
+    try:
+        import torch
+        return bool(torch.cuda.is_available())
+    except Exception:
+        return False
+
+
 @app.get("/health")
 def health():
     return {
         "status": "healthy",
         "service": "vton-worker",
-        "model": "CatVTON-v1.2 (Apache 2.0)",
-        "cuda_available": False,
-        "supported_slots": ["upper_outer", "upper_inner", "lower", "dress", "footwear", "accessory"]
+        # Honest capability report: the current pipeline is a masked-composite
+        # placeholder, NOT the CatVTON diffusion model — no weights are loaded.
+        "model": "masked-composite-placeholder (no diffusion weights loaded)",
+        "cuda_available": _cuda_available(),
+        "supported_slots": sorted(AgnosticMaskGenerator.SUPPORTED_SLOTS)
     }
 
 
+MAX_IMAGE_BYTES = 15 * 1024 * 1024
+ALLOWED_MIME = {"image/jpeg", "image/png", "image/webp"}
+
+
 def load_image_from_str(img_str: str) -> Image.Image:
+    """Decodes a person/garment image from a data URL or http(s) URL.
+
+    NEVER returns a synthesised canvas: any input that cannot be fetched and
+    decoded is a hard error. (Previously any non-data-URL input silently
+    became a blank grey 768x1024 rectangle, discarding the user's photo.)
+    """
+    if not img_str:
+        raise ValueError("Empty image reference")
+
     if img_str.startswith("data:image"):
         header, encoded = img_str.split(",", 1)
-        data = base64.b64decode(encoded)
-        return Image.open(io.BytesIO(data)).convert("RGB")
-    # For local paths or test mocks
-    img = Image.new("RGB", (768, 1024), color=(240, 242, 245))
-    return img
+        raw = base64.b64decode(encoded)
+    elif img_str.startswith(("http://", "https://")):
+        import httpx
+        resp = httpx.get(img_str, timeout=20.0, follow_redirects=True)
+        resp.raise_for_status()
+        content_type = resp.headers.get("content-type", "").split(";")[0].strip().lower()
+        if content_type not in ALLOWED_MIME:
+            raise ValueError(f"Unsupported garment/person content type: {content_type or 'unknown'}")
+        raw = resp.content
+    else:
+        raise ValueError("Image reference must be a data URL or an http(s) URL")
+
+    if len(raw) > MAX_IMAGE_BYTES:
+        raise ValueError(f"Image exceeds {MAX_IMAGE_BYTES // (1024 * 1024)}MB limit")
+    return Image.open(io.BytesIO(raw)).convert("RGB")
 
 
 @app.post("/process", response_model=VTONJobResponse)

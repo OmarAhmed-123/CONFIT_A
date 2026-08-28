@@ -63,6 +63,13 @@ class AgnosticMaskGenerator:
     Zeros out the region where the new garment will be draped.
     """
 
+    # The only slot vocabulary this pipeline supports. The backend maps
+    # catalogue category slugs onto these values (CATEGORY_TO_VTON_SLOT in
+    # backend/app/services/tryon_service.py). Anything else is a contract
+    # violation and must fail loudly — a silent default mask is how shirts
+    # and dresses were previously rendered into a 4.7% accessory box.
+    SUPPORTED_SLOTS = {"upper_outer", "upper_inner", "lower", "dress", "footwear", "accessory"}
+
     @staticmethod
     def create_agnostic_mask(
         person_img: Image.Image,
@@ -110,9 +117,16 @@ class AgnosticMaskGenerator:
             right_x = int(w * 0.78)
             draw.rectangle([left_x, top_y, right_x, bot_y], fill=255)
 
-        else:
+        elif slot == "accessory":
             # Accessory: Necktie / Scarf
             draw.rectangle([int(w * 0.42), int(h * 0.26), int(w * 0.58), int(h * 0.55)], fill=255)
+
+        else:
+            raise ValueError(
+                f"Unsupported slot_type '{slot_type}'. Expected one of "
+                f"{sorted(AgnosticMaskGenerator.SUPPORTED_SLOTS)}. "
+                "This is a backend/worker contract violation and must not be silently defaulted."
+            )
 
         # Smooth edges with Gaussian blur to prevent seam artifacts
         blurred_mask = mask.filter(ImageFilter.GaussianBlur(radius=4))

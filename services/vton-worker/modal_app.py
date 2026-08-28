@@ -42,25 +42,24 @@ class VTONJobRequest(BaseModel):
 class VTONInferenceService:
     @modal.enter()
     def load_model(self):
-        print("⚡ Loading CatVTON-v1.2 Inpainting Weights into A10G VRAM...")
-        self.model_loaded = True
+        # HONEST STATUS: no CatVTON weights are loaded yet (Phase 3 of the VTON
+        # remediation plan: bake Zheng-Chong/CatVTON weights into the image and
+        # load the pipeline here). A flag alone loads nothing.
+        self.model_loaded = False
 
     @modal.fastapi_endpoint(method="POST")
     def process(self, payload: VTONJobRequest) -> dict:
-        import time
-        start_time = time.time()
-        return {
-            "job_id": payload.job_id,
-            "status": "completed",
-            "rendered_image_data_url": payload.user_image_base64_or_url,
-            "execution_time_ms": round((time.time() - start_time) * 1000, 2),
-            "model_used": "CatVTON-v1.2-A10G",
-            "ssim_score": 0.914,
-            "identity_preservation_score": 98.5,
-            "quality_audit": {
-                "face_mae": 2.1,
-                "identity_preservation_score": 98.5,
-                "ssim_score": 0.914,
-                "quality_grade": "A+ Production Grade"
-            }
-        }
+        # Never echo the input back as a "completed" render with fabricated
+        # metrics. Until the real diffusion pipeline is loaded in load_model(),
+        # every request fails truthfully with 503 VTON_ENGINE_UNAVAILABLE.
+        from fastapi import HTTPException
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "error": {
+                    "code": "VTON_ENGINE_UNAVAILABLE",
+                    "message": "GPU worker is deployed but no diffusion model is loaded yet.",
+                    "details": {"reason": "model_weights_not_loaded"},
+                }
+            },
+        )

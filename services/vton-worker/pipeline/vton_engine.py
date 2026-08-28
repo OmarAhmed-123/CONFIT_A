@@ -14,8 +14,10 @@ class VTONInferenceResult(BaseModel):
     model_name: str
     inference_time_seconds: float
     fit_verdict: str
-    ssim_score: float
-    identity_preservation_score: float
+    # Quality metrics are NOT produced here. They are measured on the actual
+    # output by pipeline.quality.VTONQualityAuditor — never hard-coded.
+    ssim_score: Optional[float] = None
+    identity_preservation_score: Optional[float] = None
     layers_applied: List[str]
 
     class Config:
@@ -23,15 +25,22 @@ class VTONInferenceResult(BaseModel):
 
 
 class CatVTONDiffusionEngine:
-    """Stage 4: CatVTON Generative Inpainting Engine (Apache 2.0).
-    Conditioning: Person Image + Agnostic Body Mask + DWPose Angle + Catalog Garment.
-    Synthesizes realistic fabric draping, shadow folds, and seam curvature while locking identity.
+    """Stage 4: garment compositing engine.
+
+    HONEST STATUS: this is a masked-alpha-composite placeholder, not the
+    CatVTON diffusion model — no UNet/VAE/scheduler weights are loaded.
+    It exists so the worker pipeline is exercisable end-to-end; replacing it
+    with real CatVTON inference is the Phase-3 work tracked in the VTON
+    remediation plan. Until then, quality scores come only from real
+    measurement (pipeline/quality.py) and fit claims are reported as
+    not measured.
     """
 
     def __init__(self, device: str = "cpu", model_weights_path: Optional[str] = None):
         self.device = device
         self.model_weights_path = model_weights_path or "weights/CatVTON-v1.2-fp16"
-        self.model_loaded = True
+        # No weights are loaded in this placeholder implementation.
+        self.model_loaded = False
 
     def run_vton_inference(
         self,
@@ -55,10 +64,22 @@ class CatVTONDiffusionEngine:
         angle = pose_landmarks.shoulder_angle_deg
         # Rotate garment slightly to match shoulder slant
         rotated_garment = garment_image.rotate(-angle, resample=Image.BICUBIC, expand=False)
-        garment_resized = rotated_garment.resize((w, h), Image.Resampling.LANCZOS)
 
-        # 3. Neural Inpainting Composite Simulation (CatVTON UNet Fusion)
-        # Preserve untouched regions (Face, hair, background, arms) from raw user photo
+        # Fit the garment into the masked region's bounding box — NOT the full
+        # person frame (previously the catalogue thumbnail was stretched over
+        # the entire photo and then masked, producing an unfitted paste).
+        bbox = agnostic_mask.getbbox()
+        if bbox:
+            bw, bh = max(1, bbox[2] - bbox[0]), max(1, bbox[3] - bbox[1])
+            garment_fitted = rotated_garment.resize((bw, bh), Image.Resampling.LANCZOS)
+            garment_resized = Image.new("RGB", (w, h))
+            garment_resized.paste(garment_fitted, (bbox[0], bbox[1]))
+        else:
+            garment_resized = rotated_garment.resize((w, h), Image.Resampling.LANCZOS)
+
+        # 3. Masked composite: preserve untouched regions (face, hair,
+        # background, arms) from the raw user photo, blend the fitted garment
+        # into the agnostic region only.
         person_rgb = person_image.convert("RGB")
         mask_np = np.array(agnostic_mask) / 255.0
         mask_3d = np.repeat(mask_np[:, :, np.newaxis], 3, axis=2)
@@ -66,8 +87,6 @@ class CatVTONDiffusionEngine:
         person_np = np.array(person_rgb, dtype=np.float32)
         garment_np = np.array(garment_resized.convert("RGB"), dtype=np.float32)
 
-        # Inpainted output blends deformed garment into the target agnostic region
-        # with ambient illumination matching
         composite_np = person_np * (1.0 - mask_3d) + garment_np * mask_3d
         composite_img = Image.fromarray(np.clip(composite_np, 0, 255).astype(np.uint8))
 
@@ -75,10 +94,9 @@ class CatVTONDiffusionEngine:
 
         return VTONInferenceResult(
             rendered_image=composite_img,
-            model_name="CatVTON-v1.2 (Apache 2.0)",
+            model_name="masked-composite-placeholder",
             inference_time_seconds=round(exec_time, 3),
-            fit_verdict="True to Size (Calibrated Shoulder & Torso Drape)",
-            ssim_score=0.914,
-            identity_preservation_score=0.985,
+            # No fit measurement is performed by this engine — say so.
+            fit_verdict="Not Measured (composite placeholder, no diffusion model)",
             layers_applied=[slot_type]
         )

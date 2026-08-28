@@ -107,14 +107,13 @@ for prefix in [settings.API_V1_STR, "/v1", ""]:
     app.include_router(brand_router, prefix=prefix)
     app.include_router(admin_router, prefix=prefix)
 
-# Mount static files for uploads and generated try-on imagery
+# Mount static files for user uploads only. The legacy /tryon_results static
+# mount was removed together with the purged pre-rendered assets: try-on
+# outputs must come from a real render (GPU worker + object storage), never
+# from bundled static files.
 uploads_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "data", "uploads"))
 os.makedirs(uploads_dir, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=uploads_dir), name="uploads")
-
-tryon_res_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "data", "uploads", "tryon_results"))
-os.makedirs(tryon_res_dir, exist_ok=True)
-app.mount("/tryon_results", StaticFiles(directory=tryon_res_dir), name="tryon_results")
 
 # Root route
 @app.get("/")

@@ -74,6 +74,14 @@ export async function request<T>(
       if (contentType.includes('application/json')) {
         return await res.json();
       }
+      // A 200 with a non-JSON body means the request never reached the API
+      // (e.g. static hosting returned index.html). That is an error — it must
+      // never be parsed as a payload or routed into a fabricated fallback.
+      throw new ApiError(
+        'The server returned a non-JSON response. The API may not be deployed.',
+        'API_NOT_REACHABLE',
+        res.status
+      );
     }
 
     // If endpoint returned 404, 405 (Method Not Allowed on static CDN), or non-JSON HTML
@@ -464,53 +472,12 @@ function handleEdgeFallback<T>(endpoint: string, options: RequestInit): T | null
       } as unknown as T;
     }
 
-    // 2. Try-On Jobs & Multi-Render Fallback
-    if (endpoint.includes('/try-on') || endpoint.includes('/tryon')) {
-      const userImg = bodyObj.user_image_url || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600';
-      if (endpoint.includes('/animation-render')) {
-        return {
-          session_id: 101,
-          status: 'completed',
-          animation_style: 'premium_realistic',
-          output_aspect: bodyObj.output_aspect || '9:16',
-          rendered_animation_url: userImg,
-          keyframes_sequence: [
-            {
-              step: 1,
-              slot: 'upper_outer',
-              product_title: 'Tailored Italian Wool Double-Breasted Blazer',
-              brand_name: 'Massimo Dutti',
-              image_url: userImg,
-              status: 'Layer 1: Tailored Italian Wool Double-Breasted Blazer (upper outer)',
-            },
-          ],
-          fit_confidence_score: 96,
-          body_fit_verdict: 'Layered Composition Validated',
-          traceability_hash: 'VTON-ANIM-LIVE7712',
-          ai_disclosure: 'CONFIT VTON Engine — Real-time Multi-Layer Dressing',
-          total_price: 289.0,
-        } as unknown as T;
-      }
-
-      return {
-        id: 1,
-        job_id: 'vton_job_live_' + Date.now().toString(36),
-        session_id: 1,
-        status: 'completed',
-        progress_pct: 100,
-        current_stage: 'harmonized_and_verified',
-        model_used: 'CatVTON-v1.2 (Apache 2.0)',
-        output_image_url: userImg,
-        rendered_result_url: userImg,
-        before_after_split_url: userImg,
-        fit_confidence_score: 96,
-        body_fit_verdict: 'Optimal Garment Fit — Tailored Drape',
-        ai_disclosure: 'CONFIT VTON Engine — Real-time Identity Preserved Inpainting',
-        traceability_hash: 'VTON-CERT-LIVE889',
-        applied_items: [],
-        total_price: 289.0,
-      } as unknown as T;
-    }
+    // 2. Try-On Jobs & Multi-Render — NO fallback by design.
+    // A generation feature must never convert a failed generation into a
+    // successful response: fabricating a completed try-on job here previously
+    // presented the user's own unmodified photo as the "dressed" result with
+    // invented fit scores and traceability hashes. The real ApiError now
+    // propagates so the UI can show an honest failure state.
 
     // 3. Stylist Chat Fallback
     if (endpoint.includes('/stylist/chat')) {

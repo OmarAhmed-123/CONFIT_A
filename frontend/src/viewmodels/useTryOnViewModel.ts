@@ -126,48 +126,29 @@ export function useTryOnViewModel(initialProduct?: Product | null) {
         consent_retain_photo: consentRetain,
       });
 
-      if (res && (res.status === 'completed' || res.rendered_result_url)) {
+      if (res && res.status === 'completed' && res.rendered_result_url) {
         setMultiTryOnResult(res);
         setTryOnStatus('completed');
       } else {
-        setTryOnStatus('completed');
+        // The job exists but did not complete (e.g. status 'failed' with
+        // VTON_ENGINE_UNAVAILABLE). Show the honest failure — never render
+        // a substitute image.
+        setMultiTryOnResult(null);
+        setTryOnStatus('failed');
+        setErrorMessage(
+          (res as any)?.error_message ??
+          'Virtual try-on rendering is unavailable right now. Your photo was not modified and no preview was generated.'
+        );
       }
     } catch (err: any) {
-      const renderedUrl = uploadedUserImage || (selectedAvatar === 'avatar_hourglass_f' ? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=600' : (selectedAvatar === 'avatar_curvy_f' ? 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=600' : (selectedAvatar === 'avatar_tall_m' ? 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=600' : 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600')));
-
-      const fallbackResult: MultiGarmentTryOnResult = {
-        session_id: 1,
-        status: 'completed',
-        user_reference_image: renderedUrl,
-        rendered_result_url: renderedUrl,
-        before_after_split_url: renderedUrl,
-        applied_items: Object.values(currentGarments).map((p, idx) => ({
-          product_id: p.id,
-          product_title: p.title,
-          brand_name: p.brand_name || 'CONFIT',
-          category_name: p.category_name,
-          position: determineSlotForProduct(p),
-          image_url: p.thumbnail_url,
-          color_family: p.color_family,
-          color_hex: p.dominant_hex,
-          material: p.material,
-          price: p.base_price,
-          selected_size: 'M',
-          layer_order: idx + 1,
-        })),
-        total_price: Object.values(currentGarments).reduce((sum, p) => sum + (p.base_price || 0), 0),
-        recommended_sizes: { upper_outer: 'M', lower: '32' },
-        fit_confidence_score: 96,
-        body_fit_verdict: 'Optimal Garment Fit — Tailored Drape',
-        ai_disclosure: 'CONFIT VTON Engine — Dynamic Inpainting (Identity Preserved)',
-        traceability_hash: 'VTON-CERT-LIVE889',
-        layering_order: Object.keys(currentGarments),
-        dynamic_prompt_generated: '',
-        expires_at: new Date(Date.now() + 86400000).toISOString(),
-      };
-
-      setMultiTryOnResult(fallbackResult);
-      setTryOnStatus('completed');
+      // Honest failure: no fabricated result, no stock-model substitute,
+      // no unmodified photo presented as the dressed output.
+      setMultiTryOnResult(null);
+      setTryOnStatus('failed');
+      setErrorMessage(
+        err?.message ??
+        'Virtual try-on rendering is unavailable right now. Your photo was not modified and no preview was generated.'
+      );
     }
   }, [uploadedUserImage, selectedAvatar, consentRetain]);
 
@@ -222,49 +203,15 @@ export function useTryOnViewModel(initialProduct?: Product | null) {
         throw new Error('Animation sequence failed');
       }
     } catch (err: any) {
-      let renderedUrl = '/tryon_results/athletic_m_tuxedo.png';
-      if (uploadedUserImage) renderedUrl = '/tryon_results/campus_man_tuxedo.png';
-      else if (selectedAvatar.includes('hourglass') || selectedAvatar.includes('curvy')) renderedUrl = '/tryon_results/hourglass_f_silk_dress.png';
-
-      const animFallback: AnimationTryOnResult = {
-        session_id: 101,
-        status: 'completed',
-        animation_style: 'premium_realistic',
-        output_aspect: outputAspect,
-        rendered_animation_url: renderedUrl,
-        keyframes_sequence: Object.values(appliedGarments).map((p, idx) => ({
-          step: idx + 1,
-          slot: determineSlotForProduct(p),
-          product_title: p.title,
-          brand_name: p.brand_name || 'CONFIT',
-          image_url: renderedUrl,
-          status: `Layer ${idx + 1}: ${p.title} (${determineSlotForProduct(p).replace('_', ' ')})`,
-        })),
-        fit_confidence_score: 96,
-        body_fit_verdict: 'Layered Composition Validated',
-        traceability_hash: 'VTON-ANIM-LIVE778',
-        ai_disclosure: 'CONFIT VTON Engine — Step-by-Step Multi-Layer Dressing',
-        dynamic_animation_prompt: '',
-        applied_items: [],
-        total_price: Object.values(appliedGarments).reduce((sum, p) => sum + (p.base_price || 0), 0),
-      };
-
-      setAnimationResult(animFallback);
-      setMotionStatus('ready');
-      setActivePreviewTab('animation');
-
-      if (animFallback.keyframes_sequence.length > 0) {
-        let currentStep = 0;
-        const interval = setInterval(() => {
-          currentStep += 1;
-          if (currentStep < animFallback.keyframes_sequence.length) {
-            setActiveKeyframeIndex(currentStep);
-          } else {
-            clearInterval(interval);
-          }
-        }, 1200);
-      }
-      showToast('Layer assembly sequence ready for playback.', 'info');
+      // Honest failure: no fabricated keyframes, no static /tryon_results
+      // assets (they were purged), no unmodified photo presented as output.
+      setAnimationResult(null);
+      setMotionStatus('failed');
+      setErrorMessage(
+        err?.message ??
+        'Animated try-on rendering is unavailable right now. Your photo was not modified and no preview was generated.'
+      );
+      showToast('Animated try-on is unavailable right now. Please try again later.', 'error');
     }
   }, [appliedGarments, uploadedUserImage, selectedAvatar, outputAspect, showToast]);
 

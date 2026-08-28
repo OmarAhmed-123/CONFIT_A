@@ -95,17 +95,15 @@ def test_stylist_chat_and_compatibility(client: TestClient):
 
 
 def test_virtual_tryon_and_no_photo_fit(client: TestClient):
-    # Test Virtual Try-On
+    # Test Virtual Try-On — without a configured GPU worker the render
+    # endpoint must fail truthfully (503), never fabricating a result.
     tryon_res = client.post("/api/v1/tryon/render", json={
         "product_id": 1,
         "avatar_model_id": "avatar_athletic_m",
         "consent_retain_photo": False
     })
-    assert tryon_res.status_code == 200
-    tryon_data = tryon_res.json()
-    assert tryon_data["status"] == "completed"
-    assert "fit_confidence_score" in tryon_data
-    assert "traceability_hash" in tryon_data
+    assert tryon_res.status_code == 503
+    assert tryon_res.json()["error"]["code"] == "VTON_ENGINE_UNAVAILABLE"
 
     # Test No-Photo Fit Finder
     ruler_res = client.post("/api/v1/tryon/no-photo-fit", json={

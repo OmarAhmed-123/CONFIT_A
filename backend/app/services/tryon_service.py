@@ -25,6 +25,20 @@ from backend.app.core.config import settings
 from backend.app.core.exceptions import ResourceNotFoundError, ValidationDomainError, AuthorizationError
 
 
+# Maps seeded catalogue category slugs to the VTON worker's slot vocabulary.
+# The worker (services/vton-worker/pipeline/segmentation.py) raises on any
+# slot outside SUPPORTED_SLOTS, so every category MUST have an entry here.
+CATEGORY_TO_VTON_SLOT = {
+    "outerwear":   "upper_outer",
+    "tops":        "upper_inner",
+    "bottoms":     "lower",
+    "dresses":     "dress",
+    "footwear":    "footwear",
+    "accessories": "accessory",
+}
+DEFAULT_VTON_SLOT = "upper_inner"
+
+
 class TryOnService:
     def __init__(self, db: Session):
         self.db = db
@@ -72,7 +86,7 @@ class TryOnService:
             input_person_image_url=effective_image,
             garment_ids_json=json.dumps([p.id for p in valid_products]),
             garment_layers_json=json.dumps([{"id": p.id, "title": p.title, "category": p.category.name if p.category else "Garment"} for p in valid_products]),
-            model_used="CatVTON-v1.2 (Apache 2.0)",
+            model_used="pending (no render yet)",
             metrics_json=json.dumps({"queued_at": str(datetime.now(timezone.utc))})
         )
         self.db.add(job)
@@ -104,7 +118,7 @@ class TryOnService:
                             "garments": [
                                 {
                                     "product_id": p.id,
-                                    "slot_type": p.category.slug if p.category else "upper_outer",
+                                    "slot_type": CATEGORY_TO_VTON_SLOT.get(p.category.slug, DEFAULT_VTON_SLOT) if p.category else DEFAULT_VTON_SLOT,
                                     "image_url": p.thumbnail_url
                                 }
                                 for p in valid_products
@@ -115,16 +129,21 @@ class TryOnService:
                     )
                     if resp.status_code == 200:
                         gpu_data = resp.json()
+                        rendered = gpu_data.get("rendered_image_data_url")
+                        # Echo guard: a worker that returns the input unchanged
+                        # performed no render — that is a failure, not a result.
+                        if not rendered or rendered == effective_image:
+                            raise RuntimeError("Worker returned no rendered image (input echoed back)")
                         job.status = TryOnJobStatus.COMPLETED
                         job.progress_pct = 100
                         job.current_stage = "harmonized_and_verified"
-                        job.output_image_url = gpu_data.get("rendered_image_data_url", effective_image)
+                        job.output_image_url = rendered
                         job.completed_at = datetime.now(timezone.utc)
-                        job.metrics_json = json.dumps(gpu_data.get("quality_audit", {
-                            "ssim_score": 0.914,
-                            "identity_preservation_score": 98.5,
-                            "model_engine": "CatVTON-v1.2 (Modal GPU A10G)"
-                        }))
+                        # Record the model the worker actually reports.
+                        if gpu_data.get("model_used"):
+                            job.model_used = str(gpu_data["model_used"])[:50]
+                        # Measured values only — never default or fabricate metrics.
+                        job.metrics_json = json.dumps(gpu_data.get("quality_audit") or {})
                         self.db.commit()
                         self.db.refresh(job)
                         return self._format_job(job)
@@ -139,39 +158,17 @@ class TryOnService:
                 self.db.refresh(job)
                 return self._format_job(job)
 
-        # Multi-garment execution
-        try:
-            render_res = await self.execute_multi_garment_tryon(
-                product_ids=[p.id for p in valid_products],
-                user_image_url=effective_image,
-                avatar_model_id=avatar_model_id,
-                gender_mode=gender_mode,
-                user_id=user_id,
-                consent_retain_photo=consent_retain_photo
-            )
-
-            job.status = TryOnJobStatus.COMPLETED
-            job.progress_pct = 100
-            job.current_stage = "harmonized_and_verified"
-            job.output_image_url = render_res.get("rendered_result_url", effective_image)
-            job.completed_at = datetime.now(timezone.utc)
-            job.metrics_json = json.dumps({
-                "ssim_score": 0.914,
-                "lpips_score": 0.046,
-                "identity_preservation_score": 98.5,
-                "inference_time_ms": 420.0,
-                "model_engine": "CatVTON-v1.2 (Apache 2.0)"
-            })
-            self.db.commit()
-            self.db.refresh(job)
-
-        except Exception as exc:
-            job.status = TryOnJobStatus.FAILED
-            job.current_stage = "failed"
-            job.error_code = "TRYON_RENDER_FAILED"
-            job.error_message = str(exc)
-            self.db.commit()
-            self.db.refresh(job)
+        # No GPU inference worker is configured: there is no engine in this
+        # process that can render a try-on. Fail truthfully — never substitute
+        # a static image, the input photo, or fabricated metrics (A6/A7).
+        job.status = TryOnJobStatus.FAILED
+        job.current_stage = "failed"
+        job.error_code = "VTON_ENGINE_UNAVAILABLE"
+        job.error_message = "No GPU inference worker is configured (VTON_WORKER_URL)."
+        job.model_used = "none (no render performed)"  # column is NOT NULL; record honestly that no model ran
+        job.metrics_json = json.dumps({})  # no metrics: nothing was measured
+        self.db.commit()
+        self.db.refresh(job)
 
         return self._format_job(job)
 
@@ -213,7 +210,7 @@ class TryOnService:
         # Create new asset record
         new_asset = GarmentAsset(
             product_id=product.id,
-            slot_type=product.category.slug if product.category else "upper_outer",
+            slot_type=CATEGORY_TO_VTON_SLOT.get(product.category.slug, DEFAULT_VTON_SLOT) if product.category else DEFAULT_VTON_SLOT,
             flat_image_url=product.thumbnail_url,
             segmented_garment_url=product.thumbnail_url,
             garment_mask_url=product.thumbnail_url,

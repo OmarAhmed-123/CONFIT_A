@@ -1,3 +1,9 @@
+# CONFIT Python dependencies — CANONICAL file for the Vercel serverless
+# deployment (api/requirements.txt must stay byte-identical to this file).
+# Uses pg8000 (pure-Python Postgres driver) and mangum (serverless adapter)
+# because Vercel cannot compile C extensions such as psycopg2.
+# The Docker / local full-stack variant lives in backend/requirements.txt;
+# shared packages must keep the SAME minimum versions in both files.
 fastapi>=0.115.0
 pydantic>=2.9.0
 pydantic-settings>=2.5.0
@@ -7,10 +13,10 @@ redis>=5.1.0
 httpx>=0.27.2
 structlog>=24.4.0
 python-jose[cryptography]>=3.3.0
-bcrypt>=4.0.0
-cryptography>=42.0.0
-python-multipart>=0.0.9
-email-validator>=2.1.0
+bcrypt>=4.2.0
+cryptography>=43.0.1
+python-multipart>=0.0.12
+email-validator>=2.2.0
 pyotp>=2.9.0
 aiofiles>=24.1.0
 mangum>=0.17.0

@@ -1,3 +1,7 @@
+# CONFIT Python dependencies — Docker / local full-stack variant
+# (uvicorn, celery, alembic, psycopg2-binary, pytest). The canonical
+# serverless list lives in the repo-root requirements.txt; shared packages
+# must keep the SAME minimum versions in both files.
 fastapi>=0.115.0
 uvicorn[standard]>=0.32.0
 pydantic>=2.9.0

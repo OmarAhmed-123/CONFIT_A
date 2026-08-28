@@ -44,7 +44,7 @@ def get_payment_methods_for_market(
 @router.get("/commerce/cart", response_model=CartOut)
 @router.get("/cart", response_model=CartOut)
 def get_cart(
-    x_session_token: Optional[str] = Header("guest_session_default"),
+    x_session_token: str = Header(...),  # required — no shared default guest cart (S5)
     user: Optional[User] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
@@ -56,7 +56,7 @@ def get_cart(
 @router.post("/cart/items", response_model=CartOut, status_code=status.HTTP_201_CREATED)
 def add_to_cart(
     payload: CartItemAdd,
-    x_session_token: Optional[str] = Header("guest_session_default"),
+    x_session_token: str = Header(...),  # required — no shared default guest cart (S5)
     user: Optional[User] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
@@ -76,7 +76,7 @@ def add_to_cart(
 def update_cart_item(
     item_id: int,
     quantity: int = Query(..., ge=0, le=10),
-    x_session_token: Optional[str] = Header("guest_session_default"),
+    x_session_token: str = Header(...),  # required — no shared default guest cart (S5)
     user: Optional[User] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
@@ -88,7 +88,7 @@ def update_cart_item(
 @router.delete("/cart/items/{item_id}", response_model=CartOut)
 def remove_from_cart(
     item_id: int,
-    x_session_token: Optional[str] = Header("guest_session_default"),
+    x_session_token: str = Header(...),  # required — no shared default guest cart (S5)
     user: Optional[User] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
@@ -111,7 +111,7 @@ def merge_guest_cart(
 @router.post("/checkout", response_model=OrderOut)
 async def checkout_order(
     payload: CheckoutRequest,
-    x_session_token: Optional[str] = Header("guest_session_default"),
+    x_session_token: str = Header(...),  # required — no shared default guest cart (S5)
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -126,7 +126,7 @@ async def checkout_order(
 @router.post("/checkout/sessions", response_model=Dict[str, Any])
 def create_checkout_session(
     payload: CheckoutRequest,
-    x_session_token: Optional[str] = Header("guest_session_default"),
+    x_session_token: str = Header(...),  # required — no shared default guest cart (S5)
     user: Optional[User] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
@@ -155,7 +155,7 @@ def get_checkout_session(token: str):
 async def confirm_checkout_session(
     token: str,
     payload: CheckoutRequest,
-    x_session_token: Optional[str] = Header("guest_session_default"),
+    x_session_token: str = Header(...),  # required — no shared default guest cart (S5)
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):

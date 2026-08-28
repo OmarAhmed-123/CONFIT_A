@@ -1,4 +1,5 @@
 from typing import List, Optional
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -74,6 +75,31 @@ class Settings(BaseSettings):
         extra="allow",
         case_sensitive=True
     )
+
+    # Well-known insecure defaults that ship with the public repository.
+    _INSECURE_DEFAULTS = {
+        "confit_jwt_signing_key_default_dev",
+        "confit_refresh_signing_key_default_dev",
+        "confit_body_privacy_key_32bytes_default",
+    }
+
+    @model_validator(mode="after")
+    def _forbid_default_secrets_in_production(self) -> "Settings":
+        """S2: refuse to boot in production with the publicly known default
+        secrets — with them, anyone who can read this repo can forge admin
+        JWTs. Development/test environments keep working as before."""
+        if self.ENVIRONMENT.lower() == "production":
+            weak = [
+                name
+                for name in ("SECRET_KEY", "JWT_REFRESH_SECRET", "ENCRYPTION_KEY_FOR_BODY_DATA")
+                if getattr(self, name) in self._INSECURE_DEFAULTS
+            ]
+            if weak:
+                raise ValueError(
+                    f"Refusing to start in production with default secrets: {', '.join(weak)}. "
+                    "Set strong random values via environment variables."
+                )
+        return self
 
 
 settings = Settings()

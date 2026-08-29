@@ -102,8 +102,16 @@ export const catalogService = {
     sort_by?: string;
     limit?: number;
   }) => {
-    const query = new URLSearchParams(params as any).toString();
-    return request<Product[]>(`/catalog/products?${query}`);
+    // Root-cause fix for the empty live catalog: URLSearchParams serializes
+    // undefined values as the literal string "undefined", which the backend
+    // then applied as a real filter (search="undefined" matches nothing, so
+    // the whole catalog rendered empty). Only defined, non-empty params go
+    // on the wire.
+    const clean = Object.fromEntries(
+      Object.entries(params ?? {}).filter(([, v]) => v !== undefined && v !== null && v !== '')
+    );
+    const query = new URLSearchParams(clean as Record<string, string>).toString();
+    return request<Product[]>(`/catalog/products${query ? `?${query}` : ''}`);
   },
 
   getProductDetail: (slug: string) => request<Product>(`/catalog/products/${slug}`),
@@ -123,8 +131,12 @@ export const catalogService = {
     page?: number;
     limit?: number;
   }) => {
-    const query = new URLSearchParams(params as any).toString();
-    return request<SearchResponse>(`/catalog/search?${query}`);
+    // Same undefined-serialization guard as getProducts.
+    const clean = Object.fromEntries(
+      Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== '')
+    );
+    const query = new URLSearchParams(clean as Record<string, string>).toString();
+    return request<SearchResponse>(`/catalog/search${query ? `?${query}` : ''}`);
   },
 
   autocompleteCatalog: (q: string) => request<AutocompleteResponse>(`/catalog/autocomplete?q=${encodeURIComponent(q)}`),

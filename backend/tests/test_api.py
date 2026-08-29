@@ -245,3 +245,16 @@ def test_measurement_session_and_results(client: TestClient):
     get_res = client.get(f"/api/v1/measurements/sessions/{session_id}")
     assert get_res.status_code == 200
     assert len(get_res.json()["results"]) > 0
+
+
+def test_catalog_ignores_literal_undefined_params(client: TestClient):
+    """Regression for the 2026-08-29 empty-catalog outage: JS clients that
+    serialize undefined query params send the literal string 'undefined'.
+    The API must treat those as absent, not as real filters."""
+    res = client.get("/api/v1/catalog/products?category=undefined&occasion=undefined&color=undefined&search=undefined&sort_by=recommended")
+    assert res.status_code == 200
+    assert len(res.json()) > 0  # the catalog is NOT empty
+
+    res2 = client.get("/api/v1/catalog/products")
+    assert res2.status_code == 200
+    assert len(res.json()) == len(res2.json())  # same result as no params

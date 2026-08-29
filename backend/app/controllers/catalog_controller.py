@@ -80,19 +80,26 @@ def list_products(
     offset: int = Query(0, ge=0),
     db: Session = Depends(get_db)
 ):
+    # Defense in depth: JS clients that accidentally serialize undefined/null
+    # send the literal strings "undefined"/"null" — treat them as absent
+    # instead of applying them as real filters (which silently empties the
+    # entire catalog, as happened in production on 2026-08-29).
+    def _clean(v):
+        return None if v in (None, "", "undefined", "null") else v
+
     repo = CatalogRepository(db)
     products = repo.filter_products(
-        category_slug=category,
+        category_slug=_clean(category),
         brand_id=brand_id,
-        color=color,
-        occasion=occasion,
+        color=_clean(color),
+        occasion=_clean(occasion),
         min_price=min_price,
         max_price=max_price,
-        search_query=search,
+        search_query=_clean(search),
         is_featured=is_featured,
         limit=limit,
         offset=offset,
-        sort_by=sort_by
+        sort_by=_clean(sort_by) or "recommended"
     )
 
     results = []

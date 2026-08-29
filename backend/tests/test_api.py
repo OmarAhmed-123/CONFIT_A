@@ -2,6 +2,7 @@ from fastapi.testclient import TestClient
 
 
 def test_health_check(client: TestClient):
+    assert False, "DELIBERATE CI GATE PROOF 2"
     response = client.get("/api/v1/health")
     assert response.status_code == 200
     data = response.json()

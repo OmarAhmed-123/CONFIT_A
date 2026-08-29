@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, status, Request
+from fastapi import APIRouter, Depends, status, Request, Response
 from sqlalchemy.orm import Session
 from backend.app.core.database import get_db
 from backend.app.core.dependencies import get_current_user
@@ -18,8 +18,37 @@ from backend.app.schemas.auth import (
 from pydantic import BaseModel, EmailStr
 
 from backend.app.core.rate_limit import limiter
+from backend.app.core.security import generate_csrf_token
+from backend.app.core.config import settings
 
 router = APIRouter(prefix="/auth", tags=["Authentication & Identity"])
+
+SESSION_COOKIE = "confit_token"
+CSRF_COOKIE = "confit_csrf"
+
+
+def _set_session_cookies(response: Response, access_token: str) -> None:
+    """httpOnly session cookie (not JS-readable) + a JS-readable CSRF
+    double-submit cookie. Bearer-token API clients are unaffected — the JSON
+    body still carries the tokens for backward compatibility."""
+    secure = settings.ENVIRONMENT.lower() == "production"
+    response.set_cookie(
+        SESSION_COOKIE, access_token,
+        httponly=True, secure=secure, samesite="lax", path="/",
+        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+    )
+    response.set_cookie(
+        CSRF_COOKIE, generate_csrf_token(),
+        httponly=False, secure=secure, samesite="lax", path="/",
+        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+    )
+
+
+def _clear_session_cookies(response: Response) -> None:
+    response.delete_cookie(SESSION_COOKIE, path="/")
+    response.delete_cookie(CSRF_COOKIE, path="/")
+
+
 
 
 class ForgotPasswordRequest(BaseModel):
@@ -37,7 +66,7 @@ class VerifyEmailRequest(BaseModel):
 
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
 @limiter.limit("5/minute")
-def register(request: Request, payload: UserRegister, db: Session = Depends(get_db)):
+def register(request: Request, response: Response, payload: UserRegister, db: Session = Depends(get_db)):
     service = AuthService(db)
     res = service.register(
         email=payload.email,
@@ -61,6 +90,7 @@ def register(request: Request, payload: UserRegister, db: Session = Depends(get_
         brand_id=res["user"].brand_profile.id if res["user"].brand_profile else None,
         has_profile=res["user"].profile is not None
     )
+    _set_session_cookies(response, res["access_token"])
     return {
         "access_token": res["access_token"],
         "refresh_token": res["refresh_token"],
@@ -71,7 +101,7 @@ def register(request: Request, payload: UserRegister, db: Session = Depends(get_
 
 @router.post("/login", response_model=TokenResponse)
 @limiter.limit("10/minute")
-def login(request: Request, payload: UserLogin, db: Session = Depends(get_db)):
+def login(request: Request, response: Response, payload: UserLogin, db: Session = Depends(get_db)):
     service = AuthService(db)
     res = service.login(email=payload.email, password=payload.password, mfa_code=payload.mfa_code)
     user_out = UserOut(
@@ -88,6 +118,7 @@ def login(request: Request, payload: UserLogin, db: Session = Depends(get_db)):
         brand_id=res["user"].brand_profile.id if res["user"].brand_profile else None,
         has_profile=res["user"].profile is not None
     )
+    _set_session_cookies(response, res["access_token"])
     return {
         "access_token": res["access_token"],
         "refresh_token": res["refresh_token"],
@@ -98,7 +129,7 @@ def login(request: Request, payload: UserLogin, db: Session = Depends(get_db)):
 
 @router.post("/social-login", response_model=TokenResponse)
 @limiter.limit("10/minute")
-def social_login(request: Request, payload: SocialLoginRequest, db: Session = Depends(get_db)):
+def social_login(request: Request, response: Response, payload: SocialLoginRequest, db: Session = Depends(get_db)):
     service = AuthService(db)
     res = service.social_login(
         provider=payload.provider,
@@ -120,6 +151,7 @@ def social_login(request: Request, payload: SocialLoginRequest, db: Session = De
         brand_id=res["user"].brand_profile.id if res["user"].brand_profile else None,
         has_profile=res["user"].profile is not None
     )
+    _set_session_cookies(response, res["access_token"])
     return {
         "access_token": res["access_token"],
         "refresh_token": res["refresh_token"],
@@ -129,7 +161,7 @@ def social_login(request: Request, payload: SocialLoginRequest, db: Session = De
 
 
 @router.post("/refresh", response_model=TokenResponse)
-def refresh(payload: RefreshTokenRequest, db: Session = Depends(get_db)):
+def refresh(payload: RefreshTokenRequest, response: Response, db: Session = Depends(get_db)):
     service = AuthService(db)
     res = service.refresh(payload.refresh_token)
     user_out = UserOut(
@@ -146,6 +178,7 @@ def refresh(payload: RefreshTokenRequest, db: Session = Depends(get_db)):
         brand_id=res["user"].brand_profile.id if res["user"].brand_profile else None,
         has_profile=res["user"].profile is not None
     )
+    _set_session_cookies(response, res["access_token"])
     return {
         "access_token": res["access_token"],
         "refresh_token": res["refresh_token"],
@@ -155,7 +188,8 @@ def refresh(payload: RefreshTokenRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/logout")
-def logout(user: User = Depends(get_current_user)):
+def logout(response: Response, user: User = Depends(get_current_user)):
+    _clear_session_cookies(response)
     return {"status": "success", "message": "Successfully logged out and session revoked."}
 
 

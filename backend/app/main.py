@@ -73,6 +73,31 @@ app.add_middleware(
 )
 
 
+# CSRF protection for cookie-authenticated requests (double-submit pattern).
+# Requests authenticated by a Bearer header are immune by design (headers
+# can't be forged cross-site); requests authenticated by the httpOnly cookie
+# must present X-CSRF-Token matching the readable confit_csrf cookie.
+CSRF_EXEMPT_PATH_PREFIXES = ("/api/v1/auth/login", "/api/v1/auth/register", "/api/v1/auth/social-login", "/v1/auth/", "/auth/")
+
+
+@app.middleware("http")
+async def csrf_cookie_guard(request: Request, call_next):
+    if request.method in ("POST", "PUT", "PATCH", "DELETE"):
+        has_session_cookie = "confit_token" in request.cookies
+        has_bearer = (request.headers.get("authorization") or "").startswith("Bearer ")
+        if has_session_cookie and not has_bearer:
+            path = request.url.path
+            if not any(path.startswith(p) for p in CSRF_EXEMPT_PATH_PREFIXES):
+                csrf_cookie = request.cookies.get("confit_csrf")
+                csrf_header = request.headers.get("x-csrf-token")
+                if not csrf_cookie or not csrf_header or csrf_cookie != csrf_header:
+                    return JSONResponse(
+                        status_code=403,
+                        content={"error": {"code": "CSRF_TOKEN_MISMATCH", "message": "CSRF token missing or invalid.", "details": {}}},
+                    )
+    return await call_next(request)
+
+
 # Exception handler for domain exceptions
 @app.exception_handler(ConfitException)
 async def confit_exception_handler(request: Request, exc: ConfitException):

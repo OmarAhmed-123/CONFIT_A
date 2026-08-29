@@ -1,7 +1,7 @@
 import { create } from 'zustand';
+import { useAuthStore } from './authStore';
 import { Cart, CartItem } from '../models';
 import { commerceService, wardrobeService } from '../services/apiServices';
-import { getAuthToken } from '../services/apiClient';
 
 const PRODUCT_CATALOG_REF: Record<number, { title: string; brand: string; price: number; image: string; color: string; size: string }> = {
   1: { title: 'Tailored Italian Wool Double-Breasted Blazer', brand: 'Massimo Dutti', price: 289.0, image: 'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?w=700', color: 'Navy Blue', size: 'M' },
@@ -95,7 +95,7 @@ export const useCartStore = create<CartState>((set, get) => ({
     set({ isLoading: true });
     try {
       // Check duplicate alert only if user is logged in (has an active digital wardrobe)
-      if (productInfo && getAuthToken()) {
+      if (productInfo && useAuthStore.getState().isAuthenticated) {
         try {
           const dupRes = await wardrobeService.checkDuplicate({
             product_id: productInfo.id,

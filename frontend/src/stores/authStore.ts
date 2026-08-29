@@ -16,7 +16,7 @@ interface AuthState {
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
-  isAuthenticated: !!getAuthToken(),
+  isAuthenticated: false,
   isLoading: false,
   error: null,
 
@@ -28,30 +28,12 @@ export const useAuthStore = create<AuthState>((set) => ({
       localStorage.setItem('confit_user', JSON.stringify(res.user));
       set({ user: res.user, isAuthenticated: true, isLoading: false, error: null });
     } catch (err: any) {
-      // Resilient fallback for demo logins and static edge deployments
-      const cleanEmail = (email || '').trim().toLowerCase();
-      const isAdmin = cleanEmail.includes('admin');
-      const isBrand = cleanEmail.includes('brand') || cleanEmail.includes('massimo') || cleanEmail.includes('cos') || cleanEmail.includes('reiss');
-      
-      const fallbackUser: User = {
-        id: isAdmin ? 2 : (isBrand ? 3 : 1),
-        email: email,
-        full_name: isAdmin ? 'CONFIT Super Admin' : (isBrand ? 'Massimo Dutti Brand Manager' : (cleanEmail.includes('shopper') ? 'Layla Al-Mansoor' : email.split('@')[0] || 'CONFIT Member')),
-        role: isAdmin ? 'admin' : (isBrand ? 'brand_manager' : 'consumer'),
-        phone: '+971501234567',
-        preferred_language: 'en',
-        is_active: true,
-        is_verified: true,
-        mfa_enabled: false,
-        created_at: new Date().toISOString(),
-        brand_id: isBrand ? 1 : undefined,
-        has_profile: true,
-      };
-
-      const mockToken = 'jwt_demo_access_token_' + btoa(JSON.stringify(fallbackUser));
-      setAuthTokens(mockToken, 'jwt_demo_refresh_token');
-      localStorage.setItem('confit_user', JSON.stringify(fallbackUser));
-      set({ user: fallbackUser, isAuthenticated: true, isLoading: false, error: null });
+      // Honest failure — no fabricated session. (The old code minted a
+      // client-side 'admin' for any email containing "admin" on ANY error,
+      // including a wrong password: a real auth bypass.)
+      clearAuthTokens();
+      set({ user: null, isAuthenticated: false, isLoading: false, error: err?.message || 'Login failed' });
+      throw err;
     }
   },
 
@@ -63,46 +45,26 @@ export const useAuthStore = create<AuthState>((set) => ({
       localStorage.setItem('confit_user', JSON.stringify(res.user));
       set({ user: res.user, isAuthenticated: true, isLoading: false, error: null });
     } catch (err: any) {
-      const newUser: User = {
-        id: Date.now() % 100000,
-        email: payload.email,
-        full_name: payload.full_name || 'CONFIT Member',
-        role: (payload.role as any) || 'consumer',
-        phone: payload.phone || '+971501234567',
-        preferred_language: 'en',
-        is_active: true,
-        is_verified: true,
-        mfa_enabled: false,
-        created_at: new Date().toISOString(),
-        has_profile: true,
-      };
-      const mockToken = 'jwt_demo_access_token_' + btoa(JSON.stringify(newUser));
-      setAuthTokens(mockToken, 'jwt_demo_refresh_token');
-      localStorage.setItem('confit_user', JSON.stringify(newUser));
-      set({ user: newUser, isAuthenticated: true, isLoading: false, error: null });
+      clearAuthTokens();
+      set({ user: null, isAuthenticated: false, isLoading: false, error: err?.message || 'Registration failed' });
+      throw err;
     }
   },
 
   logout: () => {
+    authService.logout().catch(() => {}); // clears the httpOnly cookie server-side
     clearAuthTokens();
     set({ user: null, isAuthenticated: false });
   },
 
   fetchMe: async () => {
-    if (!getAuthToken()) return;
+    // The session cookie is httpOnly — JS cannot see it, so just ask the
+    // backend; a live cookie yields the user, an absent/expired one 401s.
     try {
       const user = await authService.getMe();
       localStorage.setItem('confit_user', JSON.stringify(user));
       set({ user, isAuthenticated: true });
     } catch (err) {
-      const savedUserStr = localStorage.getItem('confit_user');
-      if (savedUserStr) {
-        try {
-          const savedUser = JSON.parse(savedUserStr);
-          set({ user: savedUser, isAuthenticated: true });
-          return;
-        } catch (e) {}
-      }
       clearAuthTokens();
       set({ user: null, isAuthenticated: false });
     }

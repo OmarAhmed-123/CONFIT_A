@@ -24,23 +24,28 @@ export const getSessionToken = (): string => {
   return token;
 };
 
-export const getAuthToken = (): string | null => {
-  const token = localStorage.getItem('confit_access_token');
-  if (!token || token === 'null' || token === 'undefined' || token.trim() === '') {
-    return null;
-  }
-  return token.trim();
-};
+// Session tokens live in an httpOnly cookie (set by the backend at login) —
+// they are intentionally NOT readable from JavaScript, so an XSS payload
+// cannot exfiltrate a session. getAuthToken remains only for API-client
+// compatibility and always returns null in the browser.
+export const getAuthToken = (): string | null => null;
 
-export const setAuthTokens = (access: string, refresh: string) => {
-  localStorage.setItem('confit_access_token', access);
-  localStorage.setItem('confit_refresh_token', refresh);
-};
+// The backend sets the session cookie itself; nothing token-shaped is ever
+// written to web storage. Kept as a no-op so existing call sites compile.
+export const setAuthTokens = (_access: string, _refresh: string) => {};
 
 export const clearAuthTokens = () => {
-  localStorage.removeItem('confit_access_token');
-  localStorage.removeItem('confit_refresh_token');
   localStorage.removeItem('confit_user');
+  localStorage.removeItem('confit_access_token'); // purge any pre-migration leftovers
+  localStorage.removeItem('confit_refresh_token');
+  document.cookie = 'confit_csrf=; Max-Age=0; path=/';
+};
+
+// Double-submit CSRF token: the readable confit_csrf cookie, echoed back as a
+// header on mutating requests (the backend compares header vs cookie).
+const getCsrfToken = (): string | null => {
+  const m = document.cookie.match(/(?:^|;\s*)confit_csrf=([^;]+)/);
+  return m ? decodeURIComponent(m[1]) : null;
 };
 
 export async function request<T>(
@@ -57,10 +62,14 @@ export async function request<T>(
   // Inject session token for guest carts and anonymous session identification
   headers.set('X-Session-Token', getSessionToken());
 
-  // Attach Authorization Bearer token strictly when a valid token exists
-  const token = getAuthToken();
-  if (token) {
-    headers.set('Authorization', `Bearer ${token}`);
+  // Auth travels via the httpOnly session cookie (same-origin). No Bearer
+  // header is attached from JS — there is deliberately no readable token.
+  const method = (options.method || 'GET').toUpperCase();
+  if (method !== 'GET' && method !== 'HEAD') {
+    const csrf = getCsrfToken();
+    if (csrf) {
+      headers.set('X-CSRF-Token', csrf);
+    }
   }
 
   try {

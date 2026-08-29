@@ -82,8 +82,12 @@ def test_stylist_chat_and_compatibility(client: TestClient):
     assert len(chat_data["recommendations"]) > 0
     assert "intent_detected" in chat_data
 
-    # Test outfit compatibility check
-    comp_res = client.post("/api/v1/stylist/compatibility", json={
+    # Test outfit compatibility check. The login above set the httpOnly
+    # session cookie in this client's jar, so under the CSRF double-submit
+    # contract a cookie-authenticated POST must echo the readable CSRF cookie
+    # as a header — exactly what the frontend does.
+    csrf = client.cookies.get("confit_csrf")
+    comp_res = client.post("/api/v1/stylist/compatibility", headers={"X-CSRF-Token": csrf}, json={
         "product_ids": [1, 2],
         "target_occasion": "Work & Business"
     })

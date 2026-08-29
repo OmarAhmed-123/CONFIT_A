@@ -1,5 +1,6 @@
 import base64
 import hashlib
+import secrets
 import bcrypt
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional
@@ -63,6 +64,11 @@ def decode_token(token: str) -> Dict[str, Any]:
         return payload
     except PyJWTError as exc:
         raise AuthenticationError(f"Invalid or expired token: {str(exc)}")
+
+
+def generate_csrf_token() -> str:
+    """Double-submit CSRF token for cookie-authenticated mutating requests."""
+    return secrets.token_urlsafe(32)
 
 
 def encrypt_sensitive_data(plain_text: str) -> str:

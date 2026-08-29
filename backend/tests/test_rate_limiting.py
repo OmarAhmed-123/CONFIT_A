@@ -18,7 +18,9 @@ def limiter_on():
     limiter = app.state.limiter
     limiter.enabled = True
     limiter.reset()  # clean buckets so this test is deterministic
+    client.cookies.clear()  # anonymous client: no session cookie, so no CSRF gate
     yield limiter
+    client.cookies.clear()
     limiter.reset()
     limiter.enabled = False
 

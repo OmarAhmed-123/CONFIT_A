@@ -4,7 +4,6 @@ import { profileService, authService } from '../../services/apiServices';
 import { UserStyleProfile } from '../../models';
 import { useAuthStore } from '../../stores/authStore';
 import { useUIStore } from '../../stores/uiStore';
-import { getAuthToken } from '../../services/apiClient';
 import { SparkleIcon, UserIcon, RulerIcon } from '../../components/icons/ConfitIcons';
 import { LoadingSpinner } from '../../components/common/CommonComponents';
 
@@ -53,7 +52,7 @@ export const UserProfileView: React.FC = () => {
       .catch((err) => {
         setIsLoading(false);
         // Do not show noisy auth error toasts for guests
-        if (getAuthToken()) {
+        if (isAuthenticated) {
           showToast('Profile sync: ' + err.message, 'info');
         }
       });

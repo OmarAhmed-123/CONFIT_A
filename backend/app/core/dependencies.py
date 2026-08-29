@@ -1,5 +1,5 @@
 from typing import Optional, List
-from fastapi import Depends
+from fastapi import Depends, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from backend.app.core.database import get_db
@@ -15,14 +15,25 @@ ADMIN_ROLES = [UserRole.ADMIN]
 CUSTOMER_ROLES = [UserRole.CONSUMER, UserRole.BRAND_OWNER, UserRole.BRAND_MANAGER, UserRole.BRAND_STAFF, UserRole.ADMIN]
 
 
+def _extract_token(request: Request, credentials: Optional[HTTPAuthorizationCredentials]) -> Optional[str]:
+    """Bearer header wins (API clients); otherwise the httpOnly session cookie
+    set at login. The cookie is NOT readable from JavaScript, which is the
+    whole point of the localStorage -> cookie migration."""
+    if credentials:
+        return credentials.credentials
+    return request.cookies.get("confit_token")
+
+
 def get_current_user_optional(
+    request: Request,
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
     db: Session = Depends(get_db)
 ) -> Optional[User]:
-    if not credentials:
+    token = _extract_token(request, credentials)
+    if not token:
         return None
     try:
-        payload = decode_token(credentials.credentials)
+        payload = decode_token(token)
         user_id = int(payload.get("sub"))
         repo = UserRepository(db)
         user = repo.get_by_id(user_id)
@@ -32,13 +43,15 @@ def get_current_user_optional(
 
 
 def get_current_user(
+    request: Request,
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
     db: Session = Depends(get_db)
 ) -> User:
-    if not credentials:
+    token = _extract_token(request, credentials)
+    if not token:
         raise AuthenticationError("Authorization bearer token required.")
     try:
-        payload = decode_token(credentials.credentials)
+        payload = decode_token(token)
         user_id = int(payload.get("sub"))
         repo = UserRepository(db)
         user = repo.get_by_id(user_id)

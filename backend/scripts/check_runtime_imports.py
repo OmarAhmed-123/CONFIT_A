@@ -46,16 +46,17 @@ def declared_packages() -> set[str]:
 
 def imported_third_party() -> set[str]:
     mods = set()
-    for py in (ROOT / "backend" / "app").rglob("*.py"):
-        if "__pycache__" in str(py):
-            continue
-        tree = ast.parse(py.read_text())
-        for node in ast.walk(tree):
-            if isinstance(node, ast.Import):
-                for a in node.names:
-                    mods.add(a.name.split(".")[0])
-            elif isinstance(node, ast.ImportFrom) and node.module and node.level == 0:
-                mods.add(node.module.split(".")[0])
+    for base_dir in [ROOT / "backend" / "app", ROOT / "backend" / "tests"]:
+      for py in base_dir.rglob("*.py"):
+          if "__pycache__" in str(py):
+              continue
+          tree = ast.parse(py.read_text())
+          for node in ast.walk(tree):
+              if isinstance(node, ast.Import):
+                  for a in node.names:
+                      mods.add(a.name.split(".")[0])
+              elif isinstance(node, ast.ImportFrom) and node.module and node.level == 0:
+                  mods.add(node.module.split(".")[0])
     # drop stdlib and our own package
     return {m for m in mods if m not in STDLIB and m != "backend"}
 

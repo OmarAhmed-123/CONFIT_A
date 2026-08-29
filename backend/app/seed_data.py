@@ -1,4 +1,5 @@
 import json
+import sys
 from sqlalchemy.orm import Session, sessionmaker
 from backend.app.core.database import Base, engine
 from backend.app.core.security import get_password_hash, encrypt_sensitive_data
@@ -11,8 +12,24 @@ from backend.app.models.commerce import Order, OrderItem
 from backend.app.models.brand_analytics import SponsoredPlacement
 
 
-def seed_database(target_engine=None):
+def seed_database(target_engine=None, force=False):
+    """Seeds the demo catalogue. DESTRUCTIVE when the database already holds
+    data (drop_all first) — refuse to run against a populated database unless
+    force=True, so a mistaken run can never wipe real data. Tests pass their
+    own engine and force the reset explicitly."""
+    from sqlalchemy import inspect as sa_inspect
     active_engine = target_engine or engine
+
+    insp = sa_inspect(active_engine)
+    if "users" in insp.get_table_names():
+        with active_engine.connect() as conn:
+            from sqlalchemy import text as _text
+            user_count = conn.execute(_text("SELECT COUNT(*) FROM users")).scalar()
+        if user_count and not force:
+            print(f"Database already contains {user_count} user(s) — refusing to wipe. "
+                  "Re-run with force=True (or --force) to reset intentionally.")
+            return
+
     Base.metadata.drop_all(bind=active_engine)
     Base.metadata.create_all(bind=active_engine)
     
@@ -569,4 +586,4 @@ def seed_database(target_engine=None):
 
 
 if __name__ == "__main__":
-    seed_database()
+    seed_database(force="--force" in sys.argv)

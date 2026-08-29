@@ -1,0 +1,18 @@
+name: backend-ci
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install declared dependencies
+        run: pip install -r backend/requirements.txt
+      # Guard against the 2026-08-29 outage class: an import that is not
+      # declared in requirements.txt kills every serverless invocation.
+      - name: Runtime import coverage check
+        run: PYTHONPATH=. python3 backend/scripts/check_runtime_imports.py
+      - name: Test suite
+        run: PYTHONPATH=. python3 -m pytest backend/tests -q

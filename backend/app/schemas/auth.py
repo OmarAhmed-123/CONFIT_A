@@ -31,9 +31,17 @@ class SocialLoginRequest(BaseModel):
     field pair was the auth-bypass surface (audit finding G1.SEC-02). The
     identity is now taken exclusively from the provider's verified
     response inside `AuthService.social_login`.
+
+    `model_config = ignore` deliberately silently discards any extra
+    fields (e.g. an attacker who keeps sending `email` / `full_name`) so
+    the endpoint stays a 200 for a legit provider_token, not a 422 that
+    would train attackers to try harder. The identity path never reads
+    those extra fields.
     """
     provider: str = Field(description="One of: google, apple, facebook")
     provider_token: str = Field(min_length=8, description="ID token (Google/Apple) or access token (Facebook).")
+
+    model_config = ConfigDict(extra="ignore")
 
 
 class TokenResponse(BaseModel):

@@ -15,9 +15,32 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "confit_jwt_signing_key_default_dev"
     JWT_REFRESH_SECRET: str = "confit_refresh_signing_key_default_dev"
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 24 hours
+    JWT_ISSUER: str = "confit"
+    JWT_AUDIENCE: str = "confit.api"
+    # Group 1 spec §9: avoid unnecessary 24h access-token lifetimes.
+    # Short-lived access tokens (15 min) + persistent refresh tokens (30d)
+    # is the correct dual-token pattern.
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30
     ENCRYPTION_KEY_FOR_BODY_DATA: str = "confit_body_privacy_key_32bytes_default"
+
+    # OAuth 2.0 client configuration — Group 1 §7 real provider verification.
+    # Missing values cause social-login to return 501 FEATURE_NOT_CONFIGURED
+    # rather than silently trusting the client-supplied identity.
+    GOOGLE_OAUTH_CLIENT_ID: Optional[str] = None
+    APPLE_OAUTH_CLIENT_ID: Optional[str] = None
+    APPLE_OAUTH_JWKS_URL: str = "https://appleid.apple.com/auth/keys"
+    FACEBOOK_OAUTH_APP_ID: Optional[str] = None
+    FACEBOOK_OAUTH_APP_SECRET: Optional[str] = None
+
+    # Email provider — Group 1 §12. When unset, password-reset & verification
+    # endpoints return 501 FEATURE_NOT_CONFIGURED (never a fake success).
+    EMAIL_PROVIDER: Optional[str] = None  # "smtp" | "sendgrid" | None
+    EMAIL_FROM_ADDRESS: Optional[str] = None
+    SMTP_HOST: Optional[str] = None
+    SMTP_PORT: int = 587
+    SMTP_USERNAME: Optional[str] = None
+    SMTP_PASSWORD: Optional[str] = None
 
     # Database & Redis
     DATABASE_URL: str = "sqlite:///./backend/data/confit.db"

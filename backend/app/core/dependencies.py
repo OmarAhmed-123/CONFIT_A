@@ -33,10 +33,12 @@ def get_current_user_optional(
     if not token:
         return None
     try:
-        payload = decode_token(token)
+        payload = decode_token(token, expected_type="access")
         user_id = int(payload.get("sub"))
         repo = UserRepository(db)
         user = repo.get_by_id(user_id)
+        if user and not user.is_active:
+            return None
         return user
     except Exception:
         return None
@@ -51,13 +53,15 @@ def get_current_user(
     if not token:
         raise AuthenticationError("Authorization bearer token required.")
     try:
-        payload = decode_token(token)
+        payload = decode_token(token, expected_type="access")
         user_id = int(payload.get("sub"))
         repo = UserRepository(db)
         user = repo.get_by_id(user_id)
         if not user or not user.is_active:
             raise AuthenticationError("User not found or account deactivated.")
         return user
+    except AuthenticationError:
+        raise
     except Exception as exc:
         raise AuthenticationError(f"Authentication failed: {str(exc)}")
 

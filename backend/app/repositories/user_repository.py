@@ -47,14 +47,28 @@ class UserRepository:
         self.db.delete(user)
         self.db.commit()
 
-    def log_audit(self, action: str, resource_type: str, resource_id: Optional[str] = None, user_id: Optional[int] = None, ip_address: Optional[str] = None, details: Optional[str] = None):
+    def log_audit(
+        self,
+        action: str,
+        resource_type: str,
+        resource_id: Optional[str] = None,
+        user_id: Optional[int] = None,
+        ip_address: Optional[str] = None,
+        details: Optional[str] = None,
+    ):
+        """Persist a security-relevant audit event.
+
+        Callers must never pass sensitive values in `details` — passwords,
+        tokens, OTPs, MFA secrets, decrypted body measurements, etc. This
+        is the contract audited in tests.
+        """
         log = AuditLog(
             user_id=user_id,
             action=action,
             resource_type=resource_type,
             resource_id=str(resource_id) if resource_id else None,
             ip_address=ip_address,
-            details_json=details
+            details_json=details,
         )
         self.db.add(log)
         self.db.commit()

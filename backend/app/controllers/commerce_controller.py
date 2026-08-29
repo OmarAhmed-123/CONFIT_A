@@ -1,6 +1,6 @@
 import uuid
 from typing import List, Optional, Dict, Any
-from fastapi import APIRouter, Depends, Header, Query, status
+from fastapi import APIRouter, Depends, Header, Query, Request, status
 from sqlalchemy.orm import Session
 from backend.app.core.database import get_db
 from backend.app.core.dependencies import get_current_user_optional, get_current_user
@@ -234,10 +234,20 @@ def get_return_by_id(return_id: int, user: User = Depends(get_current_user), db:
 
 
 @router.post("/payments/webhooks/{provider}")
-def payment_webhook(provider: str, payload: Dict[str, Any], x_signature: Optional[str] = Header(None)):
+async def payment_webhook(request: Request, provider: str, x_signature: Optional[str] = Header(None)):
+    """PSP webhook intake. The signature is verified over the RAW request body
+    (verifying a parsed/empty body proves nothing). Unverifiable webhooks are
+    rejected with 401 — never accepted 'received/verified: true'."""
+    from fastapi import HTTPException
+    raw_body = await request.body()
     orchestrator = PaymentOrchestrator()
-    is_valid = orchestrator.verify_webhook(provider, b"{}", x_signature or "valid")
-    return {"status": "received", "provider": provider, "verified": is_valid}
+    if not orchestrator.verify_webhook(provider, raw_body, x_signature or ""):
+        raise HTTPException(status_code=401, detail="Invalid webhook signature")
+    try:
+        payload = await request.json()
+    except Exception:
+        payload = {}
+    return {"status": "received", "provider": provider, "verified": True, "event": payload.get("event")}
 
 
 @router.post("/commerce/bnpl-quote", response_model=BNPLQuoteResponse)

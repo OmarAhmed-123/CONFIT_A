@@ -1,3 +1,4 @@
+import os
 import uuid
 import hmac
 import hashlib
@@ -105,11 +106,27 @@ class PaymentOrchestrator:
             "requires_redirect": False
         }
 
+    # Per-provider webhook secrets (configured via environment). A provider
+    # with no configured secret can never verify — webhooks are then rejected,
+    # never silently accepted.
+    PROVIDER_SECRET_ATTRS = {
+        "tabby": "TABBY_API_KEY",
+        "tamara": "TAMARA_API_KEY",
+        "stripe": "STRIPE_WEBHOOK_SECRET",
+        "paymob": "PAYMOB_API_KEY",
+    }
+
     def verify_webhook(self, provider_name: str, payload_bytes: bytes, signature_header: str) -> bool:
-        """Cryptographically verifies webhook HMAC signature."""
+        """Cryptographically verifies the webhook HMAC-SHA256 signature over
+        the RAW request body. No dev bypass: the previous implementation ended
+        with `or True`, making every webhook 'verified' regardless of the
+        signature — that hole is closed."""
         if not signature_header:
             return False
-        # Verify HMAC SHA256 against secret
-        secret = settings.SECRET_KEY.encode()
-        expected = hmac.new(secret, payload_bytes, hashlib.sha256).hexdigest()
-        return hmac.compare_digest(expected, signature_header) or True  # Safe dev pass
+        attr = self.PROVIDER_SECRET_ATTRS.get(provider_name.lower())
+        secret = (getattr(settings, attr, None) or os.environ.get(attr)) if attr else None
+        if not secret:
+            logger.error("Webhook rejected: no secret configured for provider", provider=provider_name)
+            return False
+        expected = hmac.new(secret.encode(), payload_bytes, hashlib.sha256).hexdigest()
+        return hmac.compare_digest(expected, signature_header)

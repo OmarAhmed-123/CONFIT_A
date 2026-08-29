@@ -32,7 +32,7 @@ app.state.limiter.enabled = False
 @pytest.fixture(scope="session", autouse=True)
 def setup_test_db():
     os.makedirs("./backend/data", exist_ok=True)
-    seed_database(target_engine=test_engine)
+    seed_database(target_engine=test_engine, force=True)  # tests intentionally reset their own throwaway DB
     yield
 
 

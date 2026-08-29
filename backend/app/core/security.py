@@ -3,7 +3,12 @@ import hashlib
 import bcrypt
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional
-from jose import JWTError, jwt
+# JWT via PyJWT — replaces python-jose, whose transitive `ecdsa` dependency
+# carries a known CVE with no published fix (PYSEC-2026-1325). HS256 signing
+# here never used ecdsa, but shipping the vulnerable package at all is the
+# risk being removed.
+import jwt
+from jwt.exceptions import PyJWTError
 from cryptography.fernet import Fernet
 from backend.app.core.config import settings
 from backend.app.core.exceptions import AuthenticationError
@@ -56,7 +61,7 @@ def decode_token(token: str) -> Dict[str, Any]:
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         return payload
-    except JWTError as exc:
+    except PyJWTError as exc:
         raise AuthenticationError(f"Invalid or expired token: {str(exc)}")
 
 

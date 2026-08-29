@@ -104,6 +104,19 @@ class TryOnService:
             try:
                 import httpx
                 async with httpx.AsyncClient(timeout=90.0) as client:
+                    # Pre-flight: a half-deployed worker (model not actually in
+                    # VRAM) must fail the job loudly NOW, not after a 90s wait.
+                    try:
+                        health = await client.get(f"{worker_url.rstrip('/')}/health", timeout=5.0)
+                        health_ok = (
+                            health.status_code == 200
+                            and health.json().get("model_loaded") is True
+                        )
+                    except Exception:
+                        health_ok = False
+                    if not health_ok:
+                        raise RuntimeError("GPU worker /health reports model_loaded=false or is unreachable")
+
                     resp = await client.post(
                         f"{worker_url.rstrip('/')}/process",
                         json={

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, status, Request
 from sqlalchemy.orm import Session
 from backend.app.core.database import get_db
 from backend.app.core.dependencies import get_current_user
@@ -17,6 +17,8 @@ from backend.app.schemas.auth import (
 )
 from pydantic import BaseModel, EmailStr
 
+from backend.app.core.rate_limit import limiter
+
 router = APIRouter(prefix="/auth", tags=["Authentication & Identity"])
 
 
@@ -34,7 +36,8 @@ class VerifyEmailRequest(BaseModel):
 
 
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
-def register(payload: UserRegister, db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def register(request: Request, payload: UserRegister, db: Session = Depends(get_db)):
     service = AuthService(db)
     res = service.register(
         email=payload.email,
@@ -67,7 +70,8 @@ def register(payload: UserRegister, db: Session = Depends(get_db)):
 
 
 @router.post("/login", response_model=TokenResponse)
-def login(payload: UserLogin, db: Session = Depends(get_db)):
+@limiter.limit("10/minute")
+def login(request: Request, payload: UserLogin, db: Session = Depends(get_db)):
     service = AuthService(db)
     res = service.login(email=payload.email, password=payload.password, mfa_code=payload.mfa_code)
     user_out = UserOut(
@@ -93,7 +97,8 @@ def login(payload: UserLogin, db: Session = Depends(get_db)):
 
 
 @router.post("/social-login", response_model=TokenResponse)
-def social_login(payload: SocialLoginRequest, db: Session = Depends(get_db)):
+@limiter.limit("10/minute")
+def social_login(request: Request, payload: SocialLoginRequest, db: Session = Depends(get_db)):
     service = AuthService(db)
     res = service.social_login(
         provider=payload.provider,

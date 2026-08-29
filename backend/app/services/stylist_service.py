@@ -5,7 +5,7 @@ from backend.app.repositories.stylist_repository import StylistRepository
 from backend.app.repositories.catalog_repository import CatalogRepository
 from backend.app.repositories.profile_repository import ProfileRepository
 from backend.app.repositories.wardrobe_repository import WardrobeRepository
-from backend.app.providers.orchestrator import MultiProviderAIOrchestrator
+from backend.app.providers.orchestrator import get_orchestrator
 from backend.app.services.styling_engine import StylingEngine
 
 
@@ -16,7 +16,9 @@ class StylistService:
         self.catalog_repo = CatalogRepository(db)
         self.profile_repo = ProfileRepository(db)
         self.wardrobe_repo = WardrobeRepository(db)
-        self.orchestrator = MultiProviderAIOrchestrator()
+        # Shared process-wide orchestrator so provider quarantine (cooldown)
+        # state actually persists across requests.
+        self.orchestrator = get_orchestrator()
 
     async def interact_with_stylist(
         self,

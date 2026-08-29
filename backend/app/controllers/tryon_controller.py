@@ -1,5 +1,5 @@
 from typing import List, Optional, Dict, Any
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
@@ -34,6 +34,8 @@ from backend.app.schemas.tryon import (
     GarmentAssetOut
 )
 
+from backend.app.core.rate_limit import limiter
+
 router = APIRouter(tags=["Virtual Try-On, 3D Dressing & Sizing"])
 
 
@@ -42,7 +44,9 @@ router = APIRouter(tags=["Virtual Try-On, 3D Dressing & Sizing"])
 # =========================================================================
 @router.post("/try-on/jobs", response_model=TryOnJobOut, status_code=status.HTTP_202_ACCEPTED)
 @router.post("/tryon/jobs", response_model=TryOnJobOut, status_code=status.HTTP_202_ACCEPTED)
+@limiter.limit("20/hour")
 async def submit_tryon_job(
+    request: Request,
     payload: TryOnJobCreate,
     user: Optional[User] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
@@ -98,8 +102,10 @@ def get_garment_asset(
 # 1. Multi-Garment Dynamic & Animated Try-On Endpoints
 # =========================================================================
 @router.post("/tryon/animation-render", response_model=AnimationTryOnResponse)
+@limiter.limit("10/hour")
 @router.post("/try-on/animation-render", response_model=AnimationTryOnResponse)
 async def render_animated_tryon(
+    request: Request,
     payload: AnimationTryOnRequest,
     user: Optional[User] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
@@ -118,10 +124,12 @@ async def render_animated_tryon(
 
 
 @router.post("/tryon/multi-render", response_model=MultiGarmentTryOnResponse)
+@limiter.limit("20/hour")
 @router.post("/try-on/multi-render", response_model=MultiGarmentTryOnResponse)
 @router.post("/tryon/apply-garments", response_model=MultiGarmentTryOnResponse)
 @router.post("/try-on/apply-garments", response_model=MultiGarmentTryOnResponse)
 async def render_multi_garment_tryon(
+    request: Request,
     payload: MultiGarmentTryOnRequest,
     user: Optional[User] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
@@ -285,8 +293,10 @@ def validate_user_photo(
 # 4. Single-Garment Try-On Render Endpoints
 # =========================================================================
 @router.post("/tryon/render", response_model=TryOnResponse)
+@limiter.limit("20/hour")
 @router.post("/try-on/render", response_model=TryOnResponse)
 async def render_virtual_tryon(
+    request: Request,
     payload: TryOnRequest,
     user: Optional[User] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
@@ -412,8 +422,10 @@ def submit_measurement_results(
 # 7. Visual Search Endpoints
 # =========================================================================
 @router.post("/tryon/visual-search", response_model=VisualSearchResponse)
+@limiter.limit("30/hour")
 @router.post("/visual-search/sessions", response_model=VisualSearchResponse)
 async def visual_style_match(
+    request: Request,
     payload: VisualSearchRequest,
     user: Optional[User] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)

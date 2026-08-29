@@ -1,0 +1,41 @@
+title = "CONFIT gitleaks config"
+
+# Extend the default ruleset, then add what defaults miss and silence the
+# documentation-only false positives found in the first full-history scan.
+[extend]
+useDefault = true
+
+# Database connection strings with embedded credentials (the Neon incident
+# of commit 6a821de was NOT caught by default rules — this rule exists so the
+# next postgres/mysql DSN with a real password IS caught).
+[[rules]]
+id = "database-dsn-with-password"
+description = "Database connection string containing an embedded password"
+regex = '''(?i)(?:postgres(?:ql)?|mysql|mariadb|mongodb(?:\+srv)?|redis):\/\/[^:\s\/]+:[^@\s]{6,}@'''
+keywords = ["://"]
+  [rules.allowlist]
+  description = "placeholders and the local-only docker-compose dev password"
+  regexes = [
+    '''YOUR_PASSWORD''',
+    '''CHANGE_PASSWORD''',
+    '''CHANGE_USER''',
+    '''CHANGE_ME''',
+    '''confit_secure_password_2026''',
+  ]
+
+[allowlist]
+description = "Documentation examples that are not real credentials"
+# Truncated JWT header example in feature specs and the idempotency-key doc
+# example — both flagged in the initial scan, both are illustrative only.
+regexes = [
+  '''eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9''',
+  '''idemp_882190fa''',
+  '''YOUR_PASSWORD''',
+  '''CHANGE_ME''',
+  '''CHANGE_PASSWORD''',
+  '''CHANGE_USER''',
+  '''confit_secure_password_2026''',  # local docker-compose dev DB only, never production
+]
+# NOTE: the Neon credential leaked in commit 6a821de is INTENTIONALLY NOT
+# allowlisted — CI stays red until it is rotated in the Neon console. After
+# rotation, add the dead string here with a comment recording the rotation date.

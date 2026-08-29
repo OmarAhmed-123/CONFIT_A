@@ -24,6 +24,12 @@ def health_check(db: Session = Depends(get_db)):
     # pipeline that cannot render.
     worker_configured = bool(settings.VTON_WORKER_URL or os.environ.get("VTON_WORKER_URL"))
 
+    # Real AI provider status: configured keys + live quarantine state, so a
+    # billing-exhausted key (e.g. OpenAI 402) is visible instead of silently
+    # degrading to fallback.
+    from backend.app.providers.orchestrator import get_orchestrator
+    ai_providers = get_orchestrator().provider_status()
+
     return {
         "status": "healthy" if db_status == "healthy" else "degraded",
         "timestamp": time.time(),
@@ -34,5 +40,6 @@ def health_check(db: Session = Depends(get_db)):
             "vton_pipeline": "operational" if worker_configured else "unavailable: no GPU worker configured (VTON_WORKER_URL)",
             "ai_stylist_engine": "operational",
             "bnpl_gateway": "operational"
-        }
+        },
+        "ai_providers": ai_providers
     }

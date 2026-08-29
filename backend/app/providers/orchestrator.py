@@ -24,6 +24,40 @@ class MultiProviderAIOrchestrator:
     def mark_cooling(self, provider_name: str, reason: str = "Quota/Error"):
         self.cooldowns[provider_name] = time.time() + self.cooldown_duration
         logger.warn("Quarantining AI provider", provider=provider_name, reason=reason, cooldown_seconds=self.cooldown_duration)
+        if "402" in reason or "401" in reason:
+            # Billing/auth failure alert — loud and greppable so an exhausted
+            # or revoked key is visible in monitoring instead of silently
+            # degrading quality via permanent fallback.
+            logger.error(
+                "ALERT AI PROVIDER BILLING/AUTH FAILURE",
+                provider=provider_name,
+                reason=reason,
+                action_required="check API key validity and account billing/credit",
+            )
+
+    def provider_status(self) -> Dict[str, Any]:
+        """Live status for observability: which providers have keys configured
+        and which are currently quarantined (with remaining cooldown)."""
+        now = time.time()
+        return {
+            "openai": {
+                "configured": bool(settings.OPENAI_API_KEY),
+                "cooling_for_seconds": max(0, round(self.cooldowns["openai"] - now, 1)) if "openai" in self.cooldowns else 0,
+            },
+            "groq": {
+                "configured": bool(settings.GROK_API_KEY),
+                "cooling_for_seconds": max(0, round(self.cooldowns["groq"] - now, 1)) if "groq" in self.cooldowns else 0,
+            },
+            "gemini": {
+                "configured": bool(settings.GEMINI_API_KEY),
+                "cooling_for_seconds": max(0, round(self.cooldowns["gemini"] - now, 1)) if "gemini" in self.cooldowns else 0,
+            },
+            "nvidia": {
+                "configured": bool(settings.NVIDIA_API_KEY),
+                "cooling_for_seconds": max(0, round(self.cooldowns["nvidia"] - now, 1)) if "nvidia" in self.cooldowns else 0,
+            },
+        }
+
 
     async def generate_styling_advice(
         self,
@@ -252,3 +286,16 @@ class MultiProviderAIOrchestrator:
             "harmony_type": "Balanced Neutral & Monochromatic Accent",
             "provider_used": "CONFIT Grounded Styling Engine (Grounded & Resilient)"
         }
+
+# Process-wide singleton: quarantine/cooldown state is meaningless if a fresh
+# orchestrator is built per request (a dead provider would be retried every
+# time, adding its timeout to every response). One shared instance makes the
+# failover memory real.
+_SHARED_ORCHESTRATOR: Optional["MultiProviderAIOrchestrator"] = None
+
+
+def get_orchestrator() -> "MultiProviderAIOrchestrator":
+    global _SHARED_ORCHESTRATOR
+    if _SHARED_ORCHESTRATOR is None:
+        _SHARED_ORCHESTRATOR = MultiProviderAIOrchestrator()
+    return _SHARED_ORCHESTRATOR

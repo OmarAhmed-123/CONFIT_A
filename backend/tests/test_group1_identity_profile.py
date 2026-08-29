@@ -498,7 +498,75 @@ def test_gdpr_export_real_timestamp_and_counts():
 
 
 # =============================================================================
-# 11. Account deletion is FK-safe (anonymizes orders/tryon/stylist)
+# 11. Mood boards CRUD + ownership isolation
+# =============================================================================
+def test_mood_board_crud_and_cross_user_isolation():
+    email_a = _unique_email()
+    email_b = _unique_email()
+    _register(email_a)
+    _register(email_b)
+    token_a = _login(email_a).json()["access_token"]
+    token_b = _login(email_b).json()["access_token"]
+
+    hdr_a = {"Authorization": f"Bearer {token_a}"}
+    hdr_b = {"Authorization": f"Bearer {token_b}"}
+
+    # A creates a board
+    r = client.post("/api/v1/me/mood-boards", headers=hdr_a, json={"title": "Autumn palette"})
+    assert r.status_code == 201, r.text
+    board_id = r.json()["id"]
+
+    # A adds a URL item
+    r = client.post(f"/api/v1/me/mood-boards/{board_id}/items", headers=hdr_a, json={
+        "kind": "url",
+        "payload": {"url": "https://example.com/inspo.jpg"},
+    })
+    assert r.status_code == 201
+    assert len(r.json()["items"]) == 1
+
+    # A renames
+    r = client.patch(f"/api/v1/me/mood-boards/{board_id}", headers=hdr_a, json={"title": "Autumn 2026"})
+    assert r.status_code == 200
+    assert r.json()["title"] == "Autumn 2026"
+
+    # B tries to read/update/delete A's board — must 403
+    r = client.get(f"/api/v1/me/mood-boards/{board_id}", headers=hdr_b)
+    assert r.status_code == 403
+    r = client.patch(f"/api/v1/me/mood-boards/{board_id}", headers=hdr_b, json={"title": "hijacked"})
+    assert r.status_code == 403
+    r = client.delete(f"/api/v1/me/mood-boards/{board_id}", headers=hdr_b)
+    assert r.status_code == 403
+
+    # B's list is empty (no cross-user leak)
+    r = client.get("/api/v1/me/mood-boards", headers=hdr_b)
+    assert r.status_code == 200
+    assert r.json() == []
+
+    # A lists — one board there
+    r = client.get("/api/v1/me/mood-boards", headers=hdr_a)
+    assert r.status_code == 200
+    assert len(r.json()) == 1
+
+    # A deletes
+    r = client.delete(f"/api/v1/me/mood-boards/{board_id}", headers=hdr_a)
+    assert r.status_code == 200
+
+
+def test_mood_board_url_item_rejects_non_http():
+    email = _unique_email()
+    _register(email)
+    token = _login(email).json()["access_token"]
+    hdr = {"Authorization": f"Bearer {token}"}
+    r = client.post("/api/v1/me/mood-boards", headers=hdr, json={"title": "T"})
+    board_id = r.json()["id"]
+    r = client.post(f"/api/v1/me/mood-boards/{board_id}/items", headers=hdr, json={
+        "kind": "url", "payload": {"url": "javascript:alert(1)"},
+    })
+    assert r.status_code == 422
+
+
+# =============================================================================
+# 12. Account deletion is FK-safe (anonymizes orders/tryon/stylist)
 # =============================================================================
 def test_account_deletion_succeeds_even_with_business_history():
     """Regression for G1.AUTH-07. In the old code, DELETE /auth/account

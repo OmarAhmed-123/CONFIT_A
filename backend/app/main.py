@@ -18,6 +18,7 @@ from backend.app.controllers.commerce_controller import router as commerce_route
 from backend.app.controllers.brand_controller import router as brand_router
 from backend.app.controllers.admin_controller import router as admin_router
 from backend.app.controllers.telemetry_controller import router as telemetry_router
+from backend.app.controllers.moodboard_controller import router as moodboard_router
 from backend.app.core.rate_limit import limiter
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -31,11 +32,15 @@ setup_logging(debug=settings.DEBUG)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Initializing CONFIT API Engine", version=settings.VERSION, env=settings.ENVIRONMENT)
+    # Group 1 §40: production schema is managed by Alembic
+    #     PYTHONPATH=. alembic -c backend/alembic.ini upgrade head
+    # We STILL call create_all() below for the dev/CI convenience path so
+    # tests and fresh checkouts remain one-command runnable — but a
+    # production deployment MUST NOT rely on it: startup skips it entirely
+    # when ENVIRONMENT=production, forcing the operator to run migrations.
     try:
-        Base.metadata.create_all(bind=engine)
-        # Seed the catalogue only when the database is empty — never touches
-        # existing rows. Keeps a fresh deployment (or a fresh checkout) usable
-        # without a manual seed step, while production data stays intact.
+        if settings.ENVIRONMENT.lower() != "production":
+            Base.metadata.create_all(bind=engine)
         from sqlalchemy.orm import Session as _Session
         from backend.app.models.catalog import Category
         with _Session(engine) as _s:
@@ -149,6 +154,7 @@ for prefix in [settings.API_V1_STR, "/v1", ""]:
     app.include_router(commerce_router, prefix=prefix)
     app.include_router(brand_router, prefix=prefix)
     app.include_router(admin_router, prefix=prefix)
+    app.include_router(moodboard_router, prefix=prefix)
 
 # Mount static files for user uploads only. The legacy /tryon_results static
 # mount was removed together with the purged pre-rendered assets: try-on

@@ -170,4 +170,27 @@ accurate for the items below. Corrected status:
 | G5-03/04 Payments/BNPL | "Implemented" | Demo mode (`PAYMENTS_LIVE=0`); webhook signature verification hardened 2026-08-29 (was accept-all). Live charges require real PSP credentials. |
 | AUTOMATED TEST COVERAGE | "10/10 suites" | 73/73 tests passing (2026-08-29), CI-gated on every push. |
 
+## Addendum 2026-08-29 (rev 2) — Group 1 honesty correction
+
+The section 3 G1 traceability rows above were verified against the code
+in the second-turn audit and found to be **inaccurate**. Corrected:
+
+| ID | Prior "Implemented" claim | Actual (as of the pre-remediation code) | Post-remediation status (this PR) |
+| :--- | :--- | :--- | :--- |
+| G1-01 Register | JWT dual-token issuance | Access token TTL was 24h (§9 violation); no refresh-token DB table exists despite the RTM row citing one | Access TTL 15 min; refresh tokens persisted in `refresh_tokens` table with rotation + reuse detection |
+| G1-02 Login / rotation | "Access + refresh (30d) rotation" | No rotation existed — /refresh minted a new pair from any valid signature; no reuse detection | Real rotation, family revocation on reuse, logout invalidates the row |
+| G1-03 5-step Style Quiz | Persists archetypes, palettes, budget, brands | Wizard did NOT capture `avoided_colors`, `fashion_aesthetics`, `preferred_brands`, `blacklisted_brands`, `occasion_weights`, `fit_preference`, `size_shoes`; body step preloaded fabricated 178/72 numbers | All 12 fields captured; body step is opt-in with `bodyTouched` flag; no fabricated defaults |
+| G1-04 Encrypted body | "Fernet-256 at rest" — correct at rest, but decrypt failure was silently returning ciphertext (audit BODY-02) | Silent-leak on decrypt failure | `EncryptionError` raised; controlled 500 with no ciphertext in body |
+| G1-05 Consent management | "Granular versioned consent states via `privacy_consents` table" | **`privacy_consents` table never existed**; GET returned hardcoded object; PATCH echoed the payload without persisting | Real GET/PATCH persist to `user_style_profiles.consent_*` columns; audit event on every change |
+| G1-06 GDPR export / deletion | "Signed JSON archive + irrevocable erasure" | Export used `len(relationship)` (loaded every row); `exported_at` was `user.created_at`; account deletion FK-failed on Postgres for users with orders | `COUNT(*)`, real `datetime.now(tz=UTC)`, orders/tryon/stylist anonymized before cascade deletion |
+| **NEW** OAuth verification | Not audited | `/auth/social-login` accepted client-supplied `email`/`full_name` with no provider check → any attacker could mint an admin JWT | Real Google (tokeninfo + aud/iss), Apple (JWKS RS256), Facebook (debug_token + /me); identity taken only from provider response |
+| **NEW** MFA backup codes | Not audited | Backup codes were the same 4 strings hardcoded for every user in source | 10 random per-user codes, bcrypt-hashed at rest, single-use, returned only once at verify time |
+| **NEW** Mood boards | Not audited | `moodboard_urls` column existed and was never read/written | Proper `mood_boards` + `mood_board_items` tables, CRUD endpoints, ownership isolation tested |
+| **NEW** Migrations | Not audited | `Base.metadata.create_all()` in prod lifespan (spec §40 violation) | Alembic wired: `0001_baseline` + `0002_group1_remediation`; lifespan skips create_all when `ENVIRONMENT=production` |
+| AUTOMATED TEST COVERAGE | "73/73" | 73 pre-remediation | **96/96** — includes 23 new Group 1 integration tests covering every audit finding |
+
+Full audit and remediation details:
+- `docs/../CONFIT_G1_Audit_Report.md` (read-only audit, pre-remediation)
+- PR `feat: Complete Group 1 User Identity & Profile Management`
+
 All other rows were re-verified against the live deployment on 2026-08-29.

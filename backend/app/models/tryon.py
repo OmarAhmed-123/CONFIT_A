@@ -1,6 +1,6 @@
 import enum
 from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text, Float, Enum
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text, Float, TypeDecorator
 from sqlalchemy.orm import relationship
 from backend.app.core.database import Base
 
@@ -16,6 +16,30 @@ class TryOnJobStatus(str, enum.Enum):
     CANCELLED = "cancelled"
 
 
+class TryOnJobStatusType(TypeDecorator):
+    """Stores the job status as a plain string (the enum VALUE, e.g. 'queued') —
+    consistent with UserRoleType and with the production schema, which must be
+    VARCHAR. Native Postgres ENUM columns caused 42804 insert failures after a
+    model revision changed (the 2026-08-29 signup/jobs 500)."""
+    impl = String(30)
+    cache_ok = True
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return None
+        if isinstance(value, TryOnJobStatus):
+            return value.value
+        return str(value)
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return None
+        try:
+            return TryOnJobStatus(value)
+        except ValueError:
+            return value
+
+
 class TryOnJob(Base):
     """Asynchronous Virtual Try-On GPU Inference Job."""
     __tablename__ = "tryon_jobs"
@@ -25,7 +49,7 @@ class TryOnJob(Base):
     user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     session_id = Column(Integer, ForeignKey("tryon_sessions.id", ondelete="SET NULL"), nullable=True)
     status = Column(
-        Enum(TryOnJobStatus, values_callable=lambda obj: [e.value for e in obj], name="tryonjobstatus"),
+        TryOnJobStatusType(),
         default=TryOnJobStatus.QUEUED,
         nullable=False
     )

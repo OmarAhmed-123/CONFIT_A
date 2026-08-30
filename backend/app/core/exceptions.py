@@ -103,3 +103,36 @@ class BNPLRejectedError(ConfitException):
             details={"provider": provider, "reason": reason},
             status_code=status.HTTP_400_BAD_REQUEST
         )
+
+
+class EncryptionError(ConfitException):
+    """Raised when a Fernet decrypt (or encrypt) operation fails.
+
+    Fixes the audit finding G1.BODY-02: `decrypt_sensitive_data` used to
+    silently return the ciphertext on failure, so a key rotation would
+    have leaked raw base64 ciphertext into API responses as if it were
+    the decrypted body_attributes payload. Now the failure is surfaced
+    as a controlled 500 with a diagnostic reason (no ciphertext content
+    ever included in the response body or the logs).
+    """
+    def __init__(self, reason: str = "cipher_operation_failed"):
+        super().__init__(
+            "Encrypted profile field could not be read. Contact support.",
+            code="ENCRYPTION_ERROR",
+            details={"reason": reason},
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+class FeatureNotConfiguredError(ConfitException):
+    """Raised when a real production dependency (email provider, live OAuth
+    client secrets, etc.) is not configured, so an operation cannot honestly
+    complete. Never faked — see spec §12 password reset & §7 OAuth.
+    """
+    def __init__(self, feature: str, hint: str = ""):
+        super().__init__(
+            f"Feature '{feature}' is not configured in this environment.",
+            code="FEATURE_NOT_CONFIGURED",
+            details={"feature": feature, "hint": hint},
+            status_code=status.HTTP_501_NOT_IMPLEMENTED
+        )

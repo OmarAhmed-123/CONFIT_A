@@ -1,17 +1,23 @@
 import { create } from 'zustand';
 import { User } from '../models';
 import { authService } from '../services/apiServices';
-import { setAuthTokens, clearAuthTokens, getAuthToken } from '../services/apiClient';
+import { setAuthTokens, clearAuthTokens } from '../services/apiClient';
 
 interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
+  // Group 1 §11: two-step login. When a normal login response signals
+  // MFA_REQUIRED, we flip this flag; the AuthModal renders the challenge
+  // form and calls completeMfaLogin to finish.
+  mfaRequired: boolean;
   login: (email: string, password: string) => Promise<void>;
+  completeMfaLogin: (email: string, password: string, mfaCode: string) => Promise<void>;
   register: (payload: any) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   fetchMe: () => Promise<void>;
+  resetError: () => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -19,20 +25,49 @@ export const useAuthStore = create<AuthState>((set) => ({
   isAuthenticated: false,
   isLoading: false,
   error: null,
+  mfaRequired: false,
+
+  resetError: () => set({ error: null }),
 
   login: async (email, password) => {
-    set({ isLoading: true, error: null });
+    set({ isLoading: true, error: null, mfaRequired: false });
     try {
       const res = await authService.login(email, password);
       setAuthTokens(res.access_token, res.refresh_token);
       localStorage.setItem('confit_user', JSON.stringify(res.user));
-      set({ user: res.user, isAuthenticated: true, isLoading: false, error: null });
+      set({ user: res.user, isAuthenticated: true, isLoading: false, error: null, mfaRequired: false });
     } catch (err: any) {
-      // Honest failure — no fabricated session. (The old code minted a
-      // client-side 'admin' for any email containing "admin" on ANY error,
-      // including a wrong password: a real auth bypass.)
+      // Server signals MFA_REQUIRED via ApiError.details.reason. That is
+      // NOT an authentication failure — it's a pending state we resume
+      // via completeMfaLogin. Keep the user logged-out until they verify.
+      if (err?.details?.reason === 'MFA_REQUIRED') {
+        set({ isLoading: false, mfaRequired: true, error: null });
+        throw err;
+      }
       clearAuthTokens();
-      set({ user: null, isAuthenticated: false, isLoading: false, error: err?.message || 'Login failed' });
+      set({
+        user: null,
+        isAuthenticated: false,
+        isLoading: false,
+        mfaRequired: false,
+        error: err?.message || 'Login failed',
+      });
+      throw err;
+    }
+  },
+
+  completeMfaLogin: async (email, password, mfaCode) => {
+    set({ isLoading: true, error: null });
+    try {
+      const res = await authService.login(email, password, mfaCode);
+      setAuthTokens(res.access_token, res.refresh_token);
+      localStorage.setItem('confit_user', JSON.stringify(res.user));
+      set({ user: res.user, isAuthenticated: true, isLoading: false, error: null, mfaRequired: false });
+    } catch (err: any) {
+      set({
+        isLoading: false,
+        error: err?.message || 'MFA verification failed',
+      });
       throw err;
     }
   },
@@ -51,15 +86,20 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
   },
 
-  logout: () => {
-    authService.logout().catch(() => {}); // clears the httpOnly cookie server-side
+  logout: async () => {
+    // Server-side revocation happens via /auth/logout; the response
+    // clears the httpOnly cookie. Do NOT clear local state before the
+    // network call — otherwise the CSRF header cannot be attached.
+    try {
+      await authService.logout();
+    } catch {
+      /* still fall through to local clear */
+    }
     clearAuthTokens();
-    set({ user: null, isAuthenticated: false });
+    set({ user: null, isAuthenticated: false, mfaRequired: false, error: null });
   },
 
   fetchMe: async () => {
-    // The session cookie is httpOnly — JS cannot see it, so just ask the
-    // backend; a live cookie yields the user, an absent/expired one 401s.
     try {
       const user = await authService.getMe();
       localStorage.setItem('confit_user', JSON.stringify(user));
@@ -70,3 +110,8 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
   },
 }));
+
+// Small helper exposed for callers that need to know if the current
+// authenticated user has completed onboarding — used by AppRoutes to
+// gate the first-run onboarding redirect (G1 §23).
+export const selectHasProfile = (state: AuthState) => Boolean(state.user?.has_profile);

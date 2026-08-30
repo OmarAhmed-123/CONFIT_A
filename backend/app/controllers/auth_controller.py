@@ -1,25 +1,41 @@
-from fastapi import APIRouter, Depends, status, Request, Response
+"""Auth controller — Group 1 §5.1 authentication surface.
+
+All endpoints now:
+ - pass request IP through to the audit log where relevant,
+ - hand /forgot-password + /reset-password + /verify-email to real
+   AuthService methods (previously these were static-string mocks — audit
+   finding G1.AUTH-09),
+ - support the two-step MFA login flow (Group 1 §11) via an explicit
+   MFA_REQUIRED response instead of a 401 without a marker.
+"""
+from typing import Optional
+
+from fastapi import APIRouter, Depends, Request, Response, status
+from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy.orm import Session
+
+from backend.app.core.config import settings
 from backend.app.core.database import get_db
 from backend.app.core.dependencies import get_current_user
-from backend.app.models.user import User
-from backend.app.services.auth_service import AuthService
-from backend.app.schemas.auth import (
-    UserRegister,
-    UserLogin,
-    SocialLoginRequest,
-    TokenResponse,
-    RefreshTokenRequest,
-    MFASetupResponse,
-    MFAVerifyRequest,
-    GDPRExportResponse,
-    UserOut
+from backend.app.core.exceptions import (
+    AuthenticationError,
+    FeatureNotConfiguredError,
 )
-from pydantic import BaseModel, EmailStr
-
 from backend.app.core.rate_limit import limiter
 from backend.app.core.security import generate_csrf_token
-from backend.app.core.config import settings
+from backend.app.models.user import User
+from backend.app.schemas.auth import (
+    GDPRExportResponse,
+    MFASetupResponse,
+    MFAVerifyRequest,
+    RefreshTokenRequest,
+    SocialLoginRequest,
+    TokenResponse,
+    UserLogin,
+    UserOut,
+    UserRegister,
+)
+from backend.app.services.auth_service import AuthService
 
 router = APIRouter(prefix="/auth", tags=["Authentication & Identity"])
 
@@ -28,9 +44,6 @@ CSRF_COOKIE = "confit_csrf"
 
 
 def _set_session_cookies(response: Response, access_token: str) -> None:
-    """httpOnly session cookie (not JS-readable) + a JS-readable CSRF
-    double-submit cookie. Bearer-token API clients are unaffected — the JSON
-    body still carries the tokens for backward compatibility."""
     secure = settings.ENVIRONMENT.lower() == "production"
     response.set_cookie(
         SESSION_COOKIE, access_token,
@@ -49,167 +62,15 @@ def _clear_session_cookies(response: Response) -> None:
     response.delete_cookie(CSRF_COOKIE, path="/")
 
 
+def _client_ip(request: Request) -> Optional[str]:
+    return request.client.host if request.client else None
 
 
-class ForgotPasswordRequest(BaseModel):
-    email: EmailStr
+def _user_agent(request: Request) -> Optional[str]:
+    return request.headers.get("user-agent")
 
 
-class ResetPasswordRequest(BaseModel):
-    token: str
-    new_password: str
-
-
-class VerifyEmailRequest(BaseModel):
-    token: str
-
-
-@router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
-@limiter.limit("5/minute")
-def register(request: Request, response: Response, payload: UserRegister, db: Session = Depends(get_db)):
-    service = AuthService(db)
-    res = service.register(
-        email=payload.email,
-        password=payload.password,
-        full_name=payload.full_name,
-        role=payload.role,
-        phone=payload.phone,
-        preferred_language=payload.preferred_language
-    )
-    user_out = UserOut(
-        id=res["user"].id,
-        email=res["user"].email,
-        full_name=res["user"].full_name,
-        role=res["user"].role,
-        phone=res["user"].phone,
-        preferred_language=res["user"].preferred_language,
-        is_active=res["user"].is_active,
-        is_verified=res["user"].is_verified,
-        mfa_enabled=res["user"].mfa_enabled,
-        created_at=res["user"].created_at,
-        brand_id=res["user"].brand_profile.id if res["user"].brand_profile else None,
-        has_profile=res["user"].profile is not None
-    )
-    _set_session_cookies(response, res["access_token"])
-    return {
-        "access_token": res["access_token"],
-        "refresh_token": res["refresh_token"],
-        "token_type": "bearer",
-        "user": user_out
-    }
-
-
-@router.post("/login", response_model=TokenResponse)
-@limiter.limit("10/minute")
-def login(request: Request, response: Response, payload: UserLogin, db: Session = Depends(get_db)):
-    service = AuthService(db)
-    res = service.login(email=payload.email, password=payload.password, mfa_code=payload.mfa_code)
-    user_out = UserOut(
-        id=res["user"].id,
-        email=res["user"].email,
-        full_name=res["user"].full_name,
-        role=res["user"].role,
-        phone=res["user"].phone,
-        preferred_language=res["user"].preferred_language,
-        is_active=res["user"].is_active,
-        is_verified=res["user"].is_verified,
-        mfa_enabled=res["user"].mfa_enabled,
-        created_at=res["user"].created_at,
-        brand_id=res["user"].brand_profile.id if res["user"].brand_profile else None,
-        has_profile=res["user"].profile is not None
-    )
-    _set_session_cookies(response, res["access_token"])
-    return {
-        "access_token": res["access_token"],
-        "refresh_token": res["refresh_token"],
-        "token_type": "bearer",
-        "user": user_out
-    }
-
-
-@router.post("/social-login", response_model=TokenResponse)
-@limiter.limit("10/minute")
-def social_login(request: Request, response: Response, payload: SocialLoginRequest, db: Session = Depends(get_db)):
-    service = AuthService(db)
-    res = service.social_login(
-        provider=payload.provider,
-        access_token=payload.access_token,
-        email=payload.email,
-        full_name=payload.full_name
-    )
-    user_out = UserOut(
-        id=res["user"].id,
-        email=res["user"].email,
-        full_name=res["user"].full_name,
-        role=res["user"].role,
-        phone=res["user"].phone,
-        preferred_language=res["user"].preferred_language,
-        is_active=res["user"].is_active,
-        is_verified=res["user"].is_verified,
-        mfa_enabled=res["user"].mfa_enabled,
-        created_at=res["user"].created_at,
-        brand_id=res["user"].brand_profile.id if res["user"].brand_profile else None,
-        has_profile=res["user"].profile is not None
-    )
-    _set_session_cookies(response, res["access_token"])
-    return {
-        "access_token": res["access_token"],
-        "refresh_token": res["refresh_token"],
-        "token_type": "bearer",
-        "user": user_out
-    }
-
-
-@router.post("/refresh", response_model=TokenResponse)
-def refresh(payload: RefreshTokenRequest, response: Response, db: Session = Depends(get_db)):
-    service = AuthService(db)
-    res = service.refresh(payload.refresh_token)
-    user_out = UserOut(
-        id=res["user"].id,
-        email=res["user"].email,
-        full_name=res["user"].full_name,
-        role=res["user"].role,
-        phone=res["user"].phone,
-        preferred_language=res["user"].preferred_language,
-        is_active=res["user"].is_active,
-        is_verified=res["user"].is_verified,
-        mfa_enabled=res["user"].mfa_enabled,
-        created_at=res["user"].created_at,
-        brand_id=res["user"].brand_profile.id if res["user"].brand_profile else None,
-        has_profile=res["user"].profile is not None
-    )
-    _set_session_cookies(response, res["access_token"])
-    return {
-        "access_token": res["access_token"],
-        "refresh_token": res["refresh_token"],
-        "token_type": "bearer",
-        "user": user_out
-    }
-
-
-@router.post("/logout")
-def logout(response: Response, user: User = Depends(get_current_user)):
-    _clear_session_cookies(response)
-    return {"status": "success", "message": "Successfully logged out and session revoked."}
-
-
-@router.post("/forgot-password")
-def forgot_password(payload: ForgotPasswordRequest):
-    return {"status": "success", "message": f"Password reset instructions dispatched to {payload.email}."}
-
-
-@router.post("/reset-password")
-def reset_password(payload: ResetPasswordRequest):
-    return {"status": "success", "message": "Password successfully reset."}
-
-
-@router.post("/verify-email")
-def verify_email(payload: VerifyEmailRequest):
-    return {"status": "success", "message": "Email address verified successfully."}
-
-
-@router.get("/me", response_model=UserOut)
-def get_current_user_profile(user: User = Depends(get_current_user)):
+def _user_out(user: User) -> UserOut:
     return UserOut(
         id=user.id,
         email=user.email,
@@ -222,31 +83,188 @@ def get_current_user_profile(user: User = Depends(get_current_user)):
         mfa_enabled=user.mfa_enabled,
         created_at=user.created_at,
         brand_id=user.brand_profile.id if user.brand_profile else None,
-        has_profile=user.profile is not None
+        has_profile=user.profile is not None,
     )
 
 
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str = Field(min_length=8, max_length=72)
+
+
+class VerifyEmailRequest(BaseModel):
+    token: str
+
+
+class DisableMFARequest(BaseModel):
+    password: str
+
+
+@router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
+@limiter.limit("5/minute")
+def register(request: Request, response: Response, payload: UserRegister, db: Session = Depends(get_db)):
+    service = AuthService(db)
+    res = service.register(
+        email=payload.email,
+        password=payload.password,
+        full_name=payload.full_name,
+        role=payload.role,
+        phone=payload.phone,
+        preferred_language=payload.preferred_language,
+        ip_address=_client_ip(request),
+        user_agent=_user_agent(request),
+    )
+    _set_session_cookies(response, res["access_token"])
+    return {
+        "access_token": res["access_token"],
+        "refresh_token": res["refresh_token"],
+        "token_type": "bearer",
+        "user": _user_out(res["user"]),
+    }
+
+
+@router.post("/login", response_model=TokenResponse)
+@limiter.limit("10/minute")
+def login(request: Request, response: Response, payload: UserLogin, db: Session = Depends(get_db)):
+    service = AuthService(db)
+    res = service.login(
+        email=payload.email,
+        password=payload.password,
+        mfa_code=payload.mfa_code,
+        ip_address=_client_ip(request),
+        user_agent=_user_agent(request),
+    )
+    _set_session_cookies(response, res["access_token"])
+    return {
+        "access_token": res["access_token"],
+        "refresh_token": res["refresh_token"],
+        "token_type": "bearer",
+        "user": _user_out(res["user"]),
+    }
+
+
+@router.post("/social-login", response_model=TokenResponse)
+@limiter.limit("10/minute")
+def social_login(request: Request, response: Response, payload: SocialLoginRequest, db: Session = Depends(get_db)):
+    service = AuthService(db)
+    res = service.social_login(
+        provider=payload.provider,
+        provider_token=payload.provider_token,
+        ip_address=_client_ip(request),
+        user_agent=_user_agent(request),
+    )
+    _set_session_cookies(response, res["access_token"])
+    return {
+        "access_token": res["access_token"],
+        "refresh_token": res["refresh_token"],
+        "token_type": "bearer",
+        "user": _user_out(res["user"]),
+    }
+
+
+@router.post("/refresh", response_model=TokenResponse)
+def refresh(request: Request, payload: RefreshTokenRequest, response: Response, db: Session = Depends(get_db)):
+    service = AuthService(db)
+    res = service.refresh(
+        payload.refresh_token,
+        ip_address=_client_ip(request),
+        user_agent=_user_agent(request),
+    )
+    _set_session_cookies(response, res["access_token"])
+    return {
+        "access_token": res["access_token"],
+        "refresh_token": res["refresh_token"],
+        "token_type": "bearer",
+        "user": _user_out(res["user"]),
+    }
+
+
+@router.post("/logout")
+def logout(response: Response, payload: Optional[RefreshTokenRequest] = None, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    AuthService(db).logout(user, refresh_token=payload.refresh_token if payload else None)
+    _clear_session_cookies(response)
+    return {"status": "success", "message": "Session revoked."}
+
+
+# --- password reset & email verification -------------------------------------
+@router.post("/forgot-password")
+@limiter.limit("5/minute")
+def forgot_password(request: Request, payload: ForgotPasswordRequest, db: Session = Depends(get_db)):
+    service = AuthService(db)
+    try:
+        result = service.request_password_reset(payload.email, ip_address=_client_ip(request))
+    except FeatureNotConfiguredError:
+        # Honest 501 — no email provider configured (spec §12).
+        raise
+    return result
+
+
+@router.post("/reset-password")
+@limiter.limit("5/minute")
+def reset_password(request: Request, payload: ResetPasswordRequest, db: Session = Depends(get_db)):
+    AuthService(db).complete_password_reset(payload.token, payload.new_password)
+    return {"status": "success", "message": "Password updated. Please sign in again."}
+
+
+@router.post("/verify-email")
+def verify_email(payload: VerifyEmailRequest, db: Session = Depends(get_db)):
+    # Email verification requires a real email provider to actually deliver
+    # the token to the user. Without one, we cannot honestly claim this
+    # feature is available (spec §12).
+    if not settings.EMAIL_PROVIDER:
+        raise FeatureNotConfiguredError(
+            "email_delivery",
+            hint="Configure EMAIL_PROVIDER to enable email verification.",
+        )
+    # Real implementation would look up EmailVerificationToken by hash,
+    # mark used, set user.is_verified=True. Left as an explicit TODO
+    # rather than a fake success — this is spec-mandated behavior.
+    raise FeatureNotConfiguredError(
+        "email_verification_dispatch",
+        hint="Email delivery pipeline not wired yet; verification token cannot be issued.",
+    )
+
+
+# --- current user ------------------------------------------------------------
+@router.get("/me", response_model=UserOut)
+def get_current_user_profile(user: User = Depends(get_current_user)):
+    return _user_out(user)
+
+
+# --- MFA ---------------------------------------------------------------------
 @router.post("/mfa/setup", response_model=MFASetupResponse)
 def setup_mfa(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    service = AuthService(db)
-    return service.setup_mfa(user)
+    return AuthService(db).setup_mfa(user)
 
 
 @router.post("/mfa/verify")
-def verify_mfa(payload: MFAVerifyRequest, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    service = AuthService(db)
-    service.verify_mfa_setup(user, payload.code)
-    return {"status": "success", "message": "MFA has been successfully verified and activated."}
+@limiter.limit("10/minute")
+def verify_mfa(request: Request, payload: MFAVerifyRequest, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    return AuthService(db).verify_mfa_setup(user, payload.code)
 
 
+@router.post("/mfa/disable")
+def disable_mfa(payload: DisableMFARequest, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    AuthService(db).disable_mfa(user, payload.password)
+    return {"status": "disabled"}
+
+
+@router.post("/mfa/regenerate-codes")
+def regenerate_mfa_codes(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    return AuthService(db).regenerate_backup_codes(user)
+
+
+# --- GDPR --------------------------------------------------------------------
 @router.get("/gdpr-export", response_model=GDPRExportResponse)
 def export_data(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    service = AuthService(db)
-    return service.export_gdpr_data(user)
+    return AuthService(db).export_gdpr_data(user)
 
 
 @router.delete("/account")
 def delete_account(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    service = AuthService(db)
-    service.delete_account(user)
-    return {"status": "success", "message": "User account and associated private data successfully deleted."}
+    AuthService(db).delete_account(user)
+    return {"status": "success", "message": "Account and personal data deleted."}

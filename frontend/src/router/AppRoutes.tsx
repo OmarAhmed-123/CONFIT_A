@@ -1,8 +1,31 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { ConsumerLayout } from '../layouts/ConsumerLayout';
 import { BrandLayout } from '../layouts/BrandLayout';
 import { RoleGuard, ProtectedRoute } from '../components/auth/RoleGuard';
+import { useAuthStore } from '../stores/authStore';
+
+/**
+ * OnboardingGate — Group 1 §23 first-run flow.
+ *
+ * Authenticated users who have not completed the style profile are routed
+ * to /profile (the wizard host). Applies only to consumer-scoped routes;
+ * B2B / admin surfaces are unaffected.
+ */
+const OnboardingGate: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user, isAuthenticated } = useAuthStore();
+  const location = useLocation();
+  const skipPaths = ['/profile', '/settings', '/onboarding'];
+  const shouldRedirect =
+    isAuthenticated &&
+    user &&
+    !user.has_profile &&
+    !skipPaths.some((p) => location.pathname.startsWith(p));
+  if (shouldRedirect) {
+    return <Navigate to="/profile?onboarding=1" replace />;
+  }
+  return <>{children}</>;
+};
 
 // Consumer Views
 import { HomeView } from '../views/consumer/HomeView';
@@ -34,8 +57,12 @@ export const AppRoutes: React.FC = () => {
         {/* 0. Public Shared Look (C8) — intentionally outside any guarded layout */}
         <Route path="/looks/:token" element={<SharedLookView />} />
 
-        {/* 1. Consumer Storefront Routes (Browse-First / Guest-Friendly) */}
-        <Route path="/" element={<ConsumerLayout />}>
+        {/* 1. Consumer Storefront Routes (Browse-First / Guest-Friendly).
+             The OnboardingGate wrapper handles Group 1 §23 first-run
+             routing: authenticated users without a completed profile
+             get bounced to /profile?onboarding=1 the first time they
+             touch anything other than /profile / /settings. */}
+        <Route path="/" element={<OnboardingGate><ConsumerLayout /></OnboardingGate>}>
           <Route index element={<HomeView />} />
           <Route path="discover" element={<DiscoverView />} />
           <Route path="products" element={<DiscoverView />} />

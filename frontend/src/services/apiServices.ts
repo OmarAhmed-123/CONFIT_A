@@ -40,10 +40,14 @@ export const authService = {
       body: JSON.stringify(payload),
     }),
 
-  socialLogin: (provider: string, email: string, full_name: string) =>
+  // Group 1 §7: the server verifies the provider_token upstream (Google /
+  // Apple / Facebook), so we ONLY send the provider name and the token
+  // the SDK gave us — never the email or the display name, which are
+  // taken from the provider's verified response.
+  socialLogin: (provider: 'google' | 'apple' | 'facebook', providerToken: string) =>
     request<{ access_token: string; refresh_token: string; user: User }>('/auth/social-login', {
       method: 'POST',
-      body: JSON.stringify({ provider, access_token: `token_${provider}`, email, full_name }),
+      body: JSON.stringify({ provider, provider_token: providerToken }),
     }),
 
   getMe: () => request<User>('/auth/me'),
@@ -52,7 +56,42 @@ export const authService = {
 
   setupMFA: () => request<{ secret: string; qr_uri: string; backup_codes: string[] }>('/auth/mfa/setup', { method: 'POST' }),
 
-  verifyMFA: (code: string) => request<{ status: string }>('/auth/mfa/verify', { method: 'POST', body: JSON.stringify({ code }) }),
+  // Verify returns the plaintext backup codes exactly ONCE — the caller
+  // MUST persist / display them to the user immediately.
+  verifyMFA: (code: string) =>
+    request<{ status: string; backup_codes: string[] }>('/auth/mfa/verify', {
+      method: 'POST',
+      body: JSON.stringify({ code }),
+    }),
+
+  disableMFA: (password: string) =>
+    request<{ status: string }>('/auth/mfa/disable', {
+      method: 'POST',
+      body: JSON.stringify({ password }),
+    }),
+
+  regenerateMFACodes: () =>
+    request<{ status: string; backup_codes: string[] }>('/auth/mfa/regenerate-codes', {
+      method: 'POST',
+    }),
+
+  refresh: (refresh_token: string) =>
+    request<{ access_token: string; refresh_token: string; user: User }>('/auth/refresh', {
+      method: 'POST',
+      body: JSON.stringify({ refresh_token }),
+    }),
+
+  forgotPassword: (email: string) =>
+    request<{ status: string; message: string }>('/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    }),
+
+  resetPassword: (token: string, new_password: string) =>
+    request<{ status: string; message: string }>('/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ token, new_password }),
+    }),
 
   exportGDPR: () => request<any>('/auth/gdpr-export'),
 
@@ -60,30 +99,124 @@ export const authService = {
 };
 
 // 2. User Style Profile (USP) Services (G1.2)
-export const profileService = {
-  getProfile: () => request<UserStyleProfile>('/profile/me'),
-  getUSP: () => request<UserStyleProfile>('/profile/me'),
+// The backend now returns EITHER a full USPResponse OR a {state:"not_completed"}
+// stub — the caller must handle both. Prior code silently fabricated a
+// default USP if the profile was missing; that server-side behavior is gone.
+export interface UspNotCompletedStub {
+  user_id: number;
+  onboarding_completed: false;
+  state: 'not_completed';
+  message: string;
+}
+export type UspResponseOrStub = UserStyleProfile | UspNotCompletedStub;
 
-  updateProfile: (data: Partial<UserStyleProfile>) =>
-    request<UserStyleProfile>('/profile/preferences', {
-      method: 'PUT',
+export const profileService = {
+  getProfile: () => request<UspResponseOrStub>('/profile/me'),
+  getUSP: () => request<UspResponseOrStub>('/profile/me'),
+
+  submitOnboardingQuiz: (quizData: any) =>
+    request<UserStyleProfile>('/profile/onboarding-quiz', {
+      method: 'POST',
+      body: JSON.stringify(quizData),
+    }),
+
+  // Split PATCH endpoints (G1 §31) — each accepts only the fields for its
+  // own concern, so an update to one area cannot silently overwrite others.
+  updateStylePreferences: (data: {
+    style_archetypes?: string[];
+    preferred_colors?: string[];
+    avoided_colors?: string[];
+    fashion_aesthetics?: string[];
+  }) =>
+    request<UserStyleProfile>('/me/style-profile', {
+      method: 'PATCH',
       body: JSON.stringify(data),
     }),
 
-  updateBodyAttributes: (attributes: any) =>
+  updateBodyAttributes: (attributes: {
+    height_cm?: number;
+    weight_kg?: number;
+    body_shape?: string;
+    chest_cm?: number;
+    waist_cm?: number;
+    hip_cm?: number;
+    inseam_cm?: number;
+  }) =>
     request<UserStyleProfile>('/me/body-profile', {
       method: 'PATCH',
       body: JSON.stringify(attributes),
     }),
 
+  deleteBodyAttributes: () =>
+    request<{ status: string }>('/me/body-profile', { method: 'DELETE' }),
+
+  updateBudget: (data: {
+    budget_monthly_min?: number;
+    budget_monthly_max?: number;
+    budget_per_outfit_max?: number;
+  }) =>
+    request<UserStyleProfile>('/me/budget', {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+
+  updateBrandPreferences: (data: {
+    preferred_brands?: string[];
+    blacklisted_brands?: string[];
+  }) =>
+    request<UserStyleProfile>('/me/brands', {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+
+  updateOccasions: (occasion_weights: Record<string, number>) =>
+    request<UserStyleProfile>('/me/occasions', {
+      method: 'PATCH',
+      body: JSON.stringify({ occasion_weights }),
+    }),
+
+  updateSizeFit: (data: {
+    size_tops?: string;
+    size_bottoms?: string;
+    size_shoes?: string;
+    fit_preference?: string;
+  }) =>
+    request<UserStyleProfile>('/me/size-fit', {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+
+  // Legacy alias used by older call sites — accepts the full quiz payload.
   submitQuiz: (quizData: any) =>
-    request<UserStyleProfile>('/profile/preferences', {
-      method: 'PUT',
+    request<UserStyleProfile>('/profile/onboarding-quiz', {
+      method: 'POST',
       body: JSON.stringify(quizData),
     }),
 
-  updateConsents: (consents: { privacy_consent_tryon_storage?: boolean; privacy_consent_share_with_brands?: boolean }) =>
-    request<UserStyleProfile>('/me/consents', {
+  updateProfile: (data: any) =>
+    request<UserStyleProfile>('/profile/preferences', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  getConsents: () =>
+    request<{
+      user_id: number;
+      photo_storage: boolean;
+      ai_personalization: boolean;
+      marketing_analytics: boolean;
+      share_with_brands: boolean;
+      policy_version: number;
+      last_agreed_at: string | null;
+    }>('/me/consents'),
+
+  updateConsents: (consents: {
+    photo_storage?: boolean;
+    ai_personalization?: boolean;
+    marketing_analytics?: boolean;
+    share_with_brands?: boolean;
+  }) =>
+    request<any>('/me/consents', {
       method: 'PATCH',
       body: JSON.stringify(consents),
     }),

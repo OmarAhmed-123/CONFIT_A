@@ -1,7 +1,7 @@
 """share token hardening — lengthen outfits.share_token for C8 tokens
 
 Revision ID: 0002_share_token_hardening
-Revises: 0001_baseline
+Revises: 0002_group1_remediation
 Create Date: 2026-08-30
 
 C8 replaces the 8-hex-char share tokens with full-strength
@@ -15,8 +15,8 @@ from typing import Sequence, Union
 from alembic import op
 import sqlalchemy as sa
 
-revision: str = "0002_share_token_hardening"
-down_revision: Union[str, None] = "0001_baseline"
+revision: str = "0003_share_token_hardening"
+down_revision: Union[str, None] = "0002_group1_remediation"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

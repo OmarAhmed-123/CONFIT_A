@@ -43,16 +43,25 @@ class StylistService:
         usp = self.profile_repo.get_by_user_id(user_id) if user_id else None
         user_styles = json.loads(usp.style_archetypes) if usp and usp.style_archetypes else ["Smart Casual", "Quiet Luxury"]
         user_colors = json.loads(usp.preferred_colors) if usp and usp.preferred_colors else ["Navy", "Beige", "Black"]
+        # Only a user-stated budget (explicit request param, or text the parser
+        # extracts) is a HARD constraint. A stored profile default is a soft
+        # preference, so it must NOT mark the budget as explicit.
+        explicit_budget = budget_limit if budget_limit is not None else None
         max_budget = budget_limit or (usp.budget_per_outfit_max if usp else 450.0)
 
         # 4. Parse user intent, occasion, style, and slot expectations
         intent = StylingEngine.parse_intent(
             prompt=prompt,
             occasion_hint=occasion,
-            budget_hint=max_budget,
+            budget_hint=explicit_budget,
             user_styles=user_styles,
             user_colors=user_colors
         )
+        # Ensure the composer always has a numeric ceiling for scoring even when
+        # no explicit budget was stated (soft profile default).
+        intent.setdefault("detected_budget", max_budget)
+        if not intent.get("detected_budget"):
+            intent["detected_budget"] = max_budget
 
         # 5. Retrieve candidate products from real database catalog
         all_products = self.catalog_repo.filter_products(limit=100)

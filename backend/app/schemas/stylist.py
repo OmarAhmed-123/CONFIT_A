@@ -49,6 +49,9 @@ class OutfitOut(BaseModel):
     missing_slots: Optional[List[str]] = []
     color_harmony_score: Optional[int] = 95
     formality_score: Optional[int] = 90
+    budget_limit: Optional[float] = None
+    within_budget: Optional[bool] = True
+    budget_note: Optional[str] = None
     items: List[OutfitItemOut]
     created_at: datetime
 
@@ -80,10 +83,30 @@ class StylistSessionOut(BaseModel):
 
 
 class OutfitCreateInput(BaseModel):
-    title: str
-    occasion: str
-    product_sku_ids: List[int]
-    description: Optional[str] = None
+    """Canonical outfit-creation contract.
+
+    The client may reference items EITHER by SKU (`product_sku_ids`) or by
+    product (`product_ids`); at least one must be non-empty. The service layer
+    resolves product ids -> a default in-stock SKU so both the Outfit Builder
+    (SKU-based canvas) and the Stylist cards (product-based) share one contract.
+    """
+    title: str = Field(min_length=1, max_length=255)
+    occasion: str = Field(default="Casual", max_length=100)
+    product_sku_ids: Optional[List[int]] = None
+    product_ids: Optional[List[int]] = None
+    description: Optional[str] = Field(default=None, max_length=2000)
+
+
+class OutfitUpdateInput(BaseModel):
+    """Explicit, allow-listed update schema (no mass-assignment).
+
+    Only client-editable fields are accepted. Protected fields (user_id,
+    compatibility_score, is_saved, share_token, system metadata) cannot be
+    set through this endpoint.
+    """
+    title: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    occasion: Optional[str] = Field(default=None, max_length=100)
+    description: Optional[str] = Field(default=None, max_length=2000)
 
 
 class CompatibilityCheckRequest(BaseModel):

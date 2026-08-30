@@ -173,7 +173,10 @@ export const stylistService = {
       body: JSON.stringify({
         title: data.title,
         occasion: data.occasion,
-        product_ids: data.product_ids || data.product_sku_ids || [1],
+        // Canonical contract: send whichever identifier set the caller holds.
+        // No fabricated fallback ids — the backend validates non-empty.
+        ...(data.product_sku_ids ? { product_sku_ids: data.product_sku_ids } : {}),
+        ...(data.product_ids ? { product_ids: data.product_ids } : {}),
       }),
     }),
 

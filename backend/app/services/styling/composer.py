@@ -42,6 +42,11 @@ class OutfitComposer:
         # 2. Detect Budget Mentions
         budget_match = re.search(r'(?:under|below|budget(?:\s*of)?|\$)\s*(\d+)', prompt_lower)
         parsed_budget = float(budget_match.group(1)) if budget_match else (budget_hint or 450.0)
+        # A budget is a HARD constraint only when the user actually stated one
+        # (in text or via the explicit occasion/budget hint). A profile default
+        # (e.g. the 450.0 fallback) is NOT a hard constraint — the caller passes
+        # budget_hint=None when no explicit/user-stated budget exists.
+        budget_explicit = bool(budget_match) or (budget_hint is not None)
 
         # 3. Detect Keywords
         requested_dress = any(w in prompt_lower for w in ["dress", "gown", "maxi", "slip dress", "column dress"])
@@ -78,6 +83,7 @@ class OutfitComposer:
             "requested_black": requested_black,
             "requested_white": requested_white,
             "requested_monochrome": requested_monochrome,
+            "budget_explicit": budget_explicit,
             "raw_prompt": prompt
         }
 
@@ -246,6 +252,7 @@ class OutfitComposer:
             title1 = f"The Essential {occasion} Tailored Look"
             desc1 = f"A cohesive multi-brand ensemble combining structured {outer.brand.brand_name if outer else 'tailoring'} with pristine {top.brand.brand_name if top else 'cotton'} and Goodyear-welted footwear."
 
+        look1_items, budget1 = self._enforce_budget(look1_items, slot_map, used_product_ids, budget_limit, intent)
         total1 = sum(i["price"] for i in look1_items)
         eval1 = self.rules_engine.evaluate_outfit(look1_items, intent)
 
@@ -270,6 +277,9 @@ class OutfitComposer:
             "missing_slots": eval1["missing_slots"],
             "color_harmony_score": eval1["color_harmony_score"],
             "formality_score": 95,
+            "budget_limit": budget1["budget_limit"],
+            "within_budget": budget1["within_budget"],
+            "budget_note": budget1["budget_note"],
             "items": look1_items,
             "created_at": look1_items[0]["created_at"] if look1_items else "2026-08-18T00:00:00Z"
         })
@@ -327,6 +337,7 @@ class OutfitComposer:
             desc2 = f"A modern textured silhouette featuring {alt_top.brand.brand_name if alt_top else 'contemporary'} layers and tonal balance."
 
         if look2_items:
+            look2_items, budget2 = self._enforce_budget(look2_items, slot_map, used_product_ids, budget_limit, intent)
             total2 = sum(i["price"] for i in look2_items)
             eval2 = self.rules_engine.evaluate_outfit(look2_items, intent)
 
@@ -351,11 +362,100 @@ class OutfitComposer:
                 "missing_slots": eval2["missing_slots"],
                 "color_harmony_score": eval2["color_harmony_score"],
                 "formality_score": 92,
+                "budget_limit": budget2["budget_limit"],
+                "within_budget": budget2["within_budget"],
+                "budget_note": budget2["budget_note"],
                 "items": look2_items,
                 "created_at": look2_items[0]["created_at"] if look2_items else "2026-08-18T00:00:00Z"
             })
 
         return outfits
+
+    def _candidate_pool(self, slot_map: Dict[SlotType, List[Any]], position: str) -> List[Any]:
+        """Ordered candidate pool for a coarse canvas position, cheapest last is
+        NOT assumed — callers sort by price when substituting."""
+        pools = {
+            "dress": [SlotType.DRESS, SlotType.JUMPSUIT],
+            "outerwear": [SlotType.FORMAL_OUTER, SlotType.SEMI_FORMAL_OUTER, SlotType.CASUAL_OUTER],
+            "top": [SlotType.FORMAL_SHIRT, SlotType.CASUAL_SHIRT, SlotType.KNIT_LAYER, SlotType.T_SHIRT],
+            "bottom": [SlotType.FORMAL_BOTTOM, SlotType.SEMI_FORMAL_BOTTOM, SlotType.CASUAL_BOTTOM],
+            "footwear": [SlotType.FORMAL_SHOES, SlotType.SEMI_FORMAL_SHOES, SlotType.CASUAL_SHOES, SlotType.BOOTS],
+            "accessory": [SlotType.TIE, SlotType.POCKET_SQUARE, SlotType.BELT, SlotType.BAG, SlotType.WATCH],
+        }
+        out: List[Any] = []
+        for st in pools.get(position, []):
+            out.extend(slot_map.get(st, []))
+        return out
+
+    def _enforce_budget(
+        self,
+        items: List[Dict[str, Any]],
+        slot_map: Dict[SlotType, List[Any]],
+        used_product_ids: set,
+        budget_limit: float,
+        intent: Dict[str, Any],
+    ):
+        """Deterministic budget enforcement (GROUP 2 fix, BRD 14/15).
+
+        When the user stated an explicit budget, the composed outfit must satisfy
+        it. Over-budget items are replaced, most-expensive-first, with the
+        cheapest available in-stock alternative in the same slot that brings the
+        total back within budget (the alternative-suggestion engine). If no
+        single swap suffices, remaining over-budget optional items are dropped
+        (accessory first). If the budget is unattainable, the best achievable set
+        is returned and the outcome is annotated honestly.
+
+        Returns (items, budget_meta) where budget_meta carries the outfit-level
+        budget outcome (limit, within_budget, note) for the API/UI.
+        """
+        if not items or not intent.get("budget_explicit"):
+            for it in items:
+                it["budget_status"] = "within_budget"
+            return items, {"budget_limit": None, "within_budget": True, "budget_note": None}
+
+        def total(lst):
+            return sum(i["price"] for i in lst)
+
+        # Try to bring the total within budget via cheapest-first substitution.
+        guard = 0
+        while total(items) > budget_limit and guard < 12:
+            guard += 1
+            # Current most expensive replaceable item.
+            over = sorted(items, key=lambda i: i["price"], reverse=True)
+            swapped = False
+            for target in over:
+                pool = sorted(
+                    (p for p in self._candidate_pool(slot_map, target["position"])
+                     if p.id not in used_product_ids and float(p.base_price) < target["price"]),
+                    key=lambda p: float(p.base_price),
+                )
+                # Prefer an in-stock alternative.
+                pool.sort(key=lambda p: 0 if (getattr(p, "skus", None) and any(s.is_in_stock and s.stock_level > 0 for s in p.skus)) else 1)
+                if pool:
+                    sub = pool[0]
+                    idx = items.index(target)
+                    items[idx] = self._to_item_dict(sub, target["position"], sub._detected_slot, target.get("sort_order", idx), target["role_in_outfit"] + " (budget alternative)")
+                    used_product_ids.add(sub.id)
+                    swapped = True
+                    break
+            if not swapped:
+                # No cheaper substitute: drop an optional accessory if present.
+                acc = [i for i in items if i["position"] == "accessory"]
+                if len(items) > 1 and acc:
+                    items.remove(acc[0])
+                else:
+                    break
+
+        final_total = total(items)
+        within = final_total <= budget_limit
+        for it in items:
+            it["budget_status"] = "within_budget" if within else "over_budget"
+        note = (
+            f"Outfit total ${final_total:.2f} is within your ${budget_limit:.2f} budget."
+            if within else
+            f"Could not reach ${budget_limit:.2f} with the current catalog; closest achievable complete look is ${final_total:.2f}."
+        )
+        return items, {"budget_limit": budget_limit, "within_budget": within, "budget_note": note}
 
     def _to_item_dict(self, product: Any, position: str, slot_type: SlotType, sort_order: int, role: str) -> Dict[str, Any]:
         first_sku = product.skus[0] if hasattr(product, "skus") and product.skus else None

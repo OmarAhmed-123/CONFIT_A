@@ -161,6 +161,9 @@ export interface Outfit {
   missing_slots?: string[];
   color_harmony_score?: number;
   formality_score?: number;
+  budget_limit?: number | null;
+  within_budget?: boolean;
+  budget_note?: string | null;
   items: OutfitItem[];
   created_at: string;
 }

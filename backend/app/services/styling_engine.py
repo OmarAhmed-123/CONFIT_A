@@ -43,12 +43,36 @@ class StylingEngine:
             max_outfits=max_outfits
         )
 
+    # Canonical occasion keyword groups (shared by scoring + suggestions).
+    _OCCASION_KEYWORDS = {
+        "formal": ["formal", "black tie", "black-tie", "black_tie", "gala", "tuxedo", "wedding", "reception", "ball"],
+        "work": ["work", "office", "business", "meeting", "boardroom", "interview", "corporate", "executive", "presentation"],
+        "party": ["party", "dinner", "cocktail", "date", "night out", "evening", "gallery", "opening"],
+        "casual": ["casual", "weekend", "brunch", "relaxed", "vacation", "resort", "travel", "summer"],
+    }
+
+    @classmethod
+    def _target_occasion_keywords(cls, target_occasion: str) -> List[str]:
+        to = (target_occasion or "").lower()
+        kws = [to] if to else []
+        for group, words in cls._OCCASION_KEYWORDS.items():
+            if any(w in to for w in words) or group in to:
+                kws.extend(words)
+        return list({k for k in kws if k})
+
     @classmethod
     def calculate_compatibility(
         cls,
         products: List[Dict[str, Any]],
         target_occasion: str = "Casual"
     ) -> Dict[str, Any]:
+        """Deterministic, discriminating compatibility evaluation.
+
+        The composite score is DERIVED from the styling rules engine + real
+        occasion-appropriateness measurement. It carries no artificial floor,
+        so an invalid or clashing combination scores genuinely lower than a
+        coherent one.
+        """
         if not products:
             return {
                 "compatibility_score": 0,
@@ -56,18 +80,18 @@ class StylingEngine:
                 "color_harmony_verdict": "No items selected",
                 "aesthetic_consistency_verdict": "Empty canvas",
                 "occasion_score": 0,
-                "budget_status": "Within Profile Allocation",
+                "budget_status": "No items",
                 "is_complete_outfit": False,
                 "completeness_status": "empty",
                 "completeness_label": "Empty Canvas",
                 "suggestions": ["Add items to evaluate compatibility."]
             }
 
-        # 1. Color Harmony Analysis
+        # 1. Color harmony (honest, derived).
         color_eval = ColorHarmonyEngine.evaluate_palette(products)
         color_score = color_eval["color_harmony_score"]
 
-        # 2. Aesthetic Consistency
+        # 2. Aesthetic consistency via style-tag overlap.
         style_sets = []
         for p in products:
             raw_tags = p.get("style_tags") or []
@@ -79,46 +103,46 @@ class StylingEngine:
                     style_sets.append(set(json.loads(raw_tags)))
                 except Exception:
                     style_sets.append({raw_tags})
-
-        aesthetic_verdict = "High stylistic coherence across contemporary silhouettes."
+        aesthetic_verdict = "Mixed silhouettes with no unifying aesthetic thread."
         if style_sets:
             overlap = set.intersection(*style_sets) if len(style_sets) > 1 else style_sets[0]
             if overlap:
-                aesthetic_verdict = f"Perfect style synergy centered around '{list(overlap)[0].replace('_', ' ').title()}' aesthetic."
+                aesthetic_verdict = f"Cohesive style synergy around the '{list(overlap)[0].replace('_', ' ').title()}' aesthetic."
+            elif len(style_sets) > 1:
+                aesthetic_verdict = "No shared style tags across pieces; aesthetic coherence is weak."
 
-        # 3. Occasion Appropriateness
+        # 3. Occasion appropriateness — honest fraction of items that genuinely
+        #    match the target occasion (no floor).
+        occ_keywords = cls._target_occasion_keywords(target_occasion)
         occ_matches = 0
         for p in products:
             raw_occ = p.get("occasion_tags") or []
-            if isinstance(raw_occ, list):
-                occ_str = " ".join(raw_occ).lower()
-            else:
-                occ_str = str(raw_occ).lower()
-            if target_occasion.lower() in occ_str or any(term in occ_str for term in ["formal", "wedding", "work", "business", "dinner", "party", "casual"]):
+            occ_str = " ".join(raw_occ).lower() if isinstance(raw_occ, list) else str(raw_occ).lower()
+            if any(k in occ_str for k in occ_keywords):
                 occ_matches += 1
+        occasion_score = int(round((occ_matches / max(1, len(products))) * 100))
 
-        occasion_score = int(min(100, max(75, (occ_matches / max(1, len(products))) * 100)))
+        # 4. Delegate category/formality/completeness/budget to the rules engine.
+        context = {"formality": "smart_casual", "occasion": target_occasion, "detected_budget": 0.0}
+        rules_eval = cls._rules_engine.evaluate_outfit(products, context)
+        is_complete = rules_eval["is_complete"]
 
-        # 4. Completeness check
-        positions = {p.get("position") for p in products if p.get("position")}
-        is_complete = ("dress" in positions or ("top" in positions or "outerwear" in positions) and "bottom" in positions) and "footwear" in positions
+        # 5. Composite: rules engine composite blended with the measured occasion fit.
+        final_score = int(round(min(100.0, max(0.0,
+            rules_eval["composite_score"] * 0.7 + occasion_score * 0.3
+        ))))
 
-        # 5. Ad-hoc composite score (85-98)
-        base_score = 88.0 + (color_score - 85.0) * 0.4
-        if len(products) >= 2:
-            base_score += 4
-        if is_complete:
-            base_score += 4
-
-        final_score = int(min(98, max(82, base_score)))
-
+        # 6. Actionable suggestions from real diagnostics.
         suggestions = []
-        if len(products) == 1:
-            suggestions.append("Add trousers or outerwear to complete the look.")
-        elif not is_complete:
-            suggestions.append("Pair with leather loafers or formal dress shoes for optimal grounding.")
-        else:
-            suggestions.append("Outfit is fully balanced and styled to perfection.")
+        for r in rules_eval.get("rule_diagnostics", []):
+            if not r.get("passed"):
+                suggestions.append(r.get("explanation"))
+        if rules_eval.get("missing_slots"):
+            suggestions.append("Add: " + ", ".join(rules_eval["missing_slots"]) + ".")
+        if occasion_score < 60:
+            suggestions.append(f"Only {occ_matches}/{len(products)} item(s) suit a '{target_occasion}' occasion.")
+        if not suggestions:
+            suggestions.append("Outfit is coherent, occasion-appropriate, and well balanced.")
 
         return {
             "compatibility_score": final_score,
@@ -126,10 +150,10 @@ class StylingEngine:
             "color_harmony_verdict": color_eval["verdict"],
             "aesthetic_consistency_verdict": aesthetic_verdict,
             "occasion_score": occasion_score,
-            "budget_status": "Within Profile Allocation",
+            "budget_status": "Evaluated by styling rules",
             "is_complete_outfit": is_complete,
-            "completeness_status": "complete_look" if is_complete else "core_base_look",
-            "completeness_label": "Complete Ensemble" if is_complete else "Core Look",
+            "completeness_status": rules_eval["completeness_status"],
+            "completeness_label": rules_eval["completeness_label"],
             "suggestions": suggestions
         }
 

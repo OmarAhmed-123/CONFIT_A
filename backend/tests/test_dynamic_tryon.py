@@ -107,12 +107,23 @@ def test_tryon_gdpr_purge_task():
 
 
 def test_tryon_image_validation_endpoint(client: TestClient):
-    """Verifies that uploaded user photos are validated for framing and quality."""
-    res = client.post("/api/v1/try-on/validate-image", json={
-        "image_url": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600"
-    })
+    """Honest contract: real base64 decode succeeds; remote URLs are refused (SSRF) — no fabricated analysis."""
+    import base64, io
+    from PIL import Image
+    buf = io.BytesIO()
+    Image.new("RGB", (64, 96), (120, 60, 40)).save(buf, format="PNG")
+    b64 = base64.b64encode(buf.getvalue()).decode()
+    res = client.post("/api/v1/try-on/validate-image", json={"image_base64": f"data:image/png;base64,{b64}"})
     assert res.status_code == 200
     data = res.json()
     assert data["is_valid"] is True
-    assert "body_framing" in data
-    assert len(data["suggestions"]) > 0
+    assert data["format"] == "png"
+    assert data["width"] == 64 and data["height"] == 96
+    assert data.get("detected_gender") is None
+    assert data.get("body_framing") is None
+
+    res2 = client.post("/api/v1/try-on/validate-image", json={
+        "image_url": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600"
+    })
+    assert res2.status_code == 200
+    assert res2.json()["is_valid"] is False

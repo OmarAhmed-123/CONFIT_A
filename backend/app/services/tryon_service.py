@@ -463,8 +463,8 @@ class TryOnService:
     def validate_image(self, image_url_or_base64: str) -> Dict[str, Any]:
         return self.vton_provider.validate_uploaded_image(image_url_or_base64)
 
-    def get_session_details(self, session_id: int) -> Dict[str, Any]:
-        session = self.tryon_repo.get_tryon_session(session_id)
+    def get_session_details(self, session_id: int, caller_user_id: Optional[int] = None) -> Dict[str, Any]:
+        session = self.tryon_repo.get_tryon_session(session_id, caller_user_id=caller_user_id)
         if not session:
             raise ResourceNotFoundError("TryOnSession", session_id)
 
@@ -565,20 +565,41 @@ class TryOnService:
         height_cm: float,
         chest_cm: Optional[float] = None,
         waist_cm: Optional[float] = None,
-        shoulder_cm: Optional[float] = None
+        shoulder_cm: Optional[float] = None,
+        caller_user_id: Optional[int] = None,
     ) -> Dict[str, Any]:
-        session = self.tryon_repo.get_tryon_session(session_id)
+        session = self.tryon_repo.get_tryon_session(session_id, caller_user_id=caller_user_id)
         if not session:
             raise ResourceNotFoundError("TryOnSession", session_id)
 
-        scaling = round(float(height_cm) / 175.0, 2)
+        # Single body-scaling factor used for global drape — deterministic,
+        # NOT an AI-derived fit prediction. The frontend is never told this is
+        # a precise sizing guarantee; it is a visual approximation only.
+        height = float(height_cm)
+        scaling = round(height / 175.0, 2)
         session.body_scaling_factor = scaling
+
+        # Per-slot scaling factors, used for future per-region drape. Stored
+        # in render_metadata_json under a stable key — additive, doesn't
+        # change existing schema. None means "not applicable / not provided".
+        meta = json.loads(session.render_metadata_json) if session.render_metadata_json else {}
+        slot_scaling = meta.get("slot_scaling", {})
+        # chest defaults to ~98cm ref, waist ~82cm ref, shoulder ~45cm ref
+        if chest_cm is not None and chest_cm > 0:
+            slot_scaling["chest"] = round(chest_cm / 98.0, 2)
+        if waist_cm is not None and waist_cm > 0:
+            slot_scaling["waist"] = round(waist_cm / 82.0, 2)
+        if shoulder_cm is not None and shoulder_cm > 0:
+            slot_scaling["shoulder"] = round(shoulder_cm / 45.0, 2)
+        meta["slot_scaling"] = slot_scaling
+        session.render_metadata_json = json.dumps(meta)
         self.db.commit()
 
         return {
             "session_id": session.id,
             "status": "scaling_applied",
             "scaling_factor": scaling,
+            "slot_scaling": slot_scaling,
             "applied_measurements": {
                 "height_cm": height_cm,
                 "chest_cm": chest_cm,
@@ -587,8 +608,8 @@ class TryOnService:
             }
         }
 
-    def purge_tryon_session(self, session_id: int) -> Dict[str, Any]:
-        purged = self.tryon_repo.purge_session(session_id)
+    def purge_tryon_session(self, session_id: int, caller_user_id: Optional[int] = None) -> Dict[str, Any]:
+        purged = self.tryon_repo.purge_session(session_id, caller_user_id=caller_user_id)
         if not purged:
             raise ResourceNotFoundError("TryOnSession", session_id)
         return {"session_id": session_id, "status": "purged", "message": "Biometric session wiped under GDPR Art. 17."}

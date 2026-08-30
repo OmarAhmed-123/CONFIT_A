@@ -53,15 +53,33 @@ class TryOnRepository:
         self.db.refresh(session)
         return session
 
-    def get_tryon_session(self, session_id: int) -> Optional[TryOnSession]:
-        return (
+    def get_tryon_session(
+        self,
+        session_id: int,
+        caller_user_id: Optional[int] = None,
+    ) -> Optional[TryOnSession]:
+        """Returns the session iff caller_user_id owns it. A None guest token
+        cannot be used to bypass ownership — a real session row is only
+        retrievable when caller_user_id is None (internal call) or matches."""
+        sess = (
             self.db.query(TryOnSession)
             .filter(TryOnSession.id == session_id)
             .first()
         )
+        if sess is None:
+            return None
+        if caller_user_id is not None and sess.user_id is not None and sess.user_id != caller_user_id:
+            from backend.app.core.exceptions import AuthorizationError
+            raise AuthorizationError("Cannot access another user's try-on session.")
+        return sess
 
-    def purge_session(self, session_id: int) -> bool:
-        sess = self.get_tryon_session(session_id)
+    def purge_session(
+        self,
+        session_id: int,
+        caller_user_id: Optional[int] = None,
+    ) -> bool:
+        # Authorize first (raises if caller is not the owner)
+        sess = self.get_tryon_session(session_id, caller_user_id=caller_user_id)
         if sess:
             self.db.delete(sess)
             self.db.commit()

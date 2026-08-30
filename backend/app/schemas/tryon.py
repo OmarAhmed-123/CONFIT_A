@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Optional, List, Dict, Any
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, model_validator
 
 
 class TryOnJobCreate(BaseModel):
@@ -181,11 +181,20 @@ class ImageValidationRequest(BaseModel):
 
 class ImageValidationResponse(BaseModel):
     is_valid: bool
-    detected_gender: str
-    body_framing: str
-    resolution_status: str
-    lighting_quality: str
-    suggestions: List[str] = []
+    format: Optional[str] = None
+    width: Optional[int] = None
+    height: Optional[int] = None
+    aspect_ratio: Optional[float] = None
+    min_dimension: Optional[int] = None
+    size_bytes: Optional[int] = None
+    issues: List[str] = Field(default_factory=list)
+    suggestions: List[str] = Field(default_factory=list)
+    # Vision-derived fields stay honest nulls unless a real model analysis ran.
+    detected_category: Optional[str] = None
+    detected_gender: Optional[str] = None
+    body_framing: Optional[str] = None
+    resolution_status: Optional[str] = None
+    lighting_quality: Optional[str] = None
 
 
 class NoPhotoFitRequest(BaseModel):
@@ -212,9 +221,17 @@ class NoPhotoFitResponse(BaseModel):
 class VisualSearchRequest(BaseModel):
     image_url: Optional[str] = None
     image_base64: Optional[str] = None
-    category_hint: Optional[str] = None
-    max_price: Optional[float] = None
-    in_stock_only: bool = True
+    top_k: int = Field(default=8, ge=1, le=20)
+    min_price: Optional[float] = Field(default=None, ge=0)
+    max_price: Optional[float] = Field(default=None, ge=0)
+    brand_ids: Optional[List[int]] = None
+    in_stock_only: bool = False
+
+    @model_validator(mode="after")
+    def _validate_price_range(self):
+        if self.min_price is not None and self.max_price is not None and self.min_price > self.max_price:
+            raise ValueError("min_price must not exceed max_price")
+        return self
 
 
 class VisualSearchResultItem(BaseModel):

@@ -1,8 +1,21 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { stylistService } from '../services/apiServices';
 import { StylistMessage, Outfit } from '../models';
 import { useCartStore } from '../stores/cartStore';
 import { useUIStore } from '../stores/uiStore';
+
+// Minimal typing for the Web Speech API (not in default TS DOM lib).
+type SpeechRecognitionLike = {
+  lang: string;
+  interimResults: boolean;
+  maxAlternatives: number;
+  onresult: (e: any) => void;
+  onerror: (e: any) => void;
+  onend: () => void;
+  start: () => void;
+  stop: () => void;
+  abort: () => void;
+};
 
 export function useStylistViewModel() {
   const [messages, setMessages] = useState<StylistMessage[]>([]);
@@ -10,6 +23,7 @@ export function useStylistViewModel() {
   const [isTyping, setIsTyping] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
 
   const { addItem, openCart } = useCartStore();
   const { showToast } = useUIStore();
@@ -49,14 +63,59 @@ export function useStylistViewModel() {
     }
   }, [inputPrompt, isRecording, showToast]);
 
-  const simulateVoiceInput = useCallback(() => {
-    setIsRecording(true);
-    setTimeout(() => {
+  // Real voice input via the browser SpeechRecognition (Web Speech) pipeline:
+  // Microphone -> permission -> live transcript -> intent -> styling engine.
+  // No simulated/canned transcription. Gracefully reports when unsupported.
+  const startVoiceInput = useCallback(() => {
+    if (isRecording) {
+      recognitionRef.current?.stop();
+      return;
+    }
+    const w = window as any;
+    const SR = w.SpeechRecognition || w.webkitSpeechRecognition;
+    if (!SR) {
+      showToast('Voice input is not supported in this browser. Please type your request.', 'error');
+      return;
+    }
+    const rec: SpeechRecognitionLike = new SR();
+    recognitionRef.current = rec;
+    rec.lang = (typeof navigator !== 'undefined' && navigator.language) || 'en-US';
+    rec.interimResults = true;
+    rec.maxAlternatives = 1;
+
+    let finalTranscript = '';
+    rec.onresult = (e: any) => {
+      let interim = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const transcript = e.results[i][0].transcript;
+        if (e.results[i].isFinal) finalTranscript += transcript;
+        else interim += transcript;
+      }
+      setInputPrompt((finalTranscript + ' ' + interim).trim());
+    };
+    rec.onerror = (e: any) => {
       setIsRecording(false);
-      setInputPrompt('Find me a quiet luxury evening outfit for an art opening under $350');
-      sendPrompt('Find me a quiet luxury evening outfit for an art opening under $350', 'Evening & Party', 350);
-    }, 2500);
-  }, [sendPrompt]);
+      if (e?.error === 'not-allowed' || e?.error === 'service-not-allowed') {
+        showToast('Microphone permission denied. Enable mic access to use voice styling.', 'error');
+      } else if (e?.error !== 'aborted') {
+        showToast('Voice recognition error: ' + (e?.error || 'unknown'), 'error');
+      }
+    };
+    rec.onend = () => {
+      setIsRecording(false);
+      const text = finalTranscript.trim();
+      if (text) sendPrompt(text);
+    };
+
+    try {
+      setInputPrompt('');
+      setIsRecording(true);
+      rec.start();
+    } catch (err: any) {
+      setIsRecording(false);
+      showToast('Could not start voice input: ' + (err?.message || 'unknown'), 'error');
+    }
+  }, [isRecording, sendPrompt, showToast]);
 
   const addCompleteLookToCart = useCallback(async (outfit: Outfit) => {
     try {
@@ -131,7 +190,7 @@ export function useStylistViewModel() {
     isRecording,
     error,
     sendPrompt,
-    simulateVoiceInput,
+    startVoiceInput,
     addCompleteLookToCart,
   };
 }

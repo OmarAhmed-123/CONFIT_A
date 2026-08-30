@@ -4,6 +4,33 @@ from backend.app.services.styling.ontology import SlotType, classify_product_slo
 from backend.app.services.styling.rules import StylingRulesEngine
 
 
+# Common English stop-words used only for the ambiguity heuristic — a prompt
+# made up solely of these (or of gibberish) carries no styling signal.
+_STOPWORDS = {
+    "the", "a", "an", "and", "or", "but", "for", "with", "me", "my", "i",
+    "need", "want", "get", "give", "find", "something", "anything", "nice",
+    "good", "some", "please", "can", "you", "to", "of", "in", "on", "at",
+    "is", "it", "this", "that", "outfit", "look", "wear", "dress", "up",
+}
+
+# A small dictionary of recognizable English / fashion vocabulary. Gibberish
+# tokens (e.g. "asdfqwer") match none of these, so a prompt with zero
+# recognizable tokens is treated as ambiguous rather than confidently styled.
+_KNOWN_VOCAB = _STOPWORDS | {
+    "wedding", "gala", "formal", "casual", "work", "office", "business", "party",
+    "dinner", "cocktail", "evening", "weekend", "brunch", "vacation", "resort",
+    "summer", "travel", "meeting", "interview", "corporate", "date", "suit",
+    "blazer", "trousers", "shirt", "shoes", "oxford", "loafer", "gown", "maxi",
+    "silk", "linen", "cotton", "wool", "navy", "black", "white", "ivory", "red",
+    "blue", "green", "beige", "under", "below", "over", "budget", "style",
+    "stylish", "elegant", "chic", "smart", "sharp", "quiet", "luxury", "hot",
+    "cold", "weather", "rain", "tuxedo", "tailored", "minimal", "classic",
+    "modern", "contemporary", "monochrome", "tonal", "heels", "sandals", "clutch",
+    "bag", "watch", "tie", "belt", "jacket", "coat", "skirt", "jeans", "denim",
+    "sneakers", "boots", "guest", "bride", "groom", "reception", "ball",
+}
+
+
 class OutfitComposer:
     """Production Multi-Brand Outfit Recommendation & Slot Composition Engine."""
 
@@ -69,7 +96,23 @@ class OutfitComposer:
         elif "modern" in prompt_lower or "contemporary" in prompt_lower:
             aesthetic = "Contemporary Tailored"
 
-        return {
+        # Ambiguity detection (GROUP 2 fix, BRD 21/E2E-12): a meaningful request
+        # carries at least one real signal — an occasion keyword, a budget, a
+        # style/color/garment request, or an explicit occasion hint. Gibberish or
+        # empty prompts must be flagged so the service can ask for clarification
+        # instead of returning confident fabricated recommendations.
+        has_signal = any([
+            occasion_hint,
+            budget_match,
+            occasion != "Smart Casual",  # an occasion keyword matched
+            requested_dress, requested_suit, requested_tie, requested_linen,
+            requested_silk, requested_navy, requested_black, requested_white,
+            requested_monochrome,
+            any(w in prompt_lower for w in ["minimalist", "minimal", "old money", "classic", "modern", "contemporary"]),
+            # At least one recognizable English/fashion token present.
+            any(t in _KNOWN_VOCAB for t in re.findall(r"[a-z]{2,}", prompt_lower)),
+        ])
+        intent_out = {
             "occasion": occasion,
             "formality": formality,
             "detected_budget": parsed_budget,
@@ -84,8 +127,10 @@ class OutfitComposer:
             "requested_white": requested_white,
             "requested_monochrome": requested_monochrome,
             "budget_explicit": budget_explicit,
-            "raw_prompt": prompt
+            "is_ambiguous": not has_signal,
+            "raw_prompt": prompt,
         }
+        return intent_out
 
     def compose_outfits(
         self,

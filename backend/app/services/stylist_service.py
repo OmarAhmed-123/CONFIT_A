@@ -63,10 +63,43 @@ class StylistService:
         if not intent.get("detected_budget"):
             intent["detected_budget"] = max_budget
 
-        # 5. Retrieve candidate products from real database catalog
-        all_products = self.catalog_repo.filter_products(limit=100)
+        # 5. Graceful handling of ambiguous / low-signal requests (BRD 21,
+        #    E2E-12): ask a clarifying question instead of returning confident
+        #    fabricated outfits for gibberish or empty input.
+        if intent.get("is_ambiguous"):
+            clarify_text = (
+                "I want to style you well, but I didn't catch a specific occasion, "
+                "style, or budget in that. Could you tell me a bit more — for example "
+                "'a smart casual work outfit under $500' or 'a formal wedding look'? "
+                "You can also tap an occasion: Work, Wedding, Party, or Casual."
+            )
+            assistant_msg = self.stylist_repo.add_message(
+                session_id=session.id,
+                sender="assistant",
+                content=clarify_text,
+                intent_json=intent,
+                recommendations_json=[]
+            )
+            return {
+                "id": assistant_msg.id,
+                "session_id": session.id,
+                "sender": "assistant",
+                "content": assistant_msg.content,
+                "audio_url": None,
+                "intent_detected": intent,
+                "recommendations": [],
+                "created_at": assistant_msg.created_at
+            }
 
-        # 6. Compose strict slot-based complete outfits grounded in the catalog
+        # 6. Retrieve candidate products from the real catalog. Availability
+        #    gate (BRD 15): only products with at least one in-stock SKU are
+        #    eligible for recommendation; out-of-stock items are never composed.
+        all_products = [
+            p for p in self.catalog_repo.filter_products(limit=100)
+            if getattr(p, "skus", None) and any(s.is_in_stock and s.stock_level > 0 for s in p.skus)
+        ]
+
+        # 7. Compose strict slot-based complete outfits grounded in the catalog
         recommended_outfits = StylingEngine.compose_outfits(
             available_products=all_products,
             intent=intent,

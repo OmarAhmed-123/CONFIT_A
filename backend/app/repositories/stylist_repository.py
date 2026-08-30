@@ -62,16 +62,34 @@ class StylistRepository:
             query = query.filter(Outfit.is_saved == True)
         return query.order_by(Outfit.created_at.desc()).all()
 
+    def get_outfit_by_share_token(self, share_token: str) -> Optional[Outfit]:
+        """Look up a shared outfit by its public token (items eager-loaded)."""
+        return (
+            self.db.query(Outfit)
+            .options(joinedload(Outfit.items))
+            .filter(Outfit.share_token == share_token)
+            .first()
+        )
+
     def get_outfit_by_id(self, outfit_id: int) -> Optional[Outfit]:
         return (
             self.db.query(Outfit)
             .options(
                 joinedload(Outfit.items).joinedload(OutfitItem.product).joinedload(Product.brand),
-                joinedload(Outfit.items).joinedload(OutfitItem.product).joinedload(Product.category)
+                joinedload(Outfit.items).joinedload(OutfitItem.product).joinedload(Product.category),
+                joinedload(Outfit.items).joinedload(OutfitItem.sku)
             )
             .filter(Outfit.id == outfit_id)
             .first()
         )
+
+    def delete_outfit(self, outfit_id: int) -> bool:
+        outfit = self.db.query(Outfit).filter(Outfit.id == outfit_id).first()
+        if not outfit:
+            return False
+        self.db.delete(outfit)  # OutfitItem rows cascade (all, delete-orphan)
+        self.db.commit()
+        return True
 
     def save_outfit(
         self,
@@ -84,11 +102,13 @@ class StylistRepository:
         style_tags: List[str],
         items: List[Dict[str, Any]],
         is_saved: bool = True,
-        is_system_curated: bool = False
+        is_system_curated: bool = False,
+        description: Optional[str] = None
     ) -> Outfit:
         outfit = Outfit(
             user_id=user_id,
             title=title,
+            description=description,
             occasion=occasion,
             compatibility_score=compatibility_score,
             total_price=total_price,

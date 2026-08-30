@@ -21,12 +21,13 @@ class ConsentUpdateRequest(BaseModel):
 
 # 1. Primary Profile Routes
 @router.get("/profile/me", response_model=USPResponse)
-def get_user_usp(user: Optional[User] = Depends(get_current_user_optional), db: Session = Depends(get_db)):
+def get_user_usp(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    # Authenticated only (GROUP 2 security): a guest must never receive another
+    # user's style profile via a user_id=1 fallback.
     service = ProfileService(db)
-    user_id = user.id if user else 1
-    usp = service.get_profile(user_id)
+    usp = service.get_profile(user.id)
     if not usp:
-        return service.save_quiz_and_preferences(user_id, {
+        return service.save_quiz_and_preferences(user.id, {
             "style_archetypes": ["Smart Casual", "Quiet Luxury"],
             "preferred_colors": ["Navy", "Beige", "Black", "White"],
             "fashion_aesthetics": ["Old Money", "Modern Tailored"],
@@ -45,24 +46,22 @@ def get_user_usp(user: Optional[User] = Depends(get_current_user_optional), db: 
 @router.post("/profile/onboarding-quiz", response_model=USPResponse)
 def submit_onboarding_quiz(
     payload: StyleQuizInput,
-    user: Optional[User] = Depends(get_current_user_optional),
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     service = ProfileService(db)
-    user_id = user.id if user else 1
-    return service.save_quiz_and_preferences(user_id, payload.model_dump())
+    return service.save_quiz_and_preferences(user.id, payload.model_dump())
 
 
 @router.put("/profile/preferences", response_model=USPResponse)
 @router.patch("/profile/preferences", response_model=USPResponse)
 def update_preferences(
     payload: StyleQuizInput,
-    user: Optional[User] = Depends(get_current_user_optional),
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     service = ProfileService(db)
-    user_id = user.id if user else 1
-    return service.save_quiz_and_preferences(user_id, payload.model_dump())
+    return service.save_quiz_and_preferences(user.id, payload.model_dump())
 
 
 # 2. Documented `/me` Endpoints (Specification 04 & 06)
@@ -116,14 +115,14 @@ def patch_me_preferences(payload: StyleQuizInput, user: User = Depends(get_curre
 
 
 @router.get("/me/consents")
-def get_me_consents(user: Optional[User] = Depends(get_current_user_optional)):
+def get_me_consents(user: User = Depends(get_current_user)):
     return {
-        "user_id": user.id if user else 1,
+        "user_id": user.id,
         "photo_storage": True,
         "ai_personalization": True,
         "marketing_analytics": False,
         "policy_version": 3,
-        "last_agreed_at": user.created_at if user else "2026-08-17T16:00:00Z"
+        "last_agreed_at": user.created_at
     }
 
 

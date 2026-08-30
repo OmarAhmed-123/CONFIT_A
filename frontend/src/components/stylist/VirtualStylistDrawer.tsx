@@ -117,7 +117,7 @@ export const VirtualStylistDrawer: React.FC = () => {
     isRecording,
     error,
     sendPrompt,
-    simulateVoiceInput,
+    startVoiceInput,
     addCompleteLookToCart,
   } = useStylistViewModel();
 
@@ -400,7 +400,7 @@ export const VirtualStylistDrawer: React.FC = () => {
             >
               <button
                 type="button"
-                onClick={simulateVoiceInput}
+                onClick={startVoiceInput}
                 className={`p-3 rounded-2xl border transition-all ${
                   isRecording
                     ? 'bg-rose-500 text-white border-rose-600 animate-pulse'

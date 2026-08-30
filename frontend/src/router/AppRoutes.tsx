@@ -14,6 +14,7 @@ import { ProductDetailView } from '../views/consumer/ProductDetailView';
 import { CheckoutView } from '../views/consumer/CheckoutView';
 import { OrderTrackingView } from '../views/consumer/OrderTrackingView';
 import { UserProfileView } from '../views/consumer/UserProfileView';
+import { SharedLookView } from '../views/public/SharedLookView';
 
 // B2B Views
 import { BrandDashboardView } from '../views/b2b/BrandDashboardView';
@@ -30,6 +31,9 @@ export const AppRoutes: React.FC = () => {
   return (
     <BrowserRouter>
       <Routes>
+        {/* 0. Public Shared Look (C8) — intentionally outside any guarded layout */}
+        <Route path="/looks/:token" element={<SharedLookView />} />
+
         {/* 1. Consumer Storefront Routes (Browse-First / Guest-Friendly) */}
         <Route path="/" element={<ConsumerLayout />}>
           <Route index element={<HomeView />} />

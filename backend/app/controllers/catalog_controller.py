@@ -1,10 +1,13 @@
 import json
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from backend.app.core.database import get_db
+from backend.app.core.dependencies import get_current_user_optional
+from backend.app.models.user import User
 from backend.app.repositories.catalog_repository import CatalogRepository
 from backend.app.services.search_service import SearchService
+from backend.app.services.dashboard_service import DashboardService
 from backend.app.schemas.catalog import (
     CategoryOut,
     ProductSummaryOut,
@@ -22,6 +25,20 @@ router = APIRouter(prefix="/catalog", tags=["Catalog & Products"])
 def get_categories(db: Session = Depends(get_db)):
     repo = CatalogRepository(db)
     return repo.get_categories()
+
+
+@router.get("/dashboard", response_model=Dict[str, Any])
+def get_home_dashboard(
+    lat: Optional[float] = Query(None, ge=-90, le=90),
+    lon: Optional[float] = Query(None, ge=-180, le=180),
+    user: Optional[User] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
+    """Home Dashboard (G2.4): personalized picks, trending, real recently-viewed,
+    and new-from-your-brands, composed from the profile + real catalog.
+    Optional lat/lon enable the real weather provider when configured (G2-S5)."""
+    service = DashboardService(db)
+    return service.get_dashboard(user.id if user else None, lat=lat, lon=lon)
 
 
 # =========================================================================
@@ -129,7 +146,11 @@ def list_products(
 
 
 @router.get("/products/{slug_or_id}", response_model=ProductDetailOut)
-def get_product_detail(slug_or_id: str, db: Session = Depends(get_db)):
+def get_product_detail(
+    slug_or_id: str,
+    user: Optional[User] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
     repo = CatalogRepository(db)
     if slug_or_id.isdigit():
         p = repo.get_product_by_id(int(slug_or_id))
@@ -138,6 +159,10 @@ def get_product_detail(slug_or_id: str, db: Session = Depends(get_db)):
 
     if not p:
         raise ResourceNotFoundError("Product", slug_or_id)
+
+    # Record real recently-viewed history for authenticated users (G2.4).
+    if user is not None:
+        repo.record_product_view(user.id, p.id)
 
     skus_out = [
         {

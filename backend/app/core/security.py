@@ -200,3 +200,60 @@ def generate_recovery_codes(count: int = 10) -> list[str]:
         right = "".join(secrets.choice(alphabet) for _ in range(4))
         out.append(f"CONFIT-{left}-{right}")
     return out
+
+
+# --- SSRF guard for user-supplied image URLs (Group 3 Section 8) -------------
+import ipaddress, socket, urllib.parse as _u
+
+_BLOCK_IPV4 = [
+    ipaddress.ip_network(n) for n in [
+        "0.0.0.0/8", "10.0.0.0/8", "100.64.0.0/10", "127.0.0.0/8",
+        "169.254.0.0/16", "172.16.0.0/12", "192.0.0.0/24", "192.168.0.0/16",
+        "198.18.0.0/15", "224.0.0.0/4", "240.0.0.0/4", "255.255.255.255/32",
+    ]
+]
+_BLOCK_IPV6 = [
+    ipaddress.ip_network(n) for n in [
+        "::1/128", "fc00::/7", "fe80::/10", "::/128",
+        "ff00::/8", "2001:db8::/32",
+    ]
+]
+
+
+def is_safe_image_url(raw: str) -> bool:
+    """Centralized SSRF guard for Group 3 image URL ingestion.
+
+    Returns True iff `raw` is an https (or http for backwards compat) URL whose
+    resolved hostname points ONLY to public IP addresses. Private/loopback/link
+    local/cloud metadata (169.254.169.254) addresses are rejected. Note: a
+    None/empty value also fails closed.
+    """
+    if not isinstance(raw, str) or not raw:
+        return False
+    try:
+        u = _u.urlparse(raw)
+    except Exception:
+        return False
+    if u.scheme not in ("http", "https"):
+        return False
+    host = u.hostname
+    if not host:
+        return False
+    if host.lower() in {"localhost", "metadata.google.internal"}:
+        return False
+    try:
+        infos = socket.getaddrinfo(host, None)
+    except socket.gaierror:
+        return False
+    for fam, *_ , sockaddr in infos:
+        ip_str = sockaddr[0]
+        try:
+            ip = ipaddress.ip_address(ip_str)
+        except ValueError:
+            return False
+        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_multicast or ip.is_reserved or ip.is_unspecified:
+            return False
+        for net in (_BLOCK_IPV4 if ip.version == 4 else _BLOCK_IPV6):
+            if ip in net:
+                return False
+    return True

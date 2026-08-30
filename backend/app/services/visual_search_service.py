@@ -1,4 +1,4 @@
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from sqlalchemy.orm import Session
 from backend.app.core.exceptions import ValidationDomainError
 from backend.app.repositories.catalog_repository import CatalogRepository
@@ -20,8 +20,11 @@ class VisualSearchService:
         image_url: Optional[str] = None,
         image_base64: Optional[str] = None,
         user_id: Optional[int] = None,
+        min_price: Optional[float] = None,
         max_price: Optional[float] = None,
-        in_stock_only: bool = True
+        brand_ids: Optional[List[int]] = None,
+        in_stock_only: bool = True,
+        limit: int = 24
     ) -> Dict[str, Any]:
         target_img = image_url or image_base64
         if not target_img:
@@ -39,7 +42,15 @@ class VisualSearchService:
         detected_sty = analysis.get("detected_style")
 
         # 2. Retrieve real catalog products from database
-        all_prods = self.catalog_repo.filter_products(max_price=max_price, limit=50)
+        #    Filters are pushed into the DB query — not filtered on a sliced
+        #    in-memory set — so they work across the whole catalogue.
+        all_prods = self.catalog_repo.filter_products(
+            min_price=min_price,
+            max_price=max_price,
+            brand_ids=brand_ids,
+            in_stock_only=in_stock_only,
+            limit=limit if isinstance(limit, int) and limit > 0 else 24,
+        )
 
         # 3. Score real catalog items against what the vision model ACTUALLY
         #    detected — the old code hard-coded blazer/navy bonuses for every

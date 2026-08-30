@@ -212,17 +212,62 @@ class VirtualTryOnProvider(BaseProvider):
         )
 
     def validate_uploaded_image(self, image_url_or_base64: str) -> Dict[str, Any]:
-        """Validates uploaded user photo quality, aspect ratio, and body suitability."""
-        return {
-            "is_valid": True,
-            "detected_gender": "Inferred from Image (Male Subject)",
-            "body_framing": "Full Body Visible — Head-to-Toe Stance",
-            "resolution_status": "High Definition",
-            "lighting_quality": "Natural Daylight",
-            "suggestions": [
-                "Natural upright posture detected; ideal for upper-body shirts, blazers, and trousers."
-            ]
+        """REAL validation. No fabricated gender/category inference.
+
+        Decodes the bytes the client actually supplied and reports only what is
+        objectively measurable: file size, dimensions, MIME/format, aspect ratio.
+        Anything that needs vision inference is returned as `null` and the
+        client is told which file-format checks failed. We never claim to
+        identify the subject's gender or pose from a still image.
+        """
+        import base64 as _b64, io as _io
+        from PIL import Image as _Image
+        out: Dict[str, Any] = {
+            "is_valid": False,
+            "format": None,
+            "width": None,
+            "height": None,
+            "aspect_ratio": None,
+            "min_dimension": None,
+            "size_bytes": None,
+            "issues": [],
+            "suggestions": [],
         }
+        if not image_url_or_base64:
+            out["issues"].append("empty_payload"); return out
+        try:
+            if image_url_or_base64.startswith("data:image"):
+                _, encoded = image_url_or_base64.split(",", 1)
+                raw = _b64.b64decode(encoded)
+                out["size_bytes"] = len(raw)
+            elif image_url_or_base64.startswith(("http://", "https://")):
+                # SSRF gate: refuse private/loopback/link-local addresses early
+                from backend.app.core.security import is_safe_image_url
+                if not is_safe_image_url(image_url_or_base64):
+                    out["issues"].append("unsafe_url"); return out
+                # We do NOT download large files just to validate size — bail here
+                out["issues"].append("remote_url_skipped_actual_decode_required"); out["suggestions"].append("provide image_base64 so the image is really decoded"); return out
+            else:
+                out["issues"].append("unsupported_scheme"); return out
+            img = _Image.open(_io.BytesIO(raw))
+            img.verify()  # raises on corrupted files
+            img2 = _Image.open(_io.BytesIO(raw))  # verify() invalidates the stream
+            w, h = img2.size
+            fmt = (img2.format or "").lower() or None
+            out.update({"is_valid": True, "format": fmt, "width": w, "height": h,
+                        "aspect_ratio": round(w / h, 3) if h else None,
+                        "min_dimension": min(w, h)})
+            if w < 480 or h < 640:
+                out["suggestions"].append("use_higher_resolution_at_least_480x640")
+            if fmt not in {"jpeg", "png", "webp"}:
+                out["issues"].append("unsupported_format"); out["is_valid"] = False
+        except Exception as exc:
+            out["issues"].append(f"decode_failed:{type(exc).__name__}")
+        return out
+
+    async def validate_uploaded_image_async(self, image_url_or_base64: str) -> Dict[str, Any]:
+        """Async counterpart — same truth, no fabrication."""
+        return self.validate_uploaded_image(image_url_or_base64)
 
 
 class VisualSearchAIProvider(BaseProvider):
@@ -260,6 +305,9 @@ class VisualSearchAIProvider(BaseProvider):
             mime = header.split(";")[0].replace("data:", "") or "image/jpeg"
             return encoded, mime
         if ref.startswith(("http://", "https://")):
+            from backend.app.core.security import is_safe_image_url
+            if not is_safe_image_url(ref):
+                raise ValueError("Refused unsafe image URL (private/loopback/link-local target)")
             async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
                 resp = await client.get(ref)
                 resp.raise_for_status()

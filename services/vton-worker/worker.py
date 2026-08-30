@@ -120,26 +120,30 @@ def process_vton_job(payload: VTONJobRequest):
         # Stage 3: Garment Preprocessing
         garment_rgb, garment_alpha, garment_pack = GarmentPreprocessor.preprocess_garment(garment_raw, pid, slot)
 
-        # Stage 4: Run CatVTON Inpainting Engine
+        # Stage 4: Run CatVTON Inpainting Engine (real geometric warp + composite)
         vton_res = vton_engine.run_vton_inference(
             person_image=current_person,
             garment_image=garment_rgb,
             garment_mask=garment_alpha,
             slot_type=slot,
             pose_landmarks=pose_landmarks,
-            garment_meta=garment_pack
+            garment_meta=garment_pack,
         )
+        if isinstance(vton_res, dict):
+            rendered_now = vton_res.get("rendered_image")
+            fit_now = vton_res.get("fit_verdict", "geometric warp composite")
+        else:
+            rendered_now = getattr(vton_res, "rendered_image", current_person)
+            fit_now = getattr(vton_res, "fit_verdict", "geometric warp composite")
 
-        # Stage 5: Edge Blending & Lighting Harmonization
+        # Stage 5: Edge Blending & Lighting Harmonization (real CDF histogram match)
         agnostic_mask = AgnosticMaskGenerator.create_agnostic_mask(current_person, slot)
         harmonized_img = LightingHarmonizer.harmonize_lighting(
-            vton_res.rendered_image,
-            current_person,
-            agnostic_mask
+            rendered_now, current_person, agnostic_mask
         )
 
         current_person = harmonized_img
-        last_vton_result = vton_res
+        last_vton_result = type("VR", (), {"fit_verdict": fit_now, "rendered_image": rendered_now})()
         layers_count += 1
 
     # Stage 6: Quality & Identity Audit
@@ -156,16 +160,27 @@ def process_vton_job(payload: VTONJobRequest):
 
     exec_time_ms = round((time.time() - start_time) * 1000.0, 2)
 
+    engine_loaded = bool(getattr(vton_engine, "model_loaded", False))
+    honest_model_used = (
+        "CatVTON-v1.2 (Apache 2.0) -- diffusion on GPU"
+        if engine_loaded
+        else f"{vton_engine.name} (no GPU weights loaded; geometric warp fallback)"
+    )
+    fit_verdict_actual = (
+        last_vton_result.fit_verdict if last_vton_result else "no garments applied"
+    )
+    if (not engine_loaded) and ("True to Size" in fit_verdict_actual):
+        fit_verdict_actual = "geometric warp composite (cpu fallback)"
     return VTONJobResponse(
         job_id=payload.job_id,
         status="completed",
         rendered_image_data_url=out_b64,
         execution_time_ms=exec_time_ms,
-        model_used="CatVTON-v1.2 (Apache 2.0)",
+        model_used=honest_model_used,
         layers_processed=layers_count,
         ssim_score=audit["ssim_score"],
         identity_preservation_score=audit["identity_preservation_score"],
-        fit_verdict=last_vton_result.fit_verdict if last_vton_result else "True to Size",
+        fit_verdict=fit_verdict_actual,
         quality_audit=audit
     )
 
@@ -173,3 +188,8 @@ def process_vton_job(payload: VTONJobRequest):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8080)
+
+@app.exception_handler(ValueError)
+async def _value_error_handler(request, exc):
+    from fastapi import HTTPException
+    raise HTTPException(status_code=422, detail={"error": {"code": "UNSUPPORTED_SLOT", "message": str(exc)}})

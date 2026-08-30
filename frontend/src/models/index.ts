@@ -307,6 +307,11 @@ export interface WardrobeItem {
   wear_frequency: string;
   wear_count: number;
   is_favorite: boolean;
+  secondary_colors?: string[];
+  seasonality?: string;
+  processing_status?: 'uploaded' | 'processing' | 'ready' | 'failed';
+  processing_error?: string | null;
+  ai_confidence?: number | null;
   created_at: string;
 }
 

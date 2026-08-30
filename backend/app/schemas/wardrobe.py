@@ -4,15 +4,16 @@ from pydantic import BaseModel, Field, ConfigDict
 
 
 class WardrobeItemCreate(BaseModel):
-    title: str
+    title: str = Field(min_length=1, max_length=255)
     category: str  # Tops, Bottoms, Outerwear, Footwear, Accessories
     subcategory: Optional[str] = None
-    color_name: str
+    color_name: str = Field(min_length=1, max_length=50)
     color_hex: str = "#1B1F3B"
     pattern: str = "Solid"
     brand_name: str = "Own Collection"
-    image_url: str
+    image_url: str = Field(min_length=1, max_length=1000)
     occasions: List[str] = Field(default_factory=lambda: ["casual"])
+    seasonality: str = "All-Season"
     wear_frequency: str = "regular"  # "favorite", "regular", "rarely_worn", "seasonal"
     purchase_price: Optional[float] = None
     is_favorite: bool = False
@@ -26,6 +27,7 @@ class WardrobeItemUpdate(BaseModel):
     color_hex: Optional[str] = None
     pattern: Optional[str] = None
     occasions: Optional[List[str]] = None
+    seasonality: Optional[str] = None
     wear_frequency: Optional[str] = None
     is_favorite: Optional[bool] = None
     wear_count: Optional[int] = None
@@ -47,9 +49,33 @@ class WardrobeItemOut(BaseModel):
     wear_frequency: str
     wear_count: int
     is_favorite: bool
+    secondary_colors: List[str] = Field(default_factory=list)
+    seasonality: str = "All-Season"
+    processing_status: str = "ready"  # uploaded | processing | ready | failed
+    processing_error: Optional[str] = None
+    ai_confidence: Optional[float] = None
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class WardrobeUploadResultEntry(BaseModel):
+    filename: str
+    status: str  # created | failed | duplicate
+    detail: Optional[str] = None
+    item: Optional[WardrobeItemOut] = None
+
+
+class WardrobeUploadSummary(BaseModel):
+    total: int
+    succeeded: int
+    failed: int
+    duplicates_skipped: int
+
+
+class WardrobeUploadResponse(BaseModel):
+    results: List[WardrobeUploadResultEntry]
+    summary: WardrobeUploadSummary
 
 
 class WardrobeAutoTagRequest(BaseModel):
@@ -58,15 +84,18 @@ class WardrobeAutoTagRequest(BaseModel):
 
 
 class WardrobeAutoTagResponse(BaseModel):
-    detected_title: str
-    detected_category: str
-    detected_subcategory: str
-    detected_color: str
-    detected_color_hex: str
-    detected_pattern: str
-    ai_tags: List[str]
-    suggested_occasions: List[str]
-    confidence: float
+    analysis_available: bool = True
+    detail: Optional[str] = None
+    detected_title: Optional[str] = None
+    detected_category: Optional[str] = None
+    detected_subcategory: Optional[str] = None
+    detected_color: Optional[str] = None
+    detected_color_hex: Optional[str] = None
+    detected_pattern: Optional[str] = None
+    ai_tags: List[str] = Field(default_factory=list)
+    suggested_occasions: List[str] = Field(default_factory=list)
+    seasonality: Optional[str] = None
+    confidence: Optional[float] = None
 
 
 class GapAnalysisOut(BaseModel):
@@ -84,7 +113,33 @@ class DuplicateCheckRequest(BaseModel):
     product_title: str
     category: str
     color_family: str
+    pattern: Optional[str] = None
     strict_mode: bool = False
+
+
+class WardrobeFirstOutfitItem(BaseModel):
+    position: str
+    source: str  # "owned" | "catalog"
+    wardrobe_item_id: Optional[int] = None
+    product_id: Optional[int] = None
+    product_title: str
+    brand_name: str
+    color_family: Optional[str] = None
+    dominant_hex: Optional[str] = None
+    image_url: str
+    price: float = 0.0
+
+
+class WardrobeFirstOutfitOut(BaseModel):
+    occasion: str
+    owned_items: List[Dict[str, Any]]
+    owned_count: int
+    missing_positions: List[str]
+    purchase_suggestions: List[Dict[str, Any]]
+    compatibility_score: int
+    is_complete_outfit: bool
+    wardrobe_first: bool
+    message: str
 
 
 class DuplicateAlertResponse(BaseModel):

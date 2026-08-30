@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from backend.app.models.stylist import Outfit
 from backend.app.repositories.stylist_repository import StylistRepository
 from backend.app.repositories.catalog_repository import CatalogRepository
+from backend.app.repositories.wardrobe_repository import WardrobeRepository
 from backend.app.services.styling_engine import StylingEngine
 from backend.app.services.styling.ontology import classify_product_slot
 
@@ -34,6 +35,7 @@ class OutfitService:
         self.db = db
         self.stylist_repo = StylistRepository(db)
         self.catalog_repo = CatalogRepository(db)
+        self.wardrobe_repo = WardrobeRepository(db)
 
     def get_public_look(self, share_token: str) -> Optional[Dict[str, Any]]:
         """C8 — public-safe, read-only view of a shared outfit.
@@ -168,6 +170,123 @@ class OutfitService:
             is_system_curated=False,
             description=description,
         )
+
+    def build_wardrobe_first_outfit(self, user_id: int, occasion: str = "Smart Casual") -> Dict[str, Any]:
+        """Group 4 §24 — 'shop your wardrobe first' outfit building.
+
+        Flow: retrieve the caller's ready wardrobe -> pick the best owned item
+        per canvas position (occasion + favorite/wear signals, color harmony
+        via the existing StylingEngine) -> only canvas positions the wardrobe
+        genuinely cannot fill become purchase recommendations from the real
+        catalog. Owned items are never re-suggested as purchases (§26).
+
+        Returns a computed (not persisted) look: owned pieces are not catalog
+        products, so they cannot be OutfitItem rows — persistence stays with
+        save_outfit() for purchasable item sets.
+        """
+        from backend.app.services import wardrobe_taxonomy as taxonomy
+
+        wardrobe_items = [
+            it for it in self.wardrobe_repo.get_user_items(user_id)
+            if getattr(it, "processing_status", "ready") == "ready"
+        ]
+
+        _CAT_TO_POSITION = {
+            "Tops": "top", "Bottoms": "bottom", "Outerwear": "outerwear",
+            "Footwear": "footwear", "Accessories": "accessory", "Dresses": "dress",
+        }
+        positions = ["top", "bottom", "footwear", "outerwear", "accessory"]
+
+        def owned_score(it) -> float:
+            """Rank an owned piece for this occasion: explicit occasion match
+            dominates, then favorite, then frequency of wear (a proven piece
+            beats a neglected one), then neutral-versatile colors."""
+            score = 0.0
+            item_occasions = json.loads(it.occasions) if it.occasions else []
+            occasion_norm = occasion.strip().lower()
+            if any(occasion_norm in (o or "").lower() or (o or "").lower() in occasion_norm
+                   for o in item_occasions):
+                score += 50.0
+            if it.is_favorite or it.wear_frequency == "favorite":
+                score += 20.0
+            if it.wear_frequency == "regular":
+                score += 10.0
+            elif it.wear_frequency == "rarely_worn":
+                score += 4.0   # gently resurface neglected pieces — smart reuse
+            score += min(it.wear_count or 0, 10) * 0.5
+            if taxonomy.normalize_color(it.color_name) in ("Black", "White", "Navy", "Beige", "Grey", "Ivory"):
+                score += 5.0
+            return score
+
+        by_position: Dict[str, List[Any]] = {}
+        for it in wardrobe_items:
+            pos = _CAT_TO_POSITION.get(taxonomy.normalize_category(it.category))
+            if pos:
+                by_position.setdefault(pos, []).append(it)
+
+        owned_picks: List[Dict[str, Any]] = []
+        missing_positions: List[str] = []
+        for pos in positions:
+            candidates = by_position.get(pos) or []
+            if candidates:
+                best = max(candidates, key=owned_score)
+                owned_picks.append({
+                    "position": pos,
+                    "source": "owned",
+                    "wardrobe_item_id": best.id,
+                    "product_title": best.title,
+                    "brand_name": best.brand_name,
+                    "color_family": taxonomy.normalize_color(best.color_name),
+                    "dominant_hex": best.color_hex,
+                    "image_url": best.image_url,
+                    "price": 0.0,
+                    "style_tags": json.loads(best.ai_tags) if best.ai_tags else [],
+                    "occasion_tags": json.loads(best.occasions) if best.occasions else [],
+                })
+            else:
+                missing_positions.append(pos)
+
+        # Score the owned combination with the real styling engine so the
+        # compatibility number means the same thing as for catalog outfits.
+        comp = StylingEngine.calculate_compatibility(owned_picks, target_occasion=occasion) \
+            if owned_picks else {"compatibility_score": 0, "is_complete_outfit": False}
+
+        # Only genuine gaps surface purchasable products (never what is owned).
+        _POS_TO_SLUG = {"top": "tops", "bottom": "bottoms", "outerwear": "outerwear",
+                        "footwear": "footwear", "accessory": "accessories"}
+        purchase_suggestions: List[Dict[str, Any]] = []
+        for pos in missing_positions:
+            recs = self.catalog_repo.filter_products(
+                category_slug=_POS_TO_SLUG.get(pos, pos), occasion=occasion, limit=3
+            ) or self.catalog_repo.filter_products(category_slug=_POS_TO_SLUG.get(pos, pos), limit=3)
+            for p in recs:
+                purchase_suggestions.append({
+                    "position": pos,
+                    "source": "catalog",
+                    "product_id": p.id,
+                    "product_title": p.title,
+                    "brand_name": p.brand.brand_name if p.brand else "CONFIT",
+                    "color_family": p.color_family,
+                    "dominant_hex": p.dominant_hex,
+                    "image_url": p.thumbnail_url,
+                    "price": float(p.base_price),
+                })
+
+        return {
+            "occasion": occasion,
+            "owned_items": owned_picks,
+            "owned_count": len(owned_picks),
+            "missing_positions": missing_positions,
+            "purchase_suggestions": purchase_suggestions,
+            "compatibility_score": comp.get("compatibility_score", 0),
+            "is_complete_outfit": comp.get("is_complete_outfit", False),
+            "wardrobe_first": True,
+            "message": (
+                "Built from pieces you already own — only the missing pieces are suggested for purchase."
+                if owned_picks else
+                "Your wardrobe has no ready items yet — upload pieces to unlock wardrobe-first styling."
+            ),
+        }
 
     def _format_outfit(self, o: Outfit) -> Dict[str, Any]:
         items_data = []

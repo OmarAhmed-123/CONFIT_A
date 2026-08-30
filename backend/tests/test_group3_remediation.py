@@ -208,3 +208,57 @@ class TestPerSlotScaling:
         import json
         meta = json.loads(sess.render_metadata_json)
         assert meta["slot_scaling"]["chest"] == round(104 / 98.0, 2)
+
+
+class TestCompositeVerificationConsistency:
+    """Regression guard: a paired metric failure must never yield a clean PASS."""
+
+    @staticmethod
+    def _load_verify():
+        import importlib.util
+        import pathlib
+        p = (pathlib.Path(__file__).resolve().parents[2] /
+             "services" / "vton-worker" / "pipeline" / "verify.py")
+        spec = importlib.util.spec_from_file_location("pipeline.verify", p)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod
+
+    def test_identical_images_never_pass(self):
+        from PIL import Image
+        v = self._load_verify()
+        img = Image.new("RGB", (128, 192), (80, 80, 90))
+        r = v.verify_composite_output(img, img)
+        assert r["PASS"] is False
+        assert r["metric_pixel_change"] is False
+        assert r["metric_color_shift"] is False
+
+    def test_brightness_only_change_cannot_pass(self):
+        # This is the exact old contradiction: pixels changed globally, but no
+        # garment color shift occurred. PASS must be False.
+        from PIL import Image
+        import numpy as np
+        v = self._load_verify()
+        arr = np.zeros((192, 128, 3), dtype=np.uint8)
+        arr[60:130, 10:115] = (60, 60, 90)   # greyish shirt
+        orig = Image.fromarray(arr)
+        brighter = Image.fromarray(np.clip(arr.astype(np.int16) + 40, 0, 255).astype(np.uint8))
+        r = v.verify_composite_output(orig, brighter, region=(0.30, 0.65, 0.05, 0.95))
+        assert r["metric_pixel_change"] is True    # global pixels did change
+        assert r["metric_color_shift"] is False    # but no garment color appears
+        assert r["PASS"] is False                  # combined verdict must fail
+
+    def test_real_garment_appearance_can_pass(self):
+        from PIL import Image
+        import numpy as np
+        v = self._load_verify()
+        base = np.zeros((192, 128, 3), dtype=np.uint8)
+        base[:] = (200, 200, 200)
+        orig = Image.fromarray(base)
+        out = base.copy()
+        out[60:130, 10:115] = (40, 50, 90)  # navy garment fills the region
+        r = v.verify_composite_output(orig, Image.fromarray(out),
+                                      region=(0.30, 0.65, 0.05, 0.95))
+        assert r["metric_color_shift"] is True
+        assert r["metric_pixel_change"] is True
+        assert r["PASS"] is True

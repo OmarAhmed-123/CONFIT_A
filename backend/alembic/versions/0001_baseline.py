@@ -109,10 +109,10 @@ def upgrade() -> None:
             sa.Column("created_at", sa.DateTime(), nullable=False),
             sa.Column("updated_at", sa.DateTime(), nullable=False),
         )
-        op.create_index("ix_users_email", "users", ["email"], unique=True)
-        op.create_index("ix_users_id", "users", ["id"])
-        op.create_index("ix_users_oauth_subject", "users", ["oauth_subject"])
         op.create_index("ix_users_oauth_provider", "users", ["oauth_provider"])
+        op.create_index("ix_users_oauth_subject", "users", ["oauth_subject"])
+        op.create_index("ix_users_id", "users", ["id"])
+        op.create_index("ix_users_email", "users", ["email"], unique=True)
 
     if not _table_exists(bind, "brand_profiles"):
         op.create_table(
@@ -146,8 +146,8 @@ def upgrade() -> None:
             sa.Column("created_at", sa.DateTime(), nullable=False),
             sa.Column("updated_at", sa.DateTime(), nullable=False),
         )
-        op.create_index("ix_carts_session_token", "carts", ["session_token"], unique=True)
         op.create_index("ix_carts_id", "carts", ["id"])
+        op.create_index("ix_carts_session_token", "carts", ["session_token"], unique=True)
 
     if not _table_exists(bind, "email_verification_tokens"):
         op.create_table(
@@ -160,8 +160,8 @@ def upgrade() -> None:
             sa.Column("created_at", sa.DateTime(), nullable=False),
         )
         op.create_index("ix_email_verification_tokens_token_hash", "email_verification_tokens", ["token_hash"], unique=True)
-        op.create_index("ix_email_verification_tokens_id", "email_verification_tokens", ["id"])
         op.create_index("ix_email_verification_tokens_user_id", "email_verification_tokens", ["user_id"])
+        op.create_index("ix_email_verification_tokens_id", "email_verification_tokens", ["id"])
 
     if not _table_exists(bind, "measurement_sessions"):
         op.create_table(
@@ -188,8 +188,8 @@ def upgrade() -> None:
             sa.Column("used_at", sa.DateTime(), nullable=True),
             sa.Column("created_at", sa.DateTime(), nullable=False),
         )
-        op.create_index("ix_mfa_backup_codes_id", "mfa_backup_codes", ["id"])
         op.create_index("ix_mfa_backup_codes_user_id", "mfa_backup_codes", ["user_id"])
+        op.create_index("ix_mfa_backup_codes_id", "mfa_backup_codes", ["id"])
 
     if not _table_exists(bind, "outfits"):
         op.create_table(
@@ -240,11 +240,11 @@ def upgrade() -> None:
             sa.Column("user_agent", sa.String(length=500), nullable=True),
             sa.Column("ip_address", sa.String(length=50), nullable=True),
         )
-        op.create_index("ix_refresh_tokens_family_id", "refresh_tokens", ["family_id"])
-        op.create_index("ix_refresh_tokens_user_id", "refresh_tokens", ["user_id"])
         op.create_index("ix_refresh_tokens_user_active", "refresh_tokens", ["user_id", "revoked_at"])
         op.create_index("ix_refresh_tokens_jti", "refresh_tokens", ["jti"], unique=True)
+        op.create_index("ix_refresh_tokens_user_id", "refresh_tokens", ["user_id"])
         op.create_index("ix_refresh_tokens_id", "refresh_tokens", ["id"])
+        op.create_index("ix_refresh_tokens_family_id", "refresh_tokens", ["family_id"])
 
     if not _table_exists(bind, "stylist_sessions"):
         op.create_table(
@@ -507,9 +507,9 @@ def upgrade() -> None:
             sa.Column("created_at", sa.DateTime(), nullable=False),
             sa.Column("updated_at", sa.DateTime(), nullable=False),
         )
+        op.create_index("ix_orders_id", "orders", ["id"])
         op.create_index("ix_orders_idempotency_key", "orders", ["idempotency_key"], unique=True)
         op.create_index("ix_orders_order_number", "orders", ["order_number"], unique=True)
-        op.create_index("ix_orders_id", "orders", ["id"])
 
     if not _table_exists(bind, "product_skus"):
         op.create_table(
@@ -524,8 +524,19 @@ def upgrade() -> None:
             sa.Column("stock_level", sa.Integer(), nullable=False),
             sa.Column("is_in_stock", sa.Boolean(), nullable=False),
         )
-        op.create_index("ix_product_skus_id", "product_skus", ["id"])
         op.create_index("ix_product_skus_sku_code", "product_skus", ["sku_code"], unique=True)
+        op.create_index("ix_product_skus_id", "product_skus", ["id"])
+
+    if not _table_exists(bind, "recently_viewed"):
+        op.create_table(
+            "recently_viewed",
+            sa.Column("id", sa.Integer(), primary_key=True, nullable=False),
+            sa.Column("user_id", sa.Integer(), sa.ForeignKey("users.id", ondelete='CASCADE'), nullable=False),
+            sa.Column("product_id", sa.Integer(), sa.ForeignKey("products.id", ondelete='CASCADE'), nullable=False),
+            sa.Column("viewed_at", sa.DateTime(), nullable=False),
+        )
+        op.create_index("ix_recently_viewed_user_id", "recently_viewed", ["user_id"])
+        op.create_index("ix_recently_viewed_id", "recently_viewed", ["id"])
 
     if not _table_exists(bind, "sponsored_placements"):
         op.create_table(
@@ -674,8 +685,8 @@ def upgrade() -> None:
             sa.Column("started_at", sa.DateTime(), nullable=True),
             sa.Column("completed_at", sa.DateTime(), nullable=True),
         )
-        op.create_index("ix_tryon_jobs_job_id", "tryon_jobs", ["job_id"], unique=True)
         op.create_index("ix_tryon_jobs_id", "tryon_jobs", ["id"])
+        op.create_index("ix_tryon_jobs_job_id", "tryon_jobs", ["job_id"], unique=True)
 
 
 def downgrade() -> None:
@@ -696,6 +707,8 @@ def downgrade() -> None:
         op.drop_table("tryon_sessions")
     if _table_exists(bind, "sponsored_placements"):
         op.drop_table("sponsored_placements")
+    if _table_exists(bind, "recently_viewed"):
+        op.drop_table("recently_viewed")
     if _table_exists(bind, "product_skus"):
         op.drop_table("product_skus")
     if _table_exists(bind, "orders"):

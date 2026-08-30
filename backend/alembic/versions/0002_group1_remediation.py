@@ -157,6 +157,14 @@ def downgrade() -> None:
                 if _has_column(bind, "user_style_profiles", name):
                     batch.drop_column(name)
     if _has_table(bind, "users"):
+        # SQLite batch-mode drop_column recreates the table and re-applies
+        # reflected indexes — an index on a dropped column then fails with
+        # "no such column". Drop the OAuth indexes first (Postgres would have
+        # cascaded them automatically; SQLite will not).
+        existing_indexes = {idx["name"] for idx in inspect(bind).get_indexes("users")}
+        for idx_name in ("ix_users_oauth_subject", "ix_users_oauth_provider"):
+            if idx_name in existing_indexes:
+                op.drop_index(idx_name, table_name="users")
         with op.batch_alter_table("users") as batch:
             for name in ("oauth_subject", "oauth_provider"):
                 if _has_column(bind, "users", name):

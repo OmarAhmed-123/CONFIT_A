@@ -87,14 +87,27 @@ def test_stylist_chat_and_compatibility(client: TestClient):
     # contract a cookie-authenticated POST must echo the readable CSRF cookie
     # as a header — exactly what the frontend does.
     csrf = client.cookies.get("confit_csrf")
+    # A coherent formal set (blazer + shirt + trousers + oxfords).
     comp_res = client.post("/api/v1/stylist/compatibility", headers={"X-CSRF-Token": csrf}, json={
-        "product_ids": [1, 2],
+        "product_ids": [1, 3, 4, 6],
         "target_occasion": "Work & Business"
     })
     assert comp_res.status_code == 200
     comp_data = comp_res.json()
-    assert comp_data["compatibility_score"] >= 80
     assert "color_harmony_type" in comp_data
+    # Honest scoring contract (GROUP 2): a coherent, occasion-matched outfit
+    # must score meaningfully higher than a conflicting/off-occasion one, and
+    # scores must not be pinned to an arbitrary floor.
+    coherent = comp_data["compatibility_score"]
+    assert 0 <= coherent <= 100
+
+    clash_res = client.post("/api/v1/stylist/compatibility", headers={"X-CSRF-Token": csrf}, json={
+        "product_ids": [2, 5],  # tuxedo jacket + dress: conflicting, off-occasion
+        "target_occasion": "Casual"
+    })
+    assert clash_res.status_code == 200
+    clashing = clash_res.json()["compatibility_score"]
+    assert coherent > clashing
 
 
 def test_virtual_tryon_and_no_photo_fit(client: TestClient):

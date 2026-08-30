@@ -31,16 +31,26 @@ export function useOutfitBuilderViewModel(userBudgetLimit = 400.0) {
 
   const isOverBudget = runningTotal > userBudgetLimit;
 
+  // Derive the product's natural canvas slot from its category (single place
+  // used by both click-to-add and drag validation).
+  const naturalSlotForProduct = useCallback((product: Product): CanvasItem['slot'] => {
+    const cat = (product.category_name || '').toLowerCase();
+    if (cat.includes('outer') || cat.includes('blazer') || cat.includes('jacket') || cat.includes('coat')) return 'outerwear';
+    if (cat.includes('bottom') || cat.includes('trouser') || cat.includes('pant') || cat.includes('jean') || cat.includes('skirt')) return 'bottom';
+    if (cat.includes('shoe') || cat.includes('footwear') || cat.includes('sneaker') || cat.includes('loafer') || cat.includes('boot') || cat.includes('heel')) return 'footwear';
+    if (cat.includes('accessor') || cat.includes('bag') || cat.includes('belt') || cat.includes('watch')) return 'accessory';
+    return 'top';
+  }, []);
+
+  // C6: a drop is valid only when the target slot matches the product's
+  // natural slot — invalid drops must never corrupt canvas state.
+  const isValidSlotForProduct = useCallback(
+    (product: Product, slot: CanvasItem['slot']) => naturalSlotForProduct(product) === slot,
+    [naturalSlotForProduct]
+  );
+
   const addItemToCanvas = useCallback((product: Product, slot?: CanvasItem['slot']) => {
-    let assignedSlot = slot;
-    if (!assignedSlot) {
-      const cat = product.category_name.toLowerCase();
-      if (cat.includes('outer') || cat.includes('blazer')) assignedSlot = 'outerwear';
-      else if (cat.includes('bottom') || cat.includes('trouser')) assignedSlot = 'bottom';
-      else if (cat.includes('shoe') || cat.includes('footwear')) assignedSlot = 'footwear';
-      else if (cat.includes('dress')) assignedSlot = 'top';
-      else assignedSlot = 'top';
-    }
+    const assignedSlot = slot ?? naturalSlotForProduct(product);
 
     const defaultSku = product.skus?.[0] || {
       id: product.id * 10,
@@ -133,6 +143,7 @@ export function useOutfitBuilderViewModel(userBudgetLimit = 400.0) {
     isEvaluating,
     isSaving,
     addItemToCanvas,
+    isValidSlotForProduct,
     removeItemFromCanvas,
     clearCanvas,
     saveOutfit,

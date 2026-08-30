@@ -275,6 +275,13 @@ export const catalogService = {
   autocompleteCatalog: (q: string) => request<AutocompleteResponse>(`/catalog/autocomplete?q=${encodeURIComponent(q)}`),
 
   getBopisStoresForSKU: (skuId: number) => request<StoreInventoryLocation[]>(`/catalog/skus/${skuId}/stores`),
+
+  // Home Dashboard (G2.4): personalized picks, trending, recently-viewed,
+  // new-from-your-brands — composed server-side from the real profile + catalog.
+  getDashboard: (coords?: { lat: number; lon: number }) => {
+    const query = coords ? `?lat=${coords.lat}&lon=${coords.lon}` : '';
+    return request<any>(`/catalog/dashboard${query}`);
+  },
 };
 
 // 4. Virtual Stylist & Outfitting Engine Services (G2.2)
@@ -306,11 +313,43 @@ export const stylistService = {
       body: JSON.stringify({
         title: data.title,
         occasion: data.occasion,
-        product_ids: data.product_ids || data.product_sku_ids || [1],
+        // Canonical contract: send whichever identifier set the caller holds.
+        // No fabricated fallback ids — the backend validates non-empty.
+        ...(data.product_sku_ids ? { product_sku_ids: data.product_sku_ids } : {}),
+        ...(data.product_ids ? { product_ids: data.product_ids } : {}),
       }),
     }),
 
   deleteOutfit: (id: number) => request<{ status: string }>(`/outfits/${id}`, { method: 'DELETE' }),
+
+  // C8: mint (or fetch the idempotent) share token for an owned outfit.
+  // The response intentionally contains no fabricated card URL.
+  shareOutfit: (id: number) =>
+    request<{ outfit_id: number; share_token: string; share_url: string }>(`/outfits/${id}/share`, {
+      method: 'POST',
+    }),
+};
+
+// 4b. Public Shared Looks (C8) — unauthenticated, public-safe DTO only.
+export const publicLookService = {
+  getPublicLook: (token: string) =>
+    request<{
+      title: string;
+      occasion: string;
+      description?: string | null;
+      total_price: number;
+      compatibility_score: number;
+      items: Array<{
+        product_title: string;
+        brand_name: string;
+        category_name: string;
+        price: number;
+        image_url: string;
+        color_hex: string;
+        position: string;
+      }>;
+      created_at: string;
+    }>(`/public/looks/${encodeURIComponent(token)}`),
 };
 
 // 5. Virtual Try-On & Fit Services (G3)

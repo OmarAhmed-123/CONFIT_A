@@ -85,6 +85,13 @@ class Settings(BaseSettings):
     VTON_WORKER_URL: Optional[str] = None
     CHAT_COOLDOWN_MS: int = 600000
 
+    # Weather (G2-S5) — disabled by default; never fabricate weather data.
+    OPENWEATHER_ENABLED: bool = False
+    OPENWEATHER_API_KEY: Optional[str] = None
+    OPENWEATHER_BASE_URL: str = "https://api.openweathermap.org"
+    OPENWEATHER_TIMEOUT_SECONDS: float = 10.0
+    OPENWEATHER_UNITS: str = "metric"
+
     # Market & Commerce defaults
     MARKET: str = "EG"
     FULFILL_PACE: str = "demo"

@@ -185,9 +185,15 @@ class StylingRulesEngine:
         if not ("footwear" in positions):
             missing_slots.append("footwear")
 
-        # Composite score
-        base_score = 94.0 - total_penalty
-        composite_score = int(min(98, max(70, (base_score * 0.7) + (color_score * 0.3))))
+        # Honest composite score (GROUP 2 fix): blend the mean rule score with
+        # the color-harmony score, then subtract accumulated rule penalties.
+        # There is NO artificial floor that rescues an invalid/clashing outfit —
+        # violations genuinely reduce the composite.
+        rule_mean = (sum(r.score for r in rule_results) / len(rule_results)) if rule_results else 100.0
+        composite = (rule_mean * 0.6) + (color_score * 0.4) - total_penalty
+        if not all_passed:
+            composite -= 20.0  # a failed hard rule materially lowers the score
+        composite_score = int(round(min(100.0, max(0.0, composite))))
 
         return {
             "is_valid": all_passed,

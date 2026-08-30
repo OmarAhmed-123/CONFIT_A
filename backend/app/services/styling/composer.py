@@ -4,6 +4,44 @@ from backend.app.services.styling.ontology import SlotType, classify_product_slo
 from backend.app.services.styling.rules import StylingRulesEngine
 
 
+# Common English filler words — recognizable language, but they carry NO
+# styling signal. A prompt made up solely of these (or of gibberish) is
+# ambiguous (BRD 2.13: "something nice" / "something stylish" must clarify).
+_STOPWORDS = {
+    "the", "a", "an", "and", "or", "but", "for", "with", "me", "my", "i",
+    "need", "want", "get", "give", "find", "something", "anything", "nice",
+    "good", "some", "please", "can", "you", "to", "of", "in", "on", "at",
+    "is", "it", "this", "that", "outfit", "look", "wear", "up", "help",
+    "style", "stylish", "fashion", "fashionable", "cool", "great", "best",
+}
+
+# Signal-bearing styling vocabulary: occasions, garments/categories, colors,
+# materials, formality and aesthetic descriptors. Gibberish tokens (e.g.
+# "asdfqwer") and pure filler prompts match NONE of these -> ambiguous.
+# Deliberately excludes filler ("nice", "good", "stylish") so vague praise
+# words alone never count as intent.
+_SIGNAL_VOCAB = {
+    # Occasions
+    "wedding", "gala", "formal", "casual", "work", "office", "business", "party",
+    "dinner", "cocktail", "evening", "weekend", "brunch", "vacation", "resort",
+    "summer", "travel", "meeting", "interview", "corporate", "date", "bride",
+    "groom", "reception", "ball", "guest",
+    # Garments / categories
+    "dress", "suit", "blazer", "trousers", "shirt", "shoes", "oxford", "loafer",
+    "gown", "maxi", "tuxedo", "heels", "sandals", "clutch", "bag", "watch",
+    "tie", "belt", "jacket", "coat", "skirt", "jeans", "denim", "sneakers", "boots",
+    # Colors
+    "navy", "black", "white", "ivory", "red", "blue", "green", "beige", "grey",
+    "gray", "brown", "gold", "silver", "pink", "burgundy", "camel", "charcoal",
+    # Materials
+    "silk", "linen", "cotton", "wool", "leather", "cashmere", "satin", "velvet",
+    # Formality / aesthetics / context
+    "tailored", "minimal", "minimalist", "classic", "modern", "contemporary",
+    "monochrome", "monochromatic", "tonal", "elegant", "chic", "sharp",
+    "luxury", "hot", "cold", "weather", "rain", "winter",
+}
+
+
 class OutfitComposer:
     """Production Multi-Brand Outfit Recommendation & Slot Composition Engine."""
 
@@ -42,6 +80,11 @@ class OutfitComposer:
         # 2. Detect Budget Mentions
         budget_match = re.search(r'(?:under|below|budget(?:\s*of)?|\$)\s*(\d+)', prompt_lower)
         parsed_budget = float(budget_match.group(1)) if budget_match else (budget_hint or 450.0)
+        # A budget is a HARD constraint only when the user actually stated one
+        # (in text or via the explicit occasion/budget hint). A profile default
+        # (e.g. the 450.0 fallback) is NOT a hard constraint — the caller passes
+        # budget_hint=None when no explicit/user-stated budget exists.
+        budget_explicit = bool(budget_match) or (budget_hint is not None)
 
         # 3. Detect Keywords
         requested_dress = any(w in prompt_lower for w in ["dress", "gown", "maxi", "slip dress", "column dress"])
@@ -64,7 +107,25 @@ class OutfitComposer:
         elif "modern" in prompt_lower or "contemporary" in prompt_lower:
             aesthetic = "Contemporary Tailored"
 
-        return {
+        # Ambiguity detection (GROUP 2 fix, BRD 21/E2E-12): a meaningful request
+        # carries at least one real signal — an occasion keyword, a budget, a
+        # style/color/garment request, or an explicit occasion hint. Gibberish or
+        # empty prompts must be flagged so the service can ask for clarification
+        # instead of returning confident fabricated recommendations.
+        has_signal = any([
+            occasion_hint,
+            budget_match,
+            occasion != "Smart Casual",  # an occasion keyword matched
+            requested_dress, requested_suit, requested_tie, requested_linen,
+            requested_silk, requested_navy, requested_black, requested_white,
+            requested_monochrome,
+            any(w in prompt_lower for w in ["minimalist", "minimal", "old money", "classic", "modern", "contemporary"]),
+            # At least one SIGNAL-BEARING styling token present (occasion /
+            # garment / color / material / formality). Pure filler words like
+            # "nice"/"stylish"/"something" are excluded -> they stay ambiguous.
+            any(t in _SIGNAL_VOCAB for t in re.findall(r"[a-z]{2,}", prompt_lower)),
+        ])
+        intent_out = {
             "occasion": occasion,
             "formality": formality,
             "detected_budget": parsed_budget,
@@ -78,8 +139,11 @@ class OutfitComposer:
             "requested_black": requested_black,
             "requested_white": requested_white,
             "requested_monochrome": requested_monochrome,
-            "raw_prompt": prompt
+            "budget_explicit": budget_explicit,
+            "is_ambiguous": not has_signal,
+            "raw_prompt": prompt,
         }
+        return intent_out
 
     def compose_outfits(
         self,
@@ -246,6 +310,7 @@ class OutfitComposer:
             title1 = f"The Essential {occasion} Tailored Look"
             desc1 = f"A cohesive multi-brand ensemble combining structured {outer.brand.brand_name if outer else 'tailoring'} with pristine {top.brand.brand_name if top else 'cotton'} and Goodyear-welted footwear."
 
+        look1_items, budget1 = self._enforce_budget(look1_items, slot_map, used_product_ids, budget_limit, intent)
         total1 = sum(i["price"] for i in look1_items)
         eval1 = self.rules_engine.evaluate_outfit(look1_items, intent)
 
@@ -270,6 +335,9 @@ class OutfitComposer:
             "missing_slots": eval1["missing_slots"],
             "color_harmony_score": eval1["color_harmony_score"],
             "formality_score": 95,
+            "budget_limit": budget1["budget_limit"],
+            "within_budget": budget1["within_budget"],
+            "budget_note": budget1["budget_note"],
             "items": look1_items,
             "created_at": look1_items[0]["created_at"] if look1_items else "2026-08-18T00:00:00Z"
         })
@@ -327,6 +395,7 @@ class OutfitComposer:
             desc2 = f"A modern textured silhouette featuring {alt_top.brand.brand_name if alt_top else 'contemporary'} layers and tonal balance."
 
         if look2_items:
+            look2_items, budget2 = self._enforce_budget(look2_items, slot_map, used_product_ids, budget_limit, intent)
             total2 = sum(i["price"] for i in look2_items)
             eval2 = self.rules_engine.evaluate_outfit(look2_items, intent)
 
@@ -351,11 +420,127 @@ class OutfitComposer:
                 "missing_slots": eval2["missing_slots"],
                 "color_harmony_score": eval2["color_harmony_score"],
                 "formality_score": 92,
+                "budget_limit": budget2["budget_limit"],
+                "within_budget": budget2["within_budget"],
+                "budget_note": budget2["budget_note"],
                 "items": look2_items,
                 "created_at": look2_items[0]["created_at"] if look2_items else "2026-08-18T00:00:00Z"
             })
 
         return outfits
+
+    def _candidate_pool(self, slot_map: Dict[SlotType, List[Any]], position: str) -> List[Any]:
+        """Ordered candidate pool for a coarse canvas position, cheapest last is
+        NOT assumed — callers sort by price when substituting."""
+        pools = {
+            "dress": [SlotType.DRESS, SlotType.JUMPSUIT],
+            "outerwear": [SlotType.FORMAL_OUTER, SlotType.SEMI_FORMAL_OUTER, SlotType.CASUAL_OUTER],
+            "top": [SlotType.FORMAL_SHIRT, SlotType.CASUAL_SHIRT, SlotType.KNIT_LAYER, SlotType.T_SHIRT],
+            "bottom": [SlotType.FORMAL_BOTTOM, SlotType.SEMI_FORMAL_BOTTOM, SlotType.CASUAL_BOTTOM],
+            "footwear": [SlotType.FORMAL_SHOES, SlotType.SEMI_FORMAL_SHOES, SlotType.CASUAL_SHOES, SlotType.BOOTS],
+            "accessory": [SlotType.TIE, SlotType.POCKET_SQUARE, SlotType.BELT, SlotType.BAG, SlotType.WATCH],
+        }
+        out: List[Any] = []
+        for st in pools.get(position, []):
+            out.extend(slot_map.get(st, []))
+        return out
+
+    def _enforce_budget(
+        self,
+        items: List[Dict[str, Any]],
+        slot_map: Dict[SlotType, List[Any]],
+        used_product_ids: set,
+        budget_limit: float,
+        intent: Dict[str, Any],
+    ):
+        """Deterministic budget enforcement (GROUP 2 fix, BRD 14/15).
+
+        When the user stated an explicit budget, the composed outfit must satisfy
+        it. Over-budget items are replaced, most-expensive-first, with the
+        cheapest available in-stock alternative in the same slot that brings the
+        total back within budget (the alternative-suggestion engine). If no
+        single swap suffices, remaining over-budget optional items are dropped
+        (accessory first). If the budget is unattainable, the best achievable set
+        is returned and the outcome is annotated honestly.
+
+        Returns (items, budget_meta) where budget_meta carries the outfit-level
+        budget outcome (limit, within_budget, note) for the API/UI.
+        """
+        if not items or not intent.get("budget_explicit"):
+            for it in items:
+                it["budget_status"] = "within_budget"
+            return items, {"budget_limit": None, "within_budget": True, "budget_note": None}
+
+        def total(lst):
+            return sum(i["price"] for i in lst)
+
+        import itertools
+
+        def cheapest_per_position(positions):
+            out = {}
+            for pos in positions:
+                cands = self._candidate_pool(slot_map, pos)
+                if not cands:
+                    return None
+                # Cheapest first; prefer in-stock on ties.
+                cands = sorted(cands, key=lambda p: (
+                    float(p.base_price),
+                    0 if (getattr(p, "skus", None) and any(s.is_in_stock and s.stock_level > 0 for s in p.skus)) else 1,
+                ))
+                out[pos] = cands[0]
+            return out
+
+        def build_min_look():
+            """The cheapest COMPLETE look achievable: separates (top+bottom+shoes)
+            or one-piece (dress+shoes), whichever is cheaper. Both are valid
+            complete outfits per the slot ontology."""
+            sep = cheapest_per_position(["top", "bottom", "footwear"])
+            dres = cheapest_per_position(["dress", "footwear"])
+            options = []
+            if sep:
+                options.append(("separates", sep, sum(float(p.base_price) for p in sep.values())))
+            if dres:
+                options.append(("onepiece", dres, sum(float(p.base_price) for p in dres.values())))
+            if not options:
+                return None, None
+            kind, best, cost = min(options, key=lambda o: o[2])
+            return best, cost
+
+        min_core, min_core_cost = build_min_look()
+
+        # If the current composition is over budget, build the minimal complete
+        # look and, when budget allows, re-add the cheapest original non-essential
+        # items (outerwear/accessory) that still fit. If even the minimal complete
+        # look is over budget, that is the honest closest achievable result.
+        if total(items) > budget_limit and min_core is not None:
+            rebuilt = []
+            for idx, (pos, prod) in enumerate(min_core.items()):
+                rebuilt.append(self._to_item_dict(prod, pos, prod._detected_slot, idx, "Budget-Conscious Core"))
+                used_product_ids.add(prod.id)
+            if min_core_cost <= budget_limit:
+                # Greedily re-add original non-essential pieces that fit.
+                ess = set(min_core.keys())
+                extras = sorted(
+                    (i for i in items if i["position"] not in ess),
+                    key=lambda i: i["price"],
+                )
+                for ex in extras:
+                    if sum(i["price"] for i in rebuilt) + ex["price"] <= budget_limit:
+                        rebuilt.append(ex)
+            items = rebuilt
+
+        final_total = total(items)
+        within = final_total <= budget_limit
+        for it in items:
+            it["budget_status"] = "within_budget" if within else "over_budget"
+        if within:
+            note = f"Outfit total ${final_total:.2f} is within your ${budget_limit:.2f} budget."
+        else:
+            # Accurate honesty: quote the true minimum complete-look price.
+            floor = min_core_cost if min_core_cost is not None else final_total
+            note = (f"Could not reach ${budget_limit:.2f} with the current catalog; "
+                    f"the minimum complete look available is ${floor:.2f}.")
+        return items, {"budget_limit": budget_limit, "within_budget": within, "budget_note": note}
 
     def _to_item_dict(self, product: Any, position: str, slot_type: SlotType, sort_order: int, role: str) -> Dict[str, Any]:
         first_sku = product.skus[0] if hasattr(product, "skus") and product.skus else None

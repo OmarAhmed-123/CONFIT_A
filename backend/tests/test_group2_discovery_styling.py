@@ -170,3 +170,35 @@ def test_budget_impossible_reports_minimum_honestly():
             assert "minimum complete look" in (o["budget_note"] or "").lower()
     finally:
         db.close()
+
+
+# ---------- Ambiguity quality edge cases (BRD 2.13) ----------
+
+@pytest.mark.parametrize("prompt", [
+    "Give me something nice", "something stylish", "asdfghjkl",
+    "help me", "I want something good",
+])
+def test_vague_prompts_are_ambiguous(prompt):
+    c = OutfitComposer()
+    assert c.parse_intent(prompt=prompt)["is_ambiguous"] is True
+
+
+@pytest.mark.parametrize("prompt", [
+    "smart casual work outfit under $600", "something for a wedding under $250",
+    "black dress for a gala", "navy blazer for the office",
+    "casual linen shirt for vacation", "red silk evening gown",
+])
+def test_signal_bearing_prompts_are_not_ambiguous(prompt):
+    c = OutfitComposer()
+    assert c.parse_intent(prompt=prompt)["is_ambiguous"] is False
+
+
+# ---------- Guest gating beyond outfits (BRD 2.10) ----------
+
+def test_profile_and_wardrobe_require_auth_for_guests(client: TestClient):
+    """The user_id=1 guest fallback was removed everywhere: profile, consents,
+    and wardrobe gap-analysis must require auth (401), not leak user 1's data."""
+    client.cookies.clear()
+    for path in ["/api/v1/profile/me", "/api/v1/me/consents", "/api/v1/wardrobe/gap-analysis"]:
+        r = client.get(path)
+        assert r.status_code == 401, f"{path} should require auth, got {r.status_code}"

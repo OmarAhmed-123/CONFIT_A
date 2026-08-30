@@ -4,30 +4,41 @@ from backend.app.services.styling.ontology import SlotType, classify_product_slo
 from backend.app.services.styling.rules import StylingRulesEngine
 
 
-# Common English stop-words used only for the ambiguity heuristic — a prompt
-# made up solely of these (or of gibberish) carries no styling signal.
+# Common English filler words — recognizable language, but they carry NO
+# styling signal. A prompt made up solely of these (or of gibberish) is
+# ambiguous (BRD 2.13: "something nice" / "something stylish" must clarify).
 _STOPWORDS = {
     "the", "a", "an", "and", "or", "but", "for", "with", "me", "my", "i",
     "need", "want", "get", "give", "find", "something", "anything", "nice",
     "good", "some", "please", "can", "you", "to", "of", "in", "on", "at",
-    "is", "it", "this", "that", "outfit", "look", "wear", "dress", "up",
+    "is", "it", "this", "that", "outfit", "look", "wear", "up", "help",
+    "style", "stylish", "fashion", "fashionable", "cool", "great", "best",
 }
 
-# A small dictionary of recognizable English / fashion vocabulary. Gibberish
-# tokens (e.g. "asdfqwer") match none of these, so a prompt with zero
-# recognizable tokens is treated as ambiguous rather than confidently styled.
-_KNOWN_VOCAB = _STOPWORDS | {
+# Signal-bearing styling vocabulary: occasions, garments/categories, colors,
+# materials, formality and aesthetic descriptors. Gibberish tokens (e.g.
+# "asdfqwer") and pure filler prompts match NONE of these -> ambiguous.
+# Deliberately excludes filler ("nice", "good", "stylish") so vague praise
+# words alone never count as intent.
+_SIGNAL_VOCAB = {
+    # Occasions
     "wedding", "gala", "formal", "casual", "work", "office", "business", "party",
     "dinner", "cocktail", "evening", "weekend", "brunch", "vacation", "resort",
-    "summer", "travel", "meeting", "interview", "corporate", "date", "suit",
-    "blazer", "trousers", "shirt", "shoes", "oxford", "loafer", "gown", "maxi",
-    "silk", "linen", "cotton", "wool", "navy", "black", "white", "ivory", "red",
-    "blue", "green", "beige", "under", "below", "over", "budget", "style",
-    "stylish", "elegant", "chic", "smart", "sharp", "quiet", "luxury", "hot",
-    "cold", "weather", "rain", "tuxedo", "tailored", "minimal", "classic",
-    "modern", "contemporary", "monochrome", "tonal", "heels", "sandals", "clutch",
-    "bag", "watch", "tie", "belt", "jacket", "coat", "skirt", "jeans", "denim",
-    "sneakers", "boots", "guest", "bride", "groom", "reception", "ball",
+    "summer", "travel", "meeting", "interview", "corporate", "date", "bride",
+    "groom", "reception", "ball", "guest",
+    # Garments / categories
+    "dress", "suit", "blazer", "trousers", "shirt", "shoes", "oxford", "loafer",
+    "gown", "maxi", "tuxedo", "heels", "sandals", "clutch", "bag", "watch",
+    "tie", "belt", "jacket", "coat", "skirt", "jeans", "denim", "sneakers", "boots",
+    # Colors
+    "navy", "black", "white", "ivory", "red", "blue", "green", "beige", "grey",
+    "gray", "brown", "gold", "silver", "pink", "burgundy", "camel", "charcoal",
+    # Materials
+    "silk", "linen", "cotton", "wool", "leather", "cashmere", "satin", "velvet",
+    # Formality / aesthetics / context
+    "tailored", "minimal", "minimalist", "classic", "modern", "contemporary",
+    "monochrome", "monochromatic", "tonal", "elegant", "chic", "sharp",
+    "luxury", "hot", "cold", "weather", "rain", "winter",
 }
 
 
@@ -109,8 +120,10 @@ class OutfitComposer:
             requested_silk, requested_navy, requested_black, requested_white,
             requested_monochrome,
             any(w in prompt_lower for w in ["minimalist", "minimal", "old money", "classic", "modern", "contemporary"]),
-            # At least one recognizable English/fashion token present.
-            any(t in _KNOWN_VOCAB for t in re.findall(r"[a-z]{2,}", prompt_lower)),
+            # At least one SIGNAL-BEARING styling token present (occasion /
+            # garment / color / material / formality). Pure filler words like
+            # "nice"/"stylish"/"something" are excluded -> they stay ambiguous.
+            any(t in _SIGNAL_VOCAB for t in re.findall(r"[a-z]{2,}", prompt_lower)),
         ])
         intent_out = {
             "occasion": occasion,

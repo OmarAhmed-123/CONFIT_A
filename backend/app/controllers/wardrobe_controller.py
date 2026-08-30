@@ -46,12 +46,11 @@ def add_wardrobe_item(
 @router.get("/items/{item_id}", response_model=WardrobeItemOut)
 def get_single_wardrobe_item(
     item_id: int,
-    user: Optional[User] = Depends(get_current_user_optional),
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     service = WardrobeService(db)
-    user_id = user.id if user else 1
-    item = service.wardrobe_repo.get_item_by_id(item_id, user_id)
+    item = service.wardrobe_repo.get_item_by_id(item_id, user.id)
     if not item:
         raise HTTPException(status_code=404, detail="Wardrobe item not found")
     return service._to_dict(item)
@@ -107,12 +106,11 @@ def auto_tag_item(
 @router.get("/gap-analysis", response_model=List[GapAnalysisOut])
 @router.post("/gap-analysis", response_model=List[GapAnalysisOut])
 def get_wardrobe_gap_analysis(
-    user: Optional[User] = Depends(get_current_user_optional),
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     service = GapAnalysisService(db)
-    user_id = user.id if user else 1
-    return service.analyze_wardrobe_gaps(user_id)
+    return service.analyze_wardrobe_gaps(user.id)
 
 
 @router.post("/duplicate-check", response_model=DuplicateAlertResponse)

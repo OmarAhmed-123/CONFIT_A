@@ -142,6 +142,10 @@ export const catalogService = {
   autocompleteCatalog: (q: string) => request<AutocompleteResponse>(`/catalog/autocomplete?q=${encodeURIComponent(q)}`),
 
   getBopisStoresForSKU: (skuId: number) => request<StoreInventoryLocation[]>(`/catalog/skus/${skuId}/stores`),
+
+  // Home Dashboard (G2.4): personalized picks, trending, recently-viewed,
+  // new-from-your-brands — composed server-side from the real profile + catalog.
+  getDashboard: () => request<any>('/catalog/dashboard'),
 };
 
 // 4. Virtual Stylist & Outfitting Engine Services (G2.2)

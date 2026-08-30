@@ -1,7 +1,9 @@
+from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import or_, desc, asc
-from backend.app.models.catalog import Category, Product, ProductSKU, StoreLocation, StoreInventory
+from backend.app.models.catalog import Category, Product, ProductSKU, StoreLocation, StoreInventory, RecentlyViewed
+from backend.app.models.user import BrandProfile
 
 
 class CatalogRepository:
@@ -106,6 +108,54 @@ class CatalogRepository:
             query = query.order_by(desc(Product.rating), desc(Product.id))
 
         return query.offset(offset).limit(limit).all()
+
+    def record_product_view(self, user_id: int, product_id: int) -> None:
+        """Upsert a recently-viewed row (re-viewing refreshes recency)."""
+        row = (
+            self.db.query(RecentlyViewed)
+            .filter(RecentlyViewed.user_id == user_id, RecentlyViewed.product_id == product_id)
+            .first()
+        )
+        if row:
+            row.viewed_at = datetime.now(timezone.utc)
+        else:
+            self.db.add(RecentlyViewed(user_id=user_id, product_id=product_id))
+        self.db.commit()
+
+    def get_recently_viewed(self, user_id: int, limit: int = 10) -> List[Product]:
+        """Most-recently viewed products for a user, newest first."""
+        rows = (
+            self.db.query(RecentlyViewed)
+            .filter(RecentlyViewed.user_id == user_id)
+            .order_by(desc(RecentlyViewed.viewed_at))
+            .limit(limit)
+            .all()
+        )
+        pids = [r.product_id for r in rows]
+        if not pids:
+            return []
+        products = (
+            self.db.query(Product)
+            .options(joinedload(Product.brand), joinedload(Product.category), joinedload(Product.skus))
+            .filter(Product.id.in_(pids), Product.is_active == True)
+            .all()
+        )
+        by_id = {p.id: p for p in products}
+        return [by_id[i] for i in pids if i in by_id]
+
+    def get_new_from_brands(self, brand_names: List[str], limit: int = 8) -> List[Product]:
+        """Latest active products from the given brand names, newest first."""
+        if not brand_names:
+            return []
+        return (
+            self.db.query(Product)
+            .options(joinedload(Product.brand), joinedload(Product.category))
+            .join(BrandProfile, Product.brand_id == BrandProfile.id)
+            .filter(BrandProfile.brand_name.in_(brand_names), Product.is_active == True)
+            .order_by(desc(Product.created_at))
+            .limit(limit)
+            .all()
+        )
 
     def get_stores_for_product_sku(self, sku_id: int) -> List[Dict[str, Any]]:
         results = (

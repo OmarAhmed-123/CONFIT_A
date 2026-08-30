@@ -73,6 +73,23 @@ class ProductSKU(Base):
     store_inventories = relationship("StoreInventory", back_populates="sku", cascade="all, delete-orphan")
 
 
+class RecentlyViewed(Base):
+    """Per-user recently-viewed product history for the Home Dashboard (G2.4).
+
+    One row per (user, product) — re-viewing a product updates `viewed_at` and
+    moves it to the front of the recency list (upsert semantics). Guests are not
+    tracked; only authenticated users persist history.
+    """
+    __tablename__ = "recently_viewed"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    product_id = Column(Integer, ForeignKey("products.id", ondelete="CASCADE"), nullable=False)
+    viewed_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+
+    product = relationship("Product")
+
+
 class StoreLocation(Base):
     __tablename__ = "store_locations"
 

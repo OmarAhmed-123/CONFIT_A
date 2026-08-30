@@ -170,6 +170,7 @@ class ApplyMeasurementsRequest(BaseModel):
 def apply_measurements_to_session(
     session_id: int,
     payload: ApplyMeasurementsRequest,
+    user: Optional[User] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
     service = TryOnService(db)
@@ -178,7 +179,8 @@ def apply_measurements_to_session(
         height_cm=payload.height_cm,
         chest_cm=payload.chest_cm,
         waist_cm=payload.waist_cm,
-        shoulder_cm=payload.shoulder_cm
+        shoulder_cm=payload.shoulder_cm,
+        caller_user_id=user.id if user else None,
     )
 
 
@@ -213,10 +215,11 @@ async def create_tryon_session(
 @router.get("/tryon/sessions/{session_id}")
 def get_session_details(
     session_id: int,
+    user: Optional[User] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
     service = TryOnService(db)
-    return service.get_session_details(session_id)
+    return service.get_session_details(session_id, caller_user_id=user.id if user else None)
 
 
 @router.post("/try-on/sessions/{session_id}/apply-item")
@@ -269,10 +272,11 @@ def reorder_session_items(
 @router.delete("/tryon/sessions/{session_id}/purge")
 def purge_session(
     session_id: int,
+    user: Optional[User] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
     service = TryOnService(db)
-    return service.purge_tryon_session(session_id)
+    return service.purge_tryon_session(session_id, caller_user_id=user.id if user else None)
 
 
 # =========================================================================
@@ -435,6 +439,9 @@ async def visual_style_match(
         image_url=payload.image_url,
         image_base64=payload.image_base64,
         user_id=user.id if user else None,
+        min_price=payload.min_price,
         max_price=payload.max_price,
-        in_stock_only=payload.in_stock_only
+        brand_ids=payload.brand_ids,
+        in_stock_only=payload.in_stock_only,
+        limit=payload.limit,
     )

@@ -1,71 +1,51 @@
-import math
+"""PoseEstimationEngine — deterministic skeletal keypoints from bbox."""
+from __future__ import annotations
+import numpy as np
 from PIL import Image
-from typing import Tuple
-from pydantic import BaseModel
-
-
-class BodyLandmarks(BaseModel):
-    nose: Tuple[float, float]
-    neck: Tuple[float, float]
-    right_shoulder: Tuple[float, float]
-    right_elbow: Tuple[float, float]
-    right_wrist: Tuple[float, float]
-    left_shoulder: Tuple[float, float]
-    left_elbow: Tuple[float, float]
-    left_wrist: Tuple[float, float]
-    right_hip: Tuple[float, float]
-    left_hip: Tuple[float, float]
-    shoulder_angle_deg: float
-    shoulder_width_px: float
-    torso_height_px: float
-    is_standing_upright: bool
 
 
 class PoseEstimationEngine:
-    """Stage 2: Pose Estimation & Structural Conditioning (DWPose / OpenPose).
-    Extracts 18 skeleton keypoints and computes shoulder tilt and limb vectors
-    so the diffusion model deforms garments according to the user's real stance.
-    """
+    name = "pose-bbox-heuristic-v1"
 
-    def __init__(self, device: str = "cpu"):
-        self.device = device
+    def __init__(self, **_):
+        pass
 
-    def extract_pose(self, image: Image.Image) -> BodyLandmarks:
-        """Extracts 2D body landmarks and posture angle from user image."""
-        w, h = image.size
+    @staticmethod
+    def _bbox_to_keypoints(bbox, image_size):
+        x0, y0, x1, y1 = bbox
+        w, h = image_size
+        cx = (x0 + x1) / 2.0
+        return {
+            "nose": (cx, max(0, y0 + 0.05 * (y1 - y0))),
+            "shoulders_mid": (cx, y0 + 0.20 * (y1 - y0)),
+            "torso_mid": (cx, y0 + 0.45 * (y1 - y0)),
+            "hip_mid": (cx, y0 + 0.65 * (y1 - y0)),
+            "feet_mid": (cx, y0 + 0.95 * (y1 - y0)),
+        }
 
-        # Geometric landmark detection coordinates
-        nose = (w * 0.50, h * 0.16)
-        neck = (w * 0.50, h * 0.24)
-        r_sh = (w * 0.32, h * 0.27)
-        l_sh = (w * 0.68, h * 0.27)
-        r_elb = (w * 0.24, h * 0.42)
-        l_elb = (w * 0.76, h * 0.42)
-        r_wri = (w * 0.22, h * 0.58)
-        l_wri = (w * 0.78, h * 0.58)
-        r_hip = (w * 0.36, h * 0.60)
-        l_hip = (w * 0.64, h * 0.60)
+    # new instance API
+    def estimate(self, image, bbox):
+        return PoseEstimationEngine.extract_pose(image, bbox=bbox)
 
-        # Compute shoulder orientation angle (degrees)
-        dx = l_sh[0] - r_sh[0]
-        dy = l_sh[1] - r_sh[1]
-        shoulder_angle = math.degrees(math.atan2(dy, dx))
-        shoulder_width = math.hypot(dx, dy)
-        torso_height = abs(((r_hip[1] + l_hip[1]) / 2) - neck[1])
-
-        return BodyLandmarks(
-            nose=nose,
-            neck=neck,
-            right_shoulder=r_sh,
-            right_elbow=r_elb,
-            right_wrist=r_wri,
-            left_shoulder=l_sh,
-            left_elbow=l_elb,
-            left_wrist=l_wri,
-            right_hip=r_hip,
-            left_hip=l_hip,
-            shoulder_angle_deg=round(shoulder_angle, 2),
-            shoulder_width_px=round(shoulder_width, 1),
-            torso_height_px=round(torso_height, 1),
-            is_standing_upright=abs(shoulder_angle) < 15.0
-        )
+    # legacy static API expected by worker.py + integrity tests
+    @staticmethod
+    def extract_pose(image: Image.Image, bbox=None) -> dict:
+        # if no bbox supplied, derive from luminance (real)
+        if bbox is None:
+            rgb = np.asarray(image.convert("RGB"), dtype=np.float32) / 255.0
+            luminance = 0.299 * rgb[..., 0] + 0.587 * rgb[..., 1] + 0.114 * rgb[..., 2]
+            mask = luminance < float(luminance.mean())
+            ys, xs = np.where(mask)
+            if len(xs) == 0:
+                bbox = (0, 0, image.width - 1, image.height - 1)
+            else:
+                bbox = (int(xs.min()), int(ys.min()), int(xs.max()), int(ys.max()))
+        kp = PoseEstimationEngine._bbox_to_keypoints(bbox, image.size)
+        x0, y0, x1, y1 = bbox
+        return {
+            "engine": PoseEstimationEngine.name,
+            "keypoints": kp,
+            "shoulder_width_px": float(max(8.0, 0.40 * (x1 - x0))),
+            "image_size": image.size,
+            "bbox": bbox,
+        }

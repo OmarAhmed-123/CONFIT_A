@@ -2,45 +2,27 @@
 # CONFIT VTON GPU WORKER - Modal.com Serverless Deployment (real diffusion)
 #
 # Canonical sources (verified 2026-08-30 via huggingface.co API + GitHub API):
-#   - zhengchong/CatVTON             CatVTON weights (diffusers-style) + SCHP + DensePose
+#   - zhengchong/CatVTON             CatVTON weights + SCHP + DensePose
 #   - pirocheto/schp-lip-20          SCHP LIP-20 human parsing (alt packaging)
 #   - pirocheto/schp-atr-18          SCHP ATR-18 human parsing (alt packaging)
 #   - yzd-v/DWPose                   DWPose whole-body pose ONNX checkpoints
 #   - runwayml/stable-diffusion-v1-5 Base SD1.5 backbone (unet/vae/text_encoder)
 #
 # Design rules:
-#   * ALL weights are downloaded during `modal build` (run_function), so a cold
-#     start never downloads multi-GB files - /model_cache is part of the image.
-#   * load_model() (@modal.enter) builds the real pipeline in VRAM and sets
-#     model_loaded=True ONLY after a successful load; every failure lands in
-#     load_error and is surfaced by /health (never faked).
-#   * POST /process runs genuine diffusion sampling and measures its own
-#     wall-time; if the pipeline is unavailable it returns 503
-#     VTON_ENGINE_UNAVAILABLE - it never echoes the input as a fake render.
-#
-# Deploy:
-#   pip install modal && modal token new
-#   modal deploy services/vton-worker/modal_app.py
-# then set VTON_WORKER_URL in backend/.env and Vercel Production env.
+#   * ALL weights downloaded during build (run_function), so cold starts never
+#     re-download multi-GB files.
+#   * model_loaded is set ONLY after the pipeline actually builds in VRAM.
+#   * /process and /health use real measured state - no synthesised outputs.
 # ==============================================================================
+
+import os
+import io
+import time
+import base64
+
 import modal
 from pydantic import BaseModel
 from typing import List, Dict, Any
-
-
-# ==============================================================================
-# Shared-secret guard. When the worker is reached from the public internet, anyone
-# with the URL can trigger paid GPU inference. We require an X-VTON-Admin header
-# matching the Modal Secret "confit-worker-admin-token". Set the matching value
-# in Vercel Production as VTON_WORKER_ADMIN_TOKEN; we propagate it through a Modal
-# Secret (per Modal docs) so it never appears in the image or in logs.
-# ==============================================================================
-import os
-def _authorised(req_header_admin: str | None) -> bool:
-    expected = os.environ.get("CONFIT_WORKER_ADMIN_TOKEN", "")
-    if not expected:
-        return False
-    return req_header_admin == expected
 
 app = modal.App("confit-vton-worker")
 
@@ -52,7 +34,7 @@ DWPOSE_REPO = "yzd-v/DWPose"
 BASE_SD15_REPO = "runwayml/stable-diffusion-v1-5"
 
 
-def _download_weights():
+def _download_weights() -> None:
     """Build-step weight baking - runs once when the Modal image is built."""
     from huggingface_hub import snapshot_download
     snapshot_download(repo_id=CATVTON_REPO, cache_dir=MODEL_CACHE)
@@ -101,47 +83,33 @@ class VTONJobRequest(BaseModel):
 @app.cls(gpu="A10G", image=image, scaledown_window=300)
 @modal.concurrent(max_inputs=4)
 class VTONInferenceService:
-    """Real CatVTON diffusion on GPU. model_loaded is a measured fact, never a flag."""
+    """Real CatVTON diffusion on GPU. model_loaded is a measured fact."""
 
     @modal.enter()
-    def load_model(self):
+    def load_model(self) -> None:
         import torch
         self.model_loaded = False
         self.load_error = None
         self.device_name = None
         try:
             from diffusers import DiffusionPipeline
-            cache = MODEL_CACHE
             attempts = []
-
-            # Strategy 1: CatVTON's own pipeline class from the cloned repo.
             try:
                 from pipeline import CatVTONPipeline  # type: ignore
                 self.pipe = CatVTONPipeline.from_pretrained(
-                    cache, torch_dtype=torch.float16)
-                attempts.append("CatVTONPipeline.from_pretrained(cache)")
+                    MODEL_CACHE, torch_dtype=torch.float16)
+                attempts.append("CatVTONPipeline OK")
             except Exception as e1:
-                attempts.append(f"CatVTONPipeline failed: {type(e1).__name__}: {e1}")
-
-            # Strategy 2: standard diffusers loader on the baked cache.
-            if getattr(self, "pipe", None) is None:
-                try:
-                    self.pipe = DiffusionPipeline.from_pretrained(
-                        cache, torch_dtype=torch.float16)
-                    attempts.append("DiffusionPipeline.from_pretrained(cache)")
-                except Exception as e2:
-                    attempts.append(f"DiffusionPipeline failed: {type(e2).__name__}: {e2}")
-
-            if getattr(self, "pipe", None) is None:
-                raise RuntimeError("all load strategies failed: " + " | ".join(attempts))
-
+                attempts.append(f"CatVTONPipeline fail: {type(e1).__name__}")
+                self.pipe = DiffusionPipeline.from_pretrained(
+                    MODEL_CACHE, torch_dtype=torch.float16)
+                attempts.append("DiffusionPipeline OK (fallback)")
             self.pipe.to("cuda")
             if hasattr(self.pipe, "safety_checker"):
                 self.pipe.safety_checker = None
-            self.dtype = torch.float16
             self.device_name = torch.cuda.get_device_name(0)
             self.model_loaded = True
-            print("CatVTON diffusion pipeline loaded into VRAM; model_loaded=True")
+            print("CatVTON pipeline loaded into VRAM", attempts)
         except Exception as exc:
             self.pipe = None
             self.load_error = f"{type(exc).__name__}: {exc}"
@@ -162,16 +130,22 @@ class VTONInferenceService:
         }
 
     @modal.fastapi_endpoint(method="POST")
-    def process(self, payload: VTONJobRequest, x_vton_admin: str | None = None) -> dict:
+    def process(
+        self,
+        payload: VTONJobRequest,
+        x_vton_admin: str | None = None,
+    ) -> dict:
         from fastapi import HTTPException
+        # Shared-secret guard: backend sends X-VTON-Admin matching the value
+        # we set via a Modal Secret (CONFIT_WORKER_ADMIN_TOKEN). Header only
+        # — no signature on the URL itself.
         expected = os.environ.get("CONFIT_WORKER_ADMIN_TOKEN", "")
         if not expected or x_vton_admin != expected:
-            raise HTTPException(status_code=401, detail={"error":{"code":"UNAUTHORIZED","message":"Missing or wrong X-VTON-Admin header."}}), Request
-        if False:
-            pass  # placeholder so the next replace anchors
-        if not _authorised(getattr(self, '_last_request_admin', None)) and not _authorised(os.environ.get('_BYPASS_IN_LOCAL')):
-            # Real check happens at function call receive thanks to FastAPI dependency below.
-            pass
+            raise HTTPException(
+                status_code=401,
+                detail={"error": {"code": "UNAUTHORIZED",
+                                  "message": "Missing or wrong X-VTON-Admin header."}},
+            )
         if not self.model_loaded:
             raise HTTPException(
                 status_code=503,
@@ -182,12 +156,6 @@ class VTONInferenceService:
                                 "load_error": self.load_error}}},
             )
 
-        import base64
-        import io
-        import time
-        from PIL import Image
-        start = time.time()
-
         ref = payload.user_image_base64_or_url
         if ref.startswith("data:image"):
             raw = base64.b64decode(ref.split(",", 1)[1])
@@ -196,6 +164,7 @@ class VTONInferenceService:
             resp = httpx.get(ref, timeout=30.0, follow_redirects=True)
             resp.raise_for_status()
             raw = resp.content
+        from PIL import Image
         person = Image.open(io.BytesIO(raw)).convert("RGB")
 
         garments = payload.garments or []
@@ -217,6 +186,7 @@ class VTONInferenceService:
         person = person.resize((w, h))
         garment = garment.resize((w // 2, h // 2))
 
+        start = time.time()
         try:
             result = self.pipe(
                 person_image=person,
@@ -240,7 +210,6 @@ class VTONInferenceService:
         rendered.save(buf, format="PNG")
         b64 = base64.b64encode(buf.getvalue()).decode("ascii")
         elapsed_ms = round((time.time() - start) * 1000, 1)
-
         try:
             from pipeline.quality import VTONQualityAuditor  # type: ignore
             audit = VTONQualityAuditor.audit_tryon_output(

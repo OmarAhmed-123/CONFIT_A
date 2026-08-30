@@ -1,3 +1,4 @@
+import os
 import hashlib
 import time
 from typing import Any, Dict, List, Optional
@@ -14,7 +15,7 @@ class VirtualTryOnProvider(BaseProvider):
     """Production Multi-Garment & Step-by-Step Dressing Provider with Prompt Construction."""
 
     def __init__(self):
-        super().__init__(name="VTON_Virtual_TryOn_Provider", timeout_seconds=8.0, max_retries=2)
+        super().__init__(name="VTON_Virtual_TryOn_Provider", timeout_seconds=float(os.getenv("VTON_WORKER_TIMEOUT_SECONDS", "120.0")), max_retries=2)
 
     def build_dynamic_vton_prompt(
         self,

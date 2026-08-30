@@ -18,8 +18,15 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-if not config.get_main_option("sqlalchemy.url"):
+# The application's configured DATABASE_URL (env var / settings) is the
+# authoritative target database. The static `sqlalchemy.url` value that ships
+# in alembic.ini is only a fallback for bare dev checkouts and must NOT
+# silently override a real production DATABASE_URL — that is exactly the
+# "migrations ran against a developer's local SQLite" failure mode.
+if app_settings.DATABASE_URL:
     config.set_main_option("sqlalchemy.url", app_settings.DATABASE_URL)
+elif not config.get_main_option("sqlalchemy.url"):
+    raise RuntimeError("No database URL configured for Alembic (set DATABASE_URL).")
 
 target_metadata = Base.metadata
 

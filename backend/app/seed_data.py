@@ -1,6 +1,7 @@
 import json
 import sys
 from sqlalchemy.orm import Session, sessionmaker
+from backend.app.core.config import settings
 from backend.app.core.database import Base, engine
 from backend.app.core.security import get_password_hash, encrypt_sensitive_data
 from backend.app.models.user import User, UserRole, BrandProfile
@@ -16,7 +17,19 @@ def seed_database(target_engine=None, force=False):
     """Seeds the demo catalogue. DESTRUCTIVE when the database already holds
     data (drop_all first) — refuse to run against a populated database unless
     force=True, so a mistaken run can never wipe real data. Tests pass their
-    own engine and force the reset explicitly."""
+    own engine and force the reset explicitly.
+
+    Seed guard level 2 (the function itself): this seed creates KNOWN demo
+    credentials (admin@confit.io / Password123! etc.). It must therefore
+    refuse to run whenever ENVIRONMENT=production, regardless of caller —
+    a production database can never silently gain publicly known admin
+    credentials. Tests/development pass their own engine and a non-production
+    ENVIRONMENT."""
+    if settings.ENVIRONMENT.lower() == "production":
+        raise RuntimeError(
+            "Refusing to run demo seed in production: it creates known demo "
+            "credentials (admin@confit.io). Seed operations are development-only."
+        )
     from sqlalchemy import inspect as sa_inspect
     active_engine = target_engine or engine
 

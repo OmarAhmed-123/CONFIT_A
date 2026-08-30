@@ -23,13 +23,13 @@ router = APIRouter(prefix="/wardrobe", tags=["Virtual Wardrobe & Smart Reuse"])
 @router.get("/items", response_model=List[WardrobeItemOut])
 def get_my_wardrobe(
     category: Optional[str] = Query(None),
-    user: Optional[User] = Depends(get_current_user_optional),
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    # Group 1 §2: the wardrobe is user-owned data. Anonymous callers get
+    # 401 — there is no "preview as user #1" fallback leaking a real
+    # account's items to guests.
     service = WardrobeService(db)
-    if not user:
-        # Return default curated seed wardrobe items for demo/guest preview
-        return service.get_user_wardrobe(1, category)
     return service.get_user_wardrobe(user.id, category)
 
 
@@ -46,12 +46,14 @@ def add_wardrobe_item(
 @router.get("/items/{item_id}", response_model=WardrobeItemOut)
 def get_single_wardrobe_item(
     item_id: int,
-    user: Optional[User] = Depends(get_current_user_optional),
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    # get_item_by_id scopes the query to the authenticated user's id, so a
+    # cross-user IDOR attempt resolves to "not found" (404) rather than
+    # confirming the item exists (403) — no resource-enumeration oracle.
     service = WardrobeService(db)
-    user_id = user.id if user else 1
-    item = service.wardrobe_repo.get_item_by_id(item_id, user_id)
+    item = service.wardrobe_repo.get_item_by_id(item_id, user.id)
     if not item:
         raise HTTPException(status_code=404, detail="Wardrobe item not found")
     return service._to_dict(item)
@@ -107,12 +109,13 @@ def auto_tag_item(
 @router.get("/gap-analysis", response_model=List[GapAnalysisOut])
 @router.post("/gap-analysis", response_model=List[GapAnalysisOut])
 def get_wardrobe_gap_analysis(
-    user: Optional[User] = Depends(get_current_user_optional),
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    # Gap analysis reads the caller's wardrobe — user-owned data, so it
+    # requires authentication and never falls back to a default account.
     service = GapAnalysisService(db)
-    user_id = user.id if user else 1
-    return service.analyze_wardrobe_gaps(user_id)
+    return service.analyze_wardrobe_gaps(user.id)
 
 
 @router.post("/duplicate-check", response_model=DuplicateAlertResponse)
@@ -122,6 +125,9 @@ def check_duplicate_purchase(
     user: Optional[User] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
+    # Anonymous duplicate-check is safe: it returns a constant "no risk"
+    # response WITHOUT touching any user's wardrobe (no data leak). Only an
+    # authenticated caller's own wardrobe is ever queried.
     if not user:
         return DuplicateAlertResponse(
             has_duplicate_risk=False,

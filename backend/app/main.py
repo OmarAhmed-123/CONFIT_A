@@ -1,12 +1,14 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request, status
+from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from backend.app.core.config import settings
 from backend.app.core.logging import setup_logging, logger
 from backend.app.core.database import engine, Base
-from backend.app.core.exceptions import ConfitException
+from backend.app.core.dependencies import get_current_user
+from backend.app.core.exceptions import AuthorizationError, ConfitException
+from backend.app.models.user import UserRole
 from backend.app.controllers.auth_controller import router as auth_router
 from backend.app.controllers.profile_controller import router as profile_router
 from backend.app.controllers.catalog_controller import router as catalog_router
@@ -41,13 +43,17 @@ async def lifespan(app: FastAPI):
     try:
         if settings.ENVIRONMENT.lower() != "production":
             Base.metadata.create_all(bind=engine)
-        from sqlalchemy.orm import Session as _Session
-        from backend.app.models.catalog import Category
-        with _Session(engine) as _s:
-            if _s.query(Category).count() == 0:
-                from backend.app.seed_data import seed_database
-                seed_database(target_engine=engine)
-                logger.info("Database was empty — seeded the default catalogue")
+            # Seed guard level 1 (startup): demo catalogue + demo accounts are
+            # a development convenience only. In production the operator runs
+            # Alembic migrations and the app must NEVER auto-create known
+            # credentials like admin@confit.io / Password123!.
+            from sqlalchemy.orm import Session as _Session
+            from backend.app.models.catalog import Category
+            with _Session(engine) as _s:
+                if _s.query(Category).count() == 0:
+                    from backend.app.seed_data import seed_database
+                    seed_database(target_engine=engine)
+                    logger.info("Database was empty — seeded the default catalogue")
     except Exception as exc:
         logger.warn("Database initialization notice", error=str(exc))
     yield
@@ -176,28 +182,39 @@ def root():
     }
 
 
-@app.get("/api/v1/diagnostic")
-def diagnostic():
+def _require_diagnostic_access(user=Depends(get_current_user)):
+    """Group 1 §4: the diagnostic endpoint is never public and never exists
+    in production. Outside production it is admin-only. It returns only
+    aggregate, non-sensitive liveness data — never user identities, database
+    URLs/credentials, filesystem paths, or raw tracebacks."""
+    if settings.ENVIRONMENT.lower() == "production":
+        raise HTTPException(status_code=404, detail="Not found")
+    if user.role != UserRole.ADMIN:
+        raise AuthorizationError("Diagnostic endpoint is restricted to administrators.")
+    return user
+
+
+@app.get("/api/v1/diagnostic", include_in_schema=False)
+def diagnostic(admin_user=Depends(_require_diagnostic_access)):
+    from backend.app.core.database import SessionLocal
+    from backend.app.models.user import User
+    from sqlalchemy import func
+    db = SessionLocal()
     try:
-        from backend.app.core.database import SessionLocal, engine
-        from backend.app.models.user import User
-        db = SessionLocal()
-        users = db.query(User).all()
-        u_data = [{"id": u.id, "email": u.email, "role": str(u.role)} for u in users]
+        users_count = db.query(func.count(User.id)).scalar() or 0
+        db_ok = True
+    except Exception:
+        users_count = None
+        db_ok = False
+    finally:
         db.close()
-        return {
-            "status": "ok",
-            "db_engine": str(engine.url),
-            "users_count": len(users),
-            "users": u_data
-        }
-    except Exception as e:
-        import traceback
-        return {
-            "status": "db_error",
-            "error": str(e),
-            "traceback": traceback.format_exc()
-        }
+    return {
+        "status": "ok" if db_ok else "db_error",
+        "version": settings.VERSION,
+        "environment": settings.ENVIRONMENT,
+        "database_reachable": db_ok,
+        "users_count": users_count,
+    }
 
 
 if __name__ == "__main__":

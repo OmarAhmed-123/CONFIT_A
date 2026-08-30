@@ -5,7 +5,7 @@ import { profileService, authService } from '../../services/apiServices';
 import { UserStyleProfile } from '../../models';
 import { useAuthStore } from '../../stores/authStore';
 import { useUIStore } from '../../stores/uiStore';
-import { SparkleIcon, UserIcon, RulerIcon } from '../../components/icons/ConfitIcons';
+import { SparkleIcon, UserIcon, RulerIcon, ShieldIcon } from '../../components/icons/ConfitIcons';
 import { LoadingSpinner } from '../../components/common/CommonComponents';
 
 export const UserProfileView: React.FC = () => {
@@ -43,6 +43,80 @@ export const UserProfileView: React.FC = () => {
   const [sizeShoes, setSizeShoes] = useState<string>('');
   const [fitPref, setFitPref] = useState<string>('');
   const [consentTryon, setConsentTryon] = useState(false);
+
+  // ---- MFA settings state (G1 §9) --------------------------------------
+  // `mfaEnabled` mirrors the server value (user.mfa_enabled) — server is
+  // authoritative; local state is only a transient UI cache during the
+  // enrollment/disable flows.
+  const [mfaEnabled, setMfaEnabled] = useState<boolean>(!!user?.mfa_enabled);
+  const [mfaPanel, setMfaPanel] = useState<'idle' | 'enroll' | 'verify' | 'codes' | 'disable'>('idle');
+  const [mfaQrUri, setMfaQrUri] = useState<string>('');
+  const [mfaCode, setMfaCode] = useState('');
+  const [mfaPassword, setMfaPassword] = useState('');
+  const [mfaBackupCodes, setMfaBackupCodes] = useState<string[]>([]);
+  const [mfaBusy, setMfaBusy] = useState(false);
+
+  useEffect(() => {
+    setMfaEnabled(!!user?.mfa_enabled);
+  }, [user?.mfa_enabled]);
+
+  const startMfaEnrollment = async () => {
+    setMfaBusy(true);
+    try {
+      const res = await authService.setupMFA();
+      setMfaQrUri(res.qr_uri);
+      setMfaCode('');
+      setMfaPanel('enroll');
+    } catch (err: any) {
+      showToast('MFA setup failed: ' + err.message, 'error');
+    } finally {
+      setMfaBusy(false);
+    }
+  };
+
+  const verifyMfaEnrollment = async () => {
+    setMfaBusy(true);
+    try {
+      const res = await authService.verifyMFA(mfaCode.trim());
+      // Backend returns plaintext recovery codes exactly once — surface them
+      // now; they are never retrievable again after this screen.
+      setMfaBackupCodes(res.backup_codes || []);
+      setMfaEnabled(true);
+      setMfaPanel('codes');
+    } catch (err: any) {
+      showToast('Verification failed: ' + err.message, 'error');
+    } finally {
+      setMfaBusy(false);
+    }
+  };
+
+  const disableMfa = async () => {
+    setMfaBusy(true);
+    try {
+      await authService.disableMFA(mfaPassword);
+      setMfaEnabled(false);
+      setMfaPassword('');
+      setMfaPanel('idle');
+      showToast('Two-factor authentication disabled.', 'info');
+    } catch (err: any) {
+      showToast('Disable failed: ' + err.message, 'error');
+    } finally {
+      setMfaBusy(false);
+    }
+  };
+
+  const regenerateMfaCodes = async () => {
+    setMfaBusy(true);
+    try {
+      const res = await authService.regenerateMFACodes();
+      setMfaBackupCodes(res.backup_codes || []);
+      setMfaPanel('codes');
+    } catch (err: any) {
+      showToast('Regeneration failed: ' + err.message, 'error');
+    } finally {
+      setMfaBusy(false);
+    }
+  };
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -359,6 +433,146 @@ export const UserProfileView: React.FC = () => {
               </button>
             )}
           </div>
+        </div>
+      )}
+
+      {/* Security — Two-Factor Authentication (G1 §9) */}
+      {isAuthenticated && (
+        <div className="bg-white rounded-3xl border border-slate-200/80 p-6 shadow-2xs space-y-4">
+          <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
+            <ShieldIcon size={18} color="#C5A059" />
+            <h3 className="font-serif text-base font-bold text-[#1B1F3B]">Security — Two-Factor Authentication</h3>
+          </div>
+
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="text-xs font-bold text-slate-900">
+                MFA is {mfaEnabled ? 'enabled' : 'disabled'}
+              </div>
+              <div className="text-[11px] text-slate-500 font-light">
+                {mfaEnabled
+                  ? 'Your account requires a 6-digit authenticator code (or a single-use recovery code) at sign-in.'
+                  : 'Add a second layer of protection: a time-based code from your authenticator app.'}
+              </div>
+            </div>
+            <span className={`text-[10px] px-2.5 py-1 rounded-full font-bold border shrink-0 ${
+              mfaEnabled
+                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                : 'bg-slate-100 text-slate-600 border-slate-200'
+            }`}>
+              {mfaEnabled ? 'ON' : 'OFF'}
+            </span>
+          </div>
+
+          {/* Enrollment step 1: show provisioning URI for the authenticator app */}
+          {mfaPanel === 'enroll' && (
+            <div className="space-y-3 pt-2 border-t border-slate-100">
+              <p className="text-[11px] text-slate-600">
+                Scan this provisioning URI with your authenticator app (Google Authenticator, Authy, 1Password…),
+                then enter the 6-digit code it shows.
+              </p>
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 break-all font-mono text-[11px] text-slate-800 select-all">
+                {mfaQrUri}
+              </div>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="6-digit code"
+                  value={mfaCode}
+                  onChange={(e) => setMfaCode(e.target.value)}
+                  className="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-[#C5A059]"
+                />
+                <button
+                  onClick={verifyMfaEnrollment}
+                  disabled={mfaBusy || mfaCode.trim().length < 6}
+                  className="px-4 py-2 rounded-xl bg-[#C5A059] hover:bg-[#A37E44] text-slate-950 text-xs font-bold disabled:opacity-50"
+                >
+                  Verify & Enable
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* One-time recovery codes reveal */}
+          {mfaPanel === 'codes' && (
+            <div className="space-y-3 pt-2 border-t border-slate-100">
+              <p className="text-[11px] text-slate-600">
+                Save these single-use recovery codes somewhere safe. Each works once if you lose your
+                authenticator. <span className="font-bold text-slate-800">They will never be shown again.</span>
+              </p>
+              <div className="grid grid-cols-2 gap-1.5">
+                {mfaBackupCodes.map((c) => (
+                  <code key={c} className="px-3 py-1.5 rounded-lg bg-slate-900 text-emerald-300 text-[11px] font-mono text-center select-all">
+                    {c}
+                  </code>
+                ))}
+              </div>
+              <button
+                onClick={() => { setMfaPanel('idle'); setMfaBackupCodes([]); }}
+                className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-800"
+              >
+                I've saved my codes
+              </button>
+            </div>
+          )}
+
+          {/* Disable flow: requires password re-authentication */}
+          {mfaPanel === 'disable' && (
+            <div className="space-y-3 pt-2 border-t border-slate-100">
+              <p className="text-[11px] text-slate-600">
+                Re-enter your password to disable two-factor authentication.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <input
+                  type="password"
+                  placeholder="Current password"
+                  value={mfaPassword}
+                  onChange={(e) => setMfaPassword(e.target.value)}
+                  className="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-rose-400"
+                />
+                <button
+                  onClick={disableMfa}
+                  disabled={mfaBusy || !mfaPassword}
+                  className="px-4 py-2 rounded-xl border border-rose-200 hover:bg-rose-50 text-xs font-semibold text-rose-600 disabled:opacity-50"
+                >
+                  Disable MFA
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Idle actions */}
+          {mfaPanel === 'idle' && (
+            <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-100">
+              {!mfaEnabled ? (
+                <button
+                  onClick={startMfaEnrollment}
+                  disabled={mfaBusy}
+                  className="px-4 py-2 rounded-xl bg-[#1B1F3B] hover:bg-[#2A2F52] text-white text-xs font-semibold disabled:opacity-50"
+                >
+                  Enable MFA
+                </button>
+              ) : (
+                <>
+                  <button
+                    onClick={regenerateMfaCodes}
+                    disabled={mfaBusy}
+                    className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-800 disabled:opacity-50"
+                  >
+                    Regenerate recovery codes
+                  </button>
+                  <button
+                    onClick={() => { setMfaPassword(''); setMfaPanel('disable'); }}
+                    disabled={mfaBusy}
+                    className="px-4 py-2 rounded-xl border border-rose-200 hover:bg-rose-50 text-xs font-semibold text-rose-600 disabled:opacity-50"
+                  >
+                    Disable MFA
+                  </button>
+                </>
+              )}
+            </div>
+          )}
         </div>
       )}
 

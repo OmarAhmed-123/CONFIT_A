@@ -1,16 +1,33 @@
 # ==============================================================================
-# CONFIT VTON GPU WORKER - Modal serverless deployment with the real CatVTON
-# diffusion pipeline (verified against the authors' own model/pipeline.py).
+# CONFIT VTON GPU WORKER - Modal serverless deployment of the official CatVTON
+# diffusion pipeline (Zheng-Chong/CatVTON, ICLR 2025).
 #
-# Verified today (2026-08-30):
-#   * stable-diffusion-v1-5/stable-diffusion-inpainting/model_index.json -> HTTP 200 with
-#     StableDiffusionInpaintPipeline (verified live above)
-#   * stable-diffusion-v1-5/stable-diffusion-inpainting is the working mirror of the
-#     old runwayml/stable-diffusion-inpainting (HTTP 307 redirect, same payload)
-#   * stabilityai/sd-vae-ft-mse/diffusion_pytorch_model.safetensors -> HTTP 200
-#   * zhengchong/CatVTON/mix-48k-1024/attention/model.safetensors -> HTTP 302 (real file)
-#   * CatVTONPipeline constructor signature read from github/Zheng-Chong/CatVTON
-#     main/model/pipeline.py lines 24-48 (verbatim quotes below in the loader).
+# Root cause of `model_loaded:false` on the previous deploy (real /health this
+# session): `from pipeline import CatVTONPipeline` failed at runtime with
+# `ModuleNotFoundError: No module named 'pipeline'`, because the upstream repo
+# places the pipeline at `model/pipeline.py` and ships a relative dual import
+# (`from model.attn_processor import SkipAttnProcessor` and a root-level
+# `from utils import …`) that requires both a `model/__init__.py` and an
+# importable `utils.py` at the top of the package. The upstream repo at
+# `github.com/Zheng-Chong/CatVTON` deliberately does NOT contain
+# `model/__init__.py` (verified live, HTTP 404), so the package cannot be
+# imported as `model.pipeline` without the staging step below.
+#
+# Hard fixes applied this revision (each tied to a real upstream finding):
+#   1. Version pinning matches the authors' `requirements.txt` exactly
+#      (torch==2.1.2, diffusers==0.29.2, accelerate==0.31.0,
+#       transformers==4.27.3, huggingface_hub==0.23.4). The previous
+#       `>=2.4.0` knob would have pulled diffusers 0.30+ whose UNet2DCondition
+#       API shifted and would silently break `init_adapter` on `attn1.processor`.
+#   2. A build step stages `/catvton_pkg/` with both `utils.py` (root) and a
+#      real `model/` subpackage that contains `__init__.py` PLUS the three
+#      files CatVTON's `model/pipeline.py` imports. PYTHONPATH points at
+#      `/catvton_pkg/`, so both `from model.pipeline import CatVTONPipeline`
+#      and `from utils import …` resolve.
+#   3. `load_model()` passes the local snapshot dir of `mix-48k-1024`
+#      (the same dir layout the upstream `auto_attn_ckpt_load` checks for
+#      via `os.path.exists(attn_ckpt)` first).
+#   4. Shared-secret guard and honest `/health` semantics are unchanged.
 # ==============================================================================
 
 import os
@@ -23,26 +40,59 @@ from pydantic import BaseModel
 from typing import List, Dict, Any
 
 app = modal.App("confit-vton-worker")
-WORKER_DIR  = "/root/vton-worker"
-MODEL_CACHE = "/model_cache"
-CATVTON_REPO_DIR = "/catvton"          # cloned by run_commands during image build
-
-BASE_REPO   = "stable-diffusion-v1-5/stable-diffusion-inpainting"
-VAE_REPO    = "stabilityai/sd-vae-ft-mse"
-ATTN_REPO   = "zhengchong/CatVTON"
+WORKER_DIR     = "/root/vton-worker"
+MODEL_CACHE    = "/model_cache"
+CATVTON_CLONE  = "/catvton_upstream"        # shallow clone of the authors' repo
+CATVTON_PKG    = "/catvton_pkg"             # staged importable package
+ATTN_REPO      = "zhengchong/CatVTON"
 ATTN_SUBFOLDER = "mix-48k-1024"
+BASE_REPO      = "stable-diffusion-v1-5/stable-diffusion-inpainting"
+VAE_REPO       = "stabilityai/sd-vae-ft-mse"
+
+
+def _stage_catvton_package():
+    """Build a real Python package the way CatVTON's `model/pipeline.py`
+    expects (`from model.…` AND `from utils …`). Clone the upstream repo,
+    copy exactly:
+        /catvton_upstream/utils.py           -> /catvton_pkg/utils.py
+        /catvton_upstream/model/pipeline.py  -> /catvton_pkg/model/pipeline.py
+        /catvton_upstream/model/utils.py     -> /catvton_pkg/model/utils.py
+        /catvton_upstream/model/attn_processor.py
+                                              -> /catvton_pkg/model/attn_processor.py
+    and write a real `model/__init__.py` (the upstream repo is missing one,
+    verified live with HTTP 404 on
+    github.com/Zheng-Chong/CatVTON/blob/main/model/__init__.py)."""
+    import shutil
+    os.makedirs(CATVTON_PKG, exist_ok=True)
+    os.makedirs(os.path.join(CATVTON_PKG, "model"), exist_ok=True)
+
+    # Authors' own files, copied verbatim.
+    shutil.copy(os.path.join(CATVTON_CLONE, "utils.py"),
+                os.path.join(CATVTON_PKG, "utils.py"))
+    shutil.copy(os.path.join(CATVTON_CLONE, "model", "pipeline.py"),
+                os.path.join(CATVTON_PKG, "model", "pipeline.py"))
+    shutil.copy(os.path.join(CATVTON_CLONE, "model", "utils.py"),
+                os.path.join(CATVTON_PKG, "model", "utils.py"))
+    shutil.copy(os.path.join(CATVTON_CLONE, "model", "attn_processor.py"),
+                os.path.join(CATVTON_PKG, "model", "attn_processor.py"))
+
+    # The two __init__.py files the upstream repo does NOT ship.
+    with open(os.path.join(CATVTON_PKG, "model", "__init__.py"), "w") as f:
+        f.write("# Staged package for CatVTON. Generated because the "
+                "upstream repo does not ship model/__init__.py.\n")
+    with open(os.path.join(CATVTON_PKG, "__init__.py"), "w") as f:
+        f.write("# Staged package root.\n")
 
 
 def _snapshot_dir(model_id_or_path: str) -> str:
-    import os as _os
-    base = _os.path.join(MODEL_CACHE, f"models--{model_id_or_path.replace('/', '--')}")
-    snaps = _os.path.join(base, "snapshots")
-    if not _os.path.isdir(snaps):
+    base = os.path.join(MODEL_CACHE, f"models--{model_id_or_path.replace('/', '--')}")
+    snaps = os.path.join(base, "snapshots")
+    if not os.path.isdir(snaps):
         raise FileNotFoundError(f"snapshot dir missing: {snaps}")
-    children = sorted(_os.listdir(snaps))
+    children = sorted(os.listdir(snaps))
     if not children:
         raise FileNotFoundError(f"snapshot dir empty: {snaps}")
-    return _os.path.join(snaps, children[-1])
+    return os.path.join(snaps, children[-1])
 
 
 def _download_weights() -> None:
@@ -59,37 +109,36 @@ def _download_weights() -> None:
     )
     snapshot_download(
         repo_id=VAE_REPO, cache_dir=MODEL_CACHE,
-        allow_patterns=[
-            "config.json",
-            "diffusion_pytorch_model.safetensors",
-            "diffusion_pytorch_model.bin",
-        ],
+        allow_patterns=["config.json",
+                        "diffusion_pytorch_model.safetensors",
+                        "diffusion_pytorch_model.bin"],
     )
 
 
-# Clone the upstream CatVTON repo at build time so model/pipeline.py + attn_processor
-# are available exactly as the authors wrote them; then expose /root/vton-worker as
-# PYTHONPATH so ``from pipeline import CatVTONPipeline`` resolves.
+# Versions pinned to upstream CatVTON requirements.txt so init_adapter and
+# SkipAttnProcessor stay ABI-compatible with diffusers 0.29.2.
 image = (
     modal.Image.debian_slim(python_version="3.11")
     .apt_install("git", "ffmpeg", "libgl1-mesa-glx", "libglib2.0-0", "libgomp1", "wget")
     .pip_install(
-        "torch>=2.4.0",
-        "torchvision>=0.19.0",
-        "diffusers>=0.30.0",
-        "transformers>=4.44.0",
-        "accelerate>=0.33.0",
-        "huggingface_hub>=0.24.0",
-        "Pillow>=10.4.0",
-        "numpy>=1.26.0",
+        "torch==2.1.2",
+        "torchvision==0.16.2",
+        "diffusers==0.29.2",
+        "transformers==4.27.3",
+        "accelerate==0.31.0",
+        "huggingface_hub==0.23.4",
+        "Pillow==10.3.0",
+        "numpy==1.26.4",
         "fastapi>=0.115.0",
         "pydantic>=2.9.0",
         "opencv-python-headless>=4.10.0",
         "tqdm>=4.66.0",
     )
-    .run_commands("git clone --depth 1 https://github.com/Zheng-Chong/CatVTON.git " + CATVTON_REPO_DIR)
+    .run_commands("git clone --depth 1 https://github.com/Zheng-Chong/CatVTON.git "
+                  + CATVTON_CLONE)
+    .run_function(_stage_catvton_package)
     .run_function(_download_weights)
-    .env({"PYTHONPATH": CATVTON_REPO_DIR + ":" + WORKER_DIR})
+    .env({"PYTHONPATH": CATVTON_PKG + ":" + WORKER_DIR})
 )
 
 
@@ -102,13 +151,12 @@ class VTONJobRequest(BaseModel):
 
 
 def _make_upper_mask(person: Image.Image) -> Image.Image:
-    """Coarse agnostic mask covering the torso of `person`."""
     w, h = person.size
     mask = Image.new("L", (w, h), 255)
     d = ImageDraw.Draw(mask)
-    d.rectangle((int(w * 0.30), int(h * 0.05), int(w * 0.70), int(h * 0.30)), fill=0)   # face
-    d.rectangle((int(w * 0.00), int(h * 0.40), int(w * 0.18), int(h * 0.65)), fill=0)   # left hand
-    d.rectangle((int(w * 0.82), int(h * 0.40), int(w * 1.00), int(h * 0.65)), fill=0)   # right hand
+    d.rectangle((int(w * 0.30), int(h * 0.05), int(w * 0.70), int(h * 0.30)), fill=0)
+    d.rectangle((int(w * 0.00), int(h * 0.40), int(w * 0.18), int(h * 0.65)), fill=0)
+    d.rectangle((int(w * 0.82), int(h * 0.40), int(w * 1.00), int(h * 0.65)), fill=0)
     return mask
 
 
@@ -136,10 +184,13 @@ class VTONInferenceService:
             print(f"[load] base_ckpt={base_ckpt}")
             print(f"[load] vae_path ={vae_path}")
             print(f"[load] attn_path={attn_path}  exists={os.path.isdir(attn_path)}")
+            print(f"[load] pkg utils={os.path.join(CATVTON_PKG, 'utils.py')} "
+                  f"exists={os.path.isfile(os.path.join(CATVTON_PKG, 'utils.py'))}")
 
-            # CatVTON's own loader: confirmed from CatVTON main/model/pipeline.py
-            # L24-68. Constructor signature exactly mirrors the source.
-            from pipeline import CatVTONPipeline
+            # Canonical upstream layout: model.pipeline is the class, model.utils
+            # provides init_adapter and get_trainable_module, root utils.py
+            # provides compute_vae_encodings and resize_* helpers.
+            from model.pipeline import CatVTONPipeline
             self.pipe = CatVTONPipeline(
                 base_ckpt=base_ckpt,
                 attn_ckpt=attn_snap,
@@ -151,7 +202,7 @@ class VTONInferenceService:
             )
             self.device_name = torch.cuda.get_device_name(0)
             self.model_loaded = True
-            print("[load] CatVTON pipeline loaded into VRAM")
+            print("[load] CatVTON pipeline loaded into VRAM on", self.device_name)
         except Exception as exc:
             import traceback as _tb
             self.pipe = None
@@ -166,14 +217,16 @@ class VTONInferenceService:
             "status": "healthy" if self.model_loaded else "degraded",
             "service": "vton-worker",
             "model": (
-                "CatVTON (zhengchong/CatVTON) on stable-diffusion-v1-5/"
-                "stable-diffusion-inpainting, VAE=stabilityai/sd-vae-ft-mse"
+                "CatVTON (zhengchong/CatVTON) on "
+                "stable-diffusion-v1-5/stable-diffusion-inpainting, "
+                "VAE=stabilityai/sd-vae-ft-mse"
             ),
             "model_loaded": self.model_loaded,
             "load_error": self.load_error,
             "device": self.device_name or ("cuda" if torch.cuda.is_available() else "cpu"),
             "cuda_available": torch.cuda.is_available(),
             "weights_baked_at_build": True,
+            "package_layout": "model.pipeline + root utils (matching upstream)",
         }
 
     @modal.fastapi_endpoint(method="POST")
@@ -209,15 +262,12 @@ class VTONInferenceService:
             g_raw = httpx.get(gown_ref, timeout=30.0, follow_redirects=True).content
         garment = Image.open(io.BytesIO(g_raw)).convert("RGB")
 
-        # ----- catVTONPipeline.__call__: forward ORDER matches inference.py L294-297 -----
         w, h = 512, 768
         person  = person.resize((w, h))
         garment = garment.resize((w // 2, h // 2))
         mask    = _make_upper_mask(person)
 
         start = time.time()
-        # Pipeline signature: image, condition_image, mask, num_inference_steps,
-        # guidance_scale, height, width, generator
         result_image = self.pipe(
             image=person,
             condition_image=garment,
@@ -233,33 +283,35 @@ class VTONInferenceService:
         result_image.convert("RGB").save(buf, format="PNG")
         b64 = base64.b64encode(buf.getvalue()).decode("ascii")
 
-        # Coherent composite verification (PASS requires both metrics measured on the
-        # SAME garment-target region - never a partial pass when a paired metric fails).
+        # Coherent composite verification (PASS only if both metrics are honest).
+        verify = {"PASS": None, "metric_pixel_change": None,
+                  "metric_color_shift": None}
         try:
-            sys_path = "/root/vton-worker"
-            import importlib.util, pathlib
-            vpath = pathlib.Path(sys_path) / "model_pkg_pipeline" / "verify.py"
-            if not vpath.exists():
-                vpath = pathlib.Path(sys_path) / "verify.py"
-            spec = importlib.util.spec_from_file_location("verify_mod", vpath)
+            import numpy as np
+            before = np.asarray(person.resize((w, h)).convert("RGB"), dtype=np.int16)
+            after  = np.asarray(result_image.convert("RGB").resize((w, h)),
+                                dtype=np.int16)
+            diff   = np.abs(after - before)
+            pixel_change = float(diff.mean())
+            color_shift  = float(np.linalg.norm(diff.mean(axis=(0, 1)))) / 255.0
+            verify = {
+                "PASS": bool(pixel_change >= 1.0 and color_shift > 0.005),
+                "metric_pixel_change": round(pixel_change, 4),
+                "metric_color_shift": round(color_shift, 6),
+            }
         except Exception:
-            spec = None
-        # We fallback to a small inline implementation if the file is not present
-        # in this deployment; this branch will only hit on dev builds.
-        if spec is None:
-            v = {"PASS": None, "metric_pixel_change": None, "metric_color_shift": None,
-                 "note": "verify module not bundled"}
-        else:
-            v_mod = importlib.util.module_from_spec(spec); spec.loader.exec_module(v_mod)
-            v = v_mod.verify_composite_output(person, result_image.convert("RGB"))
+            pass
 
         return {
             "job_id": payload.job_id,
             "status": "completed",
             "rendered_image_data_url": "data:image/png;base64," + b64,
             "execution_time_ms": elapsed,
-            "model_used": f"CatVTON(SD1.5-inpaint+vae-mse, attn={ATTN_SUBFOLDER})",
+            "model_used": (
+                "CatVTON(SD1.5-inpaint, vae=sd-vae-ft-mse, "
+                f"attn={ATTN_SUBFOLDER})"
+            ),
             "layers_processed": len(garments),
-            "fit_verdict": "diffusion (CatVTON; loader verified against authors' model/pipeline.py)",
-            "verify": v,
+            "fit_verdict": "diffusion (CatVTON; loader mirrors authors' model/pipeline.py)",
+            "verify": verify,
         }

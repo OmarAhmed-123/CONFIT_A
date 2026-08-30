@@ -36,6 +36,7 @@ import time
 import base64
 from PIL import Image, ImageDraw
 import modal
+from fastapi import HTTPException, Header
 from pydantic import BaseModel
 from typing import List, Dict, Any
 
@@ -230,8 +231,7 @@ class VTONInferenceService:
         }
 
     @modal.fastapi_endpoint(method="POST")
-    def process(self, payload: VTONJobRequest, x_vton_admin: str | None = None) -> dict:
-        from fastapi import HTTPException
+    def process(self, payload: VTONJobRequest, x_vton_admin: str | None = Header(None, alias="X-VTON-Admin")) -> dict:
         expected = os.environ.get("CONFIT_WORKER_ADMIN_TOKEN", "")
         if not expected or x_vton_admin != expected:
             raise HTTPException(status_code=401, detail={

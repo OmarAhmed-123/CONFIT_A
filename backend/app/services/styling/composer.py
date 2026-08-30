@@ -461,45 +461,72 @@ class OutfitComposer:
         def total(lst):
             return sum(i["price"] for i in lst)
 
-        # Try to bring the total within budget via cheapest-first substitution.
-        guard = 0
-        while total(items) > budget_limit and guard < 12:
-            guard += 1
-            # Current most expensive replaceable item.
-            over = sorted(items, key=lambda i: i["price"], reverse=True)
-            swapped = False
-            for target in over:
-                pool = sorted(
-                    (p for p in self._candidate_pool(slot_map, target["position"])
-                     if p.id not in used_product_ids and float(p.base_price) < target["price"]),
-                    key=lambda p: float(p.base_price),
+        import itertools
+
+        def cheapest_per_position(positions):
+            out = {}
+            for pos in positions:
+                cands = self._candidate_pool(slot_map, pos)
+                if not cands:
+                    return None
+                # Cheapest first; prefer in-stock on ties.
+                cands = sorted(cands, key=lambda p: (
+                    float(p.base_price),
+                    0 if (getattr(p, "skus", None) and any(s.is_in_stock and s.stock_level > 0 for s in p.skus)) else 1,
+                ))
+                out[pos] = cands[0]
+            return out
+
+        def build_min_look():
+            """The cheapest COMPLETE look achievable: separates (top+bottom+shoes)
+            or one-piece (dress+shoes), whichever is cheaper. Both are valid
+            complete outfits per the slot ontology."""
+            sep = cheapest_per_position(["top", "bottom", "footwear"])
+            dres = cheapest_per_position(["dress", "footwear"])
+            options = []
+            if sep:
+                options.append(("separates", sep, sum(float(p.base_price) for p in sep.values())))
+            if dres:
+                options.append(("onepiece", dres, sum(float(p.base_price) for p in dres.values())))
+            if not options:
+                return None, None
+            kind, best, cost = min(options, key=lambda o: o[2])
+            return best, cost
+
+        min_core, min_core_cost = build_min_look()
+
+        # If the current composition is over budget, build the minimal complete
+        # look and, when budget allows, re-add the cheapest original non-essential
+        # items (outerwear/accessory) that still fit. If even the minimal complete
+        # look is over budget, that is the honest closest achievable result.
+        if total(items) > budget_limit and min_core is not None:
+            rebuilt = []
+            for idx, (pos, prod) in enumerate(min_core.items()):
+                rebuilt.append(self._to_item_dict(prod, pos, prod._detected_slot, idx, "Budget-Conscious Core"))
+                used_product_ids.add(prod.id)
+            if min_core_cost <= budget_limit:
+                # Greedily re-add original non-essential pieces that fit.
+                ess = set(min_core.keys())
+                extras = sorted(
+                    (i for i in items if i["position"] not in ess),
+                    key=lambda i: i["price"],
                 )
-                # Prefer an in-stock alternative.
-                pool.sort(key=lambda p: 0 if (getattr(p, "skus", None) and any(s.is_in_stock and s.stock_level > 0 for s in p.skus)) else 1)
-                if pool:
-                    sub = pool[0]
-                    idx = items.index(target)
-                    items[idx] = self._to_item_dict(sub, target["position"], sub._detected_slot, target.get("sort_order", idx), target["role_in_outfit"] + " (budget alternative)")
-                    used_product_ids.add(sub.id)
-                    swapped = True
-                    break
-            if not swapped:
-                # No cheaper substitute: drop an optional accessory if present.
-                acc = [i for i in items if i["position"] == "accessory"]
-                if len(items) > 1 and acc:
-                    items.remove(acc[0])
-                else:
-                    break
+                for ex in extras:
+                    if sum(i["price"] for i in rebuilt) + ex["price"] <= budget_limit:
+                        rebuilt.append(ex)
+            items = rebuilt
 
         final_total = total(items)
         within = final_total <= budget_limit
         for it in items:
             it["budget_status"] = "within_budget" if within else "over_budget"
-        note = (
-            f"Outfit total ${final_total:.2f} is within your ${budget_limit:.2f} budget."
-            if within else
-            f"Could not reach ${budget_limit:.2f} with the current catalog; closest achievable complete look is ${final_total:.2f}."
-        )
+        if within:
+            note = f"Outfit total ${final_total:.2f} is within your ${budget_limit:.2f} budget."
+        else:
+            # Accurate honesty: quote the true minimum complete-look price.
+            floor = min_core_cost if min_core_cost is not None else final_total
+            note = (f"Could not reach ${budget_limit:.2f} with the current catalog; "
+                    f"the minimum complete look available is ${floor:.2f}.")
         return items, {"budget_limit": budget_limit, "within_budget": within, "budget_note": note}
 
     def _to_item_dict(self, product: Any, position: str, slot_type: SlotType, sort_order: int, role: str) -> Dict[str, Any]:

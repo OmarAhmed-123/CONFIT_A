@@ -127,3 +127,46 @@ def test_outfit_delete_roundtrip(client: TestClient):
     oid = save.json()["id"]
     assert client.delete(f"/api/v1/outfits/{oid}", headers=h).status_code == 200
     assert client.get(f"/api/v1/outfits/{oid}", headers=h).status_code == 404
+
+
+# ---------- Budget hard constraint (BRD 2.1D / 2.15) ----------
+
+def test_budget_enforced_when_feasible_and_complete():
+    """A stated budget must be satisfied with a COMPLETE look when the catalog
+    has a feasible combination (cheapest complete look <= budget)."""
+    from backend.app.core.database import SessionLocal
+    from backend.app.repositories.catalog_repository import CatalogRepository
+    from backend.app.services.styling.composer import OutfitComposer
+    db = SessionLocal()
+    try:
+        prods = CatalogRepository(db).filter_products(limit=100)
+        c = OutfitComposer()
+        intent = c.parse_intent(prompt="smart casual work outfit under $600", budget_hint=None)
+        assert intent["budget_explicit"] is True
+        outfits = c.compose_outfits(available_products=prods, intent=intent, max_outfits=2)
+        assert outfits, "expected at least one outfit"
+        # At least one recommendation must satisfy the budget AND be complete.
+        assert any(o["within_budget"] and o["is_complete"] and o["total_price"] <= 600.0 for o in outfits)
+    finally:
+        db.close()
+
+
+def test_budget_impossible_reports_minimum_honestly():
+    """An infeasible budget must NOT be silently met; it must return the closest
+    achievable complete look and mark within_budget=False with an honest note."""
+    from backend.app.core.database import SessionLocal
+    from backend.app.repositories.catalog_repository import CatalogRepository
+    from backend.app.services.styling.composer import OutfitComposer
+    db = SessionLocal()
+    try:
+        prods = CatalogRepository(db).filter_products(limit=100)
+        c = OutfitComposer()
+        intent = c.parse_intent(prompt="dinner outfit under $100", budget_hint=None)
+        outfits = c.compose_outfits(available_products=prods, intent=intent, max_outfits=2)
+        assert outfits
+        for o in outfits:
+            assert o["within_budget"] is False
+            assert o["is_complete"] is True  # never fabricate an incomplete 'cheap' look
+            assert "minimum complete look" in (o["budget_note"] or "").lower()
+    finally:
+        db.close()

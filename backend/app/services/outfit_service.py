@@ -35,6 +35,44 @@ class OutfitService:
         self.stylist_repo = StylistRepository(db)
         self.catalog_repo = CatalogRepository(db)
 
+    def get_public_look(self, share_token: str) -> Optional[Dict[str, Any]]:
+        """C8 — public-safe, read-only view of a shared outfit.
+
+        Returns None for unknown/None tokens. The payload deliberately
+        contains no user id, no owner identity, no profile data, and no
+        internal outfit id — only public outfit content.
+        """
+        if not share_token:
+            return None
+        outfit = self.stylist_repo.get_outfit_by_share_token(share_token)
+        if not outfit:
+            return None
+        items = []
+        for item in outfit.items:
+            product = item.product
+            sku = item.sku
+            if not product:
+                continue
+            price = (sku.price_override if sku and sku.price_override else product.base_price)
+            items.append({
+                "product_title": product.title,
+                "brand_name": product.brand.brand_name if product.brand else "CONFIT Partner",
+                "category_name": product.category.name if product.category else "Fashion",
+                "price": float(price),
+                "image_url": product.thumbnail_url,
+                "color_hex": (sku.color_hex if sku and sku.color_hex else product.dominant_hex),
+                "position": item.position,
+            })
+        return {
+            "title": outfit.title,
+            "occasion": outfit.occasion,
+            "description": outfit.description,
+            "total_price": float(outfit.total_price),
+            "compatibility_score": int(outfit.compatibility_score),
+            "items": items,
+            "created_at": outfit.created_at,
+        }
+
     def evaluate_compatibility(self, product_ids: List[int], target_occasion: str = "Casual") -> Dict[str, Any]:
         products = []
         for pid in product_ids:

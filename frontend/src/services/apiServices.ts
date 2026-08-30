@@ -145,7 +145,10 @@ export const catalogService = {
 
   // Home Dashboard (G2.4): personalized picks, trending, recently-viewed,
   // new-from-your-brands — composed server-side from the real profile + catalog.
-  getDashboard: () => request<any>('/catalog/dashboard'),
+  getDashboard: (coords?: { lat: number; lon: number }) => {
+    const query = coords ? `?lat=${coords.lat}&lon=${coords.lon}` : '';
+    return request<any>(`/catalog/dashboard${query}`);
+  },
 };
 
 // 4. Virtual Stylist & Outfitting Engine Services (G2.2)
@@ -185,6 +188,35 @@ export const stylistService = {
     }),
 
   deleteOutfit: (id: number) => request<{ status: string }>(`/outfits/${id}`, { method: 'DELETE' }),
+
+  // C8: mint (or fetch the idempotent) share token for an owned outfit.
+  // The response intentionally contains no fabricated card URL.
+  shareOutfit: (id: number) =>
+    request<{ outfit_id: number; share_token: string; share_url: string }>(`/outfits/${id}/share`, {
+      method: 'POST',
+    }),
+};
+
+// 4b. Public Shared Looks (C8) — unauthenticated, public-safe DTO only.
+export const publicLookService = {
+  getPublicLook: (token: string) =>
+    request<{
+      title: string;
+      occasion: string;
+      description?: string | null;
+      total_price: number;
+      compatibility_score: number;
+      items: Array<{
+        product_title: string;
+        brand_name: string;
+        category_name: string;
+        price: number;
+        image_url: string;
+        color_hex: string;
+        position: string;
+      }>;
+      created_at: string;
+    }>(`/public/looks/${encodeURIComponent(token)}`),
 };
 
 // 5. Virtual Try-On & Fit Services (G3)

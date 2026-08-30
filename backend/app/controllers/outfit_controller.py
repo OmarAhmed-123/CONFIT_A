@@ -1,4 +1,4 @@
-import uuid
+import secrets
 from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -115,14 +115,24 @@ def share_outfit(
 ):
     service = OutfitService(db)
     outfit = _get_owned_outfit(service, outfit_id, user)
-    share_token = outfit.share_token or f"look_{uuid.uuid4().hex[:8]}"
-    outfit.share_token = share_token
-    db.commit()
+    # C8: cryptographically strong, non-sequential, non-predictable token
+    # (~192 bits of entropy, URL-safe, never truncated). Uniqueness is
+    # enforced by the unique column + retry on the (astronomically unlikely)
+    # collision.
+    share_token = outfit.share_token
+    if not share_token:
+        share_token = f"look_{secrets.token_urlsafe(24)}"
+        while service.stylist_repo.get_outfit_by_share_token(share_token):
+            share_token = f"look_{secrets.token_urlsafe(24)}"
+        outfit.share_token = share_token
+        db.commit()
+    # share_url is a relative frontend route served by this application's own
+    # SPA (/looks/:token) — no fabricated external domain, and no fake
+    # server-rendered card URL: PNG cards are generated client-side (C7).
     return {
         "outfit_id": outfit.id,
         "share_token": share_token,
-        "share_url": f"https://confit.io/looks/{share_token}",
-        "card_image_url": f"https://api.confit.io/cards/{share_token}.png"
+        "share_url": f"/looks/{share_token}",
     }
 
 

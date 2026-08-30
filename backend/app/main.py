@@ -12,6 +12,7 @@ from backend.app.controllers.profile_controller import router as profile_router
 from backend.app.controllers.catalog_controller import router as catalog_router
 from backend.app.controllers.stylist_controller import router as stylist_router
 from backend.app.controllers.outfit_controller import router as outfit_router
+from backend.app.controllers.public_look_controller import router as public_look_router
 from backend.app.controllers.tryon_controller import router as tryon_router
 from backend.app.controllers.wardrobe_controller import router as wardrobe_router
 from backend.app.controllers.commerce_controller import router as commerce_router
@@ -144,6 +145,7 @@ for prefix in [settings.API_V1_STR, "/v1", ""]:
     app.include_router(catalog_router, prefix=prefix)
     app.include_router(stylist_router, prefix=prefix)
     app.include_router(outfit_router, prefix=prefix)
+    app.include_router(public_look_router, prefix=prefix)
     app.include_router(tryon_router, prefix=prefix)
     app.include_router(wardrobe_router, prefix=prefix)
     app.include_router(commerce_router, prefix=prefix)

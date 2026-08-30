@@ -62,6 +62,15 @@ class StylistRepository:
             query = query.filter(Outfit.is_saved == True)
         return query.order_by(Outfit.created_at.desc()).all()
 
+    def get_outfit_by_share_token(self, share_token: str) -> Optional[Outfit]:
+        """Look up a shared outfit by its public token (items eager-loaded)."""
+        return (
+            self.db.query(Outfit)
+            .options(joinedload(Outfit.items))
+            .filter(Outfit.share_token == share_token)
+            .first()
+        )
+
     def get_outfit_by_id(self, outfit_id: int) -> Optional[Outfit]:
         return (
             self.db.query(Outfit)

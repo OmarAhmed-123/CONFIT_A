@@ -109,6 +109,32 @@ class OutfitUpdateInput(BaseModel):
     description: Optional[str] = Field(default=None, max_length=2000)
 
 
+class PublicLookItemOut(BaseModel):
+    """A single item on a publicly shared look — catalog facts only."""
+    product_title: str
+    brand_name: str
+    category_name: str
+    price: float
+    image_url: str
+    color_hex: str
+    position: str
+
+
+class PublicLookOut(BaseModel):
+    """Public, read-only shared-look DTO (C8).
+
+    Deliberately excludes every private field: no outfit id, no user_id, no
+    owner identity, no profile data, no internal metadata.
+    """
+    title: str
+    occasion: str
+    description: Optional[str]
+    total_price: float
+    compatibility_score: int
+    items: List[PublicLookItemOut]
+    created_at: datetime
+
+
 class CompatibilityCheckRequest(BaseModel):
     product_ids: List[int]
     target_occasion: Optional[str] = "Casual"

@@ -3,6 +3,7 @@ from typing import Dict, Any, List, Optional
 from sqlalchemy.orm import Session
 from backend.app.repositories.catalog_repository import CatalogRepository
 from backend.app.repositories.profile_repository import ProfileRepository
+from backend.app.services.weather_service import get_weather_provider
 
 
 def _product_summary(p) -> Dict[str, Any]:
@@ -37,7 +38,12 @@ class DashboardService:
         self.catalog = CatalogRepository(db)
         self.profiles = ProfileRepository(db)
 
-    def get_dashboard(self, user_id: Optional[int]) -> Dict[str, Any]:
+    def get_dashboard(
+        self,
+        user_id: Optional[int],
+        lat: Optional[float] = None,
+        lon: Optional[float] = None,
+    ) -> Dict[str, Any]:
         usp = self.profiles.get_by_user_id(user_id) if user_id else None
         # Authenticated user without a profile yet: bootstrap a default one so
         # personalization engages from day one (mirrors the existing /profile/me
@@ -111,7 +117,16 @@ class DashboardService:
         new_from_brands = [_product_summary(p) for p in
                            self.catalog.get_new_from_brands(preferred_brands, limit=8)]
 
+        # --- Weather (G2-S5): only when the client supplied coordinates and
+        # the provider is configured; any provider failure degrades to None —
+        # weather is never fabricated.
+        weather: Optional[Dict[str, Any]] = None
+        if lat is not None and lon is not None:
+            weather_out = get_weather_provider().get_current_weather(lat, lon)
+            weather = weather_out.model_dump() if weather_out else None
+
         return {
+            "weather": weather,
             "personalized": bool(usp),
             "top_occasion": top_occasion,
             "todays_picks": todays_picks,

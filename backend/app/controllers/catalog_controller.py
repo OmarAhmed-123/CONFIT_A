@@ -29,13 +29,16 @@ def get_categories(db: Session = Depends(get_db)):
 
 @router.get("/dashboard", response_model=Dict[str, Any])
 def get_home_dashboard(
+    lat: Optional[float] = Query(None, ge=-90, le=90),
+    lon: Optional[float] = Query(None, ge=-180, le=180),
     user: Optional[User] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
     """Home Dashboard (G2.4): personalized picks, trending, real recently-viewed,
-    and new-from-your-brands, composed from the profile + real catalog."""
+    and new-from-your-brands, composed from the profile + real catalog.
+    Optional lat/lon enable the real weather provider when configured (G2-S5)."""
     service = DashboardService(db)
-    return service.get_dashboard(user.id if user else None)
+    return service.get_dashboard(user.id if user else None, lat=lat, lon=lon)
 
 
 # =========================================================================

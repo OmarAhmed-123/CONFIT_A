@@ -61,10 +61,12 @@ cd CONFIT_A
 
 # 1. Backend
 pip install -r backend/requirements.txt
-# The repo bundles a seeded dev database (backend/data/confit.db) and the app
-# also self-seeds when the DB is empty — no manual seed step is needed.
-# To reset the demo data intentionally: PYTHONPATH=. python3 backend/app/seed_data.py --force
-# (seed_data.py refuses to wipe a populated database without --force.)
+# The dev DB (backend/data/confit.db) is intentionally NOT tracked; the app
+# self-seeds when the database is empty — no manual seed step is needed.
+# To reset the demo data intentionally:
+#     PYTHONPATH=. python3 backend/app/seed_data.py --force
+# (seed_data.py refuses to wipe a populated database without --force and
+# refuses outright when ENVIRONMENT=production.)
 PYTHONPATH=. uvicorn backend.app.main:app --reload --port 8000
 
 # 2. Frontend (second terminal)
@@ -96,19 +98,52 @@ secrets are read from the environment only — **never commit real keys**
 
 ### Database migrations
 
-The project uses SQLAlchemy `create_all` plus additive migration scripts
-(idempotent, data-preserving):
+Managed by **Alembic** (`backend/alembic/`). Migrations are idempotent
+(inspector-guarded) and reversible — every migration provides a `downgrade()`.
 
 ```bash
-PYTHONPATH=. python3 backend/scripts/migrate_add_missing_columns.py
-PYTHONPATH=. python3 backend/scripts/migrate_enum_columns_to_varchar.py
-PYTHONPATH=. python3 backend/scripts/backfill_garment_asset_slots.py
+# Local dev (SQLite) — usually a no-op since the app self-creates on startup
+PYTHONPATH=. python3 -m alembic -c backend/alembic.ini upgrade head
+
+# Production (Postgres / Neon)
+DATABASE_URL="postgresql+psycopg2://..." \
+  PYTHONPATH=. python3 -m alembic -c backend/alembic.ini upgrade head
+
+# Historical create_all databases (e.g. an environment predating Alembic) —
+# stamp the baseline first, then upgrade:
+DATABASE_URL="postgresql+psycopg2://..." \
+  PYTHONPATH=. python3 -m alembic -c backend/alembic.ini stamp 0001_baseline
+DATABASE_URL="postgresql+psycopg2://..." \
+  PYTHONPATH=. python3 -m alembic -c backend/alembic.ini upgrade head
 ```
+
+Every migration MUST use portable defaults (`sa.true()` / `sa.false()` for
+boolean columns, not `sa.text("1")` — the latter crashes on Postgres with
+`DatatypeMismatch`).
+
+### Database integrity validator
+
+`backend/scripts/validate_database.py` is a **read-only** tool that walks the
+integrity invariants the application depends on (FK orphans, domain
+validity, uniqueness, numeric bounds — including the Group 4
+`(user_id, image_hash)` invariant). Safe to run against any environment.
+
+```bash
+# Against the local dev DB
+PYTHONPATH=. python3 backend/scripts/validate_database.py
+
+# Against a specific database (production or otherwise)
+DATABASE_URL="postgresql+psycopg2://..." \
+  PYTHONPATH=. python3 backend/scripts/validate_database.py
+```
+
+Exit code: `0` = healthy, `1` = one or more violations, `2` = could not
+connect. Coverage is exercised by `backend/tests/test_database_integrity.py`.
 
 ## Running the tests
 
 ```bash
-PYTHONPATH=. python3 -m pytest backend/tests -q        # 73 tests
+PYTHONPATH=. python3 -m pytest backend/tests -q        # backend suite
 cd frontend && npm run build                           # type-check + production build
 ```
 

@@ -552,15 +552,21 @@ def seed_database(target_engine=None, force=False):
         status="active"
     ))
 
-    # 10. Sample Order
+    # 10. Sample Order — totals must be self-consistent:
+    #     subtotal_amount == sum(order_items.subtotal)
+    #     total_amount    == subtotal - discount + tax + shipping
+    # (The single item below has subtotal=289.0; the earlier draft claimed
+    # 384 for both fields which broke financial integrity — caught by
+    # backend/scripts/validate_database.py.)
     sample_order = Order(
         order_number="CONF-8821094A",
         user_id=consumer_user.id,
-        total_amount=384.0,
-        subtotal_amount=384.0,
+        subtotal_amount=289.0,
         discount_amount=0.0,
-        tax_amount=19.2,
+        tax_amount=14.45,           # 5% VAT of subtotal
         shipping_amount=0.0,
+        total_amount=303.45,        # subtotal - discount + tax + shipping
+
         currency="USD",
         payment_method="bnpl_tabby",
         payment_status="paid",

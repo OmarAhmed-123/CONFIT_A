@@ -452,6 +452,58 @@ export const tryOnService = {
 };
 
 // 6. Virtual Wardrobe Services (G4)
+export interface AutoTagResponse {
+  analysis_available: boolean;
+  detail?: string;
+  detected_title?: string;
+  detected_category?: string;
+  detected_subcategory?: string;
+  detected_color?: string;
+  detected_color_hex?: string;
+  detected_pattern?: string;
+  ai_tags?: string[];
+  suggested_occasions?: string[];
+  seasonality?: string;
+  confidence?: number;
+}
+
+export interface WardrobeUploadResultEntry {
+  filename: string;
+  status: 'created' | 'failed' | 'duplicate';
+  detail?: string;
+  item?: WardrobeItem;
+}
+
+export interface WardrobeUploadResponse {
+  results: WardrobeUploadResultEntry[];
+  summary: { total: number; succeeded: number; failed: number; duplicates_skipped: number };
+}
+
+export interface WardrobeFirstOutfitItem {
+  position: string;
+  source: 'owned' | 'catalog';
+  wardrobe_item_id?: number;
+  product_id?: number;
+  product_title: string;
+  brand_name: string;
+  color_family?: string;
+  dominant_hex?: string;
+  image_url: string;
+  price: number;
+}
+
+export interface WardrobeFirstOutfit {
+  occasion: string;
+  owned_items: WardrobeFirstOutfitItem[];
+  owned_count: number;
+  missing_positions: string[];
+  purchase_suggestions: WardrobeFirstOutfitItem[];
+  compatibility_score: number;
+  is_complete_outfit: boolean;
+  wardrobe_first: boolean;
+  message: string;
+}
+
 export const wardrobeService = {
   getItems: (category?: string) => {
     const q = category && category !== 'All' ? `?category=${category}` : '';
@@ -472,14 +524,44 @@ export const wardrobeService = {
 
   deleteItem: (itemId: number) => request<{ status: string }>(`/wardrobe/items/${itemId}`, { method: 'DELETE' }),
 
-  getGaps: () => request<GapAnalysisItem[]>('/wardrobe/gap-analysis'),
   getGapAnalysis: () => request<GapAnalysisItem[]>('/wardrobe/gap-analysis'),
 
-  autoTagImage: (image_data_url: string) =>
-    request<Partial<WardrobeItem>>('/wardrobe/auto-tag', {
+  autoTagImage: (imageRef: string) => {
+    // Backend contract is { image_url } for URLs or { image_base64 } for data
+    // URLs — the previous payload key (image_data_url) matched neither and
+    // silently 422'd.
+    const body = imageRef.startsWith('data:image')
+      ? { image_base64: imageRef }
+      : { image_url: imageRef };
+    return request<AutoTagResponse>('/wardrobe/auto-tag', {
       method: 'POST',
-      body: JSON.stringify({ image_data_url }),
-    }),
+      body: JSON.stringify(body),
+    });
+  },
+
+  uploadImage: (file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    return request<WardrobeUploadResponse>('/wardrobe/upload', {
+      method: 'POST',
+      body: form,
+    });
+  },
+
+  uploadBulk: (files: File[]) => {
+    const form = new FormData();
+    files.forEach((f) => form.append('files', f));
+    return request<WardrobeUploadResponse>('/wardrobe/upload/bulk', {
+      method: 'POST',
+      body: form,
+    });
+  },
+
+  analyzeItem: (itemId: number) =>
+    request<WardrobeItem>(`/wardrobe/items/${itemId}/analyze`, { method: 'POST' }),
+
+  getOutfitSuggestions: (occasion: string = 'Smart Casual') =>
+    request<WardrobeFirstOutfit>(`/wardrobe/outfit-suggestions?occasion=${encodeURIComponent(occasion)}`),
 
   checkDuplicate: (payload: { product_id: number; product_title: string; category: string; color_family: string; strict_mode?: boolean }) =>
     request<{ has_duplicate_risk: boolean; similarity_score: number; duplicate_item?: WardrobeItem; owned_item?: WardrobeItem; alert_message?: string; recommendation: string }>(

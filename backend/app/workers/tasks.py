@@ -39,7 +39,18 @@ def render_vton_task(self, session_id: int):
 
 @celery_app.task(bind=True, max_retries=3)
 def auto_tag_wardrobe_task(self, item_id: int):
-    """Background task to extract fashion attributes from uploaded wardrobe photos."""
+    """Background wardrobe auto-tagging via the REAL vision provider.
+
+    Group 4 fix: the previous task wrote the same hardcoded tags
+    (["Tailored", "Fine Wool", ...]) to every item it touched. It now
+    delegates to WardrobeService._run_ai_analysis, which calls the
+    configured Gemini vision model, normalizes the structured output
+    through the shared taxonomy, and marks the item 'failed' (retryable)
+    on provider failure instead of fabricating attributes.
+    """
+    import asyncio
+    from backend.app.services.wardrobe_service import WardrobeService
+
     logger.info("Running AI Auto-tagging job", item_id=item_id)
     db = SessionLocal()
     try:
@@ -47,13 +58,14 @@ def auto_tag_wardrobe_task(self, item_id: int):
         if not item:
             return {"status": "not_found"}
 
-        # Extract tags and occasions
-        tags = ["Tailored", "Fine Wool", "Versatile Layer"]
-        occasions = ["Work & Business", "Smart Casual Dinner"]
-        item.ai_tags = json.dumps(tags)
-        item.occasions = json.dumps(occasions)
-        db.commit()
-        return {"status": "completed", "item_id": item_id, "tags": tags}
+        service = WardrobeService(db)
+        analyzed = asyncio.run(service._run_ai_analysis(item))
+        return {
+            "status": "completed" if analyzed.processing_status == "ready" else "failed",
+            "item_id": item_id,
+            "processing_status": analyzed.processing_status,
+            "tags": json.loads(analyzed.ai_tags) if analyzed.ai_tags else [],
+        }
     except Exception as exc:
         db.rollback()
         raise self.retry(exc=exc)

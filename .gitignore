@@ -24,14 +24,14 @@ frontend/.env.*
 !backend/.env.example
 !frontend/.env.example
 
-# SQLite and database data
+# SQLite and database data — ALL local databases are untracked. The app
+# self-seeds on an empty database at startup (see README "Local setup"), so a
+# versioned confit.db is unnecessary and only served to pollute commits with
+# local dev/E2E mutations (observed during Group 4 E2E runs). Production data
+# lives in the managed Postgres (DATABASE_URL) and is never committed.
 backend/data/*.db
 backend/data/*.db-wal
 backend/data/*.db-shm
-# Exception: the seeded development catalogue is versioned intentionally so a
-# fresh checkout runs with real data. Production data lives in the managed
-# Postgres (DATABASE_URL) and is never committed.
-!backend/data/confit.db
 backend/data/uploads/*
 !backend/data/uploads/.gitkeep
 uploads/*

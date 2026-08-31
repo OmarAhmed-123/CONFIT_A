@@ -297,6 +297,43 @@ class VisualSearchAIProvider(BaseProvider):
     async def analyze_fashion_image(self, image_url_or_base64: str) -> Dict[str, Any]:
         return await self.execute_with_resilience(self._call_vision_model, image_url_or_base64=image_url_or_base64)
 
+    # Group 4 — wardrobe auto-tagging. Same vision backend (Gemini Flash,
+    # VISION_MODEL config) as visual search, with a wardrobe-specific prompt
+    # asking for the BRD §18 structured fields. Raw model output is NOT
+    # trusted: the caller normalizes it through wardrobe_taxonomy before it
+    # is persisted anywhere.
+    WARDROBE_TAG_PROMPT = (
+        "Analyze this photo of a clothing item the user owns. Respond with STRICT JSON only, "
+        "no prose, with exactly these keys: "
+        "category (one of: Tops, Bottoms, Outerwear, Footwear, Accessories, Dresses), "
+        "item_type (specific subcategory, e.g. 'Oversized Blazer', 'Pleated Trousers'), "
+        "primary_color (simple color family name), "
+        "primary_color_hex (approximate hex like #1B1F3B), "
+        "secondary_colors (list of secondary color families, may be empty), "
+        "style (short style description, e.g. 'Smart Casual', 'Minimalist', 'Streetwear'), "
+        "style_tags (list of up to 6 short attribute tags, e.g. 'Tailored', 'Wool Blend'), "
+        "pattern (e.g. Solid, Striped, Checked, Floral), "
+        "occasion_suitability (list chosen from: Casual, Smart Casual, Work & Business, "
+        "Business Formal, Cocktail, Formal, Black Tie, Active, Lounge, Evening), "
+        "seasonality (one of: All-Season, Spring, Summer, Autumn, Winter), "
+        "confidence (float 0.0-1.0 for how certain the analysis is). "
+        "If the image does not show a clothing or fashion accessory item, set category to null."
+    )
+
+    async def analyze_wardrobe_image(self, image_url_or_base64: str) -> Dict[str, Any]:
+        """Real wardrobe auto-tagging via the configured vision model.
+
+        On any failure (no key, timeout, provider error) the resilience
+        wrapper routes to wardrobe_fallback(), which reports
+        analysis_available=False — the service layer then marks the item
+        failed/retryable instead of inventing tags.
+        """
+        return await self.execute_with_resilience(
+            self._call_gemini_vision,
+            image_url_or_base64=image_url_or_base64,
+            prompt=self.WARDROBE_TAG_PROMPT,
+        )
+
     async def _image_to_base64(self, ref: str) -> tuple[str, str]:
         """Returns (base64_data, mime_type). Downloads http(s) images with validation."""
         import base64 as _b64
@@ -321,6 +358,12 @@ class VisualSearchAIProvider(BaseProvider):
         raise ValueError("Image reference must be a data URL or http(s) URL")
 
     async def _call_vision_model(self, image_url_or_base64: str) -> Dict[str, Any]:
+        return await self._call_gemini_vision(image_url_or_base64, self.VISION_PROMPT)
+
+    async def _call_gemini_vision(self, image_url_or_base64: str, prompt: str) -> Dict[str, Any]:
+        """Single Gemini Flash vision caller shared by visual search and Group 4
+        wardrobe auto-tagging (§30: one canonical call path, prompt is the only
+        variable). Both consumers rely on analysis_available + their own keys."""
         import json as _json
 
         if not settings.GEMINI_API_KEY:
@@ -335,7 +378,7 @@ class VisualSearchAIProvider(BaseProvider):
                 json={
                     "contents": [{
                         "parts": [
-                            {"text": self.VISION_PROMPT},
+                            {"text": prompt},
                             {"inline_data": {"mime_type": mime, "data": b64_data}},
                         ]
                     }],
@@ -346,13 +389,16 @@ class VisualSearchAIProvider(BaseProvider):
             text = res.json()["candidates"][0]["content"]["parts"][0]["text"]
             parsed = _json.loads(text)
             parsed["analysis_available"] = True
-            parsed["analysis_source"] = "gemini-flash-vision"
+            parsed["analysis_source"] = settings.VISION_MODEL
             return parsed
 
-    async def fallback(self, image_url_or_base64: str) -> Dict[str, Any]:
-        # Honest degradation: no detection is fabricated. The service layer
-        # renders matches with neutral ranking and marks the analysis as
-        # unavailable instead of claiming a blazer was detected in every image.
+    async def fallback(self, image_url_or_base64: str, **kwargs) -> Dict[str, Any]:
+        # Honest degradation: no detection is fabricated. Accepts (and ignores)
+        # the extra call kwargs (e.g. prompt) that execute_with_resilience
+        # forwards so a caller-supplied argument never breaks the fallback
+        # contract. Both consumers (visual search, Group 4 wardrobe auto-tagging)
+        # check analysis_available first, so the unavailable payload carries
+        # both key sets with null detections — never invented attributes.
         return {
             "analysis_available": False,
             "analysis_source": "unavailable (set GEMINI_API_KEY)",
@@ -361,4 +407,5 @@ class VisualSearchAIProvider(BaseProvider):
             "detected_pattern": None,
             "detected_style": None,
             "detected_attributes": {},
+            "category": None,
         }

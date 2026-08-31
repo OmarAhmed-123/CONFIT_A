@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useWardrobeViewModel } from '../../viewmodels/useWardrobeViewModel';
@@ -24,7 +24,8 @@ export const WardrobeView: React.FC = () => {
   const [newTitle, setNewTitle] = useState('');
   const [newCategory, setNewCategory] = useState('Outerwear');
   const [newColor, setNewColor] = useState('Navy Blue');
-  const [newImageUrl, setNewImageUrl] = useState('https://images.unsplash.com/photo-1594938298603-c8148c4dae35?w=500&auto=format&fit=crop&q=80');
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const {
     items,
@@ -39,6 +40,16 @@ export const WardrobeView: React.FC = () => {
     autoTagUpload,
     addNewItem,
     deleteItem,
+    uploadFiles,
+    isUploading,
+    uploadReport,
+    retryAnalysis,
+    retryingItemId,
+    toggleFavorite,
+    setWearFrequency,
+    outfitSuggestion,
+    isOutfitLoading,
+    fetchOutfitSuggestion,
   } = useWardrobeViewModel();
 
   const { openTryOn } = useUIStore();
@@ -49,12 +60,38 @@ export const WardrobeView: React.FC = () => {
       title: newTitle || 'Custom Wardrobe Item',
       category: newCategory,
       color_name: newColor,
-      image_url: newImageUrl,
+      image_url: 'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?w=500&auto=format&fit=crop&q=80',
       wear_frequency: 'regular',
       is_favorite: false,
     });
     setUploadModalOpen(false);
     setNewTitle('');
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    // Client-side validation mirrors the backend contract (BRD §12.2).
+    const valid = files.filter((f) => {
+      if (!['image/jpeg', 'image/png', 'image/webp'].includes(f.type)) {
+        return false;
+      }
+      return f.size <= 15 * 1024 * 1024;
+    });
+    if (valid.length !== files.length) {
+      alert('Some files were skipped: only JPEG/PNG/WebP up to 15MB are supported.');
+    }
+    setSelectedFiles(valid.slice(0, 20));
+  };
+
+  const handleUploadSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedFiles.length) return;
+    const report = await uploadFiles(selectedFiles);
+    if (report && report.summary.succeeded > 0) {
+      setSelectedFiles([]);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      if (report.summary.failed === 0) setUploadModalOpen(false);
+    }
   };
 
   return (
@@ -161,9 +198,31 @@ export const WardrobeView: React.FC = () => {
                       >
                         ✕
                       </button>
+                      {/* Favorite toggle (BRD 4.1: persistent Favorite state) */}
+                      <button
+                        onClick={() => toggleFavorite(item)}
+                        className={`absolute top-2 left-2 w-7 h-7 rounded-full flex items-center justify-center text-xs transition-all ${
+                          item.is_favorite
+                            ? 'bg-[#B8935A] text-white'
+                            : 'bg-black/40 text-white opacity-0 group-hover:opacity-100'
+                        }`}
+                        title={item.is_favorite ? 'Remove from favorites' : 'Mark as favorite'}
+                      >
+                        ★
+                      </button>
                       <span className="absolute bottom-2 left-2 px-2 py-0.5 rounded-full bg-white/90 text-[10px] font-bold text-slate-800">
                         Worn {item.wear_count}x
                       </span>
+                      {/* Lifecycle status badge — upload is not 'done' until AI analysis succeeded */}
+                      {item.processing_status && item.processing_status !== 'ready' && (
+                        <span className={`absolute bottom-2 right-2 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                          item.processing_status === 'failed'
+                            ? 'bg-rose-100 text-rose-800'
+                            : 'bg-amber-100 text-amber-800'
+                        }`}>
+                          {item.processing_status === 'failed' ? 'AI failed — retry' : 'Processing…'}
+                        </span>
+                      )}
                     </div>
 
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
@@ -171,6 +230,19 @@ export const WardrobeView: React.FC = () => {
                     </span>
                     <h3 className="font-serif text-sm font-bold text-[#1B1F3B] truncate mt-0.5">{item.title}</h3>
                     <p className="text-xs text-slate-500">{item.color_name} · {item.category}</p>
+
+                    {/* Persistent wear-state selector: Favorite / Regular / Rarely Worn / Seasonal */}
+                    <select
+                      value={item.wear_frequency}
+                      onChange={(e) => setWearFrequency(item, e.target.value)}
+                      className="mt-1.5 w-full px-2 py-1 rounded-lg border border-slate-200 text-[10px] bg-white text-slate-600"
+                      title="Wear frequency"
+                    >
+                      <option value="favorite">★ Favorite</option>
+                      <option value="regular">Regular rotation</option>
+                      <option value="rarely_worn">Rarely worn</option>
+                      <option value="seasonal">Seasonal</option>
+                    </select>
 
                     {/* AI Tags */}
                     {item.ai_tags && item.ai_tags.length > 0 && (
@@ -185,12 +257,22 @@ export const WardrobeView: React.FC = () => {
                   </div>
 
                   <div className="pt-3 border-t border-slate-100 mt-3 flex items-center gap-2">
-                    <button
-                      onClick={() => navigate('/builder')}
-                      className="w-full py-2 rounded-xl bg-slate-100 hover:bg-[#1B1F3B] hover:text-white text-xs font-semibold text-slate-800 transition-all"
-                    >
-                      Style in Canvas
-                    </button>
+                    {item.processing_status === 'failed' ? (
+                      <button
+                        onClick={() => retryAnalysis(item.id)}
+                        disabled={retryingItemId === item.id}
+                        className="w-full py-2 rounded-xl bg-rose-50 border border-rose-200 hover:bg-rose-100 text-xs font-semibold text-rose-800 transition-all disabled:opacity-50"
+                      >
+                        {retryingItemId === item.id ? 'Retrying…' : '↻ Retry AI Analysis'}
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => navigate('/builder')}
+                        className="w-full py-2 rounded-xl bg-slate-100 hover:bg-[#1B1F3B] hover:text-white text-xs font-semibold text-slate-800 transition-all"
+                      >
+                        Style in Canvas
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
@@ -199,9 +281,85 @@ export const WardrobeView: React.FC = () => {
         </div>
       )}
 
-      {/* TAB 2: Saved Outfits */}
+      {/* TAB 2: Saved Outfits + Wardrobe-First Styling (BRD §24) */}
       {activeTab === 'looks' && (
         <div className="space-y-6">
+          {/* Shop-your-wardrobe-first: build a look from owned pieces; only
+              genuine gaps surface purchasable catalog items. */}
+          <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm">
+            <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 mb-4">
+              <div>
+                <h3 className="font-serif text-lg font-bold text-[#1B1F3B] flex items-center gap-2">
+                  <SparkleIcon size={18} color="#B8935A" />
+                  Shop Your Wardrobe First
+                </h3>
+                <p className="text-xs text-slate-500">
+                  A look built from pieces you already own — only what you're missing is suggested for purchase.
+                </p>
+              </div>
+              <button
+                onClick={() => fetchOutfitSuggestion('Smart Casual')}
+                disabled={isOutfitLoading}
+                className="px-4 py-2 rounded-xl bg-[#B8935A] hover:bg-[#a07f4c] text-white text-xs font-semibold shadow-sm disabled:opacity-50"
+              >
+                {isOutfitLoading ? 'Styling…' : 'Build Wardrobe-First Look'}
+              </button>
+            </div>
+
+            {outfitSuggestion && (
+              <div className="space-y-4">
+                <p className="text-xs text-slate-600 bg-[#FAF9F6] border border-slate-100 rounded-xl p-3">
+                  {outfitSuggestion.message}
+                  {outfitSuggestion.owned_count > 0 && (
+                    <span className="ml-1 font-semibold text-[#1B1F3B]">
+                      Compatibility: {outfitSuggestion.compatibility_score}%
+                    </span>
+                  )}
+                </p>
+
+                {outfitSuggestion.owned_items.length > 0 && (
+                  <div>
+                    <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">
+                      From your closet ({outfitSuggestion.owned_count})
+                    </span>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 mt-2">
+                      {outfitSuggestion.owned_items.map((it) => (
+                        <div key={`owned-${it.wardrobe_item_id}`} className="rounded-2xl border border-emerald-200 bg-emerald-50/40 p-2">
+                          <div className="h-24 rounded-xl overflow-hidden bg-white mb-1.5">
+                            <img src={it.image_url} alt={it.product_title} className="w-full h-full object-cover" />
+                          </div>
+                          <span className="text-[9px] font-bold text-emerald-700 uppercase">{it.position} · owned</span>
+                          <p className="text-[11px] font-semibold text-[#1B1F3B] truncate">{it.product_title}</p>
+                          <p className="text-[10px] text-slate-500">{it.color_family}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {outfitSuggestion.purchase_suggestions.length > 0 && (
+                  <div>
+                    <span className="text-[10px] font-bold text-[#B8935A] uppercase tracking-wider">
+                      Missing pieces — suggested for purchase
+                    </span>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-2">
+                      {outfitSuggestion.purchase_suggestions.map((it) => (
+                        <div key={`buy-${it.position}-${it.product_id}`} className="rounded-2xl border border-slate-200 bg-white p-2">
+                          <div className="h-24 rounded-xl overflow-hidden bg-slate-100 mb-1.5">
+                            <img src={it.image_url} alt={it.product_title} className="w-full h-full object-cover" />
+                          </div>
+                          <span className="text-[9px] font-bold text-slate-400 uppercase">{it.position} · {it.brand_name}</span>
+                          <p className="text-[11px] font-semibold text-[#1B1F3B] truncate">{it.product_title}</p>
+                          <p className="text-[11px] font-bold text-[#B8935A]">${it.price}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm">
             <div className="flex justify-between items-center mb-4">
               <div>
@@ -318,20 +476,84 @@ export const WardrobeView: React.FC = () => {
         </div>
       )}
 
-      {/* Upload Piece Modal with AI Auto-Tagger */}
+      {/* Upload Piece Modal — real photo upload (single + bulk) with honest AI status */}
       {uploadModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden">
+          <div className="w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden max-h-[90vh] overflow-y-auto">
             <div className="p-5 bg-[#1B1F3B] text-white flex justify-between items-center">
               <h3 className="font-serif text-base font-bold text-white flex items-center gap-2">
-                <span>Upload Garment to Smart Wardrobe</span>
+                <span>Upload Garment Photos</span>
               </h3>
-              <button onClick={() => setUploadModalOpen(false)} className="text-slate-300 hover:text-white">
+              <button onClick={() => { setUploadModalOpen(false); setSelectedFiles([]); }} className="text-slate-300 hover:text-white">
                 ✕
               </button>
             </div>
 
+            {/* Mode 1: real photo upload (single or bulk import) */}
+            <form onSubmit={handleUploadSubmit} className="p-6 space-y-4 border-b border-slate-100">
+              <div>
+                <label className="text-xs font-bold text-slate-800 block mb-1">
+                  Garment Photos <span className="text-slate-400 font-normal">(JPEG/PNG/WebP, up to 15MB each, max 20)</span>
+                </label>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  multiple
+                  onChange={handleFileChange}
+                  className="w-full text-xs text-slate-600 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-[#1B1F3B] file:text-white file:text-xs file:font-semibold hover:file:bg-[#2A3C78] file:cursor-pointer"
+                />
+                {selectedFiles.length > 0 && (
+                  <p className="text-[11px] text-slate-500 mt-1.5">
+                    {selectedFiles.length} file(s) selected: {selectedFiles.map((f) => f.name).slice(0, 3).join(', ')}
+                    {selectedFiles.length > 3 ? ` +${selectedFiles.length - 3} more` : ''}
+                  </p>
+                )}
+              </div>
+
+              <button
+                type="submit"
+                disabled={!selectedFiles.length || isUploading}
+                className="w-full py-3 rounded-xl bg-[#B8935A] hover:bg-[#a07f4c] text-white font-semibold text-xs transition-all shadow-md flex items-center justify-center gap-1.5 disabled:opacity-50"
+              >
+                <SparkleIcon size={14} color="#fff" />
+                <span>{isUploading ? 'Uploading & Analyzing…' : `Upload ${selectedFiles.length > 1 ? `${selectedFiles.length} Pieces` : 'Piece'} & Auto-Tag with AI`}</span>
+              </button>
+
+              {/* Per-file batch report: partial success is surfaced, not hidden */}
+              {uploadReport && (
+                <div className="space-y-1.5">
+                  {uploadReport.results.map((r, idx) => (
+                    <div key={idx} className={`flex items-center justify-between text-[11px] px-3 py-2 rounded-xl border ${
+                      r.status === 'failed'
+                        ? 'bg-rose-50 border-rose-200 text-rose-800'
+                        : r.status === 'duplicate'
+                          ? 'bg-amber-50 border-amber-200 text-amber-800'
+                          : r.item?.processing_status === 'failed'
+                            ? 'bg-amber-50 border-amber-200 text-amber-800'
+                            : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                    }`}>
+                      <span className="truncate font-medium">{r.filename}</span>
+                      <span className="font-bold ml-2 shrink-0">
+                        {r.status === 'failed'
+                          ? 'Failed'
+                          : r.status === 'duplicate'
+                            ? 'Duplicate — already owned'
+                            : r.item?.processing_status === 'ready'
+                              ? 'Analyzed ✓'
+                              : r.item?.processing_status === 'failed'
+                                ? 'Saved (AI retryable)'
+                                : 'Processing…'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </form>
+
+            {/* Mode 2: manual entry fallback (metadata-complete -> ready immediately) */}
             <form onSubmit={handleAddSubmit} className="p-6 space-y-4">
+              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Or add manually (no photo)</p>
               <div>
                 <label className="text-xs font-bold text-slate-800 block mb-1">Garment Title</label>
                 <input
@@ -372,23 +594,12 @@ export const WardrobeView: React.FC = () => {
                 </div>
               </div>
 
-              <div>
-                <label className="text-xs font-bold text-slate-800 block mb-1">Garment Photo URL</label>
-                <input
-                  type="text"
-                  value={newImageUrl}
-                  onChange={(e) => setNewImageUrl(e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs"
-                />
-              </div>
-
               <div className="pt-2">
                 <button
                   type="submit"
-                  className="w-full py-3 rounded-xl bg-[#1B1F3B] hover:bg-[#2A3C78] text-white font-semibold text-xs transition-all shadow-md flex items-center justify-center gap-1.5"
+                  className="w-full py-3 rounded-xl bg-[#1B1F3B] hover:bg-[#2A3C78] text-white font-semibold text-xs transition-all shadow-md"
                 >
-                  <SparkleIcon size={14} color="#B8935A" />
-                  <span>Auto-Tag with AI & Save Piece</span>
+                  Save Piece Manually
                 </button>
               </div>
             </form>

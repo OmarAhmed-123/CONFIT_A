@@ -104,7 +104,11 @@ class Settings(BaseSettings):
     POLICY_VERSION: int = 3
     ANALYTICS_K_MIN: int = 20
     TRYON_ANONYMOUS_EXPIRY_HOURS: int = 24
-    DUPLICATE_ALERT_SIMILARITY_THRESHOLD: float = 0.82
+    # Group 4 §30: duplicate-purchase thresholds, centralized. Strict means
+    # near-exact duplicate (type + color required by the scorer, 90/100);
+    # loose means similar style/category (65/100: type + one more signal).
+    DUPLICATE_ALERT_SIMILARITY_THRESHOLD: float = 0.90
+    DUPLICATE_ALERT_LOOSE_THRESHOLD: float = 0.65
 
     model_config = SettingsConfigDict(
         env_file=("backend/.env", ".env"),

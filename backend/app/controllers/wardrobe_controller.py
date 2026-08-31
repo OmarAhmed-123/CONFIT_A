@@ -1,5 +1,5 @@
 from typing import List, Optional
-from fastapi import APIRouter, Depends, Query, HTTPException, status
+from fastapi import APIRouter, Depends, Query, HTTPException, status, UploadFile, File
 from sqlalchemy.orm import Session
 from backend.app.core.database import get_db
 from backend.app.core.dependencies import get_current_user, get_current_user_optional
@@ -11,10 +11,11 @@ from backend.app.schemas.wardrobe import (
     WardrobeItemUpdate,
     WardrobeItemOut,
     WardrobeAutoTagRequest,
-    WardrobeAutoTagResponse,
     GapAnalysisOut,
     DuplicateCheckRequest,
-    DuplicateAlertResponse
+    DuplicateAlertResponse,
+    WardrobeUploadResponse,
+    WardrobeFirstOutfitOut,
 )
 
 router = APIRouter(prefix="/wardrobe", tags=["Virtual Wardrobe & Smart Reuse"])
@@ -82,28 +83,78 @@ def delete_wardrobe_item(
     return {"status": "success", "message": "Item deleted from wardrobe."}
 
 
-@router.post("/items/{item_id}/upload-url")
-def get_wardrobe_upload_url(item_id: int, user: User = Depends(get_current_user)):
-    return {
-        "item_id": item_id,
-        "upload_url": f"https://storage.confit.io/wardrobe/user_{item_id}.jpg",
-        "method": "PUT"
-    }
+@router.post("/upload", response_model=WardrobeUploadResponse, status_code=status.HTTP_201_CREATED)
+async def upload_wardrobe_image(
+    file: UploadFile = File(...),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Single-image wardrobe upload: validate -> store -> AI analyze -> persist.
 
-
-@router.post("/items/{item_id}/analyze", response_model=WardrobeAutoTagResponse)
-def analyze_wardrobe_item(item_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    The item row is created before analysis so an AI failure still leaves the
+    user's photo safely stored with status 'failed' (retryable) — never a
+    fake 'ready' item with invented tags.
+    """
+    data = await file.read()
     service = WardrobeService(db)
-    return service.auto_tag_uploaded_image("")
+    result = await service.upload_items(user.id, [(file.filename or "upload", file.content_type, data)])
+    entry = result["results"][0]
+    if entry["status"] == "failed":
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=entry["detail"])
+    return result
 
 
-@router.post("/auto-tag", response_model=WardrobeAutoTagResponse)
-def auto_tag_item(
+@router.post("/upload/bulk", response_model=WardrobeUploadResponse, status_code=status.HTTP_201_CREATED)
+async def bulk_upload_wardrobe_images(
+    files: List[UploadFile] = File(...),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Bulk import with per-item isolation: partial success is returned with
+    a per-file status so the UI can show exactly which item failed (BRD §13)."""
+    if not files:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="No files provided.")
+    if len(files) > 20:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Bulk import is limited to 20 files per batch.")
+    payload = []
+    for f in files:
+        payload.append((f.filename or "upload", f.content_type, await f.read()))
+    service = WardrobeService(db)
+    return await service.upload_items(user.id, payload)
+
+
+@router.post("/items/{item_id}/analyze", response_model=WardrobeItemOut)
+async def analyze_wardrobe_item(item_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """(Re)run AI analysis on an owned item — the retry path for failed items.
+    Ownership is enforced in the service; another user's item resolves to 404."""
+    service = WardrobeService(db)
+    return await service.analyze_item(user.id, item_id)
+
+
+@router.post("/auto-tag")
+async def auto_tag_item(
     payload: WardrobeAutoTagRequest,
     db: Session = Depends(get_db)
 ):
+    """Upload-form preview tagging via the real vision provider. When no
+    vision model is configured the response honestly reports
+    analysis_available=false instead of returning fabricated attributes."""
     service = WardrobeService(db)
-    return service.auto_tag_uploaded_image(payload.image_url or "")
+    return await service.auto_tag_image(payload.image_url, payload.image_base64)
+
+
+@router.get("/outfit-suggestions", response_model=WardrobeFirstOutfitOut)
+def wardrobe_first_outfit(
+    occasion: str = Query("Smart Casual"),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Group 4 §24 'shop your wardrobe first': build a look from the caller's
+    owned pieces via the existing outfit/styling engine; only positions the
+    wardrobe cannot fill become purchasable catalog suggestions."""
+    from backend.app.services.outfit_service import OutfitService
+    service = OutfitService(db)
+    return service.build_wardrobe_first_outfit(user.id, occasion=occasion)
 
 
 @router.get("/gap-analysis", response_model=List[GapAnalysisOut])
@@ -143,5 +194,6 @@ def check_duplicate_purchase(
         product_title=payload.product_title,
         category=payload.category,
         color_family=payload.color_family,
-        strict_mode=payload.strict_mode
+        strict_mode=payload.strict_mode,
+        pattern=payload.pattern
     )

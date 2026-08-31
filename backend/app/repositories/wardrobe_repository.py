@@ -17,6 +17,16 @@ class WardrobeRepository:
     def get_item_by_id(self, item_id: int, user_id: int) -> Optional[WardrobeItem]:
         return self.db.query(WardrobeItem).filter(WardrobeItem.id == item_id, WardrobeItem.user_id == user_id).first()
 
+    def get_item_by_image_hash(self, user_id: int, image_hash: str) -> Optional[WardrobeItem]:
+        """Duplicate-upload protection: same owner + same bytes = same item.
+        Always scoped to the caller — one user's upload can never match or
+        leak another user's image hash."""
+        return (
+            self.db.query(WardrobeItem)
+            .filter(WardrobeItem.user_id == user_id, WardrobeItem.image_hash == image_hash)
+            .first()
+        )
+
     def add_item(
         self,
         user_id: int,
@@ -32,7 +42,10 @@ class WardrobeRepository:
         occasions: List[str],
         wear_frequency: str = "regular",
         purchase_price: Optional[float] = None,
-        is_favorite: bool = False
+        is_favorite: bool = False,
+        seasonality: str = "All-Season",
+        processing_status: str = "ready",
+        image_hash: Optional[str] = None
     ) -> WardrobeItem:
         item = WardrobeItem(
             user_id=user_id,
@@ -48,7 +61,10 @@ class WardrobeRepository:
             occasions=json.dumps(occasions),
             wear_frequency=wear_frequency,
             purchase_price=purchase_price,
-            is_favorite=is_favorite
+            is_favorite=is_favorite,
+            seasonality=seasonality,
+            processing_status=processing_status,
+            image_hash=image_hash
         )
         self.db.add(item)
         self.db.commit()

@@ -4,6 +4,7 @@ import json
 import os
 import uuid
 from typing import List, Dict, Any, Optional, Tuple
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from backend.app.core.config import settings
 from backend.app.core.exceptions import ResourceNotFoundError, ValidationDomainError, ProviderIntegrationError
@@ -15,6 +16,17 @@ from backend.app.services import wardrobe_taxonomy as taxonomy
 # Image contract shared by single + bulk upload paths.
 ALLOWED_IMAGE_TYPES = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}
 MAX_IMAGE_BYTES = 15 * 1024 * 1024  # 15MB, matches the vision provider limit
+
+# Fields a client is permitted to change via update_item. The schema already
+# whitelists these at the API boundary; this service-level allowlist is the
+# second line of defense so lifecycle columns (processing_status, image_hash,
+# user_id, ...) can never be mutated through the generic update path even if
+# a future caller bypasses the controller schema.
+_UPDATEABLE_FIELDS = {
+    "title", "category", "subcategory", "color_name", "color_hex", "pattern",
+    "occasions", "seasonality", "wear_frequency", "is_favorite", "wear_count",
+    "brand_name", "purchase_price", "ai_tags", "secondary_colors",
+}
 
 
 class WardrobeService:
@@ -86,11 +98,14 @@ class WardrobeService:
             updates["occasions"] = taxonomy.normalize_occasions(updates["occasions"])
 
         for key, val in updates.items():
-            if hasattr(item, key) and val is not None:
-                if key in ["ai_tags", "occasions", "secondary_colors"] and isinstance(val, list):
-                    setattr(item, key, json.dumps(val))
-                else:
-                    setattr(item, key, val)
+            if key not in _UPDATEABLE_FIELDS or val is None:
+                continue  # silently drop non-whitelisted / null fields
+            if key == "wear_count" and isinstance(val, int) and val < 0:
+                raise ValidationDomainError("wear_count cannot be negative.")
+            if key in ["ai_tags", "occasions", "secondary_colors"] and isinstance(val, list):
+                setattr(item, key, json.dumps(val))
+            else:
+                setattr(item, key, val)
 
         self.wardrobe_repo.update_item(item)
         return self._to_dict(item)
@@ -177,21 +192,37 @@ class WardrobeService:
                     results.append(entry)
                     continue
 
-                item = self.wardrobe_repo.add_item(
-                    user_id=user_id,
-                    title=os.path.splitext(filename or "Wardrobe Item")[0][:255] or "Wardrobe Item",
-                    category="Tops",  # placeholder bucket until AI analysis lands
-                    subcategory=None,
-                    color_name="Black",
-                    color_hex="#1B1B1B",
-                    pattern="Solid",
-                    brand_name="Own Collection",
-                    image_url=image_url,
-                    ai_tags=[],
-                    occasions=[],
-                    processing_status="processing",
-                    image_hash=digest,
-                )
+                try:
+                    item = self.wardrobe_repo.add_item(
+                        user_id=user_id,
+                        title=os.path.splitext(filename or "Wardrobe Item")[0][:255] or "Wardrobe Item",
+                        category="Tops",  # placeholder bucket until AI analysis lands
+                        subcategory=None,
+                        color_name="Black",
+                        color_hex="#1B1B1B",
+                        pattern="Solid",
+                        brand_name="Own Collection",
+                        image_url=image_url,
+                        ai_tags=[],
+                        occasions=[],
+                        processing_status="processing",
+                        image_hash=digest,
+                    )
+                except IntegrityError:
+                    # Lost a concurrent-insert race on uq_wardrobe_items_user_
+                    # image_hash (same bytes uploaded twice simultaneously).
+                    # Roll back and return the canonical item — idempotent.
+                    self.db.rollback()
+                    self._delete_owned_image(image_url)
+                    canonical = self.wardrobe_repo.get_item_by_image_hash(user_id, digest)
+                    entry.update({
+                        "status": "duplicate",
+                        "detail": "This exact image is already in your wardrobe.",
+                        "item": self._to_dict(canonical) if canonical else None,
+                    })
+                    skipped_duplicates += 1
+                    results.append(entry)
+                    continue
                 analyzed = await self._run_ai_analysis(item)
                 entry.update({"status": "created", "item": self._to_dict(analyzed)})
                 succeeded += 1
@@ -290,8 +321,15 @@ class WardrobeService:
         return image_url
 
     async def analyze_item(self, user_id: int, item_id: int) -> Dict[str, Any]:
-        """(Re)run AI analysis for one owned item — the retry path."""
+        """(Re)run AI analysis for one owned item — the retry path.
+
+        Guard (§26 concurrency): re-analyzing an already-ready item is
+        idempotent — it returns the current state without burning another
+        vision call. Retry is meaningful only for failed/processing items.
+        """
         item = self.get_item(user_id, item_id)  # ownership enforced here
+        if item.processing_status == "ready":
+            return self._to_dict(item)
         analyzed = await self._run_ai_analysis(item)
         return self._to_dict(analyzed)
 

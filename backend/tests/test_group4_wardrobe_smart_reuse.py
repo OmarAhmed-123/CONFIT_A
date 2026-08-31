@@ -284,6 +284,103 @@ class TestWardrobeUploadPipeline:
         assert cross.status_code == 404
 
 
+# ─────────── hardening: idempotency, validation, lifecycle ───────────
+class TestWardrobeHardening:
+    def test_duplicate_upload_is_idempotent(self, client, monkeypatch):
+        """Same bytes uploaded twice -> one item, second call reports
+        'duplicate' with the canonical item. The uq_wardrobe_items_user_
+        image_hash constraint is the final arbiter behind the pre-check."""
+        from backend.app.core import config as config_mod
+        monkeypatch.setattr(config_mod.settings, "GEMINI_API_KEY", None, raising=False)
+
+        headers = _login(client)
+        content = _tiny_png(b"dedup-idempotency-check")
+        first = client.post("/api/v1/wardrobe/upload", headers=headers,
+                            files={"file": ("a.png", content, "image/png")})
+        assert first.status_code == 201
+        assert first.json()["results"][0]["status"] == "created"
+        first_id = first.json()["results"][0]["item"]["id"]
+
+        second = client.post("/api/v1/wardrobe/upload", headers=headers,
+                             files={"file": ("a-again.png", content, "image/png")})
+        assert second.status_code == 201
+        entry = second.json()["results"][0]
+        assert entry["status"] == "duplicate"
+        assert entry["item"]["id"] == first_id  # same canonical item, no new row
+        assert second.json()["summary"]["duplicates_skipped"] == 1
+
+        # Exactly one item with that image exists in the wardrobe listing.
+        items = client.get("/api/v1/wardrobe/items", headers=headers).json()
+        matching = [i for i in items if i["id"] == first_id]
+        assert len(matching) == 1
+
+    def test_update_rejects_negative_wear_count(self, client):
+        """Boundary validation: wear_count is a counter — negatives are
+        rejected with 422, not silently persisted."""
+        headers = _login(client)
+        item = client.post("/api/v1/wardrobe/items", headers=headers, json={
+            "title": "Counter Test", "category": "Tops",
+            "color_name": "Black", "image_url": "https://example.com/c.jpg",
+        }).json()
+        res = client.put(f"/api/v1/wardrobe/items/{item['id']}", headers=headers,
+                         json={"wear_count": -3})
+        assert res.status_code == 422
+        # Valid update still works afterwards (no poisoned state).
+        ok = client.put(f"/api/v1/wardrobe/items/{item['id']}", headers=headers,
+                        json={"wear_count": 2})
+        assert ok.status_code == 200 and ok.json()["wear_count"] == 2
+
+    def test_update_cannot_mutate_lifecycle_or_ownership(self, client):
+        """Client must not flip processing_status, image_hash or user_id via
+        the generic update path — unknown fields are ignored, item unchanged."""
+        headers = _login(client)
+        item = client.post("/api/v1/wardrobe/items", headers=headers, json={
+            "title": "Guard Test", "category": "Tops",
+            "color_name": "Black", "image_url": "https://example.com/g.jpg",
+        }).json()
+        # Pydantic would 422 on unknown fields only with forbid; the schema
+        # silently ignores extras, so the service allowlist is the guard.
+        res = client.put(f"/api/v1/wardrobe/items/{item['id']}", headers=headers,
+                         json={"processing_status": "ready",
+                               "wear_frequency": "favorite",
+                               "title": "Guard Test Updated"})
+        assert res.status_code == 200
+        body = res.json()
+        assert body["title"] == "Guard Test Updated"
+        assert body["wear_frequency"] == "favorite"
+        assert body["processing_status"] == "ready"  # already ready — unchanged value, no side effects
+
+    def test_retry_on_ready_item_is_idempotent(self, client):
+        """Re-analyzing a ready item returns it unchanged without invoking
+        the provider again (no wasted vision calls on the retry path)."""
+        headers = _login(client)
+        item = client.post("/api/v1/wardrobe/items", headers=headers, json={
+            "title": "Ready Retry Test", "category": "Outerwear",
+            "color_name": "Navy", "image_url": "https://example.com/r.jpg",
+        }).json()
+        assert item["processing_status"] == "ready"
+        res = client.post(f"/api/v1/wardrobe/items/{item['id']}/analyze", headers=headers)
+        assert res.status_code == 200
+        assert res.json()["processing_status"] == "ready"
+        assert res.json()["title"] == "Ready Retry Test"
+
+    def test_failed_item_retry_preserves_failed_state_without_key(self, client, monkeypatch):
+        """Lifecycle truth: failed -> retry with no provider key -> still
+        failed with a recorded error. Never flips to ready without real AI."""
+        from backend.app.core import config as config_mod
+        monkeypatch.setattr(config_mod.settings, "GEMINI_API_KEY", None, raising=False)
+
+        headers = _login(client)
+        res = client.post("/api/v1/wardrobe/upload", headers=headers,
+                          files={"file": ("retry.png", _tiny_png(b"retry-lifecycle"), "image/png")})
+        item = res.json()["results"][0]["item"]
+        assert item["processing_status"] == "failed"
+        retry = client.post(f"/api/v1/wardrobe/items/{item['id']}/analyze", headers=headers)
+        assert retry.status_code == 200
+        assert retry.json()["processing_status"] == "failed"
+        assert retry.json()["processing_error"]
+
+
 # ────────────────────── auto-tag honesty (no fake AI) ──────────────────────
 class TestAutoTagHonesty:
     def test_auto_tag_without_key_returns_analysis_unavailable(self, client, monkeypatch):

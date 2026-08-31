@@ -1,11 +1,19 @@
 from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text, Float
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text, Float, UniqueConstraint
 from sqlalchemy.orm import relationship
 from backend.app.core.database import Base
 
 
 class WardrobeItem(Base):
     __tablename__ = "wardrobe_items"
+    # Group 4 §24/§27: database-level guard for the sha256 duplicate-upload
+    # protection — two concurrent uploads of the same bytes can no longer
+    # both insert (the service catches the IntegrityError and returns the
+    # canonical item as an idempotent duplicate). NULL hashes (manual/seeded
+    # items) are unaffected.
+    __table_args__ = (
+        UniqueConstraint("user_id", "image_hash", name="uq_wardrobe_items_user_image_hash"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)

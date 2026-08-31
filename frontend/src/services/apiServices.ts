@@ -524,7 +524,6 @@ export const wardrobeService = {
 
   deleteItem: (itemId: number) => request<{ status: string }>(`/wardrobe/items/${itemId}`, { method: 'DELETE' }),
 
-  getGaps: () => request<GapAnalysisItem[]>('/wardrobe/gap-analysis'),
   getGapAnalysis: () => request<GapAnalysisItem[]>('/wardrobe/gap-analysis'),
 
   autoTagImage: (imageRef: string) => {

@@ -329,39 +329,10 @@ class VisualSearchAIProvider(BaseProvider):
         failed/retryable instead of inventing tags.
         """
         return await self.execute_with_resilience(
-            self._call_wardrobe_vision_model, image_url_or_base64=image_url_or_base64
+            self._call_gemini_vision,
+            image_url_or_base64=image_url_or_base64,
+            prompt=self.WARDROBE_TAG_PROMPT,
         )
-
-    async def _call_wardrobe_vision_model(self, image_url_or_base64: str) -> Dict[str, Any]:
-        import json as _json
-
-        if not settings.GEMINI_API_KEY:
-            raise TryOnEngineUnavailableError(reason="vision_model_not_configured")
-
-        b64_data, mime = await self._image_to_base64(image_url_or_base64)
-
-        async with httpx.AsyncClient(timeout=25.0) as client:
-            res = await client.post(
-                f"https://generativelanguage.googleapis.com/v1beta/models/{settings.VISION_MODEL}:generateContent?key={settings.GEMINI_API_KEY}",
-                headers={"Content-Type": "application/json"},
-                json={
-                    "contents": [{
-                        "parts": [
-                            {"text": self.WARDROBE_TAG_PROMPT},
-                            {"inline_data": {"mime_type": mime, "data": b64_data}},
-                        ]
-                    }],
-                    "generationConfig": {"response_mime_type": "application/json"},
-                },
-            )
-            res.raise_for_status()
-            text = res.json()["candidates"][0]["content"]["parts"][0]["text"]
-            parsed = _json.loads(text)
-            parsed["analysis_available"] = True
-            parsed["analysis_source"] = settings.VISION_MODEL
-            return parsed
-
-
 
     async def _image_to_base64(self, ref: str) -> tuple[str, str]:
         """Returns (base64_data, mime_type). Downloads http(s) images with validation."""
@@ -387,6 +358,12 @@ class VisualSearchAIProvider(BaseProvider):
         raise ValueError("Image reference must be a data URL or http(s) URL")
 
     async def _call_vision_model(self, image_url_or_base64: str) -> Dict[str, Any]:
+        return await self._call_gemini_vision(image_url_or_base64, self.VISION_PROMPT)
+
+    async def _call_gemini_vision(self, image_url_or_base64: str, prompt: str) -> Dict[str, Any]:
+        """Single Gemini Flash vision caller shared by visual search and Group 4
+        wardrobe auto-tagging (§30: one canonical call path, prompt is the only
+        variable). Both consumers rely on analysis_available + their own keys."""
         import json as _json
 
         if not settings.GEMINI_API_KEY:
@@ -401,7 +378,7 @@ class VisualSearchAIProvider(BaseProvider):
                 json={
                     "contents": [{
                         "parts": [
-                            {"text": self.VISION_PROMPT},
+                            {"text": prompt},
                             {"inline_data": {"mime_type": mime, "data": b64_data}},
                         ]
                     }],
@@ -412,12 +389,14 @@ class VisualSearchAIProvider(BaseProvider):
             text = res.json()["candidates"][0]["content"]["parts"][0]["text"]
             parsed = _json.loads(text)
             parsed["analysis_available"] = True
-            parsed["analysis_source"] = "gemini-flash-vision"
+            parsed["analysis_source"] = settings.VISION_MODEL
             return parsed
 
-    async def fallback(self, image_url_or_base64: str) -> Dict[str, Any]:
-        # Honest degradation: no detection is fabricated. Both consumers of
-        # this provider (visual search and Group 4 wardrobe auto-tagging)
+    async def fallback(self, image_url_or_base64: str, **kwargs) -> Dict[str, Any]:
+        # Honest degradation: no detection is fabricated. Accepts (and ignores)
+        # the extra call kwargs (e.g. prompt) that execute_with_resilience
+        # forwards so a caller-supplied argument never breaks the fallback
+        # contract. Both consumers (visual search, Group 4 wardrobe auto-tagging)
         # check analysis_available first, so the unavailable payload carries
         # both key sets with null detections — never invented attributes.
         return {

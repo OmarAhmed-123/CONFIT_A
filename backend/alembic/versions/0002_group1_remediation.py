@@ -65,7 +65,17 @@ def upgrade() -> None:
                 if not _has_column(bind, "user_style_profiles", name):
                     kwargs = {"nullable": True}
                     if default is not None:
-                        kwargs["server_default"] = sa.text("1" if default is True else ("0" if default is False else str(default)))
+                        # Portable defaults: sa.true()/sa.false() render as
+                        # TRUE/FALSE on Postgres and 1/0 on SQLite. Using
+                        # sa.text("1") for a Boolean column failed on real
+                        # Postgres (DatatypeMismatch: default of type integer)
+                        # and blocked the entire migration chain — so Group 4
+                        # (0004/0005) could never reach production. Discovered
+                        # during Neon deployment verification.
+                        if isinstance(coltype, sa.Boolean):
+                            kwargs["server_default"] = sa.true() if default is True else sa.false()
+                        else:
+                            kwargs["server_default"] = sa.text(str(default))
                     batch.add_column(sa.Column(name, coltype, **kwargs))
 
     # ---- refresh_tokens ---------------------------------------------------

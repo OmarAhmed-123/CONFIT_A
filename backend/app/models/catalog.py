@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text, Float, UniqueConstraint
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text, Float, UniqueConstraint, CheckConstraint
 from sqlalchemy.orm import relationship
 from backend.app.core.database import Base
 
@@ -58,6 +58,9 @@ class Product(Base):
 
 class ProductSKU(Base):
     __tablename__ = "product_skus"
+    __table_args__ = (
+        CheckConstraint("stock_level >= 0", name="ck_product_sku_stock_nonneg"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     product_id = Column(Integer, ForeignKey("products.id", ondelete="CASCADE"), nullable=False)
@@ -115,6 +118,9 @@ class StoreInventory(Base):
     __tablename__ = "store_inventories"
     __table_args__ = (
         UniqueConstraint("store_id", "sku_id", name="uq_store_inventories_store_sku"),
+        CheckConstraint("quantity >= 0", name="ck_store_inventory_quantity_nonneg"),
+        CheckConstraint("reserved_quantity >= 0", name="ck_store_inventory_reserved_nonneg"),
+        CheckConstraint("reserved_quantity <= quantity", name="ck_store_inventory_reserved_lte_quantity"),
     )
 
     id = Column(Integer, primary_key=True, index=True)

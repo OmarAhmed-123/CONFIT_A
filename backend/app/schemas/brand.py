@@ -58,6 +58,8 @@ class SponsoredPlacementCreate(BaseModel):
     placement_type: str = "stylist_featured"
     bid_amount_per_click: float = 0.50
     daily_budget: float = 50.0
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
 
 
 class SponsoredPlacementOut(BaseModel):
@@ -75,6 +77,9 @@ class SponsoredPlacementOut(BaseModel):
     conversions: int
     revenue_generated: float
     created_at: datetime
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
 
 class BrandAnalyticsDashboardOut(BaseModel):
@@ -105,6 +110,10 @@ class AdminPlatformAnalyticsOut(BaseModel):
     platform_avg_return_rate: float
     return_rate_tryon_users: float
     return_rate_non_tryon_users: float
-    revenue_attribution: Dict[str, float]
+    revenue_attribution: Dict[str, Any]  # Exclusive attribution with priority to avoid double count
     top_performing_brands: List[Dict[str, Any]]
     style_preference_heatmap: Dict[str, Any]
+    most_styled_items: Optional[List[Dict[str, Any]]] = None
+    outfit_to_purchase_ratio: Optional[float] = None
+
+    model_config = ConfigDict(extra="allow")

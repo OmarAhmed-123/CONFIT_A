@@ -85,6 +85,11 @@ class Settings(BaseSettings):
     AI_STYLIST_PROVIDER: str = "hybrid"
     VTON_PROVIDER: str = "hybrid"
     VTON_WORKER_URL: Optional[str] = None
+    VTON_WORKER_ADMIN_TOKEN: Optional[str] = None
+    CONFIT_WORKER_ADMIN_TOKEN: Optional[str] = None
+    VTON_WORKER_TIMEOUT_SECONDS: float = 90.0
+    VTON_WORKER_HEALTH_TIMEOUT_SECONDS: float = 5.0
+    VTON_WORKER_MAX_RETRIES: int = 3
     CHAT_COOLDOWN_MS: int = 600000
 
     # Weather (G2-S5) — disabled by default; never fabricate weather data.

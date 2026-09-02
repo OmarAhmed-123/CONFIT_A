@@ -53,7 +53,9 @@ class Settings(BaseSettings):
         "http://localhost:5173",
         "http://127.0.0.1:5173",
         "http://localhost:3000",
-        "http://localhost:8000"
+        "http://localhost:8000",
+        "http://localhost:43123",
+        "http://127.0.0.1:43123",
     ]
 
     # Live Server-Side AI API Keys (Loaded from .env/Environment)
@@ -97,6 +99,17 @@ class Settings(BaseSettings):
     FULFILL_PACE: str = "demo"
     BNPL_DEFAULT_PROVIDER: str = "tabby"
     PAYMENT_DEFAULT_PROVIDER: str = "mock"
+    PAYMENTS_LIVE: bool = False
+    TABBY_API_KEY: Optional[str] = None
+    TAMARA_API_KEY: Optional[str] = None
+    STRIPE_SECRET_KEY: Optional[str] = None
+    STRIPE_WEBHOOK_SECRET: Optional[str] = None
+    PAYMOB_API_KEY: Optional[str] = None
+    TAX_RATE: float = 0.05
+    FREE_SHIPPING_THRESHOLD: float = 250.0
+    STANDARD_SHIPPING_FEE: float = 15.0
+    EXPRESS_SHIPPING_FEE: float = 35.0
+    RETURN_WINDOW_DAYS: int = 30
     STORAGE_PROVIDER: str = "local"
     STORAGE_LOCAL_DIR: str = "./backend/data/uploads"
 

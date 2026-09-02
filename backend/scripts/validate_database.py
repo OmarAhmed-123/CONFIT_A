@@ -124,6 +124,26 @@ ORPHAN_CHECKS: List[Check] = [
           "SELECT count(*) FROM refresh_tokens r "
           "WHERE r.user_id NOT IN (SELECT id FROM users)",
           severity="P0"),
+    Check("orphan payment_transactions.order_id",
+          "SELECT count(*) FROM payment_transactions t "
+          "WHERE t.order_id NOT IN (SELECT id FROM orders)",
+          severity="P0"),
+    Check("orphan fulfillment_groups.order_id",
+          "SELECT count(*) FROM fulfillment_groups g "
+          "WHERE g.order_id NOT IN (SELECT id FROM orders)",
+          severity="P0"),
+    Check("orphan order_events.order_id",
+          "SELECT count(*) FROM order_events e "
+          "WHERE e.order_id NOT IN (SELECT id FROM orders)",
+          severity="P0"),
+    Check("orphan promotion_redemptions.order_id",
+          "SELECT count(*) FROM promotion_redemptions r "
+          "WHERE r.order_id NOT IN (SELECT id FROM orders)",
+          severity="P1"),
+    Check("orphan inventory_reservations.sku_id",
+          "SELECT count(*) FROM inventory_reservations r "
+          "WHERE r.sku_id NOT IN (SELECT id FROM product_skus)",
+          severity="P1"),
 ]
 
 NUMERIC_CHECKS: List[Check] = [

@@ -67,8 +67,8 @@ class BrandService:
                 "style_tags": json.loads(p.style_tags) if p.style_tags else [],
                 "occasion_tags": json.loads(p.occasion_tags) if p.occasion_tags else [],
                 "rating": p.rating,
-                "style_compatibility_score": p.style_compatibility_base,
-                "ai_fit_score": 94,
+                "style_compatibility_score": None,
+                "ai_fit_score": None,
                 "is_featured": p.is_featured,
                 "skus": skus_out
             })

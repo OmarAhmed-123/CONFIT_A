@@ -58,7 +58,7 @@ def test_checkout_strictly_gates_unauthenticated_guests():
     unauth_res = client.post("/api/v1/commerce/checkout", headers=guest_headers, json=checkout_payload)
     assert unauth_res.status_code == 401
     msg = get_error_message(unauth_res)
-    assert "bearer token required" in msg.lower()
+    assert "guest_email" in msg.lower() or "sign in" in msg.lower()
 
 
 def test_authenticated_customer_can_checkout():

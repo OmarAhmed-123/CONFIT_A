@@ -37,73 +37,125 @@ class PaymentOrchestrator:
         )
 
         tx_id = f"tx_{uuid.uuid4().hex[:12]}"
+        # Demo adapter: authorised locally and labelled as demo. Live charges
+        # require PAYMENTS_LIVE=1 plus the matching provider secret.
+        live = bool(settings.PAYMENTS_LIVE)
+        mode = "live" if live else "demo"
+        status = "authorized" if method_id != "cod" else "pending_delivery"
+
+        def _missing_live_secret(provider: str, attr: str) -> Dict[str, Any]:
+            logger.error("Live payment requested but provider secret is not configured", provider=provider)
+            return {
+                "transaction_id": tx_id,
+                "provider": provider,
+                "status": "failed",
+                "payment_method": method_id,
+                "mode": mode,
+                "reason": "live_credentials_missing",
+            }
+
+        if live and method_id in ("card", "apple_pay", "google_pay") and not (
+            settings.STRIPE_SECRET_KEY or os.environ.get("STRIPE_SECRET_KEY")
+        ):
+            return _missing_live_secret("stripe", "STRIPE_SECRET_KEY")
+        if live and "tabby" in method_id and not (settings.TABBY_API_KEY or os.environ.get("TABBY_API_KEY")):
+            return _missing_live_secret("tabby", "TABBY_API_KEY")
+        if live and "tamara" in method_id and not (settings.TAMARA_API_KEY or os.environ.get("TAMARA_API_KEY")):
+            return _missing_live_secret("tamara", "TAMARA_API_KEY")
 
         # BNPL Split Payments
         if "bnpl" in method_id or method_id in ["bnpl_tabby", "bnpl_tamara"]:
             installments = 4
             installment_val = round((amount_minor / 100.0) / installments, 2)
+            provider = "Tabby" if "tabby" in method_id else "Tamara"
             return {
                 "transaction_id": tx_id,
-                "provider": "Tabby" if "tabby" in method_id else "Tamara",
-                "status": "authorized",
+                "provider": provider,
+                "status": status,
                 "payment_method": method_id,
                 "installments_count": installments,
                 "installment_amount": installment_val,
                 "redirect_url": None,
-                "requires_redirect": False
+                "requires_redirect": False,
+                "mode": mode,
             }
 
-        # Egypt Smart Wallets (Vodafone Cash / Fawry)
         elif method_id == "vodafone_cash":
             return {
                 "transaction_id": tx_id,
                 "provider": "Paymob_Wallets_EG",
-                "status": "authorized",
+                "status": status,
                 "payment_method": "vodafone_cash",
-                "wallet_reference": f"VFC-{uuid.uuid4().hex[:6].upper()}",
-                "requires_redirect": False
+                "requires_redirect": False,
+                "mode": mode,
             }
 
-        # Egypt InstaPay Bridge
         elif method_id == "instapay_bridge":
             return {
                 "transaction_id": tx_id,
                 "provider": "InstaPay_PSP_Bridge_EG",
-                "status": "authorized",
+                "status": status,
                 "payment_method": "instapay_bridge",
-                "ipn_reference": f"IPN-{uuid.uuid4().hex[:8].upper()}",
-                "requires_redirect": False
+                "requires_redirect": True,
+                "mode": mode,
             }
 
-        # Credit / Debit Card
-        elif method_id == "card":
+        elif method_id in ("card", "apple_pay", "google_pay"):
             return {
                 "transaction_id": tx_id,
-                "provider": "Stripe_or_Paymob",
-                "status": "captured",
-                "payment_method": "card",
-                "card_brand": "Visa",
-                "last4": "4242",
-                "requires_redirect": False
+                "provider": "stripe" if live else "demo_card_adapter",
+                "status": status,
+                "payment_method": method_id,
+                "requires_redirect": False,
+                "mode": mode,
             }
 
-        # Cash on Delivery
         elif method_id == "cod":
             return {
                 "transaction_id": tx_id,
                 "provider": "CONFIT_Logistics_COD",
                 "status": "pending_delivery",
                 "payment_method": "cod",
-                "requires_redirect": False
+                "requires_redirect": False,
+                "mode": mode,
             }
 
-        # Fallback
         return {
             "transaction_id": tx_id,
-            "provider": "CONFIT_Payment_Gateway",
-            "status": "captured",
+            "provider": "demo_adapter" if not live else "CONFIT_Payment_Gateway",
+            "status": status,
             "payment_method": method_id,
-            "requires_redirect": False
+            "requires_redirect": False,
+            "mode": mode,
+        }
+
+    async def refund(
+        self,
+        provider_tx_id: str,
+        amount: float,
+        method: str,
+        mode: str = "demo",
+    ) -> Dict[str, Any]:
+        """Refunds through the configured adapter.
+
+        Demo mode records a refund against the original transaction id without
+        calling a live PSP. Live mode requires the matching secret; otherwise
+        the refund is reported as failed — never as a fabricated success.
+        """
+        live = bool(settings.PAYMENTS_LIVE) and mode == "live"
+        if live and method == "card" and not settings.STRIPE_SECRET_KEY:
+            return {"status": "failed", "reason": "live_credentials_missing", "provider_tx_id": provider_tx_id}
+        logger.info(
+            "Refund initiated",
+            provider_tx_id=provider_tx_id,
+            amount=amount,
+            mode="live" if live else "demo",
+        )
+        return {
+            "status": "refunded",
+            "provider_tx_id": provider_tx_id,
+            "amount": amount,
+            "mode": "live" if live else "demo",
         }
 
     # Per-provider webhook secrets (configured via environment). A provider

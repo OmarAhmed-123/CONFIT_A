@@ -9,7 +9,7 @@ from backend.app.models.profile import UserStyleProfile
 from backend.app.models.catalog import Category, Product, ProductSKU, StoreLocation, StoreInventory
 from backend.app.models.stylist import Outfit, OutfitItem
 from backend.app.models.wardrobe import WardrobeItem
-from backend.app.models.commerce import Order, OrderItem
+from backend.app.models.commerce import Order, OrderItem, Promotion, OrderEvent
 from backend.app.models.brand_analytics import SponsoredPlacement
 
 
@@ -597,6 +597,40 @@ def seed_database(target_engine=None, force=False):
         quantity=1,
         subtotal=289.0,
         is_returned=False
+    ))
+
+    db.add(OrderEvent(
+        order_id=sample_order.id,
+        status_key="placed",
+        title="Order placed",
+        description="Seeded boutique pickup order.",
+    ))
+    db.add(OrderEvent(
+        order_id=sample_order.id,
+        status_key="processing",
+        title="Store preparing items",
+        description="Associate pulling garments for pickup.",
+    ))
+
+    db.add(Promotion(
+        code="CONFIT10",
+        description="10% off qualifying cart",
+        discount_type="percent",
+        discount_value=10.0,
+        min_order_amount=0.0,
+        currency="USD",
+        max_per_user=5,
+        is_active=True,
+    ))
+    db.add(Promotion(
+        code="STYLE2026",
+        description="$20 off orders over $50",
+        discount_type="fixed",
+        discount_value=20.0,
+        min_order_amount=50.0,
+        currency="USD",
+        max_per_user=3,
+        is_active=True,
     ))
 
     db.commit()

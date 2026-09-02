@@ -592,6 +592,25 @@ export const commerceService = {
   removeFromCart: (itemId: number) => request<Cart>(`/commerce/cart/items/${itemId}`, { method: 'DELETE' }),
   removeItem: (itemId: number) => request<Cart>(`/commerce/cart/items/${itemId}`, { method: 'DELETE' }),
 
+  applyPromo: (promo_code: string) =>
+    request<Cart>('/commerce/cart/promo', {
+      method: 'POST',
+      body: JSON.stringify({ promo_code }),
+    }),
+
+  getPaymentMethods: (countryCode = 'AE') =>
+    request<{
+      available_methods: Array<{
+        id: string;
+        title_en: string;
+        description_en: string;
+        installment_available?: boolean;
+        installments_count?: number | null;
+        provider_name: string;
+      }>;
+      currency_code: string;
+    }>(`/commerce/payment-methods?country_code=${encodeURIComponent(countryCode)}`),
+
   checkout: (payload: {
     payment_method: string;
     fulfillment_type: string;
@@ -604,6 +623,9 @@ export const commerceService = {
     promo_code?: string;
     try_on_assisted?: boolean;
     stylist_assisted?: boolean;
+    guest_email?: string;
+    shipping_method?: string;
+    idempotency_key?: string;
   }) =>
     request<Order>('/commerce/checkout', {
       method: 'POST',

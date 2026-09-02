@@ -72,7 +72,7 @@ PYTHONPATH=. uvicorn backend.app.main:app --reload --port 8000
 # 2. Frontend (second terminal)
 cd frontend
 npm ci
-npm run dev                                            # http://localhost:5173
+npm run dev                                            # http://localhost:43123
 ```
 
 - API docs: `http://localhost:8000/docs` · Health: `http://localhost:8000/api/v1/health`
@@ -94,7 +94,8 @@ secrets are read from the environment only — **never commit real keys**
 | `SECRET_KEY`, `JWT_REFRESH_SECRET`, `ENCRYPTION_KEY_FOR_BODY_DATA` | prod | Refuse-to-boot in production while left at defaults. |
 | `GROK_API_KEY` / `GEMINI_API_KEY` / `OPENAI_API_KEY` | optional | Live AI stylist providers (failover order in `AI_PROVIDERS`). |
 | `VTON_WORKER_URL` | for real try-on | Deployed Modal worker URL. |
-| `TABBY_API_KEY` / `STRIPE_WEBHOOK_SECRET` / … | for live payments | PSP credentials; without them payments run in explicit demo mode (`PAYMENTS_LIVE=0`). |
+| `PAYMENTS_LIVE` | no (default false) | When false, card/BNPL use the labelled demo adapter. When true, missing PSP secrets fail the charge — they never fabricate success. |
+| `TABBY_API_KEY` / `TAMARA_API_KEY` / `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` | live payments only | Server-side PSP credentials. Webhooks are rejected if the provider secret is unset. |
 
 ### Database migrations
 

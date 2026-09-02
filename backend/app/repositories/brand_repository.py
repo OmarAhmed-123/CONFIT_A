@@ -994,6 +994,67 @@ class BrandRepository:
             "methodology": "Aggregate from Outfit.style_tags, Outfit.color_palette, Outfit.occasion and Product tags. Never exposes user-level preferences. Filters that would narrow to tiny identifiable population are blocked by threshold."
         }
 
+    # --- Analytics Event Instrumentation (REAL attribution) ---
+    def create_analytics_event(
+        self,
+        brand_id: int,
+        event_type: str,
+        attribution_source: str = None,
+        product_id: int = None,
+        sku_id: int = None,
+        user_id: int = None,
+        session_token: str = None,
+        outfit_id: int = None,
+        order_id: int = None,
+        revenue_amount: float = None,
+        event_metadata: dict = None,
+        idempotency_key: str = None,
+    ) -> Optional[BrandAnalyticsEvent]:
+        """Idempotent analytics event creation - prevents double count."""
+        import uuid as _uuid
+        eid = idempotency_key or f"{event_type}_{attribution_source or 'na'}_{order_id or ''}_{product_id or ''}_{_uuid.uuid4().hex[:8]}"
+        existing = self.db.query(BrandAnalyticsEvent).filter(BrandAnalyticsEvent.event_id == eid).first()
+        if existing:
+            return existing
+        try:
+            ev = BrandAnalyticsEvent(
+                event_id=eid,
+                brand_id=brand_id,
+                product_id=product_id,
+                sku_id=sku_id,
+                user_id=user_id,
+                session_token=session_token,
+                event_type=event_type,
+                attribution_source=attribution_source,
+                outfit_id=outfit_id,
+                order_id=order_id,
+                revenue_amount=float(revenue_amount) if revenue_amount is not None else None,
+                event_metadata_json=json.dumps(event_metadata or {}),
+            )
+            self.db.add(ev)
+            self.db.commit()
+            self.db.refresh(ev)
+            return ev
+        except Exception:
+            self.db.rollback()
+            return self.db.query(BrandAnalyticsEvent).filter(BrandAnalyticsEvent.event_id == eid).first()
+
+    def get_recent_visual_search_for_user(self, user_id: int, within_days: int = 30) -> bool:
+        """Check if user had visual search within window - for attribution."""
+        try:
+            from backend.app.models.tryon import VisualSearchQuery
+            cutoff = datetime.now(timezone.utc) - timedelta(days=within_days)
+            q = self.db.query(VisualSearchQuery).filter(
+                VisualSearchQuery.user_id == user_id,
+            ).first()
+            return q is not None
+        except Exception:
+            try:
+                from backend.app.models.tryon import VisualSearchQuery
+                return self.db.query(VisualSearchQuery).filter(VisualSearchQuery.user_id == user_id).first() is not None
+            except Exception:
+                return False
+
     # --- Catalog Import ---
     def create_import_job(self, brand_id: int, file_name: str = None, file_size: int = None) -> CatalogImportJob:
         job = CatalogImportJob(

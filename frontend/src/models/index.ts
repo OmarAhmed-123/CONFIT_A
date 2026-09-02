@@ -595,16 +595,33 @@ export interface AdminPlatformAnalytics {
   return_rate_non_tryon_users: number;
   revenue_attribution: Record<string, number>;
   top_performing_brands: Array<{
+    brand_id?: number;
     brand: string;
+    products?: number;
+    views?: number;
+    tryons?: number;
     orders: number;
+    conversion_rate?: number;
     tryon_rate: string;
     return_rate: string;
+    return_rate_value?: number;
   }>;
   style_preference_heatmap: {
     region: string;
-    top_aesthetics: Array<{ name: string; share: number }>;
+    sample_size?: number;
+    top_aesthetics: Array<{ name: string; share: number; weight?: number }>;
     trending_colors: string[];
+    top_occasions?: Array<{ name: string; share: number }>;
   };
+  most_styled_items?: Array<{
+    product_id: number;
+    title: string;
+    brand_name: string;
+    thumbnail_url: string;
+    appearances: number;
+    outfit_count?: number;
+  }>;
+  outfit_to_purchase_ratio?: number;
 }
 
 export type TryOnJobStatusType =

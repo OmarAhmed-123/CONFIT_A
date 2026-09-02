@@ -1,27 +1,45 @@
 from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, Float
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, Float, CheckConstraint
 from sqlalchemy.orm import relationship
 from backend.app.core.database import Base
 
 
 class SponsoredPlacement(Base):
     __tablename__ = "sponsored_placements"
+    __table_args__ = (
+        CheckConstraint("bid_amount_per_click > 0", name="ck_sponsored_bid_positive"),
+        CheckConstraint("daily_budget > 0", name="ck_sponsored_budget_positive"),
+        CheckConstraint("bid_amount_per_click <= daily_budget", name="ck_sponsored_bid_lte_budget"),
+        CheckConstraint("bid_amount_per_click <= 100", name="ck_sponsored_bid_max"),
+        CheckConstraint("daily_budget <= 10000", name="ck_sponsored_budget_max"),
+        CheckConstraint("spent_today >= 0", name="ck_sponsored_spent_nonneg"),
+        CheckConstraint("spent_today <= daily_budget", name="ck_sponsored_spent_lte_budget"),
+        CheckConstraint("impressions >= 0", name="ck_sponsored_impressions_nonneg"),
+        CheckConstraint("clicks >= 0", name="ck_sponsored_clicks_nonneg"),
+        CheckConstraint("conversions >= 0", name="ck_sponsored_conversions_nonneg"),
+        CheckConstraint("revenue_generated >= 0", name="ck_sponsored_revenue_nonneg"),
+        CheckConstraint("status IN ('active','paused','budget_exhausted','completed','cancelled')", name="ck_sponsored_status_valid"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
-    brand_id = Column(Integer, ForeignKey("brand_profiles.id", ondelete="CASCADE"), nullable=False)
-    product_id = Column(Integer, ForeignKey("products.id", ondelete="CASCADE"), nullable=False)
-    placement_type = Column(String(50), default="stylist_featured", nullable=False) # "stylist_featured", "trending_hero", "fit_recom_top"
+    brand_id = Column(Integer, ForeignKey("brand_profiles.id", ondelete="CASCADE"), nullable=False, index=True)
+    product_id = Column(Integer, ForeignKey("products.id", ondelete="CASCADE"), nullable=False, index=True)
+    placement_type = Column(String(50), default="stylist_featured", nullable=False, index=True) # "stylist_featured", "trending_hero", "fit_recom_top"
     bid_amount_per_click = Column(Float, default=0.50, nullable=False)
     daily_budget = Column(Float, default=50.0, nullable=False)
-    spent_today = Column(Float, default=12.50, nullable=False)
-    status = Column(String(20), default="active", nullable=False) # "active", "paused", "budget_exhausted"
+    spent_today = Column(Float, default=0.0, nullable=False)
+    status = Column(String(20), default="active", nullable=False, index=True) # "active", "paused", "budget_exhausted"
 
-    impressions = Column(Integer, default=1420, nullable=False)
-    clicks = Column(Integer, default=215, nullable=False)
-    conversions = Column(Integer, default=38, nullable=False)
-    revenue_generated = Column(Float, default=3420.0, nullable=False)
+    impressions = Column(Integer, default=0, nullable=False)
+    clicks = Column(Integer, default=0, nullable=False)
+    conversions = Column(Integer, default=0, nullable=False)
+    revenue_generated = Column(Float, default=0.0, nullable=False)
+
+    start_date = Column(DateTime, nullable=True)
+    end_date = Column(DateTime, nullable=True)
 
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
 
     brand = relationship("BrandProfile", back_populates="sponsored_placements")
     product = relationship("Product", back_populates="sponsored_placements")

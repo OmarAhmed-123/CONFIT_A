@@ -108,13 +108,34 @@ class BrandService:
         if not product or product.brand_id != brand_id:
             raise ValidationDomainError(f"Product {data['product_id']} does not belong to your brand organization.")
 
-        p = self.brand_repo.create_placement(
-            brand_id=brand_id,
-            product_id=data["product_id"],
-            placement_type=data.get("placement_type", "stylist_featured"),
-            bid_amount=data.get("bid_amount_per_click", 0.50),
-            daily_budget=data.get("daily_budget", 50.0)
-        )
+        # Parse dates if provided
+        start_date = data.get("start_date")
+        end_date = data.get("end_date")
+        if isinstance(start_date, str):
+            try:
+                from datetime import datetime
+                start_date = datetime.fromisoformat(start_date.replace("Z", "+00:00"))
+            except:
+                start_date = None
+        if isinstance(end_date, str):
+            try:
+                from datetime import datetime
+                end_date = datetime.fromisoformat(end_date.replace("Z", "+00:00"))
+            except:
+                end_date = None
+
+        try:
+            p = self.brand_repo.create_placement(
+                brand_id=brand_id,
+                product_id=data["product_id"],
+                placement_type=data.get("placement_type", "stylist_featured"),
+                bid_amount=data.get("bid_amount_per_click", 0.50),
+                daily_budget=data.get("daily_budget", 50.0),
+                start_date=start_date,
+                end_date=end_date
+            )
+        except ValueError as e:
+            raise ValidationDomainError(str(e))
         return {
             "id": p.id,
             "brand_id": p.brand_id,

@@ -5,7 +5,7 @@
 **Date:** 2026-09-02
 **Auditor Role:** 25+ year Principal Architect (Backend, DB, Financial, AI/ML, CV, Security, QA, DevOps)
 **Model Policy:** Claude Opus 4.8 TD claimed in prior reports but not exposed in this environment — actual reasoning via environment model, marked honest. No fabricated model attribution.
-**Canonical Final Main SHA:** `f4c6d55d4623185afddc7f5e178e64f37829953c`
+**Canonical Final Main SHA:** `376bc9955e0695ecae142ea4a6ef4f4c46507a59`
 **Previous SHAs:** `0bdfcc8c04b6478a626fd6d5036ba66e6ab92061` (PR #22 docs-only), `3a072f7` (PR #21), `bbf8f57` (PR #20), `a55e78f` (PR #19)
 **Branch:** `final-release-candidate-forensic-remediation` (92d34e0 → 531d6d6 → 3ae6171) merged via PR #23 into main
 **PR #23:** https://github.com/OmarAhmed-123/CONFIT_A/pull/23 — MERGED, CI green (backend success, frontend success, gitleaks success, Vercel success)
@@ -674,8 +674,9 @@ All limitations verified, not hidden.
 
 ### 34. Exact Final Git SHA
 
-**FINAL MAIN SHA = f4c6d55d4623185afddc7f5e178e64f37829953c**
+**FINAL MAIN SHA = 376bc9955e0695ecae142ea4a6ef4f4c46507a59**
 
+- **Ancestor:** f4c6d55d4623185afddc7f5e178e64f37829953c (PR #23 code merge, previous main HEAD before docs V5)
 - **Ancestor:** 0bdfcc8c04b6478a626fd6d5036ba66e6ab92061 (PR #22 docs-only, previous main HEAD at audit start)
 - **Ancestor:** 3a072f7 (PR #21 merge, ancestor of 0bdfcc8, previously mislabeled as final)
 - **Ancestor:** bbf8f57 (PR #20 merge)

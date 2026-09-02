@@ -63,7 +63,7 @@ class OutfitService:
                 "product_title": product.title,
                 "brand_name": product.brand.brand_name if product.brand else "CONFIT Partner",
                 "category_name": product.category.name if product.category else "Fashion",
-                "price": float(price),
+                "price": price,
                 "image_url": product.thumbnail_url,
                 "color_hex": (sku.color_hex if sku and sku.color_hex else product.dominant_hex),
                 "position": item.position,
@@ -273,7 +273,7 @@ class OutfitService:
                     "color_family": p.color_family,
                     "dominant_hex": p.dominant_hex,
                     "image_url": p.thumbnail_url,
-                    "price": float(p.base_price),
+                    "price": to_float(p.base_price),
                 })
 
         return {
@@ -295,13 +295,14 @@ class OutfitService:
     def _format_outfit(self, o: Outfit) -> Dict[str, Any]:
         items_data = []
         for it in o.items:
+            price_val = to_float(it.product.base_price) if it.product and it.product.base_price is not None else 0.0
             items_data.append({
                 "id": it.id,
                 "product_id": it.product_id,
                 "product_title": it.product.title if it.product else "Garment",
                 "brand_name": it.product.brand.brand_name if it.product and it.product.brand else "CONFIT",
                 "category_name": it.product.category.name if it.product and it.product.category else "Fashion",
-                "price": it.product.base_price if it.product else 0.0,
+                "price": price_val,
                 "image_url": it.product.thumbnail_url if it.product else "",
                 "color_hex": it.product.dominant_hex if it.product else "#1B1F3B",
                 "position": it.position,

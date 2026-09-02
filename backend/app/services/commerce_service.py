@@ -14,7 +14,7 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from backend.app.core.config import settings
 from backend.app.core.money import (
     to_decimal,
@@ -403,7 +403,7 @@ class CommerceService:
 
         pay_result = await self.payments.initiate_payment(
             method_id=payment_method,
-            amount_minor=int(round(total * 100)),
+            amount_minor=int((quantize_money(total) * Decimal("100")).to_integral_value(rounding=ROUND_HALF_UP)),
             currency_code="USD",
             customer_email=guest_email or "",
             order_number=order.order_number,

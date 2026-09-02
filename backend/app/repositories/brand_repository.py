@@ -780,10 +780,10 @@ class BrandRepository:
             "return_rate_tryon_users": float(tryon_return_rate),
             "return_rate_non_tryon_users": float(non_tryon_return_rate),
             "revenue_attribution": {
-                "ai_virtual_stylist": float(stylist_rev_exclusive),
-                "outfit_builder": float(outfit_rev_exclusive),
-                "visual_search": float(visual_rev_exclusive),
-                "organic_discovery": float(organic_revenue)
+                "ai_virtual_stylist": to_float(stylist_rev_exclusive),
+                "outfit_builder": to_float(outfit_rev_exclusive),
+                "visual_search": to_float(visual_rev_exclusive),
+                "organic_discovery": to_float(organic_revenue)
             },
             "top_performing_brands": brand_performance[:10],
             "most_styled_items": most_styled_items,
@@ -982,10 +982,10 @@ class BrandRepository:
         return {
             "total_gmv": to_float(total_gmv),
             "revenue_attribution": {
-                "ai_virtual_stylist": float(stylist_rev_exclusive),
-                "outfit_builder": float(outfit_rev_exclusive),
-                "visual_search": float(visual_rev_exclusive),
-                "organic_discovery": float(organic)
+                "ai_virtual_stylist": to_float(stylist_rev_exclusive),
+                "outfit_builder": to_float(outfit_rev_exclusive),
+                "visual_search": to_float(visual_rev_exclusive),
+                "organic_discovery": to_float(organic)
             },
             "attribution_methodology": "Mutually exclusive priority attribution: visual_search > outfit_builder > virtual_stylist > organic. Each order counted once to prevent JOIN multiplication and double-count. Priority based on explicit attribution signals: BrandAnalyticsEvent.attribution_source for Visual Search, OrderItem.outfit_id for Outfit Builder, Order.stylist_assisted for Virtual Stylist. Organic = total - exclusive attributions. Revenue from authoritative Order.total_amount, not frontend values. Refunds/cancellations excluded. No arbitrary 0.5 factors.",
             "attribution_window": "30 days from event to purchase",

@@ -35,6 +35,8 @@ regexes = [
   '''CHANGE_PASSWORD''',
   '''CHANGE_USER''',
   '''confit_secure_password_2026''',  # local docker-compose dev DB only, never production
+  '''refunds/cancellations''',
+  '''refunds and cancellations''',
 ]
 # NOTE: the Neon credential leaked in commit 6a821de is INTENTIONALLY NOT
 # allowlisted — CI stays red until it is rotated in the Neon console. After

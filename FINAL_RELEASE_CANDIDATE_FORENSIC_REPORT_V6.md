@@ -224,7 +224,7 @@ Same as V5, plus Decimal exact.
 - Case D organic+attributed → mixed
 - Case E several same brand → sum of brand's items
 
-**Source precedence:** visual_search > outfit_builder > virtual_stylist > organic, per-item, 30-day window for visual_search, product identity, user identity, brand identity, order identity, item identity, duplicate event idempotency_key, refunds/cancellations excluded via status notin cancelled/refunded.
+**Source precedence:** visual_search > outfit_builder > virtual_stylist > organic, per-item, 30-day window for visual_search, product identity, user identity, brand identity, order identity, item identity, duplicate event protection via purchase key, refunds and cancellations excluded via status notin cancelled/refunded.
 
 **Regression tests:** 33 tests including test_multi_brand_order_with_mixed_attribution, test_brand_item_level_vs_order_level, test_duplicate_events_do_not_duplicate_revenue, test_attribution_sum_le_total_subtotal, test_multi_brand_no_leak, test_retry_not_duplicate_purchase_events — all would fail if Brand A received Brand B revenue.
 

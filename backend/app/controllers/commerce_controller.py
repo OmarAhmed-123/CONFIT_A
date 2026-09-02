@@ -145,45 +145,45 @@ async def checkout_order(
     )
 
 
-@router.post("/checkout/sessions", response_model=Dict[str, Any])
-def create_checkout_session(
-    payload: CheckoutRequest,
-    x_session_token: str = Header(...),
-    user: Optional[User] = Depends(get_current_user_optional),
-    db: Session = Depends(get_db)
-):
-    token = f"chk_sess_{uuid.uuid4().hex[:12]}"
-    service = CommerceService(db)
-    cart = service.get_cart(x_session_token, user_id=user.id if user else None)
-    country = payload.country or settings.MARKET or "EG"
-    methods = PaymentOrchestrator().get_market_methods(country)
-    return {
-        "checkout_token": token,
-        "cart_total": cart["total"],
-        "currency": cart.get("currency") or "USD",
-        "payment_methods_available": [m.id for m in methods.available_methods],
-        "expires_in_seconds": 1800
-    }
+# DEPRECATED: checkout/sessions endpoints were dead code (token generated but never persisted,
+# get always 404). Frontend uses direct POST /commerce/checkout with idempotency_key.
+# These endpoints now return honest 501 to prevent confusion. If session-based checkout
+# is needed in future, implement CheckoutSession table + Alembic migration 0009.
+
+@router.post("/checkout/sessions", include_in_schema=False)
+def create_checkout_session_deprecated():
+    from fastapi import HTTPException
+    raise HTTPException(
+        status_code=501,
+        detail={
+            "code": "FEATURE_NOT_IMPLEMENTED",
+            "message": "Checkout sessions are not implemented. Use POST /commerce/checkout with idempotency_key directly. See CheckoutView.tsx",
+            "hint": "Direct checkout is the canonical flow - see commerceService.checkout()"
+        }
+    )
 
 
-@router.get("/checkout/sessions/{token}")
-def get_checkout_session(token: str):
-    raise ResourceNotFoundError("CheckoutSession", token)
+@router.get("/checkout/sessions/{token}", include_in_schema=False)
+def get_checkout_session_deprecated(token: str):
+    from fastapi import HTTPException
+    raise HTTPException(
+        status_code=501,
+        detail={
+            "code": "FEATURE_NOT_IMPLEMENTED",
+            "message": f"Checkout session {token} lookup not implemented. Use direct checkout.",
+        }
+    )
 
 
-@router.post("/checkout/sessions/{token}/confirm", response_model=OrderOut)
-async def confirm_checkout_session(
-    token: str,
-    payload: CheckoutRequest,
-    x_session_token: str = Header(...),
-    user: Optional[User] = Depends(get_current_user_optional),
-    db: Session = Depends(get_db)
-):
-    service = CommerceService(db)
-    return await service.checkout(
-        session_token=x_session_token,
-        checkout_data=payload.model_dump(),
-        user_id=user.id if user else None,
+@router.post("/checkout/sessions/{token}/confirm", include_in_schema=False)
+async def confirm_checkout_session_deprecated(token: str):
+    from fastapi import HTTPException
+    raise HTTPException(
+        status_code=501,
+        detail={
+            "code": "FEATURE_NOT_IMPLEMENTED",
+            "message": f"Checkout session {token} confirm not implemented. Use POST /commerce/checkout",
+        }
     )
 
 

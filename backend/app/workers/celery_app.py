@@ -27,6 +27,7 @@ celery_app.conf.update(
         "backend.app.workers.tasks.bulk_catalog_import_task": {"queue": "catalog_ingest"},
         "backend.app.workers.tasks.aggregate_analytics_task": {"queue": "analytics_rollups"},
         "backend.app.workers.tasks.purge_expired_sessions_task": {"queue": "maintenance"},
+        "backend.app.workers.tasks.release_expired_inventory_reservations_task": {"queue": "maintenance"},
     },
     beat_schedule={
         "purge-expired-tryon-photos-hourly": {
@@ -36,6 +37,10 @@ celery_app.conf.update(
         "aggregate-style-heatmaps-daily": {
             "task": "backend.app.workers.tasks.aggregate_analytics_task",
             "schedule": 86400.0, # Every 24 hours
+        },
+        "release-expired-inventory-reservations-every-15min": {
+            "task": "backend.app.workers.tasks.release_expired_inventory_reservations_task",
+            "schedule": 900.0, # Every 15 minutes - critical for stock leak prevention
         }
     }
 )

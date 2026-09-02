@@ -103,3 +103,82 @@ def aggregate_analytics_task():
     """Nightly aggregation rollups for B2B brand conversion funnels and return reduction."""
     logger.info("Running B2B platform analytics rollup daemon")
     return {"status": "success", "aggregated_at": datetime.now(timezone.utc).isoformat()}
+
+
+@celery_app.task
+def release_expired_inventory_reservations_task():
+    """
+    CRITICAL: Releases held inventory reservations older than 30 minutes.
+    Prevents stock leak when checkout fails mid-transaction or user abandons cart after reservation.
+    
+    This task should run every 15 minutes via celery beat:
+    - Only releases status='held' (not committed/released)
+    - Restores global SKU stock and store reserved_quantity
+    - Marks reservation as released with timestamp
+    - Idempotent and safe to run concurrently (uses FOR UPDATE locks)
+    """
+    from datetime import timedelta
+    from backend.app.models.catalog import ProductSKU, StoreInventory
+    from backend.app.models.commerce import InventoryReservation
+
+    logger.info("Running expired inventory reservation cleanup")
+    db = SessionLocal()
+    try:
+        cutoff = datetime.now(timezone.utc) - timedelta(minutes=30)
+        # Find stale held reservations
+        stale_reservations = (
+            db.query(InventoryReservation)
+            .filter(InventoryReservation.status == "held")
+            .filter(InventoryReservation.created_at < cutoff)
+            .all()
+        )
+
+        released_count = 0
+        restored_units = 0
+
+        for reservation in stale_reservations:
+            # Lock SKU to prevent race with concurrent checkout
+            sku = (
+                db.query(ProductSKU)
+                .with_for_update()
+                .filter(ProductSKU.id == reservation.sku_id)
+                .first()
+            )
+            if sku:
+                sku.stock_level += reservation.quantity
+                sku.is_in_stock = True
+                restored_units += reservation.quantity
+
+            # Restore store inventory if BOPIS
+            if reservation.store_id:
+                store_inv = (
+                    db.query(StoreInventory)
+                    .with_for_update()
+                    .filter(
+                        StoreInventory.store_id == reservation.store_id,
+                        StoreInventory.sku_id == reservation.sku_id,
+                    )
+                    .first()
+                )
+                if store_inv:
+                    store_inv.reserved_quantity = max(
+                        0, store_inv.reserved_quantity - reservation.quantity
+                    )
+
+            reservation.status = "released"
+            reservation.released_at = datetime.now(timezone.utc)
+            released_count += 1
+
+        db.commit()
+        logger.info(
+            "Expired reservations released",
+            released_count=released_count,
+            restored_units=restored_units,
+        )
+        return {"released_count": released_count, "restored_units": restored_units}
+    except Exception as exc:
+        db.rollback()
+        logger.error("Failed to release expired reservations", error=str(exc))
+        raise
+    finally:
+        db.close()

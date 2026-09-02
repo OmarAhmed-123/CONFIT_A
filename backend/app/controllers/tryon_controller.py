@@ -229,23 +229,40 @@ async def create_tryon_session(
     db: Session = Depends(get_db)
 ):
     service = TryOnService(db)
-    p_ids = payload.product_ids if payload.product_ids else ([payload.product_id] if payload.product_id else [1])
-    res = await service.execute_multi_garment_tryon(
-        product_ids=p_ids,
-        user_image_url=payload.user_image_url,
-        avatar_model_id=payload.avatar_model_id,
-        user_id=user.id if user else None,
-        consent_retain_photo=payload.consent_retain or False
-    )
-    return {
-        "session_id": res["session_id"],
-        "status": "ready",
-        "applied_items": res["applied_items"],
-        "total_price": res["total_price"],
-        "rendered_result_url": res["rendered_result_url"],
-        "fit_verdict": res["body_fit_verdict"],
-        "expires_at": res["expires_at"]
-    }
+    try:
+        p_ids = payload.product_ids if payload.product_ids else ([payload.product_id] if payload.product_id else [1])
+        res = await service.execute_multi_garment_tryon(
+            product_ids=p_ids,
+            user_image_url=payload.user_image_url,
+            avatar_model_id=payload.avatar_model_id,
+            user_id=user.id if user else None,
+            consent_retain_photo=payload.consent_retain or False
+        )
+        return {
+            "session_id": res["session_id"],
+            "status": "ready",
+            "applied_items": res["applied_items"],
+            "total_price": res["total_price"],
+            "rendered_result_url": res["rendered_result_url"],
+            "fit_verdict": res["body_fit_verdict"],
+            "expires_at": res["expires_at"]
+        }
+    except RuntimeError as e:
+        err = str(e)
+        if "VTON_ENGINE_UNAVAILABLE" in err:
+            raise HTTPException(status_code=503, detail={"error": {"code": "VTON_ENGINE_UNAVAILABLE", "message": err}})
+        elif "VTON_AUTH_FAILURE" in err:
+            raise HTTPException(status_code=503, detail={"error": {"code": "VTON_AUTH_FAILURE", "message": "VTON worker authentication failed"}})
+        elif "VTON_WORKER_NOT_READY" in err:
+            raise HTTPException(status_code=503, detail={"error": {"code": "VTON_WORKER_NOT_READY", "message": err}})
+        elif "VTON_INPUT_INVALID" in err:
+            raise HTTPException(status_code=422, detail={"error": {"code": "VTON_INPUT_INVALID", "message": err}})
+        elif "VTON_OUTPUT_INVALID" in err:
+            raise HTTPException(status_code=502, detail={"error": {"code": "VTON_OUTPUT_INVALID", "message": err}})
+        elif "VTON_TIMEOUT" in err:
+            raise HTTPException(status_code=504, detail={"error": {"code": "VTON_TIMEOUT", "message": err}})
+        else:
+            raise HTTPException(status_code=500, detail={"error": {"code": "VTON_FAILED", "message": err[:500]}})
 
 
 @router.get("/try-on/sessions/{session_id}")
@@ -268,13 +285,24 @@ async def apply_item_to_session(
     db: Session = Depends(get_db)
 ):
     service = TryOnService(db)
-    return await service.apply_item_to_session(
-        session_id=session_id,
-        product_id=payload.product_id,
-        slot=payload.slot,
-        replace_if_occupied=payload.replace_if_occupied,
-        user_id=user.id if user else None
-    )
+    try:
+        return await service.apply_item_to_session(
+            session_id=session_id,
+            product_id=payload.product_id,
+            slot=payload.slot,
+            replace_if_occupied=payload.replace_if_occupied,
+            user_id=user.id if user else None
+        )
+    except RuntimeError as e:
+        err = str(e)
+        if "VTON_ENGINE_UNAVAILABLE" in err:
+            raise HTTPException(status_code=503, detail={"error": {"code": "VTON_ENGINE_UNAVAILABLE", "message": err}})
+        elif "VTON_WORKER_NOT_READY" in err:
+            raise HTTPException(status_code=503, detail={"error": {"code": "VTON_WORKER_NOT_READY", "message": err}})
+        elif "VTON_INPUT_INVALID" in err:
+            raise HTTPException(status_code=422, detail={"error": {"code": "VTON_INPUT_INVALID", "message": err}})
+        else:
+            raise HTTPException(status_code=500, detail={"error": {"code": "VTON_FAILED", "message": err[:500]}})
 
 
 @router.post("/try-on/sessions/{session_id}/remove-item")
@@ -286,12 +314,21 @@ async def remove_item_from_session(
     db: Session = Depends(get_db)
 ):
     service = TryOnService(db)
-    return await service.remove_item_from_session(
-        session_id=session_id,
-        product_id=payload.product_id,
-        slot=payload.slot,
-        user_id=user.id if user else None
-    )
+    try:
+        return await service.remove_item_from_session(
+            session_id=session_id,
+            product_id=payload.product_id,
+            slot=payload.slot,
+            user_id=user.id if user else None
+        )
+    except RuntimeError as e:
+        err = str(e)
+        if "VTON_ENGINE_UNAVAILABLE" in err:
+            raise HTTPException(status_code=503, detail={"error": {"code": "VTON_ENGINE_UNAVAILABLE", "message": err}})
+        elif "VTON_WORKER_NOT_READY" in err:
+            raise HTTPException(status_code=503, detail={"error": {"code": "VTON_WORKER_NOT_READY", "message": err}})
+        else:
+            raise HTTPException(status_code=500, detail={"error": {"code": "VTON_FAILED", "message": err[:500]}})
 
 
 @router.post("/try-on/sessions/{session_id}/reorder")

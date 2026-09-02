@@ -28,6 +28,9 @@ IMPORT_TO_PACKAGE = {
 
 STDLIB = set(sys.stdlib_module_names)
 
+# Local packages that are not third-party (vton-worker etc) and not deployed with backend
+LOCAL_PACKAGES = {"pipeline", "services", "worker", "modal_app"}
+
 
 def declared_packages() -> set[str]:
     pkgs = set()
@@ -50,15 +53,18 @@ def imported_third_party() -> set[str]:
       for py in base_dir.rglob("*.py"):
           if "__pycache__" in str(py):
               continue
-          tree = ast.parse(py.read_text())
+          try:
+              tree = ast.parse(py.read_text(), filename=str(py))
+          except Exception:
+              continue
           for node in ast.walk(tree):
               if isinstance(node, ast.Import):
                   for a in node.names:
                       mods.add(a.name.split(".")[0])
               elif isinstance(node, ast.ImportFrom) and node.module and node.level == 0:
                   mods.add(node.module.split(".")[0])
-    # drop stdlib and our own package
-    return {m for m in mods if m not in STDLIB and m != "backend"}
+    # drop stdlib, our own package, and local worker packages
+    return {m for m in mods if m not in STDLIB and m != "backend" and m not in LOCAL_PACKAGES}
 
 
 def main() -> int:

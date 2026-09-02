@@ -103,19 +103,42 @@ class TryOnService:
 
             try:
                 import httpx
+                import asyncio
                 async with httpx.AsyncClient(timeout=90.0) as client:
-                    # Pre-flight: a half-deployed worker (model not actually in
-                    # VRAM) must fail the job loudly NOW, not after a 90s wait.
-                    try:
-                        health = await client.get(f"{worker_url.rstrip('/')}/health", timeout=5.0)
-                        health_ok = (
-                            health.status_code == 200
-                            and health.json().get("model_loaded") is True
-                        )
-                    except Exception:
-                        health_ok = False
+                    # C17/C18/C19 FIX: Readiness gate with retry + exponential backoff
+                    # Prevents crash-loop: check readiness before dispatch, retry 3 times
+                    health_ok = False
+                    last_health_error = None
+                    for attempt in range(3):
+                        try:
+                            # Try readiness endpoint first (C18), fallback to health
+                            try:
+                                readiness_resp = await client.get(f"{worker_url.rstrip('/')}/readiness", timeout=5.0)
+                                if readiness_resp.status_code == 200 and readiness_resp.json().get("ready") is True:
+                                    health_ok = True
+                                    break
+                            except Exception:
+                                pass  # readiness endpoint may not exist on old deploy
+
+                            health = await client.get(f"{worker_url.rstrip('/')}/health", timeout=5.0)
+                            if health.status_code == 200:
+                                data = health.json()
+                                if data.get("model_loaded") is True or data.get("ready") is True:
+                                    health_ok = True
+                                    break
+                                else:
+                                    last_health_error = data.get("load_error", "model not loaded")
+                            else:
+                                last_health_error = f"HTTP {health.status_code}"
+                        except Exception as e:
+                            last_health_error = str(e)
+                            health_ok = False
+
+                        if attempt < 2:  # Don't sleep after last attempt
+                            await asyncio.sleep(2 ** attempt)  # 1s, 2s, 4s backoff
+
                     if not health_ok:
-                        raise RuntimeError("GPU worker /health reports model_loaded=false or is unreachable")
+                        raise RuntimeError(f"GPU worker not ready after 3 attempts: {last_health_error or 'unreachable'}")
 
                     resp = await client.post(
                         f"{worker_url.rstrip('/')}/process",

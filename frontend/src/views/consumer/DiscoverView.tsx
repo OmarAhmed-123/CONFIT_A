@@ -281,8 +281,17 @@ export const DiscoverView: React.FC = () => {
                     <img
                       src={p.thumbnail_url}
                       alt={p.title}
+                      loading="lazy"
+                      decoding="async"
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 cursor-pointer"
                       onClick={() => navigate(`/product/${p.slug}`)}
+                      onError={(e) => {
+                        const target = e.currentTarget as HTMLImageElement;
+                        if (!target.dataset.fallback) {
+                          target.dataset.fallback = 'true';
+                          target.src = `https://placehold.co/400x500/1B1F3B/FFFFFF?text=${encodeURIComponent(p.title.slice(0,20))}`;
+                        }
+                      }}
                     />
                     <div className="absolute top-2.5 left-2.5 flex flex-col gap-1">
                       <FitScoreBadge score={p.style_compatibility_score} verdict="Color Harmony" />

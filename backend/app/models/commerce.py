@@ -287,6 +287,48 @@ class WebhookEvent(Base):
     status = Column(String(30), default="processed", nullable=False)
 
 
+class CheckoutSession(Base):
+    """
+    Durable checkout session persistence - C2 Fix.
+    Previously token was generated but never persisted (dead code, always 404).
+    Now implements full lifecycle:
+    - token persistence with ownership
+    - cart snapshot (server-authoritative totals at session creation time)
+    - expiration (30min default)
+    - validation and invalidation
+    - authorization (user_id or guest_email)
+    - cleanup via expiry
+    """
+
+    __tablename__ = "checkout_sessions"
+    __table_args__ = (
+        Index("ix_checkout_sessions_user", "user_id"),
+        Index("ix_checkout_sessions_expires", "expires_at"),
+        Index("ix_checkout_sessions_status", "status"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    token = Column(String(100), unique=True, index=True, nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    guest_email = Column(String(255), nullable=True)
+    guest_session_token = Column(String(100), nullable=True, index=True)
+
+    cart_snapshot_json = Column(Text, nullable=False)  # Server-authoritative cart at session creation
+    total_amount = Column(Float, nullable=False)
+    currency = Column(String(10), default="USD", nullable=False)
+    promo_code = Column(String(50), nullable=True)
+
+    status = Column(String(30), default="active", nullable=False)  # active | converted | expired | cancelled
+    order_id = Column(Integer, ForeignKey("orders.id", ondelete="SET NULL"), nullable=True)
+
+    expires_at = Column(DateTime, nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    converted_at = Column(DateTime, nullable=True)
+
+    user = relationship("User")
+    order = relationship("Order")
+
+
 class InventoryReservation(Base):
     __tablename__ = "inventory_reservations"
     __table_args__ = (Index("ix_inv_res_sku_status", "sku_id", "status"),)

@@ -342,6 +342,18 @@ export const VirtualStylistDrawer: React.FC = () => {
                           })}
                         </div>
 
+                        {/* C15 FIX: Budget honesty - show within/over budget and note */}
+                        {outfit.budget_limit != null && (
+                          <div className={`p-2.5 rounded-xl border text-[11px] ${outfit.within_budget ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-amber-50 border-amber-300 text-amber-800'}`}>
+                            <div className="flex items-center gap-1.5 font-bold">
+                              <span>{outfit.within_budget ? '✓ Within budget' : '⚠ Budget exceeded'}</span>
+                              <span className="font-normal">— Target: ${outfit.budget_limit?.toFixed(2)}, Total: ${outfit.total_price.toFixed(2)}</span>
+                            </div>
+                            {outfit.budget_note && (
+                              <p className="mt-1 font-light leading-relaxed">{outfit.budget_note}</p>
+                            )}
+                          </div>
+                        )}
                         {/* Total and Action Buttons */}
                         <div className="flex items-center justify-between pt-3 border-t border-slate-100">
                           <div>

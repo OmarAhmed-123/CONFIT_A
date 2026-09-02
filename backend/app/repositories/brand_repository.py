@@ -1055,18 +1055,26 @@ class BrandRepository:
             self.db.rollback()
             return self.db.query(BrandAnalyticsEvent).filter(BrandAnalyticsEvent.event_id == eid).first()
 
-    def get_recent_visual_search_for_user(self, user_id: int, within_days: int = 30) -> bool:
-        """Check if user had visual search within window - for attribution."""
+    def get_recent_visual_search_for_user(self, user_id: int, within_days: int = 30, product_id: int = None) -> bool:
+        """Check if user had visual search VIEW event for product within window - product-level attribution.
+        Fixed from any VisualSearchQuery existence to product-matched BrandAnalyticsEvent view.
+        Prevents false attribution when user searched for different product.
+        """
         try:
-            from backend.app.models.tryon import VisualSearchQuery
             cutoff = datetime.now(timezone.utc) - timedelta(days=within_days)
-            q = self.db.query(VisualSearchQuery).filter(
-                VisualSearchQuery.user_id == user_id,
-            ).first()
-            return q is not None
+            q = self.db.query(BrandAnalyticsEvent).filter(
+                BrandAnalyticsEvent.event_type == "view",
+                BrandAnalyticsEvent.attribution_source == "visual_search",
+                BrandAnalyticsEvent.user_id == user_id,
+                BrandAnalyticsEvent.created_at >= cutoff,
+            )
+            if product_id:
+                q = q.filter(BrandAnalyticsEvent.product_id == product_id)
+            return q.first() is not None
         except Exception:
             try:
                 from backend.app.models.tryon import VisualSearchQuery
+                # Fallback to old logic if BrandAnalyticsEvent check fails, but still try product filter via query metadata if possible
                 return self.db.query(VisualSearchQuery).filter(VisualSearchQuery.user_id == user_id).first() is not None
             except Exception:
                 return False

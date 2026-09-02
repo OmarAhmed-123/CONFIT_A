@@ -307,22 +307,16 @@ class CommerceService:
         self._attach_reservations(reservation_ids, order.id)
 
         # --- Real analytics instrumentation: purchase events with exclusive attribution ---
+        # Fixed: product-level 30-day window using BrandAnalyticsEvent view events
+        # Previously used any VisualSearchQuery existence + try_on_assisted flag, which could
+        # incorrectly attribute unrelated purchases (different product, different brand, months ago)
+        # Now: visual_search attribution only if user had a visual_search VIEW event for SAME product_id
+        # within 30 days, preventing cross-product false attribution
         try:
             from backend.app.repositories.brand_repository import BrandRepository
-            from backend.app.models.tryon import VisualSearchQuery
+            from backend.app.models.catalog_import import BrandAnalyticsEvent
             brand_repo = BrandRepository(self.db)
-            # Determine attribution per order based on flags and recent visual search
-            has_visual_search = False
-            if user_id:
-                try:
-                    cutoff = datetime.now(timezone.utc) - timedelta(days=30)
-                    # VisualSearchQuery may not have created_at column in older schema, handle gracefully
-                    vs_q = self.db.query(VisualSearchQuery).filter(VisualSearchQuery.user_id == user_id)
-                    # Try filter by id desc limit to approximate recent
-                    vs_q = vs_q.order_by(VisualSearchQuery.id.desc()).first()
-                    has_visual_search = vs_q is not None
-                except Exception:
-                    has_visual_search = False
+            cutoff = datetime.now(timezone.utc) - timedelta(days=30)
 
             for item_payload in order_items_payload:
                 brand_id = item_payload["brand_id"]
@@ -332,7 +326,27 @@ class CommerceService:
                 subtotal_item = item_payload["subtotal"]
 
                 # Priority: visual_search > outfit_builder > virtual_stylist > organic
-                if has_visual_search and checkout_data.get("try_on_assisted"):
+                # Product-level 30-day attribution: check view event for same product + user within window
+                has_product_visual_search = False
+                if user_id and product_id:
+                    try:
+                        # Check for recent visual_search view event for this product and user
+                        # Uses BrandAnalyticsEvent view events created by visual_search_service
+                        # This ensures product identity lineage: query -> matches -> view event -> purchase
+                        # Prevents attributing unrelated purchases when user searched for different product
+                        existing_view = self.db.query(BrandAnalyticsEvent).filter(
+                            BrandAnalyticsEvent.event_type == "view",
+                            BrandAnalyticsEvent.attribution_source == "visual_search",
+                            BrandAnalyticsEvent.product_id == product_id,
+                            BrandAnalyticsEvent.user_id == user_id,
+                            BrandAnalyticsEvent.created_at >= cutoff
+                        ).first()
+                        has_product_visual_search = existing_view is not None
+                    except Exception as _vs_e:
+                        logger.debug("visual_search_attribution_check_failed", product_id=product_id, error=str(_vs_e)[:100])
+                        has_product_visual_search = False
+
+                if has_product_visual_search:
                     attribution = "visual_search"
                 elif outfit_id:
                     attribution = "outfit_builder"

@@ -416,104 +416,112 @@ class VTONInferenceService:
         except Exception as e:
             raise HTTPException(status_code=422, detail={"error": {"code": "INPUT_INVALID", "message": f"Invalid person image: {type(e).__name__}: {str(e)[:200]}"}})
 
-        # Decode garment images - support multiple garments but use first for single inference
-        # For multi-garment, we currently process first garment (future: proper multi-garment blending)
+        # Multi-garment sequential diffusion: output becomes input for next layer
+        # Correct architecture for outfit builder: upper_inner -> upper_outer/dress -> lower -> footwear -> accessory
+        # Each layer is a real CatVTON diffusion call, not duplicated frames, layers_processed = len(garments)
         garments = payload.garments or []
         if not garments:
             raise HTTPException(status_code=422, detail={"error": {"code": "INPUT_INVALID", "message": "No garments provided"}})
 
-        first = garments[0]
-        gown_ref = first.get("image_base64") or first.get("image_url") or ""
-        slot_type = first.get("slot_type", "upper_inner")
-        if slot_type not in SUPPORTED_SLOTS:
-            slot_type = "upper_inner"
+        slot_order = {"upper_inner": 1, "upper_outer": 2, "dress": 2, "lower": 3, "footwear": 4, "accessory": 5}
+        def _slot_rank(g):
+            return slot_order.get(g.get("slot_type", "upper_inner"), 99)
+        garments_sorted = sorted(garments, key=_slot_rank)
 
-        try:
-            if gown_ref.startswith("data:image"):
-                header, b64_data = gown_ref.split(",", 1)
-                g_raw = base64.b64decode(b64_data)
-                garment = _validate_and_decode_image(g_raw, "garment image")
-            else:
-                if not _is_safe_url(gown_ref):
-                    raise HTTPException(status_code=422, detail={"error": {"code": "INPUT_INVALID", "message": "Unsafe garment image URL"}})
-                import httpx
-                try:
-                    r = httpx.get(gown_ref, timeout=30.0, follow_redirects=True, headers={"User-Agent": "CONFIT-VTON/1.0"})
-                    r.raise_for_status()
-                    if len(r.content) > MAX_IMAGE_BYTES:
-                        raise HTTPException(status_code=422, detail={"error": {"code": "INPUT_INVALID", "message": "Garment image too large"}})
-                    garment = _validate_and_decode_image(r.content, "garment image")
-                except httpx.TimeoutException:
-                    raise HTTPException(status_code=422, detail={"error": {"code": "TIMEOUT", "message": "Timeout fetching garment image"}})
-                except httpx.HTTPStatusError as e:
-                    raise HTTPException(status_code=422, detail={"error": {"code": "INPUT_INVALID", "message": f"Failed to fetch garment image: HTTP {e.response.status_code}"}})
-        except HTTPException:
-            raise
-        except Exception as e:
-            raise HTTPException(status_code=422, detail={"error": {"code": "INPUT_INVALID", "message": f"Invalid garment image: {type(e).__name__}: {str(e)[:200]}"}})
-
-        # Prepare images for inference
         w, h = 512, 768
         try:
             person_resized = person.resize((w, h))
-            garment_resized = garment.resize((w // 2, h // 2))
-            mask = _make_slot_mask(person_resized, slot_type)
         except Exception as e:
-            raise HTTPException(status_code=422, detail={"error": {"code": "INPUT_INVALID", "message": f"Image preprocessing failed: {e}"}})
+            raise HTTPException(status_code=422, detail={"error": {"code": "INPUT_INVALID", "message": f"Person image preprocessing failed: {e}"}})
 
-        # Inference with OOM handling
         import torch
-        start_inference = time.time()
-        try:
-            # Clear cache before inference to reduce OOM risk
-            if torch.cuda.is_available():
-                torch.cuda.empty_cache()
+        import httpx
+        current_image = person_resized
+        total_inference_ms = 0
+        last_slot = "upper_inner"
+        applied_slots = []
 
-            result_image = self.pipe(
-                image=person_resized,
-                condition_image=garment_resized,
-                mask=mask,
-                num_inference_steps=20,
-                guidance_scale=2.5,
-                height=h,
-                width=w,
-            )[0]
-            elapsed = round((time.time() - start_inference) * 1000, 1)
+        for idx, garment_item in enumerate(garments_sorted, start=1):
+            g_ref = garment_item.get("image_base64") or garment_item.get("image_url") or ""
+            slot_type = garment_item.get("slot_type", "upper_inner")
+            if slot_type not in SUPPORTED_SLOTS:
+                slot_type = "upper_inner"
+            last_slot = slot_type
+            applied_slots.append(slot_type)
 
-        except torch.cuda.OutOfMemoryError as e:
-            # OOM handling: cleanup and honest failure
+            try:
+                if g_ref.startswith("data:image"):
+                    header, b64_data = g_ref.split(",", 1)
+                    g_raw = base64.b64decode(b64_data)
+                    garment = _validate_and_decode_image(g_raw, f"garment {idx} image")
+                else:
+                    if not _is_safe_url(g_ref):
+                        raise HTTPException(status_code=422, detail={"error": {"code": "INPUT_INVALID", "message": f"Unsafe garment {idx} image URL"}})
+                    try:
+                        r = httpx.get(g_ref, timeout=30.0, follow_redirects=True, headers={"User-Agent": "CONFIT-VTON/1.0"})
+                        r.raise_for_status()
+                        if len(r.content) > MAX_IMAGE_BYTES:
+                            raise HTTPException(status_code=422, detail={"error": {"code": "INPUT_INVALID", "message": f"Garment {idx} image too large"}})
+                        garment = _validate_and_decode_image(r.content, f"garment {idx} image")
+                    except httpx.TimeoutException:
+                        raise HTTPException(status_code=422, detail={"error": {"code": "TIMEOUT", "message": f"Timeout fetching garment {idx} image"}})
+                    except httpx.HTTPStatusError as e:
+                        raise HTTPException(status_code=422, detail={"error": {"code": "INPUT_INVALID", "message": f"Failed to fetch garment {idx} image: HTTP {e.response.status_code}"}})
+            except HTTPException:
+                raise
+            except Exception as e:
+                raise HTTPException(status_code=422, detail={"error": {"code": "INPUT_INVALID", "message": f"Invalid garment {idx} image: {type(e).__name__}: {str(e)[:200]}"}})
+
+            try:
+                garment_resized = garment.resize((w // 2, h // 2))
+                mask = _make_slot_mask(current_image, slot_type)
+            except Exception as e:
+                raise HTTPException(status_code=422, detail={"error": {"code": "INPUT_INVALID", "message": f"Garment {idx} preprocessing failed: {e}"}})
+
+            start_inference = time.time()
             try:
                 if torch.cuda.is_available():
                     torch.cuda.empty_cache()
-            except Exception:
-                pass
-            print(f"[process] OOM error for job {request_id}: {e}")
-            raise HTTPException(
-                status_code=503,
-                detail={
-                    "error": {
-                        "code": "GPU_OOM",
-                        "message": "GPU out of memory, try again with smaller image or fewer concurrent requests",
-                        "job_id": request_id,
-                    }
-                },
-            )
-        except Exception as e:
-            # Generic inference failure - cleanup and fail honestly
-            try:
-                if torch.cuda.is_available():
-                    torch.cuda.empty_cache()
-            except Exception:
-                pass
-            import traceback
-            traceback.print_exc()
-            print(f"[process] Inference failed for job {request_id}: {type(e).__name__}: {e}")
-            raise HTTPException(
-                status_code=500,
-                detail={"error": {"code": "INFERENCE_FAILED", "message": f"Inference failed: {type(e).__name__}: {str(e)[:300]}", "job_id": request_id}},
-            )
+                result_image = self.pipe(
+                    image=current_image,
+                    condition_image=garment_resized,
+                    mask=mask,
+                    num_inference_steps=20,
+                    guidance_scale=2.5,
+                    height=h,
+                    width=w,
+                )[0]
+                elapsed = round((time.time() - start_inference) * 1000, 1)
+                total_inference_ms += elapsed
+                current_image = result_image
+                print(f"[process] layer {idx}/{len(garments_sorted)} slot={slot_type} inference_ms={elapsed} job={request_id}")
+            except torch.cuda.OutOfMemoryError as e:
+                try:
+                    if torch.cuda.is_available():
+                        torch.cuda.empty_cache()
+                except Exception:
+                    pass
+                print(f"[process] OOM error layer {idx} job {request_id}: {e}")
+                raise HTTPException(
+                    status_code=503,
+                    detail={"error": {"code": "GPU_OOM", "message": f"GPU OOM at layer {idx} ({slot_type}), try fewer garments", "job_id": request_id, "failed_layer": idx}},
+                )
+            except Exception as e:
+                try:
+                    if torch.cuda.is_available():
+                        torch.cuda.empty_cache()
+                except Exception:
+                    pass
+                import traceback
+                traceback.print_exc()
+                print(f"[process] Inference failed layer {idx} job {request_id}: {type(e).__name__}: {e}")
+                raise HTTPException(
+                    status_code=500,
+                    detail={"error": {"code": "INFERENCE_FAILED", "message": f"Inference failed layer {idx} ({slot_type}): {type(e).__name__}: {str(e)[:300]}", "job_id": request_id, "failed_layer": idx}},
+                )
 
-        # Encode output
+        result_image = current_image
+
         try:
             buf = io.BytesIO()
             result_image.convert("RGB").save(buf, format="PNG")
@@ -522,11 +530,9 @@ class VTONInferenceService:
         except Exception as e:
             raise HTTPException(status_code=500, detail={"error": {"code": "OUTPUT_INVALID", "message": f"Failed to encode output: {e}"}})
 
-        # Output validation: no echo
         if rendered_data_url == ref:
             raise HTTPException(status_code=500, detail={"error": {"code": "OUTPUT_INVALID", "message": "Model returned input unchanged (echo)"}})
 
-        # Verification metrics
         verify = {"PASS": None, "metric_pixel_change": None, "metric_color_shift": None}
         try:
             import numpy as np
@@ -540,30 +546,28 @@ class VTONInferenceService:
                 "metric_pixel_change": round(pixel_change, 4),
                 "metric_color_shift": round(color_shift, 6),
             }
-            # If verification fails, still return but mark as warning
             if not verify["PASS"]:
-                print(f"[process] WARNING: low pixel change for job {request_id}: pixel_change={pixel_change}, color_shift={color_shift}")
+                print(f"[process] WARNING: low pixel change job {request_id}: {pixel_change}")
         except Exception as e:
-            print(f"[process] verify failed for job {request_id}: {e}")
+            print(f"[process] verify failed job {request_id}: {e}")
 
         total_elapsed = round((time.time() - start_total) * 1000, 1)
 
-        # Structured logging with observability (no secrets, no image data)
         print(
-            f"[process] SUCCESS job={request_id} slot={slot_type} inference_ms={elapsed} total_ms={total_elapsed} "
-            f"verify_pass={verify.get('PASS')} pixel_change={verify.get('metric_pixel_change')} "
-            f"output_size={len(rendered_data_url)} garments={len(garments)}"
+            f"[process] SUCCESS job={request_id} slots={applied_slots} layers={len(garments_sorted)} total_inference_ms={total_inference_ms} total_ms={total_elapsed} "
+            f"verify_pass={verify.get('PASS')} pixel_change={verify.get('metric_pixel_change')} output_size={len(rendered_data_url)}"
         )
 
         return {
             "job_id": payload.job_id,
             "status": "completed",
             "rendered_image_data_url": rendered_data_url,
-            "execution_time_ms": elapsed,
+            "execution_time_ms": total_inference_ms,
             "total_time_ms": total_elapsed,
-            "model_used": f"CatVTON(SD1.5-inpaint, vae=sd-vae-ft-mse, attn={ATTN_SUBFOLDER}, slot={slot_type})",
-            "layers_processed": len(garments),
-            "slot_type": slot_type,
-            "fit_verdict": f"diffusion (CatVTON slot={slot_type})",
+            "model_used": f"CatVTON(SD1.5-inpaint, vae=sd-vae-ft-mse, attn={ATTN_SUBFOLDER}, slots={applied_slots})",
+            "layers_processed": len(garments_sorted),
+            "slot_type": last_slot,
+            "applied_slots": applied_slots,
+            "fit_verdict": f"diffusion sequential multi-garment ({len(garments_sorted)} layers: {','.join(applied_slots)})",
             "verify": verify,
         }

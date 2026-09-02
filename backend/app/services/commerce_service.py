@@ -704,7 +704,7 @@ class CommerceService:
         if already:
             raise ReturnIneligibleError("One or more items have already been returned.")
 
-        refund_subtotal = sum(it.subtotal for it in order.items if it.id in item_ids)
+        refund_subtotal = sum(float(it.subtotal) if it.subtotal is not None else 0.0 for it in order.items if it.id in item_ids)
         label_url, label_ref = self._generate_return_label(order)
 
         req = self.commerce_repo.create_return_request(
@@ -765,7 +765,9 @@ class CommerceService:
             raise ValidationDomainError("Exchange replacement must be a variant of the same product.")
 
         new_price = sku.price_override or sku.product.base_price
-        delta = round(new_price - item.unit_price, 2)
+        new_price_f = float(new_price) if new_price is not None else 0.0
+        unit_price_f = float(item.unit_price) if item.unit_price is not None else 0.0
+        delta = round(new_price_f - unit_price_f, 2)
         payment_status = "not_required"
         if delta > 0:
             payment_status = "delta_due"
@@ -865,12 +867,17 @@ class CommerceService:
         )
         if result.get("status") not in ("refunded", "refund_pending"):
             raise PaymentFailedError(tx.provider, "refund was not confirmed")
-        tx.refunded_amount = (tx.refunded_amount or 0) + req.refund_amount
+        # Handle Decimal from Numeric(12,2)
+        current_refunded = float(tx.refunded_amount) if tx.refunded_amount is not None else 0.0
+        refund_req = float(req.refund_amount) if req.refund_amount is not None else 0.0
+        tx.refunded_amount = current_refunded + refund_req
         tx.status = result["status"]
         req.status = "refunded" if result["status"] == "refunded" else "approved"
         if result["status"] == "refunded":
-            order.payment_status = "refunded" if tx.refunded_amount >= order.total_amount - 0.01 else order.payment_status
-            self._transition(order, "refunded" if tx.refunded_amount >= order.total_amount - 0.01 else "partially_returned")
+            total_f = float(order.total_amount) if order.total_amount is not None else 0.0
+            refunded_f = float(tx.refunded_amount) if tx.refunded_amount is not None else 0.0
+            order.payment_status = "refunded" if refunded_f >= total_f - 0.01 else order.payment_status
+            self._transition(order, "refunded" if refunded_f >= total_f - 0.01 else "partially_returned")
         self.db.commit()
         return self._format_return(req)
 
@@ -883,7 +890,8 @@ class CommerceService:
             sku = it.sku
             prod = sku.product
             unit_price = sku.price_override if sku.price_override is not None else prod.base_price
-            line_sub = unit_price * it.quantity
+            unit_price_f = float(unit_price) if unit_price is not None else 0.0
+            line_sub = unit_price_f * it.quantity
             subtotal += line_sub
             brands.add(prod.brand_id)
             payload.append(
@@ -921,7 +929,8 @@ class CommerceService:
             raise PromoIneligibleError(code, "code is not yet active")
         if promo.expires_at and promo.expires_at.replace(tzinfo=timezone.utc) < now:
             raise PromoIneligibleError(code, "code has expired")
-        if subtotal < promo.min_order_amount:
+        min_order_f = float(promo.min_order_amount) if promo.min_order_amount is not None else 0.0
+        if subtotal < min_order_f:
             raise PromoIneligibleError(code, f"minimum order is {promo.min_order_amount}")
         if promo.max_redemptions is not None:
             used = self.commerce_repo.count_redemptions(promo.id)
@@ -940,14 +949,16 @@ class CommerceService:
             if promo.product_id and prod.id != promo.product_id:
                 continue
             unit = it.sku.price_override if it.sku.price_override is not None else prod.base_price
-            eligible_subtotal += unit * it.quantity
+            unit_f = float(unit) if unit is not None else 0.0
+            eligible_subtotal += unit_f * it.quantity
         if eligible_subtotal <= 0:
             raise PromoIneligibleError(code, "no items in the cart qualify")
 
+        discount_val_f = float(promo.discount_value) if promo.discount_value is not None else 0.0
         if promo.discount_type == "percent":
-            discount = round(eligible_subtotal * (promo.discount_value / 100.0), 2)
+            discount = round(eligible_subtotal * (discount_val_f / 100.0), 2)
         else:
-            discount = min(promo.discount_value, eligible_subtotal)
+            discount = min(discount_val_f, eligible_subtotal)
         return discount, promo
 
     def _reserve_inventory(
@@ -1146,7 +1157,8 @@ class CommerceService:
             sku = it.sku
             prod = sku.product
             price = sku.price_override if sku.price_override is not None else prod.base_price
-            line_sub = price * it.quantity
+            price_f = float(price) if price is not None else 0.0
+            line_sub = price_f * it.quantity
             subtotal += line_sub
             count += it.quantity
             brand_name = prod.brand.brand_name if prod.brand else "CONFIT"

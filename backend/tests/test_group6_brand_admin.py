@@ -236,7 +236,7 @@ Another Product,outerwear,299.99,Black,https://example.com/another.jpg,L,Black,2
             # Verify product created
             prod = db.query(Product).filter(Product.title == "Test Product CSV", Product.brand_id == brand.id).first()
             assert prod is not None
-            assert prod.base_price == 199.99
+            assert float(prod.base_price) == 199.99
 
             # Cleanup
             if prod:

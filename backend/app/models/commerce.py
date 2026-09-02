@@ -8,6 +8,7 @@ from sqlalchemy import (
     ForeignKey,
     Text,
     Float,
+    Numeric,
     UniqueConstraint,
     Index,
 )
@@ -59,8 +60,8 @@ class Promotion(Base):
     code = Column(String(50), unique=True, index=True, nullable=False)
     description = Column(String(255), nullable=False)
     discount_type = Column(String(20), nullable=False)  # percent | fixed
-    discount_value = Column(Float, nullable=False)
-    min_order_amount = Column(Float, default=0.0, nullable=False)
+    discount_value = Column(Numeric(12, 2), nullable=False)
+    min_order_amount = Column(Numeric(12, 2), default=0.0, nullable=False)
     brand_id = Column(Integer, ForeignKey("brand_profiles.id", ondelete="SET NULL"), nullable=True)
     product_id = Column(Integer, ForeignKey("products.id", ondelete="SET NULL"), nullable=True)
     market = Column(String(10), nullable=True)
@@ -88,7 +89,7 @@ class PromotionRedemption(Base):
     order_id = Column(Integer, ForeignKey("orders.id", ondelete="CASCADE"), nullable=False)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     guest_email = Column(String(255), nullable=True)
-    discount_amount = Column(Float, nullable=False)
+    discount_amount = Column(Numeric(12, 2), nullable=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
     promotion = relationship("Promotion", back_populates="redemptions")
@@ -104,11 +105,11 @@ class Order(Base):
     guest_email = Column(String(255), nullable=True, index=True)
     guest_session_token = Column(String(100), nullable=True, index=True)
 
-    total_amount = Column(Float, nullable=False)
-    subtotal_amount = Column(Float, nullable=False)
-    discount_amount = Column(Float, default=0.0, nullable=False)
-    tax_amount = Column(Float, default=0.0, nullable=False)
-    shipping_amount = Column(Float, default=0.0, nullable=False)
+    total_amount = Column(Numeric(12, 2), nullable=False)
+    subtotal_amount = Column(Numeric(12, 2), nullable=False)
+    discount_amount = Column(Numeric(12, 2), default=0.0, nullable=False)
+    tax_amount = Column(Numeric(12, 2), default=0.0, nullable=False)
+    shipping_amount = Column(Numeric(12, 2), default=0.0, nullable=False)
     currency = Column(String(10), default="USD", nullable=False)
     promo_code = Column(String(50), nullable=True)
 
@@ -177,9 +178,9 @@ class OrderItem(Base):
     brand_name = Column(String(255), nullable=False)
     size = Column(String(20), nullable=False)
     color = Column(String(50), nullable=False)
-    unit_price = Column(Float, nullable=False)
+    unit_price = Column(Numeric(12, 2), nullable=False)
     quantity = Column(Integer, default=1, nullable=False)
-    subtotal = Column(Float, nullable=False)
+    subtotal = Column(Numeric(12, 2), nullable=False)
     is_returned = Column(Boolean, default=False, nullable=False)
 
     order = relationship("Order", back_populates="items")
@@ -256,12 +257,12 @@ class PaymentTransaction(Base):
     provider = Column(String(50), nullable=False)
     method = Column(String(50), nullable=False)
     provider_tx_id = Column(String(100), nullable=False)
-    amount = Column(Float, nullable=False)
+    amount = Column(Numeric(12, 2), nullable=False)
     currency = Column(String(10), nullable=False)
     status = Column(String(30), nullable=False)  # pending | authorized | captured | failed | refunded
     mode = Column(String(20), default="demo", nullable=False)
     idempotency_key = Column(String(100), nullable=True)
-    refunded_amount = Column(Float, default=0.0, nullable=False)
+    refunded_amount = Column(Numeric(12, 2), default=0.0, nullable=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at = Column(
         DateTime,
@@ -314,7 +315,7 @@ class CheckoutSession(Base):
     guest_session_token = Column(String(100), nullable=True, index=True)
 
     cart_snapshot_json = Column(Text, nullable=False)  # Server-authoritative cart at session creation
-    total_amount = Column(Float, nullable=False)
+    total_amount = Column(Numeric(12, 2), nullable=False)
     currency = Column(String(10), default="USD", nullable=False)
     promo_code = Column(String(50), nullable=True)
 
@@ -354,7 +355,7 @@ class ReturnRequest(Base):
 
     reason = Column(String(100), nullable=False)
     details = Column(Text, nullable=True)
-    refund_amount = Column(Float, nullable=False)
+    refund_amount = Column(Numeric(12, 2), nullable=False)
     return_label_url = Column(String(1000), nullable=True)
     label_provider_ref = Column(String(100), nullable=True)
     status = Column(String(30), default="requested", nullable=False)
@@ -393,7 +394,7 @@ class ExchangeRequest(Base):
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True)
     original_item_id = Column(Integer, ForeignKey("order_items.id"), nullable=False)
     replacement_sku_id = Column(Integer, ForeignKey("product_skus.id"), nullable=False)
-    price_delta = Column(Float, default=0.0, nullable=False)
+    price_delta = Column(Numeric(12, 2), default=0.0, nullable=False)
     status = Column(String(30), default="requested", nullable=False)
     payment_status = Column(String(30), default="not_required", nullable=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)

@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text, Float, UniqueConstraint
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text, Float, Numeric, UniqueConstraint
 from sqlalchemy.orm import relationship
 from backend.app.core.database import Base
 
@@ -33,7 +33,7 @@ class WardrobeItem(Base):
     wear_frequency = Column(String(30), default="regular", nullable=False) # "favorite", "regular", "rarely_worn", "seasonal"
     wear_count = Column(Integer, default=0, nullable=False)
     last_worn_date = Column(DateTime, nullable=True)
-    purchase_price = Column(Float, nullable=True)
+    purchase_price = Column(Numeric(12, 2), nullable=True)
     is_favorite = Column(Boolean, default=False, nullable=False)
 
     # Group 4 §11 item lifecycle: uploaded -> processing -> ready | failed

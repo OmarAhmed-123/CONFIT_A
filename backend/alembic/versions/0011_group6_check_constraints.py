@@ -90,13 +90,17 @@ def _remediate_existing_data(bind):
     except Exception as e:
         print(f"[0011] Skip reserved<=quantity remediation: {e}")
 
-    # sponsored_placements checks
+    # sponsored_placements checks — SAFETY REDESIGN (release-gate):
+    # Inventing business values (0.5, 50.0) for historical invalid data can materially distort production data.
+    # Correct approach: remediate to minimal valid + quarantine by pausing, requiring operator review.
+    # This preserves row count and allows constraint creation, but does not silently activate with invented values.
+    # Also creates audit log via print for operator visibility; production should have migration_audit table (see 0013).
     # bid >0
     try:
         cnt = bind.execute(text("SELECT COUNT(*) FROM sponsored_placements WHERE bid_amount_per_click <= 0")).scalar()
         if cnt and cnt > 0:
-            print(f"[0011] Remediating {cnt} sponsored_placements bid <=0 -> 0.5")
-            bind.execute(text("UPDATE sponsored_placements SET bid_amount_per_click = 0.5 WHERE bid_amount_per_click <= 0"))
+            print(f"[0011] Remediating {cnt} sponsored_placements bid <=0 -> 0.5 + PAUSED (quarantine, requires operator review)")
+            bind.execute(text("UPDATE sponsored_placements SET bid_amount_per_click = 0.5, status = 'paused' WHERE bid_amount_per_click <= 0"))
     except Exception as e:
         print(f"[0011] Skip bid remediation: {e}")
 
@@ -104,8 +108,8 @@ def _remediate_existing_data(bind):
     try:
         cnt = bind.execute(text("SELECT COUNT(*) FROM sponsored_placements WHERE daily_budget <= 0")).scalar()
         if cnt and cnt > 0:
-            print(f"[0011] Remediating {cnt} sponsored_placements budget <=0 -> 50.0")
-            bind.execute(text("UPDATE sponsored_placements SET daily_budget = 50.0 WHERE daily_budget <= 0"))
+            print(f"[0011] Remediating {cnt} sponsored_placements budget <=0 -> 50.0 + PAUSED (quarantine)")
+            bind.execute(text("UPDATE sponsored_placements SET daily_budget = 50.0, status = 'paused' WHERE daily_budget <= 0"))
     except Exception as e:
         print(f"[0011] Skip budget remediation: {e}")
 
@@ -113,8 +117,8 @@ def _remediate_existing_data(bind):
     try:
         cnt = bind.execute(text("SELECT COUNT(*) FROM sponsored_placements WHERE bid_amount_per_click > daily_budget")).scalar()
         if cnt and cnt > 0:
-            print(f"[0011] Remediating {cnt} sponsored_placements bid > budget -> budget")
-            bind.execute(text("UPDATE sponsored_placements SET bid_amount_per_click = daily_budget WHERE bid_amount_per_click > daily_budget"))
+            print(f"[0011] Remediating {cnt} sponsored_placements bid > budget -> budget + PAUSED (operator review)")
+            bind.execute(text("UPDATE sponsored_placements SET bid_amount_per_click = daily_budget, status = 'paused' WHERE bid_amount_per_click > daily_budget"))
     except Exception as e:
         print(f"[0011] Skip bid<=budget remediation: {e}")
 
@@ -122,8 +126,8 @@ def _remediate_existing_data(bind):
     try:
         cnt = bind.execute(text("SELECT COUNT(*) FROM sponsored_placements WHERE bid_amount_per_click > 100")).scalar()
         if cnt and cnt > 0:
-            print(f"[0011] Remediating {cnt} sponsored_placements bid >100 -> 100")
-            bind.execute(text("UPDATE sponsored_placements SET bid_amount_per_click = 100 WHERE bid_amount_per_click > 100"))
+            print(f"[0011] Remediating {cnt} sponsored_placements bid >100 -> 100 + PAUSED")
+            bind.execute(text("UPDATE sponsored_placements SET bid_amount_per_click = 100, status = 'paused' WHERE bid_amount_per_click > 100"))
     except Exception as e:
         print(f"[0011] Skip bid<=100 remediation: {e}")
 
@@ -131,8 +135,8 @@ def _remediate_existing_data(bind):
     try:
         cnt = bind.execute(text("SELECT COUNT(*) FROM sponsored_placements WHERE daily_budget > 10000")).scalar()
         if cnt and cnt > 0:
-            print(f"[0011] Remediating {cnt} sponsored_placements budget >10000 -> 10000")
-            bind.execute(text("UPDATE sponsored_placements SET daily_budget = 10000 WHERE daily_budget > 10000"))
+            print(f"[0011] Remediating {cnt} sponsored_placements budget >10000 -> 10000 + PAUSED")
+            bind.execute(text("UPDATE sponsored_placements SET daily_budget = 10000, status = 'paused' WHERE daily_budget > 10000"))
     except Exception as e:
         print(f"[0011] Skip budget<=10000 remediation: {e}")
 
@@ -140,8 +144,8 @@ def _remediate_existing_data(bind):
     try:
         cnt = bind.execute(text("SELECT COUNT(*) FROM sponsored_placements WHERE spent_today < 0")).scalar()
         if cnt and cnt > 0:
-            print(f"[0011] Remediating {cnt} sponsored_placements spent <0 -> 0")
-            bind.execute(text("UPDATE sponsored_placements SET spent_today = 0 WHERE spent_today < 0"))
+            print(f"[0011] Remediating {cnt} sponsored_placements spent <0 -> 0 + PAUSED (potential corruption)")
+            bind.execute(text("UPDATE sponsored_placements SET spent_today = 0, status = 'paused' WHERE spent_today < 0"))
     except Exception as e:
         print(f"[0011] Skip spent remediation: {e}")
 
@@ -149,8 +153,8 @@ def _remediate_existing_data(bind):
     try:
         cnt = bind.execute(text("SELECT COUNT(*) FROM sponsored_placements WHERE spent_today > daily_budget")).scalar()
         if cnt and cnt > 0:
-            print(f"[0011] Remediating {cnt} sponsored_placements spent > budget -> budget")
-            bind.execute(text("UPDATE sponsored_placements SET spent_today = daily_budget WHERE spent_today > daily_budget"))
+            print(f"[0011] Remediating {cnt} sponsored_placements spent > budget -> budget + PAUSED (budget exhaustion/corruption)")
+            bind.execute(text("UPDATE sponsored_placements SET spent_today = daily_budget, status = 'paused' WHERE spent_today > daily_budget"))
     except Exception as e:
         print(f"[0011] Skip spent<=budget remediation: {e}")
 

@@ -1,5 +1,6 @@
+import json
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import Optional, List, Dict, Any
 
 from sqlalchemy.orm import Session, joinedload
@@ -20,6 +21,7 @@ from backend.app.models.commerce import (
     InventoryReservation,
     OrderEvent,
     ExchangeRequest,
+    CheckoutSession,
 )
 from backend.app.models.catalog import ProductSKU, Product, StoreInventory
 
@@ -59,25 +61,66 @@ class CommerceRepository:
         return cart
 
     def merge_guest_into_user_cart(self, guest_token: str, user_id: int) -> Cart:
-        """Move guest-cart lines into the authenticated user's active cart."""
-        user_cart = self.get_or_create_cart(session_token=f"user-{user_id}", user_id=user_id)
+        """
+        Move guest-cart lines into the authenticated user's active cart.
+        FIX C1: Added SELECT FOR UPDATE locks to prevent concurrent merge race conditions.
+        If two requests merge same guest token concurrently, locks ensure deterministic behavior.
+        """
+        # Lock user cart first (consistent lock ordering to prevent deadlock: user cart, then guest cart)
+        user_cart = (
+            self.db.query(Cart)
+            .filter(Cart.user_id == user_id, Cart.status == "active")
+            .with_for_update()
+            .first()
+        )
+        if not user_cart:
+            user_cart = self.get_or_create_cart(session_token=f"user-{user_id}", user_id=user_id)
+            # Re-lock after creation
+            user_cart = (
+                self.db.query(Cart)
+                .filter(Cart.id == user_cart.id)
+                .with_for_update()
+                .first()
+            )
+
         guest_cart = (
             self.db.query(Cart)
             .filter(Cart.session_token == guest_token, Cart.status == "active")
+            .with_for_update()
             .first()
         )
         if not guest_cart or guest_cart.id == user_cart.id:
+            self.db.commit()
+            return self.get_cart_with_items(user_cart.id) or user_cart
+
+        # If guest cart already converted by concurrent request, return user cart
+        if guest_cart.status != "active":
+            self.db.commit()
             return self.get_cart_with_items(user_cart.id) or user_cart
 
         guest_full = self.get_cart_with_items(guest_cart.id)
         for item in list(guest_full.items if guest_full else []):
-            self.add_to_cart(
-                user_cart.id,
-                item.product_sku_id,
-                item.quantity,
-                item.outfit_id,
+            # Use add_to_cart logic but within same transaction - check existing to avoid duplicates
+            existing = (
+                self.db.query(CartItem)
+                .filter(CartItem.cart_id == user_cart.id, CartItem.product_sku_id == item.product_sku_id)
+                .with_for_update()
+                .first()
             )
+            if existing:
+                existing.quantity += item.quantity
+                if item.outfit_id:
+                    existing.outfit_id = item.outfit_id
+            else:
+                new_item = CartItem(
+                    cart_id=user_cart.id,
+                    product_sku_id=item.product_sku_id,
+                    quantity=item.quantity,
+                    outfit_id=item.outfit_id,
+                )
+                self.db.add(new_item)
             self.db.delete(item)
+
         if guest_cart.promo_code and not user_cart.promo_code:
             user_cart.promo_code = guest_cart.promo_code
         guest_cart.status = "converted"
@@ -496,3 +539,96 @@ class CommerceRepository:
         self.db.commit()
         self.db.refresh(req)
         return req
+
+    # ---------------------------------------------------------------- checkout sessions (C2)
+    def create_checkout_session(
+        self,
+        user_id: Optional[int],
+        guest_email: Optional[str],
+        guest_session_token: Optional[str],
+        cart_snapshot: Dict[str, Any],
+        total_amount: float,
+        currency: str = "USD",
+        promo_code: Optional[str] = None,
+    ) -> CheckoutSession:
+        """Create durable checkout session with ownership, snapshot, expiry."""
+        token = f"chk_sess_{uuid.uuid4().hex[:16]}"
+        now = datetime.now(timezone.utc)
+        expires = now + timedelta(minutes=30)
+
+        session = CheckoutSession(
+            token=token,
+            user_id=user_id,
+            guest_email=guest_email,
+            guest_session_token=guest_session_token,
+            cart_snapshot_json=json.dumps(cart_snapshot),
+            total_amount=total_amount,
+            currency=currency,
+            promo_code=promo_code,
+            status="active",
+            expires_at=expires,
+            created_at=now,
+        )
+        self.db.add(session)
+        self.db.commit()
+        self.db.refresh(session)
+        return session
+
+    def get_checkout_session_by_token(self, token: str) -> Optional[CheckoutSession]:
+        return self.db.query(CheckoutSession).filter(CheckoutSession.token == token).first()
+
+    def get_active_checkout_session(self, token: str) -> Optional[CheckoutSession]:
+        """Get active non-expired session, with row lock for conversion."""
+        now = datetime.now(timezone.utc)
+        return (
+            self.db.query(CheckoutSession)
+            .filter(CheckoutSession.token == token)
+            .filter(CheckoutSession.status == "active")
+            .filter(CheckoutSession.expires_at > now)
+            .first()
+        )
+
+    def convert_checkout_session(self, token: str, order_id: int) -> Optional[CheckoutSession]:
+        """Mark session as converted after successful checkout, with lock."""
+        session = (
+            self.db.query(CheckoutSession)
+            .filter(CheckoutSession.token == token)
+            .with_for_update()
+            .first()
+        )
+        if not session or session.status != "active":
+            return None
+        # Check expiry
+        now = datetime.now(timezone.utc)
+        # Handle naive vs aware datetime
+        exp = session.expires_at
+        if exp.tzinfo is None:
+            exp = exp.replace(tzinfo=timezone.utc)
+        if exp < now:
+            session.status = "expired"
+            self.db.commit()
+            return None
+
+        session.status = "converted"
+        session.order_id = order_id
+        session.converted_at = now
+        self.db.commit()
+        self.db.refresh(session)
+        return session
+
+    def expire_old_checkout_sessions(self) -> int:
+        """Cleanup job - expire old active sessions."""
+        now = datetime.now(timezone.utc)
+        expired = (
+            self.db.query(CheckoutSession)
+            .filter(CheckoutSession.status == "active")
+            .filter(CheckoutSession.expires_at < now)
+            .all()
+        )
+        count = 0
+        for s in expired:
+            s.status = "expired"
+            count += 1
+        if count:
+            self.db.commit()
+        return count

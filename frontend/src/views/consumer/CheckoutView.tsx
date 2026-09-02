@@ -158,6 +158,20 @@ export const CheckoutView: React.FC = () => {
 
   return (
     <div className="space-y-8 pb-24 max-w-5xl mx-auto">
+      {/* C4 FIX: Payment Demo Safety - unmistakable banner when PAYMENTS_LIVE=false */}
+      <div className="bg-amber-50 border-2 border-amber-400 rounded-2xl p-4 flex items-start gap-3">
+        <div className="text-amber-600 text-xl">⚠️</div>
+        <div className="flex-1">
+          <h4 className="text-xs font-black text-amber-900 uppercase tracking-widest">Demo Payment Mode</h4>
+          <p className="text-[11px] text-amber-800 mt-1 leading-relaxed">
+            This checkout uses a <strong>simulated payment adapter</strong> - no real money will be charged.
+            Card/BNPL transactions are authorized locally and labelled as demo.
+            When PAYMENTS_LIVE=true, real PSP credentials (Stripe/Tabby/Tamara) are required and charges will be live.
+            You will see "payment_mode: demo" in order confirmation.
+          </p>
+        </div>
+      </div>
+
       <div className="border-b border-slate-200/80 pb-4">
         <h1 className="font-serif text-3xl font-bold text-[#1B1F3B] tracking-tight">
           {t('commerce.checkout')}

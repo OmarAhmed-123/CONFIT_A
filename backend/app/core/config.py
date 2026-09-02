@@ -112,6 +112,14 @@ class Settings(BaseSettings):
     RETURN_WINDOW_DAYS: int = 30
     STORAGE_PROVIDER: str = "local"
     STORAGE_LOCAL_DIR: str = "./backend/data/uploads"
+    # C24 FIX: Production storage - S3/R2 for persistence
+    AWS_S3_BUCKET: Optional[str] = None
+    S3_BUCKET: Optional[str] = None
+    AWS_ACCESS_KEY_ID: Optional[str] = None
+    AWS_SECRET_ACCESS_KEY: Optional[str] = None
+    AWS_REGION: str = "us-east-1"
+    S3_ENDPOINT_URL: Optional[str] = None
+    S3_PUBLIC_URL_BASE: Optional[str] = None
 
     # Privacy & Retention
     POLICY_VERSION: int = 3

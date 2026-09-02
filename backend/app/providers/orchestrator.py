@@ -242,6 +242,48 @@ class MultiProviderAIOrchestrator:
             res.raise_for_status()
             return res.json()["choices"][0]["message"]["content"]
 
+    def _verify_grounding(self, ai_text: str, outfit: Optional[Dict[str, Any]]) -> bool:
+        """
+        C14 FIX: Styling Engine Grounding Validation.
+        Verify that AI-generated text actually references real catalog products/brands.
+        Prevents hallucinated products/brands/attributes.
+        Returns True if grounded, False if hallucinated.
+        """
+        if not outfit or not outfit.get("items"):
+            return True  # No outfit to ground against - fallback will handle
+
+        text_lower = ai_text.lower()
+        items = outfit["items"]
+
+        # Check that at least 50% of brand names appear in text (or generic grounding)
+        brand_matches = 0
+        for item in items:
+            brand = (item.get("brand_name") or "").lower()
+            title = (item.get("product_title") or "").lower()
+            # Check if brand or significant part of title appears
+            if brand and brand in text_lower:
+                brand_matches += 1
+            elif title and len(title.split()) > 1:
+                # Check if at least 2 words from title appear
+                title_words = [w for w in title.split() if len(w) > 3]
+                if sum(1 for w in title_words if w in text_lower) >= 2:
+                    brand_matches += 1
+
+        # Require at least 50% grounding or at least 1 match for small outfits
+        required = max(1, len(items) // 2)
+        is_grounded = brand_matches >= required
+
+        if not is_grounded:
+            logger.warn(
+                "Styling grounding verification failed",
+                brand_matches=brand_matches,
+                required=required,
+                total_items=len(items),
+                ai_text_preview=ai_text[:200],
+            )
+
+        return is_grounded
+
     def _format_response(
         self,
         ai_text: str,
@@ -250,6 +292,11 @@ class MultiProviderAIOrchestrator:
         provider_name: str,
         selected_outfit: Optional[Dict[str, Any]]
     ) -> Dict[str, Any]:
+        # C14: Verify grounding before accepting AI response
+        if selected_outfit and not self._verify_grounding(ai_text, selected_outfit):
+            logger.info("Grounding failed, using deterministic fallback", provider=provider_name)
+            return self._deterministic_fallback(prompt, intent, selected_outfit)
+
         return {
             "occasion": intent.get("occasion", "Smart Casual"),
             "detected_budget": intent.get("detected_budget", 400.0),

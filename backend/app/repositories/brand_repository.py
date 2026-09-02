@@ -179,6 +179,17 @@ class BrandRepository:
             if not data.get(field):
                 raise ValueError(f"Missing required field: {field}")
 
+        # Validate lat/lng ranges
+        try:
+            lat = float(data.get("latitude", 0.0) or 0.0)
+            lng = float(data.get("longitude", 0.0) or 0.0)
+        except (ValueError, TypeError):
+            raise ValueError("Invalid latitude/longitude format")
+        if not (-90 <= lat <= 90):
+            raise ValueError("Latitude must be between -90 and 90")
+        if not (-180 <= lng <= 180):
+            raise ValueError("Longitude must be between -180 and 180")
+
         name_val = data.get("name") or ""
         name_ar_val = data.get("name_ar") or name_val
         store = StoreLocation(
@@ -188,8 +199,8 @@ class BrandRepository:
             address=(data.get("address") or "")[:500],
             city=(data.get("city") or "")[:100],
             country=(data.get("country") or "UAE")[:100],
-            latitude=float(data.get("latitude", 0.0) or 0.0),
-            longitude=float(data.get("longitude", 0.0) or 0.0),
+            latitude=lat,
+            longitude=lng,
             phone=(data.get("phone") or "")[:50] if data.get("phone") else None,
             pickup_instructions=data.get("pickup_instructions"),
             is_bopis_enabled=bool(data.get("is_bopis_enabled", True))
@@ -207,12 +218,26 @@ class BrandRepository:
         if not store:
             raise ValueError(f"Store {store_id} not found for brand {brand_id}")
 
-        # Only allow updating specific fields
+        # Only allow updating specific fields with validation
         allowed = ["name", "name_ar", "address", "city", "country", "latitude", "longitude", "phone", "pickup_instructions", "is_bopis_enabled"]
         for key in allowed:
             if key in data:
-                if key in ["latitude", "longitude"]:
-                    setattr(store, key, float(data[key]))
+                if key == "latitude":
+                    try:
+                        lat = float(data[key])
+                    except (ValueError, TypeError):
+                        raise ValueError("Invalid latitude format")
+                    if not (-90 <= lat <= 90):
+                        raise ValueError("Latitude must be between -90 and 90")
+                    setattr(store, key, lat)
+                elif key == "longitude":
+                    try:
+                        lng = float(data[key])
+                    except (ValueError, TypeError):
+                        raise ValueError("Invalid longitude format")
+                    if not (-180 <= lng <= 180):
+                        raise ValueError("Longitude must be between -180 and 180")
+                    setattr(store, key, lng)
                 elif key == "is_bopis_enabled":
                     setattr(store, key, bool(data[key]))
                 else:
@@ -345,9 +370,9 @@ class BrandRepository:
                     "purchase_rate": 0.0
                 })
 
-        # 6. Return Reduction: real from ReturnRequest
-        # Returns for brand products
-        brand_returns = self.db.query(func.count(ReturnRequest.id)).join(
+        # 6. Return Reduction: real from ReturnRequest — FIXED JOIN MULTIPLICATION with DISTINCT
+        # Returns for brand products — use DISTINCT to avoid double-count when order has multiple items
+        brand_returns = self.db.query(func.count(func.distinct(ReturnRequest.id))).join(
             Order, ReturnRequest.order_id == Order.id
         ).join(
             OrderItem, OrderItem.order_id == Order.id
@@ -360,23 +385,19 @@ class BrandRepository:
 
         # Before/after VTON: compare try-on assisted vs non-try-on
         # try_on_used_for_item in ReturnRequest indicates if try-on was used
-        returns_with_tryon = self.db.query(func.count(ReturnRequest.id)).filter(
+        returns_with_tryon = self.db.query(func.count(func.distinct(ReturnRequest.id))).filter(
             ReturnRequest.try_on_used_for_item == True
         ).join(Order).join(OrderItem).filter(OrderItem.brand_id == brand_id).scalar() or 0
 
         returns_without_tryon = brand_returns - returns_with_tryon
 
         # Calculate return rates for try-on vs non-try-on cohorts
-        # For simplicity, use brand's benchmark as before, and real current as after
-        # But also calculate real try-on vs non-try-on if data available
         pre_rate = float(brand.return_rate_benchmark)
         post_rate = float(brand.current_return_rate) if brand.current_return_rate else return_rate
 
-        # If we have real data, use it to calculate reduction
+        # If we have real data, use it to calculate reduction — FIXED DISTINCT for tryon_orders
         if total_purchases > 0:
-            # Real reduction based on try-on usage
-            # This is more meaningful than static benchmark
-            tryon_orders = self.db.query(func.count(Order.id)).filter(
+            tryon_orders = self.db.query(func.count(func.distinct(Order.id))).filter(
                 Order.try_on_assisted == True
             ).join(OrderItem).filter(OrderItem.brand_id == brand_id).scalar() or 0
 
@@ -385,15 +406,14 @@ class BrandRepository:
             if tryon_orders > 0 and non_tryon_orders > 0:
                 tryon_return_rate = round((returns_with_tryon / tryon_orders * 100) if tryon_orders > 0 else 0.0, 1)
                 non_tryon_return_rate = round((returns_without_tryon / non_tryon_orders * 100) if non_tryon_orders > 0 else 0.0, 1)
-                # Use these for before/after if meaningful
                 if non_tryon_return_rate > 0:
                     pre_rate = float(non_tryon_return_rate)
                     post_rate = float(tryon_return_rate)
 
         reduction = round(((pre_rate - post_rate) / pre_rate * 100) if pre_rate > 0 else 0.0, 1)
 
-        # 7. BOPIS fulfillment rate: orders with bopis_store_id for brand
-        bopis_orders = self.db.query(func.count(Order.id)).filter(
+        # 7. BOPIS fulfillment rate: orders with bopis_store_id for brand — FIXED DISTINCT
+        bopis_orders = self.db.query(func.count(func.distinct(Order.id))).filter(
             Order.bopis_store_id.isnot(None)
         ).join(OrderItem).filter(OrderItem.brand_id == brand_id).scalar() or 0
 
@@ -541,22 +561,20 @@ class BrandRepository:
         # Revenue attribution with mutually exclusive priority to avoid double counting
         # Priority: visual_search > outfit_builder > virtual_stylist > organic
         # This ensures each order counted once - mathematically valid, no arbitrary factors
-        visual_rev_exclusive = self.db.query(func.sum(Order.total_amount)).join(
-            BrandAnalyticsEvent, BrandAnalyticsEvent.order_id == Order.id
-        ).filter(
+        # FIXED: Prevent JOIN multiplication — use DISTINCT order_ids subquery for visual_search
+        visual_order_ids = self.db.query(func.distinct(BrandAnalyticsEvent.order_id)).filter(
             BrandAnalyticsEvent.attribution_source == "visual_search",
+            BrandAnalyticsEvent.order_id.isnot(None)
+        )
+        visual_rev_exclusive = self.db.query(func.sum(Order.total_amount)).filter(
+            Order.id.in_(visual_order_ids),
             Order.status.notin_(["cancelled", "refunded"])
         ).scalar() or 0.0
 
         outfit_rev_exclusive = self.db.query(func.sum(OrderItem.subtotal)).join(Order).filter(
             OrderItem.outfit_id.isnot(None),
             Order.status.notin_(["cancelled", "refunded"]),
-            ~Order.id.in_(
-                self.db.query(BrandAnalyticsEvent.order_id).filter(
-                    BrandAnalyticsEvent.attribution_source == "visual_search",
-                    BrandAnalyticsEvent.order_id.isnot(None)
-                )
-            )
+            ~Order.id.in_(visual_order_ids)
         ).scalar() or 0.0
 
         stylist_rev_exclusive = self.db.query(func.sum(Order.total_amount)).filter(
@@ -565,12 +583,7 @@ class BrandRepository:
             ~Order.id.in_(
                 self.db.query(OrderItem.order_id).filter(OrderItem.outfit_id.isnot(None))
             ),
-            ~Order.id.in_(
-                self.db.query(BrandAnalyticsEvent.order_id).filter(
-                    BrandAnalyticsEvent.attribution_source == "visual_search",
-                    BrandAnalyticsEvent.order_id.isnot(None)
-                )
-            )
+            ~Order.id.in_(visual_order_ids)
         ).scalar() or 0.0
 
         # Organic: total minus exclusive attributions - guaranteed no double count, no arbitrary 0.5
@@ -618,8 +631,8 @@ class BrandRepository:
             conversion = round((brand_orders / brand_views * 100) if brand_views > 0 else 0.0, 2)
             tryon_rate = round((brand_tryons / brand_views * 100) if brand_views > 0 else 0.0, 1)
 
-            # Return rate for brand
-            brand_returns = self.db.query(func.count(ReturnRequest.id)).join(Order).join(OrderItem).filter(
+            # Return rate for brand — FIXED DISTINCT to prevent JOIN multiplication
+            brand_returns = self.db.query(func.count(func.distinct(ReturnRequest.id))).join(Order).join(OrderItem).filter(
                 OrderItem.brand_id == brand.id
             ).scalar() or 0
             brand_return_rate = round((brand_returns / brand_orders * 100) if brand_orders > 0 else 0.0, 1)
@@ -860,22 +873,20 @@ class BrandRepository:
 
         # Mutually exclusive priority: visual_search > outfit_builder > virtual_stylist > organic
         # No arbitrary factors, mathematically valid
-        visual_rev_exclusive = self.db.query(func.sum(Order.total_amount)).join(
-            BrandAnalyticsEvent, BrandAnalyticsEvent.order_id == Order.id
-        ).filter(
+        # FIXED: Prevent JOIN multiplication — use DISTINCT order_ids subquery for visual_search
+        visual_order_ids = self.db.query(func.distinct(BrandAnalyticsEvent.order_id)).filter(
             BrandAnalyticsEvent.attribution_source == "visual_search",
+            BrandAnalyticsEvent.order_id.isnot(None)
+        )
+        visual_rev_exclusive = self.db.query(func.sum(Order.total_amount)).filter(
+            Order.id.in_(visual_order_ids),
             Order.status.notin_(["cancelled", "refunded"])
         ).scalar() or 0.0
 
         outfit_rev_exclusive = self.db.query(func.sum(OrderItem.subtotal)).join(Order).filter(
             OrderItem.outfit_id.isnot(None),
             Order.status.notin_(["cancelled", "refunded"]),
-            ~Order.id.in_(
-                self.db.query(BrandAnalyticsEvent.order_id).filter(
-                    BrandAnalyticsEvent.attribution_source == "visual_search",
-                    BrandAnalyticsEvent.order_id.isnot(None)
-                )
-            )
+            ~Order.id.in_(visual_order_ids)
         ).scalar() or 0.0
 
         stylist_rev_exclusive = self.db.query(func.sum(Order.total_amount)).filter(
@@ -884,12 +895,7 @@ class BrandRepository:
             ~Order.id.in_(
                 self.db.query(OrderItem.order_id).filter(OrderItem.outfit_id.isnot(None))
             ),
-            ~Order.id.in_(
-                self.db.query(BrandAnalyticsEvent.order_id).filter(
-                    BrandAnalyticsEvent.attribution_source == "visual_search",
-                    BrandAnalyticsEvent.order_id.isnot(None)
-                )
-            )
+            ~Order.id.in_(visual_order_ids)
         ).scalar() or 0.0
 
         organic = max(0.0, float(total_gmv) - float(outfit_rev_exclusive) - float(visual_rev_exclusive) - float(stylist_rev_exclusive))

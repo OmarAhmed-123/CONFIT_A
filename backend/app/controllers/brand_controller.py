@@ -371,16 +371,23 @@ def get_partner_inventory(
     bp = service.get_brand_profile_by_user(user)
     repo = BrandRepository(db)
 
-    # Real inventory: products with SKUs and store inventories
+    # Real inventory: products with SKUs and store inventories — FIXED N+1 via single query
     products = repo.get_brand_products(bp["id"])
+    # Single query for all store inventories for this brand's SKUs
+    from backend.app.models.catalog import StoreInventory
+    all_sku_ids = [sku.id for prod in products for sku in prod.skus]
+    inv_map: Dict[int, List] = {}
+    if all_sku_ids:
+        all_invs = db.query(StoreInventory).filter(StoreInventory.sku_id.in_(all_sku_ids)).all()
+        for inv in all_invs:
+            inv_map.setdefault(inv.sku_id, []).append(inv)
+
     result = []
 
     for product in products:
         sku_details = []
         for sku in product.skus:
-            # Query StoreInventory for this SKU with location details
-            from backend.app.models.catalog import StoreInventory
-            invs = db.query(StoreInventory).filter(StoreInventory.sku_id == sku.id).all()
+            invs = inv_map.get(sku.id, [])
             sku_details.append({
                 "id": sku.id,
                 "sku_code": sku.sku_code,
@@ -638,14 +645,20 @@ def track_impression(
     user: User = Depends(brand_auth),
     db: Session = Depends(get_db)
 ):
-    """Track sponsored impression with budget enforcement"""
+    """Track sponsored impression with budget enforcement — FIXED tenant isolation"""
     from backend.app.models.brand_analytics import SponsoredPlacement
-    plc = db.query(SponsoredPlacement).filter(
-        SponsoredPlacement.id == placement_id
-    ).with_for_update().first()
+    from backend.app.models.user import UserRole
+    service = BrandService(db)
+    bp = service.get_brand_profile_by_user(user)
+
+    # Tenant isolation: brand can only track own placements, admin can track any
+    query = db.query(SponsoredPlacement).filter(SponsoredPlacement.id == placement_id)
+    if user.role != UserRole.ADMIN:
+        query = query.filter(SponsoredPlacement.brand_id == bp["id"])
+    plc = query.with_for_update().first()
 
     if not plc:
-        raise HTTPException(status_code=404, detail="Placement not found")
+        raise HTTPException(status_code=404, detail="Placement not found for your brand")
 
     # Check if active and within budget and dates
     if plc.status != "active":
@@ -675,14 +688,19 @@ def track_click(
     user: User = Depends(brand_auth),
     db: Session = Depends(get_db)
 ):
-    """Track sponsored click with budget deduction"""
+    """Track sponsored click with budget deduction — FIXED tenant isolation + SELECT FOR UPDATE"""
     from backend.app.models.brand_analytics import SponsoredPlacement
-    plc = db.query(SponsoredPlacement).filter(
-        SponsoredPlacement.id == placement_id
-    ).with_for_update().first()
+    from backend.app.models.user import UserRole
+    service = BrandService(db)
+    bp = service.get_brand_profile_by_user(user)
+
+    query = db.query(SponsoredPlacement).filter(SponsoredPlacement.id == placement_id)
+    if user.role != UserRole.ADMIN:
+        query = query.filter(SponsoredPlacement.brand_id == bp["id"])
+    plc = query.with_for_update().first()
 
     if not plc:
-        raise HTTPException(status_code=404, detail="Placement not found")
+        raise HTTPException(status_code=404, detail="Placement not found for your brand")
 
     if plc.status != "active":
         raise HTTPException(status_code=400, detail=f"Placement not active: {plc.status}")

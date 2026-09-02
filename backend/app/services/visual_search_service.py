@@ -111,6 +111,37 @@ class VisualSearchService:
             matches=matches
         )
 
+        # 4b. Instrument BrandAnalyticsEvent for visual_search view — real attribution signal
+        try:
+            from backend.app.repositories.brand_repository import BrandRepository
+            brand_repo = BrandRepository(self.db)
+            for m in matches[:3]:  # top 3 matches to avoid spam
+                pid = m.get("product_id")
+                if not pid:
+                    continue
+                prod = self.catalog_repo.get_product_by_id(pid) if hasattr(self.catalog_repo, 'get_product_by_id') else None
+                # Fallback query product directly
+                if not prod:
+                    from backend.app.models.catalog import Product
+                    prod = self.db.query(Product).filter(Product.id == pid).first()
+                if not prod:
+                    continue
+                brand_repo.create_analytics_event(
+                    brand_id=prod.brand_id,
+                    event_type="view",
+                    attribution_source="visual_search",
+                    product_id=pid,
+                    user_id=user_id,
+                    outfit_id=None,
+                    order_id=None,
+                    revenue_amount=None,
+                    event_metadata={"query_id": logged.id, "similarity": m.get("similarity_score")},
+                    idempotency_key=f"vs_view_{logged.id}_{pid}"
+                )
+        except Exception:
+            # Never fail visual search due to analytics instrumentation
+            pass
+
         return {
             "query_id": logged.id,
             "analysis_available": analysis_available,

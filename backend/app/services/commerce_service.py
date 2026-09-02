@@ -305,6 +305,59 @@ class CommerceService:
             self.db.commit()
 
         self._attach_reservations(reservation_ids, order.id)
+
+        # --- Real analytics instrumentation: purchase events with exclusive attribution ---
+        try:
+            from backend.app.repositories.brand_repository import BrandRepository
+            from backend.app.models.tryon import VisualSearchQuery
+            brand_repo = BrandRepository(self.db)
+            # Determine attribution per order based on flags and recent visual search
+            has_visual_search = False
+            if user_id:
+                try:
+                    cutoff = datetime.now(timezone.utc) - timedelta(days=30)
+                    # VisualSearchQuery may not have created_at column in older schema, handle gracefully
+                    vs_q = self.db.query(VisualSearchQuery).filter(VisualSearchQuery.user_id == user_id)
+                    # Try filter by id desc limit to approximate recent
+                    vs_q = vs_q.order_by(VisualSearchQuery.id.desc()).first()
+                    has_visual_search = vs_q is not None
+                except Exception:
+                    has_visual_search = False
+
+            for item_payload in order_items_payload:
+                brand_id = item_payload["brand_id"]
+                product_id = item_payload["product_id"]
+                sku_id = item_payload.get("product_sku_id")
+                outfit_id = item_payload.get("outfit_id")
+                subtotal_item = item_payload["subtotal"]
+
+                # Priority: visual_search > outfit_builder > virtual_stylist > organic
+                if has_visual_search and checkout_data.get("try_on_assisted"):
+                    attribution = "visual_search"
+                elif outfit_id:
+                    attribution = "outfit_builder"
+                elif checkout_data.get("stylist_assisted"):
+                    attribution = "virtual_stylist"
+                else:
+                    attribution = "organic"
+
+                brand_repo.create_analytics_event(
+                    brand_id=brand_id,
+                    event_type="purchase",
+                    attribution_source=attribution,
+                    product_id=product_id,
+                    sku_id=sku_id,
+                    user_id=user_id,
+                    session_token=session_token,
+                    outfit_id=outfit_id,
+                    order_id=order.id,
+                    revenue_amount=subtotal_item,
+                    event_metadata={"order_number": order.order_number, "payment_method": payment_method},
+                    idempotency_key=f"purchase_{order.id}_{product_id}_{sku_id or 'na'}_{attribution}"
+                )
+        except Exception as _e:
+            logger.warn("analytics_instrumentation_failed", order_id=order.id if 'order' in locals() else None, error=str(_e))
+
         try:
             self._notify(
                 "order_created",

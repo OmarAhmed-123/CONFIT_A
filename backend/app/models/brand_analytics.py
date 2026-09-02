@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, Float, CheckConstraint
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, Float, Numeric, CheckConstraint
 from sqlalchemy.orm import relationship
 from backend.app.core.database import Base
 
@@ -25,15 +25,15 @@ class SponsoredPlacement(Base):
     brand_id = Column(Integer, ForeignKey("brand_profiles.id", ondelete="CASCADE"), nullable=False, index=True)
     product_id = Column(Integer, ForeignKey("products.id", ondelete="CASCADE"), nullable=False, index=True)
     placement_type = Column(String(50), default="stylist_featured", nullable=False, index=True) # "stylist_featured", "trending_hero", "fit_recom_top"
-    bid_amount_per_click = Column(Float, default=0.50, nullable=False)
-    daily_budget = Column(Float, default=50.0, nullable=False)
-    spent_today = Column(Float, default=0.0, nullable=False)
+    bid_amount_per_click = Column(Numeric(12, 2), default=0.50, nullable=False)
+    daily_budget = Column(Numeric(12, 2), default=50.0, nullable=False)
+    spent_today = Column(Numeric(12, 2), default=0.0, nullable=False)
     status = Column(String(20), default="active", nullable=False, index=True) # "active", "paused", "budget_exhausted"
 
     impressions = Column(Integer, default=0, nullable=False)
     clicks = Column(Integer, default=0, nullable=False)
     conversions = Column(Integer, default=0, nullable=False)
-    revenue_generated = Column(Float, default=0.0, nullable=False)
+    revenue_generated = Column(Numeric(12, 2), default=0.0, nullable=False)
 
     start_date = Column(DateTime, nullable=True)
     end_date = Column(DateTime, nullable=True)

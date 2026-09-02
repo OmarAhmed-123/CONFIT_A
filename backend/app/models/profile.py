@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text, Float
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text, Float, Numeric
 from sqlalchemy.orm import relationship
 from backend.app.core.database import Base
 
@@ -23,9 +23,9 @@ class UserStyleProfile(Base):
 
     # Budget & Occasions (G1.4) — nullable so we can honestly represent
     # "user hasn't set this yet" instead of always shipping fabricated 100/1000.
-    budget_monthly_min = Column(Float, nullable=True)
-    budget_monthly_max = Column(Float, nullable=True)
-    budget_per_outfit_max = Column(Float, nullable=True)
+    budget_monthly_min = Column(Numeric(12, 2), nullable=True)
+    budget_monthly_max = Column(Numeric(12, 2), nullable=True)
+    budget_per_outfit_max = Column(Numeric(12, 2), nullable=True)
     preferred_brands = Column(Text, default="[]", nullable=False)
     blacklisted_brands = Column(Text, default="[]", nullable=False)
     occasion_weights = Column(Text, default="{}", nullable=False)

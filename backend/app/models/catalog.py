@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text, Float, UniqueConstraint, CheckConstraint
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text, Float, Numeric, UniqueConstraint, CheckConstraint
 from sqlalchemy.orm import relationship
 from backend.app.core.database import Base
 
@@ -29,7 +29,7 @@ class Product(Base):
     slug = Column(String(255), unique=True, index=True, nullable=False)
     description = Column(Text, nullable=False)
     description_ar = Column(Text, nullable=False)
-    base_price = Column(Float, nullable=False)
+    base_price = Column(Numeric(12, 2), nullable=False)
     currency = Column(String(10), default="USD", nullable=False)
     material = Column(String(255), nullable=True)
     care_instructions = Column(String(500), nullable=True)
@@ -68,7 +68,7 @@ class ProductSKU(Base):
     size = Column(String(20), nullable=False)      # e.g., "S", "M", "L", "XL", "32x30"
     color = Column(String(50), nullable=False)     # e.g., "Midnight Navy"
     color_hex = Column(String(20), default="#1B1F3B")
-    price_override = Column(Float, nullable=True)
+    price_override = Column(Numeric(12, 2), nullable=True)
     stock_level = Column(Integer, default=20, nullable=False)
     is_in_stock = Column(Boolean, default=True, nullable=False)
 

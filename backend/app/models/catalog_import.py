@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, Float, Boolean, Index, CheckConstraint
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, Float, Numeric, Boolean, Index, CheckConstraint
 from sqlalchemy.orm import relationship
 from backend.app.core.database import Base
 
@@ -57,6 +57,6 @@ class BrandAnalyticsEvent(Base):
     attribution_source = Column(String(50), nullable=True)  # virtual_stylist, outfit_builder, visual_search, organic
     outfit_id = Column(Integer, ForeignKey("outfits.id", ondelete="SET NULL"), nullable=True)
     order_id = Column(Integer, ForeignKey("orders.id", ondelete="SET NULL"), nullable=True)
-    revenue_amount = Column(Float, nullable=True)
+    revenue_amount = Column(Numeric(12, 2), nullable=True)
     event_metadata_json = Column(Text, default="{}", nullable=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False, index=True)

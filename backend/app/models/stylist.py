@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text, Float
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text, Float, Numeric
 from sqlalchemy.orm import relationship
 from backend.app.core.database import Base
 
@@ -40,7 +40,7 @@ class Outfit(Base):
     title = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
     occasion = Column(String(100), default="Casual", nullable=False)
-    total_price = Column(Float, default=0.0, nullable=False)
+    total_price = Column(Numeric(12, 2), default=0.0, nullable=False)
     compatibility_score = Column(Integer, default=90, nullable=False)  # Calculated color/style score %
     color_palette = Column(Text, default="[]", nullable=False)         # JSON list of hex colors
     style_tags = Column(Text, default="[]", nullable=False)            # JSON list

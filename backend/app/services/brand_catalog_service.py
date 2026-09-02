@@ -8,6 +8,8 @@ from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 
+from decimal import Decimal
+from backend.app.core.money import to_decimal, to_float, quantize_money
 from backend.app.models.catalog import Product, ProductSKU, Category
 from backend.app.models.user import BrandProfile
 from backend.app.repositories.brand_repository import BrandRepository
@@ -74,7 +76,7 @@ class BrandCatalogService:
         # Type validation
         if "base_price" in row and row["base_price"]:
             try:
-                price = float(row["base_price"])
+                price = to_decimal(row["base_price"])
                 if price <= 0:
                     errors.append(CatalogImportError(row_num, "base_price", "Price must be positive", row["base_price"]))
                 if price > 100000:
@@ -222,7 +224,7 @@ class BrandCatalogService:
                     # Update existing product
                     product = existing_product
                     product.category_id = category.id
-                    product.base_price = round(float(row["base_price"]), 2)
+                    product.base_price = to_decimal(row["base_price"])
                     product.color_family = row["color_family"][:50]
                     product.thumbnail_url = row["thumbnail_url"][:1000]
                     if row.get("title_ar"):
@@ -261,7 +263,7 @@ class BrandCatalogService:
                         slug=slug[:255],
                         description=row.get("description", row["title"])[:2000],
                         description_ar=row.get("description_ar", row.get("description", row["title"]))[:2000],
-                        base_price=round(float(row["base_price"]), 2),
+                        base_price=to_decimal(row["base_price"]),
                         currency=row.get("currency", "USD")[:10],
                         material=row.get("material", "")[:255] if row.get("material") else None,
                         color_family=row["color_family"][:50],
@@ -301,7 +303,7 @@ class BrandCatalogService:
                         existing_sku.stock_level = int(row["stock_level"])
                         existing_sku.is_in_stock = int(row["stock_level"]) > 0
                     if row.get("price_override"):
-                        existing_sku.price_override = round(float(row["price_override"]), 2)
+                        existing_sku.price_override = to_decimal(row["price_override"])
                 else:
                     # Create SKU
                     sku = ProductSKU(
@@ -310,7 +312,7 @@ class BrandCatalogService:
                         size=row.get("size", "M")[:20],
                         color=row.get("color", row["color_family"])[:50],
                         color_hex=row.get("color_hex", "#1B1F3B")[:20],
-                        price_override=round(float(row["price_override"]), 2) if row.get("price_override") else None,
+                        price_override=to_decimal(row["price_override"]) if row.get("price_override") else None,
                         stock_level=int(row.get("stock_level", 20)),
                         is_in_stock=int(row.get("stock_level", 20)) > 0
                     )

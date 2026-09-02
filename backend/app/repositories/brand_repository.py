@@ -1,5 +1,7 @@
+from decimal import Decimal
 from typing import Optional, List, Dict, Any, Tuple
 from datetime import datetime, timezone, timedelta
+from backend.app.core.money import to_decimal, money_add, money_sub, money_sum, to_float, quantize_money
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, and_, or_, desc, case
 import json
@@ -76,14 +78,14 @@ class BrandRepository:
             brand_id=brand_id,
             product_id=product_id,
             placement_type=placement_type,
-            bid_amount_per_click=round(float(bid_amount), 2),
-            daily_budget=round(float(daily_budget), 2),
-            spent_today=0.0,
+            bid_amount_per_click=to_decimal(bid_amount),
+            daily_budget=to_decimal(daily_budget),
+            spent_today=Decimal("0.00"),
             status="active",
             impressions=0,
             clicks=0,
             conversions=0,
-            revenue_generated=0.0,
+            revenue_generated=Decimal("0.00"),
             start_date=start_date,
             end_date=end_date
         )
@@ -108,8 +110,8 @@ class BrandRepository:
                 raise ValueError("Price cannot be negative")
             if price_override > 100000:
                 raise ValueError("Price exceeds maximum allowed")
-            # Decimal precision: round to 2 decimals, server-authoritative
-            sku.price_override = round(float(price_override), 2)
+            # Decimal precision: exact, server-authoritative
+            sku.price_override = to_decimal(price_override)
 
         sku.stock_level = int(new_stock)
         sku.is_in_stock = new_stock > 0
@@ -421,8 +423,8 @@ class BrandRepository:
 
         # 8. Ad spend and revenue from SponsoredPlacement
         placements = self.get_brand_placements(brand_id)
-        ad_spend = sum(float(p.spent_today) for p in placements)
-        ad_revenue = sum(float(p.revenue_generated) for p in placements)
+        ad_spend = money_sum([p.spent_today for p in placements])
+        ad_revenue = money_sum([p.revenue_generated for p in placements])
 
         return {
             "brand_name": brand.brand_name,
@@ -438,8 +440,8 @@ class BrandRepository:
             "return_reduction_percentage": float(reduction),
             "outfit_appearance_rankings": outfit_rankings,
             "bopis_store_fulfillment_rate": float(bopis_rate),
-            "ad_spend_total": float(ad_spend),
-            "ad_revenue_total": float(ad_revenue)
+            "ad_spend_total": to_float(ad_spend),
+            "ad_revenue_total": to_float(ad_revenue)
         }
 
     def get_conversion_analytics_per_sku(self, brand_id: int) -> List[Dict[str, Any]]:
@@ -623,10 +625,16 @@ class BrandRepository:
         # Organic: total_subtotal minus exclusive attributions — brand-isolated, item-level, no double count
         # Use total_subtotal as base for attribution (sum of all item subtotals), not total_gmv which includes tax/shipping
         # This ensures brand isolation for multi-brand orders and correct per-brand revenue
-        organic_revenue = max(0.0, float(total_subtotal) - float(outfit_rev_exclusive) - float(visual_rev_exclusive) - float(stylist_rev_exclusive))
-        # For platform display, also keep total_gmv as separate metric, organic for GMV display uses total_gmv - exclusive order-level as fallback
-        # But for attribution correctness, we use subtotal base
-        total_revenue = float(total_gmv)  # Keep for backward compat display, but organic_revenue is subtotal-based for brand isolation
+        # Precise Decimal for brand-isolated attribution
+        total_sub_dec = to_decimal(total_subtotal)
+        outfit_dec = to_decimal(outfit_rev_exclusive)
+        visual_dec = to_decimal(visual_rev_exclusive)
+        stylist_dec = to_decimal(stylist_rev_exclusive)
+        organic_revenue = total_sub_dec - outfit_dec - visual_dec - stylist_dec
+        if organic_revenue < Decimal("0.00"):
+            organic_revenue = Decimal("0.00")
+        organic_revenue = quantize_money(organic_revenue)
+        total_revenue = to_decimal(total_gmv)
 
         # Most Styled Items: ranking by outfit appearances
         most_styled = self.db.query(
@@ -764,7 +772,7 @@ class BrandRepository:
         return {
             "total_users_count": int(total_users),
             "total_brands_count": int(total_brands),
-            "total_gmv": float(total_gmv),
+            "total_gmv": to_float(total_gmv),
             "total_orders": int(total_orders),
             "tryon_adoption_rate": float(tryon_adoption_rate),
             "stylist_conversion_ratio": float(stylist_conversion),
@@ -962,10 +970,17 @@ class BrandRepository:
             ).scalar() or 0.0
             visual_rev_exclusive = 0.0
 
-        organic = max(0.0, float(total_subtotal) - float(outfit_rev_exclusive) - float(visual_rev_exclusive) - float(stylist_rev_exclusive))
+        total_sub_dec = to_decimal(total_subtotal)
+        outfit_dec = to_decimal(outfit_rev_exclusive)
+        visual_dec = to_decimal(visual_rev_exclusive)
+        stylist_dec = to_decimal(stylist_rev_exclusive)
+        organic = total_sub_dec - outfit_dec - visual_dec - stylist_dec
+        if organic < Decimal("0.00"):
+            organic = Decimal("0.00")
+        organic = quantize_money(organic)
 
         return {
-            "total_gmv": float(total_gmv),
+            "total_gmv": to_float(total_gmv),
             "revenue_attribution": {
                 "ai_virtual_stylist": float(stylist_rev_exclusive),
                 "outfit_builder": float(outfit_rev_exclusive),
@@ -1092,7 +1107,7 @@ class BrandRepository:
                 attribution_source=attribution_source,
                 outfit_id=outfit_id,
                 order_id=order_id,
-                revenue_amount=float(revenue_amount) if revenue_amount is not None else None,
+                revenue_amount=to_decimal(revenue_amount) if revenue_amount is not None else None,
                 event_metadata_json=json.dumps(event_metadata or {}),
             )
             self.db.add(ev)

@@ -14,7 +14,20 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from decimal import Decimal
 from backend.app.core.config import settings
+from backend.app.core.money import (
+    to_decimal,
+    quantize_money,
+    money_add,
+    money_sub,
+    money_mul,
+    money_percent,
+    money_min,
+    money_max,
+    money_sum,
+    to_float,
+)
 from backend.app.core.exceptions import (
     AuthenticationError,
     AuthorizationError,
@@ -218,20 +231,26 @@ class CommerceService:
 
         subtotal, order_items_payload, brand_ids = self._line_items_from_cart(cart_full)
         promo_code = checkout_data.get("promo_code") or cart_full.promo_code
-        discount, promo = (0.0, None)
+        discount, promo = (Decimal("0.00"), None)
         if promo_code:
             discount, promo = self._resolve_promo(promo_code, subtotal, cart_full, user_id)
 
-        if fulfillment == "bopis":
-            shipping = 0.0
-        elif shipping_method == "express":
-            shipping = 0.0 if subtotal - discount >= settings.FREE_SHIPPING_THRESHOLD else settings.EXPRESS_SHIPPING_FEE
-        else:
-            shipping = 0.0 if subtotal - discount >= settings.FREE_SHIPPING_THRESHOLD else settings.STANDARD_SHIPPING_FEE
+        # Precise Decimal arithmetic for financial integrity
+        free_threshold = to_decimal(settings.FREE_SHIPPING_THRESHOLD)
+        express_fee = to_decimal(settings.EXPRESS_SHIPPING_FEE)
+        standard_fee = to_decimal(settings.STANDARD_SHIPPING_FEE)
+        tax_rate = to_decimal(settings.TAX_RATE)
 
-        taxable = max(0.0, subtotal - discount)
-        tax = round(taxable * settings.TAX_RATE, 2)
-        total = round(max(0.0, taxable + tax + shipping), 2)
+        if fulfillment == "bopis":
+            shipping = Decimal("0.00")
+        elif shipping_method == "express":
+            shipping = Decimal("0.00") if (subtotal - discount) >= free_threshold else express_fee
+        else:
+            shipping = Decimal("0.00") if (subtotal - discount) >= free_threshold else standard_fee
+
+        taxable = money_max(subtotal - discount, Decimal("0.00"))
+        tax = money_mul(taxable, tax_rate)
+        total = money_max(taxable + tax + shipping, Decimal("0.00"))
 
         payments_live = bool(settings.PAYMENTS_LIVE)
         payment_mode = "live" if payments_live else "demo"
@@ -704,7 +723,7 @@ class CommerceService:
         if already:
             raise ReturnIneligibleError("One or more items have already been returned.")
 
-        refund_subtotal = sum(float(it.subtotal) if it.subtotal is not None else 0.0 for it in order.items if it.id in item_ids)
+        refund_subtotal = money_sum([it.subtotal for it in order.items if it.id in item_ids])
         label_url, label_ref = self._generate_return_label(order)
 
         req = self.commerce_repo.create_return_request(
@@ -764,10 +783,9 @@ class CommerceService:
         if sku.product_id != item.product_id:
             raise ValidationDomainError("Exchange replacement must be a variant of the same product.")
 
-        new_price = sku.price_override or sku.product.base_price
-        new_price_f = float(new_price) if new_price is not None else 0.0
-        unit_price_f = float(item.unit_price) if item.unit_price is not None else 0.0
-        delta = round(new_price_f - unit_price_f, 2)
+        new_price = to_decimal(sku.price_override or sku.product.base_price)
+        unit_price_dec = to_decimal(item.unit_price)
+        delta = money_sub(new_price, unit_price_dec)
         payment_status = "not_required"
         if delta > 0:
             payment_status = "delta_due"
@@ -867,32 +885,33 @@ class CommerceService:
         )
         if result.get("status") not in ("refunded", "refund_pending"):
             raise PaymentFailedError(tx.provider, "refund was not confirmed")
-        # Handle Decimal from Numeric(12,2)
-        current_refunded = float(tx.refunded_amount) if tx.refunded_amount is not None else 0.0
-        refund_req = float(req.refund_amount) if req.refund_amount is not None else 0.0
-        tx.refunded_amount = current_refunded + refund_req
+        # Precise Decimal handling for refunds
+        current_refunded = to_decimal(tx.refunded_amount)
+        refund_req = to_decimal(req.refund_amount)
+        tx.refunded_amount = money_add(current_refunded, refund_req)
         tx.status = result["status"]
         req.status = "refunded" if result["status"] == "refunded" else "approved"
         if result["status"] == "refunded":
-            total_f = float(order.total_amount) if order.total_amount is not None else 0.0
-            refunded_f = float(tx.refunded_amount) if tx.refunded_amount is not None else 0.0
-            order.payment_status = "refunded" if refunded_f >= total_f - 0.01 else order.payment_status
-            self._transition(order, "refunded" if refunded_f >= total_f - 0.01 else "partially_returned")
+            total_dec = to_decimal(order.total_amount)
+            refunded_dec = to_decimal(tx.refunded_amount)
+            # Allow 0.01 tolerance for rounding, but use Decimal
+            tolerance = Decimal("0.01")
+            order.payment_status = "refunded" if refunded_dec >= (total_dec - tolerance) else order.payment_status
+            self._transition(order, "refunded" if refunded_dec >= (total_dec - tolerance) else "partially_returned")
         self.db.commit()
         return self._format_return(req)
 
     # -------------------------------------------------------------- internals
-    def _line_items_from_cart(self, cart: Cart) -> Tuple[float, List[Dict[str, Any]], Set[int]]:
-        subtotal = 0.0
+    def _line_items_from_cart(self, cart: Cart) -> Tuple[Decimal, List[Dict[str, Any]], Set[int]]:
+        subtotal = Decimal("0.00")
         payload = []
         brands: Set[int] = set()
         for it in cart.items:
             sku = it.sku
             prod = sku.product
-            unit_price = sku.price_override if sku.price_override is not None else prod.base_price
-            unit_price_f = float(unit_price) if unit_price is not None else 0.0
-            line_sub = unit_price_f * it.quantity
-            subtotal += line_sub
+            unit_price = to_decimal(sku.price_override if sku.price_override is not None else prod.base_price)
+            line_sub = money_mul(unit_price, it.quantity)
+            subtotal = money_add(subtotal, line_sub)
             brands.add(prod.brand_id)
             payload.append(
                 {
@@ -904,9 +923,9 @@ class CommerceService:
                     "brand_name": prod.brand.brand_name if prod.brand else "CONFIT",
                     "size": sku.size,
                     "color": sku.color,
-                    "unit_price": unit_price,
+                    "unit_price": unit_price,  # Decimal exact
                     "quantity": it.quantity,
-                    "subtotal": line_sub,
+                    "subtotal": line_sub,  # Decimal exact
                     "outfit_id": it.outfit_id,
                 }
             )
@@ -920,7 +939,7 @@ class CommerceService:
             if not sku.is_in_stock:
                 raise InventoryUnavailableError(sku.sku_code, it.quantity, 0)
 
-    def _resolve_promo(self, code: str, subtotal: float, cart: Cart, user_id: Optional[int]):
+    def _resolve_promo(self, code: str, subtotal: Decimal, cart: Cart, user_id: Optional[int]):
         promo = self.commerce_repo.get_promotion_by_code(code)
         now = datetime.now(timezone.utc)
         if not promo or not promo.is_active:
@@ -929,8 +948,8 @@ class CommerceService:
             raise PromoIneligibleError(code, "code is not yet active")
         if promo.expires_at and promo.expires_at.replace(tzinfo=timezone.utc) < now:
             raise PromoIneligibleError(code, "code has expired")
-        min_order_f = float(promo.min_order_amount) if promo.min_order_amount is not None else 0.0
-        if subtotal < min_order_f:
+        min_order = to_decimal(promo.min_order_amount)
+        if subtotal < min_order:
             raise PromoIneligibleError(code, f"minimum order is {promo.min_order_amount}")
         if promo.max_redemptions is not None:
             used = self.commerce_repo.count_redemptions(promo.id)
@@ -941,24 +960,23 @@ class CommerceService:
             if used_user >= promo.max_per_user:
                 raise PromoIneligibleError(code, "you have already used this code")
 
-        eligible_subtotal = 0.0
+        eligible_subtotal = Decimal("0.00")
         for it in cart.items:
             prod = it.sku.product
             if promo.brand_id and prod.brand_id != promo.brand_id:
                 continue
             if promo.product_id and prod.id != promo.product_id:
                 continue
-            unit = it.sku.price_override if it.sku.price_override is not None else prod.base_price
-            unit_f = float(unit) if unit is not None else 0.0
-            eligible_subtotal += unit_f * it.quantity
-        if eligible_subtotal <= 0:
+            unit = to_decimal(it.sku.price_override if it.sku.price_override is not None else prod.base_price)
+            eligible_subtotal = money_add(eligible_subtotal, money_mul(unit, it.quantity))
+        if eligible_subtotal <= Decimal("0.00"):
             raise PromoIneligibleError(code, "no items in the cart qualify")
 
-        discount_val_f = float(promo.discount_value) if promo.discount_value is not None else 0.0
+        discount_val = to_decimal(promo.discount_value)
         if promo.discount_type == "percent":
-            discount = round(eligible_subtotal * (discount_val_f / 100.0), 2)
+            discount = money_percent(eligible_subtotal, discount_val)
         else:
-            discount = min(discount_val_f, eligible_subtotal)
+            discount = money_min(discount_val, eligible_subtotal)
         return discount, promo
 
     def _reserve_inventory(
@@ -1148,7 +1166,7 @@ class CommerceService:
 
     def _format_cart(self, cart: Cart, user_id: Optional[int] = None) -> Dict[str, Any]:
         items_out = []
-        subtotal = 0.0
+        subtotal = Decimal("0.00")
         count = 0
         brands: Set[str] = set()
         outfit_groups: Dict[int, List[int]] = defaultdict(list)
@@ -1156,10 +1174,9 @@ class CommerceService:
         for it in cart.items if cart and cart.items else []:
             sku = it.sku
             prod = sku.product
-            price = sku.price_override if sku.price_override is not None else prod.base_price
-            price_f = float(price) if price is not None else 0.0
-            line_sub = price_f * it.quantity
-            subtotal += line_sub
+            price = to_decimal(sku.price_override if sku.price_override is not None else prod.base_price)
+            line_sub = money_mul(price, it.quantity)
+            subtotal = money_add(subtotal, line_sub)
             count += it.quantity
             brand_name = prod.brand.brand_name if prod.brand else "CONFIT"
             brands.add(brand_name)
@@ -1185,18 +1202,22 @@ class CommerceService:
                 }
             )
 
-        discount = 0.0
+        discount = Decimal("0.00")
         promo_code = cart.promo_code if cart else None
         if promo_code and cart:
             try:
                 discount, _ = self._resolve_promo(promo_code, subtotal, cart, user_id)
             except PromoIneligibleError:
-                discount = 0.0
+                discount = Decimal("0.00")
                 promo_code = None
 
-        tax = round(max(0.0, subtotal - discount) * settings.TAX_RATE, 2)
-        shipping = 0.0 if (subtotal - discount >= settings.FREE_SHIPPING_THRESHOLD or subtotal == 0) else settings.STANDARD_SHIPPING_FEE
-        total = round(max(0.0, subtotal - discount + tax + shipping), 2)
+        taxable = money_max(subtotal - discount, Decimal("0.00"))
+        tax_rate = to_decimal(settings.TAX_RATE)
+        tax = money_mul(taxable, tax_rate)
+        free_threshold = to_decimal(settings.FREE_SHIPPING_THRESHOLD)
+        standard_fee = to_decimal(settings.STANDARD_SHIPPING_FEE)
+        shipping = Decimal("0.00") if (taxable >= free_threshold or subtotal == Decimal("0.00")) else standard_fee
+        total = money_max(taxable + tax + shipping, Decimal("0.00"))
 
         quote = BNPLProvider(provider_name=settings.BNPL_DEFAULT_PROVIDER).quote_sync(
             amount=total, currency="USD"

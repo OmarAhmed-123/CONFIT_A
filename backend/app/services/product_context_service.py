@@ -214,7 +214,8 @@ class ProductContextService:
         if not chosen:
             return {"eligible": False, "provider": None, "installment_amount": None, "installments_count": 0}
 
-        price = float(product.base_price)
+        from backend.app.core.money import to_float
+        price = to_float(product.base_price)
         provider = BNPLProvider(provider_name=chosen.provider_name)
         # Quote is computed from the real price and provider rules (sync fallback).
         quote = provider.quote_sync(amount=price, currency=product.currency or capabilities.currency_code)

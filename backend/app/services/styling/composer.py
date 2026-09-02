@@ -1,5 +1,7 @@
 import re
+from decimal import Decimal
 from typing import List, Dict, Any, Optional
+from backend.app.core.money import to_decimal, to_float
 from backend.app.services.styling.ontology import SlotType, classify_product_slot
 from backend.app.services.styling.rules import StylingRulesEngine
 
@@ -484,7 +486,7 @@ class OutfitComposer:
                     return None
                 # Cheapest first; prefer in-stock on ties.
                 cands = sorted(cands, key=lambda p: (
-                    float(p.base_price),
+                    to_float(p.base_price),
                     0 if (getattr(p, "skus", None) and any(s.is_in_stock and s.stock_level > 0 for s in p.skus)) else 1,
                 ))
                 out[pos] = cands[0]
@@ -498,9 +500,9 @@ class OutfitComposer:
             dres = cheapest_per_position(["dress", "footwear"])
             options = []
             if sep:
-                options.append(("separates", sep, sum(float(p.base_price) for p in sep.values())))
+                options.append(("separates", sep, sum(to_float(p.base_price) for p in sep.values())))
             if dres:
-                options.append(("onepiece", dres, sum(float(p.base_price) for p in dres.values())))
+                options.append(("onepiece", dres, sum(to_float(p.base_price) for p in dres.values())))
             if not options:
                 return None, None
             kind, best, cost = min(options, key=lambda o: o[2])
@@ -552,7 +554,7 @@ class OutfitComposer:
             "product_title": product.title,
             "brand_name": product.brand.brand_name if hasattr(product, "brand") and product.brand else "CONFIT Partner",
             "category_name": product.category.name if hasattr(product, "category") and product.category else "Apparel",
-            "price": float(product.base_price),
+            "price": to_float(product.base_price),
             "image_url": product.thumbnail_url,
             "color_hex": product.dominant_hex or "#1B1F3B",
             "color_family": getattr(product, "color_family", "Neutral"),

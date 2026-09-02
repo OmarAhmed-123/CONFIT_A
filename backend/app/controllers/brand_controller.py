@@ -1,8 +1,10 @@
+from decimal import Decimal
 from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, Query, status, UploadFile, File, HTTPException
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 import json
+from backend.app.core.money import to_decimal, to_float
 
 from backend.app.core.database import get_db
 from backend.app.core.dependencies import require_role, BRAND_ROLES
@@ -571,17 +573,17 @@ def patch_placement(
     for key in allowed:
         if key in payload:
             if key == "bid_amount_per_click":
-                bid = float(payload[key])
-                if bid <= 0 or bid > 100:
+                bid = to_decimal(payload[key])
+                if bid <= Decimal("0") or bid > Decimal("100"):
                     raise HTTPException(status_code=400, detail="Bid must be 0-100")
-                if bid > plc.daily_budget:
+                if bid > to_decimal(plc.daily_budget):
                     raise HTTPException(status_code=400, detail="Bid cannot exceed daily budget")
-                plc.bid_amount_per_click = round(bid, 2)
+                plc.bid_amount_per_click = bid
             elif key == "daily_budget":
-                budget = float(payload[key])
-                if budget <= 0 or budget > 10000:
+                budget = to_decimal(payload[key])
+                if budget <= Decimal("0") or budget > Decimal("10000"):
                     raise HTTPException(status_code=400, detail="Budget must be 0-10000")
-                plc.daily_budget = round(budget, 2)
+                plc.daily_budget = budget
             elif key == "status":
                 if payload[key] not in ["active", "paused", "budget_exhausted"]:
                     raise HTTPException(status_code=400, detail="Invalid status")

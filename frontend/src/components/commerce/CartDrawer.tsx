@@ -140,13 +140,19 @@ export const CartDrawer: React.FC = () => {
                   <span>{t('commerce.subtotal')}</span>
                   <span className="font-semibold text-slate-900">${subtotal.toFixed(2)}</span>
                 </div>
+                {(cart?.discount_amount || 0) > 0 && (
+                  <div className="flex justify-between text-emerald-600">
+                    <span>Discount</span>
+                    <span>-${(cart?.discount_amount || 0).toFixed(2)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between">
-                  <span>{t('commerce.tax')} (5%)</span>
-                  <span>${(subtotal * 0.05).toFixed(2)}</span>
+                  <span>{t('commerce.tax')}</span>
+                  <span>${(cart?.tax_amount ?? 0).toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between text-emerald-600">
+                <div className="flex justify-between">
                   <span>{t('commerce.shipping')}</span>
-                  <span>{subtotal >= 200 ? 'Free Express Delivery' : '$15.00'}</span>
+                  <span>${(cart?.shipping_amount ?? 0).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-sm font-bold text-[#1B1F3B] pt-2 border-t border-slate-100">
                   <span>{t('commerce.total')}</span>
@@ -154,10 +160,11 @@ export const CartDrawer: React.FC = () => {
                 </div>
               </div>
 
-              {/* BNPL Callout */}
-              <div className="p-2.5 rounded-xl bg-[#FDF8EE] border border-[#B8935A]/30 text-center">
-                <BNPLBadge price={total} provider="Tabby / Tamara" />
-              </div>
+              {cart && cart.bnpl_monthly_quote > 0 && (
+                <div className="p-2.5 rounded-xl bg-[#FDF8EE] border border-[#B8935A]/30 text-center">
+                  <BNPLBadge price={total} installmentAmount={cart.bnpl_monthly_quote} eligible />
+                </div>
+              )}
 
               <button
                 onClick={() => {

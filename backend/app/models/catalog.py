@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text, Float
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text, Float, UniqueConstraint
 from sqlalchemy.orm import relationship
 from backend.app.core.database import Base
 
@@ -113,6 +113,9 @@ class StoreLocation(Base):
 
 class StoreInventory(Base):
     __tablename__ = "store_inventories"
+    __table_args__ = (
+        UniqueConstraint("store_id", "sku_id", name="uq_store_inventories_store_sku"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     store_id = Column(Integer, ForeignKey("store_locations.id", ondelete="CASCADE"), nullable=False)

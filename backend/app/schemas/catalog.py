@@ -55,8 +55,8 @@ class ProductSummaryOut(BaseModel):
     style_tags: List[str]
     occasion_tags: List[str]
     rating: float
-    style_compatibility_score: int
-    ai_fit_score: int = 94
+    style_compatibility_score: Optional[int] = None
+    ai_fit_score: Optional[int] = None
     is_featured: bool
 
     model_config = ConfigDict(from_attributes=True)
@@ -73,9 +73,16 @@ class ProductDetailOut(ProductSummaryOut):
     images: List[str]
     size_chart: Dict[str, Any]
     skus: List[ProductSKUOut]
-    bnpl_monthly_installment: float  # e.g., base_price / 4
+    bnpl_monthly_installment: Optional[float] = None
+    bnpl: Optional[Dict[str, Any]] = None
     brand: BrandSummaryOut
     related_outfits: List[Dict[str, Any]] = []
+    recommended_size: Optional[str] = None
+    recommended_size_available: Optional[bool] = None
+    fit_available: bool = False
+    fit_reasoning: Optional[str] = None
+    style_compatibility_available: bool = False
+    style_compatibility_reason: Optional[str] = None
 
 
 class StoreInventoryOut(BaseModel):
@@ -88,6 +95,8 @@ class StoreInventoryOut(BaseModel):
     distance_km: Optional[float] = None
     quantity_available: int
     is_available_for_pickup: bool
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
 
     model_config = ConfigDict(from_attributes=True)
 

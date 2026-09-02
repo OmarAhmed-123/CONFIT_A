@@ -1,10 +1,83 @@
-from typing import List, Dict, Any, Optional
+"""Commerce domain: cart, pricing, checkout, payments, fulfillment, returns.
+
+Server-authoritative totals. Client-submitted prices/discounts/taxes are ignored.
+"""
+from __future__ import annotations
+
+import json
+import os
+import uuid
+from collections import defaultdict
+from datetime import datetime, timedelta, timezone
+from typing import Any, Dict, List, Optional, Set, Tuple
+
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
-from backend.app.models.commerce import Cart, Order
-from backend.app.repositories.commerce_repository import CommerceRepository
-from backend.app.repositories.catalog_repository import CatalogRepository
+
+from backend.app.core.config import settings
+from backend.app.core.exceptions import (
+    AuthenticationError,
+    AuthorizationError,
+    InventoryUnavailableError,
+    InvalidStateTransitionError,
+    PaymentFailedError,
+    PromoIneligibleError,
+    ResourceNotFoundError,
+    ReturnIneligibleError,
+    ValidationDomainError,
+)
+from backend.app.core.logging import logger
+from backend.app.models.commerce import Cart, Order, OrderItem, PaymentTransaction
+from backend.app.models.catalog import ProductSKU
 from backend.app.providers.bnpl_provider import BNPLProvider
-from backend.app.core.exceptions import ResourceNotFoundError, InventoryUnavailableError, ValidationDomainError
+from backend.app.providers.payment.orchestrator import PaymentOrchestrator
+from backend.app.repositories.catalog_repository import CatalogRepository
+from backend.app.repositories.commerce_repository import CommerceRepository
+from backend.app.repositories.profile_repository import ProfileRepository
+from backend.app.services.no_photo_fit_service import NoPhotoFitService
+from backend.app.services.product_context_service import ProductContextService
+
+
+ORDER_TRANSITIONS: Dict[str, Set[str]] = {
+    "placed": {"processing", "payment_pending", "cancelled", "failed", "return_requested", "exchange_requested"},
+    "payment_pending": {"placed", "processing", "failed", "cancelled", "return_requested"},
+    "processing": {
+        "preparing",
+        "ready_for_pickup",
+        "dispatched",
+        "shipped",
+        "cancelled",
+        "return_requested",
+        "exchange_requested",
+    },
+    "preparing": {"ready_for_pickup", "dispatched", "cancelled", "return_requested", "exchange_requested"},
+    "ready_for_pickup": {"picked_up", "cancelled", "return_requested", "exchange_requested"},
+    "dispatched": {"out_for_delivery", "delivered", "cancelled", "return_requested", "exchange_requested"},
+    "shipped": {"out_for_delivery", "delivered", "cancelled", "return_requested", "exchange_requested"},
+    "out_for_delivery": {"delivered", "failed_delivery", "return_requested"},
+    "delivered": {"return_requested", "exchange_requested", "completed"},
+    "picked_up": {"return_requested", "exchange_requested", "completed"},
+    "return_requested": {"partially_returned", "returned", "rejected"},
+    "partially_returned": {"returned", "refund_pending"},
+    "returned": {"refund_pending", "refunded"},
+    "refund_pending": {"refunded", "refund_failed"},
+    "refunded": {"completed"},
+    "exchange_requested": {"processing", "cancelled"},
+    "cancelled": set(),
+    "completed": set(),
+    "failed": {"cancelled", "payment_pending"},
+    "rejected": set(),
+    "refund_failed": {"refund_pending"},
+    "failed_delivery": {"out_for_delivery", "cancelled", "returned"},
+}
+
+ALLOWED_RETURN_REASONS = {
+    "Wrong Size",
+    "Color Difference",
+    "Changed Mind",
+    "Style Mismatch",
+    "Quality Issue",
+}
 
 
 class CommerceService:
@@ -13,11 +86,16 @@ class CommerceService:
         self.commerce_repo = CommerceRepository(db)
         self.catalog_repo = CatalogRepository(db)
         self.bnpl_provider = BNPLProvider()
+        self.payments = PaymentOrchestrator()
+        self.fit_service = NoPhotoFitService(db)
+        self.profile_repo = ProfileRepository(db)
+        self.product_context = ProductContextService(db)
 
+    # ------------------------------------------------------------------ cart
     def get_cart(self, session_token: str, user_id: Optional[int] = None) -> Dict[str, Any]:
         cart = self.commerce_repo.get_or_create_cart(session_token, user_id)
         cart_full = self.commerce_repo.get_cart_with_items(cart.id)
-        return self._format_cart(cart_full or cart)
+        return self._format_cart(cart_full or cart, user_id=user_id)
 
     def add_to_cart(
         self,
@@ -25,119 +103,293 @@ class CommerceService:
         product_sku_id: int,
         quantity: int = 1,
         user_id: Optional[int] = None,
-        outfit_id: Optional[int] = None
+        outfit_id: Optional[int] = None,
     ) -> Dict[str, Any]:
         sku = self.catalog_repo.get_sku_by_id(product_sku_id)
-        if not sku or not sku.is_in_stock:
-            raise InventoryUnavailableError(sku.sku_code if sku else str(product_sku_id), quantity, 0)
+        if not sku or not sku.is_in_stock or sku.stock_level < quantity:
+            available = sku.stock_level if sku else 0
+            raise InventoryUnavailableError(
+                sku.sku_code if sku else str(product_sku_id), quantity, available
+            )
 
         cart = self.commerce_repo.get_or_create_cart(session_token, user_id)
+        cart_loaded = self.commerce_repo.get_cart_with_items(cart.id) or cart
+        existing = next(
+            (it for it in (cart_loaded.items or []) if it.product_sku_id == product_sku_id),
+            None,
+        )
+        new_qty = quantity + (existing.quantity if existing else 0)
+        if sku.stock_level < new_qty:
+            raise InventoryUnavailableError(sku.sku_code, new_qty, sku.stock_level)
+
         self.commerce_repo.add_to_cart(cart.id, product_sku_id, quantity, outfit_id)
-
+        logger.info("cart_item_added", cart_id=cart.id, sku_id=product_sku_id, quantity=quantity)
         cart_full = self.commerce_repo.get_cart_with_items(cart.id)
-        return self._format_cart(cart_full or cart)
+        return self._format_cart(cart_full or cart, user_id=user_id)
 
-    def update_quantity(self, session_token: str, cart_item_id: int, quantity: int, user_id: Optional[int] = None) -> Dict[str, Any]:
+    def update_quantity(
+        self,
+        session_token: str,
+        cart_item_id: int,
+        quantity: int,
+        user_id: Optional[int] = None,
+    ) -> Dict[str, Any]:
         cart = self.commerce_repo.get_or_create_cart(session_token, user_id)
-        self.commerce_repo.update_cart_item_quantity(cart_item_id, quantity)
+        item = self.commerce_repo.get_cart_item_for_cart(cart.id, cart_item_id)
+        if not item:
+            raise ResourceNotFoundError("CartItem", cart_item_id)
+        if quantity > 0:
+            sku = item.sku
+            if sku and sku.stock_level < quantity:
+                raise InventoryUnavailableError(sku.sku_code, quantity, sku.stock_level)
+        self.commerce_repo.update_cart_item_quantity(item.id, quantity)
         cart_full = self.commerce_repo.get_cart_with_items(cart.id)
-        return self._format_cart(cart_full or cart)
+        return self._format_cart(cart_full or cart, user_id=user_id)
 
-    def remove_item(self, session_token: str, cart_item_id: int, user_id: Optional[int] = None) -> Dict[str, Any]:
+    def remove_item(
+        self, session_token: str, cart_item_id: int, user_id: Optional[int] = None
+    ) -> Dict[str, Any]:
         cart = self.commerce_repo.get_or_create_cart(session_token, user_id)
-        self.commerce_repo.remove_cart_item(cart_item_id)
+        item = self.commerce_repo.get_cart_item_for_cart(cart.id, cart_item_id)
+        if not item:
+            raise ResourceNotFoundError("CartItem", cart_item_id)
+        self.commerce_repo.remove_cart_item(item.id)
         cart_full = self.commerce_repo.get_cart_with_items(cart.id)
-        return self._format_cart(cart_full or cart)
+        return self._format_cart(cart_full or cart, user_id=user_id)
 
+    def merge_guest_cart(self, guest_token: str, user_id: int) -> Dict[str, Any]:
+        cart = self.commerce_repo.merge_guest_into_user_cart(guest_token, user_id)
+        logger.info("cart_merged", user_id=user_id)
+        return self._format_cart(cart, user_id=user_id)
+
+    def apply_promo(
+        self, session_token: str, promo_code: Optional[str], user_id: Optional[int] = None
+    ) -> Dict[str, Any]:
+        cart = self.commerce_repo.get_or_create_cart(session_token, user_id)
+        cart_full = self.commerce_repo.get_cart_with_items(cart.id)
+        if promo_code:
+            subtotal, _, _ = self._line_items_from_cart(cart_full)
+            self._resolve_promo(promo_code, subtotal, cart_full, user_id)
+        self.commerce_repo.set_cart_promo(cart.id, (promo_code or "").upper().strip() or None)
+        cart_full = self.commerce_repo.get_cart_with_items(cart.id)
+        return self._format_cart(cart_full or cart, user_id=user_id)
+
+    # -------------------------------------------------------------- checkout
     async def checkout(
         self,
         session_token: str,
         checkout_data: Dict[str, Any],
-        user_id: Optional[int] = None
+        user_id: Optional[int] = None,
     ) -> Dict[str, Any]:
+        guest_email = (checkout_data.get("guest_email") or "").strip() or None
+        if user_id is None and not guest_email:
+            raise AuthenticationError(
+                "Sign in or provide guest_email to complete checkout."
+            )
+
+        idempotency_key = checkout_data.get("idempotency_key")
+        if idempotency_key:
+            existing = self.commerce_repo.get_order_by_idempotency(idempotency_key)
+            if existing:
+                return self.get_order(existing.order_number)
+
         cart = self.commerce_repo.get_or_create_cart(session_token, user_id)
         cart_full = self.commerce_repo.get_cart_with_items(cart.id)
         if not cart_full or not cart_full.items:
             raise ValidationDomainError("Cannot checkout an empty cart.")
 
-        # Check idempotency key if provided
-        idempotency_key = checkout_data.get("idempotency_key")
-        if idempotency_key:
-            existing_order = self.db.query(Order).filter(Order.idempotency_key == idempotency_key).first()
-            if existing_order:
-                return self.get_order(existing_order.order_number)
+        self._assert_sizes_selected(cart_full)
 
-        # Calculate totals
-        subtotal = 0.0
-        order_items_payload = []
-        for it in cart_full.items:
-            sku = it.sku
-            prod = sku.product
-            unit_price = sku.price_override or prod.base_price
-            line_sub = unit_price * it.quantity
-            subtotal += line_sub
-
-            order_items_payload.append({
-                "product_sku_id": sku.id,
-                "product_id": prod.id,
-                "brand_id": prod.brand_id,
-                "product_title": prod.title,
-                "brand_name": prod.brand.brand_name if prod.brand else "CONFIT",
-                "size": sku.size,
-                "color": sku.color,
-                "unit_price": unit_price,
-                "quantity": it.quantity,
-                "subtotal": line_sub
-            })
-
-        discount = 20.0 if checkout_data.get("promo_code") in ["CONFIT10", "STYLE2026"] else 0.0
-        tax = round((subtotal - discount) * 0.05, 2)
         fulfillment = checkout_data.get("fulfillment_type", "delivery")
-        shipping = 0.0 if fulfillment == "bopis" else (15.0 if subtotal < 250 else 0.0)
-        total = round(max(0.0, subtotal - discount + tax + shipping), 2)
+        if fulfillment not in ("delivery", "bopis"):
+            raise ValidationDomainError("fulfillment_type must be 'delivery' or 'bopis'.")
+        shipping_method = checkout_data.get("shipping_method") or "standard"
+        if shipping_method not in ("standard", "express"):
+            raise ValidationDomainError("shipping_method must be 'standard' or 'express'.")
+
+        bopis_store_id = checkout_data.get("bopis_store_id")
+        if fulfillment == "bopis" and not bopis_store_id:
+            raise ValidationDomainError("bopis_store_id is required for boutique pickup.")
+        if fulfillment == "delivery" and not checkout_data.get("address_line"):
+            raise ValidationDomainError("A shipping address is required for home delivery.")
 
         payment_method = checkout_data.get("payment_method", "card")
+        country = checkout_data.get("country") or settings.MARKET or "AE"
+
+        subtotal, order_items_payload, brand_ids = self._line_items_from_cart(cart_full)
+        promo_code = checkout_data.get("promo_code") or cart_full.promo_code
+        discount, promo = (0.0, None)
+        if promo_code:
+            discount, promo = self._resolve_promo(promo_code, subtotal, cart_full, user_id)
+
+        if fulfillment == "bopis":
+            shipping = 0.0
+        elif shipping_method == "express":
+            shipping = 0.0 if subtotal - discount >= settings.FREE_SHIPPING_THRESHOLD else settings.EXPRESS_SHIPPING_FEE
+        else:
+            shipping = 0.0 if subtotal - discount >= settings.FREE_SHIPPING_THRESHOLD else settings.STANDARD_SHIPPING_FEE
+
+        taxable = max(0.0, subtotal - discount)
+        tax = round(taxable * settings.TAX_RATE, 2)
+        total = round(max(0.0, taxable + tax + shipping), 2)
+
+        payments_live = bool(settings.PAYMENTS_LIVE)
+        payment_mode = "live" if payments_live else "demo"
         installments = 4 if "bnpl" in payment_method else 1
 
-        order = self.commerce_repo.create_order(
-            user_id=user_id,
-            total_amount=total,
-            subtotal_amount=subtotal,
-            discount_amount=discount,
-            tax_amount=tax,
-            shipping_amount=shipping,
-            currency="USD",
-            payment_method=payment_method,
-            payment_status="paid" if payment_method != "cod" else "pending",
-            payment_installments=installments,
-            fulfillment_type=fulfillment,
-            bopis_store_id=checkout_data.get("bopis_store_id"),
-            shipping_details={
-                "recipient_name": checkout_data.get("recipient_name"),
-                "address_line": checkout_data.get("address_line"),
-                "city": checkout_data.get("city"),
-                "country": checkout_data.get("country", "UAE"),
-                "phone": checkout_data.get("phone")
-            },
-            idempotency_key=idempotency_key,
-            try_on_assisted=checkout_data.get("try_on_assisted", True),
-            stylist_assisted=checkout_data.get("stylist_assisted", False),
-            items=order_items_payload
+        eta = datetime.now(timezone.utc) + timedelta(
+            days=1 if fulfillment == "bopis" else (2 if shipping_method == "express" else 4)
         )
 
-        # Clear cart on successful order creation
-        self.commerce_repo.clear_cart(cart.id)
+        # Inventory is reserved inside this transaction BEFORE payment capture.
+        try:
+            reservation_ids = self._reserve_inventory(
+                order_items_payload,
+                fulfillment_type=fulfillment,
+                bopis_store_id=bopis_store_id,
+            )
+        except InventoryUnavailableError:
+            self.db.rollback()
+            raise
 
+        try:
+            order = self.commerce_repo.create_order(
+                user_id=user_id,
+                total_amount=total,
+                subtotal_amount=subtotal,
+                discount_amount=discount,
+                tax_amount=tax,
+                shipping_amount=shipping,
+                currency="USD",
+                payment_method=payment_method,
+                payment_status="pending",
+                payment_installments=installments,
+                fulfillment_type=fulfillment,
+                bopis_store_id=bopis_store_id,
+                shipping_details={
+                    "recipient_name": checkout_data.get("recipient_name"),
+                    "address_line": checkout_data.get("address_line"),
+                    "city": checkout_data.get("city"),
+                    "country": country,
+                    "phone": checkout_data.get("phone"),
+                },
+                idempotency_key=idempotency_key,
+                try_on_assisted=bool(checkout_data.get("try_on_assisted", False)),
+                stylist_assisted=bool(checkout_data.get("stylist_assisted", False)),
+                items=order_items_payload,
+                guest_email=guest_email,
+                guest_session_token=session_token if user_id is None else None,
+                promo_code=promo_code.upper().strip() if promo_code else None,
+                payment_mode=payment_mode,
+                shipping_method=shipping_method,
+                estimated_delivery_date=eta,
+            )
+        except IntegrityError:
+            self.db.rollback()
+            if idempotency_key:
+                existing = self.commerce_repo.get_order_by_idempotency(idempotency_key)
+                if existing:
+                    return self.get_order(existing.order_number)
+            raise
+
+        if promo:
+            self.db.add(
+                __import__("backend.app.models.commerce", fromlist=["PromotionRedemption"]).PromotionRedemption(
+                    promotion_id=promo.id,
+                    order_id=order.id,
+                    user_id=user_id,
+                    guest_email=guest_email,
+                    discount_amount=discount,
+                )
+            )
+            self.db.commit()
+
+        self._attach_reservations(reservation_ids, order.id)
+        try:
+            self._notify(
+                "order_created",
+                order.order_number,
+                guest_email or "",
+                f"Order {order.order_number} created; payment {payment_method} pending confirmation.",
+            )
+        except Exception:
+            logger.warn("commerce_notification_failed", order_number=order.order_number)
+
+        pay_result = await self.payments.initiate_payment(
+            method_id=payment_method,
+            amount_minor=int(round(total * 100)),
+            currency_code="USD",
+            customer_email=guest_email or "",
+            order_number=order.order_number,
+            country_code=country,
+        )
+        tx_status = pay_result.get("status") or "pending"
+        mapped_payment_status = self._map_provider_status(tx_status, payment_method)
+        self.commerce_repo.create_payment_transaction(
+            order_id=order.id,
+            provider=str(pay_result.get("provider") or payment_method),
+            method=payment_method,
+            provider_tx_id=str(pay_result.get("transaction_id") or uuid.uuid4().hex),
+            amount=total,
+            currency="USD",
+            status=mapped_payment_status,
+            mode=payment_mode,
+            idempotency_key=f"pay:{idempotency_key or order.order_number}",
+        )
+
+        if mapped_payment_status in ("failed",):
+            self._release_inventory_for_order(order)
+            self._transition(order, "failed")
+            order.payment_status = "failed"
+            self.db.commit()
+            raise PaymentFailedError(str(pay_result.get("provider")), "provider declined the payment")
+
+        order.payment_status = mapped_payment_status
+        if mapped_payment_status != "failed":
+            self._commit_reservations(reservation_ids, order.id)
+            try:
+                self._notify(
+                    "payment_recorded",
+                    order.order_number,
+                    guest_email or "",
+                    f"Payment {mapped_payment_status} via {payment_method} ({payment_mode}).",
+                )
+            except Exception:
+                logger.warn("commerce_notification_failed", order_number=order.order_number)
+            next_status = "payment_pending" if mapped_payment_status == "pending" else "processing"
+            if order.status != next_status:
+                self._transition(order, next_status)
+            self.commerce_repo.add_order_event(
+                order.id,
+                "payment_" + mapped_payment_status,
+                "Payment recorded",
+                (
+                    f"Payment {mapped_payment_status} via {payment_method}"
+                    + (" (demo adapter — not a live charge)" if payment_mode == "demo" else "")
+                ),
+            )
+        self.db.commit()
+
+        self.commerce_repo.clear_cart(cart.id)
+        logger.info(
+            "order_created",
+            order_number=order.order_number,
+            payment_status=order.payment_status,
+            payment_mode=payment_mode,
+            fulfillment=fulfillment,
+        )
         return self.get_order(order.order_number)
 
+    # ---------------------------------------------------------------- orders
     def get_order(self, order_number: str) -> Dict[str, Any]:
         order = self.commerce_repo.get_order_by_number(order_number)
         if not order:
             raise ResourceNotFoundError("Order", order_number)
 
         items_out = []
+        outfit_groups: Dict[int, List[Dict[str, Any]]] = defaultdict(list)
         for it in order.items:
-            items_out.append({
+            row = {
                 "id": it.id,
                 "product_id": it.product_id,
                 "product_title": it.product_title,
@@ -147,12 +399,32 @@ class CommerceService:
                 "unit_price": it.unit_price,
                 "quantity": it.quantity,
                 "subtotal": it.subtotal,
-                "is_returned": it.is_returned
-            })
+                "is_returned": it.is_returned,
+                "outfit_id": it.outfit_id,
+                "fulfillment_group_id": it.fulfillment_group_id,
+            }
+            items_out.append(row)
+            if it.outfit_id:
+                outfit_groups[it.outfit_id].append(row)
+
+        groups_out = []
+        for g in order.fulfillment_groups or []:
+            groups_out.append(
+                {
+                    "id": g.id,
+                    "brand_name": g.brand_name,
+                    "fulfillment_type": g.fulfillment_type,
+                    "status": g.status,
+                    "carrier": g.carrier,
+                    "tracking_number": g.tracking_number,
+                }
+            )
 
         return {
             "id": order.id,
             "order_number": order.order_number,
+            "user_id": order.user_id,
+            "guest_email": order.guest_email,
             "status": order.status,
             "total_amount": order.total_amount,
             "subtotal_amount": order.subtotal_amount,
@@ -160,10 +432,13 @@ class CommerceService:
             "tax_amount": order.tax_amount,
             "shipping_amount": order.shipping_amount,
             "currency": order.currency,
+            "promo_code": order.promo_code,
             "payment_method": order.payment_method,
             "payment_status": order.payment_status,
             "payment_installments": order.payment_installments,
+            "payment_mode": order.payment_mode,
             "fulfillment_type": order.fulfillment_type,
+            "shipping_method": order.shipping_method,
             "bopis_store_name": order.bopis_store.name if order.bopis_store else None,
             "bopis_pickup_code": order.bopis_pickup_code,
             "shipping_recipient_name": order.shipping_recipient_name,
@@ -174,8 +449,28 @@ class CommerceService:
             "try_on_assisted": order.try_on_assisted,
             "stylist_assisted": order.stylist_assisted,
             "items": items_out,
-            "created_at": order.created_at
+            "fulfillment_groups": groups_out,
+            "outfit_groups": [
+                {"outfit_id": oid, "items": rows} for oid, rows in outfit_groups.items()
+            ],
+            "created_at": order.created_at,
         }
+
+    def assert_order_access(
+        self, order: Dict[str, Any], user, session_token: Optional[str] = None
+    ) -> None:
+        from backend.app.models.user import UserRole
+
+        if user and getattr(user, "role", None) == UserRole.ADMIN:
+            return
+        if user and order.get("user_id") == user.id:
+            return
+        if user and order.get("user_id") and order.get("user_id") != user.id:
+            raise AuthorizationError("Access denied: You cannot view order details of another customer.")
+        # Guest access: unguessable order number is the capability. Authenticated
+        # cross-user access is already rejected above.
+        if user is None:
+            return
 
     def get_order_tracking(self, order_number: str) -> Dict[str, Any]:
         order = self.commerce_repo.get_order_by_number(order_number)
@@ -183,22 +478,68 @@ class CommerceService:
             raise ResourceNotFoundError("Order", order_number)
 
         is_bopis = order.fulfillment_type == "bopis"
+        events = sorted(order.events or [], key=lambda e: e.created_at)
+        event_keys = {e.status_key for e in events}
 
         if is_bopis:
-            milestones = [
-                {"status_key": "placed", "title": "Order Placed & Confirmed", "description": "Payment secured and routed to store warehouse.", "is_completed": True, "is_current": False},
-                {"status_key": "processing", "title": "Store Preparing Items", "description": "Boutique associate pulling garments and verifying quality.", "is_completed": True, "is_current": True},
-                {"status_key": "ready_for_pickup", "title": "Ready for Boutique Pickup", "description": f"Present pickup code {order.bopis_pickup_code} at checkout counter.", "is_completed": False, "is_current": False},
-                {"status_key": "delivered", "title": "Collected by Customer", "description": "Pickup completed.", "is_completed": False, "is_current": False}
+            template = [
+                ("placed", "Order Placed & Confirmed", "Payment recorded and routed to boutique."),
+                ("processing", "Store Preparing Items", "Associate pulling garments and verifying quality."),
+                ("ready_for_pickup", "Ready for Boutique Pickup", f"Present pickup code {order.bopis_pickup_code} at the desk."),
+                ("picked_up", "Collected by Customer", "Pickup completed."),
             ]
         else:
-            milestones = [
-                {"status_key": "placed", "title": "Order Placed", "description": "Order received and verified.", "is_completed": True, "is_current": False},
-                {"status_key": "processing", "title": "Fulfillment & Quality Check", "description": "Garments steamed, packaged in luxury garment bag.", "is_completed": True, "is_current": True},
-                {"status_key": "dispatched", "title": "Dispatched with Carrier", "description": "In transit with premium courier.", "is_completed": False, "is_current": False},
-                {"status_key": "out_for_delivery", "title": "Out for Delivery", "description": "Driver on route to delivery address.", "is_completed": False, "is_current": False},
-                {"status_key": "delivered", "title": "Delivered", "description": "Delivered to recipient.", "is_completed": False, "is_current": False}
+            template = [
+                ("placed", "Order Placed", "Order received."),
+                ("processing", "Fulfillment & Quality Check", "Garments prepared for dispatch."),
+                ("dispatched", "Dispatched with Carrier", "In transit."),
+                ("out_for_delivery", "Out for Delivery", "Courier on route."),
+                ("delivered", "Delivered", "Handed to recipient."),
             ]
+
+        status_rank = [t[0] for t in template]
+        current = order.status
+        if current == "picked_up":
+            current_idx = status_rank.index("picked_up") if "picked_up" in status_rank else len(status_rank) - 1
+        elif current in status_rank:
+            current_idx = status_rank.index(current)
+        else:
+            current_idx = 0
+
+        timeline = []
+        for idx, (key, title, desc) in enumerate(template):
+            matching_event = next((e for e in events if e.status_key == key or e.status_key.endswith(key)), None)
+            is_completed = idx < current_idx or current == key and idx <= current_idx and current in (
+                "delivered",
+                "picked_up",
+                "completed",
+            )
+            if current in status_rank and idx < current_idx:
+                is_completed = True
+            is_current = key == current or (idx == current_idx)
+            timeline.append(
+                {
+                    "status_key": key,
+                    "title": title,
+                    "description": desc,
+                    "timestamp": matching_event.created_at if matching_event else (
+                        order.created_at if is_completed and idx == 0 else None
+                    ),
+                    "is_completed": is_completed,
+                    "is_current": is_current and not is_completed,
+                }
+            )
+            if is_current and is_completed:
+                timeline[-1]["is_current"] = False
+
+        # Ensure exactly one current marker when the order is still in flight.
+        if not any(m["is_current"] for m in timeline) and current not in ("delivered", "picked_up", "completed", "cancelled"):
+            for m in timeline:
+                if m["status_key"] == current:
+                    m["is_current"] = True
+                    break
+            else:
+                timeline[min(current_idx, len(timeline) - 1)]["is_current"] = True
 
         store_info = None
         if order.bopis_store:
@@ -206,36 +547,475 @@ class CommerceService:
                 "name": order.bopis_store.name,
                 "address": order.bopis_store.address,
                 "city": order.bopis_store.city,
-                "pickup_instructions": order.bopis_store.pickup_instructions or "Visit Customer Service desk with your digital pickup code.",
-                "pickup_code": order.bopis_pickup_code
+                "pickup_instructions": order.bopis_store.pickup_instructions
+                or "Visit Customer Service desk with your digital pickup code.",
+                "pickup_code": order.bopis_pickup_code,
             }
+
+        shipments = []
+        for g in order.fulfillment_groups or []:
+            shipments.append(
+                {
+                    "brand_name": g.brand_name,
+                    "status": g.status,
+                    "carrier": g.carrier,
+                    "tracking_number": g.tracking_number,
+                    "fulfillment_type": g.fulfillment_type,
+                }
+            )
 
         return {
             "order_number": order.order_number,
             "current_status": order.status,
-            "estimated_delivery": "2-3 business days" if not is_bopis else "Today by 6:00 PM",
-            "carrier": "CONFIT Express Logistics" if not is_bopis else "In-Store Concierge",
+            "estimated_delivery": (
+                order.estimated_delivery_date.date().isoformat()
+                if order.estimated_delivery_date
+                else None
+            ),
+            "carrier": next(
+                (g.carrier for g in (order.fulfillment_groups or []) if g.carrier),
+                None,
+            ),
             "tracking_number": order.tracking_number,
-            "timeline": milestones,
-            "bopis_store_info": store_info
+            "timeline": timeline,
+            "bopis_store_info": store_info,
+            "shipments": shipments,
         }
 
-    def create_return(self, user_id: int, order_id: int, reason: str, details: Optional[str], item_ids: List[int]) -> Dict[str, Any]:
-        order = self.db.query(Order).filter(Order.id == order_id, Order.user_id == user_id).first()
+    def transition_order(self, order_number: str, new_status: str) -> Dict[str, Any]:
+        order = self.commerce_repo.get_order_by_number(order_number)
+        if not order:
+            raise ResourceNotFoundError("Order", order_number)
+        self._transition(order, new_status)
+        self.commerce_repo.add_order_event(
+            order.id, new_status, f"Status → {new_status}", f"Order moved to {new_status}."
+        )
+        return self.get_order(order.order_number)
+
+    # --------------------------------------------------------------- returns
+    def create_return(
+        self,
+        user_id: Optional[int],
+        order_id: int,
+        reason: str,
+        details: Optional[str],
+        item_ids: List[int],
+        guest_email: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        order = self.commerce_repo.get_order_by_id(order_id)
         if not order:
             raise ResourceNotFoundError("Order", order_id)
+        if user_id and order.user_id and order.user_id != user_id:
+            raise AuthorizationError("You cannot return another customer's order.")
+        if user_id is None and guest_email and order.guest_email and order.guest_email.lower() != guest_email.lower():
+            raise AuthorizationError("Guest email does not match this order.")
+
+        if reason not in ALLOWED_RETURN_REASONS:
+            raise ValidationDomainError(f"Unsupported return reason: {reason}")
+        if not item_ids:
+            raise ValidationDomainError("Select at least one item to return.")
+
+        eligible_statuses = {
+            "delivered",
+            "picked_up",
+            "completed",
+        }
+        if order.status not in eligible_statuses:
+            raise ReturnIneligibleError(f"Order status '{order.status}' is not eligible for return.")
+
+        window = timedelta(days=settings.RETURN_WINDOW_DAYS)
+        if order.created_at.replace(tzinfo=timezone.utc) + window < datetime.now(timezone.utc):
+            raise ReturnIneligibleError(
+                f"The {settings.RETURN_WINDOW_DAYS}-day return window has closed."
+            )
+
+        owned_ids = {it.id for it in order.items}
+        unknown = [i for i in item_ids if i not in owned_ids]
+        if unknown:
+            raise ValidationDomainError("One or more items do not belong to this order.")
+        already = [it for it in order.items if it.id in item_ids and it.is_returned]
+        if already:
+            raise ReturnIneligibleError("One or more items have already been returned.")
 
         refund_subtotal = sum(it.subtotal for it in order.items if it.id in item_ids)
+        label_url, label_ref = self._generate_return_label(order)
+
         req = self.commerce_repo.create_return_request(
             order_id=order.id,
-            user_id=user_id,
+            user_id=user_id or order.user_id,
             reason=reason,
             details=details,
             refund_amount=refund_subtotal,
             item_ids=item_ids,
-            try_on_used=order.try_on_assisted
+            try_on_used=order.try_on_assisted,
+            return_label_url=label_url,
+            label_provider_ref=label_ref,
+            guest_email=guest_email or order.guest_email,
         )
+        self._transition(order, "return_requested")
+        self.commerce_repo.add_order_event(
+            order.id, "return_requested", "Return requested", f"Return {req.return_number} opened."
+        )
+        logger.info("return_created", return_number=req.return_number, order_id=order.id)
+        self._notify(
+            "return_requested",
+            order.order_number,
+            guest_email or order.guest_email or "",
+            f"Return {req.return_number} opened for order {order.order_number}.",
+        )
+        return self._format_return(req)
 
+    def get_return(self, return_id: int, user_id: int) -> Dict[str, Any]:
+        req = self.commerce_repo.get_return_by_id(return_id)
+        if not req:
+            raise ResourceNotFoundError("ReturnRequest", return_id)
+        if req.user_id and req.user_id != user_id:
+            raise AuthorizationError("You cannot view another customer's return.")
+        return self._format_return(req)
+
+    async def create_exchange(
+        self,
+        user_id: int,
+        order_id: int,
+        original_item_id: int,
+        replacement_sku_id: int,
+    ) -> Dict[str, Any]:
+        order = self.commerce_repo.get_order_by_id(order_id)
+        if not order or order.user_id != user_id:
+            raise ResourceNotFoundError("Order", order_id)
+        item = next((it for it in order.items if it.id == original_item_id), None)
+        if not item:
+            raise ResourceNotFoundError("OrderItem", original_item_id)
+        if item.is_returned:
+            raise ReturnIneligibleError("Returned items cannot be exchanged.")
+
+        sku = self.catalog_repo.get_sku_by_id(replacement_sku_id)
+        if not sku or not sku.is_in_stock or sku.stock_level < 1:
+            raise InventoryUnavailableError(
+                sku.sku_code if sku else str(replacement_sku_id), 1, sku.stock_level if sku else 0
+            )
+        if sku.product_id != item.product_id:
+            raise ValidationDomainError("Exchange replacement must be a variant of the same product.")
+
+        new_price = sku.price_override or sku.product.base_price
+        delta = round(new_price - item.unit_price, 2)
+        payment_status = "not_required"
+        if delta > 0:
+            payment_status = "delta_due"
+        elif delta < 0:
+            payment_status = "credit_due"
+
+        self._reserve_inventory(
+            [
+                {
+                    "product_sku_id": sku.id,
+                    "quantity": 1,
+                    "sku_code": sku.sku_code,
+                }
+            ],
+            fulfillment_type=order.fulfillment_type,
+            bopis_store_id=order.bopis_store_id,
+        )
+        req = self.commerce_repo.create_exchange(
+            order_id=order.id,
+            user_id=user_id,
+            original_item_id=item.id,
+            replacement_sku_id=sku.id,
+            price_delta=delta,
+            payment_status=payment_status,
+        )
+        self._transition(order, "exchange_requested")
+        logger.info("exchange_created", exchange_number=req.exchange_number, price_delta=delta)
+        return {
+            "id": req.id,
+            "exchange_number": req.exchange_number,
+            "order_id": req.order_id,
+            "original_item_id": req.original_item_id,
+            "replacement_sku_id": req.replacement_sku_id,
+            "price_delta": req.price_delta,
+            "status": req.status,
+            "payment_status": req.payment_status,
+            "created_at": req.created_at,
+        }
+
+    async def process_webhook(self, provider: str, payload: Dict[str, Any], raw_body: bytes, signature: str) -> Dict[str, Any]:
+        if not self.payments.verify_webhook(provider, raw_body, signature or ""):
+            from fastapi import HTTPException
+
+            raise HTTPException(status_code=401, detail="Invalid webhook signature")
+
+        event_id = str(payload.get("id") or payload.get("event_id") or payload.get("eventId") or "")
+        if not event_id:
+            raise ValidationDomainError("Webhook payload is missing an event id.")
+        existing = self.commerce_repo.get_webhook_event(provider, event_id)
+        if existing:
+            return {"status": "duplicate", "provider": provider, "event_id": event_id}
+
+        order_number = payload.get("order_number") or (payload.get("data") or {}).get("order_number")
+        event_type = payload.get("event") or payload.get("type") or ""
+        self.commerce_repo.record_webhook_event(provider, event_id, order_number)
+
+        if order_number:
+            order = self.commerce_repo.get_order_by_number(order_number)
+            if order:
+                if event_type in ("payment.captured", "charge.succeeded", "payment_intent.succeeded"):
+                    order.payment_status = "paid"
+                    if order.status in ("placed", "payment_pending"):
+                        self._transition(order, "processing")
+                    self.commerce_repo.add_order_event(
+                        order.id, "paid", "Payment captured", "Provider confirmed capture."
+                    )
+                elif event_type in ("payment.failed", "charge.failed"):
+                    order.payment_status = "failed"
+                    self._release_inventory_for_order(order)
+                    self._transition(order, "failed")
+                elif event_type in ("refund.succeeded", "charge.refunded"):
+                    order.payment_status = "refunded"
+                    self._transition(order, "refunded")
+                self.db.commit()
+
+        logger.info("webhook_processed", provider=provider, event_id=event_id, webhook_event=event_type)
+        return {"status": "received", "provider": provider, "verified": True, "event": event_type}
+
+    async def refund_return(self, return_id: int) -> Dict[str, Any]:
+        req = self.commerce_repo.get_return_by_id(return_id)
+        if not req:
+            raise ResourceNotFoundError("ReturnRequest", return_id)
+        order = req.order
+        tx = (
+            self.db.query(PaymentTransaction)
+            .filter(PaymentTransaction.order_id == order.id)
+            .order_by(PaymentTransaction.created_at.desc())
+            .first()
+        )
+        if not tx:
+            raise ValidationDomainError("No payment transaction exists to refund.")
+        result = await self.payments.refund(
+            provider_tx_id=tx.provider_tx_id,
+            amount=req.refund_amount,
+            method=order.payment_method,
+            mode=order.payment_mode,
+        )
+        if result.get("status") not in ("refunded", "refund_pending"):
+            raise PaymentFailedError(tx.provider, "refund was not confirmed")
+        tx.refunded_amount = (tx.refunded_amount or 0) + req.refund_amount
+        tx.status = result["status"]
+        req.status = "refunded" if result["status"] == "refunded" else "approved"
+        if result["status"] == "refunded":
+            order.payment_status = "refunded" if tx.refunded_amount >= order.total_amount - 0.01 else order.payment_status
+            self._transition(order, "refunded" if tx.refunded_amount >= order.total_amount - 0.01 else "partially_returned")
+        self.db.commit()
+        return self._format_return(req)
+
+    # -------------------------------------------------------------- internals
+    def _line_items_from_cart(self, cart: Cart) -> Tuple[float, List[Dict[str, Any]], Set[int]]:
+        subtotal = 0.0
+        payload = []
+        brands: Set[int] = set()
+        for it in cart.items:
+            sku = it.sku
+            prod = sku.product
+            unit_price = sku.price_override if sku.price_override is not None else prod.base_price
+            line_sub = unit_price * it.quantity
+            subtotal += line_sub
+            brands.add(prod.brand_id)
+            payload.append(
+                {
+                    "product_sku_id": sku.id,
+                    "sku_code": sku.sku_code,
+                    "product_id": prod.id,
+                    "brand_id": prod.brand_id,
+                    "product_title": prod.title,
+                    "brand_name": prod.brand.brand_name if prod.brand else "CONFIT",
+                    "size": sku.size,
+                    "color": sku.color,
+                    "unit_price": unit_price,
+                    "quantity": it.quantity,
+                    "subtotal": line_sub,
+                    "outfit_id": it.outfit_id,
+                }
+            )
+        return subtotal, payload, brands
+
+    def _assert_sizes_selected(self, cart: Cart) -> None:
+        for it in cart.items:
+            sku = it.sku
+            if not sku or not sku.size:
+                raise ValidationDomainError("Every cart item must have a selected size.")
+            if not sku.is_in_stock:
+                raise InventoryUnavailableError(sku.sku_code, it.quantity, 0)
+
+    def _resolve_promo(self, code: str, subtotal: float, cart: Cart, user_id: Optional[int]):
+        promo = self.commerce_repo.get_promotion_by_code(code)
+        now = datetime.now(timezone.utc)
+        if not promo or not promo.is_active:
+            raise PromoIneligibleError(code, "code is not recognised or inactive")
+        if promo.starts_at and promo.starts_at.replace(tzinfo=timezone.utc) > now:
+            raise PromoIneligibleError(code, "code is not yet active")
+        if promo.expires_at and promo.expires_at.replace(tzinfo=timezone.utc) < now:
+            raise PromoIneligibleError(code, "code has expired")
+        if subtotal < promo.min_order_amount:
+            raise PromoIneligibleError(code, f"minimum order is {promo.min_order_amount}")
+        if promo.max_redemptions is not None:
+            used = self.commerce_repo.count_redemptions(promo.id)
+            if used >= promo.max_redemptions:
+                raise PromoIneligibleError(code, "redemption limit reached")
+        if user_id and promo.max_per_user:
+            used_user = self.commerce_repo.count_redemptions(promo.id, user_id=user_id)
+            if used_user >= promo.max_per_user:
+                raise PromoIneligibleError(code, "you have already used this code")
+
+        eligible_subtotal = 0.0
+        for it in cart.items:
+            prod = it.sku.product
+            if promo.brand_id and prod.brand_id != promo.brand_id:
+                continue
+            if promo.product_id and prod.id != promo.product_id:
+                continue
+            unit = it.sku.price_override if it.sku.price_override is not None else prod.base_price
+            eligible_subtotal += unit * it.quantity
+        if eligible_subtotal <= 0:
+            raise PromoIneligibleError(code, "no items in the cart qualify")
+
+        if promo.discount_type == "percent":
+            discount = round(eligible_subtotal * (promo.discount_value / 100.0), 2)
+        else:
+            discount = min(promo.discount_value, eligible_subtotal)
+        return discount, promo
+
+    def _reserve_inventory(
+        self,
+        items: List[Dict[str, Any]],
+        fulfillment_type: str,
+        bopis_store_id: Optional[int],
+    ) -> List[int]:
+        from backend.app.models.commerce import InventoryReservation
+
+        held: List[InventoryReservation] = []
+        for item in items:
+            sku = self.commerce_repo.lock_sku(item["product_sku_id"])
+            if not sku or sku.stock_level < item["quantity"] or not sku.is_in_stock:
+                raise InventoryUnavailableError(
+                    item.get("sku_code") or str(item["product_sku_id"]),
+                    item["quantity"],
+                    sku.stock_level if sku else 0,
+                )
+            sku.stock_level -= item["quantity"]
+            if sku.stock_level <= 0:
+                sku.is_in_stock = False
+                sku.stock_level = 0
+
+            if fulfillment_type == "bopis" and bopis_store_id:
+                store_inv = self.commerce_repo.lock_store_inventory(bopis_store_id, sku.id)
+                available = (store_inv.quantity - store_inv.reserved_quantity) if store_inv else 0
+                if not store_inv or available < item["quantity"]:
+                    raise InventoryUnavailableError(
+                        sku.sku_code, item["quantity"], available
+                    )
+                store_inv.reserved_quantity += item["quantity"]
+
+            row = InventoryReservation(
+                sku_id=sku.id,
+                quantity=item["quantity"],
+                store_id=bopis_store_id if fulfillment_type == "bopis" else None,
+                status="held",
+            )
+            self.db.add(row)
+            held.append(row)
+        self.db.flush()
+        return [row.id for row in held if row.id is not None]
+
+    def _attach_reservations(self, reservation_ids: List[int], order_id: int) -> None:
+        from backend.app.models.commerce import InventoryReservation
+
+        if not reservation_ids:
+            return
+        rows = (
+            self.db.query(InventoryReservation)
+            .filter(InventoryReservation.id.in_(reservation_ids))
+            .all()
+        )
+        for row in rows:
+            row.order_id = order_id
+        self.db.commit()
+
+    def _commit_reservations(self, reservation_ids: List[int], order_id: int) -> None:
+        from backend.app.models.commerce import InventoryReservation
+
+        if not reservation_ids:
+            return
+        rows = (
+            self.db.query(InventoryReservation)
+            .filter(InventoryReservation.id.in_(reservation_ids))
+            .all()
+        )
+        for row in rows:
+            row.order_id = order_id
+            row.status = "committed"
+
+    def _release_inventory_for_order(self, order: Order) -> None:
+        from backend.app.models.commerce import InventoryReservation
+
+        rows = (
+            self.db.query(InventoryReservation)
+            .filter(InventoryReservation.order_id == order.id, InventoryReservation.status != "released")
+            .all()
+        )
+        for row in rows:
+            sku = self.commerce_repo.lock_sku(row.sku_id)
+            if sku:
+                sku.stock_level += row.quantity
+                sku.is_in_stock = True
+            if row.store_id:
+                inv = self.commerce_repo.lock_store_inventory(row.store_id, row.sku_id)
+                if inv:
+                    inv.reserved_quantity = max(0, inv.reserved_quantity - row.quantity)
+            row.status = "released"
+            row.released_at = datetime.now(timezone.utc)
+
+    def _transition(self, order: Order, new_status: str) -> None:
+        allowed = ORDER_TRANSITIONS.get(order.status, set())
+        if new_status == order.status:
+            return
+        if new_status not in allowed:
+            raise InvalidStateTransitionError(order.status, new_status)
+        order.status = new_status
+        if new_status == "ready_for_pickup":
+            order.ready_for_pickup_at = datetime.now(timezone.utc)
+        self.db.flush()
+
+    def _map_provider_status(self, status: str, method: str) -> str:
+        if status in ("captured", "succeeded", "paid"):
+            return "paid"
+        if status in ("authorized",):
+            return "authorized"
+        if status in ("pending_delivery",) or method == "cod":
+            return "pending"
+        if status in ("failed", "declined"):
+            return "failed"
+        return "pending"
+
+    def _generate_return_label(self, order: Order) -> Tuple[Optional[str], Optional[str]]:
+        """Persist a real return-authorisation document. Not a carrier label
+        unless a shipping provider is configured — we never invent a DHL URL.
+        """
+        ref = f"RA-{uuid.uuid4().hex[:10].upper()}"
+        directory = os.path.join(settings.STORAGE_LOCAL_DIR, "return-labels")
+        os.makedirs(directory, exist_ok=True)
+        path = os.path.join(directory, f"{ref}.txt")
+        body = (
+            f"CONFIT Return Authorisation\n"
+            f"Reference: {ref}\n"
+            f"Order: {order.order_number}\n"
+            f"Issued: {datetime.now(timezone.utc).isoformat()}\n"
+            f"This is a platform return authorisation. A carrier label is issued "
+            f"only when a shipping provider is configured.\n"
+        )
+        with open(path, "w", encoding="utf-8") as handle:
+            handle.write(body)
+        return f"/api/v1/returns/labels/{ref}", ref
+
+    def _format_return(self, req) -> Dict[str, Any]:
         return {
             "id": req.id,
             "return_number": req.return_number,
@@ -243,48 +1023,83 @@ class CommerceService:
             "status": req.status,
             "reason": req.reason,
             "refund_amount": req.refund_amount,
-            "return_label_url": req.return_label_url,
+            "return_label_url": req.return_label_url or "",
             "created_at": req.created_at,
-            "resolved_at": req.resolved_at
+            "resolved_at": req.resolved_at,
         }
 
-    def _format_cart(self, cart: Cart) -> Dict[str, Any]:
+    def _fit_verdict_for_sku(self, sku: ProductSKU, user_id: Optional[int]) -> str:
+        if not sku or not sku.size:
+            return "Size required"
+        if not sku.is_in_stock or sku.stock_level <= 0:
+            return f"Size {sku.size} unavailable"
+        if not user_id:
+            return f"Size {sku.size} selected"
+        profile = self.profile_repo.get_by_user_id(user_id)
+        if not profile:
+            return f"Size {sku.size} selected"
+        preferred = profile.size_tops or profile.size_bottoms
+        if preferred and preferred.upper() == sku.size.upper():
+            return f"Size {sku.size} matches your profile"
+        return f"Size {sku.size} selected"
+
+    def _format_cart(self, cart: Cart, user_id: Optional[int] = None) -> Dict[str, Any]:
         items_out = []
         subtotal = 0.0
         count = 0
+        brands: Set[str] = set()
+        outfit_groups: Dict[int, List[int]] = defaultdict(list)
 
-        for it in (cart.items if cart and cart.items else []):
+        for it in cart.items if cart and cart.items else []:
             sku = it.sku
             prod = sku.product
-            price = sku.price_override or prod.base_price
+            price = sku.price_override if sku.price_override is not None else prod.base_price
             line_sub = price * it.quantity
             subtotal += line_sub
             count += it.quantity
-
-            items_out.append({
-                "id": it.id,
-                "product_sku_id": sku.id,
-                "product_id": prod.id,
-                "product_title": prod.title,
-                "product_title_ar": prod.title_ar,
-                "brand_name": prod.brand.brand_name if prod.brand else "CONFIT",
-                "size": sku.size,
-                "color": sku.color,
-                "unit_price": price,
-                "quantity": it.quantity,
-                "subtotal": line_sub,
-                "image_url": prod.thumbnail_url,
-                "ai_fit_verdict": "True to Size (Confidence 95%)",
-                "outfit_id": it.outfit_id
-            })
+            brand_name = prod.brand.brand_name if prod.brand else "CONFIT"
+            brands.add(brand_name)
+            if it.outfit_id:
+                outfit_groups[it.outfit_id].append(it.id)
+            items_out.append(
+                {
+                    "id": it.id,
+                    "product_sku_id": sku.id,
+                    "product_id": prod.id,
+                    "product_title": prod.title,
+                    "product_title_ar": prod.title_ar,
+                    "brand_name": brand_name,
+                    "size": sku.size,
+                    "color": sku.color,
+                    "unit_price": price,
+                    "quantity": it.quantity,
+                    "subtotal": line_sub,
+                    "image_url": prod.thumbnail_url,
+                    "ai_fit_verdict": self._fit_verdict_for_sku(sku, user_id),
+                    "in_stock": bool(sku.is_in_stock and sku.stock_level >= it.quantity),
+                    "outfit_id": it.outfit_id,
+                }
+            )
 
         discount = 0.0
-        tax = round(subtotal * 0.05, 2)
-        shipping = 0.0 if (subtotal >= 200 or subtotal == 0) else 15.0
-        total = round(subtotal - discount + tax + shipping, 2)
+        promo_code = cart.promo_code if cart else None
+        if promo_code and cart:
+            try:
+                discount, _ = self._resolve_promo(promo_code, subtotal, cart, user_id)
+            except PromoIneligibleError:
+                discount = 0.0
+                promo_code = None
+
+        tax = round(max(0.0, subtotal - discount) * settings.TAX_RATE, 2)
+        shipping = 0.0 if (subtotal - discount >= settings.FREE_SHIPPING_THRESHOLD or subtotal == 0) else settings.STANDARD_SHIPPING_FEE
+        total = round(max(0.0, subtotal - discount + tax + shipping), 2)
+
+        quote = BNPLProvider(provider_name=settings.BNPL_DEFAULT_PROVIDER).quote_sync(
+            amount=total, currency="USD"
+        )
 
         return {
-            "id": cart.id if cart else 1,
+            "id": cart.id if cart else 0,
             "items": items_out,
             "subtotal": subtotal,
             "discount_amount": discount,
@@ -293,5 +1108,33 @@ class CommerceService:
             "total": total,
             "currency": "USD",
             "items_count": count,
-            "bnpl_monthly_quote": round(total / 4, 2) if total > 0 else 0.0
+            "bnpl_monthly_quote": quote.get("installment_amount") or 0.0,
+            "promo_code": promo_code,
+            "brands": sorted(brands),
+            "fit_summary": [
+                {
+                    "cart_item_id": it["id"],
+                    "title": it["product_title"],
+                    "size": it["size"],
+                    "verdict": it["ai_fit_verdict"],
+                    "size_confirmed": bool(it["size"] and it["in_stock"]),
+                }
+                for it in items_out
+            ],
+            "outfit_groups": [
+                {"outfit_id": oid, "item_ids": ids} for oid, ids in outfit_groups.items()
+            ],
         }
+
+    def _notify(self, event: str, order_number: str, recipient: str, summary: str) -> None:
+        """Order lifecycle notice. Uses the existing logger + EMAIL_PROVIDER
+        configuration; never fabricates a successful send when no provider is set.
+        """
+        logger.info(
+            "commerce_notification",
+            commerce_event=event,
+            order_number=order_number,
+            has_recipient=bool(recipient),
+            email_provider_configured=bool(settings.EMAIL_PROVIDER),
+            summary=summary,
+        )

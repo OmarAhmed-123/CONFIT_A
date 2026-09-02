@@ -98,8 +98,8 @@ export interface Product {
   style_tags: string[];
   occasion_tags: string[];
   rating: number;
-  style_compatibility_score: number;
-  ai_fit_score: number;
+  style_compatibility_score?: number | null;
+  ai_fit_score?: number | null;
   is_featured: boolean;
   description?: string;
   description_ar?: string;
@@ -108,8 +108,34 @@ export interface Product {
   images?: string[];
   size_chart?: Record<string, any>;
   skus?: ProductSKU[];
-  bnpl_monthly_installment?: number;
+  bnpl_monthly_installment?: number | null;
+  bnpl?: {
+    eligible: boolean;
+    provider?: string | null;
+    installment_amount?: number | null;
+    installments_count?: number;
+    disclaimer?: string;
+  } | null;
   brand?: BrandSummary;
+  related_outfits?: Array<{
+    title: string;
+    occasion?: string;
+    compatibility_score?: number;
+    items: Array<{
+      product_id: number;
+      product_title: string;
+      brand_name?: string;
+      price?: number;
+      image_url?: string;
+      slug?: string;
+    }>;
+  }>;
+  recommended_size?: string | null;
+  recommended_size_available?: boolean | null;
+  fit_available?: boolean;
+  fit_reasoning?: string | null;
+  style_compatibility_available?: boolean;
+  style_compatibility_reason?: string | null;
 }
 
 export interface StoreInventoryLocation {
@@ -359,6 +385,16 @@ export interface Cart {
   currency: string;
   items_count: number;
   bnpl_monthly_quote: number;
+  promo_code?: string | null;
+  brands?: string[];
+  fit_summary?: Array<{
+    cart_item_id: number;
+    title: string;
+    size?: string;
+    verdict: string;
+    size_confirmed?: boolean;
+  }>;
+  outfit_groups?: Array<{ outfit_id: number; item_ids: number[] }>;
 }
 
 export interface OrderItem {
@@ -399,6 +435,13 @@ export interface Order {
   stylist_assisted: boolean;
   items: OrderItem[];
   created_at: string;
+  user_id?: number | null;
+  guest_email?: string | null;
+  promo_code?: string | null;
+  payment_mode?: string | null;
+  shipping_method?: string | null;
+  fulfillment_groups?: Array<Record<string, unknown>>;
+  outfit_groups?: Array<Record<string, unknown>>;
 }
 
 export interface TrackingMilestone {
@@ -414,7 +457,7 @@ export interface OrderTrackingTimeline {
   order_number: string;
   current_status: string;
   estimated_delivery?: string;
-  carrier: string;
+  carrier?: string | null;
   tracking_number?: string;
   timeline: TrackingMilestone[];
   bopis_store_info?: {
@@ -424,6 +467,11 @@ export interface OrderTrackingTimeline {
     pickup_instructions: string;
     pickup_code: string;
   } | null;
+  shipments?: Array<{
+    carrier?: string;
+    tracking_number?: string;
+    status?: string;
+  }>;
 }
 
 export interface BrandProfile {

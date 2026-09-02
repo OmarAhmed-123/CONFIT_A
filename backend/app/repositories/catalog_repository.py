@@ -67,7 +67,8 @@ class CatalogRepository:
     ) -> List[Product]:
         query = self.db.query(Product).options(
             joinedload(Product.brand),
-            joinedload(Product.category)
+            joinedload(Product.category),
+            joinedload(Product.skus),
         ).filter(Product.is_active == True)
 
         if category_slug:

@@ -70,11 +70,14 @@ export const Modal: React.FC<{
   );
 };
 
-export const FitScoreBadge: React.FC<{ score?: number; verdict?: string; className?: string }> = ({
-  score = 95,
+export const FitScoreBadge: React.FC<{ score?: number | null; verdict?: string; className?: string }> = ({
+  score,
   verdict = 'True to Size',
   className = '',
 }) => {
+  if (score === undefined || score === null) {
+    return null;
+  }
   return (
     <div
       className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FDF8EE] border border-[#C5A059]/30 shadow-2xs backdrop-blur-xs ${className}`}
@@ -86,13 +89,22 @@ export const FitScoreBadge: React.FC<{ score?: number; verdict?: string; classNa
   );
 };
 
-export const BNPLBadge: React.FC<{ price: number; provider?: string }> = ({ price, provider = 'Tabby' }) => {
-  const installment = (price / 4).toFixed(2);
+export const BNPLBadge: React.FC<{
+  price: number;
+  provider?: string;
+  installmentAmount?: number | null;
+  eligible?: boolean;
+}> = ({ price, provider, installmentAmount, eligible = true }) => {
+  if (!eligible) {
+    return null;
+  }
+  const installment = (installmentAmount ?? price / 4).toFixed(2);
+  const label = provider || 'your BNPL partner';
   return (
     <div className="inline-flex items-center gap-1.5 text-[11px] text-slate-600 bg-slate-50 border border-slate-200/80 px-2.5 py-1 rounded-lg">
       <span className="font-light">or 4 interest-free payments of</span>
       <span className="font-bold text-[#1B1F3B]">${installment}</span>
-      <span className="text-[10px] font-bold text-[#C5A059] uppercase tracking-wider">with {provider}</span>
+      <span className="text-[10px] font-bold text-[#C5A059] uppercase tracking-wider">with {label}</span>
     </div>
   );
 };

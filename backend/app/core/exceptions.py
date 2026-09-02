@@ -95,6 +95,46 @@ class InventoryUnavailableError(ConfitException):
         )
 
 
+class InvalidStateTransitionError(ConfitException):
+    def __init__(self, current: str, attempted: str):
+        super().__init__(
+            f"Cannot transition order from '{current}' to '{attempted}'.",
+            code="INVALID_STATE_TRANSITION",
+            details={"current": current, "attempted": attempted},
+            status_code=status.HTTP_409_CONFLICT,
+        )
+
+
+class PromoIneligibleError(ConfitException):
+    def __init__(self, code: str, reason: str):
+        super().__init__(
+            f"Promotion '{code}' cannot be applied: {reason}",
+            code="PROMO_INELIGIBLE",
+            details={"promo_code": code, "reason": reason},
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        )
+
+
+class ReturnIneligibleError(ConfitException):
+    def __init__(self, reason: str):
+        super().__init__(
+            reason,
+            code="RETURN_INELIGIBLE",
+            details={"reason": reason},
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        )
+
+
+class PaymentFailedError(ConfitException):
+    def __init__(self, provider: str, reason: str):
+        super().__init__(
+            f"Payment was not confirmed by {provider}: {reason}",
+            code="PAYMENT_FAILED",
+            details={"provider": provider, "reason": reason},
+            status_code=status.HTTP_402_PAYMENT_REQUIRED,
+        )
+
+
 class BNPLRejectedError(ConfitException):
     def __init__(self, provider: str, reason: str):
         super().__init__(

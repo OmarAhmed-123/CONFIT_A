@@ -10,6 +10,14 @@ class CartItemAdd(BaseModel):
     override_duplicate_warning: bool = False
 
 
+class CartItemQuantityUpdate(BaseModel):
+    quantity: int = Field(ge=0, le=10)
+
+
+class PromoApplyRequest(BaseModel):
+    promo_code: Optional[str] = None
+
+
 class CartItemOut(BaseModel):
     id: int
     product_sku_id: int
@@ -23,7 +31,8 @@ class CartItemOut(BaseModel):
     quantity: int
     subtotal: float
     image_url: str
-    ai_fit_verdict: str = "True to Size"
+    ai_fit_verdict: str
+    in_stock: bool = True
     outfit_id: Optional[int] = None
 
     model_config = ConfigDict(from_attributes=True)
@@ -40,6 +49,10 @@ class CartOut(BaseModel):
     currency: str = "USD"
     items_count: int
     bnpl_monthly_quote: float
+    promo_code: Optional[str] = None
+    brands: List[str] = []
+    fit_summary: List[Dict[str, Any]] = []
+    outfit_groups: List[Dict[str, Any]] = []
 
 
 class CheckoutRequest(BaseModel):
@@ -55,6 +68,8 @@ class CheckoutRequest(BaseModel):
     idempotency_key: Optional[str] = None
     try_on_assisted: bool = False
     stylist_assisted: bool = False
+    guest_email: Optional[str] = None
+    shipping_method: str = "standard"
 
 
 class OrderItemOut(BaseModel):
@@ -68,6 +83,8 @@ class OrderItemOut(BaseModel):
     quantity: int
     subtotal: float
     is_returned: bool
+    outfit_id: Optional[int] = None
+    fulfillment_group_id: Optional[int] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -97,6 +114,13 @@ class OrderOut(BaseModel):
     stylist_assisted: bool
     items: List[OrderItemOut]
     created_at: datetime
+    user_id: Optional[int] = None
+    guest_email: Optional[str] = None
+    promo_code: Optional[str] = None
+    payment_mode: Optional[str] = None
+    shipping_method: Optional[str] = None
+    fulfillment_groups: List[Dict[str, Any]] = []
+    outfit_groups: List[Dict[str, Any]] = []
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -114,10 +138,11 @@ class OrderTrackingTimelineOut(BaseModel):
     order_number: str
     current_status: str
     estimated_delivery: Optional[str]
-    carrier: str
-    tracking_number: Optional[str]
+    carrier: Optional[str] = None
+    tracking_number: Optional[str] = None
     timeline: List[TrackingMilestone]
     bopis_store_info: Optional[Dict[str, Any]] = None
+    shipments: List[Dict[str, Any]] = []
 
 
 class ReturnRequestCreate(BaseModel):
@@ -141,6 +166,24 @@ class ReturnRequestOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class ExchangeCreate(BaseModel):
+    order_id: int
+    original_item_id: int
+    replacement_sku_id: int
+
+
+class ExchangeOut(BaseModel):
+    id: int
+    exchange_number: str
+    order_id: int
+    original_item_id: int
+    replacement_sku_id: int
+    price_delta: float
+    status: str
+    payment_status: str
+    created_at: datetime
+
+
 class BNPLQuoteRequest(BaseModel):
     amount: float
     currency: str = "USD"
@@ -151,6 +194,6 @@ class BNPLQuoteResponse(BaseModel):
     provider: str
     eligible: bool
     installments_count: int
-    installment_amount: float
+    installment_amount: Optional[float] = None
     payment_schedule: List[Dict[str, Any]]
     disclaimer: str

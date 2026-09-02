@@ -4,7 +4,23 @@ from backend.app.models.catalog import Category, Product, ProductSKU, StoreLocat
 from backend.app.models.stylist import StylistSession, StylistMessage, Outfit, OutfitItem
 from backend.app.models.tryon import TryOnSession, VisualSearchQuery, MeasurementSession, MeasurementResult
 from backend.app.models.wardrobe import WardrobeItem, WardrobeGapAnalysis
-from backend.app.models.commerce import Cart, CartItem, Order, OrderItem, ReturnRequest
+from backend.app.models.commerce import (
+    Cart,
+    CartItem,
+    Order,
+    OrderItem,
+    ReturnRequest,
+    Promotion,
+    PromotionRedemption,
+    PaymentTransaction,
+    WebhookEvent,
+    FulfillmentGroup,
+    Shipment,
+    InventoryReservation,
+    OrderEvent,
+    ReturnItem,
+    ExchangeRequest,
+)
 from backend.app.models.brand_analytics import SponsoredPlacement, StyleHeatmapAggregate
 
 __all__ = [
@@ -39,6 +55,16 @@ __all__ = [
     "Order",
     "OrderItem",
     "ReturnRequest",
+    "Promotion",
+    "PromotionRedemption",
+    "PaymentTransaction",
+    "WebhookEvent",
+    "FulfillmentGroup",
+    "Shipment",
+    "InventoryReservation",
+    "OrderEvent",
+    "ReturnItem",
+    "ExchangeRequest",
     "SponsoredPlacement",
     "StyleHeatmapAggregate",
 ]

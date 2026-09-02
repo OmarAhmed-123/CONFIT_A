@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.3.0] — September 2026
+
+### Group 5 — Commerce, Payments & Fulfillment
+
+#### Added
+- Server-authoritative cart totals, promo engine (`CONFIT10`, `STYLE2026`), guest checkout with `guest_email`, checkout idempotency, inventory reservations, brand-level fulfillment groups, payment transactions, webhook HMAC verification, return authorisations, and exchanges of same-product SKUs.
+- Product page context: USP-based fit recommendation, style compatibility (hidden when no profile), market BNPL teaser, complete-the-look via the existing styling engine, BOPIS from live store inventory.
+- Alembic revision `0008_group5_commerce` and Group 5 API tests.
+
+#### Changed
+- Checkout no longer marks orders paid because the client reported success. Demo adapter is explicit (`payment_mode=demo`); live charges without PSP secrets fail.
+- Tracking no longer invents carrier names or `TRK-*` numbers at order creation. Return labels are platform authorisation files, not fake DHL URLs.
+- Guest checkout is allowed with `guest_email`; unauthenticated checkout without it remains 401.
+
+#### Security
+- Cart item update/delete is scoped to the caller's cart (IDOR closed). Webhooks reject missing/invalid signatures. Client-submitted totals are ignored.
+
+---
+
 ## [1.2.0] — August 2026
 
 ### 🚀 Replaced Fake Compositing With Real Virtual Try-On (VTON) Architecture

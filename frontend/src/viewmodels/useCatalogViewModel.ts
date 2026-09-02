@@ -1,48 +1,49 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { catalogService } from '../services/apiServices';
+import { queryKeys } from '../lib/queryClient';
 import { Product, Category } from '../models';
 
+/**
+ * C22 FIX: React Query implementation
+ * - Server state managed by React Query with proper caching
+ * - No manual useEffect for data fetching
+ * - Query keys prevent duplicate requests and enable caching
+ * - StaleTime prevents refetch loops
+ */
 export function useCatalogViewModel() {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [selectedOccasion, setSelectedOccasion] = useState<string>('');
   const [selectedColor, setSelectedColor] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [sortBy, setSortBy] = useState<string>('recommended');
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  const fetchCatalog = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const [prods, cats] = await Promise.all([
-        catalogService.getProducts({
-          category: selectedCategory || undefined,
-          occasion: selectedOccasion || undefined,
-          color: selectedColor || undefined,
-          search: searchQuery || undefined,
-          sort_by: sortBy,
-        }),
-        catalogService.getCategories(),
-      ]);
-      setProducts(prods);
-      setCategories(cats);
-      setIsLoading(false);
-    } catch (err: any) {
-      setError(err.message || 'Failed to load catalog');
-      setIsLoading(false);
-    }
-  }, [selectedCategory, selectedOccasion, selectedColor, searchQuery, sortBy]);
+  const filters = {
+    category: selectedCategory || undefined,
+    occasion: selectedOccasion || undefined,
+    color: selectedColor || undefined,
+    search: searchQuery || undefined,
+    sort_by: sortBy,
+  };
 
-  useEffect(() => {
-    fetchCatalog();
-  }, [fetchCatalog]);
+  const productsQuery = useQuery({
+    queryKey: queryKeys.catalog.products(filters),
+    queryFn: () => catalogService.getProducts(filters),
+    staleTime: 1000 * 60 * 5, // 5 min
+    gcTime: 1000 * 60 * 30,
+    placeholderData: (prev) => prev, // Keep previous data while fetching
+  });
+
+  const categoriesQuery = useQuery({
+    queryKey: queryKeys.catalog.categories(),
+    queryFn: () => catalogService.getCategories(),
+    staleTime: 1000 * 60 * 10, // 10 min - categories rarely change
+    gcTime: 1000 * 60 * 60,
+  });
 
   return {
-    products,
-    categories,
+    products: productsQuery.data || [],
+    categories: categoriesQuery.data || [],
     selectedCategory,
     setSelectedCategory,
     selectedOccasion,
@@ -53,8 +54,12 @@ export function useCatalogViewModel() {
     setSearchQuery,
     sortBy,
     setSortBy,
-    isLoading,
-    error,
-    refresh: fetchCatalog,
+    isLoading: productsQuery.isLoading || categoriesQuery.isLoading,
+    isFetching: productsQuery.isFetching,
+    error: productsQuery.error ? (productsQuery.error as any).message : categoriesQuery.error ? (categoriesQuery.error as any).message : null,
+    refresh: () => {
+      productsQuery.refetch();
+      categoriesQuery.refetch();
+    },
   };
 }

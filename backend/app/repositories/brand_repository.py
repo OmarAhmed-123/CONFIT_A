@@ -558,35 +558,44 @@ class BrandRepository:
             BrandAnalyticsEvent.attribution_source == "visual_search"
         ).scalar() or 0.0
 
-        # Revenue attribution with mutually exclusive priority to avoid double counting
+        # Revenue attribution — CONSISTENT GRANULARITY FIX (section 14):
+        # Previously mixed Order.total_amount and OrderItem.subtotal, which are not comparable
+        # (subtotal excludes tax/shipping/discounts, total includes them, and multi-brand orders).
+        # Now uses consistent order-level total_amount for all exclusive attributions to ensure
+        # sum(attributed) <= total_gmv and accounting coherence. Each order counted once.
         # Priority: visual_search > outfit_builder > virtual_stylist > organic
-        # This ensures each order counted once - mathematically valid, no arbitrary factors
-        # FIXED: Prevent JOIN multiplication — use DISTINCT order_ids subquery for visual_search
+        # FIXED: Prevent JOIN multiplication — use DISTINCT order_ids subqueries for all channels
         visual_order_ids = self.db.query(func.distinct(BrandAnalyticsEvent.order_id)).filter(
             BrandAnalyticsEvent.attribution_source == "visual_search",
             BrandAnalyticsEvent.order_id.isnot(None)
         )
+        outfit_order_ids = self.db.query(func.distinct(OrderItem.order_id)).filter(
+            OrderItem.outfit_id.isnot(None)
+        )
+        stylist_order_ids = self.db.query(func.distinct(Order.id)).filter(
+            Order.stylist_assisted == True,
+            Order.status.notin_(["cancelled", "refunded"])
+        )
+
         visual_rev_exclusive = self.db.query(func.sum(Order.total_amount)).filter(
             Order.id.in_(visual_order_ids),
             Order.status.notin_(["cancelled", "refunded"])
         ).scalar() or 0.0
 
-        outfit_rev_exclusive = self.db.query(func.sum(OrderItem.subtotal)).join(Order).filter(
-            OrderItem.outfit_id.isnot(None),
+        outfit_rev_exclusive = self.db.query(func.sum(Order.total_amount)).filter(
+            Order.id.in_(outfit_order_ids),
             Order.status.notin_(["cancelled", "refunded"]),
             ~Order.id.in_(visual_order_ids)
         ).scalar() or 0.0
 
         stylist_rev_exclusive = self.db.query(func.sum(Order.total_amount)).filter(
-            Order.stylist_assisted == True,
+            Order.id.in_(stylist_order_ids),
             Order.status.notin_(["cancelled", "refunded"]),
-            ~Order.id.in_(
-                self.db.query(OrderItem.order_id).filter(OrderItem.outfit_id.isnot(None))
-            ),
-            ~Order.id.in_(visual_order_ids)
+            ~Order.id.in_(visual_order_ids),
+            ~Order.id.in_(outfit_order_ids)
         ).scalar() or 0.0
 
-        # Organic: total minus exclusive attributions - guaranteed no double count, no arbitrary 0.5
+        # Organic: total minus exclusive attributions — guaranteed no double count, consistent granularity (all total_amount)
         total_revenue = float(total_gmv)
         organic_revenue = max(0.0, total_revenue - float(outfit_rev_exclusive) - float(visual_rev_exclusive) - float(stylist_rev_exclusive))
 
@@ -872,30 +881,37 @@ class BrandRepository:
                 pass
 
         # Mutually exclusive priority: visual_search > outfit_builder > virtual_stylist > organic
-        # No arbitrary factors, mathematically valid
-        # FIXED: Prevent JOIN multiplication — use DISTINCT order_ids subquery for visual_search
+        # CONSISTENT GRANULARITY: all use Order.total_amount (order-level) not mixing subtotal
+        # Prevents accounting mismatch: subtotal excludes tax/shipping/discounts, total includes them
+        # FIXED: Prevent JOIN multiplication — DISTINCT order_ids for all channels
         visual_order_ids = self.db.query(func.distinct(BrandAnalyticsEvent.order_id)).filter(
             BrandAnalyticsEvent.attribution_source == "visual_search",
             BrandAnalyticsEvent.order_id.isnot(None)
         )
+        outfit_order_ids = self.db.query(func.distinct(OrderItem.order_id)).filter(
+            OrderItem.outfit_id.isnot(None)
+        )
+        stylist_order_ids = self.db.query(func.distinct(Order.id)).filter(
+            Order.stylist_assisted == True,
+            Order.status.notin_(["cancelled", "refunded"])
+        )
+
         visual_rev_exclusive = self.db.query(func.sum(Order.total_amount)).filter(
             Order.id.in_(visual_order_ids),
             Order.status.notin_(["cancelled", "refunded"])
         ).scalar() or 0.0
 
-        outfit_rev_exclusive = self.db.query(func.sum(OrderItem.subtotal)).join(Order).filter(
-            OrderItem.outfit_id.isnot(None),
+        outfit_rev_exclusive = self.db.query(func.sum(Order.total_amount)).filter(
+            Order.id.in_(outfit_order_ids),
             Order.status.notin_(["cancelled", "refunded"]),
             ~Order.id.in_(visual_order_ids)
         ).scalar() or 0.0
 
         stylist_rev_exclusive = self.db.query(func.sum(Order.total_amount)).filter(
-            Order.stylist_assisted == True,
+            Order.id.in_(stylist_order_ids),
             Order.status.notin_(["cancelled", "refunded"]),
-            ~Order.id.in_(
-                self.db.query(OrderItem.order_id).filter(OrderItem.outfit_id.isnot(None))
-            ),
-            ~Order.id.in_(visual_order_ids)
+            ~Order.id.in_(visual_order_ids),
+            ~Order.id.in_(outfit_order_ids)
         ).scalar() or 0.0
 
         organic = max(0.0, float(total_gmv) - float(outfit_rev_exclusive) - float(visual_rev_exclusive) - float(stylist_rev_exclusive))

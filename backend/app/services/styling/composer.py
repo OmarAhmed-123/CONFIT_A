@@ -1,7 +1,7 @@
 import re
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from typing import List, Dict, Any, Optional
-from backend.app.core.money import to_decimal, to_float
+from backend.app.core.money import to_decimal, to_float, money_sum, quantize_money
 from backend.app.services.styling.ontology import SlotType, classify_product_slot
 from backend.app.services.styling.rules import StylingRulesEngine
 
@@ -79,9 +79,14 @@ class OutfitComposer:
             occasion = "Casual Weekend"
             formality = "casual"
 
-        # 2. Detect Budget Mentions
+        # 2. Detect Budget Mentions - Decimal exact
         budget_match = re.search(r'(?:under|below|budget(?:\s*of)?|\$)\s*(\d+)', prompt_lower)
-        parsed_budget = float(budget_match.group(1)) if budget_match else (budget_hint or 450.0)
+        if budget_match:
+            parsed_budget = to_decimal(budget_match.group(1))
+        elif budget_hint is not None:
+            parsed_budget = to_decimal(budget_hint)
+        else:
+            parsed_budget = Decimal("450.00")
         # A budget is a HARD constraint only when the user actually stated one
         # (in text or via the explicit occasion/budget hint). A profile default
         # (e.g. the 450.0 fallback) is NOT a hard constraint — the caller passes
@@ -313,7 +318,8 @@ class OutfitComposer:
             desc1 = f"A cohesive multi-brand ensemble combining structured {outer.brand.brand_name if outer else 'tailoring'} with pristine {top.brand.brand_name if top else 'cotton'} and Goodyear-welted footwear."
 
         look1_items, budget1 = self._enforce_budget(look1_items, slot_map, used_product_ids, budget_limit, intent)
-        total1 = sum(i["price"] for i in look1_items)
+        total1_dec = money_sum([to_decimal(i["price"]) for i in look1_items])
+        total1 = to_float(total1_dec)
         eval1 = self.rules_engine.evaluate_outfit(look1_items, intent)
 
         palette1 = [i["color_hex"] for i in look1_items]
@@ -325,7 +331,7 @@ class OutfitComposer:
             "title": title1,
             "description": desc1,
             "occasion": occasion,
-            "total_price": round(total1, 2),
+            "total_price": total1,
             "compatibility_score": eval1["composite_score"],
             "color_palette": palette1[:4],
             "style_tags": [aesthetic, "Precision Coordinated", eval1["completeness_label"]],
@@ -398,7 +404,8 @@ class OutfitComposer:
 
         if look2_items:
             look2_items, budget2 = self._enforce_budget(look2_items, slot_map, used_product_ids, budget_limit, intent)
-            total2 = sum(i["price"] for i in look2_items)
+            total2_dec = money_sum([to_decimal(i["price"]) for i in look2_items])
+            total2 = to_float(total2_dec)
             eval2 = self.rules_engine.evaluate_outfit(look2_items, intent)
 
             palette2 = [i["color_hex"] for i in look2_items]
@@ -410,7 +417,7 @@ class OutfitComposer:
                 "title": title2,
                 "description": desc2,
                 "occasion": occasion,
-                "total_price": round(total2, 2),
+                "total_price": total2,
                 "compatibility_score": eval2["composite_score"],
                 "color_palette": palette2[:4],
                 "style_tags": ["Modern Silhouette", "Tonal Harmony", eval2["completeness_label"]],
@@ -452,31 +459,19 @@ class OutfitComposer:
         items: List[Dict[str, Any]],
         slot_map: Dict[SlotType, List[Any]],
         used_product_ids: set,
-        budget_limit: float,
+        budget_limit: Any,
         intent: Dict[str, Any],
     ):
-        """Deterministic budget enforcement (GROUP 2 fix, BRD 14/15).
+        """Deterministic budget enforcement — Decimal exact."""
+        budget_dec = to_decimal(budget_limit) if budget_limit is not None else Decimal("450.00")
 
-        When the user stated an explicit budget, the composed outfit must satisfy
-        it. Over-budget items are replaced, most-expensive-first, with the
-        cheapest available in-stock alternative in the same slot that brings the
-        total back within budget (the alternative-suggestion engine). If no
-        single swap suffices, remaining over-budget optional items are dropped
-        (accessory first). If the budget is unattainable, the best achievable set
-        is returned and the outcome is annotated honestly.
-
-        Returns (items, budget_meta) where budget_meta carries the outfit-level
-        budget outcome (limit, within_budget, note) for the API/UI.
-        """
         if not items or not intent.get("budget_explicit"):
             for it in items:
                 it["budget_status"] = "within_budget"
             return items, {"budget_limit": None, "within_budget": True, "budget_note": None}
 
-        def total(lst):
-            return sum(i["price"] for i in lst)
-
-        import itertools
+        def total_dec(lst):
+            return money_sum([to_decimal(i["price"]) for i in lst])
 
         def cheapest_per_position(positions):
             out = {}
@@ -484,25 +479,23 @@ class OutfitComposer:
                 cands = self._candidate_pool(slot_map, pos)
                 if not cands:
                     return None
-                # Cheapest first; prefer in-stock on ties.
                 cands = sorted(cands, key=lambda p: (
-                    to_float(p.base_price),
+                    to_decimal(p.base_price),
                     0 if (getattr(p, "skus", None) and any(s.is_in_stock and s.stock_level > 0 for s in p.skus)) else 1,
                 ))
                 out[pos] = cands[0]
             return out
 
         def build_min_look():
-            """The cheapest COMPLETE look achievable: separates (top+bottom+shoes)
-            or one-piece (dress+shoes), whichever is cheaper. Both are valid
-            complete outfits per the slot ontology."""
             sep = cheapest_per_position(["top", "bottom", "footwear"])
             dres = cheapest_per_position(["dress", "footwear"])
             options = []
             if sep:
-                options.append(("separates", sep, sum(to_float(p.base_price) for p in sep.values())))
+                sep_cost = money_sum([to_decimal(p.base_price) for p in sep.values()])
+                options.append(("separates", sep, sep_cost))
             if dres:
-                options.append(("onepiece", dres, sum(to_float(p.base_price) for p in dres.values())))
+                dres_cost = money_sum([to_decimal(p.base_price) for p in dres.values()])
+                options.append(("onepiece", dres, dres_cost))
             if not options:
                 return None, None
             kind, best, cost = min(options, key=lambda o: o[2])
@@ -510,39 +503,33 @@ class OutfitComposer:
 
         min_core, min_core_cost = build_min_look()
 
-        # If the current composition is over budget, build the minimal complete
-        # look and, when budget allows, re-add the cheapest original non-essential
-        # items (outerwear/accessory) that still fit. If even the minimal complete
-        # look is over budget, that is the honest closest achievable result.
-        if total(items) > budget_limit and min_core is not None:
+        if total_dec(items) > budget_dec and min_core is not None:
             rebuilt = []
             for idx, (pos, prod) in enumerate(min_core.items()):
                 rebuilt.append(self._to_item_dict(prod, pos, prod._detected_slot, idx, "Budget-Conscious Core"))
                 used_product_ids.add(prod.id)
-            if min_core_cost <= budget_limit:
-                # Greedily re-add original non-essential pieces that fit.
+            if min_core_cost is not None and min_core_cost <= budget_dec:
                 ess = set(min_core.keys())
                 extras = sorted(
                     (i for i in items if i["position"] not in ess),
-                    key=lambda i: i["price"],
+                    key=lambda i: to_decimal(i["price"]),
                 )
                 for ex in extras:
-                    if sum(i["price"] for i in rebuilt) + ex["price"] <= budget_limit:
+                    if total_dec(rebuilt) + to_decimal(ex["price"]) <= budget_dec:
                         rebuilt.append(ex)
             items = rebuilt
 
-        final_total = total(items)
-        within = final_total <= budget_limit
+        final_total_dec = total_dec(items)
+        within = final_total_dec <= budget_dec
         for it in items:
             it["budget_status"] = "within_budget" if within else "over_budget"
         if within:
-            note = f"Outfit total ${final_total:.2f} is within your ${budget_limit:.2f} budget."
+            note = f"Outfit total ${to_float(final_total_dec):.2f} is within your ${to_float(budget_dec):.2f} budget."
         else:
-            # Accurate honesty: quote the true minimum complete-look price.
-            floor = min_core_cost if min_core_cost is not None else final_total
-            note = (f"Could not reach ${budget_limit:.2f} with the current catalog; "
-                    f"the minimum complete look available is ${floor:.2f}.")
-        return items, {"budget_limit": budget_limit, "within_budget": within, "budget_note": note}
+            floor = min_core_cost if min_core_cost is not None else final_total_dec
+            note = (f"Could not reach ${to_float(budget_dec):.2f} with the current catalog; "
+                    f"the minimum complete look available is ${to_float(floor):.2f}.")
+        return items, {"budget_limit": to_float(budget_dec), "within_budget": within, "budget_note": note}
 
     def _to_item_dict(self, product: Any, position: str, slot_type: SlotType, sort_order: int, role: str) -> Dict[str, Any]:
         first_sku = product.skus[0] if hasattr(product, "skus") and product.skus else None

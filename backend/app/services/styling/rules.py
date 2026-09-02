@@ -128,18 +128,24 @@ class CompletenessRule(BaseStylingRule):
 
 
 class BudgetRule(BaseStylingRule):
-    """Evaluates total price against target budget constraints."""
+    """Evaluates total price against target budget constraints — Decimal exact."""
 
     def evaluate(self, items: List[Dict[str, Any]], context: Dict[str, Any]) -> RuleResult:
-        budget_limit = context.get("detected_budget", 450.0)
-        total_price = sum(it.get("price", 0.0) for it in items)
+        from decimal import Decimal
+        from backend.app.core.money import to_decimal, money_sum, to_float
 
-        if total_price <= budget_limit:
-            return RuleResult(True, 100, 0, f"Total look (${total_price:.2f}) is within target budget (${budget_limit:.2f}).")
-        elif total_price <= budget_limit * 1.25:
+        budget_raw = context.get("detected_budget", 450.0)
+        budget_limit = to_decimal(budget_raw)
+        total_price_dec = money_sum([to_decimal(it.get("price", 0.0)) for it in items])
+        total_price = to_float(total_price_dec)
+        budget_f = to_float(budget_limit)
+
+        if total_price_dec <= budget_limit:
+            return RuleResult(True, 100, 0, f"Total look (${total_price:.2f}) is within target budget (${budget_f:.2f}).")
+        elif total_price_dec <= budget_limit * Decimal("1.25"):
             return RuleResult(True, 88, 8, f"Total look (${total_price:.2f}) slightly exceeds budget for premium tailoring quality.")
         else:
-            return RuleResult(True, 75, 15, f"Total look (${total_price:.2f}) exceeds target budget (${budget_limit:.2f}).")
+            return RuleResult(True, 75, 15, f"Total look (${total_price:.2f}) exceeds target budget (${budget_f:.2f}).")
 
 
 class StylingRulesEngine:

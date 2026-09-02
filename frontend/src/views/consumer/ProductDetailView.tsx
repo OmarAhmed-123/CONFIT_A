@@ -20,6 +20,8 @@ export const ProductDetailView: React.FC = () => {
   const [selectedSkuId, setSelectedSkuId] = useState<number | null>(null);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [bopisStores, setBopisStores] = useState<StoreInventoryLocation[]>([]);
+  const [bopisStatus, setBopisStatus] = useState<'idle' | 'loading' | 'success' | 'empty' | 'error'>('idle');
+  const [bopisError, setBopisError] = useState<string | null>(null);
   const [isWishlisted, setIsWishlisted] = useState(false);
   const [activeAccordion, setActiveAccordion] = useState<'materials' | 'bopis' | 'delivery' | null>('materials');
   const [isLoading, setIsLoading] = useState(true);
@@ -28,6 +30,25 @@ export const ProductDetailView: React.FC = () => {
 
   const { openTryOn, openRuler, showToast } = useUIStore();
   const { addItem } = useCartStore();
+
+  // C6 FIX: BOPIS failure handling - differentiate no stores vs API failure vs network
+  const fetchBopisStores = (skuId: number) => {
+    setBopisStatus('loading');
+    setBopisError(null);
+    catalogService
+      .getBopisStoresForSKU(skuId)
+      .then((stores) => {
+        setBopisStores(stores);
+        setBopisStatus(stores.length === 0 ? 'empty' : 'success');
+      })
+      .catch((err: any) => {
+        setBopisStores([]);
+        setBopisStatus('error');
+        const msg = err?.message || 'Unable to load boutique availability';
+        setBopisError(msg);
+        // Don't show toast for BOPIS - it's secondary info, show inline error instead
+      });
+  };
 
   useEffect(() => {
     if (!slug) return;
@@ -40,7 +61,7 @@ export const ProductDetailView: React.FC = () => {
         const firstInStock = data.skus?.find((s) => s.is_in_stock) || data.skus?.[0];
         if (firstInStock) {
           setSelectedSkuId(firstInStock.id);
-          catalogService.getBopisStoresForSKU(firstInStock.id).then(setBopisStores).catch(() => setBopisStores([]));
+          fetchBopisStores(firstInStock.id);
         }
         setIsLoading(false);
       })
@@ -52,7 +73,7 @@ export const ProductDetailView: React.FC = () => {
 
   useEffect(() => {
     if (!selectedSkuId) return;
-    catalogService.getBopisStoresForSKU(selectedSkuId).then(setBopisStores).catch(() => setBopisStores([]));
+    fetchBopisStores(selectedSkuId);
   }, [selectedSkuId]);
 
   if (isLoading) {
@@ -94,7 +115,10 @@ export const ProductDetailView: React.FC = () => {
             <img
               src={images[activeImageIndex] || product.thumbnail_url}
               alt={product.title}
+              loading="lazy"
+              decoding="async"
               className="w-full h-full object-cover"
+              onError={(e) => { const t=e.currentTarget as HTMLImageElement; if(!t.dataset.fallback){ t.dataset.fallback="true"; t.src=`https://placehold.co/600x800/1B1F3B/FFFFFF?text=${encodeURIComponent(product.title.slice(0,20))}`; } }}
             />
             <div className="absolute top-4 left-4 flex flex-col gap-2">
               {styleScore != null && (
@@ -309,34 +333,55 @@ export const ProductDetailView: React.FC = () => {
               </button>
               {activeAccordion === 'bopis' && (
                 <div className="pt-2 space-y-2">
-                  {bopisStores.filter((s) => s.is_available_for_pickup).length > 0 ? (
-                    bopisStores
-                      .filter((s) => s.is_available_for_pickup)
-                      .map((store) => (
-                        <div key={store.store_id} className="p-2.5 rounded-xl bg-[#FAF9F6] border border-slate-200/80 flex justify-between items-center gap-2">
-                          <div>
-                            <div className="font-bold text-slate-800">{store.store_name}</div>
-                            <div className="text-[11px] text-slate-500 font-light">{store.address}</div>
-                            {store.latitude != null && store.longitude != null && (
-                              <a
-                                className="text-[11px] text-[#C5A059] font-semibold"
-                                href={`https://www.openstreetmap.org/?mlat=${store.latitude}&mlon=${store.longitude}#map=16/${store.latitude}/${store.longitude}`}
-                                target="_blank"
-                                rel="noreferrer"
-                              >
-                                Open map
-                              </a>
-                            )}
+                  {bopisStatus === 'loading' && (
+                    <p className="text-slate-500 font-light text-xs">Checking boutique availability...</p>
+                  )}
+                  {bopisStatus === 'error' && (
+                    <div className="p-3 rounded-xl bg-rose-50 border border-rose-200">
+                      <p className="text-[11px] font-bold text-rose-800">Boutique availability check failed</p>
+                      <p className="text-[11px] text-rose-600 mt-1">{bopisError || 'Unable to reach inventory service. Please try again or use home delivery.'}</p>
+                      <button
+                        onClick={() => selectedSkuId && fetchBopisStores(selectedSkuId)}
+                        className="mt-2 px-3 py-1.5 rounded-lg bg-white border border-rose-200 text-[11px] font-bold text-rose-700 hover:bg-rose-50"
+                      >
+                        Retry
+                      </button>
+                    </div>
+                  )}
+                  {bopisStatus === 'empty' && (
+                    <p className="text-slate-500 font-light text-xs">No nearby stores currently hold this size. Home delivery remains available at checkout.</p>
+                  )}
+                  {bopisStatus === 'success' && bopisStores.filter((s) => s.is_available_for_pickup).length === 0 && (
+                    <p className="text-slate-500 font-light text-xs">No nearby stores currently hold this size with available stock. Home delivery remains available at checkout.</p>
+                  )}
+                  {bopisStatus === 'success' && bopisStores.filter((s) => s.is_available_for_pickup).length > 0 && (
+                    <>
+                      {bopisStores
+                        .filter((s) => s.is_available_for_pickup)
+                        .map((store) => (
+                          <div key={store.store_id} className="p-2.5 rounded-xl bg-[#FAF9F6] border border-slate-200/80 flex justify-between items-center gap-2">
+                            <div>
+                              <div className="font-bold text-slate-800 text-xs">{store.store_name}</div>
+                              <div className="text-[11px] text-slate-500 font-light">{store.address}</div>
+                              {store.latitude != null && store.longitude != null && (
+                                <a
+                                  className="text-[11px] text-[#C5A059] font-semibold"
+                                  href={`https://www.openstreetmap.org/?mlat=${store.latitude}&mlon=${store.longitude}#map=16/${store.latitude}/${store.longitude}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                >
+                                  Open map
+                                </a>
+                              )}
+                            </div>
+                            <div className="text-right">
+                              <span className="text-[11px] font-bold text-emerald-600">
+                                {store.quantity_available} in stock
+                              </span>
+                            </div>
                           </div>
-                          <div className="text-right">
-                            <span className="text-[11px] font-bold text-emerald-600">
-                              {store.quantity_available} in stock
-                            </span>
-                          </div>
-                        </div>
-                      ))
-                  ) : (
-                    <p className="text-slate-500 font-light">No nearby stores currently hold this size. Home delivery remains available at checkout.</p>
+                        ))}
+                    </>
                   )}
                 </div>
               )}

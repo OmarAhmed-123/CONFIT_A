@@ -214,6 +214,8 @@ class VTONInferenceService:
     @modal.fastapi_endpoint(method="GET")
     def health(self) -> dict:
         import torch
+        # C17/C19 FIX: Honest health with crash-loop prevention
+        # Never crash - always return degraded if load failed, with details
         return {
             "status": "healthy" if self.model_loaded else "degraded",
             "service": "vton-worker",
@@ -228,6 +230,32 @@ class VTONInferenceService:
             "cuda_available": torch.cuda.is_available(),
             "weights_baked_at_build": True,
             "package_layout": "model.pipeline + root utils (matching upstream)",
+            "ready": self.model_loaded,  # C18 readiness gate
+            "timestamp": time.time(),
+        }
+
+    @modal.fastapi_endpoint(method="GET")
+    def readiness(self) -> dict:
+        """C18 FIX: Kubernetes-style readiness probe - 503 if not ready"""
+        import torch
+        if not self.model_loaded:
+            from fastapi import HTTPException
+            raise HTTPException(
+                status_code=503,
+                detail={
+                    "error": {
+                        "code": "VTON_NOT_READY",
+                        "message": "Model not loaded, worker not ready",
+                        "load_error": self.load_error,
+                    },
+                    "ready": False,
+                },
+            )
+        return {
+            "ready": True,
+            "model_loaded": True,
+            "device": self.device_name,
+            "timestamp": time.time(),
         }
 
     @modal.fastapi_endpoint(method="POST")

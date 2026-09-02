@@ -889,9 +889,15 @@ class CommerceService:
         fulfillment_type: str,
         bopis_store_id: Optional[int],
     ) -> List[int]:
+        """
+        Atomic inventory reservation - Phase 1: validate all, Phase 2: modify.
+        Previously deducted global stock before checking store inventory, relying on rollback.
+        Now checks BOTH global and store availability first, then modifies - cleaner and safer.
+        """
         from backend.app.models.commerce import InventoryReservation
 
-        held: List[InventoryReservation] = []
+        # Phase 1: Lock and validate ALL items before any modification
+        locked_data: List[Dict[str, Any]] = []
         for item in items:
             sku = self.commerce_repo.lock_sku(item["product_sku_id"])
             if not sku or sku.stock_level < item["quantity"] or not sku.is_in_stock:
@@ -900,11 +906,8 @@ class CommerceService:
                     item["quantity"],
                     sku.stock_level if sku else 0,
                 )
-            sku.stock_level -= item["quantity"]
-            if sku.stock_level <= 0:
-                sku.is_in_stock = False
-                sku.stock_level = 0
 
+            store_inv = None
             if fulfillment_type == "bopis" and bopis_store_id:
                 store_inv = self.commerce_repo.lock_store_inventory(bopis_store_id, sku.id)
                 available = (store_inv.quantity - store_inv.reserved_quantity) if store_inv else 0
@@ -912,16 +915,38 @@ class CommerceService:
                     raise InventoryUnavailableError(
                         sku.sku_code, item["quantity"], available
                     )
-                store_inv.reserved_quantity += item["quantity"]
+
+            locked_data.append({
+                "sku": sku,
+                "store_inv": store_inv,
+                "quantity": item["quantity"],
+                "sku_code": item.get("sku_code") or sku.sku_code,
+            })
+
+        # Phase 2: All validations passed - now modify atomically
+        held: List[InventoryReservation] = []
+        for data in locked_data:
+            sku = data["sku"]
+            store_inv = data["store_inv"]
+            qty = data["quantity"]
+
+            sku.stock_level -= qty
+            if sku.stock_level <= 0:
+                sku.is_in_stock = False
+                sku.stock_level = 0
+
+            if store_inv:
+                store_inv.reserved_quantity += qty
 
             row = InventoryReservation(
                 sku_id=sku.id,
-                quantity=item["quantity"],
+                quantity=qty,
                 store_id=bopis_store_id if fulfillment_type == "bopis" else None,
                 status="held",
             )
             self.db.add(row)
             held.append(row)
+
         self.db.flush()
         return [row.id for row in held if row.id is not None]
 

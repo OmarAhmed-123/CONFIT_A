@@ -20,6 +20,7 @@ from backend.app.models.commerce import (
     OrderEvent,
     ReturnItem,
     ExchangeRequest,
+    CheckoutSession,
 )
 from backend.app.models.brand_analytics import SponsoredPlacement, StyleHeatmapAggregate
 
@@ -65,6 +66,7 @@ __all__ = [
     "OrderEvent",
     "ReturnItem",
     "ExchangeRequest",
+    "CheckoutSession",
     "SponsoredPlacement",
     "StyleHeatmapAggregate",
 ]

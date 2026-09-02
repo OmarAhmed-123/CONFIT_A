@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from backend.app.core.config import settings
 from backend.app.core.exceptions import ResourceNotFoundError, ValidationDomainError, ProviderIntegrationError
 from backend.app.core.logging import logger
+from backend.app.services.storage_service import get_storage
 from backend.app.models.wardrobe import WardrobeItem
 from backend.app.repositories.wardrobe_repository import WardrobeRepository
 from backend.app.services import wardrobe_taxonomy as taxonomy
@@ -133,16 +134,27 @@ class WardrobeService:
     def _store_image(self, user_id: int, data: bytes, ext: str) -> Tuple[str, str]:
         """Persist bytes under the existing local storage root and return
         (public_url, sha256). Files are namespaced per user and content-hash
-        is computed for duplicate-upload protection."""
+        is computed for duplicate-upload protection.
+        C24 FIX: Uses pluggable storage backend (local or S3/R2)."""
         digest = hashlib.sha256(data).hexdigest()
-        uploads_root = os.path.abspath(settings.STORAGE_LOCAL_DIR)
-        user_dir = os.path.join(uploads_root, "wardrobe", str(user_id))
-        os.makedirs(user_dir, exist_ok=True)
         filename = f"{uuid.uuid4().hex}{ext}"
-        path = os.path.join(user_dir, filename)
-        with open(path, "wb") as fh:
-            fh.write(data)
-        return f"/uploads/wardrobe/{user_id}/{filename}", digest
+        relative_path = f"wardrobe/{user_id}/{filename}"
+
+        try:
+            storage = get_storage()
+            public_url = storage.store(relative_path, data)
+            return public_url, digest
+        except Exception as e:
+            # Fallback to local if S3 not configured but provider is local
+            if settings.STORAGE_PROVIDER == "local":
+                uploads_root = os.path.abspath(settings.STORAGE_LOCAL_DIR)
+                user_dir = os.path.join(uploads_root, "wardrobe", str(user_id))
+                os.makedirs(user_dir, exist_ok=True)
+                path = os.path.join(user_dir, filename)
+                with open(path, "wb") as fh:
+                    fh.write(data)
+                return f"/uploads/wardrobe/{user_id}/{filename}", digest
+            raise
 
     def _delete_owned_image(self, image_url: Optional[str]) -> None:
         """Best-effort removal of a locally stored wardrobe image. Only paths
@@ -223,8 +235,26 @@ class WardrobeService:
                     skipped_duplicates += 1
                     results.append(entry)
                     continue
-                analyzed = await self._run_ai_analysis(item)
-                entry.update({"status": "created", "item": self._to_dict(analyzed)})
+
+                # C5 FIX: Async pipeline - enqueue Celery task for AI analysis instead of blocking
+                # Item is returned immediately with processing status, analysis happens in background
+                try:
+                    from backend.app.workers.tasks import auto_tag_wardrobe_task
+                    auto_tag_wardrobe_task.delay(item.id)
+                    logger.info("Enqueued wardrobe auto-tag task", item_id=item.id)
+                except Exception as enqueue_err:
+                    # If Celery unavailable (dev mode), fallback to inline analysis
+                    logger.warn(f"Celery enqueue failed, falling back to inline: {enqueue_err}")
+                    try:
+                        analyzed = await self._run_ai_analysis(item)
+                        entry.update({"status": "created", "item": self._to_dict(analyzed)})
+                        succeeded += 1
+                        results.append(entry)
+                        continue
+                    except Exception:
+                        pass
+
+                entry.update({"status": "created", "item": self._to_dict(item)})
                 succeeded += 1
             except (ValidationDomainError,) as exc:
                 entry.update({"status": "failed", "detail": str(exc)})

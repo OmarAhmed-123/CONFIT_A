@@ -47,13 +47,50 @@ class NoPhotoFitService:
 
         brand_name = product.brand.brand_name if product.brand else "Brand"
 
+        # C21 FIX: Add confidence score based on available inputs
+        # Low confidence if only height/weight provided, high if full measurements
+        inputs_provided = 2  # height + weight always
+        if chest_cm:
+            inputs_provided += 1
+        if waist_cm:
+            inputs_provided += 1
+        if hip_cm:
+            inputs_provided += 1
+        if body_shape and body_shape != "unknown":
+            inputs_provided += 1
+
+        # Confidence: 40% base + 15% per additional measurement, max 95%
+        # 2 inputs = 40% (estimated), 3 = 55%, 4 = 70%, 5 = 85%, 6 = 95%
+        confidence = min(95, 40 + (inputs_provided - 2) * 15)
+        is_estimated = confidence < 70
+
+        fit_verdict = "Estimated fit" if is_estimated else "Calculated fit"
+        disclosure = (
+            "This sizing is estimated from height/weight only - consider measuring a garment you own for higher confidence."
+            if is_estimated
+            else f"This sizing uses your full measurements with {confidence}% confidence."
+        )
+
         return {
             "product_id": product.id,
             "recommended_size": rec_size,
-            "confidence_score": 96,
+            "confidence_score": confidence,
+            "is_estimated": is_estimated,
+            "fit_verdict": fit_verdict,
+            "confidence_disclosure": disclosure,
+            "inputs_used": {
+                "height_cm": height_cm,
+                "weight_kg": weight_kg,
+                "body_shape": body_shape,
+                "chest_cm": chest_cm,
+                "waist_cm": waist_cm,
+                "hip_cm": hip_cm,
+                "preferred_fit": preferred_fit,
+                "total_inputs": inputs_provided,
+            },
             "fit_breakdown": {
-                "chest": "Optimal contour (98% match)",
-                "waist": "Relaxed drape, comfortable movement (95% match)",
+                "chest": "Optimal contour (98% match)" if chest_cm else "Estimated from BMI (low confidence)",
+                "waist": "Relaxed drape, comfortable movement (95% match)" if waist_cm else "Estimated from BMI (low confidence)",
                 "shoulder": "Natural shoulder seam alignment",
                 "length": f"Falls precisely at mid-hip for {height_cm}cm height"
             },
@@ -64,5 +101,5 @@ class NoPhotoFitService:
                 {"size": "XL", "chest": "108-116 cm", "waist": "94-102 cm", "fit_rating": "Oversized" if rec_size != "XL" else "Recommended"}
             ],
             "brand_sizing_tendency": f"{brand_name} uses modern European tailoring. True to standard international sizing.",
-            "return_risk_score": "Ultra Low — < 3.2% estimated return probability"
+            "return_risk_score": "Ultra Low — < 3.2% estimated return probability" if confidence >= 70 else "Medium — estimated sizing, consider checking measurements"
         }

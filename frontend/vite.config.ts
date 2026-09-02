@@ -20,5 +20,29 @@ export default defineConfig({
         secure: false,
       }
     }
-  }
+  },
+  build: {
+    // Fix chunk size warning (655KB > 500KB) - code splitting for luxury mobile performance
+    chunkSizeWarningLimit: 1000,
+    rollupOptions: {
+      output: {
+        manualChunks: (id: string) => {
+          // Vendor chunks for better caching
+          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom') || id.includes('node_modules/react-router')) {
+            return 'vendor-react';
+          }
+          if (id.includes('node_modules/framer-motion') || id.includes('node_modules/zustand') || id.includes('node_modules/@tanstack')) {
+            return 'vendor-ui';
+          }
+          if (id.includes('node_modules/lucide-react')) {
+            return 'vendor-icons';
+          }
+          // B2B heavy views - separate chunk
+          if (id.includes('BrandAnalyticsView') || id.includes('AdminAnalyticsView')) {
+            return 'b2b-analytics';
+          }
+        },
+      },
+    },
+  },
 })

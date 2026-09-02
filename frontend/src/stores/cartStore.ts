@@ -134,20 +134,79 @@ export const useCartStore = create<CartState>((set, get) => ({
   },
 
   updateQuantity: async (cartItemId, quantity) => {
-    const updatedCart = await commerceService.updateQuantity(cartItemId, quantity);
-    persistCart(updatedCart);
-    set({ cart: updatedCart, error: null });
+    // C7 FIX: Optimistic update with rollback and server reconciliation
+    const prevCart = get().cart;
+    if (!prevCart) return;
+
+    // Capture previous state for rollback
+    const prevItems = prevCart.items;
+    const targetItem = prevItems.find((it) => it.id === cartItemId);
+    if (!targetItem) return;
+
+    // Optimistic update
+    const optimisticItems = prevItems.map((it) =>
+      it.id === cartItemId ? { ...it, quantity, subtotal: it.unit_price * quantity } : it
+    ).filter((it) => it.quantity > 0);
+
+    const optimisticCart = {
+      ...prevCart,
+      items: optimisticItems,
+      items_count: optimisticItems.reduce((sum, it) => sum + it.quantity, 0),
+      subtotal: optimisticItems.reduce((sum, it) => sum + it.subtotal, 0),
+    };
+
+    set({ cart: optimisticCart as any, error: null });
+
+    try {
+      const serverCart = await commerceService.updateQuantity(cartItemId, quantity);
+      // Reconcile with authoritative server response
+      persistCart(serverCart);
+      set({ cart: serverCart, error: null });
+    } catch (err: any) {
+      // Rollback on failure - UI must never remain inconsistent with backend
+      persistCart(prevCart);
+      set({ cart: prevCart, error: err?.message || 'Could not update quantity' });
+      throw err;
+    }
   },
 
   removeItem: async (cartItemId) => {
-    const updatedCart = await commerceService.removeItem(cartItemId);
-    persistCart(updatedCart);
-    set({ cart: updatedCart, error: null });
+    // C7 FIX: Optimistic removal with rollback
+    const prevCart = get().cart;
+    if (!prevCart) return;
+
+    const optimisticItems = prevCart.items.filter((it) => it.id !== cartItemId);
+    const optimisticCart = {
+      ...prevCart,
+      items: optimisticItems,
+      items_count: optimisticItems.reduce((sum, it) => sum + it.quantity, 0),
+      subtotal: optimisticItems.reduce((sum, it) => sum + it.subtotal, 0),
+    };
+
+    set({ cart: optimisticCart as any, error: null });
+
+    try {
+      const serverCart = await commerceService.removeItem(cartItemId);
+      persistCart(serverCart);
+      set({ cart: serverCart, error: null });
+    } catch (err: any) {
+      // Rollback
+      persistCart(prevCart);
+      set({ cart: prevCart, error: err?.message || 'Could not remove item' });
+      throw err;
+    }
   },
 
   applyPromo: async (code) => {
-    const updatedCart = await commerceService.applyPromo(code);
-    persistCart(updatedCart);
-    set({ cart: updatedCart, error: null });
+    const prevCart = get().cart;
+    try {
+      const updatedCart = await commerceService.applyPromo(code);
+      persistCart(updatedCart);
+      set({ cart: updatedCart, error: null });
+    } catch (err: any) {
+      // Promo failure should not rollback cart, just show error
+      set({ error: err?.message || 'Could not apply promo' });
+      throw err;
+    }
   },
 }));

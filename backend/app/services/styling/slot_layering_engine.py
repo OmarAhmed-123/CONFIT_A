@@ -1,4 +1,6 @@
+from decimal import Decimal
 from typing import List, Dict, Any, Optional, Tuple
+from backend.app.core.money import to_float
 from dataclasses import dataclass
 
 
@@ -154,7 +156,7 @@ class SlotLayeringEngine:
             "color_family": getattr(new_product, "color_family", "Neutral"),
             "color_hex": getattr(new_product, "dominant_hex", "#1B1F3B"),
             "material": getattr(new_product, "material", "Fine Fabric"),
-            "price": float(new_product.base_price),
+            "price": to_float(new_product.base_price),
             "selected_size": rec_size,
             "layer_order": layer_order
         }

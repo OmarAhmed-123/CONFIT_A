@@ -1,6 +1,8 @@
 import json
+from decimal import Decimal
 from typing import List, Dict, Any, Optional
 from sqlalchemy.orm import Session
+from backend.app.core.money import to_decimal, money_add, money_mul, to_float
 from backend.app.models.stylist import Outfit
 from backend.app.repositories.stylist_repository import StylistRepository
 from backend.app.repositories.catalog_repository import CatalogRepository
@@ -55,8 +57,8 @@ class OutfitService:
             sku = item.sku
             if not product:
                 continue
-            price_raw = (sku.price_override if sku and sku.price_override else product.base_price)
-            price = float(price_raw) if price_raw is not None else 0.0
+            price_raw = to_decimal(sku.price_override if sku and sku.price_override else product.base_price)
+            price = to_float(price_raw)
             items.append({
                 "product_title": product.title,
                 "brand_name": product.brand.brand_name if product.brand else "CONFIT Partner",
@@ -70,7 +72,7 @@ class OutfitService:
             "title": outfit.title,
             "occasion": outfit.occasion,
             "description": outfit.description,
-            "total_price": float(outfit.total_price),
+            "total_price": to_float(outfit.total_price),
             "compatibility_score": int(outfit.compatibility_score),
             "items": items,
             "created_at": outfit.created_at,
@@ -90,7 +92,7 @@ class OutfitService:
                     "style_tags": json.loads(p.style_tags) if p.style_tags else [],
                     "occasion_tags": json.loads(p.occasion_tags) if p.occasion_tags else [],
                     "category": p.category.name if p.category else "Apparel",
-                    "price": float(p.base_price) if p.base_price is not None else 0.0,
+                    "price": to_float(p.base_price),
                     "position": _position_for_product(p),
                     "slot_type": classify_product_slot(p)[0].value,
                 })
@@ -123,7 +125,7 @@ class OutfitService:
 
         products = []
         items_payload = []
-        total_price = 0.0
+        total_price = Decimal("0.00")
         hexes = []
 
         for sku in skus:
@@ -133,9 +135,9 @@ class OutfitService:
             position = _position_for_product(product)
             slot, formality_num = classify_product_slot(product)
 
-            price = sku.price_override or product.base_price
-            price_f = float(price) if price is not None else 0.0
-            total_price += price_f
+            price = to_decimal(sku.price_override or product.base_price)
+            total_price = money_add(total_price, price)
+            price_f = to_float(price)
             hexes.append(sku.color_hex or product.dominant_hex)
 
             products.append({

@@ -3,6 +3,7 @@ from typing import Dict, Any, List, Optional
 from sqlalchemy.orm import Session
 from backend.app.repositories.catalog_repository import CatalogRepository
 from backend.app.repositories.profile_repository import ProfileRepository
+from backend.app.core.money import to_float
 from backend.app.services.weather_service import get_weather_provider
 
 
@@ -12,7 +13,7 @@ def _product_summary(p) -> Dict[str, Any]:
         "brand_name": p.brand.brand_name if getattr(p, "brand", None) else "CONFIT Partner",
         "category_name": p.category.name if getattr(p, "category", None) else "Fashion",
         "title": p.title,
-        "base_price": float(p.base_price),
+        "base_price": to_float(p.base_price),
         "currency": p.currency,
         "thumbnail_url": p.thumbnail_url,
         "color_family": p.color_family,

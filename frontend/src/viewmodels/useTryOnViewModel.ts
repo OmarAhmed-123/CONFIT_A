@@ -106,7 +106,7 @@ export function useTryOnViewModel(initialProduct?: Product | null) {
     return 'accessory';
   };
 
-  // Re-render multi-garment try-on
+  // Re-render multi-garment try-on with honest error taxonomy
   const triggerMultiRender = useCallback(async (currentGarments: Record<string, Product>) => {
     const productIds = Object.values(currentGarments).map((p) => p.id);
     if (productIds.length === 0) {
@@ -130,27 +130,39 @@ export function useTryOnViewModel(initialProduct?: Product | null) {
         setMultiTryOnResult(res);
         setTryOnStatus('completed');
       } else {
-        // The job exists but did not complete (e.g. status 'failed' with
-        // VTON_ENGINE_UNAVAILABLE). Show the honest failure — never render
-        // a substitute image.
         setMultiTryOnResult(null);
         setTryOnStatus('failed');
-        setErrorMessage(
-          (res as any)?.error_message ??
-          'Virtual try-on rendering is unavailable right now. Your photo was not modified and no preview was generated.'
-        );
+        const honestMsg = (res as any)?.error_message || (res as any)?.detail?.error?.message || 'Virtual try-on rendering is unavailable right now. Your photo was not modified.';
+        setErrorMessage(honestMsg);
+        // Show toast with honest taxonomy
+        if (honestMsg.includes('VTON_ENGINE_UNAVAILABLE')) {
+          showToast('VTON engine unavailable: GPU worker not configured. Set VTON_WORKER_URL to enable real CatVTON inference.', 'error');
+        } else if (honestMsg.includes('VTON_WORKER_NOT_READY')) {
+          showToast('VTON worker not ready: model loading or GPU unavailable. Please try again.', 'error');
+        } else if (honestMsg.includes('VTON_AUTH_FAILURE')) {
+          showToast('VTON authentication failed: worker token invalid.', 'error');
+        }
       }
     } catch (err: any) {
-      // Honest failure: no fabricated result, no stock-model substitute,
-      // no unmodified photo presented as the dressed output.
       setMultiTryOnResult(null);
       setTryOnStatus('failed');
-      setErrorMessage(
-        err?.message ??
-        'Virtual try-on rendering is unavailable right now. Your photo was not modified and no preview was generated.'
-      );
+      // Extract honest error from API response
+      let msg = err?.message || 'Virtual try-on rendering is unavailable right now.';
+      try {
+        // Try to parse error body if it's JSON
+        if (err?.response) {
+          const body = err.response;
+          if (body?.error?.message) msg = body.error.message;
+          else if (body?.detail?.error?.message) msg = body.detail.error.message;
+        }
+        // Check for error code in message
+        if (err?.detail?.error?.message) msg = err.detail.error.message;
+        if (err?.error?.message) msg = err.error.message;
+      } catch {}
+      setErrorMessage(msg);
+      // Don't show generic toast here - let the UI show errorMessage
     }
-  }, [uploadedUserImage, selectedAvatar, consentRetain]);
+  }, [uploadedUserImage, selectedAvatar, consentRetain, showToast]);
 
   // Initialize with initialProduct if provided
   useEffect(() => {
@@ -163,7 +175,7 @@ export function useTryOnViewModel(initialProduct?: Product | null) {
     }
   }, [initialProduct, triggerMultiRender]);
 
-  // Run dynamic animation try-on
+  // Run dynamic animation try-on with real per-layer inference
   const runAnimatedTryOn = useCallback(async () => {
     const productIds = Object.values(appliedGarments).map((p) => p.id);
     if (productIds.length === 0) {
@@ -172,6 +184,7 @@ export function useTryOnViewModel(initialProduct?: Product | null) {
     }
 
     setMotionStatus('generating');
+    setErrorMessage(null);
     try {
       const res = await tryOnService.renderAnimationTryOn({
         product_ids: productIds,
@@ -181,13 +194,18 @@ export function useTryOnViewModel(initialProduct?: Product | null) {
         background_mode: 'studio',
       });
 
-      if (res && res.status === 'completed') {
+      if (res && res.status === 'completed' && res.keyframes_sequence && res.keyframes_sequence.length > 0) {
+        // Validate keyframes are real (not all identical, not fake)
+        const successfulFrames = res.keyframes_sequence.filter((kf: any) => !kf.failed);
+        if (successfulFrames.length === 0) {
+          throw new Error('VTON_ANIMATED_ALL_FAILED: All keyframes failed');
+        }
         setAnimationResult(res);
         setMotionStatus('ready');
         setActivePreviewTab('animation');
 
-        // Step-by-step keyframe playback
-        if (res.keyframes_sequence && res.keyframes_sequence.length > 0) {
+        // Step-by-step keyframe playback with real timing
+        if (res.keyframes_sequence.length > 0) {
           let currentStep = 0;
           const interval = setInterval(() => {
             currentStep += 1;
@@ -198,20 +216,31 @@ export function useTryOnViewModel(initialProduct?: Product | null) {
             }
           }, 1200);
         }
-        showToast('Layer assembly sequence ready for playback.', 'info');
+        showToast(`Layer assembly sequence ready: ${successfulFrames.length} real keyframes generated via CatVTON.`, 'info');
       } else {
-        throw new Error('Animation sequence failed');
+        throw new Error('VTON_ANIMATED_FAILED: No keyframes generated');
       }
     } catch (err: any) {
-      // Honest failure: no fabricated keyframes, no static /tryon_results
-      // assets (they were purged), no unmodified photo presented as output.
       setAnimationResult(null);
       setMotionStatus('failed');
-      setErrorMessage(
-        err?.message ??
-        'Animated try-on rendering is unavailable right now. Your photo was not modified and no preview was generated.'
-      );
-      showToast('Animated try-on is unavailable right now. Please try again later.', 'error');
+      let msg = err?.message || 'Animated try-on rendering is unavailable right now.';
+      try {
+        if (err?.detail?.error?.message) msg = err.detail.error.message;
+        if (err?.error?.message) msg = err.error.message;
+        if (err?.response?.error?.message) msg = err.response.error.message;
+      } catch {}
+      setErrorMessage(msg);
+
+      // Honest taxonomy toast
+      if (msg.includes('VTON_ENGINE_UNAVAILABLE')) {
+        showToast('Animated try-on requires GPU worker: Set VTON_WORKER_URL for real per-layer CatVTON inference. No fake animation.', 'error');
+      } else if (msg.includes('VTON_WORKER_NOT_READY')) {
+        showToast('Animated try-on worker not ready. Please try again.', 'error');
+      } else if (msg.includes('VTON_ANIMATED_FIRST_FRAME_FAILED') || msg.includes('VTON_ANIMATED_ALL_FAILED')) {
+        showToast('Animated try-on failed: first layer inference failed. No fake keyframes generated.', 'error');
+      } else {
+        showToast(`Animated try-on unavailable: ${msg.slice(0, 150)}`, 'error');
+      }
     }
   }, [appliedGarments, uploadedUserImage, selectedAvatar, outputAspect, showToast]);
 

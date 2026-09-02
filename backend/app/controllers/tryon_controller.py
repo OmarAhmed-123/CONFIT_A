@@ -111,16 +111,36 @@ async def render_animated_tryon(
     db: Session = Depends(get_db)
 ):
     service = TryOnService(db)
-    return await service.execute_animated_tryon(
-        product_ids=payload.product_ids,
-        slot_mapping=payload.slot_mapping,
-        user_image_url=payload.user_image_url,
-        avatar_model_id=payload.avatar_model_id,
-        gender_mode=payload.gender_mode,
-        output_aspect=payload.output_aspect,
-        background_mode=payload.background_mode,
-        user_id=user.id if user else None
-    )
+    try:
+        return await service.execute_animated_tryon(
+            product_ids=payload.product_ids,
+            slot_mapping=payload.slot_mapping,
+            user_image_url=payload.user_image_url,
+            avatar_model_id=payload.avatar_model_id,
+            gender_mode=payload.gender_mode,
+            output_aspect=payload.output_aspect,
+            background_mode=payload.background_mode,
+            user_id=user.id if user else None
+        )
+    except RuntimeError as e:
+        err = str(e)
+        # Map error taxonomy to HTTP status
+        if "VTON_ENGINE_UNAVAILABLE" in err:
+            raise HTTPException(status_code=503, detail={"error": {"code": "VTON_ENGINE_UNAVAILABLE", "message": err}})
+        elif "VTON_AUTH_FAILURE" in err:
+            raise HTTPException(status_code=503, detail={"error": {"code": "VTON_AUTH_FAILURE", "message": "VTON worker authentication failed"}})
+        elif "VTON_WORKER_NOT_READY" in err:
+            raise HTTPException(status_code=503, detail={"error": {"code": "VTON_WORKER_NOT_READY", "message": err}})
+        elif "VTON_INPUT_INVALID" in err or "VTON_GARMENT_ASSET_INVALID" in err:
+            raise HTTPException(status_code=422, detail={"error": {"code": "VTON_INPUT_INVALID", "message": err}})
+        elif "VTON_OUTPUT_INVALID" in err:
+            raise HTTPException(status_code=502, detail={"error": {"code": "VTON_OUTPUT_INVALID", "message": err}})
+        elif "VTON_TIMEOUT" in err:
+            raise HTTPException(status_code=504, detail={"error": {"code": "VTON_TIMEOUT", "message": err}})
+        elif "VTON_ANIMATED" in err:
+            raise HTTPException(status_code=502, detail={"error": {"code": "VTON_ANIMATED_FAILED", "message": err}})
+        else:
+            raise HTTPException(status_code=500, detail={"error": {"code": "VTON_FAILED", "message": err[:500]}})
 
 
 @router.post("/tryon/multi-render", response_model=MultiGarmentTryOnResponse)
@@ -135,16 +155,33 @@ async def render_multi_garment_tryon(
     db: Session = Depends(get_db)
 ):
     service = TryOnService(db)
-    return await service.execute_multi_garment_tryon(
-        product_ids=payload.product_ids,
-        slot_mapping=payload.slot_mapping,
-        user_image_url=payload.user_image_url,
-        user_image_base64=payload.user_image_base64,
-        avatar_model_id=payload.avatar_model_id,
-        gender_mode=payload.gender_mode,
-        user_id=user.id if user else None,
-        consent_retain_photo=payload.consent_retain_photo
-    )
+    try:
+        return await service.execute_multi_garment_tryon(
+            product_ids=payload.product_ids,
+            slot_mapping=payload.slot_mapping,
+            user_image_url=payload.user_image_url,
+            user_image_base64=payload.user_image_base64,
+            avatar_model_id=payload.avatar_model_id,
+            gender_mode=payload.gender_mode,
+            user_id=user.id if user else None,
+            consent_retain_photo=payload.consent_retain_photo
+        )
+    except RuntimeError as e:
+        err = str(e)
+        if "VTON_ENGINE_UNAVAILABLE" in err:
+            raise HTTPException(status_code=503, detail={"error": {"code": "VTON_ENGINE_UNAVAILABLE", "message": err}})
+        elif "VTON_AUTH_FAILURE" in err:
+            raise HTTPException(status_code=503, detail={"error": {"code": "VTON_AUTH_FAILURE", "message": "VTON worker authentication failed"}})
+        elif "VTON_WORKER_NOT_READY" in err:
+            raise HTTPException(status_code=503, detail={"error": {"code": "VTON_WORKER_NOT_READY", "message": err}})
+        elif "VTON_INPUT_INVALID" in err:
+            raise HTTPException(status_code=422, detail={"error": {"code": "VTON_INPUT_INVALID", "message": err}})
+        elif "VTON_OUTPUT_INVALID" in err:
+            raise HTTPException(status_code=502, detail={"error": {"code": "VTON_OUTPUT_INVALID", "message": err}})
+        elif "VTON_TIMEOUT" in err:
+            raise HTTPException(status_code=504, detail={"error": {"code": "VTON_TIMEOUT", "message": err}})
+        else:
+            raise HTTPException(status_code=500, detail={"error": {"code": "VTON_FAILED", "message": err[:500]}})
 
 
 # =========================================================================
@@ -306,14 +343,31 @@ async def render_virtual_tryon(
     db: Session = Depends(get_db)
 ):
     service = TryOnService(db)
-    return await service.execute_tryon(
-        product_id=payload.product_id,
-        user_image_url=payload.user_image_url,
-        user_image_base64=payload.user_image_base64,
-        avatar_model_id=payload.avatar_model_id,
-        user_id=user.id if user else None,
-        consent_retain_photo=payload.consent_retain_photo
-    )
+    try:
+        return await service.execute_tryon(
+            product_id=payload.product_id,
+            user_image_url=payload.user_image_url,
+            user_image_base64=payload.user_image_base64,
+            avatar_model_id=payload.avatar_model_id,
+            user_id=user.id if user else None,
+            consent_retain_photo=payload.consent_retain_photo
+        )
+    except RuntimeError as e:
+        err = str(e)
+        if "VTON_ENGINE_UNAVAILABLE" in err:
+            raise HTTPException(status_code=503, detail={"error": {"code": "VTON_ENGINE_UNAVAILABLE", "message": err}})
+        elif "VTON_AUTH_FAILURE" in err:
+            raise HTTPException(status_code=503, detail={"error": {"code": "VTON_AUTH_FAILURE", "message": "VTON worker authentication failed"}})
+        elif "VTON_WORKER_NOT_READY" in err:
+            raise HTTPException(status_code=503, detail={"error": {"code": "VTON_WORKER_NOT_READY", "message": err}})
+        elif "VTON_INPUT_INVALID" in err:
+            raise HTTPException(status_code=422, detail={"error": {"code": "VTON_INPUT_INVALID", "message": err}})
+        elif "VTON_OUTPUT_INVALID" in err:
+            raise HTTPException(status_code=502, detail={"error": {"code": "VTON_OUTPUT_INVALID", "message": err}})
+        elif "VTON_TIMEOUT" in err:
+            raise HTTPException(status_code=504, detail={"error": {"code": "VTON_TIMEOUT", "message": err}})
+        else:
+            raise HTTPException(status_code=500, detail={"error": {"code": "VTON_FAILED", "message": err[:500]}})
 
 
 # =========================================================================

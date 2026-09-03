@@ -1,4 +1,19 @@
 import os
+
+# --- VTON segmentation policy for the TEST SUITE -----------------------------
+# pipeline.segmentation prefers rembg (u2net_human_seg). Loading that ONNX
+# session costs ~900MB RSS, which OOM-kills small CI runners (observed: pytest
+# killed with exit 137 on a 2GB box) and makes mask geometry depend on whether
+# an optional dependency happens to be installed — the same test then passes in
+# CI and fails locally.
+#
+# The suite therefore pins the DETERMINISTIC heuristic path by default so mask
+# assertions are reproducible everywhere. Set CONFIT_VTON_DISABLE_REMBG=0 to
+# exercise the real segmentation model locally (see
+# test_vton_single_production_path.py for the model-path assertions, and the
+# release report for the runtime-verified rembg evidence).
+os.environ.setdefault("CONFIT_VTON_DISABLE_REMBG", "1")
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine

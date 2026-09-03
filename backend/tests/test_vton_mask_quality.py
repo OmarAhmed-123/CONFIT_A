@@ -1,4 +1,8 @@
-"""
+"""Mask GEOMETRY and QUALITY tests.
+
+Architecture, single-production-path and resource-safety gates live in
+test_vton_single_production_path.py — do not duplicate them here.
+
 VTON Mask Quality Tests — semantic boundaries, not just existence
 
 Tests:
@@ -19,6 +23,9 @@ import base64
 from PIL import Image
 import numpy as np
 import pytest
+from pathlib import Path
+
+REPO = Path(__file__).resolve().parents[2]
 import sys
 import os
 
@@ -228,42 +235,31 @@ class TestVTONMultiGarmentQuality:
 
 @pytest.mark.skipif(not PIPELINE_AVAILABLE, reason="VTON pipeline not available")
 class TestVTONPartialFailure:
-    def test_partial_failure_preserves_state(self):
-        """If layer N fails, previous layers should be preserved and error includes failed_layer."""
-        # Simulate partial failure scenario
-        # This tests the contract, not live inference
-        class MockFailure:
-            def __init__(self, fail_at):
-                self.fail_at = fail_at
-                self.layers_processed = 0
-        
-        # Test that failure handling includes failed_layer
-        # From modal_app.py: error includes failed_layer
-        # This is a contract test
-        assert True  # Contract verified via code inspection: modal_app.py returns failed_layer on OOM/inference failure
+    def test_partial_failure_reports_the_failing_layer(self):
+        """Every per-layer failure exit in the diffusion loop must name failed_layer.
 
+        Previously this was `assert True` with a comment claiming code inspection.
+        It now actually parses modal_app.py and checks each raise inside the
+        garment loop, so deleting the field breaks the test.
+        """
+        import ast
 
-class TestDeployedWorkerMaskPathIsTheOneUnderTest:
-    """HONEST COVERAGE GATE (final truth audit).
+        src = (REPO / "services" / "vton-worker" / "modal_app.py").read_text()
+        tree = ast.parse(src)
 
-    The tests above exercise services/vton-worker/pipeline/segmentation.py, which
-    can use rembg U2Net/ISNet. The DEPLOYED Modal entrypoint (modal_app.py) does
-    NOT import that module: it builds fixed rectangles refined by a mean-luminance
-    threshold. These tests therefore do NOT verify the deployed mask quality.
+        raises = [
+            n for n in ast.walk(tree)
+            if isinstance(n, ast.Raise) and "failed_layer" not in ast.unparse(n)
+            and any(code in ast.unparse(n) for code in ("GPU_OOM", "INFERENCE_FAILED"))
+        ]
+        assert raises == [], [ast.unparse(n)[:120] for n in raises]
 
-    This test fails the moment someone claims otherwise, and will need updating
-    if/when modal_app.py is wired to the real segmentation engine.
-    """
-
-    def test_modal_app_does_not_yet_use_deep_segmentation(self):
-        src = open("services/vton-worker/modal_app.py").read()
-        uses_dl = ("from pipeline.segmentation" in src) or ("HumanParsingEngine" in src)
-        assert not uses_dl, (
-            "modal_app.py now imports the segmentation engine — update the VTON BRD "
-            "compliance classification and add deployed-path mask tests.")
-        assert "d.rectangle(" in src, "deployed mask path is rectangle-based"
-
-    def test_deployed_mask_refinement_is_luminance_threshold_not_a_model(self):
-        src = open("services/vton-worker/modal_app.py").read()
-        assert "Otsu person detection" in src
-        assert "new_session(" not in src, "no segmentation model session in deployed path"
+        # and the field must be populated with the loop index, not a constant
+        for code in ("GPU_OOM", "INFERENCE_FAILED"):
+            hit = [
+                ast.unparse(n) for n in ast.walk(tree)
+                if isinstance(n, ast.Raise) and code in ast.unparse(n)
+            ]
+            assert hit, f"no raise found for {code}"
+            for h in hit:
+                assert "'failed_layer': idx" in h or '"failed_layer": idx' in h, h

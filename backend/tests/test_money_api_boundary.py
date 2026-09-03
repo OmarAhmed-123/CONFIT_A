@@ -324,3 +324,40 @@ class TestFieldSpecificSignRules:
         with pytest.raises(MoneyValueError):
             validate_money("-12.50", "refund_amount", allow_negative=False)
         assert validate_money("0.00", "refund_amount", allow_zero=True) == Decimal("0.00")
+
+
+class TestNonNegativeMoneyBoundary:
+    """Fields that legitimately accept ZERO (budgets, wardrobe purchase price,
+    refund amounts) must still reject NaN/Infinity/garbage. A validator that
+    coerced non-finite input to 0.00 would slip through on these fields
+    unnoticed because the '> 0' rule that protects prices does not apply
+    here — this is the mutation-M3 gap."""
+
+    @pytest.fixture(scope="class")
+    def consumer_headers(self, raw_client):
+        r = raw_client.post("/api/v1/auth/login", json={"email": "shopper@confit.io", "password": PASSWORD})
+        assert r.status_code == 200, r.text
+        raw_client.cookies.clear()
+        return {"Authorization": f"Bearer {r.json()['access_token']}"}
+
+    NON_ZERO_BAD = [b for b in BAD_BODIES if b[1] != "zero"]
+
+    @pytest.mark.parametrize("literal,label", NON_ZERO_BAD, ids=[b[1] for b in NON_ZERO_BAD])
+    def test_budget_nan_inf_garbage_rejected_not_zeroed(self, raw_client, consumer_headers, literal, label):
+        body = f'{{"budget_monthly_max": {literal}}}'
+        r = _raw_json(raw_client, "PATCH", "/api/v1/profile/preferences", body, consumer_headers)
+        assert r.status_code == 422, f"{label}: {r.status_code} {r.text[:200]}"
+        json.loads(r.text)
+
+    def test_budget_zero_is_legitimately_accepted(self, raw_client, consumer_headers):
+        r = _raw_json(raw_client, "PATCH", "/api/v1/profile/preferences", '{"budget_monthly_max": 0}', consumer_headers)
+        assert r.status_code == 200, r.text
+
+    def test_domain_validator_never_returns_zero_for_non_finite(self):
+        """Direct domain check (allow_zero=True): NaN/Infinity must raise, not
+        become Decimal('0.00')."""
+        from backend.app.core.money import MoneyRangeError, MoneyValueError, validate_money
+        for bad in ("NaN", "Infinity", "-Infinity", float("nan"), float("inf"), Decimal("NaN"), Decimal("sNaN")):
+            with pytest.raises((MoneyValueError, MoneyRangeError)):
+                validate_money(bad, "amount", allow_negative=True, allow_zero=True)
+        assert validate_money(0, "amount", allow_zero=True) == Decimal("0.00")

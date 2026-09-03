@@ -158,3 +158,59 @@ class TestEndpointAccessControl:
     def test_endpoint_hidden_from_openapi(self):
         from backend.app.main import app
         assert "/api/v1/health/vton-contract" not in app.openapi()["paths"]
+
+
+class TestT4RevisionConsistency:
+    """T4 — deployed Modal revision vs intended Git SHA. Pure verdict logic plus
+    the live path through the diagnostic (fake worker reports 'deadbeef')."""
+
+    def _clear(self, monkeypatch):
+        monkeypatch.setattr(settings, "VTON_WORKER_EXPECTED_GIT_SHA", None, raising=False)
+        monkeypatch.delenv("VTON_WORKER_EXPECTED_GIT_SHA", raising=False)
+        monkeypatch.delenv("VERCEL_GIT_COMMIT_SHA", raising=False)
+
+    def test_match_requires_same_commit(self, monkeypatch):
+        self._clear(monkeypatch)
+        monkeypatch.setenv("VTON_WORKER_EXPECTED_GIT_SHA", "c928544f73ca1407824dca95b3a5ccfbcf73742e")
+        assert tc._revision_verdict("c928544f73ca1407824dca95b3a5ccfbcf73742e")["verdict"] == "match"
+        assert tc._revision_verdict("c928544f73ca")["verdict"] == "match"          # abbreviated form
+        assert tc._revision_verdict("3c9e9e76fad6f2179692c495ab46304b90b6e673")["verdict"] == "mismatch"
+
+    def test_short_prefix_cannot_fake_a_match(self, monkeypatch):
+        self._clear(monkeypatch)
+        monkeypatch.setenv("VTON_WORKER_EXPECTED_GIT_SHA", "c928544f73ca1407824dca95b3a5ccfbcf73742e")
+        assert tc._revision_verdict("c92")["verdict"] == "mismatch"
+
+    def test_unknown_and_dirty_are_never_a_pass(self, monkeypatch):
+        self._clear(monkeypatch)
+        monkeypatch.setenv("VTON_WORKER_EXPECTED_GIT_SHA", "c928544f73ca1407824dca95b3a5ccfbcf73742e")
+        assert tc._revision_verdict(None)["verdict"] == "worker_unknown"
+        assert tc._revision_verdict("unknown")["verdict"] == "worker_unknown"
+        assert tc._revision_verdict("c928544f73ca1407824dca95b3a5ccfbcf73742e-dirty")["verdict"] == "dirty_deploy"
+
+    def test_falls_back_to_vercel_commit_sha(self, monkeypatch):
+        self._clear(monkeypatch)
+        monkeypatch.setenv("VERCEL_GIT_COMMIT_SHA", "deadbeefcafe0000")
+        assert tc._revision_verdict("deadbeefcafe0000")["verdict"] == "match"
+        assert tc._revision_verdict("0badf00d0badf00d")["verdict"] == "mismatch"
+
+    def test_no_expected_sha_is_reported_not_passed(self, monkeypatch):
+        self._clear(monkeypatch)
+        assert tc._revision_verdict("deadbeefcafe0000")["verdict"] == "no_expected_sha"
+
+    @pytest.mark.asyncio
+    async def test_T4_diagnostic_reports_mismatch_against_fake_worker(self, patched_client, monkeypatch):
+        self._clear(monkeypatch)
+        _set_api_token(monkeypatch, WORKER_SECRET)
+        monkeypatch.setenv("VTON_WORKER_EXPECTED_GIT_SHA", "1111111111111111111111111111111111111111")
+        r = await tc.probe_vton_worker_contract()
+        assert r["contract"] == "consistent"
+        assert r["revision"]["worker_git_sha"] == "deadbeef"
+        assert r["revision"]["verdict"] == "mismatch"
+        monkeypatch.setenv("VTON_WORKER_EXPECTED_GIT_SHA", "deadbeef")
+        r = await tc.probe_vton_worker_contract()
+        assert r["revision"]["verdict"] == "match"
+
+    def test_endpoint_hidden_from_openapi_still(self):
+        from backend.app.main import app
+        assert "/api/v1/health/vton-contract" not in app.openapi()["paths"]

@@ -137,6 +137,11 @@ async def render_animated_tryon(
             raise HTTPException(status_code=502, detail={"error": {"code": "VTON_OUTPUT_INVALID", "message": err}})
         elif "VTON_TIMEOUT" in err:
             raise HTTPException(status_code=504, detail={"error": {"code": "VTON_TIMEOUT", "message": err}})
+        elif "VTON_WORKER_UNAVAILABLE" in err:
+            # Worker answered with an unexpected 5xx (e.g. INFERENCE_FAILED at
+            # layer N, platform preemption) or was unreachable: upstream failure,
+            # reported as 502 — never converted into a rendered "success".
+            raise HTTPException(status_code=502, detail={"error": {"code": "VTON_WORKER_UNAVAILABLE", "message": err[:500]}})
         elif "VTON_ANIMATED" in err:
             raise HTTPException(status_code=502, detail={"error": {"code": "VTON_ANIMATED_FAILED", "message": err}})
         else:
@@ -180,6 +185,11 @@ async def render_multi_garment_tryon(
             raise HTTPException(status_code=502, detail={"error": {"code": "VTON_OUTPUT_INVALID", "message": err}})
         elif "VTON_TIMEOUT" in err:
             raise HTTPException(status_code=504, detail={"error": {"code": "VTON_TIMEOUT", "message": err}})
+        elif "VTON_WORKER_UNAVAILABLE" in err:
+            # Worker answered with an unexpected 5xx (e.g. INFERENCE_FAILED at
+            # layer N, platform preemption) or was unreachable: upstream failure,
+            # reported as 502 — never converted into a rendered "success".
+            raise HTTPException(status_code=502, detail={"error": {"code": "VTON_WORKER_UNAVAILABLE", "message": err[:500]}})
         else:
             raise HTTPException(status_code=500, detail={"error": {"code": "VTON_FAILED", "message": err[:500]}})
 
@@ -261,6 +271,11 @@ async def create_tryon_session(
             raise HTTPException(status_code=502, detail={"error": {"code": "VTON_OUTPUT_INVALID", "message": err}})
         elif "VTON_TIMEOUT" in err:
             raise HTTPException(status_code=504, detail={"error": {"code": "VTON_TIMEOUT", "message": err}})
+        elif "VTON_WORKER_UNAVAILABLE" in err:
+            # Worker answered with an unexpected 5xx (e.g. INFERENCE_FAILED at
+            # layer N, platform preemption) or was unreachable: upstream failure,
+            # reported as 502 — never converted into a rendered "success".
+            raise HTTPException(status_code=502, detail={"error": {"code": "VTON_WORKER_UNAVAILABLE", "message": err[:500]}})
         else:
             raise HTTPException(status_code=500, detail={"error": {"code": "VTON_FAILED", "message": err[:500]}})
 
@@ -403,6 +418,11 @@ async def render_virtual_tryon(
             raise HTTPException(status_code=502, detail={"error": {"code": "VTON_OUTPUT_INVALID", "message": err}})
         elif "VTON_TIMEOUT" in err:
             raise HTTPException(status_code=504, detail={"error": {"code": "VTON_TIMEOUT", "message": err}})
+        elif "VTON_WORKER_UNAVAILABLE" in err:
+            # Worker answered with an unexpected 5xx (e.g. INFERENCE_FAILED at
+            # layer N, platform preemption) or was unreachable: upstream failure,
+            # reported as 502 — never converted into a rendered "success".
+            raise HTTPException(status_code=502, detail={"error": {"code": "VTON_WORKER_UNAVAILABLE", "message": err[:500]}})
         else:
             raise HTTPException(status_code=500, detail={"error": {"code": "VTON_FAILED", "message": err[:500]}})
 

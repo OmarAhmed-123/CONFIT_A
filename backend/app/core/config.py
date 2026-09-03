@@ -148,6 +148,11 @@ class Settings(BaseSettings):
     # worker). Either name is accepted on the API side; VTON_WORKER_ADMIN_TOKEN wins.
     VTON_WORKER_ADMIN_TOKEN: Optional[str] = None
     CONFIT_WORKER_ADMIN_TOKEN: Optional[str] = None
+    # T4 revision-consistency gate: the Git SHA the Modal worker is EXPECTED to
+    # run (the commit `modal deploy` was executed from). /health/vton-contract
+    # compares it with the worker's reported git_sha. Defaults to the API's own
+    # deployment SHA (Vercel injects VERCEL_GIT_COMMIT_SHA) when unset.
+    VTON_WORKER_EXPECTED_GIT_SHA: Optional[str] = None
     VTON_WORKER_TIMEOUT_SECONDS: float = 90.0
     VTON_WORKER_HEALTH_TIMEOUT_SECONDS: float = 5.0
     VTON_WORKER_MAX_RETRIES: int = 3

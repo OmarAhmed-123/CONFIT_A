@@ -45,6 +45,33 @@ def _vton_pipeline_status() -> str:
     return "configured: GPU worker URL + admin token present (readiness is checked per job, not here)"
 
 
+def _revision_verdict(worker_sha) -> dict:
+    """T4 — compare the deployed worker revision with the intended commit.
+
+    Verdicts: ``match`` / ``mismatch`` / ``worker_unknown`` (worker predates the
+    traceable build or reports 'unknown') / ``dirty_deploy`` (deployed from an
+    uncommitted tree) / ``no_expected_sha`` (nothing to compare against on
+    this host). Only a ``match`` is a passing gate.
+    """
+    expected = (
+        (getattr(settings, "VTON_WORKER_EXPECTED_GIT_SHA", None) or "").strip()
+        or os.environ.get("VTON_WORKER_EXPECTED_GIT_SHA", "").strip()
+        or os.environ.get("VERCEL_GIT_COMMIT_SHA", "").strip()
+    )
+    out = {"expected_git_sha": expected or None, "worker_git_sha": worker_sha, "verdict": "no_expected_sha"}
+    if not worker_sha or worker_sha == "unknown":
+        out["verdict"] = "worker_unknown"
+        return out
+    if str(worker_sha).endswith("-dirty"):
+        out["verdict"] = "dirty_deploy"
+        return out
+    if not expected:
+        return out
+    w, e = str(worker_sha).lower(), expected.lower()
+    out["verdict"] = "match" if (w == e or w.startswith(e) or e.startswith(w)) and min(len(w), len(e)) >= 7 else "mismatch"
+    return out
+
+
 async def probe_vton_worker_contract(timeout: float = 45.0) -> dict:  # < Vercel maxDuration 60 s; cold start of a scaled-to-zero GPU container can exceed this -> "worker_unreachable", retry
     """T6 — verify the API ↔ GPU-worker credential CONTRACT without ever
     reading, printing or rotating the secret.
@@ -57,7 +84,10 @@ async def probe_vton_worker_contract(timeout: float = 45.0) -> dict:  # < Vercel
         503 VTON_ENGINE_UNAVAILABLE-> token accepted, model not loaded
 
     Also reports the worker's /health metadata (git_sha, model, segmentation
-    engine) so deployment drift is visible next to the token verdict.
+    engine) and the T4 revision verdict: the worker's git_sha is compared with
+    VTON_WORKER_EXPECTED_GIT_SHA (fallback: this API's own VERCEL_GIT_COMMIT_SHA)
+    so a Modal deployment that does not match the intended commit is visible
+    as ``revision: mismatch`` instead of silently serving old masks.
     """
     import httpx
     from backend.app.services.tryon_service import TryOnService
@@ -97,6 +127,8 @@ async def probe_vton_worker_contract(timeout: float = 45.0) -> dict:  # < Vercel
             }
         except Exception as exc:  # noqa: BLE001
             result["worker_health"] = {"error": f"{type(exc).__name__}: {str(exc)[:120]}"}
+
+        result["revision"] = _revision_verdict(result["worker_health"].get("git_sha"))
 
         if not token:
             result["contract"] = "token_missing_on_api"

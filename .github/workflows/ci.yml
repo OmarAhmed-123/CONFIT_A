@@ -23,6 +23,17 @@ jobs:
         run: pip install pip-audit && pip-audit -r backend/requirements.txt
       - name: Test suite
         run: PYTHONPATH=. python3 -m pytest backend/tests -q
+      # Mutation gates M1-M14: each reverting mutation of a remediated defect
+      # (money rounding/rates/non-finite/range, attribution grain, VTON mask
+      # polarity/rectangle substitution/echo, public secrets, schema drift,
+      # live payments, plaintext passwords) must be KILLED by the suite.
+      - name: Mutation gates (suite must kill every remediated defect)
+        run: PYTHONPATH=. python3 backend/scripts/run_mutation_gates.py --skip-baseline --json mutation-gates.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mutation-gates
+          path: mutation-gates.json
 
   # Production is PostgreSQL (Neon). SQLite passing is not evidence for the
   # migration chain, the money column types or the schema gate, so every push

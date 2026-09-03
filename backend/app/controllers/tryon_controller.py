@@ -534,5 +534,10 @@ async def visual_style_match(
         max_price=payload.max_price,
         brand_ids=payload.brand_ids,
         in_stock_only=payload.in_stock_only,
-        limit=payload.limit,
+        # VisualSearchRequest exposes ``top_k`` (see schemas/tryon.py). This
+        # handler previously read a non-existent ``limit`` attribute, so every
+        # production call to /tryon/visual-search died with AttributeError -> 500.
+        # No test exercised the endpoint; see
+        # tests/test_api_contract_schema_alignment.py for the guard that now does.
+        limit=payload.top_k,
     )

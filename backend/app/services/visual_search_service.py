@@ -1,6 +1,7 @@
 from typing import Dict, Any, Optional, List
 from sqlalchemy.orm import Session
 from backend.app.core.exceptions import ValidationDomainError
+from backend.app.core.money import to_float
 from backend.app.repositories.catalog_repository import CatalogRepository
 from backend.app.repositories.tryon_repository import TryOnRepository
 from backend.app.providers.tryon_provider import VisualSearchAIProvider
@@ -84,14 +85,23 @@ class VisualSearchService:
         # Sort by similarity score descending
         scored_matches.sort(key=lambda x: x[0], reverse=True)
 
+        # Honour the caller's requested result count (schema: top_k, 1..20). The
+        # DB query above is already bounded by ``limit``; slicing here keeps the
+        # response size consistent with the request instead of a hard-coded 8.
+        result_limit = limit if isinstance(limit, int) and limit > 0 else 8
         matches = []
-        for idx, (sim, p) in enumerate(scored_matches[:8]):
+        for idx, (sim, p) in enumerate(scored_matches[:result_limit]):
             match_type = "Exact Match" if idx == 0 and sim >= 95 else ("Silhouette Match" if sim >= 88 else "Complementary Alternative")
             matches.append({
                 "product_id": p.id,
                 "title": p.title,
                 "brand_name": p.brand.brand_name if p.brand else "CONFIT",
-                "price": p.base_price,
+                # base_price is Numeric(12,2) -> Decimal since migration 0012.
+                # Serialise through the canonical money helper: the response
+                # schema and the persisted matches_json (json.dumps) both need
+                # a JSON-native number; the authoritative value stays Decimal
+                # in the database.
+                "price": to_float(p.base_price),
                 "image_url": p.thumbnail_url,
                 "similarity_score": int(sim),
                 "detected_color": p.color_family,

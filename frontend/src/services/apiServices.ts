@@ -444,7 +444,17 @@ export const tryOnService = {
       body: JSON.stringify(payload),
     }),
 
-  searchVisual: (payload: { image_url?: string; max_price?: number; in_stock_only?: boolean }) =>
+  // Mirrors backend VisualSearchRequest (schemas/tryon.py): the result-count
+  // field is `top_k` (1..20, default 8) — there is no `limit` field.
+  searchVisual: (payload: {
+    image_url?: string;
+    image_base64?: string;
+    top_k?: number;
+    min_price?: number;
+    max_price?: number;
+    brand_ids?: number[];
+    in_stock_only?: boolean;
+  }) =>
     request<VisualSearchResult>('/tryon/visual-search', {
       method: 'POST',
       body: JSON.stringify(payload),

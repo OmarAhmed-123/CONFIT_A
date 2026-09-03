@@ -21,3 +21,10 @@ email-validator>=2.2.0
 pyotp>=2.9.0
 aiofiles>=24.1.0
 mangum>=0.17.0
+# Runtime image decoding for the serverless API itself (NOT test-only):
+#   backend/app/providers/tryon_provider.py  validate_uploaded_image()  -> PIL
+#   backend/app/services/tryon_service.py    garment/output validation  -> PIL
+# These are lazy imports, so the function booted fine and then died with
+# ModuleNotFoundError on the first /tryon/validate-image and
+# /tryon/visual-search call in production (2026-09-03 black-box probe).
+Pillow>=10.4.0

@@ -12,10 +12,12 @@ jobs:
           python-version: "3.12"
       - name: Install declared dependencies
         run: pip install -r backend/requirements.txt
-      # Guards the 2026-08-29 outage class: an undeclared import kills every
-      # serverless invocation; the guard now covers backend/app AND
-      # backend/tests (the Pillow/numpy CI failure was a test-only import).
-      - name: Runtime import coverage check
+      # Guards the 2026-08-29 (slowapi) and 2026-09-03 (Pillow) outage classes:
+      # an undeclared import kills the serverless function at first use. The
+      # gate evaluates EACH deployment target against the manifest it really
+      # installs (Vercel: repo-root requirements.txt; Docker/CI:
+      # backend/requirements.txt) — never a merged view.
+      - name: Deployment dependency gate (per-target import closure)
         run: PYTHONPATH=. python3 backend/scripts/check_runtime_imports.py
       - name: Dependency security audit (pip-audit)
         run: pip install pip-audit && pip-audit -r backend/requirements.txt

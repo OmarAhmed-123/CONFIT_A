@@ -30,6 +30,7 @@ from typing import List, Dict, Any, Optional
 app = modal.App("confit-vton-worker")
 WORKER_DIR     = "/root/vton-worker"
 MODEL_CACHE    = "/model_cache"
+REMBG_HOME     = "/model_cache/rembg"   # u2net_human_seg.onnx etc. baked at BUILD time
 CATVTON_CLONE  = "/catvton_upstream"
 CATVTON_PKG    = "/catvton_pkg"
 ATTN_REPO      = "zhengchong/CatVTON"
@@ -131,6 +132,55 @@ def _snapshot_dir(model_id_or_path: str) -> str:
     return os.path.join(snaps, children[-1])
 
 
+def _resolve_build_git_sha() -> str:
+    """Git revision of the tree `modal deploy` runs from (captured on the
+    DEPLOYING machine, baked into the image as an env var; see `image.env`).
+
+    Precedence: CONFIT_GIT_SHA env (CI passes the exact commit) -> `git rev-parse
+    HEAD` of this file's repository -> "unknown". A dirty working tree is
+    recorded as "<sha>-dirty" so an uncommitted deploy can never masquerade as
+    a committed one (T4 consistency gate compares this with the intended SHA).
+    """
+    explicit = os.environ.get("CONFIT_GIT_SHA", "").strip()
+    if explicit:
+        return explicit
+    try:
+        import subprocess
+        here = os.path.dirname(os.path.abspath(__file__))
+        sha = subprocess.run(["git", "rev-parse", "HEAD"], cwd=here, capture_output=True, text=True, timeout=10).stdout.strip()
+        if not sha:
+            return "unknown"
+        dirty = subprocess.run(["git", "status", "--porcelain", "--", "."], cwd=here, capture_output=True, text=True, timeout=10).stdout.strip()
+        return f"{sha}-dirty" if dirty else sha
+    except Exception:
+        return "unknown"
+
+
+BUILD_GIT_SHA = _resolve_build_git_sha()
+
+
+def _download_segmentation_weights() -> None:
+    """Bake the rembg ONNX models into the image at BUILD time.
+
+    Without this the first inference on every fresh container downloaded
+    ~176 MB from GitHub releases (runtime network dependency, +30-60 s cold
+    start) and, if that download failed, pipeline.segmentation silently fell
+    back to the Otsu heuristic — a production mask quality regression that
+    nothing reported. Weights are now a reproducible build artefact, the same
+    way the diffusion weights are.
+    """
+    os.environ["U2NET_HOME"] = REMBG_HOME
+    os.makedirs(REMBG_HOME, exist_ok=True)
+    from rembg import new_session
+    for name in ("u2net_human_seg", "isnet-general-use"):
+        new_session(name)  # downloads into U2NET_HOME
+        print(f"[build] rembg model baked: {name}")
+    baked = sorted(f for f in os.listdir(REMBG_HOME) if f.endswith(".onnx"))
+    if not baked:
+        raise RuntimeError("rembg weights were not written to " + REMBG_HOME)
+    print(f"[build] segmentation weights in image: {baked}")
+
+
 def _download_weights() -> None:
     from huggingface_hub import snapshot_download
     snapshot_download(repo_id=ATTN_REPO, cache_dir=MODEL_CACHE)
@@ -159,12 +209,17 @@ image = (
     .run_commands("git clone --depth 1 https://github.com/Zheng-Chong/CatVTON.git " + CATVTON_CLONE)
     .run_function(_stage_catvton_package)
     .run_function(_download_weights)
+    .run_function(_download_segmentation_weights)
     .add_local_dir(
         os.path.join(os.path.dirname(__file__), "pipeline"),
         remote_path=WORKER_DIR + "/pipeline",
         copy=True,
     )
-    .env({"PYTHONPATH": CATVTON_PKG + ":" + WORKER_DIR})
+    .env({
+        "PYTHONPATH": CATVTON_PKG + ":" + WORKER_DIR,
+        "U2NET_HOME": REMBG_HOME,          # rembg reads baked weights, never downloads at runtime
+        "CONFIT_GIT_SHA": BUILD_GIT_SHA,   # deployed revision, reported by /health (T4 gate)
+    })
 )
 
 
@@ -315,6 +370,7 @@ class VTONInferenceService:
         self.model_loaded = False
         self.load_error = None
         self.device_name = None
+        self.segmentation_model = None
         self.pipe = None
         try:
             base_ckpt = _snapshot_dir(BASE_REPO)
@@ -335,6 +391,18 @@ class VTONInferenceService:
                 device="cuda",
             )
             self.device_name = torch.cuda.get_device_name(0)
+            # The canonical segmentation engine must be the REAL model in
+            # production: warm the process-wide rembg session from the baked
+            # weights and refuse to report "ready" on heuristic-only masking.
+            import pipeline.segmentation as _seg
+            from pipeline.segmentation import _get_rembg_session
+            if _get_rembg_session() is None:
+                raise RuntimeError(
+                    "segmentation engine unavailable: rembg session could not be created from baked "
+                    f"weights in {REMBG_HOME} — refusing to serve heuristic-only masks"
+                )
+            self.segmentation_model = _seg._REMBG_MODEL
+            print(f"[load] segmentation engine ready: rembg-{self.segmentation_model}")
             self.model_loaded = True
             print(f"[load] CatVTON pipeline loaded on {self.device_name}")
             # Log GPU memory
@@ -376,6 +444,9 @@ class VTONInferenceService:
             "cuda_available": cuda_available,
             "gpu_memory": gpu_mem,
             "weights_baked_at_build": True,
+            "segmentation_weights_baked_at_build": True,
+            "segmentation_model": getattr(self, "segmentation_model", None),
+            "git_sha": os.environ.get("CONFIT_GIT_SHA", BUILD_GIT_SHA),
             "package_layout": "model.pipeline + root utils",
             "mask_engine": "pipeline.segmentation.AgnosticMaskGenerator (rembg u2net_human_seg -> isnet-general-use -> u2net; Otsu+skin fallback)",
             "concurrency": 2,

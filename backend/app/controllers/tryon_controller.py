@@ -1,5 +1,5 @@
 from typing import List, Optional, Dict, Any
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, status, Request
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
@@ -523,13 +523,15 @@ async def visual_style_match(
     request: Request,
     payload: VisualSearchRequest,
     user: Optional[User] = Depends(get_current_user_optional),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    x_session_token: Optional[str] = Header(None),
 ):
     service = VisualSearchService(db)
     return await service.search_by_image(
         image_url=payload.image_url,
         image_base64=payload.image_base64,
         user_id=user.id if user else None,
+        session_token=x_session_token,
         min_price=payload.min_price,
         max_price=payload.max_price,
         brand_ids=payload.brand_ids,

@@ -65,7 +65,6 @@ celery_app.conf.update(
         "interval_max": 1,
     },
     task_routes={
-        "backend.app.workers.tasks.render_vton_task": {"queue": "vton_heavy"},
         "backend.app.workers.tasks.extract_visual_features_task": {"queue": "vision_heavy"},
         "backend.app.workers.tasks.auto_tag_wardrobe_task": {"queue": "wardrobe_jobs"},
         "backend.app.workers.tasks.bulk_catalog_import_task": {"queue": "catalog_ingest"},

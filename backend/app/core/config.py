@@ -1,6 +1,55 @@
-from typing import List, Optional
-from pydantic import model_validator
+"""Application settings — the single environment contract.
+
+Environments are EXPLICIT (``ENVIRONMENT`` = development | test | staging | production).
+Business logic never branches on the environment; only infrastructure adapters do
+(database driver, storage backend, secret policy, schema-gate strictness).
+
+Production policy (enforced by ``_production_contract`` below, fail-closed):
+
+* no publicly known secret (repository defaults AND every value that was ever
+  published in this repository's docs / docker-compose) may sign tokens or
+  encrypt body data;
+* the database must be PostgreSQL — the SQLite default is a development
+  convenience and can never silently become the production store;
+* ``STORAGE_PROVIDER=local`` is NOT a production object store (the Vercel
+  function filesystem is read-only/ephemeral). It does not block boot — the
+  catalogue, auth and orders do not need it — but every upload feature answers
+  501 FEATURE_NOT_CONFIGURED (``storage_service.require_production_storage``)
+  and ``/health`` reports ``checks.storage`` honestly instead of a PermissionError 500.
+
+Every setting is documented with its consumer in
+``docs/PRODUCTION_DEPLOYMENT_CONTRACT.md``; ``backend/tests/test_production_parity.py``
+fails when the two drift apart.
+"""
+import json
+from typing import Any, List, Optional
+from pydantic import field_validator, model_validator
+from pydantic_settings import NoDecode
+from typing import Annotated
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+# Every value that was EVER committed to this repository as a default, a
+# docker-compose value or a documented "set this in Vercel" example.
+# Public == compromised: production refuses all of them (module-level so
+# pydantic does not treat it as a private model attribute).
+PUBLICLY_KNOWN_SECRET_VALUES = frozenset({
+    "set this in Vercel",
+    "confit_jwt_signing_key_default_dev",
+    "confit_refresh_signing_key_default_dev",
+    "confit_body_privacy_key_32bytes_default",
+    "confit_super_secret_jwt_encryption_key_2026_production_grade",
+    "confit_body_privacy_encryption_secret_key_32bytes!",
+    "confit_production_jwt_secret_key_2026_secure",
+    "confit_production_refresh_secret_2026_secure",
+    "confit_jwt_signing_key_production_2026_secure_key",
+    "confit_refresh_signing_key_production_2026_secure_rotation",
+})
+MIN_SECRET_LENGTH = 32
+
+
+PRODUCTION_ENVIRONMENTS = {"production"}
+KNOWN_ENVIRONMENTS = {"development", "test", "staging", "production"}
 
 
 class Settings(BaseSettings):
@@ -46,8 +95,12 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "sqlite:///./backend/data/confit.db"
     REDIS_URL: str = "redis://localhost:6379/0"
 
-    # CORS (Explicit Origins only when credentials enabled)
-    CORS_ORIGINS: List[str] = [
+    # CORS (Explicit Origins only when credentials enabled).
+    # Vercel/Modal/docker inject plain strings; accepted forms are a JSON array
+    # ('["https://a","https://b"]'), a comma-separated list ("https://a,https://b")
+    # or a single origin. Parsed by _parse_cors_origins below (NoDecode stops
+    # pydantic-settings from insisting on JSON and crashing at import).
+    CORS_ORIGINS: Annotated[List[str], NoDecode] = [
         "https://confit-a.vercel.app",
         "https://confit.vercel.app",
         "http://localhost:5173",
@@ -84,7 +137,15 @@ class Settings(BaseSettings):
     AI_PROVIDERS: str = "nvidia,groq,gemini,openai"
     AI_STYLIST_PROVIDER: str = "hybrid"
     VTON_PROVIDER: str = "hybrid"
+    # GPU worker (Modal). VTON_WORKER_URL is the /process endpoint. Modal
+    # generates one hostname per web endpoint and hash-truncates long labels,
+    # so health/readiness cannot always be derived — set them explicitly.
     VTON_WORKER_URL: Optional[str] = None
+    VTON_WORKER_HEALTH_URL: Optional[str] = None
+    VTON_WORKER_READINESS_URL: Optional[str] = None
+    # Shared secret sent as X-VTON-Admin; must equal the Modal secret
+    # `confit-worker-admin-token` (env CONFIT_WORKER_ADMIN_TOKEN inside the
+    # worker). Either name is accepted on the API side; VTON_WORKER_ADMIN_TOKEN wins.
     VTON_WORKER_ADMIN_TOKEN: Optional[str] = None
     CONFIT_WORKER_ADMIN_TOKEN: Optional[str] = None
     VTON_WORKER_TIMEOUT_SECONDS: float = 90.0
@@ -142,29 +203,79 @@ class Settings(BaseSettings):
         case_sensitive=True
     )
 
-    # Well-known insecure defaults that ship with the public repository.
-    _INSECURE_DEFAULTS = {
-        "confit_jwt_signing_key_default_dev",
-        "confit_refresh_signing_key_default_dev",
-        "confit_body_privacy_key_32bytes_default",
-    }
+    # Secrets that are PUBLIC KNOWLEDGE: the repository defaults plus every value
+    # that was ever published in this repository (docs/CONFIT_Production_Run_and_
+    # Environment_Guide.md, PRODUCTION_KEYS_AND_ENV_CONFIG.md, DEPLOYMENT_GUIDE_
+    # FREE_HOSTING.md, docker-compose.yml). On 2026-09-03 the production
+    # deployment was found signing JWTs with the docker-compose value — anyone
+    # with the repo could forge an admin token. Listing them here makes that
+    # state a boot failure instead of a silent compromise.
+
+    @field_validator("CORS_ORIGINS", mode="before")
+    @classmethod
+    def _parse_cors_origins(cls, value: Any) -> List[str]:
+        if value is None:
+            return []
+        if isinstance(value, str):
+            text = value.strip()
+            if not text:
+                return []
+            if text.startswith("["):
+                try:
+                    parsed = json.loads(text)
+                except json.JSONDecodeError as exc:
+                    raise ValueError(f"CORS_ORIGINS is not valid JSON: {exc}") from exc
+                if not isinstance(parsed, list):
+                    raise ValueError("CORS_ORIGINS JSON must be a list of origins")
+                value = parsed
+            else:
+                value = text.split(",")
+        origins: List[str] = []
+        for item in value:
+            origin = str(item).strip().strip('"').strip("'").rstrip("/")
+            if not origin:
+                continue
+            if origin != "*" and not origin.startswith(("http://", "https://")):
+                raise ValueError(f"CORS origin {origin!r} must start with http:// or https://")
+            if origin not in origins:
+                origins.append(origin)
+        return origins
+
+    @property
+    def is_production(self) -> bool:
+        return self.ENVIRONMENT.lower() in PRODUCTION_ENVIRONMENTS
 
     @model_validator(mode="after")
-    def _forbid_default_secrets_in_production(self) -> "Settings":
-        """S2: refuse to boot in production with the publicly known default
-        secrets — with them, anyone who can read this repo can forge admin
-        JWTs. Development/test environments keep working as before."""
-        if self.ENVIRONMENT.lower() == "production":
-            weak = [
-                name
-                for name in ("SECRET_KEY", "JWT_REFRESH_SECRET", "ENCRYPTION_KEY_FOR_BODY_DATA")
-                if getattr(self, name) in self._INSECURE_DEFAULTS
-            ]
-            if weak:
-                raise ValueError(
-                    f"Refusing to start in production with default secrets: {', '.join(weak)}. "
-                    "Set strong random values via environment variables."
-                )
+    def _production_contract(self) -> "Settings":
+        """Fail closed in production. Development/test keep their conveniences,
+        but ONLY because ENVIRONMENT says so explicitly."""
+        env = self.ENVIRONMENT.lower()
+        if env not in KNOWN_ENVIRONMENTS:
+            raise ValueError(
+                f"ENVIRONMENT={self.ENVIRONMENT!r} is not one of {sorted(KNOWN_ENVIRONMENTS)}"
+            )
+        if env not in PRODUCTION_ENVIRONMENTS:
+            return self
+
+        problems: List[str] = []
+        for name in ("SECRET_KEY", "JWT_REFRESH_SECRET", "ENCRYPTION_KEY_FOR_BODY_DATA"):
+            value = getattr(self, name) or ""
+            if value in PUBLICLY_KNOWN_SECRET_VALUES:
+                problems.append(f"{name} is a publicly known value (repository default or published in docs)")
+            elif len(value) < MIN_SECRET_LENGTH:
+                problems.append(f"{name} is shorter than {MIN_SECRET_LENGTH} characters")
+
+        db = (self.DATABASE_URL or "").lower()
+        if not db.startswith(("postgresql://", "postgres://", "postgresql+")):
+            problems.append(
+                "DATABASE_URL must be PostgreSQL in production (the sqlite default is development-only)"
+            )
+
+        if problems:
+            raise ValueError(
+                "Refusing to start in production: " + "; ".join(problems)
+                + ". Set strong random values / production services via environment variables."
+            )
         return self
 
 

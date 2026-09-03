@@ -6,6 +6,9 @@ from sqlalchemy import text
 from backend.app.core.config import settings
 from backend.app.core.database import get_db, engine
 from backend.app.core import schema_gate
+from backend.app.core.dependencies import require_role, ADMIN_ROLES
+from backend.app.models.user import User
+from backend.app.services.storage_service import storage_status
 
 router = APIRouter(tags=["System & Observability"])
 
@@ -42,6 +45,94 @@ def _vton_pipeline_status() -> str:
     return "configured: GPU worker URL + admin token present (readiness is checked per job, not here)"
 
 
+async def probe_vton_worker_contract(timeout: float = 45.0) -> dict:  # < Vercel maxDuration 60 s; cold start of a scaled-to-zero GPU container can exceed this -> "worker_unreachable", retry
+    """T6 — verify the API ↔ GPU-worker credential CONTRACT without ever
+    reading, printing or rotating the secret.
+
+    Sends an intentionally invalid job (empty garments) with the configured
+    X-VTON-Admin token. The worker authenticates BEFORE validating the payload:
+
+        401 UNAUTHORIZED           -> token mismatch (API env ≠ Modal secret)
+        422 / 400 (payload error)  -> token accepted, contract consistent
+        503 VTON_ENGINE_UNAVAILABLE-> token accepted, model not loaded
+
+    Also reports the worker's /health metadata (git_sha, model, segmentation
+    engine) so deployment drift is visible next to the token verdict.
+    """
+    import httpx
+    from backend.app.services.tryon_service import TryOnService
+
+    worker_url = settings.VTON_WORKER_URL or os.environ.get("VTON_WORKER_URL")
+    token = (
+        settings.VTON_WORKER_ADMIN_TOKEN or settings.CONFIT_WORKER_ADMIN_TOKEN
+        or os.environ.get("VTON_WORKER_ADMIN_TOKEN") or os.environ.get("CONFIT_WORKER_ADMIN_TOKEN") or ""
+    )
+    result: dict = {
+        "worker_configured": bool(worker_url),
+        "token_configured": bool(token),
+        "token_source": (
+            "VTON_WORKER_ADMIN_TOKEN" if (settings.VTON_WORKER_ADMIN_TOKEN or os.environ.get("VTON_WORKER_ADMIN_TOKEN"))
+            else "CONFIT_WORKER_ADMIN_TOKEN" if token else None
+        ),
+        "contract": "unknown",
+    }
+    if not worker_url:
+        result["contract"] = "worker_not_configured"
+        return result
+
+    health_url, readiness_url, process_url = TryOnService._derive_worker_urls(TryOnService.__new__(TryOnService), worker_url)
+    result["endpoints"] = {"health": health_url, "readiness": readiness_url, "process": process_url}
+    async with httpx.AsyncClient(timeout=timeout) as client:
+        try:
+            h = await client.get(health_url)
+            hj = h.json() if h.headers.get("content-type", "").startswith("application/json") else {}
+            result["worker_health"] = {
+                "status_code": h.status_code,
+                "git_sha": hj.get("git_sha"),
+                "model": hj.get("model"),
+                "model_loaded": hj.get("model_loaded"),
+                "segmentation_model": hj.get("segmentation_model"),
+                "mask_engine": hj.get("mask_engine"),
+                "device": hj.get("device"),
+            }
+        except Exception as exc:  # noqa: BLE001
+            result["worker_health"] = {"error": f"{type(exc).__name__}: {str(exc)[:120]}"}
+
+        if not token:
+            result["contract"] = "token_missing_on_api"
+            return result
+        try:
+            r = await client.post(
+                process_url,
+                json={"job_id": "contract_probe", "user_image_base64_or_url": "probe", "garments": []},
+                headers={"X-VTON-Admin": token},
+            )
+            result["probe_status_code"] = r.status_code
+            if r.status_code == 401:
+                result["contract"] = "token_mismatch"
+                result["remediation"] = (
+                    "API env VTON_WORKER_ADMIN_TOKEN/CONFIT_WORKER_ADMIN_TOKEN ≠ Modal secret "
+                    "confit-worker-admin-token (CONFIT_WORKER_ADMIN_TOKEN). Owner: set both sides to the SAME value."
+                )
+            elif r.status_code in (400, 422):
+                result["contract"] = "consistent"
+            elif r.status_code == 503:
+                result["contract"] = "consistent_but_worker_not_ready"
+            else:
+                result["contract"] = f"unexpected_http_{r.status_code}"
+        except Exception as exc:  # noqa: BLE001
+            result["contract"] = "worker_unreachable"
+            result["error"] = f"{type(exc).__name__}: {str(exc)[:120]}"
+    return result
+
+
+@router.get("/health/vton-contract", include_in_schema=False)
+async def vton_contract_check(user: User = Depends(require_role(ADMIN_ROLES))):
+    """Admin-only. Live verification of the GPU-worker credential contract and
+    deployed worker revision. Never returns the token."""
+    return await probe_vton_worker_contract()
+
+
 @router.get("/health")
 def health_check(db: Session = Depends(get_db)):
     db_status = "healthy"
@@ -74,6 +165,10 @@ def health_check(db: Session = Depends(get_db)):
             "database": db_status,
             "schema": schema,
             "vton_pipeline": _vton_pipeline_status(),
+            # Where uploads/labels would be persisted. "local" is development-only
+            # and read-only/ephemeral on serverless hosts: upload features answer
+            # 501 FEATURE_NOT_CONFIGURED in production until object storage is set.
+            "storage": storage_status(),
             "ai_stylist_engine": "operational",
             "bnpl_gateway": "operational"
         },

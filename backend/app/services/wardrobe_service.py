@@ -7,9 +7,9 @@ from typing import List, Dict, Any, Optional, Tuple
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from backend.app.core.config import settings
-from backend.app.core.exceptions import ResourceNotFoundError, ValidationDomainError, ProviderIntegrationError
+from backend.app.core.exceptions import ResourceNotFoundError, ValidationDomainError, ProviderIntegrationError, FeatureNotConfiguredError
 from backend.app.core.logging import logger
-from backend.app.services.storage_service import get_storage
+from backend.app.services.storage_service import require_production_storage, get_storage
 from backend.app.models.wardrobe import WardrobeItem
 from backend.app.repositories.wardrobe_repository import WardrobeRepository
 from backend.app.services import wardrobe_taxonomy as taxonomy
@@ -140,38 +140,29 @@ class WardrobeService:
         filename = f"{uuid.uuid4().hex}{ext}"
         relative_path = f"wardrobe/{user_id}/{filename}"
 
-        try:
-            storage = get_storage()
-            public_url = storage.store(relative_path, data)
-            return public_url, digest
-        except Exception as e:
-            # Fallback to local if S3 not configured but provider is local
-            if settings.STORAGE_PROVIDER == "local":
-                uploads_root = os.path.abspath(settings.STORAGE_LOCAL_DIR)
-                user_dir = os.path.join(uploads_root, "wardrobe", str(user_id))
-                os.makedirs(user_dir, exist_ok=True)
-                path = os.path.join(user_dir, filename)
-                with open(path, "wb") as fh:
-                    fh.write(data)
-                return f"/uploads/wardrobe/{user_id}/{filename}", digest
-            raise
+        # Production requires durable object storage; the local backend is an
+        # explicit development convenience. On a read-only serverless filesystem
+        # this raises FeatureNotConfiguredError (501) instead of PermissionError
+        # (500) — and never returns a URL to a file that will not exist later.
+        storage = require_production_storage("wardrobe_upload")
+        public_url = storage.store(relative_path, data)
+        return public_url, digest
 
     def _delete_owned_image(self, image_url: Optional[str]) -> None:
-        """Best-effort removal of a locally stored wardrobe image. Only paths
-        under the configured storage root are ever touched (traversal-safe)."""
-        if not image_url or not image_url.startswith("/uploads/"):
-            return
-        uploads_root = os.path.abspath(settings.STORAGE_LOCAL_DIR)
-        rel = image_url[len("/uploads/"):]
-        candidate = os.path.abspath(os.path.join(uploads_root, rel))
-        if not candidate.startswith(uploads_root + os.sep):
-            logger.warn("Refused image deletion outside storage root", path=image_url)
-            return
+        """Best-effort removal of a wardrobe image WE stored (local or object
+        storage). The configured backend decides whether it issued the URL, so
+        seeded/external images are never touched and S3/R2 objects are not
+        orphaned (the previous implementation only understood /uploads/)."""
         try:
-            if os.path.isfile(candidate):
-                os.remove(candidate)
-        except OSError as exc:
-            logger.warn("Wardrobe image cleanup failed", path=image_url, error=str(exc))
+            storage = get_storage()
+        except Exception as exc:  # storage misconfigured: nothing to delete
+            logger.warn("Wardrobe image cleanup skipped: storage unavailable", error=str(exc)[:120])
+            return
+        key = storage.key_for_url(image_url)
+        if not key:
+            return
+        if not storage.delete(key):
+            logger.warn("Wardrobe image cleanup did not remove the object", path=image_url)
 
     async def upload_items(
         self, user_id: int, files: List[Tuple[str, Optional[str], bytes]]
@@ -256,6 +247,11 @@ class WardrobeService:
 
                 entry.update({"status": "created", "item": self._to_dict(item)})
                 succeeded += 1
+            except FeatureNotConfiguredError:
+                # Storage is not configured for this environment: that is a
+                # deployment fact, identical for every file — surface it as 501
+                # instead of N opaque "Upload processing failed." rows.
+                raise
             except (ValidationDomainError,) as exc:
                 entry.update({"status": "failed", "detail": str(exc)})
                 failed += 1
@@ -333,21 +329,27 @@ class WardrobeService:
         return self.wardrobe_repo.update_item(item)
 
     def _image_ref_for_analysis(self, image_url: str) -> str:
-        """Build a data URL from the stored image bytes for the provider."""
+        """Build a data URL from the stored image bytes for the provider.
+
+        Bytes we stored are read back through the configured storage backend
+        (local disk or S3/R2) — never re-fetched over HTTP. External URLs
+        (seeded/demo items) go to the provider, which fetches them through its
+        own SSRF-guarded downloader.
+        """
         if image_url.startswith("data:image"):
             return image_url
-        uploads_root = os.path.abspath(settings.STORAGE_LOCAL_DIR)
-        if image_url.startswith("/uploads/"):
-            rel = image_url[len("/uploads/"):]
-            candidate = os.path.abspath(os.path.join(uploads_root, rel))
-            if candidate.startswith(uploads_root + os.sep) and os.path.isfile(candidate):
-                ext = os.path.splitext(candidate)[1].lower()
+        try:
+            storage = get_storage()
+            key = storage.key_for_url(image_url)
+        except Exception:
+            key = None
+        if key:
+            data = storage.read(key)
+            if data:
+                ext = os.path.splitext(key)[1].lower()
                 mime = {".jpg": "image/jpeg", ".jpeg": "image/jpeg",
                         ".png": "image/png", ".webp": "image/webp"}.get(ext, "image/jpeg")
-                with open(candidate, "rb") as fh:
-                    return f"data:{mime};base64,{base64.b64encode(fh.read()).decode()}"
-        # External URL (e.g. seeded/demo items): provider fetches it through
-        # its own SSRF-guarded downloader.
+                return f"data:{mime};base64,{base64.b64encode(data).decode()}"
         return image_url
 
     async def analyze_item(self, user_id: int, item_id: int) -> Dict[str, Any]:

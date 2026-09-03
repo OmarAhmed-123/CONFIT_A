@@ -67,9 +67,6 @@ LOCAL_PACKAGES = {"pipeline", "services", "worker", "modal_app", "backend", "api
 # the guard that makes the absence safe; an unguarded lazy import is NOT
 # optional (that is exactly how the Pillow outage happened).
 VERCEL_OPTIONAL = {
-    # storage_service.py: `import boto3` inside try/except ImportError, only
-    # reached when STORAGE_PROVIDER=s3; raises a typed domain error otherwise.
-    "boto3": "storage_service.S3 backend guards ImportError; STORAGE_PROVIDER=local on Vercel",
     # celery is imported by backend/app/workers/*; wardrobe_service enqueues
     # inside try/except and falls back to inline analysis when the broker or
     # the package is unavailable. Vercel runs no Celery worker.

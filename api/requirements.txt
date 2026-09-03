@@ -28,3 +28,9 @@ mangum>=0.17.0
 # ModuleNotFoundError on the first /tryon/validate-image and
 # /tryon/visual-search call in production (2026-09-03 black-box probe).
 Pillow>=10.4.0
+# Object storage client for STORAGE_PROVIDER=s3|r2 (wardrobe / mood-board
+# uploads). Without it the storage backend raised "boto3 not installed" on
+# Vercel even after the owner configured a bucket — the feature could never
+# leave 501 FEATURE_NOT_CONFIGURED in production. ~30 MB, well inside the
+# 250 MB function limit.
+boto3>=1.35.0

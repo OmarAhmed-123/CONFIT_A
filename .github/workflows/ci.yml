@@ -48,10 +48,11 @@ jobs:
           --health-timeout 5s
           --health-retries 20
     env:
-      # Throwaway password for the ephemeral CI service container (not a secret);
-      # composed from the variable so secret scanners do not see a literal DSN.
+      # Throwaway password for the ephemeral CI service container (not a secret).
+      # The DSN is composed at STEP level (the `env` context is not available in
+      # job-level env — that made the whole workflow file invalid on 3c9e9e7)
+      # so secret scanners never see a literal DSN.
       CI_PG_PASSWORD: confit_ci
-      CI_PG_URL: postgresql://confit:${{ env.CI_PG_PASSWORD }}@localhost:5432/confit_ci
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -60,6 +61,8 @@ jobs:
       - name: Install declared dependencies
         run: pip install -r backend/requirements.txt
       - name: Real chain on empty PostgreSQL (up / parity / gate / down / up)
+        env:
+          CI_PG_URL: postgresql://confit:${{ env.CI_PG_PASSWORD }}@localhost:5432/confit_ci
         run: PYTHONPATH=. python3 backend/scripts/check_migration_chain_postgres.py "$CI_PG_URL"
       - name: Schema-drift gate + migration tests on PostgreSQL
         env:

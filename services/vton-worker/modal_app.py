@@ -25,7 +25,7 @@ from PIL import Image
 import modal
 from fastapi import HTTPException, Header
 from pydantic import BaseModel, field_validator
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 
 app = modal.App("confit-vton-worker")
 WORKER_DIR     = "/root/vton-worker"
@@ -214,6 +214,10 @@ image = (
         os.path.join(os.path.dirname(__file__), "pipeline"),
         remote_path=WORKER_DIR + "/pipeline",
         copy=True,
+        # Ship SOURCE only: host bytecode (a different CPython than the image)
+        # is useless in the container and, being rewritten by any local test
+        # run, makes the deploy non-deterministic ("modified during build").
+        ignore=["**/__pycache__/**", "**/*.pyc", "**/*.pyo"],
     )
     .env({
         "PYTHONPATH": CATVTON_PKG + ":" + WORKER_DIR,

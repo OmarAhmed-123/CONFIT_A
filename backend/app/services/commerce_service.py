@@ -27,6 +27,8 @@ from backend.app.core.money import (
     money_max,
     money_sum,
     to_float,
+    to_rate,
+    assert_money_range,
 )
 from backend.app.core.exceptions import (
     AuthenticationError,
@@ -239,7 +241,7 @@ class CommerceService:
         free_threshold = to_decimal(settings.FREE_SHIPPING_THRESHOLD)
         express_fee = to_decimal(settings.EXPRESS_SHIPPING_FEE)
         standard_fee = to_decimal(settings.STANDARD_SHIPPING_FEE)
-        tax_rate = to_decimal(settings.TAX_RATE)
+        tax_rate = to_rate(settings.TAX_RATE)  # rate, never money-quantized
 
         if fulfillment == "bopis":
             shipping = Decimal("0.00")
@@ -251,6 +253,10 @@ class CommerceService:
         taxable = money_max(subtotal - discount, Decimal("0.00"))
         tax = money_mul(taxable, tax_rate)
         total = money_max(taxable + tax + shipping, Decimal("0.00"))
+        # Explicit NUMERIC(12,2) range enforcement — never truncate silently
+        for _fname, _fval in (("subtotal", subtotal), ("discount", discount),
+                              ("tax", tax), ("shipping", shipping), ("total", total)):
+            assert_money_range(_fval, _fname)
 
         payments_live = bool(settings.PAYMENTS_LIVE)
         payment_mode = "live" if payments_live else "demo"
@@ -972,11 +978,11 @@ class CommerceService:
         if eligible_subtotal <= Decimal("0.00"):
             raise PromoIneligibleError(code, "no items in the cart qualify")
 
-        discount_val = to_decimal(promo.discount_value)
         if promo.discount_type == "percent":
-            discount = money_percent(eligible_subtotal, discount_val)
+            # percent is a RATE — do not money-quantize it before applying
+            discount = money_percent(eligible_subtotal, to_rate(promo.discount_value))
         else:
-            discount = money_min(discount_val, eligible_subtotal)
+            discount = money_min(to_decimal(promo.discount_value), eligible_subtotal)
         return discount, promo
 
     def _reserve_inventory(
@@ -1212,12 +1218,16 @@ class CommerceService:
                 promo_code = None
 
         taxable = money_max(subtotal - discount, Decimal("0.00"))
-        tax_rate = to_decimal(settings.TAX_RATE)
+        tax_rate = to_rate(settings.TAX_RATE)  # rate, never money-quantized
         tax = money_mul(taxable, tax_rate)
         free_threshold = to_decimal(settings.FREE_SHIPPING_THRESHOLD)
         standard_fee = to_decimal(settings.STANDARD_SHIPPING_FEE)
         shipping = Decimal("0.00") if (taxable >= free_threshold or subtotal == Decimal("0.00")) else standard_fee
         total = money_max(taxable + tax + shipping, Decimal("0.00"))
+        # Explicit NUMERIC(12,2) range enforcement — never truncate silently
+        for _fname, _fval in (("subtotal", subtotal), ("discount", discount),
+                              ("tax", tax), ("shipping", shipping), ("total", total)):
+            assert_money_range(_fval, _fname)
 
         quote = BNPLProvider(provider_name=settings.BNPL_DEFAULT_PROVIDER).quote_sync(
             amount=total, currency="USD"

@@ -981,13 +981,14 @@ class BrandRepository:
 
         return {
             "total_gmv": to_float(total_gmv),
+            "attribution_base_item_subtotal": to_float(total_sub_dec),
             "revenue_attribution": {
                 "ai_virtual_stylist": to_float(stylist_rev_exclusive),
                 "outfit_builder": to_float(outfit_rev_exclusive),
                 "visual_search": to_float(visual_rev_exclusive),
                 "organic_discovery": to_float(organic)
             },
-            "attribution_methodology": "Mutually exclusive priority attribution: visual_search > outfit_builder > virtual_stylist > organic. Each order counted once to prevent JOIN multiplication and double-count. Priority based on explicit attribution signals: BrandAnalyticsEvent.attribution_source for Visual Search, OrderItem.outfit_id for Outfit Builder, Order.stylist_assisted for Virtual Stylist. Organic = total - exclusive attributions. Revenue from authoritative Order.total_amount, not frontend values. Refunds/cancellations excluded. No arbitrary 0.5 factors.",
+            "attribution_methodology": "Mutually exclusive priority attribution: visual_search > outfit_builder > virtual_stylist > organic. Each order counted once to prevent JOIN multiplication and double-count. Priority based on explicit attribution signals: BrandAnalyticsEvent.attribution_source for Visual Search, OrderItem.outfit_id for Outfit Builder, Order.stylist_assisted for Virtual Stylist. Organic = total - exclusive attributions. Revenue grain is ITEM-LEVEL: each channel figure is the sum of OrderItem.subtotal attributed to that channel via brand-isolated BrandAnalyticsEvent purchase events (revenue_amount = OrderItem.subtotal). Order.total_amount (which additionally contains tax and shipping) is reported separately as total_gmv and is NEVER used as the attribution base. Refunds/cancellations excluded. No arbitrary 0.5 factors.",
             "attribution_window": "30 days from event to purchase",
             "dedup_policy": "Priority-based exclusive attribution prevents double counting, mathematically valid"
         }

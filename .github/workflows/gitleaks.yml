@@ -2,13 +2,20 @@ name: gitleaks
 on: [push, pull_request]
 jobs:
   scan:
-    name: gitleaks secret scan
+    name: gitleaks secret scan (full history)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0 # full history — secrets hide in old commits
-      - uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # required by gitleaks-action v2 for PR scans
-          GITLEAKS_ENABLE_COMMENTS: true
+      # NOTE (final truth audit): gitleaks-action v2 only scans the *pushed range*.
+      # On merge commits that range resolved to 0 commits, so CI reported
+      # "no leaks found" while the Neon DSN leaked in 6a821de was still in history.
+      # We therefore run the binary directly over the FULL history.
+      - name: Install gitleaks
+        run: |
+          curl -sSfL https://github.com/gitleaks/gitleaks/releases/download/v8.24.3/gitleaks_8.24.3_linux_x64.tar.gz \
+            | tar -xz -C /usr/local/bin gitleaks
+          gitleaks version
+      - name: Full-history scan
+        run: gitleaks detect --source . --config .gitleaks.toml --redact -v --exit-code 1

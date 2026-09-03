@@ -241,3 +241,29 @@ class TestVTONPartialFailure:
         # From modal_app.py: error includes failed_layer
         # This is a contract test
         assert True  # Contract verified via code inspection: modal_app.py returns failed_layer on OOM/inference failure
+
+
+class TestDeployedWorkerMaskPathIsTheOneUnderTest:
+    """HONEST COVERAGE GATE (final truth audit).
+
+    The tests above exercise services/vton-worker/pipeline/segmentation.py, which
+    can use rembg U2Net/ISNet. The DEPLOYED Modal entrypoint (modal_app.py) does
+    NOT import that module: it builds fixed rectangles refined by a mean-luminance
+    threshold. These tests therefore do NOT verify the deployed mask quality.
+
+    This test fails the moment someone claims otherwise, and will need updating
+    if/when modal_app.py is wired to the real segmentation engine.
+    """
+
+    def test_modal_app_does_not_yet_use_deep_segmentation(self):
+        src = open("services/vton-worker/modal_app.py").read()
+        uses_dl = ("from pipeline.segmentation" in src) or ("HumanParsingEngine" in src)
+        assert not uses_dl, (
+            "modal_app.py now imports the segmentation engine — update the VTON BRD "
+            "compliance classification and add deployed-path mask tests.")
+        assert "d.rectangle(" in src, "deployed mask path is rectangle-based"
+
+    def test_deployed_mask_refinement_is_luminance_threshold_not_a_model(self):
+        src = open("services/vton-worker/modal_app.py").read()
+        assert "Otsu person detection" in src
+        assert "new_session(" not in src, "no segmentation model session in deployed path"

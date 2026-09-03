@@ -67,6 +67,48 @@ def to_decimal(value: MoneyInput) -> Decimal:
         return Decimal("0.00")
 
 
+def to_rate(value: MoneyInput) -> Decimal:
+    """Convert a RATE/PERCENT to exact Decimal WITHOUT 2-decimal quantization.
+
+    Rates (tax rate 0.075, discount percent 7.125) are NOT money and must never be
+    quantized to 2 decimals — doing so turns a 7.5% tax rate into 8%.
+    Only the monetary RESULT of applying a rate is quantized.
+    """
+    if value is None:
+        return Decimal("0")
+    if isinstance(value, Decimal):
+        return value
+    if isinstance(value, int):
+        return Decimal(value)
+    try:
+        return Decimal(str(value))
+    except Exception:
+        return Decimal("0")
+
+
+MAX_MONEY = Decimal("9999999999.99")
+MIN_MONEY = Decimal("-9999999999.99")
+
+
+class MoneyRangeError(ValueError):
+    """Raised when a monetary value exceeds NUMERIC(12,2) representable range."""
+
+
+def assert_money_range(value: MoneyInput, field: str = "amount") -> Decimal:
+    """Explicitly reject values outside NUMERIC(12,2).
+
+    SQLite silently stores out-of-range values; PostgreSQL raises. This makes the
+    failure explicit and identical on both backends, so persistence can never
+    truncate or corrupt a monetary value silently.
+    """
+    dec = to_decimal(value)
+    if dec > MAX_MONEY or dec < MIN_MONEY:
+        raise MoneyRangeError(
+            f"{field}={dec} exceeds NUMERIC(12,2) range [{MIN_MONEY}, {MAX_MONEY}]"
+        )
+    return dec
+
+
 def quantize_money(value: Decimal) -> Decimal:
     """Quantize to 2 decimals with ROUND_HALF_UP (standard financial rounding)."""
     if not isinstance(value, Decimal):
@@ -93,14 +135,15 @@ def money_mul(a: MoneyInput, b: Union[int, float, Decimal, str]) -> Decimal:
     dec_a = to_decimal(a)
     if isinstance(b, int):
         return quantize_money(dec_a * Decimal(b))
-    dec_b = to_decimal(b)
+    # b is a rate/multiplier: must NOT be quantized to 2 decimals (0.075 -> 0.08 bug)
+    dec_b = to_rate(b)
     return quantize_money(dec_a * dec_b)
 
 
 def money_percent(base: MoneyInput, percent: MoneyInput) -> Decimal:
     """Calculate percent of base: base * (percent / 100) with exact arithmetic."""
     dec_base = to_decimal(base)
-    dec_percent = to_decimal(percent)
+    dec_percent = to_rate(percent)
     return quantize_money(dec_base * dec_percent / Decimal("100"))
 
 

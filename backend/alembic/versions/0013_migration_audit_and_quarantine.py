@@ -22,7 +22,12 @@ This migration is idempotent and safe:
 - Creates audit table if not exists
 - Logs remediation actions with original values where possible
 - Quarantines (pauses) invalid business entities
-- Preserves row counts, no data loss beyond already-remediated values
+- Row count preserved. NOT 'no data loss': migration 0011 already OVERWROTE the
+  original invalid placement values (bid_amount_per_click, daily_budget) with
+  invented defaults (0.5 / 50.0). Those original business values are
+  IRRECOVERABLE from the database and require the pre-0011 backup.
+  What 0013 CAN do: quarantine (pause) affected rows for operator review and
+  record remediation metadata in migration_audit_log. It cannot restore values.
 - PG compatible via batch_alter_table, SQLite compatible
 
 """

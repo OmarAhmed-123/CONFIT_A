@@ -25,6 +25,32 @@ router = APIRouter(tags=["Brand & Admin Management (B2B)"])
 brand_auth = require_role(BRAND_ROLES)
 
 
+def _audit(db: Session, user: User, action: str, resource_type: str,
+           resource_id, details: dict | None = None) -> None:
+    """Persist a B2B admin audit event.
+
+    Final truth audit finding: none of the brand/admin mutating endpoints
+    (inventory, catalog, placements, stores) wrote to AuditLog. Audit coverage
+    of security-sensitive B2B operations is a BRD/security requirement, so
+    these call sites now persist real AuditLog rows.
+
+    Never raises: auditing must not break the business operation, but a failure
+    is logged so it is not silent.
+    """
+    try:
+        from backend.app.repositories.user_repository import UserRepository
+        UserRepository(db).log_audit(
+            action=action,
+            resource_type=resource_type,
+            resource_id=str(resource_id) if resource_id is not None else None,
+            user_id=getattr(user, "id", None),
+            details=json.dumps(details or {}, default=str)[:2000],
+        )
+    except Exception as _e:  # pragma: no cover - defensive
+        import logging
+        logging.getLogger(__name__).warning("audit_write_failed action=%s err=%s", action, _e)
+
+
 class StoreCreateRequest(BaseModel):
     name: str
     name_ar: Optional[str] = None
@@ -360,7 +386,10 @@ def update_sku_inventory(
     db: Session = Depends(get_db)
 ):
     service = BrandService(db)
-    return service.update_sku(user, sku_id, stock_level, price_override)
+    result = service.update_sku(user, sku_id, stock_level, price_override)
+    _audit(db, user, "BRAND_INVENTORY_UPDATED", "ProductSKU", sku_id,
+           {"stock_level": stock_level, "price_override": price_override})
+    return result
 
 
 # 4. Inventory & Store Management - REAL IMPLEMENTATION
@@ -485,6 +514,8 @@ def create_partner_store(
     repo = BrandRepository(db)
     try:
         store = repo.create_store(bp["id"], payload.model_dump())
+        _audit(db, user, "BRAND_STORE_CREATED", "Store", store.id,
+               {"brand_id": bp["id"], "name": store.name, "city": store.city})
         return {
             "status": "created",
             "id": store.id,
@@ -543,9 +574,13 @@ def create_placement(
     service = BrandService(db)
     bp = service.get_brand_profile_by_user(user)
     try:
-        return service.create_sponsored_placement(user, bp["id"], payload.model_dump())
+        created = service.create_sponsored_placement(user, bp["id"], payload.model_dump())
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    _audit(db, user, "BRAND_PLACEMENT_CREATED", "SponsoredPlacement",
+           created.get("id") if isinstance(created, dict) else getattr(created, "id", None),
+           {"brand_id": bp["id"], "payload": payload.model_dump()})
+    return created
 
 
 @router.patch("/partner/placements/{placement_id}")
@@ -606,6 +641,8 @@ def patch_placement(
     if plc.bid_amount_per_click > plc.daily_budget:
         raise HTTPException(status_code=400, detail="Bid cannot exceed daily budget after update")
 
+    _audit(db, user, "BRAND_PLACEMENT_UPDATED", "SponsoredPlacement", placement_id,
+           {"brand_id": bp["id"], "changed_fields": [k for k in allowed if k in payload]})
     db.commit()
     db.refresh(plc)
 
@@ -635,6 +672,9 @@ def delete_placement(
     if not plc:
         raise HTTPException(status_code=404, detail=f"Placement {placement_id} not found")
 
+    _audit(db, user, "BRAND_PLACEMENT_DELETED", "SponsoredPlacement", placement_id,
+           {"brand_id": bp["id"], "status": plc.status,
+            "daily_budget": str(plc.daily_budget), "bid": str(plc.bid_amount_per_click)})
     db.delete(plc)
     db.commit()
     return {"status": "deleted", "placement_id": placement_id}

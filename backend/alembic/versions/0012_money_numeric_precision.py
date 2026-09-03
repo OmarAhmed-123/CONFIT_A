@@ -12,7 +12,14 @@ Implements DB-level financial integrity:
 - PG compatible via batch_alter_table, SQLite compatible via recreate
 
 Safety:
-- No data loss: existing values CAST to Numeric, preserves history
+- Row count preserved; values CAST Float->Numeric(12,2).
+  PRECISION CAVEAT: any historical value carrying MORE than two meaningful
+  fractional digits (possible under Float storage) is ROUNDED to 2 decimals by
+  the CAST. That is a deliberate business decision (currency minor unit = cent),
+  NOT a lossless operation. Sub-cent residue is irrecoverable from the DB alone
+  and requires the pre-migration backup for restoration.
+  Binary float artifacts (e.g. 19.989999999999998) are normalised to 19.99.
+  NULL values remain NULL.
 - Inspector-guarded: only alters if table/column exists
 - Idempotent: safe to run twice
 - Downgrade: converts back to Float (lossy but best-effort)

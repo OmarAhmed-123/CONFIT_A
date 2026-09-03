@@ -190,12 +190,14 @@ class TestMultiBrandAttribution:
         try:
             import inspect
             from backend.app.repositories.brand_repository import BrandRepository
-            source = inspect.getsource(BrandRepository.get_revenue_attribution)
-            # Must use revenue_amount (subtotal, brand-isolated) not total_amount
+            source = inspect.getsource(BrandRepository.compute_item_grain_attribution)
+            # Channel figures come from the item-grain ledger (event.revenue_amount joined
+            # through order_item_id); the conservation base from OrderItem.subtotal.
             assert "revenue_amount" in source, "Must use revenue_amount for brand-item-level"
-            # Should not use Order.total_amount for exclusive attribution in a way that assigns entire order to one brand
-            # The new model uses SUM(revenue_amount) not SUM(total_amount)
-            assert "OrderItem.subtotal" in source or "total_subtotal" in source, "Should use subtotal for brand isolation"
+            assert "order_item_id" in source, "ledger must join through order_item_id"
+            assert "it.subtotal" in source, "conservation base must be OrderItem.subtotal"
+            view = inspect.getsource(BrandRepository.get_revenue_attribution)
+            assert "compute_item_grain_attribution" in view
         finally:
             db.close()
 

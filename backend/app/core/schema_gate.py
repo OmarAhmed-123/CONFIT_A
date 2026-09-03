@@ -92,7 +92,7 @@ REQUIRED_COLUMNS: Dict[str, tuple[str, ...]] = {
     "orders": ("payment_mode", "shipping_method", "estimated_delivery_date", "guest_session_token"),
     "order_items": ("is_returned", "fulfillment_group_id"),
     "sponsored_placements": ("start_date", "end_date", "updated_at"),
-    "brand_analytics_events": ("event_id", "order_id", "revenue_amount"),
+    "brand_analytics_events": ("event_id", "order_id", "revenue_amount", "order_item_id"),  # order_item_id: 0014
 }
 
 
@@ -325,16 +325,50 @@ def request_guard_verdict(engine: Engine, environment: str) -> Optional[SchemaGa
     return None if acceptable(report, environment) else report
 
 
-def _cli() -> int:
-    from backend.app.core.database import engine
-    from backend.app.core.config import settings
+def _cli(argv: Optional[list] = None) -> int:
+    """Deploy-pipeline entrypoint.
 
-    report = evaluate(engine)
+        python -m backend.app.core.schema_gate [DATABASE_URL] [--env production]
+
+    The database is taken from (first wins): the positional URL, ``$SCHEMA_GATE_DATABASE_URL``,
+    ``$ALEMBIC_DATABASE_URL``, ``$DATABASE_URL``. It is NEVER silently the application's
+    development default: evaluating the wrong database and printing OK is the failure mode
+    this tool exists to prevent, so a missing URL is an error (exit 2).
+    The environment defaults to ``$ENVIRONMENT`` (or ``production`` when unset): the CLI
+    is a release gate, so the strictest policy is the default.
+    """
+    import argparse
+    import os
+    from sqlalchemy import create_engine
+
+    parser = argparse.ArgumentParser(prog="schema_gate")
+    parser.add_argument("database_url", nargs="?", default=None)
+    parser.add_argument("--env", default=os.environ.get("ENVIRONMENT") or "production")
+    args = parser.parse_args(argv)
+
+    url = (
+        args.database_url
+        or os.environ.get("SCHEMA_GATE_DATABASE_URL")
+        or os.environ.get("ALEMBIC_DATABASE_URL")
+        or os.environ.get("DATABASE_URL")
+    )
+    if not url:
+        print("schema gate: ERROR no database URL given (positional arg, SCHEMA_GATE_DATABASE_URL, "
+              "ALEMBIC_DATABASE_URL or DATABASE_URL)")
+        return 2
+    if url.startswith("postgres://"):
+        url = url.replace("postgres://", "postgresql://", 1)
+    engine = create_engine(url, pool_pre_ping=True)
+    try:
+        report = evaluate(engine)
+    finally:
+        engine.dispose()
     print(f"schema gate: {report.verdict.upper()}  dialect={report.dialect}  "
-          f"db={report.database_revision}  expected={report.expected_head}  env={settings.ENVIRONMENT}")
+          f"db={report.database_revision}  expected={report.expected_head}  env={args.env}  "
+          f"target={engine.url.render_as_string(hide_password=True)}")
     for f in report.findings:
         print(f"  ✗ {f}")
-    return 0 if acceptable(report, settings.ENVIRONMENT) else 1
+    return 0 if acceptable(report, args.env) else 1
 
 
 if __name__ == "__main__":  # pragma: no cover - deploy pipeline entrypoint

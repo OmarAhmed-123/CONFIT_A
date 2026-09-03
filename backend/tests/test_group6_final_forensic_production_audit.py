@@ -39,28 +39,38 @@ class TestBrandAnalyticsEventInstrumentation:
             if not prod:
                 pytest.skip("No product")
             eid = f"test_idempotent_{prod.id}_organic"
-            ev1 = repo.create_analytics_event(
-                brand_id=brand.id,
-                event_type="purchase",
-                attribution_source="organic",
-                product_id=prod.id,
-                order_id=999999,
-                revenue_amount=100.0,
-                idempotency_key=eid
-            )
-            ev2 = repo.create_analytics_event(
-                brand_id=brand.id,
-                event_type="purchase",
-                attribution_source="organic",
-                product_id=prod.id,
-                order_id=999999,
-                revenue_amount=100.0,
-                idempotency_key=eid
-            )
+            # 0014: purchase events are item-grain and need a real OrderItem
+            from backend.app.models.commerce import OrderItem
+            item = db.query(OrderItem).filter(OrderItem.product_id == prod.id).first() \
+                or db.query(OrderItem).first()
+            if not item:
+                pytest.skip("No order item")
+            # remove any purchase event already attached to this item so the
+            # unique (order_item_id, event_type) index does not pre-empt the test
+            from backend.app.models.catalog_import import BrandAnalyticsEvent as _E
+            pre = db.query(_E).filter(_E.order_item_id == item.id, _E.event_type == "purchase").all()
+            for e in pre:
+                db.delete(e)
+            db.commit()
+            common = dict(brand_id=item.brand_id, event_type="purchase", attribution_source="organic",
+                          product_id=item.product_id, order_id=item.order_id, order_item_id=item.id,
+                          revenue_amount=item.subtotal, idempotency_key=eid)
+            ev1 = repo.create_analytics_event(**common)
+            ev2 = repo.create_analytics_event(**common)
             assert ev1.id == ev2.id, "Idempotency should return same event"
-            # cleanup
+            # a second event for the SAME item under a different key must also
+            # collapse onto the existing row (unique (order_item_id, event_type))
+            ev3 = repo.create_analytics_event(**{**common, "idempotency_key": eid + "_other_key"})
+            assert ev3.id == ev1.id
+            # cleanup: restore the item's original purchase event(s)
             db.delete(ev1)
             db.commit()
+            for e in pre:
+                repo.create_analytics_event(
+                    brand_id=e.brand_id, event_type="purchase", attribution_source=e.attribution_source,
+                    product_id=e.product_id, sku_id=e.sku_id, user_id=e.user_id, session_token=e.session_token,
+                    outfit_id=e.outfit_id, order_id=e.order_id, order_item_id=e.order_item_id,
+                    revenue_amount=e.revenue_amount, idempotency_key=e.event_id)
         finally:
             db.close()
 

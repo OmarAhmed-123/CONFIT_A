@@ -32,18 +32,18 @@ class TestMultiBrandOrderAttribution:
             from backend.app.repositories.brand_repository import BrandRepository
             repo = BrandRepository(db)
             import inspect
-            source = inspect.getsource(repo.get_revenue_attribution)
-            # Must use brand-item-level via revenue_amount (subtotal, brand-isolated) not entire Order.total_amount
-            # Check for revenue_amount usage which indicates item-level
+            source = inspect.getsource(repo.compute_item_grain_attribution)
+            # Brand-item-level: ledger revenue_amount joined through order_item_id;
+            # conservation base is OrderItem.subtotal, never Order.total_amount.
             assert "revenue_amount" in source, "Must use BrandAnalyticsEvent.revenue_amount for brand-item-level attribution"
-            # Should NOT use Order.total_amount for all channels in a way that assigns entire order to one brand
-            # The new correct model sums revenue_amount per item, not total_amount per order
-            # Verify that sum of item subtotals is used as base, not just total_gmv
-            assert "total_subtotal" in source or "OrderItem.subtotal" in source, "Should use total_subtotal or OrderItem.subtotal for brand isolation"
+            assert "order_item_id" in source
+            assert "it.subtotal" in source
+            assert "Order.total_amount" not in source
 
-            # Check platform analytics also
+            # Platform analytics and the attribution endpoint share the single ledger
             source2 = inspect.getsource(repo.get_platform_admin_analytics)
-            assert "revenue_amount" in source2 or "total_subtotal" in source2, "Platform analytics must also use item-level for multi-brand correctness"
+            assert "compute_item_grain_attribution" in source2, "Platform analytics must use the item-grain ledger"
+            assert "compute_item_grain_attribution" in inspect.getsource(repo.get_revenue_attribution)
 
         finally:
             db.close()
@@ -83,18 +83,21 @@ class TestVisualSearchProductLineage:
             from backend.app.services.commerce_service import CommerceService
             import inspect
 
-            # Check commerce_service uses product-level check
+            # Checkout delegates to the single item-grain ledger writer, which
+            # decides visual_search per item via the product-level lookup with the
+            # 30-day window.
             source = inspect.getsource(CommerceService.checkout)
-            # Should check BrandAnalyticsEvent view for same product_id within 30 days
-            assert "BrandAnalyticsEvent" in source
-            assert "product_id" in source.lower()
-            assert "visual_search" in source.lower()
-            assert "30" in source or "cutoff" in source.lower() or "timedelta" in source.lower(), "Must have 30-day window"
+            assert "_record_purchase_ledger" in source
+            writer = inspect.getsource(CommerceService._record_purchase_ledger)
+            assert "get_recent_visual_search_for_user" in writer
+            assert "product_id=item.product_id" in writer
+            assert "visual_search" in writer
+            assert CommerceService.ATTRIBUTION_WINDOW_DAYS == 30
 
-            # Check brand_repository get_recent_visual_search_for_user product-level
             repo = BrandRepository(db)
             source2 = inspect.getsource(repo.get_recent_visual_search_for_user)
-            assert "product_id" in source2.lower() or "BrandAnalyticsEvent" in source2, "Must support product_id filter for product-level attribution"
+            assert "BrandAnalyticsEvent.product_id == product_id" in source2
+            assert "BrandAnalyticsEvent.created_at >= cutoff" in source2
 
         finally:
             db.close()
@@ -103,12 +106,16 @@ class TestVisualSearchProductLineage:
         """Adversarial: user searched Product A but bought Product B -> should NOT be visual_search"""
         # This is a logic test: if user has view event for product 1, but order contains product 2, attribution should be organic not visual
         # We test via code inspection that attribution checks product_id equality
-        from backend.app.services.commerce_service import CommerceService
+        from backend.app.repositories.brand_repository import BrandRepository
         import inspect
-        source = inspect.getsource(CommerceService.checkout)
-        # Must check existing_view for same product_id
-        assert "existing_view" in source or "has_product_visual_search" in source
-        assert "product_id == product_id" in source or "BrandAnalyticsEvent.product_id == product_id" in source, "Must match product_id for attribution"
+        source = inspect.getsource(BrandRepository.get_recent_visual_search_for_user)
+        assert "BrandAnalyticsEvent.product_id == product_id" in source, "Must match product_id for attribution"
+        import ast
+        tree = ast.parse(source.lstrip() if not source.startswith("def") else source) if False else None
+        # AST check (comments/docstrings may mention the old fallback): no try/except in the lookup
+        import textwrap
+        fn = ast.parse(textwrap.dedent(source)).body[0]
+        assert not any(isinstance(n, ast.Try) for n in ast.walk(fn)), "no silent fallback on DB error"
 
 
 class TestVTONMultiGarmentSequential:

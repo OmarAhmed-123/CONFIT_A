@@ -1,3 +1,4 @@
+from backend.app.core.logging import logger
 from typing import Dict, Any, Optional, List
 from sqlalchemy.orm import Session
 from backend.app.core.exceptions import ValidationDomainError
@@ -25,7 +26,8 @@ class VisualSearchService:
         max_price: Optional[float] = None,
         brand_ids: Optional[List[int]] = None,
         in_stock_only: bool = True,
-        limit: int = 24
+        limit: int = 24,
+        session_token: Optional[str] = None,
     ) -> Dict[str, Any]:
         target_img = image_url or image_base64
         if not target_img:
@@ -142,15 +144,26 @@ class VisualSearchService:
                     attribution_source="visual_search",
                     product_id=pid,
                     user_id=user_id,
+                    # Browser session token enables guest -> authenticated
+                    # attribution stitching at checkout (same X-Session-Token).
+                    session_token=session_token,
                     outfit_id=None,
                     order_id=None,
                     revenue_amount=None,
                     event_metadata={"query_id": logged.id, "similarity": m.get("similarity_score")},
                     idempotency_key=f"vs_view_{logged.id}_{pid}"
                 )
-        except Exception:
-            # Never fail visual search due to analytics instrumentation
-            pass
+        except Exception as exc:
+            # The search result itself is still valid, but a lost VIEW event
+            # means a later purchase of this product cannot be attributed to
+            # visual search. Roll back the failed instrumentation, log it
+            # loudly with the query id, and continue — never silently.
+            self.db.rollback()
+            logger.error(
+                "visual_search_attribution_event_failed",
+                query_id=getattr(logged, "id", None),
+                error=f"{type(exc).__name__}: {str(exc)[:200]}",
+            )
 
         return {
             "query_id": logged.id,

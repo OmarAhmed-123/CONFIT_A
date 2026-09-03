@@ -116,9 +116,32 @@ def upgrade() -> None:
     ]
     for cond, field, reason in invalid_checks:
         try:
-            cnt = bind.execute(text(f"SELECT COUNT(*) FROM sponsored_placements WHERE {cond} AND status = 'active'")).scalar()
-            if cnt and cnt > 0:
-                print(f"[0013] Found {cnt} active placements violating {reason} - pausing")
+            rows = bind.execute(text(
+                f"SELECT id, {field} FROM sponsored_placements WHERE {cond} AND status = 'active'"
+            )).fetchall()
+            if rows:
+                print(f"[0013] Found {len(rows)} active placements violating {reason} - pausing")
+                # Audit BEFORE mutating. Previously this branch paused rows with
+                # no audit row at all, so a placement quarantined for e.g.
+                # bid <= 0 left no record of why it was paused or what the
+                # offending value was. The value recorded here is the value as
+                # found by 0013 - if an earlier migration already overwrote the
+                # operator's original figure, that original is NOT recoverable
+                # from this table and must come from a backup.
+                for r in rows:
+                    try:
+                        bind.execute(text(
+                            "INSERT INTO migration_audit_log (migration_revision, table_name, row_id, field_name, original_value, remediated_value, action, reason) "
+                            "VALUES ('0013', 'sponsored_placements', :row_id, :field, :observed, 'paused', 'quarantine', :reason)"
+                        ), {
+                            "row_id": r[0],
+                            "field": field,
+                            "observed": str(r[1]),
+                            "reason": f"Placement violates {reason}; status active -> paused for operator review. "
+                                      f"original_value is the value observed at 0013, not necessarily the operator's original input.",
+                        })
+                    except Exception:
+                        pass
                 bind.execute(text(f"UPDATE sponsored_placements SET status = 'paused' WHERE {cond} AND status = 'active'"))
         except Exception as e:
             print(f"[0013] Skip {reason} quarantine: {e}")

@@ -37,7 +37,7 @@ infrastructure adapters below do.
 
 Generate secrets with `python -c "import secrets;print(secrets.token_urlsafe(48))"`.
 **Any value that has ever appeared in this repository (defaults, docker-compose,
-docs) is refused** — the blocklist is `Settings._INSECURE_DEFAULTS`.
+docs) is refused** — the blocklist is `PUBLICLY_KNOWN_SECRET_VALUES` in `core/config.py`.
 
 | Variable | Required in prod | Consumer | Notes |
 |---|---|---|---|
@@ -51,6 +51,8 @@ docs) is refused** — the blocklist is `Settings._INSECURE_DEFAULTS`.
 | `VTON_WORKER_URL` | yes for try-on | `services/tryon_service.py`, `/health/vton-contract` | the Modal **`-process`** URL |
 | `VTON_WORKER_READINESS_URL` | yes for try-on | same | Modal's readiness label is hash-truncated (`…-r-xxxxxx.modal.run`) and **cannot be derived**; without it the health URL is used for readiness |
 | `VTON_WORKER_HEALTH_URL` | optional | same | derived from `-process` → `-health` when unset |
+| `VTON_WORKER_EXPECTED_GIT_SHA` | recommended | `/health/vton-contract` (T4 gate) | the commit `modal deploy` ran from; falls back to Vercel's `VERCEL_GIT_COMMIT_SHA`, i.e. **backend and worker are expected to be deployed from the same commit**. Verdicts: `match` (pass) / `mismatch` / `worker_unknown` / `dirty_deploy` / `no_expected_sha` |
+| `VTON_WORKER_TIMEOUT_SECONDS` | default 90 | `tryon_service.py` | **Vercel function `maxDuration` is 60 s** (`vercel.json`). Measured on the deployed T4 worker (2026-09-03): ≈12–13 s per garment layer + cold start up to ≈85 s. Single/two-garment requests fit; 3+ garments or a cold worker exceed the Vercel budget and surface as `504 VTON_TIMEOUT` / function timeout. Set this ≤ 55 on Vercel and keep the worker warm (Modal `scaledown_window`) or move multi-garment rendering to the async job route — see §6 |
 | `VTON_WORKER_ADMIN_TOKEN` (or `CONFIT_WORKER_ADMIN_TOKEN`) | yes for try-on | `tryon_service.py` sends `X-VTON-Admin` | **must equal** the Modal secret `confit-worker-admin-token` (`CONFIT_WORKER_ADMIN_TOKEN` inside the worker). Mismatch → `VTON_AUTH_FAILURE` (503) for every user; verify with the admin endpoint below |
 | `GEMINI_API_KEY`, `NVIDIA_API_KEY`, `GROQ_API_KEY`, `OPENAI_API_KEY` | at least one | `providers/orchestrator.py`, `tryon_provider.py` | `AI_PROVIDERS` orders the fail-over |
 | `PAYMENTS_LIVE` | `true` for real charges | `commerce_service.py`, payment orchestrator | `false` = `payment_mode="demo"` on every order |
@@ -93,7 +95,17 @@ nobody believes setting them changes behaviour): `PROJECT_NAME`, `PORT`,
    `brand/placements`, `admin/analytics`, `orders/{n}`,
    `tryon/validate-image`, `tryon/visual-search`.
 
-## 5. Things that are deliberately absent
+## 5. Known production limitations (measured, not assumed)
+
+| Limitation | Evidence | Impact | Mitigation |
+|---|---|---|---|
+| Multi-garment latency vs Vercel `maxDuration=60` | deployed T4 worker, git_sha `c928544…`: 1 garment 14.9 s, 2 → 25.3 s, 3 → 38.6 s, 5 → 65.1 s (plus ≈85 s cold start) | 3+ garments or a cold worker cannot complete inside one Vercel invocation | keep worker warm; `VTON_WORKER_TIMEOUT_SECONDS ≤ 55`; async job route for outfits |
+| Modal container preemption | 5-garment large-input run: container preempted at layer 4 → HTTP 500 `Server has lost track of input` from the Modal edge (not from worker code) | request fails; API maps it to `502 VTON_WORKER_UNAVAILABLE` — never a fake success | client retry; Modal restarts the container automatically |
+| Segmentation fallback on non-photographic input | flat synthetic figure → `engine=humanparsing-otsu-skin-v2-fallback`, `fallback_used=true` (plausibility gate rejected the deep mask); real photo → `rembg-u2net_human_seg`, `fallback_used=false` | masks on illustrations are heuristic; the response says so | none needed — honest reporting is the contract |
+| Live payments | `PAYMENTS_LIVE=true` fails closed (`live_psp_adapter_not_implemented`) — no PSP SDK is integrated | no real card/wallet/BNPL charge can be taken; COD unaffected | integrate a PSP adapter before enabling live mode |
+| Object storage | Vercel FS is ephemeral; until `STORAGE_PROVIDER=s3\|r2` is set uploads return `501 FEATURE_NOT_CONFIGURED` | wardrobe/moodboard uploads disabled in prod | configure S3/R2 (boto3 is in the Vercel manifest) |
+
+## 6. Things that are deliberately absent
 
 * No Celery task renders try-ons. The **only** renderer is the CatVTON
   pipeline in `services/vton-worker`; unavailability is an honest

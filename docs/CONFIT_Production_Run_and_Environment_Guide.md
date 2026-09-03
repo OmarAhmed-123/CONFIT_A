@@ -38,7 +38,7 @@ SECRET_KEY="CHANGE_ME_generate_with_python_-c_import_secrets;print(secrets.token
 JWT_REFRESH_SECRET="CHANGE_ME_different_random_value_48_chars"
 ENCRYPTION_KEY_FOR_BODY_DATA="CHANGE_ME_random_value_at_least_32_chars"
 # NOTE: any value that has ever appeared in this repository is refused by the
-# application in production (backend/app/core/config.py _INSECURE_DEFAULTS).
+# application in production (backend/app/core/config.py PUBLICLY_KNOWN_SECRET_VALUES).
 
 # ── Relational Data & Cache ──────────────────────────────────────────────────
 DATABASE_URL="postgresql://confit_user:CHANGE_ME_DB_PASSWORD@localhost:5432/confit_db"

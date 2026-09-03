@@ -1,7 +1,20 @@
 # ==============================================================================
-# CONFIT GPU VTON WORKER — Production Dockerfile
-# Base Image: NVIDIA CUDA 12.4 with cuDNN 9 & Ubuntu 22.04
-# Model Pipeline: CatVTON (Apache 2.0) + SCHP Human Parser + DWPose + Rembg
+# CONFIT VTON WORKER — build/inspection image
+#
+# IMPORTANT (final release gate):
+# The AUTHORITATIVE production VTON deployment is Modal, defined in
+# `modal_app.py` and deployed with:
+#
+#     modal deploy services/vton-worker/modal_app.py
+#
+# This Dockerfile previously launched a legacy placeholder module as its CMD, which
+# launched a CPU-only "geometric warp + composite" placeholder that performed no
+# diffusion at all yet returned status="completed". That placeholder has been
+# deleted; there is now exactly ONE VTON implementation.
+#
+# This image therefore has NO default server command. It exists for dependency
+# builds and offline inspection only. It intentionally cannot start a VTON
+# service, so it can never shadow the Modal production path.
 # ==============================================================================
 
 FROM nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04
@@ -14,7 +27,6 @@ ENV DEBIAN_FRONTEND=noninteractive \
 
 WORKDIR /app
 
-# Install system dependencies & build tools
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3.11 \
     python3.11-dev \
@@ -29,21 +41,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 RUN ln -sf /usr/bin/python3.11 /usr/bin/python3 && ln -sf /usr/bin/python3 /usr/bin/python
 
-# Upgrade pip and install PyTorch with CUDA 12.4 support
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
     pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cu124
 
-# Install worker requirements
 COPY requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy source code and model pipeline definitions
 COPY . /app
 
-EXPOSE 8080
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD curl -f http://localhost:8080/health || exit 1
-
-CMD ["python", "worker.py"]
+# No CMD / ENTRYPOINT server: production VTON runs on Modal (modal_app.py).
+# Fail loudly if anyone tries to run this image as a service.
+CMD ["python", "-c", "import sys; sys.exit('CONFIT: this image does not serve VTON. Deploy modal_app.py to Modal instead.')"]

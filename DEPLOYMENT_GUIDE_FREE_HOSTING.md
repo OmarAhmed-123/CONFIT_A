@@ -81,9 +81,9 @@
 
 5. انزل لأسفل واضغط على **"Environment Variables"** وأضف المتغيرات التالية:
    * `DATABASE_URL` = (رابط Neon من الخطوة 1)
-   * `SECRET_KEY` = `confit_production_jwt_secret_key_2026_secure`
-   * `JWT_REFRESH_SECRET` = `confit_production_refresh_secret_2026_secure`
-   * `ENCRYPTION_KEY_FOR_BODY_DATA` = `confit_body_privacy_encryption_secret_key_32bytes!`
+   * `SECRET_KEY` = (generate: `python -c "import secrets;print(secrets.token_urlsafe(48))"` — never reuse a value from any document)
+   * `JWT_REFRESH_SECRET` = (a second, different generated value)
+   * `ENCRYPTION_KEY_FOR_BODY_DATA` = (a third generated value, at least 32 characters; changing it later makes existing encrypted body data unreadable)
    * `ENVIRONMENT` = `production`
    * `DEBUG` = `false`
    * `AI_PROVIDERS` = `gemini,nvidia,openai,grok`

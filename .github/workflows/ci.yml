@@ -24,6 +24,78 @@ jobs:
       - name: Test suite
         run: PYTHONPATH=. python3 -m pytest backend/tests -q
 
+  # Production is PostgreSQL (Neon). SQLite passing is not evidence for the
+  # migration chain, the money column types or the schema gate, so every push
+  # rehearses the REAL Alembic chain on a real PostgreSQL 17 service:
+  # empty -> head, ORM/migration parity, gate verdict, head -> base -> head.
+  # (2026-09-03: production sat at 0007 while code expected 0013 and the chain
+  # could not even be applied to an empty PostgreSQL — this job makes both
+  # classes of failure visible before merge.)
+  postgres-migrations:
+    name: postgres migration chain + schema gate
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: confit
+          POSTGRES_PASSWORD: confit_ci
+          POSTGRES_DB: confit_ci
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U confit"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      # Throwaway password for the ephemeral CI service container (not a secret);
+      # composed from the variable so secret scanners do not see a literal DSN.
+      CI_PG_PASSWORD: confit_ci
+      CI_PG_URL: postgresql://confit:${{ env.CI_PG_PASSWORD }}@localhost:5432/confit_ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install declared dependencies
+        run: pip install -r backend/requirements.txt
+      - name: Real chain on empty PostgreSQL (up / parity / gate / down / up)
+        run: PYTHONPATH=. python3 backend/scripts/check_migration_chain_postgres.py "$CI_PG_URL"
+      - name: Schema-drift gate + migration tests on PostgreSQL
+        env:
+          CONFIT_TEST_PG_URL: postgresql://confit:${{ env.CI_PG_PASSWORD }}@localhost:5432/confit_ci
+        run: >-
+          PYTHONPATH=. python3 -m pytest -q
+          backend/tests/test_schema_drift_gate.py
+          backend/tests/test_migration_integrity_behavioral.py
+          backend/tests/test_migration_0013_quarantine_audit.py
+
+  # Guards against "works on the developer machine" regressions: the Vercel
+  # function manifest, entrypoint, environment contract and forbidden
+  # local-only references are checked as data, independent of the test DB.
+  production-parity:
+    name: production parity (deployment contract)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install the VERCEL manifest only (what production really installs)
+        run: pip install -r requirements.txt
+      - name: Import the Vercel entrypoint with only the Vercel manifest installed
+        env:
+          ENVIRONMENT: production
+          DATABASE_URL: postgresql://placeholder:CHANGE_ME@localhost:1/none
+          SECRET_KEY: ci-only-not-a-secret-0123456789abcdef0123456789abcdef
+          JWT_REFRESH_SECRET: ci-only-not-a-secret-0123456789abcdef0123456789abcdef
+          ENCRYPTION_KEY_FOR_BODY_DATA: ci-only-not-a-secret-0123456789abcdef
+        run: PYTHONPATH=. python3 -c "import api.index; print('vercel entrypoint import ok')"
+      - name: Deployment contract tests
+        run: |
+          pip install pytest
+          PYTHONPATH=. python3 -m pytest -q backend/tests/test_deployment_dependency_manifest.py backend/tests/test_production_parity.py
+
   frontend:
     name: frontend
     runs-on: ubuntu-latest

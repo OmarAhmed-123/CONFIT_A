@@ -18,4 +18,47 @@ jobs:
             | tar -xz -C /usr/local/bin gitleaks
           gitleaks version
       - name: Full-history scan
-        run: gitleaks detect --source . --config .gitleaks.toml --redact -v --exit-code 1
+        id: scan
+        # Never abort the job here: the fail-closed guard below must run even
+        # when leaks are found so that the "0 commits scanned" blind spot can
+        # never again produce a green check.
+        run: |
+          set -o pipefail
+          set +e
+          gitleaks detect --source . --config .gitleaks.toml --redact -v --exit-code 1 \
+            --report-format json --report-path /tmp/gitleaks-report.json 2>&1 | tee /tmp/gitleaks.log
+          echo "gitleaks_exit=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+      - name: Fail closed unless the FULL history was really scanned
+        # gitleaks counts every non-merge commit whose diff has at least one
+        # non-binary, non-deletion change. Recompute that number independently
+        # from git and require gitleaks to have scanned at least that many.
+        run: |
+          expected=0
+          for c in $(git rev-list --no-merges HEAD); do
+            if git diff-tree --no-commit-id -r --root --diff-filter=d --numstat "$c" \
+                 | grep -vqE '^-[[:space:]]+-[[:space:]]'; then
+              expected=$((expected+1))
+            fi
+          done
+          scanned=$(grep -oE '[0-9]+ commits scanned' /tmp/gitleaks.log | grep -oE '^[0-9]+' | tail -1)
+          echo "history(HEAD, scannable)=$expected scanned=${scanned:-<none>}"
+          if [ -z "$scanned" ]; then
+            echo "::error::gitleaks did not report a scanned-commit count — treating as NOT scanned"; exit 1
+          fi
+          if [ "$scanned" -lt 1 ]; then
+            echo "::error::gitleaks scanned 0 commits — the scan is blind, refusing to pass"; exit 1
+          fi
+          if [ "$expected" -lt 1 ]; then
+            echo "::error::git history has no scannable commits — checkout is shallow or broken"; exit 1
+          fi
+          if [ "$scanned" -lt "$expected" ]; then
+            echo "::error::gitleaks scanned $scanned commits but HEAD history has $expected scannable commits — not a full-history scan"; exit 1
+          fi
+          echo "full history scanned ($scanned commits, >= $expected reachable from HEAD)"
+      - name: Report leaks
+        run: |
+          if [ "${{ steps.scan.outputs.gitleaks_exit }}" != "0" ]; then
+            echo "::error::gitleaks found secrets in the repository history (see redacted log above)"
+            exit 1
+          fi
+          echo "no leaks found in full history"

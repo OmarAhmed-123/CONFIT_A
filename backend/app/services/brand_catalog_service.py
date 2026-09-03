@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 
 from decimal import Decimal
-from backend.app.core.money import to_decimal, to_float, quantize_money
+from backend.app.core.money import to_decimal, to_float, quantize_money, validate_money
 from backend.app.models.catalog import Product, ProductSKU, Category
 from backend.app.models.user import BrandProfile
 from backend.app.repositories.brand_repository import BrandRepository
@@ -74,15 +74,18 @@ class BrandCatalogService:
                 errors.append(CatalogImportError(row_num, field, f"Missing required field: {field}", row.get(field)))
 
         # Type validation
-        if "base_price" in row and row["base_price"]:
-            try:
-                price = to_decimal(row["base_price"])
-                if price <= 0:
-                    errors.append(CatalogImportError(row_num, "base_price", "Price must be positive", row["base_price"]))
-                if price > 100000:
-                    errors.append(CatalogImportError(row_num, "base_price", "Price exceeds maximum", row["base_price"]))
-            except ValueError:
-                errors.append(CatalogImportError(row_num, "base_price", "Invalid price format", row["base_price"]))
+        # Money cells go through the canonical domain validator: finite, 2dp,
+        # positive, within NUMERIC(12,2). Invalid rows are quarantined with the
+        # domain message — never coerced, never silently rounded.
+        for money_field in ("base_price", "price_override"):
+            if money_field in row and row[money_field]:
+                try:
+                    price = validate_money(row[money_field], money_field, allow_zero=False,
+                                           required=True, exact_scale=True)
+                    if price > BrandRepository.MAX_SKU_PRICE:
+                        errors.append(CatalogImportError(row_num, money_field, "Price exceeds maximum", row[money_field]))
+                except ValueError as exc:
+                    errors.append(CatalogImportError(row_num, money_field, str(exc), row[money_field]))
 
         if "stock_level" in row and row["stock_level"]:
             try:

@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Query, status, UploadFile, File, HTTPExc
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 import json
-from backend.app.core.money import to_decimal, to_float
+from backend.app.core.money import to_decimal, to_float, validate_money, money_add, money_sub, MoneyValueError, MoneyRangeError
 
 from backend.app.core.database import get_db
 from backend.app.core.dependencies import require_role, BRAND_ROLES
@@ -355,10 +355,13 @@ def get_catalog_import_status(
         raise HTTPException(status_code=404, detail=f"Import job {job_id} not found for your brand")
 
     errors = []
-    try:
-        errors = json.loads(job.errors_json) if job.errors_json else []
-    except:
-        errors = []
+    if job.errors_json:
+        try:
+            errors = json.loads(job.errors_json)
+        except (TypeError, ValueError) as exc:
+            # A corrupt errors_json must be visible, not rendered as "no errors".
+            errors = [{"row": None, "field": "errors_json",
+                       "message": f"stored error log is unreadable: {type(exc).__name__}", "value": None}]
 
     return {
         "job_id": job.id,
@@ -381,14 +384,15 @@ def get_catalog_import_status(
 def update_sku_inventory(
     sku_id: int,
     stock_level: int = Query(..., ge=0, le=100000, description="New stock level"),
-    price_override: Optional[float] = Query(None, ge=0, le=100000, description="Price override"),
+    price_override: Optional[Decimal] = Query(None, gt=0, le=100000, max_digits=12, decimal_places=2,
+                                               description="Price override (2dp, > 0)"),
     user: User = Depends(brand_auth),
     db: Session = Depends(get_db)
 ):
     service = BrandService(db)
     result = service.update_sku(user, sku_id, stock_level, price_override)
     _audit(db, user, "BRAND_INVENTORY_UPDATED", "ProductSKU", sku_id,
-           {"stock_level": stock_level, "price_override": price_override})
+           {"stock_level": stock_level, "price_override": str(price_override) if price_override is not None else None})
     return result
 
 
@@ -608,15 +612,23 @@ def patch_placement(
     for key in allowed:
         if key in payload:
             if key == "bid_amount_per_click":
-                bid = to_decimal(payload[key])
-                if bid <= Decimal("0") or bid > Decimal("100"):
+                try:
+                    bid = validate_money(payload[key], "bid_amount_per_click", allow_zero=False,
+                                         required=True, exact_scale=True)
+                except (MoneyValueError, MoneyRangeError) as exc:
+                    raise HTTPException(status_code=422, detail=str(exc))
+                if bid > BrandRepository.MAX_BID_PER_CLICK:
                     raise HTTPException(status_code=400, detail="Bid must be 0-100")
                 if bid > to_decimal(plc.daily_budget):
                     raise HTTPException(status_code=400, detail="Bid cannot exceed daily budget")
                 plc.bid_amount_per_click = bid
             elif key == "daily_budget":
-                budget = to_decimal(payload[key])
-                if budget <= Decimal("0") or budget > Decimal("10000"):
+                try:
+                    budget = validate_money(payload[key], "daily_budget", allow_zero=False,
+                                            required=True, exact_scale=True)
+                except (MoneyValueError, MoneyRangeError) as exc:
+                    raise HTTPException(status_code=422, detail=str(exc))
+                if budget > BrandRepository.MAX_DAILY_BUDGET:
                     raise HTTPException(status_code=400, detail="Budget must be 0-10000")
                 plc.daily_budget = budget
             elif key == "status":
@@ -647,7 +659,7 @@ def patch_placement(
     db.refresh(plc)
 
     return {
-        "status": "updated",
+        "result": "updated",
         "placement_id": plc.id,
         "bid_amount_per_click": plc.bid_amount_per_click,
         "daily_budget": plc.daily_budget,
@@ -761,7 +773,7 @@ def track_click(
         raise HTTPException(status_code=400, detail="Daily budget would be exceeded")
 
     plc.clicks += 1
-    plc.spent_today = round(plc.spent_today + plc.bid_amount_per_click, 2)
+    plc.spent_today = money_add(plc.spent_today, plc.bid_amount_per_click)
 
     if plc.spent_today >= plc.daily_budget:
         plc.status = "budget_exhausted"
@@ -772,5 +784,5 @@ def track_click(
         "status": "tracked",
         "clicks": plc.clicks,
         "spent_today": plc.spent_today,
-        "remaining_budget": round(plc.daily_budget - plc.spent_today, 2)
+        "remaining_budget": money_sub(plc.daily_budget, plc.spent_today)
     }

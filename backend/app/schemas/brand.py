@@ -1,6 +1,8 @@
 from datetime import datetime
 from typing import Optional, List, Dict, Any
+from decimal import Decimal
 from pydantic import BaseModel, ConfigDict
+from backend.app.schemas.money_types import PositiveMoney, OptionalPositiveMoney
 
 
 class BrandProfileOut(BaseModel):
@@ -26,7 +28,7 @@ class SKUCreateOrUpdate(BaseModel):
     size: str
     color: str
     color_hex: str = "#1B1F3B"
-    price_override: Optional[float] = None
+    price_override: OptionalPositiveMoney = None
     stock_level: int = 20
 
 
@@ -36,7 +38,7 @@ class ProductCreateInput(BaseModel):
     title_ar: str
     description: str
     description_ar: str
-    base_price: float
+    base_price: PositiveMoney
     currency: str = "USD"
     material: Optional[str] = None
     care_instructions: Optional[str] = None
@@ -56,8 +58,8 @@ class CatalogBulkImportRequest(BaseModel):
 class SponsoredPlacementCreate(BaseModel):
     product_id: int
     placement_type: str = "stylist_featured"
-    bid_amount_per_click: float = 0.50
-    daily_budget: float = 50.0
+    bid_amount_per_click: PositiveMoney = Decimal("0.50")
+    daily_budget: PositiveMoney = Decimal("50.00")
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
 

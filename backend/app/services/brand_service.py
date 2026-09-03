@@ -108,21 +108,22 @@ class BrandService:
         if not product or product.brand_id != brand_id:
             raise ValidationDomainError(f"Product {data['product_id']} does not belong to your brand organization.")
 
-        # Parse dates if provided
-        start_date = data.get("start_date")
-        end_date = data.get("end_date")
-        if isinstance(start_date, str):
-            try:
-                from datetime import datetime
-                start_date = datetime.fromisoformat(start_date.replace("Z", "+00:00"))
-            except:
-                start_date = None
-        if isinstance(end_date, str):
-            try:
-                from datetime import datetime
-                end_date = datetime.fromisoformat(end_date.replace("Z", "+00:00"))
-            except:
-                end_date = None
+        # Parse dates if provided. An unparseable date is a client error — it
+        # used to be silently replaced by None (placement quietly became open-ended).
+        from datetime import datetime
+
+        def _parse_iso(value, field):
+            if value is None or isinstance(value, datetime):
+                return value
+            if isinstance(value, str):
+                try:
+                    return datetime.fromisoformat(value.replace("Z", "+00:00"))
+                except ValueError:
+                    raise ValidationDomainError(f"{field} must be an ISO-8601 datetime (got {value!r})")
+            raise ValidationDomainError(f"{field} must be an ISO-8601 datetime string")
+
+        start_date = _parse_iso(data.get("start_date"), "start_date")
+        end_date = _parse_iso(data.get("end_date"), "end_date")
 
         try:
             p = self.brand_repo.create_placement(

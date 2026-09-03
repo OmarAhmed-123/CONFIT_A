@@ -222,8 +222,8 @@ class VisualSearchRequest(BaseModel):
     image_url: Optional[str] = None
     image_base64: Optional[str] = None
     top_k: int = Field(default=8, ge=1, le=20)
-    min_price: Optional[float] = Field(default=None, ge=0)
-    max_price: Optional[float] = Field(default=None, ge=0)
+    min_price: Optional[float] = Field(default=None, ge=0, allow_inf_nan=False)
+    max_price: Optional[float] = Field(default=None, ge=0, allow_inf_nan=False)
     brand_ids: Optional[List[int]] = None
     in_stock_only: bool = False
 

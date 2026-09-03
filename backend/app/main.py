@@ -1,5 +1,9 @@
 from contextlib import asynccontextmanager
+import math
+from decimal import Decimal
 from fastapi import Depends, FastAPI, HTTPException, Request, status
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -8,6 +12,7 @@ from backend.app.core.logging import setup_logging, logger
 from backend.app.core.database import engine, Base
 from backend.app.core.dependencies import get_current_user
 from backend.app.core.exceptions import AuthorizationError, ConfitException
+from backend.app.core.money import MoneyRangeError, MoneyValueError
 from backend.app.models.user import UserRole
 from backend.app.controllers.auth_controller import router as auth_router
 from backend.app.controllers.profile_controller import router as profile_router
@@ -170,6 +175,56 @@ async def confit_exception_handler(request: Request, exc: ConfitException):
                 "details": exc.details
             }
         }
+    )
+
+
+def _json_safe(value):
+    """Make a pydantic error payload JSON-serialisable.
+
+    Pydantic echoes the offending ``input`` back; when a client sends ``1e400``
+    (parsed as float ``inf``) or ``NaN`` the default FastAPI handler crashes
+    with ``ValueError: Out of range float values are not JSON compliant`` and
+    the client receives a 500 instead of the 422 it earned. Non-finite floats
+    are rendered as strings; everything else is delegated to jsonable_encoder.
+    """
+    if isinstance(value, float) and (math.isnan(value) or math.isinf(value)):
+        return repr(value)
+    if isinstance(value, dict):
+        return {k: _json_safe(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(v) for v in value]
+    if isinstance(value, Decimal):
+        return str(value)
+    try:
+        return jsonable_encoder(value)
+    except Exception:  # pragma: no cover - defensive, never mask the 422
+        return repr(value)
+
+
+@app.exception_handler(RequestValidationError)
+async def request_validation_error_handler(request: Request, exc: RequestValidationError):
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content={"detail": _json_safe(exc.errors())},
+    )
+
+
+# Money domain errors (NaN/Infinity/garbage/out-of-NUMERIC(12,2)-range/sign
+# violations) are client errors, never 500s. Domain validation runs before
+# persistence, so a rejected amount never reaches the database.
+@app.exception_handler(MoneyValueError)
+@app.exception_handler(MoneyRangeError)
+async def money_domain_error_handler(request: Request, exc: ValueError):
+    logger.warn("Monetary input rejected", path=request.url.path, message=str(exc))
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content={
+            "error": {
+                "code": "INVALID_MONETARY_VALUE",
+                "message": str(exc),
+                "details": {"kind": exc.__class__.__name__},
+            }
+        },
     )
 
 

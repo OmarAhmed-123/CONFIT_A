@@ -1,15 +1,14 @@
-import os
 import re
 import json
 import uuid
 from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, Header, Query, Request, status
-from fastapi.responses import FileResponse
+from fastapi.responses import PlainTextResponse
 from sqlalchemy.orm import Session
 from backend.app.core.config import settings
 from backend.app.core.database import get_db
-from backend.app.core.dependencies import get_current_user_optional, get_current_user
-from backend.app.models.user import User
+from backend.app.core.dependencies import get_current_user_optional, get_current_user, require_role
+from backend.app.models.user import User, UserRole
 from backend.app.services.commerce_service import CommerceService
 from backend.app.providers.bnpl_provider import BNPLProvider
 from backend.app.providers.payment.orchestrator import PaymentOrchestrator
@@ -29,10 +28,28 @@ from backend.app.schemas.commerce import (
     BNPLQuoteRequest,
     BNPLQuoteResponse
 )
-from backend.app.core.exceptions import ResourceNotFoundError, ValidationDomainError
+from backend.app.core.exceptions import ResourceNotFoundError, ValidationDomainError, AuthorizationError
 from pydantic import BaseModel
 
 router = APIRouter(tags=["Commerce, Payments & Fulfillment"])
+
+
+def _audit_commerce(db: Session, user: User, action: str, resource_type: str,
+                    resource_id, details: dict | None = None) -> None:
+    """Persist an operator audit event for commerce mutations (return rejection).
+    Same contract as brand_controller._audit: never raises, failure is logged."""
+    try:
+        from backend.app.repositories.user_repository import UserRepository
+        UserRepository(db).log_audit(
+            action=action,
+            resource_type=resource_type,
+            resource_id=str(resource_id) if resource_id is not None else None,
+            user_id=getattr(user, "id", None),
+            details=json.dumps(details or {}, default=str)[:2000],
+        )
+    except Exception as _e:  # pragma: no cover - defensive
+        import logging
+        logging.getLogger(__name__).warning("audit_write_failed action=%s err=%s", action, _e)
 
 
 class CartMergeRequest(BaseModel):
@@ -230,9 +247,14 @@ def get_checkout_session(
 
     import json
     try:
-        cart_snapshot = json.loads(session.cart_snapshot_json)
-    except Exception:
-        cart_snapshot = {}
+        cart_snapshot = json.loads(session.cart_snapshot_json or "")
+    except (TypeError, ValueError):
+        # A checkout session whose snapshot cannot be read must not be presented
+        # as an empty (0.00) cart — that is a corrupted session, report it.
+        raise ValidationDomainError(
+            "Checkout session snapshot is unreadable; start a new checkout.",
+            {"token": token},
+        )
 
     return {
         "checkout_token": session.token,
@@ -340,13 +362,14 @@ def submit_return(
 
 
 @router.get("/returns/labels/{ref}")
-def download_return_label(ref: str):
+def download_return_label(ref: str, db: Session = Depends(get_db)):
     if not re.fullmatch(r"RA-[A-Z0-9]{6,16}", ref):
         raise ResourceNotFoundError("ReturnLabel", ref)
-    path = os.path.join(settings.STORAGE_LOCAL_DIR, "return-labels", f"{ref}.txt")
-    if not os.path.isfile(path):
-        raise ResourceNotFoundError("ReturnLabel", ref)
-    return FileResponse(path, media_type="text/plain", filename=f"{ref}.txt")
+    filename, text = CommerceService(db).render_return_authorisation(ref)
+    return PlainTextResponse(
+        text, media_type="text/plain",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.get("/returns/{return_id}", response_model=ReturnRequestOut)
@@ -364,6 +387,35 @@ async def refund_return(
     service = CommerceService(db)
     service.get_return(return_id, user.id)
     return await service.refund_return(return_id)
+
+
+class ReturnRejectRequest(BaseModel):
+    reason: str
+
+
+@router.post("/commerce/returns/{return_id}/reject", response_model=ReturnRequestOut)
+def reject_return(
+    return_id: int,
+    payload: ReturnRejectRequest,
+    user: User = Depends(require_role([UserRole.ADMIN, UserRole.BRAND_OWNER, UserRole.BRAND_MANAGER])),
+    db: Session = Depends(get_db),
+):
+    """Operator/brand rejects a return: reverts OrderItem.is_returned and voids
+    the item-level return ledger events (revenue attribution recovers).
+    Brand users may only reject returns that contain their own items."""
+    service = CommerceService(db)
+    req = service.commerce_repo.get_return_by_id(return_id)
+    if not req:
+        raise ResourceNotFoundError("ReturnRequest", return_id)
+    if user.role != UserRole.ADMIN:
+        brand = user.brand_profile
+        if brand is None or any(it.order_item.brand_id != brand.id for it in req.items if it.order_item):
+            raise AuthorizationError("You may only reject returns for your own brand's items.")
+    result = service.reject_return(return_id, payload.reason)
+    _audit_commerce(db, user, "RETURN_REJECTED", "ReturnRequest", return_id,
+                    {"order_id": req.order_id, "reason": payload.reason,
+                     "order_item_ids": [it.order_item_id for it in req.items]})
+    return result
 
 
 @router.post("/commerce/exchanges", response_model=ExchangeOut, status_code=status.HTTP_201_CREATED)
@@ -393,9 +445,12 @@ async def payment_webhook(
     raw_body = await request.body()
     try:
         payload = json.loads(raw_body.decode("utf-8") or "{}")
-        if not isinstance(payload, dict):
-            payload = {}
-    except Exception:
+    except (UnicodeDecodeError, ValueError):
+        # Signature verification still runs over the raw bytes inside the
+        # service; a non-JSON body is passed as an empty event and rejected
+        # there (unknown event / unverifiable), never treated as a payment.
+        payload = {}
+    if not isinstance(payload, dict):
         payload = {}
     service = CommerceService(db)
     return await service.process_webhook(provider, payload, raw_body, x_signature or "")

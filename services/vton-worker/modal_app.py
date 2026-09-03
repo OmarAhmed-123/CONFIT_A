@@ -21,7 +21,7 @@ import base64
 import ipaddress
 import socket
 import urllib.parse as _urlparse
-from PIL import Image, ImageDraw
+from PIL import Image
 import modal
 from fastapi import HTTPException, Header
 from pydantic import BaseModel, field_validator
@@ -151,10 +151,19 @@ image = (
         "torch==2.1.2", "torchvision==0.16.2", "diffusers==0.29.2", "transformers==4.27.3",
         "accelerate==0.31.0", "huggingface_hub==0.23.4", "Pillow==10.3.0", "numpy==1.26.4",
         "fastapi>=0.115.0", "pydantic>=2.9.0", "opencv-python-headless>=4.10.0", "tqdm>=4.66.0", "httpx>=0.27.0",
+        # Real human segmentation for person-aware agnostic masks (BRD: deep-learning
+        # segmentation). u2net_human_seg ~150MB, ~50ms on T4 — fits alongside CatVTON
+        # (~4-6GB) at concurrency 2 on a 16GB T4.
+        "rembg[cpu]>=2.0.57", "onnxruntime>=1.18.0",
     )
     .run_commands("git clone --depth 1 https://github.com/Zheng-Chong/CatVTON.git " + CATVTON_CLONE)
     .run_function(_stage_catvton_package)
     .run_function(_download_weights)
+    .add_local_dir(
+        os.path.join(os.path.dirname(__file__), "pipeline"),
+        remote_path=WORKER_DIR + "/pipeline",
+        copy=True,
+    )
     .env({"PYTHONPATH": CATVTON_PKG + ":" + WORKER_DIR})
 )
 
@@ -201,83 +210,63 @@ class VTONJobRequest(BaseModel):
 
 
 def _make_slot_mask(person: Image.Image, slot: str) -> Image.Image:
+    """Person-aware agnostic mask for CatVTON — SINGLE canonical implementation.
+
+    Delegates to pipeline.segmentation.AgnosticMaskGenerator, which is the one
+    authoritative masking implementation in the repository:
+      * real human segmentation via rembg (u2net_human_seg -> isnet-general-use -> u2net)
+      * Otsu + skin heuristic ONLY as an explicit, reported fallback
+      * slot rectangles intersected with the person silhouette so masks are
+        person-shaped rather than whole-image boxes
+      * semantic boundary enforcement + validation (see validate_mask_semantics)
+
+    Previously this function carried a SECOND, divergent rectangle-based
+    implementation, so the deployed worker did not run the masking code that the
+    test-suite exercised. That duplication is removed.
+
+    CatVTON inpainting convention (verified against upstream
+    Zheng-Chong/CatVTON model/pipeline.py):
+
+        masked_image = image * (mask < 0.5)
+
+    i.e. WHITE (255) marks the region to REGENERATE and BLACK (0) is preserved.
+
+    The previous rectangle implementation inverted this: it built a white canvas
+    and filled the GARMENT region with black, which instructs the pipeline to
+    preserve the garment area and regenerate the background. AgnosticMaskGenerator
+    returns 255 over the slot region, which matches upstream.
     """
-    Slot-aware mask generation for CatVTON — production-grade person-aware.
-    
-    Improvement: masks are intersected with person silhouette when possible,
-    ensuring semantic localization (upper not lower, footwear localized, etc.)
-    and not entire-image rectangles.
-    
-    Uses Otsu person detection for CPU path, tries rembg if available for GPU path.
-    """
-    import numpy as np
-    w, h = person.size
-    
-    # Try to get person mask for person-aware intersection
-    person_mask_arr = None
-    try:
-        # Simple Otsu person detection for modal_app path (no heavy rembg import)
-        rgb = np.asarray(person.convert("RGB"), dtype=np.float32) / 255.0
-        r, g, b = rgb[..., 0], rgb[..., 1], rgb[..., 2]
-        luminance = 0.299 * r + 0.587 * g + 0.114 * b
-        # Quick threshold
-        thresh = float(np.mean(luminance)) * 0.9
-        person_mask_arr = luminance < max(thresh, 0.15)
-        # If mask too small or too large, fallback to center area
-        ratio = person_mask_arr.mean()
-        if ratio < 0.05 or ratio > 0.95:
-            person_mask_arr = None
-    except Exception:
-        person_mask_arr = None
-    
-    # Create base mask (white = keep, black = inpaint) — CatVTON uses black for garment area
-    # Actually original code used white background with black rectangles for inpaint area
-    # We keep same convention: 255 keep, 0 inpaint
-    mask = Image.new("L", (w, h), 255)
-    d = ImageDraw.Draw(mask)
+    from pipeline.segmentation import AgnosticMaskGenerator
 
-    if slot == "upper_outer":
-        d.rectangle((int(w * 0.22), int(h * 0.08), int(w * 0.78), int(h * 0.55)), fill=0)
-        d.rectangle((int(w * 0.00), int(h * 0.15), int(w * 0.20), int(h * 0.65)), fill=0)
-        d.rectangle((int(w * 0.80), int(h * 0.15), int(w * 1.00), int(h * 0.65)), fill=0)
-    elif slot == "upper_inner":
-        d.rectangle((int(w * 0.30), int(h * 0.12), int(w * 0.70), int(h * 0.50)), fill=0)
-        d.rectangle((int(w * 0.05), int(h * 0.35), int(w * 0.18), int(h * 0.60)), fill=0)
-        d.rectangle((int(w * 0.82), int(h * 0.35), int(w * 0.95), int(h * 0.60)), fill=0)
-    elif slot == "lower":
-        d.rectangle((int(w * 0.25), int(h * 0.45), int(w * 0.75), int(h * 0.95)), fill=0)
-    elif slot == "dress":
-        d.rectangle((int(w * 0.25), int(h * 0.10), int(w * 0.75), int(h * 0.90)), fill=0)
-        d.rectangle((int(w * 0.00), int(h * 0.20), int(w * 0.20), int(h * 0.60)), fill=0)
-        d.rectangle((int(w * 0.80), int(h * 0.20), int(w * 1.00), int(h * 0.60)), fill=0)
-    elif slot == "footwear":
-        d.rectangle((int(w * 0.30), int(h * 0.85), int(w * 0.70), int(h * 1.00)), fill=0)
-    elif slot == "accessory":
-        d.rectangle((int(w * 0.35), int(h * 0.10), int(w * 0.65), int(h * 0.30)), fill=0)
-    else:
-        d.rectangle((int(w * 0.30), int(h * 0.05), int(w * 0.70), int(h * 0.30)), fill=0)
-        d.rectangle((int(w * 0.00), int(h * 0.40), int(w * 0.18), int(h * 0.65)), fill=0)
-        d.rectangle((int(w * 0.82), int(h * 0.40), int(w * 1.00), int(h * 0.65)), fill=0)
+    if slot not in SUPPORTED_SLOTS:
+        raise HTTPException(status_code=422, detail={"error": {
+            "code": "UNSUPPORTED_SLOT",
+            "message": f"Unsupported slot_type={slot!r}; expected one of {sorted(SUPPORTED_SLOTS)}"}})
 
-    # Person-aware intersection: if we have person mask, ensure inpaint area is within person
-    # For VTON, mask black area should be where person is, not background
-    # So we keep black only where person exists, white elsewhere for background preservation
-    if person_mask_arr is not None:
-        try:
-            mask_arr = np.asarray(mask)
-            # mask black (0) is inpaint area — intersect with person mask
-            # Where person_mask is False (background), force white (keep)
-            # This prevents inpainting background
-            inpaint_area = mask_arr < 128
-            # Only inpaint where person exists
-            inpaint_person = inpaint_area & person_mask_arr
-            new_mask_arr = np.full((h, w), 255, dtype=np.uint8)
-            new_mask_arr[inpaint_person] = 0
-            mask = Image.fromarray(new_mask_arr, mode="L")
-        except Exception:
-            pass
-
+    mask = AgnosticMaskGenerator.create_agnostic_mask(person, slot)
+    if mask.size != person.size:
+        mask = mask.resize(person.size, Image.NEAREST)
     return mask
+
+
+def _mask_engine_report(person: Image.Image) -> dict:
+    """Report which segmentation engine actually produced the mask.
+
+    Honest observability: the caller must be able to tell a real deep-learning
+    segmentation run from the heuristic fallback.
+    """
+    try:
+        from pipeline.segmentation import HumanParsingEngine
+        parsed = HumanParsingEngine.parse_human_image(person)
+        return {
+            "engine": parsed.get("engine"),
+            "fallback_used": bool(parsed.get("fallback_used")),
+            "person_aware": bool(parsed.get("is_person_aware")),
+            "foreground_pixels": parsed.get("foreground_pixels"),
+        }
+    except Exception as e:  # pragma: no cover - defensive
+        return {"engine": "unavailable", "fallback_used": True,
+                "person_aware": False, "error": f"{type(e).__name__}: {str(e)[:120]}"}
 
 
 def _validate_and_decode_image(raw: bytes, context: str = "image") -> Image.Image:
@@ -388,6 +377,7 @@ class VTONInferenceService:
             "gpu_memory": gpu_mem,
             "weights_baked_at_build": True,
             "package_layout": "model.pipeline + root utils",
+            "mask_engine": "pipeline.segmentation.AgnosticMaskGenerator (rembg u2net_human_seg -> isnet-general-use -> u2net; Otsu+skin fallback)",
             "concurrency": 2,
             "ready": self.model_loaded,
             "timestamp": time.time(),
@@ -467,6 +457,7 @@ class VTONInferenceService:
         garments_sorted = sorted(garments, key=_slot_rank)
 
         w, h = 512, 768
+        mask_engine = {"engine": "not-run", "fallback_used": None}
         try:
             person_resized = person.resize((w, h))
         except Exception as e:
@@ -513,6 +504,8 @@ class VTONInferenceService:
             try:
                 garment_resized = garment.resize((w // 2, h // 2))
                 mask = _make_slot_mask(current_image, slot_type)
+                if idx == 1:
+                    mask_engine = _mask_engine_report(current_image)
             except Exception as e:
                 raise HTTPException(status_code=422, detail={"error": {"code": "INPUT_INVALID", "message": f"Garment {idx} preprocessing failed: {e}"}})
 
@@ -607,5 +600,6 @@ class VTONInferenceService:
             "slot_type": last_slot,
             "applied_slots": applied_slots,
             "fit_verdict": f"diffusion sequential multi-garment ({len(garments_sorted)} layers: {','.join(applied_slots)})",
+            "mask_engine": mask_engine,
             "verify": verify,
         }

@@ -16,6 +16,7 @@ import os
 from logging.config import fileConfig
 
 from alembic import context
+import sqlalchemy as sa
 from sqlalchemy import engine_from_config, pool
 
 config = context.config
@@ -54,6 +55,36 @@ def run_migrations_offline() -> None:
         context.run_migrations()
 
 
+def _ensure_wide_version_table(connection) -> None:
+    """Pre-create ``alembic_version`` with ``VARCHAR(255)`` on an EMPTY database.
+
+    Alembic auto-creates ``alembic_version.version_num`` as ``VARCHAR(32)``.
+    Revision ``0005_group4_wardrobe_dedup_integrity`` is 36 characters, so on a
+    fresh PostgreSQL database the chain died at 0005 with
+    StringDataRightTruncation — migration 0006 widens the column but runs too
+    late to help. Production (already past 0007) was never affected; a fresh
+    staging / disaster-recovery database could not be built from the chain at
+    all (found 2026-09-03 rehearsing ``upgrade head`` on empty PostgreSQL 17).
+
+    No-op when the table already exists or on SQLite (no length limit).
+    """
+    if connection.dialect.name == "sqlite":
+        return
+    if not sa.inspect(connection).has_table("alembic_version"):
+        connection.execute(sa.text(
+            "CREATE TABLE alembic_version ("
+            "version_num VARCHAR(255) NOT NULL, "
+            "CONSTRAINT alembic_version_pkc PRIMARY KEY (version_num))"
+        ))
+    # ALWAYS end the transaction this pre-flight autobegan (the inspector
+    # query alone starts one under SQLAlchemy 2.x). If a transaction is still
+    # open, alembic's begin_transaction() assumes the caller manages it and
+    # never commits — every migration would then be rolled back at connection
+    # close with EXIT CODE 0. Observed 2026-09-03: ``downgrade base`` reported
+    # success while the database stayed at 0013.
+    connection.commit()
+
+
 def run_migrations_online() -> None:
     configuration = config.get_section(config.config_ini_section) or {}
     configuration["sqlalchemy.url"] = _get_url()
@@ -63,6 +94,7 @@ def run_migrations_online() -> None:
         poolclass=pool.NullPool,
     )
     with connectable.connect() as connection:
+        _ensure_wide_version_table(connection)
         context.configure(
             connection=connection,
             target_metadata=target_metadata,

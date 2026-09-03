@@ -57,6 +57,14 @@ async def lifespan(app: FastAPI):
                     logger.info("Database was empty — seeded the default catalogue")
     except Exception as exc:
         logger.warn("Database initialization notice", error=str(exc))
+
+    # Schema-drift gate (2026-09-03 production incident: DB at 0007, code at
+    # 0013, four endpoints 500 for weeks while /health said "healthy").
+    # Production refuses to serve a database that is not at this code's
+    # migration head; other environments log the verdict. This is a gate, not
+    # a repair: it never creates tables or masks the mismatch.
+    from backend.app.core.schema_gate import enforce_at_startup
+    enforce_at_startup(engine, settings.ENVIRONMENT, logger=logger)
     yield
     logger.info("Shutting down CONFIT API Engine")
 
@@ -107,6 +115,39 @@ async def csrf_cookie_guard(request: Request, call_next):
                         status_code=403,
                         content={"error": {"code": "CSRF_TOKEN_MISMATCH", "message": "CSRF token missing or invalid.", "details": {}}},
                     )
+    return await call_next(request)
+
+
+# Schema-drift request guard (serverless-safe complement to the startup gate).
+# In production, if the database is not at this code's migration head, every
+# API request is refused with an EXPLICIT 503 SCHEMA_DRIFT instead of the
+# opaque 500s the missing tables produced for weeks. /health stays reachable
+# so operators and the uptime monitor can read the verdict. Verified against
+# a copy of production at 0007 (see tests/test_schema_drift_gate.py).
+SCHEMA_GUARD_EXEMPT_SUFFIXES = ("/health", "/docs", "/redoc", "/openapi.json")
+
+
+@app.middleware("http")
+async def schema_drift_guard(request: Request, call_next):
+    path = request.url.path
+    if path == "/" or path.endswith(SCHEMA_GUARD_EXEMPT_SUFFIXES) or path.startswith("/uploads"):
+        return await call_next(request)
+    from backend.app.core.schema_gate import request_guard_verdict
+    report = request_guard_verdict(engine, settings.ENVIRONMENT)
+    if report is not None:
+        return JSONResponse(
+            status_code=503,
+            content={"error": {
+                "code": "SCHEMA_DRIFT",
+                "message": "Service unavailable: database schema does not match the deployed code. "
+                           "Operator action required: alembic upgrade head.",
+                "details": {
+                    "database_revision": report.database_revision,
+                    "expected_head": report.expected_head,
+                    "findings": report.findings[:6],
+                },
+            }},
+        )
     return await call_next(request)
 
 

@@ -62,23 +62,15 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    bind = op.get_bind()
-    if bind.dialect.name == "sqlite":
-        return
-    # Narrowing is safe only if no existing revision id exceeds 32 chars,
-    # otherwise it would break Alembic's own head tracking. Guard against
-    # data loss: refuse to narrow when the current head no longer fits.
-    row = bind.execute(sa.text("SELECT version_num FROM alembic_version")).fetchone()
-    if row and len(row[0]) > 32:
-        raise RuntimeError(
-            f"Cannot downgrade alembic_version.version_num back to VARCHAR(32): "
-            f"current head '{row[0]}' ({len(row[0])} chars) would not fit. "
-            f"Downgrade the schema past this revision first."
-        )
-    op.alter_column(
-        "alembic_version",
-        "version_num",
-        existing_type=sa.String(length=255),
-        type_=sa.String(length=32),
-        existing_nullable=False,
-    )
+    """Intentionally a no-op: the column stays VARCHAR(255).
+
+    The previous downgrade narrowed ``version_num`` back to VARCHAR(32). Its
+    guard checked the CURRENT head (``0006_widen_alembic_version``, 26 chars),
+    passed, narrowed the column — and Alembic then immediately wrote the new
+    head ``0005_group4_wardrobe_dedup_integrity`` (36 chars) into it, failing
+    with StringDataRightTruncation. So on PostgreSQL the chain could never be
+    downgraded below 0006 (found 2026-09-03 rehearsing ``downgrade base`` on
+    PostgreSQL 17). A wider bookkeeping column is harmless; keeping it is the
+    only downgrade that leaves Alembic able to track its own state.
+    """
+    return

@@ -128,6 +128,13 @@ jobs:
       - name: Type-check + production build
         working-directory: frontend
         run: npm run build
+      # Unit suite (vitest + jsdom): view-model/query-client behavior gates —
+      # e.g. the B2B silent-fallback regressions (2026-09-04). Previously this
+      # suite existed in-tree but was never executed by any workflow, so its
+      # assertions silently rotted.
+      - name: Unit tests (vitest)
+        working-directory: frontend
+        run: CI=1 npm test
       - name: Dependency security audit (npm audit)
         working-directory: frontend
         run: npm audit --audit-level=high

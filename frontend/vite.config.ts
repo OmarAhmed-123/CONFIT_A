@@ -4,6 +4,14 @@ import react from '@vitejs/plugin-react'
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
+  // vitest config lives here so CI (`npm run build && npm test`) exercises the
+  // same toolchain as the build; environment jsdom for DOM/hook tests.
+  test: {
+    environment: 'jsdom',
+    globals: true,
+    setupFiles: ['./vitest.setup.ts'],
+    include: ['src/**/*.test.{ts,tsx}'],
+  },
   server: {
     host: '0.0.0.0',
     port: 43123,

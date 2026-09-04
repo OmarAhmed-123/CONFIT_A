@@ -5,7 +5,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react';
-import { queryKeys, clearUserQueries } from '../../lib/queryClient';
+import { queryKeys, clearUserQueries, queryClient as appQueryClient } from '../../lib/queryClient';
 
 // Mock catalog service
 vi.mock('../../services/apiServices', () => ({
@@ -18,6 +18,10 @@ vi.mock('../../services/apiServices', () => ({
 }));
 
 describe('C22 React Query - Catalog', () => {
+  // The retry-policy tests below assert against the APP-SINGLETON queryClient
+  // (src/lib/queryClient.ts) — a local test instance shadowed the import and
+  // made those assertions vacuous (they resolved to undefined and failed).
+  // Cache-isolation tests keep using their own isolated instance.
   let queryClient: QueryClient;
 
   beforeEach(() => {
@@ -77,7 +81,7 @@ describe('C22 React Query - Catalog', () => {
   });
 
   it('should not retry on 401/403', () => {
-    const retryFn = queryClient.getDefaultOptions().queries?.retry as Function;
+    const retryFn = appQueryClient.getDefaultOptions().queries?.retry as Function;
     
     const shouldRetry401 = retryFn(0, { status: 401 });
     const shouldRetry403 = retryFn(0, { status: 403 });
@@ -89,7 +93,7 @@ describe('C22 React Query - Catalog', () => {
   });
 
   it('should not retry mutations', () => {
-    const mutationRetry = queryClient.getDefaultOptions().mutations?.retry;
+    const mutationRetry = appQueryClient.getDefaultOptions().mutations?.retry;
     expect(mutationRetry).toBe(false);
   });
 });

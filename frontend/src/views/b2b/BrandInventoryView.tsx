@@ -33,23 +33,29 @@ export const BrandInventoryView: React.FC = () => {
   const [stores, setStores] = useState<Store[]>([]);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  // Silent-fallback fix (C6 rule, B2B surface): these fetches used to launder
+  // errors into empty arrays, making a backend outage indistinguishable from
+  // a brand that genuinely has zero stores / zero inventory rows. Failures
+  // are now recorded and rendered as an explicit error + Retry.
+  const [fetchErrors, setFetchErrors] = useState<Record<'stores' | 'inventory', string | null>>({ stores: null, inventory: null });
   const [showStoreModal, setShowStoreModal] = useState(false);
   const [newStore, setNewStore] = useState({ name: '', city: '', country: 'UAE', address: '', latitude: 0, longitude: 0, phone: '' });
 
   const fetchData = async () => {
     setIsLoading(true);
-    try {
-      const [storesData, invData] = await Promise.all([
-        request<Store[]>('/partner/stores').catch(() => []),
-        request<InventoryItem[]>('/partner/inventory').catch(() => []),
-      ]);
-      setStores(storesData);
-      setInventory(invData);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsLoading(false);
-    }
+    const [storesRes, invRes] = await Promise.allSettled([
+      request<Store[]>('/partner/stores'),
+      request<InventoryItem[]>('/partner/inventory'),
+    ]);
+    if (storesRes.status === 'fulfilled') setStores(storesRes.value);
+    else setStores([]);
+    if (invRes.status === 'fulfilled') setInventory(invRes.value);
+    else setInventory([]);
+    setFetchErrors({
+      stores: storesRes.status === 'rejected' ? ((storesRes.reason as any)?.message || 'Failed to load store locations.') : null,
+      inventory: invRes.status === 'rejected' ? ((invRes.reason as any)?.message || 'Failed to load inventory.') : null,
+    });
+    setIsLoading(false);
   };
 
   useEffect(() => {
@@ -90,7 +96,14 @@ export const BrandInventoryView: React.FC = () => {
       {/* Stores - REAL */}
       <div className="space-y-4">
         <h3 className="font-serif text-lg font-bold text-[#1B1F3B]">Store Locations ({stores.length}) - Real from DB</h3>
-        {stores.length === 0 ? (
+        {fetchErrors.stores && (
+          <div role="alert" className="p-4 rounded-2xl bg-rose-50 border border-rose-200">
+            <p className="text-[11px] font-bold text-rose-800">Store network lookup failed</p>
+            <p className="text-[11px] text-rose-600 mt-1">{fetchErrors.stores} The count above is unknown while this fails — it is not “no stores”.</p>
+            <button onClick={fetchData} className="mt-2 px-3 py-1.5 rounded-lg bg-white border border-rose-200 text-[11px] font-bold text-rose-700 hover:bg-rose-50">Retry</button>
+          </div>
+        )}
+        {!fetchErrors.stores && stores.length === 0 ? (
           <div className="bg-white rounded-3xl border border-slate-200 p-12 text-center space-y-3">
             <div className="text-4xl">🏪</div>
             <h3 className="font-bold text-slate-700">No stores yet</h3>
@@ -140,7 +153,14 @@ export const BrandInventoryView: React.FC = () => {
       <div className="space-y-4">
         <h3 className="font-serif text-lg font-bold text-[#1B1F3B]">Live Inventory by SKU and Location - Real from StoreInventory</h3>
         <p className="text-[11px] text-slate-500">Stock levels per SKU per location, reserved quantity tracking, available = quantity - reserved. No negative inventory enforced.</p>
-        {inventory.length === 0 ? (
+        {fetchErrors.inventory && (
+          <div role="alert" className="p-4 rounded-2xl bg-rose-50 border border-rose-200">
+            <p className="text-[11px] font-bold text-rose-800">Inventory lookup failed</p>
+            <p className="text-[11px] text-rose-600 mt-1">{fetchErrors.inventory} Stock is unknown while this fails — never assumed zero.</p>
+            <button onClick={fetchData} className="mt-2 px-3 py-1.5 rounded-lg bg-white border border-rose-200 text-[11px] font-bold text-rose-700 hover:bg-rose-50">Retry</button>
+          </div>
+        )}
+        {!fetchErrors.inventory && inventory.length === 0 ? (
           <div className="bg-white rounded-3xl border border-slate-200 p-8 text-center text-xs text-slate-500">
             No inventory data. Products will appear here with SKU-level stock and store-level breakdown from StoreInventory table.
           </div>

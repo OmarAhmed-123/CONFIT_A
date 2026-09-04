@@ -131,7 +131,7 @@ Previous status: PARTIALLY VERIFIED due to C22 deferred, C3 pending, Modal/DB/Ve
 - Token check: modal token info -> Error: Token missing. Could not authenticate client - VERIFIED MISSING
 - No ~/.modal.toml, no ~/.config/modal - VERIFIED MISSING
 - No MODAL_TOKEN_ID/MODAL_TOKEN_SECRET in env - VERIFIED MISSING
-- Provided token ak-Gc9Cf90EjDa1u3zivf87KR from earlier prompt - single token format, needs secret, cannot deploy without full credentials
+- Provided token [modal token id — redacted from docs 2026-09-04] from earlier prompt - single token format, needs secret, cannot deploy without full credentials
 - No existing repository configuration provides access - VERIFIED
 - No legitimate CI/CD deployment mechanism can perform deployment without credentials - VERIFIED
 
@@ -144,7 +144,7 @@ Previous status: PARTIALLY VERIFIED due to C22 deferred, C3 pending, Modal/DB/Ve
 
 **Final Status:** CODE FIXED, DEPLOY VERIFICATION PENDING - AUTHENTICATION BLOCKER
 **Honest Report:** MODAL LIVE DEPLOYMENT: UNVERIFIED — AUTHENTICATION/ACCESS BLOCKER
-**Action Required:** User must configure Modal token securely via `modal token new` or `modal token set` with both ID and secret, or set MODAL_TOKEN_ID and MODAL_TOKEN_SECRET in environment/secret store. Token ak-Gc9Cf90EjDa1u3zivf87KR alone insufficient - needs secret.
+**Action Required:** User must configure Modal token securely via `modal token new` or `modal token set` with both ID and secret, or set MODAL_TOKEN_ID and MODAL_TOKEN_SECRET in environment/secret store. Token [modal token id — redacted from docs 2026-09-04] alone insufficient - needs secret.
 
 ---
 

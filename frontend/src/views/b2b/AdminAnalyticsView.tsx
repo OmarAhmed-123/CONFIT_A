@@ -1,12 +1,23 @@
 import React from 'react';
 import { useBrandViewModel } from '../../viewmodels/useBrandViewModel';
-import { LoadingSpinner } from '../../components/common/CommonComponents';
+import { LoadingSpinner, EmptyState } from '../../components/common/CommonComponents';
 
 export const AdminAnalyticsView: React.FC = () => {
-  const { adminAnalytics, isLoading } = useBrandViewModel();
+  const { adminAnalytics, fetchErrors, loadFailed, isLoading, refresh } = useBrandViewModel();
 
-  if (isLoading || !adminAnalytics) {
+  if (isLoading || (!adminAnalytics && !loadFailed)) {
     return <LoadingSpinner text="Aggregating platform-wide telemetry & style heatmaps..." />;
+  }
+
+  if (!adminAnalytics) {
+    return (
+      <EmptyState
+        title="Platform telemetry unavailable"
+        description={fetchErrors.adminAnalytics || 'The admin analytics endpoint could not be reached. Retry when the service is back — no numbers are ever simulated here.'}
+        actionText="Retry"
+        onAction={refresh}
+      />
+    );
   }
 
   const hasData = adminAnalytics.total_orders > 0;

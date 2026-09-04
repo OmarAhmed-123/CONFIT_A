@@ -108,4 +108,54 @@ Not yet pushed/PR'd for this change. To do: branch `feature/vton-commercial-engi
 
 **`PARTIALLY_VERIFIED`**
 
-Real GPU + real images + real generated try-on + parser-free runtime are all **proven** (the crux of §39). It is **not** `VERIFIED_PRODUCTION_VTON` because the **deployed** Modal worker E2E, the durable object storage config, and multi-run latency reconciliation are not yet completed here — and it is **not** `BLOCKED_EXTERNAL_DEPENDENCY` anymore, because the GPU/inference/license blockers were genuinely resolved by executing Option A′. The remaining items are production-deployment concerns, not external dependencies that block proving the engine works.
+Real GPU + real images + real generated try-on + parser-free runtime are all **proven** (the crux of §39). It is **not** `VERIFIED_PRODUCTION_VTON` because the **authenticated** backend→worker E2E, the durable object storage config, ownership tests, frontend display of a deployed result, and multi-run (cold/warm/P50/P95) latency are still blocked on external credentials — and it is **not** `NOT_READY`, because the commercial worker is now genuinely deployed and its health/readiness/model-load are validated on a real A10 GPU.
+
+---
+
+## O. OPTION B UPDATE (2026-09-05) — REAL PRODUCTION DEPLOY + VALIDATION
+
+OPTION B was chosen for the final production closure: complete the commercial-engine migration, deploy the real worker, run GPU health/readiness/model-load validation, and honestly classify the credential-gated acceptance as `BLOCKED_EXTERNAL_DEPENDENCY`.
+
+### O.1 Commercial engine made canonical
+- `backend/app/core/config.py` — `VTON_ENGINE` default changed `"catvton"` → `"fashn_vton_segfee"`; `vton_engine_metadata()` fallback likewise. CatVTON is no longer the default and is not registered in the engine adapter registry.
+- `backend/tests/test_vton_engine_contract.py` — updated to pin the honest production default (`fashn_vton_segfee` commercial=True; `catvton` commercial=False, never "Apache").
+
+### O.2 Canonical commercial worker added
+- New `services/vton-worker/modal_app_segfee.py`: renders through the engine adapter (`engine.get_engine("fashn_vton_segfee")`), mounts the proven weights volume `confit-vton-fashn-weights` at `/weights`, enforces single-category (rejects multi-garment), faults loudly if the restricted `fashn_human_parser` is present at runtime, and reuses the CONFIT external contract (`X-VTON-Admin`, health/readiness, output validation, honest error taxonomy, `commercial=True`).
+- `services/vton-worker/modal_app.py` (CatVTON) marked `LEGACY / NON-PRODUCTION`. The deployment contract now points at `modal_app_segfee.py`.
+- New gate `backend/tests/test_vton_commercial_worker.py` (canonical-commercial-worker contract).
+- **Engine/worker/contract tests: 102 passed, 6 skipped** (local CPU, no weights/GPU).
+
+### O.3 Real Modal deployment (authorized GPU compute)
+`modal deploy services/vton-worker/modal_app_segfee.py` → **app `confit-vton-worker-segfee` deployed in 103.3s**; image built and endpoints registered; `CONFIT_GIT_SHA=5f541bb…` (the committed SHA). Weights were already on the `confit-vton-fashn-weights` volume (`model.safetensors`, `dwpose/yolox_l.onnx`, `dwpose/dw-ll_ucoco_384.onnx`).
+
+**Live `/health` (200):**
+```json
+{"status":"healthy","service":"vton-worker-segfee","engine":"fashn_vton_segfee",
+ "model":"fashn-vton-v1.5 (MMDiT 972M, segmentation-free; fork 7c0f10af)",
+ "model_loaded":true,"load_error":null,"device":"NVIDIA A10","cuda_available":true,
+ "gpu_memory":{"allocated_gb":1.82,"reserved_gb":3.83},
+ "git_sha":"5f541bb33ab1117781cc33f0c289df54298cf034",
+ "parser_present":false,"commercial":true,"ready":true}
+```
+**Live `/readiness` (200):** `{"ready":true,"engine":"fashn_vton_segfee","model_loaded":true}`
+
+Audit confirms the production image is **segmentation-free and parser-free**: `parser_present=false`, `commercial=true`, `engine=fashn_vton_segfee`, model loaded on a real **NVIDIA A10** GPU with 1.82GB allocated / 3.83GB reserved (MMDiT 972M weights resident in VRAM).
+
+**Auth is enforced, not bypassed:** POST `/process` with **no** `X-VTON-Admin` → `401 UNAUTHORIZED`; with a **wrong** token → `401 UNAUTHORIZED`. The worker never disables auth.
+
+### O.4 Remaining acceptance = BLOCKED_EXTERNAL_DEPENDENCY (not falsified)
+These cannot be completed or verified without credentials that are write-only/absent, and are **not** bypassed, guessed, hardcoded, or treated as local-as-durable:
+1. **Authenticated backend→worker E2E via `TryOnService`** — requires the real `X-VTON-Admin` value (Modal secret `confit-worker-admin-token` is **write-only**, no `secret get`); also needs `VTON_WORKER_URL`/`VTON_WORKER_ADMIN_TOKEN` configured. Proven gated: worker returns 401 for missing/wrong token.
+2. **Durable object storage config** — `STORAGE_PROVIDER`, `S3_BUCKET`, `S3_ENDPOINT_URL`, `AWS_*`/`R2_*` all unset. No S3/R2 credentials supplied. Local filesystem is **not** treated as durable.
+3. **Ownership tests (User A authorized / User B forbidden)** over a durable store — depends on #2.
+4. **Frontend rendering of the deployed result** — depends on the authenticated E2E (a real `rendered_image_data_url` from the deployed worker).
+5. **Cold/warm + P50/P95 latency of the deployed worker** — requires real authenticated `/process` runs; the proven A10 timing (`infer_s=17.997`, `load_s=9.6`) is from the isolated engine proof, **not** the deployed-worker `TryOnService` path.
+
+No fake PASS, no fabricated latency, no bypass. These are reported as genuine external dependencies.
+
+### O.5 Classification
+- **Verified/proven now:** commercial engine canonical; real Modal deploy; `/health` + `/readiness` + model-load validated on A10; parser-free & CatVTON-free production image; auth enforced; engine/worker/contract CPU gates green.
+- **BLOCKED_EXTERNAL_DEPENDENCY:** authenticated backend→worker E2E, durable S3/R2 persistence, ownership, frontend display of a deployed result, deployed-worker P50/P95.
+
+**Overall: `PARTIALLY_VERIFIED`** — the commercial production worker is deployed and validated, but the credential-gated end-to-end acceptance chain cannot be executed in this environment and is honestly reported (not fabricated) as blocked.

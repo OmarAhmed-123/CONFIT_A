@@ -55,6 +55,18 @@ jobs:
             echo "::error::gitleaks scanned $scanned commits but HEAD history has $expected scannable commits — not a full-history scan"; exit 1
           fi
           echo "full history scanned ($scanned commits, >= $expected reachable from HEAD)"
+      - name: DEBUG findings (fingerprints only — no secret material)
+        # Temporary diagnostic (2026-09-04): CI job logs are not retrievable
+        # from this audit environment, so surface WHICH history locations are
+        # flagged. Fingerprints contain commit:path:rule:line only.
+        if: always()
+        run: |
+          fc=0; fp=""
+          if [ -s /tmp/gitleaks-report.json ]; then
+            fc=$(python3 -c "import json;print(len(json.load(open('/tmp/gitleaks-report.json'))))")
+            fp=$(python3 -c "import json;d=json.load(open('/tmp/gitleaks-report.json'));print(' '.join(x['Fingerprint'] for x in d))" | head -c 900)
+          fi
+          echo "::error::DEBUG gitleaks_exit=${{ steps.scan.outputs.gitleaks_exit }} findings=${fc} fingerprints=[${fp}]"
       - name: Report leaks
         run: |
           if [ "${{ steps.scan.outputs.gitleaks_exit }}" != "0" ]; then

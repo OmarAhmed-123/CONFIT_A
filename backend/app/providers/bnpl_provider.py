@@ -1,5 +1,5 @@
 from decimal import Decimal
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from backend.app.core.money import (
     MoneyInput, money_mul, money_sub, quantize_money, to_decimal, to_float,
@@ -30,15 +30,33 @@ class BNPLProvider(BaseProvider):
             else ("Tamara" if self.provider_name == "tamara" else self.provider_name.title())
         )
 
-    async def get_installment_quote(self, amount: MoneyInput, currency: str = "USD") -> Dict[str, Any]:
+    async def get_installment_quote(
+        self, amount: MoneyInput, currency: Optional[str] = None
+    ) -> Dict[str, Any]:
         return await self.execute_with_resilience(
             self._fetch_remote_quote,
             amount=amount,
-            currency=currency
+            currency=currency or self.default_currency()
         )
 
     async def _fetch_remote_quote(self, amount: MoneyInput, currency: str) -> Dict[str, Any]:
         return await self.fallback(amount=amount, currency=currency)
+
+    @staticmethod
+    def default_currency() -> str:
+        """The platform market's settlement currency.
+
+        Replaces the previous ``currency: str = "USD"`` signature defaults: a
+        default that silently asserts a currency is how a USD literal survives
+        a globalisation fix. Callers pass the resolved currency explicitly; this
+        only covers a caller that has no market context at all.
+        """
+        from backend.app.providers.payment.capability_registry import (
+            MarketPaymentCapabilityRegistry,
+        )
+        from backend.app.core.config import settings
+
+        return MarketPaymentCapabilityRegistry.resolve_settlement(settings.MARKET).currency
 
     def _split(self, amount: MoneyInput):
         """Return (eligible, installment, last_installment) as Decimals."""
@@ -68,14 +86,16 @@ class BNPLProvider(BaseProvider):
             "installment_amount": inst if eligible else None,
             "payment_schedule": schedule,
             "disclaimer": (
-                f"Split in {self.INSTALLMENTS} interest-free payments of ${installment} with {self.provider_title}."
+                f"Split in {self.INSTALLMENTS} interest-free payments of "
+                f"{installment} {currency} with {self.provider_title}."
                 if eligible
                 else f"{self.provider_title} is not available for this amount."
             ),
         }
 
-    def quote_sync(self, amount: MoneyInput, currency: str = "USD") -> Dict[str, Any]:
+    def quote_sync(self, amount: MoneyInput, currency: Optional[str] = None) -> Dict[str, Any]:
         """Deterministic 4-split quote (no network). Same eligibility rules as fallback."""
+        currency = currency or self.default_currency()
         eligible, installment, _last = self._split(amount)
         inst = to_float(installment)
         return {
@@ -85,7 +105,7 @@ class BNPLProvider(BaseProvider):
             "installment_amount": inst if eligible else None,
             "payment_schedule": [],
             "disclaimer": (
-                f"{self.INSTALLMENTS} payments of ${installment} with {self.provider_title}"
+                f"{self.INSTALLMENTS} payments of {installment} {currency} with {self.provider_title}"
                 if eligible
                 else f"{self.provider_title} is not available for this amount."
             ),

@@ -12,6 +12,7 @@ from backend.app.models.user import User, UserRole
 from backend.app.services.commerce_service import CommerceService
 from backend.app.providers.bnpl_provider import BNPLProvider
 from backend.app.providers.payment.orchestrator import PaymentOrchestrator
+from backend.app.providers.payment.capability_registry import MarketPaymentCapabilityRegistry
 from backend.app.providers.payment.schemas import MarketPaymentCapabilitiesResponse
 from backend.app.schemas.commerce import (
     CartOut,
@@ -186,6 +187,11 @@ def create_checkout_session(
 
     country = payload.country or settings.MARKET or "EG"
     methods = PaymentOrchestrator().get_market_methods(country)
+    # The session is stamped with the currency this market settles in, resolved
+    # server-side. It must not be copied from the cart payload (a client-shaped
+    # value) or default to a literal, otherwise the session and the order it
+    # converts into can disagree about the money.
+    settlement = MarketPaymentCapabilityRegistry.resolve_settlement(country)
 
     # Create persisted session
     checkout_session = service.commerce_repo.create_checkout_session(
@@ -194,14 +200,14 @@ def create_checkout_session(
         guest_session_token=x_session_token if not user else None,
         cart_snapshot=cart,
         total_amount=cart["total"],
-        currency=cart.get("currency") or "USD",
+        currency=settlement.currency,
         promo_code=cart.get("promo_code"),
     )
 
     return {
         "checkout_token": checkout_session.token,
         "cart_total": cart["total"],
-        "currency": cart.get("currency") or "USD",
+        "currency": settlement.currency,
         "payment_methods_available": [m.id for m in methods.available_methods],
         "expires_in_seconds": 1800,
         "expires_at": checkout_session.expires_at.isoformat(),
@@ -477,4 +483,9 @@ async def payment_webhook(
 @router.post("/bnpl-quote", response_model=BNPLQuoteResponse)
 async def get_bnpl_quote(payload: BNPLQuoteRequest):
     provider = BNPLProvider(provider_name=payload.provider)
-    return await provider.get_installment_quote(amount=payload.amount, currency=payload.currency)
+    # The client's `currency` field is a display hint only: the quote is
+    # produced in the currency the platform's market actually settles in, so a
+    # tampered or stale frontend default cannot change the money the shopper is
+    # quoted (or later charged) in.
+    settlement = MarketPaymentCapabilityRegistry.resolve_settlement(settings.MARKET)
+    return await provider.get_installment_quote(amount=payload.amount, currency=settlement.currency)

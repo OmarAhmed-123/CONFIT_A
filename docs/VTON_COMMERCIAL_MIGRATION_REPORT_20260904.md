@@ -129,13 +129,15 @@ OPTION B was chosen for the final production closure: complete the commercial-en
 ### O.3 Real Modal deployment (authorized GPU compute)
 `modal deploy services/vton-worker/modal_app_segfee.py` → **app `confit-vton-worker-segfee` deployed in 103.3s**; image built and endpoints registered; `CONFIT_GIT_SHA=5f541bb…` (the committed SHA). Weights were already on the `confit-vton-fashn-weights` volume (`model.safetensors`, `dwpose/yolox_l.onnx`, `dwpose/dw-ll_ucoco_384.onnx`).
 
-**Live `/health` (200):**
+The worker was redeployed from the merged `main` HEAD (`CONFIT_GIT_SHA=2d9ba36`), so the deployed image == the merged commit exactly.
+
+**Live `/health` (200, after redeploy from main `2d9ba36`):**
 ```json
 {"status":"healthy","service":"vton-worker-segfee","engine":"fashn_vton_segfee",
  "model":"fashn-vton-v1.5 (MMDiT 972M, segmentation-free; fork 7c0f10af)",
  "model_loaded":true,"load_error":null,"device":"NVIDIA A10","cuda_available":true,
  "gpu_memory":{"allocated_gb":1.82,"reserved_gb":3.83},
- "git_sha":"5f541bb33ab1117781cc33f0c289df54298cf034",
+ "git_sha":"2d9ba366365a1e9a310dc3eedef9de685ddc6edd",
  "parser_present":false,"commercial":true,"ready":true}
 ```
 **Live `/readiness` (200):** `{"ready":true,"engine":"fashn_vton_segfee","model_loaded":true}`
@@ -159,3 +161,8 @@ No fake PASS, no fabricated latency, no bypass. These are reported as genuine ex
 - **BLOCKED_EXTERNAL_DEPENDENCY:** authenticated backend→worker E2E, durable S3/R2 persistence, ownership, frontend display of a deployed result, deployed-worker P50/P95.
 
 **Overall: `PARTIALLY_VERIFIED`** — the commercial production worker is deployed and validated, but the credential-gated end-to-end acceptance chain cannot be executed in this environment and is honestly reported (not fabricated) as blocked.
+
+### O.6 Merge + CI
+- Branch `feature/vton-production-e2e` pushed; PR **#45** opened against `main`.
+- CI on PR #45: **all green** — `backend`, `frontend`, `postgres migration chain + schema gate`, `production parity (deployment contract)`, `gitleaks`, `Vercel`, `CodeRabbit`. Local CPU regression: **171 passed, 6 skipped** (VTON engine/worker/production-integrity/deployment-manifest/contract-diagnostic); runtime-imports scanner vercel+docker **OK**.
+- PR #45 **merged** (squash) → `main` = **`2d9ba36`**. Deployed `confit-vton-worker-segfee` reports `git_sha=2d9ba36`, matching the merged HEAD.

@@ -1,5 +1,15 @@
 # ==============================================================================
-# CONFIT VTON GPU WORKER - Modal serverless deployment of the official CatVTON
+# CONFIT VTON GPU WORKER - LEGACY / NON-PRODUCTION ARTIFACT.
+#
+# >>> NOT the production default. The canonical production worker is the
+# >>> COMMERCIAL segmentation-free engine:
+# >>>     services/vton-worker/modal_app_segfee.py   (fashn_vton_segfee)
+# >>> `VTON_ENGINE` defaults to `fashn_vton_segfee` and the engine registry does
+# >>> NOT register `catvton`, so nothing deploys or front-ends this CatVTON path.
+# >>> It is retained only as a historical reference for the forensic gates that
+# >>> pin the (now-obsolete) CatVTON mask/rembg contract. Do NOT deploy it.
+#
+# Legacy: Modal serverless deployment of the official CatVTON
 # diffusion pipeline (Zheng-Chong/CatVTON, ICLR 2025).
 #
 # Production Hardened: 2026-09-02

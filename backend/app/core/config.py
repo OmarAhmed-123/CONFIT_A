@@ -108,7 +108,7 @@ def vton_engine_metadata() -> dict:
     otherwise the registry entry plus the resolved engine name. Never returns
     the worker auth token.
     """
-    engine = (getattr(settings, "VTON_ENGINE", None) or "catvton").strip().lower()
+    engine = (getattr(settings, "VTON_ENGINE", None) or "fashn_vton_segfee").strip().lower()
     entry = VTON_ENGINE_LICENSES.get(engine)
     if entry is None or engine not in SUPPORTED_VTON_ENGINES:
         return {
@@ -227,7 +227,9 @@ class Settings(BaseSettings):
     # Only engines in SUPPORTED_VTON_ENGINES are accepted. Wired to the worker
     # via the VTONJobRequest -> rendered_image_data_url contract, so swapping the
     # engine is a config change, not a re-platform of CONFIT_A.
-    VTON_ENGINE: str = "catvton"
+    # Production default is the COMMERCIAL segmentation-free FASHN fork; the
+    # non-commercial CatVTON engine is never the production default.
+    VTON_ENGINE: str = "fashn_vton_segfee"
     # GPU worker (Modal). VTON_WORKER_URL is the /process endpoint. Modal
     # generates one hostname per web endpoint and hash-truncates long labels,
     # so health/readiness cannot always be derived — set them explicitly.

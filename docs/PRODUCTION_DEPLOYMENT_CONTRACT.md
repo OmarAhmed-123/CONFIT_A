@@ -89,10 +89,14 @@ nobody believes setting them changes behaviour): `PROJECT_NAME`, `PORT`,
    serve data routes** (schema gate) instead of returning 500s or fake data.
 3. Vercel builds `main` automatically; verify `GET /api/v1/health` →
    `checks.schema.verdict == "ok"`, `checks.storage`, and the git SHA.
-4. Deploy the GPU worker **from the same commit**:
-   `cd services/vton-worker && modal deploy modal_app.py`; verify
+4. Deploy the COMMERCIAL GPU worker **from the same commit**:
+   `cd services/vton-worker && modal deploy modal_app_segfee.py`; verify
    `GET <health URL>` → `git_sha` equals the deployed backend commit,
-   `model_loaded=true`, `segmentation_model` set, `cuda_available=true`.
+   `model_loaded=true`, `engine == "fashn_vton_segfee"`, `commercial=true`,
+   `parser_present=false` (the non-commercial human-parser is provably absent),
+   `cuda_available=true`. The canonical production engine is the
+   segmentation-free FASHN fork; the legacy CatVTON `modal_app.py` is a
+   non-production artifact and must NOT be deployed.
 5. As an admin: `GET /api/v1/health/vton-contract` → `contract == "consistent"`
    (a `token_mismatch` verdict means the Vercel token ≠ Modal secret; the
    endpoint never reveals either value).

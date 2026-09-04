@@ -8,7 +8,9 @@ The VTON commercial-migration investigation established that:
 * engine selection must be server-decided and validated (no uncontrolled /
   frontend-selected model);
 * the resolved engine + its (honest) license must be surfaced so a
-  non-commercial engine is never silently presented as commercially deployable.
+  non-commercial engine is never silently presented as commercially deployable;
+* the production default engine is the COMMERCIAL `fashn_vton_segfee` fork, never
+  the non-commercial CatVTON.
 
 These tests pin that contract so the defects cannot return.
 """
@@ -24,15 +26,29 @@ from backend.app.core.config import (
 from backend.app.models.tryon import TryOnJob
 
 
-def test_vton_engine_registry_never_labels_catvton_commercial():
-    """The false 'Apache 2.0' claim must not come back for the deployed engine."""
+def test_production_default_engine_is_commercial_segfee():
+    """The production default must resolve to the commercial engine, not CatVTON."""
     meta = vton_engine_metadata()
-    assert meta["engine"] == "catvton"
+    assert meta["engine"] == "fashn_vton_segfee"
     assert meta["valid"] is True
-    # CatVTON is CC BY-NC-SA 4.0 — commercial must be False, not 'True'/'Apache'.
-    assert meta["commercial"] is False
-    assert "Apache 2.0" not in meta["license"]
-    assert "CC BY-NC-SA" in meta["license"]
+    assert meta["commercial"] is True
+
+
+def test_catvton_never_labeled_commercial():
+    """The false 'Apache 2.0' claim must not come back for the non-commercial engine."""
+    entry = VTON_ENGINE_LICENSES["catvton"]
+    assert entry["commercial"] is False
+    assert "CC BY-NC-SA" in entry["license"]
+
+
+def test_setting_default_is_commercial_engine():
+    assert Settings().VTON_ENGINE == "fashn_vton_segfee"
+
+
+def test_fashn_segfee_is_commercial_and_known():
+    entry = VTON_ENGINE_LICENSES["fashn_vton_segfee"]
+    assert "fashn_vton_segfee" in SUPPORTED_VTON_ENGINES
+    assert entry["commercial"] is True
 
 
 def test_model_used_default_no_longer_claims_apache():
@@ -55,6 +71,7 @@ def test_unknown_engine_rejected_at_startup():
     [
         ("catvton", False),
         ("fashn_vton_1_5", False),
+        ("fashn_vton_segfee", True),
         ("leffa", "unverified"),
     ],
 )
@@ -63,15 +80,15 @@ def test_supported_engines_are_known_and_their_license_honest(engine, commercial
     entry = VTON_ENGINE_LICENSES[engine]
     assert entry["commercial"] == commercial
     # A supported engine maps back to a valid metadata resolution.
-    assert engine in {"catvton", "fashn_vton_1_5", "leffa"}
+    assert engine in {"catvton", "fashn_vton_1_5", "fashn_vton_segfee", "leffa"}
 
 
-def test_health_reports_resolved_vton_engine_license(client):
+def test_health_reports_resolved_commercial_engine_license(client):
     """Operators must see the engine + its license, not just 'operational'."""
     data = client.get("/api/v1/health").json()
     checks = data["checks"]
     assert "vton_engine" in checks
     engine = checks["vton_engine"]
-    assert engine["engine"] == "catvton"
+    assert engine["engine"] == "fashn_vton_segfee"
     assert engine["valid"] is True
-    assert "commercial" in engine
+    assert engine["commercial"] is True

@@ -12,6 +12,7 @@ import {
   HeartIcon,
 } from '../../components/icons/ConfitIcons';
 import { FitScoreBadge, BNPLBadge, LoadingSpinner, EmptyState } from '../../components/common/CommonComponents';
+import { CardStackShowcase } from '../../components/showcase/DesignShowcases';
 
 export const ProductDetailView: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -97,6 +98,13 @@ export const ProductDetailView: React.FC = () => {
 
   return (
     <div className="space-y-12 pb-24 max-w-6xl mx-auto">
+      <CardStackShowcase
+        tone="consumer"
+        compact
+        eyebrow="Complete The Look Stack"
+        title="Style this garment inside a full outfit story"
+        description="Product detail pages use the animated stack to connect a single item to realistic complementary directions."
+      />
       <nav className="text-xs text-slate-400 flex items-center gap-2 font-light">
         <Link to="/discover" className="hover:text-[#1B1F3B] transition-colors">
           Catalog

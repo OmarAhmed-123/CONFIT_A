@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
+import { CardStackShowcase } from '../../components/showcase/DesignShowcases';
 import { useTranslation } from 'react-i18next';
 import { commerceService } from '../../services/apiServices';
 import { Order, OrderTrackingTimeline } from '../../models';
@@ -79,6 +80,13 @@ export const OrderTrackingView: React.FC = () => {
 
   return (
     <div className="space-y-8 pb-20 max-w-4xl mx-auto">
+      <CardStackShowcase
+        tone="commerce"
+        compact
+        eyebrow="Fulfillment Story Stack"
+        title="Track every step with premium visual clarity"
+        description="The order experience uses the card stack to make pickup, courier, returns, and status checkpoints feel transparent."
+      />
       <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <span className="text-xs font-bold text-[#B8935A] uppercase tracking-wider">

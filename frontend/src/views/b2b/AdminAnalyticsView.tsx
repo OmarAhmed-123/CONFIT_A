@@ -1,6 +1,7 @@
 import React from 'react';
 import { useBrandViewModel } from '../../viewmodels/useBrandViewModel';
 import { LoadingSpinner, EmptyState } from '../../components/common/CommonComponents';
+import { CardStackShowcase } from '../../components/showcase/DesignShowcases';
 
 export const AdminAnalyticsView: React.FC = () => {
   const { adminAnalytics, fetchErrors, loadFailed, isLoading, refresh } = useBrandViewModel();
@@ -24,6 +25,13 @@ export const AdminAnalyticsView: React.FC = () => {
 
   return (
     <div className="space-y-8 pb-20">
+      <CardStackShowcase
+        tone="analytics"
+        compact
+        eyebrow="Platform Governance Stack"
+        title="Audit-ready design system across admin operations"
+        description="The admin surface reuses the components as a governance overview for attribution, catalog quality, and operational control."
+      />
       <div className="border-b border-slate-200 pb-4">
         <h1 className="font-serif text-3xl font-bold text-[#1B1F3B]">
           Platform Administration & Revenue Attribution - Real Data

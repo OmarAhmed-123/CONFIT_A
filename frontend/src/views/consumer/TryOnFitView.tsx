@@ -5,6 +5,7 @@ import { useUIStore } from '../../stores/uiStore';
 import { TryOnIcon, RulerIcon, VisualSearchIcon, SparkleIcon } from '../../components/icons/ConfitIcons';
 import { FitScoreBadge } from '../../components/common/CommonComponents';
 import { CameraScanModal } from '../../components/tryon/CameraScanModal';
+import { CircularGalleryShowcase } from '../../components/showcase/DesignShowcases';
 
 export const TryOnFitView: React.FC = () => {
   const { t } = useTranslation();
@@ -16,6 +17,13 @@ export const TryOnFitView: React.FC = () => {
 
   return (
     <div className="space-y-10 pb-20">
+      <CircularGalleryShowcase
+        tone="tryon"
+        compact
+        eyebrow="Fit Preview Gallery"
+        title="Rotate through try-on-ready styling contexts"
+        description="The 3D gallery gives the fit studio a visual bridge between inspiration, garment selection, visual search, and no-photo measurements."
+      />
       {/* Header */}
       <div className="bg-gradient-to-r from-[#1B1F3B] to-[#2A3C78] rounded-3xl text-white p-8 sm:p-12 shadow-xl border border-slate-800">
         <div className="max-w-2xl space-y-3">

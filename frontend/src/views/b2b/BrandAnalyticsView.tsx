@@ -1,6 +1,7 @@
 import React from 'react';
 import { useBrandViewModel } from '../../viewmodels/useBrandViewModel';
 import { LoadingSpinner, EmptyState } from '../../components/common/CommonComponents';
+import { CardStackShowcase, CircularGalleryShowcase } from '../../components/showcase/DesignShowcases';
 
 export const BrandAnalyticsView: React.FC = () => {
   const { analytics, conversionPerSku, fetchErrors, loadFailed, isLoading, refresh } = useBrandViewModel();
@@ -32,6 +33,21 @@ export const BrandAnalyticsView: React.FC = () => {
 
   return (
     <div className="space-y-8 pb-20">
+      <CardStackShowcase
+        tone="analytics"
+        compact
+        eyebrow="Insight Stack"
+        title="Connect styling engagement to revenue signals"
+        description="Analytics uses the stack to explain the path from discovery, try-on, placement, and conversion."
+      />
+
+      <CircularGalleryShowcase
+        tone="analytics"
+        compact
+        eyebrow="Performance Gallery"
+        title="A rotating view of merchandising performance stories"
+        description="The circular gallery becomes an executive summary layer for high-impact collection stories."
+      />
       <div className="border-b border-slate-200 pb-4">
         <h1 className="font-serif text-3xl font-bold text-[#1B1F3B]">
           Conversion Funnel & Return Telemetry

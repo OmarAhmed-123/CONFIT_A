@@ -1,6 +1,7 @@
 import React from 'react';
 import { useBrandViewModel } from '../../viewmodels/useBrandViewModel';
 import { LoadingSpinner, EmptyState } from '../../components/common/CommonComponents';
+import { CardStackShowcase } from '../../components/showcase/DesignShowcases';
 
 export const BrandDashboardView: React.FC = () => {
   const { profile, analytics, products, fetchErrors, loadFailed, isLoading, refresh } = useBrandViewModel();
@@ -24,6 +25,13 @@ export const BrandDashboardView: React.FC = () => {
 
   return (
     <div className="space-y-8 pb-20">
+      <CardStackShowcase
+        tone="brand"
+        compact
+        eyebrow="Partner Command Stack"
+        title="A visual operating layer for brand teams"
+        description="Partner dashboards now preview catalog, inventory, placement, and analytics workflows through the same production-ready UI language."
+      />
       {/* Brand Hero Banner */}
       <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 text-white flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>

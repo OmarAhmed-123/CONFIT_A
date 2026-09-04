@@ -114,7 +114,17 @@ class Settings(BaseSettings):
     # Live Server-Side AI API Keys (Loaded from .env/Environment)
     GEMINI_API_KEY: Optional[str] = None
     OPENAI_API_KEY: Optional[str] = None
+    # The provider called here is api.groq.com (Groq), not xAI's Grok. Both
+    # spellings are accepted because the repository contradicted itself:
+    # .env.example, backend/.env.example, README and this class said
+    # GROK_API_KEY, while docs/PRODUCTION_DEPLOYMENT_CONTRACT.md and
+    # docs/PRODUCTION_DEPENDENCIES.md both instruct operators to set
+    # GROQ_API_KEY. An operator who followed the deployment contract therefore
+    # silently disabled the one AI provider verified working end to end, and
+    # every stylist request fell through to the deterministic engine while
+    # looking healthy. Use the `groq_api_key` property, not either field.
     GROK_API_KEY: Optional[str] = None
+    GROQ_API_KEY: Optional[str] = None
     KLING_API_KEY: Optional[str] = None
     # Gemini model ids — verified live (2026-08): 'gemini-flash-latest' serves
     # text but 503s under vision load; the lite alias answers vision calls
@@ -129,6 +139,17 @@ class Settings(BaseSettings):
 
     # AI Failover Configuration
     AI_PROVIDERS: str = "nvidia,groq,gemini,openai"
+    # Per-provider HTTP budget. Measured live 2026-09-04: Groq 0.48-0.56s,
+    # OpenAI 1.46s, gemini-3.8-flash 2.9s when it answers and >4s when it 503s.
+    # One shared 4.0s literal was generous for Groq and marginal for a thinking
+    # model, so Gemini gets its own budget.
+    AI_PROVIDER_TIMEOUT_SECONDS: float = 4.0
+    GEMINI_TIMEOUT_SECONDS: float = 10.0
+    # Completion budget for the OpenAI-compatible providers. A reasoning model
+    # (openai/gpt-oss-120b) writes `message.reasoning` first and it counts
+    # against the SAME budget, so the previous 300 regularly produced
+    # finish_reason="length" with empty content.
+    AI_MAX_TOKENS: int = 900
     AI_STYLIST_PROVIDER: str = "hybrid"
     VTON_PROVIDER: str = "hybrid"
     # GPU worker (Modal). VTON_WORKER_URL is the /process endpoint. Modal
@@ -239,6 +260,20 @@ class Settings(BaseSettings):
             if origin not in origins:
                 origins.append(origin)
         return origins
+
+    @property
+    def groq_api_key(self) -> Optional[str]:
+        """The Groq key under whichever spelling the operator used.
+
+        GROQ_API_KEY (correct vendor name, and what the production deployment
+        contract documents) wins; GROK_API_KEY is kept as a backwards-compatible
+        alias so existing deployments keep working. Empty strings from a
+        partially-filled .env are treated as unset.
+        """
+        for value in (self.GROQ_API_KEY, self.GROK_API_KEY):
+            if value and value.strip():
+                return value.strip()
+        return None
 
     @property
     def is_production(self) -> bool:

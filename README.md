@@ -92,7 +92,7 @@ secrets are read from the environment only — **never commit real keys**
 |---|---|---|
 | `DATABASE_URL` | prod | Postgres DSN (Neon). Absent → local SQLite file. |
 | `SECRET_KEY`, `JWT_REFRESH_SECRET`, `ENCRYPTION_KEY_FOR_BODY_DATA` | prod | Refuse-to-boot in production while left at defaults. |
-| `GROK_API_KEY` / `GEMINI_API_KEY` / `OPENAI_API_KEY` | optional | Live AI stylist providers (failover order in `AI_PROVIDERS`). |
+| `GROQ_API_KEY` (aliased `GROK_API_KEY`) / `GEMINI_API_KEY` / `OPENAI_API_KEY` | optional | Live AI stylist providers (failover order in `AI_PROVIDERS`). `GROQ_API_KEY` authenticates to **Groq** (`api.groq.com`); the old name is a deprecated alias, not xAI/Grok. |
 | `VTON_WORKER_URL` | for real try-on | Deployed Modal worker URL. |
 | `PAYMENTS_LIVE` | no (default false) | When false, card/BNPL use the labelled demo adapter. When true, missing PSP secrets fail the charge — they never fabricate success. |
 | `TABBY_API_KEY` / `TAMARA_API_KEY` / `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` | live payments only | Server-side PSP credentials. Webhooks are rejected if the provider secret is unset. |

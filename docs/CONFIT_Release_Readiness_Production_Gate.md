@@ -33,7 +33,7 @@
 ## 2. Production Environment & Configuration Hardening
 
 ### 2.1 Secrets Management & Isolation
-- **100% Server-Side Custody:** All API keys (`OPENAI_API_KEY`, `NVIDIA_API_KEY`, `GROK_API_KEY`, `GEMINI_API_KEY`, `KLING_API_KEY`) and encryption keys are loaded exclusively into backend Python and Celery worker environments.
+- **100% Server-Side Custody:** All API keys (`OPENAI_API_KEY`, `NVIDIA_API_KEY`, `GROQ_API_KEY` (deprecated alias `GROK_API_KEY`), `GEMINI_API_KEY`, `KLING_API_KEY`) and encryption keys are loaded exclusively into backend Python and Celery worker environments.
 - **Client Bundle Sanitization:** React Vite bundle contains zero provider credentials or database connection strings.
 
 ### 2.2 Security & Cryptography

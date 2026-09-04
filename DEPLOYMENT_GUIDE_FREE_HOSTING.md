@@ -89,7 +89,7 @@
    * `AI_PROVIDERS` = `gemini,nvidia,openai,grok`
    * `GEMINI_API_KEY` = `YOUR_GEMINI_API_KEY`
    * `OPENAI_API_KEY` = `YOUR_OPENAI_API_KEY`
-   * `GROK_API_KEY` = `YOUR_GROK_API_KEY`
+   * `GROQ_API_KEY` = `YOUR_GROQ_API_KEY`  # authenticates to Groq (api.groq.com); GROK_API_KEY is a deprecated alias
    * `NVIDIA_API_KEY` = `YOUR_NVIDIA_API_KEY`
    * `KLING_API_KEY` = `YOUR_KLING_API_KEY`
 

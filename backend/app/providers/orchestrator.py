@@ -45,7 +45,7 @@ class MultiProviderAIOrchestrator:
                 "cooling_for_seconds": max(0, round(self.cooldowns["openai"] - now, 1)) if "openai" in self.cooldowns else 0,
             },
             "groq": {
-                "configured": bool(settings.GROK_API_KEY),
+                "configured": bool(settings.groq_api_key),
                 "cooling_for_seconds": max(0, round(self.cooldowns["groq"] - now, 1)) if "groq" in self.cooldowns else 0,
             },
             "gemini": {
@@ -126,7 +126,7 @@ class MultiProviderAIOrchestrator:
                         text, model_id = res
                         return self._format_response(text, prompt, intent, f"NVIDIA {model_id}", selected_outfit)
 
-                elif provider in ["groq", "grok"] and settings.GROK_API_KEY:
+                elif provider in ["groq", "grok"] and settings.groq_api_key:
                     res = await self._call_groq(system_prompt, user_prompt)
                     if res:
                         text, model_id = res
@@ -204,7 +204,7 @@ class MultiProviderAIOrchestrator:
             res = await client.post(
                 "https://api.groq.com/openai/v1/chat/completions",
                 headers={
-                    "Authorization": f"Bearer {settings.GROK_API_KEY}",
+                    "Authorization": f"Bearer {settings.groq_api_key}",
                     "Content-Type": "application/json"
                 },
                 json={

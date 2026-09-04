@@ -112,9 +112,10 @@ class Settings(BaseSettings):
     ]
 
     # Live Server-Side AI API Keys (Loaded from .env/Environment)
+    # Groq credential (api.groq.com) is declared below with its deprecated
+    # GROK_API_KEY alias; the canonical/or alias resolution lives on the model.
     GEMINI_API_KEY: Optional[str] = None
     OPENAI_API_KEY: Optional[str] = None
-    GROK_API_KEY: Optional[str] = None
     KLING_API_KEY: Optional[str] = None
     # Gemini model ids — verified live (2026-08): 'gemini-flash-latest' serves
     # text but 503s under vision load; the lite alias answers vision calls
@@ -122,6 +123,12 @@ class Settings(BaseSettings):
     # closed to new keys; the 3.1 lite preview 503s — neither is a default.
     GEMINI_TEXT_MODEL: str = "gemini-flash-latest"
     VISION_MODEL: str = "gemini-flash-lite-latest"
+
+    # Groq (not xAI/"Grok"). Truthful naming: this key authenticates against
+    # api.groq.com. GROQ_API_KEY is the canonical name; GROK_API_KEY remains as a
+    # backward-compatible alias for deployments that set the old (misleading) name.
+    GROQ_API_KEY: Optional[str] = None
+    GROK_API_KEY: Optional[str] = None  # deprecated alias
 
     # NVIDIA Build Master & Slot Keys
     NVIDIA_API_KEY: Optional[str] = None
@@ -249,6 +256,16 @@ class Settings(BaseSettings):
     @property
     def is_production(self) -> bool:
         return self.ENVIRONMENT.lower() in PRODUCTION_ENVIRONMENTS
+
+    @property
+    def groq_api_key(self) -> Optional[str]:
+        """The key used to authenticate to Groq (api.groq.com).
+
+        Canonical name is GROQ_API_KEY. GROK_API_KEY is a deprecated, misleading
+        alias kept only for backward compatibility with deployments that set the
+        old name — it is never reported as 'Grok/xAI' (it authenticates to Groq).
+        """
+        return self.GROQ_API_KEY or self.GROK_API_KEY
 
     @model_validator(mode="after")
     def _production_contract(self) -> "Settings":

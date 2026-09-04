@@ -16,6 +16,91 @@ import { useUIStore } from '../../stores/uiStore';
 import { useCatalogViewModel } from '../../viewmodels/useCatalogViewModel';
 import { FitScoreBadge, BNPLBadge, SkeletonCard } from '../../components/common/CommonComponents';
 import { useCartStore } from '../../stores/cartStore';
+import { CircularGallery, type GalleryItem } from '../../components/ui/circular-gallery';
+
+
+const editorialGalleryData: GalleryItem[] = [
+  {
+    common: 'Tailored power suit',
+    binomial: 'Executive wool tailoring',
+    photo: {
+      url: 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=900&auto=format&fit=crop&q=80',
+      text: 'person wearing a tailored suit in an editorial setting',
+      pos: '50% 35%',
+      by: 'Unsplash',
+    },
+  },
+  {
+    common: 'Champagne evening gown',
+    binomial: 'Occasion-ready silk styling',
+    photo: {
+      url: 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=900&auto=format&fit=crop&q=80',
+      text: 'champagne evening dress on a model',
+      pos: '50% 30%',
+      by: 'Tamara Bellis',
+    },
+  },
+  {
+    common: 'Minimal capsule layers',
+    binomial: 'Modern essentials wardrobe',
+    photo: {
+      url: 'https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=900&auto=format&fit=crop&q=80',
+      text: 'minimal wardrobe layers on a model',
+      pos: '50% 40%',
+      by: 'Hunters Race',
+    },
+  },
+  {
+    common: 'Streetwear utility edit',
+    binomial: 'Casual smart outfit formula',
+    photo: {
+      url: 'https://images.unsplash.com/photo-1529139574466-a303027c1d8b?w=900&auto=format&fit=crop&q=80',
+      text: 'fashion model wearing casual streetwear',
+      pos: '50% 28%',
+      by: 'Apostolos Vamvouras',
+    },
+  },
+  {
+    common: 'Runway black statement',
+    binomial: 'Premium monochrome look',
+    photo: {
+      url: 'https://images.unsplash.com/photo-1509631179647-0177331693ae?w=900&auto=format&fit=crop&q=80',
+      text: 'woman in black fashion outfit posing outdoors',
+      pos: '50% 20%',
+      by: 'Laura Chouette',
+    },
+  },
+  {
+    common: 'Soft neutral tailoring',
+    binomial: 'Quiet luxury daywear',
+    photo: {
+      url: 'https://images.unsplash.com/photo-1485968579580-b6d095142e6e?w=900&auto=format&fit=crop&q=80',
+      text: 'neutral fashion outfit in soft daylight',
+      pos: '50% 35%',
+      by: 'Brooke Cagle',
+    },
+  },
+  {
+    common: 'Weekend denim uniform',
+    binomial: 'Wardrobe foundation look',
+    photo: {
+      url: 'https://images.unsplash.com/photo-1496747611176-843222e1e57c?w=900&auto=format&fit=crop&q=80',
+      text: 'fashion portrait with denim styling',
+      pos: '50% 30%',
+      by: 'Tamara Bellis',
+    },
+  },
+  {
+    common: 'Resort linen palette',
+    binomial: 'Warm-weather capsule styling',
+    photo: {
+      url: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=900&auto=format&fit=crop&q=80',
+      text: 'editorial model in resort-inspired fashion',
+      pos: '50% 30%',
+      by: 'Clem Onojeghuo',
+    },
+  },
+];
 
 export const HomeView: React.FC = () => {
   const { t } = useTranslation();
@@ -137,6 +222,30 @@ export const HomeView: React.FC = () => {
               <span>{t('home.cta_build_outfit')}</span>
             </button>
           </div>
+        </div>
+      </section>
+
+
+
+      {/* 2. Scroll-Driven 3D Editorial Gallery */}
+      <section className="relative -mx-4 overflow-hidden rounded-[36px] border border-[#C5A059]/25 bg-gradient-to-b from-[#FAF9F6] via-white to-[#F0F2F8] py-10 shadow-2xs sm:-mx-6 lg:-mx-8">
+        <div className="relative z-10 mx-auto mb-6 max-w-2xl px-6 text-center">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-[#C5A059]">
+            Scroll-Activated Lookbook
+          </span>
+          <h2 className="mt-2 font-serif text-3xl font-bold text-[#1B1F3B] sm:text-4xl">
+            Rotate through CONFIT editorial styling stories
+          </h2>
+          <p className="mt-3 text-sm font-light leading-relaxed text-slate-500">
+            A shadcn-compatible circular gallery component showcases premium outfit moods while the page scroll controls the 3D rotation.
+          </p>
+        </div>
+        <div className="relative h-[520px] overflow-hidden sm:h-[620px]">
+          <CircularGallery
+            items={editorialGalleryData}
+            radius={typeof window !== 'undefined' && window.innerWidth < 768 ? 360 : 560}
+            autoRotateSpeed={0.015}
+          />
         </div>
       </section>
 

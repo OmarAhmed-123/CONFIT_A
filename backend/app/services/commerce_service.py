@@ -518,10 +518,17 @@ class CommerceService:
         if user is None:
             return
 
-    def get_order_tracking(self, order_number: str) -> Dict[str, Any]:
+    def get_order_tracking(
+        self, order_number: str, user=None, session_token: Optional[str] = None
+    ) -> Dict[str, Any]:
         order = self.commerce_repo.get_order_by_number(order_number)
         if not order:
             raise ResourceNotFoundError("Order", order_number)
+        # Ownership authorization, mirroring the /orders/{n} detail route.
+        # An authenticated user must never read another customer's fulfilment
+        # state (pickup code, store address, shipment info). Anonymous guests
+        # retain the unguessable-order-number capability.
+        self.assert_order_access({"user_id": order.user_id}, user, session_token)
 
         is_bopis = order.fulfillment_type == "bopis"
         events = sorted(order.events or [], key=lambda e: e.created_at)

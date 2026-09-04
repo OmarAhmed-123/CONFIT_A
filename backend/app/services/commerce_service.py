@@ -424,7 +424,107 @@ class CommerceService:
             payment_mode=payment_mode,
             fulfillment=fulfillment,
         )
+
+        # --- FLOW E: G5 completed purchase -> G4 wardrobe --------------------
+        # Deliberately LAST: the order, its payment transaction and its
+        # inventory reservations are already committed, so nothing the wardrobe
+        # does can roll back, delay or falsify a completed purchase.
+        self._sync_wardrobe_from_order(order)
+
         return self.get_order(order.order_number)
+
+    # ------------------------------------------- FLOW E: purchase -> wardrobe
+    def _sync_wardrobe_from_order(self, order: Order) -> Dict[str, Any]:
+        """Add the purchased pieces to the buyer's wardrobe (best-effort).
+
+        The purchase is already financially authoritative and committed by the
+        time this runs, so a wardrobe problem must never escape as a commerce
+        failure: a shopper who paid must never be told the payment failed
+        because their wardrobe could not be updated. Every exception is
+        contained here and logged with the order number, which keeps the
+        failure observable instead of silent.
+        """
+        try:
+            from backend.app.services.wardrobe_service import WardrobeService
+
+            summary = WardrobeService(self.db).sync_items_from_order(order)
+            if summary.get("status") in ("failed", "partial"):
+                logger.error(
+                    "wardrobe_sync_incomplete",
+                    order_number=order.order_number,
+                    order_id=order.id,
+                    user_id=order.user_id,
+                    status=summary.get("status"),
+                    failed=summary.get("failed"),
+                    errors=(summary.get("errors") or [])[:5],
+                )
+            return summary
+        except Exception as exc:  # noqa: BLE001
+            self.db.rollback()
+            logger.error(
+                "wardrobe_sync_failed",
+                order_number=getattr(order, "order_number", None),
+                order_id=getattr(order, "id", None),
+                user_id=getattr(order, "user_id", None),
+                error=f"{type(exc).__name__}: {exc}"[:300],
+            )
+            return {
+                "status": "failed",
+                "order_number": getattr(order, "order_number", None),
+                "errors": [f"{type(exc).__name__}: {exc}"[:300]],
+            }
+
+    def sync_wardrobe_for_order(self, order_number: str) -> Dict[str, Any]:
+        """Re-run FLOW E for an already-persisted order (retry / backfill).
+
+        Safe to call any number of times: the sync is idempotent on the
+        ``uq_wardrobe_items_source_order_item`` lineage key, so a retry reports
+        ``already_synced`` instead of duplicating. Unlike the checkout path
+        this DOES surface errors to the caller - an explicit maintenance
+        action is useless if the reason for its failure is hidden.
+        """
+        order = self.commerce_repo.get_order_by_number(order_number)
+        if not order:
+            raise ResourceNotFoundError("Order", order_number)
+        from backend.app.services.wardrobe_service import WardrobeService
+
+        return WardrobeService(self.db).sync_items_from_order(order)
+
+    def _revoke_wardrobe_for_order(self, order: Order) -> None:
+        """Remove ONLY the wardrobe pieces FLOW E created for this order.
+
+        Called when a provider later reports the payment failed: the customer
+        never acquired the goods, so the synchronised pieces must not linger
+        and pollute G4/G2 recommendations. Deletion is scoped strictly by
+        ``source_order_item_id`` lineage, so uploaded or manually added items -
+        which carry no lineage - can never be touched. Contained like the sync:
+        revoking is bookkeeping, never a reason to fail webhook processing.
+        """
+        try:
+            from backend.app.models.wardrobe import WardrobeItem
+
+            item_ids = [it.id for it in (order.items or [])]
+            if not item_ids:
+                return
+            removed = (
+                self.db.query(WardrobeItem)
+                .filter(WardrobeItem.source_order_item_id.in_(item_ids))
+                .delete(synchronize_session=False)
+            )
+            self.db.commit()
+            if removed:
+                logger.info(
+                    "wardrobe_sync_revoked",
+                    order_number=order.order_number,
+                    removed_items=int(removed or 0),
+                )
+        except Exception as exc:  # noqa: BLE001
+            self.db.rollback()
+            logger.error(
+                "wardrobe_revoke_failed",
+                order_number=getattr(order, "order_number", None),
+                error=f"{type(exc).__name__}: {exc}"[:300],
+            )
 
     # ---------------------------------------------------------------- orders
     def get_order(self, order_number: str) -> Dict[str, Any]:
@@ -871,6 +971,10 @@ class CommerceService:
                     order.payment_status = "failed"
                     self._release_inventory_for_order(order)
                     self._transition(order, "failed")
+                    # FLOW E rollback: the goods were never acquired, so the
+                    # synchronised wardrobe pieces go too (lineage-scoped;
+                    # uploaded items are untouched).
+                    self._revoke_wardrobe_for_order(order)
                 elif event_type in ("refund.succeeded", "charge.refunded"):
                     order.payment_status = "refunded"
                     self._transition(order, "refunded")

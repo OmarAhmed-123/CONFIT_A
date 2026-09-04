@@ -27,6 +27,21 @@ class WardrobeRepository:
             .first()
         )
 
+    def get_item_by_source_order_item(self, order_item_id: int) -> Optional[WardrobeItem]:
+        """FLOW E idempotency read: the wardrobe piece synchronised from a
+        given persisted OrderItem, if any.
+
+        Deliberately NOT scoped by user_id: ``order_items.id`` is globally
+        unique and an OrderItem belongs to exactly one Order with at most one
+        owner, so the lineage key alone identifies the row. Scoping by user
+        would let a re-parented order (guest checkout later attached to an
+        account) silently create a second copy of the same purchased piece."""
+        return (
+            self.db.query(WardrobeItem)
+            .filter(WardrobeItem.source_order_item_id == order_item_id)
+            .first()
+        )
+
     def add_item(
         self,
         user_id: int,
@@ -45,7 +60,8 @@ class WardrobeRepository:
         is_favorite: bool = False,
         seasonality: str = "All-Season",
         processing_status: str = "ready",
-        image_hash: Optional[str] = None
+        image_hash: Optional[str] = None,
+        source_order_item_id: Optional[int] = None
     ) -> WardrobeItem:
         item = WardrobeItem(
             user_id=user_id,
@@ -64,7 +80,11 @@ class WardrobeRepository:
             is_favorite=is_favorite,
             seasonality=seasonality,
             processing_status=processing_status,
-            image_hash=image_hash
+            image_hash=image_hash,
+            # FLOW E: set only by the post-purchase sync; the unique index
+            # uq_wardrobe_items_source_order_item makes a second insert of the
+            # same purchased line raise IntegrityError instead of duplicating.
+            source_order_item_id=source_order_item_id
         )
         self.db.add(item)
         self.db.commit()

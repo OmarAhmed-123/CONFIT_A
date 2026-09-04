@@ -1,12 +1,23 @@
 import React from 'react';
 import { useBrandViewModel } from '../../viewmodels/useBrandViewModel';
-import { LoadingSpinner } from '../../components/common/CommonComponents';
+import { LoadingSpinner, EmptyState } from '../../components/common/CommonComponents';
 
 export const BrandDashboardView: React.FC = () => {
-  const { profile, analytics, products, isLoading } = useBrandViewModel();
+  const { profile, analytics, products, fetchErrors, loadFailed, isLoading, refresh } = useBrandViewModel();
 
-  if (isLoading || !analytics) {
+  if (isLoading || (!analytics && !loadFailed)) {
     return <LoadingSpinner text="Connecting to B2B Merchant Telemetry..." />;
+  }
+
+  if (!analytics) {
+    return (
+      <EmptyState
+        title="B2B telemetry unavailable"
+        description={fetchErrors.analytics || 'The merchant telemetry service could not be reached. No metrics are fabricated while it is down.'}
+        actionText="Retry"
+        onAction={refresh}
+      />
+    );
   }
 
   const hasData = analytics.total_views > 0 || analytics.total_purchases > 0;

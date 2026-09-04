@@ -1,12 +1,25 @@
 import React from 'react';
 import { useBrandViewModel } from '../../viewmodels/useBrandViewModel';
-import { LoadingSpinner } from '../../components/common/CommonComponents';
+import { LoadingSpinner, EmptyState } from '../../components/common/CommonComponents';
 
 export const BrandAnalyticsView: React.FC = () => {
-  const { analytics, conversionPerSku, isLoading } = useBrandViewModel();
+  const { analytics, conversionPerSku, fetchErrors, loadFailed, isLoading, refresh } = useBrandViewModel();
 
-  if (isLoading || !analytics) {
+  if (isLoading || (!analytics && !loadFailed)) {
     return <LoadingSpinner text="Computing funnel telemetry and conversion rates..." />;
+  }
+
+  if (!analytics) {
+    // A failed fetch must never look like "no data yet" — show an explicit,
+    // actionable error (the C6 no-silent-failure rule extended to B2B).
+    return (
+      <EmptyState
+        title="Telemetry unavailable"
+        description={fetchErrors.analytics || 'The analytics service could not be reached. Your data is intact — retry when the service is back.'}
+        actionText="Retry"
+        onAction={refresh}
+      />
+    );
   }
 
   const totalViews = analytics.total_views || 1;
@@ -59,7 +72,14 @@ export const BrandAnalyticsView: React.FC = () => {
         )}
       </div>
 
-      {/* Per-SKU Conversion */}
+      {/* Per-SKU Conversion — an error is surfaced, not laundered into "no rows" */}
+      {fetchErrors.conversion && (
+        <div role="alert" className="p-4 rounded-2xl bg-rose-50 border border-rose-200">
+          <p className="text-[11px] font-bold text-rose-800">Per-SKU conversion failed to load</p>
+          <p className="text-[11px] text-rose-600 mt-1">{fetchErrors.conversion}</p>
+          <button onClick={refresh} className="mt-2 px-3 py-1.5 rounded-lg bg-white border border-rose-200 text-[11px] font-bold text-rose-700 hover:bg-rose-50">Retry</button>
+        </div>
+      )}
       {conversionPerSku.length > 0 && (
         <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-4">
           <h3 className="font-serif text-lg font-bold text-[#1B1F3B]">Per-SKU Conversion Analytics</h3>

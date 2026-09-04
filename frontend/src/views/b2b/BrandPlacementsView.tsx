@@ -4,7 +4,7 @@ import { SparkleIcon } from '../../components/icons/ConfitIcons';
 import { LoadingSpinner } from '../../components/common/CommonComponents';
 
 export const BrandPlacementsView: React.FC = () => {
-  const { placements, products, createSponsoredSlot, isLoading } = useBrandViewModel();
+  const { placements, products, createSponsoredSlot, fetchErrors, isLoading, refresh } = useBrandViewModel();
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedProductId, setSelectedProductId] = useState<number>(1);
   const [bidCpc, setBidCpc] = useState<number>(0.75);
@@ -14,6 +14,10 @@ export const BrandPlacementsView: React.FC = () => {
   if (isLoading) {
     return <LoadingSpinner text="Loading ad network & sponsored placements..." />;
   }
+
+  // Failed placement/products fetch is an explicit error state (with retry),
+  // never an empty list pretending the campaign network has nothing on it.
+  const placementsError = fetchErrors.placements || fetchErrors.products;
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,6 +49,13 @@ export const BrandPlacementsView: React.FC = () => {
 
   return (
     <div className="space-y-8 pb-20">
+      {placementsError && (
+        <div role="alert" className="p-4 rounded-2xl bg-rose-50 border border-rose-200">
+          <p className="text-[11px] font-bold text-rose-800">Sponsored network data failed to load</p>
+          <p className="text-[11px] text-rose-600 mt-1">{placementsError} An empty list below means "no campaigns", not "API down" — retry to reconcile.</p>
+          <button onClick={refresh} className="mt-2 px-3 py-1.5 rounded-lg bg-white border border-rose-200 text-[11px] font-bold text-rose-700 hover:bg-rose-50">Retry</button>
+        </div>
+      )}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-6">
         <div>
           <h1 className="font-serif text-3xl font-bold text-[#1B1F3B]">

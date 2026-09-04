@@ -3,7 +3,7 @@ import { useBrandViewModel } from '../../viewmodels/useBrandViewModel';
 import { LoadingSpinner } from '../../components/common/CommonComponents';
 
 export const BrandCatalogView: React.FC = () => {
-  const { products, updateSKUInventory, isLoading, uploadCatalogCSV, importJobs, isUploading } = useBrandViewModel();
+  const { products, updateSKUInventory, isLoading, uploadCatalogCSV, importJobs, fetchErrors, refresh, isUploading } = useBrandViewModel();
   const [editingSkuId, setEditingSkuId] = useState<number | null>(null);
   const [editStock, setEditStock] = useState<number>(20);
   const [editPrice, setEditPrice] = useState<number | undefined>(undefined);
@@ -73,7 +73,14 @@ export const BrandCatalogView: React.FC = () => {
         </button>
       </div>
 
-      {/* Import Jobs History */}
+      {/* Import Jobs History — a failed fetch is shown as an explicit error,
+          never silently hidden (an empty table must mean "no imports", not "the API is down"). */}
+      {fetchErrors.imports && (
+        <div role="alert" className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-xs text-rose-800 flex items-center justify-between gap-4">
+          <span>Could not load recent import jobs: {fetchErrors.imports}</span>
+          <button onClick={refresh} className="px-3 py-1.5 rounded-xl bg-rose-600 text-white font-semibold shrink-0">Retry</button>
+        </div>
+      )}
       {importJobs.length > 0 && (
         <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-4">
           <h3 className="font-serif text-lg font-bold text-[#1B1F3B]">Recent Import Jobs</h3>

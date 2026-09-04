@@ -8,6 +8,15 @@
     --confit-gold: #B8935A;
     --confit-cream: #FAF9F6;
     --confit-grey: #777777;
+
+    /* shadcn-compatible semantic tokens used by /components/ui primitives. */
+    --background: 48 29% 97%;
+    --foreground: 232 37% 17%;
+    --card: 0 0% 100%;
+    --card-foreground: 232 37% 17%;
+    --muted: 220 14% 96%;
+    --muted-foreground: 215 16% 47%;
+    --border: 214 32% 91%;
   }
 
   body {

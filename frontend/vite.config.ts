@@ -4,6 +4,11 @@ import react from '@vitejs/plugin-react'
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
+  resolve: {
+    alias: {
+      '@': new URL('./src', import.meta.url).pathname,
+    },
+  },
   // vitest config lives here so CI (`npm run build && npm test`) exercises the
   // same toolchain as the build; environment jsdom for DOM/hook tests.
   test: {

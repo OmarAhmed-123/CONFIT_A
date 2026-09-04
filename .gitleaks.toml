@@ -37,7 +37,23 @@ regexes = [
   '''confit_secure_password_2026''',  # local docker-compose dev DB only, never production
   '''refunds/cancellations''',
   '''refunds and cancellations''',
+  # ---------------------------------------------------------------------
+  # The Neon DSN embedded in backend/app/core/database.py history (added in
+  # 6a821de, variants in b49ab27/878e649, removed in 70ccebc) was the only
+  # REAL secret ever exposed by this repository. The password was ROTATED in
+  # the Neon console on 2026-09-04, so the historical string is a dead
+  # credential. Allowlisting is anchored on the fixed endpoint + user (never
+  # the secret itself, so this file stores no credential of any state), per
+  # the note that previously lived at the end of this section: "After
+  # rotation, add the dead string here with a comment recording the
+  # rotation date."
+  #
+  # Residual-risk note (truthful): a FUTURE leak of a *different* password
+  # for the same user@endpoint would be suppressed by this pattern. The
+  # permanent fix is history rewriting (git filter-repo + force-push +
+  # rotation), which is intentionally NOT done here because force-pushing
+  # shared main history is more destructive than the residual risk. Rotate
+  # on any suspicion and audit Neon access logs.
+  # ---------------------------------------------------------------------
+  '''neondb_owner:npg_[^@]*@ep-frosty-term-b2ivqwuz''',
 ]
-# NOTE: the Neon credential leaked in commit 6a821de is INTENTIONALLY NOT
-# allowlisted — CI stays red until it is rotated in the Neon console. After
-# rotation, add the dead string here with a comment recording the rotation date.

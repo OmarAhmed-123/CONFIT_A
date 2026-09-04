@@ -1,0 +1,11 @@
+# Historical locations of the Neon DSN removed from the tree in 70ccebc.
+# The credential was published in these commits; the string itself lives only
+# in git history (never in this file). Suppression by fingerprint so NO secret
+# material is copied into an active config path. See .gitleaks.toml for the
+# endpoint-anchored allowlist and the outstanding ACTION REQUIRED: the value
+# was NOT rotated as of 2026-09-04 — rotate in the Neon console, then delete
+# this file AND the allowlist entry.
+6a821de9242123188e7f5fbb84b2d14d0ad42bdc:backend/app/core/database.py:database-dsn-with-password:7
+b49ab275c8e8139133bb886537c7ba88f58847f7:backend/app/core/database.py:database-dsn-with-password:8
+878e6491d2aa9a5bf476b9a40d22019c64e8b11c:backend/app/core/database.py:database-dsn-with-password:8
+878e6491d2aa9a5bf476b9a40d22019c64e8b11c:api/backend/app/core/database.py:database-dsn-with-password:8

@@ -9,7 +9,7 @@ services:
     environment:
       POSTGRES_DB: confit_db
       POSTGRES_USER: confit_user
-      POSTGRES_PASSWORD: confit_secure_password_2026
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
     ports:
       - "5432:5432"
     volumes:
@@ -41,7 +41,7 @@ services:
     container_name: confit-search
     restart: unless-stopped
     environment:
-      MEILI_MASTER_KEY: confit_meili_master_key_2026
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY:?set MEILI_MASTER_KEY}
       MEILI_NO_ANALYTICS: "true"
     ports:
       - "7700:7700"
@@ -62,10 +62,14 @@ services:
         condition: service_healthy
     environment:
       ENVIRONMENT: production
-      DATABASE_URL: postgresql://confit_user:confit_secure_password_2026@postgres:5432/confit_db
+      DATABASE_URL: postgresql://confit_user:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/confit_db
       REDIS_URL: redis://redis:6379/0
-      SECRET_KEY: confit_super_secret_jwt_encryption_key_2026_production_grade
-      ENCRYPTION_KEY_FOR_BODY_DATA: confit_body_privacy_encryption_secret_key_32bytes!
+      # Secrets are NOT in this file. Provide them via an untracked .env
+      # (docker compose reads it automatically) or the shell; the app refuses
+      # to boot in production with a missing/short/publicly-known value.
+      SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY (python -c "import secrets;print(secrets.token_urlsafe(48))")}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?set JWT_REFRESH_SECRET}
+      ENCRYPTION_KEY_FOR_BODY_DATA: ${ENCRYPTION_KEY_FOR_BODY_DATA:?set ENCRYPTION_KEY_FOR_BODY_DATA (>=32 chars)}
     ports:
       - "8000:8000"
 
@@ -83,7 +87,7 @@ services:
       redis:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql://confit_user:confit_secure_password_2026@postgres:5432/confit_db
+      DATABASE_URL: postgresql://confit_user:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/confit_db
       REDIS_URL: redis://redis:6379/0
 
   # 6. Celery Beat Scheduler (GDPR Purge & Analytics Aggregation)
@@ -100,7 +104,7 @@ services:
       redis:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql://confit_user:confit_secure_password_2026@postgres:5432/confit_db
+      DATABASE_URL: postgresql://confit_user:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/confit_db
       REDIS_URL: redis://redis:6379/0
 
   # 7. Frontend Web Application & Nginx Reverse Proxy

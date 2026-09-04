@@ -62,19 +62,14 @@ class TestRevenueAttributionJoinMultiplicationFixed:
             # New correct model uses BrandAnalyticsEvent.revenue_amount (subtotal, brand-isolated) not entire Order.total_amount
             # This prevents multi-brand over-attribution and JOIN multiplication
             import inspect
-            source = inspect.getsource(repo.get_revenue_attribution)
-            # Should use either DISTINCT (order-level) or revenue_amount sum (item-level brand-isolated) — both prevent JOIN multiplication
-            has_distinct = "func.distinct" in source.lower() or "distinct" in source.lower()
-            has_item_level = "revenue_amount" in source and "brandanalyticsevent" in source.lower()
-            assert has_distinct or has_item_level, "Revenue attribution must use DISTINCT or brand-item-level revenue_amount to prevent JOIN multiplication"
-            # Should have brand-item-level logic or visual_order_ids subquery
-            assert "visual_order_ids" in source or "revenue_amount" in source, "Should use visual_order_ids subquery or revenue_amount item-level"
-
-            # Also check platform analytics
-            source2 = inspect.getsource(repo.get_platform_admin_analytics)
-            has_distinct2 = "visual_order_ids" in source2 or "distinct" in source2.lower()
-            has_item_level2 = "revenue_amount" in source2
-            assert has_distinct2 or has_item_level2, "Platform analytics must use DISTINCT or item-level attribution"
+            # Both views share ONE item-grain ledger: per OrderItem exactly one
+            # purchase event (unique index), so multiple VIEW events can never
+            # multiply revenue — there is no JOIN on view events at all.
+            source = inspect.getsource(repo.compute_item_grain_attribution)
+            assert "revenue_amount" in source and "order_item_id" in source
+            assert 'event_type.in_(["purchase", "return"])' in source, "views must not enter the revenue ledger"
+            assert "compute_item_grain_attribution" in inspect.getsource(repo.get_revenue_attribution)
+            assert "compute_item_grain_attribution" in inspect.getsource(repo.get_platform_admin_analytics)
 
             # Verify sum <= total (or sum <= total_subtotal for item-level)
             attribution = repo.get_revenue_attribution()

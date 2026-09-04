@@ -9,6 +9,7 @@ does not touch it.
 from datetime import datetime
 from typing import Optional, List, Dict
 from pydantic import BaseModel, Field, ConfigDict
+from backend.app.schemas.money_types import OptionalNonNegativeMoney
 
 # --- Canonical registries -----------------------------------------------------
 # Group 1 §22: extensible server-side validation. Adding a value is a
@@ -76,9 +77,9 @@ class StylePreferencesInput(BaseModel):
 
 
 class BudgetPreferencesInput(BaseModel):
-    budget_monthly_min: Optional[float] = Field(default=None, ge=0)
-    budget_monthly_max: Optional[float] = Field(default=None, ge=0)
-    budget_per_outfit_max: Optional[float] = Field(default=None, ge=0)
+    budget_monthly_min: OptionalNonNegativeMoney = None
+    budget_monthly_max: OptionalNonNegativeMoney = None
+    budget_per_outfit_max: OptionalNonNegativeMoney = None
 
 
 class BrandPreferencesInput(BaseModel):
@@ -106,9 +107,9 @@ class OnboardingQuizInput(BaseModel):
     preferred_colors: Optional[List[str]] = None
     avoided_colors: Optional[List[str]] = None
     fashion_aesthetics: Optional[List[str]] = None
-    budget_monthly_min: Optional[float] = Field(default=None, ge=0)
-    budget_monthly_max: Optional[float] = Field(default=None, ge=0)
-    budget_per_outfit_max: Optional[float] = Field(default=None, ge=0)
+    budget_monthly_min: OptionalNonNegativeMoney = None
+    budget_monthly_max: OptionalNonNegativeMoney = None
+    budget_per_outfit_max: OptionalNonNegativeMoney = None
     preferred_brands: Optional[List[str]] = None
     blacklisted_brands: Optional[List[str]] = None
     occasion_weights: Optional[Dict[str, float]] = None

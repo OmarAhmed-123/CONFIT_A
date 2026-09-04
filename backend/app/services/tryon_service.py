@@ -189,35 +189,49 @@ class TryOnService:
         return garments
 
     def _derive_worker_urls(self, worker_url: str) -> Tuple[str, str, str]:
-        """
-        Derive health, readiness, and process URLs from base worker URL.
-        Handles both:
-        - https://xxx--confit-vton-worker-vtoninferenceservice-process.modal.run
-        - https://xxx--confit-vton-worker-vtoninferenceservice.modal.run/process
-        - https://xxx--confit-vton-worker-vtoninferenceservice.modal.run
+        """Resolve (health_url, readiness_url, process_url) for the GPU worker.
+
+        Explicit configuration always wins: ``VTON_WORKER_HEALTH_URL`` and
+        ``VTON_WORKER_READINESS_URL`` (settings or environment). They exist
+        because Modal generates one hostname PER web endpoint and truncates
+        long labels to a hash — the live deployment (2026-09-03) exposes
+
+            …-vtoninferenceservice-process.modal.run
+            …-vtoninferenceservice-health.modal.run
+            …-vtoninferenceservice-r-f73a19.modal.run   <- readiness
+
+        so the old ``-process`` -> ``-readiness`` string replacement produced
+        a hostname that does not exist. Derivation remains for the two layouts
+        that ARE derivable (Modal ``-process`` -> ``-health``; a single FastAPI
+        host with /health /readiness /process paths); when the readiness URL
+        cannot be derived it falls back to the health URL, whose ``ready``
+        field the caller already honours.
         """
         worker_url = worker_url.rstrip("/")
-        health_url = worker_url
-        readiness_url = worker_url
-        process_url = worker_url
+        explicit_health = (
+            getattr(settings, "VTON_WORKER_HEALTH_URL", None) or os.environ.get("VTON_WORKER_HEALTH_URL") or ""
+        ).strip()
+        explicit_readiness = (
+            getattr(settings, "VTON_WORKER_READINESS_URL", None) or os.environ.get("VTON_WORKER_READINESS_URL") or ""
+        ).strip()
 
-        if "-process" in worker_url:
-            # Modal generates separate endpoints per method: replace -process with -health/-readiness
+        if "-process" in worker_url and "/" not in worker_url.split("//", 1)[-1]:
+            # Modal per-method hostnames: only the health label is a safe derivation.
+            process_url = worker_url
             health_url = worker_url.replace("-process", "-health")
-            readiness_url = worker_url.replace("-process", "-readiness")
-            # process_url stays as is (already -process)
+            readiness_url = health_url  # not derivable (hash-truncated label) unless configured
+        elif worker_url.endswith("/process"):
+            base = worker_url[: -len("/process")]
+            process_url, health_url, readiness_url = worker_url, f"{base}/health", f"{base}/readiness"
         else:
-            # Standard FastAPI mounted under /health, /readiness, /process
-            if not worker_url.endswith("/process"):
-                process_url = f"{worker_url}/process"
-            health_url = f"{worker_url.rstrip('/')}/health" if "/health" not in worker_url else worker_url
-            readiness_url = f"{worker_url.rstrip('/')}/readiness" if "/readiness" not in worker_url else worker_url
-            # If worker_url already ends with /process, health/readiness are sibling paths
-            if worker_url.endswith("/process"):
-                base = worker_url[:-8]  # strip /process
-                health_url = f"{base}/health"
-                readiness_url = f"{base}/readiness"
+            process_url, health_url, readiness_url = (
+                f"{worker_url}/process", f"{worker_url}/health", f"{worker_url}/readiness"
+            )
 
+        if explicit_health:
+            health_url = explicit_health
+        if explicit_readiness:
+            readiness_url = explicit_readiness
         return health_url, readiness_url, process_url
 
     async def _call_gpu_worker(

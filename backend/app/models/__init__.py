@@ -23,6 +23,11 @@ from backend.app.models.commerce import (
     CheckoutSession,
 )
 from backend.app.models.brand_analytics import SponsoredPlacement, StyleHeatmapAggregate
+# Registered here so Base.metadata is complete wherever ``backend.app.models``
+# is imported (alembic env.py, the schema-drift gate, create_all in dev).
+# Without this, autogenerate would propose DROPPING brand_analytics_events /
+# catalog_import_jobs because it could not see their mappers.
+from backend.app.models.catalog_import import CatalogImportJob, BrandAnalyticsEvent
 
 __all__ = [
     "User",
@@ -69,4 +74,6 @@ __all__ = [
     "CheckoutSession",
     "SponsoredPlacement",
     "StyleHeatmapAggregate",
+    "CatalogImportJob",
+    "BrandAnalyticsEvent",
 ]

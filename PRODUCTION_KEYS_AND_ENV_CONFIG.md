@@ -27,12 +27,12 @@
 ### أ) مفاتيح الأمان والتشفير (Security & Encryption)
 | اسم المتغير (Key) | القيمة (Value) | الشرح |
 |---|---|---|
-| `SECRET_KEY` | `confit_jwt_signing_key_production_2026_secure_key` | مفتاح توقيع وتشفير توكنات تسجيل الدخول (JWT Access Tokens). |
-| `JWT_REFRESH_SECRET` | `confit_refresh_signing_key_production_2026_secure_rotation` | مفتاح تدوير وتجديد توكنات الجلسة (Refresh Token Rotation). |
+| `SECRET_KEY` | `<generate: python -c "import secrets;print(secrets.token_urlsafe(48))">` | مفتاح توقيع وتشفير توكنات تسجيل الدخول (JWT Access Tokens). |
+| `JWT_REFRESH_SECRET` | `<generate a second, different random value>` | مفتاح تدوير وتجديد توكنات الجلسة (Refresh Token Rotation). |
 | `ALGORITHM` | `HS256` | خوارزمية تشفير التوكن. |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | `1440` | مدة صلاحية توكن الدخول (24 ساعة = 1440 دقيقة). |
 | `REFRESH_TOKEN_EXPIRE_DAYS` | `30` | مدة صلاحية توكن التجديد (30 يوماً). |
-| `ENCRYPTION_KEY_FOR_BODY_DATA` | `confit_body_privacy_encryption_secret_key_32bytes!` | مفتاح تشفير القياسات الحيوية بقفل **Fernet-256 AES**. |
+| `ENCRYPTION_KEY_FOR_BODY_DATA` | `<generate a third random value, >= 32 chars>` | مفتاح تشفير القياسات الحيوية بقفل **Fernet-256 AES**. |
 
 ---
 

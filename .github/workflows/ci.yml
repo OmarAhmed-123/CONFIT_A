@@ -12,15 +12,103 @@ jobs:
           python-version: "3.12"
       - name: Install declared dependencies
         run: pip install -r backend/requirements.txt
-      # Guards the 2026-08-29 outage class: an undeclared import kills every
-      # serverless invocation; the guard now covers backend/app AND
-      # backend/tests (the Pillow/numpy CI failure was a test-only import).
-      - name: Runtime import coverage check
+      # Guards the 2026-08-29 (slowapi) and 2026-09-03 (Pillow) outage classes:
+      # an undeclared import kills the serverless function at first use. The
+      # gate evaluates EACH deployment target against the manifest it really
+      # installs (Vercel: repo-root requirements.txt; Docker/CI:
+      # backend/requirements.txt) — never a merged view.
+      - name: Deployment dependency gate (per-target import closure)
         run: PYTHONPATH=. python3 backend/scripts/check_runtime_imports.py
       - name: Dependency security audit (pip-audit)
         run: pip install pip-audit && pip-audit -r backend/requirements.txt
       - name: Test suite
         run: PYTHONPATH=. python3 -m pytest backend/tests -q
+      # Mutation gates M1-M14: each reverting mutation of a remediated defect
+      # (money rounding/rates/non-finite/range, attribution grain, VTON mask
+      # polarity/rectangle substitution/echo, public secrets, schema drift,
+      # live payments, plaintext passwords) must be KILLED by the suite.
+      - name: Mutation gates (suite must kill every remediated defect)
+        run: PYTHONPATH=. python3 backend/scripts/run_mutation_gates.py --skip-baseline --json mutation-gates.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mutation-gates
+          path: mutation-gates.json
+
+  # Production is PostgreSQL (Neon). SQLite passing is not evidence for the
+  # migration chain, the money column types or the schema gate, so every push
+  # rehearses the REAL Alembic chain on a real PostgreSQL 17 service:
+  # empty -> head, ORM/migration parity, gate verdict, head -> base -> head.
+  # (2026-09-03: production sat at 0007 while code expected 0013 and the chain
+  # could not even be applied to an empty PostgreSQL — this job makes both
+  # classes of failure visible before merge.)
+  postgres-migrations:
+    name: postgres migration chain + schema gate
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: confit
+          POSTGRES_PASSWORD: confit_ci
+          POSTGRES_DB: confit_ci
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U confit"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      # Throwaway password for the ephemeral CI service container (not a secret).
+      # The DSN is composed at STEP level (the `env` context is not available in
+      # job-level env — that made the whole workflow file invalid on 3c9e9e7)
+      # so secret scanners never see a literal DSN.
+      CI_PG_PASSWORD: confit_ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install declared dependencies
+        run: pip install -r backend/requirements.txt
+      - name: Real chain on empty PostgreSQL (up / parity / gate / down / up)
+        env:
+          CI_PG_URL: postgresql://confit:${{ env.CI_PG_PASSWORD }}@localhost:5432/confit_ci
+        run: PYTHONPATH=. python3 backend/scripts/check_migration_chain_postgres.py "$CI_PG_URL"
+      - name: Schema-drift gate + migration tests on PostgreSQL
+        env:
+          CONFIT_TEST_PG_URL: postgresql://confit:${{ env.CI_PG_PASSWORD }}@localhost:5432/confit_ci
+        run: >-
+          PYTHONPATH=. python3 -m pytest -q
+          backend/tests/test_schema_drift_gate.py
+          backend/tests/test_migration_integrity_behavioral.py
+          backend/tests/test_migration_0013_quarantine_audit.py
+
+  # Guards against "works on the developer machine" regressions: the Vercel
+  # function manifest, entrypoint, environment contract and forbidden
+  # local-only references are checked as data, independent of the test DB.
+  production-parity:
+    name: production parity (deployment contract)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install the VERCEL manifest only (what production really installs)
+        run: pip install -r requirements.txt
+      - name: Import the Vercel entrypoint with only the Vercel manifest installed
+        env:
+          ENVIRONMENT: production
+          DATABASE_URL: postgresql://placeholder:CHANGE_ME@localhost:1/none
+          SECRET_KEY: ci-only-not-a-secret-0123456789abcdef0123456789abcdef
+          JWT_REFRESH_SECRET: ci-only-not-a-secret-0123456789abcdef0123456789abcdef
+          ENCRYPTION_KEY_FOR_BODY_DATA: ci-only-not-a-secret-0123456789abcdef
+        run: PYTHONPATH=. python3 -c "import api.index; print('vercel entrypoint import ok')"
+      - name: Deployment contract tests
+        run: |
+          pip install pytest
+          PYTHONPATH=. python3 -m pytest -q backend/tests/test_deployment_dependency_manifest.py backend/tests/test_production_parity.py
 
   frontend:
     name: frontend

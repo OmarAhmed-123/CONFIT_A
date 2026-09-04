@@ -1,41 +1,18 @@
-import time
 import json
 from datetime import datetime, timezone
 from backend.app.workers.celery_app import celery_app
 from backend.app.core.database import SessionLocal
 from backend.app.core.logging import logger
-from backend.app.models.tryon import TryOnSession
 from backend.app.models.wardrobe import WardrobeItem
+from backend.app.models.tryon import TryOnSession
 
 
-@celery_app.task(bind=True, max_retries=3, default_retry_delay=10)
-def render_vton_task(self, session_id: int):
-    """Background asynchronous task for diffusion-based virtual try-on garment rendering."""
-    logger.info("Executing asynchronous VTON render job", session_id=session_id)
-    db = SessionLocal()
-    try:
-        session = db.query(TryOnSession).filter(TryOnSession.id == session_id).first()
-        if not session:
-            logger.warn("VTON session not found", session_id=session_id)
-            return {"status": "not_found"}
-
-        # Simulate or call external diffusion API
-        time.sleep(1.5)
-        session.status = "completed"
-        session.fit_confidence_score = 96
-        session.body_fit_verdict = "True to Size"
-        session.rendered_result_url = session.garment_image_url
-        db.commit()
-
-        logger.info("VTON render job completed successfully", session_id=session_id)
-        return {"status": "completed", "session_id": session_id}
-    except Exception as exc:
-        logger.error("VTON render failed, retrying...", exc=str(exc))
-        db.rollback()
-        raise self.retry(exc=exc)
-    finally:
-        db.close()
-
+# NOTE: there is deliberately NO Celery VTON task. The only virtual try-on
+# renderer is the CatVTON pipeline in services/vton-worker (Modal), reached via
+# TryOnService -> VTON_WORKER_URL. A previous ``render_vton_task`` here marked
+# sessions "completed" after time.sleep(1.5) with rendered_result_url =
+# garment_image_url (a fake success). It was removed; see
+# backend/tests/test_production_parity.py::test_fake_vton_celery_task_is_gone.
 
 @celery_app.task(bind=True, max_retries=3)
 def auto_tag_wardrobe_task(self, item_id: int):

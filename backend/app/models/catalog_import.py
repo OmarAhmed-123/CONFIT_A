@@ -44,6 +44,11 @@ class BrandAnalyticsEvent(Base):
         Index("ix_brand_analytics_product", "product_id"),
         Index("ix_brand_analytics_sku", "sku_id"),
         Index("ix_brand_analytics_event_id", "event_id", unique=True),
+        Index("ix_brand_analytics_order_item", "order_item_id"),
+        # One purchase event and at most one return event per OrderItem. NULL
+        # order_item_id rows (views, impressions) never collide — NULLs are
+        # distinct in unique indexes on both PostgreSQL and SQLite.
+        Index("uq_brand_analytics_item_event", "order_item_id", "event_type", unique=True),
     )
 
     id = Column(Integer, primary_key=True, index=True)
@@ -57,6 +62,10 @@ class BrandAnalyticsEvent(Base):
     attribution_source = Column(String(50), nullable=True)  # virtual_stylist, outfit_builder, visual_search, organic
     outfit_id = Column(Integer, ForeignKey("outfits.id", ondelete="SET NULL"), nullable=True)
     order_id = Column(Integer, ForeignKey("orders.id", ondelete="SET NULL"), nullable=True)
+    # Item-grain lineage (migration 0014): purchase/return events point at the
+    # exact OrderItem they account for. Revenue attribution joins THROUGH this
+    # column — there is deliberately no order-level fallback.
+    order_item_id = Column(Integer, ForeignKey("order_items.id", ondelete="SET NULL"), nullable=True)
     revenue_amount = Column(Numeric(12, 2), nullable=True)
     event_metadata_json = Column(Text, default="{}", nullable=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False, index=True)

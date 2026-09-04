@@ -200,13 +200,30 @@ def test_diagnostic_admin_allowed_and_leaks_nothing_sensitive(monkeypatch):
 
 
 def test_diagnostic_disabled_in_production_even_for_admin(monkeypatch):
+    # This test exercises ONLY the diagnostic-endpoint production rule. With
+    # ENVIRONMENT=production the schema-drift request guard (test_schema_drift_gate)
+    # would otherwise refuse the create_all test database as "unmanaged" (503
+    # SCHEMA_DRIFT on /auth/login) — correct production behaviour, but a different
+    # gate. Stub the schema verdict to "ok" so the two production gates are tested
+    # independently.
+    from backend.app.core import schema_gate
+    ok = schema_gate.SchemaGateReport(
+        verdict="ok", dialect="sqlite", expected_head=schema_gate.expected_head_revision(),
+        database_revision=schema_gate.expected_head_revision(),
+    )
+    schema_gate.reset_cache()
+    monkeypatch.setattr(schema_gate, "evaluate", lambda _engine, **kw: ok)
     monkeypatch.setattr(settings, "ENVIRONMENT", "production", raising=False)
-    login = TestClient(app).post("/api/v1/auth/login", json={
-        "email": "admin@confit.io", "password": "Password123!",
-    })
-    token = login.json()["access_token"]
-    res = TestClient(app).get("/api/v1/diagnostic", headers=_auth(token))
-    assert res.status_code == 404
+    try:
+        login = TestClient(app).post("/api/v1/auth/login", json={
+            "email": "admin@confit.io", "password": "Password123!",
+        })
+        assert login.status_code == 200, login.text
+        token = login.json()["access_token"]
+        res = TestClient(app).get("/api/v1/diagnostic", headers=_auth(token))
+        assert res.status_code == 404
+    finally:
+        schema_gate.reset_cache()
 
 
 # =============================================================================

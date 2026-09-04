@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, Field, ConfigDict
+from backend.app.schemas.money_types import PositiveMoney
 
 
 class CartItemAdd(BaseModel):
@@ -185,7 +186,7 @@ class ExchangeOut(BaseModel):
 
 
 class BNPLQuoteRequest(BaseModel):
-    amount: float
+    amount: PositiveMoney
     currency: str = "USD"
     provider: str = "tabby"
 

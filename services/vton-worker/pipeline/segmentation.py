@@ -23,39 +23,79 @@ from PIL import Image
 from typing import Tuple, Optional
 
 
-def _try_rembg_person_mask(image: Image.Image) -> Optional[Image.Image]:
-    """Try to get person mask via rembg. Returns PIL L mask or None if unavailable."""
-    try:
-        # rembg 2.x API
-        from rembg import remove, new_session
-        # Try human segmentation models in order of preference
-        # u2net_human_seg is specifically trained for human segmentation
-        # isnet-general-use is general but good
-        # u2net is fallback
-        for model_name in ["u2net_human_seg", "isnet-general-use", "u2net"]:
-            try:
-                session = new_session(model_name)
-                # remove returns RGBA, alpha is person mask
-                rgba = remove(image, session=session, only_mask=False)
-                if isinstance(rgba, Image.Image):
-                    # If only_mask=False, result is RGBA image with alpha = mask
-                    if rgba.mode == "RGBA":
-                        alpha = rgba.split()[-1]
-                        # Ensure mask is not empty
-                        if np.asarray(alpha).sum() > 1000:
-                            return alpha
-                # Try only_mask=True for some versions
-                mask = remove(image, session=session, only_mask=True)
-                if isinstance(mask, Image.Image):
-                    if mask.mode != "L":
-                        mask = mask.convert("L")
-                    if np.asarray(mask).sum() > 1000:
-                        return mask
-            except Exception:
-                continue
+# A person occupying <4% or >97% of the frame is not a usable VTON subject.
+MIN_PERSON_COVERAGE = 0.04
+MAX_PERSON_COVERAGE = 0.97
+
+_REMBG_SESSION = None
+_REMBG_MODEL = None
+_REMBG_DISABLED = False
+
+# Opt-out for constrained environments (CI runners, laptops). When set, the
+# heuristic fallback is used and reported honestly as such.
+_REMBG_ENV_DISABLE = "CONFIT_VTON_DISABLE_REMBG"
+
+
+def _get_rembg_session():
+    """Return a PROCESS-WIDE cached rembg session, or None.
+
+    Creating a session loads a ~176MB ONNX model. The previous implementation
+    called new_session() on EVERY mask request inside a per-slot loop, so a
+    5-garment try-on allocated the model five times and a test run exhausted
+    memory (observed: pytest OOM-killed, exit 137). The session is now created
+    once per process and reused.
+    """
+    global _REMBG_SESSION, _REMBG_MODEL, _REMBG_DISABLED
+    if _REMBG_DISABLED:
         return None
+    if _REMBG_SESSION is not None:
+        return _REMBG_SESSION
+    import os as _os
+    if _os.environ.get(_REMBG_ENV_DISABLE, "").strip().lower() in {"1", "true", "yes"}:
+        _REMBG_DISABLED = True
+        return None
+    try:
+        from rembg import new_session
+    except Exception:
+        _REMBG_DISABLED = True
+        return None
+    for model_name in ("u2net_human_seg", "isnet-general-use", "u2net"):
+        try:
+            _REMBG_SESSION = new_session(model_name)
+            _REMBG_MODEL = model_name
+            return _REMBG_SESSION
+        except Exception:
+            continue
+    _REMBG_DISABLED = True
+    return None
+
+
+def _try_rembg_person_mask(image: Image.Image) -> Optional[Image.Image]:
+    """Person mask via cached rembg session. Returns PIL L mask, or None."""
+    session = _get_rembg_session()
+    if session is None:
+        return None
+    try:
+        from rembg import remove
     except Exception:
         return None
+    try:
+        rgba = remove(image, session=session, only_mask=False)
+        if isinstance(rgba, Image.Image) and rgba.mode == "RGBA":
+            alpha = rgba.split()[-1]
+            if np.asarray(alpha).sum() > 1000:
+                HumanParsingEngine._rembg_model = _REMBG_MODEL
+                return alpha
+        mask = remove(image, session=session, only_mask=True)
+        if isinstance(mask, Image.Image):
+            if mask.mode != "L":
+                mask = mask.convert("L")
+            if np.asarray(mask).sum() > 1000:
+                HumanParsingEngine._rembg_model = _REMBG_MODEL
+                return mask
+    except Exception:
+        return None
+    return None
 
 
 def _otsu_person_mask(image: Image.Image) -> Tuple[Image.Image, float, Tuple[int, int, int, int]]:
@@ -108,8 +148,31 @@ class HumanParsingEngine:
     def parse(self, image: Image.Image) -> dict:
         return HumanParsingEngine.parse_human_image(image)
 
+    # Per-image parse cache: a multi-garment try-on masks the SAME person once
+    # per slot, and AgnosticMaskGenerator also parses per call. Without this, a
+    # 5-layer outfit runs segmentation 6+ times on identical pixels.
+    _parse_cache: dict = {}
+    _PARSE_CACHE_MAX = 4
+
+    @staticmethod
+    def _image_key(image: Image.Image):
+        import hashlib
+        return (image.size, hashlib.sha1(image.convert("RGB").tobytes()).hexdigest())
+
     @staticmethod
     def parse_human_image(image: Image.Image) -> dict:
+        key = HumanParsingEngine._image_key(image)
+        cached = HumanParsingEngine._parse_cache.get(key)
+        if cached is not None:
+            return cached
+        result = HumanParsingEngine._parse_human_image_uncached(image)
+        if len(HumanParsingEngine._parse_cache) >= HumanParsingEngine._PARSE_CACHE_MAX:
+            HumanParsingEngine._parse_cache.clear()
+        HumanParsingEngine._parse_cache[key] = result
+        return result
+
+    @staticmethod
+    def _parse_human_image_uncached(image: Image.Image) -> dict:
         """Parse human image with person-aware segmentation.
         
         Returns dict with:
@@ -124,6 +187,19 @@ class HumanParsingEngine:
         
         # Try rembg first for real segmentation
         person_mask = _try_rembg_person_mask(image)
+
+        # PLAUSIBILITY GATE: a segmentation model can return a degenerate mask
+        # (near-empty or near-full) on inputs outside its training distribution
+        # — illustrations, flat-colour synthetic figures, crops with no visible
+        # person. Silently trusting that would send an essentially empty
+        # agnostic mask into CatVTON and regenerate nothing (or everything).
+        # Reject implausible person coverage and fall back to the heuristic,
+        # which is then reported honestly via fallback_used/engine.
+        if person_mask is not None:
+            _pm = person_mask if person_mask.size == image.size else person_mask.resize(image.size, Image.BILINEAR)
+            _ratio = float((np.asarray(_pm.convert("L")) > 20).mean())
+            if _ratio < MIN_PERSON_COVERAGE or _ratio > MAX_PERSON_COVERAGE:
+                person_mask = None
         engine_name = HumanParsingEngine.name
         threshold = 0.5
         bbox = (0, 0, w-1, h-1)

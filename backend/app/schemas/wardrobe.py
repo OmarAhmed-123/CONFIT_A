@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, Field, ConfigDict
+from backend.app.schemas.money_types import OptionalNonNegativeMoney
 
 
 class WardrobeItemCreate(BaseModel):
@@ -15,7 +16,7 @@ class WardrobeItemCreate(BaseModel):
     occasions: List[str] = Field(default_factory=lambda: ["casual"])
     seasonality: str = "All-Season"
     wear_frequency: str = "regular"  # "favorite", "regular", "rarely_worn", "seasonal"
-    purchase_price: Optional[float] = None
+    purchase_price: OptionalNonNegativeMoney = None
     is_favorite: bool = False
 
 

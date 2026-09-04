@@ -2,7 +2,9 @@ import os
 import uuid
 import hmac
 import hashlib
+from decimal import Decimal
 from typing import Dict, Any
+from backend.app.core.money import quantize_money, to_float
 from backend.app.core.config import settings
 from backend.app.core.logging import logger
 from backend.app.providers.payment.capability_registry import MarketPaymentCapabilityRegistry
@@ -10,10 +12,40 @@ from backend.app.providers.payment.schemas import MarketPaymentCapabilitiesRespo
 
 
 class PaymentOrchestrator:
-    """Orchestrates payment gateway intents, webhook verification, and country capability lookups."""
+    """Orchestrates payment gateway intents, webhook verification, and country capability lookups.
+
+    Payment modes (explicit product contract, surfaced on every order as
+    ``payment_mode`` and in the checkout UI):
+
+    * ``demo`` (``PAYMENTS_LIVE=false``, the default): orders are authorised by
+      the local demo adapter and labelled as such. No money moves.
+    * ``live`` (``PAYMENTS_LIVE=true``): a real PSP charge is REQUIRED. No live
+      PSP adapter is implemented in this codebase yet (``LIVE_PSP_ADAPTERS`` is
+      empty), so live card/wallet/BNPL/instapay payments FAIL CLOSED with
+      ``reason="live_psp_adapter_not_implemented"`` — the previous behaviour
+      returned ``status="authorized"``/``provider="stripe"`` without calling
+      any gateway, i.e. a fabricated live authorisation. Cash on delivery does
+      not involve a PSP and stays valid in both modes.
+    """
+
+    # provider key -> live adapter callable. Empty until a real PSP
+    # integration (Stripe / Paymob / Tabby / Tamara) is implemented and
+    # verified against the provider's sandbox; see PRODUCTION_DEPENDENCIES.md.
+    LIVE_PSP_ADAPTERS: Dict[str, Any] = {}
 
     def __init__(self):
         self.registry = MarketPaymentCapabilityRegistry()
+
+    @classmethod
+    def live_adapter_for(cls, method_id: str):
+        key = (
+            "stripe" if method_id in ("card", "apple_pay", "google_pay")
+            else "tabby" if "tabby" in method_id
+            else "tamara" if "tamara" in method_id
+            else "paymob" if method_id in ("vodafone_cash", "instapay_bridge")
+            else None
+        )
+        return key, cls.LIVE_PSP_ADAPTERS.get(key) if key else None
 
     def get_market_methods(self, country_code: str = "EG") -> MarketPaymentCapabilitiesResponse:
         return self.registry.get_capabilities_for_market(country_code)
@@ -63,10 +95,33 @@ class PaymentOrchestrator:
         if live and "tamara" in method_id and not (settings.TAMARA_API_KEY or os.environ.get("TAMARA_API_KEY")):
             return _missing_live_secret("tamara", "TAMARA_API_KEY")
 
+        if live and method_id != "cod":
+            provider_key, adapter = self.live_adapter_for(method_id)
+            if adapter is None:
+                # FAIL CLOSED: never report a live authorisation that no PSP performed.
+                logger.error(
+                    "Live payment requested but no live PSP adapter is implemented",
+                    provider=provider_key, method=method_id, order=order_number,
+                )
+                return {
+                    "transaction_id": tx_id,
+                    "provider": provider_key or method_id,
+                    "status": "failed",
+                    "payment_method": method_id,
+                    "mode": mode,
+                    "reason": "live_psp_adapter_not_implemented",
+                }
+            return await adapter(
+                method_id=method_id, amount_minor=amount_minor, currency_code=currency_code,
+                customer_email=customer_email, order_number=order_number, country_code=country_code,
+                tx_id=tx_id,
+            )
+
         # BNPL Split Payments
         if "bnpl" in method_id or method_id in ["bnpl_tabby", "bnpl_tamara"]:
             installments = 4
-            installment_val = round((amount_minor / 100.0) / installments, 2)
+            # amount_minor is an exact integer of cents -> Decimal split, 2dp, no float math
+            installment_val = to_float(quantize_money(Decimal(int(amount_minor)) / Decimal(100) / Decimal(installments)))
             provider = "Tabby" if "tabby" in method_id else "Tamara"
             return {
                 "transaction_id": tx_id,
@@ -145,6 +200,14 @@ class PaymentOrchestrator:
         live = bool(settings.PAYMENTS_LIVE) and mode == "live"
         if live and method == "card" and not settings.STRIPE_SECRET_KEY:
             return {"status": "failed", "reason": "live_credentials_missing", "provider_tx_id": provider_tx_id}
+        if live and method != "cod":
+            provider_key, adapter = self.live_adapter_for(method)
+            if adapter is None:
+                logger.error("Live refund requested but no live PSP adapter is implemented",
+                             provider=provider_key, method=method, provider_tx_id=provider_tx_id)
+                return {"status": "failed", "reason": "live_psp_adapter_not_implemented",
+                        "provider_tx_id": provider_tx_id}
+            return await adapter.refund(provider_tx_id=provider_tx_id, amount=amount, method=method)
         logger.info(
             "Refund initiated",
             provider_tx_id=provider_tx_id,

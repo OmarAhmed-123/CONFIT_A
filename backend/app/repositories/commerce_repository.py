@@ -469,6 +469,13 @@ class CommerceRepository:
         self.db.refresh(row)
         return row
 
+    def get_return_by_label_ref(self, label_ref: str):
+        return (
+            self.db.query(ReturnRequest)
+            .filter(ReturnRequest.label_provider_ref == label_ref)
+            .first()
+        )
+
     def create_return_request(
         self,
         order_id: int,
@@ -507,6 +514,16 @@ class CommerceRepository:
         self.db.commit()
         self.db.refresh(req)
         return req
+
+    def revert_return_items(self, item_ids: List[int]) -> int:
+        """Undo the is_returned flag set by create_return_request (return rejected)."""
+        if not item_ids:
+            return 0
+        n = self.db.query(OrderItem).filter(OrderItem.id.in_(item_ids)).update(
+            {"is_returned": False}, synchronize_session=False
+        )
+        self.db.flush()
+        return int(n or 0)
 
     def get_return_by_id(self, return_id: int) -> Optional[ReturnRequest]:
         return (

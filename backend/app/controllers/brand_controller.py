@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Query, status, UploadFile, File, HTTPExc
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 import json
-from backend.app.core.money import to_decimal, to_float
+from backend.app.core.money import to_decimal, to_float, validate_money, money_add, money_sub, MoneyValueError, MoneyRangeError
 
 from backend.app.core.database import get_db
 from backend.app.core.dependencies import require_role, BRAND_ROLES
@@ -23,6 +23,32 @@ from backend.app.schemas.catalog import ProductSummaryOut, ProductSKUOut
 router = APIRouter(tags=["Brand & Admin Management (B2B)"])
 
 brand_auth = require_role(BRAND_ROLES)
+
+
+def _audit(db: Session, user: User, action: str, resource_type: str,
+           resource_id, details: dict | None = None) -> None:
+    """Persist a B2B admin audit event.
+
+    Final truth audit finding: none of the brand/admin mutating endpoints
+    (inventory, catalog, placements, stores) wrote to AuditLog. Audit coverage
+    of security-sensitive B2B operations is a BRD/security requirement, so
+    these call sites now persist real AuditLog rows.
+
+    Never raises: auditing must not break the business operation, but a failure
+    is logged so it is not silent.
+    """
+    try:
+        from backend.app.repositories.user_repository import UserRepository
+        UserRepository(db).log_audit(
+            action=action,
+            resource_type=resource_type,
+            resource_id=str(resource_id) if resource_id is not None else None,
+            user_id=getattr(user, "id", None),
+            details=json.dumps(details or {}, default=str)[:2000],
+        )
+    except Exception as _e:  # pragma: no cover - defensive
+        import logging
+        logging.getLogger(__name__).warning("audit_write_failed action=%s err=%s", action, _e)
 
 
 class StoreCreateRequest(BaseModel):
@@ -329,10 +355,13 @@ def get_catalog_import_status(
         raise HTTPException(status_code=404, detail=f"Import job {job_id} not found for your brand")
 
     errors = []
-    try:
-        errors = json.loads(job.errors_json) if job.errors_json else []
-    except:
-        errors = []
+    if job.errors_json:
+        try:
+            errors = json.loads(job.errors_json)
+        except (TypeError, ValueError) as exc:
+            # A corrupt errors_json must be visible, not rendered as "no errors".
+            errors = [{"row": None, "field": "errors_json",
+                       "message": f"stored error log is unreadable: {type(exc).__name__}", "value": None}]
 
     return {
         "job_id": job.id,
@@ -355,12 +384,16 @@ def get_catalog_import_status(
 def update_sku_inventory(
     sku_id: int,
     stock_level: int = Query(..., ge=0, le=100000, description="New stock level"),
-    price_override: Optional[float] = Query(None, ge=0, le=100000, description="Price override"),
+    price_override: Optional[Decimal] = Query(None, gt=0, le=100000, max_digits=12, decimal_places=2,
+                                               description="Price override (2dp, > 0)"),
     user: User = Depends(brand_auth),
     db: Session = Depends(get_db)
 ):
     service = BrandService(db)
-    return service.update_sku(user, sku_id, stock_level, price_override)
+    result = service.update_sku(user, sku_id, stock_level, price_override)
+    _audit(db, user, "BRAND_INVENTORY_UPDATED", "ProductSKU", sku_id,
+           {"stock_level": stock_level, "price_override": str(price_override) if price_override is not None else None})
+    return result
 
 
 # 4. Inventory & Store Management - REAL IMPLEMENTATION
@@ -485,6 +518,8 @@ def create_partner_store(
     repo = BrandRepository(db)
     try:
         store = repo.create_store(bp["id"], payload.model_dump())
+        _audit(db, user, "BRAND_STORE_CREATED", "Store", store.id,
+               {"brand_id": bp["id"], "name": store.name, "city": store.city})
         return {
             "status": "created",
             "id": store.id,
@@ -543,9 +578,13 @@ def create_placement(
     service = BrandService(db)
     bp = service.get_brand_profile_by_user(user)
     try:
-        return service.create_sponsored_placement(user, bp["id"], payload.model_dump())
+        created = service.create_sponsored_placement(user, bp["id"], payload.model_dump())
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    _audit(db, user, "BRAND_PLACEMENT_CREATED", "SponsoredPlacement",
+           created.get("id") if isinstance(created, dict) else getattr(created, "id", None),
+           {"brand_id": bp["id"], "payload": payload.model_dump()})
+    return created
 
 
 @router.patch("/partner/placements/{placement_id}")
@@ -573,15 +612,23 @@ def patch_placement(
     for key in allowed:
         if key in payload:
             if key == "bid_amount_per_click":
-                bid = to_decimal(payload[key])
-                if bid <= Decimal("0") or bid > Decimal("100"):
+                try:
+                    bid = validate_money(payload[key], "bid_amount_per_click", allow_zero=False,
+                                         required=True, exact_scale=True)
+                except (MoneyValueError, MoneyRangeError) as exc:
+                    raise HTTPException(status_code=422, detail=str(exc))
+                if bid > BrandRepository.MAX_BID_PER_CLICK:
                     raise HTTPException(status_code=400, detail="Bid must be 0-100")
                 if bid > to_decimal(plc.daily_budget):
                     raise HTTPException(status_code=400, detail="Bid cannot exceed daily budget")
                 plc.bid_amount_per_click = bid
             elif key == "daily_budget":
-                budget = to_decimal(payload[key])
-                if budget <= Decimal("0") or budget > Decimal("10000"):
+                try:
+                    budget = validate_money(payload[key], "daily_budget", allow_zero=False,
+                                            required=True, exact_scale=True)
+                except (MoneyValueError, MoneyRangeError) as exc:
+                    raise HTTPException(status_code=422, detail=str(exc))
+                if budget > BrandRepository.MAX_DAILY_BUDGET:
                     raise HTTPException(status_code=400, detail="Budget must be 0-10000")
                 plc.daily_budget = budget
             elif key == "status":
@@ -606,11 +653,13 @@ def patch_placement(
     if plc.bid_amount_per_click > plc.daily_budget:
         raise HTTPException(status_code=400, detail="Bid cannot exceed daily budget after update")
 
+    _audit(db, user, "BRAND_PLACEMENT_UPDATED", "SponsoredPlacement", placement_id,
+           {"brand_id": bp["id"], "changed_fields": [k for k in allowed if k in payload]})
     db.commit()
     db.refresh(plc)
 
     return {
-        "status": "updated",
+        "result": "updated",
         "placement_id": plc.id,
         "bid_amount_per_click": plc.bid_amount_per_click,
         "daily_budget": plc.daily_budget,
@@ -635,6 +684,9 @@ def delete_placement(
     if not plc:
         raise HTTPException(status_code=404, detail=f"Placement {placement_id} not found")
 
+    _audit(db, user, "BRAND_PLACEMENT_DELETED", "SponsoredPlacement", placement_id,
+           {"brand_id": bp["id"], "status": plc.status,
+            "daily_budget": str(plc.daily_budget), "bid": str(plc.bid_amount_per_click)})
     db.delete(plc)
     db.commit()
     return {"status": "deleted", "placement_id": placement_id}
@@ -721,7 +773,7 @@ def track_click(
         raise HTTPException(status_code=400, detail="Daily budget would be exceeded")
 
     plc.clicks += 1
-    plc.spent_today = round(plc.spent_today + plc.bid_amount_per_click, 2)
+    plc.spent_today = money_add(plc.spent_today, plc.bid_amount_per_click)
 
     if plc.spent_today >= plc.daily_budget:
         plc.status = "budget_exhausted"
@@ -732,5 +784,5 @@ def track_click(
         "status": "tracked",
         "clicks": plc.clicks,
         "spent_today": plc.spent_today,
-        "remaining_budget": round(plc.daily_budget - plc.spent_today, 2)
+        "remaining_budget": money_sub(plc.daily_budget, plc.spent_today)
     }

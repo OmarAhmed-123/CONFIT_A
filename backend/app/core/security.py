@@ -27,12 +27,22 @@ def _get_fernet_cipher() -> Fernet:
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
+    """bcrypt-only verification.
+
+    A malformed / non-bcrypt stored value can never authenticate. The previous
+    plaintext-equality fallback ("legacy hash support") meant that if the
+    ``hashed_password`` column ever held a plaintext value (bad import, manual
+    DB edit, leaked dump replayed) the plaintext itself became a valid
+    password. All seeded and registered accounts are bcrypt-hashed, so the
+    fallback protected nothing and weakened everything.
+    """
+    if not plain_password or not hashed_password:
+        return False
     try:
-        return bcrypt.checkpw(plain_password.encode("utf-8"), hashed_password.encode("utf-8"))
-    except Exception:
-        # Fallback for plain/legacy hash — kept for tests seeded with pre-bcrypt
-        # accounts. Production accounts are always bcrypt-hashed at creation.
-        return plain_password == hashed_password
+        return bcrypt.checkpw(plain_password.encode("utf-8")[:72], hashed_password.encode("utf-8"))
+    except (ValueError, TypeError):
+        # not a bcrypt hash (or corrupt) -> authentication fails closed
+        return False
 
 
 def get_password_hash(password: str) -> str:
@@ -78,6 +88,20 @@ def validate_password_policy(password: str) -> None:
         )
 
 
+def _signing_key(token_type: str) -> str:
+    """Access and refresh tokens are signed with DIFFERENT keys.
+
+    JWT_REFRESH_SECRET was declared in Settings (and validated by the
+    production contract) but never used — every token was signed with
+    SECRET_KEY, so a leaked access-signing key also minted 30-day refresh
+    tokens. A refresh token presented where an access token is expected (or
+    vice versa) now fails signature verification before the type check.
+    """
+    if token_type == "refresh":
+        return settings.JWT_REFRESH_SECRET
+    return settings.SECRET_KEY
+
+
 def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:
     to_encode = data.copy()
     now = datetime.now(timezone.utc)
@@ -92,7 +116,7 @@ def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta]
         "iss": settings.JWT_ISSUER,
         "aud": settings.JWT_AUDIENCE,
     })
-    return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    return jwt.encode(to_encode, _signing_key("access"), algorithm=settings.ALGORITHM)
 
 
 def create_refresh_token(data: Dict[str, Any], expires_delta: Optional[timedelta] = None, jti: Optional[str] = None) -> str:
@@ -110,7 +134,7 @@ def create_refresh_token(data: Dict[str, Any], expires_delta: Optional[timedelta
         "aud": settings.JWT_AUDIENCE,
         "jti": jti or secrets.token_urlsafe(24),
     })
-    return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    return jwt.encode(to_encode, _signing_key("refresh"), algorithm=settings.ALGORITHM)
 
 
 def decode_token(token: str, expected_type: Optional[str] = None) -> Dict[str, Any]:
@@ -120,10 +144,21 @@ def decode_token(token: str, expected_type: Optional[str] = None) -> Dict[str, A
     token's `type` claim must match — protects against access/refresh token
     confusion, a class of bug that Group 1 spec §9 explicitly asks about.
     """
+    # The unverified ``type`` claim only selects WHICH key to verify with; the
+    # signature check below is what authenticates it. A token claiming
+    # type=access but signed with the refresh key (or vice versa) fails here.
+    try:
+        claimed_type = jwt.decode(token, options={"verify_signature": False}).get("type")
+    except PyJWTError as exc:
+        raise AuthenticationError(f"Invalid or expired token: {exc}")
+    if expected_type and claimed_type != expected_type:
+        raise AuthenticationError(
+            f"Token type mismatch: expected {expected_type!r}, got {claimed_type!r}"
+        )
     try:
         payload = jwt.decode(
             token,
-            settings.SECRET_KEY,
+            _signing_key(claimed_type or "access"),
             algorithms=[settings.ALGORITHM],
             audience=settings.JWT_AUDIENCE,
             issuer=settings.JWT_ISSUER,

@@ -21,6 +21,7 @@ keywords = ["://"]
     '''CHANGE_USER''',
     '''CHANGE_ME''',
     '''confit_secure_password_2026''',
+    '''\$\{POSTGRES_PASSWORD''',
   ]
 
 [allowlist]
@@ -34,7 +35,8 @@ regexes = [
   '''CHANGE_ME''',
   '''CHANGE_PASSWORD''',
   '''CHANGE_USER''',
-  '''confit_secure_password_2026''',  # local docker-compose dev DB only, never production
+  '''confit_secure_password_2026''',  # historical local docker-compose dev DB value (no longer in the tree)
+  '''\$\{POSTGRES_PASSWORD''',   # docker-compose variable interpolation, not a value
   '''refunds/cancellations''',
   '''refunds and cancellations''',
   # ---------------------------------------------------------------------

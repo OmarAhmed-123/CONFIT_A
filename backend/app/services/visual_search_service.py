@@ -1,6 +1,8 @@
+from backend.app.core.logging import logger
 from typing import Dict, Any, Optional, List
 from sqlalchemy.orm import Session
 from backend.app.core.exceptions import ValidationDomainError
+from backend.app.core.money import to_float
 from backend.app.repositories.catalog_repository import CatalogRepository
 from backend.app.repositories.tryon_repository import TryOnRepository
 from backend.app.providers.tryon_provider import VisualSearchAIProvider
@@ -24,7 +26,8 @@ class VisualSearchService:
         max_price: Optional[float] = None,
         brand_ids: Optional[List[int]] = None,
         in_stock_only: bool = True,
-        limit: int = 24
+        limit: int = 24,
+        session_token: Optional[str] = None,
     ) -> Dict[str, Any]:
         target_img = image_url or image_base64
         if not target_img:
@@ -84,14 +87,23 @@ class VisualSearchService:
         # Sort by similarity score descending
         scored_matches.sort(key=lambda x: x[0], reverse=True)
 
+        # Honour the caller's requested result count (schema: top_k, 1..20). The
+        # DB query above is already bounded by ``limit``; slicing here keeps the
+        # response size consistent with the request instead of a hard-coded 8.
+        result_limit = limit if isinstance(limit, int) and limit > 0 else 8
         matches = []
-        for idx, (sim, p) in enumerate(scored_matches[:8]):
+        for idx, (sim, p) in enumerate(scored_matches[:result_limit]):
             match_type = "Exact Match" if idx == 0 and sim >= 95 else ("Silhouette Match" if sim >= 88 else "Complementary Alternative")
             matches.append({
                 "product_id": p.id,
                 "title": p.title,
                 "brand_name": p.brand.brand_name if p.brand else "CONFIT",
-                "price": p.base_price,
+                # base_price is Numeric(12,2) -> Decimal since migration 0012.
+                # Serialise through the canonical money helper: the response
+                # schema and the persisted matches_json (json.dumps) both need
+                # a JSON-native number; the authoritative value stays Decimal
+                # in the database.
+                "price": to_float(p.base_price),
                 "image_url": p.thumbnail_url,
                 "similarity_score": int(sim),
                 "detected_color": p.color_family,
@@ -132,15 +144,26 @@ class VisualSearchService:
                     attribution_source="visual_search",
                     product_id=pid,
                     user_id=user_id,
+                    # Browser session token enables guest -> authenticated
+                    # attribution stitching at checkout (same X-Session-Token).
+                    session_token=session_token,
                     outfit_id=None,
                     order_id=None,
                     revenue_amount=None,
                     event_metadata={"query_id": logged.id, "similarity": m.get("similarity_score")},
                     idempotency_key=f"vs_view_{logged.id}_{pid}"
                 )
-        except Exception:
-            # Never fail visual search due to analytics instrumentation
-            pass
+        except Exception as exc:
+            # The search result itself is still valid, but a lost VIEW event
+            # means a later purchase of this product cannot be attributed to
+            # visual search. Roll back the failed instrumentation, log it
+            # loudly with the query id, and continue — never silently.
+            self.db.rollback()
+            logger.error(
+                "visual_search_attribution_event_failed",
+                query_id=getattr(logged, "id", None),
+                error=f"{type(exc).__name__}: {str(exc)[:200]}",
+            )
 
         return {
             "query_id": logged.id,

@@ -63,7 +63,9 @@ class CatalogRepository:
         is_featured: Optional[bool] = None,
         limit: int = 50,
         offset: int = 0,
-        sort_by: Optional[str] = "recommended"
+        sort_by: Optional[str] = "recommended",
+        brand_ids: Optional[List[int]] = None,
+        in_stock_only: bool = False,
     ) -> List[Product]:
         query = self.db.query(Product).options(
             joinedload(Product.brand),
@@ -75,6 +77,15 @@ class CatalogRepository:
             query = query.join(Category).filter(Category.slug == category_slug)
         if brand_id:
             query = query.filter(Product.brand_id == brand_id)
+        if brand_ids:
+            # Visual search passes a brand allow-list (schema: brand_ids). The
+            # service called this with a keyword the repository did not accept,
+            # which was a second, latent TypeError behind the visual-search 500.
+            query = query.filter(Product.brand_id.in_(list(brand_ids)))
+        if in_stock_only:
+            query = query.filter(
+                Product.skus.any((ProductSKU.is_in_stock == True) & (ProductSKU.stock_level > 0))
+            )
         if color:
             query = query.filter(Product.color_family.ilike(f"%{color}%"))
         if occasion:

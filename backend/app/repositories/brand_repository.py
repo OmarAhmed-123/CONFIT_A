@@ -1,7 +1,7 @@
 from decimal import Decimal
 from typing import Optional, List, Dict, Any, Tuple
 from datetime import datetime, timezone, timedelta
-from backend.app.core.money import to_decimal, money_add, money_sub, money_sum, to_float, quantize_money
+from backend.app.core.money import to_decimal, money_add, money_sub, money_sum, to_float, quantize_money, validate_money
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, and_, or_, desc, case
 import json
@@ -18,6 +18,11 @@ from backend.app.models.profile import UserStyleProfile
 
 
 class BrandRepository:
+    # Money limits for brand-side inputs (domain constants, single source).
+    MAX_BID_PER_CLICK = Decimal("100.00")
+    MAX_DAILY_BUDGET = Decimal("10000.00")
+    MAX_SKU_PRICE = Decimal("100000.00")
+
     def __init__(self, db: Session):
         self.db = db
 
@@ -58,17 +63,19 @@ class BrandRepository:
         start_date: Optional[datetime] = None,
         end_date: Optional[datetime] = None
     ) -> SponsoredPlacement:
-        # Validate bid and budget
-        if bid_amount <= 0:
-            raise ValueError("Bid amount must be positive")
-        if daily_budget <= 0:
-            raise ValueError("Daily budget must be positive")
-        if bid_amount > daily_budget:
+        # Validate bid and budget through the canonical money validator:
+        # NaN/Infinity/garbage/out-of-range/sub-cent -> MoneyValueError /
+        # MoneyRangeError (both ValueError) BEFORE any ORM assignment.
+        bid_dec = validate_money(bid_amount, "bid_amount_per_click", allow_zero=False,
+                                 required=True, exact_scale=True)
+        budget_dec = validate_money(daily_budget, "daily_budget", allow_zero=False,
+                                    required=True, exact_scale=True)
+        if bid_dec > budget_dec:
             raise ValueError("Bid amount cannot exceed daily budget")
-        if daily_budget > 10000:
-            raise ValueError("Daily budget exceeds maximum allowed (10000)")
-        if bid_amount > 100:
-            raise ValueError("Bid amount exceeds maximum allowed (100)")
+        if budget_dec > self.MAX_DAILY_BUDGET:
+            raise ValueError(f"Daily budget exceeds maximum allowed ({self.MAX_DAILY_BUDGET})")
+        if bid_dec > self.MAX_BID_PER_CLICK:
+            raise ValueError(f"Bid amount exceeds maximum allowed ({self.MAX_BID_PER_CLICK})")
 
         # Validate dates
         if start_date and end_date and start_date >= end_date:
@@ -78,8 +85,8 @@ class BrandRepository:
             brand_id=brand_id,
             product_id=product_id,
             placement_type=placement_type,
-            bid_amount_per_click=to_decimal(bid_amount),
-            daily_budget=to_decimal(daily_budget),
+            bid_amount_per_click=bid_dec,
+            daily_budget=budget_dec,
             spent_today=Decimal("0.00"),
             status="active",
             impressions=0,
@@ -106,12 +113,13 @@ class BrandRepository:
             raise ValueError("Stock level exceeds maximum allowed")
 
         if price_override is not None:
-            if price_override < 0:
-                raise ValueError("Price cannot be negative")
-            if price_override > 100000:
-                raise ValueError("Price exceeds maximum allowed")
-            # Decimal precision: exact, server-authoritative
-            sku.price_override = to_decimal(price_override)
+            # Canonical domain validation (finite, 2dp, > 0, within NUMERIC(12,2)).
+            # A price override of 0 would silently make the SKU free -> reject.
+            price_dec = validate_money(price_override, "price_override", allow_zero=False,
+                                       required=True, exact_scale=True)
+            if price_dec > self.MAX_SKU_PRICE:
+                raise ValueError(f"Price exceeds maximum allowed ({self.MAX_SKU_PRICE})")
+            sku.price_override = price_dec
 
         sku.stock_level = int(new_stock)
         sku.is_in_stock = new_stock > 0
@@ -533,107 +541,12 @@ class BrandRepository:
         non_tryon_orders = total_orders - tryon_orders
         non_tryon_return_rate = round((returns_non_tryon / non_tryon_orders * 100) if non_tryon_orders > 0 else 0.0, 1)
 
-        # Revenue attribution: based on Order flags
-        # Virtual Stylist: stylist_assisted True
-        # Outfit Builder: orders with outfit_id
-        # Visual Search: need to check VisualSearchQuery -> but use try_on as proxy for now, plus check attribution
-        # For real attribution, use BrandAnalyticsEvent or Order flags
-
-        stylist_revenue = self.db.query(func.sum(Order.total_amount)).filter(
-            Order.stylist_assisted == True,
-            Order.status.notin_(["cancelled", "refunded"])
-        ).scalar() or 0.0
-
-        tryon_revenue = self.db.query(func.sum(Order.total_amount)).filter(
-            Order.try_on_assisted == True,
-            Order.status.notin_(["cancelled", "refunded"])
-        ).scalar() or 0.0
-
-        outfit_revenue = self.db.query(func.sum(OrderItem.subtotal)).join(Order).filter(
-            OrderItem.outfit_id.isnot(None),
-            Order.status.notin_(["cancelled", "refunded"])
-        ).scalar() or 0.0
-
-        # Visual search revenue: from BrandAnalyticsEvent if available
-        visual_search_revenue = self.db.query(func.sum(BrandAnalyticsEvent.revenue_amount)).filter(
-            BrandAnalyticsEvent.event_type == "purchase",
-            BrandAnalyticsEvent.attribution_source == "visual_search"
-        ).scalar() or 0.0
-
-        # Revenue attribution — BRAND-ITEM-LEVEL FIX (section 8 multi-brand correctness):
-        # Previous fix used order-level total_amount for all channels to ensure sum<=total_gmv,
-        # but assigning entire Order.total_amount to one brand/channel is incorrect for multi-brand orders:
-        # Example Order total 1000, Brand A item 300, Brand B item 700, visual event for Brand A -> attributing 1000 to Brand A is wrong.
-        # Correct model is brand-item-level: each OrderItem attributed individually based on its own lineage,
-        # revenue = OrderItem.subtotal (brand-isolated), not entire order total.
-        # Uses BrandAnalyticsEvent purchase events with revenue_amount = subtotal_item (authoritative, brand-isolated)
-        # For legacy orders without purchase events, fallback to OrderItem flags (outfit_id, stylist_assisted)
-        # Priority still visual_search > outfit_builder > virtual_stylist > organic, but per-item
-        # Prevents JOIN multiplication via DISTINCT and item-level, ensures brand isolation
-        total_subtotal = self.db.query(func.sum(OrderItem.subtotal)).join(Order).filter(
-            Order.status.notin_(["cancelled", "refunded"])
-        ).scalar() or 0.0
-
-        # Item-level attribution via BrandAnalyticsEvent purchase events (brand-isolated, revenue_amount = subtotal)
-        visual_rev_exclusive = self.db.query(func.sum(BrandAnalyticsEvent.revenue_amount)).filter(
-            BrandAnalyticsEvent.event_type == "purchase",
-            BrandAnalyticsEvent.attribution_source == "visual_search",
-            BrandAnalyticsEvent.order_id.isnot(None),
-            BrandAnalyticsEvent.order_id.in_(
-                self.db.query(Order.id).filter(Order.status.notin_(["cancelled", "refunded"]))
-            )
-        ).scalar() or 0.0
-
-        outfit_rev_exclusive = self.db.query(func.sum(BrandAnalyticsEvent.revenue_amount)).filter(
-            BrandAnalyticsEvent.event_type == "purchase",
-            BrandAnalyticsEvent.attribution_source == "outfit_builder",
-            BrandAnalyticsEvent.order_id.isnot(None),
-            BrandAnalyticsEvent.order_id.in_(
-                self.db.query(Order.id).filter(Order.status.notin_(["cancelled", "refunded"]))
-            )
-        ).scalar() or 0.0
-
-        stylist_rev_exclusive = self.db.query(func.sum(BrandAnalyticsEvent.revenue_amount)).filter(
-            BrandAnalyticsEvent.event_type == "purchase",
-            BrandAnalyticsEvent.attribution_source == "virtual_stylist",
-            BrandAnalyticsEvent.order_id.isnot(None),
-            BrandAnalyticsEvent.order_id.in_(
-                self.db.query(Order.id).filter(Order.status.notin_(["cancelled", "refunded"]))
-            )
-        ).scalar() or 0.0
-
-        # Fallback for legacy orders without purchase events: use OrderItem flags
-        # Only if no purchase events exist at all, use OrderItem-based attribution to avoid double count
-        total_purchase_events = self.db.query(func.count(BrandAnalyticsEvent.id)).filter(
-            BrandAnalyticsEvent.event_type == "purchase"
-        ).scalar() or 0
-
-        if total_purchase_events == 0:
-            # No instrumentation yet — use OrderItem flags as fallback (item-level, brand-isolated via subtotal)
-            # Visual fallback: cannot determine without view events, so skip visual and use outfit/stylist
-            outfit_rev_exclusive = self.db.query(func.sum(OrderItem.subtotal)).join(Order).filter(
-                OrderItem.outfit_id.isnot(None),
-                Order.status.notin_(["cancelled", "refunded"])
-            ).scalar() or 0.0
-            stylist_rev_exclusive = self.db.query(func.sum(OrderItem.subtotal)).join(Order).filter(
-                OrderItem.outfit_id.is_(None),
-                Order.stylist_assisted == True,
-                Order.status.notin_(["cancelled", "refunded"])
-            ).scalar() or 0.0
-            visual_rev_exclusive = 0.0
-
-        # Organic: total_subtotal minus exclusive attributions — brand-isolated, item-level, no double count
-        # Use total_subtotal as base for attribution (sum of all item subtotals), not total_gmv which includes tax/shipping
-        # This ensures brand isolation for multi-brand orders and correct per-brand revenue
-        # Precise Decimal for brand-isolated attribution
-        total_sub_dec = to_decimal(total_subtotal)
-        outfit_dec = to_decimal(outfit_rev_exclusive)
-        visual_dec = to_decimal(visual_rev_exclusive)
-        stylist_dec = to_decimal(stylist_rev_exclusive)
-        organic_revenue = total_sub_dec - outfit_dec - visual_dec - stylist_dec
-        if organic_revenue < Decimal("0.00"):
-            organic_revenue = Decimal("0.00")
-        organic_revenue = quantize_money(organic_revenue)
+        # Revenue attribution: canonical item-grain ledger (order_item_id lineage)
+        _ledger = self.compute_item_grain_attribution()
+        stylist_rev_exclusive = _ledger["channels"]["virtual_stylist"]
+        outfit_rev_exclusive = _ledger["channels"]["outfit_builder"]
+        visual_rev_exclusive = _ledger["channels"]["visual_search"]
+        organic_revenue = _ledger["channels"]["organic"]
         total_revenue = to_decimal(total_gmv)
 
         # Most Styled Items: ranking by outfit appearances
@@ -884,112 +797,129 @@ class BrandRepository:
             "methodology": "Cohort analysis: try-on assisted orders vs non-try-on orders, return rate comparison. Try-on adoption attributed via Order.try_on_assisted and ReturnRequest.try_on_used_for_item from real VTON events."
         }
 
+    # Order states whose items are NOT eligible revenue (order-level).
+    # NOTE: order status "rejected" is the terminal state of a REJECTED RETURN
+    # (ORDER_TRANSITIONS: return_requested -> rejected): goods were delivered
+    # and kept, so the revenue stands. "failed" = payment failed, inventory
+    # released, never revenue.
+    INELIGIBLE_ORDER_STATUSES = ("cancelled", "refunded", "failed")
+    ATTRIBUTION_CHANNELS = ("visual_search", "outfit_builder", "virtual_stylist", "organic")
+
+    def compute_item_grain_attribution(self, brand_id: Optional[int] = None) -> Dict[str, Any]:
+        """Canonical item-grain revenue attribution ledger.
+
+        Source of truth: brand_analytics_events joined to order_items THROUGH
+        order_item_id (migration 0014). There is deliberately NO order-level
+        fallback and NO reconstruction via (order_id, product_id, sku_id).
+
+        Per eligible OrderItem (order not cancelled/refunded/failed/rejected):
+            channel[purchase.attribution_source] += purchase.revenue_amount
+            channel[...]                         -= return.revenue_amount (if returned)
+            items with no purchase event (pre-instrumentation) count as organic
+            at OrderItem.subtotal and are reported in uninstrumented_items.
+        Conservation base (computed independently from OrderItem, not events):
+            net = Σ subtotal(eligible items) − Σ subtotal(items with a return event)
+        Invariant (tested, and exposed as ``conserved``):
+            Σvisual + Σoutfit + Σstylist + Σorganic == net
+        A missing, duplicated or corrupt ledger row breaks the equality and is
+        reported — never repaired silently. Exact Decimal throughout; floats
+        appear only in the JSON view.
+        """
+        eligible_items = (
+            self.db.query(OrderItem)
+            .join(Order, OrderItem.order_id == Order.id)
+            .filter(Order.status.notin_(list(self.INELIGIBLE_ORDER_STATUSES)))
+        )
+        if brand_id is not None:
+            eligible_items = eligible_items.filter(OrderItem.brand_id == brand_id)
+        items = eligible_items.all()
+        item_ids = [it.id for it in items]
+
+        purchase_by_item: Dict[int, Tuple[str, Decimal]] = {}
+        return_by_item: Dict[int, Decimal] = {}
+        if item_ids:
+            rows = self.db.query(
+                BrandAnalyticsEvent.order_item_id, BrandAnalyticsEvent.event_type,
+                BrandAnalyticsEvent.attribution_source, BrandAnalyticsEvent.revenue_amount,
+            ).filter(
+                BrandAnalyticsEvent.order_item_id.in_(item_ids),
+                BrandAnalyticsEvent.event_type.in_(["purchase", "return"]),
+            ).all()
+            for oid, etype, source, amount in rows:
+                if etype == "purchase":
+                    channel = source if source in self.ATTRIBUTION_CHANNELS else "organic"
+                    purchase_by_item[oid] = (channel, to_decimal(amount))
+                else:
+                    return_by_item[oid] = to_decimal(amount)
+
+        # Channel figures come from the LEDGER (event.revenue_amount); the
+        # conservation base comes from the ITEMS (OrderItem.subtotal). They are
+        # computed independently so a corrupt / missing / duplicated ledger row
+        # shows up as conserved=False instead of being papered over.
+        channel_totals: Dict[str, Decimal] = {c: Decimal("0.00") for c in self.ATTRIBUTION_CHANNELS}
+        gross = Decimal("0.00")
+        returned = Decimal("0.00")
+        uninstrumented_items = 0
+        for it in items:
+            sub = to_decimal(it.subtotal)
+            gross += sub
+            purchase = purchase_by_item.get(it.id)
+            if purchase is None:
+                uninstrumented_items += 1
+                channel, amount = "organic", sub  # legacy row: item value, reported
+            else:
+                channel, amount = purchase
+            channel_totals[channel] += amount
+            if it.id in return_by_item:
+                returned += sub
+                channel_totals[channel] -= return_by_item[it.id]  # item-level refund netting
+
+        net = quantize_money(gross - returned)
+        attributed_sum = quantize_money(sum(channel_totals.values(), Decimal("0.00")))
+        return {
+            "eligible_items": len(items),
+            "gross_item_revenue": quantize_money(gross),
+            "returned_item_revenue": quantize_money(returned),
+            "net_item_revenue": net,
+            "channels": {c: quantize_money(v) for c, v in channel_totals.items()},
+            "attributed_sum": attributed_sum,
+            "conserved": attributed_sum == net,
+            "uninstrumented_items": uninstrumented_items,
+        }
+
     def get_revenue_attribution(self) -> Dict[str, Any]:
-        """Revenue attributable to Virtual Stylist, Outfit Builder, Visual Search"""
+        """Revenue attributable to Virtual Stylist, Outfit Builder, Visual Search (JSON view)."""
         total_gmv = self.db.query(func.sum(Order.total_amount)).filter(
-            Order.status.notin_(["cancelled", "refunded"])
-        ).scalar() or 0.0
+            Order.status.notin_(list(self.INELIGIBLE_ORDER_STATUSES))
+        ).scalar() or Decimal("0.00")
 
-        stylist_rev = self.db.query(func.sum(Order.total_amount)).filter(
-            Order.stylist_assisted == True,
-            Order.status.notin_(["cancelled", "refunded"])
-        ).scalar() or 0.0
-
-        outfit_rev = self.db.query(func.sum(OrderItem.subtotal)).join(Order).filter(
-            OrderItem.outfit_id.isnot(None),
-            Order.status.notin_(["cancelled", "refunded"])
-        ).scalar() or 0.0
-
-        visual_rev = self.db.query(func.sum(BrandAnalyticsEvent.revenue_amount)).filter(
-            BrandAnalyticsEvent.event_type == "purchase",
-            BrandAnalyticsEvent.attribution_source == "visual_search"
-        ).scalar() or 0.0
-
-        # If no BrandAnalyticsEvent data, try from TryOnSession attribution
-        if visual_rev == 0:
-            # For now, visual search revenue is part of try-on revenue if not separately tracked
-            # Use a separate query if VisualSearchQuery exists
-            try:
-                from backend.app.models.tryon import VisualSearchQuery
-                # Visual search queries that led to purchases - need to join via product
-                # Simplified: count orders where visual search was used
-                pass
-            except:
-                pass
-
-        # Mutually exclusive priority: visual_search > outfit_builder > virtual_stylist > organic
-        # BRAND-ITEM-LEVEL FIX: use BrandAnalyticsEvent revenue_amount (subtotal, brand-isolated) not entire Order.total_amount
-        # Prevents incorrect attribution for multi-brand orders: assigning entire order total to one brand is wrong
-        # Example: Order total 1000, Brand A 300, Brand B 700, visual event for Brand A -> should attribute 300 to Brand A, not 1000
-        # Correct model: per-item attribution via purchase events with revenue_amount = subtotal_item
-        total_subtotal = self.db.query(func.sum(OrderItem.subtotal)).join(Order).filter(
-            Order.status.notin_(["cancelled", "refunded"])
-        ).scalar() or 0.0
-
-        visual_rev_exclusive = self.db.query(func.sum(BrandAnalyticsEvent.revenue_amount)).filter(
-            BrandAnalyticsEvent.event_type == "purchase",
-            BrandAnalyticsEvent.attribution_source == "visual_search",
-            BrandAnalyticsEvent.order_id.isnot(None),
-            BrandAnalyticsEvent.order_id.in_(
-                self.db.query(Order.id).filter(Order.status.notin_(["cancelled", "refunded"]))
-            )
-        ).scalar() or 0.0
-
-        outfit_rev_exclusive = self.db.query(func.sum(BrandAnalyticsEvent.revenue_amount)).filter(
-            BrandAnalyticsEvent.event_type == "purchase",
-            BrandAnalyticsEvent.attribution_source == "outfit_builder",
-            BrandAnalyticsEvent.order_id.isnot(None),
-            BrandAnalyticsEvent.order_id.in_(
-                self.db.query(Order.id).filter(Order.status.notin_(["cancelled", "refunded"]))
-            )
-        ).scalar() or 0.0
-
-        stylist_rev_exclusive = self.db.query(func.sum(BrandAnalyticsEvent.revenue_amount)).filter(
-            BrandAnalyticsEvent.event_type == "purchase",
-            BrandAnalyticsEvent.attribution_source == "virtual_stylist",
-            BrandAnalyticsEvent.order_id.isnot(None),
-            BrandAnalyticsEvent.order_id.in_(
-                self.db.query(Order.id).filter(Order.status.notin_(["cancelled", "refunded"]))
-            )
-        ).scalar() or 0.0
-
-        total_purchase_events = self.db.query(func.count(BrandAnalyticsEvent.id)).filter(
-            BrandAnalyticsEvent.event_type == "purchase"
-        ).scalar() or 0
-
-        if total_purchase_events == 0:
-            # Fallback legacy: item-level via OrderItem flags (brand-isolated)
-            outfit_rev_exclusive = self.db.query(func.sum(OrderItem.subtotal)).join(Order).filter(
-                OrderItem.outfit_id.isnot(None),
-                Order.status.notin_(["cancelled", "refunded"])
-            ).scalar() or 0.0
-            stylist_rev_exclusive = self.db.query(func.sum(OrderItem.subtotal)).join(Order).filter(
-                OrderItem.outfit_id.is_(None),
-                Order.stylist_assisted == True,
-                Order.status.notin_(["cancelled", "refunded"])
-            ).scalar() or 0.0
-            visual_rev_exclusive = 0.0
-
-        total_sub_dec = to_decimal(total_subtotal)
-        outfit_dec = to_decimal(outfit_rev_exclusive)
-        visual_dec = to_decimal(visual_rev_exclusive)
-        stylist_dec = to_decimal(stylist_rev_exclusive)
-        organic = total_sub_dec - outfit_dec - visual_dec - stylist_dec
-        if organic < Decimal("0.00"):
-            organic = Decimal("0.00")
-        organic = quantize_money(organic)
-
+        ledger = self.compute_item_grain_attribution()
+        ch = ledger["channels"]
         return {
             "total_gmv": to_float(total_gmv),
+            "attribution_base_item_subtotal": to_float(ledger["net_item_revenue"]),
+            "gross_item_subtotal": to_float(ledger["gross_item_revenue"]),
+            "returned_item_subtotal": to_float(ledger["returned_item_revenue"]),
             "revenue_attribution": {
-                "ai_virtual_stylist": to_float(stylist_rev_exclusive),
-                "outfit_builder": to_float(outfit_rev_exclusive),
-                "visual_search": to_float(visual_rev_exclusive),
-                "organic_discovery": to_float(organic)
+                "ai_virtual_stylist": to_float(ch["virtual_stylist"]),
+                "outfit_builder": to_float(ch["outfit_builder"]),
+                "visual_search": to_float(ch["visual_search"]),
+                "organic_discovery": to_float(ch["organic"]),
             },
-            "attribution_methodology": "Mutually exclusive priority attribution: visual_search > outfit_builder > virtual_stylist > organic. Each order counted once to prevent JOIN multiplication and double-count. Priority based on explicit attribution signals: BrandAnalyticsEvent.attribution_source for Visual Search, OrderItem.outfit_id for Outfit Builder, Order.stylist_assisted for Virtual Stylist. Organic = total - exclusive attributions. Revenue from authoritative Order.total_amount, not frontend values. Refunds/cancellations excluded. No arbitrary 0.5 factors.",
-            "attribution_window": "30 days from event to purchase",
-            "dedup_policy": "Priority-based exclusive attribution prevents double counting, mathematically valid"
+            "conservation_holds": bool(ledger["conserved"]),
+            "uninstrumented_items": int(ledger["uninstrumented_items"]),
+            "attribution_methodology": (
+                "ITEM-LEVEL ledger: each eligible OrderItem (order not cancelled/refunded/failed/rejected) "
+                "is attributed to exactly one channel via its BrandAnalyticsEvent purchase event joined THROUGH "
+                "order_item_id (no order-level fallback, no (order,product,sku) reconstruction). Channel priority is "
+                "fixed at checkout: visual_search > outfit_builder > virtual_stylist > organic. Items with a 'return' "
+                "ledger event are netted to zero at item grain (partial refunds subtract only the returned item). "
+                "Items without a purchase event (pre-instrumentation) are reported as organic and counted in "
+                "uninstrumented_items. Invariant: visual+outfit+stylist+organic == net eligible item subtotal. "
+                "Order.total_amount (tax+shipping) is reported separately as total_gmv and is NEVER the attribution base."
+            ),
+            "attribution_window": "30 days from visual_search view event to purchase (same product, same user or browser session)",
+            "dedup_policy": "One purchase event per OrderItem enforced by unique index uq_brand_analytics_item_event",
         }
 
     def get_user_preference_heatmaps(self, region: str = "MENA", min_sample_size: int = 10) -> Dict[str, Any]:
@@ -1085,12 +1015,23 @@ class BrandRepository:
         session_token: str = None,
         outfit_id: int = None,
         order_id: int = None,
-        revenue_amount: float = None,
+        revenue_amount=None,
         event_metadata: dict = None,
         idempotency_key: str = None,
+        order_item_id: int = None,
     ) -> Optional[BrandAnalyticsEvent]:
-        """Idempotent analytics event creation - prevents double count."""
+        """Idempotent analytics event creation - prevents double count.
+
+        Financial events (purchase / return) MUST carry order_item_id — the
+        attribution ledger is item-grain and joins through that column only.
+        """
         import uuid as _uuid
+        if event_type in ("purchase", "return") and order_item_id is None:
+            raise ValueError(f"{event_type} analytics events require order_item_id (item-grain ledger)")
+        if revenue_amount is not None:
+            # Domain validation BEFORE persistence: finite, NUMERIC(12,2) range,
+            # never negative (a return is a positive amount with event_type='return').
+            revenue_amount = validate_money(revenue_amount, "revenue_amount", allow_negative=False)
         eid = idempotency_key or f"{event_type}_{attribution_source or 'na'}_{order_id or ''}_{product_id or ''}_{_uuid.uuid4().hex[:8]}"
         existing = self.db.query(BrandAnalyticsEvent).filter(BrandAnalyticsEvent.event_id == eid).first()
         if existing:
@@ -1107,7 +1048,8 @@ class BrandRepository:
                 attribution_source=attribution_source,
                 outfit_id=outfit_id,
                 order_id=order_id,
-                revenue_amount=to_decimal(revenue_amount) if revenue_amount is not None else None,
+                order_item_id=order_item_id,
+                revenue_amount=revenue_amount,
                 event_metadata_json=json.dumps(event_metadata or {}),
             )
             self.db.add(ev)
@@ -1115,34 +1057,49 @@ class BrandRepository:
             self.db.refresh(ev)
             return ev
         except Exception:
+            # Only a concurrent insert of the SAME event (unique event_id or
+            # unique (order_item_id, event_type)) is tolerated: return that row.
+            # Anything else is re-raised — swallowing it would silently drop a
+            # financial event from the ledger.
             self.db.rollback()
-            return self.db.query(BrandAnalyticsEvent).filter(BrandAnalyticsEvent.event_id == eid).first()
+            existing = self.db.query(BrandAnalyticsEvent).filter(BrandAnalyticsEvent.event_id == eid).first()
+            if existing is None and order_item_id is not None:
+                existing = self.db.query(BrandAnalyticsEvent).filter(
+                    BrandAnalyticsEvent.order_item_id == order_item_id,
+                    BrandAnalyticsEvent.event_type == event_type,
+                ).first()
+            if existing is None:
+                raise
+            return existing
 
-    def get_recent_visual_search_for_user(self, user_id: int, within_days: int = 30, product_id: int = None) -> bool:
-        """Check if user had visual search VIEW event for product within window - product-level attribution.
-        Fixed from any VisualSearchQuery existence to product-matched BrandAnalyticsEvent view.
-        Prevents false attribution when user searched for different product.
+    def get_recent_visual_search_for_user(self, user_id: int, within_days: int = 30, product_id: int = None,
+                                          session_token: Optional[str] = None) -> bool:
+        """Product-level visual-search lineage check: a visual_search VIEW event
+        for the given product within the window, owned by the user or by the
+        browser session (guest -> authenticated stitching).
+
+        No fallback: a database error propagates. The previous version fell
+        back to "any prior search query by this user" on ANY exception, which
+        could attribute unrelated purchases on a transient DB error.
         """
-        try:
-            cutoff = datetime.now(timezone.utc) - timedelta(days=within_days)
-            q = self.db.query(BrandAnalyticsEvent).filter(
-                BrandAnalyticsEvent.event_type == "view",
-                BrandAnalyticsEvent.attribution_source == "visual_search",
-                BrandAnalyticsEvent.user_id == user_id,
-                BrandAnalyticsEvent.created_at >= cutoff,
-            )
-            if product_id:
-                q = q.filter(BrandAnalyticsEvent.product_id == product_id)
-            return q.first() is not None
-        except Exception:
-            try:
-                from backend.app.models.tryon import VisualSearchQuery
-                # Fallback to old logic if BrandAnalyticsEvent check fails, but still try product filter via query metadata if possible
-                return self.db.query(VisualSearchQuery).filter(VisualSearchQuery.user_id == user_id).first() is not None
-            except Exception:
-                return False
+        cutoff = datetime.now(timezone.utc) - timedelta(days=within_days)
+        owners = []
+        if user_id:
+            owners.append(BrandAnalyticsEvent.user_id == user_id)
+        if session_token:
+            owners.append(BrandAnalyticsEvent.session_token == session_token)
+        if not owners:
+            return False
+        q = self.db.query(BrandAnalyticsEvent.id).filter(
+            BrandAnalyticsEvent.event_type == "view",
+            BrandAnalyticsEvent.attribution_source == "visual_search",
+            BrandAnalyticsEvent.created_at >= cutoff,
+            or_(*owners),
+        )
+        if product_id:
+            q = q.filter(BrandAnalyticsEvent.product_id == product_id)
+        return q.first() is not None
 
-    # --- Catalog Import ---
     def create_import_job(self, brand_id: int, file_name: str = None, file_size: int = None) -> CatalogImportJob:
         job = CatalogImportJob(
             brand_id=brand_id,

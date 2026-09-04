@@ -15,7 +15,8 @@ in ORM models / application validation:
 
 Safety:
 - Before adding constraints, scan and remediate existing violating rows to valid defaults
-  (no data loss, minimal adjustment, logged via print)
+  (row count preserved; ORIGINAL INVALID VALUES ARE OVERWRITTEN AND IRRECOVERABLE
+   from the DB — see 0013 quarantine + migration_audit_log; restoration requires backup)
 - Inspector-guarded: only adds if table exists and constraint not already present
 - PG compatible: uses batch_alter_table for SQLite compatibility
 - Idempotent: safe to run twice

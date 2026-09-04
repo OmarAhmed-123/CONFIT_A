@@ -1,5 +1,9 @@
 from contextlib import asynccontextmanager
+import math
+from decimal import Decimal
 from fastapi import Depends, FastAPI, HTTPException, Request, status
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -8,6 +12,7 @@ from backend.app.core.logging import setup_logging, logger
 from backend.app.core.database import engine, Base
 from backend.app.core.dependencies import get_current_user
 from backend.app.core.exceptions import AuthorizationError, ConfitException
+from backend.app.core.money import MoneyRangeError, MoneyValueError
 from backend.app.models.user import UserRole
 from backend.app.controllers.auth_controller import router as auth_router
 from backend.app.controllers.profile_controller import router as profile_router
@@ -57,6 +62,14 @@ async def lifespan(app: FastAPI):
                     logger.info("Database was empty — seeded the default catalogue")
     except Exception as exc:
         logger.warn("Database initialization notice", error=str(exc))
+
+    # Schema-drift gate (2026-09-03 production incident: DB at 0007, code at
+    # 0013, four endpoints 500 for weeks while /health said "healthy").
+    # Production refuses to serve a database that is not at this code's
+    # migration head; other environments log the verdict. This is a gate, not
+    # a repair: it never creates tables or masks the mismatch.
+    from backend.app.core.schema_gate import enforce_at_startup
+    enforce_at_startup(engine, settings.ENVIRONMENT, logger=logger)
     yield
     logger.info("Shutting down CONFIT API Engine")
 
@@ -110,6 +123,39 @@ async def csrf_cookie_guard(request: Request, call_next):
     return await call_next(request)
 
 
+# Schema-drift request guard (serverless-safe complement to the startup gate).
+# In production, if the database is not at this code's migration head, every
+# API request is refused with an EXPLICIT 503 SCHEMA_DRIFT instead of the
+# opaque 500s the missing tables produced for weeks. /health stays reachable
+# so operators and the uptime monitor can read the verdict. Verified against
+# a copy of production at 0007 (see tests/test_schema_drift_gate.py).
+SCHEMA_GUARD_EXEMPT_SUFFIXES = ("/health", "/docs", "/redoc", "/openapi.json")
+
+
+@app.middleware("http")
+async def schema_drift_guard(request: Request, call_next):
+    path = request.url.path
+    if path == "/" or path.endswith(SCHEMA_GUARD_EXEMPT_SUFFIXES) or path.startswith("/uploads"):
+        return await call_next(request)
+    from backend.app.core.schema_gate import request_guard_verdict
+    report = request_guard_verdict(engine, settings.ENVIRONMENT)
+    if report is not None:
+        return JSONResponse(
+            status_code=503,
+            content={"error": {
+                "code": "SCHEMA_DRIFT",
+                "message": "Service unavailable: database schema does not match the deployed code. "
+                           "Operator action required: alembic upgrade head.",
+                "details": {
+                    "database_revision": report.database_revision,
+                    "expected_head": report.expected_head,
+                    "findings": report.findings[:6],
+                },
+            }},
+        )
+    return await call_next(request)
+
+
 # Exception handler for domain exceptions
 @app.exception_handler(ConfitException)
 async def confit_exception_handler(request: Request, exc: ConfitException):
@@ -129,6 +175,56 @@ async def confit_exception_handler(request: Request, exc: ConfitException):
                 "details": exc.details
             }
         }
+    )
+
+
+def _json_safe(value):
+    """Make a pydantic error payload JSON-serialisable.
+
+    Pydantic echoes the offending ``input`` back; when a client sends ``1e400``
+    (parsed as float ``inf``) or ``NaN`` the default FastAPI handler crashes
+    with ``ValueError: Out of range float values are not JSON compliant`` and
+    the client receives a 500 instead of the 422 it earned. Non-finite floats
+    are rendered as strings; everything else is delegated to jsonable_encoder.
+    """
+    if isinstance(value, float) and (math.isnan(value) or math.isinf(value)):
+        return repr(value)
+    if isinstance(value, dict):
+        return {k: _json_safe(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(v) for v in value]
+    if isinstance(value, Decimal):
+        return str(value)
+    try:
+        return jsonable_encoder(value)
+    except Exception:  # pragma: no cover - defensive, never mask the 422
+        return repr(value)
+
+
+@app.exception_handler(RequestValidationError)
+async def request_validation_error_handler(request: Request, exc: RequestValidationError):
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content={"detail": _json_safe(exc.errors())},
+    )
+
+
+# Money domain errors (NaN/Infinity/garbage/out-of-NUMERIC(12,2)-range/sign
+# violations) are client errors, never 500s. Domain validation runs before
+# persistence, so a rejected amount never reaches the database.
+@app.exception_handler(MoneyValueError)
+@app.exception_handler(MoneyRangeError)
+async def money_domain_error_handler(request: Request, exc: ValueError):
+    logger.warn("Monetary input rejected", path=request.url.path, message=str(exc))
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content={
+            "error": {
+                "code": "INVALID_MONETARY_VALUE",
+                "message": str(exc),
+                "details": {"kind": exc.__class__.__name__},
+            }
+        },
     )
 
 

@@ -7,7 +7,7 @@ class StylistPromptRequest(BaseModel):
     session_id: Optional[int] = None
     prompt: str = Field(description="Natural language request or occasion text e.g. 'I need a smart casual outfit for an art gallery opening under $300'")
     occasion: Optional[str] = None
-    budget_limit: Optional[float] = None
+    budget_limit: Optional[float] = Field(default=None, ge=0, allow_inf_nan=False)
     voice_input_used: bool = False
     include_wardrobe_items: bool = True
 
@@ -49,7 +49,7 @@ class OutfitOut(BaseModel):
     missing_slots: Optional[List[str]] = []
     color_harmony_score: Optional[int] = 95
     formality_score: Optional[int] = 90
-    budget_limit: Optional[float] = None
+    budget_limit: Optional[float] = Field(default=None, ge=0, allow_inf_nan=False)
     within_budget: Optional[bool] = True
     budget_note: Optional[str] = None
     items: List[OutfitItemOut]

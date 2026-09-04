@@ -33,6 +33,24 @@ def _has_table(bind, table: str) -> bool:
     return inspect(bind).has_table(table)
 
 
+def _has_index(bind, table: str, index: str) -> bool:
+    return any(ix["name"] == index for ix in inspect(bind).get_indexes(table))
+
+
+def _ensure_index(bind, name: str, table: str, columns):
+    """Create an index only if it does not exist.
+
+    The previous ``try: op.create_index(...) except Exception: pass`` is NOT
+    safe on PostgreSQL: a failed statement aborts the surrounding transaction
+    and every later statement fails with InFailedSqlTransaction. 0001_baseline
+    already creates these two indexes, so a FRESH PostgreSQL database could
+    never be migrated past 0002 (found 2026-09-03 while rehearsing the chain
+    from an empty database on PostgreSQL 17).
+    """
+    if not _has_index(bind, table, name):
+        op.create_index(name, table, columns)
+
+
 def upgrade() -> None:
     bind = op.get_bind()
 
@@ -44,14 +62,8 @@ def upgrade() -> None:
             if not _has_column(bind, "users", "oauth_subject"):
                 batch.add_column(sa.Column("oauth_subject", sa.String(255), nullable=True))
         # Indexes — separate so batch_alter_table above can stay short
-        try:
-            op.create_index("ix_users_oauth_provider", "users", ["oauth_provider"])
-        except Exception:
-            pass
-        try:
-            op.create_index("ix_users_oauth_subject", "users", ["oauth_subject"])
-        except Exception:
-            pass
+        _ensure_index(bind, "ix_users_oauth_provider", "users", ["oauth_provider"])
+        _ensure_index(bind, "ix_users_oauth_subject", "users", ["oauth_subject"])
 
     # ---- user_style_profiles: consent columns -----------------------------
     if _has_table(bind, "user_style_profiles"):

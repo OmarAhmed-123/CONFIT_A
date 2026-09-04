@@ -32,6 +32,7 @@ from backend.app.core.exceptions import (
 )
 from backend.app.models.profile import MoodBoard, MoodBoardItem, UserStyleProfile
 from backend.app.models.user import User
+from backend.app.services.storage_service import require_production_storage
 
 # Real upload constraints (Group 1 §10/§12). Whitelist — never trust the
 # client-supplied content_type or filename.
@@ -46,11 +47,9 @@ def _secure_upload(file: UploadFile, user_id: int, board_id: int, content: bytes
     derived from the client filename → no path traversal, no overwrite of
     another user's asset, no extension spoofing.
     """
-    if settings.STORAGE_PROVIDER != "local":
-        # Object storage not configured — fail honestly rather than fake it.
-        raise ValidationDomainError(
-            f"Storage provider '{settings.STORAGE_PROVIDER}' is not configured for uploads."
-        )
+    # Durable storage is a deployment precondition (501 when absent in
+    # production) — checked before any bytes are accepted.
+    storage = require_production_storage("moodboard_upload")
     ctype = (file.content_type or "").lower()
     if ctype not in _ALLOWED_IMAGE_TYPES:
         raise ValidationDomainError(
@@ -63,15 +62,10 @@ def _secure_upload(file: UploadFile, user_id: int, board_id: int, content: bytes
 
     ext = _ALLOWED_IMAGE_TYPES[ctype]
     object_key = f"moodboards/u{user_id}/b{board_id}/{_uuid.uuid4().hex}{ext}"
-    storage_dir = os.path.abspath(settings.STORAGE_LOCAL_DIR)
-    dest = os.path.abspath(os.path.join(storage_dir, object_key))
-    # Defend against path traversal even though we generate the key.
-    if not dest.startswith(storage_dir + os.sep):
-        raise ValidationDomainError("Invalid storage path.")
-    os.makedirs(os.path.dirname(dest), exist_ok=True)
-    with open(dest, "wb") as fh:
-        fh.write(content)
-    return {"upload_id": object_key, "url": f"/uploads/{object_key}", "content_type": ctype, "size": len(content)}
+    # The backend validates the key (traversal-safe) and returns the public URL
+    # for whichever store is configured (local dev dir or S3/R2 in production).
+    url = storage.store(object_key, content)
+    return {"upload_id": object_key, "url": url, "content_type": ctype, "size": len(content)}
 
 router = APIRouter(prefix="/me/mood-boards", tags=["Mood Boards (G1)"])
 
@@ -220,8 +214,9 @@ def add_item(board_id: int, payload: MoodBoardItemCreate, user: User = Depends(g
             )
         if ".." in upload_id:
             raise ValidationDomainError("Invalid upload reference.")
-        stored = os.path.abspath(os.path.join(os.path.abspath(settings.STORAGE_LOCAL_DIR), upload_id))
-        if not os.path.isfile(stored):
+        # Existence is checked in the configured store (local dir in development,
+        # S3/R2 in production) — the same backend that POST .../upload wrote to.
+        if not require_production_storage("moodboard_upload").exists(upload_id):
             raise ValidationDomainError("Referenced upload does not exist on the server.")
 
     next_position = 1 + (max((it.position for it in board.items), default=0))

@@ -5,7 +5,6 @@ Server-authoritative totals. Client-submitted prices/discounts/taxes are ignored
 from __future__ import annotations
 
 import json
-import os
 import uuid
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
@@ -18,6 +17,7 @@ from decimal import Decimal, ROUND_HALF_UP
 from backend.app.core.config import settings
 from backend.app.core.money import (
     to_decimal,
+    validate_money,
     quantize_money,
     money_add,
     money_sub,
@@ -27,6 +27,8 @@ from backend.app.core.money import (
     money_max,
     money_sum,
     to_float,
+    to_rate,
+    assert_money_range,
 )
 from backend.app.core.exceptions import (
     AuthenticationError,
@@ -239,7 +241,7 @@ class CommerceService:
         free_threshold = to_decimal(settings.FREE_SHIPPING_THRESHOLD)
         express_fee = to_decimal(settings.EXPRESS_SHIPPING_FEE)
         standard_fee = to_decimal(settings.STANDARD_SHIPPING_FEE)
-        tax_rate = to_decimal(settings.TAX_RATE)
+        tax_rate = to_rate(settings.TAX_RATE)  # rate, never money-quantized
 
         if fulfillment == "bopis":
             shipping = Decimal("0.00")
@@ -251,6 +253,10 @@ class CommerceService:
         taxable = money_max(subtotal - discount, Decimal("0.00"))
         tax = money_mul(taxable, tax_rate)
         total = money_max(taxable + tax + shipping, Decimal("0.00"))
+        # Explicit NUMERIC(12,2) range enforcement — never truncate silently
+        for _fname, _fval in (("subtotal", subtotal), ("discount", discount),
+                              ("tax", tax), ("shipping", shipping), ("total", total)):
+            assert_money_range(_fval, _fname)
 
         payments_live = bool(settings.PAYMENTS_LIVE)
         payment_mode = "live" if payments_live else "demo"
@@ -325,71 +331,22 @@ class CommerceService:
 
         self._attach_reservations(reservation_ids, order.id)
 
-        # --- Real analytics instrumentation: purchase events with exclusive attribution ---
-        # Fixed: product-level 30-day window using BrandAnalyticsEvent view events
-        # Previously used any VisualSearchQuery existence + try_on_assisted flag, which could
-        # incorrectly attribute unrelated purchases (different product, different brand, months ago)
-        # Now: visual_search attribution only if user had a visual_search VIEW event for SAME product_id
-        # within 30 days, preventing cross-product false attribution
+        # --- Item-grain purchase ledger (attribution) --------------------------
+        # One purchase event per persisted OrderItem, keyed by order_item_id
+        # (migration 0014). revenue_amount = OrderItem.subtotal (brand-isolated,
+        # excludes tax/shipping). Attribution priority is decided per item:
+        #   visual_search > outfit_builder > virtual_stylist > organic
+        # visual_search requires a visual_search VIEW event for the SAME product
+        # within the 30-day window, owned by this user OR by this browser
+        # session (guest -> authenticated stitching via session_token).
+        # Failure here is logged loudly with the order number: the order itself
+        # is already committed and must not be rolled back by analytics.
         try:
-            from backend.app.repositories.brand_repository import BrandRepository
-            from backend.app.models.catalog_import import BrandAnalyticsEvent
-            brand_repo = BrandRepository(self.db)
-            cutoff = datetime.now(timezone.utc) - timedelta(days=30)
-
-            for item_payload in order_items_payload:
-                brand_id = item_payload["brand_id"]
-                product_id = item_payload["product_id"]
-                sku_id = item_payload.get("product_sku_id")
-                outfit_id = item_payload.get("outfit_id")
-                subtotal_item = item_payload["subtotal"]
-
-                # Priority: visual_search > outfit_builder > virtual_stylist > organic
-                # Product-level 30-day attribution: check view event for same product + user within window
-                has_product_visual_search = False
-                if user_id and product_id:
-                    try:
-                        # Check for recent visual_search view event for this product and user
-                        # Uses BrandAnalyticsEvent view events created by visual_search_service
-                        # This ensures product identity lineage: query -> matches -> view event -> purchase
-                        # Prevents attributing unrelated purchases when user searched for different product
-                        existing_view = self.db.query(BrandAnalyticsEvent).filter(
-                            BrandAnalyticsEvent.event_type == "view",
-                            BrandAnalyticsEvent.attribution_source == "visual_search",
-                            BrandAnalyticsEvent.product_id == product_id,
-                            BrandAnalyticsEvent.user_id == user_id,
-                            BrandAnalyticsEvent.created_at >= cutoff
-                        ).first()
-                        has_product_visual_search = existing_view is not None
-                    except Exception as _vs_e:
-                        logger.debug("visual_search_attribution_check_failed", product_id=product_id, error=str(_vs_e)[:100])
-                        has_product_visual_search = False
-
-                if has_product_visual_search:
-                    attribution = "visual_search"
-                elif outfit_id:
-                    attribution = "outfit_builder"
-                elif checkout_data.get("stylist_assisted"):
-                    attribution = "virtual_stylist"
-                else:
-                    attribution = "organic"
-
-                brand_repo.create_analytics_event(
-                    brand_id=brand_id,
-                    event_type="purchase",
-                    attribution_source=attribution,
-                    product_id=product_id,
-                    sku_id=sku_id,
-                    user_id=user_id,
-                    session_token=session_token,
-                    outfit_id=outfit_id,
-                    order_id=order.id,
-                    revenue_amount=subtotal_item,
-                    event_metadata={"order_number": order.order_number, "payment_method": payment_method},
-                    idempotency_key=f"purchase_{order.id}_{product_id}_{sku_id or 'na'}_{attribution}"
-                )
-        except Exception as _e:
-            logger.warn("analytics_instrumentation_failed", order_id=order.id if 'order' in locals() else None, error=str(_e))
+            self._record_purchase_ledger(order, user_id=user_id, session_token=session_token,
+                                         payment_method=payment_method,
+                                         stylist_assisted=bool(checkout_data.get("stylist_assisted")))
+        except Exception as _e:  # noqa: BLE001
+            logger.error("purchase_ledger_failed", order_id=order.id, order_number=order.order_number, error=str(_e))
 
         try:
             self._notify(
@@ -428,7 +385,10 @@ class CommerceService:
             self._transition(order, "failed")
             order.payment_status = "failed"
             self.db.commit()
-            raise PaymentFailedError(str(pay_result.get("provider")), "provider declined the payment")
+            raise PaymentFailedError(
+                str(pay_result.get("provider")),
+                str(pay_result.get("reason") or "provider declined the payment"),
+            )
 
         order.payment_status = mapped_payment_status
         if mapped_payment_status != "failed":
@@ -565,7 +525,6 @@ class CommerceService:
 
         is_bopis = order.fulfillment_type == "bopis"
         events = sorted(order.events or [], key=lambda e: e.created_at)
-        event_keys = {e.status_key for e in events}
 
         if is_bopis:
             template = [
@@ -723,7 +682,13 @@ class CommerceService:
         if already:
             raise ReturnIneligibleError("One or more items have already been returned.")
 
-        refund_subtotal = money_sum([it.subtotal for it in order.items if it.id in item_ids])
+        # Domain money validation before persistence: refund is never negative,
+        # never NaN/Inf, never beyond NUMERIC(12,2) (a corrupt subtotal would
+        # otherwise reach the DB as a refund liability).
+        refund_subtotal = validate_money(
+            money_sum([it.subtotal for it in order.items if it.id in item_ids]),
+            "refund_amount", allow_negative=False, allow_zero=True, required=True,
+        )
         label_url, label_ref = self._generate_return_label(order)
 
         req = self.commerce_repo.create_return_request(
@@ -742,6 +707,12 @@ class CommerceService:
         self.commerce_repo.add_order_event(
             order.id, "return_requested", "Return requested", f"Return {req.return_number} opened."
         )
+        # Item-level return ledger: nets exactly the returned items out of the
+        # attribution figures (see BrandRepository.get_revenue_attribution).
+        try:
+            self._record_return_ledger(order, [it for it in order.items if it.id in item_ids], req.return_number)
+        except Exception as _e:  # noqa: BLE001
+            logger.error("return_ledger_failed", return_number=req.return_number, order_id=order.id, error=str(_e))
         logger.info("return_created", return_number=req.return_number, order_id=order.id)
         self._notify(
             "return_requested",
@@ -749,6 +720,40 @@ class CommerceService:
             guest_email or order.guest_email or "",
             f"Return {req.return_number} opened for order {order.order_number}.",
         )
+        return self._format_return(req)
+
+    def reject_return(self, return_id: int, reason: str) -> Dict[str, Any]:
+        """Operator rejects a return request (goods not received / outside
+        policy). The items become sellable/attributable again: is_returned is
+        reverted and the item-level 'return' ledger events are VOIDED (deleted)
+        so revenue attribution no longer nets them. The order goes back to a
+        terminal 'rejected' return state per ORDER_TRANSITIONS.
+        """
+        req = self.commerce_repo.get_return_by_id(return_id)
+        if not req:
+            raise ResourceNotFoundError("ReturnRequest", return_id)
+        if req.status not in ("requested", "approved"):
+            raise InvalidStateTransitionError(req.status, "rejected")
+        if not reason or not reason.strip():
+            raise ValidationDomainError("A rejection reason is required.")
+        order = req.order
+        item_ids = [ri.order_item_id for ri in req.items]
+        self.commerce_repo.revert_return_items(item_ids)
+        from backend.app.models.catalog_import import BrandAnalyticsEvent
+        voided = self.db.query(BrandAnalyticsEvent).filter(
+            BrandAnalyticsEvent.event_type == "return",
+            BrandAnalyticsEvent.order_item_id.in_(item_ids),
+        ).delete(synchronize_session=False)
+        req.status = "rejected"
+        req.resolved_at = datetime.now(timezone.utc)
+        req.details = f"{req.details or ''}\n[rejected] {reason.strip()}".strip()
+        self._transition(order, "rejected")
+        self.commerce_repo.add_order_event(
+            order.id, "return_rejected", "Return rejected", f"Return {req.return_number} rejected: {reason.strip()}"
+        )
+        self.db.commit()
+        logger.info("return_rejected", return_number=req.return_number, order_id=order.id,
+                    items_reverted=len(item_ids), ledger_events_voided=int(voided or 0))
         return self._format_return(req)
 
     def get_return(self, return_id: int, user_id: int) -> Dict[str, Any]:
@@ -785,7 +790,10 @@ class CommerceService:
 
         new_price = to_decimal(sku.price_override or sku.product.base_price)
         unit_price_dec = to_decimal(item.unit_price)
-        delta = money_sub(new_price, unit_price_dec)
+        # price_delta is the ONE money field that may legitimately be negative
+        # (credit due to the customer); sign rule is explicit, range still enforced.
+        delta = validate_money(money_sub(new_price, unit_price_dec), "price_delta",
+                               allow_negative=True, required=True)
         payment_status = "not_required"
         if delta > 0:
             payment_status = "delta_due"
@@ -901,6 +909,66 @@ class CommerceService:
         self.db.commit()
         return self._format_return(req)
 
+    # ---------------------------------------------------- attribution ledger
+    ATTRIBUTION_WINDOW_DAYS = 30
+
+    def _record_purchase_ledger(self, order: Order, *, user_id: Optional[int], session_token: Optional[str],
+                                payment_method: str, stylist_assisted: bool) -> None:
+        from backend.app.repositories.brand_repository import BrandRepository
+        brand_repo = BrandRepository(self.db)
+        for item in order.items:
+            # Product-identity lineage incl. guest -> authenticated stitching via
+            # session_token (single implementation lives in BrandRepository).
+            if brand_repo.get_recent_visual_search_for_user(
+                user_id, self.ATTRIBUTION_WINDOW_DAYS, product_id=item.product_id, session_token=session_token
+            ):
+                attribution = "visual_search"
+            elif item.outfit_id:
+                attribution = "outfit_builder"
+            elif stylist_assisted:
+                attribution = "virtual_stylist"
+            else:
+                attribution = "organic"
+            brand_repo.create_analytics_event(
+                brand_id=item.brand_id,
+                event_type="purchase",
+                attribution_source=attribution,
+                product_id=item.product_id,
+                sku_id=item.product_sku_id,
+                user_id=user_id,
+                session_token=session_token,
+                outfit_id=item.outfit_id,
+                order_id=order.id,
+                order_item_id=item.id,
+                revenue_amount=item.subtotal,
+                event_metadata={"order_number": order.order_number, "payment_method": payment_method,
+                                "quantity": item.quantity},
+                idempotency_key=f"purchase_item_{item.id}",
+            )
+
+    def _record_return_ledger(self, order: Order, items: List[OrderItem], return_number: str) -> None:
+        """Item-level refund treatment: one 'return' event per returned OrderItem
+        carrying that item's subtotal, so attribution nets exactly the returned
+        item (Brand A returned 300 / Brand B keeps 700)."""
+        from backend.app.repositories.brand_repository import BrandRepository
+        brand_repo = BrandRepository(self.db)
+        for item in items:
+            brand_repo.create_analytics_event(
+                brand_id=item.brand_id,
+                event_type="return",
+                attribution_source=None,
+                product_id=item.product_id,
+                sku_id=item.product_sku_id,
+                user_id=order.user_id,
+                session_token=order.guest_session_token,
+                outfit_id=item.outfit_id,
+                order_id=order.id,
+                order_item_id=item.id,
+                revenue_amount=item.subtotal,
+                event_metadata={"order_number": order.order_number, "return_number": return_number},
+                idempotency_key=f"return_item_{item.id}",
+            )
+
     # -------------------------------------------------------------- internals
     def _line_items_from_cart(self, cart: Cart) -> Tuple[Decimal, List[Dict[str, Any]], Set[int]]:
         subtotal = Decimal("0.00")
@@ -972,11 +1040,11 @@ class CommerceService:
         if eligible_subtotal <= Decimal("0.00"):
             raise PromoIneligibleError(code, "no items in the cart qualify")
 
-        discount_val = to_decimal(promo.discount_value)
         if promo.discount_type == "percent":
-            discount = money_percent(eligible_subtotal, discount_val)
+            # percent is a RATE — do not money-quantize it before applying
+            discount = money_percent(eligible_subtotal, to_rate(promo.discount_value))
         else:
-            discount = money_min(discount_val, eligible_subtotal)
+            discount = money_min(to_decimal(promo.discount_value), eligible_subtotal)
         return discount, promo
 
     def _reserve_inventory(
@@ -1117,24 +1185,37 @@ class CommerceService:
         return "pending"
 
     def _generate_return_label(self, order: Order) -> Tuple[Optional[str], Optional[str]]:
-        """Persist a real return-authorisation document. Not a carrier label
-        unless a shipping provider is configured — we never invent a DHL URL.
+        """Issue a return-authorisation reference. Not a carrier label unless a
+        shipping provider is configured — we never invent a DHL URL.
+
+        The document itself is rendered on demand from the persisted
+        ReturnRequest row (``render_return_authorisation``): the authoritative
+        record lives in the shared database, never on the API host's disk (the
+        previous file write failed with PermissionError on the read-only
+        serverless filesystem and the file would not have survived a cold start).
         """
         ref = f"RA-{uuid.uuid4().hex[:10].upper()}"
-        directory = os.path.join(settings.STORAGE_LOCAL_DIR, "return-labels")
-        os.makedirs(directory, exist_ok=True)
-        path = os.path.join(directory, f"{ref}.txt")
+        return f"/api/v1/returns/labels/{ref}", ref
+
+    def render_return_authorisation(self, ref: str) -> Tuple[str, str]:
+        """Return (filename, text) for a return-authorisation reference, built
+        from the database row that owns it. Raises ResourceNotFoundError for
+        unknown references."""
+        req = self.commerce_repo.get_return_by_label_ref(ref)
+        if not req:
+            raise ResourceNotFoundError("ReturnLabel", ref)
+        order = self.commerce_repo.get_order_by_id(req.order_id)
         body = (
             f"CONFIT Return Authorisation\n"
             f"Reference: {ref}\n"
-            f"Order: {order.order_number}\n"
-            f"Issued: {datetime.now(timezone.utc).isoformat()}\n"
+            f"Return: {req.return_number}\n"
+            f"Order: {order.order_number if order else req.order_id}\n"
+            f"Status: {req.status}\n"
+            f"Issued: {req.created_at.isoformat() if req.created_at else ''}\n"
             f"This is a platform return authorisation. A carrier label is issued "
             f"only when a shipping provider is configured.\n"
         )
-        with open(path, "w", encoding="utf-8") as handle:
-            handle.write(body)
-        return f"/api/v1/returns/labels/{ref}", ref
+        return f"{ref}.txt", body
 
     def _format_return(self, req) -> Dict[str, Any]:
         return {
@@ -1212,12 +1293,16 @@ class CommerceService:
                 promo_code = None
 
         taxable = money_max(subtotal - discount, Decimal("0.00"))
-        tax_rate = to_decimal(settings.TAX_RATE)
+        tax_rate = to_rate(settings.TAX_RATE)  # rate, never money-quantized
         tax = money_mul(taxable, tax_rate)
         free_threshold = to_decimal(settings.FREE_SHIPPING_THRESHOLD)
         standard_fee = to_decimal(settings.STANDARD_SHIPPING_FEE)
         shipping = Decimal("0.00") if (taxable >= free_threshold or subtotal == Decimal("0.00")) else standard_fee
         total = money_max(taxable + tax + shipping, Decimal("0.00"))
+        # Explicit NUMERIC(12,2) range enforcement — never truncate silently
+        for _fname, _fval in (("subtotal", subtotal), ("discount", discount),
+                              ("tax", tax), ("shipping", shipping), ("total", total)):
+            assert_money_range(_fval, _fname)
 
         quote = BNPLProvider(provider_name=settings.BNPL_DEFAULT_PROVIDER).quote_sync(
             amount=total, currency="USD"

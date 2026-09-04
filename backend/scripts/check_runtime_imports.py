@@ -61,7 +61,11 @@ IMPORT_TO_PACKAGE = {
 STDLIB = set(sys.stdlib_module_names)
 
 # Local packages that are not third-party (vton-worker etc.) and not deployed with backend
-LOCAL_PACKAGES = {"pipeline", "services", "worker", "modal_app", "backend", "api"}
+LOCAL_PACKAGES = {"pipeline", "services", "worker", "modal_app", "backend", "api",
+                  # CONFIT's VTON engine adapter package (services/vton-worker/engine).
+                  # A local package, not a third-party dependency: the Docker image
+                  # ships it as repo source, so it must NOT be declared as a pip pin.
+                  "engine"}
 
 # Packages the Vercel function may legitimately lack. EVERY entry must name
 # the guard that makes the absence safe; an unguarded lazy import is NOT

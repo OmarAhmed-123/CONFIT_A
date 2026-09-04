@@ -1,7 +1,24 @@
 import json
 import uuid
+from decimal import Decimal
 from datetime import datetime, timedelta, timezone
 from typing import Optional, List, Dict, Any
+
+
+def _json_default(obj: Any) -> Any:
+    """JSON encoder fallback.
+
+    The cart snapshot is produced by ``_format_cart`` and therefore carries
+    exact ``Decimal`` money values (server-authoritative pricing). ``Decimal``
+    is not JSON-serializable and previously made ``create_checkout_session``
+    raise ``TypeError: Object of type Decimal is not JSON serializable``,
+    so the whole endpoint 500'd. We serialise money to ``float`` at the JSON
+    boundary (the same representation the API uses for money everywhere);
+    authoritative totals remain the ``Numeric`` columns, never this snapshot.
+    """
+    if isinstance(obj, Decimal):
+        return float(obj)
+    raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
 
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import update
@@ -578,7 +595,7 @@ class CommerceRepository:
             user_id=user_id,
             guest_email=guest_email,
             guest_session_token=guest_session_token,
-            cart_snapshot_json=json.dumps(cart_snapshot),
+            cart_snapshot_json=json.dumps(cart_snapshot, default=_json_default),
             total_amount=total_amount,
             currency=currency,
             promo_code=promo_code,

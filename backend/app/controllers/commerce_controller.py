@@ -28,7 +28,11 @@ from backend.app.schemas.commerce import (
     BNPLQuoteRequest,
     BNPLQuoteResponse
 )
-from backend.app.core.exceptions import ResourceNotFoundError, ValidationDomainError, AuthorizationError
+from backend.app.core.exceptions import (
+    AuthorizationError,
+    ResourceNotFoundError,
+    ValidationDomainError,
+)
 from pydantic import BaseModel
 
 router = APIRouter(tags=["Commerce, Payments & Fulfillment"])
@@ -222,13 +226,18 @@ def get_checkout_session(
     # Authorization check
     if user:
         if session.user_id and session.user_id != user.id:
-            from backend.app.core.exceptions import AuthorizationError
             raise AuthorizationError("You cannot view another user's checkout session")
     else:
-        # Guest must provide matching session token
-        if session.guest_session_token and x_session_token and session.guest_session_token != x_session_token:
-            # Allow if guest_email matches? For now, require same session token for guest
-            pass
+        # Guest: the caller must present the same guest session token that
+        # created the session. Previously this branch ended with a no-op
+        # `pass`, so a guest could read any checkout session by token even
+        # when created under a different session token (broken access control).
+        if not (
+            session.guest_session_token
+            and x_session_token
+            and session.guest_session_token == x_session_token
+        ):
+            raise AuthorizationError("You cannot view this checkout session")
 
     # Check expiry
     from datetime import datetime, timezone
@@ -288,7 +297,11 @@ async def confirm_checkout_session(
 
     # Ownership check
     if user and checkout_session.user_id and checkout_session.user_id != user.id:
-        from backend.app.core.exceptions import AuthorizationError
+        raise AuthorizationError("Cannot confirm another user's checkout session")
+    # Guest: the caller must present the same guest session token that created
+    # the session (matches the GET /checkout/sessions/{token} guard). Closing
+    # the same broken-access-control class on the confirm path.
+    if user is None and checkout_session.guest_session_token and x_session_token != checkout_session.guest_session_token:
         raise AuthorizationError("Cannot confirm another user's checkout session")
 
     # Idempotency: if already converted, return existing order
@@ -339,9 +352,13 @@ def get_order_by_number(
 
 @router.get("/commerce/orders/{order_number}/tracking", response_model=OrderTrackingTimelineOut)
 @router.get("/orders/{order_number}/tracking", response_model=OrderTrackingTimelineOut)
-def get_order_tracking_timeline(order_number: str, db: Session = Depends(get_db)):
+def get_order_tracking_timeline(
+    order_number: str,
+    user: Optional[User] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
     service = CommerceService(db)
-    return service.get_order_tracking(order_number)
+    return service.get_order_tracking(order_number, user=user)
 
 
 @router.post("/commerce/returns", response_model=ReturnRequestOut, status_code=status.HTTP_201_CREATED)

@@ -45,6 +45,7 @@ from backend.app.core.logging import logger
 from backend.app.models.commerce import Cart, Order, OrderItem, PaymentTransaction
 from backend.app.models.catalog import ProductSKU
 from backend.app.providers.bnpl_provider import BNPLProvider
+from backend.app.providers.payment.capability_registry import MarketPaymentCapabilityRegistry
 from backend.app.providers.payment.orchestrator import PaymentOrchestrator
 from backend.app.repositories.catalog_repository import CatalogRepository
 from backend.app.repositories.commerce_repository import CommerceRepository
@@ -230,6 +231,14 @@ class CommerceService:
 
         payment_method = checkout_data.get("payment_method", "card")
         country = checkout_data.get("country") or settings.MARKET or "AE"
+        # The buyer's market determines the settled currency (BRD §globalization).
+        # Reuse the single authoritative market→currency map already owned by the
+        # payment capability registry; unknown/global markets fall back to USD, so
+        # an unmapped country never becomes a silently-wrong local currency. This
+        # keeps order, payment and analytics attribution on ONE currency per order.
+        currency = MarketPaymentCapabilityRegistry.MARKET_CURRENCIES.get(
+            country.upper(), "USD"
+        )
 
         subtotal, order_items_payload, brand_ids = self._line_items_from_cart(cart_full)
         promo_code = checkout_data.get("promo_code") or cart_full.promo_code
@@ -285,7 +294,7 @@ class CommerceService:
                 discount_amount=discount,
                 tax_amount=tax,
                 shipping_amount=shipping,
-                currency="USD",
+                currency=currency,
                 payment_method=payment_method,
                 payment_status="pending",
                 payment_installments=installments,
@@ -361,7 +370,7 @@ class CommerceService:
         pay_result = await self.payments.initiate_payment(
             method_id=payment_method,
             amount_minor=int((quantize_money(total) * Decimal("100")).to_integral_value(rounding=ROUND_HALF_UP)),
-            currency_code="USD",
+            currency_code=currency,
             customer_email=guest_email or "",
             order_number=order.order_number,
             country_code=country,
@@ -374,7 +383,7 @@ class CommerceService:
             method=payment_method,
             provider_tx_id=str(pay_result.get("transaction_id") or uuid.uuid4().hex),
             amount=total,
-            currency="USD",
+            currency=currency,
             status=mapped_payment_status,
             mode=payment_mode,
             idempotency_key=f"pay:{idempotency_key or order.order_number}",
@@ -1252,7 +1261,19 @@ class CommerceService:
             return f"Size {sku.size} matches your profile"
         return f"Size {sku.size} selected"
 
-    def _format_cart(self, cart: Cart, user_id: Optional[int] = None) -> Dict[str, Any]:
+    def _format_cart(
+        self,
+        cart: Cart,
+        user_id: Optional[int] = None,
+        country: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        # The cart breakdown (total + BNPL instalment) is presented in the same
+        # market currency the order will settle in. Unknown/global markets fall
+        # back to USD via the single authoritative market→currency map.
+        _country = (country or settings.MARKET or "AE").upper()
+        cart_currency = MarketPaymentCapabilityRegistry.MARKET_CURRENCIES.get(
+            _country, "USD"
+        )
         items_out = []
         subtotal = Decimal("0.00")
         count = 0
@@ -1312,7 +1333,7 @@ class CommerceService:
             assert_money_range(_fval, _fname)
 
         quote = BNPLProvider(provider_name=settings.BNPL_DEFAULT_PROVIDER).quote_sync(
-            amount=total, currency="USD"
+            amount=total, currency=cart_currency
         )
 
         return {
@@ -1323,7 +1344,7 @@ class CommerceService:
             "tax_amount": tax,
             "shipping_amount": shipping,
             "total": total,
-            "currency": "USD",
+            "currency": cart_currency,
             "items_count": count,
             "bnpl_monthly_quote": quote.get("installment_amount") or 0.0,
             "promo_code": promo_code,

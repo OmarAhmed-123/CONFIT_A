@@ -25,6 +25,7 @@ from backend.app.repositories.tryon_repository import TryOnRepository
 from backend.app.repositories.profile_repository import ProfileRepository
 from backend.app.providers.tryon_provider import VirtualTryOnProvider
 from backend.app.services.styling.slot_layering_engine import SlotLayeringEngine
+from backend.app.services.storage_service import require_production_storage
 from backend.app.core.config import settings
 from backend.app.core.exceptions import ResourceNotFoundError, ValidationDomainError, AuthorizationError
 from backend.app.core.logging import logger
@@ -69,6 +70,66 @@ class TryOnService:
             or ""
         )
         return worker_url, admin_token
+
+    def _persist_vton_output(self, rendered_data_url: str, job_id: str) -> str:
+        """Persist a worker-rendered try-on image to durable storage.
+
+        The GPU worker returns a base64 ``data:image/...`` payload. Storing that
+        blob verbatim in the job / session row (as a ``Text`` ``output_image_url``
+        or ``rendered_result_url``) bloats the database, is not a durable object
+        reference, and cannot be authorised or garbage-collected by storage key.
+        This persists the decoded bytes through CONFIT's existing storage
+        abstraction (local in development, S3/R2 in production) so the row holds
+        a durable, backend-owned reference and the ``generate -> persist ->
+        retrieve -> authorise`` contract of the VTON path holds.
+
+        Behaviour, matching the storage contract (§20 "do not introduce a second
+        storage abstraction"):
+
+        * ``data:image/...`` payloads are decoded and written to storage; the
+          returned value is the backend-owned URL (``/uploads/vton/<job>.png``
+          for local, the S3/R2 public URL in production).
+        * Any other value (external ``http(s)`` URL already hosted by a CDN, a
+          relative path the caller authored) is returned unchanged — it is NOT
+          re-hosted, so ``owns_url`` stays False and the owning/authorisation
+          layer must treat it as external.
+        * In production, a non-durable or unwritable backend raises
+          ``FeatureNotConfiguredError`` (HTTP 501) *before* any bytes are
+          accepted — honest fail-closed, never a URL to a file that will not
+          exist on the next request.
+        * In development the local backend writes under ``STORAGE_LOCAL_DIR``
+          and returns a mounted ``/uploads/...`` URL.
+
+        The decoded image is validated only for decodability; the worker already
+        applied the pixel-change / no-echo checks before emitting it.
+        """
+        if not rendered_data_url:
+            raise ValueError("VTON_OUTPUT_INVALID: worker returned no rendered image to persist")
+
+        # Not a base64 payload we re-host: leave external / caller-authored URLs alone.
+        if not rendered_data_url.startswith("data:image/"):
+            return rendered_data_url
+
+        import base64 as _b64
+
+        try:
+            header, b64_data = rendered_data_url.split(",", 1)
+            raw = _b64.b64decode(b64_data)
+        except Exception as exc:  # noqa: BLE001 - normalise to a stable error code
+            raise ValueError(f"VTON_OUTPUT_INVALID: cannot decode rendered image: {exc}") from exc
+
+        mime = (header.split(";")[0].split(":", 1)[-1] or "image/png").strip()
+        ext = {"image/png": "png", "image/jpeg": "jpg", "image/webp": "webp"}.get(mime, "png")
+
+        # Fail-closed when there is no durable backend (production) before any bytes go in.
+        storage = require_production_storage("vton_output")
+        key = f"vton/{job_id}.{ext}"
+        try:
+            return storage.store(key, raw)
+        except Exception as exc:  # noqa: BLE001 - surfaced as a stable VTON error
+            raise RuntimeError(
+                f"VTON_STORAGE_FAILURE: could not persist try-on output: {exc}"
+            ) from exc
 
     async def _fetch_image_as_base64(self, url: str) -> Optional[str]:
         """
@@ -551,7 +612,10 @@ class TryOnService:
                 job.status = TryOnJobStatus.COMPLETED
                 job.progress_pct = 100
                 job.current_stage = "harmonized_and_verified"
-                job.output_image_url = rendered
+                # Persist to durable storage so the row holds a backend-owned
+                # reference, not a multi-MB base64 blob. Honest fail-closed in
+                # production when no durable backend is configured.
+                job.output_image_url = self._persist_vton_output(rendered, job_id)
                 job.completed_at = datetime.now(timezone.utc)
                 if gpu_data.get("model_used"):
                     job.model_used = str(gpu_data["model_used"])[:100]
@@ -740,8 +804,9 @@ class TryOnService:
                 )
 
                 rendered_url = gpu_data.get("rendered_image_data_url")
+                rendered_ref = self._persist_vton_output(rendered_url, job_id)
                 vton_result = {
-                    "rendered_image_url": rendered_url,
+                    "rendered_image_url": rendered_ref,
                     "fit_verdict": gpu_data.get("fit_verdict", "Optimal Garment Fit"),
                     "fit_confidence": 96,
                     "traceability_hash": f"VTON-CERT-{hashlib.sha256(f'{job_id}{time.time()}'.encode()).hexdigest()[:16].upper()}",

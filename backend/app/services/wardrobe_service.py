@@ -77,6 +77,215 @@ class WardrobeService:
         )
         return self._to_dict(item)
 
+    # ─────────── FLOW E: G5 completed purchase -> G4 wardrobe ───────────
+    def sync_items_from_order(self, order) -> Dict[str, Any]:
+        """Materialise a completed purchase into the buyer's wardrobe.
+
+        Contract (BRD FLOW E)::
+
+            Completed Purchase -> Persisted Order -> Persisted OrderItems
+              -> Server-side catalog lookup -> WardrobeItem -> User-owned wardrobe
+
+        Sources of truth are the **persisted order** and the **catalog** only.
+        Nothing is read from the request: not the title, not the category, not
+        the colour, not the brand, not the price and above all not the owner.
+        ``order.user_id`` — written by the server from the authenticated
+        identity or the checkout session — is the only ownership input, so a
+        client can never place a purchase into somebody else's wardrobe or
+        claim a price/category it invented.
+
+        Semantics required by FLOW E and honoured here:
+
+        * **Guest-safe** — an order with no ``user_id`` has no wardrobe to
+          write to. That is a normal outcome, not an error: it is reported as
+          ``skipped`` and logged at info level.
+        * **Idempotent** — one wardrobe item per persisted ``OrderItem``,
+          enforced twice: a lineage read before insert, and the database
+          unique index ``uq_wardrobe_items_source_order_item`` (migration
+          0015) so that concurrent retries, webhook re-deliveries or an
+          operator backfill cannot duplicate a piece.
+        * **Returned lines excluded** — an item already flagged
+          ``is_returned`` is not the customer's to wear, so it is not added.
+        * **Never corrupts the purchase** — every failure is contained,
+          rolled back at line grain and logged loudly with the order number.
+          The order and its payment stay financially authoritative; a
+          wardrobe-sync problem must never surface to the shopper as a
+          failed purchase.
+
+        Returns an observable summary dict (never raises for per-line
+        problems) so the caller can log/telemetry it.
+        """
+        summary: Dict[str, Any] = {
+            "status": "skipped",
+            "order_number": getattr(order, "order_number", None),
+            "order_id": getattr(order, "id", None),
+            "user_id": getattr(order, "user_id", None),
+            "created": 0,
+            "already_synced": 0,
+            "skipped_returned": 0,
+            "failed": 0,
+            "errors": [],
+        }
+
+        if not order.user_id:
+            # Guest purchase: no account, therefore no wardrobe. Not an error.
+            summary["status"] = "skipped"
+            summary["reason"] = "guest_order_no_wardrobe_owner"
+            logger.info(
+                "wardrobe_sync_skipped_guest_order",
+                order_number=summary["order_number"],
+            )
+            return summary
+
+        # Imported lazily: catalog models are a sibling domain and a module
+        # level import would make wardrobe_service depend on catalog at
+        # import time (the rest of this service is catalog-agnostic).
+        from backend.app.models.catalog import Product, ProductSKU
+
+        for order_item in list(order.items or []):
+            if getattr(order_item, "is_returned", False):
+                summary["skipped_returned"] += 1
+                continue
+
+            try:
+                existing = self.wardrobe_repo.get_item_by_source_order_item(order_item.id)
+                if existing is not None:
+                    summary["already_synced"] += 1
+                    continue
+
+                product = (
+                    self.db.query(Product).filter(Product.id == order_item.product_id).first()
+                    if order_item.product_id else None
+                )
+                sku = (
+                    self.db.query(ProductSKU).filter(ProductSKU.id == order_item.product_sku_id).first()
+                    if order_item.product_sku_id else None
+                )
+
+                derived = self._derive_from_catalog(order_item, product, sku)
+                if derived is None:
+                    summary["failed"] += 1
+                    summary["errors"].append(
+                        f"order_item={order_item.id}: no catalog image_url; item not added"
+                    )
+                    logger.error(
+                        "wardrobe_sync_line_skipped_no_catalog_image",
+                        order_number=summary["order_number"],
+                        order_item_id=order_item.id,
+                        product_id=order_item.product_id,
+                    )
+                    continue
+
+                self.wardrobe_repo.add_item(
+                    user_id=order.user_id,
+                    source_order_item_id=order_item.id,
+                    **derived,
+                )
+                summary["created"] += 1
+            except IntegrityError:
+                # Lost a race against a concurrent sync of the same line: the
+                # winner's row is the canonical one. Roll the failed insert
+                # back so the session is usable for the remaining lines.
+                self.db.rollback()
+                summary["already_synced"] += 1
+            except Exception as exc:  # noqa: BLE001
+                self.db.rollback()
+                summary["failed"] += 1
+                summary["errors"].append(f"order_item={order_item.id}: {type(exc).__name__}: {exc}"[:300])
+                logger.error(
+                    "wardrobe_sync_line_failed",
+                    order_number=summary["order_number"],
+                    order_item_id=getattr(order_item, "id", None),
+                    error=f"{type(exc).__name__}: {exc}"[:300],
+                )
+
+        if summary["failed"] and not summary["created"]:
+            summary["status"] = "failed"
+        elif summary["failed"]:
+            summary["status"] = "partial"
+        else:
+            summary["status"] = "synced"
+
+        logger.info(
+            "wardrobe_sync_completed",
+            order_number=summary["order_number"],
+            user_id=summary["user_id"],
+            status=summary["status"],
+            created=summary["created"],
+            already_synced=summary["already_synced"],
+            skipped_returned=summary["skipped_returned"],
+            failed=summary["failed"],
+        )
+        return summary
+
+    def _derive_from_catalog(self, order_item, product, sku) -> Optional[Dict[str, Any]]:
+        """Project a persisted OrderItem + its catalog rows onto wardrobe fields.
+
+        Every value comes from the database. The OrderItem supplies the
+        transaction truth (the price actually charged, the size/colour
+        variant actually sold); the catalog supplies the taxonomy truth
+        (category, style/occasion tags, imagery). Returns ``None`` when the
+        piece cannot be represented (no image to show), which the caller
+        records as an observable failure rather than inventing a placeholder.
+        """
+        image_url = getattr(product, "thumbnail_url", None) if product else None
+        if not image_url:
+            return None
+
+        category_name = None
+        if product is not None and getattr(product, "category", None) is not None:
+            category_name = product.category.name
+
+        # The variant actually purchased wins over the product-level colour.
+        raw_color = (getattr(sku, "color", None) if sku else None) or (
+            getattr(product, "color_family", None) if product else None
+        ) or order_item.color
+        color_name = taxonomy.normalize_color(raw_color)
+        color_hex = taxonomy.color_hex_for_family(
+            color_name,
+            (getattr(sku, "color_hex", None) if sku else None)
+            or (getattr(product, "dominant_hex", None) if product else None),
+        )
+
+        style_tags: Any = []
+        occasion_tags: Any = []
+        if product is not None:
+            for attr, target in (("style_tags", "style"), ("occasion_tags", "occasion")):
+                try:
+                    parsed = json.loads(getattr(product, attr, None) or "[]")
+                except (TypeError, ValueError):
+                    parsed = []
+                if target == "style":
+                    style_tags = parsed
+                else:
+                    occasion_tags = parsed
+
+        return {
+            "title": (getattr(product, "title", None) if product else None) or order_item.product_title,
+            "category": taxonomy.normalize_category(category_name, order_item.product_title),
+            "subcategory": category_name,
+            "color_name": color_name,
+            "color_hex": color_hex,
+            "pattern": taxonomy.normalize_pattern(None),
+            # BrandProfile.brand_name is the catalog truth; the OrderItem copy
+            # is only a fallback for a since-deleted catalog row.
+            "brand_name": (
+                getattr(getattr(product, "brand", None), "brand_name", None)
+                if product is not None else None
+            ) or order_item.brand_name,
+            "image_url": image_url,
+            "ai_tags": taxonomy.normalize_tags(style_tags),
+            "occasions": taxonomy.normalize_occasions(occasion_tags),
+            "wear_frequency": "regular",
+            # Money truth = the persisted order line, never the live catalog
+            # price (which may have moved since purchase) and never the client.
+            # Passed through as the exact Decimal stored in NUMERIC(12,2).
+            "purchase_price": order_item.unit_price,
+            "is_favorite": False,
+            "seasonality": taxonomy.normalize_season(None),
+            "processing_status": "ready",
+        }
+
     def update_item(self, user_id: int, item_id: int, updates: Dict[str, Any]) -> Dict[str, Any]:
         item = self.get_item(user_id, item_id)
 

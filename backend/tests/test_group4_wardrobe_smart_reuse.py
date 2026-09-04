@@ -11,10 +11,14 @@ Covers:
   * AI provider boundary is real (auto-tag honestly reports unavailability
     when no GEMINI_API_KEY is configured, never fabricates tags)
 """
+import uuid
+
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import text
 
 from backend.app.services import wardrobe_taxonomy as taxonomy
+from backend.tests.conftest import TestingSessionLocal
 
 
 # ─────────────────────────── unit: taxonomy ───────────────────────────
@@ -73,9 +77,55 @@ def _login(client: TestClient, email: str = "shopper@confit.io") -> dict:
 
 
 # ───────────────────── duplicate-detection integration ─────────────────────
+@pytest.fixture
+def navy_blazer_consumer(client: TestClient) -> dict:
+    """A dedicated consumer whose wardrobe holds EXACTLY the seeded Navy Blue
+    Outerwear piece ("Structured Navy Travel Blazer") and nothing else.
+
+    Why this fixture exists (FLOW E, G5 purchase -> G4 wardrobe): these
+    duplicate-detection tests used to log in as the seeded shopper@confit.io
+    and rely on its wardrobe still being exactly what seed_data.py wrote.
+    That stopped being true once a completed purchase legitimately adds the
+    bought piece to the buyer's wardrobe: the attribution e2e suites check out
+    as shopper@confit.io, so by the time this class runs the shopper can also
+    own a *purchased* Navy Outerwear item whose color_name is the
+    taxonomy-normalized "Navy" rather than the seed's raw "Navy Blue". Both
+    score identically, so the scorer's tie-break decided which one the test
+    saw - an execution-order dependency, not a product defect.
+
+    Scoring a controlled wardrobe keeps every original assertion exact and
+    makes the result independent of what any other test bought.
+    """
+    email = f"dupcheck_{uuid.uuid4().hex[:8]}@confit.io"
+    reg = client.post("/api/v1/auth/register", json={
+        "email": email, "password": "Password123!", "full_name": "Dup Check Consumer"})
+    assert reg.status_code == 201, reg.text
+    headers = {"Authorization": f"Bearer {reg.json()['access_token']}"}
+
+    db = TestingSessionLocal()
+    try:
+        user_id = db.execute(text("select id from users where email = :e"), {"e": email}).scalar()
+        assert user_id, "registered consumer must be persisted"
+        # Mirror of the seed_data.py Group-4 wardrobe row, byte for byte on the
+        # fields the scorer reads.
+        db.execute(text(
+            "insert into wardrobe_items (user_id, title, category, color_name, color_hex, "
+            "pattern, brand_name, image_url, ai_tags, occasions, secondary_colors, seasonality, "
+            "wear_frequency, wear_count, is_favorite, processing_status, purchase_price, "
+            "created_at) values (:u, 'Structured Navy Travel Blazer', 'Outerwear', 'Navy Blue', "
+            "'#1B1F3B', 'Solid', 'Massimo Dutti', "
+            "'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?w=500', "
+            "'[]', '[]', '[]', 'All-Season', 'regular', 0, 0, 'ready', 280.0, CURRENT_TIMESTAMP)"
+        ), {"u": user_id})
+        db.commit()
+    finally:
+        db.close()
+    return headers
+
+
 class TestDuplicateDetection:
-    def test_seeded_wardrobe_returns_navy_outerwear_match(self, client):
-        headers = _login(client)
+    def test_owned_navy_outerwear_returns_duplicate_match(self, client, navy_blazer_consumer):
+        headers = navy_blazer_consumer
         res = client.post("/api/v1/wardrobe/duplicate-check", headers=headers, json={
             "product_id": 1, "product_title": "Any Navy Outerwear",
             "category": "Outerwear", "color_family": "Navy Blue",
@@ -83,16 +133,16 @@ class TestDuplicateDetection:
         })
         assert res.status_code == 200
         body = res.json()
-        # Seed data ships a Navy Blue Outerwear wardrobe item; scorer should
+        # The consumer owns a Navy Blue Outerwear item; scorer should
         # earn 55 (type) + 35 (color) = 90 -> at the strict 0.90 threshold.
         assert body["has_duplicate_risk"] is True
         assert body["similarity_score"] >= 90
         assert body["owned_item"]["color_name"] == "Navy Blue"
         assert "same type" in (body["comparison_notes"] or "")
 
-    def test_different_color_below_strict_threshold(self, client):
+    def test_different_color_below_strict_threshold(self, client, navy_blazer_consumer):
         """Same type (Outerwear) but different color -> only 55, below 0.90."""
-        headers = _login(client)
+        headers = navy_blazer_consumer
         res = client.post("/api/v1/wardrobe/duplicate-check", headers=headers, json={
             "product_id": 2, "product_title": "Beige Trench",
             "category": "Outerwear", "color_family": "Beige",
@@ -102,8 +152,8 @@ class TestDuplicateDetection:
         assert body["has_duplicate_risk"] is False
         assert body["similarity_score"] < 90
 
-    def test_loose_mode_flags_same_type_only(self, client):
-        headers = _login(client)
+    def test_loose_mode_flags_same_type_only(self, client, navy_blazer_consumer):
+        headers = navy_blazer_consumer
         res = client.post("/api/v1/wardrobe/duplicate-check", headers=headers, json={
             "product_id": 2, "product_title": "Beige Trench",
             "category": "Outerwear", "color_family": "Beige",

@@ -93,6 +93,7 @@ REQUIRED_COLUMNS: Dict[str, tuple[str, ...]] = {
     "order_items": ("is_returned", "fulfillment_group_id"),
     "sponsored_placements": ("start_date", "end_date", "updated_at"),
     "brand_analytics_events": ("event_id", "order_id", "revenue_amount", "order_item_id"),  # order_item_id: 0014
+    "wardrobe_items": ("source_order_item_id",),  # 0015 — FLOW E purchase->wardrobe idempotency key
 }
 
 

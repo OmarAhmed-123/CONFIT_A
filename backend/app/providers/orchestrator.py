@@ -45,7 +45,7 @@ class MultiProviderAIOrchestrator:
                 "cooling_for_seconds": max(0, round(self.cooldowns["openai"] - now, 1)) if "openai" in self.cooldowns else 0,
             },
             "groq": {
-                "configured": bool(settings.GROK_API_KEY),
+                "configured": bool(settings.groq_api_key),
                 "cooling_for_seconds": max(0, round(self.cooldowns["groq"] - now, 1)) if "groq" in self.cooldowns else 0,
             },
             "gemini": {
@@ -116,31 +116,31 @@ class MultiProviderAIOrchestrator:
                 # claimed "LLaMA-3.3-70B" while `openai/gpt-oss-120b` was called.
                 if provider == "nvidia" and settings.NVIDIA_API_KEY:
                     res = await self._call_nvidia_llama(system_prompt, user_prompt)
-                    if res:
+                    if self._is_usable(res):
                         text, model_id = res
                         return self._format_response(text, prompt, intent, f"NVIDIA {model_id}", selected_outfit)
 
                 elif provider in ["nvidia2", "nemotron"] and (settings.NVIDIA_CHAT_KEY_2 or settings.NVIDIA_API_KEY):
                     res = await self._call_nvidia_nemotron(system_prompt, user_prompt)
-                    if res:
+                    if self._is_usable(res):
                         text, model_id = res
                         return self._format_response(text, prompt, intent, f"NVIDIA {model_id}", selected_outfit)
 
-                elif provider in ["groq", "grok"] and settings.GROK_API_KEY:
+                elif provider in ["groq", "grok"] and settings.groq_api_key:
                     res = await self._call_groq(system_prompt, user_prompt)
-                    if res:
+                    if self._is_usable(res):
                         text, model_id = res
                         return self._format_response(text, prompt, intent, f"Groq {model_id}", selected_outfit)
 
                 elif provider == "gemini" and settings.GEMINI_API_KEY:
                     res = await self._call_gemini(system_prompt, user_prompt)
-                    if res:
+                    if self._is_usable(res):
                         text, model_id = res
                         return self._format_response(text, prompt, intent, f"Google {model_id}", selected_outfit)
 
                 elif provider == "openai" and settings.OPENAI_API_KEY:
                     res = await self._call_openai(system_prompt, user_prompt)
-                    if res:
+                    if self._is_usable(res):
                         text, model_id = res
                         return self._format_response(text, prompt, intent, f"OpenAI {model_id}", selected_outfit)
 
@@ -156,7 +156,7 @@ class MultiProviderAIOrchestrator:
         return self._deterministic_fallback(prompt, intent, selected_outfit)
 
     async def _call_nvidia_llama(self, system_prompt: str, user_prompt: str) -> Optional[Tuple[str, str]]:
-        async with httpx.AsyncClient(timeout=4.0) as client:
+        async with httpx.AsyncClient(timeout=self._timeout("chat")) as client:
             res = await client.post(
                 "https://integrate.api.nvidia.com/v1/chat/completions",
                 headers={
@@ -169,16 +169,16 @@ class MultiProviderAIOrchestrator:
                         {"role": "system", "content": system_prompt},
                         {"role": "user", "content": user_prompt}
                     ],
-                    "max_tokens": 300,
+                    "max_tokens": self._max_tokens(),
                     "temperature": 0.7
                 }
             )
             res.raise_for_status()
-            data = res.json()
-            return data["choices"][0]["message"]["content"], data.get("model", "meta/llama-3.1-70b-instruct")
+            return self._accept_chat_completion(
+                "nvidia", res.json(), "meta/llama-3.1-70b-instruct")
 
     async def _call_nvidia_nemotron(self, system_prompt: str, user_prompt: str) -> Optional[Tuple[str, str]]:
-        async with httpx.AsyncClient(timeout=4.0) as client:
+        async with httpx.AsyncClient(timeout=self._timeout("chat")) as client:
             res = await client.post(
                 "https://integrate.api.nvidia.com/v1/chat/completions",
                 headers={
@@ -191,20 +191,20 @@ class MultiProviderAIOrchestrator:
                         {"role": "system", "content": system_prompt},
                         {"role": "user", "content": user_prompt}
                     ],
-                    "max_tokens": 300,
+                    "max_tokens": self._max_tokens(),
                     "temperature": 0.7
                 }
             )
             res.raise_for_status()
-            data = res.json()
-            return data["choices"][0]["message"]["content"], data.get("model", "nvidia/nemotron-nano-12b-v2-vl")
+            return self._accept_chat_completion(
+                "nvidia2", res.json(), "nvidia/nemotron-nano-12b-v2-vl")
 
     async def _call_groq(self, system_prompt: str, user_prompt: str) -> Optional[Tuple[str, str]]:
-        async with httpx.AsyncClient(timeout=4.0) as client:
+        async with httpx.AsyncClient(timeout=self._timeout("chat")) as client:
             res = await client.post(
                 "https://api.groq.com/openai/v1/chat/completions",
                 headers={
-                    "Authorization": f"Bearer {settings.GROK_API_KEY}",
+                    "Authorization": f"Bearer {settings.groq_api_key}",
                     "Content-Type": "application/json"
                 },
                 json={
@@ -213,16 +213,16 @@ class MultiProviderAIOrchestrator:
                         {"role": "system", "content": system_prompt},
                         {"role": "user", "content": user_prompt}
                     ],
-                    "max_tokens": 300,
+                    "max_tokens": self._max_tokens(),
                     "temperature": 0.7
                 }
             )
             res.raise_for_status()
-            data = res.json()
-            return data["choices"][0]["message"]["content"], data.get("model", "openai/gpt-oss-120b")
+            return self._accept_chat_completion(
+                "groq", res.json(), "openai/gpt-oss-120b")
 
     async def _call_gemini(self, system_prompt: str, user_prompt: str) -> Optional[Tuple[str, str]]:
-        async with httpx.AsyncClient(timeout=4.0) as client:
+        async with httpx.AsyncClient(timeout=self._timeout("gemini")) as client:
             res = await client.post(
                 f"https://generativelanguage.googleapis.com/v1beta/models/{settings.GEMINI_TEXT_MODEL}:generateContent?key={settings.GEMINI_API_KEY}",
                 headers={"Content-Type": "application/json"},
@@ -233,11 +233,10 @@ class MultiProviderAIOrchestrator:
                 }
             )
             res.raise_for_status()
-            data = res.json()
-            return data["candidates"][0]["content"]["parts"][0]["text"], data.get("modelVersion", settings.GEMINI_TEXT_MODEL)
+            return self._accept_gemini_completion(res.json(), settings.GEMINI_TEXT_MODEL)
 
     async def _call_openai(self, system_prompt: str, user_prompt: str) -> Optional[Tuple[str, str]]:
-        async with httpx.AsyncClient(timeout=4.0) as client:
+        async with httpx.AsyncClient(timeout=self._timeout("chat")) as client:
             res = await client.post(
                 "https://api.openai.com/v1/chat/completions",
                 headers={
@@ -250,12 +249,155 @@ class MultiProviderAIOrchestrator:
                         {"role": "system", "content": system_prompt},
                         {"role": "user", "content": user_prompt}
                     ],
-                    "max_tokens": 300
+                    "max_tokens": self._max_tokens()
                 }
             )
             res.raise_for_status()
-            data = res.json()
-            return data["choices"][0]["message"]["content"], data.get("model", "gpt-4o-mini")
+            return self._accept_chat_completion("openai", res.json(), "gpt-4o-mini")
+
+    # ------------------------------------------------- response validation
+    @staticmethod
+    def _is_usable(res: Optional[Tuple[str, str]]) -> bool:
+        """Belt-and-braces guard for the failover loop.
+
+        `_call_*` already returns None for an empty answer, but a tuple holding
+        an empty string is TRUTHY in Python - that is precisely how an empty
+        answer used to slip through `if res:`. Checking it here too means a
+        future provider method that forgets the validator still cannot make the
+        orchestrator report an answer nobody produced.
+        """
+        return bool(res) and bool(res[0]) and bool(res[0].strip())
+
+    def _timeout(self, kind: str) -> float:
+        """Per-provider HTTP budget.
+
+        One hardcoded 4.0s for every provider was wrong in both directions:
+        generous for Groq (measured 0.48-0.56s live) and marginal for
+        gemini-3.8-flash, a thinking model measured at 2.9s when it answers and
+        >4s when it 503s. Both values are configuration, not literals.
+        """
+        if kind == "gemini":
+            return float(getattr(settings, "GEMINI_TIMEOUT_SECONDS", 10.0) or 10.0)
+        return float(getattr(settings, "AI_PROVIDER_TIMEOUT_SECONDS", 4.0) or 4.0)
+
+    def _max_tokens(self) -> int:
+        """Completion budget shared by the OpenAI-compatible providers.
+
+        300 was tuned for a non-reasoning model. gpt-oss-120b writes
+        `message.reasoning` first and it counts against the SAME budget, so 300
+        regularly produced finish_reason="length" with content="" - an empty
+        answer the orchestrator used to accept.
+        """
+        return int(getattr(settings, "AI_MAX_TOKENS", 900) or 900)
+
+    def _accept_chat_completion(
+        self, provider: str, data: Any, requested_model: str
+    ) -> Optional[Tuple[str, str]]:
+        """Validate an OpenAI-compatible chat completion before accepting it.
+
+        Returns ``(content, model_id)`` or ``None``. ``None`` means "this
+        provider produced no usable answer", and the caller MUST fail over to
+        the next real provider - it must never return an empty string dressed
+        up as AI advice under a provider label that claims a model served it.
+
+        Why this exists (live evidence, 2026-09-04, real Groq call):
+        `openai/gpt-oss-120b` is a reasoning model; two of four real
+        end-to-end `generate_styling_advice` calls returned
+        `styling_advice_text=""` while `provider_used` still read
+        "Groq openai/gpt-oss-120b". The previous guard could not catch it
+        because the fix for the model-label defect made `_call_*` return a
+        TUPLE, and `("", "openai/gpt-oss-120b")` is truthy - so `if res:`
+        accepted an empty answer. Truthful labelling is worthless if the thing
+        labelled never existed.
+        """
+        if not isinstance(data, dict):
+            self._log_empty(provider, requested_model, requested_model, None, 0, 0,
+                            "response was not a JSON object")
+            return None
+        choices = data.get("choices") or []
+        choice = choices[0] if choices and isinstance(choices[0], dict) else {}
+        message = choice.get("message") or {}
+        content = message.get("content")
+        reasoning = message.get("reasoning")
+        finish = choice.get("finish_reason")
+        model_id = data.get("model") or requested_model
+
+        if isinstance(content, str) and content.strip():
+            return content.strip(), model_id
+
+        content_chars = len(content) if isinstance(content, str) else 0
+        reasoning_chars = len(reasoning) if isinstance(reasoning, str) else 0
+        if reasoning_chars and finish == "length":
+            cause = "reasoning tokens consumed max_tokens before any content was written"
+        elif finish == "length":
+            cause = "completion truncated at max_tokens with no content"
+        elif not choices:
+            cause = "provider returned no choices"
+        else:
+            cause = "provider returned empty content"
+        self._log_empty(provider, requested_model, model_id, finish,
+                        content_chars, reasoning_chars, cause)
+        return None
+
+    def _accept_gemini_completion(
+        self, data: Any, requested_model: str
+    ) -> Optional[Tuple[str, str]]:
+        """Validate a Gemini generateContent response before accepting it.
+
+        Two Gemini-specific traps, both observed live on 2026-09-04 against
+        `gemini-flash-latest` (which currently serves `gemini-3.8-flash`):
+        * a thinking model can emit parts that carry only a `thoughtSignature`
+          and no `text`, so `parts[0]["text"]` either KeyErrors or reads an
+          empty string - every text part must be joined;
+        * thought tokens count against `maxOutputTokens`, so a "successful"
+          200 can still arrive with finishReason=MAX_TOKENS and truncated or
+          absent text.
+        """
+        if not isinstance(data, dict):
+            self._log_empty("gemini", requested_model, requested_model, None, 0, 0,
+                            "response was not a JSON object")
+            return None
+        candidates = data.get("candidates") or []
+        candidate = candidates[0] if candidates and isinstance(candidates[0], dict) else {}
+        parts = (candidate.get("content") or {}).get("parts") or []
+        text = "".join(
+            p.get("text") or "" for p in parts if isinstance(p, dict)
+        ).strip()
+        model_id = data.get("modelVersion") or requested_model
+        finish = candidate.get("finishReason")
+        usage = data.get("usageMetadata") or {}
+
+        if text:
+            return text, model_id
+
+        thoughts = usage.get("thoughtsTokenCount")
+        if thoughts and finish == "MAX_TOKENS":
+            cause = f"{thoughts} thought tokens consumed maxOutputTokens before text was written"
+        elif not candidates:
+            cause = "provider returned no candidates"
+        else:
+            cause = "provider returned no text parts"
+        self._log_empty("gemini", requested_model, model_id, finish, 0,
+                        int(thoughts or 0), cause)
+        return None
+
+    def _log_empty(self, provider: str, requested_model: str, model_served: Any,
+                   finish_reason: Any, content_chars: int, reasoning_chars: int,
+                   cause: str) -> None:
+        """Loud, structured and greppable: an empty AI answer is an incident,
+        not a shrug. The whole point of the failover chain is that the next
+        provider gets a chance, and that only works if this is visible."""
+        logger.error(
+            "ai_provider_empty_response",
+            provider=provider,
+            requested_model=requested_model,
+            model_served=str(model_served),
+            finish_reason=str(finish_reason),
+            content_chars=content_chars,
+            reasoning_chars=reasoning_chars,
+            cause=cause,
+            action_required="failover to the next configured provider",
+        )
 
     def _verify_grounding(self, ai_text: str, outfit: Optional[Dict[str, Any]]) -> bool:
         """

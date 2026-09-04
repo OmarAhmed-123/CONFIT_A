@@ -268,8 +268,8 @@ npm run build → 162 modules, built in 1.01s
 | Gemini Flash Lite | GEMINI_API_KEY | Google | Visual Search | VisualSearchAIProvider | httpx post to generativelanguage.googleapis.com/v1beta/models/{VISION_MODEL}:generateContent | Existing | tryon_provider.py _call_gemini_vision | CODE VERIFIED, RUNTIME UNVERIFIED — EXTERNAL BLOCKER |
 | Gemini Flash Lite | GEMINI_API_KEY | Google | Wardrobe Auto-tag | Same | Same with WARDROBE_TAG_PROMPT | Existing | Same | CODE VERIFIED, RUNTIME UNVERIFIED — EXTERNAL BLOCKER |
 | NVIDIA NIM Llama | NVIDIA_API_KEY | NVIDIA | Stylist chat | Stylist provider | OpenAI compatible API | Existing | providers/ | CODE VERIFIED, RUNTIME UNVERIFIED — EXTERNAL BLOCKER |
-| NVIDIA Embed | NVIDIA_EMBED_KEY | NVIDIA | Search embeddings | Embedding provider | Embed API | Existing | providers/ | CODE VERIFIED, RUNTIME UNVERIFIED — EXTERNAL BLOCKER |
-| NVIDIA Rerank | NVIDIA_RERANK_KEY | NVIDIA | Product reranking | Rerank provider | Rerank API | Existing | providers/ | CODE VERIFIED, RUNTIME UNVERIFIED — EXTERNAL BLOCKER |
+| NVIDIA Embed | — (removed) | NVIDIA | Search embeddings | — | — | None | — | NOT_IMPLEMENTED — no consumer exists; search is deterministic (_compute_product_relevance + Meilisearch), so semantics are not needed. Config (NVIDIA_EMBED_KEY) removed |
+| NVIDIA Rerank | — (removed) | NVIDIA | Product reranking | — | — | None | — | NOT_IMPLEMENTED — no consumer exists; visual search scores real catalog items via vision model + catalog fields. Config (NVIDIA_RERANK_KEY) removed |
 
 **No secrets exposed:** All keys are Optional[str] = None in config, never hardcoded, never logged, never in docs with values.
 

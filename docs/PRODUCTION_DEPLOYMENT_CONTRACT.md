@@ -62,12 +62,17 @@ docs) is refused** — the blocklist is `PUBLICLY_KNOWN_SECRET_VALUES` in `core/
 
 Settings that exist but are **not consumed by any code path** (documented so
 nobody believes setting them changes behaviour): `PROJECT_NAME`, `PORT`,
-`EMAIL_FROM_ADDRESS`, `SMTP_*`, `KLING_API_KEY`, `NVIDIA_VISION_KEY`,
-`NVIDIA_EMBED_KEY`, `NVIDIA_EMBED_KEY_2`, `NVIDIA_RERANK_KEY`,
-`NVIDIA_TRANSLATE_KEY`, `NVIDIA_IMAGE_KEY`, `AI_STYLIST_PROVIDER`,
+`EMAIL_FROM_ADDRESS`, `SMTP_*`, `KLING_API_KEY`, `AI_STYLIST_PROVIDER`,
 `VTON_PROVIDER`, `FULFILL_PACE`, `PAYMENT_DEFAULT_PROVIDER`,
 `STRIPE_WEBHOOK_SECRET`, `PAYMOB_API_KEY`, `POLICY_VERSION`,
 `ANALYTICS_K_MIN`, `TRYON_ANONYMOUS_EXPIRY_HOURS`.
+
+> The NVIDIA embedding/rerank/vision/translate/image keys
+> (`NVIDIA_EMBED_KEY`, `NVIDIA_EMBED_KEY_2`, `NVIDIA_RERANK_KEY`,
+> `NVIDIA_VISION_KEY`, `NVIDIA_TRANSLATE_KEY`, `NVIDIA_IMAGE_KEY`) were removed
+> from `config.py`/`.env.example` as dead config — no code path consumed them
+> (search is deterministic, visual search is vision+scoring). Only
+> `NVIDIA_API_KEY` and `NVIDIA_CHAT_KEY_2` are wired to the NVIDIA chat provider.
 
 ## 4. Deployment sequence (every release)
 

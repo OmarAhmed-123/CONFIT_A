@@ -56,8 +56,6 @@
 | `GROK_API_KEY` | `YOUR_GROK_API_KEY` | مفتاح Groq LLaMA-3.3 لتسريع استجابة المساعد الذكي. |
 | `NVIDIA_API_KEY` | `YOUR_NVIDIA_API_KEY` | مفتاح NVIDIA NIM Llama 3.1-70B للتنسيق المتقدم. |
 | `NVIDIA_CHAT_KEY_2` | `YOUR_NVIDIA_NEMOTRON_KEY` | مفتاح NVIDIA Nemotron-12B للرؤية الحاسوبية وتحليل الصور. |
-| `NVIDIA_EMBED_KEY` | `YOUR_NVIDIA_EMBED_KEY` | مفتاح نمذجة المتجهات للنصوص والبحث الدلالي (Embedding). |
-| `NVIDIA_RERANK_KEY` | `YOUR_NVIDIA_RERANK_KEY` | مفتاح إعادة ترتيب المنتجات حسب تطابق الستايل (Reranking). |
 | `KLING_API_KEY` | `YOUR_KLING_API_KEY` | مفتاح محرك التلبيس الافتراضي Kling Kolors VTON. |
 
 ---

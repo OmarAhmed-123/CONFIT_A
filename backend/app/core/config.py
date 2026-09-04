@@ -126,12 +126,6 @@ class Settings(BaseSettings):
     # NVIDIA Build Master & Slot Keys
     NVIDIA_API_KEY: Optional[str] = None
     NVIDIA_CHAT_KEY_2: Optional[str] = None
-    NVIDIA_VISION_KEY: Optional[str] = None
-    NVIDIA_EMBED_KEY: Optional[str] = None
-    NVIDIA_EMBED_KEY_2: Optional[str] = None
-    NVIDIA_RERANK_KEY: Optional[str] = None
-    NVIDIA_TRANSLATE_KEY: Optional[str] = None
-    NVIDIA_IMAGE_KEY: Optional[str] = None
 
     # AI Failover Configuration
     AI_PROVIDERS: str = "nvidia,groq,gemini,openai"

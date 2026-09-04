@@ -46,6 +46,7 @@ from backend.app.models.commerce import Cart, Order, OrderItem, PaymentTransacti
 from backend.app.models.catalog import ProductSKU
 from backend.app.providers.bnpl_provider import BNPLProvider
 from backend.app.providers.payment.orchestrator import PaymentOrchestrator
+from backend.app.providers.payment.capability_registry import MarketPaymentCapabilityRegistry
 from backend.app.repositories.catalog_repository import CatalogRepository
 from backend.app.repositories.commerce_repository import CommerceRepository
 from backend.app.repositories.profile_repository import ProfileRepository
@@ -230,6 +231,12 @@ class CommerceService:
 
         payment_method = checkout_data.get("payment_method", "card")
         country = checkout_data.get("country") or settings.MARKET or "AE"
+        # Market settlement currency: resolved server-side from the market
+        # capability registry. Never a literal, and never taken from the
+        # request body - a client cannot choose the currency its own order,
+        # payment or payment transaction settles in.
+        settlement = MarketPaymentCapabilityRegistry.resolve_settlement(country)
+        currency = settlement.currency
 
         subtotal, order_items_payload, brand_ids = self._line_items_from_cart(cart_full)
         promo_code = checkout_data.get("promo_code") or cart_full.promo_code
@@ -253,7 +260,36 @@ class CommerceService:
         taxable = money_max(subtotal - discount, Decimal("0.00"))
         tax = money_mul(taxable, tax_rate)
         total = money_max(taxable + tax + shipping, Decimal("0.00"))
-        # Explicit NUMERIC(12,2) range enforcement — never truncate silently
+
+        # Everything above is exact Decimal in the catalog price book's
+        # currency. When this market settles in its own currency, convert the
+        # line items and every aggregate with the SAME configured rate.
+        # `subtotal` is rebuilt as the sum of the CONVERTED line subtotals (not
+        # the conversion of the sum) so revenue conservation at item grain
+        # survives rounding - the attribution ledger asserts exactly that.
+        # `total` is recomputed from the converted components so the stored
+        # order stays internally consistent: subtotal - discount + tax +
+        # shipping == total. A no-op when the market settles in the pricing
+        # currency, which is the default configuration.
+        if settlement.converted:
+            order_items_payload = [
+                {
+                    **_p,
+                    "unit_price": settlement.convert(_p["unit_price"]),
+                    "subtotal": settlement.convert(_p["subtotal"]),
+                }
+                for _p in order_items_payload
+            ]
+            subtotal = money_sum([_p["subtotal"] for _p in order_items_payload])
+            discount = settlement.convert(discount)
+            tax = settlement.convert(tax)
+            shipping = settlement.convert(shipping)
+            total = money_max(subtotal - discount + tax + shipping, Decimal("0.00"))
+
+        # Explicit NUMERIC(12,2) range enforcement — never truncate silently.
+        # Runs on the SETTLED values: a market currency with a large rate (EGP
+        # is ~2 digits bigger than USD) is exactly where a range overflow would
+        # otherwise reach the database unnoticed.
         for _fname, _fval in (("subtotal", subtotal), ("discount", discount),
                               ("tax", tax), ("shipping", shipping), ("total", total)):
             assert_money_range(_fval, _fname)
@@ -285,7 +321,7 @@ class CommerceService:
                 discount_amount=discount,
                 tax_amount=tax,
                 shipping_amount=shipping,
-                currency="USD",
+                currency=currency,
                 payment_method=payment_method,
                 payment_status="pending",
                 payment_installments=installments,
@@ -361,7 +397,7 @@ class CommerceService:
         pay_result = await self.payments.initiate_payment(
             method_id=payment_method,
             amount_minor=int((quantize_money(total) * Decimal("100")).to_integral_value(rounding=ROUND_HALF_UP)),
-            currency_code="USD",
+            currency_code=currency,
             customer_email=guest_email or "",
             order_number=order.order_number,
             country_code=country,
@@ -374,7 +410,7 @@ class CommerceService:
             method=payment_method,
             provider_tx_id=str(pay_result.get("transaction_id") or uuid.uuid4().hex),
             amount=total,
-            currency="USD",
+            currency=currency,
             status=mapped_payment_status,
             mode=payment_mode,
             idempotency_key=f"pay:{idempotency_key or order.order_number}",
@@ -1415,8 +1451,32 @@ class CommerceService:
                               ("tax", tax), ("shipping", shipping), ("total", total)):
             assert_money_range(_fval, _fname)
 
+        # The cart has no shipping country yet, so it is priced in the
+        # platform's configured market. Same resolver, same rate table as
+        # checkout - one authority, so the cart total and the order total can
+        # never disagree about which currency they are in.
+        cart_settlement = MarketPaymentCapabilityRegistry.resolve_settlement(settings.MARKET)
+        cart_currency = cart_settlement.currency
+        if cart_settlement.converted:
+            items_out = [
+                {
+                    **_it,
+                    "unit_price": cart_settlement.convert(_it["unit_price"]),
+                    "subtotal": cart_settlement.convert(_it["subtotal"]),
+                }
+                for _it in items_out
+            ]
+            subtotal = money_sum([_it["subtotal"] for _it in items_out])
+            discount = cart_settlement.convert(discount)
+            tax = cart_settlement.convert(tax)
+            shipping = cart_settlement.convert(shipping)
+            total = money_max(subtotal - discount + tax + shipping, Decimal("0.00"))
+            for _fname, _fval in (("subtotal", subtotal), ("discount", discount),
+                                  ("tax", tax), ("shipping", shipping), ("total", total)):
+                assert_money_range(_fval, _fname)
+
         quote = BNPLProvider(provider_name=settings.BNPL_DEFAULT_PROVIDER).quote_sync(
-            amount=total, currency="USD"
+            amount=total, currency=cart_currency
         )
 
         return {
@@ -1427,7 +1487,7 @@ class CommerceService:
             "tax_amount": tax,
             "shipping_amount": shipping,
             "total": total,
-            "currency": "USD",
+            "currency": cart_currency,
             "items_count": count,
             "bnpl_monthly_quote": quote.get("installment_amount") or 0.0,
             "promo_code": promo_code,

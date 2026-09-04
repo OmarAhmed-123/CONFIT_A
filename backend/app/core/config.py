@@ -182,6 +182,17 @@ class Settings(BaseSettings):
 
     # Market & Commerce defaults
     MARKET: str = "EG"
+    # Money: the currency the CATALOG PRICE BOOK is denominated in (every
+    # seeded/migrated product carries currency='USD'), and the optional FX
+    # table used to settle a market in its own currency instead.
+    # MARKET_FX_RATES is a JSON object of CURRENCY -> rate FROM
+    # PRICING_CURRENCY, e.g. {"EGP": "48.5", "AED": "3.6725"}. Rates are a
+    # treasury input: with no rate configured for a market's currency the
+    # resolver settles in PRICING_CURRENCY (today's behaviour) and logs
+    # market_fx_rate_not_configured, because stamping a market currency on an
+    # amount that was never priced in it would mislabel money.
+    PRICING_CURRENCY: str = "USD"
+    MARKET_FX_RATES: str = ""
     FULFILL_PACE: str = "demo"
     BNPL_DEFAULT_PROVIDER: str = "tabby"
     PAYMENT_DEFAULT_PROVIDER: str = "mock"

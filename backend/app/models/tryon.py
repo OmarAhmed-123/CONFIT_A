@@ -58,7 +58,7 @@ class TryOnJob(Base):
     input_person_image_url = Column(Text, nullable=False)
     garment_ids_json = Column(Text, default="[]", nullable=False)
     garment_layers_json = Column(Text, default="[]", nullable=False)
-    model_used = Column(String(50), default="CatVTON-v1.2 (Apache 2.0)", nullable=False)
+    model_used = Column(String(50), default="unset", nullable=False)
     output_image_url = Column(Text, nullable=True)
     metrics_json = Column(Text, default="{}", nullable=False)  # SSIM, LPIPS, execution time
     error_code = Column(String(50), nullable=True)

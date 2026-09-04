@@ -121,3 +121,33 @@ For multi-layer looks (e.g. Poplin Shirt + Double-Breasted Wool Blazer + Wool Tr
   - Deployable to **Modal.com** (serverless GPU on-demand), **RunPod Serverless**, or dedicated AWS EC2 `g5.xlarge` instances.
 - **Managed Cloud Fallback:** Seamless webhook fallback to **Kling Kolors VTON API** if self-hosted GPU queue latency exceeds threshold.
 - **Storage:** S3-compatible cloud object storage (Cloudflare R2 / Supabase) with signed URLs.
+
+---
+
+## 7. COMMERCIAL ENGINE DECISION (EXECUTED — 2026-09-04)
+
+**Selected production engine: `fashn_vton_segfee`** — CONFIT_A segmentation-free commercial fork of `fashn-AI/fashn-vton-1.5` @ `7c0f10af3f91ad4048fe9729c470a13ef905d25a`, vendored at `vendor/fashn-vton-segfee`.
+
+### 7.1 Why
+- The entire runtime chain is **Apache-2.0** (MMDiT 972M model, DWPose/YOLOX) — commercially clean.
+- The **non-commercial** `fashn-human-parser` (SegFormer-derived, NVIDIA Source Code License §3.3) is **removed from the runtime** by making the fork segmentation-free-only. **No `UNKNOWN` license remains in a mandatory component.**
+- ~**8 GB VRAM** class with a maskless (segmentation-free) path — simplest production integration.
+- Replaces the **non-commercial CatVTON** (CC BY-NC-SA 4.0) as the recommended production engine.
+
+### 7.2 Parser-removal proof (real GPU run)
+The fork never imports `fashn_human_parser`; the GPU run recorded:
+`parser_imported_before_pipeline = False` and `parser_in_runtime = False`.
+
+### 7.3 Real generated try-on (proof, not claim)
+On a **real NVIDIA A10** (23.7 GB, torch 2.14.0+cu130, bf16), with controlled legal images
+(`vendor/test_assets/person.png`, `vendor/test_assets/garment.png`):
+- Output `vendor/test_assets/output_tryon.png` (576×314) — the woman is shown **wearing the teal floral blouse**.
+- `pixel_change_mean = 4.18` (real change, not echo), `image_stddev` high (not blank), `teal_coverage_fraction = 0.028`.
+- load **9.6 s**, inference **17.997 s** (30 steps).
+
+### 7.4 Contract
+Adapter: `services/vton-worker/engine/` → `VTONEngine` ABC → `FashnSegfeeVTONEngine`
+(single-category; no naive multi-garment compositing; no business logic duplicated).
+Config: `VTON_ENGINE=fashn_vton_segfee` → `commercial: True`; `catvton → False`.
+
+Engine swap is a config choice, not a re-platform of the `VTONJobRequest → worker → engine → validated output → durable storage` contract.

@@ -17,6 +17,7 @@ import { useCatalogViewModel } from '../../viewmodels/useCatalogViewModel';
 import { FitScoreBadge, BNPLBadge, SkeletonCard } from '../../components/common/CommonComponents';
 import { useCartStore } from '../../stores/cartStore';
 import { CircularGallery, type GalleryItem } from '../../components/ui/circular-gallery';
+import { CardStackShowcase } from '../../components/showcase/DesignShowcases';
 
 
 const editorialGalleryData: GalleryItem[] = [
@@ -248,6 +249,13 @@ export const HomeView: React.FC = () => {
           />
         </div>
       </section>
+
+      <CardStackShowcase
+        tone="consumer"
+        eyebrow="Swipeable Style Stack"
+        title="Explore curated fashion stories in a tactile animated stack"
+        description="Drag, tap, or use keyboard arrows to browse real editorial outfit moods before moving into brand collections and product cards."
+      />
 
       {/* 2. Luxury Brand Pavilion */}
       <section className="space-y-6">

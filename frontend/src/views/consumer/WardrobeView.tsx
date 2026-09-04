@@ -12,6 +12,7 @@ import {
   TryOnIcon,
 } from '../../components/icons/ConfitIcons';
 import { LoadingSpinner, EmptyState, FitScoreBadge } from '../../components/common/CommonComponents';
+import { CardStackShowcase, CircularGalleryShowcase } from '../../components/showcase/DesignShowcases';
 
 export const WardrobeView: React.FC = () => {
   const { t } = useTranslation();
@@ -96,6 +97,21 @@ export const WardrobeView: React.FC = () => {
 
   return (
     <div className="space-y-8 pb-20">
+      <CardStackShowcase
+        tone="wardrobe"
+        compact
+        eyebrow="Wardrobe Styling Stack"
+        title="Reuse owned pieces through premium outfit formulas"
+        description="Saved garments become styled rotations instead of a static closet grid, encouraging realistic reuse and smarter recommendations."
+      />
+
+      <CircularGalleryShowcase
+        tone="wardrobe"
+        compact
+        eyebrow="Circular Closet Capsules"
+        title="A rotating capsule view for your wardrobe stories"
+        description="The same component appears here as a wardrobe capsule browser, visually distinct from the stack above."
+      />
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-6">
         <div>

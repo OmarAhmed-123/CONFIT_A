@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { profileService, authService } from '../../services/apiServices';
 import { UserStyleProfile } from '../../models';
 import { useAuthStore } from '../../stores/authStore';
+import { CircularGalleryShowcase } from '../../components/showcase/DesignShowcases';
 import { useUIStore } from '../../stores/uiStore';
 import { SparkleIcon, UserIcon, RulerIcon, ShieldIcon } from '../../components/icons/ConfitIcons';
 import { LoadingSpinner } from '../../components/common/CommonComponents';
@@ -269,6 +270,13 @@ export const UserProfileView: React.FC = () => {
 
   return (
     <div className="space-y-8 pb-24 max-w-4xl mx-auto">
+      <CircularGalleryShowcase
+        tone="consumer"
+        compact
+        eyebrow="Style DNA Gallery"
+        title="Your profile powers a rotating style identity"
+        description="Preference, sizing, and behavior data connect to real editorial directions that can be reused across the account experience."
+      />
       {/* Guest Mode Callout Banner */}
       {!isAuthenticated && (
         <div className="bg-[#FAF9F6] border border-[#C5A059]/40 rounded-3xl p-6 shadow-2xs flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">

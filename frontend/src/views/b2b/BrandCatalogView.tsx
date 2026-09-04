@@ -1,3 +1,4 @@
+import { CircularGalleryShowcase } from '../../components/showcase/DesignShowcases';
 import React, { useState, useRef } from 'react';
 import { useBrandViewModel } from '../../viewmodels/useBrandViewModel';
 import { LoadingSpinner } from '../../components/common/CommonComponents';
@@ -54,6 +55,13 @@ export const BrandCatalogView: React.FC = () => {
 
   return (
     <div className="space-y-8 pb-20">
+      <CircularGalleryShowcase
+        tone="brand"
+        compact
+        eyebrow="Catalog Visual QA"
+        title="Rotate through merchandising stories before publishing"
+        description="Catalog management gets a realistic 3D gallery treatment for product story review, visual QA, and collection readiness."
+      />
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-6">
         <div>

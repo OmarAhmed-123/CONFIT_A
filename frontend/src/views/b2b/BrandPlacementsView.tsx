@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useBrandViewModel } from '../../viewmodels/useBrandViewModel';
 import { SparkleIcon } from '../../components/icons/ConfitIcons';
+import { CircularGalleryShowcase } from '../../components/showcase/DesignShowcases';
 import { LoadingSpinner } from '../../components/common/CommonComponents';
 
 export const BrandPlacementsView: React.FC = () => {
@@ -49,6 +50,13 @@ export const BrandPlacementsView: React.FC = () => {
 
   return (
     <div className="space-y-8 pb-20">
+      <CircularGalleryShowcase
+        tone="brand"
+        compact
+        eyebrow="Placement Preview Gallery"
+        title="Preview featured stories in a premium rotating gallery"
+        description="Placement management uses the circular gallery to preview campaigns and premium slots without feeling like a static admin table."
+      />
       {placementsError && (
         <div role="alert" className="p-4 rounded-2xl bg-rose-50 border border-rose-200">
           <p className="text-[11px] font-bold text-rose-800">Sponsored network data failed to load</p>

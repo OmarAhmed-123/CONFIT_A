@@ -1,3 +1,4 @@
+import { CardStackShowcase } from '../../components/showcase/DesignShowcases';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -186,6 +187,13 @@ export const OutfitBuilderView: React.FC = () => {
 
   return (
     <div className="space-y-8 pb-24">
+      <CardStackShowcase
+        tone="consumer"
+        compact
+        eyebrow="Builder Inspiration Stack"
+        title="Start from a styled formula, then customize the canvas"
+        description="The stack gives outfit building a premium starting point before users drag catalog or wardrobe pieces into slots."
+      />
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200/80 pb-6">
         <div>

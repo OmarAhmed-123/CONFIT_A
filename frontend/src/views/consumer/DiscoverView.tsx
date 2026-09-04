@@ -1,3 +1,4 @@
+import { CardStackShowcase } from '../../components/showcase/DesignShowcases';
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -82,6 +83,13 @@ export const DiscoverView: React.FC = () => {
 
   return (
     <div className="space-y-8 pb-24">
+      <CardStackShowcase
+        tone="consumer"
+        compact
+        eyebrow="Discovery Mood Stack"
+        title="Browse by real outfit direction, not only filters"
+        description="The animated stack introduces tactile editorial browsing before customers refine by category, occasion, brand, and size."
+      />
       {/* Header & Search Bar */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200/80 pb-6">
         <div>

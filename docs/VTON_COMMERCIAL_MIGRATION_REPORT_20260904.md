@@ -127,7 +127,7 @@ OPTION B was chosen for the final production closure: complete the commercial-en
 - **Engine/worker/contract tests: 102 passed, 6 skipped** (local CPU, no weights/GPU).
 
 ### O.3 Real Modal deployment (authorized GPU compute)
-`modal deploy services/vton-worker/modal_app_segfee.py` → **app `confit-vton-worker-segfee` deployed in 103.3s**; image built and endpoints registered; `CONFIT_GIT_SHA=5f541bb…` (the committed SHA). Weights were already on the `confit-vton-fashn-weights` volume (`model.safetensors`, `dwpose/yolox_l.onnx`, `dwpose/dw-ll_ucoco_384.onnx`).
+`modal deploy services/vton-worker/modal_app_segfee.py` → **app `confit-vton-worker-segfee` deployed in 103.3s**; image built and endpoints registered. The first deploy baked `CONFIT_GIT_SHA=5f541bb…` (the pre-merge branch commit); it was then **redeployed from the merged `main`** so the deployed image matches the merged HEAD exactly. Weights were already on the `confit-vton-fashn-weights` volume (`model.safetensors`, `dwpose/yolox_l.onnx`, `dwpose/dw-ll_ucoco_384.onnx`).
 
 The worker was redeployed from the merged `main` HEAD (`CONFIT_GIT_SHA=2d9ba36`), so the deployed image == the merged commit exactly.
 

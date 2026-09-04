@@ -57,7 +57,7 @@ KNOWN_ENVIRONMENTS = {"development", "test", "staging", "production"}
 # never silently presented as commercially deployable. This is configuration
 # + observability, NOT a license grant: commercial legality is the owner's
 # responsibility (see docs/VTON_RESEARCH_INTEGRATION_REPORT_20260904.md).
-SUPPORTED_VTON_ENGINES = frozenset({"catvton", "fashn_vton_1_5", "leffa"})
+SUPPORTED_VTON_ENGINES = frozenset({"catvton", "fashn_vton_1_5", "fashn_vton_segfee", "leffa"})
 
 # Map engine -> (license_summary, commercially_usable, upstream_source). Values
 # reflect the verified upstream terms; they are stated here because a flat
@@ -75,10 +75,20 @@ VTON_ENGINE_LICENSES: dict[str, dict] = {
                     "SegFormer via fashn-human-parser (non-commercial)",
         "commercial": False,
         "source": "fashn-AI/fashn-vton-1.5",
-        "note": "Model is Apache-2.0, but the required human-parser runtime "
-                "dependency is a SegFormer-derived NVIDIA non-commercial work. "
-                "Requires remediation (supply category from catalog, swap the "
-                "parser, or obtain a license) before commercial SaaS use.",
+        "note": "Upstream model is Apache-2.0 but hard-depends on the "
+                "SegFormer-derived NVIDIA non-commercial human-parser. NOT "
+                "commercially clean as-is (REJECTED). Use fashn_vton_segfee.",
+    },
+    "fashn_vton_segfee": {
+        "license": "Apache-2.0 (fork; model/DWPose/YOLOX); the non-commercial "
+                    "fashn-human-parser is REMOVED from the runtime",
+        "commercial": True,
+        "source": "CONFIT_A fork of fashn-AI/fashn-vton-1.5 @ 7c0f10af (vendor/fashn-vton-segfee)",
+        "note": "Segmentation-free-only fork: the restricted human-parser import, "
+                "init and per-inference predict() are removed; enforces "
+                "segmentation_free + flat-lay. Verified on real A10 GPU (see "
+                "docs/VTON_COMMERCIAL_MIGRATION_REPORT). Real generated try-on "
+                "image produced; parser_pre_import and parser_in_runtime both false.",
     },
     "leffa": {
         "license": "MIT (repo); SCHP / DensePose / Detectron2 chain must be "

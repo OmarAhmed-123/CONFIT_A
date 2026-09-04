@@ -53,3 +53,11 @@ frontend/dist/
 .DS_Store
 .vscode/
 .idea/
+
+# VTON commercial engine fork: keep the fork SOURCE tracked, but never the
+# controlled test images or any downloaded model weights.
+vendor/fashn-vton-segfee/weights/
+vendor/fashn-vton-segfee/scripts/data/
+vendor/test_assets/
+*.safetensors
+*.onnx

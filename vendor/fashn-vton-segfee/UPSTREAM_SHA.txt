@@ -1,0 +1,11 @@
+fashn-AI/fashn-vton-1.5 main @ 7c0f10af3f91ad4048fe9729c470a13ef905d25a
+Fork name: fashn-vton-segfee (segmentation-free commercial fork)
+Changes vs upstream:
+  - Removed `fashn-human-parser>=0.1.1` runtime dependency (SegFormer-derived,
+    NVIDIA non-commercial) from pyproject.toml.
+  - pipeline.py: dropped `from fashn_human_parser import ...`; removed
+    `_setup_hp_model()` and the two `hp_model.predict(...)` calls; enforces
+    segmentation_free=True + garment_photo_type='flat-lay'.
+  - preprocessing/agnostic.py: constants sourced from clean-room
+    `_parser_compat.py`; seg_pred=None guarded (fails loudly on masked path).
+  - scripts/download_weights.py: human-parser download is now a no-op.

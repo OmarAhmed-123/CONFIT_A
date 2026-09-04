@@ -1,0 +1,74 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fashn-vton-segfee"
+version = "1.5.0.post1"
+description = "FASHN VTON v1.5 — segmentation-free commercial fork (human-parser runtime removed)"
+license = {text = "Apache-2.0"}
+authors = [
+    {name = "FASHN AI (upstream)", email = "dan@fashn.ai"},
+    {name = "CONFIT_A fork"},
+]
+keywords = ["virtual try-on", "diffusion models", "fashion", "AI", "deep learning"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Image Processing",
+]
+requires-python = ">=3.10"
+# Fork of fashn-AI/fashn-vton-1.5 (pinned at 7c0f10af). The upstream dependency
+# `fashn-human-parser>=0.1.1` (a SegFormer-derived NVIDIA non-commercial work)
+# is intentionally REMOVED because this fork is segmentation-free-only and never
+# imports or executes it. Version minima pinned conservatively; a production
+# container pins exact revisions (see CONFIT_A worker image).
+dependencies = [
+    "torch>=2.0.0",
+    "torchvision>=0.15.0",
+    "safetensors>=0.3.0",
+    "huggingface_hub>=0.20.0",
+    "pillow>=9.0.0",
+    "numpy>=1.21.0",
+    "opencv-python>=4.5.0",
+    "tqdm>=4.65.0",
+    "einops>=0.6.0",
+    "onnxruntime-gpu>=1.14.0",
+    "matplotlib>=3.5.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "black>=23.0.0",
+    "ruff>=0.0.270",
+]
+
+[project.urls]
+Homepage = "https://github.com/fashn-AI/fashn-vton-1.5"
+Documentation = "https://github.com/fashn-AI/fashn-vton-1.5#readme"
+Repository = "https://github.com/fashn-AI/fashn-vton-1.5"
+Issues = "https://github.com/fashn-AI/fashn-vton-1.5/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.black]
+line-length = 120
+target-version = ["py310", "py311", "py312"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+ignore = ["E501"]

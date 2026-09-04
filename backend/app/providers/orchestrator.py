@@ -1,6 +1,6 @@
 import time
 import httpx
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 from backend.app.core.config import settings
 from backend.app.core.logging import logger
 from backend.app.services.styling_engine import StylingEngine
@@ -109,30 +109,40 @@ class MultiProviderAIOrchestrator:
                 continue
 
             try:
+                # Each `_call_*` returns (content, model_id) where model_id is the
+                # model the provider actually served (echoed in the response). The
+                # `provider_used` label is built from that so it can never report a
+                # model that was not the one invoked — previously the Groq label
+                # claimed "LLaMA-3.3-70B" while `openai/gpt-oss-120b` was called.
                 if provider == "nvidia" and settings.NVIDIA_API_KEY:
                     res = await self._call_nvidia_llama(system_prompt, user_prompt)
                     if res:
-                        return self._format_response(res, prompt, intent, "NVIDIA Llama-3.1-70B", selected_outfit)
+                        text, model_id = res
+                        return self._format_response(text, prompt, intent, f"NVIDIA {model_id}", selected_outfit)
 
                 elif provider in ["nvidia2", "nemotron"] and (settings.NVIDIA_CHAT_KEY_2 or settings.NVIDIA_API_KEY):
                     res = await self._call_nvidia_nemotron(system_prompt, user_prompt)
                     if res:
-                        return self._format_response(res, prompt, intent, "NVIDIA Nemotron-12B", selected_outfit)
+                        text, model_id = res
+                        return self._format_response(text, prompt, intent, f"NVIDIA {model_id}", selected_outfit)
 
                 elif provider in ["groq", "grok"] and settings.GROK_API_KEY:
                     res = await self._call_groq(system_prompt, user_prompt)
                     if res:
-                        return self._format_response(res, prompt, intent, "Groq LLaMA-3.3-70B", selected_outfit)
+                        text, model_id = res
+                        return self._format_response(text, prompt, intent, f"Groq {model_id}", selected_outfit)
 
                 elif provider == "gemini" and settings.GEMINI_API_KEY:
                     res = await self._call_gemini(system_prompt, user_prompt)
                     if res:
-                        return self._format_response(res, prompt, intent, "Google Gemini-Flash", selected_outfit)
+                        text, model_id = res
+                        return self._format_response(text, prompt, intent, f"Google {model_id}", selected_outfit)
 
                 elif provider == "openai" and settings.OPENAI_API_KEY:
                     res = await self._call_openai(system_prompt, user_prompt)
                     if res:
-                        return self._format_response(res, prompt, intent, "OpenAI GPT-4o-mini", selected_outfit)
+                        text, model_id = res
+                        return self._format_response(text, prompt, intent, f"OpenAI {model_id}", selected_outfit)
 
             except httpx.HTTPStatusError as exc:
                 if exc.response.status_code in [401, 402, 404, 429]:
@@ -145,7 +155,7 @@ class MultiProviderAIOrchestrator:
         logger.info("Routing to CONFIT deterministic StylingEngine fallback")
         return self._deterministic_fallback(prompt, intent, selected_outfit)
 
-    async def _call_nvidia_llama(self, system_prompt: str, user_prompt: str) -> Optional[str]:
+    async def _call_nvidia_llama(self, system_prompt: str, user_prompt: str) -> Optional[Tuple[str, str]]:
         async with httpx.AsyncClient(timeout=4.0) as client:
             res = await client.post(
                 "https://integrate.api.nvidia.com/v1/chat/completions",
@@ -164,9 +174,10 @@ class MultiProviderAIOrchestrator:
                 }
             )
             res.raise_for_status()
-            return res.json()["choices"][0]["message"]["content"]
+            data = res.json()
+            return data["choices"][0]["message"]["content"], data.get("model", "meta/llama-3.1-70b-instruct")
 
-    async def _call_nvidia_nemotron(self, system_prompt: str, user_prompt: str) -> Optional[str]:
+    async def _call_nvidia_nemotron(self, system_prompt: str, user_prompt: str) -> Optional[Tuple[str, str]]:
         async with httpx.AsyncClient(timeout=4.0) as client:
             res = await client.post(
                 "https://integrate.api.nvidia.com/v1/chat/completions",
@@ -185,9 +196,10 @@ class MultiProviderAIOrchestrator:
                 }
             )
             res.raise_for_status()
-            return res.json()["choices"][0]["message"]["content"]
+            data = res.json()
+            return data["choices"][0]["message"]["content"], data.get("model", "nvidia/nemotron-nano-12b-v2-vl")
 
-    async def _call_groq(self, system_prompt: str, user_prompt: str) -> Optional[str]:
+    async def _call_groq(self, system_prompt: str, user_prompt: str) -> Optional[Tuple[str, str]]:
         async with httpx.AsyncClient(timeout=4.0) as client:
             res = await client.post(
                 "https://api.groq.com/openai/v1/chat/completions",
@@ -206,9 +218,10 @@ class MultiProviderAIOrchestrator:
                 }
             )
             res.raise_for_status()
-            return res.json()["choices"][0]["message"]["content"]
+            data = res.json()
+            return data["choices"][0]["message"]["content"], data.get("model", "openai/gpt-oss-120b")
 
-    async def _call_gemini(self, system_prompt: str, user_prompt: str) -> Optional[str]:
+    async def _call_gemini(self, system_prompt: str, user_prompt: str) -> Optional[Tuple[str, str]]:
         async with httpx.AsyncClient(timeout=4.0) as client:
             res = await client.post(
                 f"https://generativelanguage.googleapis.com/v1beta/models/{settings.GEMINI_TEXT_MODEL}:generateContent?key={settings.GEMINI_API_KEY}",
@@ -220,9 +233,10 @@ class MultiProviderAIOrchestrator:
                 }
             )
             res.raise_for_status()
-            return res.json()["candidates"][0]["content"]["parts"][0]["text"]
+            data = res.json()
+            return data["candidates"][0]["content"]["parts"][0]["text"], data.get("modelVersion", settings.GEMINI_TEXT_MODEL)
 
-    async def _call_openai(self, system_prompt: str, user_prompt: str) -> Optional[str]:
+    async def _call_openai(self, system_prompt: str, user_prompt: str) -> Optional[Tuple[str, str]]:
         async with httpx.AsyncClient(timeout=4.0) as client:
             res = await client.post(
                 "https://api.openai.com/v1/chat/completions",
@@ -240,7 +254,8 @@ class MultiProviderAIOrchestrator:
                 }
             )
             res.raise_for_status()
-            return res.json()["choices"][0]["message"]["content"]
+            data = res.json()
+            return data["choices"][0]["message"]["content"], data.get("model", "gpt-4o-mini")
 
     def _verify_grounding(self, ai_text: str, outfit: Optional[Dict[str, Any]]) -> bool:
         """

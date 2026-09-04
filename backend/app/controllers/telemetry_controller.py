@@ -3,7 +3,7 @@ import time
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from sqlalchemy import text
-from backend.app.core.config import settings
+from backend.app.core.config import settings, vton_engine_metadata
 from backend.app.core.database import get_db, engine
 from backend.app.core import schema_gate
 from backend.app.core.dependencies import require_role, ADMIN_ROLES
@@ -197,6 +197,10 @@ def health_check(db: Session = Depends(get_db)):
             "database": db_status,
             "schema": schema,
             "vton_pipeline": _vton_pipeline_status(),
+            # Resolved production engine + its (honest) license/commercial status.
+            # Surfaced so a non-commercial engine is never silently presented as
+            # commercially deployable by a "configured"/"operational" string alone.
+            "vton_engine": vton_engine_metadata(),
             # Where uploads/labels would be persisted. "local" is development-only
             # and read-only/ephemeral on serverless hosts: upload features answer
             # 501 FEATURE_NOT_CONFIGURED in production until object storage is set.

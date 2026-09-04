@@ -52,6 +52,67 @@ PRODUCTION_ENVIRONMENTS = {"production"}
 KNOWN_ENVIRONMENTS = {"development", "test", "staging", "production"}
 
 
+# VTON engine registry — the server decides the production engine, and the
+# resolved engine/LICENSE is exposed to operators so a non-commercial engine is
+# never silently presented as commercially deployable. This is configuration
+# + observability, NOT a license grant: commercial legality is the owner's
+# responsibility (see docs/VTON_RESEARCH_INTEGRATION_REPORT_20260904.md).
+SUPPORTED_VTON_ENGINES = frozenset({"catvton", "fashn_vton_1_5", "leffa"})
+
+# Map engine -> (license_summary, commercially_usable, upstream_source). Values
+# reflect the verified upstream terms; they are stated here because a flat
+# "Apache-2.0"/"MIT" repo badge does not describe the full model/dependency
+# chain (e.g. FASHN's human-parser is a SegFormer/NVIDIA non-commercial work).
+VTON_ENGINE_LICENSES: dict[str, dict] = {
+    "catvton": {
+        "license": "CC BY-NC-SA 4.0 (model weights + repo)",
+        "commercial": False,
+        "source": "Zheng-Chong/CatVTON",
+        "note": "Non-commercial; internal doc previously mislabelled as Apache 2.0.",
+    },
+    "fashn_vton_1_5": {
+        "license": "Apache-2.0 (model/DWPose/YOLOX); NVIDIA Source Code License for "
+                    "SegFormer via fashn-human-parser (non-commercial)",
+        "commercial": False,
+        "source": "fashn-AI/fashn-vton-1.5",
+        "note": "Model is Apache-2.0, but the required human-parser runtime "
+                "dependency is a SegFormer-derived NVIDIA non-commercial work. "
+                "Requires remediation (supply category from catalog, swap the "
+                "parser, or obtain a license) before commercial SaaS use.",
+    },
+    "leffa": {
+        "license": "MIT (repo); SCHP / DensePose / Detectron2 chain must be "
+                   "verified (not asserted here)",
+        "commercial": "unverified",
+        "source": "franciszzj/Leffa",
+        "note": "~12 GB VRAM + native-build Detectron2/DensePose/SCHP deps; "
+                "heavier than FASHN and unverified at the checkpoint level.",
+    },
+}
+
+
+def vton_engine_metadata() -> dict:
+    """Resolve the configured engine + its (honest) license/commercial status.
+
+    Returns ``valid: False`` for an unknown engine (startup should refuse it),
+    otherwise the registry entry plus the resolved engine name. Never returns
+    the worker auth token.
+    """
+    engine = (getattr(settings, "VTON_ENGINE", None) or "catvton").strip().lower()
+    entry = VTON_ENGINE_LICENSES.get(engine)
+    if entry is None or engine not in SUPPORTED_VTON_ENGINES:
+        return {
+            "engine": engine,
+            "valid": False,
+            "supported": sorted(SUPPORTED_VTON_ENGINES),
+            "license": "UNKNOWN",
+            "commercial": None,
+            "source": None,
+            "note": "Unsupported VTON_ENGINE value.",
+        }
+    return {"engine": engine, "valid": True, **entry}
+
+
 class Settings(BaseSettings):
     PROJECT_NAME: str = "CONFIT"
     VERSION: str = "1.0.0"
@@ -152,6 +213,11 @@ class Settings(BaseSettings):
     AI_MAX_TOKENS: int = 900
     AI_STYLIST_PROVIDER: str = "hybrid"
     VTON_PROVIDER: str = "hybrid"
+    # Server-decided production VTON engine (the frontend never selects this).
+    # Only engines in SUPPORTED_VTON_ENGINES are accepted. Wired to the worker
+    # via the VTONJobRequest -> rendered_image_data_url contract, so swapping the
+    # engine is a config change, not a re-platform of CONFIT_A.
+    VTON_ENGINE: str = "catvton"
     # GPU worker (Modal). VTON_WORKER_URL is the /process endpoint. Modal
     # generates one hostname per web endpoint and hash-truncates long labels,
     # so health/readiness cannot always be derived — set them explicitly.
@@ -271,6 +337,20 @@ class Settings(BaseSettings):
             if origin not in origins:
                 origins.append(origin)
         return origins
+
+    @field_validator("VTON_ENGINE", mode="after")
+    @classmethod
+    def _validate_vton_engine(cls, value: str) -> str:
+        """Fail closed on an unknown VTON_ENGINE rather than silently falling
+        back to a different model at runtime (no uncontrolled model selection).
+        """
+        engine = (value or "").strip().lower()
+        if engine not in SUPPORTED_VTON_ENGINES:
+            raise ValueError(
+                f"VTON_ENGINE={value!r} is not supported; "
+                f"expected one of {sorted(SUPPORTED_VTON_ENGINES)}"
+            )
+        return engine
 
     @property
     def groq_api_key(self) -> Optional[str]:

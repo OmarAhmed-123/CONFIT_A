@@ -29,7 +29,7 @@ We evaluated leading open-source models based on:
 
 | Model | Primary Architecture | License | VRAM (Inference) | Latency (A10G) | Paired SSIM ↑ | Paired LPIPS ↓ | Commercial Use |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **CatVTON** (ECCV 2024 / 2025) | Single-UNet Concatenation Inpainting | **Apache 2.0** | **~8 GB** | **4.2s – 8.5s** | **0.892** | **0.046** | ✅ **YES** |
+| **CatVTON** (ECCV 2024 / 2025) | Single-UNet Concatenation Inpainting | **CC BY-NC-SA 4.0** ⚠️ | **~8 GB** | **4.2s – 8.5s** | **0.892** | **0.046** | ❌ **NO** (see §3.1 / research report) |
 | **Leffa** (2025) | Flow-Guided Attention + Dual Control | **Apache 2.0** | **~12 – 16 GB** | **6.8s – 12.0s** | **0.924** | **0.031** | ✅ **YES** |
 | **IDM-VTON** (ECCV 2024) | Dual-UNet SDXL + TryOnNet IP-Adapter | **CC BY-NC-SA 4.0** | **~18 – 24 GB** | **14.0s – 22.0s**| **0.880** | **0.056** | ❌ Non-Commercial |
 | **OOTDiffusion** (2024) | Parallel-UNet Outfitting Diffusion | **CC BY-NC-SA 4.0** | **~16 – 20 GB** | **12.5s – 18.0s**| **0.885** | **0.053** | ❌ Non-Commercial |
@@ -42,7 +42,7 @@ We evaluated leading open-source models based on:
 
 ### 3.1 CatVTON (Primary Open-Source Core)
 - **Repository:** `github.com/Zheng-Chong/CatVTON`
-- **License:** **Apache 2.0** (Fully approved for commercial SaaS platforms).
+- **License:** ⚠️ **CC BY-NC-SA 4.0** — verified 2026-09-04 from the upstream `LICENSE` file AND the HuggingFace model card (`zhengchong/CatVTON` badge = CC BY-NC-SA-4.0). This is a **non-commercial** license. The prior "Apache 2.0 (fully approved for commercial)" statement in this document was **incorrect** and is corrected here. For a commercial deploy you need either (a) a commercial license from the authors, or (b) a engine migration (see `docs/VTON_RESEARCH_INTEGRATION_REPORT_20260904.md`).
 - **Core Mechanism:** Eliminates the complex cross-attention TryOnNet modules used in dual-UNet systems. Instead, it concatenates the person representation, agnostic mask, dense pose, and reference garment directly along the spatial channel dimensions of a single modified Stable Diffusion inpainting UNet.
 - **Why Chosen:**
   1. **Low VRAM Footprint:** Runs comfortably in `<8GB VRAM`, allowing deployment on cost-effective NVIDIA L4 (24GB) or AWS `g5.xlarge` (A10G) instances with batching.

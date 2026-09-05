@@ -56,8 +56,17 @@ class SlotLayeringEngine:
         "accessory_neck": 30,
         "accessory_hand": 30,
         "accessory_light": 30,
+        "accessory_head": 30,
         "accessory": 30
     }
+
+    @classmethod
+    def _layer_order(cls, slot: str) -> int:
+        """Canonical layer-rank accessor. The ONLY source of truth for VTON
+        layer ordering is ``LAYER_HIERARCHY``; this accessor keeps
+        ``map_category_to_slot`` from re-hardcoding the same numbers and
+        drifting from the engine."""
+        return cls.LAYER_HIERARCHY.get(slot, 30)
 
     @classmethod
     def map_category_to_slot(cls, product: Any) -> Tuple[str, int, str]:
@@ -67,39 +76,39 @@ class SlotLayeringEngine:
 
         # Check unsupported/deferred categories
         if "hat" in title or "cap" in title or "helmet" in title:
-            return "accessory_head", 30, "unsupported"
+            return "accessory_head", cls._layer_order("accessory_head"), "unsupported"
 
         # Dresses & Jumpsuits (Full Body)
         if "dress" in cat_slug or "dress" in title or "gown" in title or "jumpsuit" in title:
-            return "full_body", 2, "supported"
+            return "full_body", cls._layer_order("full_body"), "supported"
 
         # Outerwear (Upper Outer)
         if "outer" in cat_slug or "blazer" in title or "jacket" in title or "coat" in title or "tuxedo" in title:
-            return "upper_outer", 4, "supported"
+            return "upper_outer", cls._layer_order("upper_outer"), "supported"
 
         # Tops & Shirts (Upper Inner)
         if "top" in cat_slug or "shirt" in cat_slug or "sweater" in title or "knit" in title or "blouse" in title or "polo" in title or "tee" in title or "t-shirt" in title:
-            return "upper_inner", 2, "supported"
+            return "upper_inner", cls._layer_order("upper_inner"), "supported"
 
         # Bottoms & Trousers (Lower)
         if "bottom" in cat_slug or "trouser" in title or "chino" in title or "denim" in title or "pant" in title or "skirt" in title or "shorts" in title:
-            return "lower", 10, "supported"
+            return "lower", cls._layer_order("lower"), "supported"
 
         # Footwear
         if "footwear" in cat_slug or "shoe" in cat_slug or "oxford" in title or "loafer" in title or "sandal" in title or "sneaker" in title or "boot" in title or "heel" in title:
-            return "footwear", 20, "supported"
+            return "footwear", cls._layer_order("footwear"), "supported"
 
         # Accessories
         if "belt" in title:
-            return "accessory_waist", 30, "preview_limited"
+            return "accessory_waist", cls._layer_order("accessory_waist"), "preview_limited"
         if "tie" in title or "scarf" in title or "pocket" in title:
-            return "accessory_neck", 30, "supported"
+            return "accessory_neck", cls._layer_order("accessory_neck"), "supported"
         if "clutch" in title or "bag" in title:
-            return "accessory_hand", 30, "preview_limited"
+            return "accessory_hand", cls._layer_order("accessory_hand"), "preview_limited"
         if "watch" in title:
-            return "accessory_light", 30, "preview_limited"
+            return "accessory_light", cls._layer_order("accessory_light"), "preview_limited"
 
-        return "upper_inner", 2, "supported"
+        return "upper_inner", cls._layer_order("upper_inner"), "supported"
 
     @classmethod
     def resolve_and_apply(

@@ -138,3 +138,29 @@ def test_slot_engine_scenario_8_replace_after_full_look():
     assert len(res.final_applied_items) == 5
     lower_item = next(it for it in res.final_applied_items if it["position"] == "lower")
     assert lower_item["product_id"] == 10
+
+
+def test_map_category_to_slot_ranks_match_canonical_hierarchy():
+    """Drift guard: the layer rank returned by map_category_to_slot must
+    ALWAYS equal SlotLayeringEngine.LAYER_HIERARCHY for the slot it
+    returns. LAYER_HIERARCHY is the single source of truth for VTON layer
+    ordering — the classifier must never re-hardcode divergent numbers."""
+    cases = [
+        ("Tailored Blazer", "outerwear", "upper_outer"),
+        ("Organic Poplin Oxford Shirt", "tops", "upper_inner"),
+        ("Pleated Trousers", "bottoms", "lower"),
+        ("Silk Slip Dress", "dresses", "full_body"),
+        ("Leather Oxford Shoes", "footwear", "footwear"),
+        ("Silk Neck Tie", "accessories", "accessory_neck"),
+        ("Leather Belt", "accessories", "accessory_waist"),
+        ("Clutch Bag", "accessories", "accessory_hand"),
+        ("Wrist Watch", "accessories", "accessory_light"),
+        ("Wool Cap", "accessories", "accessory_head"),
+    ]
+    for title, cat_slug, expected_slot in cases:
+        slot, rank, _support = SlotLayeringEngine.map_category_to_slot(
+            MockProduct(1, title, cat_slug))
+        assert slot == expected_slot, (title, slot)
+        assert rank == SlotLayeringEngine.LAYER_HIERARCHY.get(slot, 30), (
+            f"{title}: classifier rank {rank} drifted from "
+            f"LAYER_HIERARCHY[{slot}] = {SlotLayeringEngine.LAYER_HIERARCHY.get(slot, 30)}")

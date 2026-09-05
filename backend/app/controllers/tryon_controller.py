@@ -10,6 +10,7 @@ from backend.app.models.tryon import MeasurementSession, MeasurementResult
 from backend.app.services.tryon_service import TryOnService
 from backend.app.services.visual_search_service import VisualSearchService
 from backend.app.services.no_photo_fit_service import NoPhotoFitService
+from backend.app.services.measurement_service import MeasurementSessionService
 from backend.app.schemas.tryon import (
     TryOnRequest,
     TryOnResponse,
@@ -455,68 +456,61 @@ def compute_no_photo_fit(
 # =========================================================================
 # 6. Measurement Sessions (On-Device Client-Side Storage)
 # =========================================================================
+# F-14: every measurement-session operation is owner-gated. Identity comes
+# from the server-side authenticated context (httpOnly cookie / bearer) or,
+# for the legitimate guest flow, the app-wide X-Session-Token header. See
+# backend/app/services/measurement_service.py for the authorization model.
 @router.post("/measurements/sessions", response_model=Dict[str, Any], status_code=status.HTTP_201_CREATED)
 def create_measurement_session(
     payload: MeasurementSessionCreate,
     user: Optional[User] = Depends(get_current_user_optional),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    x_session_token: Optional[str] = Header(None),
 ):
-    sess = MeasurementSession(
-        user_id=user.id if user else None,
-        status="created",
+    service = MeasurementSessionService(db)
+    sess = service.create_session(
+        user=user,
+        guest_session_token=x_session_token,
         capture_mode=payload.capture_mode,
         consent_granted=payload.consent_granted,
-        save_to_profile=payload.save_to_profile
+        save_to_profile=payload.save_to_profile,
     )
-    db.add(sess)
-    db.commit()
-    db.refresh(sess)
     return {
         "id": sess.id,
         "status": sess.status,
         "capture_mode": sess.capture_mode,
+        # Guest sessions are bound to the session token the caller presented;
+        # the same token must be presented on every later operation.
+        "session_token": sess.guest_session_token,
         "message": "Measurement session initialized. Ready for on-device landmark stream."
     }
 
 
 @router.get("/measurements/sessions/{session_id}", response_model=MeasurementSessionOut)
-def get_measurement_session_by_id(session_id: int, db: Session = Depends(get_db)):
-    sess = db.query(MeasurementSession).filter(MeasurementSession.id == session_id).first()
-    if not sess:
-        raise HTTPException(status_code=404, detail="Measurement session not found")
-    return sess
+def get_measurement_session_by_id(
+    session_id: int,
+    user: Optional[User] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db),
+    x_session_token: Optional[str] = Header(None),
+):
+    service = MeasurementSessionService(db)
+    return service.get_session(session_id, user=user, guest_session_token=x_session_token)
 
 
 @router.post("/measurements/sessions/{session_id}/results", response_model=Dict[str, Any], status_code=status.HTTP_201_CREATED)
 def submit_measurement_results(
     session_id: int,
     payload: MeasurementResultCreate,
-    db: Session = Depends(get_db)
+    user: Optional[User] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db),
+    x_session_token: Optional[str] = Header(None),
 ):
-    sess = db.query(MeasurementSession).filter(MeasurementSession.id == session_id).first()
-    if not sess:
-        sess = MeasurementSession(id=session_id, status="completed", capture_mode="client_side", consent_granted=True)
-        db.add(sess)
-        db.flush()
-
-    res = MeasurementResult(
-        session_id=sess.id,
-        height_cm=payload.height_cm,
-        shoulder_width_cm=payload.shoulder_width_cm or 45.0,
-        chest_cm=payload.chest_cm or 98.0,
-        waist_cm=payload.waist_cm or 82.0,
-        hip_cm=payload.hip_cm or 96.0,
-        inseam_cm=payload.inseam_cm or 81.0,
-        body_shape=payload.body_shape or "Athletic",
-        body_shape_detected=payload.body_shape or "Athletic",
-        confidence_score=payload.confidence_score,
-        calibration_method=payload.calibration_method or "on_device_height_calibrated",
-        source=payload.source or "camera_estimate"
+    service = MeasurementSessionService(db)
+    # Ownership-gated; no auto-creation, no consent mutation, no fabricated
+    # default dimensions (omitted measurements persist as NULL).
+    res = service.submit_results(
+        session_id, user=user, guest_session_token=x_session_token, payload=payload
     )
-    sess.status = "completed"
-    db.add(res)
-    db.commit()
-    db.refresh(res)
 
     return {
         "status": "success",

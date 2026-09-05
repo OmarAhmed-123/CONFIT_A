@@ -1,3 +1,5 @@
+import uuid
+
 from fastapi.testclient import TestClient
 
 
@@ -237,12 +239,19 @@ def test_brand_b2b_dashboard(client: TestClient):
     assert sku_res.json()["stock_level"] == 25
 
 def test_measurement_session_and_results(client: TestClient):
+    # F-14: measurement sessions are owner-gated. This exercises the
+    # legitimate GUEST flow (X-Session-Token — the header apiClient.ts
+    # attaches to every request); the authenticated-owner path is covered
+    # by tests/test_measurement_session_security.py.
+    token = "sess_api_test_" + uuid.uuid4().hex[:12]
+    headers = {"X-Session-Token": token}
+
     # 1. Create measurement session
     sess_res = client.post("/api/v1/measurements/sessions", json={
         "capture_mode": "client_side",
         "consent_granted": True,
         "save_to_profile": False
-    })
+    }, headers=headers)
     assert sess_res.status_code == 201
     sess_data = sess_res.json()
     assert "id" in sess_data
@@ -258,16 +267,21 @@ def test_measurement_session_and_results(client: TestClient):
         "confidence_score": 95,
         "calibration_method": "on_device_height_calibrated",
         "source": "camera_estimate"
-    })
+    }, headers=headers)
     assert result_res.status_code == 201
     res_data = result_res.json()
     assert res_data["status"] == "success"
     assert res_data["derived_measurements"]["height_cm"] == 178.0
 
-    # 3. Query measurement session
-    get_res = client.get(f"/api/v1/measurements/sessions/{session_id}")
+    # 3. Query measurement session (owner token required)
+    get_res = client.get(f"/api/v1/measurements/sessions/{session_id}", headers=headers)
     assert get_res.status_code == 200
     assert len(get_res.json()["results"]) > 0
+
+    # 4. Foreign / missing identity is denied (F-14 no-oracle 404)
+    assert client.get(f"/api/v1/measurements/sessions/{session_id}").status_code == 404
+    assert client.get(f"/api/v1/measurements/sessions/{session_id}",
+                      headers={"X-Session-Token": "sess_other"}).status_code == 404
 
 
 def test_catalog_ignores_literal_undefined_params(client: TestClient):

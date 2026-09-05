@@ -260,7 +260,11 @@ class VisualSearchResponse(BaseModel):
 # Measurement Flow Schemas
 class MeasurementSessionCreate(BaseModel):
     capture_mode: str = Field(default="client_side", description="'client_side', 'server_side', 'manual'")
-    consent_granted: bool = True
+    # F-14: consent is the caller's explicit declaration at session start and
+    # is persisted as-is. Default is False — missing consent is NEVER
+    # assumed granted. Only the intended product flow (the camera-scan
+    # start action) sends true.
+    consent_granted: bool = False
     save_to_profile: bool = False
 
 
@@ -297,7 +301,9 @@ class MeasurementResultOut(BaseModel):
 
 class MeasurementSessionOut(BaseModel):
     id: int
-    user_id: Optional[int]
+    # F-14: user_id is intentionally not exposed — leaking the owner id of a
+    # session (even to its owner's own token holder is unnecessary) enables
+    # user enumeration. Ownership is proven by access, not by disclosure.
     status: str
     capture_mode: str
     consent_granted: bool

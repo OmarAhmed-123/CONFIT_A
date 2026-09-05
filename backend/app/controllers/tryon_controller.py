@@ -1,5 +1,6 @@
 from typing import List, Optional, Dict, Any
-from fastapi import APIRouter, Depends, Header, HTTPException, status, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, status, Request
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
@@ -71,11 +72,80 @@ async def submit_tryon_job(
 @router.get("/tryon/jobs/{job_id}", response_model=TryOnJobOut)
 def get_tryon_job_status(
     job_id: str,
+    delivery_token: Optional[str] = Query(None, alias="delivery_token"),
+    user: Optional[User] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
-    """Polls real-time VTON inference progress, stages, and generated output image."""
+    """Polls real-time VTON inference progress.
+
+    Authorization: a job bound to a user is readable by that user only (404
+    otherwise, no existence leakage). A guest job is readable with its
+    one-time delivery token (verified non-destructively). The response never
+    re-serves the token or the image bytes — those are delivered only in the
+    authenticated completion response and the one-shot download endpoint.
+    """
     service = TryOnService(db)
-    return service.get_vton_job_status(job_id)
+    return service.get_vton_job_status(
+        job_id,
+        caller_user_id=user.id if user else None,
+        delivery_token=delivery_token,
+    )
+
+
+@router.get("/tryon/jobs/{job_id}/result")
+@router.get("/try-on/jobs/{job_id}/result")
+def download_tryon_job_result(
+    job_id: str,
+    delivery_token: str = Query(..., alias="delivery_token"),
+    user: Optional[User] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
+    """One-shot, owner-only download of a staged VTON result.
+
+    * 200 + image bytes (``Content-Disposition: attachment``, ``no-store``)
+      on first successful claim — the staged copy is DELETED on delivery;
+    * 404 for unknown jobs and for any caller that is not the job owner
+      (no existence leakage);
+    * 410 GONE when the result was already delivered, expired, revoked, or
+      was not staged on this function instance (serverless affinity).
+
+    The generated image is never stored durably; this endpoint is backed by
+    a process-local TTL cache. See ``backend/app/services/vton_delivery.py``.
+    """
+    from backend.app.services import vton_delivery
+
+    service = TryOnService(db)
+    payload, mime, _ = service.deliver_job_result(
+        job_id, delivery_token, user.id if user else None
+    )
+    return Response(
+        content=payload,
+        media_type=mime,
+        headers={
+            "Content-Disposition": f'attachment; filename="confit-try-on-{job_id}.{vton_delivery.ext_for_mime(mime)}"',
+            "Cache-Control": "no-store",
+            "Pragma": "no-cache",
+            "Access-Control-Expose-Headers": "Content-Disposition, Content-Type",
+        },
+    )
+
+
+@router.delete("/tryon/jobs/{job_id}/result")
+@router.delete("/try-on/jobs/{job_id}/result")
+def revoke_tryon_job_result(
+    job_id: str,
+    user: Optional[User] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
+    """Explicit owner revocation: delete the staged result immediately.
+
+    Returns 204. 404 for unknown jobs or non-owners. Idempotent: revoking a
+    job whose result was already delivered/expired is still a success
+    (there is nothing left to retain).
+    """
+    service = TryOnService(db)
+    service.revoke_job_result(job_id, user.id if user else None)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post("/try-on/jobs/{job_id}/cancel")

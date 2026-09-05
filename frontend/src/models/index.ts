@@ -634,6 +634,16 @@ export type TryOnJobStatusType =
   | 'failed'
   | 'cancelled';
 
+export interface TryOnJobDelivery {
+  download_url: string;
+  token: string;
+  expires_at?: string | null;
+  content_type?: string | null;
+  byte_size?: number | null;
+  ttl_seconds?: number | null;
+  one_time?: boolean;
+}
+
 export interface TryOnJob {
   id: number;
   job_id: string;
@@ -641,7 +651,17 @@ export interface TryOnJob {
   progress_pct: number;
   current_stage: string;
   model_used: string;
+  /** Never a stored reference — generated try-on images are not persisted. */
   output_image_url?: string | null;
+  /**
+   * Guaranteed in-response delivery of the generated image (completion
+   * response only). Render directly from this value and offer it for
+   * download client-side — it is not retained by the server.
+   */
+  result_image_data_url?: string | null;
+  /** One-shot, TTL-bounded, owner-only download (best effort on serverless). */
+  delivery?: TryOnJobDelivery | null;
+  delivery_expires_at?: string | null;
   metrics: Record<string, any>;
   error_code?: string | null;
   error_message?: string | null;

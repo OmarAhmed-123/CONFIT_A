@@ -176,3 +176,24 @@ class FeatureNotConfiguredError(ConfitException):
             details={"feature": feature, "hint": hint},
             status_code=status.HTTP_501_NOT_IMPLEMENTED
         )
+
+
+class DeliveryGoneError(ConfitException):
+    """Raised when a temporary VTON result can no longer be delivered.
+
+    The generated image is never stored durably (product requirement); the
+    only copy lives in a process-local, TTL-bounded, one-shot cache. This
+    error is the honest answer when the copy was already claimed, expired,
+    revoked, or was never staged on THIS function instance (serverless
+    instance affinity). Status 410 GONE — the resource existed and is now
+    gone; it is never resurrected and never faked.
+    """
+    def __init__(self, reason: str = "expired_or_delivered"):
+        super().__init__(
+            "The generated try-on result is no longer available for download. "
+            "It was already delivered, expired, or was not staged on this instance. "
+            "Submit a new try-on job to generate a fresh result.",
+            code="VTON_RESULT_GONE",
+            details={"reason": reason},
+            status_code=status.HTTP_410_GONE
+        )

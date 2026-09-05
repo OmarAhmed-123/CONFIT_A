@@ -93,6 +93,33 @@ export const VirtualTryOnModal: React.FC = () => {
   const renderedResultImage = multiTryOnResult?.rendered_result_url || null;
   const activeDisplayImage = appliedList.length > 0 && renderedResultImage ? renderedResultImage : activeBaseImage;
 
+  // Temporary delivery (product requirement): the generated try-on image is
+  // returned in the authenticated response (data URL) and is NOT stored by
+  // the server. The download is performed client-side (Blob) so no durable
+  // copy is ever created — the bytes exist only in the user's browser.
+  const handleDownloadRenderedResult = async () => {
+    const src = renderedResultImage || activeDisplayImage;
+    if (!src) return;
+    try {
+      let href = src;
+      if (src.startsWith('data:')) {
+        const res = await fetch(src);
+        const blob = await res.blob();
+        href = URL.createObjectURL(blob);
+      }
+      const ext = src.includes('image/jpeg') ? 'jpg' : src.includes('image/webp') ? 'webp' : 'png';
+      const a = document.createElement('a');
+      a.href = href;
+      a.download = `confit-try-on-${Date.now()}.${ext}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      if (href.startsWith('blob:')) URL.revokeObjectURL(href);
+    } catch (err) {
+      console.warn('Try-on result download failed', err);
+    }
+  };
+
   // Filter shelf products
   const filteredProducts = products.filter((p) => {
     if (activeCategoryFilter === 'All') return true;
@@ -421,6 +448,17 @@ export const VirtualTryOnModal: React.FC = () => {
                           : 'Base Silhouette (Ready for Styling)'}
                       </span>
                     </div>
+
+                    {/* Download — the server retains no copy of the generated
+                        image (temporary delivery); this saves it client-side */}
+                    {renderedResultImage && !isRendering && (
+                      <button
+                        onClick={handleDownloadRenderedResult}
+                        className="absolute bottom-3 right-3 px-3 py-1.5 rounded-full bg-[#C5A059] text-slate-950 text-[11px] font-bold shadow-lg hover:brightness-110 active:scale-95 transition-all"
+                      >
+                        ⬇ Download Result
+                      </button>
+                    )}
 
                     {/* Active Rendering Overlay */}
                     {isRendering && (

@@ -1,3 +1,4 @@
+import re
 from typing import Optional, List
 from fastapi import Depends, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -14,13 +15,43 @@ BRAND_ROLES = [UserRole.BRAND_OWNER, UserRole.BRAND_MANAGER, UserRole.BRAND_STAF
 ADMIN_ROLES = [UserRole.ADMIN]
 CUSTOMER_ROLES = [UserRole.CONSUMER, UserRole.BRAND_OWNER, UserRole.BRAND_MANAGER, UserRole.BRAND_STAFF, UserRole.ADMIN]
 
+# --- Vercel Authorization-header redaction (production-verified 2026-09-05) ---
+# Vercel's edge rewrites the Authorization header value for some serverless
+# functions before it reaches the app: "Bearer <jwt>" arrives as "***<jwt>"
+# (the "Bearer " scheme prefix is replaced by "***"); low-entropy values
+# arrive as bare "***". The JWT payload itself survives intact. Verified in
+# production with an in-scope byte probe (scope headers hex), while the
+# identical request to a sibling function in the same deployment arrived
+# unredacted. HTTPBearer therefore sees no scheme and returns None, which
+# made every bearer-authenticated API client 401 in production while the
+# cookie flow (unaffected) kept working.
+#
+# The recovery below accepts ONLY the platform's own redaction marker in
+# place of the Bearer scheme; the recovered token still passes the exact
+# same signature/expiry/subject validation. A bare "***" (no token) never
+# authenticates, and cookies remain the fallback.
+_REDACTED_BEARER_MARKER = "***"
+
 
 def _extract_token(request: Request, credentials: Optional[HTTPAuthorizationCredentials]) -> Optional[str]:
     """Bearer header wins (API clients); otherwise the httpOnly session cookie
     set at login. The cookie is NOT readable from JavaScript, which is the
-    whole point of the localStorage -> cookie migration."""
+    whole point of the localStorage -> cookie migration.
+
+    Also recovers bearer tokens whose scheme prefix was rewritten to the
+    Vercel redaction marker (see note above) — the token itself is intact
+    and is validated exactly as before."""
     if credentials:
         return credentials.credentials
+    auth = request.headers.get("authorization")
+    if auth:
+        parts = re.split(r"\s+", auth, maxsplit=1)
+        if len(parts) == 2 and parts[0].lower() == "bearer" and parts[1].strip():
+            return parts[1].strip()
+        if auth.startswith(_REDACTED_BEARER_MARKER):
+            rest = auth[len(_REDACTED_BEARER_MARKER):].strip()
+            if rest:
+                return rest
     return request.cookies.get("confit_token")
 
 

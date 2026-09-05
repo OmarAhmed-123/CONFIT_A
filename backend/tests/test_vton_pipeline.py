@@ -26,8 +26,13 @@ def test_vton_job_fails_truthfully_without_worker(monkeypatch):
     assert job_data["metrics"] == {}
     assert "CatVTON" not in (job_data["model_used"] or "")
 
-    # 2. Poll job status — the failure is persisted, not transient
-    poll_res = client.get(f"/api/v1/try-on/jobs/{job_data['job_id']}")
+    # 2. Poll job status — the failure is persisted, not transient. Guest
+    #    jobs are bound by their one-time delivery capability (ownership
+    #    contract: anonymous callers may only read their own job).
+    assert "delivery" in job_data and "token" in job_data["delivery"]
+    poll_res = client.get(
+        "/api/v1/try-on/jobs/" + job_data["job_id"] + "?delivery_token=" + job_data["delivery"]["token"]
+    )
     assert poll_res.status_code == 200
     poll_data = poll_res.json()
     assert poll_data["job_id"] == job_data["job_id"]
@@ -35,6 +40,15 @@ def test_vton_job_fails_truthfully_without_worker(monkeypatch):
     assert poll_data["error_code"] == "VTON_ENGINE_UNAVAILABLE"
     assert poll_data["output_image_url"] is None
     assert poll_data["metrics"] == {}
+
+    # 3. A caller WITHOUT the capability (e.g. another user) is denied —
+    #    404, indistinguishable from an unknown job (no existence leakage).
+    denied = client.get(f"/api/v1/try-on/jobs/{job_data['job_id']}")
+    assert denied.status_code == 404
+    denied_bad = client.get(
+        "/api/v1/try-on/jobs/" + job_data["job_id"] + "?delivery_token=wrong-value"
+    )
+    assert denied_bad.status_code == 404
 
 
 def test_garment_asset_caching():

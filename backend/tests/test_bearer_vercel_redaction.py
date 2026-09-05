@@ -111,3 +111,76 @@ def test_redacted_marker_alone_or_invalid_token_still_401():
     invalid = client.get("/api/v1/auth/me", headers={"Authorization": "***not.a.real.token"})
     assert invalid.status_code == 401
     assert invalid.json()["error"]["code"] == "AUTH_FAILED"
+
+    # malformed in the plain form too
+    plain_malformed = client.get("/api/v1/auth/me", headers={"Authorization": "Bearer not.a.real.token"})
+    assert plain_malformed.status_code == 401
+
+
+def _login_token(client: TestClient) -> str:
+    login = client.post("/api/v1/auth/login", json={
+        "email": "shopper@confit.io",
+        "password": "Password123!",
+    })
+    assert login.status_code == 200
+    return login.json()["access_token"]
+
+
+def test_expired_jwt_rejected_in_both_forms():
+    """Expiry validation is untouched by the redaction recovery."""
+    from datetime import timedelta
+
+    from backend.app.core.security import create_access_token
+    client = TestClient(app)
+    # a token that passed every other check once (real sub/iss/aud), now
+    # expired — minted with the real signing key
+    expired = create_access_token({"sub": "1", "email": "shopper@confit.io", "role": "consumer"},
+                                  expires_delta=timedelta(seconds=-3600))
+    for header in (f"Bearer {expired}", f"***{expired}"):
+        res = client.get("/api/v1/auth/me", headers={"Authorization": header})
+        assert res.status_code == 401, (header[:14], res.text)
+
+
+def test_wrong_signature_rejected_in_both_forms():
+    """Signature validation is untouched: a JWT shaped correctly but signed
+    with a different key is rejected in both the plain and the redacted
+    form — the marker never grants trust by itself."""
+    import jwt as pyjwt
+    from datetime import datetime, timedelta, timezone
+
+    from backend.app.core.config import settings
+    now = datetime.now(timezone.utc)
+    forged = pyjwt.encode(
+        {"sub": "1", "email": "shopper@confit.io", "role": "consumer",
+         "exp": now + timedelta(hours=1), "iat": now, "type": "access",
+         "iss": settings.JWT_ISSUER, "aud": settings.JWT_AUDIENCE},
+        "not-the-real-signing-key-0123456789",
+        algorithm=settings.ALGORITHM,
+    )
+    client = TestClient(app)
+    for header in (f"Bearer {forged}", f"***{forged}"):
+        res = client.get("/api/v1/auth/me", headers={"Authorization": header})
+        assert res.status_code == 401, (header[:14], res.text)
+        assert res.json()["error"]["code"] == "AUTH_FAILED"
+
+
+def test_valid_token_still_authenticates_in_both_forms():
+    """Full matrix positive arm: the same real token authenticates in the
+    standard form AND in the production-observed redacted form."""
+    client = TestClient(app)
+    token = _login_token(client)
+    for header in (f"Bearer {token}", f"***{token}"):
+        res = client.get("/api/v1/auth/me", headers={"Authorization": header})
+        assert res.status_code == 200, (header[:14], res.text)
+        assert res.json()["email"] == "shopper@confit.io"
+
+
+def test_refresh_token_rejected_as_access_token_in_redacted_form():
+    """A refresh token smuggled in via the redacted marker is rejected by
+    the type check (expected_type='access'), not accepted."""
+    from backend.app.core.security import create_refresh_token
+    client = TestClient(app)
+    login = _login_token(client)  # ensure fixtures
+    refresh = create_refresh_token({"sub": "1", "email": "shopper@confit.io", "role": "consumer"})
+    res = client.get("/api/v1/auth/me", headers={"Authorization": f"***{refresh}"})
+    assert res.status_code == 401, res.text

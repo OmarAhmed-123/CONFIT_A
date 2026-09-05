@@ -48,7 +48,6 @@ from backend.app.core.security import (
     verify_recovery_code,
 )
 from backend.app.models.user import (
-    BrandProfile,
     EmailVerificationToken,
     MFABackupCode,
     PasswordResetToken,
@@ -83,12 +82,18 @@ class AuthService:
         email: str,
         password: str,
         full_name: str,
-        role: UserRole = UserRole.CONSUMER,
         phone: Optional[str] = None,
         preferred_language: str = "en",
         ip_address: Optional[str] = None,
         user_agent: Optional[str] = None,
     ) -> Dict[str, Any]:
+        # SECURITY INVARIANT (P0): public self-service registration ALWAYS
+        # creates a CONSUMER. There is deliberately no `role` parameter —
+        # the former `role: UserRole = UserRole.CONSUMER` argument let a
+        # caller pass any privileged role straight through to
+        # user_repo.create (production: `role=admin` -> 201 admin). The
+        # only legitimate elevated-provisioning path is direct repository
+        # use by trusted internal tooling, never this service method.
         validate_password_policy(password)
 
         existing = self.user_repo.get_by_email(email)
@@ -99,25 +104,10 @@ class AuthService:
             email=email,
             password=password,
             full_name=full_name,
-            role=role,
+            role=UserRole.CONSUMER,
             phone=phone,
             preferred_language=preferred_language,
         )
-
-        if role == UserRole.BRAND_MANAGER:
-            brand_name = full_name if "Brand" in full_name else f"{full_name} Atelier"
-            slug = brand_name.lower().replace(" ", "-")
-            bp = BrandProfile(
-                user_id=user.id,
-                brand_name=brand_name,
-                slug=slug,
-                description="Contemporary fashion house on CONFIT.",
-                commission_rate=15,
-                return_rate_benchmark=28,
-                current_return_rate=11,
-            )
-            self.db.add(bp)
-            self.db.commit()
 
         tokens = self._issue_session_tokens(user, ip_address=ip_address, user_agent=user_agent)
         self.user_repo.log_audit(

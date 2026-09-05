@@ -106,8 +106,19 @@ export function useTryOnViewModel(initialProduct?: Product | null) {
     return 'accessory';
   };
 
-  // Re-render multi-garment try-on with honest error taxonomy
-  const triggerMultiRender = useCallback(async (currentGarments: Record<string, Product>) => {
+  // Re-render multi-garment try-on with honest error taxonomy.
+  //
+  // `overrides` is REQUIRED for call sites that change the person reference
+  // or avatar in the SAME tick as the render (photo upload, avatar pick):
+  // React state setters are async, so `uploadedUserImage` / `selectedAvatar`
+  // captured in this closure are still the PREVIOUS values when runTryOn()
+  // runs immediately after the setState. Rendering with the stale values
+  // would silently ignore the photo the user just uploaded (the person
+  // image is the only human/pose authority — hard product invariant).
+  const triggerMultiRender = useCallback(async (
+    currentGarments: Record<string, Product>,
+    overrides?: { userImageUrl?: string | null; avatarId?: string | null },
+  ) => {
     const productIds = Object.values(currentGarments).map((p) => p.id);
     if (productIds.length === 0) {
       setMultiTryOnResult(null);
@@ -118,11 +129,18 @@ export function useTryOnViewModel(initialProduct?: Product | null) {
     setTryOnStatus('rendering');
     setErrorMessage(null);
 
+    const effectiveUserImage = overrides && overrides.userImageUrl !== undefined
+      ? overrides.userImageUrl
+      : uploadedUserImage;
+    const effectiveAvatar = overrides && overrides.avatarId !== undefined
+      ? overrides.avatarId
+      : selectedAvatar;
+
     try {
       const res = await tryOnService.multiRenderTryOn({
         product_ids: productIds,
-        user_image_url: uploadedUserImage || undefined,
-        avatar_model_id: selectedAvatar,
+        user_image_url: effectiveUserImage || undefined,
+        avatar_model_id: effectiveAvatar,
         consent_retain_photo: consentRetain,
       });
 
@@ -353,8 +371,8 @@ export function useTryOnViewModel(initialProduct?: Product | null) {
     openCart();
   }, [appliedGarments, addItem, openCart, showToast]);
 
-  const runTryOn = useCallback(async () => {
-    await triggerMultiRender(appliedGarments);
+  const runTryOn = useCallback(async (overrides?: { userImageUrl?: string | null; avatarId?: string | null }) => {
+    await triggerMultiRender(appliedGarments, overrides);
   }, [triggerMultiRender, appliedGarments]);
 
   const totalPrice = Object.values(appliedGarments).reduce((sum, p) => sum + (p.base_price || 0), 0);

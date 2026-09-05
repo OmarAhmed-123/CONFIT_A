@@ -170,7 +170,10 @@ export const VirtualTryOnModal: React.FC = () => {
     reader.onload = (event) => {
       const dataUrl = event.target?.result as string;
       setUploadedUserImage(dataUrl);
-      runTryOn();
+      // Pass the fresh data URL explicitly: state above is not committed
+      // yet in this tick, and the render must use the photo the user just
+      // uploaded — never the previous reference (avatar or older photo).
+      runTryOn({ userImageUrl: dataUrl });
     };
     reader.readAsDataURL(file);
   };
@@ -290,7 +293,10 @@ export const VirtualTryOnModal: React.FC = () => {
                       onClick={() => {
                         setSelectedAvatar(av.id);
                         setUploadedUserImage(null);
-                        runTryOn();
+                        // Fresh values for the same-tick render: the new
+                        // avatar and the cleared photo (see overrides
+                        // contract on runTryOn in useTryOnViewModel).
+                        runTryOn({ userImageUrl: null, avatarId: av.id });
                       }}
                       className={`flex items-center gap-2 p-1.5 pr-3 rounded-xl border text-left transition-all shrink-0 ${
                         selectedAvatar === av.id && !uploadedUserImage

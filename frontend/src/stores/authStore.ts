@@ -44,7 +44,11 @@ export const useAuthStore = create<AuthState>((set) => ({
         set({ isLoading: false, mfaRequired: true, error: null });
         throw err;
       }
-      clearAuthTokens();
+      // A failed login attempt does not invalidate any pre-existing
+      // session: the server leaves the current confit_token cookie
+      // untouched on login failure. Clearing local tokens here would
+      // destroy a valid session's CSRF cookie and break its mutating
+      // requests — so we only surface the error.
       set({
         user: null,
         isAuthenticated: false,
@@ -80,7 +84,9 @@ export const useAuthStore = create<AuthState>((set) => ({
       localStorage.setItem('confit_user', JSON.stringify(res.user));
       set({ user: res.user, isAuthenticated: true, isLoading: false, error: null });
     } catch (err: any) {
-      clearAuthTokens();
+      // Registration failure (taken email, rate limit, transient 5xx)
+      // sets no session cookies server-side, and it must not destroy a
+      // pre-existing valid session — see the note in `login`.
       set({ user: null, isAuthenticated: false, isLoading: false, error: err?.message || 'Registration failed' });
       throw err;
     }
@@ -100,13 +106,33 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   fetchMe: async () => {
-    try {
+    const attempt = async () => {
       const user = await authService.getMe();
       localStorage.setItem('confit_user', JSON.stringify(user));
       set({ user, isAuthenticated: true });
+    };
+    try {
+      await attempt();
     } catch (err) {
-      clearAuthTokens();
-      set({ user: null, isAuthenticated: false });
+      // Only an explicit 401 means "the server says this session is dead".
+      // Transient failures (network hiccup, serverless cold-start 5xx,
+      // timeouts) must NOT destroy the session: the httpOnly confit_token
+      // cookie is still valid, and clearing the readable confit_csrf cookie
+      // here would break every subsequent mutating request with
+      // CSRF_TOKEN_MISMATCH while the session itself lived on.
+      if (err?.status === 401) {
+        clearAuthTokens();
+        set({ user: null, isAuthenticated: false });
+        return;
+      }
+      // One bounded retry: cold starts typically clear on the next attempt.
+      try {
+        await new Promise((r) => setTimeout(r, 750));
+        await attempt();
+      } catch {
+        // Still failing: keep the session state intact — the cookie remains
+        // authoritative and the next bootstrap re-verifies.
+      }
     }
   },
 }));

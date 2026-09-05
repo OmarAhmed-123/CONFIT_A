@@ -170,6 +170,26 @@ def test_diagnostic_anonymous_401():
     assert fresh.get("/api/v1/diagnostic").status_code == 401
 
 
+def test_diagnostic_anonymous_404_in_production(monkeypatch):
+    """§15: in production the diagnostic route must 404 for ANONYMOUS callers
+    too (not 401) so an unauthenticated probe gets no endpoint-existence
+    oracle. The production gate must run before auth."""
+    from backend.app.core import schema_gate
+    ok = schema_gate.SchemaGateReport(
+        verdict="ok", dialect="sqlite", expected_head=schema_gate.expected_head_revision(),
+        database_revision=schema_gate.expected_head_revision(),
+    )
+    schema_gate.reset_cache()
+    monkeypatch.setattr(schema_gate, "evaluate", lambda _engine, **kw: ok)
+    monkeypatch.setattr(settings, "ENVIRONMENT", "production", raising=False)
+    try:
+        fresh = TestClient(app)
+        res = fresh.get("/api/v1/diagnostic")
+        assert res.status_code == 404, f"expected 404 (no oracle), got {res.status_code}: {res.text[:120]}"
+    finally:
+        monkeypatch.undo()
+
+
 def test_diagnostic_non_admin_403():
     token = _register_and_token(_unique_email())
     res = TestClient(app).get("/api/v1/diagnostic", headers=_auth(token))

@@ -67,6 +67,136 @@ def _clamp_model_used(value) -> str:
     return s[:_MODEL_USED_COLUMN_WIDTH]
 
 
+# ── Explicit person-reference resolution ──────────────────────────────────
+# The uploaded person image is the AUTHORITATIVE identity + pose reference.
+# Avatar mode is a legitimate, EXPLICIT product flow (the user picks an avatar
+# from the "Person References" picker) — it is NOT a silent substitution. The
+# two are kept strictly separate: a user-uploaded photo always wins; an avatar
+# is used only when explicitly selected; and NOTHING is ever substituted when
+# no person reference is provided (that used to silently default to a stock
+# male photo — removed per the 2026-09-05 pose/identity directive).
+#
+# The ids/assets mirror the frontend avatar picker
+# (frontend/src/components/tryon/VirtualTryOnModal.tsx).
+VTON_AVATARS = {
+    "avatar_athletic_m": (
+        "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d"
+        "?w=600&auto=format&fit=crop&q=80"
+    ),
+    "avatar_hourglass_f": (
+        "https://images.unsplash.com/photo-1534528741775-53994a69daeb"
+        "?w=600&auto=format&fit=crop&q=80"
+    ),
+    "avatar_curvy_f": (
+        "https://images.unsplash.com/photo-1517841905240-472988babdf9"
+        "?w=600&auto=format&fit=crop&q=80"
+    ),
+    "avatar_tall_m": (
+        "https://images.unsplash.com/photo-1500648767791-00dcc994a43e"
+        "?w=600&auto=format&fit=crop&q=80"
+    ),
+}
+
+
+def resolve_person_reference(
+    user_image_url: Optional[str],
+    user_image_base64: Optional[str],
+    avatar_model_id: Optional[str],
+) -> str:
+    """Resolve THE person/pose reference, explicitly.
+
+    Order: uploaded photo (url) > uploaded photo (base64) > explicit avatar.
+    Raises ValidationDomainError (VTON_INPUT_INVALID) when no reference is
+    given or the avatar id is unknown — CONFIT never substitutes a person
+    silently, and never uses a garment/model image as the person reference.
+    """
+    if user_image_url:
+        return user_image_url
+    if user_image_base64:
+        return user_image_base64
+    if avatar_model_id:
+        asset = VTON_AVATARS.get(avatar_model_id)
+        if not asset:
+            raise ValidationDomainError(
+                f"VTON_INPUT_INVALID: unknown avatar_model_id '{avatar_model_id}'. "
+                f"Known ids: {sorted(VTON_AVATARS)}."
+            )
+        return asset
+    raise ValidationDomainError(
+        "VTON_INPUT_INVALID: a person reference is required — upload a person "
+        "image (user_image_url / user_image_base64) or explicitly select an "
+        "avatar_model_id. CONFIT does not substitute a person silently and "
+        "never uses a garment/model image as the person reference."
+    )
+
+
+# A person must be large enough on the short side for reliable pose-anchored
+# inference; anything smaller will not preserve pose/hands meaningfully.
+MIN_PERSON_SIDE = 256
+# The person image must actually be an image (not a garment-only shot is
+# checked by the worker's human parsing; here we enforce a sane aspect so an
+# extremely wide banner or a sliver is rejected early).
+MAX_PERSON_ASPECT = 4.0
+
+
+def check_person_bytes(raw: bytes, why: str = "image") -> None:
+    """Person-specific pre-inference checks on decoded image bytes.
+
+    Raises ValidationDomainError (VTON_INPUT_INVALID) with a specific reason.
+    This proves the bytes are a real, usable person photo BEFORE the
+    expensive GPU call; the worker's DWPose human parsing then enforces that
+    a person is actually detectable in it (two-layer validation).
+    """
+    import io
+
+    from PIL import Image
+
+    if len(raw) < 10 * 1024:
+        raise ValidationDomainError(
+            f"VTON_INPUT_INVALID: person image too small to be a usable "
+            f"photo ({len(raw)} bytes) — {why}."
+        )
+    if len(raw) > MAX_IMAGE_BYTES:
+        raise ValidationDomainError(
+            f"VTON_INPUT_INVALID: person image too large ({len(raw)} bytes) — {why}."
+        )
+    try:
+        img = Image.open(io.BytesIO(raw))
+        img.verify()
+        img = Image.open(io.BytesIO(raw))
+    except Exception as e:  # noqa: BLE001
+        raise ValidationDomainError(
+            f"VTON_INPUT_INVALID: person image is not a decodable image — {why}: {e}"
+        ) from e
+    w, h = img.size
+    if max(w, h) > MAX_IMAGE_DIMENSION:
+        raise ValidationDomainError(
+            f"VTON_INPUT_INVALID: person image dimension {w}x{h} exceeds "
+            f"{MAX_IMAGE_DIMENSION}px — {why}."
+        )
+    short_side = min(w, h)
+    if short_side < MIN_PERSON_SIDE:
+        raise ValidationDomainError(
+            f"VTON_INPUT_INVALID: person image too small for pose-preserving "
+            f"try-on ({w}x{h}; short side {short_side} < {MIN_PERSON_SIDE}px) "
+            f"— {why}."
+        )
+    aspect = max(w, h) / max(1, min(w, h))
+    if aspect > MAX_PERSON_ASPECT:
+        raise ValidationDomainError(
+            f"VTON_INPUT_INVALID: person image aspect {aspect:.1f} exceeds "
+            f"{MAX_PERSON_ASPECT} — a person photo is expected, {why}."
+        )
+
+
+def _mime_from_bytes(raw: bytes) -> str:
+    if raw[:8].startswith(b"\x89PNG"):
+        return "image/png"
+    if raw[:4] == b"RIFF" and raw[8:12] == b"WEBP":
+        return "image/webp"
+    return "image/jpeg"
+
+
 class TryOnService:
     def __init__(self, db: Session):
         self.db = db
@@ -205,6 +335,50 @@ class TryOnService:
                     "image_url": p.thumbnail_url
                 })
         return garments
+
+    async def _prepare_person_image(self, person_ref: str) -> str:
+        """Validate the person reference and return it as a data URL (base64).
+
+        Single fetch for URLs (reuses the SSRF-protected fetcher), person-
+        specific checks via ``check_person_bytes``. Raises
+        ValidationDomainError (VTON_INPUT_INVALID) on any problem — the job
+        then fails explicitly, and no GPU call is made with a bad reference.
+        """
+        import base64
+
+        if person_ref.startswith("http"):
+            data_url = await self._fetch_image_as_base64(person_ref)
+            if not data_url:
+                raise ValidationDomainError(
+                    "VTON_INPUT_INVALID: person image URL could not be fetched "
+                    "or is not a usable image (SSRF-blocked, HTTP error, "
+                    "non-image content, or out-of-range size/dimensions)."
+                )
+            head, b64 = data_url.split(",", 1)
+            raw = base64.b64decode(b64)
+            check_person_bytes(raw, f"URL {person_ref[:80]}")
+            return data_url
+
+        if person_ref.startswith("data:image"):
+            head, b64 = person_ref.split(",", 1)
+            try:
+                raw = base64.b64decode(b64)
+            except Exception as e:  # noqa: BLE001
+                raise ValidationDomainError(
+                    f"VTON_INPUT_INVALID: cannot decode person image data URL: {e}"
+                ) from e
+            check_person_bytes(raw, "data URL")
+            return person_ref
+
+        # Raw base64 (not a data URL) — normalize to a data URL.
+        try:
+            raw = base64.b64decode(person_ref)
+        except Exception as e:  # noqa: BLE001
+            raise ValidationDomainError(
+                f"VTON_INPUT_INVALID: cannot decode person image base64: {e}"
+            ) from e
+        check_person_bytes(raw, "base64")
+        return f"data:{_mime_from_bytes(raw)};base64,{person_ref}"
 
     def _derive_worker_urls(self, worker_url: str) -> Tuple[str, str, str]:
         """Resolve (health_url, readiness_url, process_url) for the GPU worker.
@@ -521,12 +695,26 @@ class TryOnService:
             raise ValidationDomainError("At least one garment product_id is required to start a Try-On job.")
 
         job_id = f"vton_job_{uuid.uuid4().hex[:12]}"
-        effective_image = user_image_url or user_image_base64 or "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600"
+        # Person/pose reference — resolved EXPLICITLY: uploaded photo >
+        # explicit avatar > error. Never substituted silently, and never
+        # taken from a garment/model image (2026-09-05 pose/identity rule).
+        effective_image = resolve_person_reference(
+            user_image_url, user_image_base64, avatar_model_id
+        )
 
         products = [self.catalog_repo.get_product_by_id(pid) for pid in product_ids]
         valid_products = [p for p in products if p is not None]
         if not valid_products:
             raise ResourceNotFoundError("Products", str(product_ids))
+
+        # Duplicate selection handling (explicit): dedupe, order preserved.
+        seen_ids: set = set()
+        unique_products = []
+        for p in valid_products:
+            if p.id not in seen_ids:
+                seen_ids.add(p.id)
+                unique_products.append(p)
+        valid_products = unique_products
 
         # One-time delivery capability for this job, issued at creation. For
         # guest (anonymous) submitters it is the ONLY handle that binds them
@@ -567,22 +755,53 @@ class TryOnService:
             self.db.commit()
 
             try:
+                # Pre-inference person validation (format/size/dimensions/
+                # aspect + SSRF, single fetch). Only when the engine will
+                # actually run — a no-worker deployment fails as
+                # VTON_ENGINE_UNAVAILABLE without touching the network.
+                # An unsuitable reference fails as an explicit
+                # VTON_INPUT_INVALID and is never silently replaced.
+                person_b64 = await self._prepare_person_image(effective_image)
                 garments = await self._build_garments_payload(valid_products)
-                person_b64 = effective_image
-                if effective_image.startswith("http"):
-                    fetched = await self._fetch_image_as_base64(effective_image)
-                    if fetched:
-                        person_b64 = fetched
 
-                gpu_data = await self._call_gpu_worker(
-                    job_id=job_id,
-                    person_image=person_b64,
-                    garments=garments,
-                    gender_mode=gender_mode or "infer_from_image",
-                    output_aspect=output_aspect or "9:16"
-                )
+                # Worker contract (fashn_vton_segfee): max ONE garment per
+                # inference call. A complete outfit is therefore rendered by
+                # SEQUENTIAL single-garment chaining — layer i renders on the
+                # previous layer's output (the same sequential architecture
+                # the animated/Layer-Assembly path uses). The final frame is
+                # the complete-outfit result; every layer keeps the uploaded
+                # person as the identity/pose anchor (no layer may introduce
+                # the garment photo's pose/body).
+                gpu_data = None
+                rendered = None
+                layers_meta: List[Dict[str, Any]] = []
+                person_for_layer = person_b64
+                for li, g in enumerate(garments, start=1):
+                    layer_job_id = job_id if len(garments) == 1 else f"{job_id}_l{li}"
+                    if len(garments) > 1:
+                        job.current_stage = f"gpu_diffusion_rendering layer {li}/{len(garments)}"
+                        job.progress_pct = 65 + int(30 * (li - 1) / len(garments))
+                        self.db.commit()
+                    gpu_data = await self._call_gpu_worker(
+                        job_id=layer_job_id,
+                        person_image=person_for_layer,
+                        garments=[g],
+                        gender_mode=gender_mode or "infer_from_image",
+                        output_aspect=output_aspect or "9:16"
+                    )
+                    rendered = gpu_data.get("rendered_image_data_url")
+                    layers_meta.append({
+                        "layer": li,
+                        "product_id": g.get("product_id"),
+                        "slot_type": g.get("slot_type"),
+                        "execution_time_ms": gpu_data.get("execution_time_ms"),
+                    })
+                    # Output becomes the input for the next layer
+                    # (sequential architecture); the uploaded person remains
+                    # the identity/pose anchor of the whole chain.
+                    person_for_layer = rendered
 
-                rendered = gpu_data.get("rendered_image_data_url")
+                quality = gpu_data.get("quality_audit") or gpu_data.get("verify") or {}
                 job.status = TryOnJobStatus.COMPLETED
                 job.progress_pct = 100
                 job.current_stage = "harmonized_and_verified"
@@ -607,7 +826,12 @@ class TryOnService:
                     # the commit failed with 22001 (value too long) and the
                     # completed job 500'd AFTER successful GPU inference.
                     job.model_used = _clamp_model_used(gpu_data["model_used"])
-                job.metrics_json = json.dumps(gpu_data.get("quality_audit") or gpu_data.get("verify") or {})
+                _metrics = dict(gpu_data.get("quality_audit") or gpu_data.get("verify") or {})
+                _metrics["garments_requested"] = len(garments)
+                if len(garments) > 1:
+                    # Prove the WHOLE selected outfit was applied, in order.
+                    _metrics["outfit_layers"] = layers_meta
+                job.metrics_json = json.dumps(_metrics)
                 self.db.commit()
                 self.db.refresh(job)
                 return self._format_job(
@@ -620,6 +844,18 @@ class TryOnService:
                         "byte_size": staged["byte_size"],
                         "ttl_seconds": staged["ttl_seconds"],
                         "one_time": True,
+                        # Contract (2026-09-05): the GUARANTEED delivery
+                        # carrier is `result_image_data_url` in this
+                        # authenticated response. `download_url` is a
+                        # one-shot follow-up that is BEST-EFFORT on
+                        # serverless: Vercel may route it to a function
+                        # instance that did not stage the bytes, in which
+                        # case it returns 410 even within the TTL. The
+                        # frontend must render and offer downloads from
+                        # `result_image_data_url` (it does).
+                        "carrier": "in_response",
+                        "guaranteed_field": "result_image_data_url",
+                        "download_note": "best-effort one-shot; 410 possible within TTL under multi-instance serverless routing",
                     },
                     result_image_data_url=rendered,
                 )
@@ -908,10 +1144,11 @@ class TryOnService:
         computed_slot_map = {(it.get("slot_type") or it.get("position")): it["product_id"] for it in applied_items}
         recommended_sizes = {it["position"]: it.get("selected_size", "M") for it in applied_items}
 
-        effective_input_image = user_image_url or user_image_base64 or (
-            "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=600"
-            if "female" in (avatar_model_id or "")
-            else "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600"
+        # Person/pose reference — resolved EXPLICITLY (same contract as the
+        # async job path): uploaded photo > explicit avatar > error. The old
+        # gender-keyword default silently substituted a stock person; removed.
+        effective_input_image = resolve_person_reference(
+            user_image_url, user_image_base64, avatar_model_id
         )
 
         worker_url, _ = self._get_worker_config()
@@ -923,19 +1160,30 @@ class TryOnService:
                 job_id = f"multi_{uuid.uuid4().hex[:12]}"
                 garments = await self._build_garments_payload(products)
 
-                person_img = effective_input_image
-                if effective_input_image.startswith("http"):
-                    fetched = await self._fetch_image_as_base64(effective_input_image)
-                    if fetched:
-                        person_img = fetched
+                # Person reference validated + fetched once (single fetch).
+                person_img = await self._prepare_person_image(effective_input_image)
 
-                gpu_data = await self._call_gpu_worker(
-                    job_id=job_id,
-                    person_image=person_img,
-                    garments=garments,
-                    gender_mode=gender_mode or "infer_from_image",
-                    output_aspect="9:16"
-                )
+                # Worker contract (fashn_vton_segfee): max ONE garment per
+                # inference call. A complete outfit is rendered by SEQUENTIAL
+                # single-garment chaining — layer i renders on the previous
+                # layer's output (the same sequential architecture the
+                # animated/Layer-Assembly path uses). The final frame is the
+                # complete-outfit result; the uploaded person remains the
+                # identity/pose anchor of the whole chain.
+                gpu_data = None
+                person_for_layer = person_img
+                for li, g in enumerate(garments, start=1):
+                    layer_job_id = job_id if len(garments) == 1 else f"{job_id}_l{li}"
+                    gpu_data = await self._call_gpu_worker(
+                        job_id=layer_job_id,
+                        person_image=person_for_layer,
+                        garments=[g],
+                        gender_mode=gender_mode or "infer_from_image",
+                        output_aspect="9:16"
+                    )
+                    # Output becomes the input for the next layer
+                    # (sequential architecture).
+                    person_for_layer = gpu_data.get("rendered_image_data_url")
 
                 rendered_url = gpu_data.get("rendered_image_data_url")
                 # TEMPORARY (non-persistent) delivery: the GPU-generated image
@@ -1111,10 +1359,10 @@ class TryOnService:
         if not applied_items:
             raise ValidationDomainError("No garments applied for animated try-on")
 
-        effective_image = user_image_url or user_image_base64 or (
-            "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=600"
-            if "female" in (avatar_model_id or "")
-            else "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600"
+        # Person/pose reference — resolved EXPLICITLY (uploaded photo >
+        # explicit avatar > error), same contract as the other VTON paths.
+        effective_image = resolve_person_reference(
+            user_image_url, user_image_base64, avatar_model_id
         )
 
         # Create session first with base image
@@ -1148,11 +1396,9 @@ class TryOnService:
                     b64 = await self._fetch_image_as_base64(prod.thumbnail_url)
                     product_map[prod.id] = b64 or prod.thumbnail_url
 
-                current_person_image = effective_image
-                if effective_image.startswith("http"):
-                    fetched = await self._fetch_image_as_base64(effective_image)
-                    if fetched:
-                        current_person_image = fetched
+                # Person reference validated + fetched once (explicit error on
+                # failure — no soft fallback to a raw URL the worker may choke on).
+                current_person_image = await self._prepare_person_image(effective_image)
 
                 for idx, item in enumerate(ordered_items, start=1):
                     pid = item["product_id"]

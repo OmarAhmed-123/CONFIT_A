@@ -30,3 +30,6 @@ boto3>=1.35.0
 # Test-suite imaging/numeric deps (vton integrity tests)
 Pillow>=10.4.0
 numpy>=1.26.0
+# Pose/hand artifact regression harness (test-only; models are committed in
+# backend/cv_models/ — NOT part of the live serverless function).
+mediapipe>=1.0.0

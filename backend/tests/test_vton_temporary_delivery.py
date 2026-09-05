@@ -52,6 +52,25 @@ def _tiny_png_data_url(color=(180, 60, 60)) -> str:
     return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
 
 
+def _person_png_data_url() -> str:
+    """Person-image fixture at a pose-plausible size (short side >= 256px,
+    > 10KB so it passes the pre-inference person validation). Deterministic
+    (seeded) so tests are reproducible. NOTE: a fixture for automated
+    regression only — never a production acceptance input."""
+    import random
+
+    rng = random.Random(20260905)
+    w, h = 300, 512
+    img = Image.new("RGB", (w, h), color=(120, 110, 100))
+    px = img.load()
+    for _ in range(4000):  # light texture so the PNG stays > 10KB
+        x, y = rng.randrange(w), rng.randrange(h)
+        px[x, y] = (rng.randrange(90, 160), rng.randrange(80, 150), rng.randrange(70, 140))
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
+
+
 def _png_bytes(data_url: str) -> bytes:
     return base64.b64decode(data_url.split(",", 1)[1])
 
@@ -128,7 +147,7 @@ def _register(client: TestClient, email: str, password: str = "Passw0rd!ForTests
 def _submit_job(client: TestClient, token: str | None, product_ids=(1,), **overrides) -> dict:
     payload = {
         "product_ids": list(product_ids),
-        "user_image_base64": _tiny_png_data_url(),
+        "user_image_base64": _person_png_data_url(),
         "avatar_model_id": "avatar_athletic_m",
         "gender_mode": "male",
         "output_aspect": "9:16",
@@ -442,7 +461,7 @@ class TestMultiGarmentNoPersistence:
 
         out = asyncio.run(service.execute_multi_garment_tryon(
             product_ids=[1],
-            user_image_base64=_tiny_png_data_url(),
+            user_image_base64=_person_png_data_url(),
             user_id=None,
         ))
         # delivered in the response
@@ -466,7 +485,7 @@ class TestMultiGarmentNoPersistence:
             service = TryOnService(db)
             out = asyncio.run(service.execute_multi_garment_tryon(
                 product_ids=[1],
-                user_image_base64=_tiny_png_data_url(),
+                user_image_base64=_person_png_data_url(),
                 user_id=None,
             ))
         finally:

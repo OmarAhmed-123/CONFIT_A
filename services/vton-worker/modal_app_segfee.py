@@ -311,8 +311,11 @@ class FashnInferenceService:
 
     @modal.fastapi_endpoint(method="POST")
     def process(self, payload: VTONJobRequest, x_vton_admin: str | None = Header(None, alias="X-VTON-Admin")) -> dict:
-        # Authentication (must equal the Modal secret confit-worker-admin-token)
-        expected = os.environ.get("CONFIT_WORKER_ADMIN_TOKEN", "")
+        # Authentication. The worker receives the admin token from the Modal
+        # secret `confit-worker-admin-token` (injected into the container env as
+        # VTON_WORKER_ADMIN_TOKEN), with a CONFIT_WORKER_ADMIN_TOKEN fallback for
+        # the earlier-deployed convention. Never logged, never returned.
+        expected = os.environ.get("VTON_WORKER_ADMIN_TOKEN") or os.environ.get("CONFIT_WORKER_ADMIN_TOKEN", "")
         if not expected or x_vton_admin != expected:
             raise HTTPException(status_code=401, detail={"error": {"code": "UNAUTHORIZED", "message": "Missing or wrong X-VTON-Admin header."}})
         if not self.model_loaded:

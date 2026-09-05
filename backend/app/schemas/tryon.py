@@ -31,12 +31,15 @@ class TryOnJobDeliveryOut(BaseModel):
     byte_size: Optional[int] = None
     ttl_seconds: Optional[float] = None
     one_time: bool = True
-    # Contract (2026-09-05): the GUARANTEED delivery carrier is
-    # `result_image_data_url` on the same authenticated response. The
-    # download endpoint is a one-shot follow-up and is BEST-EFFORT on
-    # serverless (410 possible within the TTL when Vercel routes the GET to
-    # an instance that did not stage the bytes). The frontend renders and
-    # offers downloads from the in-response data URL.
+    # Contract (2026-09-05, hardening): the GUARANTEED delivery carrier —
+    # and the only download path the product promises — is
+    # `result_image_data_url` on the same authenticated response; the
+    # frontend renders it and offers the user download as a client-side
+    # Blob (no server round-trip, works on every instance). `download_url`
+    # is an opportunistic one-shot cache that is NOT a product download
+    # promise: it can return 410 GONE within the TTL when Vercel routes the
+    # GET to an instance that did not stage the bytes. `ttl_seconds`
+    # describes the cache, not a download availability guarantee.
     carrier: str = "in_response"
     guaranteed_field: str = "result_image_data_url"
     download_note: Optional[str] = None

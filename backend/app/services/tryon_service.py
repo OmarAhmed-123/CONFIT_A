@@ -310,7 +310,16 @@ class TryOnService:
         return None
 
     async def _build_garments_payload(self, products) -> List[Dict[str, Any]]:
-        """Build garments list with base64 images for reliable worker inference."""
+        """Build garments list with base64 images for reliable worker inference.
+
+        Layer order is DELIBERATE and deterministic: garments are sorted by
+        the canonical anatomical layer hierarchy (SlotLayeringEngine.
+        LAYER_HIERARCHY — inner tops before outerwear, before bottoms,
+        footwear, accessories) regardless of the client's request order.
+        The multi-garment chain applies layers sequentially (layer i+1
+        renders on layer i's output), so a shirt MUST render before a
+        blazer; request order is never trusted for occlusion correctness.
+        """
         garments = []
         for p in products:
             slot = CATEGORY_TO_VTON_SLOT.get(
@@ -334,6 +343,12 @@ class TryOnService:
                     "slot_type": slot,
                     "image_url": p.thumbnail_url
                 })
+        # Deterministic anatomical layering (single source of truth:
+        # SlotLayeringEngine.LAYER_HIERARCHY — inner -> outer -> bottom ->
+        # footwear -> accessories).
+        garments.sort(
+            key=lambda g: SlotLayeringEngine.LAYER_HIERARCHY.get(g.get("slot_type"), 10)
+        )
         return garments
 
     async def _prepare_person_image(self, person_ref: str) -> str:
@@ -855,7 +870,15 @@ class TryOnService:
                         # `result_image_data_url` (it does).
                         "carrier": "in_response",
                         "guaranteed_field": "result_image_data_url",
-                        "download_note": "best-effort one-shot; 410 possible within TTL under multi-instance serverless routing",
+                        "download_note": (
+                            "Guaranteed user-facing download = the frontend "
+                            "Blob download of result_image_data_url from THIS "
+                            "response (always works). download_url is an "
+                            "opportunistic one-shot cache, NOT a download "
+                            "promise: on multi-instance serverless routing it "
+                            "can return 410 within the TTL. Do not treat "
+                            "ttl_seconds as a download availability guarantee."
+                        ),
                     },
                     result_image_data_url=rendered,
                 )

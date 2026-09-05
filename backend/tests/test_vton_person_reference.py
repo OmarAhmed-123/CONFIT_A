@@ -355,3 +355,57 @@ def test_chain_layer_failure_fails_job_honestly(flaky_worker):
     assert job.get("result_image_data_url") in (None, ""), "no partial result as success"
     assert job.get("error_code") is not None
     assert len(flaky_worker["process"]) == 2, "both layers were attempted in order"
+
+
+def test_layer_order_is_deliberate_not_request_order(mock_worker):
+    """Item 17: garment application order must be deliberate and
+    category-aware (inner -> outer), NOT the client's request order.
+
+    Requesting [blazer(1, upper_outer), shirt(3, upper_inner)] MUST apply
+    the shirt FIRST and the blazer SECOND (so the inner layer is not hidden
+    by the outer one), with the chain intact (layer 2 renders on layer 1's
+    output).
+    """
+    client = TestClient(app)
+    res = client.post("/api/v1/try-on/jobs", json={
+        "product_ids": [1, 3], "user_image_url": PERSON})
+    assert res.status_code == 202, res.text
+    job = res.json()
+    assert job["status"] == "completed", job
+
+    assert len(mock_worker["process"]) == 2
+    first = mock_worker["process"][0]["garments"][0]
+    second = mock_worker["process"][1]["garments"][0]
+    assert first["product_id"] == 3 and first["slot_type"] == "upper_inner", (
+        "shirt (inner top) must be applied FIRST regardless of request order")
+    assert second["product_id"] == 1 and second["slot_type"] == "upper_outer", (
+        "blazer (outerwear) must be applied SECOND")
+    # chain integrity: layer 2 renders on layer 1's output
+    assert mock_worker["process"][1]["user_image_base64_or_url"] == _rendered_data_url(layer=0)
+    assert job["result_image_data_url"] == _rendered_data_url(layer=1)
+
+    row = _job_row(res.json()["job_id"])
+    metrics = json.loads(row.metrics_json)
+    assert [l["product_id"] for l in metrics["outfit_layers"]] == [3, 1], (
+        "metrics record the DELIBERATE (sorted) application order")
+
+
+def test_full_category_ordering_inner_to_outer(mock_worker):
+    """Item 13/17: a multi-category outfit (outerwear, tops, bottoms,
+    accessories by catalog category) is applied in the canonical
+    anatomical order from SlotLayeringEngine.LAYER_HIERARCHY:
+    inner tops (2) -> outerwear (4) -> bottoms (10) -> footwear (20) ->
+    accessories (30)."""
+    client = TestClient(app)
+    # 1=outerwear, 3=tops, 4=bottoms (seed catalog)
+    res = client.post("/api/v1/try-on/jobs", json={
+        "product_ids": [1, 3, 4], "user_image_url": PERSON})
+    assert res.status_code == 202, res.text
+    job = res.json()
+    assert job["status"] == "completed", job
+    assert len(mock_worker["process"]) == 3
+    slots = [c["garments"][0]["slot_type"] for c in mock_worker["process"]]
+    pids = [c["garments"][0]["product_id"] for c in mock_worker["process"]]
+    assert slots == ["upper_inner", "upper_outer", "lower"], (
+        f"expected inner->outer->bottom order, got {slots}")
+    assert pids == [3, 1, 4], pids

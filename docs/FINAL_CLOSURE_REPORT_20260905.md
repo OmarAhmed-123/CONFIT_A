@@ -1,7 +1,7 @@
 # CONFIT Virtual Try-On — Final Closure & Acceptance Report
 
 **Date:** 2026-09-05
-**Deployment under test:** `https://confit-a.vercel.app` @ git `9010c2c` (local main = origin main = deployed)
+**Deployment under test:** `https://confit-a.vercel.app` @ git `015c2d2` (local main = origin main = deployed; supersedes `9010c2c` with the §15 hardening)
 **Engine:** `fashn_vton_segfee` (CONFIT_A fork of fashn-AI/fashn-vton-1.5 @ 7c0f10af, segmentation-free, commercial)
 **Prepared against:** the 27-section final-closure directive
 
@@ -12,11 +12,11 @@
 | Scope | Classification |
 |---|---|
 | **VTON production functionality** | **`VERIFIED_PRODUCTION_VTON`** |
-| **Overall project closure** | **`PARTIALLY_VERIFIED`** — two documented *non-critical* items remain open (§15 anonymous 404 hardening = fix written+tested, deploy pending; §23 test-account cleanup = `PENDING`, DB credentials not in the execution environment). No unresolved **critical**. |
+| **Overall project closure** | **`PARTIALLY_VERIFIED`** — one documented *non-critical* item remains: §23 test-account cleanup = `PENDING` (production DB credentials not in the execution environment; DBA-safe SQL prepared). §15 is now **deployed and verified in production**. No unresolved **critical**. |
 
-Per §22, only an unresolved **critical** forces `PARTIALLY_VERIFIED`/`FAILED`. The VTON product chain itself — the substance of the directive — is fully verified in a real browser against production with network, CV, and production-DB evidence. Closure is not 100% complete only because of the two non-VTON hygiene/hardening items below.
+Per §22, only an unresolved **critical** forces `PARTIALLY_VERIFIED`/`FAILED`. The VTON product chain itself — the substance of the directive — is fully verified in a real browser against production with network, CV, and production-DB evidence. Closure is not 100% complete only because of the §23 account-hygiene item below.
 
-**This is not a premature "final production verification":** the two open items are explicitly named and are not hidden.
+**This is not a premature "final production verification":** the one open item (§23) is explicitly named and is not hidden.
 
 ---
 
@@ -110,10 +110,13 @@ Code scan of `api/` + `backend/app/`: **no** `/tmp`, `mktemp`, `tempfile`, or te
 ### §14 — No shadow implementations · **VERIFIED**
 Single canonical source per concern: layer order = `slot_layering_engine.LAYER_HIERARCHY`; slot map = `tryon_service.CATEGORY_TO_VTON_SLOT` (only definition); auth = single `get_current_user`/`auth_service` path. No duplicated ordering hierarchy or second auth implementation.
 
-### §15 — No production diagnostics · **VERIFIED after fix** (deploy pending)
-`TESTED AGAINST PRODUCTION API` + `TESTED LOCALLY`
-Live on `9010c2c`: `/api/_dbops` → **404**; `/api/v1/diagnostic` → **404** for authenticated (admin & non-admin) in production.
-**Gap found & fixed:** anonymous got **401** (auth wall ran before the production-404 gate) = endpoint-existence oracle. Fix: `_diagnostic_production_gate` runs **before** auth and returns **404 for all** in production. `TESTED LOCALLY`: new `test_diagnostic_anonymous_404_in_production` + existing 5 diagnostic tests pass. **Deploy pending** (batched with §15 push).
+### §15 — No production diagnostics · **VERIFIED (deployed + verified in production)**
+`TESTED AGAINST PRODUCTION API` + `TESTED LOCALLY` + `TESTED IN CI`
+Live on `9010c2c` (pre-fix): `/api/_dbops` → **404**; `/api/v1/diagnostic` → **404** for authenticated (admin & non-admin) in production, but **401 for anonymous** (auth wall ran before the production-404 gate) = endpoint-existence oracle.
+**Fix (shipped in `015c2d2`):** `_diagnostic_production_gate` runs **before** auth and returns **404 for all callers** in production.
+- `TESTED LOCALLY`: new `test_diagnostic_anonymous_404_in_production` + existing diagnostic tests — 5/5 pass.
+- `TESTED IN CI`: backend/frontend/gitleaks/postgres/production-parity all green on `015c2d2`.
+- `TESTED AGAINST PRODUCTION API` (post-deploy, `015c2d2`): anonymous `/api/v1/diagnostic` → **404** ✓, anonymous `/api/_dbops` → **404** ✓.
 
 ### §16 — Platform capacity from MEASURED evidence · **VERIFIED**
 - Renderable slots (MEASURED from engine + live 422s): tops, outerwear, bottoms, dresses.
@@ -180,8 +183,11 @@ No fake implementation/tests/results/users; no fixture/static/mock image as real
 
 ## 5. Open items (non-critical, explicitly named)
 
-1. **§15 anonymous-404 hardening** — fix written + `TESTED LOCALLY` (5/5 pass); **deploy pending**.
-2. **§23 test-account cleanup** — **PENDING** (DB credentials not in execution environment; SQL prepared for DBA).
+1. **§23 test-account cleanup** — **PENDING** (DB credentials not in execution environment; narrowly-scoped, DBA-safe SQL prepared for the REAL production DB; never touches legit users/admins). Not claimed complete.
+
+§15 (anonymous-404 diagnostic hardening) is **closed**: shipped in `015c2d2`, `TESTED LOCALLY` (5/5), `TESTED IN CI` (all gating green), and `TESTED AGAINST PRODUCTION API` (anonymous → 404 verified live).
+
+**Final post-deploy verification on `015c2d2`:** anon `/api/v1/diagnostic` → 404; anon `/api/_dbops` → 404; empty `multi-render` → 422 `VTON_INPUT_INVALID`; `/api/v1/health` → 200 (DB healthy, schema `ok` @ `0016_vton_temporary_delivery`); anon `/auth/me` & `/admin/audit` → 401. All prior fixes intact.
 
 ---
 

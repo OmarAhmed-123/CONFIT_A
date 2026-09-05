@@ -336,7 +336,23 @@ class TryOnService:
         The multi-garment chain applies layers sequentially (layer i+1
         renders on layer i's output), so a shirt MUST render before a
         blazer; request order is never trusted for occlusion correctness.
+
+        Engine capability is validated UPFRONT — before any image fetch
+        or GPU time is spent — so an engine-unsupported slot (footwear,
+        accessory) fails in <1 s with an explicit 422.
         """
+        unsupported = sorted({
+            CATEGORY_TO_VTON_SLOT.get(
+                p.category.slug if p.category else "", DEFAULT_VTON_SLOT
+            )
+            for p in products
+        } - VTON_ENGINE_RENDERABLE_SLOTS)
+        if unsupported:
+            raise RuntimeError(
+                "VTON_INPUT_INVALID: "
+                + VTON_UNSUPPORTED_SLOTS_MESSAGE.format(slots=", ".join(unsupported))
+            )
+
         garments = []
         for p in products:
             slot = CATEGORY_TO_VTON_SLOT.get(
@@ -360,18 +376,6 @@ class TryOnService:
                     "slot_type": slot,
                     "image_url": p.thumbnail_url
                 })
-        # Upfront engine-capability validation (fail fast, <1 s, zero GPU
-        # time): the worker renders tops/bottoms/one-pieces only.
-        unsupported = sorted({
-            g["slot_type"] for g in garments
-            if g["slot_type"] not in VTON_ENGINE_RENDERABLE_SLOTS
-        })
-        if unsupported:
-            raise RuntimeError(
-                "VTON_INPUT_INVALID: "
-                + VTON_UNSUPPORTED_SLOTS_MESSAGE.format(slots=", ".join(unsupported))
-            )
-
         # Deterministic anatomical layering (single source of truth:
         # SlotLayeringEngine.LAYER_HIERARCHY — inner -> outer -> bottom ->
         # footwear -> accessories).

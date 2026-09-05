@@ -639,6 +639,22 @@ export const VirtualTryOnModal: React.FC = () => {
                           </span>
                         </div>
 
+                        {/* Engine capability (fashn_vton_segfee): the VTON
+                            engine renders tops / outerwear / bottoms /
+                            dresses only. Footwear & accessories are catalog
+                            items the engine cannot try on — communicate it
+                            in the UI instead of a wasted 70 s render + 422
+                            (the API also rejects them upfront). */}
+                        {['Footwear', 'Accessories'].includes(p.category_name) && !isAlreadyDressed ? (
+                          <button
+                            type="button"
+                            disabled
+                            title="The virtual try-on engine (fashn_vton_segfee) renders tops, outerwear, bottoms and dresses. Footwear and accessories are not supported yet."
+                            className="mt-2.5 w-full py-1.5 rounded-xl text-[11px] font-bold transition-all flex items-center justify-center gap-1 bg-slate-100 text-slate-400 cursor-not-allowed"
+                          >
+                            ⚠ Not in Virtual Try-On yet
+                          </button>
+                        ) : (
                         <button
                           type="button"
                           onClick={() => {
@@ -657,6 +673,7 @@ export const VirtualTryOnModal: React.FC = () => {
                         >
                           {isAlreadyDressed ? '✕ Remove' : '+ Dress on Body'}
                         </button>
+                        )}
                       </div>
                     );
                   })}

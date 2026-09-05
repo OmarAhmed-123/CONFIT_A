@@ -25,7 +25,11 @@ def test_dynamic_multi_garment_male_suit_tryon(client: TestClient):
     """D1/A7 guard: multi-render with no GPU worker must fail truthfully (503),
     never returning a static asset or the input photo as the dressed result."""
     res = client.post("/api/v1/try-on/multi-render", json={
-        "product_ids": [1, 3, 4, 6, 8],  # Blazer, Oxford Shirt, Suit Trousers, Oxfords, Silk Tie
+        # supported slots only (engine renders tops/outerwear/bottoms/one-pieces):
+        # this guard isolates the NO-WORKER failure, not input validation
+        # (unsupported slots have their own fast-fail guard:
+        # test_vton_person_reference.py::test_multi_render_unsupported_slot_rejected_upfront)
+        "product_ids": [1, 3, 4],  # Blazer, Oxford Shirt, Suit Trousers
         "user_image_url": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600",
         "avatar_model_id": "avatar_athletic_m",
         "gender_mode": "male",
@@ -40,7 +44,9 @@ def test_dynamic_multi_garment_male_suit_tryon(client: TestClient):
 def test_dynamic_multi_garment_female_dress_tryon(client: TestClient):
     """D1/A7 guard: dress multi-render also fails truthfully without a worker."""
     res = client.post("/api/v1/try-on/multi-render", json={
-        "product_ids": [5, 7, 9],  # Silk Column Dress, Heeled Sandals, Evening Clutch
+        "product_ids": [5],  # Silk Column Dress (supported slot; the other
+        # former picks — sandals/clutch — are engine-unsupported and have
+        # their own fast-fail guard)
         "user_image_url": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=600",
         "avatar_model_id": "avatar_hourglass_f",
         "gender_mode": "female",
@@ -56,7 +62,10 @@ def test_dynamic_animation_tryon_render(client: TestClient):
     """D1/A7 guard: animation render must not fabricate keyframes from static
     assets — it fails truthfully while no render backend exists."""
     res = client.post("/api/v1/try-on/animation-render", json={
-        "product_ids": [1, 3, 4, 6, 8],
+        # supported slots only: this guard isolates the NO-WORKER failure
+        # (footwear/accessory inputs are rejected upfront with 422 before
+        # the availability check — see test_vton_person_reference.py)
+        "product_ids": [1, 3, 4],
         "user_image_url": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600",
         "avatar_model_id": "avatar_athletic_m",
         "gender_mode": "male",

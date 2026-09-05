@@ -409,3 +409,58 @@ def test_full_category_ordering_inner_to_outer(mock_worker):
     assert slots == ["upper_inner", "upper_outer", "lower"], (
         f"expected inner->outer->bottom order, got {slots}")
     assert pids == [3, 1, 4], pids
+
+
+def test_unsupported_engine_slot_rejected_upfront_with_zero_gpu_time(mock_worker):
+    """Engine-capability contract (fashn_vton_segfee renders tops/bottoms/
+    one-pieces ONLY). A footwear request must fail fast with an explicit
+    422 VTON_INPUT_INVALID BEFORE any GPU inference — never after minutes
+    of chain time (live incident 2026-09-05: footwear rejected mid-chain
+    at ~70 s)."""
+    client = TestClient(app)
+    res = client.post("/api/v1/try-on/jobs", json={
+        "product_ids": [3, 1, 6],  # shirt, blazer, shoes (seed catalog)
+        "user_image_url": PERSON})
+    job = res.json()
+    # Jobs contract: explicit failed state with the error code — never a
+    # fake "completed", never a mid-chain failure.
+    assert job["status"] == "failed", job
+    assert job["error_code"] == "VTON_INPUT_INVALID", job
+    assert "footwear" in (job.get("error_message") or "")
+    assert mock_worker["process"] == [], (
+        "no GPU inference may be spent on an engine-unsupported slot")
+
+
+def test_unsupported_accessory_rejected_upfront(mock_worker):
+    client = TestClient(app)
+    res = client.post("/api/v1/try-on/jobs", json={
+        "product_ids": [8],  # necktie (accessories)
+        "user_image_url": PERSON})
+    job = res.json()
+    assert job["status"] == "failed", job
+    assert job["error_code"] == "VTON_INPUT_INVALID", job
+    assert "accessory" in (job.get("error_message") or "")
+    assert mock_worker["process"] == []
+
+
+def test_multi_render_unsupported_slot_rejected_upfront(mock_worker):
+    client = TestClient(app)
+    res = client.post("/api/v1/try-on/multi-render", json={
+        "product_ids": [3, 1, 4, 6],  # complete 4-category outfit incl. shoes
+        "user_image_url": PERSON})
+    assert res.status_code == 422, res.text
+    assert "VTON_INPUT_INVALID" in res.text
+    assert "footwear" in res.text
+    assert mock_worker["process"] == []
+
+
+def test_supported_full_outfit_still_renders(mock_worker):
+    """The supported complete outfit (tops + outerwear + bottoms) is
+    unaffected by the engine-capability guard."""
+    client = TestClient(app)
+    res = client.post("/api/v1/try-on/jobs", json={
+        "product_ids": [1, 3, 4], "user_image_url": PERSON})
+    assert res.status_code == 202, res.text
+    job = res.json()
+    assert job["status"] == "completed", job
+    assert len(mock_worker["process"]) == 3

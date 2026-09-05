@@ -49,6 +49,23 @@ CATEGORY_TO_VTON_SLOT = {
 DEFAULT_VTON_SLOT = "upper_inner"
 SUPPORTED_SLOTS = {"upper_outer", "upper_inner", "lower", "dress", "footwear", "accessory"}
 
+# ENGINE CAPABILITY (fashn_vton_segfee) — distinct from SUPPORTED_SLOTS
+# (which are the slots the API can express). The segmentation-free FASHN
+# engine renders tops / bottoms / one-pieces ONLY; footwear and accessory
+# images are rejected by the worker ("only tops/bottoms/one-pieces").
+# Verified live against the production worker (2026-09-05: footwear layer
+# rejected mid-chain after ~70 s of earlier layers). The API validates
+# against this set UPFRONT so users get an explicit 422 in <1 s instead of
+# a mid-chain failure after minutes of GPU time, and the UI communicates
+# the limitation (directive §23).
+VTON_ENGINE_RENDERABLE_SLOTS = {"upper_inner", "upper_outer", "lower", "dress"}
+
+VTON_UNSUPPORTED_SLOTS_MESSAGE = (
+    "Virtual try-on currently supports tops, outerwear, bottoms and "
+    "dresses. '{slots}' is not supported by the VTON engine "
+    "(fashn_vton_segfee) yet — remove it from the outfit to render."
+)
+
 # Maximum image size for person/garment fetching (15MB)
 MAX_IMAGE_BYTES = 15 * 1024 * 1024
 # Maximum dimension to prevent decompression bombs
@@ -343,6 +360,18 @@ class TryOnService:
                     "slot_type": slot,
                     "image_url": p.thumbnail_url
                 })
+        # Upfront engine-capability validation (fail fast, <1 s, zero GPU
+        # time): the worker renders tops/bottoms/one-pieces only.
+        unsupported = sorted({
+            g["slot_type"] for g in garments
+            if g["slot_type"] not in VTON_ENGINE_RENDERABLE_SLOTS
+        })
+        if unsupported:
+            raise RuntimeError(
+                "VTON_INPUT_INVALID: "
+                + VTON_UNSUPPORTED_SLOTS_MESSAGE.format(slots=", ".join(unsupported))
+            )
+
         # Deterministic anatomical layering (single source of truth:
         # SlotLayeringEngine.LAYER_HIERARCHY — inner -> outer -> bottom ->
         # footwear -> accessories).
@@ -1371,6 +1400,18 @@ class TryOnService:
         products = [p for p in products if p is not None]
         if not products:
             raise ResourceNotFoundError("Products", str(target_ids))
+
+        # Upfront engine-capability validation (same contract as the chain
+        # paths — fail fast before any GPU time is spent).
+        unsupported = sorted({
+            CATEGORY_TO_VTON_SLOT.get(p.category.slug if p.category else "", DEFAULT_VTON_SLOT)
+            for p in products
+        } - VTON_ENGINE_RENDERABLE_SLOTS)
+        if unsupported:
+            raise RuntimeError(
+                "VTON_INPUT_INVALID: "
+                + VTON_UNSUPPORTED_SLOTS_MESSAGE.format(slots=", ".join(unsupported))
+            )
 
         # Resolve layering
         accumulated = []

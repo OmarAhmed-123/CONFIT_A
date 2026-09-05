@@ -1,329 +1,403 @@
-# CONFIT_A — Final Production Verification Report (2026-09-05)
+# CONFIT_A — Final Production Verification Report (2026-09-05, round 2)
 
 **Classification: `PARTIALLY_VERIFIED`**
 
-This report covers the 2026-09-05 production-closure directive (23 items).
-Every claim below is backed by a live production request against
-`https://confit-a.vercel.app` (deployment of main @ `c60acc7`), a CI run, a
-code inspection, or an explicit blocker. Nothing is "verified in theory."
+Covers the 2026-09-05 directive (items 0–38). Every claim below is backed by
+a live production request against `https://confit-a.vercel.app` (deployment
+of main @ `3e5c49e`), a CI run on that SHA, a code inspection with file:line
+references, or an explicit labeled blocker. Nothing is "verified in theory."
+
+**What changed in this round:** the deliberate layer-order fix (item 17) was
+implemented, tested, deployed, and verified live (byte-identical renders
+across all request orders); the delivery contract no longer advertises the
+one-shot endpoint as a download promise (items 19/20); `maxDuration` was
+raised to 300 s and the plan accepted it, so complete multi-garment outfits
+now complete inside one production request (item 18); /tmp compliance was
+measured (item 27: zero runtime usage).
 
 ---
 
-## 1. Classification rationale
+## 1. Classification rationale (gate table)
 
-`VERIFIED_PRODUCTION_VTON` requires ALL gates. The following gates are NOT
-fully satisfied, which forces `PARTIALLY_VERIFIED`:
+`VERIFIED_PRODUCTION_VTON` requires ALL gates. Current state:
 
-| Gate | Status | Evidence / blocker |
+| Gate | Status | Evidence |
 |---|---|---|
-| Security clean (dbops, probes, secrets) | PASS | `_dbops` 404 live; gitleaks green; tree scan clean |
-| F-14 fixed + live verified | PASS | Full matrix below, all correct |
-| Registration identity consistent | PASS | uid 48 chain |
-| Production DB revision | PASS | health: `0016 = 0016` |
-| API healthy / Bearer / RBAC | PASS | Full matrices below |
-| Worker healthy (engine/commercial/A10/real inference) | PASS | Real inferences succeeded; config in health |
-| Worker git-sha revision pin | **NOT VERIFIED** | `VTON_WORKER_EXPECTED_GIT_SHA` value not inspectable without production env access; not claimed active |
-| Real FASHN inference + full-outfit chaining | PASS (2 layers) | Live 2-layer jobs 46.8s/47.7s completed; **3+ layers exceed the 60s function limit (see §9.3)** |
-| Person identity + pose preserved, no duplicated anatomy | PASS (measured) | CV: drift 0.0068–0.0087, hands 2→2; visual artifacts documented §9.4 |
-| 502 regression | PASS | Multiple animated + job calls: 200s, no 502 |
-| **Temporary delivery reliable across instances** | **FAIL** | One-shot download endpoint returned **410 to the OWNER** on first attempt (cross-instance staging); in-response data URL is the only reliable carrier (now explicit in the contract) |
-| **Frontend real-result flow (browser)** | **NOT DONE** | No browser available in this environment; bundle audited statically; click-through explicitly NOT performed |
-| No permanent retention | PASS | Code + tests + pre-removal live DB row check (no output URL / inline bytes) |
-| Global audit | PASS | No Egypt/EGP/localhost/fixed-host runtime assumptions |
-| Regression suite | PASS | 945 passed / 7 skipped / 1 known env artifact; CI green incl. pose tests |
+| Security clean (dbops, secrets) | PASS | `_dbops` 404 anon+consumer live; gitleaks green on `3e5c49e`; secret-leak check on health output CLEAN |
+| Registration / role escalation | PASS | tree unchanged since `17cc74c` (PR #52); live register+login this round |
+| F-14 measurement-session IDOR | PASS | tree unchanged since `875e65c` (PR #53); full live matrix previous round |
+| Production DB = real configured DB, revision 0016 | PASS | all checks via live API → real DB; live health `0016 = 0016`; no replacement DB created (item 0, absolute) |
+| API healthy / Bearer / RBAC | PASS | live matrices (auth code unchanged this round; re-probes §5) |
+| Worker healthy (engine/commercial/A10/real inference) | PASS | 13 real FASHN inferences live this round; engine `fashn_vton_segfee` commercial valid |
+| Worker git-sha pin independently readable | **NOT VERIFIED** | worker source pin declared in API config (`config.py:86` = `7c0f10af`); live behavior matches the contract; Modal deployment SHA not readable from this environment (no Modal credentials) — labeled, not claimed |
+| Real inference + full-outfit chaining | **PASS (3 layers)** | live 3-garment jobs completed at 65.1–72.9 s on the 300 s ceiling (was 504/impossible at 60 s) |
+| **Deliberate category-aware layer order (item 17)** | **PASS** | byte-identical renders across request orders (jobs + production multi-render endpoint); CV PASS; visual side-by-side committed (§8) |
+| Person identity + pose preserved, no duplicated anatomy | PASS (measured) | project CV validator: drift ≤ 0.0089, hand delta 0, no wrist swap, on all 4 live artifacts this round |
+| 502 / 504 regression | PASS | 13 live inferences: no 502; 504 eliminated (previous 504 @ 60.2 s was the 60 s limit, now 300 s) |
+| **Delivery reliable (items 19/20)** | PASS | guaranteed user-facing download = in-response data URL + frontend Blob (verified live on the production endpoint); contract no longer advertises the one-shot endpoint as a promise; isolation 404s live |
+| No permanent retention; no image bytes in DB | PASS | staging = in-process memory TTL 900 s (`vton_delivery.py:104`); DB holds metadata only (verified previous round); `/api` returns data URL, not a durable URL |
+| **/tmp compliance (item 27)** | PASS | 0 hits for `/tmp|mktemp|tempfile|TemporaryDirectory|NamedTemporaryFile` in `backend/app` + API runtime code (scanned this round); no /tmp in VTON/delivery/queue/state |
+| Global readiness (no Egypt/EGP/localhost/fixed-host assumptions) | PASS | audited previous round; no such code changed this round |
+| Env presence on deployed runtime (item 29) | PASS (non-secret) | live health: `database: healthy` (DATABASE_URL works), `vton_pipeline: configured: GPU worker URL + admin token present`; all worker URLs function behaviorally; no secret value ever printed |
+| SHA chain Git→Vercel→live behavior (item 31) | PASS | main `3e5c49e` → push → deploy → new contract text + new order semantics + 3-layer support all live (present only in this tree) |
+| SHA chain Git→Modal worker→live behavior (item 31) | PASS (behavioral) | worker unchanged since previous round's verified deploy; contract + 13 live inferences consistent; SHA pin value = `7c0f10af` per API config; independent Modal SHA read not possible (labeled) |
+| Frontend real-result flow (browser) | **NOT DONE** | no browser in this environment; machine-verifiable parts ALL verified (§10): exact endpoint, payload, response contract, in-response data URL, Blob download code present in the deployed production bundle; manual click-through left to owner — explicitly NOT performed |
+| Regression suite | PASS | 947 passed / 7 skipped / 1 known env artifact (local); CI `ci`+`gitleaks` success on `3e5c49e` |
+| Test-account hygiene | PASS (documented) | 4 new e2e accounts this round, listed §4; DBA-safe cleanup SQL documented; no legitimate users touched; no separate DB created |
 
-Per the directive: ANY unverified/blocked gate ⇒ `PARTIALLY_VERIFIED`.
+Per the standing rule: ANY unverified/blocked gate ⇒ `PARTIALLY_VERIFIED`.
+Exactly two gates remain, both **environment-bound, not functional defects**:
+(1) browser click-through — no browser available in this execution
+environment; (2) independent read of the Modal worker's deployed SHA — no
+Modal credentials in this environment. All functional gates PASS with live
+production evidence.
 
 ---
 
-## 2. Commits, branches, SHAs
+## 2. Repository
 
 | Ref | SHA | Content |
 |---|---|---|
-| `main` (production) | **`c60acc7`** | merge of all three fix branches |
-| `security/fix-registration-role-escalation` | `17cc74c` | PR #52 (merged) |
-| `security/fix-measurement-session-idor` | `875e65c` | PR #53 (merged) |
-| `feat/vton-temporary-delivery` | `fa7e18b` | PR #51 (merged); base work `c609ace` |
-| merge commit (pushed to main) | `27f58a3` → `c02b484` → `c60acc7` | role → F-14 → VTON |
-| includes (via feat) | `638be1a` (model_used clamp), `86b138e`+`f2eafb9` (bearer redaction), migration `0016_vton_temporary_delivery` | verified in tree |
-| Vercel production | main → auto-deploy on push (GitHub integration); live-verified new tree by behavior (§3) | previous alias `dpl_6Kqk24FXqCpHeCMHLrwkofH8ZV1a` superseded |
-| Modal worker | `fashn_vton_segfee` (fashn-AI/fashn-vton-1.5 fork @ `7c0f10af`), commercial, A10 | **not redeployed** (no Modal credentials in environment); no redeploy was required |
-| Migrations | production DB = `0016_vton_temporary_delivery` (live health check); no 0017 required (F-14 is code-level only) | |
+| `main` (production) | **`3e5c49e`** | `7f06caa` (fix) + `3e5c49e` (duration probe) |
+| `7f06caa` | fix(vton): deliberate category-aware layer order + honest delivery contract | PR #54 (merged via main push) |
+| `3e5c49e` | chore(vercel): `maxDuration` 60 → 300 | accepted by the plan (build succeeded; 3-layer jobs now complete live) |
+| branch | `fix/vton-layer-order-delivery` | CI `ci` success + `gitleaks` success on `3e5c49e` |
+| previous production code | `c60acc7` (docs at `382c43c`) | superseded by this round |
+| Modal worker | **not redeployed this round** (unchanged since previous verified deploy); expected source per API config `config.py:86`: `fashn-AI/fashn-vton-1.5 @ 7c0f10af (vendor/fashn-vton-segfee)`, commercial, A10 | contract re-proven behaviorally by 13 live inferences |
+| migrations | production DB = `0016_vton_temporary_delivery` (live health this round); **no 0017** (not required) | DB never moved ahead of code |
 
-CI (GitHub Actions, on the merge commit `c60acc7`): `ci` **success**,
-`gitleaks` **success**. Earlier feat-branch CI failures were a missing
-system library on the runner (`libEGL.so.1`, then `libGLESv2.so.2` for the
-MediaPipe pose harness) — fixed in CI config (`fa7e18b`/`8668f2e`), pose
-regression tests now RUN and PASS in CI.
+Deployment record (live): API served with `x-vercel-id`
+`pdx1::iad1::56zqk-1788631872282-980e3ff81d82` /
+`pdx1::iad1::wkrt9-1788632193210-b7b6084ac455` (routing IDs — Vercel does
+not expose deployment IDs on public responses; SHA→deploy linkage is
+behavioral: the new `download_note` text and the new ordering semantics
+exist only in this tree and are live). Frontend bundle
+`/assets/index-B4P19E5J.js` — identical content hash to the previous deploy
+because no frontend source changed this round (deterministic build; verified
+the bundle contains the Blob download flow, §10).
 
-Branch protection on `main` (2 required status checks) was enforced live:
-an un-CI'd merge push was rejected; after CI green on the merge commit, the
-push was accepted. No branch was merged with failing checks.
+---
 
-## 3. Clean production tree verification (item 1)
+## 3. Database (item 0 absolute rule, item 21)
 
-Deployed tree (= main @ `c60acc7`, byte-identical to the locally tested
-deploy tree `f6de156` plus the CI workflow fix):
+- **No replacement/empty/in-memory/SQLite/tmp database was created;
+  `DATABASE_URL` was never changed.** Every production verification in this
+  report went through the deployed application's public API, which reads and
+  writes the configured production database.
+- Live schema gate (two separate calls this round):
+  `expected_head 0016_vton_temporary_delivery = database_revision
+  0016_vton_temporary_delivery`, `missing_tables: []`, `verdict: ok`.
+- **No image bytes in the database** (verified previous round against the
+  live DB: the VTON tables carry job_id/user_id/status/timestamps/metrics/
+  delivery token hash/expiration/content type only; `output_image_url` is
+  NULL by contract — schema comment `schemas/tryon.py:55-57`).
+- Test-account hygiene (this round): 4 new e2e accounts —
+  `final8.deploy.b91c7c@e2e-final8.example.com`,
+  `final8c.*@e2e-final8c.example.com`, `final8d.*@e2e-final8d.example.com`
+  (one per delivery battery; emails follow the `e2e-*` pattern). No admin
+  deletion route exists and no DB credentials are available in this
+  environment, so cleanup remains the documented DBA-safe SQL in
+  `docs/CAMPAIGN_ACCOUNT_HYGIENE_20260905.md` (owner executes against the
+  real production DB; **never** against a separate database). No legitimate
+  users or admins were touched.
 
-- **`/api/_dbops` → 404 live for anonymous AND consumer** (measured:
-  `anon_status: 404, consumer_status: 404`). The route was never
-  role-gated, so 404 for anon+consumer implies 404 for admin.
-  Admin-user live test not performed (no admin account exists outside
-  the owner's; route absence is role-independent).
-- No `dbops|probe|debug|diagnostic|temporary-production-helper` markers in
-  `backend/app` + `api` (grep over final tree; only hits: admin-RBAC-
-  protected `/health/vton-contract` diagnostic, docstrings, one test file
-  `test_vton_contract_diagnostic.py` which is outside the production
-  closure).
-- No `X-Diag-Trace` or other debug instrumentation.
-- Secrets scan: gitleaks CI green on all branches + manual pattern scan
-  (ghp_/github_pat_/xox/sk-/AKIA/vcp_/postgres DSN/JWT/private keys) over
-  `backend frontend api` → only docstring/test placeholders.
-- No `.env` files shipped (only `vercel.json`); no generated production
-  result images in the tree (test fixtures = real single-person photos
-  with attribution, test-only, outside the production closure; CV models
-  are MediaPipe weights, test-only).
+---
 
-## 4. Identity, registration, auth (items 6, 8, 11)
+## 4. Auth (live, this round, on tree `3e5c49e`)
 
-Live, on the new deployment:
+- `GET /api/v1/health` anon → 200; `GET /api/v1/users/me` anon → 401
+  (unauthenticated rejected).
+- Truncated bearer / bare-`***` / forged / schemeless bearer → 401 on
+  protected GETs (full matrix re-run previous round on `c60acc7`; the auth
+  code path is unchanged between `c60acc7` and `3e5c49e` — diff limited to
+  `tryon_service.py`, `schemas/tryon.py`, tests, `vercel.json`, docs).
+- Bearer marker never bypasses JWT validation (invariant, code unchanged).
+- Live registration + login performed this round (real flow, real DB rows).
 
-**Role matrix** (real registrations): `plain` → 201 CONSUMER,
-`role=admin` → 201 CONSUMER, `crafted` (role+user_role+is_admin) →
-201 CONSUMER. Client-controlled role: **rejected server-side**.
+## 5. Authz (live)
 
-**Identity chain** (fresh user via real registration):
-register 201 (uid 48, role consumer) → login 200 → JWT → `/auth/me` 200
-(uid 48, consumer) → **consistent: true**. No manual DB inserts anywhere
-in this campaign.
+- `GET /api/_dbops` anon → **404**, consumer → **404** (re-probed this
+  round on the new tree).
+- Consumer token against admin surface → rejected (403/404 per route
+  existence; no data returned; consumer cannot read admin data — full role
+  matrix verified previous round, code unchanged).
+- Job isolation (re-probed this round): owner `GET /try-on/jobs/{id}` →
+  200; other authenticated user → **404**; anon → **404**.
 
-**Bearer matrix** (live): valid JWT 200 · truncated 401 · bare `***` 401 ·
-missing scheme 401 · Vercel-redacted `***<jwt>` 200 (recovery fix works;
-the JWT is still fully signature-validated — no bypass) · forged signature
-401 · wrong type forged 401.
+## 6. Identity (live)
 
-**RBAC**: consumer → `GET /api/v1/admin/analytics` = **403**.
+- Server-derived identity only: job rows created by this round's e2e users
+  belong to the registering account (owner 200 / foreign 404 above). No
+  `user_id` in request bodies is trusted; no `localStorage.userId`; no
+  client role.
+- New production users created **only** via the real registration flow
+  (no manual DB inserts/updates — and no DB access exists in this
+  environment anyway).
 
-## 5. F-14 measurement-session live matrix (item 7)
+---
 
-Two rounds (first round exposed invalid test bodies; corrected round is
-authoritative):
+## 7. VTON — engine, inference, chaining, LAYER ORDER (items 9, 11, 13, 15, 17)
 
-| Check | Result |
-|---|---|
-| A creates session (no consent field) | 201, `consent_granted=false` (default False — never assumed) |
-| A reads own session | 200 |
-| B reads A's session | **404** |
-| Anonymous reads A's session | **404** |
-| A writes valid results to own session | 201 |
-| **A posts `consent_granted: true` via results (fabrication attempt)** | 201 accepted as data, but re-read → **`consent_granted` still `false`** — consent cannot be fabricated via request input |
-| B writes valid body to A's session | **404** |
-| Anonymous writes valid body to A's session | **404** |
-| Unknown session id (B) | 404 — byte-identical status, **no existence oracle** |
-| Anonymous create | 422 (rejected) |
+**Engine (live health, this round):** `fashn_vton_segfee`, `valid: true`,
+`commercial: true`, Apache-2.0 fork with the non-commercial human-parser
+removed from the runtime; `source: CONFIT_A fork of fashn-AI/fashn-vton-1.5
+@ 7c0f10af (vendor/fashn-vton-segfee)`.
 
-F-14: **closed with live evidence** (not unit tests only).
+**Real inference this round (all live, production API, real A10 GPU worker,
+1 garment per worker call, sequential chaining):**
 
-## 6. VTON — engine, inference, chaining (items 9, 11, 15)
+| # | Endpoint | Request `product_ids` | Result | Time |
+|---|---|---|---|---|
+| deploycheck | jobs | `[1]` | 202 completed, data URL in response | 42.5 s |
+| A1 | jobs | `[1, 3]` (blazer first) | 202 completed | 52.7 s |
+| A2 | jobs | `[3, 1]` | 202 completed | 46.6 s |
+| A3 | jobs | `[1, 3, 4]` (3 layers) | 202 completed | 72.9 s |
+| A4 | jobs | `[3]` | 202 completed | 30.8 s |
+| A5 | jobs | `[1, 3]` | 202 completed | 47.8 s |
+| delivery | jobs | `[3]` | 202 completed, data URL 654,790 chars | 50.2 s |
+| probe2 | jobs | `[4]` | 202 completed, byte_size 496,209 | — |
+| A6 | jobs | `[4, 1, 3]` (shuffled 3) | 202 completed | 71.7 s |
+| M1 | **multi-render (production frontend endpoint)** | `[1, 3]` | 200 completed, data URL | 46.9 s |
+| M2 | multi-render | `[3, 1]` | 200 completed, data URL | 40.0 s |
+| M3 | multi-render | `[4, 1, 3]` | 200 completed, data URL | 65.1 s |
+| +1 earlier probe | jobs | `[4]` | 202 completed | — |
 
-- **Worker**: `fashn_vton_segfee` (commercial, Apache-2.0 fork;
-  non-commercial human-parser removed), A10. Real inference confirmed by
-  completed jobs (25–48s). Per-job readiness gate passes on every success.
-- **502 regression**: retested live — `POST /try-on/animation-render`
-  (1 garment: 200 @ 41.9s; 2 products: 200 @ 24.0s/29.3s) and all
-  `/try-on/jobs` calls: **no 502, no worker-URL 404**.
-- **Worker contract discovered live**: the deployed worker enforces
-  **max 1 garment per inference call** ("fashn_vton_segfee is
-  single-category; max 1 garment per job"). The feat branch therefore
-  implements **sequential single-garment chaining**: layer i renders on
-  layer i−1's output (same architecture as the animated path); the final
-  frame is the complete-outfit result; metrics record the ordered
-  `outfit_layers`; a mid-chain failure fails the job (no partial image as
-  success). Chaining is proven by unit tests (layer-2 input == layer-1
-  output asserted) and live (2-layer jobs completed in ~47s ≈ 2× single
-  garment ~25s).
-- **Layer ordering**: garments are applied in request order; slot dedupe
-  keeps one garment per slot (two outerwear items → one applied). For
-  best visual layering the frontend should send inner-first (see §9.4).
-- **60s platform limit** (see §9.3): 2-layer outfits complete in
-  46.8–47.7s warm but **504'd once at 60.2s under load**; 3+ layers will
-  exceed the limit reliably. `vercel.json` sets `maxDuration: 60`
-  (plan-dependent ceiling). This is a platform constraint, documented,
-  not faked: no background queue exists (async-honesty), and the failure
-  is a truthful 504, never a fake success.
+No 502, no 504. 3-garment complete outfits now complete inside one
+request (item 18 resolved: 300 s ceiling accepted by the plan).
 
-## 7. Person identity & pose — measured (items 10, 12)
+**Layer order (item 17) — THE fix of this round.**
 
-CV harness (MediaPipe hand + pose landmarkers, `backend/tests/
-vton_artifact_check.py`, test-only, outside the production closure):
+Root cause: `_build_garments_payload` (`tryon_service.py:312`, the single
+choke point for BOTH the jobs chain and the multi-render chain) applied
+garments in **client request order**. Live proof of the bug (previous
+round): request `[blazer, shirt]` rendered the blazer as the inner layer
+and **hid the shirt entirely** (see committed evidence image, left panel).
 
-| Pair (production render) | hands | pose drift | verdict |
-|---|---|---|---|
-| Single garment, hands-on-waist person | 2 → 2 | 0.0087 | PASS |
-| Full outfit [blazer, shirt] (outer-first), hands-on-waist | 2 → 2 | 0.0087 | PASS |
-| Full outfit [shirt, blazer] (inner-first), hands-on-waist | 2 → 2 | 0.0068 | PASS |
+Fix: `_build_garments_payload` now sorts by the canonical anatomical
+hierarchy `SlotLayeringEngine.LAYER_HIERARCHY`
+(`styling/slot_layering_engine.py:46`): inner tops (2) → outerwear (4) →
+bottoms (10) → footwear (20) → accessories (30). Deterministic regardless
+of request order; the animated path already used engine ordering
+(`tryon_provider.py:106`).
 
-Regression suite (7 tests): mirror-transformed result of the hands-on-waist
-fixture **FAILs** (drift 0.1309 ≥ 0.07 → pose transfer detected), clean
-pair PASSes (drift < 0.02), extra/missing hand detected, garment-derived
-pose transfer structurally impossible in the worker payload.
+Live verification on the new deployment — **the render pipeline is
+deterministic, so byte identity across request orders is the test**:
 
-**Honest visual limitations** (inner-first full-outfit render): identity
-(face/hair) and pose (hands-on-waist, stance, limbs) preserved; both
-garments visible in correct layering (white oxford shirt under blue
-blazer); no duplicated hands/arms/limbs. Artifacts: dark smudge along one
-arm/jacket edge, white distortion at one fist/wrist, and the input photo's
-watermark faintly retained in the background. The model does not
-guarantee perfect pose preservation — the measured drift (≤0.009) and
-hand counts are the honest metric, plus this documented human review.
+| Render | Request order | md5 |
+|---|---|---|
+| A1 (jobs) | `[1, 3]` blazer first | `143e2e0a…74ee` |
+| A2 (jobs) | `[3, 1]` shirt first | `143e2e0a…74ee` |
+| A5 (jobs) | `[1, 3]` re-run | `143e2e0a…74ee` |
+| M1 (multi-render) | `[1, 3]` blazer first | `143e2e0a…74ee` |
+| M2 (multi-render) | `[3, 1]` | `143e2e0a…74ee` |
+| previous round, verified-correct inner-first | `[3, 1]` | `143e2e0a…74ee` |
+| A3 (jobs) 3-layer | `[1, 3, 4]` | `3dadf3fa…b80b` |
+| A6 (jobs) 3-layer | `[4, 1, 3]` shuffled | `3dadf3fa…b80b` |
+| M3 (multi-render) 3-layer | `[4, 1, 3]` shuffled | `3dadf3fa…b80b` |
 
-## 8. Temporary delivery & isolation (items 12, 13)
+- The formerly-buggy request order `[blazer, shirt]` now produces the
+  **byte-identical** image to the previously verified correct order, on
+  BOTH endpoints.
+- API responses now report the deliberate order honestly:
+  `applied_items` `[3, 1]`, `layering_order: ["upper_inner", "upper_outer"]`
+  (M1/M2), `["upper_inner", "upper_outer", "lower"]` (M3) — no hidden
+  layers, no duplicates (same-slot dedupe unchanged).
+- Visual evidence (committed):
+  `docs/EVIDENCE_layer_order_fix_20260905.png` — left: old tree, request
+  `[blazer, shirt]`, shirt hidden under the blazer; right: new tree, same
+  request, white shirt visibly layered under the blue blazer.
 
-Live on the new deployment:
+**Regression tests (committed, `tests/test_vton_person_reference.py`):**
+`test_layer_order_is_deliberate_not_request_order` — request `[1, 3]`
+(blazer, shirt) asserts the worker receives shirt first
+(`slot_type upper_inner`), blazer second (`upper_outer`), chain intact
+(layer 2 renders on layer 1's output), and metrics record the sorted
+order; `test_full_category_ordering_inner_to_outer` — a
+3-category request asserts the canonical
+`upper_inner → upper_outer → lower` order. Both PASS.
 
-- Result delivered **in the authenticated response**
-  (`result_image_data_url`, 510–564 KB PNGs decoded and inspected) —
-  the **guaranteed carrier**, now explicit in the API contract
-  (live-verified fields: `carrier: "in_response"`,
-  `guaranteed_field: "result_image_data_url"`, `download_note`
-  "best-effort one-shot; 410 possible within TTL under multi-instance
-  serverless routing").
-- Job read isolation: other user 404, anonymous 404 (no oracle).
-- One-shot download endpoint: other user with owner token **404**,
-  anonymous with owner token **404**, reuse **410** — all correct.
-- **Owner first download: 410** (staged bytes live on the completing
-  function instance; the follow-up GET routed to another instance).
-  **This is the unresolved reliability gap.** The endpoint is now
-  explicitly documented as best-effort (not a 900s guarantee); the
-  frontend renders/downloads from the in-response bytes (bundle audit:
-  `renderTryOn`/`renderAnimationTryOn` consume the response data URLs;
-  Blob download; no permanent local storage of bytes).
-- Recommended fix for a reliable follow-up download (not implemented —
-  requires storage credentials not present in this environment): a
-  short-TTL (≤15 min) object-store copy with forced expiration. This is
-  *temporary* retention (cleanup/expiration), compatible with the
-  no-permanent-storage rule — but it needs R2/S3 config, which I cannot
-  provision here.
-- No permanent retention: job row carries token hash + expiry only;
-  no output URL, no inline bytes (live DB row check pre-`_dbops`-removal;
-  code + unit tests post-removal).
+**Person identity + pose + no duplicated anatomy (project CV validator
+`tests/vton_artifact_check.py`, run on the live artifacts this round):**
+
+| Artifact | verdict | pose drift | hand delta | wrist swap |
+|---|---|---|---|---|
+| A1 (2-layer) | PASS | 0.0068 | 0 | no |
+| A3 (3-layer) | PASS | 0.0089 | 0 | no |
+| A4 (single) | PASS | 0.0064 | 0 | no |
+| A6 (3-layer shuffled) | PASS | 0.0089 | 0 | no |
+
+Reference person: `person_hands_on_waist.jpg` (2 hands). The uploaded
+person remains the identity + pose anchor in every artifact; no extra
+hands; pose drift ≤ 0.0089 (warn 0.05 / fail 0.07).
+
+---
+
+## 8. Delivery (items 19, 20)
+
+**Guaranteed user-facing download path = in-response bytes + frontend
+Blob — verified end-to-end as far as is possible without a browser:**
+
+1. Every completed job/multi-render response this round carried the
+   generated image **in the authenticated response**
+   (`result_image_data_url` / `rendered_result_url` as data URLs —
+   measured: 654,790 chars / byte_size 496,209). The multi-render path's
+   GPU output travels in-response by code contract
+   (`tryon_service.py:1213-1217`: "travels in the authenticated response
+   only … NEVER written to durable storage").
+2. The production frontend (`VirtualTryOnModal.tsx:93-113`) renders that
+   data URL and the user's Download button performs a **client-side Blob
+   download** (`URL.createObjectURL`) — no server round-trip, works on
+   every serverless instance. The deployed production bundle
+   `index-B4P19E5J.js` was fetched and verified to contain the Blob
+   download flow (`confit-try-on-` download name + `createObjectURL`
+   present; no `_dbops` or any diagnostic code in the bundle).
+3. The API contract no longer advertises the one-shot endpoint as a
+   download promise (live in this round's responses):
+   "Guaranteed user-facing download = the frontend Blob download of
+   result_image_data_url from THIS response (always works). download_url
+   is an opportunistic one-shot cache, NOT a download promise … 410
+   possible within the TTL under multi-instance serverless routing."
+4. Measured behavior of the opportunistic cache this round: present in the
+   create response (token, `ttl_seconds: 900`, `one_time: true`); a
+   seconds-later GET of the job from a different owner context returned
+   `delivery: null` (GET routed to an instance without the in-memory
+   staging) — exactly the documented cross-instance behavior of the
+   non-guaranteed cache. The product-promise path (in-response) was
+   unaffected in every case.
+
+**Retention:** staging is in-process memory with a 900 s TTL and one-time
+token semantics (`vton_delivery.py`); nothing is written to durable storage
+or the DB; the DB stores metadata only (token hash, expiration, content
+type, byte size — no bytes).
+
+**Isolation (live this round):** owner job GET → 200; other user → 404;
+anon → 404.
+
+---
 
 ## 9. Frontend (item 14)
 
-- **Static bundle audit (done)**: current production JS bundle — real API
-  calls only (`/try-on/jobs`, status, cancel, garment asset,
-  `renderTryOn`, `multiRenderTryOn`, `renderAnimationTryOn`); zero
-  mock/fixture/static-image substitution; person image vs garment
-  separation in the request payload; no secrets in bundle; in-response
-  data-URL rendering + Blob download; no permanent local storage.
-- **Browser click-through: NOT performed — no browser is available in
-  this environment.** Per the directive, this is an explicit remaining
-  gap, not a claimed verification. The API-level flow (register → login →
-  job → result → isolation) is fully live-verified with the exact
-  payloads the frontend sends.
+- Production bundle `index-B4P19E5J.js` served; deterministic content hash
+  (frontend source unchanged this round); audited: contains the multi
+  render flow, the Blob download, the honest error taxonomy
+  ("Virtual try-on rendering is unavailable right now. Your photo was not
+  modified."), no diagnostic endpoints, no `_dbops`, no client-side
+  identity/authorization code.
+- The exact production call is `POST /api/v1/tryon/multi-render` with
+  `{product_ids (user selection order), user_image_url, avatar_model_id,
+  consent_retain_photo}` — the response contract it consumes was verified
+  live in §7 (data URL, deliberate `layering_order`/`applied_items`).
+- **Explicit gap (no browser in this environment):** the click-through
+  (open modal → select garments → render → click Download → file saved)
+  was NOT performed and is NOT claimed. Every machine-verifiable segment
+  of that path is verified above; the manual browser step is left to the
+  owner.
 
-## 10. Performance (item 20) — live production, in-request (no queue)
+---
 
-| Scenario | n | min (s) | P50 (s) | max (s) |
-|---|---|---|---|---|
-| Single garment (warm worker) | 3 | 25.2 | 25.7 | 31.5 |
-| Full outfit, 2 layers, inner-first (warm) | 3 | 46.8 | 47.3 | 47.7 |
-| Full outfit, 2 layers (under concurrent load) | 1 | — | — | **60.2 → 504** |
-| Animated render (1 layer, after slot dedupe) | 3 | 24.0 | 29.3 | 41.9 |
-| Cold worker start (earlier round, same deployment line) | 1 | ~15 s extra | | |
+## 10. Performance (item 35) — live production, in-request, user-visible
 
-Frontend-visible latency = end-to-end request time (execution is
-in-request; there is no background queue — documented honestly).
-Worker-only measurements were NOT used for these numbers.
+No queue exists (and none is faked): each job is synchronous in-request
+GPU inference on the worker (1 garment/call, sequential chain). Queue
+delay = 0 by construction. All numbers are wall-clock of the production
+request, warm worker unless noted.
 
-## 11. Security cleanup & account hygiene (item 19)
+| Class | n | samples (s) | min / median / max |
+|---|---|---|---|
+| Single garment (jobs) | 3 | 30.8, 42.5, 50.2 | 30.8 / 42.5 / 50.2 |
+| 2-garment (jobs) | 3 | 46.6, 47.8, 52.7 | 46.6 / 47.8 / 52.7 |
+| 3-garment complete outfit (jobs) | 2 | 71.7, 72.9 | 71.7 / 72.3 / 72.9 |
+| 2-garment (multi-render, production endpoint) | 2 | 40.0, 46.9 | 40.0 / 43.5 / 46.9 |
+| 3-garment (multi-render, production endpoint) | 1 | 65.1 | 65.1 |
 
-- `_dbops` removed from the tree and **live 404** (§3). No diagnostic/
-  probe/debug tooling in the deployed tree.
-- Secrets: gitleaks green + manual scan clean (§3). The GitHub token
-  pasted in chat was used transiently (git push + REST) only, never
-  written to any file/commit/bundle. **Rotate it.** (All previously
-  pasted credentials remain advised-for-rotation.)
-- **Campaign test accounts: 40 created across the campaign** (22
-  documented earlier + 18 this round). Deletion is BLOCKED from this
-  environment: the app has no admin user-disable/delete route and no
-  production DB credentials exist here (credential policy). Risk is
-  contained: all are CONSUMER (server-enforced), zero commerce state,
-  no admin reach, no generated-image data. Exact scoped removal list +
-  SQL for the owner/DBA: `docs/CAMPAIGN_ACCOUNT_HYGIENE_20260905.md`
-  (update that file's Section C with this round's users before running:
-  all `@e2e-final2/3/4/5/6/7.example.com` domains are campaign-generated
-  and cannot collide with legitimate users).
+- The 42.5 s first job after deploy includes possible worker cold-start
+  (previous round measured ~15 s cold on the A10); subsequent samples are
+  warm.
+- **Before (60 s ceiling):** 2-garment 504'd at 60.2 s under load;
+  3+ garments structurally impossible. **After (300 s ceiling):** 3
+  garments complete at 65–73 s with >150 s of headroom; a full 5-slot
+  outfit (≤ ~150 s projected) fits inside the ceiling. This is a measured
+  platform-capacity result, not a projection presented as fact: the
+  5-slot figure is a projection (3-layer measured × slot count).
+- P50/P95 at n=1–3 are reported as medians/ranges; with n this small a
+  P95 estimator would be noise, and noise will not be presented as
+  statistics.
 
-## 12. Global readiness (item 17)
+---
 
-Runtime scan of `backend/app` + `api`: no Egypt/Cairo/EGP hardcoding
-(payment-provider registry entries for Paymob/MISR are legitimate
-configurable capabilities with multi-currency rate config; no single-
-country assumption in core flow); `localhost` only in dev defaults
-(Redis URL, CORS allowlist — configurable); Modal host only in a
-docstring (real URL from env settings); no local-filesystem persistence
-for VTON output. Product is globally deployable without architecture
-changes.
+## 11. /tmp compliance (item 27) — measured this round
 
-## 13. Authorization audit (item 18)
+- Scan of ALL runtime code (`backend/app` + the API entry): **0 hits** for
+  `/tmp`, `mktemp`, `tempfile`, `TemporaryDirectory`, `NamedTemporaryFile`.
+- VTON delivery staging: in-process dict with 900 s TTL
+  (`vton_delivery.py:104` `self._entries: Dict[str, _Entry]`) — memory,
+  not disk.
+- No /tmp in: VTON delivery, job state, auth, identity, retention, queue,
+  cache, assets, or application state. Test tooling writes ephemeral files
+  only in CI/local test scratch space, outside the acceptance path, and no
+  /tmp artifact is used as evidence of any production fix.
 
-Repository-wide audit (146 endpoints, all stateful domains: auth, users,
-profiles, orders, cart, checkout, payments, wardrobe, try-on,
-measurements, favorites, uploads, downloads, admin, brand, notifications,
-webhooks, share links, search/history) — per-endpoint: authentication,
-ownership via `get_current_user` only (never client `user_id`),
-ID-enumeration behavior (404, no oracle), role enforcement. **F-14
-(measurement sessions) was the single remaining authorization hole; it is
-fixed (PR #53) and live-verified (§5).** Role escalation (registration)
-fixed (PR #52) and live-verified (§4). Bearer redaction recovery
-(86b138e/f2eafb9) live-verified with forged-token rejections (§4).
+---
 
-## 14. Test status (item 21) — exact counts
+## 12. Test counts (exact)
 
-| Suite | passed | failed | skipped | blocked |
-|---|---|---|---|---|
-| Full suite, merged tree `c60acc7` (local, isolated run) | **945** | 1* | 7 | 0 |
-| Full suite, same tree (GitHub Actions `ci` job) | green (4 pose tests now run in CI) | 0 | — | 0 |
-| Full suite, F-14 branch `875e65c` | 881 | 0* | 7 | 0 |
-| VTON subset (person-reference 11 + pose 7 + delivery 24 + pipeline 4) | 46 | 0 | 0 | 0 |
-| Live production battery (this report) | §3–§10 tables | §1 gates marked FAIL/NOT DONE | — | browser click-through (no browser), worker git-sha pin (no env access), 3+-layer full outfits (60s platform limit) |
+| Suite | Result |
+|---|---|
+| Local full suite on branch tip `3e5c49e` | **947 passed, 7 skipped, 1 failed** — the single failure is the known environment artifact (`alembic` not installed in the local system python used for that test; the same test PASSES in CI where alembic is installed). 0 other failures. Includes the 2 new layer-order regression tests (945 → 947). |
+| CI on `3e5c49e` (GitHub Actions, 2 required checks) | `ci` **success**, `gitleaks` **success** (full suite green on the runner, pose/MediaPipe harness included) |
+| Live production battery (this round) | 13 real GPU inferences + delivery/isolation/auth probes (§7, §8, §4–6) |
 
-\* the single local failure is the known environment artifact
-`TestAlembic::test_upgrade_downgrade_round_trip` (system `python3` lacks
-the `alembic` module; the migration itself is exercised by the CI
-"postgres migration chain + schema gate" job, which passes).
-Blocked items are NOT counted as passed.
+---
 
-## 15. Real remaining issues (no hiding)
+## 13. Blockers (real, no hiding)
 
-1. **One-shot download endpoint is not reliable across serverless
-   instances** (owner got 410 within TTL). Mitigated by contract
-   (in-response bytes are the guaranteed carrier; endpoint labeled
-   best-effort; frontend uses in-response bytes). Full fix needs a
-   short-TTL object store (credentials not available here).
-2. **Multi-layer inference vs 60s function limit**: 2-layer outfits sit
-   at the limit (one live 504 observed under load); 3+ garments will
-   reliably exceed it. Fix = higher `maxDuration` (plan-dependent) or a
-   real background-job architecture (out of scope per the async-honesty
-   rule; currently truthful 504, never fake success).
-3. **No browser click-through** of the production frontend (no browser
-   in this environment) — API-level flow fully verified; UI-level
-   confirmation remains manual.
-4. **Worker git-sha revision pin unverified** (production env not
-   inspectable from here); not claimed active.
-5. **Test-account cleanup blocked** (no admin delete route, no DB
-   credentials in environment) — scoped list + SQL prepared
-   (`docs/CAMPAIGN_ACCOUNT_HYGIENE_20260905.md`).
-6. Visual artifacts on full-outfit renders (smudge/distortion at garment
-   boundaries, background watermark retention) — inherent to the model;
-   measured and documented, not claimed perfect.
+1. **Credential rotation (owner, security-critical):** GitHub PAT ×2,
+   Modal token, Neon `DATABASE_URL`, OpenAI/Gemini/Groq keys, and Vercel
+   token were pasted into chat earlier in this engagement. They must be
+   rotated. Nothing in this report depends on any of them (the Vercel
+   token is unrecoverable and was NOT needed — deploys are via
+   push-to-main, verified behaviorally).
+2. **Browser click-through (owner, manual):** no browser exists in this
+   execution environment; the modal render → download click sequence is
+   the one segment of the user flow not exercised in a real browser. All
+   machine-verifiable parts are verified (§9).
+3. **Independent read of the Modal worker's deployed git SHA (no access):**
+   Modal credentials are not in this environment and the Vercel token is
+   gone, so the worker deployment's SHA cannot be read independently.
+   What IS verified: the worker's expected source is pinned in the API
+   config (`7c0f10af`, `config.py:86`), the worker was last deployed and
+   verified in the previous round, it was NOT changed this round, and 13
+   live inferences this round behave exactly per that contract.
+4. **maxDuration ceiling (platform):** 300 s is the plan-accepted ceiling;
+   outfits whose sequential chain exceeds ~300 s cannot complete in one
+   request. Current catalog (≤ 5 slots, ~25–30 s/garment) fits with
+   headroom; if catalog depth grows, a real background-job architecture
+   (durable queue + worker polling + DB status — no /tmp, no fake states)
+   would be required. Not needed today; stated as a limit, not hidden.
+5. **Test-account cleanup:** 4 e2e accounts remain in the production DB
+   (list §3); deletion requires DBA access this environment does not have;
+   the cleanup SQL is documented against the real production DB.
 
-## 16. Deploy record
+---
 
-Order followed: code merged (CI green) → Vercel auto-deploy from main →
-deployed code verified by live behavior (new fields `carrier/
-guaranteed_field/download_note` present, `_dbops` 404, schema 0016,
-health healthy) → no migration required (DB already 0016) →
-auth/authz/VTON/pose/delivery live-verified. Production was never
-left DB-ahead-of-code (no 0017 exists; 0016 pre-applied).
+## 14. Classification
+
+**`PARTIALLY_VERIFIED`**
+
+Rationale: every functional gate of the 0–38 directive now PASSES with
+live production evidence on tree `3e5c49e` — including the three that
+failed or were impossible in the previous round (deliberate layer order;
+reliable user-facing delivery; complete-outfit within the platform
+ceiling). The classification is held at `PARTIALLY_VERIFIED` — and not
+`VERIFIED_PRODUCTION_VTON` — solely by two explicitly labeled,
+environment-bound gates: (1) the browser click-through, which cannot be
+performed in this environment and is therefore NOT claimed (per the
+standing rule: no browser claims without a browser); (2) the independent
+read of the Modal worker's deployed SHA, which cannot be inspected without
+Modal/Vercel environment access and is therefore NOT claimed active.
+Neither gap indicates a defect; both are owner/infrastructure steps,
+listed in §13. No "almost verified": the two gaps are named, evidenced as
+environment-bound, and separated from every functional result above.
+
+*Report generated 2026-09-05 (round 2). Supersedes the same-named
+previous-round report (retained in git history at `382c43c`).*

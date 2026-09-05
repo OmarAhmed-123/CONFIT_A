@@ -57,6 +57,16 @@ MAX_IMAGE_DIMENSION = 4096
 MIN_IMAGE_BYTES = 100
 
 
+# tryon_jobs.model_used is VARCHAR(50); worker model strings are longer.
+_MODEL_USED_COLUMN_WIDTH = 50
+
+
+def _clamp_model_used(value) -> str:
+    """Clamp a worker-reported model string to the DB column width."""
+    s = str(value)
+    return s[:_MODEL_USED_COLUMN_WIDTH]
+
+
 class TryOnService:
     def __init__(self, db: Session):
         self.db = db
@@ -591,7 +601,12 @@ class TryOnService:
                 job.delivery_content_type = staged["content_type"]
                 job.completed_at = datetime.now(timezone.utc)
                 if gpu_data.get("model_used"):
-                    job.model_used = str(gpu_data["model_used"])[:100]
+                    # tryon_jobs.model_used is VARCHAR(50) — clamp to the
+                    # column width. Production incident 2026-09-05: the
+                    # worker's 66-char model string was truncated to 100,
+                    # the commit failed with 22001 (value too long) and the
+                    # completed job 500'd AFTER successful GPU inference.
+                    job.model_used = _clamp_model_used(gpu_data["model_used"])
                 job.metrics_json = json.dumps(gpu_data.get("quality_audit") or gpu_data.get("verify") or {})
                 self.db.commit()
                 self.db.refresh(job)

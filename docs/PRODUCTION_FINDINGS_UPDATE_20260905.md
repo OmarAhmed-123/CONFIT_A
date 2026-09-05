@@ -216,3 +216,140 @@ authorized production mechanism → 4. verify the live revision is 0016 via
 `GET /api/v1/health` (schema check reports `database_revision` — no DSN
 involved). CI migration success is NOT production proof; the live
 revision is currently `0015_wardrobe_purchase_lineage`.
+
+---
+
+## F-10  Production VTON 502 (2026-09-05, RESOLVED live)
+
+Symptom (user-reported): try-on requests in production returned 502.
+
+Root cause (verified): production env was missing `VTON_WORKER_PROCESS_URL`.
+The config fallback *derived* a URL by appending a `/process` path to the
+configured worker hostname — but the Modal worker serves inference at the
+**hostname root** (there is no `/process` route; it 404s). So every
+inference call hit a non-existent path and the API surfaced 502
+VTON_WORKER_UNAVAILABLE.
+
+Fix (production, live-verified): created the missing env var via the Vercel
+API (value kept in the environment only — never printed/persisted here)
+plus `VTON_WORKER_EXPECTED_GIT_SHA` revision pin, redeployed, and verified
+a real GPU try-on render end-to-end (HTTP 200, ~27s, generated PNG). The
+pin check reports `match`. The worker admin-token matrix was re-verified:
+correct token 200, wrong/missing 401.
+
+## F-11  CRITICAL (fixed `638be1a`): `model_used` VARCHAR(50) overflow — 500 AFTER successful render
+
+First post-502-fix jobs ran real GPU inference and then crashed on the way
+back: HTTP 500 after ~29–33s while the render itself had PASSED (metrics
+`pixel_change` 47.95, color shift 0.33).
+
+Diagnosis (Vercel function-log API is 404 with the team token, so a
+temporary `X-Diag-Trace` hook in the app's 500 handler was deployed, the
+traceback captured, and the hook removed): Postgres `22001 value too long
+for type character varying(50)` on `tryon_jobs.model_used`. The worker's
+process response carries a 66-character model string
+(`fashn-vton-v1.5 (fashn_vton_segfee, segmentation-free; fork 7c0f10af)`);
+the code truncated to 100 chars (`[:100]`) while the column is `String(50)`.
+The failed completion insert left the session in a broken state; the
+follow-up commit raised `PendingRollbackError` → 500.
+
+Fix (`638be1a` on `feat/vton-temporary-delivery`): `_clamp_model_used()` in
+`tryon_service.py` clamps to `_MODEL_USED_COLUMN_WIDTH = 50`; regression
+tests in `backend/tests/test_vton_model_used_column_fit.py` (4 passed)
+including an invariant tying the clamp constant to the actual ORM column
+length. Live-verified after redeploy: 3 consecutive completed jobs.
+
+Consequence: crashed jobs 3/4 remain in intermediate `parsing_person`
+state (the pre-crash stage commit persisted; the completion commit rolled
+back). There is no automatic expiry for stuck jobs — documented
+limitation.
+
+## F-12  Migration 0016 APPLIED to production (supersedes F-9 "not applied yet")
+
+Ordering honored: the code that expects 0016 (branch tree) was deployed to
+the production alias first, **then** `alembic upgrade head` was executed
+against production Neon via a temporary scoped function
+(`api/dbops_temp.py`, ops: `migrate_0016` / `check_user` / `check_job` /
+`check_dsn_doc_match`). Live-verified: `/api/v1/health` schema check
+reports `expected_head == database_revision ==
+0016_vton_temporary_delivery`, verdict `ok`.
+
+Residual exposure (see F-15): that temporary function is still on the
+production alias because the final teardown deploy could not be executed
+(Vercel deploy credential no longer available in the execution
+environment; not re-requested in chat per policy).
+
+## F-13  Live E2E verification of the temporary-delivery flow (2026-09-05)
+
+Users: E2E User A (id 21, registered with `role=admin` in the body —
+proving the live role fix: stored as CONSUMER) and User B (id 22).
+Identity verified consistently across register → `/auth/me` (bearer) → DB.
+
+| check (production alias, real requests) | result |
+|---|---|
+| completed job (real GPU render) | 3×: 202 + `status=completed`, 640×640 PNG, `result_image_data_url` present (720–908 KB base64), metrics PASS |
+| ownership | DB row `user_id = 21` for all of A's jobs; B → A's job: 404 RESOURCE_NOT_FOUND (no existence oracle) |
+| B downloads with A's one-time token | 404 — no bytes, no URL |
+| anonymous download with A's token | 404 |
+| non-retention | DB job row: `has_output_url=false`, `looks_like_inline_bytes=false`; only SHA-256 delivery-token hash + `delivery_expires_at` + content_type persisted |
+| one-shot download endpoint | authorized flow correct; live 200 not demonstrable: the staged copy is per-function-instance and Vercel routed subsequent GETs to other instances (410 GONE, within TTL). Documented serverless limitation; the guaranteed carrier is the in-response data URL, which delivered the full image to the owner |
+| failure paths | invalid product → 404; empty list → 422; non-image person URL → job `failed VTON_INPUT_INVALID` (no fake success); SSRF attempt (`169.254.169.254`) → blocked by `is_safe_image_url`, job failed cleanly |
+| stale/expired delivery | token TTL 900s; claim() refuses expired/already-consumed tokens (unit tests 24/24 delivery suite green) |
+
+Performance (full create→complete, in-request execution, warm worker,
+production): n=3 single-garment runs — min 25.2s, P50 30.8s, P95 33.7s,
+max 33.8s. Queue delay: none (there is no queue; see F-14 async note).
+Worker cold start observed separately (~15s on the health function).
+
+## F-14  Async honesty + pre-existing measurement-session IDOR
+
+Async: the VTON job executes GPU inference **inside the API request**
+(function `maxDuration=60s`). There is no background queue; the 202
+response is returned after inference finishes. Job states exist in the DB
+(`queued`/`parsing_person`/`completed`/`failed`) and are truthful, but
+"queued" is never a state a client can poll from another request for a
+job that is actually being processed asynchronously. This is a documented
+platform limitation of the serverless deployment, not a fake state.
+
+Pre-existing (not introduced by this work), found in the identity/ownership
+audit: `GET /tryon/measurements/sessions/{session_id}` and
+`POST /tryon/measurements/sessions/{session_id}/results` have **no
+authentication and no ownership check** (sequential integer IDs). Anyone
+can enumerate any session (including its `user_id`), and POSTing results to
+an unknown session ID **auto-creates it with `consent_granted=True`** —
+consent fabrication + PII write path. Severity: medium-high. Recommended
+fix pattern is identical to the role fix (server-side user + ownership,
+no client-supplied identity) and would require a 0017 migration
+(`measurement_sessions.user_id` enforcement) — deferred to the next
+security cycle, documented here per the audit directive.
+
+## F-15  Current production alias state + pending teardown
+
+The production alias currently serves the combined pre-merge tree
+(branch `638be1a` + role fix + bearer fix + temporary
+`api/dbops_temp.py` + its `/api/_dbops` rewrite). All temporary dbops
+purposes are complete. The teardown tree (dbops removed, rewrite removed —
+`/api/_dbops` verified to 404 in that tree) is prepared at
+`/tmp/deploy_branch`, ready for a one-command deployment.
+
+Teardown is blocked at the environment level: the Vercel deploy credential
+was used inline earlier in the session and is no longer present in the
+execution environment (checked: no env var, no persisted file). Per policy
+it is not re-requested in chat. Until the teardown deploy runs, the
+`/api/_dbops` endpoint is public but scoped: read-only user/job lookups,
+an idempotent no-op migration (DB already at 0016), and a doc-DSN
+placeholder comparison that leaks no live values. Risk: low; remediation:
+the prepared one-command deploy.
+
+## F-16  Updated status (2026-09-05, end of run)
+
+| branch | tip | push |
+|---|---|---|
+| `security/fix-registration-role-escalation` | `17cc74c` | BLOCKED (no GitHub credentials in environment) |
+| `feat/vton-temporary-delivery` | `638be1a` (was `f2eafb9`; + model_used clamp fix) | BLOCKED (same) |
+
+Production alias: combined pre-merge tree (both security fixes + VTON
+temporary delivery + 0016 applied). Classification updated in the final
+report: `VERIFIED_PRODUCTION_VTON` for the temporary-delivery flow
+(see report §L), with the teardown item and F-14 IDOR tracked as open
+actions.

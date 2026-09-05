@@ -9,6 +9,7 @@ CONFIT VTON Service - Production Hardened
 - Observability with structured logging
 - Slot-aware layering via SlotLayeringEngine
 """
+import hmac
 import json
 import uuid
 import os
@@ -25,9 +26,15 @@ from backend.app.repositories.tryon_repository import TryOnRepository
 from backend.app.repositories.profile_repository import ProfileRepository
 from backend.app.providers.tryon_provider import VirtualTryOnProvider
 from backend.app.services.styling.slot_layering_engine import SlotLayeringEngine
-from backend.app.services.storage_service import require_production_storage
+from backend.app.services import vton_delivery
+from backend.app.services.vton_delivery import temporary_image_store
 from backend.app.core.config import settings
-from backend.app.core.exceptions import ResourceNotFoundError, ValidationDomainError, AuthorizationError
+from backend.app.core.exceptions import (
+    ResourceNotFoundError,
+    ValidationDomainError,
+    AuthorizationError,
+    DeliveryGoneError,
+)
 from backend.app.core.logging import logger
 
 
@@ -70,66 +77,6 @@ class TryOnService:
             or ""
         )
         return worker_url, admin_token
-
-    def _persist_vton_output(self, rendered_data_url: str, job_id: str) -> str:
-        """Persist a worker-rendered try-on image to durable storage.
-
-        The GPU worker returns a base64 ``data:image/...`` payload. Storing that
-        blob verbatim in the job / session row (as a ``Text`` ``output_image_url``
-        or ``rendered_result_url``) bloats the database, is not a durable object
-        reference, and cannot be authorised or garbage-collected by storage key.
-        This persists the decoded bytes through CONFIT's existing storage
-        abstraction (local in development, S3/R2 in production) so the row holds
-        a durable, backend-owned reference and the ``generate -> persist ->
-        retrieve -> authorise`` contract of the VTON path holds.
-
-        Behaviour, matching the storage contract (§20 "do not introduce a second
-        storage abstraction"):
-
-        * ``data:image/...`` payloads are decoded and written to storage; the
-          returned value is the backend-owned URL (``/uploads/vton/<job>.png``
-          for local, the S3/R2 public URL in production).
-        * Any other value (external ``http(s)`` URL already hosted by a CDN, a
-          relative path the caller authored) is returned unchanged — it is NOT
-          re-hosted, so ``owns_url`` stays False and the owning/authorisation
-          layer must treat it as external.
-        * In production, a non-durable or unwritable backend raises
-          ``FeatureNotConfiguredError`` (HTTP 501) *before* any bytes are
-          accepted — honest fail-closed, never a URL to a file that will not
-          exist on the next request.
-        * In development the local backend writes under ``STORAGE_LOCAL_DIR``
-          and returns a mounted ``/uploads/...`` URL.
-
-        The decoded image is validated only for decodability; the worker already
-        applied the pixel-change / no-echo checks before emitting it.
-        """
-        if not rendered_data_url:
-            raise ValueError("VTON_OUTPUT_INVALID: worker returned no rendered image to persist")
-
-        # Not a base64 payload we re-host: leave external / caller-authored URLs alone.
-        if not rendered_data_url.startswith("data:image/"):
-            return rendered_data_url
-
-        import base64 as _b64
-
-        try:
-            header, b64_data = rendered_data_url.split(",", 1)
-            raw = _b64.b64decode(b64_data)
-        except Exception as exc:  # noqa: BLE001 - normalise to a stable error code
-            raise ValueError(f"VTON_OUTPUT_INVALID: cannot decode rendered image: {exc}") from exc
-
-        mime = (header.split(";")[0].split(":", 1)[-1] or "image/png").strip()
-        ext = {"image/png": "png", "image/jpeg": "jpg", "image/webp": "webp"}.get(mime, "png")
-
-        # Fail-closed when there is no durable backend (production) before any bytes go in.
-        storage = require_production_storage("vton_output")
-        key = f"vton/{job_id}.{ext}"
-        try:
-            return storage.store(key, raw)
-        except Exception as exc:  # noqa: BLE001 - surfaced as a stable VTON error
-            raise RuntimeError(
-                f"VTON_STORAGE_FAILURE: could not persist try-on output: {exc}"
-            ) from exc
 
     async def _fetch_image_as_base64(self, url: str) -> Optional[str]:
         """
@@ -571,6 +518,13 @@ class TryOnService:
         if not valid_products:
             raise ResourceNotFoundError("Products", str(product_ids))
 
+        # One-time delivery capability for this job, issued at creation. For
+        # guest (anonymous) submitters it is the ONLY handle that binds them
+        # to their job across serverless instances (status polling); for user
+        # jobs ownership is enforced by identity. The plaintext token is
+        # returned in the job response below; only its SHA-256 hash persists.
+        delivery_token, delivery_token_hash = temporary_image_store.new_delivery_credentials()
+
         job = TryOnJob(
             job_id=job_id,
             user_id=user_id,
@@ -583,6 +537,7 @@ class TryOnService:
                 [{"id": p.id, "title": p.title, "category": p.category.name if p.category else "Garment"} for p in valid_products]
             ),
             model_used="pending (no render yet)",
+            delivery_token_hash=delivery_token_hash,
             metrics_json=json.dumps({"queued_at": str(datetime.now(timezone.utc))})
         )
         self.db.add(job)
@@ -621,17 +576,38 @@ class TryOnService:
                 job.status = TryOnJobStatus.COMPLETED
                 job.progress_pct = 100
                 job.current_stage = "harmonized_and_verified"
-                # Persist to durable storage so the row holds a backend-owned
-                # reference, not a multi-MB base64 blob. Honest fail-closed in
-                # production when no durable backend is configured.
-                job.output_image_url = self._persist_vton_output(rendered, job_id)
+                # TEMPORARY (non-persistent) delivery — product requirement:
+                # the generated try-on image is NEVER stored durably (no
+                # S3/R2, no local disk, no image bytes or object keys in the
+                # database). It is delivered in THIS authenticated response
+                # (result_image_data_url — the guaranteed vehicle) and staged
+                # in a process-local TTL cache for the one-shot, owner-only
+                # download endpoint (best effort on serverless). Only the
+                # token hash + expiry are persisted, on the job row.
+                staged = vton_delivery.stage_vton_delivery(job_id, delivery_token_hash, rendered)
+                job.delivery_expires_at = datetime.fromtimestamp(
+                    float(staged["expires_at"]), tz=timezone.utc
+                )
+                job.delivery_content_type = staged["content_type"]
                 job.completed_at = datetime.now(timezone.utc)
                 if gpu_data.get("model_used"):
                     job.model_used = str(gpu_data["model_used"])[:100]
                 job.metrics_json = json.dumps(gpu_data.get("quality_audit") or gpu_data.get("verify") or {})
                 self.db.commit()
                 self.db.refresh(job)
-                return self._format_job(job)
+                return self._format_job(
+                    job,
+                    delivery={
+                        "download_url": f"{settings.API_V1_STR}/try-on/jobs/{job.job_id}/result",
+                        "token": delivery_token,
+                        "expires_at": job.delivery_expires_at,
+                        "content_type": staged["content_type"],
+                        "byte_size": staged["byte_size"],
+                        "ttl_seconds": staged["ttl_seconds"],
+                        "one_time": True,
+                    },
+                    result_image_data_url=rendered,
+                )
 
             except Exception as exc:
                 error_str = str(exc)
@@ -655,11 +631,15 @@ class TryOnService:
                 job.current_stage = "failed"
                 job.error_code = error_code
                 job.error_message = f"GPU Inference Worker Failure: {error_str[:500]}"
+                # Failure path: nothing was staged — there is no artifact to
+                # clean up; the capability token stays available for the
+                # (guest) submitter to observe the failure state.
                 self.db.commit()
                 self.db.refresh(job)
-                return self._format_job(job)
+                return self._format_job(job, delivery=self._delivery_ref(job, delivery_token))
 
-        # No worker configured: honest failure, no fake image
+        # No worker configured: honest failure, no fake image. Nothing was
+        # staged — no artifact exists to clean up.
         job.status = TryOnJobStatus.FAILED
         job.current_stage = "failed"
         job.error_code = "VTON_ENGINE_UNAVAILABLE"
@@ -669,25 +649,72 @@ class TryOnService:
         self.db.commit()
         self.db.refresh(job)
 
-        return self._format_job(job)
+        return self._format_job(job, delivery=self._delivery_ref(job, delivery_token))
 
-    def get_vton_job_status(self, job_id: str) -> Dict[str, Any]:
+    def get_vton_job_status(
+        self,
+        job_id: str,
+        caller_user_id: Optional[int] = None,
+        delivery_token: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Job status with the authorization contract enforced.
+
+        * user job: only the owning user may read it (404 otherwise — no
+          existence leakage);
+        * guest job (anonymous submit): bound by the one-time delivery token,
+          verified non-destructively against the stored hash (works across
+          serverless instances because the hash is in the row).
+
+        The response never re-serves the one-time token or the image bytes —
+        those exist only in the authenticated completion response.
+        """
         job = self.db.query(TryOnJob).filter(TryOnJob.job_id == job_id).first()
         if not job:
             raise ResourceNotFoundError("TryOnJob", job_id)
+        if job.user_id is not None:
+            if job.user_id != caller_user_id:
+                raise ResourceNotFoundError("TryOnJob", job_id)
+        else:
+            provided = (
+                vton_delivery.TemporaryImageStore._token_hash(delivery_token)
+                if delivery_token else ""
+            )
+            if not job.delivery_token_hash or not hmac.compare_digest(
+                provided, job.delivery_token_hash
+            ):
+                raise ResourceNotFoundError("TryOnJob", job_id)
         return self._format_job(job)
 
     def cancel_vton_job(self, job_id: str, user_id: Optional[int] = None) -> Dict[str, Any]:
         job = self.db.query(TryOnJob).filter(TryOnJob.job_id == job_id).first()
         if not job:
             raise ResourceNotFoundError("TryOnJob", job_id)
-        if user_id and job.user_id and job.user_id != user_id:
+        # Fail-closed ownership: a job bound to a user may only be cancelled
+        # by that user (an anonymous caller can never act on a user job).
+        if job.user_id is not None and job.user_id != user_id:
             raise AuthorizationError("Cannot cancel another user's job.")
 
         job.status = TryOnJobStatus.CANCELLED
         job.current_stage = "cancelled"
+        # Explicit cleanup of any staged temporary copy (cleanup on the
+        # failure/cancel path, per the delivery contract).
+        if job.delivery_token_hash:
+            temporary_image_store.purge_by_hash(job.delivery_token_hash, job.job_id)
+            job.delivery_token_hash = None
+            job.delivery_expires_at = None
+            job.delivery_content_type = None
         self.db.commit()
         return {"job_id": job_id, "status": "cancelled"}
+
+    @staticmethod
+    def _is_generated_data_url(value: Optional[str]) -> bool:
+        """True when ``value`` is a GPU-generated image payload (data URL).
+
+        Generated try-on images are delivered temporarily and must never be
+        persisted; pre-existing asset URLs (provider fallbacks) are not
+        generated images and may still be referenced.
+        """
+        return bool(value) and value.startswith("data:image/")
 
     def get_or_create_garment_asset(self, product_id: int) -> Dict[str, Any]:
         asset = self.db.query(GarmentAsset).filter(GarmentAsset.product_id == product_id).first()
@@ -727,8 +754,21 @@ class TryOnService:
             "created_at": new_asset.created_at
         }
 
-    def _format_job(self, job: TryOnJob) -> Dict[str, Any]:
-        return {
+    def _format_job(
+        self,
+        job: TryOnJob,
+        delivery: Optional[Dict[str, Any]] = None,
+        result_image_data_url: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Job payload.
+
+        ``delivery`` (with the one-time token) and ``result_image_data_url``
+        appear ONLY on the authenticated completion response — never on
+        polling or for other callers. Polling sees at most the non-secret
+        expiry metadata, so a stolen token is never re-served from the
+        status endpoint.
+        """
+        out: Dict[str, Any] = {
             "id": job.id,
             "job_id": job.job_id,
             "status": job.status.value if hasattr(job.status, "value") else str(job.status),
@@ -736,12 +776,82 @@ class TryOnService:
             "current_stage": job.current_stage,
             "model_used": job.model_used,
             "output_image_url": job.output_image_url,
+            "delivery_expires_at": job.delivery_expires_at,
             "metrics": json.loads(job.metrics_json) if job.metrics_json else {},
             "error_code": job.error_code,
             "error_message": job.error_message,
             "created_at": job.created_at,
             "completed_at": job.completed_at
         }
+        if delivery is not None:
+            out["delivery"] = delivery
+        if result_image_data_url:
+            out["result_image_data_url"] = result_image_data_url
+        return out
+
+    @staticmethod
+    def _delivery_ref(job: TryOnJob, token: str) -> Dict[str, Any]:
+        """Minimal delivery reference for (failed) job responses: lets the
+        guest submitter keep polling their job; the download stays 410
+        because no image was staged."""
+        return {
+            "download_url": f"{settings.API_V1_STR}/try-on/jobs/{job.job_id}/result",
+            "token": token,
+            "expires_at": job.delivery_expires_at,
+            "content_type": job.delivery_content_type,
+            "one_time": True,
+        }
+
+    def deliver_job_result(
+        self,
+        job_id: str,
+        delivery_token: str,
+        caller_user_id: Optional[int],
+    ) -> Tuple[bytes, str, str]:
+        """One-shot, owner-gated claim of a staged VTON result.
+
+        Authorization contract (fail-closed, no existence leakage):
+          * unknown job            -> 404
+          * other user's job       -> 404 (indistinguishable from unknown)
+          * expired / claimed /    -> 410 GONE (VTON_RESULT_GONE)
+            revoked / not staged
+          * owner + valid token    -> (payload, mime, job_id), entry deleted
+
+        Guest jobs (``user_id IS NULL``) are bound by the one-time token
+        alone: it is a 192-bit capability that exists only in the
+        completion response and is destroyed on first use or TTL expiry.
+        """
+        job = self.db.query(TryOnJob).filter(TryOnJob.job_id == job_id).first()
+        if job is None:
+            raise ResourceNotFoundError("TryOnJob", job_id)
+        if job.user_id is not None and job.user_id != caller_user_id:
+            raise ResourceNotFoundError("TryOnJob", job_id)
+        if not job.delivery_token_hash or not job.delivery_expires_at:
+            raise DeliveryGoneError("never_staged")
+        expires = job.delivery_expires_at
+        if expires.tzinfo is None:  # SQLite returns naive datetimes; treat as UTC
+            expires = expires.replace(tzinfo=timezone.utc)
+        if expires <= datetime.now(timezone.utc):
+            raise DeliveryGoneError("expired")
+        got = temporary_image_store.claim(delivery_token or "", job_id)
+        if got is None:
+            raise DeliveryGoneError("expired_or_delivered")
+        payload, mime = got
+        return payload, mime, job.job_id
+
+    def revoke_job_result(self, job_id: str, caller_user_id: Optional[int]) -> None:
+        """Explicit owner revocation: delete the staged copy immediately."""
+        job = self.db.query(TryOnJob).filter(TryOnJob.job_id == job_id).first()
+        if job is None:
+            raise ResourceNotFoundError("TryOnJob", job_id)
+        if job.user_id is not None and job.user_id != caller_user_id:
+            raise ResourceNotFoundError("TryOnJob", job_id)
+        if job.delivery_token_hash:
+            temporary_image_store.purge_by_hash(job.delivery_token_hash, job.job_id)
+            job.delivery_token_hash = None
+            job.delivery_expires_at = None
+            job.delivery_content_type = None
+            self.db.commit()
 
     async def execute_multi_garment_tryon(
         self,
@@ -813,7 +923,12 @@ class TryOnService:
                 )
 
                 rendered_url = gpu_data.get("rendered_image_data_url")
-                rendered_ref = self._persist_vton_output(rendered_url, job_id)
+                # TEMPORARY (non-persistent) delivery: the GPU-generated image
+                # travels in the authenticated response only (rendered_result_url
+                # below). It is NEVER written to durable storage or to the
+                # session row (product requirement). Provider-fallback values
+                # reference pre-existing assets, not generated images.
+                rendered_ref = rendered_url
                 vton_result = {
                     "rendered_image_url": rendered_ref,
                     "fit_verdict": gpu_data.get("fit_verdict", "Optimal Garment Fit"),
@@ -865,6 +980,18 @@ class TryOnService:
         total_price = sum(it["price"] for it in applied_items)
         first_product_id = applied_items[0]["product_id"] if applied_items else products[0].id
 
+        # TEMPORARY (non-persistent) delivery: a GPU-generated result (data URL)
+        # is returned in the authenticated response and is NEVER persisted on
+        # the session row — a multi-MB base64 blob in a Text column would be
+        # exactly the permanent database retention the product forbids. Only
+        # pre-existing references (provider-fallback asset, user input) are
+        # recorded on the row.
+        rendered_out = vton_result.get("rendered_image_url")
+        session_rendered_ref = (
+            None if self._is_generated_data_url(rendered_out)
+            else (rendered_out or effective_input_image)
+        )
+
         if existing_session_id:
             session = self.tryon_repo.get_tryon_session(existing_session_id)
             if session:
@@ -872,7 +999,7 @@ class TryOnService:
                 session.user_image_url = effective_input_image
                 session.input_user_image_url = effective_input_image
                 session.garment_image_url = applied_items[0]["image_url"] if applied_items else products[0].thumbnail_url
-                session.rendered_result_url = vton_result.get("rendered_image_url", effective_input_image)
+                session.rendered_result_url = session_rendered_ref
                 session.applied_items_json = json.dumps(applied_items)
                 session.slot_mapping_json = json.dumps(computed_slot_map)
                 session.layering_order_json = json.dumps([it["position"] for it in applied_items])
@@ -885,7 +1012,7 @@ class TryOnService:
                     product_id=first_product_id,
                     input_user_image_url=effective_input_image,
                     garment_image_url=applied_items[0]["image_url"] if applied_items else products[0].thumbnail_url,
-                    rendered_result_url=vton_result.get("rendered_image_url", effective_input_image),
+                    rendered_result_url=session_rendered_ref,
                     applied_items=applied_items,
                     slot_mapping=computed_slot_map,
                     user_id=user_id,
@@ -900,7 +1027,7 @@ class TryOnService:
                 product_id=first_product_id,
                 input_user_image_url=effective_input_image,
                 garment_image_url=applied_items[0]["image_url"] if applied_items else products[0].thumbnail_url,
-                rendered_result_url=vton_result.get("rendered_image_url", effective_input_image),
+                rendered_result_url=session_rendered_ref,
                 applied_items=applied_items,
                 slot_mapping=computed_slot_map,
                 user_id=user_id,
@@ -915,8 +1042,11 @@ class TryOnService:
             "session_id": session.id,
             "status": "completed",
             "user_reference_image": effective_input_image,
-            "rendered_result_url": session.rendered_result_url,
-            "before_after_split_url": session.rendered_result_url,
+            # In-response temporary delivery: for a GPU-generated result this
+            # is the base64 data URL itself (the image travels in this
+            # authenticated response and is not stored anywhere durable).
+            "rendered_result_url": rendered_out or effective_input_image,
+            "before_after_split_url": rendered_out or effective_input_image,
             "applied_items": applied_items,
             "total_price": total_price,
             "fit_confidence_score": session.fit_confidence_score,
@@ -1089,9 +1219,14 @@ class TryOnService:
                 animation_style = "premium_realistic_gpu"
                 logger.info("animated_tryon_real_success", keyframes=len(successful_frames), products=product_ids)
 
-                # Update session with final frame
+                # TEMPORARY (non-persistent) delivery: the generated frames
+                # travel in the authenticated response (keyframes) and are
+                # NEVER persisted on the session row — storing the final
+                # frame's multi-MB base64 blob in a Text column would be
+                # permanent database retention of a generated image, which the
+                # product requirement forbids.
                 if successful_frames:
-                    session.rendered_result_url = successful_frames[-1]["image_url"]
+                    session.rendered_result_url = None
                     self.db.commit()
 
             except Exception as exc:

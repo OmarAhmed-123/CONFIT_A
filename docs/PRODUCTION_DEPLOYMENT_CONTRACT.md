@@ -81,7 +81,9 @@ nobody believes setting them changes behaviour): `PROJECT_NAME`, `PORT`,
    `production-parity`, `frontend`, `gitleaks`.
 2. **Migrate Neon before or together with the deploy** (`alembic upgrade head`)
    — Vercel does not run Alembic; run it from a machine/CI job with
-   `backend/requirements.txt` installed:
+   `backend/requirements.txt` installed. Current head:
+   **`0016_vton_temporary_delivery`** (additive + idempotent: three nullable
+   columns and one non-unique index on `tryon_jobs` — no row rewrites):
    ```bash
    ALEMBIC_DATABASE_URL="$NEON_DSN" python3 -m alembic -c backend/alembic.ini upgrade head
    PYTHONPATH=. python3 -m backend.app.core.schema_gate "$NEON_DSN" --env production   # exit 0 == ok
@@ -113,10 +115,23 @@ nobody believes setting them changes behaviour): `PROJECT_NAME`, `PORT`,
 | Modal container preemption | 5-garment large-input run: container preempted at layer 4 → HTTP 500 `Server has lost track of input` from the Modal edge (not from worker code) | request fails; API maps it to `502 VTON_WORKER_UNAVAILABLE` — never a fake success | client retry; Modal restarts the container automatically |
 | Segmentation fallback on non-photographic input | flat synthetic figure → `engine=humanparsing-otsu-skin-v2-fallback`, `fallback_used=true` (plausibility gate rejected the deep mask); real photo → `rembg-u2net_human_seg`, `fallback_used=false` | masks on illustrations are heuristic; the response says so | none needed — honest reporting is the contract |
 | Live payments | `PAYMENTS_LIVE=true` fails closed (`live_psp_adapter_not_implemented`) — no PSP SDK is integrated | no real card/wallet/BNPL charge can be taken; COD unaffected | integrate a PSP adapter before enabling live mode |
-| Object storage | Vercel FS is ephemeral; until `STORAGE_PROVIDER=s3\|r2` is set uploads return `501 FEATURE_NOT_CONFIGURED` | wardrobe/moodboard uploads disabled in prod | configure S3/R2 (boto3 is in the Vercel manifest) |
+| Object storage | Vercel FS is ephemeral; until `STORAGE_PROVIDER=s3\|r2` is set uploads return `501 FEATURE_NOT_CONFIGURED` | wardrobe/moodboard uploads disabled in prod | configure S3/R2 (boto3 is in the Vercel manifest). **Generated try-on images do NOT need object storage** — they are delivered inline + one-shot download and never persisted (§6) |
 
 ## 6. Things that are deliberately absent
 
+* **No permanent storage of generated try-on images.** By product requirement
+  (2026-09-05) a rendered image is **never** written to PostgreSQL, R2/S3,
+  local disk, the repository, or any durable object/frontend asset. Delivery is
+  (a) the inline `result_image_data_url` in the authenticated completion
+  response, and (b) a best-effort one-shot, owner-only, TTL-bounded download
+  (`GET /tryon/jobs/{job_id}/result?delivery_token=*** backed by a process-local
+  TTL cache. The VTON flow never calls `require_production_storage` — a
+  deployment with **no** object storage still completes try-on jobs (covered by
+  `test_vton_temporary_delivery.py::TestJobDeliveryE2E`). Only three nullable
+  metadata columns are persisted (migration 0016): `delivery_token_hash`
+  (SHA-256 of the one-time token — the token itself is never stored),
+  `delivery_expires_at`, `delivery_content_type`. `tryon_jobs.output_image_url`
+  stays `NULL` for VTON jobs.
 * No Celery task renders try-ons. The **only** renderer is the CatVTON
   pipeline in `services/vton-worker`; unavailability is an honest
   `503 VTON_ENGINE_UNAVAILABLE`, never a fake "completed".

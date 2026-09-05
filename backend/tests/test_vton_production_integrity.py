@@ -185,8 +185,11 @@ class TestVTONJobLifecycle:
         assert res.status_code == 202
         job_id = res.json()["job_id"]
 
-        # Poll job
-        poll = client.get(f"/api/v1/try-on/jobs/{job_id}")
+        # Poll job — guest jobs are bound by their one-time delivery
+        # capability (ownership contract).
+        token = res.json().get("delivery", {}).get("token")
+        assert token, "completion response must carry the delivery capability"
+        poll = client.get("/api/v1/try-on/jobs/" + job_id + "?delivery_token=" + token)
         assert poll.status_code == 200
         assert poll.json()["job_id"] == job_id
         assert poll.json()["status"] == "failed"

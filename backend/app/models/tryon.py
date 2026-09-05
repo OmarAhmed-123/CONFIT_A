@@ -59,7 +59,18 @@ class TryOnJob(Base):
     garment_ids_json = Column(Text, default="[]", nullable=False)
     garment_layers_json = Column(Text, default="[]", nullable=False)
     model_used = Column(String(50), default="unset", nullable=False)
+    # NEVER a stored image reference: generated try-on images are delivered
+    # temporarily (in the authenticated response + one-shot TTL download) and
+    # must not be persisted (product requirement, 2026-09-05). Kept nullable
+    # for schema compatibility; the VTON flow leaves it NULL.
     output_image_url = Column(Text, nullable=True)
+    # Temporary-delivery metadata ONLY (no image bytes, no object keys, no
+    # public URLs): the SHA-256 hash of the one-time delivery token (the
+    # plaintext token exists only in the completion response and the caller's
+    # memory) plus the expiry of the process-local staged copy.
+    delivery_token_hash = Column(String(64), nullable=True, index=True)
+    delivery_expires_at = Column(DateTime, nullable=True)
+    delivery_content_type = Column(String(50), nullable=True)
     metrics_json = Column(Text, default="{}", nullable=False)  # SSIM, LPIPS, execution time
     error_code = Column(String(50), nullable=True)
     error_message = Column(Text, nullable=True)

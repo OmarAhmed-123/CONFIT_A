@@ -254,6 +254,17 @@ class Settings(BaseSettings):
     VTON_WORKER_TIMEOUT_SECONDS: float = 90.0
     VTON_WORKER_HEALTH_TIMEOUT_SECONDS: float = 5.0
     VTON_WORKER_MAX_RETRIES: int = 3
+    # Temporary (NON-persistent) delivery of generated try-on images.
+    # Product requirement (2026-09-05): the generated image is downloadable by
+    # the authenticated requesting user but must NEVER be stored permanently
+    # (no Postgres, no R2/S3, no local disk, no repo/frontend asset). The image
+    # travels in the authenticated completion response (guaranteed vehicle) and
+    # is staged in a process-local TTL cache for the one-shot download endpoint
+    # (best effort on serverless; 410 GONE when the instance no longer holds
+    # it). Only the token hash + expiry are persisted, on the job row.
+    VTON_DELIVERY_TTL_SECONDS: float = 900.0
+    VTON_DELIVERY_MAX_IMAGES: int = 16
+    VTON_DELIVERY_MAX_BYTES: int = 64 * 1024 * 1024
     CHAT_COOLDOWN_MS: int = 600000
 
     # Weather (G2-S5) — disabled by default; never fabricate weather data.

@@ -14,6 +14,25 @@ class TryOnJobCreate(BaseModel):
     consent_retain_photo: bool = False
 
 
+class TryOnJobDeliveryOut(BaseModel):
+    """Temporary-delivery reference — returned ONLY in the authenticated
+    completion response (never on polling, never to non-owners).
+
+    The generated image is not stored durably (product requirement): the
+    guaranteed vehicle is ``result_image_data_url`` on the same response;
+    ``download_url`` + ``token`` back a one-shot, TTL-bounded, process-local
+    download (best effort on serverless — 410 GONE when the instance no
+    longer holds the staged copy).
+    """
+    download_url: str
+    token: str
+    expires_at: Optional[datetime] = None
+    content_type: Optional[str] = None
+    byte_size: Optional[int] = None
+    ttl_seconds: Optional[float] = None
+    one_time: bool = True
+
+
 class TryOnJobOut(BaseModel):
     id: int
     job_id: str
@@ -21,7 +40,14 @@ class TryOnJobOut(BaseModel):
     progress_pct: int
     current_stage: str
     model_used: str
+    # Never a stored image reference: the VTON flow leaves it NULL (generated
+    # images are delivered temporarily and not persisted).
     output_image_url: Optional[str] = None
+    # Guaranteed in-response delivery of the generated image (completion
+    # response only; absent on polling and failure payloads).
+    result_image_data_url: Optional[str] = None
+    delivery: Optional[TryOnJobDeliveryOut] = None
+    delivery_expires_at: Optional[datetime] = None
     metrics: Dict[str, Any] = {}
     error_code: Optional[str] = None
     error_message: Optional[str] = None

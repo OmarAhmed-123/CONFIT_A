@@ -233,9 +233,14 @@ class Settings(BaseSettings):
     # GPU worker (Modal). VTON_WORKER_URL is the /process endpoint. Modal
     # generates one hostname per web endpoint and hash-truncates long labels,
     # so health/readiness cannot always be derived — set them explicitly.
+    # VTON_WORKER_PROCESS_URL overrides the derived /process URL when Modal
+    # exposes the process endpoint at its own hostname root (a label that does
+    # not end in "-process" and that the generic derivation would wrongly append
+    # "/process" to).
     VTON_WORKER_URL: Optional[str] = None
     VTON_WORKER_HEALTH_URL: Optional[str] = None
     VTON_WORKER_READINESS_URL: Optional[str] = None
+    VTON_WORKER_PROCESS_URL: Optional[str] = None
     # Shared secret sent as X-VTON-Admin; must equal the Modal secret
     # `confit-worker-admin-token` (env CONFIT_WORKER_ADMIN_TOKEN inside the
     # worker). Either name is accepted on the API side; VTON_WORKER_ADMIN_TOKEN wins.

@@ -275,6 +275,9 @@ class TryOnService:
         explicit_readiness = (
             getattr(settings, "VTON_WORKER_READINESS_URL", None) or os.environ.get("VTON_WORKER_READINESS_URL") or ""
         ).strip()
+        explicit_process = (
+            getattr(settings, "VTON_WORKER_PROCESS_URL", None) or os.environ.get("VTON_WORKER_PROCESS_URL") or ""
+        ).strip()
 
         if "-process" in worker_url and "/" not in worker_url.split("//", 1)[-1]:
             # Modal per-method hostnames: only the health label is a safe derivation.
@@ -289,10 +292,16 @@ class TryOnService:
                 f"{worker_url}/process", f"{worker_url}/health", f"{worker_url}/readiness"
             )
 
+        # Explicit config always wins for every leg. VTON_WORKER_PROCESS_URL lets
+        # deployments where Modal exposes the process endpoint at its own hostname
+        # root (not a "-process" label, not a "/process" path) override the derived
+        # process_url instead of hitting a 404 on "<url>/process".
         if explicit_health:
             health_url = explicit_health
         if explicit_readiness:
             readiness_url = explicit_readiness
+        if explicit_process:
+            process_url = explicit_process
         return health_url, readiness_url, process_url
 
     async def _call_gpu_worker(

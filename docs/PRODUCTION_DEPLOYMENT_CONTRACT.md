@@ -49,6 +49,7 @@ docs) is refused** — the blocklist is `PUBLICLY_KNOWN_SECRET_VALUES` in `core/
 | `CORS_ORIGINS` | yes | `main.py` | JSON list of the real origins; default is localhost dev ports |
 | `STORAGE_PROVIDER` | recommended `s3` or `r2` | `services/storage_service.py` | with `AWS_S3_BUCKET`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, optional `S3_ENDPOINT_URL`. `boto3` must be in the manifest that installs it. Until configured: wardrobe/moodboard uploads → 501 |
 | `VTON_WORKER_URL` | yes for try-on | `services/tryon_service.py`, `/health/vton-contract` | the Modal **`-process`** URL |
+| `VTON_WORKER_PROCESS_URL` | optional | same | overrides the derived process URL when Modal exposes the process endpoint at its **own hostname root** (a label that does not end in `-process` and that the generic derivation would otherwise wrongly append `/process` to) |
 | `VTON_WORKER_READINESS_URL` | yes for try-on | same | Modal's readiness label is hash-truncated (`…-r-xxxxxx.modal.run`) and **cannot be derived**; without it the health URL is used for readiness |
 | `VTON_WORKER_HEALTH_URL` | optional | same | derived from `-process` → `-health` when unset |
 | `VTON_WORKER_EXPECTED_GIT_SHA` | recommended | `/health/vton-contract` (T4 gate) | the commit `modal deploy` ran from; falls back to Vercel's `VERCEL_GIT_COMMIT_SHA`, i.e. **backend and worker are expected to be deployed from the same commit**. Verdicts: `match` (pass) / `mismatch` / `worker_unknown` / `dirty_deploy` / `no_expected_sha` |

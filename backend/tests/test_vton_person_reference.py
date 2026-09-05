@@ -454,6 +454,30 @@ def test_multi_render_unsupported_slot_rejected_upfront(mock_worker):
     assert mock_worker["process"] == []
 
 
+def test_multi_render_empty_outfit_rejected_without_silent_default(mock_worker):
+    """A request that specifies no garments must NOT silently render a
+    default product (the removed `else [1]` fallback quietly rendered
+    product 1 — a blazer — for any malformed/empty request)."""
+    client = TestClient(app)
+    res = client.post("/api/v1/try-on/multi-render", json={
+        "user_image_url": PERSON})
+    assert res.status_code == 422, res.text
+    assert "VTON_INPUT_INVALID" in res.text
+    assert "no garments specified" in res.text
+    assert mock_worker["process"] == []
+    assert mock_worker["person_fetches"] == 0
+
+
+def test_multi_render_unknown_product_ids_still_404(mock_worker):
+    """Explicit but nonexistent product ids keep their 404 (only the
+    *empty* request changed behavior: 200-with-default -> 422)."""
+    client = TestClient(app)
+    res = client.post("/api/v1/try-on/multi-render", json={
+        "product_ids": [999999], "user_image_url": PERSON})
+    assert res.status_code == 404, res.text
+    assert mock_worker["process"] == []
+
+
 def test_supported_full_outfit_still_renders(mock_worker):
     """The supported complete outfit (tops + outerwear + bottoms) is
     unaffected by the engine-capability guard."""

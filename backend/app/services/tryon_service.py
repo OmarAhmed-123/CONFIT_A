@@ -1176,11 +1176,18 @@ class TryOnService:
         Multi-garment try-on with real GPU inference when worker configured.
         Falls back to honest failure (no fake image) when no worker.
         """
-        target_ids = product_ids if product_ids else (list(slot_mapping.values()) if slot_mapping else [1])
+        # No silent default outfit: the old `else [1]` quietly rendered
+        # product 1 for any request that failed to specify garments. An
+        # empty request now names an explicit 422.
+        target_ids = product_ids if product_ids else (list(slot_mapping.values()) if slot_mapping else [])
         products = [self.catalog_repo.get_product_by_id(pid) for pid in target_ids if pid]
         products = [p for p in products if p is not None]
 
         if not products:
+            if not target_ids:
+                raise RuntimeError(
+                    "VTON_INPUT_INVALID: no garments specified — pass product_ids (or slot_mapping) to render."
+                )
             raise ResourceNotFoundError("Products", str(target_ids))
 
         scaling = 1.0
@@ -1399,10 +1406,15 @@ class TryOnService:
         """
         # First get multi-garment data with real inference for final frame if worker exists
         # But for animated, we need per-layer inference regardless
-        target_ids = product_ids if product_ids else (list(slot_mapping.values()) if slot_mapping else [1])
+        # No silent default outfit — see the note in execute_multi_garment_tryon.
+        target_ids = product_ids if product_ids else (list(slot_mapping.values()) if slot_mapping else [])
         products = [self.catalog_repo.get_product_by_id(pid) for pid in target_ids if pid]
         products = [p for p in products if p is not None]
         if not products:
+            if not target_ids:
+                raise RuntimeError(
+                    "VTON_INPUT_INVALID: no garments specified — pass product_ids (or slot_mapping) to render."
+                )
             raise ResourceNotFoundError("Products", str(target_ids))
 
         # Upfront engine-capability validation (same contract as the chain

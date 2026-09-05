@@ -280,6 +280,16 @@ def root():
     }
 
 
+def _diagnostic_production_gate():
+    """§15: in production the diagnostic route must not exist AT ALL — it must
+    return 404 for EVERYONE, including anonymous callers. This gate runs
+    BEFORE the auth dependency (declared first) so an unauthenticated probe
+    also receives 404 rather than a 401 that would reveal the endpoint exists
+    (endpoint-existence oracle)."""
+    if settings.ENVIRONMENT.lower() == "production":
+        raise HTTPException(status_code=404, detail="Not found")
+
+
 def _require_diagnostic_access(user=Depends(get_current_user)):
     """Group 1 §4: the diagnostic endpoint is never public and never exists
     in production. Outside production it is admin-only. It returns only
@@ -293,7 +303,10 @@ def _require_diagnostic_access(user=Depends(get_current_user)):
 
 
 @app.get("/api/v1/diagnostic", include_in_schema=False)
-def diagnostic(admin_user=Depends(_require_diagnostic_access)):
+def diagnostic(
+    _production_gate=Depends(_diagnostic_production_gate),
+    admin_user=Depends(_require_diagnostic_access),
+):
     from backend.app.core.database import SessionLocal
     from backend.app.models.user import User
     from sqlalchemy import func

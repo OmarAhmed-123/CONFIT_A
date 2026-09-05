@@ -132,6 +132,19 @@ nobody believes setting them changes behaviour): `PROJECT_NAME`, `PORT`,
   (SHA-256 of the one-time token — the token itself is never stored),
   `delivery_expires_at`, `delivery_content_type`. `tryon_jobs.output_image_url`
   stays `NULL` for VTON jobs.
+* **No true background job queue on Vercel — the "async job route" is a state
+  machine, not a queue.** `POST /try-on/jobs` returns 202 only AFTER the GPU
+  worker call has completed (or timed out) inside the same function
+  invocation: the job row transitions QUEUED → PARSING_PERSON →
+  gpu_diffusion_rendering → COMPLETED/FAILED synchronously in-request
+  (`create_and_enqueue_vton_job` awaits `_call_gpu_worker` before responding).
+  Nothing is dequeued by a separate process; Vercel has no Celery/Redis
+  worker. Consequences (honest, not faked): the 202 response IS the result
+  (or the failure) — polling is redundant on the happy path; total time is
+  bounded by Vercel `maxDuration=60 s`, so slow/cold renders surface as a
+  function timeout, not as a job that finishes later. A real queue (e.g.
+  Modal functions + webhooks, or Vercel Queues) is a future change, not the
+  current behaviour.
 * No Celery task renders try-ons. The **only** renderer is the CatVTON
   pipeline in `services/vton-worker`; unavailability is an honest
   `503 VTON_ENGINE_UNAVAILABLE`, never a fake "completed".

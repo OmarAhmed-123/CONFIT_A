@@ -7,6 +7,23 @@ from backend.app.models.user import UserRole
 
 
 class UserRegister(BaseModel):
+    """Public self-service registration.
+
+    SECURITY INVARIANT (P0, production-exploited 2026-09-05): this endpoint
+    must NEVER accept a client-supplied role. The `role` field that used to
+    live here let any caller create `role=admin` (and brand-staff) accounts
+    directly. The field is removed from the contract, and `AuthService.
+    register` hard-codes `UserRole.CONSUMER` — the server-side invariant,
+    not schema visibility, is the enforcement point.
+
+    `model_config = ignore` (same pattern as `SocialLoginRequest` below)
+    silently discards any stray `role` / privilege fields an attacker keeps
+    sending, so the endpoint stays 201 for legitimate payloads instead of
+    422 — no oracle for probing which fields are rejected.
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
     email: EmailStr
     # Server-side password policy validation is enforced in AuthService.register
     # via validate_password_policy — Pydantic min_length remains the FIRST
@@ -14,7 +31,6 @@ class UserRegister(BaseModel):
     password: str = Field(min_length=8, max_length=72)
     full_name: str = Field(min_length=1, max_length=255)
     phone: Optional[str] = None
-    role: UserRole = UserRole.CONSUMER
     preferred_language: str = "en"
 
 

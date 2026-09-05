@@ -108,11 +108,12 @@ class DisableMFARequest(BaseModel):
 @limiter.limit("5/minute")
 def register(request: Request, response: Response, payload: UserRegister, db: Session = Depends(get_db)):
     service = AuthService(db)
+    # NOTE: no `role` is passed — `AuthService.register` hard-codes
+    # CONSUMER (P0 security invariant; see the method docstring).
     res = service.register(
         email=payload.email,
         password=payload.password,
         full_name=payload.full_name,
-        role=payload.role,
         phone=payload.phone,
         preferred_language=payload.preferred_language,
         ip_address=_client_ip(request),

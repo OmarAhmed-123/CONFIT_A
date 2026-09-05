@@ -10,6 +10,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      # MediaPipe (used by the VTON pose/anatomy regression harness) needs the
+      # EGL system library at import time on Linux. Without it the 4 pose
+      # regression tests error with "OSError: libEGL.so.1" on the runner.
+      - name: Install system libraries for CV regression harness
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libegl1
       - name: Install declared dependencies
         run: pip install -r backend/requirements.txt
       # Guards the 2026-08-29 (slowapi) and 2026-09-03 (Pillow) outage classes:

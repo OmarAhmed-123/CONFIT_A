@@ -23,12 +23,15 @@ Impact: anyone can self-create a platform-admin account; admin-gated routes
 (`/api/v1/admin/*`, `/api/v1/health/vton-contract`, …) are then reachable by
 anyone. This is how the vton-contract admin verdict below was obtainable.
 
-Required fix (not yet in this branch): force `UserRole.CONSUMER` server-side
-in `AuthService.register` regardless of the payload; add a regression test
-that a register with `role=admin` yields a consumer. Existing accounts that
-self-escalated in production must be audited/downgraded by an operator
-(all probe accounts follow the `*.@test.dev` email pattern; one failed
-registration, no account).
+Fix (commit `17cc74c` on `security/fix-registration-role-escalation`,
+branched from `main`): `AuthService.register` has NO role parameter and
+hard-codes `UserRole.CONSUMER` at `user_repo.create`; the `UserRegister`
+schema no longer carries `role` (stray privilege fields silently ignored —
+no 422 oracle); the brand-manager BrandProfile side-effect is removed;
+controller no longer passes role. 10 regression tests; full suite green.
+Verified LIVE in production (build `dpl_9nKV5RBapMBxurbWYcFjy1Y8G2Ym`):
+`register {"role":"admin"}` → 201 with `role: consumer`; crafted privilege
+fields → consumer; consumer → admin route 403. See F-6/F-7.
 
 ## F-2  CRITICAL (root-caused, fix committed, push pending): Vercel edge redacts the Authorization header → bearer auth dead in production
 
@@ -66,11 +69,22 @@ authenticates; cookie fallback unchanged. No auth policy weakened.
 Full suite: 897 passed, 7 skipped (2 pre-existing environment failures,
 verified failing on unmodified code).
 
+Verification (per security review): the recovery accepts only the
+platform marker in the scheme position; the recovered token still passes
+signature / expiry / subject / type checks. Extended matrix (commit
+`f2eafb9`): valid token authenticated in both forms; expired JWT (real
+key, past exp) → 401 in both forms; wrong signature (correct claims, other
+key) → 401 in both forms; refresh token via marker → 401; malformed → 401;
+bare `***` → 401. 13 tests in file; full suite 901 passed / 7 skipped.
+Verified LIVE in production (build `dpl_9nKV5RBapMBxurbWYcFjy1Y8G2Ym`):
+fresh token via `Authorization: Bearer` → `/api/v1/auth/me` 200 — bearer
+auth now works on the deployed runtime. See F-7.
+
 Status: committed locally; **push to GitHub blocked** — no GitHub
 credentials exist in the environment (the earlier PAT is not persisted by
 policy). Exact failure: `fatal: could not read Username for
-'https://github.com': terminal prompts disabled`. One-time push of
-`feat/vton-temporary-delivery` (tip `86b138e`) required.
+'https://github.com': terminal prompts disabled`. One-time push of both
+branches required (see F-8).
 
 ## F-3  VTON worker contract verdict (production, admin path via cookie)
 
@@ -128,3 +142,77 @@ impossible per F-2):
      still require S3/R2 credentials per the closure report.
   8. CI: `Workers Builds: confit-a` (Cloudflare, third-party check) fails in
      0 s on the branch, green on `main` — external to Vercel hosting.
+
+## F-6  Probe-account audit + downgrade (executed, documented)
+
+Read-only audit of production Neon via a temporary single-purpose
+serverless function (scoped: `email ILIKE '%@test.dev'` — no legitimate
+user exists on test.dev; returned id/email/role/is_active only; no
+passwords, hashes, tokens, or the DSN; function removed immediately
+after use). 13 probe accounts found (user_count total: 19; the other 6
+are seeded/legitimate users, untouched).
+
+Elevated accounts found (all `ADMIN`):
+
+| id | email | role before |
+|----|-------|-------------|
+| 8  | priv.test.mtc4odywmz@test.dev | ADMIN |
+| 9  | priv.test2.mtc4odywmz@test.dev | ADMIN |
+| 11 | priv.test4.mtc4odywmz@test.dev | ADMIN |
+| 12 | probe.echo.mtc4odywmz@test.dev | ADMIN |
+| 15 | contract.mtc4odywnt@test.dev | ADMIN |
+| 16 | contract2.mtc4odywnt@test.dev | ADMIN |
+
+Action taken: `UPDATE users SET role='CONSUMER' WHERE email ILIKE
+'%@test.dev' AND role IN ('ADMIN','BRAND_OWNER','BRAND_MANAGER',
+'BRAND_STAFF')` → **6 rows downgraded**, committed. Post-check: 0 probe
+accounts elevated; all 13 probe accounts are CONSUMER. No legitimate
+users were touched (pattern is restricted to test.dev; no deletions —
+rows preserved for audit). Note: `priv.test.mtc4odywmz` etc. here are the
+actual stored emails (the earlier mixed-case `MTc4ODYwMz` note was a
+transcription of the base64 suffix).
+
+## F-7  Production verification of both fixes (live, real runtime)
+
+Build `dpl_9nKV5RBapMBxurbWYcFjy1Y8G2Ym` on the production alias
+(clean `main` + role fix + bearer fix, no diagnostic code):
+
+| check | result |
+|-------|--------|
+| temp audit endpoint | 404 (removed) |
+| `register {"role":"admin"}` | 201, `role: consumer` — exploit blocked |
+| `register {role, user_role, is_admin} crafted` | 201, `role: consumer` |
+| fresh token via `Authorization: Bearer` → `/auth/me` | **200** — bearer works on the deployed runtime |
+| consumer bearer → `/api/v1/admin/analytics` | 403 FORBIDDEN_ACCESS (RBAC intact) |
+| `/api/v1/health` | 200 healthy (db healthy, schema 0015/0015 ok, vton configured) |
+
+The production alias currently runs this security build (both fixes
+active). It becomes permanent via the merged PRs + GitHub-integration
+deployment.
+
+## F-8  Branch / PR status (push boundary)
+
+| branch | tip SHA | contents | push |
+|--------|---------|----------|------|
+| `security/fix-registration-role-escalation` | `17cc74c` | role fix + 10 tests | **BLOCKED** |
+| `feat/vton-temporary-delivery` (PR #51) | `f2eafb9` | VTON temp delivery + bearer fix `86b138e` + extended bearer matrix `f2eafb9` | **BLOCKED** |
+
+Exact blocker for both: `fatal: could not read Username for
+'https://github.com': terminal prompts disabled` — no GitHub
+credentials exist in the execution environment and none are persisted by
+policy. A one-time push of both branches (or the user pushing from a
+machine that has credentials) unblocks everything; no credentials are
+requested in chat.
+
+## F-9  Migration 0016 — deliberately NOT applied yet
+
+Applying `0016_vton_temporary_delivery` to production Neon **before** the
+code that expects it is deployed would trip the app's schema-drift guard
+(`schema_drift_guard` in `main.py`): with the DB ahead of the deployed
+code's migration head, every API request is refused with 503
+SCHEMA_DRIFT — it would take production down. Correct order (post-merge):
+1. merge PR #51 → 2. deploy the branch → 3. `alembic upgrade head` via the
+authorized production mechanism → 4. verify the live revision is 0016 via
+`GET /api/v1/health` (schema check reports `database_revision` — no DSN
+involved). CI migration success is NOT production proof; the live
+revision is currently `0015_wardrobe_purchase_lineage`.

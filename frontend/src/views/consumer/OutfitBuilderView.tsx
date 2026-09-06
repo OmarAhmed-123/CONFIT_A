@@ -133,6 +133,15 @@ const DroppableSlot: React.FC<{
             <span className="text-xs font-bold text-[#1B1F3B] block truncate">
               {item.product.title}
             </span>
+            {item.skuStatus === 'pending' && (
+              <span className="text-[10px] text-slate-400 font-medium block">Checking size…</span>
+            )}
+            {item.skuStatus === 'unavailable' && (
+              <span className="text-[10px] text-rose-600 font-semibold block">No purchasable size</span>
+            )}
+            {item.skuStatus === 'ready' && item.selectedSku && (
+              <span className="text-[10px] text-slate-400 font-medium block">Size {item.selectedSku.size}</span>
+            )}
             <span className="text-xs font-bold text-[#A37E44]">${item.product.base_price}</span>
           </div>
         </>

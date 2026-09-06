@@ -6,8 +6,11 @@ import { useCartStore } from '../stores/cartStore';
 
 export interface CanvasItem {
   product: Product;
-  selectedSku: ProductSKU;
+  selectedSku: ProductSKU | null;
   slot: 'outerwear' | 'top' | 'bottom' | 'footwear' | 'accessory';
+  /** 'ready' = a real, server-verified SKU is selected. 'pending' = fetching
+   *  the product's real SKUs. 'unavailable' = no purchasable SKU exists. */
+  skuStatus: 'ready' | 'pending' | 'unavailable';
 }
 
 export function useOutfitBuilderViewModel(userBudgetLimit = 400.0) {
@@ -24,7 +27,7 @@ export function useOutfitBuilderViewModel(userBudgetLimit = 400.0) {
   // Calculate live running budget
   const runningTotal = useMemo(() => {
     return selectedItems.reduce((acc, item) => {
-      const price = item.selectedSku.price_override || item.product.base_price;
+      const price = (item.selectedSku && item.selectedSku.price_override) || item.product.base_price;
       return acc + price;
     }, 0);
   }, [selectedItems]);
@@ -52,23 +55,63 @@ export function useOutfitBuilderViewModel(userBudgetLimit = 400.0) {
   const addItemToCanvas = useCallback((product: Product, slot?: CanvasItem['slot']) => {
     const assignedSlot = slot ?? naturalSlotForProduct(product);
 
-    const defaultSku = product.skus?.[0] || {
-      id: product.id * 10,
-      product_id: product.id,
-      sku_code: `${product.slug}-M`,
-      size: 'M',
-      color: product.color_family,
-      color_hex: product.dominant_hex,
-      stock_level: 10,
-      is_in_stock: true,
-    };
+    // Only ever use real, server-verified SKUs. Catalog list responses do not
+    // embed SKUs, so when none are present we fetch the product detail and
+    // resolve asynchronously — never fabricate a placeholder SKU (a made-up id
+    // would be rejected by POST /commerce/cart/items with a 409).
+    const inlineSku =
+      product.skus?.find((s) => s.is_in_stock && s.stock_level > 0) ?? product.skus?.[0] ?? null;
 
     setSelectedItems((prev) => {
       // Replace if slot already occupied or append
       const filtered = prev.filter((i) => i.slot !== assignedSlot);
-      return [...filtered, { product, selectedSku: defaultSku, slot: assignedSlot! }];
+      return [
+        ...filtered,
+        {
+          product,
+          selectedSku: inlineSku,
+          slot: assignedSlot!,
+          skuStatus: inlineSku ? ('ready' as const) : ('pending' as const),
+        },
+      ];
     });
-  }, []);
+
+    if (!inlineSku) {
+      catalogService
+        .getProductDetail(product.slug)
+        .then((detail) => {
+          const realSku =
+            (detail.skus ?? []).find((s) => s.is_in_stock && s.stock_level > 0) ??
+            detail.skus?.[0] ??
+            null;
+          setSelectedItems((prev) =>
+            prev.map((it) =>
+              it.slot === assignedSlot && it.product.id === product.id
+                ? {
+                    ...it,
+                    product: { ...it.product, ...detail },
+                    selectedSku: realSku,
+                    skuStatus: realSku ? ('ready' as const) : ('unavailable' as const),
+                  }
+                : it
+            )
+          );
+          if (!realSku) {
+            showToast(`No purchasable size found for ${product.title}`, 'error');
+          }
+        })
+        .catch(() => {
+          setSelectedItems((prev) =>
+            prev.map((it) =>
+              it.slot === assignedSlot && it.product.id === product.id
+                ? { ...it, skuStatus: 'unavailable' as const }
+                : it
+            )
+          );
+          showToast(`Couldn't load sizes for ${product.title} — try again`, 'error');
+        });
+    }
+  }, [showToast]);
 
   const removeItemFromCanvas = useCallback((slot: CanvasItem['slot']) => {
     setSelectedItems((prev) => prev.filter((i) => i.slot !== slot));
@@ -101,12 +144,17 @@ export function useOutfitBuilderViewModel(userBudgetLimit = 400.0) {
 
   const saveOutfit = useCallback(async () => {
     if (selectedItems.length === 0) return;
+    const ready = selectedItems.filter((i) => i.skuStatus === 'ready' && i.selectedSku);
+    if (ready.length === 0) {
+      showToast('Cannot save yet — no item has a confirmed purchasable size.', 'error');
+      return;
+    }
     setIsSaving(true);
     try {
       await stylistService.saveOutfit({
         title: outfitTitle,
         occasion: targetOccasion,
-        product_sku_ids: selectedItems.map((i) => i.selectedSku.id),
+        product_sku_ids: ready.map((i) => i.selectedSku!.id),
       });
       setIsSaving(false);
       showToast('Ensemble saved to My Looks!', 'success');
@@ -118,15 +166,30 @@ export function useOutfitBuilderViewModel(userBudgetLimit = 400.0) {
 
   const addAllToCart = useCallback(async () => {
     if (selectedItems.length === 0) return;
-    for (const item of selectedItems) {
-      await addItem(item.selectedSku.id, {
+    if (selectedItems.some((i) => i.skuStatus === 'pending')) {
+      showToast('Still confirming sizes — try again in a moment.', 'error');
+      return;
+    }
+    const ready = selectedItems.filter((i) => i.skuStatus === 'ready' && i.selectedSku);
+    const skipped = selectedItems.length - ready.length;
+    if (ready.length === 0) {
+      showToast('No item has a purchasable size — open a product page to pick one.', 'error');
+      return;
+    }
+    for (const item of ready) {
+      await addItem(item.selectedSku!.id, {
         id: item.product.id,
         title: item.product.title,
         category: item.product.category_name,
         color: item.product.color_family,
       });
     }
-    showToast(`Added ${selectedItems.length} items from builder to Bag!`, 'success');
+    showToast(
+      skipped > 0
+        ? `Added ${ready.length} items to Bag. ${skipped} skipped (size unavailable).`
+        : `Added ${ready.length} items from builder to Bag!`,
+      skipped > 0 ? 'info' : 'success'
+    );
     openCart();
   }, [selectedItems, addItem, openCart, showToast]);
 

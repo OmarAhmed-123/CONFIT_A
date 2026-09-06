@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import { useCatalogViewModel } from '../../viewmodels/useCatalogViewModel';
 import { useUIStore } from '../../stores/uiStore';
 import { TryOnIcon, RulerIcon, VisualSearchIcon, SparkleIcon } from '../../components/icons/ConfitIcons';
@@ -9,6 +10,7 @@ import { CircularGalleryShowcase } from '../../components/showcase/DesignShowcas
 
 export const TryOnFitView: React.FC = () => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const { products } = useCatalogViewModel();
   const { openTryOn, openRuler, openVisualSearch } = useUIStore();
 
@@ -87,9 +89,9 @@ export const TryOnFitView: React.FC = () => {
           <span className="text-xs font-bold text-[#A37E44] mt-4 block">Launch Body Scan →</span>
         </div>
 
-        {/* 3. No-Photo Fit Finder */}
+        {/* 3. No-Photo Fit Finder — navigates to the dedicated /fit engine */}
         <div
-          onClick={() => setActiveTab('ruler')}
+          onClick={() => navigate('/fit')}
           className={`p-5 rounded-3xl border-2 transition-all cursor-pointer flex flex-col justify-between ${
             activeTab === 'ruler'
               ? 'border-[#1B1F3B] bg-[#FAF9F6] shadow-md'
@@ -105,7 +107,7 @@ export const TryOnFitView: React.FC = () => {
               Zero-photo measurement calculator with brand ease curves.
             </p>
           </div>
-          <span className="text-xs font-bold text-slate-800 mt-4 block">Evaluate Sizing →</span>
+          <span className="text-xs font-bold text-slate-800 mt-4 block">Open Fit Finder →</span>
         </div>
 
         {/* 4. Visual Search */}
@@ -154,7 +156,7 @@ export const TryOnFitView: React.FC = () => {
                 <div className="h-60 rounded-2xl overflow-hidden bg-slate-100 mb-3 relative">
                   <img src={p.thumbnail_url} alt={p.title} className="w-full h-full object-cover" />
                   <div className="absolute top-2 left-2">
-                    <FitScoreBadge score={p.style_compatibility_score} verdict="96% Fit" />
+                    <FitScoreBadge score={p.style_compatibility_score} verdict={`${p.style_compatibility_score}% style match`} />
                   </div>
                 </div>
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{p.brand_name}</span>

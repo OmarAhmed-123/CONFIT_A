@@ -15,6 +15,8 @@ from backend.app.models.catalog import Product
 from backend.app.models.user import User
 from backend.app.providers.bnpl_provider import BNPLProvider
 from backend.app.providers.payment.capability_registry import MarketPaymentCapabilityRegistry
+from backend.app.core.exceptions import EncryptionError
+from backend.app.core.logging import logger
 from backend.app.repositories.catalog_repository import CatalogRepository
 from backend.app.repositories.profile_repository import ProfileRepository
 from backend.app.services.no_photo_fit_service import NoPhotoFitService
@@ -46,7 +48,24 @@ class ProductContextService:
         if user is not None:
             profile = self.profile_repo.get_by_user_id(user.id)
             if profile:
-                body = self.profile_repo.get_decrypted_body_data(profile)
+                try:
+                    body = self.profile_repo.get_decrypted_body_data(profile)
+                except EncryptionError:
+                    # AUDIT-2026-09-06 P0 regression: a body blob encrypted under
+                    # a rotated key used to raise here and 500 EVERY authenticated
+                    # product-detail request. Product browsing must not collapse
+                    # because an optional fit enrichment cannot run. Degrade
+                    # honestly: no body measurements are used (empty dict), fit
+                    # falls back to the user's saved size or reports
+                    # fit_available=False — never a fabricated fit. Owner-facing
+                    # profile endpoints still raise (G1.BODY-02 integrity).
+                    logger.error(
+                        "Body-data decryption failed during product enrichment — "
+                        "serving product without body-based fit context",
+                        user_id=user.id,
+                        product_id=product.id,
+                    )
+                    body = {}
 
         fit = self._fit_recommendation(product, profile, body)
         style = self._style_compatibility(product, profile)

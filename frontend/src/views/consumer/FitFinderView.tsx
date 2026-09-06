@@ -184,7 +184,7 @@ export const FitFinderView: React.FC = () => {
     return (
       <div>
         <label htmlFor={`fit-${key}`} className="text-xs font-bold text-slate-800 block mb-1">
-          {label} <span className="text-slate-400 font-light">(optional)</span>
+          {label} <span className="text-slate-500 font-light">(optional)</span>
         </label>
         <div className="flex items-center gap-2">
           <input
@@ -199,7 +199,7 @@ export const FitFinderView: React.FC = () => {
             }
             className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-[#C5A059]"
           />
-          <span className="text-[10px] text-slate-400 font-semibold w-6">
+          <span className="text-[10px] text-slate-500 font-semibold w-6">
             {units === 'metric' ? 'cm' : 'in'}
           </span>
         </div>
@@ -227,7 +227,7 @@ export const FitFinderView: React.FC = () => {
             brand-specific ease curves — with a confidence score, a per-region fit breakdown and
             a return-risk estimate. No photo, no camera, no upload: numbers in, size out.
           </p>
-          <p className="text-[11px] text-slate-400">
+          <p className="text-[11px] text-slate-500">
             Looking for the photo-based studio instead?{' '}
             <button
               onClick={() => navigate('/tryon-studio')}
@@ -323,12 +323,12 @@ export const FitFinderView: React.FC = () => {
                     onChange={(e) => set('heightCm', Number(e.target.value))}
                     className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-[#C5A059]"
                   />
-                  <span className="text-[10px] text-slate-400 font-semibold w-6">
+                  <span className="text-[10px] text-slate-500 font-semibold w-6">
                     {units === 'metric' ? 'cm' : 'in'}
                   </span>
                 </div>
                 {units === 'metric' && (
-                  <p className="text-[10px] text-slate-400 mt-1">
+                  <p className="text-[10px] text-slate-500 mt-1">
                     ≈ {Math.floor(form.heightCm / 30.48)}'{Math.round((form.heightCm % 30.48) / 2.54)}"
                   </p>
                 )}
@@ -352,7 +352,7 @@ export const FitFinderView: React.FC = () => {
                     onChange={(e) => set('weightKg', Number(e.target.value))}
                     className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-[#C5A059]"
                   />
-                  <span className="text-[10px] text-slate-400 font-semibold w-6">
+                  <span className="text-[10px] text-slate-500 font-semibold w-6">
                     {units === 'metric' ? 'kg' : 'lbs'}
                   </span>
                 </div>
@@ -411,7 +411,7 @@ export const FitFinderView: React.FC = () => {
               <RulerIcon size={16} color="#C5A059" />
               <span>{calcLoading ? 'Computing your size…' : 'Calculate My Size'}</span>
             </button>
-            <p className="text-[10px] text-slate-400 text-center font-light">
+            <p className="text-[10px] text-slate-500 text-center font-light">
               Sent as anonymous numbers over HTTPS. Nothing is stored unless you choose “Save”.
             </p>
           </div>
@@ -424,7 +424,7 @@ export const FitFinderView: React.FC = () => {
               <div className="h-8 w-32 rounded-lg bg-slate-100 animate-pulse" />
               <div className="h-4 w-full rounded bg-slate-100 animate-pulse" />
               <div className="h-4 w-5/6 rounded bg-slate-100 animate-pulse" />
-              <p className="text-[11px] text-slate-400">Applying brand ease curves…</p>
+              <p className="text-[11px] text-slate-500">Applying brand ease curves…</p>
             </div>
           )}
 
@@ -456,7 +456,7 @@ export const FitFinderView: React.FC = () => {
             <div className="bg-white rounded-3xl border-2 border-[#C5A059]/50 p-6 shadow-md space-y-4" aria-live="polite">
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
                     Recommended size
                   </p>
                   <p className="font-serif text-5xl font-black text-[#1B1F3B] leading-tight">
@@ -475,18 +475,18 @@ export const FitFinderView: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="bg-[#FAF9F6] rounded-2xl p-3 border border-slate-100">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Brand tendency</p>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Brand tendency</p>
                   <p className="text-xs text-slate-700 font-semibold mt-1">{result.brand_sizing_tendency}</p>
                 </div>
                 <div className="bg-[#FAF9F6] rounded-2xl p-3 border border-slate-100">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Return risk</p>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Return risk</p>
                   <p className="text-xs text-slate-700 font-semibold mt-1">{result.return_risk_score}</p>
                 </div>
               </div>
 
               {/* Fit breakdown — the WHY */}
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2">
                   Why this size
                 </p>
                 <ul className="space-y-1.5">
@@ -506,7 +506,7 @@ export const FitFinderView: React.FC = () => {
               <div className="overflow-x-auto">
                 <table className="w-full text-[11px]">
                   <thead>
-                    <tr className="text-slate-400 uppercase tracking-wider text-[9px]">
+                    <tr className="text-slate-500 uppercase tracking-wider text-[9px]">
                       <th className="text-left py-1">Size</th>
                       <th className="text-left py-1">Chest</th>
                       <th className="text-left py-1">Waist</th>
@@ -547,7 +547,7 @@ export const FitFinderView: React.FC = () => {
                         : 'Save these measurements to my profile'}
                   </button>
                 ) : (
-                  <p className="text-[10px] text-slate-400 text-center">
+                  <p className="text-[10px] text-slate-500 text-center">
                     <Link to="/" onClick={() => useUIStore.getState().openAuthModal('login')} className="text-[#C5A059] font-bold hover:underline">
                       Sign in
                     </Link>{' '}

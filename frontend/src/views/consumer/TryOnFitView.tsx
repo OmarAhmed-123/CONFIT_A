@@ -58,11 +58,11 @@ export const TryOnFitView: React.FC = () => {
               <TryOnIcon size={22} color="#C5A059" isAi={true} />
             </div>
             <h3 className="font-serif text-base font-bold text-[#1B1F3B]">{t('nav.virtual_tryon')}</h3>
-            <p className="text-xs text-slate-500 font-light">
+            <p className="text-xs text-slate-600 font-light">
               Photorealistic fabric segmentation and silhouette drape.
             </p>
           </div>
-          <span className="text-xs font-bold text-[#A37E44] mt-4 block">Select Garment →</span>
+          <span className="text-xs font-bold text-[#7A5C28] mt-4 block">Select Garment →</span>
         </div>
 
         {/* 2. Live Body Scan */}
@@ -86,7 +86,7 @@ export const TryOnFitView: React.FC = () => {
               On-device vision posture scan & proportion estimation.
             </p>
           </div>
-          <span className="text-xs font-bold text-[#A37E44] mt-4 block">Launch Body Scan →</span>
+          <span className="text-xs font-bold text-[#7A5C28] mt-4 block">Launch Body Scan →</span>
         </div>
 
         {/* 3. No-Photo Fit Finder — navigates to the dedicated /fit engine */}
@@ -131,7 +131,7 @@ export const TryOnFitView: React.FC = () => {
               Upload moodboard screenshot to find matching catalog pieces.
             </p>
           </div>
-          <span className="text-xs font-bold text-[#A37E44] mt-4 block">Match Outfit →</span>
+          <span className="text-xs font-bold text-[#7A5C28] mt-4 block">Match Outfit →</span>
         </div>
       </div>
 

@@ -105,7 +105,7 @@ export const BNPLBadge: React.FC<{
     <div className="inline-flex items-center gap-1.5 text-[11px] text-slate-600 bg-slate-50 border border-slate-200/80 px-2.5 py-1 rounded-lg">
       <span className="font-light">or 4 interest-free payments of</span>
       <span className="font-bold text-[#1B1F3B]">${installment}</span>
-      <span className="text-[10px] font-bold text-[#C5A059] uppercase tracking-wider">with {label}</span>
+      <span className="text-[10px] font-bold text-[#7A5C28] uppercase tracking-wider">with {label}</span>
     </div>
   );
 };

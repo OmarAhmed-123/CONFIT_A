@@ -240,7 +240,7 @@ export const CardStackShowcase: React.FC<CardStackShowcaseProps> = ({
       <div className="absolute -bottom-24 -left-24 h-72 w-72 rounded-full bg-[#1B1F3B]/10 blur-3xl" />
       <div className={cx('relative z-10 grid items-center gap-6', compact ? 'lg:grid-cols-[0.95fr_1.15fr]' : 'lg:grid-cols-[0.85fr_1.35fr]')}>
         <div className="space-y-4">
-          <div className="inline-flex items-center gap-2 rounded-full border border-[#C5A059]/30 bg-[#FDF8EE] px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-[#A37E44]">
+          <div className="inline-flex items-center gap-2 rounded-full border border-[#C5A059]/30 bg-[#FDF8EE] px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-[#7A5C28]">
             <Icon className="h-3.5 w-3.5" />
             <span>{eyebrow || config.label}</span>
           </div>
@@ -285,7 +285,7 @@ export const CircularGalleryShowcase: React.FC<CircularGalleryShowcaseProps> = (
     <section className={cx('relative overflow-hidden rounded-[32px] border border-[#C5A059]/25 bg-gradient-to-b from-[#FAF9F6] via-white to-[#F0F2F8] shadow-2xs', compact ? 'p-5' : 'p-6 sm:p-9', className)}>
       <div className="pointer-events-none absolute inset-x-0 top-12 mx-auto h-56 w-2/3 rounded-full bg-[#C5A059]/10 blur-3xl" />
       <div className="relative z-10 mx-auto max-w-3xl text-center">
-        <div className="inline-flex items-center gap-2 rounded-full border border-[#C5A059]/30 bg-white/80 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-[#A37E44] backdrop-blur">
+        <div className="inline-flex items-center gap-2 rounded-full border border-[#C5A059]/30 bg-white px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-[#7A5C28] backdrop-blur">
           <Icon className="h-3.5 w-3.5" />
           <span>{eyebrow || `${config.label} Gallery`}</span>
         </div>

@@ -331,7 +331,7 @@ export const HomeView: React.FC = () => {
           </div>
           <button
             onClick={() => openStylist()}
-            className="text-xs font-bold text-[#C5A059] hover:underline flex items-center gap-1"
+            className="text-xs font-bold text-[#7A5C28] hover:underline flex items-center gap-1"
           >
             <span>Ask Stylist for Alternatives</span>
             <span>→</span>

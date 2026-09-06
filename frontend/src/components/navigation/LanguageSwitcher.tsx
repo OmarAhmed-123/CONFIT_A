@@ -14,7 +14,7 @@ export const LanguageSwitcher: React.FC<{ className?: string }> = ({ className =
   return (
     <button
       onClick={toggleLanguage}
-      className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full border border-slate-200 hover:border-[#B8935A] bg-white/80 hover:bg-[#FDF8EE] transition-all text-[#1B1F3B] ${className}`}
+      className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full border border-slate-200 hover:border-[#B8935A] bg-white hover:bg-[#FDF8EE] transition-all text-[#1B1F3B] ${className}`}
       aria-label="Switch Language"
       title={language === 'en' ? 'التبديل إلى العربية' : 'Switch to English'}
     >

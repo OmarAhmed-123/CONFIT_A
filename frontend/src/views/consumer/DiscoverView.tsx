@@ -220,7 +220,7 @@ export const DiscoverView: React.FC = () => {
         <div className="flex flex-wrap items-center justify-between gap-4 pt-1">
           {/* Color Swatch Filters */}
           <div className="flex items-center gap-2 overflow-x-auto">
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Palette:</span>
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Palette:</span>
             {colorSwatches.map((col) => (
               <button
                 key={col.label}
@@ -241,7 +241,7 @@ export const DiscoverView: React.FC = () => {
 
           {/* Sort Selector */}
           <div className="flex items-center gap-2">
-            <span className="text-[11px] text-slate-400">Sort by:</span>
+            <span className="text-[11px] text-slate-500">Sort by:</span>
             <select
               aria-label="Sort products"
               value={sortBy}

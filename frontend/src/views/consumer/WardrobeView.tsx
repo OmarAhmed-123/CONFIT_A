@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { compressImageToDataUrl } from '../../lib/imageUpload';
+import { useCapabilities } from '../../hooks/useCapabilities';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useWardrobeViewModel } from '../../viewmodels/useWardrobeViewModel';
 import { useAuthStore } from '../../stores/authStore';
@@ -48,6 +49,8 @@ export const WardrobeView: React.FC = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const initialTab = searchParams.get('tab') || 'closet';
+  const { capabilities } = useCapabilities();
+  const photoUploadUnavailable = capabilities.storage_mode === 'local';
 
   const [activeTab, setActiveTab] = useState<'closet' | 'looks' | 'gaps'>(initialTab as any);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
@@ -577,6 +580,13 @@ export const WardrobeView: React.FC = () => {
                 <label className="text-xs font-bold text-slate-800 block mb-1">
                   Garment Photos <span className="text-slate-400 font-normal">(JPEG/PNG/WebP, up to 15MB each, max 20)</span>
                 </label>
+                {photoUploadUnavailable && (
+                  <p className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-3 mb-2 leading-relaxed">
+                    Heads up: photo uploads are not configured in this environment (no persistent
+                    object storage yet) — the server will reject them with a clear error. Use
+                    manual add below, which works fully.
+                  </p>
+                )}
                 <input
                   ref={fileInputRef}
                   type="file"

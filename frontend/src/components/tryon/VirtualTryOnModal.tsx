@@ -487,7 +487,7 @@ export const VirtualTryOnModal: React.FC = () => {
                             Synthesizing Virtual Try-On Layer...
                           </h4>
                           <p className="text-[11px] text-slate-300 font-light mt-0.5">
-                            Draping garment with 100% facial identity preservation.
+                            Draping the garment onto your photo — identity-preserving compositing.
                           </p>
                         </div>
                       </div>

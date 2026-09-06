@@ -32,6 +32,7 @@ import { HomeView } from '../views/consumer/HomeView';
 import { DiscoverView } from '../views/consumer/DiscoverView';
 import { OutfitBuilderView } from '../views/consumer/OutfitBuilderView';
 import { TryOnFitView } from '../views/consumer/TryOnFitView';
+import { FitFinderView } from '../views/consumer/FitFinderView';
 import { WardrobeView } from '../views/consumer/WardrobeView';
 import { ProductDetailView } from '../views/consumer/ProductDetailView';
 import { CheckoutView } from '../views/consumer/CheckoutView';
@@ -90,7 +91,12 @@ export const AppRoutes: React.FC = () => {
           <Route path="tryon-studio" element={<TryOnFitView />} />
           <Route path="try-on" element={<TryOnFitView />} />
           <Route path="try-on/:sessionId" element={<TryOnFitView />} />
-          <Route path="fit" element={<TryOnFitView />} />
+          {/* FIT-01: /fit is the dedicated no-photo measurement engine, not an
+              alias of the try-on studio. The old mapping rendered TryOnFitView
+              here, so the route named "Fit Finder" showed garment overlays —
+              the exact promise/product mismatch in the 2026-09-05 audit. */}
+          <Route path="fit" element={<FitFinderView />} />
+          <Route path="fit-finder" element={<FitFinderView />} />
           <Route path="visual-search" element={<TryOnFitView />} />
           
           <Route path="wardrobe" element={<WardrobeView />} />

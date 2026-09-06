@@ -74,11 +74,18 @@ export function useTryOnViewModel(initialProduct?: Product | null) {
     }
   }, [initialProduct, showToast]);
 
-  const runVisualSearch = useCallback(async (imageUrl?: string) => {
+  const runVisualSearch = useCallback(async (source?: string | { imageUrl?: string; imageBase64?: string }) => {
+    // Accepts a URL string (samples / pasted link) or an object carrying an
+    // uploaded photo as a data URL — both go to the SAME real endpoint
+    // (POST /tryon/visual-search, image_url | image_base64).
+    const opts = typeof source === 'string' ? { imageUrl: source } : (source ?? {});
     setVisualSearchLoading(true);
     setVisualSearchError(null);
     try {
-      const res = await tryOnService.searchVisual({ image_url: imageUrl });
+      const res = await tryOnService.searchVisual({
+        image_url: opts.imageUrl,
+        image_base64: opts.imageBase64,
+      });
       setVisualSearchResult(res);
       setVisualSearchLoading(false);
     } catch (err: any) {

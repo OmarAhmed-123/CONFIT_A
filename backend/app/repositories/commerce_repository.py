@@ -68,6 +68,19 @@ class CommerceRepository:
             token = session_token or str(uuid.uuid4())
             cart = Cart(session_token=token, user_id=user_id, status="active")
             self.db.add(cart)
+            # AUDIT-2026-09-06 P0 (returning guest): two concurrent cold requests
+            # with the same fresh session token can both reach this INSERT; the
+            # UNIQUE(session_token) constraint turns the loser into an unhandled
+            # IntegrityError -> 500. Retry once through SELECT so the loser
+            # adopts the winner's row instead of failing the request.
+            try:
+                self.db.flush()
+            except IntegrityError:
+                self.db.rollback()
+                cart = self._get_active_cart(session_token, user_id)
+                if cart is None:
+                    raise
+                return cart
             self.db.commit()
             self.db.refresh(cart)
         elif user_id and not cart.user_id:
@@ -76,6 +89,41 @@ class CommerceRepository:
             self.db.refresh(cart)
 
         return cart
+
+    def _get_active_cart(self, session_token: Optional[str], user_id: Optional[int]) -> Optional[Cart]:
+        if user_id:
+            by_user = (
+                self.db.query(Cart)
+                .options(joinedload(Cart.items))
+                .filter(Cart.user_id == user_id, Cart.status == "active")
+                .first()
+            )
+            if by_user:
+                return by_user
+        if session_token:
+            return (
+                self.db.query(Cart)
+                .options(joinedload(Cart.items))
+                .filter(Cart.session_token == session_token, Cart.status == "active")
+                .first()
+            )
+        return None
+
+    def _release_session_token(self, cart: Cart) -> None:
+        """Free a cart's session token for reuse when the cart leaves 'active'.
+
+        AUDIT-2026-09-06 P0: carts.session_token is UNIQUE and NOT NULL, and a
+        converted cart used to keep holding its token forever. The next
+        get_or_create_cart for that (still client-persisted) token found no
+        active row and INSERTed a duplicate -> IntegrityError -> every cart
+        operation 500s permanently for that browser. Renaming the converted
+        row's token (deterministic, unique per cart, original preserved as a
+        traceable prefix) releases the token so a fresh active cart can be
+        created. The authoritative order linkage is Order.guest_session_token,
+        which stores the ORIGINAL token at checkout time. Caller commits.
+        """
+        if cart.session_token and "::converted::" not in cart.session_token:
+            cart.session_token = f"{cart.session_token}::converted::{cart.id}"
 
     def merge_guest_into_user_cart(self, guest_token: str, user_id: int) -> Cart:
         """
@@ -141,6 +189,9 @@ class CommerceRepository:
         if guest_cart.promo_code and not user_cart.promo_code:
             user_cart.promo_code = guest_cart.promo_code
         guest_cart.status = "converted"
+        # P0 returning-guest: free the guest token so the same browser can
+        # start a fresh guest cart after logout without a UNIQUE collision.
+        self._release_session_token(guest_cart)
         self.db.commit()
         return self.get_cart_with_items(user_cart.id) or user_cart
 
@@ -225,6 +276,8 @@ class CommerceRepository:
         if cart:
             cart.status = "converted"
             cart.promo_code = None
+            # P0 returning-guest: free the session token (see helper docstring)
+            self._release_session_token(cart)
         self.db.commit()
 
     def get_promotion_by_code(self, code: str) -> Optional[Promotion]:

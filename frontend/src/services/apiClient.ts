@@ -48,6 +48,25 @@ const getCsrfToken = (): string | null => {
   return m ? decodeURIComponent(m[1]) : null;
 };
 
+// SEARCH-01 hardening: no frontend state may hang forever on a stalled
+// request (the audit's eternal 'Analyzing...' class). 30s covers serverless
+// cold starts + VTON's long-poll budget; per-call overrides via
+// options.signal still win (AbortSignal.any keeps both cancellable).
+const DEFAULT_TIMEOUT_MS = 30_000;
+
+async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: number): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const signal = options.signal
+      ? (typeof AbortSignal.any === 'function' ? AbortSignal.any([options.signal, controller.signal]) : options.signal)
+      : controller.signal;
+    return await fetch(url, { ...options, signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export async function request<T>(
   endpoint: string,
   options: RequestInit = {}
@@ -73,10 +92,7 @@ export async function request<T>(
   }
 
   try {
-    const res = await fetch(url, {
-      ...options,
-      headers,
-    });
+    const res = await fetchWithTimeout(url, { ...options, headers }, DEFAULT_TIMEOUT_MS);
 
     if (res.ok) {
       const contentType = res.headers.get('content-type') || '';
@@ -128,6 +144,11 @@ export async function request<T>(
     const fallbackResult = handleEdgeFallback<T>(endpoint, options);
     if (fallbackResult !== null) {
       return fallbackResult;
+    }
+    // Distinguish a user/timeout abort from a connection failure so callers
+    // can render 'cancelled' vs 'network error' honestly.
+    if (err?.name === 'AbortError') {
+      throw new ApiError('The request timed out. Please try again.', 'REQUEST_TIMEOUT', 0);
     }
     throw new ApiError(err.message || 'Network communication failure', 'NETWORK_ERROR', 0);
   }

@@ -1,7 +1,11 @@
 import React, { useRef, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useWardrobeViewModel } from '../../viewmodels/useWardrobeViewModel';
+import { useAuthStore } from '../../stores/authStore';
+import { stylistService } from '../../services/apiServices';
+import { Outfit } from '../../models';
 import { useUIStore } from '../../stores/uiStore';
 import {
   WardrobeIcon,
@@ -16,6 +20,30 @@ import { CardStackShowcase, CircularGalleryShowcase } from '../../components/sho
 
 export const WardrobeView: React.FC = () => {
   const { t } = useTranslation();
+  // WARD-01 closure: the 'looks' tab previously rendered a STATIC mock
+  // ensemble (hardcoded images, $529.00, score 97) regardless of the user's
+  // data. Saved looks now come from the real backend (GET /outfits); guests
+  // get an honest sign-in prompt instead of fabricated content.
+  const { isAuthenticated } = useAuthStore();
+  const queryClient = useQueryClient();
+  const savedLooksQuery = useQuery({
+    queryKey: ['wardrobe', 'saved-looks'],
+    queryFn: () => stylistService.getSavedOutfits(),
+    enabled: isAuthenticated,
+    staleTime: 30_000,
+  });
+  const savedLooks: Outfit[] = savedLooksQuery.data ?? [];
+  const [deletingLookId, setDeletingLookId] = useState<number | null>(null);
+  const handleDeleteLook = async (id: number) => {
+    setDeletingLookId(id);
+    try {
+      await stylistService.deleteOutfit(id);
+      await queryClient.invalidateQueries({ queryKey: ['wardrobe', 'saved-looks'] });
+    } finally {
+      setDeletingLookId(null);
+    }
+  };
+
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const initialTab = searchParams.get('tab') || 'closet';
@@ -392,34 +420,47 @@ export const WardrobeView: React.FC = () => {
               </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="bg-[#FAF9F6] rounded-2xl border border-slate-200 p-4 space-y-3">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <span className="text-[10px] font-bold text-[#B8935A] uppercase">Work & Business</span>
-                    <h4 className="font-serif text-base font-bold text-[#1B1F3B]">Elevated Metropolitan Boardroom</h4>
-                  </div>
-                  <FitScoreBadge score={97} verdict="Color Harmony" />
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="h-28 rounded-xl overflow-hidden bg-white">
-                    <img src="https://images.unsplash.com/photo-1594938298603-c8148c4dae35?w=400&auto=format&fit=crop&q=80" alt="Blazer" className="w-full h-full object-cover" />
-                  </div>
-                  <div className="h-28 rounded-xl overflow-hidden bg-white">
-                    <img src="https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=400&auto=format&fit=crop&q=80" alt="Shirt" className="w-full h-full object-cover" />
-                  </div>
-                  <div className="h-28 rounded-xl overflow-hidden bg-white">
-                    <img src="https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=400&auto=format&fit=crop&q=80" alt="Chinos" className="w-full h-full object-cover" />
-                  </div>
-                </div>
-                <div className="flex justify-between items-center pt-2 text-xs font-bold text-[#1B1F3B]">
-                  <span>Total: $529.00</span>
-                  <button onClick={() => navigate('/builder')} className="text-[#B8935A] hover:underline">
-                    Edit in Canvas →
-                  </button>
-                </div>
+            {!isAuthenticated ? (
+              <div className="bg-[#FAF9F6] rounded-2xl border border-dashed border-slate-300 p-6 text-center">
+                <p className="text-xs text-slate-600 font-medium">Sign in to see your saved looks.</p>
+                <p className="text-[11px] text-slate-400 mt-1">Ensembles you save in the Builder appear here — synced to your account.</p>
               </div>
-            </div>
+            ) : savedLooksQuery.isLoading ? (
+              <div className="space-y-3" role="status" aria-live="polite">
+                <div className="h-20 rounded-2xl bg-slate-100 animate-pulse" />
+                <div className="h-20 rounded-2xl bg-slate-100 animate-pulse" />
+              </div>
+            ) : savedLooks.length === 0 ? (
+              <div className="bg-[#FAF9F6] rounded-2xl border border-dashed border-slate-300 p-6 text-center">
+                <p className="text-xs text-slate-600 font-medium">No saved looks yet.</p>
+                <p className="text-[11px] text-slate-400 mt-1">Build an outfit in the Canvas and press “Save Ensemble” — it lands here.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {savedLooks.map((look) => (
+                  <div key={look.id} className="bg-[#FAF9F6] rounded-2xl border border-slate-200 p-4 space-y-3">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <span className="text-[10px] font-bold text-[#B8935A] uppercase">{look.occasion}</span>
+                        <h4 className="font-serif text-base font-bold text-[#1B1F3B]">{look.title}</h4>
+                      </div>
+                      <FitScoreBadge score={look.compatibility_score} label="Match" verdict="stylist engine" />
+                    </div>
+                    <div className="flex justify-between items-center pt-2 text-xs font-bold text-[#1B1F3B]">
+                      <span>Total: ${Number(look.total_price).toFixed(2)}</span>
+                      <button
+                        onClick={() => handleDeleteLook(look.id)}
+                        disabled={deletingLookId === look.id}
+                        className="text-rose-500 hover:text-rose-700 disabled:opacity-40"
+                        aria-label={`Delete ${look.title}`}
+                      >
+                        {deletingLookId === look.id ? 'Deleting…' : 'Delete'}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}

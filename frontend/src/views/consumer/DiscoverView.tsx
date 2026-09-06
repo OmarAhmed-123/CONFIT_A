@@ -302,7 +302,7 @@ export const DiscoverView: React.FC = () => {
                       }}
                     />
                     <div className="absolute top-2.5 left-2.5 flex flex-col gap-1">
-                      <FitScoreBadge score={p.style_compatibility_score} verdict="Color Harmony" />
+                      <FitScoreBadge score={p.style_compatibility_score} label="Match" verdict="Color Harmony" />
                     </div>
 
                     <button

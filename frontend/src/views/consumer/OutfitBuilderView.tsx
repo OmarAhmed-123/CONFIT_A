@@ -352,6 +352,7 @@ export const OutfitBuilderView: React.FC = () => {
                 </div>
                 <FitScoreBadge
                   score={compatibility?.compatibility_score ?? 0}
+                  label="Match"
                   verdict={compatibility?.color_harmony_type || 'Awaiting items'}
                 />
               </div>

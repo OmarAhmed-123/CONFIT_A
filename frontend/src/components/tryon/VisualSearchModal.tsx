@@ -13,6 +13,35 @@ export const VisualSearchModal: React.FC = () => {
 
   const [inputUrl, setInputUrl] = useState('');
   const [selectedSample, setSelectedSample] = useState('');
+  // Upload-your-own-photo path (audit: the modal previously offered only
+  // samples and a URL — no way to search with the user's own image).
+  const [uploadedImage, setUploadedImage] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  const MAX_UPLOAD_BYTES = 8 * 1024 * 1024; // 8 MB — generous for a query photo
+
+  const handleFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // allow re-selecting the same file
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setUploadError('Please choose an image file (JPEG, PNG, WebP…).');
+      return;
+    }
+    if (file.size > MAX_UPLOAD_BYTES) {
+      setUploadError('Image is too large — 8 MB maximum.');
+      return;
+    }
+    setUploadError(null);
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = String(reader.result || '');
+      setUploadedImage(dataUrl);
+      setSelectedSample('');
+      runVisualSearch({ imageBase64: dataUrl });
+    };
+    reader.readAsDataURL(file);
+  };
 
   if (!isVisualSearchOpen) return null;
 
@@ -23,6 +52,10 @@ export const VisualSearchModal: React.FC = () => {
   ];
 
   const handleSearch = (imgUrl?: string) => {
+    if (uploadedImage) {
+      runVisualSearch({ imageBase64: uploadedImage });
+      return;
+    }
     const target = imgUrl || inputUrl || samples[0].url;
     runVisualSearch(target);
   };
@@ -56,13 +89,46 @@ export const VisualSearchModal: React.FC = () => {
           {/* Top Input & Sample Inspiration */}
           <div className="space-y-3">
             <label className="text-xs font-bold text-slate-800 block">
-              1. Choose Sample Inspiration or Paste Image URL:
+              1. Upload Your Own Photo, Choose a Sample, or Paste an Image URL:
             </label>
+
+            {/* Upload your own photo — visible labelled trigger (the VTON-02
+                lesson: a file input is only usable with a real, visible
+                trigger; sr-only input inside a styled <label> is the
+                accessible pattern). The uploaded photo is sent to the same
+                real /tryon/visual-search endpoint via image_base64. */}
+            <div className="flex items-center gap-3">
+              <label
+                htmlFor="vs-photo-upload"
+                className="cursor-pointer inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#FDF8EE] border border-[#B8935A]/50 text-[#A37E44] hover:bg-[#C5A059] hover:text-slate-950 text-xs font-bold transition-all"
+              >
+                <span aria-hidden="true">📷</span>
+                <span>Upload your photo</span>
+              </label>
+              <input
+                id="vs-photo-upload"
+                type="file"
+                accept="image/*"
+                onChange={handleFileSelected}
+                className="sr-only"
+              />
+              {uploadedImage && (
+                <div className="flex items-center gap-2">
+                  <img src={uploadedImage} alt="Your uploaded query" className="w-10 h-10 rounded-lg object-cover border border-[#B8935A]" />
+                  <span className="text-[11px] text-slate-500 font-semibold">Searching with your photo…</span>
+                </div>
+              )}
+            </div>
+            {uploadError && (
+              <p className="text-[11px] text-rose-600 font-semibold" role="alert">{uploadError}</p>
+            )}
+
             <div className="grid grid-cols-3 gap-3">
               {samples.map((s) => (
                 <button
                   key={s.label}
                   onClick={() => {
+                    setUploadedImage(null);
                     setSelectedSample(s.url);
                     handleSearch(s.url);
                   }}

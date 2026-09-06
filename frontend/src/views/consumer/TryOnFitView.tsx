@@ -156,7 +156,7 @@ export const TryOnFitView: React.FC = () => {
                 <div className="h-60 rounded-2xl overflow-hidden bg-slate-100 mb-3 relative">
                   <img src={p.thumbnail_url} alt={p.title} className="w-full h-full object-cover" />
                   <div className="absolute top-2 left-2">
-                    <FitScoreBadge score={p.style_compatibility_score} verdict={`${p.style_compatibility_score}% style match`} />
+                    <FitScoreBadge score={p.style_compatibility_score} label="Style Match" verdict="catalog score" />
                   </div>
                 </div>
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{p.brand_name}</span>

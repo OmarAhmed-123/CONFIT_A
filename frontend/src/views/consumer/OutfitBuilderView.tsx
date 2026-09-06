@@ -26,13 +26,19 @@ import { Product } from '../../models';
 
 type SlotKey = CanvasItem['slot'];
 
-const SLOT_KEYS: SlotKey[] = ['outerwear', 'top', 'bottom', 'footwear'];
+// BUILDER-02 FIX: the accessory slot is part of the canvas taxonomy
+// (CanvasItem.slot already modelled it) but the UI omitted it, so clicking a
+// clutch or tie added it to state invisibly — money left the total while no
+// slot showed the piece. Accessories are now a first-class slot with the
+// same replace/remove/validation rules as the four garment slots.
+const SLOT_KEYS: SlotKey[] = ['outerwear', 'top', 'bottom', 'footwear', 'accessory'];
 
 const SLOTS: Array<{ key: SlotKey; label: string }> = [
   { key: 'outerwear', label: 'Outerwear Layer' },
   { key: 'top', label: 'Top / Shirt' },
   { key: 'bottom', label: 'Trousers / Bottom' },
   { key: 'footwear', label: 'Footwear / Loafers' },
+  { key: 'accessory', label: 'Accessory / Final Touch' },
 ];
 
 /** C6 — a draggable catalog product. Also a real <button>: keyboard users
@@ -166,10 +172,18 @@ export const OutfitBuilderView: React.FC = () => {
   const { products } = useCatalogViewModel();
   const { showToast } = useUIStore();
 
-  // KeyboardSensor keeps drag-and-drop operable without a pointer (Space to
-  // lift, arrows to move, Enter/Space to drop); the palette cards are also
-  // native buttons so Enter adds directly as a full keyboard fallback.
-  const sensors = useSensors(useSensor(PointerSensor), useSensor(KeyboardSensor));
+  // BUILDER-01 FIX: PointerSensor previously had NO activationConstraint, so
+  // a drag activated on raw pointerdown. dnd-kit then swallowed the ensuing
+  // click, so plain mouse clicks on the palette never reached the button's
+  // onClick — the exact "items were dropped but the canvas stayed empty and
+  // the total stayed $0.00" behaviour in the 2026-09-05 audit. A 6px distance
+  // constraint is the standard click-vs-drag separator: a click (press+release
+  // in place) fires onClick and adds the piece; moving 6px+ starts a real drag.
+  // KeyboardSensor is unchanged (Enter on a focused card adds directly).
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor)
+  );
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -257,7 +271,7 @@ export const OutfitBuilderView: React.FC = () => {
               </div>
 
               {/* Canvas Silhouette Slots (droppable) */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-2">
                 {SLOTS.map((slot) => (
                   <DroppableSlot
                     key={slot.key}

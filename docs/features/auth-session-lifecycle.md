@@ -116,3 +116,16 @@ behavior (status quo ante: 24 h access cookie in prod). No DB migration was
 added or removed; `refresh_tokens` schema is unchanged. The `confit_refresh`
 cookie simply stops being set/expected; any lingering cookie is inert
 (30 d max) and cleared on next logout.
+
+---
+
+## Closure (2026-09-07)
+
+- **PR #84** merged as **`44fa877`** (commits `50d6ea9` → `8b60fed` → `f9b162a` → `80f2ed1` → `31b1298`).
+- **CI**: backend ✅ frontend ✅ parity ✅ migration gate ✅ gitleaks ✅ (Workers Builds = main-only, non-required).
+- **Preview verification** (Playwright, destructive, `confit-a-git-fix-auth-sessi-8501c6-…`): **13/13 PASS** — evidence table on PR #84. Two real defects found live and fixed on-branch: `80f2ed1` (empty-JSON body → 422 on /auth/refresh), `31b1298` (same class on /auth/logout).
+- **Production verification** (read-only-class smoke, self-cleaning session, `confit-a.vercel.app`): login sets `confit_refresh` (httpOnly, SameSite=Lax, max-age=2592000) · `/auth/me` 200 · cookie-only refresh 200 with access+refresh+CSRF rotated · logout 200 (revokes, cookies cleared) · 6/6 security headers intact on `/`.
+- **Status: FIXED (verified in production).**
+- Remaining OWNER ACTION (recommended, now safe): lower production env `ACCESS_TOKEN_EXPIRE_MINUTES` 1440 → 15 (code default, researched). Blocking J's insecure-lifetime half cannot close until this env change lands — tracked in MASTER_REMEDIATION_PLAN §6.
+
+Full suites at merge: backend **1034 passed / 7 skipped** · frontend **100 passed** · tsc clean · build ✓.

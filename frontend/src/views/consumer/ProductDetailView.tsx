@@ -126,7 +126,7 @@ export const ProductDetailView: React.FC = () => {
         title="Style this garment inside a full outfit story"
         description="Product detail pages use the animated stack to connect a single item to realistic complementary directions."
       />
-      <nav className="text-xs text-slate-400 flex items-center gap-2 font-light">
+      <nav className="text-xs text-slate-500 flex items-center gap-2 font-light">
         <Link to="/discover" className="hover:text-[#1B1F3B] transition-colors">
           Catalog
         </Link>
@@ -218,7 +218,7 @@ export const ProductDetailView: React.FC = () => {
               <span className="text-2xl font-serif font-black text-[#1B1F3B]">
                 ${product.base_price.toFixed(2)}
               </span>
-              <span className="text-xs text-slate-400 font-light">{product.currency}</span>
+              <span className="text-xs text-slate-500 font-light">{product.currency}</span>
             </div>
 
             {bnpl?.eligible && bnpl.installment_amount != null && (
@@ -241,7 +241,7 @@ export const ProductDetailView: React.FC = () => {
               </div>
               <button
                 onClick={() => openRuler(product)}
-                className="text-xs font-bold text-[#C5A059] hover:underline flex items-center gap-1"
+                className="text-xs font-bold text-[#7A5C28] hover:underline flex items-center gap-1"
               >
                 <RulerIcon size={14} color="#C5A059" />
                 <span>Find my size</span>
@@ -326,7 +326,7 @@ export const ProductDetailView: React.FC = () => {
 
             <button
               onClick={() => openTryOn(product)}
-              className="w-full py-3.5 rounded-2xl bg-[#FDF8EE] hover:bg-[#C5A059] text-[#C5A059] hover:text-white border border-[#C5A059]/40 font-bold text-xs shadow-2xs transition-all flex items-center justify-center gap-2"
+              className="w-full py-3.5 rounded-2xl bg-[#FDF8EE] hover:bg-[#C5A059] text-[#7A5C28] hover:text-white border border-[#C5A059]/40 font-bold text-xs shadow-2xs transition-all flex items-center justify-center gap-2"
             >
               <TryOnIcon size={16} color="currentColor" />
               <span>Try on digitally</span>

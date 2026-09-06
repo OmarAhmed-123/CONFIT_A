@@ -141,7 +141,7 @@ export const TryOnFitView: React.FC = () => {
           <h3 className="font-serif text-xl font-bold text-[#1B1F3B]">
             Select Garment from Multi-Brand Catalog:
           </h3>
-          <span className="text-xs text-slate-400 font-light">
+          <span className="text-xs text-slate-500 font-light">
             {isLoading
               ? 'Loading catalog styles…'
               : catalogError && products.length === 0
@@ -173,7 +173,7 @@ export const TryOnFitView: React.FC = () => {
                     <FitScoreBadge score={p.style_compatibility_score} label="Style Match" verdict="catalog score" />
                   </div>
                 </div>
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{p.brand_name}</span>
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{p.brand_name}</span>
                 <h4 className="font-serif text-sm font-bold text-[#1B1F3B] truncate">{p.title}</h4>
                 <div className="text-sm font-bold text-[#1B1F3B] mt-1">${p.base_price.toFixed(2)}</div>
               </div>

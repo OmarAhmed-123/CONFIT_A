@@ -178,7 +178,7 @@ export const VisualSearchModal: React.FC = () => {
           )}
 
           {!visualSearchResult && !visualSearchError && !visualSearchLoading && (
-            <div className="pt-4 border-t border-slate-100 text-center text-xs text-slate-400 font-light">
+            <div className="pt-4 border-t border-slate-100 text-center text-xs text-slate-500 font-light">
               Pick a sample or paste an image URL, then press <span className="font-semibold text-slate-600">Search Style</span> —
               matches from the live catalog appear here.
             </div>
@@ -225,7 +225,7 @@ export const VisualSearchModal: React.FC = () => {
                           {match.match_type}
                         </span>
                       </div>
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
                         {match.brand_name}
                       </span>
                       <h5 className="text-xs font-bold text-[#1B1F3B] line-clamp-1 mb-1">{match.title}</h5>

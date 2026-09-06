@@ -53,7 +53,7 @@ export const CartDrawer: React.FC = () => {
           <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
             {items.length === 0 ? (
               <div className="text-center py-16">
-                <div className="w-16 h-16 rounded-full bg-slate-100 mx-auto flex items-center justify-center text-slate-400 mb-3">
+                <div className="w-16 h-16 rounded-full bg-slate-100 mx-auto flex items-center justify-center text-slate-500 mb-3">
                   <BagIcon size={28} />
                 </div>
                 <h4 className="font-serif text-base font-bold text-[#1B1F3B] mb-1">
@@ -85,12 +85,12 @@ export const CartDrawer: React.FC = () => {
                   <div className="flex-1 min-w-0 flex flex-col justify-between">
                     <div>
                       <div className="flex justify-between items-start">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
                           {item.brand_name}
                         </span>
                         <button
                           onClick={() => removeItem(item.id)}
-                          className="text-slate-400 hover:text-rose-500 text-xs"
+                          className="text-slate-500 hover:text-rose-500 text-xs"
                           title="Remove item"
                         >
                           ✕

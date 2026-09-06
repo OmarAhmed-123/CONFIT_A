@@ -75,7 +75,7 @@ const DraggableProduct: React.FC<{
         </span>
       </div>
       <div>
-        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block truncate">
+        <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider block truncate">
           {product.brand_name}
         </span>
         <span className="text-[11px] font-bold text-[#1B1F3B] line-clamp-1">{product.title}</span>
@@ -105,7 +105,7 @@ const DroppableSlot: React.FC<{
             : 'border-dashed border-slate-300 bg-slate-50/50'
       }`}
     >
-      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block text-center">
+      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block text-center">
         {slot.label}
       </span>
 
@@ -127,26 +127,26 @@ const DroppableSlot: React.FC<{
             />
           </div>
           <div className="text-center mt-1">
-            <span className="text-[10px] text-slate-400 font-semibold block truncate">
+            <span className="text-[10px] text-slate-500 font-semibold block truncate">
               {item.product.brand_name}
             </span>
             <span className="text-xs font-bold text-[#1B1F3B] block truncate">
               {item.product.title}
             </span>
             {item.skuStatus === 'pending' && (
-              <span className="text-[10px] text-slate-400 font-medium block">Checking size…</span>
+              <span className="text-[10px] text-slate-500 font-medium block">Checking size…</span>
             )}
             {item.skuStatus === 'unavailable' && (
               <span className="text-[10px] text-rose-600 font-semibold block">No purchasable size</span>
             )}
             {item.skuStatus === 'ready' && item.selectedSku && (
-              <span className="text-[10px] text-slate-400 font-medium block">Size {item.selectedSku.size}</span>
+              <span className="text-[10px] text-slate-500 font-medium block">Size {item.selectedSku.size}</span>
             )}
             <span className="text-xs font-bold text-[#A37E44]">${item.product.base_price}</span>
           </div>
         </>
       ) : (
-        <div className="flex flex-col items-center justify-center my-auto text-center p-2 text-slate-400">
+        <div className="flex flex-col items-center justify-center my-auto text-center p-2 text-slate-500">
           <OutfitBuilderIcon size={22} color="#CBD5E1" />
           <span className="text-[11px] font-light mt-1 text-slate-500">
             Drop a piece here, or press Enter on a product below
@@ -318,7 +318,7 @@ export const OutfitBuilderView: React.FC = () => {
             {/* Live Budget Tracker Module */}
             <div className="bg-white rounded-3xl border border-slate-200/80 p-6 shadow-2xs space-y-4">
               <div className="flex justify-between items-center pb-3 border-b border-slate-100">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
                   Live Budget Tracker Overlay
                 </span>
                 <span
@@ -341,7 +341,7 @@ export const OutfitBuilderView: React.FC = () => {
                     ${runningTotal.toFixed(2)}
                   </span>
                 </div>
-                <div className="flex justify-between text-xs text-slate-400">
+                <div className="flex justify-between text-xs text-slate-500">
                   <span>Profile Target Allocation:</span>
                   <span>${userBudgetLimit.toFixed(2)} target</span>
                 </div>

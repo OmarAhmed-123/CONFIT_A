@@ -302,7 +302,7 @@ export const HomeView: React.FC = () => {
                 <h3 className="font-serif text-base font-bold text-[#1B1F3B] group-hover:text-[#C5A059] transition-colors">
                   {brand.name}
                 </h3>
-                <span className="text-[11px] text-slate-400 font-light block">{brand.origin}</span>
+                <span className="text-[11px] text-slate-500 font-light block">{brand.origin}</span>
                 <p className="text-xs text-slate-600 font-light mt-1.5 line-clamp-2">{brand.aesthetic}</p>
               </div>
 
@@ -556,7 +556,7 @@ export const HomeView: React.FC = () => {
                     </div>
                   </div>
 
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
                     {p.brand_name}
                   </span>
                   <h4

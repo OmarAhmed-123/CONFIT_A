@@ -292,7 +292,7 @@ export const FitFinderView: React.FC = () => {
                   type="button"
                   onClick={() => { setUnits('metric'); setResult(null); }}
                   aria-pressed={units === 'metric'}
-                  className={`px-3 py-1 rounded-lg transition-all ${units === 'metric' ? 'bg-white shadow-2xs text-[#1B1F3B]' : 'text-slate-500'}`}
+                  className={`px-3 py-1 rounded-lg transition-all ${units === 'metric' ? 'bg-white shadow-2xs text-[#1B1F3B]' : 'text-slate-600'}`}
                 >
                   cm / kg
                 </button>
@@ -300,7 +300,7 @@ export const FitFinderView: React.FC = () => {
                   type="button"
                   onClick={() => { setUnits('imperial'); setResult(null); }}
                   aria-pressed={units === 'imperial'}
-                  className={`px-3 py-1 rounded-lg transition-all ${units === 'imperial' ? 'bg-white shadow-2xs text-[#1B1F3B]' : 'text-slate-500'}`}
+                  className={`px-3 py-1 rounded-lg transition-all ${units === 'imperial' ? 'bg-white shadow-2xs text-[#1B1F3B]' : 'text-slate-600'}`}
                 >
                   in / lbs
                 </button>
@@ -393,7 +393,7 @@ export const FitFinderView: React.FC = () => {
                     aria-pressed={form.preferredFit === f.value}
                     className={`py-2 rounded-xl border text-[11px] font-bold transition-all ${
                       form.preferredFit === f.value
-                        ? 'border-[#C5A059] bg-[#FDF8EE] text-[#A37E44]'
+                        ? 'border-[#C5A059] bg-[#FDF8EE] text-[#7A5C28]'
                         : 'border-slate-200 text-slate-600 hover:border-slate-300'
                     }`}
                   >

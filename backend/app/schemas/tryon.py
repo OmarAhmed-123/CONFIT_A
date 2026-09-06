@@ -168,6 +168,10 @@ class MultiGarmentTryOnResponse(BaseModel):
     layering_order: List[str] = []
     dynamic_prompt_generated: Optional[str] = None
     expires_at: Optional[datetime] = None
+    # Honest per-layer verification outcome (all_layers_verified + failed
+    # layers) so the frontend can surface a truthful quality warning when a
+    # garment layer was not confirmed applied by the engine.
+    verification: Optional[Dict[str, Any]] = None
 
     model_config = ConfigDict(from_attributes=True)
 

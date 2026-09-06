@@ -206,6 +206,10 @@ async def render_animated_tryon(
             raise HTTPException(status_code=422, detail={"error": {"code": "VTON_INPUT_INVALID", "message": err}})
         elif "VTON_OUTPUT_INVALID" in err:
             raise HTTPException(status_code=502, detail={"error": {"code": "VTON_OUTPUT_INVALID", "message": err}})
+        elif "VTON_LAYER_NOT_APPLIED" in err:
+            # A garment layer was not verified as applied by the engine: the request
+            # cannot be a complete, verified outfit. Fail truthfully (502, engine output), never a partial "success".
+            raise HTTPException(status_code=502, detail={"error": {"code": "VTON_LAYER_NOT_APPLIED", "message": err}})
         elif "VTON_TIMEOUT" in err:
             raise HTTPException(status_code=504, detail={"error": {"code": "VTON_TIMEOUT", "message": err}})
         elif "VTON_WORKER_UNAVAILABLE" in err:
@@ -254,6 +258,10 @@ async def render_multi_garment_tryon(
             raise HTTPException(status_code=422, detail={"error": {"code": "VTON_INPUT_INVALID", "message": err}})
         elif "VTON_OUTPUT_INVALID" in err:
             raise HTTPException(status_code=502, detail={"error": {"code": "VTON_OUTPUT_INVALID", "message": err}})
+        elif "VTON_LAYER_NOT_APPLIED" in err:
+            # A garment layer was not verified as applied by the engine: the request
+            # cannot be a complete, verified outfit. Fail truthfully (502, engine output), never a partial "success".
+            raise HTTPException(status_code=502, detail={"error": {"code": "VTON_LAYER_NOT_APPLIED", "message": err}})
         elif "VTON_TIMEOUT" in err:
             raise HTTPException(status_code=504, detail={"error": {"code": "VTON_TIMEOUT", "message": err}})
         elif "VTON_WORKER_UNAVAILABLE" in err:
@@ -340,6 +348,10 @@ async def create_tryon_session(
             raise HTTPException(status_code=422, detail={"error": {"code": "VTON_INPUT_INVALID", "message": err}})
         elif "VTON_OUTPUT_INVALID" in err:
             raise HTTPException(status_code=502, detail={"error": {"code": "VTON_OUTPUT_INVALID", "message": err}})
+        elif "VTON_LAYER_NOT_APPLIED" in err:
+            # A garment layer was not verified as applied by the engine: the request
+            # cannot be a complete, verified outfit. Fail truthfully (502, engine output), never a partial "success".
+            raise HTTPException(status_code=502, detail={"error": {"code": "VTON_LAYER_NOT_APPLIED", "message": err}})
         elif "VTON_TIMEOUT" in err:
             raise HTTPException(status_code=504, detail={"error": {"code": "VTON_TIMEOUT", "message": err}})
         elif "VTON_WORKER_UNAVAILABLE" in err:
@@ -487,6 +499,10 @@ async def render_virtual_tryon(
             raise HTTPException(status_code=422, detail={"error": {"code": "VTON_INPUT_INVALID", "message": err}})
         elif "VTON_OUTPUT_INVALID" in err:
             raise HTTPException(status_code=502, detail={"error": {"code": "VTON_OUTPUT_INVALID", "message": err}})
+        elif "VTON_LAYER_NOT_APPLIED" in err:
+            # A garment layer was not verified as applied by the engine: the request
+            # cannot be a complete, verified outfit. Fail truthfully (502, engine output), never a partial "success".
+            raise HTTPException(status_code=502, detail={"error": {"code": "VTON_LAYER_NOT_APPLIED", "message": err}})
         elif "VTON_TIMEOUT" in err:
             raise HTTPException(status_code=504, detail={"error": {"code": "VTON_TIMEOUT", "message": err}})
         elif "VTON_WORKER_UNAVAILABLE" in err:

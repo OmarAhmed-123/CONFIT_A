@@ -214,6 +214,55 @@ def _mime_from_bytes(raw: bytes) -> str:
     return "image/jpeg"
 
 
+def aggregate_layer_verification(layers_meta: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Aggregate per-layer engine verification into an honest outfit-level status.
+
+    The FASHN worker returns HTTP 200 + an image even when it did NOT effectively
+    apply a garment (its ``verify.PASS`` is then False). A garment layer is
+    considered "verified" ONLY when its ``verify_pass`` is exactly True. This is
+    the single source of truth used by both the sync multi-render path and the
+    async job path, so a failed upper layer (e.g. a blazer) is never reported as
+    a clean, fully-verified complete-outfit success.
+    """
+    failed = [lm for lm in layers_meta if lm.get("verify_pass") is not True]
+    total = len(layers_meta)
+    verified = total - len(failed)
+    return {
+        "all_layers_verified": total > 0 and len(failed) == 0,
+        "layers_requested": total,
+        "verified_layers": verified,
+        "layers_failed": len(failed),
+        "failed_layers": failed,
+    }
+
+
+def assert_layer_applied(verify: Dict[str, Any], job_id: str) -> None:
+    """CANONICAL per-layer VTON gate — the single source of truth.
+
+    A garment layer is valid ONLY when the engine's own verify gate confirms it
+    was applied: ``verify["PASS"]`` is exactly ``True``. The FASHN worker returns
+    HTTP 200 + an image even when the garment was NOT materially applied, so a
+    non-True ``PASS`` (including missing/``None``) means the layer did not dress
+    the person. This raises the single canonical ``VTON_LAYER_NOT_APPLIED``
+    failure so callers report a truthful FAILED state rather than returning a
+    partial/unverified render as a success.
+
+    It is invoked from ``_call_gpu_worker``, so it applies to EVERY VTON path
+    (standard, multi-garment, multi-render, animated, sequential chaining).
+    """
+    if verify.get("PASS") is True:
+        return
+    _vp = verify.get("PASS")
+    raise RuntimeError(
+        "VTON_LAYER_NOT_APPLIED: the engine did not verify this garment layer "
+        f"as applied (job={job_id}, verify_pass={_vp}, "
+        f"pixel_change={verify.get('metric_pixel_change')}, "
+        f"color_shift={verify.get('metric_color_shift')}, "
+        f"stddev={verify.get('metric_image_stddev')}). "
+        "No complete, verified outfit was produced."
+    )
+
+
 class TryOnService:
     def __init__(self, db: Session):
         self.db = db
@@ -705,6 +754,30 @@ class TryOnService:
                     if color_shift is not None and color_shift < 0.001:
                         logger.warn("vton_output_low_color_shift", job_id=job_id, color_shift=color_shift)
 
+                # CANONICAL per-layer verification invariant — the single source
+                # of truth applied to EVERY VTON path (standard, multi-garment,
+                # multi-render, animated, sequential layer chaining). A garment
+                # layer is valid ONLY if the engine's own verify gate confirms it
+                # was applied (verify.PASS is exactly True). The worker returns
+                # HTTP 200 + an image even when the garment was not materially
+                # applied, so a non-True verify.PASS means this layer did NOT
+                # dress the person. We fail truthfully with the single canonical
+                # code instead of returning a partial/unverified render as a
+                # success. Aborting here (before chaining) also saves the GPU
+                # from rendering further layers on an unverified base.
+                if verify.get("PASS") is not True:
+                    logger.error(
+                        "vton_layer_not_applied",
+                        job_id=job_id,
+                        verify_pass=verify.get("PASS"),
+                        pixel_change=verify.get("metric_pixel_change"),
+                        color_shift=verify.get("metric_color_shift"),
+                        stddev=verify.get("metric_image_stddev"),
+                    )
+                # Hard, canonical gate: fail truthfully (VTON_LAYER_NOT_APPLIED)
+                # if this garment layer was not verified as applied.
+                assert_layer_applied(verify, job_id)
+
                 logger.info(
                     "vton_inference_success",
                     job_id=job_id,
@@ -838,21 +911,38 @@ class TryOnService:
                         output_aspect=output_aspect or "9:16"
                     )
                     rendered = gpu_data.get("rendered_image_data_url")
+                    # Record EACH layer's verification outcome. The worker
+                    # always returns 200 + an image; verify.PASS=False means
+                    # that layer's garment did not materially change the image
+                    # (i.e. it was not really applied). We must NOT collapse
+                    # that into a clean "harmonized_and_verified" success.
+                    _lv = gpu_data.get("verify") or {}
                     layers_meta.append({
                         "layer": li,
                         "product_id": g.get("product_id"),
                         "slot_type": g.get("slot_type"),
                         "execution_time_ms": gpu_data.get("execution_time_ms"),
+                        "verify_pass": _lv.get("PASS"),
+                        "metric_pixel_change": _lv.get("metric_pixel_change"),
                     })
                     # Output becomes the input for the next layer
                     # (sequential architecture); the uploaded person remains
                     # the identity/pose anchor of the whole chain.
                     person_for_layer = rendered
 
+                # Honest, per-layer verification aggregation. A layer whose
+                # garment was not applied (verify_pass != True) must not be
+                # reported as a clean "verified" complete-outfit result.
+                _verif_agg = aggregate_layer_verification(layers_meta)
+                _failed_layers = _verif_agg["failed_layers"]
+                _all_layers_verified = _verif_agg["all_layers_verified"]
                 quality = gpu_data.get("quality_audit") or gpu_data.get("verify") or {}
                 job.status = TryOnJobStatus.COMPLETED
                 job.progress_pct = 100
-                job.current_stage = "harmonized_and_verified"
+                job.current_stage = (
+                    "harmonized_and_verified" if _all_layers_verified
+                    else "completed_with_unverified_layers"
+                )
                 # TEMPORARY (non-persistent) delivery — product requirement:
                 # the generated try-on image is NEVER stored durably (no
                 # S3/R2, no local disk, no image bytes or object keys in the
@@ -879,6 +969,25 @@ class TryOnService:
                 if len(garments) > 1:
                     # Prove the WHOLE selected outfit was applied, in order.
                     _metrics["outfit_layers"] = layers_meta
+                # Honest, per-layer verification outcome — the frontend reads
+                # this to show a truthful state instead of a false "complete
+                # outfit verified" success when a layer's garment was not
+                # actually applied by the engine.
+                _metrics["verification"] = {
+                    "all_layers_verified": _all_layers_verified,
+                    "layers_requested": len(layers_meta),
+                    "layers_failed": len(_failed_layers),
+                    "failed_layers": [
+                        {
+                            "layer": lm["layer"],
+                            "product_id": lm.get("product_id"),
+                            "slot_type": lm.get("slot_type"),
+                            "verify_pass": lm.get("verify_pass"),
+                            "metric_pixel_change": lm.get("metric_pixel_change"),
+                        }
+                        for lm in _failed_layers
+                    ],
+                }
                 job.metrics_json = json.dumps(_metrics)
                 self.db.commit()
                 self.db.refresh(job)
@@ -923,6 +1032,8 @@ class TryOnService:
                     error_code = "VTON_AUTH_FAILURE"
                 elif "VTON_WORKER_NOT_READY" in error_str:
                     error_code = "VTON_WORKER_NOT_READY"
+                elif "VTON_LAYER_NOT_APPLIED" in error_str:
+                    error_code = "VTON_LAYER_NOT_APPLIED"
                 elif "VTON_INPUT_INVALID" in error_str or "VTON_GARMENT_ASSET_INVALID" in error_str:
                     error_code = "VTON_INPUT_INVALID"
                 elif "VTON_OUTPUT_INVALID" in error_str:
@@ -937,7 +1048,13 @@ class TryOnService:
                 job.status = TryOnJobStatus.FAILED
                 job.current_stage = "failed"
                 job.error_code = error_code
-                job.error_message = f"GPU Inference Worker Failure: {error_str[:500]}"
+                # A layer-not-applied failure already carries a complete, honest
+                # message from the render contract; do not prefix it as a generic
+                # worker failure (it is the engine not applying the garment).
+                if error_code == "VTON_LAYER_NOT_APPLIED":
+                    job.error_message = error_str[:500]
+                else:
+                    job.error_message = f"GPU Inference Worker Failure: {error_str[:500]}"
                 # Failure path: nothing was staged — there is no artifact to
                 # clean up; the capability token stays available for the
                 # (guest) submitter to observe the failure state.
@@ -1235,6 +1352,7 @@ class TryOnService:
                 # identity/pose anchor of the whole chain.
                 gpu_data = None
                 person_for_layer = person_img
+                sync_layers_meta: List[Dict[str, Any]] = []
                 for li, g in enumerate(garments, start=1):
                     layer_job_id = job_id if len(garments) == 1 else f"{job_id}_l{li}"
                     gpu_data = await self._call_gpu_worker(
@@ -1244,11 +1362,32 @@ class TryOnService:
                         gender_mode=gender_mode or "infer_from_image",
                         output_aspect="9:16"
                     )
+                    # Record each layer's verification outcome. The worker
+                    # returns 200 + image regardless of whether the garment
+                    # was really applied — verify.PASS=False means that layer's
+                    # garment was not effectively applied by the engine.
+                    _lv = gpu_data.get("verify") or {}
+                    sync_layers_meta.append({
+                        "layer": li,
+                        "product_id": g.get("product_id"),
+                        "slot_type": g.get("slot_type"),
+                        "verify_pass": _lv.get("PASS"),
+                        "metric_pixel_change": _lv.get("metric_pixel_change"),
+                    })
                     # Output becomes the input for the next layer
                     # (sequential architecture).
                     person_for_layer = gpu_data.get("rendered_image_data_url")
 
                 rendered_url = gpu_data.get("rendered_image_data_url")
+                # Honest per-layer verification aggregation: a garment layer
+                # whose verify.PASS is not True was not confirmed applied and
+                # must not be reported as part of a clean, fully-verified
+                # outfit (this is what previously surfaced as a false
+                # "Optimal Garment Fit / Identity Preserved" success).
+                _sync_verif = aggregate_layer_verification(sync_layers_meta)
+                _sync_failed = _sync_verif["failed_layers"]
+                _sync_all_verified = _sync_verif["all_layers_verified"]
+                _sync_verified_count = _sync_verif["verified_layers"]
                 # TEMPORARY (non-persistent) delivery: the GPU-generated image
                 # travels in the authenticated response only (rendered_result_url
                 # below). It is NEVER written to durable storage or to the
@@ -1257,14 +1396,28 @@ class TryOnService:
                 rendered_ref = rendered_url
                 vton_result = {
                     "rendered_image_url": rendered_ref,
-                    "fit_verdict": gpu_data.get("fit_verdict", "Optimal Garment Fit"),
-                    "fit_confidence": 96,
+                    # HONEST verdict derived from real per-layer verification —
+                    # never a hardcoded "Optimal Garment Fit".
+                    "fit_verdict": (
+                        "All selected garments applied and verified" if _sync_all_verified
+                        else f"Only {_sync_verified_count} of {len(sync_layers_meta)} garment layer(s) verified as applied — some garments may be missing"
+                    ),
+                    # Real measured coverage: fraction of layers verified.
+                    "fit_confidence": int(round(100.0 * _sync_verified_count / len(sync_layers_meta))) if sync_layers_meta else 0,
                     "traceability_hash": f"VTON-CERT-{hashlib.sha256(f'{job_id}{time.time()}'.encode()).hexdigest()[:16].upper()}",
-                    "ai_disclosure": f"CONFIT VTON Engine — {gpu_data.get('model_used', 'CatVTON')} — Identity Preserved",
+                    # Honest disclosure: model name only — no unconditional
+                    # "Identity Preserved" claim when a layer failed.
+                    "ai_disclosure": f"CONFIT VTON Engine — {gpu_data.get('model_used', 'CatVTON')}",
                     "dynamic_prompt_generated": "",
                     "model_used": gpu_data.get("model_used"),
                     "execution_time_ms": gpu_data.get("execution_time_ms"),
                     "verify": gpu_data.get("verify"),
+                    "verification": {
+                        "all_layers_verified": _sync_all_verified,
+                        "layers_requested": len(sync_layers_meta),
+                        "layers_failed": len(_sync_failed),
+                        "failed_layers": _sync_failed,
+                    },
                 }
                 logger.info("multi_garment_real_inference_success", job_id=job_id, products=target_ids)
 
@@ -1378,7 +1531,11 @@ class TryOnService:
             "fit_confidence_score": session.fit_confidence_score,
             "body_fit_verdict": session.body_fit_verdict,
             "recommended_sizes": recommended_sizes,
-            "ai_disclosure": vton_result.get("ai_disclosure", "CONFIT VTON Engine — Identity Preserved"),
+            "ai_disclosure": vton_result.get("ai_disclosure", "CONFIT VTON Engine"),
+            # Honest per-layer verification outcome (sync multi-render path).
+            # The frontend reads this to show a truthful quality warning when
+            # a garment layer was not confirmed applied.
+            "verification": vton_result.get("verification"),
             "traceability_hash": vton_result.get("traceability_hash", f"VTON-CERT-{session.id}"),
             "layering_order": [it["position"] for it in applied_items],
             "dynamic_prompt_generated": vton_result.get("dynamic_prompt_generated", ""),
@@ -1531,6 +1688,14 @@ class TryOnService:
 
                     except Exception as frame_exc:
                         error_str = str(frame_exc)
+                        # A garment layer not verified as applied is a canonical
+                        # VTON failure: the animation is a complete-outfit result,
+                        # so it must NOT continue from an unverified layer. Hard
+                        # abort with the single canonical code (never leave a
+                        # partial animation as a success).
+                        if "VTON_LAYER_NOT_APPLIED" in error_str:
+                            logger.error("animated_layer_not_applied", step=idx, error=error_str[:300])
+                            raise
                         logger.warn("animated_keyframe_failed", step=idx, error=error_str[:300])
                         # If single frame fails, don't fallback to fake - fail honestly unless it's last resort
                         # For animated, if one layer fails, we cannot continue sequence honestly

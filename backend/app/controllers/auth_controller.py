@@ -29,6 +29,7 @@ from backend.app.schemas.auth import (
     MFASetupResponse,
     MFAVerifyRequest,
     RefreshTokenRequest,
+    RefreshTokenOptionalRequest,
     SocialLoginRequest,
     TokenResponse,
     UserLogin,
@@ -203,7 +204,7 @@ def refresh(
     request: Request,
     response: Response,
     db: Session = Depends(get_db),
-    payload: Optional[RefreshTokenRequest] = None,
+    payload: Optional[RefreshTokenOptionalRequest] = None,
 ):
     # Token source precedence: explicit body (API/mobile clients, unchanged
     # contract) → httpOnly cookie (browser SPA). Never both silently: the body

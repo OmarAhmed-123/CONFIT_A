@@ -71,6 +71,18 @@ class RefreshTokenRequest(BaseModel):
     refresh_token: str
 
 
+class RefreshTokenOptionalRequest(BaseModel):
+    """Lenient body for POST /auth/refresh.
+
+    The browser SPA always sends an empty JSON object and relies on the
+    httpOnly confit_refresh cookie; a required-field model would turn that
+    into a 422 before the handler ever runs. API/mobile clients keep sending
+    {"refresh_token": "..."} (validated as a non-empty string when present).
+    """
+
+    refresh_token: Optional[str] = None
+
+
 class MFASetupResponse(BaseModel):
     secret: str
     qr_uri: str

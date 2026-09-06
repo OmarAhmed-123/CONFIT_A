@@ -46,8 +46,13 @@ def test_cookie_only_refresh_rotates_and_keeps_session(client: TestClient):
     old_refresh = client.cookies.get("confit_refresh")
     assert old_refresh
 
-    # SPA path: no body at all — refresh cookie drives the renewal
-    res = client.post("/api/v1/auth/refresh", headers=_csrf(client))
+    # SPA path: the empty JSON object the browser client sends — the refresh
+    # cookie drives the renewal
+    res = client.post(
+        "/api/v1/auth/refresh",
+        headers={**_csrf(client), "Content-Type": "application/json"},
+        content=b"{}",
+    )
     assert res.status_code == 200, res.text
     assert res.json()["refresh_token"] != old_refresh, "refresh token must rotate"
     assert client.cookies.get("confit_refresh") == res.json()["refresh_token"]
@@ -79,9 +84,19 @@ def test_body_refresh_still_works_backward_compatible(client: TestClient):
 def test_refresh_without_any_token_is_honest_401(client: TestClient):
     _login(client)
     client.cookies.delete("confit_refresh")
+    # no body at all
     res = client.post("/api/v1/auth/refresh", headers=_csrf(client))
     assert res.status_code == 401
     assert "not provided" in res.json()["error"]["message"].lower()
+    # AND the exact browser shape: empty JSON object "{}" must reach the
+    # handler (not die as 422 on a required-field model)
+    res2 = client.post(
+        "/api/v1/auth/refresh",
+        headers={**_csrf(client), "Content-Type": "application/json"},
+        content=b"{}",
+    )
+    assert res2.status_code == 401, res2.text
+    assert "not provided" in res2.json()["error"]["message"].lower()
 
 
 def test_expired_refresh_clears_stale_cookie(client: TestClient):

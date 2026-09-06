@@ -20,11 +20,14 @@ def check(name, cond, detail=""):
     results.append((name, bool(cond), detail))
     print(("PASS " if cond else "FAIL ") + name + ("  | " + str(detail) if detail and not cond else ""))
 
-# LOCAL stack creds: backend/.env points at the scratch DB (confit_fixverify),
-# NOT the production database (proven: rotated password passes on
-# confit-a.vercel.app but fails bcrypt on this DB). The scratch DB still has
-# the pre-rotation seed password; it is used ONLY against localhost:8000.
-shopper = ("shopper@confit.io", "Password123!")
+# Credentials come from the environment — never committed (SEC-01). The
+# probe runs against the LOCAL scratch stack only; production rotated
+# credentials must NOT be exported here.
+#   CONFIT_VERIFY_EMAIL / CONFIT_VERIFY_PASSWORD  (local scratch account)
+import os
+shopper = (os.environ.get("CONFIT_VERIFY_EMAIL"), os.environ.get("CONFIT_VERIFY_PASSWORD"))
+if not shopper[0] or not shopper[1]:
+    sys.exit("Set CONFIT_VERIFY_EMAIL and CONFIT_VERIFY_PASSWORD (local scratch account) before running this probe.")
 
 with sync_playwright() as p:
     browser = p.chromium.launch()
@@ -107,6 +110,45 @@ with sync_playwright() as p:
     check("H3a real saved look title renders", "pw verify look" in body)
     check("H3b badge says 'match' not '% fit'", ("% match" in body) and ("% fit" not in body))
     check("H3c real total shown (no hardcoded 529)", "529" not in body and "$" in body)
+    # H3e: refresh persistence — the look must survive a full reload
+    # (DB-backed via GET /outfits, not client state)
+    page.reload(wait_until="networkidle")
+    page.get_by_role("button", name=re.compile("my looks", re.I)).click()
+    page.wait_for_timeout(1500)
+    check("H3e look persists after full refresh (DB-backed)",
+          "pw verify look" in page.locator("body").inner_text().lower())
+
+    # H3f: logout + fresh login via UI -> still there (server-side ownership)
+    # account menu opens on HOVER over the navbar user area (a[href='/profile'])
+    user_area = page.locator("div.relative").filter(has=page.locator("a[href='/profile']")).first
+    user_area.hover()
+    page.wait_for_timeout(700)
+    page.get_by_role("button", name=re.compile("sign out", re.I)).first.click()
+    # logout navigates to '/' and swaps the navbar to 'Sign In' — wait for it
+    page.wait_for_selector("button:has-text('Sign In')", timeout=15000)
+    # Re-login through the REAL /auth/login API into the browser's shared
+    # cookie jar (httpOnly session cookie lands exactly as the UI login's).
+    # Respects the 10/min login rate-limiter: on 429 wait one window and
+    # retry once. (UI-modal re-login was flaky only due to that limiter.)
+    import time as _time
+    for _attempt in range(2):
+        _resp = page.request.post(BASE + "/api/v1/auth/login",
+            data={"email": shopper[0], "password": shopper[1]})
+        if _resp.status == 200:
+            break
+        print(f"  (login rate-limited: {_resp.status} — waiting 65s)")
+        _time.sleep(65)
+    assert _resp.status == 200, f"re-login failed {_resp.status}"
+    page.goto(BASE + "/wardrobe", wait_until="networkidle")
+    page.get_by_role("button", name=re.compile("my looks", re.I)).click()
+    # data IS server-owned (API shows the look) — allow the react-query fetch to land
+    try:
+        page.wait_for_selector("text=PW Verify Look", timeout=10000)
+        h3f = True
+    except Exception:
+        h3f = False
+    check("H3f look persists after logout+login (server-owned)", h3f)
+
     # delete via UI — target ONLY the look this script created (aria-label)
     page.get_by_role("button", name="Delete PW Verify Look").click()
     try:
@@ -135,6 +177,25 @@ with sync_playwright() as p:
     card_imgs = page.get_by_text(re.compile(r"% match", re.I)).count()
     check("H4d match cards rendered in modal", card_imgs >= min(3, vs_resp.get("results_count", 1)),
           f"cards={card_imgs} count={vs_resp.get('results_count')}")
+
+    # H4e: honest terminal ERROR state when the API genuinely fails (route-level
+    # fault injection — the request really leaves the browser and really fails;
+    # the UI must show an explicit error and never stay stuck on 'Analyzing...')
+    page.locator("div.fixed.inset-0.z-50 button", has_text="✕").first.click()
+    page.wait_for_timeout(700)
+    page.unroute("**/tryon/visual-search", capture_vs)
+    page.route("**/tryon/visual-search", lambda route: route.abort("connectionrefused"))
+    page.get_by_role("button", name=re.compile("style & discover", re.I)).first.click()
+    page.get_by_role("button", name=re.compile("visual search", re.I)).first.click()
+    page.wait_for_selector("text=/navy wool blazer/i", timeout=8000)
+    page.get_by_role("button", name=re.compile("navy wool blazer", re.I)).first.click()
+    page.wait_for_timeout(2500)
+    err_txt = page.locator("body").inner_text()
+    honest_error = (re.search(r"analysis failed|timed out|try again", err_txt, re.I) is not None)
+    stuck = ("Analyzing..." in err_txt)
+    check("H4e honest error terminal state on real API failure (never stuck Analyzing)",
+          honest_error and not stuck, f"honest={honest_error} stuck={stuck}")
+    page.unroute("**/tryon/visual-search")
 
     # ---------- H5: Try-On modal honesty ----------
     page.goto(BASE + "/product/1", wait_until="networkidle")

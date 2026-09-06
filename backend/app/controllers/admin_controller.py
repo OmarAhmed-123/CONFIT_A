@@ -1,11 +1,10 @@
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, Query
 from typing import Dict, Any, List
 from sqlalchemy.orm import Session
 from backend.app.core.database import get_db
-from backend.app.core.dependencies import require_role, require_admin_recent
+from backend.app.core.dependencies import require_role
 from backend.app.models.user import User, UserRole
 from backend.app.repositories.brand_repository import BrandRepository
-from backend.app.repositories.user_repository import UserRepository
 from backend.app.schemas.brand import AdminPlatformAnalyticsOut
 from backend.app.schemas.commerce import OrderOut, OrderTransitionRequest
 from backend.app.services.commerce_service import CommerceService
@@ -13,70 +12,33 @@ from backend.app.services.commerce_service import CommerceService
 router = APIRouter(prefix="/admin", tags=["Platform Admin Analytics & Governance"])
 
 
-def _request_id(request: Request) -> str:
-    return getattr(request.state, "request_id", "") or ""
-
-
-def _audit_admin(request: Request, db: Session, user: User, action: str,
-                 resource_type: str, resource_id: str,
-                 before: Dict[str, Any], after: Dict[str, Any]) -> None:
-    """ADMIN-01: every state-changing admin action is audited with the actor,
-    action, resource, full before/after state (secret-free field subset) and
-    the request correlation id."""
-    UserRepository(db).log_audit(
-        action=action,
-        resource_type=resource_type,
-        resource_id=resource_id,
-        user_id=user.id,
-        request_id=_request_id(request),
-        before=before,
-        after=after,
-    )
-
-
 @router.post("/orders/{order_number}/transition", response_model=OrderOut)
 def transition_order_status(
     order_number: str,
     payload: OrderTransitionRequest,
-    request: Request,
-    user: User = Depends(require_admin_recent(max_age_minutes=60)),
+    user: User = Depends(require_role([UserRole.ADMIN])),
     db: Session = Depends(get_db),
 ):
-    """PAY-01/ADMIN-01: admin order-status transition (fulfilment lever).
+    """PAY-01: admin order-status transition (fulfilment lever).
 
-    Enforced by ORDER_TRANSITIONS (invalid jumps -> 409), the fulfilment gate
-    (goods move only for settled payment, COD settles at handover), a 60-min
-    admin re-auth policy, and a full before/after audit row.
+    Enforced by ORDER_TRANSITIONS (invalid jumps -> 409) and the fulfilment
+    gate (goods move only for settled payment, COD settles at handover).
     """
-    service = CommerceService(db)
-    current = service.get_order(order_number)  # 404 if unknown — before mutation
-    before = {"status": current.get("status"), "payment_status": current.get("payment_status")}
-    result = service.transition_order(order_number, payload.new_status)
-    after = {"status": result.get("status"), "payment_status": result.get("payment_status")}
-    _audit_admin(request, db, user, "ADMIN_ORDER_TRANSITION", "Order", order_number, before, after)
-    return result
+    return CommerceService(db).transition_order(order_number, payload.new_status)
 
 
 @router.post("/orders/{order_number}/capture-payment", response_model=OrderOut)
 def capture_order_payment(
     order_number: str,
-    request: Request,
-    user: User = Depends(require_admin_recent(max_age_minutes=60)),
+    user: User = Depends(require_role([UserRole.ADMIN])),
     db: Session = Depends(get_db),
 ):
-    """PAY-01/ADMIN-01: explicit DEMO-mode capture of an authorized payment.
+    """PAY-01: explicit DEMO-mode capture of an authorized payment.
 
     Refuses in live mode — real captures arrive via the signed provider
-    webhook only. Idempotent for already-paid orders. Audited with
-    before/after payment status.
+    webhook only. Idempotent for already-paid orders.
     """
-    service = CommerceService(db)
-    current = service.get_order(order_number)
-    before = {"status": current.get("status"), "payment_status": current.get("payment_status")}
-    result = service.capture_demo_payment(order_number)
-    after = {"status": result.get("status"), "payment_status": result.get("payment_status")}
-    _audit_admin(request, db, user, "ADMIN_DEMO_CAPTURE", "Order", order_number, before, after)
-    return result
+    return CommerceService(db).capture_demo_payment(order_number)
 
 
 @router.get("/analytics", response_model=AdminPlatformAnalyticsOut)

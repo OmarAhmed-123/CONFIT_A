@@ -110,12 +110,6 @@ class AuditLog(Base):
     resource_id = Column(String(100), nullable=True)
     ip_address = Column(String(50), nullable=True)
     details_json = Column(Text, nullable=True)
-    # ADMIN-01: full-state audit — the resource state before/after the action
-    # (JSON, secret-free) and the X-Request-Id correlation id of the HTTP
-    # request that produced the event.
-    before_json = Column(Text, nullable=True)
-    after_json = Column(Text, nullable=True)
-    request_id = Column(String(64), nullable=True)
     timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
 

@@ -32,6 +32,8 @@ export const DiscoverView: React.FC = () => {
     sortBy,
     setSortBy,
     isLoading,
+    error: catalogError,
+    refresh: refreshCatalog,
   } = useCatalogViewModel();
 
   const { openTryOn, openRuler, openVisualSearch } = useUIStore();
@@ -263,6 +265,16 @@ export const DiscoverView: React.FC = () => {
           <SkeletonCard />
           <SkeletonCard />
         </div>
+      ) : catalogError && products.length === 0 ? (
+        // N-1: the old client-side catalog fallback used to fabricate products
+        // here on any backend failure. An unreachable catalog must render as an
+        // explicit error with a retry — never as a stocked store.
+        <EmptyState
+          title="The catalog couldn't be loaded"
+          description={catalogError}
+          actionText="Retry"
+          onAction={refreshCatalog}
+        />
       ) : filteredProducts.length === 0 ? (
         <EmptyState
           title="No luxury garments match your criteria"

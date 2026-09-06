@@ -200,13 +200,26 @@ export function useTryOnViewModel(initialProduct?: Product | null) {
     }
   }, [uploadedUserImage, selectedAvatar, consentRetain, showToast]);
 
-  // Initialize with initialProduct if provided
+  // Initialize the canvas with `initialProduct`. Re-initialize whenever the
+  // active product CHANGES (not only when the canvas is empty): the try-on
+  // modal is rendered once and kept mounted in the layout, so without this a
+  // new "Try On" click would silently keep the PREVIOUS garment (stale state)
+  // and re-render the wrong item. Each "Try On" is a fresh session seeded
+  // with the clicked garment; the previous result/animation/history are
+  // cleared so a stale render is never displayed for a different garment.
+  // `addGarmentToCanvas` does not change `initialProduct`, so building a
+  // multi-garment outfit on the canvas is unaffected by this reset.
+  const [initProductId, setInitProductId] = useState<number | null>(null);
   useEffect(() => {
-    if (initialProduct && Object.keys(appliedGarments).length === 0) {
+    if (initialProduct && initialProduct.id !== initProductId) {
       const slot = determineSlotForProduct(initialProduct);
       const initialMap = { [slot]: initialProduct };
       setAppliedGarments(initialMap);
+      setMultiTryOnResult(null);
+      setAnimationResult(null);
+      setHistory([]);
       setTryOnStatus('selected');
+      setInitProductId(initialProduct.id);
       triggerMultiRender(initialMap);
     }
   }, [initialProduct, triggerMultiRender]);

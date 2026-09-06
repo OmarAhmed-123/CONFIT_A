@@ -462,7 +462,8 @@ export const FitFinderView: React.FC = () => {
                 </div>
                 <FitScoreBadge
                   score={result.confidence_score}
-                  verdict={`${result.confidence_score}% confidence`}
+                  label="Confidence"
+                  verdict="this size recommendation"
                 />
               </div>
 

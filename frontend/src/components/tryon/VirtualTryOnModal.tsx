@@ -442,12 +442,22 @@ export const VirtualTryOnModal: React.FC = () => {
                       className="w-full h-full object-cover select-none"
                     />
 
-                    {/* Top Status & Fit Accuracy (Dynamic calculations) */}
+                    {/* Top Status (Honest labels) — the badge is a catalog
+                        style-compatibility heuristic, NOT a drape measurement:
+                        the audit's "92% Fit - Style Compatibility" was this
+                        number wearing a misleading "% Fit" label. It is hidden
+                        entirely when nothing is applied, and explicitly marked
+                        "engine verification pending" while a render is in
+                        flight (only the engine's verify gate — PR #59 —
+                        confirms a layer was actually applied). */}
                     <div className="absolute top-3 left-3 flex flex-col gap-1.5 pointer-events-none">
-                      <FitScoreBadge
-                        score={dynamicFitScore}
-                        verdict="Style Compatibility"
-                      />
+                      {appliedList.length > 0 && (
+                        <FitScoreBadge
+                          score={dynamicFitScore}
+                          label="Style Match"
+                          verdict={isRendering ? 'engine verification pending…' : 'catalog heuristic — not a drape fit'}
+                        />
+                      )}
                       <span className="px-2.5 py-0.5 rounded-full bg-slate-950/75 backdrop-blur-md text-[9px] font-medium text-slate-300 border border-white/10 w-fit">
                         {appliedList.length === 0
                           ? 'Base Silhouette (Ready for Styling)'

@@ -349,7 +349,9 @@ export const HomeView: React.FC = () => {
                     Italian Virgin Wool & Organic Poplin
                   </h3>
                 </div>
-                <FitScoreBadge score={98} verdict="Optimal Proportions" />
+                <span className="px-3 py-1 rounded-full bg-[#FDF8EE] border border-[#C5A059]/30 text-[10px] font-bold text-[#A37E44] tracking-wide">
+                  Curated Ensemble
+                </span>
               </div>
               <p className="text-xs text-slate-500 mb-4 font-light">
                 Tailored Italian wool double-breasted blazer by Massimo Dutti paired with crisp organic poplin by COS and pleated wool trousers.
@@ -419,7 +421,9 @@ export const HomeView: React.FC = () => {
                     Silk Slip Column & Metallic Accessories
                   </h3>
                 </div>
-                <FitScoreBadge score={97} verdict="Fluid Harmony" />
+                <span className="px-3 py-1 rounded-full bg-[#FDF8EE] border border-[#C5A059]/30 text-[10px] font-bold text-[#A37E44] tracking-wide">
+                  Curated Ensemble
+                </span>
               </div>
               <p className="text-xs text-slate-500 mb-4 font-light">
                 Mulberry silk champagne slip column maxi dress by Reiss with metallic leather heeled sandals and box clutch.
@@ -574,7 +578,7 @@ export const HomeView: React.FC = () => {
                       onClick={() => navigate(`/product/${p.slug}`)}
                     />
                     <div className="absolute top-2 left-2 flex flex-col gap-1">
-                      <FitScoreBadge score={p.style_compatibility_score} verdict="Color Harmony" />
+                      <FitScoreBadge score={p.style_compatibility_score} label="Match" verdict="Color Harmony" />
                     </div>
 
                     <div className="absolute bottom-2 right-2 flex items-center gap-1.5">

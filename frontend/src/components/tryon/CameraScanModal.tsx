@@ -788,7 +788,7 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
                     Derived Body Proportions & Size Matrix
                   </h4>
                 </div>
-                <FitScoreBadge score={estimatedData.confidence_score} verdict="Calibrated Fit" />
+                <FitScoreBadge score={estimatedData.confidence_score} label="Confidence" verdict="calibrated body scan" />
               </div>
 
               {/* Person Scanned Thumbnail & Derived Dimension Grid */}

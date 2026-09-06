@@ -269,7 +269,7 @@ export const VirtualStylistDrawer: React.FC = () => {
                               {outfit.title}
                             </h4>
                           </div>
-                          <FitScoreBadge score={outfit.compatibility_score} verdict="Color Harmony" />
+                          <FitScoreBadge score={outfit.compatibility_score} label="Match" verdict="Color Harmony" />
                         </div>
 
                         {/* Garment Grid (Strict Slots) */}

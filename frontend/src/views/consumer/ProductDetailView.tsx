@@ -132,7 +132,8 @@ export const ProductDetailView: React.FC = () => {
               {styleScore != null && (
                 <FitScoreBadge
                   score={styleScore}
-                  verdict={product.style_compatibility_reason || 'Style match'}
+                  label="Match"
+                  verdict={product.style_compatibility_reason || 'catalog style score'}
                 />
               )}
               {fitScore != null && (

@@ -133,11 +133,19 @@ class TestVisualSearchRequestSchema:
 
 
 # ====== 4. Ownership enforcement =====================================
+# Canonical fail-closed ownership gate (try-on session IDOR closure).
+# ``get_owned_tryon_session`` is the SINGLE authorization path for every
+# try-on session read/mutation. It mirrors MeasurementSessionService.
+# _resolve_owned_session: owner = the bound user, or the holder of the bound
+# guest token; everything else is 404 (ResourceNotFoundError — no existence
+# leakage: a non-owner cannot distinguish "not mine" from "doesn't exist").
 class TestTryOnSessionOwnership:
-    def _new_session(self, db, user_id):
+    def _new_session(self, db, user_id, guest_token=None):
         from backend.app.models.tryon import TryOnSession
         s = TryOnSession(
-            user_id=user_id, status="completed",
+            user_id=user_id,
+            guest_session_token=guest_token,
+            status="completed",
             applied_items_json="[]", slot_mapping_json="{}",
             layering_order_json="[]", render_metadata_json="{}",
             fit_verdict="True to Size", fit_confidence_score=50,
@@ -146,34 +154,87 @@ class TestTryOnSessionOwnership:
         db.add(s); db.commit(); db.refresh(s)
         return s
 
-    def test_get_blocks_other_user(self, db_session):
+    def test_owner_read_allowed(self, db_session):
         from backend.app.repositories.tryon_repository import TryOnRepository
-        from backend.app.core.exceptions import AuthorizationError
-        owner_id = 1001; other_id = 9999
+        owner_id = 1001
         sess = self._new_session(db_session, owner_id)
-        repo = TryOnRepository(db_session)
-        # Owner can read
-        assert repo.get_tryon_session(sess.id, caller_user_id=owner_id).id == sess.id
-        # Another user cannot
-        with pytest.raises(AuthorizationError):
-            repo.get_tryon_session(sess.id, caller_user_id=other_id)
-        # Internal (None) still allowed
-        assert repo.get_tryon_session(sess.id, caller_user_id=None).id == sess.id
+        got = TryOnRepository(db_session).get_owned_tryon_session(
+            sess.id, caller_user_id=owner_id
+        )
+        assert got.id == sess.id
 
-    def test_purge_blocks_other_user(self, db_session):
+    def test_non_owner_read_denied_404(self, db_session):
         from backend.app.repositories.tryon_repository import TryOnRepository
-        from backend.app.core.exceptions import AuthorizationError
-        owner_id = 2001; other_id = 8888
-        sess = self._new_session(db_session, owner_id)
+        from backend.app.core.exceptions import ResourceNotFoundError
+        sess = self._new_session(db_session, 1001)
+        with pytest.raises(ResourceNotFoundError):
+            TryOnRepository(db_session).get_owned_tryon_session(
+                sess.id, caller_user_id=9999
+            )
+
+    def test_anonymous_no_token_denied_404(self, db_session):
+        # The exact IDOR that was open: an anonymous caller (no identity, no
+        # token) must NOT be able to read another's session.
+        from backend.app.repositories.tryon_repository import TryOnRepository
+        from backend.app.core.exceptions import ResourceNotFoundError
+        sess = self._new_session(db_session, None, guest_token="tok-guest-A")
+        with pytest.raises(ResourceNotFoundError):
+            TryOnRepository(db_session).get_owned_tryon_session(
+                sess.id, caller_user_id=None
+            )
+
+    def test_guest_token_match_allowed(self, db_session):
+        from backend.app.repositories.tryon_repository import TryOnRepository
+        sess = self._new_session(db_session, None, guest_token="tok-guest-A")
+        got = TryOnRepository(db_session).get_owned_tryon_session(
+            sess.id, caller_user_id=None, guest_session_token="tok-guest-A"
+        )
+        assert got.id == sess.id
+
+    def test_guest_token_cross_guest_denied_404(self, db_session):
+        # A different guest's token must NOT open this guest's session.
+        from backend.app.repositories.tryon_repository import TryOnRepository
+        from backend.app.core.exceptions import ResourceNotFoundError
+        sess = self._new_session(db_session, None, guest_token="tok-guest-A")
+        with pytest.raises(ResourceNotFoundError):
+            TryOnRepository(db_session).get_owned_tryon_session(
+                sess.id, caller_user_id=None, guest_session_token="tok-guest-B"
+            )
+
+    def test_cannot_use_token_against_user_session(self, db_session):
+        # A user-bound session can never be opened with a guest token.
+        from backend.app.repositories.tryon_repository import TryOnRepository
+        from backend.app.core.exceptions import ResourceNotFoundError
+        sess = self._new_session(db_session, 2001)
+        with pytest.raises(ResourceNotFoundError):
+            TryOnRepository(db_session).get_owned_tryon_session(
+                sess.id, caller_user_id=None, guest_session_token="any-token"
+            )
+
+    def test_purge_blocks_other_user_404(self, db_session):
+        from backend.app.repositories.tryon_repository import TryOnRepository
+        from backend.app.core.exceptions import ResourceNotFoundError
+        sess = self._new_session(db_session, 2001)
         repo = TryOnRepository(db_session)
-        with pytest.raises(AuthorizationError):
-            repo.purge_session(sess.id, caller_user_id=other_id)
+        with pytest.raises(ResourceNotFoundError):
+            repo.purge_session(sess.id, caller_user_id=8888)
         # Owner succeeds
-        assert repo.purge_session(sess.id, caller_user_id=owner_id) is True
+        assert repo.purge_session(sess.id, caller_user_id=2001) is True
 
-    def test_get_missing_returns_none(self, db_session):
+    def test_purge_blocks_anonymous_no_token_404(self, db_session):
         from backend.app.repositories.tryon_repository import TryOnRepository
-        assert TryOnRepository(db_session).get_tryon_session(999_999, caller_user_id=1) is None
+        from backend.app.core.exceptions import ResourceNotFoundError
+        sess = self._new_session(db_session, None, guest_token="tok-guest-Z")
+        with pytest.raises(ResourceNotFoundError):
+            TryOnRepository(db_session).purge_session(sess.id, caller_user_id=None)
+
+    def test_canonical_missing_session_denied_404(self, db_session):
+        from backend.app.repositories.tryon_repository import TryOnRepository
+        from backend.app.core.exceptions import ResourceNotFoundError
+        with pytest.raises(ResourceNotFoundError):
+            TryOnRepository(db_session).get_owned_tryon_session(
+                999_999, caller_user_id=1
+            )
 
 
 # ====== 5. per-slot scaling persistence ==============================

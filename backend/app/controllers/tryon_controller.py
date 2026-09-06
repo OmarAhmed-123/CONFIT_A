@@ -179,7 +179,8 @@ async def render_animated_tryon(
     request: Request,
     payload: AnimationTryOnRequest,
     user: Optional[User] = Depends(get_current_user_optional),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    x_session_token: Optional[str] = Header(None),
 ):
     service = TryOnService(db)
     try:
@@ -191,7 +192,8 @@ async def render_animated_tryon(
             gender_mode=payload.gender_mode,
             output_aspect=payload.output_aspect,
             background_mode=payload.background_mode,
-            user_id=user.id if user else None
+            user_id=user.id if user else None,
+            guest_session_token=x_session_token,
         )
     except RuntimeError as e:
         err = str(e)
@@ -206,6 +208,10 @@ async def render_animated_tryon(
             raise HTTPException(status_code=422, detail={"error": {"code": "VTON_INPUT_INVALID", "message": err}})
         elif "VTON_OUTPUT_INVALID" in err:
             raise HTTPException(status_code=502, detail={"error": {"code": "VTON_OUTPUT_INVALID", "message": err}})
+        elif "VTON_LAYER_NOT_APPLIED" in err:
+            # A garment layer was not verified as applied by the engine: the request
+            # cannot be a complete, verified outfit. Fail truthfully (502, engine output), never a partial "success".
+            raise HTTPException(status_code=502, detail={"error": {"code": "VTON_LAYER_NOT_APPLIED", "message": err}})
         elif "VTON_TIMEOUT" in err:
             raise HTTPException(status_code=504, detail={"error": {"code": "VTON_TIMEOUT", "message": err}})
         elif "VTON_WORKER_UNAVAILABLE" in err:
@@ -228,7 +234,8 @@ async def render_multi_garment_tryon(
     request: Request,
     payload: MultiGarmentTryOnRequest,
     user: Optional[User] = Depends(get_current_user_optional),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    x_session_token: Optional[str] = Header(None),
 ):
     service = TryOnService(db)
     try:
@@ -240,7 +247,8 @@ async def render_multi_garment_tryon(
             avatar_model_id=payload.avatar_model_id,
             gender_mode=payload.gender_mode,
             user_id=user.id if user else None,
-            consent_retain_photo=payload.consent_retain_photo
+            consent_retain_photo=payload.consent_retain_photo,
+            guest_session_token=x_session_token,
         )
     except RuntimeError as e:
         err = str(e)
@@ -254,6 +262,10 @@ async def render_multi_garment_tryon(
             raise HTTPException(status_code=422, detail={"error": {"code": "VTON_INPUT_INVALID", "message": err}})
         elif "VTON_OUTPUT_INVALID" in err:
             raise HTTPException(status_code=502, detail={"error": {"code": "VTON_OUTPUT_INVALID", "message": err}})
+        elif "VTON_LAYER_NOT_APPLIED" in err:
+            # A garment layer was not verified as applied by the engine: the request
+            # cannot be a complete, verified outfit. Fail truthfully (502, engine output), never a partial "success".
+            raise HTTPException(status_code=502, detail={"error": {"code": "VTON_LAYER_NOT_APPLIED", "message": err}})
         elif "VTON_TIMEOUT" in err:
             raise HTTPException(status_code=504, detail={"error": {"code": "VTON_TIMEOUT", "message": err}})
         elif "VTON_WORKER_UNAVAILABLE" in err:
@@ -289,7 +301,8 @@ def apply_measurements_to_session(
     session_id: int,
     payload: ApplyMeasurementsRequest,
     user: Optional[User] = Depends(get_current_user_optional),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    x_session_token: Optional[str] = Header(None),
 ):
     service = TryOnService(db)
     return service.apply_measurements_to_session(
@@ -299,6 +312,7 @@ def apply_measurements_to_session(
         waist_cm=payload.waist_cm,
         shoulder_cm=payload.shoulder_cm,
         caller_user_id=user.id if user else None,
+        guest_session_token=x_session_token,
     )
 
 
@@ -307,7 +321,8 @@ def apply_measurements_to_session(
 async def create_tryon_session(
     payload: SessionInitRequest,
     user: Optional[User] = Depends(get_current_user_optional),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    x_session_token: Optional[str] = Header(None),
 ):
     service = TryOnService(db)
     try:
@@ -317,7 +332,8 @@ async def create_tryon_session(
             user_image_url=payload.user_image_url,
             avatar_model_id=payload.avatar_model_id,
             user_id=user.id if user else None,
-            consent_retain_photo=payload.consent_retain or False
+            consent_retain_photo=payload.consent_retain or False,
+            guest_session_token=x_session_token,
         )
         return {
             "session_id": res["session_id"],
@@ -340,6 +356,10 @@ async def create_tryon_session(
             raise HTTPException(status_code=422, detail={"error": {"code": "VTON_INPUT_INVALID", "message": err}})
         elif "VTON_OUTPUT_INVALID" in err:
             raise HTTPException(status_code=502, detail={"error": {"code": "VTON_OUTPUT_INVALID", "message": err}})
+        elif "VTON_LAYER_NOT_APPLIED" in err:
+            # A garment layer was not verified as applied by the engine: the request
+            # cannot be a complete, verified outfit. Fail truthfully (502, engine output), never a partial "success".
+            raise HTTPException(status_code=502, detail={"error": {"code": "VTON_LAYER_NOT_APPLIED", "message": err}})
         elif "VTON_TIMEOUT" in err:
             raise HTTPException(status_code=504, detail={"error": {"code": "VTON_TIMEOUT", "message": err}})
         elif "VTON_WORKER_UNAVAILABLE" in err:
@@ -356,10 +376,15 @@ async def create_tryon_session(
 def get_session_details(
     session_id: int,
     user: Optional[User] = Depends(get_current_user_optional),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    x_session_token: Optional[str] = Header(None),
 ):
     service = TryOnService(db)
-    return service.get_session_details(session_id, caller_user_id=user.id if user else None)
+    return service.get_session_details(
+        session_id,
+        caller_user_id=user.id if user else None,
+        guest_session_token=x_session_token,
+    )
 
 
 @router.post("/try-on/sessions/{session_id}/apply-item")
@@ -368,7 +393,8 @@ async def apply_item_to_session(
     session_id: int,
     payload: ApplyItemRequest,
     user: Optional[User] = Depends(get_current_user_optional),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    x_session_token: Optional[str] = Header(None),
 ):
     service = TryOnService(db)
     try:
@@ -377,7 +403,8 @@ async def apply_item_to_session(
             product_id=payload.product_id,
             slot=payload.slot,
             replace_if_occupied=payload.replace_if_occupied,
-            user_id=user.id if user else None
+            user_id=user.id if user else None,
+            guest_session_token=x_session_token,
         )
     except RuntimeError as e:
         err = str(e)
@@ -397,7 +424,8 @@ async def remove_item_from_session(
     session_id: int,
     payload: RemoveItemRequest,
     user: Optional[User] = Depends(get_current_user_optional),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    x_session_token: Optional[str] = Header(None),
 ):
     service = TryOnService(db)
     try:
@@ -405,7 +433,8 @@ async def remove_item_from_session(
             session_id=session_id,
             product_id=payload.product_id,
             slot=payload.slot,
-            user_id=user.id if user else None
+            user_id=user.id if user else None,
+            guest_session_token=x_session_token,
         )
     except RuntimeError as e:
         err = str(e)
@@ -422,10 +451,17 @@ async def remove_item_from_session(
 def reorder_session_items(
     session_id: int,
     payload: ReorderItemsRequest,
-    db: Session = Depends(get_db)
+    user: Optional[User] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db),
+    x_session_token: Optional[str] = Header(None),
 ):
     service = TryOnService(db)
-    return service.reorder_session_items(session_id=session_id, slot_order=payload.slot_order)
+    return service.reorder_session_items(
+        session_id=session_id,
+        slot_order=payload.slot_order,
+        caller_user_id=user.id if user else None,
+        guest_session_token=x_session_token,
+    )
 
 
 @router.delete("/try-on/sessions/{session_id}/purge")
@@ -433,10 +469,15 @@ def reorder_session_items(
 def purge_session(
     session_id: int,
     user: Optional[User] = Depends(get_current_user_optional),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    x_session_token: Optional[str] = Header(None),
 ):
     service = TryOnService(db)
-    return service.purge_tryon_session(session_id, caller_user_id=user.id if user else None)
+    return service.purge_tryon_session(
+        session_id,
+        caller_user_id=user.id if user else None,
+        guest_session_token=x_session_token,
+    )
 
 
 # =========================================================================
@@ -463,7 +504,8 @@ async def render_virtual_tryon(
     request: Request,
     payload: TryOnRequest,
     user: Optional[User] = Depends(get_current_user_optional),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    x_session_token: Optional[str] = Header(None),
 ):
     service = TryOnService(db)
     try:
@@ -473,7 +515,8 @@ async def render_virtual_tryon(
             user_image_base64=payload.user_image_base64,
             avatar_model_id=payload.avatar_model_id,
             user_id=user.id if user else None,
-            consent_retain_photo=payload.consent_retain_photo
+            consent_retain_photo=payload.consent_retain_photo,
+            guest_session_token=x_session_token,
         )
     except RuntimeError as e:
         err = str(e)
@@ -487,6 +530,10 @@ async def render_virtual_tryon(
             raise HTTPException(status_code=422, detail={"error": {"code": "VTON_INPUT_INVALID", "message": err}})
         elif "VTON_OUTPUT_INVALID" in err:
             raise HTTPException(status_code=502, detail={"error": {"code": "VTON_OUTPUT_INVALID", "message": err}})
+        elif "VTON_LAYER_NOT_APPLIED" in err:
+            # A garment layer was not verified as applied by the engine: the request
+            # cannot be a complete, verified outfit. Fail truthfully (502, engine output), never a partial "success".
+            raise HTTPException(status_code=502, detail={"error": {"code": "VTON_LAYER_NOT_APPLIED", "message": err}})
         elif "VTON_TIMEOUT" in err:
             raise HTTPException(status_code=504, detail={"error": {"code": "VTON_TIMEOUT", "message": err}})
         elif "VTON_WORKER_UNAVAILABLE" in err:

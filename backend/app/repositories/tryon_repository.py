@@ -56,35 +56,83 @@ class TryOnRepository:
     def get_tryon_session(
         self,
         session_id: int,
-        caller_user_id: Optional[int] = None,
     ) -> Optional[TryOnSession]:
-        """Returns the session iff caller_user_id owns it. A None guest token
-        cannot be used to bypass ownership — a real session row is only
-        retrievable when caller_user_id is None (internal call) or matches."""
+        """INTERNAL fetch only — returns the row or None.
+
+        This performs NO end-user authorization. It exists solely so an
+        already-authorized call site (which has passed
+        ``get_owned_tryon_session``) can re-fetch a row it is entitled to.
+        Never call this from a controller-facing read/mutation to decide
+        access — ``get_owned_tryon_session`` is the single fail-closed
+        ownership gate for try-on sessions.
+        """
+        return (
+            self.db.query(TryOnSession)
+            .filter(TryOnSession.id == session_id)
+            .first()
+        )
+
+    def get_owned_tryon_session(
+        self,
+        session_id: int,
+        caller_user_id: Optional[int] = None,
+        guest_session_token: Optional[str] = None,
+    ) -> TryOnSession:
+        """CANONICAL fail-closed ownership resolution for try-on sessions.
+
+        The single authorization path for EVERY try-on session read/mutation
+        (GET, apply, remove, reorder, measurements, purge). Mirrors
+        MeasurementSessionService._resolve_owned_session: a session is owned by
+        the authenticated user it was bound to, or by the holder of the guest
+        token it was bound to. Everything else — no identity, a non-owner, a
+        mismatched or absent token — is 404 (fail-closed; does not leak
+        existence). Never trust a client's claim of ownership other than the
+        server-issued guest token the session was actually bound to.
+        """
+        from backend.app.core.exceptions import ResourceNotFoundError
         sess = (
             self.db.query(TryOnSession)
             .filter(TryOnSession.id == session_id)
             .first()
         )
         if sess is None:
-            return None
-        if caller_user_id is not None and sess.user_id is not None and sess.user_id != caller_user_id:
-            from backend.app.core.exceptions import AuthorizationError
-            raise AuthorizationError("Cannot access another user's try-on session.")
-        return sess
+            raise ResourceNotFoundError("TryOnSession", session_id)
+        # Authenticated owner.
+        if (
+            caller_user_id is not None
+            and sess.user_id is not None
+            and sess.user_id == caller_user_id
+        ):
+            return sess
+        # Guest owner: a user-bound session can never be reached via a token,
+        # and a guest session is reachable only with its exact bound token.
+        if (
+            guest_session_token
+            and sess.user_id is None
+            and sess.guest_session_token
+            and sess.guest_session_token == guest_session_token
+        ):
+            return sess
+        # Fail closed: non-owner, anonymous, cross-guest, cross-user, or a
+        # user touching a guest session.
+        raise ResourceNotFoundError("TryOnSession", session_id)
 
     def purge_session(
         self,
         session_id: int,
         caller_user_id: Optional[int] = None,
+        guest_session_token: Optional[str] = None,
     ) -> bool:
-        # Authorize first (raises if caller is not the owner)
-        sess = self.get_tryon_session(session_id, caller_user_id=caller_user_id)
-        if sess:
-            self.db.delete(sess)
-            self.db.commit()
-            return True
-        return False
+        # Authorize first via the canonical fail-closed gate (raises 404 if the
+        # caller does not own the session); never deletes another's session.
+        sess = self.get_owned_tryon_session(
+            session_id,
+            caller_user_id=caller_user_id,
+            guest_session_token=guest_session_token,
+        )
+        self.db.delete(sess)
+        self.db.commit()
+        return True
 
     def log_visual_search(
         self,

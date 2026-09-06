@@ -168,6 +168,8 @@ export function useTryOnViewModel(initialProduct?: Product | null) {
           showToast('VTON worker not ready: model loading or GPU unavailable. Please try again.', 'error');
         } else if (honestMsg.includes('VTON_AUTH_FAILURE')) {
           showToast('VTON authentication failed: worker token invalid.', 'error');
+        } else if (honestMsg.includes('VTON_LAYER_NOT_APPLIED')) {
+          showToast('One or more garments could not be applied to your photo, so no complete, verified result was produced. Please try again.', 'error');
         }
       }
     } catch (err: any) {

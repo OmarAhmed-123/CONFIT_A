@@ -245,6 +245,21 @@ export interface AnimationTryOnResult {
   total_price: number;
 }
 
+export interface GarmentLayerVerification {
+  layer: number;
+  product_id?: number | null;
+  slot_type?: string | null;
+  verify_pass?: boolean | null;
+  metric_pixel_change?: number | null;
+}
+
+export interface OutfitVerification {
+  all_layers_verified: boolean;
+  layers_requested: number;
+  layers_failed: number;
+  failed_layers: GarmentLayerVerification[];
+}
+
 export interface MultiGarmentTryOnResult {
   session_id: number;
   status: string;
@@ -261,6 +276,10 @@ export interface MultiGarmentTryOnResult {
   layering_order: string[];
   dynamic_prompt_generated?: string;
   expires_at?: string;
+  // Honest per-layer verification outcome (null/absent for legacy/single-garment
+  // results). all_layers_verified=false means one or more garments were NOT
+  // confirmed applied by the engine — the UI must show a truthful warning.
+  verification?: OutfitVerification | null;
 }
 
 export interface TryOnResult {

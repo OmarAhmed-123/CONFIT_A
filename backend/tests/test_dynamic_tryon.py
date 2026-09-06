@@ -108,6 +108,11 @@ def test_tryon_session_rest_lifecycle(client: TestClient):
     from backend.tests.conftest import TestingSessionLocal
     from backend.app.repositories.tryon_repository import TryOnRepository
 
+    # Sessions are ownership-bound (try-on session IDOR closure): a guest
+    # session is bound to a guest token, which the caller must present. The
+    # mechanics under test (reorder/query/purge) are unchanged.
+    tok = "lifecycle_gtoken"
+    hdr = {"X-Session-Token": tok}
     db = TestingSessionLocal()
     try:
         repo = TryOnRepository(db)
@@ -120,6 +125,7 @@ def test_tryon_session_rest_lifecycle(client: TestClient):
                 "image_url": "https://images.unsplash.com/photo-1594938298603-c8148c4dae35?w=600",
             }],
             slot_mapping={"upper_outer": 1},
+            guest_token=tok,
         )
         session_id = session.id
     finally:
@@ -128,16 +134,19 @@ def test_tryon_session_rest_lifecycle(client: TestClient):
     # Reorder session items (pure state operation, no rendering)
     reorder_res = client.post(f"/api/v1/try-on/sessions/{session_id}/reorder", json={
         "slot_order": ["upper_outer"]
-    })
+    }, headers=hdr)
     assert reorder_res.status_code == 200
 
     # Query session details
-    get_res = client.get(f"/api/v1/try-on/sessions/{session_id}")
+    get_res = client.get(f"/api/v1/try-on/sessions/{session_id}", headers=hdr)
     assert get_res.status_code == 200
     assert get_res.json()["session_id"] == session_id
 
+    # An unbound anonymous caller (no token) is denied — the IDOR is closed.
+    assert client.get(f"/api/v1/try-on/sessions/{session_id}").status_code == 404
+
     # Purge session (GDPR Article 17)
-    purge_res = client.delete(f"/api/v1/try-on/sessions/{session_id}/purge")
+    purge_res = client.delete(f"/api/v1/try-on/sessions/{session_id}/purge", headers=hdr)
     assert purge_res.status_code == 200
     assert purge_res.json()["status"] == "purged"
 

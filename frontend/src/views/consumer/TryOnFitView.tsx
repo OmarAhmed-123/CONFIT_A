@@ -4,14 +4,14 @@ import { useNavigate } from 'react-router-dom';
 import { useCatalogViewModel } from '../../viewmodels/useCatalogViewModel';
 import { useUIStore } from '../../stores/uiStore';
 import { TryOnIcon, RulerIcon, VisualSearchIcon, SparkleIcon } from '../../components/icons/ConfitIcons';
-import { FitScoreBadge } from '../../components/common/CommonComponents';
+import { FitScoreBadge, EmptyState } from '../../components/common/CommonComponents';
 import { CameraScanModal } from '../../components/tryon/CameraScanModal';
 import { CircularGalleryShowcase } from '../../components/showcase/DesignShowcases';
 
 export const TryOnFitView: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { products, isLoading } = useCatalogViewModel();
+  const { products, isLoading, error: catalogError, refresh: refreshCatalog } = useCatalogViewModel();
   const { openTryOn, openRuler, openVisualSearch } = useUIStore();
 
   const [activeTab, setActiveTab] = useState<'vton' | 'scan' | 'ruler' | 'visual'>('vton');
@@ -142,12 +142,26 @@ export const TryOnFitView: React.FC = () => {
             Select Garment from Multi-Brand Catalog:
           </h3>
           <span className="text-xs text-slate-400 font-light">
-            {isLoading ? 'Loading catalog styles…' : `Showing ${products.length} styles from the live catalog`}
+            {isLoading
+              ? 'Loading catalog styles…'
+              : catalogError && products.length === 0
+                ? 'Catalog unavailable'
+                : `Showing ${products.length} styles from the live catalog`}
           </span>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {products.map((p) => (
+        {catalogError && products.length === 0 ? (
+          // N-1: a failed catalog fetch must surface as an explicit error with
+          // a retry — never as fabricated try-on garments.
+          <EmptyState
+            title="Garment catalog couldn't be loaded"
+            description={catalogError}
+            actionText="Retry"
+            onAction={refreshCatalog}
+          />
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            {products.map((p) => (
             <div
               key={p.id}
               className="bg-white rounded-3xl border border-slate-200 p-3.5 shadow-sm hover:shadow-lg transition-all flex flex-col justify-between"
@@ -181,8 +195,9 @@ export const TryOnFitView: React.FC = () => {
                 </button>
               </div>
             </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Live Camera Scan Modal */}

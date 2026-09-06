@@ -14,7 +14,7 @@ import {
 } from '../../components/icons/ConfitIcons';
 import { useUIStore } from '../../stores/uiStore';
 import { useCatalogViewModel } from '../../viewmodels/useCatalogViewModel';
-import { FitScoreBadge, BNPLBadge, SkeletonCard } from '../../components/common/CommonComponents';
+import { FitScoreBadge, BNPLBadge, SkeletonCard, EmptyState } from '../../components/common/CommonComponents';
 import { useCartStore } from '../../stores/cartStore';
 import { CircularGallery, type GalleryItem } from '../../components/ui/circular-gallery';
 import { CardStackShowcase } from '../../components/showcase/DesignShowcases';
@@ -107,7 +107,7 @@ export const HomeView: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { openStylist, openTryOn, openRuler, openVisualSearch } = useUIStore();
-  const { products, isLoading } = useCatalogViewModel();
+  const { products, isLoading, error: catalogError, refresh: refreshCatalog } = useCatalogViewModel();
   const { addItem } = useCartStore();
 
   const brandShowcase = [
@@ -562,6 +562,15 @@ export const HomeView: React.FC = () => {
             <SkeletonCard />
             <SkeletonCard />
           </div>
+        ) : catalogError && products.length === 0 ? (
+          // N-1: honest failure state — no fabricated trending products when
+          // the catalog API is down (the client-side fallback was removed).
+          <EmptyState
+            title="Trending picks couldn't be loaded"
+            description={catalogError}
+            actionText="Retry"
+            onAction={refreshCatalog}
+          />
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
             {products.slice(0, 4).map((p) => (

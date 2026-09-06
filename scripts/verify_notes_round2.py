@@ -14,7 +14,10 @@ Probes against https://confit-a.vercel.app:
 import re, sys, json, urllib.request
 from playwright.sync_api import sync_playwright
 
-BASE = "https://confit-a.vercel.app"
+# Target is production by default; override for local/staging runs:
+#   CONFIT_PROBE_BASE=http://localhost:5173 python3 scripts/verify_notes_round2.py
+import os as _os
+BASE = _os.environ.get("CONFIT_PROBE_BASE", "https://confit-a.vercel.app")
 results = []
 def check(name, cond, detail=""):
     results.append((name, bool(cond), detail))

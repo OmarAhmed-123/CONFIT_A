@@ -149,7 +149,8 @@
     "return_item": "طلب إرجاع أو استبدال",
     "qty_decrease": "إنقاص الكمية",
     "qty_increase": "زيادة الكمية",
-    "remove_item": "إزالة من السلة"
+    "remove_item": "إزالة من السلة",
+    "cart_explore": "تسوّق المجموعة"
   },
   "b2b": {
     "dashboard_title": "لوحة تحكم شريك العلامة التجارية",

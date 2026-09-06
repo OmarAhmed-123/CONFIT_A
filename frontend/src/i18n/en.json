@@ -149,7 +149,8 @@
     "return_item": "Request Return / Exchange",
     "qty_decrease": "Decrease quantity",
     "qty_increase": "Increase quantity",
-    "remove_item": "Remove item"
+    "remove_item": "Remove item",
+    "cart_explore": "Explore the Catalog"
   },
   "b2b": {
     "dashboard_title": "Brand Partner Command Center",

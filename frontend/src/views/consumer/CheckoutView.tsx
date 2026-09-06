@@ -196,6 +196,23 @@ export const CheckoutView: React.FC = () => {
         </p>
       </div>
 
+      {cart && cart.items_count === 0 ? (
+        <div className="bg-white rounded-3xl border border-slate-200/80 p-10 shadow-2xs text-center space-y-4">
+          <div className="w-14 h-14 rounded-2xl bg-[#FDF8EE] border border-[#C5A059]/40 flex items-center justify-center mx-auto">
+            <OrdersIcon size={26} color="#C5A059" />
+          </div>
+          <h2 className="font-serif text-xl font-bold text-[#1B1F3B]">{t('commerce.cart_title')}</h2>
+          <p className="text-sm text-slate-500 font-light max-w-md mx-auto">{t('commerce.cart_empty')}</p>
+          <button
+            type="button"
+            onClick={() => navigate('/discover')}
+            className="px-6 py-3 rounded-xl bg-[#1B1F3B] hover:bg-[#0C0E1E] text-white text-xs font-semibold shadow-2xs transition-all"
+          >
+            {t('commerce.cart_explore')}
+          </button>
+        </div>
+      ) : (
+      <>
       {!isAuthenticated && (
         <div className="bg-[#FAF9F6] border border-[#C5A059]/40 rounded-3xl p-5 sm:p-6 shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3.5">
@@ -570,6 +587,8 @@ export const CheckoutView: React.FC = () => {
           </div>
         </div>
       </form>
+      </>
+      )}
     </div>
   );
 };

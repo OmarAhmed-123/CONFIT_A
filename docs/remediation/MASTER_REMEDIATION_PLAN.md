@@ -51,5 +51,17 @@
 
 Features 1/3/9/14/15 stay **BLOCKED / OWNER DECISION** — no fake work; closing them requires owner-provided infrastructure or decisions (token rotation, SMTP, object storage, brand licensing, admin unlock approval).
 
-## 4. Statuses
-Updated per feature close. Legend: VERIFIED (live evidence) · IN PROGRESS · PLANNED · BLOCKED (external) · OWNER DECISION REQUIRED · DEMO ONLY.
+## 4. Final status (cycle closed 2026-09-06)
+
+| Feature | Branch used | Reused/New | PR | Merge SHA | Production | Tests | Status |
+|---|---|---|---|---|---|---|---|
+| Remediation plan | `docs/remediation-plan` | New | #78 | `8678337` | docs | CI green | CLOSED |
+| Cart / commerce (P0) | `fix/cart-commerce` | New | #79 | `5e5bfb7` | `dpl_8LBHo8NontUqyeihvTVY93FTavDa` — health ok, guest add 201 | backend 1025✅/7⏭, live 2-order journey on branch preview | **VERIFIED** |
+| Catalog copy truth | `fix/catalog-truthfulness` | New | #80 | `333ff24` | `dpl_H6RMFT9kaR7H5tvEKmqYrWcbvTDH` — honest copy confirmed in served bundle | vitest 95/95, tsc clean | **VERIFIED** |
+| Security rotation | — | — | — | — | — | — | **BLOCKED — OWNER** |
+| Auth recovery / admin unlock | — | — | — | — | — | — | **BLOCKED — OWNER** |
+| Email provider | — | — | — | — | — | — | **BLOCKED — INFRA** |
+| Object storage / wardrobe upload | — | — | — | — | — | — | **BLOCKED — INFRA** |
+| Brand licensing | — | — | — | — | — | — | **OWNER DECISION REQUIRED** |
+
+Legend: VERIFIED (live evidence) · BLOCKED (external dependency, honestly declared, no fake work).

@@ -179,10 +179,17 @@ export const OutfitBuilderView: React.FC = () => {
   // the total stayed $0.00" behaviour in the 2026-09-05 audit. A 6px distance
   // constraint is the standard click-vs-drag separator: a click (press+release
   // in place) fires onClick and adds the piece; moving 6px+ starts a real drag.
-  // KeyboardSensor is unchanged (Enter on a focused card adds directly).
+  // Keyboard: dnd-kit's KeyboardSensor DEFAULTS to Enter/Space BOTH starting a
+  // drag — which hijacked Enter on the focused card (verified live: Enter left
+  // Running Total at $0.00). Restricting the sensor's START key to Space frees
+  // Enter for the button's native click → onAdd(): the focused card now adds
+  // DIRECTLY on Enter, while Space still enables full keyboard dragging
+  // (arrows to move, Space/Enter to drop) for those who want it.
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
-    useSensor(KeyboardSensor)
+    useSensor(KeyboardSensor, {
+      keyboardCodes: { start: ['Space'], cancel: ['Escape'], end: ['Space', 'Enter'] },
+    })
   );
 
   const handleDragEnd = (event: DragEndEvent) => {

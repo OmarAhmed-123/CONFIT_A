@@ -145,14 +145,14 @@ def test_cod_fulfills_and_settles_cash_at_handover(client: TestClient) -> None:
     r = _transition(client, num, "delivered", _admin(client))
     assert r.status_code == 200, r.text
     assert r.json()["payment_status"] == "paid"  # settled exactly at handover
-    # cash settlement is recorded as a real PaymentTransaction (auditable)
-    import sys
-    from pathlib import Path
-    sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "backend"))
-    from conftest import TestingSessionLocal  # the TEST engine (same DB the API writes)
+    # cash settlement is recorded as a real PaymentTransaction (auditable).
+    # Session comes from the app's own get_db override — the exact session
+    # factory the API writes through (avoids importing conftest, which the
+    # deployment dependency gate rightly flags as an undeclared import).
+    from backend.app.core.database import get_db
     from backend.app.models.commerce import PaymentTransaction
     from backend.app.models.commerce import Order as OrderModel
-    db = TestingSessionLocal()
+    db = next(app.dependency_overrides[get_db]())
     try:
         oid = db.query(OrderModel).filter(OrderModel.order_number == num).first().id
         tx = (

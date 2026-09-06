@@ -6,8 +6,39 @@ from backend.app.core.dependencies import require_role
 from backend.app.models.user import User, UserRole
 from backend.app.repositories.brand_repository import BrandRepository
 from backend.app.schemas.brand import AdminPlatformAnalyticsOut
+from backend.app.schemas.commerce import OrderOut, OrderTransitionRequest
+from backend.app.services.commerce_service import CommerceService
 
 router = APIRouter(prefix="/admin", tags=["Platform Admin Analytics & Governance"])
+
+
+@router.post("/orders/{order_number}/transition", response_model=OrderOut)
+def transition_order_status(
+    order_number: str,
+    payload: OrderTransitionRequest,
+    user: User = Depends(require_role([UserRole.ADMIN])),
+    db: Session = Depends(get_db),
+):
+    """PAY-01: admin order-status transition (fulfilment lever).
+
+    Enforced by ORDER_TRANSITIONS (invalid jumps -> 409) and the fulfilment
+    gate (goods move only for settled payment, COD settles at handover).
+    """
+    return CommerceService(db).transition_order(order_number, payload.new_status)
+
+
+@router.post("/orders/{order_number}/capture-payment", response_model=OrderOut)
+def capture_order_payment(
+    order_number: str,
+    user: User = Depends(require_role([UserRole.ADMIN])),
+    db: Session = Depends(get_db),
+):
+    """PAY-01: explicit DEMO-mode capture of an authorized payment.
+
+    Refuses in live mode — real captures arrive via the signed provider
+    webhook only. Idempotent for already-paid orders.
+    """
+    return CommerceService(db).capture_demo_payment(order_number)
 
 
 @router.get("/analytics", response_model=AdminPlatformAnalyticsOut)

@@ -105,6 +105,24 @@ class InvalidStateTransitionError(ConfitException):
         )
 
 
+class FulfillmentBlockedError(ConfitException):
+    """PAY-01: fulfilment gate — goods may only move for settled payment.
+
+    Card/wallet orders must reach payment_status 'paid' (provider capture via
+    webhook, or the explicit demo capture) before any fulfilment state;
+    COD orders are payable at handover and are exempt until then.
+    """
+
+    def __init__(self, current: str, attempted: str, payment_status: str):
+        super().__init__(
+            f"Fulfillment '{current}' -> '{attempted}' is blocked: payment status is "
+            f"'{payment_status}'. Capture the payment (provider webhook or demo capture) first.",
+            code="FULFILLMENT_PAYMENT_REQUIRED",
+            details={"current": current, "attempted": attempted, "payment_status": payment_status},
+            status_code=status.HTTP_409_CONFLICT,
+        )
+
+
 class PromoIneligibleError(ConfitException):
     def __init__(self, code: str, reason: str):
         super().__init__(

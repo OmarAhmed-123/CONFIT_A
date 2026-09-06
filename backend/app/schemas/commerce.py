@@ -198,3 +198,9 @@ class BNPLQuoteResponse(BaseModel):
     installment_amount: Optional[float] = None
     payment_schedule: List[Dict[str, Any]]
     disclaimer: str
+
+
+class OrderTransitionRequest(BaseModel):
+    """PAY-01: admin order-status transition target (ORDER_TRANSITIONS machine)."""
+
+    new_status: str = Field(description="Target status, e.g. 'shipped', 'out_for_delivery', 'delivered'.")

@@ -19,8 +19,27 @@ export const RoleGuard: React.FC<RoleGuardProps> = ({
   fallbackMessage,
 }) => {
   const location = useLocation();
-  const { user, isAuthenticated } = useAuthStore();
+  const { user, isAuthenticated, hasAttemptedBootstrap } = useAuthStore();
   const { openAuthModal } = useUIStore();
+
+  // 0. AUTH-02 FIX: session bootstrap is in flight — we do not yet know
+  // whether the visitor holds a valid httpOnly session. Rendering the guest
+  // gate here would flash "Authentication Required" on every hard refresh of
+  // /b2b or /admin before fetchMe() resolves (the exact "gate flicker" the
+  // 2026-09-05 audit recorded), and would offer a Sign In button to someone
+  // who is actually signed in. Hold a quiet loading state instead.
+  if (!hasAttemptedBootstrap) {
+    return (
+      <div className="min-h-[70vh] flex items-center justify-center p-4" role="status" aria-live="polite">
+        <div className="flex flex-col items-center gap-4 text-slate-400">
+          <div className="w-10 h-10 rounded-full border-2 border-[#C5A059]/30 border-t-[#C5A059] animate-spin" />
+          <span className="text-[11px] tracking-widest uppercase font-semibold">
+            Verifying your session…
+          </span>
+        </div>
+      </div>
+    );
+  }
 
   // 1. Not Authenticated -> Show Luxury Authentication Required Gate
   if (!isAuthenticated || !user) {

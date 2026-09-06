@@ -8,13 +8,20 @@ interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
+  // AUTH-02 FIX: true once the app has asked the server "who am I?" at least
+  // once this page load. Guards must wait for this before showing an
+  // Authentication Required screen, otherwise a refresh on /b2b or /admin
+  // flashes the guest gate while the httpOnly session cookie is still valid.
+  hasAttemptedBootstrap: boolean;
   // Group 1 §11: two-step login. When a normal login response signals
   // MFA_REQUIRED, we flip this flag; the AuthModal renders the challenge
   // form and calls completeMfaLogin to finish.
   mfaRequired: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  completeMfaLogin: (email: string, password: string, mfaCode: string) => Promise<void>;
-  register: (payload: any) => Promise<void>;
+  // Resolves with the raw TokenResponse (user included) so call sites can
+  // route by the authenticated role; rejects with ApiError on failure.
+  login: (email: string, password: string) => Promise<any>;
+  completeMfaLogin: (email: string, password: string, mfaCode: string) => Promise<any>;
+  register: (payload: any) => Promise<any>;
   logout: () => Promise<void>;
   fetchMe: () => Promise<void>;
   resetError: () => void;
@@ -25,6 +32,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   isAuthenticated: false,
   isLoading: false,
   error: null,
+  hasAttemptedBootstrap: false,
   mfaRequired: false,
 
   resetError: () => set({ error: null }),
@@ -36,6 +44,9 @@ export const useAuthStore = create<AuthState>((set) => ({
       setAuthTokens(res.access_token, res.refresh_token);
       localStorage.setItem('confit_user', JSON.stringify(res.user));
       set({ user: res.user, isAuthenticated: true, isLoading: false, error: null, mfaRequired: false });
+      // Return the server response so call sites (AuthModal role landing)
+      // can route by the authenticated role without a second /auth/me call.
+      return res;
     } catch (err: any) {
       // Server signals MFA_REQUIRED via ApiError.details.reason. That is
       // NOT an authentication failure — it's a pending state we resume
@@ -67,6 +78,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       setAuthTokens(res.access_token, res.refresh_token);
       localStorage.setItem('confit_user', JSON.stringify(res.user));
       set({ user: res.user, isAuthenticated: true, isLoading: false, error: null, mfaRequired: false });
+      return res;
     } catch (err: any) {
       set({
         isLoading: false,
@@ -109,7 +121,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     const attempt = async () => {
       const user = await authService.getMe();
       localStorage.setItem('confit_user', JSON.stringify(user));
-      set({ user, isAuthenticated: true });
+      set({ user, isAuthenticated: true, hasAttemptedBootstrap: true });
     };
     try {
       await attempt();
@@ -120,6 +132,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       // cookie is still valid, and clearing the readable confit_csrf cookie
       // here would break every subsequent mutating request with
       // CSRF_TOKEN_MISMATCH while the session itself lived on.
+      set({ hasAttemptedBootstrap: true });
       if (err?.status === 401) {
         clearAuthTokens();
         set({ user: null, isAuthenticated: false });

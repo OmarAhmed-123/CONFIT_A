@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager
 import math
+import uuid
 from decimal import Decimal
 from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.encoders import jsonable_encoder
@@ -96,6 +97,21 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# ADMIN-01: per-request correlation id. Every response carries X-Request-Id and
+# every audit log row written while serving that request records the same id —
+# so an ops engineer can pivot from a client complaint to the exact audit
+# trail (and vice versa) with one value.
+@app.middleware("http")
+async def request_id_guard(request: Request, call_next):
+    rid = request.headers.get("x-request-id") or uuid.uuid4().hex
+    # Normalize: keep it short, hex/plain — it goes into a DB column (64 chars).
+    rid = rid[:64]
+    request.state.request_id = rid
+    response = await call_next(request)
+    response.headers["X-Request-Id"] = rid
+    return response
 
 
 # CSRF protection for cookie-authenticated requests (double-submit pattern).

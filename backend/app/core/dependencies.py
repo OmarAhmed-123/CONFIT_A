@@ -7,7 +7,7 @@ from backend.app.core.database import get_db
 from backend.app.core.security import decode_token
 from backend.app.models.user import User, UserRole
 from backend.app.repositories.user_repository import UserRepository
-from backend.app.core.exceptions import AuthenticationError, AuthorizationError
+from backend.app.core.exceptions import AuthenticationError, AuthorizationError, AdminReauthRequiredError
 
 security = HTTPBearer(auto_error=False)
 
@@ -104,6 +104,37 @@ def require_role(allowed_roles: List[UserRole]):
             raise AuthorizationError(f"Access restricted to {', '.join(r.value for r in allowed_roles)}. Current user role: {user.role.value}")
         return user
     return role_checker
+
+
+def require_admin_recent(max_age_minutes: int = 60):
+    """ADMIN-01 step-up policy: sensitive admin mutations need a FRESH sign-in.
+
+    Wraps require_role([ADMIN]) and additionally refuses access tokens whose
+    `iat` is older than the freshness window (default 60 min) with
+    401 ADMIN_REAUTH_REQUIRED — the admin must re-authenticate before
+    continuing. Read-only admin views are intentionally left on plain
+    require_role so dashboards keep working; the re-auth cost applies only
+    to state-changing admin actions.
+    """
+    from datetime import datetime, timezone, timedelta
+
+    def checker(
+        request: Request,
+        user: User = Depends(require_role([UserRole.ADMIN])),
+        credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+    ) -> User:
+        token = credentials.credentials if credentials else (request.cookies.get("confit_token") or "")
+        try:
+            payload = decode_token(token, expected_type="access")
+            iat = int(payload.get("iat") or 0)
+        except Exception:
+            raise AuthenticationError("Authentication failed: invalid token.")
+        age = datetime.now(timezone.utc) - datetime.fromtimestamp(iat, tz=timezone.utc)
+        if age > timedelta(minutes=max_age_minutes):
+            raise AdminReauthRequiredError(int(age.total_seconds() // 60), max_age_minutes)
+        return user
+
+    return checker
 
 
 def require_brand_scope(user: User = Depends(get_current_user)) -> User:

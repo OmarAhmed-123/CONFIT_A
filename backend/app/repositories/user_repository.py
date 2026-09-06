@@ -55,13 +55,18 @@ class UserRepository:
         user_id: Optional[int] = None,
         ip_address: Optional[str] = None,
         details: Optional[str] = None,
+        before: Optional[dict] = None,
+        after: Optional[dict] = None,
+        request_id: Optional[str] = None,
     ):
         """Persist a security-relevant audit event.
 
-        Callers must never pass sensitive values in `details` — passwords,
-        tokens, OTPs, MFA secrets, decrypted body measurements, etc. This
-        is the contract audited in tests.
+        Callers must never pass sensitive values in `details`/`before`/
+        `after` — passwords, tokens, OTPs, MFA secrets, decrypted body
+        measurements, etc. This is the contract audited in tests.
         """
+        import json as _json
+
         log = AuditLog(
             user_id=user_id,
             action=action,
@@ -69,6 +74,9 @@ class UserRepository:
             resource_id=str(resource_id) if resource_id else None,
             ip_address=ip_address,
             details_json=details,
+            before_json=_json.dumps(before, default=str) if before else None,
+            after_json=_json.dumps(after, default=str) if after else None,
+            request_id=request_id,
         )
         self.db.add(log)
         self.db.commit()

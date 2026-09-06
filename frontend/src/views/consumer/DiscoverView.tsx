@@ -95,7 +95,7 @@ export const DiscoverView: React.FC = () => {
       {/* Header & Search Bar */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200/80 pb-6">
         <div>
-          <span className="text-[10px] font-bold text-[#C5A059] uppercase tracking-widest block">
+          <span className="text-[10px] font-bold text-[#7A5C28] uppercase tracking-widest block">
             Luxury Multi-Brand Catalog
           </span>
           <h1 className="font-serif text-3xl font-bold text-[#1B1F3B] tracking-tight">

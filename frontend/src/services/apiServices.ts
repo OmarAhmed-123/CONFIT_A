@@ -250,6 +250,18 @@ export const catalogService = {
   getProductDetail: (slug: string) => request<Product>(`/catalog/products/${slug}`),
 
   getCategories: () => request<Category[]>('/catalog/categories'),
+  getCapabilities: () =>
+    request<{
+      payments_live: boolean;
+      payments_mode: 'live' | 'demo';
+      bnpl_live: boolean;
+      vton_gpu_ready: boolean;
+      ai_stylist_live: boolean;
+      bopis_live: boolean;
+      bopis_store_count: number;
+      storage_mode: string;
+      returns_window_days: number;
+    }>('/catalog/capabilities'),
 
   getFeaturedCollections: () => request<Product[]>('/catalog/products?is_featured=true'),
 

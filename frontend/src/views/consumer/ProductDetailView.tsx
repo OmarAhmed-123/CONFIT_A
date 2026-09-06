@@ -26,6 +26,8 @@ export const ProductDetailView: React.FC = () => {
   const [isWishlisted, setIsWishlisted] = useState(false);
   const [activeAccordion, setActiveAccordion] = useState<'materials' | 'bopis' | 'delivery' | null>('materials');
   const [isLoading, setIsLoading] = useState(true);
+  const [isSlowLoad, setIsSlowLoad] = useState(false);
+  const [reloadTick, setReloadTick] = useState(0);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
 
@@ -54,7 +56,11 @@ export const ProductDetailView: React.FC = () => {
   useEffect(() => {
     if (!slug) return;
     setIsLoading(true);
+    setIsSlowLoad(false);
     setLoadError(null);
+    // Cold-start honesty: serverless first hits can take a while — tell the
+    // user instead of showing an apparently frozen spinner (2026-09-06 audit).
+    const slowTimer = setTimeout(() => setIsSlowLoad(true), 8000);
     catalogService
       .getProductDetail(slug)
       .then((data) => {
@@ -69,8 +75,9 @@ export const ProductDetailView: React.FC = () => {
       .catch((err) => {
         setIsLoading(false);
         setLoadError(err.message || 'Product not found');
-      });
-  }, [slug]);
+      })
+      .finally(() => clearTimeout(slowTimer));
+  }, [slug, reloadTick]);
 
   useEffect(() => {
     if (!selectedSkuId) return;
@@ -78,7 +85,19 @@ export const ProductDetailView: React.FC = () => {
   }, [selectedSkuId]);
 
   if (isLoading) {
-    return <LoadingSpinner text="Loading garment details..." />;
+    return (
+      <div className="flex flex-col items-center p-10 gap-3">
+        <LoadingSpinner text={isSlowLoad ? 'Still loading — the catalogue is waking up…' : 'Loading garment details...'} />
+        {isSlowLoad && (
+          <button
+            onClick={() => setReloadTick((t) => t + 1)}
+            className="px-4 py-2 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:border-[#C5A059]"
+          >
+            Retry now
+          </button>
+        )}
+      </div>
+    );
   }
 
   if (loadError || !product) {
@@ -86,6 +105,8 @@ export const ProductDetailView: React.FC = () => {
       <EmptyState
         title="This piece is unavailable"
         description={loadError || 'The product could not be loaded from the catalogue.'}
+        actionText="Try again"
+        onAction={() => setReloadTick((t) => t + 1)}
       />
     );
   }
@@ -105,7 +126,7 @@ export const ProductDetailView: React.FC = () => {
         title="Style this garment inside a full outfit story"
         description="Product detail pages use the animated stack to connect a single item to realistic complementary directions."
       />
-      <nav className="text-xs text-slate-400 flex items-center gap-2 font-light">
+      <nav className="text-xs text-slate-500 flex items-center gap-2 font-light">
         <Link to="/discover" className="hover:text-[#1B1F3B] transition-colors">
           Catalog
         </Link>
@@ -187,7 +208,7 @@ export const ProductDetailView: React.FC = () => {
 
         <div className="lg:col-span-5 space-y-6">
           <div>
-            <span className="text-xs font-bold text-[#C5A059] uppercase tracking-widest block mb-1">
+            <span className="text-xs font-bold text-[#7A5C28] uppercase tracking-widest block mb-1">
               {product.brand_name}
             </span>
             <h1 className="font-serif text-2xl sm:text-3xl font-bold text-[#1B1F3B] leading-tight">
@@ -197,7 +218,7 @@ export const ProductDetailView: React.FC = () => {
               <span className="text-2xl font-serif font-black text-[#1B1F3B]">
                 ${product.base_price.toFixed(2)}
               </span>
-              <span className="text-xs text-slate-400 font-light">{product.currency}</span>
+              <span className="text-xs text-slate-500 font-light">{product.currency}</span>
             </div>
 
             {bnpl?.eligible && bnpl.installment_amount != null && (
@@ -220,7 +241,7 @@ export const ProductDetailView: React.FC = () => {
               </div>
               <button
                 onClick={() => openRuler(product)}
-                className="text-xs font-bold text-[#C5A059] hover:underline flex items-center gap-1"
+                className="text-xs font-bold text-[#7A5C28] hover:underline flex items-center gap-1"
               >
                 <RulerIcon size={14} color="#C5A059" />
                 <span>Find my size</span>
@@ -249,13 +270,13 @@ export const ProductDetailView: React.FC = () => {
                     : 'Out of stock'}
                 </span>
               </div>
-              <div className="flex gap-2 flex-wrap" role="listbox" aria-label="Select size">
+              <div className="flex gap-2 flex-wrap" role="group" aria-label="Select size">
                 {product.skus?.map((sku) => (
                   <button
                     key={sku.id}
                     onClick={() => setSelectedSkuId(sku.id)}
                     disabled={!sku.is_in_stock}
-                    aria-selected={selectedSkuId === sku.id}
+                    aria-pressed={selectedSkuId === sku.id}
                     className={`min-w-[48px] h-11 px-3 rounded-xl border text-xs font-bold transition-all ${
                       selectedSkuId === sku.id
                         ? 'border-[#1B1F3B] bg-[#1B1F3B] text-white shadow-2xs'
@@ -305,7 +326,7 @@ export const ProductDetailView: React.FC = () => {
 
             <button
               onClick={() => openTryOn(product)}
-              className="w-full py-3.5 rounded-2xl bg-[#FDF8EE] hover:bg-[#C5A059] text-[#C5A059] hover:text-white border border-[#C5A059]/40 font-bold text-xs shadow-2xs transition-all flex items-center justify-center gap-2"
+              className="w-full py-3.5 rounded-2xl bg-[#FDF8EE] hover:bg-[#C5A059] text-[#7A5C28] hover:text-white border border-[#C5A059]/40 font-bold text-xs shadow-2xs transition-all flex items-center justify-center gap-2"
             >
               <TryOnIcon size={16} color="currentColor" />
               <span>Try on digitally</span>

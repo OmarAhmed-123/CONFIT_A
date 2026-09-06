@@ -103,6 +103,10 @@ describe('AUTH-02: session bootstrap + gate behavior', () => {
 
   it('a signed-in session restored from bootstrap does not flash the guest gate', async () => {
     getMeMock.mockResolvedValue(consumerUser);
+    // A returning user always carries evidence of their session (cached
+    // profile and/or the csrf cookie). Without it bootstrap now skips the
+    // network call entirely — see the regression test below.
+    localStorage.setItem('confit_user', JSON.stringify(consumerUser));
     await useAuthStore.getState().fetchMe();
     expect(useAuthStore.getState().isAuthenticated).toBe(true);
 
@@ -128,5 +132,15 @@ describe('AUTH-02: session bootstrap + gate behavior', () => {
     const res = await useAuthStore.getState().login('shopper@confit.io', 'Password123!');
     expect(res.user.email).toBe('shopper@confit.io');
     expect(useAuthStore.getState().isAuthenticated).toBe(true);
+  });
+
+  it('OBS-01 regression: anonymous visitors fire NO /auth/me call (no guaranteed-401 console noise)', async () => {
+    localStorage.clear();
+    document.cookie = 'confit_csrf=; Max-Age=0; path=/';
+    getMeMock.mockClear();
+    await useAuthStore.getState().fetchMe();
+    expect(getMeMock).not.toHaveBeenCalled();
+    expect(useAuthStore.getState().hasAttemptedBootstrap).toBe(true);
+    expect(useAuthStore.getState().isAuthenticated).toBe(false);
   });
 });

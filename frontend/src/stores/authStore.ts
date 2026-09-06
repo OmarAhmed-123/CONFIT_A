@@ -27,6 +27,26 @@ interface AuthState {
   resetError: () => void;
 }
 
+
+/**
+ * Console-noise fix (2026-09-06 audit, OBS-01): every anonymous page load
+ * fired GET /auth/me which the server answers 401 — a guaranteed red console
+ * error for 100% of guests, on every route. The httpOnly session cookie is
+ * intentionally unreadable from JS, but its non-httpOnly sibling
+ * confit_csrf (set at login) and the cached confit_user profile are honest
+ * evidence a session MIGHT exist. With neither present the /auth/me call
+ * can only ever return 401, so it is skipped outright.
+ */
+export const hasSessionEvidence = (): boolean => {
+  try {
+    if (localStorage.getItem('confit_user')) return true;
+    const csrf = document.cookie.match(/(?:^|;\s*)confit_csrf=([^;]+)/);
+    return Boolean(csrf && csrf[1]);
+  } catch {
+    return false;
+  }
+};
+
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   isAuthenticated: false,
@@ -118,6 +138,13 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   fetchMe: async () => {
+    // Anonymous visitor with no session evidence: skip the guaranteed-401
+    // network round-trip (see hasSessionEvidence). The guest state is the
+    // correct answer without asking the server.
+    if (!hasSessionEvidence()) {
+      set({ hasAttemptedBootstrap: true, user: null, isAuthenticated: false });
+      return;
+    }
     const attempt = async () => {
       const user = await authService.getMe();
       localStorage.setItem('confit_user', JSON.stringify(user));

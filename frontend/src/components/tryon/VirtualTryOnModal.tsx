@@ -14,10 +14,11 @@ import {
 } from '../icons/ConfitIcons';
 import { FitScoreBadge } from '../common/CommonComponents';
 import { CameraScanModal } from './CameraScanModal';
+import { compressImageToDataUrl } from '../../lib/imageUpload';
 
 export const VirtualTryOnModal: React.FC = () => {
   const { t } = useTranslation();
-  const { tryOnProduct, closeTryOn } = useUIStore();
+  const { tryOnProduct, closeTryOn, showToast } = useUIStore();
   const { products } = useCatalogViewModel();
 
   const {
@@ -57,6 +58,7 @@ export const VirtualTryOnModal: React.FC = () => {
   const [isCameraScanOpen, setIsCameraScanOpen] = useState(false);
   const [activeCategoryFilter, setActiveCategoryFilter] = useState<string>('All');
   const [isDragOver, setIsDragOver] = useState(false);
+  const [isCompressing, setIsCompressing] = useState(false);
 
   if (!tryOnProduct) return null;
 
@@ -163,19 +165,27 @@ export const VirtualTryOnModal: React.FC = () => {
     }
   };
 
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    e.target.value = ''; // allow re-selecting the same file after an error
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const dataUrl = event.target?.result as string;
+    // P0-02/P0-03 fix (2026-09-06 audit): raw phone photos (3–8 MB) exceeded
+    // the serverless gateway body limit and died with an opaque HTTP 413.
+    // Every person photo is now validated + compressed client-side before
+    // it leaves the browser (see lib/imageUpload.ts).
+    setIsCompressing(true);
+    try {
+      const { dataUrl } = await compressImageToDataUrl(file);
       setUploadedUserImage(dataUrl);
       // Pass the fresh data URL explicitly: state above is not committed
       // yet in this tick, and the render must use the photo the user just
       // uploaded — never the previous reference (avatar or older photo).
       runTryOn({ userImageUrl: dataUrl });
-    };
-    reader.readAsDataURL(file);
+    } catch (err: any) {
+      showToast(err?.message || 'That photo could not be processed. Please try another image.', 'error');
+    } finally {
+      setIsCompressing(false);
+    }
   };
 
   // Primary active garment for rendering
@@ -222,9 +232,11 @@ export const VirtualTryOnModal: React.FC = () => {
                     <span className="text-xs font-bold text-[#1B1F3B]">Person Reference:</span>
                     <button
                       onClick={() => fileInputRef.current?.click()}
-                      className="px-3 py-1.5 rounded-xl bg-white border border-slate-200 hover:border-[#C5A059] text-slate-700 text-xs font-semibold flex items-center gap-1 shadow-2xs transition-all"
+                      disabled={isCompressing}
+                      aria-label={isCompressing ? 'Processing photo' : 'Upload your photo'}
+                      className="px-3 py-1.5 rounded-xl bg-white border border-slate-200 hover:border-[#C5A059] text-slate-700 text-xs font-semibold flex items-center gap-1 shadow-2xs transition-all disabled:opacity-60"
                     >
-                      <span>📸 Upload Photo</span>
+                      <span>{isCompressing ? '⏳ Processing photo…' : '📸 Upload Photo'}</span>
                     </button>
                     <button
                       onClick={() => setIsCameraScanOpen(true)}
@@ -470,12 +482,17 @@ export const VirtualTryOnModal: React.FC = () => {
                     {/* Download — the server retains no copy of the generated
                         image (temporary delivery); this saves it client-side */}
                     {renderedResultImage && !isRendering && (
-                      <button
-                        onClick={handleDownloadRenderedResult}
-                        className="absolute bottom-3 right-3 px-3 py-1.5 rounded-full bg-[#C5A059] text-slate-950 text-[11px] font-bold shadow-lg hover:brightness-110 active:scale-95 transition-all"
-                      >
-                        ⬇ Download Result
-                      </button>
+                      <>
+                        <button
+                          onClick={handleDownloadRenderedResult}
+                          className="absolute bottom-3 right-3 px-3 py-1.5 rounded-full bg-[#C5A059] text-slate-950 text-[11px] font-bold shadow-lg hover:brightness-110 active:scale-95 transition-all"
+                        >
+                          ⬇ Download Result
+                        </button>
+                        <span className="absolute bottom-3 left-3 px-2.5 py-1 rounded-full bg-slate-950/75 text-white text-[9px] font-semibold border border-white/15">
+                          Temporary render — download to keep it
+                        </span>
+                      </>
                     )}
 
                     {/* Active Rendering Overlay */}

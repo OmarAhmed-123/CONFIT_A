@@ -72,6 +72,7 @@ export const queryKeys = {
     all: ['catalog'] as const,
     products: (filters?: Record<string, any>) => ['catalog', 'products', filters] as const,
     categories: () => ['catalog', 'categories'] as const,
+    capabilities: () => ['catalog', 'capabilities'] as const,
     brands: () => ['catalog', 'brands'] as const,
     productDetail: (slug: string) => ['catalog', 'product', slug] as const,
     bopis: (skuId: number) => ['catalog', 'bopis', skuId] as const,

@@ -84,7 +84,7 @@ export const FitScoreBadge: React.FC<{ score?: number | null; verdict?: string; 
       className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FDF8EE] border border-[#C5A059]/30 shadow-2xs backdrop-blur-xs ${className}`}
     >
       <SparkleIcon size={13} color="#C5A059" />
-      <span className="text-[11px] font-bold text-[#A37E44]">{score}% {label}</span>
+      <span className="text-[11px] font-bold text-[#7A5C28]">{score}% {label}</span>
       <span className="text-[10px] text-slate-600 font-medium tracking-wide">· {verdict}</span>
     </div>
   );
@@ -105,7 +105,7 @@ export const BNPLBadge: React.FC<{
     <div className="inline-flex items-center gap-1.5 text-[11px] text-slate-600 bg-slate-50 border border-slate-200/80 px-2.5 py-1 rounded-lg">
       <span className="font-light">or 4 interest-free payments of</span>
       <span className="font-bold text-[#1B1F3B]">${installment}</span>
-      <span className="text-[10px] font-bold text-[#C5A059] uppercase tracking-wider">with {label}</span>
+      <span className="text-[10px] font-bold text-[#7A5C28] uppercase tracking-wider">with {label}</span>
     </div>
   );
 };

@@ -17,9 +17,12 @@
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
-const { checkCompatibilityMock, saveOutfitMock } = vi.hoisted(() => ({
+const { checkCompatibilityMock, saveOutfitMock, getProductDetailMock, addItemMock, openCartMock } = vi.hoisted(() => ({
   checkCompatibilityMock: vi.fn().mockResolvedValue({ compatibility_score: 88 }),
   saveOutfitMock: vi.fn().mockResolvedValue({}),
+  getProductDetailMock: vi.fn(),
+  addItemMock: vi.fn().mockResolvedValue({}),
+  openCartMock: vi.fn(),
 }));
 
 vi.mock('../../services/apiServices', () => ({
@@ -27,14 +30,32 @@ vi.mock('../../services/apiServices', () => ({
     checkCompatibility: (...args: unknown[]) => checkCompatibilityMock(...args),
     saveOutfit: (...args: unknown[]) => saveOutfitMock(...args),
   },
-  catalogService: {},
+  catalogService: {
+    getProductDetail: (...args: unknown[]) => getProductDetailMock(...args),
+  },
+}));
+
+vi.mock('../../stores/cartStore', () => ({
+  useCartStore: () => ({ addItem: addItemMock, openCart: openCartMock }),
 }));
 
 import { renderHook, act } from '@testing-library/react';
 import { useOutfitBuilderViewModel } from '../useOutfitBuilderViewModel';
-import { Product } from '../../models';
+import { Product, ProductSKU } from '../../models';
 
-const makeProduct = (id: number, categoryName: string, price = 100): Product => ({
+const skuOf = (id: number): ProductSKU => ({
+  id: id * 100,
+  product_id: id,
+  sku_code: `SKU-TEST-${id}`,
+  size: 'M',
+  color: 'Navy',
+  color_hex: '#1B1F3B',
+  price_override: null,
+  stock_level: 9,
+  is_in_stock: true,
+});
+
+const makeProduct = (id: number, categoryName: string, price = 100, skus?: ProductSKU[]): Product => ({
   id,
   brand_id: 1,
   brand_name: 'Test Brand',
@@ -53,6 +74,7 @@ const makeProduct = (id: number, categoryName: string, price = 100): Product => 
   rating: 4.5,
   style_compatibility_score: 90,
   is_featured: false,
+  skus: skus === undefined ? [skuOf(id)] : skus,
 });
 
 const blazer = makeProduct(1, 'Outerwear', 289);
@@ -118,5 +140,51 @@ describe('BUILDER: slot taxonomy & canvas state transitions', () => {
     act(() => result.current.clearCanvas());
     expect(result.current.selectedItems).toHaveLength(0);
     expect(result.current.runningTotal).toBe(0);
+  });
+
+  // BUILDER-03 (2026-09-06 remediation): catalog list products carry no SKUs,
+  // and the old view-model fabricated one (id = product.id*10, fake stock) —
+  // every 'Add Complete Look to Bag' then 409'd server-side. Real SKUs must be
+  // resolved from the detail endpoint; fabricated ids must never be posted.
+  it('BUILDER-03: sku-less product resolves its real SKU asynchronously', async () => {
+    getProductDetailMock.mockResolvedValue({ ...shirt, skus: [skuOf(2)] });
+    const { result } = renderHook(() => useOutfitBuilderViewModel());
+    act(() => result.current.addItemToCanvas(makeProduct(2, 'Tops & Shirts', 95, [])));
+    expect(result.current.selectedItems[0].skuStatus).toBe('pending');
+    expect(result.current.selectedItems[0].selectedSku).toBeNull();
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    expect(result.current.selectedItems[0].skuStatus).toBe('ready');
+    expect(result.current.selectedItems[0].selectedSku?.id).toBe(200);
+    expect(result.current.selectedItems[0].selectedSku?.stock_level).toBeGreaterThan(0);
+  });
+
+  it('BUILDER-03: add-all-to-bag refuses while a SKU is still pending (no fabricated POST)', async () => {
+    getProductDetailMock.mockReturnValue(new Promise(() => {})); // never resolves
+    const { result } = renderHook(() => useOutfitBuilderViewModel());
+    act(() => result.current.addItemToCanvas(makeProduct(2, 'Tops & Shirts', 95, [])));
+    await act(async () => { await result.current.addAllToCart(); });
+    expect(addItemMock).not.toHaveBeenCalled();
+  });
+
+  it('BUILDER-03: detail-fetch failure marks the item unavailable and blocks the bag add', async () => {
+    getProductDetailMock.mockRejectedValue(new Error('network down'));
+    const { result } = renderHook(() => useOutfitBuilderViewModel());
+    act(() => result.current.addItemToCanvas(makeProduct(2, 'Tops & Shirts', 95, [])));
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    expect(result.current.selectedItems[0].skuStatus).toBe('unavailable');
+    await act(async () => { await result.current.addAllToCart(); });
+    expect(addItemMock).not.toHaveBeenCalled();
+    expect(result.current.selectedItems).toHaveLength(1); // stays on canvas, honestly labelled
+  });
+
+  it('BUILDER-03: ready items post only their real server SKU ids', async () => {
+    const { result } = renderHook(() => useOutfitBuilderViewModel());
+    act(() => result.current.addItemToCanvas(blazer)); // inline in-stock sku: id 100
+    act(() => result.current.addItemToCanvas(oxfords)); // id 400
+    await act(async () => { await result.current.addAllToCart(); });
+    expect(addItemMock).toHaveBeenCalledTimes(2);
+    const postedIds = addItemMock.mock.calls.map((c) => c[0]);
+    expect(postedIds).toEqual([100, 400]);
+    expect(postedIds.every((id) => id % 100 === 0 && id > 0)).toBe(true);
   });
 });

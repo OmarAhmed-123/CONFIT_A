@@ -48,7 +48,7 @@ export const ConsumerNavbar: React.FC = () => {
         <div className="flex items-center gap-2">
           <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#C5A059] animate-pulse"></span>
           <span className="hidden sm:inline text-slate-300 font-light tracking-wide">
-            CONFIT Precision Fashion Technology — 3D Drape & Sizing Intelligence
+            CONFIT Precision Fashion Technology — Drape & Sizing Intelligence
           </span>
           <span className="sm:hidden text-slate-300">CONFIT AI Studio</span>
         </div>
@@ -108,7 +108,7 @@ export const ConsumerNavbar: React.FC = () => {
                 <button
                   className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold tracking-wide transition-all ${
                     activeDropdown === 'discover' || isActive('/discover') || isActive('/builder')
-                      ? 'text-[#C5A059] bg-[#FDF8EE] font-bold'
+                      ? 'text-[#7A5C28] bg-[#FDF8EE] font-bold'
                       : 'text-slate-600 hover:text-[#1B1F3B] hover:bg-slate-50'
                   }`}
                 >

@@ -1,3 +1,4 @@
+import { validateCheckoutSubmission, isValidEmail, CheckoutField } from '../../lib/checkoutValidation';
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -32,7 +33,7 @@ function newIdempotencyKey(): string {
 export const CheckoutView: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { cart, fetchCart, applyPromo } = useCartStore();
+  const { cart, fetchCart, applyPromo, updateQuantity, removeItem } = useCartStore();
   const { user, isAuthenticated } = useAuthStore();
   const { showToast, openAuthModal } = useUIStore();
 
@@ -48,6 +49,7 @@ export const CheckoutView: React.FC = () => {
   const [recipientName, setRecipientName] = useState(user?.full_name || '');
   const [phone, setPhone] = useState(user?.phone || '');
   const [guestEmail, setGuestEmail] = useState('');
+  const [fieldError, setFieldError] = useState<CheckoutField | null>(null);
   const [addressLine, setAddressLine] = useState('');
   const [city, setCity] = useState('');
   const [country, setCountry] = useState('UAE');
@@ -111,22 +113,35 @@ export const CheckoutView: React.FC = () => {
 
   const handleSubmitOrder = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!cart || cart.items_count === 0) {
-      showToast('Your bag is empty.', 'error');
+    // P0-01 fix: same rules, but now machine-usable — the offending field is
+    // highlighted inline, scrolled into view and marked aria-invalid instead
+    // of relying on a transient toast that guests routinely missed.
+    const verdict = validateCheckoutSubmission({
+      isAuthenticated,
+      itemsCount: cart?.items_count ?? 0,
+      guestEmail,
+      fulfillmentType,
+      bopisStoreId: selectedBopisStoreId,
+      addressLine,
+      recipientName,
+      phone,
+    });
+    if (!verdict.ok) {
+      setFieldError(verdict.field ?? null);
+      showToast(verdict.message || 'Please complete the highlighted fields.', 'error');
+      const fieldId =
+        verdict.field === 'guest_email' ? 'guest-email' :
+        verdict.field === 'recipient_name' ? 'full-name' :
+        verdict.field === 'phone' ? 'phone' :
+        verdict.field === 'address' ? 'address' : null;
+      if (fieldId) {
+        const el = document.getElementById(fieldId);
+        el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        (el as HTMLInputElement | null)?.focus({ preventScroll: true });
+      }
       return;
     }
-    if (!isAuthenticated && !guestEmail.trim()) {
-      showToast('Enter an email for guest checkout, or sign in.', 'info');
-      return;
-    }
-    if (fulfillmentType === 'bopis' && !selectedBopisStoreId) {
-      showToast('Select a boutique with stock for pickup.', 'error');
-      return;
-    }
-    if (fulfillmentType === 'delivery' && !addressLine.trim()) {
-      showToast('A delivery address is required.', 'error');
-      return;
-    }
+    setFieldError(null);
 
     setIsSubmitting(true);
     try {
@@ -181,6 +196,23 @@ export const CheckoutView: React.FC = () => {
         </p>
       </div>
 
+      {cart && cart.items_count === 0 ? (
+        <div className="bg-white rounded-3xl border border-slate-200/80 p-10 shadow-2xs text-center space-y-4">
+          <div className="w-14 h-14 rounded-2xl bg-[#FDF8EE] border border-[#C5A059]/40 flex items-center justify-center mx-auto">
+            <OrdersIcon size={26} color="#C5A059" />
+          </div>
+          <h2 className="font-serif text-xl font-bold text-[#1B1F3B]">{t('commerce.cart_title')}</h2>
+          <p className="text-sm text-slate-500 font-light max-w-md mx-auto">{t('commerce.cart_empty')}</p>
+          <button
+            type="button"
+            onClick={() => navigate('/discover')}
+            className="px-6 py-3 rounded-xl bg-[#1B1F3B] hover:bg-[#0C0E1E] text-white text-xs font-semibold shadow-2xs transition-all"
+          >
+            {t('commerce.cart_explore')}
+          </button>
+        </div>
+      ) : (
+      <>
       {!isAuthenticated && (
         <div className="bg-[#FAF9F6] border border-[#C5A059]/40 rounded-3xl p-5 sm:p-6 shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3.5">
@@ -215,7 +247,7 @@ export const CheckoutView: React.FC = () => {
         </div>
       )}
 
-      <form onSubmit={handleSubmitOrder} className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+      <form noValidate onSubmit={handleSubmitOrder} className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         <div className="lg:col-span-7 space-y-6">
           <div className="bg-white rounded-3xl border border-slate-200/80 p-6 shadow-2xs space-y-4">
             <h3 className="font-serif text-base font-bold text-[#1B1F3B]">1. Fulfillment</h3>
@@ -316,11 +348,20 @@ export const CheckoutView: React.FC = () => {
                   id="guest-email"
                   type="email"
                   required={!isAuthenticated}
+                  aria-invalid={fieldError === 'guest_email'}
+                  aria-describedby={fieldError === 'guest_email' ? 'guest-email-error' : undefined}
                   value={guestEmail}
-                  onChange={(e) => setGuestEmail(e.target.value)}
+                  onChange={(e) => { setGuestEmail(e.target.value); if (fieldError === 'guest_email') setFieldError(null); }}
                   placeholder="you@example.com"
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-[#C5A059]"
+                  className={`w-full px-4 py-2.5 rounded-xl border text-xs focus:outline-none focus:border-[#C5A059] ${fieldError === 'guest_email' ? 'border-rose-400 bg-rose-50' : 'border-slate-200'}`}
                 />
+                {fieldError === 'guest_email' && (
+                  <p id="guest-email-error" role="alert" className="text-[11px] text-rose-600 font-semibold mt-1">
+                    {isValidEmail(guestEmail.trim()) || !guestEmail.trim()
+                      ? 'Enter an email for guest checkout, or sign in.'
+                      : 'That email address looks invalid — check it and try again.'}
+                  </p>
+                )}
               </div>
             )}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -446,9 +487,46 @@ export const CheckoutView: React.FC = () => {
                   <div className="flex-1 min-w-0">
                     <div className="font-bold text-slate-900 truncate">{it.product_title}</div>
                     <div className="text-slate-500 text-[11px] font-light">
-                      {it.brand_name} · Size {it.size} · Qty {it.quantity}
+                      {it.brand_name} · Size {it.size}
                     </div>
                     <div className="text-slate-900 font-bold mt-0.5">${it.subtotal.toFixed(2)}</div>
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <button
+                        type="button"
+                        aria-label={t('commerce.qty_decrease')}
+                        disabled={it.quantity <= 1}
+                        onClick={() => {
+                          updateQuantity(it.id, it.quantity - 1).catch(() => showToast('Could not update quantity', 'error'));
+                        }}
+                        className="w-6 h-6 rounded-lg border border-slate-200 text-slate-700 font-bold leading-none hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        −
+                      </button>
+                      <span className="text-[11px] text-slate-600 font-medium w-10 text-center" aria-live="polite">
+                        Qty {it.quantity}
+                      </span>
+                      <button
+                        type="button"
+                        aria-label={t('commerce.qty_increase')}
+                        disabled={it.quantity >= 10}
+                        onClick={() => {
+                          updateQuantity(it.id, it.quantity + 1).catch(() => showToast('Could not update quantity', 'error'));
+                        }}
+                        className="w-6 h-6 rounded-lg border border-slate-200 text-slate-700 font-bold leading-none hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        +
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={t('commerce.remove_item')}
+                        onClick={() => {
+                          removeItem(it.id).catch(() => showToast('Could not remove item', 'error'));
+                        }}
+                        className="ml-auto text-[10px] font-semibold text-slate-400 hover:text-rose-600 underline underline-offset-2"
+                      >
+                        {t('commerce.remove_item')}
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -509,6 +587,8 @@ export const CheckoutView: React.FC = () => {
           </div>
         </div>
       </form>
+      </>
+      )}
     </div>
   );
 };

@@ -1,31 +1,45 @@
 import React, { useState, useEffect } from 'react';
 import { ConfitLogo } from './ConfitLogo';
 
+/**
+ * StrictMode-safe session guard.
+ *
+ * The previous implementation stored `confit_splash_viewed` inside the SAME
+ * effect that arms the dismiss timers, and cleared those timers on cleanup.
+ * Under React 18 <StrictMode> (development), effects run setup → cleanup →
+ * setup: the first pass wrote the flag and armed the timers, the cleanup
+ * cancelled them, and the second pass saw the flag already set and returned
+ * early WITHOUT re-arming. Net effect: the splash stayed at opacity-100 with
+ * pointer-events on top of the whole app for the entire session in dev —
+ * every click was swallowed. Production builds run effects once, which is
+ * why this never reproduced against the deployed bundle.
+ *
+ * A module-level `armed` flag makes the side effect idempotent across the
+ * double invocation: timers are created exactly once and never torn down.
+ */
+let splashArmed = false;
+
 export const SplashScreen: React.FC<{ onComplete?: () => void }> = ({ onComplete }) => {
   const [isVisible, setIsVisible] = useState(false);
   const [isFading, setIsFading] = useState(false);
 
   useEffect(() => {
+    if (splashArmed) return;
+    splashArmed = true;
+
     // Only display splash on fresh session load
-    const hasSeenSplash = sessionStorage.getItem('confit_splash_viewed');
-    if (!hasSeenSplash) {
-      setIsVisible(true);
-      sessionStorage.setItem('confit_splash_viewed', 'true');
+    if (sessionStorage.getItem('confit_splash_viewed')) return;
+    sessionStorage.setItem('confit_splash_viewed', 'true');
+    setIsVisible(true);
 
-      const fadeTimer = setTimeout(() => {
-        setIsFading(true);
-      }, 1100);
+    const fadeTimer = setTimeout(() => {
+      setIsFading(true);
+    }, 1100);
 
-      const hideTimer = setTimeout(() => {
-        setIsVisible(false);
-        if (onComplete) onComplete();
-      }, 1500);
-
-      return () => {
-        clearTimeout(fadeTimer);
-        clearTimeout(hideTimer);
-      };
-    }
+    const hideTimer = setTimeout(() => {
+      setIsVisible(false);
+      if (onComplete) onComplete();
+    }, 1500);
   }, [onComplete]);
 
   if (!isVisible) return null;

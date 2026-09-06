@@ -7,23 +7,20 @@ import { NoPhotoFitModal } from '../components/tryon/NoPhotoFitModal';
 import { VisualSearchModal } from '../components/tryon/VisualSearchModal';
 import { DuplicateAlertModal } from '../components/wardrobe/DuplicateAlertModal';
 import { CartDrawer } from '../components/commerce/CartDrawer';
-import { AuthModal } from '../views/auth/AuthModal';
-import { Toast } from '../components/common/CommonComponents';
 import { SplashScreen } from '../components/common/SplashScreen';
 import { useUIStore } from '../stores/uiStore';
-import { useAuthStore } from '../stores/authStore';
 import { useCartStore } from '../stores/cartStore';
 import { SparkleIcon } from '../components/icons/ConfitIcons';
 
 export const ConsumerLayout: React.FC = () => {
-  const { toast, hideToast, openStylist } = useUIStore();
-  const { fetchMe } = useAuthStore();
+  const { openStylist } = useUIStore();
+  // AUTH-02 FIX: fetchMe bootstrap moved to App (session must restore on
+  // /b2b and /admin too); AuthModal/Toast are now mounted at the app root.
   const { fetchCart } = useCartStore();
 
   useEffect(() => {
-    fetchMe();
     fetchCart();
-  }, [fetchMe, fetchCart]);
+  }, [fetchCart]);
 
   return (
     <div className="min-h-screen flex flex-col bg-[#FAF9F6] text-[#1B1F3B]">
@@ -54,19 +51,13 @@ export const ConsumerLayout: React.FC = () => {
         </button>
       </div>
 
-      {/* Global Modals & Drawers */}
+      {/* Global Modals & Drawers (AuthModal + Toast live at App root) */}
       <VirtualStylistDrawer />
       <VirtualTryOnModal />
       <NoPhotoFitModal />
       <VisualSearchModal />
       <DuplicateAlertModal />
       <CartDrawer />
-      <AuthModal />
-
-      {/* Global Toast */}
-      {toast && (
-        <Toast message={toast.message} type={toast.type} onClose={hideToast} />
-      )}
 
       {/* Luxury Footer */}
       <footer className="bg-[#0C0E1E] text-slate-400 text-xs border-t border-slate-800 py-14 px-4 sm:px-8 mt-auto">

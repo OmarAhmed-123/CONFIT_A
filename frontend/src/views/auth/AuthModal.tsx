@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { useUIStore } from '../../stores/uiStore';
 import { ConfitLogo } from '../../components/common/ConfitLogo';
@@ -9,9 +10,22 @@ import { UserIcon } from '../../components/icons/ConfitIcons';
 // contain either the buttons or the seeded passwords.
 const IS_DEV = import.meta.env.DEV === true;
 
+/** AUTH-02 FIX: post-login landing policy. A brand account signing in from
+ * anywhere lands on its portal; an admin lands on platform governance;
+ * consumers stay where they are (storefront). Keeps the modal a single
+ * entry point for every layout instead of duplicating handlers per route. */
+const landingPathForRole = (role?: string | null): string | null => {
+  const r = (role || '').toLowerCase();
+  if (r === 'admin') return '/admin';
+  if (r.startsWith('brand_')) return '/b2b';
+  return null;
+};
+
 export const AuthModal: React.FC = () => {
   const { isAuthModalOpen, authModalMode, closeAuthModal, showToast } = useUIStore();
   const { login, register, isLoading, error, mfaRequired, completeMfaLogin } = useAuthStore();
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const [mode, setMode] = useState<'login' | 'register'>(authModalMode || 'login');
   const [email, setEmail] = useState('');
@@ -19,6 +33,15 @@ export const AuthModal: React.FC = () => {
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [mfaCode, setMfaCode] = useState('');
+
+  // The store's authModalMode can change while the modal stays mounted
+  // (e.g. RoleGuard opens 'login', footer opens 'register'). Keep the local
+  // form mode in sync — previously a stale internal mode ignored the caller.
+  useEffect(() => {
+    if (isAuthModalOpen) {
+      setMode(authModalMode || 'login');
+    }
+  }, [isAuthModalOpen, authModalMode]);
 
   if (!isAuthModalOpen) return null;
 
@@ -29,8 +52,13 @@ export const AuthModal: React.FC = () => {
         // Group 1 §11: two-step login. If the account has MFA, `login`
         // throws with reason=MFA_REQUIRED and the store flips a flag;
         // the second-step form below sends the code.
-        await login(email, password);
+        const res = await login(email, password);
         showToast('Welcome back to CONFIT!', 'success');
+        const landing = landingPathForRole(res?.user?.role);
+        const here = location.pathname;
+        if (landing && !here.startsWith(landing)) {
+          navigate(landing, { replace: true });
+        }
       } else {
         await register({ email, password, full_name: fullName, phone });
         showToast('Account created — complete your style profile to personalize CONFIT.', 'success');
@@ -47,8 +75,13 @@ export const AuthModal: React.FC = () => {
   const handleMfaSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await completeMfaLogin(email, password, mfaCode);
+      const res = await completeMfaLogin(email, password, mfaCode);
       showToast('Signed in with MFA.', 'success');
+      const landing = landingPathForRole(res?.user?.role);
+      const here = location.pathname;
+      if (landing && !here.startsWith(landing)) {
+        navigate(landing, { replace: true });
+      }
       closeAuthModal();
     } catch (err: any) {
       // Error surfaced via `error` in the store.

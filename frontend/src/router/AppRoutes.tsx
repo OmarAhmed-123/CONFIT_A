@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { ConsumerLayout } from '../layouts/ConsumerLayout';
 import { BrandLayout } from '../layouts/BrandLayout';
 import { RoleGuard, ProtectedRoute } from '../components/auth/RoleGuard';
@@ -52,7 +52,8 @@ export const AppRoutes: React.FC = () => {
   const ADMIN_ROLES = ['admin'];
 
   return (
-    <BrowserRouter>
+    // Router context is provided by App (AUTH-02: root-mounted AuthModal needs navigate()).
+    <>
       <Routes>
         {/* 0. Public Shared Look (C8) — intentionally outside any guarded layout */}
         <Route path="/looks/:token" element={<SharedLookView />} />
@@ -195,6 +196,6 @@ export const AppRoutes: React.FC = () => {
         {/* 5. Fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-    </BrowserRouter>
+    </>
   );
 };

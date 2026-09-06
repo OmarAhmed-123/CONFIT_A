@@ -59,7 +59,7 @@ export const TryOnFitView: React.FC = () => {
             </div>
             <h3 className="font-serif text-base font-bold text-[#1B1F3B]">{t('nav.virtual_tryon')}</h3>
             <p className="text-xs text-slate-600 font-light">
-              Photorealistic fabric segmentation and silhouette drape.
+              AI garment try-on rendered on your own photo — an honest 2D visual preview.
             </p>
           </div>
           <span className="text-xs font-bold text-[#7A5C28] mt-4 block">Select Garment →</span>

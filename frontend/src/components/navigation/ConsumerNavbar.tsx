@@ -48,7 +48,7 @@ export const ConsumerNavbar: React.FC = () => {
         <div className="flex items-center gap-2">
           <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#C5A059] animate-pulse"></span>
           <span className="hidden sm:inline text-slate-300 font-light tracking-wide">
-            CONFIT Precision Fashion Technology — Drape & Sizing Intelligence
+            CONFIT Precision Fashion Technology — Fit & Sizing Intelligence
           </span>
           <span className="sm:hidden text-slate-300">CONFIT AI Studio</span>
         </div>
@@ -222,7 +222,7 @@ export const ConsumerNavbar: React.FC = () => {
                         <div className="text-xs font-bold text-[#1B1F3B] group-hover:text-[#C5A059]">
                           {t('nav.virtual_tryon')}
                         </div>
-                        <div className="text-[11px] text-slate-500">Interactive drape & multi-garment try-on</div>
+                        <div className="text-[11px] text-slate-500">Interactive multi-garment try-on</div>
                       </div>
                     </Link>
 

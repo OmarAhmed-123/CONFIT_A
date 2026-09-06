@@ -625,7 +625,7 @@ export const HomeView: React.FC = () => {
             </div>
             <h4 className="font-serif text-sm font-bold text-[#1B1F3B]">30-Day Zero-Fee Returns</h4>
             <p className="text-xs text-slate-500 font-light leading-relaxed">
-              Preview the drape on your own photo before checkout — and if the fit isn't right, enjoy 30-day zero-fee courier collection.
+              Preview the fit on your own photo before checkout — and if the fit isn't right, enjoy 30-day zero-fee courier collection.
             </p>
           </div>
 

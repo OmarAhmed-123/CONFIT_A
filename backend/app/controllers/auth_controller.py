@@ -41,9 +41,10 @@ router = APIRouter(prefix="/auth", tags=["Authentication & Identity"])
 
 SESSION_COOKIE = "confit_token"
 CSRF_COOKIE = "confit_csrf"
+REFRESH_COOKIE = "confit_refresh"
 
 
-def _set_session_cookies(response: Response, access_token: str) -> None:
+def _set_session_cookies(response: Response, access_token: str, refresh_token: Optional[str] = None) -> None:
     secure = settings.ENVIRONMENT.lower() == "production"
     response.set_cookie(
         SESSION_COOKIE, access_token,
@@ -55,11 +56,23 @@ def _set_session_cookies(response: Response, access_token: str) -> None:
         httponly=False, secure=secure, samesite="lax", path="/",
         max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
     )
+    # CYCLE-3 (BLOCKER J): the refresh token was previously only returned in
+    # the response body — which the browser frontend deliberately discards
+    # (no token-shaped value may reach web storage). Storing it in an
+    # httpOnly cookie lets the SPA transparently refresh a short-lived access
+    # cookie; rotation + server-side reuse detection remain authoritative.
+    if refresh_token:
+        response.set_cookie(
+            REFRESH_COOKIE, refresh_token,
+            httponly=True, secure=secure, samesite="lax", path="/",
+            max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 3600,
+        )
 
 
 def _clear_session_cookies(response: Response) -> None:
     response.delete_cookie(SESSION_COOKIE, path="/")
     response.delete_cookie(CSRF_COOKIE, path="/")
+    response.delete_cookie(REFRESH_COOKIE, path="/")
 
 
 def _client_ip(request: Request) -> Optional[str]:
@@ -119,7 +132,7 @@ def register(request: Request, response: Response, payload: UserRegister, db: Se
         ip_address=_client_ip(request),
         user_agent=_user_agent(request),
     )
-    _set_session_cookies(response, res["access_token"])
+    _set_session_cookies(response, res["access_token"], refresh_token=res.get("refresh_token"))
     return {
         "access_token": res["access_token"],
         "refresh_token": res["refresh_token"],
@@ -139,7 +152,7 @@ def login(request: Request, response: Response, payload: UserLogin, db: Session 
         ip_address=_client_ip(request),
         user_agent=_user_agent(request),
     )
-    _set_session_cookies(response, res["access_token"])
+    _set_session_cookies(response, res["access_token"], refresh_token=res.get("refresh_token"))
     return {
         "access_token": res["access_token"],
         "refresh_token": res["refresh_token"],
@@ -158,7 +171,7 @@ def social_login(request: Request, response: Response, payload: SocialLoginReque
         ip_address=_client_ip(request),
         user_agent=_user_agent(request),
     )
-    _set_session_cookies(response, res["access_token"])
+    _set_session_cookies(response, res["access_token"], refresh_token=res.get("refresh_token"))
     return {
         "access_token": res["access_token"],
         "refresh_token": res["refresh_token"],
@@ -167,15 +180,54 @@ def social_login(request: Request, response: Response, payload: SocialLoginReque
     }
 
 
-@router.post("/refresh", response_model=TokenResponse)
-def refresh(request: Request, payload: RefreshTokenRequest, response: Response, db: Session = Depends(get_db)):
-    service = AuthService(db)
-    res = service.refresh(
-        payload.refresh_token,
-        ip_address=_client_ip(request),
-        user_agent=_user_agent(request),
+def _refresh_rejected(message: str):
+    """401 with the standard error envelope AND a cleared refresh cookie.
+
+    Built as a direct response (instead of raising) because the global
+    exception handler constructs a fresh JSONResponse and would silently
+    drop the Set-Cookie deletion — leaving the browser retrying a dead
+    cookie forever.
+    """
+    from fastapi.responses import JSONResponse as _JSONResponse
+
+    resp = _JSONResponse(
+        status_code=401,
+        content={"error": {"code": "AUTH_FAILED", "message": message, "details": {}}},
     )
-    _set_session_cookies(response, res["access_token"])
+    resp.delete_cookie(REFRESH_COOKIE, path="/")
+    return resp
+
+
+@router.post("/refresh", response_model=TokenResponse)
+def refresh(
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db),
+    payload: Optional[RefreshTokenRequest] = None,
+):
+    # Token source precedence: explicit body (API/mobile clients, unchanged
+    # contract) → httpOnly cookie (browser SPA). Never both silently: the body
+    # wins only because pre-cookie clients cannot send one.
+    token = payload.refresh_token if payload and payload.refresh_token else request.cookies.get(REFRESH_COOKIE)
+    if not token:
+        # Honest failure — and drop any stale refresh cookie so the browser
+        # client does not hammer this endpoint on every 401. The error is
+        # returned directly (not raised) because the global exception handler
+        # rebuilds the response and would discard the Set-Cookie header.
+        return _refresh_rejected("Refresh token not provided.")
+    service = AuthService(db)
+    try:
+        res = service.refresh(
+            token,
+            ip_address=_client_ip(request),
+            user_agent=_user_agent(request),
+        )
+    except AuthenticationError as exc:
+        # Expired/reused/unknown refresh token: kill the cookie too, then
+        # surface the honest failure (no silent session extension).
+        return _refresh_rejected(str(exc))
+
+    _set_session_cookies(response, res["access_token"], refresh_token=res["refresh_token"])
     return {
         "access_token": res["access_token"],
         "refresh_token": res["refresh_token"],

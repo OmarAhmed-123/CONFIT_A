@@ -80,3 +80,16 @@ Re-audit at cycle start: 76 branches (no delta), ONE pre-existing open PR (#75 `
 Owner actions recorded (not faked): production env `ACCESS_TOKEN_EXPIRE_MINUTES=1440` overrides the secure 15-min code default (refresh endpoint exists — owner should confirm frontend refresh path and lower it); token rotation; PR #75 disposition; email/storage/admin/brand items unchanged from §4.
 
 Full-suite baseline after cycle 2: **1028 backend / 95 frontend**. Final decision unchanged: **NO-GO** solely on owner-action blockers (see FINAL_REPORT §10).
+
+
+---
+
+## 6. Cycle 3 (2026-09-06, evening) — baseline `main` @ `cb9f6ed`
+
+Delta audit at cycle start: no new branches/PRs (only pre-existing #75, owner disposition); production healthy, schema ok, 6/6 security headers intact; regressions E/G/I re-verified live (two-order journey CONF-E4BC9204/CONF-25AACCE8 + replay 422 + honest copy in bundle). **BLOCKER A re-verified: BOTH session tokens still authenticate (GitHub PAT live; Vercel deployments API 200) → rotation NOT done → still OWNER ACTION.**
+
+| Feature | Finding | Severity | Existing branch | Branch used | Research | Commits | PR | Merge SHA | Production | Status |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Auth session lifecycle (BLOCKER J) | refresh_token returned in body but DISCARDED by frontend (setAuthTokens stub); no httpOnly refresh cookie; apiClient never calls /auth/refresh → owner cannot safely lower 1440-min env without logging users out every 15 min | P1 | none (auth branches merged/closed) | `fix/auth-session-lifecycle` (NEW) | OWASP Session Mgmt CS + 2026 token-lifetime defaults (short access + rotating refresh + reuse detection) | see PR | see PR | — | — | IN PROGRESS |
+
+Research record → docs/research/CONFIT_A_CYCLE_3_RESEARCH.md.

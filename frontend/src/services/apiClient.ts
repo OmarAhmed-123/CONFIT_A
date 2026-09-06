@@ -124,7 +124,18 @@ export async function request<T>(
       const err = errJson.error || {};
       let userFriendlyMessage = err.message || `Request failed with status ${res.status}`;
 
-      if (res.status === 401 || (userFriendlyMessage && userFriendlyMessage.toLowerCase().includes('bearer token'))) {
+      // Audit round-2 (R9): an AUTH ATTEMPT must surface the server's own
+      // message ("Invalid email or password."). Rewriting EVERY 401 into the
+      // generic sign-in nudge hid real login failures — the user typed a
+      // wrong password and was told to "sign in", with no error. The nudge
+      // remains correct for OTHER endpoints, where 401 means the session is
+      // missing/expired.
+      const isAuthAttempt = /^\/auth\/(login|register|mfa)/.test(endpoint);
+      if (
+        (res.status === 401 ||
+          (userFriendlyMessage && userFriendlyMessage.toLowerCase().includes('bearer token'))) &&
+        !isAuthAttempt
+      ) {
         userFriendlyMessage = 'Sign in to access your personal style profile and account features.';
       }
 

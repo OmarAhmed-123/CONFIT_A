@@ -551,7 +551,7 @@ export const HomeView: React.FC = () => {
             onClick={() => navigate('/discover')}
             className="text-xs font-bold text-[#1B1F3B] hover:text-[#C5A059] transition-colors"
           >
-            View All Catalog{isLoading ? '' : ` (${products.length})`} →
+            View All Catalog{!isLoading && products.length > 0 ? ` (${products.length})` : ''} →
           </button>
         </div>
 
@@ -644,9 +644,9 @@ export const HomeView: React.FC = () => {
             <div className="w-10 h-10 rounded-2xl bg-[#1B1F3B] text-[#C5A059] flex items-center justify-center font-bold shadow-xs mx-auto sm:mx-0">
               <SparkleIcon size={20} color="#C5A059" />
             </div>
-            <h4 className="font-serif text-sm font-bold text-[#1B1F3B]">On-Device Biometric Vision</h4>
+            <h4 className="font-serif text-sm font-bold text-[#1B1F3B]">Private In-Browser Fit Studio</h4>
             <p className="text-xs text-slate-500 font-light leading-relaxed">
-              Camera frames are analyzed locally in browser memory with zero permanent server photo retention.
+              Your measurements are self-reported and processed in browser memory — camera photos are never permanently stored on servers.
             </p>
           </div>
 
@@ -666,7 +666,7 @@ export const HomeView: React.FC = () => {
             </div>
             <h4 className="font-serif text-sm font-bold text-[#1B1F3B]">30-Day Zero-Fee Returns</h4>
             <p className="text-xs text-slate-500 font-light leading-relaxed">
-              Virtual try-on reduces sizing mismatch by 71%. If not fully satisfied, enjoy instant courier collection.
+              Preview the drape on your own photo before checkout — and if the fit isn't right, enjoy 30-day zero-fee courier collection.
             </p>
           </div>
 

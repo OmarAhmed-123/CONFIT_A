@@ -208,7 +208,7 @@ export const ProductDetailView: React.FC = () => {
 
         <div className="lg:col-span-5 space-y-6">
           <div>
-            <span className="text-xs font-bold text-[#C5A059] uppercase tracking-widest block mb-1">
+            <span className="text-xs font-bold text-[#7A5C28] uppercase tracking-widest block mb-1">
               {product.brand_name}
             </span>
             <h1 className="font-serif text-2xl sm:text-3xl font-bold text-[#1B1F3B] leading-tight">
@@ -270,13 +270,13 @@ export const ProductDetailView: React.FC = () => {
                     : 'Out of stock'}
                 </span>
               </div>
-              <div className="flex gap-2 flex-wrap" role="listbox" aria-label="Select size">
+              <div className="flex gap-2 flex-wrap" role="group" aria-label="Select size">
                 {product.skus?.map((sku) => (
                   <button
                     key={sku.id}
                     onClick={() => setSelectedSkuId(sku.id)}
                     disabled={!sku.is_in_stock}
-                    aria-selected={selectedSkuId === sku.id}
+                    aria-pressed={selectedSkuId === sku.id}
                     className={`min-w-[48px] h-11 px-3 rounded-xl border text-xs font-bold transition-all ${
                       selectedSkuId === sku.id
                         ? 'border-[#1B1F3B] bg-[#1B1F3B] text-white shadow-2xs'

@@ -243,6 +243,7 @@ export const DiscoverView: React.FC = () => {
           <div className="flex items-center gap-2">
             <span className="text-[11px] text-slate-400">Sort by:</span>
             <select
+              aria-label="Sort products"
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
               className="text-xs font-semibold bg-white border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:border-[#C5A059]"

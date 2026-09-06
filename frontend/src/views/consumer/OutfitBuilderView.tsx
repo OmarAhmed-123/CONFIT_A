@@ -274,6 +274,7 @@ export const OutfitBuilderView: React.FC = () => {
                   className="flex-1 font-serif text-base font-bold text-[#1B1F3B] border-b border-slate-200 focus:outline-none focus:border-[#C5A059] py-1"
                 />
                 <select
+                  aria-label="Target occasion"
                   value={targetOccasion}
                   onChange={(e) => setTargetOccasion(e.target.value)}
                   className="text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 focus:outline-none focus:border-[#C5A059]"

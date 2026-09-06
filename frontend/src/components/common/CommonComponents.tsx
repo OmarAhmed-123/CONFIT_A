@@ -84,7 +84,7 @@ export const FitScoreBadge: React.FC<{ score?: number | null; verdict?: string; 
       className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FDF8EE] border border-[#C5A059]/30 shadow-2xs backdrop-blur-xs ${className}`}
     >
       <SparkleIcon size={13} color="#C5A059" />
-      <span className="text-[11px] font-bold text-[#A37E44]">{score}% {label}</span>
+      <span className="text-[11px] font-bold text-[#7A5C28]">{score}% {label}</span>
       <span className="text-[10px] text-slate-600 font-medium tracking-wide">· {verdict}</span>
     </div>
   );

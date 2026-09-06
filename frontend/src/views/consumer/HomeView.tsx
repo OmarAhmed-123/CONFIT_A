@@ -234,7 +234,7 @@ export const HomeView: React.FC = () => {
       {/* 2. Scroll-Driven 3D Editorial Gallery */}
       <section className="relative -mx-4 overflow-hidden rounded-[36px] border border-[#C5A059]/25 bg-gradient-to-b from-[#FAF9F6] via-white to-[#F0F2F8] py-10 shadow-2xs sm:-mx-6 lg:-mx-8">
         <div className="relative z-10 mx-auto mb-6 max-w-2xl px-6 text-center">
-          <span className="text-[10px] font-bold uppercase tracking-widest text-[#C5A059]">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-[#7A5C28]">
             Scroll-Activated Lookbook
           </span>
           <h2 className="mt-2 font-serif text-3xl font-bold text-[#1B1F3B] sm:text-4xl">
@@ -264,7 +264,7 @@ export const HomeView: React.FC = () => {
       <section className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2 border-b border-slate-200/80 pb-4">
           <div>
-            <span className="text-[10px] font-bold text-[#C5A059] uppercase tracking-widest block">
+            <span className="text-[10px] font-bold text-[#7A5C28] uppercase tracking-widest block">
               Curated European & Scandinavian Houses
             </span>
             <h2 className="font-serif text-2xl font-bold text-[#1B1F3B]">
@@ -399,7 +399,7 @@ export const HomeView: React.FC = () => {
                 </button>
                 <div className="p-4 flex flex-col flex-1 justify-between gap-3">
                   <div>
-                    <span className="text-[10px] font-bold text-[#C5A059] uppercase tracking-wide">
+                    <span className="text-[10px] font-bold text-[#7A5C28] uppercase tracking-wide">
                       {prod.category_name}
                     </span>
                     <h3 className="font-serif text-sm font-bold text-[#1B1F3B] leading-snug mt-0.5">

@@ -33,6 +33,7 @@ from backend.app.core.money import (
 from backend.app.core.exceptions import (
     AuthenticationError,
     AuthorizationError,
+    FulfillmentBlockedError,
     InventoryUnavailableError,
     InvalidStateTransitionError,
     PaymentFailedError,
@@ -63,6 +64,7 @@ ORDER_TRANSITIONS: Dict[str, Set[str]] = {
         "dispatched",
         "shipped",
         "cancelled",
+        "failed",
         "return_requested",
         "exchange_requested",
     },
@@ -93,6 +95,19 @@ ALLOWED_RETURN_REASONS = {
     "Changed Mind",
     "Style Mismatch",
     "Quality Issue",
+}
+
+# PAY-01: states where the goods physically move toward the customer. Entering
+# any of them is BLOCKED unless the payment is settled (paid) — or the order is
+# COD, which is payable at handover (the handover transition itself settles it).
+FULFILLMENT_STATES: Set[str] = {
+    "preparing",
+    "ready_for_pickup",
+    "dispatched",
+    "shipped",
+    "out_for_delivery",
+    "delivered",
+    "picked_up",
 }
 
 
@@ -438,7 +453,14 @@ class CommerceService:
                 )
             except Exception:
                 logger.warn("commerce_notification_failed", order_number=order.order_number)
-            next_status = "payment_pending" if mapped_payment_status == "pending" else "processing"
+            # PAY-01: COD is payable at handover — its fulfilment flow starts
+            # now and the cash settles exactly at picked_up/delivered (the
+            # _transition gate enforces that settlement). Other pending-payment
+            # methods wait in payment_pending and cannot be fulfilled.
+            if mapped_payment_status == "pending" and payment_method != "cod":
+                next_status = "payment_pending"
+            else:
+                next_status = "processing"
             if order.status != next_status:
                 self._transition(order, next_status)
             self.commerce_repo.add_order_event(
@@ -778,7 +800,52 @@ class CommerceService:
         self.commerce_repo.add_order_event(
             order.id, new_status, f"Status → {new_status}", f"Order moved to {new_status}."
         )
+        self.db.commit()
         return self.get_order(order.order_number)
+
+    def capture_demo_payment(self, order_number: str) -> Dict[str, Any]:
+        """PAY-01: explicit DEMO-mode capture of an authorized payment.
+
+        The demo adapter authorizes at checkout; the capture (which flips the
+        order to paid and unlocks fulfilment) is a separate, auditable act so
+        the fulfilment gate is exercised end-to-end even without a live PSP.
+        Live mode refuses here: real captures arrive exclusively through the
+        signed provider webhook, never through an admin shortcut.
+        """
+        if bool(settings.PAYMENTS_LIVE):
+            raise ValidationDomainError(
+                "Demo capture is disabled while PAYMENTS_LIVE is enabled; "
+                "captures must arrive via the signed provider webhook."
+            )
+        order = self.commerce_repo.get_order_by_number(order_number)
+        if not order:
+            raise ResourceNotFoundError("Order", order_number)
+        if order.payment_status == "paid":
+            return self.get_order(order_number)  # idempotent replay
+        if order.payment_status != "authorized":
+            raise ValidationDomainError(
+                f"Only authorized payments can be captured (current status: {order.payment_status})."
+            )
+        order.payment_status = "paid"
+        self.commerce_repo.create_payment_transaction(
+            order_id=order.id,
+            provider="demo",
+            method=str(order.payment_method),
+            provider_tx_id=f"demo_capture_{order.order_number}",
+            amount=order.total_amount,
+            currency=order.currency,
+            status="paid",
+            mode="demo",
+            idempotency_key=f"demo-capture:{order.order_number}",
+        )
+        self.commerce_repo.add_order_event(
+            order.id,
+            "paid",
+            "Payment captured",
+            "Demo adapter captured the authorized amount (demo — not a live charge).",
+        )
+        self.db.commit()
+        return self.get_order(order_number)
 
     # --------------------------------------------------------------- returns
     def create_return(
@@ -1315,10 +1382,40 @@ class CommerceService:
             return
         if new_status not in allowed:
             raise InvalidStateTransitionError(order.status, new_status)
+        # PAY-01 fulfilment gate: goods move only for settled payment.
+        # - card/wallet: the provider capture (webhook or explicit demo
+        #   capture) must have set payment_status='paid' first;
+        # - COD: payable at handover, so fulfilment states are reachable, and
+        #   the handover itself records the cash settlement below.
+        if new_status in FULFILLMENT_STATES:
+            is_settled = order.payment_status == "paid"
+            is_cod = order.payment_method == "cod"
+            if not is_settled and not is_cod:
+                raise FulfillmentBlockedError(order.status, new_status, str(order.payment_status))
+            if is_cod and not is_settled and new_status in ("picked_up", "delivered"):
+                self._settle_cod_at_handover(order)
         order.status = new_status
         if new_status == "ready_for_pickup":
             order.ready_for_pickup_at = datetime.now(timezone.utc)
         self.db.flush()
+
+    def _settle_cod_at_handover(self, order: Order) -> None:
+        """PAY-01: cash-on-delivery settles exactly when the goods change hands."""
+        order.payment_status = "paid"
+        self.commerce_repo.create_payment_transaction(
+            order_id=order.id,
+            provider="cash",
+            method="cod",
+            provider_tx_id=f"cod_{order.order_number}",
+            amount=order.total_amount,
+            currency=order.currency,
+            status="paid",
+            mode=str(order.payment_mode or "demo"),
+            idempotency_key=f"cod-cash:{order.order_number}",
+        )
+        self.commerce_repo.add_order_event(
+            order.id, "paid", "COD collected", f"Cash collected at handover for {order.order_number}."
+        )
 
     def _map_provider_status(self, status: str, method: str) -> str:
         if status in ("captured", "succeeded", "paid"):

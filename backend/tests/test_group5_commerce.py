@@ -175,7 +175,10 @@ def test_guest_checkout_requires_email_then_succeeds(client: TestClient) -> None
     body = created.json()
     assert body["order_number"].startswith("CONF-")
     assert body["payment_status"] == "pending"
-    assert body["status"] in {"payment_pending", "pending", "placed"}
+    # PAY-01: COD fulfilment starts immediately (status 'processing'); the cash
+    # settles only at handover (payment_status flips to 'paid' at picked_up/
+    # delivered — see test_pay01_fulfillment_gate.py).
+    assert body["status"] in {"payment_pending", "pending", "placed", "processing"}
     assert body["guest_email"] == "guest.checkout@example.com"
     assert body.get("payment_mode") == "demo"
 

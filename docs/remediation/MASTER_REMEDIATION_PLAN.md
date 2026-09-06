@@ -65,3 +65,18 @@ Features 1/3/9/14/15 stay **BLOCKED / OWNER DECISION** — no fake work; closing
 | Brand licensing | — | — | — | — | — | — | **OWNER DECISION REQUIRED** |
 
 Legend: VERIFIED (live evidence) · BLOCKED (external dependency, honestly declared, no fake work).
+
+
+---
+
+## 5. Cycle 2 (2026-09-06, later) — baseline `main` @ `d95db67`
+
+Re-audit at cycle start: 76 branches (no delta), ONE pre-existing open PR (#75 `hotfix/revert-74-deploy-sequence` — owner-opened, different domain, left to owner disposition), production healthy/schema-ok.
+
+| Feature | Finding | Sev | Existing branch | Branch used | Reused/New | PR | Status |
+|---|---|---|---|---|---|---|---|
+| Security foundation | Only HSTS in production; CSP/nosniff/frame/referrer/permissions all absent | P1 | security/* merged/closed | `fix/security-foundation` | New | #82 | **VERIFIED** — merge `937cade`, prod `dpl_zXrDC5V1pusarMVjNUo1qmFTtpMJ`: 6/6 headers on `/` AND `/api/v1/health`, SPA smoke under CSP zero violations |
+
+Owner actions recorded (not faked): production env `ACCESS_TOKEN_EXPIRE_MINUTES=1440` overrides the secure 15-min code default (refresh endpoint exists — owner should confirm frontend refresh path and lower it); token rotation; PR #75 disposition; email/storage/admin/brand items unchanged from §4.
+
+Full-suite baseline after cycle 2: **1028 backend / 95 frontend**. Final decision unchanged: **NO-GO** solely on owner-action blockers (see FINAL_REPORT §10).

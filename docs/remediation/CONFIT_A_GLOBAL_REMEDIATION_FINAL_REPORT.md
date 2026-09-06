@@ -59,3 +59,13 @@ Deployment gate (schema-drift fail-closed) live and battle-tested; migration exe
 # **NO-GO**
 
 **Reason (one paragraph):** the engineering-side runtime core is now clean — the checkout-blocking P0 is fixed, verified live, and deployed; copy is honest; CI/CD is green end-to-end — but the strict no-go rules (§52: exposed secrets) still bind: two live session tokens remain unrotated, account recovery depends on an email provider that does not exist, media features depend on unprovisioned object storage, the admin account is locked, and brand licensing is undecided. None of these can be closed from inside the repository, and none were faked. **The moment the owner completes the five actions in §6 (starting with token rotation — minutes), the decision flips to CONDITIONAL GO** with the demo-only capabilities listed in §7 remaining declared. GO additionally requires: live email delivery verified, storage-backed wardrobe upload verified, admin recovered with MFA, and a brand-licensing decision implemented.
+
+
+---
+
+## Addendum — Cycle 2 (same day, baseline `d95db67` → head `937cade`)
+
+- Re-audit: 76 branches (no delta); pre-existing open PR #75 flagged as owner disposition.
+- **PR #82** `fix/security-foundation` (NEW — security/* inventory merged/closed): global security headers in vercel.json (CSP allow-list audited from the real external surface, X-Frame-Options DENY, nosniff, Referrer-Policy, Permissions-Policy camera=(self)) + 3 pinned contract tests + feature doc. Commits `bff9ba0`/`5ce2326`. Merge `937cade`, production `dpl_zXrDC5V1pusarMVjNUo1qmFTtpMJ` READY — **6/6 headers verified on `/` and `/api/v1/health`; SPA smoke under CSP: zero violations, images/styles/API intact**. Tests: 1028/7 backend, 95 frontend.
+- New owner-action finding: prod env `ACCESS_TOKEN_EXPIRE_MINUTES=1440` overrides the 15-min code default.
+- Decision unchanged: **NO-GO** — solely the owner-action blockers of §6 (token rotation now joined by the token-lifetime env and PR #75 disposition).

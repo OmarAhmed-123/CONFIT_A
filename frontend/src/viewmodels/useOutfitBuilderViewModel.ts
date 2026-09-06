@@ -143,6 +143,7 @@ export function useOutfitBuilderViewModel(userBudgetLimit = 400.0) {
     isEvaluating,
     isSaving,
     addItemToCanvas,
+    naturalSlotForProduct,
     isValidSlotForProduct,
     removeItemFromCanvas,
     clearCanvas,

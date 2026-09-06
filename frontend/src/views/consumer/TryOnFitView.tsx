@@ -142,7 +142,7 @@ export const TryOnFitView: React.FC = () => {
             Select Garment from Multi-Brand Catalog:
           </h3>
           <span className="text-xs text-slate-400 font-light">
-            {isLoading ? 'Loading verified styles…' : `Showing ${products.length} verified styles`}
+            {isLoading ? 'Loading catalog styles…' : `Showing ${products.length} styles from the live catalog`}
           </span>
         </div>
 

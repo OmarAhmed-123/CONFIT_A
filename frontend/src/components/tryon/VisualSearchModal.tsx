@@ -8,7 +8,7 @@ import { useCartStore } from '../../stores/cartStore';
 export const VisualSearchModal: React.FC = () => {
   const { t } = useTranslation();
   const { isVisualSearchOpen, closeVisualSearch, openTryOn } = useUIStore();
-  const { visualSearchLoading, visualSearchResult, runVisualSearch } = useTryOnViewModel();
+  const { visualSearchLoading, visualSearchResult, visualSearchError, runVisualSearch } = useTryOnViewModel();
   const { addItem, openCart } = useCartStore();
 
   const [inputUrl, setInputUrl] = useState('');
@@ -95,6 +95,30 @@ export const VisualSearchModal: React.FC = () => {
               </button>
             </div>
           </div>
+
+          {/* SEARCH-01: explicit error terminal state — the modal must never
+              sit silently after a failed/timed-out analysis. */}
+          {visualSearchError && !visualSearchLoading && (
+            <div className="space-y-3 pt-2 border-t border-slate-100" role="alert">
+              <div className="flex items-start gap-2 bg-rose-50 border border-rose-200 p-3 rounded-xl text-xs text-rose-700">
+                <span aria-hidden="true">⚠️</span>
+                <span>{visualSearchError}</span>
+              </div>
+              <button
+                onClick={() => handleSearch(selectedSample || undefined)}
+                className="px-4 py-2 rounded-xl bg-[#1B1F3B] hover:bg-[#0C0E1E] text-white text-xs font-semibold"
+              >
+                Try again
+              </button>
+            </div>
+          )}
+
+          {!visualSearchResult && !visualSearchError && !visualSearchLoading && (
+            <div className="pt-4 border-t border-slate-100 text-center text-xs text-slate-400 font-light">
+              Pick a sample or paste an image URL, then press <span className="font-semibold text-slate-600">Search Style</span> —
+              matches from the live catalog appear here.
+            </div>
+          )}
 
           {/* Vision Detection Result */}
           {visualSearchResult && (

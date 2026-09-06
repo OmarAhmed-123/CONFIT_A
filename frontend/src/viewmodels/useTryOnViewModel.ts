@@ -33,9 +33,12 @@ export function useTryOnViewModel(initialProduct?: Product | null) {
   const [rulerLoading, setRulerLoading] = useState(false);
   const [noPhotoResult, setNoPhotoResult] = useState<NoPhotoFitResult | null>(null);
 
-  // Visual search state
+  // Visual search state — the error is surfaced inline by the modal, not
+  // only as a transient toast, so a failed analysis has a visible terminal
+  // state instead of an eternal 'Analyzing...'.
   const [visualSearchLoading, setVisualSearchLoading] = useState(false);
   const [visualSearchResult, setVisualSearchResult] = useState<VisualSearchResult | null>(null);
+  const [visualSearchError, setVisualSearchError] = useState<string | null>(null);
 
   const { showToast } = useUIStore();
   const { addItem, openCart } = useCartStore();
@@ -73,13 +76,19 @@ export function useTryOnViewModel(initialProduct?: Product | null) {
 
   const runVisualSearch = useCallback(async (imageUrl?: string) => {
     setVisualSearchLoading(true);
+    setVisualSearchError(null);
     try {
       const res = await tryOnService.searchVisual({ image_url: imageUrl });
       setVisualSearchResult(res);
       setVisualSearchLoading(false);
     } catch (err: any) {
+      setVisualSearchResult(null);
       setVisualSearchLoading(false);
-      showToast('Visual search: ' + (err.message || 'Image analysis failed'), 'error');
+      const msg = err?.code === 'REQUEST_TIMEOUT'
+        ? 'The image analysis timed out. Please try again.'
+        : (err?.message || 'Image analysis failed.');
+      setVisualSearchError(msg);
+      showToast('Visual search: ' + msg, 'error');
     }
   }, [showToast]);
 
@@ -418,6 +427,7 @@ export function useTryOnViewModel(initialProduct?: Product | null) {
     noPhotoResult,
     runNoPhotoFit,
     visualSearchLoading,
+    visualSearchError,
     visualSearchResult,
     runVisualSearch,
   };

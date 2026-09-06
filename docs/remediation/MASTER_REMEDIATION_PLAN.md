@@ -90,6 +90,6 @@ Delta audit at cycle start: no new branches/PRs (only pre-existing #75, owner di
 
 | Feature | Finding | Severity | Existing branch | Branch used | Research | Commits | PR | Merge SHA | Production | Status |
 |---|---|---|---|---|---|---|---|---|---|---|
-| Auth session lifecycle (BLOCKER J) | refresh_token returned in body but DISCARDED by frontend (setAuthTokens stub); no httpOnly refresh cookie; apiClient never calls /auth/refresh → owner cannot safely lower 1440-min env without logging users out every 15 min | P1 | none (auth branches merged/closed) | `fix/auth-session-lifecycle` (NEW) | OWASP Session Mgmt CS + 2026 token-lifetime defaults (short access + rotating refresh + reuse detection) | see PR | see PR | — | — | IN PROGRESS |
+| Auth session lifecycle (BLOCKER J) | refresh_token returned in body but DISCARDED by frontend (setAuthTokens stub); no httpOnly refresh cookie; apiClient never calls /auth/refresh → owner cannot safely lower 1440-min env without logging users out every 15 min | P1 | none (auth branches merged/closed) | `fix/auth-session-lifecycle` (NEW) | OWASP Session Mgmt CS + 2026 token-lifetime defaults (short access + rotating refresh + reuse detection) | 5 (`50d6ea9`→`31b1298`) | #84 | `44fa877` | verified live: refresh cookie + rotation + silent renewal + 6/6 headers (preview 13/13, prod smoke) | **FIXED** — owner env change 1440→15 now safe |
 
 Research record → docs/research/CONFIT_A_CYCLE_3_RESEARCH.md.

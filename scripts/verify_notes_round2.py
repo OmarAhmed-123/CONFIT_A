@@ -29,8 +29,13 @@ with sync_playwright() as p:
     home = pg.locator("body").inner_text()
     m = re.search(r"View All Catalog\s*\((\d+)\)", home)
     check("R7 catalog count visible & non-zero after load", m is not None and m.group(1) != "0", m.group(0) if m else "not found")
-    check("R8a 'On-Device Biometric Vision' claim present (to be reworded)", "On-Device Biometric Vision" in home)
-    check("R8b '71%' claim present (to be footnoted/softened)", "71%" in home)
+    # PR #69 closed both claims — they must be ABSENT now, with the honest
+    # replacement card present (regression gate, inverted from the old
+    # pre-fix detection probes).
+    check("R8a 'On-Device Biometric Vision' claim ABSENT (PR#69)",
+          "On-Device Biometric Vision" not in home and "Private In-Browser Fit Studio" in home)
+    check("R8b '71%' claim ABSENT (PR#69, EN+AR copies removed)",
+          "71%" not in home)
 
     # R1: /b2b dead buttons?
     pg.goto(BASE + "/b2b", wait_until="networkidle"); pg.wait_for_timeout(1500)
@@ -112,15 +117,47 @@ with sync_playwright() as p:
         pg.locator('button[type="submit"]:has-text("Sign In")').click()
     code = li.value.status
     pg.wait_for_timeout(1200)
+    # PR #69: an auth-attempt 401 must surface the SERVER's message
+    # ('Invalid email or password.') in the modal's .text-rose-700 block —
+    # NOT the generic sign-in nudge.
     err_visible = False
     try:
-        alert = pg.locator('[role="alert"], .text-rose-600, .text-red-600, .text-rose-500')
-        for a in alert.all():
-            if a.is_visible() and a.inner_text().strip():
+        blocks = pg.locator("div.fixed.inset-0.z-50 .text-rose-700")
+        for a in blocks.all():
+            if a.is_visible() and "Invalid email or password" in a.inner_text():
                 err_visible = True; break
     except Exception:
         pass
-    check("R9 401 answered and explicit error shown to user", code == 401 and err_visible, f"code={code} err_visible={err_visible}")
+    body_txt = pg.locator("body").inner_text()
+    nudge_is_error = "Sign in to access your personal style profile" in body_txt and err_visible is False
+    check("R9 401 answered and explicit server error shown (not the generic nudge)",
+          code == 401 and err_visible and not nudge_is_error, f"code={code} err_visible={err_visible}")
+
+    # R10: no raw i18n keys anywhere (audit: nav.wardrobe / nav.vton_studio /
+    # nav.fit_finder leaked into the UI)
+    pg.goto(BASE + "/", wait_until="networkidle"); pg.wait_for_timeout(1200)
+    home_txt = pg.locator("body").inner_text()
+    import re as _re
+    raw_keys = _re.findall(r"\b(?:nav|footer|wardrobe|stylist)\.[a-z_]{4,}\b", home_txt)
+    check("R10 no raw translation keys in rendered UI", not raw_keys, raw_keys[:4])
+
+    # R11: 'verified styles' reworded to the honest catalog wording (PR#69)
+    pg.goto(BASE + "/tryon-studio", wait_until="networkidle"); pg.wait_for_timeout(1200)
+    ts_txt = pg.locator("body").inner_text()
+    check("R11 'verified styles' claim gone; honest catalog wording",
+          "verified styles" not in ts_txt and "styles from the live catalog" in ts_txt)
+
+    # R12: /builder — Enter (keyboard) path REALLY adds to state as a guest:
+    # Running Total must leave $0.00 (audit's core builder complaint)
+    pg.goto(BASE + "/builder", wait_until="networkidle"); pg.wait_for_timeout(1200)
+    # product cards are real <button aria-label="Add {title} to outfit"> —
+    # the keyboard (Enter) path the audit demanded
+    card = pg.locator('button[aria-label^="Add "][aria-label$="to outfit"]').first
+    card.focus(); card.press("Enter"); pg.wait_for_timeout(1500)
+    bt = pg.locator("body").inner_text()
+    m_tot = re.search(r"Running Total:?\s*\$([\d,]+\.\d\d)", bt, re.S)
+    tot = float(m_tot.group(1).replace(",", "")) if m_tot else -1
+    check("R12 builder Enter adds item -> Running Total > $0", tot > 0, f"total={tot}")
 
     b.close()
 

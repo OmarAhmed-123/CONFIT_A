@@ -1287,11 +1287,17 @@ class TryOnService:
         gender_mode: Optional[str] = "infer_from_image",
         user_id: Optional[int] = None,
         consent_retain_photo: bool = False,
-        existing_session_id: Optional[int] = None
+        existing_session_id: Optional[int] = None,
+        guest_session_token: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Multi-garment try-on with real GPU inference when worker configured.
         Falls back to honest failure (no fake image) when no worker.
+
+        ``guest_session_token`` (the X-Session-Token for anonymous callers) is
+        bound to the session at creation and used for the canonical ownership
+        gate when mutating an existing session — so a guest can only ever touch
+        the session their own token created.
         """
         # No silent default outfit: the old `else [1]` quietly rendered
         # product 1 for any request that failed to specify garments. An
@@ -1472,35 +1478,27 @@ class TryOnService:
         )
 
         if existing_session_id:
-            session = self.tryon_repo.get_tryon_session(existing_session_id)
-            if session:
-                session.product_id = first_product_id
-                session.user_image_url = effective_input_image
-                session.input_user_image_url = effective_input_image
-                session.garment_image_url = applied_items[0]["image_url"] if applied_items else products[0].thumbnail_url
-                session.rendered_result_url = session_rendered_ref
-                session.applied_items_json = json.dumps(applied_items)
-                session.slot_mapping_json = json.dumps(computed_slot_map)
-                session.layering_order_json = json.dumps([it["position"] for it in applied_items])
-                session.fit_confidence_score = vton_result.get("fit_confidence", 95)
-                session.body_fit_verdict = vton_result.get("fit_verdict", "Optimal Garment Fit")
-                self.db.commit()
-                self.db.refresh(session)
-            else:
-                session = self.tryon_repo.create_tryon_session(
-                    product_id=first_product_id,
-                    input_user_image_url=effective_input_image,
-                    garment_image_url=applied_items[0]["image_url"] if applied_items else products[0].thumbnail_url,
-                    rendered_result_url=session_rendered_ref,
-                    applied_items=applied_items,
-                    slot_mapping=computed_slot_map,
-                    user_id=user_id,
-                    fit_verdict=vton_result.get("fit_verdict", "Optimal Garment Fit"),
-                    fit_confidence_score=vton_result.get("fit_confidence", 95),
-                    body_scaling_factor=scaling,
-                    consent_retained=consent_retain_photo,
-                    expiry_hours=24 if not consent_retain_photo else 720
-                )
+            # Canonical fail-closed ownership gate: an existing session can only
+            # be mutated by the caller who owns it (authenticated owner or the
+            # bound guest token); anything else is 404 — never a cross-user or
+            # cross-guest mutation, and never a silent re-creation.
+            session = self.tryon_repo.get_owned_tryon_session(
+                existing_session_id,
+                caller_user_id=user_id,
+                guest_session_token=guest_session_token,
+            )
+            session.product_id = first_product_id
+            session.user_image_url = effective_input_image
+            session.input_user_image_url = effective_input_image
+            session.garment_image_url = applied_items[0]["image_url"] if applied_items else products[0].thumbnail_url
+            session.rendered_result_url = session_rendered_ref
+            session.applied_items_json = json.dumps(applied_items)
+            session.slot_mapping_json = json.dumps(computed_slot_map)
+            session.layering_order_json = json.dumps([it["position"] for it in applied_items])
+            session.fit_confidence_score = vton_result.get("fit_confidence", 95)
+            session.body_fit_verdict = vton_result.get("fit_verdict", "Optimal Garment Fit")
+            self.db.commit()
+            self.db.refresh(session)
         else:
             session = self.tryon_repo.create_tryon_session(
                 product_id=first_product_id,
@@ -1510,6 +1508,9 @@ class TryOnService:
                 applied_items=applied_items,
                 slot_mapping=computed_slot_map,
                 user_id=user_id,
+                # Bind the guest token so the guest can only ever reach the
+                # session their own token created (canonical ownership gate).
+                guest_token=guest_session_token if user_id is None else None,
                 fit_verdict=vton_result.get("fit_verdict", "Optimal Garment Fit"),
                 fit_confidence_score=vton_result.get("fit_confidence", 95),
                 body_scaling_factor=scaling,
@@ -1554,12 +1555,17 @@ class TryOnService:
         gender_mode: Optional[str] = "infer_from_image",
         output_aspect: Optional[str] = "9:16",
         background_mode: Optional[str] = "studio",
-        user_id: Optional[int] = None
+        user_id: Optional[int] = None,
+        guest_session_token: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Animated try-on: real inference per layer, output becomes input for next layer.
         Each keyframe is a real CatVTON inference, not duplicated frames.
         Layer order deterministic via slot_engine layer_order.
+
+        ``guest_session_token`` is bound to the created session (same canonical
+        ownership contract as the other VTON paths) so a guest can only ever
+        reach the animated session their own token created.
         """
         # First get multi-garment data with real inference for final frame if worker exists
         # But for animated, we need per-layer inference regardless
@@ -1613,6 +1619,10 @@ class TryOnService:
             applied_items=applied_items,
             slot_mapping={it.get("position"): it["product_id"] for it in applied_items},
             user_id=user_id,
+            # Bind the guest token so the guest can only ever reach this
+            # animated session (canonical ownership gate, consistent with the
+            # other VTON paths).
+            guest_token=guest_session_token if user_id is None else None,
             fit_verdict="Optimal Garment Fit",
             fit_confidence_score=95,
             body_scaling_factor=1.0,
@@ -1817,7 +1827,8 @@ class TryOnService:
         user_image_base64: Optional[str] = None,
         avatar_model_id: Optional[str] = "avatar_athletic_m",
         user_id: Optional[int] = None,
-        consent_retain_photo: bool = False
+        consent_retain_photo: bool = False,
+        guest_session_token: Optional[str] = None,
     ) -> Dict[str, Any]:
         product = self.catalog_repo.get_product_by_id(product_id)
         if not product:
@@ -1829,7 +1840,8 @@ class TryOnService:
             user_image_base64=user_image_base64,
             avatar_model_id=avatar_model_id,
             user_id=user_id,
-            consent_retain_photo=consent_retain_photo
+            consent_retain_photo=consent_retain_photo,
+            guest_session_token=guest_session_token,
         )
 
         return {
@@ -1853,10 +1865,16 @@ class TryOnService:
     def validate_image(self, image_url_or_base64: str) -> Dict[str, Any]:
         return self.vton_provider.validate_uploaded_image(image_url_or_base64)
 
-    def get_session_details(self, session_id: int, caller_user_id: Optional[int] = None) -> Dict[str, Any]:
-        session = self.tryon_repo.get_tryon_session(session_id, caller_user_id=caller_user_id)
-        if not session:
-            raise ResourceNotFoundError("TryOnSession", session_id)
+    def get_session_details(
+        self,
+        session_id: int,
+        caller_user_id: Optional[int] = None,
+        guest_session_token: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        # Canonical fail-closed ownership gate (raises 404 for non-owner/anonymous).
+        session = self.tryon_repo.get_owned_tryon_session(
+            session_id, caller_user_id=caller_user_id, guest_session_token=guest_session_token
+        )
 
         applied = json.loads(session.applied_items_json) if session.applied_items_json else []
         return {
@@ -1877,11 +1895,13 @@ class TryOnService:
         product_id: int,
         slot: Optional[str] = None,
         replace_if_occupied: bool = True,
-        user_id: Optional[int] = None
+        user_id: Optional[int] = None,
+        guest_session_token: Optional[str] = None,
     ) -> Dict[str, Any]:
-        session = self.tryon_repo.get_tryon_session(session_id)
-        if not session:
-            raise ResourceNotFoundError("TryOnSession", session_id)
+        # Canonical fail-closed ownership gate BEFORE any mutation.
+        session = self.tryon_repo.get_owned_tryon_session(
+            session_id, caller_user_id=user_id, guest_session_token=guest_session_token
+        )
 
         product = self.catalog_repo.get_product_by_id(product_id)
         if not product:
@@ -1895,6 +1915,7 @@ class TryOnService:
             product_ids=product_ids,
             user_image_url=session.input_user_image_url,
             user_id=user_id,
+            guest_session_token=guest_session_token,
             existing_session_id=session.id
         )
 
@@ -1903,11 +1924,13 @@ class TryOnService:
         session_id: int,
         product_id: Optional[int] = None,
         slot: Optional[str] = None,
-        user_id: Optional[int] = None
+        user_id: Optional[int] = None,
+        guest_session_token: Optional[str] = None,
     ) -> Dict[str, Any]:
-        session = self.tryon_repo.get_tryon_session(session_id)
-        if not session:
-            raise ResourceNotFoundError("TryOnSession", session_id)
+        # Canonical fail-closed ownership gate BEFORE any mutation.
+        session = self.tryon_repo.get_owned_tryon_session(
+            session_id, caller_user_id=user_id, guest_session_token=guest_session_token
+        )
 
         current_items = json.loads(session.applied_items_json) if session.applied_items_json else []
         resolution = self.slot_engine.resolve_and_remove(current_items, product_id=product_id, slot=slot)
@@ -1929,13 +1952,21 @@ class TryOnService:
             product_ids=product_ids,
             user_image_url=session.input_user_image_url,
             user_id=user_id,
+            guest_session_token=guest_session_token,
             existing_session_id=session.id
         )
 
-    def reorder_session_items(self, session_id: int, slot_order: List[str]) -> Dict[str, Any]:
-        session = self.tryon_repo.get_tryon_session(session_id)
-        if not session:
-            raise ResourceNotFoundError("TryOnSession", session_id)
+    def reorder_session_items(
+        self,
+        session_id: int,
+        slot_order: List[str],
+        caller_user_id: Optional[int] = None,
+        guest_session_token: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        # Canonical fail-closed ownership gate BEFORE any mutation.
+        session = self.tryon_repo.get_owned_tryon_session(
+            session_id, caller_user_id=caller_user_id, guest_session_token=guest_session_token
+        )
 
         current_items = json.loads(session.applied_items_json) if session.applied_items_json else []
         reordered = self.slot_engine.reorder_layers(current_items, slot_order)
@@ -1957,10 +1988,12 @@ class TryOnService:
         waist_cm: Optional[float] = None,
         shoulder_cm: Optional[float] = None,
         caller_user_id: Optional[int] = None,
+        guest_session_token: Optional[str] = None,
     ) -> Dict[str, Any]:
-        session = self.tryon_repo.get_tryon_session(session_id, caller_user_id=caller_user_id)
-        if not session:
-            raise ResourceNotFoundError("TryOnSession", session_id)
+        # Canonical fail-closed ownership gate.
+        session = self.tryon_repo.get_owned_tryon_session(
+            session_id, caller_user_id=caller_user_id, guest_session_token=guest_session_token
+        )
 
         height = float(height_cm)
         scaling = round(height / 175.0, 2)
@@ -1991,8 +2024,15 @@ class TryOnService:
             }
         }
 
-    def purge_tryon_session(self, session_id: int, caller_user_id: Optional[int] = None) -> Dict[str, Any]:
-        purged = self.tryon_repo.purge_session(session_id, caller_user_id=caller_user_id)
-        if not purged:
-            raise ResourceNotFoundError("TryOnSession", session_id)
+    def purge_tryon_session(
+        self,
+        session_id: int,
+        caller_user_id: Optional[int] = None,
+        guest_session_token: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        # purge_session authorizes via the canonical fail-closed gate (raises 404
+        # if the caller does not own the session); a non-owner purge is impossible.
+        self.tryon_repo.purge_session(
+            session_id, caller_user_id=caller_user_id, guest_session_token=guest_session_token
+        )
         return {"session_id": session_id, "status": "purged", "message": "Biometric session wiped under GDPR Art. 17."}

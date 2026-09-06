@@ -66,12 +66,17 @@ def test_measurement_session_tryon_scaling(client: TestClient):
     from backend.tests.conftest import TestingSessionLocal
     from backend.app.repositories.tryon_repository import TryOnRepository
 
+    # Session is ownership-bound (try-on session IDOR closure): bind a guest
+    # token and present it on the measurement call.
+    tok = "scaling_gtoken"
+    hdr = {"X-Session-Token": tok}
     db = TestingSessionLocal()
     try:
         repo = TryOnRepository(db)
         session = repo.create_tryon_session(
             product_id=1,
             input_user_image_url="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600",
+            guest_token=tok,
         )
         tryon_sess_id = session.id
     finally:
@@ -83,7 +88,7 @@ def test_measurement_session_tryon_scaling(client: TestClient):
         "chest_cm": 102.0,
         "waist_cm": 84.0,
         "shoulder_cm": 48.0
-    })
+    }, headers=hdr)
     assert apply_res.status_code == 200
     apply_data = apply_res.json()
     assert apply_data["status"] == "scaling_applied"

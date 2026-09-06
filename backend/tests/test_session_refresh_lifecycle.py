@@ -116,3 +116,15 @@ def test_logout_deletes_refresh_cookie(client: TestClient):
     assert res.status_code == 200
     raw = [c for c in res.headers.get_list("set-cookie") if "confit_refresh" in c]
     assert raw and any("max-age=0" in c.lower() or '""' in c for c in raw), raw
+
+
+def test_logout_tolerates_empty_json_body(client: TestClient):
+    """Live-preview regression: a client sending '{}' to /auth/logout must
+    still log out (422 from a required-field model would strand cookies)."""
+    _login(client)
+    res = client.post(
+        "/api/v1/auth/logout",
+        headers={**_csrf(client), "Content-Type": "application/json"},
+        content=b"{}",
+    )
+    assert res.status_code == 200

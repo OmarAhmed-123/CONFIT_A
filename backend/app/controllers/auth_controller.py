@@ -238,7 +238,7 @@ def refresh(
 
 
 @router.post("/logout")
-def logout(response: Response, payload: Optional[RefreshTokenRequest] = None, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def logout(response: Response, payload: Optional[RefreshTokenOptionalRequest] = None, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     AuthService(db).logout(user, refresh_token=payload.refresh_token if payload else None)
     _clear_session_cookies(response)
     return {"status": "success", "message": "Session revoked."}

@@ -612,6 +612,14 @@ export const commerceService = {
     }),
 
   removeFromCart: (itemId: number) => request<Cart>(`/commerce/cart/items/${itemId}`, { method: 'DELETE' }),
+
+  // P0-01e: move guest-cart lines into the authenticated user's cart.
+  // Server-side is lock-guarded and dedups by sku, so a repeated merge is safe.
+  mergeGuestCart: (guestToken: string) =>
+    request<Cart>('/commerce/cart/merge', {
+      method: 'POST',
+      body: JSON.stringify({ guest_token: guestToken }),
+    }),
   removeItem: (itemId: number) => request<Cart>(`/commerce/cart/items/${itemId}`, { method: 'DELETE' }),
 
   applyPromo: (promo_code: string) =>

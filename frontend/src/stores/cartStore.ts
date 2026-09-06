@@ -1,7 +1,9 @@
 import { create } from 'zustand';
 import { useAuthStore } from './authStore';
+import { useUIStore } from './uiStore';
 import { Cart } from '../models';
 import { commerceService, wardrobeService } from '../services/apiServices';
+import { getSessionToken } from '../services/apiClient';
 
 function persistCart(cart: Cart | null) {
   try {
@@ -43,6 +45,7 @@ interface CartState {
   openCart: () => void;
   closeCart: () => void;
   fetchCart: () => Promise<void>;
+  syncAfterLogin: () => Promise<void>;
   addItem: (
     productSkuId: number,
     productInfo?: { id: number; title: string; category: string; color: string },
@@ -74,6 +77,26 @@ export const useCartStore = create<CartState>((set, get) => ({
     } catch (err: any) {
       set({ error: err?.message || 'Unable to load cart' });
     }
+  },
+  // P0-01e: guest -> authenticated cart merge. Fired by the auth-state
+  // subscription below on ANY login path (modal, MFA, bootstrap restore).
+  // If merging fails we say so honestly and fall back to the server cart.
+  syncAfterLogin: async () => {
+    const saved = getSavedCart();
+    const guestToken = getSessionToken();
+    const guestItems = saved?.items?.length ?? 0;
+    if (guestToken && guestItems > 0) {
+      try {
+        const merged = await commerceService.mergeGuestCart(guestToken);
+        persistCart(merged);
+        set({ cart: merged, error: null });
+        useUIStore.getState().showToast(`Your bag followed you — ${merged.items_count} item(s) kept.`, 'success');
+        return;
+      } catch {
+        useUIStore.getState().showToast('We could not transfer your guest bag — it is still saved in this browser.', 'error');
+      }
+    }
+    await get().fetchCart();
   },
 
   addItem: async (productSkuId, productInfo, quantity = 1, outfitId) => {
@@ -110,6 +133,9 @@ export const useCartStore = create<CartState>((set, get) => ({
       persistCart(updatedCart);
       set({ cart: updatedCart, isOpen: true, isLoading: false, error: null });
     } catch (err: any) {
+      // P0-01b: an add failure must never be silent — explicit error toast
+      // with the server's message; UI state rolls back to the last cart.
+      useUIStore.getState().showToast(err?.message || 'Could not add this item — please try again.', 'error');
       set({ isLoading: false, error: err?.message || 'Could not add item' });
       throw err;
     }
@@ -210,3 +236,20 @@ export const useCartStore = create<CartState>((set, get) => ({
     }
   },
 }));
+
+// P0-01e: keep the cart in sync with the auth lifecycle. cartStore already
+// depends on authStore, so subscribing here avoids import cycles and catches
+// every login path. On logout the cached cart is dropped (privacy) and a fresh
+// guest cart is fetched.
+let __lastAuthenticated = useAuthStore.getState().isAuthenticated;
+useAuthStore.subscribe((state) => {
+  if (state.isAuthenticated === __lastAuthenticated) return;
+  __lastAuthenticated = state.isAuthenticated;
+  if (state.isAuthenticated) {
+    void useCartStore.getState().syncAfterLogin();
+  } else {
+    persistCart(null);
+    useCartStore.setState({ cart: null, error: null });
+    void useCartStore.getState().fetchCart();
+  }
+});

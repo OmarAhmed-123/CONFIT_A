@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCatalogViewModel } from '../../viewmodels/useCatalogViewModel';
@@ -77,6 +77,10 @@ export const FitFinderView: React.FC = () => {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [calcLoading, setCalcLoading] = useState(false);
   const [result, setResult] = useState<NoPhotoFitResult | null>(null);
+  // P1-01 hardening: request-sequence guard. If the user edits ANY input while
+  // a calculate request is in flight, the late response must NOT resurrect a
+  // recommendation computed from the OLD measurements (stale-async overwrite).
+  const calcSeq = useRef(0);
   const [calcError, setCalcError] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
 
@@ -87,6 +91,7 @@ export const FitFinderView: React.FC = () => {
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((f) => ({ ...f, [key]: value }));
     setResult(null);
+    calcSeq.current += 1; // invalidate any in-flight calculate response
   };
 
   /** Convert display units -> the cm/kg contract the API expects. */
@@ -133,16 +138,19 @@ export const FitFinderView: React.FC = () => {
     setCalcError(null);
     setResult(null);
     setSaveState('idle');
+    const mySeq = ++calcSeq.current;
     try {
       const res = await tryOnService.calculateNoPhotoFit({
         product_id: selectedProduct.id,
         ...payload,
       });
+      if (calcSeq.current !== mySeq) return; // form changed mid-flight — drop the stale result
       setResult(res);
     } catch (err: any) {
+      if (calcSeq.current !== mySeq) return;
       setCalcError(err?.message || 'The sizing engine could not process these measurements.');
     } finally {
-      setCalcLoading(false);
+      if (calcSeq.current === mySeq) setCalcLoading(false);
     }
   };
 
@@ -259,6 +267,7 @@ export const FitFinderView: React.FC = () => {
                   setSelectedProduct(p);
                   setResult(null);
                   setCalcError(null);
+                  calcSeq.current += 1;
                 }}
                 className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold focus:outline-none focus:border-[#C5A059]"
               >
@@ -290,7 +299,7 @@ export const FitFinderView: React.FC = () => {
               <div className="flex items-center bg-slate-100 rounded-xl p-1 text-[11px] font-bold">
                 <button
                   type="button"
-                  onClick={() => { setUnits('metric'); setResult(null); }}
+                  onClick={() => { setUnits('metric'); setResult(null); calcSeq.current += 1; }}
                   aria-pressed={units === 'metric'}
                   className={`px-3 py-1 rounded-lg transition-all ${units === 'metric' ? 'bg-white shadow-2xs text-[#1B1F3B]' : 'text-slate-600'}`}
                 >
@@ -298,7 +307,7 @@ export const FitFinderView: React.FC = () => {
                 </button>
                 <button
                   type="button"
-                  onClick={() => { setUnits('imperial'); setResult(null); }}
+                  onClick={() => { setUnits('imperial'); setResult(null); calcSeq.current += 1; }}
                   aria-pressed={units === 'imperial'}
                   className={`px-3 py-1 rounded-lg transition-all ${units === 'imperial' ? 'bg-white shadow-2xs text-[#1B1F3B]' : 'text-slate-600'}`}
                 >

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useModalFocus } from '../../hooks/useModalFocus';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { useUIStore } from '../../stores/uiStore';
@@ -23,6 +24,7 @@ const landingPathForRole = (role?: string | null): string | null => {
 
 export const AuthModal: React.FC = () => {
   const { isAuthModalOpen, authModalMode, closeAuthModal, showToast } = useUIStore();
+  const panelRef = useModalFocus<HTMLDivElement>(closeAuthModal, isAuthModalOpen);
   const { login, register, isLoading, error, mfaRequired, completeMfaLogin } = useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
@@ -90,7 +92,7 @@ export const AuthModal: React.FC = () => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md animate-in fade-in duration-150">
-      <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-100">
+      <div ref={panelRef} role="dialog" aria-modal="true" aria-label="Sign in" tabIndex={-1} className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-100">
         {/* Luxury Top Banner */}
         <div className="p-6 bg-[#0C0E1E] text-white flex justify-between items-center border-b border-slate-800">
           <ConfitLogo variant="compact" theme="light" size="md" />

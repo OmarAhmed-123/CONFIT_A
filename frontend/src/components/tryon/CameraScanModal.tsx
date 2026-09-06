@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { useModalFocus } from '../../hooks/useModalFocus';
 import { useTranslation } from 'react-i18next';
 import { RulerIcon, SparkleIcon, TryOnIcon, LockIcon, ShieldIcon } from '../icons/ConfitIcons';
 import { FitScoreBadge } from '../common/CommonComponents';
@@ -27,6 +28,7 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
   onApplyMeasurements,
 }) => {
   const { t } = useTranslation();
+  const panelRef = useModalFocus<HTMLDivElement>(onClose, isOpen);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -428,7 +430,7 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-in fade-in duration-150">
-      <div className="w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden max-h-[92vh] flex flex-col">
+      <div ref={panelRef} role="dialog" aria-modal="true" aria-label="Body scan size studio" tabIndex={-1} className="w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden max-h-[92vh] flex flex-col">
         {/* Header */}
         <div className="p-4 sm:p-5 bg-[#0C0E1E] text-white flex justify-between items-center border-b border-slate-800">
           <div className="flex items-center gap-3">

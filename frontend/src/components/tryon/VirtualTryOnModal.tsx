@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { useModalFocus } from '../../hooks/useModalFocus';
 import { useTranslation } from 'react-i18next';
 import { useUIStore } from '../../stores/uiStore';
 import { useTryOnViewModel } from '../../viewmodels/useTryOnViewModel';
@@ -19,6 +20,7 @@ import { compressImageToDataUrl } from '../../lib/imageUpload';
 export const VirtualTryOnModal: React.FC = () => {
   const { t } = useTranslation();
   const { tryOnProduct, closeTryOn, showToast } = useUIStore();
+  const tryOnPanelRef = useModalFocus<HTMLDivElement>(closeTryOn, !!tryOnProduct);
   const { products } = useCatalogViewModel();
 
   const {
@@ -194,7 +196,7 @@ export const VirtualTryOnModal: React.FC = () => {
   return (
     <>
       <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/85 backdrop-blur-md animate-in fade-in duration-150">
-        <div className="w-full max-w-6xl bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden max-h-[96vh] flex flex-col">
+        <div ref={tryOnPanelRef} role="dialog" aria-modal="true" aria-label="Virtual try-on studio" tabIndex={-1} className="w-full max-w-6xl bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden max-h-[96vh] flex flex-col">
           {/* Header */}
           <div className="p-4 sm:p-5 bg-[#0C0E1E] text-white flex justify-between items-center border-b border-slate-800 shrink-0">
             <div className="flex items-center gap-3">

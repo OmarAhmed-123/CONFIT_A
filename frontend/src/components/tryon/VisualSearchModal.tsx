@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useModalFocus } from '../../hooks/useModalFocus';
 import { compressImageToDataUrl } from '../../lib/imageUpload';
 import { useTranslation } from 'react-i18next';
 import { useUIStore } from '../../stores/uiStore';
@@ -9,6 +10,7 @@ import { useCartStore } from '../../stores/cartStore';
 export const VisualSearchModal: React.FC = () => {
   const { t } = useTranslation();
   const { isVisualSearchOpen, closeVisualSearch, openTryOn } = useUIStore();
+  const panelRef = useModalFocus<HTMLDivElement>(closeVisualSearch, isVisualSearchOpen);
   const { visualSearchLoading, visualSearchResult, visualSearchError, runVisualSearch } = useTryOnViewModel();
   const { addItem, openCart } = useCartStore();
 
@@ -60,7 +62,7 @@ export const VisualSearchModal: React.FC = () => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md animate-in fade-in duration-150">
-      <div className="w-full max-w-4xl bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden max-h-[92vh] flex flex-col">
+      <div ref={panelRef} role="dialog" aria-modal="true" aria-label="Visual search" tabIndex={-1} className="w-full max-w-4xl bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden max-h-[92vh] flex flex-col">
         {/* Header */}
         <div className="p-4 sm:p-6 border-b border-slate-100 bg-[#1B1F3B] text-white flex items-center justify-between">
           <div className="flex items-center gap-3">

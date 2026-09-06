@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { useModalFocus } from '../../hooks/useModalFocus';
 import { useTranslation } from 'react-i18next';
 import { useUIStore } from '../../stores/uiStore';
 import { useStylistViewModel } from '../../viewmodels/useStylistViewModel';
@@ -109,6 +110,7 @@ const getResolvedOutfitItems = (outfit: any) => {
 export const VirtualStylistDrawer: React.FC = () => {
   const { t } = useTranslation();
   const { isStylistDrawerOpen, closeStylist, stylistPrefillOccasion, openTryOn } = useUIStore();
+  const panelRef = useModalFocus<HTMLDivElement>(closeStylist, isStylistDrawerOpen);
   const {
     messages,
     inputPrompt,
@@ -152,7 +154,7 @@ export const VirtualStylistDrawer: React.FC = () => {
   return (
     <div className="fixed inset-0 z-50 overflow-hidden bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="absolute inset-y-0 right-0 max-w-full flex pl-6 sm:pl-10">
-        <div className="w-screen max-w-2xl bg-white shadow-2xl flex flex-col border-l border-slate-200">
+        <div ref={panelRef} role="dialog" aria-modal="true" aria-label="AI stylist" tabIndex={-1} className="w-screen max-w-2xl bg-white shadow-2xl flex flex-col border-l border-slate-200">
           {/* Drawer Header */}
           <div className="p-4 sm:p-6 border-b border-slate-800 bg-[#0C0E1E] text-white flex items-center justify-between">
             <div className="flex items-center gap-3">

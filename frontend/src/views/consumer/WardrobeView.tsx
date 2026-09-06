@@ -1,4 +1,5 @@
-import React, { useRef, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
+import { useModalFocus } from '../../hooks/useModalFocus';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { compressImageToDataUrl } from '../../lib/imageUpload';
@@ -54,6 +55,8 @@ export const WardrobeView: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<'closet' | 'looks' | 'gaps'>(initialTab as any);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  const closeUploadModal = useCallback(() => setUploadModalOpen(false), []);
+  const uploadPanelRef = useModalFocus<HTMLDivElement>(closeUploadModal, uploadModalOpen);
   const [newTitle, setNewTitle] = useState('');
   const [newCategory, setNewCategory] = useState('Outerwear');
   const [newColor, setNewColor] = useState('Navy Blue');
@@ -564,7 +567,7 @@ export const WardrobeView: React.FC = () => {
       {/* Upload Piece Modal — real photo upload (single + bulk) with honest AI status */}
       {uploadModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden max-h-[90vh] overflow-y-auto">
+          <div ref={uploadPanelRef} role="dialog" aria-modal="true" aria-label="Upload garment" tabIndex={-1} className="w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden max-h-[90vh] overflow-y-auto">
             <div className="p-5 bg-[#1B1F3B] text-white flex justify-between items-center">
               <h3 className="font-serif text-base font-bold text-white flex items-center gap-2">
                 <span>Upload Garment Photos</span>

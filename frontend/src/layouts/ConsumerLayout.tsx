@@ -110,7 +110,7 @@ export const ConsumerLayout: React.FC = () => {
           </div>
         </div>
 
-        <div className="max-w-7xl mx-auto pt-8 mt-10 border-t border-slate-800 flex flex-col sm:flex-row justify-between items-center gap-4 text-[11px] text-slate-500 font-light">
+        <div className="max-w-7xl mx-auto pt-8 mt-10 border-t border-slate-800 flex flex-col sm:flex-row justify-between items-center gap-4 text-[11px] text-slate-400 font-light">
           <div>© {new Date().getFullYear()} {t('footer.rights')}</div>
           <div className="flex gap-6">
             <Link to="/privacy" className="text-slate-300 hover:text-slate-400">{t('footer.privacy')}</Link>

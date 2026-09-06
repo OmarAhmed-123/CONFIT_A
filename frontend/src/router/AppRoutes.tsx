@@ -39,6 +39,7 @@ import { CheckoutView } from '../views/consumer/CheckoutView';
 import { OrderTrackingView } from '../views/consumer/OrderTrackingView';
 import { UserProfileView } from '../views/consumer/UserProfileView';
 import { SharedLookView } from '../views/public/SharedLookView';
+import { PrivacyPolicyView, TermsOfServiceView, GdprView } from '../views/legal/LegalViews';
 
 // B2B Views
 import { BrandDashboardView } from '../views/b2b/BrandDashboardView';
@@ -58,6 +59,17 @@ export const AppRoutes: React.FC = () => {
       <Routes>
         {/* 0. Public Shared Look (C8) — intentionally outside any guarded layout */}
         <Route path="/looks/:token" element={<SharedLookView />} />
+
+        {/* 0b. LEGAL-01: real legal pages — public, not gated behind /profile.
+            The audit found Privacy/Terms/GDPR links landing on the
+            Authentication Required screen of /profile. */}
+        <Route path="/" element={<ConsumerLayout />}>
+          <Route path="privacy" element={<PrivacyPolicyView />} />
+          <Route path="privacy-policy" element={<PrivacyPolicyView />} />
+          <Route path="terms" element={<TermsOfServiceView />} />
+          <Route path="terms-of-service" element={<TermsOfServiceView />} />
+          <Route path="gdpr" element={<GdprView />} />
+        </Route>
 
         {/* 1. Consumer Storefront Routes (Browse-First / Guest-Friendly).
              The OnboardingGate wrapper handles Group 1 §23 first-run

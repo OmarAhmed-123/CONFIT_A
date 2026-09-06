@@ -11,7 +11,7 @@ import { CircularGalleryShowcase } from '../../components/showcase/DesignShowcas
 export const TryOnFitView: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { products } = useCatalogViewModel();
+  const { products, isLoading } = useCatalogViewModel();
   const { openTryOn, openRuler, openVisualSearch } = useUIStore();
 
   const [activeTab, setActiveTab] = useState<'vton' | 'scan' | 'ruler' | 'visual'>('vton');
@@ -142,7 +142,7 @@ export const TryOnFitView: React.FC = () => {
             Select Garment from Multi-Brand Catalog:
           </h3>
           <span className="text-xs text-slate-400 font-light">
-            Showing {products.length} verified styles
+            {isLoading ? 'Loading verified styles…' : `Showing ${products.length} verified styles`}
           </span>
         </div>
 

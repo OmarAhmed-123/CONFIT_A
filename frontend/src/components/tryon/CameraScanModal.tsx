@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { RulerIcon, SparkleIcon, TryOnIcon, LockIcon, ShieldIcon } from '../icons/ConfitIcons';
 import { FitScoreBadge } from '../common/CommonComponents';
 import { measurementService } from '../../services/measurementService';
+import { computeSizeProfileConfidence } from '../../lib/sizeProfile';
 
 export interface CameraScanModalProps {
   isOpen: boolean;
@@ -54,6 +55,11 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
   const [waistCm, setWaistCm] = useState<number>(82);
   const [hipCm, setHipCm] = useState<number>(96);
   const [selectedSilhouette, setSelectedSilhouette] = useState<string>('Athletic V-Taper');
+  // Honesty tracking: which inputs the user ACTUALLY set (a slider left at
+  // its default is not data). Drives the principled confidence model in
+  // lib/sizeProfile.ts — replaces the old hardcoded 97/94/95.
+  const [modifiedInputs, setModifiedInputs] = useState<Record<string, boolean>>({});
+  const markModified = (key: string) => setModifiedInputs((m) => (m[key] ? m : { ...m, [key]: true }));
 
   // Estimated Measurements Output
   const [estimatedData, setEstimatedData] = useState<{
@@ -65,6 +71,11 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
     shoulder_cm: number;
     hip_cm: number;
     confidence_score: number;
+    confidence_disclosure: string;
+    is_estimated: boolean;
+    method: 'self_reported';
+    weight_estimated: boolean;
+    hip_estimated: boolean;
     source: string;
     predicted_size: string;
     scanned_image_url?: string;
@@ -166,7 +177,7 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
       // Caliper Label
       ctx.font = 'bold 11px Inter, sans-serif';
       ctx.fillStyle = '#C5A059';
-      ctx.fillText(`Shoulder Span: ${shoulderCm}cm`, headCx - 50, shoulderY - 10);
+      ctx.fillText(`Guide (your input): shoulder ${shoulderCm} cm`, headCx - 50, shoulderY - 10);
 
       // 3. Torso Bounding Guide
       ctx.strokeStyle = 'rgba(197, 160, 89, 0.4)';
@@ -290,13 +301,22 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
   const runVisionAnalysis = (source: string, imgDataUrl?: string | null) => {
     setScanStep('analyzing');
     setScanProgress(15);
-    setAnalysisLogs(['[Init] On-Device Computer Vision Pipeline activated']);
+    // Truthful processing logs: this flow compiles the user's SELF-REPORTED
+    // sliders (+ height-ratio estimates for anything missing) — it performs
+    // no keypoint detection, so it must not claim any (audit fix).
+    setAnalysisLogs(['[1/3] Measurements captured from your inputs']);
+
+    const isPreset = source === 'silhouette_preset';
+    const modifiedKeys = Object.keys(modifiedInputs).filter((k) => modifiedInputs[k]);
+    const provided = isPreset
+      ? ['shoulder', 'chest', 'waist', 'hip', 'body_shape']
+      : [...modifiedKeys];
+    const profile = computeSizeProfileConfidence({ provided, preset: isPreset });
 
     const steps = [
-      { p: 35, log: '✓ Step 1: Head & Neck Keypoints Locked' },
-      { p: 65, log: `✓ Step 2: Bi-Deltoid Shoulder Calibrated (${shoulderCm}.0 cm)` },
-      { p: 85, log: '✓ Step 3: Chest-to-Waist Drop Calculated (V-Taper Matrix)' },
-      { p: 100, log: '✓ Step 4: True-to-Size Luxury Drape Matched' },
+      { p: 45, log: '[2/3] Weight estimated from height ratio (BMI model)' },
+      { p: 75, log: '[3/3] Matching brand size chart' },
+      { p: 100, log: `✓ Profile ready — ${profile.confidence}% self-reported confidence` },
     ];
 
     steps.forEach((step, idx) => {
@@ -305,24 +325,27 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
         setAnalysisLogs((prev) => [...prev, step.log]);
 
         if (idx === steps.length - 1) {
-          // Final Calculation
+          // Final Calculation — the user's slider values ARE the profile.
+          // (Previously these were discarded and re-derived from height
+          // ratios while the UI claimed a biometric scan had run.)
           const calHeight = userCalibrationHeightCm || heightCm;
-          const derivedShoulder = Math.round(calHeight * 0.258);
-          const derivedChest = Math.round(derivedShoulder * 2.13);
-          const derivedWaist = Math.round(derivedShoulder * 1.78);
-          const derivedHip = Math.round(derivedShoulder * 2.08);
-          const derivedWeight = Math.round((calHeight - 100) * 0.9);
-          const predSize = deriveSizeFromMeasurements(derivedChest, derivedWaist, calHeight);
+          const derivedWeight = Math.round((calHeight - 100) * 0.9); // ratio estimate, not measured
+          const predSize = deriveSizeFromMeasurements(chestCm, waistCm, calHeight);
 
           const derived = {
             height_cm: calHeight,
             weight_kg: derivedWeight,
             body_shape: selectedSilhouette,
-            chest_cm: derivedChest,
-            waist_cm: derivedWaist,
-            shoulder_cm: derivedShoulder,
-            hip_cm: derivedHip,
-            confidence_score: source === 'live_camera' ? 97 : (source === 'uploaded_photo' ? 94 : 95),
+            chest_cm: chestCm,
+            waist_cm: waistCm,
+            shoulder_cm: shoulderCm,
+            hip_cm: hipCm,
+            confidence_score: profile.confidence,
+            confidence_disclosure: profile.disclosure,
+            is_estimated: profile.is_estimated,
+            method: 'self_reported' as const,
+            weight_estimated: true,
+            hip_estimated: !modifiedInputs.hip,
             source,
             predicted_size: predSize,
             scanned_image_url: imgDataUrl || undefined,
@@ -343,7 +366,7 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
                   hip_cm: derived.hip_cm,
                   body_shape: derived.body_shape,
                   confidence_score: derived.confidence_score,
-                  calibration_method: `calibrated_height_${calHeight}cm`,
+                  calibration_method: `self_reported_inputs_${profile.inputs_counted.length}`,
                   source: derived.source,
                 });
               }
@@ -369,6 +392,7 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
     setShoulderCm(preset.shoulder);
     setHipCm(preset.hip);
     setSelectedSilhouette(preset.shape);
+    setModifiedInputs({ shoulder: true, chest: true, waist: true, hip: true, body_shape: true });
     runVisionAnalysis('silhouette_preset', null);
   };
 
@@ -410,9 +434,9 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
             </div>
             <div>
               <h3 className="font-serif text-base sm:text-lg font-bold text-white flex items-center gap-2">
-                <span>Privacy-First Biometric Sizing Studio</span>
+                <span>Privacy-First Size Studio</span>
                 <span className="text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full font-mono">
-                  On-Device Vision
+                  Private · In-Browser
                 </span>
               </h3>
               <p className="text-[11px] text-slate-400 font-light">
@@ -660,6 +684,7 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
                         onChange={(e) => {
                           setHeightCm(Number(e.target.value));
                           setUserCalibrationHeightCm(Number(e.target.value));
+                          markModified('height');
                         }}
                         className="w-full accent-[#C5A059]"
                       />
@@ -675,7 +700,7 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
                         min="38"
                         max="56"
                         value={shoulderCm}
-                        onChange={(e) => setShoulderCm(Number(e.target.value))}
+                        onChange={(e) => { setShoulderCm(Number(e.target.value)); markModified('shoulder'); }}
                         className="w-full accent-[#C5A059]"
                       />
                     </div>
@@ -690,7 +715,7 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
                         min="75"
                         max="125"
                         value={chestCm}
-                        onChange={(e) => setChestCm(Number(e.target.value))}
+                        onChange={(e) => { setChestCm(Number(e.target.value)); markModified('chest'); }}
                         className="w-full accent-[#C5A059]"
                       />
                     </div>
@@ -705,7 +730,7 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
                         min="60"
                         max="115"
                         value={waistCm}
-                        onChange={(e) => setWaistCm(Number(e.target.value))}
+                        onChange={(e) => { setWaistCm(Number(e.target.value)); markModified('waist'); }}
                         className="w-full accent-[#C5A059]"
                       />
                     </div>
@@ -715,7 +740,7 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
                     onClick={() => runVisionAnalysis('manual_ruler', null)}
                     className="w-full py-3 rounded-xl bg-[#1B1F3B] hover:bg-[#0C0E1E] text-white font-bold text-xs shadow-md transition-all"
                   >
-                    Confirm & Evaluate Sizing
+                    Compile My Size Profile
                   </button>
                 </div>
               )}
@@ -735,7 +760,7 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
                 ) : (
                   <div className="w-full h-full bg-gradient-to-b from-slate-900 via-[#1B1F3B] to-slate-950 flex flex-col items-center justify-center p-6 text-center">
                     <RulerIcon size={48} color="#C5A059" />
-                    <span className="text-xs text-slate-300 mt-2 font-mono">Simulating Biometric Frame</span>
+                    <span className="text-xs text-slate-300 mt-2 font-mono">Camera preview unavailable — guide view</span>
                   </div>
                 )}
 
@@ -752,7 +777,7 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
               {/* Progress and Radar Logs */}
               <div className="max-w-md mx-auto space-y-3">
                 <div className="flex justify-between items-center text-xs font-mono text-slate-700">
-                  <span className="font-bold text-[#1B1F3B]">Biometric Extraction Progress</span>
+                  <span className="font-bold text-[#1B1F3B]">Compiling Your Size Profile</span>
                   <span className="font-bold text-[#C5A059]">{scanProgress}%</span>
                 </div>
 
@@ -782,14 +807,19 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
               <div className="flex justify-between items-center pb-3 border-b border-slate-100">
                 <div>
                   <span className="text-[10px] font-bold text-[#C5A059] uppercase tracking-wider">
-                    Biometric Scan Verified ({estimatedData.source.replace('_', ' ')})
+                    Size Profile Ready — self-reported ({estimatedData.source.replace('_', ' ')})
                   </span>
                   <h4 className="font-serif text-lg font-bold text-[#1B1F3B]">
-                    Derived Body Proportions & Size Matrix
+                    Your Measurements & Size Match
                   </h4>
                 </div>
-                <FitScoreBadge score={estimatedData.confidence_score} label="Confidence" verdict="calibrated body scan" />
+                <span title={estimatedData.confidence_disclosure}>
+                  <FitScoreBadge score={estimatedData.confidence_score} label="Confidence" verdict="self-reported inputs" />
+                </span>
               </div>
+              <p className="text-[11px] text-slate-600 bg-[#FAF9F6] border border-slate-100 rounded-xl px-3 py-2 leading-relaxed">
+                {estimatedData.confidence_disclosure}
+              </p>
 
               {/* Person Scanned Thumbnail & Derived Dimension Grid */}
               <div className="flex flex-col sm:flex-row gap-4 items-center">
@@ -806,25 +836,25 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
                   <div className="p-3 rounded-2xl bg-[#FAF9F6] border border-slate-200/80">
                     <span className="text-slate-400 text-[10px] block">Calibrated Stature</span>
                     <span className="text-sm font-bold text-slate-900">{estimatedData.height_cm} cm</span>
-                    <span className="text-[10px] text-emerald-600 block font-medium">Confidence: High</span>
+                    <span className="text-[10px] text-slate-500 block font-medium">{estimatedData.confidence_score}% · self-reported</span>
                   </div>
 
                   <div className="p-3 rounded-2xl bg-[#FAF9F6] border border-slate-200/80">
                     <span className="text-slate-400 text-[10px] block">Shoulder Width</span>
                     <span className="text-sm font-bold text-slate-900">{estimatedData.shoulder_cm} cm</span>
-                    <span className="text-[10px] text-slate-500 block font-light">Seam-to-seam</span>
+                    <span className="text-[10px] text-slate-500 block font-light">Your entered value</span>
                   </div>
 
                   <div className="p-3 rounded-2xl bg-[#FAF9F6] border border-slate-200/80">
                     <span className="text-slate-400 text-[10px] block">Chest Circumference</span>
                     <span className="text-sm font-bold text-slate-900">{estimatedData.chest_cm} cm</span>
-                    <span className="text-[10px] text-slate-500 block font-light">Contour approximation</span>
+                    <span className="text-[10px] text-slate-500 block font-light">Your entered value</span>
                   </div>
 
                   <div className="p-3 rounded-2xl bg-[#FAF9F6] border border-slate-200/80">
                     <span className="text-slate-400 text-[10px] block">Waistline</span>
                     <span className="text-sm font-bold text-slate-900">{estimatedData.waist_cm} cm</span>
-                    <span className="text-[10px] text-slate-500 block font-light">Mid-torso drop</span>
+                    <span className="text-[10px] text-slate-500 block font-light">Your entered value</span>
                   </div>
 
                   <div className="p-3 rounded-2xl bg-[#FAF9F6] border border-slate-200/80">
@@ -836,7 +866,7 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
                   <div className="p-3 rounded-2xl bg-[#FDF8EE] border border-[#C5A059]/40">
                     <span className="text-[#C5A059] text-[10px] font-bold block">Recommended Size</span>
                     <span className="text-sm font-bold text-[#1B1F3B]">{estimatedData.predicted_size}</span>
-                    <span className="text-[10px] text-emerald-600 block font-semibold">Optimal Drape</span>
+                    <span className="text-[10px] text-slate-500 block font-semibold">Size-chart match — try-on fit still verified by the render engine</span>
                   </div>
                 </div>
               </div>

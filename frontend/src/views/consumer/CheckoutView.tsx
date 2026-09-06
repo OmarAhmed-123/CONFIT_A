@@ -230,7 +230,7 @@ export const CheckoutView: React.FC = () => {
         </div>
       )}
 
-      <form onSubmit={handleSubmitOrder} className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+      <form noValidate onSubmit={handleSubmitOrder} className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         <div className="lg:col-span-7 space-y-6">
           <div className="bg-white rounded-3xl border border-slate-200/80 p-6 shadow-2xs space-y-4">
             <h3 className="font-serif text-base font-bold text-[#1B1F3B]">1. Fulfillment</h3>

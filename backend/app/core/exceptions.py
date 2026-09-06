@@ -123,6 +123,24 @@ class FulfillmentBlockedError(ConfitException):
         )
 
 
+class AdminReauthRequiredError(ConfitException):
+    """ADMIN-01: step-up/re-auth policy for sensitive admin mutations.
+
+    The admin token is too old (issued earlier than the freshness window), so
+    the action is refused with 401 until the admin signs in again. 401 (not
+    403): the identity is known but this specific authorization has lapsed.
+    """
+
+    def __init__(self, age_minutes: int, max_age_minutes: int):
+        super().__init__(
+            f"Admin session is {age_minutes} minutes old (policy: at most "
+            f"{max_age_minutes}). Sign in again to perform this action.",
+            code="ADMIN_REAUTH_REQUIRED",
+            details={"token_age_minutes": age_minutes, "max_age_minutes": max_age_minutes},
+            status_code=status.HTTP_401_UNAUTHORIZED,
+        )
+
+
 class PromoIneligibleError(ConfitException):
     def __init__(self, code: str, reason: str):
         super().__init__(

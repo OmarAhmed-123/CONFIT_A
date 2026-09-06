@@ -46,13 +46,29 @@ def _admin(client: TestClient) -> dict:
 _CARD_SEQ = itertools.count(1)
 
 
+def _first_in_stock_sku(client: TestClient) -> dict:
+    """First in-stock SKU across the catalogue.
+
+    The full backend suite performs hundreds of real checkouts; a fixed SKU
+    can legitimately sell out mid-run, so the probe must pick whatever the
+    store actually has (and fail loudly if it truly has nothing).
+    """
+    products = client.get("/api/v1/catalog/products").json()
+    for prod in products:
+        detail = client.get(f"/api/v1/catalog/products/{prod['id']}").json()
+        for sku in detail.get("skus", []):
+            if sku.get("is_in_stock") and (sku.get("stock_level") or 0) > 0:
+                return sku
+    raise AssertionError("no in-stock SKU available for the payment-gate probe")
+
+
 def _card_order(client: TestClient) -> dict:
     seq = next(_CARD_SEQ)
     headers = _consumer(client, session=f"pay01-card-{seq}")
     _empty_cart(client, headers)
-    products = client.get("/api/v1/catalog/products").json()
-    sku = client.get(f"/api/v1/catalog/products/{products[0]['id']}").json()["skus"][0]
-    client.post("/api/v1/commerce/cart/items", json={"product_sku_id": sku["id"], "quantity": 1}, headers=headers)
+    sku = _first_in_stock_sku(client)
+    added = client.post("/api/v1/commerce/cart/items", json={"product_sku_id": sku["id"], "quantity": 1}, headers=headers)
+    assert added.status_code in (200, 201), added.text
     r = client.post("/api/v1/commerce/checkout", json={
         "payment_method": "card",
         "fulfillment_type": "delivery",
@@ -70,9 +86,9 @@ def _card_order(client: TestClient) -> dict:
 def _cod_order(client: TestClient, key: str) -> dict:
     headers = _consumer(client, session=f"pay01-cod-{key}")
     _empty_cart(client, headers)
-    products = client.get("/api/v1/catalog/products").json()
-    sku = client.get(f"/api/v1/catalog/products/{products[1]['id']}").json()["skus"][0]
-    client.post("/api/v1/commerce/cart/items", json={"product_sku_id": sku["id"], "quantity": 1}, headers=headers)
+    sku = _first_in_stock_sku(client)
+    added = client.post("/api/v1/commerce/cart/items", json={"product_sku_id": sku["id"], "quantity": 1}, headers=headers)
+    assert added.status_code in (200, 201), added.text
     r = client.post("/api/v1/commerce/checkout", json={
         "payment_method": "cod",
         "fulfillment_type": "delivery",
@@ -162,7 +178,7 @@ def test_cod_fulfills_and_settles_cash_at_handover(client: TestClient) -> None:
             .first()
         )
         assert tx is not None, "COD handover must record a cash payment transaction"
-        assert tx.status == "paid" and str(tx.amount) == str(order["total_amount"])
+        assert tx.status == "paid" and float(tx.amount) == float(order["total_amount"])
     finally:
         db.close()
 

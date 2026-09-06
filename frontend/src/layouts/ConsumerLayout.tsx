@@ -62,7 +62,7 @@ export const ConsumerLayout: React.FC = () => {
       <CartDrawer />
 
       {/* Luxury Footer */}
-      <footer className="bg-[#0C0E1E] text-slate-400 text-xs border-t border-slate-800 py-14 px-4 sm:px-8 mt-auto">
+      <footer className="bg-[#0C0E1E] text-slate-300 text-xs border-t border-slate-800 py-14 px-4 sm:px-8 mt-auto">
         <div className="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10">
           <div className="space-y-3">
             <div className="font-serif tracking-widest text-2xl font-bold text-white flex items-center gap-2">

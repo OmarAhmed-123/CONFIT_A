@@ -121,7 +121,7 @@ export const DiscoverView: React.FC = () => {
                 setTimeout(() => setShowSuggestions(false), 200);
               }}
               placeholder="Search blazers, oxford shirts, silk dresses..."
-              className="w-full pl-4 pr-10 py-3 rounded-2xl border border-slate-200 text-xs focus:outline-none focus:border-[#C5A059] bg-white shadow-2xs placeholder:text-slate-400"
+              className="w-full pl-4 pr-10 py-3 rounded-2xl border border-slate-200 text-xs focus:outline-none focus:border-[#C5A059] bg-white shadow-2xs placeholder:text-slate-500"
             />
             {searchQuery && (
               <button
@@ -129,7 +129,7 @@ export const DiscoverView: React.FC = () => {
                   setSearchQuery('');
                   setShowSuggestions(false);
                 }}
-                className="absolute right-3 top-3 text-xs text-slate-400 hover:text-slate-700"
+                className="absolute right-3 top-3 text-xs text-slate-500 hover:text-slate-700"
               >
                 ✕
               </button>
@@ -164,7 +164,7 @@ export const DiscoverView: React.FC = () => {
                       )}
                       <div>
                         <span className="font-bold text-[#1B1F3B] block">{sug.title}</span>
-                        {sug.subtitle && <span className="text-[10px] text-slate-400 font-light">{sug.subtitle}</span>}
+                        {sug.subtitle && <span className="text-[10px] text-slate-500 font-light">{sug.subtitle}</span>}
                       </div>
                     </div>
                     <span className="text-[9px] px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 font-semibold uppercase">
@@ -178,7 +178,7 @@ export const DiscoverView: React.FC = () => {
 
           <button
             onClick={openVisualSearch}
-            className="px-4 py-3 rounded-2xl bg-[#FDF8EE] hover:bg-[#C5A059] hover:text-white border border-[#C5A059]/40 text-[#C5A059] text-xs font-semibold shadow-2xs transition-all flex items-center gap-1.5 shrink-0"
+            className="px-4 py-3 rounded-2xl bg-[#FDF8EE] hover:bg-[#C5A059] hover:text-white border border-[#C5A059]/40 text-[#7A5C28] text-xs font-semibold shadow-2xs transition-all flex items-center gap-1.5 shrink-0"
             title="Search by Photo"
           >
             <VisualSearchIcon size={16} color="currentColor" />
@@ -344,7 +344,7 @@ export const DiscoverView: React.FC = () => {
                     </div>
                   </div>
 
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
                     {p.brand_name}
                   </span>
                   <h3

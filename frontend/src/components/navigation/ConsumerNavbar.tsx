@@ -108,7 +108,7 @@ export const ConsumerNavbar: React.FC = () => {
                 <button
                   className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold tracking-wide transition-all ${
                     activeDropdown === 'discover' || isActive('/discover') || isActive('/builder')
-                      ? 'text-[#C5A059] bg-[#FDF8EE] font-bold'
+                      ? 'text-[#7A5C28] bg-[#FDF8EE] font-bold'
                       : 'text-slate-600 hover:text-[#1B1F3B] hover:bg-slate-50'
                   }`}
                 >

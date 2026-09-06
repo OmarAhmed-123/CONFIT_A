@@ -142,6 +142,7 @@ def apply_promo(
 
 
 @router.post("/cart/merge", response_model=CartOut)
+@router.post("/commerce/cart/merge", response_model=CartOut)
 def merge_guest_cart(
     payload: CartMergeRequest,
     user: User = Depends(get_current_user),

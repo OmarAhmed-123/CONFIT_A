@@ -81,7 +81,7 @@ export const ConsumerLayout: React.FC = () => {
             <ul className="space-y-2 font-light">
               <li><Link to="/discover" className="hover:text-[#C5A059] transition-colors">Curated Multi-Brand Catalog</Link></li>
               <li><Link to="/builder" className="hover:text-[#C5A059] transition-colors">Outfit Composer Canvas</Link></li>
-              <li><Link to="/tryon-studio" className="hover:text-[#C5A059] transition-colors">Virtual Try-On 3D Studio</Link></li>
+              <li><Link to="/tryon-studio" className="hover:text-[#C5A059] transition-colors">Virtual Try-On Studio</Link></li>
               <li><Link to="/wardrobe" className="hover:text-[#C5A059] transition-colors">Smart Wardrobe & Gap Analysis</Link></li>
             </ul>
           </div>

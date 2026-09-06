@@ -26,6 +26,8 @@ export const ProductDetailView: React.FC = () => {
   const [isWishlisted, setIsWishlisted] = useState(false);
   const [activeAccordion, setActiveAccordion] = useState<'materials' | 'bopis' | 'delivery' | null>('materials');
   const [isLoading, setIsLoading] = useState(true);
+  const [isSlowLoad, setIsSlowLoad] = useState(false);
+  const [reloadTick, setReloadTick] = useState(0);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
 
@@ -54,7 +56,11 @@ export const ProductDetailView: React.FC = () => {
   useEffect(() => {
     if (!slug) return;
     setIsLoading(true);
+    setIsSlowLoad(false);
     setLoadError(null);
+    // Cold-start honesty: serverless first hits can take a while — tell the
+    // user instead of showing an apparently frozen spinner (2026-09-06 audit).
+    const slowTimer = setTimeout(() => setIsSlowLoad(true), 8000);
     catalogService
       .getProductDetail(slug)
       .then((data) => {
@@ -69,8 +75,9 @@ export const ProductDetailView: React.FC = () => {
       .catch((err) => {
         setIsLoading(false);
         setLoadError(err.message || 'Product not found');
-      });
-  }, [slug]);
+      })
+      .finally(() => clearTimeout(slowTimer));
+  }, [slug, reloadTick]);
 
   useEffect(() => {
     if (!selectedSkuId) return;
@@ -78,7 +85,19 @@ export const ProductDetailView: React.FC = () => {
   }, [selectedSkuId]);
 
   if (isLoading) {
-    return <LoadingSpinner text="Loading garment details..." />;
+    return (
+      <div className="flex flex-col items-center p-10 gap-3">
+        <LoadingSpinner text={isSlowLoad ? 'Still loading — the catalogue is waking up…' : 'Loading garment details...'} />
+        {isSlowLoad && (
+          <button
+            onClick={() => setReloadTick((t) => t + 1)}
+            className="px-4 py-2 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:border-[#C5A059]"
+          >
+            Retry now
+          </button>
+        )}
+      </div>
+    );
   }
 
   if (loadError || !product) {
@@ -86,6 +105,8 @@ export const ProductDetailView: React.FC = () => {
       <EmptyState
         title="This piece is unavailable"
         description={loadError || 'The product could not be loaded from the catalogue.'}
+        actionText="Try again"
+        onAction={() => setReloadTick((t) => t + 1)}
       />
     );
   }

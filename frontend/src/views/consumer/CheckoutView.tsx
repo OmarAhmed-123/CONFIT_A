@@ -1,3 +1,4 @@
+import { validateCheckoutSubmission, isValidEmail, CheckoutField } from '../../lib/checkoutValidation';
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -48,6 +49,7 @@ export const CheckoutView: React.FC = () => {
   const [recipientName, setRecipientName] = useState(user?.full_name || '');
   const [phone, setPhone] = useState(user?.phone || '');
   const [guestEmail, setGuestEmail] = useState('');
+  const [fieldError, setFieldError] = useState<CheckoutField | null>(null);
   const [addressLine, setAddressLine] = useState('');
   const [city, setCity] = useState('');
   const [country, setCountry] = useState('UAE');
@@ -111,22 +113,35 @@ export const CheckoutView: React.FC = () => {
 
   const handleSubmitOrder = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!cart || cart.items_count === 0) {
-      showToast('Your bag is empty.', 'error');
+    // P0-01 fix: same rules, but now machine-usable — the offending field is
+    // highlighted inline, scrolled into view and marked aria-invalid instead
+    // of relying on a transient toast that guests routinely missed.
+    const verdict = validateCheckoutSubmission({
+      isAuthenticated,
+      itemsCount: cart?.items_count ?? 0,
+      guestEmail,
+      fulfillmentType,
+      bopisStoreId: selectedBopisStoreId,
+      addressLine,
+      recipientName,
+      phone,
+    });
+    if (!verdict.ok) {
+      setFieldError(verdict.field ?? null);
+      showToast(verdict.message || 'Please complete the highlighted fields.', 'error');
+      const fieldId =
+        verdict.field === 'guest_email' ? 'guest-email' :
+        verdict.field === 'recipient_name' ? 'full-name' :
+        verdict.field === 'phone' ? 'phone' :
+        verdict.field === 'address' ? 'address' : null;
+      if (fieldId) {
+        const el = document.getElementById(fieldId);
+        el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        (el as HTMLInputElement | null)?.focus({ preventScroll: true });
+      }
       return;
     }
-    if (!isAuthenticated && !guestEmail.trim()) {
-      showToast('Enter an email for guest checkout, or sign in.', 'info');
-      return;
-    }
-    if (fulfillmentType === 'bopis' && !selectedBopisStoreId) {
-      showToast('Select a boutique with stock for pickup.', 'error');
-      return;
-    }
-    if (fulfillmentType === 'delivery' && !addressLine.trim()) {
-      showToast('A delivery address is required.', 'error');
-      return;
-    }
+    setFieldError(null);
 
     setIsSubmitting(true);
     try {
@@ -316,11 +331,20 @@ export const CheckoutView: React.FC = () => {
                   id="guest-email"
                   type="email"
                   required={!isAuthenticated}
+                  aria-invalid={fieldError === 'guest_email'}
+                  aria-describedby={fieldError === 'guest_email' ? 'guest-email-error' : undefined}
                   value={guestEmail}
-                  onChange={(e) => setGuestEmail(e.target.value)}
+                  onChange={(e) => { setGuestEmail(e.target.value); if (fieldError === 'guest_email') setFieldError(null); }}
                   placeholder="you@example.com"
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-[#C5A059]"
+                  className={`w-full px-4 py-2.5 rounded-xl border text-xs focus:outline-none focus:border-[#C5A059] ${fieldError === 'guest_email' ? 'border-rose-400 bg-rose-50' : 'border-slate-200'}`}
                 />
+                {fieldError === 'guest_email' && (
+                  <p id="guest-email-error" role="alert" className="text-[11px] text-rose-600 font-semibold mt-1">
+                    {isValidEmail(guestEmail.trim()) || !guestEmail.trim()
+                      ? 'Enter an email for guest checkout, or sign in.'
+                      : 'That email address looks invalid — check it and try again.'}
+                  </p>
+                )}
               </div>
             )}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

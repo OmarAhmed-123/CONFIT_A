@@ -48,7 +48,7 @@ export const ConsumerNavbar: React.FC = () => {
         <div className="flex items-center gap-2">
           <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#C5A059] animate-pulse"></span>
           <span className="hidden sm:inline text-slate-300 font-light tracking-wide">
-            CONFIT Precision Fashion Technology — 3D Drape & Sizing Intelligence
+            CONFIT Precision Fashion Technology — Drape & Sizing Intelligence
           </span>
           <span className="sm:hidden text-slate-300">CONFIT AI Studio</span>
         </div>

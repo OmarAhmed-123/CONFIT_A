@@ -80,8 +80,14 @@ export const FitFinderView: React.FC = () => {
   const [calcError, setCalcError] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
 
-  const set = <K extends keyof FormState>(key: K, value: FormState[K]) =>
+  // P1-01 fix (2026-09-06 remediation): ANY input change invalidates the
+  // displayed recommendation. Previously only switching the garment cleared
+  // the result — editing height/weight/shape left a STALE recommendation on
+  // screen that no longer matched the form below it.
+  const set = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((f) => ({ ...f, [key]: value }));
+    setResult(null);
+  };
 
   /** Convert display units -> the cm/kg contract the API expects. */
   const payload = useMemo(() => {
@@ -284,7 +290,7 @@ export const FitFinderView: React.FC = () => {
               <div className="flex items-center bg-slate-100 rounded-xl p-1 text-[11px] font-bold">
                 <button
                   type="button"
-                  onClick={() => setUnits('metric')}
+                  onClick={() => { setUnits('metric'); setResult(null); }}
                   aria-pressed={units === 'metric'}
                   className={`px-3 py-1 rounded-lg transition-all ${units === 'metric' ? 'bg-white shadow-2xs text-[#1B1F3B]' : 'text-slate-500'}`}
                 >
@@ -292,7 +298,7 @@ export const FitFinderView: React.FC = () => {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setUnits('imperial')}
+                  onClick={() => { setUnits('imperial'); setResult(null); }}
                   aria-pressed={units === 'imperial'}
                   className={`px-3 py-1 rounded-lg transition-all ${units === 'imperial' ? 'bg-white shadow-2xs text-[#1B1F3B]' : 'text-slate-500'}`}
                 >

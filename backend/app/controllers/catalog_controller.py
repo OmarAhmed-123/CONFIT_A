@@ -1,8 +1,10 @@
 import json
 from typing import List, Optional, Dict, Any
+from pydantic import BaseModel
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from backend.app.core.database import get_db
+from backend.app.core.config import settings
 from backend.app.core.dependencies import get_current_user_optional
 from backend.app.models.user import User
 from backend.app.repositories.catalog_repository import CatalogRepository
@@ -18,6 +20,7 @@ from backend.app.schemas.catalog import (
     AutocompleteResponse
 )
 from backend.app.core.exceptions import ResourceNotFoundError
+from backend.app.models.catalog import StoreLocation
 
 router = APIRouter(prefix="/catalog", tags=["Catalog & Products"])
 
@@ -244,3 +247,56 @@ def get_product_detail(
 def get_bopis_stores_for_sku(sku_id: int, db: Session = Depends(get_db)):
     repo = CatalogRepository(db)
     return repo.get_stores_for_product_sku(sku_id)
+
+
+class CapabilityFlagsOut(BaseModel):
+    """J-01 marketing-honesty remediation (2026-09-06 audit): a single
+    server-authoritative source of truth for what the platform can ACTUALLY
+    do right now. The UI binds trust badges and commerce claims to these
+    flags instead of hardcoding them — a claim shown without the matching
+    capability is a bug, not a marketing decision.
+
+    Every flag is derived from live configuration/state, never asserted:
+    payments_live mirrors PAYMENTS_LIVE, bnpl adds the PSP key requirement,
+    vton_gpu_ready means a worker URL is configured (per-job readiness is
+    still checked by the try-on pipeline itself), ai_stylist_live means at
+    least one live provider key exists (the deterministic grounded fallback
+    answers otherwise), and bopis_store_count is a real COUNT from the
+    stores table — the UI must not promise cities the DB does not contain.
+    """
+    payments_live: bool
+    payments_mode: str
+    bnpl_live: bool
+    vton_gpu_ready: bool
+    ai_stylist_live: bool
+    bopis_live: bool
+    bopis_store_count: int
+    storage_mode: str
+    returns_window_days: int
+
+
+@router.get("/capabilities", response_model=CapabilityFlagsOut)
+def get_capability_flags(db: Session = Depends(get_db)):
+    settings_ = settings
+    bnpl_live = bool(
+        settings_.PAYMENTS_LIVE
+        and (settings_.TABBY_API_KEY or settings_.TAMARA_API_KEY)
+    )
+    provider_keys = [
+        settings_.NVIDIA_API_KEY,
+        settings_.GROK_API_KEY,
+        settings_.GEMINI_API_KEY,
+        settings_.OPENAI_API_KEY,
+    ]
+    store_count = db.query(StoreLocation).count()
+    return CapabilityFlagsOut(
+        payments_live=bool(settings_.PAYMENTS_LIVE),
+        payments_mode="live" if settings_.PAYMENTS_LIVE else "demo",
+        bnpl_live=bnpl_live,
+        vton_gpu_ready=bool(settings_.VTON_WORKER_URL),
+        ai_stylist_live=any(provider_keys),
+        bopis_live=store_count > 0,
+        bopis_store_count=store_count,
+        storage_mode=settings_.STORAGE_PROVIDER,
+        returns_window_days=30,
+    )

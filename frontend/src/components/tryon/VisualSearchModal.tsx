@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { compressImageToDataUrl } from '../../lib/imageUpload';
 import { useTranslation } from 'react-i18next';
 import { useUIStore } from '../../stores/uiStore';
 import { useTryOnViewModel } from '../../viewmodels/useTryOnViewModel';
@@ -17,30 +18,27 @@ export const VisualSearchModal: React.FC = () => {
   // samples and a URL — no way to search with the user's own image).
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [isCompressing, setIsCompressing] = useState(false);
 
-  const MAX_UPLOAD_BYTES = 8 * 1024 * 1024; // 8 MB — generous for a query photo
-
-  const handleFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = ''; // allow re-selecting the same file
     if (!file) return;
-    if (!file.type.startsWith('image/')) {
-      setUploadError('Please choose an image file (JPEG, PNG, WebP…).');
-      return;
-    }
-    if (file.size > MAX_UPLOAD_BYTES) {
-      setUploadError('Image is too large — 8 MB maximum.');
-      return;
-    }
+    // P0-03 fix: the old 8 MB raw ceiling still exceeded the serverless
+    // gateway body limit (~4.5 MB) — uploads died with HTTP 413. Photos now
+    // go through the shared validate + compress pipeline before upload.
     setUploadError(null);
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = String(reader.result || '');
+    setIsCompressing(true);
+    try {
+      const { dataUrl } = await compressImageToDataUrl(file);
       setUploadedImage(dataUrl);
       setSelectedSample('');
       runVisualSearch({ imageBase64: dataUrl });
-    };
-    reader.readAsDataURL(file);
+    } catch (err: any) {
+      setUploadError(err?.message || 'That image could not be processed.');
+    } finally {
+      setIsCompressing(false);
+    }
   };
 
   if (!isVisualSearchOpen) return null;

@@ -94,6 +94,15 @@ export async function request<T>(
   try {
     const res = await fetchWithTimeout(url, { ...options, headers }, DEFAULT_TIMEOUT_MS);
 
+    // P0-02: surface gateway body-limit failures (HTTP 413) with an
+    // actionable message instead of an opaque FUNCTION_PAYLOAD_TOO_LARGE.
+    if (res.status === 413) {
+      throw new ApiError(
+        'That image is too large to upload. Please try a smaller photo.',
+        'IMAGE_TOO_LARGE',
+        413
+      );
+    }
     if (res.ok) {
       const contentType = res.headers.get('content-type') || '';
       if (contentType.includes('application/json')) {

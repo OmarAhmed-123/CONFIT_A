@@ -4,6 +4,7 @@ import { RulerIcon, SparkleIcon, TryOnIcon, LockIcon, ShieldIcon } from '../icon
 import { FitScoreBadge } from '../common/CommonComponents';
 import { measurementService } from '../../services/measurementService';
 import { computeSizeProfileConfidence } from '../../lib/sizeProfile';
+import { compressImageToDataUrl } from '../../lib/imageUpload';
 
 export interface CameraScanModalProps {
   isOpen: boolean;
@@ -278,17 +279,19 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
     runVisionAnalysis('live_camera', capturedDataUrl);
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const dataUrl = event.target?.result as string;
+    // P0-03 fix: compress before analysis/upload — raw phone photos exceeded
+    // the gateway body limit (HTTP 413).
+    try {
+      const { dataUrl } = await compressImageToDataUrl(file);
       setCapturedImage(dataUrl);
       runVisionAnalysis('uploaded_photo', dataUrl);
-    };
-    reader.readAsDataURL(file);
+    } catch (err: any) {
+      setCameraError(err?.message || 'That photo could not be processed.');
+    }
   };
 
   const deriveSizeFromMeasurements = (chest: number, waist: number, height: number): string => {

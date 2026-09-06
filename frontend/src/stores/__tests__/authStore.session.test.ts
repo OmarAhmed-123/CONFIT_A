@@ -16,7 +16,7 @@
  *     (the server leaves any pre-existing session cookie untouched on
  *     failed credential checks)
  */
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 const { clearAuthTokensMock, getMeMock, loginMock, registerMock } = vi.hoisted(() => ({
   clearAuthTokensMock: vi.fn(),
@@ -58,6 +58,15 @@ describe('authStore.fetchMe — session preservation', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     useAuthStore.setState({ user: null, isAuthenticated: false, isLoading: false, error: null });
+    // OBS-01: fetchMe now skips the network call entirely when no session
+    // evidence exists (cached confit_user profile or the confit_csrf cookie).
+    // These tests describe the WITH-session paths, so seed evidence first —
+    // exactly what a returning real user has.
+    localStorage.setItem('confit_user', JSON.stringify({ id: 1, has_profile: true }));
+  });
+
+  afterEach(() => {
+    localStorage.clear();
   });
 
   it('sets the user state on success', async () => {

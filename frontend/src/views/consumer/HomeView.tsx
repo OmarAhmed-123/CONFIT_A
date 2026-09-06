@@ -14,6 +14,7 @@ import {
 } from '../../components/icons/ConfitIcons';
 import { useUIStore } from '../../stores/uiStore';
 import { useCatalogViewModel } from '../../viewmodels/useCatalogViewModel';
+import { useCapabilities } from '../../hooks/useCapabilities';
 import { FitScoreBadge, BNPLBadge, SkeletonCard, EmptyState } from '../../components/common/CommonComponents';
 import { useCartStore } from '../../stores/cartStore';
 import { CircularGallery, type GalleryItem } from '../../components/ui/circular-gallery';
@@ -108,6 +109,8 @@ export const HomeView: React.FC = () => {
   const navigate = useNavigate();
   const { openStylist, openTryOn, openRuler, openVisualSearch } = useUIStore();
   const { products, isLoading, error: catalogError, refresh: refreshCatalog } = useCatalogViewModel();
+  // J-01: trust badges render what the platform can ACTUALLY do right now.
+  const { capabilities } = useCapabilities();
   const { addItem } = useCartStore();
 
   const brandShowcase = [
@@ -335,152 +338,97 @@ export const HomeView: React.FC = () => {
           </button>
         </div>
 
-        {/* Curated Ensemble Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {/* Ensemble 1: Executive Tailored */}
-          <div className="bg-white rounded-3xl border border-slate-200/80 shadow-2xs p-6 flex flex-col justify-between group hover:shadow-md transition-all">
-            <div>
-              <div className="flex justify-between items-start mb-3">
-                <div>
-                  <span className="text-[10px] font-bold text-[#C5A059] uppercase tracking-wider">
-                    Executive Metropolitan Look
-                  </span>
-                  <h3 className="font-serif text-lg font-bold text-[#1B1F3B]">
-                    Italian Virgin Wool & Organic Poplin
-                  </h3>
-                </div>
-                <span className="px-3 py-1 rounded-full bg-[#FDF8EE] border border-[#C5A059]/30 text-[10px] font-bold text-[#A37E44] tracking-wide">
-                  Curated Ensemble
-                </span>
+        {/* Honest-data remediation (2026-09-06 audit, J-01): this section
+            previously rendered two HARDCODED ensembles ("Executive
+            Metropolitan Look — $549.00", "Contemporary Gala — $770.00") that
+            could contradict the live catalogue. It now renders REAL products
+            from the same catalogue query Discover uses, with honest loading /
+            empty / error states — no fabricated data. */}
+        {isLoading && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5" aria-busy="true">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="bg-white rounded-3xl border border-slate-200/80 p-4 shadow-2xs animate-pulse space-y-3">
+                <div className="h-56 rounded-2xl bg-slate-100"></div>
+                <div className="h-3 w-20 bg-slate-100 rounded"></div>
+                <div className="h-4 w-3/4 bg-slate-200 rounded"></div>
+                <div className="h-3 w-1/3 bg-slate-100 rounded"></div>
               </div>
-              <p className="text-xs text-slate-500 mb-4 font-light">
-                Tailored Italian wool double-breasted blazer by Massimo Dutti paired with crisp organic poplin by COS and pleated wool trousers.
-              </p>
-
-              <div className="grid grid-cols-3 gap-3">
-                <div className="h-44 rounded-2xl overflow-hidden bg-slate-100 relative">
-                  <img
-                    src="https://images.unsplash.com/photo-1594938298603-c8148c4dae35?w=500&auto=format&fit=crop&q=80"
-                    alt="Blazer"
-                    className="w-full h-full object-cover"
-                  />
-                  <span className="absolute bottom-2 left-2 px-2 py-0.5 rounded bg-black/70 text-[9px] text-white">Massimo Dutti</span>
-                </div>
-                <div className="h-44 rounded-2xl overflow-hidden bg-slate-100 relative">
-                  <img
-                    src="https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=500&auto=format&fit=crop&q=80"
-                    alt="Shirt"
-                    className="w-full h-full object-cover"
-                  />
-                  <span className="absolute bottom-2 left-2 px-2 py-0.5 rounded bg-black/70 text-[9px] text-white">COS</span>
-                </div>
-                <div className="h-44 rounded-2xl overflow-hidden bg-slate-100 relative">
-                  <img
-                    src="https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=500&auto=format&fit=crop&q=80"
-                    alt="Trousers"
-                    className="w-full h-full object-cover"
-                  />
-                  <span className="absolute bottom-2 left-2 px-2 py-0.5 rounded bg-black/70 text-[9px] text-white">Massimo Dutti</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between pt-5 border-t border-slate-100 mt-6">
-              <div>
-                <span className="text-[10px] text-slate-400 font-semibold block">Total Look (3 Pieces)</span>
-                <span className="text-base font-bold text-[#1B1F3B]">$549.00</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => openTryOn(products[0])}
-                  className="px-4 py-2 rounded-xl border border-slate-200 hover:border-[#1B1F3B] text-xs font-semibold text-slate-700 transition-all flex items-center gap-1.5"
-                >
-                  <TryOnIcon size={14} color="#1B1F3B" />
-                  <span>Try On Look</span>
-                </button>
-                <button
-                  onClick={() => navigate('/builder')}
-                  className="px-4 py-2 rounded-xl bg-[#1B1F3B] hover:bg-[#0C0E1E] text-white text-xs font-semibold transition-all flex items-center gap-1.5 shadow-2xs"
-                >
-                  <OutfitBuilderIcon size={14} color="#FFFFFF" />
-                  <span>Open in Canvas</span>
-                </button>
-              </div>
-            </div>
+            ))}
           </div>
-
-          {/* Ensemble 2: Evening Silk */}
-          <div className="bg-white rounded-3xl border border-slate-200/80 shadow-2xs p-6 flex flex-col justify-between group hover:shadow-md transition-all">
-            <div>
-              <div className="flex justify-between items-start mb-3">
-                <div>
-                  <span className="text-[10px] font-bold text-[#C5A059] uppercase tracking-wider">
-                    Contemporary Gala & Evening
-                  </span>
-                  <h3 className="font-serif text-lg font-bold text-[#1B1F3B]">
-                    Silk Slip Column & Metallic Accessories
-                  </h3>
-                </div>
-                <span className="px-3 py-1 rounded-full bg-[#FDF8EE] border border-[#C5A059]/30 text-[10px] font-bold text-[#A37E44] tracking-wide">
-                  Curated Ensemble
-                </span>
-              </div>
-              <p className="text-xs text-slate-500 mb-4 font-light">
-                Mulberry silk champagne slip column maxi dress by Reiss with metallic leather heeled sandals and box clutch.
-              </p>
-
-              <div className="grid grid-cols-3 gap-3">
-                <div className="h-44 rounded-2xl overflow-hidden bg-slate-100 relative">
-                  <img
-                    src="https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=500&auto=format&fit=crop&q=80"
-                    alt="Dress"
-                    className="w-full h-full object-cover"
-                  />
-                  <span className="absolute bottom-2 left-2 px-2 py-0.5 rounded bg-black/70 text-[9px] text-white">Reiss</span>
-                </div>
-                <div className="h-44 rounded-2xl overflow-hidden bg-slate-100 relative">
-                  <img
-                    src="https://images.unsplash.com/photo-1543163521-1bf539c55dd2?w=500&auto=format&fit=crop&q=80"
-                    alt="Sandals"
-                    className="w-full h-full object-cover"
-                  />
-                  <span className="absolute bottom-2 left-2 px-2 py-0.5 rounded bg-black/70 text-[9px] text-white">Reiss</span>
-                </div>
-                <div className="h-44 rounded-2xl overflow-hidden bg-slate-100 relative">
-                  <img
-                    src="https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=500&auto=format&fit=crop&q=80"
-                    alt="Clutch"
-                    className="w-full h-full object-cover"
-                  />
-                  <span className="absolute bottom-2 left-2 px-2 py-0.5 rounded bg-black/70 text-[9px] text-white">Reiss</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between pt-5 border-t border-slate-100 mt-6">
-              <div>
-                <span className="text-[10px] text-slate-400 font-semibold block">Total Look (3 Pieces)</span>
-                <span className="text-base font-bold text-[#1B1F3B]">$770.00</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => openTryOn(products[4] || products[0])}
-                  className="px-4 py-2 rounded-xl border border-slate-200 hover:border-[#1B1F3B] text-xs font-semibold text-slate-700 transition-all flex items-center gap-1.5"
-                >
-                  <TryOnIcon size={14} color="#1B1F3B" />
-                  <span>Try On Look</span>
-                </button>
-                <button
-                  onClick={() => navigate('/builder')}
-                  className="px-4 py-2 rounded-xl bg-[#1B1F3B] hover:bg-[#0C0E1E] text-white text-xs font-semibold transition-all flex items-center gap-1.5 shadow-2xs"
-                >
-                  <OutfitBuilderIcon size={14} color="#FFFFFF" />
-                  <span>Open in Canvas</span>
-                </button>
-              </div>
-            </div>
+        )}
+        {!isLoading && catalogError && (
+          <div className="bg-white rounded-3xl border border-rose-200 p-6 text-center space-y-3">
+            <p className="text-xs text-rose-600 font-semibold">
+              Today's picks could not be loaded from the catalogue.
+            </p>
+            <button
+              onClick={refreshCatalog}
+              className="px-4 py-2 rounded-xl bg-[#1B1F3B] text-white text-xs font-bold"
+            >
+              Try again
+            </button>
           </div>
-        </div>
+        )}
+        {!isLoading && !catalogError && products.length === 0 && (
+          <div className="bg-white rounded-3xl border border-slate-200/80 p-8 text-center">
+            <p className="text-xs text-slate-500">The catalogue is empty right now — nothing to show yet.</p>
+          </div>
+        )}
+        {!isLoading && !catalogError && products.length > 0 && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {products.slice(0, 6).map((prod) => (
+              <article
+                key={prod.id}
+                className="bg-white rounded-3xl border border-slate-200/80 shadow-2xs overflow-hidden group hover:shadow-md transition-all flex flex-col"
+              >
+                <button
+                  onClick={() => navigate(`/product/${prod.slug}`)}
+                  className="relative h-56 overflow-hidden bg-slate-100 cursor-pointer text-left"
+                  aria-label={`View ${prod.title}`}
+                >
+                  <img
+                    src={prod.thumbnail_url}
+                    alt={prod.title}
+                    loading="lazy"
+                    decoding="async"
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  />
+                  <span className="absolute bottom-2 left-2 px-2 py-0.5 rounded bg-black/70 text-[9px] text-white">
+                    {prod.brand_name}
+                  </span>
+                </button>
+                <div className="p-4 flex flex-col flex-1 justify-between gap-3">
+                  <div>
+                    <span className="text-[10px] font-bold text-[#C5A059] uppercase tracking-wide">
+                      {prod.category_name}
+                    </span>
+                    <h3 className="font-serif text-sm font-bold text-[#1B1F3B] leading-snug mt-0.5">
+                      {prod.title}
+                    </h3>
+                    <span className="text-sm font-bold text-[#1B1F3B] block mt-1">
+                      {prod.currency} {prod.base_price.toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => openTryOn(prod)}
+                      className="flex-1 px-3 py-2 rounded-xl border border-slate-200 hover:border-[#1B1F3B] text-xs font-semibold text-slate-700 transition-all flex items-center justify-center gap-1.5"
+                    >
+                      <TryOnIcon size={14} color="#1B1F3B" />
+                      <span>Try On</span>
+                    </button>
+                    <button
+                      onClick={() => navigate(`/product/${prod.slug}`)}
+                      className="flex-1 px-3 py-2 rounded-xl bg-[#1B1F3B] hover:bg-[#0C0E1E] text-white text-xs font-semibold transition-all"
+                    >
+                      View Piece
+                    </button>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* 4. Occasion Portals */}
@@ -663,9 +611,11 @@ export const HomeView: React.FC = () => {
             <div className="w-10 h-10 rounded-2xl bg-[#1B1F3B] text-[#C5A059] flex items-center justify-center font-bold shadow-xs mx-auto sm:mx-0">
               <BopisIcon size={20} color="#C5A059" />
             </div>
-            <h4 className="font-serif text-sm font-bold text-[#1B1F3B]">2-Hour BOPIS Boutique Pickup</h4>
+            <h4 className="font-serif text-sm font-bold text-[#1B1F3B]">Boutique Pickup (BOPIS)</h4>
             <p className="text-xs text-slate-500 font-light leading-relaxed">
-              Collect your tailored garments in 2 hours with dedicated fitting suites in Dubai & Riyadh.
+              {capabilities.bopis_live
+                ? `Reserve online and collect at our ${capabilities.bopis_store_count === 1 ? 'boutique' : `${capabilities.bopis_store_count} boutiques`} — pickup options are shown per piece at checkout.`
+                : 'Boutique pickup is coming soon — home delivery is available at checkout.'}
             </p>
           </div>
 
@@ -685,7 +635,12 @@ export const HomeView: React.FC = () => {
             </div>
             <h4 className="font-serif text-sm font-bold text-[#1B1F3B]">0% Interest BNPL Payments</h4>
             <p className="text-xs text-slate-500 font-light leading-relaxed">
-              Split any luxury ensemble into 4 monthly payments with Tabby or Tamara at zero added cost.
+              Split any ensemble into 4 monthly payments with Tabby or Tamara at zero added cost.
+              {!capabilities.bnpl_live && (
+                <span className="block mt-1 text-[10px] font-bold text-amber-700">
+                  Currently in demo mode — no live BNPL charges are processed yet.
+                </span>
+              )}
             </p>
           </div>
         </div>

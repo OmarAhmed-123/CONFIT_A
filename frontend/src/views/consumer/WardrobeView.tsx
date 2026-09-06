@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { compressImageToDataUrl } from '../../lib/imageUpload';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useWardrobeViewModel } from '../../viewmodels/useWardrobeViewModel';
 import { useAuthStore } from '../../stores/authStore';
@@ -54,6 +55,8 @@ export const WardrobeView: React.FC = () => {
   const [newCategory, setNewCategory] = useState('Outerwear');
   const [newColor, setNewColor] = useState('Navy Blue');
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [isCompressing, setIsCompressing] = useState(false);
+  const [uploadSkipNotes, setUploadSkipNotes] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const {
@@ -110,16 +113,38 @@ export const WardrobeView: React.FC = () => {
       alert('Some files were skipped: only JPEG/PNG/WebP up to 15MB are supported.');
     }
     setSelectedFiles(valid.slice(0, 20));
+    setUploadSkipNotes([]);
   };
 
   const handleUploadSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedFiles.length) return;
-    const report = await uploadFiles(selectedFiles);
-    if (report && report.summary.succeeded > 0) {
-      setSelectedFiles([]);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-      if (report.summary.failed === 0) setUploadModalOpen(false);
+    // P0-03 fix: multipart bodies hit the same ~4.5 MB serverless gateway
+    // ceiling as JSON bodies. Compress every garment photo client-side
+    // (≤1024px, JPEG q0.85, ≤3 MB) before it enters the FormData.
+    setIsCompressing(true);
+    try {
+      const compressed: File[] = [];
+      for (const f of selectedFiles) {
+        try {
+          const { dataUrl } = await compressImageToDataUrl(f, { maxDim: 1280 });
+          const blob = await (await fetch(dataUrl)).blob();
+          compressed.push(new File([blob], f.name.replace(/\.[^.]+$/, '') + '.jpg', { type: 'image/jpeg' }));
+        } catch {
+          // A photo that cannot be compressed is skipped and REPORTED, never
+          // silently uploaded raw (that would resurrect the 413 failure).
+          setUploadSkipNotes((prev) => [...prev, `${f.name} could not be processed and was skipped.`]);
+        }
+      }
+      if (!compressed.length) return;
+      const report = await uploadFiles(compressed);
+      if (report && report.summary.succeeded > 0) {
+        setSelectedFiles([]);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+        if (report.summary.failed === 0) setUploadModalOpen(false);
+      }
+    } finally {
+      setIsCompressing(false);
     }
   };
 
@@ -566,15 +591,21 @@ export const WardrobeView: React.FC = () => {
                     {selectedFiles.length > 3 ? ` +${selectedFiles.length - 3} more` : ''}
                   </p>
                 )}
+
+                {uploadSkipNotes.length > 0 && (
+                  <ul className="text-[11px] text-rose-600 mt-1.5 space-y-1" role="alert">
+                    {uploadSkipNotes.map((n) => <li key={n}>• {n}</li>)}
+                  </ul>
+                )}
               </div>
 
               <button
                 type="submit"
-                disabled={!selectedFiles.length || isUploading}
+                disabled={!selectedFiles.length || isUploading || isCompressing}
                 className="w-full py-3 rounded-xl bg-[#B8935A] hover:bg-[#a07f4c] text-white font-semibold text-xs transition-all shadow-md flex items-center justify-center gap-1.5 disabled:opacity-50"
               >
                 <SparkleIcon size={14} color="#fff" />
-                <span>{isUploading ? 'Uploading & Analyzing…' : `Upload ${selectedFiles.length > 1 ? `${selectedFiles.length} Pieces` : 'Piece'} & Auto-Tag with AI`}</span>
+                <span>{isCompressing ? 'Optimizing photos…' : isUploading ? 'Uploading & Analyzing…' : `Upload ${selectedFiles.length > 1 ? `${selectedFiles.length} Pieces` : 'Piece'} & Auto-Tag with AI`}</span>
               </button>
 
               {/* Per-file batch report: partial success is surfaced, not hidden */}

@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Outlet, Link } from 'react-router-dom';
 import { ConsumerNavbar } from '../components/navigation/ConsumerNavbar';
 import { VirtualStylistDrawer } from '../components/stylist/VirtualStylistDrawer';
@@ -13,6 +14,7 @@ import { useCartStore } from '../stores/cartStore';
 import { SparkleIcon } from '../components/icons/ConfitIcons';
 
 export const ConsumerLayout: React.FC = () => {
+  const { t } = useTranslation();
   const { openStylist } = useUIStore();
   // AUTH-02 FIX: fetchMe bootstrap moved to App (session must restore on
   // /b2b and /admin too); AuthModal/Toast are now mounted at the app root.
@@ -40,13 +42,13 @@ export const ConsumerLayout: React.FC = () => {
         <button
           onClick={() => openStylist()}
           className="group flex items-center gap-2.5 px-4.5 py-3 rounded-full bg-[#0C0E1E] hover:bg-[#1B1F3B] text-white shadow-2xl hover:scale-105 active:scale-95 transition-all border border-[#C5A059]/40"
-          aria-label="Open AI Virtual Stylist"
+          aria-label={t('layout.open_ai_stylist')}
         >
           <div className="w-6 h-6 rounded-full bg-[#C5A059] flex items-center justify-center text-slate-950 shadow-xs">
             <SparkleIcon size={14} color="#0C0E1E" />
           </div>
           <span className="hidden sm:inline font-serif font-bold text-xs tracking-wider text-[#C5A059]">
-            AI Stylist Director
+            {t('layout.ai_stylist_director')}
           </span>
         </button>
       </div>
@@ -85,35 +87,35 @@ export const ConsumerLayout: React.FC = () => {
           </div>
 
           <div className="space-y-3">
-            <div className="font-bold text-white uppercase tracking-wider text-[11px]">Luxury Commerce & Trust</div>
+            <div className="font-bold text-white uppercase tracking-wider text-[11px]">{t('footer.commerce_trust')}</div>
             <ul className="space-y-2 font-light">
-              <li><span className="text-slate-300">Tabby & Tamara 0% Interest BNPL</span></li>
-              <li><span className="text-slate-300">BOPIS Boutique Pickup in 2 Hours</span></li>
-              <li><span className="text-slate-300">30-Day Zero-Fee Concierge Returns</span></li>
-              <li><span className="text-slate-300">GDPR Privacy & On-Device Biometrics</span></li>
+              <li><span className="text-slate-300">{t('footer.bnpl_line')}</span></li>
+              <li><span className="text-slate-300">{t('footer.bopis_line')}</span></li>
+              <li><span className="text-slate-300">{t('footer.returns_line')}</span></li>
+              <li><span className="text-slate-300">{t('footer.gdpr_line')}</span></li>
             </ul>
           </div>
 
           <div className="space-y-3">
-            <div className="font-bold text-white uppercase tracking-wider text-[11px]">For Brand Houses</div>
+            <div className="font-bold text-white uppercase tracking-wider text-[11px]">{t('footer.for_brands')}</div>
             <p className="text-slate-400 text-xs font-light leading-relaxed">
-              Connect your boutique catalog to reduce sizing returns by up to 71% and elevate customer lifetime value.
+              {t('footer.brands_pitch')}
             </p>
             <Link
               to="/b2b"
               className="inline-block mt-2 px-4 py-2.5 rounded-xl bg-[#C5A059] hover:bg-[#E2BF70] text-[#0C0E1E] font-bold text-xs shadow-md transition-all"
             >
-              Open Brand Partner Portal →
+              {t('footer.open_brand_portal')}
             </Link>
           </div>
         </div>
 
         <div className="max-w-7xl mx-auto pt-8 mt-10 border-t border-slate-800 flex flex-col sm:flex-row justify-between items-center gap-4 text-[11px] text-slate-500 font-light">
-          <div>© {new Date().getFullYear()} CONFIT Fashion Technology Inc. All rights reserved.</div>
+          <div>© {new Date().getFullYear()} {t('footer.rights')}</div>
           <div className="flex gap-6">
-            <Link to="/profile" className="hover:text-slate-400">Privacy Policy</Link>
-            <Link to="/profile" className="hover:text-slate-400">Terms of Service</Link>
-            <Link to="/profile" className="hover:text-slate-400">GDPR Compliance</Link>
+            <Link to="/privacy" className="hover:text-slate-400">{t('footer.privacy')}</Link>
+            <Link to="/terms" className="hover:text-slate-400">{t('footer.terms')}</Link>
+            <Link to="/gdpr" className="hover:text-slate-400">{t('footer.gdpr')}</Link>
           </div>
         </div>
       </footer>

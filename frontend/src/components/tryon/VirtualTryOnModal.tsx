@@ -449,9 +449,11 @@ export const VirtualTryOnModal: React.FC = () => {
                         verdict="Style Compatibility"
                       />
                       <span className="px-2.5 py-0.5 rounded-full bg-slate-950/75 backdrop-blur-md text-[9px] font-medium text-slate-300 border border-white/10 w-fit">
-                        {appliedList.length > 0
-                          ? `Dressed with ${appliedList.length} Garment Layer${appliedList.length === 1 ? '' : 's'}`
-                          : 'Base Silhouette (Ready for Styling)'}
+                        {appliedList.length === 0
+                          ? 'Base Silhouette (Ready for Styling)'
+                          : isRendering
+                            ? `Rendering ${appliedList.length} Garment Layer${appliedList.length === 1 ? '' : 's'}…`
+                            : `Dressed with ${appliedList.length} Garment Layer${appliedList.length === 1 ? '' : 's'}`}
                       </span>
                     </div>
 

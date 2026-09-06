@@ -59,7 +59,7 @@ export const ConsumerNavbar: React.FC = () => {
               className="inline-flex items-center gap-1.5 text-[#C5A059] hover:text-[#E2BF70] font-semibold transition-colors text-xs"
             >
               {isAdmin ? <ShieldIcon size={14} color="#C5A059" /> : <BrandDashboardIcon size={14} color="#C5A059" />}
-              <span>{isAdmin ? 'Admin Governance' : 'Brand Partner Hub'}</span>
+              <span>{isAdmin ? t('nav.admin_governance') : t('nav.brand_partner_hub')}</span>
             </Link>
           ) : (
             <Link
@@ -67,7 +67,7 @@ export const ConsumerNavbar: React.FC = () => {
               className="inline-flex items-center gap-1.5 text-slate-400 hover:text-[#C5A059] font-medium transition-colors text-xs"
             >
               <BrandDashboardIcon size={14} color="#C5A059" />
-              <span>Partner Portal</span>
+              <span>{t('nav.partner_portal')}</span>
             </Link>
           )}
           <div className="h-3 w-px bg-slate-800" />
@@ -220,7 +220,7 @@ export const ConsumerNavbar: React.FC = () => {
                       </div>
                       <div>
                         <div className="text-xs font-bold text-[#1B1F3B] group-hover:text-[#C5A059]">
-                          {t('nav.vton_studio')}
+                          {t('nav.virtual_tryon')}
                         </div>
                         <div className="text-[11px] text-slate-500">Interactive drape & multi-garment try-on</div>
                       </div>
@@ -236,7 +236,7 @@ export const ConsumerNavbar: React.FC = () => {
                       </div>
                       <div>
                         <div className="text-xs font-bold text-[#1B1F3B] group-hover:text-[#C5A059]">
-                          {t('nav.fit_finder')}
+                          {t('nav.no_photo_fit')}
                         </div>
                         <div className="text-[11px] text-slate-500">Zero-photo size & measurement engine</div>
                       </div>
@@ -260,7 +260,7 @@ export const ConsumerNavbar: React.FC = () => {
                   }`}
                 >
                   <WardrobeIcon size={18} isActive={isActive('/wardrobe')} />
-                  <span>{t('nav.wardrobe')}</span>
+                  <span>{t('nav.my_wardrobe')}</span>
                   <span className="text-[9px] text-slate-400">▼</span>
                 </Link>
 
@@ -480,7 +480,7 @@ export const ConsumerNavbar: React.FC = () => {
                 className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#1B1F3B] hover:bg-[#0C0E1E] text-white font-medium text-xs transition-all shadow-sm"
               >
                 <UserIcon size={15} color="#FFFFFF" />
-                <span>Sign In</span>
+                <span>{t('common.sign_in')}</span>
               </button>
             )}
           </div>

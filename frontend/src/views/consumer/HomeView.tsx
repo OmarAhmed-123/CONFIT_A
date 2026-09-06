@@ -547,7 +547,7 @@ export const HomeView: React.FC = () => {
             onClick={() => navigate('/discover')}
             className="text-xs font-bold text-[#1B1F3B] hover:text-[#C5A059] transition-colors"
           >
-            View All Catalog ({products.length}) →
+            View All Catalog{isLoading ? '' : ` (${products.length})`} →
           </button>
         </div>
 

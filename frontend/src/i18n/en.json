@@ -27,7 +27,10 @@
     "settings": "Settings",
     "brand_portal": "Brand Partner Portal",
     "switch_to_b2b": "Brand Portal",
-    "switch_to_consumer": "Consumer App"
+    "switch_to_consumer": "Consumer App",
+    "partner_portal": "Partner Portal",
+    "admin_governance": "Admin Governance",
+    "brand_partner_hub": "Brand Partner Hub"
   },
   "home": {
     "hero_title": "Where Style Meets Your Character in Every Moment",
@@ -161,5 +164,32 @@
     "create_campaign": "Create Sponsored Slot",
     "bid_cpc": "CPC Bid",
     "daily_budget": "Daily Budget"
+  },
+  "common": {
+    "sign_in": "Sign In",
+    "sign_out": "Sign Out"
+  },
+  "layout": {
+    "ai_stylist_director": "AI Stylist Director",
+    "open_ai_stylist": "Open AI Virtual Stylist"
+  },
+  "footer": {
+    "tagline": "Where Style Meets Your Character",
+    "commerce_trust": "Luxury Commerce & Trust",
+    "bnpl_line": "Tabby & Tamara 0% Interest BNPL",
+    "bopis_line": "BOPIS Boutique Pickup in 2 Hours",
+    "returns_line": "30-Day Zero-Fee Concierge Returns",
+    "gdpr_line": "GDPR Privacy & On-Device Biometrics",
+    "for_brands": "For Brand Houses",
+    "brands_pitch": "Connect your boutique catalog to reduce sizing returns by up to 71% and elevate customer lifetime value.",
+    "open_brand_portal": "Open Brand Partner Portal →",
+    "rights": "CONFIT Fashion Technology. All rights reserved.",
+    "privacy": "Privacy Policy",
+    "terms": "Terms of Service",
+    "gdpr": "GDPR Compliance"
+  },
+  "b2b_layout": {
+    "platform_title": "CONFIT B2B Brand & Admin Telemetry Platform",
+    "switch_to_consumer": "← Switch to Consumer App"
   }
 }

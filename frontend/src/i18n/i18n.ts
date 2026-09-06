@@ -16,7 +16,20 @@ i18n
     fallbackLng: 'en',
     interpolation: {
       escapeValue: false
-    }
+    },
+    // I18N-01 hardening: a missing translation must NEVER render as a raw
+    // dotted key like "nav.wardrobe" in the UI (the audit's exact finding).
+    // Humanize the key ("nav.wardrobe" -> "Wardrobe") so the UI degrades to
+    // readable English instead of leaking internals, and log loudly in dev
+    // so the missing key still gets fixed.
+    parseMissingKeyHandler: (key) => {
+      if (import.meta.env.DEV) {
+        // eslint-disable-next-line no-console
+        console.warn(`[i18n] missing key: ${key}`);
+      }
+      const leaf = key.split('.').pop() || key;
+      return leaf.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+    },
   });
 
 // Handle RTL direction updates on HTML root

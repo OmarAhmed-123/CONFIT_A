@@ -1,9 +1,11 @@
 import React from 'react';
 import { Outlet, Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { BrandNavbar } from '../components/navigation/BrandNavbar';
 import { useUIStore } from '../stores/uiStore';
 
 export const BrandLayout: React.FC = () => {
+  const { t } = useTranslation();
   // AUTH-02 FIX: Toast is mounted at the App root so toasts fired on /b2b
   // and /admin (gate actions, brand CRUD) render identically. The local
   // Toast here previously double-rendered with the global one.
@@ -18,11 +20,11 @@ export const BrandLayout: React.FC = () => {
       <footer className="bg-slate-900 border-t border-slate-800 text-slate-500 text-xs py-8 px-4 sm:px-8 mt-auto">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
           <div>
-            CONFIT B2B Brand & Admin Telemetry Platform · Version 1.0.0
+            {t('b2b_layout.platform_title')} · 1.0.0
           </div>
           <div className="flex gap-4">
             <Link to="/" className="text-[#B8935A] hover:underline">
-              ← Switch to Consumer App
+              {t('b2b_layout.switch_to_consumer')}
             </Link>
           </div>
         </div>

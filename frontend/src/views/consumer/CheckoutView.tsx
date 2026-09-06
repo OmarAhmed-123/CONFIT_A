@@ -33,7 +33,7 @@ function newIdempotencyKey(): string {
 export const CheckoutView: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { cart, fetchCart, applyPromo } = useCartStore();
+  const { cart, fetchCart, applyPromo, updateQuantity, removeItem } = useCartStore();
   const { user, isAuthenticated } = useAuthStore();
   const { showToast, openAuthModal } = useUIStore();
 
@@ -470,9 +470,46 @@ export const CheckoutView: React.FC = () => {
                   <div className="flex-1 min-w-0">
                     <div className="font-bold text-slate-900 truncate">{it.product_title}</div>
                     <div className="text-slate-500 text-[11px] font-light">
-                      {it.brand_name} · Size {it.size} · Qty {it.quantity}
+                      {it.brand_name} · Size {it.size}
                     </div>
                     <div className="text-slate-900 font-bold mt-0.5">${it.subtotal.toFixed(2)}</div>
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <button
+                        type="button"
+                        aria-label={t('commerce.qty_decrease')}
+                        disabled={it.quantity <= 1}
+                        onClick={() => {
+                          updateQuantity(it.id, it.quantity - 1).catch(() => showToast('Could not update quantity', 'error'));
+                        }}
+                        className="w-6 h-6 rounded-lg border border-slate-200 text-slate-700 font-bold leading-none hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        −
+                      </button>
+                      <span className="text-[11px] text-slate-600 font-medium w-10 text-center" aria-live="polite">
+                        Qty {it.quantity}
+                      </span>
+                      <button
+                        type="button"
+                        aria-label={t('commerce.qty_increase')}
+                        disabled={it.quantity >= 10}
+                        onClick={() => {
+                          updateQuantity(it.id, it.quantity + 1).catch(() => showToast('Could not update quantity', 'error'));
+                        }}
+                        className="w-6 h-6 rounded-lg border border-slate-200 text-slate-700 font-bold leading-none hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        +
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={t('commerce.remove_item')}
+                        onClick={() => {
+                          removeItem(it.id).catch(() => showToast('Could not remove item', 'error'));
+                        }}
+                        className="ml-auto text-[10px] font-semibold text-slate-400 hover:text-rose-600 underline underline-offset-2"
+                      >
+                        {t('commerce.remove_item')}
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}

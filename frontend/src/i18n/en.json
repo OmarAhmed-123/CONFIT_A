@@ -146,7 +146,10 @@
     "order_confirmed": "Order Confirmed!",
     "order_number": "Order Number",
     "track_order": "Track Order Real-Time",
-    "return_item": "Request Return / Exchange"
+    "return_item": "Request Return / Exchange",
+    "qty_decrease": "Decrease quantity",
+    "qty_increase": "Increase quantity",
+    "remove_item": "Remove item"
   },
   "b2b": {
     "dashboard_title": "Brand Partner Command Center",

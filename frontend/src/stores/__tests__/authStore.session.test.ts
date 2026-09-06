@@ -27,6 +27,7 @@ const { clearAuthTokensMock, getMeMock, loginMock, registerMock } = vi.hoisted((
 
 vi.mock('../../services/apiClient', () => ({
   setAuthTokens: vi.fn(),
+  SESSION_EXPIRED_EVENT: 'confit:session-expired',
   clearAuthTokens: (...args: unknown[]) => clearAuthTokensMock(...args),
 }));
 

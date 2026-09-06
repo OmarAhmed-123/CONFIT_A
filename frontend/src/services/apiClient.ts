@@ -67,9 +67,55 @@ async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: nu
   }
 }
 
+// CYCLE-3 (BLOCKER J): transparent session renewal. The access cookie is
+// short-lived; when it expires the backend answers 401. The browser holds an
+// httpOnly refresh cookie (set at login, rotated on every refresh), so ONE
+// refresh attempt + ONE retry of the original request keeps the user signed
+// in without any token ever reaching web storage. If renewal fails, the
+// session is honestly expired: local user state is purged and a
+// 'confit:session-expired' event lets the auth store clear itself.
+let refreshInFlight: Promise<boolean> | null = null;
+
+export const SESSION_EXPIRED_EVENT = 'confit:session-expired';
+
+async function trySessionRefresh(): Promise<boolean> {
+  if (!refreshInFlight) {
+    refreshInFlight = (async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/auth/refresh`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: '{}',
+          credentials: 'same-origin',
+        });
+        if (res.ok) return true;
+        return false;
+      } catch {
+        return false;
+      } finally {
+        // Release the slot the moment the outcome is known. Callers that
+        // raced in WHILE the refresh was pending already hold the shared
+        // promise reference, so they keep the single-flight guarantee; a
+        // LATER 401 (e.g. after a retry also expired) may open a fresh,
+        // bounded refresh attempt. No timer delay — a lingering resolved
+        // promise would serve stale results to unrelated later calls.
+        refreshInFlight = null;
+      }
+    })();
+    const ok = await refreshInFlight;
+    if (!ok) {
+      try { localStorage.removeItem('confit_user'); } catch {}
+      try { window.dispatchEvent(new CustomEvent(SESSION_EXPIRED_EVENT)); } catch {}
+    }
+    return ok;
+  }
+  return refreshInFlight;
+}
+
 export async function request<T>(
   endpoint: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
+  isRetry = false
 ): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
   const headers = new Headers(options.headers || {});
@@ -116,6 +162,21 @@ export async function request<T>(
         'API_NOT_REACHABLE',
         res.status
       );
+    }
+
+    // Session renewal: a 401 from anything OTHER than the auth endpoints
+    // themselves means the access cookie expired. Try ONE transparent
+    // refresh (single-flight, cookie-based) and replay the request once.
+    // A second 401, or a failed refresh, falls through to the honest error
+    // path below — never a loop.
+    if (
+      res.status === 401 &&
+      !isRetry &&
+      !/^\/auth\/(login|register|refresh|mfa|forgot-password|reset-password|social-login)/.test(endpoint)
+    ) {
+      if (await trySessionRefresh()) {
+        return request<T>(endpoint, options, true);
+      }
     }
 
     // If the endpoint returned an HTTP error (including 404/405 from a static

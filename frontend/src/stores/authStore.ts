@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { User } from '../models';
 import { authService } from '../services/apiServices';
-import { setAuthTokens, clearAuthTokens } from '../services/apiClient';
+import { setAuthTokens, clearAuthTokens, SESSION_EXPIRED_EVENT } from '../services/apiClient';
 
 interface AuthState {
   user: User | null;
@@ -181,3 +181,14 @@ export const useAuthStore = create<AuthState>((set) => ({
 // authenticated user has completed onboarding — used by AppRoutes to
 // gate the first-run onboarding redirect (G1 §23).
 export const selectHasProfile = (state: AuthState) => Boolean(state.user?.has_profile);
+// CYCLE-3 (BLOCKER J): the API client renews an expired access cookie
+// transparently (single-flight /auth/refresh + one retry). When renewal
+// itself fails the session is dead server-side — the client has already
+// purged local evidence; here we sync the store so every mounted component
+// re-renders into the honest signed-out state.
+if (typeof window !== 'undefined') {
+  window.addEventListener(SESSION_EXPIRED_EVENT, () => {
+    clearAuthTokens();
+    useAuthStore.setState({ user: null, isAuthenticated: false, mfaRequired: false });
+  });
+}

@@ -111,9 +111,9 @@ export const ConsumerLayout: React.FC = () => {
         <div className="max-w-7xl mx-auto pt-8 mt-10 border-t border-slate-800 flex flex-col sm:flex-row justify-between items-center gap-4 text-[11px] text-slate-500 font-light">
           <div>© {new Date().getFullYear()} CONFIT Fashion Technology Inc. All rights reserved.</div>
           <div className="flex gap-6">
-            <Link to="/profile" className="hover:text-slate-400">Privacy Policy</Link>
-            <Link to="/profile" className="hover:text-slate-400">Terms of Service</Link>
-            <Link to="/profile" className="hover:text-slate-400">GDPR Compliance</Link>
+            <Link to="/privacy" className="hover:text-slate-400">Privacy Policy</Link>
+            <Link to="/terms" className="hover:text-slate-400">Terms of Service</Link>
+            <Link to="/gdpr" className="hover:text-slate-400">GDPR Compliance</Link>
           </div>
         </div>
       </footer>

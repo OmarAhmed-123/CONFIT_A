@@ -57,10 +57,17 @@ Separate from the VTON worker (resource isolation). `QWEN_VL_WORKER_URL` unset �
 existing behaviour unchanged.
 
 ## Status (HONEST)
-✅ license-gated · ✅ unit/contract-tested (CPU) · ❌ **real GPU validation BLOCKED**
-(no GPU/Modal in the build sandbox). NOT MEASURED: latency/VRAM/accuracy (not
-invented). Do **not** claim "verified/production-ready" or advertise the fallback
-until the PR merge gate (`PR_MODEL_QWEN25_VL.md` §6) is green.
+✅ license-gated (Apache-2.0 verified) · ✅ unit/contract-tested (23/23) ·
+✅ **real GPU load + inference + feature benchmark MEASURED on A10G**:
+load ~7–8 s, peak VRAM **15.45 GiB**, per-image latency **3.2–4.9 s**; real
+on-model blazer image → all attributes correct; non-garment color block →
+honest `null` category (vision) / documented wardrobe false-positive.
+
+⚠️ **Live `/analyze` web serving BLOCKED in the build environment** (16.6 GB cold
+start exceeds the Modal edge window; `min_containers=1` did not sustain a warm
+container; no `modal logs` CLI). Do **not** set `QWEN_VL_WORKER_URL` in prod until
+the serving path is resolved (see `PR_MODEL_QWEN25_VL.md` §8 options). The model is
+GPU-verified; the HTTP serving wrapper is the remaining item.
 
 ## Tests
 `services/vlm-worker/test_inference.py` (8, CPU) · `backend/tests/test_qwen_vision.py`

@@ -11,9 +11,10 @@ Model:
   Revision: cc594898137f460bfe9f0759e9844b3ce807cfb5
   License:  Apache License 2.0
 
-The full Apache-2.0 license text is carried WITH the model weights (the model
-repository's LICENSE file is one of REQUIRED_FILES in model_spec.py). Per
-Apache-2.0 Section 4, the following attribution is retained:
+The 7B model is released under Apache-2.0 (model-card tag `license:apache-2.0`,
+verified 2026-09-07 via the Hugging Face API cardData). The repository does not
+ship a separate LICENSE file; this NOTICE carries the required Apache-2.0
+attribution. Per Apache-2.0 Section 4, the following is retained:
 
   Copyright 2025 The Qwen team / Alibaba Cloud. All rights reserved.
 

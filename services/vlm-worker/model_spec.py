@@ -31,8 +31,10 @@ HF_URL = "https://huggingface.co/Qwen/Qwen2.5-VL-7B-Instruct"
 
 # Exact file set the inference requires (matches the model card 'siblings'),
 # plus LICENSE so the Apache-2.0 evidence is carried with the weights.
+# The repo does NOT ship a LICENSE file (the Apache-2.0 license is the model-card
+# tag `license:apache-2.0`, verified separately); the 14 files below are exactly
+# what from_pretrained + the processor need for inference.
 REQUIRED_FILES: Tuple[str, ...] = (
-    "LICENSE",
     "config.json",
     "generation_config.json",
     "chat_template.json",

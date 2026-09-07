@@ -38,6 +38,27 @@ MODEL_DEVICE = os.environ.get("QWEN_VL_DEVICE", "auto")
 MODEL_DTYPE = os.environ.get("QWEN_VL_TORCH_DTYPE", "bfloat16")
 WORKER_GPU = os.environ.get("VLM_GPU", "A10G")
 
+# Image mirrors the proven VTON worker pattern (debian_slim + torch/CUDA stack).
+# PyPI torch bundles the NVIDIA CUDA runtime; A10G (CUDA 12) compatible.
+image = (
+    modal.Image.debian_slim(python_version="3.11")
+    .apt_install("libgomp1", "libgl1-mesa-glx", "libglib2.0-0")
+    .pip_install(
+        "torch",
+        "torchvision",  # required by Qwen2VLVideoProcessor
+        "transformers>=4.50.0",
+        "accelerate>=0.33.0",
+        "qwen-vl-utils>=0.0.8",
+        "huggingface_hub>=0.24.0",
+        "Pillow>=10.4.0",
+        "numpy>=1.26.0",
+        "httpx>=0.27.2",
+        "fastapi>=0.115.0",
+        "uvicorn>=0.32.0",
+        "pydantic>=2.9.0",
+    )
+)
+
 
 class AnalyzeRequest(BaseModel):
     image: str
@@ -102,7 +123,13 @@ def _image_to_bytes(image_ref: str) -> tuple[bytes, str]:
 
 
 @app.cls(
+    image=image,
     gpu=WORKER_GPU,
+    min_containers=1,  # keep one warm container: the 16.6 GB model's cold start
+    # (~70s) exceeds the Modal edge request window (else the container is
+    # cancelled mid-load). min_containers=1 loads it once at warm-up so /analyze
+    # is fast. Documented real GPU cost (1x A10G warm); set to 0 to scale to 0.
+    timeout=900,
     secrets=[modal.Secret.from_name("confit-vlm-admin-token")],
     volumes={WEIGHTS_DIR: modal.Volume.from_name("confit-qwen25vl-weights")},
 )

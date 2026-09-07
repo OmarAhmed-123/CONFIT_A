@@ -94,3 +94,59 @@ GitHub **write** access was unavailable this cycle (workspace no longer holds th
 | A finding | PAT cross-check vs pre-cycle remote | re-supplied PAT == OLD exposed value ⇒ rotation NOT done (fail-closed) |
 
 **Gate decision unchanged: NO-GO** — remaining: A/B rotation (+ all chat-pasted keys), C delivery, D storage, H brands.
+
+
+---
+
+# FINAL GATE — closure run (late 2026-09-07)
+
+## §28 Gate table (all rows re-verified this run; evidence in this file + CYCLE_5_BASELINE.md)
+
+| Gate | Status | Evidence | Remaining risk |
+|---|---|---|---|
+| Security (headers/cookies/CSRF/RBAC) | **VERIFIED** | 6/6 headers live; Secure/HttpOnly/Lax cookies; no-CSRF POST → 403; consumer→admin 403 | none known |
+| Credentials | **BLOCKED — OWNER** | exposed GitHub PAT **VALID** (authenticates); Vercel token **VALID**; Neon+AI keys exposed in chat | **active compromised credentials — primary NO-GO driver** |
+| Authentication | **VERIFIED** | login/me/refresh-rotation/logout live; 15-min access + silent refresh (5/5 browser smoke, post-flip cookie 900 s re-measured) | none known |
+| Admin / MFA | **VERIFIED** | recovery + MFA chain proven live (11 audit rows); this run: mfa_enabled=true, no disable events; RBAC contrast 403 | owner yet to change the temp password (handover file) |
+| Email | **PARTIALLY_AVAILABLE** | engineering deployed (`9d7ac4c`); live 501 — provider/domain NOT provisioned (env absent) | real delivery NOT_VERIFIED |
+| Storage | **PARTIALLY_AVAILABLE** | S3/R2 adapter ready + contract-tested; live 501 — bucket/keys NOT provisioned (env absent) | wardrobe/VTON persistence NOT_VERIFIED |
+| Commerce | **VERIFIED** | cart + two-order guest journey + replay 422 (cycle-3 live); code-path unchanged since (git-audited); suites green | none known |
+| VTON | **PARTIALLY_AVAILABLE** | single-garment path verified earlier; result persistence depends on storage (D) | multi-garment not claimed |
+| AI Stylist | **VERIFIED** | verified earlier; code unchanged since (git-audit); suites green | none known |
+| Fit Finder | **VERIFIED** | stale-response guard verified earlier; unchanged | none known |
+| Brands | **OWNER_DECISION_REQUIRED** | real brand names live, unlabeled; zero license artifacts | legal exposure if launched as-is |
+| Accessibility / RTL | **VERIFIED** | WCAG/RTL pass (earlier cycles); frontend unchanged since | none known |
+| Deployment | **VERIFIED** | Vercel prod READY on `main`; CI 6/6; schema gate green | none known |
+| Database | **VERIFIED** | Neon: alembic head `0017` (read this run); migration gate in CI; no drift | none known |
+| Observability | **PARTIALLY_AVAILABLE** | `/health`, audit trail (156+ rows), Vercel deployment status, telemetry endpoints | no external alerting/SLO monitoring provisioned — disclosed, non-blocking |
+
+## §31 Final owner action matrix
+
+| Owner action | Required evidence | Status |
+|---|---|---|
+| GitHub rotation | OLD=invalid + NEW=valid | **NOT DONE** (old VALID — proven this run) |
+| Vercel rotation | OLD=invalid + NEW=valid | **NOT DONE** (exposed token VALID) |
+| Rotate Neon password + OpenAI/Gemini/Groq/Modal/Fitroom keys (chat-exposed) | old invalidated in each dashboard | **NOT_VERIFIED — OWNER** |
+| Token lifetime 15 min + silent refresh | cookie 900 s + one-refresh smoke | **DONE — VERIFIED** (live) |
+| Email | real email received + redeemed | **NOT VERIFIED — OWNER** (env absent) |
+| Storage | persisted across reload/redeploy | **NOT VERIFIED — OWNER** (env absent) |
+| Admin | login + password change | login+MFA **VERIFIED**; password change **pending owner** (temp creds in handover file) |
+| MFA | challenge + recovery code | **DONE — VERIFIED** (live, audited) |
+| Brands | decision + implementation | **OWNER_DECISION_REQUIRED** |
+
+## FINAL DECISION
+
+### **NO-GO**
+
+Binding reasons (§30, fail-closed):
+1. **Active compromised credentials** — the exposed GitHub PAT and Vercel token both authenticate TODAY (proven live this run), plus the Neon DB password and five AI-provider keys exposed in chat. §30 GO requires zero.
+2. **Unverified production-critical capabilities**: email delivery (account recovery) and object storage (wardrobe persistence) are unprovisioned — both return honest 501.
+3. **Critical legal blocker**: real brand names displayed with no license decision.
+
+Everything else on the §28 table is VERIFIED with reproducible evidence and zero regressions (1050/7 · 100/18 · tsc · build · CI 6/6).
+
+**Flip path (exact, no engineering remains):**
+- Rotate the 8 exposed credentials (dashboards only) → **unblocks the security hold**
+- Runbook C (Resend + DNS + 6 env) and runbook D (R2 bucket + keys) → **flips email/storage to VERIFIED** (engineering already deployed)
+- Brand decision (DEMO_ONLY labeling or rebrand) → one focused PR
+- → then **CONDITIONAL GO** immediately; **GO** once the live checks (inbox delivery + redeem; upload/persist/delete; brand PR merged) pass.

@@ -262,6 +262,15 @@ class Settings(BaseSettings):
     VTON_WORKER_TIMEOUT_SECONDS: float = 90.0
     VTON_WORKER_HEALTH_TIMEOUT_SECONDS: float = 5.0
     VTON_WORKER_MAX_RETRIES: int = 3
+
+    # Self-hosted Qwen2.5-VL vision worker (LOCAL FALLBACK). When
+    # QWEN_VL_WORKER_URL is set, VisualSearchAIProvider.fallback uses the local
+    # Qwen worker when Gemini is exhausted/unavailable. Unset => unchanged.
+    QWEN_VL_ENABLED: bool = True
+    QWEN_VL_WORKER_URL: Optional[str] = None
+    QWEN_VL_WORKER_TOKEN: Optional[str] = None
+    QWEN_VL_MODEL_ID: str = "Qwen/Qwen2.5-VL-7B-Instruct"
+    QWEN_VL_TIMEOUT_SECONDS: float = 90.0
     # Temporary (NON-persistent) delivery of generated try-on images.
     # Product requirement (2026-09-05): the generated image is downloadable by
     # the authenticated requesting user but must NEVER be stored permanently

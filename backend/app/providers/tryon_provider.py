@@ -9,6 +9,8 @@ from backend.app.providers.base import BaseProvider
 from backend.app.services.styling.prompt_builder import InternalDynamicPromptBuilder
 from backend.app.core.config import settings
 from backend.app.core.exceptions import TryOnEngineUnavailableError
+from backend.app.core.logging import logger
+from backend.app.providers.qwen_vision import QwenVisionError, QwenVisionProvider
 
 
 class VirtualTryOnProvider(BaseProvider):
@@ -293,9 +295,16 @@ class VisualSearchAIProvider(BaseProvider):
         # 10s was observed to time out on cold Gemini calls in production-like
         # conditions; 30s matches the inner httpx timeout.
         super().__init__(name="Visual_Search_Provider", timeout_seconds=30.0, max_retries=2)
+        # Local self-hosted Qwen2.5-VL fallback (lightweight client; no torch).
+        # No-op unless QWEN_VL_WORKER_URL is configured (see qwen_vision/README.md).
+        self._qwen_provider = QwenVisionProvider()
 
     async def analyze_fashion_image(self, image_url_or_base64: str) -> Dict[str, Any]:
-        return await self.execute_with_resilience(self._call_vision_model, image_url_or_base64=image_url_or_base64)
+        return await self.execute_with_resilience(
+            self._call_gemini_vision,
+            image_url_or_base64=image_url_or_base64,
+            prompt=self.VISION_PROMPT,
+        )
 
     # Group 4 — wardrobe auto-tagging. Same vision backend (Gemini Flash,
     # VISION_MODEL config) as visual search, with a wardrobe-specific prompt
@@ -357,9 +366,6 @@ class VisualSearchAIProvider(BaseProvider):
                 return _b64.b64encode(resp.content).decode(), mime
         raise ValueError("Image reference must be a data URL or http(s) URL")
 
-    async def _call_vision_model(self, image_url_or_base64: str) -> Dict[str, Any]:
-        return await self._call_gemini_vision(image_url_or_base64, self.VISION_PROMPT)
-
     async def _call_gemini_vision(self, image_url_or_base64: str, prompt: str) -> Dict[str, Any]:
         """Single Gemini Flash vision caller shared by visual search and Group 4
         wardrobe auto-tagging (§30: one canonical call path, prompt is the only
@@ -393,13 +399,12 @@ class VisualSearchAIProvider(BaseProvider):
             return parsed
 
     async def fallback(self, image_url_or_base64: str, **kwargs) -> Dict[str, Any]:
-        # Honest degradation: no detection is fabricated. Accepts (and ignores)
-        # the extra call kwargs (e.g. prompt) that execute_with_resilience
-        # forwards so a caller-supplied argument never breaks the fallback
-        # contract. Both consumers (visual search, Group 4 wardrobe auto-tagging)
-        # check analysis_available first, so the unavailable payload carries
-        # both key sets with null detections — never invented attributes.
-        return {
+        # Fallback order: (1) local self-hosted Qwen2.5-VL worker (when
+        # configured) -> (2) honest degradation. No detection is ever
+        # fabricated. Both consumers (visual search, Group 4 wardrobe
+        # auto-tagging) check analysis_available first, so the unavailable
+        # payload carries both key sets with null detections.
+        honest_unavailable = {
             "analysis_available": False,
             "analysis_source": "unavailable (set GEMINI_API_KEY)",
             "detected_category": None,
@@ -409,3 +414,20 @@ class VisualSearchAIProvider(BaseProvider):
             "detected_attributes": {},
             "category": None,
         }
+        if not self._qwen_provider.is_configured():
+            logger.info("visual_search_local_fallback_not_configured")
+            return honest_unavailable
+        prompt = kwargs.get("prompt") or self.VISION_PROMPT
+        mode = "wardrobe" if prompt == self.WARDROBE_TAG_PROMPT else "visual_search"
+        try:
+            data = await self._qwen_provider.analyze(image_url_or_base64, prompt, mode=mode)
+        except QwenVisionError as exc:
+            logger.warning("visual_search_local_fallback_failed", reason=exc.reason, detail=exc.message)
+            return honest_unavailable
+        if data.get("analysis_available"):
+            return data
+        logger.warning(
+            "visual_search_local_fallback_unusable",
+            reason=str(data.get("error") or data.get("detail") or ""),
+        )
+        return honest_unavailable

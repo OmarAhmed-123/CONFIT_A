@@ -59,3 +59,55 @@ regexes = [
   # ---------------------------------------------------------------------
   '''neondb_owner:npg_[^@]*@ep-frosty-term-b2ivqwuz''',
 ]
+
+# ---------------------------------------------------------------------------
+# CYCLE 11 (2026-09-07): provider token formats this project actually uses.
+# Evidence: a LIVE Modal token-id sat in a PUBLIC unmerged branch
+# (final-no-excuses-release-gate, FINAL_PRODUCTION_REPORT.md) and the
+# default ruleset over --all refs found NOTHING — these formats have no
+# default rule. Each rule below is anchored on the provider's documented
+# token prefix, never on any secret value.
+# ref: https://modal.com/docs/guide/modal-tokens (ak-… token id / as-… secret)
+# ref: https://vercel.com/docs/accounts/create-access-token (vcp_…)
+# ref: https://console.groq.com/docs/api-keys (gsk_…)
+# ref: https://ai.google.dev/gemini-api-docs/api-key (AIza… / AQ.…) — no
+#      default gitleaks rule covers the newer AQ. format.
+# Fine-grained GitHub PATs (github_pat_) ARE covered by default rules since
+# 8.21; no duplicate rule added.
+# ---------------------------------------------------------------------------
+[[rules]]
+id = "modal-token"
+description = "Modal token id (ak-) or token secret (as-)"
+regex = '''\b(?:a[ks]-)[A-Za-z0-9]{16,}\b'''
+keywords = ["ak-", "as-"]
+  [[rules.allowlists]]
+  # CYCLE 11 — known-exposure entry, ROTATION PENDING OWNER ACTION. The Modal
+  # token id ak-Gc9… (full value never written in this file) was committed at
+  # 4edc171a (FINAL_PRODUCTION_REPORT.md, 2026-09-02; file later deleted —
+  # value still reachable in main history and on branch
+  # final-no-excuses-release-gate). Tracked as an owner blocker since cycle 5.
+  # The id alone cannot authenticate (Modal requires the id + secret pair; the
+  # as- secret half was never committed). This suppresses ONLY this documented
+  # exposure so the rule keeps catching every other Modal token; the launch
+  # gate stays NO-GO until rotation is proven. Residual risk: a future token
+  # whose id also starts ak-Gc9 would be missed — acceptable for one
+  # documented pending-rotation credential.
+  regexes = ['''ak-Gc9[A-Za-z0-9]*''']
+
+[[rules]]
+id = "vercel-access-token"
+description = "Vercel access token (vcp_)"
+regex = '''\bvcp_[A-Za-z0-9]{20,}\b'''
+keywords = ["vcp_"]
+
+[[rules]]
+id = "groq-api-key"
+description = "Groq API key (gsk_)"
+regex = '''\bgsk_[A-Za-z0-9]{20,}\b'''
+keywords = ["gsk_"]
+
+[[rules]]
+id = "gemini-api-key-aq"
+description = "Gemini API key (AQ. format)"
+regex = '''\bAQ\.[A-Za-z0-9_\-]{20,}\b'''
+keywords = ["AQ."]

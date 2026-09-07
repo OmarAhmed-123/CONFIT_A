@@ -43,3 +43,36 @@ actually happens, so it reflects then-current pricing/limits rather than today's
 - Token lifetime: OWASP-grounded 15 min access + 30 d rotating refresh; production
   flip is an owner env action, safe since `44fa877` (cycle 3), re-verified live this
   cycle (refresh 200 with rotation during the auth smoke).
+
+
+## R1-addendum — Access restored by owner delegation (same day, cycle 5)
+
+- **Finding:** the owner supplied the automation PAT + Vercel token + production
+  DATABASE_URL (and several AI-provider keys) directly in chat.
+  (a) The supplied GitHub PAT is **byte-identical to the previously exposed one**
+  (cross-checked against the value embedded in the pre-cycle-5 remote URL) ⇒
+  rotation has NOT happened — blocker A stays open under fail-closed rules.
+  (b) The Vercel token authenticates (deployments API 200) but cannot be
+  compared to the old one (never recorded) ⇒ B remains NOT_VERIFIED.
+  (c) NEW exposure surface: every credential pasted in chat must now be
+  considered exposed (GitHub, Vercel, Neon DB password, OpenAI, Gemini, Groq,
+  Modal, Fitroom) — all added to the rotation list.
+- **Delegation executed (runbook-based, audited):**
+  - **G:** `ACCESS_TOKEN_EXPIRE_MINUTES` 1440→15 via Vercel API (env id
+    UxLJQ57IAf8qJGhY, sensitive type preserved), production redeploy
+    `dpl_6KzwLbZULEQipEQi6qBVSTEUwZ4j` (READY, sha 00ffd7a). Live proof:
+    `confit_token`/`confit_csrf` Max-Age now **900 s**, refresh 2592000 s.
+    §6 browser smoke on production: 5/5 (login → simulated expiry → exactly
+    ONE refresh → /auth/me 200 → session continues → logout cleanup).
+  - **E+F:** `admin@confit.io` existed (role ADMIN, active, password lost —
+    6 historical failed logins). Recovery per runbook: one-off password reset
+    using the app's exact bcrypt scheme + `ADMIN_PASSWORD_RECOVERED` audit
+    row; then the full §15 chain live: admin login 200 → /admin/analytics
+    authorized 200 → MFA enroll (TOTP) → logout → login-without-code
+    MFA_REQUIRED → TOTP login 200 → recovery-code login 200 → replay
+    rejected 401 (audited MFA_FAILED) → codes regenerated → logout.
+    Audit: 11 rows captured the entire chain. Credentials delivered to the
+    owner via `/home/user/ADMIN_HANDOVER.md` (outside git; secrets never
+    printed to outputs).
+- **Decision:** E, F, G flip to VERIFIED. A/B/C/D/H unchanged. Neon password
+  rotation added to the owner action list (exposed in chat).

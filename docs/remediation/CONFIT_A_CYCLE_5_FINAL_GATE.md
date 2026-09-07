@@ -150,3 +150,15 @@ Everything else on the §28 table is VERIFIED with reproducible evidence and zer
 - Runbook C (Resend + DNS + 6 env) and runbook D (R2 bucket + keys) → **flips email/storage to VERIFIED** (engineering already deployed)
 - Brand decision (DEMO_ONLY labeling or rebrand) → one focused PR
 - → then **CONDITIONAL GO** immediately; **GO** once the live checks (inbox delivery + redeem; upload/persist/delete; brand PR merged) pass.
+
+
+---
+
+## Re-verification runs (post-closure)
+
+| Run | Delta found | Decision |
+|---|---|---|
+| Closure run (PR #91, `097b379`) | none — full evidence in this file | NO-GO |
+| Re-run #2 (same day, later) | **zero delta**: main unchanged · 0 open PRs · exposed GitHub PAT **VALID** (API 200) · Vercel token **VALID** · email & storage env absent (501 live) · G holding (cookie 900 s) · admin+MFA intact (DB: mfa_enabled=true, 0 disable events) · brands unchanged · health 200 · 6/6 headers · alembic 0017 | **NO-GO — stands** |
+
+The gate cannot move without owner-side inputs (rotation proof, email/storage provisioning, brand decision). Re-running verification alone produces no new state — by design.

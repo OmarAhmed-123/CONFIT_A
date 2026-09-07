@@ -93,3 +93,18 @@ Delta audit at cycle start: no new branches/PRs (only pre-existing #75, owner di
 | Auth session lifecycle (BLOCKER J) | refresh_token returned in body but DISCARDED by frontend (setAuthTokens stub); no httpOnly refresh cookie; apiClient never calls /auth/refresh → owner cannot safely lower 1440-min env without logging users out every 15 min | P1 | none (auth branches merged/closed) | `fix/auth-session-lifecycle` (NEW) | OWASP Session Mgmt CS + 2026 token-lifetime defaults (short access + rotating refresh + reuse detection) | 5 (`50d6ea9`→`31b1298`) | #84 | `44fa877` | verified live: refresh cookie + rotation + silent renewal + 6/6 headers (preview 13/13, prod smoke) | **FIXED** — owner env change 1440→15 now safe |
 
 Research record → docs/research/CONFIT_A_CYCLE_3_RESEARCH.md.
+
+
+---
+
+## 7. Cycle 4 (2026-09-07) — baseline `main` @ `0dcb0f3` — OWNER-BLOCKER RESOLUTION
+
+Verify-first baseline (PR #87): all 9 owner blockers re-tested live, none assumed. Findings included a latent fake-"queued" email stub and an already-implemented S3/R2 backend.
+
+| Feature / item | Finding | Severity | Branch used | Commits | PR | Merge SHA | Production | Status |
+|---|---|---|---|---|---|---|---|---|
+| PR #75 disposition | standby revert now harmful (prod DB stamped 0017; admin routes live) — evidence-led close | P2 | — | — | #75 (closed) | — | — | **CLOSED (SUPERSEDED)** |
+| Email delivery engineering (BLOCKER C half) | NO transport existed; EMAIL_PROVIDER would fake-"queued"; verification was a double-501 placeholder | P1 | `fix/email-delivery` | 4 (`9e31169`→`b42ed6c`) | #88 | `9d7ac4c` | verified live (404→501 new endpoint, health 200, no regression) | **PARTIALLY_AVAILABLE** — delivery needs owner provider (runbook C) |
+| Owner runbooks A–H | every remaining blocker executable by owner in minutes/hours with proof checks | P1 | `docs/cycle4-closure` | 1 | #89 | — | — | VERIFIED (docs) |
+
+Suites at cycle-4 close: backend **1050 ✅ / 7 ⏭** · frontend 100 ✅ · CI 6/6 on main. Launch Gate: **NO-GO** — solely owner-side items (active unrotated PAT, unverified Vercel token, email/storage provisioning, admin recovery, token-lifetime flip, brand decision). Details: `CONFIT_A_CYCLE_4_FINAL_REPORT.md` + `CYCLE_4_OWNER_RUNBOOKS.md`.

@@ -110,6 +110,10 @@ class ResetPasswordRequest(BaseModel):
     new_password: str = Field(min_length=8, max_length=72)
 
 
+class EmailVerificationRequest(BaseModel):
+    email: EmailStr
+
+
 class VerifyEmailRequest(BaseModel):
     token: str
 
@@ -264,23 +268,22 @@ def reset_password(request: Request, payload: ResetPasswordRequest, db: Session 
     return {"status": "success", "message": "Password updated. Please sign in again."}
 
 
+@router.post("/verify-email/request")
+@limiter.limit("5/minute")
+def request_email_verification(request: Request, payload: EmailVerificationRequest, db: Session = Depends(get_db)):
+    """Issue (or re-issue) a verification email. Non-committal response by
+    design: never reveals whether the address exists or still needs
+    verification. Rate-limited per IP."""
+    return AuthService(db).request_email_verification(payload.email, ip_address=_client_ip(request))
+
+
 @router.post("/verify-email")
-def verify_email(payload: VerifyEmailRequest, db: Session = Depends(get_db)):
-    # Email verification requires a real email provider to actually deliver
-    # the token to the user. Without one, we cannot honestly claim this
-    # feature is available (spec §12).
-    if not settings.EMAIL_PROVIDER:
-        raise FeatureNotConfiguredError(
-            "email_delivery",
-            hint="Configure EMAIL_PROVIDER to enable email verification.",
-        )
-    # Real implementation would look up EmailVerificationToken by hash,
-    # mark used, set user.is_verified=True. Left as an explicit TODO
-    # rather than a fake success — this is spec-mandated behavior.
-    raise FeatureNotConfiguredError(
-        "email_verification_dispatch",
-        hint="Email delivery pipeline not wired yet; verification token cannot be issued.",
-    )
+@limiter.limit("10/minute")
+def verify_email(request: Request, payload: VerifyEmailRequest, db: Session = Depends(get_db)):
+    # Redemption is real as of cycle 4: hashed one-time token, 24 h expiry,
+    # flips user.is_verified. Unconfigured environments still get the honest
+    # 501 — there would be no way to deliver the token in the first place.
+    return AuthService(db).complete_email_verification(payload.token)
 
 
 # --- current user ------------------------------------------------------------

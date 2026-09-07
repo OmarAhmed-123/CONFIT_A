@@ -155,12 +155,20 @@ class Settings(BaseSettings):
 
     # Email provider — Group 1 §12. When unset, password-reset & verification
     # endpoints return 501 FEATURE_NOT_CONFIGURED (never a fake success).
-    EMAIL_PROVIDER: Optional[str] = None  # "smtp" | "sendgrid" | None
+    # When set (smtp), a REAL transport must be reachable (see
+    # services/email_service.py) — a provider flag without SMTP_HOST is a
+    # configuration error and refuses to boot in production (validator below).
+    EMAIL_PROVIDER: Optional[str] = None  # "smtp" | None
     EMAIL_FROM_ADDRESS: Optional[str] = None
     SMTP_HOST: Optional[str] = None
     SMTP_PORT: int = 587
     SMTP_USERNAME: Optional[str] = None
     SMTP_PASSWORD: Optional[str] = None
+
+    # Where the SPA lives — used to build action links (reset/verify) inside
+    # transactional emails. No default magic-prod value: previews and local
+    # dev point at themselves; production MUST set it explicitly.
+    FRONTEND_BASE_URL: str = "http://localhost:43123"
 
     # Database & Redis
     DATABASE_URL: str = "sqlite:///./backend/data/confit.db"
@@ -411,6 +419,18 @@ class Settings(BaseSettings):
             return self
 
         problems: List[str] = []
+
+        # CYCLE 4 (email honesty gate): EMAIL_PROVIDER=smtp without a real
+        # transport config would let the API answer "queued" while nothing is
+        # sent — the exact fake-success class this codebase forbids.
+        if (self.EMAIL_PROVIDER or "").lower() == "smtp":
+            if not self.SMTP_HOST:
+                problems.append("EMAIL_PROVIDER=smtp requires SMTP_HOST (refusing to boot: sends would be fake)")
+            if not self.EMAIL_FROM_ADDRESS:
+                problems.append("EMAIL_PROVIDER=smtp requires EMAIL_FROM_ADDRESS")
+            if not self.FRONTEND_BASE_URL.startswith("https://"):
+                problems.append("FRONTEND_BASE_URL must be https:// in production (email links)")
+
         for name in ("SECRET_KEY", "JWT_REFRESH_SECRET", "ENCRYPTION_KEY_FOR_BODY_DATA"):
             value = getattr(self, name) or ""
             if value in PUBLICLY_KNOWN_SECRET_VALUES:

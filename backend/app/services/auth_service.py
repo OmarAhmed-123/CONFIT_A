@@ -30,6 +30,12 @@ from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from backend.app.core.config import settings
+from backend.app.services.email_service import (
+    EmailDeliveryError,
+    render_password_reset_email,
+    render_verification_email,
+    send_email,
+)
 from backend.app.core.exceptions import (
     AuthenticationError,
     FeatureNotConfiguredError,
@@ -109,6 +115,20 @@ class AuthService:
             preferred_language=preferred_language,
         )
 
+        # Best-effort verification email: registration NEVER fails because of
+        # email transport (the account exists either way); failures are audited.
+        if settings.EMAIL_PROVIDER and not user.is_verified:
+            try:
+                vtoken = secrets.token_urlsafe(32)
+                self.db.add(EmailVerificationToken(
+                    user_id=user.id,
+                    token_hash=_sha256_hex(vtoken),
+                    expires_at=datetime.now(timezone.utc) + _EMAIL_VERIFICATION_TTL,
+                ))
+                self.db.commit()
+                self._send_verification_email(user, vtoken)
+            except Exception as exc:  # noqa: BLE001 — registration must survive email issues
+                logger.warn("Post-registration verification email failed", error=str(exc)[:120])
         tokens = self._issue_session_tokens(user, ip_address=ip_address, user_agent=user_agent)
         self.user_repo.log_audit(
             "USER_REGISTERED", "User", str(user.id), user_id=user.id, ip_address=ip_address
@@ -602,18 +622,95 @@ class AuthService:
         )
 
     def _send_password_reset_email(self, user: User, token: str) -> None:
-        # Real delivery is deliberately out of scope for this PR — spec §12:
-        # "If there is no configured email provider, do not simulate sending."
-        # The FeatureNotConfiguredError above prevents this method from ever
-        # being reached without EMAIL_PROVIDER set; when a provider is
-        # configured, wire it here (smtplib / sendgrid / ses).
-        logger.info(
-            "Password reset email dispatch",
-            provider=settings.EMAIL_PROVIDER,
-            user_id=user.id,
-            # NEVER log the token itself — only its length as a diagnostic.
-            token_len=len(token),
+        """REAL delivery (cycle 4). Raises nothing on transport failure: the
+        endpoint's response is deliberately non-committal so it cannot leak
+        account existence; a hard failure is recorded in the audit trail
+        instead (PASSWORD_RESET_EMAIL_FAILED) and the token stays valid, so
+        the user can simply request again."""
+        reset_url = f"{settings.FRONTEND_BASE_URL.rstrip('/')}/reset-password?token={token}"
+        subject, html, text = render_password_reset_email(user.full_name or "there", reset_url)
+        try:
+            send_email(to=user.email, subject=subject, html=html, text=text)
+            self.user_repo.log_audit(
+                "PASSWORD_RESET_EMAIL_SENT", "User", str(user.id), user_id=user.id
+            )
+        except EmailDeliveryError as exc:
+            logger.error(
+                "Password reset email delivery FAILED",
+                user_id=user.id,
+                error=str(exc)[:160],
+            )
+            self.user_repo.log_audit(
+                "PASSWORD_RESET_EMAIL_FAILED", "User", str(user.id), user_id=user.id
+            )
+
+    # ------------------------------------------------------------------
+    # Email verification — issue (hashed, 24 h, one-time) + redeem
+    # ------------------------------------------------------------------
+    def request_email_verification(self, email: str, ip_address: Optional[str] = None) -> Dict[str, Any]:
+        if not settings.EMAIL_PROVIDER:
+            raise FeatureNotConfiguredError(
+                "email_delivery",
+                hint="Configure EMAIL_PROVIDER + SMTP settings to enable email verification.",
+            )
+        user = self.user_repo.get_by_email(email)
+        if user and user.is_verified is not True:
+            token = secrets.token_urlsafe(32)
+            row = EmailVerificationToken(
+                user_id=user.id,
+                token_hash=_sha256_hex(token),
+                expires_at=datetime.now(timezone.utc) + _EMAIL_VERIFICATION_TTL,
+            )
+            self.db.add(row)
+            self.db.commit()
+            self._send_verification_email(user, token)
+            self.user_repo.log_audit(
+                "EMAIL_VERIFICATION_REQUESTED", "User", str(user.id), user_id=user.id, ip_address=ip_address
+            )
+        return {
+            "status": "queued",
+            "message": "If this address needs verification, a confirmation link has been sent.",
+        }
+
+    def _send_verification_email(self, user: User, token: str) -> None:
+        verify_url = f"{settings.FRONTEND_BASE_URL.rstrip('/')}/verify-email?token={token}"
+        subject, html, text = render_verification_email(user.full_name or "there", verify_url)
+        try:
+            send_email(to=user.email, subject=subject, html=html, text=text)
+        except EmailDeliveryError as exc:
+            logger.error(
+                "Verification email delivery FAILED", user_id=user.id, error=str(exc)[:160]
+            )
+            self.user_repo.log_audit(
+                "EMAIL_VERIFICATION_EMAIL_FAILED", "User", str(user.id), user_id=user.id
+            )
+
+    def complete_email_verification(self, token: str) -> Dict[str, Any]:
+        if not settings.EMAIL_PROVIDER:
+            raise FeatureNotConfiguredError(
+                "email_delivery",
+                hint="Configure EMAIL_PROVIDER + SMTP settings to enable email verification.",
+            )
+        row = (
+            self.db.query(EmailVerificationToken)
+            .filter(EmailVerificationToken.token_hash == _sha256_hex(token))
+            .first()
         )
+        now = datetime.now(timezone.utc)
+        if row is None or row.used_at is not None:
+            raise AuthenticationError("Verification link is invalid or has already been used.")
+        if row.expires_at.replace(tzinfo=timezone.utc) < now:
+            raise AuthenticationError("Verification link has expired. Request a new one.")
+        user = self.user_repo.get_by_id(row.user_id)
+        if user is None:
+            raise AuthenticationError("Account no longer exists.")
+        row.used_at = now
+        user.is_verified = True
+        self.db.commit()
+        self.user_repo.log_audit(
+            "EMAIL_VERIFIED", "User", str(user.id), user_id=user.id
+        )
+        return {"status": "success", "message": "Email verified. Thank you!"}
 
     # ------------------------------------------------------------------
     # GDPR export & account deletion

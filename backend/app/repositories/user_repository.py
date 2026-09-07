@@ -2,6 +2,7 @@ from typing import Optional
 from sqlalchemy.orm import Session
 from backend.app.models.user import User, UserRole, AuditLog
 from backend.app.core.security import get_password_hash
+from backend.app.core.config import settings
 
 
 class UserRepository:
@@ -31,7 +32,12 @@ class UserRepository:
             phone=phone,
             preferred_language=preferred_language,
             is_active=True,
-            is_verified=True
+            # CYCLE 4: with a real email provider configured, verification
+            # must be EARNED via the emailed one-time link (starts False).
+            # Without a provider there is no honest way to verify — legacy
+            # behavior keeps True so the flag never lies about a check that
+            # cannot exist (the 501 endpoints make the gap explicit).
+            is_verified=not bool(settings.EMAIL_PROVIDER)
         )
         self.db.add(user)
         self.db.commit()

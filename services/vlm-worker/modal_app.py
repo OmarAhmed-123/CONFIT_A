@@ -125,10 +125,11 @@ def _image_to_bytes(image_ref: str) -> tuple[bytes, str]:
 @app.cls(
     image=image,
     gpu=WORKER_GPU,
-    min_containers=1,  # keep one warm container: the 16.6 GB model's cold start
-    # (~70s) exceeds the Modal edge request window (else the container is
-    # cancelled mid-load). min_containers=1 loads it once at warm-up so /analyze
-    # is fast. Documented real GPU cost (1x A10G warm); set to 0 to scale to 0.
+    # Keep one warm container in production: the 16.6 GB model's cold start (~70s)
+    # exceeds the Modal edge request window (else the container is cancelled
+    # mid-load). min_containers=1 loads it once at warm-up so /analyze is fast
+    # (real continuous A10G cost). Override with VLM_MIN_CONTAINERS=0 to scale to 0.
+    min_containers=int(os.environ.get("VLM_MIN_CONTAINERS", "1")),
     timeout=900,
     secrets=[modal.Secret.from_name("confit-vlm-admin-token")],
     volumes={WEIGHTS_DIR: modal.Volume.from_name("confit-qwen25vl-weights")},

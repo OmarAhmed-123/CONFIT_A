@@ -70,6 +70,16 @@ export const authService = {
       body: JSON.stringify({ password }),
     }),
 
+  // Cycle 9: authenticated password rotation — the only in-product way to
+  // change a password while email delivery is unprovisioned (the email
+  // reset path honestly 501s until a provider exists). MFA-enabled
+  // accounts must also send a current authenticator/recovery code.
+  changePassword: (payload: { current_password: string; new_password: string; mfa_code?: string }) =>
+    request<{ status: string; message: string }>('/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
   regenerateMFACodes: () =>
     request<{ status: string; backup_codes: string[] }>('/auth/mfa/regenerate-codes', {
       method: 'POST',

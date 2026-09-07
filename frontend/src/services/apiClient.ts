@@ -199,8 +199,9 @@ export async function request<T>(
       // generic sign-in nudge hid real login failures — the user typed a
       // wrong password and was told to "sign in", with no error. The nudge
       // remains correct for OTHER endpoints, where 401 means the session is
-      // missing/expired.
-      const isAuthAttempt = /^\/auth\/(login|register|mfa)/.test(endpoint);
+      // missing/expired. Cycle 9: change-password 401s are re-authentication
+      // failures ("Current password is incorrect."), not session expiry.
+      const isAuthAttempt = /^\/auth\/(login|register|mfa|change-password)/.test(endpoint);
       if (
         (res.status === 401 ||
           (userFriendlyMessage && userFriendlyMessage.toLowerCase().includes('bearer token'))) &&

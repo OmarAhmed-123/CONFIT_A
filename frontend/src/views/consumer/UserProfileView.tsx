@@ -57,6 +57,18 @@ export const UserProfileView: React.FC = () => {
   const [mfaBackupCodes, setMfaBackupCodes] = useState<string[]>([]);
   const [mfaBusy, setMfaBusy] = useState(false);
 
+  // ---- Change password state (cycle 9) ---------------------------------
+  // In-product rotation: the email reset path 501s while no provider is
+  // provisioned, so this form is the ONLY password-change path (it is also
+  // how the owner completes the admin handover: sign in with the temporary
+  // password once, then change it here).
+  const [pwPanel, setPwPanel] = useState(false);
+  const [pwCurrent, setPwCurrent] = useState('');
+  const [pwNew, setPwNew] = useState('');
+  const [pwConfirm, setPwConfirm] = useState('');
+  const [pwMfa, setPwMfa] = useState('');
+  const [pwBusy, setPwBusy] = useState(false);
+
   useEffect(() => {
     setMfaEnabled(!!user?.mfa_enabled);
   }, [user?.mfa_enabled]);
@@ -116,6 +128,31 @@ export const UserProfileView: React.FC = () => {
       showToast('Regeneration failed: ' + err.message, 'error');
     } finally {
       setMfaBusy(false);
+    }
+  };
+
+  const changePassword = async () => {
+    if (pwNew !== pwConfirm) {
+      showToast('The new passwords do not match.', 'error');
+      return;
+    }
+    setPwBusy(true);
+    try {
+      await authService.changePassword({
+        current_password: pwCurrent,
+        new_password: pwNew,
+        ...(mfaEnabled ? { mfa_code: pwMfa.trim() } : {}),
+      });
+      setPwPanel(false);
+      setPwCurrent(''); setPwNew(''); setPwConfirm(''); setPwMfa('');
+      showToast('Password changed. Please sign in again with your new password.', 'success');
+      // The server revoked EVERY session (including this one) — sign out
+      // locally so the UI reflects the real state instead of a ghost session.
+      await logout();
+    } catch (err: any) {
+      showToast('Password change failed: ' + err.message, 'error');
+    } finally {
+      setPwBusy(false);
     }
   };
 
@@ -579,6 +616,86 @@ export const UserProfileView: React.FC = () => {
                   </button>
                 </>
               )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Security — Change Password (cycle 9): the only in-product password
+          rotation path while email delivery is unprovisioned; also the
+          completion step of the admin handover (temp → owner password). */}
+      {isAuthenticated && (
+        <div className="bg-white rounded-3xl border border-slate-200/80 p-6 shadow-2xs space-y-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="text-xs font-bold text-slate-900">Password</div>
+              <div className="text-[11px] text-slate-500 font-light">
+                Changing your password signs you out everywhere — all sessions are revoked.
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                setPwPanel(!pwPanel);
+                setPwCurrent(''); setPwNew(''); setPwConfirm(''); setPwMfa('');
+              }}
+              disabled={pwBusy}
+              className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-800 disabled:opacity-50 shrink-0"
+            >
+              {pwPanel ? 'Cancel' : 'Change password'}
+            </button>
+          </div>
+
+          {pwPanel && (
+            <div className="space-y-3 pt-2 border-t border-slate-100">
+              {mfaEnabled && (
+                <p className="text-[11px] text-slate-600">
+                  Two-factor authentication is on — enter a current authenticator (or recovery) code as well.
+                </p>
+              )}
+              <input
+                type="password"
+                placeholder="Current password"
+                value={pwCurrent}
+                onChange={(e) => setPwCurrent(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-[#C5A059]"
+              />
+              <input
+                type="password"
+                placeholder="New password (min 8 chars, mixed case / digit / symbol)"
+                value={pwNew}
+                onChange={(e) => setPwNew(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-[#C5A059]"
+              />
+              <input
+                type="password"
+                placeholder="Confirm new password"
+                value={pwConfirm}
+                onChange={(e) => setPwConfirm(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-[#C5A059]"
+              />
+              {mfaEnabled && (
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="6-digit MFA code (or recovery code)"
+                  value={pwMfa}
+                  onChange={(e) => setPwMfa(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-[#C5A059]"
+                />
+              )}
+              <button
+                onClick={changePassword}
+                disabled={
+                  pwBusy ||
+                  !pwCurrent ||
+                  pwNew.length < 8 ||
+                  !pwConfirm ||
+                  (mfaEnabled && pwMfa.trim().length < 6)
+                }
+                className="px-4 py-2 rounded-xl bg-[#C5A059] hover:bg-[#A37E44] text-slate-950 text-xs font-bold disabled:opacity-50"
+              >
+                Update password
+              </button>
             </div>
           )}
         </div>

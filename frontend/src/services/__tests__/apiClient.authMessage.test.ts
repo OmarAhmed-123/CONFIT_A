@@ -48,4 +48,18 @@ describe('request() 401 message routing', () => {
     const err = (await request('/auth/register', { method: 'POST', body: JSON.stringify({}) }).catch((e) => e)) as ApiError;
     expect(err.message).toBe('Email already registered.');
   });
+
+  // Cycle 9: change-password 401 = re-authentication failure (wrong current
+  // password), not session expiry — the server message must survive.
+  it('change-password 401 keeps the server message (Current password is incorrect.)', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () =>
+      jsonResponse(401, { error: { code: 'AUTH_FAILED', message: 'Current password is incorrect.', details: {} } })
+    ));
+    const err = (await request('/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify({ current_password: 'x', new_password: 'y' }),
+    }).catch((e) => e)) as ApiError;
+    expect(err).toBeInstanceOf(ApiError);
+    expect(err.message).toBe('Current password is incorrect.');
+  });
 });

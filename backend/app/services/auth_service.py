@@ -645,6 +645,69 @@ class AuthService:
             )
 
     # ------------------------------------------------------------------
+    # Authenticated password change (cycle 9)
+    # ------------------------------------------------------------------
+    def change_password(
+        self,
+        user: User,
+        current_password: str,
+        new_password: str,
+        mfa_code: Optional[str] = None,
+    ) -> None:
+        """Rotate the password of the *signed-in* user.
+
+        Closes the cycle-9 engineering gap: the email reset flow was the only
+        password-rotation path and 501s while no email provider is
+        provisioned, leaving the admin handover (temporary password must be
+        changed by the owner) — and every user's rotation — impossible
+        in-product.
+
+        Contract:
+        - requires the CURRENT password (re-authentication);
+        - MFA-enabled accounts must also pass a current TOTP or single-use
+          recovery code (same challenge consumption as login);
+        - the new password must satisfy the Group-1 policy and differ from
+          the current one;
+        - on success every refresh token is revoked (same session-revocation
+          contract as a completed email reset) and the change is audited as
+          ``USER_PASSWORD_CHANGED``;
+        - on ANY failure nothing is mutated and no MFA code is consumed
+          after an earlier check already failed (order: current password →
+          MFA → policy).
+        """
+        if not verify_password(current_password, user.hashed_password):
+            raise AuthenticationError("Current password is incorrect.")
+
+        if user.mfa_enabled:
+            code = (mfa_code or "").strip()
+            if not code:
+                raise AuthenticationError(
+                    "An MFA (or recovery) code is required to change your password."
+                )
+            if not self._consume_mfa_challenge(user, code):
+                raise AuthenticationError("Invalid MFA code.")
+
+        if current_password == new_password:
+            raise ValidationDomainError(
+                "The new password must be different from the current password."
+            )
+
+        validate_password_policy(new_password)
+
+        from backend.app.core.security import get_password_hash
+        user.hashed_password = get_password_hash(new_password)
+        # Revoke every active session — a password change must not leave
+        # possibly-compromised sessions alive (parity with reset completion).
+        for r in self.db.query(RefreshToken).filter(
+            RefreshToken.user_id == user.id, RefreshToken.revoked_at.is_(None)
+        ):
+            r.revoked_at = datetime.now(timezone.utc)
+        self.db.commit()
+        self.user_repo.log_audit(
+            "USER_PASSWORD_CHANGED", "User", str(user.id), user_id=user.id
+        )
+
+    # ------------------------------------------------------------------
     # Email verification — issue (hashed, 24 h, one-time) + redeem
     # ------------------------------------------------------------------
     def request_email_verification(self, email: str, ip_address: Optional[str] = None) -> Dict[str, Any]:

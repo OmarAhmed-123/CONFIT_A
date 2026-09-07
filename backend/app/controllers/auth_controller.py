@@ -122,6 +122,22 @@ class DisableMFARequest(BaseModel):
     password: str
 
 
+class ChangePasswordRequest(BaseModel):
+    """Authenticated password rotation (cycle 9).
+
+    Context: the email reset flow was previously the ONLY way to change a
+    password, and it honestly 501s while no email provider is provisioned —
+    which made the admin handover ("sign in once with the temporary
+    password, then change it") impossible in-product. This endpoint is the
+    in-product rotation path; MFA-enabled accounts must also present a
+    current TOTP / recovery code.
+    """
+
+    current_password: str
+    new_password: str = Field(min_length=8, max_length=72)
+    mfa_code: Optional[str] = None
+
+
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
 @limiter.limit("5/minute")
 def register(request: Request, response: Response, payload: UserRegister, db: Session = Depends(get_db)):
@@ -266,6 +282,27 @@ def forgot_password(request: Request, payload: ForgotPasswordRequest, db: Sessio
 def reset_password(request: Request, payload: ResetPasswordRequest, db: Session = Depends(get_db)):
     AuthService(db).complete_password_reset(payload.token, payload.new_password)
     return {"status": "success", "message": "Password updated. Please sign in again."}
+
+
+@router.post("/change-password")
+@limiter.limit("10/minute")
+def change_password(request: Request, payload: ChangePasswordRequest, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Rotate the signed-in user's password (cycle 9).
+
+    Requires the current password (and an MFA code when MFA is enabled);
+    revokes every active session on success. Rate-limited to blunt
+    brute-force attempts against ``current_password``.
+    """
+    AuthService(db).change_password(
+        user,
+        payload.current_password,
+        payload.new_password,
+        mfa_code=payload.mfa_code,
+    )
+    return {
+        "status": "success",
+        "message": "Password updated. All sessions were revoked — please sign in again.",
+    }
 
 
 @router.post("/verify-email/request")

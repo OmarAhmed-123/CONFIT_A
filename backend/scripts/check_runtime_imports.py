@@ -85,6 +85,13 @@ VERCEL_OPTIONAL = {
     # main.py imports uvicorn only under `if __name__ == "__main__"` (local dev
     # server); Vercel imports the module, it never executes that block.
     "uvicorn": "main.py __main__ block only; Vercel/mangum never runs it",
+    # modal is imported ONLY inside qwen_vision.provider._analyze_remote, under an
+    # explicit ImportError guard. The web transport (QWEN_VL_TRANSPORT=web, the
+    # default and the chosen production transport) is the only path the Vercel
+    # function uses; the remote/modal-client transport is a documented alternative
+    # that degrades honestly (QwenVisionError) if the SDK is absent. The Vercel
+    # function therefore does not install modal.
+    "modal": "qwen_vision remote transport; lazy import under ImportError guard, web transport is the default",
 }
 
 TARGETS = {

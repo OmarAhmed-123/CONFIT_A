@@ -323,3 +323,76 @@ def test_image_ref_ssrf_guard(monkey_settings):
     with pytest.raises(QwenVisionError) as ei:
         QwenVisionProvider._image_ref_to_base64_mime("http://127.0.0.1/product.jpg")
     assert ei.value.reason == "bad_input"
+
+
+# ---------------------------------------------------------------------------
+# Wardrobe non-garment gate (regression for the color-swatch false positive)
+# ---------------------------------------------------------------------------
+
+def test_wardrobe_non_garment_not_treated_as_valid(monkey_settings, monkeypatch):
+    """REGRESSION: a wardrobe analysis whose category is null -- the model's honest
+    'not a garment' signal (now returned for plain color swatches by the
+    restructured WARDROBE_TAG_PROMPT) -- must be rejected as 'No clothing item
+    detected' and NEVER surfaced/persisted as a valid wardrobe item.
+
+    Before the fix the weaker Qwen model completed the rich schema and returned
+    category='Tops'/'Sweater' on a solid color block, which the service then
+    accepted as a real item.
+    """
+    from backend.app.services.wardrobe_service import WardrobeService
+
+    non_garment = {
+        "analysis_available": True,
+        "analysis_source": "Qwen/Qwen2.5-VL-7B-Instruct",
+        "category": None,
+        "item_type": None,
+        "confidence": 0.0,
+    }
+
+    async def fake_analyze_wardrobe(self, image_ref):
+        return non_garment
+
+    monkeypatch.setattr(
+        "backend.app.providers.tryon_provider.VisualSearchAIProvider.analyze_wardrobe_image",
+        fake_analyze_wardrobe,
+    )
+    svc = WardrobeService(db=None)  # auto_tag_image does not touch the DB
+    out = asyncio.run(svc.auto_tag_image(image_url="data:image/png;base64,AAAA", image_base64="AAAA"))
+    assert out["analysis_available"] is False
+    assert "No clothing item detected" in out["detail"]
+    assert "detected_category" not in out
+
+
+def test_wardrobe_real_garment_still_tagged(monkey_settings, monkeypatch):
+    """Positive control: the non-garment gate must not over-reject. A genuine
+    garment (category present) is still normalized + returned as available."""
+    from backend.app.services.wardrobe_service import WardrobeService
+
+    garment = {
+        "analysis_available": True,
+        "analysis_source": "Qwen/Qwen2.5-VL-7B-Instruct",
+        "category": "Outerwear",
+        "item_type": "Blazer",
+        "primary_color": "Blue",
+        "primary_color_hex": "#1B3A5B",
+        "secondary_colors": ["White"],
+        "style": "Formal",
+        "style_tags": ["Tailored"],
+        "pattern": "Checked",
+        "occasion_suitability": ["Business Formal"],
+        "seasonality": "All-Season",
+        "confidence": 1.0,
+    }
+
+    async def fake_analyze_wardrobe(self, image_ref):
+        return garment
+
+    monkeypatch.setattr(
+        "backend.app.providers.tryon_provider.VisualSearchAIProvider.analyze_wardrobe_image",
+        fake_analyze_wardrobe,
+    )
+    svc = WardrobeService(db=None)
+    out = asyncio.run(svc.auto_tag_image(image_url="data:image/png;base64,AAAA", image_base64="AAAA"))
+    assert out["analysis_available"] is True
+    assert out["detected_category"] == "Outerwear"
+    assert out["detected_subcategory"] == "Blazer"

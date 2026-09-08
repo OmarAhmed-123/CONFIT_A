@@ -311,9 +311,28 @@ class VisualSearchAIProvider(BaseProvider):
     # asking for the BRD §18 structured fields. Raw model output is NOT
     # trusted: the caller normalizes it through wardrobe_taxonomy before it
     # is persisted anywhere.
+    # WARDROBE auto-tagging prompt.
+    #
+    # FIX (non-garment false positive, 2026-09-08): the previous prompt listed the full
+    # 11-field schema first and only asked at the END to "set category to null" for
+    # non-garments. The weaker local Qwen2.5-VL model completed the rich schema and
+    # hallucinated a garment ("Tops / Sweater", confidence 0.95) on a plain color swatch,
+    # while the simpler visual-search prompt got a clean null. The garment-presence
+    # decision is now Step 1, and the null case is a short, explicit 2-key response with
+    # "do not fill any other keys" to remove the schema-completion pressure. VERIFIED on
+    # a real A10 (live worker): solid navy swatch -> {category: null, confidence: 0.0}
+    # (was "Tops/Sweater"); a real blazer -> Outerwear/Blazer (unchanged). The service
+    # gate already rejects category==null as "no clothing item" (failed/retryable), so
+    # non-garments are never persisted as valid wardrobe items.
     WARDROBE_TAG_PROMPT = (
-        "Analyze this photo of a clothing item the user owns. Respond with STRICT JSON only, "
-        "no prose, with exactly these keys: "
+        "Step 1 - decide FIRST: does the image clearly show a SINGLE wearable clothing "
+        "item or fashion accessory (worn on a person, or a garment/accessory displayed "
+        "on its own)? If it does NOT - for example a plain color swatch, a fabric "
+        "texture, an abstract or repeating pattern, a person not wearing recognizable "
+        "clothing, a face close-up, or a product that is not clothing - respond with "
+        "EXACTLY this JSON and nothing else: {\"category\": null, \"confidence\": 0.0}. "
+        "Do NOT fill any other keys. Step 2 - only if it DOES show a single clothing "
+        "item, respond with STRICT JSON only (no prose) with exactly these keys: "
         "category (one of: Tops, Bottoms, Outerwear, Footwear, Accessories, Dresses), "
         "item_type (specific subcategory, e.g. 'Oversized Blazer', 'Pleated Trousers'), "
         "primary_color (simple color family name), "
@@ -325,8 +344,8 @@ class VisualSearchAIProvider(BaseProvider):
         "occasion_suitability (list chosen from: Casual, Smart Casual, Work & Business, "
         "Business Formal, Cocktail, Formal, Black Tie, Active, Lounge, Evening), "
         "seasonality (one of: All-Season, Spring, Summer, Autumn, Winter), "
-        "confidence (float 0.0-1.0 for how certain the analysis is). "
-        "If the image does not show a clothing or fashion accessory item, set category to null."
+        "confidence (float 0.0-1.0 for how certain the analysis is; use 0.0 if not "
+        "certain it is a single wearable item)."
     )
 
     async def analyze_wardrobe_image(self, image_url_or_base64: str) -> Dict[str, Any]:

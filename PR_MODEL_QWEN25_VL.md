@@ -189,11 +189,11 @@ From the branch's deploy config (the config that was deployed):
   isolation), **no duplicate Qwen app**, **no retry/cold‑start storm**, **scales to 0 when idle**.
 - Account limit **10 GPU** (Starter). The earlier crash‑loop (an *old pre‑fix* version) held 10
   GPUs + 34 pending calls; resolved by the sibling‑module image fix + `min_containers=0`.
-- **Honest note:** the **live** container snapshot (`modal app list`) is **BLOCKED this cycle** —
-  the Modal token was not present in the session env after the sandbox reset (no credential
-  material survived). The table above is the **deployed‑config** audit (from `modal_app.py`, the
-  same config deployed). **A live `modal app list` should be re‑run with the token before merge**
-  to confirm 0 idle tasks (expected: `confit-vlm-worker` 0 tasks when idle).
+- **Live `modal app list` (re‑run 2026-09-08 with the token): LIVE‑VERIFIED.** **All 3 apps at
+  0 tasks = 0 GPUs held** — the earlier 10‑GPU crash‑loop is confirmed resolved; everything scales
+  to 0 when idle. Apps: `confit-vlm-worker` (the **single** Qwen worker, 0 tasks),
+  `confit-vton-worker` + `confit-vton-worker-segfee` (two **distinct** VTON workers, both 0 tasks —
+  not a duplicate). No retry/cold‑start storm (0 pending calls).
 
 ## 12. SECURITY SCAN (branch + final diff)
 - **No credential values** (model / GitHub / Modal) in source, logs, or docs — scanned the branch

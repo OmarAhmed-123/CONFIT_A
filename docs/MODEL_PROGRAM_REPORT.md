@@ -103,11 +103,12 @@ backend suite **1083/0** (4 pre‑existing Qwen‑branch manifest/parity failure
 audit** (1 A10G Qwen worker, concurrency 1, `min_containers=0`, VTON isolated); **security scan**
 (no credential values; fail‑closed admin auth; SSRF; no image‑byte persistence); **transport
 decision** (WEB primary, REMOTE documented alternative); **fallback‑chain proof** (both features).
+**Closed after credential re‑provision (2026-09-08):** live `modal app list` re‑run → **all 3 apps
+at 0 tasks (0 GPUs held)**, single Qwen worker + 2 distinct VTON workers, all scale to 0
+(LIVE‑VERIFIED); the close‑out commits are **pushed** (branch head `dda70fa`, PR #102 body updated).
 **Honest remaining merge gates (NOT all green → do not merge yet):** ① **diverse catalog benchmark
-= BLOCKED** (needs an authorized real catalog; ground truth not invented) — the one true merge
-gate not yet satisfied; ② **live `modal app list`** re‑run with the token to confirm 0 idle tasks
-(token was not present in the session after the sandbox reset); ③ code review; ④ push of the
-close‑out commits (token‑gated this cycle). VTON segfee is existing production (not a new PR).
+= BLOCKED** (needs an authorized real catalog; ground truth not invented) — the one true merge gate
+not yet satisfied; ② code review. VTON segfee is existing production (not a new PR).
 
 ## 12. MODELS NOT IMPLEMENTED + EVIDENCE‑BASED REASON
 - **Qwen2.5‑VL‑3B** — **BLOCKED**: non‑commercial Qwen Research License.

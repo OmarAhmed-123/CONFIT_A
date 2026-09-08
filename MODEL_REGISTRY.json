@@ -1,7 +1,7 @@
 {
   "registry_version": "1.0.0",
-  "generated": "2026-09-07",
-  "status_note": "Updated 2026-09-08 after REAL execution + LIVE DEPLOY VERIFIED. Qwen2.5-VL-7B is GPU-VERIFIED (real A10/A10G load/inference/feature, measured) AND the deployed WEB ENDPOINT is VERIFIED WORKING: the earlier crash-loop's root cause was a missing `inference` module (fixed by baking the sibling modules into the image via add_local_file); live GET /health -> 200 (model_loaded, NVIDIA A10) and POST /analyze (real blazer, admin auth) -> 200, cold 26.0 s / warm 5.1 s, accurate attributes. Warm-container sustainability (min_containers=1) is a tier/account choice (VLM_MIN_CONTAINERS default 0 avoids idle GPU burn); a robust .remote() transport is also implemented + tested (21/21). VTON is PRODUCTION (real-GPU evidence). Do NOT overstate 'production-ready': enable the web fallback in prod by setting QWEN_VL_WORKER_URL + QWEN_VL_WORKER_TOKEN when ready, and finish the diverse-catalog benchmark before advertising.",
+  "generated": "2026-09-08",
+  "status_note": "Updated 2026-09-08 (Qwen close-out). Qwen2.5-VL-7B is GPU-VERIFIED (real A10/A10G load/inference, measured) + FEATURE-SMOKE-VERIFIED (real blazer all-correct; non-garment wardrobe false positive FIXED + GPU-verified). DIVERSE-BENCHMARK is PENDING/BLOCKED (authorized catalog required; ground truth not invented) - NOT claimed. PRODUCTION-VERIFIED: NOT YET (fallback not enabled in prod; QWEN_VL_* unset). Deployed WEB worker verified working (/health 200; /analyze 200 cold 26.0s / warm 5.1s). Transport decision: WEB primary; REMOTE documented alternative. Fail-closed admin auth + security scan clean. Tests 31/31 Qwen-specific; full backend suite 1083/0. Do NOT overstate 'production-ready'. VTON is the existing PRODUCTION baseline (real-GPU evidence).",
   "selected_models": [
     {
       "model_id": "qwen2.5-vl-7b",
@@ -18,12 +18,12 @@
       "gpu_type": "A10G 22GB (measured on A10G; override VLM_GPU)",
       "measured_vram": "15.45 GiB peak (BF16, MEASURED on A10G)",
       "measured_latency": "load ~7-8s (weights->GPU); inference 3.2-4.9s/image (MEASURED, max_new_tokens<=300, no sampling)",
-      "measured_feature": "real on-model blazer photo -> all attributes correct (Outerwear/Blue/Checkered/Formal + full outfit); non-garment color block -> honest null (vision) / documented wardrobe false-positive",
+      "measured_feature": "real on-model blazer photo -> all attributes correct (Outerwear/Blue/Checkered/Formal + full outfit); non-garment color block -> honest null (vision). Wardrobe non-garment false positive FOUND + FIXED + GPU-VERIFIED (restructured WARDROBE_TAG_PROMPT; solid navy swatch now -> {category: null, confidence: 0.0}, was Tops/Sweater @0.95; blazer unchanged). FEATURE-SMOKE only (small N of real images); the DIVERSE catalog benchmark is PENDING/BLOCKED (ground truth not invented).",
       "fallback_priority": "P1 — Gemini primary -> Qwen local (only when QWEN_VL_WORKER_URL set) -> honest analysis_available=False",
-      "validation_status": "GPU-VERIFIED: real A10G load (15.45 GiB) + real inference + real feature benchmark (measured) + unit/contract tests 29/29 (worker parser 8/8 + backend client/routing + remote transport 21/21) + license-gated",
-      "production_status": "DEPLOYED + web endpoint VERIFIED WORKING (live GET /health 200 on NVIDIA A10; POST /analyze 200, cold 26.0 s / warm 5.1 s, accurate attributes). Root cause of the earlier crash-loop was a missing `inference` module, fixed by baking the sibling modules into the image. Warm-container sustainability (min_containers=1) is a tier/account choice (VLM_MIN_CONTAINERS default 0 avoids idle GPU burn). Robust .remote() transport also implemented + tested (21/21). Enable in prod via QWEN_VL_WORKER_URL + QWEN_VL_WORKER_TOKEN (web) when ready; finish the diverse-catalog benchmark before advertising (PR_MODEL_QWEN25_VL.md §8).",
+      "validation_status": "GPU-VERIFIED + FEATURE-SMOKE-VERIFIED: real A10/A10G load (15.45 GiB) + real inference + feature SMOKE test (measured); unit/contract tests 31/31 = worker parser 8/8 + backend Qwen client/routing/wardrobe 23/23; full backend suite 1083/0; license-gated (Apache-2.0). DIVERSE-BENCHMARK: PENDING/BLOCKED (needs an authorized real catalog; ground truth not invented).",
+      "production_status": "WORKER DEPLOYED + web endpoint VERIFIED WORKING (live GET /health 200 on NVIDIA A10; POST /analyze 200, cold 26.0s / warm 5.1s, accurate attributes; earlier crash-loop root cause = missing `inference` module, fixed by baking sibling modules into the image). PRODUCTION-VERIFIED: NOT YET (fallback not enabled in prod; QWEN_VL_* unset = identical Gemini-only behaviour). Transport decision: WEB primary (verified); REMOTE documented + tested alternative. Fail-closed admin auth. Enable in prod via QWEN_VL_WORKER_URL + QWEN_VL_WORKER_TOKEN (web) when ready; finish the diverse-catalog benchmark before advertising (PR_MODEL_QWEN25_VL.md §8, §11-§14).",
       "branch": "feature/model-qwen25-vl",
-      "commit": "fc69a5a"
+      "commit": "0cdad5e (PR #102 head, pushed) + close-out commits on the same branch (local/unpushed this cycle — git token not present after sandbox reset)"
     },
     {
       "model_id": "fashn-vton-segfee",

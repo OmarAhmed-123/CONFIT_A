@@ -62,29 +62,39 @@ Note: `modal_app.py` bakes the sibling `inference.py` + `model_spec.py` into the
 `from inference import …` (the earlier root cause). Separate from the VTON worker
 (resource isolation). `QWEN_VL_WORKER_URL` unset ⇒ existing behaviour unchanged.
 
-## Status (HONEST)
-✅ license-gated (Apache-2.0 verified) · ✅ unit/contract-tested (29/29: worker parser
-8/8 + backend client/routing + **remote transport** 21/21) ·
-✅ **real GPU load + inference + feature benchmark MEASURED on A10G**:
-load ~7–8 s, peak VRAM **15.45 GiB**, per-image latency **3.2–4.9 s**; real
-on-model blazer image → all attributes correct; non-garment color block →
-honest `null` category (vision) / documented wardrobe false-positive.
+## Status (HONEST — distinct states; one does not imply the next)
+- ✅ **GPU-VERIFIED** — real A10/A10G load + inference, **MEASURED**: load ~7–8 s, peak VRAM
+  **15.45 GiB**, per-image latency **3.2–4.9 s**.
+- ✅ **FEATURE-SMOKE-VERIFIED** — a handful of **real** images: on-model blazer → all attributes
+  correct; non-garment color block → honest `null` category (vision). The wardrobe **non-garment
+  false positive is FIXED + GPU-verified** (restructured `WARDROBE_TAG_PROMPT`; solid navy swatch
+  now → `{category: null, confidence: 0.0}`, was `Tops/Sweater` @0.95; blazer unchanged).
+- ⚠️ **DIVERSE-BENCHMARK — PENDING / BLOCKED** — the systematic catalog benchmark (skin tone /
+  body shape / pose / flat-lay / occlusion / lighting / quality / patterned vs plain / ambiguous /
+  non-garment) needs an **authorized** real catalog; ground truth is **not invented**. Not claimed
+  as passed.
+- ❌ **PRODUCTION-VERIFIED** — the fallback is **not enabled in prod** (`QWEN_VL_*` unset =
+  identical Gemini-only behaviour); the deployed **worker** is verified, but prod traffic has not
+  exercised the fallback.
+- ✅ license-gated (Apache-2.0; 3B non-commercial blocked) · ✅ unit/contract-tested (**31/31**:
+  worker parser **8/8** + backend Qwen client/routing/wardrobe **23/23**; full backend suite
+  **1083 / 0**) · ✅ robust **`.remote()`** transport implemented + tested · ✅ fail-closed admin
+  auth + security scan + capacity audit (see `PR_MODEL_QWEN25_VL.md` §8, §11–§14).
 
-✅ **Live web endpoint VERIFIED working.** Root cause of the earlier crash-loop was
-`ModuleNotFoundError: No module named 'inference'` (`modal deploy` ships only
-`modal_app.py`; the sibling `inference`/`model_spec` modules were missing from the image) —
-fixed by baking them in (`image.add_local_file(...)`). On the deployed **NVIDIA A10** worker:
-`GET /health` → **200** (`model_loaded: true`, cold start **14.7 s**); `POST /analyze` (real
-blazer photo, admin auth) → **200**, cold **26.0 s** / warm **5.1 s**, accurate attributes.
-Warm-container *sustainability* (`min_containers=1`) is a tier/account choice —
-`VLM_MIN_CONTAINERS=0` (default) scales to 0 to avoid idle GPU burn. The robust **`.remote()`
-transport** (`vlm_analyze` + `QWEN_VL_TRANSPORT=remote`) is also implemented + tested
-(see `PR_MODEL_QWEN25_VL.md` §8).
+**Live web endpoint VERIFIED working** (root cause of the earlier crash-loop was
+`ModuleNotFoundError: No module named 'inference'` — `modal deploy` ships only `modal_app.py`; the
+sibling `inference`/`model_spec` modules were missing from the image — fixed by baking them in via
+`image.add_local_file(...)`). On the deployed **NVIDIA A10** worker: `GET /health` → **200**
+(`model_loaded: true`, cold start **14.7 s**); `POST /analyze` (real blazer photo, admin auth) →
+**200**, cold **26.0 s** / warm **5.1 s**, accurate attributes. Warm-container *sustainability*
+(`min_containers=1`) is a tier/account choice — `VLM_MIN_CONTAINERS=0` (default) scales to 0 to
+avoid idle GPU burn. **Transport decision: WEB primary** (verified); REMOTE is the documented,
+tested alternative (see `PR_MODEL_QWEN25_VL.md` §14).
 
 ## Tests
 `services/vlm-worker/test_inference.py` (8, CPU) · `backend/tests/test_qwen_vision.py`
-(15, CPU, worker mocked). Run: `pytest .../test_inference.py -q` and
-`pytest .../test_qwen_vision.py -q --noconftest`.
+(23, CPU, worker mocked — incl. the **non-garment wardrobe regression** + real-garment control).
+Run: `pytest .../test_inference.py -q` and `pytest .../test_qwen_vision.py -q --noconftest`.
 
 ## Global
 No Egypt/Cairo hard-coding, no local paths, no sandbox-only behavior, no dev

@@ -1,13 +1,24 @@
 # PR: Self-hosted Qwen2.5-VL-7B local vision fallback (Apache-2.0)
 
 **Branch:** `feature/model-qwen25-vl` (one model = one branch)
-**Status:** ✅ implemented · ✅ license-gated · ✅ unit/contract-tested (worker parser
-**8/8** + backend client/routing + **remote transport 21/21**, CPU) ·
-✅ **real GPU load + inference + feature benchmark (MEASURED on A10G)** ·
-✅ **live web endpoint VERIFIED working** (`/health` 200 + `/analyze` cold 26.0 s / warm 5.1 s,
-real image, accurate attributes; root-cause fix: missing `inference` module shipped into the
-image) · ✅ robust `.remote()` transport also implemented + tested (§8).
-**The web fallback is functional on the deployed worker.** To enable in prod set
+**Status (honest, distinct states — do not read one as implying the next):**
+- ✅ **GPU-VERIFIED** — real A10/A10G load + inference, **MEASURED** (§7/§8).
+- ✅ **FEATURE-SMOKE-VERIFIED** — a handful of **real** images: blazer → all attributes correct;
+  non-garment navy swatch → honest `null` category, incl. the non-garment **false positive
+  FIXED + GPU-verified** (§7).
+- ⚠️ **DIVERSE-BENCHMARK — PENDING / BLOCKED** — the systematic catalog benchmark (skin tone /
+  body shape / pose / flat-lay / model-worn / occlusion / lighting / quality / patterned vs plain /
+  ambiguous / non-garment) requires an **authorized** real catalog; ground truth is **not
+  invented**. **This PR does not claim that benchmark as passed.**
+- ❌ **PRODUCTION-VERIFIED** — the fallback is **not yet enabled in prod** (`QWEN_VL_*` unset =
+  identical Gemini-only behaviour). The deployed **worker** is verified, but prod traffic has not
+  exercised the fallback path.
+- ✅ license-gated (Apache-2.0; 3B non-commercial blocked) · ✅ unit/contract-tested (worker
+  parser **8/8** + backend Qwen client/routing/wardrobe **23/23** = **31/31**, CPU; full backend
+  suite **1083 passed / 0 failed**) · ✅ robust `.remote()` transport implemented + tested (§8) ·
+  ✅ fail-closed admin auth + security scan (§11–§13).
+
+**The web fallback worker is deployed and functional.** To enable in prod set
 `QWEN_VL_TRANSPORT=web` + `QWEN_VL_WORKER_URL` + token (§8). Left unset = identical existing
 Gemini-only behaviour.
 
@@ -59,15 +70,23 @@ timeout, no retry loop** on the GPU model. Never returns the original image as
 
 ## 6. Merge gate (do NOT merge before all pass)
 - [x] License verified (Apache‑2.0 via HF `cardData.license`; 3B non‑commercial excluded)
-- [x] Unit + contract tests: worker parser **8/8**, backend client/routing + **remote
-  transport** **21/21** (CPU; `modal` mocked, no GPU)
+- [x] Unit + contract tests: worker parser **8/8**, backend Qwen client/routing/wardrobe
+  **23/23** (CPU; `modal` mocked, no GPU) → **31/31**; **full backend suite 1083 passed / 0 failed**
+  (the 4 pre-existing Qwen-branch manifest/parity failures are fixed, §11)
 - [x] **Real model load on real GPU** — A10G, **VRAM 15.45 GiB** (fits 22 GB), load **~7–8 s**
 - [x] **Real GPU inference** — correct STRICT JSON on real images (measured)
-- [x] **Real feature benchmark** — real CONFIT_A images + real production prompts (measured below)
+- [x] **Real feature SMOKE test** — a small N of real images + real production prompts (measured
+  below). **This is NOT the diverse benchmark** — see the ⚠️ item; do not read this as "diverse
+  benchmark passed."
 - [x] **Measured** VRAM + per‑request latency (see §7)
 - [x] No regressions (VTON, Gemini path, `visual_search_service`/`wardrobe_service` unchanged)
 - [x] Modal deploy (`confit-vlm-worker`) + deterministic weight bootstrap (fresh volume)
-- [x] Security (secret token, SSRF gate, admin auth, endpoints not user‑facing)
+- [x] **GPU capacity audit** — 1 Qwen worker (A10G×1, concurrency 1, `min_containers=0`), VTON
+  isolated, no duplicate Qwen app, scales to 0 (§11)
+- [x] **Fallback chain proven for both features** — Gemini→Qwen→honest, single attempt, no retry
+  loop, Qwen not called when Gemini succeeds (§13)
+- [x] Security scan (no credential values in tree; admin auth fail-closed; SSRF gate; no
+  user-facing worker admin endpoint; no image-byte persistence; no secret leakage in errors) (§12)
 - [x] **Live web endpoint verified** — `/health` 200 + `/analyze` 200 (cold **26.0 s** / warm
       **5.1 s**) on the deployed A10 worker, real image, accurate attributes (§8). Warm-container
       *sustainability* (`min_containers=1`) is a tier/account choice, not a correctness gate
@@ -90,10 +109,20 @@ from Modal Volume `confit-qwen25vl-weights` (16.59 GB, 14 files, validated).
 - `VTON_PROOF_blazer_output` (real on‑model photo — blue checkered blazer, white shirt,
   gray trousers, white sneakers) → vision: `Outerwear / Blue / Checkered / Formal` +
   `{Tops: White shirt, Bottoms: Gray trousers, Footwear: White sneakers}` — **all correct**.
-- A solid navy color block (not a garment) → vision: `detected_category: null` (correct:
-  not a fashion item) but color misread navy→"black"; wardrobe prompt **hallucinated**
-  `Tops / Sweater` (false positive). → **Documented failure mode on non‑garments**; the
-  service marks items failed/retryable (honest), never fabricates a search result.
+- **Non-garment false positive — FOUND, FIXED, GPU-VERIFIED (this close-out):** a solid navy
+  color block (not a garment) previously made the old `WARDROBE_TAG_PROMPT` **hallucinate**
+  `Tops / Sweater` @0.95 (the weaker model completed the rich 11-field schema instead of returning
+  null). Root cause: the old prompt listed the full schema first and only said "set category to
+  null" at the end. **Fix:** restructured the prompt so **garment-presence is Step 1** and the
+  null case is a short explicit `{"category":null,"confidence":0.0}` ("do NOT fill any other
+  keys"). GPU-verified on the live A10 (real inference):
+  - navy swatch + OLD prompt → `Tops / Sweater` @0.95 (**defect reproduced**),
+  - navy swatch + NEW prompt → `category: null` @0.0 (**FIXED**),
+  - blazer + NEW prompt → `Outerwear / Blazer` @1.0 (**no regression**).
+
+  A CPU **regression test** now asserts a `category:null` wardrobe result is rejected as "no
+  clothing item" (never surfaced/persisted as a valid item). The service already gates
+  `category==None` → failed/retryable (honest); it never fabricates a search result.
 
 ## 8. SERVING — web endpoint VERIFIED WORKING (root cause corrected this cycle)
 **Root cause (corrected):** the earlier "cold start exceeds the edge window" diagnosis was
@@ -147,3 +176,81 @@ transport to enable:
   (references `confit-vlm-worker`/`vlm_analyze`).
 Keep Gemini primary. Advertise "local fallback available" to users **only after**
 §6 is fully green (incl. the diverse catalog benchmark).
+
+## 11. GPU CAPACITY AUDIT (before adding any model)
+From the branch's deploy config (the config that was deployed):
+
+| Worker | App | GPU | Concurrency | `min_containers` | Scales to 0 |
+|---|---|---|---|---|---|
+| Qwen VLM | `confit-vlm-worker` | **A10G ×1** | **1** (`@modal.concurrent(max_inputs=1)`) | **0** (`VLM_MIN_CONTAINERS` default 0) | ✅ yes |
+| VTON | `confit-vton-worker` | T4 ×1 | 2 | 0 (`scaledown_window=300`) | ✅ yes |
+
+- **1 Qwen worker** (A10G×1, concurrency 1), **VTON isolated** (separate app/worker → resource
+  isolation), **no duplicate Qwen app**, **no retry/cold‑start storm**, **scales to 0 when idle**.
+- Account limit **10 GPU** (Starter). The earlier crash‑loop (an *old pre‑fix* version) held 10
+  GPUs + 34 pending calls; resolved by the sibling‑module image fix + `min_containers=0`.
+- **Honest note:** the **live** container snapshot (`modal app list`) is **BLOCKED this cycle** —
+  the Modal token was not present in the session env after the sandbox reset (no credential
+  material survived). The table above is the **deployed‑config** audit (from `modal_app.py`, the
+  same config deployed). **A live `modal app list` should be re‑run with the token before merge**
+  to confirm 0 idle tasks (expected: `confit-vlm-worker` 0 tasks when idle).
+
+## 12. SECURITY SCAN (branch + final diff)
+- **No credential values** (model / GitHub / Modal) in source, logs, or docs — scanned the branch
+  and the final diff; the only sensitive string is the Modal **secret name** (`…admin-token2`) + a
+  `<random>` placeholder, never a value.
+- **Admin token server‑side** (Modal secret → env `QWEN_VL_WORKER_TOKEN`). `/analyze` now **fails
+  CLOSED**: 401 when the token is unset **or** the header mismatches (was fail‑open when unset).
+- **No user‑facing worker admin endpoint**: `/analyze` requires the admin header; `/health` +
+  `/readiness` are public **liveness only** (no data, no image processing).
+- **SSRF active**: `is_safe_image_url` (backend) + the Qwen provider's `_BLOCKED_HOST_PREFIXES`
+  (loopback / private / link‑local refused); regression test present.
+- **No image‑byte persistence**: in‑memory base64 → tensor → JSON; no disk/DB/Volume writes of
+  user images; no permanent user‑image storage.
+- **No credential/secret leakage in errors**: error details truncated (≤300 chars), error codes are
+  the failure taxonomy, no tokens/paths/stacks of secrets.
+
+## 13. FALLBACK CHAIN PROOF (visual search **and** wardrobe)
+Code path (single canonical caller `_call_gemini_vision`, prompt is the only variable):
+1. `analyze_fashion_image` / `analyze_wardrobe_image` →
+   `execute_with_resilience(self._call_gemini_vision, image, prompt=…)`.
+2. **Gemini succeeds → return Gemini result. Qwen is NOT called** (it lives only in `fallback`).
+3. **Gemini fails** (401/402/429/timeout/`vision_model_not_configured`) → 2 attempts
+   (`max_retries=2`, backoff) → `self.fallback(image, prompt)` (same prompt forwarded).
+4. `fallback`: **Qwen not configured** → `honest_unavailable`. **Qwen configured** → **single**
+   `QwenVisionProvider.analyze(image, prompt, mode)` where `mode` = `wardrobe` / `visual_search`
+   (chosen by the prompt):
+   - success (`analysis_available=True`) → return the Qwen result (**real inference**, valid
+     Gemini‑compatible contract);
+   - `QwenVisionError` (worker unavailable / not‑ready / OOM / auth / timeout) → `honest_unavailable`;
+   - `analysis_available=False` (e.g. non‑garment, not‑ready) → `honest_unavailable`.
+5. **Both fail → honest degradation** (`analysis_available=False`, null detections, `category=None`
+   — **no fabricated attributes**).
+
+Guarantees: Qwen **not called** when Gemini succeeds · Qwen **single attempt** (no retry loop on the
+GPU model) · failures **observable** (`visual_search_local_fallback_*` log events) · **no false
+success** (returns `data` only when `analysis_available`).
+CPU tests: `test_fallback_qwen_success`, `test_fallback_not_configured_returns_honest_unavailable`,
+`test_fallback_worker_unusable_returns_honest`, `test_fallback_qwen_error_degrades_honest`,
+`test_analyze_fashion_image_forwards_prompt_to_fallback`. The Qwen leg is **GPU‑verified** (§7).
+The "Gemini 401 → Qwen" trigger is a deterministic code path proven by the code + the CPU tests
+(which mock `_call_gemini_vision` to raise and assert the fallback runs); forcing a *real* Gemini
+401 to capture it live would burn budget for a non‑model behavior, so it is **not** re‑executed.
+
+## 14. TRANSPORT DECISION (single correct production transport)
+- **Chosen: WEB (primary).** `QWEN_VL_TRANSPORT=web` → backend POSTs to the deployed Modal web
+  endpoint. Rationale: lowest complexity (plain HTTPS, **no Modal SDK in the serverless fn**),
+  reliable (**verified 200 on the live A10**: cold 26.0 s / warm 5.1 s), auth via the admin header
+  (server‑side secret), **failure isolation** (a worker outage degrades to honest
+  `analysis_available=False`, never 500s the backend).
+- Cost: cold start (~15–26 s idle→active) is the consequence of `min_containers=0` on a limited
+  account; warm ~5 s. On a tier that sustains a warm container, set `VLM_MIN_CONTAINERS=1`
+  (continuous GPU cost) to remove the cold start.
+- **Documented alternative: REMOTE.** `QWEN_VL_TRANSPORT=remote` → backend calls the standalone
+  `vlm_analyze` Modal Function via `.remote()` (container held for the call). More robust against a
+  web‑edge cold‑start edge window, but needs the `modal` SDK in the backend (declared in
+  `backend/requirements.txt`; **optional** in the Vercel manifest, §11) + server‑side
+  `MODAL_TOKEN_ID/SECRET`.
+- The REMOTE transport is **kept** (documented, implemented, tested) as a contingency; it is **not
+  re‑verified live this cycle** to conserve GPU (the web path is already GPU‑verified end‑to‑end).
+- Both transports return the **same honest Gemini‑compatible contract**.

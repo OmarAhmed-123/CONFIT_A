@@ -77,14 +77,16 @@ Isolation: the two large models run in **separate** Modal services (no shared pr
 | Stylist | NVIDIA/Groq/Gemini/OpenAI | deterministic `StylingEngine` (already present) | deterministic grounded output |
 | VTON | self‑hosted segfee (local) | — (no external VTON in prod) | `VTON_WORKER_UNAVAILABLE` (fail‑closed) |
 
-## 9. REAL BENCHMARK RESULTS (MEASURED on a real A10G — 2026-09-07)
+## 9. REAL SMOKE-TEST RESULTS (MEASURED on a real A10/A10G — 2026-09-07/08)
 **Qwen2.5-VL-7B (MEASURED, not estimated):** GPU NVIDIA A10G 22.1 GiB · model
 load ~7–8 s (BF16, 16.59 GB weights from Modal Volume) · peak VRAM **15.45 GiB** ·
-inference **3.2–4.9 s/image** (`max_new_tokens≤300`, no sampling). Real feature:
-on‑model blazer photo → **all attributes correct** (Outerwear/Blue/Checkered/Formal
-+ full outfit); non‑garment color block → honest `null` (vision) / documented
-wardrobe false‑positive. (VTON: existing real‑GPU proof
-`docs/VTON_PRODUCTION_E2E_PROOF_20260906.md`.)
+inference **3.2–4.9 s/image** (`max_new_tokens≤300`, no sampling). This is a **small real
+SMOKE set**, NOT the diverse catalog benchmark (which is **PENDING/BLOCKED**, §13).
+Real feature: on‑model blazer photo → **all attributes correct** (Outerwear/Blue/Checkered/Formal
++ full outfit); non‑garment color block → honest `null` (vision). The wardrobe non‑garment
+false‑positive is **FIXED + GPU‑verified** (restructured `WARDROBE_TAG_PROMPT`; solid navy swatch
+now → `{category: null, confidence: 0.0}`, was `Tops/Sweater` @0.95; blazer unchanged).
+(VTON: existing real‑GPU proof `docs/VTON_PRODUCTION_E2E_PROOF_20260906.md`.)
 
 ## 10. REMAINING BLOCKERS
 | Blocker | What's needed |
@@ -94,7 +96,18 @@ wardrobe false‑positive. (VTON: existing real‑GPU proof
 | PR → merge | the ONE PR is **opened** from `feature/model-qwen25-vl` (pushed/durable); web serving verified; merge after review + the catalog benchmark |
 
 ## 11. MERGED PRs
-**Not yet merged.** The Qwen branch is **pushed to GitHub** and durable: `feature/model-qwen25-vl` (implementation `e770e9a`, real GPU validation `811f9d6`, config `fc69a5a`, + the web‑worker fix + verified serving this cycle), with `PR_MODEL_QWEN25_VL.md`. The **ONE PR is opened**; the web serving path is **verified working** (PR §8), so the remaining merge gates are review + the diverse‑catalog benchmark. VTON segfee is existing production (not a new PR).
+**Not yet merged.** The Qwen branch is on GitHub: `feature/model-qwen25-vl` (PR #102), with
+`PR_MODEL_QWEN25_VL.md`. **Close-out completed this cycle (2026-09-08):** non‑garment wardrobe
+false‑positive **FIXED + GPU‑verified** (restructured prompt) + 2 CPU regression tests; local
+backend suite **1083/0** (4 pre‑existing Qwen‑branch manifest/parity failures fixed); **GPU capacity
+audit** (1 A10G Qwen worker, concurrency 1, `min_containers=0`, VTON isolated); **security scan**
+(no credential values; fail‑closed admin auth; SSRF; no image‑byte persistence); **transport
+decision** (WEB primary, REMOTE documented alternative); **fallback‑chain proof** (both features).
+**Honest remaining merge gates (NOT all green → do not merge yet):** ① **diverse catalog benchmark
+= BLOCKED** (needs an authorized real catalog; ground truth not invented) — the one true merge
+gate not yet satisfied; ② **live `modal app list`** re‑run with the token to confirm 0 idle tasks
+(token was not present in the session after the sandbox reset); ③ code review; ④ push of the
+close‑out commits (token‑gated this cycle). VTON segfee is existing production (not a new PR).
 
 ## 12. MODELS NOT IMPLEMENTED + EVIDENCE‑BASED REASON
 - **Qwen2.5‑VL‑3B** — **BLOCKED**: non‑commercial Qwen Research License.
@@ -108,7 +121,7 @@ wardrobe false‑positive. (VTON: existing real‑GPU proof
 - **local LLM (stylist)** — **NOT REQUIRED**: deterministic fallback already handles exhaustion; optional P2.
 
 ## 13. NO‑HALLUCINATION VERIFICATION STATEMENT
-- **VERIFIED / MEASURED (this session, real execution, cited evidence):** Qwen 7B = Apache‑2.0 (HF `cardData.license` + tag), 3B = non‑commercial; **real A10G GPU load (15.45 GiB, ~7–8 s) + real inference (correct STRICT JSON) + real feature benchmark (3.2–4.9 s/image; blazer photo all‑correct; non‑garment honest `null` / documented wardrobe false‑positive)**; worker parser **8/8** + backend contract/routing **15/15**; weights in Modal Volume (16.59 GB, 14 files validated); VTON branch/WIP preserved.
+- **VERIFIED / MEASURED (this session, real execution, cited evidence):** Qwen 7B = Apache‑2.0 (HF `cardData.license` + tag), 3B = non‑commercial; **real A10G GPU load (15.45 GiB, ~7–8 s) + real inference (correct STRICT JSON) + real feature SMOKE test (small N; 3.2–4.9 s/image; blazer photo all‑correct; non‑garment wardrobe false‑positive **FIXED + GPU‑verified** — restructured prompt, solid navy swatch now → `category: null`)**; worker parser **8/8** + backend Qwen client/routing/wardrobe **23/23** (**31/31**; full backend suite **1083/0**); weights in Modal Volume (16.59 GB, 14 files validated); VTON branch/WIP preserved.
 - **PARTIALLY VERIFIED:** none.
 - **NOT VERIFIED:** Qwen across a *diverse* catalog (skin tone/body type/pose/flat‑lay/occlusion) — only a small real smoke set was run (latency/VRAM **are** measured).
 - **VERIFIED (this cycle, live deploy):** the deployed **web endpoint works** — the earlier crash‑loop's root cause was a missing `inference` module, fixed by baking the sibling modules into the image. `GET /health` → **200** (`model_loaded`, NVIDIA A10); `POST /analyze` (real blazer, admin auth) → **200**, cold **26.0 s** / warm **5.1 s**, accurate attributes. Remaining: warm‑container *sustainability* (a tier/account choice; `VLM_MIN_CONTAINERS` default 0 avoids idle burn) + full catalog benchmark + PR merge. **PR push: DONE** (branch durable on GitHub).

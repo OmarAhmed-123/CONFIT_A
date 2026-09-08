@@ -271,6 +271,17 @@ class Settings(BaseSettings):
     QWEN_VL_WORKER_TOKEN: Optional[str] = None
     QWEN_VL_MODEL_ID: str = "Qwen/Qwen2.5-VL-7B-Instruct"
     QWEN_VL_TIMEOUT_SECONDS: float = 90.0
+    # Transport to the local Qwen worker. "web" = stateless HTTP web endpoint
+    # (VTON-style; requires a Modal tier that sustains a warm container for this
+    # 16.6 GB model). "remote" = the backend calls the deployed Modal Function
+    # `vlm_analyze` via .remote() (server-to-server; the container is held for the
+    # call, so the heavy cold start is fine — the robust path when a warm container
+    # is unavailable). Default "web" keeps the existing httpx behaviour. "remote"
+    # authenticates with MODAL_TOKEN_ID / MODAL_TOKEN_SECRET (server-side only,
+    # never committed).
+    QWEN_VL_TRANSPORT: str = "web"
+    QWEN_VL_REMOTE_APP: str = "confit-vlm-worker"
+    QWEN_VL_REMOTE_FN: str = "vlm_analyze"
     # Temporary (NON-persistent) delivery of generated try-on images.
     # Product requirement (2026-09-05): the generated image is downloadable by
     # the authenticated requesting user but must NEVER be stored permanently

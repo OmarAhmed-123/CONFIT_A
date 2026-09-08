@@ -11,7 +11,8 @@ Run:  pytest backend/tests/test_qwen_vision.py -q --noconftest
 from __future__ import annotations
 
 import asyncio
-from types import SimpleNamespace
+import sys
+from types import ModuleType, SimpleNamespace
 from typing import Any, Dict
 
 import httpx
@@ -235,3 +236,90 @@ def test_analyze_fashion_image_forwards_prompt_to_fallback(monkey_settings, monk
     out = asyncio.run(VisualSearchAIProvider().analyze_fashion_image(_B64))
     assert out["analysis_available"] is False
     assert captured.get("prompt") == VisualSearchAIProvider.VISION_PROMPT
+
+
+# ---------------------------------------------------------------------------
+# QwenVisionProvider — remote (Modal Function .remote()) transport
+# ---------------------------------------------------------------------------
+
+def _fake_modal(remote_result):
+    """Minimal fake `modal` module: Function.from_name(...).remote() returns
+    `remote_result`, recording the (app, fn, args) it was called with."""
+    fake = ModuleType("modal")
+    calls: Dict[str, Any] = {}
+
+    class _Fn:
+        def remote(self, b64, mime, prompt, mode):
+            calls["args"] = (b64, mime, prompt, mode)
+            return remote_result
+
+    class _Function:
+        @staticmethod
+        def from_name(app, name):
+            calls["app"] = app
+            calls["fn"] = name
+            return _Fn()
+
+    fake.Function = _Function
+    fake._calls = calls
+    return fake
+
+
+def test_remote_not_configured_without_creds(monkey_settings, monkeypatch):
+    monkey_settings(QWEN_VL_TRANSPORT="remote")
+    monkeypatch.delenv("MODAL_TOKEN_ID", raising=False)
+    monkeypatch.delenv("MODAL_TOKEN_SECRET", raising=False)
+    assert QwenVisionProvider().is_configured() is False
+
+
+def test_remote_is_configured_with_creds(monkey_settings, monkeypatch):
+    monkey_settings(QWEN_VL_TRANSPORT="remote")
+    monkeypatch.setenv("MODAL_TOKEN_ID", "ak-test")
+    monkeypatch.setenv("MODAL_TOKEN_SECRET", "as-test")
+    assert QwenVisionProvider().is_configured() is True
+
+
+def test_remote_analyze_success(monkey_settings, monkeypatch):
+    monkey_settings(QWEN_VL_TRANSPORT="remote",
+                    QWEN_VL_REMOTE_APP="confit-vlm-worker", QWEN_VL_REMOTE_FN="vlm_analyze")
+    monkeypatch.setenv("MODAL_TOKEN_ID", "ak-test")
+    monkeypatch.setenv("MODAL_TOKEN_SECRET", "as-test")
+    fake = _fake_modal({
+        "analysis_available": True,
+        "analysis_source": "Qwen/Qwen2.5-VL-7B-Instruct",
+        "detected_category": "Tops",
+        "detected_color": "black",
+    })
+    monkeypatch.setitem(sys.modules, "modal", fake)
+    out = asyncio.run(QwenVisionProvider().analyze(_B64, _PROMPT, mode="visual_search"))
+    assert out["analysis_available"] is True
+    assert out["detected_category"] == "Tops"
+    assert fake._calls["app"] == "confit-vlm-worker"
+    assert fake._calls["fn"] == "vlm_analyze"
+    b64, mime, prompt, mode = fake._calls["args"]
+    assert mime == "image/png"
+    assert b64 == _TINY_PNG  # raw base64 (data URL prefix stripped)
+    assert mode == "visual_search"
+
+
+def test_remote_not_ready_maps_to_worker_not_ready(monkey_settings, monkeypatch):
+    monkey_settings(QWEN_VL_TRANSPORT="remote")
+    monkeypatch.setenv("MODAL_TOKEN_ID", "ak-test")
+    monkeypatch.setenv("MODAL_TOKEN_SECRET", "as-test")
+    monkeypatch.setitem(sys.modules, "modal", _fake_modal(
+        {"analysis_available": False, "error": "VLM_NOT_READY", "detail": "model not loaded"}))
+    with pytest.raises(QwenVisionError) as ei:
+        asyncio.run(QwenVisionProvider().analyze(_B64, _PROMPT))
+    assert ei.value.reason == "worker_not_ready"
+
+
+def test_image_ref_data_url(monkey_settings):
+    b64, mime = QwenVisionProvider._image_ref_to_base64_mime(_B64)
+    assert b64 == _TINY_PNG
+    assert mime == "image/png"
+
+
+def test_image_ref_ssrf_guard(monkey_settings):
+    with pytest.raises(QwenVisionError) as ei:
+        QwenVisionProvider._image_ref_to_base64_mime("http://127.0.0.1/product.jpg")
+    assert ei.value.reason == "bad_input"

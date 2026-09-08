@@ -61,8 +61,11 @@ def test_model_spec_pins_apache7b_not_research3b():
     # The selected model must be the Apache-2.0 7B, NOT the non-commercial 3B.
     assert "7B" in MODEL_REPO_ID
     assert "3B" not in MODEL_REPO_ID
-    assert LICENSE == "apache-2.0"
+    assert LICENSE == "apache-2.0"  # Apache-2.0 is the HF model-card tag (verified separately)
     assert MODEL_REVISION  # must be pinned (never 'main'/None)
     assert len(REQUIRED_FILES) >= 14
-    assert "LICENSE" in REQUIRED_FILES
+    # The HF repo ships NO LICENSE file; REQUIRED_FILES is exactly what
+    # from_pretrained + the processor need (the license is the model-card tag).
+    assert "LICENSE" not in REQUIRED_FILES
     assert "model-00001-of-00005.safetensors" in REQUIRED_FILES
+    assert "model.safetensors.index.json" in REQUIRED_FILES

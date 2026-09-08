@@ -36,10 +36,27 @@ WEIGHTS_DIR = "/weights"
 MODEL_ID = MODEL_REPO_ID
 MODEL_DEVICE = os.environ.get("QWEN_VL_DEVICE", "auto")
 MODEL_DTYPE = os.environ.get("QWEN_VL_TORCH_DTYPE", "bfloat16")
+# Optional 4-bit NF4 (OFF by default) reduces served VRAM (~6-8 GB vs the MEASURED
+# 15.45 GB BF16) so the worker can fit a cheaper GPU tier. It does NOT fix the web
+# cold start (the container BOOT — image pull + CUDA init — is the bottleneck here,
+# not the model load). Set QWEN_VL_LOAD_4BIT=1 to enable; keep BF16 (default) to
+# match the measured benchmark numbers.
+MODEL_LOAD_4BIT = os.environ.get("QWEN_VL_LOAD_4BIT", "0") == "1"
 WORKER_GPU = os.environ.get("VLM_GPU", "A10G")
 
 # Image mirrors the proven VTON worker pattern (debian_slim + torch/CUDA stack).
 # PyPI torch bundles the NVIDIA CUDA runtime; A10G (CUDA 12) compatible.
+#
+# CRITICAL (root cause of the earlier crash-loop): `modal deploy modal_app.py`
+# ships ONLY modal_app.py to /root in the container. The top-level
+#   from inference import ...
+#   from model_spec import ...
+# would therefore crash every container at import with
+#   ModuleNotFoundError: No module named 'inference'
+# (observed in the deployed app logs: "QwenInferenceService.* is crash-looping").
+# The sibling modules MUST be baked into the image. We ship exactly the two files
+# modal_app.py imports (deterministic: same git tree, no weights, no /tmp).
+_HERE = os.path.dirname(os.path.abspath(__file__))
 image = (
     modal.Image.debian_slim(python_version="3.11")
     .apt_install("libgomp1", "libgl1-mesa-glx", "libglib2.0-0")
@@ -48,6 +65,7 @@ image = (
         "torchvision",  # required by Qwen2VLVideoProcessor
         "transformers>=4.50.0",
         "accelerate>=0.33.0",
+        "bitsandbytes>=0.43.0",
         "qwen-vl-utils>=0.0.8",
         "huggingface_hub>=0.24.0",
         "Pillow>=10.4.0",
@@ -57,6 +75,8 @@ image = (
         "uvicorn>=0.32.0",
         "pydantic>=2.9.0",
     )
+    .add_local_file(os.path.join(_HERE, "inference.py"), "/root/inference.py")
+    .add_local_file(os.path.join(_HERE, "model_spec.py"), "/root/model_spec.py")
 )
 
 
@@ -125,13 +145,18 @@ def _image_to_bytes(image_ref: str) -> tuple[bytes, str]:
 @app.cls(
     image=image,
     gpu=WORKER_GPU,
-    # Keep one warm container in production: the 16.6 GB model's cold start (~70s)
-    # exceeds the Modal edge request window (else the container is cancelled
-    # mid-load). min_containers=1 loads it once at warm-up so /analyze is fast
-    # (real continuous A10G cost). Override with VLM_MIN_CONTAINERS=0 to scale to 0.
-    min_containers=int(os.environ.get("VLM_MIN_CONTAINERS", "1")),
+    # Serving note: with the sibling modules now baked into the image (see above), the
+    # earlier crash-loop (ModuleNotFoundError: inference) is resolved — the container
+    # starts, loads the model on the A10G, and serves /analyze. A warm container
+    # (min_containers=1) is NOT sustained on this (free/limited) account, so each
+    # idle->active transition is a cold start (container boot + 16.6 GB load).
+    # min_containers is env-overridable (VLM_MIN_CONTAINERS, default 0 = scale to 0 when
+    # idle to avoid GPU burn). A robust alternative transport is the standalone
+    # `vlm_analyze` Modal Function (backend QWEN_VL_TRANSPORT=remote -> .remote(),
+    # container held for the call).
+    min_containers=int(os.environ.get("VLM_MIN_CONTAINERS", "0")),
     timeout=900,
-    secrets=[modal.Secret.from_name("confit-vlm-admin-token")],
+    secrets=[modal.Secret.from_name("confit-vlm-admin-token2")],
     volumes={WEIGHTS_DIR: modal.Volume.from_name("confit-qwen25vl-weights")},
 )
 @modal.concurrent(max_inputs=1)
@@ -148,9 +173,9 @@ class QwenInferenceService:
 
             self.device_name = torch.cuda.get_device_name(0) if torch.cuda.is_available() else "cpu"
             os.environ.setdefault("QWEN_VL_WEIGHTS_DIR", WEIGHTS_DIR)
-            load_model(device=MODEL_DEVICE, dtype=MODEL_DTYPE)
+            load_model(device=MODEL_DEVICE, dtype=MODEL_DTYPE, load_in_4bit=MODEL_LOAD_4BIT)
             self.model_loaded = True
-            print(f"[vlm-load] {MODEL_ID} ready on {self.device_name}", flush=True)
+            print(f"[vlm-load] {MODEL_ID} ready on {self.device_name} (4bit={MODEL_LOAD_4BIT})", flush=True)
         except Exception as exc:
             self.model_loaded = False
             self.load_error = f"{type(exc).__name__}: {exc}"
@@ -215,3 +240,41 @@ class QwenInferenceService:
             code = "GPU_OOM" if "OOM" in str(exc) else "INFERENCE_FAILED"
             return JSONResponse(status_code=500, content={"error": {"code": code, "message": str(exc)[:300]}})
         return {"analysis_available": True, "analysis_source": MODEL_ID, **data}
+
+
+@app.function(
+    image=image,
+    gpu=WORKER_GPU,
+    timeout=900,
+    secrets=[modal.Secret.from_name("confit-vlm-admin-token2")],
+    volumes={WEIGHTS_DIR: modal.Volume.from_name("confit-qwen25vl-weights")},
+)
+def vlm_analyze(image_b64: str, mime: str, prompt: str, mode: str = "visual_search") -> dict:
+    """Server-to-server ``.remote()`` entry point (production option (b)).
+
+    The backend references this via ``modal.Function.from_name("confit-vlm-worker",
+    "vlm_analyze")`` and calls ``.remote(...)``, so the container is held for the call
+    (up to ``timeout``) and the heavy cold start is fine — unlike the stateless web edge.
+    Loads the model once per container (inference singleton). No public web auth: the
+    Modal invocation channel (MODAL_TOKEN_*) is the trust boundary. Same honest response
+    contract as ``/analyze`` (never invents fields).
+    """
+    import base64 as _b64
+
+    os.environ.setdefault("QWEN_VL_WEIGHTS_DIR", WEIGHTS_DIR)
+    try:
+        load_model(device=MODEL_DEVICE, dtype=MODEL_DTYPE, load_in_4bit=MODEL_LOAD_4BIT)
+    except InferenceError as exc:
+        return {"analysis_available": False, "error": "VLM_NOT_READY", "detail": str(exc)[:300]}
+    try:
+        image_bytes = _b64.b64decode(image_b64)
+    except Exception as exc:
+        return {"analysis_available": False, "error": "BAD_INPUT", "detail": f"bad image base64: {exc}"[:300]}
+    try:
+        data = analyze_image(image_bytes, mime, prompt)
+    except OutputInvalidError as exc:
+        return {"analysis_available": False, "error": "output_invalid", "detail": str(exc)[:300]}
+    except InferenceError as exc:
+        code = "GPU_OOM" if "OOM" in str(exc) else "INFERENCE_FAILED"
+        return {"analysis_available": False, "error": code, "detail": str(exc)[:300]}
+    return {"analysis_available": True, "analysis_source": MODEL_ID, **data}

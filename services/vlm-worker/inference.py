@@ -47,8 +47,14 @@ def _weights_dir() -> str:
     return os.environ.get("QWEN_VL_WEIGHTS_DIR", "/weights")
 
 
-def load_model(device: str = "auto", dtype: str = "bfloat16") -> None:
-    """Load the model exactly once. Raises :class:`InferenceError` on any failure."""
+def load_model(device: str = "auto", dtype: str = "bfloat16", load_in_4bit: bool = False) -> None:
+    """Load the model exactly once. Raises :class:`InferenceError` on any failure.
+
+    ``load_in_4bit`` optionally loads via 4-bit NF4 (bitsandbytes) to cut VRAM +
+    cold-start load time for the served worker; the authoritative HF weights are
+    quantized AT LOAD (provenance/checksums unchanged). Off by default (BF16) so the
+    pure offline paths + GPU benchmark keep full precision.
+    """
     if _state["loaded"]:
         return
     with _state["lock"]:
@@ -68,9 +74,19 @@ def load_model(device: str = "auto", dtype: str = "bfloat16") -> None:
 
         dtype_map = {"bfloat16": torch.bfloat16, "float16": torch.float16, "float32": torch.float32}
         torch_dtype = dtype_map.get(dtype, torch.bfloat16)
+        kwargs: Dict[str, Any] = {}
+        if load_in_4bit:
+            from transformers import BitsAndBytesConfig
+
+            kwargs["quantization_config"] = BitsAndBytesConfig(
+                load_in_4bit=True,
+                bnb_4bit_quant_type="nf4",
+                bnb_4bit_compute_dtype=torch_dtype,
+                bnb_4bit_use_double_quant=True,
+            )
         try:
             model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
-                weights, torch_dtype=torch_dtype, device_map=device
+                weights, torch_dtype=torch_dtype, device_map=device, **kwargs
             )
             model.eval()
             processor = AutoProcessor.from_pretrained(weights)

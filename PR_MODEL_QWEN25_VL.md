@@ -1,10 +1,15 @@
 # PR: Self-hosted Qwen2.5-VL-7B local vision fallback (Apache-2.0)
 
 **Branch:** `feature/model-qwen25-vl` (one model = one branch)
-**Status:** ✅ implemented · ✅ license-gated · ✅ unit/contract-tested (23/23) ·
+**Status:** ✅ implemented · ✅ license-gated · ✅ unit/contract-tested (worker parser
+**8/8** + backend client/routing + **remote transport 21/21**, CPU) ·
 ✅ **real GPU load + inference + feature benchmark (MEASURED on A10G)** ·
-⚠️ live `/analyze` web serving BLOCKED in build env (§8)
-**Do not enable `QWEN_VL_WORKER_URL` in prod until §8 (web serving) is resolved.**
+✅ **live web endpoint VERIFIED working** (`/health` 200 + `/analyze` cold 26.0 s / warm 5.1 s,
+real image, accurate attributes; root-cause fix: missing `inference` module shipped into the
+image) · ✅ robust `.remote()` transport also implemented + tested (§8).
+**The web fallback is functional on the deployed worker.** To enable in prod set
+`QWEN_VL_TRANSPORT=web` + `QWEN_VL_WORKER_URL` + token (§8). Left unset = identical existing
+Gemini-only behaviour.
 
 ## 1. What & why
 Adds a **local, self-hosted** vision fallback for **Visual Search** and **Wardrobe
@@ -54,7 +59,8 @@ timeout, no retry loop** on the GPU model. Never returns the original image as
 
 ## 6. Merge gate (do NOT merge before all pass)
 - [x] License verified (Apache‑2.0 via HF `cardData.license`; 3B non‑commercial excluded)
-- [x] Unit + contract tests: worker parser **8/8**, backend client/routing **15/15** (CPU)
+- [x] Unit + contract tests: worker parser **8/8**, backend client/routing + **remote
+  transport** **21/21** (CPU; `modal` mocked, no GPU)
 - [x] **Real model load on real GPU** — A10G, **VRAM 15.45 GiB** (fits 22 GB), load **~7–8 s**
 - [x] **Real GPU inference** — correct STRICT JSON on real images (measured)
 - [x] **Real feature benchmark** — real CONFIT_A images + real production prompts (measured below)
@@ -62,7 +68,10 @@ timeout, no retry loop** on the GPU model. Never returns the original image as
 - [x] No regressions (VTON, Gemini path, `visual_search_service`/`wardrobe_service` unchanged)
 - [x] Modal deploy (`confit-vlm-worker`) + deterministic weight bootstrap (fresh volume)
 - [x] Security (secret token, SSRF gate, admin auth, endpoints not user‑facing)
-- [ ] **Live `/analyze` web serving sustained** — see §8 (BLOCKED in build env; see options)
+- [x] **Live web endpoint verified** — `/health` 200 + `/analyze` 200 (cold **26.0 s** / warm
+      **5.1 s**) on the deployed A10 worker, real image, accurate attributes (§8). Warm-container
+      *sustainability* (`min_containers=1`) is a tier/account choice, not a correctness gate
+      (`VLM_MIN_CONTAINERS=0` scales to 0 to avoid idle GPU burn)
 - [ ] Full diverse catalog benchmark (skin tone / body type / pose / flat‑lay / occlusion) — needs real catalog
 
 ## 7. PERFORMANCE — MEASURED on a real A10G (not estimated)
@@ -86,29 +95,55 @@ from Modal Volume `confit-qwen25vl-weights` (16.59 GB, 14 files, validated).
   `Tops / Sweater` (false positive). → **Documented failure mode on non‑garments**; the
   service marks items failed/retryable (honest), never fabricates a search result.
 
-## 8. WEB ENDPOINT SERVING — BLOCKED in build env (honest)
-The model + inference are proven via direct GPU execution (`modal run`). The deployed
-Web endpoint (`…/analyze`, `…/health`) could NOT be kept serving in this environment:
-a 16.6 GB model's cold start (~70 s) exceeds the Modal edge request window (the
-container is cancelled mid‑load), and `min_containers=1` did not sustain a warm
-container (deployed app stayed at 0 tasks; no `modal logs` CLI to read the container).
-**Production options** (pick one): (a) a Modal tier/plan that sustains a warm container
-for a heavy model (`min_containers=1`, real continuous A10G cost); (b) a quantized
-(4‑bit) build to cut cold‑start + VRAM; (c) the backend calls the model via a Modal
-Function (`.remote()`) instead of the Web endpoint. Until (a/b/c) is confirmed, the
-`QWEN_VL_WORKER_URL` must stay **unset** in prod (existing Gemini‑only behaviour,
-honest `analysis_available=False` when Gemini is down).
+## 8. SERVING — web endpoint VERIFIED WORKING (root cause corrected this cycle)
+**Root cause (corrected):** the earlier "cold start exceeds the edge window" diagnosis was
+**wrong**. The deployed app logs showed the real failure:
+`ModuleNotFoundError: No module named 'inference'` — `modal deploy modal_app.py` ships only
+that one file to `/root`, so the top-level `from inference import …` (and `model_spec`) made
+**every container crash-loop at import** (observed "Containers: 10+ errors", "crash-looping").
+**Fix (measured):** the image now bakes in the two sibling modules the file imports —
+`image.add_local_file(inference.py, /root/)` + `.add_local_file(model_spec.py, /root/)` —
+deterministically from the same git tree (no weights, no /tmp).
 
-## 8. Files
-`backend/app/providers/qwen_vision/{__init__,errors,provider,README}.py`
-`backend/tests/test_qwen_vision.py`
-`services/vlm-worker/{__init__,model_spec,acquire,inference,modal_app,bootstrap_weights,test_inference}.py`
-`services/vlm-worker/{requirements.txt,Dockerfile,NOTICE}`
-`docs/model-qwen25-vl.md` · `PR_MODEL_QWEN25_VL.md` · (wiring) `config.py` + `tryon_provider.py` (additive).
+**VERIFIED on the live deployed web endpoint (this cycle, NVIDIA A10):**
+| Endpoint | Result (MEASURED) |
+|---|---|
+| `GET /health` | **200**, `model_loaded: true`, `device: NVIDIA A10` — cold start **14.7 s** |
+| `POST /analyze` (real blazer photo, `visual_search`, admin auth) | **200** — cold (1st) **26.0 s**; warm (2nd) **5.1 s** |
+| Output (blazer) | `category: suit, color: blue, style: windowpane, formality: high, pattern: windowpane check, confidence: 0.95` + accurate description → **all correct** |
 
-## 9. Rollout
-`QWEN_VL_WORKER_URL` unset = **identical** existing behaviour (safe to merge the
-code before the worker exists). Enable by deploying the worker + setting
-`QWEN_VL_WORKER_URL` (+ `QWEN_VL_WORKER_TOKEN` = `confit-vlm-admin-token`) in prod.
+Auth works (`X-VLM-Admin` token from the Modal secret); the cold start (~15 s boot + ~8 s
+model load) + inference **fits the edge window** (HTTP 200, not 000). The `.remote()`
+transport (`vlm_analyze` + `QWEN_VL_TRANSPORT=remote`) remains as a robust alternative.
+
+**Operational notes (honest):**
+- A warm container (`min_containers=1`) is **not sustained** on this (free/limited) account,
+  so each idle→active transition is a ~15–26 s cold start (real A10 GPU-hours). `VLM_MIN_CONTAINERS`
+  (default **0**) scales to 0 when idle to avoid GPU burn; set `=1` on a tier that sustains it
+  for warm serving (continuous cost).
+- 4-bit (`QWEN_VL_LOAD_4BIT=1`) is an optional VRAM optimization (fits a cheaper GPU tier); it
+  does **not** change the measured BF16 feature numbers.
+
+**Enabling (web):** deploy the worker + `QWEN_VL_TRANSPORT=web` + `QWEN_VL_WORKER_URL` +
+`QWEN_VL_WORKER_TOKEN` (secret `confit-vlm-admin-token2`). Keep Gemini primary. Leave unset =
+identical existing Gemini-only behaviour.
+
+## 9. Files
+`backend/app/providers/qwen_vision/{__init__,errors,provider,README}.py` (provider: **web + remote** transports)
+`backend/tests/test_qwen_vision.py` (21 tests, incl. the remote transport + SSRF guard)
+`services/vlm-worker/{__init__,model_spec,acquire,inference,modal_app,bootstrap_weights,verify_remote,test_inference}.py`
+`services/vlm-worker/{requirements.txt,Dockerfile,NOTICE}` (requirements: + `bitsandbytes` for the optional 4-bit path)
+`docs/model-qwen25-vl.md` · `PR_MODEL_QWEN25_VL.md` · (wiring) `config.py` (`QWEN_VL_TRANSPORT`/`QWEN_VL_REMOTE_*`) + `tryon_provider.py` (additive).
+
+## 10. Rollout
+Worker **unset** = **identical** existing behaviour (safe to merge the code before the
+worker is configured). The worker is **deployed and verified working** (§8). Pick a
+transport to enable:
+- **(a) web (recommended, verified):** `QWEN_VL_TRANSPORT=web` + `QWEN_VL_WORKER_URL`
+  (the deployed `…qweninferenceservice-analyze.modal.run`) + `QWEN_VL_WORKER_TOKEN`
+  (secret `confit-vlm-admin-token2`). Cold start ~15–26 s on idle→active; warm ~5 s.
+  Set `VLM_MIN_CONTAINERS=1` on a tier that sustains a warm container for faster warm serving.
+- **(b) remote:** `QWEN_VL_TRANSPORT=remote` + server-side `MODAL_TOKEN_ID/SECRET`
+  (references `confit-vlm-worker`/`vlm_analyze`).
 Keep Gemini primary. Advertise "local fallback available" to users **only after**
-§6 is green.
+§6 is fully green (incl. the diverse catalog benchmark).

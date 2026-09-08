@@ -254,3 +254,17 @@ The "Gemini 401 → Qwen" trigger is a deterministic code path proven by the cod
 - The REMOTE transport is **kept** (documented, implemented, tested) as a contingency; it is **not
   re‑verified live this cycle** to conserve GPU (the web path is already GPU‑verified end‑to‑end).
 - Both transports return the **same honest Gemini‑compatible contract**.
+
+## 15. CI state (honest)
+All in‑repo checks are green/running on the head commit: `backend` (dep guard + full pytest),
+`postgres migration chain + schema gate`, `production parity (deployment contract)`, `frontend`,
+and **`gitleaks secret scan (full history)` = success** (no secrets in history).
+
+The **one red check, `Workers Builds: confit-a`, is NOT a Qwen regression.** It is a **third‑party
+Cloudflare build check** documented in this repo as **pre‑existing + non‑required for merge** and
+that **fails in 0 s on branches / green on `main`** (external to Vercel, where `confit-a` actually
+deploys) — see `docs/AUDIT_REMEDIATION_2026-09-06.md` §4.2 and
+`docs/PRODUCTION_FINDINGS_UPDATE_20260905.md` (finding 8). It fails identically on any branch and
+is green on `main`; the "0 s" is an instant, spurious failure (not a real build error from this
+code). Its exact build log is dashboard‑side (Cloudflare token required). If that Cloudflare target
+is no longer wanted, the check can be disabled in the Cloudflare dashboard.

@@ -105,7 +105,11 @@ audit** (1 A10G Qwen worker, concurrency 1, `min_containers=0`, VTON isolated); 
 decision** (WEB primary, REMOTE documented alternative); **fallback‑chain proof** (both features).
 **Closed after credential re‑provision (2026-09-08):** live `modal app list` re‑run → **all 3 apps
 at 0 tasks (0 GPUs held)**, single Qwen worker + 2 distinct VTON workers, all scale to 0
-(LIVE‑VERIFIED); the close‑out commits are **pushed** (branch head `dda70fa`, PR #102 body updated).
+(LIVE‑VERIFIED); the close‑out commits are **pushed** (PR #102 body re‑synced to the updated doc).
+**CI (honest):** all in‑repo checks green/running (backend, postgres, production parity, frontend,
+**gitleaks full‑history secret scan = success**). The one red check, `Workers Builds: confit-a`, is a
+documented **pre‑existing, non‑required third‑party Cloudflare check** that fails in 0 s on branches /
+green on main (external to Vercel) — **not a Qwen regression** (PR §15).
 **Honest remaining merge gates (NOT all green → do not merge yet):** ① **diverse catalog benchmark
 = BLOCKED** (needs an authorized real catalog; ground truth not invented) — the one true merge gate
 not yet satisfied; ② code review. VTON segfee is existing production (not a new PR).

@@ -23,7 +23,7 @@
       "validation_status": "GPU-VERIFIED + FEATURE-SMOKE-VERIFIED: real A10/A10G load (15.45 GiB) + real inference + feature SMOKE test (measured); unit/contract tests 31/31 = worker parser 8/8 + backend Qwen client/routing/wardrobe 23/23; full backend suite 1083/0; license-gated (Apache-2.0). DIVERSE-BENCHMARK: PENDING/BLOCKED (needs an authorized real catalog; ground truth not invented).",
       "production_status": "WORKER DEPLOYED + web endpoint VERIFIED WORKING (live GET /health 200 on NVIDIA A10; POST /analyze 200, cold 26.0s / warm 5.1s, accurate attributes; earlier crash-loop root cause = missing `inference` module, fixed by baking sibling modules into the image). PRODUCTION-VERIFIED: NOT YET (fallback not enabled in prod; QWEN_VL_* unset = identical Gemini-only behaviour). Transport decision: WEB primary (verified); REMOTE documented + tested alternative. Fail-closed admin auth. Enable in prod via QWEN_VL_WORKER_URL + QWEN_VL_WORKER_TOKEN (web) when ready; finish the diverse-catalog benchmark before advertising (PR_MODEL_QWEN25_VL.md §8, §11-§14).",
       "branch": "feature/model-qwen25-vl",
-      "commit": "feature/model-qwen25-vl pushed to GitHub (PR #102) - 5 close-out commits on top of 0cdad5e: FP fix+tests, deps/parity, fail-closed auth, docs, this registry pointer"
+      "commit": "feature/model-qwen25-vl (PR #102, pushed) - close-out on top of 0cdad5e; see `git log` for the commit list (FP fix+tests, deps/parity, fail-closed auth, docs, capacity-audit LIVE-verified, registry pointer)"
     },
     {
       "model_id": "fashn-vton-segfee",

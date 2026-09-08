@@ -14,7 +14,7 @@
 #   * GET  /readiness (public) -> 200 only when model loaded, else 503 VLM_NOT_READY
 #   * POST /analyze   -> {image, prompt, mode} -> Gemini-compatible structured JSON
 #
-# Auth: X-VLM-Admin header == Modal secret `confit-vlm-admin-token`.
+# Auth: X-VLM-Admin header == Modal secret `confit-vlm-admin-token2`.
 # Weights: Modal Volume `confit-qwen25vl-weights` mounted at /weights.
 # =============================================================================
 import base64
@@ -213,7 +213,10 @@ class QwenInferenceService:
         x_vlm_admin: str | None = Header(None, alias="X-VLM-Admin"),
     ):
         expected = os.environ.get("QWEN_VL_WORKER_TOKEN") or os.environ.get("CONFIT_VLM_ADMIN_TOKEN", "")
-        if expected and x_vlm_admin != expected:
+        # Fail CLOSED: reject when the admin token is not configured (misconfig)
+        # OR when the presented header does not match. A worker must never serve
+        # /analyze without a configured + verified admin token.
+        if not expected or x_vlm_admin != expected:
             return JSONResponse(
                 status_code=401,
                 content={"error": {"code": "UNAUTHORIZED", "message": "invalid or missing admin token"}},

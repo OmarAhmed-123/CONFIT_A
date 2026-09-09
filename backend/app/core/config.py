@@ -275,6 +275,13 @@ class Settings(BaseSettings):
     VTON_DELIVERY_MAX_BYTES: int = 64 * 1024 * 1024
     CHAT_COOLDOWN_MS: int = 600000
 
+    # Visual Search Enhancement
+    # Feature flag for deterministic scoring improvements.
+    # OFF (default): baseline token-matching scoring.
+    # ON: enhanced scoring with synonym normalization, category hierarchy,
+    #     LAB color similarity, style weighting.
+    USE_ENHANCED_VISUAL_SEARCH_SCORING: bool = False
+
     # Weather (G2-S5) — disabled by default; never fabricate weather data.
     OPENWEATHER_ENABLED: bool = False
     OPENWEATHER_API_KEY: Optional[str] = None

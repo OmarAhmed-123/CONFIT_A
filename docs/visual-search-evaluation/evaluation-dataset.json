@@ -1,0 +1,258 @@
+{
+  "version": "1.0.0",
+  "created": "2026-09-09",
+  "description": "CONFIT_A Visual Search Evaluation Dataset",
+  "provenance": "Derived from CONFIT_A seed catalog and common fashion search patterns",
+  "license": "Internal use only - CONFIT_A project",
+  "categories": [
+    {
+      "id": "tops",
+      "name": "Tops",
+      "parent": null,
+      "children": ["shirt", "blouse", "t-shirt", "sweater", "cardigan", "hoodie"],
+      "synonyms": ["top", "upper", "tee"]
+    },
+    {
+      "id": "bottoms",
+      "name": "Bottoms",
+      "parent": null,
+      "children": ["pants", "trousers", "jeans", "shorts", "skirt"],
+      "synonyms": ["bottom", "lower", "slacks"]
+    },
+    {
+      "id": "dresses",
+      "name": "Dresses",
+      "parent": null,
+      "children": ["dress", "gown", "sundress", "cocktail dress"],
+      "synonyms": ["one-piece", "frock"]
+    },
+    {
+      "id": "outerwear",
+      "name": "Outerwear",
+      "parent": null,
+      "children": ["jacket", "coat", "blazer", "vest"],
+      "synonyms": ["outer", "layer"]
+    },
+    {
+      "id": "footwear",
+      "name": "Footwear",
+      "parent": null,
+      "children": ["shoes", "sneakers", "boots", "sandals", "heels"],
+      "synonyms": ["shoes", "kicks", "trainers"]
+    },
+    {
+      "id": "accessories",
+      "name": "Accessories",
+      "parent": null,
+      "children": ["bag", "hat", "scarf", "belt", "jewelry"],
+      "synonyms": ["accessory", "acc"]
+    }
+  ],
+  "color_taxonomy": {
+    "black": ["noir", "dark", "ebony"],
+    "white": ["ivory", "cream", "off-white", "pearl"],
+    "navy": ["dark blue", "navy blue", "midnight blue"],
+    "red": ["crimson", "scarlet", "burgundy", "maroon"],
+    "blue": ["royal blue", "cobalt", "azure"],
+    "green": ["emerald", "olive", "forest green", "lime"],
+    "yellow": ["gold", "mustard", "lemon"],
+    "pink": ["rose", "blush", "fuchsia", "magenta"],
+    "purple": ["violet", "lavender", "plum"],
+    "brown": ["tan", "beige", "camel", "khaki", "chocolate"],
+    "gray": ["grey", "charcoal", "slate", "silver"]
+  },
+  "style_taxonomy": {
+    "casual": ["everyday", "relaxed", "informal"],
+    "formal": ["business", "professional", "office"],
+    "smart casual": ["smart", "semi-formal"],
+    "streetwear": ["urban", "hip-hop", "street"],
+    "bohemian": ["boho", "hippie", "boho-chic"],
+    "minimalist": ["simple", "clean", "basic"],
+    "classic": ["traditional", "timeless", "preppy"],
+    "sporty": ["athletic", "active", "gym"]
+  },
+  "test_cases": [
+    {
+      "id": "TC001",
+      "description": "Exact category match - tops",
+      "vision_output": {
+        "detected_category": "Tops",
+        "detected_color": "navy",
+        "detected_pattern": "Solid",
+        "detected_style": "Smart Casual"
+      },
+      "expected_top_results": ["tops"],
+      "should_not_match": ["bottoms", "dresses", "footwear"]
+    },
+    {
+      "id": "TC002",
+      "description": "Exact category match - bottoms",
+      "vision_output": {
+        "detected_category": "Bottoms",
+        "detected_color": "black",
+        "detected_pattern": "Solid",
+        "detected_style": "Formal"
+      },
+      "expected_top_results": ["bottoms"],
+      "should_not_match": ["tops", "dresses", "outerwear"]
+    },
+    {
+      "id": "TC003",
+      "description": "Exact category match - dresses",
+      "vision_output": {
+        "detected_category": "Dresses",
+        "detected_color": "red",
+        "detected_pattern": "Floral",
+        "detected_style": "Casual"
+      },
+      "expected_top_results": ["dresses"],
+      "should_not_match": ["tops", "bottoms", "outerwear"]
+    },
+    {
+      "id": "TC004",
+      "description": "Synonym test - tee vs t-shirt",
+      "vision_output": {
+        "detected_category": "Tops",
+        "detected_color": "white",
+        "detected_pattern": "Solid",
+        "detected_style": "Casual"
+      },
+      "search_query": "tee",
+      "expected_match": ["t-shirt", "tee"],
+      "synonym_mapping": {"tee": "t-shirt"}
+    },
+    {
+      "id": "TC005",
+      "description": "Synonym test - trousers vs pants",
+      "vision_output": {
+        "detected_category": "Bottoms",
+        "detected_color": "gray",
+        "detected_pattern": "Solid",
+        "detected_style": "Formal"
+      },
+      "search_query": "trousers",
+      "expected_match": ["pants", "trousers"],
+      "synonym_mapping": {"trousers": "pants"}
+    },
+    {
+      "id": "TC006",
+      "description": "Color synonym - navy vs dark blue",
+      "vision_output": {
+        "detected_category": "Tops",
+        "detected_color": "dark blue",
+        "detected_pattern": "Solid",
+        "detected_style": "Smart Casual"
+      },
+      "expected_color_match": ["navy", "dark blue", "midnight blue"],
+      "color_synonym": {"dark blue": "navy"}
+    },
+    {
+      "id": "TC007",
+      "description": "Category hierarchy - shirt is child of tops",
+      "vision_output": {
+        "detected_category": "Tops",
+        "detected_color": "blue",
+        "detected_pattern": "Striped",
+        "detected_style": "Casual"
+      },
+      "product_category": "shirt",
+      "should_match": true,
+      "hierarchy_relationship": "child"
+    },
+    {
+      "id": "TC008",
+      "description": "Category hierarchy - jacket is child of outerwear",
+      "vision_output": {
+        "detected_category": "Outerwear",
+        "detected_color": "black",
+        "detected_pattern": "Solid",
+        "detected_style": "Smart Casual"
+      },
+      "product_category": "jacket",
+      "should_match": true,
+      "hierarchy_relationship": "child"
+    },
+    {
+      "id": "TC009",
+      "description": "False synonym - dress should not match tops",
+      "vision_output": {
+        "detected_category": "Tops",
+        "detected_color": "red",
+        "detected_pattern": "Solid",
+        "detected_style": "Casual"
+      },
+      "product_category": "dress",
+      "should_match": false
+    },
+    {
+      "id": "TC010",
+      "description": "Style match - smart casual",
+      "vision_output": {
+        "detected_category": "Tops",
+        "detected_color": "navy",
+        "detected_pattern": "Solid",
+        "detected_style": "Smart Casual"
+      },
+      "product_style_tags": ["smart casual", "tailored"],
+      "should_match": true
+    },
+    {
+      "id": "TC011",
+      "description": "Style conflict - casual vs formal",
+      "vision_output": {
+        "detected_category": "Tops",
+        "detected_color": "white",
+        "detected_pattern": "Solid",
+        "detected_style": "Formal"
+      },
+      "product_style_tags": ["casual", "everyday"],
+      "should_match": false
+    },
+    {
+      "id": "TC012",
+      "description": "Empty vision output",
+      "vision_output": {
+        "analysis_available": false,
+        "detected_category": null,
+        "detected_color": null,
+        "detected_pattern": null,
+        "detected_style": null
+      },
+      "expected_behavior": "all products get base score 50.0"
+    },
+    {
+      "id": "TC013",
+      "description": "Unknown category",
+      "vision_output": {
+        "detected_category": "Swimwear",
+        "detected_color": "blue",
+        "detected_pattern": "Solid",
+        "detected_style": "Casual"
+      },
+      "expected_behavior": "no category match, fall through to color/style"
+    },
+    {
+      "id": "TC014",
+      "description": "Unknown color",
+      "vision_output": {
+        "detected_category": "Tops",
+        "detected_color": "teal",
+        "detected_pattern": "Solid",
+        "detected_style": "Casual"
+      },
+      "expected_behavior": "teal should match blue/green family if taxonomy supports"
+    },
+    {
+      "id": "TC015",
+      "description": "Multiple color detection",
+      "vision_output": {
+        "detected_category": "Tops",
+        "detected_color": "navy",
+        "detected_pattern": "Striped",
+        "detected_style": "Smart Casual",
+        "detected_attributes": {"secondary_colors": ["white"]}
+      },
+      "expected_behavior": "primary color match, secondary color bonus"
+    }
+  ]
+}

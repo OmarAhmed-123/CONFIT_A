@@ -1,0 +1,4419 @@
+{
+  "version": "3.0",
+  "created": "2026-09-09",
+  "provenance": "Systematically generated from fashion domain knowledge. 20 original + 90 expanded = 110 total queries. No private user data. No secrets.",
+  "relevance_scale": {
+    "3": "Highly relevant - exact or near-exact match on category, color, and style",
+    "2": "Partially relevant - matches category and one other attribute",
+    "1": "Marginally relevant - matches only one attribute or is in related category",
+    "0": "Irrelevant - no meaningful match"
+  },
+  "product_catalog": {
+    "P001": {
+      "title": "Navy Slim Blazer",
+      "category": "tops",
+      "color_family": "navy",
+      "style_tags": "smart casual, tailored"
+    },
+    "P002": {
+      "title": "Black T-Shirt",
+      "category": "tops",
+      "color_family": "black",
+      "style_tags": "casual, everyday"
+    },
+    "P003": {
+      "title": "White Oxford Shirt",
+      "category": "tops",
+      "color_family": "white",
+      "style_tags": "smart casual, classic"
+    },
+    "P004": {
+      "title": "Dark Blue Denim Jeans",
+      "category": "bottoms",
+      "color_family": "blue",
+      "style_tags": "casual, streetwear"
+    },
+    "P005": {
+      "title": "Black Dress Pants",
+      "category": "bottoms",
+      "color_family": "black",
+      "style_tags": "formal, elegant"
+    },
+    "P006": {
+      "title": "Red Summer Dress",
+      "category": "dresses",
+      "color_family": "red",
+      "style_tags": "casual, bohemian"
+    },
+    "P007": {
+      "title": "Black Cocktail Dress",
+      "category": "dresses",
+      "color_family": "black",
+      "style_tags": "formal, elegant"
+    },
+    "P008": {
+      "title": "Gray Wool Overcoat",
+      "category": "outerwear",
+      "color_family": "gray",
+      "style_tags": "formal, classic"
+    },
+    "P009": {
+      "title": "Navy Windbreaker",
+      "category": "outerwear",
+      "color_family": "navy",
+      "style_tags": "casual, sporty"
+    },
+    "P010": {
+      "title": "White Sneakers",
+      "category": "footwear",
+      "color_family": "white",
+      "style_tags": "casual, streetwear"
+    },
+    "P011": {
+      "title": "Black Leather Boots",
+      "category": "footwear",
+      "color_family": "black",
+      "style_tags": "classic, streetwear"
+    },
+    "P012": {
+      "title": "Brown Leather Tote Bag",
+      "category": "accessories",
+      "color_family": "brown",
+      "style_tags": "classic, casual"
+    },
+    "P013": {
+      "title": "Black Crossbody Bag",
+      "category": "accessories",
+      "color_family": "black",
+      "style_tags": "casual, streetwear"
+    },
+    "P014": {
+      "title": "Green Polo Shirt",
+      "category": "tops",
+      "color_family": "green",
+      "style_tags": "casual, sporty"
+    },
+    "P015": {
+      "title": "Khaki Chinos",
+      "category": "bottoms",
+      "color_family": "beige",
+      "style_tags": "casual, smart casual"
+    },
+    "P016": {
+      "title": "Navy Trench Coat",
+      "category": "outerwear",
+      "color_family": "navy",
+      "style_tags": "formal, classic"
+    },
+    "P017": {
+      "title": "White Tank Top",
+      "category": "tops",
+      "color_family": "white",
+      "style_tags": "casual, everyday"
+    },
+    "P018": {
+      "title": "Black Mini Skirt",
+      "category": "bottoms",
+      "color_family": "black",
+      "style_tags": "casual, streetwear"
+    },
+    "P019": {
+      "title": "Blue Striped Shirt",
+      "category": "tops",
+      "color_family": "blue",
+      "style_tags": "smart casual, classic"
+    },
+    "P020": {
+      "title": "Red Knit Sweater",
+      "category": "tops",
+      "color_family": "red",
+      "style_tags": "casual, cozy"
+    }
+  },
+  "evaluation_queries": [
+    {
+      "id": "EQ01",
+      "query": "Navy blazer for a business meeting",
+      "vision_output": {
+        "detected_category": "Tops",
+        "detected_color": "navy",
+        "detected_style": "Smart Casual",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 3,
+        "P002": 0,
+        "P003": 2,
+        "P004": 0,
+        "P005": 0,
+        "P006": 0,
+        "P007": 0,
+        "P008": 0,
+        "P009": 1,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 0,
+        "P015": 0,
+        "P016": 2,
+        "P017": 0,
+        "P018": 0,
+        "P019": 1,
+        "P020": 0
+      },
+      "expected_top3": [
+        "P001",
+        "P003",
+        "P016"
+      ],
+      "notes": "Exact category+color+style"
+    },
+    {
+      "id": "EQ02",
+      "query": "Casual t-shirt",
+      "vision_output": {
+        "detected_category": "Tops",
+        "detected_color": "white",
+        "detected_style": "Casual",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 3,
+        "P003": 2,
+        "P004": 0,
+        "P005": 0,
+        "P006": 0,
+        "P007": 0,
+        "P008": 0,
+        "P009": 0,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 2,
+        "P015": 0,
+        "P016": 0,
+        "P017": 3,
+        "P018": 0,
+        "P019": 2,
+        "P020": 2
+      },
+      "expected_top3": [
+        "P002",
+        "P017",
+        "P003"
+      ],
+      "notes": "Synonym: t-shirt=tee"
+    },
+    {
+      "id": "EQ03",
+      "query": "Formal black dress",
+      "vision_output": {
+        "detected_category": "Dresses",
+        "detected_color": "black",
+        "detected_style": "Formal",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 0,
+        "P003": 0,
+        "P004": 0,
+        "P005": 2,
+        "P006": 1,
+        "P007": 3,
+        "P008": 0,
+        "P009": 0,
+        "P010": 0,
+        "P011": 1,
+        "P012": 0,
+        "P013": 1,
+        "P014": 0,
+        "P015": 0,
+        "P016": 0,
+        "P017": 0,
+        "P018": 0,
+        "P019": 0,
+        "P020": 0
+      },
+      "expected_top3": [
+        "P007",
+        "P005",
+        "P006"
+      ],
+      "notes": "Category hierarchy: dress"
+    },
+    {
+      "id": "EQ04",
+      "query": "Dark blue jeans",
+      "vision_output": {
+        "detected_category": "Bottoms",
+        "detected_color": "dark blue",
+        "detected_style": "Casual",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 1,
+        "P002": 0,
+        "P003": 0,
+        "P004": 3,
+        "P005": 1,
+        "P006": 0,
+        "P007": 0,
+        "P008": 0,
+        "P009": 1,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 0,
+        "P015": 1,
+        "P016": 1,
+        "P017": 0,
+        "P018": 1,
+        "P019": 2,
+        "P020": 0
+      },
+      "expected_top3": [
+        "P004",
+        "P019",
+        "P005"
+      ],
+      "notes": "Color similarity: dark blue\u2248navy"
+    },
+    {
+      "id": "EQ05",
+      "query": "Red evening gown",
+      "vision_output": {
+        "detected_category": "Dresses",
+        "detected_color": "red",
+        "detected_style": "Formal",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 0,
+        "P003": 0,
+        "P004": 0,
+        "P005": 0,
+        "P006": 3,
+        "P007": 2,
+        "P008": 0,
+        "P009": 0,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 0,
+        "P015": 0,
+        "P016": 0,
+        "P017": 0,
+        "P018": 0,
+        "P019": 0,
+        "P020": 1
+      },
+      "expected_top3": [
+        "P006",
+        "P007",
+        "P020"
+      ],
+      "notes": "Synonym: gown=dress"
+    },
+    {
+      "id": "EQ06",
+      "query": "Winter coat",
+      "vision_output": {
+        "detected_category": "Outerwear",
+        "detected_color": "gray",
+        "detected_style": "Classic",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 1,
+        "P002": 0,
+        "P003": 0,
+        "P004": 0,
+        "P005": 0,
+        "P006": 0,
+        "P007": 0,
+        "P008": 3,
+        "P009": 2,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 0,
+        "P015": 0,
+        "P016": 2,
+        "P017": 0,
+        "P018": 0,
+        "P019": 0,
+        "P020": 0
+      },
+      "expected_top3": [
+        "P008",
+        "P016",
+        "P009"
+      ],
+      "notes": "Category: coat=outerwear"
+    },
+    {
+      "id": "EQ07",
+      "query": "White sneakers for running",
+      "vision_output": {
+        "detected_category": "Footwear",
+        "detected_color": "white",
+        "detected_style": "Sporty",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 0,
+        "P003": 0,
+        "P004": 0,
+        "P005": 0,
+        "P006": 0,
+        "P007": 0,
+        "P008": 0,
+        "P009": 0,
+        "P010": 3,
+        "P011": 2,
+        "P012": 0,
+        "P013": 0,
+        "P014": 0,
+        "P015": 0,
+        "P016": 0,
+        "P017": 0,
+        "P018": 0,
+        "P019": 0,
+        "P020": 0
+      },
+      "expected_top3": [
+        "P010",
+        "P011"
+      ],
+      "notes": "Exact footwear match"
+    },
+    {
+      "id": "EQ08",
+      "query": "Brown leather bag",
+      "vision_output": {
+        "detected_category": "Accessories",
+        "detected_color": "brown",
+        "detected_style": "Classic",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 0,
+        "P003": 0,
+        "P004": 0,
+        "P005": 0,
+        "P006": 0,
+        "P007": 0,
+        "P008": 0,
+        "P009": 0,
+        "P010": 0,
+        "P011": 1,
+        "P012": 3,
+        "P013": 2,
+        "P014": 0,
+        "P015": 0,
+        "P016": 0,
+        "P017": 0,
+        "P018": 0,
+        "P019": 0,
+        "P020": 0
+      },
+      "expected_top3": [
+        "P012",
+        "P013",
+        "P011"
+      ],
+      "notes": "Accessories category"
+    },
+    {
+      "id": "EQ09",
+      "query": "Tee for gym",
+      "vision_output": {
+        "detected_category": "Tops",
+        "detected_color": "white",
+        "detected_style": "Sporty",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 3,
+        "P003": 2,
+        "P004": 0,
+        "P005": 0,
+        "P006": 0,
+        "P007": 0,
+        "P008": 0,
+        "P009": 0,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 2,
+        "P015": 0,
+        "P016": 0,
+        "P017": 3,
+        "P018": 0,
+        "P019": 1,
+        "P020": 1
+      },
+      "expected_top3": [
+        "P002",
+        "P017",
+        "P014"
+      ],
+      "notes": "SYNONYM: tee\u2192t-shirt"
+    },
+    {
+      "id": "EQ10",
+      "query": "Trousers for office",
+      "vision_output": {
+        "detected_category": "Bottoms",
+        "detected_color": "black",
+        "detected_style": "Formal",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 0,
+        "P003": 0,
+        "P004": 1,
+        "P005": 3,
+        "P006": 0,
+        "P007": 0,
+        "P008": 0,
+        "P009": 0,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 0,
+        "P015": 2,
+        "P016": 0,
+        "P017": 0,
+        "P018": 1,
+        "P019": 0,
+        "P020": 0
+      },
+      "expected_top3": [
+        "P005",
+        "P015",
+        "P004"
+      ],
+      "notes": "SYNONYM: trousers\u2192pants"
+    },
+    {
+      "id": "EQ11",
+      "query": "Blue top",
+      "vision_output": {
+        "detected_category": "Tops",
+        "detected_color": "blue",
+        "detected_style": "Casual",
+        "detected_pattern": "Striped",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 2,
+        "P002": 1,
+        "P003": 1,
+        "P004": 0,
+        "P005": 0,
+        "P006": 0,
+        "P007": 0,
+        "P008": 0,
+        "P009": 2,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 1,
+        "P015": 0,
+        "P016": 2,
+        "P017": 1,
+        "P018": 0,
+        "P019": 3,
+        "P020": 1
+      },
+      "expected_top3": [
+        "P019",
+        "P001",
+        "P002"
+      ],
+      "notes": "Pattern: striped"
+    },
+    {
+      "id": "EQ12",
+      "query": "Something formal for a wedding",
+      "vision_output": {
+        "detected_category": "Dresses",
+        "detected_color": "black",
+        "detected_style": "Formal",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 2,
+        "P002": 0,
+        "P003": 1,
+        "P004": 0,
+        "P005": 2,
+        "P006": 1,
+        "P007": 3,
+        "P008": 2,
+        "P009": 0,
+        "P010": 0,
+        "P011": 1,
+        "P012": 0,
+        "P013": 0,
+        "P014": 0,
+        "P015": 0,
+        "P016": 2,
+        "P017": 0,
+        "P018": 0,
+        "P019": 0,
+        "P020": 0
+      },
+      "expected_top3": [
+        "P007",
+        "P005",
+        "P008"
+      ],
+      "notes": "Style-driven: formal cross-category"
+    },
+    {
+      "id": "EQ13",
+      "query": "Green polo",
+      "vision_output": {
+        "detected_category": "Tops",
+        "detected_color": "green",
+        "detected_style": "Casual",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 2,
+        "P003": 2,
+        "P004": 0,
+        "P005": 0,
+        "P006": 0,
+        "P007": 0,
+        "P008": 0,
+        "P009": 0,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 3,
+        "P015": 0,
+        "P016": 0,
+        "P017": 2,
+        "P018": 0,
+        "P019": 2,
+        "P020": 2
+      },
+      "expected_top3": [
+        "P014",
+        "P002",
+        "P003"
+      ],
+      "notes": "Exact match: green polo"
+    },
+    {
+      "id": "EQ14",
+      "query": "Black boots",
+      "vision_output": {
+        "detected_category": "Footwear",
+        "detected_color": "black",
+        "detected_style": "Classic",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 0,
+        "P003": 0,
+        "P004": 0,
+        "P005": 1,
+        "P006": 0,
+        "P007": 1,
+        "P008": 0,
+        "P009": 0,
+        "P010": 2,
+        "P011": 3,
+        "P012": 0,
+        "P013": 1,
+        "P014": 0,
+        "P015": 0,
+        "P016": 0,
+        "P017": 0,
+        "P018": 0,
+        "P019": 0,
+        "P020": 0
+      },
+      "expected_top3": [
+        "P011",
+        "P010"
+      ],
+      "notes": "Footwear hierarchy"
+    },
+    {
+      "id": "EQ15",
+      "query": "Khaki pants",
+      "vision_output": {
+        "detected_category": "Bottoms",
+        "detected_color": "beige",
+        "detected_style": "Casual",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 0,
+        "P003": 0,
+        "P004": 2,
+        "P005": 1,
+        "P006": 0,
+        "P007": 0,
+        "P008": 0,
+        "P009": 0,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 0,
+        "P015": 3,
+        "P016": 0,
+        "P017": 0,
+        "P018": 1,
+        "P019": 0,
+        "P020": 0
+      },
+      "expected_top3": [
+        "P015",
+        "P004",
+        "P005"
+      ],
+      "notes": "Color synonym: khaki=beige"
+    },
+    {
+      "id": "EQ16",
+      "query": "Random gibberish xyzzy",
+      "vision_output": {
+        "detected_category": null,
+        "detected_color": null,
+        "detected_style": null,
+        "detected_pattern": null,
+        "analysis_available": false
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 0,
+        "P003": 0,
+        "P004": 0,
+        "P005": 0,
+        "P006": 0,
+        "P007": 0,
+        "P008": 0,
+        "P009": 0,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 0,
+        "P015": 0,
+        "P016": 0,
+        "P017": 0,
+        "P018": 0,
+        "P019": 0,
+        "P020": 0
+      },
+      "expected_top3": [],
+      "notes": "No-match: vision unavailable"
+    },
+    {
+      "id": "EQ17",
+      "query": "Sneakers",
+      "vision_output": {
+        "detected_category": "Footwear",
+        "detected_color": "white",
+        "detected_style": "Streetwear",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 0,
+        "P003": 0,
+        "P004": 1,
+        "P005": 0,
+        "P006": 0,
+        "P007": 0,
+        "P008": 0,
+        "P009": 0,
+        "P010": 3,
+        "P011": 2,
+        "P012": 0,
+        "P013": 0,
+        "P014": 0,
+        "P015": 0,
+        "P016": 0,
+        "P017": 0,
+        "P018": 0,
+        "P019": 0,
+        "P020": 0
+      },
+      "expected_top3": [
+        "P010",
+        "P011"
+      ],
+      "notes": "Synonym: trainers=sneakers"
+    },
+    {
+      "id": "EQ18",
+      "query": "Smart casual outfit top",
+      "vision_output": {
+        "detected_category": "Tops",
+        "detected_color": "navy",
+        "detected_style": "Smart Casual",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 3,
+        "P002": 1,
+        "P003": 3,
+        "P004": 0,
+        "P005": 0,
+        "P006": 0,
+        "P007": 0,
+        "P008": 0,
+        "P009": 1,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 1,
+        "P015": 0,
+        "P016": 1,
+        "P017": 1,
+        "P018": 0,
+        "P019": 2,
+        "P020": 1
+      },
+      "expected_top3": [
+        "P001",
+        "P003",
+        "P019"
+      ],
+      "notes": "Style-driven: smart casual"
+    },
+    {
+      "id": "EQ19",
+      "query": "Blazer",
+      "vision_output": {
+        "detected_category": "Tops",
+        "detected_color": "navy",
+        "detected_style": "Smart Casual",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 3,
+        "P002": 0,
+        "P003": 2,
+        "P004": 0,
+        "P005": 0,
+        "P006": 0,
+        "P007": 0,
+        "P008": 0,
+        "P009": 1,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 0,
+        "P015": 0,
+        "P016": 1,
+        "P017": 0,
+        "P018": 0,
+        "P019": 2,
+        "P020": 0
+      },
+      "expected_top3": [
+        "P001",
+        "P003",
+        "P019"
+      ],
+      "notes": "Category hierarchy: blazer\u2192tops/outerwear"
+    },
+    {
+      "id": "EQ20",
+      "query": "Sporty green shirt",
+      "vision_output": {
+        "detected_category": "Tops",
+        "detected_color": "green",
+        "detected_style": "Sporty",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 2,
+        "P003": 1,
+        "P004": 0,
+        "P005": 0,
+        "P006": 0,
+        "P007": 0,
+        "P008": 0,
+        "P009": 0,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 3,
+        "P015": 0,
+        "P016": 0,
+        "P017": 2,
+        "P018": 0,
+        "P019": 1,
+        "P020": 1
+      },
+      "expected_top3": [
+        "P014",
+        "P002",
+        "P017"
+      ],
+      "notes": "Color+style match"
+    },
+    {
+      "id": "EQ21",
+      "query": "Frock for summer",
+      "vision_output": {
+        "detected_category": "Dresses",
+        "detected_color": "red",
+        "detected_style": "Casual",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 0,
+        "P003": 0,
+        "P004": 0,
+        "P005": 0,
+        "P006": 3,
+        "P007": 2,
+        "P008": 0,
+        "P009": 0,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 0,
+        "P015": 0,
+        "P016": 0,
+        "P017": 0,
+        "P018": 0,
+        "P019": 0,
+        "P020": 1
+      },
+      "expected_top3": [
+        "P006",
+        "P007",
+        "P020"
+      ],
+      "notes": "SYNONYM: frock\u2192dress"
+    },
+    {
+      "id": "EQ22",
+      "query": "Trainers for workout",
+      "vision_output": {
+        "detected_category": "Footwear",
+        "detected_color": "white",
+        "detected_style": "Sporty",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 0,
+        "P003": 0,
+        "P004": 0,
+        "P005": 0,
+        "P006": 0,
+        "P007": 0,
+        "P008": 0,
+        "P009": 0,
+        "P010": 3,
+        "P011": 2,
+        "P012": 0,
+        "P013": 0,
+        "P014": 0,
+        "P015": 0,
+        "P016": 0,
+        "P017": 0,
+        "P018": 0,
+        "P019": 0,
+        "P020": 0
+      },
+      "expected_top3": [
+        "P010",
+        "P011"
+      ],
+      "notes": "SYNONYM: trainers\u2192sneakers"
+    },
+    {
+      "id": "EQ23",
+      "query": "Kicks",
+      "vision_output": {
+        "detected_category": "Footwear",
+        "detected_color": "white",
+        "detected_style": "Streetwear",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 0,
+        "P003": 0,
+        "P004": 1,
+        "P005": 0,
+        "P006": 0,
+        "P007": 0,
+        "P008": 0,
+        "P009": 0,
+        "P010": 3,
+        "P011": 2,
+        "P012": 0,
+        "P013": 0,
+        "P014": 0,
+        "P015": 0,
+        "P016": 0,
+        "P017": 0,
+        "P018": 0,
+        "P019": 0,
+        "P020": 0
+      },
+      "expected_top3": [
+        "P010",
+        "P011"
+      ],
+      "notes": "SYNONYM: kicks\u2192sneakers"
+    },
+    {
+      "id": "EQ24",
+      "query": "Slacks for meeting",
+      "vision_output": {
+        "detected_category": "Bottoms",
+        "detected_color": "black",
+        "detected_style": "Formal",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 0,
+        "P003": 0,
+        "P004": 1,
+        "P005": 3,
+        "P006": 0,
+        "P007": 0,
+        "P008": 0,
+        "P009": 0,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 0,
+        "P015": 2,
+        "P016": 0,
+        "P017": 0,
+        "P018": 1,
+        "P019": 0,
+        "P020": 0
+      },
+      "expected_top3": [
+        "P005",
+        "P015",
+        "P004"
+      ],
+      "notes": "SYNONYM: slacks\u2192pants"
+    },
+    {
+      "id": "EQ25",
+      "query": "Pullover sweater",
+      "vision_output": {
+        "detected_category": "Tops",
+        "detected_color": "red",
+        "detected_style": "Casual",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 2,
+        "P003": 2,
+        "P004": 0,
+        "P005": 0,
+        "P006": 0,
+        "P007": 0,
+        "P008": 0,
+        "P009": 0,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 2,
+        "P015": 0,
+        "P016": 0,
+        "P017": 2,
+        "P018": 0,
+        "P019": 2,
+        "P020": 3
+      },
+      "expected_top3": [
+        "P020",
+        "P002",
+        "P017"
+      ],
+      "notes": "SYNONYM: pullover\u2192sweater"
+    },
+    {
+      "id": "EQ26",
+      "query": "Jumper for cold weather",
+      "vision_output": {
+        "detected_category": "Tops",
+        "detected_color": "red",
+        "detected_style": "Casual",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 1,
+        "P003": 1,
+        "P004": 0,
+        "P005": 0,
+        "P006": 0,
+        "P007": 0,
+        "P008": 2,
+        "P009": 2,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 1,
+        "P015": 0,
+        "P016": 2,
+        "P017": 1,
+        "P018": 0,
+        "P019": 1,
+        "P020": 3
+      },
+      "expected_top3": [
+        "P020",
+        "P002",
+        "P017"
+      ],
+      "notes": "SYNONYM: jumper\u2192sweater"
+    },
+    {
+      "id": "EQ27",
+      "query": "Denim jacket",
+      "vision_output": {
+        "detected_category": "Outerwear",
+        "detected_color": "blue",
+        "detected_style": "Casual",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 1,
+        "P002": 0,
+        "P003": 0,
+        "P004": 1,
+        "P005": 0,
+        "P006": 0,
+        "P007": 0,
+        "P008": 0,
+        "P009": 3,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 0,
+        "P015": 0,
+        "P016": 2,
+        "P017": 0,
+        "P018": 0,
+        "P019": 1,
+        "P020": 0
+      },
+      "expected_top3": [
+        "P009",
+        "P016",
+        "P001"
+      ],
+      "notes": "SYNONYM: denim\u2192jeans; jacket=outerwear"
+    },
+    {
+      "id": "EQ28",
+      "query": "Stilettos for party",
+      "vision_output": {
+        "detected_category": "Footwear",
+        "detected_color": "black",
+        "detected_style": "Formal",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 0,
+        "P003": 0,
+        "P004": 0,
+        "P005": 1,
+        "P006": 0,
+        "P007": 1,
+        "P008": 0,
+        "P009": 0,
+        "P010": 2,
+        "P011": 3,
+        "P012": 0,
+        "P013": 1,
+        "P014": 0,
+        "P015": 0,
+        "P016": 0,
+        "P017": 0,
+        "P018": 0,
+        "P019": 0,
+        "P020": 0
+      },
+      "expected_top3": [
+        "P011",
+        "P010"
+      ],
+      "notes": "SYNONYM: stilettos\u2192heels; boots as fallback"
+    },
+    {
+      "id": "EQ29",
+      "query": "Handbag",
+      "vision_output": {
+        "detected_category": "Accessories",
+        "detected_color": "brown",
+        "detected_style": "Classic",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 0,
+        "P003": 0,
+        "P004": 0,
+        "P005": 0,
+        "P006": 0,
+        "P007": 0,
+        "P008": 0,
+        "P009": 0,
+        "P010": 0,
+        "P011": 1,
+        "P012": 3,
+        "P013": 2,
+        "P014": 0,
+        "P015": 0,
+        "P016": 0,
+        "P017": 0,
+        "P018": 0,
+        "P019": 0,
+        "P020": 0
+      },
+      "expected_top3": [
+        "P012",
+        "P013",
+        "P011"
+      ],
+      "notes": "SYNONYM: handbag\u2192bag"
+    },
+    {
+      "id": "EQ30",
+      "query": "Purse for daily use",
+      "vision_output": {
+        "detected_category": "Accessories",
+        "detected_color": "black",
+        "detected_style": "Casual",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 0,
+        "P003": 0,
+        "P004": 0,
+        "P005": 0,
+        "P006": 0,
+        "P007": 0,
+        "P008": 0,
+        "P009": 0,
+        "P010": 0,
+        "P011": 1,
+        "P012": 2,
+        "P013": 3,
+        "P014": 0,
+        "P015": 0,
+        "P016": 0,
+        "P017": 0,
+        "P018": 0,
+        "P019": 0,
+        "P020": 0
+      },
+      "expected_top3": [
+        "P013",
+        "P012",
+        "P011"
+      ],
+      "notes": "SYNONYM: purse\u2192bag"
+    },
+    {
+      "id": "EQ31",
+      "query": "Tee shirt casual",
+      "vision_output": {
+        "detected_category": "Tops",
+        "detected_color": "black",
+        "detected_style": "Casual",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 3,
+        "P003": 2,
+        "P004": 0,
+        "P005": 0,
+        "P006": 0,
+        "P007": 0,
+        "P008": 0,
+        "P009": 0,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 2,
+        "P015": 0,
+        "P016": 0,
+        "P017": 2,
+        "P018": 0,
+        "P019": 2,
+        "P020": 2
+      },
+      "expected_top3": [
+        "P002",
+        "P017",
+        "P003"
+      ],
+      "notes": "SYNONYM: tee shirt\u2192t-shirt"
+    },
+    {
+      "id": "EQ32",
+      "query": "T shirt white",
+      "vision_output": {
+        "detected_category": "Tops",
+        "detected_color": "white",
+        "detected_style": "Casual",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 3,
+        "P003": 2,
+        "P004": 0,
+        "P005": 0,
+        "P006": 0,
+        "P007": 0,
+        "P008": 0,
+        "P009": 0,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 2,
+        "P015": 0,
+        "P016": 0,
+        "P017": 3,
+        "P018": 0,
+        "P019": 2,
+        "P020": 2
+      },
+      "expected_top3": [
+        "P017",
+        "P002",
+        "P003"
+      ],
+      "notes": "SYNONYM: t shirt\u2192t-shirt"
+    },
+    {
+      "id": "EQ33",
+      "query": "Gown for gala",
+      "vision_output": {
+        "detected_category": "Dresses",
+        "detected_color": "black",
+        "detected_style": "Formal",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 2,
+        "P002": 0,
+        "P003": 1,
+        "P004": 0,
+        "P005": 2,
+        "P006": 1,
+        "P007": 3,
+        "P008": 2,
+        "P009": 0,
+        "P010": 0,
+        "P011": 1,
+        "P012": 0,
+        "P013": 0,
+        "P014": 0,
+        "P015": 0,
+        "P016": 2,
+        "P017": 0,
+        "P018": 0,
+        "P019": 0,
+        "P020": 0
+      },
+      "expected_top3": [
+        "P007",
+        "P005",
+        "P008"
+      ],
+      "notes": "SYNONYM: gown\u2192dress"
+    },
+    {
+      "id": "EQ34",
+      "query": "Sundress",
+      "vision_output": {
+        "detected_category": "Dresses",
+        "detected_color": "red",
+        "detected_style": "Casual",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 0,
+        "P003": 0,
+        "P004": 0,
+        "P005": 0,
+        "P006": 3,
+        "P007": 2,
+        "P008": 0,
+        "P009": 0,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 0,
+        "P015": 0,
+        "P016": 0,
+        "P017": 0,
+        "P018": 0,
+        "P019": 0,
+        "P020": 1
+      },
+      "expected_top3": [
+        "P006",
+        "P007",
+        "P020"
+      ],
+      "notes": "SYNONYM: sundress\u2192dress"
+    },
+    {
+      "id": "EQ35",
+      "query": "Cap for sun",
+      "vision_output": {
+        "detected_category": "Accessories",
+        "detected_color": "white",
+        "detected_style": "Casual",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 0,
+        "P003": 0,
+        "P004": 0,
+        "P005": 0,
+        "P006": 0,
+        "P007": 0,
+        "P008": 0,
+        "P009": 0,
+        "P010": 3,
+        "P011": 0,
+        "P012": 2,
+        "P013": 2,
+        "P014": 0,
+        "P015": 0,
+        "P016": 0,
+        "P017": 1,
+        "P018": 0,
+        "P019": 0,
+        "P020": 0
+      },
+      "expected_top3": [
+        "P010",
+        "P013",
+        "P012"
+      ],
+      "notes": "SYNONYM: cap\u2192hat; shoes as color match"
+    },
+    {
+      "id": "EQ36",
+      "query": "Trousers black formal",
+      "vision_output": {
+        "detected_category": "Bottoms",
+        "detected_color": "black",
+        "detected_style": "Formal",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 0,
+        "P003": 0,
+        "P004": 1,
+        "P005": 3,
+        "P006": 0,
+        "P007": 0,
+        "P008": 0,
+        "P009": 0,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 0,
+        "P015": 2,
+        "P016": 0,
+        "P017": 0,
+        "P018": 1,
+        "P019": 0,
+        "P020": 0
+      },
+      "expected_top3": [
+        "P005",
+        "P015",
+        "P004"
+      ],
+      "notes": "SYNONYM: trousers\u2192pants"
+    },
+    {
+      "id": "EQ37",
+      "query": "Jeans casual blue",
+      "vision_output": {
+        "detected_category": "Bottoms",
+        "detected_color": "blue",
+        "detected_style": "Casual",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 1,
+        "P002": 0,
+        "P003": 0,
+        "P004": 3,
+        "P005": 1,
+        "P006": 0,
+        "P007": 0,
+        "P008": 0,
+        "P009": 1,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 0,
+        "P015": 1,
+        "P016": 1,
+        "P017": 0,
+        "P018": 1,
+        "P019": 2,
+        "P020": 0
+      },
+      "expected_top3": [
+        "P004",
+        "P019",
+        "P005"
+      ],
+      "notes": "Exact: jeans=jeans"
+    },
+    {
+      "id": "EQ38",
+      "query": "Shorts for beach",
+      "vision_output": {
+        "detected_category": "Bottoms",
+        "detected_color": "blue",
+        "detected_style": "Casual",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 0,
+        "P003": 0,
+        "P004": 3,
+        "P005": 1,
+        "P006": 0,
+        "P007": 0,
+        "P008": 0,
+        "P009": 0,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 0,
+        "P015": 1,
+        "P016": 0,
+        "P017": 0,
+        "P018": 1,
+        "P019": 2,
+        "P020": 0
+      },
+      "expected_top3": [
+        "P004",
+        "P019",
+        "P005"
+      ],
+      "notes": "Category: shorts\u2192bottoms"
+    },
+    {
+      "id": "EQ39",
+      "query": "Cardigan cozy",
+      "vision_output": {
+        "detected_category": "Tops",
+        "detected_color": "red",
+        "detected_style": "Casual",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 2,
+        "P003": 2,
+        "P004": 0,
+        "P005": 0,
+        "P006": 0,
+        "P007": 0,
+        "P008": 0,
+        "P009": 0,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 2,
+        "P015": 0,
+        "P016": 0,
+        "P017": 2,
+        "P018": 0,
+        "P019": 2,
+        "P020": 3
+      },
+      "expected_top3": [
+        "P020",
+        "P002",
+        "P017"
+      ],
+      "notes": "Category: cardigan\u2192tops; sweater as style match"
+    },
+    {
+      "id": "EQ40",
+      "query": "Hoodie streetwear",
+      "vision_output": {
+        "detected_category": "Tops",
+        "detected_color": "black",
+        "detected_style": "Streetwear",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 3,
+        "P003": 2,
+        "P004": 0,
+        "P005": 0,
+        "P006": 0,
+        "P007": 0,
+        "P008": 0,
+        "P009": 0,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 2,
+        "P015": 0,
+        "P016": 0,
+        "P017": 2,
+        "P018": 0,
+        "P019": 2,
+        "P020": 2
+      },
+      "expected_top3": [
+        "P002",
+        "P017",
+        "P003"
+      ],
+      "notes": "Category: hoodie\u2192tops"
+    },
+    {
+      "id": "EQ41",
+      "query": "Shirt for work",
+      "vision_output": {
+        "detected_category": "Tops",
+        "detected_color": "white",
+        "detected_style": "Smart Casual",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 2,
+        "P002": 1,
+        "P003": 3,
+        "P004": 0,
+        "P005": 0,
+        "P006": 0,
+        "P007": 0,
+        "P008": 0,
+        "P009": 0,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 1,
+        "P015": 0,
+        "P016": 0,
+        "P017": 1,
+        "P018": 0,
+        "P019": 3,
+        "P020": 1
+      },
+      "expected_top3": [
+        "P003",
+        "P019",
+        "P001"
+      ],
+      "notes": "Child: shirt\u2192tops"
+    },
+    {
+      "id": "EQ42",
+      "query": "Blouse elegant",
+      "vision_output": {
+        "detected_category": "Tops",
+        "detected_color": "white",
+        "detected_style": "Formal",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 2,
+        "P002": 1,
+        "P003": 3,
+        "P004": 0,
+        "P005": 0,
+        "P006": 0,
+        "P007": 0,
+        "P008": 0,
+        "P009": 0,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 1,
+        "P015": 0,
+        "P016": 0,
+        "P017": 1,
+        "P018": 0,
+        "P019": 2,
+        "P020": 1
+      },
+      "expected_top3": [
+        "P003",
+        "P001",
+        "P019"
+      ],
+      "notes": "Child: blouse\u2192tops"
+    },
+    {
+      "id": "EQ43",
+      "query": "Jacket for fall",
+      "vision_output": {
+        "detected_category": "Outerwear",
+        "detected_color": "gray",
+        "detected_style": "Casual",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 1,
+        "P002": 0,
+        "P003": 0,
+        "P004": 0,
+        "P005": 0,
+        "P006": 0,
+        "P007": 0,
+        "P008": 3,
+        "P009": 3,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 0,
+        "P015": 0,
+        "P016": 2,
+        "P017": 0,
+        "P018": 0,
+        "P019": 0,
+        "P020": 0
+      },
+      "expected_top3": [
+        "P008",
+        "P009",
+        "P016"
+      ],
+      "notes": "Child: jacket\u2192outerwear"
+    },
+    {
+      "id": "EQ44",
+      "query": "Vest formal",
+      "vision_output": {
+        "detected_category": "Outerwear",
+        "detected_color": "black",
+        "detected_style": "Formal",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 1,
+        "P002": 0,
+        "P003": 0,
+        "P004": 0,
+        "P005": 1,
+        "P006": 0,
+        "P007": 1,
+        "P008": 3,
+        "P009": 0,
+        "P010": 0,
+        "P011": 1,
+        "P012": 0,
+        "P013": 1,
+        "P014": 0,
+        "P015": 0,
+        "P016": 2,
+        "P017": 0,
+        "P018": 0,
+        "P019": 0,
+        "P020": 0
+      },
+      "expected_top3": [
+        "P008",
+        "P016",
+        "P001"
+      ],
+      "notes": "Child: vest\u2192outerwear"
+    },
+    {
+      "id": "EQ45",
+      "query": "Skirt casual",
+      "vision_output": {
+        "detected_category": "Bottoms",
+        "detected_color": "black",
+        "detected_style": "Casual",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 1,
+        "P003": 0,
+        "P004": 2,
+        "P005": 2,
+        "P006": 0,
+        "P007": 1,
+        "P008": 0,
+        "P009": 0,
+        "P010": 0,
+        "P011": 1,
+        "P012": 0,
+        "P013": 1,
+        "P014": 0,
+        "P015": 2,
+        "P016": 0,
+        "P017": 0,
+        "P018": 3,
+        "P019": 0,
+        "P020": 0
+      },
+      "expected_top3": [
+        "P018",
+        "P005",
+        "P004"
+      ],
+      "notes": "Child: skirt\u2192bottoms"
+    },
+    {
+      "id": "EQ46",
+      "query": "Leggings for yoga",
+      "vision_output": {
+        "detected_category": "Bottoms",
+        "detected_color": "black",
+        "detected_style": "Sporty",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 0,
+        "P003": 0,
+        "P004": 2,
+        "P005": 3,
+        "P006": 0,
+        "P007": 0,
+        "P008": 0,
+        "P009": 0,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 0,
+        "P015": 2,
+        "P016": 0,
+        "P017": 0,
+        "P018": 3,
+        "P019": 0,
+        "P020": 0
+      },
+      "expected_top3": [
+        "P005",
+        "P018",
+        "P004"
+      ],
+      "notes": "Child: leggings\u2192bottoms"
+    },
+    {
+      "id": "EQ47",
+      "query": "Coat for winter",
+      "vision_output": {
+        "detected_category": "Outerwear",
+        "detected_color": "gray",
+        "detected_style": "Formal",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 1,
+        "P002": 0,
+        "P003": 0,
+        "P004": 0,
+        "P005": 0,
+        "P006": 0,
+        "P007": 0,
+        "P008": 3,
+        "P009": 2,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 0,
+        "P015": 0,
+        "P016": 2,
+        "P017": 0,
+        "P018": 0,
+        "P019": 0,
+        "P020": 0
+      },
+      "expected_top3": [
+        "P008",
+        "P016",
+        "P009"
+      ],
+      "notes": "Child: coat\u2192outerwear"
+    },
+    {
+      "id": "EQ48",
+      "query": "Sandals summer",
+      "vision_output": {
+        "detected_category": "Footwear",
+        "detected_color": "white",
+        "detected_style": "Casual",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 0,
+        "P003": 0,
+        "P004": 0,
+        "P005": 0,
+        "P006": 0,
+        "P007": 0,
+        "P008": 0,
+        "P009": 0,
+        "P010": 3,
+        "P011": 2,
+        "P012": 0,
+        "P013": 0,
+        "P014": 0,
+        "P015": 0,
+        "P016": 0,
+        "P017": 0,
+        "P018": 0,
+        "P019": 0,
+        "P020": 0
+      },
+      "expected_top3": [
+        "P010",
+        "P011"
+      ],
+      "notes": "Child: sandals\u2192footwear"
+    },
+    {
+      "id": "EQ49",
+      "query": "Loafers smart",
+      "vision_output": {
+        "detected_category": "Footwear",
+        "detected_color": "black",
+        "detected_style": "Smart Casual",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 0,
+        "P003": 0,
+        "P004": 0,
+        "P005": 1,
+        "P006": 0,
+        "P007": 1,
+        "P008": 0,
+        "P009": 0,
+        "P010": 2,
+        "P011": 3,
+        "P012": 0,
+        "P013": 1,
+        "P014": 0,
+        "P015": 0,
+        "P016": 0,
+        "P017": 0,
+        "P018": 0,
+        "P019": 0,
+        "P020": 0
+      },
+      "expected_top3": [
+        "P011",
+        "P010"
+      ],
+      "notes": "Child: loafers\u2192footwear"
+    },
+    {
+      "id": "EQ50",
+      "query": "Hat for beach",
+      "vision_output": {
+        "detected_category": "Accessories",
+        "detected_color": "brown",
+        "detected_style": "Casual",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 0,
+        "P003": 0,
+        "P004": 0,
+        "P005": 0,
+        "P006": 0,
+        "P007": 0,
+        "P008": 0,
+        "P009": 0,
+        "P010": 1,
+        "P011": 0,
+        "P012": 3,
+        "P013": 2,
+        "P014": 0,
+        "P015": 0,
+        "P016": 0,
+        "P017": 0,
+        "P018": 0,
+        "P019": 0,
+        "P020": 0
+      },
+      "expected_top3": [
+        "P012",
+        "P013",
+        "P010"
+      ],
+      "notes": "Child: hat\u2192accessories"
+    },
+    {
+      "id": "EQ51",
+      "query": "Scarf winter",
+      "vision_output": {
+        "detected_category": "Accessories",
+        "detected_color": "gray",
+        "detected_style": "Classic",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 0,
+        "P003": 0,
+        "P004": 0,
+        "P005": 0,
+        "P006": 0,
+        "P007": 0,
+        "P008": 2,
+        "P009": 0,
+        "P010": 0,
+        "P011": 0,
+        "P012": 3,
+        "P013": 3,
+        "P014": 0,
+        "P015": 0,
+        "P016": 0,
+        "P017": 0,
+        "P018": 0,
+        "P019": 0,
+        "P020": 0
+      },
+      "expected_top3": [
+        "P012",
+        "P013",
+        "P008"
+      ],
+      "notes": "Child: scarf\u2192accessories"
+    },
+    {
+      "id": "EQ52",
+      "query": "Belt leather",
+      "vision_output": {
+        "detected_category": "Accessories",
+        "detected_color": "brown",
+        "detected_style": "Classic",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 0,
+        "P003": 0,
+        "P004": 0,
+        "P005": 0,
+        "P006": 0,
+        "P007": 0,
+        "P008": 0,
+        "P009": 0,
+        "P010": 0,
+        "P011": 1,
+        "P012": 3,
+        "P013": 2,
+        "P014": 0,
+        "P015": 0,
+        "P016": 0,
+        "P017": 0,
+        "P018": 0,
+        "P019": 0,
+        "P020": 0
+      },
+      "expected_top3": [
+        "P012",
+        "P013",
+        "P011"
+      ],
+      "notes": "Child: belt\u2192accessories"
+    },
+    {
+      "id": "EQ53",
+      "query": "Watch formal",
+      "vision_output": {
+        "detected_category": "Accessories",
+        "detected_color": "black",
+        "detected_style": "Formal",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 0,
+        "P003": 0,
+        "P004": 0,
+        "P005": 1,
+        "P006": 0,
+        "P007": 1,
+        "P008": 0,
+        "P009": 0,
+        "P010": 0,
+        "P011": 1,
+        "P012": 2,
+        "P013": 3,
+        "P014": 0,
+        "P015": 0,
+        "P016": 0,
+        "P017": 0,
+        "P018": 0,
+        "P019": 0,
+        "P020": 0
+      },
+      "expected_top3": [
+        "P013",
+        "P012"
+      ],
+      "notes": "Child: watch\u2192accessories"
+    },
+    {
+      "id": "EQ54",
+      "query": "Jumpsuit party",
+      "vision_output": {
+        "detected_category": "Dresses",
+        "detected_color": "black",
+        "detected_style": "Formal",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 0,
+        "P003": 0,
+        "P004": 0,
+        "P005": 2,
+        "P006": 2,
+        "P007": 3,
+        "P008": 1,
+        "P009": 0,
+        "P010": 0,
+        "P011": 1,
+        "P012": 0,
+        "P013": 1,
+        "P014": 0,
+        "P015": 0,
+        "P016": 0,
+        "P017": 0,
+        "P018": 0,
+        "P019": 0,
+        "P020": 0
+      },
+      "expected_top3": [
+        "P007",
+        "P005",
+        "P006"
+      ],
+      "notes": "Child: jumpsuit\u2192dresses"
+    },
+    {
+      "id": "EQ55",
+      "query": "Sweater cozy",
+      "vision_output": {
+        "detected_category": "Tops",
+        "detected_color": "red",
+        "detected_style": "Casual",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 2,
+        "P003": 2,
+        "P004": 0,
+        "P005": 0,
+        "P006": 0,
+        "P007": 0,
+        "P008": 0,
+        "P009": 0,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 2,
+        "P015": 0,
+        "P016": 0,
+        "P017": 2,
+        "P018": 0,
+        "P019": 2,
+        "P020": 3
+      },
+      "expected_top3": [
+        "P020",
+        "P002",
+        "P017"
+      ],
+      "notes": "Child: sweater\u2192tops"
+    },
+    {
+      "id": "EQ56",
+      "query": "Dark blue shirt",
+      "vision_output": {
+        "detected_category": "Tops",
+        "detected_color": "dark blue",
+        "detected_style": "Smart Casual",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 3,
+        "P002": 0,
+        "P003": 2,
+        "P004": 0,
+        "P005": 0,
+        "P006": 0,
+        "P007": 0,
+        "P008": 0,
+        "P009": 1,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 0,
+        "P015": 0,
+        "P016": 1,
+        "P017": 0,
+        "P018": 0,
+        "P019": 3,
+        "P020": 0
+      },
+      "expected_top3": [
+        "P019",
+        "P001",
+        "P003"
+      ],
+      "notes": "Color: dark blue\u2248navy\u2248blue"
+    },
+    {
+      "id": "EQ57",
+      "query": "Navy pants",
+      "vision_output": {
+        "detected_category": "Bottoms",
+        "detected_color": "navy",
+        "detected_style": "Smart Casual",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 0,
+        "P003": 0,
+        "P004": 3,
+        "P005": 1,
+        "P006": 0,
+        "P007": 0,
+        "P008": 0,
+        "P009": 0,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 0,
+        "P015": 2,
+        "P016": 0,
+        "P017": 0,
+        "P018": 1,
+        "P019": 2,
+        "P020": 0
+      },
+      "expected_top3": [
+        "P004",
+        "P019",
+        "P015"
+      ],
+      "notes": "Color: navy\u2248dark blue"
+    },
+    {
+      "id": "EQ58",
+      "query": "Charcoal coat",
+      "vision_output": {
+        "detected_category": "Outerwear",
+        "detected_color": "charcoal",
+        "detected_style": "Formal",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 1,
+        "P002": 0,
+        "P003": 0,
+        "P004": 0,
+        "P005": 0,
+        "P006": 0,
+        "P007": 0,
+        "P008": 3,
+        "P009": 1,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 0,
+        "P015": 0,
+        "P016": 2,
+        "P017": 0,
+        "P018": 0,
+        "P019": 0,
+        "P020": 0
+      },
+      "expected_top3": [
+        "P008",
+        "P016",
+        "P009"
+      ],
+      "notes": "Color: charcoal\u2248gray"
+    },
+    {
+      "id": "EQ59",
+      "query": "Cream top",
+      "vision_output": {
+        "detected_category": "Tops",
+        "detected_color": "white",
+        "detected_style": "Casual",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 3,
+        "P003": 2,
+        "P004": 0,
+        "P005": 0,
+        "P006": 0,
+        "P007": 0,
+        "P008": 0,
+        "P009": 0,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 1,
+        "P015": 0,
+        "P016": 0,
+        "P017": 3,
+        "P018": 0,
+        "P019": 1,
+        "P020": 1
+      },
+      "expected_top3": [
+        "P017",
+        "P002",
+        "P003"
+      ],
+      "notes": "Color: cream\u2248white"
+    },
+    {
+      "id": "EQ60",
+      "query": "Burgundy dress",
+      "vision_output": {
+        "detected_category": "Dresses",
+        "detected_color": "burgundy",
+        "detected_style": "Formal",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 0,
+        "P003": 0,
+        "P004": 0,
+        "P005": 2,
+        "P006": 3,
+        "P007": 3,
+        "P008": 0,
+        "P009": 0,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 0,
+        "P015": 0,
+        "P016": 0,
+        "P017": 0,
+        "P018": 0,
+        "P019": 0,
+        "P020": 2
+      },
+      "expected_top3": [
+        "P006",
+        "P007",
+        "P005"
+      ],
+      "notes": "Color: burgundy\u2248red"
+    },
+    {
+      "id": "EQ61",
+      "query": "Olive jacket",
+      "vision_output": {
+        "detected_category": "Outerwear",
+        "detected_color": "olive",
+        "detected_style": "Casual",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 0,
+        "P003": 0,
+        "P004": 0,
+        "P005": 0,
+        "P006": 0,
+        "P007": 0,
+        "P008": 2,
+        "P009": 3,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 1,
+        "P015": 0,
+        "P016": 2,
+        "P017": 0,
+        "P018": 0,
+        "P019": 0,
+        "P020": 0
+      },
+      "expected_top3": [
+        "P009",
+        "P008",
+        "P016"
+      ],
+      "notes": "Color: olive\u2248green"
+    },
+    {
+      "id": "EQ62",
+      "query": "Silver accessories",
+      "vision_output": {
+        "detected_category": "Accessories",
+        "detected_color": "silver",
+        "detected_style": "Classic",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 0,
+        "P003": 0,
+        "P004": 0,
+        "P005": 0,
+        "P006": 0,
+        "P007": 0,
+        "P008": 2,
+        "P009": 0,
+        "P010": 0,
+        "P011": 0,
+        "P012": 3,
+        "P013": 3,
+        "P014": 0,
+        "P015": 0,
+        "P016": 0,
+        "P017": 0,
+        "P018": 0,
+        "P019": 0,
+        "P020": 0
+      },
+      "expected_top3": [
+        "P012",
+        "P013",
+        "P008"
+      ],
+      "notes": "Color: silver\u2248gray"
+    },
+    {
+      "id": "EQ63",
+      "query": "Midnight blue blazer",
+      "vision_output": {
+        "detected_category": "Tops",
+        "detected_color": "midnight blue",
+        "detected_style": "Smart Casual",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 3,
+        "P002": 0,
+        "P003": 2,
+        "P004": 0,
+        "P005": 0,
+        "P006": 0,
+        "P007": 0,
+        "P008": 0,
+        "P009": 1,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 0,
+        "P015": 0,
+        "P016": 1,
+        "P017": 0,
+        "P018": 0,
+        "P019": 2,
+        "P020": 0
+      },
+      "expected_top3": [
+        "P001",
+        "P019",
+        "P003"
+      ],
+      "notes": "Color: midnight blue\u2248navy"
+    },
+    {
+      "id": "EQ64",
+      "query": "Crimson top",
+      "vision_output": {
+        "detected_category": "Tops",
+        "detected_color": "crimson",
+        "detected_style": "Casual",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 2,
+        "P003": 2,
+        "P004": 0,
+        "P005": 0,
+        "P006": 0,
+        "P007": 0,
+        "P008": 0,
+        "P009": 0,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 2,
+        "P015": 0,
+        "P016": 0,
+        "P017": 2,
+        "P018": 0,
+        "P019": 2,
+        "P020": 3
+      },
+      "expected_top3": [
+        "P020",
+        "P002",
+        "P017"
+      ],
+      "notes": "Color: crimson\u2248red"
+    },
+    {
+      "id": "EQ65",
+      "query": "Ivory blouse",
+      "vision_output": {
+        "detected_category": "Tops",
+        "detected_color": "white",
+        "detected_style": "Formal",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 2,
+        "P002": 1,
+        "P003": 3,
+        "P004": 0,
+        "P005": 0,
+        "P006": 0,
+        "P007": 0,
+        "P008": 0,
+        "P009": 0,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 1,
+        "P015": 0,
+        "P016": 0,
+        "P017": 1,
+        "P018": 0,
+        "P019": 2,
+        "P020": 1
+      },
+      "expected_top3": [
+        "P003",
+        "P001",
+        "P019"
+      ],
+      "notes": "Color: ivory\u2248white"
+    },
+    {
+      "id": "EQ66",
+      "query": "Slate pants",
+      "vision_output": {
+        "detected_category": "Bottoms",
+        "detected_color": "gray",
+        "detected_style": "Smart Casual",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 0,
+        "P003": 0,
+        "P004": 2,
+        "P005": 3,
+        "P006": 0,
+        "P007": 0,
+        "P008": 0,
+        "P009": 0,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 0,
+        "P015": 2,
+        "P016": 0,
+        "P017": 0,
+        "P018": 2,
+        "P019": 0,
+        "P020": 0
+      },
+      "expected_top3": [
+        "P005",
+        "P015",
+        "P004"
+      ],
+      "notes": "Color: slate\u2248gray"
+    },
+    {
+      "id": "EQ67",
+      "query": "Rose dress",
+      "vision_output": {
+        "detected_category": "Dresses",
+        "detected_color": "rose",
+        "detected_style": "Casual",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 0,
+        "P003": 0,
+        "P004": 0,
+        "P005": 0,
+        "P006": 3,
+        "P007": 2,
+        "P008": 0,
+        "P009": 0,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 0,
+        "P015": 0,
+        "P016": 0,
+        "P017": 0,
+        "P018": 0,
+        "P019": 0,
+        "P020": 2
+      },
+      "expected_top3": [
+        "P006",
+        "P007",
+        "P020"
+      ],
+      "notes": "Color: rose\u2248red/pink"
+    },
+    {
+      "id": "EQ68",
+      "query": "Tan chinos",
+      "vision_output": {
+        "detected_category": "Bottoms",
+        "detected_color": "tan",
+        "detected_style": "Casual",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 0,
+        "P003": 0,
+        "P004": 2,
+        "P005": 2,
+        "P006": 0,
+        "P007": 0,
+        "P008": 0,
+        "P009": 0,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 0,
+        "P015": 3,
+        "P016": 0,
+        "P017": 0,
+        "P018": 2,
+        "P019": 0,
+        "P020": 0
+      },
+      "expected_top3": [
+        "P015",
+        "P004",
+        "P005"
+      ],
+      "notes": "Color: tan\u2248beige\u2248khaki"
+    },
+    {
+      "id": "EQ69",
+      "query": "Cobalt shirt",
+      "vision_output": {
+        "detected_category": "Tops",
+        "detected_color": "cobalt",
+        "detected_style": "Smart Casual",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 3,
+        "P002": 0,
+        "P003": 2,
+        "P004": 0,
+        "P005": 0,
+        "P006": 0,
+        "P007": 0,
+        "P008": 0,
+        "P009": 1,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 0,
+        "P015": 0,
+        "P016": 1,
+        "P017": 0,
+        "P018": 0,
+        "P019": 3,
+        "P020": 0
+      },
+      "expected_top3": [
+        "P019",
+        "P001",
+        "P003"
+      ],
+      "notes": "Color: cobalt\u2248blue"
+    },
+    {
+      "id": "EQ70",
+      "query": "Forest green top",
+      "vision_output": {
+        "detected_category": "Tops",
+        "detected_color": "forest green",
+        "detected_style": "Casual",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 2,
+        "P003": 2,
+        "P004": 0,
+        "P005": 0,
+        "P006": 0,
+        "P007": 0,
+        "P008": 0,
+        "P009": 0,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 3,
+        "P015": 0,
+        "P016": 0,
+        "P017": 2,
+        "P018": 0,
+        "P019": 2,
+        "P020": 2
+      },
+      "expected_top3": [
+        "P014",
+        "P002",
+        "P017"
+      ],
+      "notes": "Color: forest green\u2248green"
+    },
+    {
+      "id": "EQ71",
+      "query": "Elegant black outfit",
+      "vision_output": {
+        "detected_category": "Dresses",
+        "detected_color": "black",
+        "detected_style": "Elegant",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 0,
+        "P003": 0,
+        "P004": 0,
+        "P005": 2,
+        "P006": 0,
+        "P007": 3,
+        "P008": 1,
+        "P009": 0,
+        "P010": 0,
+        "P011": 2,
+        "P012": 0,
+        "P013": 2,
+        "P014": 0,
+        "P015": 0,
+        "P016": 0,
+        "P017": 0,
+        "P018": 0,
+        "P019": 0,
+        "P020": 0
+      },
+      "expected_top3": [
+        "P007",
+        "P005",
+        "P011"
+      ],
+      "notes": "Style: elegant\u2248formal"
+    },
+    {
+      "id": "EQ72",
+      "query": "Relaxed weekend top",
+      "vision_output": {
+        "detected_category": "Tops",
+        "detected_color": "white",
+        "detected_style": "Relaxed",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 3,
+        "P003": 2,
+        "P004": 0,
+        "P005": 0,
+        "P006": 0,
+        "P007": 0,
+        "P008": 0,
+        "P009": 0,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 2,
+        "P015": 0,
+        "P016": 0,
+        "P017": 3,
+        "P018": 0,
+        "P019": 2,
+        "P020": 2
+      },
+      "expected_top3": [
+        "P017",
+        "P002",
+        "P003"
+      ],
+      "notes": "Style: relaxed\u2248casual"
+    },
+    {
+      "id": "EQ73",
+      "query": "Business professional",
+      "vision_output": {
+        "detected_category": "Tops",
+        "detected_color": "navy",
+        "detected_style": "Business",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 3,
+        "P002": 0,
+        "P003": 3,
+        "P004": 0,
+        "P005": 0,
+        "P006": 0,
+        "P007": 0,
+        "P008": 0,
+        "P009": 1,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 0,
+        "P015": 0,
+        "P016": 1,
+        "P017": 0,
+        "P018": 0,
+        "P019": 2,
+        "P020": 0
+      },
+      "expected_top3": [
+        "P001",
+        "P003",
+        "P019"
+      ],
+      "notes": "Style: business\u2248formal"
+    },
+    {
+      "id": "EQ74",
+      "query": "Athletic wear",
+      "vision_output": {
+        "detected_category": "Tops",
+        "detected_color": "white",
+        "detected_style": "Athletic",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 3,
+        "P003": 0,
+        "P004": 0,
+        "P005": 0,
+        "P006": 0,
+        "P007": 0,
+        "P008": 0,
+        "P009": 0,
+        "P010": 1,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 2,
+        "P015": 0,
+        "P016": 0,
+        "P017": 3,
+        "P018": 0,
+        "P019": 0,
+        "P020": 0
+      },
+      "expected_top3": [
+        "P017",
+        "P002",
+        "P014"
+      ],
+      "notes": "Style: athletic\u2248sporty"
+    },
+    {
+      "id": "EQ75",
+      "query": "Boho chic dress",
+      "vision_output": {
+        "detected_category": "Dresses",
+        "detected_color": "red",
+        "detected_style": "Boho",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 0,
+        "P003": 0,
+        "P004": 0,
+        "P005": 0,
+        "P006": 3,
+        "P007": 2,
+        "P008": 0,
+        "P009": 0,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 0,
+        "P015": 0,
+        "P016": 0,
+        "P017": 0,
+        "P018": 0,
+        "P019": 0,
+        "P020": 2
+      },
+      "expected_top3": [
+        "P006",
+        "P007",
+        "P020"
+      ],
+      "notes": "Style: boho\u2248bohemian"
+    },
+    {
+      "id": "EQ76",
+      "query": "Urban streetwear",
+      "vision_output": {
+        "detected_category": "Tops",
+        "detected_color": "black",
+        "detected_style": "Urban",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 3,
+        "P003": 2,
+        "P004": 0,
+        "P005": 0,
+        "P006": 0,
+        "P007": 0,
+        "P008": 0,
+        "P009": 0,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 2,
+        "P015": 0,
+        "P016": 0,
+        "P017": 2,
+        "P018": 0,
+        "P019": 2,
+        "P020": 2
+      },
+      "expected_top3": [
+        "P002",
+        "P017",
+        "P003"
+      ],
+      "notes": "Style: urban\u2248streetwear"
+    },
+    {
+      "id": "EQ77",
+      "query": "Classic timeless blazer",
+      "vision_output": {
+        "detected_category": "Tops",
+        "detected_color": "navy",
+        "detected_style": "Timeless",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 3,
+        "P002": 0,
+        "P003": 3,
+        "P004": 0,
+        "P005": 0,
+        "P006": 0,
+        "P007": 0,
+        "P008": 0,
+        "P009": 1,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 0,
+        "P015": 0,
+        "P016": 1,
+        "P017": 0,
+        "P018": 0,
+        "P019": 2,
+        "P020": 0
+      },
+      "expected_top3": [
+        "P001",
+        "P003",
+        "P019"
+      ],
+      "notes": "Style: timeless\u2248classic"
+    },
+    {
+      "id": "EQ78",
+      "query": "Modern minimalist top",
+      "vision_output": {
+        "detected_category": "Tops",
+        "detected_color": "white",
+        "detected_style": "Modern",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 3,
+        "P003": 2,
+        "P004": 0,
+        "P005": 0,
+        "P006": 0,
+        "P007": 0,
+        "P008": 0,
+        "P009": 0,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 2,
+        "P015": 0,
+        "P016": 0,
+        "P017": 3,
+        "P018": 0,
+        "P019": 2,
+        "P020": 2
+      },
+      "expected_top3": [
+        "P017",
+        "P002",
+        "P003"
+      ],
+      "notes": "Style: modern\u2248minimalist"
+    },
+    {
+      "id": "EQ79",
+      "query": "Preppy look",
+      "vision_output": {
+        "detected_category": "Tops",
+        "detected_color": "green",
+        "detected_style": "Preppy",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 1,
+        "P002": 1,
+        "P003": 2,
+        "P004": 0,
+        "P005": 0,
+        "P006": 0,
+        "P007": 0,
+        "P008": 0,
+        "P009": 0,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 3,
+        "P015": 0,
+        "P016": 0,
+        "P017": 1,
+        "P018": 0,
+        "P019": 2,
+        "P020": 1
+      },
+      "expected_top3": [
+        "P014",
+        "P003",
+        "P019"
+      ],
+      "notes": "Style: preppy\u2248classic"
+    },
+    {
+      "id": "EQ80",
+      "query": "Feminine soft top",
+      "vision_output": {
+        "detected_category": "Tops",
+        "detected_color": "white",
+        "detected_style": "Feminine",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 3,
+        "P003": 3,
+        "P004": 0,
+        "P005": 0,
+        "P006": 0,
+        "P007": 0,
+        "P008": 0,
+        "P009": 0,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 2,
+        "P015": 0,
+        "P016": 0,
+        "P017": 3,
+        "P018": 0,
+        "P019": 2,
+        "P020": 2
+      },
+      "expected_top3": [
+        "P017",
+        "P002",
+        "P003"
+      ],
+      "notes": "Style: feminine\u2248romantic"
+    },
+    {
+      "id": "EQ81",
+      "query": "Retro vintage top",
+      "vision_output": {
+        "detected_category": "Tops",
+        "detected_color": "red",
+        "detected_style": "Retro",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 2,
+        "P003": 2,
+        "P004": 0,
+        "P005": 0,
+        "P006": 0,
+        "P007": 0,
+        "P008": 0,
+        "P009": 0,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 2,
+        "P015": 0,
+        "P016": 0,
+        "P017": 2,
+        "P018": 0,
+        "P019": 2,
+        "P020": 3
+      },
+      "expected_top3": [
+        "P020",
+        "P002",
+        "P017"
+      ],
+      "notes": "Style: retro\u2248vintage"
+    },
+    {
+      "id": "EQ82",
+      "query": "Professional office wear",
+      "vision_output": {
+        "detected_category": "Bottoms",
+        "detected_color": "black",
+        "detected_style": "Professional",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 0,
+        "P003": 0,
+        "P004": 1,
+        "P005": 3,
+        "P006": 0,
+        "P007": 0,
+        "P008": 0,
+        "P009": 0,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 0,
+        "P015": 2,
+        "P016": 0,
+        "P017": 0,
+        "P018": 1,
+        "P019": 0,
+        "P020": 0
+      },
+      "expected_top3": [
+        "P005",
+        "P015",
+        "P004"
+      ],
+      "notes": "Style: professional\u2248formal"
+    },
+    {
+      "id": "EQ83",
+      "query": "Gym outfit top",
+      "vision_output": {
+        "detected_category": "Tops",
+        "detected_color": "white",
+        "detected_style": "Gym",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 3,
+        "P003": 0,
+        "P004": 0,
+        "P005": 0,
+        "P006": 0,
+        "P007": 0,
+        "P008": 0,
+        "P009": 0,
+        "P010": 1,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 2,
+        "P015": 0,
+        "P016": 0,
+        "P017": 3,
+        "P018": 0,
+        "P019": 0,
+        "P020": 0
+      },
+      "expected_top3": [
+        "P017",
+        "P002",
+        "P014"
+      ],
+      "notes": "Style: gym\u2248sporty"
+    },
+    {
+      "id": "EQ84",
+      "query": "Weekend casual bottoms",
+      "vision_output": {
+        "detected_category": "Bottoms",
+        "detected_color": "blue",
+        "detected_style": "Weekend",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 0,
+        "P003": 0,
+        "P004": 3,
+        "P005": 1,
+        "P006": 0,
+        "P007": 0,
+        "P008": 0,
+        "P009": 0,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 0,
+        "P015": 2,
+        "P016": 0,
+        "P017": 0,
+        "P018": 2,
+        "P019": 2,
+        "P020": 0
+      },
+      "expected_top3": [
+        "P004",
+        "P015",
+        "P018"
+      ],
+      "notes": "Style: weekend\u2248casual"
+    },
+    {
+      "id": "EQ85",
+      "query": "Office formal dress",
+      "vision_output": {
+        "detected_category": "Dresses",
+        "detected_color": "black",
+        "detected_style": "Office",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 2,
+        "P002": 0,
+        "P003": 1,
+        "P004": 0,
+        "P005": 2,
+        "P006": 1,
+        "P007": 3,
+        "P008": 2,
+        "P009": 0,
+        "P010": 0,
+        "P011": 1,
+        "P012": 0,
+        "P013": 0,
+        "P014": 0,
+        "P015": 0,
+        "P016": 2,
+        "P017": 0,
+        "P018": 0,
+        "P019": 0,
+        "P020": 0
+      },
+      "expected_top3": [
+        "P007",
+        "P005",
+        "P008"
+      ],
+      "notes": "Style: office\u2248formal"
+    },
+    {
+      "id": "EQ86",
+      "query": "Something blue",
+      "vision_output": {
+        "detected_category": null,
+        "detected_color": "blue",
+        "detected_style": null,
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 3,
+        "P002": 0,
+        "P003": 1,
+        "P004": 3,
+        "P005": 0,
+        "P006": 0,
+        "P007": 0,
+        "P008": 0,
+        "P009": 3,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 0,
+        "P015": 0,
+        "P016": 3,
+        "P017": 0,
+        "P018": 0,
+        "P019": 3,
+        "P020": 0
+      },
+      "expected_top3": [
+        "P019",
+        "P004",
+        "P001"
+      ],
+      "notes": "Ambiguous: no category/style"
+    },
+    {
+      "id": "EQ87",
+      "query": "Anything black",
+      "vision_output": {
+        "detected_category": null,
+        "detected_color": "black",
+        "detected_style": null,
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 3,
+        "P003": 0,
+        "P004": 0,
+        "P005": 3,
+        "P006": 0,
+        "P007": 3,
+        "P008": 0,
+        "P009": 0,
+        "P010": 0,
+        "P011": 3,
+        "P012": 0,
+        "P013": 3,
+        "P014": 0,
+        "P015": 0,
+        "P016": 0,
+        "P017": 0,
+        "P018": 3,
+        "P019": 0,
+        "P020": 0
+      },
+      "expected_top3": [
+        "P002",
+        "P005",
+        "P007"
+      ],
+      "notes": "Ambiguous: many black items"
+    },
+    {
+      "id": "EQ88",
+      "query": "Red thing",
+      "vision_output": {
+        "detected_category": null,
+        "detected_color": "red",
+        "detected_style": null,
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 0,
+        "P003": 0,
+        "P004": 0,
+        "P005": 0,
+        "P006": 3,
+        "P007": 0,
+        "P008": 0,
+        "P009": 0,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 0,
+        "P015": 0,
+        "P016": 0,
+        "P017": 0,
+        "P018": 0,
+        "P019": 0,
+        "P020": 3
+      },
+      "expected_top3": [
+        "P006",
+        "P020"
+      ],
+      "notes": "Ambiguous: only color"
+    },
+    {
+      "id": "EQ89",
+      "query": "Formal wear",
+      "vision_output": {
+        "detected_category": null,
+        "detected_color": null,
+        "detected_style": "Formal",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 3,
+        "P002": 0,
+        "P003": 0,
+        "P004": 0,
+        "P005": 3,
+        "P006": 0,
+        "P007": 3,
+        "P008": 3,
+        "P009": 0,
+        "P010": 0,
+        "P011": 1,
+        "P012": 0,
+        "P013": 0,
+        "P014": 0,
+        "P015": 0,
+        "P016": 3,
+        "P017": 0,
+        "P018": 0,
+        "P019": 0,
+        "P020": 0
+      },
+      "expected_top3": [
+        "P005",
+        "P007",
+        "P008"
+      ],
+      "notes": "Ambiguous: only style"
+    },
+    {
+      "id": "EQ90",
+      "query": "Casual everyday",
+      "vision_output": {
+        "detected_category": null,
+        "detected_color": null,
+        "detected_style": "Casual",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 3,
+        "P003": 0,
+        "P004": 3,
+        "P005": 0,
+        "P006": 3,
+        "P007": 0,
+        "P008": 0,
+        "P009": 3,
+        "P010": 3,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 3,
+        "P015": 3,
+        "P016": 0,
+        "P017": 3,
+        "P018": 3,
+        "P019": 0,
+        "P020": 3
+      },
+      "expected_top3": [
+        "P002",
+        "P017",
+        "P004"
+      ],
+      "notes": "Ambiguous: many casual items"
+    },
+    {
+      "id": "EQ91",
+      "query": "White formal shirt",
+      "vision_output": {
+        "detected_category": "Tops",
+        "detected_color": "white",
+        "detected_style": "Formal",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 2,
+        "P002": 1,
+        "P003": 3,
+        "P004": 0,
+        "P005": 0,
+        "P006": 0,
+        "P007": 0,
+        "P008": 0,
+        "P009": 0,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 1,
+        "P015": 0,
+        "P016": 0,
+        "P017": 1,
+        "P018": 0,
+        "P019": 2,
+        "P020": 1
+      },
+      "expected_top3": [
+        "P003",
+        "P001",
+        "P019"
+      ],
+      "notes": "Exact: white formal shirt"
+    },
+    {
+      "id": "EQ92",
+      "query": "Black casual sneakers",
+      "vision_output": {
+        "detected_category": "Footwear",
+        "detected_color": "black",
+        "detected_style": "Casual",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 0,
+        "P003": 0,
+        "P004": 0,
+        "P005": 1,
+        "P006": 0,
+        "P007": 1,
+        "P008": 0,
+        "P009": 0,
+        "P010": 2,
+        "P011": 3,
+        "P012": 0,
+        "P013": 1,
+        "P014": 0,
+        "P015": 0,
+        "P016": 0,
+        "P017": 0,
+        "P018": 0,
+        "P019": 0,
+        "P020": 0
+      },
+      "expected_top3": [
+        "P011",
+        "P010"
+      ],
+      "notes": "Contradiction: black but P010 is white"
+    },
+    {
+      "id": "EQ93",
+      "query": "Navy formal blazer",
+      "vision_output": {
+        "detected_category": "Tops",
+        "detected_color": "navy",
+        "detected_style": "Formal",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 3,
+        "P002": 0,
+        "P003": 2,
+        "P004": 0,
+        "P005": 0,
+        "P006": 0,
+        "P007": 0,
+        "P008": 0,
+        "P009": 1,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 0,
+        "P015": 0,
+        "P016": 2,
+        "P017": 0,
+        "P018": 0,
+        "P019": 2,
+        "P020": 0
+      },
+      "expected_top3": [
+        "P001",
+        "P003",
+        "P019"
+      ],
+      "notes": "Exact match"
+    },
+    {
+      "id": "EQ94",
+      "query": "Red casual top",
+      "vision_output": {
+        "detected_category": "Tops",
+        "detected_color": "red",
+        "detected_style": "Casual",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 2,
+        "P003": 2,
+        "P004": 0,
+        "P005": 0,
+        "P006": 0,
+        "P007": 0,
+        "P008": 0,
+        "P009": 0,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 2,
+        "P015": 0,
+        "P016": 0,
+        "P017": 2,
+        "P018": 0,
+        "P019": 2,
+        "P020": 3
+      },
+      "expected_top3": [
+        "P020",
+        "P002",
+        "P017"
+      ],
+      "notes": "Red sweater as casual top"
+    },
+    {
+      "id": "EQ95",
+      "query": "Green formal",
+      "vision_output": {
+        "detected_category": null,
+        "detected_color": "green",
+        "detected_style": "Formal",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 1,
+        "P002": 0,
+        "P003": 0,
+        "P004": 0,
+        "P005": 1,
+        "P006": 0,
+        "P007": 1,
+        "P008": 1,
+        "P009": 0,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 3,
+        "P015": 0,
+        "P016": 1,
+        "P017": 0,
+        "P018": 0,
+        "P019": 0,
+        "P020": 0
+      },
+      "expected_top3": [
+        "P014"
+      ],
+      "notes": "Contradiction: green+formal"
+    },
+    {
+      "id": "EQ96",
+      "query": "Brown shoes",
+      "vision_output": {
+        "detected_category": "Footwear",
+        "detected_color": "brown",
+        "detected_style": "Classic",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 0,
+        "P003": 0,
+        "P004": 0,
+        "P005": 0,
+        "P006": 0,
+        "P007": 0,
+        "P008": 0,
+        "P009": 0,
+        "P010": 2,
+        "P011": 3,
+        "P012": 1,
+        "P013": 0,
+        "P014": 0,
+        "P015": 0,
+        "P016": 0,
+        "P017": 0,
+        "P018": 0,
+        "P019": 0,
+        "P020": 0
+      },
+      "expected_top3": [
+        "P011",
+        "P010",
+        "P012"
+      ],
+      "notes": "No brown shoes in catalog; boots closest"
+    },
+    {
+      "id": "EQ97",
+      "query": "Yellow dress",
+      "vision_output": {
+        "detected_category": "Dresses",
+        "detected_color": "yellow",
+        "detected_style": "Casual",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 0,
+        "P003": 0,
+        "P004": 0,
+        "P005": 0,
+        "P006": 3,
+        "P007": 2,
+        "P008": 0,
+        "P009": 0,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 0,
+        "P015": 0,
+        "P016": 0,
+        "P017": 0,
+        "P018": 0,
+        "P019": 0,
+        "P020": 0
+      },
+      "expected_top3": [
+        "P006",
+        "P007"
+      ],
+      "notes": "No yellow dress; red dress closest"
+    },
+    {
+      "id": "EQ98",
+      "query": "Purple accessories",
+      "vision_output": {
+        "detected_category": "Accessories",
+        "detected_color": "purple",
+        "detected_style": "Classic",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 0,
+        "P003": 0,
+        "P004": 0,
+        "P005": 0,
+        "P006": 0,
+        "P007": 0,
+        "P008": 0,
+        "P009": 0,
+        "P010": 0,
+        "P011": 0,
+        "P012": 3,
+        "P013": 3,
+        "P014": 0,
+        "P015": 0,
+        "P016": 0,
+        "P017": 0,
+        "P018": 0,
+        "P019": 0,
+        "P020": 0
+      },
+      "expected_top3": [
+        "P012",
+        "P013"
+      ],
+      "notes": "No purple accessories; all equally relevant"
+    },
+    {
+      "id": "EQ99",
+      "query": "Sporty footwear",
+      "vision_output": {
+        "detected_category": "Footwear",
+        "detected_color": null,
+        "detected_style": "Sporty",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 0,
+        "P003": 0,
+        "P004": 0,
+        "P005": 0,
+        "P006": 0,
+        "P007": 0,
+        "P008": 0,
+        "P009": 0,
+        "P010": 3,
+        "P011": 2,
+        "P012": 0,
+        "P013": 0,
+        "P014": 0,
+        "P015": 0,
+        "P016": 0,
+        "P017": 0,
+        "P018": 0,
+        "P019": 0,
+        "P020": 0
+      },
+      "expected_top3": [
+        "P010",
+        "P011"
+      ],
+      "notes": "Style-only footwear query"
+    },
+    {
+      "id": "EQ100",
+      "query": "Elegant bottoms",
+      "vision_output": {
+        "detected_category": "Bottoms",
+        "detected_color": null,
+        "detected_style": "Elegant",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 0,
+        "P003": 0,
+        "P004": 2,
+        "P005": 3,
+        "P006": 0,
+        "P007": 0,
+        "P008": 0,
+        "P009": 0,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 0,
+        "P015": 2,
+        "P016": 0,
+        "P017": 0,
+        "P018": 2,
+        "P019": 0,
+        "P020": 0
+      },
+      "expected_top3": [
+        "P005",
+        "P015",
+        "P004"
+      ],
+      "notes": "Style-only bottoms query"
+    },
+    {
+      "id": "EQ101",
+      "query": "",
+      "vision_output": {
+        "detected_category": null,
+        "detected_color": null,
+        "detected_style": null,
+        "detected_pattern": null,
+        "analysis_available": false
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 0,
+        "P003": 0,
+        "P004": 0,
+        "P005": 0,
+        "P006": 0,
+        "P007": 0,
+        "P008": 0,
+        "P009": 0,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 0,
+        "P015": 0,
+        "P016": 0,
+        "P017": 0,
+        "P018": 0,
+        "P019": 0,
+        "P020": 0
+      },
+      "expected_top3": [],
+      "notes": "Empty query"
+    },
+    {
+      "id": "EQ102",
+      "query": "xyzzy123",
+      "vision_output": {
+        "detected_category": null,
+        "detected_color": null,
+        "detected_style": null,
+        "detected_pattern": null,
+        "analysis_available": false
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 0,
+        "P003": 0,
+        "P004": 0,
+        "P005": 0,
+        "P006": 0,
+        "P007": 0,
+        "P008": 0,
+        "P009": 0,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 0,
+        "P015": 0,
+        "P016": 0,
+        "P017": 0,
+        "P018": 0,
+        "P019": 0,
+        "P020": 0
+      },
+      "expected_top3": [],
+      "notes": "Gibberish, no vision"
+    },
+    {
+      "id": "EQ103",
+      "query": "Swimsuit",
+      "vision_output": {
+        "detected_category": "Swimwear",
+        "detected_color": "blue",
+        "detected_style": "Casual",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 0,
+        "P003": 0,
+        "P004": 2,
+        "P005": 0,
+        "P006": 0,
+        "P007": 0,
+        "P008": 0,
+        "P009": 2,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 0,
+        "P015": 0,
+        "P016": 0,
+        "P017": 0,
+        "P018": 0,
+        "P019": 2,
+        "P020": 0
+      },
+      "expected_top3": [
+        "P004",
+        "P019",
+        "P009"
+      ],
+      "notes": "Unknown category: swimwear"
+    },
+    {
+      "id": "EQ104",
+      "query": "Neon green jacket",
+      "vision_output": {
+        "detected_category": "Outerwear",
+        "detected_color": "lime",
+        "detected_style": "Streetwear",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 0,
+        "P003": 0,
+        "P004": 0,
+        "P005": 0,
+        "P006": 0,
+        "P007": 0,
+        "P008": 2,
+        "P009": 3,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 1,
+        "P015": 0,
+        "P016": 2,
+        "P017": 0,
+        "P018": 0,
+        "P019": 0,
+        "P020": 0
+      },
+      "expected_top3": [
+        "P009",
+        "P008",
+        "P016"
+      ],
+      "notes": "Unknown color: lime; outerwear match"
+    },
+    {
+      "id": "EQ105",
+      "query": "Avant-garde top",
+      "vision_output": {
+        "detected_category": "Tops",
+        "detected_color": "white",
+        "detected_style": "Avant-garde",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 3,
+        "P003": 2,
+        "P004": 0,
+        "P005": 0,
+        "P006": 0,
+        "P007": 0,
+        "P008": 0,
+        "P009": 0,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 2,
+        "P015": 0,
+        "P016": 0,
+        "P017": 3,
+        "P018": 0,
+        "P019": 2,
+        "P020": 2
+      },
+      "expected_top3": [
+        "P017",
+        "P002",
+        "P003"
+      ],
+      "notes": "Unknown style: avant-garde; category match"
+    },
+    {
+      "id": "EQ106",
+      "query": "Polka dot dress",
+      "vision_output": {
+        "detected_category": "Dresses",
+        "detected_color": "red",
+        "detected_style": "Casual",
+        "detected_pattern": "Polka Dot",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 0,
+        "P003": 0,
+        "P004": 0,
+        "P005": 0,
+        "P006": 3,
+        "P007": 2,
+        "P008": 0,
+        "P009": 0,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 0,
+        "P015": 0,
+        "P016": 0,
+        "P017": 0,
+        "P018": 0,
+        "P019": 0,
+        "P020": 2
+      },
+      "expected_top3": [
+        "P006",
+        "P007",
+        "P020"
+      ],
+      "notes": "Pattern: polka dot (not in catalog)"
+    },
+    {
+      "id": "EQ107",
+      "query": "Striped navy blazer",
+      "vision_output": {
+        "detected_category": "Tops",
+        "detected_color": "navy",
+        "detected_style": "Smart Casual",
+        "detected_pattern": "Striped",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 3,
+        "P002": 0,
+        "P003": 2,
+        "P004": 0,
+        "P005": 0,
+        "P006": 0,
+        "P007": 0,
+        "P008": 0,
+        "P009": 1,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 0,
+        "P015": 0,
+        "P016": 1,
+        "P017": 0,
+        "P018": 0,
+        "P019": 2,
+        "P020": 0
+      },
+      "expected_top3": [
+        "P001",
+        "P019",
+        "P003"
+      ],
+      "notes": "Pattern mismatch: blazer isn't striped"
+    },
+    {
+      "id": "EQ108",
+      "query": "Floral summer dress",
+      "vision_output": {
+        "detected_category": "Dresses",
+        "detected_color": "red",
+        "detected_style": "Casual",
+        "detected_pattern": "Floral",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 0,
+        "P003": 0,
+        "P004": 0,
+        "P005": 0,
+        "P006": 3,
+        "P007": 2,
+        "P008": 0,
+        "P009": 0,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 0,
+        "P015": 0,
+        "P016": 0,
+        "P017": 0,
+        "P018": 0,
+        "P019": 0,
+        "P020": 2
+      },
+      "expected_top3": [
+        "P006",
+        "P007",
+        "P020"
+      ],
+      "notes": "Pattern: floral (not in catalog)"
+    },
+    {
+      "id": "EQ109",
+      "query": "Plain white tee",
+      "vision_output": {
+        "detected_category": "Tops",
+        "detected_color": "white",
+        "detected_style": "Casual",
+        "detected_pattern": "Solid",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 0,
+        "P002": 3,
+        "P003": 2,
+        "P004": 0,
+        "P005": 0,
+        "P006": 0,
+        "P007": 0,
+        "P008": 0,
+        "P009": 0,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 2,
+        "P015": 0,
+        "P016": 0,
+        "P017": 3,
+        "P018": 0,
+        "P019": 2,
+        "P020": 2
+      },
+      "expected_top3": [
+        "P017",
+        "P002",
+        "P003"
+      ],
+      "notes": "Synonym+pattern: plain=solid, tee=t-shirt"
+    },
+    {
+      "id": "EQ110",
+      "query": "Checked formal shirt",
+      "vision_output": {
+        "detected_category": "Tops",
+        "detected_color": "blue",
+        "detected_style": "Formal",
+        "detected_pattern": "Checked",
+        "analysis_available": true
+      },
+      "ground_truth": {
+        "P001": 2,
+        "P002": 0,
+        "P003": 3,
+        "P004": 0,
+        "P005": 1,
+        "P006": 0,
+        "P007": 0,
+        "P008": 1,
+        "P009": 0,
+        "P010": 0,
+        "P011": 0,
+        "P012": 0,
+        "P013": 0,
+        "P014": 0,
+        "P015": 0,
+        "P016": 0,
+        "P017": 0,
+        "P018": 0,
+        "P019": 3,
+        "P020": 0
+      },
+      "expected_top3": [
+        "P019",
+        "P003",
+        "P001"
+      ],
+      "notes": "Pattern: checked (not in catalog)"
+    }
+  ],
+  "subset_original": [
+    "EQ01",
+    "EQ02",
+    "EQ03",
+    "EQ04",
+    "EQ05",
+    "EQ06",
+    "EQ07",
+    "EQ08",
+    "EQ09",
+    "EQ10",
+    "EQ11",
+    "EQ12",
+    "EQ13",
+    "EQ14",
+    "EQ15",
+    "EQ16",
+    "EQ17",
+    "EQ18",
+    "EQ19",
+    "EQ20"
+  ]
+}

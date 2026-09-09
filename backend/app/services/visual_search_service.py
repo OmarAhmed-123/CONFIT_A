@@ -3,6 +3,7 @@ from typing import Dict, Any, Optional, List
 from sqlalchemy.orm import Session
 from backend.app.core.exceptions import ValidationDomainError
 from backend.app.core.money import to_float
+from backend.app.core.config import settings
 from backend.app.repositories.catalog_repository import CatalogRepository
 from backend.app.repositories.tryon_repository import TryOnRepository
 from backend.app.providers.tryon_provider import VisualSearchAIProvider
@@ -58,57 +59,87 @@ class VisualSearchService:
         # 3. Score real catalog items against what the vision model ACTUALLY
         #    detected — the old code hard-coded blazer/navy bonuses for every
         #    image, so any upload returned the same ranking.
+        #
+        #    When USE_ENHANCED_VISUAL_SEARCH_SCORING is enabled, use the
+        #    deterministic enhanced scoring with synonym normalization,
+        #    category hierarchy, LAB color similarity, and style weighting.
+        use_enhanced = settings.USE_ENHANCED_VISUAL_SEARCH_SCORING
+
+        if use_enhanced:
+            from backend.app.services.visual_search_enhanced import calculate_enhanced_score
+
         cat_tokens = [t for t in (detected_cat or "").lower().replace("&", " ").split() if len(t) > 2]
         col_tokens = [t for t in (detected_col or "").lower().split() if len(t) > 2]
         sty_tokens = [t.replace(" ", "_") for t in (detected_sty or "").lower().split("/") if t.strip()]
 
         scored_matches = []
         for p in all_prods:
-            score = 50.0  # neutral base — ranking comes only from real signals
             p_cat = (p.category.name if p.category else "").lower()
             p_title = p.title.lower()
             p_color = (p.color_family or "").lower()
             p_tags = (p.style_tags or "").lower()
 
-            if analysis_available:
-                # Category match: detected category words against product category/title
-                if any(t in p_cat or t in p_title for t in cat_tokens):
-                    score += 30.0
-                # Color family match
-                if any(t in p_color for t in col_tokens):
-                    score += 15.0
-                # Style tag match
-                if any(t in p_tags for t in sty_tokens):
-                    score += 8.0
+            if use_enhanced and analysis_available:
+                # Enhanced deterministic scoring
+                score, breakdown = calculate_enhanced_score(
+                    detected_category=detected_cat,
+                    detected_color=detected_col,
+                    detected_style=detected_sty,
+                    detected_pattern=detected_pat,
+                    product_category=p_cat,
+                    product_color=p_color,
+                    product_style_tags=p_tags,
+                    product_title=p_title,
+                    analysis_available=analysis_available,
+                )
+                scored_matches.append((score, p, breakdown))
+            else:
+                # Baseline token-matching scoring
+                score = 50.0  # neutral base — ranking comes only from real signals
+                if analysis_available:
+                    # Category match: detected category words against product category/title
+                    if any(t in p_cat or t in p_title for t in cat_tokens):
+                        score += 30.0
+                    # Color family match
+                    if any(t in p_color for t in col_tokens):
+                        score += 15.0
+                    # Style tag match
+                    if any(t in p_tags for t in sty_tokens):
+                        score += 8.0
+                score = min(98.0, round(score, 1))
+                scored_matches.append((score, p, {"base": 50.0, "category": 30.0 if any(t in p_cat or t in p_title for t in cat_tokens) and analysis_available else 0.0, "color": 15.0 if any(t in p_color for t in col_tokens) and analysis_available else 0.0, "style": 8.0 if any(t in p_tags for t in sty_tokens) and analysis_available else 0.0}))
 
-            score = min(98.0, round(score, 1))
-            scored_matches.append((score, p))
-
-        # Sort by similarity score descending
-        scored_matches.sort(key=lambda x: x[0], reverse=True)
+        # Sort by similarity score descending, with deterministic tie-breaking
+        # for enhanced scoring (higher category score wins, then higher color score)
+        if use_enhanced:
+            scored_matches.sort(
+                key=lambda x: (x[0], x[2].get("category", 0), x[2].get("color", 0)),
+                reverse=True
+            )
+        else:
+            scored_matches.sort(key=lambda x: x[0], reverse=True)
 
         # Honour the caller's requested result count (schema: top_k, 1..20). The
         # DB query above is already bounded by ``limit``; slicing here keeps the
         # response size consistent with the request instead of a hard-coded 8.
         result_limit = limit if isinstance(limit, int) and limit > 0 else 8
         matches = []
-        for idx, (sim, p) in enumerate(scored_matches[:result_limit]):
+        for idx, (sim, p, breakdown) in enumerate(scored_matches[:result_limit]):
             match_type = "Exact Match" if idx == 0 and sim >= 95 else ("Silhouette Match" if sim >= 88 else "Complementary Alternative")
-            matches.append({
+            match_entry = {
                 "product_id": p.id,
                 "title": p.title,
                 "brand_name": p.brand.brand_name if p.brand else "CONFIT",
-                # base_price is Numeric(12,2) -> Decimal since migration 0012.
-                # Serialise through the canonical money helper: the response
-                # schema and the persisted matches_json (json.dumps) both need
-                # a JSON-native number; the authoritative value stays Decimal
-                # in the database.
                 "price": to_float(p.base_price),
                 "image_url": p.thumbnail_url,
                 "similarity_score": int(sim),
                 "detected_color": p.color_family,
                 "match_type": match_type
-            })
+            }
+            # Include score breakdown when enhanced scoring is active
+            if use_enhanced:
+                match_entry["score_breakdown"] = breakdown
+            matches.append(match_entry)
 
         # 4. Log visual search query to database for telemetry & analytics
         log_image_ref = target_img if (image_url and len(target_img) < 2000) else "data:image/jpeg;base64,[Client Uploaded Vision Image]"
@@ -174,5 +205,6 @@ class VisualSearchService:
             "detected_pattern": detected_pat,
             "detected_style": detected_sty,
             "results_count": len(matches),
-            "matches": matches
+            "matches": matches,
+            "scoring_method": "enhanced" if use_enhanced else "baseline",
         }

@@ -38,6 +38,7 @@ class MultiProviderAIOrchestrator:
     def provider_status(self) -> Dict[str, Any]:
         """Live status for observability: which providers have keys configured
         and which are currently quarantined (with remaining cooldown)."""
+        from backend.app.providers import unorouter_provider
         now = time.time()
         return {
             "openai": {
@@ -55,6 +56,10 @@ class MultiProviderAIOrchestrator:
             "nvidia": {
                 "configured": bool(settings.NVIDIA_API_KEY),
                 "cooling_for_seconds": max(0, round(self.cooldowns["nvidia"] - now, 1)) if "nvidia" in self.cooldowns else 0,
+            },
+            "unorouter": {
+                "configured": unorouter_provider.is_configured(),
+                "cooling_for_seconds": max(0, round(self.cooldowns["unorouter"] - now, 1)) if "unorouter" in self.cooldowns else 0,
             },
         }
 
@@ -143,6 +148,12 @@ class MultiProviderAIOrchestrator:
                     if self._is_usable(res):
                         text, model_id = res
                         return self._format_response(text, prompt, intent, f"OpenAI {model_id}", selected_outfit)
+
+                elif provider == "unorouter":
+                    res = await self._call_unorouter(system_prompt, user_prompt)
+                    if self._is_usable(res):
+                        text, model_id = res
+                        return self._format_response(text, prompt, intent, f"UnoRouter {model_id}", selected_outfit)
 
             except httpx.HTTPStatusError as exc:
                 if exc.response.status_code in [401, 402, 404, 429]:
@@ -254,6 +265,33 @@ class MultiProviderAIOrchestrator:
             )
             res.raise_for_status()
             return self._accept_chat_completion("openai", res.json(), "gpt-4o-mini")
+
+    async def _call_unorouter(self, system_prompt: str, user_prompt: str) -> Optional[Tuple[str, str]]:
+        """UnoRouter unified gateway — calls free-tier models via OpenAI-compatible API.
+
+        Uses UNOROUTER_CHAT_MODEL (default: glm-5.3-flash:free). Rate limits
+        (429) are surfaced as HTTPStatusError so the orchestrator's existing
+        cooldown mechanism handles them.
+        """
+        from backend.app.providers import unorouter_provider
+        if not unorouter_provider.is_configured():
+            return None
+        try:
+            text, model_id = await unorouter_provider.chat_completion(
+                system_prompt, user_prompt,
+                max_tokens=self._max_tokens(),
+            )
+            return text, model_id
+        except unorouter_provider.UnoRouterError as exc:
+            if exc.http_status == 429:
+                # Re-raise as HTTPStatusError so the orchestrator cooldown handles it
+                raise httpx.HTTPStatusError(
+                    "UnoRouter rate limited",
+                    request=httpx.Request("POST", "https://api.unorouter.com/v1/chat/completions"),
+                    response=httpx.Response(429),
+                ) from exc
+            logger.warn("unorouter_chat_failed", reason=exc.reason, detail=exc.message[:200])
+            return None
 
     # ------------------------------------------------- response validation
     @staticmethod

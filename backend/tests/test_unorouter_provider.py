@@ -8,9 +8,9 @@ These tests verify:
   - Integration in orchestrator failover chain
   - Integration in visual search vision fallback
 """
-import asyncio
 import json
 import pytest
+import anyio
 from unittest.mock import AsyncMock, patch, MagicMock
 
 from backend.app.providers.unorouter_provider import (
@@ -19,11 +19,6 @@ from backend.app.providers.unorouter_provider import (
     vision_analysis,
     UnoRouterError,
 )
-
-
-def _run(coro):
-    """Run an async coroutine in a sync test."""
-    return asyncio.get_event_loop().run_until_complete(coro)
 
 
 # ---------------------------------------------------------------------------
@@ -71,7 +66,7 @@ class TestUnoRouterChatCompletion:
                 assert text == "Here's a great outfit suggestion."
                 assert model_id == "glm-5.3-flash"
 
-        _run(_test())
+        anyio.run(_test)
 
     def test_chat_rate_limited_raises(self):
         mock_response = MagicMock()
@@ -90,7 +85,7 @@ class TestUnoRouterChatCompletion:
                 assert exc_info.value.reason == "rate_limited"
                 assert exc_info.value.http_status == 429
 
-        _run(_test())
+        anyio.run(_test)
 
     def test_chat_not_configured_raises(self):
         async def _test():
@@ -101,7 +96,7 @@ class TestUnoRouterChatCompletion:
                     await chat_completion("system", "user")
                 assert exc_info.value.reason == "not_configured"
 
-        _run(_test())
+        anyio.run(_test)
 
     def test_chat_empty_content_raises(self):
         mock_response = MagicMock()
@@ -122,7 +117,7 @@ class TestUnoRouterChatCompletion:
                     await chat_completion("system", "user")
                 assert exc_info.value.reason == "empty_response"
 
-        _run(_test())
+        anyio.run(_test)
 
 
 # ---------------------------------------------------------------------------
@@ -159,7 +154,7 @@ class TestUnoRouterVisionAnalysis:
                 assert result["detected_category"] == "Outerwear"
                 assert "unorouter" in result["analysis_source"]
 
-        _run(_test())
+        anyio.run(_test)
 
     def test_vision_prose_wrapped(self):
         """When vision model returns prose instead of JSON, wrap it."""
@@ -182,7 +177,7 @@ class TestUnoRouterVisionAnalysis:
                 assert result["detected_category"] is None
                 assert "raw_response" in result["detected_attributes"]
 
-        _run(_test())
+        anyio.run(_test)
 
     def test_vision_rate_limited_raises(self):
         mock_response = MagicMock()
@@ -200,7 +195,7 @@ class TestUnoRouterVisionAnalysis:
                     await vision_analysis("https://example.com/img.jpg", "Analyze.")
                 assert exc_info.value.reason == "rate_limited"
 
-        _run(_test())
+        anyio.run(_test)
 
 
 # ---------------------------------------------------------------------------

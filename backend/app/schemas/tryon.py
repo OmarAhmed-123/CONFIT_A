@@ -285,6 +285,7 @@ class VisualSearchResultItem(BaseModel):
     similarity_score: int
     detected_color: str
     match_type: str
+    score_breakdown: Optional[Dict[str, Any]] = None
 
 
 class VisualSearchResponse(BaseModel):
@@ -297,6 +298,7 @@ class VisualSearchResponse(BaseModel):
     detected_style: Optional[str] = None
     results_count: int
     matches: List[VisualSearchResultItem]
+    scoring_method: Optional[str] = None
 
 
 # Measurement Flow Schemas

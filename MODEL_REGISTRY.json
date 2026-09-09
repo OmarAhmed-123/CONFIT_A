@@ -1,0 +1,129 @@
+{
+  "registry_version": "1.0.0",
+  "generated": "2026-09-08",
+  "status_note": "Updated 2026-09-08 (Qwen close-out). Qwen2.5-VL-7B is GPU-VERIFIED (real A10/A10G load/inference, measured) + FEATURE-SMOKE-VERIFIED (real blazer all-correct; non-garment wardrobe false positive FIXED + GPU-verified). DIVERSE-BENCHMARK is PENDING/BLOCKED (authorized catalog required; ground truth not invented) - NOT claimed. PRODUCTION-VERIFIED: NOT YET (fallback not enabled in prod; QWEN_VL_* unset). Deployed WEB worker verified working (/health 200; /analyze 200 cold 26.0s / warm 5.1s). Transport decision: WEB primary; REMOTE documented alternative. Fail-closed admin auth + security scan clean. Tests 31/31 Qwen-specific; full backend suite 1083/0. Do NOT overstate 'production-ready'. VTON is the existing PRODUCTION baseline (real-GPU evidence).",
+  "selected_models": [
+    {
+      "model_id": "qwen2.5-vl-7b",
+      "feature": "Visual Search + Wardrobe Auto-Tagging (local self-hosted vision fallback for the Gemini-dependent paths)",
+      "hf_repo": "Qwen/Qwen2.5-VL-7B-Instruct",
+      "hf_url": "https://huggingface.co/Qwen/Qwen2.5-VL-7B-Instruct",
+      "upstream_url": "https://github.com/QwenLM/Qwen2.5-VL",
+      "revision": "cc594898137f460bfe9f0759e9844b3ce807cfb5",
+      "license": "Apache-2.0 (HF cardData.license + tag license:apache-2.0, VERIFIED 2026-09-07)",
+      "commercial_use_status": "VERIFIED (commercially usable)",
+      "source_type": "huggingface_hub.snapshot_download, pinned revision (14 inference files; repo has no LICENSE file)",
+      "weights_location": "Modal Volume 'confit-qwen25vl-weights' at /weights (16.59 GB, 14 files, validated by validate_weights_modal.py); deterministic bootstrap via bootstrap_modal.py",
+      "runtime": "dedicated Modal GPU worker (services/vlm-worker/modal_app.py), @modal.concurrent(max_inputs=1); warm containers via env VLM_MIN_CONTAINERS (default 1)",
+      "gpu_type": "A10G 22GB (measured on A10G; override VLM_GPU)",
+      "measured_vram": "15.45 GiB peak (BF16, MEASURED on A10G)",
+      "measured_latency": "load ~7-8s (weights->GPU); inference 3.2-4.9s/image (MEASURED, max_new_tokens<=300, no sampling)",
+      "measured_feature": "real on-model blazer photo -> all attributes correct (Outerwear/Blue/Checkered/Formal + full outfit); non-garment color block -> honest null (vision). Wardrobe non-garment false positive FOUND + FIXED + GPU-VERIFIED (restructured WARDROBE_TAG_PROMPT; solid navy swatch now -> {category: null, confidence: 0.0}, was Tops/Sweater @0.95; blazer unchanged). FEATURE-SMOKE only (small N of real images); the DIVERSE catalog benchmark is PENDING/BLOCKED (ground truth not invented).",
+      "fallback_priority": "P1 — Gemini primary -> Qwen local (only when QWEN_VL_WORKER_URL set) -> honest analysis_available=False",
+      "validation_status": "GPU-VERIFIED + FEATURE-SMOKE-VERIFIED: real A10/A10G load (15.45 GiB) + real inference + feature SMOKE test (measured); unit/contract tests 31/31 = worker parser 8/8 + backend Qwen client/routing/wardrobe 23/23; full backend suite 1083/0; license-gated (Apache-2.0). DIVERSE-BENCHMARK: PENDING/BLOCKED (needs an authorized real catalog; ground truth not invented).",
+      "production_status": "WORKER DEPLOYED + web endpoint VERIFIED WORKING (live GET /health 200 on NVIDIA A10; POST /analyze 200, cold 26.0s / warm 5.1s, accurate attributes; earlier crash-loop root cause = missing `inference` module, fixed by baking sibling modules into the image). PRODUCTION-VERIFIED: NOT YET (fallback not enabled in prod; QWEN_VL_* unset = identical Gemini-only behaviour). Transport decision: WEB primary (verified); REMOTE documented + tested alternative. Fail-closed admin auth. Enable in prod via QWEN_VL_WORKER_URL + QWEN_VL_WORKER_TOKEN (web) when ready; finish the diverse-catalog benchmark before advertising (PR_MODEL_QWEN25_VL.md §8, §11-§14).",
+      "branch": "feature/model-qwen25-vl",
+      "commit": "feature/model-qwen25-vl (PR #102, pushed) - close-out on top of 0cdad5e; see `git log` for the commit list (FP fix+tests, deps/parity, fail-closed auth, docs, capacity-audit LIVE-verified, registry pointer)"
+    },
+    {
+      "model_id": "fashn-vton-segfee",
+      "feature": "Virtual Try-On (single + multi-garment, production)",
+      "hf_repo": "fashn-AI/fashn-vton-1.5 (CONFIT_A segmentation-free fork)",
+      "hf_url": "https://huggingface.co/fashn-ai/fashn-vton-1.5",
+      "upstream_url": "https://github.com/fashn-AI/fashn-vton-1.5",
+      "revision": "7c0f10af3f91ad4048fe9729c470a13ef905d25a (vendored at vendor/fashn-vton-segfee)",
+      "license": "Apache-2.0 (model/DWPose/YOLOX); the non-commercial fashn-human-parser is REMOVED from the runtime",
+      "commercial_use_status": "VERIFIED (commercial OK; segmentation-free fork)",
+      "source_type": "vendored fork (vendor/fashn-vton-segfee), pip --no-deps in Modal image",
+      "weights_location": "Modal Volume 'confit-vton-fashn-weights' at /weights",
+      "runtime": "existing Modal VTON worker (services/vton-worker/modal_app_segfee.py)",
+      "gpu_type": "NVIDIA A10 (real GPU)",
+      "estimated_vram": "~3.83 GB reserved / 1.82 GB allocated (MMDiT 972M, MEASURED on A10)",
+      "expected_latency": "measured in docs/VTON_PRODUCTION_E2E_PROOF_20260906.md (real GPU)",
+      "fallback_priority": "P0 — primary AND local (no external VTON provider is wired in production)",
+      "validation_status": "PRODUCTION — real GPU inference, real generated try-on image (docs/VTON_PRODUCTION_E2E_PROOF_20260906.md)",
+      "production_status": "PRODUCTION (deployed on Modal)",
+      "branch": "(existing production engine — not a new model branch; do not duplicate)"
+    }
+  ],
+  "rejected_or_not_implemented": [
+    {
+      "model_id": "qwen2.5-vl-3b",
+      "hf_url": "https://huggingface.co/Qwen/Qwen2.5-VL-3B-Instruct",
+      "revision": "66285546d2b821cf421d4f5eb2576359d3770cd3",
+      "status": "BLOCKED (license)",
+      "reason": "Qwen RESEARCH LICENSE = 'FOR NON-COMMERCIAL PURPOSES ONLY' (commercial use requires a separate license from Alibaba Cloud). Not usable for a commercial product. The 7B (Apache-2.0) is selected instead."
+    },
+    {
+      "model_id": "marqo-fashionclip",
+      "hf_url": "https://huggingface.co/Marqo/marqo-fashionCLIP",
+      "status": "NOT REQUIRED",
+      "reason": "NOT in approved product scope. Spec G2_G3 §4.3 defines Visual Search as 'Vision AI Attribute Extraction' + attribute-tagged ranking (current impl: Gemini -> attributes -> keyword/facet scoring). There is NO perceptual/CLIP vector-retrieval feature in the specs. Building it would be an unused embedding model (explicitly prohibited). License NOT VERIFIED."
+    },
+    {
+      "model_id": "yolos-fashionpedia",
+      "hf_url": "https://huggingface.co/valentinafevu/yolos-fashionpedia",
+      "status": "NOT REQUIRED",
+      "reason": "No standalone fashion-object-detection feature exists. (YOLOX runs inside the VTON worker, not as a product feature.) License NOT VERIFIED."
+    },
+    {
+      "model_id": "vitpose-plus-small",
+      "hf_url": "https://huggingface.co/usyd-community/vitpose-plus-small",
+      "status": "NOT REQUIRED",
+      "reason": "No standalone pose-estimation feature. Pose is internal to VTON (DWPose) and test/QA (MediaPipe). License NOT VERIFIED."
+    },
+    {
+      "model_id": "sam2-hiera-large",
+      "hf_url": "https://huggingface.co/facebook/sam2-hiera-large",
+      "status": "NOT REQUIRED",
+      "reason": "The production VTON is DIFFUSION, segmentation-FREE by design (Option A', proven on real GPU). No interactive-segmentation / image-editing feature is in the approved spec. Adding SAM2 contradicts the current architecture. License NOT VERIFIED."
+    },
+    {
+      "model_id": "ocr-vision",
+      "hf_url": null,
+      "status": "NOT REQUIRED",
+      "reason": "No brand/logo/label-recognition or text-extraction feature in the approved specs."
+    },
+    {
+      "model_id": "depth-estimation",
+      "hf_url": null,
+      "status": "NOT REQUIRED",
+      "reason": "No geometric/depth-aware feature in the approved specs."
+    },
+    {
+      "model_id": "image-moderation",
+      "hf_url": null,
+      "status": "NOT REQUIRED (optional P2 safety, not in approved scope)",
+      "reason": "No uploaded-image safety-moderation feature in the specs; validation is PIL format/dimension only. Would be a P2 safety add only if product policy requires it."
+    },
+    {
+      "model_id": "identity-verification-face-embed",
+      "hf_url": null,
+      "status": "NOT REQUIRED",
+      "reason": "G1 'biometric' = Fernet-AES-256 encrypted ANTHROPOMETRIC measurements, NOT face-embedding/identity-verification. VTON identity PRESERVATION is a model property, not a verification feature. No identity-verification feature exists."
+    },
+    {
+      "model_id": "fashn-vton-1.5-full",
+      "hf_url": "https://huggingface.co/fashn-ai/fashn-vton-1.5",
+      "status": "DO NOT DOWNLOAD",
+      "reason": "Redundant (the segmentation-free fork is already production) AND reintroduces the non-commercial human-parser. No benefit; license/architecture risk."
+    },
+    {
+      "model_id": "image-to-video (Kling)",
+      "hf_url": null,
+      "status": "NOT REQUIRED",
+      "reason": "No image-to-video / animated-try-on feature in the approved specs (KLING key + stub endpoint are code artifacts, not spec-backed scope). Not a self-hosted HF model (Kling is a commercial API)."
+    },
+    {
+      "model_id": "local-llm (stylist resilience)",
+      "hf_url": null,
+      "status": "NOT REQUIRED (optional P2, not in candidate set)",
+      "reason": "The AI Stylist already has a deterministic grounded StylingEngine fallback (honest, real products) for LLM exhaustion. A local LLM is an optional P2 enhancement, not a required model, and is not in the candidate set."
+    }
+  ],
+  "notes": [
+    "Stylist voice/speech-to-text (spec G2_G3 §2.2) is a BROWSER-native capability (Web Speech API), currently a 'simulation'; it does NOT require a self-hosted server model. Tracked here so it is not forgotten, but it is not a local-model program item.",
+    "No vector DB / embeddings / reranker exist in the codebase (confirmed). Perceptual retrieval would require building the FULL chain (ingest -> embed -> pgvector -> NN -> filter -> rank -> API -> FE) — only if the product explicitly approves that upgrade.",
+    "One model = one branch. Program-level files (this registry + the program report) are NOT model branches; commit them to main as documentation."
+  ]
+}

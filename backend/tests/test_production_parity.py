@@ -251,6 +251,7 @@ class TestNoDeveloperMachineReferencesReachProduction:
     ALLOWED_LOCALHOST_FILES = {
         "backend/app/core/config.py",     # CORS + REDIS_URL development defaults (documented)
         "backend/app/core/security.py",   # SSRF blocklist: localhost is DENIED there
+        "backend/app/providers/qwen_vision/provider.py",  # SSRF blocklist: localhost/loopback DENIED there
     }
 
     def test_localhost_only_in_documented_places(self):

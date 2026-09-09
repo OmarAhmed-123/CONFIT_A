@@ -26,6 +26,13 @@ pytest>=8.3.3
 pytest-asyncio>=0.24.0
 mangum>=0.17.0
 boto3>=1.35.0
+# Modal client SDK — used only by the Qwen VLM remote transport
+# (qwen_vision.provider._analyze_remote), which is a documented alternative to
+# the default web transport. Installed here so the self-hosted (Docker) backend
+# can use the remote transport if enabled; the serverless (Vercel) function
+# lists it as optional in check_runtime_imports.py because it is imported lazily
+# under an ImportError guard and the web transport is the default.
+modal>=1.5.0
 
 # Test-suite imaging/numeric deps (vton integrity tests)
 Pillow>=10.4.0

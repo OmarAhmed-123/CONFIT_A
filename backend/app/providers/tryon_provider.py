@@ -419,10 +419,11 @@ class VisualSearchAIProvider(BaseProvider):
 
     async def fallback(self, image_url_or_base64: str, **kwargs) -> Dict[str, Any]:
         # Fallback order: (1) local self-hosted Qwen2.5-VL worker (when
-        # configured) -> (2) honest degradation. No detection is ever
-        # fabricated. Both consumers (visual search, Group 4 wardrobe
-        # auto-tagging) check analysis_available first, so the unavailable
-        # payload carries both key sets with null detections.
+        # configured) -> (2) UnoRouter vision gateway (when configured)
+        # -> (3) honest degradation. No detection is ever fabricated.
+        # Both consumers (visual search, Group 4 wardrobe auto-tagging)
+        # check analysis_available first, so the unavailable payload
+        # carries both key sets with null detections.
         honest_unavailable = {
             "analysis_available": False,
             "analysis_source": "unavailable (set GEMINI_API_KEY)",
@@ -433,20 +434,37 @@ class VisualSearchAIProvider(BaseProvider):
             "detected_attributes": {},
             "category": None,
         }
-        if not self._qwen_provider.is_configured():
+
+        # (1) Self-hosted Qwen2.5-VL worker
+        if self._qwen_provider.is_configured():
+            prompt = kwargs.get("prompt") or self.VISION_PROMPT
+            mode = "wardrobe" if prompt == self.WARDROBE_TAG_PROMPT else "visual_search"
+            try:
+                data = await self._qwen_provider.analyze(image_url_or_base64, prompt, mode=mode)
+            except QwenVisionError as exc:
+                logger.warning("visual_search_local_fallback_failed", reason=exc.reason, detail=exc.message)
+            else:
+                if data.get("analysis_available"):
+                    return data
+                logger.warning(
+                    "visual_search_local_fallback_unusable",
+                    reason=str(data.get("error") or data.get("detail") or ""),
+                )
+        else:
             logger.info("visual_search_local_fallback_not_configured")
-            return honest_unavailable
-        prompt = kwargs.get("prompt") or self.VISION_PROMPT
-        mode = "wardrobe" if prompt == self.WARDROBE_TAG_PROMPT else "visual_search"
-        try:
-            data = await self._qwen_provider.analyze(image_url_or_base64, prompt, mode=mode)
-        except QwenVisionError as exc:
-            logger.warning("visual_search_local_fallback_failed", reason=exc.reason, detail=exc.message)
-            return honest_unavailable
-        if data.get("analysis_available"):
-            return data
-        logger.warning(
-            "visual_search_local_fallback_unusable",
-            reason=str(data.get("error") or data.get("detail") or ""),
-        )
+
+        # (2) UnoRouter vision gateway (free-tier multimodal models)
+        from backend.app.providers import unorouter_provider
+        if unorouter_provider.is_configured():
+            prompt = kwargs.get("prompt") or self.VISION_PROMPT
+            try:
+                data = await unorouter_provider.vision_analysis(image_url_or_base64, prompt)
+                if data.get("analysis_available"):
+                    logger.info("visual_search_unorouter_fallback_used", model=data.get("analysis_source"))
+                    return data
+            except unorouter_provider.UnoRouterError as exc:
+                logger.warning("visual_search_unorouter_fallback_failed", reason=exc.reason, detail=exc.message[:200])
+
+        # (3) Honest degradation
+        logger.info("visual_search_all_fallbacks_exhausted")
         return honest_unavailable

@@ -217,7 +217,7 @@ class Settings(BaseSettings):
     NVIDIA_CHAT_KEY_2: Optional[str] = None
 
     # AI Failover Configuration
-    AI_PROVIDERS: str = "nvidia,groq,gemini,openai"
+    AI_PROVIDERS: str = "nvidia,groq,gemini,openai,unorouter"
     # Per-provider HTTP budget. Measured live 2026-09-04: Groq 0.48-0.56s,
     # OpenAI 1.46s, gemini-3.8-flash 2.9s when it answers and >4s when it 503s.
     # One shared 4.0s literal was generous for Groq and marginal for a thinking
@@ -301,6 +301,15 @@ class Settings(BaseSettings):
     # ON: enhanced scoring with synonym normalization, category hierarchy,
     #     LAB color similarity, style weighting.
     USE_ENHANCED_VISUAL_SEARCH_SCORING: bool = False
+
+    # UnoRouter — unified AI gateway (api.unorouter.com).
+    # OpenAI-compatible endpoint to many models (Gemini, GLM, DeepSeek, Qwen, etc.)
+    # Free-tier rate limit: ~1 req/min per account. Integrated as additional
+    # fallback AFTER the existing direct providers (NVIDIA, Groq, Gemini, OpenAI).
+    UNOROUTER_API_KEY: Optional[str] = None
+    UNOROUTER_CHAT_MODEL: str = "glm-5.3-flash:free"
+    UNOROUTER_VISION_MODEL: str = "qwen2.5-vl-7b-instruct-awq:free"
+    UNOROUTER_TIMEOUT_SECONDS: float = 30.0
 
     # Weather (G2-S5) — disabled by default; never fabricate weather data.
     OPENWEATHER_ENABLED: bool = False

@@ -37,6 +37,7 @@ modal>=1.5.0
 # Test-suite imaging/numeric deps (vton integrity tests)
 Pillow>=10.4.0
 numpy>=1.26.0
+anyio>=4.0.0
 # Pose/hand artifact regression harness (test-only; models are committed in
 # backend/cv_models/ — NOT part of the live serverless function).
 mediapipe>=1.0.0

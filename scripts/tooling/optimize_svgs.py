@@ -14,17 +14,22 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import json
 import os
+import platform
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 from typing import Optional
 
 
 def check_svgo() -> bool:
     """Check if SVGO is available."""
+    shell = platform.system() == "Windows"
+    
     try:
-        result = subprocess.run(["npx", "svgo", "--version"], capture_output=True, text=True, timeout=10)
+        result = subprocess.run(["npx", "svgo", "--version"], capture_output=True, text=True, timeout=60, shell=shell)
         if result.returncode == 0:
             print(f"SVGO version: {result.stdout.strip()}")
             return True
@@ -33,7 +38,7 @@ def check_svgo() -> bool:
     
     # Try global install
     try:
-        result = subprocess.run(["svgo", "--version"], capture_output=True, text=True, timeout=10)
+        result = subprocess.run(["svgo", "--version"], capture_output=True, text=True, timeout=60, shell=shell)
         if result.returncode == 0:
             print(f"SVGO version: {result.stdout.strip()}")
             return True
@@ -124,11 +129,10 @@ def optimize_svg(
             # For simplicity, we'll pass config via --config file
             pass
         
-        # Write config to temp file
+        # Write config to temp file as ES module
         import tempfile
-        import json
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
-            json.dump(default_config, f)
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".mjs", delete=False) as f:
+            f.write("export default " + json.dumps(default_config) + ";")
             config_file = f.name
         
         try:
@@ -140,7 +144,8 @@ def optimize_svg(
                 cmd.append("--pretty")
             
             # Run SVGO
-            proc = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+            shell = platform.system() == "Windows"
+            proc = subprocess.run(cmd, capture_output=True, text=True, timeout=60, shell=shell)
             result["svgo_output"] = proc.stdout + proc.stderr
             
             if proc.returncode != 0:
@@ -356,9 +361,9 @@ Examples:
         if args.compare:
             equivalent, issues = verify_svg_equivalence(args.single, output_path)
             if equivalent:
-                print("✅ Verification PASSED - SVG equivalence maintained")
+                print("[OK] Verification PASSED - SVG equivalence maintained")
             else:
-                print("❌ Verification FAILED:")
+                print("[FAIL] Verification FAILED:")
                 for issue in issues:
                     print(f"  - {issue}")
             

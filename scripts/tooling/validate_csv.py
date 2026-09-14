@@ -319,13 +319,13 @@ class CSVDiagnostic:
         if report["issues"]:
             print(f"\n--- ISSUES ---")
             for issue in report["issues"]:
-                sev_marker = {"error": "✗", "warning": "⚠", "info": "ℹ"}[issue["severity"]]
+                sev_marker = {"error": "[X]", "warning": "[!]", "info": "[i]"}[issue["severity"]]
                 loc = f"row {issue.get('row', '?')}"
                 if "column" in issue:
                     loc += f", col {issue['column']} ({self.header[issue['column']] if issue['column'] < len(self.header) else '?'})"
                 print(f"  {sev_marker} [{issue['severity'].upper()}] {issue['type']}: {issue['message']} ({loc})")
         else:
-            print("\n✅ No issues found")
+            print("\n[OK] No issues found")
 
 
 def repair_csv(input_path: Path, output_path: Path, report: dict[str, Any]) -> int:

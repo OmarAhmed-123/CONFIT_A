@@ -1,0 +1,744 @@
+erDiagram
+    audit_logs {
+        INTEGER id PK
+        INTEGER user_id NULL
+        VARCHAR(255) action
+        VARCHAR(100) resource_type
+        VARCHAR(100) resource_id NULL
+        VARCHAR(50) ip_address NULL
+        TEXT details_json NULL
+        TEXT before_json NULL
+        TEXT after_json NULL
+        VARCHAR(64) request_id NULL
+        DATETIME timestamp
+    }
+    brand_analytics_events {
+        INTEGER id PK
+        VARCHAR(100) event_id
+        INTEGER brand_id FK
+        INTEGER product_id FK NULL
+        INTEGER sku_id FK NULL
+        INTEGER user_id FK NULL
+        VARCHAR(100) session_token NULL
+        VARCHAR(50) event_type
+        VARCHAR(50) attribution_source NULL
+        INTEGER outfit_id FK NULL
+        INTEGER order_id FK NULL
+        INTEGER order_item_id FK NULL
+        NUMERIC(12, 2) revenue_amount NULL
+        TEXT event_metadata_json
+        DATETIME created_at
+    }
+    brand_profiles {
+        INTEGER id PK
+        INTEGER user_id FK
+        VARCHAR(255) brand_name
+        VARCHAR(255) slug
+        VARCHAR(1000) logo_url NULL
+        VARCHAR(1000) banner_url NULL
+        TEXT description NULL
+        TEXT description_ar NULL
+        VARCHAR(500) website NULL
+        INTEGER commission_rate NULL
+        INTEGER return_rate_benchmark NULL
+        INTEGER current_return_rate NULL
+        BOOLEAN is_verified NULL
+        DATETIME created_at
+    }
+    cart_items {
+        INTEGER id PK
+        INTEGER cart_id FK
+        INTEGER product_sku_id FK
+        INTEGER quantity
+        INTEGER outfit_id FK NULL
+        DATETIME added_at
+    }
+    carts {
+        INTEGER id PK
+        INTEGER user_id FK NULL
+        VARCHAR(100) session_token
+        VARCHAR(30) status
+        VARCHAR(50) promo_code NULL
+        DATETIME created_at
+        DATETIME updated_at
+    }
+    catalog_import_jobs {
+        INTEGER id PK
+        INTEGER brand_id FK
+        VARCHAR(500) file_name NULL
+        INTEGER file_size NULL
+        VARCHAR(30) status
+        INTEGER total_rows
+        INTEGER accepted_rows
+        INTEGER rejected_rows
+        INTEGER duplicate_rows
+        TEXT errors_json
+        DATETIME created_at
+        DATETIME started_at NULL
+        DATETIME completed_at NULL
+    }
+    categories {
+        INTEGER id PK
+        VARCHAR(100) name
+        VARCHAR(100) name_ar
+        VARCHAR(100) slug
+        INTEGER parent_id FK NULL
+        VARCHAR(50) icon_name NULL
+    }
+    checkout_sessions {
+        INTEGER id PK
+        VARCHAR(100) token
+        INTEGER user_id FK NULL
+        VARCHAR(255) guest_email NULL
+        VARCHAR(100) guest_session_token NULL
+        TEXT cart_snapshot_json
+        NUMERIC(12, 2) total_amount
+        VARCHAR(10) currency
+        VARCHAR(50) promo_code NULL
+        VARCHAR(30) status
+        INTEGER order_id FK NULL
+        DATETIME expires_at
+        DATETIME created_at
+        DATETIME converted_at NULL
+    }
+    email_verification_tokens {
+        INTEGER id PK
+        INTEGER user_id FK
+        VARCHAR(128) token_hash
+        DATETIME expires_at
+        DATETIME used_at NULL
+        DATETIME created_at
+    }
+    exchange_requests {
+        INTEGER id PK
+        VARCHAR(50) exchange_number
+        INTEGER order_id FK
+        INTEGER user_id FK NULL
+        INTEGER original_item_id FK
+        INTEGER replacement_sku_id FK
+        NUMERIC(12, 2) price_delta
+        VARCHAR(30) status
+        VARCHAR(30) payment_status
+        DATETIME created_at
+        DATETIME resolved_at NULL
+    }
+    fulfillment_groups {
+        INTEGER id PK
+        INTEGER order_id FK
+        INTEGER brand_id FK
+        VARCHAR(255) brand_name
+        VARCHAR(30) fulfillment_type
+        INTEGER store_id FK NULL
+        VARCHAR(50) status
+        VARCHAR(100) carrier NULL
+        VARCHAR(100) tracking_number NULL
+        DATETIME estimated_delivery_date NULL
+        DATETIME created_at
+    }
+    garment_assets {
+        INTEGER id PK
+        INTEGER product_id FK
+        VARCHAR(50) slot_type
+        TEXT flat_image_url
+        TEXT segmented_garment_url NULL
+        TEXT garment_mask_url NULL
+        TEXT bounding_box_json
+        DATETIME created_at
+    }
+    inventory_reservations {
+        INTEGER id PK
+        INTEGER sku_id FK
+        INTEGER quantity
+        INTEGER order_id FK NULL
+        INTEGER store_id FK NULL
+        VARCHAR(20) status
+        DATETIME created_at
+        DATETIME released_at NULL
+    }
+    measurement_results {
+        INTEGER id PK
+        INTEGER session_id FK
+        FLOAT height_cm
+        FLOAT shoulder_width_cm NULL
+        FLOAT chest_cm NULL
+        FLOAT waist_cm NULL
+        FLOAT hip_cm NULL
+        FLOAT inseam_cm NULL
+        VARCHAR(50) body_shape_detected NULL
+        VARCHAR(50) body_shape NULL
+        INTEGER confidence_score
+        VARCHAR(100) calibration_reference_used
+        VARCHAR(100) calibration_method NULL
+        VARCHAR(50) source NULL
+        DATETIME created_at
+    }
+    measurement_sessions {
+        INTEGER id PK
+        INTEGER user_id FK NULL
+        VARCHAR(100) guest_session_token NULL
+        VARCHAR(30) status
+        VARCHAR(30) capture_mode
+        BOOLEAN consent_granted
+        BOOLEAN save_to_profile
+        DATETIME expires_at NULL
+        DATETIME created_at
+    }
+    mfa_backup_codes {
+        INTEGER id PK
+        INTEGER user_id FK
+        VARCHAR(255) code_hash
+        DATETIME used_at NULL
+        DATETIME created_at
+    }
+    mood_board_items {
+        INTEGER id PK
+        INTEGER board_id FK
+        VARCHAR(30) kind
+        TEXT payload_json
+        INTEGER position
+        DATETIME created_at
+    }
+    mood_boards {
+        INTEGER id PK
+        INTEGER profile_id FK
+        VARCHAR(255) title
+        TEXT description NULL
+        DATETIME created_at
+        DATETIME updated_at
+    }
+    order_events {
+        INTEGER id PK
+        INTEGER order_id FK
+        VARCHAR(50) status_key
+        VARCHAR(255) title
+        TEXT description NULL
+        DATETIME created_at
+    }
+    order_items {
+        INTEGER id PK
+        INTEGER order_id FK
+        INTEGER product_sku_id FK NULL
+        INTEGER product_id FK
+        INTEGER brand_id FK
+        INTEGER outfit_id FK NULL
+        INTEGER fulfillment_group_id FK NULL
+        VARCHAR(255) product_title
+        VARCHAR(255) brand_name
+        VARCHAR(20) size
+        VARCHAR(50) color
+        NUMERIC(12, 2) unit_price
+        INTEGER quantity
+        NUMERIC(12, 2) subtotal
+        BOOLEAN is_returned
+    }
+    orders {
+        INTEGER id PK
+        VARCHAR(50) order_number
+        INTEGER user_id FK NULL
+        VARCHAR(255) guest_email NULL
+        VARCHAR(100) guest_session_token NULL
+        NUMERIC(12, 2) total_amount
+        NUMERIC(12, 2) subtotal_amount
+        NUMERIC(12, 2) discount_amount
+        NUMERIC(12, 2) tax_amount
+        NUMERIC(12, 2) shipping_amount
+        VARCHAR(10) currency
+        VARCHAR(50) promo_code NULL
+        VARCHAR(50) payment_method
+        VARCHAR(30) payment_status
+        INTEGER payment_installments
+        VARCHAR(20) payment_mode
+        VARCHAR(30) fulfillment_type
+        VARCHAR(30) shipping_method
+        INTEGER bopis_store_id FK NULL
+        VARCHAR(20) bopis_pickup_code NULL
+        DATETIME ready_for_pickup_at NULL
+        VARCHAR(255) shipping_recipient_name NULL
+        VARCHAR(500) shipping_address_line NULL
+        VARCHAR(100) shipping_city NULL
+        VARCHAR(100) shipping_country NULL
+        VARCHAR(50) shipping_phone NULL
+        VARCHAR(100) tracking_number NULL
+        DATETIME estimated_delivery_date NULL
+        VARCHAR(50) status
+        BOOLEAN try_on_assisted
+        BOOLEAN stylist_assisted
+        VARCHAR(100) idempotency_key NULL
+        DATETIME created_at
+        DATETIME updated_at
+    }
+    outfit_items {
+        INTEGER id PK
+        INTEGER outfit_id FK
+        INTEGER product_id FK
+        INTEGER product_sku_id FK NULL
+        VARCHAR(50) position
+        INTEGER sort_order
+    }
+    outfits {
+        INTEGER id PK
+        INTEGER user_id FK NULL
+        VARCHAR(255) title
+        TEXT description NULL
+        VARCHAR(100) occasion
+        NUMERIC(12, 2) total_price
+        INTEGER compatibility_score
+        TEXT color_palette
+        TEXT style_tags
+        BOOLEAN is_saved
+        BOOLEAN is_system_curated
+        VARCHAR(100) share_token NULL
+        DATETIME created_at
+    }
+    password_reset_tokens {
+        INTEGER id PK
+        INTEGER user_id FK
+        VARCHAR(128) token_hash
+        DATETIME expires_at
+        DATETIME used_at NULL
+        DATETIME created_at
+    }
+    payment_transactions {
+        INTEGER id PK
+        INTEGER order_id FK
+        VARCHAR(50) provider
+        VARCHAR(50) method
+        VARCHAR(100) provider_tx_id
+        NUMERIC(12, 2) amount
+        VARCHAR(10) currency
+        VARCHAR(30) status
+        VARCHAR(20) mode
+        VARCHAR(100) idempotency_key NULL
+        NUMERIC(12, 2) refunded_amount
+        DATETIME created_at
+        DATETIME updated_at
+    }
+    person_scan_cache {
+        INTEGER id PK
+        VARCHAR(64) image_hash
+        TEXT segmentation_mask_url NULL
+        TEXT pose_keypoints_json
+        VARCHAR(50) body_shape_detected NULL
+        DATETIME created_at
+    }
+    product_skus {
+        INTEGER id PK
+        INTEGER product_id FK
+        VARCHAR(100) sku_code
+        VARCHAR(20) size
+        VARCHAR(50) color
+        VARCHAR(20) color_hex NULL
+        NUMERIC(12, 2) price_override NULL
+        INTEGER stock_level
+        BOOLEAN is_in_stock
+    }
+    products {
+        INTEGER id PK
+        INTEGER brand_id FK
+        INTEGER category_id FK
+        VARCHAR(255) title
+        VARCHAR(255) title_ar
+        VARCHAR(255) slug
+        TEXT description
+        TEXT description_ar
+        NUMERIC(12, 2) base_price
+        VARCHAR(10) currency
+        VARCHAR(255) material NULL
+        VARCHAR(500) care_instructions NULL
+        TEXT style_tags
+        TEXT occasion_tags
+        VARCHAR(50) color_family
+        VARCHAR(20) dominant_hex NULL
+        VARCHAR(1000) thumbnail_url
+        TEXT images
+        TEXT size_chart_json
+        FLOAT rating NULL
+        INTEGER review_count NULL
+        INTEGER style_compatibility_base NULL
+        BOOLEAN is_active
+        BOOLEAN is_featured NULL
+        DATETIME created_at
+    }
+    promotion_redemptions {
+        INTEGER id PK
+        INTEGER promotion_id FK
+        INTEGER order_id FK
+        INTEGER user_id FK NULL
+        VARCHAR(255) guest_email NULL
+        NUMERIC(12, 2) discount_amount
+        DATETIME created_at
+    }
+    promotions {
+        INTEGER id PK
+        VARCHAR(50) code
+        VARCHAR(255) description
+        VARCHAR(20) discount_type
+        NUMERIC(12, 2) discount_value
+        NUMERIC(12, 2) min_order_amount
+        INTEGER brand_id FK NULL
+        INTEGER product_id FK NULL
+        VARCHAR(10) market NULL
+        VARCHAR(10) currency
+        INTEGER max_redemptions NULL
+        INTEGER max_per_user
+        BOOLEAN stackable
+        BOOLEAN is_active
+        DATETIME starts_at NULL
+        DATETIME expires_at NULL
+        DATETIME created_at
+    }
+    recently_viewed {
+        INTEGER id PK
+        INTEGER user_id FK
+        INTEGER product_id FK
+        DATETIME viewed_at
+    }
+    refresh_tokens {
+        INTEGER id PK
+        INTEGER user_id FK
+        VARCHAR(64) jti
+        VARCHAR(64) family_id
+        DATETIME issued_at
+        DATETIME expires_at
+        DATETIME revoked_at NULL
+        DATETIME last_used_at NULL
+        VARCHAR(64) replaced_by_jti NULL
+        VARCHAR(500) user_agent NULL
+        VARCHAR(50) ip_address NULL
+    }
+    return_items {
+        INTEGER id PK
+        INTEGER return_request_id FK
+        INTEGER order_item_id FK
+        INTEGER quantity
+    }
+    return_requests {
+        INTEGER id PK
+        VARCHAR(50) return_number
+        INTEGER order_id FK
+        INTEGER user_id FK NULL
+        VARCHAR(255) guest_email NULL
+        VARCHAR(100) reason
+        TEXT details NULL
+        NUMERIC(12, 2) refund_amount
+        VARCHAR(1000) return_label_url NULL
+        VARCHAR(100) label_provider_ref NULL
+        VARCHAR(30) status
+        BOOLEAN try_on_used_for_item
+        DATETIME created_at
+        DATETIME resolved_at NULL
+    }
+    shipments {
+        INTEGER id PK
+        INTEGER fulfillment_group_id FK
+        VARCHAR(100) carrier
+        VARCHAR(100) tracking_number
+        VARCHAR(50) status
+        DATETIME shipped_at NULL
+        DATETIME delivered_at NULL
+        DATETIME created_at
+    }
+    sponsored_placements {
+        INTEGER id PK
+        INTEGER brand_id FK
+        INTEGER product_id FK
+        VARCHAR(50) placement_type
+        NUMERIC(12, 2) bid_amount_per_click
+        NUMERIC(12, 2) daily_budget
+        NUMERIC(12, 2) spent_today
+        VARCHAR(20) status
+        INTEGER impressions
+        INTEGER clicks
+        INTEGER conversions
+        NUMERIC(12, 2) revenue_generated
+        DATETIME start_date NULL
+        DATETIME end_date NULL
+        DATETIME created_at
+        DATETIME updated_at
+    }
+    store_inventories {
+        INTEGER id PK
+        INTEGER store_id FK
+        INTEGER sku_id FK
+        INTEGER quantity
+        INTEGER reserved_quantity
+    }
+    store_locations {
+        INTEGER id PK
+        INTEGER brand_id FK
+        VARCHAR(255) name
+        VARCHAR(255) name_ar
+        VARCHAR(500) address
+        VARCHAR(100) city
+        VARCHAR(100) country
+        FLOAT latitude
+        FLOAT longitude
+        VARCHAR(50) phone NULL
+        TEXT pickup_instructions NULL
+        BOOLEAN is_bopis_enabled
+        DATETIME created_at
+    }
+    style_heatmap_aggregates {
+        INTEGER id PK
+        VARCHAR(50) period
+        VARCHAR(100) region
+        TEXT top_aesthetics_json
+        TEXT top_colors_json
+        TEXT top_occasions_json
+        INTEGER sample_size
+        DATETIME calculated_at
+    }
+    stylist_messages {
+        INTEGER id PK
+        INTEGER session_id FK
+        VARCHAR(20) sender
+        TEXT content
+        VARCHAR(1000) audio_url NULL
+        TEXT intent_json
+        TEXT recommendations_json
+        DATETIME created_at
+    }
+    stylist_sessions {
+        INTEGER id PK
+        INTEGER user_id FK NULL
+        VARCHAR(255) session_title
+        DATETIME created_at
+        DATETIME updated_at
+    }
+    tryon_jobs {
+        INTEGER id PK
+        VARCHAR(64) job_id
+        INTEGER user_id FK NULL
+        INTEGER session_id FK NULL
+        VARCHAR(30) status
+        INTEGER progress_pct
+        VARCHAR(50) current_stage
+        TEXT input_person_image_url
+        TEXT garment_ids_json
+        TEXT garment_layers_json
+        VARCHAR(50) model_used
+        TEXT output_image_url NULL
+        VARCHAR(64) delivery_token_hash NULL
+        DATETIME delivery_expires_at NULL
+        VARCHAR(50) delivery_content_type NULL
+        TEXT metrics_json
+        VARCHAR(50) error_code NULL
+        TEXT error_message NULL
+        DATETIME created_at
+        DATETIME started_at NULL
+        DATETIME completed_at NULL
+    }
+    tryon_sessions {
+        INTEGER id PK
+        INTEGER user_id FK NULL
+        VARCHAR(100) guest_session_token NULL
+        INTEGER product_id FK NULL
+        INTEGER outfit_id FK NULL
+        TEXT user_image_url NULL
+        TEXT input_user_image_url NULL
+        TEXT garment_image_url NULL
+        TEXT rendered_image_url NULL
+        TEXT rendered_result_url NULL
+        TEXT rendered_animation_url NULL
+        VARCHAR(30) status
+        VARCHAR(50) fit_verdict
+        INTEGER fit_confidence_score
+        VARCHAR(100) body_fit_verdict NULL
+        FLOAT body_scaling_factor
+        VARCHAR(500) ai_disclosure_text NULL
+        VARCHAR(500) ai_disclosure NULL
+        TEXT applied_items_json
+        TEXT slot_mapping_json NULL
+        TEXT layering_order_json NULL
+        TEXT render_metadata_json
+        VARCHAR(100) traceability_hash NULL
+        BOOLEAN consent_retained NULL
+        DATETIME expires_at NULL
+        DATETIME created_at
+    }
+    user_style_profiles {
+        INTEGER id PK
+        INTEGER user_id FK
+        TEXT style_archetypes
+        TEXT preferred_colors
+        TEXT avoided_colors
+        TEXT fashion_aesthetics
+        TEXT moodboard_urls
+        TEXT encrypted_body_data NULL
+        VARCHAR(50) body_shape_tag NULL
+        NUMERIC(12, 2) budget_monthly_min NULL
+        NUMERIC(12, 2) budget_monthly_max NULL
+        NUMERIC(12, 2) budget_per_outfit_max NULL
+        TEXT preferred_brands
+        TEXT blacklisted_brands
+        TEXT occasion_weights
+        VARCHAR(20) size_tops NULL
+        VARCHAR(20) size_bottoms NULL
+        VARCHAR(20) size_shoes NULL
+        VARCHAR(30) fit_preference NULL
+        BOOLEAN onboarding_completed
+        BOOLEAN privacy_consent_tryon_storage
+        BOOLEAN privacy_consent_share_with_brands
+        BOOLEAN consent_ai_personalization
+        BOOLEAN consent_marketing_analytics
+        INTEGER consent_policy_version
+        DATETIME consent_last_agreed_at NULL
+        DATETIME created_at
+        DATETIME updated_at
+    }
+    users {
+        INTEGER id PK
+        VARCHAR(255) email
+        VARCHAR(255) hashed_password
+        VARCHAR(255) full_name
+        VARCHAR(50) role
+        VARCHAR(50) phone NULL
+        VARCHAR(10) preferred_language
+        BOOLEAN is_active
+        BOOLEAN is_verified
+        BOOLEAN mfa_enabled
+        VARCHAR(255) mfa_secret NULL
+        VARCHAR(50) oauth_provider NULL
+        VARCHAR(255) oauth_subject NULL
+        DATETIME created_at
+        DATETIME updated_at
+    }
+    visual_search_queries {
+        INTEGER id PK
+        INTEGER user_id FK NULL
+        TEXT input_image_url
+        VARCHAR(100) detected_category NULL
+        VARCHAR(50) detected_color NULL
+        VARCHAR(50) detected_pattern NULL
+        VARCHAR(100) detected_style NULL
+        TEXT detected_attributes_json
+        TEXT matches_json
+        DATETIME created_at
+    }
+    wardrobe_gap_analyses {
+        INTEGER id PK
+        INTEGER user_id FK
+        VARCHAR(100) missing_category
+        VARCHAR(100) missing_subcategory
+        TEXT suggested_colors
+        TEXT rationale
+        INTEGER unlocks_outfit_count
+        TEXT recommended_products_json
+        DATETIME created_at
+    }
+    wardrobe_items {
+        INTEGER id PK
+        INTEGER user_id FK
+        VARCHAR(255) title
+        VARCHAR(50) category
+        VARCHAR(100) subcategory NULL
+        VARCHAR(50) color_name
+        VARCHAR(20) color_hex
+        VARCHAR(50) pattern
+        VARCHAR(100) brand_name
+        VARCHAR(1000) image_url
+        TEXT ai_tags
+        TEXT occasions
+        TEXT secondary_colors
+        VARCHAR(30) seasonality
+        VARCHAR(30) wear_frequency
+        INTEGER wear_count
+        DATETIME last_worn_date NULL
+        NUMERIC(12, 2) purchase_price NULL
+        BOOLEAN is_favorite
+        VARCHAR(20) processing_status
+        TEXT processing_error NULL
+        FLOAT ai_confidence NULL
+        VARCHAR(64) image_hash NULL
+        INTEGER source_order_item_id FK NULL
+        DATETIME created_at
+    }
+    webhook_events {
+        INTEGER id PK
+        VARCHAR(50) provider
+        VARCHAR(128) event_id
+        VARCHAR(50) order_number NULL
+        DATETIME processed_at
+        VARCHAR(30) status
+    }
+    brand_analytics_events ||--o{ brand_profiles : "brand_id"
+    brand_analytics_events ||--o{ products : "product_id"
+    brand_analytics_events ||--o{ product_skus : "sku_id"
+    brand_analytics_events ||--o{ users : "user_id"
+    brand_analytics_events ||--o{ outfits : "outfit_id"
+    brand_analytics_events ||--o{ orders : "order_id"
+    brand_analytics_events ||--o{ order_items : "order_item_id"
+    brand_profiles ||--o{ users : "user_id"
+    cart_items ||--o{ carts : "cart_id"
+    cart_items ||--o{ product_skus : "product_sku_id"
+    cart_items ||--o{ outfits : "outfit_id"
+    carts ||--o{ users : "user_id"
+    catalog_import_jobs ||--o{ brand_profiles : "brand_id"
+    categories ||--o{ categories : "parent_id"
+    checkout_sessions ||--o{ users : "user_id"
+    checkout_sessions ||--o{ orders : "order_id"
+    email_verification_tokens ||--o{ users : "user_id"
+    exchange_requests ||--o{ orders : "order_id"
+    exchange_requests ||--o{ users : "user_id"
+    exchange_requests ||--o{ order_items : "original_item_id"
+    exchange_requests ||--o{ product_skus : "replacement_sku_id"
+    fulfillment_groups ||--o{ orders : "order_id"
+    fulfillment_groups ||--o{ brand_profiles : "brand_id"
+    fulfillment_groups ||--o{ store_locations : "store_id"
+    garment_assets ||--o{ products : "product_id"
+    inventory_reservations ||--o{ product_skus : "sku_id"
+    inventory_reservations ||--o{ orders : "order_id"
+    inventory_reservations ||--o{ store_locations : "store_id"
+    measurement_results ||--o{ measurement_sessions : "session_id"
+    measurement_sessions ||--o{ users : "user_id"
+    mfa_backup_codes ||--o{ users : "user_id"
+    mood_board_items ||--o{ mood_boards : "board_id"
+    mood_boards ||--o{ user_style_profiles : "profile_id"
+    order_events ||--o{ orders : "order_id"
+    order_items ||--o{ orders : "order_id"
+    order_items ||--o{ product_skus : "product_sku_id"
+    order_items ||--o{ products : "product_id"
+    order_items ||--o{ brand_profiles : "brand_id"
+    order_items ||--o{ outfits : "outfit_id"
+    order_items ||--o{ fulfillment_groups : "fulfillment_group_id"
+    orders ||--o{ users : "user_id"
+    orders ||--o{ store_locations : "bopis_store_id"
+    outfit_items ||--o{ outfits : "outfit_id"
+    outfit_items ||--o{ products : "product_id"
+    outfit_items ||--o{ product_skus : "product_sku_id"
+    outfits ||--o{ users : "user_id"
+    password_reset_tokens ||--o{ users : "user_id"
+    payment_transactions ||--o{ orders : "order_id"
+    product_skus ||--o{ products : "product_id"
+    products ||--o{ brand_profiles : "brand_id"
+    products ||--o{ categories : "category_id"
+    promotion_redemptions ||--o{ promotions : "promotion_id"
+    promotion_redemptions ||--o{ orders : "order_id"
+    promotion_redemptions ||--o{ users : "user_id"
+    promotions ||--o{ brand_profiles : "brand_id"
+    promotions ||--o{ products : "product_id"
+    recently_viewed ||--o{ users : "user_id"
+    recently_viewed ||--o{ products : "product_id"
+    refresh_tokens ||--o{ users : "user_id"
+    return_items ||--o{ return_requests : "return_request_id"
+    return_items ||--o{ order_items : "order_item_id"
+    return_requests ||--o{ orders : "order_id"
+    return_requests ||--o{ users : "user_id"
+    shipments ||--o{ fulfillment_groups : "fulfillment_group_id"
+    sponsored_placements ||--o{ brand_profiles : "brand_id"
+    sponsored_placements ||--o{ products : "product_id"
+    store_inventories ||--o{ store_locations : "store_id"
+    store_inventories ||--o{ product_skus : "sku_id"
+    store_locations ||--o{ brand_profiles : "brand_id"
+    stylist_messages ||--o{ stylist_sessions : "session_id"
+    stylist_sessions ||--o{ users : "user_id"
+    tryon_jobs ||--o{ users : "user_id"
+    tryon_jobs ||--o{ tryon_sessions : "session_id"
+    tryon_sessions ||--o{ users : "user_id"
+    tryon_sessions ||--o{ products : "product_id"
+    tryon_sessions ||--o{ outfits : "outfit_id"
+    user_style_profiles ||--o{ users : "user_id"
+    visual_search_queries ||--o{ users : "user_id"
+    wardrobe_gap_analyses ||--o{ users : "user_id"
+    wardrobe_items ||--o{ users : "user_id"
+    wardrobe_items ||--o{ order_items : "source_order_item_id"

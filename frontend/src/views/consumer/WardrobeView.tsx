@@ -250,12 +250,40 @@ export const WardrobeView: React.FC = () => {
           {isLoading ? (
             <LoadingSpinner text="Scanning your wardrobe..." />
           ) : items.length === 0 ? (
-            <EmptyState
-              title="Your smart closet is waiting"
-              description="Upload photos of your existing garments. Our AI will auto-tag fabric, color, and silhouette to suggest new outfit combinations from what you already own."
-              actionText="Upload First Piece"
-              onAction={() => setUploadModalOpen(true)}
-            />
+            <div className="rounded-[32px] border border-[#C5A059]/25 bg-white p-6 shadow-2xs">
+              <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+                <div className="space-y-4">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-[#7A5C28]">Wardrobe retention engine</span>
+                  <h2 className="font-serif text-3xl font-bold text-[#1B1F3B]">Upload a few pieces to see what you can wear next</h2>
+                  <p className="text-sm font-light leading-relaxed text-slate-500">
+                    Start with three everyday garments. CONFIT will auto-tag editable fabric, color, silhouette, and wear-frequency signals, then suggest combinations from what you already own.
+                  </p>
+                  <div className="rounded-2xl bg-[#FAF9F6] p-3 text-xs text-slate-600">
+                    Privacy note: garment photos are used for this wardrobe workflow and remain editable or removable from your closet.
+                  </div>
+                  <button
+                    onClick={() => setUploadModalOpen(true)}
+                    className="rounded-2xl bg-[#1B1F3B] px-5 py-3 text-xs font-bold text-white transition hover:bg-[#C5A059] hover:text-[#0C0E1E]"
+                  >
+                    Batch upload from gallery →
+                  </button>
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  {[
+                    'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?w=500&auto=format&fit=crop&q=80',
+                    'https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=500&auto=format&fit=crop&q=80',
+                    'https://images.unsplash.com/photo-1558769132-cb1aea458c5e?w=500&auto=format&fit=crop&q=80',
+                  ].map((src, index) => (
+                    <div key={src} className="overflow-hidden rounded-3xl border border-slate-200 bg-slate-100 shadow-sm">
+                      <img src={src} alt={`Example wardrobe upload ${index + 1}`} className="h-56 w-full object-cover" />
+                    </div>
+                  ))}
+                  <div className="col-span-3 rounded-2xl border border-[#C5A059]/25 bg-[#FDF8EE] p-4 text-center text-xs font-semibold text-[#7A5C28]">
+                    Upload pieces → see realistic combinations from what you own.
+                  </div>
+                </div>
+              </div>
+            </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
               {items.map((item) => (

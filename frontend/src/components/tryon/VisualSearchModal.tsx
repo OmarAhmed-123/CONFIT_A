@@ -253,9 +253,7 @@ export const VisualSearchModal: React.FC = () => {
                           dominant_hex: '#1B1F3B',
                           style_tags: ['Matched'],
                           occasion_tags: ['Versatile'],
-                          rating: 4.8,
-                          style_compatibility_score: 95,
-                          ai_fit_score: 95,
+                          rating: 0,
                           is_featured: false,
                         });
                       }}

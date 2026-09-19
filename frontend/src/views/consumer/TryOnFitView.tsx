@@ -16,6 +16,9 @@ export const TryOnFitView: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<'vton' | 'scan' | 'ruler' | 'visual'>('vton');
   const [isCameraScanOpen, setIsCameraScanOpen] = useState(false);
+  const supportedTryOnCategories = ['outerwear', 'tops', 'top', 'shirt', 'dress', 'bottom', 'trouser', 'pants', 'skirt'];
+  const isTryOnSupported = (categoryName?: string) =>
+    supportedTryOnCategories.some((category) => (categoryName || '').toLowerCase().includes(category));
 
   return (
     <div className="space-y-10 pb-20">
@@ -41,6 +44,26 @@ export const TryOnFitView: React.FC = () => {
           </p>
         </div>
       </div>
+
+      <section className="rounded-3xl border border-[#C5A059]/25 bg-white p-5 shadow-2xs">
+        <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+          <div>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-[#7A5C28]">Choose your privacy route first</span>
+            <h2 className="mt-1 font-serif text-2xl font-bold text-[#1B1F3B]">Know what each fit option gives you</h2>
+            <p className="mt-2 text-sm font-light leading-relaxed text-slate-500">
+              Visual try-on is an honest 2D preview of drape and styling. Fit confidence is separate and improves when you add measurements or use the no-photo checker.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-3 text-xs sm:grid-cols-4">
+            {['Choose goal or garment', 'Add optional fit info', 'See preview + confidence', 'Save, share, or shop'].map((step, index) => (
+              <div key={step} className="rounded-2xl bg-[#FAF9F6] p-3 text-slate-700">
+                <span className="mb-1 block font-serif text-lg font-bold text-[#1B1F3B]">{index + 1}</span>
+                {step}
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
 
       {/* Feature Selector Cards (4 columns) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -169,8 +192,15 @@ export const TryOnFitView: React.FC = () => {
               <div>
                 <div className="h-60 rounded-2xl overflow-hidden bg-slate-100 mb-3 relative">
                   <img src={p.thumbnail_url} alt={p.title} className="w-full h-full object-cover" />
-                  <div className="absolute top-2 left-2">
+                  <div className="absolute top-2 left-2 flex flex-col gap-1">
                     <FitScoreBadge score={p.style_compatibility_score} label="Style Match" verdict="catalog score" />
+                    <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider ${
+                      isTryOnSupported(p.category_name)
+                        ? 'bg-emerald-500/90 text-white'
+                        : 'bg-slate-950/80 text-slate-200'
+                    }`}>
+                      {isTryOnSupported(p.category_name) ? 'VTON category' : 'Fit check only'}
+                    </span>
                   </div>
                 </div>
                 <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{p.brand_name}</span>
@@ -187,11 +217,11 @@ export const TryOnFitView: React.FC = () => {
                   <span>Ruler</span>
                 </button>
                 <button
-                  onClick={() => openTryOn(p)}
+                  onClick={() => (isTryOnSupported(p.category_name) ? openTryOn(p) : openRuler(p))}
                   className="py-2 px-2 rounded-xl bg-[#1B1F3B] hover:bg-[#2A3C78] text-white text-[11px] font-semibold flex items-center justify-center gap-1 shadow-sm"
                 >
                   <TryOnIcon size={13} color="#C5A059" />
-                  <span>Try On</span>
+                  <span>{isTryOnSupported(p.category_name) ? 'Try On' : 'Fit Check'}</span>
                 </button>
               </div>
             </div>

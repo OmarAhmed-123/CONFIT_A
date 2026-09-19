@@ -24,10 +24,7 @@ export const RoleGuard: React.FC<RoleGuardProps> = ({
 
   // 0. AUTH-02 FIX: session bootstrap is in flight — we do not yet know
   // whether the visitor holds a valid httpOnly session. Rendering the guest
-  // gate here would flash "Authentication Required" on every hard refresh of
-  // /b2b or /admin before fetchMe() resolves (the exact "gate flicker" the
-  // 2026-09-05 audit recorded), and would offer a Sign In button to someone
-  // who is actually signed in. Hold a quiet loading state instead.
+  // gate here would flash an auth wall before fetchMe() resolves.
   if (!hasAttemptedBootstrap) {
     return (
       <div className="min-h-[70vh] flex items-center justify-center p-4" role="status" aria-live="polite">
@@ -41,8 +38,76 @@ export const RoleGuard: React.FC<RoleGuardProps> = ({
     );
   }
 
-  // 1. Not Authenticated -> Show Luxury Authentication Required Gate
+  // 1. Not Authenticated -> Show public partner value page for merchant routes, otherwise auth gate.
   if (!isAuthenticated || !user) {
+    const isPartnerPortal = (fallbackTitle || '').toLowerCase().includes('brand') ||
+      (fallbackTitle || '').toLowerCase().includes('partner');
+
+    if (isPartnerPortal) {
+      return (
+        <div className="min-h-[80vh] px-4 py-10">
+          <div className="mx-auto max-w-6xl space-y-8">
+            <section className="overflow-hidden rounded-[36px] border border-[#C5A059]/30 bg-[#0C0E1E] p-6 text-white shadow-2xl sm:p-10 lg:p-14">
+              <div className="grid gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
+                <div className="space-y-5">
+                  <ConfitLogo variant="full" theme="light" size="lg" />
+                  <span className="inline-flex rounded-full border border-[#C5A059]/40 bg-[#C5A059]/15 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-[#E2BF70]">
+                    Public Partner Portal
+                  </span>
+                  <h1 className="font-serif text-4xl font-bold leading-tight sm:text-5xl">
+                    Reduce fit uncertainty before shoppers reach checkout.
+                  </h1>
+                  <p className="max-w-2xl text-sm font-light leading-relaxed text-slate-300">
+                    CONFIT connects premium catalog ingestion, fit intelligence, and virtual try-on workflows so brand teams can understand the partner workflow before signing in.
+                  </p>
+                  <div className="flex flex-wrap gap-3">
+                    <button
+                      onClick={() => openAuthModal('register')}
+                      className="rounded-2xl bg-[#C5A059] px-5 py-3 text-xs font-bold uppercase tracking-wider text-[#0C0E1E] transition hover:bg-[#E2BF70]"
+                    >
+                      Create partner account
+                    </button>
+                    <button
+                      onClick={() => openAuthModal('login')}
+                      className="rounded-2xl border border-white/20 bg-white/10 px-5 py-3 text-xs font-bold uppercase tracking-wider text-white transition hover:bg-white/20"
+                    >
+                      Existing partner sign in
+                    </button>
+                  </div>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {[
+                    ['Catalog ingestion', 'Validate imagery, attributes, SKU availability, and try-on readiness before publishing.'],
+                    ['Fit intelligence', 'Expose supported categories, measurement confidence, and return-risk signals.'],
+                    ['Virtual try-on', 'Give shoppers an honest visual preview while keeping fit recommendations separate.'],
+                    ['Operational clarity', 'Track pickup, inventory, placement, and analytics workflows from one portal.'],
+                  ].map(([title, copy]) => (
+                    <div key={title} className="rounded-3xl border border-white/10 bg-white/10 p-4 backdrop-blur">
+                      <h3 className="font-serif text-lg font-bold text-white">{title}</h3>
+                      <p className="mt-2 text-xs font-light leading-relaxed text-slate-300">{copy}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </section>
+
+            <section className="grid gap-4 md:grid-cols-3">
+              {[
+                ['Merchant problem', 'Sizing uncertainty, low confidence, and unready product data create preventable friction.'],
+                ['Launch path', 'Connect catalog, verify product metadata, then activate fit and try-on experiences by supported category.'],
+                ['Proof readiness', 'Use real analytics only—views, try-ons, conversions, inventory, returns, and attribution are never fabricated.'],
+              ].map(([title, copy]) => (
+                <div key={title} className="rounded-3xl border border-slate-200 bg-white p-5 shadow-2xs">
+                  <h3 className="font-serif text-xl font-bold text-[#1B1F3B]">{title}</h3>
+                  <p className="mt-2 text-sm font-light leading-relaxed text-slate-500">{copy}</p>
+                </div>
+              ))}
+            </section>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="min-h-[70vh] flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-[#0C0E1E] text-white border border-[#C5A059]/40 rounded-3xl p-8 shadow-2xl text-center space-y-6 animate-in fade-in zoom-in-95 duration-200">

@@ -215,6 +215,17 @@ export const OutfitBuilderView: React.FC = () => {
     addItemToCanvas(product, slotKey);
   };
 
+  const applyStarterFormula = (occasion: string) => {
+    clearCanvas();
+    setTargetOccasion(occasion);
+    setOutfitTitle(`${occasion} Formula`);
+    SLOT_KEYS.forEach((slot) => {
+      const product = products.find((item) => isValidSlotForProduct(item, slot));
+      if (product) addItemToCanvas(product, slot);
+    });
+    showToast('Starter formula added. Replace any item to personalize the look.', 'success');
+  };
+
   return (
     <div className="space-y-8 pb-24">
       <CardStackShowcase
@@ -256,6 +267,29 @@ export const OutfitBuilderView: React.FC = () => {
           </button>
         </div>
       </div>
+
+      <section className="rounded-3xl border border-[#C5A059]/25 bg-white p-5 shadow-2xs">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-[#7A5C28]">Guided mode</span>
+            <h2 className="font-serif text-2xl font-bold text-[#1B1F3B]">Start with a formula, then replace one item at a time</h2>
+            <p className="mt-1 text-sm font-light text-slate-500">
+              Avoid the blank-canvas problem: choose a proven outfit structure, then refine fit, budget, and color harmony.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {['Tailored Power', 'Smart Casual', 'Evening Dinner'].map((formula) => (
+              <button
+                key={formula}
+                onClick={() => applyStarterFormula(formula)}
+                className="rounded-2xl bg-[#1B1F3B] px-4 py-2.5 text-xs font-bold text-white transition hover:bg-[#C5A059] hover:text-[#0C0E1E]"
+              >
+                Use {formula}
+              </button>
+            ))}
+          </div>
+        </div>
+      </section>
 
       {/* C6: one DndContext wraps palette + canvas so drops are real state transitions */}
       <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
@@ -319,7 +353,7 @@ export const OutfitBuilderView: React.FC = () => {
             <div className="bg-white rounded-3xl border border-slate-200/80 p-6 shadow-2xs space-y-4">
               <div className="flex justify-between items-center pb-3 border-b border-slate-100">
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                  Live Budget Tracker Overlay
+                  Sticky Look Summary
                 </span>
                 <span
                   className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${
@@ -364,7 +398,7 @@ export const OutfitBuilderView: React.FC = () => {
                 <div className="flex items-center gap-1.5">
                   <SparkleIcon size={16} color="#C5A059" />
                   <span className="text-xs font-bold text-[#1B1F3B]">
-                    {t('outfit_builder.compatibility_rating')}
+                    Look cohesion
                   </span>
                 </div>
                 <FitScoreBadge
@@ -391,7 +425,7 @@ export const OutfitBuilderView: React.FC = () => {
                   </span>
                   <p className="text-slate-500 leading-relaxed bg-[#FAF9F6] p-2.5 rounded-xl border border-slate-100 font-light">
                     {compatibility?.aesthetic_consistency_verdict ||
-                      'Silhouette synergy is scored once the look contains items.'}
+                      'Look cohesion is scored once the outfit contains items.'}
                   </p>
                 </div>
               </div>

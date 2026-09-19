@@ -30,8 +30,22 @@ const CircularGallery = React.forwardRef<HTMLDivElement, CircularGalleryProps>(
   ({ items, className, radius = 600, autoRotateSpeed = 0.02, ...props }, ref) => {
     const [rotation, setRotation] = useState(0);
     const [isScrolling, setIsScrolling] = useState(false);
+    const [reduceMotion, setReduceMotion] = useState(false);
     const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const animationFrameRef = useRef<number | null>(null);
+
+
+    // Honor the user's OS-level reduced-motion preference. The gallery remains
+    // visible and scroll-position addressable, but decorative auto-rotation is
+    // disabled for motion-sensitive users.
+    useEffect(() => {
+      if (typeof window === 'undefined' || !window.matchMedia) return;
+      const media = window.matchMedia('(prefers-reduced-motion: reduce)');
+      const syncPreference = () => setReduceMotion(media.matches);
+      syncPreference();
+      media.addEventListener?.('change', syncPreference);
+      return () => media.removeEventListener?.('change', syncPreference);
+    }, []);
 
     // Effect to handle scroll-based rotation.
     useEffect(() => {
@@ -63,7 +77,7 @@ const CircularGallery = React.forwardRef<HTMLDivElement, CircularGalleryProps>(
     // Effect for auto-rotation when not scrolling.
     useEffect(() => {
       const autoRotate = () => {
-        if (!isScrolling) {
+        if (!isScrolling && !reduceMotion) {
           setRotation((prev) => prev + autoRotateSpeed);
         }
         animationFrameRef.current = requestAnimationFrame(autoRotate);
@@ -76,7 +90,7 @@ const CircularGallery = React.forwardRef<HTMLDivElement, CircularGalleryProps>(
           cancelAnimationFrame(animationFrameRef.current);
         }
       };
-    }, [isScrolling, autoRotateSpeed]);
+    }, [isScrolling, autoRotateSpeed, reduceMotion]);
 
     if (items.length === 0) {
       return null;

@@ -2,13 +2,15 @@ import { create } from 'zustand';
 import { Product } from '../models';
 import { setAppLanguage } from '../i18n/i18n';
 
+type StylistPrefill = { prompt: string; occasion?: string; budget?: number } | string;
+
 interface UIState {
   // Modal states
   tryOnProduct: Product | null;
   rulerProduct: Product | null;
   isVisualSearchOpen: boolean;
   isStylistDrawerOpen: boolean;
-  stylistPrefillOccasion: string | null;
+  stylistPrefillOccasion: StylistPrefill | null;
   isAuthModalOpen: boolean;
   authModalMode: 'login' | 'register';
 
@@ -25,7 +27,7 @@ interface UIState {
   closeRuler: () => void;
   openVisualSearch: () => void;
   closeVisualSearch: () => void;
-  openStylist: (occasion?: string) => void;
+  openStylist: (prefill?: StylistPrefill) => void;
   closeStylist: () => void;
   openAuthModal: (mode?: 'login' | 'register') => void;
   closeAuthModal: () => void;
@@ -58,7 +60,7 @@ export const useUIStore = create<UIState>((set) => ({
   openVisualSearch: () => set({ isVisualSearchOpen: true }),
   closeVisualSearch: () => set({ isVisualSearchOpen: false }),
 
-  openStylist: (occasion) => set({ isStylistDrawerOpen: true, stylistPrefillOccasion: occasion || null }),
+  openStylist: (prefill) => set({ isStylistDrawerOpen: true, stylistPrefillOccasion: prefill || null }),
   closeStylist: () => set({ isStylistDrawerOpen: false, stylistPrefillOccasion: null }),
 
   openAuthModal: (mode = 'login') => set({ isAuthModalOpen: true, authModalMode: mode }),

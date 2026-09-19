@@ -55,10 +55,10 @@ def request_partner_demo(
         user_agent=request.headers.get("user-agent"),
     )
     return PartnerLeadOut(
-        id=lead.id,
-        status=lead.status,
-        notification_status=lead.notification_status,
-        duplicate=bool(lead.duplicate_of_id),
+        id=lead["id"],
+        status=lead["status"],
+        notification_status=lead["notification_status"],
+        duplicate=lead["duplicate"],
         message="Request received. The CONFIT team will review it using the persisted lead workflow.",
     )
 

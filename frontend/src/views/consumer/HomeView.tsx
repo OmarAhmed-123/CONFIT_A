@@ -151,10 +151,26 @@ export const HomeView: React.FC = () => {
 
   const startGuidedLook = () => {
     const budget = Number(guideBudget);
+    const paletteMap: Record<string, string | undefined> = {
+      "Navy / neutral": "navy",
+      "Warm ivory": "white",
+      "Black / metallic": "black",
+      "No preference": undefined,
+    };
+    const fitMap: Record<string, string | undefined> = {
+      Tailored: "slim",
+      Relaxed: "relaxed",
+      "No preference": undefined,
+      "Modest coverage": "regular",
+    };
     openStylist({
       occasion: guideOccasion,
       budget: Number.isFinite(budget) ? budget : undefined,
-      prompt: `First-look request: occasion=${guideOccasion}; budget=${guideBudget ? `$${guideBudget}` : "open"}; palette=${guidePalette}; fit preference=${guideFit}. Recommend only real catalog products. Treat palette and fit preference as natural-language guidance unless a verified size profile exists.`,
+      recommendation_constraints: {
+        palette: paletteMap[guidePalette],
+        preferred_fit: fitMap[guideFit],
+      },
+      prompt: `First-look request: occasion=${guideOccasion}; budget=${guideBudget ? `$${guideBudget}` : "open"}; palette=${guidePalette}; fit preference=${guideFit}. Recommend only real catalog products. Palette is sent as a structured catalog-color constraint; fit preference uses saved/requested sizes only when available.`,
     });
   };
 
@@ -378,10 +394,10 @@ export const HomeView: React.FC = () => {
             </h2>
             <p className="mt-3 text-sm font-light leading-relaxed text-slate-500">
               This starts a real AI stylist request using the current catalog
-              endpoint. Occasion and budget are structured inputs; palette and
-              fit preference are sent as natural-language guidance, not as
-              verified size personalization. It does not fabricate products,
-              sizes, or inventory.
+              endpoint. Occasion, budget, and palette are structured inputs. Fit
+              preference is structured too, but it only becomes size-aware when
+              a saved/requested size is available. It does not fabricate
+              products, sizes, or inventory.
             </p>
           </div>
 

@@ -30,7 +30,8 @@ async def chat_with_stylist(
         session_id=payload.session_id,
         occasion=payload.occasion,
         budget_limit=payload.budget_limit,
-        voice_input_used=payload.voice_input_used
+        voice_input_used=payload.voice_input_used,
+        recommendation_constraints=(payload.recommendation_constraints.model_dump(exclude_none=True) if payload.recommendation_constraints else None)
     )
 
 

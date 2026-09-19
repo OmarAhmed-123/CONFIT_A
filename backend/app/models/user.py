@@ -182,4 +182,32 @@ class MFABackupCode(Base):
     user = relationship("User", back_populates="mfa_backup_codes")
 
 
+
+
+class PartnerLead(Base):
+    """Public B2B request-demo lead.
+
+    This is a real persisted business workflow entry, not an account, not a
+    CRM simulation, and not a grant of partner privileges.
+    """
+    __tablename__ = "partner_leads"
+
+    id = Column(Integer, primary_key=True, index=True)
+    company_name = Column(String(255), nullable=False, index=True)
+    contact_name = Column(String(255), nullable=False)
+    work_email = Column(String(255), nullable=False, index=True)
+    website = Column(String(500), nullable=True)
+    phone = Column(String(50), nullable=True)
+    monthly_order_volume = Column(String(50), nullable=True)
+    message = Column(Text, nullable=True)
+    status = Column(String(30), default="received", nullable=False, index=True)
+    notification_status = Column(String(30), default="not_configured", nullable=False)
+    duplicate_of_id = Column(Integer, ForeignKey("partner_leads.id", ondelete="SET NULL"), nullable=True, index=True)
+    source_path = Column(String(255), default="/b2b", nullable=False)
+    ip_hash = Column(String(64), nullable=True, index=True)
+    user_agent = Column(String(500), nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+
+
 Index("ix_refresh_tokens_user_active", RefreshToken.user_id, RefreshToken.revoked_at)
+Index("ix_partner_leads_email_created", PartnerLead.work_email, PartnerLead.created_at)

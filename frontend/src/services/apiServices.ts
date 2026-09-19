@@ -1,4 +1,4 @@
-import { request } from './apiClient';
+import { request } from "./apiClient";
 import {
   User,
   UserStyleProfile,
@@ -24,49 +24,71 @@ import {
   StoreInventoryLocation,
   TryOnJob,
   GarmentAsset,
-} from '../models';
+} from "../models";
 
 // 1. Authentication Services (G1)
 export const authService = {
   login: (email: string, password: string, mfa_code?: string) =>
-    request<{ access_token: string; refresh_token: string; user: User }>('/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({ email, password, mfa_code }),
-    }),
+    request<{ access_token: string; refresh_token: string; user: User }>(
+      "/auth/login",
+      {
+        method: "POST",
+        body: JSON.stringify({ email, password, mfa_code }),
+      },
+    ),
 
-  register: (payload: { email: string; password: string; full_name: string; phone?: string; role?: string }) =>
-    request<{ access_token: string; refresh_token: string; user: User }>('/auth/register', {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    }),
+  register: (payload: {
+    email: string;
+    password: string;
+    full_name: string;
+    phone?: string;
+    role?: string;
+  }) =>
+    request<{ access_token: string; refresh_token: string; user: User }>(
+      "/auth/register",
+      {
+        method: "POST",
+        body: JSON.stringify(payload),
+      },
+    ),
 
   // Group 1 §7: the server verifies the provider_token upstream (Google /
   // Apple / Facebook), so we ONLY send the provider name and the token
   // the SDK gave us — never the email or the display name, which are
   // taken from the provider's verified response.
-  socialLogin: (provider: 'google' | 'apple' | 'facebook', providerToken: string) =>
-    request<{ access_token: string; refresh_token: string; user: User }>('/auth/social-login', {
-      method: 'POST',
-      body: JSON.stringify({ provider, provider_token: providerToken }),
-    }),
+  socialLogin: (
+    provider: "google" | "apple" | "facebook",
+    providerToken: string,
+  ) =>
+    request<{ access_token: string; refresh_token: string; user: User }>(
+      "/auth/social-login",
+      {
+        method: "POST",
+        body: JSON.stringify({ provider, provider_token: providerToken }),
+      },
+    ),
 
-  getMe: () => request<User>('/auth/me'),
+  getMe: () => request<User>("/auth/me"),
 
-  logout: () => request<{ status: string }>('/auth/logout', { method: 'POST' }),
+  logout: () => request<{ status: string }>("/auth/logout", { method: "POST" }),
 
-  setupMFA: () => request<{ secret: string; qr_uri: string; backup_codes: string[] }>('/auth/mfa/setup', { method: 'POST' }),
+  setupMFA: () =>
+    request<{ secret: string; qr_uri: string; backup_codes: string[] }>(
+      "/auth/mfa/setup",
+      { method: "POST" },
+    ),
 
   // Verify returns the plaintext backup codes exactly ONCE — the caller
   // MUST persist / display them to the user immediately.
   verifyMFA: (code: string) =>
-    request<{ status: string; backup_codes: string[] }>('/auth/mfa/verify', {
-      method: 'POST',
+    request<{ status: string; backup_codes: string[] }>("/auth/mfa/verify", {
+      method: "POST",
       body: JSON.stringify({ code }),
     }),
 
   disableMFA: (password: string) =>
-    request<{ status: string }>('/auth/mfa/disable', {
-      method: 'POST',
+    request<{ status: string }>("/auth/mfa/disable", {
+      method: "POST",
       body: JSON.stringify({ password }),
     }),
 
@@ -74,38 +96,49 @@ export const authService = {
   // change a password while email delivery is unprovisioned (the email
   // reset path honestly 501s until a provider exists). MFA-enabled
   // accounts must also send a current authenticator/recovery code.
-  changePassword: (payload: { current_password: string; new_password: string; mfa_code?: string }) =>
-    request<{ status: string; message: string }>('/auth/change-password', {
-      method: 'POST',
+  changePassword: (payload: {
+    current_password: string;
+    new_password: string;
+    mfa_code?: string;
+  }) =>
+    request<{ status: string; message: string }>("/auth/change-password", {
+      method: "POST",
       body: JSON.stringify(payload),
     }),
 
   regenerateMFACodes: () =>
-    request<{ status: string; backup_codes: string[] }>('/auth/mfa/regenerate-codes', {
-      method: 'POST',
-    }),
+    request<{ status: string; backup_codes: string[] }>(
+      "/auth/mfa/regenerate-codes",
+      {
+        method: "POST",
+      },
+    ),
 
   refresh: (refresh_token: string) =>
-    request<{ access_token: string; refresh_token: string; user: User }>('/auth/refresh', {
-      method: 'POST',
-      body: JSON.stringify({ refresh_token }),
-    }),
+    request<{ access_token: string; refresh_token: string; user: User }>(
+      "/auth/refresh",
+      {
+        method: "POST",
+        body: JSON.stringify({ refresh_token }),
+      },
+    ),
 
   forgotPassword: (email: string) =>
-    request<{ status: string; message: string }>('/auth/forgot-password', {
-      method: 'POST',
+    request<{ status: string; message: string }>("/auth/forgot-password", {
+      method: "POST",
       body: JSON.stringify({ email }),
     }),
 
   resetPassword: (token: string, new_password: string) =>
-    request<{ status: string; message: string }>('/auth/reset-password', {
-      method: 'POST',
+    request<{ status: string; message: string }>("/auth/reset-password", {
+      method: "POST",
       body: JSON.stringify({ token, new_password }),
     }),
 
-  exportGDPR: () => request<any>('/auth/gdpr-export'),
+  exportGDPR: () => request<any>("/auth/gdpr-export"),
 
-  deleteAccount: () => request<{ status: string }>('/auth/account', { method: 'DELETE' }),
+  deleteAccount: () =>
+    request<{ status: string }>("/auth/account", { method: "DELETE" }),
 };
 
 // 2. User Style Profile (USP) Services (G1.2)
@@ -115,18 +148,18 @@ export const authService = {
 export interface UspNotCompletedStub {
   user_id: number;
   onboarding_completed: false;
-  state: 'not_completed';
+  state: "not_completed";
   message: string;
 }
 export type UspResponseOrStub = UserStyleProfile | UspNotCompletedStub;
 
 export const profileService = {
-  getProfile: () => request<UspResponseOrStub>('/profile/me'),
-  getUSP: () => request<UspResponseOrStub>('/profile/me'),
+  getProfile: () => request<UspResponseOrStub>("/profile/me"),
+  getUSP: () => request<UspResponseOrStub>("/profile/me"),
 
   submitOnboardingQuiz: (quizData: any) =>
-    request<UserStyleProfile>('/profile/onboarding-quiz', {
-      method: 'POST',
+    request<UserStyleProfile>("/profile/onboarding-quiz", {
+      method: "POST",
       body: JSON.stringify(quizData),
     }),
 
@@ -138,8 +171,8 @@ export const profileService = {
     avoided_colors?: string[];
     fashion_aesthetics?: string[];
   }) =>
-    request<UserStyleProfile>('/me/style-profile', {
-      method: 'PATCH',
+    request<UserStyleProfile>("/me/style-profile", {
+      method: "PATCH",
       body: JSON.stringify(data),
     }),
 
@@ -152,21 +185,21 @@ export const profileService = {
     hip_cm?: number;
     inseam_cm?: number;
   }) =>
-    request<UserStyleProfile>('/me/body-profile', {
-      method: 'PATCH',
+    request<UserStyleProfile>("/me/body-profile", {
+      method: "PATCH",
       body: JSON.stringify(attributes),
     }),
 
   deleteBodyAttributes: () =>
-    request<{ status: string }>('/me/body-profile', { method: 'DELETE' }),
+    request<{ status: string }>("/me/body-profile", { method: "DELETE" }),
 
   updateBudget: (data: {
     budget_monthly_min?: number;
     budget_monthly_max?: number;
     budget_per_outfit_max?: number;
   }) =>
-    request<UserStyleProfile>('/me/budget', {
-      method: 'PATCH',
+    request<UserStyleProfile>("/me/budget", {
+      method: "PATCH",
       body: JSON.stringify(data),
     }),
 
@@ -174,14 +207,14 @@ export const profileService = {
     preferred_brands?: string[];
     blacklisted_brands?: string[];
   }) =>
-    request<UserStyleProfile>('/me/brands', {
-      method: 'PATCH',
+    request<UserStyleProfile>("/me/brands", {
+      method: "PATCH",
       body: JSON.stringify(data),
     }),
 
   updateOccasions: (occasion_weights: Record<string, number>) =>
-    request<UserStyleProfile>('/me/occasions', {
-      method: 'PATCH',
+    request<UserStyleProfile>("/me/occasions", {
+      method: "PATCH",
       body: JSON.stringify({ occasion_weights }),
     }),
 
@@ -191,21 +224,21 @@ export const profileService = {
     size_shoes?: string;
     fit_preference?: string;
   }) =>
-    request<UserStyleProfile>('/me/size-fit', {
-      method: 'PATCH',
+    request<UserStyleProfile>("/me/size-fit", {
+      method: "PATCH",
       body: JSON.stringify(data),
     }),
 
   // Legacy alias used by older call sites — accepts the full quiz payload.
   submitQuiz: (quizData: any) =>
-    request<UserStyleProfile>('/profile/onboarding-quiz', {
-      method: 'POST',
+    request<UserStyleProfile>("/profile/onboarding-quiz", {
+      method: "POST",
       body: JSON.stringify(quizData),
     }),
 
   updateProfile: (data: any) =>
-    request<UserStyleProfile>('/profile/preferences', {
-      method: 'PUT',
+    request<UserStyleProfile>("/profile/preferences", {
+      method: "PUT",
       body: JSON.stringify(data),
     }),
 
@@ -218,7 +251,7 @@ export const profileService = {
       share_with_brands: boolean;
       policy_version: number;
       last_agreed_at: string | null;
-    }>('/me/consents'),
+    }>("/me/consents"),
 
   updateConsents: (consents: {
     photo_storage?: boolean;
@@ -226,8 +259,8 @@ export const profileService = {
     marketing_analytics?: boolean;
     share_with_brands?: boolean;
   }) =>
-    request<any>('/me/consents', {
-      method: 'PATCH',
+    request<any>("/me/consents", {
+      method: "PATCH",
       body: JSON.stringify(consents),
     }),
 };
@@ -251,19 +284,24 @@ export const catalogService = {
     // the whole catalog rendered empty). Only defined, non-empty params go
     // on the wire.
     const clean = Object.fromEntries(
-      Object.entries(params ?? {}).filter(([, v]) => v !== undefined && v !== null && v !== '')
+      Object.entries(params ?? {}).filter(
+        ([, v]) => v !== undefined && v !== null && v !== "",
+      ),
     );
-    const query = new URLSearchParams(clean as Record<string, string>).toString();
-    return request<Product[]>(`/catalog/products${query ? `?${query}` : ''}`);
+    const query = new URLSearchParams(
+      clean as Record<string, string>,
+    ).toString();
+    return request<Product[]>(`/catalog/products${query ? `?${query}` : ""}`);
   },
 
-  getProductDetail: (slug: string) => request<Product>(`/catalog/products/${slug}`),
+  getProductDetail: (slug: string) =>
+    request<Product>(`/catalog/products/${slug}`),
 
-  getCategories: () => request<Category[]>('/catalog/categories'),
+  getCategories: () => request<Category[]>("/catalog/categories"),
   getCapabilities: () =>
     request<{
       payments_live: boolean;
-      payments_mode: 'live' | 'demo';
+      payments_mode: "live" | "demo";
       bnpl_live: boolean;
       vton_gpu_ready: boolean;
       ai_stylist_live: boolean;
@@ -271,9 +309,10 @@ export const catalogService = {
       bopis_store_count: number;
       storage_mode: string;
       returns_window_days: number;
-    }>('/catalog/capabilities'),
+    }>("/catalog/capabilities"),
 
-  getFeaturedCollections: () => request<Product[]>('/catalog/products?is_featured=true'),
+  getFeaturedCollections: () =>
+    request<Product[]>("/catalog/products?is_featured=true"),
 
   searchCatalog: (params: {
     q: string;
@@ -288,68 +327,108 @@ export const catalogService = {
   }) => {
     // Same undefined-serialization guard as getProducts.
     const clean = Object.fromEntries(
-      Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== '')
+      Object.entries(params).filter(
+        ([, v]) => v !== undefined && v !== null && v !== "",
+      ),
     );
-    const query = new URLSearchParams(clean as Record<string, string>).toString();
-    return request<SearchResponse>(`/catalog/search${query ? `?${query}` : ''}`);
+    const query = new URLSearchParams(
+      clean as Record<string, string>,
+    ).toString();
+    return request<SearchResponse>(
+      `/catalog/search${query ? `?${query}` : ""}`,
+    );
   },
 
-  autocompleteCatalog: (q: string) => request<AutocompleteResponse>(`/catalog/autocomplete?q=${encodeURIComponent(q)}`),
+  autocompleteCatalog: (q: string) =>
+    request<AutocompleteResponse>(
+      `/catalog/autocomplete?q=${encodeURIComponent(q)}`,
+    ),
 
-  getBopisStoresForSKU: (skuId: number) => request<StoreInventoryLocation[]>(`/catalog/skus/${skuId}/stores`),
+  getBopisStoresForSKU: (skuId: number) =>
+    request<StoreInventoryLocation[]>(`/catalog/skus/${skuId}/stores`),
 
   // Home Dashboard (G2.4): personalized picks, trending, recently-viewed,
   // new-from-your-brands — composed server-side from the real profile + catalog.
   getDashboard: (coords?: { lat: number; lon: number }) => {
-    const query = coords ? `?lat=${coords.lat}&lon=${coords.lon}` : '';
+    const query = coords ? `?lat=${coords.lat}&lon=${coords.lon}` : "";
     return request<any>(`/catalog/dashboard${query}`);
   },
 };
 
 // 4. Virtual Stylist & Outfitting Engine Services (G2.2)
 export const stylistService = {
-  chat: (payload: { prompt: string; session_id?: number; occasion?: string; budget_limit?: number; voice_input_used?: boolean }) =>
-    request<StylistMessage>('/stylist/chat', {
-      method: 'POST',
+  chat: (payload: {
+    prompt: string;
+    session_id?: number;
+    occasion?: string;
+    budget_limit?: number;
+    voice_input_used?: boolean;
+    recommendation_constraints?: {
+      palette?: string;
+      avoid_palette?: string;
+      preferred_fit?: string;
+      size_tops?: string;
+      size_bottoms?: string;
+      size_shoes?: string;
+    };
+  }) =>
+    request<StylistMessage>("/stylist/chat", {
+      method: "POST",
       body: JSON.stringify(payload),
     }),
 
   checkCompatibility: (productIdsOrPayload: any, targetOccasion?: string) => {
     const payload = Array.isArray(productIdsOrPayload)
-      ? { product_ids: productIdsOrPayload, target_occasion: targetOccasion || 'Casual' }
+      ? {
+          product_ids: productIdsOrPayload,
+          target_occasion: targetOccasion || "Casual",
+        }
       : productIdsOrPayload;
-    return request<{ compatibility_score: number; breakdown: Record<string, number>; color_harmony_type: string; notes: string[] }>(
-      '/stylist/compatibility',
-      {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      }
-    );
+    return request<{
+      compatibility_score: number;
+      breakdown: Record<string, number>;
+      color_harmony_type: string;
+      notes: string[];
+    }>("/stylist/compatibility", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
   },
 
-  getSavedOutfits: () => request<Outfit[]>('/outfits'),
+  getSavedOutfits: () => request<Outfit[]>("/outfits"),
 
-  saveOutfit: (data: { title: string; occasion: string; product_ids?: number[]; product_sku_ids?: number[] }) =>
-    request<Outfit>('/outfits', {
-      method: 'POST',
+  saveOutfit: (data: {
+    title: string;
+    occasion: string;
+    product_ids?: number[];
+    product_sku_ids?: number[];
+  }) =>
+    request<Outfit>("/outfits", {
+      method: "POST",
       body: JSON.stringify({
         title: data.title,
         occasion: data.occasion,
         // Canonical contract: send whichever identifier set the caller holds.
         // No fabricated fallback ids — the backend validates non-empty.
-        ...(data.product_sku_ids ? { product_sku_ids: data.product_sku_ids } : {}),
+        ...(data.product_sku_ids
+          ? { product_sku_ids: data.product_sku_ids }
+          : {}),
         ...(data.product_ids ? { product_ids: data.product_ids } : {}),
       }),
     }),
 
-  deleteOutfit: (id: number) => request<{ status: string }>(`/outfits/${id}`, { method: 'DELETE' }),
+  deleteOutfit: (id: number) =>
+    request<{ status: string }>(`/outfits/${id}`, { method: "DELETE" }),
 
   // C8: mint (or fetch the idempotent) share token for an owned outfit.
   // The response intentionally contains no fabricated card URL.
   shareOutfit: (id: number) =>
-    request<{ outfit_id: number; share_token: string; share_url: string }>(`/outfits/${id}/share`, {
-      method: 'POST',
-    }),
+    request<{ outfit_id: number; share_token: string; share_url: string }>(
+      `/outfits/${id}/share`,
+      {
+        method: "POST",
+      },
+    ),
 };
 
 // 4b. Public Shared Looks (C8) — unauthenticated, public-safe DTO only.
@@ -386,19 +465,24 @@ export const tryOnService = {
     output_aspect?: string;
     consent_retain_photo?: boolean;
   }) =>
-    request<TryOnJob>('/try-on/jobs', {
-      method: 'POST',
+    request<TryOnJob>("/try-on/jobs", {
+      method: "POST",
       body: JSON.stringify(payload),
     }),
 
-  getTryOnJobStatus: (jobId: string) => request<TryOnJob>(`/try-on/jobs/${jobId}`),
+  getTryOnJobStatus: (jobId: string) =>
+    request<TryOnJob>(`/try-on/jobs/${jobId}`),
 
   cancelTryOnJob: (jobId: string) =>
-    request<{ job_id: string; status: string }>(`/try-on/jobs/${jobId}/cancel`, {
-      method: 'POST',
-    }),
+    request<{ job_id: string; status: string }>(
+      `/try-on/jobs/${jobId}/cancel`,
+      {
+        method: "POST",
+      },
+    ),
 
-  getGarmentAsset: (productId: number) => request<GarmentAsset>(`/try-on/garments/${productId}/asset`),
+  getGarmentAsset: (productId: number) =>
+    request<GarmentAsset>(`/try-on/garments/${productId}/asset`),
 
   // Multi-Garment Synchronous Render
   renderTryOn: (payload: {
@@ -407,8 +491,8 @@ export const tryOnService = {
     avatar_model_id?: string;
     consent_retain_photo?: boolean;
   }) =>
-    request<TryOnResult>('/tryon/render', {
-      method: 'POST',
+    request<TryOnResult>("/tryon/render", {
+      method: "POST",
       body: JSON.stringify(payload),
     }),
 
@@ -421,8 +505,8 @@ export const tryOnService = {
     output_aspect?: string;
     background_mode?: string;
   }) =>
-    request<AnimationTryOnResult>('/tryon/animation-render', {
-      method: 'POST',
+    request<AnimationTryOnResult>("/tryon/animation-render", {
+      method: "POST",
       body: JSON.stringify(payload),
     }),
 
@@ -434,8 +518,8 @@ export const tryOnService = {
     gender_mode?: string;
     consent_retain_photo?: boolean;
   }) =>
-    request<MultiGarmentTryOnResult>('/tryon/multi-render', {
-      method: 'POST',
+    request<MultiGarmentTryOnResult>("/tryon/multi-render", {
+      method: "POST",
       body: JSON.stringify(payload),
     }),
 
@@ -447,8 +531,8 @@ export const tryOnService = {
       resolution_status: string;
       lighting_quality: string;
       suggestions: string[];
-    }>('/tryon/validate-image', {
-      method: 'POST',
+    }>("/tryon/validate-image", {
+      method: "POST",
       body: JSON.stringify(payload),
     }),
 
@@ -461,8 +545,8 @@ export const tryOnService = {
     waist_cm?: number;
     preferred_fit?: string;
   }) =>
-    request<NoPhotoFitResult>('/tryon/no-photo-fit', {
-      method: 'POST',
+    request<NoPhotoFitResult>("/tryon/no-photo-fit", {
+      method: "POST",
       body: JSON.stringify(payload),
     }),
 
@@ -477,8 +561,8 @@ export const tryOnService = {
     brand_ids?: number[];
     in_stock_only?: boolean;
   }) =>
-    request<VisualSearchResult>('/tryon/visual-search', {
-      method: 'POST',
+    request<VisualSearchResult>("/tryon/visual-search", {
+      method: "POST",
       body: JSON.stringify(payload),
     }),
 };
@@ -501,19 +585,24 @@ export interface AutoTagResponse {
 
 export interface WardrobeUploadResultEntry {
   filename: string;
-  status: 'created' | 'failed' | 'duplicate';
+  status: "created" | "failed" | "duplicate";
   detail?: string;
   item?: WardrobeItem;
 }
 
 export interface WardrobeUploadResponse {
   results: WardrobeUploadResultEntry[];
-  summary: { total: number; succeeded: number; failed: number; duplicates_skipped: number };
+  summary: {
+    total: number;
+    succeeded: number;
+    failed: number;
+    duplicates_skipped: number;
+  };
 }
 
 export interface WardrobeFirstOutfitItem {
   position: string;
-  source: 'owned' | 'catalog';
+  source: "owned" | "catalog";
   wardrobe_item_id?: number;
   product_id?: number;
   product_title: string;
@@ -538,107 +627,130 @@ export interface WardrobeFirstOutfit {
 
 export const wardrobeService = {
   getItems: (category?: string) => {
-    const q = category && category !== 'All' ? `?category=${category}` : '';
+    const q = category && category !== "All" ? `?category=${category}` : "";
     return request<WardrobeItem[]>(`/wardrobe/items${q}`);
   },
 
   addItem: (data: Partial<WardrobeItem>) =>
-    request<WardrobeItem>('/wardrobe/items', {
-      method: 'POST',
+    request<WardrobeItem>("/wardrobe/items", {
+      method: "POST",
       body: JSON.stringify(data),
     }),
 
   updateItem: (itemId: number, data: Partial<WardrobeItem>) =>
     request<WardrobeItem>(`/wardrobe/items/${itemId}`, {
-      method: 'PUT',
+      method: "PUT",
       body: JSON.stringify(data),
     }),
 
-  deleteItem: (itemId: number) => request<{ status: string }>(`/wardrobe/items/${itemId}`, { method: 'DELETE' }),
+  deleteItem: (itemId: number) =>
+    request<{ status: string }>(`/wardrobe/items/${itemId}`, {
+      method: "DELETE",
+    }),
 
-  getGapAnalysis: () => request<GapAnalysisItem[]>('/wardrobe/gap-analysis'),
+  getGapAnalysis: () => request<GapAnalysisItem[]>("/wardrobe/gap-analysis"),
 
   autoTagImage: (imageRef: string) => {
     // Backend contract is { image_url } for URLs or { image_base64 } for data
     // URLs — the previous payload key (image_data_url) matched neither and
     // silently 422'd.
-    const body = imageRef.startsWith('data:image')
+    const body = imageRef.startsWith("data:image")
       ? { image_base64: imageRef }
       : { image_url: imageRef };
-    return request<AutoTagResponse>('/wardrobe/auto-tag', {
-      method: 'POST',
+    return request<AutoTagResponse>("/wardrobe/auto-tag", {
+      method: "POST",
       body: JSON.stringify(body),
     });
   },
 
   uploadImage: (file: File) => {
     const form = new FormData();
-    form.append('file', file);
-    return request<WardrobeUploadResponse>('/wardrobe/upload', {
-      method: 'POST',
+    form.append("file", file);
+    return request<WardrobeUploadResponse>("/wardrobe/upload", {
+      method: "POST",
       body: form,
     });
   },
 
   uploadBulk: (files: File[]) => {
     const form = new FormData();
-    files.forEach((f) => form.append('files', f));
-    return request<WardrobeUploadResponse>('/wardrobe/upload/bulk', {
-      method: 'POST',
+    files.forEach((f) => form.append("files", f));
+    return request<WardrobeUploadResponse>("/wardrobe/upload/bulk", {
+      method: "POST",
       body: form,
     });
   },
 
   analyzeItem: (itemId: number) =>
-    request<WardrobeItem>(`/wardrobe/items/${itemId}/analyze`, { method: 'POST' }),
+    request<WardrobeItem>(`/wardrobe/items/${itemId}/analyze`, {
+      method: "POST",
+    }),
 
-  getOutfitSuggestions: (occasion: string = 'Smart Casual') =>
-    request<WardrobeFirstOutfit>(`/wardrobe/outfit-suggestions?occasion=${encodeURIComponent(occasion)}`),
-
-  checkDuplicate: (payload: { product_id: number; product_title: string; category: string; color_family: string; strict_mode?: boolean }) =>
-    request<{ has_duplicate_risk: boolean; similarity_score: number; duplicate_item?: WardrobeItem; owned_item?: WardrobeItem; alert_message?: string; recommendation: string }>(
-      '/wardrobe/duplicate-check',
-      {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      }
+  getOutfitSuggestions: (occasion: string = "Smart Casual") =>
+    request<WardrobeFirstOutfit>(
+      `/wardrobe/outfit-suggestions?occasion=${encodeURIComponent(occasion)}`,
     ),
+
+  checkDuplicate: (payload: {
+    product_id: number;
+    product_title: string;
+    category: string;
+    color_family: string;
+    strict_mode?: boolean;
+  }) =>
+    request<{
+      has_duplicate_risk: boolean;
+      similarity_score: number;
+      duplicate_item?: WardrobeItem;
+      owned_item?: WardrobeItem;
+      alert_message?: string;
+      recommendation: string;
+    }>("/wardrobe/duplicate-check", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
 };
 
 // 7. Unified Commerce & BOPIS Services (G5)
 export const commerceService = {
-  getCart: () => request<Cart>('/commerce/cart'),
+  getCart: () => request<Cart>("/commerce/cart"),
 
   addToCart: (productSkuId: number, quantity: number = 1, outfitId?: number) =>
-    request<Cart>('/commerce/cart/items', {
-      method: 'POST',
-      body: JSON.stringify({ product_sku_id: productSkuId, quantity, outfit_id: outfitId }),
+    request<Cart>("/commerce/cart/items", {
+      method: "POST",
+      body: JSON.stringify({
+        product_sku_id: productSkuId,
+        quantity,
+        outfit_id: outfitId,
+      }),
     }),
 
   updateQuantity: (itemId: number, quantity: number) =>
     request<Cart>(`/commerce/cart/items/${itemId}`, {
-      method: 'PUT',
+      method: "PUT",
       body: JSON.stringify({ quantity }),
     }),
 
-  removeFromCart: (itemId: number) => request<Cart>(`/commerce/cart/items/${itemId}`, { method: 'DELETE' }),
+  removeFromCart: (itemId: number) =>
+    request<Cart>(`/commerce/cart/items/${itemId}`, { method: "DELETE" }),
 
   // P0-01e: move guest-cart lines into the authenticated user's cart.
   // Server-side is lock-guarded and dedups by sku, so a repeated merge is safe.
   mergeGuestCart: (guestToken: string) =>
-    request<Cart>('/commerce/cart/merge', {
-      method: 'POST',
+    request<Cart>("/commerce/cart/merge", {
+      method: "POST",
       body: JSON.stringify({ guest_token: guestToken }),
     }),
-  removeItem: (itemId: number) => request<Cart>(`/commerce/cart/items/${itemId}`, { method: 'DELETE' }),
+  removeItem: (itemId: number) =>
+    request<Cart>(`/commerce/cart/items/${itemId}`, { method: "DELETE" }),
 
   applyPromo: (promo_code: string) =>
-    request<Cart>('/commerce/cart/promo', {
-      method: 'POST',
+    request<Cart>("/commerce/cart/promo", {
+      method: "POST",
       body: JSON.stringify({ promo_code }),
     }),
 
-  getPaymentMethods: (countryCode = 'AE') =>
+  getPaymentMethods: (countryCode = "AE") =>
     request<{
       available_methods: Array<{
         id: string;
@@ -649,7 +761,9 @@ export const commerceService = {
         provider_name: string;
       }>;
       currency_code: string;
-    }>(`/commerce/payment-methods?country_code=${encodeURIComponent(countryCode)}`),
+    }>(
+      `/commerce/payment-methods?country_code=${encodeURIComponent(countryCode)}`,
+    ),
 
   checkout: (payload: {
     payment_method: string;
@@ -667,61 +781,100 @@ export const commerceService = {
     shipping_method?: string;
     idempotency_key?: string;
   }) =>
-    request<Order>('/commerce/checkout', {
-      method: 'POST',
+    request<Order>("/commerce/checkout", {
+      method: "POST",
       body: JSON.stringify(payload),
     }),
 
-  getOrders: () => request<Order[]>('/commerce/orders'),
+  getOrders: () => request<Order[]>("/commerce/orders"),
 
-  getOrderDetail: (orderNumber: string) => request<Order>(`/commerce/orders/${orderNumber}`),
+  getOrderDetail: (orderNumber: string) =>
+    request<Order>(`/commerce/orders/${orderNumber}`),
 
-  getOrderTracking: (orderNumber: string) => request<OrderTrackingTimeline>(`/commerce/orders/${orderNumber}/tracking`),
+  getOrderTracking: (orderNumber: string) =>
+    request<OrderTrackingTimeline>(`/commerce/orders/${orderNumber}/tracking`),
 
-  createReturn: (payload: { order_id: number; item_ids: number[]; reason: string; details?: string }) =>
-    request<any>('/commerce/returns', {
-      method: 'POST',
+  createReturn: (payload: {
+    order_id: number;
+    item_ids: number[];
+    reason: string;
+    details?: string;
+  }) =>
+    request<any>("/commerce/returns", {
+      method: "POST",
       body: JSON.stringify(payload),
     }),
 };
 
 // 8. B2B Brand Management & Platform Admin Services (G6)
 export const brandService = {
-  getProfile: () => request<BrandProfile>('/brand/profile'),
-
-  getAnalytics: () => request<BrandAnalyticsDashboard>('/brand/analytics'),
-  getAnalyticsDashboard: () => request<BrandAnalyticsDashboard>('/brand/analytics'),
-
-  getProducts: () => request<Product[]>('/brand/products'),
-
-  updateSKU: (skuId: number, stockLevel: number, priceOverride?: number) => {
-    const q = priceOverride ? `&price_override=${priceOverride}` : '';
-    return request<any>(`/brand/skus/${skuId}?stock_level=${stockLevel}${q}`, {
-      method: 'PUT',
-    });
-  },
-
-  updateSKUStock: (skuId: number, stockLevel: number, priceOverride?: number) => {
-    const q = priceOverride ? `&price_override=${priceOverride}` : '';
-    return request<any>(`/brand/skus/${skuId}?stock_level=${stockLevel}${q}`, {
-      method: 'PUT',
-    });
-  },
-
-  getPlacements: () => request<any[]>('/brand/placements'),
-
-  createPlacement: (payload: { product_id: number; placement_type: string; bid_amount_per_click: number; daily_budget: number }) =>
-    request<any>('/brand/placements', {
-      method: 'POST',
+  requestDemo: (payload: {
+    company_name: string;
+    contact_name: string;
+    work_email: string;
+    website?: string;
+    phone?: string;
+    monthly_order_volume?: string;
+    message?: string;
+    source_path?: string;
+  }) =>
+    request<{
+      id: number;
+      status: string;
+      notification_status: string;
+      duplicate: boolean;
+      message: string;
+    }>("/brand/request-demo", {
+      method: "POST",
       body: JSON.stringify(payload),
     }),
 
-  getAdminAnalytics: () => request<AdminPlatformAnalytics>('/admin/analytics'),
+  getProfile: () => request<BrandProfile>("/brand/profile"),
+
+  getAnalytics: () => request<BrandAnalyticsDashboard>("/brand/analytics"),
+  getAnalyticsDashboard: () =>
+    request<BrandAnalyticsDashboard>("/brand/analytics"),
+
+  getProducts: () => request<Product[]>("/brand/products"),
+
+  updateSKU: (skuId: number, stockLevel: number, priceOverride?: number) => {
+    const q = priceOverride ? `&price_override=${priceOverride}` : "";
+    return request<any>(`/brand/skus/${skuId}?stock_level=${stockLevel}${q}`, {
+      method: "PUT",
+    });
+  },
+
+  updateSKUStock: (
+    skuId: number,
+    stockLevel: number,
+    priceOverride?: number,
+  ) => {
+    const q = priceOverride ? `&price_override=${priceOverride}` : "";
+    return request<any>(`/brand/skus/${skuId}?stock_level=${stockLevel}${q}`, {
+      method: "PUT",
+    });
+  },
+
+  getPlacements: () => request<any[]>("/brand/placements"),
+
+  createPlacement: (payload: {
+    product_id: number;
+    placement_type: string;
+    bid_amount_per_click: number;
+    daily_budget: number;
+  }) =>
+    request<any>("/brand/placements", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+
+  getAdminAnalytics: () => request<AdminPlatformAnalytics>("/admin/analytics"),
 };
 
 // 9. Admin Service
 export const adminService = {
-  getPlatformAnalytics: () => request<AdminPlatformAnalytics>('/admin/analytics'),
-  getBrandComparison: () => request<any[]>('/admin/analytics/brands'),
-  getAuditLogs: () => request<any[]>('/admin/audit'),
+  getPlatformAnalytics: () =>
+    request<AdminPlatformAnalytics>("/admin/analytics"),
+  getBrandComparison: () => request<any[]>("/admin/analytics/brands"),
+  getAuditLogs: () => request<any[]>("/admin/audit"),
 };

@@ -69,6 +69,25 @@ class TryOnJobOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class VtonProductCapabilityOut(BaseModel):
+    product_id: int
+    product_slug: Optional[str] = None
+    category_slug: Optional[str] = None
+    slot_type: Optional[str] = None
+    state: str  # supported|unsupported|temporarily_unavailable|misconfigured|unknown
+    reason_code: str
+    message: str
+    provider: str = "fashn_vton_segfee"
+
+
+class VtonCapabilityOut(BaseModel):
+    provider: str
+    engine_state: str  # available|temporarily_unavailable|misconfigured
+    supported_slots: List[str]
+    unsupported_slots: List[str]
+    products: List[VtonProductCapabilityOut] = []
+
+
 class GarmentAssetOut(BaseModel):
     id: int
     product_id: int

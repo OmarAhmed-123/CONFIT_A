@@ -33,7 +33,8 @@ from backend.app.schemas.tryon import (
     MeasurementSessionOut,
     TryOnJobCreate,
     TryOnJobOut,
-    GarmentAssetOut
+    GarmentAssetOut,
+    VtonCapabilityOut
 )
 
 from backend.app.core.rate_limit import limiter
@@ -157,6 +158,22 @@ def cancel_tryon_job(
 ):
     service = TryOnService(db)
     return service.cancel_vton_job(job_id, user_id=user.id if user else None)
+
+
+
+
+@router.get("/try-on/capabilities", response_model=VtonCapabilityOut)
+@router.get("/tryon/capabilities", response_model=VtonCapabilityOut)
+def get_vton_capabilities(
+    product_ids: Optional[List[int]] = Query(None),
+    db: Session = Depends(get_db)
+):
+    """Backend-authoritative VTON capability registry.
+
+    Supports product_ids=1&product_ids=2 and never lets the frontend infer
+    privileged support from category names alone.
+    """
+    return TryOnService(db).get_vton_capabilities(product_ids=product_ids)
 
 
 @router.get("/try-on/garments/{product_id}/asset", response_model=GarmentAssetOut)

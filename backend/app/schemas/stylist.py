@@ -3,6 +3,22 @@ from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, Field, ConfigDict
 
 
+class GuidedRecommendationConstraints(BaseModel):
+    """Structured constraints for the guided first-look contract.
+
+    Palette values are normalized server-side against the catalog colour
+    taxonomy. Fit only becomes authoritative when a concrete size profile is
+    supplied or present on the authenticated profile; a vague fit preference is
+    recorded as preference context but does not create a fake size score.
+    """
+    palette: Optional[str] = Field(default=None, max_length=40)
+    avoid_palette: Optional[str] = Field(default=None, max_length=40)
+    preferred_fit: Optional[str] = Field(default=None, max_length=30)
+    size_tops: Optional[str] = Field(default=None, max_length=20)
+    size_bottoms: Optional[str] = Field(default=None, max_length=20)
+    size_shoes: Optional[str] = Field(default=None, max_length=20)
+
+
 class StylistPromptRequest(BaseModel):
     session_id: Optional[int] = None
     prompt: str = Field(description="Natural language request or occasion text e.g. 'I need a smart casual outfit for an art gallery opening under $300'")
@@ -10,6 +26,7 @@ class StylistPromptRequest(BaseModel):
     budget_limit: Optional[float] = Field(default=None, ge=0, allow_inf_nan=False)
     voice_input_used: bool = False
     include_wardrobe_items: bool = True
+    recommendation_constraints: Optional[GuidedRecommendationConstraints] = None
 
 
 class OutfitItemOut(BaseModel):

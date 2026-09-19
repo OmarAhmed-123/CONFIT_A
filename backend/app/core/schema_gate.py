@@ -82,6 +82,7 @@ REQUIRED_TABLES: tuple[str, ...] = (
     "catalog_import_jobs",    # 0010
     "sponsored_placements",   # /brand/placements
     "migration_audit_log",    # 0013
+    "partner_leads",           # 0018 — public B2B request-demo workflow
 )
 
 # Tables created by a migration only (no ORM model): a create_all database

@@ -1140,6 +1140,85 @@ class TryOnService:
         """
         return bool(value) and value.startswith("data:image/")
 
+    def get_vton_capabilities(self, product_ids: Optional[List[int]] = None) -> Dict[str, Any]:
+        """Backend-authoritative VTON support contract.
+
+        Distinguishes engine availability from product/category support. Product
+        decisions are derived from trusted catalog category -> slot mapping and
+        engine renderable-slot metadata; unknown/missing metadata fails
+        conservatively instead of enabling try-on.
+        """
+        provider = "fashn_vton_segfee"
+        if not settings.VTON_WORKER_URL:
+            engine_state = "misconfigured"
+        else:
+            # Per-job worker readiness is still checked before inference; this
+            # endpoint is a fast metadata contract and intentionally avoids
+            # burning network latency/GPU health calls for catalog cards.
+            engine_state = "available"
+        out = {
+            "provider": provider,
+            "engine_state": engine_state,
+            "supported_slots": sorted(VTON_ENGINE_RENDERABLE_SLOTS),
+            "unsupported_slots": sorted(SUPPORTED_SLOTS - VTON_ENGINE_RENDERABLE_SLOTS),
+            "products": [],
+        }
+        if not product_ids:
+            return out
+        for raw_id in product_ids:
+            product = self.catalog_repo.get_product_by_id(int(raw_id))
+            if not product:
+                out["products"].append({
+                    "product_id": int(raw_id),
+                    "product_slug": None,
+                    "category_slug": None,
+                    "slot_type": None,
+                    "state": "unknown",
+                    "reason_code": "PRODUCT_NOT_FOUND",
+                    "message": "Product was not found; try-on is disabled.",
+                    "provider": provider,
+                })
+                continue
+            category_slug = product.category.slug if product.category else None
+            slot = CATEGORY_TO_VTON_SLOT.get(category_slug or "")
+            if not slot:
+                state, code, msg = (
+                    "unknown",
+                    "MISSING_CATEGORY_CAPABILITY",
+                    "This product category has no VTON capability metadata; try-on is disabled until configured.",
+                )
+            elif slot not in SUPPORTED_SLOTS:
+                state, code, msg = ("unknown", "UNKNOWN_SLOT", "The mapped VTON slot is unknown; try-on is disabled.")
+            elif slot not in VTON_ENGINE_RENDERABLE_SLOTS:
+                state, code, msg = (
+                    "unsupported",
+                    "CATEGORY_UNSUPPORTED_BY_ENGINE",
+                    VTON_UNSUPPORTED_SLOTS_MESSAGE.format(slots=slot),
+                )
+            elif engine_state == "misconfigured":
+                state, code, msg = (
+                    "misconfigured",
+                    "VTON_WORKER_NOT_CONFIGURED",
+                    "Virtual try-on rendering is not configured for this deployment.",
+                )
+            else:
+                state, code, msg = (
+                    "supported",
+                    "SUPPORTED",
+                    "This product category is supported by the configured VTON engine.",
+                )
+            out["products"].append({
+                "product_id": product.id,
+                "product_slug": product.slug,
+                "category_slug": category_slug,
+                "slot_type": slot,
+                "state": state,
+                "reason_code": code,
+                "message": msg,
+                "provider": provider,
+            })
+        return out
+
     def get_or_create_garment_asset(self, product_id: int) -> Dict[str, Any]:
         asset = self.db.query(GarmentAsset).filter(GarmentAsset.product_id == product_id).first()
         if asset:

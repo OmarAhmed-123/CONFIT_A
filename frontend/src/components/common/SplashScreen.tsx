@@ -46,6 +46,8 @@ export const SplashScreen: React.FC<{ onComplete?: () => void }> = ({ onComplete
 
   return (
     <div
+      aria-hidden="true"
+      role="presentation"
       className={`fixed inset-0 z-[100] flex flex-col items-center justify-center bg-[#0C0E1E] text-white transition-opacity duration-400 ${
         isFading ? 'opacity-0 pointer-events-none' : 'opacity-100'
       }`}

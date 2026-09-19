@@ -351,9 +351,9 @@ export const HomeView: React.FC = () => {
                   <span className="rounded-full bg-[#C5A059] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-[#0C0E1E]">
                     Example result
                   </span>
-                  <h3 className="mt-3 font-serif text-2xl font-bold">
+                  <h2 className="mt-3 font-serif text-2xl font-bold">
                     Tailored Power · Work
-                  </h3>
+                  </h2>
                   <p className="mt-1 text-xs text-slate-200">
                     Navy blazer, crisp shirt, relaxed trouser, polished loafers.
                   </p>
@@ -737,9 +737,9 @@ export const HomeView: React.FC = () => {
                   <SparkleIcon size={12} color="#C5A059" />
                   <span>Instant AI Stylist</span>
                 </span>
-                <h4 className="font-serif text-xl font-bold text-white mb-1">
+                <h2 className="font-serif text-xl font-bold text-white mb-1">
                   {occ.title}
-                </h4>
+                </h2>
                 <p className="text-xs text-slate-300 line-clamp-1 font-light mb-2">
                   {occ.desc}
                 </p>
@@ -897,9 +897,9 @@ export const HomeView: React.FC = () => {
             <div className="w-10 h-10 rounded-2xl bg-[#1B1F3B] text-[#C5A059] flex items-center justify-center font-bold shadow-xs mx-auto sm:mx-0">
               <SparkleIcon size={20} color="#C5A059" />
             </div>
-            <h4 className="font-serif text-sm font-bold text-[#1B1F3B]">
+            <h2 className="font-serif text-sm font-bold text-[#1B1F3B]">
               Private In-Browser Fit Studio
-            </h4>
+            </h2>
             <p className="text-xs text-slate-500 font-light leading-relaxed">
               No-photo measurements can stay in browser memory. Photo try-on is
               sent to the backend/provider only when you choose visual
@@ -912,9 +912,9 @@ export const HomeView: React.FC = () => {
             <div className="w-10 h-10 rounded-2xl bg-[#1B1F3B] text-[#C5A059] flex items-center justify-center font-bold shadow-xs mx-auto sm:mx-0">
               <BopisIcon size={20} color="#C5A059" />
             </div>
-            <h4 className="font-serif text-sm font-bold text-[#1B1F3B]">
+            <h2 className="font-serif text-sm font-bold text-[#1B1F3B]">
               Boutique Pickup (BOPIS)
-            </h4>
+            </h2>
             <p className="text-xs text-slate-500 font-light leading-relaxed">
               {capabilities.bopis_live
                 ? `Reserve online and collect at our ${capabilities.bopis_store_count === 1 ? "boutique" : `${capabilities.bopis_store_count} boutiques`} — pickup options are shown per piece at checkout.`
@@ -926,9 +926,9 @@ export const HomeView: React.FC = () => {
             <div className="w-10 h-10 rounded-2xl bg-[#1B1F3B] text-[#C5A059] flex items-center justify-center font-bold shadow-xs mx-auto sm:mx-0">
               <ShieldIcon size={20} color="#C5A059" />
             </div>
-            <h4 className="font-serif text-sm font-bold text-[#1B1F3B]">
+            <h2 className="font-serif text-sm font-bold text-[#1B1F3B]">
               30-Day Zero-Fee Returns
-            </h4>
+            </h2>
             <p className="text-xs text-slate-500 font-light leading-relaxed">
               Preview styling where supported and review size guidance before
               checkout. Eligible orders can be returned within the configured
@@ -940,9 +940,9 @@ export const HomeView: React.FC = () => {
             <div className="w-10 h-10 rounded-2xl bg-[#1B1F3B] text-[#C5A059] flex items-center justify-center font-bold shadow-xs mx-auto sm:mx-0">
               <BagIcon size={20} color="#C5A059" />
             </div>
-            <h4 className="font-serif text-sm font-bold text-[#1B1F3B]">
+            <h2 className="font-serif text-sm font-bold text-[#1B1F3B]">
               0% Interest BNPL Payments
-            </h4>
+            </h2>
             <p className="text-xs text-slate-500 font-light leading-relaxed">
               When BNPL is live, eligible orders can show supported installment
               options at checkout.

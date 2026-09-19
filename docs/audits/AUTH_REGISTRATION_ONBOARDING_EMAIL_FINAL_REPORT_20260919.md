@@ -152,6 +152,8 @@ Unchanged in the direction that matters: **authorization is still decided server
 * The invite flow can never mint an `admin` (422) and cannot cross tenants (409 `INVITEE_ALREADY_MEMBER` / single membership).
 * Frontend gates (`RoleGuard`) remain UX-only: with a forged privileged client state the guarded tree still renders nothing, and the server still 403s.
 
+**`is_verified` semantics (documented, not hidden):** on a deployment with **no** email provider there is no channel through which an address could be checked, so newly created accounts keep the legacy `is_verified = true` (the flag then means “no verification channel exists here”, not “the address was proven”). With a provider configured, verification must be **earned** via the emailed one-time link and starts `false`. To make the difference visible instead of misleading, `GET /api/v1/auth/email-status` now returns **`provider_configured`**, and both the verification screen and the profile panel say “verified (no email provider configured — no verification was possible here)” in that case. The policy question this leaves open is item 7 of §23.
+
 ## 13. Security improvements
 
 One-time-token hygiene (256-bit, SHA-256 at rest, TTL, single use, supersede-on-issue, replay 401/409); enumeration resistance on `forgot-password`/`resend-verification` (identical bodies, conditional copy, per-account honest status behind auth only); two-step email change that proves the **new** address first, revokes refresh tokens and notifies the **old** address; password change/reset revokes sessions and sends a notice; invitation abuse controls (revoked/expired/used/cross-tenant); delivery idempotency keyed on purpose+token; header-injection defence (CRLF-stripped subjects); no secrets, tokens or addresses in logs or the ledger (recipient hashed); rate limits on register/login/forgot/reset/resend/verify/email-change/invitations/partner applications; admin step-up for privilege-granting actions; provider-aware production boot gate; `FRONTEND_BASE_URL`-only link building (open-redirect and hardcoded-host risk removed).
@@ -167,7 +169,7 @@ Real screens for every lifecycle link; state-accurate 403 with one obvious next 
 | Suite | Command | Result |
 |---|---|---|
 | Backend auth/lifecycle/email (new + updated) | `PYTHONPATH=. pytest backend/tests/test_email_real_transport.py test_auth_onboarding_lifecycle.py test_email_delivery.py test_email_link_route_contract.py test_register_role_escalation.py test_cookie_auth.py test_csrf_protection.py -q` | **61 passed** |
-| Backend `test_email_real_transport.py` + `test_auth_onboarding_lifecycle.py` + `test_email_delivery.py` | `-q` | **37 passed** |
+| Backend email/lifecycle batch (`test_email_real_transport.py`, `test_auth_onboarding_lifecycle.py`, `test_email_delivery.py`, `test_email_link_route_contract.py`) | `-q` | **38 passed** |
 | Backend full suite | `PYTHONPATH=. pytest backend/tests -q --ignore=backend/tests/test_broker_unavailable_latency.py` | **1146 passed, 7 skipped, 5 failed, 12 errors** — every failure/error is pre-existing and environment-caused (§16) |
 | Frontend unit/regression | `npx vitest run` | **114 passed / 19 files** |
 | Frontend new lifecycle routing tests | `npx vitest run src/views/__tests__/authOnboardingRoutes.test.tsx` | **13 passed** |
@@ -210,7 +212,7 @@ Frontend suite asserts: a consumer hitting a brand area gets the actionable appl
 | `GET /api/v1/auth/me` | **401** (auth surface alive, no session) |
 | `GET /api/v1/auth/onboarding-state` / `email-status` | **404** → production is running the **pre-fix** build; the fix is not deployed |
 | `POST /api/v1/auth/register` with `{"role":"admin"}` injected | **201, created as `role: "consumer"`** → privilege escalation through the registration body is refused in production today; the probe account was then erased via `DELETE /api/v1/auth/account` with a valid CSRF token (**200**) |
-| Same registration response | `is_verified: true` immediately, and no email was attempted → confirms P7 on the live system (verification theatre in the deployed build) |
+| Same registration response | `is_verified: true` immediately, and no email was attempted → confirms P7 on the live system (the deployed build grants a verified flag with no verification channel; the new build keeps that only while no provider is configured, and now labels it) |
 | Production database | `alembic current` (via the project's own `DATABASE_URL`) → **`0017_audit_before_after_request_id`**; no 0018 tables exist |
 | Migration 0018 attempt on production | **FAILED / rolled back**: `psycopg2.errors.InsufficientPrivilege: must be owner of table users`. Runtime role `confit_app_rw` is not the owner (`neondb_owner` owns `users`, `brand_profiles`, `audit_logs`) and lacks `CREATE` on `public`. Production is unchanged (transactional DDL); no partial state |
 | Production email configuration | Vercel env inventory (68 vars) contains **no** `EMAIL_PROVIDER`, `EMAIL_FROM_ADDRESS`, `EMAIL_REPLY_TO`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_TLS_MODE`, `RESEND_API_KEY` or `FRONTEND_BASE_URL` → **auth email is BLOCKED in production** |
@@ -259,7 +261,7 @@ The commit history is preserved outside the sandbox as `auth-onboarding-email.bu
 4. **Social sign-in** (Google/Apple/Facebook) still creates accounts with `registration_intent = consumer` only; intent is not selectable on that path.
 5. **Deliverability tooling** (SPF/DKIM/DMARC records, bounce/complaint webhooks, suppression list) is out of scope here and unverified.
 6. `test_auth_rbac_and_gating.py::test_platform_admin_has_global_oversight` remains failing on `main` (analytics fixture, unrelated).
-7. Existing production accounts created under the old build are marked `is_verified: true` without any verification; a backfill decision (re-verify on next login vs grandfather) is a product call and was deliberately not made unilaterally.
+7. **`is_verified` policy when no provider exists** — accounts created without an email provider are flagged verified because no check is possible (documented in `user_repository.create` and surfaced through `provider_configured`). Once a provider is configured, the product must decide whether those legacy accounts are grandfathered or asked to verify on next login; that decision (and any backfill) was deliberately left to the product owner rather than made unilaterally.
 
 ## 24. BLOCKED
 

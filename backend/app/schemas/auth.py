@@ -140,6 +140,11 @@ class EmailDeliveryStatusOut(BaseModel):
     purpose: Optional[str] = None
     status: str
     accepted: bool
+    # Whether THIS deployment can send transactional mail. Without a provider
+    # no verification is possible, so `is_verified` on legacy accounts means
+    # "no channel exists to check" — the UI must say that instead of claiming a
+    # check that never happened.
+    provider_configured: bool = False
     provider: Optional[str] = None
     error_class: Optional[str] = None
     attempts: int = 0

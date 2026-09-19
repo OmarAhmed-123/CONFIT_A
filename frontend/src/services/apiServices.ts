@@ -80,6 +80,7 @@ export const authService = {
       purpose?: string | null;
       status: 'succeeded' | 'failed' | 'blocked' | 'retrying' | 'unverified' | 'none';
       accepted: boolean;
+      provider_configured: boolean;
       provider?: string | null;
       error_class?: string | null;
       attempts: number;

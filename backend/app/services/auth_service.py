@@ -999,12 +999,14 @@ class AuthService:
         another address — and it is why the anonymous request endpoints can stay
         non-committal without the product lying to the user.
         """
+        provider_configured = email_service.is_email_configured()
         row = email_service.latest_delivery(self.db, user_id=user.id, purpose=purpose)
         if row is None:
             return {
                 "purpose": purpose,
                 "status": "none",
                 "accepted": False,
+                "provider_configured": provider_configured,
                 "provider": None,
                 "error_class": None,
                 "attempts": 0,
@@ -1014,6 +1016,7 @@ class AuthService:
             "purpose": row.purpose,
             "status": row.status.value if hasattr(row.status, "value") else str(row.status),
             "accepted": (row.status.value if hasattr(row.status, "value") else str(row.status)) == "succeeded",
+            "provider_configured": provider_configured,
             "provider": row.provider,
             "error_class": row.error_class,
             "attempts": row.attempts,

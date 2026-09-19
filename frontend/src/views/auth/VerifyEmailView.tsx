@@ -27,7 +27,12 @@ export const VerifyEmailView: React.FC = () => {
   const [email, setEmail] = useState(user?.email || '');
   const [resending, setResending] = useState(false);
   const [resendResult, setResendResult] = useState<string | null>(null);
-  const [delivery, setDelivery] = useState<{ status: string; accepted: boolean; error_class?: string | null } | null>(null);
+  const [delivery, setDelivery] = useState<{
+    status: string;
+    accepted: boolean;
+    error_class?: string | null;
+    provider_configured?: boolean;
+  } | null>(null);
   const [providerConfigured, setProviderConfigured] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -129,12 +134,15 @@ export const VerifyEmailView: React.FC = () => {
     );
   }
 
+  const providerMissing = delivery?.provider_configured === false || providerConfigured === false;
+
   return (
     <AuthShell eyebrow="Email verification" title="Confirm your email address">
-      {providerConfigured === false ? (
+      {providerMissing ? (
         <AuthNote tone="error">
-          Email delivery is not configured on this deployment, so verification emails cannot be sent yet. Your account
-          works, but the address stays unverified until an operator configures a provider.
+          Email delivery is not configured on this deployment, so verification emails cannot be sent — and no
+          verification has taken place. Any account created here is marked verified only because there is no channel
+          to check the address; once an operator configures a provider, verify explicitly.
         </AuthNote>
       ) : (
         <p className="text-slate-400">

@@ -157,6 +157,17 @@ def test_unconfigured_provider_records_blocked_and_the_api_says_501(client: Test
     assert r.status_code == 501
     assert r.json()["error"]["code"] == "FEATURE_NOT_CONFIGURED"
 
+    # An authenticated owner must be told that no verification channel exists —
+    # never that their (unchecked) address is verified.
+    reg = client.post(
+        "/api/v1/auth/register",
+        json={"email": "no-provider@example.com", "password": "Password123!", "full_name": "No Provider"},
+    )
+    assert reg.status_code == 201
+    status = client.get("/api/v1/auth/email-status").json()
+    assert status["provider_configured"] is False
+    assert status["accepted"] is False
+
     # Direct service-level call records BLOCKED instead of pretending.
     db = next(app.dependency_overrides[get_db]())
     try:
@@ -216,6 +227,9 @@ def test_email_status_endpoint_reports_own_delivery_truth(client: TestClient, sm
     assert body["status"] == "succeeded"
     assert body["accepted"] is True
     assert body["provider"] == "smtp"
+    # The deployment CAN send here, so the flag must say so — the SPA uses it to
+    # decide whether "verified" means "checked" or "no channel exists".
+    assert body["provider_configured"] is True
 
 
 def test_streaming_resend_invalidates_the_previous_link(client: TestClient, smtp_sink):

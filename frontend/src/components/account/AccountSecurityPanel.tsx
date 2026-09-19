@@ -19,7 +19,12 @@ export const AccountSecurityPanel: React.FC = () => {
   const [newEmail, setNewEmail] = useState('');
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<{ tone: 'ok' | 'warn' | 'error'; text: string } | null>(null);
-  const [delivery, setDelivery] = useState<{ status: string; accepted: boolean; error_class?: string | null } | null>(null);
+  const [delivery, setDelivery] = useState<{
+    status: string;
+    accepted: boolean;
+    error_class?: string | null;
+    provider_configured?: boolean;
+  } | null>(null);
   const [unavailable, setUnavailable] = useState(false);
 
   useEffect(() => {
@@ -73,7 +78,11 @@ export const AccountSecurityPanel: React.FC = () => {
             {user.email}
             {' · '}
             <span className={user.is_verified ? 'text-emerald-600 font-semibold' : 'text-amber-600 font-semibold'}>
-              {user.is_verified ? 'verified' : 'not verified yet'}
+              {user.is_verified
+                ? delivery?.provider_configured === false
+                  ? 'verified (no email provider configured — no verification was possible here)'
+                  : 'verified'
+                : 'not verified yet'}
             </span>
             {user.onboarding?.account_state ? ` · ${user.onboarding.account_state}` : ''}
           </div>

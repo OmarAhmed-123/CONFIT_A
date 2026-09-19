@@ -55,17 +55,17 @@ export const RoleGuard: React.FC<RoleGuardProps> = ({
                     Public Partner Portal
                   </span>
                   <h1 className="font-serif text-4xl font-bold leading-tight sm:text-5xl">
-                    Reduce fit uncertainty before shoppers reach returns.
+                    Reduce fit uncertainty before shoppers reach checkout.
                   </h1>
                   <p className="max-w-2xl text-sm font-light leading-relaxed text-slate-300">
-                    CONFIT connects premium catalog ingestion, fit intelligence, and virtual try-on workflows so brand teams can improve conversion confidence without hiding behind a login gate.
+                    CONFIT connects premium catalog ingestion, fit intelligence, and virtual try-on workflows so brand teams can understand the partner workflow before signing in.
                   </p>
                   <div className="flex flex-wrap gap-3">
                     <button
                       onClick={() => openAuthModal('register')}
                       className="rounded-2xl bg-[#C5A059] px-5 py-3 text-xs font-bold uppercase tracking-wider text-[#0C0E1E] transition hover:bg-[#E2BF70]"
                     >
-                      Request partner demo
+                      Create partner account
                     </button>
                     <button
                       onClick={() => openAuthModal('login')}

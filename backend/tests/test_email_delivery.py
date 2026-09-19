@@ -152,7 +152,7 @@ def test_forgot_password_sends_real_one_time_link(client, _smtp, email_on):
 
     r = client.post("/api/v1/auth/forgot-password", json={"email": email}, headers=_csrf(client))
     assert r.status_code == 200
-    assert r.json()["status"] == "queued"
+    assert r.json()["status"] == "requested"
     (msg,) = _smtp.sent
     body = msg.get_body(preferencelist=("plain",)).get_content()
     assert "https://app.confit.test/reset-password?token=" in body
@@ -176,7 +176,7 @@ def test_forgot_password_sends_real_one_time_link(client, _smtp, email_on):
 def test_forgot_password_unknown_email_no_leak_no_send(client, _smtp, email_on):
     r_known_shape = client.post("/api/v1/auth/forgot-password", json={"email": "nobody@example.com"}, headers=_csrf(client))
     assert r_known_shape.status_code == 200
-    assert r_known_shape.json()["status"] == "queued"
+    assert r_known_shape.json()["status"] == "requested"
     assert _smtp.sent == []
 
 
@@ -187,7 +187,7 @@ def test_forgot_password_smtp_failure_does_not_leak(client, _smtp, email_on):
     _smtp.reject = True
     r = client.post("/api/v1/auth/forgot-password", json={"email": email}, headers=_csrf(client))
     assert r.status_code == 200  # non-committal, exactly like success
-    assert r.json()["status"] == "queued"
+    assert r.json()["status"] == "requested"
 
 
 def test_forgot_password_still_501_when_unconfigured(client, _smtp):

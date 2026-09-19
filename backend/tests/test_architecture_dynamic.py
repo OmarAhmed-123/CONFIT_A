@@ -501,13 +501,32 @@ def _identity_backend():
     return "arcface_w600k_r50", embedding, cosine
 
 
-_IDENTITY = _identity_backend()
-IDENTITY_BACKEND = _IDENTITY[0]
+# Lazy resolution: the identity models (AdaFace/ArcFace, eval-only) pull in
+# torch, which is NOT a declared backend dependency. Importing at module
+# level would crash test collection on the CI backend job (requirements.txt
+# only). Resolving on first use keeps a full local environment byte-identical
+# in behavior while CI collects cleanly; live identity tests skip in CI
+# (no live worker) and fail loudly there if run without the model.
+_IDENTITY = None
+
+
+def _resolve_identity():
+    global _IDENTITY
+    if _IDENTITY is None:
+        _IDENTITY = _identity_backend()
+    return _IDENTITY
+
+
+def identity_backend_name() -> str:
+    try:
+        return _resolve_identity()[0]
+    except Exception:
+        return "unavailable"
 
 
 def identity_cosine(img_a: bytes, img_b: bytes):
     """Cosine identity between two images (eval-only model, see backend)."""
-    _, embedding, cosine = _IDENTITY
+    _, embedding, cosine = _resolve_identity()
     ea, _ = embedding(Image.open(io.BytesIO(img_a)))
     eb, _ = embedding(Image.open(io.BytesIO(img_b)))
     if ea is None or eb is None:
@@ -556,7 +575,7 @@ def _at01_body(client, live_env, at_products, db):
     assert c_self > (c_other or -1), f"output identity mismatch: self={c_self} other={c_other}"
     _record(
         "AT-01",
-        identity_backend=IDENTITY_BACKEND,
+        identity_backend=identity_backend_name(),
         input_person="person_rt1.jpg",
         input_sha256=h_in,
         output_sha256=h_out,
@@ -594,7 +613,7 @@ def test_at02_unique_persons_same_garment(client, live_env, at_products):
     assert m["b_vs_b"] > m["b_vs_a"], f"out2 identity mismatch: {m}"
     _record(
         "AT-02",
-        identity_backend=IDENTITY_BACKEND,
+        identity_backend=identity_backend_name(),
         out1_sha256=h1,
         out2_sha256=h2,
         identity_matrix={k: round(v, 4) for k, v in m.items()},
@@ -880,7 +899,7 @@ def test_at08_unknown_person(client, live_env, at_products):
     _record(
         "AT-08",
         unknown_person="person_rt4.jpg",
-        identity_backend=IDENTITY_BACKEND,
+        identity_backend=identity_backend_name(),
         output_sha256=sha256(out),
         identity_cos_self=round(c_self, 4),
         identity_cos_other=round(c_other, 4) if c_other is not None else None,
@@ -951,7 +970,7 @@ def test_at10_combined_unknown_full_outfit(client, live_env, at_products):
         "AT-10",
         unknown_person="person_rt2.jpg",
         unknown_garments=[at_products["g1"], at_products["g2"]],
-        identity_backend=IDENTITY_BACKEND,
+        identity_backend=identity_backend_name(),
         output_sha256=sha256(out),
         all_layers_verified=True,
         identity_cos_self=round(c_self, 4),
@@ -1335,7 +1354,7 @@ def test_at17_dynamic_identity_unknown_persons(client, live_env, at_products):
         margins[f"out_rt{i}"] = round(vals[best] - max(v for kk, v in vals.items() if kk != best), 4)
     _record(
         "AT-17",
-        identity_backend=IDENTITY_BACKEND,
+        identity_backend=identity_backend_name(),
         identity_matrix=matrix,
         argmax_margins=margins,
         each_output_matches_its_person=ok,

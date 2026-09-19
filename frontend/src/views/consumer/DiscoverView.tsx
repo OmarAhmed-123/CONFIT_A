@@ -229,7 +229,7 @@ export const DiscoverView: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2 overflow-x-auto pb-1">
-          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider shrink-0">Occasion:</span>
+          <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider shrink-0">Occasion:</span>
           <button
             onClick={() => setSelectedOccasion('')}
             className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all shrink-0 ${

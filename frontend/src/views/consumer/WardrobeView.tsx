@@ -253,7 +253,7 @@ export const WardrobeView: React.FC = () => {
             <div className="rounded-[32px] border border-[#C5A059]/25 bg-white p-6 shadow-2xs">
               <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
                 <div className="space-y-4">
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-[#C5A059]">Wardrobe retention engine</span>
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-[#7A5C28]">Wardrobe retention engine</span>
                   <h2 className="font-serif text-3xl font-bold text-[#1B1F3B]">Upload a few pieces to see what you can wear next</h2>
                   <p className="text-sm font-light leading-relaxed text-slate-500">
                     Start with three everyday garments. CONFIT will auto-tag editable fabric, color, silhouette, and wear-frequency signals, then suggest combinations from what you already own.
@@ -278,7 +278,7 @@ export const WardrobeView: React.FC = () => {
                       <img src={src} alt={`Example wardrobe upload ${index + 1}`} className="h-56 w-full object-cover" />
                     </div>
                   ))}
-                  <div className="col-span-3 rounded-2xl border border-[#C5A059]/25 bg-[#FDF8EE] p-4 text-center text-xs font-semibold text-[#A37E44]">
+                  <div className="col-span-3 rounded-2xl border border-[#C5A059]/25 bg-[#FDF8EE] p-4 text-center text-xs font-semibold text-[#7A5C28]">
                     Upload pieces → see realistic combinations from what you own.
                   </div>
                 </div>

@@ -125,9 +125,15 @@ export function useStylistViewModel() {
         return;
       }
 
+      const missingSku = itemsToAdd.find((it) => !it.sku_id);
+      if (missingSku) {
+        showToast('This stylist look is missing verified SKU data, so it cannot be added to bag yet.', 'error');
+        return;
+      }
+
       for (const it of itemsToAdd) {
         await addItem(
-          it.sku_id || (it as any).id || (it.product_id * 10 + 1),
+          it.sku_id!,
           {
             id: it.product_id,
             title: it.product_title,

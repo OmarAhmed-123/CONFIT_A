@@ -48,7 +48,7 @@ export const TryOnFitView: React.FC = () => {
       <section className="rounded-3xl border border-[#C5A059]/25 bg-white p-5 shadow-2xs">
         <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
           <div>
-            <span className="text-[10px] font-bold uppercase tracking-widest text-[#C5A059]">Choose your privacy route first</span>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-[#7A5C28]">Choose your privacy route first</span>
             <h2 className="mt-1 font-serif text-2xl font-bold text-[#1B1F3B]">Know what each fit option gives you</h2>
             <p className="mt-2 text-sm font-light leading-relaxed text-slate-500">
               Visual try-on is an honest 2D preview of drape and styling. Fit confidence is separate and improves when you add measurements or use the no-photo checker.

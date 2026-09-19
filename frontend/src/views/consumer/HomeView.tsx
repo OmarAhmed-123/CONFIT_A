@@ -292,7 +292,7 @@ export const HomeView: React.FC = () => {
       <section id="guided-first-look" className="rounded-[32px] border border-[#C5A059]/25 bg-white p-6 shadow-2xs sm:p-8">
         <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
           <div>
-            <span className="text-[10px] font-bold uppercase tracking-widest text-[#C5A059]">Guided first look</span>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-[#7A5C28]">Guided first look</span>
             <h2 className="mt-2 font-serif text-3xl font-bold text-[#1B1F3B]">Tell CONFIT the moment before browsing everything</h2>
             <p className="mt-3 text-sm font-light leading-relaxed text-slate-500">
               This starts a real AI stylist request using the current catalog endpoint. It does not fabricate products, sizes, or inventory; if the service is unavailable, the stylist drawer reports the error.

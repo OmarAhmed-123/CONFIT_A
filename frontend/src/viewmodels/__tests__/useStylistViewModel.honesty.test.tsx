@@ -41,4 +41,24 @@ describe('STYLIST honesty contract', () => {
       'error',
     );
   });
+
+  it('does not synthesize SKU ids for malformed stylist items', async () => {
+    const { result } = renderHook(() => useStylistViewModel());
+
+    await act(async () => {
+      await result.current.addCompleteLookToCart({
+        id: 77,
+        title: 'Malformed Recommendation',
+        items: [{ product_id: 10, product_title: 'Catalog Item Missing SKU', category_name: 'Tops', color_hex: '#000000' }],
+      } as any);
+    });
+
+    expect(mocks.addItem).not.toHaveBeenCalled();
+    expect(mocks.openCart).not.toHaveBeenCalled();
+    expect(mocks.showToast).toHaveBeenCalledWith(
+      expect.stringContaining('missing verified SKU data'),
+      'error',
+    );
+  });
+
 });

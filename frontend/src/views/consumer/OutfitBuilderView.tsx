@@ -271,7 +271,7 @@ export const OutfitBuilderView: React.FC = () => {
       <section className="rounded-3xl border border-[#C5A059]/25 bg-white p-5 shadow-2xs">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <span className="text-[10px] font-bold uppercase tracking-widest text-[#C5A059]">Guided mode</span>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-[#7A5C28]">Guided mode</span>
             <h2 className="font-serif text-2xl font-bold text-[#1B1F3B]">Start with a formula, then replace one item at a time</h2>
             <p className="mt-1 text-sm font-light text-slate-500">
               Avoid the blank-canvas problem: choose a proven outfit structure, then refine fit, budget, and color harmony.

@@ -83,7 +83,7 @@ export const ConfitLogo: React.FC<ConfitLogoProps> = ({
 
           {variant === 'full' && (
             <span
-              className={`uppercase tracking-[0.25em] font-semibold -mt-0.5 text-slate-500 ${tagSize}`}
+              className={`uppercase tracking-[0.25em] font-semibold -mt-0.5 ${isLight ? 'text-slate-300' : 'text-slate-600'} ${tagSize}`}
             >
               Confidence + Fit
             </span>

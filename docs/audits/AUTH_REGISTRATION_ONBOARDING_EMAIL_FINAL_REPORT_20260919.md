@@ -235,9 +235,9 @@ Frontend suite asserts: a consumer hitting a brand area gets the actionable appl
 | `7c1ba57` | `docs(auth): root-cause audit, MCP email evaluation and lifecycle evidence` |
 | `854faf6` | `test(auth): share the SMTP test sink through a support module` |
 | `190a8d2` | `docs(auth): pin final commit SHAs in the lifecycle report` |
-| `b32a878` … **HEAD** | `feat(auth): surface whether this deployment can send mail at all` (this pin commit) |
+| `b32a878` | `feat(auth): surface whether this deployment can send mail at all` |
 
-Branch tip: **b32a878**, 8 commits, clean tree, 48 files changed vs `main @ 928e615`.
+Branch tip: the 8 commits above (`95dcc1c`…`b32a878`) plus this report-pin commit; tree clean; 48 files changed vs `main @ 928e615`.
 Exported artifacts: `auth-onboarding-email.bundle`, `auth-onboarding-email.patch` (workspace root) + `PUSH_INSTRUCTIONS.md`.
 
 ## 21. PR URL

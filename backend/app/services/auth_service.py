@@ -27,6 +27,7 @@ import jwt
 import pyotp
 from jwt.exceptions import PyJWTError
 from sqlalchemy import func, or_
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from backend.app.core.config import settings
@@ -142,15 +143,28 @@ class AuthService:
         if existing:
             raise ValidationDomainError("An account with this email already exists.")
 
-        user = self.user_repo.create(
-            email=email,
-            password=password,
-            full_name=full_name,
-            role=UserRole.CONSUMER,
-            phone=phone,
-            preferred_language=preferred_language,
-            registration_intent=intent.value,
-        )
+        try:
+            user = self.user_repo.create(
+                email=email,
+                password=password,
+                full_name=full_name,
+                role=UserRole.CONSUMER,
+                phone=phone,
+                preferred_language=preferred_language,
+                registration_intent=intent.value,
+            )
+        except IntegrityError:
+            # REAL RACE (PostgreSQL concurrency suite): two simultaneous
+            # registrations for one address both passed the pre-check above and
+            # both tried to insert. `ix_users_email` lets exactly one through;
+            # the loser must answer with the same domain error as the pre-check
+            # (409, no account-existence oracle beyond what the caller already
+            # knows — they just tried to create it) instead of a 500.
+            self.db.rollback()
+            raise ConflictError(
+                "An account with this email already exists.",
+                code="EMAIL_ALREADY_REGISTERED",
+            )
 
         # Best-effort verification email: registration NEVER fails because of
         # email transport (the account exists either way). The outcome is not
@@ -965,7 +979,16 @@ class AuthService:
             RefreshToken.user_id == user.id, RefreshToken.revoked_at.is_(None)
         ):
             refresh.revoked_at = now
-        self.db.commit()
+        try:
+            self.db.commit()
+        except IntegrityError:
+            # Same race shape as registration: the pre-check passed, the unique
+            # index decided. Roll back and report it as the domain conflict.
+            self.db.rollback()
+            raise ConflictError(
+                "That address is already registered to a CONFIT account.",
+                code="EMAIL_ALREADY_REGISTERED",
+            )
         self.user_repo.log_audit(
             "EMAIL_CHANGED", "User", str(user.id), user_id=user.id,
             before={"email_masked": _mask_email(old_email)},

@@ -274,10 +274,33 @@ def review_application(
                 "The applicant already holds a privileged role; resolve that manually.",
                 code="APPLICANT_NOT_ELIGIBLE",
             )
-        brand, created = _provision_brand(db, applicant, application)
-        applicant.role = UserRole.BRAND_OWNER
-        application.status = PartnerApplicationStatus.APPROVED
-        application.brand_id = brand.id
+        try:
+            brand, created = _provision_brand(db, applicant, application)
+            applicant.role = UserRole.BRAND_OWNER
+            application.status = PartnerApplicationStatus.APPROVED
+            application.brand_id = brand.id
+        except IntegrityError:
+            # REAL RACE (PostgreSQL concurrency suite): two admins approved the
+            # same application at once; both read `pending` and both provisioned
+            # a tenant. The database settled it (`brand_profiles.user_id` is
+            # unique). Roll back everything this request wrote, then describe the
+            # state we can actually OBSERVE rather than guessing a cause.
+            db.rollback()
+            fresh = (
+                db.query(PartnerApplication)
+                .filter(PartnerApplication.id == application_id)
+                .first()
+            )
+            if fresh is not None and _role_value(fresh.status) != "pending":
+                raise ConflictError(
+                    "This application was reviewed by another administrator.",
+                    code="APPLICATION_ALREADY_REVIEWED",
+                )
+            raise ConflictError(
+                "The brand could not be provisioned because another record changed "
+                "at the same time. Retry the review.",
+                code="PROVISIONING_CONFLICT",
+            )
         _audit(db, reviewer.id, "PARTNER_APPLICATION_APPROVED", "PartnerApplication", application.id,
                request_id=request_id,
                details={"brand_id": brand.id, "brand_created": created, "applicant_user_id": applicant.id})
@@ -292,7 +315,21 @@ def review_application(
     application.reviewed_at = token_service.utcnow()
     application.reviewed_by_user_id = reviewer.id
     application.decision_note = (note or None)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        # Backstop for a race on the final write (status transition / audit).
+        db.rollback()
+        fresh = db.query(PartnerApplication).filter(PartnerApplication.id == application_id).first()
+        if fresh is not None and fresh.status != PartnerApplicationStatus.PENDING:
+            raise ConflictError(
+                f"This application was already {_role_value(fresh.status)}.",
+                code="APPLICATION_ALREADY_REVIEWED",
+            )
+        raise ConflictError(
+            "Another review of this application is in progress; retry in a moment.",
+            code="APPLICATION_REVIEW_IN_PROGRESS",
+        )
     db.refresh(application)
 
     if email_service.is_email_configured():
@@ -583,7 +620,25 @@ def accept_invitation(
             is_verified=True,
         )
         db.add(user)
-        db.flush()
+        try:
+            db.flush()
+        except IntegrityError:
+            # REAL RACE (found by the PostgreSQL concurrency suite): two
+            # simultaneous acceptances of the same invitation both saw "no
+            # account yet" and both tried to create it. `ix_users_email` let
+            # exactly one through; the loser must NOT surface as a 500.
+            # Re-read the authoritative state and answer precisely.
+            db.rollback()
+            fresh = token_service.lookup_token(db, model=Invitation, raw=raw_token)
+            if fresh is not None and fresh.status == InvitationStatus.ACCEPTED:
+                raise ConflictError(
+                    "This invitation has already been accepted.",
+                    code="INVITATION_ALREADY_ACCEPTED",
+                )
+            raise ConflictError(
+                "Another acceptance of this invitation is in progress; retry in a moment.",
+                code="INVITATION_ACCEPTANCE_IN_PROGRESS",
+            )
         created_account = True
     else:
         if user.role == UserRole.ADMIN:
@@ -615,7 +670,23 @@ def accept_invitation(
     invitation.status = InvitationStatus.ACCEPTED
     invitation.accepted_at = token_service.utcnow()
     invitation.accepted_by_user_id = user.id
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        # Lost the race on a unique constraint (membership or invitation
+        # status). Nothing of ours may survive: roll back and report the state
+        # the winner produced, never an unhandled 500.
+        db.rollback()
+        fresh = token_service.lookup_token(db, model=Invitation, raw=raw_token)
+        if fresh is not None and fresh.status == InvitationStatus.ACCEPTED:
+            raise ConflictError(
+                "This invitation has already been accepted.",
+                code="INVITATION_ALREADY_ACCEPTED",
+            )
+        raise ConflictError(
+            "Another acceptance of this invitation is in progress; retry in a moment.",
+            code="INVITATION_ACCEPTANCE_IN_PROGRESS",
+        )
     db.refresh(user)
     db.refresh(invitation)
 

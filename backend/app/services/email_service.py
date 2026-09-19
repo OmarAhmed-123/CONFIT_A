@@ -330,6 +330,46 @@ def send_transactional(
             delivery_id=record.id,
         )
 
+    # --- claim the idempotency key FIRST ---------------------------------
+    # Found by the PostgreSQL concurrency suite: with the row written only
+    # AFTER the send, two simultaneous identical sends both passed the
+    # pre-check, both hit the provider, and only the ledger insert collided —
+    # i.e. the recipient got the message twice while the system believed it
+    # had sent once. Claiming the key before the network call makes the unique
+    # index arbitrate ownership BEFORE anything leaves the process. A row left
+    # in RETRYING means "an attempt owns this key and has not reported yet".
+    claim = EmailDelivery(
+        user_id=user_id,
+        purpose=purpose,
+        idempotency_key=idem,
+        status=EmailDeliveryStatus.RETRYING,
+        provider=provider,
+        error_class=None,
+        attempts=0,
+        recipient_hash=recipient_hash(to),
+        request_id=request_id,
+    )
+    db.add(claim)
+    try:
+        db.commit()
+    except IntegrityError:
+        # Another attempt (possibly still in flight) owns this key. Report what
+        # is known instead of sending a second message.
+        db.rollback()
+        winner = db.query(EmailDelivery).filter(EmailDelivery.idempotency_key == idem).first()
+        if winner is not None:
+            return DeliveryResult(
+                status=winner.status,
+                provider=winner.provider,
+                message_id=winner.provider_message_id,
+                error_class=winner.error_class,
+                attempts=winner.attempts or 0,
+                delivery_id=winner.id,
+                idempotent_replay=True,
+            )
+        raise
+    db.refresh(claim)
+
     try:
         meta = send_email(to=to, subject=subject, html=html, text=text)
         result = DeliveryResult(
@@ -353,39 +393,21 @@ def send_transactional(
             attempts=_ATTEMPTS,
         )
 
-    record = EmailDelivery(
-        user_id=user_id,
-        purpose=purpose,
-        idempotency_key=idem,
-        status=result.status,
-        provider=result.provider,
-        provider_message_id=result.message_id,
-        error_class=result.error_class,
-        attempts=result.attempts,
-        recipient_hash=recipient_hash(to),
-        request_id=request_id,
-    )
-    db.add(record)
+    # The claim row was inserted (and committed) BEFORE the provider call: its
+    # unique `idempotency_key` is what prevents a duplicate SEND, not merely a
+    # duplicate record. Fill in the real outcome now.
+    claim.status = result.status
+    claim.provider = result.provider
+    claim.provider_message_id = result.message_id
+    claim.error_class = result.error_class
+    claim.attempts = result.attempts
     try:
         db.commit()
-    except IntegrityError:
-        # A concurrent identical send won the race: report ITS outcome so the
-        # caller never believes two messages were delivered.
+    except Exception:  # pragma: no cover - the claim already exists
         db.rollback()
-        winner = db.query(EmailDelivery).filter(EmailDelivery.idempotency_key == idem).first()
-        if winner is not None:
-            return DeliveryResult(
-                status=winner.status,
-                provider=winner.provider,
-                message_id=winner.provider_message_id,
-                error_class=winner.error_class,
-                attempts=winner.attempts or 0,
-                delivery_id=winner.id,
-                idempotent_replay=True,
-            )
-        raise
-    db.refresh(record)
-    result.delivery_id = record.id
+        claim = db.query(EmailDelivery).filter(EmailDelivery.idempotency_key == idem).first()
+    db.refresh(claim)
+    result.delivery_id = claim.id
     return result
 
 

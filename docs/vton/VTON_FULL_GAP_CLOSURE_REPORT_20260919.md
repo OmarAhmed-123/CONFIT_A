@@ -67,8 +67,9 @@ STATUS: **VERIFIED**
 
 CLAIM B5: New durable state: branch `feature/vton-complete-gap-closure` pushed to remote:
 `a58cfa9` (reconciliation + 14-gap remediation, 242 files) + `9972613` (CI collection
-fix). **PR #119** opened against `main` (base `10d80a12`):
-`https://github.com/OmarAhmed-123/CONFIT_A/pull/119`. NOT merged (no merge directed).
+fix) + `1f59174` (this report + supersession banner) = tip. **PR #119** opened against
+`main` (base `10d80a12`): `https://github.com/OmarAhmed-123/CONFIT_A/pull/119`. NOT merged
+(no merge directed).
 EVIDENCE: push outputs, GitHub API PR response (head a58cfa9e95 → base 10d80a12f2, #119).
 STATUS: **PUSHED + PR CREATED (recorded)**
 
@@ -274,7 +275,8 @@ STATUS: **FIXED-VERIFIED**
 | frontend tsc --noEmit | **0 errors** | |
 | CI-mirror env (backend/requirements.txt only) | **1253 passed, 29 skipped, 0 failed** | after 9972613 |
 | mutation gates (CI-mirror env) | **14 killed, 0 survived, 0 N/A** | M1–M14 |
-| GitHub CI on PR #119 (first run, pre-fix) | gitleaks ✓, postgres migration chain ✓, production parity ✓, frontend ✓; backend ✗ (torch collection — root-caused, fixed in 9972613); Workers Builds ✗ (under re-run) | CI ran on 2026-09-19 ~21:30 UTC |
+| GitHub CI on PR #119, run 1 (a58cfa9) | gitleaks ✓, postgres migration chain ✓, production parity ✓, frontend ✓; backend ✗ (torch collection — root-caused, fixed in 9972613); Workers Builds ✗ | ~21:30 UTC |
+| GitHub CI on PR #119, runs 2–3 (9972613, 1f59174) | gitleaks ✓, postgres migration chain ✓, production parity ✓, frontend ✓, **backend ✓ (fixed)**; Workers Builds ✗ on all 3 runs | ~21:40–22:00 UTC |
 
 Negative tests per boundary: SSRF guard-fail → blocked (G5); no-person → 422, 0 GPU
 calls (G1); empty session → 422 (G2); expired-unconsented purged / consented-future
@@ -372,7 +374,7 @@ STATUS: **VERIFIED**
 | 23 | Production DB read | **BLOCKED-AUTH** |
 | 24 | Human calibration (≥3 real raters) | **BLOCKED (calibration)** — package prepared, zero labels |
 | 25 | Browser-level production UX | **BLOCKED — NO BROWSER RUNTIME** |
-| 26 | CI green on PR #119 | backend fixed (9972613, re-run pending); Workers Builds re-run pending |
+| 26 | CI on PR #119 | backend/frontend/migrations/parity/gitleaks **GREEN on runs 2–3**; Workers Builds ✗ (not diff-caused; §S B5) |
 
 Gap register (exact deficiency → state):
 
@@ -383,7 +385,7 @@ Gap register (exact deficiency → state):
 | B2 | Hardened branch (PR #119) undeployed; production = mainline 10d80a12 (0017 schema) | **NOT DEPLOYED** |
 | B3 | Neon read-only DB read | **BLOCKED-AUTH** (rerun §Q3) |
 | B4 | Human calibration + identity licensing | **BLOCKED (calibration) / LICENSE-GATED** |
-| B5 | CI: "Workers Builds: confit-a" failed on first PR run (infra build; cause under re-run) | **UNDER RE-RUN** |
+| B5 | CI: "Workers Builds: confit-a" failed on ALL 3 PR runs (incl. docs-only run ⇒ not diff-caused); main's run succeeded at 18:36 UTC, before the Modal spend limit first observed at 21:16 UTC; Vercel standard build + previews READY on every run | **UNDER INVESTIGATION** (Vercel build logs need dashboard access; temporal correlation with Modal spend limit; no repo-side cause found) |
 | D1 | BRD fallback compositor intentionally not implemented | **DEVIATION-DISCLOSED** (BRD decision item) |
 | D2 | Avatars = photos, not BRD "3D avatars" | **DEVIATION-DISCLOSED** |
 | D3 | Modal readiness hash-label quirk | VERIFIED (documented design) |
@@ -416,8 +418,9 @@ against this session's evidence):
 5. Was any threshold moved for pass rate? NO (v2.4 byte-identical, line-anchored)
 6. Are lost objects claimed as present? NO (5b7fd80/a785c22 recorded LOST)
 7. Is the PR claim real? YES (#119, API-confirmed)
-8. Is CI claimed green where it isn't? NO (first run's 2 failures disclosed, backend
-   root-caused + fixed, re-run pending)
+8. Is CI claimed green where it isn't? NO (run 1's 2 failures disclosed; backend green
+   on re-runs 2–3; Workers Builds failure documented in §S B5 with non-diff-causation
+   proof)
 9. Is deployment claimed? NO (not authorized, not performed)
 10. Any credential written to repo/log/report? NO (0-hit scans; one-shot use only)
 11. Any BRD rewritten to match implementation? NO
@@ -434,8 +437,8 @@ against this session's evidence):
     **RELEASE = BLOCKED**
 
 Executor summary (mandate §33):
-- Branch/commit: `feature/vton-complete-gap-closure` = `9972613` (a58cfa9 + 9972613),
-  base `10d80a12` (origin/main at re-landing). PR #119 (unmerged).
+- Branch/commit: `feature/vton-complete-gap-closure` tip = `1f59174` (a58cfa9 + 9972613
+  + 1f59174), base `10d80a12` (origin/main at re-landing). PR #119 (unmerged).
 - Files changed: 242 in a58cfa9 (reconciliation 1c0c329 content + 14-gap remediation +
   3 new files: 0019 migration, gap-closure test, COMPLETE report) + 1 in 9972613.
 - Gaps: 14 found (G1–G14 incl. G3a–c, G7a–b) → 14 fixed + 18 new tests; 4 blockers
@@ -452,8 +455,11 @@ Executor summary (mandate §33):
 - Final VTON status: hardened branch complete and verified to CI level; production
   render path blocked by Modal spend limit; identity license-gated.
 - Release state: **RELEASE = BLOCKED**
-- PR/CI/deployment: PR #119 created (recorded above); CI backend fixed (re-run
-  pending), Workers Builds re-run pending; deployment NOT authorized, NOT performed.
+- PR/CI/deployment: PR #119 created (recorded above); CI on runs 2–3: backend, frontend,
+  postgres migration chain, production parity, gitleaks all GREEN; only "Workers Builds:
+  confit-a" fails on all 3 runs (not diff-caused — docs-only run fails identically;
+  temporal correlation with the Modal spend limit; §S B5). Deployment NOT authorized, NOT
+  performed.
 
 Supersession note: `VTON_COMPLETE_GAP_CLOSURE_REPORT_20260919.md` remains in-repo as
 the detailed pre-reset artifact; where this report and it differ, this report's

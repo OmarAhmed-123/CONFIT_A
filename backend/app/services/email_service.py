@@ -47,6 +47,7 @@ from email.utils import formatdate, make_msgid
 from typing import Optional
 
 import httpx
+import structlog
 from sqlalchemy.exc import IntegrityError
 
 from backend.app.core.config import settings
@@ -68,8 +69,15 @@ from backend.app.services.email_templates import (  # noqa: F401
 )
 
 logger = logging.getLogger(__name__)
+# Structured (structlog) logger for security-relevant lifecycle events: the app
+# renders these as JSON with correlation ids, secret-free by construction.
+structured_log = structlog.get_logger("confit.email")
 
 _ATTEMPTS = 2
+
+# Upper bound of the opportunistic stale-claim sweep run before a send:
+# keeps the hot path O(1) while still healing abandoned claims.
+_STALE_CLAIM_SWEEP_LIMIT = 25
 _TIMEOUT_SECONDS = 10.0
 _RESEND_ENDPOINT = "https://api.resend.com/emails"
 
@@ -292,8 +300,25 @@ def send_transactional(
     ``dedupe_key`` should identify the exact message being sent (for auth mails
     the one-time token hash). A repeated call with the same key returns the
     first attempt's recorded outcome instead of sending a second message.
+
+    A key whose attempt died mid-flight reports ``unknown`` (see
+    ``resolve_stale_delivery_claims``) — never ``succeeded``, and never a silent
+    second transmission.
     """
     idem = f"{purpose}:{dedupe_key or recipient_hash(to)}"
+
+    # Self-healing: a claim left behind by a process that died mid-send must not
+    # masquerade as "still in flight". Cheap, bounded and idempotent, so it can
+    # run on this hot path as well as from the scheduled maintenance task. The
+    # resolver never sends anything, so it cannot create a duplicate here.
+    try:
+        resolve_stale_delivery_claims(db, limit=_STALE_CLAIM_SWEEP_LIMIT)
+    except Exception as sweep_exc:  # pragma: no cover - resolution must never block a real send
+        structured_log.warning(
+            "stale delivery claim sweep skipped",
+            error_class=type(sweep_exc).__name__,
+        )
+
     existing = db.query(EmailDelivery).filter(EmailDelivery.idempotency_key == idem).first()
     if existing is not None:
         return DeliveryResult(
@@ -409,6 +434,84 @@ def send_transactional(
     db.refresh(claim)
     result.delivery_id = claim.id
     return result
+
+
+def resolve_stale_delivery_claims(
+    db,
+    *,
+    older_than_seconds: Optional[int] = None,
+    limit: int = 100,
+) -> int:
+    """Terminalise claims whose owning process died before recording an outcome.
+
+    The claim-first design (see ``send_transactional``) guarantees **at most one
+    send per idempotency key**, at the price of one window: if the process dies
+    after the claim is committed but before the provider's answer is stored, the
+    row stays ``retrying``. That is a non-terminal state with no owner left to
+    finish it, so the ledger would report "in flight" forever — which is exactly
+    the kind of quiet lie this work stream exists to remove.
+
+    Recovery policy (deliberately conservative):
+
+    * The outcome is ``unknown``, not ``succeeded`` and not ``failed``: an
+      attempt may have been transmitted, and we never claim either way.
+    * **Nothing is re-sent here.** A duplicate auth message is a worse failure
+      than an unknown one, so the resolver only resolves state; it never delivers.
+    * The idempotency key stays occupied, so the same message can never be
+      transmitted twice by a later identical request.
+    * A user-visible retry remains available where it matters — verification and
+      reset flows mint a NEW token per request and therefore a NEW key — so the
+      user is never stranded by an unknown attempt.
+    * Bounded (``limit``), idempotent and deterministic: a second run finds
+      nothing; concurrent runs update disjoint row sets under the same predicate.
+
+    Returns the number of claims resolved.
+    """
+    from datetime import timedelta
+
+    # Deferred import: keeps this module importable in the deployment import
+    # closure even though token_service is only needed for `utcnow()`.
+    from backend.app.services import token_service
+
+    stale_after = (
+        int(older_than_seconds)
+        if older_than_seconds is not None
+        else int(getattr(settings, "EMAIL_CLAIM_STALE_SECONDS", 900) or 900)
+    )
+    # The ledger timestamp is stored WITHOUT timezone, so both engines hand back
+    # naive (UTC) datetimes even though the process works in aware UTC. Compare
+    # naive-to-naive in SQL, and normalise before doing arithmetic — mixing the
+    # two raises "can't subtract offset-naive and offset-aware datetimes".
+    now = token_service.utcnow()
+    cutoff = now.astimezone(timezone.utc).replace(tzinfo=None) - timedelta(seconds=stale_after)
+    stale = (
+        db.query(EmailDelivery)
+        .filter(EmailDelivery.status == EmailDeliveryStatus.RETRYING)
+        .filter(EmailDelivery.created_at < cutoff)
+        .order_by(EmailDelivery.id.asc())
+        .limit(int(limit))
+        .all()
+    )
+    if not stale:
+        return 0
+
+    for row in stale:
+        age_seconds = int((now - token_service._as_utc(row.created_at)).total_seconds())
+        row.status = EmailDeliveryStatus.UNKNOWN
+        row.error_class = "provider_result_unknown"
+        # Structured, secret-free: ids and ages only — never recipient, token,
+        # body or provider credentials.
+        structured_log.warning(
+            "stale email delivery claim resolved as unknown",
+            delivery_id=row.id,
+            purpose=row.purpose,
+            request_id=row.request_id,
+            age_seconds=age_seconds,
+            stale_after_seconds=stale_after,
+            outcome="unknown_not_resent",
+        )
+    db.commit()
+    return len(stale)
 
 
 def latest_delivery(db, *, user_id: int, purpose: Optional[str] = None) -> Optional[EmailDelivery]:

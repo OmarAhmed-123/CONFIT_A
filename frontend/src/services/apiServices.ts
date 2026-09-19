@@ -78,7 +78,10 @@ export const authService = {
   getEmailStatus: (purpose?: string) =>
     request<{
       purpose?: string | null;
-      status: 'succeeded' | 'failed' | 'blocked' | 'retrying' | 'unverified' | 'none';
+      // 'unknown' = an attempt was claimed but the process died before the
+      // provider's answer was recorded; the backend never guesses, and it never
+      // re-sends silently.
+      status: 'succeeded' | 'failed' | 'blocked' | 'retrying' | 'unverified' | 'unknown' | 'none';
       accepted: boolean;
       provider_configured: boolean;
       provider?: string | null;

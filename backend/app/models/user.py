@@ -65,6 +65,11 @@ class EmailDeliveryStatus(str, enum.Enum):
     RETRYING = "retrying"     # transient failure, retry scheduled/attempted
     BLOCKED = "blocked"       # no provider configured (nothing was sent)
     UNVERIFIED = "unverified"  # accepted locally, no provider receipt available
+    # TERMINAL, honest: an attempt claimed this key and then the process died
+    # before the provider's answer was recorded. Whether the message was
+    # transmitted is genuinely unknown, so neither success nor failure may be
+    # claimed. Resolved by email_service.resolve_stale_delivery_claims().
+    UNKNOWN = "unknown"
 
 
 class _LowerEnumType(TypeDecorator):

@@ -159,6 +159,11 @@ class Settings(BaseSettings):
     # services/email_service.py) — a provider flag without SMTP_HOST is a
     # configuration error and refuses to boot in production (validator below).
     EMAIL_PROVIDER: Optional[str] = None  # "smtp" | "resend" | None
+    # How long a claimed-but-unreported delivery attempt may stay in flight
+    # before its claim is terminalised as UNKNOWN. Bounds the window in which a
+    # crashed worker could leave a ledger row in a non-terminal "retrying"
+    # state forever. No message is re-sent by the resolver.
+    EMAIL_CLAIM_STALE_SECONDS: int = 900
     EMAIL_FROM_ADDRESS: Optional[str] = None
     PARTNER_LEAD_NOTIFY_EMAIL: Optional[str] = None
     EMAIL_REPLY_TO: Optional[str] = None

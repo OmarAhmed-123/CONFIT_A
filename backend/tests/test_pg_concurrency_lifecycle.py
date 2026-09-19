@@ -416,3 +416,135 @@ def test_concurrent_registration_of_one_address_creates_one_account(pg, email_on
         assert users[0].role == UserRole.CONSUMER
     finally:
         db.close()
+
+
+# ---------------------------------------------------------------------------
+# 6. Crash between claiming the key and recording the provider's answer
+# ---------------------------------------------------------------------------
+
+class _ProcessDied(BaseException):
+    """Abrupt termination emulation.
+
+    A worker that is killed mid-send does not raise an ``Exception`` the service
+    can catch -- it simply stops existing. ``BaseException`` (but NOT
+    ``KeyboardInterrupt``, whose special asyncio handling tears down the test
+    transport) reproduces exactly that: the claim stays committed with no result.
+    """
+
+
+def test_crashed_claim_recovers_as_unknown_and_the_retry_sends_exactly_once(pg, email_on, monkeypatch):
+    """The claim-first design leaves one narrow window: the process dies after
+    the claim is committed but before the provider result is stored. This drives
+    that window, then proves the recovery path.
+
+    Contract asserted:
+      * the abandoned attempt resolves to `unknown` - not `succeeded`, not
+        `failed`, because whether the message left is genuinely unknowable;
+      * the recovery re-sends NOTHING;
+      * the user's own retry (new token -> new key) delivers exactly one message;
+      * the crashed key can never deliver a second copy (at-most-once per key).
+    """
+    from backend.app.core.database import SessionLocal
+    from backend.app.models.user import EmailDelivery, EmailDeliveryStatus
+    from backend.app.services import email_service
+
+    engine, Session = pg
+    client = TestClient(app)
+    email = "crash-recovery@example.com"
+    _register(client, email)
+
+    # 1. abrupt death in the middle of the provider call. Driven through the
+    #    real service entry point: a process death is by definition outside the
+    #    HTTP error contract, so the HTTP layer is not part of what is proven.
+    original_send = email_service.send_email
+
+    def _die_on_the_wire(*args, **kwargs):
+        raise _ProcessDied("worker terminated mid-send")
+
+    db = Session()
+    try:
+        messages_before_crash = len(email_on.messages)
+        email_service.send_email = _die_on_the_wire
+        try:
+            email_service.send_transactional(
+                db, to=email, subject="Verify", html="<b>x</b>", text="x",
+                purpose=email_service.PURPOSE_VERIFICATION, dedupe_key="crash-window",
+            )
+            raise AssertionError("the emulated crash must have propagated")
+        except _ProcessDied:
+            pass  # the process "died" with the claim already committed
+        finally:
+            email_service.send_email = original_send
+
+        assert len(email_on.messages) == messages_before_crash, "nothing may reach the provider"
+
+        crashed = (
+            db.query(EmailDelivery)
+            .filter(
+                EmailDelivery.idempotency_key
+                == f"{email_service.PURPOSE_VERIFICATION}:crash-window"
+            )
+            .first()
+        )
+        assert crashed is not None, "the claim must have been committed before the send"
+        assert crashed.status == EmailDeliveryStatus.RETRYING
+        crashed_key = crashed.idempotency_key
+
+        # 2. recovery terminalises the abandoned claim and sends nothing
+        assert email_service.resolve_stale_delivery_claims(db, older_than_seconds=0) >= 1
+        db.refresh(crashed)
+        assert crashed.status == EmailDeliveryStatus.UNKNOWN
+        assert crashed.error_class == "provider_result_unknown"
+        assert len(email_on.messages) == messages_before_crash, "recovery must never re-send"
+
+        # 3. an identical replay of the crashed key must not transmit either
+        replay = email_service.send_transactional(
+            db, to=email, subject="Verify", html="<b>x</b>", text="x",
+            purpose=email_service.PURPOSE_VERIFICATION, dedupe_key="crash-window",
+        )
+        assert replay.status == EmailDeliveryStatus.UNKNOWN
+        assert replay.accepted is False
+        assert len(email_on.messages) == messages_before_crash
+    finally:
+        db.close()
+
+    # 4. the user retries: a NEW token mints a NEW key and delivers EXACTLY one
+    #    message, and the lifecycle then completes end to end.
+    _verify_email(client, email, email_on)
+    assert len(email_on.messages) == messages_before_crash + 1, (
+        f"the retry must put exactly one new message on the wire, saw "
+        f"{len(email_on.messages) - messages_before_crash}"
+    )
+
+    db = Session()
+    try:
+        # Scope to THIS address: the ledger stores only a SHA-256 recipient
+        # hash (no plaintext), so the filter is exact without being a PII store.
+        rows = (
+            db.query(EmailDelivery)
+            .filter(EmailDelivery.recipient_hash == email_service.recipient_hash(email))
+            .all()
+        )
+        by_key = {r.idempotency_key: r for r in rows}
+        dump = [(r.id, r.purpose, r.status.value, r.attempts, r.error_class) for r in rows]
+
+        # exactly one ledger row per idempotency key - the ledger can never hold
+        # two competing outcomes for the same message
+        assert len(by_key) == len(rows), dump
+
+        # the crashed attempt is terminal as UNKNOWN and NEVER became a success
+        crashed_row = by_key[crashed_key]
+        assert crashed_row.status == EmailDeliveryStatus.UNKNOWN, dump
+        assert crashed_row.error_class == "provider_result_unknown"
+        assert not any(
+            r.status == EmailDeliveryStatus.SUCCEEDED and r.idempotency_key == crashed_key
+            for r in rows
+        ), dump
+
+        # the two genuine sends this flow performed are recorded as successes:
+        # the registration verification, and the reminder emitted by the retry
+        succeeded = sorted(r.purpose for r in rows if r.status == EmailDeliveryStatus.SUCCEEDED)
+        assert succeeded == ["email_verification", "email_verification_reminder"], dump
+        assert sum(1 for r in rows if r.status == EmailDeliveryStatus.UNKNOWN) == 1, dump
+    finally:
+        db.close()

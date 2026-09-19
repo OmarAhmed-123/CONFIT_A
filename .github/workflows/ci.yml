@@ -90,6 +90,23 @@ jobs:
           backend/tests/test_migration_integrity_behavioral.py
           backend/tests/test_migration_0013_quarantine_audit.py
 
+      # The six real-concurrency lifecycle tests skip unless CONFIT_PG_DSN
+      # points at PostgreSQL (SQLite serialises writers, so it cannot prove a
+      # race). They used to skip in CI for that reason alone. They now run here
+      # against a SECOND disposable database inside the same ephemeral service
+      # container: no production credential, no external dependency, and the
+      # race schema is materialised by the test module itself.
+      #
+      # The database is created with keyword arguments on purpose — the
+      # credential is never written as a URL-shaped literal, so the full-history
+      # secret scan has nothing to (wrongly) match.
+      - name: Lifecycle race tests on disposable PostgreSQL (confit_pg_race)
+        env:
+          CONFIT_PG_DSN: postgresql://confit:${{ env.CI_PG_PASSWORD }}@localhost:5432/confit_pg_race
+        run: |
+          python3 -c "import os, psycopg2; c = psycopg2.connect(host='localhost', port=5432, user='confit', password=os.environ['CI_PG_PASSWORD'], dbname='confit_ci'); c.autocommit = True; cur = c.cursor(); cur.execute(\"SELECT 1 FROM pg_database WHERE datname = 'confit_pg_race'\"); cur.fetchone() or cur.execute('CREATE DATABASE confit_pg_race')"
+          PYTHONPATH=. python3 -m pytest -q backend/tests/test_pg_concurrency_lifecycle.py
+
   # Guards against "works on the developer machine" regressions: the Vercel
   # function manifest, entrypoint, environment contract and forbidden
   # local-only references are checked as data, independent of the test DB.

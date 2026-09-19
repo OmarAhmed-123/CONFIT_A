@@ -640,3 +640,119 @@ def test_no_endpoint_accepts_a_redirect_parameter():
                 if name in {"next", "redirect", "redirect_uri", "returnurl", "return_url", "continue", "url"}:
                     offenders.append(f"{method.upper()} {path}?{name}")
     assert offenders == [], f"redirect-capable parameters found: {offenders}"
+
+
+# ---------------------------------------------------------------------------
+# Deactivated / SUSPENDED accounts (F1)
+#
+# `build_onboarding_state` has a SUSPENDED branch and `is_active=False` is
+# enforced at every entry point. These tests pin BOTH halves of that contract:
+# the state machine resolves a deactivated account to SUSPENDED with a
+# deterministic (support-oriented) next action — outranking the ordinary
+# verification/profile gates — and every authentication path refuses the
+# account without issuing or extending a session.
+# ---------------------------------------------------------------------------
+
+
+def _set_active(email: str, active: bool) -> None:
+    db = _db()
+    try:
+        user = db.query(User).filter(User.email == email).first()
+        assert user is not None, f"fixture user {email} missing"
+        user.is_active = active
+        db.commit()
+    finally:
+        db.close()
+
+
+def _onboarding_state(email: str) -> dict:
+    """Server-side state for one account, via the same service the API uses."""
+    from backend.app.services import auth_service as auth_mod
+
+    db = _db()
+    try:
+        user = db.query(User).filter(User.email == email).first()
+        return auth_mod.AuthService(db).onboarding_state(user)
+    finally:
+        db.close()
+
+
+def test_deactivated_account_resolves_to_suspended_with_a_deterministic_next_action(client: TestClient):
+    email = "deactivated-state@example.com"
+    _register(client, email)  # deliberately NOT verified: suspension outranks it
+
+    _set_active(email, False)
+    state = _onboarding_state(email)
+
+    assert state["is_active"] is False
+    assert state["account_state"] == "SUSPENDED"
+    assert state["next_action"] == {
+        "type": "contact_support",
+        "route": None,
+        "label": "Contact support about this account",
+    }
+    # `allowed_areas` is a role-derived UI hint, NOT an authorization surface:
+    # it is computed from the role alone, so it still names the consumer
+    # storefront here. Authorization for a deactivated account is enforced
+    # elsewhere (every entry point refuses `is_active=False`), which the next
+    # three tests prove at the API level.
+    assert state["allowed_areas"] == ["storefront"]
+
+    # The branch is state-driven, not sticky: re-activation restores the very
+    # same account's ordinary lifecycle position. Which gates apply is itself
+    # server-derived — the verification gate only exists where a provider can
+    # actually deliver the mail — so the expectation is computed, not hardcoded.
+    from backend.app.services import email_service
+
+    _set_active(email, True)
+    resumed = _onboarding_state(email)
+    assert resumed["account_state"] != "SUSPENDED"
+    expected_state = (
+        "EMAIL_VERIFICATION_REQUIRED" if email_service.is_email_configured() else "ONBOARDING_REQUIRED"
+    )
+    assert resumed["account_state"] == expected_state
+
+
+def test_deactivated_account_cannot_log_in_and_is_issued_no_session(client: TestClient):
+    email = "deactivated-login@example.com"
+    _register(client, email)
+    _set_active(email, False)
+
+    fresh = TestClient(app)  # empty cookie jar: proves nothing gets issued
+    r = fresh.post("/api/v1/auth/login", json={"email": email, "password": "Password123!"})
+
+    assert r.status_code == 401, r.text
+    body = r.json()
+    assert body["error"]["code"] == "AUTH_FAILED"
+    assert "access_token" not in body and "refresh_token" not in body
+    assert fresh.cookies.get("confit_token") is None
+    assert fresh.cookies.get("confit_refresh") is None
+
+
+def test_deactivated_account_access_token_stops_working(client: TestClient):
+    email = "deactivated-access@example.com"
+    _register(client, email)
+
+    # The cookie the account legitimately holds is valid while active...
+    assert client.get("/api/v1/auth/me").status_code == 200
+
+    _set_active(email, False)
+
+    # ...and is refused the moment the account is deactivated: authorization is
+    # re-derived from server state on every request, not from the token alone.
+    r = client.get("/api/v1/auth/me")
+    assert r.status_code == 401, r.text
+    assert r.json()["error"]["code"] == "AUTH_FAILED"
+
+
+def test_deactivated_account_cannot_rotate_a_refresh_token(client: TestClient):
+    email = "deactivated-refresh@example.com"
+    _register(client, email)
+    _set_active(email, False)
+
+    r = client.post("/api/v1/auth/refresh", headers=_csrf(client))
+
+    assert r.status_code == 401, r.text
+    assert r.json()["error"]["code"] == "AUTH_FAILED"
+    # The dead refresh cookie is cleared instead of being retried forever.
+    assert client.cookies.get("confit_refresh") in (None, "")

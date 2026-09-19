@@ -10,101 +10,11 @@ const getResolvedOutfitItems = (outfit: any) => {
   if (outfit.items && outfit.items.length > 0) {
     return outfit.items;
   }
-  const title = (outfit.title || '').toLowerCase();
-  const occ = (outfit.occasion || '').toLowerCase();
 
-  if (title.includes('silk') || title.includes('dress') || title.includes('gala') || occ.includes('party') || occ.includes('evening')) {
-    return [
-      {
-        id: 501,
-        product_id: 5,
-        product_title: 'Silk Slip Column Maxi Dress with Drape Neckline',
-        brand_name: 'Reiss',
-        category_name: 'Dresses',
-        price: 340.0,
-        image_url: 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=700',
-        color_family: 'Champagne Gold',
-        position: 'dress',
-        role_in_outfit: 'Anchor Statement Gown',
-      },
-      {
-        id: 701,
-        product_id: 7,
-        product_title: 'Strappy Metallic Leather Heeled Sandals',
-        brand_name: 'Reiss',
-        category_name: 'Footwear',
-        price: 250.0,
-        image_url: 'https://images.unsplash.com/photo-1543163521-1bf539c55dd2?w=700',
-        color_family: 'Metallic Gold',
-        position: 'footwear',
-        role_in_outfit: 'Sculpted Footwear',
-      },
-      {
-        id: 901,
-        product_id: 9,
-        product_title: 'Structured Metallic Evening Box Clutch',
-        brand_name: 'Reiss',
-        category_name: 'Accessories',
-        price: 180.0,
-        image_url: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=700',
-        color_family: 'Black & Gold',
-        position: 'accessory',
-        role_in_outfit: 'Evening Minaudière',
-      },
-    ];
-  }
-
-  // Default Formal / Wedding / Business tailored look
-  return [
-    {
-      id: 101,
-      product_id: 1,
-      product_title: 'Tailored Italian Wool Double-Breasted Blazer',
-      brand_name: 'Massimo Dutti',
-      category_name: 'Outerwear',
-      price: 289.0,
-      image_url: 'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?w=700',
-      color_family: 'Navy Blue',
-      position: 'outerwear',
-      role_in_outfit: 'Tailored Wool Anchor',
-    },
-    {
-      id: 301,
-      product_id: 3,
-      product_title: 'Relaxed Organic Poplin Oxford Shirt',
-      brand_name: 'COS',
-      category_name: 'Tops',
-      price: 95.0,
-      image_url: 'https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=700',
-      color_family: 'Optic White',
-      position: 'top',
-      role_in_outfit: 'Crisp Cotton Layer',
-    },
-    {
-      id: 401,
-      product_id: 4,
-      product_title: 'Pleated Tapered Virgin Wool Trousers',
-      brand_name: 'Massimo Dutti',
-      category_name: 'Bottoms',
-      price: 165.0,
-      image_url: 'https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=700',
-      color_family: 'Navy Blue',
-      position: 'bottom',
-      role_in_outfit: 'Pleated Wool Silhouette',
-    },
-    {
-      id: 801,
-      product_id: 8,
-      product_title: 'Silk Jacquard Evening Necktie',
-      brand_name: 'Reiss',
-      category_name: 'Accessories',
-      price: 75.0,
-      image_url: 'https://images.unsplash.com/photo-1589756823695-278bc923f962?w=700',
-      color_family: 'Emerald Green',
-      position: 'accessory',
-      role_in_outfit: 'Silk Jacquard Accent',
-    },
-  ];
+  // Evidence-first UX: do not backfill AI stylist responses with static product
+  // placeholders. Empty responses should remain visibly empty so the user knows
+  // the endpoint did not return verified catalog item lines.
+  return [];
 };
 
 export const VirtualStylistDrawer: React.FC = () => {
@@ -123,10 +33,18 @@ export const VirtualStylistDrawer: React.FC = () => {
     addCompleteLookToCart,
   } = useStylistViewModel();
 
-  // Prefill occasion if opened with shortcut
+  // Prefill occasion or guided-first-look intent if opened with a shortcut.
   useEffect(() => {
     if (isStylistDrawerOpen && stylistPrefillOccasion && messages.length === 0) {
-      sendPrompt(`Style a complete outfit for ${stylistPrefillOccasion}`, stylistPrefillOccasion);
+      if (typeof stylistPrefillOccasion === 'string') {
+        sendPrompt(`Style a complete outfit for ${stylistPrefillOccasion}`, stylistPrefillOccasion);
+      } else {
+        sendPrompt(
+          stylistPrefillOccasion.prompt,
+          stylistPrefillOccasion.occasion,
+          stylistPrefillOccasion.budget,
+        );
+      }
     }
   }, [isStylistDrawerOpen, stylistPrefillOccasion, messages.length, sendPrompt]);
 
@@ -329,7 +247,6 @@ export const VirtualStylistDrawer: React.FC = () => {
                                         category_name: item.category_name,
                                         color_family: item.color_family || 'Coordinated',
                                         style_compatibility_score: outfit.compatibility_score,
-                                        ai_fit_score: 95,
                                       } as any)
                                     }
                                     className="px-2 py-1 rounded-lg bg-white border border-slate-200 hover:border-[#C5A059] text-[10px] font-semibold text-slate-700 flex items-center gap-1 shadow-2xs"
@@ -343,6 +260,11 @@ export const VirtualStylistDrawer: React.FC = () => {
                             );
                           })}
                         </div>
+                        {getResolvedOutfitItems(outfit).length === 0 && (
+                          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                            This stylist response did not include verified catalog items, so CONFIT is not showing placeholder products or enabling bag actions for this look.
+                          </div>
+                        )}
 
                         {/* C15 FIX: Budget honesty - show within/over budget and note */}
                         {outfit.budget_limit != null && (
@@ -368,7 +290,8 @@ export const VirtualStylistDrawer: React.FC = () => {
                           </div>
                           <button
                             onClick={() => addCompleteLookToCart(outfit)}
-                            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#1B1F3B] hover:bg-[#0C0E1E] text-white text-xs font-bold shadow-md transition-all"
+                            disabled={getResolvedOutfitItems(outfit).length === 0}
+                            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#1B1F3B] hover:bg-[#0C0E1E] text-white text-xs font-bold shadow-md transition-all disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             <BagIcon size={14} color="#FFFFFF" />
                             <span>{outfit.is_complete !== false ? 'Add Complete Look to Bag' : 'Add Core Look to Bag'}</span>

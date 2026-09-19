@@ -39,7 +39,7 @@ export const BrandNavbar: React.FC = () => {
           </Link>
 
           {/* B2B Navigation Tabs */}
-          <nav className="hidden md:flex items-center gap-1">
+          <nav aria-label="Brand partner navigation" className="hidden md:flex items-center gap-1">
             <Link
               to="/b2b"
               className={`px-3.5 py-2 rounded-xl text-xs font-semibold tracking-wide transition-all ${

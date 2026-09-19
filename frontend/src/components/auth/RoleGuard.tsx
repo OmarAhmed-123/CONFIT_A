@@ -189,7 +189,7 @@ export const RoleGuard: React.FC<RoleGuardProps> = ({
 
     if (isPartnerPortal) {
       return (
-        <div className="min-h-[80vh] px-4 py-10">
+        <main className="min-h-[80vh] px-4 py-10">
           <div className="mx-auto max-w-6xl space-y-8">
             <section className="overflow-hidden rounded-[36px] border border-[#C5A059]/30 bg-[#0C0E1E] p-6 text-white shadow-2xl sm:p-10 lg:p-14">
               <div className="grid gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
@@ -244,9 +244,9 @@ export const RoleGuard: React.FC<RoleGuardProps> = ({
                       key={title}
                       className="rounded-3xl border border-white/10 bg-white/10 p-4 backdrop-blur"
                     >
-                      <h3 className="font-serif text-lg font-bold text-white">
+                      <h2 className="font-serif text-lg font-bold text-white">
                         {title}
-                      </h3>
+                      </h2>
                       <p className="mt-2 text-xs font-light leading-relaxed text-slate-300">
                         {copy}
                       </p>
@@ -277,9 +277,9 @@ export const RoleGuard: React.FC<RoleGuardProps> = ({
                   key={title}
                   className="rounded-3xl border border-slate-200 bg-white p-5 shadow-2xs"
                 >
-                  <h3 className="font-serif text-xl font-bold text-[#1B1F3B]">
+                  <h2 className="font-serif text-xl font-bold text-[#1B1F3B]">
                     {title}
-                  </h3>
+                  </h2>
                   <p className="mt-2 text-sm font-light leading-relaxed text-slate-500">
                     {copy}
                   </p>
@@ -287,7 +287,7 @@ export const RoleGuard: React.FC<RoleGuardProps> = ({
               ))}
             </section>
           </div>
-        </div>
+        </main>
       );
     }
 

@@ -119,14 +119,17 @@ export const ProductDetailView: React.FC = () => {
 
   if (loadError || !product) {
     return (
-      <EmptyState
-        title="This piece is unavailable"
-        description={
-          loadError || "The product could not be loaded from the catalogue."
-        }
-        actionText="Try again"
-        onAction={() => setReloadTick((t) => t + 1)}
-      />
+      <>
+        <h1 className="sr-only">Product unavailable</h1>
+        <EmptyState
+          title="This piece is unavailable"
+          description={
+            loadError || "The product could not be loaded from the catalogue."
+          }
+          actionText="Try again"
+          onAction={() => setReloadTick((t) => t + 1)}
+        />
+      </>
     );
   }
 

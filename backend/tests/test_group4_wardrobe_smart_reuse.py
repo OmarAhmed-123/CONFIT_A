@@ -252,6 +252,14 @@ def _tiny_png(seed: bytes = b"") -> bytes:
     ) + seed
 
 
+def _tiny_image(fmt: str) -> bytes:
+    from io import BytesIO
+    from PIL import Image
+    buf = BytesIO()
+    Image.new("RGB", (1, 1), (7, 11, 13)).save(buf, format=fmt)
+    return buf.getvalue()
+
+
 class TestWardrobeUploadPipeline:
     def test_manual_create_persists_and_is_ready(self, client):
         headers = _login(client)
@@ -297,6 +305,28 @@ class TestWardrobeUploadPipeline:
             files={"file": ("evil.exe", b"MZ\x00", "application/octet-stream")},
         )
         assert res.status_code == 422
+
+    def test_server_side_image_validation_rejects_spoofed_and_mismatched_images(self):
+        from backend.app.core.exceptions import ValidationDomainError
+        from backend.app.services.wardrobe_service import WardrobeService
+
+        service = WardrobeService(None)
+        assert service._validate_image("image/jpeg", _tiny_image("JPEG"), "ok.jpg") == ".jpg"
+        assert service._validate_image("image/png", _tiny_png(b"validation"), "ok.png") == ".png"
+        assert service._validate_image("image/webp", _tiny_image("WEBP"), "ok.webp") == ".webp"
+
+        with pytest.raises(ValidationDomainError, match="Unsupported image type"):
+            service._validate_image("image/gif", _tiny_image("PNG"), "fake.gif")
+        with pytest.raises(ValidationDomainError, match="empty"):
+            service._validate_image("image/png", b"", "empty.png")
+        with pytest.raises(ValidationDomainError, match="not a valid image"):
+            service._validate_image("image/png", b"not-a-real-png", "fake.png")
+        with pytest.raises(ValidationDomainError, match="content type"):
+            service._validate_image("image/png", _tiny_image("JPEG"), "fake.png")
+        with pytest.raises(ValidationDomainError, match="extension"):
+            service._validate_image("image/jpeg", _tiny_image("JPEG"), "fake.png")
+        with pytest.raises(ValidationDomainError, match="size limit"):
+            service._validate_image("image/png", b"0" * (15 * 1024 * 1024 + 1), "huge.png")
 
     def test_bulk_upload_partial_success_isolation(self, client, monkeypatch):
         """One bad file must not roll back the good ones (BRD §13)."""

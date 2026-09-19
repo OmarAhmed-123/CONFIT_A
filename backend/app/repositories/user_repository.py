@@ -22,7 +22,8 @@ class UserRepository:
         full_name: str,
         role: UserRole = UserRole.CONSUMER,
         phone: Optional[str] = None,
-        preferred_language: str = "en"
+        preferred_language: str = "en",
+        registration_intent: str = "consumer",
     ) -> User:
         user = User(
             email=email.lower(),
@@ -31,6 +32,9 @@ class UserRepository:
             role=role,
             phone=phone,
             preferred_language=preferred_language,
+            # What the registrant asked for — DATA only. It never influences
+            # `role`, which stays a server-side authorization decision.
+            registration_intent=registration_intent,
             is_active=True,
             # CYCLE 4: with a real email provider configured, verification
             # must be EARNED via the emailed one-time link (starts False).

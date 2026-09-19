@@ -82,6 +82,11 @@ REQUIRED_TABLES: tuple[str, ...] = (
     "catalog_import_jobs",    # 0010
     "sponsored_placements",   # /brand/placements
     "migration_audit_log",    # 0013
+    "brand_members",          # 0018 — multi-user brand membership
+    "partner_applications",   # 0018 — BRD G6 §2.2 partner onboarding approvals
+    "invitations",            # 0018 — BRD G6 §2.1 brand user invitations
+    "email_change_requests",  # 0018 — two-step email change
+    "email_deliveries",       # 0018 — transactional email delivery ledger
 )
 
 # Tables created by a migration only (no ORM model): a create_all database
@@ -94,6 +99,7 @@ REQUIRED_COLUMNS: Dict[str, tuple[str, ...]] = {
     "sponsored_placements": ("start_date", "end_date", "updated_at"),
     "brand_analytics_events": ("event_id", "order_id", "revenue_amount", "order_item_id"),  # order_item_id: 0014
     "wardrobe_items": ("source_order_item_id",),  # 0015 — FLOW E purchase->wardrobe idempotency key
+    "users": ("registration_intent",),  # 0018 — registration intent (data, never authorization)
 }
 
 

@@ -1,6 +1,6 @@
-import React from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { useTranslation } from 'react-i18next';
+import React from "react";
+import { useNavigate, Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import {
   SparkleIcon,
   OutfitBuilderIcon,
@@ -11,95 +11,104 @@ import {
   ShieldIcon,
   BopisIcon,
   HeartIcon,
-} from '../../components/icons/ConfitIcons';
-import { useUIStore } from '../../stores/uiStore';
-import { useCatalogViewModel } from '../../viewmodels/useCatalogViewModel';
-import { useCapabilities } from '../../hooks/useCapabilities';
-import { FitScoreBadge, BNPLBadge, SkeletonCard, EmptyState } from '../../components/common/CommonComponents';
-import { useCartStore } from '../../stores/cartStore';
-import { CircularGallery, type GalleryItem } from '../../components/ui/circular-gallery';
-import { CardStackShowcase } from '../../components/showcase/DesignShowcases';
-
+} from "../../components/icons/ConfitIcons";
+import { useUIStore } from "../../stores/uiStore";
+import { useCatalogViewModel } from "../../viewmodels/useCatalogViewModel";
+import { useCapabilities } from "../../hooks/useCapabilities";
+import {
+  FitScoreBadge,
+  BNPLBadge,
+  SkeletonCard,
+  EmptyState,
+} from "../../components/common/CommonComponents";
+import { HonestProductImage } from "../../components/common/HonestProductImage";
+import { useCartStore } from "../../stores/cartStore";
+import { resolvePurchasableSku } from "../../lib/catalogSku";
+import {
+  CircularGallery,
+  type GalleryItem,
+} from "../../components/ui/circular-gallery";
+import { CardStackShowcase } from "../../components/showcase/DesignShowcases";
 
 const editorialGalleryData: GalleryItem[] = [
   {
-    common: 'Tailored power suit',
-    binomial: 'Executive wool tailoring',
+    common: "Tailored power suit",
+    binomial: "Executive wool tailoring",
     photo: {
-      url: 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=900&auto=format&fit=crop&q=80',
-      text: 'person wearing a tailored suit in an editorial setting',
-      pos: '50% 35%',
-      by: 'Unsplash',
+      url: "https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=900&auto=format&fit=crop&q=80",
+      text: "person wearing a tailored suit in an editorial setting",
+      pos: "50% 35%",
+      by: "Unsplash",
     },
   },
   {
-    common: 'Champagne evening gown',
-    binomial: 'Occasion-ready silk styling',
+    common: "Champagne evening gown",
+    binomial: "Occasion-ready silk styling",
     photo: {
-      url: 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=900&auto=format&fit=crop&q=80',
-      text: 'champagne evening dress on a model',
-      pos: '50% 30%',
-      by: 'Tamara Bellis',
+      url: "https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=900&auto=format&fit=crop&q=80",
+      text: "champagne evening dress on a model",
+      pos: "50% 30%",
+      by: "Tamara Bellis",
     },
   },
   {
-    common: 'Minimal capsule layers',
-    binomial: 'Modern essentials wardrobe',
+    common: "Minimal capsule layers",
+    binomial: "Modern essentials wardrobe",
     photo: {
-      url: 'https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=900&auto=format&fit=crop&q=80',
-      text: 'minimal wardrobe layers on a model',
-      pos: '50% 40%',
-      by: 'Hunters Race',
+      url: "https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=900&auto=format&fit=crop&q=80",
+      text: "minimal wardrobe layers on a model",
+      pos: "50% 40%",
+      by: "Hunters Race",
     },
   },
   {
-    common: 'Streetwear utility edit',
-    binomial: 'Casual smart outfit formula',
+    common: "Streetwear utility edit",
+    binomial: "Casual smart outfit formula",
     photo: {
-      url: 'https://images.unsplash.com/photo-1529139574466-a303027c1d8b?w=900&auto=format&fit=crop&q=80',
-      text: 'fashion model wearing casual streetwear',
-      pos: '50% 28%',
-      by: 'Apostolos Vamvouras',
+      url: "https://images.unsplash.com/photo-1529139574466-a303027c1d8b?w=900&auto=format&fit=crop&q=80",
+      text: "fashion model wearing casual streetwear",
+      pos: "50% 28%",
+      by: "Apostolos Vamvouras",
     },
   },
   {
-    common: 'Runway black statement',
-    binomial: 'Premium monochrome look',
+    common: "Runway black statement",
+    binomial: "Premium monochrome look",
     photo: {
-      url: 'https://images.unsplash.com/photo-1509631179647-0177331693ae?w=900&auto=format&fit=crop&q=80',
-      text: 'woman in black fashion outfit posing outdoors',
-      pos: '50% 20%',
-      by: 'Laura Chouette',
+      url: "https://images.unsplash.com/photo-1509631179647-0177331693ae?w=900&auto=format&fit=crop&q=80",
+      text: "woman in black fashion outfit posing outdoors",
+      pos: "50% 20%",
+      by: "Laura Chouette",
     },
   },
   {
-    common: 'Soft neutral tailoring',
-    binomial: 'Quiet luxury daywear',
+    common: "Soft neutral tailoring",
+    binomial: "Quiet luxury daywear",
     photo: {
-      url: 'https://images.unsplash.com/photo-1485968579580-b6d095142e6e?w=900&auto=format&fit=crop&q=80',
-      text: 'neutral fashion outfit in soft daylight',
-      pos: '50% 35%',
-      by: 'Brooke Cagle',
+      url: "https://images.unsplash.com/photo-1485968579580-b6d095142e6e?w=900&auto=format&fit=crop&q=80",
+      text: "neutral fashion outfit in soft daylight",
+      pos: "50% 35%",
+      by: "Brooke Cagle",
     },
   },
   {
-    common: 'Weekend denim uniform',
-    binomial: 'Wardrobe foundation look',
+    common: "Weekend denim uniform",
+    binomial: "Wardrobe foundation look",
     photo: {
-      url: 'https://images.unsplash.com/photo-1496747611176-843222e1e57c?w=900&auto=format&fit=crop&q=80',
-      text: 'fashion portrait with denim styling',
-      pos: '50% 30%',
-      by: 'Tamara Bellis',
+      url: "https://images.unsplash.com/photo-1496747611176-843222e1e57c?w=900&auto=format&fit=crop&q=80",
+      text: "fashion portrait with denim styling",
+      pos: "50% 30%",
+      by: "Tamara Bellis",
     },
   },
   {
-    common: 'Resort linen palette',
-    binomial: 'Warm-weather capsule styling',
+    common: "Resort linen palette",
+    binomial: "Warm-weather capsule styling",
     photo: {
-      url: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=900&auto=format&fit=crop&q=80',
-      text: 'editorial model in resort-inspired fashion',
-      pos: '50% 30%',
-      by: 'Clem Onojeghuo',
+      url: "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=900&auto=format&fit=crop&q=80",
+      text: "editorial model in resort-inspired fashion",
+      pos: "50% 30%",
+      by: "Clem Onojeghuo",
     },
   },
 ];
@@ -107,91 +116,137 @@ const editorialGalleryData: GalleryItem[] = [
 export const HomeView: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { openStylist, openTryOn, openRuler, openVisualSearch } = useUIStore();
-  const { products, isLoading, error: catalogError, refresh: refreshCatalog } = useCatalogViewModel();
+  const { openStylist, openTryOn, openRuler, openVisualSearch, showToast } =
+    useUIStore();
+  const {
+    products,
+    isLoading,
+    error: catalogError,
+    refresh: refreshCatalog,
+  } = useCatalogViewModel();
   // J-01: trust badges render what the platform can ACTUALLY do right now.
   const { capabilities } = useCapabilities();
   const { addItem } = useCartStore();
-  const [guideOccasion, setGuideOccasion] = React.useState('Work');
-  const [guideBudget, setGuideBudget] = React.useState('450');
-  const [guidePalette, setGuidePalette] = React.useState('Navy / neutral');
+  const [guideOccasion, setGuideOccasion] = React.useState("Work");
+  const [guideBudget, setGuideBudget] = React.useState("450");
+  const [guidePalette, setGuidePalette] = React.useState("Navy / neutral");
+  const [guideFit, setGuideFit] = React.useState("No preference");
 
-  const guideOccasions = ['Work', 'Wedding', 'Evening', 'Travel', 'Everyday', 'Exploring'];
-  const guideBudgets = ['300', '450', '650', '900'];
-  const guidePalettes = ['Navy / neutral', 'Warm ivory', 'Black / metallic', 'No preference'];
+  const guideOccasions = [
+    "Work",
+    "Wedding",
+    "Evening",
+    "Travel",
+    "Everyday",
+    "Exploring",
+  ];
+  const guideBudgets = ["300", "450", "650", "900"];
+  const guidePalettes = [
+    "Navy / neutral",
+    "Warm ivory",
+    "Black / metallic",
+    "No preference",
+  ];
+  const guideFits = ["No preference", "Tailored", "Relaxed", "Modest coverage"];
 
   const startGuidedLook = () => {
     const budget = Number(guideBudget);
     openStylist({
       occasion: guideOccasion,
       budget: Number.isFinite(budget) ? budget : undefined,
-      prompt: `First-look request: occasion=${guideOccasion}; budget=${guideBudget ? `$${guideBudget}` : 'open'}; palette=${guidePalette}. Recommend only real catalog products and explain fit or try-on next steps.`,
+      prompt: `First-look request: occasion=${guideOccasion}; budget=${guideBudget ? `$${guideBudget}` : "open"}; palette=${guidePalette}; fit preference=${guideFit}. Recommend only real catalog products. Treat palette and fit preference as natural-language guidance unless a verified size profile exists.`,
     });
+  };
+
+  const addCatalogProductToBag = async (prod: any) => {
+    try {
+      const sku = await resolvePurchasableSku(prod);
+      if (!sku) {
+        showToast(
+          "No purchasable size is available for this item right now.",
+          "error",
+        );
+        return;
+      }
+      await addItem(sku.id, {
+        id: prod.id,
+        title: prod.title,
+        category: prod.category_name,
+        color: prod.color_family,
+      });
+      showToast("Added to bag", "success");
+    } catch (err: any) {
+      showToast(err?.message || "Could not add this item to bag.", "error");
+    }
   };
 
   const brandShowcase = [
     {
-      name: 'Massimo Dutti',
-      origin: 'Barcelona / Italian Fabrics',
-      aesthetic: 'Quiet Luxury & Tailored Architecture',
-      slug: 'massimo-dutti',
-      image: 'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?w=600&auto=format&fit=crop&q=80',
-      badge: '100% Virgin Wool & Cashmere',
+      name: "Massimo Dutti",
+      origin: "Barcelona / Italian Fabrics",
+      aesthetic: "Quiet Luxury & Tailored Architecture",
+      slug: "massimo-dutti",
+      image:
+        "https://images.unsplash.com/photo-1594938298603-c8148c4dae35?w=600&auto=format&fit=crop&q=80",
+      badge: "100% Virgin Wool & Cashmere",
     },
     {
-      name: 'COS',
-      origin: 'London / Modern Classics',
-      aesthetic: 'Sculptural Minimalism & Organic Poplin',
-      slug: 'cos',
-      image: 'https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=600&auto=format&fit=crop&q=80',
-      badge: 'Sustainable Organic Cotton',
+      name: "COS",
+      origin: "London / Modern Classics",
+      aesthetic: "Sculptural Minimalism & Organic Poplin",
+      slug: "cos",
+      image:
+        "https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=600&auto=format&fit=crop&q=80",
+      badge: "Sustainable Organic Cotton",
     },
     {
-      name: 'Reiss',
-      origin: 'London / Heritage Modern',
-      aesthetic: 'Evening Glamour & Mulberry Silks',
-      slug: 'reiss',
-      image: 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=600&auto=format&fit=crop&q=80',
-      badge: 'Pure Mulberry Silk',
+      name: "Reiss",
+      origin: "London / Heritage Modern",
+      aesthetic: "Evening Glamour & Mulberry Silks",
+      slug: "reiss",
+      image:
+        "https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=600&auto=format&fit=crop&q=80",
+      badge: "Pure Mulberry Silk",
     },
     {
-      name: 'Arket',
-      origin: 'Stockholm / Nordic Essentials',
-      aesthetic: 'Durable Foundations & Structured Linens',
-      slug: 'arket',
-      image: 'https://images.unsplash.com/photo-1533867617858-e7b97e060509?w=600&auto=format&fit=crop&q=80',
-      badge: 'Nordic Circular Tailoring',
+      name: "Arket",
+      origin: "Stockholm / Nordic Essentials",
+      aesthetic: "Durable Foundations & Structured Linens",
+      slug: "arket",
+      image:
+        "https://images.unsplash.com/photo-1533867617858-e7b97e060509?w=600&auto=format&fit=crop&q=80",
+      badge: "Nordic Circular Tailoring",
     },
   ];
 
   const occasionCards = [
     {
-      title: t('home.occasion_wedding'),
-      tag: 'wedding',
-      img: 'https://images.unsplash.com/photo-1519741497674-611481863552?w=700&auto=format&fit=crop&q=80',
-      desc: 'Champagne Silk Gowns & Tuxedo Tailoring',
-      palette: ['#D4AF37', '#111111', '#FAF9F6'],
+      title: t("home.occasion_wedding"),
+      tag: "wedding",
+      img: "https://images.unsplash.com/photo-1519741497674-611481863552?w=700&auto=format&fit=crop&q=80",
+      desc: "Champagne Silk Gowns & Tuxedo Tailoring",
+      palette: ["#D4AF37", "#111111", "#FAF9F6"],
     },
     {
-      title: t('home.occasion_work'),
-      tag: 'work',
-      img: 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=700&auto=format&fit=crop&q=80',
-      desc: 'Executive Virgin Wool Double-Breasted Layers',
-      palette: ['#1B1F3B', '#FAF9F6', '#64748B'],
+      title: t("home.occasion_work"),
+      tag: "work",
+      img: "https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=700&auto=format&fit=crop&q=80",
+      desc: "Executive Virgin Wool Double-Breasted Layers",
+      palette: ["#1B1F3B", "#FAF9F6", "#64748B"],
     },
     {
-      title: t('home.occasion_party'),
-      tag: 'party',
-      img: 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=700&auto=format&fit=crop&q=80',
-      desc: 'Fluid Cowl Necklines & Strappy Metallic Heels',
-      palette: ['#D4AF37', '#C5A059', '#1B1F3B'],
+      title: t("home.occasion_party"),
+      tag: "party",
+      img: "https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=700&auto=format&fit=crop&q=80",
+      desc: "Fluid Cowl Necklines & Strappy Metallic Heels",
+      palette: ["#D4AF37", "#C5A059", "#1B1F3B"],
     },
     {
-      title: t('home.occasion_casual'),
-      tag: 'casual',
-      img: 'https://images.unsplash.com/photo-1576566588028-4147f3842f27?w=700&auto=format&fit=crop&q=80',
-      desc: 'Relaxed Organic Poplin & Tapered Chinos',
-      palette: ['#FAF9F6', '#D8C7B5', '#1B1F3B'],
+      title: t("home.occasion_casual"),
+      tag: "casual",
+      img: "https://images.unsplash.com/photo-1576566588028-4147f3842f27?w=700&auto=format&fit=crop&q=80",
+      desc: "Relaxed Organic Poplin & Tapered Chinos",
+      palette: ["#FAF9F6", "#D8C7B5", "#1B1F3B"],
     },
   ];
 
@@ -210,20 +265,25 @@ export const HomeView: React.FC = () => {
             </div>
 
             <h1 className="font-serif text-3xl sm:text-5xl lg:text-6xl font-bold leading-[1.1] text-white tracking-tight">
-              {t('home.hero_title')}
+              {t("home.hero_title")}
             </h1>
 
             <p className="text-sm sm:leading-relaxed text-slate-200 font-light max-w-xl">
-              Start a guided styling flow for your occasion, budget, and fit preferences before you shop.
+              Start a guided styling flow for occasion, budget, palette, and fit
+              preference before you shop.
             </p>
             <p className="text-xs sm:text-sm sm:leading-relaxed text-slate-400 font-light max-w-xl">
-              {t('home.hero_subtitle')}
+              {t("home.hero_subtitle")}
             </p>
 
             {/* Guided CTA hierarchy */}
             <div className="pt-2 flex flex-wrap items-center gap-3 sm:gap-4">
               <button
-                onClick={() => document.getElementById('guided-first-look')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                onClick={() =>
+                  document
+                    .getElementById("guided-first-look")
+                    ?.scrollIntoView({ behavior: "smooth", block: "start" })
+                }
                 className="px-7 py-3.5 rounded-2xl bg-[#C5A059] hover:bg-[#E2BF70] text-[#0C0E1E] font-bold text-xs sm:text-sm tracking-wide shadow-lg hover:shadow-[#C5A059]/20 transition-all flex items-center gap-2 active:scale-98"
               >
                 <SparkleIcon size={16} color="#0C0E1E" />
@@ -231,7 +291,7 @@ export const HomeView: React.FC = () => {
               </button>
 
               <button
-                onClick={() => navigate('/tryon-studio')}
+                onClick={() => navigate("/tryon-studio")}
                 className="px-5 py-3.5 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold text-xs sm:text-sm backdrop-blur-md transition-all flex items-center gap-2 active:scale-98"
               >
                 <TryOnIcon size={16} color="#FFFFFF" isAi={true} />
@@ -247,8 +307,15 @@ export const HomeView: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 max-w-2xl pt-2">
-              {['No account required to start', 'Photo optional for fit checks', 'Privacy details before uploads'].map((item) => (
-                <div key={item} className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-[11px] text-slate-300 backdrop-blur">
+              {[
+                "No account required to start",
+                "Photo optional for fit checks",
+                "Privacy details before uploads",
+              ].map((item) => (
+                <div
+                  key={item}
+                  className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-[11px] text-slate-300 backdrop-blur"
+                >
                   {item}
                 </div>
               ))}
@@ -268,18 +335,28 @@ export const HomeView: React.FC = () => {
                   <span className="rounded-full bg-[#C5A059] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-[#0C0E1E]">
                     Example result
                   </span>
-                  <h3 className="mt-3 font-serif text-2xl font-bold">Tailored Power · Work</h3>
-                  <p className="mt-1 text-xs text-slate-200">Navy blazer, crisp shirt, relaxed trouser, polished loafers.</p>
+                  <h3 className="mt-3 font-serif text-2xl font-bold">
+                    Tailored Power · Work
+                  </h3>
+                  <p className="mt-1 text-xs text-slate-200">
+                    Navy blazer, crisp shirt, relaxed trouser, polished loafers.
+                  </p>
                 </div>
               </div>
               <div className="mt-4 grid grid-cols-2 gap-3 text-xs">
                 <div className="rounded-2xl bg-white/90 p-3 text-[#1B1F3B]">
-                  <span className="block text-[10px] font-bold uppercase tracking-wider text-[#A37E44]">Why this works</span>
-                  Structured shoulders balance relaxed trousers and keep the look boardroom-ready.
+                  <span className="block text-[10px] font-bold uppercase tracking-wider text-[#A37E44]">
+                    Why this works
+                  </span>
+                  Structured shoulders balance relaxed trousers and keep the
+                  look boardroom-ready.
                 </div>
                 <div className="rounded-2xl bg-[#0C0E1E]/90 p-3 text-white">
-                  <span className="block text-[10px] font-bold uppercase tracking-wider text-[#C5A059]">Fit next step</span>
-                  Add measurements or try a visual preview before saving or buying.
+                  <span className="block text-[10px] font-bold uppercase tracking-wider text-[#C5A059]">
+                    Fit next step
+                  </span>
+                  Add measurements or try a visual preview before saving or
+                  buying.
                 </div>
               </div>
             </div>
@@ -287,21 +364,32 @@ export const HomeView: React.FC = () => {
         </div>
       </section>
 
-
-
-      <section id="guided-first-look" className="rounded-[32px] border border-[#C5A059]/25 bg-white p-6 shadow-2xs sm:p-8">
+      <section
+        id="guided-first-look"
+        className="rounded-[32px] border border-[#C5A059]/25 bg-white p-6 shadow-2xs sm:p-8"
+      >
         <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
           <div>
-            <span className="text-[10px] font-bold uppercase tracking-widest text-[#7A5C28]">Guided first look</span>
-            <h2 className="mt-2 font-serif text-3xl font-bold text-[#1B1F3B]">Tell CONFIT the moment before browsing everything</h2>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-[#7A5C28]">
+              Guided first look
+            </span>
+            <h2 className="mt-2 font-serif text-3xl font-bold text-[#1B1F3B]">
+              Tell CONFIT the moment before browsing everything
+            </h2>
             <p className="mt-3 text-sm font-light leading-relaxed text-slate-500">
-              This starts a real AI stylist request using the current catalog endpoint. It does not fabricate products, sizes, or inventory; if the service is unavailable, the stylist drawer reports the error.
+              This starts a real AI stylist request using the current catalog
+              endpoint. Occasion and budget are structured inputs; palette and
+              fit preference are sent as natural-language guidance, not as
+              verified size personalization. It does not fabricate products,
+              sizes, or inventory.
             </p>
           </div>
 
           <div className="space-y-4">
             <div>
-              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">What are you dressing for?</p>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                What are you dressing for?
+              </p>
               <div className="mt-2 flex flex-wrap gap-2">
                 {guideOccasions.map((occasion) => (
                   <button
@@ -309,7 +397,7 @@ export const HomeView: React.FC = () => {
                     type="button"
                     aria-pressed={guideOccasion === occasion}
                     onClick={() => setGuideOccasion(occasion)}
-                    className={`rounded-full px-3 py-2 text-xs font-semibold transition ${guideOccasion === occasion ? 'bg-[#1B1F3B] text-white' : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'}`}
+                    className={`rounded-full px-3 py-2 text-xs font-semibold transition ${guideOccasion === occasion ? "bg-[#1B1F3B] text-white" : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"}`}
                   >
                     {occasion}
                   </button>
@@ -317,28 +405,52 @@ export const HomeView: React.FC = () => {
               </div>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-3 sm:grid-cols-3">
               <label className="space-y-2 text-xs font-semibold text-slate-600">
-                <span className="block text-[11px] font-bold uppercase tracking-wider text-slate-500">Budget guide</span>
+                <span className="block text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                  Budget guide
+                </span>
                 <select
                   value={guideBudget}
                   onChange={(event) => setGuideBudget(event.target.value)}
                   className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm text-[#1B1F3B] focus:border-[#C5A059] focus:outline-none"
                 >
                   {guideBudgets.map((budget) => (
-                    <option key={budget} value={budget}>Under ${budget}</option>
+                    <option key={budget} value={budget}>
+                      Under ${budget}
+                    </option>
                   ))}
                 </select>
               </label>
               <label className="space-y-2 text-xs font-semibold text-slate-600">
-                <span className="block text-[11px] font-bold uppercase tracking-wider text-slate-500">Palette preference</span>
+                <span className="block text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                  Palette preference
+                </span>
                 <select
                   value={guidePalette}
                   onChange={(event) => setGuidePalette(event.target.value)}
                   className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm text-[#1B1F3B] focus:border-[#C5A059] focus:outline-none"
                 >
                   {guidePalettes.map((palette) => (
-                    <option key={palette} value={palette}>{palette}</option>
+                    <option key={palette} value={palette}>
+                      {palette}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="space-y-2 text-xs font-semibold text-slate-600">
+                <span className="block text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                  Fit preference
+                </span>
+                <select
+                  value={guideFit}
+                  onChange={(event) => setGuideFit(event.target.value)}
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm text-[#1B1F3B] focus:border-[#C5A059] focus:outline-none"
+                >
+                  {guideFits.map((fit) => (
+                    <option key={fit} value={fit}>
+                      {fit}
+                    </option>
                   ))}
                 </select>
               </label>
@@ -352,7 +464,10 @@ export const HomeView: React.FC = () => {
               >
                 Ask stylist for this look →
               </button>
-              <p className="text-xs text-slate-500">Guest-friendly: account creation is not required before the first stylist response.</p>
+              <p className="text-xs text-slate-500">
+                Guest-friendly: account creation is not required before the
+                first stylist response.
+              </p>
             </div>
           </div>
         </div>
@@ -368,13 +483,18 @@ export const HomeView: React.FC = () => {
             Rotate through CONFIT editorial styling stories
           </h2>
           <p className="mt-3 text-sm font-light leading-relaxed text-slate-500">
-            Explore realistic mood directions, fit contexts, and outfit stories before moving into products you can try on, save, or shop.
+            Explore realistic mood directions, fit contexts, and outfit stories
+            before moving into products you can try on, save, or shop.
           </p>
         </div>
         <div className="relative h-[520px] overflow-hidden sm:h-[620px]">
           <CircularGallery
             items={editorialGalleryData}
-            radius={typeof window !== 'undefined' && window.innerWidth < 768 ? 360 : 560}
+            radius={
+              typeof window !== "undefined" && window.innerWidth < 768
+                ? 360
+                : 560
+            }
             autoRotateSpeed={0.015}
           />
         </div>
@@ -429,8 +549,12 @@ export const HomeView: React.FC = () => {
                 <h3 className="font-serif text-base font-bold text-[#1B1F3B] group-hover:text-[#C5A059] transition-colors">
                   {brand.name}
                 </h3>
-                <span className="text-[11px] text-slate-500 font-light block">{brand.origin}</span>
-                <p className="text-xs text-slate-600 font-light mt-1.5 line-clamp-2">{brand.aesthetic}</p>
+                <span className="text-[11px] text-slate-500 font-light block">
+                  {brand.origin}
+                </span>
+                <p className="text-xs text-slate-600 font-light mt-1.5 line-clamp-2">
+                  {brand.aesthetic}
+                </p>
               </div>
 
               <div className="pt-4 border-t border-slate-100 mt-4 flex items-center justify-between text-xs font-semibold text-[#1B1F3B] group-hover:text-[#C5A059]">
@@ -449,11 +573,11 @@ export const HomeView: React.FC = () => {
             <div className="flex items-center gap-2">
               <SparkleIcon size={20} color="#C5A059" />
               <h2 className="font-serif text-2xl font-bold text-[#1B1F3B]">
-                {t('home.todays_picks')}
+                {t("home.todays_picks")}
               </h2>
             </div>
             <p className="text-xs sm:text-sm text-slate-500 mt-0.5 font-light">
-              {t('home.todays_picks_desc')}
+              {t("home.todays_picks_desc")}
             </p>
           </div>
           <button
@@ -472,9 +596,15 @@ export const HomeView: React.FC = () => {
             from the same catalogue query Discover uses, with honest loading /
             empty / error states — no fabricated data. */}
         {isLoading && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5" aria-busy="true">
+          <div
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5"
+            aria-busy="true"
+          >
             {[0, 1, 2].map((i) => (
-              <div key={i} className="bg-white rounded-3xl border border-slate-200/80 p-4 shadow-2xs animate-pulse space-y-3">
+              <div
+                key={i}
+                className="bg-white rounded-3xl border border-slate-200/80 p-4 shadow-2xs animate-pulse space-y-3"
+              >
                 <div className="h-56 rounded-2xl bg-slate-100"></div>
                 <div className="h-3 w-20 bg-slate-100 rounded"></div>
                 <div className="h-4 w-3/4 bg-slate-200 rounded"></div>
@@ -498,7 +628,9 @@ export const HomeView: React.FC = () => {
         )}
         {!isLoading && !catalogError && products.length === 0 && (
           <div className="bg-white rounded-3xl border border-slate-200/80 p-8 text-center">
-            <p className="text-xs text-slate-500">The catalogue is empty right now — nothing to show yet.</p>
+            <p className="text-xs text-slate-500">
+              The catalogue is empty right now — nothing to show yet.
+            </p>
           </div>
         )}
         {!isLoading && !catalogError && products.length > 0 && (
@@ -513,7 +645,7 @@ export const HomeView: React.FC = () => {
                   className="relative h-56 overflow-hidden bg-slate-100 cursor-pointer text-left"
                   aria-label={`View ${prod.title}`}
                 >
-                  <img
+                  <HonestProductImage
                     src={prod.thumbnail_url}
                     alt={prod.title}
                     loading="lazy"
@@ -563,10 +695,11 @@ export const HomeView: React.FC = () => {
         <div className="flex items-center justify-between border-b border-slate-200/80 pb-4">
           <div>
             <h2 className="font-serif text-2xl font-bold text-[#1B1F3B]">
-              {t('home.occasions')}
+              {t("home.occasions")}
             </h2>
             <p className="text-xs sm:text-sm text-slate-500 mt-0.5 font-light">
-              Tap any occasion to activate instant grounded stylist recommendations
+              Tap any occasion to activate instant grounded stylist
+              recommendations
             </p>
           </div>
         </div>
@@ -588,8 +721,12 @@ export const HomeView: React.FC = () => {
                   <SparkleIcon size={12} color="#C5A059" />
                   <span>Instant AI Stylist</span>
                 </span>
-                <h4 className="font-serif text-xl font-bold text-white mb-1">{occ.title}</h4>
-                <p className="text-xs text-slate-300 line-clamp-1 font-light mb-2">{occ.desc}</p>
+                <h4 className="font-serif text-xl font-bold text-white mb-1">
+                  {occ.title}
+                </h4>
+                <p className="text-xs text-slate-300 line-clamp-1 font-light mb-2">
+                  {occ.desc}
+                </p>
                 <div className="flex gap-1.5 mb-3">
                   {occ.palette.map((c, idx) => (
                     <span
@@ -615,7 +752,7 @@ export const HomeView: React.FC = () => {
             <div className="flex items-center gap-2">
               <FlameIcon size={22} color="#C5A059" />
               <h2 className="font-serif text-2xl font-bold text-[#1B1F3B]">
-                {t('home.trending_title')}
+                {t("home.trending_title")}
               </h2>
             </div>
             <p className="text-xs sm:text-sm text-slate-500 mt-0.5 font-light">
@@ -623,10 +760,11 @@ export const HomeView: React.FC = () => {
             </p>
           </div>
           <button
-            onClick={() => navigate('/discover')}
+            onClick={() => navigate("/discover")}
             className="text-xs font-bold text-[#1B1F3B] hover:text-[#C5A059] transition-colors"
           >
-            View All Catalog{!isLoading && products.length > 0 ? ` (${products.length})` : ''} →
+            View All Catalog
+            {!isLoading && products.length > 0 ? ` (${products.length})` : ""} →
           </button>
         </div>
 
@@ -655,14 +793,24 @@ export const HomeView: React.FC = () => {
               >
                 <div>
                   <div className="relative aspect-[3/4] rounded-2xl overflow-hidden bg-slate-100 mb-3">
-                    <img
-                      src={p.thumbnail_url}
-                      alt={p.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 cursor-pointer"
+                    <button
+                      type="button"
                       onClick={() => navigate(`/product/${p.slug}`)}
-                    />
+                      className="h-full w-full text-left"
+                      aria-label={`View ${p.title}`}
+                    >
+                      <HonestProductImage
+                        src={p.thumbnail_url}
+                        alt={p.title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 cursor-pointer"
+                      />
+                    </button>
                     <div className="absolute top-2 left-2 flex flex-col gap-1">
-                      <FitScoreBadge score={p.style_compatibility_score} label="Match" verdict="Color Harmony" />
+                      <FitScoreBadge
+                        score={p.style_compatibility_score}
+                        label="Match"
+                        verdict="Color Harmony"
+                      />
                     </div>
 
                     <div className="absolute bottom-2 right-2 flex items-center gap-1.5">
@@ -693,22 +841,27 @@ export const HomeView: React.FC = () => {
                     {p.title}
                   </h4>
                   <div className="flex items-center justify-between mt-1">
-                    <span className="text-xs sm:text-sm font-bold text-[#1B1F3B]">${p.base_price}</span>
-                    <span className="text-[11px] text-slate-500 font-light truncate max-w-[80px]">{p.color_family}</span>
+                    <span className="text-xs sm:text-sm font-bold text-[#1B1F3B]">
+                      ${p.base_price}
+                    </span>
+                    <span className="text-[11px] text-slate-500 font-light truncate max-w-[80px]">
+                      {p.color_family}
+                    </span>
                   </div>
                   <div className="mt-1.5">
-                    <BNPLBadge price={p.base_price} provider="Tabby" />
+                    {capabilities.bnpl_live ? (
+                      <BNPLBadge price={p.base_price} provider="Tabby" />
+                    ) : (
+                      <span className="text-[11px] text-slate-500">
+                        BNPL is not live in this environment.
+                      </span>
+                    )}
                   </div>
                 </div>
 
                 <div className="pt-3 border-t border-slate-100 mt-3">
                   <button
-                    onClick={async () => {
-                      const sku = p.skus?.[0];
-                      if (sku) {
-                        await addItem(sku.id, { id: p.id, title: p.title, category: p.category_name, color: p.color_family });
-                      }
-                    }}
+                    onClick={() => addCatalogProductToBag(p)}
                     className="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-[#1B1F3B] hover:text-white text-xs font-semibold text-slate-800 transition-all flex items-center justify-center gap-1.5"
                   >
                     <BagIcon size={14} color="currentColor" />
@@ -728,9 +881,14 @@ export const HomeView: React.FC = () => {
             <div className="w-10 h-10 rounded-2xl bg-[#1B1F3B] text-[#C5A059] flex items-center justify-center font-bold shadow-xs mx-auto sm:mx-0">
               <SparkleIcon size={20} color="#C5A059" />
             </div>
-            <h4 className="font-serif text-sm font-bold text-[#1B1F3B]">Private In-Browser Fit Studio</h4>
+            <h4 className="font-serif text-sm font-bold text-[#1B1F3B]">
+              Private In-Browser Fit Studio
+            </h4>
             <p className="text-xs text-slate-500 font-light leading-relaxed">
-              Your measurements are self-reported and processed in browser memory — camera photos are never permanently stored on servers.
+              No-photo measurements can stay in browser memory. Photo try-on is
+              sent to the backend/provider only when you choose visual
+              rendering, and persistent photo uploads require configured object
+              storage.
             </p>
           </div>
 
@@ -738,11 +896,13 @@ export const HomeView: React.FC = () => {
             <div className="w-10 h-10 rounded-2xl bg-[#1B1F3B] text-[#C5A059] flex items-center justify-center font-bold shadow-xs mx-auto sm:mx-0">
               <BopisIcon size={20} color="#C5A059" />
             </div>
-            <h4 className="font-serif text-sm font-bold text-[#1B1F3B]">Boutique Pickup (BOPIS)</h4>
+            <h4 className="font-serif text-sm font-bold text-[#1B1F3B]">
+              Boutique Pickup (BOPIS)
+            </h4>
             <p className="text-xs text-slate-500 font-light leading-relaxed">
               {capabilities.bopis_live
-                ? `Reserve online and collect at our ${capabilities.bopis_store_count === 1 ? 'boutique' : `${capabilities.bopis_store_count} boutiques`} — pickup options are shown per piece at checkout.`
-                : 'Boutique pickup is coming soon — home delivery is available at checkout.'}
+                ? `Reserve online and collect at our ${capabilities.bopis_store_count === 1 ? "boutique" : `${capabilities.bopis_store_count} boutiques`} — pickup options are shown per piece at checkout.`
+                : "Boutique pickup is coming soon — home delivery is available at checkout."}
             </p>
           </div>
 
@@ -750,9 +910,13 @@ export const HomeView: React.FC = () => {
             <div className="w-10 h-10 rounded-2xl bg-[#1B1F3B] text-[#C5A059] flex items-center justify-center font-bold shadow-xs mx-auto sm:mx-0">
               <ShieldIcon size={20} color="#C5A059" />
             </div>
-            <h4 className="font-serif text-sm font-bold text-[#1B1F3B]">30-Day Zero-Fee Returns</h4>
+            <h4 className="font-serif text-sm font-bold text-[#1B1F3B]">
+              30-Day Zero-Fee Returns
+            </h4>
             <p className="text-xs text-slate-500 font-light leading-relaxed">
-              Preview the fit on your own photo before checkout — and if the fit isn't right, enjoy 30-day zero-fee courier collection.
+              Preview styling where supported and review size guidance before
+              checkout. Eligible orders can be returned within the configured
+              30-day return window.
             </p>
           </div>
 
@@ -760,12 +924,16 @@ export const HomeView: React.FC = () => {
             <div className="w-10 h-10 rounded-2xl bg-[#1B1F3B] text-[#C5A059] flex items-center justify-center font-bold shadow-xs mx-auto sm:mx-0">
               <BagIcon size={20} color="#C5A059" />
             </div>
-            <h4 className="font-serif text-sm font-bold text-[#1B1F3B]">0% Interest BNPL Payments</h4>
+            <h4 className="font-serif text-sm font-bold text-[#1B1F3B]">
+              0% Interest BNPL Payments
+            </h4>
             <p className="text-xs text-slate-500 font-light leading-relaxed">
-              Split any ensemble into 4 monthly payments with Tabby or Tamara at zero added cost.
+              When BNPL is live, eligible orders can show supported installment
+              options at checkout.
               {!capabilities.bnpl_live && (
                 <span className="block mt-1 text-[10px] font-bold text-amber-700">
-                  Currently in demo mode — no live BNPL charges are processed yet.
+                  Currently in demo mode — no live BNPL charges are processed
+                  yet.
                 </span>
               )}
             </p>

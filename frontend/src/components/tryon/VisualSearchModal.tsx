@@ -1,30 +1,40 @@
-import React, { useState } from 'react';
-import { useModalFocus } from '../../hooks/useModalFocus';
-import { compressImageToDataUrl } from '../../lib/imageUpload';
-import { useTranslation } from 'react-i18next';
-import { useUIStore } from '../../stores/uiStore';
-import { useTryOnViewModel } from '../../viewmodels/useTryOnViewModel';
-import { VisualSearchIcon, SparkleIcon, BagIcon } from '../icons/ConfitIcons';
-import { useCartStore } from '../../stores/cartStore';
+import React, { useState } from "react";
+import { useModalFocus } from "../../hooks/useModalFocus";
+import { compressImageToDataUrl } from "../../lib/imageUpload";
+import { useTranslation } from "react-i18next";
+import { useUIStore } from "../../stores/uiStore";
+import { useTryOnViewModel } from "../../viewmodels/useTryOnViewModel";
+import { VisualSearchIcon, SparkleIcon } from "../icons/ConfitIcons";
+import { catalogService } from "../../services/apiServices";
+import { HonestProductImage } from "../common/HonestProductImage";
 
 export const VisualSearchModal: React.FC = () => {
   const { t } = useTranslation();
-  const { isVisualSearchOpen, closeVisualSearch, openTryOn } = useUIStore();
-  const panelRef = useModalFocus<HTMLDivElement>(closeVisualSearch, isVisualSearchOpen);
-  const { visualSearchLoading, visualSearchResult, visualSearchError, runVisualSearch } = useTryOnViewModel();
-  const { addItem, openCart } = useCartStore();
+  const { isVisualSearchOpen, closeVisualSearch, openTryOn, showToast } =
+    useUIStore();
+  const panelRef = useModalFocus<HTMLDivElement>(
+    closeVisualSearch,
+    isVisualSearchOpen,
+  );
+  const {
+    visualSearchLoading,
+    visualSearchResult,
+    visualSearchError,
+    runVisualSearch,
+  } = useTryOnViewModel();
 
-  const [inputUrl, setInputUrl] = useState('');
-  const [selectedSample, setSelectedSample] = useState('');
+  const [inputUrl, setInputUrl] = useState("");
+  const [selectedSample, setSelectedSample] = useState("");
   // Upload-your-own-photo path (audit: the modal previously offered only
   // samples and a URL — no way to search with the user's own image).
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [isCompressing, setIsCompressing] = useState(false);
+  const [openingMatchId, setOpeningMatchId] = useState<number | null>(null);
 
   const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    e.target.value = ''; // allow re-selecting the same file
+    e.target.value = ""; // allow re-selecting the same file
     if (!file) return;
     // P0-03 fix: the old 8 MB raw ceiling still exceeded the serverless
     // gateway body limit (~4.5 MB) — uploads died with HTTP 413. Photos now
@@ -34,10 +44,10 @@ export const VisualSearchModal: React.FC = () => {
     try {
       const { dataUrl } = await compressImageToDataUrl(file);
       setUploadedImage(dataUrl);
-      setSelectedSample('');
+      setSelectedSample("");
       runVisualSearch({ imageBase64: dataUrl });
     } catch (err: any) {
-      setUploadError(err?.message || 'That image could not be processed.');
+      setUploadError(err?.message || "That image could not be processed.");
     } finally {
       setIsCompressing(false);
     }
@@ -46,10 +56,35 @@ export const VisualSearchModal: React.FC = () => {
   if (!isVisualSearchOpen) return null;
 
   const samples = [
-    { label: 'Navy Wool Blazer', url: 'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?w=500&auto=format&fit=crop&q=80' },
-    { label: 'Silk Slip Dress', url: 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=500&auto=format&fit=crop&q=80' },
-    { label: 'Crisp Oxford Shirt', url: 'https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=500&auto=format&fit=crop&q=80' },
+    {
+      label: "Navy Wool Blazer",
+      url: "https://images.unsplash.com/photo-1594938298603-c8148c4dae35?w=500&auto=format&fit=crop&q=80",
+    },
+    {
+      label: "Silk Slip Dress",
+      url: "https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=500&auto=format&fit=crop&q=80",
+    },
+    {
+      label: "Crisp Oxford Shirt",
+      url: "https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=500&auto=format&fit=crop&q=80",
+    },
   ];
+
+  const openMatchInTryOn = async (productId: number) => {
+    setOpeningMatchId(productId);
+    try {
+      const detail = await catalogService.getProductDetail(String(productId));
+      closeVisualSearch();
+      openTryOn(detail);
+    } catch (err: any) {
+      showToast(
+        err?.message || "Could not load the matched product detail.",
+        "error",
+      );
+    } finally {
+      setOpeningMatchId(null);
+    }
+  };
 
   const handleSearch = (imgUrl?: string) => {
     if (uploadedImage) {
@@ -62,7 +97,14 @@ export const VisualSearchModal: React.FC = () => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md animate-in fade-in duration-150">
-      <div ref={panelRef} role="dialog" aria-modal="true" aria-label="Visual search" tabIndex={-1} className="w-full max-w-4xl bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden max-h-[92vh] flex flex-col">
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Visual search"
+        tabIndex={-1}
+        className="w-full max-w-4xl bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden max-h-[92vh] flex flex-col"
+      >
         {/* Header */}
         <div className="p-4 sm:p-6 border-b border-slate-100 bg-[#1B1F3B] text-white flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -71,9 +113,11 @@ export const VisualSearchModal: React.FC = () => {
             </div>
             <div>
               <h3 className="font-serif text-lg font-bold text-white">
-                {t('tryon.visual_search_title')}
+                {t("tryon.visual_search_title")}
               </h3>
-              <p className="text-xs text-slate-300">{t('tryon.visual_search_desc')}</p>
+              <p className="text-xs text-slate-300">
+                {t("tryon.visual_search_desc")}
+              </p>
             </div>
           </div>
           <button
@@ -114,13 +158,24 @@ export const VisualSearchModal: React.FC = () => {
               />
               {uploadedImage && (
                 <div className="flex items-center gap-2">
-                  <img src={uploadedImage} alt="Your uploaded query" className="w-10 h-10 rounded-lg object-cover border border-[#B8935A]" />
-                  <span className="text-[11px] text-slate-500 font-semibold">Searching with your photo…</span>
+                  <img
+                    src={uploadedImage}
+                    alt="Your uploaded query"
+                    className="w-10 h-10 rounded-lg object-cover border border-[#B8935A]"
+                  />
+                  <span className="text-[11px] text-slate-500 font-semibold">
+                    Searching with your photo…
+                  </span>
                 </div>
               )}
             </div>
             {uploadError && (
-              <p className="text-[11px] text-rose-600 font-semibold" role="alert">{uploadError}</p>
+              <p
+                className="text-[11px] text-rose-600 font-semibold"
+                role="alert"
+              >
+                {uploadError}
+              </p>
             )}
 
             <div className="grid grid-cols-3 gap-3">
@@ -134,12 +189,18 @@ export const VisualSearchModal: React.FC = () => {
                   }}
                   className={`flex items-center gap-2.5 p-2 rounded-xl border text-left transition-all ${
                     selectedSample === s.url
-                      ? 'border-[#B8935A] bg-[#FDF8EE] ring-1 ring-[#B8935A]'
-                      : 'border-slate-200 hover:bg-slate-50'
+                      ? "border-[#B8935A] bg-[#FDF8EE] ring-1 ring-[#B8935A]"
+                      : "border-slate-200 hover:bg-slate-50"
                   }`}
                 >
-                  <img src={s.url} alt={s.label} className="w-10 h-10 rounded-lg object-cover" />
-                  <span className="text-xs font-semibold text-slate-800 line-clamp-1">{s.label}</span>
+                  <img
+                    src={s.url}
+                    alt={s.label}
+                    className="w-10 h-10 rounded-lg object-cover"
+                  />
+                  <span className="text-xs font-semibold text-slate-800 line-clamp-1">
+                    {s.label}
+                  </span>
                 </button>
               ))}
             </div>
@@ -157,7 +218,7 @@ export const VisualSearchModal: React.FC = () => {
                 disabled={visualSearchLoading}
                 className="px-5 py-2.5 rounded-xl bg-[#1B1F3B] hover:bg-[#2A3C78] text-white text-xs font-semibold shadow-sm transition-all"
               >
-                {visualSearchLoading ? 'Analyzing...' : 'Search Style'}
+                {visualSearchLoading ? "Analyzing..." : "Search Style"}
               </button>
             </div>
           </div>
@@ -165,7 +226,10 @@ export const VisualSearchModal: React.FC = () => {
           {/* SEARCH-01: explicit error terminal state — the modal must never
               sit silently after a failed/timed-out analysis. */}
           {visualSearchError && !visualSearchLoading && (
-            <div className="space-y-3 pt-2 border-t border-slate-100" role="alert">
+            <div
+              className="space-y-3 pt-2 border-t border-slate-100"
+              role="alert"
+            >
               <div className="flex items-start gap-2 bg-rose-50 border border-rose-200 p-3 rounded-xl text-xs text-rose-700">
                 <span aria-hidden="true">⚠️</span>
                 <span>{visualSearchError}</span>
@@ -179,12 +243,17 @@ export const VisualSearchModal: React.FC = () => {
             </div>
           )}
 
-          {!visualSearchResult && !visualSearchError && !visualSearchLoading && (
-            <div className="pt-4 border-t border-slate-100 text-center text-xs text-slate-500 font-light">
-              Pick a sample or paste an image URL, then press <span className="font-semibold text-slate-600">Search Style</span> —
-              matches from the live catalog appear here.
-            </div>
-          )}
+          {!visualSearchResult &&
+            !visualSearchError &&
+            !visualSearchLoading && (
+              <div className="pt-4 border-t border-slate-100 text-center text-xs text-slate-500 font-light">
+                Pick a sample or paste an image URL, then press{" "}
+                <span className="font-semibold text-slate-600">
+                  Search Style
+                </span>{" "}
+                — matches from the live catalog appear here.
+              </div>
+            )}
 
           {/* Vision Detection Result */}
           {visualSearchResult && (
@@ -193,15 +262,23 @@ export const VisualSearchModal: React.FC = () => {
                 <div className="flex items-center gap-2 bg-[#FDF8EE] border border-[#B8935A]/30 p-3 rounded-xl text-xs text-slate-800">
                   <SparkleIcon size={16} color="#B8935A" />
                   <span>
-                    Detected: <strong className="text-[#1B1F3B]">{visualSearchResult.detected_category}</strong> in{' '}
-                    <strong className="text-[#1B1F3B]">{visualSearchResult.detected_color}</strong> · Style: {visualSearchResult.detected_style}
+                    Detected:{" "}
+                    <strong className="text-[#1B1F3B]">
+                      {visualSearchResult.detected_category}
+                    </strong>{" "}
+                    in{" "}
+                    <strong className="text-[#1B1F3B]">
+                      {visualSearchResult.detected_color}
+                    </strong>{" "}
+                    · Style: {visualSearchResult.detected_style}
                   </span>
                 </div>
               ) : (
                 <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 p-3 rounded-xl text-xs text-slate-600">
                   <SparkleIcon size={16} color="#94A3B8" />
                   <span>
-                    Vision analysis is unavailable right now — showing catalog matches without image detection.
+                    Vision analysis is unavailable right now — showing catalog
+                    matches without image detection.
                   </span>
                 </div>
               )}
@@ -215,7 +292,7 @@ export const VisualSearchModal: React.FC = () => {
                   >
                     <div>
                       <div className="h-44 rounded-xl overflow-hidden bg-slate-100 mb-2 relative">
-                        <img
+                        <HonestProductImage
                           src={match.image_url}
                           alt={match.title}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
@@ -230,36 +307,24 @@ export const VisualSearchModal: React.FC = () => {
                       <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
                         {match.brand_name}
                       </span>
-                      <h5 className="text-xs font-bold text-[#1B1F3B] line-clamp-1 mb-1">{match.title}</h5>
-                      <span className="text-sm font-bold text-[#1B1F3B]">${match.price}</span>
+                      <h5 className="text-xs font-bold text-[#1B1F3B] line-clamp-1 mb-1">
+                        {match.title}
+                      </h5>
+                      <span className="text-sm font-bold text-[#1B1F3B]">
+                        ${match.price}
+                      </span>
                     </div>
 
                     <button
-                      onClick={() => {
-                        closeVisualSearch();
-                        openTryOn({
-                          id: match.product_id,
-                          brand_id: 1,
-                          brand_name: match.brand_name,
-                          category_id: 1,
-                          category_name: 'Apparel',
-                          title: match.title,
-                          title_ar: match.title,
-                          slug: 'match-' + match.product_id,
-                          base_price: match.price,
-                          currency: 'USD',
-                          thumbnail_url: match.image_url,
-                          color_family: match.detected_color,
-                          dominant_hex: '#1B1F3B',
-                          style_tags: ['Matched'],
-                          occasion_tags: ['Versatile'],
-                          rating: 0,
-                          is_featured: false,
-                        });
-                      }}
-                      className="mt-3 w-full py-2 rounded-xl bg-slate-100 hover:bg-[#1B1F3B] hover:text-white text-xs font-semibold text-slate-800 transition-all flex items-center justify-center gap-1.5"
+                      onClick={() => openMatchInTryOn(match.product_id)}
+                      disabled={openingMatchId === match.product_id}
+                      className="mt-3 w-full py-2 rounded-xl bg-slate-100 hover:bg-[#1B1F3B] hover:text-white disabled:opacity-50 text-xs font-semibold text-slate-800 transition-all flex items-center justify-center gap-1.5"
                     >
-                      <span>Try On This Match</span>
+                      <span>
+                        {openingMatchId === match.product_id
+                          ? "Loading product…"
+                          : "Try On This Match"}
+                      </span>
                     </button>
                   </div>
                 ))}

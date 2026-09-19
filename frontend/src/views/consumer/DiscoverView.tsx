@@ -1,12 +1,12 @@
-import { CardStackShowcase } from '../../components/showcase/DesignShowcases';
-import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useTranslation } from 'react-i18next';
-import { useCatalogViewModel } from '../../viewmodels/useCatalogViewModel';
-import { useUIStore } from '../../stores/uiStore';
-import { useCartStore } from '../../stores/cartStore';
-import { catalogService } from '../../services/apiServices';
-import { AutocompleteSuggestion } from '../../models';
+import { CardStackShowcase } from "../../components/showcase/DesignShowcases";
+import React, { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
+import { useCatalogViewModel } from "../../viewmodels/useCatalogViewModel";
+import { useUIStore } from "../../stores/uiStore";
+import { useCartStore } from "../../stores/cartStore";
+import { catalogService } from "../../services/apiServices";
+import { AutocompleteSuggestion } from "../../models";
 import {
   TryOnIcon,
   RulerIcon,
@@ -14,8 +14,16 @@ import {
   VisualSearchIcon,
   SparkleIcon,
   HeartIcon,
-} from '../../components/icons/ConfitIcons';
-import { FitScoreBadge, BNPLBadge, SkeletonCard, EmptyState } from '../../components/common/CommonComponents';
+} from "../../components/icons/ConfitIcons";
+import {
+  FitScoreBadge,
+  BNPLBadge,
+  SkeletonCard,
+  EmptyState,
+} from "../../components/common/CommonComponents";
+import { HonestProductImage } from "../../components/common/HonestProductImage";
+import { useCapabilities } from "../../hooks/useCapabilities";
+import { resolvePurchasableSku } from "../../lib/catalogSku";
 
 export const DiscoverView: React.FC = () => {
   const { t } = useTranslation();
@@ -36,12 +44,15 @@ export const DiscoverView: React.FC = () => {
     refresh: refreshCatalog,
   } = useCatalogViewModel();
 
-  const { openTryOn, openRuler, openVisualSearch } = useUIStore();
+  const { openTryOn, openRuler, openVisualSearch, showToast } = useUIStore();
+  const { capabilities } = useCapabilities();
   const { addItem } = useCartStore();
 
-  const [autocompleteSuggestions, setAutocompleteSuggestions] = useState<AutocompleteSuggestion[]>([]);
+  const [autocompleteSuggestions, setAutocompleteSuggestions] = useState<
+    AutocompleteSuggestion[]
+  >([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const [selectedColor, setSelectedColor] = useState<string>('');
+  const [selectedColor, setSelectedColor] = useState<string>("");
   const [wishlist, setWishlist] = useState<number[]>([]);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -61,33 +72,67 @@ export const DiscoverView: React.FC = () => {
     }
   }, [searchQuery]);
 
+  const addCatalogCardToBag = async (p: any) => {
+    try {
+      const sku = await resolvePurchasableSku(p);
+      if (!sku) {
+        showToast(
+          "No purchasable size is available for this item right now.",
+          "error",
+        );
+        return;
+      }
+      await addItem(sku.id, {
+        id: p.id,
+        title: p.title,
+        category: p.category_name,
+        color: p.color_family,
+      });
+      showToast("Added to bag", "success");
+    } catch (err: any) {
+      showToast(err?.message || "Could not add this item to bag.", "error");
+    }
+  };
+
   const toggleWishlist = (productId: number) => {
     setWishlist((prev) =>
-      prev.includes(productId) ? prev.filter((id) => id !== productId) : [...prev, productId]
+      prev.includes(productId)
+        ? prev.filter((id) => id !== productId)
+        : [...prev, productId],
     );
   };
 
   const filteredProducts = products.filter((p) => {
-    if (selectedColor && !p.color_family.toLowerCase().includes(selectedColor.toLowerCase())) {
+    if (
+      selectedColor &&
+      !p.color_family.toLowerCase().includes(selectedColor.toLowerCase())
+    ) {
       return false;
     }
-    if (selectedOccasion && !(p.occasion_tags || []).some((tag) => tag.toLowerCase().includes(selectedOccasion.toLowerCase()))) {
+    if (
+      selectedOccasion &&
+      !(p.occasion_tags || []).some((tag) =>
+        tag.toLowerCase().includes(selectedOccasion.toLowerCase()),
+      )
+    ) {
       return false;
     }
     return true;
   });
 
   const colorSwatches = [
-    { label: 'All', hex: 'transparent' },
-    { label: 'Navy Blue', hex: '#1B1F3B' },
-    { label: 'Midnight Black', hex: '#111111' },
-    { label: 'Optic White', hex: '#FAF9F6' },
-    { label: 'Champagne Gold', hex: '#D4AF37' },
-    { label: 'Emerald Green', hex: '#2D4A3E' },
+    { label: "All", hex: "transparent" },
+    { label: "Navy Blue", hex: "#1B1F3B" },
+    { label: "Midnight Black", hex: "#111111" },
+    { label: "Optic White", hex: "#FAF9F6" },
+    { label: "Champagne Gold", hex: "#D4AF37" },
+    { label: "Emerald Green", hex: "#2D4A3E" },
   ];
 
-  const occasionFilters = ['Work', 'Wedding', 'Evening', 'Travel', 'Everyday'];
-  const activeCategoryName = categories.find((cat) => cat.slug === selectedCategory)?.name;
+  const occasionFilters = ["Work", "Wedding", "Evening", "Travel", "Everyday"];
+  const activeCategoryName = categories.find(
+    (cat) => cat.slug === selectedCategory,
+  )?.name;
   const activeFilters = [
     activeCategoryName ? `Category: ${activeCategoryName}` : null,
     selectedOccasion ? `Occasion: ${selectedOccasion}` : null,
@@ -111,10 +156,11 @@ export const DiscoverView: React.FC = () => {
             Luxury Multi-Brand Catalog
           </span>
           <h1 className="font-serif text-3xl font-bold text-[#1B1F3B] tracking-tight">
-            {t('nav.style_discover')}
+            {t("nav.style_discover")}
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 mt-1 font-light">
-            Curated European tailoring, sculptural classics, and silk evening silhouettes.
+            Curated European tailoring, sculptural classics, and silk evening
+            silhouettes.
           </p>
         </div>
 
@@ -127,7 +173,8 @@ export const DiscoverView: React.FC = () => {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onFocus={() => {
-                if (autocompleteSuggestions.length > 0) setShowSuggestions(true);
+                if (autocompleteSuggestions.length > 0)
+                  setShowSuggestions(true);
               }}
               onBlur={() => {
                 setTimeout(() => setShowSuggestions(false), 200);
@@ -138,7 +185,7 @@ export const DiscoverView: React.FC = () => {
             {searchQuery && (
               <button
                 onClick={() => {
-                  setSearchQuery('');
+                  setSearchQuery("");
                   setShowSuggestions(false);
                 }}
                 className="absolute right-3 top-3 text-xs text-slate-500 hover:text-slate-700"
@@ -157,7 +204,7 @@ export const DiscoverView: React.FC = () => {
                   <div
                     key={idx}
                     onMouseDown={() => {
-                      if (sug.type === 'product') {
+                      if (sug.type === "product") {
                         navigate(`/product/${sug.slug_or_query}`);
                       } else {
                         setSearchQuery(sug.title);
@@ -168,15 +215,25 @@ export const DiscoverView: React.FC = () => {
                   >
                     <div className="flex items-center gap-3">
                       {sug.thumbnail_url ? (
-                        <img src={sug.thumbnail_url} alt="" className="w-9 h-9 rounded-xl object-cover border border-slate-100" />
+                        <img
+                          src={sug.thumbnail_url}
+                          alt=""
+                          className="w-9 h-9 rounded-xl object-cover border border-slate-100"
+                        />
                       ) : (
                         <div className="w-9 h-9 rounded-xl bg-[#FDF8EE] text-[#C5A059] flex items-center justify-center font-bold text-xs">
-                          {sug.type === 'brand' ? '🏷️' : '📁'}
+                          {sug.type === "brand" ? "🏷️" : "📁"}
                         </div>
                       )}
                       <div>
-                        <span className="font-bold text-[#1B1F3B] block">{sug.title}</span>
-                        {sug.subtitle && <span className="text-[10px] text-slate-500 font-light">{sug.subtitle}</span>}
+                        <span className="font-bold text-[#1B1F3B] block">
+                          {sug.title}
+                        </span>
+                        {sug.subtitle && (
+                          <span className="text-[10px] text-slate-500 font-light">
+                            {sug.subtitle}
+                          </span>
+                        )}
                       </div>
                     </div>
                     <span className="text-[9px] px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 font-semibold uppercase">
@@ -204,11 +261,11 @@ export const DiscoverView: React.FC = () => {
         {/* Category Pills */}
         <div className="flex items-center gap-2 overflow-x-auto pb-1">
           <button
-            onClick={() => setSelectedCategory('')}
+            onClick={() => setSelectedCategory("")}
             className={`px-4 py-2.5 rounded-full text-xs font-semibold transition-all shrink-0 ${
-              selectedCategory === ''
-                ? 'bg-[#1B1F3B] text-white shadow-xs'
-                : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
+              selectedCategory === ""
+                ? "bg-[#1B1F3B] text-white shadow-xs"
+                : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
             }`}
           >
             All Categories
@@ -219,8 +276,8 @@ export const DiscoverView: React.FC = () => {
               onClick={() => setSelectedCategory(cat.slug)}
               className={`px-4 py-2.5 rounded-full text-xs font-semibold transition-all shrink-0 ${
                 selectedCategory === cat.slug
-                  ? 'bg-[#1B1F3B] text-white shadow-xs'
-                  : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
+                  ? "bg-[#1B1F3B] text-white shadow-xs"
+                  : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
               }`}
             >
               {cat.name}
@@ -229,11 +286,15 @@ export const DiscoverView: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2 overflow-x-auto pb-1">
-          <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider shrink-0">Occasion:</span>
+          <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider shrink-0">
+            Occasion:
+          </span>
           <button
-            onClick={() => setSelectedOccasion('')}
+            onClick={() => setSelectedOccasion("")}
             className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all shrink-0 ${
-              selectedOccasion === '' ? 'bg-[#1B1F3B] text-white' : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
+              selectedOccasion === ""
+                ? "bg-[#1B1F3B] text-white"
+                : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
             }`}
           >
             All
@@ -243,7 +304,9 @@ export const DiscoverView: React.FC = () => {
               key={occasion}
               onClick={() => setSelectedOccasion(occasion)}
               className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all shrink-0 ${
-                selectedOccasion === occasion ? 'bg-[#1B1F3B] text-white' : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
+                selectedOccasion === occasion
+                  ? "bg-[#1B1F3B] text-white"
+                  : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
               }`}
             >
               {occasion}
@@ -255,19 +318,27 @@ export const DiscoverView: React.FC = () => {
         <div className="flex flex-wrap items-center justify-between gap-4 pt-1">
           {/* Color Swatch Filters */}
           <div className="flex items-center gap-2 overflow-x-auto">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Palette:</span>
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+              Palette:
+            </span>
             {colorSwatches.map((col) => (
               <button
                 key={col.label}
-                onClick={() => setSelectedColor(col.label === 'All' ? '' : col.label)}
+                onClick={() =>
+                  setSelectedColor(col.label === "All" ? "" : col.label)
+                }
                 className={`flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-medium transition-all ${
-                  (selectedColor === '' && col.label === 'All') || selectedColor === col.label
-                    ? 'bg-[#1B1F3B] text-white'
-                    : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
+                  (selectedColor === "" && col.label === "All") ||
+                  selectedColor === col.label
+                    ? "bg-[#1B1F3B] text-white"
+                    : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
                 }`}
               >
-                {col.hex !== 'transparent' && (
-                  <span className="w-2.5 h-2.5 rounded-full border border-white/40" style={{ backgroundColor: col.hex }} />
+                {col.hex !== "transparent" && (
+                  <span
+                    className="w-2.5 h-2.5 rounded-full border border-white/40"
+                    style={{ backgroundColor: col.hex }}
+                  />
                 )}
                 <span>{col.label}</span>
               </button>
@@ -276,14 +347,19 @@ export const DiscoverView: React.FC = () => {
 
           {/* Sort Selector */}
           <div className="flex items-center gap-2">
-            <span className="text-[11px] text-slate-500" title="Recommended order uses the catalog ranking returned by the API for the selected filters.">Sort by:</span>
+            <span
+              className="text-[11px] text-slate-500"
+              title="Recommended order uses the catalog ranking returned by the API for the selected filters."
+            >
+              Sort by:
+            </span>
             <select
               aria-label="Sort products"
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
               className="text-xs font-semibold bg-white border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:border-[#C5A059]"
             >
-              <option value="recommended">Recommended catalog order</option>
+              <option value="recommended">Top rated catalog order</option>
               <option value="price_asc">Price: Low to High</option>
               <option value="price_desc">Price: High to Low</option>
               <option value="rating">Customer Rating</option>
@@ -295,24 +371,31 @@ export const DiscoverView: React.FC = () => {
 
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-2xs">
         <div className="flex flex-wrap items-center gap-2 text-xs">
-          <span className="font-bold text-slate-500 uppercase tracking-wider">You are browsing:</span>
+          <span className="font-bold text-slate-500 uppercase tracking-wider">
+            You are browsing:
+          </span>
           {activeFilters.length > 0 ? (
             activeFilters.map((filter) => (
-              <span key={filter} className="rounded-full bg-[#FDF8EE] px-3 py-1 font-semibold text-[#A37E44]">
+              <span
+                key={filter}
+                className="rounded-full bg-[#FDF8EE] px-3 py-1 font-semibold text-[#7A5C28]"
+              >
                 {filter}
               </span>
             ))
           ) : (
-            <span className="text-slate-500">All verified products, ranked by CONFIT relevance.</span>
+            <span className="text-slate-500">
+              All live catalog products, ordered by rating and catalog recency.
+            </span>
           )}
         </div>
         {activeFilters.length > 0 && (
           <button
             onClick={() => {
-              setSelectedCategory('');
-              setSelectedOccasion('');
-              setSelectedColor('');
-              setSearchQuery('');
+              setSelectedCategory("");
+              setSelectedOccasion("");
+              setSelectedColor("");
+              setSearchQuery("");
             }}
             className="text-xs font-bold text-[#1B1F3B] hover:text-[#C5A059]"
           >
@@ -345,10 +428,10 @@ export const DiscoverView: React.FC = () => {
           description="Try selecting a broader palette, clearing search terms, or exploring another collection."
           actionText="Reset All Filters"
           onAction={() => {
-            setSelectedCategory('');
-            setSelectedOccasion('');
-            setSelectedColor('');
-            setSearchQuery('');
+            setSelectedCategory("");
+            setSelectedOccasion("");
+            setSelectedColor("");
+            setSearchQuery("");
           }}
         />
       ) : (
@@ -362,23 +445,26 @@ export const DiscoverView: React.FC = () => {
               >
                 <div>
                   <div className="relative aspect-[3/4] rounded-2xl overflow-hidden bg-slate-100 mb-3">
-                    <img
-                      src={p.thumbnail_url}
-                      alt={p.title}
-                      loading="lazy"
-                      decoding="async"
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 cursor-pointer"
+                    <button
+                      type="button"
                       onClick={() => navigate(`/product/${p.slug}`)}
-                      onError={(e) => {
-                        const target = e.currentTarget as HTMLImageElement;
-                        if (!target.dataset.fallback) {
-                          target.dataset.fallback = 'true';
-                          target.src = `https://placehold.co/400x500/1B1F3B/FFFFFF?text=${encodeURIComponent(p.title.slice(0,20))}`;
-                        }
-                      }}
-                    />
+                      className="h-full w-full text-left"
+                      aria-label={`View ${p.title}`}
+                    >
+                      <HonestProductImage
+                        src={p.thumbnail_url}
+                        alt={p.title}
+                        loading="lazy"
+                        decoding="async"
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 cursor-pointer"
+                      />
+                    </button>
                     <div className="absolute top-2.5 left-2.5 flex flex-col gap-1">
-                      <FitScoreBadge score={p.style_compatibility_score} label="Match" verdict="Color Harmony" />
+                      <FitScoreBadge
+                        score={p.style_compatibility_score}
+                        label="Match"
+                        verdict="Color Harmony"
+                      />
                     </div>
 
                     <button
@@ -417,16 +503,26 @@ export const DiscoverView: React.FC = () => {
                     {p.title}
                   </h3>
                   <div className="flex items-center justify-between mt-1">
-                    <span className="text-xs sm:text-sm font-bold text-[#1B1F3B]">${p.base_price}</span>
-                    <span className="text-[11px] text-slate-500 font-light truncate max-w-[80px]">{p.color_family}</span>
+                    <span className="text-xs sm:text-sm font-bold text-[#1B1F3B]">
+                      ${p.base_price}
+                    </span>
+                    <span className="text-[11px] text-slate-500 font-light truncate max-w-[80px]">
+                      {p.color_family}
+                    </span>
                   </div>
                   <div className="mt-1.5">
-                    <BNPLBadge price={p.base_price} provider="Tabby" />
+                    {capabilities.bnpl_live ? (
+                      <BNPLBadge price={p.base_price} provider="Tabby" />
+                    ) : (
+                      <span className="text-[11px] text-slate-500">
+                        BNPL is not live in this environment.
+                      </span>
+                    )}
                   </div>
                   <div className="mt-2 rounded-2xl bg-[#FAF9F6] px-3 py-2 text-[11px] text-slate-600">
                     {p.fit_available && p.recommended_size
                       ? `Likely fit: ${p.recommended_size}`
-                      : 'Set measurements for fit confidence'}
+                      : "Set measurements for fit confidence"}
                   </div>
                 </div>
 
@@ -444,12 +540,7 @@ export const DiscoverView: React.FC = () => {
                     Try on
                   </button>
                   <button
-                    onClick={async () => {
-                      const sku = p.skus?.[0];
-                      if (sku) {
-                        await addItem(sku.id, { id: p.id, title: p.title, category: p.category_name, color: p.color_family });
-                      }
-                    }}
+                    onClick={() => addCatalogCardToBag(p)}
                     className="col-span-2 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold transition-all flex items-center justify-center gap-1.5"
                   >
                     <BagIcon size={14} color="currentColor" />

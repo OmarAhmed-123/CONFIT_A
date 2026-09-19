@@ -1,15 +1,15 @@
-import React, { useCallback, useRef, useState } from 'react';
-import { useModalFocus } from '../../hooks/useModalFocus';
-import { useSearchParams, useNavigate } from 'react-router-dom';
-import { useTranslation } from 'react-i18next';
-import { compressImageToDataUrl } from '../../lib/imageUpload';
-import { useCapabilities } from '../../hooks/useCapabilities';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useWardrobeViewModel } from '../../viewmodels/useWardrobeViewModel';
-import { useAuthStore } from '../../stores/authStore';
-import { stylistService } from '../../services/apiServices';
-import { Outfit } from '../../models';
-import { useUIStore } from '../../stores/uiStore';
+import React, { useCallback, useRef, useState } from "react";
+import { useModalFocus } from "../../hooks/useModalFocus";
+import { useSearchParams, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
+import { compressImageToDataUrl } from "../../lib/imageUpload";
+import { useCapabilities } from "../../hooks/useCapabilities";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useWardrobeViewModel } from "../../viewmodels/useWardrobeViewModel";
+import { useAuthStore } from "../../stores/authStore";
+import { stylistService } from "../../services/apiServices";
+import { Outfit } from "../../models";
+import { useUIStore } from "../../stores/uiStore";
 import {
   WardrobeIcon,
   SavedLooksIcon,
@@ -17,9 +17,22 @@ import {
   SparkleIcon,
   BagIcon,
   TryOnIcon,
-} from '../../components/icons/ConfitIcons';
-import { LoadingSpinner, EmptyState, FitScoreBadge } from '../../components/common/CommonComponents';
-import { CardStackShowcase, CircularGalleryShowcase } from '../../components/showcase/DesignShowcases';
+} from "../../components/icons/ConfitIcons";
+import {
+  LoadingSpinner,
+  EmptyState,
+  FitScoreBadge,
+} from "../../components/common/CommonComponents";
+import {
+  CardStackShowcase,
+  CircularGalleryShowcase,
+} from "../../components/showcase/DesignShowcases";
+
+const MANUAL_WARDROBE_IMAGE =
+  "data:image/svg+xml;utf8," +
+  encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 750"><rect width="600" height="750" fill="%23F8FAFC"/><rect x="90" y="120" width="420" height="510" rx="42" fill="%23FFFFFF" stroke="%23CBD5E1" stroke-width="4"/><text x="300" y="345" text-anchor="middle" font-family="Arial,sans-serif" font-size="32" font-weight="700" fill="%231B1F3B">Manual wardrobe item</text><text x="300" y="395" text-anchor="middle" font-family="Arial,sans-serif" font-size="22" fill="%2364748B">No photo uploaded</text></svg>',
+  );
 
 export const WardrobeView: React.FC = () => {
   const { t } = useTranslation();
@@ -30,7 +43,7 @@ export const WardrobeView: React.FC = () => {
   const { isAuthenticated } = useAuthStore();
   const queryClient = useQueryClient();
   const savedLooksQuery = useQuery({
-    queryKey: ['wardrobe', 'saved-looks'],
+    queryKey: ["wardrobe", "saved-looks"],
     queryFn: () => stylistService.getSavedOutfits(),
     enabled: isAuthenticated,
     staleTime: 30_000,
@@ -41,7 +54,9 @@ export const WardrobeView: React.FC = () => {
     setDeletingLookId(id);
     try {
       await stylistService.deleteOutfit(id);
-      await queryClient.invalidateQueries({ queryKey: ['wardrobe', 'saved-looks'] });
+      await queryClient.invalidateQueries({
+        queryKey: ["wardrobe", "saved-looks"],
+      });
     } finally {
       setDeletingLookId(null);
     }
@@ -49,17 +64,22 @@ export const WardrobeView: React.FC = () => {
 
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const initialTab = searchParams.get('tab') || 'closet';
+  const initialTab = searchParams.get("tab") || "closet";
   const { capabilities } = useCapabilities();
-  const photoUploadUnavailable = capabilities.storage_mode === 'local';
+  const photoUploadUnavailable = capabilities.storage_mode === "local";
 
-  const [activeTab, setActiveTab] = useState<'closet' | 'looks' | 'gaps'>(initialTab as any);
+  const [activeTab, setActiveTab] = useState<"closet" | "looks" | "gaps">(
+    initialTab as any,
+  );
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const closeUploadModal = useCallback(() => setUploadModalOpen(false), []);
-  const uploadPanelRef = useModalFocus<HTMLDivElement>(closeUploadModal, uploadModalOpen);
-  const [newTitle, setNewTitle] = useState('');
-  const [newCategory, setNewCategory] = useState('Outerwear');
-  const [newColor, setNewColor] = useState('Navy Blue');
+  const uploadPanelRef = useModalFocus<HTMLDivElement>(
+    closeUploadModal,
+    uploadModalOpen,
+  );
+  const [newTitle, setNewTitle] = useState("");
+  const [newCategory, setNewCategory] = useState("Outerwear");
+  const [newColor, setNewColor] = useState("Navy Blue");
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isCompressing, setIsCompressing] = useState(false);
   const [uploadSkipNotes, setUploadSkipNotes] = useState<string[]>([]);
@@ -95,28 +115,30 @@ export const WardrobeView: React.FC = () => {
   const handleAddSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     addNewItem({
-      title: newTitle || 'Custom Wardrobe Item',
+      title: newTitle || "Custom Wardrobe Item",
       category: newCategory,
       color_name: newColor,
-      image_url: 'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?w=500&auto=format&fit=crop&q=80',
-      wear_frequency: 'regular',
+      image_url: MANUAL_WARDROBE_IMAGE,
+      wear_frequency: "regular",
       is_favorite: false,
     });
     setUploadModalOpen(false);
-    setNewTitle('');
+    setNewTitle("");
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     // Client-side validation mirrors the backend contract (BRD §12.2).
     const valid = files.filter((f) => {
-      if (!['image/jpeg', 'image/png', 'image/webp'].includes(f.type)) {
+      if (!["image/jpeg", "image/png", "image/webp"].includes(f.type)) {
         return false;
       }
       return f.size <= 15 * 1024 * 1024;
     });
     if (valid.length !== files.length) {
-      alert('Some files were skipped: only JPEG/PNG/WebP up to 15MB are supported.');
+      alert(
+        "Some files were skipped: only JPEG/PNG/WebP up to 15MB are supported.",
+      );
     }
     setSelectedFiles(valid.slice(0, 20));
     setUploadSkipNotes([]);
@@ -135,18 +157,25 @@ export const WardrobeView: React.FC = () => {
         try {
           const { dataUrl } = await compressImageToDataUrl(f, { maxDim: 1280 });
           const blob = await (await fetch(dataUrl)).blob();
-          compressed.push(new File([blob], f.name.replace(/\.[^.]+$/, '') + '.jpg', { type: 'image/jpeg' }));
+          compressed.push(
+            new File([blob], f.name.replace(/\.[^.]+$/, "") + ".jpg", {
+              type: "image/jpeg",
+            }),
+          );
         } catch {
           // A photo that cannot be compressed is skipped and REPORTED, never
           // silently uploaded raw (that would resurrect the 413 failure).
-          setUploadSkipNotes((prev) => [...prev, `${f.name} could not be processed and was skipped.`]);
+          setUploadSkipNotes((prev) => [
+            ...prev,
+            `${f.name} could not be processed and was skipped.`,
+          ]);
         }
       }
       if (!compressed.length) return;
       const report = await uploadFiles(compressed);
       if (report && report.summary.succeeded > 0) {
         setSelectedFiles([]);
-        if (fileInputRef.current) fileInputRef.current.value = '';
+        if (fileInputRef.current) fileInputRef.current.value = "";
         if (report.summary.failed === 0) setUploadModalOpen(false);
       }
     } finally {
@@ -177,11 +206,11 @@ export const WardrobeView: React.FC = () => {
           <div className="flex items-center gap-2">
             <WardrobeIcon size={24} color="#1B1F3B" />
             <h1 className="font-serif text-3xl font-bold text-[#1B1F3B]">
-              {t('wardrobe.title')}
+              {t("wardrobe.title")}
             </h1>
           </div>
           <p className="text-sm text-slate-500 mt-1">
-            {t('wardrobe.subtitle')}
+            {t("wardrobe.subtitle")}
           </p>
         </div>
 
@@ -189,32 +218,38 @@ export const WardrobeView: React.FC = () => {
         <div className="flex items-center gap-3">
           <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200">
             <button
-              onClick={() => setActiveTab('closet')}
+              onClick={() => setActiveTab("closet")}
               className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
-                activeTab === 'closet' ? 'bg-white text-[#1B1F3B] shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                activeTab === "closet"
+                  ? "bg-white text-[#1B1F3B] shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
               }`}
             >
-              {t('nav.my_closet')}
+              {t("nav.my_closet")}
             </button>
             <button
-              onClick={() => setActiveTab('looks')}
+              onClick={() => setActiveTab("looks")}
               className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
-                activeTab === 'looks' ? 'bg-white text-[#1B1F3B] shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                activeTab === "looks"
+                  ? "bg-white text-[#1B1F3B] shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
               }`}
             >
-              {t('nav.my_looks')}
+              {t("nav.my_looks")}
             </button>
             <button
               onClick={() => {
-                setActiveTab('gaps');
+                setActiveTab("gaps");
                 fetchGaps();
               }}
               className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1 ${
-                activeTab === 'gaps' ? 'bg-white text-[#B8935A] shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                activeTab === "gaps"
+                  ? "bg-white text-[#B8935A] shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
               }`}
             >
               <GapAnalysisIcon size={14} color="#B8935A" />
-              <span>{t('nav.gap_analysis')}</span>
+              <span>{t("nav.gap_analysis")}</span>
             </button>
           </div>
 
@@ -228,18 +263,25 @@ export const WardrobeView: React.FC = () => {
       </div>
 
       {/* TAB 1: My Closet Grid */}
-      {activeTab === 'closet' && (
+      {activeTab === "closet" && (
         <div className="space-y-6">
           {/* Category Filter Chips */}
           <div className="flex items-center gap-2 overflow-x-auto pb-1">
-            {['All', 'Outerwear', 'Tops', 'Bottoms', 'Footwear', 'Accessories'].map((cat) => (
+            {[
+              "All",
+              "Outerwear",
+              "Tops",
+              "Bottoms",
+              "Footwear",
+              "Accessories",
+            ].map((cat) => (
               <button
                 key={cat}
                 onClick={() => setActiveCategory(cat)}
                 className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all ${
                   activeCategory === cat
-                    ? 'bg-[#1B1F3B] text-white shadow-xs'
-                    : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
+                    ? "bg-[#1B1F3B] text-white shadow-xs"
+                    : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
                 }`}
               >
                 {cat}
@@ -253,13 +295,22 @@ export const WardrobeView: React.FC = () => {
             <div className="rounded-[32px] border border-[#C5A059]/25 bg-white p-6 shadow-2xs">
               <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
                 <div className="space-y-4">
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-[#7A5C28]">Wardrobe retention engine</span>
-                  <h2 className="font-serif text-3xl font-bold text-[#1B1F3B]">Upload a few pieces to see what you can wear next</h2>
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-[#7A5C28]">
+                    Wardrobe retention engine
+                  </span>
+                  <h2 className="font-serif text-3xl font-bold text-[#1B1F3B]">
+                    Upload a few pieces to see what you can wear next
+                  </h2>
                   <p className="text-sm font-light leading-relaxed text-slate-500">
-                    Start with three everyday garments. CONFIT will auto-tag editable fabric, color, silhouette, and wear-frequency signals, then suggest combinations from what you already own.
+                    Start with three everyday garments. Photo uploads are
+                    auto-tagged when persistent storage and analysis are
+                    available; manual entries remain editable and clearly marked
+                    as no-photo items.
                   </p>
                   <div className="rounded-2xl bg-[#FAF9F6] p-3 text-xs text-slate-600">
-                    Privacy note: garment photos are used for this wardrobe workflow and remain editable or removable from your closet.
+                    Privacy note: garment photos are sent to the wardrobe
+                    backend for this workflow. In this deployment, photo upload
+                    availability depends on configured persistent storage.
                   </div>
                   <button
                     onClick={() => setUploadModalOpen(true)}
@@ -270,16 +321,24 @@ export const WardrobeView: React.FC = () => {
                 </div>
                 <div className="grid grid-cols-3 gap-3">
                   {[
-                    'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?w=500&auto=format&fit=crop&q=80',
-                    'https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=500&auto=format&fit=crop&q=80',
-                    'https://images.unsplash.com/photo-1558769132-cb1aea458c5e?w=500&auto=format&fit=crop&q=80',
+                    "https://images.unsplash.com/photo-1594938298603-c8148c4dae35?w=500&auto=format&fit=crop&q=80",
+                    "https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=500&auto=format&fit=crop&q=80",
+                    "https://images.unsplash.com/photo-1558769132-cb1aea458c5e?w=500&auto=format&fit=crop&q=80",
                   ].map((src, index) => (
-                    <div key={src} className="overflow-hidden rounded-3xl border border-slate-200 bg-slate-100 shadow-sm">
-                      <img src={src} alt={`Example wardrobe upload ${index + 1}`} className="h-56 w-full object-cover" />
+                    <div
+                      key={src}
+                      className="overflow-hidden rounded-3xl border border-slate-200 bg-slate-100 shadow-sm"
+                    >
+                      <img
+                        src={src}
+                        alt={`Example wardrobe upload ${index + 1}`}
+                        className="h-56 w-full object-cover"
+                      />
                     </div>
                   ))}
                   <div className="col-span-3 rounded-2xl border border-[#C5A059]/25 bg-[#FDF8EE] p-4 text-center text-xs font-semibold text-[#7A5C28]">
-                    Upload pieces → see realistic combinations from what you own.
+                    Upload pieces → see realistic combinations from what you
+                    own.
                   </div>
                 </div>
               </div>
@@ -293,7 +352,11 @@ export const WardrobeView: React.FC = () => {
                 >
                   <div>
                     <div className="h-64 rounded-2xl overflow-hidden bg-slate-100 mb-3 relative">
-                      <img src={item.image_url} alt={item.title} className="w-full h-full object-cover" />
+                      <img
+                        src={item.image_url}
+                        alt={item.title}
+                        className="w-full h-full object-cover"
+                      />
                       <button
                         onClick={() => deleteItem(item.id)}
                         className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/60 hover:bg-rose-600 text-white flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-all"
@@ -306,10 +369,14 @@ export const WardrobeView: React.FC = () => {
                         onClick={() => toggleFavorite(item)}
                         className={`absolute top-2 left-2 w-7 h-7 rounded-full flex items-center justify-center text-xs transition-all ${
                           item.is_favorite
-                            ? 'bg-[#B8935A] text-white'
-                            : 'bg-black/40 text-white opacity-0 group-hover:opacity-100'
+                            ? "bg-[#B8935A] text-white"
+                            : "bg-black/40 text-white opacity-0 group-hover:opacity-100"
                         }`}
-                        title={item.is_favorite ? 'Remove from favorites' : 'Mark as favorite'}
+                        title={
+                          item.is_favorite
+                            ? "Remove from favorites"
+                            : "Mark as favorite"
+                        }
                       >
                         ★
                       </button>
@@ -317,22 +384,31 @@ export const WardrobeView: React.FC = () => {
                         Worn {item.wear_count}x
                       </span>
                       {/* Lifecycle status badge — upload is not 'done' until AI analysis succeeded */}
-                      {item.processing_status && item.processing_status !== 'ready' && (
-                        <span className={`absolute bottom-2 right-2 px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                          item.processing_status === 'failed'
-                            ? 'bg-rose-100 text-rose-800'
-                            : 'bg-amber-100 text-amber-800'
-                        }`}>
-                          {item.processing_status === 'failed' ? 'AI failed — retry' : 'Processing…'}
-                        </span>
-                      )}
+                      {item.processing_status &&
+                        item.processing_status !== "ready" && (
+                          <span
+                            className={`absolute bottom-2 right-2 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                              item.processing_status === "failed"
+                                ? "bg-rose-100 text-rose-800"
+                                : "bg-amber-100 text-amber-800"
+                            }`}
+                          >
+                            {item.processing_status === "failed"
+                              ? "AI failed — retry"
+                              : "Processing…"}
+                          </span>
+                        )}
                     </div>
 
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                       {item.brand_name}
                     </span>
-                    <h3 className="font-serif text-sm font-bold text-[#1B1F3B] truncate mt-0.5">{item.title}</h3>
-                    <p className="text-xs text-slate-500">{item.color_name} · {item.category}</p>
+                    <h3 className="font-serif text-sm font-bold text-[#1B1F3B] truncate mt-0.5">
+                      {item.title}
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      {item.color_name} · {item.category}
+                    </p>
 
                     {/* Persistent wear-state selector: Favorite / Regular / Rarely Worn / Seasonal */}
                     <select
@@ -351,7 +427,10 @@ export const WardrobeView: React.FC = () => {
                     {item.ai_tags && item.ai_tags.length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-2">
                         {item.ai_tags.slice(0, 2).map((t) => (
-                          <span key={t} className="text-[9px] px-2 py-0.5 rounded-md bg-[#FDF8EE] text-[#B8935A] font-medium border border-[#B8935A]/20">
+                          <span
+                            key={t}
+                            className="text-[9px] px-2 py-0.5 rounded-md bg-[#FDF8EE] text-[#B8935A] font-medium border border-[#B8935A]/20"
+                          >
                             {t}
                           </span>
                         ))}
@@ -360,17 +439,19 @@ export const WardrobeView: React.FC = () => {
                   </div>
 
                   <div className="pt-3 border-t border-slate-100 mt-3 flex items-center gap-2">
-                    {item.processing_status === 'failed' ? (
+                    {item.processing_status === "failed" ? (
                       <button
                         onClick={() => retryAnalysis(item.id)}
                         disabled={retryingItemId === item.id}
                         className="w-full py-2 rounded-xl bg-rose-50 border border-rose-200 hover:bg-rose-100 text-xs font-semibold text-rose-800 transition-all disabled:opacity-50"
                       >
-                        {retryingItemId === item.id ? 'Retrying…' : '↻ Retry AI Analysis'}
+                        {retryingItemId === item.id
+                          ? "Retrying…"
+                          : "↻ Retry AI Analysis"}
                       </button>
                     ) : (
                       <button
-                        onClick={() => navigate('/builder')}
+                        onClick={() => navigate("/builder")}
                         className="w-full py-2 rounded-xl bg-slate-100 hover:bg-[#1B1F3B] hover:text-white text-xs font-semibold text-slate-800 transition-all"
                       >
                         Style in Canvas
@@ -385,7 +466,7 @@ export const WardrobeView: React.FC = () => {
       )}
 
       {/* TAB 2: Saved Outfits + Wardrobe-First Styling (BRD §24) */}
-      {activeTab === 'looks' && (
+      {activeTab === "looks" && (
         <div className="space-y-6">
           {/* Shop-your-wardrobe-first: build a look from owned pieces; only
               genuine gaps surface purchasable catalog items. */}
@@ -397,15 +478,16 @@ export const WardrobeView: React.FC = () => {
                   Shop Your Wardrobe First
                 </h3>
                 <p className="text-xs text-slate-500">
-                  A look built from pieces you already own — only what you're missing is suggested for purchase.
+                  A look built from pieces you already own — only what you're
+                  missing is suggested for purchase.
                 </p>
               </div>
               <button
-                onClick={() => fetchOutfitSuggestion('Smart Casual')}
+                onClick={() => fetchOutfitSuggestion("Smart Casual")}
                 disabled={isOutfitLoading}
                 className="px-4 py-2 rounded-xl bg-[#B8935A] hover:bg-[#a07f4c] text-white text-xs font-semibold shadow-sm disabled:opacity-50"
               >
-                {isOutfitLoading ? 'Styling…' : 'Build Wardrobe-First Look'}
+                {isOutfitLoading ? "Styling…" : "Build Wardrobe-First Look"}
               </button>
             </div>
 
@@ -427,13 +509,26 @@ export const WardrobeView: React.FC = () => {
                     </span>
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 mt-2">
                       {outfitSuggestion.owned_items.map((it) => (
-                        <div key={`owned-${it.wardrobe_item_id}`} className="rounded-2xl border border-emerald-200 bg-emerald-50/40 p-2">
+                        <div
+                          key={`owned-${it.wardrobe_item_id}`}
+                          className="rounded-2xl border border-emerald-200 bg-emerald-50/40 p-2"
+                        >
                           <div className="h-24 rounded-xl overflow-hidden bg-white mb-1.5">
-                            <img src={it.image_url} alt={it.product_title} className="w-full h-full object-cover" />
+                            <img
+                              src={it.image_url}
+                              alt={it.product_title}
+                              className="w-full h-full object-cover"
+                            />
                           </div>
-                          <span className="text-[9px] font-bold text-emerald-700 uppercase">{it.position} · owned</span>
-                          <p className="text-[11px] font-semibold text-[#1B1F3B] truncate">{it.product_title}</p>
-                          <p className="text-[10px] text-slate-500">{it.color_family}</p>
+                          <span className="text-[9px] font-bold text-emerald-700 uppercase">
+                            {it.position} · owned
+                          </span>
+                          <p className="text-[11px] font-semibold text-[#1B1F3B] truncate">
+                            {it.product_title}
+                          </p>
+                          <p className="text-[10px] text-slate-500">
+                            {it.color_family}
+                          </p>
                         </div>
                       ))}
                     </div>
@@ -447,13 +542,26 @@ export const WardrobeView: React.FC = () => {
                     </span>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-2">
                       {outfitSuggestion.purchase_suggestions.map((it) => (
-                        <div key={`buy-${it.position}-${it.product_id}`} className="rounded-2xl border border-slate-200 bg-white p-2">
+                        <div
+                          key={`buy-${it.position}-${it.product_id}`}
+                          className="rounded-2xl border border-slate-200 bg-white p-2"
+                        >
                           <div className="h-24 rounded-xl overflow-hidden bg-slate-100 mb-1.5">
-                            <img src={it.image_url} alt={it.product_title} className="w-full h-full object-cover" />
+                            <img
+                              src={it.image_url}
+                              alt={it.product_title}
+                              className="w-full h-full object-cover"
+                            />
                           </div>
-                          <span className="text-[9px] font-bold text-slate-400 uppercase">{it.position} · {it.brand_name}</span>
-                          <p className="text-[11px] font-semibold text-[#1B1F3B] truncate">{it.product_title}</p>
-                          <p className="text-[11px] font-bold text-[#B8935A]">${it.price}</p>
+                          <span className="text-[9px] font-bold text-slate-400 uppercase">
+                            {it.position} · {it.brand_name}
+                          </span>
+                          <p className="text-[11px] font-semibold text-[#1B1F3B] truncate">
+                            {it.product_title}
+                          </p>
+                          <p className="text-[11px] font-bold text-[#B8935A]">
+                            ${it.price}
+                          </p>
                         </div>
                       ))}
                     </div>
@@ -469,10 +577,12 @@ export const WardrobeView: React.FC = () => {
                 <h3 className="font-serif text-lg font-bold text-[#1B1F3B]">
                   Saved Curated Ensembles
                 </h3>
-                <p className="text-xs text-slate-500">Your personalized styling collections</p>
+                <p className="text-xs text-slate-500">
+                  Your personalized styling collections
+                </p>
               </div>
               <button
-                onClick={() => navigate('/builder')}
+                onClick={() => navigate("/builder")}
                 className="px-4 py-2 rounded-xl bg-[#1B1F3B] text-white text-xs font-semibold shadow-sm"
               >
                 + Build New Look
@@ -481,8 +591,13 @@ export const WardrobeView: React.FC = () => {
 
             {!isAuthenticated ? (
               <div className="bg-[#FAF9F6] rounded-2xl border border-dashed border-slate-300 p-6 text-center">
-                <p className="text-xs text-slate-600 font-medium">Sign in to see your saved looks.</p>
-                <p className="text-[11px] text-slate-400 mt-1">Ensembles you save in the Builder appear here — synced to your account.</p>
+                <p className="text-xs text-slate-600 font-medium">
+                  Sign in to see your saved looks.
+                </p>
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Ensembles you save in the Builder appear here — synced to your
+                  account.
+                </p>
               </div>
             ) : savedLooksQuery.isLoading ? (
               <div className="space-y-3" role="status" aria-live="polite">
@@ -491,19 +606,35 @@ export const WardrobeView: React.FC = () => {
               </div>
             ) : savedLooks.length === 0 ? (
               <div className="bg-[#FAF9F6] rounded-2xl border border-dashed border-slate-300 p-6 text-center">
-                <p className="text-xs text-slate-600 font-medium">No saved looks yet.</p>
-                <p className="text-[11px] text-slate-400 mt-1">Build an outfit in the Canvas and press “Save Ensemble” — it lands here.</p>
+                <p className="text-xs text-slate-600 font-medium">
+                  No saved looks yet.
+                </p>
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Build an outfit in the Canvas and press “Save Ensemble” — it
+                  lands here.
+                </p>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {savedLooks.map((look) => (
-                  <div key={look.id} className="bg-[#FAF9F6] rounded-2xl border border-slate-200 p-4 space-y-3">
+                  <div
+                    key={look.id}
+                    className="bg-[#FAF9F6] rounded-2xl border border-slate-200 p-4 space-y-3"
+                  >
                     <div className="flex justify-between items-start">
                       <div>
-                        <span className="text-[10px] font-bold text-[#B8935A] uppercase">{look.occasion}</span>
-                        <h4 className="font-serif text-base font-bold text-[#1B1F3B]">{look.title}</h4>
+                        <span className="text-[10px] font-bold text-[#B8935A] uppercase">
+                          {look.occasion}
+                        </span>
+                        <h4 className="font-serif text-base font-bold text-[#1B1F3B]">
+                          {look.title}
+                        </h4>
                       </div>
-                      <FitScoreBadge score={look.compatibility_score} label="Match" verdict="stylist engine" />
+                      <FitScoreBadge
+                        score={look.compatibility_score}
+                        label="Match"
+                        verdict="stylist engine"
+                      />
                     </div>
                     <div className="flex justify-between items-center pt-2 text-xs font-bold text-[#1B1F3B]">
                       <span>Total: ${Number(look.total_price).toFixed(2)}</span>
@@ -513,7 +644,7 @@ export const WardrobeView: React.FC = () => {
                         className="text-rose-500 hover:text-rose-700 disabled:opacity-40"
                         aria-label={`Delete ${look.title}`}
                       >
-                        {deletingLookId === look.id ? 'Deleting…' : 'Delete'}
+                        {deletingLookId === look.id ? "Deleting…" : "Delete"}
                       </button>
                     </div>
                   </div>
@@ -525,17 +656,17 @@ export const WardrobeView: React.FC = () => {
       )}
 
       {/* TAB 3: Wardrobe Gap Analysis (PDF Feature G4.1) */}
-      {activeTab === 'gaps' && (
+      {activeTab === "gaps" && (
         <div className="space-y-6">
           <div className="bg-[#FDF8EE] border border-[#B8935A]/30 rounded-3xl p-6">
             <div className="flex items-center gap-2 mb-2">
               <GapAnalysisIcon size={22} color="#B8935A" />
               <h3 className="font-serif text-xl font-bold text-[#1B1F3B]">
-                {t('wardrobe.gap_analysis_title')}
+                {t("wardrobe.gap_analysis_title")}
               </h3>
             </div>
             <p className="text-xs text-slate-700 max-w-2xl leading-relaxed">
-              {t('wardrobe.gap_analysis_desc')}
+              {t("wardrobe.gap_analysis_desc")}
             </p>
           </div>
 
@@ -551,7 +682,8 @@ export const WardrobeView: React.FC = () => {
                       Identified Closet Gap #{gap.id}
                     </span>
                     <h4 className="font-serif text-lg font-bold text-[#1B1F3B]">
-                      Missing: {gap.missing_subcategory} ({gap.missing_category})
+                      Missing: {gap.missing_subcategory} ({gap.missing_category}
+                      )
                     </h4>
                   </div>
                   <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold self-start sm:self-auto">
@@ -575,12 +707,22 @@ export const WardrobeView: React.FC = () => {
                         className="flex items-center gap-3 p-2.5 rounded-2xl bg-white border border-slate-200 hover:border-[#B8935A] transition-all group"
                       >
                         <div className="w-14 h-16 rounded-xl overflow-hidden bg-slate-100 shrink-0">
-                          <img src={rec.image_url} alt={rec.title} className="w-full h-full object-cover" />
+                          <img
+                            src={rec.image_url}
+                            alt={rec.title}
+                            className="w-full h-full object-cover"
+                          />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <span className="text-[9px] font-bold text-slate-400 block truncate">{rec.brand_name}</span>
-                          <span className="text-xs font-bold text-[#1B1F3B] block truncate">{rec.title}</span>
-                          <span className="text-xs font-bold text-[#B8935A]">${rec.price}</span>
+                          <span className="text-[9px] font-bold text-slate-400 block truncate">
+                            {rec.brand_name}
+                          </span>
+                          <span className="text-xs font-bold text-[#1B1F3B] block truncate">
+                            {rec.title}
+                          </span>
+                          <span className="text-xs font-bold text-[#B8935A]">
+                            ${rec.price}
+                          </span>
                         </div>
                       </div>
                     ))}
@@ -595,27 +737,47 @@ export const WardrobeView: React.FC = () => {
       {/* Upload Piece Modal — real photo upload (single + bulk) with honest AI status */}
       {uploadModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-150">
-          <div ref={uploadPanelRef} role="dialog" aria-modal="true" aria-label="Upload garment" tabIndex={-1} className="w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden max-h-[90vh] overflow-y-auto">
+          <div
+            ref={uploadPanelRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Upload garment"
+            tabIndex={-1}
+            className="w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden max-h-[90vh] overflow-y-auto"
+          >
             <div className="p-5 bg-[#1B1F3B] text-white flex justify-between items-center">
               <h3 className="font-serif text-base font-bold text-white flex items-center gap-2">
                 <span>Upload Garment Photos</span>
               </h3>
-              <button onClick={() => { setUploadModalOpen(false); setSelectedFiles([]); }} className="text-slate-300 hover:text-white">
+              <button
+                onClick={() => {
+                  setUploadModalOpen(false);
+                  setSelectedFiles([]);
+                }}
+                className="text-slate-300 hover:text-white"
+              >
                 ✕
               </button>
             </div>
 
             {/* Mode 1: real photo upload (single or bulk import) */}
-            <form onSubmit={handleUploadSubmit} className="p-6 space-y-4 border-b border-slate-100">
+            <form
+              onSubmit={handleUploadSubmit}
+              className="p-6 space-y-4 border-b border-slate-100"
+            >
               <div>
                 <label className="text-xs font-bold text-slate-800 block mb-1">
-                  Garment Photos <span className="text-slate-400 font-normal">(JPEG/PNG/WebP, up to 15MB each, max 20)</span>
+                  Garment Photos{" "}
+                  <span className="text-slate-400 font-normal">
+                    (JPEG/PNG/WebP, up to 15MB each, max 20)
+                  </span>
                 </label>
                 {photoUploadUnavailable && (
                   <p className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-3 mb-2 leading-relaxed">
-                    Heads up: photo uploads are not configured in this environment (no persistent
-                    object storage yet) — the server will reject them with a clear error. Use
-                    manual add below, which works fully.
+                    Heads up: photo uploads are not configured in this
+                    environment (no persistent object storage yet) — the server
+                    will reject them with a clear error. Use manual add below,
+                    which works fully.
                   </p>
                 )}
                 <input
@@ -628,14 +790,25 @@ export const WardrobeView: React.FC = () => {
                 />
                 {selectedFiles.length > 0 && (
                   <p className="text-[11px] text-slate-500 mt-1.5">
-                    {selectedFiles.length} file(s) selected: {selectedFiles.map((f) => f.name).slice(0, 3).join(', ')}
-                    {selectedFiles.length > 3 ? ` +${selectedFiles.length - 3} more` : ''}
+                    {selectedFiles.length} file(s) selected:{" "}
+                    {selectedFiles
+                      .map((f) => f.name)
+                      .slice(0, 3)
+                      .join(", ")}
+                    {selectedFiles.length > 3
+                      ? ` +${selectedFiles.length - 3} more`
+                      : ""}
                   </p>
                 )}
 
                 {uploadSkipNotes.length > 0 && (
-                  <ul className="text-[11px] text-rose-600 mt-1.5 space-y-1" role="alert">
-                    {uploadSkipNotes.map((n) => <li key={n}>• {n}</li>)}
+                  <ul
+                    className="text-[11px] text-rose-600 mt-1.5 space-y-1"
+                    role="alert"
+                  >
+                    {uploadSkipNotes.map((n) => (
+                      <li key={n}>• {n}</li>
+                    ))}
                   </ul>
                 )}
               </div>
@@ -646,33 +819,42 @@ export const WardrobeView: React.FC = () => {
                 className="w-full py-3 rounded-xl bg-[#B8935A] hover:bg-[#a07f4c] text-white font-semibold text-xs transition-all shadow-md flex items-center justify-center gap-1.5 disabled:opacity-50"
               >
                 <SparkleIcon size={14} color="#fff" />
-                <span>{isCompressing ? 'Optimizing photos…' : isUploading ? 'Uploading & Analyzing…' : `Upload ${selectedFiles.length > 1 ? `${selectedFiles.length} Pieces` : 'Piece'} & Auto-Tag with AI`}</span>
+                <span>
+                  {isCompressing
+                    ? "Optimizing photos…"
+                    : isUploading
+                      ? "Uploading & Analyzing…"
+                      : `Upload ${selectedFiles.length > 1 ? `${selectedFiles.length} Pieces` : "Piece"} & Auto-Tag with AI`}
+                </span>
               </button>
 
               {/* Per-file batch report: partial success is surfaced, not hidden */}
               {uploadReport && (
                 <div className="space-y-1.5">
                   {uploadReport.results.map((r, idx) => (
-                    <div key={idx} className={`flex items-center justify-between text-[11px] px-3 py-2 rounded-xl border ${
-                      r.status === 'failed'
-                        ? 'bg-rose-50 border-rose-200 text-rose-800'
-                        : r.status === 'duplicate'
-                          ? 'bg-amber-50 border-amber-200 text-amber-800'
-                          : r.item?.processing_status === 'failed'
-                            ? 'bg-amber-50 border-amber-200 text-amber-800'
-                            : 'bg-emerald-50 border-emerald-200 text-emerald-800'
-                    }`}>
+                    <div
+                      key={idx}
+                      className={`flex items-center justify-between text-[11px] px-3 py-2 rounded-xl border ${
+                        r.status === "failed"
+                          ? "bg-rose-50 border-rose-200 text-rose-800"
+                          : r.status === "duplicate"
+                            ? "bg-amber-50 border-amber-200 text-amber-800"
+                            : r.item?.processing_status === "failed"
+                              ? "bg-amber-50 border-amber-200 text-amber-800"
+                              : "bg-emerald-50 border-emerald-200 text-emerald-800"
+                      }`}
+                    >
                       <span className="truncate font-medium">{r.filename}</span>
                       <span className="font-bold ml-2 shrink-0">
-                        {r.status === 'failed'
-                          ? 'Failed'
-                          : r.status === 'duplicate'
-                            ? 'Duplicate — already owned'
-                            : r.item?.processing_status === 'ready'
-                              ? 'Analyzed ✓'
-                              : r.item?.processing_status === 'failed'
-                                ? 'Saved (AI retryable)'
-                                : 'Processing…'}
+                        {r.status === "failed"
+                          ? "Failed"
+                          : r.status === "duplicate"
+                            ? "Duplicate — already owned"
+                            : r.item?.processing_status === "ready"
+                              ? "Analyzed ✓"
+                              : r.item?.processing_status === "failed"
+                                ? "Saved (AI retryable)"
+                                : "Processing…"}
                       </span>
                     </div>
                   ))}
@@ -682,9 +864,13 @@ export const WardrobeView: React.FC = () => {
 
             {/* Mode 2: manual entry fallback (metadata-complete -> ready immediately) */}
             <form onSubmit={handleAddSubmit} className="p-6 space-y-4">
-              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Or add manually (no photo)</p>
+              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                Or add manually (no photo)
+              </p>
               <div>
-                <label className="text-xs font-bold text-slate-800 block mb-1">Garment Title</label>
+                <label className="text-xs font-bold text-slate-800 block mb-1">
+                  Garment Title
+                </label>
                 <input
                   type="text"
                   required
@@ -697,7 +883,9 @@ export const WardrobeView: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-bold text-slate-800 block mb-1">Category</label>
+                  <label className="text-xs font-bold text-slate-800 block mb-1">
+                    Category
+                  </label>
                   <select
                     value={newCategory}
                     onChange={(e) => setNewCategory(e.target.value)}
@@ -712,7 +900,9 @@ export const WardrobeView: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold text-slate-800 block mb-1">Color Family</label>
+                  <label className="text-xs font-bold text-slate-800 block mb-1">
+                    Color Family
+                  </label>
                   <input
                     type="text"
                     value={newColor}

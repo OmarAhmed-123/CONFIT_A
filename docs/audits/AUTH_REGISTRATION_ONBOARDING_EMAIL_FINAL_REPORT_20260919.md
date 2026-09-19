@@ -251,8 +251,12 @@ Hand-off artifacts (verified, not just written): `git bundle create auth-onboard
 | `854faf6` | `test(auth): share the SMTP test sink through a support module` |
 | `190a8d2` | `docs(auth): pin final commit SHAs in the lifecycle report` |
 | `b32a878` | `feat(auth): surface whether this deployment can send mail at all` |
+| `e46c5c9` | `docs(auth): pin the full commit list in the lifecycle report` |
+| `23af208` | `docs(auth): final table normalisation (commit list, branch tip)` |
+| `e8dde10` | `docs(auth): record the local end-to-end smoke run, the closed hand-over checks and the artifact verification` |
+| *(later)* | any further commits in this PR are **documentation-only** (this report's own pinning/finalisation commits) |
 
-Branch tip: the 8 commits above (`95dcc1c`…`b32a878`) plus this report-pin commit; tree clean; 48 files changed vs `main @ 928e615`.
+Branch tip at the time of writing: **e8dde10** (11 commits), tree clean; 48 files changed vs `main @ 928e615`.
 Exported artifacts: `auth-onboarding-email.bundle`, `auth-onboarding-email.patch` (workspace root) + `PUSH_INSTRUCTIONS.md`.
 
 ## 21. PR URL

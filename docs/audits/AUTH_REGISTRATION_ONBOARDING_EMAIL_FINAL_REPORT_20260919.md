@@ -1,4 +1,13 @@
 # CONFIT_A — Registration / Onboarding / Email Lifecycle — Final Report
+
+> ## ⚠️ CORRECTIONS (added 2026-09-19, Phase 3–6 re-verification)
+> This report reflects the branch as it stood at `231ba8f` (base `928e615`). Independent re-verification produced four corrections; **the authoritative current document is `AUTH_PHASE_3_6_FINAL_REPORT_20260919.md`**.
+>
+> 1. **§16 / GAP 7 — the `is_verified = not bool(settings.EMAIL_PROVIDER)` paradox was a defect, not an open product decision.** It is now fixed (commit `c154fd9`): `is_verified` is `False` at creation unconditionally, the state machine only demands verification when verification is possible, and the one exception (no provider anywhere) is surfaced to the reviewer in the API payload, the approvals UI and the audit row. The GAP-7 text below is **superseded**.
+> 2. **§18 — the production deployment has changed.** The report described `928e615`; production was redeployed from `main @ 063ca575ac0c4abd7643d473c21e966e0ba3321a` (2026-09-19T16:03:04Z, 6 UX commits, PR #110). The live probes below were re-run against the new deployment: `/auth/me` 401, `/auth/onboarding-state` + `/auth/email-status` 404, and an injected `role:"admin"` still yields `role: consumer` (plus `registration_intent: null` — the intent model is not deployed, and `is_verified: true` — the pre-fix behaviour, still live).
+> 3. **§15/§16 — the “pre-existing failures” were an under-provisioned sandbox.** `boto3`/`celery`/`mediapipe` were missing from the earlier partial environment. With the repository's own manifests installed, the complete backend suite (nothing excluded) is **1171 passed, 7 skipped, 0 failed, 0 errors**.
+> 4. **§20 — commit SHAs are pre-rebase.** The branch was rebased onto `063ca57` (upstream had touched `RoleGuard.tsx`, the same file this work rewrites); current SHAs are listed in the Phase 3–6 report §28, and the old SHAs remain reachable on `backup/before-rebase`.
+
 **Date:** 2026-09-19 · **Branch:** `fix/auth-registration-onboarding-email` · **Base:** `main @ 928e615`
 **Companion documents:** `AUTH_REGISTRATION_ONBOARDING_ROOT_CAUSE_20260919.md` (phases 1–2), `EMAIL_PROVIDER_MCP_EVALUATION_20260919.md` (phase 3 provider decision)
 **Trigger:** production screenshot — a signed-in **consumer** account (`ismaeil1234@gmail.com`) on **“403 ROLE RESTRICTION … Requires one of: brand_owner, brand_manager, brand_staff, admin”** with no route forward.

@@ -61,16 +61,16 @@ Verified `upgrade → downgrade -1 → upgrade` on a scratch database.
 | `pytest` auth/lifecycle/email suites | **61 passed** |
 | Real SMTP sink: delivered token redeems, ledger truth, idempotency, no-provider 501 | passing |
 | Email-link ↔ SPA-route contract (5 flows) | passing |
-| Full backend suite (serial, nothing excluded) | **1173 passed / 0 failed / 12 skipped** |
-| `vitest run` | **119 passed / 20 files** |
+| Full backend suite (serial, nothing excluded) | **1177 passed / 0 failed / 13 skipped** |
+| `vitest run` | **121 passed / 21 files** |
 | `tsc --noEmit` + `npm run build` | clean |
 | Migration up/down/up | PASS (head `0018`) |
 | 0017→0018 on **real PostgreSQL** with legacy data | PASS — census, users and brand ownership unchanged; `registration_intent` backfilled 4/4; 5 tables, 3 partial unique indexes, 12 FKs |
-| **PostgreSQL concurrency races** (5) | PASS — found and fixed 3 real defects (dual approval, dual invitation accept, duplicate send) |
+| **PostgreSQL concurrency races** (5) + abandoned-claim recovery (1) | PASS — found and fixed 3 real defects (dual approval, dual invitation accept, duplicate send), plus the crash-window recovery mechanism |
 | Patch reproduction | `git am --3way` on clean `origin/main` → 20 commits, identical tree |
 
 ## Blockers (documented, not hidden)
-* **Not deployed to production yet** — production runs `main @ e1419d67e85db0242b58498cc91c9daddf6f4e2f` (READY, re-checked this phase); the new endpoints 404 there.
+* **Not deployed to production yet** — production runs `main @ 463f81cc5623aa7466e1a411d317853c28d8662c` (READY, re-checked); the new endpoints 404 there.
 * **Migration 0018 cannot be applied to the production database yet** — `InsufficientPrivilege: must be
   owner of table users` (runtime role `confit_app_rw`; owner `neondb_owner`). Needs one owner-role run of
   `alembic upgrade head` **before** the code is promoted (the startup schema gate would otherwise refuse to boot).
@@ -79,6 +79,6 @@ Verified `upgrade → downgrade -1 → upgrade` on a scratch database.
 * **PR could not be pushed from the execution environment** (no GitHub credential available); local commits,
   bundle and patch are provided.
 
-Full detail: **`docs/audits/AUTH_PHASE_7_CLOSURE_REPORT_20260919.md`** (authoritative closure report;
+Full detail: **`docs/audits/AUTH_RELEASE_ACTIVATION_REPORT_20260919.md`** (latest) and `docs/audits/AUTH_PHASE_7_CLOSURE_REPORT_20260919.md` (authoritative closure report;
 verdict **NO-GO — BLOCKED**). Earlier documents: `AUTH_PHASE_3_6_FINAL_REPORT_20260919.md` (authoritative
 for Phase 3–6), `AUTH_REGISTRATION_ONBOARDING_EMAIL_FINAL_REPORT_20260919.md` (superseded on four points).

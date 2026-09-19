@@ -20,9 +20,10 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-# The SMTP sink + message helpers are shared with the real-transport suite.
-from test_email_real_transport import LocalSMTPSink  # noqa: F401  (documentation)
-from test_email_real_transport import _csrf, _plain_text, smtp_sink  # noqa: E402
+# The SMTP sink + message helpers are shared with the real-transport suite
+# through a normal module (importing a test module by bare name would make the
+# deployment dependency manifest gate treat it as an undeclared package).
+from backend.tests.smtp_test_support import _csrf, _plain_text, smtp_sink  # noqa: F401
 
 REPO = Path(__file__).resolve().parents[2]
 ROUTES_FILE = REPO / "frontend" / "src" / "router" / "AppRoutes.tsx"

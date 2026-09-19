@@ -17,11 +17,24 @@ Rules pinned here (service + API level):
 7. DUPLICATE SELECTION: repeated product_ids are deduped explicitly.
 
 The GPU worker is mocked at the httpx boundary (no network, no GPU).
+
+S31 sleeve-integrity note (2026-09-16): production now also runs a per-layer
+sleeve gate on garments declared ``sleeve_length='long'`` (the seeded blazer /
+tuxedo / oxford are all declared long-sleeve). The mock therefore emulates a
+FAITHFULLY APPLIED garment: a "verified" render carries the garment's
+dominant color on the torso + forearm bands (what a correctly rendered
+long-sleeve garment looks like to the S31 differential probe). Person /
+avatar fetches are mocked as skin-toned images (bare forearms — the
+calibrated negative-control geometry); garment fetches as synthetic flat-lays
+(white background + chromatic block) whose block colors are pairwise > ΔE 40
+apart and > ΔE 40 from skin (avoids the documented same-family-color
+over-refusal of the differential probe when layers chain).
 """
 
 import base64
 import io
 import json
+import math
 import uuid
 
 import httpx
@@ -32,19 +45,118 @@ from PIL import Image
 from backend.app.main import app
 from backend.app.core.config import settings
 from backend.app.models.tryon import TryOnJob
+from backend.app.services.tryon_service import VTON_AVATARS
+from backend.app.services.vton_sleeve_gate import _rgb_to_lab, garment_dominant_lab
 from backend.tests.conftest import TestingSessionLocal as SessionLocal
 
 PROCESS = "https://acct--test-vton-worker-process.modal.run"
 
+# Synthetic flat-lay block colors (pairwise > ΔE 40, and > ΔE 40 from the
+# skin tone below — see module docstring for why separation matters).
+GARMENT_URL_COLORS = {
+    "photo-1594938298603": (27, 31, 59),    # blazer (p1) — navy
+    "photo-1507679799987": (30, 80, 180),   # tuxedo (p2) — bright blue
+    "photo-1602810318383": (180, 40, 40),   # oxford (p3) — bright red
+}
+DEFAULT_GARMENT_COLOR = (60, 60, 60)        # other seed thumbnails (lower/none slots)
 
-def _rendered_data_url(layer: int = 0) -> str:
+# Skin tone for mocked person/avatar images (bare forearms — the calibrated
+# negative control for the S31 differential sleeve probe).
+SKIN = (210, 170, 140)
+
+# Normalized render regions: torso + the two calibrated forearm bands (the
+# same boxes the production S31 probe samples).
+_TORSO = (0.28, 0.72, 0.28, 0.56)
+_FOREARMS = ((0.52, 0.70, 0.40, 0.55), (0.28, 0.46, 0.40, 0.55))
+
+
+def _paint_region(img: Image.Image, box, color) -> None:
+    px = img.load()
+    w, h = img.size
+    x0, x1, y0, y1 = box
+    for y in range(int(y0 * h), int(y1 * h)):
+        for x in range(int(x0 * w), int(x1 * w)):
+            px[x, y] = color
+
+
+def _lab_closest_flat(lab) -> tuple:
+    """The fake flat-lay colors are known; return the block color whose
+    production-measured Lab is closest to ``lab`` (inverse of the median
+    measurement, without a Lab->RGB solver)."""
+    candidates = list(GARMENT_URL_COLORS.values()) + [DEFAULT_GARMENT_COLOR]
+    best, best_d = None, None
+    for c in candidates:
+        d = math.sqrt(sum((x - y) ** 2 for x, y in zip(_rgb_to_lab(c), lab)))
+        if best_d is None or d < best_d:
+            best, best_d = c, d
+    return best
+
+
+def _flat_lay_bytes(url: str) -> bytes:
+    color = DEFAULT_GARMENT_COLOR
+    for key, c in GARMENT_URL_COLORS.items():
+        if key in url:
+            color = c
+            break
+    img = Image.new("RGB", (320, 320), (250, 250, 250))
+    _paint_region(img, (0.2, 0.8, 0.2, 0.8), color)
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG", quality=92)
+    return buf.getvalue()
+
+
+def _person_jpeg_bytes() -> bytes:
+    """Skin-toned person image (600x800, textured so the JPEG stays > 10KB —
+    the pre-inference person validation minimum). Deterministic."""
+    import random
+
+    rng = random.Random(7)
+    img = Image.new("RGB", (600, 800), color=SKIN)
+    px = img.load()
+    for _ in range(20000):
+        px[rng.randrange(600), rng.randrange(800)] = (
+            min(255, max(0, SKIN[0] + rng.randrange(-15, 16))),
+            min(255, max(0, SKIN[1] + rng.randrange(-15, 16))),
+            min(255, max(0, SKIN[2] + rng.randrange(-15, 16))),
+        )
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG", quality=85)
+    return buf.getvalue()
+
+
+def _rendered_data_url(layer: int = 0, paint: tuple | None = None) -> str:
     """Deterministic per-layer render: each inference layer produces a
     DISTINCT image (a real GPU call always changes the pixels — the service
-    echo-check relies on that)."""
+    echo-check relies on that). ``paint`` = the applied garment's block color
+    (torso + forearm bands — a faithfully applied long-sleeve garment for
+    the S31 differential probe); None = a plain, garment-color-free image."""
     img = Image.new("RGB", (320, 568), color=(70 + 10 * layer, 90, 120))
+    if paint is not None:
+        _paint_region(img, _TORSO, paint)
+        for box in _FOREARMS:
+            _paint_region(img, box, paint)
     buf = io.BytesIO()
     img.save(buf, format="PNG")
     return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
+
+
+def _rendered_from_payload(payload: dict) -> str:
+    """Build the render the mock worker returns for a process call, from the
+    call's own garment payload (what a faithful applied-garment render
+    looks like). Used by BOTH the handler and the test assertions so the
+    bytes match exactly."""
+    garments = payload.get("garments") or [{}]
+    b64 = (garments[0] or {}).get("image_base64")
+    paint = None
+    if b64 and str(b64).startswith("data:"):
+        try:
+            raw = base64.b64decode(str(b64).split(",", 1)[1])
+            lab = garment_dominant_lab(Image.open(io.BytesIO(raw)).convert("RGB"))
+            if lab != (0.0, 0.0, 0.0):
+                paint = _lab_closest_flat(lab)
+        except Exception:  # noqa: BLE001
+            paint = None
+    return paint
 
 
 def _small_person_data_url(size=(32, 32)) -> str:
@@ -59,14 +171,21 @@ def mock_worker(monkeypatch):
     """Routes ALL httpx traffic (worker legs AND person/garment fetches)
     through a deterministic mock. Records which process calls happened."""
     calls = {"process": [], "person_fetches": 0}
+    person_urls = set(VTON_AVATARS.values()) | {
+        "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600"
+    }
 
     def handler(request: httpx.Request) -> httpx.Response:
         host = request.url.host
+        url = str(request.url)
         if host.endswith("-process.modal.run"):
-            calls["process"].append(json.loads(request.content or b"{}"))
+            payload = json.loads(request.content or b"{}")
+            calls["process"].append(payload)
+            paint = _rendered_from_payload(payload)
             return httpx.Response(200, json={
                 "status": "completed",
-                "rendered_image_data_url": _rendered_data_url(layer=len(calls["process"]) - 1),
+                "rendered_image_data_url": _rendered_data_url(
+                    layer=len(calls["process"]) - 1, paint=paint),
                 "model_used": "fashn-vton-v1.5 (test)",
                 "verify": {"PASS": True, "metric_pixel_change": 40.0},
             })
@@ -75,19 +194,14 @@ def mock_worker(monkeypatch):
                 "status": "healthy", "model_loaded": True, "ready": True,
                 "device": "NVIDIA A10", "git_sha": "testsha",
             })
-        # person/garment image fetches (unsplash etc.)
+        # person/avatar image fetches -> skin-toned person; garment
+        # thumbnails -> synthetic flat-lay (see module docstring).
         calls["person_fetches"] += 1
-        import random
-
-        rng = random.Random(7)
-        img = Image.new("RGB", (600, 800), color=(90, 90, 140))
-        px = img.load()
-        for _ in range(20000):  # texture so the JPEG stays > 10KB
-            px[rng.randrange(600), rng.randrange(800)] = (
-                rng.randrange(60, 180), rng.randrange(60, 180), rng.randrange(60, 180))
-        buf = io.BytesIO()
-        img.save(buf, format="JPEG", quality=85)
-        return httpx.Response(200, content=buf.getvalue(),
+        if url in person_urls:
+            content = _person_jpeg_bytes()
+        else:
+            content = _flat_lay_bytes(url)
+        return httpx.Response(200, content=content,
                               headers={"content-type": "image/jpeg"})
 
     state = {"transport": httpx.MockTransport(handler)}
@@ -263,15 +377,19 @@ def flaky_worker(monkeypatch):
     """Same as ``mock_worker`` but the SECOND process call fails with 500 —
     used to prove a mid-chain layer failure fails the whole job honestly."""
     calls = {"process": []}
+    person_urls = set(VTON_AVATARS.values()) | {PERSON}
 
     def handler(request: httpx.Request) -> httpx.Response:
         host = request.url.host
+        url = str(request.url)
         if host.endswith("-process.modal.run"):
-            calls["process"].append(json.loads(request.content or b"{}"))
+            payload = json.loads(request.content or b"{}")
+            calls["process"].append(payload)
             if len(calls["process"]) == 1:
+                paint = _rendered_from_payload(payload)
                 return httpx.Response(200, json={
                     "status": "completed",
-                    "rendered_image_data_url": _rendered_data_url(layer=0),
+                    "rendered_image_data_url": _rendered_data_url(layer=0, paint=paint),
                     "model_used": "fashn-vton-v1.5 (test)",
                     "verify": {"PASS": True, "metric_pixel_change": 40.0},
                 })
@@ -281,17 +399,8 @@ def flaky_worker(monkeypatch):
                 "status": "healthy", "model_loaded": True, "ready": True,
                 "device": "NVIDIA A10", "git_sha": "testsha",
             })
-        import random
-
-        rng = random.Random(7)
-        img = Image.new("RGB", (600, 800), color=(90, 90, 140))
-        px = img.load()
-        for _ in range(20000):
-            px[rng.randrange(600), rng.randrange(800)] = (
-                rng.randrange(60, 180), rng.randrange(60, 180), rng.randrange(60, 180))
-        buf = io.BytesIO()
-        img.save(buf, format="JPEG", quality=85)
-        return httpx.Response(200, content=buf.getvalue(),
+        content = _person_jpeg_bytes() if url in person_urls else _flat_lay_bytes(url)
+        return httpx.Response(200, content=content,
                               headers={"content-type": "image/jpeg"})
 
     state = {"transport": httpx.MockTransport(handler)}
@@ -330,8 +439,11 @@ def test_full_outfit_chains_single_garment_inferences(mock_worker):
     assert [g["product_id"] for g in mock_worker["process"][1]["garments"]] == [2]
 
     # layer 1 anchors the resolved person; layer 2 renders on layer 1's
-    # output; the job result is the FINAL frame (complete outfit).
-    render_1, render_2 = _rendered_data_url(layer=0), _rendered_data_url(layer=1)
+    # output; the job result is the FINAL frame (complete outfit). The
+    # paint colors are the garments' flat-lay block colors (blazer navy,
+    # tuxedo bright blue) — what a faithfully applied render carries.
+    render_1 = _rendered_data_url(layer=0, paint=GARMENT_URL_COLORS["photo-1594938298603"])
+    render_2 = _rendered_data_url(layer=1, paint=GARMENT_URL_COLORS["photo-1507679799987"])
     assert mock_worker["process"][0]["user_image_base64_or_url"].startswith("data:image")
     assert mock_worker["process"][1]["user_image_base64_or_url"] == render_1, (
         "layer 2 must render on layer 1's output (sequential architecture)")
@@ -380,9 +492,12 @@ def test_layer_order_is_deliberate_not_request_order(mock_worker):
         "shirt (inner top) must be applied FIRST regardless of request order")
     assert second["product_id"] == 1 and second["slot_type"] == "upper_outer", (
         "blazer (outerwear) must be applied SECOND")
-    # chain integrity: layer 2 renders on layer 1's output
-    assert mock_worker["process"][1]["user_image_base64_or_url"] == _rendered_data_url(layer=0)
-    assert job["result_image_data_url"] == _rendered_data_url(layer=1)
+    # chain integrity: layer 2 renders on layer 1's output (the oxford's
+    # bright-red block in layer 1; the blazer's navy in layer 2)
+    render_0 = _rendered_data_url(layer=0, paint=GARMENT_URL_COLORS["photo-1602810318383"])
+    render_1 = _rendered_data_url(layer=1, paint=GARMENT_URL_COLORS["photo-1594938298603"])
+    assert mock_worker["process"][1]["user_image_base64_or_url"] == render_0
+    assert job["result_image_data_url"] == render_1
 
     row = _job_row(res.json()["job_id"])
     metrics = json.loads(row.metrics_json)
@@ -459,7 +574,7 @@ def test_multi_render_empty_outfit_rejected_without_silent_default(mock_worker):
     default product (the removed `else [1]` fallback quietly rendered
     product 1 — a blazer — for any malformed/empty request)."""
     client = TestClient(app)
-    res = client.post("/api/v1/try-on/multi-render", json={
+    res = client.post("/api/v1/tryon/multi-render", json={
         "user_image_url": PERSON})
     assert res.status_code == 422, res.text
     assert "VTON_INPUT_INVALID" in res.text
@@ -470,9 +585,9 @@ def test_multi_render_empty_outfit_rejected_without_silent_default(mock_worker):
 
 def test_multi_render_unknown_product_ids_still_404(mock_worker):
     """Explicit but nonexistent product ids keep their 404 (only the
-    *empty* request changed behavior: 200-with-default -> 422)."""
+    *empty* request changed behavior: 200-with-default -> 404)."""
     client = TestClient(app)
-    res = client.post("/api/v1/try-on/multi-render", json={
+    res = client.post("/api/v1/tryon/multi-render", json={
         "product_ids": [999999], "user_image_url": PERSON})
     assert res.status_code == 404, res.text
     assert mock_worker["process"] == []
@@ -482,7 +597,7 @@ def test_supported_full_outfit_still_renders(mock_worker):
     """The supported complete outfit (tops + outerwear + bottoms) is
     unaffected by the engine-capability guard."""
     client = TestClient(app)
-    res = client.post("/api/v1/try-on/jobs", json={
+    res = client.post("/api/v1/tryon/jobs", json={
         "product_ids": [1, 3, 4], "user_image_url": PERSON})
     assert res.status_code == 202, res.text
     job = res.json()

@@ -1,0 +1,68 @@
+# =============================================================================
+# FROZEN Qwen2.5-VL-7B JUDGE CONFIGURATION (Phase 0.5 §23)
+# Frozen BEFORE any judging. Any change after judging starts requires a new
+# config version + re-judgment. The judge is an OPINION SOURCE, NOT ground
+# truth (human ratings are the calibration reference).
+# =============================================================================
+config_version: 1
+frozen_at: "2026-09-15"
+
+judge:
+  model_id: "Qwen/Qwen2.5-VL-7B-Instruct"
+  model_revision: "cc594898137f460bfe9f0759e9844b3ce807cfb5"   # pinned, production vlm-worker revision
+  license: "Apache-2.0"
+  deployment: "confit-vlm-worker-eval (separate eval Modal app; production vlm-worker untouched)"
+  dtype: "bfloat16"
+  gpu: "A10G"
+
+sampling:
+  temperature: 0.0
+  top_p: 1.0
+  max_new_tokens: 512
+  seed: 42
+  # judge_consistency: every sample judged TWICE (2 calls); disagreement recorded
+
+# Garments2Look-style dimensions (CVPR 2026 protocol adopted as RESEARCH-ONLY reference)
+dimensions:
+  - garment_accuracy
+  - layering_accuracy
+  - styling_accuracy
+
+image_ordering:
+  # FIXED for all samples: [0] reference garment image, [1] generated output.
+  # Person reference image is NOT sent (garment/layering judgment is garment-centric;
+  # identity is scored by deterministic metrics, never by the judge).
+  - "reference_garment"
+  - "generated_output"
+
+system_prompt: |
+  You are a strict virtual-try-on garment judge. You will be shown two images:
+  image 1 is the REFERENCE GARMENT (flat lay), image 2 is the GENERATED TRY-ON OUTPUT.
+  Judge ONLY what is visible in image 2 relative to image 1.
+  Score each dimension 0-10:
+  - garment_accuracy: is the correct garment rendered with correct color, pattern, text/logo, and shape?
+  - layering_accuracy: when multiple garments are visible, are they in the correct occlusion order (inner under outer) with correct visible extents?
+  - styling_accuracy: does the combination look coherent and physically plausible (no floating/fused/phantom garments)?
+  Output STRICT JSON only: {"garment_accuracy": <0-10>, "layering_accuracy": <0-10>, "styling_accuracy": <0-10>, "visible_garments": [...], "notes": "<=200 chars>}.
+
+eval_prompt_template: |
+  Image 1 = reference garment. Image 2 = generated try-on output.
+  Expected garment: {garment_name} (slot: {slot}).
+  Expected visible garments in output: {expected_visible}.
+  Return the strict JSON verdict now.
+
+output_schema:
+  type: object
+  required: [garment_accuracy, layering_accuracy, styling_accuracy]
+  properties:
+    garment_accuracy: {type: integer, minimum: 0, maximum: 10}
+    layering_accuracy: {type: integer, minimum: 0, maximum: 10}
+    styling_accuracy: {type: integer, minimum: 0, maximum: 10}
+    visible_garments: {type: array, items: {type: string}}
+    notes: {type: string, maxLength: 200}
+
+subset_policy:
+  # judge every SINGLE + every final-layer chained sample; per-layer intermediate
+  # samples judged for N=2/N=3 worst-case chains only (budget: GPU time).
+  include_arms: ["SINGLE", "N2_TB", "N2_IO", "N2_WC", "N3", "N3_WC"]
+  include_orders: "final_layer_plus_singles"

@@ -506,7 +506,7 @@ def test_migration_0015_round_trip_and_unique_lineage() -> None:
         with engine.begin() as conn:
             assert conn.execute(text(
                 "select version_num from alembic_version")).scalar() == \
-                "0017_audit_before_after_request_id"
+                "0018_product_sleeve_length"
 
         _alembic(url, "down", "base")
         insp = inspect(engine)
@@ -520,7 +520,7 @@ def test_migration_0015_round_trip_and_unique_lineage() -> None:
         os.unlink(path)
 
 
-def test_migration_chain_has_a_single_head_at_0017() -> None:
+def test_migration_chain_has_a_single_head_at_0018() -> None:
     from backend.app.core.schema_gate import expected_head_revision, migration_chain
 
     chain = migration_chain()
@@ -531,5 +531,7 @@ def test_migration_chain_has_a_single_head_at_0017() -> None:
     # remain single-headed and the head must move consciously.
     # 0017 (ADMIN-01 audit before/after/request_id) extends 0016; the chain
     # must stay linear with exactly one head.
-    assert expected_head_revision() == "0017_audit_before_after_request_id"
+    # 0018 (Product.sleeve_length — S31 sleeve-integrity gate, 2026-09-16)
+    # extends 0017; the chain must stay linear with exactly one head.
+    assert expected_head_revision() == "0018_product_sleeve_length"
     assert "0015_wardrobe_purchase_lineage" in chain.values()

@@ -42,6 +42,15 @@ class Product(Base):
     thumbnail_url = Column(String(1000), nullable=False)
     images = Column(Text, default="[]", nullable=False)          # JSON list of image URLs
     size_chart_json = Column(Text, default="{}", nullable=False) # JSON measurement mappings
+    # Authoritative sleeve construction of the garment, as declared in the
+    # catalog (operator-maintained product data; the client can never set it —
+    # AT-13). Values: "long" | "short" | "none" | NULL (undeclared).
+    # Consumed by the production sleeve-integrity gate
+    # (backend/app/services/vton_sleeve_gate.py): a "long" declaration makes
+    # the render chain verify sleeve presence in the rendered output; an
+    # undeclared value on an upper-slot garment is refused (never guessed —
+    # AT-19). NULL is NOT interpreted as "short": it is "unknown".
+    sleeve_length = Column(String(16), nullable=True)
 
     rating = Column(Float, default=4.8)
     review_count = Column(Integer, default=42)

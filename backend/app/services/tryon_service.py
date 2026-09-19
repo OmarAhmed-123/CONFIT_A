@@ -28,6 +28,7 @@ from backend.app.providers.tryon_provider import VirtualTryOnProvider
 from backend.app.services.styling.slot_layering_engine import SlotLayeringEngine
 from backend.app.services import vton_delivery
 from backend.app.services.vton_delivery import temporary_image_store
+from backend.app.services.vton_sleeve_gate import evaluate_layer_sleeves
 from backend.app.core.config import settings
 from backend.app.core.exceptions import (
     ResourceNotFoundError,
@@ -410,12 +411,17 @@ class TryOnService:
             if slot not in SUPPORTED_SLOTS:
                 slot = DEFAULT_VTON_SLOT
 
+            # Authoritative sleeve construction (catalog product data —
+            # consumed by the per-layer sleeve-integrity gate after render).
+            sleeve_length = getattr(p, "sleeve_length", None)
+
             # Try to fetch as base64 first for reliability (avoids worker SSRF/fetch issues)
             b64 = await self._fetch_image_as_base64(p.thumbnail_url)
             if b64:
                 garments.append({
                     "product_id": p.id,
                     "slot_type": slot,
+                    "sleeve_length": sleeve_length,
                     "image_base64": b64
                 })
             else:
@@ -423,6 +429,7 @@ class TryOnService:
                 garments.append({
                     "product_id": p.id,
                     "slot_type": slot,
+                    "sleeve_length": sleeve_length,
                     "image_url": p.thumbnail_url
                 })
         # Deterministic anatomical layering (single source of truth:
@@ -911,6 +918,28 @@ class TryOnService:
                         output_aspect=output_aspect or "9:16"
                     )
                     rendered = gpu_data.get("rendered_image_data_url")
+                    # S31 sleeve-integrity gate (per layer, AFTER the engine's
+                    # verify.PASS): the engine's verify gate is structurally
+                    # blind to dropped long sleeves (measured 2026-09-15:
+                    # verify.PASS=True on a sleeveless render of a long-sleeve
+                    # garment). For catalog garments declared "long", the
+                    # rendered output must show garment-colored forearms; an
+                    # undeclared sleeve construction is refused (never guess).
+                    # A refusal raises VTON_SLEEVES_NOT_VERIFIED -> honest job
+                    # failure, NO image staged/delivered.
+                    _sleeve_decision = await evaluate_layer_sleeves(
+                        slot_type=g.get("slot_type"),
+                        sleeve_length=g.get("sleeve_length"),
+                        output_data_url=rendered,
+                        # The layer's INPUT (uploaded person for layer 1, the
+                        # previous layer's output otherwise) — the differential
+                        # probe compares output vs input to isolate NEW
+                        # garment color (the applied sleeve).
+                        input_data_url=person_for_layer,
+                        garment_ref=g.get("image_base64") or g.get("image_url") or "",
+                        product_id=g.get("product_id"),
+                        layer=li,
+                    )
                     # Record EACH layer's verification outcome. The worker
                     # always returns 200 + an image; verify.PASS=False means
                     # that layer's garment did not materially change the image
@@ -924,6 +953,9 @@ class TryOnService:
                         "execution_time_ms": gpu_data.get("execution_time_ms"),
                         "verify_pass": _lv.get("PASS"),
                         "metric_pixel_change": _lv.get("metric_pixel_change"),
+                        "sleeve_gate": _sleeve_decision.get("status"),
+                        "sleeve_gate_reason": _sleeve_decision.get("reason"),
+                        "sleeve_forearm_coverage": _sleeve_decision.get("coverage"),
                     })
                     # Output becomes the input for the next layer
                     # (sequential architecture); the uploaded person remains
@@ -1034,6 +1066,8 @@ class TryOnService:
                     error_code = "VTON_WORKER_NOT_READY"
                 elif "VTON_LAYER_NOT_APPLIED" in error_str:
                     error_code = "VTON_LAYER_NOT_APPLIED"
+                elif "VTON_SLEEVES_NOT_VERIFIED" in error_str:
+                    error_code = "VTON_SLEEVES_NOT_VERIFIED"
                 elif "VTON_INPUT_INVALID" in error_str or "VTON_GARMENT_ASSET_INVALID" in error_str:
                     error_code = "VTON_INPUT_INVALID"
                 elif "VTON_OUTPUT_INVALID" in error_str:
@@ -1048,10 +1082,11 @@ class TryOnService:
                 job.status = TryOnJobStatus.FAILED
                 job.current_stage = "failed"
                 job.error_code = error_code
-                # A layer-not-applied failure already carries a complete, honest
-                # message from the render contract; do not prefix it as a generic
-                # worker failure (it is the engine not applying the garment).
-                if error_code == "VTON_LAYER_NOT_APPLIED":
+                # A layer-not-applied / sleeves-not-verified failure already
+                # carries a complete, honest message from the render contract;
+                # do not prefix it as a generic worker failure (it is the
+                # engine not applying the garment construction).
+                if error_code in ("VTON_LAYER_NOT_APPLIED", "VTON_SLEEVES_NOT_VERIFIED"):
                     job.error_message = error_str[:500]
                 else:
                     job.error_message = f"GPU Inference Worker Failure: {error_str[:500]}"
@@ -1368,6 +1403,21 @@ class TryOnService:
                         gender_mode=gender_mode or "infer_from_image",
                         output_aspect="9:16"
                     )
+                    # S31 sleeve-integrity gate (per layer, AFTER the engine's
+                    # verify.PASS) — same contract as the async job path:
+                    # "long" garments must show garment-colored forearms in the
+                    # output; undeclared sleeve construction is refused.
+                    # Refusal raises VTON_SLEEVES_NOT_VERIFIED -> the request
+                    # fails as an explicit 502 and no image is returned.
+                    _sleeve_decision = await evaluate_layer_sleeves(
+                        slot_type=g.get("slot_type"),
+                        sleeve_length=g.get("sleeve_length"),
+                        output_data_url=gpu_data.get("rendered_image_data_url"),
+                        input_data_url=person_for_layer,
+                        garment_ref=g.get("image_base64") or g.get("image_url") or "",
+                        product_id=g.get("product_id"),
+                        layer=li,
+                    )
                     # Record each layer's verification outcome. The worker
                     # returns 200 + image regardless of whether the garment
                     # was really applied — verify.PASS=False means that layer's
@@ -1379,6 +1429,9 @@ class TryOnService:
                         "slot_type": g.get("slot_type"),
                         "verify_pass": _lv.get("PASS"),
                         "metric_pixel_change": _lv.get("metric_pixel_change"),
+                        "sleeve_gate": _sleeve_decision.get("status"),
+                        "sleeve_gate_reason": _sleeve_decision.get("reason"),
+                        "sleeve_forearm_coverage": _sleeve_decision.get("coverage"),
                     })
                     # Output becomes the input for the next layer
                     # (sequential architecture).
@@ -1423,6 +1476,9 @@ class TryOnService:
                         "layers_requested": len(sync_layers_meta),
                         "layers_failed": len(_sync_failed),
                         "failed_layers": _sync_failed,
+                        # Per-layer audit trail: engine verify outcome AND the
+                        # S31 sleeve-integrity gate outcome for every layer.
+                        "layers": sync_layers_meta,
                     },
                 }
                 logger.info("multi_garment_real_inference_success", job_id=job_id, products=target_ids)
@@ -1639,9 +1695,11 @@ class TryOnService:
                 ordered_items = sorted(applied_items, key=lambda x: x.get("layer_order", 1))
                 # Build garment base64 payloads
                 product_map = {}
+                product_sleeve_map = {}
                 for prod in products:
                     b64 = await self._fetch_image_as_base64(prod.thumbnail_url)
                     product_map[prod.id] = b64 or prod.thumbnail_url
+                    product_sleeve_map[prod.id] = getattr(prod, "sleeve_length", None)
 
                 # Person reference validated + fetched once (explicit error on
                 # failure — no soft fallback to a raw URL the worker may choke on).
@@ -1653,16 +1711,20 @@ class TryOnService:
                     if not g_img:
                         g_img = await self._fetch_image_as_base64(item.get("image_url", "")) or item.get("image_url", "")
 
+                    _anim_slot = item.get("slot_type") or item.get("position", "upper_inner")
+                    _anim_sleeve = product_sleeve_map.get(pid)
                     if g_img and g_img.startswith("data:image"):
                         garment_payload = {
                             "product_id": pid,
-                            "slot_type": item.get("slot_type") or item.get("position", "upper_inner"),
+                            "slot_type": _anim_slot,
+                            "sleeve_length": _anim_sleeve,
                             "image_base64": g_img
                         }
                     else:
                         garment_payload = {
                             "product_id": pid,
-                            "slot_type": item.get("slot_type") or item.get("position", "upper_inner"),
+                            "slot_type": _anim_slot,
+                            "sleeve_length": _anim_sleeve,
                             "image_url": g_img
                         }
 
@@ -1680,6 +1742,21 @@ class TryOnService:
                         )
 
                         frame_url = gpu_data.get("rendered_image_data_url")
+                        # S31 sleeve-integrity gate (per frame, AFTER the
+                        # engine's verify.PASS) — same contract as the chain
+                        # paths. A refusal raises VTON_SLEEVES_NOT_VERIFIED,
+                        # which the per-frame handler below hard-aborts on (an
+                        # animation frame with dropped long sleeves must never
+                        # be continued from or delivered).
+                        await evaluate_layer_sleeves(
+                            slot_type=_anim_slot,
+                            sleeve_length=_anim_sleeve,
+                            output_data_url=frame_url,
+                            input_data_url=person_for_frame,
+                            garment_ref=g_img,
+                            product_id=pid,
+                            layer=idx,
+                        )
                         # Output becomes input for next layer (sequential architecture)
                         current_person_image = frame_url
 
@@ -1698,12 +1775,15 @@ class TryOnService:
 
                     except Exception as frame_exc:
                         error_str = str(frame_exc)
-                        # A garment layer not verified as applied is a canonical
-                        # VTON failure: the animation is a complete-outfit result,
-                        # so it must NOT continue from an unverified layer. Hard
-                        # abort with the single canonical code (never leave a
-                        # partial animation as a success).
-                        if "VTON_LAYER_NOT_APPLIED" in error_str:
+                        # A garment layer not verified as applied — or whose
+                        # long sleeves were not verifiably applied (S31) — is a
+                        # canonical VTON failure: the animation is a
+                        # complete-outfit result, so it must NOT continue from
+                        # an unverified layer. Hard abort with the single
+                        # canonical code (never leave a partial animation as a
+                        # success, and never deliver a frame whose long sleeves
+                        # were dropped).
+                        if "VTON_LAYER_NOT_APPLIED" in error_str or "VTON_SLEEVES_NOT_VERIFIED" in error_str:
                             logger.error("animated_layer_not_applied", step=idx, error=error_str[:300])
                             raise
                         logger.warn("animated_keyframe_failed", step=idx, error=error_str[:300])

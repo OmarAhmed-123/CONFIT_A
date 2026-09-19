@@ -1025,9 +1025,24 @@ export const brandTeamService = {
     request<{ id: number; status: string }>(`/brand/invitations/${id}/revoke`, { method: 'POST' }),
 };
 
+export type AdminPartnerApplication = {
+  id: number;
+  status: string;
+  brand_name: string;
+  market: string;
+  contact_name: string;
+  contact_email?: string;
+  submitted_at: string;
+  /** Server-computed truth about the applicant's address (never inferred here).
+   *  `applicant_verification_available === false` means this deployment has no
+   *  email provider, so no address could be verified at all. */
+  applicant_email_verified?: boolean | null;
+  applicant_verification_available?: boolean | null;
+};
+
 export const adminPartnerService = {
   list: (status = 'pending') =>
-    request<{ items: any[]; count: number; status_filter: string }>(
+    request<{ items: AdminPartnerApplication[]; count: number; status_filter: string }>(
       `/admin/partner-applications?status=${encodeURIComponent(status)}`
     ),
 

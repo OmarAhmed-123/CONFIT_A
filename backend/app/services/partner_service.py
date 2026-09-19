@@ -116,7 +116,19 @@ def submit_application(
             "This account already has brand access.", code="ALREADY_PARTNER"
         )
 
+    # --- the verification gate, and the explicit exception to it -----------
+    # DECISION (§16, recorded in docs/audits/PHASE_3_6_...): the address must be
+    # verified before an application is accepted WHENEVER verification is
+    # possible in this deployment. If no email provider is configured then no
+    # address can be verified at all (`is_verified` stays False for every
+    # account and the verification endpoints answer 501), so requiring it would
+    # be a permanent dead end rather than a control. In that case the
+    # application is accepted and the *reviewer* is told explicitly that the
+    # address is unverified and that verification was unavailable — a human
+    # decision replaces an automated check that cannot run. The exception is
+    # recorded in the audit trail below, never hidden.
     configured = email_service.is_email_configured() if email_provider_configured is None else email_provider_configured
+    verification_unavailable = not configured
     if configured and user.is_verified is not True:
         # The workflow depends on a mailbox we can reach; make the dependency
         # explicit instead of silently accepting an unreachable application.
@@ -173,7 +185,15 @@ def submit_application(
     db.refresh(application)
 
     _audit(db, user.id, "PARTNER_APPLICATION_SUBMITTED", "PartnerApplication", application.id,
-           request_id=request_id, details={"brand_name": application.brand_name, "market": application.market})
+           request_id=request_id,
+           details={
+               "brand_name": application.brand_name,
+               "market": application.market,
+               # Recorded so the accepted-without-verification exception (§16) is
+               # auditable after the fact instead of being invisible.
+               "email_verified": bool(user.is_verified),
+               "verification_unavailable": verification_unavailable,
+           })
 
     if email_service.is_email_configured():
         subject, html, text = email_service.render_partner_application_received_email(

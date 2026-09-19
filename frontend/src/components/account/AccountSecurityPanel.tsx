@@ -79,10 +79,10 @@ export const AccountSecurityPanel: React.FC = () => {
             {' · '}
             <span className={user.is_verified ? 'text-emerald-600 font-semibold' : 'text-amber-600 font-semibold'}>
               {user.is_verified
-                ? delivery?.provider_configured === false
-                  ? 'verified (no email provider configured — no verification was possible here)'
-                  : 'verified'
-                : 'not verified yet'}
+                ? 'verified'
+                : delivery?.provider_configured === false
+                  ? 'not verified — email delivery is not configured on this deployment, so verification is unavailable'
+                  : 'not verified yet'}
             </span>
             {user.onboarding?.account_state ? ` · ${user.onboarding.account_state}` : ''}
           </div>

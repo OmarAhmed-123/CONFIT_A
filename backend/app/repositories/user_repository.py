@@ -2,7 +2,6 @@ from typing import Optional
 from sqlalchemy.orm import Session
 from backend.app.models.user import User, UserRole, AuditLog
 from backend.app.core.security import get_password_hash
-from backend.app.core.config import settings
 
 
 class UserRepository:
@@ -36,12 +35,17 @@ class UserRepository:
             # `role`, which stays a server-side authorization decision.
             registration_intent=registration_intent,
             is_active=True,
-            # CYCLE 4: with a real email provider configured, verification
-            # must be EARNED via the emailed one-time link (starts False).
-            # Without a provider there is no honest way to verify — legacy
-            # behavior keeps True so the flag never lies about a check that
-            # cannot exist (the 501 endpoints make the gap explicit).
-            is_verified=not bool(settings.EMAIL_PROVIDER)
+            # VERIFICATION IS ALWAYS EARNED — never inferred from deployment
+            # configuration. A later revision briefly used
+            # `is_verified=not bool(settings.EMAIL_PROVIDER)`, which meant that
+            # a deployment WITHOUT an email provider silently created every
+            # account as "verified". That is a security paradox: an absent
+            # integration must never imply a check happened. The flag is now
+            # False here unconditionally; the state that *is* true is surfaced
+            # explicitly instead (GET /auth/email-status -> provider_configured,
+            # and 501 FEATURE_NOT_CONFIGURED on the endpoints that cannot run),
+            # so nothing has to lie and no workflow silently trusts the flag.
+            is_verified=False
         )
         self.db.add(user)
         self.db.commit()

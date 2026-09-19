@@ -514,3 +514,129 @@ def test_invited_member_cannot_touch_another_brands_tenant(client: TestClient, m
     cross = member.put(f"/api/v1/brand/skus/{foreign_sku_id}?stock_level=99", headers=_csrf(member))
     assert cross.status_code == 403, cross.text
     assert "tenant scope violation" in cross.text.lower()
+
+
+# ---------------------------------------------------------------------------
+# §16 — verification state must never be inferred from deployment config
+# ---------------------------------------------------------------------------
+
+def test_registration_never_marks_an_unverified_address_verified(client: TestClient, monkeypatch):
+    """No provider ⇒ no verification happened ⇒ `is_verified` must be False.
+
+    Regression guard for the security paradox where
+    `is_verified=not bool(settings.EMAIL_PROVIDER)` made every account born
+    "verified" on a deployment that could not verify anything.
+    """
+    monkeypatch.setattr(settings, "EMAIL_PROVIDER", None, raising=False)
+
+    body = _register(client, "no-provider-honesty@example.com")
+    assert body["user"]["is_verified"] is False, "an absent provider must never imply a completed check"
+
+    me = client.get("/api/v1/auth/me")
+    assert me.status_code == 200
+    assert me.json()["is_verified"] is False
+
+    status = client.get("/api/v1/auth/email-status").json()
+    assert status["provider_configured"] is False
+    assert status["accepted"] is False
+
+    # ...and the account is NOT told to verify (no dead end): the state machine
+    # only demands verification when verification can actually be performed.
+    assert me.json()["onboarding"]["account_state"] != "EMAIL_VERIFICATION_REQUIRED"
+    assert me.json()["onboarding"]["email_verified"] is False
+
+
+def test_partner_application_records_and_exposes_the_verification_exception(client: TestClient, monkeypatch):
+    """With no provider the application is accepted — and the reviewer is told.
+
+    The exception to the verification gate (§16) must be visible, not silent:
+    the applicant stays unverified and the admin payload says so, so the human
+    decision is made with the truth in hand.
+    """
+    monkeypatch.setattr(settings, "EMAIL_PROVIDER", None, raising=False)
+    applicant = TestClient(app)
+    _register(applicant, "no-provider-applicant@example.com", intent="brand_partner")
+    created = applicant.post(
+        "/api/v1/auth/partner-applications",
+        json={"brand_name": "Unverifiable Atelier", "market": "EG", "contact_name": "Applicant"},
+        headers=_csrf(applicant),
+    )
+    assert created.status_code == 201, created.text
+    application_id = created.json()["id"]
+
+    admin_client = TestClient(app)
+    tokens = _login(admin_client, ADMIN["email"], ADMIN["password"])
+    listed = admin_client.get(
+        "/api/v1/admin/partner-applications?status=pending",
+        headers={"Authorization": f"Bearer {tokens['access_token']}"},
+    )
+    assert listed.status_code == 200, listed.text
+    row = next(item for item in listed.json()["items"] if item["id"] == application_id)
+    assert row["applicant_email_verified"] is False
+    assert row["applicant_verification_available"] is False
+
+    # The exception is auditable after the fact.
+    db = _db()
+    try:
+        from backend.app.models.user import AuditLog
+
+        entry = (
+            db.query(AuditLog)
+            .filter(AuditLog.action == "PARTNER_APPLICATION_SUBMITTED")
+            .order_by(AuditLog.id.desc())
+            .first()
+        )
+        assert entry is not None
+        import json as _json
+
+        recorded = _json.loads(entry.details_json or "{}")
+        assert recorded["verification_unavailable"] is True
+        assert recorded["email_verified"] is False
+    finally:
+        db.close()
+
+
+def test_verified_applicant_is_reported_as_verified_to_the_reviewer(client: TestClient, monkeypatch):
+    """The same flag is TRUE when the address really was verified by email."""
+    monkeypatch.setattr(settings, "EMAIL_PROVIDER", "smtp", raising=False)
+    monkeypatch.setattr(settings, "SMTP_HOST", "smtp.fake.test", raising=False)
+    monkeypatch.setattr(settings, "SMTP_PORT", 587, raising=False)
+    monkeypatch.setattr(settings, "SMTP_USERNAME", "u", raising=False)
+    monkeypatch.setattr(settings, "SMTP_PASSWORD", "p", raising=False)
+    monkeypatch.setattr(settings, "EMAIL_FROM_ADDRESS", "CONFIT <no-reply@confit.test>", raising=False)
+    monkeypatch.setattr(settings, "SMTP_TLS_MODE", "starttls", raising=False)
+
+    applicant = TestClient(app)
+    _register(applicant, "verified-applicant@example.com", intent="brand_partner")
+    _verify_email(applicant, "verified-applicant@example.com")
+    created = applicant.post(
+        "/api/v1/auth/partner-applications",
+        json={"brand_name": "Verified Atelier", "market": "EG", "contact_name": "Applicant"},
+        headers=_csrf(applicant),
+    )
+    assert created.status_code == 201, created.text
+
+    admin_client = TestClient(app)
+    tokens = _login(admin_client, ADMIN["email"], ADMIN["password"])
+    listed = admin_client.get(
+        "/api/v1/admin/partner-applications?status=pending",
+        headers={"Authorization": f"Bearer {tokens['access_token']}"},
+    )
+    row = next(item for item in listed.json()["items"] if item["id"] == created.json()["id"])
+    assert row["applicant_email_verified"] is True
+    assert row["applicant_verification_available"] is True
+
+
+def test_no_endpoint_accepts_a_redirect_parameter():
+    """Open-redirect defence by construction: nothing on the auth surface can
+    be told where to bounce the browser afterwards, so there is no parameter to
+    poison with `https://evil.example`, `//evil.example` or `javascript:`."""
+    spec = app.openapi()
+    offenders = []
+    for path, ops in spec["paths"].items():
+        for method, op in ops.items():
+            for param in op.get("parameters", []) + [p for p in op.get("requestBody", {}).get("content", {}).values() if False]:
+                name = (param.get("name") or "").lower()
+                if name in {"next", "redirect", "redirect_uri", "returnurl", "return_url", "continue", "url"}:
+                    offenders.append(f"{method.upper()} {path}?{name}")
+    assert offenders == [], f"redirect-capable parameters found: {offenders}"

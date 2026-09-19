@@ -292,3 +292,73 @@ describe('invitation acceptance exposes no role field', () => {
     expect(screen.queryByRole('combobox')).toBeNull();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Redirect safety + reviewer-visible verification truth (Phase 3–6 additions)
+// ---------------------------------------------------------------------------
+
+describe('no route honours an attacker-supplied redirect target', () => {
+  beforeEach(() => {
+    useAuthStore.setState({ user: null, isAuthenticated: false, hasAttemptedBootstrap: true });
+    listApplicationsMock.mockResolvedValue([]);
+  });
+
+  it('ignores ?next / ?redirect / ?returnUrl on a lifecycle route', () => {
+    const before = window.location.href;
+    renderAt('/verify-email?next=https://evil.example&redirect=//evil.example&returnUrl=javascript:alert(1)');
+
+    // The screen renders normally and nothing navigated away from the SPA.
+    expect(screen.getByRole('heading', { name: /confirm your email address/i })).toBeTruthy();
+    expect(window.location.href).toBe(before);
+    expect(screen.queryByText(/evil\.example/i)).toBeNull();
+  });
+
+  it('ignores a hostile redirect target on the reset route too', () => {
+    renderAt('/reset-password?token=abc123&next=//evil.example');
+    expect(screen.getByText(/choose a new password/i)).toBeTruthy();
+    expect(screen.queryByText(/evil\.example/i)).toBeNull();
+  });
+});
+
+describe('the reviewer sees the applicant verification truth', () => {
+  it('warns that no address could be verified when the deployment cannot send mail', async () => {
+    const { adminPartnerService } = await import('../../services/apiServices');
+    (adminPartnerService.list as any).mockResolvedValue({
+      items: [
+        {
+          id: 42,
+          status: 'pending',
+          brand_name: 'Unverifiable Atelier',
+          market: 'EG',
+          contact_name: 'Applicant',
+          contact_email: 'applicant@example.com',
+          submitted_at: '2026-09-19T00:00:00Z',
+          applicant_email_verified: false,
+          applicant_verification_available: false,
+        },
+      ],
+      count: 1,
+    });
+
+    signIn({
+      ...baseUser,
+      role: 'admin',
+      onboarding: {
+        account_state: 'ACTIVE',
+        role: 'admin',
+        registration_intent: 'consumer',
+        email_verified: true,
+        is_active: true,
+        profile_completed: true,
+        partner_application_status: null,
+        partner_access: 'none',
+        next_action: { type: 'none', route: '/admin', label: 'Open platform governance' },
+        allowed_areas: ['consumer', 'admin'],
+      },
+    });
+    renderAt('/admin/partners');
+    await waitFor(() =>
+      expect(screen.getByText(/no address could be verified/i)).toBeTruthy()
+    );
+  });
+});

@@ -109,6 +109,23 @@ export const AdminPartnersView: React.FC = () => {
                   {a.status}
                 </span>
               </div>
+
+              {/* Verification truth for THIS applicant, as the server reports it.
+                  On a deployment with no email provider the address could not be
+                  verified at all — the reviewer has to see that before deciding. */}
+              <p
+                className={`text-[11px] rounded-lg px-2.5 py-1.5 border ${
+                  a.applicant_email_verified === true
+                    ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                    : 'bg-amber-50 border-amber-200 text-amber-800'
+                }`}
+              >
+                {a.applicant_email_verified === true
+                  ? 'Applicant email verified by one-time link.'
+                  : a.applicant_verification_available === false
+                    ? 'Applicant email NOT verified — email delivery is not configured on this deployment, so no address could be verified. Decide with that in mind.'
+                    : 'Applicant email NOT verified — ask them to verify before approving.'}
+              </p>
               <div className="grid sm:grid-cols-2 gap-x-6 gap-y-1 text-[12px] text-slate-600">
                 {a.website && <div><strong>Website:</strong> {a.website}</div>}
                 {a.category && <div><strong>Category:</strong> {a.category}</div>}

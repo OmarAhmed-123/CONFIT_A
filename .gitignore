@@ -61,3 +61,4 @@ vendor/fashn-vton-segfee/scripts/data/
 vendor/test_assets/
 *.safetensors
 *.onnx
+evaluation/.eval_env

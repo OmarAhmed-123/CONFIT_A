@@ -1,0 +1,593 @@
+[
+ {
+  "person_id": "p001",
+  "image": "fixtures/persons/p001.jpg",
+  "pose": "standing_front",
+  "body_type": "slim_male",
+  "lighting": "standard",
+  "background": "white_studio",
+  "hair": "short_black",
+  "glasses": false,
+  "hijab": false,
+  "tattoo_regions": [],
+  "provenance": "synthetic-AI-generated (no real person)",
+  "standardization": {
+   "original_size": [
+    1408,
+    768
+   ],
+   "bbox": [
+    0,
+    4,
+    839,
+    768
+   ],
+   "bg_color_hex": "#E3E5E4",
+   "final_size": [
+    768,
+    1024
+   ],
+   "transform": "bg-bbox-crop+4%margin, 3:4 pad (bg color), resize 768x1024 (deterministic)"
+  }
+ },
+ {
+  "person_id": "p002",
+  "image": "fixtures/persons/p002.jpg",
+  "pose": "standing_front",
+  "body_type": "slim_male",
+  "lighting": "standard",
+  "background": "light_gray_studio",
+  "hair": "long_dark",
+  "glasses": false,
+  "hijab": false,
+  "tattoo_regions": [],
+  "provenance": "synthetic-AI-generated (no real person)",
+  "standardization": {
+   "original_size": [
+    768,
+    1376
+   ],
+   "bbox": [
+    0,
+    6,
+    768,
+    1376
+   ],
+   "bg_color_hex": "#A1A1A1",
+   "final_size": [
+    768,
+    1024
+   ],
+   "transform": "bg-bbox-crop+4%margin, 3:4 pad (bg color), resize 768x1024 (deterministic)"
+  }
+ },
+ {
+  "person_id": "p003",
+  "image": "fixtures/persons/p003.jpg",
+  "pose": "three_quarter",
+  "body_type": "slim_male",
+  "lighting": "dim_warm",
+  "background": "dark_charcoal_studio",
+  "hair": "short_brown",
+  "glasses": false,
+  "hijab": false,
+  "tattoo_regions": [],
+  "provenance": "synthetic-AI-generated (no real person)",
+  "standardization": {
+   "original_size": [
+    1408,
+    768
+   ],
+   "bbox": [
+    18,
+    0,
+    1408,
+    768
+   ],
+   "bg_color_hex": "#080A07",
+   "final_size": [
+    768,
+    1024
+   ],
+   "transform": "bg-bbox-crop+4%margin, 3:4 pad (bg color), resize 768x1024 (deterministic)"
+  }
+ },
+ {
+  "person_id": "p004",
+  "image": "fixtures/persons/p004.jpg",
+  "pose": "three_quarter",
+  "body_type": "slim_male",
+  "lighting": "backlit",
+  "background": "textured_concrete",
+  "hair": "long_brown",
+  "glasses": false,
+  "hijab": false,
+  "tattoo_regions": [],
+  "provenance": "synthetic-AI-generated (no real person)",
+  "standardization": {
+   "original_size": [
+    768,
+    1376
+   ],
+   "bbox": [
+    0,
+    0,
+    768,
+    1376
+   ],
+   "bg_color_hex": "#B0ADA6",
+   "final_size": [
+    768,
+    1024
+   ],
+   "transform": "bg-bbox-crop+4%margin, 3:4 pad (bg color), resize 768x1024 (deterministic)"
+  }
+ },
+ {
+  "person_id": "p005",
+  "image": "fixtures/persons/p005.jpg",
+  "pose": "arms_raised",
+  "body_type": "slim_male",
+  "lighting": "standard",
+  "background": "dark_gray_studio",
+  "hair": "top_knot",
+  "glasses": false,
+  "hijab": false,
+  "tattoo_regions": [],
+  "provenance": "synthetic-AI-generated (no real person)",
+  "standardization": {
+   "original_size": [
+    1408,
+    768
+   ],
+   "bbox": [
+    0,
+    0,
+    1408,
+    768
+   ],
+   "bg_color_hex": "#191B1D",
+   "final_size": [
+    768,
+    1024
+   ],
+   "transform": "bg-bbox-crop+4%margin, 3:4 pad (bg color), resize 768x1024 (deterministic)"
+  }
+ },
+ {
+  "person_id": "p006",
+  "image": "fixtures/persons/p006.jpg",
+  "pose": "arms_raised",
+  "body_type": "slim_male",
+  "lighting": "dim_cool",
+  "background": "dark_gray_studio",
+  "hair": "short_blond",
+  "glasses": false,
+  "hijab": false,
+  "tattoo_regions": [],
+  "provenance": "synthetic-AI-generated (no real person)",
+  "standardization": {
+   "original_size": [
+    1408,
+    768
+   ],
+   "bbox": [
+    0,
+    0,
+    1408,
+    768
+   ],
+   "bg_color_hex": "#0C151D",
+   "final_size": [
+    768,
+    1024
+   ],
+   "transform": "bg-bbox-crop+4%margin, 3:4 pad (bg color), resize 768x1024 (deterministic)"
+  }
+ },
+ {
+  "person_id": "p007",
+  "image": "fixtures/persons/p007.jpg",
+  "pose": "standing_front",
+  "body_type": "slim_male",
+  "lighting": "standard",
+  "background": "light_beige_studio",
+  "hair": "short_black",
+  "glasses": true,
+  "hijab": false,
+  "tattoo_regions": [],
+  "identity_sensitive_regions": [
+   "glasses"
+  ],
+  "provenance": "synthetic-AI-generated (no real person)",
+  "standardization": {
+   "original_size": [
+    768,
+    1376
+   ],
+   "bbox": [
+    0,
+    0,
+    768,
+    1376
+   ],
+   "bg_color_hex": "#CBBEA9",
+   "final_size": [
+    768,
+    1024
+   ],
+   "transform": "bg-bbox-crop+4%margin, 3:4 pad (bg color), resize 768x1024 (deterministic)"
+  }
+ },
+ {
+  "person_id": "p008",
+  "image": "fixtures/persons/p008.jpg",
+  "pose": "standing_front",
+  "body_type": "slim_male",
+  "lighting": "standard",
+  "background": "neutral_gray_studio",
+  "hair": "short_black",
+  "glasses": false,
+  "hijab": false,
+  "tattoo_regions": [
+   "left_forearm"
+  ],
+  "provenance": "synthetic-AI-generated (no real person)",
+  "standardization": {
+   "original_size": [
+    1408,
+    768
+   ],
+   "bbox": [
+    0,
+    0,
+    1408,
+    768
+   ],
+   "bg_color_hex": "#6E6F6F",
+   "final_size": [
+    768,
+    1024
+   ],
+   "transform": "bg-bbox-crop+4%margin, 3:4 pad (bg color), resize 768x1024 (deterministic)"
+  }
+ },
+ {
+  "person_id": "p009",
+  "image": "fixtures/persons/p009.jpg",
+  "pose": "standing_front",
+  "body_type": "athletic_male",
+  "lighting": "standard",
+  "background": "white_studio",
+  "hair": "short_dark",
+  "glasses": false,
+  "hijab": false,
+  "tattoo_regions": [],
+  "provenance": "synthetic-AI-generated (no real person)",
+  "standardization": {
+   "original_size": [
+    768,
+    1376
+   ],
+   "bbox": [
+    0,
+    32,
+    768,
+    1335
+   ],
+   "bg_color_hex": "#E4E4E4",
+   "final_size": [
+    768,
+    1024
+   ],
+   "transform": "bg-bbox-crop+4%margin, 3:4 pad (bg color), resize 768x1024 (deterministic)"
+  }
+ },
+ {
+  "person_id": "p010",
+  "image": "fixtures/persons/p010.jpg",
+  "pose": "standing_front",
+  "body_type": "athletic_male",
+  "lighting": "standard",
+  "background": "light_gray_studio",
+  "hair": "long_dark",
+  "glasses": false,
+  "hijab": false,
+  "tattoo_regions": [],
+  "provenance": "synthetic-AI-generated (no real person)",
+  "standardization": {
+   "original_size": [
+    1408,
+    768
+   ],
+   "bbox": [
+    0,
+    0,
+    1408,
+    768
+   ],
+   "bg_color_hex": "#A5A5A4",
+   "final_size": [
+    768,
+    1024
+   ],
+   "transform": "bg-bbox-crop+4%margin, 3:4 pad (bg color), resize 768x1024 (deterministic)"
+  }
+ },
+ {
+  "person_id": "p011",
+  "image": "fixtures/persons/p011.jpg",
+  "pose": "standing_front",
+  "body_type": "plus_size_female",
+  "lighting": "standard",
+  "background": "gray_studio",
+  "hair": "dark_straight (covered by cut)",
+  "glasses": false,
+  "hijab": false,
+  "strata": [
+   "body:plus-size",
+   "female"
+  ],
+  "tattoo_regions": [],
+  "provenance": "synthetic-AI-generated (no real person) \u2014 Phase 1 \u00a78 expansion batch 1, 2026-09-15",
+  "standardization": {
+   "original_size": [
+    896,
+    1200
+   ],
+   "final_size": [
+    768,
+    1024
+   ],
+   "transform": "resize 768x1024 (deterministic); background NOT recolored (diversity stratum)"
+  }
+ },
+ {
+  "person_id": "p012",
+  "image": "fixtures/persons/p012.jpg",
+  "pose": "standing_front",
+  "body_type": "average_female",
+  "lighting": "standard",
+  "background": "gray_studio",
+  "hair": "hijab-covered",
+  "glasses": false,
+  "hijab": true,
+  "strata": [
+   "hijab:modest",
+   "female",
+   "local-market"
+  ],
+  "tattoo_regions": [],
+  "provenance": "synthetic-AI-generated (no real person) \u2014 Phase 1 \u00a78 expansion batch 1, 2026-09-15",
+  "standardization": {
+   "original_size": [
+    896,
+    1200
+   ],
+   "final_size": [
+    768,
+    1024
+   ],
+   "transform": "resize 768x1024 (deterministic); background NOT recolored (diversity stratum)"
+  }
+ },
+ {
+  "person_id": "p013",
+  "image": "fixtures/persons/p013.jpg",
+  "pose": "standing_front",
+  "body_type": "average_male",
+  "lighting": "standard",
+  "background": "gray_studio",
+  "hair": "curly_dark",
+  "glasses": false,
+  "hijab": false,
+  "strata": [
+   "hair:curly"
+  ],
+  "tattoo_regions": [],
+  "provenance": "synthetic-AI-generated (no real person) \u2014 Phase 1 \u00a78 expansion batch 1, 2026-09-15",
+  "standardization": {
+   "original_size": [
+    896,
+    1200
+   ],
+   "final_size": [
+    768,
+    1024
+   ],
+   "transform": "resize 768x1024 (deterministic); background NOT recolored (diversity stratum)"
+  }
+ },
+ {
+  "person_id": "p014",
+  "image": "fixtures/persons/p014.jpg",
+  "pose": "standing_front",
+  "body_type": "average_female",
+  "lighting": "standard",
+  "background": "gray_studio",
+  "hair": "bun",
+  "glasses": false,
+  "hijab": false,
+  "strata": [
+   "hair:bun",
+   "female"
+  ],
+  "tattoo_regions": [],
+  "provenance": "synthetic-AI-generated (no real person) \u2014 Phase 1 \u00a78 expansion batch 1, 2026-09-15",
+  "standardization": {
+   "original_size": [
+    896,
+    1200
+   ],
+   "final_size": [
+    768,
+    1024
+   ],
+   "transform": "resize 768x1024 (deterministic); background NOT recolored (diversity stratum)"
+  }
+ },
+ {
+  "person_id": "p015",
+  "image": "fixtures/persons/p015.jpg",
+  "pose": "standing_front",
+  "body_type": "average_male",
+  "lighting": "standard",
+  "background": "gray_studio",
+  "hair": "short_black",
+  "glasses": true,
+  "hijab": false,
+  "strata": [
+   "glasses"
+  ],
+  "tattoo_regions": [],
+  "provenance": "synthetic-AI-generated (no real person) \u2014 Phase 1 \u00a78 expansion batch 1, 2026-09-15",
+  "standardization": {
+   "original_size": [
+    896,
+    1200
+   ],
+   "final_size": [
+    768,
+    1024
+   ],
+   "transform": "resize 768x1024 (deterministic); background NOT recolored (diversity stratum)"
+  }
+ },
+ {
+  "person_id": "p016",
+  "image": "fixtures/persons/p016.jpg",
+  "pose": "three_quarter_turn",
+  "body_type": "average_female",
+  "lighting": "standard",
+  "background": "gray_studio",
+  "hair": "straight_dark",
+  "glasses": false,
+  "hijab": false,
+  "strata": [
+   "pose:3/4",
+   "female"
+  ],
+  "tattoo_regions": [],
+  "provenance": "synthetic-AI-generated (no real person) \u2014 Phase 1 \u00a78 expansion batch 1, 2026-09-15",
+  "standardization": {
+   "original_size": [
+    896,
+    1200
+   ],
+   "final_size": [
+    768,
+    1024
+   ],
+   "transform": "resize 768x1024 (deterministic); background NOT recolored (diversity stratum)"
+  }
+ },
+ {
+  "person_id": "p017",
+  "image": "fixtures/persons/p017.jpg",
+  "pose": "arms_raised",
+  "body_type": "average_male",
+  "lighting": "standard",
+  "background": "gray_studio",
+  "hair": "short_brown",
+  "glasses": false,
+  "hijab": false,
+  "strata": [
+   "pose:arms-raised (hard case)"
+  ],
+  "tattoo_regions": [],
+  "provenance": "synthetic-AI-generated (no real person) \u2014 Phase 1 \u00a78 expansion batch 1, 2026-09-15",
+  "standardization": {
+   "original_size": [
+    896,
+    1200
+   ],
+   "final_size": [
+    768,
+    1024
+   ],
+   "transform": "resize 768x1024 (deterministic); background NOT recolored (diversity stratum)"
+  }
+ },
+ {
+  "person_id": "p018",
+  "image": "fixtures/persons/p018.jpg",
+  "pose": "standing_front",
+  "body_type": "average_male",
+  "lighting": "standard",
+  "background": "gray_studio",
+  "hair": "salt_pepper",
+  "glasses": false,
+  "hijab": false,
+  "strata": [
+   "age:50s"
+  ],
+  "tattoo_regions": [],
+  "provenance": "synthetic-AI-generated (no real person) \u2014 Phase 1 \u00a78 expansion batch 1, 2026-09-15",
+  "standardization": {
+   "original_size": [
+    896,
+    1200
+   ],
+   "final_size": [
+    768,
+    1024
+   ],
+   "transform": "resize 768x1024 (deterministic); background NOT recolored (diversity stratum)"
+  }
+ },
+ {
+  "person_id": "p019",
+  "image": "fixtures/persons/p019.jpg",
+  "pose": "standing_front",
+  "body_type": "average_female",
+  "lighting": "dim_low_key",
+  "background": "dark_studio",
+  "hair": "wavy_chestnut",
+  "glasses": false,
+  "hijab": false,
+  "strata": [
+   "lighting:dim",
+   "female"
+  ],
+  "tattoo_regions": [],
+  "provenance": "synthetic-AI-generated (no real person) \u2014 Phase 1 \u00a78 expansion batch 1, 2026-09-15",
+  "standardization": {
+   "original_size": [
+    896,
+    1200
+   ],
+   "final_size": [
+    768,
+    1024
+   ],
+   "transform": "resize 768x1024 (deterministic); background NOT recolored (diversity stratum)"
+  }
+ },
+ {
+  "person_id": "p020",
+  "image": "fixtures/persons/p020.jpg",
+  "pose": "standing_front",
+  "body_type": "average_male",
+  "lighting": "standard",
+  "background": "dark_charcoal_studio",
+  "hair": "short_black",
+  "glasses": false,
+  "hijab": false,
+  "strata": [
+   "background:dark"
+  ],
+  "tattoo_regions": [],
+  "provenance": "synthetic-AI-generated (no real person) \u2014 Phase 1 \u00a78 expansion batch 1, 2026-09-15",
+  "standardization": {
+   "original_size": [
+    896,
+    1200
+   ],
+   "final_size": [
+    768,
+    1024
+   ],
+   "transform": "resize 768x1024 (deterministic); background NOT recolored (diversity stratum)"
+  }
+ }
+]

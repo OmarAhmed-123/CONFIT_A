@@ -603,6 +603,20 @@ export const VirtualTryOnModal: React.FC = () => {
                         <span className="absolute bottom-3 left-3 px-2.5 py-1 rounded-full bg-slate-950/75 text-white text-[9px] font-semibold border border-white/15">
                           Temporary render — download to keep it
                         </span>
+                        {/* BRD G3.1 certified-AI disclosure + retention notice:
+                            the verifiable certificate hash, the engine that
+                            produced the render, and the 24h privacy retention
+                            of the input photo (auto-purged, GDPR Art. 17). */}
+                        {multiTryOnResult?.ai_disclosure && (
+                          <span
+                            className="absolute bottom-[50px] left-3 right-3 px-2.5 py-1 rounded-full bg-slate-950/75 text-white/90 text-[9px] font-medium border border-white/15 truncate"
+                            title={`${multiTryOnResult.ai_disclosure} · ${multiTryOnResult.traceability_hash || ''} · your photo is auto-purged after 24 hours (GDPR Art. 17)`}
+                          >
+                            {multiTryOnResult.ai_disclosure}
+                            {multiTryOnResult.traceability_hash ? ` · ${multiTryOnResult.traceability_hash}` : ''}
+                            {' · photo auto-purged after 24h'}
+                          </span>
+                        )}
                       </>
                     )}
 
@@ -620,10 +634,9 @@ export const VirtualTryOnModal: React.FC = () => {
                           <h4 className="font-serif text-sm font-bold text-white">
                             Synthesizing Virtual Try-On Layer...
                           </h4>
-                          <p className="text-[11px] text-slate-300 font-light mt-0.5">
-                            Draping the garment onto your photo —
-                            identity-preserving compositing.
-                          </p>
+                        <p className="text-[11px] text-slate-300 font-light mt-0.5">
+                          Draping the garment onto your photo — real per-layer GPU inference.
+                        </p>
                         </div>
                       </div>
                     )}

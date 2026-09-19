@@ -489,6 +489,75 @@ export const HomeView: React.FC = () => {
         </div>
       </section>
 
+      <section id="guided-first-look" className="rounded-[32px] border border-[#C5A059]/25 bg-white p-6 shadow-2xs sm:p-8">
+        <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
+          <div>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-[#7A5C28]">Guided first look</span>
+            <h2 className="mt-2 font-serif text-3xl font-bold text-[#1B1F3B]">Tell CONFIT the moment before browsing everything</h2>
+            <p className="mt-3 text-sm font-light leading-relaxed text-slate-500">
+              This starts a real AI stylist request using the current catalog endpoint. It does not fabricate products, sizes, or inventory; if the service is unavailable, the stylist drawer reports the error.
+            </p>
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">What are you dressing for?</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {guideOccasions.map((occasion) => (
+                  <button
+                    key={occasion}
+                    type="button"
+                    aria-pressed={guideOccasion === occasion}
+                    onClick={() => setGuideOccasion(occasion)}
+                    className={`rounded-full px-3 py-2 text-xs font-semibold transition ${guideOccasion === occasion ? 'bg-[#1B1F3B] text-white' : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'}`}
+                  >
+                    {occasion}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="space-y-2 text-xs font-semibold text-slate-600">
+                <span className="block text-[11px] font-bold uppercase tracking-wider text-slate-500">Budget guide</span>
+                <select
+                  value={guideBudget}
+                  onChange={(event) => setGuideBudget(event.target.value)}
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm text-[#1B1F3B] focus:border-[#C5A059] focus:outline-none"
+                >
+                  {guideBudgets.map((budget) => (
+                    <option key={budget} value={budget}>Under ${budget}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="space-y-2 text-xs font-semibold text-slate-600">
+                <span className="block text-[11px] font-bold uppercase tracking-wider text-slate-500">Palette preference</span>
+                <select
+                  value={guidePalette}
+                  onChange={(event) => setGuidePalette(event.target.value)}
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm text-[#1B1F3B] focus:border-[#C5A059] focus:outline-none"
+                >
+                  {guidePalettes.map((palette) => (
+                    <option key={palette} value={palette}>{palette}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <button
+                type="button"
+                onClick={startGuidedLook}
+                className="rounded-2xl bg-[#1B1F3B] px-5 py-3 text-xs font-bold text-white transition hover:bg-[#C5A059] hover:text-[#0C0E1E]"
+              >
+                Ask stylist for this look →
+              </button>
+              <p className="text-xs text-slate-500">Guest-friendly: account creation is not required before the first stylist response.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* 2. Scroll-Driven 3D Editorial Gallery */}
       <section className="relative -mx-4 overflow-hidden rounded-[36px] border border-[#C5A059]/25 bg-gradient-to-b from-[#FAF9F6] via-white to-[#F0F2F8] py-10 shadow-2xs sm:-mx-6 lg:-mx-8">
         <div className="relative z-10 mx-auto mb-6 max-w-2xl px-6 text-center">

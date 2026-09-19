@@ -71,6 +71,14 @@ class TryOnJob(Base):
     delivery_token_hash = Column(String(64), nullable=True, index=True)
     delivery_expires_at = Column(DateTime, nullable=True)
     delivery_content_type = Column(String(50), nullable=True)
+    # PRIVACY RETENTION LIFECYCLE (GDPR Article 17, BRD 24h default):
+    # ``input_person_image_url`` may hold the user-uploaded person photo
+    # (data URL). The row is purge-eligible when ``expires_at`` has passed
+    # and ``consent_retained`` is not True — enforced by the hourly purge
+    # daemon AND opportunistically at read time (serverless deployments do
+    # not run the Celery beat worker). See migration 0019.
+    expires_at = Column(DateTime, nullable=True)
+    consent_retained = Column(Boolean, default=False, nullable=True)
     metrics_json = Column(Text, default="{}", nullable=False)  # SSIM, LPIPS, execution time
     error_code = Column(String(50), nullable=True)
     error_message = Column(Text, nullable=True)

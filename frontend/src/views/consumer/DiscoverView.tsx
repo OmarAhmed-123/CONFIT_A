@@ -117,6 +117,9 @@ export const DiscoverView: React.FC = () => {
     ) {
       return false;
     }
+    if (selectedOccasion && !(p.occasion_tags || []).some((tag) => tag.toLowerCase().includes(selectedOccasion.toLowerCase()))) {
+      return false;
+    }
     return true;
   });
 
@@ -523,6 +526,11 @@ export const DiscoverView: React.FC = () => {
                     {p.fit_available && p.recommended_size
                       ? `Likely fit: ${p.recommended_size}`
                       : "Set measurements for fit confidence"}
+                  </div>
+                  <div className="mt-2 rounded-2xl bg-[#FAF9F6] px-3 py-2 text-[11px] text-slate-600">
+                    {p.fit_available && p.recommended_size
+                      ? `Likely fit: ${p.recommended_size}`
+                      : 'Set measurements for fit confidence'}
                   </div>
                 </div>
 

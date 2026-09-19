@@ -1,0 +1,182 @@
+{
+  "p001": {
+    "original_size": [
+      1408,
+      768
+    ],
+    "bbox": [
+      0,
+      4,
+      839,
+      768
+    ],
+    "bg_color_hex": "#E3E5E4",
+    "final_size": [
+      768,
+      1024
+    ],
+    "transform": "bg-bbox-crop+4%margin, 3:4 pad (bg color), resize 768x1024 (deterministic)"
+  },
+  "p002": {
+    "original_size": [
+      768,
+      1376
+    ],
+    "bbox": [
+      0,
+      6,
+      768,
+      1376
+    ],
+    "bg_color_hex": "#A1A1A1",
+    "final_size": [
+      768,
+      1024
+    ],
+    "transform": "bg-bbox-crop+4%margin, 3:4 pad (bg color), resize 768x1024 (deterministic)"
+  },
+  "p003": {
+    "original_size": [
+      1408,
+      768
+    ],
+    "bbox": [
+      18,
+      0,
+      1408,
+      768
+    ],
+    "bg_color_hex": "#080A07",
+    "final_size": [
+      768,
+      1024
+    ],
+    "transform": "bg-bbox-crop+4%margin, 3:4 pad (bg color), resize 768x1024 (deterministic)"
+  },
+  "p004": {
+    "original_size": [
+      768,
+      1376
+    ],
+    "bbox": [
+      0,
+      0,
+      768,
+      1376
+    ],
+    "bg_color_hex": "#B0ADA6",
+    "final_size": [
+      768,
+      1024
+    ],
+    "transform": "bg-bbox-crop+4%margin, 3:4 pad (bg color), resize 768x1024 (deterministic)"
+  },
+  "p005": {
+    "original_size": [
+      1408,
+      768
+    ],
+    "bbox": [
+      0,
+      0,
+      1408,
+      768
+    ],
+    "bg_color_hex": "#191B1D",
+    "final_size": [
+      768,
+      1024
+    ],
+    "transform": "bg-bbox-crop+4%margin, 3:4 pad (bg color), resize 768x1024 (deterministic)"
+  },
+  "p006": {
+    "original_size": [
+      1408,
+      768
+    ],
+    "bbox": [
+      0,
+      0,
+      1408,
+      768
+    ],
+    "bg_color_hex": "#0C151D",
+    "final_size": [
+      768,
+      1024
+    ],
+    "transform": "bg-bbox-crop+4%margin, 3:4 pad (bg color), resize 768x1024 (deterministic)"
+  },
+  "p007": {
+    "original_size": [
+      768,
+      1376
+    ],
+    "bbox": [
+      0,
+      0,
+      768,
+      1376
+    ],
+    "bg_color_hex": "#CBBEA9",
+    "final_size": [
+      768,
+      1024
+    ],
+    "transform": "bg-bbox-crop+4%margin, 3:4 pad (bg color), resize 768x1024 (deterministic)"
+  },
+  "p008": {
+    "original_size": [
+      1408,
+      768
+    ],
+    "bbox": [
+      0,
+      0,
+      1408,
+      768
+    ],
+    "bg_color_hex": "#6E6F6F",
+    "final_size": [
+      768,
+      1024
+    ],
+    "transform": "bg-bbox-crop+4%margin, 3:4 pad (bg color), resize 768x1024 (deterministic)"
+  },
+  "p009": {
+    "original_size": [
+      768,
+      1376
+    ],
+    "bbox": [
+      0,
+      32,
+      768,
+      1335
+    ],
+    "bg_color_hex": "#E4E4E4",
+    "final_size": [
+      768,
+      1024
+    ],
+    "transform": "bg-bbox-crop+4%margin, 3:4 pad (bg color), resize 768x1024 (deterministic)"
+  },
+  "p010": {
+    "original_size": [
+      1408,
+      768
+    ],
+    "bbox": [
+      0,
+      0,
+      1408,
+      768
+    ],
+    "bg_color_hex": "#A5A5A4",
+    "final_size": [
+      768,
+      1024
+    ],
+    "transform": "bg-bbox-crop+4%margin, 3:4 pad (bg color), resize 768x1024 (deterministic)"
+  }
+}

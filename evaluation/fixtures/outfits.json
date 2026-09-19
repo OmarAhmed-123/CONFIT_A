@@ -1,0 +1,556 @@
+{
+  "outfits": [
+    {
+      "outfit_id": "S_g001",
+      "arm": "SINGLE",
+      "person_id": "p001",
+      "layers": [
+        {
+          "garment_id": "g001",
+          "slot": "upper_inner",
+          "order": 1
+        }
+      ]
+    },
+    {
+      "outfit_id": "S_g002",
+      "arm": "SINGLE",
+      "person_id": "p002",
+      "layers": [
+        {
+          "garment_id": "g002",
+          "slot": "upper_inner",
+          "order": 1
+        }
+      ]
+    },
+    {
+      "outfit_id": "S_g003",
+      "arm": "SINGLE",
+      "person_id": "p003",
+      "layers": [
+        {
+          "garment_id": "g003",
+          "slot": "upper_inner",
+          "order": 1
+        }
+      ]
+    },
+    {
+      "outfit_id": "S_g004",
+      "arm": "SINGLE",
+      "person_id": "p004",
+      "layers": [
+        {
+          "garment_id": "g004",
+          "slot": "upper_inner",
+          "order": 1
+        }
+      ]
+    },
+    {
+      "outfit_id": "S_g005",
+      "arm": "SINGLE",
+      "person_id": "p005",
+      "layers": [
+        {
+          "garment_id": "g005",
+          "slot": "upper_inner",
+          "order": 1
+        }
+      ]
+    },
+    {
+      "outfit_id": "S_g006",
+      "arm": "SINGLE",
+      "person_id": "p006",
+      "layers": [
+        {
+          "garment_id": "g006",
+          "slot": "upper_inner",
+          "order": 1
+        }
+      ]
+    },
+    {
+      "outfit_id": "S_g007",
+      "arm": "SINGLE",
+      "person_id": "p007",
+      "layers": [
+        {
+          "garment_id": "g007",
+          "slot": "upper_inner",
+          "order": 1
+        }
+      ]
+    },
+    {
+      "outfit_id": "S_g008",
+      "arm": "SINGLE",
+      "person_id": "p008",
+      "layers": [
+        {
+          "garment_id": "g008",
+          "slot": "upper_inner",
+          "order": 1
+        }
+      ]
+    },
+    {
+      "outfit_id": "S_g009",
+      "arm": "SINGLE",
+      "person_id": "p009",
+      "layers": [
+        {
+          "garment_id": "g009",
+          "slot": "upper_inner",
+          "order": 1
+        }
+      ]
+    },
+    {
+      "outfit_id": "S_g010",
+      "arm": "SINGLE",
+      "person_id": "p010",
+      "layers": [
+        {
+          "garment_id": "g010",
+          "slot": "upper_inner",
+          "order": 1
+        }
+      ]
+    },
+    {
+      "outfit_id": "S_g011",
+      "arm": "SINGLE",
+      "person_id": "p001",
+      "layers": [
+        {
+          "garment_id": "g011",
+          "slot": "upper_inner",
+          "order": 1
+        }
+      ]
+    },
+    {
+      "outfit_id": "S_g012",
+      "arm": "SINGLE",
+      "person_id": "p002",
+      "layers": [
+        {
+          "garment_id": "g012",
+          "slot": "upper_inner",
+          "order": 1
+        }
+      ]
+    },
+    {
+      "outfit_id": "S_g013",
+      "arm": "SINGLE",
+      "person_id": "p003",
+      "layers": [
+        {
+          "garment_id": "g013",
+          "slot": "upper_inner",
+          "order": 1
+        }
+      ]
+    },
+    {
+      "outfit_id": "S_g014",
+      "arm": "SINGLE",
+      "person_id": "p004",
+      "layers": [
+        {
+          "garment_id": "g014",
+          "slot": "upper_outer",
+          "order": 1
+        }
+      ]
+    },
+    {
+      "outfit_id": "S_g015",
+      "arm": "SINGLE",
+      "person_id": "p005",
+      "layers": [
+        {
+          "garment_id": "g015",
+          "slot": "upper_outer",
+          "order": 1
+        }
+      ]
+    },
+    {
+      "outfit_id": "S_g016",
+      "arm": "SINGLE",
+      "person_id": "p006",
+      "layers": [
+        {
+          "garment_id": "g016",
+          "slot": "upper_outer",
+          "order": 1
+        }
+      ]
+    },
+    {
+      "outfit_id": "S_g017",
+      "arm": "SINGLE",
+      "person_id": "p007",
+      "layers": [
+        {
+          "garment_id": "g017",
+          "slot": "upper_outer",
+          "order": 1
+        }
+      ]
+    },
+    {
+      "outfit_id": "S_g018",
+      "arm": "SINGLE",
+      "person_id": "p008",
+      "layers": [
+        {
+          "garment_id": "g018",
+          "slot": "upper_inner",
+          "order": 1
+        }
+      ]
+    },
+    {
+      "outfit_id": "S_g019",
+      "arm": "SINGLE",
+      "person_id": "p009",
+      "layers": [
+        {
+          "garment_id": "g019",
+          "slot": "upper_inner",
+          "order": 1
+        }
+      ]
+    },
+    {
+      "outfit_id": "S_g020",
+      "arm": "SINGLE",
+      "person_id": "p010",
+      "layers": [
+        {
+          "garment_id": "g020",
+          "slot": "lower",
+          "order": 1
+        }
+      ]
+    },
+    {
+      "outfit_id": "S_g021",
+      "arm": "SINGLE",
+      "person_id": "p001",
+      "layers": [
+        {
+          "garment_id": "g021",
+          "slot": "lower",
+          "order": 1
+        }
+      ]
+    },
+    {
+      "outfit_id": "S_g022",
+      "arm": "SINGLE",
+      "person_id": "p002",
+      "layers": [
+        {
+          "garment_id": "g022",
+          "slot": "lower",
+          "order": 1
+        }
+      ]
+    },
+    {
+      "outfit_id": "S_g023",
+      "arm": "SINGLE",
+      "person_id": "p003",
+      "layers": [
+        {
+          "garment_id": "g023",
+          "slot": "lower",
+          "order": 1
+        }
+      ]
+    },
+    {
+      "outfit_id": "S_g024",
+      "arm": "SINGLE",
+      "person_id": "p004",
+      "layers": [
+        {
+          "garment_id": "g024",
+          "slot": "dress",
+          "order": 1
+        }
+      ]
+    },
+    {
+      "outfit_id": "TB_00_g001_g020",
+      "arm": "N2_TB",
+      "person_id": "p001",
+      "layers": [
+        {
+          "garment_id": "g001",
+          "slot": "upper_inner",
+          "order": 1
+        },
+        {
+          "garment_id": "g020",
+          "slot": "lower",
+          "order": 2
+        }
+      ],
+      "pairing": "top+bottom"
+    },
+    {
+      "outfit_id": "TB_01_g001_g020",
+      "arm": "N2_TB",
+      "person_id": "p009",
+      "layers": [
+        {
+          "garment_id": "g001",
+          "slot": "upper_inner",
+          "order": 1
+        },
+        {
+          "garment_id": "g020",
+          "slot": "lower",
+          "order": 2
+        }
+      ],
+      "pairing": "top+bottom"
+    },
+    {
+      "outfit_id": "TB_02_g005_g021",
+      "arm": "N2_TB",
+      "person_id": "p002",
+      "layers": [
+        {
+          "garment_id": "g005",
+          "slot": "upper_inner",
+          "order": 1
+        },
+        {
+          "garment_id": "g021",
+          "slot": "lower",
+          "order": 2
+        }
+      ],
+      "pairing": "top+bottom"
+    },
+    {
+      "outfit_id": "TB_03_g005_g021",
+      "arm": "N2_TB",
+      "person_id": "p010",
+      "layers": [
+        {
+          "garment_id": "g005",
+          "slot": "upper_inner",
+          "order": 1
+        },
+        {
+          "garment_id": "g021",
+          "slot": "lower",
+          "order": 2
+        }
+      ],
+      "pairing": "top+bottom"
+    },
+    {
+      "outfit_id": "TB_04_g013_g023",
+      "arm": "N2_TB",
+      "person_id": "p003",
+      "layers": [
+        {
+          "garment_id": "g013",
+          "slot": "upper_inner",
+          "order": 1
+        },
+        {
+          "garment_id": "g023",
+          "slot": "lower",
+          "order": 2
+        }
+      ],
+      "pairing": "top+bottom"
+    },
+    {
+      "outfit_id": "TB_05_g012_g022",
+      "arm": "N2_TB",
+      "person_id": "p004",
+      "layers": [
+        {
+          "garment_id": "g012",
+          "slot": "upper_inner",
+          "order": 1
+        },
+        {
+          "garment_id": "g022",
+          "slot": "lower",
+          "order": 2
+        }
+      ],
+      "pairing": "top+bottom"
+    },
+    {
+      "outfit_id": "TB_06_g003_g020",
+      "arm": "N2_TB",
+      "person_id": "p005",
+      "layers": [
+        {
+          "garment_id": "g003",
+          "slot": "upper_inner",
+          "order": 1
+        },
+        {
+          "garment_id": "g020",
+          "slot": "lower",
+          "order": 2
+        }
+      ],
+      "pairing": "top+bottom"
+    },
+    {
+      "outfit_id": "IO_00_g010_g017",
+      "arm": "N2_IO",
+      "person_id": "p001",
+      "layers": [
+        {
+          "garment_id": "g010",
+          "slot": "upper_inner",
+          "order": 1
+        },
+        {
+          "garment_id": "g017",
+          "slot": "upper_outer",
+          "order": 2
+        }
+      ],
+      "pairing": "inner+outer"
+    },
+    {
+      "outfit_id": "IO_01_g010_g017",
+      "arm": "N2_IO",
+      "person_id": "p009",
+      "layers": [
+        {
+          "garment_id": "g010",
+          "slot": "upper_inner",
+          "order": 1
+        },
+        {
+          "garment_id": "g017",
+          "slot": "upper_outer",
+          "order": 2
+        }
+      ],
+      "pairing": "inner+outer"
+    },
+    {
+      "outfit_id": "IO_02_g011_g015",
+      "arm": "N2_IO",
+      "person_id": "p010",
+      "layers": [
+        {
+          "garment_id": "g011",
+          "slot": "upper_inner",
+          "order": 1
+        },
+        {
+          "garment_id": "g015",
+          "slot": "upper_outer",
+          "order": 2
+        }
+      ],
+      "pairing": "inner+outer"
+    },
+    {
+      "outfit_id": "WC_BULKY_g018_g019",
+      "arm": "N2_WC",
+      "person_id": "p006",
+      "layers": [
+        {
+          "garment_id": "g018",
+          "slot": "upper_inner",
+          "order": 1
+        },
+        {
+          "garment_id": "g019",
+          "slot": "upper_inner",
+          "order": 2
+        }
+      ],
+      "pairing": "bulky_over_slim_stress"
+    },
+    {
+      "outfit_id": "WC_DARK_g002_g016",
+      "arm": "N2_WC",
+      "person_id": "p007",
+      "layers": [
+        {
+          "garment_id": "g002",
+          "slot": "upper_inner",
+          "order": 1
+        },
+        {
+          "garment_id": "g016",
+          "slot": "upper_outer",
+          "order": 2
+        }
+      ],
+      "pairing": "dark_on_dark_inner_outer"
+    },
+    {
+      "outfit_id": "N3_A_g010_g017_g021",
+      "arm": "N3",
+      "person_id": "p002",
+      "layers": [
+        {
+          "garment_id": "g010",
+          "slot": "upper_inner",
+          "order": 1
+        },
+        {
+          "garment_id": "g017",
+          "slot": "upper_outer",
+          "order": 2
+        },
+        {
+          "garment_id": "g021",
+          "slot": "lower",
+          "order": 3
+        }
+      ],
+      "pairing": "long_inner_then_outer_then_bottom"
+    },
+    {
+      "outfit_id": "N3_WC_LONGSHORT_g016_g015_g020",
+      "arm": "N3_WC",
+      "person_id": "p003",
+      "layers": [
+        {
+          "garment_id": "g016",
+          "slot": "upper_outer",
+          "order": 1
+        },
+        {
+          "garment_id": "g015",
+          "slot": "upper_outer",
+          "order": 2
+        },
+        {
+          "garment_id": "g020",
+          "slot": "lower",
+          "order": 3
+        }
+      ],
+      "pairing": "long_over_short_chain_stress"
+    }
+  ],
+  "n_outfits": 38,
+  "n_inferences": 54
+}

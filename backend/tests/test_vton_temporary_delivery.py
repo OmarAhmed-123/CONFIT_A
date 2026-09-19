@@ -52,20 +52,58 @@ def _tiny_png_data_url(color=(180, 60, 60)) -> str:
     return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
 
 
+# Skin tone for the person fixture: bare forearms are the calibrated
+# negative control for the S31 differential sleeve probe (2026-09-16), and
+# are > ΔE 40 from the synthetic garment color used by the mock worker.
+SKIN = (210, 170, 140)
+
+# Synthetic garment color for the mock flat-lay (navy; > ΔE 40 from SKIN).
+GARMENT_NAVY = (27, 31, 59)
+
+# Normalized render regions: torso + the two calibrated forearm bands (the
+# same boxes the production S31 probe samples).
+_TORSO = (0.28, 0.72, 0.28, 0.56)
+_FOREARMS = ((0.52, 0.70, 0.40, 0.55), (0.28, 0.46, 0.40, 0.55))
+
+
+def _paint_region(img: Image.Image, box, color) -> None:
+    px = img.load()
+    w, h = img.size
+    x0, x1, y0, y1 = box
+    for y in range(int(y0 * h), int(y1 * h)):
+        for x in range(int(x0 * w), int(x1 * w)):
+            px[x, y] = color
+
+
+def _flat_lay_data_url(color: tuple) -> str:
+    """Synthetic garment flat-lay: white studio background + chromatic block
+    (the production ``garment_dominant_lab`` skips min(rgb)>235, so it lands
+    exactly on the block color)."""
+    img = Image.new("RGB", (320, 320), (250, 250, 250))
+    _paint_region(img, (0.2, 0.8, 0.2, 0.8), color)
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG", quality=92)
+    return "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode()
+
+
 def _person_png_data_url() -> str:
-    """Person-image fixture at a pose-plausible size (short side >= 256px,
-    > 10KB so it passes the pre-inference person validation). Deterministic
-    (seeded) so tests are reproducible. NOTE: a fixture for automated
-    regression only — never a production acceptance input."""
+    """Skin-toned person-image fixture at a pose-plausible size (short side
+    >= 256px, > 10KB so it passes the pre-inference person validation).
+    Deterministic (seeded) so tests are reproducible. NOTE: a fixture for
+    automated regression only — never a production acceptance input."""
     import random
 
     rng = random.Random(20260905)
     w, h = 300, 512
-    img = Image.new("RGB", (w, h), color=(120, 110, 100))
+    img = Image.new("RGB", (w, h), color=SKIN)
     px = img.load()
     for _ in range(4000):  # light texture so the PNG stays > 10KB
         x, y = rng.randrange(w), rng.randrange(h)
-        px[x, y] = (rng.randrange(90, 160), rng.randrange(80, 150), rng.randrange(70, 140))
+        px[x, y] = (
+            min(255, max(0, SKIN[0] + rng.randrange(-15, 16))),
+            min(255, max(0, SKIN[1] + rng.randrange(-15, 16))),
+            min(255, max(0, SKIN[2] + rng.randrange(-15, 16))),
+        )
     buf = io.BytesIO()
     img.save(buf, format="PNG")
     return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
@@ -108,15 +146,49 @@ def _clean_store():
 
 @pytest.fixture
 def mock_worker(monkeypatch):
-    """Mock the GPU worker at the service boundary: returns a real tiny PNG
-    data URL (the worker's documented response shape). Also proves the VTON
-    flow never touches durable storage."""
+    """Mock the GPU worker at the service boundary: returns a real PNG data
+    URL (the worker's documented response shape) that emulates a FAITHFULLY
+    APPLIED garment (S31, 2026-09-16): the torso + forearm bands carry the
+    garment's dominant color — what a correctly rendered long-sleeve garment
+    looks like to the production sleeve-integrity gate. Garment thumbnails
+    are mocked as synthetic flat-lays (hermetic; no network). Also proves the
+    VTON flow never touches durable storage."""
     monkeypatch.setenv("VTON_WORKER_URL", "https://worker.invalid/process")
+
+    async def _fake_fetch(self, url: str) -> str:
+        # Deterministic synthetic flat-lay for any garment thumbnail URL —
+        # keeps these tests network-free and gives the sleeve gate a
+        # measurable, skin-separated reference color.
+        return _flat_lay_data_url(GARMENT_NAVY)
+
+    monkeypatch.setattr(TryOnService, "_fetch_image_as_base64", _fake_fetch)
 
     async def _fake(self, job_id, person_image, garments,
                     gender_mode="infer_from_image", output_aspect="9:16"):
+        # A faithfully applied garment: measure the garment reference color
+        # the SAME way production does, then carry it on torso + forearms.
+        img = Image.new("RGB", (300, 512), color=(60, 60, 70))
+        b64 = (garments[0] or {}).get("image_base64") if garments else None
+        paint = None
+        if b64 and str(b64).startswith("data:"):
+            try:
+                from backend.app.services.vton_sleeve_gate import garment_dominant_lab
+
+                lab = garment_dominant_lab(
+                    Image.open(io.BytesIO(base64.b64decode(str(b64).split(",", 1)[1]))).convert("RGB")
+                )
+                if lab != (0.0, 0.0, 0.0):
+                    paint = GARMENT_NAVY  # the flat-lay block color by construction
+            except Exception:  # noqa: BLE001
+                paint = None
+        if paint is not None:
+            _paint_region(img, _TORSO, paint)
+            for box in _FOREARMS:
+                _paint_region(img, box, paint)
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
         return {
-            "rendered_image_data_url": _tiny_png_data_url(),
+            "rendered_image_data_url": "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode(),
             "model_used": "test-model (mocked worker)",
             "fit_verdict": "Optimal Garment Fit",
             "verify": {"PASS": True, "pixel_change": 4.2},

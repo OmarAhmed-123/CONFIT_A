@@ -287,3 +287,52 @@ def test_production_boots_refuse_provider_without_smtp_host(monkeypatch):
             FRONTEND_BASE_URL="https://app.confit.test",
         )
     assert "SMTP_HOST" in str(ei.value)
+
+
+def test_production_boots_refuse_cleartext_smtp(monkeypatch):
+    """§14: `SMTP_TLS_MODE=none` means credentials and message bodies cross the
+    network in clear text — production must refuse to start, not warn."""
+    from backend.app.core.config import Settings
+
+    strong = "x" * 64
+    with pytest.raises(Exception) as ei:
+        Settings(
+            ENVIRONMENT="production",
+            DATABASE_URL="postgresql://u:p@h:5432/db",
+            SECRET_KEY=strong,
+            JWT_REFRESH_SECRET=strong,
+            ENCRYPTION_KEY_FOR_BODY_DATA=strong,
+            EMAIL_PROVIDER="smtp",
+            SMTP_HOST="smtp.example.com",
+            SMTP_USERNAME="u",
+            SMTP_PASSWORD="p",
+            SMTP_TLS_MODE="none",
+            EMAIL_FROM_ADDRESS="no-reply@confit.test",
+            FRONTEND_BASE_URL="https://app.confit.test",
+        )
+    assert "SMTP_TLS_MODE" in str(ei.value)
+
+
+def test_production_boots_refuse_non_https_link_base(monkeypatch):
+    """§14: every emailed link is built from FRONTEND_BASE_URL. A non-https base
+    would mail out http:// links (token theft on the wire) — refuse to boot."""
+    from backend.app.core.config import Settings
+
+    strong = "x" * 64
+    for bad_base in ("http://app.confit.test", "confit.test", "javascript:alert(1)"):
+        with pytest.raises(Exception) as ei:
+            Settings(
+                ENVIRONMENT="production",
+                DATABASE_URL="postgresql://u:p@h:5432/db",
+                SECRET_KEY=strong,
+                JWT_REFRESH_SECRET=strong,
+                ENCRYPTION_KEY_FOR_BODY_DATA=strong,
+                EMAIL_PROVIDER="smtp",
+                SMTP_HOST="smtp.example.com",
+                SMTP_USERNAME="u",
+                SMTP_PASSWORD="p",
+                SMTP_TLS_MODE="starttls",
+                EMAIL_FROM_ADDRESS="no-reply@confit.test",
+                FRONTEND_BASE_URL=bad_base,
+            )
+        assert "FRONTEND_BASE_URL" in str(ei.value), bad_base

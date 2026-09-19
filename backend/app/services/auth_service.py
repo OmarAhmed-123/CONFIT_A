@@ -30,14 +30,21 @@ from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from backend.app.core.config import settings
+from backend.app.services import email_service
+from backend.app.services import token_service
 from backend.app.services.email_service import (
-    EmailDeliveryError,
+    EmailDeliveryError,  # re-exported for existing callers/tests
+    render_email_change_verification_email,
+    render_email_changed_notice_email,
+    render_password_changed_email,
     render_password_reset_email,
     render_verification_email,
+    render_verification_reminder_email,
     send_email,
 )
 from backend.app.core.exceptions import (
     AuthenticationError,
+    ConflictError,
     FeatureNotConfiguredError,
     ProviderIntegrationError,
     ValidationDomainError,
@@ -54,10 +61,12 @@ from backend.app.core.security import (
     verify_recovery_code,
 )
 from backend.app.models.user import (
+    EmailChangeRequest,
     EmailVerificationToken,
     MFABackupCode,
     PasswordResetToken,
     RefreshToken,
+    RegistrationIntent,
     User,
     UserRole,
 )
@@ -70,8 +79,21 @@ _PASSWORD_RESET_TTL = timedelta(minutes=30)
 _EMAIL_VERIFICATION_TTL = timedelta(hours=24)
 
 
+import re as _re
+
+_EMAIL_RE = _re.compile(r"^[^@\s]+@[^@\s]+\.[A-Za-z]{2,}$")
+
+
 def _sha256_hex(data: str) -> str:
-    return hashlib.sha256(data.encode("utf-8")).hexdigest()
+    """Kept for backward compatibility — delegates to the shared primitive."""
+    return token_service.hash_token(data)
+
+
+def _mask_email(address: str) -> str:
+    local, _, domain = (address or "").partition("@")
+    if not domain:
+        return "***"
+    return f"{local[:1]}***@{domain}"
 
 
 class AuthService:
@@ -92,6 +114,7 @@ class AuthService:
         preferred_language: str = "en",
         ip_address: Optional[str] = None,
         user_agent: Optional[str] = None,
+        registration_intent: str = "consumer",
     ) -> Dict[str, Any]:
         # SECURITY INVARIANT (P0): public self-service registration ALWAYS
         # creates a CONSUMER. There is deliberately no `role` parameter —
@@ -101,6 +124,19 @@ class AuthService:
         # only legitimate elevated-provisioning path is direct repository
         # use by trusted internal tooling, never this service method.
         validate_password_policy(password)
+
+        # Registration intent is DATA about what the person asked for. It is
+        # validated against a closed enum and can never carry a role: asking to
+        # "join as a brand" sets a pending-workflow flag, not a privilege
+        # (task §0.11/§9). Unknown values are rejected, not silently coerced.
+        intent_raw = (registration_intent or "consumer").strip().lower()
+        try:
+            intent = RegistrationIntent(intent_raw)
+        except ValueError:
+            raise ValidationDomainError(
+                "registration_intent must be 'consumer' or 'brand_partner'.",
+                {"registration_intent": "unsupported"},
+            )
 
         existing = self.user_repo.get_by_email(email)
         if existing:
@@ -113,27 +149,37 @@ class AuthService:
             role=UserRole.CONSUMER,
             phone=phone,
             preferred_language=preferred_language,
+            registration_intent=intent.value,
         )
 
         # Best-effort verification email: registration NEVER fails because of
-        # email transport (the account exists either way); failures are audited.
-        if settings.EMAIL_PROVIDER and not user.is_verified:
+        # email transport (the account exists either way). The outcome is not
+        # swallowed any more — it is recorded in the delivery ledger and the
+        # audit trail, so "we sent you a link" is a claim backed by evidence
+        # (task §15/§33).
+        if email_service.is_email_configured() and not user.is_verified:
             try:
-                vtoken = secrets.token_urlsafe(32)
-                self.db.add(EmailVerificationToken(
-                    user_id=user.id,
-                    token_hash=_sha256_hex(vtoken),
-                    expires_at=datetime.now(timezone.utc) + _EMAIL_VERIFICATION_TTL,
-                ))
-                self.db.commit()
-                self._send_verification_email(user, vtoken)
+                self._issue_verification_token(user)
             except Exception as exc:  # noqa: BLE001 — registration must survive email issues
-                logger.warn("Post-registration verification email failed", error=str(exc)[:120])
+                logger.warning("Post-registration verification email failed", error=str(exc)[:120])
+                self.user_repo.log_audit(
+                    "EMAIL_VERIFICATION_EMAIL_FAILED", "User", str(user.id), user_id=user.id
+                )
         tokens = self._issue_session_tokens(user, ip_address=ip_address, user_agent=user_agent)
         self.user_repo.log_audit(
-            "USER_REGISTERED", "User", str(user.id), user_id=user.id, ip_address=ip_address
+            "USER_REGISTERED", "User", str(user.id), user_id=user.id, ip_address=ip_address,
+            details=json.dumps({"registration_intent": intent.value}),
         )
         return {**tokens, "user": user}
+
+    # ------------------------------------------------------------------
+    # Session token issuance (public wrapper so other services — e.g. the
+    # invitation acceptance flow — reuse THE one issuance path instead of
+    # minting their own tokens)
+    # ------------------------------------------------------------------
+    def issue_session_tokens(self, user: User, ip_address: Optional[str] = None,
+                             user_agent: Optional[str] = None) -> Dict[str, Any]:
+        return self._issue_session_tokens(user, ip_address=ip_address, user_agent=user_agent)
 
     def login(
         self,
@@ -567,42 +613,46 @@ class AuthService:
     # Password reset & email verification — issued only if email is configured
     # ------------------------------------------------------------------
     def request_password_reset(self, email: str, ip_address: Optional[str] = None) -> Dict[str, Any]:
-        if not settings.EMAIL_PROVIDER:
+        """Non-committal by design: the response body is IDENTICAL for known and
+        unknown addresses (no enumeration oracle), so the copy is conditional.
+
+        `status: "requested"` means the request was processed — it is not a
+        claim that an email was delivered. The truthful per-account delivery
+        outcome lives in the `email_deliveries` ledger and is exposed only to
+        the signed-in owner (`GET /auth/email-status`).
+        """
+        if not email_service.is_email_configured():
             raise FeatureNotConfiguredError(
                 "email_delivery",
                 hint="Configure EMAIL_PROVIDER + SMTP settings to enable password reset.",
             )
-        # Do not leak account existence.
         user = self.user_repo.get_by_email(email)
         if user:
-            token = secrets.token_urlsafe(32)
-            token_hash = _sha256_hex(token)
-            row = PasswordResetToken(
-                user_id=user.id,
-                token_hash=token_hash,
-                expires_at=datetime.now(timezone.utc) + _PASSWORD_RESET_TTL,
+            # One live reset token per account: a new request invalidates older
+            # links instead of leaving several valid ones in old inboxes.
+            token_service.invalidate_open_tokens(self.db, model=PasswordResetToken, user_id=user.id)
+            _row, token = token_service.issue_token(
+                self.db, model=PasswordResetToken, user_id=user.id, ttl=_PASSWORD_RESET_TTL,
             )
-            self.db.add(row)
-            self.db.commit()
             self.user_repo.log_audit(
                 "PASSWORD_RESET_REQUESTED", "User", str(user.id), user_id=user.id, ip_address=ip_address
             )
             self._send_password_reset_email(user, token)
         return {
-            "status": "queued",
+            "status": "requested",
             "message": "If an account exists with that email, reset instructions have been sent.",
         }
 
     def complete_password_reset(self, token: str, new_password: str) -> None:
         validate_password_policy(new_password)
-        token_hash = _sha256_hex(token)
-        row = self.db.query(PasswordResetToken).filter(
-            PasswordResetToken.token_hash == token_hash
-        ).first()
-        if not row or row.used_at is not None:
+        try:
+            row = token_service.consume(self.db, model=PasswordResetToken, raw=token)
+        except token_service.OneTimeTokenError as exc:
+            # Same 401 for invalid / expired / replayed — an attacker probing
+            # tokens learns nothing about which case they hit.
+            if exc.reason == "expired":
+                raise AuthenticationError("Reset token has expired.")
             raise AuthenticationError("Reset token is invalid or already used.")
-        if row.expires_at.replace(tzinfo=timezone.utc) < datetime.now(timezone.utc):
-            raise AuthenticationError("Reset token has expired.")
 
         user = self.user_repo.get_by_id(row.user_id)
         if not user:
@@ -610,7 +660,6 @@ class AuthService:
 
         from backend.app.core.security import get_password_hash
         user.hashed_password = get_password_hash(new_password)
-        row.used_at = datetime.now(timezone.utc)
         # Revoke every active session on password change.
         for r in self.db.query(RefreshToken).filter(
             RefreshToken.user_id == user.id, RefreshToken.revoked_at.is_(None)
@@ -622,27 +671,32 @@ class AuthService:
         )
 
     def _send_password_reset_email(self, user: User, token: str) -> None:
-        """REAL delivery (cycle 4). Raises nothing on transport failure: the
-        endpoint's response is deliberately non-committal so it cannot leak
-        account existence; a hard failure is recorded in the audit trail
-        instead (PASSWORD_RESET_EMAIL_FAILED) and the token stays valid, so
-        the user can simply request again."""
+        """REAL delivery + delivery-ledger record (task §15).
+
+        Raises nothing on transport failure: the endpoint's response is
+        non-committal (no existence leak), the ledger row records FAILED, and
+        the audit trail carries the honest event name. The token stays valid so
+        the user can request again.
+        """
         reset_url = f"{settings.FRONTEND_BASE_URL.rstrip('/')}/reset-password?token={token}"
-        subject, html, text = render_password_reset_email(user.full_name or "there", reset_url)
-        try:
-            send_email(to=user.email, subject=subject, html=html, text=text)
-            self.user_repo.log_audit(
-                "PASSWORD_RESET_EMAIL_SENT", "User", str(user.id), user_id=user.id
-            )
-        except EmailDeliveryError as exc:
-            logger.error(
-                "Password reset email delivery FAILED",
-                user_id=user.id,
-                error=str(exc)[:160],
-            )
-            self.user_repo.log_audit(
-                "PASSWORD_RESET_EMAIL_FAILED", "User", str(user.id), user_id=user.id
-            )
+        subject, html, text = render_password_reset_email(
+            user.full_name or "there", reset_url, int(_PASSWORD_RESET_TTL.total_seconds() // 60)
+        )
+        result = email_service.send_transactional(
+            self.db,
+            to=user.email,
+            subject=subject,
+            html=html,
+            text=text,
+            purpose=email_service.PURPOSE_PASSWORD_RESET,
+            user_id=user.id,
+            dedupe_key=token_service.hash_token(token),
+        )
+        self.user_repo.log_audit(
+            "PASSWORD_RESET_EMAIL_SENT" if result.accepted else "PASSWORD_RESET_EMAIL_FAILED",
+            "User", str(user.id), user_id=user.id,
+            details=json.dumps({"delivery_status": result.status.value, "error_class": result.error_class}),
+        )
 
     # ------------------------------------------------------------------
     # Authenticated password change (cycle 9)
@@ -706,74 +760,272 @@ class AuthService:
         self.user_repo.log_audit(
             "USER_PASSWORD_CHANGED", "User", str(user.id), user_id=user.id
         )
+        # Security notification (task §16): record the outcome, never fake it.
+        if email_service.is_email_configured():
+            subject, html, text = render_password_changed_email(
+                user.full_name or "there",
+                token_service.utcnow().replace(microsecond=0).isoformat(),
+            )
+            email_service.send_transactional(
+                self.db,
+                to=user.email,
+                subject=subject,
+                html=html,
+                text=text,
+                purpose=email_service.PURPOSE_PASSWORD_CHANGED,
+                user_id=user.id,
+                dedupe_key=f"pw-changed:{user.id}:{int(token_service.utcnow().timestamp())}",
+            )
 
     # ------------------------------------------------------------------
     # Email verification — issue (hashed, 24 h, one-time) + redeem
     # ------------------------------------------------------------------
     def request_email_verification(self, email: str, ip_address: Optional[str] = None) -> Dict[str, Any]:
-        if not settings.EMAIL_PROVIDER:
+        """Issue (or re-issue) a verification email.
+
+        Non-committal response: identical for known/unknown addresses, so it is
+        not an account-existence oracle. `status: "requested"` describes the
+        request, never a delivery claim (the ledger holds the truth).
+        """
+        if not email_service.is_email_configured():
             raise FeatureNotConfiguredError(
                 "email_delivery",
                 hint="Configure EMAIL_PROVIDER + SMTP settings to enable email verification.",
             )
         user = self.user_repo.get_by_email(email)
         if user and user.is_verified is not True:
-            token = secrets.token_urlsafe(32)
-            row = EmailVerificationToken(
-                user_id=user.id,
-                token_hash=_sha256_hex(token),
-                expires_at=datetime.now(timezone.utc) + _EMAIL_VERIFICATION_TTL,
-            )
-            self.db.add(row)
-            self.db.commit()
-            self._send_verification_email(user, token)
+            self._issue_verification_token(user, reminder=True)
             self.user_repo.log_audit(
                 "EMAIL_VERIFICATION_REQUESTED", "User", str(user.id), user_id=user.id, ip_address=ip_address
             )
         return {
-            "status": "queued",
+            "status": "requested",
             "message": "If this address needs verification, a confirmation link has been sent.",
         }
 
-    def _send_verification_email(self, user: User, token: str) -> None:
+    def _issue_verification_token(self, user: User, *, reminder: bool = False) -> str:
+        """Create a fresh 24 h single-use token (invalidating older ones) and send it."""
+        token_service.invalidate_open_tokens(self.db, model=EmailVerificationToken, user_id=user.id)
+        _row, token = token_service.issue_token(
+            self.db, model=EmailVerificationToken, user_id=user.id, ttl=_EMAIL_VERIFICATION_TTL,
+        )
+        self._send_verification_email(user, token, reminder=reminder)
+        return token
+
+    def _send_verification_email(self, user: User, token: str, *, reminder: bool = False) -> None:
         verify_url = f"{settings.FRONTEND_BASE_URL.rstrip('/')}/verify-email?token={token}"
-        subject, html, text = render_verification_email(user.full_name or "there", verify_url)
-        try:
-            send_email(to=user.email, subject=subject, html=html, text=text)
-        except EmailDeliveryError as exc:
-            logger.error(
-                "Verification email delivery FAILED", user_id=user.id, error=str(exc)[:160]
-            )
-            self.user_repo.log_audit(
-                "EMAIL_VERIFICATION_EMAIL_FAILED", "User", str(user.id), user_id=user.id
-            )
+        renderer = render_verification_reminder_email if reminder else render_verification_email
+        subject, html, text = renderer(user.full_name or "there", verify_url)
+        result = email_service.send_transactional(
+            self.db,
+            to=user.email,
+            subject=subject,
+            html=html,
+            text=text,
+            purpose=(
+                email_service.PURPOSE_VERIFICATION_REMINDER if reminder
+                else email_service.PURPOSE_VERIFICATION
+            ),
+            user_id=user.id,
+            dedupe_key=token_service.hash_token(token),
+        )
+        self.user_repo.log_audit(
+            "EMAIL_VERIFICATION_EMAIL_SENT" if result.accepted else "EMAIL_VERIFICATION_EMAIL_FAILED",
+            "User", str(user.id), user_id=user.id,
+            details=json.dumps({"delivery_status": result.status.value, "error_class": result.error_class}),
+        )
 
     def complete_email_verification(self, token: str) -> Dict[str, Any]:
-        if not settings.EMAIL_PROVIDER:
+        if not email_service.is_email_configured():
             raise FeatureNotConfiguredError(
                 "email_delivery",
                 hint="Configure EMAIL_PROVIDER + SMTP settings to enable email verification.",
             )
-        row = (
-            self.db.query(EmailVerificationToken)
-            .filter(EmailVerificationToken.token_hash == _sha256_hex(token))
-            .first()
-        )
-        now = datetime.now(timezone.utc)
-        if row is None or row.used_at is not None:
+        try:
+            row = token_service.consume(self.db, model=EmailVerificationToken, raw=token)
+        except token_service.OneTimeTokenError as exc:
+            if exc.reason == "expired":
+                raise AuthenticationError("Verification link has expired. Request a new one.")
             raise AuthenticationError("Verification link is invalid or has already been used.")
-        if row.expires_at.replace(tzinfo=timezone.utc) < now:
-            raise AuthenticationError("Verification link has expired. Request a new one.")
         user = self.user_repo.get_by_id(row.user_id)
         if user is None:
             raise AuthenticationError("Account no longer exists.")
-        row.used_at = now
         user.is_verified = True
         self.db.commit()
         self.user_repo.log_audit(
             "EMAIL_VERIFIED", "User", str(user.id), user_id=user.id
         )
         return {"status": "success", "message": "Email verified. Thank you!"}
+
+    # ------------------------------------------------------------------
+    # Email change — ownership of the NEW address is proven first (task §11)
+    # ------------------------------------------------------------------
+    _EMAIL_CHANGE_TTL = timedelta(hours=2)
+
+    def request_email_change(self, user: User, new_email: str, ip_address: Optional[str] = None) -> Dict[str, Any]:
+        """Start an email change: verify the NEW address before it becomes the
+        account's identity. Only the signed-in owner can start this, and the
+        confirmation link is delivered to the ADDRESS BEING ADDED (never to the
+        old one), so a hijacked session alone cannot take the account over.
+        """
+        if not email_service.is_email_configured():
+            # No provider → the flow cannot be completed; say so instead of
+            # creating a token nobody can ever receive.
+            raise FeatureNotConfiguredError(
+                "email_delivery",
+                hint="Configure EMAIL_PROVIDER + SMTP settings to enable email change.",
+            )
+        normalized = (new_email or "").strip().lower()
+        if not _EMAIL_RE.match(normalized):
+            raise ValidationDomainError("A valid email address is required.", {"new_email": "invalid"})
+        if normalized == (user.email or "").lower():
+            raise ValidationDomainError("That is already the email on this account.", {"new_email": "unchanged"})
+
+        other = self.user_repo.get_by_email(normalized)
+        if other is not None:
+            # Authenticated context + the address is the subject of the request:
+            # telling the owner it is taken is actionable, not an oracle.
+            raise ConflictError(
+                "That address is already registered to a CONFIT account.",
+                code="EMAIL_ALREADY_REGISTERED",
+            )
+
+        now = token_service.utcnow()
+        for stale in (
+            self.db.query(EmailChangeRequest)
+            .filter(EmailChangeRequest.user_id == user.id, EmailChangeRequest.used_at.is_(None))
+            .all()
+        ):
+            stale.used_at = now  # superseded — only one live confirmation link
+        self.db.commit()
+
+        row, token = token_service.issue_token(
+            self.db,
+            model=EmailChangeRequest,
+            user_id=user.id,
+            ttl=self._EMAIL_CHANGE_TTL,
+            extra_fields={"new_email": normalized},
+        )
+
+        confirm_url = f"{settings.FRONTEND_BASE_URL.rstrip('/')}/settings/confirm-email?token={token}"
+        subject, html, text = render_email_change_verification_email(user.full_name or "there", normalized, confirm_url)
+        result = email_service.send_transactional(
+            self.db,
+            to=normalized,
+            subject=subject,
+            html=html,
+            text=text,
+            purpose=email_service.PURPOSE_EMAIL_CHANGE,
+            user_id=user.id,
+            dedupe_key=token_service.hash_token(token),
+        )
+        self.user_repo.log_audit(
+            "EMAIL_CHANGE_REQUESTED", "User", str(user.id), user_id=user.id, ip_address=ip_address,
+            details=json.dumps({"new_email_masked": _mask_email(normalized),
+                                "delivery_status": result.status.value}),
+        )
+        # Honest status for the account owner (this request is about THEIR
+        # account, so no enumeration surface is created by reporting it).
+        return {
+            "status": "requested",
+            "delivery_status": result.status.value,
+            "message": (
+                "Confirmation link sent to the new address."
+                if result.accepted else
+                "We could not deliver the confirmation email. Check the address and try again."
+            ),
+        }
+
+    def confirm_email_change(self, token: str) -> Dict[str, Any]:
+        try:
+            row = token_service.consume(self.db, model=EmailChangeRequest, raw=token)
+        except token_service.OneTimeTokenError as exc:
+            if exc.reason == "expired":
+                raise AuthenticationError("This confirmation link has expired. Start the change again.")
+            raise AuthenticationError("This confirmation link is invalid or has already been used.")
+
+        user = self.user_repo.get_by_id(row.user_id)
+        if user is None:
+            raise AuthenticationError("Account no longer exists.")
+
+        # Race guard: someone may have registered the address in between.
+        taken = self.user_repo.get_by_email(row.new_email)
+        if taken is not None and taken.id != user.id:
+            raise ConflictError("That address is already registered to a CONFIT account.", code="EMAIL_ALREADY_REGISTERED")
+
+        old_email = user.email
+        user.email = row.new_email.lower()
+        if user.oauth_subject and user.oauth_provider:
+            # The social identity stays linked (subject is provider-stable); the
+            # local address simply changed.
+            pass
+        user.updated_at = token_service.utcnow()
+        now = token_service.utcnow()
+        for refresh in self.db.query(RefreshToken).filter(
+            RefreshToken.user_id == user.id, RefreshToken.revoked_at.is_(None)
+        ):
+            refresh.revoked_at = now
+        self.db.commit()
+        self.user_repo.log_audit(
+            "EMAIL_CHANGED", "User", str(user.id), user_id=user.id,
+            before={"email_masked": _mask_email(old_email)},
+            after={"email_masked": _mask_email(user.email)},
+        )
+
+        # Security notice to the PREVIOUS address so a takeover is visible there.
+        if email_service.is_email_configured():
+            subject, html, text = render_email_changed_notice_email(
+                user.full_name or "there", old_email, user.email, token_service.utcnow().replace(microsecond=0).isoformat()
+            )
+            email_service.send_transactional(
+                self.db,
+                to=old_email,
+                subject=subject,
+                html=html,
+                text=text,
+                purpose=email_service.PURPOSE_EMAIL_CHANGED_NOTICE,
+                user_id=user.id,
+                dedupe_key=f"{token_service.hash_token(token)}:notice",
+            )
+        return {"status": "success", "email": user.email, "message": "Your sign-in email has been updated."}
+
+    # ------------------------------------------------------------------
+    # Honest delivery surface + server-authoritative onboarding state
+    # ------------------------------------------------------------------
+    def email_delivery_status(self, user: User, purpose: Optional[str] = None) -> Dict[str, Any]:
+        """What the provider actually did for THIS account's last send.
+
+        Scoped to the caller's own user id, so it can never be used to probe
+        another address — and it is why the anonymous request endpoints can stay
+        non-committal without the product lying to the user.
+        """
+        row = email_service.latest_delivery(self.db, user_id=user.id, purpose=purpose)
+        if row is None:
+            return {
+                "purpose": purpose,
+                "status": "none",
+                "accepted": False,
+                "provider": None,
+                "error_class": None,
+                "attempts": 0,
+                "last_attempt_at": None,
+            }
+        return {
+            "purpose": row.purpose,
+            "status": row.status.value if hasattr(row.status, "value") else str(row.status),
+            "accepted": (row.status.value if hasattr(row.status, "value") else str(row.status)) == "succeeded",
+            "provider": row.provider,
+            "error_class": row.error_class,
+            "attempts": row.attempts,
+            "last_attempt_at": row.created_at.isoformat() if row.created_at else None,
+        }
+
+    def onboarding_state(self, user: User) -> Dict[str, Any]:
+        """Server-authoritative account state + next action (task §4)."""
+        from backend.app.services import onboarding_service
+        return onboarding_service.build_onboarding_state(
+            self.db, user, email_provider_configured=email_service.is_email_configured()
+        )
 
     # ------------------------------------------------------------------
     # GDPR export & account deletion

@@ -32,6 +32,10 @@ class UserRegister(BaseModel):
     full_name: str = Field(min_length=1, max_length=255)
     phone: Optional[str] = None
     preferred_language: str = "en"
+    # What the person is registering FOR ("consumer" | "brand_partner").
+    # This is DATA, never a privilege: `AuthService.register` still hard-codes
+    # role=consumer and the partner path requires a reviewed application.
+    registration_intent: str = Field(default="consumer", max_length=32)
 
 
 class UserLogin(BaseModel):
@@ -107,8 +111,128 @@ class UserOut(BaseModel):
     created_at: datetime
     brand_id: Optional[int] = None
     has_profile: bool = False
+    # Server-authoritative onboarding/lifecycle view (task §4). The SPA routes
+    # on `onboarding.next_action`; it is computed server-side so no client
+    # state can steer a user into an area they are not authorized for.
+    registration_intent: str = "consumer"
+    partner_access: Optional[str] = None
+    partner_application_status: Optional[str] = None
+    onboarding: Optional[Dict[str, Any]] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class OnboardingStateOut(BaseModel):
+    account_state: str
+    role: str
+    registration_intent: str
+    email_verified: bool
+    is_active: bool
+    profile_completed: bool
+    partner_access: str
+    partner_application_status: Optional[str] = None
+    next_action: Dict[str, Any]
+    allowed_areas: List[str] = Field(default_factory=list)
+    pending_invitation: Optional[Dict[str, Any]] = None
+
+
+class EmailDeliveryStatusOut(BaseModel):
+    purpose: Optional[str] = None
+    status: str
+    accepted: bool
+    provider: Optional[str] = None
+    error_class: Optional[str] = None
+    attempts: int = 0
+    last_attempt_at: Optional[str] = None
+
+
+class EmailChangeRequestIn(BaseModel):
+    new_email: EmailStr
+
+
+class EmailChangeConfirmIn(BaseModel):
+    token: str = Field(min_length=8, max_length=512)
+
+
+# --- partner onboarding ------------------------------------------------------
+
+class PartnerApplicationCreate(BaseModel):
+    """Applicant-supplied facts only.
+
+    Deliberately absent: `role`, `brand_id`, `status`, `user_id` — every
+    authorization-bearing field is server-side (task §0.12).
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    brand_name: str = Field(min_length=2, max_length=255)
+    legal_name: Optional[str] = Field(default=None, max_length=255)
+    website: Optional[str] = Field(default=None, max_length=500)
+    market: str = Field(default="EG", max_length=8)
+    category: Optional[str] = Field(default=None, max_length=120)
+    catalogue_size: Optional[str] = Field(default=None, max_length=40)
+    contact_name: Optional[str] = Field(default=None, max_length=255)
+    contact_phone: Optional[str] = Field(default=None, max_length=50)
+    message: Optional[str] = Field(default=None, max_length=4000)
+
+
+class PartnerApplicationOut(BaseModel):
+    id: int
+    status: str
+    brand_name: str
+    market: str
+    category: Optional[str] = None
+    contact_name: str
+    website: Optional[str] = None
+    submitted_at: datetime
+    reviewed_at: Optional[datetime] = None
+    decision_note: Optional[str] = None
+    brand_id: Optional[int] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PartnerApplicationDecision(BaseModel):
+    note: Optional[str] = Field(default=None, max_length=2000)
+
+
+# --- invitations -------------------------------------------------------------
+
+class InvitationCreateRequest(BaseModel):
+    email: EmailStr
+    role: str = Field(default="brand_staff", max_length=32)
+    # Optional so a brand owner's own tenant is used by default; an admin
+    # inviting into another brand must name it explicitly.
+    brand_id: Optional[int] = None
+
+
+class InvitationOut(BaseModel):
+    id: int
+    email: str
+    role: str
+    brand_id: int
+    status: str
+    expires_at: datetime
+    accepted_at: Optional[datetime] = None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class InvitationPreviewOut(BaseModel):
+    status: str
+    valid: bool
+    email_masked: Optional[str] = None
+    brand_name: Optional[str] = None
+    role: Optional[str] = None
+    expires_at: Optional[str] = None
+
+
+class InvitationAcceptRequest(BaseModel):
+    token: str = Field(min_length=8, max_length=512)
+    # Only required when the invited address has no CONFIT account yet.
+    full_name: Optional[str] = Field(default=None, max_length=255)
+    password: Optional[str] = Field(default=None, max_length=72)
 
 
 class GDPRExportResponse(BaseModel):

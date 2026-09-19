@@ -8,7 +8,7 @@ All endpoints now:
  - support the two-step MFA login flow (Group 1 §11) via an explicit
    MFA_REQUIRED response instead of a 401 without a marker.
 """
-from typing import Optional
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Request, Response, status
 from pydantic import BaseModel, EmailStr, Field
@@ -19,13 +19,23 @@ from backend.app.core.database import get_db
 from backend.app.core.dependencies import get_current_user
 from backend.app.core.exceptions import (
     AuthenticationError,
+    ConflictError,
     FeatureNotConfiguredError,
+    ValidationDomainError,
 )
 from backend.app.core.rate_limit import limiter
 from backend.app.core.security import generate_csrf_token
 from backend.app.models.user import User
 from backend.app.schemas.auth import (
+    EmailChangeConfirmIn,
+    EmailChangeRequestIn,
+    EmailDeliveryStatusOut,
     GDPRExportResponse,
+    InvitationAcceptRequest,
+    InvitationPreviewOut,
+    OnboardingStateOut,
+    PartnerApplicationCreate,
+    PartnerApplicationOut,
     MFASetupResponse,
     MFAVerifyRequest,
     RefreshTokenRequest,
@@ -37,6 +47,8 @@ from backend.app.schemas.auth import (
     UserRegister,
 )
 from backend.app.services.auth_service import AuthService
+from backend.app.services import partner_service
+from backend.app.services import email_service
 
 router = APIRouter(prefix="/auth", tags=["Authentication & Identity"])
 
@@ -84,7 +96,29 @@ def _user_agent(request: Request) -> Optional[str]:
     return request.headers.get("user-agent")
 
 
-def _user_out(user: User) -> UserOut:
+def _request_id(request: Request) -> Optional[str]:
+    return getattr(request.state, "request_id", None)
+
+
+def _user_out(user: User, db: Optional[Session] = None) -> UserOut:
+    """Shape the API user. `onboarding` is computed server-side (task §4).
+
+    Every caller passes the session so the onboarding state cannot drift from
+    the database; where it is absent (defensive) the payload still carries the
+    role/intent but omits the routing hint rather than inventing one.
+    """
+    onboarding = None
+    registration_intent = "consumer"
+    partner_access = None
+    app_status = None
+    if db is not None:
+        from backend.app.services import onboarding_service, brand_scope_service
+        onboarding = onboarding_service.build_onboarding_state(
+            db, user, email_provider_configured=email_service.is_email_configured()
+        )
+        registration_intent = onboarding.get("registration_intent", "consumer")
+        partner_access = onboarding.get("partner_access")
+        app_status = onboarding.get("partner_application_status")
     return UserOut(
         id=user.id,
         email=user.email,
@@ -96,8 +130,15 @@ def _user_out(user: User) -> UserOut:
         is_verified=user.is_verified,
         mfa_enabled=user.mfa_enabled,
         created_at=user.created_at,
-        brand_id=user.brand_profile.id if user.brand_profile else None,
+        # DRY: brand_id resolves through the SAME helper the authorization
+        # dependencies use (owner OR active member), so the payload can never
+        # advertise a tenant the user cannot actually access.
+        brand_id=brand_scope_service.resolve_brand_id(db, user),
         has_profile=user.profile is not None,
+        registration_intent=registration_intent,
+        partner_access=partner_access,
+        partner_application_status=app_status,
+        onboarding=onboarding,
     )
 
 
@@ -152,13 +193,14 @@ def register(request: Request, response: Response, payload: UserRegister, db: Se
         preferred_language=payload.preferred_language,
         ip_address=_client_ip(request),
         user_agent=_user_agent(request),
+        registration_intent=payload.registration_intent,
     )
     _set_session_cookies(response, res["access_token"], refresh_token=res.get("refresh_token"))
     return {
         "access_token": res["access_token"],
         "refresh_token": res["refresh_token"],
         "token_type": "bearer",
-        "user": _user_out(res["user"]),
+        "user": _user_out(res["user"], db),
     }
 
 
@@ -178,7 +220,7 @@ def login(request: Request, response: Response, payload: UserLogin, db: Session 
         "access_token": res["access_token"],
         "refresh_token": res["refresh_token"],
         "token_type": "bearer",
-        "user": _user_out(res["user"]),
+        "user": _user_out(res["user"], db),
     }
 
 
@@ -197,7 +239,7 @@ def social_login(request: Request, response: Response, payload: SocialLoginReque
         "access_token": res["access_token"],
         "refresh_token": res["refresh_token"],
         "token_type": "bearer",
-        "user": _user_out(res["user"]),
+        "user": _user_out(res["user"], db),
     }
 
 
@@ -253,7 +295,7 @@ def refresh(
         "access_token": res["access_token"],
         "refresh_token": res["refresh_token"],
         "token_type": "bearer",
-        "user": _user_out(res["user"]),
+        "user": _user_out(res["user"], db),
     }
 
 
@@ -325,8 +367,8 @@ def verify_email(request: Request, payload: VerifyEmailRequest, db: Session = De
 
 # --- current user ------------------------------------------------------------
 @router.get("/me", response_model=UserOut)
-def get_current_user_profile(user: User = Depends(get_current_user)):
-    return _user_out(user)
+def get_current_user_profile(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    return _user_out(user, db)
 
 
 # --- MFA ---------------------------------------------------------------------
@@ -362,3 +404,153 @@ def export_data(user: User = Depends(get_current_user), db: Session = Depends(ge
 def delete_account(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     AuthService(db).delete_account(user)
     return {"status": "success", "message": "Account and personal data deleted."}
+
+
+# ===========================================================================
+# Onboarding state, honest email status, email change, partner onboarding &
+# invitations (2026-09-19). Every endpoint here is either non-committal by
+# design (public request flows) or authenticated and scoped to the caller.
+# ===========================================================================
+
+@router.get("/onboarding-state", response_model=OnboardingStateOut)
+@limiter.limit("60/minute")
+def get_onboarding_state(
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Server-authoritative account lifecycle state + the next action.
+
+    This is what the SPA routes on. It replaces the previous situation where
+    the only signal the server exposed was `has_profile`, leaving users to hit
+    a 403 page with no explanation of how to become authorized.
+    """
+    return AuthService(db).onboarding_state(user)
+
+
+@router.get("/email-status", response_model=EmailDeliveryStatusOut)
+@limiter.limit("30/minute")
+def get_email_status(
+    request: Request,
+    purpose: Optional[str] = None,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """What the provider actually did for THIS account's last transactional send.
+
+    Scoped to the caller's user id — it can never be used to probe another
+    address, and it is the reason the anonymous request endpoints can stay
+    non-committal without the UI having to lie about delivery.
+    """
+    return AuthService(db).email_delivery_status(user, purpose)
+
+
+# --- email change (two-step: prove the NEW address first) --------------------
+@router.post("/email-change/request")
+@limiter.limit("5/minute")
+def request_email_change(
+    request: Request,
+    payload: EmailChangeRequestIn,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return AuthService(db).request_email_change(
+        user, payload.new_email, ip_address=_client_ip(request)
+    )
+
+
+@router.post("/email-change/confirm")
+@limiter.limit("10/minute")
+def confirm_email_change(
+    request: Request,
+    payload: EmailChangeConfirmIn,
+    db: Session = Depends(get_db),
+):
+    return AuthService(db).confirm_email_change(payload.token)
+
+
+# --- partner applications (self-service request; nothing is granted here) ----
+@router.post("/partner-applications", response_model=PartnerApplicationOut, status_code=status.HTTP_201_CREATED)
+@limiter.limit("5/minute")
+def submit_partner_application(
+    request: Request,
+    payload: PartnerApplicationCreate,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Request brand/partner access. Creates a PENDING application only —
+    no role, no tenant, no portal access (approval is a platform-admin action,
+    BRD G6 §2.2)."""
+    return partner_service.submit_application(
+        db, user, payload.model_dump(), request_id=_request_id(request)
+    )
+
+
+@router.get("/partner-applications", response_model=List[PartnerApplicationOut])
+@limiter.limit("30/minute")
+def list_partner_applications(
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return partner_service.list_my_applications(db, user)
+
+
+@router.post("/partner-applications/{application_id}/withdraw", response_model=PartnerApplicationOut)
+@limiter.limit("10/minute")
+def withdraw_partner_application(
+    application_id: int,
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return partner_service.withdraw_application(
+        db, user, application_id, request_id=_request_id(request)
+    )
+
+
+# --- invitations (public preview + accept) ----------------------------------
+@router.get("/invitations/preview", response_model=InvitationPreviewOut)
+@limiter.limit("20/minute")
+def preview_invitation(
+    request: Request,
+    token: str,
+    db: Session = Depends(get_db),
+):
+    """Public, non-privileged preview so the accept page can render honestly
+    (masked address, brand, role, expiry) without echoing the token back."""
+    return partner_service.preview_invitation(db, token)
+
+
+@router.post("/invitations/accept")
+@limiter.limit("10/minute")
+def accept_invitation(
+    request: Request,
+    response: Response,
+    payload: InvitationAcceptRequest,
+    db: Session = Depends(get_db),
+):
+    """Redeem a brand invitation and sign in.
+
+    The role and the brand come from the server-issued invitation row; the
+    invitee controls only their own name/password (for a brand-new account).
+    """
+    result = partner_service.accept_invitation(
+        db,
+        payload.token,
+        full_name=payload.full_name,
+        password=payload.password,
+        request_id=_request_id(request),
+    )
+    user = result["user"]
+    tokens = AuthService(db).issue_session_tokens(
+        user, ip_address=_client_ip(request), user_agent=_user_agent(request)
+    )
+    _set_session_cookies(response, tokens["access_token"], refresh_token=tokens.get("refresh_token"))
+    return {
+        "access_token": tokens["access_token"],
+        "refresh_token": tokens["refresh_token"],
+        "token_type": "bearer",
+        "account_created": result["account_created"],
+        "user": _user_out(user, db),
+    }

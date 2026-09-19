@@ -385,7 +385,7 @@ Gap register (exact deficiency → state):
 | B2 | Hardened branch (PR #119) undeployed; production = mainline 10d80a12 (0017 schema) | **NOT DEPLOYED** |
 | B3 | Neon read-only DB read | **BLOCKED-AUTH** (rerun §Q3) |
 | B4 | Human calibration + identity licensing | **BLOCKED (calibration) / LICENSE-GATED** |
-| B5 | CI: "Workers Builds: confit-a" failed on ALL 3 PR runs (incl. docs-only run ⇒ not diff-caused); main's run succeeded at 18:36 UTC, before the Modal spend limit first observed at 21:16 UTC; Vercel standard build + previews READY on every run | **UNDER INVESTIGATION** (Vercel build logs need dashboard access; temporal correlation with Modal spend limit; no repo-side cause found) |
+| B5 | CI: "Workers Builds: confit-a" — **root cause corrected in PART 2 §C/§P**: it is a CLOUDFLARE Workers service build (check app = `cloudflare-workers-and-pages`; service `confit-a`; 0-second failure on every PR run incl. docs-only; succeeds on main pushes; NO wrangler config in repo; owner-side external integration). The earlier Modal-spend-limit temporal correlation is **REJECTED** (independent system; instant pre-build failure; in-repo history documents it pre-existing and non-required for merge since at least Cycle 9 / 2026-09-05/06 reports) | **ROOT CAUSE ESTABLISHED (owner-side external config; not required for merge; exact build log needs Cloudflare account token)** |
 | D1 | BRD fallback compositor intentionally not implemented | **DEVIATION-DISCLOSED** (BRD decision item) |
 | D2 | Avatars = photos, not BRD "3D avatars" | **DEVIATION-DISCLOSED** |
 | D3 | Modal readiness hash-label quirk | VERIFIED (documented design) |
@@ -466,3 +466,374 @@ the detailed pre-reset artifact; where this report and it differ, this report's
 timestamped evidence governs (its §Q2 "credentials not in session" is superseded by
 this pass: credentials were re-supplied and used one-shot; Neon auth failed at the
 server, Modal state changed to spend-limit, Vercel SHA correlated).
+
+---
+---
+
+# PART 2 — FINAL CLOSURE & PRODUCTION ACTIVATION GATE (2026-09-19, ~22:00–22:35 UTC pass)
+
+Mission: independently verify the actual current state (post reset #11), verify what
+survived, close every safely actionable blocker, perform real local/CI/production
+verification, and produce one evidence-bounded release decision. No restart of the
+audit; no redesign without a demonstrated defect; every claim CLAIM → EVIDENCE → STATUS.
+
+## A. Executive Result
+
+CLAIM: The VTON branch work is fully intact and re-verified at local+CI level;
+production is mainline 10d80a12 (schema 0017) with an honest 503 VTON failure path;
+the production-activation gate does NOT open this pass.
+EVIDENCE: all sections B–T below (raw runs 2026-09-19 22:00–22:35 UTC; reset #11
+recovery byte-verified; CI re-read; production re-probed; Modal re-probed; Neon
+re-attempted).
+STATUS: **RELEASE = BLOCKED** (exactly one state, §T). No code-level blocker remains;
+all remaining blockers are infra/access/product/release-prerequisite (classified §S).
+
+## B. Git Ground Truth (independently re-verified, 22:00 UTC)
+
+CLAIM B1: A 11th environment reset occurred: local `.git` re-cloned at stale 928e615,
+60 dirty entries. Remote state verified directly: `origin/main` = `10d80a12f2dd…`
+(unchanged since last pass); `feature/vton-complete-gap-closure` = **53a6608**
+(remote — survived because it was pushed in-turn last pass); `1c0c329` alive. No newer
+commits on any of the three refs (ls-remote, one-shot).
+EVIDENCE: `git log/branch/status` locally; `git ls-remote` (main, feature,
+reconciliation) 22:00 UTC.
+STATUS: **VERIFIED**
+
+CLAIM B2: Working tree content was byte-identical to remote tip 53a6608
+(`git add -A && git diff --cached 53a6608 --stat` = empty). Local re-pointed to the
+branch with `git checkout -B feature/vton-complete-gap-closure origin/…`; tree now
+clean, zero content loss, no history recreated, no force-push, main untouched.
+EVIDENCE: diff output (0 files); `git log --oneline -5` = 53a6608 → 1f59174 → 9972613
+→ a58cfa9 → 10d80a1; `git status` clean.
+STATUS: **VERIFIED (content-preserving; no fake recovery)**
+
+## C. PR / CI State (re-read, 22:05 UTC)
+
+CLAIM C1: PR #119 = **OPEN / NOT MERGED**. head `53a6608` (feature/vton-complete-gap-closure),
+base `10d80a12` (main), 243 files changed (+28663/−148), 4 commits, mergeable_state
+`unstable` (sole red check = Cloudflare, below).
+EVIDENCE: GitHub API `GET /pulls/119` (state open, merged False, merged_at None).
+STATUS: **VERIFIED**
+
+CLAIM C2: CI matrix on 53a6608 (final run): backend ✓, frontend ✓, postgres migration
+chain + schema gate ✓, production parity (deployment contract) ✓, gitleaks (full
+history) ✓, Vercel Preview Comments ✓; **Workers Builds: confit-a ✗**.
+EVIDENCE: GitHub API check-runs on 53a6608 (12 runs, deduped above).
+STATUS: **6/7 green; 1 red (root-caused below)**
+
+CLAIM C3 (Workers Builds root cause — corrects PART 1 B5): the check is created by the
+**Cloudflare Workers and Pages GitHub App** (app slug `cloudflare-workers-and-pages`,
+id 85455 — from the check-run object, not inference). It builds a Cloudflare Workers
+**service** named `confit-a` (dashboard build link in the check output:
+`workers/services/view/confit-a/production/builds/73361b26…`). It fails in 0 seconds
+(started == completed, same second) on every PR run (3/3, including the docs-only
+run) and succeeded on the main push at 18:36 UTC. The repo contains **no wrangler /
+Cloudflare worker configuration** (find + grep: zero wrangler/worker-configuration
+files). In-repo history documents this exact check as **pre-existing, owner-side
+external config, non-required for merge, failing identically on zero-code PRs** since
+at least Cycle 9 (2026-09-05/06): `docs/remediation/CONFIT_A_CYCLE_9_FINAL_REPORT.md`
+L16, `docs/AUDIT_REMEDIATION_2026-09-06.md` L59, `docs/MODEL_PROGRAM_REPORT.md` L111,
+`PR_MODEL_QWEN25_VL.md` L264–270. The earlier Modal-spend-limit temporal correlation is
+**REJECTED**: independent vendor system, pre-build instant failure, zero Modal
+dependency.
+EVIDENCE: check-run app metadata + output summary (direct); 0-second timing (direct);
+docs-only-run failure (direct, last pass); repo config absence (direct grep); four
+in-repo historical documents (direct reads).
+STATUS: **ROOT CAUSE ESTABLISHED** (owner-side external Cloudflare integration; not a
+required merge check; not caused by this branch; exact Cloudflare build error text
+requires the Cloudflare account token — not in possession; disabling the check is an
+owner-side dashboard action documented in the repo history)
+
+## D. Deployment SHA (re-verified, 22:20 UTC)
+
+CLAIM D1: Current production deployment is unchanged: `dpl_3X1kogHmbRKqho7PuJtVMCvXCLnR`,
+promoted 2026-09-19 18:36 UTC, **gitSource ref=main SHA 10d80a12f2dd…**, readyState
+READY. No PROMOTED deployment exists after 18:36 UTC (full 50-deployment listing:
+promotions 16:03/16:20/16:49/17:41/17:59/18:12/18:36 only). PR #119 is therefore NOT
+in production. All later deployments (21:24–21:52) are STAGED previews of the branch.
+EVIDENCE: Vercel API deployment listing (50) + deployment detail (gitSource block).
+STATUS: **PRODUCTION SHA CORRELATED (direct)**
+
+## E. BRD Traceability (updated with this pass's evidence)
+
+Matrix unchanged from PART 1 §C (11 rows); production column re-confirmed this pass:
+row 11 (capability honesty) is now **PRODUCTION VERIFIED** for the registry endpoint
+itself (`GET /tryon/capabilities` live on 10d80a12 at 22:19 UTC: provider
+fashn_vton_segfee, engine_state available, supported_slots [dress, lower, upper_inner,
+upper_outer], product-level states). Row 1 render path remains FIXED(local+CI) /
+PROD: BLOCKED-INFRA (worker spend-limited; honest 503 observed 22:19 UTC). Row 9
+(GDPR retention) remains PROD UNVERIFIED (0019 not in production; DB read
+BLOCKED-AUTH). No requirement marked complete on code-existence alone.
+EVIDENCE: production capabilities response (captured 22:19 UTC); PART 1 §C matrix.
+STATUS: **UPDATED (2 rows refined: row 11 registry PRODUCTION VERIFIED; row 1
+re-confirmed BLOCKED-INFRA)**
+
+## F. Implemented Changes (re-verified this pass — not taken on commit-message faith)
+
+Every previously-fixed gap re-tested on the current tree (53a6608) this pass:
+- Honesty/failure UX: G1–G2 (422 no silent default), G7a/b (animated honesty),
+  G9–G12 (engine identity, sleeve messages, disclosure) — gap-closure suite **18/18
+  PASS** this pass (in battery); 0 "CatVTON" left in FE (grep clean last pass; FE
+  suite 106P includes the honesty tests).
+- Capability-registry integration: mainline code (adopted) + branch non-duplication —
+  `VTON_ENGINE_RENDERABLE_SLOTS` appears in exactly one backend source file this pass
+  (grep: tryon_service.py only); registry endpoint live in production (E1).
+- Sleeve v2.4: constants re-read line-anchored THIS pass: `FOREARM_PASS_THRESHOLD =
+  0.35` (L241), `FOREARM_FAIL_THRESHOLD = 0.15` (L242) — **unchanged**; regression
+  42P/1S in battery; no threshold literal outside the gate module (grep: only
+  unrelated weights/scores).
+- Application verification + N=2 safeguards + layer ordering: in battery (AT/AT-15
+  contract tests); verifier single-path (PART 1 §I).
+- Backend validation + error mapping + frontend state mapping: in battery (G-tests +
+  FE 106P incl. capability viewmodel tests).
+- Identity harness CI correction (lazy resolution, 9972613): present in tree
+  (`_resolve_identity` + `identity_backend_name`); CI backend GREEN on the real GitHub
+  run (C2); full-env battery green.
+- Security tests: in battery (authz/SSRF/log-redaction negative tests; 0 failures).
+EVIDENCE: battery 1352P/29S/0F (260.73 s) this pass; line-anchored greps; CI check
+state.
+STATUS: **ALL PREVIOUS FIXES RE-VERIFIED (executable evidence, this pass)**
+
+## G. FASHN / Modal Worker (re-probed 22:19 UTC)
+
+CLAIM G1: Modal workspace `ac-io3nXB7Q2nuaHHl8mVkeLH` is reachable (auth accepted;
+API answers) but **container creation is blocked by the account spend limit**:
+deploy probe at 22:19 UTC → `ResourceExhaustedError: Workspace … has exceeded its
+spend limit` (third confirmation: 21:16, 21:17, 22:19). Consequences, stated exactly:
+worker NOT deployable, NOT callable, model NOT loadable, NO real inference executed,
+NO N=1/N=2 fresh runtime success claimed. The spend-limit distinction from the earlier
+"workspace disabled" state remains explicit (state changed externally at some point
+between 13:56 and 21:16 UTC; re-enablement was not performed by this task).
+EVIDENCE: Modal API probe (one-shot token; workspace name echoed by the API),
+timestamped.
+STATUS: **BLOCKED-INFRA (spend limit)** — production-worker claim stops here; no
+fixture/local render substituted; rerun command: deploy-probe must not raise
+ResourceExhausted, then `python3 evaluation/probes/p6_p5_dynamic_fresh.py`.
+
+## H. VTON API (production, 22:19 UTC)
+
+- `GET /api/v1/health`: healthy; `checks.schema` verdict ok — **database_revision
+  0017_audit_before_after_request_id = expected_head 0017, missing_tables [],
+  missing_columns {}** (direct production DB schema evidence via the deployed
+  runtime); vton_pipeline configured (worker URL + token present, readiness per-job);
+  vton_engine fashn_vton_segfee (Apache-2.0 fork @ 7c0f10af, parser removed,
+  commercial true); storage provider local / production_grade false / writable false
+  (self-reported dev-only storage service — §N).
+- `POST /api/v1/tryon/multi-render {product_ids:[3,2]}` → **503
+  `VTON_WORKER_NOT_READY: GPU worker not ready after 3 attempts: unreachable`**
+  (34.6 s, no image) — unchanged from last pass; honest failure confirmed fresh.
+- `GET /api/v1/tryon/capabilities?product_ids=3&2` → 200 registry response (E1) —
+  mainline #116 endpoint live in production.
+EVIDENCE: captured responses, timestamps 22:19–22:20 UTC.
+STATUS: **PROBES EXECUTED (fresh)**
+
+## I. Frontend (re-tested this pass)
+
+Typecheck **0 errors**; vitest **106/106 (20 files)** on the current tree, including
+mainline's capability-registry viewmodel tests and the branch's honesty toasts.
+Contract check (§15): FE consumes the single capability registry (mainline code,
+tested); branch adds no parallel capability map (C2/§F grep); error-code mapping
+covers the backend taxonomy incl. `VTON_SLEEVES_NOT_VERIFIED` and
+`VTON_WORKER_NOT_READY` (G10 tests + fresh production 503 code matches the mapped
+toast). No browser runtime → **BROWSER VERIFICATION = BLOCKED** (not simulated).
+EVIDENCE: tsc + vitest raw outputs this pass; production 503 code.
+STATUS: **VERIFIED (code level); BLOCKED (browser)**
+
+## J. N=1
+
+No fresh production N=1 render (worker BLOCKED-INFRA, G1). Local N=1 contract tests
+green in battery (person-reference, layer-not-applied, temporary-delivery suites).
+Historical raw renders remain historical evidence only.
+STATUS: **LOCAL VERIFIED / PROD BLOCKED-INFRA**
+
+## K. N=2
+
+No fresh runtime N=2 (same blocker). Historical N=2 evidence (sequential
+composition, isolation/determinism probes, AT-15) remains historical; no fresh
+runtime N=2 success claimed. Layer ordering + slot collision rules re-verified in
+battery.
+STATUS: **HISTORICAL EVIDENCE ONLY (fresh = BLOCKED-INFRA)**
+
+## L. Sleeve Verification
+
+Rule unchanged (F: line-anchored 0.35/0.15 this pass); authoritative matrix re-run in
+battery: 42P/1S (v2.4 regression) + 52P (v2.3 matrix) + adversarial composites
+REFUSED. No threshold drift; FP/FN disclosure preserved (PART 1 §H).
+STATUS: **VERIFIED (unchanged, re-run this pass)**
+
+## M. Identity
+
+No licensing evidence has been provided or discovered this pass; eval-only AdaFace/
+ArcFace remain eval-only; all user-facing identity claims already removed (re-verified
+in §F). **IDENTITY = LICENSE-GATED** (unchanged).
+STATUS: **LICENSE-GATED**
+
+## N. Security / Privacy / Storage
+
+- Security: full suite green this pass (1352P/29S/0F incl. authz/IDOR negative, SSRF
+  fail-closed negative, log redaction, delivery-token one-shot); gitleaks full-history
+  CI green; 0-hit credential scan of the staged diff (last pass; tree byte-identical
+  since).
+- Privacy: generated images never durable (contract tests green); person-photo
+  retention fixed in code (0019 + read-time purge) — production enforcement
+  UNVERIFIED (0019 not deployed; DB BLOCKED-AUTH).
+- Storage (re-tested as required): production /health 22:20 UTC still self-reports
+  `storage: {provider: local, production_grade: false, writable: false}` — the
+  non-VTON storage service is unchanged; the VTON render path does not use durable
+  storage by design (verified in contract). The gap remains **OUT-OF-SCOPE recorded**
+  (not a VTON subsystem defect; not claimed fixed).
+EVIDENCE: battery outputs; production health capture.
+STATUS: **SECURITY VERIFIED (tests); STORAGE GAP UNCHANGED (recorded)**
+
+## O. Database / Migration
+
+- Production schema version: **0017** (direct runtime evidence, H) — production code
+  and production DB agree (mainline head 0017).
+- Migrations 0018 (product_sleeve_length) + 0019 (vton_job_retention): exist on the
+  branch (chain tested: 12P round-trip in battery; CI postgres migration chain green);
+  **NOT applied in production** (0017 ≠ 0018/0019).
+- Neon read-only attempt 22:20 UTC: **password authentication failed for
+  neondb_owner** (second confirmation) → independent DB verification
+  BLOCKED-AUTH.
+- If the branch deploys, the safe procedure (NOT executed — production write not
+  authorized): apply `alembic upgrade head` (0017 → 0018 → 0019) against the
+  production URL via the repo's documented deployment path, then re-run the schema
+  gate (`/health` checks.schema must report 0019). Exact commands are in PART 1 §T.
+EVIDENCE: health schema block; Neon error; battery migration tests.
+STATUS: **PRODUCTION SCHEMA = 0017 (verified); 0018/0019 NOT APPLIED (verified);
+direct DB read BLOCKED-AUTH**
+
+## P. Local / CI / Production Matrix (mandatory)
+
+| Capability | Local | CI | Preview/Staging | Production | Evidence | Final |
+|---|---|---|---|---|---|---|
+| Explicit person-reference (422) | PASS (18/18) | PASS (backend ✓) | builds READY | NOT in prod (10d80a12 still silent-default code) | battery; C2; D1 | FIXED local+CI / PROD pending deploy |
+| No silent product default | PASS | PASS | READY | NOT in prod | battery; C2 | FIXED local+CI / PROD pending deploy |
+| Job retention 24h/720h (0019) | PASS (12P chain) | PASS (migration chain ✓) | READY | 0017 in prod — not applied | battery; H | FIXED local+CI / PROD BLOCKED (deploy+write auth) |
+| Content-bound cert hash | PASS | PASS | READY | NOT in prod | battery; C2 | FIXED local+CI / PROD pending deploy |
+| SSRF fail-closed | PASS (negative) | PASS | READY | NOT in prod | battery; C2 | FIXED local+CI / PROD pending deploy |
+| Log/data-URL redaction | PASS (negative) | PASS | READY | NOT in prod | battery; C2 | FIXED local+CI / PROD pending deploy |
+| Animated honesty (per-frame) | PASS | PASS | READY | NOT in prod | battery; C2 | FIXED local+CI / PROD pending deploy |
+| Sleeve gate v2.4 | PASS (42P/1S, 52P) | PASS | READY | worker-side; worker BLOCKED | battery; C2; G1 | VERIFIED local+CI / PROD BLOCKED-INFRA |
+| Capability registry (mainline) | PASS | PASS | READY | **LIVE + PRODUCTION VERIFIED** (H, E1) | production capture | PRODUCTION VERIFIED (10d80a12) |
+| Honest 503 worker failure | PASS | PASS | READY | **PRODUCTION VERIFIED** (H) | production capture (SHA-correlated) | PRODUCTION VERIFIED |
+| Job 404 no-leak | PASS | PASS | READY | **PRODUCTION VERIFIED** (last pass, same SHA) | PART 1 Q1 | PRODUCTION VERIFIED |
+| Real GPU render N=1/N=2 | PASS (historical raw) | n/a | n/a | **BLOCKED-INFRA** (spend limit) | G1 | BLOCKED-INFRA |
+| Frontend contract + honesty | PASS (106P, tsc 0) | PASS (frontend ✓) | READY | mainline FE live; branch FE not deployed | battery; C2; D1 | VERIFIED local+CI |
+| GDPR purge daemon in prod | code PASS | PASS | n/a | GAP-INFRA (no broker; read-time purge mitigates) | PART 1 §C row 8 | GAP-INFRA (documented) |
+
+## Q. Human Calibration
+
+Package (rubric, manifest, 3 empty rater sheets, unblinding) exists; **zero real
+rater labels** — unchanged. No rubric/manifest/agent-label artifact has been counted
+as calibration. **HUMAN CALIBRATION = BLOCKED** (needs ≥3 independent real raters,
+blinded execution, documented labels, agreement + adjudication).
+STATUS: **BLOCKED**
+
+## R. MCP / External Providers
+
+No MCP install/call/upload this pass (per standing rules). FASHN HOLDS (single engine,
+verified §G/H). No new external provider touched. Cloudflare = owner-side build
+integration only (§C3), no runtime dependency of VTON.
+STATUS: **UNCHANGED**
+
+## S. Remaining Gaps (five-category classification)
+
+**A. Code/Implementation blockers:** NONE remaining — every code-level defect found
+in the audit is fixed and re-verified this pass (§F).
+**B. Infrastructure:** B-1 Modal workspace spend limit (worker cannot deploy/run;
+blocks all production renders + P5 + fresh N=2). B-2 Cloudflare "confit-a" workers
+service build failing on PRs (owner-side external config; non-required; needs
+Cloudflare dashboard/token to inspect or disable).
+**C. Access:** C-1 Neon password auth failure (production DB direct read). C-2
+Cloudflare account token (exact Workers build log). C-3 deployment authorization +
+production DB write authorization (for 0018→0019).
+**D. Product:** D-1 human calibration (≥3 real raters). D-2 identity licensing
+(ArcFace/WebFace600K eval-only rights unresolved). D-3 storage service
+non-production-grade (out-of-scope area, recorded).
+**E. Release prerequisites:** E-1 merge PR #119 (not authorized/not directed). E-2
+deploy + capture new deployment SHA + correlate. E-3 apply 0018→0019 in production +
+schema gate green. E-4 production VTON render smoke (needs B-1 cleared first).
+STATUS: **CLASSIFIED (no code blockers; 12 non-code items)**
+
+## T. Final Release Decision
+
+Deployment gate evaluation (§8/§27): (1) explicit authorization to merge/deploy was
+NOT given in this task (the gate conditions are defined; no authorization statement
+present); (2) even if authorized, conditions are unsatisfied: required-CI is green but
+the non-required Cloudflare check is red (documented, owner-side); applying 0018→0019
+requires an unauthorized production DB write under failed-auth conditions; the Modal
+spend limit means post-deploy production VTON renders would still 503 — deploying now
+adds schema risk without restoring render capability. Therefore:
+
+**PRODUCTION DEPLOYMENT = BLOCKED** (not authorized; not operationally safe;
+exact unblock path in §S-E).
+
+**RELEASE = BLOCKED**
+
+Blockers precisely (each with closing evidence required):
+1. Modal spend limit cleared → then worker health PRODUCTION VERIFIED + real render
+   probe (closing evidence: successful p5 probe output with worker health + render).
+2. Deployment authorization + deliberate merge of PR #119 + real pipeline deploy +
+   new deployment-SHA correlation (closing evidence: Vercel gitSource SHA = merged
+   head).
+3. Production DB write authorization + current Neon credential → 0018→0019 applied +
+   schema gate 0019 green (closing evidence: /health schema block + read-only row
+   checks).
+4. ≥3 real human raters complete the prepared package (closing evidence: labels +
+   agreement stats).
+5. Identity licensing resolved or explicit disclaimers BRD-aligned (closing
+   evidence: license docs or BRD decision).
+6. (Owner-side, non-VTON-blocking) Cloudflare check inspected/disabled
+   (closing evidence: dashboard build log or check removed).
+
+## Final Evidence Table (§30)
+
+| Claim | Evidence | Environment | Current? | Reproducible? | Status |
+|---|---|---|---|---|---|
+| Current main SHA = 10d80a12 | ls-remote 22:00 UTC | remote | YES | YES | VERIFIED |
+| PR #119 head = 53a6608, base 10d80a12, open | GitHub API | remote | YES | YES | VERIFIED |
+| Deployed production SHA = 10d80a12 (dpl_3X1kogHm, 18:36 UTC) | Vercel API gitSource | production | YES | YES | VERIFIED |
+| Worker state = spend-limit blocked | Modal probe 22:19 UTC (3rd) | Modal | YES | YES (rerun cmd §G) | BLOCKED-INFRA |
+| Production VTON response = 503 VTON_WORKER_NOT_READY, no image | curl 22:19 UTC | production | YES | YES | PRODUCTION VERIFIED (honest failure) |
+| Production DB schema = 0017 (expected, no missing tables/columns) | /health checks.schema 22:20 UTC | production | YES | YES | VERIFIED |
+| 0018/0019 not in production | 0017 ≠ 0019 (above) | production | YES | YES | VERIFIED (absent) |
+| Direct Neon read | auth failed 22:20 UTC (2nd) | Neon | YES | n/a | BLOCKED-AUTH |
+| CI: 6/7 green; Workers Builds = Cloudflare owner-side | check-runs + app metadata + 4 repo docs | GitHub/Cloudflare | YES | YES | VERIFIED (root cause) |
+| Frontend 106P/20, tsc 0 | vitest/tsc 22:24 UTC | local | YES | YES | VERIFIED |
+| Backend+eval 1352P/29S/0F | pytest 22:21 UTC (260.73 s) | local | YES | YES | VERIFIED |
+| Sleeve v2.4 unchanged + matrix green | L241/242 grep + 42P/1S + 52P | local | YES | YES | VERIFIED |
+| N=2 fresh runtime | — (worker blocked) | — | n/a | n/a | HISTORICAL ONLY / BLOCKED-INFRA |
+| Security suite green | battery (0 failures) + gitleaks CI | local/CI | YES | YES | VERIFIED |
+| Privacy retention in code | G3 tests + 0019 chain | local | YES | YES | VERIFIED (local) / PROD pending |
+| Identity license | no rights evidence provided | — | YES | n/a | LICENSE-GATED |
+| Human calibration | 0 real rater labels | — | YES | n/a | BLOCKED |
+| BRD traceability (11 rows) | PART 1 §C + this pass updates | — | YES | n/a | VERIFIED |
+
+## Final Truthfulness Check (§33 — 20 answers)
+
+1. Current `origin/main` SHA? **10d80a12f2dd364351275ebdfe4cc2850d157b84** (ls-remote, 22:00 UTC).
+2. PR #119 head SHA? **53a660884c23aa156043c675292fe21bfc0054e6** (GitHub API).
+3. Is PR #119 merged? **No** (merged=False, merged_at=None).
+4. What SHA is actually in production? **10d80a12** (Vercel gitSource, dpl_3X1kogHm, promoted 18:36 UTC; no later promotion).
+5. Is production SHA correlated with the tested VTON code? **No** — production is mainline; the tested branch (53a6608) is NOT deployed. Correlated with the tested MAINLINE code for the capabilities/503/health paths.
+6. Is the Modal worker actually callable? **No** — deploy probe fails with spend-limit ResourceExhaustedError (22:19 UTC).
+7. Is the VTON worker production-healthy? **No** — unreachable; production serves honest 503 (PRODUCTION VERIFIED as failure behavior, not as health).
+8. Is production DB connectivity verified? **No** — Neon auth failed twice; schema version verified indirectly via deployed runtime /health (0017).
+9. Are required migrations actually applied? **No** — production = 0017; branch's 0018/0019 absent; application not authorized.
+10. Are all required CI jobs green? **No** — 6/7; "Workers Builds" (Cloudflare, owner-side, non-required per repo history) red; root cause established.
+11. Is VTON frontend/backend contract verified? **Yes** — 106P/20 + tsc 0 + production capabilities/503 shapes match (local+CI level; production branch-code not deployed).
+12. Is sleeve v2.4 unchanged? **Yes** — line-anchored 0.35/0.15 re-read this pass; matrix re-run green.
+13. Is N=2 freshly verified or historically evidenced only? **Historically evidenced only** (worker BLOCKED-INFRA).
+14. Is human calibration complete? **No** — zero real raters.
+15. Is identity licensed? **No** — LICENSE-GATED.
+16. Is production storage correct? **Unchanged** — self-reported local/non-production-grade (out-of-scope area, recorded); VTON path itself uses no durable storage (verified).
+17. Are security tests green? **Yes** — battery 0 failures + gitleaks CI green.
+18. Are all actionable code gaps fixed? **Yes** — no code-level blocker remains (re-verified §F).
+19. Are local/CI/production claims separated? **Yes** — matrix §P + every section carries environment-tagged status.
+20. Exact blockers remaining? **B-1** Modal spend limit; **B-2** Cloudflare PR build (owner-side); **C-1** Neon auth; **C-2** Cloudflare token; **C-3** deploy+DB-write authorization; **D-1** human calibration; **D-2** identity license; **D-3** storage service (out-of-scope); **E-1..E-4** merge → deploy → SHA → 0018/0019 → render smoke (ordered prerequisites).
+
+**A truthful BLOCKED result: the VTON implementation is complete and verified at
+local+CI level; production activation is blocked by billing (Modal), access (Neon
+credential, deploy/write authorization), and product (calibration, licensing)
+barriers — each with the exact evidence required to close it.**

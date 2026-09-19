@@ -27,7 +27,7 @@ class PartnerLeadService:
     def _hash_ip(ip: Optional[str]) -> Optional[str]:
         if not ip:
             return None
-        return hashlib.sha256(("partner-lead:" + ip).encode()).hexdigest()
+        return hashlib.sha256(("partner-lead:" + ip).encode()).hexdigest()[:48]
 
     def _recent_duplicate(self, email: str, now: datetime) -> Optional[AuditLog]:
         rows = (

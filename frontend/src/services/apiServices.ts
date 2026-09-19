@@ -454,7 +454,45 @@ export const publicLookService = {
 };
 
 // 5. Virtual Try-On & Fit Services (G3)
+export interface TryOnProductCapability {
+  product_id: number;
+  product_slug?: string | null;
+  category_slug?: string | null;
+  slot_type?: string | null;
+  state:
+    | "supported"
+    | "unsupported"
+    | "temporarily_unavailable"
+    | "misconfigured"
+    | "unknown";
+  reason_code: string;
+  message: string;
+  provider: string;
+}
+
+export interface TryOnCapabilitiesResponse {
+  provider: string;
+  engine_state:
+    | "available"
+    | "temporarily_unavailable"
+    | "misconfigured"
+    | "unknown"
+    | string;
+  supported_slots: string[];
+  unsupported_slots: string[];
+  products: TryOnProductCapability[];
+}
+
 export const tryOnService = {
+  getCapabilities: (productIds: number[]) => {
+    const params = productIds
+      .map((id) => `product_ids=${encodeURIComponent(String(id))}`)
+      .join("&");
+    return request<TryOnCapabilitiesResponse>(
+      `/try-on/capabilities${params ? `?${params}` : ""}`,
+    );
+  },
+
   // Asynchronous GPU VTON Job Queue
   submitTryOnJob: (payload: {
     product_ids: number[];

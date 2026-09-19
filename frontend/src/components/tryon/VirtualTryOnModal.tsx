@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useModalFocus } from "../../hooks/useModalFocus";
 import { useTranslation } from "react-i18next";
 import { useUIStore } from "../../stores/uiStore";
@@ -50,6 +50,10 @@ export const VirtualTryOnModal: React.FC = () => {
     setSplitSliderPosition,
     totalPrice,
     dynamicFitScore,
+    capabilityLoading,
+    capabilityMessage,
+    vtonCapabilities,
+    checkTryOnCapabilities,
     addGarmentToCanvas,
     removeGarmentFromCanvas,
     clearCanvas,
@@ -65,8 +69,6 @@ export const VirtualTryOnModal: React.FC = () => {
     useState<string>("All");
   const [isDragOver, setIsDragOver] = useState(false);
   const [isCompressing, setIsCompressing] = useState(false);
-
-  if (!tryOnProduct) return null;
 
   const avatars = [
     {
@@ -184,6 +186,14 @@ export const VirtualTryOnModal: React.FC = () => {
       );
     return true;
   });
+
+  const filteredProductIds = filteredProducts.map((p) => p.id).join(",");
+  useEffect(() => {
+    if (!tryOnProduct || !filteredProductIds) return;
+    checkTryOnCapabilities(filteredProducts.map((p) => p.id));
+  }, [tryOnProduct, filteredProductIds, checkTryOnCapabilities]);
+
+  if (!tryOnProduct) return null;
 
   const handleDragStart = (e: React.DragEvent, p: Product) => {
     e.dataTransfer.setData("application/json", JSON.stringify(p));
@@ -596,6 +606,12 @@ export const VirtualTryOnModal: React.FC = () => {
                       </>
                     )}
 
+                    {capabilityMessage && !isRendering && (
+                      <div className="absolute inset-x-3 bottom-14 rounded-2xl border border-amber-300/50 bg-amber-50/95 p-3 text-[11px] font-semibold text-amber-900 shadow-lg">
+                        {capabilityMessage}
+                      </div>
+                    )}
+
                     {/* Active Rendering Overlay */}
                     {isRendering && (
                       <div className="absolute inset-0 bg-slate-950/70 backdrop-blur-xs flex flex-col items-center justify-center p-6 text-center space-y-3 animate-in fade-in duration-150">
@@ -755,12 +771,16 @@ export const VirtualTryOnModal: React.FC = () => {
                     const isAlreadyDressed = Object.values(
                       appliedGarments,
                     ).some((g) => g.id === p.id);
+                    const capability = vtonCapabilities[p.id];
+                    const canDragForTryOn = capability?.state === "supported";
                     return (
                       <div
                         key={p.id}
-                        draggable={true}
-                        onDragStart={(e) => handleDragStart(e, p)}
-                        className={`p-3 rounded-2xl border transition-all flex flex-col justify-between cursor-grab active:cursor-grabbing group select-none ${
+                        draggable={canDragForTryOn}
+                        onDragStart={(e) => {
+                          if (canDragForTryOn) handleDragStart(e, p);
+                        }}
+                        className={`p-3 rounded-2xl border transition-all flex flex-col justify-between ${canDragForTryOn ? "cursor-grab active:cursor-grabbing" : "cursor-default"} group select-none ${
                           isAlreadyDressed
                             ? "border-[#C5A059] bg-[#FDF8EE] ring-1 ring-[#C5A059]"
                             : "border-slate-200 bg-[#FAF9F6] hover:border-[#C5A059] hover:shadow-sm"
@@ -793,45 +813,52 @@ export const VirtualTryOnModal: React.FC = () => {
                           </span>
                         </div>
 
-                        {/* Engine capability (fashn_vton_segfee): the VTON
-                            engine renders tops / outerwear / bottoms /
-                            dresses only. Footwear & accessories are catalog
-                            items the engine cannot try on — communicate it
-                            in the UI instead of a wasted 70 s render + 422
-                            (the API also rejects them upfront). */}
-                        {["Footwear", "Accessories"].includes(
-                          p.category_name,
-                        ) && !isAlreadyDressed ? (
-                          <button
-                            type="button"
-                            disabled
-                            title="The virtual try-on engine (fashn_vton_segfee) renders tops, outerwear, bottoms and dresses. Footwear and accessories are not supported yet."
-                            className="mt-2.5 w-full py-1.5 rounded-xl text-[11px] font-bold transition-all flex items-center justify-center gap-1 bg-slate-100 text-slate-400 cursor-not-allowed"
-                          >
-                            ⚠ Not in Virtual Try-On yet
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (isAlreadyDressed) {
-                                const slot = Object.keys(appliedGarments).find(
-                                  (k) => appliedGarments[k].id === p.id,
-                                );
-                                if (slot) removeGarmentFromCanvas(slot);
-                              } else {
-                                addGarmentToCanvas(p);
-                              }
-                            }}
-                            className={`mt-2.5 w-full py-1.5 rounded-xl text-[11px] font-bold transition-all flex items-center justify-center gap-1 ${
-                              isAlreadyDressed
-                                ? "bg-slate-200 text-slate-700 hover:bg-rose-100 hover:text-rose-700"
-                                : "bg-white border border-slate-300 hover:bg-[#C5A059] hover:text-slate-950 text-slate-800 shadow-2xs"
-                            }`}
-                          >
-                            {isAlreadyDressed ? "✕ Remove" : "+ Dress on Body"}
-                          </button>
-                        )}
+                        {(() => {
+                          const capability = vtonCapabilities[p.id];
+                          const supportUnknown = !capability;
+                          const isSupported = capability?.state === "supported";
+                          const disabled =
+                            !isAlreadyDressed &&
+                            (capabilityLoading ||
+                              supportUnknown ||
+                              !isSupported);
+                          const label = isAlreadyDressed
+                            ? "✕ Remove"
+                            : capabilityLoading || supportUnknown
+                              ? "Checking support…"
+                              : isSupported
+                                ? "+ Dress on Body"
+                                : "⚠ Not in Virtual Try-On yet";
+                          const title =
+                            capability?.message ||
+                            "Virtual try-on support is verified by the backend capability registry before rendering.";
+                          return (
+                            <button
+                              type="button"
+                              disabled={disabled}
+                              title={title}
+                              onClick={() => {
+                                if (isAlreadyDressed) {
+                                  const slot = Object.keys(
+                                    appliedGarments,
+                                  ).find((k) => appliedGarments[k].id === p.id);
+                                  if (slot) removeGarmentFromCanvas(slot);
+                                } else {
+                                  addGarmentToCanvas(p);
+                                }
+                              }}
+                              className={`mt-2.5 w-full py-1.5 rounded-xl text-[11px] font-bold transition-all flex items-center justify-center gap-1 ${
+                                isAlreadyDressed
+                                  ? "bg-slate-200 text-slate-700 hover:bg-rose-100 hover:text-rose-700"
+                                  : disabled
+                                    ? "bg-slate-100 text-slate-400 cursor-not-allowed"
+                                    : "bg-white border border-slate-300 hover:bg-[#C5A059] hover:text-slate-950 text-slate-800 shadow-2xs"
+                              }`}
+                            >
+                              {label}
+                            </button>
+                          );
+                        })()}
                       </div>
                     );
                   })}

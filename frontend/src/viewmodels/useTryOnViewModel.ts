@@ -1,5 +1,10 @@
 import { useState, useCallback, useEffect } from "react";
-import { catalogService, tryOnService } from "../services/apiServices";
+import {
+  catalogService,
+  tryOnService,
+  TryOnProductCapability,
+  TryOnCapabilitiesResponse,
+} from "../services/apiServices";
 import {
   Product,
   MultiGarmentTryOnResult,
@@ -46,6 +51,13 @@ export function useTryOnViewModel(initialProduct?: Product | null) {
   const [activePreviewTab, setActivePreviewTab] = useState<
     "static" | "animation" | "split"
   >("static");
+  const [vtonCapabilities, setVtonCapabilities] = useState<
+    Record<number, TryOnProductCapability>
+  >({});
+  const [capabilityLoading, setCapabilityLoading] = useState(false);
+  const [capabilityMessage, setCapabilityMessage] = useState<string | null>(
+    null,
+  );
 
   // No-photo fit state
   const [rulerLoading, setRulerLoading] = useState(false);
@@ -143,55 +155,94 @@ export function useTryOnViewModel(initialProduct?: Product | null) {
     [showToast],
   );
 
-  // Determine appropriate body slot
-  const determineSlotForProduct = (p: Product): string => {
-    const slug = (p.category_name || "").toLowerCase();
-    const title = (p.title || "").toLowerCase();
+  const conservativeCapability = (
+    productId: number,
+  ): TryOnProductCapability => ({
+    product_id: productId,
+    product_slug: null,
+    category_slug: null,
+    slot_type: null,
+    state: "unknown",
+    reason_code: "CAPABILITY_UNAVAILABLE",
+    message:
+      "Virtual try-on support could not be verified by the backend capability registry. Try-on is disabled for this item.",
+    provider: "unknown",
+  });
 
-    if (
-      slug.includes("dress") ||
-      title.includes("dress") ||
-      title.includes("gown")
-    ) {
-      return "dress";
+  const capabilityErrorMessage = (cap: TryOnProductCapability): string => {
+    if (cap.state === "temporarily_unavailable") {
+      return (
+        cap.message ||
+        "Virtual try-on is temporarily unavailable. Please retry later."
+      );
     }
-    if (
-      slug.includes("outer") ||
-      title.includes("blazer") ||
-      title.includes("jacket") ||
-      title.includes("coat")
-    ) {
-      return "upper_outer";
+    if (cap.state === "misconfigured") {
+      return (
+        cap.message || "Virtual try-on is not configured for this deployment."
+      );
     }
-    if (
-      slug.includes("top") ||
-      slug.includes("shirt") ||
-      title.includes("shirt") ||
-      title.includes("sweater") ||
-      title.includes("knit")
-    ) {
-      return "upper_inner";
+    if (cap.state === "unsupported") {
+      return (
+        cap.message ||
+        "This product category is not supported by virtual try-on."
+      );
     }
-    if (
-      slug.includes("bottom") ||
-      title.includes("trouser") ||
-      title.includes("chino") ||
-      title.includes("denim") ||
-      title.includes("pant")
-    ) {
-      return "lower";
+    return cap.message || "Virtual try-on support for this item is unknown.";
+  };
+
+  const ensureCapabilities = useCallback(async (productIds: number[]) => {
+    const uniqueIds = Array.from(new Set(productIds.filter(Boolean)));
+    if (uniqueIds.length === 0)
+      return {} as Record<number, TryOnProductCapability>;
+    setCapabilityLoading(true);
+    setCapabilityMessage(null);
+    try {
+      const response: TryOnCapabilitiesResponse =
+        await tryOnService.getCapabilities(uniqueIds);
+      const mapped: Record<number, TryOnProductCapability> = {};
+      uniqueIds.forEach((id) => {
+        mapped[id] = conservativeCapability(id);
+      });
+      response.products.forEach((cap) => {
+        mapped[cap.product_id] = cap;
+      });
+      if (response.engine_state && response.engine_state !== "available") {
+        Object.values(mapped).forEach((cap) => {
+          if (cap.state === "supported") {
+            cap.state =
+              response.engine_state === "misconfigured"
+                ? "misconfigured"
+                : "temporarily_unavailable";
+            cap.reason_code = `ENGINE_${String(response.engine_state).toUpperCase()}`;
+            cap.message =
+              response.engine_state === "misconfigured"
+                ? "Virtual try-on is not configured for this deployment."
+                : "Virtual try-on is temporarily unavailable. Please retry later.";
+          }
+        });
+      }
+      setVtonCapabilities((prev) => ({ ...prev, ...mapped }));
+      return mapped;
+    } catch {
+      const mapped = Object.fromEntries(
+        uniqueIds.map((id) => [id, conservativeCapability(id)]),
+      ) as Record<number, TryOnProductCapability>;
+      setVtonCapabilities((prev) => ({ ...prev, ...mapped }));
+      setCapabilityMessage(
+        "Virtual try-on capability could not be verified, so rendering is disabled rather than guessed.",
+      );
+      return mapped;
+    } finally {
+      setCapabilityLoading(false);
     }
-    if (
-      slug.includes("shoe") ||
-      slug.includes("footwear") ||
-      title.includes("oxford") ||
-      title.includes("loafer") ||
-      title.includes("sandal") ||
-      title.includes("sneaker")
-    ) {
-      return "footwear";
-    }
-    return "accessory";
+  }, []);
+
+  const slotForProduct = (product: Product, cap?: TryOnProductCapability) => {
+    if (cap?.state === "supported" && cap.slot_type) return cap.slot_type;
+    const cached = vtonCapabilities[product.id];
+    return cached?.state === "supported" && cached.slot_type
+      ? cached.slot_type
+      : "unknown";
   };
 
   // Re-render multi-garment try-on with honest error taxonomy.
@@ -217,6 +268,19 @@ export function useTryOnViewModel(initialProduct?: Product | null) {
 
       setTryOnStatus("rendering");
       setErrorMessage(null);
+
+      const capabilities = await ensureCapabilities(productIds);
+      const blocked = Object.values(capabilities).find(
+        (cap) => cap.state !== "supported",
+      );
+      if (blocked) {
+        const msg = capabilityErrorMessage(blocked);
+        setMultiTryOnResult(null);
+        setTryOnStatus("failed");
+        setErrorMessage(msg);
+        setCapabilityMessage(msg);
+        return;
+      }
 
       const effectiveUserImage =
         overrides && overrides.userImageUrl !== undefined
@@ -291,7 +355,13 @@ export function useTryOnViewModel(initialProduct?: Product | null) {
         // Don't show generic toast here - let the UI show errorMessage
       }
     },
-    [uploadedUserImage, selectedAvatar, consentRetain, showToast],
+    [
+      uploadedUserImage,
+      selectedAvatar,
+      consentRetain,
+      ensureCapabilities,
+      showToast,
+    ],
   );
 
   // Initialize the canvas with `initialProduct`. Re-initialize whenever the
@@ -306,17 +376,40 @@ export function useTryOnViewModel(initialProduct?: Product | null) {
   const [initProductId, setInitProductId] = useState<number | null>(null);
   useEffect(() => {
     if (initialProduct && initialProduct.id !== initProductId) {
-      const slot = determineSlotForProduct(initialProduct);
-      const initialMap = { [slot]: initialProduct };
-      setAppliedGarments(initialMap);
-      setMultiTryOnResult(null);
-      setAnimationResult(null);
-      setHistory([]);
-      setTryOnStatus("selected");
-      setInitProductId(initialProduct.id);
-      triggerMultiRender(initialMap);
+      let cancelled = false;
+      (async () => {
+        const caps = await ensureCapabilities([initialProduct.id]);
+        if (cancelled) return;
+        const cap = caps[initialProduct.id];
+        if (!cap || cap.state !== "supported") {
+          const msg = capabilityErrorMessage(
+            cap || conservativeCapability(initialProduct.id),
+          );
+          setAppliedGarments({});
+          setMultiTryOnResult(null);
+          setAnimationResult(null);
+          setHistory([]);
+          setTryOnStatus("failed");
+          setErrorMessage(msg);
+          setCapabilityMessage(msg);
+          setInitProductId(initialProduct.id);
+          return;
+        }
+        const slot = slotForProduct(initialProduct, cap);
+        const initialMap = { [slot]: initialProduct };
+        setAppliedGarments(initialMap);
+        setMultiTryOnResult(null);
+        setAnimationResult(null);
+        setHistory([]);
+        setTryOnStatus("selected");
+        setInitProductId(initialProduct.id);
+        triggerMultiRender(initialMap);
+      })();
+      return () => {
+        cancelled = true;
+      };
     }
-  }, [initialProduct, triggerMultiRender]);
+  }, [initialProduct, initProductId, ensureCapabilities, triggerMultiRender]);
 
   // Run dynamic animation try-on with real per-layer inference
   const runAnimatedTryOn = useCallback(async () => {
@@ -331,6 +424,18 @@ export function useTryOnViewModel(initialProduct?: Product | null) {
 
     setMotionStatus("generating");
     setErrorMessage(null);
+    const caps = await ensureCapabilities(productIds);
+    const blocked = Object.values(caps).find(
+      (cap) => cap.state !== "supported",
+    );
+    if (blocked) {
+      const msg = capabilityErrorMessage(blocked);
+      setMotionStatus("failed");
+      setErrorMessage(msg);
+      setCapabilityMessage(msg);
+      showToast(msg, "error");
+      return;
+    }
     try {
       const res = await tryOnService.renderAnimationTryOn({
         product_ids: productIds,
@@ -416,39 +521,54 @@ export function useTryOnViewModel(initialProduct?: Product | null) {
     uploadedUserImage,
     selectedAvatar,
     outputAspect,
+    ensureCapabilities,
     showToast,
   ]);
 
   // Add or Drag/Drop garment onto canvas
   const addGarmentToCanvas = useCallback(
-    (product: Product, overrideSlot?: string) => {
-      const targetSlot = overrideSlot || determineSlotForProduct(product);
+    async (product: Product, overrideSlot?: string) => {
+      const caps = await ensureCapabilities([product.id]);
+      const cap = caps[product.id];
+      if (!cap || cap.state !== "supported") {
+        const msg = capabilityErrorMessage(
+          cap || conservativeCapability(product.id),
+        );
+        setTryOnStatus("failed");
+        setErrorMessage(msg);
+        setCapabilityMessage(msg);
+        showToast(msg, "error");
+        return;
+      }
+      const targetSlot = overrideSlot || slotForProduct(product, cap);
+
+      const next = { ...appliedGarments };
+
+      // Conflict resolution:
+      if (targetSlot === "dress") {
+        delete next["upper_inner"];
+        delete next["lower"];
+        next["dress"] = product;
+      } else if (targetSlot === "upper_inner" || targetSlot === "lower") {
+        delete next["dress"];
+        next[targetSlot] = product;
+      } else {
+        next[targetSlot] = product;
+      }
 
       setHistory((prev) => [...prev, { ...appliedGarments }]);
-
-      setAppliedGarments((prev) => {
-        const next = { ...prev };
-
-        // Conflict resolution:
-        if (targetSlot === "dress") {
-          delete next["upper_inner"];
-          delete next["lower"];
-          next["dress"] = product;
-        } else if (targetSlot === "upper_inner" || targetSlot === "lower") {
-          delete next["dress"];
-          next[targetSlot] = product;
-        } else {
-          next[targetSlot] = product;
-        }
-
-        setTryOnStatus("selected");
-        triggerMultiRender(next);
-        return next;
-      });
-
+      setAppliedGarments(next);
+      setTryOnStatus("selected");
+      triggerMultiRender(next);
       showToast(`Added to Outfit: ${product.title}`, "info");
     },
-    [appliedGarments, triggerMultiRender, showToast],
+    [
+      appliedGarments,
+      ensureCapabilities,
+      triggerMultiRender,
+      showToast,
+      vtonCapabilities,
+    ],
   );
 
   // Remove specific garment slot
@@ -494,12 +614,25 @@ export function useTryOnViewModel(initialProduct?: Product | null) {
 
   // Apply full outfit from stylist recommendation
   const applyFullOutfit = useCallback(
-    (items: Product[]) => {
+    async (items: Product[]) => {
+      const caps = await ensureCapabilities(items.map((p) => p.id));
+      const blocked = items.find((p) => caps[p.id]?.state !== "supported");
+      if (blocked) {
+        const msg = capabilityErrorMessage(
+          caps[blocked.id] || conservativeCapability(blocked.id),
+        );
+        setTryOnStatus("failed");
+        setErrorMessage(msg);
+        setCapabilityMessage(msg);
+        showToast(msg, "error");
+        return;
+      }
+
       setHistory((prev) => [...prev, { ...appliedGarments }]);
       const newGarments: Record<string, Product> = {};
 
       items.forEach((p) => {
-        const slot = determineSlotForProduct(p);
+        const slot = slotForProduct(p, caps[p.id]);
         if (slot === "dress") {
           delete newGarments["upper_inner"];
           delete newGarments["lower"];
@@ -513,11 +646,17 @@ export function useTryOnViewModel(initialProduct?: Product | null) {
       setTryOnStatus("selected");
       triggerMultiRender(newGarments);
       showToast(
-        `Loaded ${items.length} garments into Try-On Studio!`,
+        `Loaded ${items.length} backend-supported garment(s) into Try-On Studio!`,
         "success",
       );
     },
-    [appliedGarments, triggerMultiRender, showToast],
+    [
+      appliedGarments,
+      ensureCapabilities,
+      triggerMultiRender,
+      showToast,
+      vtonCapabilities,
+    ],
   );
 
   // Add all currently dressed items to cart
@@ -610,6 +749,10 @@ export function useTryOnViewModel(initialProduct?: Product | null) {
     setSplitSliderPosition,
     totalPrice,
     dynamicFitScore,
+    vtonCapabilities,
+    capabilityLoading,
+    capabilityMessage,
+    checkTryOnCapabilities: ensureCapabilities,
     addGarmentToCanvas,
     removeGarmentFromCanvas,
     clearCanvas,

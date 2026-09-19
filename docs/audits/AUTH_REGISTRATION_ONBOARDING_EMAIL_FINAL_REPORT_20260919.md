@@ -235,9 +235,9 @@ Frontend suite asserts: a consumer hitting a brand area gets the actionable appl
 
 ## 19. Git branch
 
-`fix/auth-registration-onboarding-email` (branched from `main @ 928e615`; ~48 files, +6.3k/−0.3k lines).
+`fix/auth-registration-onboarding-email` (branched from `main @ 928e615`; **54 files, +7,119 / −308 lines**).
 
-Hand-off artifacts (verified, not just written): `git bundle create auth-onboarding-email.bundle --all` (13.7 MB) and `git format-patch 928e615..HEAD --stdout` → `auth-onboarding-email.patch` (461 KB). The patch was **re-applied onto a clean `928e615` worktree with `git am --3way`** and reproduced all commits — so either artifact can be used to publish this branch from any machine with a working credential.
+Hand-off artifacts (verified, not just written): `git bundle create auth-onboarding-email.bundle --all` (~13 MB) and `git format-patch 928e615..HEAD --stdout` → `auth-onboarding-email.patch` (~0.4 MB). The patch was **re-applied onto a clean `928e615` worktree with `git am --3way`** and reproduced all commits — so either artifact can be used to publish this branch from any machine with a working credential.
 
 ## 20. Commit SHAs
 
@@ -256,7 +256,7 @@ Hand-off artifacts (verified, not just written): `git bundle create auth-onboard
 | `e8dde10` | `docs(auth): record the local end-to-end smoke run, the closed hand-over checks and the artifact verification` |
 | *(later)* | any further commits in this PR are **documentation-only** (this report's own pinning/finalisation commits) |
 
-Branch tip at the time of writing: **e8dde10** (11 commits), tree clean; 48 files changed vs `main @ 928e615`.
+Branch tip at the time of writing: **e8dde10** (11 commits), tree clean; 54 files changed vs `main @ 928e615` (+7,119/−308).
 Exported artifacts: `auth-onboarding-email.bundle`, `auth-onboarding-email.patch` (workspace root) + `PUSH_INSTRUCTIONS.md`.
 
 ## 21. PR URL

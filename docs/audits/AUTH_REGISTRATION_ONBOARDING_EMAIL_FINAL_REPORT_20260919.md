@@ -270,7 +270,7 @@ Exported artifacts: `auth-onboarding-email.bundle`, `auth-onboarding-email.patch
 
 ## 21. PR URL
 
-**BLOCKED — `BLOCKED: no GitHub credential in the execution environment.`** `git push` fails with `fatal: could not read Username for 'https://github.com'`; the PAT recorded on file is truncated (`github_pat_11A7GHEPY0iiZuODgaM6rL_M…`) and cannot be used. Remedy (one line, then push and PR creation are immediate):
+**BLOCKED — `BLOCKED: no GitHub credential in the execution environment.`** `git push` fails with `fatal: could not read Username for 'https://github.com'`; the PAT recorded on file is truncated (`github_pat_… (truncated on file)`) and cannot be used. Remedy (one line, then push and PR creation are immediate):
 
 ```bash
 git remote set-url origin https://OmarAhmed-123:<FULL_PAT>@github.com/OmarAhmed-123/CONFIT_A.git

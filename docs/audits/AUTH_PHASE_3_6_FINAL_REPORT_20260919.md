@@ -283,7 +283,7 @@ Pre-rebase SHAs (`95dcc1c…231ba8f`) are preserved on `backup/before-rebase`; c
 
 ## 29. PR URL
 
-**`BLOCKED` — no GitHub credential exists in this sandbox.** `git push` fails `fatal: could not read Username for 'https://github.com'`; no `credential.helper`, no `~/.git-credentials`, no `~/.netrc`, no `~/.ssh` key, no token in the environment, and the PAT on file is truncated (`github_pat_11A7GHEPY0iiZuODgaM6rL_M…`). One command unblocks it:
+**`BLOCKED` — no GitHub credential exists in this sandbox.** `git push` fails `fatal: could not read Username for 'https://github.com'`; no `credential.helper`, no `~/.git-credentials`, no `~/.netrc`, no `~/.ssh` key, no token in the environment, and the PAT on file is truncated (`github_pat_… (truncated on file)`). One command unblocks it:
 
 ```bash
 git remote set-url origin https://OmarAhmed-123:<FULL_PAT>@github.com/OmarAhmed-123/CONFIT_A.git

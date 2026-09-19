@@ -176,6 +176,8 @@ Real screens for every lifecycle link; state-accurate 403 with one obvious next 
 | Frontend typecheck + production build | `npx tsc --noEmit` · `npm run build` | **clean** (2079 modules; `tsc && vite build` green) |
 | Migration up/down/up | `alembic upgrade head` → `downgrade -1` → `upgrade head` (scratch SQLite) | **PASS**, head `0018_partner_onboarding_email_lifecycle` |
 
+Two hand-over checks closed while verifying the committed tree: (a) the two `<Route path="team">` entries in `AppRoutes.tsx` are under **different parents** (`/b2b/team` and its `/partner/team` alias) and mirror every other mirrored route — not a duplicate, no change needed; (b) `InviteAcceptView`'s `import { ApiError, setAuthTokens } from '../../services/apiClient'` resolves to a real export (`setAuthTokens` is an intentional no-op, because tokens live in httpOnly cookies).
+
 Coverage added: registration (intent, duplicates, policy, injected role), onboarding state machine, partner application → approval → provisioning, rejection/retry, invitation lifecycle + abuse, email change (both steps + takeover attempts), verification/reset (expiry, reuse, replay, already-verified), CSRF, tenant scope, session/cookie behaviour, rate limiting, audit logging, and the email-link↔route contract.
 
 ## 16. Negative / security test results
@@ -188,7 +190,7 @@ Frontend suite asserts: a consumer hitting a brand area gets the actionable appl
 
 | Test | Cause | Note |
 |---|---|---|
-| `test_auth_rbac_and_gating.py::test_platform_admin_has_global_oversight` | `tryon_adoption_rate == 0.0` — analytics fixture, unrelated to auth | reproduced with `main` clean (`git stash -u` → same failure) |
+| `test_auth_rbac_and_gating.py::test_platform_admin_has_global_oversight` | asserts `total_brands_count >= 4` and `tryon_adoption_rate > 0` against the shared dev/test database — data-dependent, unrelated to auth | order-sensitive: **fails when that file runs in isolation** on a DB without seeded try-on events, **passes in the full-suite run** (1146-passed run above). Reproduced identically on a clean `main` tree (`git stash -u` → same failure), so it is not attributable to this change set |
 | `test_vton_pose_artifact_regression.py` (4) | `ModuleNotFoundError: mediapipe` — the pose harness needs an optional CV dependency absent in this sandbox | reproduced with `main` clean (same 4 failures, 3 passes) |
 | `test_dynamic_tryon.py::test_tryon_gdpr_purge_task` | `ModuleNotFoundError: celery` (background worker dependency) | environment, not code |
 | `test_storage_backend_contract.py` (12 errors) | `ModuleNotFoundError: boto3` — S3 contract suite | environment, not code |
@@ -218,11 +220,24 @@ Frontend suite asserts: a consumer hitting a brand area gets the actionable appl
 | Production email configuration | Vercel env inventory (68 vars) contains **no** `EMAIL_PROVIDER`, `EMAIL_FROM_ADDRESS`, `EMAIL_REPLY_TO`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_TLS_MODE`, `RESEND_API_KEY` or `FRONTEND_BASE_URL` → **auth email is BLOCKED in production** |
 | Provided `DATABASE_URL` (session credential) | rejected: `password authentication failed for user 'neondb_owner'` → the credential on file is stale; the working DSN was read from the Vercel project (role `confit_app_rw`) |
 
+### Local end-to-end smoke (Uvicorn API + Vite dev server, same code as this commit)
+
+| Step | Observed |
+|---|---|
+| `POST /api/v1/auth/register` with `registration_intent: "brand_partner"` **and** injected `role: "brand_owner"`, `is_verified: true`, `brand_id: 1` | 201 — created `role: "consumer"`, `registration_intent: "brand_partner"`; the injected fields changed nothing |
+| `UserOut.onboarding` in that same response | `account_state: ACTIVE`, `next_action: {type: apply_for_partner, route: /partner/apply}` — the SPA routes on this, not on local guesses |
+| `GET /api/v1/auth/email-status` | `{status: none, accepted: false, provider_configured: false}` — no email is claimed on a deployment with no transport |
+| `POST /api/v1/auth/partner-applications` | **201** `{status: pending}` — request recorded server-side, **no** role granted at this point |
+| `POST /api/v1/auth/forgot-password`, `POST /api/v1/auth/email-change/request` | **501 `FEATURE_NOT_CONFIGURED`** + `hint: Configure EMAIL_PROVIDER + SMTP settings…` — honest refusal instead of a fake “email sent” |
+| Dev-server proxy + SPA routes (`/`, `/partner/apply`, `/verify-email`) | served by the same build that ships; API calls proxied to the local Uvicorn process |
+
 **Not claimed:** the fix is *not* production-verified as deployed (it is not deployed), and no production email has been sent or received.
 
 ## 19. Git branch
 
 `fix/auth-registration-onboarding-email` (branched from `main @ 928e615`; ~48 files, +6.3k/−0.3k lines).
+
+Hand-off artifacts (verified, not just written): `git bundle create auth-onboarding-email.bundle --all` (13.7 MB) and `git format-patch 928e615..HEAD --stdout` → `auth-onboarding-email.patch` (461 KB). The patch was **re-applied onto a clean `928e615` worktree with `git am --3way`** and reproduced all commits — so either artifact can be used to publish this branch from any machine with a working credential.
 
 ## 20. Commit SHAs
 

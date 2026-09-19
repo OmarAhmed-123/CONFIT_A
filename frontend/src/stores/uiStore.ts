@@ -1,8 +1,22 @@
-import { create } from 'zustand';
-import { Product } from '../models';
-import { setAppLanguage } from '../i18n/i18n';
+import { create } from "zustand";
+import { Product } from "../models";
+import { setAppLanguage } from "../i18n/i18n";
 
-type StylistPrefill = { prompt: string; occasion?: string; budget?: number } | string;
+type StylistPrefill =
+  | {
+      prompt: string;
+      occasion?: string;
+      budget?: number;
+      recommendation_constraints?: {
+        palette?: string;
+        avoid_palette?: string;
+        preferred_fit?: string;
+        size_tops?: string;
+        size_bottoms?: string;
+        size_shoes?: string;
+      };
+    }
+  | string;
 
 interface UIState {
   // Modal states
@@ -12,13 +26,17 @@ interface UIState {
   isStylistDrawerOpen: boolean;
   stylistPrefillOccasion: StylistPrefill | null;
   isAuthModalOpen: boolean;
-  authModalMode: 'login' | 'register';
+  authModalMode: "login" | "register";
 
   // Toast
-  toast: { message: string; type: 'success' | 'error' | 'info'; id: string } | null;
+  toast: {
+    message: string;
+    type: "success" | "error" | "info";
+    id: string;
+  } | null;
 
   // Language
-  language: 'en' | 'ar';
+  language: "en" | "ar";
 
   // Actions
   openTryOn: (product: Product) => void;
@@ -29,15 +47,15 @@ interface UIState {
   closeVisualSearch: () => void;
   openStylist: (prefill?: StylistPrefill) => void;
   closeStylist: () => void;
-  openAuthModal: (mode?: 'login' | 'register') => void;
+  openAuthModal: (mode?: "login" | "register") => void;
   closeAuthModal: () => void;
-  showToast: (message: string, type?: 'success' | 'error' | 'info') => void;
+  showToast: (message: string, type?: "success" | "error" | "info") => void;
   hideToast: () => void;
-  setLanguage: (lang: 'en' | 'ar') => void;
+  setLanguage: (lang: "en" | "ar") => void;
 }
 
 let toastTimer: any = null;
-let lastToastMessage = '';
+let lastToastMessage = "";
 let lastToastTime = 0;
 
 export const useUIStore = create<UIState>((set) => ({
@@ -47,9 +65,9 @@ export const useUIStore = create<UIState>((set) => ({
   isStylistDrawerOpen: false,
   stylistPrefillOccasion: null,
   isAuthModalOpen: false,
-  authModalMode: 'login',
+  authModalMode: "login",
   toast: null,
-  language: (localStorage.getItem('confit_lang') as 'en' | 'ar') || 'en',
+  language: (localStorage.getItem("confit_lang") as "en" | "ar") || "en",
 
   openTryOn: (product) => set({ tryOnProduct: product }),
   closeTryOn: () => set({ tryOnProduct: null }),
@@ -60,13 +78,16 @@ export const useUIStore = create<UIState>((set) => ({
   openVisualSearch: () => set({ isVisualSearchOpen: true }),
   closeVisualSearch: () => set({ isVisualSearchOpen: false }),
 
-  openStylist: (prefill) => set({ isStylistDrawerOpen: true, stylistPrefillOccasion: prefill || null }),
-  closeStylist: () => set({ isStylistDrawerOpen: false, stylistPrefillOccasion: null }),
+  openStylist: (prefill) =>
+    set({ isStylistDrawerOpen: true, stylistPrefillOccasion: prefill || null }),
+  closeStylist: () =>
+    set({ isStylistDrawerOpen: false, stylistPrefillOccasion: null }),
 
-  openAuthModal: (mode = 'login') => set({ isAuthModalOpen: true, authModalMode: mode }),
+  openAuthModal: (mode = "login") =>
+    set({ isAuthModalOpen: true, authModalMode: mode }),
   closeAuthModal: () => set({ isAuthModalOpen: false }),
 
-  showToast: (message, type = 'info') => {
+  showToast: (message, type = "info") => {
     const now = Date.now();
     // Debounce duplicate messages within 1.5 seconds
     if (message === lastToastMessage && now - lastToastTime < 1500) {

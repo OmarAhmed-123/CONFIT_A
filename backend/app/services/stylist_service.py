@@ -7,6 +7,7 @@ from backend.app.repositories.profile_repository import ProfileRepository
 from backend.app.repositories.wardrobe_repository import WardrobeRepository
 from backend.app.providers.orchestrator import get_orchestrator
 from backend.app.services.styling_engine import StylingEngine
+from backend.app.services.recommendation_constraints import constraints_from_payload, apply_constraints
 
 
 class StylistService:
@@ -27,7 +28,8 @@ class StylistService:
         session_id: Optional[int] = None,
         occasion: Optional[str] = None,
         budget_limit: Optional[float] = None,
-        voice_input_used: bool = False
+        voice_input_used: bool = False,
+        recommendation_constraints: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         # 1. Retrieve or create session (supports guest user_id=None)
         session = self.stylist_repo.get_or_create_session(user_id, session_id)
@@ -98,6 +100,16 @@ class StylistService:
             p for p in self.catalog_repo.filter_products(limit=100)
             if getattr(p, "skus", None) and any(s.is_in_stock and s.stock_level > 0 for s in p.skus)
         ]
+
+        # 6b. Structured recommendation constraints. Palette is authoritative
+        #     when it maps to catalog colour fields; fit is authoritative only
+        #     where a concrete size from the request/profile can be checked
+        #     against SKU stock. No AI and no fake confidence scores.
+        constraint_meta = None
+        if recommendation_constraints or usp:
+            constraints = constraints_from_payload(recommendation_constraints, usp)
+            all_products, constraint_meta = apply_constraints(all_products, constraints)
+            intent["recommendation_constraints"] = constraint_meta
 
         # 7. Compose strict slot-based complete outfits grounded in the catalog
         recommended_outfits = StylingEngine.compose_outfits(

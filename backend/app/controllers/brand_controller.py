@@ -1,6 +1,6 @@
 from decimal import Decimal
 from typing import List, Optional, Dict, Any
-from fastapi import APIRouter, Depends, Query, status, UploadFile, File, HTTPException
+from fastapi import APIRouter, Depends, Query, status, UploadFile, File, HTTPException, Request
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 import json
@@ -16,13 +16,51 @@ from backend.app.schemas.brand import (
     BrandProfileOut,
     BrandAnalyticsDashboardOut,
     SponsoredPlacementCreate,
-    SponsoredPlacementOut
+    SponsoredPlacementOut,
+    PartnerLeadCreate,
+    PartnerLeadOut
 )
 from backend.app.schemas.catalog import ProductSummaryOut, ProductSKUOut
+from backend.app.services.partner_lead_service import PartnerLeadService
+from backend.app.core.rate_limit import limiter
 
 router = APIRouter(tags=["Brand & Admin Management (B2B)"])
 
 brand_auth = require_role(BRAND_ROLES)
+
+
+@router.post("/brand/request-demo", response_model=PartnerLeadOut, status_code=status.HTTP_201_CREATED)
+@router.post("/b2b/request-demo", response_model=PartnerLeadOut, status_code=status.HTTP_201_CREATED)
+@limiter.limit("5/hour")
+def request_partner_demo(
+    request: Request,
+    payload: PartnerLeadCreate,
+    db: Session = Depends(get_db),
+):
+    """Public B2B request-demo workflow.
+
+    Persists a lead and optionally sends the approved SMTP notification if email
+    transport is configured. It does not create a partner account, grant roles,
+    or pretend a CRM integration exists.
+    """
+    import re
+    email = payload.work_email.strip().lower()
+    if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email):
+        raise HTTPException(status_code=422, detail={"error": {"code": "VALIDATION_ERROR", "message": "A valid work email is required."}})
+    if len(payload.company_name.strip()) < 2 or len(payload.contact_name.strip()) < 2:
+        raise HTTPException(status_code=422, detail={"error": {"code": "VALIDATION_ERROR", "message": "Company and contact name are required."}})
+    lead = PartnerLeadService(db).submit(
+        payload={**payload.model_dump(), "work_email": email},
+        ip=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+    return PartnerLeadOut(
+        id=lead.id,
+        status=lead.status,
+        notification_status=lead.notification_status,
+        duplicate=bool(lead.duplicate_of_id),
+        message="Request received. The CONFIT team will review it using the persisted lead workflow.",
+    )
 
 
 def _audit(db: Session, user: User, action: str, resource_type: str,

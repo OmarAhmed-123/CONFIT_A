@@ -119,3 +119,24 @@ class AdminPlatformAnalyticsOut(BaseModel):
     outfit_to_purchase_ratio: Optional[float] = None
 
     model_config = ConfigDict(extra="allow")
+
+
+class PartnerLeadCreate(BaseModel):
+    company_name: str
+    contact_name: str
+    work_email: str
+    website: Optional[str] = None
+    phone: Optional[str] = None
+    monthly_order_volume: Optional[str] = None
+    message: Optional[str] = None
+    source_path: Optional[str] = "/b2b"
+
+
+class PartnerLeadOut(BaseModel):
+    id: int
+    status: str
+    notification_status: str
+    duplicate: bool = False
+    message: str
+
+    model_config = ConfigDict(from_attributes=True)

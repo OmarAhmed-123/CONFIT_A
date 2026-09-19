@@ -160,6 +160,7 @@ class Settings(BaseSettings):
     # configuration error and refuses to boot in production (validator below).
     EMAIL_PROVIDER: Optional[str] = None  # "smtp" | None
     EMAIL_FROM_ADDRESS: Optional[str] = None
+    PARTNER_LEAD_NOTIFY_EMAIL: Optional[str] = None
     SMTP_HOST: Optional[str] = None
     SMTP_PORT: int = 587
     SMTP_USERNAME: Optional[str] = None

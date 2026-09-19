@@ -1,10 +1,15 @@
-import React, { useEffect } from 'react';
-import { useModalFocus } from '../../hooks/useModalFocus';
-import { useTranslation } from 'react-i18next';
-import { useUIStore } from '../../stores/uiStore';
-import { useStylistViewModel } from '../../viewmodels/useStylistViewModel';
-import { StylistIcon, SparkleIcon, BagIcon, TryOnIcon } from '../icons/ConfitIcons';
-import { FitScoreBadge } from '../common/CommonComponents';
+import React, { useEffect } from "react";
+import { useModalFocus } from "../../hooks/useModalFocus";
+import { useTranslation } from "react-i18next";
+import { useUIStore } from "../../stores/uiStore";
+import { useStylistViewModel } from "../../viewmodels/useStylistViewModel";
+import {
+  StylistIcon,
+  SparkleIcon,
+  BagIcon,
+  TryOnIcon,
+} from "../icons/ConfitIcons";
+import { FitScoreBadge } from "../common/CommonComponents";
 
 const getResolvedOutfitItems = (outfit: any) => {
   if (outfit.items && outfit.items.length > 0) {
@@ -19,8 +24,16 @@ const getResolvedOutfitItems = (outfit: any) => {
 
 export const VirtualStylistDrawer: React.FC = () => {
   const { t } = useTranslation();
-  const { isStylistDrawerOpen, closeStylist, stylistPrefillOccasion, openTryOn } = useUIStore();
-  const panelRef = useModalFocus<HTMLDivElement>(closeStylist, isStylistDrawerOpen);
+  const {
+    isStylistDrawerOpen,
+    closeStylist,
+    stylistPrefillOccasion,
+    openTryOn,
+  } = useUIStore();
+  const panelRef = useModalFocus<HTMLDivElement>(
+    closeStylist,
+    isStylistDrawerOpen,
+  );
   const {
     messages,
     inputPrompt,
@@ -35,44 +48,82 @@ export const VirtualStylistDrawer: React.FC = () => {
 
   // Prefill occasion or guided-first-look intent if opened with a shortcut.
   useEffect(() => {
-    if (isStylistDrawerOpen && stylistPrefillOccasion && messages.length === 0) {
-      if (typeof stylistPrefillOccasion === 'string') {
-        sendPrompt(`Style a complete outfit for ${stylistPrefillOccasion}`, stylistPrefillOccasion);
+    if (
+      isStylistDrawerOpen &&
+      stylistPrefillOccasion &&
+      messages.length === 0
+    ) {
+      if (typeof stylistPrefillOccasion === "string") {
+        sendPrompt(
+          `Style a complete outfit for ${stylistPrefillOccasion}`,
+          stylistPrefillOccasion,
+        );
       } else {
         sendPrompt(
           stylistPrefillOccasion.prompt,
           stylistPrefillOccasion.occasion,
           stylistPrefillOccasion.budget,
+          stylistPrefillOccasion.recommendation_constraints,
         );
       }
     }
-  }, [isStylistDrawerOpen, stylistPrefillOccasion, messages.length, sendPrompt]);
+  }, [
+    isStylistDrawerOpen,
+    stylistPrefillOccasion,
+    messages.length,
+    sendPrompt,
+  ]);
 
   if (!isStylistDrawerOpen) return null;
 
   const getPositionBadge = (pos: string) => {
     switch (pos?.toLowerCase()) {
-      case 'outerwear':
-        return { label: 'Outerwear', bg: 'bg-[#1B1F3B] text-[#E2BF70] border border-[#C5A059]/40' };
-      case 'top':
-        return { label: 'Top / Shirt', bg: 'bg-indigo-950 text-indigo-200 border border-indigo-700/40' };
-      case 'bottom':
-        return { label: 'Trousers', bg: 'bg-slate-900 text-slate-200 border border-slate-700/40' };
-      case 'footwear':
-        return { label: 'Footwear', bg: 'bg-amber-950 text-amber-200 border border-amber-700/40' };
-      case 'accessory':
-        return { label: 'Accessory', bg: 'bg-emerald-950 text-emerald-200 border border-emerald-700/40' };
-      case 'dress':
-        return { label: 'Gown / Dress', bg: 'bg-[#C5A059] text-slate-950 font-bold border border-[#C5A059]' };
+      case "outerwear":
+        return {
+          label: "Outerwear",
+          bg: "bg-[#1B1F3B] text-[#E2BF70] border border-[#C5A059]/40",
+        };
+      case "top":
+        return {
+          label: "Top / Shirt",
+          bg: "bg-indigo-950 text-indigo-200 border border-indigo-700/40",
+        };
+      case "bottom":
+        return {
+          label: "Trousers",
+          bg: "bg-slate-900 text-slate-200 border border-slate-700/40",
+        };
+      case "footwear":
+        return {
+          label: "Footwear",
+          bg: "bg-amber-950 text-amber-200 border border-amber-700/40",
+        };
+      case "accessory":
+        return {
+          label: "Accessory",
+          bg: "bg-emerald-950 text-emerald-200 border border-emerald-700/40",
+        };
+      case "dress":
+        return {
+          label: "Gown / Dress",
+          bg: "bg-[#C5A059] text-slate-950 font-bold border border-[#C5A059]",
+        };
       default:
-        return { label: pos || 'Garment', bg: 'bg-black/70 text-white' };
+        return { label: pos || "Garment", bg: "bg-black/70 text-white" };
     }
   };
 
   return (
     <div className="fixed inset-0 z-50 overflow-hidden bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="absolute inset-y-0 right-0 max-w-full flex pl-6 sm:pl-10">
-        <div ref={panelRef} role="dialog" aria-modal="true" aria-label="AI stylist" tabIndex={-1} className="w-screen max-w-2xl bg-white shadow-2xl flex flex-col border-l border-slate-200">
+        <div
+          ref={panelRef}
+          role="dialog"
+          aria-modal="true"
+          aria-label="AI stylist"
+          tabIndex={-1}
+          className="w-screen max-w-2xl bg-white shadow-2xl flex flex-col border-l border-slate-200"
+        >
           {/* Drawer Header */}
           <div className="p-4 sm:p-6 border-b border-slate-800 bg-[#0C0E1E] text-white flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -81,12 +132,14 @@ export const VirtualStylistDrawer: React.FC = () => {
               </div>
               <div>
                 <h2 className="font-serif text-lg font-bold text-white flex items-center gap-2">
-                  <span>{t('stylist.title')}</span>
+                  <span>{t("stylist.title")}</span>
                   <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-[#C5A059]/20 text-[#E2BF70] font-sans font-semibold">
                     Rules-Grounded Engine
                   </span>
                 </h2>
-                <p className="text-xs text-slate-400 font-light">{t('stylist.subtitle')}</p>
+                <p className="text-xs text-slate-400 font-light">
+                  {t("stylist.subtitle")}
+                </p>
               </div>
             </div>
             <button
@@ -102,7 +155,12 @@ export const VirtualStylistDrawer: React.FC = () => {
             <span className="text-[10px] font-bold text-[#A37E44] uppercase tracking-wider shrink-0">
               Style Prompts:
             </span>
-            {['Formal & Wedding', 'Work & Business', 'Evening & Party', 'Casual Weekend'].map((occ) => (
+            {[
+              "Formal & Wedding",
+              "Work & Business",
+              "Evening & Party",
+              "Casual Weekend",
+            ].map((occ) => (
               <button
                 key={occ}
                 onClick={() => sendPrompt(`Style an outfit for ${occ}`, occ)}
@@ -124,17 +182,31 @@ export const VirtualStylistDrawer: React.FC = () => {
                   How can I style you today?
                 </h4>
                 <p className="text-xs text-slate-500 max-w-sm mx-auto mb-5 font-light leading-relaxed">
-                  Tell me your event, dress code, preferred tones, or budget. I compose verified multi-brand ensembles with strict slot integrity, color harmony, and zero hallucinated pieces.
+                  Tell me your event, dress code, preferred tones, or budget. I
+                  compose verified multi-brand ensembles with strict slot
+                  integrity, color harmony, and zero hallucinated pieces.
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-left">
                   <button
-                    onClick={() => sendPrompt('I need a formal wedding outfit with navy suit and green tie under 500', 'Formal & Wedding', 500)}
+                    onClick={() =>
+                      sendPrompt(
+                        "I need a formal wedding outfit with navy suit and green tie under 500",
+                        "Formal & Wedding",
+                        500,
+                      )
+                    }
                     className="p-3.5 rounded-2xl border border-slate-200 hover:border-[#C5A059] bg-[#FAF9F6] hover:bg-[#FDF8EE] text-xs font-medium text-slate-800 transition-all"
                   >
                     "Formal wedding navy suit with green tie"
                   </button>
                   <button
-                    onClick={() => sendPrompt('Find me a champagne silk dress for an evening gala', 'Evening & Party', 600)}
+                    onClick={() =>
+                      sendPrompt(
+                        "Find me a champagne silk dress for an evening gala",
+                        "Evening & Party",
+                        600,
+                      )
+                    }
                     className="p-3.5 rounded-2xl border border-slate-200 hover:border-[#C5A059] bg-[#FAF9F6] hover:bg-[#FDF8EE] text-xs font-medium text-slate-800 transition-all"
                   >
                     "Champagne silk dress for an evening gala"
@@ -146,19 +218,25 @@ export const VirtualStylistDrawer: React.FC = () => {
             {messages.map((msg) => (
               <div
                 key={msg.id}
-                className={`flex flex-col ${msg.sender === 'user' ? 'items-end' : 'items-start'}`}
+                className={`flex flex-col ${msg.sender === "user" ? "items-end" : "items-start"}`}
               >
                 <div
                   className={`max-w-[92%] rounded-2xl p-4 text-xs sm:text-sm shadow-2xs leading-relaxed ${
-                    msg.sender === 'user'
-                      ? 'bg-[#1B1F3B] text-white rounded-br-none'
-                      : 'bg-white border border-slate-200/80 text-slate-800 rounded-bl-none shadow-sm'
+                    msg.sender === "user"
+                      ? "bg-[#1B1F3B] text-white rounded-br-none"
+                      : "bg-white border border-slate-200/80 text-slate-800 rounded-bl-none shadow-sm"
                   }`}
                 >
                   <div className="flex items-center gap-2 mb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                    <span>{msg.sender === 'user' ? 'You' : 'CONFIT Senior AI Stylist'}</span>
+                    <span>
+                      {msg.sender === "user"
+                        ? "You"
+                        : "CONFIT Senior AI Stylist"}
+                    </span>
                   </div>
-                  <p className="text-slate-800 font-light leading-relaxed">{msg.content}</p>
+                  <p className="text-slate-800 font-light leading-relaxed">
+                    {msg.content}
+                  </p>
                 </div>
 
                 {/* Render Recommended Outfits */}
@@ -178,18 +256,25 @@ export const VirtualStylistDrawer: React.FC = () => {
                               <span
                                 className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${
                                   outfit.is_complete !== false
-                                    ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                                    : 'bg-amber-100 text-amber-800 border border-amber-300'
+                                    ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                                    : "bg-amber-100 text-amber-800 border border-amber-300"
                                 }`}
                               >
-                                {outfit.completeness_label || (outfit.is_complete !== false ? 'Complete Look' : 'Core Look')}
+                                {outfit.completeness_label ||
+                                  (outfit.is_complete !== false
+                                    ? "Complete Look"
+                                    : "Core Look")}
                               </span>
                             </div>
                             <h4 className="font-serif font-bold text-base text-[#1B1F3B]">
                               {outfit.title}
                             </h4>
                           </div>
-                          <FitScoreBadge score={outfit.compatibility_score} label="Match" verdict="Color Harmony" />
+                          <FitScoreBadge
+                            score={outfit.compatibility_score}
+                            label="Match"
+                            verdict="Color Harmony"
+                          />
                         </div>
 
                         {/* Garment Grid (Strict Slots) */}
@@ -208,7 +293,9 @@ export const VirtualStylistDrawer: React.FC = () => {
                                       alt={item.product_title}
                                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                                     />
-                                    <span className={`absolute top-1.5 left-1.5 px-2 py-0.5 rounded-full text-[9px] font-semibold uppercase tracking-wider backdrop-blur-xs ${badge.bg}`}>
+                                    <span
+                                      className={`absolute top-1.5 left-1.5 px-2 py-0.5 rounded-full text-[9px] font-semibold uppercase tracking-wider backdrop-blur-xs ${badge.bg}`}
+                                    >
                                       {badge.label}
                                     </span>
                                   </div>
@@ -245,8 +332,10 @@ export const VirtualStylistDrawer: React.FC = () => {
                                         thumbnail_url: item.image_url,
                                         base_price: item.price,
                                         category_name: item.category_name,
-                                        color_family: item.color_family || 'Coordinated',
-                                        style_compatibility_score: outfit.compatibility_score,
+                                        color_family:
+                                          item.color_family || "Coordinated",
+                                        style_compatibility_score:
+                                          outfit.compatibility_score,
                                       } as any)
                                     }
                                     className="px-2 py-1 rounded-lg bg-white border border-slate-200 hover:border-[#C5A059] text-[10px] font-semibold text-slate-700 flex items-center gap-1 shadow-2xs"
@@ -262,19 +351,32 @@ export const VirtualStylistDrawer: React.FC = () => {
                         </div>
                         {getResolvedOutfitItems(outfit).length === 0 && (
                           <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
-                            This stylist response did not include verified catalog items, so CONFIT is not showing placeholder products or enabling bag actions for this look.
+                            This stylist response did not include verified
+                            catalog items, so CONFIT is not showing placeholder
+                            products or enabling bag actions for this look.
                           </div>
                         )}
 
                         {/* C15 FIX: Budget honesty - show within/over budget and note */}
                         {outfit.budget_limit != null && (
-                          <div className={`p-2.5 rounded-xl border text-[11px] ${outfit.within_budget ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-amber-50 border-amber-300 text-amber-800'}`}>
+                          <div
+                            className={`p-2.5 rounded-xl border text-[11px] ${outfit.within_budget ? "bg-emerald-50 border-emerald-200 text-emerald-800" : "bg-amber-50 border-amber-300 text-amber-800"}`}
+                          >
                             <div className="flex items-center gap-1.5 font-bold">
-                              <span>{outfit.within_budget ? '✓ Within budget' : '⚠ Budget exceeded'}</span>
-                              <span className="font-normal">— Target: ${outfit.budget_limit?.toFixed(2)}, Total: ${outfit.total_price.toFixed(2)}</span>
+                              <span>
+                                {outfit.within_budget
+                                  ? "✓ Within budget"
+                                  : "⚠ Budget exceeded"}
+                              </span>
+                              <span className="font-normal">
+                                — Target: ${outfit.budget_limit?.toFixed(2)},
+                                Total: ${outfit.total_price.toFixed(2)}
+                              </span>
                             </div>
                             {outfit.budget_note && (
-                              <p className="mt-1 font-light leading-relaxed">{outfit.budget_note}</p>
+                              <p className="mt-1 font-light leading-relaxed">
+                                {outfit.budget_note}
+                              </p>
                             )}
                           </div>
                         )}
@@ -282,7 +384,8 @@ export const VirtualStylistDrawer: React.FC = () => {
                         <div className="flex items-center justify-between pt-3 border-t border-slate-100">
                           <div>
                             <span className="text-[10px] text-slate-400 uppercase tracking-wider block font-semibold">
-                              Ensemble Total ({getResolvedOutfitItems(outfit).length} items):
+                              Ensemble Total (
+                              {getResolvedOutfitItems(outfit).length} items):
                             </span>
                             <div className="text-base font-serif font-black text-[#1B1F3B]">
                               ${outfit.total_price.toFixed(2)}
@@ -290,11 +393,17 @@ export const VirtualStylistDrawer: React.FC = () => {
                           </div>
                           <button
                             onClick={() => addCompleteLookToCart(outfit)}
-                            disabled={getResolvedOutfitItems(outfit).length === 0}
+                            disabled={
+                              getResolvedOutfitItems(outfit).length === 0
+                            }
                             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#1B1F3B] hover:bg-[#0C0E1E] text-white text-xs font-bold shadow-md transition-all disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             <BagIcon size={14} color="#FFFFFF" />
-                            <span>{outfit.is_complete !== false ? 'Add Complete Look to Bag' : 'Add Core Look to Bag'}</span>
+                            <span>
+                              {outfit.is_complete !== false
+                                ? "Add Complete Look to Bag"
+                                : "Add Core Look to Bag"}
+                            </span>
                           </button>
                         </div>
                       </div>
@@ -309,7 +418,9 @@ export const VirtualStylistDrawer: React.FC = () => {
                 <span className="w-2 h-2 rounded-full bg-[#C5A059] animate-bounce"></span>
                 <span className="w-2 h-2 rounded-full bg-[#C5A059] animate-bounce [animation-delay:0.2s]"></span>
                 <span className="w-2 h-2 rounded-full bg-[#C5A059] animate-bounce [animation-delay:0.4s]"></span>
-                <span className="text-[10px] font-bold text-slate-400 ml-1">Styling...</span>
+                <span className="text-[10px] font-bold text-slate-400 ml-1">
+                  Styling...
+                </span>
               </div>
             )}
 
@@ -340,8 +451,8 @@ export const VirtualStylistDrawer: React.FC = () => {
                 onClick={startVoiceInput}
                 className={`p-3 rounded-2xl border transition-all ${
                   isRecording
-                    ? 'bg-rose-500 text-white border-rose-600 animate-pulse'
-                    : 'bg-slate-50 border-slate-200 text-slate-600 hover:text-[#C5A059] hover:bg-[#FDF8EE]'
+                    ? "bg-rose-500 text-white border-rose-600 animate-pulse"
+                    : "bg-slate-50 border-slate-200 text-slate-600 hover:text-[#C5A059] hover:bg-[#FDF8EE]"
                 }`}
                 title="Hold for Voice Styling"
               >
@@ -352,7 +463,7 @@ export const VirtualStylistDrawer: React.FC = () => {
                 type="text"
                 value={inputPrompt}
                 onChange={(e) => setInputPrompt(e.target.value)}
-                placeholder={t('stylist.input_placeholder')}
+                placeholder={t("stylist.input_placeholder")}
                 className="flex-1 px-4 py-3 rounded-2xl border border-slate-200 focus:outline-none focus:border-[#C5A059] text-xs sm:text-sm bg-[#FAF9F6]"
               />
 

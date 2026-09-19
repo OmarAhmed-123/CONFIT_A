@@ -231,9 +231,9 @@ Frontend suite asserts: a consumer hitting a brand area gets the actionable appl
 | `14aec75` | `test(auth): real-transport email proof, lifecycle/negatives, and email-link route contract` |
 | `7536dc8` | `feat(frontend): real auth/onboarding flows, actionable 403 and portal intent` |
 | `7c1ba57` | `docs(auth): root-cause audit, MCP email evaluation and lifecycle evidence` |
-| `739bf30` | `test(auth): share the SMTP test sink through a support module` (finalises this report) |
+| `854faf6`→*HEAD* | `test(auth): share the SMTP test sink through a support module` + `docs(auth): pin commit SHAs` (this report; a pin commit follows, so the last SHA is the branch head shown by the PR's file list) |
 
-Branch head at hand-off: `739bf30` (6 commits, tree clean, 48 files / +6.3k lines vs `main @ 928e615`).
+Branch head at hand-off: the branch tip after the pin commit (7 commits, tree clean, 48 files / +6.3k lines vs `main @ 928e615`).
 Exported artifacts: `auth-onboarding-email.bundle`, `auth-onboarding-email.patch` (workspace root).
 
 ## 21. PR URL

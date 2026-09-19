@@ -439,7 +439,7 @@ export const DiscoverView: React.FC = () => {
                   </button>
                   <button
                     onClick={() => openTryOn(p)}
-                    className="py-2.5 rounded-xl border border-[#C5A059]/50 bg-[#FDF8EE] text-[#A37E44] hover:bg-[#C5A059] hover:text-white text-xs font-semibold transition-all"
+                    className="py-2.5 rounded-xl border border-[#7A5C28]/40 bg-[#FDF8EE] text-[#7A5C28] hover:bg-[#7A5C28] hover:text-white text-xs font-semibold transition-all"
                   >
                     Try on
                   </button>

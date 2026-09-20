@@ -158,25 +158,13 @@ class Settings(BaseSettings):
     # When set (smtp), a REAL transport must be reachable (see
     # services/email_service.py) — a provider flag without SMTP_HOST is a
     # configuration error and refuses to boot in production (validator below).
-    EMAIL_PROVIDER: Optional[str] = None  # "smtp" | "resend" | None
-    # How long a claimed-but-unreported delivery attempt may stay in flight
-    # before its claim is terminalised as UNKNOWN. Bounds the window in which a
-    # crashed worker could leave a ledger row in a non-terminal "retrying"
-    # state forever. No message is re-sent by the resolver.
-    EMAIL_CLAIM_STALE_SECONDS: int = 900
+    EMAIL_PROVIDER: Optional[str] = None  # "smtp" | None
     EMAIL_FROM_ADDRESS: Optional[str] = None
     PARTNER_LEAD_NOTIFY_EMAIL: Optional[str] = None
-    EMAIL_REPLY_TO: Optional[str] = None
     SMTP_HOST: Optional[str] = None
     SMTP_PORT: int = 587
     SMTP_USERNAME: Optional[str] = None
     SMTP_PASSWORD: Optional[str] = None
-    # starttls (587) | ssl (465) | none (LOCAL MAIL SINKS ONLY — refused in
-    # production by the validator below, because cleartext auth is not
-    # acceptable for real transactional mail).
-    SMTP_TLS_MODE: str = "starttls"
-    # HTTPS-API provider (no outbound SMTP port required — Vercel-friendly).
-    RESEND_API_KEY: Optional[str] = None
 
     # Where the SPA lives — used to build action links (reset/verify) inside
     # transactional emails. No default magic-prod value: previews and local
@@ -469,27 +457,14 @@ class Settings(BaseSettings):
 
         problems: List[str] = []
 
-        # CYCLE 4 + 2026-09-19 (email honesty gate): a provider flag without a
-        # real transport config would let the API answer "queued" while nothing
-        # is sent — the exact fake-success class this codebase forbids. The
-        # gate is only active when a provider is CLAIMED: not configuring a
-        # provider at all stays legal, and every email endpoint then answers an
-        # honest 501 FEATURE_NOT_CONFIGURED.
-        provider = (self.EMAIL_PROVIDER or "").lower().strip()
-        if provider:
-            if provider not in {"smtp", "resend"}:
-                problems.append(f"EMAIL_PROVIDER={provider!r} is not one of ['resend', 'smtp']")
+        # CYCLE 4 (email honesty gate): EMAIL_PROVIDER=smtp without a real
+        # transport config would let the API answer "queued" while nothing is
+        # sent — the exact fake-success class this codebase forbids.
+        if (self.EMAIL_PROVIDER or "").lower() == "smtp":
+            if not self.SMTP_HOST:
+                problems.append("EMAIL_PROVIDER=smtp requires SMTP_HOST (refusing to boot: sends would be fake)")
             if not self.EMAIL_FROM_ADDRESS:
-                problems.append(f"EMAIL_PROVIDER={provider} requires EMAIL_FROM_ADDRESS")
-            if provider == "smtp":
-                if not self.SMTP_HOST:
-                    problems.append("EMAIL_PROVIDER=smtp requires SMTP_HOST (refusing to boot: sends would be fake)")
-                if not self.SMTP_USERNAME or not self.SMTP_PASSWORD:
-                    problems.append("EMAIL_PROVIDER=smtp requires SMTP_USERNAME and SMTP_PASSWORD (relays reject anonymous mail)")
-                if str(self.SMTP_TLS_MODE or "").lower() == "none":
-                    problems.append("SMTP_TLS_MODE=none sends cleartext mail and is refused in production")
-            if provider == "resend" and not self.RESEND_API_KEY:
-                problems.append("EMAIL_PROVIDER=resend requires RESEND_API_KEY")
+                problems.append("EMAIL_PROVIDER=smtp requires EMAIL_FROM_ADDRESS")
             if not self.FRONTEND_BASE_URL.startswith("https://"):
                 problems.append("FRONTEND_BASE_URL must be https:// in production (email links)")
 

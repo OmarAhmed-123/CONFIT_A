@@ -233,32 +233,3 @@ class DeliveryGoneError(ConfitException):
             details={"reason": reason},
             status_code=status.HTTP_410_GONE
         )
-
-
-class ConflictError(ConfitException):
-    """A request conflicts with the current server-side state (409).
-
-    Used by the onboarding/partner lifecycle: duplicate pending application,
-    duplicate pending invitation, accepting a cross-tenant invitation, or a
-    role/brand that is already provisioned. The conflict is a REAL state the
-    client must resolve — never a masked success.
-    """
-
-    def __init__(self, message: str, code: str = "CONFLICT", details: Optional[Dict[str, Any]] = None):
-        super().__init__(message, code=code, details=details, status_code=status.HTTP_409_CONFLICT)
-
-
-class EmailVerificationRequiredError(ConfitException):
-    """The action needs a verified email address first (403).
-
-    Distinct from a plain 403 so the client can route to the verification
-    step instead of showing a generic "forbidden" screen.
-    """
-
-    def __init__(self, message: str = "Verify your email address to continue."):
-        super().__init__(
-            message,
-            code="EMAIL_VERIFICATION_REQUIRED",
-            details={"reason": "EMAIL_VERIFICATION_REQUIRED"},
-            status_code=status.HTTP_403_FORBIDDEN,
-        )

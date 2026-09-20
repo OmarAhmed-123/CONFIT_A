@@ -48,16 +48,6 @@ export const BrandNavbar: React.FC = () => {
             >
               Dashboard
             </Link>
-            {isAdmin && (
-              <Link
-                to="/admin/partners"
-                className={`px-3.5 py-2 rounded-xl text-xs font-semibold tracking-wide transition-all ${
-                  isActive('/admin/partners') ? 'bg-slate-800/80 text-[#C5A059] shadow-2xs' : 'text-slate-300 hover:text-white hover:bg-slate-800/40'
-                }`}
-              >
-                Partner Approvals
-              </Link>
-            )}
             <Link
               to="/b2b/catalog"
               className={`px-3.5 py-2 rounded-xl text-xs font-semibold tracking-wide transition-all ${
@@ -89,16 +79,6 @@ export const BrandNavbar: React.FC = () => {
               }`}
             >
               Placements
-            </Link>
-            {/* 2026-09-19: team management (invitations) had no navigation
-                entry at all — the API existed but nothing in the UI reached it. */}
-            <Link
-              to="/b2b/team"
-              className={`px-3.5 py-2 rounded-xl text-xs font-semibold tracking-wide transition-all ${
-                isActive('/b2b/team') ? 'bg-slate-800/80 text-[#C5A059] shadow-2xs' : 'text-slate-300 hover:text-white hover:bg-slate-800/40'
-              }`}
-            >
-              Team
             </Link>
             {isAdmin && (
               <Link

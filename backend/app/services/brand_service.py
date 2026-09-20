@@ -5,7 +5,6 @@ from backend.app.models.catalog import Product, ProductSKU
 from backend.app.models.user import BrandProfile, User, UserRole
 from backend.app.repositories.brand_repository import BrandRepository
 from backend.app.core.exceptions import ResourceNotFoundError, ValidationDomainError, AuthorizationError
-from backend.app.services import brand_scope_service as brand_scope
 
 
 class BrandService:
@@ -14,13 +13,8 @@ class BrandService:
         self.brand_repo = BrandRepository(db)
 
     def get_brand_profile_by_user(self, user: User) -> Dict[str, Any]:
-        """Resolves Brand Organization for the requesting user with strict tenant validation.
-
-        2026-09-19: resolution goes through `brand_scope_service`, so a brand
-        OWNER (brand_profiles.user_id) and an invited brand MEMBER (brand_members)
-        both resolve to their tenant through one code path.
-        """
-        bp = brand_scope.resolve_brand(self.db, user)
+        """Resolves Brand Organization for the requesting user with strict tenant validation."""
+        bp = self.brand_repo.get_by_user_id(user.id)
         if not bp:
             if user.role == UserRole.ADMIN:
                 all_b = self.brand_repo.get_all_brands()
@@ -189,13 +183,12 @@ class BrandService:
         if user.role == UserRole.ADMIN:
             return  # Platform Admin has global oversight
 
-        resolved = brand_scope.resolve_brand(self.db, user)
-        if resolved is None:
+        if not user.brand_profile:
             raise AuthorizationError("Access denied: User is not linked to any Brand Organization.")
 
-        if resolved.id != target_brand_id:
+        if user.brand_profile.id != target_brand_id:
             raise AuthorizationError(
-                f"Tenant scope violation: Your account belongs to Brand #{resolved.id} ({resolved.brand_name}) "
+                f"Tenant scope violation: Your account belongs to Brand #{user.brand_profile.id} ({user.brand_profile.brand_name}) "
                 f"and cannot access or mutate resources of Brand #{target_brand_id}."
             )
 

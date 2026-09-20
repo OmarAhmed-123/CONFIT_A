@@ -21,8 +21,6 @@ import {
   SearchResponse,
   AutocompleteResponse,
   AdminPlatformAnalytics,
-  OnboardingState,
-  PartnerApplication,
   StoreInventoryLocation,
   TryOnJob,
   GarmentAsset,
@@ -39,20 +37,20 @@ export const authService = {
       },
     ),
 
-  // `registration_intent` is DATA ("consumer" | "brand_partner"). The server
-  // hard-codes the resulting role to `consumer` regardless of what is sent,
-  // so this field can never be used to request a privilege.
   register: (payload: {
     email: string;
     password: string;
     full_name: string;
     phone?: string;
-    registration_intent?: 'consumer' | 'brand_partner';
+    role?: string;
   }) =>
-    request<{ access_token: string; refresh_token: string; user: User }>('/auth/register', {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    }),
+    request<{ access_token: string; refresh_token: string; user: User }>(
+      "/auth/register",
+      {
+        method: "POST",
+        body: JSON.stringify(payload),
+      },
+    ),
 
   // Group 1 §7: the server verifies the provider_token upstream (Google /
   // Apple / Facebook), so we ONLY send the provider name and the token
@@ -72,49 +70,7 @@ export const authService = {
 
   getMe: () => request<User>("/auth/me"),
 
-  getOnboardingState: () => request<OnboardingState>('/auth/onboarding-state'),
-
-  // Honest delivery status for the CALLER'S OWN account only.
-  getEmailStatus: (purpose?: string) =>
-    request<{
-      purpose?: string | null;
-      // 'unknown' = an attempt was claimed but the process died before the
-      // provider's answer was recorded; the backend never guesses, and it never
-      // re-sends silently.
-      status: 'succeeded' | 'failed' | 'blocked' | 'retrying' | 'unverified' | 'unknown' | 'none';
-      accepted: boolean;
-      provider_configured: boolean;
-      provider?: string | null;
-      error_class?: string | null;
-      attempts: number;
-      last_attempt_at?: string | null;
-    }>(`/auth/email-status${purpose ? `?purpose=${encodeURIComponent(purpose)}` : ''}`),
-
-  verifyEmail: (token: string) =>
-    request<{ status: string; message: string }>('/auth/verify-email', {
-      method: 'POST',
-      body: JSON.stringify({ token }),
-    }),
-
-  requestEmailVerification: (email: string) =>
-    request<{ status: string; message: string }>('/auth/verify-email/request', {
-      method: 'POST',
-      body: JSON.stringify({ email }),
-    }),
-
-  requestEmailChange: (newEmail: string) =>
-    request<{ status: string; delivery_status: string; message: string }>('/auth/email-change/request', {
-      method: 'POST',
-      body: JSON.stringify({ new_email: newEmail }),
-    }),
-
-  confirmEmailChange: (token: string) =>
-    request<{ status: string; email: string; message: string }>('/auth/email-change/confirm', {
-      method: 'POST',
-      body: JSON.stringify({ token }),
-    }),
-
-  logout: () => request<{ status: string }>('/auth/logout', { method: 'POST' }),
+  logout: () => request<{ status: string }>("/auth/logout", { method: "POST" }),
 
   setupMFA: () =>
     request<{ secret: string; qr_uri: string; backup_codes: string[] }>(
@@ -959,105 +915,4 @@ export const adminService = {
     request<AdminPlatformAnalytics>("/admin/analytics"),
   getBrandComparison: () => request<any[]>("/admin/analytics/brands"),
   getAuditLogs: () => request<any[]>("/admin/audit"),
-};
-
-
-// ---------------------------------------------------------------------------
-// Partner onboarding, invitations and the admin review queue (2026-09-19).
-// Every authorization-bearing field is server-side; these calls only carry
-// user intent and the server-issued invitation token.
-// ---------------------------------------------------------------------------
-export const partnerService = {
-  submitApplication: (payload: {
-    brand_name: string;
-    legal_name?: string;
-    website?: string;
-    market?: string;
-    category?: string;
-    catalogue_size?: string;
-    contact_name?: string;
-    contact_phone?: string;
-    message?: string;
-  }) =>
-    request<PartnerApplication>('/auth/partner-applications', {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    }),
-
-  listMine: () => request<PartnerApplication[]>('/auth/partner-applications'),
-
-  withdraw: (id: number) =>
-    request<PartnerApplication>(`/auth/partner-applications/${id}/withdraw`, { method: 'POST' }),
-};
-
-export const invitationService = {
-  preview: (token: string) =>
-    request<{
-      status: 'pending' | 'accepted' | 'revoked' | 'expired' | 'unknown';
-      valid: boolean;
-      email_masked?: string;
-      brand_name?: string;
-      role?: string;
-      expires_at?: string;
-    }>(`/auth/invitations/preview?token=${encodeURIComponent(token)}`),
-
-  accept: (payload: { token: string; full_name?: string; password?: string }) =>
-    request<{ access_token: string; refresh_token: string; user: User; account_created: boolean }>(
-      '/auth/invitations/accept',
-      { method: 'POST', body: JSON.stringify(payload) },
-    ),
-};
-
-export const brandTeamService = {
-  listInvitations: (includeClosed = false) =>
-    request<any[]>(`/brand/invitations?include_closed=${includeClosed}`),
-
-  createInvitation: (payload: { email: string; role: string }) =>
-    request<{
-      id: number;
-      email: string;
-      role: string;
-      brand_id: number;
-      status: string;
-      expires_at: string;
-      delivery: { status: string; accepted: boolean } | null;
-      accept_path: string | null;
-    }>('/brand/invitations', { method: 'POST', body: JSON.stringify(payload) }),
-
-  revokeInvitation: (id: number) =>
-    request<{ id: number; status: string }>(`/brand/invitations/${id}/revoke`, { method: 'POST' }),
-};
-
-export type AdminPartnerApplication = {
-  id: number;
-  status: string;
-  brand_name: string;
-  market: string;
-  contact_name: string;
-  contact_email?: string;
-  submitted_at: string;
-  /** Server-computed truth about the applicant's address (never inferred here).
-   *  `applicant_verification_available === false` means this deployment has no
-   *  email provider, so no address could be verified at all. */
-  applicant_email_verified?: boolean | null;
-  applicant_verification_available?: boolean | null;
-};
-
-export const adminPartnerService = {
-  list: (status = 'pending') =>
-    request<{ items: AdminPartnerApplication[]; count: number; status_filter: string }>(
-      `/admin/partner-applications?status=${encodeURIComponent(status)}`
-    ),
-
-  approve: (id: number, note?: string) =>
-    request<any>(`/admin/partner-applications/${id}/approve`, {
-      method: 'POST',
-      body: JSON.stringify({ note: note || null }),
-    }),
-
-  reject: (id: number, note?: string) =>
-    request<any>(`/admin/partner-applications/${id}/reject`, {
-      method: 'POST',
-      body: JSON.stringify({ note: note || null }),
-    }),
 };

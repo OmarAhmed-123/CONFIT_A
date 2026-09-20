@@ -13,40 +13,6 @@ export interface User {
   created_at: string;
   brand_id?: number | null;
   has_profile: boolean;
-  // Server-authoritative lifecycle view (2026-09-19). The SPA routes on
-  // `onboarding.next_action` instead of guessing from local state.
-  registration_intent?: 'consumer' | 'brand_partner';
-  partner_access?: 'none' | 'pending' | 'approved' | 'rejected' | 'admin';
-  partner_application_status?: string | null;
-  onboarding?: OnboardingState | null;
-}
-
-export interface OnboardingState {
-  account_state: string;
-  role: string;
-  registration_intent: 'consumer' | 'brand_partner';
-  email_verified: boolean;
-  is_active: boolean;
-  profile_completed: boolean;
-  partner_access: 'none' | 'pending' | 'approved' | 'rejected' | 'admin';
-  partner_application_status?: string | null;
-  next_action: { type: string; route: string | null; label: string };
-  allowed_areas?: string[];
-  pending_invitation?: { id: number; brand_id: number; role: string; expires_at: string } | null;
-}
-
-export interface PartnerApplication {
-  id: number;
-  status: 'pending' | 'approved' | 'rejected' | 'withdrawn';
-  brand_name: string;
-  market: string;
-  category?: string | null;
-  contact_name: string;
-  website?: string | null;
-  submitted_at: string;
-  reviewed_at?: string | null;
-  decision_note?: string | null;
-  brand_id?: number | null;
 }
 
 export interface BodyAttributes {

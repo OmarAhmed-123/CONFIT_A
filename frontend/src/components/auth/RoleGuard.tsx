@@ -1,20 +1,10 @@
-import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { useAuthStore } from '../../stores/authStore';
-import { useUIStore } from '../../stores/uiStore';
-import { ConfitLogo } from '../common/ConfitLogo';
-import { LockIcon, UserIcon, ShieldIcon } from '../icons/ConfitIcons';
-import { brandService } from '../../services/apiServices';
-import { useTranslation } from 'react-i18next';
-
-const BRAND_ROLES = ['brand_owner', 'brand_manager', 'brand_staff'];
-
-interface RoleGuardProps {
-  allowedRoles?: string[];
-  children?: React.ReactNode;
-  fallbackTitle?: string;
-  fallbackMessage?: string;
-}
+import React from "react";
+import { Link, useLocation } from "react-router-dom";
+import { useAuthStore } from "../../stores/authStore";
+import { useUIStore } from "../../stores/uiStore";
+import { ConfitLogo } from "../common/ConfitLogo";
+import { LockIcon, UserIcon, ShieldIcon } from "../icons/ConfitIcons";
+import { brandService } from "../../services/apiServices";
 
 const PartnerRequestDemoForm: React.FC = () => {
   const [form, setForm] = React.useState({
@@ -154,6 +144,13 @@ const PartnerRequestDemoForm: React.FC = () => {
   );
 };
 
+interface RoleGuardProps {
+  allowedRoles?: string[];
+  children?: React.ReactNode;
+  fallbackTitle?: string;
+  fallbackMessage?: string;
+}
+
 export const RoleGuard: React.FC<RoleGuardProps> = ({
   allowedRoles,
   children,
@@ -163,14 +160,17 @@ export const RoleGuard: React.FC<RoleGuardProps> = ({
   const location = useLocation();
   const { user, isAuthenticated, hasAttemptedBootstrap } = useAuthStore();
   const { openAuthModal } = useUIStore();
-  const { t } = useTranslation();
 
   // 0. AUTH-02 FIX: session bootstrap is in flight — we do not yet know
   // whether the visitor holds a valid httpOnly session. Rendering the guest
   // gate here would flash an auth wall before fetchMe() resolves.
   if (!hasAttemptedBootstrap) {
     return (
-      <div className="min-h-[70vh] flex items-center justify-center p-4" role="status" aria-live="polite">
+      <div
+        className="min-h-[70vh] flex items-center justify-center p-4"
+        role="status"
+        aria-live="polite"
+      >
         <div className="flex flex-col items-center gap-4 text-slate-400">
           <div className="w-10 h-10 rounded-full border-2 border-[#C5A059]/30 border-t-[#C5A059] animate-spin" />
           <span className="text-[11px] tracking-widest uppercase font-semibold">
@@ -183,8 +183,9 @@ export const RoleGuard: React.FC<RoleGuardProps> = ({
 
   // 1. Not Authenticated -> Show public partner value page for merchant routes, otherwise auth gate.
   if (!isAuthenticated || !user) {
-    const isPartnerPortal = (fallbackTitle || '').toLowerCase().includes('brand') ||
-      (fallbackTitle || '').toLowerCase().includes('partner');
+    const isPartnerPortal =
+      (fallbackTitle || "").toLowerCase().includes("brand") ||
+      (fallbackTitle || "").toLowerCase().includes("partner");
 
     if (isPartnerPortal) {
       return (
@@ -201,17 +202,19 @@ export const RoleGuard: React.FC<RoleGuardProps> = ({
                     Reduce fit uncertainty before shoppers reach checkout.
                   </h1>
                   <p className="max-w-2xl text-sm font-light leading-relaxed text-slate-300">
-                    CONFIT connects premium catalog ingestion, fit intelligence, and virtual try-on workflows so brand teams can understand the partner workflow before signing in.
+                    CONFIT connects premium catalog ingestion, fit intelligence,
+                    and virtual try-on workflows so brand teams can understand
+                    the partner workflow before signing in.
                   </p>
                   <div className="flex flex-wrap gap-3">
                     <button
-                      onClick={() => openAuthModal('register')}
+                      onClick={() => openAuthModal("register")}
                       className="rounded-2xl bg-[#C5A059] px-5 py-3 text-xs font-bold uppercase tracking-wider text-[#0C0E1E] transition hover:bg-[#E2BF70]"
                     >
                       Create partner account
                     </button>
                     <button
-                      onClick={() => openAuthModal('login')}
+                      onClick={() => openAuthModal("login")}
                       className="rounded-2xl border border-white/20 bg-white/10 px-5 py-3 text-xs font-bold uppercase tracking-wider text-white transition hover:bg-white/20"
                     >
                       Existing partner sign in
@@ -220,14 +223,33 @@ export const RoleGuard: React.FC<RoleGuardProps> = ({
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
                   {[
-                    ['Catalog ingestion', 'Validate imagery, attributes, SKU availability, and try-on readiness before publishing.'],
-                    ['Fit intelligence', 'Expose supported categories, measurement confidence, and return-risk signals.'],
-                    ['Virtual try-on', 'Give shoppers an honest visual preview while keeping fit recommendations separate.'],
-                    ['Operational clarity', 'Track pickup, inventory, placement, and analytics workflows from one portal.'],
+                    [
+                      "Catalog ingestion",
+                      "Validate imagery, attributes, SKU availability, and try-on readiness before publishing.",
+                    ],
+                    [
+                      "Fit intelligence",
+                      "Expose supported categories, measurement confidence, and return-risk signals.",
+                    ],
+                    [
+                      "Virtual try-on",
+                      "Give shoppers an honest visual preview while keeping fit recommendations separate.",
+                    ],
+                    [
+                      "Operational clarity",
+                      "Track pickup, inventory, placement, and analytics workflows from one portal.",
+                    ],
                   ].map(([title, copy]) => (
-                    <div key={title} className="rounded-3xl border border-white/10 bg-white/10 p-4 backdrop-blur">
-                      <h3 className="font-serif text-lg font-bold text-white">{title}</h3>
-                      <p className="mt-2 text-xs font-light leading-relaxed text-slate-300">{copy}</p>
+                    <div
+                      key={title}
+                      className="rounded-3xl border border-white/10 bg-white/10 p-4 backdrop-blur"
+                    >
+                      <h3 className="font-serif text-lg font-bold text-white">
+                        {title}
+                      </h3>
+                      <p className="mt-2 text-xs font-light leading-relaxed text-slate-300">
+                        {copy}
+                      </p>
                     </div>
                   ))}
                 </div>
@@ -238,13 +260,29 @@ export const RoleGuard: React.FC<RoleGuardProps> = ({
 
             <section className="grid gap-4 md:grid-cols-3">
               {[
-                ['Merchant problem', 'Sizing uncertainty, low confidence, and unready product data create preventable friction.'],
-                ['Launch path', 'Connect catalog, verify product metadata, then activate fit and try-on experiences by supported category.'],
-                ['Proof readiness', 'Use real analytics only—views, try-ons, conversions, inventory, returns, and attribution are never fabricated.'],
+                [
+                  "Merchant problem",
+                  "Sizing uncertainty, low confidence, and unready product data create preventable friction.",
+                ],
+                [
+                  "Launch path",
+                  "Connect catalog, verify product metadata, then activate fit and try-on experiences by supported category.",
+                ],
+                [
+                  "Proof readiness",
+                  "Use real analytics only—views, try-ons, conversions, inventory, returns, and attribution are never fabricated.",
+                ],
               ].map(([title, copy]) => (
-                <div key={title} className="rounded-3xl border border-slate-200 bg-white p-5 shadow-2xs">
-                  <h3 className="font-serif text-xl font-bold text-[#1B1F3B]">{title}</h3>
-                  <p className="mt-2 text-sm font-light leading-relaxed text-slate-500">{copy}</p>
+                <div
+                  key={title}
+                  className="rounded-3xl border border-slate-200 bg-white p-5 shadow-2xs"
+                >
+                  <h3 className="font-serif text-xl font-bold text-[#1B1F3B]">
+                    {title}
+                  </h3>
+                  <p className="mt-2 text-sm font-light leading-relaxed text-slate-500">
+                    {copy}
+                  </p>
                 </div>
               ))}
             </section>
@@ -259,34 +297,42 @@ export const RoleGuard: React.FC<RoleGuardProps> = ({
           <div className="w-16 h-16 rounded-2xl bg-[#1B1F3B] border border-[#C5A059]/50 mx-auto flex items-center justify-center text-[#C5A059] shadow-lg">
             <LockIcon size={32} color="#C5A059" />
           </div>
+
           <div className="space-y-2">
             <span className="text-[10px] font-bold tracking-widest text-[#C5A059] uppercase">
-              {t('auth.gate_eyebrow')}
+              CONFIT Access Governance
             </span>
             <h2 className="font-serif text-2xl font-bold text-white">
-              {fallbackTitle || t('auth.authentication_required')}
+              {fallbackTitle || "Authentication Required"}
             </h2>
             <p className="text-xs text-slate-400 font-light leading-relaxed">
-              {fallbackMessage || t('auth.gate_401_body')}
+              {fallbackMessage ||
+                "This privileged section requires an authenticated luxury profile or merchant credential. Please sign in or create an account to proceed."}
             </p>
           </div>
+
           <div className="space-y-3 pt-2">
             <button
-              onClick={() => openAuthModal('login')}
+              onClick={() => openAuthModal("login")}
               className="w-full py-3.5 rounded-xl bg-[#C5A059] hover:bg-[#E2BF70] text-[#0C0E1E] font-bold text-xs tracking-wider uppercase shadow-md transition-all flex items-center justify-center gap-2"
             >
               <UserIcon size={16} color="#0C0E1E" />
-              <span>{t('auth.sign_in_to_continue')}</span>
+              <span>Sign In to Continue</span>
             </button>
+
             <button
-              onClick={() => openAuthModal('register')}
+              onClick={() => openAuthModal("register")}
               className="w-full py-3 rounded-xl bg-[#1B1F3B] hover:bg-slate-800 text-white font-semibold text-xs border border-slate-700 transition-all"
             >
-              {t('auth.create_account')}
+              Create New Account
             </button>
+
             <div className="pt-2">
-              <Link to="/" className="text-[11px] text-slate-400 hover:text-[#C5A059] transition-colors inline-block">
-                ← {t('auth.return_storefront')}
+              <Link
+                to="/"
+                className="text-[11px] text-slate-400 hover:text-[#C5A059] transition-colors inline-block"
+              >
+                ← Return to Consumer Storefront
               </Link>
             </div>
           </div>
@@ -295,99 +341,66 @@ export const RoleGuard: React.FC<RoleGuardProps> = ({
     );
   }
 
+  // 2. Role Verification
   const userRole = user.role?.toLowerCase();
-  const hasRole = !allowedRoles || allowedRoles.includes(userRole) || userRole === 'admin';
-  // Authorization itself is unchanged and stays server-side: this only decides
-  // what the SPA renders. A forged local role never reaches the guarded area.
-  if (hasRole) return <>{children}</>;
+  const hasRole =
+    !allowedRoles || allowedRoles.includes(userRole) || userRole === "admin";
 
-  // 3. Authenticated but not authorized — render the REAL state and the way out.
-  const state = user.onboarding;
-  const accountState = state?.account_state;
-  const partnerAccess = user.partner_access ?? state?.partner_access ?? 'none';
-  const adminOnly = (allowedRoles || []).length === 1 && allowedRoles?.[0] === 'admin';
-  const isBrandArea = !adminOnly && (allowedRoles || []).some((r) => BRAND_ROLES.includes(r));
+  if (!hasRole) {
+    return (
+      <div className="min-h-[70vh] flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-[#0C0E1E] text-white border border-rose-500/40 rounded-3xl p-8 shadow-2xl text-center space-y-6 animate-in fade-in duration-200">
+          <div className="w-16 h-16 rounded-2xl bg-rose-950/60 border border-rose-500/50 mx-auto flex items-center justify-center text-rose-400 shadow-lg">
+            <ShieldIcon size={32} color="#F43F5E" />
+          </div>
 
-  let headlineEn = 'Access Restricted';
-  let reasonEn = t('auth.gate_403_generic');
-  let primary: { label: string; to: string } | null = null;
-  let secondary: { label: string; to: string } | null = null;
+          <div className="space-y-2">
+            <span className="text-[10px] font-bold tracking-widest text-rose-400 uppercase">
+              403 Forbidden · Role Restriction
+            </span>
+            <h2 className="font-serif text-2xl font-bold text-white">
+              Access Restricted
+            </h2>
+            <p className="text-xs text-slate-400 font-light leading-relaxed">
+              Your account (<strong className="text-white">{user.email}</strong>
+              ) is registered with the{" "}
+              <span className="px-2 py-0.5 rounded bg-slate-800 text-[#C5A059] font-mono text-[11px]">
+                {user.role}
+              </span>{" "}
+              role. This portal requires one of the following permissions:{" "}
+              <span className="text-slate-300 font-medium">
+                {allowedRoles?.join(", ")}
+              </span>
+              .
+            </p>
+          </div>
 
-  if (accountState === 'SUSPENDED' || user.is_active === false) {
-    headlineEn = t('auth.account_suspended');
-    reasonEn = t('auth.gate_suspended_body');
-  } else if (isBrandArea && partnerAccess === 'pending') {
-    headlineEn = t('auth.partner_review_in_progress');
-    reasonEn = t('auth.gate_pending_body');
-    primary = { label: t('auth.view_application_status'), to: '/partner/status' };
-  } else if (isBrandArea && partnerAccess === 'rejected') {
-    headlineEn = t('auth.partner_application_rejected');
-    reasonEn = t('auth.gate_rejected_body');
-    primary = { label: t('auth.apply_again'), to: '/partner/apply' };
-  } else if (isBrandArea && (accountState === 'EMAIL_VERIFICATION_REQUIRED' || user.is_verified === false)) {
-    headlineEn = t('auth.verify_email_first');
-    reasonEn = t('auth.gate_verify_body');
-    primary = { label: t('auth.verify_email'), to: '/verify-email' };
-  } else if (isBrandArea) {
-    headlineEn = t('auth.partner_access_not_enabled');
-    reasonEn = t('auth.gate_apply_body');
-    primary = { label: t('auth.apply_for_partner_access'), to: '/partner/apply' };
-  } else if (adminOnly) {
-    reasonEn = t('auth.gate_admin_body');
-  }
-
-  return (
-    <div className="min-h-[70vh] flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-[#0C0E1E] text-white border border-amber-500/30 rounded-3xl p-8 shadow-2xl text-center space-y-6 animate-in fade-in duration-200">
-        <div className="w-16 h-16 rounded-2xl bg-amber-950/40 border border-amber-500/40 mx-auto flex items-center justify-center">
-          <ShieldIcon size={32} color="#F59E0B" />
-        </div>
-        <div className="space-y-2">
-          <span className="text-[10px] font-bold tracking-widest text-amber-400 uppercase">
-            {partnerAccess === 'pending' ? t('auth.status_pending') : '403 · ' + t('auth.role_restriction')}
-          </span>
-          <h2 className="font-serif text-2xl font-bold text-white">{headlineEn}</h2>
-          <p className="text-xs text-slate-400 font-light leading-relaxed">{reasonEn}</p>
-          <p className="text-[11px] text-slate-500">
-            {t('auth.signed_in_as')} <strong className="text-slate-300">{user.email}</strong> · {t('auth.current_role')}{' '}
-            <span className="px-2 py-0.5 rounded bg-slate-800 text-[#C5A059] font-mono text-[11px]">{user.role}</span>
-          </p>
-        </div>
-        <div className="space-y-3 pt-2">
-          {primary && (
+          <div className="space-y-3 pt-2">
             <Link
-              to={primary.to}
-              className="w-full py-3.5 rounded-xl bg-[#C5A059] hover:bg-[#E2BF70] text-[#0C0E1E] font-bold text-xs tracking-wider uppercase shadow-md transition-all flex items-center justify-center"
+              to="/"
+              className="w-full py-3.5 rounded-xl bg-[#1B1F3B] hover:bg-slate-800 text-white font-bold text-xs border border-slate-700 tracking-wider uppercase shadow-md transition-all flex items-center justify-center gap-2"
             >
-              {primary.label}
+              <span>← Return to Consumer Storefront</span>
             </Link>
-          )}
-          {secondary && (
-            <Link
-              to={secondary.to}
-              className="w-full py-3 rounded-xl bg-[#1B1F3B] hover:bg-slate-800 text-white font-semibold text-xs border border-slate-700 transition-all flex items-center justify-center"
+
+            <button
+              onClick={() => openAuthModal("login")}
+              className="w-full py-2.5 rounded-xl text-xs text-[#C5A059] hover:underline"
             >
-              {secondary.label}
-            </Link>
-          )}
-          <Link
-            to="/"
-            className="w-full py-3 rounded-xl bg-[#1B1F3B] hover:bg-slate-800 text-white font-bold text-xs border border-slate-700 tracking-wider uppercase shadow-md transition-all flex items-center justify-center"
-          >
-            ← {t('auth.return_storefront')}
-          </Link>
-          <button
-            onClick={() => openAuthModal('login')}
-            className="w-full py-2.5 rounded-xl text-xs text-[#C5A059] hover:underline"
-          >
-            {t('auth.switch_account')}
-          </button>
+              Switch Account / Re-authenticate
+            </button>
+          </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  }
+
+  // 3. Authorized -> Render Protected Content
+  return <>{children}</>;
 };
 
-export const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   return <RoleGuard>{children}</RoleGuard>;
 };

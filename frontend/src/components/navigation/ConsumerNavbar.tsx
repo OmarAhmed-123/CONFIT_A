@@ -62,19 +62,12 @@ export const ConsumerNavbar: React.FC = () => {
               <span>{isAdmin ? t('nav.admin_governance') : t('nav.brand_partner_hub')}</span>
             </Link>
           ) : (
-            /* 2026-09-19: this link used to point at /b2b for EVERY signed-in
-               consumer, which is exactly the dead-end "Access Restricted"
-               screen in the incident report. It now leads to the workflow that
-               can actually grant access — or to the live status of an
-               application already in review. */
             <Link
-              to={user?.partner_access === 'pending' ? '/partner/status' : '/partner/apply'}
+              to="/b2b"
               className="inline-flex items-center gap-1.5 text-slate-400 hover:text-[#C5A059] font-medium transition-colors text-xs"
             >
               <BrandDashboardIcon size={14} color="#C5A059" />
-              <span>
-                {user?.partner_access === 'pending' ? t('nav.partner_application') : t('nav.become_partner')}
-              </span>
+              <span>{t('nav.partner_portal')}</span>
             </Link>
           )}
           <div className="h-3 w-px bg-slate-800" />

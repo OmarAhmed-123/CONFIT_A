@@ -30,9 +30,7 @@
     "switch_to_consumer": "Consumer App",
     "partner_portal": "Partner Portal",
     "admin_governance": "Admin Governance",
-    "brand_partner_hub": "Brand Partner Hub",
-    "become_partner": "Become a Brand Partner",
-    "partner_application": "Your Partner Application"
+    "brand_partner_hub": "Brand Partner Hub"
   },
   "home": {
     "hero_title": "Where Style Meets Your Character in Every Moment",
@@ -197,34 +195,5 @@
   "b2b_layout": {
     "platform_title": "CONFIT B2B Brand & Admin Telemetry Platform",
     "switch_to_consumer": "← Switch to Consumer App"
-  },
-  "auth": {
-    "gate_eyebrow": "Sign-in required",
-    "authentication_required": "Authentication Required",
-    "gate_401_body": "This area belongs to a signed-in account. Sign in and you will come straight back here.",
-    "sign_in_to_continue": "Sign in to continue",
-    "create_account": "Create an account",
-    "return_storefront": "Return to storefront",
-    "role_restriction": "Role restriction",
-    "status_pending": "Application in review",
-    "gate_403_generic": "Your account does not have the role this area requires. Nothing is broken — this area is reserved for accounts with explicit, server-granted access.",
-    "account_suspended": "Account suspended",
-    "gate_suspended_body": "This account is deactivated. Contact CONFIT support and we will review it with you.",
-    "partner_review_in_progress": "Partner review in progress",
-    "gate_pending_body": "Your partner application is with the CONFIT review team. Brand access is enabled the moment a decision is recorded.",
-    "partner_application_rejected": "Partner application not approved",
-    "gate_rejected_body": "Your application was reviewed and access was not granted. You can review the note and apply again with updated details.",
-    "apply_again": "Apply again",
-    "verify_email_first": "Verify your email first",
-    "gate_verify_body": "Confirm your email address — partner decisions and security notices are delivered by email.",
-    "verify_email": "Verify email",
-    "partner_access_not_enabled": "Brand access is not enabled for this account",
-    "gate_apply_body": "This portal is for approved brand partners. Applying takes a minute: you submit your brand details and CONFIT reviews them.",
-    "apply_for_partner_access": "Apply for partner access",
-    "gate_admin_body": "Platform governance is limited to CONFIT administrators. If you believe this is a mistake, contact the platform team.",
-    "signed_in_as": "Signed in as",
-    "current_role": "role",
-    "switch_account": "Sign in with a different account",
-    "view_application_status": "View application status"
   }
 }

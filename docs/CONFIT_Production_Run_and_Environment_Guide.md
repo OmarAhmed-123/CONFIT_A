@@ -75,22 +75,12 @@ S3_SECRET_KEY="minioadmin"
 S3_BUCKET_PRIVATE="confit-private"
 S3_BUCKET_PUBLIC="confit-public"
 
-# ── Transactional Email ──────────────────────────────────────────────────────
-# Canonical names only (backend/.env.example §9 is the source of truth; the
-# runtime reads these exact variables — there are no aliases). Leave
-# EMAIL_PROVIDER empty in dev: the send-side endpoints then answer
-# 501 FEATURE_NOT_CONFIGURED and the delivery ledger records BLOCKED.
-EMAIL_PROVIDER="smtp"                 # "smtp" | "resend" | "" (disabled)
-SMTP_HOST="smtp.example.com"
-SMTP_PORT=587
-SMTP_USERNAME=""                      # SMTP_USERNAME, never SMTP_USER
-SMTP_PASSWORD=""                      # SMTP_PASSWORD, never SMTP_PASS
-SMTP_TLS_MODE="starttls"              # starttls | ssl ; "none" is refused in production
-EMAIL_FROM_ADDRESS="CONFIT <no-reply@confit.io>"
-EMAIL_REPLY_TO=""
-# EMAIL_FROM_ADDRESS replaces the old MAIL_FROM_NAME (a display name belongs
-# inside the address, e.g. "CONFIT <no-reply@confit.io>").
-FRONTEND_BASE_URL="https://confit-a.vercel.app"   # must be https:// in production
+# ── Transactional Email (Gmail App Password) ─────────────────────────────────
+SMTP_HOST="smtp.gmail.com"
+SMTP_PORT=465
+SMTP_USER="omarsafealden@gmail.com"
+SMTP_PASS=""
+MAIL_FROM_NAME="CONFIT"
 
 # ── Privacy & B2B K-Anonymity ────────────────────────────────────────────────
 POLICY_VERSION=3

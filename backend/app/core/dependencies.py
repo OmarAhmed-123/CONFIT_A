@@ -137,21 +137,12 @@ def require_admin_recent(max_age_minutes: int = 60):
     return checker
 
 
-def require_brand_scope(
-    user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-) -> User:
-    """Enforces that the user belongs to an active Brand Organization or is a Platform Admin.
-
-    Membership is resolved through `brand_scope_service`: an owning account
-    (brand_profiles.user_id) or an invited team member (brand_members) both
-    satisfy the guard. Authorization is unchanged for admins and consumers.
-    """
+def require_brand_scope(user: User = Depends(get_current_user)) -> User:
+    """Enforces that the user belongs to an active Brand Organization or is a Platform Admin."""
     if user.role == UserRole.ADMIN:
         return user
     if user.role not in [UserRole.BRAND_OWNER, UserRole.BRAND_MANAGER, UserRole.BRAND_STAFF]:
         raise AuthorizationError("Access denied: Brand Organization membership required.")
-    from backend.app.services import brand_scope_service as brand_scope
-    if brand_scope.resolve_brand(db, user) is None:
+    if not user.brand_profile:
         raise AuthorizationError("Access denied: No brand organization linked to this account.")
     return user

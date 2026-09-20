@@ -152,7 +152,7 @@ def test_forgot_password_sends_real_one_time_link(client, _smtp, email_on):
 
     r = client.post("/api/v1/auth/forgot-password", json={"email": email}, headers=_csrf(client))
     assert r.status_code == 200
-    assert r.json()["status"] == "queued"
+    assert r.json()["status"] == "requested"
     (msg,) = _smtp.sent
     body = msg.get_body(preferencelist=("plain",)).get_content()
     assert "https://app.confit.test/reset-password?token=" in body
@@ -176,7 +176,7 @@ def test_forgot_password_sends_real_one_time_link(client, _smtp, email_on):
 def test_forgot_password_unknown_email_no_leak_no_send(client, _smtp, email_on):
     r_known_shape = client.post("/api/v1/auth/forgot-password", json={"email": "nobody@example.com"}, headers=_csrf(client))
     assert r_known_shape.status_code == 200
-    assert r_known_shape.json()["status"] == "queued"
+    assert r_known_shape.json()["status"] == "requested"
     assert _smtp.sent == []
 
 
@@ -187,7 +187,7 @@ def test_forgot_password_smtp_failure_does_not_leak(client, _smtp, email_on):
     _smtp.reject = True
     r = client.post("/api/v1/auth/forgot-password", json={"email": email}, headers=_csrf(client))
     assert r.status_code == 200  # non-committal, exactly like success
-    assert r.json()["status"] == "queued"
+    assert r.json()["status"] == "requested"
 
 
 def test_forgot_password_still_501_when_unconfigured(client, _smtp):
@@ -287,3 +287,153 @@ def test_production_boots_refuse_provider_without_smtp_host(monkeypatch):
             FRONTEND_BASE_URL="https://app.confit.test",
         )
     assert "SMTP_HOST" in str(ei.value)
+
+
+def test_production_boots_refuse_cleartext_smtp(monkeypatch):
+    """§14: `SMTP_TLS_MODE=none` means credentials and message bodies cross the
+    network in clear text — production must refuse to start, not warn."""
+    from backend.app.core.config import Settings
+
+    strong = "x" * 64
+    with pytest.raises(Exception) as ei:
+        Settings(
+            ENVIRONMENT="production",
+            DATABASE_URL="postgresql://u:p@h:5432/db",
+            SECRET_KEY=strong,
+            JWT_REFRESH_SECRET=strong,
+            ENCRYPTION_KEY_FOR_BODY_DATA=strong,
+            EMAIL_PROVIDER="smtp",
+            SMTP_HOST="smtp.example.com",
+            SMTP_USERNAME="u",
+            SMTP_PASSWORD="p",
+            SMTP_TLS_MODE="none",
+            EMAIL_FROM_ADDRESS="no-reply@confit.test",
+            FRONTEND_BASE_URL="https://app.confit.test",
+        )
+    assert "SMTP_TLS_MODE" in str(ei.value)
+
+
+def test_production_boots_refuse_non_https_link_base(monkeypatch):
+    """§14: every emailed link is built from FRONTEND_BASE_URL. A non-https base
+    would mail out http:// links (token theft on the wire) — refuse to boot."""
+    from backend.app.core.config import Settings
+
+    strong = "x" * 64
+    for bad_base in ("http://app.confit.test", "confit.test", "javascript:alert(1)"):
+        with pytest.raises(Exception) as ei:
+            Settings(
+                ENVIRONMENT="production",
+                DATABASE_URL="postgresql://u:p@h:5432/db",
+                SECRET_KEY=strong,
+                JWT_REFRESH_SECRET=strong,
+                ENCRYPTION_KEY_FOR_BODY_DATA=strong,
+                EMAIL_PROVIDER="smtp",
+                SMTP_HOST="smtp.example.com",
+                SMTP_USERNAME="u",
+                SMTP_PASSWORD="p",
+                SMTP_TLS_MODE="starttls",
+                EMAIL_FROM_ADDRESS="no-reply@confit.test",
+                FRONTEND_BASE_URL=bad_base,
+            )
+        assert "FRONTEND_BASE_URL" in str(ei.value), bad_base
+
+
+# ---------------------------------------------------------------------------
+# Stale-claim recovery (crash between claiming the key and recording the result)
+# ---------------------------------------------------------------------------
+
+def _plant_stale_claim(db, key: str, age_minutes: int):
+    """A claim row exactly as a crashed worker would leave it: committed, with
+    no provider result ever recorded."""
+    from datetime import datetime, timedelta, timezone
+    from backend.app.models.user import EmailDelivery, EmailDeliveryStatus
+
+    row = EmailDelivery(
+        purpose="verify_email",
+        idempotency_key=key,
+        status=EmailDeliveryStatus.RETRYING,
+        provider="smtp",
+        attempts=0,
+        created_at=datetime.now(timezone.utc) - timedelta(minutes=age_minutes),
+    )
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+def test_stale_claim_resolves_to_unknown_without_resending(client, _smtp, email_on):
+    """A process that dies mid-send must not leave the ledger claiming progress
+    forever, and the recovery must not put a second copy on the wire."""
+    from backend.app.core.database import SessionLocal
+    from backend.app.models.user import EmailDelivery, EmailDeliveryStatus
+    from backend.app.services import email_service
+
+    db = SessionLocal()
+    try:
+        row = _plant_stale_claim(db, "verify_email:deadbeef", age_minutes=120)
+        sent_before = len(_smtp.sent)
+
+        resolved = email_service.resolve_stale_delivery_claims(db)
+        assert resolved == 1
+
+        db.refresh(row)
+        assert row.status == EmailDeliveryStatus.UNKNOWN
+        assert row.error_class == "provider_result_unknown"
+        assert len(_smtp.sent) == sent_before, "recovery must never re-send"
+    finally:
+        db.close()
+
+
+def test_fresh_claim_is_left_alone(client, _smtp, email_on):
+    """A send that is legitimately in flight must not be terminalised."""
+    from backend.app.core.database import SessionLocal
+    from backend.app.models.user import EmailDeliveryStatus
+    from backend.app.services import email_service
+
+    db = SessionLocal()
+    try:
+        row = _plant_stale_claim(db, "verify_email:in-flight", age_minutes=0)
+        assert email_service.resolve_stale_delivery_claims(db) == 0
+        db.refresh(row)
+        assert row.status == EmailDeliveryStatus.RETRYING
+    finally:
+        db.close()
+
+
+def test_resolver_is_idempotent(client, _smtp, email_on):
+    from backend.app.core.database import SessionLocal
+    from backend.app.services import email_service
+
+    db = SessionLocal()
+    try:
+        _plant_stale_claim(db, "verify_email:once-only", age_minutes=60)
+        assert email_service.resolve_stale_delivery_claims(db) == 1
+        assert email_service.resolve_stale_delivery_claims(db) == 0
+    finally:
+        db.close()
+
+
+def test_unknown_claim_replays_honestly_and_never_resends(client, _smtp, email_on):
+    """The same key afterwards reports 'unknown' (accepted=False) — never a
+    fake success, and never a second transmission."""
+    from backend.app.core.database import SessionLocal
+    from backend.app.models.user import EmailDeliveryStatus
+    from backend.app.services import email_service
+
+    db = SessionLocal()
+    try:
+        _plant_stale_claim(db, "verify_email:abandoned", age_minutes=90)
+        email_service.resolve_stale_delivery_claims(db)
+        sent_before = len(_smtp.sent)
+
+        replay = email_service.send_transactional(
+            db, to="abandoned@example.com", subject="s", html="<b>x</b>", text="x",
+            purpose="verify_email", dedupe_key="abandoned",
+        )
+        assert replay.idempotent_replay is True
+        assert replay.status == EmailDeliveryStatus.UNKNOWN
+        assert replay.accepted is False
+        assert len(_smtp.sent) == sent_before, "a resolved key must not send again"
+    finally:
+        db.close()

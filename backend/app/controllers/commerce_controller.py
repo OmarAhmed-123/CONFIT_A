@@ -432,7 +432,8 @@ def reject_return(
     if not req:
         raise ResourceNotFoundError("ReturnRequest", return_id)
     if user.role != UserRole.ADMIN:
-        brand = user.brand_profile
+        from backend.app.services import brand_scope_service as brand_scope
+        brand = brand_scope.resolve_brand(db, user)
         if brand is None or any(it.order_item.brand_id != brand.id for it in req.items if it.order_item):
             raise AuthorizationError("You may only reject returns for your own brand's items.")
     result = service.reject_return(return_id, payload.reason)

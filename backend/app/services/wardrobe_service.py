@@ -1,10 +1,12 @@
 import base64
 import hashlib
+import io
 import json
 import os
 import uuid
 from typing import List, Dict, Any, Optional, Tuple
 from sqlalchemy.exc import IntegrityError
+from PIL import Image, UnidentifiedImageError
 from sqlalchemy.orm import Session
 from backend.app.core.config import settings
 from backend.app.core.exceptions import ResourceNotFoundError, ValidationDomainError, ProviderIntegrationError, FeatureNotConfiguredError
@@ -327,8 +329,16 @@ class WardrobeService:
         self._delete_owned_image(image_url)  # no orphaned media (BRD §14)
 
     # ─────────────────── image upload pipeline ─────────────────
-    def _validate_image(self, content_type: Optional[str], data: bytes) -> str:
-        """Returns the file extension for a validated image or raises."""
+    def _validate_image(
+        self, content_type: Optional[str], data: bytes, filename: Optional[str] = None
+    ) -> str:
+        """Returns the file extension for a validated image or raises.
+
+        Browser-provided MIME headers are only advisory. The server also
+        decodes the bytes with Pillow and checks the actual image format so
+        malformed binaries, spoofed MIME types, and extension/MIME mismatches
+        fail before anything is persisted to wardrobe storage.
+        """
         mime = (content_type or "").split(";")[0].strip().lower()
         if mime not in ALLOWED_IMAGE_TYPES:
             raise ValidationDomainError(
@@ -338,7 +348,28 @@ class WardrobeService:
             raise ValidationDomainError("Uploaded file is empty.")
         if len(data) > MAX_IMAGE_BYTES:
             raise ValidationDomainError("Image exceeds the 15MB size limit.")
-        return ALLOWED_IMAGE_TYPES[mime]
+
+        expected_ext = ALLOWED_IMAGE_TYPES[mime]
+        supplied_ext = os.path.splitext(filename or "")[1].lower()
+        if supplied_ext == ".jpeg":
+            supplied_ext = ".jpg"
+        if supplied_ext and supplied_ext not in ALLOWED_IMAGE_TYPES.values():
+            raise ValidationDomainError("Unsupported image file extension. Allowed: .jpg, .jpeg, .png, .webp.")
+        if supplied_ext and supplied_ext != expected_ext:
+            raise ValidationDomainError("Image file extension does not match the declared content type.")
+
+        try:
+            with Image.open(io.BytesIO(data)) as image:
+                image.verify()
+                actual_format = (image.format or "").upper()
+        except (UnidentifiedImageError, OSError, ValueError) as exc:
+            raise ValidationDomainError("Uploaded file is not a valid image.") from exc
+
+        format_to_mime = {"JPEG": "image/jpeg", "PNG": "image/png", "WEBP": "image/webp"}
+        actual_mime = format_to_mime.get(actual_format)
+        if actual_mime != mime:
+            raise ValidationDomainError("Image bytes do not match the declared content type.")
+        return expected_ext
 
     def _store_image(self, user_id: int, data: bytes, ext: str) -> Tuple[str, str]:
         """Persist bytes under the existing local storage root and return
@@ -389,7 +420,7 @@ class WardrobeService:
         for filename, content_type, data in files:
             entry: Dict[str, Any] = {"filename": filename}
             try:
-                ext = self._validate_image(content_type, data)
+                ext = self._validate_image(content_type, data, filename)
                 image_url, digest = self._store_image(user_id, data, ext)
 
                 existing = self.wardrobe_repo.get_item_by_image_hash(user_id, digest)

@@ -42,7 +42,7 @@ export const ConsumerNavbar: React.FC = () => {
   const isAdmin = user?.role?.toLowerCase() === 'admin';
 
   return (
-    <>
+    <header className="z-40">
       {/* Top Thin Luxury Bar */}
       <div className="bg-[#0C0E1E] text-slate-400 text-xs py-1.5 px-4 sm:px-8 flex justify-between items-center border-b border-slate-800/80">
         <div className="flex items-center gap-2">
@@ -76,7 +76,7 @@ export const ConsumerNavbar: React.FC = () => {
       </div>
 
       {/* Main Consumer Navigation Bar */}
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-2xs transition-all">
+      <div className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-2xs transition-all">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
           {/* Far Left: CONFIT Master Logo */}
           <div className="flex items-center gap-8">
@@ -85,7 +85,7 @@ export const ConsumerNavbar: React.FC = () => {
             </Link>
 
             {/* Desktop Primary Nav */}
-            <nav className="hidden lg:flex items-center gap-1 xl:gap-2">
+            <nav aria-label="Primary consumer navigation" className="hidden lg:flex items-center gap-1 xl:gap-2">
               {/* 1. Home Anchor */}
               <Link
                 to="/"
@@ -485,7 +485,7 @@ export const ConsumerNavbar: React.FC = () => {
             )}
           </div>
         </div>
-      </header>
-    </>
+      </div>
+    </header>
   );
 };

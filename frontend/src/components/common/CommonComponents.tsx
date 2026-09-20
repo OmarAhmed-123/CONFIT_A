@@ -139,7 +139,7 @@ export const EmptyState: React.FC<{
     <div className="w-14 h-14 rounded-2xl bg-[#FDF8EE] border border-[#C5A059]/20 flex items-center justify-center text-[#C5A059] mb-3.5 shadow-2xs">
       {icon || <SparkleIcon size={26} color="#C5A059" />}
     </div>
-    <h3 className="font-serif text-lg font-bold text-[#1B1F3B] mb-1">{title}</h3>
+    <h2 className="font-serif text-lg font-bold text-[#1B1F3B] mb-1">{title}</h2>
     <p className="text-xs text-slate-500 max-w-sm mb-4 leading-relaxed font-light">{description}</p>
     {actionText && onAction && (
       <button

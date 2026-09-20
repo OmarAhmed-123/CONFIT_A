@@ -1,7 +1,7 @@
 """tryon_jobs retention lifecycle (expires_at, consent_retained).
 
-Revision ID: 0019_vton_job_retention
-Revises: 0018_product_sleeve_length
+Revision ID: 0020_vton_job_retention
+Revises: 0019_product_sleeve_length
 Create Date: 2026-09-19
 
 Root cause (2026-09-19 complete gap audit, privacy lifecycle):
@@ -30,8 +30,8 @@ import sqlalchemy as sa
 from sqlalchemy import inspect, text
 
 
-revision: str = "0019_vton_job_retention"
-down_revision: Union[str, None] = "0018_product_sleeve_length"
+revision: str = "0020_vton_job_retention"
+down_revision: Union[str, None] = "0019_product_sleeve_length"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

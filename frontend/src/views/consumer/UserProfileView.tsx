@@ -8,6 +8,7 @@ import { CircularGalleryShowcase } from '../../components/showcase/DesignShowcas
 import { useUIStore } from '../../stores/uiStore';
 import { SparkleIcon, UserIcon, RulerIcon, ShieldIcon } from '../../components/icons/ConfitIcons';
 import { LoadingSpinner } from '../../components/common/CommonComponents';
+import { AccountSecurityPanel } from '../../components/account/AccountSecurityPanel';
 
 export const UserProfileView: React.FC = () => {
   const { t } = useTranslation();
@@ -620,6 +621,10 @@ export const UserProfileView: React.FC = () => {
           )}
         </div>
       )}
+
+      {/* Account & sign-in email state (2026-09-19): verification status with
+          the REAL delivery outcome, plus the two-step email change. */}
+      {isAuthenticated && <AccountSecurityPanel />}
 
       {/* Security — Change Password (cycle 9): the only in-product password
           rotation path while email delivery is unprovisioned; also the

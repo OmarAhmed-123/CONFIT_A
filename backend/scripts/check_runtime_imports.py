@@ -65,7 +65,17 @@ LOCAL_PACKAGES = {"pipeline", "services", "worker", "modal_app", "backend", "api
                   # CONFIT's VTON engine adapter package (services/vton-worker/engine).
                   # A local package, not a third-party dependency: the Docker image
                   # ships it as repo source, so it must NOT be declared as a pip pin.
-                  "engine"}
+                  "engine",
+                  # Evaluation-only metric packages under evaluation/ (imported by
+                  # the architecture test suite via an explicit sys.path insert —
+                  # see backend/tests/test_architecture_dynamic.py). Repo source,
+                  # not a PyPI distribution: a pip pin is impossible and wrong.
+                  "vton_metrics",
+                  # Sibling test modules imported by name across the test suite
+                  # (e.g. test_architecture_contracts.py reuses fixtures/helpers
+                  # from test_architecture_dynamic). Test-only repo source in the
+                  # same directory — never a third-party dependency.
+                  "test_architecture_dynamic"}
 
 # Packages the Vercel function may legitimately lack. EVERY entry must name
 # the guard that makes the absence safe; an unguarded lazy import is NOT

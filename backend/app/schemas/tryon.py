@@ -7,7 +7,12 @@ class TryOnJobCreate(BaseModel):
     product_ids: List[int]
     user_image_url: Optional[str] = None
     user_image_base64: Optional[str] = None
-    avatar_model_id: Optional[str] = "avatar_athletic_m"
+    # EXPLICIT person reference only (2026-09-05 pose/identity directive,
+    # re-confirmed in the 2026-09-19 complete gap audit): None = no
+    # reference supplied. The service raises VTON_INPUT_INVALID when no
+    # photo AND no explicit avatar is given — CONFIT never silently
+    # substitutes a stock person.
+    avatar_model_id: Optional[str] = None
     gender_mode: Optional[str] = "infer_from_image"
     output_aspect: Optional[str] = "9:16"
     background_mode: Optional[str] = "studio"
@@ -119,7 +124,12 @@ class TryOnRequest(BaseModel):
     product_id: int
     user_image_url: Optional[str] = None
     user_image_base64: Optional[str] = None
-    avatar_model_id: Optional[str] = "avatar_athletic_m"
+    # EXPLICIT person reference only (2026-09-05 pose/identity directive,
+    # re-confirmed in the 2026-09-19 complete gap audit): None = no
+    # reference supplied. The service raises VTON_INPUT_INVALID when no
+    # photo AND no explicit avatar is given — CONFIT never silently
+    # substitutes a stock person.
+    avatar_model_id: Optional[str] = None
     consent_retain_photo: bool = False
     custom_adjustments: Optional[Dict[str, Any]] = None
 
@@ -162,7 +172,12 @@ class MultiGarmentTryOnRequest(BaseModel):
     slot_mapping: Optional[Dict[str, int]] = {}
     user_image_url: Optional[str] = None
     user_image_base64: Optional[str] = None
-    avatar_model_id: Optional[str] = "avatar_athletic_m"
+    # EXPLICIT person reference only (2026-09-05 pose/identity directive,
+    # re-confirmed in the 2026-09-19 complete gap audit): None = no
+    # reference supplied. The service raises VTON_INPUT_INVALID when no
+    # photo AND no explicit avatar is given — CONFIT never silently
+    # substitutes a stock person.
+    avatar_model_id: Optional[str] = None
     gender_mode: Optional[str] = "infer_from_image"
     pose_mode: Optional[str] = "standing_front"
     background_mode: Optional[str] = "luxury_studio"
@@ -202,6 +217,15 @@ class AnimationKeyframeOut(BaseModel):
     brand_name: str
     image_url: str
     status: str
+    # Honest per-frame outcome (2026-09-19 gap audit): the service attaches
+    # ``failed``/``error``/``model_used``/``execution_time_ms`` to keyframes,
+    # and the response model previously STRIPPED them — a failed frame would
+    # reach the client with no structured failure marker (partial reported
+    # as complete). They are now part of the API contract.
+    failed: Optional[bool] = None
+    error: Optional[str] = None
+    model_used: Optional[str] = None
+    execution_time_ms: Optional[float] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -210,7 +234,12 @@ class AnimationTryOnRequest(BaseModel):
     product_ids: Optional[List[int]] = []
     slot_mapping: Optional[Dict[str, int]] = {}
     user_image_url: Optional[str] = None
-    avatar_model_id: Optional[str] = "avatar_athletic_m"
+    # EXPLICIT person reference only (2026-09-05 pose/identity directive,
+    # re-confirmed in the 2026-09-19 complete gap audit): None = no
+    # reference supplied. The service raises VTON_INPUT_INVALID when no
+    # photo AND no explicit avatar is given — CONFIT never silently
+    # substitutes a stock person.
+    avatar_model_id: Optional[str] = None
     gender_mode: Optional[str] = "infer_from_image"
     output_aspect: Optional[str] = "9:16"
     background_mode: Optional[str] = "studio"
@@ -231,6 +260,11 @@ class AnimationTryOnResponse(BaseModel):
     dynamic_animation_prompt: str
     applied_items: List[AppliedGarmentOut] = []
     total_price: float
+    # Honest per-keyframe verification outcome (2026-09-19 gap audit):
+    # frames requested / succeeded / which steps failed — so the client can
+    # never present a partial sequence as a complete, verified animation.
+    verification: Optional[Dict[str, Any]] = None
+    model_used: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 

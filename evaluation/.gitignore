@@ -1,0 +1,10 @@
+.eval_env
+results/
+outputs/
+__pycache__/
+*.pyc
+weights_local/
+.eval_urls
+.eval_vlm_urls
+fixtures/garments/*.jpg
+.eval_health_url

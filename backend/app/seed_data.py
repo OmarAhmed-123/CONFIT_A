@@ -239,6 +239,7 @@ def seed_database(target_engine=None, force=False):
             "occasion_tags": json.dumps(["wedding", "formal", "work", "business", "dinner", "party"]),
             "color_family": "Navy Blue",
             "dominant_hex": "#1B1F3B",
+            "sleeve_length": "long",  # S31 authoritative sleeve construction (auditor-verified 2026-09-16)
             "thumbnail_url": "https://images.unsplash.com/photo-1594938298603-c8148c4dae35?w=700&auto=format&fit=crop&q=80",
             "images": json.dumps([
                 "https://images.unsplash.com/photo-1594938298603-c8148c4dae35?w=700&auto=format&fit=crop&q=80"
@@ -269,6 +270,7 @@ def seed_database(target_engine=None, force=False):
             "occasion_tags": json.dumps(["wedding", "gala", "black_tie", "party"]),
             "color_family": "Midnight Black",
             "dominant_hex": "#111111",
+            "sleeve_length": "long",  # S31 authoritative sleeve construction (auditor-verified 2026-09-16)
             "thumbnail_url": "https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=700&auto=format&fit=crop&q=80",
             "images": json.dumps(["https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=700&auto=format&fit=crop&q=80"]),
             "rating": 4.9,
@@ -295,6 +297,7 @@ def seed_database(target_engine=None, force=False):
             "occasion_tags": json.dumps(["work", "casual", "dinner", "wedding"]),
             "color_family": "Optic White",
             "dominant_hex": "#FAF9F6",
+            "sleeve_length": "long",  # S31 authoritative sleeve construction (auditor-verified 2026-09-16)
             "thumbnail_url": "https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=700&auto=format&fit=crop&q=80",
             "images": json.dumps(["https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=700&auto=format&fit=crop&q=80"]),
             "rating": 4.8,
@@ -322,6 +325,7 @@ def seed_database(target_engine=None, force=False):
             "occasion_tags": json.dumps(["wedding", "work", "business", "dinner"]),
             "color_family": "Navy Blue",
             "dominant_hex": "#1B1F3B",
+            "sleeve_length": "none",  # S31 authoritative sleeve construction (auditor-verified 2026-09-16)
             "thumbnail_url": "https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=700&auto=format&fit=crop&q=80",
             "images": json.dumps(["https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=700&auto=format&fit=crop&q=80"]),
             "rating": 4.8,
@@ -349,6 +353,7 @@ def seed_database(target_engine=None, force=False):
             "occasion_tags": json.dumps(["wedding", "party", "gala", "dinner"]),
             "color_family": "Champagne Gold",
             "dominant_hex": "#D4AF37",
+            "sleeve_length": "none",  # S31 authoritative sleeve construction (auditor-verified 2026-09-16)
             "thumbnail_url": "https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=700&auto=format&fit=crop&q=80",
             "images": json.dumps(["https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=700&auto=format&fit=crop&q=80"]),
             "rating": 4.9,
@@ -375,6 +380,7 @@ def seed_database(target_engine=None, force=False):
             "occasion_tags": json.dumps(["wedding", "work", "business", "dinner"]),
             "color_family": "Obsidian Black",
             "dominant_hex": "#111111",
+            "sleeve_length": "none",  # S31 authoritative sleeve construction (auditor-verified 2026-09-16)
             "thumbnail_url": "https://images.unsplash.com/photo-1614252235316-8c857d38b5f4?w=700&auto=format&fit=crop&q=80",
             "images": json.dumps(["https://images.unsplash.com/photo-1614252235316-8c857d38b5f4?w=700&auto=format&fit=crop&q=80"]),
             "rating": 4.9,
@@ -402,6 +408,7 @@ def seed_database(target_engine=None, force=False):
             "occasion_tags": json.dumps(["wedding", "party", "gala", "dinner"]),
             "color_family": "Metallic Gold",
             "dominant_hex": "#C5A059",
+            "sleeve_length": "none",  # S31 authoritative sleeve construction (auditor-verified 2026-09-16)
             "thumbnail_url": "https://images.unsplash.com/photo-1543163521-1bf539c55dd2?w=700&auto=format&fit=crop&q=80",
             "images": json.dumps(["https://images.unsplash.com/photo-1543163521-1bf539c55dd2?w=700&auto=format&fit=crop&q=80"]),
             "rating": 4.8,
@@ -428,6 +435,7 @@ def seed_database(target_engine=None, force=False):
             "occasion_tags": json.dumps(["wedding", "work", "business", "dinner"]),
             "color_family": "Emerald Green",
             "dominant_hex": "#2D4A3E",
+            "sleeve_length": "none",  # S31 authoritative sleeve construction (auditor-verified 2026-09-16)
             "thumbnail_url": "https://images.unsplash.com/photo-1589756823695-278bc923f962?w=700&auto=format&fit=crop&q=80",
             "images": json.dumps(["https://images.unsplash.com/photo-1589756823695-278bc923f962?w=700&auto=format&fit=crop&q=80"]),
             "rating": 4.9,
@@ -453,6 +461,7 @@ def seed_database(target_engine=None, force=False):
             "occasion_tags": json.dumps(["wedding", "party", "gala", "dinner"]),
             "color_family": "Black & Gold",
             "dominant_hex": "#C5A059",
+            "sleeve_length": "none",  # S31 authoritative sleeve construction (auditor-verified 2026-09-16)
             "thumbnail_url": "https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=700&auto=format&fit=crop&q=80",
             "images": json.dumps(["https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=700&auto=format&fit=crop&q=80"]),
             "rating": 4.9,

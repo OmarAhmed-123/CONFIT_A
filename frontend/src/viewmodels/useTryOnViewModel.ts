@@ -313,7 +313,7 @@ export function useTryOnViewModel(initialProduct?: Product | null) {
           // Show toast with honest taxonomy
           if (honestMsg.includes("VTON_ENGINE_UNAVAILABLE")) {
             showToast(
-              "VTON engine unavailable: GPU worker not configured. Set VTON_WORKER_URL to enable real CatVTON inference.",
+              "VTON engine unavailable: GPU worker not configured. Set VTON_WORKER_URL to enable real GPU inference (fashn_vton_segfee).",
               "error",
             );
           } else if (honestMsg.includes("VTON_WORKER_NOT_READY")) {
@@ -474,10 +474,7 @@ export function useTryOnViewModel(initialProduct?: Product | null) {
             }
           }, 1200);
         }
-        showToast(
-          `Layer assembly sequence ready: ${successfulFrames.length} real keyframes generated via CatVTON.`,
-          "info",
-        );
+        showToast(`Layer assembly sequence ready: ${successfulFrames.length} real keyframes via per-layer GPU inference (fashn_vton_segfee).`, 'info');
       } else {
         throw new Error("VTON_ANIMATED_FAILED: No keyframes generated");
       }
@@ -494,24 +491,14 @@ export function useTryOnViewModel(initialProduct?: Product | null) {
       setErrorMessage(msg);
 
       // Honest taxonomy toast
-      if (msg.includes("VTON_ENGINE_UNAVAILABLE")) {
-        showToast(
-          "Animated try-on requires GPU worker: Set VTON_WORKER_URL for real per-layer CatVTON inference. No fake animation.",
-          "error",
-        );
-      } else if (msg.includes("VTON_WORKER_NOT_READY")) {
-        showToast(
-          "Animated try-on worker not ready. Please try again.",
-          "error",
-        );
-      } else if (
-        msg.includes("VTON_ANIMATED_FIRST_FRAME_FAILED") ||
-        msg.includes("VTON_ANIMATED_ALL_FAILED")
-      ) {
-        showToast(
-          "Animated try-on failed: first layer inference failed. No fake keyframes generated.",
-          "error",
-        );
+      if (msg.includes('VTON_ENGINE_UNAVAILABLE')) {
+        showToast('Animated try-on requires GPU worker: Set VTON_WORKER_URL for real per-layer GPU inference (fashn_vton_segfee). No fake animation.', 'error');
+      } else if (msg.includes('VTON_SLEEVES_NOT_VERIFIED')) {
+        showToast('The long sleeves of one of your garments could not be verified in the animation, so no complete, verified sequence was produced. Please try again.', 'error');
+      } else if (msg.includes('VTON_WORKER_NOT_READY')) {
+        showToast('Animated try-on worker not ready. Please try again.', 'error');
+      } else if (msg.includes('VTON_ANIMATED_FIRST_FRAME_FAILED') || msg.includes('VTON_ANIMATED_ALL_FAILED')) {
+        showToast('Animated try-on failed: first layer inference failed. No fake keyframes generated.', 'error');
       } else {
         showToast(`Animated try-on unavailable: ${msg.slice(0, 150)}`, "error");
       }

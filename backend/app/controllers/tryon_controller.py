@@ -229,6 +229,13 @@ async def render_animated_tryon(
             # A garment layer was not verified as applied by the engine: the request
             # cannot be a complete, verified outfit. Fail truthfully (502, engine output), never a partial "success".
             raise HTTPException(status_code=502, detail={"error": {"code": "VTON_LAYER_NOT_APPLIED", "message": err}})
+        elif "VTON_SLEEVES_NOT_VERIFIED" in err:
+            # S31: a garment declared long-sleeve in the catalog had no
+            # verifiably applied sleeves in the engine output (or its
+            # sleeve construction is undeclared in the catalog). The
+            # result cannot be claimed as a faithful long-sleeve render:
+            # explicit 502, no image delivered.
+            raise HTTPException(status_code=502, detail={"error": {"code": "VTON_SLEEVES_NOT_VERIFIED", "message": err}})
         elif "VTON_TIMEOUT" in err:
             raise HTTPException(status_code=504, detail={"error": {"code": "VTON_TIMEOUT", "message": err}})
         elif "VTON_WORKER_UNAVAILABLE" in err:
@@ -283,6 +290,13 @@ async def render_multi_garment_tryon(
             # A garment layer was not verified as applied by the engine: the request
             # cannot be a complete, verified outfit. Fail truthfully (502, engine output), never a partial "success".
             raise HTTPException(status_code=502, detail={"error": {"code": "VTON_LAYER_NOT_APPLIED", "message": err}})
+        elif "VTON_SLEEVES_NOT_VERIFIED" in err:
+            # S31: a garment declared long-sleeve in the catalog had no
+            # verifiably applied sleeves in the engine output (or its
+            # sleeve construction is undeclared in the catalog). The
+            # result cannot be claimed as a faithful long-sleeve render:
+            # explicit 502, no image delivered.
+            raise HTTPException(status_code=502, detail={"error": {"code": "VTON_SLEEVES_NOT_VERIFIED", "message": err}})
         elif "VTON_TIMEOUT" in err:
             raise HTTPException(status_code=504, detail={"error": {"code": "VTON_TIMEOUT", "message": err}})
         elif "VTON_WORKER_UNAVAILABLE" in err:
@@ -298,10 +312,12 @@ async def render_multi_garment_tryon(
 # 2. REST Session Pipeline Endpoints
 # =========================================================================
 class SessionInitRequest(BaseModel):
-    product_id: Optional[int] = 1
+    product_id: Optional[int] = None
     product_ids: Optional[List[int]] = []
     user_image_url: Optional[str] = None
-    avatar_model_id: Optional[str] = "avatar_athletic_m"
+    # Explicit person reference only (2026-09-05 directive): None + no
+    # photo => VTON_INPUT_INVALID, never a silent stock-person render.
+    avatar_model_id: Optional[str] = None
     consent_retain: Optional[bool] = False
 
 
@@ -343,7 +359,13 @@ async def create_tryon_session(
 ):
     service = TryOnService(db)
     try:
-        p_ids = payload.product_ids if payload.product_ids else ([payload.product_id] if payload.product_id else [1])
+        p_ids = payload.product_ids if payload.product_ids else ([payload.product_id] if payload.product_id else [])
+        if not p_ids:
+            # No silent default outfit (2026-09-19 gap audit: the old
+            # `else [1]` quietly rendered product 1 for an empty request).
+            raise RuntimeError(
+                "VTON_INPUT_INVALID: no garments specified - pass product_ids (or product_id) to create a try-on session."
+            )
         res = await service.execute_multi_garment_tryon(
             product_ids=p_ids,
             user_image_url=payload.user_image_url,
@@ -377,6 +399,13 @@ async def create_tryon_session(
             # A garment layer was not verified as applied by the engine: the request
             # cannot be a complete, verified outfit. Fail truthfully (502, engine output), never a partial "success".
             raise HTTPException(status_code=502, detail={"error": {"code": "VTON_LAYER_NOT_APPLIED", "message": err}})
+        elif "VTON_SLEEVES_NOT_VERIFIED" in err:
+            # S31: a garment declared long-sleeve in the catalog had no
+            # verifiably applied sleeves in the engine output (or its
+            # sleeve construction is undeclared in the catalog). The
+            # result cannot be claimed as a faithful long-sleeve render:
+            # explicit 502, no image delivered.
+            raise HTTPException(status_code=502, detail={"error": {"code": "VTON_SLEEVES_NOT_VERIFIED", "message": err}})
         elif "VTON_TIMEOUT" in err:
             raise HTTPException(status_code=504, detail={"error": {"code": "VTON_TIMEOUT", "message": err}})
         elif "VTON_WORKER_UNAVAILABLE" in err:
@@ -551,6 +580,13 @@ async def render_virtual_tryon(
             # A garment layer was not verified as applied by the engine: the request
             # cannot be a complete, verified outfit. Fail truthfully (502, engine output), never a partial "success".
             raise HTTPException(status_code=502, detail={"error": {"code": "VTON_LAYER_NOT_APPLIED", "message": err}})
+        elif "VTON_SLEEVES_NOT_VERIFIED" in err:
+            # S31: a garment declared long-sleeve in the catalog had no
+            # verifiably applied sleeves in the engine output (or its
+            # sleeve construction is undeclared in the catalog). The
+            # result cannot be claimed as a faithful long-sleeve render:
+            # explicit 502, no image delivered.
+            raise HTTPException(status_code=502, detail={"error": {"code": "VTON_SLEEVES_NOT_VERIFIED", "message": err}})
         elif "VTON_TIMEOUT" in err:
             raise HTTPException(status_code=504, detail={"error": {"code": "VTON_TIMEOUT", "message": err}})
         elif "VTON_WORKER_UNAVAILABLE" in err:

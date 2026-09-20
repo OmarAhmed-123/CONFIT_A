@@ -28,6 +28,7 @@ from backend.app.providers.tryon_provider import VirtualTryOnProvider
 from backend.app.services.styling.slot_layering_engine import SlotLayeringEngine
 from backend.app.services import vton_delivery
 from backend.app.services.vton_delivery import temporary_image_store
+from backend.app.services.vton_sleeve_gate import evaluate_layer_sleeves
 from backend.app.core.config import settings
 from backend.app.core.exceptions import (
     ResourceNotFoundError,
@@ -206,6 +207,69 @@ def check_person_bytes(raw: bytes, why: str = "image") -> None:
         )
 
 
+def _log_safe_url(url: str, limit: int = 100) -> str:
+    """Log-safe form of a URL: scheme + host + path only.
+
+    Query strings are stripped because image URLs may carry signed /
+    time-limited credentials (signed storage URLs, ?sig=...) that must
+    never enter structured logs (observability-without-sensitive-data).
+    """
+    if not url:
+        return ""
+    try:
+        from urllib.parse import urlsplit
+        parts = urlsplit(url)
+        if parts.scheme == "data":
+            # Never echo image bytes (even a prefix) into logs/errors.
+            mime = url.split(";", 1)[0].replace("data:", "")
+            return f"data:{mime} (data URL redacted)"
+        if parts.scheme in ("http", "https"):
+            return (f"{parts.scheme}://{parts.netloc}{parts.path}" or url)[:limit]
+    except Exception:  # noqa: BLE001
+        pass
+    return url.split("?")[0].split("#")[0][:limit]
+
+
+def vton_cert_hash(*, job_id: str, model_used: str, rendered_data_url: str) -> str:
+    """Verifiable VTON-CERT- traceability hash (BRD G3.1).
+
+    The hash is computed over the ACTUAL delivered artifact (the rendered
+    data URL), the job id and the model that produced it — so anyone
+    holding the delivered image can recompute and verify the certificate
+    string. Only the hash (never the bytes) is persisted in job metrics,
+    which keeps the no-durable-storage privacy contract intact.
+    """
+    payload = f"{job_id}|{model_used or 'unknown'}|{rendered_data_url}".encode()
+    return f"VTON-CERT-{hashlib.sha256(payload).hexdigest()[:16].upper()}"
+
+
+def _purge_vton_row_if_expired(obj: Any) -> bool:
+    """Opportunistic GDPR Art. 17 purge for ONE try-on row (job or session).
+
+    Serverless production does not run the Celery beat worker, so the
+    hourly purge daemon alone cannot enforce the 24h retention on
+    Vercel. This helper enforces the retention property at read time:
+    an expired, unconsented row has its person-photo references
+    replaced in place. Returns True when a purge happened.
+    """
+    expires_at = getattr(obj, "expires_at", None)
+    consent = getattr(obj, "consent_retained", False)
+    if expires_at is None or consent is True:
+        return False
+    if expires_at.tzinfo is None:  # SQLite returns naive datetimes; treat as UTC
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+    if expires_at > datetime.now(timezone.utc):
+        return False
+    changed = False
+    for attr in ("input_user_image_url", "user_image_url", "rendered_result_url",
+                 "input_person_image_url"):
+        val = getattr(obj, attr, None)
+        if val and val.startswith("data:image/"):
+            setattr(obj, attr, "[PURGED_FOR_PRIVACY]")
+            changed = True
+    return changed
+
+
 def _mime_from_bytes(raw: bytes) -> str:
     if raw[:8].startswith(b"\x89PNG"):
         return "image/png"
@@ -315,11 +379,15 @@ class TryOnService:
             try:
                 from backend.app.core.security import is_safe_image_url
                 if not is_safe_image_url(url):
-                    logger.warn("garment_fetch_blocked_unsafe_url", url=url[:100])
+                    logger.warn("garment_fetch_blocked_unsafe_url", url=_log_safe_url(url))
                     return None
-            except Exception:
-                # If security module fails, be conservative and allow but log
-                logger.warn("ssrf_check_failed_allowing", url=url[:100])
+            except Exception as e:
+                # Fail CLOSED: if the SSRF guard itself cannot run, the URL
+                # must not be fetched. (2026-09-19 gap audit: the previous
+                # fail-open path could let an unsafe URL through when the
+                # security module import failed.)
+                logger.error("ssrf_check_failed_blocking", url=_log_safe_url(url), error=str(e)[:100])
+                return None
 
         try:
             import httpx
@@ -331,13 +399,13 @@ class TryOnService:
                     headers={"User-Agent": "CONFIT-VTON/1.0"},
                 )
                 if resp.status_code != 200:
-                    logger.warn("garment_fetch_http_error", url=url[:100], status=resp.status_code)
+                    logger.warn("garment_fetch_http_error", url=_log_safe_url(url), status=resp.status_code)
                     return None
                 if len(resp.content) < MIN_IMAGE_BYTES:
-                    logger.warn("garment_fetch_too_small", url=url[:100], size=len(resp.content))
+                    logger.warn("garment_fetch_too_small", url=_log_safe_url(url), size=len(resp.content))
                     return None
                 if len(resp.content) > MAX_IMAGE_BYTES:
-                    logger.warn("garment_fetch_too_large", url=url[:100], size=len(resp.content))
+                    logger.warn("garment_fetch_too_large", url=_log_safe_url(url), size=len(resp.content))
                     return None
 
                 # MIME detection
@@ -360,19 +428,19 @@ class TryOnService:
                     img2 = Image.open(io.BytesIO(resp.content))
                     w, h = img2.size
                     if w > MAX_IMAGE_DIMENSION or h > MAX_IMAGE_DIMENSION:
-                        logger.warn("garment_fetch_dimensions_too_large", url=url[:100], w=w, h=h)
+                        logger.warn("garment_fetch_dimensions_too_large", url=_log_safe_url(url), w=w, h=h)
                         return None
                     if w < 32 or h < 32:
-                        logger.warn("garment_fetch_dimensions_too_small", url=url[:100], w=w, h=h)
+                        logger.warn("garment_fetch_dimensions_too_small", url=_log_safe_url(url), w=w, h=h)
                         return None
                 except Exception as e:
-                    logger.warn("garment_fetch_invalid_image", url=url[:100], error=str(e)[:100])
+                    logger.warn("garment_fetch_invalid_image", url=_log_safe_url(url), error=str(e)[:100])
                     return None
 
                 b64 = base64.b64encode(resp.content).decode()
                 return f"data:{mime};base64,{b64}"
         except Exception as e:
-            logger.warn("garment_fetch_failed", url=url[:100], error=str(e)[:200])
+            logger.warn("garment_fetch_failed", url=_log_safe_url(url), error=str(e)[:200])
         return None
 
     async def _build_garments_payload(self, products) -> List[Dict[str, Any]]:
@@ -410,12 +478,17 @@ class TryOnService:
             if slot not in SUPPORTED_SLOTS:
                 slot = DEFAULT_VTON_SLOT
 
+            # Authoritative sleeve construction (catalog product data —
+            # consumed by the per-layer sleeve-integrity gate after render).
+            sleeve_length = getattr(p, "sleeve_length", None)
+
             # Try to fetch as base64 first for reliability (avoids worker SSRF/fetch issues)
             b64 = await self._fetch_image_as_base64(p.thumbnail_url)
             if b64:
                 garments.append({
                     "product_id": p.id,
                     "slot_type": slot,
+                    "sleeve_length": sleeve_length,
                     "image_base64": b64
                 })
             else:
@@ -423,6 +496,7 @@ class TryOnService:
                 garments.append({
                     "product_id": p.id,
                     "slot_type": slot,
+                    "sleeve_length": sleeve_length,
                     "image_url": p.thumbnail_url
                 })
         # Deterministic anatomical layering (single source of truth:
@@ -453,7 +527,7 @@ class TryOnService:
                 )
             head, b64 = data_url.split(",", 1)
             raw = base64.b64decode(b64)
-            check_person_bytes(raw, f"URL {person_ref[:80]}")
+            check_person_bytes(raw, f"URL {_log_safe_url(person_ref, 120)}")
             return data_url
 
         if person_ref.startswith("data:image"):
@@ -804,7 +878,10 @@ class TryOnService:
         product_ids: List[int],
         user_image_url: Optional[str] = None,
         user_image_base64: Optional[str] = None,
-        avatar_model_id: Optional[str] = "avatar_athletic_m",
+        # Explicit person reference only (2026-09-05 directive): a caller that
+        # supplies neither a photo nor an explicit avatar_id gets VTON_INPUT_INVALID
+        # from resolve_person_reference — never a silent stock-person substitution.
+        avatar_model_id: Optional[str] = None,
         gender_mode: Optional[str] = "infer_from_image",
         output_aspect: Optional[str] = "9:16",
         background_mode: Optional[str] = "studio",
@@ -857,6 +934,13 @@ class TryOnService:
             ),
             model_used="pending (no render yet)",
             delivery_token_hash=delivery_token_hash,
+            # PRIVACY RETENTION (BRD 24h default / GDPR Art. 17): the job row
+            # may hold the uploaded person photo (input_person_image_url),
+            # so it carries the same consent/retention lifecycle as sessions.
+            expires_at=datetime.fromtimestamp(
+                time.time() + (720 if consent_retain_photo else 24) * 3600, tz=timezone.utc
+            ),
+            consent_retained=bool(consent_retain_photo),
             metrics_json=json.dumps({"queued_at": str(datetime.now(timezone.utc))})
         )
         self.db.add(job)
@@ -911,6 +995,28 @@ class TryOnService:
                         output_aspect=output_aspect or "9:16"
                     )
                     rendered = gpu_data.get("rendered_image_data_url")
+                    # S31 sleeve-integrity gate (per layer, AFTER the engine's
+                    # verify.PASS): the engine's verify gate is structurally
+                    # blind to dropped long sleeves (measured 2026-09-15:
+                    # verify.PASS=True on a sleeveless render of a long-sleeve
+                    # garment). For catalog garments declared "long", the
+                    # rendered output must show garment-colored forearms; an
+                    # undeclared sleeve construction is refused (never guess).
+                    # A refusal raises VTON_SLEEVES_NOT_VERIFIED -> honest job
+                    # failure, NO image staged/delivered.
+                    _sleeve_decision = await evaluate_layer_sleeves(
+                        slot_type=g.get("slot_type"),
+                        sleeve_length=g.get("sleeve_length"),
+                        output_data_url=rendered,
+                        # The layer's INPUT (uploaded person for layer 1, the
+                        # previous layer's output otherwise) — the differential
+                        # probe compares output vs input to isolate NEW
+                        # garment color (the applied sleeve).
+                        input_data_url=person_for_layer,
+                        garment_ref=g.get("image_base64") or g.get("image_url") or "",
+                        product_id=g.get("product_id"),
+                        layer=li,
+                    )
                     # Record EACH layer's verification outcome. The worker
                     # always returns 200 + an image; verify.PASS=False means
                     # that layer's garment did not materially change the image
@@ -924,6 +1030,9 @@ class TryOnService:
                         "execution_time_ms": gpu_data.get("execution_time_ms"),
                         "verify_pass": _lv.get("PASS"),
                         "metric_pixel_change": _lv.get("metric_pixel_change"),
+                        "sleeve_gate": _sleeve_decision.get("status"),
+                        "sleeve_gate_reason": _sleeve_decision.get("reason"),
+                        "sleeve_forearm_coverage": _sleeve_decision.get("coverage"),
                     })
                     # Output becomes the input for the next layer
                     # (sequential architecture); the uploaded person remains
@@ -973,6 +1082,14 @@ class TryOnService:
                 # this to show a truthful state instead of a false "complete
                 # outfit verified" success when a layer's garment was not
                 # actually applied by the engine.
+                # Verifiable traceability certificate (BRD G3.1): hash over
+                # the actual delivered artifact + job + model (only the hash
+                # is persisted - no image bytes leave this process).
+                _metrics["traceability_hash"] = vton_cert_hash(
+                    job_id=job.job_id,
+                    model_used=gpu_data.get("model_used") or "unknown",
+                    rendered_data_url=rendered,
+                )
                 _metrics["verification"] = {
                     "all_layers_verified": _all_layers_verified,
                     "layers_requested": len(layers_meta),
@@ -1034,6 +1151,8 @@ class TryOnService:
                     error_code = "VTON_WORKER_NOT_READY"
                 elif "VTON_LAYER_NOT_APPLIED" in error_str:
                     error_code = "VTON_LAYER_NOT_APPLIED"
+                elif "VTON_SLEEVES_NOT_VERIFIED" in error_str:
+                    error_code = "VTON_SLEEVES_NOT_VERIFIED"
                 elif "VTON_INPUT_INVALID" in error_str or "VTON_GARMENT_ASSET_INVALID" in error_str:
                     error_code = "VTON_INPUT_INVALID"
                 elif "VTON_OUTPUT_INVALID" in error_str:
@@ -1048,10 +1167,11 @@ class TryOnService:
                 job.status = TryOnJobStatus.FAILED
                 job.current_stage = "failed"
                 job.error_code = error_code
-                # A layer-not-applied failure already carries a complete, honest
-                # message from the render contract; do not prefix it as a generic
-                # worker failure (it is the engine not applying the garment).
-                if error_code == "VTON_LAYER_NOT_APPLIED":
+                # A layer-not-applied / sleeves-not-verified failure already
+                # carries a complete, honest message from the render contract;
+                # do not prefix it as a generic worker failure (it is the
+                # engine not applying the garment construction).
+                if error_code in ("VTON_LAYER_NOT_APPLIED", "VTON_SLEEVES_NOT_VERIFIED"):
                     job.error_message = error_str[:500]
                 else:
                     job.error_message = f"GPU Inference Worker Failure: {error_str[:500]}"
@@ -1067,7 +1187,7 @@ class TryOnService:
         job.status = TryOnJobStatus.FAILED
         job.current_stage = "failed"
         job.error_code = "VTON_ENGINE_UNAVAILABLE"
-        job.error_message = "No GPU inference worker is configured (VTON_WORKER_URL). Set VTON_WORKER_URL to enable real CatVTON inference."
+        job.error_message = "No GPU inference worker is configured (VTON_WORKER_URL). Set VTON_WORKER_URL to enable real GPU inference (fashn_vton_segfee)."
         job.model_used = "none (no render performed)"
         job.metrics_json = json.dumps({})
         self.db.commit()
@@ -1095,6 +1215,11 @@ class TryOnService:
         job = self.db.query(TryOnJob).filter(TryOnJob.job_id == job_id).first()
         if not job:
             raise ResourceNotFoundError("TryOnJob", job_id)
+        # GDPR Art. 17 retention enforcement at read time (the hourly purge
+        # daemon may not run on serverless; an expired unconsented row is
+        # purged in place before it is ever reported).
+        if _purge_vton_row_if_expired(job):
+            self.db.commit()
         if job.user_id is not None:
             if job.user_id != caller_user_id:
                 raise ResourceNotFoundError("TryOnJob", job_id)
@@ -1362,7 +1487,10 @@ class TryOnService:
         slot_mapping: Optional[Dict[str, int]] = None,
         user_image_url: Optional[str] = None,
         user_image_base64: Optional[str] = None,
-        avatar_model_id: Optional[str] = "avatar_athletic_m",
+        # Explicit person reference only (2026-09-05 directive): a caller that
+        # supplies neither a photo nor an explicit avatar_id gets VTON_INPUT_INVALID
+        # from resolve_person_reference — never a silent stock-person substitution.
+        avatar_model_id: Optional[str] = None,
         gender_mode: Optional[str] = "infer_from_image",
         user_id: Optional[int] = None,
         consent_retain_photo: bool = False,
@@ -1447,6 +1575,21 @@ class TryOnService:
                         gender_mode=gender_mode or "infer_from_image",
                         output_aspect="9:16"
                     )
+                    # S31 sleeve-integrity gate (per layer, AFTER the engine's
+                    # verify.PASS) — same contract as the async job path:
+                    # "long" garments must show garment-colored forearms in the
+                    # output; undeclared sleeve construction is refused.
+                    # Refusal raises VTON_SLEEVES_NOT_VERIFIED -> the request
+                    # fails as an explicit 502 and no image is returned.
+                    _sleeve_decision = await evaluate_layer_sleeves(
+                        slot_type=g.get("slot_type"),
+                        sleeve_length=g.get("sleeve_length"),
+                        output_data_url=gpu_data.get("rendered_image_data_url"),
+                        input_data_url=person_for_layer,
+                        garment_ref=g.get("image_base64") or g.get("image_url") or "",
+                        product_id=g.get("product_id"),
+                        layer=li,
+                    )
                     # Record each layer's verification outcome. The worker
                     # returns 200 + image regardless of whether the garment
                     # was really applied — verify.PASS=False means that layer's
@@ -1458,6 +1601,9 @@ class TryOnService:
                         "slot_type": g.get("slot_type"),
                         "verify_pass": _lv.get("PASS"),
                         "metric_pixel_change": _lv.get("metric_pixel_change"),
+                        "sleeve_gate": _sleeve_decision.get("status"),
+                        "sleeve_gate_reason": _sleeve_decision.get("reason"),
+                        "sleeve_forearm_coverage": _sleeve_decision.get("coverage"),
                     })
                     # Output becomes the input for the next layer
                     # (sequential architecture).
@@ -1489,10 +1635,14 @@ class TryOnService:
                     ),
                     # Real measured coverage: fraction of layers verified.
                     "fit_confidence": int(round(100.0 * _sync_verified_count / len(sync_layers_meta))) if sync_layers_meta else 0,
-                    "traceability_hash": f"VTON-CERT-{hashlib.sha256(f'{job_id}{time.time()}'.encode()).hexdigest()[:16].upper()}",
+                    "traceability_hash": vton_cert_hash(
+                        job_id=job_id,
+                        model_used=gpu_data.get("model_used") or "unknown",
+                        rendered_data_url=rendered_url or "",
+                    ),
                     # Honest disclosure: model name only — no unconditional
                     # "Identity Preserved" claim when a layer failed.
-                    "ai_disclosure": f"CONFIT VTON Engine — {gpu_data.get('model_used', 'CatVTON')}",
+                    "ai_disclosure": f"CONFIT VTON Engine — {gpu_data.get('model_used') or 'unknown'}",
                     "dynamic_prompt_generated": "",
                     "model_used": gpu_data.get("model_used"),
                     "execution_time_ms": gpu_data.get("execution_time_ms"),
@@ -1502,6 +1652,9 @@ class TryOnService:
                         "layers_requested": len(sync_layers_meta),
                         "layers_failed": len(_sync_failed),
                         "failed_layers": _sync_failed,
+                        # Per-layer audit trail: engine verify outcome AND the
+                        # S31 sleeve-integrity gate outcome for every layer.
+                        "layers": sync_layers_meta,
                     },
                 }
                 logger.info("multi_garment_real_inference_success", job_id=job_id, products=target_ids)
@@ -1537,7 +1690,7 @@ class TryOnService:
                 if "no_render_backend" in error_msg or "TryOnEngineUnavailable" in type(exc).__name__:
                     raise RuntimeError(
                         "VTON_ENGINE_UNAVAILABLE: No GPU worker configured and no local render backend. "
-                        "Set VTON_WORKER_URL to enable real CatVTON inference."
+                        "Set VTON_WORKER_URL to enable real GPU inference (fashn_vton_segfee)."
                     )
                 raise
 
@@ -1575,7 +1728,7 @@ class TryOnService:
             session.slot_mapping_json = json.dumps(computed_slot_map)
             session.layering_order_json = json.dumps([it["position"] for it in applied_items])
             session.fit_confidence_score = vton_result.get("fit_confidence", 95)
-            session.body_fit_verdict = vton_result.get("fit_verdict", "Optimal Garment Fit")
+            session.body_fit_verdict = vton_result.get("fit_verdict") or "Fit not verified"
             self.db.commit()
             self.db.refresh(session)
         else:
@@ -1590,7 +1743,7 @@ class TryOnService:
                 # Bind the guest token so the guest can only ever reach the
                 # session their own token created (canonical ownership gate).
                 guest_token=guest_session_token if user_id is None else None,
-                fit_verdict=vton_result.get("fit_verdict", "Optimal Garment Fit"),
+                fit_verdict=vton_result.get("fit_verdict") or "Fit not verified",
                 fit_confidence_score=vton_result.get("fit_confidence", 95),
                 body_scaling_factor=scaling,
                 consent_retained=consent_retain_photo,
@@ -1630,7 +1783,10 @@ class TryOnService:
         slot_mapping: Optional[Dict[str, int]] = None,
         user_image_url: Optional[str] = None,
         user_image_base64: Optional[str] = None,
-        avatar_model_id: Optional[str] = "avatar_athletic_m",
+        # Explicit person reference only (2026-09-05 directive): a caller that
+        # supplies neither a photo nor an explicit avatar_id gets VTON_INPUT_INVALID
+        # from resolve_person_reference — never a silent stock-person substitution.
+        avatar_model_id: Optional[str] = None,
         gender_mode: Optional[str] = "infer_from_image",
         output_aspect: Optional[str] = "9:16",
         background_mode: Optional[str] = "studio",
@@ -1639,7 +1795,7 @@ class TryOnService:
     ) -> Dict[str, Any]:
         """
         Animated try-on: real inference per layer, output becomes input for next layer.
-        Each keyframe is a real CatVTON inference, not duplicated frames.
+        Each keyframe is a real GPU inference (fashn_vton_segfee), not duplicated frames.
         Layer order deterministic via slot_engine layer_order.
 
         ``guest_session_token`` is bound to the created session (same canonical
@@ -1702,8 +1858,12 @@ class TryOnService:
             # animated session (canonical ownership gate, consistent with the
             # other VTON paths).
             guest_token=guest_session_token if user_id is None else None,
-            fit_verdict="Optimal Garment Fit",
-            fit_confidence_score=95,
+            # Honest pre-render state (2026-09-19 gap audit): the render
+            # has not happened yet, so the row must not claim a fit
+            # verdict or a 95% confidence. Updated with the real per-
+            # keyframe verification outcome after the render loop.
+            fit_verdict="Rendering - verification pending",
+            fit_confidence_score=0,
             body_scaling_factor=1.0,
             consent_retained=False,
             expiry_hours=24
@@ -1718,9 +1878,11 @@ class TryOnService:
                 ordered_items = sorted(applied_items, key=lambda x: x.get("layer_order", 1))
                 # Build garment base64 payloads
                 product_map = {}
+                product_sleeve_map = {}
                 for prod in products:
                     b64 = await self._fetch_image_as_base64(prod.thumbnail_url)
                     product_map[prod.id] = b64 or prod.thumbnail_url
+                    product_sleeve_map[prod.id] = getattr(prod, "sleeve_length", None)
 
                 # Person reference validated + fetched once (explicit error on
                 # failure — no soft fallback to a raw URL the worker may choke on).
@@ -1732,16 +1894,20 @@ class TryOnService:
                     if not g_img:
                         g_img = await self._fetch_image_as_base64(item.get("image_url", "")) or item.get("image_url", "")
 
+                    _anim_slot = item.get("slot_type") or item.get("position", "upper_inner")
+                    _anim_sleeve = product_sleeve_map.get(pid)
                     if g_img and g_img.startswith("data:image"):
                         garment_payload = {
                             "product_id": pid,
-                            "slot_type": item.get("slot_type") or item.get("position", "upper_inner"),
+                            "slot_type": _anim_slot,
+                            "sleeve_length": _anim_sleeve,
                             "image_base64": g_img
                         }
                     else:
                         garment_payload = {
                             "product_id": pid,
-                            "slot_type": item.get("slot_type") or item.get("position", "upper_inner"),
+                            "slot_type": _anim_slot,
+                            "sleeve_length": _anim_sleeve,
                             "image_url": g_img
                         }
 
@@ -1759,6 +1925,21 @@ class TryOnService:
                         )
 
                         frame_url = gpu_data.get("rendered_image_data_url")
+                        # S31 sleeve-integrity gate (per frame, AFTER the
+                        # engine's verify.PASS) — same contract as the chain
+                        # paths. A refusal raises VTON_SLEEVES_NOT_VERIFIED,
+                        # which the per-frame handler below hard-aborts on (an
+                        # animation frame with dropped long sleeves must never
+                        # be continued from or delivered).
+                        await evaluate_layer_sleeves(
+                            slot_type=_anim_slot,
+                            sleeve_length=_anim_sleeve,
+                            output_data_url=frame_url,
+                            input_data_url=person_for_frame,
+                            garment_ref=g_img,
+                            product_id=pid,
+                            layer=idx,
+                        )
                         # Output becomes input for next layer (sequential architecture)
                         current_person_image = frame_url
 
@@ -1777,12 +1958,15 @@ class TryOnService:
 
                     except Exception as frame_exc:
                         error_str = str(frame_exc)
-                        # A garment layer not verified as applied is a canonical
-                        # VTON failure: the animation is a complete-outfit result,
-                        # so it must NOT continue from an unverified layer. Hard
-                        # abort with the single canonical code (never leave a
-                        # partial animation as a success).
-                        if "VTON_LAYER_NOT_APPLIED" in error_str:
+                        # A garment layer not verified as applied — or whose
+                        # long sleeves were not verifiably applied (S31) — is a
+                        # canonical VTON failure: the animation is a
+                        # complete-outfit result, so it must NOT continue from
+                        # an unverified layer. Hard abort with the single
+                        # canonical code (never leave a partial animation as a
+                        # success, and never deliver a frame whose long sleeves
+                        # were dropped).
+                        if "VTON_LAYER_NOT_APPLIED" in error_str or "VTON_SLEEVES_NOT_VERIFIED" in error_str:
                             logger.error("animated_layer_not_applied", step=idx, error=error_str[:300])
                             raise
                         logger.warn("animated_keyframe_failed", step=idx, error=error_str[:300])
@@ -1842,7 +2026,7 @@ class TryOnService:
                     except Exception:
                         raise RuntimeError(
                             "VTON_ENGINE_UNAVAILABLE: Animated try-on requires GPU worker. "
-                            "Set VTON_WORKER_URL to enable real CatVTON inference per layer."
+                            "Set VTON_WORKER_URL to enable real GPU inference (fashn_vton_segfee) per layer."
                         )
                 elif "VTON_ANIMATED" in error_str:
                     raise
@@ -1882,17 +2066,51 @@ class TryOnService:
                 # This could be legitimate if model returns same image, but log warning
                 # Don't fail, but note in logs
 
+        # Honest per-layer animation outcome (2026-09-19 gap audit): the
+        # response AND the session row reflect the ACTUAL keyframe
+        # verification. The previous hardcoded "Optimal Garment Fit" / 95 /
+        # "Identity Preserved" claimed a fit verdict and an identity
+        # property that are not production-verified for this engine and
+        # survived even when keyframes had failed.
+        anim_total = len(keyframes)
+        anim_ok = len(successful)
+        anim_model = next((kf.get("model_used") for kf in keyframes if kf.get("model_used")), "unknown")
+        if anim_total and anim_ok == anim_total:
+            anim_verdict = f"All {anim_total} layer(s) rendered and engine-verified"
+        else:
+            anim_verdict = (
+                f"Only {anim_ok} of {anim_total} layer(s) rendered - "
+                f"{anim_total - anim_ok} layer(s) failed"
+            )
+        anim_confidence = int(round(100.0 * anim_ok / anim_total)) if anim_total else 0
+        anim_disclosure = f"CONFIT VTON Engine — {anim_model} — real per-layer GPU inference"
+        anim_final_frame = successful[-1]["image_url"] if successful else keyframes[-1]["image_url"]
+        anim_trace_seed = f"anim|{session.id}|{anim_model}|{anim_final_frame}".encode()
+        anim_trace = f"VTON-ANIM-{hashlib.sha256(anim_trace_seed).hexdigest()[:16].upper()}"
+        session.body_fit_verdict = anim_verdict
+        session.fit_confidence_score = anim_confidence
+        session.ai_disclosure = anim_disclosure
+        _anim_meta = json.loads(session.render_metadata_json) if session.render_metadata_json else {}
+        _anim_meta["verification"] = {
+            "frames_requested": anim_total,
+            "frames_succeeded": anim_ok,
+            "failed_frames": [kf["step"] for kf in keyframes if kf.get("failed")],
+        }
+        session.render_metadata_json = json.dumps(_anim_meta)
+        self.db.commit()
+
         return {
             "session_id": session.id,
             "status": "completed",
             "animation_style": animation_style,
             "output_aspect": output_aspect or "9:16",
-            "rendered_animation_url": successful[-1]["image_url"] if successful else keyframes[-1]["image_url"],
+            "rendered_animation_url": anim_final_frame,
             "keyframes_sequence": keyframes,
-            "fit_confidence_score": 95,
-            "body_fit_verdict": "Optimal Garment Fit",
-            "traceability_hash": f"VTON-ANIM-{hashlib.sha256(f'{session.id}{time.time()}'.encode()).hexdigest()[:16].upper()}",
-            "ai_disclosure": "CONFIT VTON Engine — CatVTON — Identity Preserved — Real per-layer inference",
+            "fit_confidence_score": anim_confidence,
+            "body_fit_verdict": anim_verdict,
+            "traceability_hash": anim_trace,
+            "ai_disclosure": anim_disclosure,
+            "verification": _anim_meta.get("verification"),
             "dynamic_animation_prompt": "",
             "applied_items": applied_items,
             "total_price": total_price,
@@ -1904,7 +2122,10 @@ class TryOnService:
         product_id: int,
         user_image_url: Optional[str] = None,
         user_image_base64: Optional[str] = None,
-        avatar_model_id: Optional[str] = "avatar_athletic_m",
+        # Explicit person reference only (2026-09-05 directive): a caller that
+        # supplies neither a photo nor an explicit avatar_id gets VTON_INPUT_INVALID
+        # from resolve_person_reference — never a silent stock-person substitution.
+        avatar_model_id: Optional[str] = None,
         user_id: Optional[int] = None,
         consent_retain_photo: bool = False,
         guest_session_token: Optional[str] = None,
@@ -1954,6 +2175,9 @@ class TryOnService:
         session = self.tryon_repo.get_owned_tryon_session(
             session_id, caller_user_id=caller_user_id, guest_session_token=guest_session_token
         )
+        # GDPR Art. 17 retention enforcement at read time (see job path).
+        if _purge_vton_row_if_expired(session):
+            self.db.commit()
 
         applied = json.loads(session.applied_items_json) if session.applied_items_json else []
         return {

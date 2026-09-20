@@ -1,0 +1,74 @@
+blind_id,item_id,type,case,truth_label_agent,gate_verdict_v23,gate_verdict_v24,render_path
+item-01,L_C,L,C,applied,PASS,PASS,evaluation/results/p6_lowcontrast/raw_C_l2.png
+item-02,S_io_gray_I_L2,S,io_gray_I_L2,present,REFUSE,REFUSE,evaluation/results/phase3_sleeve_batch/io_gray_I_L2.png
+item-03,S_p7_p7d_med_stripe_tee,S,p7d_med_stripe_tee,present,"n/a (fresh, pre-v2.4)",PASS,evaluation/results/p7_adversarial/p7d_med_stripe_tee.png
+item-04,S_p5_l_gray_L1,S,p5_l_gray_L1,present,PASS,PASS,evaluation/results/p4_fresh_batch/p5_l_gray_L1.png
+item-05,S_cal_05_L1,S,cal_05_L1,present,PASS,PASS,evaluation/results/calibration_v22/cal_05_L1.png
+item-06,L_H,L,H,applied,PASS,PASS,evaluation/results/p6_lowcontrast/raw_H_l2.png
+item-07,S_p0c_l_black_L1,S,p0c_l_black_L1,present,PASS,PASS,evaluation/results/p0c_sleeve_calibration/p0c_l_black_L1.png
+item-08,S_p0c_synth_full_lgray_L1,S,p0c_synth_full_lgray_L1,dropped_synth,REFUSE,REFUSE,evaluation/results/p4_fresh_batch/p0c_synth_full_lgray_L1.png
+item-09,S_m4_diff_person_L2,S,m4_diff_person_L2,present,REFUSE,REFUSE,evaluation/results/at15_reconciliation/m4_diff_person_L2.png
+item-10,S_adv_onearm_full,S,adv_onearm_full,dropped,PASS,REFUSE,evaluation/results/p6_sleeve_adversarial/adv_onearm_full.png
+item-11,S_p0c_k_white_L1,S,p0c_k_white_L1,present,REFUSE,REFUSE,evaluation/results/p0c_sleeve_calibration/p0c_k_white_L1.png
+item-12,S_p5_m_io_L1,S,p5_m_io_L1,present,REFUSE,REFUSE,evaluation/results/p4_fresh_batch/p5_m_io_L1.png
+item-13,S_p0c_synth_full_jtunic_L1,S,p0c_synth_full_jtunic_L1,dropped_synth,REFUSE,REFUSE,evaluation/results/p4_fresh_batch/p0c_synth_full_jtunic_L1.png
+item-14,S_adv_crop,S,adv_crop,dropped,REFUSE,REFUSE,evaluation/results/p6_sleeve_adversarial/adv_crop.png
+item-15,S_m5_dark_inner_L2,S,m5_dark_inner_L2,present,PASS,PASS,evaluation/results/at15_reconciliation/m5_dark_inner_L2.png
+item-16,S_cal_04_L1,S,cal_04_L1,present,REFUSE,REFUSE,evaluation/results/calibration_v22/cal_04_L1.png
+item-17,L_A-E,L,A-E,not_applied,REFUSE,REFUSE,evaluation/results/p6_lowcontrast/raw_A-E_l2.png
+item-18,S_p0c_e_rust_L1,S,p0c_e_rust_L1,present,REFUSE,REFUSE,evaluation/results/p0c_sleeve_calibration/p0c_e_rust_L1.png
+item-19,S_sc_rust_I_L1,S,sc_rust_I_L1,present,PASS,PASS,evaluation/results/phase3_sleeve_batch/sc_rust_I_L1.png
+item-20,S_p4_j_arabic2_L1,S,p4_j_arabic2_L1,dropped,REFUSE,REFUSE,evaluation/results/p4_fresh_batch/p4_j_arabic2_L1.png
+item-21,S_io_1_L2,S,io_1_L2,present,REFUSE,REFUSE,evaluation/results/calibration_v22/io_1_L2.png
+item-22,S_p4_j_tunic_L1,S,p4_j_tunic_L1,present,PASS,PASS,evaluation/results/p4_fresh_batch/p4_j_tunic_L1.png
+item-23,S_p0c_a_pattern_L1,S,p0c_a_pattern_L1,present,REFUSE,REFUSE,evaluation/results/p0c_sleeve_calibration/p0c_a_pattern_L1.png
+item-24,S_p5_l_tpb_L1,S,p5_l_tpb_L1,present,PASS,PASS,evaluation/results/p4_fresh_batch/p5_l_tpb_L1.png
+item-25,S_adv_midgap,S,adv_midgap,dropped,REFUSE,REFUSE,evaluation/results/p6_sleeve_adversarial/adv_midgap.png
+item-26,S_io_3_L2,S,io_3_L2,present,REFUSE,REFUSE,evaluation/results/calibration_v22/io_3_L2.png
+item-27,S_p7_p7d_light_burgundy,S,p7d_light_burgundy,present,"n/a (fresh, pre-v2.4)",PASS,evaluation/results/p7_adversarial/p7d_light_burgundy.png
+item-28,S_sc_black_I_L1,S,sc_black_I_L1,present,REFUSE,REFUSE,evaluation/results/phase3_sleeve_batch/sc_black_I_L1.png
+item-29,S_p4_k_rust_L1,S,p4_k_rust_L1,present,PASS,PASS,evaluation/results/p4_fresh_batch/p4_k_rust_L1.png
+item-30,S_adv_onearm,S,adv_onearm,dropped,PASS,REFUSE,evaluation/results/p6_sleeve_adversarial/adv_onearm.png
+item-31,S_p5_m_blazer_L1,S,p5_m_blazer_L1,present,REFUSE,REFUSE,evaluation/results/p4_fresh_batch/p5_m_blazer_L1.png
+item-32,S_sc_white_L1,S,sc_white_L1,present,REFUSE,REFUSE,evaluation/results/phase3_sleeve_batch/sc_white_L1.png
+item-33,S_sc_dress_G_L1,S,sc_dress_G_L1,present,PASS,PASS,evaluation/results/phase3_sleeve_batch/sc_dress_G_L1.png
+item-34,S_sc_crop_B_L1,S,sc_crop_B_L1,dropped,REFUSE,REFUSE,evaluation/results/phase3_sleeve_batch/sc_crop_B_L1.png
+item-35,L_G,L,G,applied,PASS,PASS,evaluation/results/p6_lowcontrast/raw_G_l2.png
+item-36,S_p7_p7d_med_gray_darkbg,S,p7d_med_gray_darkbg,present,"n/a (fresh, pre-v2.4)",PASS,evaluation/results/p7_adversarial/p7d_med_gray_darkbg.png
+item-37,S_cal_06_L1,S,cal_06_L1,dropped,REFUSE,REFUSE,evaluation/results/calibration_v22/cal_06_L1.png
+item-38,S_cal_10_L1,S,cal_10_L1,short_declared_long,REFUSE,REFUSE,evaluation/results/calibration_v22/cal_10_L1.png
+item-39,S_cal_07_L1,S,cal_07_L1,present,REFUSE,REFUSE,evaluation/results/calibration_v22/cal_07_L1.png
+item-40,S_p0c_f_white_L1,S,p0c_f_white_L1,present,REFUSE,REFUSE,evaluation/results/p0c_sleeve_calibration/p0c_f_white_L1.png
+item-41,S_p7_p7d_hijab_navy_tunic,S,p7d_hijab_navy_tunic,present,"n/a (fresh, pre-v2.4)",PASS,evaluation/results/p7_adversarial/p7d_hijab_navy_tunic.png
+item-42,S_p7_p7d_dark_beige,S,p7d_dark_beige,present,"n/a (fresh, pre-v2.4)",PASS,evaluation/results/p7_adversarial/p7d_dark_beige.png
+item-43,S_sc_gray_D_L1,S,sc_gray_D_L1,present,REFUSE,REFUSE,evaluation/results/phase3_sleeve_batch/sc_gray_D_L1.png
+item-44,S_p0c_synth_partial_krust_L1,S,p0c_synth_partial_krust_L1,dropped_synth,REFUSE,REFUSE,evaluation/results/p4_fresh_batch/p0c_synth_partial_krust_L1.png
+item-45,L_B,L,B,not_applied,REFUSE,REFUSE,evaluation/results/p6_lowcontrast/raw_B_l2.png
+item-46,L_F,L,F,not_applied,REFUSE,REFUSE,evaluation/results/p6_lowcontrast/raw_F_l2.png
+item-47,S_p7_p7d_dark_skin_white_lee,S,p7d_dark_skin_white_lee,present,"n/a (fresh, pre-v2.4)",PASS,evaluation/results/p7_adversarial/p7d_dark_skin_white_lee.png
+item-48,S_p7_p7d_plus_black,S,p7d_plus_black,short_declared_long,"n/a (fresh, pre-v2.4)","REFUSE (correct: sleeves to below-elbow, s5b 0.326)",evaluation/results/p7_adversarial/p7d_plus_black.png
+item-49,S_sc_tank_C_L1,S,sc_tank_C_L1,dropped,REFUSE,REFUSE,evaluation/results/phase3_sleeve_batch/sc_tank_C_L1.png
+item-50,S_tpb_4_L1,S,tpb_4_L1,present,PASS,PASS,evaluation/results/calibration_v22/tpb_4_L1.png
+item-51,S_p0c_m_black_L1,S,p0c_m_black_L1,present,REFUSE,REFUSE,evaluation/results/p0c_sleeve_calibration/p0c_m_black_L1.png
+item-52,S_m1_light_trousers_L2,S,m1_light_trousers_L2,present,PASS,PASS,evaluation/results/at15_reconciliation/m1_light_trousers_L2.png
+item-53,S_p7_p7d_light_skin_black_tee,S,p7d_light_skin_black_tee,short_declared_long,"n/a (fresh, pre-v2.4)","REFUSE (correct: 3/4 sleeves, s5b 0.356)",evaluation/results/p7_adversarial/p7d_light_skin_black_tee.png
+item-54,S_cal_03_L1,S,cal_03_L1,present,REFUSE,REFUSE,evaluation/results/calibration_v22/cal_03_L1.png
+item-55,S_cal_01_L1,S,cal_01_L1,present,PASS,PASS,evaluation/results/calibration_v22/cal_01_L1.png
+item-56,S_p4_k_black_L1,S,p4_k_black_L1,present,PASS,PASS,evaluation/results/p4_fresh_batch/p4_k_black_L1.png
+item-57,S_p7_p7d_arms_raised,S,p7d_arms_raised,present,"n/a (fresh, pre-v2.4)",PASS,evaluation/results/p7_adversarial/p7d_arms_raised.png
+item-58,L_D,L,D,applied,PASS,PASS,evaluation/results/p6_lowcontrast/raw_D_l2.png
+item-59,S_cal_08_L1,S,cal_08_L1,present,PASS,PASS,evaluation/results/calibration_v22/cal_08_L1.png
+item-60,S_m0_repro_L2,S,m0_repro_L2,present,REFUSE,REFUSE,evaluation/results/at15_reconciliation/m0_repro_L2.png
+item-61,S_p7_p7d_light_multicolor,S,p7d_light_multicolor,present,"n/a (fresh, pre-v2.4)",PASS,evaluation/results/p7_adversarial/p7d_light_multicolor.png
+item-62,S_cal_02_L1,S,cal_02_L1,present,PASS,PASS,evaluation/results/calibration_v22/cal_02_L1.png
+item-63,S_p0c_g_short_L1,S,p0c_g_short_L1,short_declared_long,REFUSE,REFUSE,evaluation/results/p0c_sleeve_calibration/p0c_g_short_L1.png
+item-64,S_loc_tunic_F_L1,S,loc_tunic_F_L1,present,PASS,PASS,evaluation/results/phase3_sleeve_batch/loc_tunic_F_L1.png
+item-65,S_adv_wristgap,S,adv_wristgap,dropped,REFUSE,REFUSE,evaluation/results/p6_sleeve_adversarial/adv_wristgap.png
+item-66,S_cal_13_L1,S,cal_13_L1,present,PASS,PASS,evaluation/results/calibration_v22/cal_13_L1.png
+item-67,S_cal_09_L1,S,cal_09_L1,present,PASS,PASS,evaluation/results/calibration_v22/cal_09_L1.png
+item-68,S_p0c_d_gray_L1,S,p0c_d_gray_L1,present,PASS,PASS,evaluation/results/p0c_sleeve_calibration/p0c_d_gray_L1.png
+item-69,S_adv_elbow,S,adv_elbow,dropped,REFUSE,REFUSE,evaluation/results/p6_sleeve_adversarial/adv_elbow.png
+item-70,S_m2_dark_bg_L2,S,m2_dark_bg_L2,present,PASS,PASS,evaluation/results/at15_reconciliation/m2_dark_bg_L2.png
+item-71,S_sc_rust_H_L1,S,sc_rust_H_L1,present,PASS,PASS,evaluation/results/phase3_sleeve_batch/sc_rust_H_L1.png
+item-72,S_m3_arms_raised_L2,S,m3_arms_raised_L2,present,REFUSE,REFUSE,evaluation/results/at15_reconciliation/m3_arms_raised_L2.png
+item-73,S_loc_arabic2_F_L1,S,loc_arabic2_F_L1,present,REFUSE,REFUSE,evaluation/results/phase3_sleeve_batch/loc_arabic2_F_L1.png

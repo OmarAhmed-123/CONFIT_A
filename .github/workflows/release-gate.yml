@@ -1,0 +1,47 @@
+name: release gate
+
+# Stops the 2026-09-20 class of outage at the decision point that caused it.
+#
+# That day PR #117 was merged while the production database was still one
+# migration behind. Vercel deploys `main` the moment a merge lands, so the merge
+# itself is the last moment at which an incompatible release can be stopped —
+# and nothing was checking it. `schema_gate.enforce_at_startup` correctly
+# refused to boot, and production returned 500 until the previous deployment was
+# re-promoted.
+#
+# This workflow compares the schema THIS commit requires against the schema
+# production actually has, by reading the deployment's own /api/v1/health
+# (which reports the database's Alembic revision). It is a required status check
+# on `main`, so an incompatible merge is blocked before it can be deployed.
+#
+# It needs no production credential, and it is not a claim: it fails closed
+# (exit 2) when production state cannot be determined, so an outage can never be
+# mistaken for readiness. Once the migration is applied to production the gate
+# passes on its own — no code change, no allowlist, no bypass.
+#
+# The runtime detector in backend/app/core/schema_gate.py stays exactly as it is:
+# this workflow fixes the missing release-order control, not the safety detector.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  production-schema-parity:
+    name: release gate (production schema parity)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install declared dependencies
+        run: pip install -r backend/requirements.txt
+      - name: Can production run this commit? (exit 0 yes / 1 no / 2 unknown)
+        run: PYTHONPATH=. python3 backend/scripts/check_release_schema_parity.py

@@ -837,3 +837,158 @@ Blockers precisely (each with closing evidence required):
 local+CI level; production activation is blocked by billing (Modal), access (Neon
 credential, deploy/write authorization), and product (calibration, licensing)
 barriers — each with the exact evidence required to close it.**
+
+---
+
+# PART 3 — 2026-09-20 fresh verification pass (mainline movement + refreshed probes)
+
+Date: 2026-09-20, 13:16–13:45 UTC. Trigger: Task-5 brief re-issued; standing
+rule = re-verify everything against current ground truth. All probes below
+were executed **today** (timestamps included); nothing in this part is
+carried over from 2026-09-19 without re-verification.
+
+## P3.1 — Git ground truth (re-verified today)
+
+| Fact | Evidence | Value (2026-09-20 ~13:40 UTC) |
+|---|---|---|
+| origin/main | `git ls-remote origin main` + GitHub API | **c2a1b940** ("Merge PR #120: revert #117 to restore a deployable mainline") |
+| origin/main history overnight | Vercel PROMOTED timeline + GitHub | 10d80a12 → **376e9b40** (PR #117 merged, promoted 09-20 03:31 UTC) → **c2a1b940** (PR #120 = REVERT of #117, promoted 09-20 13:23 UTC) |
+| Remote feature branch | `git ls-remote` | **90fb716** (head of this branch) |
+| Local branch | `git log` | 90fb716 = merge of c2a1b940 into branch (b0fe313 = earlier merge of 376e9b40, already pushed) |
+| Local main | `git log main -1` | 928e615 (stale; **never modified**, per brief) |
+| PR #119 | GitHub API | **OPEN / NOT MERGED**, head 90fb716, base c2a1b940, `mergeable: true` |
+| 53a6608 / 1c0c329 | `git cat-file -e` | both exist (53a6608 in branch history; 1c0c329 = Task-4 reconciliation commit) |
+| Working tree | `git status --porcelain` | empty (clean) |
+| Any force-push / history rewrite / main modification by executor | commit graph | **NONE** — branch advanced only by forward merges + pushes |
+
+**CLAIM → EVIDENCE → STATUS:** "main moved twice overnight (376e9b40 →
+c2a1b940) and PR #117 was REVERTED on main" → `git log 376e9b40..c2a1b940`
+= [434aaef Revert "Merge PR #117…", c2a1b94 merge] → **VERIFIED**.
+VTON impact check: `git diff --name-only 10d80a12..c2a1b940` ∩
+{tryon, vton, sleeve, evaluation, alembic/versions/0018_product,
+0019_vton} = **empty except docs** — PR #117/#120 touched **zero VTON
+logic files** (they touch `workers/tasks.py` only via celery-task
+registration; auto-merged cleanly both times).
+
+## P3.2 — Mainline reconciliation (two merge cycles, both pushed)
+
+1. **b0fe313** (pushed 13:21 UTC): merged 376e9b40 (PR #117). Conflict:
+   migration slot 0018 taken by #117 (`0018_partner_onboarding_email_lifecycle`,
+   down=0017) forking against the branch's `0018_product_sleeve_length`
+   (two heads → `schema_gate.expected_head_revision()` would raise
+   SchemaDriftError). Resolution: renumber branch migrations to
+   0019/0020; flow-e head assertion updated to 0020.
+2. **90fb716** (pushed 13:34 UTC): merged c2a1b940 (PR #120 revert). The
+   revert deleted `0018_partner` from main; the branch's renumbered
+   migrations re-linked back to their original slots:
+   - `0018_product_sleeve_length` (revision 0018, down=0017)
+   - `0019_vton_job_retention` (revision 0019, down=0018)
+   - flow-e test re-anchored: `test_migration_chain_has_a_single_head_at_0019`,
+     round-trip head = 0019, with the full renumber history in the assertion
+     comment (so the next maintainer sees why the numbers moved).
+   - Chain: 0001…0017 → **0018_product_sleeve_length → 0019_vton_job_retention
+     (single head)** — verified locally (`expected_head_revision()` =
+     0019_vton_job_retention, chain size 19, linear) and on CI (see P3.4).
+   - Auth-onboarding files: main's reverted state wins (branch keeps zero
+     #117 residue — VTON work is byte-identical to pre-merge 836bd42 state).
+
+## P3.3 — Test batteries on the FINAL merged tree (90fb716)
+
+| Suite | Result | Notes |
+|---|---|---|
+| Backend + evaluation (pytest, SQLite+PG via conftest) | **1352 passed / 29 skipped / 0 failed (252.43 s)** | identical to pre-merge 1352/29 → zero regression across both merge cycles |
+| Frontend tsc | **0 errors** | |
+| Frontend vitest | **106 passed / 20 files (32.4 s)** | identical to pre-merge baseline (106/20) |
+| Migration chain (local, computed) | head = 0019_vton_job_retention, single head, linear | `schema_gate.migration_chain()` |
+
+## P3.4 — CI per-job @ 90fb716 (GitHub Actions, checked 13:40–13:45 UTC)
+
+| Job | Status | Note |
+|---|---|---|
+| frontend | ✓ success | |
+| postgres migration chain + schema gate | ✓ success | **validates the re-linked 0018/0019 chain end-to-end against a real Postgres** (upgrade→head, down→base, head assertion) |
+| production parity (deployment contract) | ✓ success | |
+| backend | ✓ success | completed 13:44 UTC (full backend suite incl. gap-closure, sleeve v2.4, security, mutation) |
+| gitleaks (branch + PR) | ✓ success | secret scan clean |
+| Workers Builds (Cloudflare "Workers and Pages" app check) | expected ✗ | **NOT a GitHub Actions job and NOT a merge requirement**; attribution proven (Cloudflare app, service "confit-a", 0-s failures; exact log needs a Cloudflare account token that was never provided). Spend-limit explanation REJECTED per brief. |
+
+## P3.5 — Fresh probes (all executed 2026-09-20)
+
+| Probe | Time (UTC) | Result | Status |
+|---|---|---|---|
+| Production `/api/v1/health` | 13:29 + 13:33 | healthy; schema `expected_head 0017 = database_revision 0017` (matches c2a1b94 code); engine fashn_vton_segfee | **PRODUCTION API = HEALTHY (at c2a1b94)** |
+| Production deployed SHA | 13:30 | Vercel: PROMOTED 09-20 13:23 → deployment gitSource **c2a1b949… (main)** | **PRODUCTION SHA = c2a1b94 (direct evidence, Vercel API)** |
+| Production `POST /tryon/multi-render` (products [3,2]) | 13:29 | 503 `VTON_WORKER_NOT_READY: GPU worker not ready after 3 attempts: unreachable` (34.6 s) | **VTON in production = STILL DOWN** (unchanged from 09-19 22:19) |
+| Modal workspace probe | 13:30:47 | `ResourceExhaustedError: Workspace … has exceeded its spend limit` (4th observation: 09-19 13:56→404/limit, 21:16, 22:19; 09-20 13:30) | **MODAL = SPEND-LIMITED** — worker cannot be deployed or probed; no client-side lift |
+| Neon production DB | 13:30 | `password authentication failed` (3rd rejection: 09-19 21:18, 22:20; 09-20 13:30) | **PRODUCTION DB = BLOCKED-AUTH** (provided credential rejected server-side; retry budget consumed; no further attempts) |
+| Vercel promotion timeline | 13:30 | 13:23 c2a1b94 (main) → 03:31 376e9b40 (main) → 09-19 18:36 10d80a12 (main) | production moved twice overnight; now c2a1b94 |
+
+**Schema status in production:** database is at 0017 and production code
+(c2a1b94) expects 0017 → consistent, no drift **at the current production
+SHA**. When this branch (90fb716) is eventually deployed, the database
+would need 0018_product_sleeve_length + 0019_vton_job_retention applied —
+**no migration may run without explicit separate authorization** (brief
+§10); the exact safe command remains `alembic upgrade head` (chain single-
+headed at 0019, verified in P3.3/P3.4) run by an authorized operator.
+
+## P3.6 — Refreshed environment matrix (Local / CI / Production, 2026-09-20)
+
+| Dimension | Local (90fb716) | CI (90fb716) | Production (c2a1b94) |
+|---|---|---|---|
+| Backend tests | 1352P/29S/0F | all 4 jobs ✓ (backend ✓, frontend ✓, migration chain ✓, parity ✓) + gitleaks ✓ | n/a (no test layer) |
+| Frontend | tsc 0; 106P/20 | frontend ✓ | served at c2a1b94 (no browser runtime here → BROWSER VERIFICATION = BLOCKED) |
+| Migration head | 0019_vton_job_retention (single) | **✓ verified vs real Postgres** | 0017 (matches deployed code; 0018/0019 not applied — BLOCKED-AUTH + not authorized) |
+| VTON worker | n/a (local has no GPU worker) | not a CI scope | **503 VTON_WORKER_NOT_READY** (Modal spend limit, 4th observation) |
+| Identity / ArcFace | present, lazy-loaded (fix at 9972613) | collection clean (9972613 fix verified) | LICENSE-GATED — not claimable |
+| Sleeve v2.4 gate | constants line-anchored (0.35/0.15), REFUSE-only | covered in backend job | code not yet deployed (branch unmerged) |
+| AI disclosure / contract | FE 106P incl. disclosure tests | ✓ | single disclosure site (mainline-owned); no branch duplication |
+
+## P3.7 — 20-question truthfulness check (answers refreshed for 2026-09-20 state)
+
+1. **Is PR #119 merged?** NO — OPEN, head 90fb716, base c2a1b940, mergeable.
+2. **Is the branch based on current main?** YES — main (c2a1b940) merged into the branch at 90fb716; PR base tracks main automatically.
+3. **Did main move since PART 2?** YES — twice: 376e9b40 (PR #117) then c2a1b940 (PR #120 REVERT of #117). Both re-merged; zero VTON files affected by either.
+4. **Does the migration chain have one head?** YES — 0019_vton_job_retention; verified locally and by the CI postgres job on a real Postgres.
+5. **Is the CI green?** Per-job at 90fb716 (final, 13:44 UTC): frontend ✓, backend ✓, postgres migration chain + schema gate ✓, production parity ✓, gitleaks ✓. Workers Builds (Cloudflare app check) ✗ — proven non-required, exact log needs a Cloudflare token (never provided).
+6. **Is the production API healthy?** YES at c2a1b94 (13:29/13:33 probes) — and that does NOT mean VTON is healthy (see 7).
+7. **Is production VTON working?** NO — 503 VTON_WORKER_NOT_READY at 13:29 today; root chain: Modal workspace spend limit (4th observation, 13:30:47).
+8. **What SHA is production running?** c2a1b94 — Vercel deployment gitSource + PROMOTED timestamp 13:23 UTC (direct evidence, not inference).
+9. **Has any migration been run in production?** NO — and none will be without explicit authorization; database at 0017, consistent with deployed code.
+10. **Is the production DB readable?** NO — provided Neon credential rejected server-side 3× (BLOCKED-AUTH); retry budget consumed; no further attempts.
+11. **Is the Modal worker deployable right now?** NO — spend limit (billing); exact closing evidence = Modal workspace spend limit lifted (dashboard action, owner-only).
+12. **Was anything force-pushed or history-rewritten?** NO — forward merges only (b0fe313, 90fb716), both pushed same turn.
+13. **Is the local tree clean and in sync with the remote branch?** YES — `git status --porcelain` empty; local == remote == 90fb716.
+14. **Are sleeve v2.4 constants unchanged?** YES — line-anchored re-verification (0.35/0.15, REFUSE-only) at 836bd42; no threshold touched in either merge.
+15. **Is the AI-disclosure contract duplicated by the branch?** NO — mainline-owned; DRY verified.
+16. **Is human calibration done?** NO — PACKAGE PREPARED only; ≥3 real blinded raters outstanding (BLOCKED, product barrier).
+17. **Is identity/face-matching claimable in production?** NO — LICENSE-GATED (weights/licensing unresolved).
+18. **Did PR #117's revert change any VTON file?** NO — verified by name-overlap of the revert diff vs the VTON file set (zero); only `workers/tasks.py` celery registration, auto-merged both cycles.
+19. **Is "CI green" being claimed while a required check is red?** NO — per-job table (P3.4); the only red (Workers Builds) is independently proven to be a Cloudflare app check, not a required GitHub Actions check; backend job awaited and recorded.
+20. **Is RELEASE = BLOCKED still correct?** YES — barriers unchanged in kind: (B-infra) Modal spend limit; (C-access) Neon auth; (E release-prereqs) deployment authorization + migrations + SHA re-correlation; (D-product) calibration + licensing. No fabricated workaround; every barrier has its exact closing evidence (P3.5).
+
+## P3.8 — Release decision (unchanged, re-affirmed on today's evidence)
+
+**RELEASE = BLOCKED**
+
+Blockers (strictly classified):
+- **B (infra):** Modal workspace spend limit — worker undeployable/unprovable
+  (4th observation, 09-20 13:30:47 UTC). Closing evidence: spend limit lifted
+  + `modal deploy` of the worker + one real multi-render in production.
+- **C (access):** Neon production credential rejected 3× — no schema/row
+  evidence obtainable. Closing evidence: a working read-only credential.
+- **E (release-prereqs):** deployment not authorized; migrations 0018/0019
+  unapplied in production (and migration execution needs separate explicit
+  authorization); post-deploy SHA re-correlation pending.
+- **D (product):** human calibration (≥3 real blinded raters) outstanding;
+  identity LICENSE-GATED.
+
+No code (A-class) blocker remains on the branch: 1352P/29S/0F locally,
+all 4 CI jobs green at 90fb716 (backend ✓, frontend ✓, migration chain ✓,
+production parity ✓) + gitleaks ✓, frontend 106P + tsc 0.
+
+**A truthful BLOCKED: the branch is the cleanest it has ever been (single-
+headed migrations, mainline-current, all local+CI verifications green so
+far); production VTON remains down on the same proven billing barrier, and
+production activation remains blocked on access + authorization, each with
+exact closing evidence. Nothing was merged to main, nothing was deployed,
+and nothing was fabricated.**

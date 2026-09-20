@@ -8,7 +8,9 @@ from backend.app.repositories.brand_repository import BrandRepository
 from backend.app.repositories.user_repository import UserRepository
 from backend.app.schemas.brand import AdminPlatformAnalyticsOut
 from backend.app.schemas.commerce import OrderOut, OrderTransitionRequest
+from backend.app.schemas.auth import PartnerApplicationDecision
 from backend.app.services.commerce_service import CommerceService
+from backend.app.services import partner_service
 
 router = APIRouter(prefix="/admin", tags=["Platform Admin Analytics & Governance"])
 
@@ -195,3 +197,110 @@ def get_audit_trail(
         }
         for log in logs
     ]
+
+
+# ===========================================================================
+# Partner onboarding approvals (BRD G6 §2.2 — "admin: partner onboarding
+# approvals"). This is the trusted server-side provisioning boundary: approval
+# creates the brand tenant and sets brand_owner; nothing here is client-driven.
+# ===========================================================================
+
+def _application_out(app, db=None) -> Dict[str, Any]:
+    """Application as the REVIEWER must see it.
+
+    Includes the applicant's verification state — computed, never assumed. On a
+    deployment with no email provider the address could not be verified at all,
+    and the reviewer has to know that when deciding (see the §16 decision note
+    in docs/audits/PHASE_3_6_*).
+    """
+    verified = None
+    verification_available = None
+    if db is not None:
+        from backend.app.models.user import User
+        from backend.app.services import email_service
+
+        verification_available = email_service.is_email_configured()
+        applicant = db.query(User).filter(User.id == app.user_id).first()
+        verified = bool(applicant.is_verified) if applicant is not None else None
+    return {
+        "id": app.id,
+        "user_id": app.user_id,
+        "status": app.status.value if hasattr(app.status, "value") else str(app.status),
+        "brand_name": app.brand_name,
+        "legal_name": app.legal_name,
+        "website": app.website,
+        "market": app.market,
+        "category": app.category,
+        "catalogue_size": app.catalogue_size,
+        "contact_name": app.contact_name,
+        "contact_email": app.contact_email,
+        "contact_phone": app.contact_phone,
+        "message": app.message,
+        "submitted_at": app.submitted_at,
+        "reviewed_at": app.reviewed_at,
+        "reviewed_by_user_id": app.reviewed_by_user_id,
+        "decision_note": app.decision_note,
+        "brand_id": app.brand_id,
+        # Honest verification state at review time (never inferred from config).
+        "applicant_email_verified": verified,
+        "applicant_verification_available": verification_available,
+    }
+
+
+@router.get("/partner-applications")
+def list_partner_applications(
+    request: Request,
+    status: str = Query(default="pending"),
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    user: User = Depends(require_role([UserRole.ADMIN])),
+    db: Session = Depends(get_db),
+):
+    rows = partner_service.list_applications(db, status=status or None, limit=limit, offset=offset)
+    return {
+        "items": [_application_out(a, db) for a in rows],
+        "count": len(rows),
+        "status_filter": status,
+    }
+
+
+@router.post("/partner-applications/{application_id}/approve")
+def approve_partner_application(
+    application_id: int,
+    payload: PartnerApplicationDecision,
+    request: Request,
+    user: User = Depends(require_admin_recent(max_age_minutes=60)),
+    db: Session = Depends(get_db),
+):
+    """Approve → provisions the brand tenant and grants brand_owner.
+
+    Step-up (fresh admin session) + full before/after audit, because this is a
+    privilege-granting action.
+    """
+    before = {"status": "pending"}
+    application = partner_service.review_application(
+        db, application_id, user, approve=True, note=payload.note,
+        request_id=_request_id(request),
+    )
+    _audit_admin(request, db, user, "ADMIN_PARTNER_APPLICATION_APPROVED", "PartnerApplication",
+                 str(application.id), before,
+                 {"status": _application_out(application)["status"], "brand_id": application.brand_id})
+    return _application_out(application, db)
+
+
+@router.post("/partner-applications/{application_id}/reject")
+def reject_partner_application(
+    application_id: int,
+    payload: PartnerApplicationDecision,
+    request: Request,
+    user: User = Depends(require_admin_recent(max_age_minutes=60)),
+    db: Session = Depends(get_db),
+):
+    before = {"status": "pending"}
+    application = partner_service.review_application(
+        db, application_id, user, approve=False, note=payload.note,
+        request_id=_request_id(request),
+    )
+    _audit_admin(request, db, user, "ADMIN_PARTNER_APPLICATION_REJECTED", "PartnerApplication",
+                 str(application.id), before, {"status": _application_out(application)["status"]})
+    return _application_out(application, db)

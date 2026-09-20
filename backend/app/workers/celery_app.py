@@ -71,7 +71,6 @@ celery_app.conf.update(
         "backend.app.workers.tasks.aggregate_analytics_task": {"queue": "analytics_rollups"},
         "backend.app.workers.tasks.purge_expired_sessions_task": {"queue": "maintenance"},
         "backend.app.workers.tasks.release_expired_inventory_reservations_task": {"queue": "maintenance"},
-        "backend.app.workers.tasks.resolve_stale_email_delivery_claims_task": {"queue": "maintenance"},
     },
     beat_schedule={
         "purge-expired-tryon-photos-hourly": {
@@ -85,10 +84,6 @@ celery_app.conf.update(
         "release-expired-inventory-reservations-every-15min": {
             "task": "backend.app.workers.tasks.release_expired_inventory_reservations_task",
             "schedule": 900.0, # Every 15 minutes - critical for stock leak prevention
-        },
-        "resolve-stale-email-claims-every-15min": {
-            "task": "backend.app.workers.tasks.resolve_stale_email_delivery_claims_task",
-            "schedule": 900.0, # Every 15 minutes - keeps the delivery ledger terminal
         }
     }
 )

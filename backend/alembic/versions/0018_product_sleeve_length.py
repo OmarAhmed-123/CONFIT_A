@@ -1,8 +1,8 @@
 """Product.sleeve_length — authoritative sleeve construction for the VTON
 sleeve-integrity gate (S31 repair, 2026-09-16).
 
-Revision ID: 0019_product_sleeve_length
-Revises: 0018_partner_onboarding_email_lifecycle
+Revision ID: 0018_product_sleeve_length
+Revises: 0017_audit_before_after_request_id
 Create Date: 2026-09-16
 
 Idempotent inspector-guarded delta. Fresh SQLite dev databases created via
@@ -19,8 +19,8 @@ import sqlalchemy as sa
 from sqlalchemy import inspect
 
 
-revision: str = "0019_product_sleeve_length"
-down_revision: Union[str, None] = "0018_partner_onboarding_email_lifecycle"
+revision: str = "0018_product_sleeve_length"
+down_revision: Union[str, None] = "0017_audit_before_after_request_id"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

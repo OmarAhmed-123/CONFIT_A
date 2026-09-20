@@ -182,30 +182,3 @@ def release_expired_inventory_reservations_task():
         raise
     finally:
         db.close()
-
-@celery_app.task
-def resolve_stale_email_delivery_claims_task():
-    """
-    Terminalises transactional-email claims abandoned mid-flight.
-
-    Runs every 15 minutes via celery beat (same cadence as the reservation
-    sweeper). A process that dies between claiming the idempotency key and
-    storing the provider's answer leaves the ledger in a non-terminal
-    "retrying" state; this resolves it to the truth ("unknown") without ever
-    re-sending the message, so at-most-once delivery per key is preserved.
-
-    Safe to run concurrently with live sends: the resolver only touches rows
-    older than EMAIL_CLAIM_STALE_SECONDS (default 900s) and is idempotent.
-    """
-    from backend.app.services import email_service
-
-    db = SessionLocal()
-    try:
-        resolved = email_service.resolve_stale_delivery_claims(db)
-        logger.info("stale email delivery claim sweep complete", resolved=resolved)
-        return {"resolved": resolved}
-    except Exception as exc:  # pragma: no cover - maintenance must not crash the worker
-        logger.warning("stale email delivery claim sweep failed", error_class=type(exc).__name__)
-        raise
-    finally:
-        db.close()

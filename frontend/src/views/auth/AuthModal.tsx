@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useModalFocus } from '../../hooks/useModalFocus';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { useUIStore } from '../../stores/uiStore';
 import { ConfitLogo } from '../../components/common/ConfitLogo';
@@ -22,16 +22,6 @@ const landingPathForRole = (role?: string | null): string | null => {
   return null;
 };
 
-/**
- * Where a fresh session should land. The server tells us (`onboarding.next_action`);
- * the role heuristic is only the fallback for payloads that predate it.
- */
-const landingPathForSession = (res?: any): string | null => {
-  const action = res?.user?.onboarding?.next_action;
-  if (action?.route && action.type !== 'none') return action.route as string;
-  return landingPathForRole(res?.user?.role);
-};
-
 export const AuthModal: React.FC = () => {
   const { isAuthModalOpen, authModalMode, closeAuthModal, showToast } = useUIStore();
   const panelRef = useModalFocus<HTMLDivElement>(closeAuthModal, isAuthModalOpen);
@@ -45,11 +35,6 @@ export const AuthModal: React.FC = () => {
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [mfaCode, setMfaCode] = useState('');
-  // Portal intent (task §10): "Continue as Shopper" vs "Join as Brand / Partner".
-  // This is DATA on the account, never a role — the server stores it and keeps
-  // the role at consumer until a trusted workflow (admin approval / invitation)
-  // changes it.
-  const [intent, setIntent] = useState<'consumer' | 'brand_partner'>('consumer');
 
   // The store's authModalMode can change while the modal stays mounted
   // (e.g. RoleGuard opens 'login', footer opens 'register'). Keep the local
@@ -71,37 +56,14 @@ export const AuthModal: React.FC = () => {
         // the second-step form below sends the code.
         const res = await login(email, password);
         showToast('Welcome back to CONFIT!', 'success');
-        const landing = landingPathForSession(res);
+        const landing = landingPathForRole(res?.user?.role);
         const here = location.pathname;
-        if (landing && here !== landing && !here.startsWith(landing)) {
+        if (landing && !here.startsWith(landing)) {
           navigate(landing, { replace: true });
         }
       } else {
-        const res = await register({
-          email,
-          password,
-          full_name: fullName,
-          phone,
-          registration_intent: intent,
-        });
-        // Copy matches what the server will actually do next — no invented
-        // "check your inbox" claim when the deployment cannot send mail.
-        const action = res?.user?.onboarding?.next_action;
-        if (action?.type === 'verify_email') {
-          showToast(
-            'Account created. Check your inbox for the verification link — your account stays unverified until you open it.',
-            'info'
-          );
-        } else if (intent === 'brand_partner') {
-          showToast('Account created. Next: submit your partner application for review.', 'info');
-        } else {
-          showToast('Account created — complete your style profile to personalize CONFIT.', 'success');
-        }
-        const landing = landingPathForSession(res);
-        const here = location.pathname;
-        if (landing && here !== landing && !here.startsWith(landing)) {
-          navigate(landing, { replace: true });
-        }
+        await register({ email, password, full_name: fullName, phone });
+        showToast('Account created — complete your style profile to personalize CONFIT.', 'success');
       }
       closeAuthModal();
     } catch (err: any) {
@@ -117,7 +79,7 @@ export const AuthModal: React.FC = () => {
     try {
       const res = await completeMfaLogin(email, password, mfaCode);
       showToast('Signed in with MFA.', 'success');
-      const landing = landingPathForSession(res);
+      const landing = landingPathForRole(res?.user?.role);
       const here = location.pathname;
       if (landing && !here.startsWith(landing)) {
         navigate(landing, { replace: true });
@@ -212,50 +174,6 @@ export const AuthModal: React.FC = () => {
             )}
 
             {mode === 'register' && (
-              <fieldset className="space-y-2">
-                <legend className="font-bold text-slate-700 block mb-1">How will you use CONFIT?</legend>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    aria-pressed={intent === 'consumer'}
-                    onClick={() => setIntent('consumer')}
-                    className={`text-left p-3 rounded-xl border transition-all ${
-                      intent === 'consumer'
-                        ? 'border-[#C5A059] bg-[#FAF7F0] ring-1 ring-[#C5A059]/40'
-                        : 'border-slate-200 hover:border-slate-300'
-                    }`}
-                  >
-                    <span className="block font-bold text-slate-800">Continue as Shopper</span>
-                    <span className="block text-[10px] text-slate-500 mt-0.5">
-                      Personal styling, wardrobe and try-on.
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    aria-pressed={intent === 'brand_partner'}
-                    onClick={() => setIntent('brand_partner')}
-                    className={`text-left p-3 rounded-xl border transition-all ${
-                      intent === 'brand_partner'
-                        ? 'border-[#C5A059] bg-[#FAF7F0] ring-1 ring-[#C5A059]/40'
-                        : 'border-slate-200 hover:border-slate-300'
-                    }`}
-                  >
-                    <span className="block font-bold text-slate-800">Join as Brand / Partner</span>
-                    <span className="block text-[10px] text-slate-500 mt-0.5">
-                      Applies for review — brand access is granted by CONFIT.
-                    </span>
-                  </button>
-                </div>
-                {intent === 'brand_partner' && (
-                  <p className="text-[10px] text-slate-500">
-                    Your account starts as a shopper. After you verify your email you submit a partner
-                    application; a platform admin reviews it and only an approval creates brand access.
-                  </p>
-                )}
-              </fieldset>
-            )}
-
-            {mode === 'register' && (
               <div>
                 <label className="font-bold text-slate-700 block mb-1">Full Name</label>
                 <input
@@ -292,20 +210,10 @@ export const AuthModal: React.FC = () => {
                 placeholder={mode === 'register' ? '8+ chars incl. 3 of upper/lower/digit/symbol' : '••••••••'}
                 className="w-full p-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-[#C5A059]"
               />
-              {mode === 'register' ? (
+              {mode === 'register' && (
                 <p className="text-[10px] text-slate-400 mt-1">
                   Must be 8+ characters with at least 3 of: uppercase, lowercase, digit, symbol.
                 </p>
-              ) : (
-                <div className="text-right mt-1">
-                  <Link
-                    to="/forgot-password"
-                    onClick={closeAuthModal}
-                    className="text-[10px] text-[#C5A059] font-semibold hover:underline"
-                  >
-                    Forgot password?
-                  </Link>
-                </div>
               )}
             </div>
 

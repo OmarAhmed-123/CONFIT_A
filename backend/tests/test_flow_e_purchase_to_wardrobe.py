@@ -506,7 +506,7 @@ def test_migration_0015_round_trip_and_unique_lineage() -> None:
         with engine.begin() as conn:
             assert conn.execute(text(
                 "select version_num from alembic_version")).scalar() == \
-                "0020_vton_job_retention"
+                "0019_vton_job_retention"
 
         _alembic(url, "down", "base")
         insp = inspect(engine)
@@ -520,7 +520,7 @@ def test_migration_0015_round_trip_and_unique_lineage() -> None:
         os.unlink(path)
 
 
-def test_migration_chain_has_a_single_head_at_0020() -> None:
+def test_migration_chain_has_a_single_head_at_0019() -> None:
     from backend.app.core.schema_gate import expected_head_revision, migration_chain
 
     chain = migration_chain()
@@ -530,12 +530,13 @@ def test_migration_chain_has_a_single_head_at_0020() -> None:
     # 0016 (VTON temporary-delivery metadata) extends 0015; the chain must
     # remain single-headed and the head must move consciously.
     # 0017 (ADMIN-01 audit before/after/request_id) extends 0016; 0018
-    # (partner onboarding + invitations + email lifecycle) extends 0017;
-    # 0019 (Product.sleeve_length — S31 sleeve-integrity gate, 2026-09-16;
-    # renumbered from 0018 when PR #117 took the 0018 slot on main) extends
-    # 0018; 0020 (tryon_jobs retention lifecycle — GDPR Art. 17 purge of
-    # job-row person photos, 2026-09-19 complete gap audit; renumbered from
-    # 0019 for the same reason) extends 0019. The chain must stay linear
-    # with exactly one head.
-    assert expected_head_revision() == "0020_vton_job_retention"
+    # (Product.sleeve_length — S31 sleeve-integrity gate, 2026-09-16)
+    # extends 0017; 0019 (tryon_jobs retention lifecycle — GDPR Art. 17
+    # purge of job-row person photos, 2026-09-19 complete gap audit)
+    # extends 0018. History: PR #117 (auth onboarding) briefly occupied
+    # the 0018 slot on main (2026-09-20); these two migrations were then
+    # renumbered 0019/0020 to keep the chain single-headed, and PR #120
+    # reverted #117 — so they returned to 0018/0019. The chain must stay
+    # linear with exactly one head.
+    assert expected_head_revision() == "0019_vton_job_retention"
     assert "0015_wardrobe_purchase_lineage" in chain.values()

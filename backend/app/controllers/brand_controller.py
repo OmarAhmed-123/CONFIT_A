@@ -1,8 +1,8 @@
 from decimal import Decimal
 from typing import List, Optional, Dict, Any
-from fastapi import APIRouter, Depends, Query, Request, status, UploadFile, File, HTTPException
+from fastapi import APIRouter, Depends, Query, status, UploadFile, File, HTTPException, Request
 from sqlalchemy.orm import Session
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 import json
 from backend.app.core.money import to_decimal, to_float, validate_money, money_add, money_sub, MoneyValueError, MoneyRangeError
 
@@ -10,8 +10,6 @@ from backend.app.core.database import get_db
 from backend.app.core.dependencies import require_role, BRAND_ROLES
 from backend.app.models.user import User
 from backend.app.services.brand_service import BrandService
-from backend.app.services import brand_scope_service
-from backend.app.services import partner_service
 from backend.app.services.brand_catalog_service import BrandCatalogService
 from backend.app.repositories.brand_repository import BrandRepository
 from backend.app.schemas.brand import (
@@ -826,91 +824,3 @@ def track_click(
         "spent_today": plc.spent_today,
         "remaining_budget": money_sub(plc.daily_budget, plc.spent_today)
     }
-
-
-# ===========================================================================
-# Brand team invitations (BRD G6 §2.1 — "owner: user invitations")
-# Role and brand are recorded server-side at invite time; the invitee's only
-# input is accepting the token. The admin role can never be granted here.
-# ===========================================================================
-
-class InvitationCreateBody(BaseModel):
-    email: EmailStr
-    role: str = "brand_staff"
-    brand_id: Optional[int] = None
-
-
-@router.post("/brand/invitations", status_code=status.HTTP_201_CREATED)
-def create_brand_invitation(
-    payload: InvitationCreateBody,
-    request: Request,
-    user: User = Depends(brand_auth),
-    db: Session = Depends(get_db),
-):
-    """Invite a colleague into this brand workspace (brand owner or admin)."""
-    brand_id = payload.brand_id or brand_scope_service.resolve_brand_id(db, user)
-    if brand_id is None:
-        raise HTTPException(status_code=403, detail="No brand organization is linked to this account.")
-    result = partner_service.create_invitation(
-        db,
-        user,
-        brand_id=brand_id,
-        email=str(payload.email),
-        role=payload.role,
-        request_id=getattr(request.state, "request_id", None),
-    )
-    invitation = result["invitation"]
-    _audit(db, user, "PARTNER_INVITATION_CREATED", "Invitation", invitation.id,
-           {"brand_id": brand_id, "role": partner_service._role_value(invitation.role)})
-    return {
-        "id": invitation.id,
-        "email": invitation.email,
-        "role": partner_service._role_value(invitation.role),
-        "brand_id": invitation.brand_id,
-        "status": partner_service._role_value(invitation.status),
-        "expires_at": invitation.expires_at,
-        "delivery": result.get("delivery"),
-        # No email provider configured? The operator can still complete the
-        # flow with this one-time path (it is never logged or persisted).
-        "accept_path": result.get("accept_path"),
-    }
-
-
-@router.get("/brand/invitations")
-def list_brand_invitations(
-    request: Request,
-    include_closed: bool = False,
-    user: User = Depends(brand_auth),
-    db: Session = Depends(get_db),
-):
-    brand_id = brand_scope_service.resolve_brand_id(db, user)
-    if brand_id is None:
-        raise HTTPException(status_code=403, detail="No brand organization is linked to this account.")
-    rows = partner_service.list_invitations(db, brand_id, include_closed=include_closed)
-    return [
-        {
-            "id": r.id,
-            "email": r.email,
-            "role": partner_service._role_value(r.role),
-            "brand_id": r.brand_id,
-            "status": partner_service._role_value(r.status),
-            "expires_at": r.expires_at,
-            "accepted_at": r.accepted_at,
-            "created_at": r.created_at,
-        }
-        for r in rows
-    ]
-
-
-@router.post("/brand/invitations/{invitation_id}/revoke")
-def revoke_brand_invitation(
-    invitation_id: int,
-    request: Request,
-    user: User = Depends(brand_auth),
-    db: Session = Depends(get_db),
-):
-    invitation = partner_service.revoke_invitation(
-        db, user, invitation_id, request_id=getattr(request.state, "request_id", None)
-    )
-    _audit(db, user, "PARTNER_INVITATION_REVOKED", "Invitation", invitation.id, {})
-    return {"id": invitation.id, "status": partner_service._role_value(invitation.status)}

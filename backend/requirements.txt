@@ -26,6 +26,7 @@ pytest>=8.3.3
 pytest-asyncio>=0.24.0
 mangum>=0.17.0
 boto3>=1.35.0
+botocore>=1.35.0  # boto3's own dep; declared for the static import-closure gate
 # Modal client SDK — used only by the Qwen VLM remote transport
 # (qwen_vision.provider._analyze_remote), which is a documented alternative to
 # the default web transport. Installed here so the self-hosted (Docker) backend

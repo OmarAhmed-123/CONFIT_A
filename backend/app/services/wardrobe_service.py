@@ -4,6 +4,7 @@ import io
 import json
 import os
 import uuid
+from datetime import datetime, timedelta, timezone
 from typing import List, Dict, Any, Optional, Tuple
 from sqlalchemy.exc import IntegrityError
 from PIL import Image, UnidentifiedImageError
@@ -43,8 +44,51 @@ class WardrobeService:
 
     # ────────────────────────── reads ──────────────────────────
     def get_user_wardrobe(self, user_id: int, category: Optional[str] = None) -> List[Dict[str, Any]]:
+        self._heal_stale_processing(user_id)
         items = self.wardrobe_repo.get_user_items(user_id, category)
         return [self._to_dict(it) for it in items]
+
+    def _heal_stale_processing(self, user_id: int) -> None:
+        """Self-healing lifecycle guard (G-ASYNC).
+
+        Anything that can drop the analysis half-way — a worker that was
+        never running, a serverless function killed mid-call, a broker that
+        accepted the task and lost it — must not leave the customer's photo
+        in a permanent in-between state. On every wardrobe read, items stuck
+        in ``processing`` beyond WARDROBE_PROCESSING_STALE_MINUTES are marked
+        ``failed`` with an explicit, retryable error. The UI already renders
+        failed items with a one-tap retry, so the customer regains agency
+        instead of staring at "Processing…" forever.
+        """
+        try:
+            stale_minutes = int(getattr(settings, "WARDROBE_PROCESSING_STALE_MINUTES", 10) or 10)
+        except (TypeError, ValueError):
+            stale_minutes = 10
+        if stale_minutes <= 0:
+            return
+        cutoff = datetime.now(timezone.utc) - timedelta(minutes=stale_minutes)
+        try:
+            stale = (
+                self.db.query(WardrobeItem)
+                .filter(
+                    WardrobeItem.user_id == user_id,
+                    WardrobeItem.processing_status == "processing",
+                    WardrobeItem.created_at < cutoff,
+                )
+                .all()
+            )
+        except Exception as exc:  # heal failure must never break the read
+            logger.warn("wardrobe stale-heal skipped", error=str(exc)[:120])
+            return
+        for it in stale:
+            it.processing_status = "failed"
+            it.processing_error = "AI analysis timed out — please retry."
+            self.wardrobe_repo.update_item(it)
+        if stale:
+            logger.warn(
+                "healed stale wardrobe processing items",
+                user_id=user_id, count=len(stale), stale_minutes=stale_minutes,
+            )
 
     def get_item(self, user_id: int, item_id: int) -> WardrobeItem:
         item = self.wardrobe_repo.get_item_by_id(item_id, user_id)
@@ -408,6 +452,93 @@ class WardrobeService:
         if not storage.delete(key):
             logger.warn("Wardrobe image cleanup did not remove the object", path=image_url)
 
+    # ───────────── analysis execution strategy (sync vs queue) ─────────────
+    def _analysis_mode(self) -> str:
+        mode = (getattr(settings, "WARDROBE_ANALYSIS_MODE", "auto") or "auto").lower()
+        return mode if mode in ("auto", "sync", "async") else "auto"
+
+    @staticmethod
+    def _broker_reachable(timeout: float = 1.0) -> bool:
+        """Hard-budgeted broker probe.
+
+        ``auto`` mode must distinguish "a queue that will actually be
+        processed" from "a reachable broker with no worker" (the latter
+        would leave items in ``processing`` forever). A reachable broker is
+        the best signal available without a worker-heartbeat API; the stale
+        guard remains the backstop in every mode. Any exception — including
+        a missing ``redis`` package — means "not usable", which routes to
+        inline analysis. The probe is bounded: upload latency may grow by at
+        most ~1s, and only when the broker is actually down.
+        """
+        try:
+            import redis as redis_lib
+            client = redis_lib.Redis.from_url(
+                settings.REDIS_URL,
+                socket_connect_timeout=timeout,
+                socket_timeout=timeout,
+            )
+            try:
+                return bool(client.ping())
+            finally:
+                client.close()
+        except Exception:
+            return False
+
+    def _enqueue_analysis(self, item: WardrobeItem, mode: str) -> bool:
+        """Try to hand the item to the background worker. Returns True only
+        when the task was actually published. In ``async`` mode a dead broker
+        raises (honest failure — the item would never be analyzed); in
+        ``auto``/``sync`` a dead broker falls through to inline analysis."""
+        if mode == "sync":
+            return False
+
+        def _mark_unanalyzable(detail: str):
+            # In async mode the queue is the ONLY analysis path: when it is
+            # unavailable, the item must end in a terminal, retryable state —
+            # never "processing" with nothing to pick it up.
+            try:
+                item.processing_status = "failed"
+                item.processing_error = detail
+                self.wardrobe_repo.update_item(item)
+            except Exception:
+                pass
+
+        try:
+            from backend.app.workers.tasks import auto_tag_wardrobe_task
+        except Exception as import_err:
+            if mode == "async":
+                _mark_unanalyzable("Analysis queue is not available in this deployment.")
+                raise ValidationDomainError(
+                    "Analysis queue is not available in this deployment."
+                ) from import_err
+            return False
+
+        if mode == "auto" and not self._broker_reachable():
+            # No reachable broker in this environment (serverless default):
+            # analyze inline so the request carries the final item state.
+            return False
+
+        try:
+            auto_tag_wardrobe_task.delay(item.id)
+            logger.info("Enqueued wardrobe auto-tag task", item_id=item.id, mode=mode)
+            return True
+        except Exception as enqueue_err:
+            if mode == "async":
+                logger.error(
+                    "wardrobe enqueue failed in async mode",
+                    item_id=item.id, error=str(enqueue_err)[:200],
+                )
+                _mark_unanalyzable("Analysis queue unavailable (broker unreachable).")
+                raise ValidationDomainError(
+                    "Analysis queue unavailable (broker unreachable). "
+                    "Set WARDROBE_ANALYSIS_MODE=auto or restore the worker."
+                ) from enqueue_err
+            logger.warn(
+                "wardrobe enqueue failed, falling back to inline",
+                item_id=item.id, error=str(enqueue_err)[:200],
+            )
+            return False
+
     async def upload_items(
         self, user_id: int, files: List[Tuple[str, Optional[str], bytes]]
     ) -> Dict[str, Any]:
@@ -471,25 +602,45 @@ class WardrobeService:
                     results.append(entry)
                     continue
 
-                # C5 FIX: Async pipeline - enqueue Celery task for AI analysis instead of blocking
-                # Item is returned immediately with processing status, analysis happens in background
-                try:
-                    from backend.app.workers.tasks import auto_tag_wardrobe_task
-                    auto_tag_wardrobe_task.delay(item.id)
-                    logger.info("Enqueued wardrobe auto-tag task", item_id=item.id)
-                except Exception as enqueue_err:
-                    # If Celery unavailable (dev mode), fallback to inline analysis
-                    logger.warn(f"Celery enqueue failed, falling back to inline: {enqueue_err}")
+                # Analysis execution (G-ASYNC remediation): WARDROBE_ANALYSIS_MODE
+                #   auto  - enqueue ONLY when a broker is actually reachable
+                #           (hard 1s probe); otherwise analyze inline so the
+                #           upload response already carries the final state
+                #   sync  - always inline
+                #   async - always enqueue (operator-run worker expected);
+                #           an unreachable broker fails the item HONESTLY —
+                #           it must never be reported as "created/processing"
+                #           when nothing will ever analyze it.
+                enqueued = self._enqueue_analysis(item, mode=self._analysis_mode())
+                if not enqueued:
                     try:
                         analyzed = await self._run_ai_analysis(item)
-                        entry.update({"status": "created", "item": self._to_dict(analyzed)})
-                        succeeded += 1
+                    except Exception as exc:
+                        # The previous version swallowed this error and
+                        # reported "created" with a perpetually-`processing`
+                        # item. Honest contract: the upload entry reports the
+                        # failure, and the item row (if still writable) is
+                        # marked failed/retryable as well.
+                        try:
+                            item.processing_status = "failed"
+                            item.processing_error = f"AI analysis failed: {exc}"[:500]
+                            self.wardrobe_repo.update_item(item)
+                        except Exception:
+                            pass
+                        logger.error(
+                            "wardrobe inline analysis crashed",
+                            filename=filename, error=f"{type(exc).__name__}: {exc}"[:300],
+                        )
+                        entry.update({
+                            "status": "failed",
+                            "detail": "Upload processing failed during AI analysis.",
+                        })
+                        failed += 1
                         results.append(entry)
                         continue
-                    except Exception:
-                        pass
-
-                entry.update({"status": "created", "item": self._to_dict(item)})
+                    entry.update({"status": "created", "item": self._to_dict(analyzed)})
+                else:
+                    entry.update({"status": "created", "item": self._to_dict(item)})
                 succeeded += 1
             except FeatureNotConfiguredError:
                 # Storage is not configured for this environment: that is a

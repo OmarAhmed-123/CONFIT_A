@@ -233,7 +233,8 @@ class TestGateAgainstRealMigrations:
         _alembic(url, "up", "head")
         with engine.begin() as conn:
             conn.execute(text("UPDATE alembic_version SET version_num = '9999_destructive'"))
-            conn.execute(text("DROP TABLE sponsored_placements"))
+            # Preserve journal foreign keys while making the required table name absent.
+            conn.execute(text("ALTER TABLE sponsored_placements RENAME TO absent_sponsored_placements"))
         report = evaluate(engine)
         assert report.verdict == "drift", report.findings
         assert "sponsored_placements" in report.missing_tables

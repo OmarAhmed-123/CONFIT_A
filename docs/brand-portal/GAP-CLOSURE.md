@@ -39,12 +39,15 @@ Local PostgreSQL empty-database upgrade, ORM parity, required-object schema
 checks, full downgrade/re-upgrade and numeric roundtrip passed (56 tables).
 Isolated staging was migrated to 0021; production was not migrated by this
 mission at this point. No gate/protection is disabled to make release pass.
-Existing-data ownership/backfill and rolling-deployment behavior still need
-explicit release evidence beyond the empty-database gate.
+Existing-data backfill now has an explicit PostgreSQL migration rehearsal: two
+existing founders (including an inactive account) preserve ownership/timestamps
+and global consumer roles. A legacy direct INSERT after upgrade also provisions
+its founder membership through the PostgreSQL trigger. This is a scratch-data
+rehearsal, not a copy of production data.
 
 ## Actual verification before preview deployment
 
-* Full backend suite: **1439 passed, 7 skipped**, 283.63 seconds.
+* Full backend suite: **1441 passed, 7 skipped**, 294.26 seconds (final rerun).
 * Frontend verify: i18n check, TypeScript, **30 files / 247 tests**, build passed.
 * PostgreSQL counter/owner concurrency file: **4 passed** (same-key concurrent
   events, UTC rollover/replay, last-owner race, totals beyond a catalog page).
@@ -89,27 +92,130 @@ No seasonality, geography, causal improvement or verified CPC billing is
 inferred from these snapshots. Complete per-metric filter/grain documentation,
 localized formatting and all list pagers remain open.
 
+## Actual runtime UAT and release outcome
+
+PR: https://github.com/OmarAhmed-123/CONFIT_A/pull/150 (**draft**).
+Implementation commit: `82fc979`; review follow-up commits on the same branch.
+No merge, no production migration, and **no Vercel deployment of this work**.
+
+Vercel rejected preview creation with HTTP402:
+`api-deployments-free-per-day` (more than100; retry after24hours). The Vercel
+GitHub check reports the same build-rate-limit. Rather than use production
+accounts, a production-mode workspace API/frontend was connected to the
+already-isolated Neon staging database and real S3 staging namespace.
+
+That alternate verification runtime passed:
+
+* Actual password login for three isolated accounts, official invitation and
+  acceptance, owner role change, revoked-member denial, cross-tenant404.
+  Verified-email test accounts were bootstrapped in the empty isolated database;
+  this does **not** certify email delivery/verification transport.
+* Queued import/replay and a **separate CLI process** consuming one durable row;
+  progress/history, product edit, SKU identity + inventory endpoints, store
+  inventory, placement creation/replay, analytics and tenant-scoped audit.
+* Real S3 upload/read, draft anonymous404, published anonymous image200,
+  unpublish404, archive/write409, image deletion and provider HEAD404.
+* Catalog editor denied when trying to clear an existing price override.
+* Application-role UPDATE rejected by both append-only PostgreSQL triggers.
+* Chromium UI sign-in/session cookie, real stored image render, product editor
+  save via CSRF-protected cookie, inventory/placements/analytics/team/audit
+  views, English/LTR and Arabic/RTL. No recorded post-login API failures or
+  page errors. Browser evidence is from `82fc979`, before the final disclosure
+  banner and inventory-total correction; those follow-ups have fresh full tests.
+
+An initial UAT harness incorrectly supplied stock to the variant-identity
+endpoint and correctly received422; the record is preserved. The corrected
+harness uses the separate inventory endpoint. A first screenshot assertion
+also ran before the image finished loading; waiting for actual image decode
+passed. Neither failed attempt is represented as a product fix.
+
+**Cleanup:** stopped the runtime; checked that only the three UAT accounts
+existed; cleared54 test-data tables in the dedicated staging database with the
+migration role, retaining Alembic0021 and migration history. S3 prefix listing
+returned zero objects. Test passwords/accounts were removed from private
+working configuration. Production was not used for cleanup.
+
+**Scale sample:** real migrated local PostgreSQL,1000 products/30000 variants,
+2 catalog SELECTs,25 products ×25 returned variants, correct totals across all
+30 variants/product. Query plans and one measured duration are recorded. This
+is a bounded-query sample, **not** a throughput/SLA or all-endpoints load test;
+legacy nested store inventories and some UI list navigation remain incomplete.
+
+**CI:** the initial backend/frontend/deployment-contract jobs passed. The
+PostgreSQL job exposed a scratch test trying to DROP a table referenced by the
+new immutable journal. It now renames the required table, preserving the same
+missing-object/fail-closed assertion;45 PostgreSQL checks passed locally.
+Gitleaks flagged a test-only HTTP idempotency identifier, not a credential. The
+parameter was renamed and exactly that historical fingerprint is documented
+in `.gitleaksignore`; no scanning rule/path was disabled. Follow-up CI must be
+checked separately. New membership/queue/counter PostgreSQL tests are now
+included in the existing CI PostgreSQL job.
+
+**Production read-only check:** `/api/v1/health` returned200/healthy/schema-ok,
+code/database revision0018. Last observed production deployment commit was
+`3558d14`. The release gate **correctly blocks** this branch: it requires0021,
+three unapplied migrations. No migration is applied simply to turn a gate green
+while preview deployment and readiness gaps remain. Main protections are intact.
+
+**Cloudflare:** current production health request reported Vercel headers;
+repository API routing uses Vercel/same-origin, no Wrangler configuration was
+found, and Cloudflare is not a required branch-protection check. R2 is optional.
+The installed `Workers Builds: confit-a` integration nevertheless failed; its
+private dashboard/edge deployment was not verified. It was not disabled or
+presented as repaired. No claim that the entire project's Cloudflare use is legacy.
+
 ## Mandatory verification matrix
+
+Staging cells below include the real isolated Neon/S3 checks, but remain
+PARTIALLY VERIFIED where the Vercel-hosted runtime was blocked. Evidence links
+are under [`evidence/2026-09-21`](evidence/2026-09-21/README.md).
 
 | Gap | Status | Evidence | Files/PR/Commit | Test | Local | Staging | Production |
 |---|---|---|---|---|---|---|---|
-| Authenticated end-to-end workflow and cleanup | NOT VERIFIED | No deployed UAT yet | Portal routes / pending PR | API regression only | PARTIALLY VERIFIED | NOT VERIFIED | NOT VERIFIED |
-| Membership, invitations and ownership | PARTIALLY VERIFIED | Tenant and concurrent last-owner tests | brand_access, brand_team, 0019 | Local/PG passes | VERIFIED | NOT VERIFIED | NOT VERIFIED |
-| CPC serving, billing and fraud controls | PARTIALLY VERIFIED | Counter journal only; billable=false | placement_counters, 0021 | Replay/day/concurrency passes | PARTIALLY VERIFIED | NOT VERIFIED | NOT VERIFIED |
-| Atomic critical audit | PARTIALLY VERIFIED | Shared transactions and rollback tests | partner_audit, 0019 | Suite passes | VERIFIED | NOT VERIFIED | NOT VERIFIED |
-| Durable import, pagination and scale | PARTIALLY VERIFIED | SQL checkpoint queue; bounded reads | partner_import_queue, worker, 0020 | Unit/contract passes; no production load claim | PARTIALLY VERIFIED | NOT VERIFIED | NOT VERIFIED |
-| Product/SKU lifecycle and complete EN/AR | PARTIALLY VERIFIED | Lifecycle APIs, editor, paired locale gate | partner_product_service, frontend b2b | 247 frontend tests; backend suite | PARTIALLY VERIFIED | NOT VERIFIED | NOT VERIFIED |
-| Analytics semantic contracts | PARTIALLY VERIFIED | Null denominator and unpaged aggregate tests | brand_repository, brand_service | Totals regression passes | PARTIALLY VERIFIED | NOT VERIFIED | NOT VERIFIED |
-| Persistent image lifecycle / CSP | PARTIALLY VERIFIED | Local validation and durable intent tests | partner_assets, 0020 | Local tests; no S3 lifecycle claim yet | PARTIALLY VERIFIED | NOT VERIFIED | NOT VERIFIED |
-| Cloudflare necessity / actual edge verification | NOT VERIFIED | Optional R2 adapter found | storage_service; existing integrations | No request verification yet | PARTIALLY VERIFIED | NOT VERIFIED | NOT VERIFIED |
-| Credentials / rotation | PARTIALLY VERIFIED | Deployment/GitHub encrypted configuration installed | No values committed | No rotation evidence | PARTIALLY VERIFIED | PARTIALLY VERIFIED | NOT VERIFIED |
+| Authenticated workflow and cleanup | PARTIALLY VERIFIED | API UAT, Chromium, cleanup-proof | PR150 /82fc979 | Login→audit;54 empty tables;zero S3 objects | VERIFIED | PARTIALLY VERIFIED | NOT VERIFIED |
+| Membership, invitations and ownership | PARTIALLY VERIFIED | PG concurrency/backfill + staging role/IDOR | brand_access, brand_team,0019 /PR150 | Last-owner race;existing-owner preservation;revocation | VERIFIED | PARTIALLY VERIFIED | NOT VERIFIED |
+| CPC serving, billing and fraud controls | PARTIALLY VERIFIED | Counter journal only;billable=false | placement_counters,0021 /PR150 | Replay/day/concurrency;no trusted billing proof | PARTIALLY VERIFIED | PARTIALLY VERIFIED | NOT VERIFIED |
+| Atomic critical audit | PARTIALLY VERIFIED | Rollback tests;live migrated trigger rejection | partner_audit,0019 /PR150 | Same-transaction tests;app-role UPDATE blocked | VERIFIED | PARTIALLY VERIFIED | NOT VERIFIED |
+| Durable import, pagination and scale | PARTIALLY VERIFIED | Separate worker process;scale query plans | queue/worker/repositories,0020 /PR150 | Checkpoints;1000 products/30000 SKUs;no scheduled-run proof | PARTIALLY VERIFIED | PARTIALLY VERIFIED | NOT VERIFIED |
+| Product/SKU lifecycle and complete EN/AR | PARTIALLY VERIFIED | API lifecycle, browser editor,RTL screenshot | product service/frontend /PR150 | Final suites;UI session save;locale gate | PARTIALLY VERIFIED | PARTIALLY VERIFIED | NOT VERIFIED |
+| Analytics semantic contracts | PARTIALLY VERIFIED | Null denominator/unpaged totals;staging reads | brand_repository/service /PR150 | Totals regressions;not causal/session attribution | PARTIALLY VERIFIED | PARTIALLY VERIFIED | NOT VERIFIED |
+| Persistent image lifecycle / CSP | PARTIALLY VERIFIED | Actual S3 upload/read/delete/provider404 | partner_assets,0020 /PR150 | Image validation;browser render;draft/public visibility | VERIFIED | PARTIALLY VERIFIED | NOT VERIFIED |
+| Cloudflare necessity / edge verification | PARTIALLY VERIFIED | Vercel production request;optional R2;failed external check | storage_service/existing integration | Cloudflare edge/dashboard not verified | PARTIALLY VERIFIED | NOT VERIFIED | PARTIALLY VERIFIED |
+| Credentials / rotation | PARTIALLY VERIFIED | Secret-manager configuration;no values in deliverables | Provider settings;no credential values in Git | Test credentials removed;exposed keys not rotated | PARTIALLY VERIFIED | PARTIALLY VERIFIED | NOT VERIFIED |
 
-## Remaining release blockers
+## Remaining blockers and work — explicitly not closed
 
-Actual staging Login→Portal→Catalog→Product→SKU→Inventory→Store→Placement→
-Analytics→Audit; persistent S3 read/delete and cleanup proof; automated runner
-execution; variant/store/inventory/analytics UI pagination and complete role
-visibility/localized errors/formatting; production-compatible existing-data
-migration proof; trusted CPC business decisions/serving/fraud/reconciliation;
-protected PR/CI/release and production checks. Do not interpret this checklist
-or a green build as evidence that those blockers are resolved.
+1. Vercel staging deployment and repeat UAT on that exact deployed commit;
+   final CI/release, approved production migration and smoke checks.
+2. **BRD §2.1/3.4 requires placement billing and CPC surfaces.** Trusted serving
+   receipts, spend authorization/funding, fraud controls, financial ledger,
+   refund/reconciliation and actual ad delivery are not delivered by a counter
+   journal. No charges should be inferred or enabled from these counters.
+3. Automatic scheduled-run evidence (the workflow is not on the default branch
+   yet), crash/concurrent-worker rehearsal, full queue monitoring, query/index
+   coverage and load evidence for every list. GitHub cron is best-effort.
+4. Complete variant/store/inventory/analytics UI pagination, role-aware control
+   visibility, dynamic errors and number/date/currency localization. RTL and
+   paired dictionaries do not prove complete localization/accessibility.
+5. Full source/grain/filter/display contracts for every snapshot; no causal
+   return-reduction, geography, seasonality or SKU-exposure claims.
+6. Image replacement/orphan lifecycle, legacy external-URL compatibility,
+   deployed CSP and serverless request-limit behavior need further verification.
+   Normalization is not an antivirus certification.
+7. BRD extras such as search-index sync, barcode/compare-at/size-chart editing,
+   store operating hours and automatic low-stock notifications are not certified
+   by this delivery's narrower operational tests.
+8. Exposed credential rotation remains unperformed. Coordinated production
+   credential replacement/redeployment is unsafe while Vercel deployment is
+   quota-blocked and dependency impact is unknown. Do not treat a private local
+   file as a secret manager or assume existing historical secret exceptions
+   mean the old credentials have been rotated.
+
+## Design references consulted
+
+* [OWASP Authorization Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Authorization_Cheat_Sheet.html): explicit tenant/resource authorization, deny by default, least privilege.
+* [OWASP API1 BOLA](https://api-security.owasp.org/editions/2023/en/0xa1-broken-object-level-authorization/): authorize every supplied resource ID.
+* [SQLAlchemy transaction documentation](https://docs.sqlalchemy.org/en/20/orm/session_transaction.html): savepoint versus outer transaction ownership.
+* [PostgreSQL locking](https://www.postgresql.org/docs/current/explicit-locking.html) and [SELECT](https://www.postgresql.org/docs/current/sql-select.html): parent locks for first inserts and skip-locked queue claims.
+* Project BRD and previous `IMPLEMENTATION.md` are scope references, not evidence
+  that their example metrics or untested features are real.

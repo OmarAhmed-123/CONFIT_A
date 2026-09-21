@@ -68,3 +68,12 @@ def test_two_owners_cannot_concurrently_remove_last_owner(portal):
         statuses=list(pool.map(remove,[(members[0],h[0]),(members[1],ih)]))
     assert sorted(statuses)==[200,409]
     with f() as db:assert db.query(BrandMembership).filter_by(brand_id=b[0],role='owner').count()==1
+
+
+def test_inventory_total_is_not_first_variant_page(portal):
+    c, f, h, brands = portal
+    upload(c, h[0], [row(sku_code=f'VARIANT-{i}', size=str(i), stock_level='1') for i in range(28)])
+    result = c.get('/partner/inventory', headers=h[0]).json()[0]
+    assert len(result['skus']) == 25
+    assert result['total_stock'] == 28
+    assert result['skus_next_cursor'] is not None

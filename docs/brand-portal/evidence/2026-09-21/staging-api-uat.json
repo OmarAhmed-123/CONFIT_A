@@ -1,0 +1,200 @@
+{
+  "runtime": "workspace production-mode API + isolated Neon staging + real private S3; NOT Vercel deployment",
+  "commit": "82fc979",
+  "steps": [
+    {
+      "step": "Real password login for three isolated accounts",
+      "passed": true
+    },
+    {
+      "step": "Portal profile",
+      "status": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "step": "Create analyst invitation",
+      "status": 201,
+      "expected": 201,
+      "passed": true
+    },
+    {
+      "step": "Accept invitation as consumer",
+      "status": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "step": "Analyst forbidden to invite",
+      "status": 403,
+      "expected": 403,
+      "passed": true
+    },
+    {
+      "step": "Queue blank-image draft",
+      "status": 202,
+      "expected": 202,
+      "passed": true
+    },
+    {
+      "step": "Replay import key",
+      "status": 202,
+      "expected": 202,
+      "passed": true
+    },
+    {
+      "step": "Separate worker process consumes durable staging queue",
+      "passed": true,
+      "counters": {
+        "batches": 1,
+        "rows": 1,
+        "retry_attempts": 0,
+        "assets_purged": 0
+      }
+    },
+    {
+      "step": "Import progress/history",
+      "status": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "step": "Catalog",
+      "status": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "step": "Cross-tenant product denied",
+      "status": 404,
+      "expected": 404,
+      "passed": true
+    },
+    {
+      "step": "Product edit",
+      "status": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "step": "Create variant",
+      "status": 422,
+      "expected": 201,
+      "passed": false
+    },
+    {
+      "step": "Real password login for three isolated accounts",
+      "passed": true
+    },
+    {
+      "step": "Resume catalog",
+      "status": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "step": "Create variant",
+      "status": 201,
+      "expected": 201,
+      "passed": true
+    },
+    {
+      "step": "Variant inventory edit",
+      "status": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "step": "Persistent S3 image upload",
+      "status": 201,
+      "expected": 201,
+      "passed": true
+    },
+    {
+      "step": "Draft image owner read",
+      "status": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "step": "Draft image anonymous denied",
+      "status": 404,
+      "expected": 404,
+      "passed": true
+    },
+    {
+      "step": "Publish isolated staging product",
+      "status": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "step": "Published image anonymous read",
+      "status": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "step": "Create store",
+      "status": 201,
+      "expected": 201,
+      "passed": true
+    },
+    {
+      "step": "Set store inventory",
+      "status": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "step": "Read inventory",
+      "status": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "step": "Read store stock",
+      "status": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "step": "Create placement",
+      "status": 201,
+      "expected": 201,
+      "passed": true
+    },
+    {
+      "step": "Record nonbillable counter",
+      "status": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "step": "Replay counter",
+      "status": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "step": "Analytics",
+      "status": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "step": "Audit",
+      "status": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "step": "Other tenant audit empty",
+      "status": 200,
+      "expected": 200,
+      "passed": true
+    }
+  ],
+  "harness_correction": "Initial variant request erroneously supplied stock_level to catalog identity endpoint (422); stock is changed via inventory endpoint.",
+  "outcome": "API chain passed; browser + unpublish/archive/delete/cleanup pending"
+}

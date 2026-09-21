@@ -1,0 +1,95 @@
+{
+  "runtime": "workspace API + isolated Neon staging + real S3",
+  "checks": [
+    {
+      "check": "List members",
+      "status": 200,
+      "passed": true
+    },
+    {
+      "check": "Change member role",
+      "status": 200,
+      "passed": true
+    },
+    {
+      "check": "Owner price override",
+      "status": 200,
+      "passed": true
+    },
+    {
+      "check": "Editor cannot clear override",
+      "status": 403,
+      "passed": true
+    },
+    {
+      "check": "Editor can edit product copy",
+      "status": 200,
+      "passed": true
+    },
+    {
+      "check": "Cancel placement retaining journal",
+      "status": 200,
+      "passed": true
+    },
+    {
+      "check": "Unpublish",
+      "status": 200,
+      "passed": true
+    },
+    {
+      "check": "Unpublished image hidden",
+      "status": 404,
+      "passed": true
+    },
+    {
+      "check": "Owner cookie-independent image authorization",
+      "status": 200,
+      "passed": true
+    },
+    {
+      "check": "Archive",
+      "status": 200,
+      "passed": true
+    },
+    {
+      "check": "Archived variant write rejected",
+      "status": 409,
+      "passed": true
+    },
+    {
+      "check": "Delete persistent image",
+      "status": 200,
+      "passed": true
+    },
+    {
+      "check": "Deleted image absent",
+      "status": 404,
+      "passed": true
+    },
+    {
+      "check": "Provider HEAD confirms actual S3 object deletion",
+      "passed": true
+    },
+    {
+      "check": "audit_logs append-only trigger rejects application-role UPDATE",
+      "passed": true,
+      "sqlstate": "P0001"
+    },
+    {
+      "check": "placement_counter_events append-only trigger rejects application-role UPDATE",
+      "passed": true,
+      "sqlstate": "P0001"
+    },
+    {
+      "check": "Remove editor membership",
+      "status": 200,
+      "passed": true
+    },
+    {
+      "check": "Revoked member denied",
+      "status": 403,
+      "passed": true
+    }
+  ],
+  "outcome": "PASS; database teardown pending after runtime stop"
+}

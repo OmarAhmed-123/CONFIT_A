@@ -50,8 +50,8 @@ def test_product_and_sku_pagination(portal):
     assert len(one['items'])==len(two['items'])==1 and one['items'][0]['id']!=two['items'][0]['id']
 
 
-def enqueue(c,h,rows,key='test-idempotency-0001'):
-    return c.post('/partner/catalog/jobs',headers=h|{'Idempotency-Key':key},json={'products':rows})
+def enqueue(c,h,rows,request_identity='test-idempotency-0001'):
+    return c.post('/partner/catalog/jobs',headers=h|{'Idempotency-Key':request_identity},json={'products':rows})
 
 
 def test_queue_checkpoint_retry_and_partial_rows(portal,monkeypatch):

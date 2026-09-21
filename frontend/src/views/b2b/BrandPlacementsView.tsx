@@ -75,6 +75,7 @@ export const BrandPlacementsView: React.FC = () => {
 
   return (
     <div className="space-y-8 pb-20">
+      <p className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">{t('partnerOps.counterDisclosure')}</p>
       {actionMessage && <p role="status">{actionMessage}</p>}
       {placementsError && (
         <div role="alert" className="p-4 rounded-2xl bg-rose-50 border border-rose-200">

@@ -843,7 +843,8 @@
     "nav_admin": "Platform admin",
     "nav_hub": "Brand partner hub",
     "nav_partner": "Partner",
-    "insufficient": "Not enough data"
+    "insufficient": "Not enough data",
+    "counterDisclosure": "These are partner-reported, nonbillable counters—not verified ad charges. Trusted ad delivery, fraud checks and billing reconciliation are not yet available."
   },
   "partnerPortal": {
     "text000": "Loading brand catalog and SKU inventory...",

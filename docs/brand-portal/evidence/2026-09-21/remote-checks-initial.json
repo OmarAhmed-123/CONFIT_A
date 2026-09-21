@@ -1,0 +1,77 @@
+{
+  "commit": "82fc9798d48d9155ae880050ab0dc649fe360c72",
+  "check-runs": [
+    {
+      "name": "Workers Builds: confit-a",
+      "state": "failure",
+      "app": "Cloudflare Workers and Pages",
+      "url": "https://dash.cloudflare.com/e3269d9680d92a18d3e9492b2ac38989/workers/services/view/confit-a/production/builds/2068a9a3-392a-4786-be50-8c49b0959058"
+    },
+    {
+      "name": "production parity (deployment contract)",
+      "state": "success",
+      "app": "GitHub Actions",
+      "url": "https://github.com/OmarAhmed-123/CONFIT_A/actions/runs/35597874454/job/106326789699"
+    },
+    {
+      "name": "frontend",
+      "state": "success",
+      "app": "GitHub Actions",
+      "url": "https://github.com/OmarAhmed-123/CONFIT_A/actions/runs/35597874454/job/106326789657"
+    },
+    {
+      "name": "backend",
+      "state": "success",
+      "app": "GitHub Actions",
+      "url": "https://github.com/OmarAhmed-123/CONFIT_A/actions/runs/35597874454/job/106326789502"
+    },
+    {
+      "name": "gitleaks secret scan (full history)",
+      "state": "failure",
+      "app": "GitHub Actions",
+      "url": "https://github.com/OmarAhmed-123/CONFIT_A/actions/runs/35597874470/job/106326789430"
+    },
+    {
+      "name": "postgres migration chain + schema gate",
+      "state": "failure",
+      "app": "GitHub Actions",
+      "url": "https://github.com/OmarAhmed-123/CONFIT_A/actions/runs/35597874454/job/106326789278"
+    }
+  ],
+  "status": [
+    {
+      "name": "Vercel",
+      "state": "failure",
+      "app": null,
+      "url": "https://vercel.com/omarsafealden-3943s-projects?upgradeToPro=build-rate-limit"
+    },
+    {
+      "name": "CodeRabbit",
+      "state": "success",
+      "app": null,
+      "url": null
+    }
+  ],
+  "production_health": {
+    "http_status": 200,
+    "server": "Vercel",
+    "vercel_header_present": true,
+    "cloudflare_ray_present": false,
+    "status": "healthy",
+    "schema": {
+      "verdict": "ok",
+      "expected_head": "0018_outfit_share_lifecycle",
+      "database_revision": "0018_outfit_share_lifecycle",
+      "missing_tables": [],
+      "missing_columns": {},
+      "findings": [],
+      "blocking": false,
+      "acceptable": true
+    }
+  },
+  "required_checks": [
+    "backend",
+    "frontend",
+    "release gate (production schema parity)"
+  ]
+}

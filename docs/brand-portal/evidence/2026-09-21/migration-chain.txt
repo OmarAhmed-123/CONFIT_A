@@ -1,0 +1,9 @@
+[0] scratch database wiped: 0 tables
+[1] upgrade head rc=0 revision=0021_partner_counter_journal tables=56 (expected head 0021_partner_counter_journal)
+[2] ORM/migration parity: missing tables=[] migration-only extras=[]
+[3] schema gate verdict=ok acceptable(production)=True
+[4a] downgrade base rc=0 revision=None tables=1
+[4b] upgrade head (again) rc=0 revision=0021_partner_counter_journal tables=56
+[5] numeric(12,2) round trip ok
+
+MIGRATION CHAIN GATE: PASS

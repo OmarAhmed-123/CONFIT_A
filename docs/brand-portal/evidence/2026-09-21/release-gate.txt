@@ -1,0 +1,11 @@
+RELEASE GATE: BLOCK
+  commit requires : 0021_partner_counter_journal
+  production has  : 0018_outfit_share_lifecycle
+  production health verdict: ok (acceptable=True)
+  production is at 0018_outfit_share_lifecycle but this commit requires 0021_partner_counter_journal (3 migration(s) not applied).
+  Merging now would deploy code production cannot run: the startup schema gate
+  would refuse to boot and the API would return 500 (this is the 2026-09-20 incident).
+  Order of operations: apply the migration FIRST, then merge:
+    ALEMBIC_DATABASE_URL='<owner DSN>' PYTHONPATH=. alembic -c backend/alembic.ini upgrade head
+    ALEMBIC_DATABASE_URL='<owner DSN>' PYTHONPATH=. alembic -c backend/alembic.ini current
+  Then re-run this gate: it passes on its own once production reports 0021_partner_counter_journal.

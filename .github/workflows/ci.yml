@@ -89,6 +89,7 @@ jobs:
           backend/tests/test_schema_drift_gate.py
           backend/tests/test_migration_integrity_behavioral.py
           backend/tests/test_migration_0013_quarantine_audit.py
+          backend/tests/test_partner_membership_migration.py
 
       - name: Partner portal behavior and concurrent mutations on PostgreSQL
         env:
@@ -98,6 +99,9 @@ jobs:
           backend/tests/test_brand_portal_regressions.py
           backend/tests/test_brand_portal_analytics.py
           backend/tests/test_brand_portal_postgres.py
+          backend/tests/test_brand_team_atomic.py
+          backend/tests/test_partner_catalog_operations.py
+          backend/tests/test_partner_counters_concurrency.py
 
   # Guards against "works on the developer machine" regressions: the Vercel
   # function manifest, entrypoint, environment contract and forbidden

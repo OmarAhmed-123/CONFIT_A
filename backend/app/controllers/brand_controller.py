@@ -350,6 +350,7 @@ def get_partner_inventory(
 
     # Real inventory: products with SKUs and store inventories — FIXED N+1 via single query
     products = repo.get_brand_products(bp["id"], after, limit)
+    stock_totals = repo.product_stock_totals(bp["id"], [p.id for p in products])
     # Single query for all store inventories for this brand's SKUs
     from backend.app.models.catalog import StoreInventory
     all_sku_ids = [sku.id for prod in products for sku in prod.skus]
@@ -383,7 +384,8 @@ def get_partner_inventory(
             "product_id": product.id,
             "title": product.title,
             "thumbnail_url": product.thumbnail_url,
-            "total_stock": sum(s.stock_level for s in product.skus),
+            "total_stock": stock_totals.get(product.id, 0),
+            "skus_next_cursor": getattr(product, "_skus_next_cursor", None),
             "skus": sku_details
         })
 

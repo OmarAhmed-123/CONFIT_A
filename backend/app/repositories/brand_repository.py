@@ -57,6 +57,13 @@ class BrandRepository:
             product._skus_next_cursor = rows[24].id if len(rows)>25 else None
         return products
 
+    def product_stock_totals(self, brand_id: int, product_ids: list[int]) -> dict[int, int]:
+        if not product_ids:
+            return {}
+        rows = self.db.query(ProductSKU.product_id, func.sum(ProductSKU.stock_level)).join(Product).filter(
+            Product.brand_id == brand_id, ProductSKU.product_id.in_(product_ids)).group_by(ProductSKU.product_id).all()
+        return {pid: int(total or 0) for pid, total in rows}
+
     def get_brand_placements(self, brand_id: int) -> List[SponsoredPlacement]:
         return (
             self.db.query(SponsoredPlacement)

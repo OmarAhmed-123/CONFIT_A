@@ -9,3 +9,8 @@
 b49ab275c8e8139133bb886537c7ba88f58847f7:backend/app/core/database.py:database-dsn-with-password:8
 878e6491d2aa9a5bf476b9a40d22019c64e8b11c:backend/app/core/database.py:database-dsn-with-password:8
 878e6491d2aa9a5bf476b9a40d22019c64e8b11c:api/backend/app/core/database.py:database-dsn-with-password:8
+
+# Exact historical false positive: test-only HTTP idempotency identifier, not
+# an authentication credential. Parameter renamed to avoid future confusion.
+# No rule, path, or real credential is broadly allowlisted by this entry.
+82fc9798d48d9155ae880050ab0dc649fe360c72:backend/tests/test_partner_catalog_operations.py:generic-api-key:53

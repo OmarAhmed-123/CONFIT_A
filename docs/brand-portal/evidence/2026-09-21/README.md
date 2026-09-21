@@ -1,0 +1,21 @@
+# Reviewable evidence — 2026-09-21
+
+See [gap report](../../GAP-CLOSURE.md). No production-ready claim.
+
+- `test-summary.txt`: final full backend1441/7 skipped; frontend247 + build/i18n.
+- `migration-chain.txt`: PostgreSQL empty/up/down/up/parity0021.
+- `existing-data-migration.txt`: existing founders and rolling insert rehearsal.
+- `postgres-ci-recheck.txt`:45 migration/schema checks after FK-aware test fix.
+- `postgres-new-concurrency.txt`:4 counter/owner concurrency checks (before final inventory test).
+- `final-targeted.txt`:9 passes/2 PG-only skips on final affected features.
+- `catalog-scale.json`: actual SQL plans for a bounded1000-product/30000-SKU sample, not an SLA.
+- `staging-api-uat.json`: API chain against real isolated Neon/S3 from workspace runtime; includes preserved harness422 and correction.
+- `browser-uat.json`, `catalog-en.png`, `audit-ar.png`: actual Chromium login/render/edit/navigation/locale checks at82fc979.
+- `staging-lifecycle-cleanup.json`: unpublish/archive/S3 deletion and migrated trigger checks; final database cleanup is in the next file.
+- `cleanup-proof.json`:54 tables cleared,zero S3 objects,schema retained,production untouched.
+- `remote-checks-initial.json`: initial CI/external statuses and read-only production health; not final CI status.
+- `release-gate.txt`: correctly BLOCKED: production0018 versus required0021.
+
+No tokens, passwords, authorization headers, private connection URLs or raw
+network traces are included. Test screenshots contain synthetic staging names.
+Vercel preview was quota-blocked; workspace-runtime UAT is not Vercel deployment.

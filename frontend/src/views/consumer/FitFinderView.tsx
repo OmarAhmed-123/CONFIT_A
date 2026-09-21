@@ -632,12 +632,37 @@ export const FitFinderView: React.FC = () => {
                     for {selectedProduct?.brand_name} · {selectedProduct?.title}
                   </p>
                 </div>
-                <FitScoreBadge
-                  score={result.confidence_score}
-                  label="Confidence"
-                  verdict={result.fit_verdict}
-                />
+                {/* The band is the honest signal. The 0-100 score is an
+                    internal evidence tally, not a calibrated probability, so it
+                    is NOT rendered as a percentage here. */}
+                <div className="text-right shrink-0">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                    Confidence
+                  </p>
+                  <p
+                    className={`font-serif text-2xl font-black capitalize leading-tight ${
+                      result.confidence_band === 'high'
+                        ? 'text-emerald-700'
+                        : result.confidence_band === 'low'
+                          ? 'text-amber-700'
+                          : 'text-slate-700'
+                    }`}
+                  >
+                    {result.confidence_band ?? 'unrated'}
+                  </p>
+                  <p className="text-[10px] text-slate-500">{result.fit_verdict}</p>
+                </div>
               </div>
+
+              {result.confidence_band_reason && (
+                <p className="text-[11px] text-slate-600 leading-relaxed bg-[#FAF9F6] border border-slate-100 rounded-2xl px-3 py-2">
+                  {result.confidence_band_reason}{' '}
+                  <span className="text-slate-400">
+                    This is a rule-based rating of the evidence, not a statistical
+                    probability.
+                  </span>
+                </p>
+              )}
 
               {result.is_between_sizes && result.alternative_size && (
                 <div className="bg-[#FDF8EE] border border-[#C5A059]/40 rounded-2xl px-3 py-2">
@@ -724,7 +749,13 @@ export const FitFinderView: React.FC = () => {
                             <td className="py-1.5">{fmt(row.ranges_cm?.chest)}</td>
                             <td className="py-1.5">{fmt(row.ranges_cm?.waist)}</td>
                             <td className="py-1.5">{row.fit_rating}</td>
-                            <td className="py-1.5">{row.in_stock ? 'In stock' : 'Out of stock'}</td>
+                            <td className="py-1.5">
+                              {row.in_stock === null || row.availability === 'unknown'
+                                ? 'Not confirmed'
+                                : row.in_stock
+                                  ? 'In stock'
+                                  : 'Out of stock'}
+                            </td>
                           </tr>
                         );
                       })}
@@ -756,7 +787,7 @@ export const FitFinderView: React.FC = () => {
               {result.confidence_factors?.length > 0 && (
                 <details className="bg-[#FAF9F6] rounded-2xl border border-slate-100 px-3 py-2">
                   <summary className="text-[11px] font-bold text-slate-700 cursor-pointer">
-                    How this {result.confidence_score}% confidence was calculated
+                    How this {result.confidence_band} confidence rating was decided
                   </summary>
                   <ul className="mt-2 space-y-1">
                     {result.confidence_factors.map((factor, i) => (

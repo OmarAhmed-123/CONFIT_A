@@ -168,7 +168,11 @@ class NoPhotoFitService:
                 },
                 "fit_score": round(c.score, 1),
                 "fit_rating": self._rating_label(c.score),
+                # Tri-state: None means inventory could not be confirmed for
+                # this size. `availability` spells it out for clients that
+                # would otherwise read a null as false.
                 "in_stock": c.in_stock,
+                "availability": c.availability,
                 "stock_level": c.stock_level,
                 "is_recommended": c.size == decision.recommended_size,
             }
@@ -192,7 +196,13 @@ class NoPhotoFitService:
             "recommended_size": decision.recommended_size,
             "alternative_size": decision.alternative_size,
             "is_between_sizes": decision.is_ambiguous,
+            # `confidence_band` is the honest headline signal. `confidence_score`
+            # is retained for backwards compatibility but is an internal
+            # evidence tally, not a probability — clients should show the band.
+            "confidence_band": decision.confidence_band,
+            "confidence_band_reason": decision.confidence_band_reason,
             "confidence_score": decision.confidence,
+            "confidence_is_probability": False,
             "confidence_factors": list(decision.confidence_factors),
             "is_estimated": bool(decision.body_used.estimated_fields),
             "fit_verdict": self._rating_label(top.score),
@@ -334,9 +344,12 @@ class NoPhotoFitService:
         if estimated:
             evidence += f" plus estimated {', '.join(estimated)}"
         return (
-            f"Size {decision.recommended_size} at {decision.confidence}% confidence, from "
+            f"Size {decision.recommended_size} — {decision.confidence_band} confidence, from "
             f"{evidence}, compared against {chart_phrase}. "
-            "Confidence is capped below certainty because no remote method can guarantee fit."
+            f"{decision.confidence_band_reason} "
+            "This is a rule-based rating of how good the evidence is, not a statistical "
+            "probability: we have not measured how often these recommendations turn out "
+            "to be right."
         )
 
     @staticmethod

@@ -354,7 +354,9 @@ export interface FitSizeRow {
   ranges_cm: Record<string, [number, number]>;
   fit_score: number;
   fit_rating: string;
-  in_stock: boolean;
+  /** Tri-state: null means availability could NOT be confirmed for this size. */
+  in_stock: boolean | null;
+  availability?: 'in_stock' | 'out_of_stock' | 'unknown';
   stock_level: number | null;
   is_recommended: boolean;
 }
@@ -382,7 +384,15 @@ export interface NoPhotoFitResult {
   recommended_size: string | null;
   alternative_size: string | null;
   is_between_sizes: boolean;
+  /** Honest headline signal: deterministic, evidence-based. Render THIS. */
+  confidence_band?: 'high' | 'medium' | 'low' | null;
+  confidence_band_reason?: string | null;
+  /**
+   * Internal evidence tally 0-100, kept for backwards compatibility.
+   * NOT a calibrated probability — never render it as "N% likely".
+   */
   confidence_score: number;
+  confidence_is_probability?: boolean;
   confidence_factors: string[];
   is_estimated: boolean;
   fit_verdict: string;

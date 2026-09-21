@@ -1,12 +1,12 @@
 import React from 'react';
+const percent = (value: number | null) => value == null ? 'Not enough data' : `${value}%`;
 import { useBrandViewModel } from '../../viewmodels/useBrandViewModel';
 import { LoadingSpinner, EmptyState } from '../../components/common/CommonComponents';
-import { CardStackShowcase, CircularGalleryShowcase } from '../../components/showcase/DesignShowcases';
 
 export const BrandAnalyticsView: React.FC = () => {
-  const { analytics, conversionPerSku, fetchErrors, loadFailed, isLoading, refresh } = useBrandViewModel();
+  const { analytics, conversionPerSku, fetchErrors, isLoading, refresh } = useBrandViewModel();
 
-  if (isLoading || (!analytics && !loadFailed)) {
+  if (isLoading) {
     return <LoadingSpinner text="Computing funnel telemetry and conversion rates..." />;
   }
 
@@ -25,44 +25,29 @@ export const BrandAnalyticsView: React.FC = () => {
 
   const totalViews = analytics.total_views || 1;
   const funnelSteps = [
-    { label: '1. Catalog Product Views', count: analytics.total_views, pct: '100%', source: 'RecentlyViewed' },
-    { label: '2. Virtual Try-On Rendered', count: analytics.total_tryons, pct: `${((analytics.total_tryons / totalViews) * 100).toFixed(1)}%`, source: 'TryOnSession' },
-    { label: '3. Added to Shopping Bag', count: analytics.total_add_to_carts, pct: `${((analytics.total_add_to_carts / totalViews) * 100).toFixed(1)}%`, source: 'CartItem' },
-    { label: '4. Confirmed Purchases', count: analytics.total_purchases, pct: `${analytics.funnel_conversion_rate}%`, source: 'OrderItem' },
+    { label: '1. Catalog Product Views', count: analytics.total_views, pct: analytics.total_views ? '100%' : 'N/A', source: 'RecentlyViewed' },
+    { label: '2. Try-on sessions (all states)', count: analytics.total_tryons, pct: `${((analytics.total_tryons / totalViews) * 100).toFixed(1)}%`, source: 'TryOnSession' },
+    { label: '3. Current shopping-bag lines', count: analytics.total_add_to_carts, pct: `${((analytics.total_add_to_carts / totalViews) * 100).toFixed(1)}%`, source: 'CartItem' },
+    { label: '4. Eligible order lines', count: analytics.total_purchases, pct: `${analytics.funnel_conversion_rate}%`, source: 'OrderItem' },
   ];
 
   return (
     <div className="space-y-8 pb-20">
-      <CardStackShowcase
-        tone="analytics"
-        compact
-        eyebrow="Insight Stack"
-        title="Connect styling engagement to revenue signals"
-        description="Analytics uses the stack to explain the path from discovery, try-on, placement, and conversion."
-      />
-
-      <CircularGalleryShowcase
-        tone="analytics"
-        compact
-        eyebrow="Performance Gallery"
-        title="A rotating view of merchandising performance stories"
-        description="The circular gallery becomes an executive summary layer for high-impact collection stories."
-      />
       <div className="border-b border-slate-200 pb-4">
         <h1 className="font-serif text-3xl font-bold text-[#1B1F3B]">
           Conversion Funnel & Return Telemetry
         </h1>
         <p className="text-xs sm:text-sm text-slate-500 mt-1">
-          Real funnel from transactional data: RecentlyViewed → TryOnSession → CartItem → OrderItem. No fake numbers, server-authoritative.
+          {analytics.methodology}
         </p>
       </div>
 
       {/* Funnel Visualization - REAL DATA */}
       <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-sm space-y-6">
         <h3 className="font-serif text-xl font-bold text-[#1B1F3B]">
-          E-Commerce Conversion Funnel (Try-On Assisted) - Real Data
+          Commerce activity snapshot — not a linked-session funnel
         </h3>
-        <p className="text-[11px] text-slate-500">Methodology: Views from RecentlyViewed, Try-Ons from TryOnSession, Add-to-Cart from CartItem via ProductSKU, Purchases from OrderItem where brand_id matches. Conversion = purchases/views*100. Excludes cancelled/refunded orders.</p>
+        <p className="text-[11px] text-slate-500">Ratios mix different measurement units and may exceed 100%. A current cart line is not a lifetime add-to-cart event. Order lines exclude cancelled, refunded and failed orders.</p>
 
         <div className="space-y-4">
           {funnelSteps.map((step, idx) => (
@@ -88,17 +73,17 @@ export const BrandAnalyticsView: React.FC = () => {
         )}
       </div>
 
-      {/* Per-SKU Conversion — an error is surfaced, not laundered into "no rows" */}
+      {/* Per-product Conversion — an error is surfaced, not laundered into "no rows" */}
       {fetchErrors.conversion && (
         <div role="alert" className="p-4 rounded-2xl bg-rose-50 border border-rose-200">
-          <p className="text-[11px] font-bold text-rose-800">Per-SKU conversion failed to load</p>
+          <p className="text-[11px] font-bold text-rose-800">Per-product conversion failed to load</p>
           <p className="text-[11px] text-rose-600 mt-1">{fetchErrors.conversion}</p>
           <button onClick={refresh} className="mt-2 px-3 py-1.5 rounded-lg bg-white border border-rose-200 text-[11px] font-bold text-rose-700 hover:bg-rose-50">Retry</button>
         </div>
       )}
       {conversionPerSku.length > 0 && (
         <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-4">
-          <h3 className="font-serif text-lg font-bold text-[#1B1F3B]">Per-SKU Conversion Analytics</h3>
+          <h3 className="font-serif text-lg font-bold text-[#1B1F3B]">Per-product Conversion Analytics</h3>
           <p className="text-[11px] text-slate-500">Funnel per SKU: views → tryons → add-to-cart → purchases, sorted by conversion rate DESC</p>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
@@ -132,25 +117,25 @@ export const BrandAnalyticsView: React.FC = () => {
       {/* Return Rate Benchmark Card - REAL */}
       <div className="bg-[#FAF9F6] rounded-3xl border border-slate-200 p-6 sm:p-8 space-y-4">
         <h3 className="font-serif text-lg font-bold text-[#1B1F3B]">
-          Return Reduction Financial Impact - Real Cohort Analysis
+          Observed return-marked line comparison
         </h3>
         <div className="grid grid-cols-2 gap-4 text-xs">
           <div className="p-3 rounded-xl bg-white border">
-            <span className="text-slate-400 text-[10px] block uppercase">Before VTON (Non-Try-On)</span>
-            <span className="font-mono text-lg font-bold text-rose-600">{analytics.return_rate_before_vton}%</span>
-            <span className="text-[11px] text-slate-500 block">Industry benchmark or non-try-on cohort</span>
+            <span className="text-slate-400 text-[10px] block uppercase">Non-Try-On cohort</span>
+            <span className="font-mono text-lg font-bold text-rose-600">{percent(analytics.return_rate_before_vton)}</span>
+            <span className="text-[11px] text-slate-500 block">Observed non-try-on order lines; no benchmark fallback</span>
           </div>
           <div className="p-3 rounded-xl bg-white border">
-            <span className="text-slate-400 text-[10px] block uppercase">After VTON (Try-On Users)</span>
-            <span className="font-mono text-lg font-bold text-emerald-600">{analytics.return_rate_after_vton}%</span>
+            <span className="text-slate-400 text-[10px] block uppercase">Try-On assisted cohort</span>
+            <span className="font-mono text-lg font-bold text-emerald-600">{percent(analytics.return_rate_after_vton)}</span>
             <span className="text-[11px] text-slate-500 block">Try-on assisted orders</span>
           </div>
         </div>
         <p className="text-xs text-slate-600 leading-relaxed max-w-3xl">
-          Return reduction <strong>{analytics.return_reduction_percentage}%</strong> calculated via cohort analysis: try-on assisted orders (Order.try_on_assisted) vs non-try-on, with return attribution via ReturnRequest.try_on_used_for_item from real VTON events. Methodology avoids seasonality bias by comparing same time period, same product mix.
+          Return reduction <strong>{percent(analytics.return_reduction_percentage)}</strong> {analytics.return_cohorts?.methodology}
         </p>
         <div className="text-[11px] text-slate-500 p-2 bg-white rounded border">
-          <span className="font-bold">BOPIS Fulfillment:</span> {analytics.bopis_store_fulfillment_rate}% of purchases fulfilled via BOPIS stores. Ad Spend: ${analytics.ad_spend_total}, Ad Revenue: ${analytics.ad_revenue_total} from SponsoredPlacement (real, not fake).
+          <span className="font-bold">BOPIS Fulfillment:</span> {percent(analytics.bopis_store_fulfillment_rate)} of eligible pickup groups completed. Ad Spend: ${analytics.ad_spend_total}, Ad Revenue: ${analytics.ad_revenue_total} from recorded placement counters; not verified billing.
         </div>
       </div>
     </div>

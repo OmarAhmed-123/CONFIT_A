@@ -178,7 +178,8 @@ def health_check(db: Session = Depends(get_db)):
     try:
         schema = _schema_report()
     except Exception as exc:  # never crash health; report the failure instead
-        schema = {"verdict": "unknown", "acceptable": False, "findings": [f"{type(exc).__name__}: {str(exc)[:160]}"]}
+        schema = {"verdict": "unreachable", "acceptable": False, "blocking": False,
+                  "findings": [f"{type(exc).__name__}: {str(exc)[:160]}"]}
 
     # Real AI provider status: configured keys + live quarantine state, so a
     # billing-exhausted key (e.g. OpenAI 402) is visible instead of silently

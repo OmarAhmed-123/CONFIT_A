@@ -1,10 +1,10 @@
 """Isolated partner contract tests. No production credentials, demo login or skips."""
-import io
-import csv
+import os
+import uuid
 from decimal import Decimal
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 from backend.app.main import app
@@ -18,7 +18,20 @@ from backend.app.services.brand_catalog_service import BrandCatalogService
 
 @pytest.fixture
 def portal():
-    engine = create_engine('sqlite://', connect_args={'check_same_thread': False}, poolclass=StaticPool)
+    pg_url = os.environ.get('CONFIT_PORTAL_TEST_PG_URL')
+    admin_engine = None
+    if pg_url:
+        from sqlalchemy.engine import make_url
+        target = make_url(pg_url)
+        if target.host not in ('localhost', '127.0.0.1'):
+            raise RuntimeError('Portal regression DB must be a local throwaway PostgreSQL service')
+        schema = 'portal_test_' + uuid.uuid4().hex
+        admin_engine = create_engine(pg_url)
+        with admin_engine.begin() as conn:
+            conn.execute(text(f'CREATE SCHEMA {schema}'))
+        engine = create_engine(pg_url, connect_args={'options': f'-csearch_path={schema}'})
+    else:
+        engine = create_engine('sqlite://', connect_args={'check_same_thread': False}, poolclass=StaticPool)
     Base.metadata.create_all(engine)
     factory = sessionmaker(bind=engine)
     with factory() as db:
@@ -43,6 +56,10 @@ def portal():
         if old is None: app.dependency_overrides.pop(get_db, None)
         else: app.dependency_overrides[get_db] = old
         engine.dispose()
+        if admin_engine is not None:
+            with admin_engine.begin() as conn:
+                conn.execute(text(f'DROP SCHEMA {schema} CASCADE'))
+            admin_engine.dispose()
 
 
 def row(**changes):

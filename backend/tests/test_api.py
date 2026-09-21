@@ -230,7 +230,11 @@ def test_brand_b2b_dashboard(client: TestClient):
     analytics_res = client.get("/api/v1/brand/analytics", headers=headers)
     assert analytics_res.status_code == 200
     analytics = analytics_res.json()
-    assert analytics["return_reduction_percentage"] > 0
+    # A positive reduction is not guaranteed by seed benchmarks or by having
+    # authenticated. Exact observed cohort arithmetic has isolated tests.
+    assert analytics["data_source"] == "transactional_snapshot"
+    assert "tryon_items" in analytics["return_cohorts"]
+    assert analytics["return_reduction_percentage"] is None or isinstance(analytics["return_reduction_percentage"], (int, float))
     assert len(analytics["outfit_appearance_rankings"]) > 0
 
     # Update SKU Stock

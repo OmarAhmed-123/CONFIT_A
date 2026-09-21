@@ -2,7 +2,7 @@ from decimal import Decimal
 from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, Query, status, UploadFile, File, HTTPException, Request
 from sqlalchemy.orm import Session
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, model_validator
 import json
 from backend.app.core.money import to_decimal, to_float, validate_money, money_add, money_sub, MoneyValueError, MoneyRangeError
 
@@ -14,6 +14,7 @@ from backend.app.services.brand_catalog_service import BrandCatalogService
 from backend.app.repositories.brand_repository import BrandRepository
 from backend.app.schemas.brand import (
     BrandProfileOut,
+    BrandProductOut,
     CatalogBulkImportRequest,
     BrandAnalyticsDashboardOut,
     SponsoredPlacementCreate,
@@ -91,29 +92,40 @@ def _audit(db: Session, user: User, action: str, resource_type: str,
 
 
 class StoreCreateRequest(BaseModel):
-    name: str
-    name_ar: Optional[str] = None
-    city: str
-    country: str = "UAE"
-    address: str
-    latitude: float = 0.0
-    longitude: float = 0.0
-    phone: Optional[str] = None
-    pickup_instructions: Optional[str] = None
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True, allow_inf_nan=False)
+    name: str = Field(min_length=1, max_length=255)
+    name_ar: Optional[str] = Field(None, max_length=255)
+    city: str = Field(min_length=1, max_length=100)
+    country: str = Field("UAE", min_length=1, max_length=100)
+    address: str = Field(min_length=1, max_length=500)
+    latitude: float = Field(0, ge=-90, le=90)
+    longitude: float = Field(0, ge=-180, le=180)
+    phone: Optional[str] = Field(None, max_length=50)
+    pickup_instructions: Optional[str] = Field(None, max_length=2000)
     is_bopis_enabled: bool = True
 
 
 class StoreUpdateRequest(BaseModel):
-    name: Optional[str] = None
-    name_ar: Optional[str] = None
-    city: Optional[str] = None
-    country: Optional[str] = None
-    address: Optional[str] = None
-    latitude: Optional[float] = None
-    longitude: Optional[float] = None
-    phone: Optional[str] = None
-    pickup_instructions: Optional[str] = None
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True, allow_inf_nan=False)
+    name: Optional[str] = Field(None, min_length=1, max_length=255)
+    name_ar: Optional[str] = Field(None, min_length=1, max_length=255)
+    city: Optional[str] = Field(None, min_length=1, max_length=100)
+    country: Optional[str] = Field(None, min_length=1, max_length=100)
+    address: Optional[str] = Field(None, min_length=1, max_length=500)
+    latitude: Optional[float] = Field(None, ge=-90, le=90)
+    longitude: Optional[float] = Field(None, ge=-180, le=180)
+    phone: Optional[str] = Field(None, max_length=50)
+    pickup_instructions: Optional[str] = Field(None, max_length=2000)
     is_bopis_enabled: Optional[bool] = None
+
+    @model_validator(mode="after")
+    def reject_null_required_columns(self):
+        required = {"name", "name_ar", "city", "country", "address", "latitude", "longitude", "is_bopis_enabled"}
+        if not self.model_fields_set:
+            raise ValueError("Provide at least one store field")
+        if any(getattr(self, field) is None for field in required & self.model_fields_set):
+            raise ValueError("Required store fields cannot be null")
+        return self
 
 
 class InventoryUpdateRequest(BaseModel):
@@ -161,7 +173,8 @@ def get_conversion_analytics(user: User = Depends(brand_auth), db: Session = Dep
         "purchases": an["total_purchases"],
         "conversion_rate": an["funnel_conversion_rate"],
         "per_sku": per_sku,
-        "methodology": "Real funnel from RecentlyViewed (views), TryOnSession (tryons), CartItem (add_to_cart), OrderItem (purchases). Conversion = purchases/views*100. Server-authoritative from DB, not frontend."
+        "grain": "product",
+        "methodology": an["methodology"]
     }
 
 
@@ -179,16 +192,7 @@ def get_returns_analytics(user: User = Depends(brand_auth), db: Session = Depend
     service = BrandService(db)
     bp = service.get_brand_profile_by_user(user)
     repo = BrandRepository(db)
-    metrics = repo.get_return_reduction_metrics()
-    # Filter for brand if possible, but return platform metrics with brand-specific
-    brand_analytics = repo.get_brand_analytics(bp["id"])
-    return {
-        "return_rate_before_vton": brand_analytics["return_rate_before_vton"],
-        "return_rate_after_vton": brand_analytics["return_rate_after_vton"],
-        "return_reduction_percentage": brand_analytics["return_reduction_percentage"],
-        "platform_metrics": metrics,
-        "methodology": metrics.get("methodology", "Cohort analysis try-on vs non-try-on")
-    }
+    return repo.get_brand_return_metrics(bp["id"])
 
 
 @router.get("/partner/analytics/heatmaps", response_model=Dict[str, Any])
@@ -197,24 +201,13 @@ def get_partner_heatmaps(
     user: User = Depends(brand_auth),
     db: Session = Depends(get_db)
 ):
-    repo = BrandRepository(db)
-    heatmaps = repo.get_user_preference_heatmaps(region=region)
-    # Ensure anonymized
-    return {
-        "region": heatmaps["region"],
-        "sample_size": heatmaps["sample_size"],
-        "privacy_threshold": heatmaps["privacy_threshold"],
-        "top_aesthetics": heatmaps["top_aesthetics"],
-        "top_colors": heatmaps["top_colors"],
-        "top_occasions": heatmaps["top_occasions"],
-        "anonymized": heatmaps["anonymized"],
-        "methodology": heatmaps["methodology"]
-    }
+    bp = BrandService(db).get_brand_profile_by_user(user)
+    return BrandRepository(db).get_brand_preference_heatmaps(bp["id"], region=region)
 
 
 # 3. Catalog & SKU Management - REAL IMPLEMENTATION
-@router.get("/brand/products", response_model=List[ProductSummaryOut])
-@router.get("/partner/products", response_model=List[ProductSummaryOut])
+@router.get("/brand/products", response_model=List[BrandProductOut])
+@router.get("/partner/products", response_model=List[BrandProductOut])
 def get_brand_products(
     user: User = Depends(brand_auth),
     db: Session = Depends(get_db)
@@ -414,6 +407,25 @@ def get_partner_inventory(
         })
 
     return result
+
+
+@router.post("/partner/inventory")
+def set_partner_inventory(
+    payload: InventoryUpdateRequest,
+    user: User = Depends(brand_auth),
+    db: Session = Depends(get_db)
+):
+    """Explicit store/SKU upsert; PATCH continues to require a real inventory ID."""
+    bp = BrandService(db).get_brand_profile_by_user(user)
+    try:
+        inv = BrandRepository(db).update_store_inventory(payload.store_id, payload.sku_id, payload.quantity, bp["id"])
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    _audit(db, user, "BRAND_STORE_INVENTORY_UPDATED", "StoreInventory", inv.id,
+           {"brand_id": bp["id"], "quantity": inv.quantity})
+    return {"inventory_id": inv.id, "store_id": inv.store_id, "sku_id": inv.sku_id,
+            "quantity": inv.quantity, "reserved": inv.reserved_quantity,
+            "available": inv.quantity - inv.reserved_quantity}
 
 
 @router.patch("/partner/inventory/{inventory_id}")

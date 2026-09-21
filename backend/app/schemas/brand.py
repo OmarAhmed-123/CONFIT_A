@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import Optional, List, Dict, Any
 from decimal import Decimal
 from pydantic import BaseModel, ConfigDict, Field
+from backend.app.schemas.catalog import ProductSummaryOut, ProductSKUOut
 from backend.app.schemas.money_types import PositiveMoney, OptionalPositiveMoney
 
 
@@ -88,6 +89,9 @@ class SponsoredPlacementOut(BaseModel):
 
 
 class BrandAnalyticsDashboardOut(BaseModel):
+    data_source: str
+    methodology: str
+    return_cohorts: Dict[str, Any]
     brand_name: str
     total_products_count: int
     total_skus_count: int
@@ -96,11 +100,11 @@ class BrandAnalyticsDashboardOut(BaseModel):
     total_add_to_carts: int
     total_purchases: int
     funnel_conversion_rate: float
-    return_rate_before_vton: float
-    return_rate_after_vton: float
-    return_reduction_percentage: float
+    return_rate_before_vton: Optional[float]
+    return_rate_after_vton: Optional[float]
+    return_reduction_percentage: Optional[float]
     outfit_appearance_rankings: List[Dict[str, Any]]
-    bopis_store_fulfillment_rate: float
+    bopis_store_fulfillment_rate: Optional[float]
     ad_spend_total: float
     ad_revenue_total: float
 
@@ -143,3 +147,8 @@ class PartnerLeadOut(BaseModel):
     message: str
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class BrandProductOut(ProductSummaryOut):
+    """Partner catalog needs variants; public product summaries omit them."""
+    skus: List[ProductSKUOut]

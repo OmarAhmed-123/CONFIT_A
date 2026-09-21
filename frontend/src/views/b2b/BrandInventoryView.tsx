@@ -1,4 +1,5 @@
-import { CardStackShowcase } from '../../components/showcase/DesignShowcases';
+import { useModalFocus } from '../../hooks/useModalFocus';
+import { useCallback } from 'react';
 import React, { useState, useEffect } from 'react';
 import { BopisIcon } from '../../components/icons/ConfitIcons';
 import { LoadingSpinner } from '../../components/common/CommonComponents';
@@ -39,6 +40,9 @@ export const BrandInventoryView: React.FC = () => {
   // a brand that genuinely has zero stores / zero inventory rows. Failures
   // are now recorded and rendered as an explicit error + Retry.
   const [fetchErrors, setFetchErrors] = useState<Record<'stores' | 'inventory', string | null>>({ stores: null, inventory: null });
+  const [stockForm, setStockForm] = useState({ store_id: '', sku_id: '', quantity: '' });
+  const [savingStock, setSavingStock] = useState(false);
+  const [stockMessage, setStockMessage] = useState('');
   const [showStoreModal, setShowStoreModal] = useState(false);
   const [newStore, setNewStore] = useState({ name: '', city: '', country: 'UAE', address: '', latitude: 0, longitude: 0, phone: '' });
 
@@ -75,19 +79,29 @@ export const BrandInventoryView: React.FC = () => {
     }
   };
 
+  const saveStoreStock = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (savingStock) return;
+    setSavingStock(true); setStockMessage('');
+    try {
+      await request('/partner/inventory', { method: 'POST', body: JSON.stringify({
+        store_id: Number(stockForm.store_id), sku_id: Number(stockForm.sku_id), quantity: Number(stockForm.quantity),
+      }) });
+      setStockMessage('Store inventory saved. Warehouse stock was not changed.');
+      await fetchData();
+    } catch (error: any) { setStockMessage(`Not saved: ${error.message}`); }
+    finally { setSavingStock(false); }
+  };
+
+  const closeDialog = useCallback(() => { if (!savingStock) setShowStoreModal(false); }, [savingStock]);
+  const dialogRef = useModalFocus<HTMLDivElement>(closeDialog, showStoreModal);
+
   if (isLoading) {
     return <LoadingSpinner text="Connecting to store inventory nodes..." />;
   }
 
   return (
     <div className="space-y-8 pb-20">
-      <CardStackShowcase
-        tone="brand"
-        compact
-        eyebrow="Inventory Operations Stack"
-        title="Stock health as a visual operational workflow"
-        description="Inventory teams see how SKU readiness, boutique pickup, replenishment, and fulfillment tie into the same front-end design system."
-      />
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
         <div>
           <h1 className="font-serif text-3xl font-bold text-[#1B1F3B]">
@@ -157,6 +171,24 @@ export const BrandInventoryView: React.FC = () => {
         )}
       </div>
 
+      <form onSubmit={saveStoreStock} aria-label="Set store inventory" className="rounded-2xl border bg-white p-5 space-y-3">
+        <h3 className="font-bold">Set stock for a store and SKU</h3>
+        <p className="text-xs text-slate-500">Absolute on-hand quantity, including reserved units. This does not transfer stock from the warehouse.</p>
+        <div className="flex flex-wrap gap-3">
+          <select aria-label="Inventory store" required value={stockForm.store_id} onChange={e => setStockForm({...stockForm, store_id: e.target.value})} className="border rounded p-2">
+            <option value="">Choose store</option>
+            {stores.map(store => <option key={store.id} value={store.id}>{store.name}</option>)}
+          </select>
+          <select aria-label="Inventory SKU" required value={stockForm.sku_id} onChange={e => setStockForm({...stockForm, sku_id: e.target.value})} className="border rounded p-2">
+            <option value="">Choose SKU</option>
+            {inventory.flatMap(item => item.skus.map(sku => <option key={sku.id} value={sku.id}>{item.title} — {sku.sku_code}</option>))}
+          </select>
+          <input aria-label="Store on-hand quantity" required type="number" min="0" max="100000" step="1" value={stockForm.quantity} onChange={e => setStockForm({...stockForm, quantity: e.target.value})} className="border rounded p-2" />
+          <button disabled={savingStock || !!fetchErrors.stores || !!fetchErrors.inventory} className="rounded bg-slate-900 text-white px-4 py-2">{savingStock ? 'Saving…' : 'Save store stock'}</button>
+        </div>
+        {stockMessage && <p role="status" className="text-sm">{stockMessage}</p>}
+      </form>
+
       {/* Inventory - REAL */}
       <div className="space-y-4">
         <h3 className="font-serif text-lg font-bold text-[#1B1F3B]">Live Inventory by SKU and Location - Real from StoreInventory</h3>
@@ -174,7 +206,7 @@ export const BrandInventoryView: React.FC = () => {
           </div>
         ) : (
           <div className="space-y-4">
-            {inventory.slice(0, 5).map((item) => (
+            {inventory.map((item) => (
               <div key={item.product_id} className="bg-white rounded-3xl border border-slate-200 p-5 shadow-sm">
                 <div className="flex items-center gap-3 mb-3">
                   <div className="w-12 h-14 rounded bg-slate-100 overflow-hidden"><img src={item.thumbnail_url} alt={item.title} className="w-full h-full object-cover" /></div>
@@ -226,41 +258,41 @@ export const BrandInventoryView: React.FC = () => {
       {/* Add Store Modal - REAL */}
       {showStoreModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm">
-          <div className="w-full max-w-md bg-white rounded-3xl p-6 shadow-2xl space-y-4">
+          <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Add store" tabIndex={-1} className="w-full max-w-md bg-white rounded-3xl p-6 shadow-2xl space-y-4">
             <h3 className="font-serif text-lg font-bold text-[#1B1F3B]">Add BOPIS Store Location</h3>
             <p className="text-[11px] text-slate-500">Real StoreLocation creation with brand_id tenant isolation, BOPIS support, coordinates for map.</p>
             <form onSubmit={handleCreateStore} className="space-y-3 text-xs">
               <div>
                 <label className="font-bold block mb-1">Store Name *</label>
-                <input value={newStore.name} onChange={(e) => setNewStore({ ...newStore, name: e.target.value })} required className="w-full p-2.5 rounded-xl border" placeholder="The Dubai Mall - Fashion Avenue" />
+                <input aria-label="Store name" value={newStore.name} onChange={(e) => setNewStore({ ...newStore, name: e.target.value })} required className="w-full p-2.5 rounded-xl border" placeholder="The Dubai Mall - Fashion Avenue" />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="font-bold block mb-1">City *</label>
-                  <input value={newStore.city} onChange={(e) => setNewStore({ ...newStore, city: e.target.value })} required className="w-full p-2.5 rounded-xl border" placeholder="Dubai" />
+                  <input aria-label="Store city" value={newStore.city} onChange={(e) => setNewStore({ ...newStore, city: e.target.value })} required className="w-full p-2.5 rounded-xl border" placeholder="Dubai" />
                 </div>
                 <div>
                   <label className="font-bold block mb-1">Country *</label>
-                  <input value={newStore.country} onChange={(e) => setNewStore({ ...newStore, country: e.target.value })} required className="w-full p-2.5 rounded-xl border" placeholder="UAE" />
+                  <input aria-label="Store country" value={newStore.country} onChange={(e) => setNewStore({ ...newStore, country: e.target.value })} required className="w-full p-2.5 rounded-xl border" placeholder="UAE" />
                 </div>
               </div>
               <div>
                 <label className="font-bold block mb-1">Address *</label>
-                <input value={newStore.address} onChange={(e) => setNewStore({ ...newStore, address: e.target.value })} required className="w-full p-2.5 rounded-xl border" placeholder="Financial Center Road, Downtown Dubai" />
+                <input aria-label="Store address" value={newStore.address} onChange={(e) => setNewStore({ ...newStore, address: e.target.value })} required className="w-full p-2.5 rounded-xl border" placeholder="Financial Center Road, Downtown Dubai" />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="font-bold block mb-1">Latitude</label>
-                  <input type="number" step="0.000001" value={newStore.latitude} onChange={(e) => setNewStore({ ...newStore, latitude: Number(e.target.value) })} className="w-full p-2.5 rounded-xl border" />
+                  <input type="number" step="0.000001" aria-label="Store latitude" value={newStore.latitude} onChange={(e) => setNewStore({ ...newStore, latitude: Number(e.target.value) })} className="w-full p-2.5 rounded-xl border" />
                 </div>
                 <div>
                   <label className="font-bold block mb-1">Longitude</label>
-                  <input type="number" step="0.000001" value={newStore.longitude} onChange={(e) => setNewStore({ ...newStore, longitude: Number(e.target.value) })} className="w-full p-2.5 rounded-xl border" />
+                  <input type="number" step="0.000001" aria-label="Store longitude" value={newStore.longitude} onChange={(e) => setNewStore({ ...newStore, longitude: Number(e.target.value) })} className="w-full p-2.5 rounded-xl border" />
                 </div>
               </div>
               <div>
                 <label className="font-bold block mb-1">Phone</label>
-                <input value={newStore.phone} onChange={(e) => setNewStore({ ...newStore, phone: e.target.value })} className="w-full p-2.5 rounded-xl border" placeholder="+971 4 123 4567" />
+                <input aria-label="Store phone" value={newStore.phone} onChange={(e) => setNewStore({ ...newStore, phone: e.target.value })} className="w-full p-2.5 rounded-xl border" placeholder="+971 4 123 4567" />
               </div>
               <div className="flex gap-2 pt-2">
                 <button type="button" onClick={() => setShowStoreModal(false)} className="flex-1 py-2.5 rounded-xl border font-semibold">Cancel</button>

@@ -3,8 +3,20 @@ on:
   schedule:
     - cron: "*/15 * * * *"  # every 15 min — GitHub emails the repo owner on failure
   workflow_dispatch:
+
+# Two different questions, two different jobs, so an alert says which one broke.
+#
+#   liveness  — can the platform serve traffic at all?
+#   readiness — can it do everything it advertises?
+#
+# Before G-08/G-09 these were one field, so a deployment whose uploads were
+# completely broken (storage.production_grade=false, writable=false) reported
+# "status": "healthy" and this monitor stayed green. Readiness is now its own
+# signal and it is allowed to fail: a blocked core capability is an outage for
+# that capability, and a warning that never fails is a warning nobody reads.
+
 jobs:
-  ping:
+  liveness:
     runs-on: ubuntu-latest
     steps:
       - name: Health check (API)
@@ -14,3 +26,20 @@ jobs:
           echo "$body" | grep -q '"status":"healthy"' || exit 1
       - name: Health check (SPA)
         run: curl -sfS -m 30 -o /dev/null https://confit-a.vercel.app/
+
+  readiness:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Readiness check (blocked core capabilities)
+        run: |
+          body=$(curl -sS -m 30 https://confit-a.vercel.app/api/v1/health)
+          echo "$body"
+          ready=$(echo "$body" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("ready"))')
+          blocking=$(echo "$body" | python3 -c 'import json,sys; print(",".join(json.load(sys.stdin).get("blocking_capabilities") or []))')
+          echo "ready=$ready blocking=$blocking"
+          if [ "$ready" != "True" ]; then
+            echo "::error::platform is live but NOT ready — blocked core capabilities: ${blocking:-unknown}"
+            echo "Fix the capability, not the check. For file_uploads: set STORAGE_PROVIDER=s3|r2"
+            echo "with a bucket and credentials, then confirm /api/v1/health/ready as an admin."
+            exit 1
+          fi

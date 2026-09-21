@@ -321,13 +321,31 @@ class TestUnobservableDatabaseStaysDiagnosable:
         assert schema["blocking"] is False
 
 
+def _admin_headers(client):
+    """/health/ready is admin-only (G-08): diagnostics are not a public surface."""
+    r = client.post("/api/v1/auth/login",
+                    json={"email": "admin@confit.io", "password": "Password123!"})
+    assert r.status_code == 200, r.text
+    return {"Authorization": f"Bearer {r.json()['access_token']}"}
+
+
 class TestGateIsWired:
     def test_startup_calls_enforce_in_lifespan(self):
         src = open("backend/app/main.py").read()
         assert "enforce_at_startup(engine, settings.ENVIRONMENT" in src
 
     def test_health_exposes_schema_verdict(self, client):
-        r = client.get("/api/v1/health")
+        """G-08: the full verdict moved to the admin-only readiness endpoint.
+
+        The public /health keeps verdict + database_revision because the release
+        gate certifies deploys from it; the findings and expected_head are
+        operator detail and no longer ship to an unauthenticated caller.
+        """
+        public = client.get("/api/v1/health").json()
+        assert {"verdict", "database_revision"} <= set(public["checks"]["schema"])
+        assert "findings" not in public["checks"]["schema"]
+
+        r = client.get("/api/v1/health/ready", headers=_admin_headers(client))
         assert r.status_code == 200
         body = r.json()
         assert "schema" in body["checks"]
@@ -405,10 +423,10 @@ class TestGateIsWired:
         monkeypatch.setattr(settings, "CONFIT_WORKER_ADMIN_TOKEN", None)
         monkeypatch.delenv("VTON_WORKER_ADMIN_TOKEN", raising=False)
         monkeypatch.delenv("CONFIT_WORKER_ADMIN_TOKEN", raising=False)
-        r = client.get("/api/v1/health")
+        r = client.get("/api/v1/health/ready", headers=_admin_headers(client))
         assert r.json()["checks"]["vton_pipeline"].startswith("misconfigured")
         assert "operational" not in r.json()["checks"]["vton_pipeline"]
 
     def test_health_never_claims_vton_operational(self, client):
-        r = client.get("/api/v1/health")
+        r = client.get("/api/v1/health/ready", headers=_admin_headers(client))
         assert r.json()["checks"]["vton_pipeline"] != "operational"

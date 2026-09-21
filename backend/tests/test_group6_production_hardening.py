@@ -515,14 +515,16 @@ class TestNoFakeKPIs:
             resp = client.get("/admin/audit", headers={"Authorization": f"Bearer {token}"})
             assert resp.status_code == 200
             data = resp.json()
-            # Should be list, not fake hardcoded 3 items with 2026-08-17 timestamps
-            assert isinstance(data, list)
-            # If data exists, check not fake sample
-            for item in data[:3]:
-                if "timestamp" in item and item["timestamp"]:
-                    # Should not be hardcoded 2026-08-17T16:00:00Z if real
-                    # Real data would have recent timestamps, but allow empty
-                    pass
+            # Paginated envelope, not a bare list, and never the old fake
+            # hardcoded 3-item sample with 2026-08-17 timestamps.
+            assert isinstance(data, dict) and "items" in data and "meta" in data, data.keys()
+            assert isinstance(data["items"], list)
+            assert data["meta"]["total"] == len(data["items"]) or data["meta"]["total"] > 0
+            for item in data["items"][:3]:
+                # Real rows carry an action and a resource type; the fake sample
+                # did not, and never carried before/after.
+                assert item.get("action"), item
+                assert item.get("resource_type"), item
         finally:
             db.close()
 

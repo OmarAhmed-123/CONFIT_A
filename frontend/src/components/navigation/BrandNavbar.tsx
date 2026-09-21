@@ -92,6 +92,18 @@ export const BrandNavbar: React.FC = () => {
                 Platform Admin
               </Link>
             )}
+            {isAdmin && (
+              <Link
+                to="/admin/audit"
+                className={`px-3.5 py-2 rounded-xl text-xs font-semibold tracking-wide transition-all ${
+                  isActive('/admin/audit')
+                    ? 'bg-[#C5A059]/20 text-[#C5A059] border border-[#C5A059]/40'
+                    : 'text-amber-300 hover:text-white hover:bg-slate-800/40'
+                }`}
+              >
+                Audit Trail
+              </Link>
+            )}
           </nav>
         </div>
 

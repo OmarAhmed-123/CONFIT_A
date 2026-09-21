@@ -340,7 +340,13 @@ export interface TryOnResult {
  * response — the UI must render the refusal, never fall back to a guess.
  */
 export interface FitSizeChartSource {
-  source: 'brand_published' | 'standard_en13402' | 'none';
+  /**
+   * Must stay in sync with ChartProvenance.source in
+   * backend/app/services/fit/size_charts.py. 'product_chart_derived' is a chart
+   * attached to THIS product but derived from a stated external source -- it is
+   * NOT the brand's own word, and `is_brand_published` stays false for it.
+   */
+  source: 'brand_published' | 'product_chart_derived' | 'standard_en13402' | 'none';
   label: string;
   updated_at: string | null;
   standard: string | null;

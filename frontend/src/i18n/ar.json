@@ -169,7 +169,36 @@
     "outfit_rankings": "ترتيب الظهور في الإطلالات",
     "create_campaign": "إنشاء موضع إعلاني مميز",
     "bid_cpc": "المزايدة لكل نقرة (CPC)",
-    "daily_budget": "الميزانية اليومية"
+    "daily_budget": "الميزانية اليومية",
+    "dashboard_link_label": "لوحة تحكم شريك العلامة التجارية",
+    "sku_conversion_failed": "تعذّر تحميل معدل التحويل لكل منتج",
+    "sku_conversion_title": "تحليلات التحويل لكل منتج",
+    "tryon_assisted_cohort": "الفئة المستفيدة من القياس الافتراضي",
+    "warehouse_status": "حالة المستودع",
+    "import_catalog": "استيراد الكتالوج",
+    "choose_csv": "اختر ملف CSV للكتالوج",
+    "ranked_by_appearances": "مرتّبة حسب مرات الظهور المسجلة في الإطلالات",
+    "form_set_stock": "تحديد مخزون المتجر",
+    "form_set_stock_title": "تحديد المخزون لمتجر ووحدة تخزين",
+    "field_store": "متجر المخزون",
+    "choose_store": "اختر المتجر",
+    "field_sku": "وحدة التخزين (SKU)",
+    "choose_sku": "اختر وحدة التخزين",
+    "field_on_hand": "الكمية المتوفرة في المتجر",
+    "save_store_stock": "حفظ مخزون المتجر",
+    "modal_add_store": "إضافة متجر",
+    "field_store_name": "اسم المتجر",
+    "field_store_city": "مدينة المتجر",
+    "field_store_country": "دولة المتجر",
+    "field_store_address": "عنوان المتجر",
+    "field_store_lat": "خط عرض المتجر",
+    "field_store_lng": "خط طول المتجر",
+    "field_store_phone": "هاتف المتجر",
+    "form_create_placement": "إنشاء موضع إعلاني",
+    "field_placement_product": "المنتج الإعلاني",
+    "field_placement_type": "نوع الموضع الإعلاني",
+    "field_bid_cpc": "المزايدة لكل نقرة",
+    "field_daily_budget": "الميزانية اليومية"
   },
   "common": {
     "sign_in": "تسجيل الدخول",
@@ -179,7 +208,8 @@
     "cancel": "إلغاء",
     "confirm": "تأكيد",
     "close": "إغلاق",
-    "save": "حفظ"
+    "save": "حفظ",
+    "saving": "جارٍ الحفظ…"
   },
   "layout": {
     "ai_stylist_director": "المدير الأسلوبي بالذكاء الاصطناعي",
@@ -381,7 +411,8 @@
     "analysis_unavailable_reason": "التحليل ما زال غير متاح: {{reason}}",
     "analysis_unavailable": "التحليل ما زال غير متاح.",
     "stock_saved": "تم حفظ مخزون المستودع للوحدة. أما مخزون المتاجر فيُدار بشكل منفصل.",
-    "placement_saved": "تم حفظ إعدادات الموضع الإعلاني. ولا يتحقق هذا الإجراء من تسليم الإعلان أو الفوترة."
+    "placement_saved": "تم حفظ إعدادات الموضع الإعلاني. ولا يتحقق هذا الإجراء من تسليم الإعلان أو الفوترة.",
+    "sign_out_failed": "فشل تسجيل الخروج. حاول مرة أخرى."
   },
   "consent": {
     "title": "قبل أن نعالج صورتك",

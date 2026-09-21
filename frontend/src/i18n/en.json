@@ -169,7 +169,36 @@
     "outfit_rankings": "Outfit Appearance Ranking",
     "create_campaign": "Create Sponsored Slot",
     "bid_cpc": "CPC Bid",
-    "daily_budget": "Daily Budget"
+    "daily_budget": "Daily Budget",
+    "dashboard_link_label": "Brand partner dashboard",
+    "sku_conversion_failed": "Per-product conversion failed to load",
+    "sku_conversion_title": "Per-product Conversion Analytics",
+    "tryon_assisted_cohort": "Try-On assisted cohort",
+    "warehouse_status": "Warehouse Status",
+    "import_catalog": "Import catalog",
+    "choose_csv": "Choose catalog CSV",
+    "ranked_by_appearances": "Ranked by recorded outfit appearances",
+    "form_set_stock": "Set store inventory",
+    "form_set_stock_title": "Set stock for a store and SKU",
+    "field_store": "Inventory store",
+    "choose_store": "Choose store",
+    "field_sku": "Inventory SKU",
+    "choose_sku": "Choose SKU",
+    "field_on_hand": "Store on-hand quantity",
+    "save_store_stock": "Save store stock",
+    "modal_add_store": "Add store",
+    "field_store_name": "Store name",
+    "field_store_city": "Store city",
+    "field_store_country": "Store country",
+    "field_store_address": "Store address",
+    "field_store_lat": "Store latitude",
+    "field_store_lng": "Store longitude",
+    "field_store_phone": "Store phone",
+    "form_create_placement": "Create placement",
+    "field_placement_product": "Placement product",
+    "field_placement_type": "Placement type",
+    "field_bid_cpc": "Bid per click",
+    "field_daily_budget": "Daily budget"
   },
   "common": {
     "sign_in": "Sign In",
@@ -179,7 +208,8 @@
     "cancel": "Cancel",
     "confirm": "Confirm",
     "close": "Close",
-    "save": "Save"
+    "save": "Save",
+    "saving": "Saving…"
   },
   "layout": {
     "ai_stylist_director": "AI Stylist Director",
@@ -381,7 +411,8 @@
     "analysis_unavailable_reason": "Analysis still unavailable: {{reason}}",
     "analysis_unavailable": "Analysis still unavailable.",
     "stock_saved": "Warehouse SKU stock saved. Store inventory is managed separately.",
-    "placement_saved": "Placement settings saved. Ad delivery and billing are not verified by this action."
+    "placement_saved": "Placement settings saved. Ad delivery and billing are not verified by this action.",
+    "sign_out_failed": "Sign out failed. Please retry."
   },
   "consent": {
     "title": "Before we process your photo",

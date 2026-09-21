@@ -1,9 +1,11 @@
+import { useTranslation } from 'react-i18next';
 import React from 'react';
 const percent = (value: number | null) => value == null ? 'Not enough data' : `${value}%`;
 import { useBrandViewModel } from '../../viewmodels/useBrandViewModel';
 import { LoadingSpinner, EmptyState } from '../../components/common/CommonComponents';
 
 export const BrandDashboardView: React.FC = () => {
+  const { t } = useTranslation();
   const { profile, analytics, products, fetchErrors, isLoading, refresh } = useBrandViewModel();
 
   if (isLoading) {
@@ -151,7 +153,7 @@ export const BrandDashboardView: React.FC = () => {
             <h3 className="font-serif text-lg font-bold text-[#1B1F3B]">
               Most Styled Items (Real Outfit Data)
             </h3>
-            <p className="text-xs text-slate-500">Ranked by recorded outfit appearances</p>
+            <p className="text-xs text-slate-500">{t('b2b.ranked_by_appearances')}</p>
           </div>
 
           <div className="space-y-3">

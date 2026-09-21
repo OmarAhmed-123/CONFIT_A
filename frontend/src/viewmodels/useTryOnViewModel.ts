@@ -96,13 +96,21 @@ export function useTryOnViewModel(initialProduct?: Product | null) {
         )
       : null;
 
+  /**
+   * No-photo fit for the try-on drawer.
+   *
+   * Takes CENTIMETRE/KILOGRAM values (the caller's existing shape) and states
+   * `units: 'metric'` on the wire, so the server performs the single
+   * conversion. Callers must not pre-convert imperial input here.
+   */
   const runNoPhotoFit = useCallback(
     async (measurements: {
       height_cm: number;
       weight_kg: number;
-      body_shape: string;
+      body_shape?: string;
       chest_cm?: number;
       waist_cm?: number;
+      hip_cm?: number;
       preferred_fit?: string;
     }) => {
       if (!initialProduct?.id) return;
@@ -110,7 +118,14 @@ export function useTryOnViewModel(initialProduct?: Product | null) {
       try {
         const res = await tryOnService.calculateNoPhotoFit({
           product_id: initialProduct.id,
-          ...measurements,
+          units: 'metric',
+          height: measurements.height_cm,
+          weight: measurements.weight_kg,
+          chest: measurements.chest_cm ?? null,
+          waist: measurements.waist_cm ?? null,
+          hip: measurements.hip_cm ?? null,
+          body_shape: measurements.body_shape ?? null,
+          preferred_fit: measurements.preferred_fit ?? 'regular',
         });
         setNoPhotoResult(res);
         setRulerLoading(false);

@@ -170,21 +170,46 @@ export const NoPhotoFitModal: React.FC = () => {
 
             {/* Right Verdict Result */}
             <div className="bg-[#FAF9F6] border border-slate-200/80 rounded-2xl p-5 flex flex-col justify-between">
-              {noPhotoResult ? (
+              {noPhotoResult && !noPhotoResult.recommended ? (
+                /* The engine declined to name a size. Show the reason — never
+                   fall back to a guess just to fill the card. */
+                <div className="space-y-3" role="status">
+                  <span className="text-[10px] text-slate-400 font-bold uppercase">No size recommendation</span>
+                  <p className="text-xs text-amber-900 bg-amber-50 border border-amber-200 rounded-xl p-3 leading-relaxed">
+                    {noPhotoResult.confidence_disclosure}
+                  </p>
+                  {noPhotoResult.missing && noPhotoResult.missing.length > 0 && (
+                    <p className="text-[11px] text-slate-600">
+                      Add: {noPhotoResult.missing.map((m) => m.replace(/_cm$/, '')).join(', ')}
+                    </p>
+                  )}
+                </div>
+              ) : noPhotoResult ? (
                 <div className="space-y-4">
                   <div className="flex justify-between items-center pb-3 border-b border-slate-200">
                     <div>
-                      <span className="text-[10px] text-slate-400 font-bold uppercase">Optimal Recommended Size</span>
+                      <span className="text-[10px] text-slate-400 font-bold uppercase">Recommended Size</span>
                       <div className="text-2xl font-serif font-black text-[#1B1F3B]">
                         Size {noPhotoResult.recommended_size}
                       </div>
+                      <span className="text-[10px] text-slate-500">
+                        {noPhotoResult.confidence_score}% confidence
+                        {noPhotoResult.is_estimated ? ' · partly estimated' : ''}
+                      </span>
                     </div>
                     <div className="text-right">
-                      <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200 block">
-                        {noPhotoResult.return_risk_score}
+                      <span className="text-xs font-bold text-slate-700 bg-slate-100 px-2.5 py-1 rounded-full border border-slate-200 block">
+                        Return risk: {noPhotoResult.return_risk?.label}
                       </span>
                     </div>
                   </div>
+
+                  {noPhotoResult.is_between_sizes && noPhotoResult.alternative_size && (
+                    <p className="text-[11px] text-[#7A5C28] bg-[#FDF8EE] border border-[#C5A059]/40 rounded-xl p-2.5">
+                      Between sizes — {noPhotoResult.recommended_size} is closer-fitting,{' '}
+                      {noPhotoResult.alternative_size} is roomier.
+                    </p>
+                  )}
 
                   {/* Fit Breakdown */}
                   <div className="space-y-2">
@@ -199,9 +224,15 @@ export const NoPhotoFitModal: React.FC = () => {
                     </div>
                   </div>
 
-                  <p className="text-[11px] text-slate-500 font-light italic bg-white/80 p-2.5 rounded-lg border border-slate-100">
-                    ℹ️ {noPhotoResult.brand_sizing_tendency}
-                  </p>
+                  <div className="text-[11px] text-slate-500 font-light bg-white/80 p-2.5 rounded-lg border border-slate-100 space-y-1">
+                    <p>ℹ️ {noPhotoResult.brand_sizing_tendency?.summary}</p>
+                    <p className="text-[10px]">
+                      Chart: {noPhotoResult.size_chart_source?.label}
+                      {noPhotoResult.size_chart_source?.updated_at
+                        ? ` · updated ${noPhotoResult.size_chart_source.updated_at}`
+                        : ''}
+                    </p>
+                  </div>
 
                   <button
                     onClick={async () => {

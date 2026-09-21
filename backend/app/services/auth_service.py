@@ -38,6 +38,7 @@ from backend.app.services.email_service import (
 )
 from backend.app.core.exceptions import (
     AuthenticationError,
+    EncryptionError,
     FeatureNotConfiguredError,
     ProviderIntegrationError,
     ValidationDomainError,
@@ -47,6 +48,8 @@ from backend.app.core.security import (
     create_access_token,
     create_refresh_token,
     decode_token,
+    decrypt_sensitive_data,
+    encrypt_sensitive_data,
     generate_recovery_codes,
     hash_recovery_code,
     validate_password_policy,
@@ -491,10 +494,110 @@ class AuthService:
     # ------------------------------------------------------------------
     # MFA
     # ------------------------------------------------------------------
+    # MFA secret storage/replay hardening (identity/MFA audit remediation):
+    #  - the TOTP secret is stored ENCRYPTED at rest (Fernet, same key path
+    #    as the encrypted body attributes). A stolen DB dump/backup can no
+    #    longer mint valid codes for every enrolled account. Legacy rows
+    #    written before this change (raw base32) are still readable — the
+    #    accessor falls back transparently, and the next enrollment/disable
+    #    rewrites the row in encrypted form. (OWASP MFA guidance: protect
+    #    the seed, keep the key outside the DB.)
+    #  - an accepted TOTP time-step is never accepted twice (replay
+    #    protection): the last accepted step is persisted per user via the
+    #    audit-log table (no schema change — production schema gate forbids
+    #    an out-of-band migration), and any code from a step <= that one is
+    #    rejected even inside the drift window.
+    _MFA_STEP_ACTION = "MFA_TOTP_STEP_ACCEPTED"
+    _ENCRYPTED_SECRET_PREFIX = "enc:v1:"
+
+    def _store_mfa_secret(self, user: User, secret: Optional[str]) -> None:
+        """Write the TOTP secret encrypted-at-rest (or clear it)."""
+        user.mfa_secret = (
+            self._ENCRYPTED_SECRET_PREFIX + encrypt_sensitive_data(secret)
+            if secret else None
+        )
+
+    def _load_mfa_secret(self, user: User) -> Optional[str]:
+        """Read the TOTP secret, decrypting when stored in the v1 envelope.
+
+        Legacy plaintext rows (pre-hardening) are returned as-is so existing
+        enrolled users keep working; they are rewritten encrypted on the next
+        setup/disable. Decryption failure raises EncryptionError — never
+        silently treat ciphertext as a secret.
+        """
+        raw = user.mfa_secret
+        if not raw:
+            return None
+        if raw.startswith(self._ENCRYPTED_SECRET_PREFIX):
+            return decrypt_sensitive_data(raw[len(self._ENCRYPTED_SECRET_PREFIX):])
+        return raw  # legacy plaintext row
+
+    def _last_accepted_totp_step(self, user: User) -> int:
+        from backend.app.models.user import AuditLog
+
+        row = (
+            self.db.query(AuditLog)
+            .filter(AuditLog.user_id == user.id, AuditLog.action == self._MFA_STEP_ACTION)
+            .order_by(AuditLog.id.desc())
+            .first()
+        )
+        if row is None or not row.resource_id:
+            return 0
+        try:
+            return int(row.resource_id)
+        except (TypeError, ValueError):
+            return 0
+
+    def _record_accepted_totp_step(self, user: User, step: int) -> None:
+        # resource_id carries the accepted time-step counter (an integer,
+        # NOT the code and NOT the secret — nothing sensitive is logged).
+        self.user_repo.log_audit(
+            self._MFA_STEP_ACTION, "User", str(step), user_id=user.id
+        )
+
+    def _verify_totp_with_replay_guard(self, user: User, code: str) -> bool:
+        """Valid TOTP AND not a replay of an already-accepted time step."""
+        try:
+            secret = self._load_mfa_secret(user)
+        except EncryptionError:
+            logger.error("MFA secret decryption failed", user_id=user.id)
+            return False
+        if not secret:
+            return False
+        totp = pyotp.TOTP(secret)
+        if not totp.verify(code, valid_window=1):
+            return False
+        # Which step actually produced this code? Check current then ±1
+        # (mirror of valid_window=1).
+        now_step = int(datetime.now(timezone.utc).timestamp()) // totp.interval
+        matched_step = None
+        for candidate in (now_step, now_step - 1, now_step + 1):
+            if totp.at(candidate * totp.interval) == code.strip():
+                matched_step = candidate
+                break
+        if matched_step is None:  # defensive — verify() said yes above
+            matched_step = now_step
+        if matched_step <= self._last_accepted_totp_step(user):
+            # Same (or older) step already consumed — replayed code.
+            return False
+        self._record_accepted_totp_step(user, matched_step)
+        return True
+
     def setup_mfa(self, user: User) -> Dict[str, Any]:
-        """Start (or restart) MFA enrollment. Not enabled until `verify_mfa_setup`."""
+        """Start (or restart) MFA enrollment. Not enabled until `verify_mfa_setup`.
+
+        HARDENED: when MFA is ALREADY enabled this endpoint refuses to
+        restart enrollment. Previously a hijacked session could silently
+        rotate the secret and wipe the backup codes, locking the real owner
+        out of their second factor. Re-enrollment now requires disabling MFA
+        first (which demands password + current code).
+        """
+        if user.mfa_enabled:
+            raise ValidationDomainError(
+                "MFA is already enabled. Disable it first (password + current code) to re-enroll."
+            )
         secret = pyotp.random_base32()
-        user.mfa_secret = secret
+        self._store_mfa_secret(user, secret)
         # Wipe any pre-existing backup codes; they are re-issued below
         # ONLY after the user proves possession by calling verify_mfa_setup.
         for row in self.db.query(MFABackupCode).filter(MFABackupCode.user_id == user.id):
@@ -514,8 +617,7 @@ class AuthService:
         retrievable again (§10)."""
         if not user.mfa_secret:
             raise ValidationDomainError("MFA setup has not been initialized.")
-        totp = pyotp.TOTP(user.mfa_secret)
-        if not totp.verify(code, valid_window=1):
+        if not self._verify_totp_with_replay_guard(user, code):
             raise AuthenticationError("Invalid MFA verification code.")
 
         user.mfa_enabled = True
@@ -526,10 +628,28 @@ class AuthService:
         self.user_repo.log_audit("MFA_ENABLED", "User", str(user.id), user_id=user.id)
         return {"status": "enabled", "backup_codes": codes}
 
-    def disable_mfa(self, user: User, password: str) -> None:
-        """Re-authenticate with password, then disable MFA and purge secrets."""
+    def disable_mfa(self, user: User, password: str, mfa_code: Optional[str] = None) -> None:
+        """Disable MFA: requires the password AND a current TOTP/recovery code.
+
+        HARDENED: password alone was previously sufficient — a stolen
+        password (the exact scenario MFA exists to survive) could remove the
+        second factor. OWASP guidance: changing/removing a factor must
+        re-authenticate with an existing factor.
+        """
         if not verify_password(password, user.hashed_password):
             raise AuthenticationError("Password verification required to disable MFA.")
+        if user.mfa_enabled:
+            code = (mfa_code or "").strip()
+            if not code:
+                raise AuthenticationError(
+                    "A current authenticator or recovery code is required to disable MFA.",
+                    details={"reason": "MFA_CODE_REQUIRED"},
+                )
+            if not self._consume_mfa_challenge(user, code):
+                self.user_repo.log_audit(
+                    "MFA_DISABLE_FAILED", "User", str(user.id), user_id=user.id
+                )
+                raise AuthenticationError("Invalid MFA verification code.")
         user.mfa_enabled = False
         user.mfa_secret = None
         for row in self.db.query(MFABackupCode).filter(MFABackupCode.user_id == user.id):
@@ -550,8 +670,8 @@ class AuthService:
         return {"status": "regenerated", "backup_codes": codes}
 
     def _consume_mfa_challenge(self, user: User, code: str) -> bool:
-        """Try TOTP first, then unused backup codes (single-use)."""
-        if user.mfa_secret and pyotp.TOTP(user.mfa_secret).verify(code, valid_window=1):
+        """Try TOTP first (with replay guard), then unused backup codes (single-use)."""
+        if user.mfa_secret and self._verify_totp_with_replay_guard(user, code):
             return True
         rows = self.db.query(MFABackupCode).filter(
             MFABackupCode.user_id == user.id, MFABackupCode.used_at.is_(None)

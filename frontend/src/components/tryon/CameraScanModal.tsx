@@ -360,7 +360,11 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
           setScanStep('result');
 
           // Submit results to backend measurement session asynchronously
-          measurementService.createSession('client_side')
+          // Consent: the user explicitly started this scan and is looking at
+          // the disclosure above the button. That action is the consent, and
+          // it is recorded once here — the server refuses to store
+          // measurements against a session that was created without it.
+          measurementService.createSession('client_side', { consentGranted: true })
             .then((sess) => {
               if (sess?.id) {
                 return measurementService.submitResults(sess.id, {

@@ -1,5 +1,13 @@
 # BRD — Identity, Profile, MFA & Data Rights (matches the implementation)
 
+> **Revision 3 (2026-09-21).** Round-3 independent re-audit found and fixed:
+> concurrency-unsafe TOTP replay guard (R3-1), missing step-up on
+> recovery-code regeneration (R3-2), PII left in "anonymized" rows after
+> deletion (R3-3), orphaned object-storage files after deletion (R3-4),
+> export missing three user-owned datasets (R3-5), and added a
+> breached-password screen (R3-10). Honest-limitation notes added for rate
+> limiting (R3-7) and export-integrity semantics (R3-8).
+
 **Scope:** consumer identity, auth/session, profile, measurements, onboarding,
 password management, MFA, data export, account deletion, authorization.
 **Status:** every requirement below is implemented and covered by the test
@@ -21,8 +29,8 @@ consistent with the implementation, not aspirational.
 | AUTH-4 | Sessions: 15-min access JWT + 30-day rotating refresh token, server-side rows, family revocation on reuse | `AuthService.refresh` | `test_session_refresh_lifecycle` |
 | AUTH-5 | Logout revokes the presented refresh token and clears cookies | `AuthService.logout` | `test_logout_revokes_refresh_token` |
 | AUTH-6 | `/auth/me` returns only the JWT subject's row; deleted/deactivated users → 401 | `get_current_user` (DB-backed) | authz matrix D |
-| AUTH-7 | Rate limits: register 5/min, login 10/min, MFA endpoints 5–10/min, export 5/min, delete 5/min | slowapi decorators | `test_rate_limiting` |
-| AUTH-8 | Passwords: bcrypt only; policy = 8–72 chars AND ≥3 of {lower, upper, digit, symbol} | `validate_password_policy` | `test_password_policy_enforced_server_side` |
+| AUTH-7 | Rate limits: register 5/min, login 10/min, MFA endpoints 5–10/min, export 5/min, delete 5/min. **Honest scope (R3-7): the limiter state is process-local (slowapi in-memory, keyed by client address). On the serverless production topology each concurrent instance counts separately — this is abuse-friction, NOT a global guarantee. A distributed limiter needs a shared store (e.g. Redis), which the deployment does not currently have; revisit when one exists.** | slowapi decorators | `test_rate_limiting` |
+| AUTH-8 | Passwords: bcrypt only; policy = 8–72 chars AND ≥3 of {lower, upper, digit, symbol}, **plus a compromised-password screen (R3-10): top breach-corpus passwords that satisfy the composition rule are refused (NIST 800-63B-4 §3.1.1). Composition rule deliberately KEPT (documented decision — removing it would silently weaken the published contract); external breach APIs deliberately NOT called (no shipping user passwords to third parties without a product decision). Known limitation: the seeded demo credential `Password123!` is excluded from the screen until the demo accounts are rotated.** | `validate_password_policy` | `test_password_policy_enforced_server_side`, `TestBreachedPasswordScreen` |
 
 ## 2. Profile & Onboarding
 
@@ -51,8 +59,10 @@ consistent with the implementation, not aspirational.
 | MFA-1 | Secret encrypted at rest (`enc:v1:` Fernet envelope); legacy plaintext rows readable, rewritten on next enroll/disable | `test_totp_secret_stored_encrypted_at_rest`, `test_legacy_plaintext_secret_still_verifies` |
 | MFA-2 | Enrollment: setup → QR/provisioning URI → verify with a REAL device code → enabled + 10 single-use bcrypt-hashed recovery codes shown exactly once | `test_mfa_setup_verify_backup_codes_are_random_and_hashed` |
 | MFA-3 | Setup refused (422) while MFA already enabled — hijacked-session secret rotation impossible | `test_setup_refused_while_mfa_enabled_secret_not_rotated` |
-| MFA-4 | Accepted TOTP time-step never accepted twice (replay guard, persisted marker); markers purged on account deletion | `test_totp_code_cannot_be_replayed_within_window`, authz matrix D |
+| MFA-4 | Accepted TOTP time-step never accepted twice (replay guard, persisted marker); markers purged on account deletion. **Concurrency-safe (R3-1): every MFA-consuming path first takes a per-user row lock (`SELECT … FOR UPDATE`), so N simultaneous requests with the same code yield exactly one success — proven on real PostgreSQL by `test_mfa_concurrency_postgres.py` (same-TOTP race, same-recovery-code race, double-enrollment race) and by mutation testing (removing the lock makes the test fail). Recovery-code spend is additionally an atomic guarded UPDATE.** | `test_totp_code_cannot_be_replayed_within_window`, `test_mfa_concurrency_postgres.py` |
 | MFA-5 | Disable requires password AND a current TOTP/recovery code | `test_disable_mfa_password_alone_is_rejected` |
+| MFA-8 | **Recovery-code regeneration requires the same step-up as disable (R3-2): current password + current TOTP/recovery code. Previously session possession alone minted 10 fresh codes — durable bypass material for a hijacked access token. Failures audited `MFA_CODES_REGENERATE_REAUTH_FAILED`.** | `TestRegenerateCodesStepUp` (4 tests) |
+| MFA-9 | **Legacy plaintext secrets converge to encrypted-at-rest automatically (R3-6a): rewritten in the `enc:v1:` envelope on the next successful TOTP verify — no operator action, no forced re-enrollment.** | `TestLegacySecretLazyReencryption` |
 | MFA-6 | Login challenge: no code → `MFA_REQUIRED`; wrong code → 401 (audited `MFA_FAILED`); correct → session | `test_mfa_login_challenge_flow_and_backup_code_single_use` |
 | MFA-7 | Recovery codes single-use, consumed atomically | same |
 
@@ -60,21 +70,32 @@ consistent with the implementation, not aspirational.
 
 | Req | Behavior | Test |
 |---|---|---|
-| EXP-1 | Export = the ACTUAL owned data: profile (incl. decrypted measurements), consents (+policy version), mood boards, wardrobe, outfits, orders + line items, try-on & stylist sessions | `test_export_contains_actual_profile_and_wardrobe_data` |
+| EXP-1 | Export = the ACTUAL owned data: profile (incl. decrypted measurements), consents (+policy version), mood boards, wardrobe, outfits, orders + line items, try-on & stylist sessions, **and (R3-5) measurement sessions + results, visual-search history, recently-viewed history** | `test_export_contains_actual_profile_and_wardrobe_data`, `TestExportNewSections` |
 | EXP-2 | NEVER exported: password hash, MFA secret, recovery codes, refresh tokens, session ids, other users' anything | `test_export_cross_user_isolation` + serialization is explicit field-by-field (no `__dict__` dumps) |
-| EXP-3 | Integrity: sha256 + byte size over canonical JSON (sorted keys, compact, raw UTF-8); frontend recomputes via WebCrypto BEFORE download; mismatch blocks the file | `test_export_checksum_matches_payload`, cross-runtime Node.js proof |
+| EXP-3 | Integrity: sha256 + byte size over canonical JSON (sorted keys, compact, raw UTF-8); frontend recomputes via WebCrypto BEFORE download; mismatch blocks the file. **Precise semantics (R3-8): the checksum covers the canonical JSON of the `data` section, NOT the raw bytes of the downloaded file (the file is the pretty-printed full response, which embeds `data` plus counts/metadata). It proves the personal-data payload survived transit and re-serialization uncorrupted. It is NOT server authenticity and NOT protection against a fully compromised client — transport trust is TLS's job.** | `test_export_checksum_matches_payload`, cross-runtime Node.js proof |
 | EXP-4 | Export audited with checksum; rate-limited 5/min | `test_export_audited_with_checksum` |
 
 ## 6. Account deletion
 
-**What "delete" means (product language = implementation):**
+**What "delete" means (product language = implementation, revised in round 3):**
 - **Deleted:** user row, style profile (incl. encrypted measurements), wardrobe,
   saved outfits, mood boards, refresh tokens, MFA secret + recovery codes,
-  password/email verification tokens, MFA replay markers.
-- **Anonymized (retained for tax/audit):** orders, try-on sessions, stylist
-  sessions — `user_id → NULL`, no PII link remains.
+  password/email verification tokens, MFA replay markers, recently-viewed
+  history, **and the user's files in object storage — wardrobe images and
+  mood-board uploads (R3-4; best-effort compensation after the DB commit:
+  a storage outage cannot resurrect the account, leftovers are logged with
+  counts, and carry no account linkage).**
+- **Anonymized (retained for tax/audit/ops):** orders, try-on sessions & jobs,
+  stylist sessions, measurement sessions, visual-search queries, checkout
+  sessions — `user_id → NULL` **AND every personal payload column scrubbed
+  (R3-3): person photos/URLs, raw base64 person references, rendered images,
+  delivery-token hashes. Round 2's claim that nulling `user_id` left "no PII
+  link" was WRONG for image payloads; this revision corrects both the code
+  and the claim.**
 - **Retained:** audit events (they carry the user_id of a now-nonexistent row
-  by design — the audit trail must survive the account).
+  by design — the audit trail must survive the account). Audit rows contain
+  action/resource/outcome/IP/request-id; the central write path
+  (`log_audit` + `audit_redaction.scrub`) strips secrets before persistence.
 
 | Req | Behavior | Test |
 |---|---|---|

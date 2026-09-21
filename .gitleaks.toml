@@ -31,6 +31,12 @@ description = "Documentation examples that are not real credentials"
 regexes = [
   '''eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9''',
   '''idemp_882190fa''',
+  # Fingerprint 82fc979…:backend/tests/test_partner_catalog_operations.py:
+  # generic-api-key:53 — the flagged value is the literal test idempotency
+  # key `test-idempotency-0001` in a deleted test file (historical commit).
+  # Verified by inspecting the blob: it is a fabricated test constant, never
+  # a credential. Targeted allowlist, NOT a blanket rule change.
+  '''test-idempotency-\d+''',
   '''YOUR_PASSWORD''',
   '''CHANGE_ME''',
   '''CHANGE_PASSWORD''',

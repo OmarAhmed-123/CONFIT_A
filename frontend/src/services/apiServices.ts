@@ -115,11 +115,15 @@ export const authService = {
       body: JSON.stringify(payload),
     }),
 
-  regenerateMFACodes: () =>
+  // Step-up contract (server-enforced): regeneration mints fresh recovery
+  // codes, so it demands the same proof as disabling MFA — current password
+  // plus a current TOTP/recovery code.
+  regenerateMFACodes: (password: string, mfaCode: string) =>
     request<{ status: string; backup_codes: string[] }>(
       "/auth/mfa/regenerate-codes",
       {
         method: "POST",
+        body: JSON.stringify({ password, mfa_code: mfaCode }),
       },
     ),
 

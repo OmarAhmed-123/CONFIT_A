@@ -76,7 +76,7 @@ export const UserProfileView: React.FC = () => {
   // authoritative; local state is only a transient UI cache during the
   // enrollment/disable flows.
   const [mfaEnabled, setMfaEnabled] = useState<boolean>(!!user?.mfa_enabled);
-  const [mfaPanel, setMfaPanel] = useState<'idle' | 'enroll' | 'verify' | 'codes' | 'disable'>('idle');
+  const [mfaPanel, setMfaPanel] = useState<'idle' | 'enroll' | 'verify' | 'codes' | 'disable' | 'regenerate'>('idle');
   const [mfaQrUri, setMfaQrUri] = useState<string>('');
   const [mfaCode, setMfaCode] = useState('');
   const [mfaPassword, setMfaPassword] = useState('');
@@ -158,10 +158,13 @@ export const UserProfileView: React.FC = () => {
   };
 
   const regenerateMfaCodes = async () => {
+    // Step-up (server-enforced): password + current TOTP/recovery code.
     setMfaBusy(true);
     try {
-      const res = await authService.regenerateMFACodes();
+      const res = await authService.regenerateMFACodes(mfaPassword, mfaDisableCode.trim());
       setMfaBackupCodes(res.backup_codes || []);
+      setMfaPassword('');
+      setMfaDisableCode('');
       setMfaPanel('codes');
     } catch (err: any) {
       showToast('Regeneration failed: ' + err.message, 'error');
@@ -630,6 +633,40 @@ export const UserProfileView: React.FC = () => {
             </div>
           )}
 
+          {/* Regenerate recovery codes: step-up (password + current code) */}
+          {mfaPanel === 'regenerate' && (
+            <div className="space-y-3 pt-2 border-t border-slate-100">
+              <p className="text-[11px] text-slate-600">
+                Regenerating replaces ALL existing recovery codes. Re-enter your
+                password AND a current authenticator (or recovery) code to continue.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <input
+                  type="password"
+                  placeholder="Current password"
+                  value={mfaPassword}
+                  onChange={(e) => setMfaPassword(e.target.value)}
+                  className="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-slate-400"
+                />
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="Authenticator or recovery code"
+                  value={mfaDisableCode}
+                  onChange={(e) => setMfaDisableCode(e.target.value)}
+                  className="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-slate-400"
+                />
+                <button
+                  onClick={regenerateMfaCodes}
+                  disabled={mfaBusy || !mfaPassword || !mfaDisableCode.trim()}
+                  className="px-4 py-2 rounded-xl bg-[#1B1F3B] hover:bg-[#2A2F52] text-white text-xs font-semibold disabled:opacity-50"
+                >
+                  Regenerate
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Disable flow: requires password re-authentication */}
           {mfaPanel === 'disable' && (
             <div className="space-y-3 pt-2 border-t border-slate-100">
@@ -678,7 +715,7 @@ export const UserProfileView: React.FC = () => {
               ) : (
                 <>
                   <button
-                    onClick={regenerateMfaCodes}
+                    onClick={() => { setMfaPassword(''); setMfaDisableCode(''); setMfaPanel('regenerate'); }}
                     disabled={mfaBusy}
                     className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-800 disabled:opacity-50"
                   >

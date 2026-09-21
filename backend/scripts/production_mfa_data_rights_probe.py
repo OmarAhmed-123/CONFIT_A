@@ -154,6 +154,29 @@ def run(base_url: str, report_path: str) -> int:
         ev.check("REPLAYED code -> 401 (replay guard effective)",
                  r.status_code == 401, status=r.status_code)
 
+        # -- 4b. regenerate-codes step-up (round-3 gap R3-2) ----------------
+        r = client.post("/auth/mfa/regenerate-codes", json={}, headers=hdr)
+        marker = (r.json().get("error", {}).get("details", {}) or {}).get("reason")
+        ev.check("regenerate codes without credentials -> 401 PASSWORD_REQUIRED",
+                 r.status_code == 401 and marker == "PASSWORD_REQUIRED",
+                 status=r.status_code, reason=marker)
+
+        r = client.post("/auth/mfa/regenerate-codes",
+                        json={"password": password}, headers=hdr)
+        marker = (r.json().get("error", {}).get("details", {}) or {}).get("reason")
+        ev.check("regenerate codes with password only -> 401 MFA_CODE_REQUIRED",
+                 r.status_code == 401 and marker == "MFA_CODE_REQUIRED",
+                 status=r.status_code, reason=marker)
+
+        r = client.post("/auth/mfa/regenerate-codes",
+                        json={"password": password, "mfa_code": backup_codes[1]},
+                        headers=hdr)
+        ok = r.status_code == 200 and len(r.json().get("backup_codes", [])) == 10
+        ev.check("regenerate codes with full step-up -> 200 + 10 fresh codes",
+                 ok, status=r.status_code)
+        if ok:
+            backup_codes = r.json()["backup_codes"]  # old set now invalid
+
         # -- 5. disable hardening -----------------------------------------
         r = client.post("/auth/mfa/disable", json={"password": password}, headers=hdr)
         marker = (r.json().get("error", {}).get("details", {}) or {}).get("reason")

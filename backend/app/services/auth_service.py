@@ -1152,6 +1152,52 @@ class AuthService:
             "data_retention_policy": "GDPR & CCPA aligned. Sensitive body measurements encrypted at rest. Photos purged after 24h unless explicit consent is given.",
         }
 
+    def reauthenticate_for_deletion(
+        self, user: User, password: Optional[str], mfa_code: Optional[str] = None
+    ) -> None:
+        """Step-up re-authentication gate for permanent account deletion.
+
+        Gap-closure round 2: `DELETE /auth/account` previously executed on
+        session possession alone — a hijacked 15-minute access token could
+        permanently destroy the account, and an MFA-enrolled user was never
+        asked for a second factor. Deletion is the most destructive action
+        on the account; it now demands the same proof as disabling MFA:
+
+        - the CURRENT password (social-only accounts have no usable local
+          password — for them possession of the session plus, when enrolled,
+          an MFA code is the strongest available proof);
+        - when MFA is enabled: a current TOTP or single-use recovery code
+          (same consumption path as login — DRY, no second verifier).
+
+        Raises AuthenticationError; on ANY failure nothing is mutated.
+        """
+        is_social_only = bool(
+            user.hashed_password and user.hashed_password.startswith("SOCIAL_ONLY:")
+        )
+        if not is_social_only:
+            if not password:
+                raise AuthenticationError(
+                    "Password confirmation is required to delete your account.",
+                    details={"reason": "PASSWORD_REQUIRED"},
+                )
+            if not verify_password(password, user.hashed_password):
+                self.user_repo.log_audit(
+                    "ACCOUNT_DELETE_REAUTH_FAILED", "User", str(user.id), user_id=user.id
+                )
+                raise AuthenticationError("Password is incorrect.")
+        if user.mfa_enabled:
+            code = (mfa_code or "").strip()
+            if not code:
+                raise AuthenticationError(
+                    "A current authenticator or recovery code is required to delete your account.",
+                    details={"reason": "MFA_CODE_REQUIRED"},
+                )
+            if not self._consume_mfa_challenge(user, code):
+                self.user_repo.log_audit(
+                    "ACCOUNT_DELETE_REAUTH_FAILED", "User", str(user.id), user_id=user.id
+                )
+                raise AuthenticationError("Invalid MFA verification code.")
+
     def delete_account(self, user: User) -> None:
         """Account deletion with retention for business-critical history.
 
@@ -1181,6 +1227,20 @@ class AuthService:
             RefreshToken.user_id == user.id, RefreshToken.revoked_at.is_(None)
         ):
             row.revoked_at = now
+
+        # Purge the OPERATIONAL MFA replay-state markers for this user id.
+        # These rows are transient security state, not compliance history —
+        # and audit_logs has no FK to users, so they would otherwise outlive
+        # the account. On id-reusing databases (SQLite dev/test) a future
+        # user allocated the same id would inherit the previous owner's
+        # "last accepted TOTP step" and have valid codes rejected as
+        # replays (found by test_delete_cleans_related_rows_and_kills_sessions).
+        # Real audit events (ACCOUNT_DELETED, MFA_ENABLED, …) are retained.
+        from backend.app.models.user import AuditLog as _AuditLog
+        self.db.query(_AuditLog).filter(
+            _AuditLog.user_id == user.id,
+            _AuditLog.action == self._MFA_STEP_ACTION,
+        ).delete(synchronize_session=False)
 
         self.db.commit()
         self.user_repo.delete(user)

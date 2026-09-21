@@ -146,8 +146,17 @@ export const authService = {
 
   exportGDPR: () => request<any>("/auth/gdpr-export"),
 
-  deleteAccount: () =>
-    request<{ status: string }>("/auth/account", { method: "DELETE" }),
+  // Step-up contract: permanent deletion requires explicit confirmation,
+  // the current password, and (when MFA is enabled) a current code.
+  deleteAccount: (password: string, mfaCode?: string) =>
+    request<{ status: string }>("/auth/account", {
+      method: "DELETE",
+      body: JSON.stringify({
+        confirm: "DELETE",
+        password,
+        ...(mfaCode ? { mfa_code: mfaCode } : {}),
+      }),
+    }),
 };
 
 // 2. User Style Profile (USP) Services (G1.2)

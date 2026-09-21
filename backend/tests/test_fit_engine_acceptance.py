@@ -395,3 +395,63 @@ def test_size_ordering_covers_letters_and_numbers():
     assert letters == ["XS", "S", "M", "L", "XL"]
     numbers = sorted(["36", "30", "34", "32"], key=size_sort_key)
     assert numbers == ["30", "32", "34", "36"]
+
+
+def test_a_size_the_engine_calls_does_not_fit_is_never_recommended():
+    """Production regression, observed on confit-a.vercel.app after v2.0.0 shipped.
+
+    Body: chest 130, waist 120, height 170, weight 52 — the audit's original
+    impossible-body reproduction. Against the EN 13402-3 fallback for an S/M/L
+    shirt the engine returned::
+
+        recommended: true, recommended_size: "S", fit_score: 12.5,
+        fit_verdict: "Does not fit",
+        fit_breakdown.chest: "your 130 cm vs 86-94 cm for size S: too tight (+36 cm)"
+
+    Two thresholds disagreed. The refusal gate fired only at ``score <= 0``,
+    which the penalty curve never reaches because it is floored above zero,
+    while the presentation layer labels anything under 45 "Does not fit". So the
+    engine recommended a garment it simultaneously described as not fitting.
+
+    The confidence floor cannot catch this: confidence measures how sure we are,
+    and we are quite sure this does not fit. Fit quality needs its own gate.
+    """
+    stock = {"S": 15, "M": 18, "L": 10}
+    chart = SizeChartResolver().resolve(
+        ChartContext(product_size_chart_json="{}", sellable_sizes=list(stock), demographic="men")
+    )
+    result = engine.recommend(
+        body=BodyMeasurements(height_cm=170, weight_kg=52, chest_cm=130, waist_cm=120),
+        chart=chart,
+        garment_class=GarmentClass("woven_top"),
+        fit_preference="regular",
+        material=None,
+        stock_by_size=stock,
+        demographic="men",
+    )
+
+    assert not result.recommended, f"named a size that does not fit: {result.as_dict()}"
+    assert isinstance(result, FitRefusal)
+    assert result.reason_code == "NO_SIZE_FITS"
+    # The refusal must still be useful: say which size was closest, and why.
+    assert result.diagnostics.get("closest_size")
+    assert result.diagnostics.get("closest_size_score") is not None
+
+
+def test_a_body_that_genuinely_fits_is_still_recommended():
+    """Guard the gate above against being tightened into uselessness."""
+    stock = {"S": 15, "M": 18, "L": 10}
+    chart = SizeChartResolver().resolve(
+        ChartContext(product_size_chart_json="{}", sellable_sizes=list(stock), demographic="men")
+    )
+    result = engine.recommend(
+        body=BodyMeasurements(height_cm=178, weight_kg=78, chest_cm=98, waist_cm=84),
+        chart=chart,
+        garment_class=GarmentClass("woven_top"),
+        fit_preference="regular",
+        material=None,
+        stock_by_size=stock,
+        demographic="men",
+    )
+    assert result.recommended, result.as_dict()
+    assert result.top.score >= 45.0

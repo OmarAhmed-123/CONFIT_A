@@ -1,3 +1,4 @@
+import { msg, translatableFrom, resolveMessage, type TranslatableMessage } from '../../i18n/messages';
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useModalFocus } from '../../hooks/useModalFocus';
 import { useTranslation } from 'react-i18next';
@@ -40,7 +41,7 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
   const [activeTab, setActiveTab] = useState<'camera' | 'upload' | 'preset' | 'ruler'>('camera');
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraLoading, setCameraLoading] = useState(false);
-  const [cameraError, setCameraError] = useState<string | null>(null);
+  const [cameraError, setCameraError] = useState<TranslatableMessage | null>(null);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
   const [hasMultipleCameras, setHasMultipleCameras] = useState(false);
   const [fps, setFps] = useState<number>(30);
@@ -220,7 +221,7 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
     stopCamera();
 
     if (!navigator?.mediaDevices?.getUserMedia) {
-      setCameraError('Webcam access is restricted in this browser context. You can use Photo Upload or Presets below.');
+      setCameraError(msg('errors.webcam_restricted'));
       setCameraLoading(false);
       return;
     }
@@ -291,8 +292,8 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
       const { dataUrl } = await compressImageToDataUrl(file);
       setCapturedImage(dataUrl);
       runVisionAnalysis('uploaded_photo', dataUrl);
-    } catch (err: any) {
-      setCameraError(err?.message || 'That photo could not be processed.');
+    } catch (err) {
+      setCameraError(translatableFrom(err));
     }
   };
 
@@ -520,7 +521,7 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
                 <div className="space-y-4">
                   {cameraError && (
                     <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-800 text-xs flex items-center justify-between">
-                      <span>{cameraError}</span>
+                      <span>{resolveMessage(cameraError, t)}</span>
                       <button
                         onClick={() => startCamera()}
                         className="px-3 py-1 bg-amber-600 text-white rounded-lg text-[10px] font-bold"

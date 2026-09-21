@@ -11,7 +11,7 @@ from backend.app.models.user import BrandProfile, User
 from backend.app.models.catalog import Product, ProductSKU, StoreLocation, StoreInventory, RecentlyViewed, Category
 from backend.app.models.brand_analytics import SponsoredPlacement, StyleHeatmapAggregate
 from backend.app.models.catalog_import import CatalogImportJob, BrandAnalyticsEvent
-from backend.app.models.commerce import Order, OrderItem, CartItem, Cart, ReturnRequest, ReturnItem, InventoryReservation
+from backend.app.models.commerce import Order, OrderItem, CartItem, Cart, ReturnRequest, ReturnItem, InventoryReservation, FulfillmentGroup
 from backend.app.models.stylist import Outfit, OutfitItem
 from backend.app.models.tryon import TryOnSession
 from backend.app.models.profile import UserStyleProfile
@@ -278,25 +278,6 @@ class BrandRepository:
         product_ids = [p.id for p in products]
         total_skus = sum(len(p.skus) for p in products)
 
-        if not product_ids:
-            return {
-                "brand_name": brand.brand_name,
-                "total_products_count": 0,
-                "total_skus_count": 0,
-                "total_views": 0,
-                "total_tryons": 0,
-                "total_add_to_carts": 0,
-                "total_purchases": 0,
-                "funnel_conversion_rate": 0.0,
-                "return_rate_before_vton": float(brand.return_rate_benchmark),
-                "return_rate_after_vton": float(brand.current_return_rate),
-                "return_reduction_percentage": 0.0,
-                "outfit_appearance_rankings": [],
-                "bopis_store_fulfillment_rate": 0.0,
-                "ad_spend_total": 0.0,
-                "ad_revenue_total": 0.0
-            }
-
         # 1. Views: count RecentlyViewed for brand products
         total_views = self.db.query(func.count(RecentlyViewed.id)).filter(
             RecentlyViewed.product_id.in_(product_ids)
@@ -320,7 +301,7 @@ class BrandRepository:
             Order, OrderItem.order_id == Order.id
         ).filter(
             OrderItem.brand_id == brand_id,
-            Order.status.notin_(["cancelled", "refunded"])
+            Order.status.notin_(["cancelled", "refunded", "failed"])
         ).scalar() or 0
 
         # Funnel conversion rate: purchases / views * 100
@@ -348,8 +329,9 @@ class BrandRepository:
                 prod_add_to_cart = self.db.query(func.count(CartItem.id)).filter(
                     CartItem.product_sku_id.in_(prod_sku_ids)
                 ).scalar() or 0
-                prod_purchases = self.db.query(func.count(OrderItem.id)).filter(
+                prod_purchases = self.db.query(func.count(OrderItem.id)).join(Order, Order.id == OrderItem.order_id).filter(
                     OrderItem.product_id == prod_id,
+                    Order.status.notin_(["cancelled", "refunded", "failed"]),
                     OrderItem.brand_id == brand_id
                 ).scalar() or 0
             else:
@@ -369,66 +351,19 @@ class BrandRepository:
                 "purchase_rate": purchase_rate
             })
 
-        # If no outfit data, fallback to products with 0 appearances (not fake numbers)
-        if not outfit_rankings:
-            for p in products[:5]:
-                outfit_rankings.append({
-                    "product_id": p.id,
-                    "product_title": p.title,
-                    "thumbnail_url": p.thumbnail_url,
-                    "outfit_appearances": 0,
-                    "add_to_cart_rate": 0.0,
-                    "purchase_rate": 0.0
-                })
-
-        # 6. Return Reduction: real from ReturnRequest — FIXED JOIN MULTIPLICATION with DISTINCT
-        # Returns for brand products — use DISTINCT to avoid double-count when order has multiple items
-        brand_returns = self.db.query(func.count(func.distinct(ReturnRequest.id))).join(
-            Order, ReturnRequest.order_id == Order.id
-        ).join(
-            OrderItem, OrderItem.order_id == Order.id
-        ).filter(
-            OrderItem.brand_id == brand_id
-        ).scalar() or 0
-
-        # Total purchases for return rate
-        return_rate = round((brand_returns / total_purchases * 100) if total_purchases > 0 else 0.0, 1)
-
-        # Before/after VTON: compare try-on assisted vs non-try-on
-        # try_on_used_for_item in ReturnRequest indicates if try-on was used
-        returns_with_tryon = self.db.query(func.count(func.distinct(ReturnRequest.id))).filter(
-            ReturnRequest.try_on_used_for_item == True
-        ).join(Order).join(OrderItem).filter(OrderItem.brand_id == brand_id).scalar() or 0
-
-        returns_without_tryon = brand_returns - returns_with_tryon
-
-        # Calculate return rates for try-on vs non-try-on cohorts
-        pre_rate = float(brand.return_rate_benchmark)
-        post_rate = float(brand.current_return_rate) if brand.current_return_rate else return_rate
-
-        # If we have real data, use it to calculate reduction — FIXED DISTINCT for tryon_orders
-        if total_purchases > 0:
-            tryon_orders = self.db.query(func.count(func.distinct(Order.id))).filter(
-                Order.try_on_assisted == True
-            ).join(OrderItem).filter(OrderItem.brand_id == brand_id).scalar() or 0
-
-            non_tryon_orders = total_purchases - tryon_orders
-
-            if tryon_orders > 0 and non_tryon_orders > 0:
-                tryon_return_rate = round((returns_with_tryon / tryon_orders * 100) if tryon_orders > 0 else 0.0, 1)
-                non_tryon_return_rate = round((returns_without_tryon / non_tryon_orders * 100) if non_tryon_orders > 0 else 0.0, 1)
-                if non_tryon_return_rate > 0:
-                    pre_rate = float(non_tryon_return_rate)
-                    post_rate = float(tryon_return_rate)
-
-        reduction = round(((pre_rate - post_rate) / pre_rate * 100) if pre_rate > 0 else 0.0, 1)
-
-        # 7. BOPIS fulfillment rate: orders with bopis_store_id for brand — FIXED DISTINCT
-        bopis_orders = self.db.query(func.count(func.distinct(Order.id))).filter(
-            Order.bopis_store_id.isnot(None)
-        ).join(OrderItem).filter(OrderItem.brand_id == brand_id).scalar() or 0
-
-        bopis_rate = round((bopis_orders / total_purchases * 100) if total_purchases > 0 else 0.0, 1)
+        # Item-grain cohorts cannot attribute another brand's return in a
+        # mixed-brand order to this tenant. No benchmark fallback.
+        returns = self.get_brand_return_metrics(brand_id)
+        pre_rate = returns["return_rate_before_vton"]
+        post_rate = returns["return_rate_after_vton"]
+        reduction = returns["return_reduction_percentage"]
+        bopis = self.db.query(FulfillmentGroup.status, func.count(FulfillmentGroup.id)).filter(
+            FulfillmentGroup.brand_id == brand_id, FulfillmentGroup.fulfillment_type == "bopis",
+            FulfillmentGroup.status.notin_(["cancelled", "failed"])
+        ).group_by(FulfillmentGroup.status).all()
+        bopis_total = sum(n for _, n in bopis)
+        bopis_done = sum(n for status, n in bopis if status in ("picked_up", "completed"))
+        bopis_rate = round(bopis_done / bopis_total * 100, 1) if bopis_total else None
 
         # 8. Ad spend and revenue from SponsoredPlacement
         placements = self.get_brand_placements(brand_id)
@@ -444,56 +379,98 @@ class BrandRepository:
             "total_add_to_carts": int(total_add_to_carts),
             "total_purchases": int(total_purchases),
             "funnel_conversion_rate": float(funnel_rate),
-            "return_rate_before_vton": float(pre_rate),
-            "return_rate_after_vton": float(post_rate),
-            "return_reduction_percentage": float(reduction),
+            "return_rate_before_vton": pre_rate,
+            "return_rate_after_vton": post_rate,
+            "return_reduction_percentage": reduction,
             "outfit_appearance_rankings": outfit_rankings,
-            "bopis_store_fulfillment_rate": float(bopis_rate),
+            "bopis_store_fulfillment_rate": bopis_rate,
+            "return_cohorts": returns,
+            "data_source": "transactional_snapshot",
+            "methodology": "All-time retained RecentlyViewed product-view rows, TryOnSession records (not necessarily completed), current CartItem lines, and non-cancelled/non-refunded/non-failed OrderItem purchase lines. Not a session-linked conversion funnel. Spend is recorded placement spend, not a verified billing ledger.",
             "ad_spend_total": to_float(ad_spend),
             "ad_revenue_total": to_float(ad_revenue)
         }
 
+    def get_brand_return_metrics(self, brand_id):
+        """Returned order-line snapshot, grouped by order-level try-on flag.
+
+        is_returned currently marks an opened return, not proof of a completed
+        refund. The API names are kept for compatibility; methodology says so.
+        Fully refunded orders stay in the denominator to avoid survivorship bias.
+        """
+        counts = self.db.query(Order.try_on_assisted, func.count(OrderItem.id),
+            func.sum(case((OrderItem.is_returned == True, 1), else_=0))
+        ).join(Order, Order.id == OrderItem.order_id).filter(
+            OrderItem.brand_id == brand_id, Order.status.notin_(["cancelled", "failed"])
+        ).group_by(Order.try_on_assisted).all()
+        cohorts = {bool(assisted): (int(total), int(returned or 0)) for assisted, total, returned in counts}
+        non_total, non_returns = cohorts.get(False, (0, 0))
+        yes_total, yes_returns = cohorts.get(True, (0, 0))
+        before = round(non_returns / non_total * 100, 2) if non_total else None
+        after = round(yes_returns / yes_total * 100, 2) if yes_total else None
+        reduction = round((before-after)/before*100, 1) if before and after is not None else None
+        return dict(non_tryon_items=non_total, tryon_items=yes_total,
+            non_tryon_returned_items=non_returns, tryon_returned_items=yes_returns,
+            return_rate_before_vton=before, return_rate_after_vton=after,
+            return_reduction_percentage=reduction,
+            methodology="All-time brand order lines marked is_returned (opened, non-rejected return requests), divided by non-cancelled/non-failed order lines; cohorts use Order.try_on_assisted, not item-specific exposure. Includes refunded orders. Unmatched observational comparison: no causal, seasonality-adjusted or completed-refund claim. Null means insufficient denominator.")
+
     def get_conversion_analytics_per_sku(self, brand_id: int) -> List[Dict[str, Any]]:
-        """Funnel per SKU: views -> tryons -> add_to_cart -> purchases"""
+        """Legacy name; product-grain snapshots, grouped in four bounded queries."""
         products = self.get_brand_products(brand_id)
-        result = []
+        ids = [p.id for p in products]
+        if not ids:
+            return []
+        views = dict(self.db.query(RecentlyViewed.product_id, func.count(RecentlyViewed.id)).filter(
+            RecentlyViewed.product_id.in_(ids)).group_by(RecentlyViewed.product_id).all())
+        tryons = dict(self.db.query(TryOnSession.product_id, func.count(TryOnSession.id)).filter(
+            TryOnSession.product_id.in_(ids)).group_by(TryOnSession.product_id).all())
+        carts = dict(self.db.query(ProductSKU.product_id, func.count(CartItem.id)).join(
+            CartItem, CartItem.product_sku_id == ProductSKU.id).filter(ProductSKU.product_id.in_(ids)
+            ).group_by(ProductSKU.product_id).all())
+        purchases = dict(self.db.query(OrderItem.product_id, func.count(OrderItem.id)).join(
+            Order, Order.id == OrderItem.order_id).filter(OrderItem.brand_id == brand_id,
+            Order.status.notin_(["cancelled", "refunded", "failed"])).group_by(OrderItem.product_id).all())
+        result = [dict(product_id=p.id, sku_count=len(p.skus), title=p.title,
+            views=views.get(p.id, 0), tryons=tryons.get(p.id, 0), add_to_cart=carts.get(p.id, 0),
+            purchases=purchases.get(p.id, 0), conversion_rate=round(purchases.get(p.id,0)/views[p.id]*100,2) if views.get(p.id) else 0.0
+        ) for p in products]
+        return sorted(result, key=lambda x: (-x["conversion_rate"], x["product_id"]))
 
-        for product in products:
-            sku_ids = [s.id for s in product.skus]
+    def get_brand_preference_heatmaps(self, brand_id, region="Global", min_users=10):
+        """Tenant-scoped preferences; unique users per cell, not outfit counts.
 
-            views = self.db.query(func.count(RecentlyViewed.id)).filter(
-                RecentlyViewed.product_id == product.id
-            ).scalar() or 0
-
-            tryons = self.db.query(func.count(TryOnSession.id)).filter(
-                TryOnSession.product_id == product.id
-            ).scalar() or 0
-
-            add_to_cart = 0
-            if sku_ids:
-                add_to_cart = self.db.query(func.count(CartItem.id)).filter(
-                    CartItem.product_sku_id.in_(sku_ids)
-                ).scalar() or 0
-
-            purchases = self.db.query(func.count(OrderItem.id)).filter(
-                OrderItem.product_id == product.id,
-                OrderItem.brand_id == brand_id
-            ).scalar() or 0
-
-            conversion_rate = round((purchases / views * 100) if views > 0 else 0.0, 2)
-
-            result.append({
-                "product_id": product.id,
-                "sku_count": len(sku_ids),
-                "title": product.title,
-                "views": int(views),
-                "tryons": int(tryons),
-                "add_to_cart": int(add_to_cart),
-                "purchases": int(purchases),
-                "conversion_rate": float(conversion_rate)
-            })
-
-        return sorted(result, key=lambda x: x["conversion_rate"], reverse=True)
+        Region cannot be inferred from this schema. Legacy callers may request
+        MENA, but response explicitly returns Global and region_filter_applied=false.
+        """
+        rows = self.db.query(Outfit.user_id, Outfit.style_tags, Outfit.color_palette, Outfit.occasion).filter(
+            Outfit.user_id.isnot(None), Outfit.id.in_(self.db.query(OutfitItem.outfit_id).join(
+                Product, Product.id == OutfitItem.product_id).filter(Product.brand_id == brand_id))
+        ).all()
+        buckets = [dict(), dict(), dict()]
+        users = set()
+        for uid, styles, colors, occasion in rows:
+            users.add(uid)
+            for bucket, raw in zip(buckets, (styles, colors, json.dumps([occasion] if occasion else []))):
+                try:
+                    values = json.loads(raw or '[]')
+                except (ValueError, TypeError):
+                    continue
+                if not isinstance(values, list):
+                    continue
+                for value in values:
+                    if isinstance(value, str):
+                        bucket.setdefault(value, set()).add(uid)
+        def top(bucket, key):
+            return [{key: label, "weight": round(len(ids)/len(users)*100), "count": len(ids)}
+                    for label, ids in sorted(bucket.items(), key=lambda kv: (-len(kv[1]), kv[0]))
+                    if len(ids) >= min_users][:5]
+        return dict(region="Global", requested_region=region, region_filter_applied=False,
+            period="all_time", sample_size=len(users) if len(users) >= min_users else 0,
+            privacy_threshold=f"At least {min_users} distinct users per cell; small populations suppressed",
+            top_aesthetics=top(buckets[0], "name"), top_colors=top(buckets[1], "color"),
+            top_occasions=top(buckets[2], "name"), anonymized=True,
+            methodology="Brand-product outfit preferences; distinct authenticated users per cell, no catalog fallback. Global only: region and monthly filters are not supported by these source rows.")
 
     def get_platform_admin_analytics(self) -> Dict[str, Any]:
         """Real platform analytics from transactional data"""

@@ -111,12 +111,24 @@ _CONF_BASE = 22.0
 _CONF_PER_MEASURED_SECTION = 12.0     # a real tape measurement of a scored section
 _CONF_PER_ESTIMATED_SECTION = 2.5     # a modelled girth is weak evidence
 _CONF_BRAND_CHART = 14.0              # the brand's own table beats a public standard
+_CONF_DERIVED_CHART = 9.0             # product-specific, but derived from a stated source
 _CONF_STANDARD_CHART = 4.0
 _CONF_KNOWN_GARMENT_CLASS = 8.0
 _CONF_FIT_QUALITY_SWING = 6.0         # how much the winning size's own score moves it
 _CONF_MAX = 90.0                      # never claim near-certainty for a remote fit
 _CONF_MIN = 5.0
 _CONF_FLOOR_FOR_RECOMMENDATION = 35.0 # below this we refuse instead of guessing
+
+# Fit-score floor for naming a size at all. This MUST agree with the lowest
+# rating band the response labels as wearable (no_photo_fit_service defines
+# <45 as "Does not fit"). It was previously 0, which is unreachable because the
+# penalty curve is floored above zero: the engine would return
+# `recommended: true` for a size it simultaneously described as "Does not fit"
+# with a chest 36 cm outside the range. Confidence is a measure of how sure we
+# are, not of whether the garment fits - a directly measured body that clearly
+# fits nothing scores HIGH confidence in a bad fit, so the confidence floor
+# above can never catch this case. It needs its own gate.
+_MIN_FIT_SCORE_FOR_RECOMMENDATION = 45.0
 
 # Margin (score points) below which two sizes are "too close to call".
 _AMBIGUITY_MARGIN = 4.0
@@ -464,7 +476,7 @@ class FitEngine:
         margin = (best.score - runner_up.score) if runner_up else None
         is_ambiguous = margin is not None and margin < _AMBIGUITY_MARGIN
 
-        if best.score <= 0:
+        if best.score < _MIN_FIT_SCORE_FOR_RECOMMENDATION:
             return FitRefusal(
                 reason_code="NO_SIZE_FITS",
                 message=(
@@ -476,6 +488,7 @@ class FitEngine:
                     "closest_size": best.size,
                     "closest_size_score": best.score,
                     "sections": [s.as_dict() for s in best.sections],
+                    "size_comparison_table": [c.as_dict() for c in in_stock],
                 },
             )
 
@@ -582,6 +595,14 @@ class FitEngine:
         if chart.provenance.is_authoritative:
             score += _CONF_BRAND_CHART
             factors.append(f"+{_CONF_BRAND_CHART:.0f} brand-published size chart")
+        elif chart.provenance.is_product_specific:
+            # Authored for THIS product from a stated source. Better than the
+            # generic fallback, worse than the brand's own measurements.
+            score += _CONF_DERIVED_CHART
+            factors.append(
+                f"+{_CONF_DERIVED_CHART:.0f} product-specific size chart derived from "
+                f"{chart.provenance.standard or 'a stated source'}, not published by the brand"
+            )
         else:
             score += _CONF_STANDARD_CHART
             factors.append(

@@ -12,6 +12,7 @@ import { SplashScreen } from '../components/common/SplashScreen';
 import { useUIStore } from '../stores/uiStore';
 import { useCartStore } from '../stores/cartStore';
 import { SparkleIcon } from '../components/icons/ConfitIcons';
+import { TrustFooter } from '../components/commerce/TrustFooter';
 
 export const ConsumerLayout: React.FC = () => {
   const { t } = useTranslation();
@@ -68,32 +69,29 @@ export const ConsumerLayout: React.FC = () => {
             <div className="font-serif tracking-widest text-2xl font-bold text-white flex items-center gap-2">
               <span>CONFIT</span>
               <span className="text-[10px] px-2 py-0.5 rounded bg-[#C5A059]/20 text-[#C5A059] font-sans font-semibold">
-                Haute Tech
+                {t('footer.haute_tech')}
               </span>
             </div>
             <p className="text-slate-400 text-xs leading-relaxed font-light max-w-xs">
-              Where Style Meets Your Character in Every Moment. Combining generative AI styling, precision virtual try-on, and smart wardrobe reuse.
+              {t('footer.tagline_full')}
             </p>
           </div>
 
           <div className="space-y-3">
-            <div className="font-bold text-white uppercase tracking-wider text-[11px]">Fashion Experiences</div>
+            <div className="font-bold text-white uppercase tracking-wider text-[11px]">{t('footer.experiences_heading')}</div>
             <ul className="space-y-2 font-light">
-              <li><Link to="/discover" className="hover:text-[#C5A059] transition-colors">Curated Multi-Brand Catalog</Link></li>
-              <li><Link to="/builder" className="hover:text-[#C5A059] transition-colors">Outfit Composer Canvas</Link></li>
-              <li><Link to="/tryon-studio" className="hover:text-[#C5A059] transition-colors">Virtual Try-On Studio</Link></li>
-              <li><Link to="/wardrobe" className="hover:text-[#C5A059] transition-colors">Smart Wardrobe & Gap Analysis</Link></li>
+              <li><Link to="/discover" className="hover:text-[#C5A059] transition-colors">{t('footer.exp_catalog')}</Link></li>
+              <li><Link to="/builder" className="hover:text-[#C5A059] transition-colors">{t('footer.exp_builder')}</Link></li>
+              <li><Link to="/tryon-studio" className="hover:text-[#C5A059] transition-colors">{t('footer.exp_tryon')}</Link></li>
+              <li><Link to="/wardrobe" className="hover:text-[#C5A059] transition-colors">{t('footer.exp_wardrobe')}</Link></li>
             </ul>
           </div>
 
           <div className="space-y-3">
             <div className="font-bold text-white uppercase tracking-wider text-[11px]">{t('footer.commerce_trust')}</div>
-            <ul className="space-y-2 font-light">
-              <li><span className="text-slate-300">{t('footer.bnpl_line')}</span></li>
-              <li><span className="text-slate-300">{t('footer.bopis_line')}</span></li>
-              <li><span className="text-slate-300">{t('footer.returns_line')}</span></li>
-              <li><span className="text-slate-300">{t('footer.gdpr_line')}</span></li>
-            </ul>
+            {/* Claims are read from the deployment's own /catalog/capabilities —
+                see TrustFooter for why each one is gated. */}
+            <TrustFooter />
           </div>
 
           <div className="space-y-3">

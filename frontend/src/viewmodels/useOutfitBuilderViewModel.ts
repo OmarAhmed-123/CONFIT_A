@@ -1,3 +1,4 @@
+import { msg, detail, TranslatableMessage } from '../i18n/messages';
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { stylistService, catalogService } from '../services/apiServices';
 import { CompositionVerdict, Product, ProductSKU } from '../models';
@@ -31,7 +32,8 @@ export function useOutfitBuilderViewModel(
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoadingExisting, setIsLoadingExisting] = useState(Boolean(editingOutfitId));
-  const [loadError, setLoadError] = useState<string | null>(null);
+  // A translatable descriptor, resolved at the render boundary (i18n contract).
+  const [loadError, setLoadError] = useState<TranslatableMessage | null>(null);
   // Server-side composition verdict for the CURRENT canvas. The Save button is
   // gated on this, so the UI can never claim a look is savable when the policy
   // will reject it (and vice versa) — same rules, one source of truth.
@@ -113,7 +115,7 @@ export function useOutfitBuilderViewModel(
             )
           );
           if (!realSku) {
-            showToast(`No purchasable size found for ${product.title}`, 'error');
+            showToast(msg('toast.no_purchasable_size_for', { title: product.title }), 'error');
           }
         })
         .catch(() => {
@@ -124,7 +126,7 @@ export function useOutfitBuilderViewModel(
                 : it
             )
           );
-          showToast(`Couldn't load sizes for ${product.title} — try again`, 'error');
+          showToast(msg('toast.size_load_failed_for', { title: product.title }), 'error');
         });
     }
   }, [showToast]);
@@ -177,7 +179,9 @@ export function useOutfitBuilderViewModel(
         if (usable.length !== outfit.items.length) {
           // Honest partial-load message rather than a silently smaller canvas.
           showToast(
-            `${outfit.items.length - usable.length} item(s) could not be loaded and are not on the canvas.`,
+            msg('toast.look_items_partially_loaded', {
+              count: outfit.items.length - usable.length,
+            }),
             'error',
           );
         }
@@ -187,8 +191,8 @@ export function useOutfitBuilderViewModel(
         if (cancelled) return;
         setLoadError(
           err?.status === 404
-            ? 'This look does not exist, or it is not yours.'
-            : 'Could not load this look. Please try again.',
+            ? msg('outfit_builder.look_not_found')
+            : msg('outfit_builder.look_load_failed'),
         );
         setIsLoadingExisting(false);
       });
@@ -238,12 +242,15 @@ export function useOutfitBuilderViewModel(
     if (selectedItems.length === 0) return;
     const ready = selectedItems.filter((i) => i.skuStatus === 'ready' && i.selectedSku);
     if (ready.length === 0) {
-      showToast('Cannot save yet — no item has a confirmed purchasable size.', 'error');
+      showToast(msg('toast.cannot_save_no_sku'), 'error');
       return;
     }
     // Do not even attempt a save the server will reject: show the real reason.
     if (verdict && !verdict.is_valid) {
-      showToast(verdict.violations[0]?.message ?? 'This combination is not valid.', 'error');
+      showToast(
+        verdict.violations[0]?.message ?? msg('toast.invalid_combination'),
+        'error',
+      );
       return;
     }
     setIsSaving(true);
@@ -258,27 +265,27 @@ export function useOutfitBuilderViewModel(
           title: outfitTitle,
           occasion: targetOccasion,
         });
-        showToast('Look updated.', 'success');
+        showToast(msg('toast.look_updated'), 'success');
       } else {
         await stylistService.saveOutfit({
           title: outfitTitle,
           occasion: targetOccasion,
           product_sku_ids: skuIds,
         });
-        showToast('Ensemble saved to My Looks!', 'success');
+        showToast(msg('toast.ensemble_saved'), 'success');
       }
       setIsSaving(false);
       return true;
     } catch (err: any) {
       setIsSaving(false);
-      // Surface the server's explainable composition reason verbatim.
-      const detail = err?.data?.detail;
+      // Surface the server's explainable composition reason verbatim, falling
+      // back to the shared error formatter for non-policy failures.
+      const raw = err?.data?.detail;
       const reason =
-        (typeof detail === 'object' && detail?.message) ||
-        (typeof detail === 'string' && detail) ||
-        err?.message ||
-        'unknown error';
-      showToast(`Could not save: ${reason}`, 'error');
+        (raw && typeof raw === 'object' && raw.message) ||
+        (typeof raw === 'string' && raw) ||
+        detail(err);
+      showToast(msg('toast.outfit_save_failed', { reason }), 'error');
       return false;
     }
   }, [selectedItems, outfitTitle, targetOccasion, showToast, verdict, editingOutfitId]);
@@ -286,13 +293,13 @@ export function useOutfitBuilderViewModel(
   const addAllToCart = useCallback(async () => {
     if (selectedItems.length === 0) return;
     if (selectedItems.some((i) => i.skuStatus === 'pending')) {
-      showToast('Still confirming sizes — try again in a moment.', 'error');
+      showToast(msg('toast.confirming_sizes'), 'error');
       return;
     }
     const ready = selectedItems.filter((i) => i.skuStatus === 'ready' && i.selectedSku);
     const skipped = selectedItems.length - ready.length;
     if (ready.length === 0) {
-      showToast('No item has a purchasable size — open a product page to pick one.', 'error');
+      showToast(msg('toast.no_item_has_size'), 'error');
       return;
     }
     for (const item of ready) {

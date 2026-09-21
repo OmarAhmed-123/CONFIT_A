@@ -50,7 +50,7 @@ export const ConsumerNavbar: React.FC = () => {
           <span className="hidden sm:inline text-slate-300 font-light tracking-wide">
             CONFIT Precision Fashion Technology — Fit & Sizing Intelligence
           </span>
-          <span className="sm:hidden text-slate-300">CONFIT AI Studio</span>
+          <span className="sm:hidden text-slate-300">{t('nav_desc.studio')}</span>
         </div>
         <div className="flex items-center gap-4">
           {isPrivileged ? (
@@ -85,7 +85,7 @@ export const ConsumerNavbar: React.FC = () => {
             </Link>
 
             {/* Desktop Primary Nav */}
-            <nav aria-label="Primary consumer navigation" className="hidden lg:flex items-center gap-1 xl:gap-2">
+            <nav aria-label={t('a11y.primary_nav')} className="hidden lg:flex items-center gap-1 xl:gap-2">
               {/* 1. Home Anchor */}
               <Link
                 to="/"
@@ -133,7 +133,7 @@ export const ConsumerNavbar: React.FC = () => {
                         <div className="text-xs font-bold text-[#1B1F3B] group-hover:text-[#C5A059]">
                           {t('nav.stylist')}
                         </div>
-                        <div className="text-[11px] text-slate-500">Conversational AI recommendations</div>
+                        <div className="text-[11px] text-slate-500">{t('nav_desc.stylist')}</div>
                       </div>
                     </button>
 
@@ -167,7 +167,7 @@ export const ConsumerNavbar: React.FC = () => {
                         <div className="text-xs font-bold text-[#1B1F3B] group-hover:text-[#C5A059]">
                           {t('nav.visual_search')}
                         </div>
-                        <div className="text-[11px] text-slate-500">Find catalog matches from any photo</div>
+                        <div className="text-[11px] text-slate-500">{t('nav_desc.visual_search')}</div>
                       </div>
                     </button>
 
@@ -183,7 +183,7 @@ export const ConsumerNavbar: React.FC = () => {
                         <div className="text-xs font-bold text-[#1B1F3B] group-hover:text-[#C5A059]">
                           {t('nav.trending')}
                         </div>
-                        <div className="text-[11px] text-slate-500">Trending silhouettes & brand drops</div>
+                        <div className="text-[11px] text-slate-500">{t('nav_desc.trending')}</div>
                       </div>
                     </Link>
                   </div>
@@ -222,7 +222,7 @@ export const ConsumerNavbar: React.FC = () => {
                         <div className="text-xs font-bold text-[#1B1F3B] group-hover:text-[#C5A059]">
                           {t('nav.virtual_tryon')}
                         </div>
-                        <div className="text-[11px] text-slate-500">Interactive multi-garment try-on</div>
+                        <div className="text-[11px] text-slate-500">{t('nav_desc.virtual_tryon')}</div>
                       </div>
                     </Link>
 
@@ -278,7 +278,7 @@ export const ConsumerNavbar: React.FC = () => {
                         <div className="text-xs font-bold text-[#1B1F3B] group-hover:text-[#C5A059]">
                           {t('nav.my_closet')}
                         </div>
-                        <div className="text-[11px] text-slate-500">Auto-tagged owned clothing</div>
+                        <div className="text-[11px] text-slate-500">{t('nav_desc.wardrobe')}</div>
                       </div>
                     </Link>
 
@@ -294,7 +294,7 @@ export const ConsumerNavbar: React.FC = () => {
                         <div className="text-xs font-bold text-[#1B1F3B] group-hover:text-[#C5A059]">
                           {t('nav.my_looks')}
                         </div>
-                        <div className="text-[11px] text-slate-500">Saved outfit combinations</div>
+                        <div className="text-[11px] text-slate-500">{t('nav_desc.my_looks')}</div>
                       </div>
                     </Link>
 
@@ -310,7 +310,7 @@ export const ConsumerNavbar: React.FC = () => {
                         <div className="text-xs font-bold text-[#1B1F3B] group-hover:text-[#C5A059]">
                           {t('nav.gap_analysis')}
                         </div>
-                        <div className="text-[11px] text-slate-500">Discover missing closet staples</div>
+                        <div className="text-[11px] text-slate-500">{t('nav_desc.gap_analysis')}</div>
                       </div>
                     </Link>
                   </div>
@@ -350,7 +350,7 @@ export const ConsumerNavbar: React.FC = () => {
                         <div className="text-xs font-bold text-[#1B1F3B] group-hover:text-[#C5A059]">
                           All Collections
                         </div>
-                        <div className="text-[11px] text-slate-500">Curated multi-brand catalog</div>
+                        <div className="text-[11px] text-slate-500">{t('nav_desc.catalog')}</div>
                       </div>
                     </Link>
 
@@ -382,7 +382,7 @@ export const ConsumerNavbar: React.FC = () => {
               onClick={() => openVisualSearch()}
               className="p-2.5 rounded-full text-slate-600 hover:text-[#C5A059] hover:bg-[#FDF8EE] transition-all"
               title={t('nav.visual_search')}
-              aria-label="Open Visual Search"
+              aria-label={t('a11y.open_visual_search')}
             >
               <VisualSearchIcon size={20} color="#C5A059" />
             </button>
@@ -391,7 +391,7 @@ export const ConsumerNavbar: React.FC = () => {
             <button
               onClick={openCart}
               className="relative p-2.5 rounded-full text-slate-700 hover:text-[#1B1F3B] hover:bg-slate-100 transition-all"
-              aria-label="Open Shopping Bag"
+              aria-label={t('a11y.open_shopping_bag')}
             >
               <BagIcon size={20} badge={itemsCount} />
             </button>

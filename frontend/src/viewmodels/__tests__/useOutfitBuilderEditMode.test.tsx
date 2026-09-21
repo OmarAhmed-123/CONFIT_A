@@ -171,6 +171,8 @@ describe('BUILDER edit mode + server-authoritative save gating', () => {
     });
 
     expect(saveOutfitMock).not.toHaveBeenCalled();
+    // A server violation message is already localized/explainable text from
+    // the policy, so it is passed through verbatim rather than re-keyed.
     expect(showToastMock).toHaveBeenCalledWith(
       'The bottom slot holds 1 item(s), but 2 were supplied.',
       'error',
@@ -181,7 +183,9 @@ describe('BUILDER edit mode + server-authoritative save gating', () => {
     getOutfitMock.mockRejectedValue({ status: 404 });
     const { result } = renderHook(() => useOutfitBuilderViewModel(450, 404));
     await waitFor(() => expect(result.current.isLoadingExisting).toBe(false));
-    expect(result.current.loadError).toContain('does not exist');
+    expect(result.current.loadError).toEqual(
+      expect.objectContaining({ key: 'outfit_builder.look_not_found' }),
+    );
     expect(result.current.selectedItems).toHaveLength(0);
   });
 
@@ -204,7 +208,10 @@ describe('BUILDER edit mode + server-authoritative save gating', () => {
     await waitFor(() => expect(result.current.isLoadingExisting).toBe(false));
     expect(result.current.selectedItems).toHaveLength(1);
     expect(showToastMock).toHaveBeenCalledWith(
-      expect.stringContaining('could not be loaded'),
+      expect.objectContaining({
+        key: 'toast.look_items_partially_loaded',
+        params: expect.objectContaining({ count: 1 }),
+      }),
       'error',
     );
   });

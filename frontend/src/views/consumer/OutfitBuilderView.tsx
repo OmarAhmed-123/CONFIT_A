@@ -2,6 +2,7 @@ import { CardStackShowcase } from '../../components/showcase/DesignShowcases';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
+import { resolveMessage } from '../../i18n/messages';
 import {
   DndContext,
   DragEndEvent,
@@ -246,7 +247,9 @@ export const OutfitBuilderView: React.FC = () => {
   if (loadError) {
     return (
       <div className="py-24 text-center space-y-3">
-        <h1 className="font-serif text-2xl text-[#1B1F3B]">{loadError}</h1>
+        <h1 className="font-serif text-2xl text-[#1B1F3B]">
+          {resolveMessage(loadError, t)}
+        </h1>
         <Link
           to="/my-looks"
           className="inline-block px-4 py-2 rounded-xl border border-slate-300 text-xs font-semibold hover:bg-slate-100"

@@ -153,8 +153,10 @@ describe('MY LOOKS: saved outfits and share-link lifecycle', () => {
     // The link is still advertised, because it is still live on the server.
     expect(result.current.shareLinks[1]?.is_active).toBe(true);
     expect(result.current.looks[0].is_shared).toBe(true);
+    // Messages are i18n descriptors now (key + params), not English literals,
+    // so assert the KEY — that is the contract the renderer resolves.
     expect(showToastMock).toHaveBeenCalledWith(
-      expect.stringContaining('Could not revoke'),
+      expect.objectContaining({ key: 'toast.share_revoke_failed' }),
       'error',
     );
   });

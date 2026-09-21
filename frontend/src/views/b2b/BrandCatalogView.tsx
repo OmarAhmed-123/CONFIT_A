@@ -1,11 +1,15 @@
-import { CircularGalleryShowcase } from '../../components/showcase/DesignShowcases';
+import { useTranslation } from 'react-i18next';
+import { useModalFocus } from '../../hooks/useModalFocus';
+import { useCallback } from 'react';
 import React, { useState, useRef } from 'react';
 import { useBrandViewModel } from '../../viewmodels/useBrandViewModel';
 import { LoadingSpinner } from '../../components/common/CommonComponents';
 
 export const BrandCatalogView: React.FC = () => {
+  const { t } = useTranslation();
   const { products, updateSKUInventory, isLoading, uploadCatalogCSV, importJobs, fetchErrors, refresh, isUploading } = useBrandViewModel();
   const [editingSkuId, setEditingSkuId] = useState<number | null>(null);
+  const [saving, setSaving] = useState(false);
   const [editStock, setEditStock] = useState<number>(20);
   const [editPrice, setEditPrice] = useState<number | undefined>(undefined);
   const [bulkModalOpen, setBulkModalOpen] = useState(false);
@@ -13,17 +17,23 @@ export const BrandCatalogView: React.FC = () => {
   const [lastImportResult, setLastImportResult] = useState<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const closeDialog = useCallback(() => { if (!isUploading) setBulkModalOpen(false); }, [isUploading]);
+  const dialogRef = useModalFocus<HTMLDivElement>(closeDialog, bulkModalOpen);
+
   if (isLoading) {
     return <LoadingSpinner text="Loading brand catalog and SKU inventory..." />;
   }
 
-  const handleSaveSku = (skuId: number) => {
-    updateSKUInventory(skuId, editStock, editPrice);
-    setEditingSkuId(null);
+  const handleSaveSku = async (skuId: number) => {
+    if (saving) return;
+    setSaving(true);
+    try {
+      if (await updateSKUInventory(skuId, editStock, editPrice)) setEditingSkuId(null);
+    } finally { setSaving(false); }
   };
 
   const handleFileUpload = async (file: File) => {
-    if (!file.name.endsWith('.csv')) {
+    if (!file.name.toLowerCase().endsWith('.csv')) {
       alert('File must be CSV');
       return;
     }
@@ -55,13 +65,6 @@ export const BrandCatalogView: React.FC = () => {
 
   return (
     <div className="space-y-8 pb-20">
-      <CircularGalleryShowcase
-        tone="brand"
-        compact
-        eyebrow="Catalog Visual QA"
-        title="Rotate through merchandising stories before publishing"
-        description="Catalog management gets a realistic 3D gallery treatment for product story review, visual QA, and collection readiness."
-      />
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-6">
         <div>
@@ -69,7 +72,7 @@ export const BrandCatalogView: React.FC = () => {
             Catalog & SKU Management
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Real-time stock level synchronization across warehouse, BOPIS store locations, and AI try-on engines. CSV import with validation, idempotency, and error reporting.
+            Manage warehouse SKU stock here; store inventory is maintained separately. CSV imports report accepted and rejected rows.
           </p>
         </div>
 
@@ -175,7 +178,7 @@ export const BrandCatalogView: React.FC = () => {
                   <div>
                     <span className="text-[10px] font-bold text-slate-400 uppercase">{p.category_name}</span>
                     <h3 className="font-serif text-base font-bold text-[#1B1F3B]">{p.title}</h3>
-                    <span className="text-xs font-bold text-[#B8935A]">${p.base_price}</span>
+                    <span className="text-xs font-bold text-[#B8935A]">{p.currency} {p.base_price}</span>
                     <span className="text-[10px] text-slate-400 ml-2">ID: {p.id}</span>
                   </div>
                 </div>
@@ -191,7 +194,7 @@ export const BrandCatalogView: React.FC = () => {
                       <th className="py-2">Color</th>
                       <th className="py-2">Warehouse Stock</th>
                       <th className="py-2">Price Override</th>
-                      <th className="py-2">BOPIS Status</th>
+                      <th className="py-2">{t('b2b.warehouse_status')}</th>
                       <th className="py-2 text-right">Actions</th>
                     </tr>
                   </thead>
@@ -207,6 +210,7 @@ export const BrandCatalogView: React.FC = () => {
                         <td className="py-3">
                           {editingSkuId === sku.id ? (
                             <input
+                              aria-label={`Stock for ${sku.sku_code}`}
                               type="number"
                               value={editStock}
                               onChange={(e) => setEditStock(Number(e.target.value))}
@@ -223,26 +227,28 @@ export const BrandCatalogView: React.FC = () => {
                         <td className="py-3">
                           {editingSkuId === sku.id ? (
                             <input
+                              aria-label={`Price override for ${sku.sku_code}`}
                               type="number"
                               step="0.01"
-                              value={editPrice ?? sku.price_override ?? ''}
+                              value={editPrice ?? ''}
                               onChange={(e) => setEditPrice(e.target.value ? Number(e.target.value) : undefined)}
                               placeholder={String(p.base_price)}
                               className="w-20 px-2 py-1 rounded border border-slate-300 text-xs"
                             />
                           ) : (
-                            <span className="font-mono">${sku.price_override ?? p.base_price}</span>
+                            <span className="font-mono">{p.currency} {sku.price_override ?? p.base_price}</span>
                           )}
                         </td>
                         <td className="py-3">
                           <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${sku.is_in_stock ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'}`}>
-                            {sku.is_in_stock ? 'BOPIS Active' : 'Out of Stock'}
+                            {sku.is_in_stock ? 'Warehouse in stock' : 'Out of Stock'}
                           </span>
                         </td>
                         <td className="py-3 text-right">
                           {editingSkuId === sku.id ? (
                             <div className="flex justify-end gap-1.5">
                               <button
+                                disabled={saving}
                                 onClick={() => handleSaveSku(sku.id)}
                                 className="px-3 py-1 rounded bg-[#1B1F3B] text-white text-[10px] font-bold"
                               >
@@ -281,15 +287,17 @@ export const BrandCatalogView: React.FC = () => {
       {/* Bulk CSV Modal - REAL IMPLEMENTATION */}
       {bulkModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm">
-          <div className="w-full max-w-lg bg-white rounded-3xl p-6 shadow-2xl space-y-4">
+          <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={t('b2b.import_catalog')} tabIndex={-1} className="w-full max-w-lg bg-white rounded-3xl p-6 shadow-2xl space-y-4">
             <h3 className="font-serif text-lg font-bold text-[#1B1F3B]">Bulk SKU Catalog Importer</h3>
             <div className="text-xs text-slate-600 space-y-2">
               <p>Upload CSV with required columns: <code className="px-1.5 py-0.5 bg-slate-100 rounded text-[10px]">title, category_slug, base_price, color_family, thumbnail_url</code></p>
               <p>Optional: title_ar, description, material, currency, style_tags, sku_code, size, color, stock_level, price_override, images</p>
-              <p className="text-[11px] text-amber-700 bg-amber-50 p-2 rounded">Security: Formula injection protection, MIME validation, 10MB limit, SKU uniqueness enforced, upsert semantics, transactional.</p>
+              <p className="text-[11px] text-amber-700 bg-amber-50 p-2 rounded">Limits: UTF-8 CSV, 10MB and 1,000 rows. Each accepted row is committed independently. Review rejected rows before retrying. Missing stock defaults to zero.</p>
             </div>
 
             <div
+              role="button" tabIndex={0} aria-label={t('b2b.choose_csv')}
+              onKeyDown={e => { if ((e.key === 'Enter' || e.key === ' ') && !isUploading) { e.preventDefault(); fileInputRef.current?.click(); } }}
               onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
               onDragLeave={() => setDragActive(false)}
               onDrop={handleDrop}
@@ -312,7 +320,7 @@ export const BrandCatalogView: React.FC = () => {
                 <div className="space-y-2">
                   <div className="text-2xl">📤</div>
                   <div className="text-xs text-slate-600 font-semibold">Drop CSV catalog file here or click to browse</div>
-                  <div className="text-[10px] text-slate-400">Max 10MB, UTF-8, headers required</div>
+                  <div className="text-[10px] text-slate-400">Max 10MB / 1,000 rows, UTF-8, headers required; missing stock defaults to zero</div>
                 </div>
               )}
             </div>

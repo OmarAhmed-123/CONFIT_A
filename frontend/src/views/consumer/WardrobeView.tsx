@@ -167,7 +167,7 @@ export const WardrobeView: React.FC = () => {
           // silently uploaded raw (that would resurrect the 413 failure).
           setUploadSkipNotes((prev) => [
             ...prev,
-            `${f.name} could not be processed and was skipped.`,
+            t('errors.file_skipped', { name: f.name }),
           ]);
         }
       }

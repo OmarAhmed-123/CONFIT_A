@@ -15,8 +15,19 @@ import pytest
 
 from backend.scripts.check_release_schema_parity import evaluate
 
-HEAD = "0018_partner_onboarding_email_lifecycle"
-PREV = "0017_audit_before_after_request_id"
+# `evaluate` compares revision identifiers as opaque strings, so these are
+# deliberately SYNTHETIC fixtures rather than live revision ids. They were
+# previously written as "0018_partner_onboarding_email_lifecycle" / "0017_...",
+# which read as real revisions — but 0018 has never existed in
+# backend/alembic/versions, so the pin silently described a chain that was not
+# the chain. A reader could not tell the gate's fixtures from its facts.
+#
+# The live chain is asserted separately, in
+# `test_the_real_migration_head_is_a_single_resolvable_revision`, so that a
+# rename or a second head is caught by the chain test rather than by a stale
+# constant here.
+HEAD = "9999_synthetic_newer_revision"
+PREV = "9998_synthetic_older_revision"
 
 
 def test_parity_passes():
@@ -25,7 +36,7 @@ def test_parity_passes():
 
 
 def test_production_behind_the_commit_blocks():
-    """Exactly the 2026-09-20 incident: main required 0018, production had 0017."""
+    """Exactly the 2026-09-20 incident: main required a revision production lacked."""
     code, detail = evaluate(HEAD, {"database_revision": PREV, "verdict": "ok"})
     assert code == 1
     assert PREV in detail and HEAD in detail
@@ -53,3 +64,22 @@ def test_labels_are_distinct(label, code):
     """Guard against a refactor that makes an unknown state look like success."""
     assert label in {"PASS", "BLOCK", "INDETERMINATE"}
     assert code in {0, 1, 2}
+
+
+def test_the_real_migration_head_is_a_single_resolvable_revision():
+    """The gate is only meaningful if the repository has ONE head to compare to.
+
+    Two heads (a merge that forked the chain) would make "the revision this
+    commit requires" ambiguous, and the gate would compare against whichever
+    one alembic happened to report.
+    """
+    from pathlib import Path
+
+    from alembic.config import Config
+    from alembic.script import ScriptDirectory
+
+    root = Path(__file__).resolve().parents[2]
+    cfg = Config(str(root / "backend" / "alembic.ini"))
+    cfg.set_main_option("script_location", str(root / "backend" / "alembic"))
+    heads = ScriptDirectory.from_config(cfg).get_heads()
+    assert len(heads) == 1, f"migration chain has {len(heads)} heads: {heads}"

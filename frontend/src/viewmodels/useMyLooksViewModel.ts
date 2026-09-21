@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { stylistService } from '../services/apiServices';
 import { Outfit, ShareLink } from '../models';
 import { useUIStore } from '../stores/uiStore';
+import { msg, detail } from '../i18n/messages';
 
 type LoadState = 'loading' | 'ready' | 'error';
 
@@ -75,14 +76,12 @@ export function useMyLooksViewModel() {
           ),
         );
         showToast(
-          opts?.rotate
-            ? 'New link created — the previous one no longer works.'
-            : 'Public link ready.',
+          msg(opts?.rotate ? 'toast.share_link_rotated' : 'toast.share_link_ready'),
           'success',
         );
         return link;
       } catch (err: any) {
-        showToast(`Could not create the link: ${err?.message ?? 'unknown error'}`, 'error');
+        showToast(msg('toast.share_create_failed', { reason: detail(err) }), 'error');
         return null;
       } finally {
         setBusyId(null);
@@ -108,9 +107,9 @@ export function useMyLooksViewModel() {
               : l,
           ),
         );
-        showToast('Link revoked — it no longer opens for anyone.', 'success');
+        showToast(msg('toast.look_revoked'), 'success');
       } catch (err: any) {
-        showToast(`Could not revoke the link: ${err?.message ?? 'unknown error'}`, 'error');
+        showToast(msg('toast.share_revoke_failed', { reason: detail(err) }), 'error');
       } finally {
         setBusyId(null);
       }
@@ -134,9 +133,9 @@ export function useMyLooksViewModel() {
       try {
         await stylistService.deleteOutfit(id);
         setLooks((prev) => prev.filter((l) => l.id !== id));
-        showToast('Look deleted.', 'success');
+        showToast(msg('toast.look_deleted'), 'success');
       } catch (err: any) {
-        showToast(`Could not delete: ${err?.message ?? 'unknown error'}`, 'error');
+        showToast(msg('toast.look_delete_failed', { reason: detail(err) }), 'error');
       } finally {
         setBusyId(null);
       }
@@ -152,7 +151,7 @@ export function useMyLooksViewModel() {
         const updated = await stylistService.updateOutfit(id, { title: clean });
         setLooks((prev) => prev.map((l) => (l.id === id ? { ...l, ...updated } : l)));
       } catch (err: any) {
-        showToast(`Could not rename: ${err?.message ?? 'unknown error'}`, 'error');
+        showToast(msg('toast.look_rename_failed', { reason: detail(err) }), 'error');
       }
     },
     [showToast],

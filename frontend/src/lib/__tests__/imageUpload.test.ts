@@ -6,18 +6,42 @@ import {
   CanvasFactory,
   MAX_OUTPUT_BYTES,
 } from '../imageUpload';
+import { LocalizedError, isMessageDescriptor } from '../../i18n/messages';
+
+/**
+ * Error messages are TranslatableMessages (key + params), not English prose:
+ * lib/imageUpload.ts runs outside React and cannot translate, so it emits the
+ * key and the render boundary resolves it. Asserting on the key is stronger
+ * than asserting on English — it also proves the COPY is reachable for ar.json.
+ */
+function errorKey(message: unknown): string {
+  expect(isMessageDescriptor(message)).toBe(true);
+  return (message as { key: string }).key;
+}
+
+async function rejectionKey(promise: Promise<unknown>): Promise<string> {
+  try {
+    await promise;
+  } catch (err) {
+    expect(err).toBeInstanceOf(LocalizedError);
+    return errorKey((err as LocalizedError).translatable);
+  }
+  throw new Error('expected the promise to reject, but it resolved');
+}
 
 describe('validateImageFile', () => {
   it('rejects non-image MIME types (MIME spoofing guard)', () => {
     const r = validateImageFile({ type: 'application/pdf', size: 1000, name: 'x.pdf' });
     expect(r.ok).toBe(false);
-    expect(r.error).toMatch(/Unsupported image format/i);
+    expect(errorKey(r.error)).toBe('errors.image_unsupported');
   });
 
   it('rejects files above the input ceiling with a size-aware message', () => {
     const r = validateImageFile({ type: 'image/jpeg', size: 21 * 1024 * 1024 });
     expect(r.ok).toBe(false);
-    expect(r.error).toMatch(/too large/i);
+    expect(errorKey(r.error)).toBe('errors.image_too_large');
+    // the size-aware detail is carried as interpolation params, not baked in
+    expect((r.error as { params?: Record<string, unknown> }).params).toMatchObject({ max: 20 });
   });
 
   it('rejects empty files', () => {
@@ -112,15 +136,15 @@ describe('compressImageToDataUrl', () => {
   });
 
   it('fails honestly when it can never fit under the limit', async () => {
-    await expect(
-      compressImageToDataUrl(blob, { canvasFactory: fakeCanvasFactory([huge]) })
-    ).rejects.toThrow(/could not be compressed small enough/i);
+    expect(
+      await rejectionKey(compressImageToDataUrl(blob, { canvasFactory: fakeCanvasFactory([huge]) }))
+    ).toBe('errors.image_compression_failed');
   });
 
   it('propagates validation errors before any encoding work', async () => {
     const bad = new Blob(['x'], { type: 'application/pdf' });
-    await expect(compressImageToDataUrl(bad, { canvasFactory: fakeCanvasFactory([small]) })).rejects.toThrow(
-      /Unsupported image format/i
-    );
+    expect(
+      await rejectionKey(compressImageToDataUrl(bad, { canvasFactory: fakeCanvasFactory([small]) }))
+    ).toBe('errors.image_unsupported');
   });
 });

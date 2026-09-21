@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import { validateCheckoutSubmission, isValidEmail } from '../checkoutValidation';
+import { isMessageDescriptor, type TranslatableMessage } from '../../i18n/messages';
+
+/** Assert on the KEY, not on English prose — the message is localized now. */
+function expectKey(message: TranslatableMessage | undefined, key: string) {
+  expect(isMessageDescriptor(message)).toBe(true);
+  expect((message as { key: string }).key).toBe(key);
+}
 
 const base = {
   isAuthenticated: false,
@@ -33,13 +40,13 @@ describe('validateCheckoutSubmission', () => {
     const r = validateCheckoutSubmission(base);
     expect(r.ok).toBe(false);
     expect(r.field).toBe('guest_email');
-    expect(r.message).toMatch(/guest checkout/i);
+    expectKey(r.message, 'errors.guest_email_required');
   });
 
   it('fails with guest_email field for a malformed email', () => {
     const r = validateCheckoutSubmission({ ...base, guestEmail: 'not-an-email' });
     expect(r.field).toBe('guest_email');
-    expect(r.message).toMatch(/invalid/i);
+    expectKey(r.message, 'errors.email_invalid');
   });
 
   it('skips the email requirement when authenticated', () => {
@@ -50,22 +57,27 @@ describe('validateCheckoutSubmission', () => {
   it('fails on empty bag regardless of everything else', () => {
     const r = validateCheckoutSubmission({ ...base, itemsCount: 0, guestEmail: 'g@x.com' });
     expect(r.field).toBe('cart');
+    expectKey(r.message, 'errors.empty_bag');
   });
 
   it('requires a BOPIS store when pickup is selected', () => {
     const r = validateCheckoutSubmission({ ...base, guestEmail: 'g@x.com', fulfillmentType: 'bopis' });
     expect(r.field).toBe('bopis_store');
+    expectKey(r.message, 'errors.store_required');
   });
 
   it('requires an address for delivery', () => {
     const r = validateCheckoutSubmission({ ...base, guestEmail: 'g@x.com', addressLine: '  ' });
     expect(r.field).toBe('address');
+    expectKey(r.message, 'errors.address_required');
   });
 
   it('requires recipient name and phone', () => {
-    expect(
-      validateCheckoutSubmission({ ...base, guestEmail: 'g@x.com', recipientName: ' ' }).field
-    ).toBe('recipient_name');
-    expect(validateCheckoutSubmission({ ...base, guestEmail: 'g@x.com', phone: '' }).field).toBe('phone');
+    const noName = validateCheckoutSubmission({ ...base, guestEmail: 'g@x.com', recipientName: ' ' });
+    expect(noName.field).toBe('recipient_name');
+    expectKey(noName.message, 'errors.recipient_required');
+    const noPhone = validateCheckoutSubmission({ ...base, guestEmail: 'g@x.com', phone: '' });
+    expect(noPhone.field).toBe('phone');
+    expectKey(noPhone.message, 'errors.phone_required');
   });
 });

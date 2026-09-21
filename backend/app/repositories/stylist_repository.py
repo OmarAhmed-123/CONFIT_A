@@ -1,4 +1,5 @@
 import json
+from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
 from sqlalchemy.orm import Session, joinedload
 from backend.app.models.stylist import StylistSession, StylistMessage, Outfit, OutfitItem
@@ -82,6 +83,52 @@ class StylistRepository:
             .filter(Outfit.id == outfit_id)
             .first()
         )
+
+    def replace_outfit_items(
+        self,
+        outfit_id: int,
+        items: List[Dict[str, Any]],
+        total_price,
+        compatibility_score: int,
+        color_palette: List[str],
+    ) -> Optional[Outfit]:
+        """Swap an outfit's entire item set atomically.
+
+        One transaction: delete the old rows, insert the new ones, refresh the
+        derived aggregates (price, palette, score) and stamp updated_at. A
+        failure anywhere rolls the whole thing back, so the canvas can never
+        observe a half-edited look. sort_order comes pre-computed from the
+        shared composition policy.
+        """
+        outfit = self.db.query(Outfit).filter(Outfit.id == outfit_id).first()
+        if not outfit:
+            return None
+        try:
+            # Expire the loaded collection before the bulk delete so the
+            # identity map cannot resurrect stale OutfitItem instances during
+            # the subsequent flush (SAWarning: identity map already had ...).
+            self.db.query(OutfitItem).filter(
+                OutfitItem.outfit_id == outfit_id
+            ).delete(synchronize_session="fetch")
+            self.db.expire(outfit, ["items"])
+            for idx, item in enumerate(items):
+                self.db.add(OutfitItem(
+                    outfit_id=outfit_id,
+                    product_id=item["product_id"],
+                    product_sku_id=item.get("product_sku_id"),
+                    position=item.get("position", "top"),
+                    sort_order=item.get("sort_order", idx),
+                ))
+            outfit.total_price = total_price
+            outfit.compatibility_score = compatibility_score
+            outfit.color_palette = json.dumps(color_palette)
+            outfit.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise
+        self.db.refresh(outfit)
+        return outfit
 
     def delete_outfit(self, outfit_id: int) -> bool:
         outfit = self.db.query(Outfit).filter(Outfit.id == outfit_id).first()

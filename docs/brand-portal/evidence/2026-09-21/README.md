@@ -19,3 +19,5 @@ See [gap report](../../GAP-CLOSURE.md). No production-ready claim.
 No tokens, passwords, authorization headers, private connection URLs or raw
 network traces are included. Test screenshots contain synthetic staging names.
 Vercel preview was quota-blocked; workspace-runtime UAT is not Vercel deployment.
+
+- `postgres-all-partner-final.txt`: all six partner PostgreSQL files,60 passed,including the original distinct-click budget race and new replay/ownership races.

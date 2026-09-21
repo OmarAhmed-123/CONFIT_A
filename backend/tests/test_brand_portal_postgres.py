@@ -55,9 +55,9 @@ def test_click_budget_is_not_overspent_concurrently(portal):
     pid = make_placement(portal)
     assert client.patch(f'/partner/placements/{pid}', headers=h[0], json={'daily_budget':1}).status_code == 200
     barrier = Barrier(2)
-    def click(_):
+    def click(index):
         barrier.wait(timeout=10)
-        return client.post(f'/partner/placements/{pid}/click', headers=h[0]).status_code
+        return client.post(f'/partner/placements/{pid}/click', headers=h[0] | {'Idempotency-Key': f'concurrent-budget-event-{index}'}).status_code
     with ThreadPoolExecutor(2) as pool:
         results = list(pool.map(click, [0,1]))
     assert sorted(results) == [200,400]

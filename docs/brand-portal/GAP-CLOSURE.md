@@ -147,8 +147,10 @@ new immutable journal. It now renames the required table, preserving the same
 missing-object/fail-closed assertion;45 PostgreSQL checks passed locally.
 Gitleaks flagged a test-only HTTP idempotency identifier, not a credential. The
 parameter was renamed and exactly that historical fingerprint is documented
-in `.gitleaksignore`; no scanning rule/path was disabled. Follow-up CI must be
-checked separately. New membership/queue/counter PostgreSQL tests are now
+in `.gitleaksignore`; no scanning rule/path was disabled. A second CI-only PostgreSQL budget race still used the pre-idempotency API;
+it now sends two distinct event identities, preserving the one-success/one-budget-
+rejection and exact-spend assertions. The complete partner PostgreSQL job was
+then reproduced locally: **60 passed**. Follow-up CI must be checked separately. New membership/queue/counter PostgreSQL tests are now
 included in the existing CI PostgreSQL job.
 
 **Production read-only check:** `/api/v1/health` returned200/healthy/schema-ok,

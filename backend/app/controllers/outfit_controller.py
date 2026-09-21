@@ -1,14 +1,27 @@
-import secrets
 from typing import List, Optional, Dict, Any
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 from backend.app.core.database import get_db
 from backend.app.core.dependencies import get_current_user, get_current_user_optional
 from backend.app.models.user import User
 from backend.app.models.stylist import Outfit
-from backend.app.services.outfit_service import OutfitService
+from backend.app.services.outfit_service import (
+    DEFAULT_SHARE_TTL_DAYS,
+    OutfitCompositionError,
+    OutfitService,
+)
 from backend.app.services.commerce_service import CommerceService
-from backend.app.schemas.stylist import OutfitCreateInput, OutfitUpdateInput, OutfitOut
+from backend.app.schemas.stylist import (
+    CompositionPreviewInput,
+    CompositionVerdictOut,
+    OutfitCreateInput,
+    OutfitItemsReplaceInput,
+    OutfitOut,
+    OutfitUpdateInput,
+    ShareLinkOut,
+    ShareRevokeOut,
+    ShareRequestInput,
+)
 
 router = APIRouter(prefix="/outfits", tags=["Outfits & My Looks"])
 
@@ -24,6 +37,23 @@ def _get_owned_outfit(service: OutfitService, outfit_id: int, user: User) -> Out
     if not outfit or outfit.user_id != user.id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Outfit not found")
     return outfit
+
+
+def _composition_http_error(exc: OutfitCompositionError) -> HTTPException:
+    """Turn a policy verdict into an explainable 422.
+
+    The audit required that a rejected combination state its reason: the body
+    carries machine-readable violation codes AND the offending slots, so the
+    canvas can highlight them instead of showing a generic failure.
+    """
+    return HTTPException(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        detail={
+            "message": exc.verdict.first_message,
+            "code": "invalid_outfit_composition",
+            **exc.verdict.to_dict(),
+        },
+    )
 
 
 @router.get("", response_model=List[OutfitOut])
@@ -50,14 +80,17 @@ def save_custom_outfit(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Provide at least one of product_sku_ids or product_ids.",
         )
-    outfit = service.save_outfit(
-        user_id=user.id,
-        title=payload.title,
-        occasion=payload.occasion,
-        product_sku_ids=payload.product_sku_ids or [],
-        product_ids=payload.product_ids or [],
-        description=payload.description,
-    )
+    try:
+        outfit = service.save_outfit(
+            user_id=user.id,
+            title=payload.title,
+            occasion=payload.occasion,
+            product_sku_ids=payload.product_sku_ids or [],
+            product_ids=payload.product_ids or [],
+            description=payload.description,
+        )
+    except OutfitCompositionError as exc:
+        raise _composition_http_error(exc)
     return service.get_outfit_payload(outfit.id, user.id)
 
 
@@ -91,6 +124,8 @@ def patch_outfit_by_id(
         outfit.occasion = payload.occasion
     if payload.description is not None:
         outfit.description = payload.description
+    from backend.app.services.outfit_service import _utcnow
+    outfit.updated_at = _utcnow()
     db.commit()
     return service.get_outfit_payload(outfit_id, user.id)
 
@@ -107,33 +142,105 @@ def delete_outfit_by_id(
     return {"status": "success", "outfit_id": outfit_id, "deleted": True}
 
 
-@router.post("/{outfit_id}/share")
+@router.put("/{outfit_id}/items", response_model=OutfitOut)
+def replace_outfit_items(
+    outfit_id: int,
+    payload: OutfitItemsReplaceInput,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Replace the whole item set of a saved look (canvas edit + reorder).
+
+    The audit found saved looks were effectively immutable — only the title
+    could change. This is the real edit path: ownership-checked, policy
+    validated, and applied atomically so a rejected edit leaves the stored
+    outfit exactly as it was.
+    """
+    service = OutfitService(db)
+    outfit = _get_owned_outfit(service, outfit_id, user)
+    if not payload.product_sku_ids and not payload.product_ids:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Provide at least one of product_sku_ids or product_ids.",
+        )
+    try:
+        service.replace_outfit_items(
+            outfit,
+            product_sku_ids=payload.product_sku_ids or [],
+            product_ids=payload.product_ids or [],
+        )
+    except OutfitCompositionError as exc:
+        raise _composition_http_error(exc)
+    return service.get_outfit_payload(outfit_id, user.id)
+
+
+@router.post("/composition/preview", response_model=CompositionVerdictOut)
+def preview_composition(
+    payload: CompositionPreviewInput,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Dry-run the composition rules for the live canvas.
+
+    Same policy object as the write path (DRY), so the preview can never
+    disagree with what Save will actually do.
+    """
+    service = OutfitService(db)
+    return service.preview_composition(
+        product_sku_ids=payload.product_sku_ids or [],
+        product_ids=payload.product_ids or [],
+    )
+
+
+@router.post("/{outfit_id}/share", response_model=ShareLinkOut)
 def share_outfit(
+    outfit_id: int,
+    payload: Optional[ShareRequestInput] = Body(default=None),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Mint (or return the still-live) public share link for an owned outfit.
+
+    Idempotent unless ``rotate=true``. The response always states the real
+    expiry and active flag — the client never has to assume a link is live.
+    """
+    service = OutfitService(db)
+    outfit = _get_owned_outfit(service, outfit_id, user)
+    ttl = (payload.ttl_days if payload and payload.ttl_days else DEFAULT_SHARE_TTL_DAYS)
+    rotate = bool(payload.rotate) if payload else False
+    return service.mint_share_token(outfit, ttl_days=ttl, rotate=rotate)
+
+
+@router.get("/{outfit_id}/share", response_model=ShareLinkOut)
+def get_share_state(
     outfit_id: int,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    """Owner-facing share status: active?, expiry, real view count."""
     service = OutfitService(db)
     outfit = _get_owned_outfit(service, outfit_id, user)
-    # C8: cryptographically strong, non-sequential, non-predictable token
-    # (~192 bits of entropy, URL-safe, never truncated). Uniqueness is
-    # enforced by the unique column + retry on the (astronomically unlikely)
-    # collision.
-    share_token = outfit.share_token
-    if not share_token:
-        share_token = f"look_{secrets.token_urlsafe(24)}"
-        while service.stylist_repo.get_outfit_by_share_token(share_token):
-            share_token = f"look_{secrets.token_urlsafe(24)}"
-        outfit.share_token = share_token
-        db.commit()
-    # share_url is a relative frontend route served by this application's own
-    # SPA (/looks/:token) — no fabricated external domain, and no fake
-    # server-rendered card URL: PNG cards are generated client-side (C7).
+    state = service.get_share_state(outfit)
     return {
-        "outfit_id": outfit.id,
-        "share_token": share_token,
-        "share_url": f"/looks/{share_token}",
+        "outfit_id": state["outfit_id"],
+        "share_token": state["share_token"],
+        "share_url": state["share_url"],
+        "expires_at": state["expires_at"],
+        "is_active": state["is_active"],
+        "view_count": state["view_count"],
     }
+
+
+@router.delete("/{outfit_id}/share", response_model=ShareRevokeOut)
+def revoke_share_link(
+    outfit_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Revoke the public link. Idempotent; the token is never re-issued."""
+    service = OutfitService(db)
+    outfit = _get_owned_outfit(service, outfit_id, user)
+    return service.revoke_share_token(outfit)
 
 
 @router.post("/{outfit_id}/add-to-cart")

@@ -156,13 +156,26 @@ async def schema_drift_guard(request: Request, call_next):
     from backend.app.core.schema_gate import request_guard_verdict
     report = request_guard_verdict(engine, settings.ENVIRONMENT)
     if report is not None:
+        # Name the actual condition. "SCHEMA_DRIFT" for everything — including
+        # "the database could not be reached" — sends the operator to run
+        # `alembic upgrade head` against a database that may be perfectly
+        # migrated, which is what the 2026-09-21 outage looked like from the
+        # outside: an empty FUNCTION_INVOCATION_FAILED with no cause anywhere.
+        if report.verdict == "unreachable":
+            code = "DATABASE_UNREACHABLE"
+            message = ("Service unavailable: the database could not be inspected. "
+                       "Check database connectivity and credentials; no schema change is implied.")
+        else:
+            code = "SCHEMA_DRIFT"
+            message = ("Service unavailable: database schema does not match the deployed code. "
+                       "Operator action required: alembic upgrade head.")
         return JSONResponse(
             status_code=503,
             content={"error": {
-                "code": "SCHEMA_DRIFT",
-                "message": "Service unavailable: database schema does not match the deployed code. "
-                           "Operator action required: alembic upgrade head.",
+                "code": code,
+                "message": message,
                 "details": {
+                    "verdict": report.verdict,
                     "database_revision": report.database_revision,
                     "expected_head": report.expected_head,
                     "findings": report.findings[:6],

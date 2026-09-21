@@ -192,6 +192,39 @@ export interface Outfit {
   budget_note?: string | null;
   items: OutfitItem[];
   created_at: string;
+  updated_at?: string | null;
+  composition_warnings?: string[];
+  /** Share state comes from the real token lifecycle (OUTFIT-01): a look is
+   *  only "shared" when a live, unrevoked, unexpired token exists. */
+  is_shared?: boolean;
+  share_url?: string | null;
+  share_expires_at?: string | null;
+  share_view_count?: number;
+}
+
+/** Explainable verdict from the server composition policy. */
+export interface CompositionViolation {
+  code: string;
+  message: string;
+  positions: string[];
+}
+
+export interface CompositionVerdict {
+  is_valid: boolean;
+  violations: CompositionViolation[];
+  warnings: string[];
+  missing_positions: string[];
+  resolved_items: Array<Record<string, unknown>>;
+  unresolved_ids: number[];
+}
+
+export interface ShareLink {
+  outfit_id: number;
+  share_token: string | null;
+  share_url: string | null;
+  expires_at: string | null;
+  is_active: boolean;
+  view_count: number;
 }
 
 export interface StylistMessage {
@@ -670,6 +703,46 @@ export interface AutocompleteResponse {
   suggestions: AutocompleteSuggestion[];
 }
 
+/**
+ * One published cell of a style-signal aggregate.
+ *
+ * Every dimension uses this ONE shape (G-04): the backend previously emitted
+ * `{name, share}` from the dashboard endpoint and `{name, weight, count}` from
+ * the standalone heatmap endpoint, and colours as `string[]` in one and
+ * `{color, weight, count}[]` in the other — so the dashboard rendered
+ * `undefined%` bars and then threw on `trending_colors.map`.
+ */
+export interface StyleHeatmapCell {
+  name: string;
+  /** Value exactly as stored, before any display casing. */
+  raw_name?: string;
+  /** Percentage of ALL occurrences in this dimension, not just the top-N. */
+  share: number;
+  count: number;
+}
+
+export interface StyleHeatmap {
+  /** Display label. "Platform-wide" unless a real region predicate ran. */
+  region: string;
+  region_scope?: string;
+  region_filter_applied?: boolean;
+  /** Window actually applied to the SQL predicate; nulls mean unbounded. */
+  period?: { from: string | null; to: string | null } | null;
+  /** Outfits actually aggregated — never inflated to a user count. */
+  sample_size?: number;
+  min_sample_required?: number;
+  k_anonymity_floor?: number;
+  /** False => every list is empty BY DESIGN; render the reason, not a chart. */
+  data_available?: boolean;
+  top_aesthetics: StyleHeatmapCell[];
+  trending_colors: StyleHeatmapCell[];
+  top_occasions: StyleHeatmapCell[];
+  suppressed_cells?: number;
+  privacy_threshold?: string;
+  methodology?: string;
+  limitations?: string[];
+}
+
 export interface AdminPlatformAnalytics {
   total_users_count: number;
   total_brands_count: number;
@@ -693,13 +766,7 @@ export interface AdminPlatformAnalytics {
     return_rate: string;
     return_rate_value?: number;
   }>;
-  style_preference_heatmap: {
-    region: string;
-    sample_size?: number;
-    top_aesthetics: Array<{ name: string; share: number; weight?: number }>;
-    trending_colors: string[];
-    top_occasions?: Array<{ name: string; share: number }>;
-  };
+  style_preference_heatmap: StyleHeatmap;
   most_styled_items?: Array<{
     product_id: number;
     title: string;

@@ -20,19 +20,9 @@ from sqlalchemy.orm import Session
 from backend.app.models.user import AuditLog, User
 
 
-def to_naive_utc(value: Optional[datetime]) -> Optional[datetime]:
-    """Normalise a filter bound to naive UTC.
-
-    ``AuditLog.timestamp`` is written as an aware UTC datetime but SQLite
-    persists it without an offset, so an aware bound compares against a naive
-    column and silently matches nothing on the dev/test backend. Converting
-    here keeps the same predicate correct on both SQLite and PostgreSQL.
-    """
-    if value is None:
-        return None
-    if value.tzinfo is not None:
-        return value.astimezone(timezone.utc).replace(tzinfo=None)
-    return value
+# Re-exported so existing imports keep working; the implementation is shared
+# with the analytics repositories (single definition, no drift).
+from backend.app.core.timeutils import to_naive_utc  # noqa: E402
 
 
 @dataclass

@@ -96,9 +96,12 @@ def res_list_ids(resp):
 # =============================================================================
 def _create_outfit(token: str) -> int:
     client = TestClient(app)
-    # sku ids 1..n exist in the seeded test catalogue
+    # SKUs 1 and 2 are two SIZES OF THE SAME BLAZER in the seeded catalogue.
+    # Since OUTFIT-02 that is a rejected composition (one garment, twice), so
+    # this fixture now builds a genuinely wearable look: blazer + shirt +
+    # trousers — which is also a stronger fixture for the ownership assertions.
     r = client.post("/api/v1/outfits", headers=_auth(token), json={
-        "title": "Evening Look", "occasion": "Formal", "product_sku_ids": [1, 2],
+        "title": "Evening Look", "occasion": "Formal", "product_sku_ids": [1, 7, 10],
     })
     assert r.status_code == 201, r.text
     return r.json()["id"]

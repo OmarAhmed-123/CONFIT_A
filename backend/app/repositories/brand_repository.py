@@ -2,6 +2,7 @@ from decimal import Decimal
 from typing import Optional, List, Dict, Any, Tuple
 from datetime import datetime, timezone, timedelta
 from backend.app.core.money import to_decimal, money_add, money_sub, money_sum, to_float, quantize_money, validate_money
+from backend.app.core.timeutils import to_naive_utc
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, and_, or_, desc, case
 import json
@@ -437,40 +438,85 @@ class BrandRepository:
         ) for p in products]
         return sorted(result, key=lambda x: (-x["conversion_rate"], x["product_id"]))
 
-    def get_brand_preference_heatmaps(self, brand_id, region="Global", min_users=10):
-        """Tenant-scoped preferences; unique users per cell, not outfit counts.
+    def get_brand_preference_heatmaps(self, brand_id, region: Optional[str] = None, min_users: int = 10):
+        """Tenant-scoped style signals for one brand's products.
 
-        Region cannot be inferred from this schema. Legacy callers may request
-        MENA, but response explicitly returns Global and region_filter_applied=false.
+        Counts DISTINCT authenticated users per cell rather than outfit rows, so
+        one prolific shopper cannot manufacture a trend for the brand.
+
+        Emits the SAME cell shape as the platform-wide heatmap
+        (``{name, raw_name, share, count}`` under ``top_aesthetics`` /
+        ``trending_colors`` / ``top_occasions``). It previously emitted
+        ``weight`` and a differently-named ``top_colors`` key — the last
+        remaining fork of the style-signal contract (G-04).
+
+        ``region`` is accepted, applied to nothing, and reported as not applied:
+        the schema carries no region attribute, so echoing the caller's region
+        back as the label would mislabel platform-wide numbers (G-03).
         """
         rows = self.db.query(Outfit.user_id, Outfit.style_tags, Outfit.color_palette, Outfit.occasion).filter(
             Outfit.user_id.isnot(None), Outfit.id.in_(self.db.query(OutfitItem.outfit_id).join(
                 Product, Product.id == OutfitItem.product_id).filter(Product.brand_id == brand_id))
         ).all()
-        buckets = [dict(), dict(), dict()]
+        buckets: List[Dict[str, set]] = [dict(), dict(), dict()]
         users = set()
         for uid, styles, colors, occasion in rows:
             users.add(uid)
             for bucket, raw in zip(buckets, (styles, colors, json.dumps([occasion] if occasion else []))):
-                try:
-                    values = json.loads(raw or '[]')
-                except (ValueError, TypeError):
-                    continue
-                if not isinstance(values, list):
-                    continue
-                for value in values:
-                    if isinstance(value, str):
-                        bucket.setdefault(value, set()).add(uid)
-        def top(bucket, key):
-            return [{key: label, "weight": round(len(ids)/len(users)*100), "count": len(ids)}
-                    for label, ids in sorted(bucket.items(), key=lambda kv: (-len(kv[1]), kv[0]))
-                    if len(ids) >= min_users][:5]
-        return dict(region="Global", requested_region=region, region_filter_applied=False,
-            period="all_time", sample_size=len(users) if len(users) >= min_users else 0,
-            privacy_threshold=f"At least {min_users} distinct users per cell; small populations suppressed",
-            top_aesthetics=top(buckets[0], "name"), top_colors=top(buckets[1], "color"),
-            top_occasions=top(buckets[2], "name"), anonymized=True,
-            methodology="Brand-product outfit preferences; distinct authenticated users per cell, no catalog fallback. Global only: region and monthly filters are not supported by these source rows.")
+                for value in self._count_json_list(raw):
+                    bucket.setdefault(value, set()).add(uid)
+
+        sample_size = len(users)
+        publishable = sample_size >= min_users
+
+        def dimension(bucket: Dict[str, set]):
+            if not publishable:
+                return []
+            counts = {label: len(ids) for label, ids in bucket.items()}
+            cells, _suppressed = self._publish_cells(counts, sample_size, 5, min_users)
+            return cells
+
+        limitations = [
+            "Scoped to outfits containing this brand's products; a shopper's "
+            "preferences expressed on other brands are not counted here.",
+            "Region and period filters are not supported: these source rows carry "
+            "no region attribute and the aggregate is all-time.",
+        ]
+        if not publishable:
+            limitations.insert(
+                0,
+                f"Only {sample_size} distinct shopper(s) in scope; at least "
+                f"{min_users} are required before any cell is published, so "
+                "nothing is shown rather than a small-population aggregate.",
+            )
+
+        return dict(
+            region="Platform-wide",
+            requested_region=region,
+            region_scope="platform_wide",
+            region_filter_applied=False,
+            period=None,
+            sample_size=sample_size if publishable else 0,
+            min_sample_required=int(min_users),
+            k_anonymity_floor=int(min_users),
+            data_available=bool(publishable),
+            privacy_threshold=(
+                f"At least {min_users} distinct users per cell across {sample_size} "
+                "shoppers; cells below the floor are suppressed and no "
+                "individual-level data is exposed."
+            ),
+            top_aesthetics=dimension(buckets[0]),
+            trending_colors=dimension(buckets[1]),
+            top_occasions=dimension(buckets[2]),
+            anonymized=True,
+            methodology=(
+                "Brand-product outfit preferences; DISTINCT authenticated users per "
+                "cell, no catalogue fallback. Shares are a percentage of the "
+                "shoppers in scope. All-time only: region and monthly filters are "
+                "not supported by these source rows."
+            ),
+            limitations=limitations,
+        )
 
     def get_platform_admin_analytics(self) -> Dict[str, Any]:
         """Real platform analytics from transactional data"""
@@ -590,74 +636,9 @@ class BrandRepository:
         # Sort by orders descending
         brand_performance.sort(key=lambda x: x["orders"], reverse=True)
 
-        # Style Preference Heatmap: aggregate anonymized from UserStyleProfile and product tags
-        # Never expose individual user data
-        # Aggregate style tags, colors, occasions from products and outfits
-        style_counter: Dict[str, int] = {}
-        color_counter: Dict[str, int] = {}
-        occasion_counter: Dict[str, int] = {}
-
-        # From Outfit style_tags
-        outfits = self.db.query(Outfit).limit(1000).all()
-        for outfit in outfits:
-            try:
-                tags = json.loads(outfit.style_tags) if outfit.style_tags else []
-                for tag in tags:
-                    style_counter[tag] = style_counter.get(tag, 0) + 1
-                colors = json.loads(outfit.color_palette) if outfit.color_palette else []
-                for color in colors:
-                    color_counter[color] = color_counter.get(color, 0) + 1
-                if outfit.occasion:
-                    occasion_counter[outfit.occasion] = occasion_counter.get(outfit.occasion, 0) + 1
-            except:
-                continue
-
-        # From Product style_tags if not enough outfit data
-        if len(style_counter) < 3:
-            prods = self.db.query(Product).limit(500).all()
-            for p in prods:
-                try:
-                    tags = json.loads(p.style_tags) if p.style_tags else []
-                    for tag in tags:
-                        style_counter[tag] = style_counter.get(tag, 0) + 1
-                    if p.color_family:
-                        color_counter[p.color_family] = color_counter.get(p.color_family, 0) + 1
-                    occasions = json.loads(p.occasion_tags) if p.occasion_tags else []
-                    for occ in occasions:
-                        occasion_counter[occ] = occasion_counter.get(occ, 0) + 1
-                except:
-                    continue
-
-        # Calculate shares, ensure anonymized with sample size threshold
-        total_style = sum(style_counter.values()) or 1
-        total_color = sum(color_counter.values()) or 1
-        total_occasion = sum(occasion_counter.values()) or 1
-
-        # Only show if sample size >= 10 for privacy
-        sample_size = len(outfits) if len(outfits) >= 10 else max(len(outfits), total_users)
-
-        top_aesthetics = []
-        for name, count in sorted(style_counter.items(), key=lambda x: x[1], reverse=True)[:4]:
-            share = round(count / total_style * 100)
-            # Ensure minimum threshold for anonymization
-            if count >= 3 or sample_size >= 50:  # Privacy threshold
-                top_aesthetics.append({"name": name.replace("_", " ").title(), "share": share})
-
-        trending_colors = []
-        for color, count in sorted(color_counter.items(), key=lambda x: x[1], reverse=True)[:4]:
-            if count >= 3 or sample_size >= 50:
-                trending_colors.append(f"{color}")
-
-        # Fallback if no data
-        if not top_aesthetics:
-            top_aesthetics = [
-                {"name": "Quiet Luxury / Old Money", "share": 38},
-                {"name": "Modern Minimalist", "share": 29},
-                {"name": "Elevated Streetwear", "share": 21},
-                {"name": "Smart Tailored", "share": 12}
-            ]
-        if not trending_colors:
-            trending_colors = ["#1B1F3B (Navy)", "#C5A059 (Gold/Beige)", "#2D4A3E (Forest)", "#F5F5DC (Ivory)"]
+        # G-01/G-02/G-04: one honest heatmap builder, shared with
+        # /admin/analytics/heatmaps and /partner/analytics/heatmaps.
+        style_heatmap = self.get_style_heatmap()
 
         # Exclusive attribution to avoid double count - mathematically valid
         return {
@@ -679,13 +660,7 @@ class BrandRepository:
             "top_performing_brands": brand_performance[:10],
             "most_styled_items": most_styled_items,
             "outfit_to_purchase_ratio": float(stylist_conversion),
-            "style_preference_heatmap": {
-                "region": "MENA & GCC",
-                "sample_size": int(sample_size),
-                "top_aesthetics": top_aesthetics,
-                "trending_colors": trending_colors,
-                "top_occasions": [{"name": k, "share": round(v / total_occasion * 100)} for k, v in sorted(occasion_counter.items(), key=lambda x: x[1], reverse=True)[:3]]
-            }
+            "style_preference_heatmap": style_heatmap
         }
 
     def get_most_styled_items(self, limit: int = 20) -> List[Dict[str, Any]]:
@@ -900,86 +875,204 @@ class BrandRepository:
             "dedup_policy": "One purchase event per OrderItem enforced by unique index uq_brand_analytics_item_event",
         }
 
-    def get_user_preference_heatmaps(self, region: str = "MENA", min_sample_size: int = 10) -> Dict[str, Any]:
+    # --- Style signal heatmap (single implementation, G-01/G-02/G-04) ------
+
+    #: Below this many aggregated outfits the aggregate is NOT published at all.
+    HEATMAP_MIN_SAMPLE = 10
+    #: A cell must occur at least this often to be published (k-anonymity floor).
+    HEATMAP_K_FLOOR = 5
+    #: Hard cap on the outfit scan so the aggregation cannot become unbounded.
+    HEATMAP_SCAN_LIMIT = 5000
+
+    @staticmethod
+    def _count_json_list(raw: Optional[str]) -> List[str]:
+        """Parse a JSON list column, tolerating the malformed rows that exist."""
+        if not raw:
+            return []
+        try:
+            parsed = json.loads(raw)
+        except (ValueError, TypeError):
+            return []
+        if not isinstance(parsed, list):
+            return []
+        return [str(item) for item in parsed if item not in (None, "")]
+
+    @classmethod
+    def _publish_cells(cls, counter: Dict[str, int], total: int, top_n: int, k_floor: int) -> Tuple[List[Dict[str, Any]], int]:
+        """Rank cells, drop everything under the k-floor, report what was dropped.
+
+        The k-floor is a hard floor: it is NOT bypassed when the sample is
+        large (the previous ``count >= 3 or sample_size >= 50`` let a single
+        occurrence through once the dataset was big — G-02).
         """
-        Aggregate anonymized style signal data.
-        Never expose individual user-level data.
-        Uses aggregation thresholds.
+        ranked = sorted(counter.items(), key=lambda kv: (-kv[1], kv[0]))
+        published: List[Dict[str, Any]] = []
+        suppressed = 0
+        for name, count in ranked:
+            if count < k_floor:
+                suppressed += 1
+                continue
+            if len(published) < top_n:
+                published.append(
+                    {
+                        "name": name.replace("_", " ").title() if "_" in name else name,
+                        "raw_name": name,
+                        "share": round(count / total * 100, 1) if total else 0.0,
+                        "count": int(count),
+                    }
+                )
+        return published, suppressed
+
+    def get_style_heatmap(
+        self,
+        *,
+        date_from: Optional[datetime] = None,
+        date_to: Optional[datetime] = None,
+        top_n: int = 5,
+        k_floor: int = HEATMAP_K_FLOOR,
+        min_sample: int = HEATMAP_MIN_SAMPLE,
+    ) -> Dict[str, Any]:
+        """Aggregate anonymised style signals from real ``Outfit`` rows.
+
+        Single source of truth for every style-signal endpoint. Honest by
+        construction:
+
+        * **No fabricated rows.** The previous implementation returned four
+          hardcoded aesthetics and four hardcoded colour chips whenever the
+          aggregation was empty, inside a dashboard labelled "Real Data"
+          (G-01). An empty result now returns empty lists plus
+          ``data_available: false`` and the reason.
+        * **``sample_size`` is the number of outfits actually aggregated.** It
+          was previously inflated to ``total_users`` whenever fewer than ten
+          outfits existed, which made the published privacy statement false
+          (G-02).
+        * **The k-floor is a floor.** No large-sample bypass, and it is applied
+          to occasions too (they had no threshold at all).
+        * **Catalogue tags are not shopper signals.** The old code fell back to
+          ``Product.style_tags`` when outfits were thin and presented the result
+          as shopper preferences. Two different populations are not one metric,
+          so the fallback is gone and the limitation is stated instead.
+        * **Period is real.** ``date_from``/``date_to`` are pushed into the SQL
+          predicate; the payload reports the window actually applied instead of
+          a hardcoded ``"monthly"``.
         """
-        # Aggregate from Outfit and Product tags
+        query = self.db.query(Outfit)
+        lower = to_naive_utc(date_from)
+        upper = to_naive_utc(date_to)
+        if lower:
+            query = query.filter(Outfit.created_at >= lower)
+        if upper:
+            query = query.filter(Outfit.created_at <= upper)
+        outfits = query.limit(self.HEATMAP_SCAN_LIMIT).all()
+
         style_counter: Dict[str, int] = {}
         color_counter: Dict[str, int] = {}
         occasion_counter: Dict[str, int] = {}
-
-        outfits = self.db.query(Outfit).limit(2000).all()
-
         for outfit in outfits:
-            try:
-                tags = json.loads(outfit.style_tags) if outfit.style_tags else []
-                for tag in tags:
-                    style_counter[tag] = style_counter.get(tag, 0) + 1
-                colors = json.loads(outfit.color_palette) if outfit.color_palette else []
-                for color in colors:
-                    color_counter[color] = color_counter.get(color, 0) + 1
-                if outfit.occasion:
-                    occasion_counter[outfit.occasion] = occasion_counter.get(outfit.occasion, 0) + 1
-            except:
-                continue
+            for tag in self._count_json_list(outfit.style_tags):
+                style_counter[tag] = style_counter.get(tag, 0) + 1
+            for color in self._count_json_list(outfit.color_palette):
+                color_counter[color] = color_counter.get(color, 0) + 1
+            if outfit.occasion:
+                occasion_counter[outfit.occasion] = occasion_counter.get(outfit.occasion, 0) + 1
 
-        # Ensure minimum sample size for privacy
-        if len(outfits) < min_sample_size:
-            # Fallback to product data if not enough outfits
-            products = self.db.query(Product).limit(500).all()
-            for p in products:
-                try:
-                    tags = json.loads(p.style_tags) if p.style_tags else []
-                    for tag in tags:
-                        style_counter[tag] = style_counter.get(tag, 0) + 1
-                    if p.color_family:
-                        color_counter[p.color_family] = color_counter.get(p.color_family, 0) + 1
-                    occasions = json.loads(p.occasion_tags) if p.occasion_tags else []
-                    for occ in occasions:
-                        occasion_counter[occ] = occasion_counter.get(occ, 0) + 1
-                except:
-                    continue
-
-        total_style = sum(style_counter.values()) or 1
-        total_color = sum(color_counter.values()) or 1
-        total_occasion = sum(occasion_counter.values()) or 1
-
-        # Privacy: only show aggregates with count >= 3 or sample_size >= 50
         sample_size = len(outfits)
-        anonymization_threshold = 3 if sample_size >= 50 else 5
+        data_available = sample_size >= min_sample
+        scan_truncated = sample_size >= self.HEATMAP_SCAN_LIMIT
 
-        top_aesthetics = []
-        for name, count in sorted(style_counter.items(), key=lambda x: x[1], reverse=True)[:5]:
-            if count >= anonymization_threshold:
-                share = round(count / total_style * 100)
-                top_aesthetics.append({"name": name.replace("_", " ").title(), "weight": share, "count": count})
+        def dimension(counter: Dict[str, int]) -> Tuple[List[Dict[str, Any]], int]:
+            if not data_available:
+                return [], 0
+            total = sum(counter.values())
+            return self._publish_cells(counter, total, top_n, k_floor)
 
-        top_colors = []
-        for color, count in sorted(color_counter.items(), key=lambda x: x[1], reverse=True)[:5]:
-            if count >= anonymization_threshold:
-                share = round(count / total_color * 100)
-                top_colors.append({"color": color, "weight": share, "count": count})
+        top_aesthetics, sup_style = dimension(style_counter)
+        trending_colors, sup_color = dimension(color_counter)
+        top_occasions, sup_occasion = dimension(occasion_counter)
 
-        top_occasions = []
-        for occ, count in sorted(occasion_counter.items(), key=lambda x: x[1], reverse=True)[:5]:
-            if count >= anonymization_threshold:
-                share = round(count / total_occasion * 100)
-                top_occasions.append({"name": occ, "weight": share, "count": count})
+        limitations: List[str] = [
+            "Derived from saved outfits only. Outfits a shopper built but never "
+            "saved are not counted, so this measures expressed preference, not "
+            "browsing intent.",
+            "The platform stores no region attribute on users or outfits, so this "
+            "aggregate is platform-wide; region breakdowns are not available.",
+        ]
+        if not data_available:
+            limitations.insert(
+                0,
+                f"Only {sample_size} outfit(s) in scope; at least {min_sample} are "
+                "required before any cell is published, so nothing is shown rather "
+                "than a small-population aggregate.",
+            )
+        if scan_truncated:
+            limitations.append(
+                f"The scan is capped at {self.HEATMAP_SCAN_LIMIT} outfits; the "
+                "aggregate covers the most recent rows within that cap."
+            )
 
         return {
-            "region": region,
-            "period": "monthly",
+            "region": "Platform-wide",
+            "region_scope": "platform_wide",
+            "region_filter_applied": False,
+            "period": {
+                "from": lower.isoformat() if lower else None,
+                "to": upper.isoformat() if upper else None,
+            },
             "sample_size": int(sample_size),
-            "privacy_threshold": f"Minimum {anonymization_threshold} occurrences, sample size {sample_size}, no individual user data exposed",
+            "min_sample_required": int(min_sample),
+            "k_anonymity_floor": int(k_floor),
+            "data_available": bool(data_available),
             "top_aesthetics": top_aesthetics,
-            "top_colors": top_colors,
+            "trending_colors": trending_colors,
             "top_occasions": top_occasions,
+            "suppressed_cells": int(sup_style + sup_color + sup_occasion),
             "anonymized": True,
-            "methodology": "Aggregate from Outfit.style_tags, Outfit.color_palette, Outfit.occasion and Product tags. Never exposes user-level preferences. Filters that would narrow to tiny identifiable population are blocked by threshold."
+            "privacy_threshold": (
+                f"Every published cell occurs at least {k_floor} times and the "
+                f"aggregate covers {sample_size} outfits; cells below the floor "
+                "are suppressed ({sup_style + sup_color + sup_occasion} suppressed "
+                "in this run). No individual-level data is exposed."
+            ),
+            "methodology": (
+                "COUNT over Outfit.style_tags, Outfit.color_palette and "
+                "Outfit.occasion within the requested window, ranked by frequency. "
+                "Shares are a percentage of all occurrences in that dimension, so "
+                "they sum to ~100% across the FULL distribution, not just the "
+                "published top-N. No rows are synthesised and catalogue tags are "
+                "never substituted for shopper signals."
+            ),
+            "limitations": limitations,
         }
+
+    def get_user_preference_heatmaps(
+        self,
+        *,
+        region: Optional[str] = None,
+        date_from: Optional[datetime] = None,
+        date_to: Optional[datetime] = None,
+        min_sample_size: int = HEATMAP_MIN_SAMPLE,
+    ) -> Dict[str, Any]:
+        """Thin wrapper kept for the existing admin endpoint.
+
+        ``region`` is accepted but reported as NOT applied — the same contract
+        ``get_brand_preference_heatmaps`` already publishes on the partner
+        surface (``region`` / ``requested_region`` / ``region_filter_applied``).
+        The platform stores no region attribute on users or outfits, so the
+        previous behaviour of echoing the caller's region back as the label on
+        platform-wide numbers is gone (G-03); one convention now covers both
+        endpoints instead of two.
+        """
+        heatmap = self.get_style_heatmap(
+            date_from=date_from, date_to=date_to, min_sample=min_sample_size
+        )
+        heatmap["requested_region"] = region
+        if region:
+            heatmap["limitations"] = [
+                f"The requested region filter '{region}' was NOT applied: the "
+                "platform stores no region attribute on users or outfits, so the "
+                "figures below are platform-wide. See region_filter_applied."
+            ] + list(heatmap["limitations"])
+        return heatmap
 
     # --- Analytics Event Instrumentation (REAL attribution) ---
     def create_analytics_event(

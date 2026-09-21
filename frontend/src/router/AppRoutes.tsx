@@ -34,6 +34,7 @@ import { OutfitBuilderView } from '../views/consumer/OutfitBuilderView';
 import { TryOnFitView } from '../views/consumer/TryOnFitView';
 import { FitFinderView } from '../views/consumer/FitFinderView';
 import { WardrobeView } from '../views/consumer/WardrobeView';
+import { MyLooksView } from '../views/consumer/MyLooksView';
 import { ProductDetailView } from '../views/consumer/ProductDetailView';
 import { CheckoutView } from '../views/consumer/CheckoutView';
 import { OrderTrackingView } from '../views/consumer/OrderTrackingView';
@@ -85,7 +86,7 @@ export const AppRoutes: React.FC = () => {
           <Route path="products/:slug" element={<ProductDetailView />} />
           
           <Route path="builder" element={<OutfitBuilderView />} />
-          <Route path="outfits" element={<OutfitBuilderView />} />
+          <Route path="outfits" element={<MyLooksView />} />
           <Route path="outfits/:id" element={<OutfitBuilderView />} />
           <Route path="stylist" element={<DiscoverView />} />
           
@@ -102,7 +103,9 @@ export const AppRoutes: React.FC = () => {
           
           <Route path="wardrobe" element={<WardrobeView />} />
           <Route path="wardrobe/item/:id" element={<WardrobeView />} />
-          <Route path="my-looks" element={<WardrobeView />} />
+          {/* OUTFIT-03: /my-looks rendered the WARDROBE, so saved outfits had no
+              home in the product. It now renders the real saved-looks view. */}
+          <Route path="my-looks" element={<MyLooksView />} />
           
           <Route path="cart" element={<CheckoutView />} />
           <Route path="checkout" element={<CheckoutView />} />

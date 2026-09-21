@@ -1,6 +1,8 @@
 import { CardStackShowcase } from '../../components/showcase/DesignShowcases';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link, useParams } from 'react-router-dom';
+import { resolveMessage } from '../../i18n/messages';
 import {
   DndContext,
   DragEndEvent,
@@ -167,6 +169,10 @@ const DroppableSlot: React.FC<{
 
 export const OutfitBuilderView: React.FC = () => {
   const { t } = useTranslation();
+  // OUTFIT-03: /outfits/:id now really edits that look instead of mounting an
+  // empty canvas that silently saved a duplicate.
+  const { id } = useParams<{ id?: string }>();
+  const editingOutfitId = id && /^\d+$/.test(id) ? Number(id) : undefined;
   const {
     selectedItems,
     targetOccasion,
@@ -184,7 +190,11 @@ export const OutfitBuilderView: React.FC = () => {
     clearCanvas,
     saveOutfit,
     addAllToCart,
-  } = useOutfitBuilderViewModel(450.0);
+    isLoadingExisting,
+    loadError,
+    verdict,
+    isEditing,
+  } = useOutfitBuilderViewModel(450.0, editingOutfitId);
 
   const { products } = useCatalogViewModel();
   const { showToast } = useUIStore();
@@ -234,6 +244,30 @@ export const OutfitBuilderView: React.FC = () => {
     showToast(t('outfit_builder.formula_added'), 'success');
   };
 
+  if (isLoadingExisting) {
+    return (
+      <div className="py-24 text-center text-slate-500" role="status">
+        Loading this look…
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="py-24 text-center space-y-3">
+        <h1 className="font-serif text-2xl text-[#1B1F3B]">
+          {resolveMessage(loadError, t)}
+        </h1>
+        <Link
+          to="/my-looks"
+          className="inline-block px-4 py-2 rounded-xl border border-slate-300 text-xs font-semibold hover:bg-slate-100"
+        >
+          Back to My Looks
+        </Link>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8 pb-24">
       <CardStackShowcase
@@ -267,11 +301,24 @@ export const OutfitBuilderView: React.FC = () => {
           </button>
           <button
             onClick={saveOutfit}
-            disabled={selectedItems.length === 0 || isSaving}
+            disabled={
+              selectedItems.length === 0 || isSaving || verdict?.is_valid === false
+            }
+            title={
+              verdict?.is_valid === false
+                ? verdict.violations[0]?.message
+                : undefined
+            }
             className="px-5 py-2 rounded-xl bg-[#C5A059] hover:bg-[#A37E44] disabled:opacity-40 text-slate-950 font-bold text-xs shadow-2xs transition-all flex items-center gap-1.5"
           >
             <SavedLooksIcon size={16} color="#0C0E1E" />
-            <span>{isSaving ? 'Saving...' : t('outfit_builder.save_outfit')}</span>
+            <span>
+              {isSaving
+                ? 'Saving...'
+                : isEditing
+                  ? 'Update look'
+                  : t('outfit_builder.save_outfit')}
+            </span>
           </button>
         </div>
       </div>
@@ -298,6 +345,30 @@ export const OutfitBuilderView: React.FC = () => {
           </div>
         </div>
       </section>
+
+      {/* OUTFIT-04: the server's composition verdict, shown verbatim. A
+          rejected combination always states WHY and which slot is at fault,
+          instead of a disabled button with no explanation. */}
+      {verdict && (!verdict.is_valid || verdict.warnings.length > 0) ? (
+        <div
+          role={verdict.is_valid ? 'status' : 'alert'}
+          className={`rounded-2xl border p-4 text-xs space-y-1 ${
+            verdict.is_valid
+              ? 'border-amber-200 bg-amber-50 text-amber-800'
+              : 'border-rose-200 bg-rose-50 text-rose-800'
+          }`}
+        >
+          <span className="font-bold uppercase tracking-wider text-[10px]">
+            {verdict.is_valid ? 'Heads up' : 'This look cannot be saved yet'}
+          </span>
+          {verdict.violations.map((v) => (
+            <p key={v.code + v.positions.join()}>{v.message}</p>
+          ))}
+          {verdict.warnings.map((w) => (
+            <p key={w}>{w}</p>
+          ))}
+        </div>
+      ) : null}
 
       {/* C6: one DndContext wraps palette + canvas so drops are real state transitions */}
       <DndContext sensors={sensors} onDragEnd={handleDragEnd}>

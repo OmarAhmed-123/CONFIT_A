@@ -742,20 +742,19 @@ class TestAnalyticsRealData:
             token = get_auth_token(user.email)
             assert token is not None
 
-            resp = client.get("/partner/analytics/heatmaps?region=MENA", headers={"Authorization": f"Bearer {token}"})
-            assert resp.status_code == 200
+            resp = client.get("/partner/analytics/heatmaps", headers={"Authorization": f"Bearer {token}"})
+            assert resp.status_code == 200, resp.text
             data = resp.json()
 
-            assert "region" in data
-            assert "anonymized" in data
-            assert data["anonymized"] == True
-            assert "privacy_threshold" in data or "methodology" in data
+            assert data["region"]
+            assert data["anonymized"] is True
+            assert data["privacy_threshold"]
+            assert data["methodology"]
 
             # Should not expose individual user data
-            # Check no user emails, ids in response
             data_str = json.dumps(data)
             assert "@test.com" not in data_str
-            assert "user_id" not in data_str.lower() or "sample_size" in data_str.lower()
+            assert "user_id" not in data_str.lower()
 
         finally:
             db.close()

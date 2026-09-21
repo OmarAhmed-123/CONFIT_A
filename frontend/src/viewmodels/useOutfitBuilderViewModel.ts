@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { stylistService, catalogService } from '../services/apiServices';
-import { Product, ProductSKU } from '../models';
+import { CompositionVerdict, Product, ProductSKU } from '../models';
 import { useUIStore } from '../stores/uiStore';
 import { useCartStore } from '../stores/cartStore';
 
@@ -13,13 +13,29 @@ export interface CanvasItem {
   skuStatus: 'ready' | 'pending' | 'unavailable';
 }
 
-export function useOutfitBuilderViewModel(userBudgetLimit = 400.0) {
+/**
+ * @param userBudgetLimit running-budget target for the canvas.
+ * @param editingOutfitId when set, the builder LOADS that saved look and Save
+ *   updates it in place instead of creating a duplicate. Before OUTFIT-03 the
+ *   /outfits/:id route mounted an empty builder, so "edit" silently created a
+ *   second look and the original was never touched.
+ */
+export function useOutfitBuilderViewModel(
+  userBudgetLimit = 400.0,
+  editingOutfitId?: number,
+) {
   const [selectedItems, setSelectedItems] = useState<CanvasItem[]>([]);
   const [targetOccasion, setTargetOccasion] = useState('Smart Casual Work');
   const [outfitTitle, setOutfitTitle] = useState('My Custom Tailored Ensemble');
   const [compatibility, setCompatibility] = useState<any>(null);
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoadingExisting, setIsLoadingExisting] = useState(Boolean(editingOutfitId));
+  const [loadError, setLoadError] = useState<string | null>(null);
+  // Server-side composition verdict for the CURRENT canvas. The Save button is
+  // gated on this, so the UI can never claim a look is savable when the policy
+  // will reject it (and vice versa) — same rules, one source of truth.
+  const [verdict, setVerdict] = useState<CompositionVerdict | null>(null);
 
   const { showToast } = useUIStore();
   const { addItem, openCart } = useCartStore();
@@ -122,6 +138,82 @@ export function useOutfitBuilderViewModel(userBudgetLimit = 400.0) {
     setCompatibility(null);
   }, []);
 
+  // OUTFIT-03: hydrate the canvas from a saved look when editing one.
+  useEffect(() => {
+    if (!editingOutfitId) return;
+    let cancelled = false;
+    setIsLoadingExisting(true);
+    setLoadError(null);
+    stylistService
+      .getOutfit(editingOutfitId)
+      .then(async (outfit) => {
+        if (cancelled) return;
+        setOutfitTitle(outfit.title);
+        setTargetOccasion(outfit.occasion);
+        // Resolve each stored item back to a full product so the canvas can
+        // re-render, re-price and re-validate it exactly like a fresh pick.
+        const hydrated = await Promise.all(
+          outfit.items.map(async (item) => {
+            try {
+              const product = await catalogService.getProductById(item.product_id);
+              const sku =
+                (product.skus ?? []).find((s) => s.id === item.sku_id) ??
+                (product.skus ?? []).find((s) => s.is_in_stock && s.stock_level > 0) ??
+                null;
+              return {
+                product,
+                selectedSku: sku,
+                slot: item.position as CanvasItem['slot'],
+                skuStatus: (sku ? 'ready' : 'unavailable') as CanvasItem['skuStatus'],
+              };
+            } catch {
+              return null;
+            }
+          }),
+        );
+        if (cancelled) return;
+        const usable = hydrated.filter(Boolean) as CanvasItem[];
+        setSelectedItems(usable);
+        if (usable.length !== outfit.items.length) {
+          // Honest partial-load message rather than a silently smaller canvas.
+          showToast(
+            `${outfit.items.length - usable.length} item(s) could not be loaded and are not on the canvas.`,
+            'error',
+          );
+        }
+        setIsLoadingExisting(false);
+      })
+      .catch((err: any) => {
+        if (cancelled) return;
+        setLoadError(
+          err?.status === 404
+            ? 'This look does not exist, or it is not yours.'
+            : 'Could not load this look. Please try again.',
+        );
+        setIsLoadingExisting(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [editingOutfitId, showToast]);
+
+  // Server-authoritative composition validity for the current canvas.
+  useEffect(() => {
+    const ready = selectedItems.filter((i) => i.skuStatus === 'ready' && i.selectedSku);
+    if (ready.length === 0) {
+      setVerdict(null);
+      return;
+    }
+    let cancelled = false;
+    stylistService
+      .previewComposition({ product_sku_ids: ready.map((i) => i.selectedSku!.id) })
+      .then((v) => !cancelled && setVerdict(v))
+      .catch(() => !cancelled && setVerdict(null));
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedItems]);
+
   // Live evaluate compatibility whenever items or occasion change
   useEffect(() => {
     if (selectedItems.length === 0) {
@@ -149,20 +241,47 @@ export function useOutfitBuilderViewModel(userBudgetLimit = 400.0) {
       showToast('Cannot save yet — no item has a confirmed purchasable size.', 'error');
       return;
     }
+    // Do not even attempt a save the server will reject: show the real reason.
+    if (verdict && !verdict.is_valid) {
+      showToast(verdict.violations[0]?.message ?? 'This combination is not valid.', 'error');
+      return;
+    }
     setIsSaving(true);
+    const skuIds = ready.map((i) => i.selectedSku!.id);
     try {
-      await stylistService.saveOutfit({
-        title: outfitTitle,
-        occasion: targetOccasion,
-        product_sku_ids: ready.map((i) => i.selectedSku!.id),
-      });
+      if (editingOutfitId) {
+        // Edit in place — atomic whole-set replacement, then the title/occasion.
+        await stylistService.replaceOutfitItems(editingOutfitId, {
+          product_sku_ids: skuIds,
+        });
+        await stylistService.updateOutfit(editingOutfitId, {
+          title: outfitTitle,
+          occasion: targetOccasion,
+        });
+        showToast('Look updated.', 'success');
+      } else {
+        await stylistService.saveOutfit({
+          title: outfitTitle,
+          occasion: targetOccasion,
+          product_sku_ids: skuIds,
+        });
+        showToast('Ensemble saved to My Looks!', 'success');
+      }
       setIsSaving(false);
-      showToast('Ensemble saved to My Looks!', 'success');
+      return true;
     } catch (err: any) {
       setIsSaving(false);
-      showToast('Error saving outfit: ' + err.message, 'error');
+      // Surface the server's explainable composition reason verbatim.
+      const detail = err?.data?.detail;
+      const reason =
+        (typeof detail === 'object' && detail?.message) ||
+        (typeof detail === 'string' && detail) ||
+        err?.message ||
+        'unknown error';
+      showToast(`Could not save: ${reason}`, 'error');
+      return false;
     }
-  }, [selectedItems, outfitTitle, targetOccasion, showToast]);
+  }, [selectedItems, outfitTitle, targetOccasion, showToast, verdict, editingOutfitId]);
 
   const addAllToCart = useCallback(async () => {
     if (selectedItems.length === 0) return;
@@ -205,6 +324,10 @@ export function useOutfitBuilderViewModel(userBudgetLimit = 400.0) {
     compatibility,
     isEvaluating,
     isSaving,
+    isLoadingExisting,
+    loadError,
+    verdict,
+    isEditing: Boolean(editingOutfitId),
     addItemToCanvas,
     naturalSlotForProduct,
     isValidSlotForProduct,

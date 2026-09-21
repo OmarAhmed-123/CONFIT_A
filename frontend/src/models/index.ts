@@ -192,6 +192,39 @@ export interface Outfit {
   budget_note?: string | null;
   items: OutfitItem[];
   created_at: string;
+  updated_at?: string | null;
+  composition_warnings?: string[];
+  /** Share state comes from the real token lifecycle (OUTFIT-01): a look is
+   *  only "shared" when a live, unrevoked, unexpired token exists. */
+  is_shared?: boolean;
+  share_url?: string | null;
+  share_expires_at?: string | null;
+  share_view_count?: number;
+}
+
+/** Explainable verdict from the server composition policy. */
+export interface CompositionViolation {
+  code: string;
+  message: string;
+  positions: string[];
+}
+
+export interface CompositionVerdict {
+  is_valid: boolean;
+  violations: CompositionViolation[];
+  warnings: string[];
+  missing_positions: string[];
+  resolved_items: Array<Record<string, unknown>>;
+  unresolved_ids: number[];
+}
+
+export interface ShareLink {
+  outfit_id: number;
+  share_token: string | null;
+  share_url: string | null;
+  expires_at: string | null;
+  is_active: boolean;
+  view_count: number;
 }
 
 export interface StylistMessage {

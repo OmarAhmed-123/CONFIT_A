@@ -1,35 +1,62 @@
-"""Population-level estimation of missing girths — clearly labelled as estimates.
+"""Coarse girth estimation from height and weight — a PRODUCT HEURISTIC.
 
-The audit asked how the feature handles *missing* measurements. Two honest
-answers exist: refuse, or estimate and say so. Refusing outright would make the
-feature useless for the "height + weight only" entry point the product
-promises, so this module estimates — under three hard rules:
+Honesty about what this is
+--------------------------
+This module is **not** a validated anthropometric model, and an earlier version
+of this docstring wrongly implied it was. It claimed the coefficients were
+"fitted to the published population girth/BMI relationships". They were not
+fitted to any dataset by us; they are hand-chosen coefficients that reproduce
+plausible population averages. That claim was corrected after audit.
 
-1. An estimate is never presented as a measurement. Every estimated field is
-   listed in ``BodyMeasurements.estimated_fields`` and surfaced in the API
-   response, and it reduces the confidence score in ``engine.py``.
-2. Estimation requires BOTH height and weight. From height alone there is no
-   defensible girth estimate, so nothing is invented.
-3. The model is a documented, inspectable regression on BMI and stature — not
-   an opaque constant. Its residual spread is published here and is what the
-   engine uses to widen the confidence interval.
+What is actually supportable, and what is not:
 
-Model
------
-Girth scales with BMI at a given stature. The estimator uses the standard
-allometric form
+* **Waist — directionally supported.** A published NHANES regression predicts
+  waist circumference from BMI for adults:
+  ``WC = 22.61 + 2.52*BMI + 0.158*AGE`` (men, white non-Hispanic), from
+  Bozeman et al., *Predicting waist circumference from body mass index*, BMC
+  Medical Research Methodology 2012;12:115, https://doi.org/10.1186/1471-2288-12-115.
+  Our waist BMI slope (2.55) is close to the published 2.52, so the *shape* of
+  the relationship is externally supported. Our intercept is ~10 cm lower
+  because we carry no age term and target a younger apparel-shopping cohort —
+  that offset is a **product choice, not a published finding.**
 
+* **Chest, shoulder, neck — NOT externally validated.** NHANES does not measure
+  chest circumference at all (its circumference measures are waist, arm, and in
+  some cycles head/sagittal diameter). No equivalent public regression backs
+  these coefficients. They are plausibility-tuned heuristics. Do not describe
+  them as scientific.
+
+* **Hip — partially supported** in direction only (hip girth rises with BMI and
+  with stature, cf. Heymsfield et al. on circumference/height allometry), but
+  the specific coefficients here are again ours, not a published fit.
+
+Why the estimates still exist
+-----------------------------
+They are useful as *context* (e.g. widening a confidence interval, ordering
+candidates), not as a basis for naming a size. The residual spread below
+(±5.5–7.5 cm, wider when sex is unknown) is **larger than one EN 13402-3 size
+band (8 cm)**, so an estimate cannot discriminate between neighbouring sizes.
+
+``engine.py`` therefore REFUSES to name a size when every comparable section is
+estimated (`INSUFFICIENT_EVIDENCE`). That refusal is the honest consequence of
+the numbers in this file. Do not weaken it to raise the recommendation rate.
+
+Hard rules
+----------
+1. An estimate is never presented as a measurement: every estimated field is
+   listed in ``BodyMeasurements.estimated_fields``, surfaced in the API
+   response, and reduces confidence.
+2. Estimation requires BOTH height and weight. From height alone nothing is
+   invented.
+3. Outside the fitted BMI support the estimator returns the body unchanged
+   rather than extrapolating.
+
+Model form
+----------
     girth_cm = a + b * BMI + c * (height_cm - 170)
 
-with coefficients fitted to the published population girth/BMI relationships
-for adults (chest, waist and hip circumference vs. BMI). Typical residual
-standard deviation for this class of model is ~5–6 cm for chest/hip and ~7 cm
-for waist — large, which is precisely why an estimate-driven recommendation is
-capped at low confidence rather than reported as a measurement.
-
-Sex/demographic matters here; when the caller does not know it, the unisex
-coefficients (midway between the male and female fits) are used and the
-residual spread is widened accordingly.
+Sex matters; when unknown, unisex coefficients (midway between the male and
+female values) are used and the residual spread is widened accordingly.
 """
 
 from __future__ import annotations
@@ -51,9 +78,12 @@ class GirthModel:
         return self.intercept + self.bmi_coeff * bmi + self.height_coeff * (height_cm - 170.0)
 
 
-# Coefficients by demographic. "unisex" is used when sex is unknown and carries
-# a deliberately larger residual SD (the male/female girth relationships differ by
-# more than the within-sex spread at the waist and hip).
+# Coefficients by demographic. See the module docstring for exactly which of
+# these are externally supported (waist: direction supported by the NHANES
+# regression in Bozeman 2012) and which are unvalidated product heuristics
+# (chest, shoulder, neck — NHANES does not even measure chest circumference).
+# "unisex" is used when sex is unknown and carries a deliberately larger
+# residual SD.
 _MODELS: Dict[str, Dict[str, GirthModel]] = {
     "men": {
         "chest_cm": GirthModel(43.0, 2.20, 0.30, 5.5),

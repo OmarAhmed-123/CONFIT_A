@@ -66,6 +66,9 @@ def _run(case: Dict) -> FitDecision | FitRefusal:
             product_size_chart_json=CHARTS[case["chart"]],
             sellable_sizes=list(stock.keys()),
             demographic=case.get("demographic", "unisex"),
+            # Every real Product has a category (products.category_id is NOT
+            # NULL). Cases default to a torso garment unless they say otherwise.
+            category_slug=case.get("category_slug", "tops"),
         )
     )
     return engine.recommend(
@@ -358,7 +361,7 @@ def test_empty_chart_is_not_authoritative():
 
 def test_standards_fallback_is_labelled_as_not_the_brands_own():
     chart = SizeChartResolver().resolve(
-        ChartContext(product_size_chart_json="{}", sellable_sizes=["S", "M", "L"])
+        ChartContext(product_size_chart_json="{}", sellable_sizes=["S", "M", "L"], category_slug="tops")
     )
     assert chart.rows
     assert chart.provenance.source == "standard_en13402"
@@ -368,7 +371,7 @@ def test_standards_fallback_is_labelled_as_not_the_brands_own():
 
 def test_standards_fallback_refuses_unmappable_numeric_sizes():
     chart = SizeChartResolver().resolve(
-        ChartContext(product_size_chart_json="{}", sellable_sizes=["30", "32", "34"])
+        ChartContext(product_size_chart_json="{}", sellable_sizes=["30", "32", "34"], category_slug="bottoms")
     )
     assert not chart.rows
 
@@ -385,7 +388,7 @@ def test_brand_chart_wins_over_the_standard():
 
 def test_chart_is_restricted_to_sellable_sizes():
     chart = SizeChartResolver().resolve(
-        ChartContext(product_size_chart_json=CHARTS["atlas_generous"], sellable_sizes=["M"])
+        ChartContext(product_size_chart_json=CHARTS["atlas_generous"], sellable_sizes=["M"], category_slug="tops")
     )
     assert [r.size for r in chart.rows] == ["M"]
 
@@ -418,7 +421,7 @@ def test_a_size_the_engine_calls_does_not_fit_is_never_recommended():
     """
     stock = {"S": 15, "M": 18, "L": 10}
     chart = SizeChartResolver().resolve(
-        ChartContext(product_size_chart_json="{}", sellable_sizes=list(stock), demographic="men")
+        ChartContext(product_size_chart_json="{}", sellable_sizes=list(stock), demographic="men", category_slug="tops")
     )
     result = engine.recommend(
         body=BodyMeasurements(height_cm=170, weight_kg=52, chest_cm=130, waist_cm=120),
@@ -442,7 +445,7 @@ def test_a_body_that_genuinely_fits_is_still_recommended():
     """Guard the gate above against being tightened into uselessness."""
     stock = {"S": 15, "M": 18, "L": 10}
     chart = SizeChartResolver().resolve(
-        ChartContext(product_size_chart_json="{}", sellable_sizes=list(stock), demographic="men")
+        ChartContext(product_size_chart_json="{}", sellable_sizes=list(stock), demographic="men", category_slug="tops")
     )
     result = engine.recommend(
         body=BodyMeasurements(height_cm=178, weight_kg=78, chest_cm=98, waist_cm=84),

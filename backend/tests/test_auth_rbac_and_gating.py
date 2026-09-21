@@ -164,7 +164,8 @@ def test_platform_admin_has_global_oversight():
     assert admin_res.status_code == 200
     data = admin_res.json()
     assert data["total_brands_count"] >= 4
-    assert data["tryon_adoption_rate"] > 0
+    # Authorization must not depend on earlier tests having generated try-ons.
+    assert 0 <= data["tryon_adoption_rate"] <= 100
 
     # An unassigned admin must not silently impersonate the first tenant.
     # Global oversight remains available through the explicit admin API.

@@ -104,7 +104,7 @@ class BrandRepository:
 
     def update_sku_stock(self, sku_id: int, new_stock: int, price_override: Optional[float] = None) -> Optional[ProductSKU]:
         # Use SELECT FOR UPDATE to prevent lost updates
-        sku = self.db.query(ProductSKU).filter(ProductSKU.id == sku_id).with_for_update().first()
+        sku = self.db.query(ProductSKU).filter(ProductSKU.id == sku_id).populate_existing().with_for_update().first()
         if not sku:
             return None
 
@@ -154,7 +154,7 @@ class BrandRepository:
         inv = self.db.query(StoreInventory).filter(
             StoreInventory.store_id == store_id,
             StoreInventory.sku_id == sku_id
-        ).with_for_update().first()
+        ).populate_existing().with_for_update().first()
 
         if inv:
             # Invariant: reserved <= quantity, quantity >=0, reserved >=0

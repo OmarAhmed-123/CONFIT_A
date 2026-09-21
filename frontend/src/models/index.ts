@@ -465,6 +465,8 @@ export interface GapAnalysisItem {
   suggested_colors: string[];
   rationale: string;
   unlocks_outfit_count: number;
+  /** Ready-item counts per category the estimate/rationale are computed from. */
+  owned_counts?: Record<string, number>;
   recommended_products: Array<{
     product_id: number;
     title: string;

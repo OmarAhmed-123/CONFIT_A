@@ -1,6 +1,6 @@
 import { msg, detail } from '../i18n/messages';
 import { useState, useCallback, useEffect } from 'react';
-import { wardrobeService, WardrobeUploadResponse, WardrobeFirstOutfit, AutoTagResponse } from '../services/apiServices';
+import { wardrobeService, moodBoardService, WardrobeUploadResponse, WardrobeFirstOutfit, AutoTagResponse, MoodBoard } from '../services/apiServices';
 import { WardrobeItem, GapAnalysisItem } from '../models';
 import { useUIStore } from '../stores/uiStore';
 
@@ -8,8 +8,18 @@ export function useWardrobeViewModel() {
   const [items, setItems] = useState<WardrobeItem[]>([]);
   const [activeCategory, setActiveCategory] = useState<string>('All');
   const [isLoading, setIsLoading] = useState(false);
+  // Honest states (BRD G-UX): loading / empty / error are distinct. A failed
+  // fetch must never masquerade as an empty wardrobe.
+  const [isClosetError, setClosetError] = useState<string | null>(null);
   const [gapAnalyses, setGapAnalyses] = useState<GapAnalysisItem[]>([]);
   const [isGapLoading, setIsGapLoading] = useState(false);
+  const [isGapError, setGapError] = useState<string | null>(null);
+  const [hasLoadedGaps, setHasLoadedGaps] = useState(false);
+  // Mood Boards (G4 surface over the G1 backend)
+  const [moodBoards, setMoodBoards] = useState<MoodBoard[]>([]);
+  const [isBoardsLoading, setIsBoardsLoading] = useState(false);
+  const [isBoardsError, setBoardsError] = useState<string | null>(null);
+  const [hasLoadedBoards, setHasLoadedBoards] = useState(false);
   const [isAutoTagging, setIsAutoTagging] = useState(false);
   const [autoTagResult, setAutoTagResult] = useState<AutoTagResponse | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -22,26 +32,118 @@ export function useWardrobeViewModel() {
 
   const fetchWardrobe = useCallback(async (cat?: string) => {
     setIsLoading(true);
+    setClosetError(null);
     try {
       const data = await wardrobeService.getItems(cat || activeCategory);
       setItems(data);
       setIsLoading(false);
     } catch (err: any) {
       setIsLoading(false);
+      setClosetError(detail(err));
       showToast(msg('toast.wardrobe_load_failed', { reason: detail(err) }), 'error');
     }
   }, [activeCategory, showToast]);
 
   const fetchGaps = useCallback(async () => {
     setIsGapLoading(true);
+    setGapError(null);
     try {
       const data = await wardrobeService.getGapAnalysis();
       setGapAnalyses(data);
+      setHasLoadedGaps(true);
       setIsGapLoading(false);
     } catch (err: any) {
       setIsGapLoading(false);
+      setGapError(detail(err));
+      showToast(msg('toast.gap_analysis_failed', { reason: detail(err) }), 'error');
     }
-  }, []);
+  }, [showToast]);
+
+  // ─────────────────────────── Mood Boards ───────────────────────────
+  const fetchMoodBoards = useCallback(async () => {
+    setIsBoardsLoading(true);
+    setBoardsError(null);
+    try {
+      const data = await moodBoardService.list();
+      setMoodBoards(data);
+      setHasLoadedBoards(true);
+      setIsBoardsLoading(false);
+    } catch (err: any) {
+      setIsBoardsLoading(false);
+      setBoardsError(detail(err));
+      showToast(msg('toast.boards_load_failed', { reason: detail(err) }), 'error');
+    }
+  }, [showToast]);
+
+  const createMoodBoard = useCallback(async (title: string, description?: string) => {
+    try {
+      const created = await moodBoardService.create(title, description);
+      setMoodBoards((prev) => [...prev, created]);
+      showToast(msg('toast.board_created'), 'success');
+      return created;
+    } catch (err: any) {
+      showToast(msg('toast.board_create_failed', { reason: detail(err) }), 'error');
+      return null;
+    }
+  }, [showToast]);
+
+  const renameMoodBoard = useCallback(async (boardId: number, title: string) => {
+    try {
+      const updated = await moodBoardService.update(boardId, { title });
+      setMoodBoards((prev) => prev.map((b) => (b.id === boardId ? updated : b)));
+    } catch (err: any) {
+      showToast(msg('toast.board_rename_failed', { reason: detail(err) }), 'error');
+    }
+  }, [showToast]);
+
+  const deleteMoodBoard = useCallback(async (boardId: number) => {
+    try {
+      await moodBoardService.remove(boardId);
+      setMoodBoards((prev) => prev.filter((b) => b.id !== boardId));
+      showToast(msg('toast.board_deleted'), 'info');
+    } catch (err: any) {
+      showToast(msg('toast.board_delete_failed', { reason: detail(err) }), 'error');
+    }
+  }, [showToast]);
+
+  const addMoodBoardTile = useCallback(async (boardId: number, kind: 'url' | 'product' | 'upload', payload: Record<string, any>) => {
+    try {
+      const updated = await moodBoardService.addItem(boardId, kind, payload);
+      setMoodBoards((prev) => prev.map((b) => (b.id === boardId ? updated : b)));
+      return updated;
+    } catch (err: any) {
+      showToast(msg('toast.board_tile_add_failed', { reason: detail(err) }), 'error');
+      return null;
+    }
+  }, [showToast]);
+
+  const removeMoodBoardTile = useCallback(async (boardId: number, itemId: number) => {
+    try {
+      const updated = await moodBoardService.removeItem(boardId, itemId);
+      setMoodBoards((prev) => prev.map((b) => (b.id === boardId ? updated : b)));
+    } catch (err: any) {
+      showToast(msg('toast.board_tile_remove_failed', { reason: detail(err) }), 'error');
+    }
+  }, [showToast]);
+
+  /** Real upload -> store -> attach. The stored reference carries a
+   * short-lived presigned GET (private bucket) — valid for the tile's
+   * current render; re-prefetched boards get fresh signatures. */
+  const uploadMoodBoardTile = useCallback(async (boardId: number, file: File) => {
+    try {
+      const stored = await moodBoardService.upload(boardId, file);
+      const updated = await moodBoardService.addItem(boardId, 'upload', {
+        upload_id: stored.upload_id,
+        url: stored.url,
+      });
+      if (updated) {
+        setMoodBoards((prev) => prev.map((b) => (b.id === boardId ? updated : b)));
+        showToast(msg('toast.board_tile_uploaded'), 'success');
+      }
+    } catch (err: any) {
+      showToast(msg('toast.board_tile_upload_failed', { reason: detail(err) }), 'error');
+    }
+  }, [showToast]);
 
   const fetchOutfitSuggestion = useCallback(async (occasion: string = 'Smart Casual') => {
     setIsOutfitLoading(true);
@@ -211,10 +313,24 @@ export function useWardrobeViewModel() {
     activeCategory,
     setActiveCategory,
     isLoading,
+    isClosetError,
     fetchWardrobe,
     gapAnalyses,
     isGapLoading,
+    isGapError,
+    hasLoadedGaps,
     fetchGaps,
+    moodBoards,
+    isBoardsLoading,
+    isBoardsError,
+    hasLoadedBoards,
+    fetchMoodBoards,
+    createMoodBoard,
+    renameMoodBoard,
+    deleteMoodBoard,
+    addMoodBoardTile,
+    removeMoodBoardTile,
+    uploadMoodBoardTile,
     isAutoTagging,
     autoTagResult,
     autoTagUpload,

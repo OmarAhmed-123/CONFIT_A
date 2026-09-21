@@ -32,7 +32,7 @@ from backend.app.core.exceptions import (
 )
 from backend.app.models.profile import MoodBoard, MoodBoardItem, UserStyleProfile
 from backend.app.models.user import User
-from backend.app.services.storage_service import require_production_storage
+from backend.app.services.storage_service import require_production_storage, storage_public_url
 
 # Real upload constraints (Group 1 §10/§12). Whitelist — never trust the
 # client-supplied content_type or filename.
@@ -128,6 +128,16 @@ def _ensure_ownership(db: Session, user: User, board_id: int) -> MoodBoard:
 
 
 def _serialize(board: MoodBoard) -> dict:
+    def _payload(it: MoodBoardItem) -> dict:
+        payload = json.loads(it.payload_json or "{}")
+        # Uploaded tiles live in (possibly private) object storage: the
+        # browser cannot load a plain endpoint URL from a private bucket, so
+        # the stored URL is swapped for a short-lived presigned GET here.
+        # url/product kinds pass through untouched.
+        if it.kind == "upload" and payload.get("url"):
+            payload = {**payload, "url": storage_public_url(str(payload["url"]))}
+        return payload
+
     return {
         "id": board.id,
         "title": board.title,
@@ -138,7 +148,7 @@ def _serialize(board: MoodBoard) -> dict:
             {
                 "id": it.id,
                 "kind": it.kind,
-                "payload": json.loads(it.payload_json or "{}"),
+                "payload": _payload(it),
                 "position": it.position,
                 "created_at": it.created_at,
             }

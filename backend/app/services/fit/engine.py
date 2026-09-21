@@ -41,6 +41,8 @@ code, and it is covered by the acceptance dataset in
 
 from __future__ import annotations
 
+from dataclasses import replace as dc_replace
+
 import math
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Sequence, Tuple
@@ -63,7 +65,7 @@ from backend.app.services.fit.size_charts import (
 )
 from backend.app.services.fit.units import BodyMeasurements
 
-ENGINE_VERSION = "fit-engine/2.1.0"
+ENGINE_VERSION = "fit-engine/2.2.0"
 
 # Body field name -> chart dimension name.
 _BODY_TO_DIMENSION: Dict[str, str] = {
@@ -318,6 +320,18 @@ class FitDecision:
 
     @property
     def top(self) -> SizeCandidate:
+        """The candidate actually RECOMMENDED — not merely the best scoring one.
+
+        These differ whenever the best-scoring size is unavailable: candidates
+        are ranked by fit, but the recommendation is the best *sellable* size.
+        Returning ``candidates[0]`` here meant ``decision.top`` could describe a
+        different (out-of-stock) size than ``recommended_size``, so callers
+        reading ``top.in_stock`` could see ``False`` on a successful
+        recommendation. Anchor it to the size we actually named.
+        """
+        for candidate in self.candidates:
+            if candidate.size == self.recommended_size:
+                return candidate
         return self.candidates[0]
 
     def as_dict(self) -> Dict[str, Any]:
@@ -412,6 +426,139 @@ def _verdict(deviation_cm: float, tolerance_cm: float) -> str:
 class FitEngine:
     """Pure domain service. No database, no I/O, no time, no randomness."""
 
+    def _rank_candidates(
+        self,
+        body_used: BodyMeasurements,
+        chart: SizeChart,
+        scorable,
+        chart_is_garment: bool,
+        ease,
+        stock: Dict[str, Optional[int]],
+    ) -> List[SizeCandidate]:
+        """Score every chart row against one body and rank them.
+
+        Extracted so the SAME scoring can be replayed against perturbed bodies
+        when probing whether an estimated girth could change the winner (see
+        ``_estimate_robustness``). Duplicating the scoring for that check would
+        guarantee the two copies drift apart.
+        """
+        candidates: List[SizeCandidate] = []
+        for row in chart.rows:
+            sections: List[SectionFit] = []
+            for dimension in scorable:
+                band = _target_band_for(row, dimension, chart_is_garment, ease)
+                if band is None:
+                    continue
+                body_field = _DIMENSION_TO_BODY[dimension]
+                value = getattr(body_used, body_field)
+                deviation = _signed_deviation(value, band)
+                score, effective = section_score(
+                    deviation, ease.tolerance(dimension), ease.stretch_factor
+                )
+                sections.append(
+                    SectionFit(
+                        dimension=dimension,
+                        body_cm=value,
+                        body_is_estimated=body_field in body_used.estimated_fields,
+                        target_min_cm=band[0],
+                        target_max_cm=band[1],
+                        deviation_cm=deviation,
+                        effective_deviation_cm=effective,
+                        score=score,
+                        weight=ease.weight(dimension),
+                        verdict=_verdict(effective, ease.tolerance(dimension)),
+                    )
+                )
+            if not sections:
+                continue
+
+            # Renormalise weights over the sections we could evaluate: a chart
+            # missing 'hip' must not award this size free points for it.
+            total_weight = sum(s.weight for s in sections)
+            if total_weight <= 0:
+                continue
+            overall = sum(s.score * s.weight for s in sections) / total_weight
+
+            level = stock.get(row.size.strip().upper())
+            candidates.append(
+                SizeCandidate(
+                    size=row.size,
+                    score=round(overall, 2),
+                    sections=tuple(sections),
+                    # Absent from the stock map => unknown, NOT available.
+                    in_stock=(None if level is None else level > 0),
+                    stock_level=level,
+                )
+            )
+
+        # Rank: score first, then the smaller size on a tie (less fabric
+        # wasted and the cheaper return), so ordering is deterministic and
+        # never depends on dict/DB/sort-stability accidents.
+        candidates.sort(key=lambda c: (-c.score, size_sort_key(c.size)))
+        return candidates
+
+    def _estimate_robustness(
+        self,
+        body_used: BodyMeasurements,
+        chart: SizeChart,
+        scorable,
+        chart_is_garment: bool,
+        ease,
+        stock: Dict[str, Optional[int]],
+        demographic: str,
+        winner: str,
+    ) -> Tuple[bool, Tuple[str, ...]]:
+        """Would the winning size still win across each estimate's error bar?
+
+        An estimated girth is NOT a measurement; it is a point drawn from a
+        distribution whose documented spread (``residual_sd``) is 5.5-7.5 cm,
+        which is comparable to or wider than a whole size band. Scoring it as if
+        it were exact silently converts our own uncertainty into a confident
+        answer.
+
+        Concretely, for a trouser chart in 5 cm waist steps, a user who measured
+        only their hip got size 32 labelled "just right" on a waist WE invented;
+        sliding that estimate within its own +/-7 cm error bar produced sizes
+        30, 32 and 34. The engine reported one of the three and called it
+        unambiguous.
+
+        This replays the real scoring at the low and high end of each estimated
+        field's interval (one field at a time, others held at their point
+        value). If a different size wins anywhere in that range, the evidence
+        does not single out one size and the caller must say so rather than
+        pick.
+
+        Deliberately deterministic and conservative -- it is an interval check,
+        not a probability model, and produces no percentage.
+        """
+        if not body_used.estimated_fields:
+            return True, ()
+
+        unstable: List[str] = []
+        for field in sorted(body_used.estimated_fields):
+            centre = getattr(body_used, field, None)
+            if centre is None:
+                continue
+            # Only fields the chart actually scores can change the outcome.
+            if _BODY_TO_DIMENSION.get(field) not in set(scorable):
+                continue
+            sd = residual_sd(field, demographic)
+            for probe in (centre - sd, centre + sd):
+                if probe <= 0:
+                    continue
+                # NB: with_estimates() deliberately refuses to overwrite an
+                # existing value (it must never clobber a real measurement), so
+                # perturbing an already-filled estimate needs replace().
+                probed = dc_replace(body_used, **{field: round(probe, 1)})
+                ranked = self._rank_candidates(
+                    probed, chart, scorable, chart_is_garment, ease, stock
+                )
+                sellable = [c for c in ranked if c.is_sellable]
+                if sellable and sellable[0].size != winner:
+                    unstable.append(field)
+                    break
+        return (not unstable), tuple(unstable)
+
     def recommend(
         self,
         *,
@@ -496,54 +643,9 @@ class FitEngine:
 
         stock = {k.strip().upper(): v for k, v in (stock_by_size or {}).items()}
 
-        candidates: List[SizeCandidate] = []
-        for row in chart.rows:
-            sections: List[SectionFit] = []
-            for dimension in scorable:
-                band = _target_band_for(row, dimension, chart_is_garment, ease)
-                if band is None:
-                    continue
-                body_field = _DIMENSION_TO_BODY[dimension]
-                value = getattr(body_used, body_field)
-                deviation = _signed_deviation(value, band)
-                score, effective = section_score(
-                    deviation, ease.tolerance(dimension), ease.stretch_factor
-                )
-                sections.append(
-                    SectionFit(
-                        dimension=dimension,
-                        body_cm=value,
-                        body_is_estimated=body_field in body_used.estimated_fields,
-                        target_min_cm=band[0],
-                        target_max_cm=band[1],
-                        deviation_cm=deviation,
-                        effective_deviation_cm=effective,
-                        score=score,
-                        weight=ease.weight(dimension),
-                        verdict=_verdict(effective, ease.tolerance(dimension)),
-                    )
-                )
-            if not sections:
-                continue
-
-            # Renormalise weights over the sections we could evaluate: a chart
-            # missing 'hip' must not award this size free points for it.
-            total_weight = sum(s.weight for s in sections)
-            if total_weight <= 0:
-                continue
-            overall = sum(s.score * s.weight for s in sections) / total_weight
-
-            level = stock.get(row.size.strip().upper())
-            candidates.append(
-                SizeCandidate(
-                    size=row.size,
-                    score=round(overall, 2),
-                    sections=tuple(sections),
-                    # Absent from the stock map => unknown, NOT available.
-                    in_stock=(None if level is None else level > 0),
-                    stock_level=level,
-                )
-            )
+        candidates = self._rank_candidates(
+            body_used, chart, scorable, chart_is_garment, ease, stock
+        )
 
         if not candidates:
             return FitRefusal(
@@ -551,10 +653,6 @@ class FitEngine:
                 message="No size in this product's chart could be scored against your measurements.",
                 missing=("scoreable_size",),
             )
-
-        # Rank: score first, then the smaller size on a tie (less fabric wasted
-        # and the cheaper return), so ordering is deterministic.
-        candidates.sort(key=lambda c: (-c.score, size_sort_key(c.size)))
 
         in_stock = [c for c in candidates if c.is_sellable]
         if not in_stock:
@@ -590,6 +688,15 @@ class FitEngine:
         runner_up = in_stock[1] if len(in_stock) > 1 else None
         margin = (best.score - runner_up.score) if runner_up else None
         is_ambiguous = margin is not None and margin < _AMBIGUITY_MARGIN
+
+        # An estimated girth whose error bar reaches into another size cannot
+        # single out a size, however decisive the point score looks.
+        estimate_robust, unstable_fields = self._estimate_robustness(
+            body_used, chart, scorable, chart_is_garment, ease, stock,
+            demographic, best.size,
+        )
+        if not estimate_robust:
+            is_ambiguous = True
 
         if best.score < _MIN_FIT_SCORE_FOR_RECOMMENDATION:
             return FitRefusal(
@@ -688,7 +795,16 @@ class FitEngine:
                 },
             )
 
-        if is_ambiguous and runner_up is not None:
+        if not estimate_robust:
+            pretty = ", ".join(f.replace("_cm", "") for f in unstable_fields)
+            notes.append(
+                f"Your {pretty} was estimated from your height and weight, not measured, "
+                f"and that estimate is uncertain enough to reach into a neighbouring "
+                f"size. {best.size} is our best reading of the evidence, but we cannot "
+                f"narrow it to one size with confidence — measure your {pretty} for a "
+                f"firm answer."
+            )
+        elif is_ambiguous and runner_up is not None:
             notes.append(
                 f"Sizes {best.size} and {runner_up.size} score within "
                 f"{margin:.1f} points of each other — you are between sizes. "

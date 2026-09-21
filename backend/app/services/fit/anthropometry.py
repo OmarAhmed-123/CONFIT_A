@@ -48,7 +48,8 @@ Hard rules
    response, and reduces confidence.
 2. Estimation requires BOTH height and weight. From height alone nothing is
    invented.
-3. Outside the fitted BMI support the estimator returns the body unchanged
+3. Outside the BMI range this heuristic is intended for, the estimator
+   returns the body unchanged
    rather than extrapolating.
 
 Model form
@@ -111,7 +112,8 @@ _MODELS["unisex"] = {
     for key in _MODELS["men"]
 }
 
-# The estimator is only defensible inside the BMI range it was fitted over.
+# The estimator is only defensible inside the BMI range it targets. This is a
+# chosen support range for a heuristic, not a fitted model's confidence region.
 _BMI_SUPPORT = (15.0, 45.0)
 
 
@@ -156,7 +158,8 @@ def estimate_missing_girths(
         if model is None:
             continue
         value = model.predict(bmi, body.height_cm)
-        # Keep estimates inside the validated plausibility window.
+        # Keep estimates inside a plausibility window (a sanity bound, not a
+# validated interval).
         if 40.0 <= value <= 200.0:
             estimates[field] = round(value, 1)
 

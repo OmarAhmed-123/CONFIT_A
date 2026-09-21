@@ -573,12 +573,69 @@ class ProductChartSource:
         return chart if chart.parse_warnings else None
 
 
+# ── generic-fallback eligibility ───────────────────────────────────────────
+# EN 13402-3 is a chart of BODY GIRTHS (chest/bust, waist, hip) for garments
+# worn on the torso and legs. Applying it to anything else is a category error,
+# not merely a low-confidence answer.
+#
+# Footwear is sized by foot length (EU/UK/US scales); accessories such as bags,
+# ties and jewellery are frequently sold in S/M/L that has nothing to do with
+# the wearer's chest. Before this gate existed, a sandal or a clutch sold in
+# S/M/L received chest-band sizing, because the fallback only checked that the
+# size LABELS were mappable. Numeric shoe sizes happened to be refused --- but
+# only by accident, because "42" is not a letter code. Accident is not a policy.
+_EN13402_ELIGIBLE_CATEGORIES = frozenset({
+    "tops", "bottoms", "outerwear", "dresses",
+})
+_EN13402_INELIGIBLE_CATEGORIES = frozenset({
+    "footwear", "shoes", "accessories", "bags", "jewellery", "jewelry",
+})
+
+
+def en13402_eligibility(category_slug: Optional[str]) -> Tuple[bool, str]:
+    """May the EN 13402-3 generic chart be applied to this category?
+
+    Returns ``(eligible, reason)``. Unknown/missing categories are INELIGIBLE:
+    the system cannot show that a body-girth chart applies to a product whose
+    type it does not know, and "we don't know" must not resolve to "probably a
+    t-shirt". This is a deliberate refusal, not a confidence reduction.
+    """
+    if category_slug is None:
+        return False, (
+            "this product has no category, so we cannot confirm a body-measurement "
+            "size chart applies to it"
+        )
+    slug = category_slug.strip().lower()
+    if slug in _EN13402_INELIGIBLE_CATEGORIES:
+        return False, (
+            f"'{slug}' is not sized by body girth, so the generic EN 13402-3 "
+            "chest/waist/hip chart does not apply to it"
+        )
+    if slug in _EN13402_ELIGIBLE_CATEGORIES:
+        return True, f"'{slug}' is a torso/leg garment category covered by EN 13402-3"
+    return False, (
+        f"'{slug}' is not a recognised garment category for the EN 13402-3 "
+        "body-measurement chart"
+    )
+
+
 class StandardChartSource:
     name = "en13402_standard"
 
     def load(self, context: ChartContext) -> Optional[SizeChart]:
         if not context.sellable_sizes:
             return None
+        eligible, reason = en13402_eligibility(context.category_slug)
+        if not eligible:
+            # Refuse by returning an EMPTY chart carrying the reason, so the
+            # resolver surfaces WHY rather than silently producing "no chart".
+            return SizeChart(
+                rows=(),
+                provenance=ChartProvenance(
+                    "none", "No applicable size chart for this product category"
+                ),
+                parse_warnings=(f"generic EN 13402-3 chart not applicable: {reason}",),
+            )
         chart = standard_chart(context.sellable_sizes, demographic=context.demographic)
         return chart if chart.rows else None
 

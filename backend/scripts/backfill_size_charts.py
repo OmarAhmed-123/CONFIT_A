@@ -87,6 +87,25 @@ def main() -> int:
         print(f"not present in this catalogue: {len(missing)}")
         for s in missing:
             print(f"  ? {s}")
+
+    # Operator handoff. This script has never been run against production (the
+    # available credential is rejected by Neon), so whoever runs it first needs
+    # to know exactly how to confirm it worked and how to undo it.
+    print()
+    print("VERIFY (after a real run), for a product whose slug was updated:")
+    print("  curl -s -X POST https://confit-a.vercel.app/api/v1/fit/recommend \\")
+    print("    -H 'Content-Type: application/json' \\")
+    print('    -d \'{"product_id":3,"units":"metric","height":178,"weight":78,'
+          '"chest":98,"waist":84,"demographic":"men"}\'')
+    print("  expect size_chart_source.source to change:")
+    print("    standard_en13402  ->  product_chart_derived")
+    print("  is_brand_published stays FALSE: these charts are standards-derived,")
+    print("  not the brand's own measurements. Do not relabel them.")
+    print()
+    print("ROLLBACK: this script only fills charts that were empty, so undoing a")
+    print("run means setting those same slugs back to '{}':")
+    print("  UPDATE products SET size_chart_json = '{}' WHERE slug IN (...);")
+    print("  (the slugs marked '+' above; products marked '!' were NOT touched)")
     return 0
 
 

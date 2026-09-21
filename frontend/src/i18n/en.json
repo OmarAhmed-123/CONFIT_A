@@ -146,7 +146,15 @@
     "paste_image_url": "Or paste image URL (Pinterest, Instagram, photoshoot)...",
     "animated_all_failed": "All keyframes failed",
     "animated_none": "No keyframes generated",
-    "contexts_caption": "Rotate through try-on-ready styling contexts"
+    "contexts_caption": "Rotate through try-on-ready styling contexts",
+    "engine_online_title": "Try-on engine is online",
+    "engine_online_detail": "Typical result in about {{seconds}}s{{garments}}. Your photo is used for this render only.",
+    "engine_online_garments": " · up to {{count}} garments per try-on",
+    "engine_warming_title": "Try-on engine is warming up",
+    "engine_warming_detail": "The first render can take up to {{seconds}} seconds while the model loads. After that it is fast.",
+    "engine_offline_title": "Virtual try-on is offline right now",
+    "engine_offline_fallback": "The rendering capacity is not available. Your photo is never stored — please try again later.",
+    "engine_offline_retry": "Automatic retry available in about {{seconds}}s."
   },
   "wardrobe": {
     "title": "Virtual Wardrobe & Smart Reuse",

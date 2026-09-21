@@ -6,6 +6,8 @@ from sqlalchemy import text
 from backend.app.core.config import settings, vton_engine_metadata
 from backend.app.core.database import get_db, engine
 from backend.app.core import schema_gate
+from backend.app.core.readiness import CONTRACT, liveness_status, summarise_capabilities
+from backend.app.services.capability_service import capability_probes
 from backend.app.core.dependencies import require_role, ADMIN_ROLES
 from backend.app.models.user import User
 from backend.app.services.storage_service import storage_status
@@ -187,13 +189,19 @@ async def vton_contract_check(user: User = Depends(require_role(ADMIN_ROLES))):
     return await probe_vton_worker_contract()
 
 
-@router.get("/health")
-def health_check(db: Session = Depends(get_db)):
+def _probe(db: Session):
+    """Run the shared checks once, for whichever surface is answering.
+
+    Split out so the public and admin endpoints cannot drift apart in what they
+    measure — only in what they are willing to publish.
+    """
     db_status = "healthy"
+    db_error = None
     try:
         db.execute(text("SELECT 1"))
     except Exception as exc:
-        db_status = f"unhealthy: {str(exc)}"
+        db_status = "unhealthy"
+        db_error = f"{type(exc).__name__}: {str(exc)[:160]}"
 
     # Schema-drift verdict: "healthy" must mean the schema the code expects is
     # really there, not merely that SELECT 1 works.
@@ -203,48 +211,113 @@ def health_check(db: Session = Depends(get_db)):
         schema = {"verdict": "unreachable", "acceptable": False, "blocking": False,
                   "findings": [f"{type(exc).__name__}: {str(exc)[:160]}"]}
 
-    # Real AI provider status: configured keys + live quarantine state, so a
-    # billing-exhausted key (e.g. OpenAI 402) is visible instead of silently
-    # degrading to fallback.
-    from backend.app.providers.orchestrator import get_orchestrator
-    ai_providers = get_orchestrator().provider_status()
-
-    # Live GPU-worker verdict (cached, background-refreshed). A try-on
-    # deployment whose worker cannot serve traffic is DEGRADED, not healthy:
-    # the feature is user-visible and every job would fail.
+    # Live GPU-worker verdict (cached, background-refreshed) from PR #142.
+    # Machine-readable; the human string lives in checks.vton_pipeline.
     try:
         from backend.app.services.vton_worker_observability import vton_health_summary
         vton_worker = vton_health_summary()
     except Exception as exc:  # never crash health; report the failure instead
-        vton_worker = {
-            "verdict": "unknown",
-            "production_ready": False,
-            "detail": f"probe failed: {type(exc).__name__}: {str(exc)[:140]}",
-        }
+        vton_worker = {"verdict": "unknown", "production_ready": False,
+                       "detail": f"probe failed: {type(exc).__name__}: {str(exc)[:140]}"}
 
-    overall = "healthy" if (db_status == "healthy" and schema.get("acceptable") is True) else "degraded"
-    # Virtual Try-On affects the overall verdict only when it is EXPECTED to
-    # work: a deployment with no VTON_WORKER_URL configured is not "degraded",
-    # it simply does not offer the feature (development, CI, non-try-on hosts).
-    # A worker that IS configured but cannot serve traffic is a real outage of
-    # a user-facing feature and must not read "healthy" — that is exactly the
-    # 2026-09-21 production condition.
-    _vton_verdict = vton_worker.get("verdict")
-    _vton_expected = _vton_verdict != "not_configured" or settings.is_production
-    if overall == "healthy" and _vton_expected and vton_worker.get("production_ready") is not True:
-        overall = "degraded"
-
+    database_ok = db_status == "healthy"
+    capabilities = capability_probes(db, database_ok, vton_worker=vton_worker)
+    readiness = summarise_capabilities(capabilities)
+    status = liveness_status(database_ok, bool(schema.get("acceptable")))
     return {
-        "status": overall,
+        "db_status": db_status,
+        "db_error": db_error,
+        "schema": schema,
+        "vton_worker": vton_worker,
+        "capabilities": capabilities,
+        "readiness": readiness,
+        "status": status,
+    }
+
+
+@router.get("/health")
+def health_check(db: Session = Depends(get_db)):
+    """Public liveness + capability readiness. Deliberately minimal (G-08/G-09).
+
+    Two questions, answered separately and never conflated:
+
+    ``status`` — can this process serve traffic? Liveness scope only.
+    ``ready``  — can it do everything it advertises? A blocked core capability
+                 sets this false and is named, so a broken capability cannot
+                 hide behind a green status the way ``storage`` used to.
+
+    What is *not* here, and why: the provider inventory, the storage provider
+    and the environment variables that change it, the VTON engine's licence and
+    fork provenance, and the schema's missing tables and columns. Publishing
+    those to an unauthenticated caller is a reconnaissance summary, not
+    observability. Operators get them from ``/health/ready``.
+
+    ``checks.schema.database_revision`` is retained on purpose: the release
+    gate reads it to prove production can run the commit being merged, and
+    removing it would blind the one check that prevents a schema-drift outage.
+    """
+    probe = _probe(db)
+    schema = probe["schema"]
+    readiness = probe["readiness"]
+    return {
+        "status": probe["status"],
+        "ready": readiness["ready"],
+        "blocking_capabilities": readiness["blocking_capabilities"],
+        "degraded_capabilities": readiness["degraded_capabilities"],
         "timestamp": time.time(),
         "uptime_seconds": round(time.time() - START_TIME, 1),
         "version": settings.VERSION,
         "checks": {
-            "database": db_status,
+            "database": probe["db_status"],
+            "schema": {
+                "verdict": schema.get("verdict"),
+                "database_revision": schema.get("database_revision"),
+                "blocking": bool(schema.get("blocking")),
+                "acceptable": bool(schema.get("acceptable")),
+            },
+        },
+        "contract": CONTRACT,
+        "detail": "/api/v1/health/ready (admin)",
+    }
+
+
+@router.get("/health/ready", include_in_schema=False)
+def health_ready(
+    user: User = Depends(require_role(ADMIN_ROLES)),
+    db: Session = Depends(get_db),
+):
+    """Internal readiness diagnostics. Admin-only (G-08).
+
+    Everything the public endpoint withholds: per-capability detail, the
+    provider inventory with live quarantine state, storage posture, the
+    resolved VTON engine and its licence, and the schema findings. This is the
+    endpoint an operator reads during an incident; it is not a public surface.
+    """
+    probe = _probe(db)
+    schema = probe["schema"]
+    readiness = probe["readiness"]
+
+    # Real AI provider status: configured keys + live quarantine state, so a
+    # billing-exhausted key (e.g. OpenAI 402) is visible instead of silently
+    # degrading to fallback.
+    from backend.app.providers.orchestrator import get_orchestrator
+
+    return {
+        "status": probe["status"],
+        "ready": readiness["ready"],
+        "blocking_capabilities": readiness["blocking_capabilities"],
+        "degraded_capabilities": readiness["degraded_capabilities"],
+        "unprobed_capabilities": readiness["unprobed_capabilities"],
+        "timestamp": time.time(),
+        "uptime_seconds": round(time.time() - START_TIME, 1),
+        "version": settings.VERSION,
+        "checks": {
+            "database": probe["db_status"],
+            "database_error": probe["db_error"],
             "schema": schema,
             "vton_pipeline": _vton_pipeline_status(),
             # Machine-readable live verdict (the string above is for humans).
-            "vton_worker": vton_worker,
+            "vton_worker": probe["vton_worker"],
             # Resolved production engine + its (honest) license/commercial status.
             # Surfaced so a non-commercial engine is never silently presented as
             # commercially deployable by a "configured"/"operational" string alone.
@@ -253,8 +326,8 @@ def health_check(db: Session = Depends(get_db)):
             # and read-only/ephemeral on serverless hosts: upload features answer
             # 501 FEATURE_NOT_CONFIGURED in production until object storage is set.
             "storage": storage_status(),
-            "ai_stylist_engine": "operational",
-            "bnpl_gateway": "operational"
         },
-        "ai_providers": ai_providers
+        "capabilities": readiness["capabilities"],
+        "ai_providers": get_orchestrator().provider_status(),
+        "contract": CONTRACT,
     }

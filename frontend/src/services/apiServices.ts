@@ -528,10 +528,41 @@ export interface TryOnProductCapability {
   provider: string;
 }
 
+/**
+ * Live engine health as measured by the backend (a real probe of the GPU
+ * worker, not "the env var is set"). Added 2026-09-21 after production
+ * reported `engine_state: "available"` while the GPU workspace was disabled by
+ * its spend limit and every single job failed.
+ */
+export interface TryOnEngineHealth {
+  verdict: "ready" | "cold_start" | "unavailable" | "not_configured" | "unknown" | string;
+  production_ready: boolean;
+  detail?: string | null;
+  probe_age_seconds?: number | null;
+  error_code?: string | null;
+  circuit_state?: "closed" | "open" | "half_open" | string | null;
+  retry_after_seconds?: number | null;
+}
+
+/**
+ * Published service-level expectations. The backend asserts these in its live
+ * E2E harness, so they are a contract rather than a suggestion.
+ */
+export interface TryOnSla {
+  warm_render_seconds_p50: number;
+  warm_render_seconds_p95: number;
+  cold_start_seconds_budget: number;
+  fail_fast_seconds: number;
+  job_timeout_seconds: number;
+  delivery_ttl_seconds: number;
+  max_garments_per_job: number;
+}
+
 export interface TryOnCapabilitiesResponse {
   provider: string;
   engine_state:
     | "available"
+    | "cold_start"
     | "temporarily_unavailable"
     | "misconfigured"
     | "unknown"
@@ -539,6 +570,10 @@ export interface TryOnCapabilitiesResponse {
   supported_slots: string[];
   unsupported_slots: string[];
   products: TryOnProductCapability[];
+  engine?: TryOnEngineHealth | null;
+  sla?: TryOnSla | null;
+  /** Backend-authored, user-facing sentence for the current engine state. */
+  user_message?: string | null;
 }
 
 export const tryOnService = {

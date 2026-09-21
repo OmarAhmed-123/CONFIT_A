@@ -5,6 +5,8 @@ import {
   tryOnService,
   TryOnProductCapability,
   TryOnCapabilitiesResponse,
+  TryOnEngineHealth,
+  TryOnSla,
 } from "../services/apiServices";
 import {
   Product,
@@ -75,6 +77,14 @@ export function useTryOnViewModel(initialProduct?: Product | null) {
   const [capabilityMessage, setCapabilityMessage] = useState<string | null>(
     null,
   );
+  // Live engine health + published SLA from the backend capability registry.
+  // The UI used to infer availability from `engine_state` alone and had no
+  // numbers to set expectations with, so a user watched a spinner for 40 s
+  // with no idea whether that was normal (2026-09-21 audit).
+  const [engineHealth, setEngineHealth] = useState<TryOnEngineHealth | null>(
+    null,
+  );
+  const [engineSla, setEngineSla] = useState<TryOnSla | null>(null);
 
   // No-photo fit state
   const [rulerLoading, setRulerLoading] = useState(false);
@@ -238,22 +248,45 @@ export function useTryOnViewModel(initialProduct?: Product | null) {
       response.products.forEach((cap) => {
         mapped[cap.product_id] = cap;
       });
+      // The backend now states WHY the engine is or is not usable, and writes
+      // the user-facing sentence itself. Trust it instead of re-deriving copy
+      // here — one source of truth for what the user is told.
+      setEngineHealth(response.engine ?? null);
+      setEngineSla(response.sla ?? null);
       if (response.engine_state && response.engine_state !== "available") {
+        const coldStart = response.engine_state === "cold_start";
         Object.values(mapped).forEach((cap) => {
           if (cap.state === "supported") {
+            // A cold engine still renders — it is just slow on the first call,
+            // so it stays "supported" with an honest expectation attached.
+            if (coldStart) {
+              cap.reason_code = "ENGINE_COLD_START";
+              cap.message =
+                response.user_message ||
+                "The rendering engine is warming up. The first result may take up to a minute.";
+              return;
+            }
             cap.state =
               response.engine_state === "misconfigured"
                 ? "misconfigured"
                 : "temporarily_unavailable";
-            cap.reason_code = `ENGINE_${String(response.engine_state).toUpperCase()}`;
+            cap.reason_code =
+              response.engine?.error_code ||
+              `ENGINE_${String(response.engine_state).toUpperCase()}`;
             cap.message =
-              response.engine_state === "misconfigured"
+              response.user_message ||
+              (response.engine_state === "misconfigured"
                 ? "Virtual try-on is not configured for this deployment."
-                : "Virtual try-on is temporarily unavailable. Please retry later.";
+                : "Virtual try-on is temporarily unavailable. Please retry later.");
           }
         });
       }
       setVtonCapabilities((prev) => ({ ...prev, ...mapped }));
+      setCapabilityMessage(
+        response.engine_state && response.engine_state !== "available"
+          ? response.user_message || response.engine?.detail || null
+          : null,
+      );
       return mapped;
     } catch {
       const mapped = Object.fromEntries(
@@ -784,6 +817,8 @@ export function useTryOnViewModel(initialProduct?: Product | null) {
     vtonCapabilities,
     capabilityLoading,
     capabilityMessage,
+    engineHealth,
+    engineSla,
     checkTryOnCapabilities: ensureCapabilities,
     addGarmentToCanvas,
     removeGarmentFromCanvas,

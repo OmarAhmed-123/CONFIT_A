@@ -19,7 +19,7 @@ audit trail, admin order transitions, health / observability.
 |---|---|---|
 | G-05, G-06, G-07, G-16 — audit trail truth, redaction, UI, honest tests | ✅ shipped | #135 |
 | G-01, G-02, G-03, G-04 — style heatmap honesty and one contract | ✅ shipped | #143 |
-| G-08, G-09 — public health vs internal readiness | ⏳ open | next |
+| G-08, G-09, G-17 — public health is minimal, readiness cannot lie | ✅ shipped | #152 |
 | G-10, G-11, G-12 — admin access governance and bootstrap | ⏳ open | next |
 | G-13, G-14, G-15 — one revenue vocabulary, flat query cost, real time window | ✅ shipped | #148 |
 
@@ -191,7 +191,7 @@ request-id correlation) wired to the route.
 
 ## G-08 — Public `/health` publishes internal configuration  *(VERIFIED against production)*
 
-**Status:** ⏳ OPEN — planned for the health/readiness split PR.
+**Status:** ✅ **FIXED** — PR #152. `/health` is now a minimal public surface: liveness status, readiness verdict, the names of blocked/degraded capabilities, the database verdict and `checks.schema.database_revision` (retained because the release gate certifies deploys from it), and the contract that defines each field. The provider inventory, storage provider and its environment-variable names, the VTON engine's licence and fork provenance, and the schema's missing tables/columns/findings moved to **`GET /health/ready`**, which is admin-only. Verified live against production before the change: the public endpoint was publishing all five.
 
 `curl https://confit-a.vercel.app/api/v1/health` → 200, body includes:
 
@@ -214,7 +214,7 @@ an explicit non-empty `degraded` list (never empty-and-lying). New ops-gated
 
 ## G-09 — `storage.production_grade=false` hides behind `status: healthy`  *(VERIFIED against production)*
 
-**Status:** ⏳ OPEN — planned for the health/readiness split PR.
+**Status:** ✅ **FIXED** — PR #152. `status` and `ready` are now separate fields with separate, testable meanings. `status` is liveness scope (database reachable + schema present); `ready` is capability scope and goes false when any **core** capability is blocked, naming it in `blocking_capabilities`. Production's broken upload path (`storage.production_grade=false`, `writable=false`) can no longer read as healthy: it surfaces as `ready: false, blocking_capabilities: ["file_uploads"]`. `core/readiness.py` owns the vocabulary — `ready` / `degraded` / `blocked` / `not_probed` × `core` / `supporting` — and the uptime monitor now runs liveness and readiness as separate jobs, with readiness allowed to fail.
 
 `telemetry_controller.py:198`:
 
@@ -342,6 +342,34 @@ predicates of every aggregate.
 
 Source-inspection tests pass on a reverted implementation. They are replaced
 with behavioural tests in this branch.
+
+## G-17 — The health endpoint asserted two verdicts it never measured  *(VERIFIED against production)*
+
+**Status:** ✅ **FIXED** — PR #152. Both strings were deleted; the states are now
+probed by `capability_service.capability_probes()`.
+
+Found while closing G-08/G-09, not in the original report.
+
+`backend/app/controllers/telemetry_controller.py:209-210`
+
+```python
+"ai_stylist_engine": "operational",
+"bnpl_gateway": "operational"
+```
+
+These are string literals. No probe stands behind either one. `bnpl_gateway`
+reported `operational` on a deployment with no PSP key configured — where the
+platform's own `/catalog/capabilities` endpoint correctly reports
+`bnpl_live: false`. The same file was therefore telling two different stories
+about the same deployment, and the one an operator reads during an incident was
+the false one.
+
+This is the failure mode the whole register exists to catch: a field whose
+value is asserted rather than measured. `capability_service` is now the single
+source of truth for what a deployment can do; `/capabilities` and both health
+surfaces read from it, so they cannot disagree. Where a designed fallback
+exists (the deterministic grounded stylist answers without a provider key) the
+state is `degraded`, not `blocked` and not `operational`.
 
 ---
 

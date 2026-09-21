@@ -84,8 +84,16 @@ def test_supported_engines_are_known_and_their_license_honest(engine, commercial
 
 
 def test_health_reports_resolved_commercial_engine_license(client):
-    """Operators must see the engine + its license, not just 'operational'."""
-    data = client.get("/api/v1/health").json()
+    """Operators must see the engine + its license, not just 'operational'.
+
+    G-08 moved that detail to the admin-only readiness endpoint: licence text
+    and fork provenance are useful to an operator and to nobody else.
+    """
+    login = client.post("/api/v1/auth/login",
+                        json={"email": "admin@confit.io", "password": "Password123!"})
+    assert login.status_code == 200, login.text
+    admin = {"Authorization": f"Bearer {login.json()['access_token']}"}
+    data = client.get("/api/v1/health/ready", headers=admin).json()
     checks = data["checks"]
     assert "vton_engine" in checks
     engine = checks["vton_engine"]

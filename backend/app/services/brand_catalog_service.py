@@ -1,410 +1,256 @@
+"""Bounded CSV/JSON ingestion with shared validation and row-atomic upserts.
+
+Identity is (brand, title) for products, globally unique sku_code for variants.
+An import may update a variant, but cannot move it to a different product.
+Partial success is intentional: each accepted row commits independently.
+"""
 import csv
 import io
 import json
 import hashlib
 import re
-from typing import List, Dict, Any, Tuple, Optional
 from datetime import datetime, timezone
-from sqlalchemy.orm import Session
+from urllib.parse import urlsplit
+from typing import Any, Dict, List, Tuple
 from sqlalchemy.exc import IntegrityError
-
-from decimal import Decimal
-from backend.app.core.money import to_decimal, to_float, quantize_money, validate_money
-from backend.app.models.catalog import Product, ProductSKU, Category
-from backend.app.models.user import BrandProfile
-from backend.app.repositories.brand_repository import BrandRepository
+from sqlalchemy.orm import Session
+from backend.app.core.money import validate_money
 from backend.app.core.logging import logger
+from backend.app.models.catalog import Product, ProductSKU, Category
+from backend.app.models.user import BrandProfile, AuditLog
+from backend.app.repositories.brand_repository import BrandRepository
 
 
 class CatalogImportError:
-    def __init__(self, row: int, field: str, message: str, value: Any = None):
-        self.row = row
-        self.field = field
-        self.message = message
-        self.value = value
+    def __init__(self, row, field, message, value=None):
+        self.row, self.field, self.message, self.value = row, field, message, value
 
     def to_dict(self):
-        return {
-            "row": self.row,
-            "field": self.field,
-            "message": self.message,
-            "value": str(self.value)[:200] if self.value else None
-        }
+        return dict(row=self.row, field=self.field, message=self.message,
+                    value=str(self.value)[:200] if self.value is not None else None)
 
 
 class BrandCatalogService:
-    """
-    Real CSV ingestion pipeline with:
-    - Schema validation
-    - Type validation
-    - SKU uniqueness (DB constraint + upsert)
-    - Idempotency
-    - Transactional behavior
-    - Partial failure reporting
-    - CSV injection protection
-    """
-
-    REQUIRED_FIELDS = ["title", "category_slug", "base_price", "color_family", "thumbnail_url"]
-    OPTIONAL_FIELDS = ["title_ar", "description", "description_ar", "material", "currency", "style_tags", "occasion_tags", "images", "sku_code", "size", "color", "stock_level", "price_override"]
-
-    # Dangerous spreadsheet formula prefixes for CSV injection
-    DANGEROUS_PREFIXES = ["=", "+", "-", "@", "\t", "\r"]
+    MAX_ROWS = 1000
+    MAX_BYTES = 10 * 1024 * 1024
+    REQUIRED_FIELDS = ['title', 'category_slug', 'base_price', 'color_family', 'thumbnail_url']
+    OPTIONAL_FIELDS = ['title_ar', 'description', 'description_ar', 'material', 'currency',
+                       'style_tags', 'occasion_tags', 'images', 'sku_code', 'size', 'color',
+                       'stock_level', 'price_override', 'dominant_hex', 'color_hex']
+    DANGEROUS_PREFIXES = ['=', '+', '-', '@', '\t', '\r']
+    LIMITS = dict(title=255, title_ar=255, description=2000, description_ar=2000,
+                  material=255, color_family=50, thumbnail_url=1000, size=20, color=50,
+                  sku_code=100, category_slug=100)
 
     def __init__(self, db: Session):
         self.db = db
         self.brand_repo = BrandRepository(db)
 
-    def _sanitize_csv_value(self, value: str) -> str:
-        """Prevent CSV injection by sanitizing formula prefixes"""
-        if not isinstance(value, str):
-            return value
-        stripped = value.lstrip()
-        for prefix in self.DANGEROUS_PREFIXES:
-            if stripped.startswith(prefix):
-                # Prefix with single quote to neutralize formula
-                return "'" + value
+    def _sanitize_csv_value(self, value):
+        # Defence for text that may later be opened by a spreadsheet. Numeric
+        # columns are validated as numbers, NOT prefixed/changed into strings.
+        if isinstance(value, str) and value.lstrip().startswith(tuple(self.DANGEROUS_PREFIXES)):
+            return "'" + value
         return value
+
+    def _normalize(self, source):
+        row = {k: v.strip() if isinstance(v, str) else v for k, v in source.items()}
+        for field, default in dict(size='M', stock_level='0', currency='USD',
+                                   color=row.get('color_family', ''), sku_code='').items():
+            if row.get(field) in (None, ''):
+                row[field] = default
+        return row
 
     def _validate_row(self, row: Dict[str, Any], row_num: int) -> List[CatalogImportError]:
         errors = []
-
-        # Required fields
+        def error(field, message):
+            errors.append(CatalogImportError(row_num, field, message, row.get(field)))
         for field in self.REQUIRED_FIELDS:
-            if field not in row or not row[field] or str(row[field]).strip() == "":
-                errors.append(CatalogImportError(row_num, field, f"Missing required field: {field}", row.get(field)))
-
-        # Type validation
-        # Money cells go through the canonical domain validator: finite, 2dp,
-        # positive, within NUMERIC(12,2). Invalid rows are quarantined with the
-        # domain message — never coerced, never silently rounded.
-        for money_field in ("base_price", "price_override"):
-            if money_field in row and row[money_field]:
+            if row.get(field) is None or str(row[field]).strip() == '':
+                error(field, f'Missing required field: {field}')
+        for field, limit in self.LIMITS.items():
+            value = row.get(field)
+            if value is not None and (not isinstance(value, str) or len(value) > limit):
+                error(field, f'Must be text of at most {limit} characters')
+        for field in ('base_price', 'price_override'):
+            if row.get(field) not in (None, ''):
                 try:
-                    price = validate_money(row[money_field], money_field, allow_zero=False,
-                                           required=True, exact_scale=True)
-                    if price > BrandRepository.MAX_SKU_PRICE:
-                        errors.append(CatalogImportError(row_num, money_field, "Price exceeds maximum", row[money_field]))
-                except ValueError as exc:
-                    errors.append(CatalogImportError(row_num, money_field, str(exc), row[money_field]))
-
-        if "stock_level" in row and row["stock_level"]:
+                    value = validate_money(row[field], field, allow_zero=False, required=True, exact_scale=True)
+                    if value > BrandRepository.MAX_SKU_PRICE:
+                        error(field, 'Price exceeds maximum')
+                except (ValueError, TypeError):
+                    error(field, 'Price must be finite, positive and have at most two decimal places')
+        value = row.get('stock_level', 0)
+        if isinstance(value, bool) or not re.fullmatch(r'\d{1,6}', str(value)) or not 0 <= int(value) <= 100000:
+            error('stock_level', 'Stock must be a whole number between 0 and 100000')
+        sku = row.get('sku_code')
+        if sku and (not isinstance(sku, str) or not re.fullmatch(r'[A-Za-z0-9_-]{3,100}', sku)):
+            error('sku_code', 'SKU must contain 3–100 letters, digits, hyphens or underscores')
+        slug = row.get('category_slug')
+        if isinstance(slug, str) and slug and not self.db.query(Category.id).filter(Category.slug == slug).first():
+            error('category_slug', 'Category not found')
+        url = row.get('thumbnail_url')
+        if isinstance(url, str) and url:
             try:
-                stock = int(row["stock_level"])
-                if stock < 0:
-                    errors.append(CatalogImportError(row_num, "stock_level", "Stock cannot be negative", row["stock_level"]))
+                parsed = urlsplit(url)
+                if parsed.scheme not in ('https', 'http') or not parsed.hostname or parsed.username or parsed.password:
+                    raise ValueError()
             except ValueError:
-                errors.append(CatalogImportError(row_num, "stock_level", "Invalid stock format", row["stock_level"]))
-
-        # SKU validation
-        if "sku_code" in row and row["sku_code"]:
-            sku = str(row["sku_code"]).strip()
-            if len(sku) < 3:
-                errors.append(CatalogImportError(row_num, "sku_code", "SKU too short (min 3 chars)", sku))
-            if len(sku) > 100:
-                errors.append(CatalogImportError(row_num, "sku_code", "SKU too long (max 100 chars)", sku))
-            if not re.match(r'^[A-Za-z0-9\-_]+$', sku):
-                errors.append(CatalogImportError(row_num, "sku_code", "SKU contains invalid characters (only alphanumeric, -, _)", sku))
-
-        # Category validation
-        if "category_slug" in row and row["category_slug"]:
-            slug = str(row["category_slug"]).strip()
-            category = self.db.query(Category).filter(Category.slug == slug).first()
-            if not category:
-                errors.append(CatalogImportError(row_num, "category_slug", f"Category not found: {slug}", slug))
-
-        # URL validation for thumbnail
-        if "thumbnail_url" in row and row["thumbnail_url"]:
-            url = str(row["thumbnail_url"]).strip()
-            if not (url.startswith("http://") or url.startswith("https://") or url.startswith("data:image")):
-                errors.append(CatalogImportError(row_num, "thumbnail_url", "Invalid URL format", url[:100]))
-
+                error('thumbnail_url', 'A public HTTP(S) image URL without credentials is required')
+        if not isinstance(row.get('currency'), str) or not re.fullmatch(r'[A-Z]{3}', row['currency']):
+            error('currency', 'Use a three-letter uppercase currency code')
+        for field in ('style_tags', 'occasion_tags', 'images'):
+            value = row.get(field)
+            if value in (None, ''):
+                row[field] = '[]'
+                continue
+            try:
+                if isinstance(value, str):
+                    value = json.loads(value) if value.startswith('[') else value.split(',')
+                if not isinstance(value, list) or len(value) > 100 or any(not isinstance(v, str) or len(v) > 1000 for v in value):
+                    raise ValueError()
+                encoded = json.dumps(value, ensure_ascii=False)
+                if len(encoded) > 5000:
+                    raise ValueError()
+                row[field] = encoded
+            except (ValueError, TypeError):
+                error(field, 'Must be a bounded array of strings or comma-separated text')
+        for field in ('dominant_hex', 'color_hex'):
+            if row.get(field) and (not isinstance(row[field], str) or not re.fullmatch(r'#[0-9a-fA-F]{6}', row[field])):
+                error(field, 'Must be a six-digit hex color')
         return errors
 
-    def _generate_sku_code(self, product_title: str, size: str, color: str, brand_slug: str) -> str:
-        """Generate deterministic SKU code"""
-        base = f"{brand_slug[:3].upper()}-{product_title[:3].upper()}-{size.upper()}-{color[:3].upper()}"
-        # Add hash for uniqueness
-        hash_part = hashlib.md5(f"{product_title}{size}{color}".encode()).hexdigest()[:4].upper()
-        return f"{base}-{hash_part}"
+    def _generate_sku_code(self, product_title, size, color, brand_slug):
+        identity = json.dumps([brand_slug, product_title, size, color], ensure_ascii=False)
+        return 'SKU-' + hashlib.sha256(identity.encode()).hexdigest()[:32].upper()
 
-    def parse_csv(self, csv_content: str, brand_id: int) -> Tuple[List[Dict[str, Any]], List[CatalogImportError], Dict[str, int]]:
-        """
-        Parse CSV with validation, returns (valid_rows, errors, stats)
-        Stats: total, accepted, rejected, duplicate
-        """
-        errors: List[CatalogImportError] = []
-        valid_rows: List[Dict[str, Any]] = []
-        seen_skus = set()
-        duplicate_count = 0
-
-        try:
-            reader = csv.DictReader(io.StringIO(csv_content))
-            # Validate headers
-            if not reader.fieldnames:
-                errors.append(CatalogImportError(0, "header", "CSV has no headers", None))
-                return valid_rows, errors, {"total": 0, "accepted": 0, "rejected": 1, "duplicate": 0}
-
-            # Check for required headers
-            missing_headers = [f for f in self.REQUIRED_FIELDS if f not in reader.fieldnames]
-            if missing_headers:
-                errors.append(CatalogImportError(0, "header", f"Missing required headers: {missing_headers}", reader.fieldnames))
-                return valid_rows, errors, {"total": 0, "accepted": 0, "rejected": 1, "duplicate": 0}
-
-            for row_num, row in enumerate(reader, start=2):  # Start at 2 because header is row 1
-                # Sanitize all string values for CSV injection
-                sanitized_row = {}
-                for k, v in row.items():
-                    if isinstance(v, str):
-                        sanitized_row[k] = self._sanitize_csv_value(v.strip())
-                    else:
-                        sanitized_row[k] = v
-
-                # Validate row
-                row_errors = self._validate_row(sanitized_row, row_num)
-                if row_errors:
-                    errors.extend(row_errors)
-                    continue
-
-                # Check duplicate SKU in file
-                sku_code = sanitized_row.get("sku_code", "").strip()
-                if sku_code:
-                    if sku_code in seen_skus:
-                        errors.append(CatalogImportError(row_num, "sku_code", f"Duplicate SKU in file: {sku_code}", sku_code))
-                        duplicate_count += 1
-                        continue
-                    seen_skus.add(sku_code)
-
-                    # Check duplicate in DB
-                    existing = self.db.query(ProductSKU).filter(ProductSKU.sku_code == sku_code).first()
-                    if existing:
-                        # This is an upsert, not error - but count as duplicate for reporting
-                        duplicate_count += 1
-
-                valid_rows.append(sanitized_row)
-
-        except csv.Error as e:
-            errors.append(CatalogImportError(0, "csv", f"CSV parsing error: {str(e)}", None))
-
-        total = len(valid_rows) + len([e for e in errors if e.row != 0])
-        stats = {
-            "total": total,
-            "accepted": len(valid_rows),
-            "rejected": len(errors),
-            "duplicate": duplicate_count
-        }
-
-        return valid_rows, errors, stats
-
-    def import_products(self, valid_rows: List[Dict[str, Any]], brand_id: int) -> Tuple[int, int, List[Dict[str, Any]]]:
-        """
-        Import valid rows with transactional behavior and upsert semantics.
-        Returns (accepted, rejected, errors)
-        """
-        brand = self.db.query(BrandProfile).filter(BrandProfile.id == brand_id).first()
+    def _prepare_rows(self, rows, brand_id):
+        valid, errors, seen, duplicate = [], [], set(), 0
+        brand = self.brand_repo.get_by_id(brand_id)
         if not brand:
-            raise ValueError(f"Brand {brand_id} not found")
+            raise ValueError('Brand not found')
+        for number, source in enumerate(rows, 2):
+            if not isinstance(source, dict) or None in source:
+                errors.append(CatalogImportError(number, 'row', 'Row has invalid structure or extra columns'))
+                continue
+            row = self._normalize(source)
+            row_errors = self._validate_row(row, number)
+            if row_errors:
+                errors.extend(row_errors)
+                continue
+            code = row.get('sku_code') or self._generate_sku_code(row['title'], row['size'], row['color'], brand.slug)
+            if code in seen:
+                errors.append(CatalogImportError(number, 'sku_code', 'Duplicate SKU in file', code))
+                duplicate += 1
+                continue
+            seen.add(code)
+            row['sku_code'], row['_row_number'] = code, number
+            valid.append(row)
+        return valid, errors, dict(total=len(rows), accepted=len(valid),
+                                  rejected=len({e.row for e in errors}), duplicate=duplicate)
 
-        accepted = 0
-        rejected = 0
-        import_errors = []
+    def parse_csv(self, csv_content, brand_id) -> Tuple[list, list, dict]:
+        try:
+            reader = csv.DictReader(io.StringIO(csv_content.lstrip('\ufeff')), strict=True)
+            fields = reader.fieldnames or []
+            if len(fields) != len(set(fields)) or any(f not in fields for f in self.REQUIRED_FIELDS):
+                raise ValueError('CSV needs unique headers including: ' + ', '.join(self.REQUIRED_FIELDS))
+            rows = []
+            for source in reader:
+                if len(rows) >= self.MAX_ROWS:
+                    raise ValueError(f'At most {self.MAX_ROWS} rows per import')
+                # Do not mutate numeric input before validation.
+                rows.append({k: self._sanitize_csv_value(v) if k in ('title', 'title_ar', 'description', 'description_ar') else v for k,v in source.items()})
+            if not rows:
+                raise ValueError('CSV contains no data rows')
+            return self._prepare_rows(rows, brand_id)
+        except (csv.Error, ValueError) as exc:
+            return [], [CatalogImportError(0, 'header' if 'header' in str(exc) else 'file', str(exc))], dict(total=0, accepted=0, rejected=0, duplicate=0)
 
-        for row_num, row in enumerate(valid_rows, start=2):
+    def import_products(self, valid_rows, brand_id):
+        accepted, rejected, errors = 0, 0, []
+        for fallback_number, row in enumerate(valid_rows, 2):
+            number = row.get('_row_number', fallback_number)
             try:
-                # Get category
-                category = self.db.query(Category).filter(Category.slug == row["category_slug"]).first()
+                # Lock a real parent row: locking a missing product/SKU cannot
+                # serialize concurrent first imports. Reacquire after each commit.
+                brand = self.db.query(BrandProfile).filter_by(id=brand_id).with_for_update().first()
+                if not brand:
+                    raise ValueError('Brand not found')
+                category = self.db.query(Category).filter_by(slug=row['category_slug']).first()
                 if not category:
-                    import_errors.append({"row": row_num, "error": f"Category {row['category_slug']} not found"})
-                    rejected += 1
-                    continue
-
-                # Check if product exists by title and brand (for upsert)
-                existing_product = self.db.query(Product).filter(
-                    Product.brand_id == brand_id,
-                    Product.title == row["title"]
-                ).first()
-
-                if existing_product:
-                    # Update existing product
-                    product = existing_product
-                    product.category_id = category.id
-                    product.base_price = to_decimal(row["base_price"])
-                    product.color_family = row["color_family"][:50]
-                    product.thumbnail_url = row["thumbnail_url"][:1000]
-                    if row.get("title_ar"):
-                        product.title_ar = row["title_ar"][:255]
-                    if row.get("description"):
-                        product.description = row["description"][:2000]
-                    if row.get("description_ar"):
-                        product.description_ar = row["description_ar"][:2000]
-                    if row.get("material"):
-                        product.material = row["material"][:255]
-                    if row.get("currency"):
-                        product.currency = row["currency"][:10]
-                    if row.get("style_tags"):
-                        try:
-                            tags = json.loads(row["style_tags"]) if isinstance(row["style_tags"], str) and row["style_tags"].startswith("[") else [t.strip() for t in row["style_tags"].split(",")]
-                            product.style_tags = json.dumps(tags)
-                        except:
-                            product.style_tags = json.dumps([row["style_tags"]])
-                else:
-                    # Create new product
-                    # Generate slug
-                    slug_base = re.sub(r'[^a-z0-9]+', '-', row["title"].lower()).strip('-')
-                    slug = f"{slug_base}-{brand_id}-{hashlib.md5(row['title'].encode()).hexdigest()[:6]}"
-                    # Ensure unique slug
-                    counter = 1
-                    original_slug = slug
-                    while self.db.query(Product).filter(Product.slug == slug).first():
-                        slug = f"{original_slug}-{counter}"
-                        counter += 1
-
-                    product = Product(
-                        brand_id=brand_id,
-                        category_id=category.id,
-                        title=row["title"][:255],
-                        title_ar=row.get("title_ar", row["title"])[:255],
-                        slug=slug[:255],
-                        description=row.get("description", row["title"])[:2000],
-                        description_ar=row.get("description_ar", row.get("description", row["title"]))[:2000],
-                        base_price=to_decimal(row["base_price"]),
-                        currency=row.get("currency", "USD")[:10],
-                        material=row.get("material", "")[:255] if row.get("material") else None,
-                        color_family=row["color_family"][:50],
-                        dominant_hex=row.get("dominant_hex", "#1B1F3B")[:20],
-                        thumbnail_url=row["thumbnail_url"][:1000],
-                        images=row.get("images", "[]")[:5000],
-                        style_tags=row.get("style_tags", "[]")[:2000],
-                        occasion_tags=row.get("occasion_tags", "[]")[:2000],
-                        is_active=True
-                    )
+                    raise ValueError('Category not found')
+                code = row.get('sku_code') or self._generate_sku_code(row['title'], row.get('size','M'), row.get('color',row['color_family']), brand.slug)
+                sku = self.db.query(ProductSKU).filter_by(sku_code=code).with_for_update().first()
+                product = self.db.query(Product).filter_by(brand_id=brand_id, title=row['title']).first()
+                if sku and (not product or sku.product_id != product.id):
+                    raise ValueError('SKU already assigned to another product; reassignment is not allowed')
+                if not product:
+                    slug = 'brand-' + str(brand_id) + '-' + hashlib.sha256(row['title'].encode()).hexdigest()[:24]
+                    product = Product(brand_id=brand_id, category_id=category.id, title=row['title'], slug=slug,
+                                      title_ar=row.get('title_ar') or row['title'], description=row.get('description') or row['title'],
+                                      description_ar=row.get('description_ar') or row.get('description') or row['title'],
+                                      rating=0, review_count=0, style_compatibility_base=0)
                     self.db.add(product)
-                    self.db.flush()  # Get product.id
-
-                # Handle SKU
-                sku_code = row.get("sku_code", "").strip()
-                if not sku_code:
-                    size = row.get("size", "M")
-                    color = row.get("color", row["color_family"])
-                    sku_code = self._generate_sku_code(row["title"], size, color, brand.slug)
-
-                # Check existing SKU for upsert
-                existing_sku = self.db.query(ProductSKU).filter(ProductSKU.sku_code == sku_code).first()
-
-                if existing_sku:
-                    # Verify SKU belongs to same brand
-                    existing_product_for_sku = self.db.query(Product).filter(Product.id == existing_sku.product_id).first()
-                    if existing_product_for_sku and existing_product_for_sku.brand_id != brand_id:
-                        import_errors.append({"row": row_num, "error": f"SKU {sku_code} already exists for different brand"})
-                        rejected += 1
-                        continue
-
-                    # Update SKU
-                    existing_sku.product_id = product.id
-                    existing_sku.size = row.get("size", existing_sku.size)[:20]
-                    existing_sku.color = row.get("color", existing_sku.color)[:50]
-                    if row.get("stock_level"):
-                        existing_sku.stock_level = int(row["stock_level"])
-                        existing_sku.is_in_stock = int(row["stock_level"]) > 0
-                    if row.get("price_override"):
-                        existing_sku.price_override = to_decimal(row["price_override"])
-                else:
-                    # Create SKU
-                    sku = ProductSKU(
-                        product_id=product.id,
-                        sku_code=sku_code[:100],
-                        size=row.get("size", "M")[:20],
-                        color=row.get("color", row["color_family"])[:50],
-                        color_hex=row.get("color_hex", "#1B1F3B")[:20],
-                        price_override=to_decimal(row["price_override"]) if row.get("price_override") else None,
-                        stock_level=int(row.get("stock_level", 20)),
-                        is_in_stock=int(row.get("stock_level", 20)) > 0
-                    )
+                product.category_id = category.id
+                product.base_price = validate_money(row['base_price'], 'base_price', allow_zero=False, required=True, exact_scale=True)
+                for field in ('color_family', 'thumbnail_url', 'currency', 'material', 'dominant_hex', 'title_ar', 'description', 'description_ar', 'style_tags', 'occasion_tags', 'images'):
+                    if row.get(field) not in (None, ''):
+                        setattr(product, field, row[field])
+                self.db.flush()
+                if not sku:
+                    sku = ProductSKU(product_id=product.id, sku_code=code)
                     self.db.add(sku)
-
+                sku.size = row.get('size') or 'M'
+                sku.color = row.get('color') or row['color_family']
+                sku.stock_level = int(row.get('stock_level') or 0)
+                sku.is_in_stock = sku.stock_level > 0
+                if row.get('price_override') not in (None, ''):
+                    sku.price_override = validate_money(row['price_override'], 'price_override', allow_zero=False, required=True, exact_scale=True)
+                if row.get('color_hex'):
+                    sku.color_hex = row['color_hex']
                 self.db.commit()
                 accepted += 1
-
-            except IntegrityError as e:
-                self.db.rollback()
-                import_errors.append({"row": row_num, "error": f"Database integrity error: {str(e)[:200]}"})
+            except (ValueError, IntegrityError) as exc:
+                self.db.rollback()  # includes product changes/flushes in a rejected row
+                message = str(exc) if isinstance(exc, ValueError) else 'Catalog conflict; verify SKU uniqueness and retry'
+                errors.append(CatalogImportError(number, 'row', message).to_dict())
                 rejected += 1
-                logger.warn("catalog_import_integrity_error", row=row_num, error=str(e))
-            except Exception as e:
+            except Exception:
                 self.db.rollback()
-                import_errors.append({"row": row_num, "error": f"Import error: {str(e)[:200]}"})
-                rejected += 1
-                logger.error("catalog_import_error", row=row_num, error=str(e))
+                logger.error('catalog_import_row_failed', row=number)
+                raise  # infrastructure failures are not disguised as invalid input
+        return accepted, rejected, errors
 
-        return accepted, rejected, import_errors
-
-    def process_csv_import(self, csv_content: str, brand_id: int, file_name: str = None) -> Dict[str, Any]:
-        """
-        Full pipeline: parse -> validate -> import with job tracking
-        """
-        # Create job
-        job = self.brand_repo.create_import_job(brand_id, file_name, len(csv_content))
-
+    def _process(self, brand_id, file_name, file_size, prepare, actor_id=None):
+        job = self.brand_repo.create_import_job(brand_id, file_name, file_size)
+        job_id = job.id
         try:
-            job.status = "processing"
-            job.started_at = datetime.now(timezone.utc)
+            job.status, job.started_at = 'processing', datetime.now(timezone.utc)
             self.db.commit()
-
-            # Parse and validate
-            valid_rows, validation_errors, stats = self.parse_csv(csv_content, brand_id)
-
-            job.total_rows = stats["total"]
-            job.duplicate_rows = stats["duplicate"]
-
-            if not valid_rows and validation_errors:
-                job.status = "failed"
-                job.rejected_rows = stats["rejected"]
-                job.errors_json = json.dumps([e.to_dict() for e in validation_errors])
-                job.completed_at = datetime.now(timezone.utc)
-                self.db.commit()
-                return {
-                    "job_id": job.id,
-                    "status": job.status,
-                    "total_rows": job.total_rows,
-                    "accepted_rows": 0,
-                    "rejected_rows": job.rejected_rows,
-                    "duplicate_rows": job.duplicate_rows,
-                    "errors": [e.to_dict() for e in validation_errors]
-                }
-
-            # Import
-            accepted, rejected, import_errors = self.import_products(valid_rows, brand_id)
-
-            # Combine errors
-            all_errors = [e.to_dict() for e in validation_errors] + import_errors
-
-            job.accepted_rows = accepted
-            job.rejected_rows = len(all_errors)
-            job.errors_json = json.dumps(all_errors)
-
-            if accepted > 0 and len(all_errors) == 0:
-                job.status = "completed"
-            elif accepted > 0 and len(all_errors) > 0:
-                job.status = "partially_completed"
-            else:
-                job.status = "failed"
-
-            job.completed_at = datetime.now(timezone.utc)
+            valid, validation_errors, stats = prepare()
+            accepted, rejected, import_errors = self.import_products(valid, brand_id)
+            errors = [e.to_dict() for e in validation_errors] + import_errors
+            job.total_rows, job.accepted_rows = stats['total'], accepted
+            job.rejected_rows = stats['rejected'] + rejected
+            job.duplicate_rows = stats['duplicate']
+            job.status = 'completed' if accepted and not errors else 'partially_completed' if accepted else 'failed'
+            job.errors_json, job.completed_at = json.dumps(errors), datetime.now(timezone.utc)
+            self.db.add(AuditLog(user_id=actor_id, action='BRAND_CATALOG_IMPORTED', resource_type='CatalogImportJob',
+                                 resource_id=str(job_id), details_json=json.dumps(dict(brand_id=brand_id, accepted=accepted, rejected=job.rejected_rows))))
             self.db.commit()
-
-            return {
-                "job_id": job.id,
-                "status": job.status,
-                "total_rows": job.total_rows,
-                "accepted_rows": job.accepted_rows,
-                "rejected_rows": job.rejected_rows,
-                "duplicate_rows": job.duplicate_rows,
-                "errors": all_errors
-            }
-
-        except Exception as e:
-            job.status = "failed"
-            job.errors_json = json.dumps([{"row": 0, "field": "system", "message": str(e)[:500]}])
-            job.completed_at = datetime.now(timezone.utc)
+            return dict(job_id=job.id, status=job.status, total_rows=job.total_rows, accepted_rows=job.accepted_rows,
+                        rejected_rows=job.rejected_rows, duplicate_rows=job.duplicate_rows, errors=errors[:50])
+        except Exception:
+            self.db.rollback()
+            job = self.brand_repo.get_import_job(job_id, brand_id)
+            job.status, job.completed_at = 'failed', datetime.now(timezone.utc)
+            job.errors_json = json.dumps([CatalogImportError(0, 'system', 'Import interrupted; inspect catalog before retrying').to_dict()])
             self.db.commit()
-            logger.error("catalog_import_job_failed", job_id=job.id, error=str(e))
             raise
+
+    def process_csv_import(self, csv_content, brand_id, file_name=None, actor_id=None):
+        return self._process(brand_id, file_name, len(csv_content.encode()), lambda: self.parse_csv(csv_content, brand_id), actor_id)
+
+    def process_json_import(self, products, brand_id, actor_id=None):
+        return self._process(brand_id, 'api_import.json', None, lambda: self._prepare_rows(products, brand_id), actor_id)

@@ -96,15 +96,18 @@ localized formatting and all list pagers remain open.
 
 PR: https://github.com/OmarAhmed-123/CONFIT_A/pull/150 (**draft**).
 Implementation commit: `82fc979`; review follow-up commits on the same branch.
-No merge, no production migration, and **no Vercel deployment of this work**.
+No merge and no production migration. **Vercel preview8081b0c was subsequently
+deployed and tested successfully**, despite earlier quota rejections. Final code
+commit23dc1b9 differs only in tests/evidence, not application runtime.
 
-Vercel rejected preview creation with HTTP402:
+Initially, Vercel rejected manual preview creation with HTTP402:
 `api-deployments-free-per-day` (more than100; retry after24hours). The Vercel
 GitHub check reports the same build-rate-limit. Rather than use production
 accounts, a production-mode workspace API/frontend was connected to the
 already-isolated Neon staging database and real S3 staging namespace.
 
-That alternate verification runtime passed:
+That alternate verification runtime passed the following checks. They were
+subsequently repeated against the actual Vercel preview as described below:
 
 * Actual password login for three isolated accounts, official invitation and
   acceptance, owner role change, revoked-member denial, cross-tenant404.
@@ -122,18 +125,24 @@ That alternate verification runtime passed:
   views, English/LTR and Arabic/RTL. No recorded post-login API failures or
   page errors. Browser evidence is from `82fc979`, before the final disclosure
   banner and inventory-total correction; those follow-ups have fresh full tests.
+  A later Vercel-browser run tested8081b0c with both corrections present.
 
 An initial UAT harness incorrectly supplied stock to the variant-identity
 endpoint and correctly received422; the record is preserved. The corrected
 harness uses the separate inventory endpoint. A first screenshot assertion
 also ran before the image finished loading; waiting for actual image decode
-passed. Neither failed attempt is represented as a product fix.
+passed. Neither failed attempt is represented as a product fix. The Vercel browser
+  harness also initially used wait_for_function/eval, which the deployed CSP
+  correctly rejected. Native Playwright locator/property assertions passed
+  without adding unsafe-eval or bypassing CSP; the failed harness record is kept.
 
 **Cleanup:** stopped the runtime; checked that only the three UAT accounts
 existed; cleared54 test-data tables in the dedicated staging database with the
 migration role, retaining Alembic0021 and migration history. S3 prefix listing
 returned zero objects. Test passwords/accounts were removed from private
-working configuration. Production was not used for cleanup.
+working configuration. Production was not used for cleanup. The subsequent Vercel run was cleaned
+again: exactly three isolated test accounts disabled/removed,54 empty tables,
+zero S3 objects,retained0021. See `vercel-cleanup-proof.json`.
 
 **Scale sample:** real migrated local PostgreSQL,1000 products/30000 variants,
 2 catalog SELECTs,25 products ×25 returned variants, correct totals across all
@@ -150,14 +159,18 @@ parameter was renamed and exactly that historical fingerprint is documented
 in `.gitleaksignore`; no scanning rule/path was disabled. A second CI-only PostgreSQL budget race still used the pre-idempotency API;
 it now sends two distinct event identities, preserving the one-success/one-budget-
 rejection and exact-spend assertions. The complete partner PostgreSQL job was
-then reproduced locally: **60 passed**. Follow-up CI must be checked separately. New membership/queue/counter PostgreSQL tests are now
+then reproduced locally: **60 passed**. On final code commit23dc1b9, **backend,frontend,PostgreSQL migration/partner
+checks,full-history gitleaks and deployment-contract checks all passed**. The
+required release gate failed as expected because production is behind. Cloudflare
+build also failed. `ci-final.json` records exact job links. Later evidence-only
+commits have their own CI status; these results belong specifically to23dc1b9. New membership/queue/counter PostgreSQL tests are now
 included in the existing CI PostgreSQL job.
 
 **Production read-only check:** `/api/v1/health` returned200/healthy/schema-ok,
 code/database revision0018. Last observed production deployment commit was
 `3558d14`. The release gate **correctly blocks** this branch: it requires0021,
 three unapplied migrations. No migration is applied simply to turn a gate green
-while preview deployment and readiness gaps remain. Main protections are intact.
+while functional/operational readiness gaps remain. Main protections are intact.
 
 **Cloudflare:** current production health request reported Vercel headers;
 repository API routing uses Vercel/same-origin, no Wrangler configuration was
@@ -166,29 +179,51 @@ The installed `Workers Builds: confit-a` integration nevertheless failed; its
 private dashboard/edge deployment was not verified. It was not disabled or
 presented as repaired. No claim that the entire project's Cloudflare use is legacy.
 
+## Actual Vercel deployment verification — supersedes the initial quota blocker
+
+- Deployment: `8081b0cc` on `fix/brand-partner-portal`:
+  https://confit-i8hfiv324-omarsafealden-3943s-projects.vercel.app
+- Verified the branch-specific DATABASE_URL exactly matched the isolated staging
+  DSN through the authorized provider API; no value appears in evidence.
+- Real HTTPS API chain, separate-process durable job consumption, PostgreSQL
+  ownership/price/immutability guards and S3 lifecycle repeated successfully.
+- Chromium real-cookie sign-in, stored-image decode, CSRF-protected product edit,
+  inventory/placements/analytics/team/audit pages and EN/AR RTL/LTR passed with
+  zero recorded post-login API failures or page errors. SKU/store/placement
+  mutations in this evidence are API operations, not complete UI interaction tests.
+- CSP stayed narrow; no unsafe-eval or browser CSP bypass enabled. The first
+  browser harness failure was corrected, not hidden by loosening the policy.
+- After cleanup: deployed staging health200/healthy/schema0021; production
+  health200/healthy/schema0018. Production deployment was not changed.
+- The later23dc1b9 Vercel status still reported a build-rate-limit failure;
+  do not claim that exact commit was deployed. Its only delta from8081b0c is
+  tests/evidence, and its core GitHub checks passed.
+
 ## Mandatory verification matrix
 
-Staging cells below include the real isolated Neon/S3 checks, but remain
-PARTIALLY VERIFIED where the Vercel-hosted runtime was blocked. Evidence links
+Staging cells include the actual Vercel8081b0c/isolated Neon/S3 checks. Overall
+gaps remain partial when wider criteria are unfinished, even if the specific
+behaviors were verified on staging. Evidence links
 are under [`evidence/2026-09-21`](evidence/2026-09-21/README.md).
 
 | Gap | Status | Evidence | Files/PR/Commit | Test | Local | Staging | Production |
 |---|---|---|---|---|---|---|---|
-| Authenticated workflow and cleanup | PARTIALLY VERIFIED | API UAT, Chromium, cleanup-proof | PR150 /82fc979 | Login→audit;54 empty tables;zero S3 objects | VERIFIED | PARTIALLY VERIFIED | NOT VERIFIED |
-| Membership, invitations and ownership | PARTIALLY VERIFIED | PG concurrency/backfill + staging role/IDOR | brand_access, brand_team,0019 /PR150 | Last-owner race;existing-owner preservation;revocation | VERIFIED | PARTIALLY VERIFIED | NOT VERIFIED |
+| Authenticated workflow and cleanup | PARTIALLY VERIFIED | Actual Vercel API/Chromium UAT and cleanup-proof | PR150 /82fc979 | Login→audit;54 empty tables;zero S3 objects | VERIFIED | VERIFIED | NOT VERIFIED |
+| Membership, invitations and ownership | PARTIALLY VERIFIED | PG concurrency/backfill + staging role/IDOR | brand_access, brand_team,0019 /PR150 | Last-owner race;existing-owner preservation;revocation | VERIFIED | VERIFIED | NOT VERIFIED |
 | CPC serving, billing and fraud controls | PARTIALLY VERIFIED | Counter journal only;billable=false | placement_counters,0021 /PR150 | Replay/day/concurrency;no trusted billing proof | PARTIALLY VERIFIED | PARTIALLY VERIFIED | NOT VERIFIED |
-| Atomic critical audit | PARTIALLY VERIFIED | Rollback tests;live migrated trigger rejection | partner_audit,0019 /PR150 | Same-transaction tests;app-role UPDATE blocked | VERIFIED | PARTIALLY VERIFIED | NOT VERIFIED |
+| Atomic critical audit | PARTIALLY VERIFIED | Rollback tests;live migrated trigger rejection | partner_audit,0019 /PR150 | Same-transaction tests;app-role UPDATE blocked | VERIFIED | VERIFIED | NOT VERIFIED |
 | Durable import, pagination and scale | PARTIALLY VERIFIED | Separate worker process;scale query plans | queue/worker/repositories,0020 /PR150 | Checkpoints;1000 products/30000 SKUs;no scheduled-run proof | PARTIALLY VERIFIED | PARTIALLY VERIFIED | NOT VERIFIED |
 | Product/SKU lifecycle and complete EN/AR | PARTIALLY VERIFIED | API lifecycle, browser editor,RTL screenshot | product service/frontend /PR150 | Final suites;UI session save;locale gate | PARTIALLY VERIFIED | PARTIALLY VERIFIED | NOT VERIFIED |
 | Analytics semantic contracts | PARTIALLY VERIFIED | Null denominator/unpaged totals;staging reads | brand_repository/service /PR150 | Totals regressions;not causal/session attribution | PARTIALLY VERIFIED | PARTIALLY VERIFIED | NOT VERIFIED |
-| Persistent image lifecycle / CSP | PARTIALLY VERIFIED | Actual S3 upload/read/delete/provider404 | partner_assets,0020 /PR150 | Image validation;browser render;draft/public visibility | VERIFIED | PARTIALLY VERIFIED | NOT VERIFIED |
+| Persistent image lifecycle / CSP | PARTIALLY VERIFIED | Actual S3 upload/read/delete/provider404 | partner_assets,0020 /PR150 | Image validation;browser render;draft/public visibility | VERIFIED | VERIFIED | NOT VERIFIED |
 | Cloudflare necessity / edge verification | PARTIALLY VERIFIED | Vercel production request;optional R2;failed external check | storage_service/existing integration | Cloudflare edge/dashboard not verified | PARTIALLY VERIFIED | NOT VERIFIED | PARTIALLY VERIFIED |
 | Credentials / rotation | PARTIALLY VERIFIED | Secret-manager configuration;no values in deliverables | Provider settings;no credential values in Git | Test credentials removed;exposed keys not rotated | PARTIALLY VERIFIED | PARTIALLY VERIFIED | NOT VERIFIED |
 
 ## Remaining blockers and work — explicitly not closed
 
-1. Vercel staging deployment and repeat UAT on that exact deployed commit;
-   final CI/release, approved production migration and smoke checks.
+1. Approved production migration/release and post-deployment smoke checks.
+   Vercel8081b0c staging UAT passed; do not equate that with production readiness
+   or deployment of the exact later test/evidence commit23dc1b9.
 2. **BRD §2.1/3.4 requires placement billing and CPC surfaces.** Trusted serving
    receipts, spend authorization/funding, fraud controls, financial ledger,
    refund/reconciliation and actual ad delivery are not delivered by a counter
@@ -208,8 +243,8 @@ are under [`evidence/2026-09-21`](evidence/2026-09-21/README.md).
    store operating hours and automatic low-stock notifications are not certified
    by this delivery's narrower operational tests.
 8. Exposed credential rotation remains unperformed. Coordinated production
-   credential replacement/redeployment is unsafe while Vercel deployment is
-   quota-blocked and dependency impact is unknown. Do not treat a private local
+   credential replacement/redeployment is unsafe while deployment attempts remain
+   intermittently quota-limited and dependency impact is unknown. Do not treat a private local
    file as a secret manager or assume existing historical secret exceptions
    mean the old credentials have been rotated.
 

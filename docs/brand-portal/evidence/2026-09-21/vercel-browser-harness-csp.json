@@ -1,0 +1,16 @@
+{
+  "runtime": "Vercel preview8081b0c + isolated Neon/S3",
+  "steps": [
+    {
+      "step": "UI password sign-in and browser session cookie",
+      "passed": true
+    }
+  ],
+  "api_failures": [],
+  "page_errors": [
+    "Error"
+  ],
+  "outcome": "FAILED",
+  "error_type": "Error",
+  "error_detail": "Page.wait_for_function: EvalError: Evaluating a string as JavaScript violates the following Content Security Policy directive because 'unsafe-eval' is not an allowed source of script: script-src 'self'\"."
+}

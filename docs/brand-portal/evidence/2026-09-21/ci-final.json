@@ -1,0 +1,47 @@
+{
+  "commit": "23dc1b9b6515dd681d5f06552175ed4da545ea2a",
+  "checks": [
+    {
+      "name": "release gate (production schema parity)",
+      "status": "completed",
+      "conclusion": "failure",
+      "url": "https://github.com/OmarAhmed-123/CONFIT_A/actions/runs/35601243628/job/106337607605"
+    },
+    {
+      "name": "Workers Builds: confit-a",
+      "status": "completed",
+      "conclusion": "failure",
+      "url": "https://dash.cloudflare.com/e3269d9680d92a18d3e9492b2ac38989/workers/services/view/confit-a/production/builds/b037d11b-b606-45ca-bc81-f98110df2c5c"
+    },
+    {
+      "name": "backend",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/OmarAhmed-123/CONFIT_A/actions/runs/35601143582/job/106337281312"
+    },
+    {
+      "name": "postgres migration chain + schema gate",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/OmarAhmed-123/CONFIT_A/actions/runs/35601143582/job/106337281240"
+    },
+    {
+      "name": "production parity (deployment contract)",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/OmarAhmed-123/CONFIT_A/actions/runs/35601143582/job/106337281216"
+    },
+    {
+      "name": "gitleaks secret scan (full history)",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/OmarAhmed-123/CONFIT_A/actions/runs/35601143678/job/106337281080"
+    },
+    {
+      "name": "frontend",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/OmarAhmed-123/CONFIT_A/actions/runs/35601143582/job/106337280960"
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+{
+  "staging_deployment": "8081b0ccd832426e4b976feca9ae66fdec8e9349",
+  "staging_url": "https://confit-i8hfiv324-omarsafealden-3943s-projects.vercel.app",
+  "production_modified_by_mission": false,
+  "staging": {
+    "http_status": 200,
+    "status": "healthy",
+    "schema": {
+      "verdict": "ok",
+      "expected_head": "0021_partner_counter_journal",
+      "database_revision": "0021_partner_counter_journal",
+      "missing_tables": [],
+      "missing_columns": {},
+      "findings": [],
+      "blocking": false,
+      "acceptable": true
+    },
+    "server": "Vercel",
+    "vercel_header_present": true,
+    "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https://images.unsplash.com https://placehold.co https://br-mute-waterfall-b2p706dr.storage.c-6.eu-central-1.aws.neon.tech; connect-src 'self' https://br-mute-waterfall-b2p706dr.storage.c-6.eu-central-1.aws.neon.tech; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+  },
+  "production": {
+    "http_status": 200,
+    "status": "healthy",
+    "schema": {
+      "verdict": "ok",
+      "expected_head": "0018_outfit_share_lifecycle",
+      "database_revision": "0018_outfit_share_lifecycle",
+      "missing_tables": [],
+      "missing_columns": {},
+      "findings": [],
+      "blocking": false,
+      "acceptable": true
+    },
+    "server": "Vercel",
+    "vercel_header_present": true,
+    "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https://images.unsplash.com https://placehold.co https://br-mute-waterfall-b2p706dr.storage.c-6.eu-central-1.aws.neon.tech; connect-src 'self' https://br-mute-waterfall-b2p706dr.storage.c-6.eu-central-1.aws.neon.tech; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+  }
+}

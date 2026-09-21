@@ -21,3 +21,17 @@ network traces are included. Test screenshots contain synthetic staging names.
 Vercel preview was quota-blocked; workspace-runtime UAT is not Vercel deployment.
 
 - `postgres-all-partner-final.txt`: all six partner PostgreSQL files,60 passed,including the original distinct-click budget race and new replay/ownership races.
+
+## Subsequent actual Vercel run (supersedes the initial deployment blocker)
+
+- `deployed-final-checks.json`: deployed8081b0c,staging0021/production0018 healthy after cleanup; actual CSP recorded.
+- `vercel-api-uat.json`: real HTTPS API workflow, all recorded steps pass.
+- `vercel-browser-uat.json`, `vercel-catalog-en.png`, `vercel-audit-ar.png`: Chromium UI checks pass on deployed preview.
+- `vercel-browser-harness-csp.json`: preserved earlier harness eval rejection; native assertions replaced eval, not CSP bypass.
+- `vercel-lifecycle-cleanup.json`: actual S3 read/delete,role guards and immutable migrated triggers.
+- `vercel-cleanup-proof.json`: second-run54-table/zero-object cleanup.
+- `ci-final.json`: core backend/frontend/PostgreSQL/gitleaks/deployment-contract jobs passed on23dc1b9; release gate/Cloudflare failed. Later documentation-only commits are not covered by these job results.
+
+The earlier statement that Vercel preview was blocked describes the initial
+phase only. The final report above records the later automatic READY deployment
+and actual successful UAT,without claiming production deployment.

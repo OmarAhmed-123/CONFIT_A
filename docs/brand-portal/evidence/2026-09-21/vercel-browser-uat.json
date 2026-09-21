@@ -1,0 +1,44 @@
+{
+  "runtime": "Vercel preview8081b0c + isolated Neon/S3",
+  "steps": [
+    {
+      "step": "UI password sign-in and browser session cookie",
+      "passed": true
+    },
+    {
+      "step": "Catalog renders actual S3-backed image",
+      "passed": true
+    },
+    {
+      "step": "Product editor saves via browser CSRF-protected session",
+      "passed": true
+    },
+    {
+      "step": "Authenticated inventory view renders",
+      "passed": true
+    },
+    {
+      "step": "Authenticated placements view renders",
+      "passed": true
+    },
+    {
+      "step": "Authenticated analytics view renders",
+      "passed": true
+    },
+    {
+      "step": "Authenticated team view renders",
+      "passed": true
+    },
+    {
+      "step": "Authenticated audit view renders",
+      "passed": true
+    },
+    {
+      "step": "Arabic locale and RTL on audit view",
+      "passed": true
+    }
+  ],
+  "api_failures": [],
+  "page_errors": [],
+  "outcome": "PASS"
+}

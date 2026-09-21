@@ -1,0 +1,10 @@
+{
+  "scope": "Only dedicated staging database; production connection never used for cleanup",
+  "runtime": "Vercel preview8081b0c",
+  "strategy": "Verified exactly three UAT accounts,disabled them,cleared dedicated staging test data using migration role;retained schema/migration history. Audit is not owner-proof.",
+  "empty_tables": 54,
+  "remaining_test_rows": 0,
+  "remaining_staging_objects": 0,
+  "retained_schema": "0021_partner_counter_journal",
+  "production_modified": false
+}

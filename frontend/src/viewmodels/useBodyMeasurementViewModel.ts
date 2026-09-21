@@ -13,27 +13,50 @@ export function useBodyMeasurementViewModel() {
   const { isAuthenticated } = useAuthStore();
   const { showToast, openAuthModal } = useUIStore();
 
-  const startMeasurementSession = useCallback(async (captureMode: 'client_side' | 'server_side' | 'manual' = 'client_side') => {
+  /**
+   * Start a measurement session.
+   *
+   * `consentGranted` must reflect a real user action — it is passed in, never
+   * assumed. On failure this returns null: the previous version returned the
+   * literal id `1`, so a failed session silently wrote the caller's body
+   * measurements into somebody else's session id.
+   */
+  const startMeasurementSession = useCallback(async (
+    captureMode: 'client_side' | 'server_side' | 'manual' = 'client_side',
+    consentGranted = false,
+  ) => {
     setIsCapturing(true);
     setError(null);
     try {
-      const res = await measurementService.createSession(captureMode);
+      const res = await measurementService.createSession(captureMode, { consentGranted });
       setSessionId(res.id);
       return res.id;
     } catch (err: any) {
       setError(err.message || 'Session creation failed');
-      return 1;
+      return null;
+    } finally {
+      setIsCapturing(false);
     }
   }, []);
 
   const saveDerivedMeasurements = useCallback(async (data: MeasurementSessionResult) => {
     setMeasurements(data);
-    const activeSessionId = sessionId || 1;
+    if (!sessionId) {
+      // No session => nothing to attach the results to. Reporting success here
+      // (as the `sessionId || 1` fallback effectively did) told the user their
+      // measurements were saved when they were not.
+      setError('No active measurement session — start one before submitting results.');
+      showToast('Could not save measurements: no active measurement session.', 'error');
+      return false;
+    }
     try {
-      await measurementService.submitResults(activeSessionId, data);
-      showToast('Body proportions estimated and applied to active fitting session.', 'success');
+      await measurementService.submitResults(sessionId, data);
+      showToast('Body proportions saved to this measurement session.', 'success');
+      return true;
     } catch (err: any) {
-      console.warn('Measurement submit fallback', err);
+      setError(err?.message || 'Could not submit measurements');
+      showToast('Could not save measurements: ' + (err?.message || 'unknown error'), 'error');
+      return false;
     }
   }, [sessionId, showToast]);
 
@@ -49,7 +72,7 @@ export function useBodyMeasurementViewModel() {
     try {
       await measurementService.saveToProfile(sessionId);
       setIsSaving(false);
-      showToast('Measurements encrypted with Fernet-256 and saved to profile!', 'success');
+      showToast('Measurements saved to your profile and encrypted at rest.', 'success');
     } catch (err: any) {
       setIsSaving(false);
       showToast('Failed to save to profile: ' + err.message, 'error');

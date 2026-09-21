@@ -298,18 +298,83 @@ export interface TryOnResult {
   expires_at?: string;
 }
 
+/**
+ * Fit Finder result — mirrors backend NoPhotoFitResponse (schemas/tryon.py).
+ *
+ * `recommended` is the discriminator callers MUST branch on. When it is false
+ * the engine deliberately declined to name a size (no chart, no stock, not
+ * enough evidence) and `reason_code` says which. That is a successful, honest
+ * response — the UI must render the refusal, never fall back to a guess.
+ */
+export interface FitSizeChartSource {
+  source: 'brand_published' | 'standard_en13402' | 'none';
+  label: string;
+  updated_at: string | null;
+  standard: string | null;
+  measurement_type: 'body' | 'garment';
+  is_brand_published: boolean;
+  notes: string[];
+}
+
+export interface FitSizeRow {
+  size: string;
+  ranges_cm: Record<string, [number, number]>;
+  fit_score: number;
+  fit_rating: string;
+  in_stock: boolean;
+  stock_level: number | null;
+  is_recommended: boolean;
+}
+
+export interface FitBrandTendency {
+  summary: string;
+  has_published_chart: boolean;
+  chart_updated_at: string | null;
+  return_rate_signal: string | null;
+  known_size_bias: string | null;
+  known_size_bias_note: string;
+}
+
+export interface FitReturnRisk {
+  label: string;
+  basis: string;
+  fit_score?: number;
+  confidence?: number;
+  note?: string;
+}
+
 export interface NoPhotoFitResult {
   product_id: number;
-  recommended_size: string;
+  recommended: boolean;
+  recommended_size: string | null;
+  alternative_size: string | null;
+  is_between_sizes: boolean;
   confidence_score: number;
+  confidence_factors: string[];
+  is_estimated: boolean;
+  fit_verdict: string;
+  confidence_disclosure: string;
+  reason_code?: string | null;
+  missing?: string[];
+  diagnostics?: Record<string, unknown>;
   fit_breakdown: Record<string, string>;
-  size_comparison_table: Array<{
-    size: string;
-    chest: string;
-    waist: string;
-    fit_rating: string;
-  }>;
-  brand_sizing_tendency: string;
+  size_comparison_table: FitSizeRow[];
+  measurements_used: Record<string, unknown> & {
+    estimated_fields?: string[];
+    sections_scored?: string[];
+  };
+  size_chart_source: FitSizeChartSource;
+  garment: {
+    garment_class: string;
+    material: string | null;
+    ease_targets_cm: Record<string, number>;
+    category: string | null;
+  };
+  brand_sizing_tendency: FitBrandTendency;
+  return_risk: FitReturnRisk;
+  notes: string[];
+  engine_version: string;
+  /** @deprecated legacy free-text field retained for the PDP */
   return_risk_score: string;
 }
 

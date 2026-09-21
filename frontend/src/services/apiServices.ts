@@ -788,7 +788,9 @@ export const commerceService = {
       body: JSON.stringify({ quantity }),
     }),
 
-  removeFromCart: (itemId: number) =>
+  // Single canonical DELETE endpoint. (Previously duplicated as removeFromCart;
+  // DRY — one method, and the store's removeItem consumes it.)
+  removeItem: (itemId: number) =>
     request<Cart>(`/commerce/cart/items/${itemId}`, { method: "DELETE" }),
 
   // P0-01e: move guest-cart lines into the authenticated user's cart.
@@ -798,8 +800,6 @@ export const commerceService = {
       method: "POST",
       body: JSON.stringify({ guest_token: guestToken }),
     }),
-  removeItem: (itemId: number) =>
-    request<Cart>(`/commerce/cart/items/${itemId}`, { method: "DELETE" }),
 
   applyPromo: (promo_code: string) =>
     request<Cart>("/commerce/cart/promo", {

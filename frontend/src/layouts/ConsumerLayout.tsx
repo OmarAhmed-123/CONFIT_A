@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Outlet, Link } from 'react-router-dom';
+import { useCapabilities } from '../hooks/useCapabilities';
 import { ConsumerNavbar } from '../components/navigation/ConsumerNavbar';
 import { VirtualStylistDrawer } from '../components/stylist/VirtualStylistDrawer';
 import { VirtualTryOnModal } from '../components/tryon/VirtualTryOnModal';
@@ -15,6 +16,7 @@ import { SparkleIcon } from '../components/icons/ConfitIcons';
 
 export const ConsumerLayout: React.FC = () => {
   const { t } = useTranslation();
+  const { capabilities } = useCapabilities();
   const { openStylist } = useUIStore();
   // AUTH-02 FIX: fetchMe bootstrap moved to App (session must restore on
   // /b2b and /admin too); AuthModal/Toast are now mounted at the app root.
@@ -89,8 +91,16 @@ export const ConsumerLayout: React.FC = () => {
           <div className="space-y-3">
             <div className="font-bold text-white uppercase tracking-wider text-[11px]">{t('footer.commerce_trust')}</div>
             <ul className="space-y-2 font-light">
-              <li><span className="text-slate-300">{t('footer.bnpl_line')}</span></li>
-              <li><span className="text-slate-300">{t('footer.bopis_line')}</span></li>
+              <li>
+                <span className="text-slate-300">
+                  {capabilities.bnpl_live ? t('footer.bnpl_line') : t('footer.bnpl_demo_line')}
+                </span>
+              </li>
+              <li>
+                <span className="text-slate-300">
+                  {capabilities.bopis_live ? t('footer.bopis_line') : t('footer.bopis_soon_line')}
+                </span>
+              </li>
               <li><span className="text-slate-300">{t('footer.returns_line')}</span></li>
               <li><span className="text-slate-300">{t('footer.gdpr_line')}</span></li>
             </ul>

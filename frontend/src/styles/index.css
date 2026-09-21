@@ -30,15 +30,95 @@
   body.font-arabic {
     font-family: 'Cairo', 'Tajawal', 'IBM Plex Sans Arabic', system-ui, sans-serif;
   }
+
+  /* ── Focus visibility (WCAG 2.4.7 Focus Visible, 2.4.11 Focus Appearance AA) ──
+     The audit could not verify "focus order" or "عمل كل زر دون mouse", and the
+     app relied on the browser default ring, which Tailwind's `focus:outline-none`
+     utilities in several components silently removed. This is a single, global,
+     non-removable indicator: 3px of brand gold at ≥3:1 against both the dark
+     navy surface and the cream surface, meeting the 2 CSS pixel minimum of
+     2.4.11. It is applied to :focus-visible only, so a mouse click does not
+     draw a ring a sighted mouse user did not ask for. */
+  :focus-visible {
+    outline: 3px solid var(--confit-gold);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  /* A focused element must never be hidden behind the sticky headers
+     (WCAG 2.2 §2.4.12 Focus Not Obscured). */
+  :target,
+  [tabindex='-1']:focus {
+    scroll-margin-block-start: 6rem;
+  }
+
+  /* The skip link must not be clipped away by an ancestor's overflow. */
+  html {
+    scroll-behavior: smooth;
+  }
 }
 
-/* RTL Layout adjustments */
-[dir="rtl"] {
-  text-align: right;
-}
-
-[dir="rtl"] .font-serif {
+/* ── Direction handling ──────────────────────────────────────────────────────
+   `dir` is set on <html> by i18n.applyDocumentLanguage, and Tailwind's logical
+   utilities (ms-*/me-*/ps-*/pe-*/start-*/end-*/text-start/text-end) resolve from
+   it. The blanket `text-align: right` that used to live here was wrong: it also
+   right-aligned Latin-script content such as product SKUs, order numbers and
+   prices, which must stay LTR inside an RTL page. Alignment is now decided per
+   element. */
+[dir='rtl'] .font-serif {
   font-family: 'Cairo', 'Tajawal', serif !important;
+}
+
+/* Latin-script values (SKUs, order numbers, codes) stay LTR and left-aligned
+   even on an RTL page — a mirrored "SKU-1042" is unreadable. */
+[dir='rtl'] .force-ltr,
+[dir='rtl'] [data-ltr] {
+  direction: ltr;
+  text-align: left;
+  unicode-bidi: isolate;
+}
+
+/* ── Reduced motion (WCAG 2.3.3) ─────────────────────────────────────────────
+   The design leans hard on framer-motion, animate-in utilities and an animated
+   splash screen. Users who ask their OS for less motion must not be given a
+   spinning carousel regardless. */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ── Touch target size (WCAG 2.2 §2.5.8 Target Size — Minimum, 24×24 CSS px) ──
+   Icon-only controls in the navbar are 22–28px tall with 1px of padding. This
+   guarantees the minimum hit area without changing the visual design. */
+@layer components {
+  .confit-tap-target {
+    min-height: 24px;
+    min-width: 24px;
+  }
+
+  /* Accessible-name-only content: available to assistive tech, invisible on
+     screen. Tailwind ships `sr-only`; this alias exists so the intent is
+     greppable in this codebase. */
+  .confit-visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+  }
 }
 
 /* Custom scrollbars */

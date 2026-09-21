@@ -20,7 +20,7 @@ audit trail, admin order transitions, health / observability.
 | G-05, G-06, G-07, G-16 — audit trail truth, redaction, UI, honest tests | ✅ shipped | #135 |
 | G-01, G-02, G-03, G-04 — style heatmap honesty and one contract | ✅ shipped | #143 |
 | G-08, G-09, G-17 — public health is minimal, readiness cannot lie | ✅ shipped | #152 |
-| G-10, G-11, G-12 — admin access governance and bootstrap | ⏳ open | next |
+| G-10, G-11, G-12 — every alias tested, one token extractor, a safe bootstrap | ✅ shipped | #154 |
 | G-13, G-14, G-15 — one revenue vocabulary, flat query cost, real time window | ✅ shipped | #148 |
 
 This register is a teaching artefact, not a scorecard: every row exists so the
@@ -236,7 +236,7 @@ by name in the public liveness payload.
 
 ## G-10 — No test proves a consumer cannot reach an admin alias  *(VERIFIED)*
 
-**Status:** ⏳ OPEN — planned for the admin access governance PR.
+**Status:** ✅ **FIXED** — PR #154. `backend/tests/test_admin_route_governance.py` enumerates the application's own OpenAPI registry and parametrizes over every path whose segments include `admin` — **51 routes across all three prefixes** (`/admin`, `/api/v1/admin`, `/v1/admin`). Guest, consumer and malformed-token requests must each get 401/403, and a 404 is treated as a failure rather than a pass so a missing guard cannot hide behind routing. An endpoint added next week is covered the moment it is registered. Three meta-tests stop the suite passing vacuously: the enumeration must find ≥20 routes, all three prefixes must be present, and every route must exist under every alias.
 
 Admin endpoints are registered with **five aliases**:
 `/admin/analytics`, `/admin/overview`, `/admin/analytics/overview`,
@@ -253,7 +253,7 @@ aliases are covered automatically.
 
 ## G-11 — `require_admin_recent` does not use the platform's token extractor  *(CODE-READ)*
 
-**Status:** ⏳ OPEN — planned for the admin access governance PR.
+**Status:** ✅ **FIXED** — PR #154. `require_admin_recent` now calls `_extract_token`. It previously read `credentials.credentials` or the cookie directly, skipping the bare `Authorization` header and the Vercel `***` redaction marker that the shared extractor handles — so the same token authenticated for `require_role` but failed step-up, leaving an admin who could read the dashboard and not act on it. The regression test runs on a **cookie-free** client on purpose: `TestClient` keeps a jar per instance and the httpOnly cookie fallback was masking the bug, which is why the first version of the test passed against the broken code.
 
 `core/dependencies.py:120-138` reads the token as
 `credentials.credentials if credentials else request.cookies.get("confit_token")`,
@@ -269,7 +269,7 @@ rest of the API works.
 
 ## G-12 — No production admin account and no sanctioned way to create one  *(VERIFIED)*
 
-**Status:** ⏳ OPEN — planned for the admin access governance PR.
+**Status:** ✅ **FIXED** — PR #154. `backend/scripts/bootstrap_admin.py` promotes an **existing, verified, active** account; it never creates a user and never sets a password. Requires `ADMIN_BOOTSTRAP_TOKEN` (≥32 chars) from the environment plus `--confirm`; the token is never printed, logged or audited. Idempotent — a retry writes no second escalation row. `--revoke` refuses to remove the last active admin. Every change is audited through the same `log_audit` path as the API, so G-06's redaction applies. Verified end to end through the CLI: promote → idempotent retry → revoke, with the rows read back from the database.
 
 `seed_data.py:68-78` creates `admin@confit.io / Password123!` and refuses to run
 when `ENVIRONMENT=production` (`:23-31`). That refusal is correct — but it leaves

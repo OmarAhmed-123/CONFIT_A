@@ -1,3 +1,4 @@
+import { msg, detail } from '../i18n/messages';
 import { useState, useCallback } from 'react';
 import { measurementService, MeasurementSessionResult } from '../services/measurementService';
 import { useAuthStore } from '../stores/authStore';
@@ -46,23 +47,23 @@ export function useBodyMeasurementViewModel() {
       // (as the `sessionId || 1` fallback effectively did) told the user their
       // measurements were saved when they were not.
       setError('No active measurement session — start one before submitting results.');
-      showToast('Could not save measurements: no active measurement session.', 'error');
+      showToast(msg('toast.measurements_no_session'), 'error');
       return false;
     }
     try {
       await measurementService.submitResults(sessionId, data);
-      showToast('Body proportions saved to this measurement session.', 'success');
+      showToast(msg('toast.measurements_saved_session'), 'success');
       return true;
     } catch (err: any) {
       setError(err?.message || 'Could not submit measurements');
-      showToast('Could not save measurements: ' + (err?.message || 'unknown error'), 'error');
+      showToast(msg('toast.measurements_save_failed', { reason: detail(err) }), 'error');
       return false;
     }
   }, [sessionId, showToast]);
 
   const savePermanentlyToProfile = useCallback(async () => {
     if (!isAuthenticated) {
-      showToast('Sign in to permanently save your biometric sizing to your User Style Profile.', 'info');
+      showToast(msg('toast.measurements_signin_to_save'), 'info');
       openAuthModal('login');
       return;
     }
@@ -72,10 +73,10 @@ export function useBodyMeasurementViewModel() {
     try {
       await measurementService.saveToProfile(sessionId);
       setIsSaving(false);
-      showToast('Measurements saved to your profile and encrypted at rest.', 'success');
+      showToast(msg('toast.measurements_saved_encrypted'), 'success');
     } catch (err: any) {
       setIsSaving(false);
-      showToast('Failed to save to profile: ' + err.message, 'error');
+      showToast(msg('toast.measurements_profile_failed', { reason: detail(err) }), 'error');
     }
   }, [isAuthenticated, sessionId, showToast, openAuthModal]);
 

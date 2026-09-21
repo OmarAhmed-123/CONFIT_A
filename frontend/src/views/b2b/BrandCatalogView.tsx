@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useModalFocus } from '../../hooks/useModalFocus';
 import { useCallback } from 'react';
 import React, { useState, useRef } from 'react';
@@ -5,6 +6,7 @@ import { useBrandViewModel } from '../../viewmodels/useBrandViewModel';
 import { LoadingSpinner } from '../../components/common/CommonComponents';
 
 export const BrandCatalogView: React.FC = () => {
+  const { t } = useTranslation();
   const { products, updateSKUInventory, isLoading, uploadCatalogCSV, importJobs, fetchErrors, refresh, isUploading } = useBrandViewModel();
   const [editingSkuId, setEditingSkuId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
@@ -192,7 +194,7 @@ export const BrandCatalogView: React.FC = () => {
                       <th className="py-2">Color</th>
                       <th className="py-2">Warehouse Stock</th>
                       <th className="py-2">Price Override</th>
-                      <th className="py-2">Warehouse Status</th>
+                      <th className="py-2">{t('b2b.warehouse_status')}</th>
                       <th className="py-2 text-right">Actions</th>
                     </tr>
                   </thead>
@@ -285,7 +287,7 @@ export const BrandCatalogView: React.FC = () => {
       {/* Bulk CSV Modal - REAL IMPLEMENTATION */}
       {bulkModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm">
-          <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Import catalog" tabIndex={-1} className="w-full max-w-lg bg-white rounded-3xl p-6 shadow-2xl space-y-4">
+          <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={t('b2b.import_catalog')} tabIndex={-1} className="w-full max-w-lg bg-white rounded-3xl p-6 shadow-2xl space-y-4">
             <h3 className="font-serif text-lg font-bold text-[#1B1F3B]">Bulk SKU Catalog Importer</h3>
             <div className="text-xs text-slate-600 space-y-2">
               <p>Upload CSV with required columns: <code className="px-1.5 py-0.5 bg-slate-100 rounded text-[10px]">title, category_slug, base_price, color_family, thumbnail_url</code></p>
@@ -294,7 +296,7 @@ export const BrandCatalogView: React.FC = () => {
             </div>
 
             <div
-              role="button" tabIndex={0} aria-label="Choose catalog CSV"
+              role="button" tabIndex={0} aria-label={t('b2b.choose_csv')}
               onKeyDown={e => { if ((e.key === 'Enter' || e.key === ' ') && !isUploading) { e.preventDefault(); fileInputRef.current?.click(); } }}
               onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
               onDragLeave={() => setDragActive(false)}

@@ -263,6 +263,15 @@ class Settings(BaseSettings):
     VTON_WORKER_TIMEOUT_SECONDS: float = 90.0
     VTON_WORKER_HEALTH_TIMEOUT_SECONDS: float = 5.0
     VTON_WORKER_MAX_RETRIES: int = 3
+    # Live worker observability + fail-fast circuit (audit closure 2026-09-21).
+    # Before this, /health and /try-on/capabilities derived "available" from the
+    # presence of env vars, and every request paid ~39 s of readiness retries
+    # before failing. The probe is cached and refreshed in the background; the
+    # circuit makes the Nth user fail in milliseconds instead of ~39 s.
+    VTON_WORKER_PROBE_TTL_SECONDS: float = 60.0
+    VTON_WORKER_PROBE_TIMEOUT_SECONDS: float = 6.0
+    VTON_CIRCUIT_FAILURE_THRESHOLD: int = 2
+    VTON_CIRCUIT_OPEN_SECONDS: float = 120.0
 
     # Self-hosted Qwen2.5-VL vision worker (LOCAL FALLBACK). When
     # QWEN_VL_WORKER_URL is set, VisualSearchAIProvider.fallback uses the local
@@ -356,6 +365,27 @@ class Settings(BaseSettings):
     AWS_REGION: str = "us-east-1"
     S3_ENDPOINT_URL: Optional[str] = None
     S3_PUBLIC_URL_BASE: Optional[str] = None
+    # Audit closure 2026-09-21 (VTON/Photo-Match, gap "storage is local"):
+    # the documented aliases in backend/.env.example (S3_ENDPOINT /
+    # S3_ACCESS_KEY / S3_SECRET_KEY / S3_BUCKET_PRIVATE) never bound to
+    # anything the storage backend read, so an operator who filled in the
+    # example file exactly as written still booted with production_grade=
+    # False. They are accepted as aliases here (see Settings.s3_* properties)
+    # instead of silently ignored.
+    S3_ENDPOINT: Optional[str] = None
+    S3_ACCESS_KEY: Optional[str] = None
+    S3_SECRET_KEY: Optional[str] = None
+    S3_BUCKET_PRIVATE: Optional[str] = None
+    S3_BUCKET_PUBLIC: Optional[str] = None
+    # Server-side encryption enforced on every PUT (AES256 unless the bucket
+    # policy requires KMS). A bucket that refuses an encrypted PUT is a
+    # configuration error we surface loudly instead of retrying unencrypted.
+    S3_SERVER_SIDE_ENCRYPTION: str = "AES256"
+    # Live (network) bucket probe used by /health. Off by default so tests and
+    # local runs stay deterministic; production enables it via env.
+    STORAGE_PROBE_ENABLED: bool = False
+    STORAGE_PROBE_TIMEOUT_SECONDS: float = 5.0
+    STORAGE_PROBE_TTL_SECONDS: float = 300.0
 
     # Privacy & Retention
     POLICY_VERSION: int = 3
@@ -442,6 +472,43 @@ class Settings(BaseSettings):
     @property
     def is_production(self) -> bool:
         return self.ENVIRONMENT.lower() in PRODUCTION_ENVIRONMENTS
+
+    # ------------------------------------------------------------------
+    # Object-storage resolution (single source of truth for every caller).
+    #
+    # Rationale (audit closure 2026-09-21): the storage backend, the health
+    # probe and the delivery staging all need the SAME bucket/credential
+    # resolution. Three call sites reading ``getattr(settings, "X")`` in
+    # slightly different orders is how the documented .env.example aliases
+    # ended up ignored. These properties are the only resolution point.
+    # ------------------------------------------------------------------
+    @property
+    def s3_bucket(self) -> Optional[str]:
+        for value in (self.AWS_S3_BUCKET, self.S3_BUCKET, self.S3_BUCKET_PUBLIC):
+            if value and value.strip():
+                return value.strip()
+        return None
+
+    @property
+    def s3_endpoint_url(self) -> Optional[str]:
+        for value in (self.S3_ENDPOINT_URL, self.S3_ENDPOINT):
+            if value and value.strip():
+                return value.strip().rstrip("/")
+        return None
+
+    @property
+    def s3_access_key(self) -> Optional[str]:
+        for value in (self.AWS_ACCESS_KEY_ID, self.S3_ACCESS_KEY):
+            if value and value.strip():
+                return value.strip()
+        return None
+
+    @property
+    def s3_secret_key(self) -> Optional[str]:
+        for value in (self.AWS_SECRET_ACCESS_KEY, self.S3_SECRET_KEY):
+            if value and value.strip():
+                return value.strip()
+        return None
 
     @model_validator(mode="after")
     def _production_contract(self) -> "Settings":

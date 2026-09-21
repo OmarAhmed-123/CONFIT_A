@@ -18,7 +18,7 @@
  * code these assertions fail — that is the regression gate.
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { renderHook, waitFor } from '@testing-library/react';
+import { renderHook, waitFor, act } from '@testing-library/react';
 
 const mocks = vi.hoisted(() => ({
   getProfile: vi.fn(),
@@ -28,6 +28,7 @@ const mocks = vi.hoisted(() => ({
   getPlatformAnalytics: vi.fn(),
   request: vi.fn(),
   showToast: vi.fn(),
+  updateSKU: vi.fn(),
 }));
 
 vi.mock('../../services/apiServices', () => ({
@@ -36,7 +37,7 @@ vi.mock('../../services/apiServices', () => ({
     getAnalytics: mocks.getAnalytics,
     getProducts: mocks.getProducts,
     getPlacements: mocks.getPlacements,
-    updateSKU: vi.fn(),
+    updateSKU: mocks.updateSKU,
     createPlacement: vi.fn(),
   },
   adminService: { getPlatformAnalytics: mocks.getPlatformAnalytics },
@@ -68,7 +69,7 @@ describe('useBrandViewModel — honest error propagation', () => {
     // The error object is keyed by request — a consumer view can render a
     // real, actionable message per section (never "no data").
     expect(Object.keys(result.current.fetchErrors).sort()).toEqual(
-      ['adminAnalytics', 'analytics', 'conversion', 'imports', 'placements', 'products', 'profile'].sort(),
+      ['analytics', 'conversion', 'imports', 'placements', 'products', 'profile'].sort(),
     );
     expect(result.current.fetchErrors.imports).toContain('500 rest');
     // No fake data materialised from the wreckage.
@@ -113,4 +114,45 @@ describe('useBrandViewModel — honest error propagation', () => {
     expect(result.current.importJobs).toEqual([]);
   });
 
+});
+
+
+describe('useBrandViewModel scope and mutation contracts', () => {
+  beforeEach(() => {
+    mocks.getProfile.mockResolvedValue({id: 1});
+    mocks.getAnalytics.mockResolvedValue({total_views: 0});
+    mocks.getProducts.mockResolvedValue([]);
+    mocks.getPlacements.mockResolvedValue([]);
+    mocks.request.mockResolvedValue([]);
+  });
+  it('never requests platform analytics for a partner screen', async () => {
+    const {result} = renderHook(() => useBrandViewModel());
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(mocks.getPlatformAnalytics).not.toHaveBeenCalled();
+  });
+  it('admin scope requests only the admin endpoint', async () => {
+    mocks.getPlatformAnalytics.mockResolvedValue({total_orders: 0});
+    const {result} = renderHook(() => useBrandViewModel('admin'));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(mocks.getProfile).not.toHaveBeenCalled();
+    expect(mocks.request).not.toHaveBeenCalled();
+    expect(result.current.adminAnalytics).toEqual({total_orders: 0});
+  });
+  it('failed refresh clears old analytics instead of presenting stale data as current', async () => {
+    const {result} = renderHook(() => useBrandViewModel());
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    mocks.getAnalytics.mockRejectedValue(new Error('unavailable'));
+    await act(async () => { await result.current.refresh(); });
+    expect(result.current.analytics).toBeNull();
+    expect(result.current.fetchErrors.analytics).toContain('unavailable');
+  });
+  it('mutation rejection is observable and never produces success toast', async () => {
+    mocks.updateSKU.mockRejectedValue(new Error('not saved'));
+    const {result} = renderHook(() => useBrandViewModel());
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    let saved: unknown;
+    await act(async () => { saved = await result.current.updateSKUInventory(1, 7); });
+    expect(saved).toBe(false);
+    expect(mocks.showToast).not.toHaveBeenCalledWith(expect.any(String), 'success');
+  });
 });

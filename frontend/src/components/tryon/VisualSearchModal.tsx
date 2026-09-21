@@ -1,3 +1,4 @@
+import { translatableFrom, resolveMessage, type TranslatableMessage } from "../../i18n/messages";
 import React, { useState } from "react";
 import { useModalFocus } from "../../hooks/useModalFocus";
 import { compressImageToDataUrl } from "../../lib/imageUpload";
@@ -28,7 +29,7 @@ export const VisualSearchModal: React.FC = () => {
   // Upload-your-own-photo path (audit: the modal previously offered only
   // samples and a URL — no way to search with the user's own image).
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
-  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<TranslatableMessage | null>(null);
   const [isCompressing, setIsCompressing] = useState(false);
   const [openingMatchId, setOpeningMatchId] = useState<number | null>(null);
 
@@ -46,8 +47,8 @@ export const VisualSearchModal: React.FC = () => {
       setUploadedImage(dataUrl);
       setSelectedSample("");
       runVisualSearch({ imageBase64: dataUrl });
-    } catch (err: any) {
-      setUploadError(err?.message || "That image could not be processed.");
+    } catch (err) {
+      setUploadError(translatableFrom(err));
     } finally {
       setIsCompressing(false);
     }
@@ -174,7 +175,7 @@ export const VisualSearchModal: React.FC = () => {
                 className="text-[11px] text-rose-600 font-semibold"
                 role="alert"
               >
-                {uploadError}
+                {resolveMessage(uploadError, t)}
               </p>
             )}
 

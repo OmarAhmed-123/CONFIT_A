@@ -101,10 +101,11 @@ def _vton_capability(vton_worker: Dict[str, Any] | None) -> Capability:
             "virtual_try_on", STATE_DEGRADED, CRITICALITY_CORE,
             "worker reachable but cold or still loading the model",
         )
-    reason = probe.get("reason") or probe.get("error_code") or probe.get("detail") or "unreachable"
+    code = probe.get("error_code") or "VTON_ENGINE_UNAVAILABLE"
+    reason = probe.get("reason") or probe.get("detail") or "no detail from the probe"
     return Capability(
         "virtual_try_on", STATE_BLOCKED, CRITICALITY_CORE,
-        f"worker configured but cannot serve jobs: {reason}",
+        f"worker configured but cannot serve jobs: {code} — {reason}",
     )
 
 

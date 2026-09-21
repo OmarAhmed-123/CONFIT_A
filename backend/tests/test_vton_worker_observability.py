@@ -38,6 +38,17 @@ from backend.app.services.vton_worker_observability import (
 
 client = TestClient(app)
 
+def _admin():
+    """G-08: per-capability diagnostics moved to the admin-only readiness surface."""
+    # A throwaway client: TestClient shares a cookie jar per instance, and
+    # logging in on the module-level one would authenticate every later call.
+    r = TestClient(app).post("/api/v1/auth/login",
+                             json={"email": "admin@confit.io", "password": "Password123!"})
+    assert r.status_code == 200, r.text
+    return {"Authorization": f"Bearer {r.json()['access_token']}"}
+
+
+
 # The literal response body the production endpoint returned.
 MODAL_DISABLED_BODY = "modal-http: workspace ac-io3nXB7Q2nuaHHl8mVkeLH is disabled"
 MODAL_SPEND_LIMIT = "ResourceExhaustedError: Workspace ac-io3nXB7Q2nuaHHl8mVkeLH has exceeded its spend limit"
@@ -248,16 +259,30 @@ def dead_worker(monkeypatch):
 
 
 def test_health_reports_degraded_and_the_real_reason(dead_worker):
+    """A dead try-on engine must be reported — and named, not just darkened.
+
+    G-09 split the two questions this test used to fold into one field.
+    ``status`` is liveness scope: the API is still serving traffic, so it stays
+    healthy. The outage is reported through ``ready`` and
+    ``blocking_capabilities``, which is a stronger statement than "degraded"
+    because it says *what* is broken. The machine-readable worker verdict and
+    the human string moved to the admin-only readiness surface (G-08).
+    """
     res = client.get("/api/v1/health")
     assert res.status_code == 200
-    body = res.json()
-    # An API whose try-on engine is dead is NOT "healthy".
-    assert body["status"] == "degraded"
+    public = res.json()
+    assert public["status"] == "healthy", "the API is still serving; liveness is unaffected"
+    assert public["ready"] is False, "but a core capability is down"
+    assert "virtual_try_on" in public["blocking_capabilities"]
+
+    body = client.get("/api/v1/health/ready", headers=_admin()).json()
     worker = body["checks"]["vton_worker"]
     assert worker["production_ready"] is False
     assert worker["error_code"] == "VTON_ENGINE_UNAVAILABLE"
     assert body["checks"]["vton_pipeline"].startswith("unavailable:")
     assert "is disabled" in body["checks"]["vton_pipeline"]
+    # and the capability carries the real reason, not just a state
+    assert "VTON_ENGINE_UNAVAILABLE" in body["capabilities"]["virtual_try_on"]["detail"]
 
 
 def test_capabilities_no_longer_claims_available(dead_worker):
@@ -323,8 +348,11 @@ def test_health_stays_healthy_when_tryon_is_simply_not_configured(monkeypatch):
     vwo.reset_worker_observability()
     try:
         body = client.get("/api/v1/health").json()
-        assert body["checks"]["vton_worker"]["verdict"] == "not_configured"
         assert body["status"] == "healthy"
+        # not offered is not broken: it must not block readiness either
+        assert "virtual_try_on" not in body["blocking_capabilities"]
+        detail = client.get("/api/v1/health/ready", headers=_admin()).json()
+        assert detail["checks"]["vton_worker"]["verdict"] == "not_configured"
     finally:
         vwo.reset_worker_observability()
 

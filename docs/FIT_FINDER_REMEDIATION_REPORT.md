@@ -134,7 +134,32 @@ only contains what was expected is not a real report.
 | 9 | Parity gate pinned `0018_partner_onboarding_email_lifecycle`, **a revision that has never existed** | Fixed |
 | 10 | All nine seeded products had `size_chart_json = "{}"` | Fixed |
 
-### 3.1 A mistake made during this work
+### 3.1 A defect found by testing the merged code in production
+
+After all three PRs were merged and deployed, the audit's original impossible
+body (chest 130, waist 120) was replayed against production. The engine had
+clearly improved — confidence fell 85 → 50, the provenance was disclosed, and
+the breakdown read `"your 130 cm vs 86-94 cm for size S: too tight (+36 cm)"`
+with `fit_verdict: "Does not fit"`.
+
+**But it still returned `recommended: true` and named size S.**
+
+Two thresholds disagreed. The refusal gate fired only at `score <= 0`, which the
+penalty curve never reaches because it is floored above zero, while the
+presentation layer labels anything below 45 "Does not fit". The engine was
+recommending a garment it simultaneously described as not fitting.
+
+The confidence floor could never have caught this: confidence measures *how sure
+we are*, and the engine was quite sure this did not fit. Fit quality needed its
+own gate. Fixed in PR #127 with the two thresholds tied together and the
+production case pinned as a regression test.
+
+This is recorded prominently because it is the most important thing in this
+report: **the fix was not finished when the tests passed and the PRs merged.**
+It was finished when someone ran the original failing input against the deployed
+system and read the output.
+
+### 3.2 A mistake made during this work
 
 Seeding real charts (finding 10) introduced a *new* false claim: the parser
 labelled any product chart `"Brand-published size chart"`, which would have told
@@ -153,8 +178,8 @@ Everything below is reproducible from the repository.
 
 | Check | Result |
 |---|---|
-| Backend suite | **1,262 passed, 2 skipped** |
-| Fit-specific tests | **114 passed** (acceptance + API + charts + session security) |
+| Backend suite | **1,307 passed, 2 skipped** |
+| Fit-specific tests | **116 passed** (acceptance + API + charts + session security) |
 | Frontend typecheck | `tsc --noEmit` clean |
 | Frontend tests | **110 passed**, 21 files |
 | Frontend build | succeeds, 2,071 modules |
@@ -204,8 +229,9 @@ behaviour, would have agreed with the bug.
 | [#123](https://github.com/OmarAhmed-123/CONFIT_A/pull/123) | Fit Finder (1/3): a real size-recommendation engine replacing the BMI guess | Backend engine, 79 tests |
 | [#125](https://github.com/OmarAhmed-123/CONFIT_A/pull/125) | Fit Finder (2/3): surface the real engine output in the UI | Frontend contract, refusals, units |
 | [#126](https://github.com/OmarAhmed-123/CONFIT_A/pull/126) | Fit Finder (3/3): seed real size charts, close the remaining audit items | Charts, consent, rate limits, gate pin |
+| [#127](https://github.com/OmarAhmed-123/CONFIT_A/pull/127) | Fit Finder (4/4): never recommend a size the engine itself calls "Does not fit" | Post-deploy production finding (§3.1) |
 
-All on one branch, all merged to `main` via merge commits.
+All four on one branch, all merged to `main` via merge commits.
 
 Backwards compatibility was preserved throughout: legacy `*_cm` / `weight_kg`
 request fields and the `return_risk_score` response string are still accepted

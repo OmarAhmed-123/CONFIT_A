@@ -111,11 +111,30 @@ class UserOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class ExportIntegrity(BaseModel):
+    """Verifiable evidence that the export archive is complete/untampered.
+
+    Audit remediation: showing a download button is not proof the export
+    worked — the checksum + byte size let the UI display what was produced
+    and let the user verify the file after download.
+    """
+
+    algorithm: str
+    checksum_sha256: str
+    canonical_bytes: int
+
+
 class GDPRExportResponse(BaseModel):
     user: UserOut
     profile: Optional[Dict[str, Any]]
+    # The ACTUAL personal data (GDPR Art. 15/20) — profile, consents, mood
+    # boards, wardrobe, outfits, orders (+line items), try-on and stylist
+    # sessions. Counts are kept for backwards compatibility with existing
+    # clients but are no longer the whole payload.
+    data: Dict[str, Any]
     wardrobe_items_count: int
     orders_count: int
     tryon_sessions_count: int
+    export_integrity: ExportIntegrity
     exported_at: datetime
     data_retention_policy: str

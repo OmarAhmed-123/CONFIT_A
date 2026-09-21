@@ -1,5 +1,6 @@
 import React from 'react';
 import { SparkleIcon } from '../icons/ConfitIcons';
+import { formatMoney } from '../../lib/money';
 
 export const Toast: React.FC<{
   message: string;
@@ -95,16 +96,17 @@ export const BNPLBadge: React.FC<{
   provider?: string;
   installmentAmount?: number | null;
   eligible?: boolean;
-}> = ({ price, provider, installmentAmount, eligible = true }) => {
+  currency?: string | null;
+}> = ({ price, provider, installmentAmount, eligible = true, currency }) => {
   if (!eligible) {
     return null;
   }
-  const installment = (installmentAmount ?? price / 4).toFixed(2);
+  const installment = formatMoney(installmentAmount ?? price / 4, currency);
   const label = provider || 'your BNPL partner';
   return (
     <div className="inline-flex items-center gap-1.5 text-[11px] text-slate-600 bg-slate-50 border border-slate-200/80 px-2.5 py-1 rounded-lg">
       <span className="font-light">or 4 interest-free payments of</span>
-      <span className="font-bold text-[#1B1F3B]">${installment}</span>
+      <span className="font-bold text-[#1B1F3B]">{installment}</span>
       <span className="text-[10px] font-bold text-[#7A5C28] uppercase tracking-wider">with {label}</span>
     </div>
   );

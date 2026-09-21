@@ -515,6 +515,7 @@ export interface Order {
   shipping_city?: string | null;
   tracking_number?: string | null;
   estimated_delivery_date?: string | null;
+  ready_for_pickup_at?: string | null;
   try_on_assisted: boolean;
   stylist_assisted: boolean;
   items: OrderItem[];
@@ -541,6 +542,8 @@ export interface OrderTrackingTimeline {
   order_number: string;
   current_status: string;
   estimated_delivery?: string;
+  estimated_pickup?: string;
+  bopis_ready_sla?: string | null;
   carrier?: string | null;
   tracking_number?: string;
   timeline: TrackingMilestone[];

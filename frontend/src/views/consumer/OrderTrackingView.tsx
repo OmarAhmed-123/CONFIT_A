@@ -6,6 +6,7 @@ import { commerceService } from '../../services/apiServices';
 import { Order, OrderTrackingTimeline } from '../../models';
 import { BopisIcon } from '../../components/icons/ConfitIcons';
 import { LoadingSpinner, EmptyState } from '../../components/common/CommonComponents';
+import { formatMoney } from '../../lib/money';
 
 export const OrderTrackingView: React.FC = () => {
   const { orderNumber } = useParams<{ orderNumber: string }>();
@@ -131,6 +132,12 @@ export const OrderTrackingView: React.FC = () => {
               {timeline.bopis_store_info?.address && (
                 <p className="text-xs text-slate-600">{timeline.bopis_store_info.address}</p>
               )}
+              {timeline.bopis_ready_sla && timeline.current_status !== 'picked_up' && (
+                <p className="text-[11px] text-[#A37E44] font-semibold mt-1">
+                  {timeline.bopis_ready_sla}
+                  {timeline.estimated_pickup ? ` — estimated ${timeline.estimated_pickup}` : ''}
+                </p>
+              )}
             </div>
           </div>
           {order.bopis_pickup_code && (
@@ -194,7 +201,7 @@ export const OrderTrackingView: React.FC = () => {
                   {it.is_returned ? ' · returned' : ''}
                 </div>
               </div>
-              <div className="text-right font-bold text-slate-900">${it.subtotal.toFixed(2)}</div>
+              <div className="text-right font-bold text-slate-900">{formatMoney(it.subtotal, order.currency)}</div>
             </div>
           ))}
         </div>

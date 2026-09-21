@@ -1,4 +1,5 @@
 import { validateCheckoutSubmission, isValidEmail, CheckoutField } from '../../lib/checkoutValidation';
+import { formatMoney } from '../../lib/money';
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -489,7 +490,7 @@ export const CheckoutView: React.FC = () => {
                     <div className="text-slate-500 text-[11px] font-light">
                       {it.brand_name} · Size {it.size}
                     </div>
-                    <div className="text-slate-900 font-bold mt-0.5">${it.subtotal.toFixed(2)}</div>
+                    <div className="text-slate-900 font-bold mt-0.5">{formatMoney(it.subtotal, cart.currency)}</div>
                     <div className="flex items-center gap-1.5 mt-1">
                       <button
                         type="button"
@@ -552,29 +553,29 @@ export const CheckoutView: React.FC = () => {
             <div className="space-y-2 text-xs text-slate-600 pt-3 border-t border-slate-100 font-light">
               <div className="flex justify-between">
                 <span>Subtotal</span>
-                <span className="font-medium text-slate-900">${subtotal.toFixed(2)}</span>
+                <span className="font-medium text-slate-900">{formatMoney(subtotal, cart.currency)}</span>
               </div>
               {discount > 0 && (
                 <div className="flex justify-between text-emerald-600 font-medium">
                   <span>Discount {cart?.promo_code ? `(${cart.promo_code})` : ''}</span>
-                  <span>-${discount.toFixed(2)}</span>
+                  <span>-{formatMoney(discount, cart.currency)}</span>
                 </div>
               )}
               <div className="flex justify-between">
                 <span>Tax</span>
-                <span>${tax.toFixed(2)}</span>
+                <span>{formatMoney(tax, cart.currency)}</span>
               </div>
               <div className="flex justify-between">
                 <span>Shipping</span>
-                <span>{fulfillmentType === 'bopis' ? 'Pickup' : `$${shipping.toFixed(2)}`}</span>
+                <span>{fulfillmentType === 'bopis' ? 'Pickup' : formatMoney(shipping, cart.currency)}</span>
               </div>
               <div className="flex justify-between text-base font-bold text-[#1B1F3B] pt-3 border-t border-slate-200">
                 <span>Total</span>
-                <span>${total.toFixed(2)}</span>
+                <span>{formatMoney(total, cart.currency)}</span>
               </div>
             </div>
             {cart && cart.bnpl_monthly_quote > 0 && (
-              <BNPLBadge price={total} installmentAmount={cart.bnpl_monthly_quote} eligible />
+              <BNPLBadge price={total} installmentAmount={cart.bnpl_monthly_quote} eligible currency={cart.currency} />
             )}
             <button
               type="submit"

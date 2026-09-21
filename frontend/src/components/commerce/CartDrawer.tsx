@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useCartStore } from '../../stores/cartStore';
 import { BagIcon, SparkleIcon } from '../icons/ConfitIcons';
 import { BNPLBadge } from '../common/CommonComponents';
+import { formatMoney } from '../../lib/money';
 
 export const CartDrawer: React.FC = () => {
   const { t } = useTranslation();
@@ -124,7 +125,7 @@ export const CartDrawer: React.FC = () => {
                           +
                         </button>
                       </div>
-                      <span className="text-xs font-bold text-[#1B1F3B]">${item.subtotal}</span>
+                      <span className="text-xs font-bold text-[#1B1F3B]">{formatMoney(item.subtotal, cart?.currency)}</span>
                     </div>
                   </div>
                 </div>
@@ -138,31 +139,31 @@ export const CartDrawer: React.FC = () => {
               <div className="space-y-1.5 text-xs text-slate-600">
                 <div className="flex justify-between">
                   <span>{t('commerce.subtotal')}</span>
-                  <span className="font-semibold text-slate-900">${subtotal.toFixed(2)}</span>
+                  <span className="font-semibold text-slate-900">{formatMoney(subtotal, cart?.currency)}</span>
                 </div>
                 {(cart?.discount_amount || 0) > 0 && (
                   <div className="flex justify-between text-emerald-600">
                     <span>Discount</span>
-                    <span>-${(cart?.discount_amount || 0).toFixed(2)}</span>
+                    <span>-{formatMoney(cart?.discount_amount || 0, cart?.currency)}</span>
                   </div>
                 )}
                 <div className="flex justify-between">
                   <span>{t('commerce.tax')}</span>
-                  <span>${(cart?.tax_amount ?? 0).toFixed(2)}</span>
+                  <span>{formatMoney(cart?.tax_amount ?? 0, cart?.currency)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>{t('commerce.shipping')}</span>
-                  <span>${(cart?.shipping_amount ?? 0).toFixed(2)}</span>
+                  <span>{formatMoney(cart?.shipping_amount ?? 0, cart?.currency)}</span>
                 </div>
                 <div className="flex justify-between text-sm font-bold text-[#1B1F3B] pt-2 border-t border-slate-100">
                   <span>{t('commerce.total')}</span>
-                  <span>${total.toFixed(2)}</span>
+                  <span>{formatMoney(total, cart?.currency)}</span>
                 </div>
               </div>
 
               {cart && cart.bnpl_monthly_quote > 0 && (
                 <div className="p-2.5 rounded-xl bg-[#FDF8EE] border border-[#B8935A]/30 text-center">
-                  <BNPLBadge price={total} installmentAmount={cart.bnpl_monthly_quote} eligible />
+                  <BNPLBadge price={total} installmentAmount={cart.bnpl_monthly_quote} eligible currency={cart.currency} />
                 </div>
               )}
 

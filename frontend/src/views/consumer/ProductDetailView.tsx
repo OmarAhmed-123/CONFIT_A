@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { catalogService } from "../../services/apiServices";
 import { Product, StoreInventoryLocation } from "../../models";
+import { formatMoney } from "../../lib/money";
 import { useUIStore } from "../../stores/uiStore";
 import { useCartStore } from "../../stores/cartStore";
 import {
@@ -256,7 +257,7 @@ export const ProductDetailView: React.FC = () => {
             </h1>
             <div className="flex items-baseline gap-3 mt-2">
               <span className="text-2xl font-serif font-black text-[#1B1F3B]">
-                ${product.base_price.toFixed(2)}
+                {formatMoney(product.base_price, product.currency)}
               </span>
               <span className="text-xs text-slate-500 font-light">
                 {product.currency}
@@ -268,6 +269,7 @@ export const ProductDetailView: React.FC = () => {
                 <BNPLBadge
                   price={product.base_price}
                   provider={bnpl.provider || undefined}
+                  currency={product.currency}
                   installmentAmount={bnpl.installment_amount}
                   eligible
                 />
@@ -374,7 +376,7 @@ export const ProductDetailView: React.FC = () => {
                   ? "Out of stock"
                   : adding
                     ? "Adding..."
-                    : `Add to bag — $${(currentSku?.price_override ?? product.base_price).toFixed(2)}`}
+                    : `Add to bag — ${formatMoney(currentSku?.price_override ?? product.base_price, product.currency)}`}
               </span>
             </button>
 

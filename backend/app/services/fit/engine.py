@@ -111,6 +111,7 @@ _CONF_BASE = 22.0
 _CONF_PER_MEASURED_SECTION = 12.0     # a real tape measurement of a scored section
 _CONF_PER_ESTIMATED_SECTION = 2.5     # a modelled girth is weak evidence
 _CONF_BRAND_CHART = 14.0              # the brand's own table beats a public standard
+_CONF_DERIVED_CHART = 9.0             # product-specific, but derived from a stated source
 _CONF_STANDARD_CHART = 4.0
 _CONF_KNOWN_GARMENT_CLASS = 8.0
 _CONF_FIT_QUALITY_SWING = 6.0         # how much the winning size's own score moves it
@@ -582,6 +583,14 @@ class FitEngine:
         if chart.provenance.is_authoritative:
             score += _CONF_BRAND_CHART
             factors.append(f"+{_CONF_BRAND_CHART:.0f} brand-published size chart")
+        elif chart.provenance.is_product_specific:
+            # Authored for THIS product from a stated source. Better than the
+            # generic fallback, worse than the brand's own measurements.
+            score += _CONF_DERIVED_CHART
+            factors.append(
+                f"+{_CONF_DERIVED_CHART:.0f} product-specific size chart derived from "
+                f"{chart.provenance.standard or 'a stated source'}, not published by the brand"
+            )
         else:
             score += _CONF_STANDARD_CHART
             factors.append(

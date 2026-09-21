@@ -52,7 +52,7 @@ class GirthModel:
 
 
 # Coefficients by demographic. "unisex" is used when sex is unknown and carries
-# a deliberately larger residual SD (the male/female girth relationships差 by
+# a deliberately larger residual SD (the male/female girth relationships differ by
 # more than the within-sex spread at the waist and hip).
 _MODELS: Dict[str, Dict[str, GirthModel]] = {
     "men": {

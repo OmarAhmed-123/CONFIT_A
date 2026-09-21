@@ -24,9 +24,11 @@ class _FakeS3Client:
     def __init__(self):
         self.objects: dict[tuple[str, str], bytes] = {}
         self.presigned_calls: list[dict] = []
+        self.put_calls: list[dict] = []
 
-    def put_object(self, Bucket, Key, Body):
+    def put_object(self, Bucket, Key, Body, **kwargs):
         self.objects[(Bucket, Key)] = Body
+        self.put_calls.append({"Bucket": Bucket, "Key": Key, **kwargs})
 
     def head_object(self, Bucket, Key):
         if (Bucket, Key) not in self.objects:
@@ -261,3 +263,133 @@ def test_wardrobe_serialization_presigns_owned_images(s3):
     item.image_url = "https://images.unsplash.com/photo-1"
     d2 = svc._to_dict(item)
     assert d2["image_url"] == "https://images.unsplash.com/photo-1"
+
+# ---------------------------------------------------------------------------
+# Audit closure 2026-09-21 (VTON/Photo-Match gap: "storage is local,
+# production_grade=false, writable=false"). Three real defects fixed here:
+#   1. the documented .env.example aliases were accepted by nothing;
+#   2. objects were written unencrypted (personal photos);
+#   3. /health reported storage from configuration only, so a configured but
+#      unreachable bucket looked production-ready.
+# ---------------------------------------------------------------------------
+
+
+def test_documented_env_aliases_resolve_to_the_same_backend(monkeypatch):
+    """backend/.env.example ships S3_ENDPOINT / S3_ACCESS_KEY / S3_SECRET_KEY /
+    S3_BUCKET_PUBLIC. Before this fix an operator who filled in exactly that
+    file still booted with production_grade=False — the aliases bound to
+    fields no reader consulted."""
+    monkeypatch.setattr(settings, "STORAGE_PROVIDER", "s3", raising=False)
+    monkeypatch.setattr(settings, "AWS_S3_BUCKET", None, raising=False)
+    monkeypatch.setattr(settings, "S3_BUCKET", None, raising=False)
+    monkeypatch.setattr(settings, "AWS_ACCESS_KEY_ID", None, raising=False)
+    monkeypatch.setattr(settings, "AWS_SECRET_ACCESS_KEY", None, raising=False)
+    monkeypatch.setattr(settings, "S3_ENDPOINT_URL", None, raising=False)
+    monkeypatch.setattr(settings, "S3_BUCKET_PUBLIC", "confit-a-media", raising=False)
+    monkeypatch.setattr(settings, "S3_ACCESS_KEY", "alias-key", raising=False)
+    monkeypatch.setattr(settings, "S3_SECRET_KEY", "alias-secret", raising=False)
+    monkeypatch.setattr(settings, "S3_ENDPOINT", "https://br-x.storage.neon.tech/", raising=False)
+    storage_service.reset_storage()
+    try:
+        assert settings.s3_bucket == "confit-a-media"
+        assert settings.s3_access_key == "alias-key"
+        assert settings.s3_secret_key == "alias-secret"
+        # trailing slash normalised — otherwise the URL prefix doubles it
+        assert settings.s3_endpoint_url == "https://br-x.storage.neon.tech"
+        assert storage_service.storage_status()["production_grade"] is True
+        backend = storage_service.require_production_storage("wardrobe_upload")
+        assert isinstance(backend, S3StorageBackend)
+        assert backend.bucket == "confit-a-media"
+    finally:
+        storage_service.reset_storage()
+
+
+def test_aws_names_still_win_over_aliases(monkeypatch):
+    monkeypatch.setattr(settings, "STORAGE_PROVIDER", "s3", raising=False)
+    monkeypatch.setattr(settings, "AWS_S3_BUCKET", "primary-bucket", raising=False)
+    monkeypatch.setattr(settings, "S3_BUCKET_PUBLIC", "fallback-bucket", raising=False)
+    monkeypatch.setattr(settings, "AWS_ACCESS_KEY_ID", "primary-key", raising=False)
+    monkeypatch.setattr(settings, "S3_ACCESS_KEY", "fallback-key", raising=False)
+    try:
+        assert settings.s3_bucket == "primary-bucket"
+        assert settings.s3_access_key == "primary-key"
+    finally:
+        storage_service.reset_storage()
+
+
+def test_every_write_is_server_side_encrypted(s3):
+    backend = S3StorageBackend()
+    backend.store("wardrobe/7/private-photo.jpg", b"\xff\xd8bytes")
+    call = s3.put_calls[-1]
+    assert call["ServerSideEncryption"] == "AES256"
+    assert call["ContentType"] == "image/jpeg"
+    assert "no-store" not in call["CacheControl"]  # private cache, not a stale one
+
+
+def test_encryption_is_never_silently_dropped(s3, monkeypatch):
+    monkeypatch.setattr(settings, "S3_SERVER_SIDE_ENCRYPTION", "aws:kms", raising=False)
+    backend = S3StorageBackend()
+    backend.store("moodboard/1/x.png", b"\x89PNG")
+    assert s3.put_calls[-1]["ServerSideEncryption"] == "aws:kms"
+
+
+def test_live_probe_verdict_is_reported_and_gates_production_grade(s3, monkeypatch):
+    """A configured bucket that cannot round-trip an object must NOT be
+    reported as production grade."""
+    monkeypatch.setattr(settings, "STORAGE_PROBE_ENABLED", True, raising=False)
+    monkeypatch.setattr(settings, "STORAGE_PROBE_TTL_SECONDS", 0.0, raising=False)
+    storage_service.reset_storage()
+    try:
+        ok = storage_service.storage_status()
+        assert ok["production_grade"] is True
+        assert ok["live_probe"]["ok"] is True
+        assert ok["live_probe"]["verdict"] == "ok"
+
+        # break the bucket: every write now raises (revoked creds / wrong region)
+        def _boom(**kwargs):
+            raise RuntimeError("AccessDenied")
+        s3.put_object = _boom
+        bad = storage_service.storage_status()
+        assert bad["production_grade"] is False
+        assert bad["live_probe"]["ok"] is False
+        assert "AccessDenied" in bad["live_probe"]["error"]
+        # and the upload gate fails closed BEFORE accepting any bytes.
+        # The gate only exists in production (development keeps the local
+        # convenience), so the environment must be production for this to be
+        # a meaningful assertion.
+        monkeypatch.setattr(settings, "ENVIRONMENT", "production", raising=False)
+        from backend.app.core.exceptions import FeatureNotConfiguredError
+        with pytest.raises(FeatureNotConfiguredError):
+            storage_service.require_production_storage("wardrobe_upload")
+    finally:
+        storage_service.reset_storage()
+
+
+def test_probe_cache_is_bounded_by_ttl(s3, monkeypatch):
+    monkeypatch.setattr(settings, "STORAGE_PROBE_ENABLED", True, raising=False)
+    monkeypatch.setattr(settings, "STORAGE_PROBE_TTL_SECONDS", 300.0, raising=False)
+    storage_service.reset_storage()
+    try:
+        first = storage_service.probe_storage(force=True)
+        before = len(s3.put_calls)
+        storage_service.probe_storage()          # cached -> no new network call
+        assert len(s3.put_calls) == before
+        storage_service.probe_storage(force=True)  # forced -> new call
+        assert len(s3.put_calls) == before + 1
+        assert first["ok"] is True
+    finally:
+        storage_service.reset_storage()
+
+
+def test_probe_never_raises_when_backend_is_unusable(monkeypatch):
+    monkeypatch.setattr(settings, "STORAGE_PROVIDER", "s3", raising=False)
+    monkeypatch.setattr(settings, "AWS_S3_BUCKET", None, raising=False)
+    monkeypatch.setattr(settings, "S3_BUCKET", None, raising=False)
+    monkeypatch.setattr(settings, "S3_BUCKET_PUBLIC", None, raising=False)
+    storage_service.reset_storage()
+    try:
+        out = storage_service.probe_storage(force=True)
+        assert out["ok"] is False
+        assert "no usable storage backend" in out["error"]
+    finally:
+        storage_service.reset_storage()

@@ -164,8 +164,10 @@ def test_platform_admin_has_global_oversight():
     assert admin_res.status_code == 200
     data = admin_res.json()
     assert data["total_brands_count"] >= 4
-    assert data["tryon_adoption_rate"] > 0
+    # Authorization must not depend on earlier tests having generated try-ons.
+    assert 0 <= data["tryon_adoption_rate"] <= 100
 
-    # Admin accessing Brand Portal routes -> 200 OK
+    # An unassigned admin must not silently impersonate the first tenant.
+    # Global oversight remains available through the explicit admin API.
     brand_res = client.get("/api/v1/brand/analytics", headers=headers_admin)
-    assert brand_res.status_code == 200
+    assert brand_res.status_code == 403

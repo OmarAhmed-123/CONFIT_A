@@ -83,6 +83,15 @@ export const UserProfileView: React.FC = () => {
   // Disabling MFA requires a current authenticator/recovery code in
   // addition to the password (server contract — MFA_CODE_REQUIRED).
   const [mfaDisableCode, setMfaDisableCode] = useState('');
+
+  // ---- Account deletion step-up state -----------------------------------
+  // Server contract: confirm="DELETE" + current password (+ MFA code when
+  // enrolled). The panel is revealed on demand; nothing is destructive
+  // until the server has re-authenticated the user.
+  const [deletePanelOpen, setDeletePanelOpen] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deleteMfaCode, setDeleteMfaCode] = useState('');
+  const [deleteBusy, setDeleteBusy] = useState(false);
   const [mfaBackupCodes, setMfaBackupCodes] = useState<string[]>([]);
   const [mfaBusy, setMfaBusy] = useState(false);
 
@@ -343,15 +352,20 @@ export const UserProfileView: React.FC = () => {
   };
 
   const handleDeleteAccount = async () => {
+    // Step-up contract (server-enforced): explicit confirm + current
+    // password + MFA code when enrolled. The panel below collects these;
+    // this handler fires the real request.
     if (!isAuthenticated) return;
-    if (window.confirm('Are you sure you want to permanently delete your account and all associated encrypted biometric data?')) {
-      try {
-        await authService.deleteAccount();
-        logout();
-        showToast('Account permanently erased.', 'info');
-      } catch (err: any) {
-        showToast('Deletion error: ' + err.message, 'error');
-      }
+    if (!window.confirm('Are you sure you want to permanently delete your account and all associated encrypted biometric data? This cannot be undone.')) return;
+    setDeleteBusy(true);
+    try {
+      await authService.deleteAccount(deletePassword, mfaEnabled ? deleteMfaCode.trim() : undefined);
+      logout();
+      showToast('Account permanently erased.', 'info');
+    } catch (err: any) {
+      showToast('Deletion error: ' + err.message, 'error');
+    } finally {
+      setDeleteBusy(false);
     }
   };
 
@@ -784,17 +798,52 @@ export const UserProfileView: React.FC = () => {
         </div>
 
         {isAuthenticated && (
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pt-3 border-t border-slate-100">
-            <div>
-              <div className="text-xs font-bold text-rose-600">Delete Account & Biometrics</div>
-              <div className="text-[11px] text-slate-500 font-light">Irrevocably erase your style profile, uploaded photos, and fit models from CONFIT servers.</div>
+          <div className="flex flex-col gap-3 pt-3 border-t border-slate-100">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+              <div>
+                <div className="text-xs font-bold text-rose-600">Delete Account & Biometrics</div>
+                <div className="text-[11px] text-slate-500 font-light">Irrevocably erase your style profile, uploaded photos, and fit models from CONFIT servers. Order history is anonymized (retained for tax/audit), never left linked to you.</div>
+              </div>
+              <button
+                onClick={() => setDeletePanelOpen((v) => !v)}
+                className="px-4 py-2 rounded-xl border border-rose-200 hover:bg-rose-50 text-xs font-semibold text-rose-600 transition-all shrink-0"
+              >
+                {deletePanelOpen ? 'Cancel' : 'Permanently Erase'}
+              </button>
             </div>
-            <button
-              onClick={handleDeleteAccount}
-              className="px-4 py-2 rounded-xl border border-rose-200 hover:bg-rose-50 text-xs font-semibold text-rose-600 transition-all shrink-0"
-            >
-              Permanently Erase
-            </button>
+            {deletePanelOpen && (
+              <div className="space-y-2 p-3 rounded-xl bg-rose-50/50 border border-rose-100">
+                <p className="text-[11px] text-slate-600">
+                  Confirm your identity to proceed: current password{mfaEnabled ? ' and a current authenticator (or recovery) code' : ''}.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <input
+                    type="password"
+                    placeholder="Current password"
+                    value={deletePassword}
+                    onChange={(e) => setDeletePassword(e.target.value)}
+                    className="flex-1 px-3 py-2 rounded-xl border border-rose-200 text-xs focus:outline-none focus:border-rose-400"
+                  />
+                  {mfaEnabled && (
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="Authenticator or recovery code"
+                      value={deleteMfaCode}
+                      onChange={(e) => setDeleteMfaCode(e.target.value)}
+                      className="flex-1 px-3 py-2 rounded-xl border border-rose-200 text-xs focus:outline-none focus:border-rose-400"
+                    />
+                  )}
+                  <button
+                    onClick={handleDeleteAccount}
+                    disabled={deleteBusy || !deletePassword || (mfaEnabled && !deleteMfaCode.trim())}
+                    className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold disabled:opacity-50 shrink-0"
+                  >
+                    {deleteBusy ? 'Deleting…' : 'Delete forever'}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

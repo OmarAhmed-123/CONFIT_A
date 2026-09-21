@@ -378,11 +378,43 @@ def regenerate_mfa_codes(request: Request, user: User = Depends(get_current_user
 
 # --- GDPR --------------------------------------------------------------------
 @router.get("/gdpr-export", response_model=GDPRExportResponse)
-def export_data(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def export_data(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    # Rate-limited: the export walks every user-owned table — an abuse
+    # surface for both DB load and data-exfiltration hammering.
     return AuthService(db).export_gdpr_data(user)
 
 
+class DeleteAccountRequest(BaseModel):
+    """Explicit confirmation contract for permanent deletion.
+
+    Gap-closure round 2: deletion previously ran on session possession
+    alone. It now requires:
+    - `confirm`: the literal string "DELETE" (an explicit, non-replayable
+      UI affordance — a stray API call cannot delete by accident);
+    - `password`: current password (except social-only accounts);
+    - `mfa_code`: current TOTP/recovery code when MFA is enabled.
+    """
+
+    confirm: str = Field(description='Must be the literal string "DELETE".')
+    password: Optional[str] = None
+    mfa_code: Optional[str] = None
+
+
 @router.delete("/account")
-def delete_account(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    AuthService(db).delete_account(user)
+@limiter.limit("5/minute")
+def delete_account(
+    request: Request,
+    payload: DeleteAccountRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if payload.confirm != "DELETE":
+        raise AuthenticationError(
+            'Account deletion requires explicit confirmation: send confirm="DELETE".',
+            details={"reason": "CONFIRMATION_REQUIRED"},
+        )
+    service = AuthService(db)
+    service.reauthenticate_for_deletion(user, payload.password, mfa_code=payload.mfa_code)
+    service.delete_account(user)
     return {"status": "success", "message": "Account and personal data deleted."}

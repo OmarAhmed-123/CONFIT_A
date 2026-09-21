@@ -16,6 +16,7 @@ Prior state had three critical faults which are ALL fixed here:
 """
 from typing import Any, Dict, Optional
 from fastapi import APIRouter, Depends, Request
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from backend.app.core.database import get_db
 from backend.app.core.dependencies import get_current_user
@@ -212,19 +213,65 @@ def get_me_composite(user: User = Depends(get_current_user), db: Session = Depen
     }
 
 
+class MeProfileUpdate(BaseModel):
+    """Typed DTO for basic account attributes (gap-closure round 2).
+
+    Previously `payload: Dict[str, Any]` — no length/format validation at
+    all: a 100k-char full_name reached the 255-char DB column, an empty
+    string or junk phone was accepted, and any language string persisted.
+    `extra="ignore"` keeps the old allow-list semantics: stray privileged
+    keys (role, is_active, is_verified, …) are silently dropped, never 422
+    (no probing oracle), and provably never reach the model.
+    """
+
+    model_config = {"extra": "ignore"}
+
+    full_name: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    # E.164-ish: optional +, then 7-20 digits (spaces/dashes tolerated and
+    # normalized out). Loose enough for EG/GCC formats, strict enough to
+    # reject obvious junk.
+    phone: Optional[str] = Field(default=None, max_length=50)
+    preferred_language: Optional[str] = Field(default=None, pattern=r"^(en|ar)$")
+
+    @staticmethod
+    def _normalize_phone(raw: str) -> str:
+        cleaned = raw.replace(" ", "").replace("-", "")
+        import re as _re
+        if not _re.fullmatch(r"\+?\d{7,20}", cleaned):
+            from backend.app.core.exceptions import ValidationDomainError
+            raise ValidationDomainError(
+                "phone must be 7-20 digits, optionally prefixed with +.",
+                field_errors={"phone": [raw[:30]]},
+            )
+        return cleaned
+
+
 @router.patch("/me/profile", response_model=Dict[str, Any])
-def patch_me_profile(payload: Dict[str, Any], user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def patch_me_profile(
+    payload: MeProfileUpdate,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     """Update basic account attributes on the authenticated user's own row.
 
-    Explicit allow-list of mutable fields — the user cannot escalate their
-    role or reactivate a deactivated account by passing extra keys.
+    Identity comes exclusively from the JWT subject — there is no target
+    user id anywhere in this contract (IDOR-impossible by construction).
     """
-    ALLOWED = {"full_name", "phone", "preferred_language"}
     changed = False
-    for key in ALLOWED:
-        if key in payload and payload[key] is not None:
-            setattr(user, key, payload[key])
-            changed = True
+    data = payload.model_dump(exclude_unset=True)
+    if data.get("full_name") is not None:
+        stripped = data["full_name"].strip()
+        if not stripped:
+            from backend.app.core.exceptions import ValidationDomainError
+            raise ValidationDomainError("full_name must not be blank.")
+        user.full_name = stripped
+        changed = True
+    if data.get("phone") is not None:
+        user.phone = MeProfileUpdate._normalize_phone(data["phone"])
+        changed = True
+    if data.get("preferred_language") is not None:
+        user.preferred_language = data["preferred_language"]
+        changed = True
     if changed:
         db.commit()
     return {"status": "success", "user_id": user.id, "updated": changed}
@@ -267,7 +314,27 @@ def post_me_export(user: User = Depends(get_current_user), db: Session = Depends
     return AuthService(db).export_gdpr_data(user)
 
 
+class DeleteMeRequest(BaseModel):
+    """Same step-up contract as DELETE /auth/account (single policy, two routes)."""
+
+    confirm: str
+    password: Optional[str] = None
+    mfa_code: Optional[str] = None
+
+
 @router.delete("/me")
-def delete_me(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    AuthService(db).delete_account(user)
+def delete_me(
+    payload: DeleteMeRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if payload.confirm != "DELETE":
+        from backend.app.core.exceptions import AuthenticationError
+        raise AuthenticationError(
+            'Account deletion requires explicit confirmation: send confirm="DELETE".',
+            details={"reason": "CONFIRMATION_REQUIRED"},
+        )
+    service = AuthService(db)
+    service.reauthenticate_for_deletion(user, payload.password, mfa_code=payload.mfa_code)
+    service.delete_account(user)
     return {"status": "success", "message": "Account deleted."}

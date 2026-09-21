@@ -21,6 +21,7 @@ from backend.app.schemas.catalog import (
 )
 from backend.app.core.exceptions import ResourceNotFoundError
 from backend.app.models.catalog import StoreLocation
+from backend.app.services.capability_service import capability_flags
 
 router = APIRouter(prefix="/catalog", tags=["Catalog & Products"])
 
@@ -277,26 +278,10 @@ class CapabilityFlagsOut(BaseModel):
 
 @router.get("/capabilities", response_model=CapabilityFlagsOut)
 def get_capability_flags(db: Session = Depends(get_db)):
-    settings_ = settings
-    bnpl_live = bool(
-        settings_.PAYMENTS_LIVE
-        and (settings_.TABBY_API_KEY or settings_.TAMARA_API_KEY)
-    )
-    provider_keys = [
-        settings_.NVIDIA_API_KEY,
-        settings_.GROK_API_KEY,
-        settings_.GEMINI_API_KEY,
-        settings_.OPENAI_API_KEY,
-    ]
-    store_count = db.query(StoreLocation).count()
-    return CapabilityFlagsOut(
-        payments_live=bool(settings_.PAYMENTS_LIVE),
-        payments_mode="live" if settings_.PAYMENTS_LIVE else "demo",
-        bnpl_live=bnpl_live,
-        vton_gpu_ready=bool(settings_.VTON_WORKER_URL),
-        ai_stylist_live=any(provider_keys),
-        bopis_live=store_count > 0,
-        bopis_store_count=store_count,
-        storage_mode=settings_.STORAGE_PROVIDER,
-        returns_window_days=30,
-    )
+    """Shopper-facing capability flags.
+
+    Delegates to ``capability_service`` — the same source of truth the health
+    endpoints use, so this surface and ``/health`` cannot disagree about what
+    the deployment can do.
+    """
+    return CapabilityFlagsOut(**capability_flags(db))

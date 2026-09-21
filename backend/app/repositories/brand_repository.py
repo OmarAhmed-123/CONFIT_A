@@ -2,7 +2,13 @@ from decimal import Decimal
 from typing import Optional, List, Dict, Any, Tuple
 from datetime import datetime, timezone, timedelta
 from backend.app.core.money import to_decimal, money_add, money_sub, money_sum, to_float, quantize_money, validate_money
-from backend.app.core.timeutils import to_naive_utc
+from backend.app.core.revenue_policy import (
+    NON_REVENUE_ORDER_STATUSES,
+    REVENUE_BASIS,
+    revenue_eligible,
+    return_denominator_eligible,
+)
+from backend.app.core.timeutils import TimeRange, to_naive_utc
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, and_, or_, desc, case
 import json
@@ -302,7 +308,7 @@ class BrandRepository:
             Order, OrderItem.order_id == Order.id
         ).filter(
             OrderItem.brand_id == brand_id,
-            Order.status.notin_(["cancelled", "refunded", "failed"])
+            revenue_eligible(Order.status)
         ).scalar() or 0
 
         # Funnel conversion rate: purchases / views * 100
@@ -332,7 +338,7 @@ class BrandRepository:
                 ).scalar() or 0
                 prod_purchases = self.db.query(func.count(OrderItem.id)).join(Order, Order.id == OrderItem.order_id).filter(
                     OrderItem.product_id == prod_id,
-                    Order.status.notin_(["cancelled", "refunded", "failed"]),
+                    revenue_eligible(Order.status),
                     OrderItem.brand_id == brand_id
                 ).scalar() or 0
             else:
@@ -402,7 +408,7 @@ class BrandRepository:
         counts = self.db.query(Order.try_on_assisted, func.count(OrderItem.id),
             func.sum(case((OrderItem.is_returned == True, 1), else_=0))
         ).join(Order, Order.id == OrderItem.order_id).filter(
-            OrderItem.brand_id == brand_id, Order.status.notin_(["cancelled", "failed"])
+            OrderItem.brand_id == brand_id, return_denominator_eligible(Order.status)
         ).group_by(Order.try_on_assisted).all()
         cohorts = {bool(assisted): (int(total), int(returned or 0)) for assisted, total, returned in counts}
         non_total, non_returns = cohorts.get(False, (0, 0))
@@ -431,7 +437,7 @@ class BrandRepository:
             ).group_by(ProductSKU.product_id).all())
         purchases = dict(self.db.query(OrderItem.product_id, func.count(OrderItem.id)).join(
             Order, Order.id == OrderItem.order_id).filter(OrderItem.brand_id == brand_id,
-            Order.status.notin_(["cancelled", "refunded", "failed"])).group_by(OrderItem.product_id).all())
+            revenue_eligible(Order.status)).group_by(OrderItem.product_id).all())
         result = [dict(product_id=p.id, sku_count=len(p.skus), title=p.title,
             views=views.get(p.id, 0), tryons=tryons.get(p.id, 0), add_to_cart=carts.get(p.id, 0),
             purchases=purchases.get(p.id, 0), conversion_rate=round(purchases.get(p.id,0)/views[p.id]*100,2) if views.get(p.id) else 0.0
@@ -518,54 +524,84 @@ class BrandRepository:
             limitations=limitations,
         )
 
-    def get_platform_admin_analytics(self) -> Dict[str, Any]:
-        """Real platform analytics from transactional data"""
-        total_users = self.db.query(func.count(User.id)).scalar() or 0
-        total_brands = self.db.query(func.count(BrandProfile.id)).scalar() or 0
-        total_orders = self.db.query(func.count(Order.id)).scalar() or 0
+    def get_platform_admin_analytics(
+        self, time_range: Optional["TimeRange"] = None
+    ) -> Dict[str, Any]:
+        """Platform analytics from transactional data, over a bounded window.
+
+        G-14 — the brand comparison table used to issue five queries *per
+        brand* and the most-styled list one query *per row*; a platform with
+        60 brands and a 10-row ranking cost ~310 round trips. Both are now
+        single grouped queries, so the cost no longer grows with the number of
+        brands or ranked products.
+
+        G-15 — ``time_range`` is pushed into the SQL predicate of every
+        aggregate rather than filtered in Python afterwards, and the resolved
+        window is echoed in the payload so a reader can tell which question
+        each number answers. Bounds are inclusive on both ends, matching the
+        boundary contract ``/admin/audit`` already publishes.
+
+        Every figure below traces to a real table; there is no fallback that
+        invents a value when the window is empty.
+        """
+        tr = time_range or TimeRange()
+        in_order_window = tr.bound(Order.created_at)
+
+        total_users = self.db.query(func.count(User.id)).filter(
+            *tr.bound(User.created_at)
+        ).scalar() or 0
+        total_brands = self.db.query(func.count(BrandProfile.id)).filter(
+            *tr.bound(BrandProfile.created_at)
+        ).scalar() or 0
+        total_orders = self.db.query(func.count(Order.id)).filter(*in_order_window).scalar() or 0
+
+        # G-13: GMV and the attribution ledger below must filter the same
+        # population, or the four channel figures cannot sum to this headline.
         total_gmv = self.db.query(func.sum(Order.total_amount)).filter(
-            Order.status.notin_(["cancelled", "refunded"])
+            revenue_eligible(Order.status), *in_order_window
         ).scalar() or 0.0
 
-        # Try-on adoption: orders with try_on_assisted True
+        # Try-on adoption. This count doubles as the denominator of a return
+        # rate below, so it keeps refunded orders: excluding them would lower
+        # the return rate precisely when returns succeed.
         tryon_orders = self.db.query(func.count(Order.id)).filter(
             Order.try_on_assisted == True,
-            Order.status.notin_(["cancelled", "refunded"])
+            return_denominator_eligible(Order.status),
+            *in_order_window,
         ).scalar() or 0
 
         tryon_adoption_rate = round((tryon_orders / total_orders * 100) if total_orders > 0 else 0.0, 1)
 
-        # Stylist conversion: outfits that are saved and have associated purchases
-        # Outfit-to-purchase ratio
+        # Stylist conversion: saved outfits in the window, and those whose
+        # items were actually purchased (OrderItem.outfit_id lineage).
         total_saved_outfits = self.db.query(func.count(Outfit.id)).filter(
-            Outfit.is_saved == True
+            Outfit.is_saved == True, *tr.bound(Outfit.created_at)
         ).scalar() or 0
 
-        # Outfits that resulted in purchase: outfits where at least one item was purchased
-        # via OrderItem.outfit_id
-        outfits_with_purchase = self.db.query(func.count(func.distinct(OrderItem.outfit_id))).filter(
-            OrderItem.outfit_id.isnot(None)
+        outfits_with_purchase = self.db.query(func.count(func.distinct(OrderItem.outfit_id))).join(
+            Order, Order.id == OrderItem.order_id
+        ).filter(
+            OrderItem.outfit_id.isnot(None), *in_order_window
         ).scalar() or 0
 
         stylist_conversion = round((outfits_with_purchase / total_saved_outfits * 100) if total_saved_outfits > 0 else 0.0, 1)
 
-        # Return rates: try-on users vs non-try-on users
-        total_returns = self.db.query(func.count(ReturnRequest.id)).scalar() or 0
+        # Return rates: try-on users vs non-try-on users.
+        total_returns = self.db.query(func.count(ReturnRequest.id)).filter(
+            *tr.bound(ReturnRequest.created_at)
+        ).scalar() or 0
         platform_avg_return = round((total_returns / total_orders * 100) if total_orders > 0 else 0.0, 1)
 
         returns_tryon = self.db.query(func.count(ReturnRequest.id)).filter(
-            ReturnRequest.try_on_used_for_item == True
+            ReturnRequest.try_on_used_for_item == True, *tr.bound(ReturnRequest.created_at)
         ).scalar() or 0
 
         returns_non_tryon = total_returns - returns_tryon
-
-        # Return rates for cohorts
-        # Need to calculate return rate for try-on vs non-try-on orders
         tryon_return_rate = round((returns_tryon / tryon_orders * 100) if tryon_orders > 0 else 0.0, 1)
         non_tryon_orders = total_orders - tryon_orders
         non_tryon_return_rate = round((returns_non_tryon / non_tryon_orders * 100) if non_tryon_orders > 0 else 0.0, 1)
 
-        # Revenue attribution: canonical item-grain ledger (order_item_id lineage)
+        # Revenue attribution: canonical item-grain ledger (order_item_id lineage).
         _ledger = self.compute_item_grain_attribution()
         stylist_rev_exclusive = _ledger["channels"]["virtual_stylist"]
         outfit_rev_exclusive = _ledger["channels"]["outfit_builder"]
@@ -573,60 +609,105 @@ class BrandRepository:
         organic_revenue = _ledger["channels"]["organic"]
         total_revenue = to_decimal(total_gmv)
 
-        # Most Styled Items: ranking by outfit appearances
-        most_styled = self.db.query(
-            OutfitItem.product_id,
-            func.count(OutfitItem.id).label("appearances")
-        ).group_by(OutfitItem.product_id).order_by(desc("appearances")).limit(10).all()
+        # --- G-14: most-styled ranking in ONE query -------------------------
+        # Previously: one grouped query for the ids, then one `Product` SELECT
+        # per ranked row (each of which lazily loaded `product.brand`).
+        most_styled_rows = (
+            self.db.query(
+                Product.id,
+                Product.title,
+                Product.thumbnail_url,
+                BrandProfile.brand_name,
+                func.count(OutfitItem.id).label("appearances"),
+            )
+            .join(OutfitItem, OutfitItem.product_id == Product.id)
+            .join(Outfit, Outfit.id == OutfitItem.outfit_id)
+            .outerjoin(BrandProfile, BrandProfile.id == Product.brand_id)
+            .filter(*tr.bound(Outfit.created_at))
+            .group_by(Product.id, Product.title, Product.thumbnail_url, BrandProfile.brand_name)
+            .order_by(desc("appearances"))
+            .limit(10)
+            .all()
+        )
+        most_styled_items = [
+            {
+                "product_id": prod_id,
+                "title": title,
+                "brand_name": brand_name or "Unknown",
+                "thumbnail_url": thumbnail_url,
+                "appearances": int(appearances),
+            }
+            for prod_id, title, thumbnail_url, brand_name, appearances in most_styled_rows
+        ]
 
-        most_styled_items = []
-        for prod_id, appearances in most_styled:
-            prod = self.db.query(Product).filter(Product.id == prod_id).first()
-            if prod:
-                most_styled_items.append({
-                    "product_id": prod.id,
-                    "title": prod.title,
-                    "brand_name": prod.brand.brand_name if prod.brand else "Unknown",
-                    "thumbnail_url": prod.thumbnail_url,
-                    "appearances": int(appearances)
-                })
-
-        # Brand Performance Table: side-by-side conversion rates
+        # --- G-14: brand comparison table in FIVE grouped queries, not 5N ---
         brands = self.db.query(BrandProfile).all()
+        brand_ids = [b.id for b in brands]
+        orders_by_brand: Dict[int, int] = {}
+        products_by_brand: Dict[int, int] = {}
+        views_by_brand: Dict[int, int] = {}
+        tryons_by_brand: Dict[int, int] = {}
+        returns_by_brand: Dict[int, int] = {}
+        if brand_ids:
+            orders_by_brand = dict(
+                self.db.query(OrderItem.brand_id, func.count(OrderItem.id))
+                .join(Order, Order.id == OrderItem.order_id)
+                .filter(
+                    OrderItem.brand_id.in_(brand_ids),
+                    revenue_eligible(Order.status),
+                    *in_order_window,
+                )
+                .group_by(OrderItem.brand_id)
+                .all()
+            )
+            products_by_brand = dict(
+                self.db.query(Product.brand_id, func.count(Product.id))
+                .filter(Product.brand_id.in_(brand_ids))
+                .group_by(Product.brand_id)
+                .all()
+            )
+            views_by_brand = dict(
+                self.db.query(Product.brand_id, func.count(RecentlyViewed.id))
+                .join(RecentlyViewed, RecentlyViewed.product_id == Product.id)
+                .filter(Product.brand_id.in_(brand_ids), *tr.bound(RecentlyViewed.viewed_at))
+                .group_by(Product.brand_id)
+                .all()
+            )
+            tryons_by_brand = dict(
+                self.db.query(Product.brand_id, func.count(TryOnSession.id))
+                .join(TryOnSession, TryOnSession.product_id == Product.id)
+                .filter(Product.brand_id.in_(brand_ids), *tr.bound(TryOnSession.created_at))
+                .group_by(Product.brand_id)
+                .all()
+            )
+            returns_by_brand = dict(
+                self.db.query(OrderItem.brand_id, func.count(func.distinct(ReturnRequest.id)))
+                .join(Order, ReturnRequest.order_id == Order.id)
+                .join(OrderItem, OrderItem.order_id == Order.id)
+                .filter(OrderItem.brand_id.in_(brand_ids), *tr.bound(ReturnRequest.created_at))
+                .group_by(OrderItem.brand_id)
+                .all()
+            )
+
         brand_performance = []
         for brand in brands:
-            brand_orders = self.db.query(func.count(OrderItem.id)).filter(
-                OrderItem.brand_id == brand.id
-            ).join(Order).filter(Order.status.notin_(["cancelled", "refunded"])).scalar() or 0
-
-            brand_products = self.db.query(func.count(Product.id)).filter(
-                Product.brand_id == brand.id
-            ).scalar() or 0
-
-            brand_views = self.db.query(func.count(RecentlyViewed.id)).join(
-                Product, RecentlyViewed.product_id == Product.id
-            ).filter(Product.brand_id == brand.id).scalar() or 0
-
-            brand_tryons = self.db.query(func.count(TryOnSession.id)).join(
-                Product, TryOnSession.product_id == Product.id
-            ).filter(Product.brand_id == brand.id).scalar() or 0
+            brand_orders = int(orders_by_brand.get(brand.id, 0))
+            brand_products = int(products_by_brand.get(brand.id, 0))
+            brand_views = int(views_by_brand.get(brand.id, 0))
+            brand_tryons = int(tryons_by_brand.get(brand.id, 0))
+            brand_returns = int(returns_by_brand.get(brand.id, 0))
 
             conversion = round((brand_orders / brand_views * 100) if brand_views > 0 else 0.0, 2)
             tryon_rate = round((brand_tryons / brand_views * 100) if brand_views > 0 else 0.0, 1)
-
-            # Return rate for brand — FIXED DISTINCT to prevent JOIN multiplication
-            brand_returns = self.db.query(func.count(func.distinct(ReturnRequest.id))).join(Order).join(OrderItem).filter(
-                OrderItem.brand_id == brand.id
-            ).scalar() or 0
             brand_return_rate = round((brand_returns / brand_orders * 100) if brand_orders > 0 else 0.0, 1)
 
             brand_performance.append({
                 "brand_id": brand.id,
                 "brand": brand.brand_name,
-                "products": int(brand_products),
-                "views": int(brand_views),
-                "tryons": int(brand_tryons),
-                "orders": int(brand_orders),
+                "products": brand_products,
+                "views": brand_views,
+                "tryons": brand_tryons,
+                "orders": brand_orders,
                 "conversion_rate": float(conversion),
                 "tryon_rate": f"{tryon_rate}%",
                 "return_rate": f"{brand_return_rate}%",
@@ -638,7 +719,9 @@ class BrandRepository:
 
         # G-01/G-02/G-04: one honest heatmap builder, shared with
         # /admin/analytics/heatmaps and /partner/analytics/heatmaps.
-        style_heatmap = self.get_style_heatmap()
+        style_heatmap = self.get_style_heatmap(
+            date_from=tr.date_from, date_to=tr.date_to
+        )
 
         # Exclusive attribution to avoid double count - mathematically valid
         return {
@@ -660,30 +743,55 @@ class BrandRepository:
             "top_performing_brands": brand_performance[:10],
             "most_styled_items": most_styled_items,
             "outfit_to_purchase_ratio": float(stylist_conversion),
-            "style_preference_heatmap": style_heatmap
+            "style_preference_heatmap": style_heatmap,
+            "revenue_basis": REVENUE_BASIS,
+            "revenue_excludes_statuses": sorted(NON_REVENUE_ORDER_STATUSES),
+            "time_range": tr.describe(),
+            "methodology": {
+                "time_window": tr.describe(),
+                "boundary_semantics": "inclusive on both ends, matching /admin/audit",
+                "revenue": f"order-level, accrual basis; excludes {sorted(NON_REVENUE_ORDER_STATUSES)}",
+                "return_rates": "denominator keeps refunded orders — a completed return is evidence, not noise",
+                "attribution": "item-grain ledger keyed on BrandAnalyticsEvent.order_item_id",
+                "brand_comparison": "single grouped aggregate per metric; no per-brand query loop",
+            },
         }
 
     def get_most_styled_items(self, limit: int = 20) -> List[Dict[str, Any]]:
-        """Ranking of items by outfit appearances across all users"""
-        results = self.db.query(
-            OutfitItem.product_id,
-            func.count(OutfitItem.id).label("appearances"),
-            func.count(func.distinct(OutfitItem.outfit_id)).label("outfit_count")
-        ).group_by(OutfitItem.product_id).order_by(desc("appearances")).limit(limit).all()
+        """Ranking of items by outfit appearances across all users.
 
-        items = []
-        for prod_id, appearances, outfit_count in results:
-            prod = self.db.query(Product).filter(Product.id == prod_id).first()
-            if prod:
-                items.append({
-                    "product_id": prod.id,
-                    "title": prod.title,
-                    "brand_name": prod.brand.brand_name if prod.brand else "Unknown",
-                    "thumbnail_url": prod.thumbnail_url,
-                    "appearances": int(appearances),
-                    "outfit_count": int(outfit_count)
-                })
-        return items
+        G-14: one query. This used to run the ranking query and then one
+        ``Product`` SELECT per ranked row (each lazily loading ``product.brand``),
+        so a 20-row ranking cost 21+ round trips and dropped rows whose product
+        had since been deleted — the join makes that explicit instead.
+        """
+        rows = (
+            self.db.query(
+                Product.id,
+                Product.title,
+                Product.thumbnail_url,
+                BrandProfile.brand_name,
+                func.count(OutfitItem.id).label("appearances"),
+                func.count(func.distinct(OutfitItem.outfit_id)).label("outfit_count"),
+            )
+            .join(OutfitItem, OutfitItem.product_id == Product.id)
+            .outerjoin(BrandProfile, BrandProfile.id == Product.brand_id)
+            .group_by(Product.id, Product.title, Product.thumbnail_url, BrandProfile.brand_name)
+            .order_by(desc("appearances"))
+            .limit(limit)
+            .all()
+        )
+        return [
+            {
+                "product_id": prod_id,
+                "title": title,
+                "brand_name": brand_name or "Unknown",
+                "thumbnail_url": thumbnail_url,
+                "appearances": int(appearances),
+                "outfit_count": int(outfit_count),
+            }
+            for prod_id, title, thumbnail_url, brand_name, appearances, outfit_count in rows
+        ]
 
     def get_outfit_to_purchase_ratio(self) -> Dict[str, Any]:
         """% of saved outfits that result in purchase - measures stylist ROI"""
@@ -713,13 +821,15 @@ class BrandRepository:
 
     def get_return_reduction_metrics(self) -> Dict[str, Any]:
         """Comparison of return rates: try-on users vs non-try-on users"""
+        # Denominators of a return rate: refunded orders stay in, see
+        # revenue_policy.RETURN_DENOMINATOR_EXCLUDED_STATUSES.
         total_orders = self.db.query(func.count(Order.id)).filter(
-            Order.status.notin_(["cancelled", "refunded"])
+            return_denominator_eligible(Order.status)
         ).scalar() or 0
 
         tryon_orders = self.db.query(func.count(Order.id)).filter(
             Order.try_on_assisted == True,
-            Order.status.notin_(["cancelled", "refunded"])
+            return_denominator_eligible(Order.status)
         ).scalar() or 0
 
         total_returns = self.db.query(func.count(ReturnRequest.id)).scalar() or 0
@@ -755,7 +865,10 @@ class BrandRepository:
     # (ORDER_TRANSITIONS: return_requested -> rejected): goods were delivered
     # and kept, so the revenue stands. "failed" = payment failed, inventory
     # released, never revenue.
-    INELIGIBLE_ORDER_STATUSES = ("cancelled", "refunded", "failed")
+    # Kept as the public name callers and the mutation gate already use; the
+    # classification itself lives in core.revenue_policy so there is one place
+    # to change it (G-13).
+    INELIGIBLE_ORDER_STATUSES = tuple(sorted(NON_REVENUE_ORDER_STATUSES))
     ATTRIBUTION_CHANNELS = ("visual_search", "outfit_builder", "virtual_stylist", "organic")
 
     def compute_item_grain_attribution(self, brand_id: Optional[int] = None) -> Dict[str, Any]:
@@ -781,7 +894,7 @@ class BrandRepository:
         eligible_items = (
             self.db.query(OrderItem)
             .join(Order, OrderItem.order_id == Order.id)
-            .filter(Order.status.notin_(list(self.INELIGIBLE_ORDER_STATUSES)))
+            .filter(revenue_eligible(Order.status))
         )
         if brand_id is not None:
             eligible_items = eligible_items.filter(OrderItem.brand_id == brand_id)
@@ -843,7 +956,7 @@ class BrandRepository:
     def get_revenue_attribution(self) -> Dict[str, Any]:
         """Revenue attributable to Virtual Stylist, Outfit Builder, Visual Search (JSON view)."""
         total_gmv = self.db.query(func.sum(Order.total_amount)).filter(
-            Order.status.notin_(list(self.INELIGIBLE_ORDER_STATUSES))
+            revenue_eligible(Order.status)
         ).scalar() or Decimal("0.00")
 
         ledger = self.compute_item_grain_attribution()

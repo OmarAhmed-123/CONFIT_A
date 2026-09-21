@@ -2,7 +2,7 @@ from decimal import Decimal
 from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, Query, status, UploadFile, File, HTTPException, Request
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, ConfigDict
 import json
 from backend.app.core.money import to_decimal, to_float, validate_money, money_add, money_sub, MoneyValueError, MoneyRangeError
 
@@ -14,6 +14,7 @@ from backend.app.services.brand_catalog_service import BrandCatalogService
 from backend.app.repositories.brand_repository import BrandRepository
 from backend.app.schemas.brand import (
     BrandProfileOut,
+    CatalogBulkImportRequest,
     BrandAnalyticsDashboardOut,
     SponsoredPlacementCreate,
     SponsoredPlacementOut,
@@ -116,9 +117,10 @@ class StoreUpdateRequest(BaseModel):
 
 
 class InventoryUpdateRequest(BaseModel):
-    store_id: int
-    sku_id: int
-    quantity: int
+    model_config = ConfigDict(extra="forbid")
+    store_id: int = Field(gt=0, strict=True)
+    sku_id: int = Field(gt=0, strict=True)
+    quantity: int = Field(ge=0, le=100000, strict=True)
 
 
 # 1. Brand Partner Profile
@@ -225,84 +227,12 @@ def get_brand_products(
 @router.post("/partner/catalog/import", status_code=status.HTTP_202_ACCEPTED)
 @router.post("/brand/catalog/upload", status_code=status.HTTP_202_ACCEPTED)
 def import_catalog_bulk(
-    payload: Dict[str, Any],
+    payload: CatalogBulkImportRequest,
     user: User = Depends(brand_auth),
     db: Session = Depends(get_db)
 ):
-    """
-    Bulk catalog import via API (JSON).
-    For CSV, use /partner/catalog/upload/csv
-    """
-    service = BrandService(db)
-    bp = service.get_brand_profile_by_user(user)
-    catalog_service = BrandCatalogService(db)
-
-    # Expect products array
-    products = payload.get("products", [])
-    if not products:
-        raise HTTPException(status_code=400, detail="Missing products array")
-
-    # Create import job
-    repo = BrandRepository(db)
-    job = repo.create_import_job(bp["id"], file_name="api_import.json")
-
-    # Convert to CSV-like rows for reuse of validation
-    valid_rows = []
-    errors = []
-    for idx, prod in enumerate(products):
-        # Map API product to CSV row format
-        row = {
-            "title": prod.get("title", ""),
-            "title_ar": prod.get("title_ar", ""),
-            "category_slug": prod.get("category_slug") or prod.get("category", ""),
-            "base_price": str(prod.get("base_price", "")),
-            "color_family": prod.get("color_family", ""),
-            "thumbnail_url": prod.get("thumbnail_url", ""),
-            "description": prod.get("description", ""),
-            "currency": prod.get("currency", "USD"),
-            "style_tags": json.dumps(prod.get("style_tags", [])),
-            "size": prod.get("size", "M"),
-            "color": prod.get("color", prod.get("color_family", "")),
-            "stock_level": str(prod.get("stock_level", 20)),
-            "sku_code": prod.get("sku_code", "")
-        }
-        # Validate
-        from backend.app.services.brand_catalog_service import BrandCatalogService as BCS
-        bcs = BrandCatalogService(db)
-        row_errors = bcs._validate_row(row, idx+2)
-        if row_errors:
-            errors.extend([e.to_dict() for e in row_errors])
-        else:
-            valid_rows.append(row)
-
-    if valid_rows:
-        accepted, rejected, import_errors = catalog_service.import_products(valid_rows, bp["id"])
-        errors.extend(import_errors)
-        job.total_rows = len(products)
-        job.accepted_rows = accepted
-        job.rejected_rows = len(errors)
-        job.errors_json = json.dumps(errors)
-        job.status = "completed" if accepted > 0 and len(errors) == 0 else "partially_completed" if accepted > 0 else "failed"
-        from datetime import datetime, timezone
-        job.completed_at = datetime.now(timezone.utc)
-        db.commit()
-    else:
-        job.total_rows = len(products)
-        job.rejected_rows = len(errors)
-        job.errors_json = json.dumps(errors)
-        job.status = "failed"
-        from datetime import datetime, timezone
-        job.completed_at = datetime.now(timezone.utc)
-        db.commit()
-
-    return {
-        "job_id": job.id,
-        "status": job.status,
-        "total_rows": job.total_rows,
-        "accepted_rows": job.accepted_rows,
-        "rejected_rows": job.rejected_rows,
-        "errors": errors[:10]  # Return first 10 errors
-    }
+    bp = BrandService(db).get_brand_profile_by_user(user)
+    return BrandCatalogService(db).process_json_import(payload.products, bp["id"], actor_id=user.id)
 
 
 @router.post("/partner/catalog/upload/csv", status_code=status.HTTP_202_ACCEPTED)
@@ -319,11 +249,11 @@ async def upload_catalog_csv(
     bp = service.get_brand_profile_by_user(user)
 
     # Validate file
-    if not file.filename.endswith('.csv'):
+    if not (file.filename or '').lower().endswith('.csv'):
         raise HTTPException(status_code=400, detail="File must be CSV")
 
     # Size limit: 10MB
-    content = await file.read()
+    content = await file.read(BrandCatalogService.MAX_BYTES + 1)
     if len(content) > 10 * 1024 * 1024:
         raise HTTPException(status_code=400, detail="File exceeds 10MB limit")
 
@@ -331,7 +261,7 @@ async def upload_catalog_csv(
         raise HTTPException(status_code=400, detail="Empty file")
 
     try:
-        csv_text = content.decode('utf-8')
+        csv_text = content.decode('utf-8-sig')
     except UnicodeDecodeError:
         try:
             csv_text = content.decode('utf-8-sig')
@@ -346,10 +276,10 @@ async def upload_catalog_csv(
 
     catalog_service = BrandCatalogService(db)
     try:
-        result = catalog_service.process_csv_import(csv_text, bp["id"], file.filename)
+        result = catalog_service.process_csv_import(csv_text, bp["id"], file.filename, actor_id=user.id)
         return result
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Import failed: {str(e)[:500]}")
+        raise HTTPException(status_code=500, detail="Import interrupted; inspect import history before retrying")
 
 
 @router.get("/partner/catalog/imports")
@@ -470,7 +400,7 @@ def get_partner_inventory(
                 "is_in_stock": sku.is_in_stock,
                 "price_override": sku.price_override,
                 "store_inventories": [
-                    {"store_id": inv.store_id, "quantity": inv.quantity, "reserved": inv.reserved_quantity, "available": inv.quantity - inv.reserved_quantity}
+                    {"id": inv.id, "store_id": inv.store_id, "quantity": inv.quantity, "reserved": inv.reserved_quantity, "available": inv.quantity - inv.reserved_quantity}
                     for inv in invs
                 ]
             })
@@ -498,6 +428,16 @@ def update_partner_inventory(
     bp = service.get_brand_profile_by_user(user)
     repo = BrandRepository(db)
 
+    from backend.app.models.catalog import StoreInventory, StoreLocation, ProductSKU, Product
+    existing = db.query(StoreInventory).join(StoreLocation).join(
+        ProductSKU, ProductSKU.id == StoreInventory.sku_id
+    ).join(Product, Product.id == ProductSKU.product_id).filter(
+        StoreInventory.id == inventory_id, StoreLocation.brand_id == bp["id"],
+        Product.brand_id == bp["id"], StoreInventory.store_id == payload.store_id,
+        StoreInventory.sku_id == payload.sku_id,
+    ).first()
+    if not existing:
+        raise HTTPException(status_code=404, detail="Inventory not found for this store, SKU and brand")
     try:
         inv = repo.update_store_inventory(
             store_id=payload.store_id,
@@ -505,6 +445,8 @@ def update_partner_inventory(
             quantity=payload.quantity,
             brand_id=bp["id"]
         )
+        _audit(db, user, "BRAND_STORE_INVENTORY_UPDATED", "StoreInventory", inv.id,
+               {"brand_id": bp["id"], "quantity": inv.quantity})
         return {
             "status": "success",
             "inventory_id": inv.id,
@@ -582,6 +524,7 @@ def patch_partner_store(
     repo = BrandRepository(db)
     try:
         store = repo.update_store(store_id, bp["id"], payload.model_dump(exclude_unset=True))
+        _audit(db, user, "BRAND_STORE_UPDATED", "Store", store.id, {"brand_id": bp["id"]})
         return {
             "status": "updated",
             "id": store.id,
@@ -645,51 +588,19 @@ def patch_placement(
     if not plc:
         raise HTTPException(status_code=404, detail=f"Placement {placement_id} not found for your brand")
 
-    # Validate and update allowed fields
+    from backend.app.services.placement_policy import validate_placement
     allowed = ["bid_amount_per_click", "daily_budget", "status", "placement_type", "start_date", "end_date"]
-    for key in allowed:
-        if key in payload:
-            if key == "bid_amount_per_click":
-                try:
-                    bid = validate_money(payload[key], "bid_amount_per_click", allow_zero=False,
-                                         required=True, exact_scale=True)
-                except (MoneyValueError, MoneyRangeError) as exc:
-                    raise HTTPException(status_code=422, detail=str(exc))
-                if bid > BrandRepository.MAX_BID_PER_CLICK:
-                    raise HTTPException(status_code=400, detail="Bid must be 0-100")
-                if bid > to_decimal(plc.daily_budget):
-                    raise HTTPException(status_code=400, detail="Bid cannot exceed daily budget")
-                plc.bid_amount_per_click = bid
-            elif key == "daily_budget":
-                try:
-                    budget = validate_money(payload[key], "daily_budget", allow_zero=False,
-                                            required=True, exact_scale=True)
-                except (MoneyValueError, MoneyRangeError) as exc:
-                    raise HTTPException(status_code=422, detail=str(exc))
-                if budget > BrandRepository.MAX_DAILY_BUDGET:
-                    raise HTTPException(status_code=400, detail="Budget must be 0-10000")
-                plc.daily_budget = budget
-            elif key == "status":
-                if payload[key] not in ["active", "paused", "budget_exhausted"]:
-                    raise HTTPException(status_code=400, detail="Invalid status")
-                plc.status = payload[key]
-            elif key in ["start_date", "end_date"]:
-                # Parse date if string
-                try:
-                    from datetime import datetime
-                    if isinstance(payload[key], str):
-                        dt = datetime.fromisoformat(payload[key].replace("Z", "+00:00"))
-                        setattr(plc, key, dt)
-                    else:
-                        setattr(plc, key, payload[key])
-                except:
-                    raise HTTPException(status_code=400, detail=f"Invalid date format for {key}")
-            else:
-                setattr(plc, key, payload[key])
-
-    # Validate budget vs bid after updates
-    if plc.bid_amount_per_click > plc.daily_budget:
-        raise HTTPException(status_code=400, detail="Bid cannot exceed daily budget after update")
+    if not payload or set(payload) - set(allowed):
+        raise HTTPException(status_code=422, detail="Provide only editable placement fields")
+    candidate = {k: payload.get(k, getattr(plc, k)) for k in allowed}
+    if candidate["status"] not in ["active", "paused", "budget_exhausted"]:
+        raise HTTPException(status_code=422, detail="Invalid status")
+    try:
+        candidate = validate_placement(candidate, spent=plc.spent_today)
+    except (ValueError, TypeError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    for key, value in candidate.items():
+        setattr(plc, key, value)
 
     _audit(db, user, "BRAND_PLACEMENT_UPDATED", "SponsoredPlacement", placement_id,
            {"brand_id": bp["id"], "changed_fields": [k for k in allowed if k in payload]})
@@ -757,7 +668,7 @@ def track_impression(
         raise HTTPException(status_code=400, detail=f"Placement not active: {plc.status}")
 
     from datetime import datetime, timezone
-    now = datetime.now(timezone.utc)
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
     if plc.start_date and now < plc.start_date:
         raise HTTPException(status_code=400, detail="Placement not yet started")
     if plc.end_date and now > plc.end_date:
@@ -798,7 +709,7 @@ def track_click(
         raise HTTPException(status_code=400, detail=f"Placement not active: {plc.status}")
 
     from datetime import datetime, timezone
-    now = datetime.now(timezone.utc)
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
     if plc.start_date and now < plc.start_date:
         raise HTTPException(status_code=400, detail="Placement not yet started")
     if plc.end_date and now > plc.end_date:

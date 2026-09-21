@@ -592,6 +592,9 @@ export interface SponsoredPlacement {
 }
 
 export interface BrandAnalyticsDashboard {
+  data_source: string;
+  methodology: string;
+  return_cohorts: { methodology: string; non_tryon_items: number; tryon_items: number };
   brand_name: string;
   total_products_count: number;
   total_skus_count: number;
@@ -600,9 +603,9 @@ export interface BrandAnalyticsDashboard {
   total_add_to_carts: number;
   total_purchases: number;
   funnel_conversion_rate: number;
-  return_rate_before_vton: number;
-  return_rate_after_vton: number;
-  return_reduction_percentage: number;
+  return_rate_before_vton: number | null;
+  return_rate_after_vton: number | null;
+  return_reduction_percentage: number | null;
   outfit_appearance_rankings: Array<{
     product_id: number;
     product_title: string;
@@ -611,7 +614,7 @@ export interface BrandAnalyticsDashboard {
     add_to_cart_rate: number;
     purchase_rate: number;
   }>;
-  bopis_store_fulfillment_rate: number;
+  bopis_store_fulfillment_rate: number | null;
   ad_spend_total: number;
   ad_revenue_total: number;
 }

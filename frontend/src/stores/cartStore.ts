@@ -1,3 +1,4 @@
+import { msg, detail } from '../i18n/messages';
 import { create } from 'zustand';
 import { useAuthStore } from './authStore';
 import { useUIStore } from './uiStore';
@@ -90,10 +91,10 @@ export const useCartStore = create<CartState>((set, get) => ({
         const merged = await commerceService.mergeGuestCart(guestToken);
         persistCart(merged);
         set({ cart: merged, error: null });
-        useUIStore.getState().showToast(`Your bag followed you — ${merged.items_count} item(s) kept.`, 'success');
+        useUIStore.getState().showToast(msg('toast.bag_transferred', { count: merged.items_count }), 'success');
         return;
       } catch {
-        useUIStore.getState().showToast('We could not transfer your guest bag — it is still saved in this browser.', 'error');
+        useUIStore.getState().showToast(msg('toast.bag_transfer_failed'), 'error');
       }
     }
     await get().fetchCart();
@@ -135,7 +136,7 @@ export const useCartStore = create<CartState>((set, get) => ({
     } catch (err: any) {
       // P0-01b: an add failure must never be silent — explicit error toast
       // with the server's message; UI state rolls back to the last cart.
-      useUIStore.getState().showToast(err?.message || 'Could not add this item — please try again.', 'error');
+      useUIStore.getState().showToast(msg('errors.generic', { reason: detail(err) }), 'error');
       set({ isLoading: false, error: err?.message || 'Could not add item' });
       throw err;
     }

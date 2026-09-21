@@ -1,3 +1,4 @@
+import { translatableFrom } from "../../i18n/messages";
 import React, { useEffect, useState, useRef } from "react";
 import { useModalFocus } from "../../hooks/useModalFocus";
 import { useTranslation } from "react-i18next";
@@ -240,12 +241,11 @@ export const VirtualTryOnModal: React.FC = () => {
       // yet in this tick, and the render must use the photo the user just
       // uploaded — never the previous reference (avatar or older photo).
       runTryOn({ userImageUrl: dataUrl });
-    } catch (err: any) {
-      showToast(
-        err?.message ||
-          "That photo could not be processed. Please try another image.",
-        "error",
-      );
+    } catch (err) {
+      // translatableFrom() unwraps a LocalizedError into its key+params; any
+      // other throw becomes the honest generic message with the real detail
+      // interpolated, so nothing is swallowed and nothing is invented.
+      showToast(translatableFrom(err), "error");
     } finally {
       setIsCompressing(false);
     }

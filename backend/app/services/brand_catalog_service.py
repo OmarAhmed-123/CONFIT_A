@@ -138,6 +138,7 @@ class BrandCatalogService:
             if row_errors:
                 errors.extend(row_errors)
                 continue
+            row['_generated_sku'] = not bool(row.get('sku_code'))
             code = row.get('sku_code') or self._generate_sku_code(row['title'], row['size'], row['color'], brand.slug)
             if code in seen:
                 errors.append(CatalogImportError(number, 'sku_code', 'Duplicate SKU in file', code))
@@ -183,6 +184,14 @@ class BrandCatalogService:
                 code = row.get('sku_code') or self._generate_sku_code(row['title'], row.get('size','M'), row.get('color',row['color_family']), brand.slug)
                 sku = self.db.query(ProductSKU).filter_by(sku_code=code).with_for_update().first()
                 product = self.db.query(Product).filter_by(brand_id=brand_id, title=row['title']).first()
+                if not sku and product and row.get('_generated_sku'):
+                    # Preserve pre-existing generated codes during upgrades:
+                    # a new generator must not create a second physical variant.
+                    matches = self.db.query(ProductSKU).filter_by(product_id=product.id,
+                        size=row['size'], color=row['color']).with_for_update().all()
+                    if len(matches) > 1:
+                        raise ValueError('Ambiguous variant: provide an explicit sku_code')
+                    sku = matches[0] if matches else None
                 if sku and (not product or sku.product_id != product.id):
                     raise ValueError('SKU already assigned to another product; reassignment is not allowed')
                 if not product:

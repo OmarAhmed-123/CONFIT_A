@@ -1,3 +1,4 @@
+import { msg, detail } from '../i18n/messages';
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { stylistService, catalogService } from '../services/apiServices';
 import { Product, ProductSKU } from '../models';
@@ -97,7 +98,7 @@ export function useOutfitBuilderViewModel(userBudgetLimit = 400.0) {
             )
           );
           if (!realSku) {
-            showToast(`No purchasable size found for ${product.title}`, 'error');
+            showToast(msg('toast.no_purchasable_size_for', { title: product.title }), 'error');
           }
         })
         .catch(() => {
@@ -108,7 +109,7 @@ export function useOutfitBuilderViewModel(userBudgetLimit = 400.0) {
                 : it
             )
           );
-          showToast(`Couldn't load sizes for ${product.title} — try again`, 'error');
+          showToast(msg('toast.size_load_failed_for', { title: product.title }), 'error');
         });
     }
   }, [showToast]);
@@ -146,7 +147,7 @@ export function useOutfitBuilderViewModel(userBudgetLimit = 400.0) {
     if (selectedItems.length === 0) return;
     const ready = selectedItems.filter((i) => i.skuStatus === 'ready' && i.selectedSku);
     if (ready.length === 0) {
-      showToast('Cannot save yet — no item has a confirmed purchasable size.', 'error');
+      showToast(msg('toast.cannot_save_no_sku'), 'error');
       return;
     }
     setIsSaving(true);
@@ -157,23 +158,23 @@ export function useOutfitBuilderViewModel(userBudgetLimit = 400.0) {
         product_sku_ids: ready.map((i) => i.selectedSku!.id),
       });
       setIsSaving(false);
-      showToast('Ensemble saved to My Looks!', 'success');
+      showToast(msg('toast.ensemble_saved'), 'success');
     } catch (err: any) {
       setIsSaving(false);
-      showToast('Error saving outfit: ' + err.message, 'error');
+      showToast(msg('toast.outfit_save_failed', { reason: detail(err) }), 'error');
     }
   }, [selectedItems, outfitTitle, targetOccasion, showToast]);
 
   const addAllToCart = useCallback(async () => {
     if (selectedItems.length === 0) return;
     if (selectedItems.some((i) => i.skuStatus === 'pending')) {
-      showToast('Still confirming sizes — try again in a moment.', 'error');
+      showToast(msg('toast.confirming_sizes'), 'error');
       return;
     }
     const ready = selectedItems.filter((i) => i.skuStatus === 'ready' && i.selectedSku);
     const skipped = selectedItems.length - ready.length;
     if (ready.length === 0) {
-      showToast('No item has a purchasable size — open a product page to pick one.', 'error');
+      showToast(msg('toast.no_item_has_size'), 'error');
       return;
     }
     for (const item of ready) {

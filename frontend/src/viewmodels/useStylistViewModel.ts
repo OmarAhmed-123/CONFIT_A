@@ -1,3 +1,4 @@
+import { msg, detail } from '../i18n/messages';
 import { useState, useCallback, useRef } from "react";
 import { stylistService } from "../services/apiServices";
 import { StylistMessage, Outfit } from "../models";
@@ -183,10 +184,10 @@ export function useStylistViewModel() {
             outfit.id,
           );
         }
-        showToast(`Added full ensemble "${outfit.title}" to cart!`, "success");
+        showToast(msg('toast.ensemble_added', { title: outfit.title }), "success");
         openCart();
       } catch (err: any) {
-        showToast("Failed to add all items: " + err.message, "error");
+        showToast(msg('toast.add_all_failed', { reason: detail(err) }), "error");
       }
     },
     [addItem, openCart, showToast],

@@ -53,7 +53,7 @@ export const TryOnFitView: React.FC = () => {
         tone="tryon"
         compact
         eyebrow="Fit Preview Gallery"
-        title="Rotate through try-on-ready styling contexts"
+        title={t('tryon.contexts_caption')}
         description="The 3D gallery gives the fit studio a visual bridge between inspiration, garment selection, visual search, and no-photo measurements."
       />
       {/* Header */}

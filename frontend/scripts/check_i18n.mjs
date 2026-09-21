@@ -229,6 +229,26 @@ function main() {
   // ---- Check 6: the ratchet against new untranslated user-facing copy ----
   const untranslatedAdded = checkRatchet();
 
+  // ---- Check 7: interpolation placeholders must be SUPPLIED at the call site ----
+  //
+  // Why this exists: the gate already proved that en.json and ar.json declare
+  // the same `{{placeholders}}`, but nothing proved that the code PASSES them.
+  // The live footer shipped `t('footer.bnpl_available', { providers })` against a
+  // message reading "({{count}} provider(s))", so the rendered page showed the
+  // literal text "{{count}}" — a placeholder leak that no locale check can see,
+  // because both locale files were perfectly consistent with each other.
+  //
+  // The rule is one-directional on purpose: a placeholder declared in the source
+  // string and NOT passed is always a bug. A parameter passed and unused is not
+  // flagged — `count` in particular is consumed by i18next's pluralisation.
+  const placeholderLeaks = checkCallSitePlaceholders(flat[SOURCE_LOCALE]);
+  for (const leak of placeholderLeaks) {
+    fail(
+      'placeholder-call',
+      `t('${leak.key}') at ${leak.file}:${leak.line} renders the literal "${leak.missing.map((m) => `{{${m}}}`).join('`, ')}" — pass it, or change the message`,
+    );
+  }
+
   return report(
     asJson,
     flat,
@@ -389,3 +409,62 @@ function report(asJson, flat, counts, dead) {
 }
 
 main();
+
+/* ───────────────────── call-site placeholder parity ───────────────────── */
+
+/**
+ * Extract `t('key', { … })` / `i18n.t('key', { … })` call sites and the
+ * parameter names each one passes.
+ *
+ * Deliberately conservative: a call whose second argument is a variable, a
+ * spread, or anything this simple scan cannot read is SKIPPED rather than
+ * guessed at. Over-reporting would push authors to delete placeholders from
+ * their messages, which is worse than the hole it closes.
+ */
+function extractCallSites() {
+  const sites = [];
+  const CALL_RE = /(?:\bi18n\.t|(?<![\w$.])t)\(\s*(['"])([A-Za-z0-9_.]+)\1\s*(,)?/g;
+  for (const file of collectSources(SRC_DIR)) {
+    const text = fs.readFileSync(file, 'utf8');
+    let m;
+    while ((m = CALL_RE.exec(text)) !== null) {
+      const key = m[2];
+      const line = text.slice(0, m.index).split('\n').length;
+      const rel = path.relative(FRONTEND_ROOT, file);
+      if (!m[3]) {
+        sites.push({ key, file: rel, line, params: [] });
+        continue;
+      }
+      // Read the balanced object literal, if there is one.
+      let i = m.index + m[0].length;
+      while (i < text.length && /\s/.test(text[i])) i++;
+      if (text[i] !== '{') continue; // a variable — unverifiable, skip
+      const start = i;
+      let depth = 0;
+      for (; i < text.length; i++) {
+        if (text[i] === '{') depth++;
+        else if (text[i] === '}') {
+          depth--;
+          if (depth === 0) break;
+        }
+      }
+      const body = text.slice(start + 1, i);
+      if (body.includes('...')) continue; // spread — unverifiable, skip
+      const params = [...body.matchAll(/(?:^|[,{])\s*([A-Za-z_$][\w$]*)\s*:/g)].map((x) => x[1]);
+      sites.push({ key, file: rel, line, params });
+    }
+  }
+  return sites;
+}
+
+function checkCallSitePlaceholders(sourceLeaves) {
+  const leaks = [];
+  for (const site of extractCallSites()) {
+    const value = sourceLeaves[site.key];
+    if (typeof value !== 'string') continue;
+    const declared = [...value.matchAll(/\{\{\s*([A-Za-z0-9_]+)\s*\}\}/g)].map((x) => x[1]);
+    const missing = declared.filter((p) => !site.params.includes(p));
+    if (missing.length) leaks.push({ ...site, missing: [...new Set(missing)] });
+  }
+  return leaks;
+}

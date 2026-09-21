@@ -12,6 +12,7 @@ import { SplashScreen } from '../components/common/SplashScreen';
 import { useUIStore } from '../stores/uiStore';
 import { useCartStore } from '../stores/cartStore';
 import { SparkleIcon } from '../components/icons/ConfitIcons';
+import { SkipLink, SKIP_TARGET_ID } from '../components/common/SkipLink';
 import { TrustFooter } from '../components/commerce/TrustFooter';
 
 export const ConsumerLayout: React.FC = () => {
@@ -27,23 +28,37 @@ export const ConsumerLayout: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-[#FAF9F6] text-[#1B1F3B]">
+      {/* WCAG 2.4.1 — first focusable element on the page. Hidden with
+          sr-only (not display:none) and revealed on focus. */}
+      <SkipLink />
+
       {/* Editorial Luxury Splash Screen (Session-Aware) */}
       <SplashScreen />
 
       {/* Consumer Header & Navigation */}
       <ConsumerNavbar />
 
-      {/* Main View Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8">
+      {/* Main View Container.
+          id + tabIndex={-1}: the skip link and the route announcer move focus
+          here, so "skip to content" actually lands in the content and the next
+          Tab starts at this page's first control rather than back in the nav.
+          tabIndex={-1} makes it programmatically focusable WITHOUT adding it to
+          the tab order. */}
+      <main
+        id={SKIP_TARGET_ID}
+        tabIndex={-1}
+        className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8 outline-none"
+      >
         <Outlet />
       </main>
 
       {/* Floating AI Stylist FAB */}
-      <div className="fixed bottom-20 lg:bottom-8 right-6 z-40">
+      <div className="fixed bottom-20 lg:bottom-8 end-6 z-40">
         <button
           onClick={() => openStylist()}
           className="group flex items-center gap-2.5 px-4.5 py-3 rounded-full bg-[#0C0E1E] hover:bg-[#1B1F3B] text-white shadow-2xl hover:scale-105 active:scale-95 transition-all border border-[#C5A059]/40"
           aria-label={t('layout.open_ai_stylist')}
+          type="button"
         >
           <div className="w-6 h-6 rounded-full bg-[#C5A059] flex items-center justify-center text-slate-950 shadow-xs">
             <SparkleIcon size={14} color="#0C0E1E" />
@@ -67,7 +82,9 @@ export const ConsumerLayout: React.FC = () => {
         <div className="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10">
           <div className="space-y-3">
             <div className="font-serif tracking-widest text-2xl font-bold text-white flex items-center gap-2">
-              <span>CONFIT</span>
+              {/* Latin wordmark inside a possibly-RTL page: isolate it so
+                  bidi reordering cannot mangle the letter order. */}
+              <span dir="ltr" className="force-ltr">CONFIT</span>
               <span className="text-[10px] px-2 py-0.5 rounded bg-[#C5A059]/20 text-[#C5A059] font-sans font-semibold">
                 {t('footer.haute_tech')}
               </span>

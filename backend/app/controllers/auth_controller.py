@@ -119,7 +119,16 @@ class VerifyEmailRequest(BaseModel):
 
 
 class DisableMFARequest(BaseModel):
+    """Disable MFA — hardened contract.
+
+    Removing the second factor now re-authenticates with BOTH the password
+    and a current authenticator/recovery code (`mfa_code`). Password alone
+    used to be enough, which let a stolen password remove the exact control
+    that exists to survive a stolen password.
+    """
+
     password: str
+    mfa_code: Optional[str] = None
 
 
 class ChangePasswordRequest(BaseModel):
@@ -330,8 +339,12 @@ def get_current_user_profile(user: User = Depends(get_current_user)):
 
 
 # --- MFA ---------------------------------------------------------------------
+# Every MFA mutation endpoint is rate-limited: setup/disable/regenerate are
+# re-authentication surfaces (password and/or TOTP guesses), and unlimited
+# calls also allowed silent secret-rotation loops.
 @router.post("/mfa/setup", response_model=MFASetupResponse)
-def setup_mfa(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def setup_mfa(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     return AuthService(db).setup_mfa(user)
 
 
@@ -342,13 +355,15 @@ def verify_mfa(request: Request, payload: MFAVerifyRequest, user: User = Depends
 
 
 @router.post("/mfa/disable")
-def disable_mfa(payload: DisableMFARequest, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    AuthService(db).disable_mfa(user, payload.password)
+@limiter.limit("5/minute")
+def disable_mfa(request: Request, payload: DisableMFARequest, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    AuthService(db).disable_mfa(user, payload.password, mfa_code=payload.mfa_code)
     return {"status": "disabled"}
 
 
 @router.post("/mfa/regenerate-codes")
-def regenerate_mfa_codes(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def regenerate_mfa_codes(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     return AuthService(db).regenerate_backup_codes(user)
 
 

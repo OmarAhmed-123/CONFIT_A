@@ -3,6 +3,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { BrowserRouter } from 'react-router-dom';
 import { AppRoutes } from './router/AppRoutes';
+import { RouteAnnouncer } from './hooks/useRouteAnnouncement';
 import { queryClient, clearUserQueries, clearQueryCacheOnLogout } from './lib/queryClient';
 import { useAuthStore } from './stores/authStore';
 import { useUIStore } from './stores/uiStore';
@@ -53,6 +54,10 @@ export const App: React.FC = () => {
           can use navigate(). Previously <AuthModal /> crashed with
           "useNavigate() may be used only in the context of a <Router>". */}
       <BrowserRouter>
+        {/* RouteAnnouncer lives OUTSIDE the routed tree: a live region that is
+            unmounted by the very navigation it reports will often miss its own
+            update. It also owns document.title and route focus. */}
+        <RouteAnnouncer />
         <AppRoutes />
         <AuthModal />
         {toast && <Toast message={toast.message} type={toast.type} onClose={hideToast} />}

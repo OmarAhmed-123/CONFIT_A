@@ -119,7 +119,27 @@
     "gap_analysis_title": "Wardrobe Gap Analysis",
     "gap_analysis_desc": "AI identifies missing essentials in your closet that unlock the most outfit combinations.",
     "duplicate_alert_title": "Smart Duplicate Alert",
-    "duplicate_alert_message": "You already own a similar piece in your closet. Proceed with purchase or style what you own?"
+    "duplicate_alert_message": "You already own a similar piece in your closet. Proceed with purchase or style what you own?",
+    "mood_boards_tab": "Mood Boards",
+    "closet_load_failed": "Couldn't load your wardrobe",
+    "gaps_signin": "Sign in to see your personal gap analysis.",
+    "gaps_failed": "Gap analysis failed",
+    "gaps_none_title": "No gaps found — your capsule covers every core position.",
+    "gaps_none_sub": "Keep adding pieces you actually wear and this analysis stays honest as your wardrobe evolves.",
+    "gaps_starter": "Starter staple",
+    "boards_signin_title": "Sign in to create your mood boards.",
+    "boards_signin_sub": "Collect inspiration — links, catalog pieces and your own photos — into boards you can style from later.",
+    "boards_load_failed": "Couldn't load mood boards",
+    "boards_new_title": "New Mood Board",
+    "boards_new_placeholder": "e.g. Autumn neutrals",
+    "boards_new_create": "Create Board",
+    "boards_empty_title": "No mood boards yet.",
+    "boards_empty_sub": "Create one above, then add inspiration tiles: links, catalog pieces, or photos you upload.",
+    "boards_product_tile": "Catalog product #{{id}}",
+    "boards_remove_tile": "Remove tile",
+    "boards_link_placeholder": "Add inspiration link (https://…)",
+    "boards_add_link": "Add Link",
+    "boards_upload_photo": "⬆ Upload Photo"
   },
   "commerce": {
     "add_to_cart": "Add to Bag",
@@ -209,7 +229,10 @@
     "confirm": "Confirm",
     "close": "Close",
     "save": "Save",
-    "saving": "Saving…"
+    "saving": "Saving…",
+    "try_again": "↻ Try again",
+    "rename": "Rename",
+    "delete": "Delete"
   },
   "layout": {
     "ai_stylist_director": "AI Stylist Director",
@@ -412,7 +435,19 @@
     "analysis_unavailable": "Analysis still unavailable.",
     "stock_saved": "Warehouse SKU stock saved. Store inventory is managed separately.",
     "placement_saved": "Placement settings saved. Ad delivery and billing are not verified by this action.",
-    "sign_out_failed": "Sign out failed. Please retry."
+    "sign_out_failed": "Sign out failed. Please retry.",
+    "gap_analysis_failed": "Gap analysis failed: {{reason}}",
+    "boards_load_failed": "Mood boards failed to load: {{reason}}",
+    "board_created": "Mood board created",
+    "board_create_failed": "Failed to create mood board: {{reason}}",
+    "board_rename_failed": "Rename failed: {{reason}}",
+    "board_deleted": "Mood board deleted",
+    "board_delete_failed": "Failed to delete mood board: {{reason}}",
+    "board_tile_add_failed": "Failed to add tile: {{reason}}",
+    "board_tile_remove_failed": "Failed to remove tile: {{reason}}",
+    "board_tile_uploaded": "Image added to board",
+    "board_tile_upload_failed": "Upload failed: {{reason}}",
+    "board_upload_too_large": "Mood-board photos are limited to 5MB."
   },
   "consent": {
     "title": "Before we process your photo",

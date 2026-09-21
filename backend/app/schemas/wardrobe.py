@@ -105,7 +105,12 @@ class GapAnalysisOut(BaseModel):
     missing_subcategory: str
     suggested_colors: List[str]
     rationale: str
+    # Computed from the user's ready items (combinatorial estimate, capped) —
+    # NOT a constant. 0 = no core pieces owned yet (honest starter state).
     unlocks_outfit_count: int
+    # The ready-item counts per category that the rationale and the estimate
+    # are computed from — the claim is auditable against its source data.
+    owned_counts: Dict[str, int] = Field(default_factory=dict)
     recommended_products: List[Dict[str, Any]]
 
 

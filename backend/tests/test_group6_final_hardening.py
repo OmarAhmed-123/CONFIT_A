@@ -1,3 +1,4 @@
+from backend.tests.test_brand_portal_regressions import portal, row, upload
 """
 Group 6 Final Hardening — Tests for JOIN multiplication fix, tenant isolation for impression/click,
 N+1 fix, lat/lng validation, check constraints migration 0011, revenue attribution no double count
@@ -84,17 +85,24 @@ class TestRevenueAttributionJoinMultiplicationFixed:
         finally:
             db.close()
 
-    def test_return_reduction_no_double_count(self):
-        db = TestingSessionLocal()
-        try:
-            from backend.app.repositories.brand_repository import BrandRepository
-            repo = BrandRepository(db)
-            # Check that brand_returns uses DISTINCT
-            import inspect
-            source = inspect.getsource(repo.get_brand_analytics)
-            assert "func.distinct" in source or "distinct" in source.lower(), "brand_returns should use DISTINCT to prevent JOIN multiplication"
-        finally:
-            db.close()
+    def test_return_reduction_no_double_count(self, portal):
+        from backend.app.repositories.brand_repository import BrandRepository
+        from backend.app.models.commerce import Order, OrderItem
+        client, factory, headers, brands = portal
+        upload(client, headers[0], [row()])
+        with factory() as db:
+            product = db.query(Product).one()
+            order = Order(order_number="two-lines-one-return", total_amount=40, subtotal_amount=40, status="delivered")
+            db.add(order); db.flush()
+            for returned in [True, False]:
+                db.add(OrderItem(order_id=order.id, product_id=product.id, brand_id=brands[0],
+                    product_title="Coat", brand_name="Brand", size="M", color="Navy",
+                    unit_price=20, quantity=1, subtotal=20, is_returned=returned))
+            db.commit()
+            metrics = BrandRepository(db).get_brand_return_metrics(brands[0])
+            assert metrics["non_tryon_items"] == 2
+            assert metrics["non_tryon_returned_items"] == 1
+            assert metrics["return_rate_before_vton"] == 50
 
 
 class TestSponsoredPlacementTenantIsolationImpressionClick:

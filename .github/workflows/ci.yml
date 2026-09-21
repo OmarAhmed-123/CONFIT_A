@@ -90,6 +90,15 @@ jobs:
           backend/tests/test_migration_integrity_behavioral.py
           backend/tests/test_migration_0013_quarantine_audit.py
 
+      - name: Partner portal behavior and concurrent mutations on PostgreSQL
+        env:
+          CONFIT_PORTAL_TEST_PG_URL: postgresql://confit:${{ env.CI_PG_PASSWORD }}@localhost:5432/confit_ci
+        run: >-
+          PYTHONPATH=. python3 -m pytest -q
+          backend/tests/test_brand_portal_regressions.py
+          backend/tests/test_brand_portal_analytics.py
+          backend/tests/test_brand_portal_postgres.py
+
   # Guards against "works on the developer machine" regressions: the Vercel
   # function manifest, entrypoint, environment contract and forbidden
   # local-only references are checked as data, independent of the test DB.

@@ -14,6 +14,7 @@ import {
   EmptyState,
 } from "../../components/common/CommonComponents";
 import { CameraScanModal } from "../../components/tryon/CameraScanModal";
+import { TryOnEngineStatus } from "../../components/tryon/TryOnEngineStatus";
 import { CircularGalleryShowcase } from "../../components/showcase/DesignShowcases";
 
 export const TryOnFitView: React.FC = () => {
@@ -73,6 +74,12 @@ export const TryOnFitView: React.FC = () => {
           </p>
         </div>
       </div>
+
+      {/* Live engine verdict: the user learns whether try-on can actually
+          render BEFORE uploading a photo, and gets the published timing.
+          Added after the 2026-09-21 audit: production advertised try-on while
+          the GPU worker was offline and every job failed. */}
+      <TryOnEngineStatus />
 
       <section className="rounded-3xl border border-[#C5A059]/25 bg-white p-5 shadow-2xs">
         <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">

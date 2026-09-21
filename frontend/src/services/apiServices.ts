@@ -24,6 +24,10 @@ import {
   StoreInventoryLocation,
   TryOnJob,
   GarmentAsset,
+  AuditTrailPage,
+  AuditFacets,
+  AuditIntegrity,
+  AuditStats,
 } from "../models";
 
 // 1. Authentication Services (G1)
@@ -929,9 +933,42 @@ export const brandService = {
 };
 
 // 9. Admin Service
+export interface AuditTrailQuery {
+  page?: number;
+  page_size?: number;
+  action?: string;
+  resource_type?: string;
+  resource_id?: string;
+  actor_id?: number;
+  search?: string;
+  date_from?: string;
+  date_to?: string;
+  only_admin_actions?: boolean;
+  include_facets?: boolean;
+}
+
+const auditQuery = (params: AuditTrailQuery = {}): string => {
+  const search = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === "") return;
+    search.set(key, String(value));
+  });
+  const qs = search.toString();
+  return qs ? `?${qs}` : "";
+};
+
 export const adminService = {
   getPlatformAnalytics: () =>
     request<AdminPlatformAnalytics>("/admin/analytics"),
   getBrandComparison: () => request<any[]>("/admin/analytics/brands"),
-  getAuditLogs: () => request<any[]>("/admin/audit"),
+  /** Paginated, filterable audit trail (ADMIN-01). Replaces the untyped
+   *  bare-list call that no view ever consumed (G-07). */
+  getAuditTrail: (params: AuditTrailQuery = {}) =>
+    request<AuditTrailPage>(`/admin/audit${auditQuery(params)}`),
+  getAuditFacets: (params: AuditTrailQuery = {}) =>
+    request<AuditFacets>(`/admin/audit/facets${auditQuery(params)}`),
+  getAuditStats: (windowDays = 30) =>
+    request<AuditStats>(`/admin/audit/stats?window_days=${windowDays}`),
+  getAuditIntegrity: (windowDays = 30) =>
+    request<AuditIntegrity>(`/admin/audit/integrity?window_days=${windowDays}`),
 };

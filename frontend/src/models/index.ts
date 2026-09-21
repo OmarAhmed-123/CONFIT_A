@@ -765,3 +765,98 @@ export interface GarmentAsset {
   garment_mask_url?: string;
   created_at: string;
 }
+
+/* ------------------------------------------------------------------ *
+ * Platform audit trail (ADMIN-01 / gap register G-05, G-07)
+ *
+ * Mirrors backend/app/schemas/audit.py field-for-field. This contract is
+ * deliberately explicit: the heatmap types above drifted from the backend
+ * (weight vs share, top_colors vs trending_colors) and the admin dashboard
+ * rendered `undefined%` as a result (G-04).
+ * ------------------------------------------------------------------ */
+
+export interface AuditEntry {
+  id: number;
+  action: string;
+  resource_type: string;
+  resource_id?: string | null;
+  actor: string;
+  actor_id?: number | null;
+  actor_email?: string | null;
+  actor_role?: string | null;
+  ip_address?: string | null;
+  request_id?: string | null;
+  details?: string | null;
+  before?: Record<string, unknown> | null;
+  after?: Record<string, unknown> | null;
+  changed_fields: string[];
+  timestamp?: string | null;
+}
+
+export interface AuditPageMeta {
+  page: number;
+  page_size: number;
+  total: number;
+  total_pages: number;
+  has_next: boolean;
+  has_previous: boolean;
+}
+
+export interface AuditFacetValue {
+  value: string;
+  count: number;
+  actor_id?: number | null;
+  role?: string | null;
+}
+
+export interface AuditFacets {
+  actions: AuditFacetValue[];
+  resource_types: AuditFacetValue[];
+  actors: AuditFacetValue[];
+  oldest?: string | null;
+  newest?: string | null;
+}
+
+export interface AuditTrailPage {
+  items: AuditEntry[];
+  meta: AuditPageMeta;
+  filters: Record<string, unknown>;
+  facets?: AuditFacets | null;
+  request_id?: string | null;
+  methodology?: string;
+}
+
+export interface AuditViolation {
+  row_id: number;
+  issue: string;
+  action?: string;
+}
+
+export interface AuditIntegrity {
+  checked_rows: number;
+  window_days: number;
+  sampled_rows?: number;
+  violations: AuditViolation[];
+  unresolved_actors: number;
+  redaction_markers: number;
+  rows_with_before_after: number;
+  rows_with_request_id: number;
+  rows_with_ip: number;
+  distinct_actors?: number;
+  verdict: string;
+  /** Always false today: audit_logs has no persisted hash chain. */
+  tamper_evident: boolean;
+  limitations: string[];
+}
+
+export interface AuditStats {
+  window_days: number;
+  total_events: number;
+  by_action: AuditFacetValue[];
+  by_resource_type: AuditFacetValue[];
+  by_actor: AuditFacetValue[];
+  by_day: Array<{ day: string; count: number }>;
+  distinct_actors: number;
+  admin_action_events: number;
+  methodology?: string;
+}

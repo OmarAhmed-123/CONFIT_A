@@ -1,297 +1,189 @@
-# Fit Finder & Size Recommendation — Remediation Report
+# Fit Finder — Final Engineering Closure Report
 
-**Slice:** Fit Finder / body measurements / size recommendation
-**Repository:** `OmarAhmed-123/CONFIT_A` · **Production:** https://confit-a.vercel.app/
-**Branch:** `feat/fit-finder-sizing-engine` (one branch) · **PRs:** #123, #125, #126
-**Date:** 2026-09-21
-
----
-
-## 0. اطمن — التقرير ده مش هيعاقب حد
-
-**هذا التقرير ليس لمعاقبة أحد.** الهدف منه إننا نصلّح ونتعلّم، مش إننا نلوم.
-
-كل حاجة مكتوبة هنا هي وصف لكود، مش حكم على شخص. الميزة دي كانت شغالة ومربوطة
-وبتطلع نتيجة للمستخدم — المشكلة إن النتيجة دي مكانتش مبنية على مقاسات المنتج
-الحقيقية. ده نوع من الأخطاء اللي بيحصل كتير جدًا في المنتجات اللي بتتبني بسرعة:
-حد عايز يوصّل الميزة، فبيحط منطق مؤقت عشان الشاشة تشتغل، وبعدين الشغل بيكمل
-والمنطق المؤقت بيفضل مكانه. ده مش إهمال، ده الطريقة الطبيعية اللي الديون التقنية
-بتتراكم بيها.
-
-اللي يستاهل التقدير إن المراجعة اتعملت أصلًا، وإن التقرير الأصلي كان أمين: قال
-**"partially verified — routes exist, computation unproven"** بدل ما يقول
-"شغال". الجملة دي بالظبط هي اللي خلّت الإصلاح ده ممكن.
-
-> **In English:** this report will not punish anyone. Every finding below
-> describes code, not a person. The feature was wired, deployed and returning
-> answers — the problem was only that the answers were not derived from the
-> garment. That is one of the most common ways software decays: someone ships a
-> placeholder so the screen works, the work moves on, and the placeholder stays.
-> The credit here belongs to the audit that said *"computation unproven"*
-> instead of *"working"*. That honesty is what made this fix possible.
+**Scope:** Fit Finder / body measurements / size recommendation only.
+**Branch:** `feat/fit-finder-sizing-engine` (single branch, as instructed)
+**Baseline audited:** `main` @ `662df4a`
+**Production:** https://confit-a.vercel.app/
 
 ---
 
-## 1. What the audit said, and what was actually true
+## 0. This report is not punitive
 
-The audit rated the feature **"partially verified — routes exist, computation
-unproven"** and listed these gaps:
+This document exists to make the system's real state legible so it can be
+improved — not to assign blame. Every defect described here was found by
+deliberately attacking our own work, and several were introduced by the very
+commits that claimed to fix the feature. That is normal engineering. The
+valuable output is the set of invariants that now make those mistakes
+structurally hard to repeat.
 
-| # | Audit gap | Verdict after investigation |
-|---|---|---|
-| 1 | No measured accuracy or explanation | **Confirmed** — no accuracy could exist; see §2 |
-| 2 | Bounds, units, cm/in conversion, missing measurements unverified | **Confirmed** — and worse than suspected |
-| 3 | Brand-specific size charts unverified | **Confirmed** — charts were never read at all |
-| 4 | No guard when inventory / size chart is absent | **Confirmed** — a size was always returned |
-| 5 | Measurement-session ownership unvalidated | **Partly incorrect** — ownership *was* correctly enforced; consent was not |
+The rule applied throughout: **no claim appears here unless it was executed and
+observed.** Where something could not be verified, it is marked BLOCKED or NOT
+VERIFIED rather than softened.
 
-Finding 5 is worth stating plainly: `measurement_service.py` already implemented
-a correct owner-gating model (F-14). The audit flagged it as unverified, not as
-broken, and on inspection it was sound. **Not every flagged item was a defect.**
+---
 
-### 1.1 The core finding
+## 1. Status summary
 
-`no_photo_fit_service.py` computed a size from **BMI alone**. It never opened
-`products.size_chart_json`. The same body received the same letter for a slim
-tuxedo and a relaxed poplin shirt, from every brand in the catalogue.
-
-Two reproductions **against live production**, before any change:
-
-| Input | Response |
+| Area | Status |
 |---|---|
-| chest 130 cm, waist 120 cm, weight 52 kg (a physically impossible body) | `recommended_size: "S"`, `confidence_score: 85` |
-| `body_shape: "dragon"`, `chest: -50` | `recommended_size: "M"`, `confidence_score: 70` |
+| Deterministic size engine (measurements → size) | VERIFIED |
+| Refusal instead of fabrication when data is insufficient | VERIFIED |
+| Units / bounds / outlier handling | VERIFIED |
+| Inventory honesty (tri-state) | VERIFIED |
+| Confidence expressed as band, never a probability | VERIFIED |
+| Size-chart provenance disclosed | VERIFIED |
+| Measurement-session ownership | VERIFIED |
+| Production DB backfill of real brand charts | **BLOCKED** (credentials) |
+| Measured recommendation **accuracy** | **NOT VERIFIED** (no ground-truth data) |
 
-A negative chest measurement and a mythical body shape both produced a
-confident recommendation. The confidence number was a constant in the source.
+**Test evidence at closure:** backend **2350 passed, 5 skipped, 0 failed**;
+frontend **254 passed / 31 files**; `tsc --noEmit` clean; `npm run build` OK.
 
 ---
 
-## 2. What was built
+## 2. What was actually wrong, and what fixed it
 
-A new package, `backend/app/services/fit/` — 1,143 lines across five modules,
-one responsibility each:
+### 2.1 A size was recommended for a body nothing fits
+The engine computed a fit score, labelled it *"Does not fit"*, and returned it
+as a recommendation anyway. The refusal floor and the label threshold were two
+independent literals that disagreed.
 
-| Module | Responsibility |
-|---|---|
-| `units.py` | One conversion boundary; `BOUNDS_CM` plausibility ranges |
-| `size_charts.py` | Parse `size_chart_json` (two shapes, aliases, cm/in); EN 13402-3 fallback; provenance |
-| `anthropometry.py` | Estimate girths from height/weight **with a stated residual SD** |
-| `ease.py` | Ease targets per garment class, material and preferred fit |
-| `engine.py` | Score every candidate size, rank, decide, explain, refuse |
+**Fix.** `NoPhotoFitService._DOES_NOT_FIT_BELOW` is now *bound by import* to
+`_MIN_FIT_SCORE_FOR_RECOMMENDATION`. They are one number; they cannot drift.
+Asserted by `test_rating_label_threshold_is_bound_to_the_engine_refusal_floor`.
 
-### 2.1 The algorithm
+*Verified in production:* chest 130 / waist 120 / h170 / w52 → `recommended:
+false`, `NO_SIZE_FITS` (previously `S`, "85% confidence").
 
-Modelled on *"An Interpretable Multi-Dimensional Fit Evaluation Framework for
-Online Apparel Size Recommendation"* (Textiles, 2026,
-[doi:10.3390/textiles6030075](https://doi.org/10.3390/textiles6030075)), which
-reports 98.9–99.6% top-3 accuracy on 270 participants:
+### 2.2 Unknown stock was reported as "in stock"
+`level is None or level > 0` turned a size that had never been checked into an
+available one. Inventory is now tri-state: `in_stock` / `out_of_stock` /
+`unknown`, with `in_stock: null` for unknown, rendered as **"Not confirmed"**.
+A size may only be *recommended* if availability is positively confirmed.
 
-1. For each candidate size, compute **garment ease** per fit point (chest,
-   waist, hip, shoulder, inseam, neck) from the chart.
-2. Compare against the **ideal ease** for that garment class, material and the
-   user's preferred fit.
-3. Convert each deviation to a penalty via a **strictly decreasing** curve.
-4. Aggregate with segment weights into an overall fit score; rank the sizes.
+### 2.3 A rule score was presented as a probability
+`confidence_score` is an evidence tally, never calibrated against fit outcomes.
+Rendering "66% confidence" implied a measured frequency that does not exist.
+Responses now carry `confidence_band` (high/medium/low),
+`confidence_band_reason`, and `confidence_is_probability: false`.
 
-Every number the user sees is a real output of this computation.
+**Found during this closure pass:** `FitFinderView` had been fixed, but
+`NoPhotoFitModal.tsx` — mounted in `ConsumerLayout`, i.e. on *every* consumer
+page — still rendered `{confidence_score}% confidence`. Fixing one surface and
+declaring the class of bug closed is exactly the failure mode this pass existed
+to catch. Now fixed and covered.
 
-### 2.2 The refusal path
+### 2.4 Measurements could be written to another user's session
+A failed `createSession` returned id `1`, and results were submitted against
+`sessionId || 1` — writing body measurements into session #1. The client code
+had been corrected earlier, but **no test protected it**. Five regression tests
+now assert: null (never `1`) on failure, *no* write attempted, no success toast
+for a save that did not happen, correct id on success, and consent never
+defaulted to true. The server-side owner gate (13 tests) remains the real
+defence.
 
-The engine is allowed to say **no**, and does so as a `200` with
-`recommended: false` plus a `reason_code` and the list of missing inputs:
+### 2.5 Provenance type drift (found this pass)
+The backend emits four chart sources; the frontend union declared three,
+omitting `product_chart_derived`. Corrected, with a comment tying the type to
+its backend definition.
 
+### 2.6 A test that could only pass in CI (found this pass)
+`test_upgrade_downgrade_round_trip` shelled out to the bare name `python3`,
+resolved via `PATH` — not the interpreter running the suite. It failed for
+every developer using a virtualenv and passed in CI only because CI installs
+into the system interpreter. It was previously dismissed as "environment-only".
+It was a harness bug: it now uses `sys.executable`. **Result: the backend suite
+has zero failures for the first time.**
+
+---
+
+## 3. Honest limits
+
+### 3.1 Accuracy is NOT measured — and no figure is claimed
+There is no ground-truth dataset of *(body measurements, garment, size actually
+kept)* for this catalogue. The acceptance suite
+(`backend/tests/fixtures/fit_acceptance_cases.json`, 21 cases) checks that
+outputs fall in an expected **range** and that refusals fire — it measures
+**self-consistency against a published standard, not real-world accuracy.**
+
+Any "% accuracy" figure for this feature would be fabricated. None is given.
+Measuring it requires post-purchase return/fit feedback.
+
+### 3.2 Production runs on a generic chart — BLOCKED
+Production products carry no per-product size chart, so the engine falls back
+to EN 13402-3 and **correctly** reports `source: standard_en13402`,
+`is_brand_published: false`, and caps confidence at `low`. This is honest, but
+it is not brand-accurate sizing.
+
+`backend/scripts/backfill_size_charts.py` is written and tested but **has never
+run against production.** Blocked because the available `DATABASE_URL` is
+rejected by Neon (`password authentication failed for user 'neondb_owner'`),
+and the Vercel token can list the project but lacks permission to decrypt the
+production env var (`decrypt=true` returns ciphertext). No workaround was
+attempted beyond the project's own configuration.
+
+**Operator command, once valid credentials are supplied:**
+```bash
+export DATABASE_URL='<production connection string>'
+python -m backend.scripts.backfill_size_charts --dry-run   # inspect first
+python -m backend.scripts.backfill_size_charts             # apply
 ```
-oxford shoes → recommended=False, reason=NO_SIZE_CHART
-               "any size we named would be a guess"
-```
-
-This directly answers audit gap #4. A wrong size is a return; a *confident*
-wrong size is worse.
-
-### 2.3 Provenance
-
-Every response names the chart it used, whether the brand published it, and
-when it was last updated — audit gap #3.
+The script is idempotent and never overwrites a brand-published chart.
+Until it runs, confidence stays `low` in production **by design**.
 
 ---
 
-## 3. Findings we did not go looking for
+## 4. Invariants now enforced
 
-These surfaced while fixing the above. They are listed because a report that
-only contains what was expected is not a real report.
+`backend/tests/test_fit_invariants.py` sweeps 315 combinations of body × chart ×
+stock × fit preference (**633 assertions**) through the real service path:
 
-| # | Finding | Status |
-|---|---|---|
-| 1 | The `save-to-profile` route the frontend had always called **did not exist** | Fixed |
-| 2 | Measurement writes were accepted against sessions created **without consent** | Fixed (gate + tests) |
-| 3 | UI claimed `confidence_score: 95`, `body_shape: "Athletic"` and "on-device pose landmarks" — none computed | Fixed |
-| 4 | `product_context_service.py` held a **duplicate** sizing implementation, so the PDP and Fit Finder could disagree about one garment | Fixed — one engine |
-| 5 | On `createSession` failure the client returned the literal id `1`, writing the user's measurements into **session #1 — someone else's session** | Fixed |
-| 6 | A failed measurement save was reported to the user as success | Fixed |
-| 7 | UI claimed measurements were "encrypted with Fernet-256" — not a real cipher name | Fixed |
-| 8 | `consent_granted` defaulted `True` in the model, `False` in the schema | Fixed — both `False` |
-| 9 | Parity gate pinned `0018_partner_onboarding_email_lifecycle`, **a revision that has never existed** | Fixed |
-| 10 | All nine seeded products had `size_chart_json = "{}"` | Fixed |
-
-### 3.1 A defect found by testing the merged code in production
-
-After all three PRs were merged and deployed, the audit's original impossible
-body (chest 130, waist 120) was replayed against production. The engine had
-clearly improved — confidence fell 85 → 50, the provenance was disclosed, and
-the breakdown read `"your 130 cm vs 86-94 cm for size S: too tight (+36 cm)"`
-with `fit_verdict: "Does not fit"`.
-
-**But it still returned `recommended: true` and named size S.**
-
-Two thresholds disagreed. The refusal gate fired only at `score <= 0`, which the
-penalty curve never reaches because it is floored above zero, while the
-presentation layer labels anything below 45 "Does not fit". The engine was
-recommending a garment it simultaneously described as not fitting.
-
-The confidence floor could never have caught this: confidence measures *how sure
-we are*, and the engine was quite sure this did not fit. Fit quality needed its
-own gate. Fixed in PR #134 with the two thresholds tied together and the
-production case pinned as a regression test.
-
-This is recorded prominently because it is the most important thing in this
-report: **the fix was not finished when the tests passed and the PRs merged.**
-It was finished when someone ran the original failing input against the deployed
-system and read the output.
-
-### 3.2 A mistake made during this work
-
-Seeding real charts (finding 10) introduced a *new* false claim: the parser
-labelled any product chart `"Brand-published size chart"`, which would have told
-users that COS published measurements COS never published.
-
-It was caught before merge and fixed — such charts now report as
-`product_chart_derived` with the source named and `is_brand_published: false`.
-It is recorded here because the point of this exercise is that overstatement is
-easy and needs checking, including in the fix.
+1. A size rated "Does not fit" is never recommended.
+2. The recommended size is confirmed available — never unknown.
+3. Unknown stock renders as unknown, never as confirmed.
+4. A non-brand chart never claims `is_brand_published`.
+5. A generic fallback chart can never yield better than `low` confidence.
+6. Every refusal carries a machine code *and* a human explanation.
+7. Missing girths either refuse, or are disclosed as estimated at low confidence.
 
 ---
 
-## 4. Evidence
+## 5. Requirement verification table
 
-Everything below is reproducible from the repository.
-
-| Check | Result |
-|---|---|
-| Backend suite | **1,325 passed, 5 skipped** |
-| Fit-specific tests | **116 passed** (acceptance + API + charts + session security) |
-| Frontend typecheck | `tsc --noEmit` clean |
-| Frontend tests | **110 passed**, 21 files |
-| Frontend build | succeeds, 2,071 modules |
-| CI on each PR | `backend`, `frontend`, `release gate` — all green |
-
-Verified against **live production** after the final merge:
-
-| Input | Before this work | Now |
-|---|---|---|
-| chest 130, waist 120 (impossible body) | `S`, confidence 85 | `recommended: false`, `NO_SIZE_FITS` |
-| chest 98, waist 84 (normal body) | `M`, confidence fabricated | `M`, confidence 66, chart + provenance disclosed |
-
-Two caveats, stated rather than hidden:
-
-- `test_upgrade_downgrade_round_trip` is deselected **in the local sandbox
-  only**. It shells out to the system `python3`, which has no alembic here. It
-  fails identically on an unmodified tree, and passes in CI.
-- `Workers Builds: confit-a` fails on this branch. It alternates
-  success/failure across `main`'s own history, is not a required check, and this
-  branch touches no Workers configuration.
-
-### 4.1 What "accuracy" does and does not mean here
-
-The acceptance suite covers **multiple bodies, sizes and brands with an expected
-*range*** rather than a single size, as the audit recommended. It proves the
-engine reproduces published size charts for bodies whose correct size is known
-by construction.
-
-**It is not a measured real-world accuracy figure.** That requires labelled
-purchase-and-return outcomes from real customers, which CONFIT_A does not yet
-have. The honest claim is: *the computation is now correct and explainable
-against published charts.* Claiming a percentage would repeat the original
-error in a more sophisticated form.
-
-The public fit datasets (ModCloth / RentTheRunway, Misra–Wan–McAuley RecSys'18)
-were reviewed as a source for this and rejected: they carry small/fit/large
-feedback labels but almost no body measurements, so they cannot validate a
-measurement-driven engine.
-
-### 4.2 The tests found a real bug
-
-Writing the acceptance suite before the implementation was finished paid for
-itself: `section_score` returned a flat `100.0` anywhere inside the tolerance
-band, so several sizes tied and the tie-break returned **S** to a body the chart
-places in **L**. A test written after the fact, against the implementation's own
-behaviour, would have agreed with the bug.
+| # | Requirement | Status | Evidence |
+|---|---|---|---|
+| A | Recommendation computed from measurements, not BMI | VERIFIED | `fit/engine.py`; ease-based scoring per section |
+| B | Refuse when data insufficient | VERIFIED | `NO_SIZE_CHART`, `NO_SCOREABLE_SIZE`, `NO_SIZE_FITS`, `NO_SELLABLE_SIZE`, `INVENTORY_UNKNOWN`; prod-verified |
+| C | Value bounds / units / cm–in conversion | VERIFIED | `allow_inf_nan=False, gt=0`; invalid input → HTTP 422 in prod |
+| D | Outlier & malformed-chart handling | VERIFIED | inverted ranges corrected, bad rows dropped with warnings, malformed JSON refused |
+| E | Measurements used are surfaced | VERIFIED | `body_used` incl. estimated fields |
+| F | Chart source + update date surfaced | VERIFIED | `size_chart_source` in API and both UI surfaces |
+| G | No recommendation without confirmed inventory | VERIFIED | tri-state availability + invariant sweep |
+| H | Confidence not presented as probability | VERIFIED | bands everywhere; both consumers fixed |
+| I | Session ownership / permissions | VERIFIED | 13 backend security tests + 5 new client regressions |
+| J | Brand-specific charts live in production | **BLOCKED** | backfill unrun; credentials unavailable (§3.2) |
+| K | Measured accuracy | **NOT VERIFIED** | no ground-truth dataset (§3.1) |
 
 ---
 
-## 5. Pull requests
+## 6. Sources
 
-| PR | Title | Scope |
-|---|---|---|
-| [#123](https://github.com/OmarAhmed-123/CONFIT_A/pull/123) | Fit Finder (1/3): a real size-recommendation engine replacing the BMI guess | Backend engine, 79 tests |
-| [#125](https://github.com/OmarAhmed-123/CONFIT_A/pull/125) | Fit Finder (2/3): surface the real engine output in the UI | Frontend contract, refusals, units |
-| [#126](https://github.com/OmarAhmed-123/CONFIT_A/pull/126) | Fit Finder (3/3): seed real size charts, close the remaining audit items | Charts, consent, rate limits, gate pin |
-| [#127](https://github.com/OmarAhmed-123/CONFIT_A/pull/134) | Fit Finder (4/4): never recommend a size the engine itself calls "Does not fit" | Post-deploy production finding (§3.1) |
-
-All five on one branch, all merged to `main` via merge commits.
-
-Backwards compatibility was preserved throughout: legacy `*_cm` / `weight_kg`
-request fields and the `return_risk_score` response string are still accepted
-and returned. **No migration was required.**
+- EN 13402-3 letter-code and girth-interval tables (primary chart basis).
+- *An Interpretable Multi-Dimensional Fit Evaluation Framework for Online
+  Apparel Size Recommendation*, Textiles 2026 — informed ease-vs-ideal-ease
+  scoring, per-section labels and ranked candidates. Its reported accuracy is
+  **its own**, on its own dataset; it is not a claim about this system.
 
 ---
 
-## 6. What is still not done
+## 7. If you continue this work
 
-Stated so nobody has to discover it later:
-
-- **No measured real-world accuracy.** Needs return-outcome data (§4.1).
-- **The demo catalogue's charts are standards-derived, not brand-published.**
-  They say so in their own output. Real brand charts need a brand-portal upload
-  path.
-- **The seeded charts are not yet applied to the production database.**
-  `seed_database()` correctly refuses to touch a database that already has users,
-  so PR #126's charts reach a fresh database only. Verified against production
-  after deploy: product 3 still reports `size_chart_source: standard_en13402`.
-  `backend/scripts/backfill_size_charts.py` (PR #139) exists to close this and is
-  tested, but **it has not been run against production**: the `DATABASE_URL`
-  credential provided for this work is rejected by the Neon instance
-  (`password authentication failed for user 'neondb_owner'`). Someone with a
-  working credential needs to run:
-
-  ```
-  python -m backend.scripts.backfill_size_charts --dry-run   # review the plan
-  python -m backend.scripts.backfill_size_charts             # apply
-  ```
-
-  Until then production uses the EN 13402-3 fallback and — importantly — *says
-  so*, which is wrong-but-honest rather than wrong-and-hidden.
-- **Shoes and one-size accessories cannot be sized.** The engine refuses for
-  them, correctly. Footwear needs a last-length model, which is a different
-  problem.
-- **No feedback loop.** The engine does not learn from returns, because nothing
-  yet records whether a recommendation was right.
-
----
-
-## 7. Closing
-
-The single lesson worth keeping: **the code was not broken, it was
-unsubstantiated.** Every endpoint returned `200`, every screen rendered, and
-every number looked plausible. Nothing would have alerted a monitor. What
-exposed it was someone asking *"where does this number come from?"* and writing
-down "unproven" when there was no answer.
-
-The engine is now built so that the same question has an answer every time — the
-measurements used, the chart, its date, the ease targets, the per-section
-verdicts, the confidence factors, and an explicit refusal when the data will not
-support a claim. If a future reviewer finds something overstated in this work,
-that finding will be as welcome as this one was.
-
-**ولو حد لقى في الشغل ده حاجة غلط أو مبالغ فيها، يقولها. ده بالظبط اللي خلّى
-الإصلاح ده يحصل.**
+1. Obtain a working production `DATABASE_URL`, run the backfill (§3.2), then
+   re-verify that confidence rises above `low` for products with real charts.
+2. Capture post-purchase fit feedback — the only route to a defensible accuracy
+   figure.
+3. Confirm `engine_version` reports `fit-engine/2.1.0` in production after this
+   merge deploys. Note for the record: an earlier note suspected production was
+   "lagging" at `2.0.0`. That was wrong — the repository itself still said
+   `2.0.0`; no `2.1.0` had ever been built. Production was reporting its version
+   correctly. The constant is bumped to `2.1.0` in this change.

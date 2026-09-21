@@ -63,7 +63,7 @@ from backend.app.services.fit.size_charts import (
 )
 from backend.app.services.fit.units import BodyMeasurements
 
-ENGINE_VERSION = "fit-engine/2.0.0"
+ENGINE_VERSION = "fit-engine/2.1.0"
 
 # Body field name -> chart dimension name.
 _BODY_TO_DIMENSION: Dict[str, str] = {

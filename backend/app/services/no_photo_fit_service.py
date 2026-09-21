@@ -53,6 +53,7 @@ from backend.app.services.fit.engine import (
     FitDecision,
     FitEngine,
     FitRefusal,
+    _MIN_FIT_SCORE_FOR_RECOMMENDATION,
 )
 from backend.app.services.fit.size_charts import (
     ChartContext,
@@ -305,6 +306,13 @@ class NoPhotoFitService:
             stock[label] = (stock.get(label) or 0) + level
         return stock
 
+    # The "Does not fit" band and the engine's refusal floor are THE SAME
+    # number by construction. They were previously two independent literals
+    # that happened to agree; when they disagreed (refusal floor 0 vs label
+    # threshold 45) production recommended a size it simultaneously described
+    # as "Does not fit". Importing the constant makes that drift impossible.
+    _DOES_NOT_FIT_BELOW = _MIN_FIT_SCORE_FOR_RECOMMENDATION
+
     @staticmethod
     def _rating_label(score: float) -> str:
         if score >= 92:
@@ -313,7 +321,7 @@ class NoPhotoFitService:
             return "Good fit"
         if score >= 65:
             return "Acceptable fit"
-        if score >= 45:
+        if score >= NoPhotoFitService._DOES_NOT_FIT_BELOW:
             return "Poor fit"
         return "Does not fit"
 

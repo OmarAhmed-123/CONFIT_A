@@ -54,6 +54,9 @@ export const UserProfileView: React.FC = () => {
   const [mfaQrUri, setMfaQrUri] = useState<string>('');
   const [mfaCode, setMfaCode] = useState('');
   const [mfaPassword, setMfaPassword] = useState('');
+  // Disabling MFA requires a current authenticator/recovery code in
+  // addition to the password (server contract — MFA_CODE_REQUIRED).
+  const [mfaDisableCode, setMfaDisableCode] = useState('');
   const [mfaBackupCodes, setMfaBackupCodes] = useState<string[]>([]);
   const [mfaBusy, setMfaBusy] = useState(false);
 
@@ -106,9 +109,10 @@ export const UserProfileView: React.FC = () => {
   const disableMfa = async () => {
     setMfaBusy(true);
     try {
-      await authService.disableMFA(mfaPassword);
+      await authService.disableMFA(mfaPassword, mfaDisableCode.trim());
       setMfaEnabled(false);
       setMfaPassword('');
+      setMfaDisableCode('');
       setMfaPanel('idle');
       showToast('Two-factor authentication disabled.', 'info');
     } catch (err: any) {
@@ -566,7 +570,8 @@ export const UserProfileView: React.FC = () => {
           {mfaPanel === 'disable' && (
             <div className="space-y-3 pt-2 border-t border-slate-100">
               <p className="text-[11px] text-slate-600">
-                Re-enter your password to disable two-factor authentication.
+                Re-enter your password AND a current authenticator (or recovery) code
+                to disable two-factor authentication.
               </p>
               <div className="flex flex-col sm:flex-row gap-2">
                 <input
@@ -576,9 +581,17 @@ export const UserProfileView: React.FC = () => {
                   onChange={(e) => setMfaPassword(e.target.value)}
                   className="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-rose-400"
                 />
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="Authenticator or recovery code"
+                  value={mfaDisableCode}
+                  onChange={(e) => setMfaDisableCode(e.target.value)}
+                  className="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-rose-400"
+                />
                 <button
                   onClick={disableMfa}
-                  disabled={mfaBusy || !mfaPassword}
+                  disabled={mfaBusy || !mfaPassword || !mfaDisableCode.trim()}
                   className="px-4 py-2 rounded-xl border border-rose-200 hover:bg-rose-50 text-xs font-semibold text-rose-600 disabled:opacity-50"
                 >
                   Disable MFA

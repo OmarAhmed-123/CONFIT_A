@@ -165,15 +165,47 @@ def test_mfa_user_rejects_bad_code(client: TestClient):
     _enroll_mfa(client, token)
     r = _change(client, token, current="Password123!", new="NewPassword456!", mfa_code="000000")
     assert r.status_code == 401
+    _advance_totp_window(email)  # enrollment consumed the current step
     assert _login(client, email, "Password123!", mfa_code=pyotp.TOTP(_secret_of(email)).now()).status_code == 200
 
 
 def _secret_of(email: str) -> str:
+    """Plaintext TOTP secret for test assertions.
+
+    The DB row is now ENCRYPTED at rest (enc:v1: envelope) — decrypt through
+    the same accessor the service uses.
+    """
     from backend.app.models.user import User
+    from backend.app.services.auth_service import AuthService
 
     db = _db()
     try:
-        return db.query(User).filter(User.email == email).one().mfa_secret
+        user = db.query(User).filter(User.email == email).one()
+        return AuthService(db)._load_mfa_secret(user)
+    finally:
+        db.close()
+
+
+def _advance_totp_window(email: str) -> None:
+    """Simulate the passage of one TOTP period (30 s).
+
+    The replay guard persists the last ACCEPTED time-step and refuses any
+    code from a step <= it — which is exactly right in production, but a
+    test would otherwise have to sleep 30 s between two legitimate uses.
+    Clearing the acceptance marker is equivalent to waiting for the next
+    period; the dedicated replay regression test does NOT use this helper.
+    """
+    from backend.app.models.user import AuditLog, User
+    from backend.app.services.auth_service import AuthService
+
+    db = _db()
+    try:
+        user = db.query(User).filter(User.email == email).one()
+        db.query(AuditLog).filter(
+            AuditLog.user_id == user.id,
+            AuditLog.action == AuthService._MFA_STEP_ACTION,
+        ).delete(synchronize_session=False)
+        db.commit()
     finally:
         db.close()
 
@@ -182,6 +214,7 @@ def test_mfa_user_with_totp_succeeds(client: TestClient):
     email = _email()
     token = _register(client, email)
     secret = _enroll_mfa(client, token)
+    _advance_totp_window(email)  # enrollment consumed the current step
     code = pyotp.TOTP(secret).now()
     r = _change(
         client, token, current="Password123!", new="NewPassword456!", mfa_code=code
@@ -189,6 +222,7 @@ def test_mfa_user_with_totp_succeeds(client: TestClient):
     assert r.status_code == 200, r.text
     # Old credential dead; new one works WITH a fresh MFA code.
     assert _login(client, email, "Password123!").status_code == 401
+    _advance_totp_window(email)  # the change consumed this step's code
     ok = _login(client, email, "NewPassword456!", mfa_code=pyotp.TOTP(secret).now())
     assert ok.status_code == 200
 
@@ -210,6 +244,7 @@ def test_mfa_recovery_code_accepted_for_change(client: TestClient):
     )
     assert r.status_code == 200, r.text
     # Single-use: the burned recovery code must not work twice.
+    _advance_totp_window(email)  # enrollment consumed the current TOTP step
     token2 = _login(client, email, "NewPassword456!", mfa_code=pyotp.TOTP(secret).now()).json()["access_token"]
     r = _change(client, token2, current="NewPassword456!", new="FinalPassword789!", mfa_code=recovery)
     assert r.status_code == 401

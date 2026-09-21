@@ -86,10 +86,13 @@ export const authService = {
       body: JSON.stringify({ code }),
     }),
 
-  disableMFA: (password: string) =>
+  // Hardened: removing the second factor re-authenticates with BOTH the
+  // password and a current authenticator/recovery code (OWASP MFA guidance —
+  // a stolen password alone must never be able to remove MFA).
+  disableMFA: (password: string, mfaCode: string) =>
     request<{ status: string }>("/auth/mfa/disable", {
       method: "POST",
-      body: JSON.stringify({ password }),
+      body: JSON.stringify({ password, mfa_code: mfaCode }),
     }),
 
   // Cycle 9: authenticated password rotation — the only in-product way to

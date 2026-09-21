@@ -1,9 +1,48 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { useBrandViewModel } from '../../viewmodels/useBrandViewModel';
 import { LoadingSpinner, EmptyState } from '../../components/common/CommonComponents';
 import { CardStackShowcase } from '../../components/showcase/DesignShowcases';
+import type { StyleHeatmapCell } from '../../models';
+
+const HeatmapDimension: React.FC<{
+  title: string;
+  cells: StyleHeatmapCell[];
+  cellLabel: (cell: StyleHeatmapCell) => string;
+}> = ({ title, cells, cellLabel }) => {
+  const { t } = useTranslation();
+  if (!cells || cells.length === 0) {
+    return (
+      <div className="text-[11px] text-slate-400">
+        <span className="font-bold text-slate-600">{title}: </span>
+        {t('admin_heatmap.dimension_empty')}
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-2">
+      <span className="text-xs font-bold text-slate-700 block">{title}</span>
+      {cells.map((cell) => (
+        <div key={cell.raw_name ?? cell.name} className="space-y-1 text-xs">
+          <div className="flex justify-between font-bold text-slate-700">
+            <span>{cell.name}</span>
+            <span className="text-[#B8935A]">{cellLabel(cell)}</span>
+          </div>
+          <div className="w-full h-3 rounded-full bg-slate-100 overflow-hidden">
+            <div
+              className="h-full bg-[#1B1F3B] rounded-full"
+              style={{ width: `${Math.min(100, cell.share)}%` }}
+              role="presentation"
+            />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
 
 export const AdminAnalyticsView: React.FC = () => {
+  const { t } = useTranslation();
   const { adminAnalytics, fetchErrors, isLoading, refresh } = useBrandViewModel('admin');
 
   if (isLoading) {
@@ -22,6 +61,9 @@ export const AdminAnalyticsView: React.FC = () => {
   }
 
   const hasData = adminAnalytics.total_orders > 0;
+  const heatmap = adminAnalytics.style_preference_heatmap;
+  const cellShare = (cell: StyleHeatmapCell) =>
+    t('admin_heatmap.cell_share', { share: cell.share, count: cell.count });
 
   return (
     <div className="space-y-8 pb-20">
@@ -105,36 +147,53 @@ export const AdminAnalyticsView: React.FC = () => {
         <div className="lg:col-span-6 bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-4">
           <div className="pb-3 border-b border-slate-100">
             <h3 className="font-serif text-lg font-bold text-[#1B1F3B]">
-              Regional Style Signal Heatmap - Real Aggregate ({adminAnalytics.style_preference_heatmap.region})
+              {t('admin_heatmap.title', { scope: heatmap.region })}
             </h3>
-            <p className="text-xs text-slate-500">Anonymized customer aesthetic signals, never individual, threshold protected</p>
-            <p className="text-[10px] text-slate-400 mt-1">Sample size: {adminAnalytics.style_preference_heatmap.sample_size || 0}, privacy threshold: min 3 occurrences. Aggregate from Outfit.style_tags, color_palette, occasion. Filters that would narrow to tiny population blocked.</p>
+            <p className="text-xs text-slate-500">{t('admin_heatmap.subtitle')}</p>
+            <p className="text-[10px] text-slate-400 mt-1">{heatmap.privacy_threshold}</p>
           </div>
 
-          <div className="space-y-3">
-            {adminAnalytics.style_preference_heatmap.top_aesthetics.map((aes: any) => (
-              <div key={aes.name} className="space-y-1 text-xs">
-                <div className="flex justify-between font-bold text-slate-700">
-                  <span>{aes.name}</span>
-                  <span className="text-[#B8935A]">{aes.share}% of shoppers</span>
-                </div>
-                <div className="w-full h-3 rounded-full bg-slate-100 overflow-hidden">
-                  <div className="h-full bg-[#1B1F3B] rounded-full" style={{ width: `${aes.share}%` }}></div>
-                </div>
-              </div>
-            ))}
-
-            <div className="pt-3 border-t border-slate-100">
-              <span className="text-xs font-bold text-slate-700 block mb-1.5">Trending Color Families (Real):</span>
-              <div className="flex flex-wrap gap-2">
-                {adminAnalytics.style_preference_heatmap.trending_colors.map((c: string) => (
-                  <span key={c} className="px-3 py-1 rounded-xl bg-slate-100 text-xs font-semibold text-slate-800">
-                    {c}
-                  </span>
-                ))}
-              </div>
+          {heatmap.data_available === false ? (
+            /* G-01: this panel used to fill itself with four hardcoded aesthetics
+               and four hardcoded colour chips whenever the real aggregate was
+               empty, inside a dashboard titled "Real Data". It now says why
+               there is nothing to show. */
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-800">
+              <div className="font-bold">{t('admin_heatmap.not_available_title')}</div>
+              <p className="mt-1 leading-relaxed">
+                {t('admin_heatmap.not_available_body', {
+                  sample: heatmap.sample_size ?? 0,
+                  required: heatmap.min_sample_required ?? 10,
+                })}
+              </p>
             </div>
-          </div>
+          ) : (
+            <div className="space-y-4">
+              <HeatmapDimension
+                title={t('admin_heatmap.dimension_aesthetics')}
+                cells={heatmap.top_aesthetics}
+                cellLabel={cellShare}
+              />
+              <HeatmapDimension
+                title={t('admin_heatmap.dimension_colours')}
+                cells={heatmap.trending_colors}
+                cellLabel={cellShare}
+              />
+              <HeatmapDimension
+                title={t('admin_heatmap.dimension_occasions')}
+                cells={heatmap.top_occasions}
+                cellLabel={cellShare}
+              />
+            </div>
+          )}
+
+          {!!heatmap.limitations?.length && (
+            <ul className="space-y-1 border-t border-slate-100 pt-3 text-[10px] leading-relaxed text-slate-400">
+              {heatmap.limitations.map((limitation) => (
+                <li key={limitation}>· {limitation}</li>
+              ))}
+            </ul>
+          )}
         </div>
       </div>
 

@@ -21,7 +21,11 @@ export const BrandNavbar: React.FC = () => {
   const isAdmin = user?.role?.toLowerCase() === 'admin';
   const { t } = useTranslation();
   const path = location.pathname.replace(/^\/partner(?=\/|$)/, '/b2b');
-  const links = isAdmin ? [...PARTNER_LINKS, ['/admin', 'Platform Admin']] : PARTNER_LINKS;
+  // G-07: the audit trail is its own destination. It used to be routed to the
+  // analytics view, so the platform's governance log had no entry point.
+  const links = isAdmin
+    ? [...PARTNER_LINKS, ['/admin', 'Platform Admin'], ['/admin/audit', 'Audit Trail']]
+    : PARTNER_LINKS;
   const handleLogout = async () => {
     try { await logout(); navigate('/'); }
     catch { showToast(msg('toast.sign_out_failed'), 'error'); }

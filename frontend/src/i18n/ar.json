@@ -713,5 +713,16 @@
     "previous": "السابق",
     "next": "التالي",
     "not_available": "غير متاح"
+  },
+  "admin_heatmap": {
+    "title": "خريطة إشارات الأسلوب — {{scope}}",
+    "subtitle": "إشارات جمالية مجهّلة الهوية من الإطلالات المحفوظة. لا بيانات فردية أبدًا، ومحمية بعتبة إحصائية.",
+    "not_available_title": "لا توجد بيانات كافية لنشر تجميع",
+    "not_available_body": "{{sample}} إطلالة ضمن النطاق؛ يلزم {{required}} على الأقل قبل نشر أي خلية. لا يُختلق شيء لملء هذه اللوحة.",
+    "dimension_aesthetics": "أبرز الجماليات",
+    "dimension_colours": "الألوان الرائجة",
+    "dimension_occasions": "أبرز المناسبات",
+    "dimension_empty": "لم تبلغ أي خلية حدّ إخفاء الهوية (k-anonymity) في هذه الفترة.",
+    "cell_share": "{{share}}٪ · {{count}} إطلالة"
   }
 }

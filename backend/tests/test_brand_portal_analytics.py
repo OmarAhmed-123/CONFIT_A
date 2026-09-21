@@ -79,8 +79,13 @@ def test_heatmaps_suppress_repeated_outfits_from_one_user_and_foreign_brand(port
         data = r.json()
         assert data['top_aesthetics'] == []
         assert data['sample_size'] == 0
-        assert data['region'] == 'Global'
+        # G-04: the style-signal cell contract is now shared with the platform
+        # admin heatmap, so the scope label is the same string on both surfaces.
+        assert data['region'] == 'Platform-wide'
+        assert data['region_scope'] == 'platform_wide'
         assert data['region_filter_applied'] is False
+        assert data['requested_region'] == 'MENA'
+        assert data['data_available'] is False
 
 
 def test_heatmap_cell_requires_ten_distinct_users(portal):
@@ -96,8 +101,15 @@ def test_heatmap_cell_requires_ten_distinct_users(portal):
             db.add(OutfitItem(outfit_id=outfit.id, product_id=product.id, position='top'))
         db.commit()
     data = client.get('/partner/analytics/heatmaps', headers=h[0]).json()
-    assert data['top_aesthetics'] == [{'name':'minimal','weight':100,'count':10}]
-    assert client.get('/partner/analytics/heatmaps', headers=h[1]).json()['top_aesthetics'] == []
+    # G-04: `weight` -> `share`, plus the stored `raw_name`, matching the cell
+    # shape the platform admin heatmap publishes. A UI reading `share` on one
+    # surface and `weight` on the other is how `undefined%` bars happened.
+    assert data['top_aesthetics'] == [
+        {'name': 'minimal', 'raw_name': 'minimal', 'share': 100.0, 'count': 10}
+    ]
+    assert 'weight' not in data['top_aesthetics'][0]
+    foreign = client.get('/partner/analytics/heatmaps', headers=h[1]).json()
+    assert foreign['top_aesthetics'] == []
 
 
 def test_explicit_inventory_upsert_is_repeatable_and_audited(portal):

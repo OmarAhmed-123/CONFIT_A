@@ -123,7 +123,15 @@ def require_admin_recent(max_age_minutes: int = 60):
         user: User = Depends(require_role([UserRole.ADMIN])),
         credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
     ) -> User:
-        token = credentials.credentials if credentials else (request.cookies.get("confit_token") or "")
+        # G-11: go through the platform's single token extractor. This line used
+        # to read `credentials.credentials` or the cookie directly, which skips
+        # the two paths _extract_token also handles — a bare Authorization
+        # header FastAPI's HTTPBearer did not populate, and a bearer whose
+        # scheme prefix Vercel rewrote to its "***" redaction marker. The
+        # result was the same token authenticating for require_role but failing
+        # step-up re-auth, i.e. an admin who could read the dashboard but not
+        # act on it. One extractor, one behaviour.
+        token = _extract_token(request, credentials) or ""
         try:
             payload = decode_token(token, expected_type="access")
             iat = int(payload.get("iat") or 0)

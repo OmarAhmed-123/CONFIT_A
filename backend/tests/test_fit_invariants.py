@@ -76,6 +76,7 @@ def _resolve(raw, stock):
             product_size_chart_json=raw,
             sellable_sizes=sellable or list(stock.keys()),
             demographic="men",
+            category_slug="tops",
         )
     )
 
@@ -135,6 +136,11 @@ def test_invariants_hold_for_every_combination(body, raw, stock, pref):
     assert result.confidence_band_reason
     payload = result.as_dict()
     assert "probability" not in str(payload.get("confidence_band", "")).lower()
+
+    # INVARIANT 8 — never name a size on estimated girths alone.
+    assert not all(s.body_is_estimated for s in top.sections), (
+        "recommended a size where every comparable section was estimated"
+    )
 
     # INVARIANT 5 — a generic fallback chart can never be high confidence.
     if not prov.is_product_specific:

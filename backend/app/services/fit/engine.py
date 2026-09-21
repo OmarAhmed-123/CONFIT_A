@@ -607,6 +607,50 @@ class FitEngine:
                 },
             )
 
+        # ── No size may be named on estimated evidence alone ────────────────
+        # The girth estimator's own published residual SD (5.5-7.5 cm, larger
+        # for unknown sex) is WIDER than an EN 13402-3 size band (8 cm across
+        # S/M/L). A size derived only from estimated girths therefore carries
+        # an uncertainty of more than one full size: the number looks precise
+        # but cannot discriminate between neighbouring sizes.
+        #
+        # Reporting it as a recommendation would be presenting a fabricated
+        # input as a finding, which is exactly what this feature's audit
+        # prohibits. Confidence alone cannot catch it -- the earlier defects
+        # taught us that a scalar score is the wrong instrument for a
+        # structural question. So this is an explicit evidence rule.
+        if all(s.body_is_estimated for s in best.sections):
+            needed = sorted(
+                _DIMENSION_TO_BODY[s.dimension].replace("_cm", "") for s in best.sections
+            )
+            return FitRefusal(
+                reason_code="INSUFFICIENT_EVIDENCE",
+                message=(
+                    "We can't name a size from height and weight alone. Estimating your "
+                    + ", ".join(needed)
+                    + " from height and weight is typically off by more than a whole "
+                    "size, so any size we named would be a guess. Measure your "
+                    + " or ".join(needed)
+                    + " and we'll give you a real answer."
+                ),
+                missing=tuple(f"{n}_cm" for n in needed),
+                diagnostics={
+                    "best_guess_size": best.size,
+                    "estimated_only": True,
+                    "residual_sd_cm": {
+                        _DIMENSION_TO_BODY[s.dimension]: residual_sd(
+                            _DIMENSION_TO_BODY[s.dimension], demographic
+                        )
+                        for s in best.sections
+                    },
+                    "note": (
+                        "Shown for diagnostics only. Deliberately NOT presented to the "
+                        "shopper as a recommendation: the estimator's residual spread "
+                        "exceeds one size band."
+                    ),
+                },
+            )
+
         confidence, factors = self._confidence(
             best=best,
             runner_up=runner_up,

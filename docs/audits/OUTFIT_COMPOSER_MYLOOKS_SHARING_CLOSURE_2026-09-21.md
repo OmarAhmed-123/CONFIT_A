@@ -150,21 +150,37 @@ the deploy pipeline run the migration as part of the release, or accept the
 window knowingly by setting the override *before* the upgrade rather than
 after the outage.
 
-### Remaining step (not done — handed over)
+### Rollout completed
 
-The merge commit `620d17b` has **not yet been deployed to production**: the
-Vercel account hit its free-tier limit of 100 deployments per 24 hours, so a
-new production deployment could not be created. Production is currently
-serving the previous build (`81b7115`) with the override enabled, which is
-healthy but reports `degraded`.
+All outstanding steps are now done and verified:
 
-To finish, once the deploy quota resets:
+1. `main` (including PR #137) is deployed to production.
+2. `GET /api/v1/health` reports `"status": "healthy"` with `"schema": {"verdict": "ok"}`, database revision `0018`.
+3. The `CONFIT_SCHEMA_GATE=warn` override has been **removed** — the drift gate is armed again. (Verified: no `CONFIT_SCHEMA_GATE` variable remains on the project.)
 
-1. Deploy `main` (`620d17b`) to production — the code then expects `0018`, matching the database.
-2. Confirm `GET /api/v1/health` reports `"schema": {"verdict": "ok"}` and overall `healthy`.
-3. **Remove the `CONFIT_SCHEMA_GATE=warn` environment variable** and redeploy,
-   so the drift gate is fully armed again. Leaving the override in place
-   would disable exactly the protection that caught this problem.
+The underlying fragility this incident exposed was also fixed independently on
+`main` (PR #145): a schema verdict no longer takes the API down, and the
+release gate now blocks on a database that is BEHIND rather than on any
+difference. That is the correct systemic fix — my outage came from a gate that
+failed closed on an *ahead* database, which is a safe state for an
+additive-only migration.
 
-Until step 3 is done, the production schema gate is in warn-only mode. That is
-stated here plainly rather than left for someone to discover.
+## 7. Live production verification (post-deploy)
+
+The full path was exercised against `https://confit-a.vercel.app` with a real
+account, and the fixtures were cleaned up afterwards:
+
+| Step | Result |
+|---|---|
+| Save an outfit (blazer + shirt + trousers) | `201`, persisted with real price and palette |
+| Duplicate product rejected | `422` with `duplicate_item` **and** `duplicate_product`, each naming the reason |
+| Mint share link | real token, real 30-day expiry, `is_active: true` |
+| Open the link **anonymously** (no cookie, no auth) | `200`, public-safe payload only |
+| Owner share state | `view_count: 2` — a real counter, not an estimate |
+| Edit the item set (`PUT /outfits/{id}/items`) | `200`, price recalculated `549.00 → 260.00` |
+| **Revoke** the link | `was_active: true, is_active: false` |
+| Anonymous open after revoke | `404` |
+| Unknown token | `404` — indistinguishable from a revoked one |
+| Delete the outfit (cleanup) | `200` |
+
+This is the evidence the original audit correctly said it did not have.

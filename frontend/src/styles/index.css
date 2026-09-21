@@ -60,11 +60,11 @@
 
 /* ── Direction handling ──────────────────────────────────────────────────────
    `dir` is set on <html> by i18n.applyDocumentLanguage, and Tailwind's logical
-   utilities (ms-*/me-*/ps-*/pe-*/start-*/end-*/text-start/text-end) resolve from
-   it. The blanket `text-align: right` that used to live here was wrong: it also
-   right-aligned Latin-script content such as product SKUs, order numbers and
-   prices, which must stay LTR inside an RTL page. Alignment is now decided per
-   element. */
+   utilities (the ms/me, ps/pe, start/end and text-start/text-end families)
+   resolve from it. The blanket `text-align: right` that used to live here was
+   wrong: it also right-aligned Latin-script content such as product SKUs, order
+   numbers and prices, which must stay LTR inside an RTL page. Alignment is now
+   decided per element. */
 [dir='rtl'] .font-serif {
   font-family: 'Cairo', 'Tajawal', serif !important;
 }

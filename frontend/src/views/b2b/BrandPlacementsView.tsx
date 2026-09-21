@@ -1,16 +1,23 @@
+import { useModalFocus } from '../../hooks/useModalFocus';
+import { useCallback } from 'react';
 import React, { useState } from 'react';
+import { request } from '../../services/apiClient';
 import { useBrandViewModel } from '../../viewmodels/useBrandViewModel';
 import { SparkleIcon } from '../../components/icons/ConfitIcons';
-import { CircularGalleryShowcase } from '../../components/showcase/DesignShowcases';
 import { LoadingSpinner } from '../../components/common/CommonComponents';
 
 export const BrandPlacementsView: React.FC = () => {
   const { placements, products, createSponsoredSlot, fetchErrors, isLoading, refresh } = useBrandViewModel();
+  const [actionMessage, setActionMessage] = useState('');
+  const [saving, setSaving] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
-  const [selectedProductId, setSelectedProductId] = useState<number>(1);
+  const [selectedProductId, setSelectedProductId] = useState<number>(0);
   const [bidCpc, setBidCpc] = useState<number>(0.75);
   const [dailyBudget, setDailyBudget] = useState<number>(100);
   const [placementType, setPlacementType] = useState<string>('stylist_featured');
+
+  const closeDialog = useCallback(() => { if (!saving) setModalOpen(false); }, [saving]);
+  const dialogRef = useModalFocus<HTMLDivElement>(closeDialog, modalOpen);
 
   if (isLoading) {
     return <LoadingSpinner text="Loading ad network & sponsored placements..." />;
@@ -20,8 +27,11 @@ export const BrandPlacementsView: React.FC = () => {
   // never an empty list pretending the campaign network has nothing on it.
   const placementsError = fetchErrors.placements || fetchErrors.products;
 
-  const handleCreate = (e: React.FormEvent) => {
+  const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (saving) return;
+    const productId = selectedProductId || products[0]?.id;
+    if (!productId || !products.some(p => p.id === productId)) return;
     if (bidCpc <= 0 || bidCpc > 100) {
       alert('Bid must be 0-100');
       return;
@@ -34,13 +44,26 @@ export const BrandPlacementsView: React.FC = () => {
       alert('Bid cannot exceed daily budget');
       return;
     }
-    createSponsoredSlot({
-      productId: selectedProductId,
+    setSaving(true);
+    const saved = await createSponsoredSlot({
+      productId,
       bidAmount: bidCpc,
       dailyBudget,
       placementType,
     });
-    setModalOpen(false);
+    setSaving(false);
+    if (saved) setModalOpen(false);
+  };
+
+  const changeStatus = async (id: number, status: string) => {
+    if (saving) return;
+    setSaving(true); setActionMessage('');
+    try {
+      await request(`/partner/placements/${id}`, {method: 'PATCH', body: JSON.stringify({status})});
+      await refresh();
+      setActionMessage('Placement status saved.');
+    } catch (error: any) { setActionMessage(`Not saved: ${error.message}`); }
+    finally { setSaving(false); }
   };
 
   const totalImpressions = placements.reduce((sum, p) => sum + p.impressions, 0);
@@ -50,13 +73,7 @@ export const BrandPlacementsView: React.FC = () => {
 
   return (
     <div className="space-y-8 pb-20">
-      <CircularGalleryShowcase
-        tone="brand"
-        compact
-        eyebrow="Placement Preview Gallery"
-        title="Preview featured stories in a premium rotating gallery"
-        description="Placement management uses the circular gallery to preview campaigns and premium slots without feeling like a static admin table."
-      />
+      {actionMessage && <p role="status">{actionMessage}</p>}
       {placementsError && (
         <div role="alert" className="p-4 rounded-2xl bg-rose-50 border border-rose-200">
           <p className="text-[11px] font-bold text-rose-800">Sponsored network data failed to load</p>
@@ -70,7 +87,7 @@ export const BrandPlacementsView: React.FC = () => {
             Sponsored AI Stylist & Trending Placements - Real
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Real bidding system with budget enforcement, eligibility, impression/click tracking, spend limits. No fake bidding.
+            Manage placement settings and recorded counters. Saving a placement does not prove live ad delivery, daily budget reset, or verified billing.
           </p>
           <p className="text-[11px] text-slate-400 mt-1">Lifecycle: Brand → Campaign/Bid → Budget → Eligibility → Placement → Impression → Click → Conversion → Billing. Bid validation, budget validation, campaign status, start/end date, spend limits, duplicate prevention.</p>
         </div>
@@ -167,8 +184,11 @@ export const BrandPlacementsView: React.FC = () => {
                   </div>
                 </div>
 
+                <button disabled={saving || plc.status === 'budget_exhausted'} onClick={() => changeStatus(plc.id, plc.status === 'active' ? 'paused' : 'active')} className="rounded border px-3 py-2 text-xs">
+                  {plc.status === 'active' ? 'Pause placement' : 'Resume placement'}
+                </button>
                 <div className="text-[10px] text-slate-400 p-2 bg-[#FAF9F6] rounded-xl">
-                  <span className="font-bold">Integrity:</span> Sponsored results clearly represented, ranked by bid + relevance, eligibility checked (active status, budget, dates), auditable via impressions/clicks/conversions, spend limits enforced prevents exceed budget.
+                  Recorded counters are not independently verified ad delivery or a billing ledger. Daily reset and event deduplication are not established by this screen.
                 </div>
               </div>
             ))}
@@ -179,7 +199,7 @@ export const BrandPlacementsView: React.FC = () => {
       {/* Create Placement Modal - REAL WITH VALIDATION */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="w-full max-w-md bg-white rounded-3xl p-6 shadow-2xl space-y-4">
+          <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Create placement" tabIndex={-1} className="w-full max-w-md bg-white rounded-3xl p-6 shadow-2xl space-y-4">
             <h3 className="font-serif text-lg font-bold text-[#1B1F3B]">
               Bid for Featured AI Stylist Slot - Real
             </h3>
@@ -188,7 +208,8 @@ export const BrandPlacementsView: React.FC = () => {
               <div>
                 <label className="font-bold text-slate-700 block mb-1">Select Catalog Product (must belong to your brand)</label>
                 <select
-                  value={selectedProductId}
+                  aria-label="Placement product"
+                  value={selectedProductId || products[0]?.id || ''}
                   onChange={(e) => setSelectedProductId(Number(e.target.value))}
                   className="w-full p-2.5 rounded-xl border border-slate-200 bg-white"
                   required
@@ -203,7 +224,7 @@ export const BrandPlacementsView: React.FC = () => {
 
               <div>
                 <label className="font-bold text-slate-700 block mb-1">Placement Type</label>
-                <select value={placementType} onChange={(e) => setPlacementType(e.target.value)} className="w-full p-2.5 rounded-xl border">
+                <select aria-label="Placement type" value={placementType} onChange={(e) => setPlacementType(e.target.value)} className="w-full p-2.5 rounded-xl border">
                   <option value="stylist_featured">Stylist Featured</option>
                   <option value="trending_hero">Trending Hero</option>
                   <option value="fit_recom_top">Fit Recommendation Top</option>
@@ -215,9 +236,10 @@ export const BrandPlacementsView: React.FC = () => {
                   <label className="font-bold text-slate-700 block mb-1">CPC Bid ($) 0-100</label>
                   <input
                     type="number"
-                    step="0.05"
+                    step="0.01"
                     min={0.01}
                     max={100}
+                    aria-label="Bid per click"
                     value={bidCpc}
                     onChange={(e) => setBidCpc(Number(e.target.value))}
                     className="w-full p-2.5 rounded-xl border border-slate-200"
@@ -228,8 +250,10 @@ export const BrandPlacementsView: React.FC = () => {
                   <label className="font-bold text-slate-700 block mb-1">Daily Budget ($) 0-10000</label>
                   <input
                     type="number"
-                    min={1}
+                    min={0.01}
+                    step="0.01"
                     max={10000}
+                    aria-label="Daily budget"
                     value={dailyBudget}
                     onChange={(e) => setDailyBudget(Number(e.target.value))}
                     className="w-full p-2.5 rounded-xl border border-slate-200"
@@ -250,9 +274,10 @@ export const BrandPlacementsView: React.FC = () => {
                 </button>
                 <button
                   type="submit"
+                  disabled={saving || !products.length}
                   className="flex-1 py-2.5 rounded-xl bg-[#1B1F3B] text-white font-semibold shadow-md"
                 >
-                  Launch Bid (Real)
+                  {saving ? 'Saving…' : 'Save placement'}
                 </button>
               </div>
             </form>

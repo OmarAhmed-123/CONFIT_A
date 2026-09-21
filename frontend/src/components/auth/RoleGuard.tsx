@@ -7,7 +7,7 @@ import { LockIcon, UserIcon, ShieldIcon } from "../icons/ConfitIcons";
 import { useTranslation } from "react-i18next";
 import { brandService } from "../../services/apiServices";
 
-const PartnerRequestDemoForm: React.FC = () => {
+export const PartnerRequestDemoForm: React.FC = () => {
   const { t } = useTranslation();
   const [form, setForm] = React.useState({
     company_name: "",
@@ -69,6 +69,7 @@ const PartnerRequestDemoForm: React.FC = () => {
     <form
       onSubmit={submit}
       className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm space-y-4"
+      id="partner-request"
       aria-label={t('partner.form_label')}
     >
       <div>
@@ -84,6 +85,7 @@ const PartnerRequestDemoForm: React.FC = () => {
           required
           value={form.company_name}
           onChange={update("company_name")}
+          aria-label={t('partner.field_company')}
           placeholder={t('partner.field_company')}
           className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
         />
@@ -91,6 +93,7 @@ const PartnerRequestDemoForm: React.FC = () => {
           required
           value={form.contact_name}
           onChange={update("contact_name")}
+          aria-label={t('partner.field_contact')}
           placeholder={t('partner.field_contact')}
           className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
         />
@@ -99,12 +102,14 @@ const PartnerRequestDemoForm: React.FC = () => {
           type="email"
           value={form.work_email}
           onChange={update("work_email")}
+          aria-label={t('partner.field_email')}
           placeholder={t('partner.field_email')}
           className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
         />
         <input
           value={form.website}
           onChange={update("website")}
+          aria-label={t('partner.field_website')}
           placeholder={t('partner.field_website')}
           className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
         />
@@ -183,11 +188,11 @@ export const RoleGuard: React.FC<RoleGuardProps> = ({
     );
   }
 
-  // 1. Not Authenticated -> Show public partner value page for merchant routes, otherwise auth gate.
-  if (!isAuthenticated || !user) {
-    const isPartnerPortal =
-      (fallbackTitle || "").toLowerCase().includes("brand") ||
-      (fallbackTitle || "").toLowerCase().includes("partner");
+  const isPartnerPortal = (fallbackTitle || '').toLowerCase().includes('brand') ||
+    (fallbackTitle || '').toLowerCase().includes('partner');
+  const needsPartnerOnboarding = isPartnerPortal && user?.role === 'consumer';
+  // Public onboarding never grants a role; logged-in consumers see it too.
+  if (!isAuthenticated || !user || needsPartnerOnboarding) {
 
     if (isPartnerPortal) {
       return (
@@ -210,10 +215,10 @@ export const RoleGuard: React.FC<RoleGuardProps> = ({
                   </p>
                   <div className="flex flex-wrap gap-3">
                     <button
-                      onClick={() => openAuthModal("register")}
+                      onClick={() => document.getElementById('partner-request')?.scrollIntoView({ behavior: 'smooth' })}
                       className="rounded-2xl bg-[#C5A059] px-5 py-3 text-xs font-bold uppercase tracking-wider text-[#0C0E1E] transition hover:bg-[#E2BF70]"
                     >
-                      Create partner account
+                      Request partnership
                     </button>
                     <button
                       onClick={() => openAuthModal("login")}

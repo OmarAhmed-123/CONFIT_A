@@ -4,9 +4,9 @@ import { LoadingSpinner, EmptyState } from '../../components/common/CommonCompon
 import { CardStackShowcase } from '../../components/showcase/DesignShowcases';
 
 export const AdminAnalyticsView: React.FC = () => {
-  const { adminAnalytics, fetchErrors, loadFailed, isLoading, refresh } = useBrandViewModel();
+  const { adminAnalytics, fetchErrors, isLoading, refresh } = useBrandViewModel('admin');
 
-  if (isLoading || (!adminAnalytics && !loadFailed)) {
+  if (isLoading) {
     return <LoadingSpinner text="Aggregating platform-wide telemetry & style heatmaps..." />;
   }
 

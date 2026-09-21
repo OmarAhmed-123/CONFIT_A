@@ -1,12 +1,12 @@
 import React from 'react';
+const percent = (value: number | null) => value == null ? 'Not enough data' : `${value}%`;
 import { useBrandViewModel } from '../../viewmodels/useBrandViewModel';
 import { LoadingSpinner, EmptyState } from '../../components/common/CommonComponents';
-import { CardStackShowcase } from '../../components/showcase/DesignShowcases';
 
 export const BrandDashboardView: React.FC = () => {
-  const { profile, analytics, products, fetchErrors, loadFailed, isLoading, refresh } = useBrandViewModel();
+  const { profile, analytics, products, fetchErrors, isLoading, refresh } = useBrandViewModel();
 
-  if (isLoading || (!analytics && !loadFailed)) {
+  if (isLoading) {
     return <LoadingSpinner text="Connecting to B2B Merchant Telemetry..." />;
   }
 
@@ -25,19 +25,12 @@ export const BrandDashboardView: React.FC = () => {
 
   return (
     <div className="space-y-8 pb-20">
-      <CardStackShowcase
-        tone="brand"
-        compact
-        eyebrow="Partner Command Stack"
-        title="A visual operating layer for brand teams"
-        description="Partner dashboards now preview catalog, inventory, placement, and analytics workflows through the same production-ready UI language."
-      />
       {/* Brand Hero Banner */}
       <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 text-white flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
             <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-[#B8935A]/20 text-[#B8935A] font-bold uppercase tracking-wider">
-              Verified Brand Partner
+              {profile?.is_verified ? 'Verified Brand Partner' : 'Brand Partner — verification pending'}
             </span>
             <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold uppercase">Real Data</span>
           </div>
@@ -45,16 +38,16 @@ export const BrandDashboardView: React.FC = () => {
             {profile?.brand_name || 'Brand'} Command Center
           </h1>
           <p className="text-xs text-slate-400 mt-1">
-            Catalog: {analytics.total_products_count} products, {analytics.total_skus_count} SKUs · Commission: {profile?.commission_rate || 15}% · BOPIS: {analytics.bopis_store_fulfillment_rate}% fulfillment
+            Catalog: {analytics.total_products_count} products, {analytics.total_skus_count} SKUs · Commission: {profile?.commission_rate != null ? `${profile.commission_rate}%` : 'Unavailable'} · BOPIS: {percent(analytics.bopis_store_fulfillment_rate)} fulfillment
           </p>
-          <p className="text-[11px] text-slate-500 mt-1">Real analytics from transactional DB: RecentlyViewed, TryOnSession, CartItem, OrderItem, ReturnRequest - no fake numbers</p>
+          <p className="text-[11px] text-slate-500 mt-1">{analytics.methodology}</p>
         </div>
 
         <div className="flex items-center gap-3">
           <div className="bg-slate-800/80 px-4 py-2 rounded-2xl border border-slate-700 text-center">
             <span className="text-[10px] text-slate-400 block uppercase">Return Reduction</span>
             <span className="text-lg font-mono font-bold text-emerald-400">
-              +{analytics.return_reduction_percentage}%
+              {percent(analytics.return_reduction_percentage)}
             </span>
           </div>
         </div>
@@ -64,7 +57,7 @@ export const BrandDashboardView: React.FC = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         <div className="bg-white rounded-3xl border border-slate-200 p-5 shadow-sm space-y-1">
           <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-            Total Catalog Views (Real)
+            Retained product-view records
           </span>
           <div className="text-2xl font-serif font-black text-[#1B1F3B]">
             {analytics.total_views.toLocaleString()}
@@ -75,19 +68,19 @@ export const BrandDashboardView: React.FC = () => {
 
         <div className="bg-white rounded-3xl border border-slate-200 p-5 shadow-sm space-y-1">
           <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-            Virtual Try-Ons Run (Real)
+            Recorded try-on sessions
           </span>
           <div className="text-2xl font-serif font-black text-[#B8935A]">
             {analytics.total_tryons.toLocaleString()}
           </div>
           <div className="text-[11px] text-slate-500 font-medium">
-            {analytics.total_views > 0 ? `${((analytics.total_tryons / analytics.total_views) * 100).toFixed(1)}% adoption` : 'From TryOnSession'}
+            {analytics.total_views > 0 ? `${((analytics.total_tryons / analytics.total_views) * 100).toFixed(1)}% sessions per retained view` : 'From TryOnSession'}
           </div>
         </div>
 
         <div className="bg-white rounded-3xl border border-slate-200 p-5 shadow-sm space-y-1">
           <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-            Try-On Conversion Rate (Real)
+            Order-line / retained-view ratio
           </span>
           <div className="text-2xl font-serif font-black text-emerald-600">
             {analytics.funnel_conversion_rate}%
@@ -97,13 +90,13 @@ export const BrandDashboardView: React.FC = () => {
 
         <div className="bg-white rounded-3xl border border-slate-200 p-5 shadow-sm space-y-1">
           <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-            Post-VTON Return Rate (Real)
+            Return-marked lines: try-on cohort
           </span>
           <div className="text-2xl font-serif font-black text-emerald-600">
-            {analytics.return_rate_after_vton}%
+            {percent(analytics.return_rate_after_vton)}
           </div>
           <div className="text-[11px] text-slate-500">
-            Pre-VTON: {analytics.return_rate_before_vton}% (cohort: try-on vs non-try-on)
+            Non-try-on cohort: {percent(analytics.return_rate_before_vton)} (cohort: try-on vs non-try-on)
           </div>
         </div>
       </div>
@@ -114,40 +107,40 @@ export const BrandDashboardView: React.FC = () => {
           <div className="flex justify-between items-center pb-3 border-b border-slate-100">
             <div>
               <h3 className="font-serif text-lg font-bold text-[#1B1F3B]">
-                Return Rate Reduction Impact - Real Cohort
+                Observed return-marked line comparison
               </h3>
-              <p className="text-xs text-slate-500">Try-On Users vs Non-Try-On from ReturnRequest.try_on_used_for_item</p>
+              <p className="text-xs text-slate-500">All-time observational cohorts; opened returns, not confirmed refunds</p>
             </div>
             <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold">
-              {analytics.return_reduction_percentage}% Lower Returns
+              {percent(analytics.return_reduction_percentage)} observed difference
             </span>
           </div>
 
           <div className="space-y-4">
             <div>
               <div className="flex justify-between text-xs font-bold text-slate-700 mb-1">
-                <span>Non-Try-On Shoppers (Real: ReturnRequest where try_on_used=false)</span>
-                <span className="text-rose-600 font-mono text-sm">{analytics.return_rate_before_vton}%</span>
+                <span>Order lines: no order-level try-on flag</span>
+                <span className="text-rose-600 font-mono text-sm">{percent(analytics.return_rate_before_vton)}</span>
               </div>
               <div className="w-full h-4 rounded-full bg-slate-100 overflow-hidden">
-                <div className="h-full bg-rose-500 rounded-full" style={{ width: `${Math.min(100, analytics.return_rate_before_vton * 3)}%` }}></div>
+                <div className="h-full bg-rose-500 rounded-full" style={{ width: `${Math.min(100, (analytics.return_rate_before_vton ?? 0))}%` }}></div>
               </div>
             </div>
 
             <div>
               <div className="flex justify-between text-xs font-bold text-slate-700 mb-1">
-                <span>CONFIT AI Try-On Shoppers (Real: Order.try_on_assisted=true)</span>
-                <span className="text-emerald-600 font-mono text-sm">{analytics.return_rate_after_vton}%</span>
+                <span>Order lines: order-level try-on flag</span>
+                <span className="text-emerald-600 font-mono text-sm">{percent(analytics.return_rate_after_vton)}</span>
               </div>
               <div className="w-full h-4 rounded-full bg-slate-100 overflow-hidden">
-                <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${Math.min(100, analytics.return_rate_after_vton * 3)}%` }}></div>
+                <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${Math.min(100, (analytics.return_rate_after_vton ?? 0))}%` }}></div>
               </div>
             </div>
           </div>
 
           <div className="p-4 rounded-2xl bg-[#FAF9F6] border border-slate-200 text-xs text-slate-600 leading-relaxed space-y-2">
-            <div>💡 <strong>Methodology:</strong> Cohort analysis same period, same product mix. Try-on adoption via Order.try_on_assisted flag from real VTON events. Return attribution via ReturnRequest.try_on_used_for_item. Avoids seasonality bias.</div>
-            <div className="text-[11px] text-slate-500">Ad Spend: ${analytics.ad_spend_total} (real from SponsoredPlacement.spent_today), Ad Revenue: ${analytics.ad_revenue_total} (real from SponsoredPlacement.revenue_generated). BOPIS: {analytics.bopis_store_fulfillment_rate}% fulfillment from Order.bopis_store_id.</div>
+            <div>💡 <strong>Methodology:</strong> {analytics.return_cohorts?.methodology}</div>
+            <div className="text-[11px] text-slate-500">Ad Spend: ${analytics.ad_spend_total} (real from SponsoredPlacement.spent_today), Ad Revenue: ${analytics.ad_revenue_total} (real from SponsoredPlacement.revenue_generated). BOPIS: {percent(analytics.bopis_store_fulfillment_rate)} of eligible pickup groups completed.</div>
             {!hasData && <div className="text-amber-700 bg-amber-50 p-2 rounded">No return data yet - will populate when orders and returns occur with try-on attribution.</div>}
           </div>
         </div>
@@ -158,7 +151,7 @@ export const BrandDashboardView: React.FC = () => {
             <h3 className="font-serif text-lg font-bold text-[#1B1F3B]">
               Most Styled Items (Real Outfit Data)
             </h3>
-            <p className="text-xs text-slate-500">Ranking from OutfitItem appearances, real DB count, not fake p.id*14+18</p>
+            <p className="text-xs text-slate-500">Ranked by recorded outfit appearances</p>
           </div>
 
           <div className="space-y-3">

@@ -315,9 +315,7 @@
     "signed_in_mfa": "Signed in with MFA.",
     "b2b_all_failed": "Error loading brand data: every request failed (backend unreachable?).",
     "b2b_load_failed": "Error loading brand data: {{reason}}",
-    "stock_synced": "SKU stock synced across warehouse and store pickup.",
     "update_failed": "Update failed: {{reason}}",
-    "placement_active": "Sponsored placement active. It is now bidding for stylist and trending hero slots.",
     "placement_create_failed": "Placement creation failed: {{reason}}",
     "import_result": "Import {{status}}: {{accepted}} accepted, {{rejected}} rejected",
     "csv_upload_failed": "CSV upload failed: {{reason}}",
@@ -381,7 +379,9 @@
     "auto_tag_unavailable": "AI tagging unavailable: {{reason}}",
     "auto_tag_unavailable_generic": "AI tagging unavailable — fill the fields manually.",
     "analysis_unavailable_reason": "Analysis still unavailable: {{reason}}",
-    "analysis_unavailable": "Analysis still unavailable."
+    "analysis_unavailable": "Analysis still unavailable.",
+    "stock_saved": "Warehouse SKU stock saved. Store inventory is managed separately.",
+    "placement_saved": "Placement settings saved. Ad delivery and billing are not verified by this action."
   },
   "consent": {
     "title": "Before we process your photo",
@@ -512,7 +512,7 @@
   "partner": {
     "form_label": "Request a partner demo",
     "form_title": "Request a partner demo",
-    "form_note": "Submissions are persisted for CONFIT review. No partner account or CRM success is fabricated.",
+    "form_note": "Request partnership review here. Signing up as a shopper does not grant partner access; approved accounts must be linked to a brand.",
     "field_company": "Company name",
     "field_contact": "Contact name",
     "field_email": "Work email",

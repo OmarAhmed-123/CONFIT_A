@@ -178,12 +178,19 @@ Everything below is reproducible from the repository.
 
 | Check | Result |
 |---|---|
-| Backend suite | **1,307 passed, 2 skipped** |
+| Backend suite | **1,325 passed, 5 skipped** |
 | Fit-specific tests | **116 passed** (acceptance + API + charts + session security) |
 | Frontend typecheck | `tsc --noEmit` clean |
 | Frontend tests | **110 passed**, 21 files |
 | Frontend build | succeeds, 2,071 modules |
 | CI on each PR | `backend`, `frontend`, `release gate` — all green |
+
+Verified against **live production** after the final merge:
+
+| Input | Before this work | Now |
+|---|---|---|
+| chest 130, waist 120 (impossible body) | `S`, confidence 85 | `recommended: false`, `NO_SIZE_FITS` |
+| chest 98, waist 84 (normal body) | `M`, confidence fabricated | `M`, confidence 66, chart + provenance disclosed |
 
 Two caveats, stated rather than hidden:
 
@@ -231,7 +238,7 @@ behaviour, would have agreed with the bug.
 | [#126](https://github.com/OmarAhmed-123/CONFIT_A/pull/126) | Fit Finder (3/3): seed real size charts, close the remaining audit items | Charts, consent, rate limits, gate pin |
 | [#127](https://github.com/OmarAhmed-123/CONFIT_A/pull/134) | Fit Finder (4/4): never recommend a size the engine itself calls "Does not fit" | Post-deploy production finding (§3.1) |
 
-All four on one branch, all merged to `main` via merge commits.
+All five on one branch, all merged to `main` via merge commits.
 
 Backwards compatibility was preserved throughout: legacy `*_cm` / `weight_kg`
 request fields and the `return_risk_score` response string are still accepted
@@ -247,6 +254,23 @@ Stated so nobody has to discover it later:
 - **The demo catalogue's charts are standards-derived, not brand-published.**
   They say so in their own output. Real brand charts need a brand-portal upload
   path.
+- **The seeded charts are not yet applied to the production database.**
+  `seed_database()` correctly refuses to touch a database that already has users,
+  so PR #126's charts reach a fresh database only. Verified against production
+  after deploy: product 3 still reports `size_chart_source: standard_en13402`.
+  `backend/scripts/backfill_size_charts.py` (PR #139) exists to close this and is
+  tested, but **it has not been run against production**: the `DATABASE_URL`
+  credential provided for this work is rejected by the Neon instance
+  (`password authentication failed for user 'neondb_owner'`). Someone with a
+  working credential needs to run:
+
+  ```
+  python -m backend.scripts.backfill_size_charts --dry-run   # review the plan
+  python -m backend.scripts.backfill_size_charts             # apply
+  ```
+
+  Until then production uses the EN 13402-3 fallback and — importantly — *says
+  so*, which is wrong-but-honest rather than wrong-and-hidden.
 - **Shoes and one-size accessories cannot be sized.** The engine refuses for
   them, correctly. Footwear needs a last-length model, which is a different
   problem.

@@ -574,14 +574,30 @@ export const tryOnService = {
       body: JSON.stringify(payload),
     }),
 
+  /**
+   * Fit Finder size recommendation.
+   *
+   * Units are sent EXPLICITLY and the numbers are in that system — the server
+   * converts, once. The client must not pre-convert: doing it on both sides
+   * was how an inch value could be scored as centimetres.
+   *
+   * A resolved result with `recommended: false` is a normal outcome (the
+   * engine declined to guess), not an error.
+   */
   calculateNoPhotoFit: (payload: {
     product_id: number;
-    height_cm: number;
-    weight_kg: number;
-    body_shape: string;
-    chest_cm?: number;
-    waist_cm?: number;
+    units: "metric" | "imperial";
+    height: number;
+    weight?: number | null;
+    chest?: number | null;
+    waist?: number | null;
+    hip?: number | null;
+    shoulder?: number | null;
+    inseam?: number | null;
+    neck?: number | null;
+    body_shape?: string | null;
     preferred_fit?: string;
+    demographic?: "men" | "women" | "unisex";
   }) =>
     request<NoPhotoFitResult>("/tryon/no-photo-fit", {
       method: "POST",

@@ -39,6 +39,74 @@ vi.mock('../../viewmodels/useCatalogViewModel', () => ({
 
 import { FitFinderView } from '../consumer/FitFinderView';
 
+/**
+ * A minimal but SHAPE-ACCURATE success payload for the current engine contract
+ * (backend/app/schemas/tryon.py :: NoPhotoFitResponse). The previous version of
+ * this test mocked a flat legacy object with `brand_sizing_tendency` as a bare
+ * string; that shape can no longer come off the wire, so asserting against it
+ * would have made this regression test pass without exercising the real render
+ * path. The stale-async intent of the test is unchanged.
+ */
+function fitResponse(overrides: Record<string, unknown> = {}) {
+  return {
+    recommended: true,
+    recommended_size: 'M',
+    alternative_size: 'L',
+    is_between_sizes: false,
+    confidence_score: 78,
+    confidence_factors: ['chest measured directly', 'brand-published chart'],
+    is_estimated: false,
+    fit_verdict: 'Should fit comfortably through the chest and waist.',
+    fit_breakdown: { chest: 'just right', waist: 'slightly loose' },
+    size_comparison_table: [
+      {
+        size: 'M',
+        ranges_cm: { chest: [94, 102], waist: [79, 87] },
+        fit_score: 92.4,
+        fit_rating: 'best match',
+        in_stock: true,
+        stock_level: 7,
+        is_recommended: true,
+      },
+    ],
+    measurements_used: {
+      height_cm: 175,
+      weight_kg: 78,
+      chest_cm: 98,
+      estimated_fields: [],
+      sections_scored: ['chest'],
+    },
+    size_chart_source: {
+      source: 'brand_chart',
+      label: 'BRAND TENDENCY chart',
+      updated_at: '2026-04-02',
+      standard: null,
+      measurement_type: 'body',
+      is_brand_published: true,
+      notes: [],
+    },
+    garment: {
+      garment_class: 'top',
+      material: 'cotton',
+      ease_targets_cm: { chest: 8 },
+      category: 'Shirts',
+    },
+    brand_sizing_tendency: {
+      summary: 'Reiss runs true to size on its published chart.',
+      has_published_chart: true,
+      chart_updated_at: '2026-04-02',
+      return_rate_signal: null,
+      known_size_bias: null,
+      known_size_bias_note: null,
+    },
+    return_risk: { label: 'low', basis: 'measured chest inside the M range' },
+    notes: [],
+    engine_version: 'fit-engine/1.0.0',
+    return_risk_score: 'low',
+    ...overrides,
+  };
+}
+
 function renderView() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
@@ -84,12 +152,7 @@ describe('P1-01 stale-async guard (FitFinderView)', () => {
 
     // the OLD response finally resolves
     await act(async () => {
-      resolveLate({
-        recommended_size: 'M',
-        confidence_score: 90,
-        brand_tendency: 'runs true to size',
-        return_risk: 'low',
-      });
+      resolveLate(fitResponse());
       await Promise.resolve();
     });
 
@@ -100,16 +163,8 @@ describe('P1-01 stale-async guard (FitFinderView)', () => {
   });
 
   it('a fresh (non-superseded) response still renders normally', async () => {
-    calcMock.mockResolvedValue({
-      recommended_size: 'M',
-      confidence_score: 90,
-      brand_sizing_tendency: 'BRAND TENDENCY visible',
-      return_risk_score: 'low',
-      fit_breakdown: { chest: 'comfortable' },
-      size_comparison_table: [
-        { size: 'M', chest: '96-102', waist: '82-88', fit: 'Comfortable' },
-      ],
-    });
+    calcMock.mockResolvedValue(fitResponse());
+
     renderView();
 
     await fillForm();

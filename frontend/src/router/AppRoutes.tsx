@@ -34,6 +34,7 @@ import { OutfitBuilderView } from '../views/consumer/OutfitBuilderView';
 import { TryOnFitView } from '../views/consumer/TryOnFitView';
 import { FitFinderView } from '../views/consumer/FitFinderView';
 import { WardrobeView } from '../views/consumer/WardrobeView';
+import { MyLooksView } from '../views/consumer/MyLooksView';
 import { ProductDetailView } from '../views/consumer/ProductDetailView';
 import { CheckoutView } from '../views/consumer/CheckoutView';
 import { OrderTrackingView } from '../views/consumer/OrderTrackingView';
@@ -48,6 +49,7 @@ import { BrandInventoryView } from '../views/b2b/BrandInventoryView';
 import { BrandAnalyticsView } from '../views/b2b/BrandAnalyticsView';
 import { BrandPlacementsView } from '../views/b2b/BrandPlacementsView';
 import { AdminAnalyticsView } from '../views/b2b/AdminAnalyticsView';
+import { AdminAuditView } from '../views/b2b/AdminAuditView';
 
 export const AppRoutes: React.FC = () => {
   const BRAND_ROLES = ['brand_owner', 'brand_manager', 'brand_staff', 'admin'];
@@ -84,7 +86,7 @@ export const AppRoutes: React.FC = () => {
           <Route path="products/:slug" element={<ProductDetailView />} />
           
           <Route path="builder" element={<OutfitBuilderView />} />
-          <Route path="outfits" element={<OutfitBuilderView />} />
+          <Route path="outfits" element={<MyLooksView />} />
           <Route path="outfits/:id" element={<OutfitBuilderView />} />
           <Route path="stylist" element={<DiscoverView />} />
           
@@ -101,7 +103,9 @@ export const AppRoutes: React.FC = () => {
           
           <Route path="wardrobe" element={<WardrobeView />} />
           <Route path="wardrobe/item/:id" element={<WardrobeView />} />
-          <Route path="my-looks" element={<WardrobeView />} />
+          {/* OUTFIT-03: /my-looks rendered the WARDROBE, so saved outfits had no
+              home in the product. It now renders the real saved-looks view. */}
+          <Route path="my-looks" element={<MyLooksView />} />
           
           <Route path="cart" element={<CheckoutView />} />
           <Route path="checkout" element={<CheckoutView />} />
@@ -208,7 +212,9 @@ export const AppRoutes: React.FC = () => {
           <Route path="overview" element={<AdminAnalyticsView />} />
           <Route path="analytics" element={<AdminAnalyticsView />} />
           <Route path="partners" element={<BrandDashboardView />} />
-          <Route path="audit" element={<AdminAnalyticsView />} />
+          {/* G-07: this route used to render the analytics dashboard, so the
+              audit trail had no UI at all. */}
+          <Route path="audit" element={<AdminAuditView />} />
         </Route>
 
         {/* 5. Fallback */}

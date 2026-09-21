@@ -37,15 +37,20 @@ Relationship to the rest of the design
 
 Exit codes
 ----------
-0  parity — production is on the revision this commit expects
-1  mismatch — merging/deploying this commit would break production
-2  indeterminate — production state could not be read (never treated as success)
+0  safe — production is on the revision this commit expects, or AHEAD of it
+   (a newer schema still satisfies code that asks only for its own head; the
+   runtime required-object check is what actually proves that per request)
+1  blocked — production is BEHIND this commit: merging would deploy code the
+   database cannot serve (the 2026-09-20 incident)
+2  indeterminate — production state could not be read, or the two revisions
+   cannot be ordered (never treated as success)
 """
 
 from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 import urllib.error
 import urllib.request
@@ -53,7 +58,7 @@ from typing import NoReturn
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from backend.app.core.schema_gate import expected_head_revision  # noqa: E402
+from backend.app.core.schema_gate import expected_head_revision, revision_ordinal  # noqa: E402
 
 
 def _indeterminate(message: str) -> "NoReturn":
@@ -101,6 +106,26 @@ def fetch_production_schema(url: str = DEFAULT_HEALTH_URL) -> dict:
     return schema
 
 
+def _ordinal(rev: str) -> int | None:
+    """The ordering signal for a revision id, or None when there is none.
+
+    `revision_ordinal` answers from the migration chain in this tree, so it
+    cannot order a revision that belongs to a branch that has not merged yet —
+    which is exactly the case that matters here (production carries a migration
+    this commit has never seen). The revision ids in this repository are
+    zero-padded and numerically ordered (`0017_audit_before_after_request_id`),
+    so the leading number is the fallback ordering signal.
+
+    Returns None rather than guessing when neither source yields a position:
+    the caller then refuses to claim a direction it did not establish.
+    """
+    chain_ord = revision_ordinal(rev)
+    if chain_ord is not None:
+        return chain_ord
+    m = re.match(r"^(\d+)", rev or "")
+    return int(m.group(1)) if m else None
+
+
 def evaluate(expected: str | None, schema: dict) -> tuple[int, str]:
     """Pure comparison, so the three outcomes are testable without a network."""
     observed = schema.get("database_revision")
@@ -108,9 +133,38 @@ def evaluate(expected: str | None, schema: dict) -> tuple[int, str]:
         return 2, "this commit declares no migration head (empty versions dir?) — cannot gate."
     if observed is None:
         return 2, "production reports no schema revision (unmanaged database) — cannot gate."
-    if observed != expected:
+    if observed == expected:
+        return 0, f"production reports {observed}, identical to this commit's head {expected}."
+
+    # Production and this commit disagree. Direction decides everything, and
+    # until 2026-09-21 this function did not look at direction at all — it
+    # blocked on any difference. That conflated two opposite situations:
+    #
+    #   production BEHIND the code — merging really would deploy code the
+    #       database cannot serve. This is the 2026-09-20 incident. BLOCK.
+    #   production AHEAD of the code — the database already carries a newer
+    #       migration. Code that needs only 0017 runs fine on a 0018 schema,
+    #       which is precisely what `schema_gate` verifies with its
+    #       required-object check. Blocking here does not protect anything; it
+    #       just means the first branch to ship a migration freezes every
+    #       other merge to main until it lands.
+    #
+    # On 2026-09-21 a preview deployment applied 0018_outfit_share_lifecycle
+    # while main still expected 0017, and this gate blocked the repository.
+    exp_ord = _ordinal(expected)
+    obs_ord = _ordinal(observed)
+
+    if exp_ord is None or obs_ord is None:
+        return 2, (
+            f"production is at {observed} and this commit requires {expected}, but neither\n"
+            "  revision can be placed in an order (not in this tree's chain and no numeric\n"
+            "  prefix). This gate never passes on a guess."
+        )
+
+    if obs_ord < exp_ord:
         return 1, (
-            f"production is at {observed} but this commit requires {expected}.\n"
+            f"production is at {observed} but this commit requires {expected} "
+            f"({exp_ord - obs_ord} migration(s) not applied).\n"
             f"  Merging now would deploy code production cannot run: the startup schema gate\n"
             f"  would refuse to boot and the API would return 500 (this is the 2026-09-20 incident).\n"
             f"  Order of operations: apply the migration FIRST, then merge:\n"
@@ -118,7 +172,15 @@ def evaluate(expected: str | None, schema: dict) -> tuple[int, str]:
             f"    ALEMBIC_DATABASE_URL='<owner DSN>' PYTHONPATH=. alembic -c backend/alembic.ini current\n"
             f"  Then re-run this gate: it passes on its own once production reports {expected}."
         )
-    return 0, f"production reports {observed}, identical to this commit's head {expected}."
+
+    return 0, (
+        f"production is at {observed}, which is AHEAD of this commit's head {expected}.\n"
+        "  Safe to merge: this code asks for a schema production already has and more.\n"
+        "  The runtime gate independently refuses to serve if any required table or\n"
+        "  column is actually missing (verdict `drift`), so this is not an unchecked pass.\n"
+        "  Still worth resolving — and the real fix is per-environment databases: a\n"
+        "  preview deployment should never migrate the database production serves."
+    )
 
 
 def main() -> int:

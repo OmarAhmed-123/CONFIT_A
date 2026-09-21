@@ -370,37 +370,74 @@ class TestHeatmapsPrivacy:
             token = get_auth_token(user.email)
             assert token is not None
 
-            resp = client.get("/partner/analytics/heatmaps?region=MENA", headers={"Authorization": f"Bearer {token}"})
-            assert resp.status_code == 200
+            resp = client.get("/partner/analytics/heatmaps", headers={"Authorization": f"Bearer {token}"})
+            assert resp.status_code == 200, resp.text
             data = resp.json()
 
             assert data["anonymized"] is True
-            assert "privacy_threshold" in data or "methodology" in data
+            assert data["privacy_threshold"]
+            assert data["methodology"]
 
-            # Must not contain user emails or individual IDs
+            # No PII: the payload must not carry an email address or a user id
+            # ANYWHERE. The old assertion was `"@" not in s or "sample_size" in s`,
+            # which is always true because sample_size always exists.
             import json as js
-            data_str = js.dumps(data).lower()
-            assert "@" not in data_str or "sample_size" in data_str  # No emails
-            # No user_id exposure
-            assert "user_id" not in data_str or "sample_size" in data_str
+            data_str = js.dumps(data)
+            assert "@" not in data_str, "an email address leaked into the aggregate"
+            assert "user_id" not in data_str.lower()
+            assert user.email not in data_str
 
-            # Must have aggregation
-            assert "top_aesthetics" in data or "top_colors" in data
+            # One contract for every dimension (G-04): the partner endpoint used
+            # to forward a `top_colors` key the shared builder never produced.
+            for dimension in ("top_aesthetics", "trending_colors", "top_occasions"):
+                assert isinstance(data[dimension], list), dimension
+                for cell in data[dimension]:
+                    assert set(cell) >= {"name", "share", "count"}, cell
+        finally:
+            db.close()
+
+    def test_heatmaps_report_a_region_they_cannot_honour(self):
+        """G-03: `region` used to be accepted, ignored, and echoed back as the
+        LABEL on platform-wide numbers. It is now accepted, applied to nothing,
+        and reported as not applied."""
+        db = TestingSessionLocal()
+        try:
+            user, brand, cat = create_test_user_and_brand(db, "heatmap_region")
+            token = get_auth_token(user.email)
+            assert token is not None
+            resp = client.get(
+                "/partner/analytics/heatmaps?region=MENA",
+                headers={"Authorization": f"Bearer {token}"},
+            )
+            assert resp.status_code == 200, resp.text
+            body = resp.json()
+            assert body["region_filter_applied"] is False
+            assert body["requested_region"] == "MENA"
+            assert body["region"] != "MENA", "the label must not claim a filter that never ran"
         finally:
             db.close()
 
     def test_heatmaps_k_anonymity_threshold(self):
+        """The k-floor is a floor: no large-sample bypass, and a thin sample
+        publishes nothing rather than padding itself (G-01/G-02)."""
         db = TestingSessionLocal()
         try:
             from backend.app.repositories.brand_repository import BrandRepository
             repo = BrandRepository(db)
-            heatmaps = repo.get_user_preference_heatmaps(region="MENA", min_sample_size=10)
-            # Check threshold logic exists
-            assert "privacy_threshold" in heatmaps
-            assert "anonymized" in heatmaps
+            heatmaps = repo.get_user_preference_heatmaps()
             assert heatmaps["anonymized"] is True
-            # Sample size should be reported
-            assert "sample_size" in heatmaps
+            assert heatmaps["privacy_threshold"]
+            assert heatmaps["sample_size"] >= 0
+            # sample_size is the outfits actually aggregated — never a user count
+            assert heatmaps["sample_size"] <= repo.HEATMAP_SCAN_LIMIT
+            assert heatmaps["region_filter_applied"] is False
+            if not heatmaps["data_available"]:
+                for dimension in ("top_aesthetics", "trending_colors", "top_occasions"):
+                    assert heatmaps[dimension] == [], "a suppressed aggregate must be empty, not padded"
+            else:
+                for dimension in ("top_aesthetics", "trending_colors", "top_occasions"):
+                    for cell in heatmaps[dimension]:
+                        assert cell["count"] >= heatmaps["k_anonymity_floor"], cell
         finally:
             db.close()
 
@@ -515,14 +552,16 @@ class TestNoFakeKPIs:
             resp = client.get("/admin/audit", headers={"Authorization": f"Bearer {token}"})
             assert resp.status_code == 200
             data = resp.json()
-            # Should be list, not fake hardcoded 3 items with 2026-08-17 timestamps
-            assert isinstance(data, list)
-            # If data exists, check not fake sample
-            for item in data[:3]:
-                if "timestamp" in item and item["timestamp"]:
-                    # Should not be hardcoded 2026-08-17T16:00:00Z if real
-                    # Real data would have recent timestamps, but allow empty
-                    pass
+            # Paginated envelope, not a bare list, and never the old fake
+            # hardcoded 3-item sample with 2026-08-17 timestamps.
+            assert isinstance(data, dict) and "items" in data and "meta" in data, data.keys()
+            assert isinstance(data["items"], list)
+            assert data["meta"]["total"] == len(data["items"]) or data["meta"]["total"] > 0
+            for item in data["items"][:3]:
+                # Real rows carry an action and a resource type; the fake sample
+                # did not, and never carried before/after.
+                assert item.get("action"), item
+                assert item.get("resource_type"), item
         finally:
             db.close()
 

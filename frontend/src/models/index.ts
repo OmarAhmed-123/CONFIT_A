@@ -192,6 +192,39 @@ export interface Outfit {
   budget_note?: string | null;
   items: OutfitItem[];
   created_at: string;
+  updated_at?: string | null;
+  composition_warnings?: string[];
+  /** Share state comes from the real token lifecycle (OUTFIT-01): a look is
+   *  only "shared" when a live, unrevoked, unexpired token exists. */
+  is_shared?: boolean;
+  share_url?: string | null;
+  share_expires_at?: string | null;
+  share_view_count?: number;
+}
+
+/** Explainable verdict from the server composition policy. */
+export interface CompositionViolation {
+  code: string;
+  message: string;
+  positions: string[];
+}
+
+export interface CompositionVerdict {
+  is_valid: boolean;
+  violations: CompositionViolation[];
+  warnings: string[];
+  missing_positions: string[];
+  resolved_items: Array<Record<string, unknown>>;
+  unresolved_ids: number[];
+}
+
+export interface ShareLink {
+  outfit_id: number;
+  share_token: string | null;
+  share_url: string | null;
+  expires_at: string | null;
+  is_active: boolean;
+  view_count: number;
 }
 
 export interface StylistMessage {
@@ -672,6 +705,46 @@ export interface AutocompleteResponse {
   suggestions: AutocompleteSuggestion[];
 }
 
+/**
+ * One published cell of a style-signal aggregate.
+ *
+ * Every dimension uses this ONE shape (G-04): the backend previously emitted
+ * `{name, share}` from the dashboard endpoint and `{name, weight, count}` from
+ * the standalone heatmap endpoint, and colours as `string[]` in one and
+ * `{color, weight, count}[]` in the other — so the dashboard rendered
+ * `undefined%` bars and then threw on `trending_colors.map`.
+ */
+export interface StyleHeatmapCell {
+  name: string;
+  /** Value exactly as stored, before any display casing. */
+  raw_name?: string;
+  /** Percentage of ALL occurrences in this dimension, not just the top-N. */
+  share: number;
+  count: number;
+}
+
+export interface StyleHeatmap {
+  /** Display label. "Platform-wide" unless a real region predicate ran. */
+  region: string;
+  region_scope?: string;
+  region_filter_applied?: boolean;
+  /** Window actually applied to the SQL predicate; nulls mean unbounded. */
+  period?: { from: string | null; to: string | null } | null;
+  /** Outfits actually aggregated — never inflated to a user count. */
+  sample_size?: number;
+  min_sample_required?: number;
+  k_anonymity_floor?: number;
+  /** False => every list is empty BY DESIGN; render the reason, not a chart. */
+  data_available?: boolean;
+  top_aesthetics: StyleHeatmapCell[];
+  trending_colors: StyleHeatmapCell[];
+  top_occasions: StyleHeatmapCell[];
+  suppressed_cells?: number;
+  privacy_threshold?: string;
+  methodology?: string;
+  limitations?: string[];
+}
+
 export interface AdminPlatformAnalytics {
   total_users_count: number;
   total_brands_count: number;
@@ -695,13 +768,7 @@ export interface AdminPlatformAnalytics {
     return_rate: string;
     return_rate_value?: number;
   }>;
-  style_preference_heatmap: {
-    region: string;
-    sample_size?: number;
-    top_aesthetics: Array<{ name: string; share: number; weight?: number }>;
-    trending_colors: string[];
-    top_occasions?: Array<{ name: string; share: number }>;
-  };
+  style_preference_heatmap: StyleHeatmap;
   most_styled_items?: Array<{
     product_id: number;
     title: string;
@@ -766,4 +833,99 @@ export interface GarmentAsset {
   segmented_garment_url?: string;
   garment_mask_url?: string;
   created_at: string;
+}
+
+/* ------------------------------------------------------------------ *
+ * Platform audit trail (ADMIN-01 / gap register G-05, G-07)
+ *
+ * Mirrors backend/app/schemas/audit.py field-for-field. This contract is
+ * deliberately explicit: the heatmap types above drifted from the backend
+ * (weight vs share, top_colors vs trending_colors) and the admin dashboard
+ * rendered `undefined%` as a result (G-04).
+ * ------------------------------------------------------------------ */
+
+export interface AuditEntry {
+  id: number;
+  action: string;
+  resource_type: string;
+  resource_id?: string | null;
+  actor: string;
+  actor_id?: number | null;
+  actor_email?: string | null;
+  actor_role?: string | null;
+  ip_address?: string | null;
+  request_id?: string | null;
+  details?: string | null;
+  before?: Record<string, unknown> | null;
+  after?: Record<string, unknown> | null;
+  changed_fields: string[];
+  timestamp?: string | null;
+}
+
+export interface AuditPageMeta {
+  page: number;
+  page_size: number;
+  total: number;
+  total_pages: number;
+  has_next: boolean;
+  has_previous: boolean;
+}
+
+export interface AuditFacetValue {
+  value: string;
+  count: number;
+  actor_id?: number | null;
+  role?: string | null;
+}
+
+export interface AuditFacets {
+  actions: AuditFacetValue[];
+  resource_types: AuditFacetValue[];
+  actors: AuditFacetValue[];
+  oldest?: string | null;
+  newest?: string | null;
+}
+
+export interface AuditTrailPage {
+  items: AuditEntry[];
+  meta: AuditPageMeta;
+  filters: Record<string, unknown>;
+  facets?: AuditFacets | null;
+  request_id?: string | null;
+  methodology?: string;
+}
+
+export interface AuditViolation {
+  row_id: number;
+  issue: string;
+  action?: string;
+}
+
+export interface AuditIntegrity {
+  checked_rows: number;
+  window_days: number;
+  sampled_rows?: number;
+  violations: AuditViolation[];
+  unresolved_actors: number;
+  redaction_markers: number;
+  rows_with_before_after: number;
+  rows_with_request_id: number;
+  rows_with_ip: number;
+  distinct_actors?: number;
+  verdict: string;
+  /** Always false today: audit_logs has no persisted hash chain. */
+  tamper_evident: boolean;
+  limitations: string[];
+}
+
+export interface AuditStats {
+  window_days: number;
+  total_events: number;
+  by_action: AuditFacetValue[];
+  by_resource_type: AuditFacetValue[];
+  by_actor: AuditFacetValue[];
+  by_day: Array<{ day: string; count: number }>;
+  distinct_actors: number;
+  admin_action_events: number;
+  methodology?: string;
 }

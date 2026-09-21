@@ -76,6 +76,26 @@ export const TrustFooter: React.FC = () => {
     returns_window_days,
   } = capabilities;
 
+  /**
+   * A capability flag says a FEATURE is enabled; it does not guarantee that the
+   * number behind it is usable. `returns_window_days: 0` rendered literally as
+   * "0-Day Zero-Fee Concierge Returns", and a missing value rendered as
+   * "undefined-day". Both are claims the reader has no way to disbelieve, so the
+   * number is validated here and a non-answer falls back to the honest wording.
+   *
+   * This is the same discipline the rest of this component applies to booleans,
+   * extended to the values: never print a figure the deployment did not give us.
+   */
+  const asPositiveCount = (value: unknown): number => {
+    const n = typeof value === 'number' ? value : Number(value);
+    return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
+  };
+  const returnsDays = asPositiveCount(returns_window_days);
+  const storeCount = asPositiveCount(bopis_store_count);
+  const returnsLive = returnsDays > 0;
+  // `bopis_live` with a zero store count would promise pickup at no locations.
+  const bopisAvailable = bopis_live && storeCount > 0;
+
   return (
     <ul className="space-y-2 font-light" data-testid="trust-footer">
       {/* Payments — always stated, because the mode is what a shopper needs. */}
@@ -98,18 +118,22 @@ export const TrustFooter: React.FC = () => {
 
       {/* BOPIS — the store count is a real COUNT() from the stores table. */}
       <li className="flex items-start gap-2">
-        {badge(bopis_live, 'footer.badge_live', 'footer.badge_unavailable')}
+        {badge(bopisAvailable, 'footer.badge_live', 'footer.badge_unavailable')}
         <span className="text-slate-300">
-          {bopis_live
-            ? t('footer.bopis_available', { count: bopis_store_count })
+          {bopisAvailable
+            ? t('footer.bopis_available', { count: storeCount })
             : t('footer.bopis_unavailable')}
         </span>
       </li>
 
       {/* Returns — the window is the server's value, never a typed constant. */}
       <li className="flex items-start gap-2">
-        {badge(true, 'footer.badge_live', 'footer.badge_live')}
-        <span className="text-slate-300">{t('footer.returns_available', { days: returns_window_days })}</span>
+        {badge(returnsLive, 'footer.badge_live', 'footer.badge_unavailable')}
+        <span className="text-slate-300">
+          {returnsLive
+            ? t('footer.returns_available', { days: returnsDays })
+            : t('footer.returns_unavailable')}
+        </span>
       </li>
 
       {/* Privacy — states only what the product does. No biometrics claim. */}

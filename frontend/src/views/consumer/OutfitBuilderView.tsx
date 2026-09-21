@@ -1,6 +1,8 @@
 import { CardStackShowcase } from '../../components/showcase/DesignShowcases';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link, useParams } from 'react-router-dom';
+import { resolveMessage } from '../../i18n/messages';
 import {
   DndContext,
   DragEndEvent,
@@ -33,12 +35,17 @@ type SlotKey = CanvasItem['slot'];
 // same replace/remove/validation rules as the four garment slots.
 const SLOT_KEYS: SlotKey[] = ['outerwear', 'top', 'bottom', 'footwear', 'accessory'];
 
-const SLOTS: Array<{ key: SlotKey; label: string }> = [
-  { key: 'outerwear', label: 'Outerwear Layer' },
-  { key: 'top', label: 'Top / Shirt' },
-  { key: 'bottom', label: 'Trousers / Bottom' },
-  { key: 'footwear', label: 'Footwear / Loafers' },
-  { key: 'accessory', label: 'Accessory / Final Touch' },
+/**
+ * The canvas slots. Module scope holds the KEY, never the English: a label here
+ * would render in English inside the Arabic UI, which is the exact failure the
+ * audit flagged. `t()` is applied at the render boundary.
+ */
+const SLOTS: Array<{ key: SlotKey; labelKey: string }> = [
+  { key: 'outerwear', labelKey: 'outfit_builder.slot_outerwear' },
+  { key: 'top', labelKey: 'outfit_builder.slot_top' },
+  { key: 'bottom', labelKey: 'outfit_builder.slot_bottom' },
+  { key: 'footwear', labelKey: 'outfit_builder.slot_footwear' },
+  { key: 'accessory', labelKey: 'outfit_builder.slot_accessory' },
 ];
 
 /** C6 — a draggable catalog product. Also a real <button>: keyboard users
@@ -87,10 +94,13 @@ const DraggableProduct: React.FC<{
 
 /** C6 — a droppable outfit slot with keyboard removal and live highlighting. */
 const DroppableSlot: React.FC<{
-  slot: { key: SlotKey; label: string };
+  slot: { key: SlotKey; labelKey: string };
   item?: CanvasItem;
   onRemove: (slot: SlotKey) => void;
 }> = ({ slot, item, onRemove }) => {
+  // The slot card is its own component, so it needs its own translator: the
+  // container's `t` is not in scope here.
+  const { t } = useTranslation();
   const { setNodeRef, isOver } = useDroppable({ id: `slot-${slot.key}` });
 
   return (
@@ -106,7 +116,7 @@ const DroppableSlot: React.FC<{
       }`}
     >
       <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block text-center">
-        {slot.label}
+        {t(slot.labelKey)}
       </span>
 
       {item ? (
@@ -114,8 +124,8 @@ const DroppableSlot: React.FC<{
           <button
             onClick={() => onRemove(slot.key)}
             className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/60 hover:bg-rose-600 text-white flex items-center justify-center text-xs transition-colors z-10"
-            title="Remove item"
-            aria-label={`Remove ${item.product.title} from ${slot.label}`}
+            title={t('tryon.remove_item')}
+            aria-label={t('outfit_builder.remove_item_aria', { item: item.product.title, slot: t(slot.labelKey) })}
           >
             ✕
           </button>
@@ -137,7 +147,7 @@ const DroppableSlot: React.FC<{
               <span className="text-[10px] text-slate-500 font-medium block">Checking size…</span>
             )}
             {item.skuStatus === 'unavailable' && (
-              <span className="text-[10px] text-rose-600 font-semibold block">No purchasable size</span>
+              <span className="text-[10px] text-rose-600 font-semibold block">{t('outfit_builder.no_size')}</span>
             )}
             {item.skuStatus === 'ready' && item.selectedSku && (
               <span className="text-[10px] text-slate-500 font-medium block">Size {item.selectedSku.size}</span>
@@ -159,6 +169,10 @@ const DroppableSlot: React.FC<{
 
 export const OutfitBuilderView: React.FC = () => {
   const { t } = useTranslation();
+  // OUTFIT-03: /outfits/:id now really edits that look instead of mounting an
+  // empty canvas that silently saved a duplicate.
+  const { id } = useParams<{ id?: string }>();
+  const editingOutfitId = id && /^\d+$/.test(id) ? Number(id) : undefined;
   const {
     selectedItems,
     targetOccasion,
@@ -176,7 +190,11 @@ export const OutfitBuilderView: React.FC = () => {
     clearCanvas,
     saveOutfit,
     addAllToCart,
-  } = useOutfitBuilderViewModel(450.0);
+    isLoadingExisting,
+    loadError,
+    verdict,
+    isEditing,
+  } = useOutfitBuilderViewModel(450.0, editingOutfitId);
 
   const { products } = useCatalogViewModel();
   const { showToast } = useUIStore();
@@ -223,8 +241,32 @@ export const OutfitBuilderView: React.FC = () => {
       const product = products.find((item) => isValidSlotForProduct(item, slot));
       if (product) addItemToCanvas(product, slot);
     });
-    showToast('Starter formula added. Replace any item to personalize the look.', 'success');
+    showToast(t('outfit_builder.formula_added'), 'success');
   };
+
+  if (isLoadingExisting) {
+    return (
+      <div className="py-24 text-center text-slate-500" role="status">
+        Loading this look…
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="py-24 text-center space-y-3">
+        <h1 className="font-serif text-2xl text-[#1B1F3B]">
+          {resolveMessage(loadError, t)}
+        </h1>
+        <Link
+          to="/my-looks"
+          className="inline-block px-4 py-2 rounded-xl border border-slate-300 text-xs font-semibold hover:bg-slate-100"
+        >
+          Back to My Looks
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 pb-24">
@@ -232,7 +274,7 @@ export const OutfitBuilderView: React.FC = () => {
         tone="consumer"
         compact
         eyebrow="Builder Inspiration Stack"
-        title="Start from a styled formula, then customize the canvas"
+        title={t('outfit_builder.formula_hint')}
         description="The stack gives outfit building a premium starting point before users drag catalog or wardrobe pieces into slots."
       />
       {/* Header */}
@@ -259,11 +301,24 @@ export const OutfitBuilderView: React.FC = () => {
           </button>
           <button
             onClick={saveOutfit}
-            disabled={selectedItems.length === 0 || isSaving}
+            disabled={
+              selectedItems.length === 0 || isSaving || verdict?.is_valid === false
+            }
+            title={
+              verdict?.is_valid === false
+                ? verdict.violations[0]?.message
+                : undefined
+            }
             className="px-5 py-2 rounded-xl bg-[#C5A059] hover:bg-[#A37E44] disabled:opacity-40 text-slate-950 font-bold text-xs shadow-2xs transition-all flex items-center gap-1.5"
           >
             <SavedLooksIcon size={16} color="#0C0E1E" />
-            <span>{isSaving ? 'Saving...' : t('outfit_builder.save_outfit')}</span>
+            <span>
+              {isSaving
+                ? 'Saving...'
+                : isEditing
+                  ? 'Update look'
+                  : t('outfit_builder.save_outfit')}
+            </span>
           </button>
         </div>
       </div>
@@ -271,8 +326,8 @@ export const OutfitBuilderView: React.FC = () => {
       <section className="rounded-3xl border border-[#C5A059]/25 bg-white p-5 shadow-2xs">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <span className="text-[10px] font-bold uppercase tracking-widest text-[#7A5C28]">Guided mode</span>
-            <h2 className="font-serif text-2xl font-bold text-[#1B1F3B]">Start with a formula, then replace one item at a time</h2>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-[#7A5C28]">{t('outfit_builder.guided_mode')}</span>
+            <h2 className="font-serif text-2xl font-bold text-[#1B1F3B]">{t('outfit_builder.replace_hint')}</h2>
             <p className="mt-1 text-sm font-light text-slate-500">
               Avoid the blank-canvas problem: choose a proven outfit structure, then refine fit, budget, and color harmony.
             </p>
@@ -291,6 +346,30 @@ export const OutfitBuilderView: React.FC = () => {
         </div>
       </section>
 
+      {/* OUTFIT-04: the server's composition verdict, shown verbatim. A
+          rejected combination always states WHY and which slot is at fault,
+          instead of a disabled button with no explanation. */}
+      {verdict && (!verdict.is_valid || verdict.warnings.length > 0) ? (
+        <div
+          role={verdict.is_valid ? 'status' : 'alert'}
+          className={`rounded-2xl border p-4 text-xs space-y-1 ${
+            verdict.is_valid
+              ? 'border-amber-200 bg-amber-50 text-amber-800'
+              : 'border-rose-200 bg-rose-50 text-rose-800'
+          }`}
+        >
+          <span className="font-bold uppercase tracking-wider text-[10px]">
+            {verdict.is_valid ? 'Heads up' : 'This look cannot be saved yet'}
+          </span>
+          {verdict.violations.map((v) => (
+            <p key={v.code + v.positions.join()}>{v.message}</p>
+          ))}
+          {verdict.warnings.map((w) => (
+            <p key={w}>{w}</p>
+          ))}
+        </div>
+      ) : null}
+
       {/* C6: one DndContext wraps palette + canvas so drops are real state transitions */}
       <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
         {/* Main Canvas & Metrics Split */}
@@ -304,20 +383,20 @@ export const OutfitBuilderView: React.FC = () => {
                   type="text"
                   value={outfitTitle}
                   onChange={(e) => setOutfitTitle(e.target.value)}
-                  placeholder="Give your look a name..."
+                  placeholder={t('outfit_builder.name_placeholder')}
                   className="flex-1 font-serif text-base font-bold text-[#1B1F3B] border-b border-slate-200 focus:outline-none focus:border-[#C5A059] py-1"
                 />
                 <select
-                  aria-label="Target occasion"
+                  aria-label={t('outfit_builder.target_occasion')}
                   value={targetOccasion}
                   onChange={(e) => setTargetOccasion(e.target.value)}
                   className="text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 focus:outline-none focus:border-[#C5A059]"
                 >
-                  <option value="Smart Casual Work">Smart Casual Work</option>
-                  <option value="Executive Boardroom">Executive Boardroom</option>
-                  <option value="Evening Cocktail & Dinner">Evening Cocktail & Dinner</option>
-                  <option value="Weekend Gallery Tour">Weekend Gallery Tour</option>
-                  <option value="Formal Gala & Wedding">Formal Gala & Wedding</option>
+                  <option value={t('outfit_builder.occasion_smart_casual')}>{t('outfit_builder.occasion_smart_casual')}</option>
+                  <option value={t('outfit_builder.occasion_boardroom')}>{t('outfit_builder.occasion_boardroom')}</option>
+                  <option value={t('outfit_builder.occasion_cocktail')}>{t('outfit_builder.occasion_cocktail')}</option>
+                  <option value={t('outfit_builder.occasion_weekend')}>{t('outfit_builder.occasion_weekend')}</option>
+                  <option value={t('outfit_builder.occasion_gala')}>{t('outfit_builder.occasion_gala')}</option>
                 </select>
               </div>
 

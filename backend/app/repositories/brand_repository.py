@@ -2,6 +2,13 @@ from decimal import Decimal
 from typing import Optional, List, Dict, Any, Tuple
 from datetime import datetime, timezone, timedelta
 from backend.app.core.money import to_decimal, money_add, money_sub, money_sum, to_float, quantize_money, validate_money
+from backend.app.core.revenue_policy import (
+    NON_REVENUE_ORDER_STATUSES,
+    REVENUE_BASIS,
+    revenue_eligible,
+    return_denominator_eligible,
+)
+from backend.app.core.timeutils import TimeRange, to_naive_utc
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, and_, or_, desc, case
 import json
@@ -301,7 +308,7 @@ class BrandRepository:
             Order, OrderItem.order_id == Order.id
         ).filter(
             OrderItem.brand_id == brand_id,
-            Order.status.notin_(["cancelled", "refunded", "failed"])
+            revenue_eligible(Order.status)
         ).scalar() or 0
 
         # Funnel conversion rate: purchases / views * 100
@@ -331,7 +338,7 @@ class BrandRepository:
                 ).scalar() or 0
                 prod_purchases = self.db.query(func.count(OrderItem.id)).join(Order, Order.id == OrderItem.order_id).filter(
                     OrderItem.product_id == prod_id,
-                    Order.status.notin_(["cancelled", "refunded", "failed"]),
+                    revenue_eligible(Order.status),
                     OrderItem.brand_id == brand_id
                 ).scalar() or 0
             else:
@@ -401,7 +408,7 @@ class BrandRepository:
         counts = self.db.query(Order.try_on_assisted, func.count(OrderItem.id),
             func.sum(case((OrderItem.is_returned == True, 1), else_=0))
         ).join(Order, Order.id == OrderItem.order_id).filter(
-            OrderItem.brand_id == brand_id, Order.status.notin_(["cancelled", "failed"])
+            OrderItem.brand_id == brand_id, return_denominator_eligible(Order.status)
         ).group_by(Order.try_on_assisted).all()
         cohorts = {bool(assisted): (int(total), int(returned or 0)) for assisted, total, returned in counts}
         non_total, non_returns = cohorts.get(False, (0, 0))
@@ -430,96 +437,171 @@ class BrandRepository:
             ).group_by(ProductSKU.product_id).all())
         purchases = dict(self.db.query(OrderItem.product_id, func.count(OrderItem.id)).join(
             Order, Order.id == OrderItem.order_id).filter(OrderItem.brand_id == brand_id,
-            Order.status.notin_(["cancelled", "refunded", "failed"])).group_by(OrderItem.product_id).all())
+            revenue_eligible(Order.status)).group_by(OrderItem.product_id).all())
         result = [dict(product_id=p.id, sku_count=len(p.skus), title=p.title,
             views=views.get(p.id, 0), tryons=tryons.get(p.id, 0), add_to_cart=carts.get(p.id, 0),
             purchases=purchases.get(p.id, 0), conversion_rate=round(purchases.get(p.id,0)/views[p.id]*100,2) if views.get(p.id) else 0.0
         ) for p in products]
         return sorted(result, key=lambda x: (-x["conversion_rate"], x["product_id"]))
 
-    def get_brand_preference_heatmaps(self, brand_id, region="Global", min_users=10):
-        """Tenant-scoped preferences; unique users per cell, not outfit counts.
+    def get_brand_preference_heatmaps(self, brand_id, region: Optional[str] = None, min_users: int = 10):
+        """Tenant-scoped style signals for one brand's products.
 
-        Region cannot be inferred from this schema. Legacy callers may request
-        MENA, but response explicitly returns Global and region_filter_applied=false.
+        Counts DISTINCT authenticated users per cell rather than outfit rows, so
+        one prolific shopper cannot manufacture a trend for the brand.
+
+        Emits the SAME cell shape as the platform-wide heatmap
+        (``{name, raw_name, share, count}`` under ``top_aesthetics`` /
+        ``trending_colors`` / ``top_occasions``). It previously emitted
+        ``weight`` and a differently-named ``top_colors`` key — the last
+        remaining fork of the style-signal contract (G-04).
+
+        ``region`` is accepted, applied to nothing, and reported as not applied:
+        the schema carries no region attribute, so echoing the caller's region
+        back as the label would mislabel platform-wide numbers (G-03).
         """
         rows = self.db.query(Outfit.user_id, Outfit.style_tags, Outfit.color_palette, Outfit.occasion).filter(
             Outfit.user_id.isnot(None), Outfit.id.in_(self.db.query(OutfitItem.outfit_id).join(
                 Product, Product.id == OutfitItem.product_id).filter(Product.brand_id == brand_id))
         ).all()
-        buckets = [dict(), dict(), dict()]
+        buckets: List[Dict[str, set]] = [dict(), dict(), dict()]
         users = set()
         for uid, styles, colors, occasion in rows:
             users.add(uid)
             for bucket, raw in zip(buckets, (styles, colors, json.dumps([occasion] if occasion else []))):
-                try:
-                    values = json.loads(raw or '[]')
-                except (ValueError, TypeError):
-                    continue
-                if not isinstance(values, list):
-                    continue
-                for value in values:
-                    if isinstance(value, str):
-                        bucket.setdefault(value, set()).add(uid)
-        def top(bucket, key):
-            return [{key: label, "weight": round(len(ids)/len(users)*100), "count": len(ids)}
-                    for label, ids in sorted(bucket.items(), key=lambda kv: (-len(kv[1]), kv[0]))
-                    if len(ids) >= min_users][:5]
-        return dict(region="Global", requested_region=region, region_filter_applied=False,
-            period="all_time", sample_size=len(users) if len(users) >= min_users else 0,
-            privacy_threshold=f"At least {min_users} distinct users per cell; small populations suppressed",
-            top_aesthetics=top(buckets[0], "name"), top_colors=top(buckets[1], "color"),
-            top_occasions=top(buckets[2], "name"), anonymized=True,
-            methodology="Brand-product outfit preferences; distinct authenticated users per cell, no catalog fallback. Global only: region and monthly filters are not supported by these source rows.")
+                for value in self._count_json_list(raw):
+                    bucket.setdefault(value, set()).add(uid)
 
-    def get_platform_admin_analytics(self) -> Dict[str, Any]:
-        """Real platform analytics from transactional data"""
-        total_users = self.db.query(func.count(User.id)).scalar() or 0
-        total_brands = self.db.query(func.count(BrandProfile.id)).scalar() or 0
-        total_orders = self.db.query(func.count(Order.id)).scalar() or 0
+        sample_size = len(users)
+        publishable = sample_size >= min_users
+
+        def dimension(bucket: Dict[str, set]):
+            if not publishable:
+                return []
+            counts = {label: len(ids) for label, ids in bucket.items()}
+            cells, _suppressed = self._publish_cells(counts, sample_size, 5, min_users)
+            return cells
+
+        limitations = [
+            "Scoped to outfits containing this brand's products; a shopper's "
+            "preferences expressed on other brands are not counted here.",
+            "Region and period filters are not supported: these source rows carry "
+            "no region attribute and the aggregate is all-time.",
+        ]
+        if not publishable:
+            limitations.insert(
+                0,
+                f"Only {sample_size} distinct shopper(s) in scope; at least "
+                f"{min_users} are required before any cell is published, so "
+                "nothing is shown rather than a small-population aggregate.",
+            )
+
+        return dict(
+            region="Platform-wide",
+            requested_region=region,
+            region_scope="platform_wide",
+            region_filter_applied=False,
+            period=None,
+            sample_size=sample_size if publishable else 0,
+            min_sample_required=int(min_users),
+            k_anonymity_floor=int(min_users),
+            data_available=bool(publishable),
+            privacy_threshold=(
+                f"At least {min_users} distinct users per cell across {sample_size} "
+                "shoppers; cells below the floor are suppressed and no "
+                "individual-level data is exposed."
+            ),
+            top_aesthetics=dimension(buckets[0]),
+            trending_colors=dimension(buckets[1]),
+            top_occasions=dimension(buckets[2]),
+            anonymized=True,
+            methodology=(
+                "Brand-product outfit preferences; DISTINCT authenticated users per "
+                "cell, no catalogue fallback. Shares are a percentage of the "
+                "shoppers in scope. All-time only: region and monthly filters are "
+                "not supported by these source rows."
+            ),
+            limitations=limitations,
+        )
+
+    def get_platform_admin_analytics(
+        self, time_range: Optional["TimeRange"] = None
+    ) -> Dict[str, Any]:
+        """Platform analytics from transactional data, over a bounded window.
+
+        G-14 — the brand comparison table used to issue five queries *per
+        brand* and the most-styled list one query *per row*; a platform with
+        60 brands and a 10-row ranking cost ~310 round trips. Both are now
+        single grouped queries, so the cost no longer grows with the number of
+        brands or ranked products.
+
+        G-15 — ``time_range`` is pushed into the SQL predicate of every
+        aggregate rather than filtered in Python afterwards, and the resolved
+        window is echoed in the payload so a reader can tell which question
+        each number answers. Bounds are inclusive on both ends, matching the
+        boundary contract ``/admin/audit`` already publishes.
+
+        Every figure below traces to a real table; there is no fallback that
+        invents a value when the window is empty.
+        """
+        tr = time_range or TimeRange()
+        in_order_window = tr.bound(Order.created_at)
+
+        total_users = self.db.query(func.count(User.id)).filter(
+            *tr.bound(User.created_at)
+        ).scalar() or 0
+        total_brands = self.db.query(func.count(BrandProfile.id)).filter(
+            *tr.bound(BrandProfile.created_at)
+        ).scalar() or 0
+        total_orders = self.db.query(func.count(Order.id)).filter(*in_order_window).scalar() or 0
+
+        # G-13: GMV and the attribution ledger below must filter the same
+        # population, or the four channel figures cannot sum to this headline.
         total_gmv = self.db.query(func.sum(Order.total_amount)).filter(
-            Order.status.notin_(["cancelled", "refunded"])
+            revenue_eligible(Order.status), *in_order_window
         ).scalar() or 0.0
 
-        # Try-on adoption: orders with try_on_assisted True
+        # Try-on adoption. This count doubles as the denominator of a return
+        # rate below, so it keeps refunded orders: excluding them would lower
+        # the return rate precisely when returns succeed.
         tryon_orders = self.db.query(func.count(Order.id)).filter(
             Order.try_on_assisted == True,
-            Order.status.notin_(["cancelled", "refunded"])
+            return_denominator_eligible(Order.status),
+            *in_order_window,
         ).scalar() or 0
 
         tryon_adoption_rate = round((tryon_orders / total_orders * 100) if total_orders > 0 else 0.0, 1)
 
-        # Stylist conversion: outfits that are saved and have associated purchases
-        # Outfit-to-purchase ratio
+        # Stylist conversion: saved outfits in the window, and those whose
+        # items were actually purchased (OrderItem.outfit_id lineage).
         total_saved_outfits = self.db.query(func.count(Outfit.id)).filter(
-            Outfit.is_saved == True
+            Outfit.is_saved == True, *tr.bound(Outfit.created_at)
         ).scalar() or 0
 
-        # Outfits that resulted in purchase: outfits where at least one item was purchased
-        # via OrderItem.outfit_id
-        outfits_with_purchase = self.db.query(func.count(func.distinct(OrderItem.outfit_id))).filter(
-            OrderItem.outfit_id.isnot(None)
+        outfits_with_purchase = self.db.query(func.count(func.distinct(OrderItem.outfit_id))).join(
+            Order, Order.id == OrderItem.order_id
+        ).filter(
+            OrderItem.outfit_id.isnot(None), *in_order_window
         ).scalar() or 0
 
         stylist_conversion = round((outfits_with_purchase / total_saved_outfits * 100) if total_saved_outfits > 0 else 0.0, 1)
 
-        # Return rates: try-on users vs non-try-on users
-        total_returns = self.db.query(func.count(ReturnRequest.id)).scalar() or 0
+        # Return rates: try-on users vs non-try-on users.
+        total_returns = self.db.query(func.count(ReturnRequest.id)).filter(
+            *tr.bound(ReturnRequest.created_at)
+        ).scalar() or 0
         platform_avg_return = round((total_returns / total_orders * 100) if total_orders > 0 else 0.0, 1)
 
         returns_tryon = self.db.query(func.count(ReturnRequest.id)).filter(
-            ReturnRequest.try_on_used_for_item == True
+            ReturnRequest.try_on_used_for_item == True, *tr.bound(ReturnRequest.created_at)
         ).scalar() or 0
 
         returns_non_tryon = total_returns - returns_tryon
-
-        # Return rates for cohorts
-        # Need to calculate return rate for try-on vs non-try-on orders
         tryon_return_rate = round((returns_tryon / tryon_orders * 100) if tryon_orders > 0 else 0.0, 1)
         non_tryon_orders = total_orders - tryon_orders
         non_tryon_return_rate = round((returns_non_tryon / non_tryon_orders * 100) if non_tryon_orders > 0 else 0.0, 1)
 
-        # Revenue attribution: canonical item-grain ledger (order_item_id lineage)
+        # Revenue attribution: canonical item-grain ledger (order_item_id lineage).
         _ledger = self.compute_item_grain_attribution()
         stylist_rev_exclusive = _ledger["channels"]["virtual_stylist"]
         outfit_rev_exclusive = _ledger["channels"]["outfit_builder"]
@@ -527,60 +609,105 @@ class BrandRepository:
         organic_revenue = _ledger["channels"]["organic"]
         total_revenue = to_decimal(total_gmv)
 
-        # Most Styled Items: ranking by outfit appearances
-        most_styled = self.db.query(
-            OutfitItem.product_id,
-            func.count(OutfitItem.id).label("appearances")
-        ).group_by(OutfitItem.product_id).order_by(desc("appearances")).limit(10).all()
+        # --- G-14: most-styled ranking in ONE query -------------------------
+        # Previously: one grouped query for the ids, then one `Product` SELECT
+        # per ranked row (each of which lazily loaded `product.brand`).
+        most_styled_rows = (
+            self.db.query(
+                Product.id,
+                Product.title,
+                Product.thumbnail_url,
+                BrandProfile.brand_name,
+                func.count(OutfitItem.id).label("appearances"),
+            )
+            .join(OutfitItem, OutfitItem.product_id == Product.id)
+            .join(Outfit, Outfit.id == OutfitItem.outfit_id)
+            .outerjoin(BrandProfile, BrandProfile.id == Product.brand_id)
+            .filter(*tr.bound(Outfit.created_at))
+            .group_by(Product.id, Product.title, Product.thumbnail_url, BrandProfile.brand_name)
+            .order_by(desc("appearances"))
+            .limit(10)
+            .all()
+        )
+        most_styled_items = [
+            {
+                "product_id": prod_id,
+                "title": title,
+                "brand_name": brand_name or "Unknown",
+                "thumbnail_url": thumbnail_url,
+                "appearances": int(appearances),
+            }
+            for prod_id, title, thumbnail_url, brand_name, appearances in most_styled_rows
+        ]
 
-        most_styled_items = []
-        for prod_id, appearances in most_styled:
-            prod = self.db.query(Product).filter(Product.id == prod_id).first()
-            if prod:
-                most_styled_items.append({
-                    "product_id": prod.id,
-                    "title": prod.title,
-                    "brand_name": prod.brand.brand_name if prod.brand else "Unknown",
-                    "thumbnail_url": prod.thumbnail_url,
-                    "appearances": int(appearances)
-                })
-
-        # Brand Performance Table: side-by-side conversion rates
+        # --- G-14: brand comparison table in FIVE grouped queries, not 5N ---
         brands = self.db.query(BrandProfile).all()
+        brand_ids = [b.id for b in brands]
+        orders_by_brand: Dict[int, int] = {}
+        products_by_brand: Dict[int, int] = {}
+        views_by_brand: Dict[int, int] = {}
+        tryons_by_brand: Dict[int, int] = {}
+        returns_by_brand: Dict[int, int] = {}
+        if brand_ids:
+            orders_by_brand = dict(
+                self.db.query(OrderItem.brand_id, func.count(OrderItem.id))
+                .join(Order, Order.id == OrderItem.order_id)
+                .filter(
+                    OrderItem.brand_id.in_(brand_ids),
+                    revenue_eligible(Order.status),
+                    *in_order_window,
+                )
+                .group_by(OrderItem.brand_id)
+                .all()
+            )
+            products_by_brand = dict(
+                self.db.query(Product.brand_id, func.count(Product.id))
+                .filter(Product.brand_id.in_(brand_ids))
+                .group_by(Product.brand_id)
+                .all()
+            )
+            views_by_brand = dict(
+                self.db.query(Product.brand_id, func.count(RecentlyViewed.id))
+                .join(RecentlyViewed, RecentlyViewed.product_id == Product.id)
+                .filter(Product.brand_id.in_(brand_ids), *tr.bound(RecentlyViewed.viewed_at))
+                .group_by(Product.brand_id)
+                .all()
+            )
+            tryons_by_brand = dict(
+                self.db.query(Product.brand_id, func.count(TryOnSession.id))
+                .join(TryOnSession, TryOnSession.product_id == Product.id)
+                .filter(Product.brand_id.in_(brand_ids), *tr.bound(TryOnSession.created_at))
+                .group_by(Product.brand_id)
+                .all()
+            )
+            returns_by_brand = dict(
+                self.db.query(OrderItem.brand_id, func.count(func.distinct(ReturnRequest.id)))
+                .join(Order, ReturnRequest.order_id == Order.id)
+                .join(OrderItem, OrderItem.order_id == Order.id)
+                .filter(OrderItem.brand_id.in_(brand_ids), *tr.bound(ReturnRequest.created_at))
+                .group_by(OrderItem.brand_id)
+                .all()
+            )
+
         brand_performance = []
         for brand in brands:
-            brand_orders = self.db.query(func.count(OrderItem.id)).filter(
-                OrderItem.brand_id == brand.id
-            ).join(Order).filter(Order.status.notin_(["cancelled", "refunded"])).scalar() or 0
-
-            brand_products = self.db.query(func.count(Product.id)).filter(
-                Product.brand_id == brand.id
-            ).scalar() or 0
-
-            brand_views = self.db.query(func.count(RecentlyViewed.id)).join(
-                Product, RecentlyViewed.product_id == Product.id
-            ).filter(Product.brand_id == brand.id).scalar() or 0
-
-            brand_tryons = self.db.query(func.count(TryOnSession.id)).join(
-                Product, TryOnSession.product_id == Product.id
-            ).filter(Product.brand_id == brand.id).scalar() or 0
+            brand_orders = int(orders_by_brand.get(brand.id, 0))
+            brand_products = int(products_by_brand.get(brand.id, 0))
+            brand_views = int(views_by_brand.get(brand.id, 0))
+            brand_tryons = int(tryons_by_brand.get(brand.id, 0))
+            brand_returns = int(returns_by_brand.get(brand.id, 0))
 
             conversion = round((brand_orders / brand_views * 100) if brand_views > 0 else 0.0, 2)
             tryon_rate = round((brand_tryons / brand_views * 100) if brand_views > 0 else 0.0, 1)
-
-            # Return rate for brand — FIXED DISTINCT to prevent JOIN multiplication
-            brand_returns = self.db.query(func.count(func.distinct(ReturnRequest.id))).join(Order).join(OrderItem).filter(
-                OrderItem.brand_id == brand.id
-            ).scalar() or 0
             brand_return_rate = round((brand_returns / brand_orders * 100) if brand_orders > 0 else 0.0, 1)
 
             brand_performance.append({
                 "brand_id": brand.id,
                 "brand": brand.brand_name,
-                "products": int(brand_products),
-                "views": int(brand_views),
-                "tryons": int(brand_tryons),
-                "orders": int(brand_orders),
+                "products": brand_products,
+                "views": brand_views,
+                "tryons": brand_tryons,
+                "orders": brand_orders,
                 "conversion_rate": float(conversion),
                 "tryon_rate": f"{tryon_rate}%",
                 "return_rate": f"{brand_return_rate}%",
@@ -590,74 +717,11 @@ class BrandRepository:
         # Sort by orders descending
         brand_performance.sort(key=lambda x: x["orders"], reverse=True)
 
-        # Style Preference Heatmap: aggregate anonymized from UserStyleProfile and product tags
-        # Never expose individual user data
-        # Aggregate style tags, colors, occasions from products and outfits
-        style_counter: Dict[str, int] = {}
-        color_counter: Dict[str, int] = {}
-        occasion_counter: Dict[str, int] = {}
-
-        # From Outfit style_tags
-        outfits = self.db.query(Outfit).limit(1000).all()
-        for outfit in outfits:
-            try:
-                tags = json.loads(outfit.style_tags) if outfit.style_tags else []
-                for tag in tags:
-                    style_counter[tag] = style_counter.get(tag, 0) + 1
-                colors = json.loads(outfit.color_palette) if outfit.color_palette else []
-                for color in colors:
-                    color_counter[color] = color_counter.get(color, 0) + 1
-                if outfit.occasion:
-                    occasion_counter[outfit.occasion] = occasion_counter.get(outfit.occasion, 0) + 1
-            except:
-                continue
-
-        # From Product style_tags if not enough outfit data
-        if len(style_counter) < 3:
-            prods = self.db.query(Product).limit(500).all()
-            for p in prods:
-                try:
-                    tags = json.loads(p.style_tags) if p.style_tags else []
-                    for tag in tags:
-                        style_counter[tag] = style_counter.get(tag, 0) + 1
-                    if p.color_family:
-                        color_counter[p.color_family] = color_counter.get(p.color_family, 0) + 1
-                    occasions = json.loads(p.occasion_tags) if p.occasion_tags else []
-                    for occ in occasions:
-                        occasion_counter[occ] = occasion_counter.get(occ, 0) + 1
-                except:
-                    continue
-
-        # Calculate shares, ensure anonymized with sample size threshold
-        total_style = sum(style_counter.values()) or 1
-        total_color = sum(color_counter.values()) or 1
-        total_occasion = sum(occasion_counter.values()) or 1
-
-        # Only show if sample size >= 10 for privacy
-        sample_size = len(outfits) if len(outfits) >= 10 else max(len(outfits), total_users)
-
-        top_aesthetics = []
-        for name, count in sorted(style_counter.items(), key=lambda x: x[1], reverse=True)[:4]:
-            share = round(count / total_style * 100)
-            # Ensure minimum threshold for anonymization
-            if count >= 3 or sample_size >= 50:  # Privacy threshold
-                top_aesthetics.append({"name": name.replace("_", " ").title(), "share": share})
-
-        trending_colors = []
-        for color, count in sorted(color_counter.items(), key=lambda x: x[1], reverse=True)[:4]:
-            if count >= 3 or sample_size >= 50:
-                trending_colors.append(f"{color}")
-
-        # Fallback if no data
-        if not top_aesthetics:
-            top_aesthetics = [
-                {"name": "Quiet Luxury / Old Money", "share": 38},
-                {"name": "Modern Minimalist", "share": 29},
-                {"name": "Elevated Streetwear", "share": 21},
-                {"name": "Smart Tailored", "share": 12}
-            ]
-        if not trending_colors:
-            trending_colors = ["#1B1F3B (Navy)", "#C5A059 (Gold/Beige)", "#2D4A3E (Forest)", "#F5F5DC (Ivory)"]
+        # G-01/G-02/G-04: one honest heatmap builder, shared with
+        # /admin/analytics/heatmaps and /partner/analytics/heatmaps.
+        style_heatmap = self.get_style_heatmap(
+            date_from=tr.date_from, date_to=tr.date_to
+        )
 
         # Exclusive attribution to avoid double count - mathematically valid
         return {
@@ -679,36 +743,55 @@ class BrandRepository:
             "top_performing_brands": brand_performance[:10],
             "most_styled_items": most_styled_items,
             "outfit_to_purchase_ratio": float(stylist_conversion),
-            "style_preference_heatmap": {
-                "region": "MENA & GCC",
-                "sample_size": int(sample_size),
-                "top_aesthetics": top_aesthetics,
-                "trending_colors": trending_colors,
-                "top_occasions": [{"name": k, "share": round(v / total_occasion * 100)} for k, v in sorted(occasion_counter.items(), key=lambda x: x[1], reverse=True)[:3]]
-            }
+            "style_preference_heatmap": style_heatmap,
+            "revenue_basis": REVENUE_BASIS,
+            "revenue_excludes_statuses": sorted(NON_REVENUE_ORDER_STATUSES),
+            "time_range": tr.describe(),
+            "methodology": {
+                "time_window": tr.describe(),
+                "boundary_semantics": "inclusive on both ends, matching /admin/audit",
+                "revenue": f"order-level, accrual basis; excludes {sorted(NON_REVENUE_ORDER_STATUSES)}",
+                "return_rates": "denominator keeps refunded orders — a completed return is evidence, not noise",
+                "attribution": "item-grain ledger keyed on BrandAnalyticsEvent.order_item_id",
+                "brand_comparison": "single grouped aggregate per metric; no per-brand query loop",
+            },
         }
 
     def get_most_styled_items(self, limit: int = 20) -> List[Dict[str, Any]]:
-        """Ranking of items by outfit appearances across all users"""
-        results = self.db.query(
-            OutfitItem.product_id,
-            func.count(OutfitItem.id).label("appearances"),
-            func.count(func.distinct(OutfitItem.outfit_id)).label("outfit_count")
-        ).group_by(OutfitItem.product_id).order_by(desc("appearances")).limit(limit).all()
+        """Ranking of items by outfit appearances across all users.
 
-        items = []
-        for prod_id, appearances, outfit_count in results:
-            prod = self.db.query(Product).filter(Product.id == prod_id).first()
-            if prod:
-                items.append({
-                    "product_id": prod.id,
-                    "title": prod.title,
-                    "brand_name": prod.brand.brand_name if prod.brand else "Unknown",
-                    "thumbnail_url": prod.thumbnail_url,
-                    "appearances": int(appearances),
-                    "outfit_count": int(outfit_count)
-                })
-        return items
+        G-14: one query. This used to run the ranking query and then one
+        ``Product`` SELECT per ranked row (each lazily loading ``product.brand``),
+        so a 20-row ranking cost 21+ round trips and dropped rows whose product
+        had since been deleted — the join makes that explicit instead.
+        """
+        rows = (
+            self.db.query(
+                Product.id,
+                Product.title,
+                Product.thumbnail_url,
+                BrandProfile.brand_name,
+                func.count(OutfitItem.id).label("appearances"),
+                func.count(func.distinct(OutfitItem.outfit_id)).label("outfit_count"),
+            )
+            .join(OutfitItem, OutfitItem.product_id == Product.id)
+            .outerjoin(BrandProfile, BrandProfile.id == Product.brand_id)
+            .group_by(Product.id, Product.title, Product.thumbnail_url, BrandProfile.brand_name)
+            .order_by(desc("appearances"))
+            .limit(limit)
+            .all()
+        )
+        return [
+            {
+                "product_id": prod_id,
+                "title": title,
+                "brand_name": brand_name or "Unknown",
+                "thumbnail_url": thumbnail_url,
+                "appearances": int(appearances),
+                "outfit_count": int(outfit_count),
+            }
+            for prod_id, title, thumbnail_url, brand_name, appearances, outfit_count in rows
+        ]
 
     def get_outfit_to_purchase_ratio(self) -> Dict[str, Any]:
         """% of saved outfits that result in purchase - measures stylist ROI"""
@@ -738,13 +821,15 @@ class BrandRepository:
 
     def get_return_reduction_metrics(self) -> Dict[str, Any]:
         """Comparison of return rates: try-on users vs non-try-on users"""
+        # Denominators of a return rate: refunded orders stay in, see
+        # revenue_policy.RETURN_DENOMINATOR_EXCLUDED_STATUSES.
         total_orders = self.db.query(func.count(Order.id)).filter(
-            Order.status.notin_(["cancelled", "refunded"])
+            return_denominator_eligible(Order.status)
         ).scalar() or 0
 
         tryon_orders = self.db.query(func.count(Order.id)).filter(
             Order.try_on_assisted == True,
-            Order.status.notin_(["cancelled", "refunded"])
+            return_denominator_eligible(Order.status)
         ).scalar() or 0
 
         total_returns = self.db.query(func.count(ReturnRequest.id)).scalar() or 0
@@ -780,7 +865,10 @@ class BrandRepository:
     # (ORDER_TRANSITIONS: return_requested -> rejected): goods were delivered
     # and kept, so the revenue stands. "failed" = payment failed, inventory
     # released, never revenue.
-    INELIGIBLE_ORDER_STATUSES = ("cancelled", "refunded", "failed")
+    # Kept as the public name callers and the mutation gate already use; the
+    # classification itself lives in core.revenue_policy so there is one place
+    # to change it (G-13).
+    INELIGIBLE_ORDER_STATUSES = tuple(sorted(NON_REVENUE_ORDER_STATUSES))
     ATTRIBUTION_CHANNELS = ("visual_search", "outfit_builder", "virtual_stylist", "organic")
 
     def compute_item_grain_attribution(self, brand_id: Optional[int] = None) -> Dict[str, Any]:
@@ -806,7 +894,7 @@ class BrandRepository:
         eligible_items = (
             self.db.query(OrderItem)
             .join(Order, OrderItem.order_id == Order.id)
-            .filter(Order.status.notin_(list(self.INELIGIBLE_ORDER_STATUSES)))
+            .filter(revenue_eligible(Order.status))
         )
         if brand_id is not None:
             eligible_items = eligible_items.filter(OrderItem.brand_id == brand_id)
@@ -868,7 +956,7 @@ class BrandRepository:
     def get_revenue_attribution(self) -> Dict[str, Any]:
         """Revenue attributable to Virtual Stylist, Outfit Builder, Visual Search (JSON view)."""
         total_gmv = self.db.query(func.sum(Order.total_amount)).filter(
-            Order.status.notin_(list(self.INELIGIBLE_ORDER_STATUSES))
+            revenue_eligible(Order.status)
         ).scalar() or Decimal("0.00")
 
         ledger = self.compute_item_grain_attribution()
@@ -900,86 +988,204 @@ class BrandRepository:
             "dedup_policy": "One purchase event per OrderItem enforced by unique index uq_brand_analytics_item_event",
         }
 
-    def get_user_preference_heatmaps(self, region: str = "MENA", min_sample_size: int = 10) -> Dict[str, Any]:
+    # --- Style signal heatmap (single implementation, G-01/G-02/G-04) ------
+
+    #: Below this many aggregated outfits the aggregate is NOT published at all.
+    HEATMAP_MIN_SAMPLE = 10
+    #: A cell must occur at least this often to be published (k-anonymity floor).
+    HEATMAP_K_FLOOR = 5
+    #: Hard cap on the outfit scan so the aggregation cannot become unbounded.
+    HEATMAP_SCAN_LIMIT = 5000
+
+    @staticmethod
+    def _count_json_list(raw: Optional[str]) -> List[str]:
+        """Parse a JSON list column, tolerating the malformed rows that exist."""
+        if not raw:
+            return []
+        try:
+            parsed = json.loads(raw)
+        except (ValueError, TypeError):
+            return []
+        if not isinstance(parsed, list):
+            return []
+        return [str(item) for item in parsed if item not in (None, "")]
+
+    @classmethod
+    def _publish_cells(cls, counter: Dict[str, int], total: int, top_n: int, k_floor: int) -> Tuple[List[Dict[str, Any]], int]:
+        """Rank cells, drop everything under the k-floor, report what was dropped.
+
+        The k-floor is a hard floor: it is NOT bypassed when the sample is
+        large (the previous ``count >= 3 or sample_size >= 50`` let a single
+        occurrence through once the dataset was big — G-02).
         """
-        Aggregate anonymized style signal data.
-        Never expose individual user-level data.
-        Uses aggregation thresholds.
+        ranked = sorted(counter.items(), key=lambda kv: (-kv[1], kv[0]))
+        published: List[Dict[str, Any]] = []
+        suppressed = 0
+        for name, count in ranked:
+            if count < k_floor:
+                suppressed += 1
+                continue
+            if len(published) < top_n:
+                published.append(
+                    {
+                        "name": name.replace("_", " ").title() if "_" in name else name,
+                        "raw_name": name,
+                        "share": round(count / total * 100, 1) if total else 0.0,
+                        "count": int(count),
+                    }
+                )
+        return published, suppressed
+
+    def get_style_heatmap(
+        self,
+        *,
+        date_from: Optional[datetime] = None,
+        date_to: Optional[datetime] = None,
+        top_n: int = 5,
+        k_floor: int = HEATMAP_K_FLOOR,
+        min_sample: int = HEATMAP_MIN_SAMPLE,
+    ) -> Dict[str, Any]:
+        """Aggregate anonymised style signals from real ``Outfit`` rows.
+
+        Single source of truth for every style-signal endpoint. Honest by
+        construction:
+
+        * **No fabricated rows.** The previous implementation returned four
+          hardcoded aesthetics and four hardcoded colour chips whenever the
+          aggregation was empty, inside a dashboard labelled "Real Data"
+          (G-01). An empty result now returns empty lists plus
+          ``data_available: false`` and the reason.
+        * **``sample_size`` is the number of outfits actually aggregated.** It
+          was previously inflated to ``total_users`` whenever fewer than ten
+          outfits existed, which made the published privacy statement false
+          (G-02).
+        * **The k-floor is a floor.** No large-sample bypass, and it is applied
+          to occasions too (they had no threshold at all).
+        * **Catalogue tags are not shopper signals.** The old code fell back to
+          ``Product.style_tags`` when outfits were thin and presented the result
+          as shopper preferences. Two different populations are not one metric,
+          so the fallback is gone and the limitation is stated instead.
+        * **Period is real.** ``date_from``/``date_to`` are pushed into the SQL
+          predicate; the payload reports the window actually applied instead of
+          a hardcoded ``"monthly"``.
         """
-        # Aggregate from Outfit and Product tags
+        query = self.db.query(Outfit)
+        lower = to_naive_utc(date_from)
+        upper = to_naive_utc(date_to)
+        if lower:
+            query = query.filter(Outfit.created_at >= lower)
+        if upper:
+            query = query.filter(Outfit.created_at <= upper)
+        outfits = query.limit(self.HEATMAP_SCAN_LIMIT).all()
+
         style_counter: Dict[str, int] = {}
         color_counter: Dict[str, int] = {}
         occasion_counter: Dict[str, int] = {}
-
-        outfits = self.db.query(Outfit).limit(2000).all()
-
         for outfit in outfits:
-            try:
-                tags = json.loads(outfit.style_tags) if outfit.style_tags else []
-                for tag in tags:
-                    style_counter[tag] = style_counter.get(tag, 0) + 1
-                colors = json.loads(outfit.color_palette) if outfit.color_palette else []
-                for color in colors:
-                    color_counter[color] = color_counter.get(color, 0) + 1
-                if outfit.occasion:
-                    occasion_counter[outfit.occasion] = occasion_counter.get(outfit.occasion, 0) + 1
-            except:
-                continue
+            for tag in self._count_json_list(outfit.style_tags):
+                style_counter[tag] = style_counter.get(tag, 0) + 1
+            for color in self._count_json_list(outfit.color_palette):
+                color_counter[color] = color_counter.get(color, 0) + 1
+            if outfit.occasion:
+                occasion_counter[outfit.occasion] = occasion_counter.get(outfit.occasion, 0) + 1
 
-        # Ensure minimum sample size for privacy
-        if len(outfits) < min_sample_size:
-            # Fallback to product data if not enough outfits
-            products = self.db.query(Product).limit(500).all()
-            for p in products:
-                try:
-                    tags = json.loads(p.style_tags) if p.style_tags else []
-                    for tag in tags:
-                        style_counter[tag] = style_counter.get(tag, 0) + 1
-                    if p.color_family:
-                        color_counter[p.color_family] = color_counter.get(p.color_family, 0) + 1
-                    occasions = json.loads(p.occasion_tags) if p.occasion_tags else []
-                    for occ in occasions:
-                        occasion_counter[occ] = occasion_counter.get(occ, 0) + 1
-                except:
-                    continue
-
-        total_style = sum(style_counter.values()) or 1
-        total_color = sum(color_counter.values()) or 1
-        total_occasion = sum(occasion_counter.values()) or 1
-
-        # Privacy: only show aggregates with count >= 3 or sample_size >= 50
         sample_size = len(outfits)
-        anonymization_threshold = 3 if sample_size >= 50 else 5
+        data_available = sample_size >= min_sample
+        scan_truncated = sample_size >= self.HEATMAP_SCAN_LIMIT
 
-        top_aesthetics = []
-        for name, count in sorted(style_counter.items(), key=lambda x: x[1], reverse=True)[:5]:
-            if count >= anonymization_threshold:
-                share = round(count / total_style * 100)
-                top_aesthetics.append({"name": name.replace("_", " ").title(), "weight": share, "count": count})
+        def dimension(counter: Dict[str, int]) -> Tuple[List[Dict[str, Any]], int]:
+            if not data_available:
+                return [], 0
+            total = sum(counter.values())
+            return self._publish_cells(counter, total, top_n, k_floor)
 
-        top_colors = []
-        for color, count in sorted(color_counter.items(), key=lambda x: x[1], reverse=True)[:5]:
-            if count >= anonymization_threshold:
-                share = round(count / total_color * 100)
-                top_colors.append({"color": color, "weight": share, "count": count})
+        top_aesthetics, sup_style = dimension(style_counter)
+        trending_colors, sup_color = dimension(color_counter)
+        top_occasions, sup_occasion = dimension(occasion_counter)
 
-        top_occasions = []
-        for occ, count in sorted(occasion_counter.items(), key=lambda x: x[1], reverse=True)[:5]:
-            if count >= anonymization_threshold:
-                share = round(count / total_occasion * 100)
-                top_occasions.append({"name": occ, "weight": share, "count": count})
+        limitations: List[str] = [
+            "Derived from saved outfits only. Outfits a shopper built but never "
+            "saved are not counted, so this measures expressed preference, not "
+            "browsing intent.",
+            "The platform stores no region attribute on users or outfits, so this "
+            "aggregate is platform-wide; region breakdowns are not available.",
+        ]
+        if not data_available:
+            limitations.insert(
+                0,
+                f"Only {sample_size} outfit(s) in scope; at least {min_sample} are "
+                "required before any cell is published, so nothing is shown rather "
+                "than a small-population aggregate.",
+            )
+        if scan_truncated:
+            limitations.append(
+                f"The scan is capped at {self.HEATMAP_SCAN_LIMIT} outfits; the "
+                "aggregate covers the most recent rows within that cap."
+            )
 
         return {
-            "region": region,
-            "period": "monthly",
+            "region": "Platform-wide",
+            "region_scope": "platform_wide",
+            "region_filter_applied": False,
+            "period": {
+                "from": lower.isoformat() if lower else None,
+                "to": upper.isoformat() if upper else None,
+            },
             "sample_size": int(sample_size),
-            "privacy_threshold": f"Minimum {anonymization_threshold} occurrences, sample size {sample_size}, no individual user data exposed",
+            "min_sample_required": int(min_sample),
+            "k_anonymity_floor": int(k_floor),
+            "data_available": bool(data_available),
             "top_aesthetics": top_aesthetics,
-            "top_colors": top_colors,
+            "trending_colors": trending_colors,
             "top_occasions": top_occasions,
+            "suppressed_cells": int(sup_style + sup_color + sup_occasion),
             "anonymized": True,
-            "methodology": "Aggregate from Outfit.style_tags, Outfit.color_palette, Outfit.occasion and Product tags. Never exposes user-level preferences. Filters that would narrow to tiny identifiable population are blocked by threshold."
+            "privacy_threshold": (
+                f"Every published cell occurs at least {k_floor} times and the "
+                f"aggregate covers {sample_size} outfits; cells below the floor "
+                "are suppressed ({sup_style + sup_color + sup_occasion} suppressed "
+                "in this run). No individual-level data is exposed."
+            ),
+            "methodology": (
+                "COUNT over Outfit.style_tags, Outfit.color_palette and "
+                "Outfit.occasion within the requested window, ranked by frequency. "
+                "Shares are a percentage of all occurrences in that dimension, so "
+                "they sum to ~100% across the FULL distribution, not just the "
+                "published top-N. No rows are synthesised and catalogue tags are "
+                "never substituted for shopper signals."
+            ),
+            "limitations": limitations,
         }
+
+    def get_user_preference_heatmaps(
+        self,
+        *,
+        region: Optional[str] = None,
+        date_from: Optional[datetime] = None,
+        date_to: Optional[datetime] = None,
+        min_sample_size: int = HEATMAP_MIN_SAMPLE,
+    ) -> Dict[str, Any]:
+        """Thin wrapper kept for the existing admin endpoint.
+
+        ``region`` is accepted but reported as NOT applied — the same contract
+        ``get_brand_preference_heatmaps`` already publishes on the partner
+        surface (``region`` / ``requested_region`` / ``region_filter_applied``).
+        The platform stores no region attribute on users or outfits, so the
+        previous behaviour of echoing the caller's region back as the label on
+        platform-wide numbers is gone (G-03); one convention now covers both
+        endpoints instead of two.
+        """
+        heatmap = self.get_style_heatmap(
+            date_from=date_from, date_to=date_to, min_sample=min_sample_size
+        )
+        heatmap["requested_region"] = region
+        if region:
+            heatmap["limitations"] = [
+                f"The requested region filter '{region}' was NOT applied: the "
+                "platform stores no region attribute on users or outfits, so the "
+                "figures below are platform-wide. See region_filter_applied."
+            ] + list(heatmap["limitations"])
+        return heatmap
 
     # --- Analytics Event Instrumentation (REAL attribution) ---
     def create_analytics_event(

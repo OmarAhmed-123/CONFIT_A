@@ -1165,6 +1165,9 @@ class AuthService:
         from backend.app.models.tryon import TryOnSession
         from backend.app.models.stylist import StylistSession
 
+        from backend.app.models.brand_team import BrandMembership
+        if self.db.query(BrandMembership.id).filter_by(user_id=user.id).first():
+            raise ValidationDomainError('Leave the brand team first; the last owner must transfer ownership before account deletion.')
         self.user_repo.log_audit("ACCOUNT_DELETED", "User", str(user.id), user_id=user.id)
 
         # Anonymize business-retained relations. Uses direct SQL update to

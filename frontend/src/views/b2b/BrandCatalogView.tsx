@@ -1,3 +1,5 @@
+import { PartnerProductEditor } from './PartnerProductEditor';
+import { request } from '../../services/apiClient';
 import { useTranslation } from 'react-i18next';
 import { useModalFocus } from '../../hooks/useModalFocus';
 import { useCallback } from 'react';
@@ -7,7 +9,8 @@ import { LoadingSpinner } from '../../components/common/CommonComponents';
 
 export const BrandCatalogView: React.FC = () => {
   const { t } = useTranslation();
-  const { products, updateSKUInventory, isLoading, uploadCatalogCSV, importJobs, fetchErrors, refresh, isUploading } = useBrandViewModel();
+  const { products, productAfter, setProductAfter, updateSKUInventory, isLoading, uploadCatalogCSV, importJobs, fetchErrors, refresh, isUploading } = useBrandViewModel();
+  const [editingProductId,setEditingProductId]=useState<number|null>(null);
   const [editingSkuId, setEditingSkuId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [editStock, setEditStock] = useState<number>(20);
@@ -21,7 +24,7 @@ export const BrandCatalogView: React.FC = () => {
   const dialogRef = useModalFocus<HTMLDivElement>(closeDialog, bulkModalOpen);
 
   if (isLoading) {
-    return <LoadingSpinner text="Loading brand catalog and SKU inventory..." />;
+    return <LoadingSpinner text={t('partnerPortal.text000')} />;
   }
 
   const handleSaveSku = async (skuId: number) => {
@@ -65,47 +68,44 @@ export const BrandCatalogView: React.FC = () => {
 
   return (
     <div className="space-y-8 pb-20">
+      {editingProductId!==null && <PartnerProductEditor productId={editingProductId} onClose={()=>{setEditingProductId(null);void refresh();}} onSaved={()=>{}} />}
+      <div className="flex gap-4"><button disabled={!productAfter} onClick={()=>setProductAfter(0)}>{t('partnerOps.first')}</button><button disabled={products.length<25} onClick={()=>setProductAfter(products[products.length-1].id)}>{t('partnerOps.next')}</button></div>
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-6">
         <div>
-          <h1 className="font-serif text-3xl font-bold text-[#1B1F3B]">
-            Catalog & SKU Management
-          </h1>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Manage warehouse SKU stock here; store inventory is maintained separately. CSV imports report accepted and rejected rows.
-          </p>
+          <h1 className="font-serif text-3xl font-bold text-[#1B1F3B]">{' '}{t('partnerPortal.text001')}{' '}</h1>
+          <p className="text-xs sm:text-sm text-slate-500 mt-1">{' '}{t('partnerPortal.text002')}{' '}</p>
         </div>
 
         <button
           onClick={() => setBulkModalOpen(true)}
           className="px-4 py-2.5 rounded-2xl bg-[#1B1F3B] hover:bg-[#2A3C78] text-white text-xs font-semibold shadow-sm transition-all"
-        >
-          + Bulk CSV Import
-        </button>
+        >{' '}{t('partnerPortal.text003')}{' '}</button>
       </div>
 
       {/* Import Jobs History — a failed fetch is shown as an explicit error,
           never silently hidden (an empty table must mean "no imports", not "the API is down"). */}
       {fetchErrors.imports && (
         <div role="alert" className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-xs text-rose-800 flex items-center justify-between gap-4">
-          <span>Could not load recent import jobs: {fetchErrors.imports}</span>
-          <button onClick={refresh} className="px-3 py-1.5 rounded-xl bg-rose-600 text-white font-semibold shrink-0">Retry</button>
+          <span>{t('partnerPortal.text004')}{' '}{fetchErrors.imports}</span>
+          <button onClick={refresh} className="px-3 py-1.5 rounded-xl bg-rose-600 text-white font-semibold shrink-0">{t('partnerPortal.text005')}</button>
         </div>
       )}
+      {importJobs.filter(j=>['queued','processing','failed'].includes(j.status)).map(j=><div key={`run-${j.job_id}`} className="flex gap-3"><span>#{j.job_id}</span><button disabled={isUploading} onClick={async()=>{try{await request(`/partner/catalog/jobs/${j.job_id}/${j.status==='failed'?'retry':'run'}`,{method:'POST'});await refresh();}catch{alert(t('partnerOps.failed'));}}}>{t(j.status==='failed'?'partnerOps.retryJob':'partnerOps.runBatch')}</button></div>)}
       {importJobs.length > 0 && (
         <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-4">
-          <h3 className="font-serif text-lg font-bold text-[#1B1F3B]">Recent Import Jobs</h3>
+          <h3 className="font-serif text-lg font-bold text-[#1B1F3B]">{t('partnerPortal.text006')}</h3>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead>
                 <tr className="border-b border-slate-100 text-slate-400 uppercase text-[10px]">
-                  <th className="py-2">Job ID</th>
-                  <th className="py-2">File</th>
-                  <th className="py-2">Status</th>
-                  <th className="py-2">Total</th>
-                  <th className="py-2">Accepted</th>
-                  <th className="py-2">Rejected</th>
-                  <th className="py-2">Duplicate</th>
+                  <th className="py-2">{t('partnerPortal.text007')}</th>
+                  <th className="py-2">{t('partnerPortal.text008')}</th>
+                  <th className="py-2">{t('partnerPortal.text009')}</th>
+                  <th className="py-2">{t('partnerPortal.text010')}</th>
+                  <th className="py-2">{t('partnerPortal.text011')}</th>
+                  <th className="py-2">{t('partnerPortal.text012')}</th>
+                  <th className="py-2">{t('partnerPortal.text013')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -136,20 +136,20 @@ export const BrandCatalogView: React.FC = () => {
       {/* Last Import Result */}
       {lastImportResult && (
         <div className={`rounded-3xl border p-6 space-y-3 ${lastImportResult.status === 'completed' ? 'bg-emerald-50 border-emerald-200' : lastImportResult.status === 'partially_completed' ? 'bg-amber-50 border-amber-200' : 'bg-rose-50 border-rose-200'}`}>
-          <h4 className="font-bold text-sm">Last Import: {lastImportResult.status}</h4>
+          <h4 className="font-bold text-sm">{t('partnerPortal.text014')}{' '}{lastImportResult.status}</h4>
           <div className="grid grid-cols-4 gap-3 text-xs">
-            <div><span className="text-slate-500">Total:</span> <strong>{lastImportResult.total_rows}</strong></div>
-            <div><span className="text-slate-500">Accepted:</span> <strong className="text-emerald-600">{lastImportResult.accepted_rows}</strong></div>
-            <div><span className="text-slate-500">Rejected:</span> <strong className="text-rose-600">{lastImportResult.rejected_rows}</strong></div>
-            <div><span className="text-slate-500">Duplicate:</span> <strong className="text-amber-600">{lastImportResult.duplicate_rows}</strong></div>
+            <div><span className="text-slate-500">{t('partnerPortal.text015')}</span> <strong>{lastImportResult.total_rows}</strong></div>
+            <div><span className="text-slate-500">{t('partnerPortal.text016')}</span> <strong className="text-emerald-600">{lastImportResult.accepted_rows}</strong></div>
+            <div><span className="text-slate-500">{t('partnerPortal.text017')}</span> <strong className="text-rose-600">{lastImportResult.rejected_rows}</strong></div>
+            <div><span className="text-slate-500">{t('partnerPortal.text018')}</span> <strong className="text-amber-600">{lastImportResult.duplicate_rows}</strong></div>
           </div>
           {lastImportResult.errors && lastImportResult.errors.length > 0 && (
             <div className="pt-3 border-t border-slate-200">
-              <span className="text-xs font-bold text-slate-700 block mb-2">Errors (first 10):</span>
+              <span className="text-xs font-bold text-slate-700 block mb-2">{t('partnerPortal.text019')}</span>
               <div className="space-y-1 max-h-40 overflow-y-auto text-[11px]">
                 {lastImportResult.errors.slice(0, 10).map((err: any, idx: number) => (
                   <div key={idx} className="p-2 rounded bg-white border border-slate-200">
-                    <span className="font-bold">Row {err.row} - {err.field}:</span> {err.message} {err.value ? `(${err.value})` : ''}
+                    <span className="font-bold">{t('partnerPortal.text020')}{' '}{err.row} - {err.field}:</span> {err.message} {err.value ? `(${err.value})` : ''}
                   </div>
                 ))}
               </div>
@@ -163,9 +163,9 @@ export const BrandCatalogView: React.FC = () => {
         {products.length === 0 ? (
           <div className="bg-white rounded-3xl border border-slate-200 p-12 text-center space-y-3">
             <div className="text-4xl">📦</div>
-            <h3 className="font-serif text-lg font-bold text-slate-700">No products yet</h3>
-            <p className="text-xs text-slate-500">Upload your catalog via CSV to get started. Required columns: title, category_slug, base_price, color_family, thumbnail_url</p>
-            <button onClick={() => setBulkModalOpen(true)} className="mt-3 px-4 py-2 rounded-xl bg-[#1B1F3B] text-white text-xs font-semibold">Upload CSV</button>
+            <h3 className="font-serif text-lg font-bold text-slate-700">{t('partnerPortal.text021')}</h3>
+            <p className="text-xs text-slate-500">{t('partnerPortal.text022')}</p>
+            <button onClick={() => setBulkModalOpen(true)} className="mt-3 px-4 py-2 rounded-xl bg-[#1B1F3B] text-white text-xs font-semibold">{t('partnerPortal.text023')}</button>
           </div>
         ) : (
           products.map((p) => (
@@ -177,9 +177,9 @@ export const BrandCatalogView: React.FC = () => {
                   </div>
                   <div>
                     <span className="text-[10px] font-bold text-slate-400 uppercase">{p.category_name}</span>
-                    <h3 className="font-serif text-base font-bold text-[#1B1F3B]">{p.title}</h3>
+                    <h3 className="font-serif text-base font-bold text-[#1B1F3B]">{p.title}</h3><button type="button" className="border rounded px-2 py-1" onClick={()=>setEditingProductId(p.id)}>{t("partnerOps.editProduct")}</button>
                     <span className="text-xs font-bold text-[#B8935A]">{p.currency} {p.base_price}</span>
-                    <span className="text-[10px] text-slate-400 ml-2">ID: {p.id}</span>
+                    <span className="text-[10px] text-slate-400 ml-2">{t('partnerPortal.text024')}{' '}{p.id}</span>
                   </div>
                 </div>
               </div>
@@ -189,13 +189,13 @@ export const BrandCatalogView: React.FC = () => {
                 <table className="w-full text-left text-xs">
                   <thead>
                     <tr className="border-b border-slate-100 text-slate-400 uppercase text-[10px] tracking-wider">
-                      <th className="py-2">SKU Code</th>
-                      <th className="py-2">Size</th>
-                      <th className="py-2">Color</th>
-                      <th className="py-2">Warehouse Stock</th>
-                      <th className="py-2">Price Override</th>
+                      <th className="py-2">{t('partnerPortal.text025')}</th>
+                      <th className="py-2">{t('partnerPortal.text026')}</th>
+                      <th className="py-2">{t('partnerPortal.text027')}</th>
+                      <th className="py-2">{t('partnerPortal.text028')}</th>
+                      <th className="py-2">{t('partnerPortal.text029')}</th>
                       <th className="py-2">{t('b2b.warehouse_status')}</th>
-                      <th className="py-2 text-right">Actions</th>
+                      <th className="py-2 text-right">{t('partnerPortal.text030')}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-slate-700">
@@ -220,8 +220,7 @@ export const BrandCatalogView: React.FC = () => {
                             />
                           ) : (
                             <span className={`font-bold ${sku.stock_level > 5 ? 'text-slate-900' : 'text-rose-600'}`}>
-                              {sku.stock_level} units
-                            </span>
+                              {sku.stock_level}{' '}{t('partnerPortal.text031')}{' '}</span>
                           )}
                         </td>
                         <td className="py-3">
@@ -251,15 +250,11 @@ export const BrandCatalogView: React.FC = () => {
                                 disabled={saving}
                                 onClick={() => handleSaveSku(sku.id)}
                                 className="px-3 py-1 rounded bg-[#1B1F3B] text-white text-[10px] font-bold"
-                              >
-                                Save
-                              </button>
+                              >{' '}{t('partnerPortal.text032')}{' '}</button>
                               <button
                                 onClick={() => setEditingSkuId(null)}
                                 className="px-2 py-1 rounded border border-slate-200 text-[10px]"
-                              >
-                                Cancel
-                              </button>
+                              >{' '}{t('partnerPortal.text033')}{' '}</button>
                             </div>
                           ) : (
                             <button
@@ -269,9 +264,7 @@ export const BrandCatalogView: React.FC = () => {
                                 setEditPrice(sku.price_override);
                               }}
                               className="text-xs font-bold text-[#B8935A] hover:underline"
-                            >
-                              Edit Stock
-                            </button>
+                            >{' '}{t('partnerPortal.text034')}{' '}</button>
                           )}
                         </td>
                       </tr>
@@ -288,11 +281,11 @@ export const BrandCatalogView: React.FC = () => {
       {bulkModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm">
           <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={t('b2b.import_catalog')} tabIndex={-1} className="w-full max-w-lg bg-white rounded-3xl p-6 shadow-2xl space-y-4">
-            <h3 className="font-serif text-lg font-bold text-[#1B1F3B]">Bulk SKU Catalog Importer</h3>
+            <h3 className="font-serif text-lg font-bold text-[#1B1F3B]">{t('partnerPortal.text035')}</h3>
             <div className="text-xs text-slate-600 space-y-2">
-              <p>Upload CSV with required columns: <code className="px-1.5 py-0.5 bg-slate-100 rounded text-[10px]">title, category_slug, base_price, color_family, thumbnail_url</code></p>
-              <p>Optional: title_ar, description, material, currency, style_tags, sku_code, size, color, stock_level, price_override, images</p>
-              <p className="text-[11px] text-amber-700 bg-amber-50 p-2 rounded">Limits: UTF-8 CSV, 10MB and 1,000 rows. Each accepted row is committed independently. Review rejected rows before retrying. Missing stock defaults to zero.</p>
+              <p>{t('partnerPortal.text036')}{' '}<code className="px-1.5 py-0.5 bg-slate-100 rounded text-[10px]">title, category_slug, base_price, color_family, thumbnail_url</code></p>
+              <p>{t('partnerPortal.text038')}</p>
+              <p className="text-[11px] text-amber-700 bg-amber-50 p-2 rounded">{t('partnerPortal.text039')}</p>
             </div>
 
             <div
@@ -314,28 +307,24 @@ export const BrandCatalogView: React.FC = () => {
               {isUploading ? (
                 <div className="space-y-2">
                   <div className="animate-spin w-6 h-6 border-2 border-[#1B1F3B] border-t-transparent rounded-full mx-auto"></div>
-                  <div className="text-xs font-semibold text-[#1B1F3B]">Processing CSV...</div>
+                  <div className="text-xs font-semibold text-[#1B1F3B]">{t('partnerPortal.text040')}</div>
                 </div>
               ) : (
                 <div className="space-y-2">
                   <div className="text-2xl">📤</div>
-                  <div className="text-xs text-slate-600 font-semibold">Drop CSV catalog file here or click to browse</div>
-                  <div className="text-[10px] text-slate-400">Max 10MB / 1,000 rows, UTF-8, headers required; missing stock defaults to zero</div>
+                  <div className="text-xs text-slate-600 font-semibold">{t('partnerPortal.text041')}</div>
+                  <div className="text-[10px] text-slate-400">{t('partnerPortal.text042')}</div>
                 </div>
               )}
             </div>
 
             <div className="flex justify-end gap-2 pt-2">
-              <button onClick={() => setBulkModalOpen(false)} className="px-4 py-2 rounded-xl border text-xs font-semibold" disabled={isUploading}>
-                Cancel
-              </button>
-              <button onClick={() => fileInputRef.current?.click()} className="px-4 py-2 rounded-xl bg-[#1B1F3B] text-white text-xs font-semibold" disabled={isUploading}>
-                Browse Files
-              </button>
+              <button onClick={() => setBulkModalOpen(false)} className="px-4 py-2 rounded-xl border text-xs font-semibold" disabled={isUploading}>{' '}{t('partnerPortal.text033')}{' '}</button>
+              <button onClick={() => fileInputRef.current?.click()} className="px-4 py-2 rounded-xl bg-[#1B1F3B] text-white text-xs font-semibold" disabled={isUploading}>{' '}{t('partnerPortal.text043')}{' '}</button>
             </div>
 
             <div className="pt-3 border-t border-slate-100 text-[11px] text-slate-500">
-              <span className="font-bold">Sample CSV:</span>
+              <span className="font-bold">{t('partnerPortal.text044')}</span>
               <pre className="mt-1 p-2 bg-slate-50 rounded text-[10px] overflow-x-auto">
 title,category_slug,base_price,color_family,thumbnail_url,size,color,stock_level
 "Tailored Blazer",outerwear,299.99,Navy,https://example.com/blazer.jpg,M,Navy,20

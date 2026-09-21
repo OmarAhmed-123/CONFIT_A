@@ -288,8 +288,8 @@ class TestSponsoredPlacementHardening:
 
             # Verify with_for_update is used in click tracking (code inspection)
             import inspect
-            from backend.app.controllers import brand_controller
-            source = inspect.getsource(brand_controller.track_click)
+            from backend.app.services import placement_counters
+            source = inspect.getsource(placement_counters.record)
             assert "with_for_update" in source, "Click tracking must use SELECT FOR UPDATE for concurrency safety"
 
             # Cleanup

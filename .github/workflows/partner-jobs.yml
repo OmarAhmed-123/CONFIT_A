@@ -1,0 +1,31 @@
+name: partner durable jobs
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '*/10 * * * *'
+permissions:
+  contents: read
+concurrency:
+  group: partner-durable-jobs
+  cancel-in-progress: false
+jobs:
+  process:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt
+      - name: Resume imports and garbage-collect interrupted brand uploads
+        env:
+          DATABASE_URL: ${{ secrets.BRAND_WORKER_DATABASE_URL }}
+          BRAND_ASSET_PROVIDER: s3
+          BRAND_ASSET_BUCKET: ${{ secrets.BRAND_ASSET_BUCKET }}
+          BRAND_ASSET_PREFIX: partner-assets
+          AWS_ENDPOINT_URL_S3: ${{ secrets.BRAND_ASSET_ENDPOINT }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.BRAND_ASSET_ACCESS_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.BRAND_ASSET_SECRET_KEY }}
+          AWS_REGION: ${{ secrets.BRAND_ASSET_REGION }}
+        run: PYTHONPATH=. python backend/scripts/run_partner_jobs.py --max-batches 100 --purge-assets

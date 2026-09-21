@@ -77,3 +77,7 @@ __all__ = [
     "CatalogImportJob",
     "BrandAnalyticsEvent",
 ]
+
+from backend.app.models.brand_team import BrandMembership, BrandInvitation
+
+from backend.app.models.brand_operations import ProductAsset, CatalogImportWork

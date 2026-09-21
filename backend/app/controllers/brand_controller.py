@@ -1,3 +1,4 @@
+from fastapi import Header
 from decimal import Decimal
 from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, Query, status, UploadFile, File, HTTPException, Request
@@ -28,7 +29,9 @@ from backend.app.core.rate_limit import limiter
 
 router = APIRouter(tags=["Brand & Admin Management (B2B)"])
 
-brand_auth = require_role(BRAND_ROLES)
+from backend.app.services.brand_access import require_partner
+
+brand_auth = require_partner()
 
 
 @router.post("/brand/request-demo", response_model=PartnerLeadOut, status_code=status.HTTP_201_CREATED)
@@ -65,30 +68,6 @@ def request_partner_demo(
     )
 
 
-def _audit(db: Session, user: User, action: str, resource_type: str,
-           resource_id, details: dict | None = None) -> None:
-    """Persist a B2B admin audit event.
-
-    Final truth audit finding: none of the brand/admin mutating endpoints
-    (inventory, catalog, placements, stores) wrote to AuditLog. Audit coverage
-    of security-sensitive B2B operations is a BRD/security requirement, so
-    these call sites now persist real AuditLog rows.
-
-    Never raises: auditing must not break the business operation, but a failure
-    is logged so it is not silent.
-    """
-    try:
-        from backend.app.repositories.user_repository import UserRepository
-        UserRepository(db).log_audit(
-            action=action,
-            resource_type=resource_type,
-            resource_id=str(resource_id) if resource_id is not None else None,
-            user_id=getattr(user, "id", None),
-            details=json.dumps(details or {}, default=str)[:2000],
-        )
-    except Exception as _e:  # pragma: no cover - defensive
-        import logging
-        logging.getLogger(__name__).warning("audit_write_failed action=%s err=%s", action, _e)
 
 
 class StoreCreateRequest(BaseModel):
@@ -209,19 +188,21 @@ def get_partner_heatmaps(
 @router.get("/brand/products", response_model=List[BrandProductOut])
 @router.get("/partner/products", response_model=List[BrandProductOut])
 def get_brand_products(
+    after: int = Query(0, ge=0),
+    limit: int = Query(25, ge=1, le=100),
     user: User = Depends(brand_auth),
     db: Session = Depends(get_db)
 ):
     service = BrandService(db)
     bp = service.get_brand_profile_by_user(user)
-    return service.get_brand_products(user, bp["id"])
+    return service.get_brand_products(user, bp["id"], after, limit)
 
 
 @router.post("/partner/catalog/import", status_code=status.HTTP_202_ACCEPTED)
 @router.post("/brand/catalog/upload", status_code=status.HTTP_202_ACCEPTED)
 def import_catalog_bulk(
     payload: CatalogBulkImportRequest,
-    user: User = Depends(brand_auth),
+    user: User = Depends(require_partner("catalog.import")),
     db: Session = Depends(get_db)
 ):
     bp = BrandService(db).get_brand_profile_by_user(user)
@@ -231,7 +212,7 @@ def import_catalog_bulk(
 @router.post("/partner/catalog/upload/csv", status_code=status.HTTP_202_ACCEPTED)
 async def upload_catalog_csv(
     file: UploadFile = File(...),
-    user: User = Depends(brand_auth),
+    user: User = Depends(require_partner("catalog.import")),
     db: Session = Depends(get_db)
 ):
     """
@@ -347,19 +328,19 @@ def update_sku_inventory(
     stock_level: int = Query(..., ge=0, le=100000, description="New stock level"),
     price_override: Optional[Decimal] = Query(None, gt=0, le=100000, max_digits=12, decimal_places=2,
                                                description="Price override (2dp, > 0)"),
-    user: User = Depends(brand_auth),
+    user: User = Depends(require_partner("inventory.write")),
     db: Session = Depends(get_db)
 ):
     service = BrandService(db)
     result = service.update_sku(user, sku_id, stock_level, price_override)
-    _audit(db, user, "BRAND_INVENTORY_UPDATED", "ProductSKU", sku_id,
-           {"stock_level": stock_level, "price_override": str(price_override) if price_override is not None else None})
     return result
 
 
 # 4. Inventory & Store Management - REAL IMPLEMENTATION
 @router.get("/partner/inventory")
 def get_partner_inventory(
+    after: int = Query(0, ge=0),
+    limit: int = Query(25, ge=1, le=100),
     user: User = Depends(brand_auth),
     db: Session = Depends(get_db)
 ):
@@ -368,7 +349,7 @@ def get_partner_inventory(
     repo = BrandRepository(db)
 
     # Real inventory: products with SKUs and store inventories — FIXED N+1 via single query
-    products = repo.get_brand_products(bp["id"])
+    products = repo.get_brand_products(bp["id"], after, limit)
     # Single query for all store inventories for this brand's SKUs
     from backend.app.models.catalog import StoreInventory
     all_sku_ids = [sku.id for prod in products for sku in prod.skus]
@@ -412,7 +393,7 @@ def get_partner_inventory(
 @router.post("/partner/inventory")
 def set_partner_inventory(
     payload: InventoryUpdateRequest,
-    user: User = Depends(brand_auth),
+    user: User = Depends(require_partner("inventory.write")),
     db: Session = Depends(get_db)
 ):
     """Explicit store/SKU upsert; PATCH continues to require a real inventory ID."""
@@ -421,8 +402,6 @@ def set_partner_inventory(
         inv = BrandRepository(db).update_store_inventory(payload.store_id, payload.sku_id, payload.quantity, bp["id"])
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
-    _audit(db, user, "BRAND_STORE_INVENTORY_UPDATED", "StoreInventory", inv.id,
-           {"brand_id": bp["id"], "quantity": inv.quantity})
     return {"inventory_id": inv.id, "store_id": inv.store_id, "sku_id": inv.sku_id,
             "quantity": inv.quantity, "reserved": inv.reserved_quantity,
             "available": inv.quantity - inv.reserved_quantity}
@@ -432,7 +411,7 @@ def set_partner_inventory(
 def update_partner_inventory(
     inventory_id: int,
     payload: InventoryUpdateRequest,
-    user: User = Depends(brand_auth),
+    user: User = Depends(require_partner("inventory.write")),
     db: Session = Depends(get_db)
 ):
     """Update store inventory with tenant isolation and concurrency control"""
@@ -457,8 +436,6 @@ def update_partner_inventory(
             quantity=payload.quantity,
             brand_id=bp["id"]
         )
-        _audit(db, user, "BRAND_STORE_INVENTORY_UPDATED", "StoreInventory", inv.id,
-               {"brand_id": bp["id"], "quantity": inv.quantity})
         return {
             "status": "success",
             "inventory_id": inv.id,
@@ -474,13 +451,15 @@ def update_partner_inventory(
 
 @router.get("/partner/stores")
 def get_partner_stores(
+    after: int = Query(0, ge=0),
+    limit: int = Query(25, ge=1, le=100),
     user: User = Depends(brand_auth),
     db: Session = Depends(get_db)
 ):
     service = BrandService(db)
     bp = service.get_brand_profile_by_user(user)
     repo = BrandRepository(db)
-    stores = repo.get_brand_stores(bp["id"])
+    stores = repo.get_brand_stores(bp["id"], after, limit)
     return [
         {
             "id": s.id,
@@ -502,7 +481,7 @@ def get_partner_stores(
 @router.post("/partner/stores", status_code=status.HTTP_201_CREATED)
 def create_partner_store(
     payload: StoreCreateRequest,
-    user: User = Depends(brand_auth),
+    user: User = Depends(require_partner("stores.write")),
     db: Session = Depends(get_db)
 ):
     service = BrandService(db)
@@ -510,8 +489,6 @@ def create_partner_store(
     repo = BrandRepository(db)
     try:
         store = repo.create_store(bp["id"], payload.model_dump())
-        _audit(db, user, "BRAND_STORE_CREATED", "Store", store.id,
-               {"brand_id": bp["id"], "name": store.name, "city": store.city})
         return {
             "status": "created",
             "id": store.id,
@@ -528,7 +505,7 @@ def create_partner_store(
 def patch_partner_store(
     store_id: int,
     payload: StoreUpdateRequest,
-    user: User = Depends(brand_auth),
+    user: User = Depends(require_partner("stores.write")),
     db: Session = Depends(get_db)
 ):
     service = BrandService(db)
@@ -536,7 +513,6 @@ def patch_partner_store(
     repo = BrandRepository(db)
     try:
         store = repo.update_store(store_id, bp["id"], payload.model_dump(exclude_unset=True))
-        _audit(db, user, "BRAND_STORE_UPDATED", "Store", store.id, {"brand_id": bp["id"]})
         return {
             "status": "updated",
             "id": store.id,
@@ -565,7 +541,7 @@ def get_placements(
 @router.post("/partner/placements", response_model=SponsoredPlacementOut, status_code=status.HTTP_201_CREATED)
 def create_placement(
     payload: SponsoredPlacementCreate,
-    user: User = Depends(brand_auth),
+    user: User = Depends(require_partner("placements.write")),
     db: Session = Depends(get_db)
 ):
     service = BrandService(db)
@@ -574,9 +550,6 @@ def create_placement(
         created = service.create_sponsored_placement(user, bp["id"], payload.model_dump())
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    _audit(db, user, "BRAND_PLACEMENT_CREATED", "SponsoredPlacement",
-           created.get("id") if isinstance(created, dict) else getattr(created, "id", None),
-           {"brand_id": bp["id"], "payload": payload.model_dump()})
     return created
 
 
@@ -584,7 +557,7 @@ def create_placement(
 def patch_placement(
     placement_id: int,
     payload: Dict[str, Any],
-    user: User = Depends(brand_auth),
+    user: User = Depends(require_partner("placements.write")),
     db: Session = Depends(get_db)
 ):
     service = BrandService(db)
@@ -605,6 +578,9 @@ def patch_placement(
     if not payload or set(payload) - set(allowed):
         raise HTTPException(status_code=422, detail="Provide only editable placement fields")
     candidate = {k: payload.get(k, getattr(plc, k)) for k in allowed}
+    from backend.app.models.user import BrandProfile
+    if candidate['status']=='active' and db.get(BrandProfile,bp['id']).is_test:
+        raise HTTPException(409,'Production test tenants cannot activate advertising')
     if candidate["status"] not in ["active", "paused", "budget_exhausted"]:
         raise HTTPException(status_code=422, detail="Invalid status")
     try:
@@ -614,8 +590,8 @@ def patch_placement(
     for key, value in candidate.items():
         setattr(plc, key, value)
 
-    _audit(db, user, "BRAND_PLACEMENT_UPDATED", "SponsoredPlacement", placement_id,
-           {"brand_id": bp["id"], "changed_fields": [k for k in allowed if k in payload]})
+    from backend.app.services.partner_audit import append_event
+    append_event(db, bp["id"], "BRAND_PLACEMENT_UPDATED", "SponsoredPlacement", placement_id, after=candidate)
     db.commit()
     db.refresh(plc)
 
@@ -631,7 +607,7 @@ def patch_placement(
 @router.delete("/partner/placements/{placement_id}")
 def delete_placement(
     placement_id: int,
-    user: User = Depends(brand_auth),
+    user: User = Depends(require_partner("placements.write")),
     db: Session = Depends(get_db)
 ):
     service = BrandService(db)
@@ -645,105 +621,25 @@ def delete_placement(
     if not plc:
         raise HTTPException(status_code=404, detail=f"Placement {placement_id} not found")
 
-    _audit(db, user, "BRAND_PLACEMENT_DELETED", "SponsoredPlacement", placement_id,
-           {"brand_id": bp["id"], "status": plc.status,
-            "daily_budget": str(plc.daily_budget), "bid": str(plc.bid_amount_per_click)})
-    db.delete(plc)
+    from backend.app.services.partner_audit import append_event
+    append_event(db, bp["id"], "BRAND_PLACEMENT_CANCELLED", "SponsoredPlacement", placement_id)
+    plc.status = "cancelled"
     db.commit()
-    return {"status": "deleted", "placement_id": placement_id}
+    return {"status": "cancelled", "placement_id": placement_id}
 
 
-# 6. Sponsored Placement Tracking (impression, click) - for billing
+# Partner-reported telemetry. Not an ad-serving receipt or verified invoice.
 @router.post("/partner/placements/{placement_id}/impression")
-def track_impression(
-    placement_id: int,
-    user: User = Depends(brand_auth),
-    db: Session = Depends(get_db)
-):
-    """Track sponsored impression with budget enforcement — FIXED tenant isolation"""
-    from backend.app.models.brand_analytics import SponsoredPlacement
-    from backend.app.models.user import UserRole
-    service = BrandService(db)
-    bp = service.get_brand_profile_by_user(user)
-
-    # Tenant isolation: brand can only track own placements, admin can track any
-    query = db.query(SponsoredPlacement).filter(SponsoredPlacement.id == placement_id)
-    if user.role != UserRole.ADMIN:
-        query = query.filter(SponsoredPlacement.brand_id == bp["id"])
-    plc = query.with_for_update().first()
-
-    if not plc:
-        raise HTTPException(status_code=404, detail="Placement not found for your brand")
-
-    # Check if active and within budget and dates
-    if plc.status != "active":
-        raise HTTPException(status_code=400, detail=f"Placement not active: {plc.status}")
-
-    from datetime import datetime, timezone
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
-    if plc.start_date and now < plc.start_date:
-        raise HTTPException(status_code=400, detail="Placement not yet started")
-    if plc.end_date and now > plc.end_date:
-        raise HTTPException(status_code=400, detail="Placement ended")
-
-    if plc.spent_today >= plc.daily_budget:
-        plc.status = "budget_exhausted"
-        db.commit()
-        raise HTTPException(status_code=400, detail="Daily budget exhausted")
-
-    plc.impressions += 1
-    db.commit()
-
-    return {"status": "tracked", "impressions": plc.impressions}
+def track_impression(placement_id: int, idempotency_key: Optional[str] = Header(None),
+    user: User = Depends(require_partner("placements.write")), db: Session = Depends(get_db)):
+    from backend.app.services.placement_counters import record
+    bp=BrandService(db).get_brand_profile_by_user(user)
+    return record(db,bp['id'],placement_id,'impression',idempotency_key)
 
 
 @router.post("/partner/placements/{placement_id}/click")
-def track_click(
-    placement_id: int,
-    user: User = Depends(brand_auth),
-    db: Session = Depends(get_db)
-):
-    """Track sponsored click with budget deduction — FIXED tenant isolation + SELECT FOR UPDATE"""
-    from backend.app.models.brand_analytics import SponsoredPlacement
-    from backend.app.models.user import UserRole
-    service = BrandService(db)
-    bp = service.get_brand_profile_by_user(user)
-
-    query = db.query(SponsoredPlacement).filter(SponsoredPlacement.id == placement_id)
-    if user.role != UserRole.ADMIN:
-        query = query.filter(SponsoredPlacement.brand_id == bp["id"])
-    plc = query.with_for_update().first()
-
-    if not plc:
-        raise HTTPException(status_code=404, detail="Placement not found for your brand")
-
-    if plc.status != "active":
-        raise HTTPException(status_code=400, detail=f"Placement not active: {plc.status}")
-
-    from datetime import datetime, timezone
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
-    if plc.start_date and now < plc.start_date:
-        raise HTTPException(status_code=400, detail="Placement not yet started")
-    if plc.end_date and now > plc.end_date:
-        raise HTTPException(status_code=400, detail="Placement ended")
-
-    # Check budget
-    if plc.spent_today + plc.bid_amount_per_click > plc.daily_budget:
-        plc.status = "budget_exhausted"
-        db.commit()
-        raise HTTPException(status_code=400, detail="Daily budget would be exceeded")
-
-    plc.clicks += 1
-    plc.spent_today = money_add(plc.spent_today, plc.bid_amount_per_click)
-
-    if plc.spent_today >= plc.daily_budget:
-        plc.status = "budget_exhausted"
-
-    db.commit()
-
-    return {
-        "status": "tracked",
-        "clicks": plc.clicks,
-        "spent_today": plc.spent_today,
-        "remaining_budget": money_sub(plc.daily_budget, plc.spent_today)
-    }
+def track_click(placement_id: int, idempotency_key: Optional[str] = Header(None),
+    user: User = Depends(require_partner("placements.write")), db: Session = Depends(get_db)):
+    from backend.app.services.placement_counters import record
+    bp=BrandService(db).get_brand_profile_by_user(user)
+    return record(db,bp['id'],placement_id,'click',idempotency_key)

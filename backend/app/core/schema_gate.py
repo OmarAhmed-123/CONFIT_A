@@ -101,6 +101,7 @@ VERSIONS_DIR = Path(__file__).resolve().parents[2] / "alembic" / "versions"
 # the migration (tests/test_schema_drift_gate.py enforces that every listed
 # object exists in Base.metadata).
 REQUIRED_TABLES: tuple[str, ...] = (
+    "brand_memberships", "brand_invitations", "product_assets", "catalog_import_work", "placement_counter_events",
     "users",
     "products",
     "product_skus",
@@ -122,9 +123,14 @@ REQUIRED_TABLES: tuple[str, ...] = (
 MIGRATION_ONLY_TABLES: frozenset[str] = frozenset({"migration_audit_log"})
 
 REQUIRED_COLUMNS: Dict[str, tuple[str, ...]] = {
+    "brand_profiles": ("is_test",),
+    "products": ("archived_at",),
+    "audit_logs": ("brand_id",),
+    "brand_memberships": ("brand_id", "user_id", "role"),
+    "catalog_import_work": ("cursor", "payload_hash", "idempotency_key"),
     "orders": ("payment_mode", "shipping_method", "estimated_delivery_date", "guest_session_token"),
     "order_items": ("is_returned", "fulfillment_group_id"),
-    "sponsored_placements": ("start_date", "end_date", "updated_at"),
+    "sponsored_placements": ("start_date", "end_date", "updated_at", "spend_day"),
     "brand_analytics_events": ("event_id", "order_id", "revenue_amount", "order_item_id"),  # order_item_id: 0014
     "wardrobe_items": ("source_order_item_id",),  # 0015 — FLOW E purchase->wardrobe idempotency key
     # 0018 — outfit share-link lifecycle (revocation/expiry) + edit tracking.

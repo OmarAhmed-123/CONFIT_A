@@ -204,12 +204,12 @@ class TestClickSpendIsDecimal:
             db.close()
         try:
             for expected in ("0.10", "0.20", "0.30"):
-                r = raw_client.post(f"/api/v1/partner/placements/{pid}/click", headers=brand_ctx["headers"])
+                r = raw_client.post(f"/api/v1/partner/placements/{pid}/click", headers=brand_ctx["headers"] | {"Idempotency-Key":"money-counter-"+expected.replace(".","-")})
                 assert r.status_code == 200, r.text
                 assert Decimal(str(r.json()["spent_today"])) == Decimal(expected)
             # 0.1+0.1+0.1 == 0.3 exactly (float would give 0.30000000000000004 and
             # a fourth click would be admitted); budget is now exhausted
-            r = raw_client.post(f"/api/v1/partner/placements/{pid}/click", headers=brand_ctx["headers"])
+            r = raw_client.post(f"/api/v1/partner/placements/{pid}/click", headers=brand_ctx["headers"] | {"Idempotency-Key":"money-counter-over-budget"})
             assert r.status_code == 400
             db = TestingSessionLocal()
             try:

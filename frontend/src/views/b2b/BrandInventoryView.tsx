@@ -99,40 +99,36 @@ export const BrandInventoryView: React.FC = () => {
   const dialogRef = useModalFocus<HTMLDivElement>(closeDialog, showStoreModal);
 
   if (isLoading) {
-    return <LoadingSpinner text="Connecting to store inventory nodes..." />;
+    return <LoadingSpinner text={t('partnerPortal.text089')} />;
   }
 
   return (
     <div className="space-y-8 pb-20">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
         <div>
-          <h1 className="font-serif text-3xl font-bold text-[#1B1F3B]">
-            BOPIS Store Network & Live Inventory - Real
-          </h1>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Real store locations from StoreLocation table, inventory from StoreInventory with SKU-level and location-level stock, reserved/available tracking. Tenant isolated, transactional.
-          </p>
-          <p className="text-[11px] text-slate-400 mt-1">Inventory model: Brand → SKU → Location → Stock → Reserved → Available. Concurrency with SELECT FOR UPDATE, no negative inventory, no double deduction.</p>
+          <h1 className="font-serif text-3xl font-bold text-[#1B1F3B]">{' '}{t('partnerPortal.text090')}{' '}</h1>
+          <p className="text-xs sm:text-sm text-slate-500 mt-1">{' '}{t('partnerPortal.text091')}{' '}</p>
+          <p className="text-[11px] text-slate-400 mt-1">{t('partnerPortal.text092')}</p>
         </div>
-        <button onClick={() => setShowStoreModal(true)} className="px-4 py-2.5 rounded-2xl bg-[#1B1F3B] text-white text-xs font-semibold">+ Add Store</button>
+        <button onClick={() => setShowStoreModal(true)} className="px-4 py-2.5 rounded-2xl bg-[#1B1F3B] text-white text-xs font-semibold">{t('partnerPortal.text093')}</button>
       </div>
 
       {/* Stores - REAL */}
       <div className="space-y-4">
-        <h3 className="font-serif text-lg font-bold text-[#1B1F3B]">Store Locations ({stores.length}) - Real from DB</h3>
+        <h3 className="font-serif text-lg font-bold text-[#1B1F3B]">{t('partnerPortal.text094')}{stores.length}{t('partnerPortal.text095')}</h3>
         {fetchErrors.stores && (
           <div role="alert" className="p-4 rounded-2xl bg-rose-50 border border-rose-200">
-            <p className="text-[11px] font-bold text-rose-800">Store network lookup failed</p>
-            <p className="text-[11px] text-rose-600 mt-1">{fetchErrors.stores} The count above is unknown while this fails — it is not “no stores”.</p>
-            <button onClick={fetchData} className="mt-2 px-3 py-1.5 rounded-lg bg-white border border-rose-200 text-[11px] font-bold text-rose-700 hover:bg-rose-50">Retry</button>
+            <p className="text-[11px] font-bold text-rose-800">{t('partnerPortal.text096')}</p>
+            <p className="text-[11px] text-rose-600 mt-1">{fetchErrors.stores}{' '}{t('partnerPortal.text097')}</p>
+            <button onClick={fetchData} className="mt-2 px-3 py-1.5 rounded-lg bg-white border border-rose-200 text-[11px] font-bold text-rose-700 hover:bg-rose-50">{t('partnerPortal.text005')}</button>
           </div>
         )}
         {!fetchErrors.stores && stores.length === 0 ? (
           <div className="bg-white rounded-3xl border border-slate-200 p-12 text-center space-y-3">
             <div className="text-4xl">🏪</div>
-            <h3 className="font-bold text-slate-700">No stores yet</h3>
-            <p className="text-xs text-slate-500">Add your first BOPIS-enabled boutique to enable Buy Online Pickup In Store.</p>
-            <button onClick={() => setShowStoreModal(true)} className="mt-2 px-4 py-2 rounded-xl bg-[#1B1F3B] text-white text-xs font-semibold">Add Store</button>
+            <h3 className="font-bold text-slate-700">{t('partnerPortal.text098')}</h3>
+            <p className="text-xs text-slate-500">{t('partnerPortal.text099')}</p>
+            <button onClick={() => setShowStoreModal(true)} className="mt-2 px-4 py-2 rounded-xl bg-[#1B1F3B] text-white text-xs font-semibold">{t('partnerPortal.text100')}</button>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -151,11 +147,11 @@ export const BrandInventoryView: React.FC = () => {
 
                 <div className="grid grid-cols-2 gap-2 text-xs pt-2 border-t border-slate-100">
                   <div className="p-2.5 rounded-xl bg-[#FAF9F6]">
-                    <span className="text-slate-400 text-[10px] block">BOPIS</span>
+                    <span className="text-slate-400 text-[10px] block">{t('partnerPortal.text101')}</span>
                     <span className={`font-bold ${b.is_bopis_enabled ? 'text-emerald-600' : 'text-slate-400'}`}>{b.is_bopis_enabled ? 'Enabled' : 'Disabled'}</span>
                   </div>
                   <div className="p-2.5 rounded-xl bg-[#FAF9F6]">
-                    <span className="text-slate-400 text-[10px] block">Store ID</span>
+                    <span className="text-slate-400 text-[10px] block">{t('partnerPortal.text102')}</span>
                     <span className="font-mono font-bold">#{b.id}</span>
                   </div>
                 </div>
@@ -163,7 +159,7 @@ export const BrandInventoryView: React.FC = () => {
                 <div className="flex items-center justify-between text-xs pt-1">
                   <span className="text-emerald-700 font-semibold text-[11px] flex items-center gap-1">
                     <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                    <span>Real from StoreLocation</span>
+                    <span>{t('partnerPortal.text103')}</span>
                   </span>
                   <span className="text-[10px] text-slate-400">{b.created_at ? new Date(b.created_at).toLocaleDateString() : ''}</span>
                 </div>
@@ -175,7 +171,7 @@ export const BrandInventoryView: React.FC = () => {
 
       <form onSubmit={saveStoreStock} aria-label={t('b2b.form_set_stock')} className="rounded-2xl border bg-white p-5 space-y-3">
         <h3 className="font-bold">{t('b2b.form_set_stock_title')}</h3>
-        <p className="text-xs text-slate-500">Absolute on-hand quantity, including reserved units. This does not transfer stock from the warehouse.</p>
+        <p className="text-xs text-slate-500">{t('partnerPortal.text104')}</p>
         <div className="flex flex-wrap gap-3">
           <select aria-label={t('b2b.field_store')} required value={stockForm.store_id} onChange={e => setStockForm({...stockForm, store_id: e.target.value})} className="border rounded p-2">
             <option value="">{t('b2b.choose_store')}</option>
@@ -193,19 +189,17 @@ export const BrandInventoryView: React.FC = () => {
 
       {/* Inventory - REAL */}
       <div className="space-y-4">
-        <h3 className="font-serif text-lg font-bold text-[#1B1F3B]">Live Inventory by SKU and Location - Real from StoreInventory</h3>
-        <p className="text-[11px] text-slate-500">Stock levels per SKU per location, reserved quantity tracking, available = quantity - reserved. No negative inventory enforced.</p>
+        <h3 className="font-serif text-lg font-bold text-[#1B1F3B]">{t('partnerPortal.text105')}</h3>
+        <p className="text-[11px] text-slate-500">{t('partnerPortal.text106')}</p>
         {fetchErrors.inventory && (
           <div role="alert" className="p-4 rounded-2xl bg-rose-50 border border-rose-200">
-            <p className="text-[11px] font-bold text-rose-800">Inventory lookup failed</p>
-            <p className="text-[11px] text-rose-600 mt-1">{fetchErrors.inventory} Stock is unknown while this fails — never assumed zero.</p>
-            <button onClick={fetchData} className="mt-2 px-3 py-1.5 rounded-lg bg-white border border-rose-200 text-[11px] font-bold text-rose-700 hover:bg-rose-50">Retry</button>
+            <p className="text-[11px] font-bold text-rose-800">{t('partnerPortal.text107')}</p>
+            <p className="text-[11px] text-rose-600 mt-1">{fetchErrors.inventory}{' '}{t('partnerPortal.text108')}</p>
+            <button onClick={fetchData} className="mt-2 px-3 py-1.5 rounded-lg bg-white border border-rose-200 text-[11px] font-bold text-rose-700 hover:bg-rose-50">{t('partnerPortal.text005')}</button>
           </div>
         )}
         {!fetchErrors.inventory && inventory.length === 0 ? (
-          <div className="bg-white rounded-3xl border border-slate-200 p-8 text-center text-xs text-slate-500">
-            No inventory data. Products will appear here with SKU-level stock and store-level breakdown from StoreInventory table.
-          </div>
+          <div className="bg-white rounded-3xl border border-slate-200 p-8 text-center text-xs text-slate-500">{' '}{t('partnerPortal.text109')}{' '}</div>
         ) : (
           <div className="space-y-4">
             {inventory.map((item) => (
@@ -214,17 +208,17 @@ export const BrandInventoryView: React.FC = () => {
                   <div className="w-12 h-14 rounded bg-slate-100 overflow-hidden"><img src={item.thumbnail_url} alt={item.title} className="w-full h-full object-cover" /></div>
                   <div>
                     <h4 className="font-bold text-sm text-[#1B1F3B]">{item.title}</h4>
-                    <span className="text-xs text-slate-500">Total Stock: {item.total_stock} units across {item.skus.length} SKUs</span>
+                    <span className="text-xs text-slate-500">{t('partnerPortal.text110')}{' '}{item.total_stock}{' '}{t('partnerPortal.text111')}{' '}{item.skus.length}{' '}{t('partnerPortal.text086')}</span>
                   </div>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs">
                     <thead>
                       <tr className="border-b border-slate-100 text-slate-400 uppercase text-[10px]">
-                        <th className="py-2">SKU</th>
-                        <th className="py-2">Size/Color</th>
-                        <th className="py-2">Warehouse</th>
-                        <th className="py-2">Store Breakdown</th>
+                        <th className="py-2">{t('partnerPortal.text112')}</th>
+                        <th className="py-2">{t('partnerPortal.text113')}</th>
+                        <th className="py-2">{t('partnerPortal.text114')}</th>
+                        <th className="py-2">{t('partnerPortal.text115')}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -236,12 +230,10 @@ export const BrandInventoryView: React.FC = () => {
                           <td className="py-2">
                             <div className="flex flex-wrap gap-1">
                               {sku.store_inventories.length === 0 ? (
-                                <span className="text-slate-400">No store stock</span>
+                                <span className="text-slate-400">{t('partnerPortal.text116')}</span>
                               ) : (
                                 sku.store_inventories.map((si) => (
-                                  <span key={si.store_id} className="px-2 py-0.5 rounded-full bg-slate-100 text-[10px]">
-                                    Store #{si.store_id}: {si.available} avail ({si.quantity} total, {si.reserved} reserved)
-                                  </span>
+                                  <span key={si.store_id} className="px-2 py-0.5 rounded-full bg-slate-100 text-[10px]">{' '}{t('partnerPortal.text117')}{si.store_id}: {si.available}{' '}{t('partnerPortal.text118')}{si.quantity}{' '}{t('partnerPortal.text119')}{' '}{si.reserved}{' '}{t('partnerPortal.text120')}{' '}</span>
                                 ))
                               )}
                             </div>
@@ -261,44 +253,44 @@ export const BrandInventoryView: React.FC = () => {
       {showStoreModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm">
           <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={t('b2b.modal_add_store')} tabIndex={-1} className="w-full max-w-md bg-white rounded-3xl p-6 shadow-2xl space-y-4">
-            <h3 className="font-serif text-lg font-bold text-[#1B1F3B]">Add BOPIS Store Location</h3>
-            <p className="text-[11px] text-slate-500">Real StoreLocation creation with brand_id tenant isolation, BOPIS support, coordinates for map.</p>
+            <h3 className="font-serif text-lg font-bold text-[#1B1F3B]">{t('partnerPortal.text121')}</h3>
+            <p className="text-[11px] text-slate-500">{t('partnerPortal.text122')}</p>
             <form onSubmit={handleCreateStore} className="space-y-3 text-xs">
               <div>
-                <label className="font-bold block mb-1">Store Name *</label>
-                <input aria-label={t('b2b.field_store_name')} value={newStore.name} onChange={(e) => setNewStore({ ...newStore, name: e.target.value })} required className="w-full p-2.5 rounded-xl border" placeholder="The Dubai Mall - Fashion Avenue" />
+                <label className="font-bold block mb-1">{t('partnerPortal.text123')}</label>
+                <input aria-label={t('b2b.field_store_name')} value={newStore.name} onChange={(e) => setNewStore({ ...newStore, name: e.target.value })} required className="w-full p-2.5 rounded-xl border" placeholder={t('partnerPortal.text124')} />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="font-bold block mb-1">City *</label>
-                  <input aria-label={t('b2b.field_store_city')} value={newStore.city} onChange={(e) => setNewStore({ ...newStore, city: e.target.value })} required className="w-full p-2.5 rounded-xl border" placeholder="Dubai" />
+                  <label className="font-bold block mb-1">{t('partnerPortal.text125')}</label>
+                  <input aria-label={t('b2b.field_store_city')} value={newStore.city} onChange={(e) => setNewStore({ ...newStore, city: e.target.value })} required className="w-full p-2.5 rounded-xl border" placeholder={t('partnerPortal.text126')} />
                 </div>
                 <div>
-                  <label className="font-bold block mb-1">Country *</label>
-                  <input aria-label={t('b2b.field_store_country')} value={newStore.country} onChange={(e) => setNewStore({ ...newStore, country: e.target.value })} required className="w-full p-2.5 rounded-xl border" placeholder="UAE" />
+                  <label className="font-bold block mb-1">{t('partnerPortal.text127')}</label>
+                  <input aria-label={t('b2b.field_store_country')} value={newStore.country} onChange={(e) => setNewStore({ ...newStore, country: e.target.value })} required className="w-full p-2.5 rounded-xl border" placeholder={t('partnerPortal.text128')} />
                 </div>
               </div>
               <div>
-                <label className="font-bold block mb-1">Address *</label>
-                <input aria-label={t('b2b.field_store_address')} value={newStore.address} onChange={(e) => setNewStore({ ...newStore, address: e.target.value })} required className="w-full p-2.5 rounded-xl border" placeholder="Financial Center Road, Downtown Dubai" />
+                <label className="font-bold block mb-1">{t('partnerPortal.text129')}</label>
+                <input aria-label={t('b2b.field_store_address')} value={newStore.address} onChange={(e) => setNewStore({ ...newStore, address: e.target.value })} required className="w-full p-2.5 rounded-xl border" placeholder={t('partnerPortal.text130')} />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="font-bold block mb-1">Latitude</label>
+                  <label className="font-bold block mb-1">{t('partnerPortal.text131')}</label>
                   <input type="number" step="0.000001" aria-label={t('b2b.field_store_lat')} value={newStore.latitude} onChange={(e) => setNewStore({ ...newStore, latitude: Number(e.target.value) })} className="w-full p-2.5 rounded-xl border" />
                 </div>
                 <div>
-                  <label className="font-bold block mb-1">Longitude</label>
+                  <label className="font-bold block mb-1">{t('partnerPortal.text132')}</label>
                   <input type="number" step="0.000001" aria-label={t('b2b.field_store_lng')} value={newStore.longitude} onChange={(e) => setNewStore({ ...newStore, longitude: Number(e.target.value) })} className="w-full p-2.5 rounded-xl border" />
                 </div>
               </div>
               <div>
-                <label className="font-bold block mb-1">Phone</label>
-                <input aria-label={t('b2b.field_store_phone')} value={newStore.phone} onChange={(e) => setNewStore({ ...newStore, phone: e.target.value })} className="w-full p-2.5 rounded-xl border" placeholder="+971 4 123 4567" />
+                <label className="font-bold block mb-1">{t('partnerPortal.text133')}</label>
+                <input aria-label={t('b2b.field_store_phone')} value={newStore.phone} onChange={(e) => setNewStore({ ...newStore, phone: e.target.value })} className="w-full p-2.5 rounded-xl border" placeholder={t('partnerPortal.text134')} />
               </div>
               <div className="flex gap-2 pt-2">
-                <button type="button" onClick={() => setShowStoreModal(false)} className="flex-1 py-2.5 rounded-xl border font-semibold">Cancel</button>
-                <button type="submit" className="flex-1 py-2.5 rounded-xl bg-[#1B1F3B] text-white font-semibold">Create Store</button>
+                <button type="button" onClick={() => setShowStoreModal(false)} className="flex-1 py-2.5 rounded-xl border font-semibold">{t('partnerPortal.text033')}</button>
+                <button type="submit" className="flex-1 py-2.5 rounded-xl bg-[#1B1F3B] text-white font-semibold">{t('partnerPortal.text135')}</button>
               </div>
             </form>
           </div>

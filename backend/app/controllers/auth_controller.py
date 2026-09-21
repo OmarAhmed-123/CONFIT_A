@@ -105,7 +105,7 @@ def _user_out(user: User) -> UserOut:
         is_verified=user.is_verified,
         mfa_enabled=user.mfa_enabled,
         created_at=user.created_at,
-        brand_id=user.brand_profile.id if user.brand_profile else None,
+        brand_id=user.brand_memberships[0].brand_id if user.brand_memberships else None,
         has_profile=user.profile is not None,
     )
 

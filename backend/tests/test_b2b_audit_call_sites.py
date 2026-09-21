@@ -86,12 +86,13 @@ class TestAuditCallSitesExist:
     """Static guard: section 30 mutation — removing the call sites must fail."""
 
     def test_brand_controller_audits_sensitive_mutations(self):
-        src = open("backend/app/controllers/brand_controller.py").read()
+        src = open("backend/app/controllers/brand_controller.py").read() + open("backend/app/repositories/brand_repository.py").read()
         for action in ("BRAND_INVENTORY_UPDATED", "BRAND_PLACEMENT_CREATED",
-                       "BRAND_PLACEMENT_UPDATED", "BRAND_PLACEMENT_DELETED",
+                       "BRAND_PLACEMENT_UPDATED", "BRAND_PLACEMENT_CANCELLED",
                        "BRAND_STORE_CREATED"):
             assert action in src, f"missing audit call site: {action}"
 
     def test_audit_helper_uses_real_persistence_not_print(self):
-        src = open("backend/app/controllers/brand_controller.py").read()
-        assert "UserRepository(db).log_audit(" in src
+        src = open("backend/app/services/partner_audit.py").read()
+        assert "db.add(event)" in src and "db.flush()" in src
+        assert "db.commit()" not in src  # the business use case owns the commit

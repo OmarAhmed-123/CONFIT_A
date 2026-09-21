@@ -81,6 +81,7 @@ class BrandProfile(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), unique=True, nullable=False)
+    is_test = Column(Boolean, default=False, server_default="false", nullable=False)
     brand_name = Column(String(255), nullable=False, unique=True, index=True)
     slug = Column(String(255), nullable=False, unique=True, index=True)
     logo_url = Column(String(1000), nullable=True)
@@ -102,6 +103,9 @@ class BrandProfile(Base):
 
 class AuditLog(Base):
     __tablename__ = "audit_logs"
+
+    # Retained tenant identity: intentionally not cascading with business rows.
+    brand_id = Column(Integer, nullable=True, index=True)
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, nullable=True, index=True)

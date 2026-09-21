@@ -24,7 +24,7 @@ class CatalogRepository:
                 joinedload(Product.category),
                 joinedload(Product.skus)
             )
-            .filter(Product.id == product_id)
+            .filter(Product.id == product_id, Product.is_active.is_(True))
             .first()
         )
 
@@ -36,7 +36,7 @@ class CatalogRepository:
                 joinedload(Product.category),
                 joinedload(Product.skus)
             )
-            .filter(Product.slug == slug)
+            .filter(Product.slug == slug, Product.is_active.is_(True))
             .first()
         )
 

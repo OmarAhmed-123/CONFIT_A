@@ -1,3 +1,4 @@
+from backend.app.services.partner_audit import append_event
 """Bounded CSV/JSON ingestion with shared validation and row-atomic upserts.
 
 Identity is (brand, title) for products, globally unique sku_code for variants.
@@ -33,7 +34,7 @@ class CatalogImportError:
 class BrandCatalogService:
     MAX_ROWS = 1000
     MAX_BYTES = 10 * 1024 * 1024
-    REQUIRED_FIELDS = ['title', 'category_slug', 'base_price', 'color_family', 'thumbnail_url']
+    REQUIRED_FIELDS = ['title', 'category_slug', 'base_price', 'color_family']
     OPTIONAL_FIELDS = ['title_ar', 'description', 'description_ar', 'material', 'currency',
                        'style_tags', 'occasion_tags', 'images', 'sku_code', 'size', 'color',
                        'stock_level', 'price_override', 'dominant_hex', 'color_hex']
@@ -168,7 +169,7 @@ class BrandCatalogService:
         except (csv.Error, ValueError) as exc:
             return [], [CatalogImportError(0, 'header' if 'header' in str(exc) else 'file', str(exc))], dict(total=0, accepted=0, rejected=0, duplicate=0)
 
-    def import_products(self, valid_rows, brand_id):
+    def import_products(self, valid_rows, brand_id, *, commit_each=True):
         accepted, rejected, errors = 0, 0, []
         for fallback_number, row in enumerate(valid_rows, 2):
             number = row.get('_row_number', fallback_number)
@@ -192,6 +193,8 @@ class BrandCatalogService:
                     if len(matches) > 1:
                         raise ValueError('Ambiguous variant: provide an explicit sku_code')
                     sku = matches[0] if matches else None
+                if product and product.archived_at:
+                    raise ValueError('Restore archived product to draft before import')
                 if sku and (not product or sku.product_id != product.id):
                     raise ValueError('SKU already assigned to another product; reassignment is not allowed')
                 if not product:
@@ -199,7 +202,7 @@ class BrandCatalogService:
                     product = Product(brand_id=brand_id, category_id=category.id, title=row['title'], slug=slug,
                                       title_ar=row.get('title_ar') or row['title'], description=row.get('description') or row['title'],
                                       description_ar=row.get('description_ar') or row.get('description') or row['title'],
-                                      rating=0, review_count=0, style_compatibility_base=0)
+                                      rating=0, review_count=0, style_compatibility_base=0, thumbnail_url=row.get('thumbnail_url') or '', is_active=bool(row.get('thumbnail_url')) and not brand.is_test)
                     self.db.add(product)
                 product.category_id = category.id
                 product.base_price = validate_money(row['base_price'], 'base_price', allow_zero=False, required=True, exact_scale=True)
@@ -218,20 +221,29 @@ class BrandCatalogService:
                     sku.price_override = validate_money(row['price_override'], 'price_override', allow_zero=False, required=True, exact_scale=True)
                 if row.get('color_hex'):
                     sku.color_hex = row['color_hex']
-                self.db.commit()
+                self.db.flush()
+                append_event(self.db, brand_id, 'BRAND_CATALOG_ROW_IMPORTED', 'ProductSKU', sku.id,
+                             after={'product_id': product.id, 'stock_level': sku.stock_level, 'row': number})
+                if commit_each:
+                    self.db.commit()
                 accepted += 1
             except (ValueError, IntegrityError) as exc:
+                if not commit_each:
+                    raise
                 self.db.rollback()  # includes product changes/flushes in a rejected row
                 message = str(exc) if isinstance(exc, ValueError) else 'Catalog conflict; verify SKU uniqueness and retry'
                 errors.append(CatalogImportError(number, 'row', message).to_dict())
                 rejected += 1
             except Exception:
+                if not commit_each:
+                    raise
                 self.db.rollback()
                 logger.error('catalog_import_row_failed', row=number)
                 raise  # infrastructure failures are not disguised as invalid input
         return accepted, rejected, errors
 
     def _process(self, brand_id, file_name, file_size, prepare, actor_id=None):
+        self.db.info['partner_actor'] = actor_id
         job = self.brand_repo.create_import_job(brand_id, file_name, file_size)
         job_id = job.id
         try:

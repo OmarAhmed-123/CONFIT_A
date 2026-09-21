@@ -47,6 +47,7 @@ import { BrandDashboardView } from '../views/b2b/BrandDashboardView';
 import { BrandCatalogView } from '../views/b2b/BrandCatalogView';
 import { BrandInventoryView } from '../views/b2b/BrandInventoryView';
 import { BrandAnalyticsView } from '../views/b2b/BrandAnalyticsView';
+import { BrandTeamView, BrandAuditView, AcceptBrandInvitation } from '../views/b2b/BrandTeamView';
 import { BrandPlacementsView } from '../views/b2b/BrandPlacementsView';
 import { AdminAnalyticsView } from '../views/b2b/AdminAnalyticsView';
 import { AdminAuditView } from '../views/b2b/AdminAuditView';
@@ -59,6 +60,7 @@ export const AppRoutes: React.FC = () => {
     // Router context is provided by App (AUTH-02: root-mounted AuthModal needs navigate()).
     <>
       <Routes>
+      <Route path="/partner-invitation" element={<ProtectedRoute><AcceptBrandInvitation /></ProtectedRoute>} />
         {/* 0. Public Shared Look (C8) — intentionally outside any guarded layout */}
         <Route path="/looks/:token" element={<SharedLookView />} />
 
@@ -172,6 +174,8 @@ export const AppRoutes: React.FC = () => {
           <Route path="inventory" element={<BrandInventoryView />} />
           <Route path="analytics" element={<BrandAnalyticsView />} />
           <Route path="placements" element={<BrandPlacementsView />} />
+          <Route path="team" element={<BrandTeamView />} />
+          <Route path="audit" element={<BrandAuditView />} />
           <Route
             path="admin-platform"
             element={
@@ -197,6 +201,8 @@ export const AppRoutes: React.FC = () => {
           <Route path="inventory" element={<BrandInventoryView />} />
           <Route path="analytics" element={<BrandAnalyticsView />} />
           <Route path="placements" element={<BrandPlacementsView />} />
+          <Route path="team" element={<BrandTeamView />} />
+          <Route path="audit" element={<BrandAuditView />} />
         </Route>
 
         {/* 4. Platform Admin Governance Routes (Protected by ADMIN_ROLES) */}

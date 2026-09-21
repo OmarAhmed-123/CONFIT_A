@@ -25,6 +25,8 @@ from backend.app.controllers.tryon_controller import router as tryon_router
 from backend.app.controllers.wardrobe_controller import router as wardrobe_router
 from backend.app.controllers.commerce_controller import router as commerce_router
 from backend.app.controllers.brand_controller import router as brand_router
+from backend.app.controllers.brand_team_controller import router as brand_team_router
+from backend.app.controllers.partner_operations_controller import router as partner_operations_router
 from backend.app.controllers.admin_controller import router as admin_router
 from backend.app.controllers.telemetry_controller import router as telemetry_router
 from backend.app.controllers.moodboard_controller import router as moodboard_router
@@ -286,6 +288,8 @@ for prefix in [settings.API_V1_STR, "/v1", ""]:
     app.include_router(wardrobe_router, prefix=prefix)
     app.include_router(commerce_router, prefix=prefix)
     app.include_router(brand_router, prefix=prefix)
+    app.include_router(brand_team_router, prefix=prefix)
+    app.include_router(partner_operations_router, prefix=prefix)
     app.include_router(admin_router, prefix=prefix)
     app.include_router(moodboard_router, prefix=prefix)
 

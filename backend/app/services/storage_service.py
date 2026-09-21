@@ -315,19 +315,20 @@ class LocalStorageBackend(StorageBackend):
 class S3StorageBackend(StorageBackend):
     """S3/R2 production storage - persistent, requires credentials"""
 
-    def __init__(self):
+    def __init__(self, configuration=None):
+        configuration = configuration or settings
         # Support both AWS S3 and Cloudflare R2. Resolution goes through the
         # Settings.s3_* properties so the documented .env aliases
         # (S3_ENDPOINT / S3_ACCESS_KEY / S3_SECRET_KEY / S3_BUCKET_PUBLIC) are
         # honoured exactly like the AWS_* names — one resolution rule, not two.
-        self.bucket = settings.s3_bucket
-        self.region = getattr(settings, 'AWS_REGION', 'us-east-1')
-        self.access_key = settings.s3_access_key
-        self.secret_key = settings.s3_secret_key
-        self.endpoint_url = settings.s3_endpoint_url  # For R2 / S3-compatible
-        self.public_url_base = getattr(settings, 'S3_PUBLIC_URL_BASE', None)
+        self.bucket = configuration.s3_bucket
+        self.region = getattr(configuration, 'AWS_REGION', 'us-east-1')
+        self.access_key = configuration.s3_access_key
+        self.secret_key = configuration.s3_secret_key
+        self.endpoint_url = configuration.s3_endpoint_url  # For R2 / S3-compatible
+        self.public_url_base = getattr(configuration, 'S3_PUBLIC_URL_BASE', None)
         self.server_side_encryption = (
-            getattr(settings, "S3_SERVER_SIDE_ENCRYPTION", None) or "AES256"
+            getattr(configuration, "S3_SERVER_SIDE_ENCRYPTION", None) or "AES256"
         ).strip()
 
         if not self.bucket:

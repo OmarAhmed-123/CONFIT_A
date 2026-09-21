@@ -190,7 +190,7 @@ export const RoleGuard: React.FC<RoleGuardProps> = ({
 
   const isPartnerPortal = (fallbackTitle || '').toLowerCase().includes('brand') ||
     (fallbackTitle || '').toLowerCase().includes('partner');
-  const needsPartnerOnboarding = isPartnerPortal && user?.role === 'consumer';
+  const needsPartnerOnboarding = isPartnerPortal && user?.role === 'consumer' && !user?.brand_id;
   // Public onboarding never grants a role; logged-in consumers see it too.
   if (!isAuthenticated || !user || needsPartnerOnboarding) {
 
@@ -350,7 +350,7 @@ export const RoleGuard: React.FC<RoleGuardProps> = ({
   // 2. Role Verification
   const userRole = user.role?.toLowerCase();
   const hasRole =
-    !allowedRoles || allowedRoles.includes(userRole) || userRole === "admin";
+    !allowedRoles || allowedRoles.includes(userRole) || userRole === "admin" || (isPartnerPortal && !!user.brand_id);
 
   if (!hasRole) {
     return (

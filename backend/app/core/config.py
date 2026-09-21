@@ -355,6 +355,10 @@ class Settings(BaseSettings):
     STANDARD_SHIPPING_FEE: float = 15.0
     EXPRESS_SHIPPING_FEE: float = 35.0
     RETURN_WINDOW_DAYS: int = 30
+    # Dedicated partner asset namespace; does not change storage for other features.
+    BRAND_ASSET_PROVIDER: str = "local"
+    BRAND_ASSET_BUCKET: Optional[str] = None
+    BRAND_ASSET_PREFIX: str = "partner-assets"
     STORAGE_PROVIDER: str = "local"
     STORAGE_LOCAL_DIR: str = "./backend/data/uploads"
     # C24 FIX: Production storage - S3/R2 for persistence

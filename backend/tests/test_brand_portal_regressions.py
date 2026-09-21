@@ -64,7 +64,7 @@ def portal():
 
 def row(**changes):
     return dict(title='Coat', category_slug='coats', base_price='19.99', color_family='Navy',
-                thumbnail_url='https://example.com/coat.jpg', sku_code='COAT-M-NAVY', size='M',
+                thumbnail_url='https://placehold.co/600x800.png', sku_code='COAT-M-NAVY', size='M',
                 color='Navy', stock_level='10', **{}) | changes
 
 
@@ -202,7 +202,7 @@ def test_placement_dates_roundtrip_and_tracking_timezone(portal):
     r = client.patch(f'/partner/placements/{pid}', headers=h[0], json={'start_date': '2099-01-01T00:00:00+02:00', 'end_date': '2099-02-01T00:00:00Z'})
     assert r.status_code == 200
     assert client.get('/partner/placements', headers=h[0]).json()[0]['start_date'] is not None
-    assert client.post(f'/partner/placements/{pid}/click', headers=h[0]).status_code == 400
+    assert client.post(f'/partner/placements/{pid}/click', headers=h[0] | {'Idempotency-Key':'future-date-check-01'}).status_code == 400
 
 
 def test_consumer_and_unassigned_admin_fail_closed(portal):

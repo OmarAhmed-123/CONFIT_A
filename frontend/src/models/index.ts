@@ -1,4 +1,4 @@
-export type UserRole = 'consumer' | 'brand_manager' | 'admin';
+export type UserRole = 'consumer' | 'brand_owner' | 'brand_manager' | 'brand_staff' | 'admin';
 
 export interface User {
   id: number;
@@ -635,7 +635,7 @@ export interface BrandAnalyticsDashboard {
   total_tryons: number;
   total_add_to_carts: number;
   total_purchases: number;
-  funnel_conversion_rate: number;
+  funnel_conversion_rate: number | null;
   return_rate_before_vton: number | null;
   return_rate_after_vton: number | null;
   return_reduction_percentage: number | null;

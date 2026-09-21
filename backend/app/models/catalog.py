@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text, Float, Numeric, UniqueConstraint, CheckConstraint
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text, Float, Numeric, UniqueConstraint, CheckConstraint, Index
 from sqlalchemy.orm import relationship
 from backend.app.core.database import Base
 
@@ -20,6 +20,16 @@ class Category(Base):
 
 class Product(Base):
     __tablename__ = "products"
+    __table_args__ = (
+        CheckConstraint('archived_at IS NULL OR is_active = false', name='ck_product_archive_hidden'),
+        Index('ix_product_brand_cursor', 'brand_id', 'id'),
+    )
+    archived_at = Column(DateTime(timezone=True), nullable=True)
+
+    @property
+    def publication_status(self):
+        return 'archived' if self.archived_at else 'active' if self.is_active else 'draft'
+
 
     id = Column(Integer, primary_key=True, index=True)
     brand_id = Column(Integer, ForeignKey("brand_profiles.id", ondelete="CASCADE"), nullable=False)

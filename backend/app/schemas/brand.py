@@ -7,6 +7,9 @@ from backend.app.schemas.money_types import PositiveMoney, OptionalPositiveMoney
 
 
 class BrandProfileOut(BaseModel):
+    is_test: bool = False
+    membership_role: str = "owner"
+    permissions: List[str] = Field(default_factory=list)
     id: int
     user_id: int
     brand_name: str
@@ -99,7 +102,7 @@ class BrandAnalyticsDashboardOut(BaseModel):
     total_tryons: int
     total_add_to_carts: int
     total_purchases: int
-    funnel_conversion_rate: float
+    funnel_conversion_rate: Optional[float]
     return_rate_before_vton: Optional[float]
     return_rate_after_vton: Optional[float]
     return_reduction_percentage: Optional[float]
@@ -150,5 +153,7 @@ class PartnerLeadOut(BaseModel):
 
 
 class BrandProductOut(ProductSummaryOut):
+    skus_next_cursor: Optional[int] = None
+    status: str = "active"
     """Partner catalog needs variants; public product summaries omit them."""
     skus: List[ProductSKUOut]

@@ -8,9 +8,9 @@ import { useAuthStore } from '../../stores/authStore';
 import { useUIStore } from '../../stores/uiStore';
 
 const PARTNER_LINKS = [
-  ['/b2b', 'Dashboard'], ['/b2b/catalog', 'Catalog & SKUs'],
-  ['/b2b/inventory', 'BOPIS Inventory'], ['/b2b/analytics', 'Return Telemetry'],
-  ['/b2b/placements', 'Placements'],
+  ['/b2b', 'partnerOps.nav_dashboard'], ['/b2b/catalog', 'partnerOps.nav_catalog'],
+  ['/b2b/inventory', 'partnerOps.nav_inventory'], ['/b2b/analytics', 'partnerOps.nav_analytics'],
+  ['/b2b/placements', 'partnerOps.nav_placements'], ['/b2b/team', 'partnerOps.nav_team'], ['/b2b/audit', 'partnerOps.nav_audit'],
 ];
 
 export const BrandNavbar: React.FC = () => {
@@ -24,7 +24,7 @@ export const BrandNavbar: React.FC = () => {
   // G-07: the audit trail is its own destination. It used to be routed to the
   // analytics view, so the platform's governance log had no entry point.
   const links = isAdmin
-    ? [...PARTNER_LINKS, ['/admin', 'Platform Admin'], ['/admin/audit', 'Audit Trail']]
+    ? [...PARTNER_LINKS, ['/admin', 'partnerOps.nav_admin'], ['/admin/audit', 'Audit Trail']]
     : PARTNER_LINKS;
   const handleLogout = async () => {
     try { await logout(); navigate('/'); }
@@ -37,22 +37,22 @@ export const BrandNavbar: React.FC = () => {
         <Link to="/b2b" className="flex items-center gap-3 min-w-0" aria-label={t('b2b.dashboard_link_label')}>
           <ConfitLogo variant="compact" theme="light" size="sm" />
           <span className="hidden sm:block text-xs font-bold text-[#C5A059]">
-            {isAdmin ? 'Platform Governance' : 'Brand Partner Hub'}
+            {t(isAdmin ? 'partnerOps.nav_admin' : 'partnerOps.nav_hub')}
           </span>
         </Link>
         <div className="flex flex-wrap items-center gap-2 text-xs">
-          <Link to="/" className="px-2 py-2 rounded-lg border border-slate-700 text-slate-200">← Storefront</Link>
+          <Link to="/" className="px-2 py-2 rounded-lg border border-slate-700 text-slate-200">{t('partnerPortal.text200')}</Link>
           <LanguageSwitcher />
-          <span className="hidden lg:block max-w-40 truncate text-slate-200">{user?.full_name || 'Partner'}</span>
-          <button onClick={handleLogout} className="px-2 py-2 rounded-lg text-slate-200 hover:bg-slate-800">Sign Out</button>
+          <span className="hidden lg:block max-w-40 truncate text-slate-200">{user?.full_name || t('partnerOps.nav_partner')}</span>
+          <button onClick={handleLogout} className="px-2 py-2 rounded-lg text-slate-200 hover:bg-slate-800">{t('partnerPortal.text201')}</button>
         </div>
       </div>
-      <nav aria-label="Brand partner navigation" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex gap-1 overflow-x-auto pb-3">
+      <nav aria-label={t('partnerPortal.text202')} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex gap-1 overflow-x-auto pb-3">
         {links.map(([href, label]) => {
           const active = path === href || (href === '/admin' && path === '/b2b/admin-platform');
           return <Link key={href} to={href} aria-current={active ? 'page' : undefined}
             className={`shrink-0 px-3 py-2 rounded-lg text-xs font-semibold ${active ? 'bg-slate-800 text-[#E2BF70]' : 'text-slate-200 hover:bg-slate-800'}`}>
-            {label}
+            {t(label)}
           </Link>;
         })}
       </nav>

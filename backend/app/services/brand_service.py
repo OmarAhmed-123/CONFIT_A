@@ -14,20 +14,20 @@ class BrandService:
 
     def get_brand_profile_by_user(self, user: User) -> Dict[str, Any]:
         """Resolves Brand Organization for the requesting user with strict tenant validation."""
-        bp = self.brand_repo.get_by_user_id(user.id)
-        if not bp:
-            raise AuthorizationError("No Brand Organization linked to this account. Request partner onboarding; administrators must use explicit admin routes.")
-        return self._format_brand(bp)
+        from backend.app.services.brand_access import resolve, PERMISSIONS
+        member = resolve(self.db, user)
+        bp = self.brand_repo.get_by_id(member.brand_id)
+        return self._format_brand(bp) | {'membership_role': member.role, 'permissions': sorted(PERMISSIONS[member.role])}
 
     def get_brand_analytics_dashboard(self, user: User, brand_id: int) -> Dict[str, Any]:
         """Returns analytics strictly scoped to the user's verified brand tenant."""
         self._assert_brand_ownership(user, brand_id)
         return self.brand_repo.get_brand_analytics(brand_id)
 
-    def get_brand_products(self, user: User, brand_id: int) -> List[Dict[str, Any]]:
+    def get_brand_products(self, user: User, brand_id: int, after: int = 0, limit: int = 25) -> List[Dict[str, Any]]:
         """Returns product catalog strictly scoped to the user's brand tenant."""
         self._assert_brand_ownership(user, brand_id)
-        products = self.brand_repo.get_brand_products(brand_id)
+        products = self.brand_repo.get_brand_products(brand_id, after, limit)
         results = []
         for p in products:
             skus_out = [
@@ -64,7 +64,9 @@ class BrandService:
                 "style_compatibility_score": None,
                 "ai_fit_score": None,
                 "is_featured": p.is_featured,
-                "skus": skus_out
+                "skus": skus_out,
+                "skus_next_cursor": getattr(p, "_skus_next_cursor", None),
+                "status": p.publication_status
             })
         return results
 
@@ -180,23 +182,17 @@ class BrandService:
 
     def _assert_brand_ownership(self, user: User, target_brand_id: int) -> None:
         """Verifies that the user has tenant authorization for target_brand_id."""
-        if user.role == UserRole.ADMIN:
-            return  # Platform Admin has global oversight
-
-        if not user.brand_profile:
-            raise AuthorizationError("Access denied: User is not linked to any Brand Organization.")
-
-        if user.brand_profile.id != target_brand_id:
-            raise AuthorizationError(
-                f"Tenant scope violation: Your account belongs to Brand #{user.brand_profile.id} ({user.brand_profile.brand_name}) "
-                f"and cannot access or mutate resources of Brand #{target_brand_id}."
-            )
+        from backend.app.services.brand_access import resolve
+        member = resolve(self.db, user)
+        if member.brand_id != target_brand_id:
+            raise AuthorizationError('Tenant scope violation')
 
     def _format_brand(self, bp: BrandProfile) -> Dict[str, Any]:
         return {
             "id": bp.id,
             "user_id": bp.user_id,
             "brand_name": bp.brand_name,
+            "is_test": bp.is_test,
             "slug": bp.slug,
             "logo_url": bp.logo_url,
             "banner_url": bp.banner_url,

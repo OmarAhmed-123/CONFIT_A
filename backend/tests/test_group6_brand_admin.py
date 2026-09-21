@@ -606,7 +606,7 @@ class TestSponsoredPlacements:
             # First click should succeed (10 spent, 5 remaining)
             resp = client.post(
                 f"/partner/placements/{placement_id}/click",
-                headers={"Authorization": f"Bearer {token}"}
+                headers={"Authorization": f"Bearer {token}", "Idempotency-Key":"budget-first-event"}
             )
             assert resp.status_code == 200
             assert resp.json()["spent_today"] == 10.0
@@ -614,7 +614,7 @@ class TestSponsoredPlacements:
             # Second click should fail (would exceed budget: 10+10=20 > 15)
             resp = client.post(
                 f"/partner/placements/{placement_id}/click",
-                headers={"Authorization": f"Bearer {token}"}
+                headers={"Authorization": f"Bearer {token}", "Idempotency-Key":"budget-second-event"}
             )
             assert resp.status_code == 400
             assert "budget" in resp.json()["detail"].lower()

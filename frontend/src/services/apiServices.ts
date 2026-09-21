@@ -947,7 +947,7 @@ export const brandService = {
   getAnalyticsDashboard: () =>
     request<BrandAnalyticsDashboard>("/brand/analytics"),
 
-  getProducts: () => request<Product[]>("/brand/products"),
+  getProducts: (after = 0) => request<Product[]>(`/brand/products?after=${after}&limit=25`),
 
   updateSKU: (skuId: number, stockLevel: number, priceOverride?: number) => {
     const q = priceOverride ? `&price_override=${priceOverride}` : "";

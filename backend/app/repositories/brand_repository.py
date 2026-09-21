@@ -1,3 +1,4 @@
+from backend.app.services.partner_audit import append_event, snapshot
 from decimal import Decimal
 from typing import Optional, List, Dict, Any, Tuple
 from datetime import datetime, timezone, timedelta
@@ -37,13 +38,24 @@ class BrandRepository:
     def get_all_brands(self) -> List[BrandProfile]:
         return self.db.query(BrandProfile).all()
 
-    def get_brand_products(self, brand_id: int) -> List[Product]:
-        return (
-            self.db.query(Product)
-            .options(joinedload(Product.skus), joinedload(Product.category), joinedload(Product.brand))
-            .filter(Product.brand_id == brand_id)
-            .all()
-        )
+    def get_brand_products(self, brand_id: int, after: int = 0, limit: int = 25) -> List[Product]:
+        from sqlalchemy.orm import aliased, noload
+        from sqlalchemy.orm.attributes import set_committed_value
+        products = self.db.query(Product).options(noload(Product.skus), joinedload(Product.category), joinedload(Product.brand)).filter(
+            Product.brand_id == brand_id, Product.id > after).order_by(Product.id).limit(limit).all()
+        if not products:
+            return []
+        ranked = self.db.query(ProductSKU, func.row_number().over(partition_by=ProductSKU.product_id, order_by=ProductSKU.id).label('rn')).filter(
+            ProductSKU.product_id.in_([p.id for p in products])).subquery()
+        variant = aliased(ProductSKU, ranked)
+        skus = self.db.query(variant).filter(ranked.c.rn <= 26).order_by(variant.id).all()
+        grouped = {}
+        for sku in skus:grouped.setdefault(sku.product_id, []).append(sku)
+        for product in products:
+            rows = grouped.get(product.id, [])
+            set_committed_value(product, 'skus', rows[:25])
+            product._skus_next_cursor = rows[24].id if len(rows)>25 else None
+        return products
 
     def get_brand_placements(self, brand_id: int) -> List[SponsoredPlacement]:
         return (
@@ -90,7 +102,7 @@ class BrandRepository:
             bid_amount_per_click=bid_dec,
             daily_budget=budget_dec,
             spent_today=Decimal("0.00"),
-            status="active",
+            status="paused" if self.get_by_id(brand_id).is_test else "active",
             impressions=0,
             clicks=0,
             conversions=0,
@@ -99,6 +111,9 @@ class BrandRepository:
             end_date=end_date
         )
         self.db.add(placement)
+        self.db.flush()
+        append_event(self.db, brand_id, 'BRAND_PLACEMENT_CREATED', 'SponsoredPlacement', placement.id,
+                     after=snapshot(placement, ['status', 'product_id', 'daily_budget', 'bid_amount_per_click']))
         self.db.commit()
         self.db.refresh(placement)
         return placement
@@ -109,6 +124,7 @@ class BrandRepository:
         if not sku:
             return None
 
+        before = snapshot(sku, ['stock_level', 'price_override'])
         if new_stock < 0:
             raise ValueError("Stock level cannot be negative")
         if new_stock > 100000:
@@ -125,6 +141,8 @@ class BrandRepository:
 
         sku.stock_level = int(new_stock)
         sku.is_in_stock = new_stock > 0
+        append_event(self.db, sku.product.brand_id, 'BRAND_INVENTORY_UPDATED', 'ProductSKU', sku.id,
+                     before=before, after=snapshot(sku, ['stock_level', 'price_override']))
         self.db.commit()
         self.db.refresh(sku)
         return sku
@@ -157,6 +175,7 @@ class BrandRepository:
             StoreInventory.sku_id == sku_id
         ).populate_existing().with_for_update().first()
 
+        before = snapshot(inv, ['quantity', 'reserved_quantity']) if inv else None
         if inv:
             # Invariant: reserved <= quantity, quantity >=0, reserved >=0
             if inv.reserved_quantity > quantity:
@@ -175,14 +194,17 @@ class BrandRepository:
             )
             self.db.add(inv)
 
+        self.db.flush()
+        append_event(self.db, brand_id, 'BRAND_STORE_INVENTORY_UPDATED', 'StoreInventory', inv.id,
+                     before=before, after=snapshot(inv, ['quantity', 'reserved_quantity', 'store_id', 'sku_id']))
         self.db.commit()
         self.db.refresh(inv)
         # Final invariant check
         assert inv.quantity >= 0 and inv.reserved_quantity >= 0 and inv.reserved_quantity <= inv.quantity
         return inv
 
-    def get_brand_stores(self, brand_id: int) -> List[StoreLocation]:
-        return self.db.query(StoreLocation).filter(StoreLocation.brand_id == brand_id).all()
+    def get_brand_stores(self, brand_id: int, after: int = 0, limit: int = 50) -> List[StoreLocation]:
+        return self.db.query(StoreLocation).filter(StoreLocation.brand_id == brand_id, StoreLocation.id > after).order_by(StoreLocation.id).limit(limit).all()
 
     def create_store(self, brand_id: int, data: Dict[str, Any]) -> StoreLocation:
         # Validate required fields
@@ -218,6 +240,9 @@ class BrandRepository:
             is_bopis_enabled=bool(data.get("is_bopis_enabled", True))
         )
         self.db.add(store)
+        self.db.flush()
+        append_event(self.db, brand_id, 'BRAND_STORE_CREATED', 'Store', store.id,
+                     after=snapshot(store, ['name', 'city', 'country', 'is_bopis_enabled']))
         self.db.commit()
         self.db.refresh(store)
         return store
@@ -230,6 +255,7 @@ class BrandRepository:
         if not store:
             raise ValueError(f"Store {store_id} not found for brand {brand_id}")
 
+        before = snapshot(store, ['name', 'city', 'country', 'is_bopis_enabled'])
         # Only allow updating specific fields with validation
         allowed = ["name", "name_ar", "address", "city", "country", "latitude", "longitude", "phone", "pickup_instructions", "is_bopis_enabled"]
         for key in allowed:
@@ -255,6 +281,8 @@ class BrandRepository:
                 else:
                     setattr(store, key, str(data[key])[:500] if isinstance(data[key], str) else data[key])
 
+        append_event(self.db, brand_id, 'BRAND_STORE_UPDATED', 'Store', store.id,
+                     before=before, after={key: getattr(store, key) for key in data if key in allowed})
         self.db.commit()
         self.db.refresh(store)
         return store
@@ -275,9 +303,9 @@ class BrandRepository:
         if not brand:
             return {}
 
-        products = self.get_brand_products(brand_id)
-        product_ids = [p.id for p in products]
-        total_skus = sum(len(p.skus) for p in products)
+        product_ids = self.db.query(Product.id).filter(Product.brand_id == brand_id)
+        product_count = self.db.query(func.count(Product.id)).filter(Product.brand_id == brand_id).scalar() or 0
+        total_skus = self.db.query(func.count(ProductSKU.id)).filter(ProductSKU.product_id.in_(product_ids)).scalar() or 0
 
         # 1. Views: count RecentlyViewed for brand products
         total_views = self.db.query(func.count(RecentlyViewed.id)).filter(
@@ -306,7 +334,7 @@ class BrandRepository:
         ).scalar() or 0
 
         # Funnel conversion rate: purchases / views * 100
-        funnel_rate = round((total_purchases / total_views * 100) if total_views > 0 else 0.0, 2)
+        funnel_rate = round(total_purchases / total_views * 100, 2) if total_views > 0 else None
 
         # 5. Outfit Performance: real ranking from OutfitItem
         # Count appearances of each product in outfits
@@ -317,40 +345,18 @@ class BrandRepository:
             OutfitItem.product_id.in_(product_ids)
         ).group_by(OutfitItem.product_id).order_by(desc("appearances")).limit(10).all()
 
-        # Build rankings with real data
+        top_ids = [product_id for product_id, _ in outfit_appearances]
+        ranked_products = {p.id:p for p in self.db.query(Product).filter(Product.id.in_(top_ids)).all()}
+        ranked_carts = dict(self.db.query(ProductSKU.product_id,func.count(CartItem.id)).join(
+            CartItem,CartItem.product_sku_id==ProductSKU.id).filter(ProductSKU.product_id.in_(top_ids)).group_by(ProductSKU.product_id).all())
+        ranked_orders = dict(self.db.query(OrderItem.product_id,func.count(OrderItem.id)).join(Order).filter(
+            OrderItem.brand_id==brand_id,OrderItem.product_id.in_(top_ids),Order.status.notin_(['cancelled','refunded','failed'])).group_by(OrderItem.product_id).all())
         outfit_rankings = []
         for prod_id, appearances in outfit_appearances:
-            prod = next((p for p in products if p.id == prod_id), None)
-            if not prod:
-                continue
-
-            # Calculate add-to-cart and purchase rates for this product
-            prod_sku_ids = [s.id for s in prod.skus]
-            if prod_sku_ids:
-                prod_add_to_cart = self.db.query(func.count(CartItem.id)).filter(
-                    CartItem.product_sku_id.in_(prod_sku_ids)
-                ).scalar() or 0
-                prod_purchases = self.db.query(func.count(OrderItem.id)).join(Order, Order.id == OrderItem.order_id).filter(
-                    OrderItem.product_id == prod_id,
-                    Order.status.notin_(["cancelled", "refunded", "failed"]),
-                    OrderItem.brand_id == brand_id
-                ).scalar() or 0
-            else:
-                prod_add_to_cart = 0
-                prod_purchases = 0
-
-            # Rates based on appearances
-            add_to_cart_rate = round((prod_add_to_cart / appearances * 100) if appearances > 0 else 0.0, 1)
-            purchase_rate = round((prod_purchases / appearances * 100) if appearances > 0 else 0.0, 1)
-
-            outfit_rankings.append({
-                "product_id": prod.id,
-                "product_title": prod.title,
-                "thumbnail_url": prod.thumbnail_url,
-                "outfit_appearances": int(appearances),
-                "add_to_cart_rate": add_to_cart_rate,
-                "purchase_rate": purchase_rate
-            })
+            prod = ranked_products[prod_id]
+            outfit_rankings.append({'product_id':prod.id,'product_title':prod.title,'thumbnail_url':prod.thumbnail_url,
+                'outfit_appearances':int(appearances),'add_to_cart_rate':round(ranked_carts.get(prod_id,0)/appearances*100,1),
+                'purchase_rate':round(ranked_orders.get(prod_id,0)/appearances*100,1)})
 
         # Item-grain cohorts cannot attribute another brand's return in a
         # mixed-brand order to this tenant. No benchmark fallback.
@@ -367,19 +373,19 @@ class BrandRepository:
         bopis_rate = round(bopis_done / bopis_total * 100, 1) if bopis_total else None
 
         # 8. Ad spend and revenue from SponsoredPlacement
-        placements = self.get_brand_placements(brand_id)
-        ad_spend = money_sum([p.spent_today for p in placements])
-        ad_revenue = money_sum([p.revenue_generated for p in placements])
+        ad_spend,ad_revenue = self.db.query(
+            func.coalesce(func.sum(case((or_(SponsoredPlacement.spend_day.is_(None),SponsoredPlacement.spend_day==datetime.now(timezone.utc).date()),SponsoredPlacement.spent_today),else_=0)),0),
+            func.coalesce(func.sum(SponsoredPlacement.revenue_generated),0)).filter(SponsoredPlacement.brand_id==brand_id).one()
 
         return {
             "brand_name": brand.brand_name,
-            "total_products_count": len(products),
+            "total_products_count": product_count,
             "total_skus_count": total_skus,
             "total_views": int(total_views),
             "total_tryons": int(total_tryons),
             "total_add_to_carts": int(total_add_to_carts),
             "total_purchases": int(total_purchases),
-            "funnel_conversion_rate": float(funnel_rate),
+            "funnel_conversion_rate": funnel_rate,
             "return_rate_before_vton": pre_rate,
             "return_rate_after_vton": post_rate,
             "return_reduction_percentage": reduction,
@@ -416,9 +422,9 @@ class BrandRepository:
             return_reduction_percentage=reduction,
             methodology="All-time brand order lines marked is_returned (opened, non-rejected return requests), divided by non-cancelled/non-failed order lines; cohorts use Order.try_on_assisted, not item-specific exposure. Includes refunded orders. Unmatched observational comparison: no causal, seasonality-adjusted or completed-refund claim. Null means insufficient denominator.")
 
-    def get_conversion_analytics_per_sku(self, brand_id: int) -> List[Dict[str, Any]]:
+    def get_conversion_analytics_per_sku(self, brand_id: int, after: int = 0, limit: int = 25) -> List[Dict[str, Any]]:
         """Legacy name; product-grain snapshots, grouped in four bounded queries."""
-        products = self.get_brand_products(brand_id)
+        products = self.get_brand_products(brand_id, after, limit)
         ids = [p.id for p in products]
         if not ids:
             return []
@@ -432,11 +438,12 @@ class BrandRepository:
         purchases = dict(self.db.query(OrderItem.product_id, func.count(OrderItem.id)).join(
             Order, Order.id == OrderItem.order_id).filter(OrderItem.brand_id == brand_id,
             Order.status.notin_(["cancelled", "refunded", "failed"])).group_by(OrderItem.product_id).all())
-        result = [dict(product_id=p.id, sku_count=len(p.skus), title=p.title,
+        sku_counts = dict(self.db.query(ProductSKU.product_id,func.count(ProductSKU.id)).filter(ProductSKU.product_id.in_(ids)).group_by(ProductSKU.product_id).all())
+        result = [dict(product_id=p.id, sku_count=sku_counts.get(p.id,0), title=p.title,
             views=views.get(p.id, 0), tryons=tryons.get(p.id, 0), add_to_cart=carts.get(p.id, 0),
-            purchases=purchases.get(p.id, 0), conversion_rate=round(purchases.get(p.id,0)/views[p.id]*100,2) if views.get(p.id) else 0.0
+            purchases=purchases.get(p.id, 0), conversion_rate=round(purchases.get(p.id,0)/views[p.id]*100,2) if views.get(p.id) else None
         ) for p in products]
-        return sorted(result, key=lambda x: (-x["conversion_rate"], x["product_id"]))
+        return sorted(result, key=lambda x: (-(x["conversion_rate"] or 0), x["product_id"]))
 
     def get_brand_preference_heatmaps(self, brand_id, region: Optional[str] = None, min_users: int = 10):
         """Tenant-scoped style signals for one brand's products.

@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, Float, Numeric, CheckConstraint
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, Float, Numeric, CheckConstraint, Date, UniqueConstraint
 from sqlalchemy.orm import relationship
 from backend.app.core.database import Base
 
@@ -27,6 +27,7 @@ class SponsoredPlacement(Base):
     placement_type = Column(String(50), default="stylist_featured", nullable=False, index=True) # "stylist_featured", "trending_hero", "fit_recom_top"
     bid_amount_per_click = Column(Numeric(12, 2), default=0.50, nullable=False)
     daily_budget = Column(Numeric(12, 2), default=50.0, nullable=False)
+    spend_day = Column(Date, nullable=True)
     spent_today = Column(Numeric(12, 2), default=0.0, nullable=False)
     status = Column(String(20), default="active", nullable=False, index=True) # "active", "paused", "budget_exhausted"
 
@@ -56,3 +57,21 @@ class StyleHeatmapAggregate(Base):
     top_occasions_json = Column(Text, nullable=False)               # JSON: [{"name":"Smart Casual Work", "weight":48}, ...]
     sample_size = Column(Integer, default=12500, nullable=False)
     calculated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+
+
+class PlacementCounterEvent(Base):
+    __tablename__ = 'placement_counter_events'
+    __table_args__ = (
+        UniqueConstraint('placement_id','kind','key_hash',name='uq_placement_counter_event'),
+        CheckConstraint("kind IN ('impression','click')",name='ck_placement_counter_kind'),
+        CheckConstraint('amount >= 0',name='ck_placement_counter_amount'),
+    )
+    id = Column(Integer,primary_key=True)
+    placement_id = Column(Integer,ForeignKey('sponsored_placements.id',ondelete='RESTRICT'),nullable=False)
+    brand_id = Column(Integer,ForeignKey('brand_profiles.id',ondelete='RESTRICT'),nullable=False,index=True)
+    kind = Column(String(20),nullable=False)
+    key_hash = Column(String(64),nullable=False)
+    amount = Column(Numeric(12,2),nullable=False)
+    event_day = Column(Date,nullable=False)
+    response_json = Column(Text,nullable=False)
+    created_at = Column(DateTime(timezone=True),default=lambda:datetime.now(timezone.utc),nullable=False)

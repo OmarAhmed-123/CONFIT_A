@@ -20,6 +20,7 @@ export interface CatalogImportJob {
 
 export function useBrandViewModel(scope: 'brand' | 'admin' = 'brand') {
   const generation = useRef(0);
+  const [productAfter, setProductAfter] = useState(0);
   const [profile, setProfile] = useState<BrandProfile | null>(null);
   const [analytics, setAnalytics] = useState<BrandAnalyticsDashboard | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
@@ -42,7 +43,7 @@ export function useBrandViewModel(scope: 'brand' | 'admin' = 'brand') {
     try {
       const current = ++generation.current;
       const results = await Promise.allSettled(scope === 'admin' ? [adminService.getPlatformAnalytics()] : [
-        brandService.getProfile(), brandService.getAnalytics(), brandService.getProducts(),
+        brandService.getProfile(), brandService.getAnalytics(), brandService.getProducts(productAfter),
         brandService.getPlacements(), request<CatalogImportJob[]>('/partner/catalog/imports'),
         request<any>('/partner/analytics/conversion'),
       ]);
@@ -84,7 +85,7 @@ export function useBrandViewModel(scope: 'brand' | 'admin' = 'brand') {
       setIsLoading(false);
       showToast(msg('toast.b2b_load_failed', { reason: detail(err) }), 'error');
     }
-  }, [showToast, scope]);
+  }, [showToast, scope, productAfter]);
 
   const updateSKUInventory = useCallback(async (skuId: number, stock: number, priceOverride?: number) => {
     try {
@@ -120,10 +121,13 @@ export function useBrandViewModel(scope: 'brand' | 'admin' = 'brand') {
     try {
       const form = new FormData();
       form.append('file', file);
-      const result = await request<any>('/partner/catalog/upload/csv', {
+      const job = await request<any>('/partner/catalog/jobs/csv', {
         method: 'POST',
+        headers: {'Idempotency-Key': crypto.randomUUID()},
         body: form,
       });
+      await request(`/partner/catalog/jobs/${job.job_id}/run`, {method:'POST'});
+      const result = await request<CatalogImportJob>(`/partner/catalog/imports/${job.job_id}`);
       showToast(
         msg('toast.import_result', {
           status: result.status,
@@ -159,6 +163,7 @@ export function useBrandViewModel(scope: 'brand' | 'admin' = 'brand') {
 
   return {
     profile,
+    productAfter, setProductAfter,
     analytics,
     products,
     placements,

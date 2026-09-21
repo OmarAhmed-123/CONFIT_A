@@ -216,7 +216,12 @@ class TestGateIsWired:
         assert r.status_code == 200
         body = r.json()
         assert "schema" in body["checks"]
-        assert {"verdict", "expected_head", "database_revision", "findings", "acceptable"} <= set(body["checks"]["schema"])
+        # `findings` is deliberately ABSENT from the public payload (audit
+        # 2026-09-21: /health exposed internal readiness detail to anyone who
+        # polls it). The verdict fields the release gate reads stay public — the
+        # gate compares them against the commit's expected revision.
+        assert {"verdict", "expected_head", "database_revision", "acceptable"} <= set(body["checks"]["schema"])
+        assert "findings" not in body["checks"]["schema"]
         assert body["checks"]["schema"]["expected_head"] == expected_head_revision()
         # the test DB is a create_all database: honest verdict, acceptable outside production
         assert body["checks"]["schema"]["verdict"] in ("ok", "unmanaged")
@@ -297,3 +302,105 @@ class TestGateIsWired:
     def test_health_never_claims_vton_operational(self, client):
         r = client.get("/api/v1/health")
         assert r.json()["checks"]["vton_pipeline"] != "operational"
+
+
+class TestHealthPublicSurfaceDoesNotMapTheDeployment:
+    """Audit 2026-09-21: «/health يكشف تفاصيل جاهزية داخلية».
+
+    The endpoint is unauthenticated and polled by the uptime monitor, so its
+    payload is world-readable. These tests pin the line between the two
+    surfaces: liveness and the verdicts other gates depend on stay public, and
+    anything that reads like a deployment inventory moves to the admin-only
+    /health/details.
+    """
+
+    def test_public_health_does_not_leak_a_raw_exception(self, client):
+        """The database check used to interpolate `str(exc)` into this public
+        payload. A driver error carries the host, the database, the role and
+        sometimes the failing SQL."""
+        import json
+
+        from backend.app.controllers import telemetry_controller as tc
+
+        class Boom(Exception):
+            pass
+
+        class _BrokenDb:
+            @staticmethod
+            def execute(_cmd):
+                raise Boom(
+                    "connection to server at \"db.internal\", port 5432 failed: "
+                    "password authentication failed for user \"confit\""
+                )
+
+        body = tc.health_check(db=_BrokenDb())
+        payload = json.dumps(body)
+        assert "db.internal" not in payload, "host leaked to an anonymous caller"
+        assert "password" not in payload.lower(), "credential material leaked"
+        assert body["checks"]["database"] == "unhealthy"
+        assert body["status"] == "degraded"
+
+    def test_public_vton_status_does_not_name_internal_env_vars(self, client, monkeypatch):
+        from backend.app.core.config import settings
+
+        monkeypatch.setattr(settings, "VTON_WORKER_URL", "https://example.invalid--worker.modal.run")
+        monkeypatch.setattr(settings, "VTON_WORKER_ADMIN_TOKEN", None)
+        monkeypatch.setattr(settings, "CONFIT_WORKER_ADMIN_TOKEN", None)
+        monkeypatch.delenv("VTON_WORKER_ADMIN_TOKEN", raising=False)
+        monkeypatch.delenv("CONFIT_WORKER_ADMIN_TOKEN", raising=False)
+
+        status = client.get("/api/v1/health").json()["checks"]["vton_pipeline"]
+        # The honesty contract from the earlier remediation still holds …
+        assert status.startswith("misconfigured")
+        assert "operational" not in status
+        # … but the anonymous caller no longer learns the variable names.
+        assert "VTON_WORKER_URL" not in status
+        assert "VTON_WORKER_ADMIN_TOKEN" not in status
+        assert "VTON_AUTH_FAILURE" not in status
+
+    def test_public_storage_summary_has_no_paths_or_buckets(self, client):
+        storage = client.get("/api/v1/health").json()["checks"]["storage"]
+        flat = str(storage)
+        assert "storage_root" not in storage
+        assert "/home/" not in flat and "/var/" not in flat
+        assert set(storage) <= {"provider", "production_grade", "probe_ok", "probe_verdict", "reason"}
+
+    def test_public_health_has_no_ai_provider_inventory(self, client):
+        body = client.get("/api/v1/health").json()
+        assert "ai_providers" not in body
+
+    def test_details_endpoint_is_admin_only(self):
+        """Asserted on the ROUTE, not on a request: the guard is a dependency,
+        and reading the source is what proves nobody quietly dropped it."""
+        import inspect
+
+        from backend.app.controllers import telemetry_controller as tc
+
+        src = inspect.getsource(tc.health_details)
+        assert "require_role(ADMIN_ROLES)" in src
+        assert "include_in_schema=False" in inspect.getsource(tc).split("def health_details")[0].rsplit("@router.get", 1)[-1]
+
+    def test_details_endpoint_keeps_the_diagnostics_operators_need(self):
+        """Called directly: the dependency is the HTTP-layer guard, and this
+        test is about the content an authenticated operator receives."""
+        from types import SimpleNamespace
+
+        from backend.app.controllers import telemetry_controller as tc
+
+        class _Db:
+            @staticmethod
+            def execute(_cmd):
+                return None
+
+        body = tc.health_details(
+            db=_Db(), user=SimpleNamespace(role="admin", id=1)
+        )
+        # The tightening must not cost operators their view.
+        assert "findings" in body["checks"]["schema"]
+        assert "ai_providers" in body
+        assert body["checks"]["vton_pipeline"]["required_env"] == [
+            "VTON_WORKER_URL",
+            "VTON_WORKER_ADMIN_TOKEN",
+        ]
+        assert "database_error" in body["checks"]
+        assert "storage" in body["checks"]

@@ -2,7 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router-dom';
 import { SKIP_TARGET_ID } from '../components/common/SkipLink';
-import { composeTitle, titleKeyForPath } from '../a11y/routes';
+import { composeTitle, descriptionKeyForPath, titleKeyForPath } from '../a11y/routes';
+import { syncDocumentMeta } from '../seo/documentMeta';
 
 /**
  * useRouteAnnouncement — makes a client-side navigation perceivable.
@@ -50,9 +51,16 @@ export function useRouteAnnouncement(): string {
     const pageTitle = t(titleKey);
     const fullTitle = composeTitle(pageTitle);
 
-    if (typeof document !== 'undefined') {
-      document.title = fullTitle;
-    }
+    // Title + description + Open Graph, from the SAME route table and the same
+    // language, in one place. They share a trigger (route or language change)
+    // and must never disagree, so they are written together rather than by two
+    // effects that would drift.
+    const descriptionKey = descriptionKeyForPath(location.pathname);
+    syncDocumentMeta({
+      title: fullTitle,
+      description: descriptionKey ? t(descriptionKey) : undefined,
+      lang: (i18n.language as 'en' | 'ar') ?? 'en',
+    });
 
     // Initial mount: title yes (so the tab is right immediately), focus no.
     if (isFirstRender.current) {

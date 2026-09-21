@@ -1,6 +1,7 @@
 import { msg, translatableFrom, resolveMessage, type TranslatableMessage } from '../../i18n/messages';
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useModalFocus } from '../../hooks/useModalFocus';
+import { usePhotoConsent } from '../../privacy/usePhotoConsent';
 import { useTranslation } from 'react-i18next';
 import { RulerIcon, SparkleIcon, TryOnIcon, LockIcon, ShieldIcon } from '../icons/ConfitIcons';
 import { FitScoreBadge } from '../common/CommonComponents';
@@ -32,6 +33,9 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
   const panelRef = useModalFocus<HTMLDivElement>(onClose, isOpen);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  // Consent for the body-scan photo. The gate is what makes the
+  // `consentGranted: true` below TRUE instead of asserted.
+  const { requestConsent, consentDialog } = usePhotoConsent('body_scan');
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const animFrameId = useRef<number | null>(null);
@@ -360,15 +364,27 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
           setEstimatedData(derived);
           setScanStep('result');
 
-          // Submit results to backend measurement session asynchronously
-          // Consent: the user explicitly started this scan and is looking at
-          // the disclosure above the button. That action is the consent, and
-          // it is recorded once here — the server refuses to store
-          // measurements against a session that was created without it.
-          measurementService.createSession('client_side', { consentGranted: true })
-            .then((sess) => {
+          // Submit results to the backend measurement session — but ONLY with a
+          // real grant.
+          //
+          // This used to read: "the user explicitly started this scan and is
+          // looking at the disclosure above the button. That action is the
+          // consent." It is not. GDPR Art.7 requires an affirmative act for the
+          // specific purpose; pressing Start is an act to obtain a size, and the
+          // photo and the measurements are a separate, later decision. The old
+          // code sent `consentGranted: true` on the user's behalf, which is a
+          // pre-ticked box with better grammar.
+          //
+          // The local size estimate has already been shown by this point, so
+          // declining costs the user nothing they came for.
+          void (async () => {
+            if (!(await requestConsent())) return;
+            try {
+              const sess = await measurementService.createSession('client_side', {
+                consentGranted: true,
+              });
               if (sess?.id) {
-                return measurementService.submitResults(sess.id, {
+                await measurementService.submitResults(sess.id, {
                   height_cm: derived.height_cm,
                   shoulder_width_cm: derived.shoulder_cm,
                   chest_cm: derived.chest_cm,
@@ -380,8 +396,11 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
                   source: derived.source,
                 });
               }
-            })
-            .catch(() => {});
+            } catch {
+              /* the size estimate above already succeeded; a failed session
+                 save must not erase it or raise a second, confusing error */
+            }
+          })();
         }
       }, (idx + 1) * 350);
     });
@@ -434,8 +453,10 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
   ];
 
   return (
+    <>
+      {consentDialog}
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-in fade-in duration-150">
-      <div ref={panelRef} role="dialog" aria-modal="true" aria-label="Body scan size studio" tabIndex={-1} className="w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden max-h-[92vh] flex flex-col">
+      <div ref={panelRef} role="dialog" aria-modal="true" aria-label={t('tryon.scan_studio_aria')} tabIndex={-1} className="w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden max-h-[92vh] flex flex-col">
         {/* Header */}
         <div className="p-4 sm:p-5 bg-[#0C0E1E] text-white flex justify-between items-center border-b border-slate-800">
           <div className="flex items-center gap-3">
@@ -444,7 +465,7 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
             </div>
             <div>
               <h3 className="font-serif text-base sm:text-lg font-bold text-white flex items-center gap-2">
-                <span>Privacy-First Size Studio</span>
+                <span>{t('tryon.scan_studio_title')}</span>
                 <span className="text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full font-mono">
                   Private · In-Browser
                 </span>
@@ -550,7 +571,7 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
                         <div className="absolute top-3 left-3 right-3 flex justify-between items-center pointer-events-none z-10">
                           <div className="px-3 py-1 rounded-full bg-slate-950/80 backdrop-blur-md text-[#C5A059] text-[10px] font-mono font-bold flex items-center gap-1.5 border border-[#C5A059]/40 shadow-xs">
                             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                            <span>Align Head & Torso Inside Guide</span>
+                            <span>{t('tryon.scan_align_hint')}</span>
                           </div>
                           <div className="px-2.5 py-1 rounded-full bg-slate-950/80 text-slate-300 text-[10px] font-mono border border-slate-700">
                             Live {fps} FPS
@@ -582,7 +603,7 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
                     {cameraLoading && (
                       <div className="text-center space-y-2">
                         <div className="w-8 h-8 border-3 border-[#C5A059] border-t-transparent rounded-full animate-spin mx-auto"></div>
-                        <span className="text-xs text-slate-400">Initializing secure video stream...</span>
+                        <span className="text-xs text-slate-400">{t('tryon.scan_init_stream')}</span>
                       </div>
                     )}
                   </div>
@@ -604,7 +625,7 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
                         className="flex-1 py-3.5 rounded-2xl bg-[#1B1F3B] hover:bg-[#0C0E1E] text-white font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2"
                       >
                         <SparkleIcon size={16} color="#C5A059" />
-                        <span>Capture & Estimate Body Matrix</span>
+                        <span>{t('tryon.scan_capture_cta')}</span>
                       </button>
                     </div>
                   )}
@@ -787,7 +808,7 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
               {/* Progress and Radar Logs */}
               <div className="max-w-md mx-auto space-y-3">
                 <div className="flex justify-between items-center text-xs font-mono text-slate-700">
-                  <span className="font-bold text-[#1B1F3B]">Compiling Your Size Profile</span>
+                  <span className="font-bold text-[#1B1F3B]">{t('tryon.scan_compiling')}</span>
                   <span className="font-bold text-[#C5A059]">{scanProgress}%</span>
                 </div>
 
@@ -844,37 +865,37 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 text-xs flex-1 w-full">
                   <div className="p-3 rounded-2xl bg-[#FAF9F6] border border-slate-200/80">
-                    <span className="text-slate-400 text-[10px] block">Calibrated Stature</span>
+                    <span className="text-slate-400 text-[10px] block">{t('tryon.scan_field_height')}</span>
                     <span className="text-sm font-bold text-slate-900">{estimatedData.height_cm} cm</span>
                     <span className="text-[10px] text-slate-500 block font-medium">{estimatedData.confidence_score}% · self-reported</span>
                   </div>
 
                   <div className="p-3 rounded-2xl bg-[#FAF9F6] border border-slate-200/80">
-                    <span className="text-slate-400 text-[10px] block">Shoulder Width</span>
+                    <span className="text-slate-400 text-[10px] block">{t('tryon.scan_field_shoulder')}</span>
                     <span className="text-sm font-bold text-slate-900">{estimatedData.shoulder_cm} cm</span>
-                    <span className="text-[10px] text-slate-500 block font-light">Your entered value</span>
+                    <span className="text-[10px] text-slate-500 block font-light">{t('tryon.scan_your_value')}</span>
                   </div>
 
                   <div className="p-3 rounded-2xl bg-[#FAF9F6] border border-slate-200/80">
-                    <span className="text-slate-400 text-[10px] block">Chest Circumference</span>
+                    <span className="text-slate-400 text-[10px] block">{t('tryon.scan_field_chest')}</span>
                     <span className="text-sm font-bold text-slate-900">{estimatedData.chest_cm} cm</span>
-                    <span className="text-[10px] text-slate-500 block font-light">Your entered value</span>
+                    <span className="text-[10px] text-slate-500 block font-light">{t('tryon.scan_your_value')}</span>
                   </div>
 
                   <div className="p-3 rounded-2xl bg-[#FAF9F6] border border-slate-200/80">
                     <span className="text-slate-400 text-[10px] block">Waistline</span>
                     <span className="text-sm font-bold text-slate-900">{estimatedData.waist_cm} cm</span>
-                    <span className="text-[10px] text-slate-500 block font-light">Your entered value</span>
+                    <span className="text-[10px] text-slate-500 block font-light">{t('tryon.scan_your_value')}</span>
                   </div>
 
                   <div className="p-3 rounded-2xl bg-[#FAF9F6] border border-slate-200/80">
-                    <span className="text-slate-400 text-[10px] block">Body Silhouette</span>
+                    <span className="text-slate-400 text-[10px] block">{t('tryon.scan_field_silhouette')}</span>
                     <span className="text-sm font-bold text-slate-900">{estimatedData.body_shape}</span>
                     <span className="text-[10px] text-slate-500 block font-light">V-Drop ratio</span>
                   </div>
 
                   <div className="p-3 rounded-2xl bg-[#FDF8EE] border border-[#C5A059]/40">
-                    <span className="text-[#C5A059] text-[10px] font-bold block">Recommended Size</span>
+                    <span className="text-[#C5A059] text-[10px] font-bold block">{t('tryon.scan_recommended_size')}</span>
                     <span className="text-sm font-bold text-[#1B1F3B]">{estimatedData.predicted_size}</span>
                     <span className="text-[10px] text-slate-500 block font-semibold">Size-chart match — try-on fit still verified by the render engine</span>
                   </div>
@@ -902,7 +923,7 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
                   className="flex-1 py-3 rounded-xl bg-[#1B1F3B] hover:bg-[#0C0E1E] text-white font-bold text-xs shadow-md transition-all flex items-center justify-center gap-1.5"
                 >
                   <SparkleIcon size={14} color="#C5A059" />
-                  <span>Apply to Sizing & Try-On Studio</span>
+                  <span>{t('tryon.scan_apply_cta')}</span>
                 </button>
               </div>
             </div>
@@ -910,5 +931,6 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
         </div>
       </div>
     </div>
+    </>
   );
 };

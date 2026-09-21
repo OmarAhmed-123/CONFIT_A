@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 from decimal import Decimal
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from backend.app.schemas.money_types import PositiveMoney, OptionalPositiveMoney
 
 
@@ -52,7 +52,10 @@ class ProductCreateInput(BaseModel):
 
 
 class CatalogBulkImportRequest(BaseModel):
-    products: List[ProductCreateInput]
+    model_config = ConfigDict(extra="forbid")
+    # Row validation is shared with CSV and reports all field errors per row.
+    products: List[Dict[str, Any]] = Field(min_length=1, max_length=1000)
+
 
 
 class SponsoredPlacementCreate(BaseModel):

@@ -16,13 +16,7 @@ class BrandService:
         """Resolves Brand Organization for the requesting user with strict tenant validation."""
         bp = self.brand_repo.get_by_user_id(user.id)
         if not bp:
-            if user.role == UserRole.ADMIN:
-                all_b = self.brand_repo.get_all_brands()
-                bp = all_b[0] if all_b else None
-                if not bp:
-                    raise ResourceNotFoundError("BrandProfile for admin", user.id)
-            else:
-                raise AuthorizationError(f"User {user.email} is not associated with an active Brand Organization.")
+            raise AuthorizationError("No Brand Organization linked to this account. Request partner onboarding; administrators must use explicit admin routes.")
         return self._format_brand(bp)
 
     def get_brand_analytics_dashboard(self, user: User, brand_id: int) -> Dict[str, Any]:
@@ -151,6 +145,9 @@ class BrandService:
             "clicks": p.clicks,
             "conversions": p.conversions,
             "revenue_generated": p.revenue_generated,
+            "start_date": p.start_date,
+            "end_date": p.end_date,
+            "updated_at": p.updated_at,
             "created_at": p.created_at
         }
 
@@ -173,7 +170,10 @@ class BrandService:
                 "clicks": p.clicks,
                 "conversions": p.conversions,
                 "revenue_generated": p.revenue_generated,
-                "created_at": p.created_at
+                "start_date": p.start_date,
+            "end_date": p.end_date,
+            "updated_at": p.updated_at,
+            "created_at": p.created_at
             }
             for p in placements
         ]

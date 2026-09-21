@@ -77,9 +77,10 @@ class BrandRepository:
         if bid_dec > self.MAX_BID_PER_CLICK:
             raise ValueError(f"Bid amount exceeds maximum allowed ({self.MAX_BID_PER_CLICK})")
 
-        # Validate dates
-        if start_date and end_date and start_date >= end_date:
-            raise ValueError("Start date must be before end date")
+        from backend.app.services.placement_policy import validate_placement
+        normalized = validate_placement(dict(bid_amount_per_click=bid_dec, daily_budget=budget_dec,
+            placement_type=placement_type, start_date=start_date, end_date=end_date))
+        start_date, end_date = normalized["start_date"], normalized["end_date"]
 
         placement = SponsoredPlacement(
             brand_id=brand_id,
@@ -132,7 +133,7 @@ class BrandRepository:
         store = self.db.query(StoreLocation).filter(
             StoreLocation.id == store_id,
             StoreLocation.brand_id == brand_id
-        ).first()
+        ).with_for_update().first()
         if not store:
             raise ValueError(f"Store {store_id} does not belong to brand {brand_id}")
 

@@ -258,7 +258,7 @@ Stated so nobody has to discover it later:
   `seed_database()` correctly refuses to touch a database that already has users,
   so PR #126's charts reach a fresh database only. Verified against production
   after deploy: product 3 still reports `size_chart_source: standard_en13402`.
-  `backend/scripts/backfill_size_charts.py` (PR #135) exists to close this and is
+  `backend/scripts/backfill_size_charts.py` (PR #139) exists to close this and is
   tested, but **it has not been run against production**: the `DATABASE_URL`
   credential provided for this work is rejected by the Neon instance
   (`password authentication failed for user 'neondb_owner'`). Someone with a

@@ -670,6 +670,46 @@ export interface AutocompleteResponse {
   suggestions: AutocompleteSuggestion[];
 }
 
+/**
+ * One published cell of a style-signal aggregate.
+ *
+ * Every dimension uses this ONE shape (G-04): the backend previously emitted
+ * `{name, share}` from the dashboard endpoint and `{name, weight, count}` from
+ * the standalone heatmap endpoint, and colours as `string[]` in one and
+ * `{color, weight, count}[]` in the other — so the dashboard rendered
+ * `undefined%` bars and then threw on `trending_colors.map`.
+ */
+export interface StyleHeatmapCell {
+  name: string;
+  /** Value exactly as stored, before any display casing. */
+  raw_name?: string;
+  /** Percentage of ALL occurrences in this dimension, not just the top-N. */
+  share: number;
+  count: number;
+}
+
+export interface StyleHeatmap {
+  /** Display label. "Platform-wide" unless a real region predicate ran. */
+  region: string;
+  region_scope?: string;
+  region_filter_applied?: boolean;
+  /** Window actually applied to the SQL predicate; nulls mean unbounded. */
+  period?: { from: string | null; to: string | null } | null;
+  /** Outfits actually aggregated — never inflated to a user count. */
+  sample_size?: number;
+  min_sample_required?: number;
+  k_anonymity_floor?: number;
+  /** False => every list is empty BY DESIGN; render the reason, not a chart. */
+  data_available?: boolean;
+  top_aesthetics: StyleHeatmapCell[];
+  trending_colors: StyleHeatmapCell[];
+  top_occasions: StyleHeatmapCell[];
+  suppressed_cells?: number;
+  privacy_threshold?: string;
+  methodology?: string;
+  limitations?: string[];
+}
+
 export interface AdminPlatformAnalytics {
   total_users_count: number;
   total_brands_count: number;
@@ -693,13 +733,7 @@ export interface AdminPlatformAnalytics {
     return_rate: string;
     return_rate_value?: number;
   }>;
-  style_preference_heatmap: {
-    region: string;
-    sample_size?: number;
-    top_aesthetics: Array<{ name: string; share: number; weight?: number }>;
-    trending_colors: string[];
-    top_occasions?: Array<{ name: string; share: number }>;
-  };
+  style_preference_heatmap: StyleHeatmap;
   most_styled_items?: Array<{
     product_id: number;
     title: string;

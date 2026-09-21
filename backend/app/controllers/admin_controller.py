@@ -184,14 +184,29 @@ def get_admin_returns_overview(
 
 @router.get("/analytics/heatmaps")
 def get_admin_heatmaps(
-    region: str = Query("MENA", description="Region filter"),
+    region: Optional[str] = Query(
+        None,
+        description=(
+            "Accepted but NOT applied, and reported as such: the platform stores no "
+            "region attribute on users or outfits, so a region-filtered number would "
+            "be fabricated. The response echoes requested_region and sets "
+            "region_filter_applied=false (same contract as the partner endpoint)."
+        ),
+    ),
+    date_from: Optional[datetime] = Query(None, description="ISO-8601 lower bound on Outfit.created_at"),
+    date_to: Optional[datetime] = Query(None, description="ISO-8601 upper bound on Outfit.created_at"),
     user: User = Depends(require_role([UserRole.ADMIN])),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
-    """Aggregate anonymized style preferences - never individual"""
-    repo = BrandRepository(db)
-    heatmaps = repo.get_user_preference_heatmaps(region=region)
-    return heatmaps
+    """Aggregate anonymised style signals from real outfits - never individual.
+
+    Shares one implementation with ``/admin/analytics`` (``style_preference_
+    heatmap``) and ``/partner/analytics/heatmaps``: the same wire shape, the
+    same k-anonymity floor, and no fabricated rows when the sample is thin.
+    """
+    return BrandRepository(db).get_user_preference_heatmaps(
+        region=region, date_from=date_from, date_to=date_to
+    )
 
 
 @router.get("/analytics/brand-performance")

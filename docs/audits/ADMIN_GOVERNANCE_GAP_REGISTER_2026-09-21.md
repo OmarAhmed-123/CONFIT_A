@@ -13,7 +13,24 @@ audit trail, admin order transitions, health / observability.
 
 ---
 
+## Status summary (updated as PRs merge)
+
+| Gaps | Status | PR |
+|---|---|---|
+| G-05, G-06, G-07, G-16 — audit trail truth, redaction, UI, honest tests | ✅ shipped | #135 |
+| G-01, G-02, G-03, G-04 — style heatmap honesty and one contract | ✅ shipped | #143 |
+| G-08, G-09 — public health vs internal readiness | ⏳ open | next |
+| G-10, G-11, G-12 — admin access governance and bootstrap | ⏳ open | next |
+| G-13, G-14, G-15 — analytics correctness and query cost | ⏳ open | next |
+
+This register is a teaching artefact, not a scorecard: every row exists so the
+next person can see *why* the fix looks the way it does.
+
+---
+
 ## G-01 — Admin analytics ships hardcoded fake data on an empty database  *(VERIFIED — code read + reproduction test)*
+
+**Status:** ✅ **FIXED** — PR #143. The fabricated block is deleted; the endpoint returns `data_available: false` and empty lists instead.
 
 `backend/app/repositories/brand_repository.py:674-684`
 
@@ -47,6 +64,8 @@ hardcoded aesthetic/colour ever reappears.
 
 ## G-02 — Privacy (k-anonymity) threshold is bypassable and the sample size is inflated  *(CODE-READ)*
 
+**Status:** ✅ **FIXED** — PR #143. `sample_size` is the analysed sample, cells below `k_anonymity_floor: 5` are suppressed and counted in `suppressed_cells`.
+
 `brand_repository.py:659-672`
 
 ```python
@@ -74,6 +93,8 @@ sample" instead of guessing.
 
 ## G-03 — `region` is a filter that does not filter, and `period` is a constant  *(CODE-READ)*
 
+**Status:** ✅ **FIXED** — PR #143. `region` is accepted and echoed as `requested_region` with `region_filter_applied: false` plus a `limitations` entry, matching the convention #132 set on the partner endpoint. `period` is a real `{from,to}` or `null`.
+
 `brand_repository.py:926` (`get_user_preference_heatmaps(region=...)`) never
 uses `region`; it returns `"region": region` alongside platform-wide numbers.
 `get_platform_admin_analytics` hardcodes `"region": "MENA & GCC"`
@@ -90,6 +111,8 @@ labelled `EU`. That is a mislabelled metric, not a filter.
 ---
 
 ## G-04 — Two divergent heatmap implementations, one contract the frontend cannot render  *(VERIFIED)*
+
+**Status:** ✅ **FIXED** — PR #143. One builder (`get_style_heatmap`), one cell contract (`{name, raw_name, share, count}`) on all three endpoints.
 
 | | `get_platform_admin_analytics` (`:616-672`) | `get_user_preference_heatmaps` (`:926-1000`) |
 |---|---|---|
@@ -113,6 +136,8 @@ endpoints, one wire contract, one frontend type.
 
 ## G-05 — Audit trail endpoint discards half the audit row  *(CODE-READ)*
 
+**Status:** ✅ **FIXED** — PR #135. The endpoint returns the full row incl. `before`/`after`/`changed_fields`/`request_id`, paginated.
+
 `admin_controller.py:178-197` returns only `id/action/actor/entity/details/timestamp`.
 The model (`models/user.py:103-119`) also stores `before_json`, `after_json`,
 `request_id`, `ip_address` — the exact columns migration
@@ -135,6 +160,8 @@ trail; the read itself audited; client IP captured for every admin action.
 
 ## G-06 — Audit write path has a documented redaction contract and no enforcement  *(CODE-READ)*
 
+**Status:** ✅ **FIXED** — PR #135. `core/audit_redaction.py` enforces the contract on write; regression test fails if a secret survives.
+
 `repositories/user_repository.py:56-88` — the docstring says *"Callers must never
 pass sensitive values in details/before/after"*. Nothing enforces it. There are
 **30 `log_audit(` call sites** across 6 modules; the contract rests entirely on
@@ -151,6 +178,8 @@ asserts it never lands in the row.
 
 ## G-07 — `/admin/audit` has no UI; the route renders the analytics dashboard  *(CODE-READ)*
 
+**Status:** ✅ **FIXED** — PR #135. `/admin/audit` renders `AdminAuditView`; navbar link added in PR #136 (it was lost resolving a merge conflict).
+
 `frontend/src/router/AppRoutes.tsx:211` → `<Route path="audit" element={<AdminAnalyticsView />} />`.
 `adminService.getAuditLogs()` (`services/apiServices.ts:936`) has no caller
 anywhere in `frontend/src`. The audit trail is unreachable from the product.
@@ -161,6 +190,8 @@ request-id correlation) wired to the route.
 ---
 
 ## G-08 — Public `/health` publishes internal configuration  *(VERIFIED against production)*
+
+**Status:** ⏳ OPEN — planned for the health/readiness split PR.
 
 `curl https://confit-a.vercel.app/api/v1/health` → 200, body includes:
 
@@ -183,6 +214,8 @@ an explicit non-empty `degraded` list (never empty-and-lying). New ops-gated
 
 ## G-09 — `storage.production_grade=false` hides behind `status: healthy`  *(VERIFIED against production)*
 
+**Status:** ⏳ OPEN — planned for the health/readiness split PR.
+
 `telemetry_controller.py:198`:
 
 ```python
@@ -203,6 +236,8 @@ by name in the public liveness payload.
 
 ## G-10 — No test proves a consumer cannot reach an admin alias  *(VERIFIED)*
 
+**Status:** ⏳ OPEN — planned for the admin access governance PR.
+
 Admin endpoints are registered with **five aliases**:
 `/admin/analytics`, `/admin/overview`, `/admin/analytics/overview`,
 `/admin/analytics/features`, `/admin/analytics/attribution`
@@ -218,6 +253,8 @@ aliases are covered automatically.
 
 ## G-11 — `require_admin_recent` does not use the platform's token extractor  *(CODE-READ)*
 
+**Status:** ⏳ OPEN — planned for the admin access governance PR.
+
 `core/dependencies.py:120-138` reads the token as
 `credentials.credentials if credentials else request.cookies.get("confit_token")`,
 while every other endpoint goes through `_extract_token` (`:37-52`), which
@@ -231,6 +268,8 @@ rest of the API works.
 ---
 
 ## G-12 — No production admin account and no sanctioned way to create one  *(VERIFIED)*
+
+**Status:** ⏳ OPEN — planned for the admin access governance PR.
 
 `seed_data.py:68-78` creates `admin@confit.io / Password123!` and refuses to run
 when `ENVIRONMENT=production` (`:23-31`). That refusal is correct — but it leaves
@@ -248,6 +287,8 @@ can be exercised end to end.
 
 ## G-13 — GMV is computed two different ways in the same dashboard  *(CODE-READ)*
 
+**Status:** ⏳ OPEN — planned for the analytics correctness/perf PR.
+
 `brand_repository.py:503` uses `notin_(["cancelled", "refunded"])`;
 `get_revenue_attribution` (`:893`) uses `self.INELIGIBLE_ORDER_STATUSES`, which
 also excludes `failed` / `rejected`. `total_gmv` and
@@ -260,6 +301,8 @@ the payload's methodology text.
 ---
 
 ## G-14 — N+1 query storm on the admin analytics endpoint  *(CODE-READ)*
+
+**Status:** ⏳ OPEN — planned for the analytics correctness/perf PR.
 
 `brand_repository.py:578-611` — per brand, five separate queries
 (orders, products, views, try-ons, returns) inside a Python loop over
@@ -275,6 +318,8 @@ in-memory join.
 
 ## G-15 — No time-range dimension anywhere in admin analytics  *(CODE-READ)*
 
+**Status:** ⏳ OPEN — planned for the analytics correctness/perf PR.
+
 Every admin analytics query is lifetime-only. An admin cannot answer "GMV in the
 last 30 days", so the dashboard cannot support the one question a dashboard
 exists for.
@@ -285,6 +330,8 @@ predicates of every aggregate.
 ---
 
 ## G-16 — Tests that cannot fail  *(CODE-READ)*
+
+**Status:** ✅ **FIXED** — PR #135. The source-inspection assertions were replaced with behavioural ones that fail on a reverted implementation.
 
 - `test_audit_logging.py:77` — `assert ... or True`.
 - `test_audit_logging.py:67-77` — asserts a docstring contains a word.

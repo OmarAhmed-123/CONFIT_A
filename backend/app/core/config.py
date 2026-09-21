@@ -356,6 +356,16 @@ class Settings(BaseSettings):
     AWS_REGION: str = "us-east-1"
     S3_ENDPOINT_URL: Optional[str] = None
     S3_PUBLIC_URL_BASE: Optional[str] = None
+    # AWS-SDK-standard name for the S3 endpoint. Neon Object Storage (and the
+    # AWS SDK env chain) injects AWS_ENDPOINT_URL_S3, so it is accepted as a
+    # fallback; an explicit S3_ENDPOINT_URL always wins.
+    AWS_ENDPOINT_URL_S3: Optional[str] = None
+    # Private buckets (Neon Object Storage's default access level) reject
+    # anonymous browser reads of plain endpoint URLs. The API layer therefore
+    # swaps owned-object URLs for time-limited presigned GET URLs at response
+    # time. The database keeps the canonical URL forever; the signature TTL
+    # applies to API responses only.
+    S3_PRESIGN_EXPIRY_SECONDS: int = 3600
 
     # Privacy & Retention
     POLICY_VERSION: int = 3

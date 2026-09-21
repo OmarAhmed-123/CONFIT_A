@@ -15,19 +15,20 @@ import pytest
 
 from backend.scripts.check_release_schema_parity import evaluate
 
-# `evaluate` compares revision identifiers as opaque strings, so these are
-# deliberately SYNTHETIC fixtures rather than live revision ids. They were
-# previously written as "0018_partner_onboarding_email_lifecycle" / "0017_...",
-# which read as real revisions — but 0018 has never existed in
-# backend/alembic/versions, so the pin silently described a chain that was not
-# the chain. A reader could not tell the gate's fixtures from its facts.
+# Synthetic fixtures, never live revision ids: a reader must be able to tell the
+# gate's fixtures from its facts. The live chain is asserted separately, in
+# `test_the_real_migration_head_is_a_single_resolvable_revision`, so a rename or
+# a second head is caught there rather than by a stale constant here.
 #
-# The live chain is asserted separately, in
-# `test_the_real_migration_head_is_a_single_resolvable_revision`, so that a
-# rename or a second head is caught by the chain test rather than by a stale
-# constant here.
+# They are NUMERICALLY ordered on purpose. Since 2026-09-21 `evaluate` compares
+# direction, not just equality, and it orders revisions by the migration chain
+# when it knows them and by the leading zero-padded number when it does not —
+# which is the case that matters, because production can carry a migration this
+# commit has never seen. Fixtures with no ordering signal could not express
+# "ahead" at all.
 HEAD = "9999_synthetic_newer_revision"
 PREV = "9998_synthetic_older_revision"
+UNORDERABLE = "synthetic_revision_with_no_number"
 
 
 def test_parity_passes():
@@ -43,10 +44,50 @@ def test_production_behind_the_commit_blocks():
     assert "alembic" in detail  # tells the operator what to do instead of merging
 
 
-def test_production_ahead_of_the_commit_also_blocks():
-    """A database ahead of the code is drift for that code: it is not deployable either."""
-    code, detail = evaluate(PREV, {"database_revision": HEAD, "verdict": "drift"})
-    assert code == 1, detail
+def test_production_ahead_of_the_commit_is_safe_to_merge():
+    """2026-09-21: this used to block, and that was the wrong call.
+
+    A preview-branch deployment applied 0018_outfit_share_lifecycle to the
+    shared production database while main still expected 0017. This gate
+    reported the mismatch as a block, so every merge to main froze behind a
+    branch that had nothing to do with it.
+
+    Code that asks only for 0017 runs on a 0018 schema — that is what the
+    runtime required-object check verifies per request. "Production is newer
+    than this commit" protects nothing by blocking; it just serialises the
+    whole repository behind whoever shipped a migration first.
+
+    Still reported, never silently equal: the message says production is AHEAD
+    and says the real fix is per-environment databases.
+    """
+    code, detail = evaluate(PREV, {"database_revision": HEAD, "verdict": "ahead"})
+    assert code == 0, detail
+    assert "AHEAD" in detail
+
+
+def test_a_revision_this_tree_has_never_seen_is_read_as_ahead():
+    """The exact 2026-09-21 shape: production on a revision main does not know.
+
+    The revision is not in this tree's chain, so it is ordered by its numeric
+    prefix. The gate says so out loud rather than presenting an inference as a
+    measurement.
+    """
+    code, detail = evaluate(
+        "0017_audit_before_after_request_id",
+        {"database_revision": "0018_outfit_share_lifecycle", "verdict": "ahead"},
+    )
+    assert code == 0, detail
+    assert "AHEAD" in detail
+
+
+def test_revisions_that_cannot_be_ordered_are_indeterminate_never_a_pass():
+    """No ordering signal, no direction claim. A gate that guesses is worse than none."""
+    code, detail = evaluate(UNORDERABLE, {"database_revision": HEAD})
+    assert code == 2, detail
+    assert "never passes on a guess" in detail
+
+    code, detail = evaluate(HEAD, {"database_revision": UNORDERABLE})
+    assert code == 2, detail
 
 
 def test_unmanaged_database_is_indeterminate_not_a_pass():

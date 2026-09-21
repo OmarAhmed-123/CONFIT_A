@@ -185,10 +185,21 @@ def run(base_url: str, report_path: str) -> int:
                  declared=declared, recomputed=recomputed,
                  canonical_bytes=integrity.get("canonical_bytes"))
 
-        # -- 7. documented cleanup ------------------------------------------
-        r = client.delete("/auth/account", headers=hdr)
-        ev.check("cleanup: DELETE /auth/account -> 200", r.status_code == 200,
-                 status=r.status_code)
+        # -- 7. deletion step-up + documented cleanup -----------------------
+        # Deletion without confirmation/password must be refused (round-2
+        # hardening): a bare DELETE was previously enough.
+        r = client.request("DELETE", "/auth/account", headers=hdr,
+                           json={"confirm": "DELETE"})
+        ev.check("delete WITHOUT password -> 401 (step-up enforced)",
+                 r.status_code == 401, status=r.status_code)
+        r = client.request("DELETE", "/auth/account", headers=hdr,
+                           json={"confirm": "nope", "password": password})
+        ev.check("delete with wrong confirm literal -> 401",
+                 r.status_code == 401, status=r.status_code)
+        r = client.request("DELETE", "/auth/account", headers=hdr,
+                           json={"confirm": "DELETE", "password": password})
+        ev.check("cleanup: DELETE with confirm+password -> 200",
+                 r.status_code == 200, status=r.status_code)
         deleted = True
         r = login()
         ev.check("cleanup verified: probe login now 401 (account gone)",
@@ -204,7 +215,8 @@ def run(base_url: str, report_path: str) -> int:
         # Cleanup is part of the contract — try even after a failure.
         if not deleted and hdr:
             try:
-                r = client.delete("/auth/account", headers=hdr)
+                r = client.request("DELETE", "/auth/account", headers=hdr,
+                                   json={"confirm": "DELETE", "password": password})
                 ev.record("best-effort cleanup after failure",
                           r.status_code == 200, status=r.status_code)
             except Exception as exc:  # noqa: BLE001

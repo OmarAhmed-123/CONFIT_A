@@ -637,7 +637,11 @@ def test_account_deletion_succeeds_even_with_business_history():
     })
     assert ck.status_code == 200
 
-    r = client.delete("/api/v1/auth/account", headers=hdr)
+    # Step-up contract (gap-closure round 2): explicit confirm + password.
+    r = client.request(
+        "DELETE", "/api/v1/auth/account", headers=hdr,
+        json={"confirm": "DELETE", "password": "StrongPassw0rd!"},
+    )
     assert r.status_code == 200
     # And a subsequent /auth/me with that token must fail
     r2 = client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {login['access_token']}"})

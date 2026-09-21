@@ -42,15 +42,61 @@ def test_guided_fit_uses_size_profile_not_fake_confidence(client):
 
 
 def test_vton_capability_registry_distinguishes_supported_and_unsupported(client, monkeypatch):
+    """Category -> slot mapping is the backend's decision, never the client's.
+
+    The worker verdict is stubbed to "ready" because engine availability is now
+    a MEASURED property (live probe), not a consequence of VTON_WORKER_URL being
+    set. Asserting engine_state == 'available' from configuration alone was the
+    exact behaviour that let production advertise try-on while the GPU
+    workspace was disabled and every job failed (2026-09-21).
+    """
+    from backend.app.services import vton_worker_observability as vwo
+
     monkeypatch.setattr(settings, 'VTON_WORKER_URL', 'https://worker.example/process', raising=False)
-    res = client.get('/api/v1/try-on/capabilities?product_ids=1&product_ids=3&product_ids=999999')
-    assert res.status_code == 200, res.text
-    data = res.json()
-    assert data['engine_state'] == 'available'
-    states = {p['product_id']: p['state'] for p in data['products']}
-    assert states[1] == 'supported'
-    assert states[3] in {'supported', 'unsupported', 'unknown'}
-    assert states[999999] == 'unknown'
+    monkeypatch.setattr(settings, 'VTON_WORKER_ADMIN_TOKEN', 'token', raising=False)
+    monkeypatch.setattr(
+        vwo, 'probe_worker_state',
+        lambda force=False: {'verdict': 'ready', 'ok': True, 'status_code': 200, 'reason': None},
+    )
+    vwo.reset_worker_observability()
+    try:
+        res = client.get('/api/v1/try-on/capabilities?product_ids=1&product_ids=3&product_ids=999999')
+        assert res.status_code == 200, res.text
+        data = res.json()
+        assert data['engine_state'] == 'available'
+        assert data['engine']['verdict'] == 'ready'
+        assert data['engine']['production_ready'] is True
+        states = {p['product_id']: p['state'] for p in data['products']}
+        assert states[1] == 'supported'
+        assert states[3] in {'supported', 'unsupported', 'unknown'}
+        assert states[999999] == 'unknown'
+    finally:
+        vwo.reset_worker_observability()
+
+
+def test_vton_capability_reports_engine_offline_instead_of_supported(client, monkeypatch):
+    """A supported CATEGORY on a dead ENGINE must not read 'supported'."""
+    from backend.app.services import vton_worker_observability as vwo
+
+    monkeypatch.setattr(settings, 'VTON_WORKER_URL', 'https://worker.example/process', raising=False)
+    monkeypatch.setattr(settings, 'VTON_WORKER_ADMIN_TOKEN', 'token', raising=False)
+    monkeypatch.setattr(
+        vwo, 'probe_worker_state',
+        lambda force=False: {
+            'verdict': 'unavailable', 'ok': False, 'status_code': 404,
+            'reason': 'HTTP 404: modal-http: workspace ac-x is disabled',
+            'error_code': 'VTON_ENGINE_UNAVAILABLE', 'retryable': False,
+        },
+    )
+    vwo.reset_worker_observability()
+    try:
+        body = client.get('/api/v1/try-on/capabilities?product_ids=1').json()
+        assert body['engine_state'] == 'temporarily_unavailable'
+        assert body['products'][0]['state'] == 'temporarily_unavailable'
+        assert body['products'][0]['reason_code'] == 'VTON_ENGINE_UNAVAILABLE'
+        assert body['user_message']
+    finally:
+        vwo.reset_worker_observability()
 
 
 def test_vton_capability_misconfigured_is_not_supported(client, monkeypatch):

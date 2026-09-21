@@ -359,7 +359,20 @@
     "checkout_title": "Checkout · CONFIT",
     "orders_title": "Orders & Tracking · CONFIT",
     "profile_title": "My Profile · CONFIT",
-    "brand_portal_title": "Brand Partner Portal · CONFIT"
+    "brand_portal_title": "Brand Partner Portal · CONFIT",
+    "home_description": "CONFIT is a fit-first fashion storefront: virtual try-on, a sizing engine, a smart wardrobe and styling — built around the body you actually have.",
+    "discover_description": "Browse the CONFIT catalogue, filter by fit and style, and see each piece styled on a body like yours.",
+    "tryon_description": "Render a garment on your own photo in the CONFIT try-on studio. Your photo is processed with your consent and expires automatically.",
+    "fit_description": "Find your size from self-reported measurements, without a photo. CONFIT tells you when a recommendation is estimated rather than measured.",
+    "wardrobe_description": "Upload your own garments, see what you own, and build outfits from pieces you already have.",
+    "builder_description": "Build an outfit slot by slot from the CONFIT catalogue, or start from a styled formula and replace one piece at a time.",
+    "checkout_description": "Review your bag and complete your order. Payments run in demo mode on this deployment; no card is charged.",
+    "orders_description": "Track your CONFIT orders, returns and delivery status.",
+    "profile_description": "Manage your CONFIT profile, style preferences, saved measurements, and export or erase your data.",
+    "privacy_description": "What CONFIT collects, why, how long it is kept, and who it is shared with — plus the controls to export, erase or withdraw consent.",
+    "terms_description": "The terms that govern your use of CONFIT, including an honest statement of what this deployment can and cannot do today.",
+    "gdpr_description": "Your GDPR rights at CONFIT: access, portability, erasure, objection and withdrawal of consent, and how to exercise each one.",
+    "brand_portal_description": "CONFIT brand partner portal: catalogue, inventory, placements and analytics for approved partner accounts."
   },
   "errors": {
     "generic": "Something went wrong. Please try again.",

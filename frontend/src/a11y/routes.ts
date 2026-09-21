@@ -26,6 +26,12 @@ export interface RouteMeta {
   /** i18n key under `meta.*` resolving to the document title. */
   titleKey: string;
   /**
+   * i18n key under `meta.*` resolving to the meta description. Optional: a
+   * route without one keeps the previous description rather than publishing an
+   * empty or generic one, which is worse than stale-but-true.
+   */
+  descriptionKey?: string;
+  /**
    * Patterns matched against `location.pathname`, most specific first. Supports
    * a single trailing `:param` segment; dynamic segments are matched by prefix
    * so `/product/silk-blazer` resolves without a route table lookup.
@@ -38,19 +44,19 @@ export interface RouteMeta {
  * would swallow it by prefix, and `/privacy-policy` before `/privacy`.
  */
 export const ROUTE_META: readonly RouteMeta[] = [
-  { titleKey: 'meta.privacy_title', patterns: ['/privacy', '/privacy-policy'] },
-  { titleKey: 'meta.terms_title', patterns: ['/terms', '/terms-of-service'] },
-  { titleKey: 'meta.gdpr_title', patterns: ['/gdpr'] },
-  { titleKey: 'meta.profile_title', patterns: ['/profile', '/settings', '/onboarding'] },
-  { titleKey: 'meta.orders_title', patterns: ['/orders'] },
-  { titleKey: 'meta.checkout_title', patterns: ['/checkout', '/cart'] },
-  { titleKey: 'meta.wardrobe_title', patterns: ['/wardrobe', '/my-looks'] },
-  { titleKey: 'meta.fit_title', patterns: ['/fit-finder', '/fit'] },
-  { titleKey: 'meta.tryon_title', patterns: ['/tryon-studio', '/try-on', '/visual-search'] },
-  { titleKey: 'meta.builder_title', patterns: ['/builder', '/outfits'] },
-  { titleKey: 'meta.brand_portal_title', patterns: ['/b2b', '/partner', '/admin'] },
-  { titleKey: 'meta.discover_title', patterns: ['/discover', '/products', '/product', '/stylist'] },
-  { titleKey: 'meta.home_title', patterns: ['/'] },
+  { titleKey: 'meta.privacy_title', descriptionKey: 'meta.privacy_description', patterns: ['/privacy', '/privacy-policy'] },
+  { titleKey: 'meta.terms_title', descriptionKey: 'meta.terms_description', patterns: ['/terms', '/terms-of-service'] },
+  { titleKey: 'meta.gdpr_title', descriptionKey: 'meta.gdpr_description', patterns: ['/gdpr'] },
+  { titleKey: 'meta.profile_title', descriptionKey: 'meta.profile_description', patterns: ['/profile', '/settings', '/onboarding'] },
+  { titleKey: 'meta.orders_title', descriptionKey: 'meta.orders_description', patterns: ['/orders'] },
+  { titleKey: 'meta.checkout_title', descriptionKey: 'meta.checkout_description', patterns: ['/checkout', '/cart'] },
+  { titleKey: 'meta.wardrobe_title', descriptionKey: 'meta.wardrobe_description', patterns: ['/wardrobe', '/my-looks'] },
+  { titleKey: 'meta.fit_title', descriptionKey: 'meta.fit_description', patterns: ['/fit-finder', '/fit'] },
+  { titleKey: 'meta.tryon_title', descriptionKey: 'meta.tryon_description', patterns: ['/tryon-studio', '/try-on', '/visual-search'] },
+  { titleKey: 'meta.builder_title', descriptionKey: 'meta.builder_description', patterns: ['/builder', '/outfits'] },
+  { titleKey: 'meta.brand_portal_title', descriptionKey: 'meta.brand_portal_description', patterns: ['/b2b', '/partner', '/admin'] },
+  { titleKey: 'meta.discover_title', descriptionKey: 'meta.discover_description', patterns: ['/discover', '/products', '/product', '/stylist'] },
+  { titleKey: 'meta.home_title', descriptionKey: 'meta.home_description', patterns: ['/'] },
 ];
 
 /** Longest-prefix match wins, so `/product/x` beats `/`. */
@@ -83,3 +89,32 @@ export function composeTitle(pageTitle: string, brand = 'CONFIT'): string {
 
 /** Locale used for the announcement, so screen-reader speech matches the UI. */
 export type RouteAnnouncement = { title: string; language: AppLanguage };
+
+/**
+ * The route whose patterns match this path, most-specific-first.
+ * Exported so the meta-description lookup resolves against the SAME table as
+ * the title: two tables would eventually disagree, and a page whose title and
+ * description describe different routes is worse than having no description.
+ */
+export function routeMetaForPath(pathname: string): RouteMeta | undefined {
+  const clean = pathname.replace(/\/+$/, '') || '/';
+  // The fallback is the SAME one `titleKeyForPath` uses. Returning undefined
+  // here while the title fell back to the home title would let a route keep a
+  // stale description next to a fresh title — two head tags describing
+  // different pages, which is the failure this shared table exists to prevent.
+  const fallback = ROUTE_META.find((entry) => entry.patterns.includes('/'));
+  return ROUTE_META.find((entry) =>
+    entry.patterns.some((pattern) =>
+      pattern.endsWith(':param')
+        ? clean.startsWith(pattern.slice(0, -':param'.length).replace(/\/+$/, '') + '/')
+        : pattern === '/'
+          ? clean === '/'
+          : clean === pattern || clean.startsWith(pattern + '/'),
+    ),
+  ) ?? fallback;
+}
+
+/** i18n key for the meta description of this path, when one is declared. */
+export function descriptionKeyForPath(pathname: string): string | undefined {
+  return routeMetaForPath(pathname)?.descriptionKey;
+}

@@ -21,7 +21,7 @@ audit trail, admin order transitions, health / observability.
 | G-01, G-02, G-03, G-04 — style heatmap honesty and one contract | ✅ shipped | #143 |
 | G-08, G-09 — public health vs internal readiness | ⏳ open | next |
 | G-10, G-11, G-12 — admin access governance and bootstrap | ⏳ open | next |
-| G-13, G-14, G-15 — analytics correctness and query cost | ⏳ open | next |
+| G-13, G-14, G-15 — one revenue vocabulary, flat query cost, real time window | ✅ shipped | #147 |
 
 This register is a teaching artefact, not a scorecard: every row exists so the
 next person can see *why* the fix looks the way it does.
@@ -287,7 +287,7 @@ can be exercised end to end.
 
 ## G-13 — GMV is computed two different ways in the same dashboard  *(CODE-READ)*
 
-**Status:** ⏳ OPEN — planned for the analytics correctness/perf PR.
+**Status:** ✅ **FIXED** — PR #147. `core/revenue_policy.py` owns one classification of all 22 `ORDER_TRANSITIONS` states. GMV, the attribution ledger and every revenue aggregate now filter through `revenue_eligible()`; return-rate denominators use `return_denominator_eligible()`, which deliberately keeps refunded orders. An unclassified status raises instead of defaulting to revenue, and a test fails if the state machine grows a state nobody classified. Bonus finding: three return-rate denominators excluded refunded orders, so the return rate *fell* every time a return succeeded — fixed by the same split.
 
 `brand_repository.py:503` uses `notin_(["cancelled", "refunded"])`;
 `get_revenue_attribution` (`:893`) uses `self.INELIGIBLE_ORDER_STATUSES`, which
@@ -302,7 +302,7 @@ the payload's methodology text.
 
 ## G-14 — N+1 query storm on the admin analytics endpoint  *(CODE-READ)*
 
-**Status:** ⏳ OPEN — planned for the analytics correctness/perf PR.
+**Status:** ✅ **FIXED** — PR #147. The brand table and the most-styled ranking are now grouped aggregates. Measured: **19 statements** for one dashboard load at 4, 14 and 34 brands (flat); the previous shape cost ~31 / ~82 / ~182 and grew without bound.
 
 `brand_repository.py:578-611` — per brand, five separate queries
 (orders, products, views, try-ons, returns) inside a Python loop over
@@ -318,7 +318,7 @@ in-memory join.
 
 ## G-15 — No time-range dimension anywhere in admin analytics  *(CODE-READ)*
 
-**Status:** ⏳ OPEN — planned for the analytics correctness/perf PR.
+**Status:** ✅ **FIXED** — PR #147. `days` / `date_from` / `date_to` on `/admin/analytics` (and its two aliases), resolved by `core/timeutils.TimeRange` and pushed into the SQL predicate of every aggregate. Bounds are inclusive on both ends to match the contract `/admin/audit` already publishes; the resolved window and its boundary semantics are echoed in the payload. Invalid, inverted or conflicting windows are rejected with 422.
 
 Every admin analytics query is lifetime-only. An admin cannot answer "GMV in the
 last 30 days", so the dashboard cannot support the one question a dashboard

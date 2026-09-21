@@ -6,6 +6,8 @@ from sqlalchemy.orm import Session
 
 from backend.app.core.database import get_db
 from backend.app.core.dependencies import require_role, require_admin_recent
+from backend.app.core.exceptions import ValidationDomainError
+from backend.app.core.timeutils import TimeRange, TimeRangeError
 from backend.app.core.request_context import client_ip, request_id as current_request_id
 from backend.app.models.user import User, UserRole
 from backend.app.repositories.audit_repository import AuditQuery
@@ -117,11 +119,35 @@ def capture_order_payment(
 @router.get("/overview", response_model=AdminPlatformAnalyticsOut)
 @router.get("/analytics/overview", response_model=AdminPlatformAnalyticsOut)
 def get_admin_analytics(
+    days: Optional[int] = Query(
+        None, ge=1, le=3650,
+        description="Rolling window in days. Mutually exclusive with date_from/date_to.",
+    ),
+    date_from: Optional[datetime] = Query(
+        None, description="ISO-8601 lower bound, inclusive (applied to every aggregate)."
+    ),
+    date_to: Optional[datetime] = Query(
+        None,
+        description=(
+            "ISO-8601 upper bound, inclusive — same boundary contract as /admin/audit. "
+            "Applied to every aggregate; a parameter that is accepted and then ignored "
+            "would be worse than no parameter at all."
+        ),
+    ),
     user: User = Depends(require_role([UserRole.ADMIN])),
     db: Session = Depends(get_db)
 ):
-    repo = BrandRepository(db)
-    return repo.get_platform_admin_analytics()
+    """Platform KPIs over a real time window (G-15), from real tables.
+
+    Without a parameter the window is all-time, which is what this endpoint
+    always returned — so existing consumers are unaffected. The resolved window
+    and its boundary semantics are echoed in the payload.
+    """
+    try:
+        window = TimeRange.resolve(days=days, date_from=date_from, date_to=date_to)
+    except TimeRangeError as exc:
+        raise ValidationDomainError(str(exc))
+    return BrandRepository(db).get_platform_admin_analytics(time_range=window)
 
 
 @router.get("/analytics/brands")

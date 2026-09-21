@@ -216,14 +216,28 @@ def test_consent_never_fabricated():
 
     # A results payload cannot flip consent (the schema has no consent
     # field; even a crafted extra field must not mutate the session).
+    # Hardening added 2026-09-21 (Fit Finder remediation): a session created
+    # WITHOUT consent may not accumulate body measurements at all, so this now
+    # answers 403 instead of 201. Either way the invariant under test holds —
+    # the crafted field must never flip the stored consent flag.
     res = client.post(
         f"{MEAS}/{sid}/results",
         json={"height_cm": 171.0, "consent_granted": True},
         headers=h,
     )
-    assert res.status_code == 201, res.text
+    assert res.status_code == 403, res.text
+    assert res.json()["detail"]["error"]["code"] == "MEASUREMENT_CONSENT_MISSING"
     got2 = client.get(f"{MEAS}/{sid}", headers=h)
     assert got2.json()["consent_granted"] is False
+
+    # ...and nothing was written.
+    with SessionLocal() as db:
+        assert (
+            db.query(MeasurementResult)
+            .filter(MeasurementResult.session_id == sid)
+            .count()
+            == 0
+        )
 
     # Explicit consent at creation (the camera-scan flow) is honored.
     cr2 = _create(client, h, {"consent_granted": True})
@@ -247,12 +261,12 @@ def test_no_fabricated_default_dimensions():
     client = TestClient(app)
     u = _register(client, "dims")
     h = _auth(u)
-    cr = _create(client, h)
+    cr = _create(client, h, {"consent_granted": True})
     sid = cr.json()["id"]
     res = client.post(
         f"{MEAS}/{sid}/results", json={"height_cm": 165.0}, headers=h
     )
-    assert res.status_code == 201
+    assert res.status_code == 201, res.text
     with SessionLocal() as db:
         row = (
             db.query(MeasurementResult)
@@ -305,3 +319,36 @@ def test_service_submit_results_has_no_consent_parameter():
     src = inspect.getsource(MeasurementSessionService.submit_results)
     assert "consent_granted=True" not in src
     assert "MeasurementSession(" not in src, "results path must not create sessions"
+
+
+# ── 9. consent gate on result submission (2026-09-21 Fit Finder remediation) ─
+def test_results_rejected_when_session_has_no_consent():
+    """Body measurements are special-category-adjacent personal data.
+
+    Consent is captured once, at session start. A session that never received
+    it must never accumulate measurements — previously the ownership check
+    passed and the write went through, so a consent-less session silently
+    became a body-data store.
+    """
+    client = TestClient(app)
+    u = _register(client, "noconsent")
+    h = _auth(u)
+
+    sid = _create(client, h, {"consent_granted": False}).json()["id"]
+    res = client.post(f"{MEAS}/{sid}/results", json={"height_cm": 170.0}, headers=h)
+    assert res.status_code == 403, res.text
+    assert res.json()["detail"]["error"]["code"] == "MEASUREMENT_CONSENT_MISSING"
+
+    with SessionLocal() as db:
+        assert (
+            db.query(MeasurementResult).filter(MeasurementResult.session_id == sid).count() == 0
+        )
+
+
+def test_results_accepted_once_consent_was_granted_at_start():
+    client = TestClient(app)
+    u = _register(client, "withconsent")
+    h = _auth(u)
+    sid = _create(client, h, {"consent_granted": True}).json()["id"]
+    res = client.post(f"{MEAS}/{sid}/results", json={"height_cm": 170.0}, headers=h)
+    assert res.status_code == 201, res.text

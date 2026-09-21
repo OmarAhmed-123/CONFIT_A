@@ -5,13 +5,14 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
 from backend.app.core.database import get_db
-from backend.app.core.dependencies import get_current_user_optional
+from backend.app.core.dependencies import get_current_user, get_current_user_optional
 from backend.app.models.user import User
 from backend.app.models.tryon import MeasurementSession, MeasurementResult
 from backend.app.services.tryon_service import TryOnService
 from backend.app.services.visual_search_service import VisualSearchService
 from backend.app.services.no_photo_fit_service import NoPhotoFitService
 from backend.app.services.measurement_service import MeasurementSessionService
+from backend.app.services.fit.units import MeasurementValidationError
 from backend.app.schemas.tryon import (
     TryOnRequest,
     TryOnResponse,
@@ -574,17 +575,44 @@ def compute_no_photo_fit(
     payload: NoPhotoFitRequest,
     db: Session = Depends(get_db)
 ):
+    """Size recommendation from measurements — no photo, no camera.
+
+    A response with ``recommended: false`` is a SUCCESS: the engine examined
+    the product's chart, stock and the caller's measurements and concluded it
+    cannot justify a size (``reason_code`` says which). Only genuinely invalid
+    input (implausible measurements, unit mismatch) is a 422.
+    """
     service = NoPhotoFitService(db)
-    return service.calculate_fit(
-        product_id=payload.product_id,
-        height_cm=payload.height_cm,
-        weight_kg=payload.weight_kg,
-        body_shape=payload.body_shape,
-        chest_cm=payload.chest_cm,
-        waist_cm=payload.waist_cm,
-        hip_cm=payload.hip_cm,
-        preferred_fit=payload.preferred_fit
-    )
+    try:
+        return service.calculate_fit(
+            product_id=payload.product_id,
+            units=payload.units,
+            height=payload.resolved_height,
+            weight=payload.resolved_weight,
+            chest=payload.resolved_chest,
+            waist=payload.resolved_waist,
+            hip=payload.resolved_hip,
+            shoulder=payload.shoulder,
+            inseam=payload.inseam,
+            neck=payload.neck,
+            body_shape=payload.body_shape,
+            preferred_fit=payload.preferred_fit,
+            demographic=payload.demographic,
+        )
+    except MeasurementValidationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "error": {
+                    "code": "MEASUREMENT_OUT_OF_RANGE",
+                    "message": (
+                        "One or more measurements are outside the plausible human range. "
+                        "Check the unit you selected."
+                    ),
+                    "fields": exc.field_errors,
+                }
+            },
+        ) from exc
 
 
 # =========================================================================
@@ -640,15 +668,51 @@ def submit_measurement_results(
     x_session_token: Optional[str] = Header(None),
 ):
     service = MeasurementSessionService(db)
+    # Units are converted to centimetres and bounds-checked ONCE here, so an
+    # implausible or wrong-unit value is a 422 and never reaches the database.
+    try:
+        canonical = payload.to_canonical()
+    except MeasurementValidationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "error": {
+                    "code": "MEASUREMENT_OUT_OF_RANGE",
+                    "message": (
+                        "One or more measurements are outside the plausible human range. "
+                        "Check the unit you selected."
+                    ),
+                    "fields": exc.field_errors,
+                }
+            },
+        ) from exc
+
     # Ownership-gated; no auto-creation, no consent mutation, no fabricated
     # default dimensions (omitted measurements persist as NULL).
     res = service.submit_results(
-        session_id, user=user, guest_session_token=x_session_token, payload=payload
+        session_id, user=user, guest_session_token=x_session_token, payload=canonical
     )
 
     return {
         "status": "success",
         "result_id": res.id,
+        "stored_measurements": {
+            "height_cm": res.height_cm,
+            "shoulder_width_cm": res.shoulder_width_cm,
+            "chest_cm": res.chest_cm,
+            "waist_cm": res.waist_cm,
+            "hip_cm": res.hip_cm,
+            "inseam_cm": res.inseam_cm,
+            "body_shape": res.body_shape,
+            "confidence_score": res.confidence_score,
+            "calibration_method": res.calibration_method,
+            "source": res.source,
+            # The disclaimer must describe what ACTUALLY happened. The previous
+            # fixed text claimed "on-device pose landmarks with known stature
+            # calibration" even for values typed by hand into a form.
+            "disclaimer": _measurement_disclaimer(res),
+        },
+        # Deprecated alias retained for already-deployed clients.
         "derived_measurements": {
             "height_cm": res.height_cm,
             "shoulder_width_cm": res.shoulder_width_cm,
@@ -656,9 +720,51 @@ def submit_measurement_results(
             "waist_cm": res.waist_cm,
             "body_shape": res.body_shape,
             "confidence_score": res.confidence_score,
-            "disclaimer": "Measurements derived from on-device pose landmarks with known stature calibration."
-        }
+            "disclaimer": _measurement_disclaimer(res),
+        },
     }
+
+
+def _measurement_disclaimer(res) -> str:
+    """Describe the real provenance of a stored measurement result."""
+    source = (res.source or "").lower()
+    if "manual" in source or "manual" in (res.calibration_method or "").lower():
+        return (
+            "Self-reported measurements entered by hand. Accuracy depends entirely on "
+            "how they were taken."
+        )
+    if "camera" in source or "vision" in source:
+        return (
+            "Estimated from on-device pose landmarks calibrated against the stated height. "
+            "Camera estimates are approximations, not tape measurements."
+        )
+    return f"Measurements recorded from source '{res.source or 'unspecified'}'."
+
+
+@router.post("/measurements/sessions/{session_id}/save-to-profile", response_model=Dict[str, Any])
+def save_measurement_session_to_profile(
+    session_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    x_session_token: Optional[str] = Header(None),
+):
+    """Persist a session's latest measurements onto the caller's style profile.
+
+    The frontend has always called this route (``measurementService.saveToProfile``)
+    but the backend never implemented it, so every "save my measurements" click
+    hit a 404 that the UI reported as a generic failure. Implemented here with
+    the SAME ownership rules as every other measurement-session operation, and
+    writing through the existing encrypted body-attribute path — body data is
+    encrypted at rest and is never returned in this response.
+
+    Authentication is required (not optional): there is no profile to save to
+    for a guest, and silently discarding the data while answering 200 would be
+    the dishonest outcome.
+    """
+    service = MeasurementSessionService(db)
+    return service.save_to_profile(
+        session_id, user=user, guest_session_token=x_session_token
+    )
 
 
 # =========================================================================

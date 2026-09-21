@@ -75,7 +75,7 @@ export const NoPhotoFitModal: React.FC = () => {
             <div className="space-y-4">
               <div className="flex justify-between items-center bg-[#FDF8EE] p-3 rounded-2xl border border-[#C5A059]/30">
                 <div className="text-xs">
-                  <div className="font-bold text-[#1B1F3B]">Fast Body Scan</div>
+                  <div className="font-bold text-[#1B1F3B]">{t('tryon.nophoto_scan')}</div>
                   <div className="text-[10px] text-slate-500 font-light">Estimate dimensions in 2s via live camera</div>
                 </div>
                 <button
@@ -174,7 +174,7 @@ export const NoPhotoFitModal: React.FC = () => {
                 /* The engine declined to name a size. Show the reason — never
                    fall back to a guess just to fill the card. */
                 <div className="space-y-3" role="status">
-                  <span className="text-[10px] text-slate-400 font-bold uppercase">No size recommendation</span>
+                  <span className="text-[10px] text-slate-400 font-bold uppercase">{t('tryon.nophoto_no_size')}</span>
                   <p className="text-xs text-amber-900 bg-amber-50 border border-amber-200 rounded-xl p-3 leading-relaxed">
                     {noPhotoResult.confidence_disclosure}
                   </p>
@@ -188,7 +188,7 @@ export const NoPhotoFitModal: React.FC = () => {
                 <div className="space-y-4">
                   <div className="flex justify-between items-center pb-3 border-b border-slate-200">
                     <div>
-                      <span className="text-[10px] text-slate-400 font-bold uppercase">Recommended Size</span>
+                      <span className="text-[10px] text-slate-400 font-bold uppercase">{t('tryon.scan_recommended_size')}</span>
                       <div className="text-2xl font-serif font-black text-[#1B1F3B]">
                         Size {noPhotoResult.recommended_size}
                       </div>
@@ -257,7 +257,7 @@ export const NoPhotoFitModal: React.FC = () => {
               ) : (
                 <div className="flex flex-col items-center justify-center h-full text-center p-6 text-slate-400">
                   <RulerIcon size={36} color="#C5A059" />
-                  <span className="text-xs font-semibold text-slate-700 mt-3">Adjust measurements or scan with camera</span>
+                  <span className="text-xs font-semibold text-slate-700 mt-3">{t('tryon.nophoto_adjust')}</span>
                   <span className="text-[11px] text-slate-400 font-light mt-1 max-w-xs">
                     We cross-reference your height, weight, and silhouette against {rulerProduct.brand_name}'s precise pattern specifications.
                   </span>

@@ -3,6 +3,7 @@ import { useModalFocus } from "../../hooks/useModalFocus";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { compressImageToDataUrl } from "../../lib/imageUpload";
+import { usePhotoConsent } from "../../privacy/usePhotoConsent";
 import { useCapabilities } from "../../hooks/useCapabilities";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useWardrobeViewModel } from "../../viewmodels/useWardrobeViewModel";
@@ -28,10 +29,19 @@ import {
   CircularGalleryShowcase,
 } from "../../components/showcase/DesignShowcases";
 
+/**
+ * Placeholder for a manually added wardrobe item.
+ *
+ * Deliberately contains NO text. It previously had "Manual wardrobe item" and
+ * "No photo uploaded" baked into the SVG, which made both untranslatable (a
+ * string inside an image is invisible to i18n) and un-resizable (WCAG 1.4.5,
+ * text in images). The accessible name now lives on the <img alt>, which is a
+ * real translated string.
+ */
 const MANUAL_WARDROBE_IMAGE =
   "data:image/svg+xml;utf8," +
   encodeURIComponent(
-    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 750"><rect width="600" height="750" fill="%23F8FAFC"/><rect x="90" y="120" width="420" height="510" rx="42" fill="%23FFFFFF" stroke="%23CBD5E1" stroke-width="4"/><text x="300" y="345" text-anchor="middle" font-family="Arial,sans-serif" font-size="32" font-weight="700" fill="%231B1F3B">Manual wardrobe item</text><text x="300" y="395" text-anchor="middle" font-family="Arial,sans-serif" font-size="22" fill="%2364748B">No photo uploaded</text></svg>',
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 750"><rect width="600" height="750" fill="%23F8FAFC"/><rect x="90" y="120" width="420" height="510" rx="42" fill="%23FFFFFF" stroke="%23CBD5E1" stroke-width="4"/></svg>',
   );
 
 export const WardrobeView: React.FC = () => {
@@ -144,9 +154,16 @@ export const WardrobeView: React.FC = () => {
     setUploadSkipNotes([]);
   };
 
+  // Consent for garment photos stored in the user's wardrobe. Separate from
+  // try-on: agreeing to try a garment on is not agreeing to keep a photo of it.
+  const { requestConsent, consentDialog } = usePhotoConsent('wardrobe');
+
   const handleUploadSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedFiles.length) return;
+    // Consent first: the upload is what stores the photo, so the grant must
+    // precede it, not follow it.
+    if (!(await requestConsent())) return;
     // P0-03 fix: multipart bodies hit the same ~4.5 MB serverless gateway
     // ceiling as JSON bodies. Compress every garment photo client-side
     // (≤1024px, JPEG q0.85, ≤3 MB) before it enters the FormData.
@@ -185,11 +202,12 @@ export const WardrobeView: React.FC = () => {
 
   return (
     <div className="space-y-8 pb-20">
+      {consentDialog}
       <CardStackShowcase
         tone="wardrobe"
         compact
         eyebrow="Wardrobe Styling Stack"
-        title="Reuse owned pieces through premium outfit formulas"
+        title={t('wardrobe.reuse_caption')}
         description="Saved garments become styled rotations instead of a static closet grid, encouraging realistic reuse and smarter recommendations."
       />
 
@@ -197,7 +215,7 @@ export const WardrobeView: React.FC = () => {
         tone="wardrobe"
         compact
         eyebrow="Circular Closet Capsules"
-        title="A rotating capsule view for your wardrobe stories"
+        title={t('wardrobe.capsule_caption')}
         description="The same component appears here as a wardrobe capsule browser, visually distinct from the stack above."
       />
       {/* Header */}
@@ -360,7 +378,7 @@ export const WardrobeView: React.FC = () => {
                       <button
                         onClick={() => deleteItem(item.id)}
                         className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/60 hover:bg-rose-600 text-white flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-all"
-                        title="Delete from wardrobe"
+                        title={t('wardrobe.delete_aria')}
                       >
                         ✕
                       </button>
@@ -415,11 +433,11 @@ export const WardrobeView: React.FC = () => {
                       value={item.wear_frequency}
                       onChange={(e) => setWearFrequency(item, e.target.value)}
                       className="mt-1.5 w-full px-2 py-1 rounded-lg border border-slate-200 text-[10px] bg-white text-slate-600"
-                      title="Wear frequency"
+                      title={t('wardrobe.wear_frequency')}
                     >
                       <option value="favorite">★ Favorite</option>
-                      <option value="regular">Regular rotation</option>
-                      <option value="rarely_worn">Rarely worn</option>
+                      <option value="regular">{t('wardrobe.wear_regular')}</option>
+                      <option value="rarely_worn">{t('wardrobe.wear_rarely')}</option>
                       <option value="seasonal">Seasonal</option>
                     </select>
 
@@ -741,13 +759,13 @@ export const WardrobeView: React.FC = () => {
             ref={uploadPanelRef}
             role="dialog"
             aria-modal="true"
-            aria-label="Upload garment"
+            aria-label={t('wardrobe.upload_garment')}
             tabIndex={-1}
             className="w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden max-h-[90vh] overflow-y-auto"
           >
             <div className="p-5 bg-[#1B1F3B] text-white flex justify-between items-center">
               <h3 className="font-serif text-base font-bold text-white flex items-center gap-2">
-                <span>Upload Garment Photos</span>
+                <span>{t('wardrobe.upload_photos_title')}</span>
               </h3>
               <button
                 onClick={() => {
@@ -876,7 +894,7 @@ export const WardrobeView: React.FC = () => {
                   required
                   value={newTitle}
                   onChange={(e) => setNewTitle(e.target.value)}
-                  placeholder="e.g. Navy Double-Breasted Blazer"
+                  placeholder={t('wardrobe.eg_title')}
                   className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-[#B8935A]"
                 />
               </div>
@@ -907,7 +925,7 @@ export const WardrobeView: React.FC = () => {
                     type="text"
                     value={newColor}
                     onChange={(e) => setNewColor(e.target.value)}
-                    placeholder="e.g. Navy Blue"
+                    placeholder={t('wardrobe.eg_color')}
                     className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs"
                   />
                 </div>

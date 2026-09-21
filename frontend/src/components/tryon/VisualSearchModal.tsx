@@ -2,6 +2,7 @@ import { translatableFrom, resolveMessage, type TranslatableMessage } from "../.
 import React, { useState } from "react";
 import { useModalFocus } from "../../hooks/useModalFocus";
 import { compressImageToDataUrl } from "../../lib/imageUpload";
+import { usePhotoConsent } from "../../privacy/usePhotoConsent";
 import { useTranslation } from "react-i18next";
 import { useUIStore } from "../../stores/uiStore";
 import { useTryOnViewModel } from "../../viewmodels/useTryOnViewModel";
@@ -33,10 +34,18 @@ export const VisualSearchModal: React.FC = () => {
   const [isCompressing, setIsCompressing] = useState(false);
   const [openingMatchId, setOpeningMatchId] = useState<number | null>(null);
 
+  // Consent for the photo searched against the catalog. A search image is
+  // still personal data: it can contain the user, their home, their body.
+  const { requestConsent, consentDialog } = usePhotoConsent('visual_search');
+
   const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = ""; // allow re-selecting the same file
     if (!file) return;
+    // GDPR Art.7 explicit consent — captured BEFORE any bytes leave the
+    // device. Previously this flow asserted `consentGranted: true` on the
+    // user's behalf (see src/privacy/consentStore.ts); a default is not consent.
+    if (!(await requestConsent())) return;
     // P0-03 fix: the old 8 MB raw ceiling still exceeded the serverless
     // gateway body limit (~4.5 MB) — uploads died with HTTP 413. Photos now
     // go through the shared validate + compress pipeline before upload.
@@ -97,12 +106,14 @@ export const VisualSearchModal: React.FC = () => {
   };
 
   return (
+    <>
+    {consentDialog}
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md animate-in fade-in duration-150">
       <div
         ref={panelRef}
         role="dialog"
         aria-modal="true"
-        aria-label="Visual search"
+        aria-label={t('tryon.visual_search')}
         tabIndex={-1}
         className="w-full max-w-4xl bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden max-h-[92vh] flex flex-col"
       >
@@ -148,7 +159,7 @@ export const VisualSearchModal: React.FC = () => {
                 className="cursor-pointer inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#FDF8EE] border border-[#B8935A]/50 text-[#A37E44] hover:bg-[#C5A059] hover:text-slate-950 text-xs font-bold transition-all"
               >
                 <span aria-hidden="true">📷</span>
-                <span>Upload your photo</span>
+                <span>{t('tryon.upload_your_photo')}</span>
               </label>
               <input
                 id="vs-photo-upload"
@@ -211,7 +222,7 @@ export const VisualSearchModal: React.FC = () => {
                 type="text"
                 value={inputUrl}
                 onChange={(e) => setInputUrl(e.target.value)}
-                placeholder="Or paste image URL (Pinterest, Instagram, photoshoot)..."
+                placeholder={t('tryon.paste_image_url')}
                 className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-[#B8935A]"
               />
               <button
@@ -335,5 +346,6 @@ export const VisualSearchModal: React.FC = () => {
         </div>
       </div>
     </div>
+    </>
   );
 };

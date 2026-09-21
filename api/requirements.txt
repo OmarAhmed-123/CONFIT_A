@@ -34,3 +34,7 @@ Pillow>=10.4.0
 # leave 501 FEATURE_NOT_CONFIGURED in production. ~30 MB, well inside the
 # 250 MB function limit.
 boto3>=1.35.0
+# botocore is imported DIRECTLY by S3StorageBackend (BotoConfig for path-style
+# addressing on S3-compatible stores) — declared explicitly because the
+# deployment import-closure gate only trusts pins, not transitive installs.
+botocore>=1.35.0

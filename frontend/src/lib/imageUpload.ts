@@ -1,3 +1,5 @@
+import { LocalizedError, msg, type TranslatableMessage } from '../i18n/messages';
+
 /**
  * Centralized client-side image validation + compression for every upload
  * path (Virtual Try-On person photo, Visual Search, Wardrobe, Body Scan).
@@ -23,9 +25,16 @@
  *     the UI can show directly.
  */
 
+
 export interface ImageValidationResult {
   ok: boolean;
-  error?: string;
+  /**
+   * A TranslatableMessage (key + params), NOT an English sentence: this module
+   * runs outside React and has no translator, so the render boundary resolves
+   * the key in the user's language. An Arabic user previously saw English
+   * upload errors.
+   */
+  error?: TranslatableMessage;
 }
 
 export const ALLOWED_IMAGE_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const;
@@ -48,19 +57,19 @@ const MIN_DIM = 256;
 export function validateImageFile(file: { type?: string; size?: number; name?: string }): ImageValidationResult {
   const type = (file.type || '').toLowerCase();
   if (!ALLOWED_IMAGE_MIME_TYPES.includes(type as any)) {
-    return {
-      ok: false,
-      error: 'Unsupported image format. Please upload a JPG, PNG or WebP photo.',
-    };
+    return { ok: false, error: msg('errors.image_unsupported') };
   }
   if ((file.size || 0) > MAX_INPUT_BYTES) {
     return {
       ok: false,
-      error: `That photo is too large (${(file.size! / (1024 * 1024)).toFixed(1)} MB). The maximum is 20 MB — try a smaller photo.`,
+      error: msg('errors.image_too_large', {
+        size: (file.size! / (1024 * 1024)).toFixed(1),
+        max: Math.round(MAX_INPUT_BYTES / (1024 * 1024)),
+      }),
     };
   }
   if ((file.size || 0) === 0) {
-    return { ok: false, error: 'The selected file is empty.' };
+    return { ok: false, error: msg('errors.image_empty') };
   }
   return { ok: true };
 }
@@ -93,7 +102,7 @@ function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error('That file could not be read as an image.'));
+    img.onerror = () => reject(new LocalizedError(msg('errors.image_unreadable')));
     img.src = src;
   });
 }
@@ -102,7 +111,7 @@ function readFileAsDataUrl(file: File | Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(new Error('The file could not be read.'));
+    reader.onerror = () => reject(new LocalizedError(msg('errors.file_unreadable')));
     reader.readAsDataURL(file);
   });
 }
@@ -130,7 +139,13 @@ export async function compressImageToDataUrl(
   } = {}
 ): Promise<CompressedImage> {
   const validation = validateImageFile(file as File);
-  if (!validation.ok) throw new Error(validation.error);
+  if (!validation.ok) {
+    // validation.error is already a TranslatableMessage — carry it through
+    // instead of stringifying it into an untranslatable Error.
+    throw new LocalizedError(
+      typeof validation.error === 'string' ? msg('errors.generic', { reason: validation.error }) : validation.error!,
+    );
+  }
 
   const maxDim = opts.maxDim ?? DEFAULT_MAX_DIM;
   const maxOutputBytes = opts.maxOutputBytes ?? MAX_OUTPUT_BYTES;
@@ -139,7 +154,7 @@ export async function compressImageToDataUrl(
   const sourceUrl = await readFileAsDataUrl(file);
   const img = await loadImage(sourceUrl);
   if (!img.naturalWidth || !img.naturalHeight) {
-    throw new Error('That image appears to be corrupted.');
+    throw new LocalizedError(msg('errors.image_corrupt'));
   }
 
   const originalBytes = file.size ?? dataUrlBytes(sourceUrl);
@@ -153,9 +168,9 @@ export async function compressImageToDataUrl(
     const w = Math.max(1, Math.round(img.naturalWidth * scale));
     const h = Math.max(1, Math.round(img.naturalHeight * scale));
     const canvas = canvasFactory(w, h);
-    if (!canvas) throw new Error('Your browser could not process this image.');
+    if (!canvas) throw new LocalizedError(msg('errors.canvas_unavailable'));
     const ctx = canvas.getContext('2d');
-    if (!ctx) throw new Error('Your browser could not process this image.');
+    if (!ctx) throw new LocalizedError(msg('errors.canvas_unavailable'));
     ctx.drawImage(img as unknown as CanvasImageSource, 0, 0, w, h);
     lastDataUrl = canvas.toDataURL('image/jpeg', quality);
     passes += 1;
@@ -170,7 +185,5 @@ export async function compressImageToDataUrl(
       quality = opts.quality ?? DEFAULT_QUALITY;
     }
   }
-  throw new Error(
-    'That photo could not be compressed small enough to upload safely. Please try a different photo.'
-  );
+  throw new LocalizedError(msg('errors.image_compression_failed'));
 }

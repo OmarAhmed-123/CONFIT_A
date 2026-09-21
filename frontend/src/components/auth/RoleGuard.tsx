@@ -4,9 +4,11 @@ import { useAuthStore } from "../../stores/authStore";
 import { useUIStore } from "../../stores/uiStore";
 import { ConfitLogo } from "../common/ConfitLogo";
 import { LockIcon, UserIcon, ShieldIcon } from "../icons/ConfitIcons";
+import { useTranslation } from "react-i18next";
 import { brandService } from "../../services/apiServices";
 
 const PartnerRequestDemoForm: React.FC = () => {
+  const { t } = useTranslation();
   const [form, setForm] = React.useState({
     company_name: "",
     contact_name: "",
@@ -41,8 +43,10 @@ const PartnerRequestDemoForm: React.FC = () => {
       setStatus({
         type: "success",
         text: res.duplicate
-          ? "We already have a recent request for this email; the saved lead has been linked for review."
-          : res.message,
+          ? t('partner.duplicate_request')
+          : // An upstream server message cannot be translated client-side; it is
+            // shown verbatim rather than replaced with an invented confirmation.
+            res.message,
       });
       setForm({
         company_name: "",
@@ -55,9 +59,7 @@ const PartnerRequestDemoForm: React.FC = () => {
     } catch (err: any) {
       setStatus({
         type: "error",
-        text:
-          err?.message ||
-          "Could not submit the request. Please check the fields and try again.",
+        text: err?.message || t('partner.submit_failed'),
       });
     } finally {
       setSubmitting(false);
@@ -67,15 +69,14 @@ const PartnerRequestDemoForm: React.FC = () => {
     <form
       onSubmit={submit}
       className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm space-y-4"
-      aria-label="Request a partner demo"
+      aria-label={t('partner.form_label')}
     >
       <div>
         <h3 className="font-serif text-xl font-bold text-[#1B1F3B]">
-          Request a partner demo
+          {t('partner.form_title')}
         </h3>
         <p className="mt-1 text-xs text-slate-500">
-          Submissions are persisted for CONFIT review. No partner account or CRM
-          success is fabricated.
+          {t('partner.form_note')}
         </p>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
@@ -83,14 +84,14 @@ const PartnerRequestDemoForm: React.FC = () => {
           required
           value={form.company_name}
           onChange={update("company_name")}
-          placeholder="Company name"
+          placeholder={t('partner.field_company')}
           className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
         />
         <input
           required
           value={form.contact_name}
           onChange={update("contact_name")}
-          placeholder="Contact name"
+          placeholder={t('partner.field_contact')}
           className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
         />
         <input
@@ -98,31 +99,31 @@ const PartnerRequestDemoForm: React.FC = () => {
           type="email"
           value={form.work_email}
           onChange={update("work_email")}
-          placeholder="Work email"
+          placeholder={t('partner.field_email')}
           className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
         />
         <input
           value={form.website}
           onChange={update("website")}
-          placeholder="Website (optional)"
+          placeholder={t('partner.field_website')}
           className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
         />
         <select
-          aria-label="Monthly online orders"
+          aria-label={t('partner.field_volume')}
           value={form.monthly_order_volume}
           onChange={update("monthly_order_volume")}
           className="rounded-xl border border-slate-200 px-3 py-2 text-sm sm:col-span-2"
         >
-          <option value="">Monthly online orders (optional)</option>
-          <option value="under_500">Under 500</option>
-          <option value="500_5000">500–5,000</option>
-          <option value="5000_plus">5,000+</option>
+          <option value="">{t('partner.volume_placeholder')}</option>
+          <option value="under_500">{t('partner.volume_under_500')}</option>
+          <option value="500_5000">{t('partner.volume_500_5000')}</option>
+          <option value="5000_plus">{t('partner.volume_5000_plus')}</option>
         </select>
       </div>
       <textarea
         value={form.message}
         onChange={update("message")}
-        placeholder="What would you like to evaluate?"
+        placeholder={t('partner.field_message')}
         rows={3}
         className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
       />
@@ -138,7 +139,7 @@ const PartnerRequestDemoForm: React.FC = () => {
         disabled={submitting}
         className="rounded-2xl bg-[#1B1F3B] px-5 py-3 text-xs font-bold uppercase tracking-wider text-white transition hover:bg-slate-800 disabled:opacity-60"
       >
-        {submitting ? "Submitting…" : "Submit real request"}
+        {submitting ? t('partner.submitting') : t('partner.submit')}
       </button>
     </form>
   );
@@ -157,6 +158,7 @@ export const RoleGuard: React.FC<RoleGuardProps> = ({
   fallbackTitle,
   fallbackMessage,
 }) => {
+  const { t } = useTranslation();
   const location = useLocation();
   const { user, isAuthenticated, hasAttemptedBootstrap } = useAuthStore();
   const { openAuthModal } = useUIStore();
@@ -196,7 +198,7 @@ export const RoleGuard: React.FC<RoleGuardProps> = ({
                 <div className="space-y-5">
                   <ConfitLogo variant="full" theme="light" size="lg" />
                   <span className="inline-flex rounded-full border border-[#C5A059]/40 bg-[#C5A059]/15 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-[#E2BF70]">
-                    Public Partner Portal
+                    {t('partner.portal_badge')}
                   </span>
                   <h1 className="font-serif text-4xl font-bold leading-tight sm:text-5xl">
                     Reduce fit uncertainty before shoppers reach checkout.
@@ -300,14 +302,13 @@ export const RoleGuard: React.FC<RoleGuardProps> = ({
 
           <div className="space-y-2">
             <span className="text-[10px] font-bold tracking-widest text-[#C5A059] uppercase">
-              CONFIT Access Governance
+              {t('partner.governance_label')}
             </span>
             <h2 className="font-serif text-2xl font-bold text-white">
-              {fallbackTitle || "Authentication Required"}
+              {fallbackTitle || t('partner.auth_required')}
             </h2>
             <p className="text-xs text-slate-400 font-light leading-relaxed">
-              {fallbackMessage ||
-                "This privileged section requires an authenticated luxury profile or merchant credential. Please sign in or create an account to proceed."}
+              {fallbackMessage || t('partner.auth_required_body')}
             </p>
           </div>
 
@@ -317,14 +318,14 @@ export const RoleGuard: React.FC<RoleGuardProps> = ({
               className="w-full py-3.5 rounded-xl bg-[#C5A059] hover:bg-[#E2BF70] text-[#0C0E1E] font-bold text-xs tracking-wider uppercase shadow-md transition-all flex items-center justify-center gap-2"
             >
               <UserIcon size={16} color="#0C0E1E" />
-              <span>Sign In to Continue</span>
+              <span>{t('partner.sign_in_to_continue')}</span>
             </button>
 
             <button
               onClick={() => openAuthModal("register")}
               className="w-full py-3 rounded-xl bg-[#1B1F3B] hover:bg-slate-800 text-white font-semibold text-xs border border-slate-700 transition-all"
             >
-              Create New Account
+              {t('partner.create_account')}
             </button>
 
             <div className="pt-2">
@@ -332,7 +333,7 @@ export const RoleGuard: React.FC<RoleGuardProps> = ({
                 to="/"
                 className="text-[11px] text-slate-400 hover:text-[#C5A059] transition-colors inline-block"
               >
-                ← Return to Consumer Storefront
+                {t('partner.return_to_storefront')}
               </Link>
             </div>
           </div>

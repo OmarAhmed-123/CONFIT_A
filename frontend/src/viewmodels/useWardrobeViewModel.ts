@@ -1,3 +1,4 @@
+import { msg, detail } from '../i18n/messages';
 import { useState, useCallback, useEffect } from 'react';
 import { wardrobeService, WardrobeUploadResponse, WardrobeFirstOutfit, AutoTagResponse } from '../services/apiServices';
 import { WardrobeItem, GapAnalysisItem } from '../models';
@@ -27,7 +28,7 @@ export function useWardrobeViewModel() {
       setIsLoading(false);
     } catch (err: any) {
       setIsLoading(false);
-      showToast('Error loading wardrobe: ' + err.message, 'error');
+      showToast(msg('toast.wardrobe_load_failed', { reason: detail(err) }), 'error');
     }
   }, [activeCategory, showToast]);
 
@@ -48,7 +49,7 @@ export function useWardrobeViewModel() {
       const data = await wardrobeService.getOutfitSuggestions(occasion);
       setOutfitSuggestion(data);
     } catch (err: any) {
-      showToast('Wardrobe-first styling failed: ' + err.message, 'error');
+      showToast(msg('toast.wardrobe_styling_failed', { reason: detail(err) }), 'error');
     } finally {
       setIsOutfitLoading(false);
     }
@@ -61,14 +62,22 @@ export function useWardrobeViewModel() {
       setAutoTagResult(res);
       setIsAutoTagging(false);
       if (res.analysis_available) {
-        showToast('AI auto-tagged garment attributes!', 'success');
+        showToast(msg('toast.auto_tagged'), 'success');
       } else {
-        showToast(res.detail || 'AI tagging unavailable — fill the fields manually.', 'info');
+        showToast(
+          // A server-supplied detail is an upstream string we cannot translate;
+          // it is carried as an interpolation value so the surrounding sentence
+          // still follows the active language.
+          typeof res.detail === 'string' && res.detail
+            ? msg('toast.auto_tag_unavailable', { reason: detail(res.detail) })
+            : msg('toast.auto_tag_unavailable_generic'),
+          'info',
+        );
       }
       return res;
     } catch (err: any) {
       setIsAutoTagging(false);
-      showToast('Auto-tagging failed: ' + err.message, 'error');
+      showToast(msg('toast.auto_tag_failed', { reason: detail(err) }), 'error');
       return null;
     }
   }, [showToast]);
@@ -77,9 +86,9 @@ export function useWardrobeViewModel() {
     try {
       const created = await wardrobeService.addItem(itemData);
       setItems((prev) => [created, ...prev]);
-      showToast('Piece added to your smart wardrobe!', 'success');
+      showToast(msg('toast.added_to_piece'), 'success');
     } catch (err: any) {
-      showToast('Failed to add item: ' + err.message, 'error');
+      showToast(msg('toast.added_to_piece_failed', { reason: detail(err) }), 'error');
     }
   }, [showToast]);
 
@@ -108,15 +117,30 @@ export function useWardrobeViewModel() {
 
       const { succeeded, failed, duplicates_skipped } = report.summary;
       if (failed === 0 && duplicates_skipped === 0) {
-        showToast(`${succeeded} piece(s) uploaded — AI analysis ${report.results.some((r) => r.item?.processing_status === 'ready') ? 'complete' : 'started'}.`, 'success');
+        // Two explicit keys rather than interpolating a nested key name: an
+        // interpolated key would render as the literal string
+        // "toast.wardrobe_upload_state_ready" for the user.
+        showToast(
+          report.results.some((r) => r.item?.processing_status === 'ready')
+            ? msg('toast.wardrobe_upload_complete', { succeeded })
+            : msg('toast.wardrobe_upload_pending', { succeeded }),
+          'success',
+        );
       } else if (succeeded > 0) {
-        showToast(`${succeeded} uploaded, ${failed} failed, ${duplicates_skipped} duplicate(s) skipped.`, 'info');
+        showToast(
+          msg('toast.wardrobe_upload_mixed', {
+            succeeded,
+            failed,
+            duplicates: duplicates_skipped,
+          }),
+          'info',
+        );
       } else {
-        showToast('Upload failed — see details below.', 'error');
+        showToast(msg('toast.wardrobe_upload_all_failed'), 'error');
       }
       return report;
     } catch (err: any) {
-      showToast('Upload failed: ' + err.message, 'error');
+      showToast(msg('toast.wardrobe_upload_failed', { reason: detail(err) }), 'error');
       return null;
     } finally {
       setIsUploading(false);
@@ -129,12 +153,17 @@ export function useWardrobeViewModel() {
       const updated = await wardrobeService.analyzeItem(itemId);
       setItems((prev) => prev.map((i) => (i.id === itemId ? updated : i)));
       if (updated.processing_status === 'ready') {
-        showToast('AI analysis complete!', 'success');
+        showToast(msg('toast.wardrobe_analysis_complete'), 'success');
       } else {
-        showToast(updated.processing_error || 'Analysis still unavailable.', 'info');
+        showToast(
+          typeof updated.processing_error === 'string' && updated.processing_error
+            ? msg('toast.analysis_unavailable_reason', { reason: detail(updated.processing_error) })
+            : msg('toast.analysis_unavailable'),
+          'info',
+        );
       }
     } catch (err: any) {
-      showToast('Retry failed: ' + err.message, 'error');
+      showToast(msg('toast.retry_failed', { reason: detail(err) }), 'error');
     } finally {
       setRetryingItemId(null);
     }
@@ -145,7 +174,7 @@ export function useWardrobeViewModel() {
       const updated = await wardrobeService.updateItem(itemId, data);
       setItems((prev) => prev.map((i) => (i.id === itemId ? updated : i)));
     } catch (err: any) {
-      showToast('Update failed: ' + err.message, 'error');
+      showToast(msg('toast.update_failed', { reason: detail(err) }), 'error');
     }
   }, [showToast]);
 
@@ -167,9 +196,9 @@ export function useWardrobeViewModel() {
     try {
       await wardrobeService.deleteItem(itemId);
       setItems((prev) => prev.filter((i) => i.id !== itemId));
-      showToast('Item removed from wardrobe', 'info');
+      showToast(msg('toast.item_removed'), 'info');
     } catch (err: any) {
-      showToast('Failed to delete item: ' + err.message, 'error');
+      showToast(msg('toast.item_delete_failed', { reason: detail(err) }), 'error');
     }
   }, [showToast]);
 

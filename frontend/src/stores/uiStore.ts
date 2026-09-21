@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { Product } from "../models";
-import { setAppLanguage } from "../i18n/i18n";
+import i18n, { isSupportedLanguage, setAppLanguage, type AppLanguage } from "../i18n/i18n";
+import type { TranslatableMessage } from "../i18n/messages";
 
 type StylistPrefill =
   | {
@@ -30,13 +31,19 @@ interface UIState {
 
   // Toast
   toast: {
-    message: string;
+    // TranslatableMessage, not string: a store has no t(), so it must emit a
+    // key + params and let the Toast component resolve it in the ACTIVE
+    // language. Previously every toast was a concatenated English sentence,
+    // so Arabic users read English failure messages.
+    message: TranslatableMessage;
     type: "success" | "error" | "info";
     id: string;
   } | null;
 
-  // Language
-  language: "en" | "ar";
+  // Language — MIRROR of the i18next instance, never a second source of
+  // truth. Kept in the store only so components can subscribe reactively;
+  // it is written exclusively by the i18n 'languageChanged' listener below.
+  language: AppLanguage;
 
   // Actions
   openTryOn: (product: Product) => void;
@@ -49,14 +56,20 @@ interface UIState {
   closeStylist: () => void;
   openAuthModal: (mode?: "login" | "register") => void;
   closeAuthModal: () => void;
-  showToast: (message: string, type?: "success" | "error" | "info") => void;
+  showToast: (message: TranslatableMessage, type?: "success" | "error" | "info") => void;
   hideToast: () => void;
-  setLanguage: (lang: "en" | "ar") => void;
+  setLanguage: (lang: AppLanguage) => void;
 }
 
-let toastTimer: any = null;
-let lastToastMessage = "";
+let toastTimer: ReturnType<typeof setTimeout> | null = null;
+let lastToastKey = "";
 let lastToastTime = 0;
+
+/** Stable identity for a TranslatableMessage, used to debounce duplicates. */
+const toastIdentity = (message: TranslatableMessage): string =>
+  typeof message === "string"
+    ? message
+    : `${message.key}|${JSON.stringify(message.params ?? {})}`;
 
 export const useUIStore = create<UIState>((set) => ({
   tryOnProduct: null,
@@ -67,7 +80,7 @@ export const useUIStore = create<UIState>((set) => ({
   isAuthModalOpen: false,
   authModalMode: "login",
   toast: null,
-  language: (localStorage.getItem("confit_lang") as "en" | "ar") || "en",
+  language: (i18n.resolvedLanguage as AppLanguage) ?? "en",
 
   openTryOn: (product) => set({ tryOnProduct: product }),
   closeTryOn: () => set({ tryOnProduct: null }),
@@ -89,11 +102,13 @@ export const useUIStore = create<UIState>((set) => ({
 
   showToast: (message, type = "info") => {
     const now = Date.now();
-    // Debounce duplicate messages within 1.5 seconds
-    if (message === lastToastMessage && now - lastToastTime < 1500) {
+    // Debounce duplicate messages within 1.5 seconds. Identity is the
+    // key+params pair, so the same key with different values still shows.
+    const identity = toastIdentity(message);
+    if (identity === lastToastKey && now - lastToastTime < 1500) {
       return;
     }
-    lastToastMessage = message;
+    lastToastKey = identity;
     lastToastTime = now;
 
     if (toastTimer) clearTimeout(toastTimer);
@@ -114,7 +129,26 @@ export const useUIStore = create<UIState>((set) => ({
   },
 
   setLanguage: (lang) => {
-    setAppLanguage(lang);
-    set({ language: lang });
+    // Fire-and-forget is safe: i18next applies the bundle synchronously from
+    // in-memory resources, and the 'languageChanged' listener (registered
+    // below) is what writes `language` back into this store. Calling set()
+    // here as well would re-create the duplicated-state bug this replaced.
+    if (!isSupportedLanguage(lang)) return;
+    void setAppLanguage(lang);
   },
 }));
+
+/**
+ * Single-source-of-truth wiring: the store mirrors i18next, never the
+ * reverse. Any language change — from the switcher, from a deep link, from a
+ * test, or from a future locale detector — reaches the UI through this one
+ * path, so `dir`, `<html lang>`, the Arabic font class and the store value
+ * can never disagree.
+ */
+i18n.on("languageChanged", (lang) => {
+  if (!isSupportedLanguage(lang)) return;
+  const current = useUIStore.getState().language;
+  if (current !== lang) {
+    useUIStore.setState({ language: lang });
+  }
+});

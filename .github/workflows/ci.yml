@@ -138,6 +138,24 @@ jobs:
       # e.g. the B2B silent-fallback regressions (2026-09-04). Previously this
       # suite existed in-tree but was never executed by any workflow, so its
       # assertions silently rotted.
+      # i18n completeness + parity gate (2026-09-21 audit).
+      #
+      # The audit could not determine "whether the Arabic bundle is a real
+      # translation or an English fallback" because nothing measured it: the
+      # frontend referenced translation keys that were absent from en.json, the
+      # two locale files had drifted apart, and `parseMissingKeyHandler`
+      # humanized the gap so a missing Arabic string shipped as English text
+      # with a green build.
+      #
+      # This gate fails the job when: a t('…') key used in code is missing from
+      # the source locale; en.json and ar.json disagree on the key set; a leaf
+      # is empty, still equals its English source, or renders a raw dotted key;
+      # interpolation placeholders differ between locales; or NEW user-facing
+      # copy bypasses i18n entirely (the ratchet in i18n-baseline.json — a debt
+      # register that may only shrink).
+      - name: i18n gate (key parity, coverage, untranslated-copy ratchet)
+        working-directory: frontend
+        run: npm run i18n:check
       - name: Unit tests (vitest)
         working-directory: frontend
         run: CI=1 npm test

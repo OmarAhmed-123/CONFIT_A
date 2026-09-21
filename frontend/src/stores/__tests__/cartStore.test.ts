@@ -63,7 +63,16 @@ describe('P0-01b: add-to-bag failure is never silent', () => {
     await expect(
       useCartStore.getState().addItem(99, { id: 9, title: 'X', category: 'Tops', color: 'Navy' })
     ).rejects.toThrow('Network error');
-    expect(showToastMock).toHaveBeenCalledWith(expect.stringMatching(/network error|could not add/i), 'error');
+    // The toast is now a descriptor; the honest failure detail is carried in
+    // params.reason, so the assertion is that the key AND the real error text
+    // both survive — never a fabricated success message.
+    expect(showToastMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        key: 'errors.generic',
+        params: expect.objectContaining({ reason: expect.stringMatching(/network error/i) }),
+      }),
+      'error',
+    );
     expect(useCartStore.getState().cart?.items_count).toBe(1); // no fake success
     expect(useCartStore.getState().error).toBeTruthy();
   });
@@ -85,7 +94,10 @@ describe('P0-01e: guest cart merges into the authenticated cart on login', () =>
 
     expect(mergeMock).toHaveBeenCalledWith('sess_test_guest_1');
     expect(useCartStore.getState().cart?.items_count).toBe(3);
-    expect(showToastMock).toHaveBeenCalledWith(expect.stringMatching(/bag followed you/i), 'success');
+    expect(showToastMock).toHaveBeenCalledWith(
+      expect.objectContaining({ key: 'toast.bag_transferred', params: { count: 3 } }),
+      'success',
+    );
   });
 
   it('falls back to fetchCart and toasts honestly when the merge call fails', async () => {
@@ -95,7 +107,10 @@ describe('P0-01e: guest cart merges into the authenticated cart on login', () =>
 
     await useCartStore.getState().syncAfterLogin();
 
-    expect(showToastMock).toHaveBeenCalledWith(expect.stringMatching(/could not transfer/i), 'error');
+    expect(showToastMock).toHaveBeenCalledWith(
+      expect.objectContaining({ key: 'toast.bag_transfer_failed' }),
+      'error',
+    );
     expect(fetchCartServiceMock).toHaveBeenCalled();
     expect(useCartStore.getState().cart?.items_count).toBe(0);
   });

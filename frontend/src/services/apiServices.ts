@@ -86,10 +86,13 @@ export const authService = {
       body: JSON.stringify({ code }),
     }),
 
-  disableMFA: (password: string) =>
+  // Hardened: removing the second factor re-authenticates with BOTH the
+  // password and a current authenticator/recovery code (OWASP MFA guidance —
+  // a stolen password alone must never be able to remove MFA).
+  disableMFA: (password: string, mfaCode: string) =>
     request<{ status: string }>("/auth/mfa/disable", {
       method: "POST",
-      body: JSON.stringify({ password }),
+      body: JSON.stringify({ password, mfa_code: mfaCode }),
     }),
 
   // Cycle 9: authenticated password rotation — the only in-product way to
@@ -574,14 +577,30 @@ export const tryOnService = {
       body: JSON.stringify(payload),
     }),
 
+  /**
+   * Fit Finder size recommendation.
+   *
+   * Units are sent EXPLICITLY and the numbers are in that system — the server
+   * converts, once. The client must not pre-convert: doing it on both sides
+   * was how an inch value could be scored as centimetres.
+   *
+   * A resolved result with `recommended: false` is a normal outcome (the
+   * engine declined to guess), not an error.
+   */
   calculateNoPhotoFit: (payload: {
     product_id: number;
-    height_cm: number;
-    weight_kg: number;
-    body_shape: string;
-    chest_cm?: number;
-    waist_cm?: number;
+    units: "metric" | "imperial";
+    height: number;
+    weight?: number | null;
+    chest?: number | null;
+    waist?: number | null;
+    hip?: number | null;
+    shoulder?: number | null;
+    inseam?: number | null;
+    neck?: number | null;
+    body_shape?: string | null;
     preferred_fit?: string;
+    demographic?: "men" | "women" | "unisex";
   }) =>
     request<NoPhotoFitResult>("/tryon/no-photo-fit", {
       method: "POST",

@@ -9,6 +9,32 @@ import { useUIStore } from '../../stores/uiStore';
 import { SparkleIcon, UserIcon, RulerIcon, ShieldIcon } from '../../components/icons/ConfitIcons';
 import { LoadingSpinner } from '../../components/common/CommonComponents';
 
+/**
+ * Canonical JSON — byte-identical to the backend's integrity form:
+ * keys sorted recursively, compact separators, raw UTF-8 (no \u escapes).
+ * Used to recompute the GDPR export sha256 client-side before download.
+ */
+export const canonicalJson = (value: unknown): string => {
+  if (value === null || typeof value !== 'object') {
+    return JSON.stringify(value);
+  }
+  if (Array.isArray(value)) {
+    return '[' + value.map(canonicalJson).join(',') + ']';
+  }
+  const keys = Object.keys(value as Record<string, unknown>).sort();
+  const parts = keys.map(
+    (k) => JSON.stringify(k) + ':' + canonicalJson((value as Record<string, unknown>)[k]),
+  );
+  return '{' + parts.join(',') + '}';
+};
+
+const formatBytes = (n: number): string => {
+  if (!Number.isFinite(n)) return '';
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(2)} MB`;
+};
+
 export const UserProfileView: React.FC = () => {
   const { t } = useTranslation();
   const [searchParams] = useSearchParams();
@@ -54,6 +80,9 @@ export const UserProfileView: React.FC = () => {
   const [mfaQrUri, setMfaQrUri] = useState<string>('');
   const [mfaCode, setMfaCode] = useState('');
   const [mfaPassword, setMfaPassword] = useState('');
+  // Disabling MFA requires a current authenticator/recovery code in
+  // addition to the password (server contract — MFA_CODE_REQUIRED).
+  const [mfaDisableCode, setMfaDisableCode] = useState('');
   const [mfaBackupCodes, setMfaBackupCodes] = useState<string[]>([]);
   const [mfaBusy, setMfaBusy] = useState(false);
 
@@ -106,9 +135,10 @@ export const UserProfileView: React.FC = () => {
   const disableMfa = async () => {
     setMfaBusy(true);
     try {
-      await authService.disableMFA(mfaPassword);
+      await authService.disableMFA(mfaPassword, mfaDisableCode.trim());
       setMfaEnabled(false);
       setMfaPassword('');
+      setMfaDisableCode('');
       setMfaPanel('idle');
       showToast('Two-factor authentication disabled.', 'info');
     } catch (err: any) {
@@ -275,14 +305,38 @@ export const UserProfileView: React.FC = () => {
     }
     try {
       const res = await authService.exportGDPR();
-      const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(res, null, 2));
+      // Verify the server-declared integrity BEFORE offering the download:
+      // recompute sha256 over the canonical JSON of `data` (sorted keys,
+      // compact separators — mirrors the server's algorithm) and compare.
+      // "Download started" is not proof; a checksum match is.
+      let integrityNote = '';
+      const integrity = res?.export_integrity;
+      if (integrity?.checksum_sha256 && res?.data && window.crypto?.subtle) {
+        const canonical = canonicalJson(res.data);
+        const digest = await window.crypto.subtle.digest(
+          'SHA-256',
+          new TextEncoder().encode(canonical),
+        );
+        const hex = Array.from(new Uint8Array(digest))
+          .map((b) => b.toString(16).padStart(2, '0'))
+          .join('');
+        if (hex === integrity.checksum_sha256) {
+          integrityNote = ` Verified sha256 ${hex.slice(0, 12)}…, ${formatBytes(integrity.canonical_bytes)}.`;
+        } else {
+          showToast('Export integrity check FAILED — the archive does not match its checksum. Do not trust this file; please retry.', 'error');
+          return;
+        }
+      }
+      const blob = new Blob([JSON.stringify(res, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
       const downloadAnchor = document.createElement('a');
-      downloadAnchor.setAttribute('href', dataStr);
+      downloadAnchor.setAttribute('href', url);
       downloadAnchor.setAttribute('download', `CONFIT_GDPR_Data_${user?.email}.json`);
       document.body.appendChild(downloadAnchor);
       downloadAnchor.click();
       downloadAnchor.remove();
-      showToast('GDPR Data archive exported successfully.', 'success');
+      URL.revokeObjectURL(url);
+      showToast('GDPR Data archive exported successfully.' + integrityNote, 'success');
     } catch (err: any) {
       showToast('Export failed: ' + err.message, 'error');
     }
@@ -566,7 +620,8 @@ export const UserProfileView: React.FC = () => {
           {mfaPanel === 'disable' && (
             <div className="space-y-3 pt-2 border-t border-slate-100">
               <p className="text-[11px] text-slate-600">
-                Re-enter your password to disable two-factor authentication.
+                Re-enter your password AND a current authenticator (or recovery) code
+                to disable two-factor authentication.
               </p>
               <div className="flex flex-col sm:flex-row gap-2">
                 <input
@@ -576,9 +631,17 @@ export const UserProfileView: React.FC = () => {
                   onChange={(e) => setMfaPassword(e.target.value)}
                   className="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-rose-400"
                 />
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="Authenticator or recovery code"
+                  value={mfaDisableCode}
+                  onChange={(e) => setMfaDisableCode(e.target.value)}
+                  className="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-rose-400"
+                />
                 <button
                   onClick={disableMfa}
-                  disabled={mfaBusy || !mfaPassword}
+                  disabled={mfaBusy || !mfaPassword || !mfaDisableCode.trim()}
                   className="px-4 py-2 rounded-xl border border-rose-200 hover:bg-rose-50 text-xs font-semibold text-rose-600 disabled:opacity-50"
                 >
                   Disable MFA

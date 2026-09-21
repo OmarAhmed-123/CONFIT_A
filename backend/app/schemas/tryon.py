@@ -259,23 +259,144 @@ class ImageValidationResponse(BaseModel):
 
 
 class NoPhotoFitRequest(BaseModel):
+    """Fit Finder request.
+
+    Units are explicit (``units``) and the numeric fields are interpreted in
+    THAT system: ``height`` is cm when units='metric' and inches when
+    units='imperial'. Conversion happens exactly once, server-side
+    (services/fit/units.py) — the previous contract assumed the client had
+    already converted, so a client that converted too (or not at all) produced
+    a silently wrong size.
+
+    The legacy ``*_cm`` / ``weight_kg`` field names remain accepted for
+    backward compatibility with already-deployed clients; when both are sent
+    the explicit unit-neutral field wins.
+    """
+
     product_id: int
-    height_cm: float = Field(ge=100, le=250)
-    weight_kg: float = Field(ge=30, le=250)
-    body_shape: str = Field(description="Hourglass, Athletic, Rectangle, Pear, Inverted Triangle")
-    chest_cm: Optional[float] = None
-    waist_cm: Optional[float] = None
-    hip_cm: Optional[float] = None
+
+    units: str = Field(default="metric", description="'metric' (cm/kg) or 'imperial' (in/lb)")
+    height: Optional[float] = Field(default=None, gt=0, allow_inf_nan=False)
+    weight: Optional[float] = Field(default=None, gt=0, allow_inf_nan=False)
+    chest: Optional[float] = Field(default=None, gt=0, allow_inf_nan=False)
+    waist: Optional[float] = Field(default=None, gt=0, allow_inf_nan=False)
+    hip: Optional[float] = Field(default=None, gt=0, allow_inf_nan=False)
+    shoulder: Optional[float] = Field(default=None, gt=0, allow_inf_nan=False)
+    inseam: Optional[float] = Field(default=None, gt=0, allow_inf_nan=False)
+    neck: Optional[float] = Field(default=None, gt=0, allow_inf_nan=False)
+
+    # Legacy metric-named aliases (deprecated but honoured).
+    height_cm: Optional[float] = Field(default=None, gt=0, allow_inf_nan=False)
+    weight_kg: Optional[float] = Field(default=None, gt=0, allow_inf_nan=False)
+    chest_cm: Optional[float] = Field(default=None, gt=0, allow_inf_nan=False)
+    waist_cm: Optional[float] = Field(default=None, gt=0, allow_inf_nan=False)
+    hip_cm: Optional[float] = Field(default=None, gt=0, allow_inf_nan=False)
+
+    body_shape: Optional[str] = Field(
+        default=None, description="Hourglass, Athletic, Rectangle, Pear, Inverted Triangle"
+    )
     preferred_fit: str = "regular"
+    demographic: str = Field(
+        default="unisex",
+        description="'men' | 'women' | 'unisex' — selects the standards chart and the estimator",
+    )
+
+    @model_validator(mode="after")
+    def _validate(self):
+        from backend.app.services.fit.ease import VALID_FIT_PREFERENCES
+
+        units = (self.units or "metric").strip().lower()
+        if units not in {"metric", "imperial"}:
+            raise ValueError("units must be 'metric' or 'imperial'")
+        object.__setattr__(self, "units", units)
+
+        pref = (self.preferred_fit or "regular").strip().lower()
+        if pref not in VALID_FIT_PREFERENCES:
+            raise ValueError(
+                "preferred_fit must be one of: " + ", ".join(VALID_FIT_PREFERENCES)
+            )
+        object.__setattr__(self, "preferred_fit", pref)
+
+        demo = (self.demographic or "unisex").strip().lower()
+        if demo not in {"men", "women", "unisex"}:
+            raise ValueError("demographic must be 'men', 'women' or 'unisex'")
+        object.__setattr__(self, "demographic", demo)
+
+        # Legacy *_cm aliases are metric by definition; accepting them together
+        # with units='imperial' is ambiguous, so it is rejected rather than
+        # guessed.
+        legacy = {
+            "height_cm": self.height_cm, "weight_kg": self.weight_kg,
+            "chest_cm": self.chest_cm, "waist_cm": self.waist_cm, "hip_cm": self.hip_cm,
+        }
+        legacy_used = [k for k, v in legacy.items() if v is not None]
+        if legacy_used and units == "imperial":
+            raise ValueError(
+                "the legacy fields "
+                + ", ".join(sorted(legacy_used))
+                + " are centimetre/kilogram fields and cannot be combined with "
+                "units='imperial'; send height/weight/chest/waist/hip instead"
+            )
+
+        if self.height is None and self.height_cm is None:
+            raise ValueError("height is required")
+        return self
+
+    # Resolved accessors — the controller uses ONLY these, so the legacy
+    # aliases never leak past the schema boundary.
+    @property
+    def resolved_height(self) -> float:
+        return self.height if self.height is not None else self.height_cm  # type: ignore[return-value]
+
+    @property
+    def resolved_weight(self) -> Optional[float]:
+        return self.weight if self.weight is not None else self.weight_kg
+
+    @property
+    def resolved_chest(self) -> Optional[float]:
+        return self.chest if self.chest is not None else self.chest_cm
+
+    @property
+    def resolved_waist(self) -> Optional[float]:
+        return self.waist if self.waist is not None else self.waist_cm
+
+    @property
+    def resolved_hip(self) -> Optional[float]:
+        return self.hip if self.hip is not None else self.hip_cm
 
 
 class NoPhotoFitResponse(BaseModel):
+    """Fit Finder response.
+
+    ``recommended`` is the field callers must branch on. When it is false the
+    engine deliberately declined to name a size (missing chart, no stock, not
+    enough evidence) and ``reason_code`` says which — that is a successful,
+    honest response, not an error.
+    """
+
     product_id: int
-    recommended_size: str
+    recommended: bool
+    recommended_size: Optional[str] = None
+    alternative_size: Optional[str] = None
+    is_between_sizes: bool = False
     confidence_score: int
-    fit_breakdown: Dict[str, str]
-    size_comparison_table: List[Dict[str, Any]]
-    brand_sizing_tendency: str
+    confidence_factors: List[str] = Field(default_factory=list)
+    is_estimated: bool = False
+    fit_verdict: str
+    confidence_disclosure: str
+    reason_code: Optional[str] = None
+    missing: List[str] = Field(default_factory=list)
+    diagnostics: Dict[str, Any] = Field(default_factory=dict)
+    fit_breakdown: Dict[str, str] = Field(default_factory=dict)
+    size_comparison_table: List[Dict[str, Any]] = Field(default_factory=list)
+    measurements_used: Dict[str, Any] = Field(default_factory=dict)
+    size_chart_source: Dict[str, Any] = Field(default_factory=dict)
+    garment: Dict[str, Any] = Field(default_factory=dict)
+    brand_sizing_tendency: Dict[str, Any] = Field(default_factory=dict)
+    return_risk: Dict[str, Any] = Field(default_factory=dict)
+    notes: List[str] = Field(default_factory=list)
+    engine_version: str
+    # Legacy free-text field kept so the deployed PDP keeps rendering.
     return_risk_score: str
 
 
@@ -332,16 +453,83 @@ class MeasurementSessionCreate(BaseModel):
 
 
 class MeasurementResultCreate(BaseModel):
-    height_cm: float = Field(ge=100, le=250)
-    shoulder_width_cm: Optional[float] = None
-    chest_cm: Optional[float] = None
-    waist_cm: Optional[float] = None
-    hip_cm: Optional[float] = None
-    inseam_cm: Optional[float] = None
-    body_shape: Optional[str] = "Athletic"
-    confidence_score: int = Field(default=95, ge=50, le=100)
-    calibration_method: str = "on_device_height_calibrated"
-    source: str = "camera_estimate"
+    """Measurement submission.
+
+    Bounds mirror ``services/fit/units.BOUNDS_CM`` so a value the sizing engine
+    would reject can never be persisted in the first place (previously only
+    height was bounded, so a 700 cm waist could be stored and then silently
+    poison every later recommendation).
+
+    ``confidence_score`` is NOT defaulted to 95 any more: a caller that does
+    not know how good its measurement is must not have high confidence
+    fabricated on its behalf. Omitting it stores NULL-equivalent low confidence
+    for the manual path (50) and requires the client to state its own value.
+    """
+
+    units: str = Field(default="metric", description="'metric' (cm) or 'imperial' (in)")
+    height_cm: Optional[float] = Field(default=None, gt=0, allow_inf_nan=False)
+    height: Optional[float] = Field(default=None, gt=0, allow_inf_nan=False)
+    shoulder_width_cm: Optional[float] = Field(default=None, gt=0, allow_inf_nan=False)
+    chest_cm: Optional[float] = Field(default=None, gt=0, allow_inf_nan=False)
+    waist_cm: Optional[float] = Field(default=None, gt=0, allow_inf_nan=False)
+    hip_cm: Optional[float] = Field(default=None, gt=0, allow_inf_nan=False)
+    inseam_cm: Optional[float] = Field(default=None, gt=0, allow_inf_nan=False)
+    body_shape: Optional[str] = None
+    confidence_score: int = Field(default=50, ge=1, le=100)
+    calibration_method: str = "manual_entry"
+    source: str = "manual"
+
+    @model_validator(mode="after")
+    def _validate(self):
+        units = (self.units or "metric").strip().lower()
+        if units not in {"metric", "imperial"}:
+            raise ValueError("units must be 'metric' or 'imperial'")
+        object.__setattr__(self, "units", units)
+        if self.height is None and self.height_cm is None:
+            raise ValueError("height is required")
+        if units == "imperial" and self.height_cm is not None:
+            raise ValueError(
+                "height_cm is a centimetre field and cannot be combined with units='imperial'; "
+                "send 'height' instead"
+            )
+        return self
+
+    def to_canonical(self) -> "MeasurementResultCreate":
+        """Convert to centimetres and bounds-check, once, at the boundary."""
+        from backend.app.services.fit.units import BodyMeasurements, UnitSystem
+
+        body = BodyMeasurements.from_payload(
+            units=UnitSystem(self.units),
+            height=self.height if self.height is not None else self.height_cm,
+            chest=self.chest_cm if self.units == "metric" else None,
+            waist=self.waist_cm if self.units == "metric" else None,
+            hip=self.hip_cm if self.units == "metric" else None,
+            shoulder=self.shoulder_width_cm if self.units == "metric" else None,
+            inseam=self.inseam_cm if self.units == "metric" else None,
+            body_shape=self.body_shape,
+        ) if self.units == "metric" else BodyMeasurements.from_payload(
+            units=UnitSystem.IMPERIAL,
+            height=self.height,
+            chest=self.chest_cm,
+            waist=self.waist_cm,
+            hip=self.hip_cm,
+            shoulder=self.shoulder_width_cm,
+            inseam=self.inseam_cm,
+            body_shape=self.body_shape,
+        )
+        return MeasurementResultCreate(
+            units="metric",
+            height_cm=body.height_cm,
+            shoulder_width_cm=body.shoulder_cm,
+            chest_cm=body.chest_cm,
+            waist_cm=body.waist_cm,
+            hip_cm=body.hip_cm,
+            inseam_cm=body.inseam_cm,
+            body_shape=self.body_shape,
+            confidence_score=self.confidence_score,
+            calibration_method=self.calibration_method,
+            source=self.source,
+        )
 
 
 class MeasurementResultOut(BaseModel):
@@ -353,10 +541,12 @@ class MeasurementResultOut(BaseModel):
     waist_cm: Optional[float]
     hip_cm: Optional[float]
     inseam_cm: Optional[float]
-    body_shape: str
+    # Nullable on purpose: "not stated" is a real state and must not be
+    # rendered as a fabricated default body shape.
+    body_shape: Optional[str] = None
     confidence_score: int
-    calibration_method: str
-    source: str
+    calibration_method: Optional[str] = None
+    source: Optional[str] = None
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)

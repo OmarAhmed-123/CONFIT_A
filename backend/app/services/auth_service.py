@@ -38,6 +38,7 @@ from backend.app.services.email_service import (
 )
 from backend.app.core.exceptions import (
     AuthenticationError,
+    EncryptionError,
     FeatureNotConfiguredError,
     ProviderIntegrationError,
     ValidationDomainError,
@@ -47,6 +48,8 @@ from backend.app.core.security import (
     create_access_token,
     create_refresh_token,
     decode_token,
+    decrypt_sensitive_data,
+    encrypt_sensitive_data,
     generate_recovery_codes,
     hash_recovery_code,
     validate_password_policy,
@@ -491,10 +494,110 @@ class AuthService:
     # ------------------------------------------------------------------
     # MFA
     # ------------------------------------------------------------------
+    # MFA secret storage/replay hardening (identity/MFA audit remediation):
+    #  - the TOTP secret is stored ENCRYPTED at rest (Fernet, same key path
+    #    as the encrypted body attributes). A stolen DB dump/backup can no
+    #    longer mint valid codes for every enrolled account. Legacy rows
+    #    written before this change (raw base32) are still readable — the
+    #    accessor falls back transparently, and the next enrollment/disable
+    #    rewrites the row in encrypted form. (OWASP MFA guidance: protect
+    #    the seed, keep the key outside the DB.)
+    #  - an accepted TOTP time-step is never accepted twice (replay
+    #    protection): the last accepted step is persisted per user via the
+    #    audit-log table (no schema change — production schema gate forbids
+    #    an out-of-band migration), and any code from a step <= that one is
+    #    rejected even inside the drift window.
+    _MFA_STEP_ACTION = "MFA_TOTP_STEP_ACCEPTED"
+    _ENCRYPTED_SECRET_PREFIX = "enc:v1:"
+
+    def _store_mfa_secret(self, user: User, secret: Optional[str]) -> None:
+        """Write the TOTP secret encrypted-at-rest (or clear it)."""
+        user.mfa_secret = (
+            self._ENCRYPTED_SECRET_PREFIX + encrypt_sensitive_data(secret)
+            if secret else None
+        )
+
+    def _load_mfa_secret(self, user: User) -> Optional[str]:
+        """Read the TOTP secret, decrypting when stored in the v1 envelope.
+
+        Legacy plaintext rows (pre-hardening) are returned as-is so existing
+        enrolled users keep working; they are rewritten encrypted on the next
+        setup/disable. Decryption failure raises EncryptionError — never
+        silently treat ciphertext as a secret.
+        """
+        raw = user.mfa_secret
+        if not raw:
+            return None
+        if raw.startswith(self._ENCRYPTED_SECRET_PREFIX):
+            return decrypt_sensitive_data(raw[len(self._ENCRYPTED_SECRET_PREFIX):])
+        return raw  # legacy plaintext row
+
+    def _last_accepted_totp_step(self, user: User) -> int:
+        from backend.app.models.user import AuditLog
+
+        row = (
+            self.db.query(AuditLog)
+            .filter(AuditLog.user_id == user.id, AuditLog.action == self._MFA_STEP_ACTION)
+            .order_by(AuditLog.id.desc())
+            .first()
+        )
+        if row is None or not row.resource_id:
+            return 0
+        try:
+            return int(row.resource_id)
+        except (TypeError, ValueError):
+            return 0
+
+    def _record_accepted_totp_step(self, user: User, step: int) -> None:
+        # resource_id carries the accepted time-step counter (an integer,
+        # NOT the code and NOT the secret — nothing sensitive is logged).
+        self.user_repo.log_audit(
+            self._MFA_STEP_ACTION, "User", str(step), user_id=user.id
+        )
+
+    def _verify_totp_with_replay_guard(self, user: User, code: str) -> bool:
+        """Valid TOTP AND not a replay of an already-accepted time step."""
+        try:
+            secret = self._load_mfa_secret(user)
+        except EncryptionError:
+            logger.error("MFA secret decryption failed", user_id=user.id)
+            return False
+        if not secret:
+            return False
+        totp = pyotp.TOTP(secret)
+        if not totp.verify(code, valid_window=1):
+            return False
+        # Which step actually produced this code? Check current then ±1
+        # (mirror of valid_window=1).
+        now_step = int(datetime.now(timezone.utc).timestamp()) // totp.interval
+        matched_step = None
+        for candidate in (now_step, now_step - 1, now_step + 1):
+            if totp.at(candidate * totp.interval) == code.strip():
+                matched_step = candidate
+                break
+        if matched_step is None:  # defensive — verify() said yes above
+            matched_step = now_step
+        if matched_step <= self._last_accepted_totp_step(user):
+            # Same (or older) step already consumed — replayed code.
+            return False
+        self._record_accepted_totp_step(user, matched_step)
+        return True
+
     def setup_mfa(self, user: User) -> Dict[str, Any]:
-        """Start (or restart) MFA enrollment. Not enabled until `verify_mfa_setup`."""
+        """Start (or restart) MFA enrollment. Not enabled until `verify_mfa_setup`.
+
+        HARDENED: when MFA is ALREADY enabled this endpoint refuses to
+        restart enrollment. Previously a hijacked session could silently
+        rotate the secret and wipe the backup codes, locking the real owner
+        out of their second factor. Re-enrollment now requires disabling MFA
+        first (which demands password + current code).
+        """
+        if user.mfa_enabled:
+            raise ValidationDomainError(
+                "MFA is already enabled. Disable it first (password + current code) to re-enroll."
+            )
         secret = pyotp.random_base32()
-        user.mfa_secret = secret
+        self._store_mfa_secret(user, secret)
         # Wipe any pre-existing backup codes; they are re-issued below
         # ONLY after the user proves possession by calling verify_mfa_setup.
         for row in self.db.query(MFABackupCode).filter(MFABackupCode.user_id == user.id):
@@ -514,8 +617,7 @@ class AuthService:
         retrievable again (§10)."""
         if not user.mfa_secret:
             raise ValidationDomainError("MFA setup has not been initialized.")
-        totp = pyotp.TOTP(user.mfa_secret)
-        if not totp.verify(code, valid_window=1):
+        if not self._verify_totp_with_replay_guard(user, code):
             raise AuthenticationError("Invalid MFA verification code.")
 
         user.mfa_enabled = True
@@ -526,10 +628,28 @@ class AuthService:
         self.user_repo.log_audit("MFA_ENABLED", "User", str(user.id), user_id=user.id)
         return {"status": "enabled", "backup_codes": codes}
 
-    def disable_mfa(self, user: User, password: str) -> None:
-        """Re-authenticate with password, then disable MFA and purge secrets."""
+    def disable_mfa(self, user: User, password: str, mfa_code: Optional[str] = None) -> None:
+        """Disable MFA: requires the password AND a current TOTP/recovery code.
+
+        HARDENED: password alone was previously sufficient — a stolen
+        password (the exact scenario MFA exists to survive) could remove the
+        second factor. OWASP guidance: changing/removing a factor must
+        re-authenticate with an existing factor.
+        """
         if not verify_password(password, user.hashed_password):
             raise AuthenticationError("Password verification required to disable MFA.")
+        if user.mfa_enabled:
+            code = (mfa_code or "").strip()
+            if not code:
+                raise AuthenticationError(
+                    "A current authenticator or recovery code is required to disable MFA.",
+                    details={"reason": "MFA_CODE_REQUIRED"},
+                )
+            if not self._consume_mfa_challenge(user, code):
+                self.user_repo.log_audit(
+                    "MFA_DISABLE_FAILED", "User", str(user.id), user_id=user.id
+                )
+                raise AuthenticationError("Invalid MFA verification code.")
         user.mfa_enabled = False
         user.mfa_secret = None
         for row in self.db.query(MFABackupCode).filter(MFABackupCode.user_id == user.id):
@@ -550,8 +670,8 @@ class AuthService:
         return {"status": "regenerated", "backup_codes": codes}
 
     def _consume_mfa_challenge(self, user: User, code: str) -> bool:
-        """Try TOTP first, then unused backup codes (single-use)."""
-        if user.mfa_secret and pyotp.TOTP(user.mfa_secret).verify(code, valid_window=1):
+        """Try TOTP first (with replay guard), then unused backup codes (single-use)."""
+        if user.mfa_secret and self._verify_totp_with_replay_guard(user, code):
             return True
         rows = self.db.query(MFABackupCode).filter(
             MFABackupCode.user_id == user.id, MFABackupCode.used_at.is_(None)
@@ -779,17 +899,46 @@ class AuthService:
     # GDPR export & account deletion
     # ------------------------------------------------------------------
     def export_gdpr_data(self, user: User) -> Dict[str, Any]:
-        from backend.app.models.wardrobe import WardrobeItem
-        from backend.app.models.commerce import Order
-        from backend.app.models.tryon import TryOnSession
+        """GDPR/CCPA data-portability export — the ACTUAL data, verifiable.
 
-        # COUNT(*) — spec §16 fix
-        wardrobe_count = self.db.query(func.count(WardrobeItem.id)).filter(WardrobeItem.user_id == user.id).scalar() or 0
-        orders_count = self.db.query(func.count(Order.id)).filter(Order.user_id == user.id).scalar() or 0
-        tryon_count = self.db.query(func.count(TryOnSession.id)).filter(TryOnSession.user_id == user.id).scalar() or 0
+        Audit remediation (2026-09-21 identity/profile/MFA/data-rights
+        report): the export previously returned COUNTS only — "ظهور الزر ليس
+        دليلًا على اكتمال العملية". A data-subject access request must return
+        the personal data itself (GDPR Art. 15 & 20), and the recipient must
+        be able to verify the archive is complete and untampered.
+
+        This export now contains:
+        - the full style profile (including decrypted body attributes — the
+          data subject has the right to their own measurements),
+        - consent states with policy version and timestamp,
+        - every wardrobe item, saved outfit, mood board (+items), order
+          (with line items), try-on session and stylist session owned by
+          the user — records only, never other users' data (ownership is
+          the JWT subject; there is no caller-supplied user id),
+        - integrity evidence: sha256 checksum + byte size of the canonical
+          JSON payload, so the UI can display exactly what was produced and
+          the file can be verified after download.
+        """
+        from backend.app.models.commerce import Order, OrderItem
+        from backend.app.models.profile import MoodBoard, MoodBoardItem
+        from backend.app.models.stylist import Outfit, StylistSession
+        from backend.app.models.tryon import TryOnSession
+        from backend.app.models.wardrobe import WardrobeItem
+
+        def _iso(v):
+            return v.isoformat() if v is not None else None
+
+        def _num(v):
+            # Money/decimal values are exported as STRINGS ("129.00"), not
+            # floats: (a) no precision loss, (b) the canonical-JSON checksum
+            # is reproducible in the browser (Python renders float 12.0 as
+            # "12.0" while JS renders it "12" — a string is byte-identical
+            # on both sides).
+            return str(v) if v is not None else None
 
         usp = self.profile_repo.get_by_user_id(user.id)
         usp_data = None
+        mood_boards: list = []
         if usp:
             try:
                 body = self.profile_repo.get_decrypted_body_data(usp)
@@ -809,20 +958,197 @@ class AuthService:
                 "fit_preference": usp.fit_preference,
                 "body_shape_tag": usp.body_shape_tag,
                 "body_attributes": body,
-                "budget_monthly_min": usp.budget_monthly_min,
-                "budget_monthly_max": usp.budget_monthly_max,
-                "budget_per_outfit_max": usp.budget_per_outfit_max,
+                "budget_monthly_min": _num(usp.budget_monthly_min),
+                "budget_monthly_max": _num(usp.budget_monthly_max),
+                "budget_per_outfit_max": _num(usp.budget_per_outfit_max),
                 "onboarding_completed": usp.onboarding_completed,
+                "consents": {
+                    "tryon_storage": usp.privacy_consent_tryon_storage,
+                    "share_with_brands": usp.privacy_consent_share_with_brands,
+                    "ai_personalization": usp.consent_ai_personalization,
+                    "marketing_analytics": usp.consent_marketing_analytics,
+                    "policy_version": usp.consent_policy_version,
+                    "last_agreed_at": _iso(usp.consent_last_agreed_at),
+                },
             }
+            for board in self.db.query(MoodBoard).filter(MoodBoard.profile_id == usp.id).all():
+                mood_boards.append({
+                    "id": board.id,
+                    "title": board.title,
+                    "description": board.description,
+                    "created_at": _iso(board.created_at),
+                    "items": [
+                        {
+                            "kind": it.kind,
+                            "payload": json.loads(it.payload_json or "{}"),
+                            "position": it.position,
+                        }
+                        for it in self.db.query(MoodBoardItem)
+                        .filter(MoodBoardItem.board_id == board.id)
+                        .order_by(MoodBoardItem.position)
+                        .all()
+                    ],
+                })
 
-        self.user_repo.log_audit("GDPR_DATA_EXPORT", "User", str(user.id), user_id=user.id)
+        wardrobe_items = [
+            {
+                "id": w.id,
+                "title": w.title,
+                "category": w.category,
+                "subcategory": w.subcategory,
+                "color_name": w.color_name,
+                "color_hex": w.color_hex,
+                "pattern": w.pattern,
+                "brand_name": w.brand_name,
+                "image_url": w.image_url,
+                "ai_tags": json.loads(w.ai_tags or "[]"),
+                "occasions": json.loads(w.occasions or "[]"),
+                "seasonality": w.seasonality,
+                "wear_count": w.wear_count,
+                "last_worn_date": _iso(w.last_worn_date),
+                "purchase_price": _num(w.purchase_price),
+                "is_favorite": w.is_favorite,
+                "created_at": _iso(w.created_at),
+            }
+            for w in self.db.query(WardrobeItem)
+            .filter(WardrobeItem.user_id == user.id)
+            .order_by(WardrobeItem.id)
+            .all()
+        ]
+
+        saved_outfits = [
+            {
+                "id": o.id,
+                "title": o.title,
+                "description": o.description,
+                "occasion": o.occasion,
+                "total_price": _num(o.total_price),
+                "style_tags": json.loads(o.style_tags or "[]"),
+                "is_saved": o.is_saved,
+                "created_at": _iso(o.created_at),
+            }
+            for o in self.db.query(Outfit)
+            .filter(Outfit.user_id == user.id)
+            .order_by(Outfit.id)
+            .all()
+        ]
+
+        orders = []
+        for order in (
+            self.db.query(Order).filter(Order.user_id == user.id).order_by(Order.id).all()
+        ):
+            items = [
+                {
+                    "product_id": oi.product_id,
+                    "product_title": oi.product_title,
+                    "brand_name": oi.brand_name,
+                    "size": oi.size,
+                    "color": oi.color,
+                    "quantity": oi.quantity,
+                    "unit_price": _num(oi.unit_price),
+                    "subtotal": _num(oi.subtotal),
+                    "is_returned": oi.is_returned,
+                }
+                for oi in self.db.query(OrderItem).filter(OrderItem.order_id == order.id).all()
+            ]
+            orders.append({
+                "order_number": order.order_number,
+                "total_amount": _num(order.total_amount),
+                "currency": order.currency,
+                "payment_status": order.payment_status,
+                "fulfillment_type": order.fulfillment_type,
+                "shipping_recipient_name": order.shipping_recipient_name,
+                "shipping_address_line": order.shipping_address_line,
+                "shipping_city": order.shipping_city,
+                "shipping_country": order.shipping_country,
+                "created_at": _iso(order.created_at),
+                "items": items,
+            })
+
+        tryon_sessions = [
+            {
+                "id": t.id,
+                "product_id": t.product_id,
+                "status": t.status,
+                "fit_verdict": t.fit_verdict,
+                "user_image_url": t.user_image_url,
+                "rendered_result_url": t.rendered_result_url,
+                "created_at": _iso(getattr(t, "created_at", None)),
+            }
+            for t in self.db.query(TryOnSession)
+            .filter(TryOnSession.user_id == user.id)
+            .order_by(TryOnSession.id)
+            .all()
+        ]
+
+        stylist_sessions = [
+            {
+                "id": s.id,
+                "session_title": s.session_title,
+                "created_at": _iso(s.created_at),
+            }
+            for s in self.db.query(StylistSession)
+            .filter(StylistSession.user_id == user.id)
+            .order_by(StylistSession.id)
+            .all()
+        ]
+
+        exported_at = datetime.now(timezone.utc)
+
+        def _json_normalize(v):
+            """Make the payload byte-reproducible in a JS runtime.
+
+            Python renders float 62.0 as "62.0"; JSON.parse+stringify in the
+            browser renders it "62". Integral floats are therefore exported
+            as ints (values come from user-entered JSON like body_attributes
+            / occasion_weights). Money already goes through _num -> str.
+            """
+            if isinstance(v, float) and v.is_integer():
+                return int(v)
+            if isinstance(v, dict):
+                return {k: _json_normalize(x) for k, x in v.items()}
+            if isinstance(v, list):
+                return [_json_normalize(x) for x in v]
+            return v
+
+        data = _json_normalize({
+            "profile": usp_data,
+            "mood_boards": mood_boards,
+            "wardrobe_items": wardrobe_items,
+            "saved_outfits": saved_outfits,
+            "orders": orders,
+            "tryon_sessions": tryon_sessions,
+            "stylist_sessions": stylist_sessions,
+        })
+
+        # Integrity evidence — checksum/size of the canonical (sorted-key,
+        # compact, raw-UTF-8) JSON of the data section. ensure_ascii=False is
+        # deliberate: JS JSON.stringify never \u-escapes non-ASCII (Arabic
+        # titles!), so raw UTF-8 is the only form both sides reproduce
+        # byte-identically. The exact algorithm is declared in
+        # export_integrity.algorithm.
+        canonical = json.dumps(
+            data, sort_keys=True, separators=(",", ":"), ensure_ascii=False, default=str
+        )
+        checksum = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+        self.user_repo.log_audit(
+            "GDPR_DATA_EXPORT", "User", str(user.id), user_id=user.id,
+            details=f"sha256={checksum};bytes={len(canonical.encode('utf-8'))}",
+        )
         return {
             "user": user,
             "profile": usp_data,
-            "wardrobe_items_count": int(wardrobe_count),
-            "orders_count": int(orders_count),
-            "tryon_sessions_count": int(tryon_count),
-            "exported_at": datetime.now(timezone.utc),  # §16: real export time
+            "data": data,
+            "wardrobe_items_count": len(wardrobe_items),
+            "orders_count": len(orders),
+            "tryon_sessions_count": len(tryon_sessions),
+            "export_integrity": {
+                "algorithm": "sha256 over canonical JSON of `data`: keys sorted, separators (',',':'), UTF-8, no ASCII escaping",
+                "checksum_sha256": checksum,
+                "canonical_bytes": len(canonical.encode("utf-8")),
+            },
+            "exported_at": exported_at,  # §16: real export time
             "data_retention_policy": "GDPR & CCPA aligned. Sensitive body measurements encrypted at rest. Photos purged after 24h unless explicit consent is given.",
         }
 

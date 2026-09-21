@@ -198,3 +198,11 @@ are business data and are not automatically deleted by a code rollback.
    local file is not a secret manager and is not a durable private memory vault.
 
 This report is for repair and learning, not punitive evaluation of individuals.
+
+### Additional real-browser mobile finding
+At a 390px viewport the existing navbar overflowed to 454px and hid *all* partner
+navigation below md. The shared shell also used light text on white cards and
+navy headings on a near-black body. The follow-up makes the content shell light,
+keeps a dark navigation area, uses one scrollable route list on every breakpoint,
+wraps header controls and removes the fabricated “Massimo Dutti” identity fallback.
+This was a browser-observed defect, not a visual redesign claim.

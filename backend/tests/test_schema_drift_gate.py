@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import os
 import tempfile
+from pathlib import Path
 
 import pytest
 from sqlalchemy import create_engine, inspect, text
@@ -189,14 +190,57 @@ class TestGateAgainstRealMigrations:
             enforce_at_startup(engine, "production")
         enforce_at_startup(engine, "test")  # no raise
 
-    def test_unknown_future_revision_is_drift(self, scratch_db):
+    def test_newer_revision_with_every_required_object_is_ahead_not_drift(self, scratch_db):
+        """2026-09-21 production incident, as a regression test.
+
+        A preview-branch deployment applied migration 0018_outfit_share_lifecycle
+        to the shared production database while `main` still expected 0017.
+        `main` saw a revision it did not know, raised SchemaDriftError inside the
+        ASGI lifespan, and every path on the API — including /health — answered
+        an empty FUNCTION_INVOCATION_FAILED for ~11 minutes.
+
+        The revision was genuinely unknown to that code, and that is still
+        reported. But "unknown revision" is not the same claim as "this code
+        cannot run here": the database had every table and column 0017 needed.
+        The required-object check is the evidence that settles it, so the honest
+        verdict is `ahead` — serviceable, accepted in production, and still
+        surfaced as degraded so the lag stays visible.
+        """
         url, engine = scratch_db
         _alembic(url, "up", "head")
         with engine.begin() as conn:
             conn.execute(text("UPDATE alembic_version SET version_num = '9999_from_the_future'"))
         report = evaluate(engine)
-        assert report.verdict == "drift"
+        assert report.verdict == "ahead", report.findings
         assert any("unknown to this code" in f for f in report.findings)
+        assert report.missing_tables == [] and report.missing_columns == {}
+        assert report.blocking is False
+        # Accepted in production (serviceable), but never reported as "ok".
+        assert schema_gate.acceptable(report, "production") is True
+        assert report.ok is False
+        # ...and therefore must not abort startup.
+        enforce_at_startup(engine, "production")
+
+    def test_ahead_becomes_drift_when_a_required_object_is_missing(self, scratch_db):
+        """`ahead` is earned by evidence, not granted by the revision string.
+
+        The same unknown revision becomes a hard `drift` the moment an object
+        this code needs is gone — which is exactly the 2026-09-03 failure the
+        gate was written for. A destructive newer migration must still stop the
+        deployment.
+        """
+        url, engine = scratch_db
+        _alembic(url, "up", "head")
+        with engine.begin() as conn:
+            conn.execute(text("UPDATE alembic_version SET version_num = '9999_destructive'"))
+            conn.execute(text("DROP TABLE sponsored_placements"))
+        report = evaluate(engine)
+        assert report.verdict == "drift", report.findings
+        assert "sponsored_placements" in report.missing_tables
+        assert report.blocking is True
+        assert schema_gate.acceptable(report, "production") is False
+        with pytest.raises(SchemaDriftError):
+            enforce_at_startup(engine, "production")
 
     def test_emergency_override_is_explicit_and_logged(self, scratch_db, monkeypatch):
         url, engine = scratch_db
@@ -204,6 +248,77 @@ class TestGateAgainstRealMigrations:
         monkeypatch.setenv("CONFIT_SCHEMA_GATE", "warn")
         report = enforce_at_startup(engine, "production")
         assert report.verdict == "drift"  # still reported, only enforcement relaxed
+
+
+class TestUnobservableDatabaseStaysDiagnosable:
+    """A database we cannot inspect must never take the whole API down.
+
+    Raising in the lifespan does not produce a readable 503 — it aborts the
+    invocation, so Vercel answers every path with an empty
+    FUNCTION_INVOCATION_FAILED. That kills /health (the endpoint that names the
+    cause) and the release gate that reads it, which blocks every merge to main
+    and leaves a global CONFIT_SCHEMA_GATE=warn override as the only lever.
+    That is the 2026-09-21 outage, end to end.
+    """
+
+    def test_unreachable_is_its_own_verdict_and_not_blocking(self):
+        import os as _os
+        import tempfile as _tf
+
+        gone = _os.path.join(_tf.mkdtemp(), "no-such-dir", "gone.db")
+        report = evaluate(create_engine(f"sqlite:///{gone}"))
+        assert report.verdict == "unreachable", report.findings
+        assert report.blocking is False
+        assert any("database inspection failed" in f for f in report.findings)
+        assert schema_gate.acceptable(report, "production") is False
+
+    def test_production_startup_survives_an_unreachable_database(self):
+        import os as _os
+        import tempfile as _tf
+
+        gone = _os.path.join(_tf.mkdtemp(), "no-such-dir", "gone.db")
+        report = enforce_at_startup(create_engine(f"sqlite:///{gone}"), "production")
+        assert report.verdict == "unreachable"          # must NOT raise
+
+    def test_requests_are_refused_with_a_503_that_names_the_cause(self, client, monkeypatch):
+        """The refusal must name the real cause: unreachable, not schema drift."""
+        unreachable = schema_gate.SchemaGateReport(
+            verdict="unreachable", expected_head="0017_audit_before_after_request_id",
+            database_revision=None,
+            findings=["database inspection failed: OperationalError: connection refused"])
+        monkeypatch.setattr(schema_gate, "cached_report", lambda engine, **kw: unreachable)
+        monkeypatch.setattr("backend.app.main.settings.ENVIRONMENT", "production")
+        r = client.get("/api/v1/catalog/products")
+        assert r.status_code == 503
+        body = r.json()["error"]
+        assert body["code"] == "DATABASE_UNREACHABLE"
+        assert "alembic" not in body["message"].lower()
+        assert body["details"]["verdict"] == "unreachable"
+
+    def test_drift_still_refuses_with_the_migration_instruction(self, client, monkeypatch):
+        drift = schema_gate.SchemaGateReport(
+            verdict="drift", expected_head="0017_audit_before_after_request_id",
+            database_revision="0007_reconcile_recently_viewed",
+            findings=["database is BEHIND the code"])
+        monkeypatch.setattr(schema_gate, "cached_report", lambda engine, **kw: drift)
+        monkeypatch.setattr("backend.app.main.settings.ENVIRONMENT", "production")
+        r = client.get("/api/v1/catalog/products")
+        assert r.status_code == 503
+        body = r.json()["error"]
+        assert body["code"] == "SCHEMA_DRIFT"
+        assert "alembic upgrade head" in body["message"]
+
+    def test_health_stays_reachable_and_reports_the_real_condition(self, client, monkeypatch):
+        unreachable = schema_gate.SchemaGateReport(
+            verdict="unreachable", expected_head="0017_audit_before_after_request_id",
+            database_revision=None, findings=["database inspection failed: timeout"])
+        monkeypatch.setattr(schema_gate, "cached_report", lambda engine, **kw: unreachable)
+        r = client.get("/api/v1/health")
+        assert r.status_code == 200, "health must never be the casualty of a gate"
+        schema = r.json()["checks"]["schema"]
+        assert schema["verdict"] == "unreachable"
+        assert schema["acceptable"] is False
+        assert schema["blocking"] is False
 
 
 class TestGateIsWired:

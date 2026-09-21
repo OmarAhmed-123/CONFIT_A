@@ -227,6 +227,17 @@ class StorageBackend(ABC):
     def owns_url(self, public_url: Optional[str]) -> bool:
         return self.key_for_url(public_url) is not None
 
+    def presign_url(self, relative_path: str, expires_in: Optional[int] = None) -> Optional[str]:
+        """Browser-ready URL for an object this backend stored.
+
+        Publicly readable backends return the plain public URL; backends whose
+        objects are private (Neon Object Storage default, most R2 buckets)
+        return a time-limited signed URL. None when the path is invalid or the
+        backend cannot issue one — callers fall back to the stored URL rather
+        than serving a dead link.
+        """
+        return None
+
 
 class LocalStorageBackend(StorageBackend):
     """Local filesystem - development only. Ephemeral in production!"""
@@ -264,6 +275,15 @@ class LocalStorageBackend(StorageBackend):
         except ValidationDomainError:
             return None
         return key
+
+    def presign_url(self, relative_path: str, expires_in: Optional[int] = None) -> Optional[str]:
+        # Local dev files are publicly readable through the /uploads mount:
+        # the plain URL is already browser-ready, no signature needed.
+        try:
+            self._safe_path(relative_path)
+        except ValidationDomainError:
+            return None
+        return f"/uploads/{relative_path}"
 
     def exists(self, relative_path: str) -> bool:
         try:
@@ -342,7 +362,15 @@ class S3StorageBackend(StorageBackend):
         try:
             from botocore.config import Config
             client_kwargs["config"] = Config(
-                signature_version="s3v4", retries={"max_attempts": 2}
+                # PATH-STYLE addressing is mandatory for S3-compatible stores
+                # other than AWS: virtual-hosted addressing rewrites the bucket
+                # into a subdomain (confit-a-media.<endpoint host>) that does
+                # not resolve, so every operation would fail with NoSuchBucket
+                # / DNS errors. Neon Object Storage documents forcePathStyle
+                # as required; verified against the live bucket 2026-09-21.
+                s3={"addressing_style": "path"},
+                signature_version="s3v4",
+                retries={"max_attempts": 2},
             )
         except ImportError:  # pragma: no cover - boto3 without botocore
             logger.warn("botocore_unavailable_using_boto3_defaults")
@@ -364,6 +392,29 @@ class S3StorageBackend(StorageBackend):
         if not key or ".." in key or key.startswith("/"):
             return None
         return key
+
+    def presign_url(self, relative_path: str, expires_in: Optional[int] = None) -> Optional[str]:
+        """Signed GET URL (SigV4).
+
+        Neon Object Storage buckets are private by default: anonymous browser
+        GETs on the plain endpoint URL return 403 (verified in production
+        2026-09-21). Signing is computed LOCALLY by boto3 — no network round
+        trip per response — so presigning at the API serialization boundary is
+        effectively free. The canonical (unsigned) URL stays in the database;
+        every API response carries a fresh, short-lived signature.
+        """
+        if not relative_path or ".." in relative_path or relative_path.startswith("/"):
+            return None
+        try:
+            expiry = int(expires_in or getattr(settings, "S3_PRESIGN_EXPIRY_SECONDS", 3600))
+            return self.s3_client.generate_presigned_url(
+                "get_object",
+                Params={"Bucket": self.bucket, "Key": relative_path},
+                ExpiresIn=expiry,
+            )
+        except Exception as e:
+            logger.warn(f"S3 presign failed for {relative_path}: {e}")
+            return None
 
     @staticmethod
     def _content_type_for(key: str) -> str:
@@ -462,3 +513,32 @@ def reset_storage():
     _storage_backend = None
     with _probe_lock:
         _probe_cache.clear()
+
+
+def storage_public_url(public_url: Optional[str]) -> Optional[str]:
+    """Browser-ready URL for any image reference (call at API boundaries).
+
+    Objects in PRIVATE buckets (Neon Object Storage's default) cannot be
+    loaded by an ``<img>`` tag from their plain endpoint URL — the browser
+    gets 403. So when the configured backend issued the URL (i.e. it owns the
+    key), the URL is swapped for a time-limited presigned GET. Everything
+    else passes through untouched:
+
+    * local-dev ``/uploads/...`` URLs (publicly readable in development),
+    * seeded / external images (Unsplash, catalog CDNs) that no storage
+      backend owns.
+
+    Never raises: a presign failure degrades to the stored URL, and a
+    misconfigured storage backend degrades to pass-through.
+    """
+    if not public_url:
+        return public_url
+    try:
+        storage = get_storage()
+    except Exception:
+        return public_url
+    key = storage.key_for_url(public_url)
+    if not key:
+        return public_url
+    presigned = storage.presign_url(key)
+    return presigned or public_url

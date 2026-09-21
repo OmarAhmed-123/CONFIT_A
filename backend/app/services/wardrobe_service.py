@@ -11,7 +11,11 @@ from sqlalchemy.orm import Session
 from backend.app.core.config import settings
 from backend.app.core.exceptions import ResourceNotFoundError, ValidationDomainError, ProviderIntegrationError, FeatureNotConfiguredError
 from backend.app.core.logging import logger
-from backend.app.services.storage_service import require_production_storage, get_storage
+from backend.app.services.storage_service import (
+    require_production_storage,
+    get_storage,
+    storage_public_url,
+)
 from backend.app.models.wardrobe import WardrobeItem
 from backend.app.repositories.wardrobe_repository import WardrobeRepository
 from backend.app.services import wardrobe_taxonomy as taxonomy
@@ -643,6 +647,10 @@ class WardrobeService:
 
     # ───────────────────── serialization ───────────────────────
     def _to_dict(self, item: WardrobeItem) -> Dict[str, Any]:
+        # Private object stores (Neon Object Storage) reject anonymous reads:
+        # owned-object URLs are swapped for short-lived presigned GETs here,
+        # at the API boundary. The database keeps the canonical URL; external
+        # / seeded image URLs pass through untouched (storage_public_url).
         return {
             "id": item.id,
             "user_id": item.user_id,
@@ -653,7 +661,7 @@ class WardrobeService:
             "color_hex": item.color_hex,
             "pattern": item.pattern,
             "brand_name": item.brand_name,
-            "image_url": item.image_url,
+            "image_url": storage_public_url(item.image_url),
             "ai_tags": json.loads(item.ai_tags) if item.ai_tags else [],
             "occasions": json.loads(item.occasions) if item.occasions else [],
             "secondary_colors": json.loads(item.secondary_colors) if getattr(item, "secondary_colors", None) else [],

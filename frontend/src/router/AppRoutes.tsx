@@ -49,6 +49,7 @@ import { BrandInventoryView } from '../views/b2b/BrandInventoryView';
 import { BrandAnalyticsView } from '../views/b2b/BrandAnalyticsView';
 import { BrandPlacementsView } from '../views/b2b/BrandPlacementsView';
 import { AdminAnalyticsView } from '../views/b2b/AdminAnalyticsView';
+import { AdminAuditView } from '../views/b2b/AdminAuditView';
 
 export const AppRoutes: React.FC = () => {
   const BRAND_ROLES = ['brand_owner', 'brand_manager', 'brand_staff', 'admin'];
@@ -211,7 +212,9 @@ export const AppRoutes: React.FC = () => {
           <Route path="overview" element={<AdminAnalyticsView />} />
           <Route path="analytics" element={<AdminAnalyticsView />} />
           <Route path="partners" element={<BrandDashboardView />} />
-          <Route path="audit" element={<AdminAnalyticsView />} />
+          {/* G-07: this route used to render the analytics dashboard, so the
+              audit trail had no UI at all. */}
+          <Route path="audit" element={<AdminAuditView />} />
         </Route>
 
         {/* 5. Fallback */}

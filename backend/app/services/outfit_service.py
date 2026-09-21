@@ -42,6 +42,7 @@ MAX_SHARE_TTL_DAYS = 365
 def _utcnow() -> datetime:
     """Naive-UTC 'now', matching the DateTime columns in this schema."""
     return datetime.now(timezone.utc).replace(tzinfo=None)
+from backend.app.services.storage_service import storage_public_url
 
 
 # Map fine-grained slot ontology values to the coarse canvas positions the
@@ -483,7 +484,9 @@ class OutfitService:
                     "brand_name": best.brand_name,
                     "color_family": taxonomy.normalize_color(best.color_name),
                     "dominant_hex": best.color_hex,
-                    "image_url": best.image_url,
+                    # Owned pieces may live in a private object store:
+                    # presign at the API boundary (pass-through otherwise).
+                    "image_url": storage_public_url(best.image_url),
                     "price": 0.0,
                     "style_tags": json.loads(best.ai_tags) if best.ai_tags else [],
                     "occasion_tags": json.loads(best.occasions) if best.occasions else [],

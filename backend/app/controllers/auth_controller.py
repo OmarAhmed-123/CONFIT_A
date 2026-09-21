@@ -77,7 +77,16 @@ def _clear_session_cookies(response: Response) -> None:
 
 
 def _client_ip(request: Request) -> Optional[str]:
-    return request.client.host if request.client else None
+    """Delegate to the shared resolver.
+
+    The previous body returned ``request.client.host``, which on Vercel is the
+    platform edge — so every auth audit row recorded a proxy address instead
+    of the actor's address (G-05). Kept as a local alias so the six call sites
+    below do not churn.
+    """
+    from backend.app.core.request_context import client_ip
+
+    return client_ip(request)
 
 
 def _user_agent(request: Request) -> Optional[str]:

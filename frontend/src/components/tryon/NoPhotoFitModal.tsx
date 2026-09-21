@@ -192,8 +192,12 @@ export const NoPhotoFitModal: React.FC = () => {
                       <div className="text-2xl font-serif font-black text-[#1B1F3B]">
                         Size {noPhotoResult.recommended_size}
                       </div>
-                      <span className="text-[10px] text-slate-500">
-                        {noPhotoResult.confidence_score}% confidence
+                      {/* Band, not a percentage. The 0-100 score is an internal
+                          evidence tally and is NOT calibrated against real fit
+                          outcomes, so rendering it as "N% confidence" would
+                          imply a frequency nobody has measured. */}
+                      <span className="text-[10px] text-slate-500 capitalize">
+                        {noPhotoResult.confidence_band ?? 'unrated'} confidence
                         {noPhotoResult.is_estimated ? ' · partly estimated' : ''}
                       </span>
                     </div>
@@ -223,6 +227,15 @@ export const NoPhotoFitModal: React.FC = () => {
                       ))}
                     </div>
                   </div>
+
+                  {noPhotoResult.confidence_band_reason && (
+                    <p className="text-[10px] text-slate-500 leading-relaxed">
+                      {noPhotoResult.confidence_band_reason}{' '}
+                      <span className="text-slate-400">
+                        Rule-based rating of the evidence, not a statistical probability.
+                      </span>
+                    </p>
+                  )}
 
                   <div className="text-[11px] text-slate-500 font-light bg-white/80 p-2.5 rounded-lg border border-slate-100 space-y-1">
                     <p>ℹ️ {noPhotoResult.brand_sizing_tendency?.summary}</p>

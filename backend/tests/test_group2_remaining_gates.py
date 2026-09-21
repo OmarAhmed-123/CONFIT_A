@@ -3,6 +3,7 @@ and C7 (no fabricated PNG URL anywhere in the runtime path)."""
 import os
 import re
 import subprocess
+import sys
 from unittest.mock import patch
 
 import httpx
@@ -211,9 +212,22 @@ ALEMBIC_TEST_DB = "sqlite:///./backend/data/confit_alembic_test.db"
 
 
 def _alembic(*args):
+    """Run alembic in the SAME interpreter that is running the tests.
+
+    This used to invoke the bare name ``python3``, which resolves via PATH to
+    whatever interpreter happens to be first - not necessarily the virtualenv
+    the suite is running in. In any environment where the project's deps live
+    in a venv (the normal local setup), alembic is absent from that other
+    interpreter and this test failed for reasons unrelated to the migrations.
+    CI happened to pass only because it installs into the system interpreter.
+
+    ``sys.executable`` is the interpreter executing this test, so the subprocess
+    always sees the same installed packages. Semantics are unchanged; the test
+    still shells out so alembic gets a clean process and its own env var.
+    """
     env = {**os.environ, "ALEMBIC_DATABASE_URL": ALEMBIC_TEST_DB}
     return subprocess.run(
-        ["python3", "-m", "alembic", "-c", "backend/alembic.ini", *args],
+        [sys.executable, "-m", "alembic", "-c", "backend/alembic.ini", *args],
         capture_output=True, text=True, env=env,
     )
 

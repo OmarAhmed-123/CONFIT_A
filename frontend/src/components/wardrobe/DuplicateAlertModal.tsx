@@ -2,8 +2,10 @@ import React from 'react';
 import { useCartStore } from '../../stores/cartStore';
 import { DuplicateAlertIcon, SparkleIcon, WardrobeIcon } from '../icons/ConfitIcons';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 export const DuplicateAlertModal: React.FC = () => {
+  const { t } = useTranslation();
   const { pendingDuplicateAlert, confirmAddDuplicate, dismissDuplicate } = useCartStore();
 
   if (!pendingDuplicateAlert) return null;
@@ -61,7 +63,7 @@ export const DuplicateAlertModal: React.FC = () => {
               className="py-2.5 px-4 rounded-xl border border-slate-300 hover:border-[#1B1F3B] text-slate-700 font-semibold text-xs transition-all text-center flex items-center justify-center gap-1.5"
             >
               <WardrobeIcon size={16} />
-              <span>Style What I Own</span>
+              <span>{t('wardrobe.style_what_i_own')}</span>
             </button>
 
             <button

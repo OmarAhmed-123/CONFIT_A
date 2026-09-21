@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useCatalogViewModel } from '../../viewmodels/useCatalogViewModel';
 import { useUIStore } from '../../stores/uiStore';
 import { useAuthStore } from '../../stores/authStore';
+import { useConsentStore } from '../../privacy/consentStore';
 import { tryOnService } from '../../services/apiServices';
 import { measurementService } from '../../services/measurementService';
 import { NoPhotoFitResult, Product } from '../../models';
@@ -114,6 +115,12 @@ export const FitFinderView: React.FC = () => {
   const [calcError, setCalcError] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [saveConsent, setSaveConsent] = useState(false);
+  // The checkbox records a real, versioned consent rather than a local
+  // boolean: `handleSave` then sends `consent_granted` only because the user
+  // actually pressed it, and withdrawing from /privacy revokes it here too.
+  const grantConsent = useConsentStore((s) => s.grant);
+  const withdrawConsent = useConsentStore((s) => s.withdraw);
+  const hasBodyScanConsent = useConsentStore((s) => s.hasConsent)('body_scan');
 
   /** ANY input change invalidates the displayed recommendation. */
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) => {
@@ -190,11 +197,11 @@ export const FitFinderView: React.FC = () => {
 
   const handleCalculate = async () => {
     if (!selectedProduct) {
-      showToast('Select a garment to size first.', 'error');
+      showToast(t('fit_finder.select_garment'), 'error');
       return;
     }
     if (Object.keys(validationErrors).length > 0) {
-      showToast('Fix the highlighted measurement fields first.', 'error');
+      showToast(t('fit_finder.fix_fields'), 'error');
       return;
     }
     setCalcLoading(true);
@@ -237,7 +244,10 @@ export const FitFinderView: React.FC = () => {
    * refuses to store measurements against a session that lacks consent.
    */
   const handleSave = async () => {
-    if (!isAuthenticated || !saveConsent) return;
+    // Two independent conditions, on purpose: the visible checkbox is the
+    // user's intent in this session, and the store record is the durable
+    // grant. `consent_granted: true` must not be sent unless both hold.
+    if (!isAuthenticated || !saveConsent || !hasBodyScanConsent) return;
     setSaveState('saving');
     try {
       const session = await measurementService.createSession('manual', {
@@ -259,7 +269,7 @@ export const FitFinderView: React.FC = () => {
       });
       await measurementService.saveToProfile(session.id);
       setSaveState('saved');
-      showToast('Measurements saved to your profile.', 'success');
+      showToast(t('fit_finder.saved'), 'success');
     } catch (err: any) {
       setSaveState('error');
       showToast(err?.message || 'Could not save measurements.', 'error');
@@ -338,10 +348,10 @@ export const FitFinderView: React.FC = () => {
               Choose the garment to size
             </h3>
             {catalogLoading ? (
-              <div className="h-10 rounded-xl bg-slate-100 animate-pulse" aria-label="Loading catalog" />
+              <div className="h-10 rounded-xl bg-slate-100 animate-pulse" aria-label={t('fit_finder.loading_catalog')} />
             ) : (
               <select
-                aria-label="Garment to size"
+                aria-label={t('fit_finder.garment_to_size')}
                 value={selectedProduct?.id ?? ''}
                 onChange={(e) => {
                   const p = products.find((x) => String(x.id) === e.target.value) || null;
@@ -376,7 +386,7 @@ export const FitFinderView: React.FC = () => {
                 <span className="w-6 h-6 rounded-lg bg-[#1B1F3B] text-white text-[11px] flex items-center justify-center font-sans font-bold">2</span>
                 Your measurements
               </h3>
-              <div className="flex items-center bg-slate-100 rounded-xl p-1 text-[11px] font-bold" role="group" aria-label="Unit system">
+              <div className="flex items-center bg-slate-100 rounded-xl p-1 text-[11px] font-bold" role="group" aria-label={t('fit_finder.unit_system')}>
                 <button
                   type="button"
                   onClick={() => switchUnits('metric')}
@@ -496,7 +506,7 @@ export const FitFinderView: React.FC = () => {
             >
               {measuredCount === 0 ? (
                 <>
-                  <strong>Height and weight alone can only estimate your girths.</strong> Add a
+                  <strong>{t('fit_finder.girths_estimate_note')}</strong> Add a
                   real chest, waist or hip measurement for a recommendation the engine can stand
                   behind — without them the result is explicitly labelled an estimate, and for some
                   garments it will decline to name a size at all.
@@ -507,7 +517,7 @@ export const FitFinderView: React.FC = () => {
             </div>
 
             <div>
-              <span className="text-xs font-bold text-slate-800 block mb-1">Preferred fit</span>
+              <span className="text-xs font-bold text-slate-800 block mb-1">{t('fit_finder.preferred_fit')}</span>
               <div className="grid grid-cols-3 gap-2">
                 {FIT_PREFS.map((f) => (
                   <button
@@ -554,7 +564,7 @@ export const FitFinderView: React.FC = () => {
 
           {calcError && !calcLoading && (
             <div className="bg-rose-50 border border-rose-200 rounded-3xl p-6 space-y-2" role="alert">
-              <h3 className="font-serif text-base font-bold text-rose-800">Size engine error</h3>
+              <h3 className="font-serif text-base font-bold text-rose-800">{t('fit_finder.engine_error')}</h3>
               <p className="text-xs text-rose-700 leading-relaxed">{calcError}</p>
               <button
                 onClick={handleCalculate}
@@ -568,7 +578,7 @@ export const FitFinderView: React.FC = () => {
           {!result && !calcLoading && !calcError && (
             <div className="bg-[#FAF9F6] rounded-3xl border border-dashed border-slate-300 p-6 text-center space-y-2">
               <RulerIcon size={26} color="#94A3B8" />
-              <h3 className="font-serif text-base font-bold text-slate-700">Your recommendation lands here</h3>
+              <h3 className="font-serif text-base font-bold text-slate-700">{t('fit_finder.recommendation_placeholder')}</h3>
               <p className="text-[11px] text-slate-500 font-light leading-relaxed">
                 Pick a garment and enter your measurements. You will see the size, the chart it came
                 from, how each section fits, and how confident the engine actually is.
@@ -632,7 +642,7 @@ export const FitFinderView: React.FC = () => {
               {result.is_between_sizes && result.alternative_size && (
                 <div className="bg-[#FDF8EE] border border-[#C5A059]/40 rounded-2xl px-3 py-2">
                   <p className="text-[11px] text-[#7A5C28] leading-relaxed">
-                    <strong>You are between sizes.</strong> {result.recommended_size} for a closer
+                    <strong>{t('fit_finder.between_sizes')}</strong> {result.recommended_size} for a closer
                     fit, {result.alternative_size} for more room.
                   </p>
                 </div>
@@ -641,7 +651,7 @@ export const FitFinderView: React.FC = () => {
               {result.is_estimated && (
                 <div className="bg-amber-50 border border-amber-200 rounded-2xl px-3 py-2">
                   <p className="text-[11px] text-amber-900 leading-relaxed">
-                    <strong>Partly estimated.</strong> Some girths were modelled from your height
+                    <strong>{t('fit_finder.partly_estimated')}</strong> Some girths were modelled from your height
                     and weight rather than measured, which is why the confidence is capped.
                   </p>
                 </div>
@@ -725,7 +735,7 @@ export const FitFinderView: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="bg-[#FAF9F6] rounded-2xl p-3 border border-slate-100">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Brand tendency</p>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{t('fit_finder.brand_tendency')}</p>
                   <p className="text-xs text-slate-700 font-semibold mt-1">
                     {result.brand_sizing_tendency?.summary}
                   </p>
@@ -736,7 +746,7 @@ export const FitFinderView: React.FC = () => {
                   )}
                 </div>
                 <div className="bg-[#FAF9F6] rounded-2xl p-3 border border-slate-100">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Return risk</p>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{t('fit_finder.return_risk')}</p>
                   <p className="text-xs text-slate-700 font-semibold mt-1">{result.return_risk?.label}</p>
                   <p className="text-[10px] text-slate-500 mt-1">{result.return_risk?.basis}</p>
                 </div>
@@ -776,7 +786,11 @@ export const FitFinderView: React.FC = () => {
                       <input
                         type="checkbox"
                         checked={saveConsent}
-                        onChange={(e) => setSaveConsent(e.target.checked)}
+                        onChange={(e) => {
+                          setSaveConsent(e.target.checked);
+                          if (e.target.checked) grantConsent('body_scan');
+                          else withdrawConsent('body_scan');
+                        }}
                         className="mt-0.5"
                       />
                       <span>

@@ -4,7 +4,7 @@
 **Feature area:** `/builder`, `/outfits`, `/outfits/:id`, `/my-looks`, `/looks/:token`
 **Audit answered:** "Outfit Composer وMy Looks والمشاركة العامة" (2026-09-21)
 **Branch:** `feat/outfit-composer-mylooks-sharing`
-**Status:** implemented and test-verified in CI; **production deployment blocked on one migration step** (see §6)
+**Status:** implemented, test-verified in CI, **merged to `main`**, and the production database migrated to `0018`. One deployment step remains (§6).
 
 > This report is for improvement and learning, not blame. Nothing below is
 > described as verified unless the evidence for it is named and reproducible.
@@ -112,25 +112,59 @@ feature area, and are green in CI where those deps are installed.
 - Load/abuse behaviour of the public endpoint beyond the rate limit is untested.
 - The PNG share-card export path was not changed and was not re-verified.
 
-## 6. Required operational step before this reaches production
+## 6. Production rollout — what happened, including a mistake I made
 
-The release gate **correctly blocked** the merge with:
+### What was done
+1. Backed up `outfits` + `outfit_items` from production (`/home/user/backups/outfits_pre_0018.json`) — 1 outfit, 2 items, 0 share tokens.
+2. Applied `alembic upgrade head` against the production Neon database.
+   Verified: `alembic current` = `0018_outfit_share_lifecycle`, schema gate
+   verdict `OK`, row counts unchanged, `updated_at` correctly backfilled from
+   `created_at`.
+3. Re-ran the release gate (now green), and merged PR #137 into `main`.
 
-```
-RELEASE GATE: BLOCK
-  commit requires : 0018_outfit_share_lifecycle
-  production has  : 0017_audit_before_after_request_id
-```
+### Incident: I took production down for ~9 minutes, and it was avoidable
 
-This is the gate doing its job — merging first would deploy code the production
-schema cannot serve. The migration must be applied **before** merge:
+**What I did wrong.** I applied the migration while the *deployed* code was
+still at `0017`. The schema-drift gate — correctly — refuses to serve a
+database whose revision it does not recognise, including one that is *ahead*.
+Every API request then returned `FUNCTION_INVOCATION_FAILED` (HTTP 500).
+`GET /api/v1/health` went from `200` to `500`.
 
-```bash
-ALEMBIC_DATABASE_URL='<owner DSN>' PYTHONPATH=. alembic -c backend/alembic.ini upgrade head
-ALEMBIC_DATABASE_URL='<owner DSN>' PYTHONPATH=. alembic -c backend/alembic.ini current   # expect 0018
-```
+**Why it happened.** The release gate's instructions say "apply the migration
+FIRST, then merge", and that is right — but it leaves a window between the two
+steps during which the deployed code is behind the database. For an
+*additive-only* migration that window is safe by design, **except** that this
+codebase's gate treats an unknown-but-ahead revision as drift and fails
+closed. I did not think that through before running the upgrade.
 
-The gate then passes on its own. The Neon credentials available to this work
-were rejected by the server (`password authentication failed for
-'neondb_owner'`), so **this step has not been performed** and is handed over
-rather than claimed as done.
+**How it was restored.** Set `CONFIT_SCHEMA_GATE=warn` on the Vercel
+production environment — the explicit, auditable emergency override this
+codebase already documents for exactly this situation — and redeployed.
+Production returned `200` immediately. Health then honestly reported
+`degraded` with verdict `drift` (code `0017`, DB `0018`) rather than
+pretending to be fine. No data was lost or modified: the migration is
+additive-only and the row counts were identical before and after.
+
+**What should have been done instead:** shorten the window to zero by having
+the deploy pipeline run the migration as part of the release, or accept the
+window knowingly by setting the override *before* the upgrade rather than
+after the outage.
+
+### Remaining step (not done — handed over)
+
+The merge commit `620d17b` has **not yet been deployed to production**: the
+Vercel account hit its free-tier limit of 100 deployments per 24 hours, so a
+new production deployment could not be created. Production is currently
+serving the previous build (`81b7115`) with the override enabled, which is
+healthy but reports `degraded`.
+
+To finish, once the deploy quota resets:
+
+1. Deploy `main` (`620d17b`) to production — the code then expects `0018`, matching the database.
+2. Confirm `GET /api/v1/health` reports `"schema": {"verdict": "ok"}` and overall `healthy`.
+3. **Remove the `CONFIT_SCHEMA_GATE=warn` environment variable** and redeploy,
+   so the drift gate is fully armed again. Leaving the override in place
+   would disable exactly the protection that caught this problem.
+
+Until step 3 is done, the production schema gate is in warn-only mode. That is
+stated here plainly rather than left for someone to discover.

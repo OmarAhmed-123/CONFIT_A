@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { msg, detail } from '../i18n/messages';
 import { brandService, adminService } from '../services/apiServices';
 import { BrandProfile, BrandAnalyticsDashboard, Product, SponsoredPlacement, AdminPlatformAnalytics } from '../models';
 import { useUIStore } from '../stores/uiStore';
@@ -75,24 +76,24 @@ export function useBrandViewModel(scope: 'brand' | 'admin' = 'brand') {
       setLoadFailed(Object.keys(errors).length === keys.length);
 
       if (Object.keys(errors).length === keys.length) {
-        showToast('Error loading B2B data: every request failed (backend unreachable?).', 'error');
+        showToast(msg('toast.b2b_all_failed'), 'error');
       }
       setIsLoading(false);
     } catch (err: any) {
       setLoadFailed(true);
       setIsLoading(false);
-      showToast('Error loading B2B data: ' + err.message, 'error');
+      showToast(msg('toast.b2b_load_failed', { reason: detail(err) }), 'error');
     }
   }, [showToast, scope]);
 
   const updateSKUInventory = useCallback(async (skuId: number, stock: number, priceOverride?: number) => {
     try {
       await brandService.updateSKU(skuId, stock, priceOverride);
-      showToast('Warehouse SKU stock saved. Store inventory is managed separately.', 'success');
+      showToast(msg('toast.stock_saved'), 'success');
       await fetchBrandData();
       return true;
     } catch (err: any) {
-      showToast('Update failed: ' + err.message, 'error');
+      showToast(msg('toast.update_failed', { reason: detail(err) }), 'error');
       return false;
     }
   }, [fetchBrandData, showToast]);
@@ -105,11 +106,11 @@ export function useBrandViewModel(scope: 'brand' | 'admin' = 'brand') {
         daily_budget: data.dailyBudget,
         placement_type: data.placementType || 'stylist_featured',
       });
-      showToast('Placement settings saved. Ad delivery and billing are not verified by this action.', 'success');
+      showToast(msg('toast.placement_saved'), 'success');
       await fetchBrandData();
       return true;
     } catch (err: any) {
-      showToast('Placement creation failed: ' + err.message, 'error');
+      showToast(msg('toast.placement_create_failed', { reason: detail(err) }), 'error');
       return false;
     }
   }, [fetchBrandData, showToast]);
@@ -123,11 +124,18 @@ export function useBrandViewModel(scope: 'brand' | 'admin' = 'brand') {
         method: 'POST',
         body: form,
       });
-      showToast(`Import ${result.status}: ${result.accepted_rows} accepted, ${result.rejected_rows} rejected`, result.status === 'completed' ? 'success' : 'info');
+      showToast(
+        msg('toast.import_result', {
+          status: result.status,
+          accepted: result.accepted_rows,
+          rejected: result.rejected_rows,
+        }),
+        result.status === 'completed' ? 'success' : 'info',
+      );
       fetchBrandData();
       return result;
     } catch (err: any) {
-      showToast('CSV upload failed: ' + err.message, 'error');
+      showToast(msg('toast.csv_upload_failed', { reason: detail(err) }), 'error');
       throw err;
     } finally {
       setIsUploading(false);
@@ -139,7 +147,7 @@ export function useBrandViewModel(scope: 'brand' | 'admin' = 'brand') {
       const job = await request<CatalogImportJob>(`/partner/catalog/imports/${jobId}`);
       return job;
     } catch (err: any) {
-      showToast('Failed to fetch import job: ' + err.message, 'error');
+      showToast(msg('toast.import_job_failed', { reason: detail(err) }), 'error');
       return null;
     }
   }, [showToast]);

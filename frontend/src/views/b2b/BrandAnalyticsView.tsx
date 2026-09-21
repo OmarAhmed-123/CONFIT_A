@@ -1,9 +1,11 @@
+import { useTranslation } from 'react-i18next';
 import React from 'react';
 const percent = (value: number | null) => value == null ? 'Not enough data' : `${value}%`;
 import { useBrandViewModel } from '../../viewmodels/useBrandViewModel';
 import { LoadingSpinner, EmptyState } from '../../components/common/CommonComponents';
 
 export const BrandAnalyticsView: React.FC = () => {
+  const { t } = useTranslation();
   const { analytics, conversionPerSku, fetchErrors, isLoading, refresh } = useBrandViewModel();
 
   if (isLoading) {
@@ -76,14 +78,14 @@ export const BrandAnalyticsView: React.FC = () => {
       {/* Per-product Conversion — an error is surfaced, not laundered into "no rows" */}
       {fetchErrors.conversion && (
         <div role="alert" className="p-4 rounded-2xl bg-rose-50 border border-rose-200">
-          <p className="text-[11px] font-bold text-rose-800">Per-product conversion failed to load</p>
+          <p className="text-[11px] font-bold text-rose-800">{t('b2b.sku_conversion_failed')}</p>
           <p className="text-[11px] text-rose-600 mt-1">{fetchErrors.conversion}</p>
           <button onClick={refresh} className="mt-2 px-3 py-1.5 rounded-lg bg-white border border-rose-200 text-[11px] font-bold text-rose-700 hover:bg-rose-50">Retry</button>
         </div>
       )}
       {conversionPerSku.length > 0 && (
         <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-4">
-          <h3 className="font-serif text-lg font-bold text-[#1B1F3B]">Per-product Conversion Analytics</h3>
+          <h3 className="font-serif text-lg font-bold text-[#1B1F3B]">{t('b2b.sku_conversion_title')}</h3>
           <p className="text-[11px] text-slate-500">Funnel per SKU: views → tryons → add-to-cart → purchases, sorted by conversion rate DESC</p>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
@@ -126,7 +128,7 @@ export const BrandAnalyticsView: React.FC = () => {
             <span className="text-[11px] text-slate-500 block">Observed non-try-on order lines; no benchmark fallback</span>
           </div>
           <div className="p-3 rounded-xl bg-white border">
-            <span className="text-slate-400 text-[10px] block uppercase">Try-On assisted cohort</span>
+            <span className="text-slate-400 text-[10px] block uppercase">{t('b2b.tryon_assisted_cohort')}</span>
             <span className="font-mono text-lg font-bold text-emerald-600">{percent(analytics.return_rate_after_vton)}</span>
             <span className="text-[11px] text-slate-500 block">Try-on assisted orders</span>
           </div>

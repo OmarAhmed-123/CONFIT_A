@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useModalFocus } from '../../hooks/useModalFocus';
 import { useCallback } from 'react';
 import React, { useState, useEffect } from 'react';
@@ -32,6 +33,7 @@ interface InventoryItem {
 }
 
 export const BrandInventoryView: React.FC = () => {
+  const { t } = useTranslation();
   const [stores, setStores] = useState<Store[]>([]);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -171,20 +173,20 @@ export const BrandInventoryView: React.FC = () => {
         )}
       </div>
 
-      <form onSubmit={saveStoreStock} aria-label="Set store inventory" className="rounded-2xl border bg-white p-5 space-y-3">
-        <h3 className="font-bold">Set stock for a store and SKU</h3>
+      <form onSubmit={saveStoreStock} aria-label={t('b2b.form_set_stock')} className="rounded-2xl border bg-white p-5 space-y-3">
+        <h3 className="font-bold">{t('b2b.form_set_stock_title')}</h3>
         <p className="text-xs text-slate-500">Absolute on-hand quantity, including reserved units. This does not transfer stock from the warehouse.</p>
         <div className="flex flex-wrap gap-3">
-          <select aria-label="Inventory store" required value={stockForm.store_id} onChange={e => setStockForm({...stockForm, store_id: e.target.value})} className="border rounded p-2">
-            <option value="">Choose store</option>
+          <select aria-label={t('b2b.field_store')} required value={stockForm.store_id} onChange={e => setStockForm({...stockForm, store_id: e.target.value})} className="border rounded p-2">
+            <option value="">{t('b2b.choose_store')}</option>
             {stores.map(store => <option key={store.id} value={store.id}>{store.name}</option>)}
           </select>
-          <select aria-label="Inventory SKU" required value={stockForm.sku_id} onChange={e => setStockForm({...stockForm, sku_id: e.target.value})} className="border rounded p-2">
-            <option value="">Choose SKU</option>
+          <select aria-label={t('b2b.field_sku')} required value={stockForm.sku_id} onChange={e => setStockForm({...stockForm, sku_id: e.target.value})} className="border rounded p-2">
+            <option value="">{t('b2b.choose_sku')}</option>
             {inventory.flatMap(item => item.skus.map(sku => <option key={sku.id} value={sku.id}>{item.title} — {sku.sku_code}</option>))}
           </select>
-          <input aria-label="Store on-hand quantity" required type="number" min="0" max="100000" step="1" value={stockForm.quantity} onChange={e => setStockForm({...stockForm, quantity: e.target.value})} className="border rounded p-2" />
-          <button disabled={savingStock || !!fetchErrors.stores || !!fetchErrors.inventory} className="rounded bg-slate-900 text-white px-4 py-2">{savingStock ? 'Saving…' : 'Save store stock'}</button>
+          <input aria-label={t('b2b.field_on_hand')} required type="number" min="0" max="100000" step="1" value={stockForm.quantity} onChange={e => setStockForm({...stockForm, quantity: e.target.value})} className="border rounded p-2" />
+          <button disabled={savingStock || !!fetchErrors.stores || !!fetchErrors.inventory} className="rounded bg-slate-900 text-white px-4 py-2">{savingStock ? t('common.saving') : t('b2b.save_store_stock')}</button>
         </div>
         {stockMessage && <p role="status" className="text-sm">{stockMessage}</p>}
       </form>
@@ -258,41 +260,41 @@ export const BrandInventoryView: React.FC = () => {
       {/* Add Store Modal - REAL */}
       {showStoreModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm">
-          <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Add store" tabIndex={-1} className="w-full max-w-md bg-white rounded-3xl p-6 shadow-2xl space-y-4">
+          <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={t('b2b.modal_add_store')} tabIndex={-1} className="w-full max-w-md bg-white rounded-3xl p-6 shadow-2xl space-y-4">
             <h3 className="font-serif text-lg font-bold text-[#1B1F3B]">Add BOPIS Store Location</h3>
             <p className="text-[11px] text-slate-500">Real StoreLocation creation with brand_id tenant isolation, BOPIS support, coordinates for map.</p>
             <form onSubmit={handleCreateStore} className="space-y-3 text-xs">
               <div>
                 <label className="font-bold block mb-1">Store Name *</label>
-                <input aria-label="Store name" value={newStore.name} onChange={(e) => setNewStore({ ...newStore, name: e.target.value })} required className="w-full p-2.5 rounded-xl border" placeholder="The Dubai Mall - Fashion Avenue" />
+                <input aria-label={t('b2b.field_store_name')} value={newStore.name} onChange={(e) => setNewStore({ ...newStore, name: e.target.value })} required className="w-full p-2.5 rounded-xl border" placeholder="The Dubai Mall - Fashion Avenue" />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="font-bold block mb-1">City *</label>
-                  <input aria-label="Store city" value={newStore.city} onChange={(e) => setNewStore({ ...newStore, city: e.target.value })} required className="w-full p-2.5 rounded-xl border" placeholder="Dubai" />
+                  <input aria-label={t('b2b.field_store_city')} value={newStore.city} onChange={(e) => setNewStore({ ...newStore, city: e.target.value })} required className="w-full p-2.5 rounded-xl border" placeholder="Dubai" />
                 </div>
                 <div>
                   <label className="font-bold block mb-1">Country *</label>
-                  <input aria-label="Store country" value={newStore.country} onChange={(e) => setNewStore({ ...newStore, country: e.target.value })} required className="w-full p-2.5 rounded-xl border" placeholder="UAE" />
+                  <input aria-label={t('b2b.field_store_country')} value={newStore.country} onChange={(e) => setNewStore({ ...newStore, country: e.target.value })} required className="w-full p-2.5 rounded-xl border" placeholder="UAE" />
                 </div>
               </div>
               <div>
                 <label className="font-bold block mb-1">Address *</label>
-                <input aria-label="Store address" value={newStore.address} onChange={(e) => setNewStore({ ...newStore, address: e.target.value })} required className="w-full p-2.5 rounded-xl border" placeholder="Financial Center Road, Downtown Dubai" />
+                <input aria-label={t('b2b.field_store_address')} value={newStore.address} onChange={(e) => setNewStore({ ...newStore, address: e.target.value })} required className="w-full p-2.5 rounded-xl border" placeholder="Financial Center Road, Downtown Dubai" />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="font-bold block mb-1">Latitude</label>
-                  <input type="number" step="0.000001" aria-label="Store latitude" value={newStore.latitude} onChange={(e) => setNewStore({ ...newStore, latitude: Number(e.target.value) })} className="w-full p-2.5 rounded-xl border" />
+                  <input type="number" step="0.000001" aria-label={t('b2b.field_store_lat')} value={newStore.latitude} onChange={(e) => setNewStore({ ...newStore, latitude: Number(e.target.value) })} className="w-full p-2.5 rounded-xl border" />
                 </div>
                 <div>
                   <label className="font-bold block mb-1">Longitude</label>
-                  <input type="number" step="0.000001" aria-label="Store longitude" value={newStore.longitude} onChange={(e) => setNewStore({ ...newStore, longitude: Number(e.target.value) })} className="w-full p-2.5 rounded-xl border" />
+                  <input type="number" step="0.000001" aria-label={t('b2b.field_store_lng')} value={newStore.longitude} onChange={(e) => setNewStore({ ...newStore, longitude: Number(e.target.value) })} className="w-full p-2.5 rounded-xl border" />
                 </div>
               </div>
               <div>
                 <label className="font-bold block mb-1">Phone</label>
-                <input aria-label="Store phone" value={newStore.phone} onChange={(e) => setNewStore({ ...newStore, phone: e.target.value })} className="w-full p-2.5 rounded-xl border" placeholder="+971 4 123 4567" />
+                <input aria-label={t('b2b.field_store_phone')} value={newStore.phone} onChange={(e) => setNewStore({ ...newStore, phone: e.target.value })} className="w-full p-2.5 rounded-xl border" placeholder="+971 4 123 4567" />
               </div>
               <div className="flex gap-2 pt-2">
                 <button type="button" onClick={() => setShowStoreModal(false)} className="flex-1 py-2.5 rounded-xl border font-semibold">Cancel</button>

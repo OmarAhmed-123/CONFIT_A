@@ -1,3 +1,4 @@
+import { msg as msgKey, detail } from '../i18n/messages';
 import { useState, useCallback, useEffect } from "react";
 import {
   catalogService,
@@ -164,7 +165,7 @@ export function useTryOnViewModel(initialProduct?: Product | null) {
             ? "The image analysis timed out. Please try again."
             : err?.message || "Image analysis failed.";
         setVisualSearchError(msg);
-        showToast("Visual search: " + msg, "error");
+        showToast(msgKey('toast.visual_search_failed', { reason: detail(msg) }), "error");
       }
     },
     [showToast],
@@ -528,7 +529,7 @@ export function useTryOnViewModel(initialProduct?: Product | null) {
           "error",
         );
       } else {
-        showToast(`Animated try-on unavailable: ${msg.slice(0, 150)}`, "error");
+        showToast(msgKey('toast.animated_tryon_unavailable', { reason: detail(msg) }), "error");
       }
     }
   }, [
@@ -575,7 +576,7 @@ export function useTryOnViewModel(initialProduct?: Product | null) {
       setAppliedGarments(next);
       setTryOnStatus("selected");
       triggerMultiRender(next);
-      showToast(`Added to Outfit: ${product.title}`, "info");
+      showToast(msgKey('toast.added_to_outfit', { title: product.title }), "info");
     },
     [
       appliedGarments,

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useModalFocus } from '../../hooks/useModalFocus';
 import { useCallback } from 'react';
 import React, { useState } from 'react';
@@ -7,6 +8,7 @@ import { SparkleIcon } from '../../components/icons/ConfitIcons';
 import { LoadingSpinner } from '../../components/common/CommonComponents';
 
 export const BrandPlacementsView: React.FC = () => {
+  const { t } = useTranslation();
   const { placements, products, createSponsoredSlot, fetchErrors, isLoading, refresh } = useBrandViewModel();
   const [actionMessage, setActionMessage] = useState('');
   const [saving, setSaving] = useState(false);
@@ -199,7 +201,7 @@ export const BrandPlacementsView: React.FC = () => {
       {/* Create Placement Modal - REAL WITH VALIDATION */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-150">
-          <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Create placement" tabIndex={-1} className="w-full max-w-md bg-white rounded-3xl p-6 shadow-2xl space-y-4">
+          <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={t('b2b.form_create_placement')} tabIndex={-1} className="w-full max-w-md bg-white rounded-3xl p-6 shadow-2xl space-y-4">
             <h3 className="font-serif text-lg font-bold text-[#1B1F3B]">
               Bid for Featured AI Stylist Slot - Real
             </h3>
@@ -208,7 +210,7 @@ export const BrandPlacementsView: React.FC = () => {
               <div>
                 <label className="font-bold text-slate-700 block mb-1">Select Catalog Product (must belong to your brand)</label>
                 <select
-                  aria-label="Placement product"
+                  aria-label={t('b2b.field_placement_product')}
                   value={selectedProductId || products[0]?.id || ''}
                   onChange={(e) => setSelectedProductId(Number(e.target.value))}
                   className="w-full p-2.5 rounded-xl border border-slate-200 bg-white"
@@ -224,7 +226,7 @@ export const BrandPlacementsView: React.FC = () => {
 
               <div>
                 <label className="font-bold text-slate-700 block mb-1">Placement Type</label>
-                <select aria-label="Placement type" value={placementType} onChange={(e) => setPlacementType(e.target.value)} className="w-full p-2.5 rounded-xl border">
+                <select aria-label={t('b2b.field_placement_type')} value={placementType} onChange={(e) => setPlacementType(e.target.value)} className="w-full p-2.5 rounded-xl border">
                   <option value="stylist_featured">Stylist Featured</option>
                   <option value="trending_hero">Trending Hero</option>
                   <option value="fit_recom_top">Fit Recommendation Top</option>
@@ -239,7 +241,7 @@ export const BrandPlacementsView: React.FC = () => {
                     step="0.01"
                     min={0.01}
                     max={100}
-                    aria-label="Bid per click"
+                    aria-label={t('b2b.field_bid_cpc')}
                     value={bidCpc}
                     onChange={(e) => setBidCpc(Number(e.target.value))}
                     className="w-full p-2.5 rounded-xl border border-slate-200"
@@ -253,7 +255,7 @@ export const BrandPlacementsView: React.FC = () => {
                     min={0.01}
                     step="0.01"
                     max={10000}
-                    aria-label="Daily budget"
+                    aria-label={t('b2b.field_daily_budget')}
                     value={dailyBudget}
                     onChange={(e) => setDailyBudget(Number(e.target.value))}
                     className="w-full p-2.5 rounded-xl border border-slate-200"

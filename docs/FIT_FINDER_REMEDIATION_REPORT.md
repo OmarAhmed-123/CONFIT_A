@@ -151,7 +151,7 @@ recommending a garment it simultaneously described as not fitting.
 
 The confidence floor could never have caught this: confidence measures *how sure
 we are*, and the engine was quite sure this did not fit. Fit quality needed its
-own gate. Fixed in PR #127 with the two thresholds tied together and the
+own gate. Fixed in PR #134 with the two thresholds tied together and the
 production case pinned as a regression test.
 
 This is recorded prominently because it is the most important thing in this
@@ -229,7 +229,7 @@ behaviour, would have agreed with the bug.
 | [#123](https://github.com/OmarAhmed-123/CONFIT_A/pull/123) | Fit Finder (1/3): a real size-recommendation engine replacing the BMI guess | Backend engine, 79 tests |
 | [#125](https://github.com/OmarAhmed-123/CONFIT_A/pull/125) | Fit Finder (2/3): surface the real engine output in the UI | Frontend contract, refusals, units |
 | [#126](https://github.com/OmarAhmed-123/CONFIT_A/pull/126) | Fit Finder (3/3): seed real size charts, close the remaining audit items | Charts, consent, rate limits, gate pin |
-| [#127](https://github.com/OmarAhmed-123/CONFIT_A/pull/127) | Fit Finder (4/4): never recommend a size the engine itself calls "Does not fit" | Post-deploy production finding (§3.1) |
+| [#127](https://github.com/OmarAhmed-123/CONFIT_A/pull/134) | Fit Finder (4/4): never recommend a size the engine itself calls "Does not fit" | Post-deploy production finding (§3.1) |
 
 All four on one branch, all merged to `main` via merge commits.
 

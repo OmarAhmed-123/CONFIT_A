@@ -569,13 +569,19 @@ def test_mood_board_crud_and_cross_user_isolation():
     assert r.status_code == 200
     assert r.json()["title"] == "Autumn 2026"
 
-    # B tries to read/update/delete A's board — must 403
+    # B tries to read/update/delete A's board — must 404, NOT 403.
+    # G-IDOR (G4 wardrobe audit, PR #144): a 403 confirms the board exists to
+    # a stranger (enumeration oracle). The API-wide ownership contract is
+    # "not-owned == not-found", indistinguishable from a non-existent board.
     r = client.get(f"/api/v1/me/mood-boards/{board_id}", headers=hdr_b)
-    assert r.status_code == 403
+    assert r.status_code == 404
     r = client.patch(f"/api/v1/me/mood-boards/{board_id}", headers=hdr_b, json={"title": "hijacked"})
-    assert r.status_code == 403
+    assert r.status_code == 404
     r = client.delete(f"/api/v1/me/mood-boards/{board_id}", headers=hdr_b)
-    assert r.status_code == 403
+    assert r.status_code == 404
+    # A genuinely missing board must be indistinguishable from not-owned:
+    r = client.get("/api/v1/me/mood-boards/999999", headers=hdr_b)
+    assert r.status_code == 404
 
     # B's list is empty (no cross-user leak)
     r = client.get("/api/v1/me/mood-boards", headers=hdr_b)

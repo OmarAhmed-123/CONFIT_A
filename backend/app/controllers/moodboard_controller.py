@@ -26,7 +26,6 @@ from backend.app.core.config import settings
 from backend.app.core.database import get_db
 from backend.app.core.dependencies import get_current_user
 from backend.app.core.exceptions import (
-    AuthorizationError,
     ResourceNotFoundError,
     ValidationDomainError,
 )
@@ -118,12 +117,15 @@ def _ensure_profile(db: Session, user: User) -> UserStyleProfile:
 
 
 def _ensure_ownership(db: Session, user: User, board_id: int) -> MoodBoard:
+    # API-wide ownership contract: non-existent and not-owned resources are
+    # indistinguishable (404) — a 403 would confirm the board exists to a
+    # stranger (enumeration oracle), which the rest of the API never does.
     board = db.query(MoodBoard).filter(MoodBoard.id == board_id).first()
     if not board:
         raise ResourceNotFoundError("MoodBoard", board_id)
     profile = db.query(UserStyleProfile).filter(UserStyleProfile.id == board.profile_id).first()
     if not profile or profile.user_id != user.id:
-        raise AuthorizationError("Mood board does not belong to the authenticated user.")
+        raise ResourceNotFoundError("MoodBoard", board_id)
     return board
 
 

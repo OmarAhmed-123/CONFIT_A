@@ -858,6 +858,70 @@ export const wardrobeService = {
     }),
 };
 
+// 6b. Mood Boards (G1 backend, G4 surface) — real CRUD + real media upload.
+// Tiles: {kind:'url', payload:{url}} | {kind:'product', payload:{product_id}}
+//       | {kind:'upload', payload:{upload_id, url}} (upload_id from upload()).
+export interface MoodBoardItem {
+  id: number;
+  kind: "url" | "product" | "upload";
+  payload: Record<string, any>;
+  position: number;
+  created_at: string;
+}
+
+export interface MoodBoard {
+  id: number;
+  title: string;
+  description: string | null;
+  created_at: string;
+  updated_at: string;
+  items: MoodBoardItem[];
+}
+
+export const moodBoardService = {
+  list: () => request<MoodBoard[]>("/me/mood-boards"),
+
+  create: (title: string, description?: string) =>
+    request<MoodBoard>("/me/mood-boards", {
+      method: "POST",
+      body: JSON.stringify({ title, description: description || null }),
+    }),
+
+  update: (boardId: number, patch: { title?: string; description?: string }) =>
+    request<MoodBoard>(`/me/mood-boards/${boardId}`, {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    }),
+
+  remove: (boardId: number) =>
+    request<{ status: string }>(`/me/mood-boards/${boardId}`, {
+      method: "DELETE",
+    }),
+
+  addItem: (boardId: number, kind: MoodBoardItem["kind"], payload: Record<string, any>) =>
+    request<MoodBoard>(`/me/mood-boards/${boardId}/items`, {
+      method: "POST",
+      body: JSON.stringify({ kind, payload }),
+    }),
+
+  removeItem: (boardId: number, itemId: number) =>
+    request<MoodBoard>(`/me/mood-boards/${boardId}/items/${itemId}`, {
+      method: "DELETE",
+    }),
+
+  /** Real multipart upload -> returns the stored reference (upload_id + URL).
+   * The returned URL is a short-lived presigned GET when the object lives in
+   * private object storage — attach it via addItem({kind:'upload', ...}). */
+  upload: (boardId: number, file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return request<{ upload_id: string; url: string; content_type: string; size: number }>(
+      `/me/mood-boards/${boardId}/upload`,
+      { method: "POST", body: form },
+    );
+  },
+};
+
 // 7. Unified Commerce & BOPIS Services (G5)
 export const commerceService = {
   getCart: () => request<Cart>("/commerce/cart"),

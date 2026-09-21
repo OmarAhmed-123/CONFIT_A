@@ -6,6 +6,7 @@ import { compressImageToDataUrl } from "../../lib/imageUpload";
 import { usePhotoConsent } from "../../privacy/usePhotoConsent";
 import { useCapabilities } from "../../hooks/useCapabilities";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { msg } from "../../i18n/messages";
 import { useWardrobeViewModel } from "../../viewmodels/useWardrobeViewModel";
 import { useAuthStore } from "../../stores/authStore";
 import { stylistService } from "../../services/apiServices";
@@ -78,7 +79,7 @@ export const WardrobeView: React.FC = () => {
   const { capabilities } = useCapabilities();
   const photoUploadUnavailable = capabilities.storage_mode === "local";
 
-  const [activeTab, setActiveTab] = useState<"closet" | "looks" | "gaps">(
+  const [activeTab, setActiveTab] = useState<"closet" | "looks" | "gaps" | "boards">(
     initialTab as any,
   );
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
@@ -100,9 +101,24 @@ export const WardrobeView: React.FC = () => {
     activeCategory,
     setActiveCategory,
     isLoading,
+    isClosetError,
+    fetchWardrobe,
     gapAnalyses,
     isGapLoading,
+    isGapError,
+    hasLoadedGaps,
     fetchGaps,
+    moodBoards,
+    isBoardsLoading,
+    isBoardsError,
+    hasLoadedBoards,
+    fetchMoodBoards,
+    createMoodBoard,
+    renameMoodBoard,
+    deleteMoodBoard,
+    addMoodBoardTile,
+    removeMoodBoardTile,
+    uploadMoodBoardTile,
     isAutoTagging,
     autoTagResult,
     autoTagUpload,
@@ -120,7 +136,14 @@ export const WardrobeView: React.FC = () => {
     fetchOutfitSuggestion,
   } = useWardrobeViewModel();
 
-  const { openTryOn } = useUIStore();
+  // Mood-board local UI state (form + per-board busy flags)
+  const [newBoardTitle, setNewBoardTitle] = useState("");
+  const [newTileUrl, setNewTileUrl] = useState("");
+  const [busyBoardId, setBusyBoardId] = useState<number | null>(null);
+  const [renamingBoardId, setRenamingBoardId] = useState<number | null>(null);
+  const [renameTitle, setRenameTitle] = useState("");
+
+  const { openTryOn, showToast } = useUIStore();
 
   const handleAddSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -258,7 +281,7 @@ export const WardrobeView: React.FC = () => {
             <button
               onClick={() => {
                 setActiveTab("gaps");
-                fetchGaps();
+                if (isAuthenticated) fetchGaps();
               }}
               className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1 ${
                 activeTab === "gaps"
@@ -268,6 +291,19 @@ export const WardrobeView: React.FC = () => {
             >
               <GapAnalysisIcon size={14} color="#B8935A" />
               <span>{t("nav.gap_analysis")}</span>
+            </button>
+            <button
+              onClick={() => {
+                setActiveTab("boards");
+                if (isAuthenticated && !hasLoadedBoards) fetchMoodBoards();
+              }}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                activeTab === "boards"
+                  ? "bg-white text-[#B8935A] shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              {t("wardrobe.mood_boards_tab")}
             </button>
           </div>
 
@@ -309,6 +345,23 @@ export const WardrobeView: React.FC = () => {
 
           {isLoading ? (
             <LoadingSpinner text="Scanning your wardrobe..." />
+          ) : isClosetError ? (
+            /* Honest error state: a failed fetch is NOT an empty wardrobe. */
+            <div
+              role="alert"
+              className="rounded-[32px] border border-rose-200 bg-rose-50 p-6 text-center"
+            >
+              <p className="text-sm font-semibold text-rose-800">
+                {t("wardrobe.closet_load_failed")}
+              </p>
+              <p className="text-xs text-rose-600 mt-1">{isClosetError}</p>
+              <button
+                onClick={() => fetchWardrobe(activeCategory)}
+                className="mt-4 px-5 py-2.5 rounded-2xl bg-[#1B1F3B] text-white text-xs font-bold hover:bg-[#2A3C78] transition-all"
+              >
+                {t("common.try_again")}
+              </button>
+            </div>
           ) : items.length === 0 ? (
             <div className="rounded-[32px] border border-[#C5A059]/25 bg-white p-6 shadow-2xs">
               <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
@@ -688,6 +741,45 @@ export const WardrobeView: React.FC = () => {
             </p>
           </div>
 
+          {!isAuthenticated ? (
+            <div className="bg-[#FAF9F6] rounded-2xl border border-dashed border-slate-300 p-6 text-center">
+              <p className="text-xs text-slate-600 font-medium">
+                {t("wardrobe.gaps_signin")}
+              </p>
+            </div>
+          ) : isGapLoading ? (
+            /* Loading: distinct skeleton, never the grid's "empty" look */
+            <div className="space-y-4" role="status" aria-live="polite">
+              <div className="h-32 rounded-3xl bg-slate-100 animate-pulse" />
+              <div className="h-32 rounded-3xl bg-slate-100 animate-pulse" />
+            </div>
+          ) : isGapError ? (
+            <div
+              role="alert"
+              className="rounded-3xl border border-rose-200 bg-rose-50 p-6 text-center"
+            >
+              <p className="text-sm font-semibold text-rose-800">
+                {t("wardrobe.gaps_failed")}
+              </p>
+              <p className="text-xs text-rose-600 mt-1">{isGapError}</p>
+              <button
+                onClick={() => fetchGaps()}
+                className="mt-4 px-5 py-2.5 rounded-2xl bg-[#1B1F3B] text-white text-xs font-bold hover:bg-[#2A3C78] transition-all"
+              >
+                {t("common.try_again")}
+              </button>
+            </div>
+          ) : hasLoadedGaps && gapAnalyses.length === 0 ? (
+            /* No gaps: a real state, not a silent blank page */
+            <div className="bg-emerald-50 border border-emerald-200 rounded-3xl p-6 text-center">
+              <p className="text-sm font-bold text-emerald-800">
+                {t("wardrobe.gaps_none_title")}
+              </p>
+              <p className="text-xs text-emerald-700 mt-1">
+                {t("wardrobe.gaps_none_sub")}
+              </p>
+            </div>
+          ) : (
           <div className="space-y-4">
             {gapAnalyses.map((gap) => (
               <div
@@ -704,9 +796,17 @@ export const WardrobeView: React.FC = () => {
                       )
                     </h4>
                   </div>
-                  <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold self-start sm:self-auto">
-                    Unlocks +{gap.unlocks_outfit_count} New Outfits
-                  </span>
+                  {/* Honest figure: 0 (no core pieces yet) is a real state,
+                      shown as "Starter staple" instead of a fake count. */}
+                  {gap.unlocks_outfit_count > 0 ? (
+                    <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold self-start sm:self-auto">
+                      Unlocks +{gap.unlocks_outfit_count} New Outfits
+                    </span>
+                  ) : (
+                    <span className="px-3 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-bold self-start sm:self-auto">
+                      {t("wardrobe.gaps_starter")}
+                    </span>
+                  )}
                 </div>
 
                 <p className="text-xs text-slate-600 leading-relaxed bg-[#FAF9F6] p-3 rounded-xl border border-slate-100">
@@ -749,6 +849,243 @@ export const WardrobeView: React.FC = () => {
               </div>
             ))}
           </div>
+          )}
+        </div>
+      )}
+
+      {/* TAB 4: Mood Boards — real CRUD + real media upload (G4 surface) */}
+      {activeTab === "boards" && (
+        <div className="space-y-6">
+          {!isAuthenticated ? (
+            <div className="bg-[#FAF9F6] rounded-2xl border border-dashed border-slate-300 p-6 text-center">
+              <p className="text-xs text-slate-600 font-medium">
+                {t("wardrobe.boards_signin_title")}
+              </p>
+              <p className="text-[11px] text-slate-400 mt-1">
+                {t("wardrobe.boards_signin_sub")}
+              </p>
+            </div>
+          ) : isBoardsLoading ? (
+            <div className="space-y-3" role="status" aria-live="polite">
+              <div className="h-24 rounded-3xl bg-slate-100 animate-pulse" />
+              <div className="h-24 rounded-3xl bg-slate-100 animate-pulse" />
+            </div>
+          ) : isBoardsError ? (
+            <div role="alert" className="rounded-3xl border border-rose-200 bg-rose-50 p-6 text-center">
+              <p className="text-sm font-semibold text-rose-800">{t("wardrobe.boards_load_failed")}</p>
+              <p className="text-xs text-rose-600 mt-1">{isBoardsError}</p>
+              <button
+                onClick={() => fetchMoodBoards()}
+                className="mt-4 px-5 py-2.5 rounded-2xl bg-[#1B1F3B] text-white text-xs font-bold hover:bg-[#2A3C78] transition-all"
+              >
+                {t("common.try_again")}
+              </button>
+            </div>
+          ) : (
+            <>
+              {/* New board */}
+              <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm">
+                <h3 className="font-serif text-lg font-bold text-[#1B1F3B] mb-3">
+                  {t("wardrobe.boards_new_title")}
+                </h3>
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (!newBoardTitle.trim()) return;
+                    createMoodBoard(newBoardTitle.trim());
+                    setNewBoardTitle("");
+                  }}
+                  className="flex gap-2"
+                >
+                  <input
+                    value={newBoardTitle}
+                    onChange={(e) => setNewBoardTitle(e.target.value)}
+                    placeholder={t("wardrobe.boards_new_placeholder")}
+                    maxLength={255}
+                    className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-[#B8935A]"
+                  />
+                  <button
+                    type="submit"
+                    disabled={!newBoardTitle.trim()}
+                    className="px-4 py-2.5 rounded-xl bg-[#1B1F3B] text-white text-xs font-semibold disabled:opacity-40 hover:bg-[#2A3C78] transition-all"
+                  >
+                    + {t("wardrobe.boards_new_create")}
+                  </button>
+                </form>
+              </div>
+
+              {/* Boards list */}
+              {hasLoadedBoards && moodBoards.length === 0 ? (
+                <div className="bg-[#FAF9F6] rounded-2xl border border-dashed border-slate-300 p-8 text-center">
+                  <p className="text-xs text-slate-600 font-medium">{t("wardrobe.boards_empty_title")}</p>
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    {t("wardrobe.boards_empty_sub")}
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {moodBoards.map((board) => (
+                    <div
+                      key={board.id}
+                      className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-4"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        {renamingBoardId === board.id ? (
+                          <form
+                            className="flex gap-2 flex-1"
+                            onSubmit={(e) => {
+                              e.preventDefault();
+                              if (!renameTitle.trim()) return;
+                              renameMoodBoard(board.id, renameTitle.trim());
+                              setRenamingBoardId(null);
+                            }}
+                          >
+                            <input
+                              autoFocus
+                              value={renameTitle}
+                              onChange={(e) => setRenameTitle(e.target.value)}
+                              maxLength={255}
+                              className="flex-1 px-3 py-1.5 rounded-lg border border-slate-200 text-xs focus:outline-none focus:border-[#B8935A]"
+                            />
+                            <button type="submit" className="text-xs font-bold text-[#B8935A]">
+                              {t("common.save")}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setRenamingBoardId(null)}
+                              className="text-xs font-bold text-slate-400"
+                            >
+                              {t("common.cancel")}
+                            </button>
+                          </form>
+                        ) : (
+                          <div className="min-w-0">
+                            <h4 className="font-serif text-base font-bold text-[#1B1F3B] truncate">
+                              {board.title}
+                            </h4>
+                            {board.description && (
+                              <p className="text-xs text-slate-500 truncate">{board.description}</p>
+                            )}
+                          </div>
+                        )}
+                        <div className="flex items-center gap-3 shrink-0 text-xs font-bold">
+                          <button
+                            onClick={() => {
+                              setRenamingBoardId(board.id);
+                              setRenameTitle(board.title);
+                            }}
+                            className="text-slate-400 hover:text-[#B8935A]"
+                          >
+                            {t("common.rename")}
+                          </button>
+                          <button
+                            onClick={() => deleteMoodBoard(board.id)}
+                            className="text-rose-400 hover:text-rose-600"
+                          >
+                            {t("common.delete")}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Tiles */}
+                      {board.items.length > 0 && (
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+                          {board.items.map((tile) => (
+                            <div
+                              key={tile.id}
+                              className="relative rounded-2xl border border-slate-200 bg-slate-50 overflow-hidden group"
+                            >
+                              {tile.kind === "upload" && tile.payload.url ? (
+                                <img
+                                  src={tile.payload.url}
+                                  alt={`Mood board tile ${tile.id}`}
+                                  className="h-28 w-full object-cover"
+                                />
+                              ) : tile.kind === "url" && tile.payload.url ? (
+                                <a href={tile.payload.url} target="_blank" rel="noreferrer">
+                                  <img
+                                    src={tile.payload.url}
+                                    alt={`Mood board link ${tile.id}`}
+                                    className="h-28 w-full object-cover"
+                                  />
+                                </a>
+                              ) : (
+                                <div className="h-28 w-full flex flex-col items-center justify-center text-center px-2">
+                                  <BagIcon size={20} color="#B8935A" />
+                                  <span className="text-[10px] font-bold text-slate-500 mt-1">
+                                    {t("wardrobe.boards_product_tile", { id: tile.payload.product_id })}
+                                  </span>
+                                </div>
+                              )}
+                              <button
+                                onClick={() => removeMoodBoardTile(board.id, tile.id)}
+                                title={t("wardrobe.boards_remove_tile")}
+                                className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/60 text-white text-[10px] opacity-0 group-hover:opacity-100 hover:bg-rose-600 transition-all"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Add tile: URL or real upload */}
+                      <div className="flex flex-col sm:flex-row gap-2 pt-2 border-t border-slate-100">
+                        <form
+                          className="flex gap-2 flex-1"
+                          onSubmit={(e) => {
+                            e.preventDefault();
+                            const url = newTileUrl.trim();
+                            if (!url || !/^https?:\/\//i.test(url)) return;
+                            setBusyBoardId(board.id);
+                            addMoodBoardTile(board.id, "url", { url }).finally(() => {
+                              setBusyBoardId(null);
+                              setNewTileUrl("");
+                            });
+                          }}
+                        >
+                          <input
+                            value={newTileUrl}
+                            onChange={(e) => setNewTileUrl(e.target.value)}
+                            placeholder={t("wardrobe.boards_link_placeholder")}
+                            className="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-[#B8935A]"
+                          />
+                          <button
+                            type="submit"
+                            disabled={busyBoardId === board.id}
+                            className="px-3 py-2 rounded-xl bg-slate-100 text-[#1B1F3B] text-xs font-semibold disabled:opacity-40"
+                          >
+                            {t("wardrobe.boards_add_link")}
+                          </button>
+                        </form>
+                        <label className="px-3 py-2 rounded-xl bg-slate-100 text-[#1B1F3B] text-xs font-semibold cursor-pointer hover:bg-slate-200 transition-all">
+                          {t("wardrobe.boards_upload_photo")}
+                          <input
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp,image/gif"
+                            className="hidden"
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              e.target.value = "";
+                              if (!file) return;
+                              if (file.size > 5 * 1024 * 1024) {
+                                // 5MB is the mood-board upload contract (backend)
+                                showToast(msg("toast.board_upload_too_large"), "error");
+                                return;
+                              }
+                              setBusyBoardId(board.id);
+                              await uploadMoodBoardTile(board.id, file);
+                              setBusyBoardId(null);
+                            }}
+                          />
+                        </label>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
         </div>
       )}
 

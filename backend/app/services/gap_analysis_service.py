@@ -20,14 +20,46 @@ class GapAnalysisService:
     # If the wardrobe already satisfies a row, that row is NOT a gap and no
     # product is recommended for it — gap analysis answers "what is actually
     # missing", never "what can we sell".
+    # (category, min_ready_items, suggested subcategory)
     CAPSULE_MATRIX = [
-        # (category, min_ready_items, suggested subcategory, unlocks)
-        ("Tops", 2, "Versatile Neutral Shirt / Knit", 4),
-        ("Bottoms", 2, "Pleated Neutral Trousers", 4),
-        ("Outerwear", 1, "Lightweight Minimalist Trench / Overcoat", 5),
-        ("Footwear", 1, "Minimalist Leather Sneakers / Loafers", 3),
-        ("Accessories", 1, "Leather Belt or Silk Scarf", 3),
+        ("Tops", 2, "Versatile Neutral Shirt / Knit"),
+        ("Bottoms", 2, "Pleated Neutral Trousers"),
+        ("Outerwear", 1, "Lightweight Minimalist Trench / Overcoat"),
+        ("Footwear", 1, "Minimalist Leather Sneakers / Loafers"),
+        ("Accessories", 1, "Leather Belt or Silk Scarf"),
     ]
+
+    # A complete look = one core position each; layering categories dress the
+    # combinations that already exist.
+    _CORE_CATEGORIES = ("Tops", "Bottoms", "Footwear")
+    # The unlock figure is a STARTING-LOOKS estimate, not a promise: it is
+    # capped so the badge can never read as marketing inflation.
+    _UNLOCKS_CAP = 12
+    _PER_CATEGORY_CAP = 5
+
+    @classmethod
+    def estimate_unlocked_outfits(cls, category: str, owned_counts: Dict[str, int]) -> int:
+        """Deterministic estimate of new looks a missing piece would unlock,
+        computed from the customer's READY items only (G-GAPCOUNT: the old
+        value was a hardcoded 3/4/5 constant presented as analytics).
+
+        * missing CORE position (Tops/Bottoms/Footwear): each new piece
+          completes a pairing with every owned piece of the other two core
+          positions -> ``count(other1) * count(other2)``.
+        * missing LAYERING position (Outerwear/Accessories): one new layer
+          dresses every owned core combination ->
+          ``min(Tops,5) * min(Bottoms,5) * min(Footwear,5)``.
+        * no core pieces owned (empty/starter wardrobe) -> 0: we do not
+          invent a number, and the rationale says so instead.
+        Capped at _UNLOCKS_CAP.
+        """
+        caps = {c: min(owned_counts.get(c, 0), cls._PER_CATEGORY_CAP) for c in cls._CORE_CATEGORIES}
+        if category in cls._CORE_CATEGORIES:
+            others = [c for c in cls._CORE_CATEGORIES if c != category]
+            estimate = caps[others[0]] * caps[others[1]]
+        else:
+            estimate = caps["Tops"] * caps["Bottoms"] * caps["Footwear"]
+        return min(estimate, cls._UNLOCKS_CAP)
 
     _CATEGORY_TO_SLUG = {
         "Tops": "tops", "Bottoms": "bottoms", "Outerwear": "outerwear",
@@ -53,9 +85,17 @@ class GapAnalysisService:
         anchor = max(set(owned_colors), key=owned_colors.count) if owned_colors else "Navy"
         suggested = self._harmonizing_colors(anchor)
 
+        # The source data the rationale quotes — exposed on every gap so the
+        # "AI Analysis" text is auditable against the payload (no uncheckable
+        # claims).
+        ready_summary = (
+            ", ".join(f"{n} {cat.lower()}" for cat, n in sorted(owned_counts.items()))
+            or "no ready pieces"
+        )
+
         gaps: List[Dict[str, Any]] = []
         gap_id = 1
-        for category, min_count, subcategory, unlocks in self.CAPSULE_MATRIX:
+        for category, min_count, subcategory in self.CAPSULE_MATRIX:
             if owned_counts.get(category, 0) >= min_count:
                 continue  # already covered — suppress the purchase suggestion
 
@@ -72,17 +112,30 @@ class GapAnalysisService:
                 for p in catalog_recs
             ]
             count = owned_counts.get(category, 0)
+            # Computed from the user's data, never a constant (G-GAPCOUNT).
+            unlocks = self.estimate_unlocked_outfits(category, owned_counts)
+            if unlocks > 0:
+                rationale = (
+                    f"Your wardrobe has {count} ready {category.lower()} item(s); a versatile "
+                    f"capsule needs at least {min_count}. Ready pieces: {ready_summary}. "
+                    f"Adding a {subcategory.lower()} in {suggested[0]} would pair with your "
+                    f"existing {anchor.lower()} pieces and start up to ~{unlocks} new look(s)."
+                )
+            else:
+                rationale = (
+                    f"Your wardrobe has {count} ready {category.lower()} item(s); a versatile "
+                    f"capsule needs at least {min_count}. Ready pieces: {ready_summary}. "
+                    f"This is a starter staple — as you add more pieces it will build "
+                    f"combinations with them."
+                )
             gaps.append({
                 "id": gap_id,
                 "missing_category": category,
                 "missing_subcategory": subcategory,
                 "suggested_colors": suggested,
-                "rationale": (
-                    f"Your wardrobe has {count} ready {category.lower()} item(s); a versatile "
-                    f"capsule needs at least {min_count}. Adding a {subcategory.lower()} in "
-                    f"{suggested[0]} would pair with your existing {anchor.lower()} pieces."
-                ),
+                "rationale": rationale,
                 "unlocks_outfit_count": unlocks,
+                "owned_counts": dict(owned_counts),
                 "recommended_products": rec_dicts
             })
             gap_id += 1

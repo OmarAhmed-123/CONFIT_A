@@ -555,8 +555,40 @@ class AuthService:
             self._MFA_STEP_ACTION, "User", str(step), user_id=user.id
         )
 
+    def _lock_user_row_for_mfa(self, user: User) -> None:
+        """Serialize concurrent MFA-consuming operations for ONE user.
+
+        Round-3 finding R3-1: the replay guard was check-then-insert with no
+        atomicity. On the production topology (serverless — many concurrent
+        instances sharing one PostgreSQL) two simultaneous requests carrying
+        the SAME TOTP code could both read the stale "last accepted step" and
+        both pass, i.e. the sequential replay test proved nothing about the
+        concurrent case (the exact bug class of better-auth #11259 /
+        gumroad #7508).
+
+        Fix: take a row-level lock (SELECT … FOR UPDATE) on the user's row
+        before ANY read-check-write MFA sequence — replay-marker check,
+        recovery-code consumption, enrollment confirmation. The second
+        concurrent request blocks until the first commits, then re-reads the
+        now-committed state and is refused. Proven by
+        tests/test_mfa_concurrency_postgres.py on a real PostgreSQL (and by
+        mutation: removing this lock makes the concurrent enrollment test
+        fail). On SQLite (dev/tests) SQLAlchemy compiles FOR UPDATE away,
+        which is safe: SQLite serializes writers globally. No schema
+        migration is needed for this correctness fix.
+        """
+        self.db.query(User).filter(User.id == user.id).with_for_update().first()
+        # Re-read the row's current committed state now that we hold the
+        # lock (a concurrent transaction may have mutated MFA state).
+        self.db.refresh(user)
+
     def _verify_totp_with_replay_guard(self, user: User, code: str) -> bool:
-        """Valid TOTP AND not a replay of an already-accepted time step."""
+        """Valid TOTP AND not a replay of an already-accepted time step.
+
+        MUST be called with the user's row lock held
+        (`_lock_user_row_for_mfa`) — every caller in this service acquires it
+        first, so the marker check + insert below is serialized per user.
+        """
         try:
             secret = self._load_mfa_secret(user)
         except EncryptionError:
@@ -580,6 +612,13 @@ class AuthService:
         if matched_step <= self._last_accepted_totp_step(user):
             # Same (or older) step already consumed — replayed code.
             return False
+        # R3-6a: legacy plaintext secrets (pre-encryption rows) are lazily
+        # rewritten in the v1 Fernet envelope on the next SUCCESSFUL verify —
+        # so long-lived enrolled accounts (e.g. owner accounts that never
+        # re-enroll) converge to encrypted-at-rest without operator action.
+        raw = user.mfa_secret or ""
+        if raw and not raw.startswith(self._ENCRYPTED_SECRET_PREFIX):
+            self._store_mfa_secret(user, secret)
         self._record_accepted_totp_step(user, matched_step)
         return True
 
@@ -615,6 +654,16 @@ class AuthService:
         authenticator to confirm the user actually scanned the QR. Returns
         the plaintext recovery codes exactly ONCE — they are never
         retrievable again (§10)."""
+        # R3-1: lock + re-check INSIDE the lock. Two parallel confirms with
+        # the same windowed code previously both passed and each minted a
+        # recovery-code set (last write wins — the user keeps codes that no
+        # longer exist). The lock serializes them; the re-check refuses the
+        # loser; the replay guard refuses the same code a second time anyway.
+        self._lock_user_row_for_mfa(user)
+        if user.mfa_enabled:
+            raise ValidationDomainError(
+                "MFA is already enabled. Disable it first (password + current code) to re-enroll."
+            )
         if not user.mfa_secret:
             raise ValidationDomainError("MFA setup has not been initialized.")
         if not self._verify_totp_with_replay_guard(user, code):
@@ -657,9 +706,45 @@ class AuthService:
         self.db.commit()
         self.user_repo.log_audit("MFA_DISABLED", "User", str(user.id), user_id=user.id)
 
-    def regenerate_backup_codes(self, user: User) -> Dict[str, Any]:
+    def regenerate_backup_codes(
+        self, user: User, password: Optional[str] = None, mfa_code: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Replace ALL recovery codes. Step-up required (round-3 gap R3-2).
+
+        Session possession alone previously minted 10 fresh plaintext
+        recovery codes — durable MFA-bypass material for a hijacked 15-minute
+        access token, strictly worse than the disable-MFA hole closed in
+        round 1. Same proof as disable: current password + current TOTP or
+        recovery code (the code consumed here is invalidated with the rest of
+        the old set — regeneration is what the caller asked for).
+        """
         if not user.mfa_enabled:
             raise ValidationDomainError("MFA is not enabled for this account.")
+        is_social_only = bool(
+            user.hashed_password and user.hashed_password.startswith("SOCIAL_ONLY:")
+        )
+        if not is_social_only:
+            if not password:
+                raise AuthenticationError(
+                    "Password confirmation is required to regenerate recovery codes.",
+                    details={"reason": "PASSWORD_REQUIRED"},
+                )
+            if not verify_password(password, user.hashed_password):
+                self.user_repo.log_audit(
+                    "MFA_CODES_REGENERATE_REAUTH_FAILED", "User", str(user.id), user_id=user.id
+                )
+                raise AuthenticationError("Password is incorrect.")
+        code = (mfa_code or "").strip()
+        if not code:
+            raise AuthenticationError(
+                "A current authenticator or recovery code is required to regenerate recovery codes.",
+                details={"reason": "MFA_CODE_REQUIRED"},
+            )
+        if not self._consume_mfa_challenge(user, code):
+            self.user_repo.log_audit(
+                "MFA_CODES_REGENERATE_REAUTH_FAILED", "User", str(user.id), user_id=user.id
+            )
+            raise AuthenticationError("Invalid MFA verification code.")
         for row in self.db.query(MFABackupCode).filter(MFABackupCode.user_id == user.id):
             self.db.delete(row)
         codes = generate_recovery_codes(_MFA_BACKUP_CODE_COUNT)
@@ -670,7 +755,15 @@ class AuthService:
         return {"status": "regenerated", "backup_codes": codes}
 
     def _consume_mfa_challenge(self, user: User, code: str) -> bool:
-        """Try TOTP first (with replay guard), then unused backup codes (single-use)."""
+        """Try TOTP first (with replay guard), then unused backup codes (single-use).
+
+        Concurrency-safe (R3-1): the per-user row lock serializes every
+        MFA-consuming request for this user, and the recovery-code write is
+        additionally an atomic guarded UPDATE (``WHERE used_at IS NULL`` +
+        rowcount check) so a code can never be spent twice even if a future
+        call site forgets the lock.
+        """
+        self._lock_user_row_for_mfa(user)
         if user.mfa_secret and self._verify_totp_with_replay_guard(user, code):
             return True
         rows = self.db.query(MFABackupCode).filter(
@@ -678,7 +771,22 @@ class AuthService:
         ).all()
         for row in rows:
             if verify_recovery_code(code, row.code_hash):
-                row.used_at = datetime.now(timezone.utc)
+                claimed = (
+                    self.db.query(MFABackupCode)
+                    .filter(
+                        MFABackupCode.id == row.id,
+                        MFABackupCode.used_at.is_(None),  # atomic single-use claim
+                    )
+                    .update(
+                        {"used_at": datetime.now(timezone.utc)},
+                        synchronize_session=False,
+                    )
+                )
+                if claimed != 1:
+                    # Someone else spent this code between our read and our
+                    # guarded write — treat as replay.
+                    self.db.rollback()
+                    return False
                 self.db.commit()
                 return True
         return False
@@ -1093,6 +1201,65 @@ class AuthService:
             .all()
         ]
 
+        # R3-5 (round-3 export-completeness audit): these user-owned datasets
+        # existed in the schema but were missing from the export — an Art. 15
+        # access request must return them. Explicit field-by-field
+        # serialization as everywhere else; no secrets, no other users' data.
+        from backend.app.models.tryon import MeasurementSession, VisualSearchQuery
+        from backend.app.models.catalog import RecentlyViewed
+
+        measurement_sessions = [
+            {
+                "id": m.id,
+                "status": m.status,
+                "capture_mode": m.capture_mode,
+                "consent_granted": bool(m.consent_granted),
+                "save_to_profile": bool(m.save_to_profile),
+                "created_at": _iso(m.created_at),
+                "results": [
+                    {
+                        "height_cm": r.height_cm,
+                        "shoulder_width_cm": r.shoulder_width_cm,
+                        "chest_cm": r.chest_cm,
+                        "waist_cm": r.waist_cm,
+                        "hip_cm": r.hip_cm,
+                        "inseam_cm": r.inseam_cm,
+                        "body_shape": r.body_shape or r.body_shape_detected,
+                        "source": r.source,
+                        "created_at": _iso(r.created_at),
+                    }
+                    for r in m.results
+                ],
+            }
+            for m in self.db.query(MeasurementSession)
+            .filter(MeasurementSession.user_id == user.id)
+            .order_by(MeasurementSession.id)
+            .all()
+        ]
+
+        visual_searches = [
+            {
+                "id": q.id,
+                "detected_category": q.detected_category,
+                "detected_color": q.detected_color,
+                "detected_pattern": q.detected_pattern,
+                "detected_style": q.detected_style,
+                "created_at": _iso(q.created_at),
+            }
+            for q in self.db.query(VisualSearchQuery)
+            .filter(VisualSearchQuery.user_id == user.id)
+            .order_by(VisualSearchQuery.id)
+            .all()
+        ]
+
+        recently_viewed = [
+            {"product_id": rv.product_id, "viewed_at": _iso(rv.viewed_at)}
+            for rv in self.db.query(RecentlyViewed)
+            .filter(RecentlyViewed.user_id == user.id)
+            .order_by(RecentlyViewed.id)
+            .all()
+        ]
+
         exported_at = datetime.now(timezone.utc)
 
         def _json_normalize(v):
@@ -1119,6 +1286,9 @@ class AuthService:
             "orders": orders,
             "tryon_sessions": tryon_sessions,
             "stylist_sessions": stylist_sessions,
+            "measurement_sessions": measurement_sessions,
+            "visual_searches": visual_searches,
+            "recently_viewed": recently_viewed,
         })
 
         # Integrity evidence — checksum/size of the canonical (sorted-key,
@@ -1198,27 +1368,151 @@ class AuthService:
                 )
                 raise AuthenticationError("Invalid MFA verification code.")
 
+    def _collect_owned_object_urls(self, user: User) -> list:
+        """Every object-storage URL the user's rows point at (R3-4).
+
+        Cascade-deleting a row does NOT remove the object it references —
+        wardrobe images and mood-board uploads live in the configured object
+        store (S3/R2/local dir) and were previously orphaned forever after
+        account deletion. Collected BEFORE the rows disappear.
+        """
+        from backend.app.models.wardrobe import WardrobeItem
+        from backend.app.models.profile import UserStyleProfile, MoodBoard, MoodBoardItem
+        import json as _json
+
+        urls: list = []
+        for (u,) in self.db.query(WardrobeItem.image_url).filter(
+            WardrobeItem.user_id == user.id
+        ):
+            if u:
+                urls.append(u)
+        profile_id = (
+            self.db.query(UserStyleProfile.id)
+            .filter(UserStyleProfile.user_id == user.id)
+            .scalar()
+        )
+        if profile_id:
+            for (payload_json,) in (
+                self.db.query(MoodBoardItem.payload_json)
+                .join(MoodBoard, MoodBoardItem.board_id == MoodBoard.id)
+                .filter(MoodBoard.profile_id == profile_id, MoodBoardItem.kind == "upload")
+            ):
+                try:
+                    payload = _json.loads(payload_json or "{}")
+                except ValueError:
+                    continue
+                for key in ("url", "upload_id"):
+                    if payload.get(key):
+                        urls.append(str(payload[key]))
+        return urls
+
+    @staticmethod
+    def _delete_stored_objects(urls: list) -> int:
+        """Best-effort removal of OUR objects behind the given URLs/keys.
+
+        The storage backend decides whether it issued each URL
+        (`key_for_url`), so external/seeded images are never touched. Runs
+        AFTER the DB commit: a storage outage must not resurrect the account
+        (rows are gone, session dead) — leftover objects are logged, not
+        silently ignored, and carry no account linkage once the rows are
+        deleted. This is the documented compensation model, not a claim of
+        distributed atomicity.
+        """
+        if not urls:
+            return 0
+        try:
+            from backend.app.services.storage_service import get_storage
+
+            storage = get_storage()
+        except Exception as exc:
+            logger.warn(
+                "Account-deletion storage cleanup skipped: storage unavailable",
+                error=str(exc)[:120], pending_objects=len(urls),
+            )
+            return 0
+        removed = 0
+        for u in urls:
+            try:
+                key = storage.key_for_url(u) or (u if "://" not in u else None)
+                if key and storage.delete(key):
+                    removed += 1
+            except Exception as exc:
+                logger.warn("Account-deletion object removal failed", key=str(u)[:120], error=str(exc)[:120])
+        return removed
+
     def delete_account(self, user: User) -> None:
         """Account deletion with retention for business-critical history.
 
-        - Anonymize `orders`, `tryon_sessions`, `stylist_sessions` by
-          nulling `user_id` (spec §15: FK-safe, order accounting preserved).
-        - Revoke every refresh token.
-        - Delete the user row — cascade removes profile, brand_profile,
-          wardrobe, saved_outfits, refresh_tokens, mfa_backup_codes.
+        Data lifecycle (documented in the BRD, §deletion semantics):
+        - DELETE: user row (cascade: profile+mood boards, brand_profile,
+          wardrobe, saved_outfits, refresh_tokens, mfa_backup_codes,
+          password/email tokens), recently_viewed, MFA replay markers,
+          and the user's objects in object storage (wardrobe images,
+          mood-board uploads — best-effort compensation after commit, R3-4).
+        - ANONYMIZE: orders / tryon_sessions / stylist_sessions /
+          measurement_sessions / visual_search_queries / checkout_sessions /
+          tryon_jobs keep their business row but lose user_id AND every
+          personal payload column (person photos, input images — R3-3:
+          nulling user_id alone left PII in the row).
+        - RETAIN: audit events (compliance history, user row gone).
         """
-        from backend.app.models.commerce import Order
-        from backend.app.models.tryon import TryOnSession
+        from backend.app.models.commerce import Order, CheckoutSession
+        from backend.app.models.tryon import (
+            TryOnSession, TryOnJob, VisualSearchQuery, MeasurementSession,
+        )
         from backend.app.models.stylist import StylistSession
+        from backend.app.models.catalog import RecentlyViewed
 
         self.user_repo.log_audit("ACCOUNT_DELETED", "User", str(user.id), user_id=user.id)
 
+        # Object-storage URLs must be collected while the rows still exist.
+        owned_object_urls = self._collect_owned_object_urls(user)
+
         # Anonymize business-retained relations. Uses direct SQL update to
-        # avoid loading every row into memory.
-        for Model in (Order, TryOnSession, StylistSession):
-            self.db.query(Model).filter(Model.user_id == user.id).update(
-                {"user_id": None}, synchronize_session=False
-            )
+        # avoid loading every row into memory. R3-3: for rows that carry
+        # personal payloads (person photos can be URLs or raw base64), the
+        # payload columns are scrubbed too — "anonymized" must mean no PII
+        # remains, not merely no FK.
+        self.db.query(Order).filter(Order.user_id == user.id).update(
+            {"user_id": None}, synchronize_session=False
+        )
+        self.db.query(TryOnSession).filter(TryOnSession.user_id == user.id).update(
+            {
+                "user_id": None,
+                "user_image_url": None,
+                "input_user_image_url": None,
+                "rendered_image_url": None,
+                "rendered_result_url": None,
+                "rendered_animation_url": None,
+            },
+            synchronize_session=False,
+        )
+        self.db.query(TryOnJob).filter(TryOnJob.user_id == user.id).update(
+            {
+                "user_id": None,
+                # The person reference may be a raw base64 image of the user.
+                "input_person_image_url": "",
+                "output_image_url": None,
+                "delivery_token_hash": None,
+            },
+            synchronize_session=False,
+        )
+        self.db.query(VisualSearchQuery).filter(VisualSearchQuery.user_id == user.id).update(
+            {"user_id": None, "input_image_url": ""}, synchronize_session=False
+        )
+        self.db.query(MeasurementSession).filter(MeasurementSession.user_id == user.id).update(
+            {"user_id": None}, synchronize_session=False
+        )
+        self.db.query(CheckoutSession).filter(CheckoutSession.user_id == user.id).update(
+            {"user_id": None}, synchronize_session=False
+        )
+        self.db.query(StylistSession).filter(StylistSession.user_id == user.id).update(
+            {"user_id": None}, synchronize_session=False
+        )
+        # Behavioural trace with no business-retention justification: delete.
+        self.db.query(RecentlyViewed).filter(RecentlyViewed.user_id == user.id).delete(
+            synchronize_session=False
+        )
 
         # Revoke refresh tokens (also cascade-deleted, but revoke first so
         # a concurrent /refresh in flight is rejected cleanly).
@@ -1244,3 +1538,13 @@ class AuthService:
 
         self.db.commit()
         self.user_repo.delete(user)
+
+        # Compensation step AFTER the account is gone: remove the user's
+        # objects from object storage (R3-4). Failures are logged with
+        # counts — never claimed as done when they are not.
+        removed = self._delete_stored_objects(owned_object_urls)
+        if owned_object_urls:
+            logger.info(
+                "Account-deletion storage cleanup",
+                requested=len(owned_object_urls), removed=removed,
+            )

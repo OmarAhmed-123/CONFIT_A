@@ -370,10 +370,30 @@ def disable_mfa(request: Request, payload: DisableMFARequest, user: User = Depen
     return {"status": "disabled"}
 
 
+class RegenerateMFACodesRequest(BaseModel):
+    """Step-up contract for recovery-code regeneration (round-3 gap R3-2).
+
+    Regeneration mints 10 fresh plaintext recovery codes — durable
+    MFA-bypass material. It therefore demands the same proof as disabling
+    MFA: current password (social-only accounts exempt — none exists) plus a
+    current TOTP or recovery code.
+    """
+
+    password: Optional[str] = None
+    mfa_code: Optional[str] = None
+
+
 @router.post("/mfa/regenerate-codes")
 @limiter.limit("5/minute")
-def regenerate_mfa_codes(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    return AuthService(db).regenerate_backup_codes(user)
+def regenerate_mfa_codes(
+    request: Request,
+    payload: RegenerateMFACodesRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return AuthService(db).regenerate_backup_codes(
+        user, password=payload.password, mfa_code=payload.mfa_code
+    )
 
 
 # --- GDPR --------------------------------------------------------------------

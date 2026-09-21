@@ -64,6 +64,34 @@ _PASSWORD_CATEGORIES = (
     re.compile(r"[^A-Za-z0-9]"),
 )
 
+# Round-3 policy review (NIST SP 800-63B-4 §3.1.1 / OWASP ASVS 5.x V2.1):
+# both standards now put breached-password screening ABOVE composition rules.
+# Decision (documented in the BRD): the existing 3-of-4 composition rule is
+# KEPT — removing it would silently weaken the contract every existing test,
+# client and doc states — and a compromised-password denylist is ADDED for
+# the passwords that satisfy 3-of-4 yet appear at the top of real breach
+# corpora (rockyou/HIBP top ranks, "compliant" shapes only). An external
+# breach API is deliberately not called: this endpoint must not ship user
+# passwords (even k-anonymized) to a third party without a product decision.
+# KNOWN LIMITATION (documented, not hidden): "Password123!" is this
+# repository's seeded DEMO credential — the in-product demo-login buttons
+# (AuthModal) and hundreds of fixtures authenticate seeded accounts with it.
+# It is therefore deliberately NOT in this list, despite being a top
+# breached password. Rotating the demo credential is a product decision;
+# once made, add it here. Same for the "Passw0rd!" fixture constant.
+_BREACHED_COMPLIANT_PASSWORDS = frozenset(
+    p.lower() for p in (
+        "P@ssw0rd", "P@ssword1", "Password1!",
+        "P@ssw0rd123", "Welcome1!", "Welcome123!", "Qwerty123!", "Qwerty@123",
+        "Admin@123", "Admin123!", "Abc@1234", "Abcd@1234", "Aa123456!",
+        "Iloveyou1!", "Sunshine1!", "Monkey123!", "Dragon123!", "Letmein1!",
+        "Charlie1!", "Freedom1!", "Superman1!", "Batman123!", "Trustno1!",
+        "Summer2024!", "Summer2025!", "Winter2025!", "Spring2026!", "Summer2026!",
+        "January1!", "Football1!", "Baseball1!", "Princess1!", "Michael1!",
+        "Jordan23!", "Harley1!", "Ginger123!", "Shadow123!", "Master123!",
+    )
+)
+
 
 def validate_password_policy(password: str) -> None:
     """Raises ValidationDomainError if the password fails Group 1 policy.
@@ -85,6 +113,12 @@ def validate_password_policy(password: str) -> None:
     if matched < 3:
         raise ValidationDomainError(
             "Password must contain at least 3 of: lowercase, uppercase, digit, symbol."
+        )
+    if password.lower() in _BREACHED_COMPLIANT_PASSWORDS:
+        # NIST 800-63B-4 §3.1.1: compare against compromised-password lists.
+        raise ValidationDomainError(
+            "This password appears in public breach lists and cannot be used. "
+            "Please choose a password that is not a commonly leaked one."
         )
 
 

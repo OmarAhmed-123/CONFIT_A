@@ -170,12 +170,52 @@ def test_body_attributes_roundtrip_encrypted():
     assert data["body_attributes"]["height_cm"] == 180.0
     assert data["body_attributes"]["is_encrypted"] is True
 
-    # And on disk it really IS encrypted (raw column is not the plaintext)
+    # And on disk it really IS encrypted (raw column is not the plaintext).
+    #
+    # The previous assertion was `assert "180" not in usp.encrypted_body_data`.
+    # That is a FLAKY test, not a security check: Fernet output is url-safe
+    # base64, and a 3-character substring appears in ~250 random characters
+    # with roughly 1-in-40 odds. It failed on CI for
+    # 6b780c43b3eae007698af836d1ab99fdb0882c9e (2026-09-21) while passing
+    # everywhere else, i.e. it gates merges on a coin flip.
+    #
+    # What actually proves encryption at rest: the stored column must not be
+    # the plaintext payload, must not be recoverable by simple decoding, and
+    # must still decrypt (through the application's own key) back to the exact
+    # values that were submitted. Those three are deterministic.
     db = TestingSessionLocal()
     usp = db.query(UserStyleProfile).join(User, User.id == UserStyleProfile.user_id).filter(User.email == email).first()
     assert usp is not None
-    assert usp.encrypted_body_data is not None
-    assert "180" not in usp.encrypted_body_data  # ciphertext must not contain the plaintext number
+    raw = usp.encrypted_body_data
+    assert raw is not None
+    assert "height_cm" not in raw, "plaintext key leaked into the stored column"
+    assert "Athletic" not in raw, "plaintext value leaked into the stored column"
+    assert raw != '{"height_cm": 180.0, "weight_kg": 75.0, "body_shape": "Athletic"}'
+
+    # Not trivially decodable either (base64/hex of the plaintext would be).
+    import base64
+    for candidate in (raw, raw.split("gAAAAA", 1)[-1]):
+        for decoder in (
+            lambda s: base64.urlsafe_b64decode(s + "=" * (-len(s) % 4)),
+            lambda s: base64.b64decode(s + "=" * (-len(s) % 4)),
+        ):
+            try:
+                decoded = decoder(candidate).decode("utf-8", errors="strict")
+            except Exception:  # noqa: BLE001 - undecodable is the expected outcome
+                continue
+            assert "height_cm" not in decoded, "column is merely encoded, not encrypted"
+
+    # And it still round-trips through the real key (encryption, not noise).
+    # decrypt_sensitive_data returns the plaintext JSON *string*; parsing it is
+    # the caller's job.
+    import json as _json
+
+    from backend.app.core.security import decrypt_sensitive_data
+
+    restored = _json.loads(decrypt_sensitive_data(raw))
+    assert restored["height_cm"] == 180.0
+    assert restored["weight_kg"] == 75.0
+    assert restored["body_shape"] == "Athletic"
     db.close()
 
 

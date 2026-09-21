@@ -11,6 +11,7 @@ from backend.app.models.stylist import Outfit, OutfitItem
 from backend.app.models.wardrobe import WardrobeItem
 from backend.app.models.commerce import Order, OrderItem, Promotion, OrderEvent
 from backend.app.models.brand_analytics import SponsoredPlacement
+from backend.app.seed_size_charts import size_chart_json_for_slug
 
 
 def seed_database(target_engine=None, force=False):
@@ -468,6 +469,10 @@ def seed_database(target_engine=None, force=False):
     sku_objs = []
     for p_data in products_seed:
         skus_data = p_data.pop("skus")
+        # Attach a real, sourced size chart where one applies. Products with no
+        # entry keep the "{}" default, which the engine reads as "no brand
+        # chart" and reports as such rather than papering over.
+        p_data.setdefault("size_chart_json", size_chart_json_for_slug(p_data["slug"]))
         prod = Product(**p_data)
         db.add(prod)
         db.flush()

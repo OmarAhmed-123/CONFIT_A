@@ -167,7 +167,12 @@ class MeasurementSession(Base):
     guest_session_token = Column(String(100), nullable=True, index=True)
     status = Column(String(30), default="created", nullable=False)  # "created", "scanning", "completed", "failed"
     capture_mode = Column(String(30), default="client_side", nullable=False)  # "client_side", "server_side", "manual"
-    consent_granted = Column(Boolean, default=True, nullable=False)
+    # Consent must be an explicit, recorded act. The column default was True,
+    # which contradicted MeasurementSessionCreate.consent_granted=False and
+    # meant any row inserted without naming the field (a script, a fixture, a
+    # future call site) was born "consented". Default False: the absence of a
+    # decision is not a decision.
+    consent_granted = Column(Boolean, default=False, nullable=False)
     save_to_profile = Column(Boolean, default=False, nullable=False)
     expires_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)

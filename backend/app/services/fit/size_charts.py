@@ -173,7 +173,12 @@ class SizeRow:
 class ChartProvenance:
     """Where the chart came from, and how much it can be trusted."""
 
-    source: str                       # "brand_published" | "standard_en13402" | "none"
+    # "brand_published"        — the brand's own published chart
+    # "product_chart_derived"  — a chart attached to this product but derived
+    #                            from a stated external source (see `standard`)
+    # "standard_en13402"       — engine fallback to the public standard
+    # "none"                   — no chart; the engine must refuse
+    source: str
     label: str                        # human-readable, shown in the UI
     updated_at: Optional[str] = None  # ISO date of the brand chart, if known
     standard: Optional[str] = None    # e.g. "EN 13402-3"
@@ -182,7 +187,18 @@ class ChartProvenance:
 
     @property
     def is_authoritative(self) -> bool:
+        """True only for a chart the brand itself published.
+
+        A product-specific chart derived from a standard is better than the
+        generic fallback, but it is NOT the brand's word, and the UI must not
+        present it as such.
+        """
         return self.source == "brand_published"
+
+    @property
+    def is_product_specific(self) -> bool:
+        """True when the chart came from this product rather than the fallback."""
+        return self.source in ("brand_published", "product_chart_derived")
 
     def as_dict(self) -> Dict[str, Any]:
         return {
@@ -399,21 +415,49 @@ def parse_size_chart_json(raw: Any) -> SizeChart:
         )
 
     rows.sort(key=lambda r: size_sort_key(r.size))
-    notes: Tuple[str, ...] = ()
+    note_list: List[str] = []
     if measurement_type == "garment":
-        notes = (
+        note_list.append(
             "Chart lists finished-garment measurements; the engine compares them to "
-            "body girth including the garment's ease allowance.",
+            "body girth including the garment's ease allowance."
         )
-    return SizeChart(
-        rows=tuple(rows),
-        provenance=ChartProvenance(
+
+    # A chart attached to a product is not automatically a chart the BRAND
+    # published. A chart may declare its own origin (e.g. one derived from a
+    # public standard for a catalogue whose brands publish nothing), and if it
+    # does we must repeat that claim rather than upgrade it to
+    # "brand-published" — the provenance card is the user's only way to judge
+    # how much to trust the number, so overstating it here is the same class of
+    # fabrication this engine was written to remove.
+    declared_source = data.get("source")
+    declared_standard = data.get("standard")
+    is_derived = bool(declared_source) and not bool(data.get("published_by_brand"))
+    for note in data.get("notes") or ():
+        if isinstance(note, str) and note.strip():
+            note_list.append(note.strip())
+
+    if is_derived:
+        provenance = ChartProvenance(
+            source="product_chart_derived",
+            label=f"Product size chart — derived from {declared_source}",
+            updated_at=updated_at,
+            standard=str(declared_standard) if declared_standard else str(declared_source),
+            measurement_type=measurement_type,
+            notes=tuple(note_list),
+        )
+    else:
+        provenance = ChartProvenance(
             source="brand_published",
             label="Brand-published size chart",
             updated_at=updated_at,
+            standard=str(declared_standard) if declared_standard else None,
             measurement_type=measurement_type,
-            notes=notes,
-        ),
+            notes=tuple(note_list),
+        )
+
+    return SizeChart(
+        rows=tuple(rows),
+        provenance=provenance,
         size_system=size_system,
         parse_warnings=tuple(warnings),
     )

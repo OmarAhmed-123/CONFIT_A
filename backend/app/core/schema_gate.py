@@ -21,13 +21,21 @@ Evaluation
    SQLite).
 3. ``evaluate(engine)``          – returns a ``SchemaGateReport`` with a
    verdict and a list of concrete findings:
-     ``ok``        revision == head and every required object present
-     ``unmanaged`` no ``alembic_version`` at all but every ORM-backed required
-                   object present — a ``create_all`` database (dev/test).
-                   Acceptable outside production, REJECTED in production.
-     ``drift``     anything else (behind/ahead/unknown revision, missing
-                   table or column). Always rejected in production.
-     ``unknown``   the database could not be inspected.
+     ``ok``          revision == head and every required object present
+     ``unmanaged``   no ``alembic_version`` at all but every ORM-backed required
+                     object present — a ``create_all`` database (dev/test).
+                     Acceptable outside production, REJECTED in production.
+     ``ahead``       the database carries a revision this code has never heard
+                     of, AND every object this code needs is present. Newer
+                     schema + older code: serviceable, because the failure mode
+                     this gate exists to stop (ORM referencing objects that do
+                     not exist) is ruled out by the required-object check.
+                     Accepted in production, reported as degraded.
+     ``drift``       the database is BEHIND the code, or a required
+                     table/column is missing. Always rejected in production.
+     ``unreachable`` the database could not be inspected at all. Not accepted,
+                     but never fatal at startup — see "Why startup must not die"
+                     below.
 
 Wiring
 ------
@@ -35,6 +43,31 @@ Wiring
   ``SchemaDriftError`` so the deployment fails loudly instead of serving 500s.
   In other environments it is logged (dev/test DBs are created by ``create_all``
   and legitimately carry no ``alembic_version`` row).
+
+Why startup must not die on ``unreachable`` (2026-09-21 production incident)
+---------------------------------------------------------------------------
+Raising inside the ASGI lifespan does not produce a readable 503. It aborts
+the invocation, so Vercel answers every path — including ``/health`` — with an
+empty ``FUNCTION_INVOCATION_FAILED``. That is strictly worse than the condition
+it is guarding against:
+
+* the one endpoint that could have named the cause is the one that dies;
+* the release gate reads ``/health`` to decide whether a merge is safe, so it
+  goes INDETERMINATE and every merge to ``main`` is blocked repository-wide;
+* the only remaining lever is a global ``CONFIT_SCHEMA_GATE=warn`` override,
+  which switches the safety check off for the whole service.
+
+On 2026-09-21 that is exactly what happened: a preview-branch deployment
+applied migration ``0018_outfit_share_lifecycle`` to the shared production
+database, ``main`` (expecting ``0017``) saw a revision it did not know, raised
+in the lifespan, and took the entire API down for ~11 minutes until the
+override was set and the function was redeployed.
+
+So: a verdict that means "this code cannot run against this schema" (``drift``)
+still fails startup loudly. A verdict that means "I could not look"
+(``unreachable``) boots, and every request is then refused by
+``request_guard_verdict`` with a structured 503 that carries the finding — so
+the cause is readable at the very endpoint designed to report it.
 * ``GET /health``: ``checks.schema`` reports the verdict, the DB revision and
   the expected head — so the uptime monitor and a human can see drift.
 * ``python -m backend.app.core.schema_gate`` : deploy-pipeline CLI, exit 1 on
@@ -107,7 +140,7 @@ class SchemaDriftError(RuntimeError):
 
 @dataclass
 class SchemaGateReport:
-    verdict: str                                  # "ok" | "unmanaged" | "drift" | "unknown"
+    verdict: str                                  # "ok" | "unmanaged" | "ahead" | "drift" | "unreachable"
     expected_head: Optional[str]
     database_revision: Optional[str]
     findings: List[str] = field(default_factory=list)
@@ -119,6 +152,22 @@ class SchemaGateReport:
     def ok(self) -> bool:
         return self.verdict == "ok"
 
+    @property
+    def blocking(self) -> bool:
+        """True when this verdict is a *proven* reason to refuse to serve.
+
+        ``drift`` — the database is behind this code, or an object this code
+        needs is absent — and ``unmanaged`` — no Alembic bookkeeping at all,
+        which production has never accepted — both qualify.
+
+        ``unreachable`` does not: it is a failure of observation, not a proven
+        incompatibility, and aborting the ASGI lifespan over it takes /health
+        and the release gate down with the rest of the API (module docstring).
+        ``ahead`` does not either: the required-object check has already proven
+        this code can run against that schema.
+        """
+        return self.verdict in ("drift", "unmanaged")
+
     def as_dict(self) -> dict:
         return {
             "verdict": self.verdict,
@@ -127,6 +176,7 @@ class SchemaGateReport:
             "missing_tables": list(self.missing_tables),
             "missing_columns": dict(self.missing_columns),
             "findings": list(self.findings),
+            "blocking": self.blocking,
         }
 
 
@@ -201,13 +251,14 @@ def evaluate(engine: Engine, *, versions_dir: Path = VERSIONS_DIR) -> SchemaGate
         db_rev, tables, columns = inspect_database(engine)
     except Exception as exc:  # DB unreachable: report, never pretend ok
         return SchemaGateReport(
-            verdict="unknown", expected_head=expected, database_revision=None,
+            verdict="unreachable", expected_head=expected, database_revision=None,
             findings=[f"database inspection failed: {type(exc).__name__}: {str(exc)[:200]}"],
             dialect=engine.dialect.name,
         )
 
     findings: List[str] = []
     unmanaged = False
+    ahead = False
     if db_rev is None:
         unmanaged = True
         findings.append("alembic_version table/row missing — database was never migrated by Alembic")
@@ -215,6 +266,11 @@ def evaluate(engine: Engine, *, versions_dir: Path = VERSIONS_DIR) -> SchemaGate
         db_ord = revision_ordinal(db_rev, versions_dir)
         exp_ord = revision_ordinal(expected, versions_dir)
         if db_ord is None:
+            # A revision this tree has never heard of. It is either a future
+            # migration applied by a newer deployment, or a hand-edited row.
+            # Whether it is serviceable is decided below by the required-object
+            # check — the same evidence the 2026-09-03 incident was about.
+            ahead = True
             findings.append(f"database revision {db_rev!r} is unknown to this code (expected {expected!r})")
         elif exp_ord is not None and db_ord < exp_ord:
             findings.append(
@@ -222,6 +278,7 @@ def evaluate(engine: Engine, *, versions_dir: Path = VERSIONS_DIR) -> SchemaGate
                 f"({exp_ord - db_ord} migration(s) not applied) — run: alembic upgrade head"
             )
         else:
+            ahead = True
             findings.append(f"database is AHEAD of the code: {db_rev} > {expected} — deploy newer code or downgrade")
 
     missing_tables = [t for t in REQUIRED_TABLES if t not in tables]
@@ -242,6 +299,13 @@ def evaluate(engine: Engine, *, versions_dir: Path = VERSIONS_DIR) -> SchemaGate
         # create_all database: complete for the ORM, just not Alembic-managed
         # (migration-only bookkeeping tables are legitimately absent).
         verdict = "unmanaged"
+    elif ahead and not orm_tables_missing and not missing_columns:
+        # Newer schema than this code, but everything this code needs is there.
+        # This is the normal, safe state during a rolling deploy — and the state
+        # production was in on 2026-09-21 when a preview deployment applied
+        # 0018 while main still expected 0017. Refusing to serve here is what
+        # turned a benign revision lag into a full API outage.
+        verdict = "ahead"
     elif findings:
         verdict = "drift"
     else:
@@ -289,18 +353,39 @@ def reset_cache() -> None:
 
 
 def acceptable(report: SchemaGateReport, environment: str) -> bool:
-    """Production accepts only ``ok``; other environments also accept a
-    complete ``create_all`` schema (``unmanaged``)."""
+    """Whether this database may serve traffic from this code.
+
+    Production accepts ``ok`` (exact match) and ``ahead`` (newer schema, every
+    required object present — proven serviceable by the required-object check).
+    Other environments also accept a complete ``create_all`` schema
+    (``unmanaged``).
+
+    ``ahead`` is deliberately *acceptable* but never *``ok``*: ``/health`` still
+    reports ``degraded``, so a revision lag is visible to the uptime monitor and
+    to the release gate instead of being quietly normalised.
+    """
     if report.verdict == "ok":
+        return True
+    if report.verdict == "ahead":
         return True
     return report.verdict == "unmanaged" and (environment or "").lower() != "production"
 
 
 def enforce_at_startup(engine: Engine, environment: str, logger=None) -> SchemaGateReport:
-    """Production: raise unless the verdict is ``ok``. Elsewhere: log and continue.
+    """Production: raise only on a proven incompatibility. Elsewhere: log and continue.
 
     ``CONFIT_SCHEMA_GATE=warn`` downgrades production enforcement to logging
     for an explicit, auditable emergency override — never the default.
+
+    Only ``report.blocking`` (verdict ``drift``: the database is behind this
+    code, or an object this code needs is absent) aborts startup. Raising here
+    aborts the ASGI lifespan, which on Vercel makes *every* path answer
+    ``FUNCTION_INVOCATION_FAILED`` with no body — including ``/health``, the one
+    endpoint that could have named the cause, and the endpoint the release gate
+    reads to decide whether a merge is safe. A condition we cannot even observe
+    (``unreachable``) therefore boots and is refused per request by
+    ``request_guard_verdict``, which returns a structured 503 carrying the
+    finding. See the module docstring for the 2026-09-21 incident.
     """
     report = cached_report(engine, force=True)
     mode = (os.environ.get("CONFIT_SCHEMA_GATE") or "enforce").lower()
@@ -309,7 +394,7 @@ def enforce_at_startup(engine: Engine, environment: str, logger=None) -> SchemaG
     if logger is not None:
         log = logger.error if (not ok and is_prod) else logger.info
         log("schema_gate", **report.as_dict(), environment=environment, mode=mode)
-    if is_prod and not ok and mode != "warn":
+    if is_prod and report.blocking and mode != "warn":
         raise SchemaDriftError("; ".join(report.findings) or report.verdict)
     return report
 

@@ -17,6 +17,7 @@ import {
 import { FitScoreBadge } from "../common/CommonComponents";
 import { CameraScanModal } from "./CameraScanModal";
 import { compressImageToDataUrl } from "../../lib/imageUpload";
+import { usePhotoConsent } from "../../privacy/usePhotoConsent";
 
 export const VirtualTryOnModal: React.FC = () => {
   const { t } = useTranslation();
@@ -225,10 +226,17 @@ export const VirtualTryOnModal: React.FC = () => {
     }
   };
 
+  // Consent for the person photo this modal uploads to the try-on worker.
+  const { requestConsent, consentDialog } = usePhotoConsent('try_on');
+
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = ""; // allow re-selecting the same file after an error
     if (!file) return;
+    // GDPR Art.7 explicit consent — captured BEFORE any bytes leave the
+    // device. Previously this flow asserted `consentGranted: true` on the
+    // user's behalf (see src/privacy/consentStore.ts); a default is not consent.
+    if (!(await requestConsent())) return;
     // P0-02/P0-03 fix (2026-09-06 audit): raw phone photos (3–8 MB) exceeded
     // the serverless gateway body limit and died with an opaque HTTP 413.
     // Every person photo is now validated + compressed client-side before
@@ -256,12 +264,13 @@ export const VirtualTryOnModal: React.FC = () => {
 
   return (
     <>
+      {consentDialog}
       <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/85 backdrop-blur-md animate-in fade-in duration-150">
         <div
           ref={tryOnPanelRef}
           role="dialog"
           aria-modal="true"
-          aria-label="Virtual try-on studio"
+          aria-label={t('tryon.studio_aria')}
           tabIndex={-1}
           className="w-full max-w-6xl bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden max-h-[96vh] flex flex-col"
         >
@@ -273,7 +282,7 @@ export const VirtualTryOnModal: React.FC = () => {
               </div>
               <div>
                 <h3 className="font-serif text-base sm:text-lg font-bold text-white flex items-center gap-2">
-                  <span>Dynamic Virtual Dressing Studio</span>
+                  <span>{t('tryon.studio_title')}</span>
                   <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-[#C5A059]/20 text-[#E2BF70] font-sans font-semibold">
                     Multi-Layer Dressing Engine
                   </span>
@@ -359,7 +368,7 @@ export const VirtualTryOnModal: React.FC = () => {
                       }`}
                     >
                       <SparkleIcon size={12} color="#C5A059" />
-                      <span>Layer Assembly</span>
+                      <span>{t('tryon.layer_assembly')}</span>
                     </button>
                     <button
                       onClick={() => {
@@ -413,11 +422,11 @@ export const VirtualTryOnModal: React.FC = () => {
                         alt="User"
                         className="w-7 h-7 rounded-lg object-cover"
                       />
-                      <span>Custom Photo Active</span>
+                      <span>{t('tryon.custom_photo_active')}</span>
                       <button
                         onClick={() => setUploadedUserImage(null)}
                         className="text-xs hover:text-rose-600 ml-1"
-                        title="Remove photo"
+                        title={t('tryon.remove_photo')}
                       >
                         ✕
                       </button>
@@ -682,7 +691,7 @@ export const VirtualTryOnModal: React.FC = () => {
                         <button
                           onClick={() => removeGarmentFromCanvas(slot)}
                           className="w-4 h-4 rounded-full bg-slate-200 hover:bg-rose-500 hover:text-white text-slate-600 flex items-center justify-center text-[9px] transition-colors"
-                          title="Remove item"
+                          title={t('tryon.remove_item')}
                         >
                           ✕
                         </button>

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { ConsentManager } from '../../privacy/ConsentManager';
 import { ShieldIcon } from '../../components/icons/ConfitIcons';
 import { formatDate } from '../../i18n/format';
 import type { AppLanguage } from '../../i18n/i18n';
@@ -242,6 +243,10 @@ export const PrivacyPolicyView: React.FC = () => {
         <li>{t('legal.privacy_ctrl_erase')}</li>
         <li>{t('legal.privacy_ctrl_delete_items')}</li>
       </ul>
+
+      {/* Article 7(3): withdrawal must be as easy as giving consent. The policy
+          described this right; this is the control that actually exercises it. */}
+      <ConsentManager />
     </Shell>
   );
 };

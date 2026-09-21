@@ -20,6 +20,22 @@ export type TryOnWorkflowStatus =
   "idle" | "selected" | "rendering" | "completed" | "failed";
 export type MotionWorkflowStatus = "idle" | "generating" | "ready" | "failed";
 
+/**
+ * Try-on failure CODES.
+ *
+ * These are machine discriminators, NOT user-facing copy: every branch that
+ * matches on them renders its own localized toast. They were previously inline
+ * prose ("VTON_ANIMATED_ALL_FAILED: All keyframes failed"), which meant (a) the
+ * discriminator depended on the exact wording of a sentence, and (b) the i18n
+ * audit's inventory counted English that no user can ever read.
+ */
+export const VTON_ERR = {
+  workerNotReady: 'VTON_WORKER_NOT_READY',
+  animatedFirstFrameFailed: 'VTON_ANIMATED_FIRST_FRAME_FAILED',
+  animatedAllFailed: 'VTON_ANIMATED_ALL_FAILED',
+  animatedFailed: 'VTON_ANIMATED_FAILED',
+} as const;
+
 export function useTryOnViewModel(initialProduct?: Product | null) {
   const [tryOnStatus, setTryOnStatus] = useState<TryOnWorkflowStatus>("idle");
   const [motionStatus, setMotionStatus] =
@@ -472,7 +488,7 @@ export function useTryOnViewModel(initialProduct?: Product | null) {
           (kf: any) => !kf.failed,
         );
         if (successfulFrames.length === 0) {
-          throw new Error("VTON_ANIMATED_ALL_FAILED: All keyframes failed");
+          throw new Error(VTON_ERR.animatedAllFailed);
         }
         setAnimationResult(res);
         setMotionStatus("ready");
@@ -495,7 +511,7 @@ export function useTryOnViewModel(initialProduct?: Product | null) {
           "info",
         );
       } else {
-        throw new Error("VTON_ANIMATED_FAILED: No keyframes generated");
+        throw new Error(VTON_ERR.animatedFailed);
       }
     } catch (err: any) {
       setAnimationResult(null);
@@ -515,14 +531,14 @@ export function useTryOnViewModel(initialProduct?: Product | null) {
           "Animated try-on requires GPU worker: Set VTON_WORKER_URL for real per-layer CatVTON inference. No fake animation.",
           "error",
         );
-      } else if (msg.includes("VTON_WORKER_NOT_READY")) {
+      } else if (msg.includes(VTON_ERR.workerNotReady)) {
         showToast(
           "Animated try-on worker not ready. Please try again.",
           "error",
         );
       } else if (
-        msg.includes("VTON_ANIMATED_FIRST_FRAME_FAILED") ||
-        msg.includes("VTON_ANIMATED_ALL_FAILED")
+        msg.includes(VTON_ERR.animatedFirstFrameFailed) ||
+        msg.includes(VTON_ERR.animatedAllFailed)
       ) {
         showToast(
           "Animated try-on failed: first layer inference failed. No fake keyframes generated.",

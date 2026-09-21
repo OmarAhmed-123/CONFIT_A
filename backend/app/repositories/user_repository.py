@@ -69,9 +69,24 @@ class UserRepository:
 
         Callers must never pass sensitive values in `details`/`before`/
         `after` — passwords, tokens, OTPs, MFA secrets, decrypted body
-        measurements, etc. This is the contract audited in tests.
+        measurements, etc.
+
+        That instruction used to be the *only* control, which meant the
+        contract depended on all 30 call sites remembering a comment (G-06).
+        It is now enforced here, on the single write path every caller
+        funnels through: secret-bearing keys are replaced with
+        ``[REDACTED:key=...]`` and secrets smuggled inside free-form strings
+        (JWTs, bearer tokens, PEM blocks, Luhn-valid card numbers, Postgres
+        DSNs) are masked before the row is built. Returns the number of
+        redactions applied so callers and tests can assert on it.
         """
         import json as _json
+
+        from backend.app.core.audit_redaction import scrub, scrub_text
+
+        safe_before, _hits = scrub(before) if before is not None else (None, 0)
+        safe_after, _h2 = scrub(after) if after is not None else (None, 0)
+        safe_details, _h3 = scrub_text(details)
 
         log = AuditLog(
             user_id=user_id,
@@ -79,10 +94,11 @@ class UserRepository:
             resource_type=resource_type,
             resource_id=str(resource_id) if resource_id else None,
             ip_address=ip_address,
-            details_json=details,
-            before_json=_json.dumps(before, default=str) if before else None,
-            after_json=_json.dumps(after, default=str) if after else None,
+            details_json=safe_details,
+            before_json=_json.dumps(safe_before, default=str) if safe_before else None,
+            after_json=_json.dumps(safe_after, default=str) if safe_after else None,
             request_id=request_id,
         )
         self.db.add(log)
         self.db.commit()
+        return _hits + _h2 + _h3

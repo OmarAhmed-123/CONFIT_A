@@ -119,6 +119,77 @@ _CONF_MAX = 90.0                      # never claim near-certainty for a remote 
 _CONF_MIN = 5.0
 _CONF_FLOOR_FOR_RECOMMENDATION = 35.0 # below this we refuse instead of guessing
 
+# ---------------------------------------------------------------------------
+# Confidence BAND — the honest, user-facing signal.
+#
+# The numeric score above is an internal evidence tally, NOT a probability. It
+# is a sum of hand-chosen points; nothing in this system has been calibrated
+# against real fit outcomes, so "66% confidence" would imply a frequency
+# ("about 2 in 3 of these fit") that we have never measured. Presenting it that
+# way is a fabricated statistic even though every term is individually
+# defensible.
+#
+# So the score is reduced to three deterministic bands, defined purely by the
+# EVIDENCE actually present, and those bands are what the user is shown. The
+# thresholds below are documented product rules, not empirical findings.
+_BAND_HIGH = "high"
+_BAND_MEDIUM = "medium"
+_BAND_LOW = "low"
+
+
+def confidence_band(
+    *,
+    measured_sections: int,
+    estimated_sections: int,
+    chart_is_brand_published: bool,
+    chart_is_product_specific: bool,
+    fit_score: float,
+    is_ambiguous: bool,
+) -> Tuple[str, str]:
+    """Classify recommendation strength from the evidence. Returns (band, why).
+
+    Deterministic rules, in priority order. These are PRODUCT DECISIONS about
+    what we are willing to stand behind - they are not derived from outcome
+    data, because we have none.
+
+    high   - at least two directly measured sections, a product-specific chart,
+             a clearly best size, and a good fit at that size.
+    low    - no directly measured section (everything modelled from height and
+             weight), or only a generic standard chart, or the top two sizes
+             are too close to separate.
+    medium - everything else.
+    """
+    if measured_sections == 0:
+        return _BAND_LOW, (
+            "No body girth was measured directly - every section was estimated from "
+            "your height and weight, which is a rough guide only."
+        )
+    if not chart_is_product_specific:
+        return _BAND_LOW, (
+            "This product has no size chart of its own, so a generic public standard "
+            "was used and it may not match how this garment is actually cut."
+        )
+    if is_ambiguous:
+        return _BAND_MEDIUM, (
+            "Two sizes score almost the same for your measurements, so which one you "
+            "prefer depends on how you like things to sit."
+        )
+    if measured_sections >= 2 and chart_is_brand_published and fit_score >= 80:
+        return _BAND_HIGH, (
+            f"{measured_sections} of your measurements were compared directly against "
+            "the brand's own published chart and sit comfortably inside one size."
+        )
+    if measured_sections >= 2 and fit_score >= 80:
+        return _BAND_MEDIUM, (
+            f"{measured_sections} measurements sit comfortably inside one size, but the "
+            "chart is derived from a public standard rather than published by the brand."
+        )
+    return _BAND_MEDIUM, (
+        f"{measured_sections} measurement(s) were compared against this product's chart"
+        + (f", with {estimated_sections} section(s) estimated" if estimated_sections else "")
+        + "."
+    )
+
 # Fit-score floor for naming a size at all. This MUST agree with the lowest
 # rating band the response labels as wearable (no_photo_fit_service defines
 # <45 as "Does not fit"). It was previously 0, which is unreachable because the
@@ -166,18 +237,36 @@ class SizeCandidate:
     size: str
     score: float
     sections: Tuple[SectionFit, ...]
-    in_stock: bool
+    # Tri-state on purpose. ``True``/``False`` mean inventory was consulted and
+    # gave an answer; ``None`` means this size was NOT present in the stock map
+    # and its availability is genuinely unknown. The previous model was a plain
+    # bool computed as ``level is None or level > 0``, which silently reported
+    # "in stock" for a size nobody had checked — the response asserted a fact
+    # the system did not have.
+    in_stock: Optional[bool]
     stock_level: Optional[int] = None
 
     @property
     def evaluated_dimensions(self) -> Tuple[str, ...]:
         return tuple(s.dimension for s in self.sections)
 
+    @property
+    def is_sellable(self) -> bool:
+        """Only a size confirmed available may be recommended."""
+        return self.in_stock is True
+
+    @property
+    def availability(self) -> str:
+        if self.in_stock is None:
+            return "unknown"
+        return "in_stock" if self.in_stock else "out_of_stock"
+
     def as_dict(self) -> Dict[str, Any]:
         return {
             "size": self.size,
             "fit_score": round(self.score, 1),
             "in_stock": self.in_stock,
+            "availability": self.availability,
             "stock_level": self.stock_level,
             "sections": [s.as_dict() for s in self.sections],
         }
@@ -209,7 +298,12 @@ class FitRefusal:
 class FitDecision:
     recommended_size: str
     alternative_size: Optional[str]
+    # `confidence` is an internal evidence tally in 0-100, NOT a probability.
+    # `confidence_band` ("high"/"medium"/"low") is the honest user-facing signal
+    # -- see confidence_band() for why the number must not be shown as a percent.
     confidence: int
+    confidence_band: str
+    confidence_band_reason: str
     confidence_factors: Tuple[str, ...]
     is_ambiguous: bool
     candidates: Tuple[SizeCandidate, ...]
@@ -232,6 +326,8 @@ class FitDecision:
             "recommended_size": self.recommended_size,
             "alternative_size": self.alternative_size,
             "confidence": self.confidence,
+            "confidence_band": self.confidence_band,
+            "confidence_band_reason": self.confidence_band_reason,
             "confidence_factors": list(self.confidence_factors),
             "is_ambiguous": self.is_ambiguous,
             "garment_class": self.garment_class.value,
@@ -443,7 +539,8 @@ class FitEngine:
                     size=row.size,
                     score=round(overall, 2),
                     sections=tuple(sections),
-                    in_stock=(level is None or level > 0),
+                    # Absent from the stock map => unknown, NOT available.
+                    in_stock=(None if level is None else level > 0),
                     stock_level=level,
                 )
             )
@@ -459,8 +556,26 @@ class FitEngine:
         # and the cheaper return), so ordering is deterministic.
         candidates.sort(key=lambda c: (-c.score, size_sort_key(c.size)))
 
-        in_stock = [c for c in candidates if c.in_stock]
+        in_stock = [c for c in candidates if c.is_sellable]
         if not in_stock:
+            # Distinguish "we checked and there is none" from "we could not
+            # check". Both refuse, but they are different facts and the user
+            # deserves the right one.
+            any_known = any(c.in_stock is not None for c in candidates)
+            if not any_known:
+                return FitRefusal(
+                    reason_code="INVENTORY_UNKNOWN",
+                    message=(
+                        "We could not confirm which sizes of this product are actually "
+                        "available, so we will not recommend one. A size we cannot confirm "
+                        "is in stock is not a recommendation."
+                    ),
+                    missing=("inventory",),
+                    diagnostics={
+                        "best_fitting_size_if_available": candidates[0].size,
+                        "inventory_checked": False,
+                    },
+                )
             return FitRefusal(
                 reason_code="NO_SELLABLE_SIZE",
                 message=(
@@ -537,17 +652,30 @@ class FitEngine:
             )
 
         out_of_stock_better = [
-            c for c in candidates if not c.in_stock and c.score > best.score + _AMBIGUITY_MARGIN
+            c for c in candidates if not c.is_sellable and c.score > best.score + _AMBIGUITY_MARGIN
         ]
         if out_of_stock_better:
             notes.append(
                 f"Size {out_of_stock_better[0].size} would fit you better but is out of stock."
             )
 
+        measured_n = len([s for s in best.sections if not s.body_is_estimated])
+        estimated_n = len([s for s in best.sections if s.body_is_estimated])
+        band, band_reason = confidence_band(
+            measured_sections=measured_n,
+            estimated_sections=estimated_n,
+            chart_is_brand_published=chart.provenance.is_authoritative,
+            chart_is_product_specific=chart.provenance.is_product_specific,
+            fit_score=best.score,
+            is_ambiguous=is_ambiguous,
+        )
+
         return FitDecision(
             recommended_size=best.size,
             alternative_size=(runner_up.size if runner_up and is_ambiguous else None),
             confidence=confidence,
+            confidence_band=band,
+            confidence_band_reason=band_reason,
             confidence_factors=tuple(factors),
             is_ambiguous=is_ambiguous,
             candidates=tuple(candidates),

@@ -420,7 +420,15 @@ class NoPhotoFitResponse(BaseModel):
     recommended_size: Optional[str] = None
     alternative_size: Optional[str] = None
     is_between_sizes: bool = False
+    # The honest headline: a rule-based band, not a probability.
+    confidence_band: Optional[str] = Field(
+        default=None, description="'high' | 'medium' | 'low' — deterministic, evidence-based"
+    )
+    confidence_band_reason: Optional[str] = None
+    # Retained for backwards compatibility. Internal evidence tally in 0-100;
+    # NOT a calibrated probability, so clients must not render it as "N% likely".
     confidence_score: int
+    confidence_is_probability: bool = False
     confidence_factors: List[str] = Field(default_factory=list)
     is_estimated: bool = False
     fit_verdict: str

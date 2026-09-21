@@ -174,3 +174,83 @@ describe('FitFinderView — engine contract', () => {
     expect(Math.abs(weight - 78)).toBeLessThanOrEqual(0.3);
   });
 });
+
+
+describe('FitFinderView — confidence must not read as a probability', () => {
+  beforeEach(() => {
+    cleanup();
+    vi.clearAllMocks();
+  });
+
+  const success = {
+    recommended: true,
+    recommended_size: 'M',
+    alternative_size: null,
+    is_between_sizes: false,
+    confidence_band: 'medium',
+    confidence_band_reason: 'Two measurements were compared against this product chart.',
+    confidence_score: 66,
+    confidence_is_probability: false,
+    confidence_factors: ['base 22', '+24 for 2 measured section(s)'],
+    is_estimated: false,
+    fit_verdict: 'Good fit',
+    confidence_disclosure: 'Size M — medium confidence.',
+    fit_breakdown: { chest: 'just right' },
+    size_comparison_table: [
+      {
+        size: 'M',
+        ranges_cm: { chest: [94, 102] },
+        fit_score: 88,
+        fit_rating: 'Good fit',
+        in_stock: true,
+        availability: 'in_stock',
+        stock_level: 4,
+        is_recommended: true,
+      },
+      {
+        size: 'L',
+        ranges_cm: { chest: [102, 110] },
+        fit_score: 60,
+        fit_rating: 'Acceptable fit',
+        in_stock: null,
+        availability: 'unknown',
+        stock_level: null,
+        is_recommended: false,
+      },
+    ],
+    measurements_used: { chest_cm: 98, estimated_fields: [], sections_scored: ['chest'] },
+    size_chart_source: { source: 'brand_chart', label: 'Brand chart', is_brand_published: true, notes: [] },
+    garment: {},
+    brand_sizing_tendency: { summary: 'True to size.' },
+    return_risk: { label: 'low' },
+    notes: [],
+    engine_version: 'fit-engine/2.1.0',
+  };
+
+  it('shows the band and never prints the raw score as a percentage', async () => {
+    calcMock.mockResolvedValue(success);
+    renderView();
+    fillForm();
+    await submit();
+
+    await waitFor(() => {
+      expect(document.body.textContent ?? '').toMatch(/medium/i);
+    });
+    const text = document.body.textContent ?? '';
+    // The exact bug: "66%" implies a measured frequency we have never measured.
+    expect(text).not.toContain('66%');
+    expect(text).not.toMatch(/\d+%\s*confidence/i);
+    expect(text).toMatch(/not a statistical probability/i);
+  });
+
+  it('renders unconfirmed inventory as "Not confirmed", never as in stock', async () => {
+    calcMock.mockResolvedValue(success);
+    renderView();
+    fillForm();
+    await submit();
+
+    await waitFor(() => {
+      expect(document.body.textContent ?? '').toMatch(/Not confirmed/i);
+    });
+  });
+});

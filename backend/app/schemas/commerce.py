@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Optional, List, Dict, Any
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, EmailStr, field_validator
 from backend.app.schemas.money_types import PositiveMoney
 
 
@@ -57,20 +57,65 @@ class CartOut(BaseModel):
 
 
 class CheckoutRequest(BaseModel):
-    payment_method: str = Field(description="'card', 'bnpl_tabby', 'bnpl_tamara', 'apple_pay', 'cod'")
+    payment_method: str = Field(description="'card', 'bnpl_tabby', 'bnpl_tamara', 'apple_pay', 'vodafone_cash', 'instapay_bridge', 'cod'")
     fulfillment_type: str = Field(description="'delivery' or 'bopis'")
     bopis_store_id: Optional[int] = None
     recipient_name: str
     phone: str
     address_line: Optional[str] = None
     city: str
-    country: str = "UAE"
+    # Country is resolved server-side against one market authority
+    # (MarketPaymentCapabilityRegistry). The aliases (names like "UAE") are
+    # normalised there — never in this schema — and an unknown market is
+    # REFUSED here instead of silently settling in a fallback currency.
+    country: str = "EG"
     promo_code: Optional[str] = None
     idempotency_key: Optional[str] = None
     try_on_assisted: bool = False
     stylist_assisted: bool = False
-    guest_email: Optional[str] = None
+    # Domain-validated email (RFC-5321 mailbox syntax); empty string is treated
+    # as absence so the existing guest flow (401 without an email) is unchanged.
+    guest_email: Optional[EmailStr] = None
     shipping_method: str = "standard"
+
+    @field_validator("payment_method")
+    @classmethod
+    def _validate_payment_method(cls, value: str) -> str:
+        method = (value or "").strip().lower()
+        # Agrees with MarketPaymentCapabilityRegistry.PAYMENT_CATALOG: a method
+        # that cannot be fuelled by any rail must never reach checkout.
+        known = {
+            "card",
+            "bnpl_tabby",
+            "bnpl_tamara",
+            "apple_pay",
+            "vodafone_cash",
+            "instapay_bridge",
+            "cod",
+        }
+        if method not in known:
+            raise ValueError(
+                f"payment_method must be one of {sorted(known)}, got {value!r}"
+            )
+        return method
+
+    @field_validator("country")
+    @classmethod
+    def _validate_country(cls, value: str) -> str:
+        # One market authority for the whole codebase — the checkout schema must
+        # agree with it or the order's money/currency resolution is ambiguous.
+        from backend.app.providers.payment.capability_registry import (
+            MarketPaymentCapabilityRegistry,
+        )
+
+        code = MarketPaymentCapabilityRegistry.market_code(value)
+        known_markets = set(MarketPaymentCapabilityRegistry.MARKET_CURRENCIES.keys())
+        if code not in known_markets:
+            raise ValueError(
+                f"country {value!r} is not a supported market "
+                f"(supported: {sorted(known_markets)})"
+            )
+        return code
 
 
 class OrderItemOut(BaseModel):
@@ -111,6 +156,7 @@ class OrderOut(BaseModel):
     shipping_city: Optional[str] = None
     tracking_number: Optional[str] = None
     estimated_delivery_date: Optional[datetime] = None
+    ready_for_pickup_at: Optional[datetime] = None
     try_on_assisted: bool
     stylist_assisted: bool
     items: List[OrderItemOut]
@@ -139,6 +185,11 @@ class OrderTrackingTimelineOut(BaseModel):
     order_number: str
     current_status: str
     estimated_delivery: Optional[str]
+    # BOPIS-only: pickup readiness SLA is derived from configuration
+    # (BOPIS_READY_PROMISE_HOURS / BOPIS_READY_SLA_LABEL), never a hardcoded
+    # "2 hours" literal — the promise shown matches what ops actually commits.
+    estimated_pickup: Optional[str] = None
+    bopis_ready_sla: Optional[str] = None
     carrier: Optional[str] = None
     tracking_number: Optional[str] = None
     timeline: List[TrackingMilestone]

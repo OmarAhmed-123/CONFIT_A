@@ -341,7 +341,6 @@ class Settings(BaseSettings):
     # amount that was never priced in it would mislabel money.
     PRICING_CURRENCY: str = "USD"
     MARKET_FX_RATES: str = ""
-    FULFILL_PACE: str = "demo"
     BNPL_DEFAULT_PROVIDER: str = "tabby"
     PAYMENT_DEFAULT_PROVIDER: str = "mock"
     PAYMENTS_LIVE: bool = False
@@ -355,6 +354,11 @@ class Settings(BaseSettings):
     STANDARD_SHIPPING_FEE: float = 15.0
     EXPRESS_SHIPPING_FEE: float = 35.0
     RETURN_WINDOW_DAYS: int = 30
+    # BOPIS readiness promise, configurable so operations can change the SLA
+    # without a redeploy and so the claim shown to shoppers can never drift
+    # from what fulfilment actually commits to. None = no fixed SLA.
+    BOPIS_READY_PROMISE_HOURS: Optional[int] = 24
+    BOPIS_READY_SLA_LABEL: str = "Ready for pickup within 24 hours"
     STORAGE_PROVIDER: str = "local"
     STORAGE_LOCAL_DIR: str = "./backend/data/uploads"
     # C24 FIX: Production storage - S3/R2 for persistence

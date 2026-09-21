@@ -65,7 +65,6 @@ PAYMENTS_LIVE=0
 PAYMENT_DEFAULT_PROVIDER="mock"
 BNPL_DEFAULT_PROVIDER="tabby"
 MARKET="EG"                                      # EG (EGP x48.5) · AE (AED x3.6725) · SA (SAR x3.75)
-FULFILL_PACE="demo"                              # 'demo' test clock (~1 hour lifecycle) or 'real'
 
 # ── S3 Object Storage ────────────────────────────────────────────────────────
 STORAGE_PROVIDER="local"

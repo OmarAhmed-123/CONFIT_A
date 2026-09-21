@@ -253,6 +253,22 @@ class CommerceService:
         settlement = MarketPaymentCapabilityRegistry.resolve_settlement(country)
         currency = settlement.currency
 
+        # No-fake-rails gate: a method this market cannot fuel must be refused
+        # BEFORE any order row or payment intent exists — otherwise the UI's
+        # "payment succeeded" surface would be a fabricated state. COD is
+        # covered by the same rule: the catalog lists it only for markets its
+        # cash-collection rail serves, so "COD in a market with no logistics"
+        # is rejected here instead of stored as an unfillable promise.
+        market_methods = MarketPaymentCapabilityRegistry.get_capabilities_for_market(
+            settlement.market_code
+        )
+        market_method_ids = {m.id for m in market_methods.available_methods}
+        if payment_method not in market_method_ids:
+            raise ValidationDomainError(
+                f"payment_method {payment_method!r} is not available in market "
+                f"{settlement.market_code!r}; available: {sorted(market_method_ids)}"
+            )
+
         subtotal, order_items_payload, brand_ids = self._line_items_from_cart(cart_full)
         promo_code = checkout_data.get("promo_code") or cart_full.promo_code
         discount, promo = (Decimal("0.00"), None)
@@ -650,6 +666,7 @@ class CommerceService:
             "shipping_city": order.shipping_city,
             "tracking_number": order.tracking_number,
             "estimated_delivery_date": order.estimated_delivery_date,
+            "ready_for_pickup_at": getattr(order, "ready_for_pickup_at", None),
             "try_on_assisted": order.try_on_assisted,
             "stylist_assisted": order.stylist_assisted,
             "items": items_out,
@@ -691,11 +708,25 @@ class CommerceService:
         is_bopis = order.fulfillment_type == "bopis"
         events = sorted(order.events or [], key=lambda e: e.created_at)
 
+        # BOPIS readiness promise is configuration, not a footer literal: the
+        # same value operators control is the only value shown to the shopper,
+        # so the promise can never drift from reality (a store network that
+        # guarantees 24h shows 24h, not a hardcoded "2 hours").
+        bopis_sla_hours = getattr(settings, "BOPIS_READY_PROMISE_HOURS", None)
+        bopis_sla_label = getattr(settings, "BOPIS_READY_SLA_LABEL", None) or (
+            f"Ready for pickup within {bopis_sla_hours} hours"
+            if bopis_sla_hours
+            else None
+        )
+
         if is_bopis:
             template = [
                 ("placed", "Order Placed & Confirmed", "Payment recorded and routed to boutique."),
-                ("processing", "Store Preparing Items", "Associate pulling garments and verifying quality."),
-                ("ready_for_pickup", "Ready for Boutique Pickup", f"Present pickup code {order.bopis_pickup_code} at the desk."),
+                ("processing", "Store Preparing Items",
+                 f"Associate pulling garments and verifying quality"
+                 + (f". Target: {bopis_sla_label.lower()}" if bopis_sla_label else "") + "."),
+                ("ready_for_pickup", "Ready for Boutique Pickup",
+                 f"Present pickup code {order.bopis_pickup_code} at the desk."),
                 ("picked_up", "Collected by Customer", "Pickup completed."),
             ]
         else:
@@ -782,6 +813,19 @@ class CommerceService:
                 if order.estimated_delivery_date
                 else None
             ),
+            # BOPIS pickup estimate derived from the readiness promise (or the
+            # actual readiness timestamp once the boutique marks it ready).
+            "estimated_pickup": (
+                order.ready_for_pickup_at.date().isoformat()
+                if order.ready_for_pickup_at
+                else (
+                    (order.created_at.replace(tzinfo=timezone.utc)
+                     + timedelta(hours=bopis_sla_hours)).date().isoformat()
+                    if is_bopis and bopis_sla_hours
+                    else None
+                )
+            ),
+            "bopis_ready_sla": bopis_sla_label if is_bopis else None,
             "carrier": next(
                 (g.carrier for g in (order.fulfillment_groups or []) if g.carrier),
                 None,

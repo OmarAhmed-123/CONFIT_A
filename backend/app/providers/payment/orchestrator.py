@@ -3,12 +3,38 @@ import uuid
 import hmac
 import hashlib
 from decimal import Decimal
-from typing import Dict, Any
+from typing import Dict, Any, Protocol
 from backend.app.core.money import quantize_money, to_float
 from backend.app.core.config import settings
 from backend.app.core.logging import logger
 from backend.app.providers.payment.capability_registry import MarketPaymentCapabilityRegistry
 from backend.app.providers.payment.schemas import MarketPaymentCapabilitiesResponse
+
+
+class LivePspAdapter(Protocol):
+    """Contract a real PSP integration (Stripe / Paymob / Tabby / Tamara) must
+    implement before it may be registered as a live adapter.
+
+    The methods mirror the two live calls the orchestrator can dispatch, and
+    each returns the same dict shape the callers already expect. Until an
+    adapter that satisfies this contract has been verified against the
+    provider sandbox, ``LIVE_PSP_ADAPTERS`` stays empty and live payments fail
+    closed — see ``test_payment_live_mode_fail_closed.py``.
+    """
+
+    async def initiate(
+        self,
+        *,
+        method_id: str,
+        amount_minor: int,
+        currency_code: str,
+        customer_email: str,
+        order_number: str,
+        country_code: str,
+        tx_id: str,
+    ) -> Dict[str, Any]: ...
+
+    async def refund(self, *, provider_tx_id: str, amount: float, method: str) -> Dict[str, Any]: ...
 
 
 class PaymentOrchestrator:
@@ -111,7 +137,7 @@ class PaymentOrchestrator:
                     "mode": mode,
                     "reason": "live_psp_adapter_not_implemented",
                 }
-            return await adapter(
+            return await adapter.initiate(
                 method_id=method_id, amount_minor=amount_minor, currency_code=currency_code,
                 customer_email=customer_email, order_number=order_number, country_code=country_code,
                 tx_id=tx_id,
@@ -183,6 +209,19 @@ class PaymentOrchestrator:
             "requires_redirect": False,
             "mode": mode,
         }
+
+    @classmethod
+    def register_live_adapter(cls, provider_key: str, adapter: LivePspAdapter) -> None:
+        """Register a verified live PSP adapter.
+
+        Deliberately not called anywhere yet: adding a live provider is a
+        reviewed change that ships with provider-sandbox verification, never a
+        side effect. The explicit registration point keeps the gateway from
+        silently flipping to live — ``test_no_live_adapter_is_silently_registered``
+        asserts the registry starts empty.
+        """
+        cls.LIVE_PSP_ADAPTERS[provider_key] = adapter
+        logger.info("live_psp_adapter_registered", provider=provider_key)
 
     async def refund(
         self,

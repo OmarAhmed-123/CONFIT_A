@@ -186,6 +186,22 @@ def health_check(db: Session = Depends(get_db)):
     from backend.app.providers.orchestrator import get_orchestrator
     ai_providers = get_orchestrator().provider_status()
 
+    # Honest AI + payment rails: the previous hardcoded "operational" asserted a
+    # capability the platform never verified at call time. The stylist reports
+    # per provider whether a key is configured; BNPL reports its payment mode
+    # plus the requirements for a live rail, so a namespace that is demo-only
+    # is visible as "demo" instead of "operational".
+    ai_configured = [name for name, st in ai_providers.items() if st.get("configured")]
+    ai_stylist_state = (
+        f"live: {sorted(ai_configured)}" if ai_configured else "unconfigured: no AI provider key set (stylist uses deterministic fallback)"
+    )
+    payments_live = bool(settings.PAYMENTS_LIVE)
+    bnpl_state = (
+        "live"
+        if payments_live and (settings.TABBY_API_KEY or settings.TAMARA_API_KEY)
+        else ("demo" if not payments_live else "misconfigured: PAYMENTS_LIVE without a TABBY_API_KEY or TAMARA_API_KEY")
+    )
+
     overall = "healthy" if (db_status == "healthy" and schema.get("acceptable") is True) else "degraded"
 
     return {
@@ -205,8 +221,8 @@ def health_check(db: Session = Depends(get_db)):
             # and read-only/ephemeral on serverless hosts: upload features answer
             # 501 FEATURE_NOT_CONFIGURED in production until object storage is set.
             "storage": storage_status(),
-            "ai_stylist_engine": "operational",
-            "bnpl_gateway": "operational"
+            "ai_stylist_engine": ai_stylist_state,
+            "bnpl_gateway": bnpl_state
         },
         "ai_providers": ai_providers
     }

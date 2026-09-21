@@ -64,7 +64,7 @@ docs) is refused** — the blocklist is `PUBLICLY_KNOWN_SECRET_VALUES` in `core/
 Settings that exist but are **not consumed by any code path** (documented so
 nobody believes setting them changes behaviour): `PROJECT_NAME`, `PORT`,
 `EMAIL_FROM_ADDRESS`, `SMTP_*`, `KLING_API_KEY`, `AI_STYLIST_PROVIDER`,
-`VTON_PROVIDER`, `FULFILL_PACE`, `PAYMENT_DEFAULT_PROVIDER`,
+`VTON_PROVIDER`, `PAYMENT_DEFAULT_PROVIDER`,
 `STRIPE_WEBHOOK_SECRET`, `PAYMOB_API_KEY`, `POLICY_VERSION`,
 `ANALYTICS_K_MIN`, `TRYON_ANONYMOUS_EXPIRY_HOURS`.
 

@@ -167,9 +167,22 @@ def _checkout(client: TestClient, token: str, country: str, extra: dict | None =
     cart = client.get("/api/v1/commerce/cart", headers=headers).json()
     for it in list(cart.get("items") or []):
         client.delete(f"/api/v1/commerce/cart/items/{it['id']}", headers=headers)
+    # Order-independent SKU probe: the commerce suite performs hundreds of real
+    # checkouts that drain stock, so a helper pinned to ``products[0]`` failed
+    # with StopIteration whenever an earlier file sold that product out. Scan
+    # the whole catalogue for the first actually-in-stock SKU instead — the
+    # assertion under test is about currency settlement, not catalogue order.
     products = client.get("/api/v1/catalog/products").json()
-    detail = client.get(f"/api/v1/catalog/products/{products[0]['id']}").json()
-    sku = next(s for s in detail["skus"] if s["is_in_stock"])
+    sku = next(
+        (
+            s
+            for p in products
+            for s in client.get(f"/api/v1/catalog/products/{p['id']}").json().get("skus", [])
+            if s.get("is_in_stock") and (s.get("stock_level") or 0) > 0
+        ),
+        None,
+    )
+    assert sku, "no in-stock SKU available for the settlement probe"
     added = client.post("/api/v1/commerce/cart/items",
                         json={"product_sku_id": sku["id"], "quantity": 2}, headers=headers)
     assert added.status_code in (200, 201), added.text
@@ -279,8 +292,16 @@ def test_checkout_session_is_stamped_with_the_resolved_currency(
     headers = {"Authorization": f"Bearer {token}",
                "X-Session-Token": f"fx_cs_{uuid.uuid4().hex[:8]}"}
     products = client.get("/api/v1/catalog/products").json()
-    detail = client.get(f"/api/v1/catalog/products/{products[0]['id']}").json()
-    sku = next(s for s in detail["skus"] if s["is_in_stock"])
+    sku = next(
+        (
+            s
+            for p in products
+            for s in client.get(f"/api/v1/catalog/products/{p['id']}").json().get("skus", [])
+            if s.get("is_in_stock") and (s.get("stock_level") or 0) > 0
+        ),
+        None,
+    )
+    assert sku, "no in-stock SKU available for the settlement probe"
     r = client.post("/api/v1/commerce/cart/items",
                     json={"product_sku_id": sku["id"], "quantity": 1}, headers=headers)
     assert r.status_code in (200, 201), r.text

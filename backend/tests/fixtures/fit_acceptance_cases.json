@@ -1,0 +1,876 @@
+{
+  "$comment": [
+    "Acceptance dataset for the Fit Finder size engine (audit 2026-09-21:",
+    "'أضف بيانات قبول مجهولة لعدة أجسام ومقاسات وبراندات، مع expected range لا مقاس واحد فقط').",
+    "",
+    "Every case is ANONYMOUS synthetic anthropometry - no real user data, nothing",
+    "from the production database. Each case states an ACCEPTABLE SET of sizes,",
+    "not one size: real sizing has legitimate adjacent-size answers, and a test",
+    "that demands a single label would encode overconfidence into the suite.",
+    "",
+    "Charts here are deliberately different per brand so the suite proves the",
+    "engine uses the product's own chart: 'atlas' runs generous, 'borea' runs",
+    "small, 'ceder' publishes finished-garment measurements, 'delta' publishes",
+    "nothing (standards fallback), 'echo' publishes in inches.",
+    "",
+    "expected_confidence_max/min are bounds, not equalities - they pin the",
+    "DIRECTION of the honesty properties (estimates must not look measured)",
+    "without freezing arbitrary constants."
+  ],
+  "charts": {
+    "atlas_generous": {
+      "unit": "cm",
+      "measurement_type": "body",
+      "updated_at": "2026-06-01",
+      "size_system": "EU",
+      "rows": [
+        {
+          "size": "S",
+          "chest": [
+            90,
+            98
+          ],
+          "waist": [
+            76,
+            84
+          ],
+          "hip": [
+            92,
+            100
+          ],
+          "shoulder": [
+            43,
+            45
+          ]
+        },
+        {
+          "size": "M",
+          "chest": [
+            98,
+            106
+          ],
+          "waist": [
+            84,
+            92
+          ],
+          "hip": [
+            100,
+            108
+          ],
+          "shoulder": [
+            45,
+            47
+          ]
+        },
+        {
+          "size": "L",
+          "chest": [
+            106,
+            114
+          ],
+          "waist": [
+            92,
+            100
+          ],
+          "hip": [
+            108,
+            116
+          ],
+          "shoulder": [
+            47,
+            49
+          ]
+        },
+        {
+          "size": "XL",
+          "chest": [
+            114,
+            122
+          ],
+          "waist": [
+            100,
+            108
+          ],
+          "hip": [
+            116,
+            124
+          ],
+          "shoulder": [
+            49,
+            51
+          ]
+        }
+      ]
+    },
+    "borea_small": {
+      "unit": "cm",
+      "measurement_type": "body",
+      "updated_at": "2026-02-14",
+      "rows": [
+        {
+          "size": "S",
+          "chest": [
+            82,
+            88
+          ],
+          "waist": [
+            68,
+            74
+          ],
+          "hip": [
+            84,
+            90
+          ]
+        },
+        {
+          "size": "M",
+          "chest": [
+            88,
+            94
+          ],
+          "waist": [
+            74,
+            80
+          ],
+          "hip": [
+            90,
+            96
+          ]
+        },
+        {
+          "size": "L",
+          "chest": [
+            94,
+            100
+          ],
+          "waist": [
+            80,
+            86
+          ],
+          "hip": [
+            96,
+            102
+          ]
+        },
+        {
+          "size": "XL",
+          "chest": [
+            100,
+            106
+          ],
+          "waist": [
+            86,
+            92
+          ],
+          "hip": [
+            102,
+            108
+          ]
+        }
+      ]
+    },
+    "ceder_garment": {
+      "unit": "cm",
+      "measurement_type": "garment",
+      "updated_at": "2026-05-20",
+      "rows": [
+        {
+          "size": "S",
+          "chest": [
+            100,
+            104
+          ],
+          "waist": [
+            88,
+            92
+          ]
+        },
+        {
+          "size": "M",
+          "chest": [
+            106,
+            110
+          ],
+          "waist": [
+            94,
+            98
+          ]
+        },
+        {
+          "size": "L",
+          "chest": [
+            112,
+            116
+          ],
+          "waist": [
+            100,
+            104
+          ]
+        },
+        {
+          "size": "XL",
+          "chest": [
+            118,
+            122
+          ],
+          "waist": [
+            106,
+            110
+          ]
+        }
+      ]
+    },
+    "echo_inches": {
+      "unit": "in",
+      "measurement_type": "body",
+      "updated_at": "2026-07-09",
+      "sizes": {
+        "S": {
+          "chest": "35-37",
+          "waist": "29-31",
+          "hip": "36-38"
+        },
+        "M": {
+          "chest": "38-40",
+          "waist": "32-34",
+          "hip": "39-41"
+        },
+        "L": {
+          "chest": "41-43",
+          "waist": "35-37",
+          "hip": "42-44"
+        },
+        "XL": {
+          "chest": "44-46",
+          "waist": "38-40",
+          "hip": "45-47"
+        }
+      }
+    },
+    "waist_only_trousers": {
+      "unit": "cm",
+      "measurement_type": "body",
+      "updated_at": "2026-03-03",
+      "rows": [
+        {
+          "size": "30",
+          "waist": [
+            76,
+            80
+          ],
+          "hip": [
+            92,
+            96
+          ],
+          "inseam": [
+            80,
+            82
+          ]
+        },
+        {
+          "size": "32",
+          "waist": [
+            81,
+            85
+          ],
+          "hip": [
+            97,
+            101
+          ],
+          "inseam": [
+            80,
+            82
+          ]
+        },
+        {
+          "size": "34",
+          "waist": [
+            86,
+            90
+          ],
+          "hip": [
+            102,
+            106
+          ],
+          "inseam": [
+            80,
+            82
+          ]
+        },
+        {
+          "size": "36",
+          "waist": [
+            91,
+            95
+          ],
+          "hip": [
+            107,
+            111
+          ],
+          "inseam": [
+            80,
+            82
+          ]
+        }
+      ]
+    },
+    "malformed": {
+      "unit": "cm",
+      "rows": [
+        {
+          "size": "M",
+          "chest": "not-a-number"
+        }
+      ]
+    },
+    "empty": {}
+  },
+  "cases": [
+    {
+      "id": "atlas-mid-male-measured",
+      "why": "Core happy path: fully measured body squarely inside one row of a brand chart.",
+      "chart": "atlas_generous",
+      "garment_class": "woven_top",
+      "stock": {
+        "S": 5,
+        "M": 5,
+        "L": 5,
+        "XL": 5
+      },
+      "body": {
+        "units": "metric",
+        "height": 178,
+        "weight": 78,
+        "chest": 102,
+        "waist": 88,
+        "hip": 104
+      },
+      "fit_preference": "regular",
+      "expect": {
+        "recommended": true,
+        "size_in": [
+          "M"
+        ],
+        "confidence_min": 60
+      }
+    },
+    {
+      "id": "borea-same-body-runs-small",
+      "why": "SAME body as atlas-mid-male-measured against a brand that runs small must get a LARGER letter. This is the brand-chart-difference case the audit said was unverified.",
+      "chart": "borea_small",
+      "garment_class": "woven_top",
+      "stock": {
+        "S": 5,
+        "M": 5,
+        "L": 5,
+        "XL": 5
+      },
+      "body": {
+        "units": "metric",
+        "height": 178,
+        "weight": 78,
+        "chest": 102,
+        "waist": 88,
+        "hip": 104
+      },
+      "fit_preference": "regular",
+      "expect": {
+        "recommended": true,
+        "size_in": [
+          "XL"
+        ],
+        "larger_than_case": "atlas-mid-male-measured"
+      }
+    },
+    {
+      "id": "echo-inches-chart-parsed",
+      "why": "Inch-denominated brand chart must be converted once; same body must land on the equivalent size.",
+      "chart": "echo_inches",
+      "garment_class": "woven_top",
+      "stock": {
+        "S": 5,
+        "M": 5,
+        "L": 5,
+        "XL": 5
+      },
+      "body": {
+        "units": "metric",
+        "height": 178,
+        "weight": 78,
+        "chest": 102,
+        "waist": 88,
+        "hip": 104
+      },
+      "fit_preference": "regular",
+      "expect": {
+        "recommended": true,
+        "size_in": [
+          "L",
+          "M"
+        ]
+      }
+    },
+    {
+      "id": "imperial-input-equals-metric-input",
+      "why": "Unit handling: the same body entered in inches/pounds must produce the same size as in cm/kg.",
+      "chart": "atlas_generous",
+      "garment_class": "woven_top",
+      "stock": {
+        "S": 5,
+        "M": 5,
+        "L": 5,
+        "XL": 5
+      },
+      "body": {
+        "units": "imperial",
+        "height": 70.1,
+        "weight": 172,
+        "chest": 40.2,
+        "waist": 34.6,
+        "hip": 40.9
+      },
+      "fit_preference": "regular",
+      "expect": {
+        "recommended": true,
+        "size_in": [
+          "M"
+        ],
+        "same_size_as_case": "atlas-mid-male-measured"
+      }
+    },
+    {
+      "id": "garment-chart-ease-subtracted",
+      "why": "A finished-garment chart must have the style ease removed before comparing to the body, otherwise every shopper is sized down.",
+      "chart": "ceder_garment",
+      "garment_class": "woven_top",
+      "stock": {
+        "S": 5,
+        "M": 5,
+        "L": 5,
+        "XL": 5
+      },
+      "body": {
+        "units": "metric",
+        "height": 178,
+        "weight": 78,
+        "chest": 102,
+        "waist": 88
+      },
+      "fit_preference": "regular",
+      "expect": {
+        "recommended": true,
+        "size_in": [
+          "M",
+          "L"
+        ]
+      }
+    },
+    {
+      "id": "slim-preference-sizes-down-or-equal",
+      "why": "Fit preference must actually move the result, and monotonically: slim never larger than regular.",
+      "chart": "atlas_generous",
+      "garment_class": "tailored_outer",
+      "stock": {
+        "S": 5,
+        "M": 5,
+        "L": 5,
+        "XL": 5
+      },
+      "body": {
+        "units": "metric",
+        "height": 180,
+        "weight": 84,
+        "chest": 104,
+        "waist": 92,
+        "hip": 106
+      },
+      "fit_preference": "slim",
+      "expect": {
+        "recommended": true,
+        "not_larger_than_case": "regular-preference-baseline"
+      }
+    },
+    {
+      "id": "regular-preference-baseline",
+      "why": "Baseline for the fit-preference monotonicity pair.",
+      "chart": "atlas_generous",
+      "garment_class": "tailored_outer",
+      "stock": {
+        "S": 5,
+        "M": 5,
+        "L": 5,
+        "XL": 5
+      },
+      "body": {
+        "units": "metric",
+        "height": 180,
+        "weight": 84,
+        "chest": 104,
+        "waist": 92,
+        "hip": 106
+      },
+      "fit_preference": "regular",
+      "expect": {
+        "recommended": true,
+        "size_in": [
+          "M",
+          "L"
+        ]
+      }
+    },
+    {
+      "id": "oversized-preference-sizes-up-or-equal",
+      "why": "Opposite end of the monotonicity property.",
+      "chart": "atlas_generous",
+      "garment_class": "tailored_outer",
+      "stock": {
+        "S": 5,
+        "M": 5,
+        "L": 5,
+        "XL": 5
+      },
+      "body": {
+        "units": "metric",
+        "height": 180,
+        "weight": 84,
+        "chest": 104,
+        "waist": 92,
+        "hip": 106
+      },
+      "fit_preference": "oversized",
+      "expect": {
+        "recommended": true,
+        "not_smaller_than_case": "regular-preference-baseline"
+      }
+    },
+    {
+      "id": "trousers-decided-by-waist",
+      "why": "Garment class must change which sections matter: trousers are a waist/hip decision, and a chest value must not drive it.",
+      "chart": "waist_only_trousers",
+      "garment_class": "trousers",
+      "stock": {
+        "30": 4,
+        "32": 4,
+        "34": 4,
+        "36": 4
+      },
+      "body": {
+        "units": "metric",
+        "height": 178,
+        "weight": 78,
+        "chest": 102,
+        "waist": 88,
+        "hip": 104,
+        "inseam": 81
+      },
+      "fit_preference": "regular",
+      "expect": {
+        "recommended": true,
+        "size_in": [
+          "34"
+        ]
+      }
+    },
+    {
+      "id": "height-weight-only-is-low-confidence",
+      "why": "Estimates must never look like measurements. Same engine, no girths supplied.",
+      "chart": "atlas_generous",
+      "garment_class": "woven_top",
+      "stock": {
+        "S": 5,
+        "M": 5,
+        "L": 5,
+        "XL": 5
+      },
+      "body": {
+        "units": "metric",
+        "height": 178,
+        "weight": 78
+      },
+      "fit_preference": "regular",
+      "expect": {
+        "confidence_max": 60,
+        "estimated_fields_nonempty": true
+      }
+    },
+    {
+      "id": "measured-beats-estimated-confidence",
+      "why": "Adding real measurements must strictly increase confidence over the estimate-only case.",
+      "chart": "atlas_generous",
+      "garment_class": "woven_top",
+      "stock": {
+        "S": 5,
+        "M": 5,
+        "L": 5,
+        "XL": 5
+      },
+      "body": {
+        "units": "metric",
+        "height": 178,
+        "weight": 78,
+        "chest": 102,
+        "waist": 88,
+        "hip": 104
+      },
+      "fit_preference": "regular",
+      "expect": {
+        "recommended": true,
+        "more_confident_than_case": "height-weight-only-is-low-confidence"
+      }
+    },
+    {
+      "id": "between-sizes-is-declared",
+      "why": "A body on a row boundary must be reported as between sizes with an alternative, not given false precision.",
+      "chart": "atlas_generous",
+      "garment_class": "knit_top",
+      "stock": {
+        "S": 5,
+        "M": 5,
+        "L": 5,
+        "XL": 5
+      },
+      "body": {
+        "units": "metric",
+        "height": 175,
+        "weight": 75,
+        "chest": 98,
+        "waist": 84,
+        "hip": 100
+      },
+      "fit_preference": "regular",
+      "expect": {
+        "recommended": true,
+        "is_ambiguous": true,
+        "alternative_required": true
+      }
+    },
+    {
+      "id": "out-of-stock-size-never-recommended",
+      "why": "Inventory gate: the best-fitting size is out of stock and must not be returned as the recommendation.",
+      "chart": "atlas_generous",
+      "garment_class": "woven_top",
+      "stock": {
+        "S": 5,
+        "M": 0,
+        "L": 5,
+        "XL": 5
+      },
+      "body": {
+        "units": "metric",
+        "height": 178,
+        "weight": 78,
+        "chest": 102,
+        "waist": 88,
+        "hip": 104
+      },
+      "fit_preference": "regular",
+      "expect": {
+        "recommended": true,
+        "size_not_in": [
+          "M"
+        ]
+      }
+    },
+    {
+      "id": "everything-out-of-stock-refuses",
+      "why": "No sellable size means no recommendation at all.",
+      "chart": "atlas_generous",
+      "garment_class": "woven_top",
+      "stock": {
+        "S": 0,
+        "M": 0,
+        "L": 0,
+        "XL": 0
+      },
+      "body": {
+        "units": "metric",
+        "height": 178,
+        "weight": 78,
+        "chest": 102,
+        "waist": 88,
+        "hip": 104
+      },
+      "fit_preference": "regular",
+      "expect": {
+        "recommended": false,
+        "reason_code": "NO_SELLABLE_SIZE"
+      }
+    },
+    {
+      "id": "no-chart-refuses",
+      "why": "No size chart and no standards-mappable size means refuse, never guess.",
+      "chart": "empty",
+      "garment_class": "woven_top",
+      "stock": {},
+      "body": {
+        "units": "metric",
+        "height": 178,
+        "weight": 78,
+        "chest": 102
+      },
+      "fit_preference": "regular",
+      "expect": {
+        "recommended": false,
+        "reason_code": "NO_SIZE_CHART"
+      }
+    },
+    {
+      "id": "malformed-chart-falls-back-to-standard-with-warning",
+      "why": "Unparseable brand data must never become a fabricated brand table. The engine falls back to the public standard chart, labels the source as NOT brand-published, and records why the brand chart was unusable.",
+      "chart": "malformed",
+      "garment_class": "woven_top",
+      "stock": {
+        "M": 5
+      },
+      "body": {
+        "units": "metric",
+        "height": 178,
+        "weight": 78,
+        "chest": 102
+      },
+      "fit_preference": "regular",
+      "expect": {
+        "recommended": true,
+        "chart_source": "standard_en13402",
+        "chart_not_authoritative": true,
+        "chart_warning_required": true
+      }
+    },
+    {
+      "id": "far-outside-every-size-refuses",
+      "why": "A body far outside the whole size run must be told so, not pushed into the largest size.",
+      "chart": "borea_small",
+      "garment_class": "woven_top",
+      "stock": {
+        "S": 5,
+        "M": 5,
+        "L": 5,
+        "XL": 5
+      },
+      "body": {
+        "units": "metric",
+        "height": 185,
+        "weight": 165,
+        "chest": 168,
+        "waist": 160,
+        "hip": 170
+      },
+      "fit_preference": "regular",
+      "expect": {
+        "recommended": false,
+        "reason_code_in": [
+          "NO_SIZE_FITS",
+          "INSUFFICIENT_EVIDENCE"
+        ]
+      }
+    },
+    {
+      "id": "petite-female-measured",
+      "why": "Small-frame body must not be floored at S when the chart carries it.",
+      "chart": "borea_small",
+      "garment_class": "dress",
+      "stock": {
+        "S": 5,
+        "M": 5,
+        "L": 5,
+        "XL": 5
+      },
+      "body": {
+        "units": "metric",
+        "height": 156,
+        "weight": 48,
+        "chest": 82,
+        "waist": 66,
+        "hip": 88
+      },
+      "fit_preference": "regular",
+      "demographic": "women",
+      "expect": {
+        "recommended": true,
+        "size_in": [
+          "S"
+        ]
+      }
+    },
+    {
+      "id": "plus-size-measured-in-range",
+      "why": "Large-frame body inside the run must get the correct large size, not a clipped default.",
+      "chart": "atlas_generous",
+      "garment_class": "woven_top",
+      "stock": {
+        "S": 5,
+        "M": 5,
+        "L": 5,
+        "XL": 5
+      },
+      "body": {
+        "units": "metric",
+        "height": 182,
+        "weight": 112,
+        "chest": 120,
+        "waist": 106,
+        "hip": 122
+      },
+      "fit_preference": "regular",
+      "expect": {
+        "recommended": true,
+        "size_in": [
+          "XL"
+        ]
+      }
+    },
+    {
+      "id": "stretch-knit-is-more-forgiving",
+      "why": "Fabric stretch must widen the acceptable band, so a slightly-over body still fits the smaller size.",
+      "chart": "borea_small",
+      "garment_class": "activewear",
+      "stock": {
+        "S": 5,
+        "M": 5,
+        "L": 5,
+        "XL": 5
+      },
+      "body": {
+        "units": "metric",
+        "height": 172,
+        "weight": 70,
+        "chest": 96,
+        "waist": 82,
+        "hip": 98
+      },
+      "fit_preference": "regular",
+      "material": "82% polyester 18% elastane",
+      "expect": {
+        "recommended": true,
+        "size_in": [
+          "L",
+          "XL"
+        ]
+      }
+    },
+    {
+      "id": "unknown-garment-class-lowers-confidence",
+      "why": "Not knowing what the garment is must reduce confidence, never raise it.",
+      "chart": "atlas_generous",
+      "garment_class": "unknown",
+      "stock": {
+        "S": 5,
+        "M": 5,
+        "L": 5,
+        "XL": 5
+      },
+      "body": {
+        "units": "metric",
+        "height": 178,
+        "weight": 78,
+        "chest": 102,
+        "waist": 88,
+        "hip": 104
+      },
+      "fit_preference": "regular",
+      "expect": {
+        "less_confident_than_case": "atlas-mid-male-measured"
+      }
+    }
+  ]
+}

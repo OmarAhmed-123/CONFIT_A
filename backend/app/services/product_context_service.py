@@ -20,7 +20,26 @@ from backend.app.core.logging import logger
 from backend.app.repositories.catalog_repository import CatalogRepository
 from backend.app.repositories.profile_repository import ProfileRepository
 from backend.app.services.no_photo_fit_service import NoPhotoFitService
+from backend.app.services.fit.units import (
+    BodyMeasurements,
+    MeasurementValidationError,
+    UnitSystem,
+)
 from backend.app.services.styling_engine import StylingEngine
+
+
+def _as_float(value: Any) -> Optional[float]:
+    """Coerce a stored profile value to float, or None when it is not a number.
+
+    Encrypted body payloads are free-form JSON written over several app
+    versions, so a field can legitimately be a string, null or missing.
+    """
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
 
 
 def _parse_json_list(raw: Optional[str]) -> List[str]:
@@ -90,63 +109,98 @@ class ProductContextService:
         profile: Any,
         body: Dict[str, Any],
     ) -> Dict[str, Any]:
-        available_sizes = [s.size for s in (product.skus or []) if s.is_in_stock and s.stock_level > 0]
-        if not available_sizes:
-            available_sizes = [s.size for s in (product.skus or [])]
+        """PDP size hint — the SAME engine the Fit Finder page uses.
 
-        height = body.get("height_cm")
-        weight = body.get("weight_kg")
+        Rewritten 2026-09-21 with the Fit Finder remediation. The previous
+        version had two defects that this one removes:
+
+        * it called the sizing service and then, when the answer was out of
+          stock, substituted "the closest listed size" of its own invention —
+          a different size than the engine computed, presented with the
+          engine's authority. Stock is now an engine input, so the recommended
+          size is in stock by construction and no second opinion is fabricated.
+        * it degraded an out-of-stock answer to ``max(40, score - 25)``, an
+          arbitrary number unrelated to fit quality.
+
+        Duplicating sizing logic here would also violate DRY and let the PDP
+        and the Fit Finder page disagree about the same garment — the exact
+        class of inconsistency the audit asked us to close.
+        """
+        available_sizes = [
+            s.size for s in (product.skus or []) if s.is_in_stock and (s.stock_level or 0) > 0
+        ]
         preferred_size = None
         if profile is not None:
             preferred_size = profile.size_tops or profile.size_bottoms
 
-        if height and weight:
-            result = self.fit_service.calculate_fit(
-                product_id=product.id,
-                height_cm=float(height),
-                weight_kg=float(weight),
-                body_shape=body.get("body_shape") or (profile.body_shape_tag if profile else "regular") or "regular",
-                chest_cm=body.get("chest_cm"),
-                waist_cm=body.get("waist_cm"),
-                hip_cm=body.get("hip_cm"),
-                preferred_fit=(profile.fit_preference if profile else None) or "regular",
-            )
-            rec = result["recommended_size"]
-            available = rec in available_sizes
-            fallback = rec
-            if not available and available_sizes:
-                # Pick the closest listed size rather than inventing stock.
-                order = ["XS", "S", "M", "L", "XL", "XXL"]
-                if rec in order:
-                    idx = order.index(rec)
-                    candidates = [s for s in order if s in available_sizes]
-                    fallback = min(candidates, key=lambda s: abs(order.index(s) - idx)) if candidates else available_sizes[0]
-                else:
-                    fallback = available_sizes[0]
-            score = int(result.get("confidence_score") or 0)
-            if not available:
-                score = max(40, score - 25)
-            return {
-                "available": True,
-                "score": score,
-                "recommended_size": rec,
-                "recommended_size_available": available,
-                "reasoning": (
-                    result.get("brand_sizing_tendency")
-                    if available
-                    else f"Recommended size {rec} is not currently in stock. Closest available: {fallback}."
-                ),
-            }
+        height = body.get("height_cm")
+        if height:
+            try:
+                measurements = BodyMeasurements.from_payload(
+                    units=UnitSystem.METRIC,
+                    height=float(height),
+                    weight=_as_float(body.get("weight_kg")),
+                    chest=_as_float(body.get("chest_cm")),
+                    waist=_as_float(body.get("waist_cm")),
+                    hip=_as_float(body.get("hip_cm")),
+                    shoulder=_as_float(body.get("shoulder_width_cm")),
+                    inseam=_as_float(body.get("inseam_cm")),
+                    body_shape=body.get("body_shape")
+                    or (profile.body_shape_tag if profile else None),
+                )
+            except MeasurementValidationError:
+                # Stored profile data is out of range: surface no fit rather
+                # than a fit computed from impossible numbers.
+                logger.warning(
+                    "Stored body measurements are out of range — skipping PDP fit hint",
+                    product_id=product.id,
+                )
+                measurements = None
+
+            if measurements is not None:
+                result = self.fit_service.calculate_fit(
+                    product_id=product.id,
+                    units="metric",
+                    height=measurements.height_cm,
+                    weight=measurements.weight_kg,
+                    chest=measurements.chest_cm,
+                    waist=measurements.waist_cm,
+                    hip=measurements.hip_cm,
+                    shoulder=measurements.shoulder_cm,
+                    inseam=measurements.inseam_cm,
+                    body_shape=measurements.body_shape,
+                    preferred_fit=(profile.fit_preference if profile else None) or "regular",
+                )
+                if result.get("recommended"):
+                    return {
+                        "available": True,
+                        "score": int(result.get("confidence_score") or 0),
+                        "recommended_size": result["recommended_size"],
+                        # True by construction: the engine only ranks sellable sizes.
+                        "recommended_size_available": True,
+                        "reasoning": result.get("confidence_disclosure"),
+                    }
+                # The engine declined. Say so instead of guessing a size.
+                return {
+                    "available": False,
+                    "score": None,
+                    "recommended_size": None,
+                    "recommended_size_available": None,
+                    "reasoning": result.get("confidence_disclosure"),
+                }
 
         if preferred_size:
             available = preferred_size in available_sizes
             return {
                 "available": True,
-                "score": 88 if available else 55,
+                # A saved size is the user's own statement, not a measurement:
+                # it carries no fit score of ours.
+                "score": None,
                 "recommended_size": preferred_size,
                 "recommended_size_available": available,
                 "reasoning": (
-                    f"Based on your saved size ({preferred_size})."
+                    f"Based on the size you saved to your profile ({preferred_size}), "
+                    "not on a measurement-based calculation."
                     if available
                     else f"Your saved size {preferred_size} is not in stock for this garment."
                 ),
@@ -157,7 +211,9 @@ class ProductContextService:
             "score": None,
             "recommended_size": None,
             "recommended_size_available": None,
-            "reasoning": None,
+            "reasoning": (
+                "Add your measurements in Fit Finder to see a size recommendation for this item."
+            ),
         }
 
     def _style_compatibility(self, product: Product, profile: Any) -> Dict[str, Any]:

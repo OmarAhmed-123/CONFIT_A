@@ -33,6 +33,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from backend.app.models.tryon import MeasurementResult, MeasurementSession
+from backend.app.schemas.profile import SUPPORTED_BODY_SHAPES
 from backend.app.schemas.tryon import MeasurementResultCreate
 from backend.app.models.user import User
 
@@ -147,6 +148,23 @@ class MeasurementSessionService:
         """
         sess = self._resolve_owned_session(session_id, user, guest_session_token)
 
+        # Refuse to attach results to a session whose consent was never given.
+        # Consent is captured once at creation and is immutable afterwards, so
+        # a session created without it must never accumulate body data.
+        if not sess.consent_granted:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "error": {
+                        "code": "MEASUREMENT_CONSENT_MISSING",
+                        "message": (
+                            "This measurement session was started without consent to process "
+                            "body measurements, so results cannot be stored against it."
+                        ),
+                    }
+                },
+            )
+
         res = MeasurementResult(
             session_id=sess.id,
             height_cm=payload.height_cm,
@@ -166,3 +184,107 @@ class MeasurementSessionService:
         self.db.commit()
         self.db.refresh(res)
         return res
+
+    # ── profile persistence ───────────────────────────────────────────────
+    def latest_result(self, sess: MeasurementSession) -> Optional[MeasurementResult]:
+        return (
+            self.db.query(MeasurementResult)
+            .filter(MeasurementResult.session_id == sess.id)
+            .order_by(MeasurementResult.id.desc())
+            .first()
+        )
+
+    def save_to_profile(
+        self,
+        session_id: int,
+        user: User,
+        guest_session_token: Optional[str] = None,
+    ) -> dict:
+        """Copy the session's latest measurements onto the user's style profile.
+
+        Ownership rules are identical to every other operation here. The write
+        goes through ``ProfileRepository.create_or_update_profile``, which is
+        the single place body attributes are encrypted at rest — duplicating
+        the encryption here would be a second code path to keep correct, so it
+        is deliberately reused (DRY, and one audited crypto boundary).
+
+        Only fields that actually exist are written: a NULL waist stays absent
+        rather than being stored as a zero.
+        """
+        from backend.app.repositories.profile_repository import ProfileRepository
+
+        sess = self._resolve_owned_session(session_id, user, guest_session_token)
+
+        if sess.user_id is None or user is None or sess.user_id != user.id:
+            # A guest-token session has no owning account to save to.
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "error": {
+                        "code": "MEASUREMENT_SESSION_NOT_ACCOUNT_BOUND",
+                        "message": (
+                            "This measurement session belongs to a guest session, not to an "
+                            "account, so there is no profile to save it to. Sign in before "
+                            "starting the measurement to keep it."
+                        ),
+                    }
+                },
+            )
+
+        result = self.latest_result(sess)
+        if result is None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={
+                    "error": {
+                        "code": "NO_MEASUREMENT_RESULT",
+                        "message": "This session has no submitted measurements to save.",
+                    }
+                },
+            )
+
+        body_attributes = {
+            key: value
+            for key, value in {
+                "height_cm": result.height_cm,
+                "shoulder_width_cm": result.shoulder_width_cm,
+                "chest_cm": result.chest_cm,
+                "waist_cm": result.waist_cm,
+                "hip_cm": result.hip_cm,
+                "inseam_cm": result.inseam_cm,
+                # Only a body shape from the profile vocabulary is forwarded;
+                # an unrecognised label is dropped rather than rejected, so a
+                # free-text shape can never block saving real measurements.
+                "body_shape": (
+                    result.body_shape
+                    if result.body_shape in SUPPORTED_BODY_SHAPES
+                    else None
+                ),
+                "measurement_source": result.source,
+                "measurement_confidence": result.confidence_score,
+            }.items()
+            if value is not None
+        }
+
+        ProfileRepository(self.db).create_or_update_profile(
+            user.id, {"body_attributes": body_attributes}
+        )
+
+        sess.save_to_profile = True
+        self.db.commit()
+
+        return {
+            "status": "saved",
+            "session_id": sess.id,
+            "result_id": result.id,
+            # Field NAMES only — the values are encrypted at rest and are not
+            # echoed back here.
+            "saved_fields": sorted(
+                k for k in body_attributes
+                if k not in {"measurement_source", "measurement_confidence"}
+            ),
+            "message": (
+                "Measurements saved to your profile and encrypted at rest. "
+                "You can delete them at any time from privacy settings."
+            ),
+        }

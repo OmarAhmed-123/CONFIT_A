@@ -185,13 +185,60 @@ def test_a_degraded_core_capability_does_not_darken_liveness(client: TestClient,
 
 
 def test_no_hardcoded_operational_claims_survive(client: TestClient, admin):
-    """Asserted on the wire, not on source prose: comments may mention the word."""
-    public = client.get(HEALTH).text
-    detail = client.get(READY, headers=admin).text
-    for body in (public, detail):
-        assert "operational" not in body, "no capability may assert a verdict it did not measure"
+    """The two fabricated keys are gone from every surface.
+
+    The word "operational" is NOT banned: PR #142 made ``checks.vton_pipeline``
+    report it from a live worker probe, which is a measured verdict and a good
+    one. What G-17 forbids is a verdict with no probe behind it.
+    """
+    for body in (client.get(HEALTH).text, client.get(READY, headers=admin).text):
         assert "ai_stylist_engine" not in body
         assert "bnpl_gateway" not in body
+    from pathlib import Path
+
+    src = Path("backend/app/controllers/telemetry_controller.py").read_text()
+    assert '"ai_stylist_engine": "operational"' not in src
+    assert '"bnpl_gateway": "operational"' not in src
+
+
+def test_every_reported_capability_state_is_measured(client: TestClient, admin):
+    """No capability may report a state its probe did not produce."""
+    detail = client.get(READY, headers=admin).json()
+    caps = detail["capabilities"]
+    assert caps, "the readiness surface must actually report capabilities"
+    for name, cap in caps.items():
+        assert cap["state"] in {"ready", "degraded", "blocked", "not_probed"}, name
+        assert cap["criticality"] in {"core", "supporting"}, name
+        assert cap["detail"], f"{name} reported a state without explaining it"
+    # and the readiness verdict agrees with the per-capability detail
+    blocking = {n for n, c in caps.items()
+                if c["criticality"] == "core" and c["state"] == "blocked"}
+    assert blocking == set(detail["blocking_capabilities"])
+
+
+def test_try_on_distinguishes_not_offered_from_broken(monkeypatch):
+    """PR #142's lesson: configuration is not availability, and absence is not outage."""
+    from backend.app.services.capability_service import _vton_capability
+
+    # not configured, not production -> the feature is simply not offered
+    monkeypatch.setattr(capability_service.settings, "VTON_WORKER_URL", None, raising=False)
+    cap = _vton_capability({"verdict": "not_configured"})
+    assert cap.state == STATE_DEGRADED and cap.criticality == CRITICALITY_SUPPORTING
+
+    # configured and serving -> ready
+    monkeypatch.setattr(capability_service.settings, "VTON_WORKER_URL", "https://w", raising=False)
+    cap = _vton_capability({"verdict": "ready", "production_ready": True})
+    assert cap.state == STATE_READY and cap.criticality == CRITICALITY_CORE
+
+    # configured but cold -> degraded, still core
+    cap = _vton_capability({"verdict": "cold_start"})
+    assert cap.state == STATE_DEGRADED and cap.criticality == CRITICALITY_CORE
+
+    # configured but cannot serve -> blocked, and the reason is carried
+    cap = _vton_capability({"verdict": "unreachable", "production_ready": False,
+                            "reason": "VTON_WORKER_NOT_READY"})
+    assert cap.state == STATE_BLOCKED and cap.criticality == CRITICALITY_CORE
+    assert "VTON_WORKER_NOT_READY" in cap.detail
 
 
 def test_the_ai_stylist_state_follows_the_provider_keys(monkeypatch):
@@ -228,7 +275,7 @@ def test_bnpl_reports_blocked_without_a_psp_key(monkeypatch):
 
 def test_a_dead_database_is_unhealthy_and_blocks(client: TestClient, monkeypatch):
     """Liveness really does depend on the database, not on a constant."""
-    def boom(db, database_ok):
+    def boom(db, database_ok, vton_worker=None):
         return [Capability("database", STATE_BLOCKED, CRITICALITY_CORE, "SELECT 1 failed")]
 
     import backend.app.controllers.telemetry_controller as tc

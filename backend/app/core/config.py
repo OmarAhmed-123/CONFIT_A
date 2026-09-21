@@ -410,6 +410,22 @@ class Settings(BaseSettings):
     DUPLICATE_ALERT_SIMILARITY_THRESHOLD: float = 0.90
     DUPLICATE_ALERT_LOOSE_THRESHOLD: float = 0.65
 
+    # Wardrobe AI analysis execution mode (G-ASYNC remediation):
+    #   auto  - probe the broker with a hard 1s budget; take the async
+    #           (Celery) path ONLY if a broker is actually reachable,
+    #           otherwise run analysis inline in the request. Serverless-safe
+    #           default: the upload response already carries the final item
+    #           state, so nothing can sit in 'processing' invisibly.
+    #   sync  - always inline (no broker contact at all).
+    #   async - always enqueue; the operator MUST run a worker for the queue
+    #           (and a stale-processing guard, below, is the safety net).
+    WARDROBE_ANALYSIS_MODE: str = "auto"
+    # Self-healing window: an item stuck in 'processing' longer than this
+    # (minutes) is marked 'failed' (retryable) on the next wardrobe read.
+    # A lost worker, a killed serverless function, or a crash mid-analysis
+    # must never leave a customer's photo in a permanent in-between state.
+    WARDROBE_PROCESSING_STALE_MINUTES: int = 10
+
     model_config = SettingsConfigDict(
         env_file=("backend/.env", ".env"),
         extra="allow",

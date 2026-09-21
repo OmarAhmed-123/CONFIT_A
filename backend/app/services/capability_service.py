@@ -58,6 +58,56 @@ def _bnpl_configured() -> bool:
     return bool(settings.PAYMENTS_LIVE and (settings.TABBY_API_KEY or settings.TAMARA_API_KEY))
 
 
+def _vton_capability(vton_worker: Dict[str, Any] | None) -> Capability:
+    """Try-on availability from the LIVE worker probe, not from configuration.
+
+    Two distinctions matter and are easy to collapse:
+
+    *Configuration is not availability.* PR #142 established this the hard way:
+    ``VTON_WORKER_URL`` was set and every job still failed, first with
+    VTON_AUTH_FAILURE and then VTON_WORKER_NOT_READY when the GPU workspace ran
+    out of spend, while health reported "configured". So the verdict comes from
+    the cached live probe.
+
+    *Not offered is not broken.* A deployment with no worker configured at all
+    — development, CI, a non-try-on host — does not have an outage; it simply
+    does not offer the feature. Marking that ``blocked`` would leave every
+    development environment permanently unready and teach people to ignore the
+    field. In production, though, try-on is part of the product, so an absent
+    worker there IS a blocked core capability.
+    """
+    configured = bool(settings.VTON_WORKER_URL)
+    probe = vton_worker or {}
+    verdict = probe.get("verdict")
+
+    if not configured:
+        if settings.is_production:
+            return Capability(
+                "virtual_try_on", STATE_BLOCKED, CRITICALITY_CORE,
+                "production deployment with no VTON_WORKER_URL configured",
+            )
+        return Capability(
+            "virtual_try_on", STATE_DEGRADED, CRITICALITY_SUPPORTING,
+            "not offered on this deployment (no VTON_WORKER_URL); not an outage",
+        )
+
+    if probe.get("production_ready") is True:
+        return Capability(
+            "virtual_try_on", STATE_READY, CRITICALITY_CORE,
+            f"GPU worker reachable and model loaded (probe: {verdict})",
+        )
+    if verdict == "cold_start":
+        return Capability(
+            "virtual_try_on", STATE_DEGRADED, CRITICALITY_CORE,
+            "worker reachable but cold or still loading the model",
+        )
+    reason = probe.get("reason") or probe.get("error_code") or probe.get("detail") or "unreachable"
+    return Capability(
+        "virtual_try_on", STATE_BLOCKED, CRITICALITY_CORE,
+        f"worker configured but cannot serve jobs: {reason}",
+    )
+
+
 def capability_flags(db: Session) -> Dict[str, Any]:
     """The ``/capabilities`` payload. Unchanged wire contract."""
     store_count = db.query(StoreLocation).count()
@@ -74,7 +124,9 @@ def capability_flags(db: Session) -> Dict[str, Any]:
     }
 
 
-def capability_probes(db: Session, database_ok: bool) -> List[Capability]:
+def capability_probes(
+    db: Session, database_ok: bool, vton_worker: Dict[str, Any] | None = None
+) -> List[Capability]:
     """Probe every advertised capability. No invented verdicts.
 
     Each entry states what was actually measured. Where the platform has a
@@ -125,18 +177,7 @@ def capability_probes(db: Session, database_ok: bool) -> List[Capability]:
         )
     )
 
-    out.append(
-        Capability(
-            name="virtual_try_on",
-            state=STATE_READY if settings.VTON_WORKER_URL else STATE_BLOCKED,
-            criticality=CRITICALITY_CORE,
-            detail=(
-                "GPU worker URL configured; per-job readiness is checked by the pipeline"
-                if settings.VTON_WORKER_URL
-                else "no VTON_WORKER_URL configured"
-            ),
-        )
-    )
+    out.append(_vton_capability(vton_worker))
 
     providers = _ai_provider_keys()
     out.append(

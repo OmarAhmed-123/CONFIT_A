@@ -24,13 +24,21 @@ def _schema_report() -> dict:
 
 
 def _vton_pipeline_status() -> str:
-    """Honest VTON status from CONFIGURATION only (no network call on /health).
+    """One-line honest VTON status derived from a LIVE probe (cached).
 
-    "operational" was previously reported whenever VTON_WORKER_URL was set,
-    even though the worker rejects every job without the admin token (the
-    production job vton_job_32974a82027a failed with VTON_AUTH_FAILURE while
-    /health claimed the pipeline was operational).
+    History of this field, in production:
+      1. "operational" whenever VTON_WORKER_URL was set — a job then failed
+         with VTON_AUTH_FAILURE while /health said operational.
+      2. "configured: URL + admin token present" — truthful about configuration
+         but still wrong about the product: on 2026-09-21 every try-on job
+         failed with VTON_WORKER_NOT_READY because the GPU workspace had
+         exceeded its spend limit, while /health kept saying "configured".
+    Configuration is not availability, so the status is now taken from the
+    cached live probe (see ``vton_worker_observability``). The probe never
+    blocks: /health serves the last verdict and refreshes in the background.
     """
+    from backend.app.services.vton_worker_observability import vton_health_summary
+
     worker_url = settings.VTON_WORKER_URL or os.environ.get("VTON_WORKER_URL")
     token = (
         settings.VTON_WORKER_ADMIN_TOKEN
@@ -41,8 +49,22 @@ def _vton_pipeline_status() -> str:
     if not worker_url:
         return "unavailable: no GPU worker configured (VTON_WORKER_URL)"
     if not token:
-        return "misconfigured: VTON_WORKER_URL set but no admin token (VTON_WORKER_ADMIN_TOKEN) — every job will fail VTON_AUTH_FAILURE"
-    return "configured: GPU worker URL + admin token present (readiness is checked per job, not here)"
+        # A missing admin token fails every job with VTON_AUTH_FAILURE no matter
+        # how healthy the worker itself is, so say that FIRST.
+        return ("misconfigured: VTON_WORKER_URL set but no admin token "
+                "(VTON_WORKER_ADMIN_TOKEN) — every job will fail VTON_AUTH_FAILURE")
+
+    summary = vton_health_summary()
+    verdict = summary.get("verdict")
+    detail = summary.get("detail")
+    age = summary.get("probe_age_seconds")
+    age_txt = f" (live probe, {age}s ago)" if age is not None else ""
+    if verdict == "ready":
+        return f"operational: GPU worker reachable and model loaded{age_txt}"
+    if verdict == "cold_start":
+        return f"degraded: worker reachable but cold/model loading{age_txt}"
+    reason = summary.get("reason") or summary.get("error_code") or "unreachable"
+    return f"unavailable: {detail} — last probe said: {reason}{age_txt}"
 
 
 def _revision_verdict(worker_sha) -> dict:
@@ -186,7 +208,30 @@ def health_check(db: Session = Depends(get_db)):
     from backend.app.providers.orchestrator import get_orchestrator
     ai_providers = get_orchestrator().provider_status()
 
+    # Live GPU-worker verdict (cached, background-refreshed). A try-on
+    # deployment whose worker cannot serve traffic is DEGRADED, not healthy:
+    # the feature is user-visible and every job would fail.
+    try:
+        from backend.app.services.vton_worker_observability import vton_health_summary
+        vton_worker = vton_health_summary()
+    except Exception as exc:  # never crash health; report the failure instead
+        vton_worker = {
+            "verdict": "unknown",
+            "production_ready": False,
+            "detail": f"probe failed: {type(exc).__name__}: {str(exc)[:140]}",
+        }
+
     overall = "healthy" if (db_status == "healthy" and schema.get("acceptable") is True) else "degraded"
+    # Virtual Try-On affects the overall verdict only when it is EXPECTED to
+    # work: a deployment with no VTON_WORKER_URL configured is not "degraded",
+    # it simply does not offer the feature (development, CI, non-try-on hosts).
+    # A worker that IS configured but cannot serve traffic is a real outage of
+    # a user-facing feature and must not read "healthy" — that is exactly the
+    # 2026-09-21 production condition.
+    _vton_verdict = vton_worker.get("verdict")
+    _vton_expected = _vton_verdict != "not_configured" or settings.is_production
+    if overall == "healthy" and _vton_expected and vton_worker.get("production_ready") is not True:
+        overall = "degraded"
 
     return {
         "status": overall,
@@ -197,6 +242,8 @@ def health_check(db: Session = Depends(get_db)):
             "database": db_status,
             "schema": schema,
             "vton_pipeline": _vton_pipeline_status(),
+            # Machine-readable live verdict (the string above is for humans).
+            "vton_worker": vton_worker,
             # Resolved production engine + its (honest) license/commercial status.
             # Surfaced so a non-commercial engine is never silently presented as
             # commercially deployable by a "configured"/"operational" string alone.

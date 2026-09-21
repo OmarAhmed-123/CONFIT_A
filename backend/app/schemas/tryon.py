@@ -80,12 +80,53 @@ class VtonProductCapabilityOut(BaseModel):
     provider: str = "fashn_vton_segfee"
 
 
+class VtonSlaOut(BaseModel):
+    """Published, measurable expectations for a try-on job.
+
+    Before this the product had no stated SLA at all, so the UI could not tell
+    a user whether 40 s of waiting was normal or broken, and the backend had
+    nothing to be held to. These numbers are the contract the live E2E harness
+    (``backend/scripts/verify_vton_live_e2e.py``) asserts against.
+    """
+
+    warm_render_seconds_p50: float = 12.0
+    warm_render_seconds_p95: float = 35.0
+    # A scaled-to-zero GPU container has to boot and load the diffusion weights;
+    # that is a cold start, not a failure.
+    cold_start_seconds_budget: float = 120.0
+    # Fail-fast window: once the circuit is open the API answers in <1 s with
+    # VTON_ENGINE_UNAVAILABLE instead of burning ~39 s per request.
+    fail_fast_seconds: float = 1.0
+    job_timeout_seconds: float = 90.0
+    delivery_ttl_seconds: float = 900.0
+    max_garments_per_job: int = 8
+
+
+class VtonEngineHealthOut(BaseModel):
+    """Why the engine is/is not usable — from a live probe, not from env vars."""
+
+    verdict: str  # ready|cold_start|unavailable|not_configured|unknown
+    production_ready: bool
+    detail: Optional[str] = None
+    probe_age_seconds: Optional[float] = None
+    error_code: Optional[str] = None
+    circuit_state: Optional[str] = None
+    retry_after_seconds: Optional[float] = None
+
+
 class VtonCapabilityOut(BaseModel):
     provider: str
-    engine_state: str  # available|temporarily_unavailable|misconfigured
+    # available | cold_start | temporarily_unavailable | misconfigured
+    engine_state: str
     supported_slots: List[str]
     unsupported_slots: List[str]
     products: List[VtonProductCapabilityOut] = []
+    # Audit closure 2026-09-21: the endpoint used to answer "available" from
+    # the mere presence of VTON_WORKER_URL while the GPU workspace was disabled
+    # and every job failed. The frontend now gets the real reason + the SLA.
+    engine: Optional[VtonEngineHealthOut] = None
+    sla: Optional[VtonSlaOut] = None
+    user_message: Optional[str] = None
 
 
 class GarmentAssetOut(BaseModel):

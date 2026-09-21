@@ -124,6 +124,13 @@ class AdminPlatformAnalyticsOut(BaseModel):
     style_preference_heatmap: Dict[str, Any]
     most_styled_items: Optional[List[Dict[str, Any]]] = None
     outfit_to_purchase_ratio: Optional[float] = None
+    # G-15: the resolved window and how it was computed, so a consumer can tell
+    # which question each figure answers instead of assuming "all time".
+    time_range: Optional[Dict[str, Any]] = None
+    # G-13: the revenue rule the headline was computed under.
+    revenue_basis: Optional[str] = None
+    revenue_excludes_statuses: Optional[List[str]] = None
+    methodology: Optional[Dict[str, Any]] = None
 
     model_config = ConfigDict(extra="allow")
 

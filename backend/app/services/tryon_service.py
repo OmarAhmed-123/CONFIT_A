@@ -656,9 +656,27 @@ class TryOnService:
                 if last_error and ("401" in str(last_error) or "UNAUTHORIZED" in str(last_error).upper()):
                     logger.error("vton_auth_failure", job_id=job_id, error=last_error[:200])
                     raise RuntimeError(f"VTON_AUTH_FAILURE: Worker auth failed: {last_error}")
-                logger.error("vton_worker_not_ready_final", job_id=job_id, error=last_error)
+                # Classify what the platform ACTUALLY said. A disabled /
+                # spend-limited GPU workspace answers HTTP 404 with a body like
+                # "modal-http: workspace ... is disabled" — reporting that as
+                # "not ready after 3 attempts: unreachable" hid the real cause
+                # and told users to retry something that could never succeed.
+                from backend.app.services.vton_worker_observability import (
+                    classify_worker_failure,
+                )
+
+                classified = classify_worker_failure(
+                    body_text=str(last_error or ""), attempts=max_retries
+                )
+                logger.error(
+                    "vton_worker_not_ready_final",
+                    job_id=job_id,
+                    error=str(last_error)[:200],
+                    classified_code=classified["code"],
+                    retryable=classified["retryable"],
+                )
                 raise RuntimeError(
-                    f"VTON_WORKER_NOT_READY: GPU worker not ready after {max_retries} attempts: {last_error or 'unreachable'}"
+                    f"{classified['code']}: {classified['detail']} — {str(last_error or 'unreachable')[:200]}"
                 )
 
             # Phase 2: Inference call
@@ -863,6 +881,37 @@ class TryOnService:
         self.db.commit()
         self.db.refresh(job)
 
+        # Fail-fast circuit (audit closure 2026-09-21). When the worker is known
+        # to be unreachable, every request used to pay the full readiness-retry
+        # ladder — measured 39.4 s in production for a job that could not
+        # possibly succeed, and twice that for a two-layer outfit. The circuit
+        # answers in milliseconds with an honest code instead, and half-opens on
+        # its own so recovery needs no deploy.
+        from backend.app.services import vton_worker_observability as _vwo
+
+        _circuit = _vwo.circuit_breaker
+        if not _circuit.allow():
+            _snap = _circuit.snapshot()
+            _detail = _snap.get("last_error_detail") or "GPU inference worker unreachable"
+            job.status = TryOnJobStatus.FAILED
+            job.current_stage = "failed"
+            job.error_code = _snap.get("last_error_code") or "VTON_ENGINE_UNAVAILABLE"
+            job.error_message = _detail[:500]
+            job.model_used = "none (fail-fast: worker circuit open)"
+            job.completed_at = datetime.now(timezone.utc)
+            job.metrics_json = json.dumps({
+                "failed_fast": True,
+                "circuit": _snap,
+                "user_message": (
+                    "Virtual try-on is offline right now — the rendering capacity is "
+                    "not available. Your photo was not stored. Please try again later."
+                ),
+            })
+            self.db.commit()
+            self.db.refresh(job)
+            logger.warn("vton_job_failed_fast", job_id=job.job_id, circuit=_snap)
+            return self._format_job(job, delivery=self._delivery_ref(job, delivery_token))
+
         job.status = TryOnJobStatus.PARSING_PERSON
         job.progress_pct = 35
         job.current_stage = "human_parsing_schp"
@@ -934,6 +983,10 @@ class TryOnService:
                 # garment was not applied (verify_pass != True) must not be
                 # reported as a clean "verified" complete-outfit result.
                 _verif_agg = aggregate_layer_verification(layers_meta)
+                # The worker served real inference traffic: close the circuit so
+                # a previously opened breaker recovers on the first success
+                # instead of waiting out its window.
+                _circuit.record_success()
                 _failed_layers = _verif_agg["failed_layers"]
                 _all_layers_verified = _verif_agg["all_layers_verified"]
                 quality = gpu_data.get("quality_audit") or gpu_data.get("verify") or {}
@@ -1032,6 +1085,8 @@ class TryOnService:
                     error_code = "VTON_AUTH_FAILURE"
                 elif "VTON_WORKER_NOT_READY" in error_str:
                     error_code = "VTON_WORKER_NOT_READY"
+                elif "VTON_WORKER_COLD_START" in error_str:
+                    error_code = "VTON_WORKER_COLD_START"
                 elif "VTON_LAYER_NOT_APPLIED" in error_str:
                     error_code = "VTON_LAYER_NOT_APPLIED"
                 elif "VTON_INPUT_INVALID" in error_str or "VTON_GARMENT_ASSET_INVALID" in error_str:
@@ -1045,6 +1100,22 @@ class TryOnService:
                 else:
                     error_code = "GPU_WORKER_ERROR"
 
+                # Honest, user-facing copy + circuit feedback. The old message
+                # ("GPU Inference Worker Failure: ... not ready after 3
+                # attempts: unreachable") is an operator log line, not something
+                # a shopper can act on — and it hid the real cause (the GPU
+                # workspace was over its spend limit) behind "unreachable".
+                _classified = _vwo.classify_worker_failure(
+                    exception=error_str, attempts=1
+                )
+                if error_code in ("VTON_WORKER_NOT_READY", "GPU_WORKER_ERROR",
+                                  "VTON_ENGINE_UNAVAILABLE"):
+                    # The classifier distinguishes "workspace dead" from "cold
+                    # container"; trust it for the reachability family.
+                    error_code = _classified["code"]
+                _user_message = _classified["user_message"]
+                _retryable = bool(_classified["retryable"])
+
                 job.status = TryOnJobStatus.FAILED
                 job.current_stage = "failed"
                 job.error_code = error_code
@@ -1053,8 +1124,47 @@ class TryOnService:
                 # worker failure (it is the engine not applying the garment).
                 if error_code == "VTON_LAYER_NOT_APPLIED":
                     job.error_message = error_str[:500]
+                elif error_code == "VTON_INPUT_INVALID":
+                    # Input problems carry an actionable reason already.
+                    job.error_message = error_str[:500]
                 else:
-                    job.error_message = f"GPU Inference Worker Failure: {error_str[:500]}"
+                    job.error_message = f"{_user_message} ({error_code})"
+                # A failed job is a finished job: without completed_at the row
+                # looks perpetually in-flight to any retention/monitoring query.
+                job.completed_at = datetime.now(timezone.utc)
+                try:
+                    _existing = json.loads(job.metrics_json or "{}")
+                    if not isinstance(_existing, dict):
+                        _existing = {}
+                except Exception:  # noqa: BLE001
+                    _existing = {}
+                _existing["failure"] = {
+                    "code": error_code,
+                    "user_message": _user_message,
+                    "retryable": _retryable,
+                    "detail": error_str[:300],
+                }
+                job.metrics_json = json.dumps(_existing)
+
+                # Circuit feedback. Only reachability failures count: a bad
+                # photo (VTON_INPUT_INVALID) or an unapplied layer says nothing
+                # about whether the worker can serve traffic.
+                if error_code in (
+                    "VTON_ENGINE_UNAVAILABLE", "VTON_WORKER_NOT_READY",
+                    "VTON_WORKER_COLD_START", "VTON_AUTH_FAILURE", "VTON_TIMEOUT",
+                ):
+                    _circuit.record_failure(
+                        code=error_code,
+                        detail=_classified.get("detail"),
+                        retryable=_retryable,
+                    )
+                    # Force the next probe so /health and /capabilities stop
+                    # reporting a stale "ready" verdict.
+                    _vwo.probe_worker_state(force=True)
+                logger.warn(
+                    "vton_job_failed", job_id=job.job_id, error_code=error_code,
+                    retryable=_retryable, detail=error_str[:200],
+                )
                 # Failure path: nothing was staged — there is no artifact to
                 # clean up; the capability token stays available for the
                 # (guest) submitter to observe the failure state.
@@ -1147,21 +1257,74 @@ class TryOnService:
         decisions are derived from trusted catalog category -> slot mapping and
         engine renderable-slot metadata; unknown/missing metadata fails
         conservatively instead of enabling try-on.
+
+        ``engine_state`` comes from a LIVE cached probe of the GPU worker, not
+        from the presence of ``VTON_WORKER_URL``. On 2026-09-21 production
+        answered ``available`` here while the GPU workspace was disabled by its
+        spend limit and every single job failed — the frontend happily offered
+        the feature and the user lost ~40 s per attempt. Availability is a
+        measured property, not a configured one.
         """
+        from backend.app.services import vton_worker_observability as vwo
+
         provider = "fashn_vton_segfee"
-        if not settings.VTON_WORKER_URL:
+        worker_url = (
+            getattr(settings, "VTON_WORKER_URL", None) or os.environ.get("VTON_WORKER_URL")
+        )
+        probe = vwo.vton_health_summary()
+        circuit = probe.get("circuit") or {}
+        verdict = probe.get("verdict")
+
+        if not worker_url:
             engine_state = "misconfigured"
-        else:
-            # Per-job worker readiness is still checked before inference; this
-            # endpoint is a fast metadata contract and intentionally avoids
-            # burning network latency/GPU health calls for catalog cards.
+        elif verdict == "ready":
             engine_state = "available"
+        elif verdict == "cold_start":
+            engine_state = "cold_start"
+        else:
+            engine_state = "temporarily_unavailable"
+
+        engine_block = {
+            "verdict": verdict,
+            "production_ready": bool(probe.get("production_ready")),
+            "detail": probe.get("detail"),
+            "probe_age_seconds": probe.get("probe_age_seconds"),
+            "error_code": probe.get("error_code"),
+            "circuit_state": circuit.get("state"),
+            "retry_after_seconds": circuit.get("retry_after_seconds"),
+        }
+        sla = {
+            "warm_render_seconds_p50": 12.0,
+            "warm_render_seconds_p95": 35.0,
+            "cold_start_seconds_budget": 120.0,
+            "fail_fast_seconds": 1.0,
+            "job_timeout_seconds": float(getattr(settings, "VTON_WORKER_TIMEOUT_SECONDS", 90.0)),
+            "delivery_ttl_seconds": float(getattr(settings, "VTON_DELIVERY_TTL_SECONDS", 900.0)),
+            "max_garments_per_job": 8,
+        }
+        user_message = None
+        if engine_state == "misconfigured":
+            user_message = "Virtual try-on is not configured for this deployment."
+        elif engine_state == "temporarily_unavailable":
+            user_message = (
+                "Virtual try-on is offline right now — the rendering capacity is not "
+                "available. Your photo is never stored. Please try again later."
+            )
+        elif engine_state == "cold_start":
+            user_message = (
+                "The rendering engine is warming up. The first try can take up to a "
+                "minute; please retry in about 30 seconds."
+            )
+
         out = {
             "provider": provider,
             "engine_state": engine_state,
             "supported_slots": sorted(VTON_ENGINE_RENDERABLE_SLOTS),
             "unsupported_slots": sorted(SUPPORTED_SLOTS - VTON_ENGINE_RENDERABLE_SLOTS),
             "products": [],
+            "engine": engine_block,
+            "sla": sla,
+            "user_message": user_message,
         }
         if not product_ids:
             return out
@@ -1200,6 +1363,27 @@ class TryOnService:
                     "misconfigured",
                     "VTON_WORKER_NOT_CONFIGURED",
                     "Virtual try-on rendering is not configured for this deployment.",
+                )
+            elif engine_state == "temporarily_unavailable":
+                # The CATEGORY is supported; the ENGINE cannot render right now.
+                # Reporting "supported" here is how the UI ended up offering a
+                # feature that failed 100% of the time (2026-09-21).
+                state, code, msg = (
+                    "temporarily_unavailable",
+                    probe.get("error_code") or "VTON_ENGINE_UNAVAILABLE",
+                    (
+                        "This item supports virtual try-on, but the rendering engine is "
+                        "offline right now. Your photo is never stored — please try again later."
+                    ),
+                )
+            elif engine_state == "cold_start":
+                state, code, msg = (
+                    "supported",
+                    "SUPPORTED_COLD_START",
+                    (
+                        "Supported. The rendering engine is warming up, so the first "
+                        "result may take up to a minute."
+                    ),
                 )
             else:
                 state, code, msg = (

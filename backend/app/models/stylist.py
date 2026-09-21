@@ -47,7 +47,19 @@ class Outfit(Base):
     is_saved = Column(Boolean, default=False, nullable=False)
     is_system_curated = Column(Boolean, default=False, nullable=False)
     share_token = Column(String(100), unique=True, index=True, nullable=True)
+    # OUTFIT-01 share lifecycle (migration 0018). A share link that cannot be
+    # revoked or expired is a permanent exposure surface, so the token alone is
+    # never sufficient: resolution also requires "not revoked" and "not expired".
+    share_expires_at = Column(DateTime, nullable=True)
+    share_revoked_at = Column(DateTime, nullable=True)
+    share_view_count = Column(Integer, default=0, nullable=False, server_default="0")
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+        nullable=True,
+    )
 
     user = relationship("User", back_populates="saved_outfits")
     items = relationship("OutfitItem", back_populates="outfit", cascade="all, delete-orphan")

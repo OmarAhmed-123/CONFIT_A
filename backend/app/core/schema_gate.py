@@ -94,6 +94,10 @@ REQUIRED_COLUMNS: Dict[str, tuple[str, ...]] = {
     "sponsored_placements": ("start_date", "end_date", "updated_at"),
     "brand_analytics_events": ("event_id", "order_id", "revenue_amount", "order_item_id"),  # order_item_id: 0014
     "wardrobe_items": ("source_order_item_id",),  # 0015 — FLOW E purchase->wardrobe idempotency key
+    # 0018 — outfit share-link lifecycle (revocation/expiry) + edit tracking.
+    # Without these the public-look endpoint cannot enforce revocation, so a
+    # drifted DB would silently serve permanently-live share links.
+    "outfits": ("share_expires_at", "share_revoked_at", "share_view_count", "updated_at"),
 }
 
 

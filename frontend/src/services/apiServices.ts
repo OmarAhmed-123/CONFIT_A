@@ -4,7 +4,9 @@ import {
   UserStyleProfile,
   Product,
   Category,
+  CompositionVerdict,
   Outfit,
+  ShareLink,
   StylistMessage,
   TryOnResult,
   MultiGarmentTryOnResult,
@@ -304,6 +306,10 @@ export const catalogService = {
   getProductDetail: (slug: string) =>
     request<Product>(`/catalog/products/${slug}`),
 
+  /** The detail endpoint resolves slug OR id; saved outfit items store the
+   *  numeric product id, so rehydrating a look uses this path. */
+  getProductById: (id: number) => request<Product>(`/catalog/products/${id}`),
+
   getCategories: () => request<Category[]>("/catalog/categories"),
   getCapabilities: () =>
     request<{
@@ -424,18 +430,63 @@ export const stylistService = {
       }),
     }),
 
+  getOutfit: (id: number) => request<Outfit>(`/outfits/${id}`),
+
+  updateOutfit: (
+    id: number,
+    data: { title?: string; occasion?: string; description?: string },
+  ) =>
+    request<Outfit>(`/outfits/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+
+  /** OUTFIT-02: replace a saved look's whole item set (edit + reorder).
+   *  Whole-set semantics mirror the server contract: the composition policy
+   *  validates a SET, so partial patches could not be checked coherently. */
+  replaceOutfitItems: (
+    id: number,
+    data: { product_sku_ids?: number[]; product_ids?: number[] },
+  ) =>
+    request<Outfit>(`/outfits/${id}/items`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+
+  /** Dry-run the SAME policy the write path uses, so the canvas can show why
+   *  a combination will be rejected before the user presses Save. */
+  previewComposition: (data: {
+    product_sku_ids?: number[];
+    product_ids?: number[];
+  }) =>
+    request<CompositionVerdict>("/outfits/composition/preview", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
   deleteOutfit: (id: number) =>
     request<{ status: string }>(`/outfits/${id}`, { method: "DELETE" }),
 
-  // C8: mint (or fetch the idempotent) share token for an owned outfit.
-  // The response intentionally contains no fabricated card URL.
-  shareOutfit: (id: number) =>
-    request<{ outfit_id: number; share_token: string; share_url: string }>(
-      `/outfits/${id}/share`,
-      {
-        method: "POST",
-      },
-    ),
+  // C8/OUTFIT-01: mint (or fetch the idempotent) share token for an owned
+  // outfit. The response carries the REAL expiry and active flag — no
+  // fabricated card URL and no assumed liveness.
+  shareOutfit: (id: number, opts?: { ttl_days?: number; rotate?: boolean }) =>
+    request<ShareLink>(`/outfits/${id}/share`, {
+      method: "POST",
+      body: JSON.stringify(opts ?? {}),
+    }),
+
+  /** Owner-facing share status: active?, expiry, real view count. */
+  getShareState: (id: number) => request<ShareLink>(`/outfits/${id}/share`),
+
+  /** Revoke the public link. Idempotent; the token is never re-issued. */
+  revokeShare: (id: number) =>
+    request<{
+      outfit_id: number;
+      revoked: boolean;
+      was_active: boolean;
+      is_active: boolean;
+    }>(`/outfits/${id}/share`, { method: "DELETE" }),
 };
 
 // 4b. Public Shared Looks (C8) — unauthenticated, public-safe DTO only.

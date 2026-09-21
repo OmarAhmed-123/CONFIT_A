@@ -506,7 +506,7 @@ def test_migration_0015_round_trip_and_unique_lineage() -> None:
         with engine.begin() as conn:
             assert conn.execute(text(
                 "select version_num from alembic_version")).scalar() == \
-                "0017_audit_before_after_request_id"
+                "0018_outfit_share_lifecycle"
 
         _alembic(url, "down", "base")
         insp = inspect(engine)
@@ -520,16 +520,15 @@ def test_migration_0015_round_trip_and_unique_lineage() -> None:
         os.unlink(path)
 
 
-def test_migration_chain_has_a_single_head_at_0017() -> None:
+def test_migration_chain_has_a_single_head_at_0018() -> None:
     from backend.app.core.schema_gate import expected_head_revision, migration_chain
 
     chain = migration_chain()
     downs = {d for d in chain.values() if d}
     heads = [r for r in chain if r not in downs]
     assert heads == [expected_head_revision()]
-    # 0016 (VTON temporary-delivery metadata) extends 0015; the chain must
-    # remain single-headed and the head must move consciously.
-    # 0017 (ADMIN-01 audit before/after/request_id) extends 0016; the chain
-    # must stay linear with exactly one head.
-    assert expected_head_revision() == "0017_audit_before_after_request_id"
+    # The chain must stay linear with exactly one head, and the head must only
+    # ever move consciously: 0015 -> 0016 (VTON temporary delivery) -> 0017
+    # (audit before/after) -> 0018 (OUTFIT-01 outfit share lifecycle).
+    assert expected_head_revision() == "0018_outfit_share_lifecycle"
     assert "0015_wardrobe_purchase_lineage" in chain.values()

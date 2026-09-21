@@ -29,11 +29,32 @@ vi.mock('../../services/apiServices', () => ({
   stylistService: {
     checkCompatibility: (...args: unknown[]) => checkCompatibilityMock(...args),
     saveOutfit: (...args: unknown[]) => saveOutfitMock(...args),
+    // OUTFIT-04: the canvas asks the server to validate the current item set
+    // (same policy as the write path). Default to "valid" so these taxonomy
+    // tests stay focused; the verdict-specific behaviour has its own tests.
+    previewComposition: (...args: unknown[]) => previewCompositionMock(...args),
+    getOutfit: (...args: unknown[]) => getOutfitMock(...args),
+    replaceOutfitItems: (...args: unknown[]) => replaceOutfitItemsMock(...args),
+    updateOutfit: (...args: unknown[]) => updateOutfitMock(...args),
   },
   catalogService: {
     getProductDetail: (...args: unknown[]) => getProductDetailMock(...args),
+    getProductById: (...args: unknown[]) => getProductByIdMock(...args),
   },
 }));
+
+const previewCompositionMock = vi.fn<(...args: any[]) => any>(async () => ({
+  is_valid: true,
+  violations: [],
+  warnings: [],
+  missing_positions: [],
+  resolved_items: [],
+  unresolved_ids: [],
+}));
+const getOutfitMock = vi.fn<(...args: any[]) => any>();
+const replaceOutfitItemsMock = vi.fn<(...args: any[]) => any>(async () => ({}));
+const updateOutfitMock = vi.fn<(...args: any[]) => any>(async () => ({}));
+const getProductByIdMock = vi.fn<(...args: any[]) => any>();
 
 vi.mock('../../stores/cartStore', () => ({
   useCartStore: () => ({ addItem: addItemMock, openCart: openCartMock }),

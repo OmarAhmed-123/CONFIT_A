@@ -97,7 +97,9 @@
     "occasion_smart_casual": "Smart Casual Work",
     "occasion_cocktail": "Evening Cocktail & Dinner",
     "occasion_gala": "Formal Gala & Wedding",
-    "occasion_weekend": "Weekend Gallery Tour"
+    "occasion_weekend": "Weekend Gallery Tour",
+    "look_not_found": "This look does not exist, or it is not yours.",
+    "look_load_failed": "Could not load this look. Please try again."
   },
   "tryon": {
     "title": "Virtual Try-On Studio",
@@ -472,7 +474,18 @@
     "analysis_unavailable": "Analysis still unavailable.",
     "stock_saved": "Warehouse SKU stock saved. Store inventory is managed separately.",
     "placement_saved": "Placement settings saved. Ad delivery and billing are not verified by this action.",
-    "sign_out_failed": "Sign out failed. Please retry."
+    "sign_out_failed": "Sign out failed. Please retry.",
+    "look_updated": "Look updated.",
+    "look_items_partially_loaded": "{{count}} item(s) could not be loaded and are not on the canvas.",
+    "invalid_combination": "This combination is not valid.",
+    "look_revoked": "Link revoked — it no longer opens for anyone.",
+    "look_deleted": "Look deleted.",
+    "share_link_ready": "Public link ready.",
+    "share_link_rotated": "New link created — the previous one no longer works.",
+    "share_create_failed": "Could not create the link: {{reason}}",
+    "share_revoke_failed": "Could not revoke the link: {{reason}}",
+    "look_delete_failed": "Could not delete: {{reason}}",
+    "look_rename_failed": "Could not rename: {{reason}}"
   },
   "consent": {
     "title": "Before we process your photo",
@@ -724,5 +737,36 @@
     "dimension_occasions": "Top occasions",
     "dimension_empty": "no cell met the k-anonymity floor in this window.",
     "cell_share": "{{share}}% · {{count}} outfits"
+  },
+  "my_looks": {
+    "title": "My Looks",
+    "subtitle": "Every outfit you saved, with full control over who can see it.",
+    "build_new": "Build a new look",
+    "empty_title": "No saved looks yet",
+    "empty_body": "Compose an outfit in the builder and save it — it will appear here.",
+    "open_composer": "Open the composer",
+    "loading": "Loading your looks…",
+    "try_again": "Try again",
+    "something_wrong": "Something went wrong.",
+    "edit_in_composer": "Edit in composer",
+    "delete": "Delete",
+    "pieces": "pieces",
+    "missing": "Missing",
+    "look_title_label": "Look title",
+    "private_note": "This look is private. Creating a link lets anyone with it view the look — no account needed.",
+    "create_link": "Create public link",
+    "creating": "Creating…",
+    "link_active": "Public link active",
+    "views": "views",
+    "copy": "Copy",
+    "copied": "Copied",
+    "open": "Open",
+    "new_link": "New link",
+    "new_link_hint": "Creates a new link and immediately disables the current one",
+    "revoke": "Revoke",
+    "public_link_for": "Public link for {{title}}",
+    "expiry_note": "Expires {{date}}. Anyone with this link can see the look until then, or until you revoke it.",
+    "complete_look": "Complete Look",
+    "partial_look": "Partial Look"
   }
 }

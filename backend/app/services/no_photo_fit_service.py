@@ -310,12 +310,22 @@ class NoPhotoFitService:
     @staticmethod
     def _disclosure(decision: FitDecision) -> str:
         chart_src = decision.chart.provenance
-        chart_phrase = (
-            f"the brand's published size chart"
-            + (f" (updated {chart_src.updated_at})" if chart_src.updated_at else " (no update date published)")
-            if chart_src.is_authoritative
-            else f"the public {chart_src.standard or 'standard'} size chart, not the brand's own measurements"
-        )
+        if chart_src.is_authoritative:
+            chart_phrase = "the brand's published size chart" + (
+                f" (updated {chart_src.updated_at})"
+                if chart_src.updated_at
+                else " (no update date published)"
+            )
+        elif chart_src.is_product_specific:
+            chart_phrase = (
+                f"this product's size chart, derived from {chart_src.standard or 'a stated source'} "
+                f"rather than published by the brand"
+            ) + (f" (reviewed {chart_src.updated_at})" if chart_src.updated_at else "")
+        else:
+            chart_phrase = (
+                f"the public {chart_src.standard or 'standard'} size chart, "
+                f"not the brand's own measurements"
+            )
         measured = [s.dimension for s in decision.top.sections if not s.body_is_estimated]
         estimated = [s.dimension for s in decision.top.sections if s.body_is_estimated]
         evidence = (
@@ -342,6 +352,12 @@ class NoPhotoFitService:
         name = getattr(brand, "brand_name", None) or "This brand"
         if chart.provenance.is_authoritative:
             summary = f"{name} publishes its own size chart; sizing is matched against it directly."
+        elif chart.provenance.is_product_specific:
+            summary = (
+                f"{name} has not published its own chart. This product carries a size chart "
+                f"derived from {chart.provenance.standard or 'a stated public source'}, which is "
+                f"specific to this garment but is not the brand's own measurement."
+            )
         else:
             summary = (
                 f"{name} has not published a size chart. Sizes below are matched against the "

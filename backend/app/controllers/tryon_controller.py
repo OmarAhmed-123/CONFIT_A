@@ -571,9 +571,11 @@ async def render_virtual_tryon(
 @router.post("/tryon/fit/recommend", response_model=NoPhotoFitResponse)
 @router.post("/try-on/fit/recommend", response_model=NoPhotoFitResponse)
 @router.post("/fit/recommend", response_model=NoPhotoFitResponse)
+@limiter.limit("60/hour")
 def compute_no_photo_fit(
+    request: Request,
     payload: NoPhotoFitRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """Size recommendation from measurements — no photo, no camera.
 
@@ -581,6 +583,12 @@ def compute_no_photo_fit(
     the product's chart, stock and the caller's measurements and concluded it
     cannot justify a size (``reason_code`` says which). Only genuinely invalid
     input (implausible measurements, unit mismatch) is a 422.
+
+    Deliberately open to guests: sizing before signup is the point of the
+    feature, and the request carries no identifier. It is rate limited per IP
+    instead — the endpoint reads the full catalogue chart set per call, so an
+    unbounded loop is both a DB cost and a chart-scraping vector. The limit is
+    higher than the GPU try-on routes because this path is pure CPU.
     """
     service = NoPhotoFitService(db)
     try:
@@ -623,12 +631,20 @@ def compute_no_photo_fit(
 # for the legitimate guest flow, the app-wide X-Session-Token header. See
 # backend/app/services/measurement_service.py for the authorization model.
 @router.post("/measurements/sessions", response_model=Dict[str, Any], status_code=status.HTTP_201_CREATED)
+@limiter.limit("30/hour")
 def create_measurement_session(
+    request: Request,
     payload: MeasurementSessionCreate,
     user: Optional[User] = Depends(get_current_user_optional),
     db: Session = Depends(get_db),
     x_session_token: Optional[str] = Header(None),
 ):
+    """Create a measurement session.
+
+    Guests may create sessions (the scan flow runs before signup), so this is
+    an unauthenticated row-insert endpoint and is rate limited per IP to stop
+    it being used to inflate the table.
+    """
     service = MeasurementSessionService(db)
     sess = service.create_session(
         user=user,

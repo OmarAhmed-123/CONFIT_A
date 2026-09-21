@@ -365,6 +365,18 @@ class Settings(BaseSettings):
     AWS_REGION: str = "us-east-1"
     S3_ENDPOINT_URL: Optional[str] = None
     S3_PUBLIC_URL_BASE: Optional[str] = None
+    # AWS-SDK-standard name for the S3 endpoint. Neon Object Storage (and the
+    # AWS SDK env chain) injects AWS_ENDPOINT_URL_S3, so it is accepted as a
+    # fallback; an explicit S3_ENDPOINT_URL always wins.
+    AWS_ENDPOINT_URL_S3: Optional[str] = None
+    # Private buckets (Neon Object Storage's default access level) reject
+    # anonymous browser reads of plain endpoint URLs. The API layer therefore
+    # swaps owned-object URLs for time-limited presigned GET URLs at response
+    # time. The database keeps the canonical URL forever; the signature TTL
+    # applies to API responses only.
+    S3_PRESIGN_EXPIRY_SECONDS: int = 3600
+
+
     # Audit closure 2026-09-21 (VTON/Photo-Match, gap "storage is local"):
     # the documented aliases in backend/.env.example (S3_ENDPOINT /
     # S3_ACCESS_KEY / S3_SECRET_KEY / S3_BUCKET_PRIVATE) never bound to
@@ -386,6 +398,7 @@ class Settings(BaseSettings):
     STORAGE_PROBE_ENABLED: bool = False
     STORAGE_PROBE_TIMEOUT_SECONDS: float = 5.0
     STORAGE_PROBE_TTL_SECONDS: float = 300.0
+
 
     # Privacy & Retention
     POLICY_VERSION: int = 3
@@ -491,7 +504,11 @@ class Settings(BaseSettings):
 
     @property
     def s3_endpoint_url(self) -> Optional[str]:
-        for value in (self.S3_ENDPOINT_URL, self.S3_ENDPOINT):
+        # Explicit settings win; AWS_ENDPOINT_URL_S3 is the AWS-SDK-standard
+        # name (Neon Object Storage's docs and the AWS SDK env chain use it),
+        # accepted as a fallback so operators using that name are not
+        # silently dropped.
+        for value in (self.S3_ENDPOINT_URL, self.S3_ENDPOINT, self.AWS_ENDPOINT_URL_S3):
             if value and value.strip():
                 return value.strip().rstrip("/")
         return None

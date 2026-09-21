@@ -9,6 +9,7 @@ from backend.app.repositories.catalog_repository import CatalogRepository
 from backend.app.repositories.wardrobe_repository import WardrobeRepository
 from backend.app.services.styling_engine import StylingEngine
 from backend.app.services.styling.ontology import classify_product_slot
+from backend.app.services.storage_service import storage_public_url
 
 
 # Map fine-grained slot ontology values to the coarse canvas positions the
@@ -242,7 +243,9 @@ class OutfitService:
                     "brand_name": best.brand_name,
                     "color_family": taxonomy.normalize_color(best.color_name),
                     "dominant_hex": best.color_hex,
-                    "image_url": best.image_url,
+                    # Owned pieces may live in a private object store:
+                    # presign at the API boundary (pass-through otherwise).
+                    "image_url": storage_public_url(best.image_url),
                     "price": 0.0,
                     "style_tags": json.loads(best.ai_tags) if best.ai_tags else [],
                     "occasion_tags": json.loads(best.occasions) if best.occasions else [],

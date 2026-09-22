@@ -23,6 +23,7 @@ import {
 } from "../../components/common/CommonComponents";
 import { HonestProductImage } from "../../components/common/HonestProductImage";
 import { useCapabilities } from "../../hooks/useCapabilities";
+import { useTryOnAvailability } from "../../hooks/useTryOnAvailability";
 import { resolvePurchasableSku } from "../../lib/catalogSku";
 
 export const DiscoverView: React.FC = () => {
@@ -45,6 +46,10 @@ export const DiscoverView: React.FC = () => {
   } = useCatalogViewModel();
 
   const { openTryOn, openRuler, openVisualSearch, showToast } = useUIStore();
+  // Try-on CTAs bind to the live engine verdict (2026-09-22): when the GPU
+  // cannot render, these route to the no-photo fit check instead of failing.
+  const tryOn = useTryOnAvailability();
+  const tryOnKind = tryOn.ctaKind(true);
   const { capabilities } = useCapabilities();
   const { addItem } = useCartStore();
 
@@ -484,11 +489,23 @@ export const DiscoverView: React.FC = () => {
                         <RulerIcon size={14} color="#1B1F3B" />
                       </button>
                       <button
-                        onClick={() => openTryOn(p)}
-                        className="p-2 rounded-full bg-[#1B1F3B]/90 hover:bg-[#C5A059] text-white hover:text-slate-950 shadow-sm backdrop-blur-xs transition-all"
-                        title="Virtual Try-On"
+                        onClick={tryOn.gate({
+                          render: () => openTryOn(p),
+                          fitCheck: () => openRuler(p),
+                        })}
+                        disabled={tryOnKind === "blocked"}
+                        className="p-2 rounded-full bg-[#1B1F3B]/90 hover:bg-[#C5A059] text-white hover:text-slate-950 shadow-sm backdrop-blur-xs transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        title={t(
+                          tryOnKind === "render"
+                            ? "tryon.cta_try_on"
+                            : "tryon.cta_fit_check",
+                        )}
                       >
-                        <TryOnIcon size={14} color="currentColor" />
+                        {tryOnKind === "render" ? (
+                          <TryOnIcon size={14} color="currentColor" />
+                        ) : (
+                          <RulerIcon size={14} color="currentColor" />
+                        )}
                       </button>
                     </div>
                   </div>
@@ -534,10 +551,18 @@ export const DiscoverView: React.FC = () => {
                     View details
                   </button>
                   <button
-                    onClick={() => openTryOn(p)}
-                    className="py-2.5 rounded-xl border border-[#7A5C28]/40 bg-[#FDF8EE] text-[#7A5C28] hover:bg-[#7A5C28] hover:text-white text-xs font-semibold transition-all"
+                    onClick={tryOn.gate({
+                      render: () => openTryOn(p),
+                      fitCheck: () => openRuler(p),
+                    })}
+                    disabled={tryOnKind === "blocked"}
+                    className="py-2.5 rounded-xl border border-[#7A5C28]/40 bg-[#FDF8EE] text-[#7A5C28] hover:bg-[#7A5C28] hover:text-white text-xs font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Try on
+                    {t(
+                      tryOnKind === "render"
+                        ? "tryon.cta_try_on"
+                        : "tryon.cta_fit_check",
+                    )}
                   </button>
                   <button
                     onClick={() => addCatalogCardToBag(p)}

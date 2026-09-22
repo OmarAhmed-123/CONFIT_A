@@ -9,11 +9,37 @@ import { queryKeys } from '../lib/queryClient';
  * promising a capability the platform cannot deliver. When the flags cannot
  * be fetched, all optimistic claims degrade to their honest (demo) wording.
  */
+/**
+ * Canonical engine states as published by the backend. `engine_state` is a
+ * machine discriminator, so the UI localizes its own sentence from it rather
+ * than rendering the backend's English `user_message` into an Arabic page.
+ */
+export type VtonEngineState =
+  | 'available'
+  | 'cold_start'
+  | 'temporarily_unavailable'
+  | 'misconfigured';
+
 export interface Capabilities {
   payments_live: boolean;
   payments_mode: 'live' | 'demo';
   bnpl_live: boolean;
+  /**
+   * MEASURED GPU readiness (live probe of the worker).
+   *
+   * Until 2026-09-22 the backend derived this from `bool(VTON_WORKER_URL)`, so
+   * it read `true` on a deployment where every try-on job failed. It is now the
+   * same verdict `/try-on/capabilities` publishes. Prefer
+   * `useTryOnAvailability()` when gating behaviour: it also carries the reason
+   * and the retry window.
+   */
   vton_gpu_ready: boolean;
+  /** Canonical state — identical to `/try-on/capabilities`.`engine_state`. */
+  vton_engine_state: VtonEngineState | string;
+  /** Whether this deployment offers try-on at all. `false` = not offered. */
+  vton_offered: boolean;
+  /** Whether a job submitted now can produce a render (ready or cold start). */
+  vton_renderable: boolean;
   ai_stylist_live: boolean;
   bopis_live: boolean;
   bopis_store_count: number;
@@ -26,6 +52,9 @@ export const HONEST_FALLBACK_CAPABILITIES: Capabilities = {
   payments_mode: 'demo',
   bnpl_live: false,
   vton_gpu_ready: false,
+  vton_engine_state: 'temporarily_unavailable',
+  vton_offered: false,
+  vton_renderable: false,
   ai_stylist_live: false,
   bopis_live: false,
   bopis_store_count: 0,

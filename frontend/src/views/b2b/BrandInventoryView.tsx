@@ -140,11 +140,8 @@ export const BrandInventoryView: React.FC = () => {
             told, rather than being left to guess which number is real. */}
         {!fetchErrors.stores && !fetchErrors.inventory && stores.length === 0 && inventoryReferencesStores && (
           <div role="alert" className="p-4 rounded-2xl bg-amber-50 border border-amber-300">
-            <p className="text-[11px] font-bold text-amber-900">Inconsistent inventory data detected</p>
-            <p className="text-[11px] text-amber-800 mt-1">
-              This brand has no store locations, yet store-level stock rows were returned. Do not trust
-              either figure; report this with your brand id. (Expected to be impossible after migration 0019.)
-            </p>
+            <p className="text-[11px] font-bold text-amber-900">{t('b2b.inv_mismatch_title')}</p>
+            <p className="text-[11px] text-amber-800 mt-1">{t('b2b.inv_mismatch_body')}</p>
           </div>
         )}
         {fetchErrors.stores && (
@@ -224,7 +221,7 @@ export const BrandInventoryView: React.FC = () => {
         <p className="text-[11px] text-slate-500">Stock levels per SKU per location, reserved quantity tracking, available = quantity - reserved. No negative inventory enforced. Only stores belonging to your brand are shown.</p>
         {orphanStoreIds.length > 0 && (
           <div role="alert" className="p-4 rounded-2xl bg-rose-50 border border-rose-300">
-            <p className="text-[11px] font-bold text-rose-900">Unrecognised store ids in your inventory</p>
+            <p className="text-[11px] font-bold text-rose-900">{t('b2b.inv_orphan_title')}</p>
             <p className="text-[11px] text-rose-700 mt-1">
               Store id(s) {orphanStoreIds.join(', ')} are not in your store list. These rows are highlighted
               below and must not be treated as your stock.

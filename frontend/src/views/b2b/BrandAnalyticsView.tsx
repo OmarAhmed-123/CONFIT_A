@@ -127,7 +127,7 @@ export const BrandAnalyticsView: React.FC = () => {
                     <td className="py-2 font-bold text-emerald-600">{row.purchases}</td>
                     <td className="py-2 font-mono font-bold">
                       {row.conversion_rate == null
-                        ? <span className="text-slate-400 font-normal" title="No views recorded for this product — the ratio has no denominator.">N/A</span>
+                        ? <span className="text-slate-400 font-normal" title={t('b2b.conv_na_hint')}>N/A</span>
                         : `${row.conversion_rate}%`}
                     </td>
                   </tr>

@@ -363,23 +363,31 @@ def get_partner_inventory(
     user: User = Depends(brand_auth),
     db: Session = Depends(get_db)
 ):
+    """Store-level inventory for the caller's brand ONLY.
+
+    P1 FIX (cross-tenant inventory leak, production-confirmed 2026-09-22):
+    this endpoint used to select StoreInventory rows by `sku_id IN (...)`
+    with NO constraint that the owning StoreLocation belongs to the same
+    brand. Legacy/seed rows attach a tenant's SKU to another tenant's store,
+    so COS (0 stores) rendered "Store #1: 6 avail" — Store #1 belongs to
+    Massimo Dutti. That is not a display glitch: it published another
+    tenant's store id and stock level into this tenant's API response.
+
+    The breakdown is now produced by ONE join that is scoped by the same
+    brand_id as the store-locations count, so the two numbers can never
+    disagree again (`get_brand_store_inventory_map` is the single source of
+    truth, shared with /partner/stores — DRY).
+    """
     service = BrandService(db)
     bp = service.get_brand_profile_by_user(user)
     repo = BrandRepository(db)
 
-    # Real inventory: products with SKUs and store inventories — FIXED N+1 via single query
     products = repo.get_brand_products(bp["id"])
-    # Single query for all store inventories for this brand's SKUs
-    from backend.app.models.catalog import StoreInventory
-    all_sku_ids = [sku.id for prod in products for sku in prod.skus]
-    inv_map: Dict[int, List] = {}
-    if all_sku_ids:
-        all_invs = db.query(StoreInventory).filter(StoreInventory.sku_id.in_(all_sku_ids)).all()
-        for inv in all_invs:
-            inv_map.setdefault(inv.sku_id, []).append(inv)
+    # Tenant-scoped, single query, no N+1: {sku_id: [inventory rows]} where the
+    # store is verified to belong to THIS brand.
+    inv_map = repo.get_brand_store_inventory_map(bp["id"])
 
     result = []
-
     for product in products:
         sku_details = []
         for sku in product.skus:
@@ -393,7 +401,9 @@ def get_partner_inventory(
                 "is_in_stock": sku.is_in_stock,
                 "price_override": sku.price_override,
                 "store_inventories": [
-                    {"id": inv.id, "store_id": inv.store_id, "quantity": inv.quantity, "reserved": inv.reserved_quantity, "available": inv.quantity - inv.reserved_quantity}
+                    {"id": inv.id, "store_id": inv.store_id, "store_name": inv.store_name,
+                     "quantity": inv.quantity, "reserved": inv.reserved_quantity,
+                     "available": inv.quantity - inv.reserved_quantity}
                     for inv in invs
                 ]
             })
@@ -653,97 +663,139 @@ def delete_placement(
     return {"status": "deleted", "placement_id": placement_id}
 
 
-# 6. Sponsored Placement Tracking (impression, click) - for billing
+# 6. Sponsored Placement Tracking — ledger-backed billing
+#
+# AUDIT P1 CLOSURE. These endpoints previously mutated counters in place
+# (`plc.impressions += 1`, `plc.spent_today += bid`) with no journal, no
+# idempotency and no daily window, so "spend" was an unauditable, un-resettable
+# number. They now delegate to AdBillingService, which appends an immutable
+# AdLedgerEntry, enforces exactly-once via UNIQUE(event_key), rolls the daily
+# budget window, and applies click fraud de-duplication. See
+# backend/app/services/ad_billing_service.py for the full rationale.
+
+
+def _billing_error_status(code: str) -> int:
+    return {
+        "PLACEMENT_NOT_FOUND": 404,
+        "INVALID_ENTRY_TYPE": 422,
+    }.get(code, 400)
+
+
+def _track_placement_event(entry_type: str, placement_id: int, request: Request,
+                           idempotency_key: Optional[str], user: User, db: Session):
+    from backend.app.models.user import UserRole
+    from backend.app.services.ad_billing_service import AdBillingService, AdBillingError
+
+    bp = BrandService(db).get_brand_profile_by_user(user)
+    try:
+        return AdBillingService(db).record_event(
+            placement_id=placement_id,
+            brand_id=bp["id"],
+            entry_type=entry_type,
+            event_key=idempotency_key,
+            actor_user_id=user.id,
+            ip=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent"),
+            request_id=request.headers.get("x-request-id"),
+            allow_any_brand=(user.role == UserRole.ADMIN),
+        )
+    except AdBillingError as exc:
+        raise HTTPException(status_code=_billing_error_status(exc.code),
+                            detail={"error": {"code": exc.code, "message": str(exc)}})
+
+
 @router.post("/partner/placements/{placement_id}/impression")
 def track_impression(
     placement_id: int,
+    request: Request,
+    idempotency_key: Optional[str] = Query(None, max_length=128,
+        description="Client-supplied event id; a repeat of the same key is never charged twice."),
     user: User = Depends(brand_auth),
     db: Session = Depends(get_db)
 ):
-    """Track sponsored impression with budget enforcement — FIXED tenant isolation"""
-    from backend.app.models.brand_analytics import SponsoredPlacement
-    from backend.app.models.user import UserRole
-    service = BrandService(db)
-    bp = service.get_brand_profile_by_user(user)
-
-    # Tenant isolation: brand can only track own placements, admin can track any
-    query = db.query(SponsoredPlacement).filter(SponsoredPlacement.id == placement_id)
-    if user.role != UserRole.ADMIN:
-        query = query.filter(SponsoredPlacement.brand_id == bp["id"])
-    plc = query.with_for_update().first()
-
-    if not plc:
-        raise HTTPException(status_code=404, detail="Placement not found for your brand")
-
-    # Check if active and within budget and dates
-    if plc.status != "active":
-        raise HTTPException(status_code=400, detail=f"Placement not active: {plc.status}")
-
-    from datetime import datetime, timezone
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
-    if plc.start_date and now < plc.start_date:
-        raise HTTPException(status_code=400, detail="Placement not yet started")
-    if plc.end_date and now > plc.end_date:
-        raise HTTPException(status_code=400, detail="Placement ended")
-
-    if plc.spent_today >= plc.daily_budget:
-        plc.status = "budget_exhausted"
-        db.commit()
-        raise HTTPException(status_code=400, detail="Daily budget exhausted")
-
-    plc.impressions += 1
-    db.commit()
-
-    return {"status": "tracked", "impressions": plc.impressions}
+    """Record a sponsored impression (CPC model: recorded, not charged)."""
+    return _track_placement_event("impression", placement_id, request, idempotency_key, user, db)
 
 
 @router.post("/partner/placements/{placement_id}/click")
 def track_click(
     placement_id: int,
+    request: Request,
+    idempotency_key: Optional[str] = Query(None, max_length=128,
+        description="Client-supplied event id; a repeat of the same key is never charged twice."),
     user: User = Depends(brand_auth),
     db: Session = Depends(get_db)
 ):
-    """Track sponsored click with budget deduction — FIXED tenant isolation + SELECT FOR UPDATE"""
+    """Record a billable click: ledger append + budget deduction, exactly once."""
+    return _track_placement_event("click", placement_id, request, idempotency_key, user, db)
+
+
+@router.post("/partner/placements/{placement_id}/conversion")
+def track_conversion(
+    placement_id: int,
+    request: Request,
+    idempotency_key: Optional[str] = Query(None, max_length=128),
+    user: User = Depends(brand_auth),
+    db: Session = Depends(get_db)
+):
+    """Record a conversion attributed to a placement (recorded, not charged)."""
+    return _track_placement_event("conversion", placement_id, request, idempotency_key, user, db)
+
+
+@router.get("/partner/placements/{placement_id}/reconciliation")
+def placement_reconciliation(
+    placement_id: int,
+    on_date: Optional[str] = Query(None, description="ISO date (YYYY-MM-DD); defaults to today UTC"),
+    user: User = Depends(brand_auth),
+    db: Session = Depends(get_db)
+):
+    """Independent reconciliation: ledger sum vs the cached spend counter.
+
+    The audit required that billing not be asserted from counters. This
+    endpoint is the evidence: it recomputes the day's spend from the immutable
+    journal and reports whether the projection agrees.
+    """
+    from datetime import date as _date
+    from backend.app.services.ad_billing_service import AdBillingService, AdBillingError
+    bp = BrandService(db).get_brand_profile_by_user(user)
+
     from backend.app.models.brand_analytics import SponsoredPlacement
-    from backend.app.models.user import UserRole
-    service = BrandService(db)
-    bp = service.get_brand_profile_by_user(user)
-
-    query = db.query(SponsoredPlacement).filter(SponsoredPlacement.id == placement_id)
-    if user.role != UserRole.ADMIN:
-        query = query.filter(SponsoredPlacement.brand_id == bp["id"])
-    plc = query.with_for_update().first()
-
-    if not plc:
+    owned = db.query(SponsoredPlacement.id).filter(
+        SponsoredPlacement.id == placement_id,
+        SponsoredPlacement.brand_id == bp["id"]).first()
+    if not owned:
         raise HTTPException(status_code=404, detail="Placement not found for your brand")
 
-    if plc.status != "active":
-        raise HTTPException(status_code=400, detail=f"Placement not active: {plc.status}")
+    parsed = None
+    if on_date:
+        try:
+            parsed = _date.fromisoformat(on_date)
+        except ValueError:
+            raise HTTPException(status_code=422, detail="on_date must be ISO YYYY-MM-DD")
+    try:
+        return AdBillingService(db).reconcile(placement_id, parsed)
+    except AdBillingError as exc:
+        raise HTTPException(status_code=_billing_error_status(exc.code), detail=str(exc))
 
-    from datetime import datetime, timezone
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
-    if plc.start_date and now < plc.start_date:
-        raise HTTPException(status_code=400, detail="Placement not yet started")
-    if plc.end_date and now > plc.end_date:
-        raise HTTPException(status_code=400, detail="Placement ended")
 
-    # Check budget
-    if plc.spent_today + plc.bid_amount_per_click > plc.daily_budget:
-        plc.status = "budget_exhausted"
-        db.commit()
-        raise HTTPException(status_code=400, detail="Daily budget would be exceeded")
-
-    plc.clicks += 1
-    plc.spent_today = money_add(plc.spent_today, plc.bid_amount_per_click)
-
-    if plc.spent_today >= plc.daily_budget:
-        plc.status = "budget_exhausted"
-
-    db.commit()
-
-    return {
-        "status": "tracked",
-        "clicks": plc.clicks,
-        "spent_today": plc.spent_today,
-        "remaining_budget": money_sub(plc.daily_budget, plc.spent_today)
-    }
+@router.get("/partner/billing/statement")
+def brand_billing_statement(
+    start_date: Optional[str] = Query(None, description="ISO date, default 30 days ago"),
+    end_date: Optional[str] = Query(None, description="ISO date, default today"),
+    user: User = Depends(brand_auth),
+    db: Session = Depends(get_db)
+):
+    """Per-day ad billing statement derived ONLY from the append-only ledger."""
+    from datetime import date as _date, timedelta as _td
+    from backend.app.services.ad_billing_service import AdBillingService, utc_today
+    bp = BrandService(db).get_brand_profile_by_user(user)
+    try:
+        end = _date.fromisoformat(end_date) if end_date else utc_today()
+        start = _date.fromisoformat(start_date) if start_date else end - _td(days=30)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Dates must be ISO YYYY-MM-DD")
+    if start > end:
+        raise HTTPException(status_code=422, detail="start_date must be on or before end_date")
+    if (end - start).days > 366:
+        raise HTTPException(status_code=422, detail="Statement range is limited to 366 days")
+    return AdBillingService(db).brand_statement(bp["id"], start, end)

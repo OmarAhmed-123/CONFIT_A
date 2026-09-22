@@ -25,13 +25,31 @@ export const BrandAnalyticsView: React.FC = () => {
     );
   }
 
-  const totalViews = analytics.total_views || 1;
+  // P1 FIX — "3500% conversion". The old code coerced a zero denominator to 1
+  // (`analytics.total_views || 1`), so 35 try-ons against 0 views rendered as
+  // "3500%". A ratio with an empty denominator is undefined, not enormous:
+  // dividing by a substituted 1 fabricates a statistic. When there are no
+  // views we now say so instead of printing a number that cannot be true.
+  const views = analytics.total_views;
+  const ratioOfViews = (count: number): string => {
+    if (!views) return 'N/A (no views)';
+    // Still capped-checked: these are different measurement units (a current
+    // cart line is not a lifetime view), so >100% is possible and is labelled
+    // rather than hidden.
+    const pct = (count / views) * 100;
+    return `${pct.toFixed(1)}%${pct > 100 ? ' — exceeds views, different units' : ''}`;
+  };
+
   const funnelSteps = [
-    { label: '1. Catalog Product Views', count: analytics.total_views, pct: analytics.total_views ? '100%' : 'N/A', source: 'RecentlyViewed' },
-    { label: '2. Try-on sessions (all states)', count: analytics.total_tryons, pct: `${((analytics.total_tryons / totalViews) * 100).toFixed(1)}%`, source: 'TryOnSession' },
-    { label: '3. Current shopping-bag lines', count: analytics.total_add_to_carts, pct: `${((analytics.total_add_to_carts / totalViews) * 100).toFixed(1)}%`, source: 'CartItem' },
-    { label: '4. Eligible order lines', count: analytics.total_purchases, pct: `${analytics.funnel_conversion_rate}%`, source: 'OrderItem' },
+    { label: '1. Catalog product views', count: analytics.total_views, pct: views ? '100% (baseline)' : 'N/A (no views)', source: 'RecentlyViewed' },
+    { label: '2. Try-on sessions (all states)', count: analytics.total_tryons, pct: ratioOfViews(analytics.total_tryons), source: 'TryOnSession' },
+    { label: '3. Current shopping-bag lines', count: analytics.total_add_to_carts, pct: ratioOfViews(analytics.total_add_to_carts), source: 'CartItem' },
+    { label: '4. Eligible order lines', count: analytics.total_purchases, pct: views ? `${analytics.funnel_conversion_rate}%` : 'N/A (no views)', source: 'OrderItem' },
   ];
+
+  // Bars must encode the data, not a decorative staircase. The previous
+  // `100 - idx*25` made an empty funnel look like a healthy one.
+  const maxCount = Math.max(1, ...funnelSteps.map((s) => s.count));
 
   return (
     <div className="space-y-8 pb-20">
@@ -61,7 +79,7 @@ export const BrandAnalyticsView: React.FC = () => {
               <div className="w-full h-4 rounded-full bg-slate-100 overflow-hidden">
                 <div
                   className="h-full rounded-full transition-all duration-500 bg-gradient-to-r from-[#1B1F3B] to-[#B8935A]"
-                  style={{ width: `${Math.max(5, 100 - (idx * 25))}%` }}
+                  style={{ width: `${step.count === 0 ? 0 : Math.max(2, (step.count / maxCount) * 100)}%` }}
                 ></div>
               </div>
             </div>
@@ -107,7 +125,11 @@ export const BrandAnalyticsView: React.FC = () => {
                     <td className="py-2">{row.tryons}</td>
                     <td className="py-2">{row.add_to_cart}</td>
                     <td className="py-2 font-bold text-emerald-600">{row.purchases}</td>
-                    <td className="py-2 font-mono font-bold">{row.conversion_rate}%</td>
+                    <td className="py-2 font-mono font-bold">
+                      {row.conversion_rate == null
+                        ? <span className="text-slate-400 font-normal" title="No views recorded for this product — the ratio has no denominator.">N/A</span>
+                        : `${row.conversion_rate}%`}
+                    </td>
                   </tr>
                 ))}
               </tbody>

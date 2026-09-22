@@ -22,7 +22,7 @@ from backend.app.models.commerce import (
     ExchangeRequest,
     CheckoutSession,
 )
-from backend.app.models.brand_analytics import SponsoredPlacement, StyleHeatmapAggregate
+from backend.app.models.brand_analytics import SponsoredPlacement, StyleHeatmapAggregate, AdLedgerEntry
 # Registered here so Base.metadata is complete wherever ``backend.app.models``
 # is imported (alembic env.py, the schema-drift gate, create_all in dev).
 # Without this, autogenerate would propose DROPPING brand_analytics_events /
@@ -73,6 +73,7 @@ __all__ = [
     "ExchangeRequest",
     "CheckoutSession",
     "SponsoredPlacement",
+    "AdLedgerEntry",
     "StyleHeatmapAggregate",
     "CatalogImportJob",
     "BrandAnalyticsEvent",

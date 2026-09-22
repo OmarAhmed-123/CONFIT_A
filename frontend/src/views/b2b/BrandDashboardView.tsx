@@ -85,9 +85,15 @@ export const BrandDashboardView: React.FC = () => {
             Order-line / retained-view ratio
           </span>
           <div className="text-2xl font-serif font-black text-emerald-600">
-            {analytics.funnel_conversion_rate}%
+            {/* null = zero views = undefined ratio. Rendering "null%" or a
+                substituted denominator would fabricate a statistic. */}
+            {analytics.funnel_conversion_rate == null ? 'N/A' : `${analytics.funnel_conversion_rate}%`}
           </div>
-          <div className="text-[11px] text-slate-500 font-medium">Purchases/Views*100, excludes cancelled</div>
+          <div className="text-[11px] text-slate-500 font-medium">
+            {analytics.funnel_conversion_rate == null
+              ? 'No retained views yet — ratio not measurable'
+              : 'Purchases/Views*100, excludes cancelled'}
+          </div>
         </div>
 
         <div className="bg-white rounded-3xl border border-slate-200 p-5 shadow-sm space-y-1">

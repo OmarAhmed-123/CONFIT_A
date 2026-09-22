@@ -71,6 +71,10 @@ class ProductSKU(Base):
     price_override = Column(Numeric(12, 2), nullable=True)
     stock_level = Column(Integer, default=20, nullable=False)
     is_in_stock = Column(Boolean, default=True, nullable=False)
+    # Tenant denormalised from the parent product (migration 0019) so a
+    # composite FK can pin store inventory to one brand. Kept in step with
+    # products.brand_id by DB trigger; never set by hand.
+    brand_id = Column(Integer, nullable=True, index=True)
 
     product = relationship("Product", back_populates="skus")
     store_inventories = relationship("StoreInventory", back_populates="sku", cascade="all, delete-orphan")
@@ -126,6 +130,16 @@ class StoreInventory(Base):
     id = Column(Integer, primary_key=True, index=True)
     store_id = Column(Integer, ForeignKey("store_locations.id", ondelete="CASCADE"), nullable=False)
     sku_id = Column(Integer, ForeignKey("product_skus.id", ondelete="CASCADE"), nullable=False)
+    # Denormalised tenant discriminator (migration 0019). This row joins a
+    # store to a SKU, each independently owned; without the tenant carried
+    # here the database could not require that BOTH sides belong to the same
+    # brand, and production accumulated cross-tenant rows that leaked one
+    # brand's store id and stock into another brand's API response.
+    # Composite FKs (store_id, brand_id) -> store_locations(id, brand_id) and
+    # (sku_id, brand_id) -> product_skus(id, brand_id) now make that
+    # impossible at the schema level.
+    brand_id = Column(Integer, ForeignKey("brand_profiles.id", ondelete="CASCADE"),
+                      nullable=True, index=True)
     quantity = Column(Integer, default=5, nullable=False)
     reserved_quantity = Column(Integer, default=0, nullable=False)
 

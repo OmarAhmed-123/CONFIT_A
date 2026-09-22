@@ -157,17 +157,25 @@ class BrandRepository:
         if quantity > 100000:
             raise ValueError("Quantity exceeds maximum")
 
-        # Upsert with locking - concurrency-safe with SELECT FOR UPDATE
+        # Upsert with locking - concurrency-safe with SELECT FOR UPDATE.
+        # Scoped by brand_id as well as the natural key: an existing row that
+        # somehow belongs to another tenant must NOT be silently adopted by
+        # this write (that is how the leaked rows became invisible).
         inv = self.db.query(StoreInventory).filter(
             StoreInventory.store_id == store_id,
             StoreInventory.sku_id == sku_id
         ).populate_existing().with_for_update().first()
 
         if inv:
+            if inv.brand_id is not None and inv.brand_id != brand_id:
+                raise ValueError(
+                    f"Inventory row {inv.id} belongs to brand {inv.brand_id}, not {brand_id}"
+                )
             # Invariant: reserved <= quantity, quantity >=0, reserved >=0
             if inv.reserved_quantity > quantity:
                 raise ValueError(f"Cannot set quantity {quantity} below reserved {inv.reserved_quantity}")
             inv.quantity = int(quantity)
+            inv.brand_id = brand_id  # heal legacy NULLs on write
             # Ensure invariants hold
             assert inv.quantity >= 0, "Invariant violation: quantity >=0"
             assert inv.reserved_quantity >= 0, "Invariant violation: reserved >=0"
@@ -176,6 +184,7 @@ class BrandRepository:
             inv = StoreInventory(
                 store_id=store_id,
                 sku_id=sku_id,
+                brand_id=brand_id,
                 quantity=int(quantity),
                 reserved_quantity=0
             )
@@ -188,7 +197,83 @@ class BrandRepository:
         return inv
 
     def get_brand_stores(self, brand_id: int) -> List[StoreLocation]:
-        return self.db.query(StoreLocation).filter(StoreLocation.brand_id == brand_id).all()
+        """Canonical store list for a tenant. The ONLY query allowed to answer
+        "which stores does this brand have" — the inventory breakdown below is
+        derived from the same predicate so the two can never disagree."""
+        return (
+            self.db.query(StoreLocation)
+            .filter(StoreLocation.brand_id == brand_id)
+            .order_by(StoreLocation.id)
+            .all()
+        )
+
+    def get_brand_store_inventory_map(self, brand_id: int) -> Dict[int, List["StoreInventoryRow"]]:
+        """{sku_id: [rows]} of store inventory for ONE tenant, fully scoped.
+
+        P1 root cause (production-confirmed): callers previously filtered
+        StoreInventory by `sku_id IN (brand's skus)` only. StoreInventory is a
+        join table between two independently-owned entities (a store and a
+        SKU), so that predicate constrains ONE side of the join. Legacy rows
+        where store.brand_id != product.brand_id therefore surfaced another
+        tenant's store id and quantities — while `get_brand_stores` (correctly
+        scoped) returned 0. Hence "Store Locations (0)" next to "Store #1".
+
+        Both sides are now pinned to the SAME brand_id in a single SQL join,
+        which is also what the 0019 composite-FK migration enforces at the
+        database level. Application scoping and schema constraint agree; this
+        method is the single source of truth for the breakdown (DRY).
+        """
+        rows = (
+            self.db.query(
+                StoreInventory.id,
+                StoreInventory.sku_id,
+                StoreInventory.store_id,
+                StoreInventory.quantity,
+                StoreInventory.reserved_quantity,
+                StoreLocation.name.label("store_name"),
+            )
+            .join(StoreLocation, StoreLocation.id == StoreInventory.store_id)
+            .join(ProductSKU, ProductSKU.id == StoreInventory.sku_id)
+            .join(Product, Product.id == ProductSKU.product_id)
+            .filter(
+                StoreLocation.brand_id == brand_id,   # store side owned by tenant
+                Product.brand_id == brand_id,         # SKU side owned by tenant
+            )
+            .order_by(StoreInventory.sku_id, StoreInventory.store_id)
+            .all()
+        )
+        inv_map: Dict[int, List[Any]] = {}
+        for row in rows:
+            inv_map.setdefault(row.sku_id, []).append(row)
+        return inv_map
+
+    def find_cross_tenant_inventory(self, brand_id: Optional[int] = None) -> List[Dict[str, Any]]:
+        """Detective control: StoreInventory rows whose store and SKU belong to
+        different brands. Must always return [] — used by the integrity test and
+        by scripts/audit_brand_tenant_integrity.py so a regression is caught by
+        evidence rather than by a customer."""
+        q = (
+            self.db.query(
+                StoreInventory.id,
+                StoreInventory.store_id,
+                StoreInventory.sku_id,
+                StoreLocation.brand_id.label("store_brand_id"),
+                Product.brand_id.label("product_brand_id"),
+                StoreInventory.quantity,
+            )
+            .join(StoreLocation, StoreLocation.id == StoreInventory.store_id)
+            .join(ProductSKU, ProductSKU.id == StoreInventory.sku_id)
+            .join(Product, Product.id == ProductSKU.product_id)
+            .filter(StoreLocation.brand_id != Product.brand_id)
+        )
+        if brand_id is not None:
+            q = q.filter(or_(StoreLocation.brand_id == brand_id, Product.brand_id == brand_id))
+        return [
+            {"inventory_id": r.id, "store_id": r.store_id, "sku_id": r.sku_id,
+             "store_brand_id": r.store_brand_id, "product_brand_id": r.product_brand_id,
+             "quantity": r.quantity}
+            for r in q.order_by(StoreInventory.id).all()
+        ]
 
     def create_store(self, brand_id: int, data: Dict[str, Any]) -> StoreLocation:
         # Validate required fields
@@ -311,8 +396,12 @@ class BrandRepository:
             revenue_eligible(Order.status)
         ).scalar() or 0
 
-        # Funnel conversion rate: purchases / views * 100
-        funnel_rate = round((total_purchases / total_views * 100) if total_views > 0 else 0.0, 2)
+        # Funnel conversion rate: purchases / views * 100.
+        # A zero denominator yields None ("not measurable"), never 0.0 and
+        # never a substituted denominator of 1. Reporting 0% when there are no
+        # views asserts "nobody converted", which is a different and unproven
+        # claim from "there is nothing to divide by".
+        funnel_rate = round(total_purchases / total_views * 100, 2) if total_views > 0 else None
 
         # 5. Outfit Performance: real ranking from OutfitItem
         # Count appearances of each product in outfits
@@ -385,7 +474,7 @@ class BrandRepository:
             "total_tryons": int(total_tryons),
             "total_add_to_carts": int(total_add_to_carts),
             "total_purchases": int(total_purchases),
-            "funnel_conversion_rate": float(funnel_rate),
+            "funnel_conversion_rate": float(funnel_rate) if funnel_rate is not None else None,
             "return_rate_before_vton": pre_rate,
             "return_rate_after_vton": post_rate,
             "return_reduction_percentage": reduction,
@@ -393,7 +482,7 @@ class BrandRepository:
             "bopis_store_fulfillment_rate": bopis_rate,
             "return_cohorts": returns,
             "data_source": "transactional_snapshot",
-            "methodology": "All-time retained RecentlyViewed product-view rows, TryOnSession records (not necessarily completed), current CartItem lines, and non-cancelled/non-refunded/non-failed OrderItem purchase lines. Not a session-linked conversion funnel. Spend is recorded placement spend, not a verified billing ledger.",
+            "methodology": "All-time retained RecentlyViewed product-view rows, TryOnSession records (not necessarily completed), current CartItem lines, and non-cancelled/non-refunded/non-failed OrderItem purchase lines. Not a session-linked conversion funnel: these are independent per-table counts, so ratios mix measurement units and may exceed 100%. A null rate means the denominator is zero (not measurable), never 0%. Ad spend is reconciled against the append-only ad_ledger_entries journal (see /partner/billing/statement), not read from mutable counters.",
             "ad_spend_total": to_float(ad_spend),
             "ad_revenue_total": to_float(ad_revenue)
         }
@@ -440,9 +529,13 @@ class BrandRepository:
             revenue_eligible(Order.status)).group_by(OrderItem.product_id).all())
         result = [dict(product_id=p.id, sku_count=len(p.skus), title=p.title,
             views=views.get(p.id, 0), tryons=tryons.get(p.id, 0), add_to_cart=carts.get(p.id, 0),
-            purchases=purchases.get(p.id, 0), conversion_rate=round(purchases.get(p.id,0)/views[p.id]*100,2) if views.get(p.id) else 0.0
+            purchases=purchases.get(p.id, 0),
+            # None (not 0.0) when a product has no views: undefined, not zero.
+            conversion_rate=round(purchases.get(p.id, 0) / views[p.id] * 100, 2) if views.get(p.id) else None
         ) for p in products]
-        return sorted(result, key=lambda x: (-x["conversion_rate"], x["product_id"]))
+        # Unmeasurable products sort last instead of masquerading as 0% converters.
+        return sorted(result, key=lambda x: (x["conversion_rate"] is None,
+                                             -(x["conversion_rate"] or 0.0), x["product_id"]))
 
     def get_brand_preference_heatmaps(self, brand_id, region: Optional[str] = None, min_users: int = 10):
         """Tenant-scoped style signals for one brand's products.

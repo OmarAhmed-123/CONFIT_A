@@ -287,7 +287,11 @@
     "field_placement_product": "Placement product",
     "field_placement_type": "Placement type",
     "field_bid_cpc": "Bid per click",
-    "field_daily_budget": "Daily budget"
+    "field_daily_budget": "Daily budget",
+    "inv_mismatch_title": "Inconsistent inventory data detected",
+    "inv_mismatch_body": "This brand has no store locations, yet store-level stock rows were returned. Do not trust either figure; report this with your brand id.",
+    "inv_orphan_title": "Unrecognised store ids in your inventory",
+    "conv_na_hint": "No views recorded for this product — the ratio has no denominator."
   },
   "common": {
     "sign_in": "Sign In",

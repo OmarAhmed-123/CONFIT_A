@@ -52,6 +52,7 @@ import json
 import os
 import re
 import sys
+import time
 import urllib.error
 import urllib.request
 from typing import NoReturn
@@ -70,25 +71,58 @@ def _indeterminate(message: str) -> "NoReturn":
 DEFAULT_HEALTH_URL = os.environ.get(
     "PRODUCTION_HEALTH_URL", "https://confit-a.vercel.app/api/v1/health"
 )
-TIMEOUT_SECONDS = float(os.environ.get("RELEASE_GATE_TIMEOUT", "20"))
+TIMEOUT_SECONDS = float(os.environ.get("RELEASE_GATE_TIMEOUT", "45"))
+ATTEMPTS = int(os.environ.get("RELEASE_GATE_ATTEMPTS", "3"))
 
 
 def fetch_production_schema(url: str = DEFAULT_HEALTH_URL) -> dict:
-    """The deployed app's own view of the database it is talking to."""
+    """The deployed app's own view of the database it is talking to.
+
+    Retries on timeout/connection errors before giving up.
+
+    Production runs on Vercel serverless. A cold invocation has to boot the
+    runtime and open a fresh pooled connection to Neon, which was measured at
+    ~26s on 2026-09-22 — against the 20s single-shot timeout this function used
+    to apply. So the gate reported "production is unreachable" and failed the
+    release for a healthy deployment that was merely asleep. An idle app is not
+    an unreachable one, and a gate that cries wolf on a cold start teaches
+    people to bypass it.
+
+    The first request pays the cold start and warms the instance, so a retry
+    answers in well under a second. INDETERMINATE is still the outcome when
+    production genuinely cannot be reached — this widens the window, it does
+    not soften the verdict, and it never infers a revision it did not read.
+    """
     request = urllib.request.Request(url, headers={"Accept": "application/json"})
-    try:
-        with urllib.request.urlopen(request, timeout=TIMEOUT_SECONDS) as response:
-            status = response.status
-            body = response.read().decode("utf-8", errors="replace")
-    except urllib.error.HTTPError as exc:  # 500 while the gate refuses to boot
+    last_error: Exception | None = None
+
+    for attempt in range(1, ATTEMPTS + 1):
+        try:
+            with urllib.request.urlopen(request, timeout=TIMEOUT_SECONDS) as response:
+                status = response.status
+                body = response.read().decode("utf-8", errors="replace")
+            break
+        except urllib.error.HTTPError as exc:  # 500 while the gate refuses to boot
+            _indeterminate(
+                f"RELEASE GATE: INDETERMINATE — production {url} answered HTTP {exc.code}.\n"
+                "  A production API that cannot serve /health cannot certify a deploy.\n"
+                "  Fix or roll back production first; this gate never passes on a guess."
+            )
+        except (urllib.error.URLError, TimeoutError) as exc:
+            last_error = exc
+            if attempt < ATTEMPTS:
+                delay = 2 ** (attempt - 1)
+                print(
+                    f"  /health attempt {attempt}/{ATTEMPTS} failed ({exc}); "
+                    f"retrying in {delay}s (serverless cold start can exceed "
+                    f"{TIMEOUT_SECONDS:.0f}s).",
+                    file=sys.stderr,
+                )
+                time.sleep(delay)
+    else:
         _indeterminate(
-            f"RELEASE GATE: INDETERMINATE — production {url} answered HTTP {exc.code}.\n"
-            "  A production API that cannot serve /health cannot certify a deploy.\n"
-            "  Fix or roll back production first; this gate never passes on a guess."
-        )
-    except (urllib.error.URLError, TimeoutError) as exc:
-        _indeterminate(
-            f"RELEASE GATE: INDETERMINATE — production {url} is unreachable ({exc}).\n"
+            f"RELEASE GATE: INDETERMINATE — production {url} is unreachable after "
+            f"{ATTEMPTS} attempts ({last_error}).\n"
             "  Production state must be determinable before a release can be approved."
         )
 

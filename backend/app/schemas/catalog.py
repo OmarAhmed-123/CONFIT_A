@@ -1,5 +1,5 @@
 from typing import Optional, List, Dict, Any
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 
 
 class CategoryOut(BaseModel):
@@ -14,15 +14,44 @@ class CategoryOut(BaseModel):
 
 
 class ProductSKUOut(BaseModel):
+    """Presentation contract for a SKU.
+
+    NULL-TOLERANT ON PURPOSE (2026-09-22). `color_hex` is nullable in the
+    database but its default lives in the ORM model, so any row written outside
+    the ORM (a SQL backfill, a bulk import, a migration) stores NULL. A strict
+    `str` here then raises a ValidationError while SERIALISING THE RESPONSE,
+    which FastAPI surfaces as a 500 — and because the catalog endpoint returns a
+    list, ONE such row takes down the ENTIRE catalog for that brand, not just
+    the offending item. That was observed in production: a single product with
+    NULL cosmetic fields made GET /brand/products return 500.
+
+    A missing decorative hex is not a server error. The field now carries the
+    same default the model declares, so the contract degrades gracefully instead
+    of failing closed on cosmetics. Genuinely required identifiers (id,
+    sku_code, size) stay strict — those really are errors if absent.
+    """
     id: int
     product_id: int
     sku_code: str
     size: str
     color: str
-    color_hex: str
-    price_override: Optional[float]
-    stock_level: int
-    is_in_stock: bool
+    color_hex: Optional[str] = None
+    price_override: Optional[float] = None
+    stock_level: int = 0
+    # An explicit NULL is not the same as an absent key: a plain default only
+    # applies when the field is MISSING, so a NULL column still fails. These
+    # validators turn NULL into the model's declared default.
+    is_in_stock: bool = False
+
+    @field_validator("stock_level", mode="before")
+    @classmethod
+    def _null_stock_is_zero(cls, v):
+        return 0 if v is None else v
+
+    @field_validator("is_in_stock", mode="before")
+    @classmethod
+    def _null_in_stock_is_false(cls, v):
+        return False if v is None else v
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -51,13 +80,27 @@ class ProductSummaryOut(BaseModel):
     currency: str
     thumbnail_url: str
     color_family: str
-    dominant_hex: str
-    style_tags: List[str]
-    occasion_tags: List[str]
-    rating: float
+    # Cosmetic/derived fields are nullable in the database but their defaults
+    # live in the ORM model, so rows written outside the ORM store NULL. Strict
+    # types here turn a missing decoration into a 500 for the whole list
+    # response. See ProductSKUOut above for the full rationale.
+    dominant_hex: Optional[str] = None
+    style_tags: List[str] = []
+    occasion_tags: List[str] = []
+    rating: Optional[float] = None
     style_compatibility_score: Optional[int] = None
     ai_fit_score: Optional[int] = None
-    is_featured: bool
+    is_featured: bool = False
+
+    @field_validator("is_featured", mode="before")
+    @classmethod
+    def _null_featured_is_false(cls, v):
+        return False if v is None else v
+
+    @field_validator("style_tags", "occasion_tags", mode="before")
+    @classmethod
+    def _null_tags_are_empty(cls, v):
+        return [] if v is None else v
 
     model_config = ConfigDict(from_attributes=True)
 

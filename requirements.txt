@@ -38,3 +38,7 @@ boto3>=1.35.0
 # addressing on S3-compatible stores) — declared explicitly because the
 # deployment import-closure gate only trusts pins, not transitive installs.
 botocore>=1.35.0
+
+# PDF generation for brand product/sales reports (pure-Python, no system deps,
+# which matters on serverless where native libraries like cairo are unavailable).
+reportlab==5.0.1

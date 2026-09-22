@@ -828,3 +828,105 @@ def brand_billing_statement(
     if (end - start).days > 366:
         raise HTTPException(status_code=422, detail="Statement range is limited to 366 days")
     return AdBillingService(db).brand_statement(bp["id"], start, end)
+
+
+# ---------------------------------------------------------------------------
+# Brand reporting (JSON + PDF)
+#
+# One dataset, two representations. `BrandReportService` owns every number and
+# both endpoints below consume it, so the JSON a brand sees on screen and the
+# PDF it files away can never disagree. Tenancy is resolved from the
+# authenticated user via `get_brand_profile_by_user`; the brand id is NEVER
+# taken from the request, so a brand manager cannot render another tenant's
+# report by editing a query string.
+# ---------------------------------------------------------------------------
+def _report_params(date_from: Optional[str], date_to: Optional[str],
+                   category_id: Optional[int], product_id: Optional[int]):
+    from datetime import datetime as _dt
+    parsed = {}
+    for name, raw in (("date_from", date_from), ("date_to", date_to)):
+        if not raw:
+            parsed[name] = None
+            continue
+        try:
+            parsed[name] = _dt.fromisoformat(raw)
+        except ValueError:
+            raise HTTPException(status_code=422,
+                                detail=f"{name} must be ISO-8601 (YYYY-MM-DD)")
+    if parsed["date_from"] and parsed["date_to"] and parsed["date_from"] > parsed["date_to"]:
+        raise HTTPException(status_code=422, detail="date_from must be on or before date_to")
+    return parsed["date_from"], parsed["date_to"], category_id, product_id
+
+
+@router.get("/partner/reports/product-sales")
+@router.get("/brand/reports/product-sales")
+def brand_product_sales_report(
+    date_from: Optional[str] = Query(None, description="ISO date, inclusive"),
+    date_to: Optional[str] = Query(None, description="ISO date, inclusive"),
+    category_id: Optional[int] = Query(None),
+    product_id: Optional[int] = Query(None),
+    include_zero_sales: bool = Query(True),
+    user: User = Depends(brand_auth),
+    db: Session = Depends(get_db),
+):
+    """Product and sales dataset for the authenticated brand (JSON)."""
+    from backend.app.services.brand_report_service import BrandReportService
+    bp = BrandService(db).get_brand_profile_by_user(user)
+    df, dt, cid, pid = _report_params(date_from, date_to, category_id, product_id)
+    data = BrandReportService(db).build_product_sales_report(
+        bp["id"], date_from=df, date_to=dt, category_id=cid, product_id=pid,
+        include_zero_sales=include_zero_sales)
+    # Decimals/datetimes -> JSON-safe primitives without losing precision.
+    return {
+        **data,
+        "generated_at": data["generated_at"].isoformat(),
+        "period": {**data["period"],
+                   "from": data["period"]["from"].isoformat() if data["period"]["from"] else None,
+                   "to": data["period"]["to"].isoformat() if data["period"]["to"] else None},
+        "rows": [{**r,
+                  "list_price": str(r["list_price"]),
+                  "gross_sales": str(r["gross_sales"]),
+                  "net_sales": str(r["net_sales"])} for r in data["rows"]],
+        "totals": {**data["totals"],
+                   "gross_sales": str(data["totals"]["gross_sales"]),
+                   "net_sales": str(data["totals"]["net_sales"])},
+    }
+
+
+@router.get("/partner/reports/product-sales.pdf")
+@router.get("/brand/reports/product-sales.pdf")
+def brand_product_sales_report_pdf(
+    date_from: Optional[str] = Query(None, description="ISO date, inclusive"),
+    date_to: Optional[str] = Query(None, description="ISO date, inclusive"),
+    category_id: Optional[int] = Query(None),
+    product_id: Optional[int] = Query(None),
+    include_zero_sales: bool = Query(True),
+    user: User = Depends(brand_auth),
+    db: Session = Depends(get_db),
+):
+    """The same dataset, rendered as a downloadable PDF."""
+    from fastapi.responses import Response
+    from backend.app.services.brand_report_service import BrandReportService
+    bp = BrandService(db).get_brand_profile_by_user(user)
+    df, dt, cid, pid = _report_params(date_from, date_to, category_id, product_id)
+    data = BrandReportService(db).build_product_sales_report(
+        bp["id"], date_from=df, date_to=dt, category_id=cid, product_id=pid,
+        include_zero_sales=include_zero_sales)
+    try:
+        from backend.app.services.brand_report_pdf import render_report_pdf
+    except ImportError:
+        # Never pretend: if the renderer is unavailable, say exactly that.
+        raise HTTPException(
+            status_code=503,
+            detail="PDF rendering is unavailable in this deployment (reportlab missing). "
+                   "The same data is available as JSON at /partner/reports/product-sales.")
+    pdf = render_report_pdf(data)
+    _audit(db, user, "BRAND_REPORT_PDF_GENERATED", "BrandProfile", bp["id"],
+           {"rows": len(data["rows"]), "period": data["period"]["label"]})
+    db.commit()
+    slug = (data["brand"]["slug"] or f"brand-{bp['id']}")
+    stamp = data["generated_at"].strftime("%Y%m%d")
+    return Response(
+        content=pdf, media_type="application/pdf",
+        headers={"Content-Disposition":
+                 f'attachment; filename="confit-{slug}-product-sales-{stamp}.pdf"'})

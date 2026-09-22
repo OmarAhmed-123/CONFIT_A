@@ -80,10 +80,34 @@ elif "sqlite" in raw_url:
     except Exception:
         pass
 
+# pool_pre_ping issues a liveness round trip (effectively `SELECT 1`) EVERY time
+# a connection is checked out of the pool. That is the correct default when a
+# process holds long-lived connections that a proxy or the database may have
+# closed underneath it -- reconnecting transparently beats surfacing a stale
+# socket as a 500.
+#
+# Measured against the production database it costs ~150ms per checkout, and in
+# the serverless deployment a request typically checks out once, so every single
+# API call pays a full extra round trip before it does any work.
+#
+# The trade is only safe to take where something else already guarantees the
+# connection is fresh. On serverless the function is short-lived and pooled
+# behind Neon's own connection pooler, and pool_recycle below already discards
+# connections older than the proxy's idle timeout, so the pre-ping is redundant
+# there. On a long-running server (local dev, the Docker image) it is NOT
+# redundant, so it stays on. Overridable via DB_POOL_PRE_PING for operators who
+# hit stale-connection errors and want the check back unconditionally.
+_is_serverless = bool(os.getenv("VERCEL") or os.getenv("AWS_LAMBDA_FUNCTION_NAME"))
+_pre_ping_env = os.getenv("DB_POOL_PRE_PING")
+if _pre_ping_env is not None:
+    _pre_ping = _pre_ping_env.strip().lower() in ("1", "true", "yes", "on")
+else:
+    _pre_ping = not _is_serverless
+
 engine = create_engine(
     raw_url,
     connect_args=connect_args,
-    pool_pre_ping=True,
+    pool_pre_ping=_pre_ping,
     pool_recycle=300,
     echo=False
 )

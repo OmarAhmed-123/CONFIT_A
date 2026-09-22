@@ -10,7 +10,7 @@ from backend.app.core.revenue_policy import (
 )
 from backend.app.core.timeutils import TimeRange, to_naive_utc
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func, and_, or_, desc, case
+from sqlalchemy import func, and_, or_, desc, case, select, literal
 import json
 import hashlib
 
@@ -370,31 +370,48 @@ class BrandRepository:
         product_ids = [p.id for p in products]
         total_skus = sum(len(p.skus) for p in products)
 
-        # 1. Views: count RecentlyViewed for brand products
-        total_views = self.db.query(func.count(RecentlyViewed.id)).filter(
-            RecentlyViewed.product_id.in_(product_ids)
-        ).scalar() or 0
+        # Headline counters: FOUR independent aggregates over four unrelated
+        # tables, issued as ONE round trip instead of four.
+        #
+        # WHY THIS SHAPE (measured, not guessed): against production these
+        # aggregates scan 3-114 rows and each still costs ~150ms, while a bare
+        # `SELECT 1` on the same connection also costs ~150ms. The cost is
+        # therefore network round-trip latency to the managed database, not
+        # query execution -- so an index would buy nothing and only reducing
+        # the NUMBER of round trips helps. Scalar subqueries in one SELECT are
+        # the correct tool: each subquery is exactly the query that ran before
+        # (same predicates, same semantics), so the numbers are unchanged; only
+        # the number of network hops drops from 4 to 1.
+        if product_ids:
+            headline = self.db.execute(
+                select(
+                    select(func.count(RecentlyViewed.id))
+                    .where(RecentlyViewed.product_id.in_(product_ids))
+                    .scalar_subquery().label("views"),
 
-        # 2. Try-ons: count TryOnSession where product_id in brand products (via tryon_sessions table)
-        # TryOnSession has product_id column
-        total_tryons = self.db.query(func.count(TryOnSession.id)).filter(
-            TryOnSession.product_id.in_(product_ids)
-        ).scalar() or 0
+                    select(func.count(TryOnSession.id))
+                    .where(TryOnSession.product_id.in_(product_ids))
+                    .scalar_subquery().label("tryons"),
 
-        # 3. Add-to-cart: count CartItem where SKU belongs to brand products
-        total_add_to_carts = self.db.query(func.count(CartItem.id)).join(
-            ProductSKU, CartItem.product_sku_id == ProductSKU.id
-        ).filter(
-            ProductSKU.product_id.in_(product_ids)
-        ).scalar() or 0
+                    select(func.count(CartItem.id))
+                    .join(ProductSKU, CartItem.product_sku_id == ProductSKU.id)
+                    .where(ProductSKU.product_id.in_(product_ids))
+                    .scalar_subquery().label("add_to_carts"),
 
-        # 4. Purchases: count OrderItem where brand_id = brand_id and order not cancelled
-        total_purchases = self.db.query(func.count(OrderItem.id)).join(
-            Order, OrderItem.order_id == Order.id
-        ).filter(
-            OrderItem.brand_id == brand_id,
-            revenue_eligible(Order.status)
-        ).scalar() or 0
+                    select(func.count(OrderItem.id))
+                    .join(Order, OrderItem.order_id == Order.id)
+                    .where(OrderItem.brand_id == brand_id,
+                           revenue_eligible(Order.status))
+                    .scalar_subquery().label("purchases"),
+                )
+            ).one()
+            total_views = headline.views or 0
+            total_tryons = headline.tryons or 0
+            total_add_to_carts = headline.add_to_carts or 0
+            total_purchases = headline.purchases or 0
+        else:
+            # No products: every count is definitionally zero. Skip the trip.
+            total_views = total_tryons = total_add_to_carts = total_purchases = 0
 
         # Funnel conversion rate: purchases / views * 100.
         # A zero denominator yields None ("not measurable"), never 0.0 and
@@ -412,6 +429,32 @@ class BrandRepository:
             OutfitItem.product_id.in_(product_ids)
         ).group_by(OutfitItem.product_id).order_by(desc("appearances")).limit(10).all()
 
+        # N+1 ELIMINATED. This loop previously issued TWO queries per ranked
+        # product (add-to-cart count, purchase count), so a brand with 10
+        # ranked products paid 20 extra round trips -- ~3s of pure latency on
+        # top of everything else. Both are now computed for ALL ranked products
+        # in two grouped queries before the loop, and the loop reads dicts.
+        ranked_ids = [pid for pid, _ in outfit_appearances]
+        atc_by_product: Dict[int, int] = {}
+        purch_by_product: Dict[int, int] = {}
+        if ranked_ids:
+            atc_by_product = {
+                pid: n for pid, n in self.db.query(
+                    ProductSKU.product_id, func.count(CartItem.id)
+                ).join(CartItem, CartItem.product_sku_id == ProductSKU.id)
+                .filter(ProductSKU.product_id.in_(ranked_ids))
+                .group_by(ProductSKU.product_id).all()
+            }
+            purch_by_product = {
+                pid: n for pid, n in self.db.query(
+                    OrderItem.product_id, func.count(OrderItem.id)
+                ).join(Order, Order.id == OrderItem.order_id)
+                .filter(OrderItem.product_id.in_(ranked_ids),
+                        OrderItem.brand_id == brand_id,
+                        revenue_eligible(Order.status))
+                .group_by(OrderItem.product_id).all()
+            }
+
         # Build rankings with real data
         outfit_rankings = []
         for prod_id, appearances in outfit_appearances:
@@ -419,20 +462,8 @@ class BrandRepository:
             if not prod:
                 continue
 
-            # Calculate add-to-cart and purchase rates for this product
-            prod_sku_ids = [s.id for s in prod.skus]
-            if prod_sku_ids:
-                prod_add_to_cart = self.db.query(func.count(CartItem.id)).filter(
-                    CartItem.product_sku_id.in_(prod_sku_ids)
-                ).scalar() or 0
-                prod_purchases = self.db.query(func.count(OrderItem.id)).join(Order, Order.id == OrderItem.order_id).filter(
-                    OrderItem.product_id == prod_id,
-                    revenue_eligible(Order.status),
-                    OrderItem.brand_id == brand_id
-                ).scalar() or 0
-            else:
-                prod_add_to_cart = 0
-                prod_purchases = 0
+            prod_add_to_cart = atc_by_product.get(prod_id, 0)
+            prod_purchases = purch_by_product.get(prod_id, 0)
 
             # Rates based on appearances
             add_to_cart_rate = round((prod_add_to_cart / appearances * 100) if appearances > 0 else 0.0, 1)
@@ -449,6 +480,13 @@ class BrandRepository:
 
         # Item-grain cohorts cannot attribute another brand's return in a
         # mixed-brand order to this tenant. No benchmark fallback.
+        #
+        # get_brand_return_metrics() is deliberately NOT inlined here: it is
+        # also the sole implementation behind GET /brand/returns
+        # (brand_controller.py:195). Duplicating its cohort logic to save one
+        # round trip would put the same return-rate definition in two places,
+        # which is exactly how two screens start disagreeing about the same
+        # number. One extra hop is the right trade for one definition (DRY).
         returns = self.get_brand_return_metrics(brand_id)
         pre_rate = returns["return_rate_before_vton"]
         post_rate = returns["return_rate_after_vton"]
@@ -461,10 +499,17 @@ class BrandRepository:
         bopis_done = sum(n for status, n in bopis if status in ("picked_up", "completed"))
         bopis_rate = round(bopis_done / bopis_total * 100, 1) if bopis_total else None
 
-        # 8. Ad spend and revenue from SponsoredPlacement
-        placements = self.get_brand_placements(brand_id)
-        ad_spend = money_sum([p.spent_today for p in placements])
-        ad_revenue = money_sum([p.revenue_generated for p in placements])
+        # 8. Ad spend and revenue. Previously this loaded every SponsoredPlacement
+        # ORM object just to sum two columns; now the database sums them and
+        # returns two scalars in one row. Same totals, far less transferred.
+        ad_totals = self.db.execute(
+            select(
+                func.coalesce(func.sum(SponsoredPlacement.spent_today), 0),
+                func.coalesce(func.sum(SponsoredPlacement.revenue_generated), 0),
+            ).where(SponsoredPlacement.brand_id == brand_id)
+        ).one()
+        ad_spend = quantize_money(to_decimal(ad_totals[0] or 0))
+        ad_revenue = quantize_money(to_decimal(ad_totals[1] or 0))
 
         return {
             "brand_name": brand.brand_name,
@@ -517,16 +562,51 @@ class BrandRepository:
         ids = [p.id for p in products]
         if not ids:
             return []
-        views = dict(self.db.query(RecentlyViewed.product_id, func.count(RecentlyViewed.id)).filter(
-            RecentlyViewed.product_id.in_(ids)).group_by(RecentlyViewed.product_id).all())
-        tryons = dict(self.db.query(TryOnSession.product_id, func.count(TryOnSession.id)).filter(
-            TryOnSession.product_id.in_(ids)).group_by(TryOnSession.product_id).all())
-        carts = dict(self.db.query(ProductSKU.product_id, func.count(CartItem.id)).join(
-            CartItem, CartItem.product_sku_id == ProductSKU.id).filter(ProductSKU.product_id.in_(ids)
-            ).group_by(ProductSKU.product_id).all())
-        purchases = dict(self.db.query(OrderItem.product_id, func.count(OrderItem.id)).join(
-            Order, Order.id == OrderItem.order_id).filter(OrderItem.brand_id == brand_id,
-            revenue_eligible(Order.status)).group_by(OrderItem.product_id).all())
+        # Four per-product aggregates over four unrelated tables, fetched in ONE
+        # round trip via UNION ALL instead of four sequential queries. Against
+        # the production database each round trip costs ~150ms regardless of how
+        # little data it touches, so the hop count -- not the row count -- is
+        # the latency. Each branch below is the exact query that ran before
+        # (same joins, same predicates, same grouping), tagged with a metric
+        # name; the tags are split back out in Python. Identical numbers, a
+        # quarter of the network cost.
+        metric_rows = self.db.execute(
+            select(literal("views").label("metric"),
+                   RecentlyViewed.product_id.label("pid"),
+                   func.count(RecentlyViewed.id).label("n"))
+            .where(RecentlyViewed.product_id.in_(ids))
+            .group_by(RecentlyViewed.product_id)
+            .union_all(
+                select(literal("tryons"), TryOnSession.product_id,
+                       func.count(TryOnSession.id))
+                .where(TryOnSession.product_id.in_(ids))
+                .group_by(TryOnSession.product_id),
+
+                select(literal("carts"), ProductSKU.product_id,
+                       func.count(CartItem.id))
+                .select_from(ProductSKU)
+                .join(CartItem, CartItem.product_sku_id == ProductSKU.id)
+                .where(ProductSKU.product_id.in_(ids))
+                .group_by(ProductSKU.product_id),
+
+                select(literal("purchases"), OrderItem.product_id,
+                       func.count(OrderItem.id))
+                .select_from(OrderItem)
+                .join(Order, Order.id == OrderItem.order_id)
+                .where(OrderItem.brand_id == brand_id,
+                       revenue_eligible(Order.status))
+                .group_by(OrderItem.product_id),
+            )
+        ).all()
+
+        views: Dict[int, int] = {}
+        tryons: Dict[int, int] = {}
+        carts: Dict[int, int] = {}
+        purchases: Dict[int, int] = {}
+        _buckets = {"views": views, "tryons": tryons,
+                    "carts": carts, "purchases": purchases}
+        for metric, pid, n in metric_rows:
+            _buckets[metric][pid] = n
         result = [dict(product_id=p.id, sku_count=len(p.skus), title=p.title,
             views=views.get(p.id, 0), tryons=tryons.get(p.id, 0), add_to_cart=carts.get(p.id, 0),
             purchases=purchases.get(p.id, 0),

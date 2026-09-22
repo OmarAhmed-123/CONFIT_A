@@ -34,6 +34,7 @@ from backend.app.core.exceptions import (
     AuthenticationError,
     AuthorizationError,
     FulfillmentBlockedError,
+    IdempotencyKeyConflictError,
     InventoryUnavailableError,
     InvalidStateTransitionError,
     PaymentFailedError,
@@ -193,6 +194,42 @@ class CommerceService:
         logger.info("cart_merged", user_id=user_id)
         return self._format_cart(cart, user_id=user_id)
 
+    def _is_caller_own_idempotent_order(
+        self,
+        order: Order,
+        user_id: Optional[int],
+        session_token: str,
+        guest_email: Optional[str],
+    ) -> bool:
+        """May THIS caller replay an idempotency key that already produced `order`?
+
+        The key column is UNIQUE table-wide and the lookup is global, so the
+        replay decision is also an authorization decision. Without it, a caller
+        who sends another shopper's key receives that shopper's order — the same
+        cross-customer read that ``assert_order_access`` blocks on
+        ``GET /orders/{n}``. Measured 2026-09-22: that route asserts ownership
+        and the checkout replay path did not.
+
+        Identity rule, mirroring the rest of commerce:
+          * signed-in shopper  -> only orders on their own account;
+          * guest              -> only orders carrying their own guest session
+                                  token (the credential the cart already uses),
+                                  falling back to the guest e-mail only for
+                                  legacy rows written before the token was
+                                  persisted on the order.
+        """
+        if user_id is not None:
+            return order.user_id == user_id
+        if order.user_id is not None:
+            return False
+        if order.guest_session_token:
+            return order.guest_session_token == session_token
+        return bool(
+            order.guest_email
+            and guest_email
+            and order.guest_email.lower() == guest_email.lower()
+        )
+
     def apply_promo(
         self, session_token: str, promo_code: Optional[str], user_id: Optional[int] = None
     ) -> Dict[str, Any]:
@@ -221,8 +258,14 @@ class CommerceService:
         idempotency_key = checkout_data.get("idempotency_key")
         if idempotency_key:
             existing = self.commerce_repo.get_order_by_idempotency(idempotency_key)
-            if existing:
+            if existing and self._is_caller_own_idempotent_order(
+                existing, user_id, session_token, guest_email
+            ):
                 return self.get_order(existing.order_number)
+            if existing:
+                # Never disclose another shopper's order and never silently
+                # place a second order under a key that is already spent.
+                raise IdempotencyKeyConflictError()
 
         cart = self.commerce_repo.get_or_create_cart(session_token, user_id)
         cart_full = self.commerce_repo.get_cart_with_items(cart.id)
@@ -361,11 +404,19 @@ class CommerceService:
                 estimated_delivery_date=eta,
             )
         except IntegrityError:
+            # Lost a race on the unique idempotency key. Same ownership rule as
+            # the pre-flight replay above — this branch is the second, concurrent
+            # way a key can already be spent, and it disclosed the matching order
+            # just as unconditionally.
             self.db.rollback()
             if idempotency_key:
                 existing = self.commerce_repo.get_order_by_idempotency(idempotency_key)
-                if existing:
+                if existing and self._is_caller_own_idempotent_order(
+                    existing, user_id, session_token, guest_email
+                ):
                     return self.get_order(existing.order_number)
+                if existing:
+                    raise IdempotencyKeyConflictError()
             raise
 
         if promo:

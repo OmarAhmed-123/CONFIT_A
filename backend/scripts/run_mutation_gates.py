@@ -176,6 +176,66 @@ MUTATIONS: list[Mutation] = [
         "        engine_state = \"available\" if worker_url else \"misconfigured\"",
         ["backend/tests/test_capability_single_source.py"],
     ),
+    Mutation(
+        "M19",
+        "AI stylist: report `ready` from provider-key presence instead of the "
+        "measured quarantine signal (configuration-as-measurement, 2026-09-22)",
+        "backend/app/services/capability_service.py",
+        '        "ai_stylist", STATE_NOT_PROBED, CRITICALITY_SUPPORTING,',
+        '        "ai_stylist", STATE_READY, CRITICALITY_SUPPORTING,',
+        ["backend/tests/test_health_readiness_contract.py"],
+    ),
+    Mutation(
+        "M20",
+        "AI stylist: read the deprecated GROK_API_KEY field instead of the "
+        "canonical groq_api_key property (hides the documented GROQ_API_KEY)",
+        "backend/app/services/capability_service.py",
+        "            settings.groq_api_key,",
+        '            getattr(settings, "GROK_API_KEY", None),',
+        ["backend/tests/test_health_readiness_contract.py"],
+    ),
+    Mutation(
+        "M21",
+        "AI stylist: drop quarantine entries whose `configured` flag is false, "
+        "discarding the only real measurement (and hiding a total AI outage)",
+        "backend/app/services/capability_service.py",
+        "            if float(entry.get(\"cooling_for_seconds\") or 0) > 0:\n                quarantined[name] = entry",
+        "            if float(entry.get(\"cooling_for_seconds\") or 0) > 0 and entry.get(\"configured\"):\n                quarantined[name] = entry",
+        ["backend/tests/test_health_readiness_contract.py"],
+    ),
+    Mutation(
+        "M22",
+        "Checkout: replay an idempotency key globally instead of checking that the "
+        "matching order belongs to the caller (cross-account order disclosure, "
+        "2026-09-22)",
+        "backend/app/services/commerce_service.py",
+        "            if existing and self._is_caller_own_idempotent_order(\n"
+        "                existing, user_id, session_token, guest_email\n"
+        "            ):\n"
+        "                return self.get_order(existing.order_number)",
+        "            if existing:\n"
+        "                return self.get_order(existing.order_number)",
+        ["backend/tests/test_group5_commerce.py"],
+    ),
+    Mutation(
+        "M23",
+        "Checkout: the IntegrityError (lost-race) branch replays a foreign "
+        "idempotency key without the ownership check",
+        "backend/app/services/commerce_service.py",
+        "            if idempotency_key:\n"
+        "                existing = self.commerce_repo.get_order_by_idempotency(idempotency_key)\n"
+        "                if existing and self._is_caller_own_idempotent_order(\n"
+        "                    existing, user_id, session_token, guest_email\n"
+        "                ):\n"
+        "                    return self.get_order(existing.order_number)\n"
+        "                if existing:\n"
+        "                    raise IdempotencyKeyConflictError()",
+        "            if idempotency_key:\n"
+        "                existing = self.commerce_repo.get_order_by_idempotency(idempotency_key)\n"
+        "                if existing:\n"
+        "                    return self.get_order(existing.order_number)",
+        ["backend/tests/test_group5_commerce.py"],
+    ),
 ]
 
 

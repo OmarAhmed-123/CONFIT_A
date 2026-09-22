@@ -281,9 +281,23 @@ def downgrade() -> None:
         op.execute("DROP TRIGGER IF EXISTS trg_cascade_product_brand ON products")
         op.execute("DROP FUNCTION IF EXISTS confit_sync_sku_brand()")
         op.execute("DROP FUNCTION IF EXISTS confit_cascade_product_brand()")
-        # Put the quarantined rows back exactly as they were, now that nothing
-        # rejects them. ON CONFLICT guards against a row having been recreated
-        # in the meantime.
+        # Drop the denormalised tenant columns BEFORE restoring the quarantined
+        # rows. Ordering is load-bearing and was wrong until 2026-09-22: the
+        # restore below cannot supply a brand_id (a cross-tenant row has no
+        # single correct tenant — that is precisely why it was quarantined),
+        # while store_inventories.brand_id is still NOT NULL at this point. The
+        # INSERT therefore failed with NotNullViolation and aborted the whole
+        # downgrade, leaving the database stranded at 0019.
+        #
+        # This was invisible on an empty database (no quarantined rows, nothing
+        # to insert) and only appeared when the downgrade was rehearsed against
+        # a restored copy of production, which had 11 quarantined rows. Dropping
+        # the column first removes the constraint that made the row
+        # unrepresentable, so the original row comes back exactly as it was.
+        op.execute("ALTER TABLE store_inventories DROP COLUMN IF EXISTS brand_id")
+        op.execute("ALTER TABLE product_skus DROP COLUMN IF EXISTS brand_id")
+        # Now put the quarantined rows back exactly as they were. NOT EXISTS
+        # guards against a row having been recreated in the meantime.
         op.execute("""
             DO $$ BEGIN
                 IF to_regclass('public.store_inventories_tenant_quarantine') IS NOT NULL THEN
@@ -296,9 +310,20 @@ def downgrade() -> None:
                 END IF;
             END $$;
         """)
+        # The identity sequence must be moved past the restored ids, or the
+        # next insert collides with a row this downgrade just put back.
+        op.execute("""
+            DO $$
+            DECLARE seq text;
+            BEGIN
+                seq := pg_get_serial_sequence('store_inventories', 'id');
+                IF seq IS NOT NULL THEN
+                    PERFORM setval(seq, GREATEST(
+                        (SELECT COALESCE(MAX(id), 1) FROM store_inventories), 1));
+                END IF;
+            END $$;
+        """)
         op.execute("DROP TABLE IF EXISTS store_inventories_tenant_quarantine")
-        op.execute("ALTER TABLE store_inventories DROP COLUMN IF EXISTS brand_id")
-        op.execute("ALTER TABLE product_skus DROP COLUMN IF EXISTS brand_id")
         op.execute("DROP INDEX IF EXISTS ix_sponsored_placements_spend_date")
     # SQLite has no "DROP COLUMN IF EXISTS" (and no IF EXISTS on ALTER at all),
     # so the cross-dialect steps are driven by inspection rather than by

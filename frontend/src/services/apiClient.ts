@@ -1,3 +1,5 @@
+import { generateSessionToken } from '../lib/secureId';
+
 const API_BASE_URL = '/api/v1';
 
 export class ApiError extends Error {
@@ -14,11 +16,17 @@ export class ApiError extends Error {
   }
 }
 
-// Generate or retrieve persistent guest session token
+// Generate or retrieve the persistent guest session token.
+//
+// This value is a CREDENTIAL, not a cache key: the backend resolves the cart by
+// `session_token` for unauthenticated callers, and the same value is an indexed
+// join key on orders and try-on sessions. It was previously derived from
+// `Math.random()` + `Date.now()`, which is predictable; see lib/secureId.ts for
+// the reasoning and the fail-closed policy. (2026-09-22 consumer closure.)
 export const getSessionToken = (): string => {
   let token = localStorage.getItem('confit_session_token');
   if (!token) {
-    token = 'sess_' + Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
+    token = generateSessionToken();
     localStorage.setItem('confit_session_token', token);
   }
   return token;

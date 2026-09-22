@@ -1,4 +1,5 @@
 import { validateCheckoutSubmission, isValidEmail, CheckoutField } from '../../lib/checkoutValidation';
+import { generateIdempotencyKey } from '../../lib/secureId';
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -24,10 +25,11 @@ function marketCode(country: string): string {
 }
 
 function newIdempotencyKey(): string {
-  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-    return crypto.randomUUID();
-  }
-  return `chk_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+  // Same CSPRNG helper as the guest session token. This key is what tells the
+  // backend that a retry is the SAME purchase, so a collision is a correctness
+  // bug (a replay answered with the wrong order) and a predictable key is a
+  // replay hazard. See lib/secureId.ts (2026-09-22 consumer closure).
+  return generateIdempotencyKey();
 }
 
 export const CheckoutView: React.FC = () => {

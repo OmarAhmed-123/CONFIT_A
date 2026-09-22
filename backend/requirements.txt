@@ -45,3 +45,7 @@ anyio>=4.0.0
 # Pose/hand artifact regression harness (test-only; models are committed in
 # backend/cv_models/ — NOT part of the live serverless function).
 mediapipe>=1.0.0
+
+# PDF generation for brand product/sales reports (pure-Python, no system deps,
+# which matters on serverless where native libraries like cairo are unavailable).
+reportlab==5.0.1

@@ -99,7 +99,9 @@ class BrandAnalyticsDashboardOut(BaseModel):
     total_tryons: int
     total_add_to_carts: int
     total_purchases: int
-    funnel_conversion_rate: float
+    # Nullable by contract: None means "no denominator" (zero views), which is
+    # NOT the same claim as 0% conversion. Clients must render N/A, not a number.
+    funnel_conversion_rate: Optional[float]
     return_rate_before_vton: Optional[float]
     return_rate_after_vton: Optional[float]
     return_reduction_percentage: Optional[float]

@@ -28,7 +28,7 @@ interface InventoryItem {
     color: string;
     stock_level: number;
     is_in_stock: boolean;
-    store_inventories: Array<{ store_id: number; quantity: number; reserved: number; available: number }>;
+    store_inventories: Array<{ store_id: number; store_name?: string; quantity: number; reserved: number; available: number }>;
   }>;
 }
 
@@ -98,6 +98,16 @@ export const BrandInventoryView: React.FC = () => {
   const closeDialog = useCallback(() => { if (!savingStock) setShowStoreModal(false); }, [savingStock]);
   const dialogRef = useModalFocus<HTMLDivElement>(closeDialog, showStoreModal);
 
+  // Cross-check between the two independently fetched datasets. Any store id
+  // appearing in the SKU breakdown must exist in the store list.
+  const knownStoreIds = new Set(stores.map((s) => s.id));
+  const inventoryReferencesStores = inventory.some((item) =>
+    item.skus.some((sku) => sku.store_inventories.length > 0));
+  const orphanStoreIds = Array.from(new Set(
+    inventory.flatMap((item) => item.skus.flatMap((sku) =>
+      sku.store_inventories.map((si) => si.store_id))),
+  )).filter((id) => !knownStoreIds.has(id));
+
   if (isLoading) {
     return <LoadingSpinner text="Connecting to store inventory nodes..." />;
   }
@@ -119,7 +129,21 @@ export const BrandInventoryView: React.FC = () => {
 
       {/* Stores - REAL */}
       <div className="space-y-4">
-        <h3 className="font-serif text-lg font-bold text-[#1B1F3B]">Store Locations ({stores.length}) - Real from DB</h3>
+        <h3 className="font-serif text-lg font-bold text-[#1B1F3B]">
+          {fetchErrors.stores ? 'Store Locations (unknown — lookup failed)' : `Store Locations (${stores.length})`}
+        </h3>
+        {/* P1 consistency guard. The count and the per-SKU breakdown below are
+            now served by the SAME tenant-scoped query on the backend
+            (BrandRepository.get_brand_store_inventory_map), so "0 stores" can
+            no longer coexist with "Store #1: 6 avail". This assertion stays as
+            a visible tripwire: if the two ever disagree again the operator is
+            told, rather than being left to guess which number is real. */}
+        {!fetchErrors.stores && !fetchErrors.inventory && stores.length === 0 && inventoryReferencesStores && (
+          <div role="alert" className="p-4 rounded-2xl bg-amber-50 border border-amber-300">
+            <p className="text-[11px] font-bold text-amber-900">{t('b2b.inv_mismatch_title')}</p>
+            <p className="text-[11px] text-amber-800 mt-1">{t('b2b.inv_mismatch_body')}</p>
+          </div>
+        )}
         {fetchErrors.stores && (
           <div role="alert" className="p-4 rounded-2xl bg-rose-50 border border-rose-200">
             <p className="text-[11px] font-bold text-rose-800">Store network lookup failed</p>
@@ -194,7 +218,16 @@ export const BrandInventoryView: React.FC = () => {
       {/* Inventory - REAL */}
       <div className="space-y-4">
         <h3 className="font-serif text-lg font-bold text-[#1B1F3B]">Live Inventory by SKU and Location - Real from StoreInventory</h3>
-        <p className="text-[11px] text-slate-500">Stock levels per SKU per location, reserved quantity tracking, available = quantity - reserved. No negative inventory enforced.</p>
+        <p className="text-[11px] text-slate-500">Stock levels per SKU per location, reserved quantity tracking, available = quantity - reserved. No negative inventory enforced. Only stores belonging to your brand are shown.</p>
+        {orphanStoreIds.length > 0 && (
+          <div role="alert" className="p-4 rounded-2xl bg-rose-50 border border-rose-300">
+            <p className="text-[11px] font-bold text-rose-900">{t('b2b.inv_orphan_title')}</p>
+            <p className="text-[11px] text-rose-700 mt-1">
+              Store id(s) {orphanStoreIds.join(', ')} are not in your store list. These rows are highlighted
+              below and must not be treated as your stock.
+            </p>
+          </div>
+        )}
         {fetchErrors.inventory && (
           <div role="alert" className="p-4 rounded-2xl bg-rose-50 border border-rose-200">
             <p className="text-[11px] font-bold text-rose-800">Inventory lookup failed</p>
@@ -239,8 +272,15 @@ export const BrandInventoryView: React.FC = () => {
                                 <span className="text-slate-400">No store stock</span>
                               ) : (
                                 sku.store_inventories.map((si) => (
-                                  <span key={si.store_id} className="px-2 py-0.5 rounded-full bg-slate-100 text-[10px]">
-                                    Store #{si.store_id}: {si.available} avail ({si.quantity} total, {si.reserved} reserved)
+                                  <span
+                                    key={si.store_id}
+                                    className={`px-2 py-0.5 rounded-full text-[10px] ${knownStoreIds.has(si.store_id) ? 'bg-slate-100' : 'bg-rose-100 text-rose-800 font-bold'}`}
+                                    title={knownStoreIds.has(si.store_id) ? undefined : 'This store is not in your store list — report it.'}
+                                  >
+                                    {/* Name the store instead of only an opaque id: "Store #1"
+                                        told the operator nothing and hid the fact that the id
+                                        belonged to another tenant. */}
+                                    {si.store_name || `Store #${si.store_id}`}: {si.available} avail ({si.quantity} total, {si.reserved} reserved)
                                   </span>
                                 ))
                               )}

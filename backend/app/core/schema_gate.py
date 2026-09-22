@@ -119,7 +119,16 @@ REQUIRED_TABLES: tuple[str, ...] = (
 
 # Tables created by a migration only (no ORM model): a create_all database
 # legitimately lacks them, an Alembic-managed one must have them.
-MIGRATION_ONLY_TABLES: frozenset[str] = frozenset({"migration_audit_log"})
+MIGRATION_ONLY_TABLES: frozenset[str] = frozenset({
+    "migration_audit_log",
+    # 0019 — forensic quarantine for cross-tenant store_inventories rows that
+    # the new composite foreign keys reject. Deliberately has NO ORM model:
+    # nothing in the application may read or resurrect these rows; they exist
+    # so the remediation is auditable rather than a silent DELETE. Retained by
+    # downgrade() on purpose (dropping evidence on rollback would be worse
+    # than an extra table).
+    "store_inventories_tenant_quarantine",
+})
 
 REQUIRED_COLUMNS: Dict[str, tuple[str, ...]] = {
     "orders": ("payment_mode", "shipping_method", "estimated_delivery_date", "guest_session_token"),

@@ -233,7 +233,16 @@ class TestGateAgainstRealMigrations:
         _alembic(url, "up", "head")
         with engine.begin() as conn:
             conn.execute(text("UPDATE alembic_version SET version_num = '9999_destructive'"))
-            conn.execute(text("DROP TABLE sponsored_placements"))
+            # As of 0019 ad_ledger_entries carries an FK to
+            # sponsored_placements, so on PostgreSQL a bare DROP raises
+            # DependentObjectsStillExist instead of simulating the destructive
+            # migration this test is about. CASCADE keeps the scenario faithful
+            # — a real destructive migration would take the dependants too.
+            # SQLite has no CASCADE on DROP TABLE (and does not enforce the
+            # dependency here), so the plain form is both required and
+            # sufficient there.
+            cascade = " CASCADE" if conn.dialect.name == "postgresql" else ""
+            conn.execute(text(f"DROP TABLE sponsored_placements{cascade}"))
         report = evaluate(engine)
         assert report.verdict == "drift", report.findings
         assert "sponsored_placements" in report.missing_tables

@@ -50,16 +50,57 @@ def test_concurrent_import_same_brand_preserves_product_identity(portal):
 
 
 def test_click_budget_is_not_overspent_concurrently(portal):
-    client, factory, h, _ = portal
+    """Concurrent clicks must never overspend the daily budget, and the
+    append-only ledger must reconcile with the cached counter afterwards.
+
+    CONTRACT UPDATE (ad ledger, migration 0019): billable events now go through
+    AdBillingService, which additionally de-duplicates repeated clicks from the
+    SAME actor inside a short window. The previous version of this test raced
+    two clicks from one authenticated user, so under the new fraud rule the
+    second is legitimately "recorded, not billed" (HTTP 200) rather than
+    "budget exceeded" (HTTP 400) — the budget is still never overspent, which
+    is what this test exists to prove.
+
+    Racing distinct actors keeps the test aimed at the lost-update/double-spend
+    race it was written for, instead of accidentally testing the dedup window.
+    """
+    client, factory, h, ids = portal
     postgres_only(factory)
     pid = make_placement(portal)
-    assert client.patch(f'/partner/placements/{pid}', headers=h[0], json={'daily_budget':1}).status_code == 200
-    barrier = Barrier(2)
-    def click(_):
-        barrier.wait(timeout=10)
-        return client.post(f'/partner/placements/{pid}/click', headers=h[0]).status_code
-    with ThreadPoolExecutor(2) as pool:
-        results = list(pool.map(click, [0,1]))
-    assert sorted(results) == [200,400]
+    assert client.patch(f'/partner/placements/{pid}', headers=h[0],
+                        json={'daily_budget': 1}).status_code == 200
+
+    from backend.app.services.ad_billing_service import AdBillingService, AdBillingError
+
+    # make_placement uses bid_amount_per_click = 1.00, and the PATCH above sets
+    # daily_budget = 1.00 => EXACTLY ONE click may bill; the rest must be refused.
+    workers = 8
+    barrier = Barrier(workers)
+
+    def click(i):
+        barrier.wait(timeout=20)
+        with factory() as db:
+            try:
+                return AdBillingService(db).record_event(
+                    pid, ids[0], 'click',
+                    event_key=f'conc-{pid}-{i}', actor_user_id=90000 + i)['status']
+            except AdBillingError as exc:
+                return exc.code
+
+    with ThreadPoolExecutor(workers) as pool:
+        results = list(pool.map(click, range(workers)))
+
+    billed = [r for r in results if r == 'recorded']
+    assert len(billed) == 1, f"budget allows exactly 1 click, billed {len(billed)}: {results}"
+    assert all(r in ('recorded', 'BUDGET_EXHAUSTED') for r in results), results
+
     data = client.get('/partner/placements', headers=h[0]).json()[0]
-    assert data['spent_today'] == 1 and data['clicks'] == 1
+    assert float(data['spent_today']) == 1.0
+    assert float(data['spent_today']) <= float(data['daily_budget']), "overspent the daily budget"
+    assert data['clicks'] == 1
+
+    # The counter is only a projection: it must equal the immutable journal.
+    with factory() as db:
+        rec = AdBillingService(db).reconcile(pid)
+    assert rec['balanced'] is True, f"ledger and counter diverged under concurrency: {rec}"
+    assert rec['ledger_total'] == '1.00'

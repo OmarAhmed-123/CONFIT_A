@@ -488,6 +488,8 @@ def _alembic(url: str, direction: str, target: str) -> None:
 
 
 def test_migration_0015_round_trip_and_unique_lineage() -> None:
+    from backend.app.core.schema_gate import expected_head_revision
+
     fd, path = tempfile.mkstemp(suffix=".db")
     os.close(fd)
     url = f"sqlite:///{path}"
@@ -506,7 +508,7 @@ def test_migration_0015_round_trip_and_unique_lineage() -> None:
         with engine.begin() as conn:
             assert conn.execute(text(
                 "select version_num from alembic_version")).scalar() == \
-                "0018_outfit_share_lifecycle"
+                expected_head_revision()
 
         _alembic(url, "down", "base")
         insp = inspect(engine)
@@ -520,7 +522,7 @@ def test_migration_0015_round_trip_and_unique_lineage() -> None:
         os.unlink(path)
 
 
-def test_migration_chain_has_a_single_head_at_0018() -> None:
+def test_migration_chain_has_a_single_head_at_0019() -> None:
     from backend.app.core.schema_gate import expected_head_revision, migration_chain
 
     chain = migration_chain()
@@ -529,6 +531,8 @@ def test_migration_chain_has_a_single_head_at_0018() -> None:
     assert heads == [expected_head_revision()]
     # The chain must stay linear with exactly one head, and the head must only
     # ever move consciously: 0015 -> 0016 (VTON temporary delivery) -> 0017
-    # (audit before/after) -> 0018 (OUTFIT-01 outfit share lifecycle).
-    assert expected_head_revision() == "0018_outfit_share_lifecycle"
+    # (audit before/after) -> 0018 (OUTFIT-01 outfit share lifecycle) ->
+    # 0019 (brand-portal tenant integrity + ad billing ledger).
+    assert expected_head_revision() == "0019_brand_tenant_integrity_and_ad_ledger"
+    assert chain["0019_brand_tenant_integrity_and_ad_ledger"] == "0018_outfit_share_lifecycle"
     assert "0015_wardrobe_purchase_lineage" in chain.values()

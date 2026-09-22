@@ -557,6 +557,12 @@ class TestSponsoredPlacements:
             # Cleanup
             plc = db.query(SponsoredPlacement).filter(SponsoredPlacement.id == placement_id).first()
             if plc:
+                # Ledger rows reference this placement; clear them first so a
+                # reused placement id in a later test cannot inherit another
+                # test's spend (the shared session-scoped DB makes ids recycle).
+                from backend.app.models.brand_analytics import AdLedgerEntry
+                db.query(AdLedgerEntry).filter(
+                    AdLedgerEntry.placement_id == plc.id).delete(synchronize_session=False)
                 db.delete(plc)
             db.delete(prod)
             db.delete(prod2)
@@ -603,25 +609,62 @@ class TestSponsoredPlacements:
             assert resp.status_code == 201
             placement_id = resp.json()["id"]
 
-            # First click should succeed (10 spent, 5 remaining)
-            resp = client.post(
-                f"/partner/placements/{placement_id}/click",
-                headers={"Authorization": f"Bearer {token}"}
-            )
-            assert resp.status_code == 200
-            assert resp.json()["spent_today"] == 10.0
+            # CONTRACT UPDATE (migration 0019 / ad ledger): click tracking is
+            # now ledger-backed. Money is returned as an exact decimal STRING
+            # (floats are not a money type), and repeated clicks by the same
+            # actor inside the fraud window are recorded-but-not-billed rather
+            # than charged. Both are deliberate; see
+            # backend/app/services/ad_billing_service.py.
 
-            # Second click should fail (would exceed budget: 10+10=20 > 15)
+            # First click: billed (10 spent, 5 remaining).
             resp = client.post(
                 f"/partner/placements/{placement_id}/click",
                 headers={"Authorization": f"Bearer {token}"}
             )
-            assert resp.status_code == 400
-            assert "budget" in resp.json()["detail"].lower()
+            assert resp.status_code == 200, resp.text
+            body = resp.json()
+            assert body["spent_today"] == "10.00"
+            assert body["charged"] == "10.00"
+            assert body["remaining_budget"] == "5.00"
+
+            # Immediate repeat by the SAME actor: click-fraud de-duplication.
+            # Recorded for forensics, charged nothing, spend unchanged.
+            resp = client.post(
+                f"/partner/placements/{placement_id}/click",
+                headers={"Authorization": f"Bearer {token}"}
+            )
+            assert resp.status_code == 200, resp.text
+            body = resp.json()
+            assert body["status"] == "recorded_not_billable"
+            assert body["charged"] == "0.00"
+            assert body["spent_today"] == "10.00", "A deduplicated click must not spend budget"
+
+            # Budget ceiling itself: a genuinely distinct billable click of 10
+            # would take spend to 20 > 15, so it must be refused. Driven
+            # through the service with a different actor to bypass the
+            # (correct) per-actor dedup window.
+            from backend.app.services.ad_billing_service import AdBillingService, AdBillingError
+            import pytest as _pytest
+            with _pytest.raises(AdBillingError) as exc:
+                AdBillingService(db).record_event(
+                    placement_id, brand.id, "click",
+                    event_key=f"budget-ceiling-{placement_id}", actor_user_id=user.id + 4242)
+            assert exc.value.code == "BUDGET_EXHAUSTED"
+
+            db.expire_all()
+            plc_check = db.query(SponsoredPlacement).filter(
+                SponsoredPlacement.id == placement_id).first()
+            assert float(plc_check.spent_today) <= float(plc_check.daily_budget)
 
             # Cleanup
             plc = db.query(SponsoredPlacement).filter(SponsoredPlacement.id == placement_id).first()
             if plc:
+                # Ledger rows reference this placement; clear them first so a
+                # reused placement id in a later test cannot inherit another
+                # test's spend (the shared session-scoped DB makes ids recycle).
+                from backend.app.models.brand_analytics import AdLedgerEntry
+                db.query(AdLedgerEntry).filter(
+                    AdLedgerEntry.placement_id == plc.id).delete(synchronize_session=False)
                 db.delete(plc)
             db.delete(prod)
             db.commit()

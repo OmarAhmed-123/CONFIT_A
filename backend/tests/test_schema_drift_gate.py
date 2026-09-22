@@ -233,7 +233,12 @@ class TestGateAgainstRealMigrations:
         _alembic(url, "up", "head")
         with engine.begin() as conn:
             conn.execute(text("UPDATE alembic_version SET version_num = '9999_destructive'"))
-            conn.execute(text("DROP TABLE sponsored_placements"))
+            # CASCADE: as of 0019 ad_ledger_entries carries an FK to
+            # sponsored_placements, so a bare DROP now raises
+            # DependentObjectsStillExist instead of simulating the destructive
+            # migration this test is about. CASCADE keeps the scenario faithful
+            # — a real destructive migration would take the dependants too.
+            conn.execute(text("DROP TABLE sponsored_placements CASCADE"))
         report = evaluate(engine)
         assert report.verdict == "drift", report.findings
         assert "sponsored_placements" in report.missing_tables

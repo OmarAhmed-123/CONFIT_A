@@ -38,7 +38,12 @@ class BrandRepository:
         return self.db.query(BrandProfile).filter(BrandProfile.user_id == user_id).first()
 
     def get_by_id(self, brand_id: int) -> Optional[BrandProfile]:
-        return self.db.query(BrandProfile).filter(BrandProfile.id == brand_id).first()
+        # Session.get() consults the identity map BEFORE emitting SQL, while
+        # query(...).filter(...).first() always goes to the database. Within one
+        # request the brand profile has usually already been loaded while
+        # resolving the caller's tenant, so this is typically a free lookup
+        # instead of a ~150ms round trip to the managed database.
+        return self.db.get(BrandProfile, brand_id)
 
     def get_all_brands(self) -> List[BrandProfile]:
         return self.db.query(BrandProfile).all()
@@ -352,36 +357,32 @@ class BrandRepository:
 
     # --- Real Analytics ---
 
-    def get_brand_analytics(self, brand_id: int) -> Dict[str, Any]:
-        """
-        Real analytics from transactional data:
-        - Views from RecentlyViewed
-        - Try-ons from TryOnSession
-        - Add-to-cart from CartItem via ProductSKU -> Product -> brand
-        - Purchases from OrderItem where brand_id = brand_id
-        - Outfit appearances from OutfitItem -> Product -> brand
-        - Returns from ReturnRequest via OrderItem
-        """
-        brand = self.get_by_id(brand_id)
-        if not brand:
-            return {}
+    ACTIVITY_METHODOLOGY = (
+        "All-time retained RecentlyViewed product-view rows, TryOnSession records (not necessarily completed), current CartItem lines, and non-cancelled/non-refunded/non-failed OrderItem purchase lines. Not a session-linked conversion funnel: these are independent per-table counts, so ratios mix measurement units and may exceed 100%. A null rate means the denominator is zero (not measurable), never 0%. Ad spend is reconciled against the append-only ad_ledger_entries journal (see /partner/billing/statement), not read from mutable counters."
+    )
 
-        products = self.get_brand_products(brand_id)
-        product_ids = [p.id for p in products]
-        total_skus = sum(len(p.skus) for p in products)
+    def get_activity_snapshot(self, brand_id: int,
+                              product_ids: Optional[List[int]] = None) -> Dict[str, Any]:
+        """The four headline activity counters plus the funnel ratio, in ONE round trip.
 
-        # Headline counters: FOUR independent aggregates over four unrelated
-        # tables, issued as ONE round trip instead of four.
-        #
-        # WHY THIS SHAPE (measured, not guessed): against production these
-        # aggregates scan 3-114 rows and each still costs ~150ms, while a bare
-        # `SELECT 1` on the same connection also costs ~150ms. The cost is
-        # therefore network round-trip latency to the managed database, not
-        # query execution -- so an index would buy nothing and only reducing
-        # the NUMBER of round trips helps. Scalar subqueries in one SELECT are
-        # the correct tool: each subquery is exactly the query that ran before
-        # (same predicates, same semantics), so the numbers are unchanged; only
-        # the number of network hops drops from 4 to 1.
+        Extracted so /partner/analytics/conversion can stop building the entire
+        dashboard just to read six of its fields. That endpoint needed views,
+        try-ons, add-to-carts, purchases, the ratio and the methodology string,
+        and was paying for outfit rankings, return cohorts, BOPIS fulfilment and
+        ad totals to get them -- five extra round trips, ~750ms of pure network
+        latency, all of it discarded.
+
+        This is the ONLY place those four counters are defined, so the dashboard
+        and the conversion endpoint cannot drift apart (DRY): they are now two
+        callers of one query, not two queries that happen to agree today.
+
+        Passing product_ids lets a caller that has already loaded the catalog
+        avoid re-fetching it; omitting it makes the method self-contained.
+        """
+        if product_ids is None:
+            product_ids = [pid for (pid,) in self.db.query(Product.id)
+                           .filter(Product.brand_id == brand_id).all()]
+
         if product_ids:
             headline = self.db.execute(
                 select(
@@ -413,12 +414,57 @@ class BrandRepository:
             # No products: every count is definitionally zero. Skip the trip.
             total_views = total_tryons = total_add_to_carts = total_purchases = 0
 
-        # Funnel conversion rate: purchases / views * 100.
-        # A zero denominator yields None ("not measurable"), never 0.0 and
-        # never a substituted denominator of 1. Reporting 0% when there are no
-        # views asserts "nobody converted", which is a different and unproven
-        # claim from "there is nothing to divide by".
+        # A zero denominator yields None ("not measurable"), never 0.0 and never
+        # a substituted denominator of 1. Reporting 0% when there are no views
+        # asserts "nobody converted", which is a different and unproven claim
+        # from "there is nothing to divide by".
         funnel_rate = round(total_purchases / total_views * 100, 2) if total_views > 0 else None
+
+        return {
+            "total_views": int(total_views),
+            "total_tryons": int(total_tryons),
+            "total_add_to_carts": int(total_add_to_carts),
+            "total_purchases": int(total_purchases),
+            "funnel_conversion_rate": float(funnel_rate) if funnel_rate is not None else None,
+            "methodology": self.ACTIVITY_METHODOLOGY,
+        }
+
+    def get_brand_analytics(self, brand_id: int) -> Dict[str, Any]:
+        """
+        Real analytics from transactional data:
+        - Views from RecentlyViewed
+        - Try-ons from TryOnSession
+        - Add-to-cart from CartItem via ProductSKU -> Product -> brand
+        - Purchases from OrderItem where brand_id = brand_id
+        - Outfit appearances from OutfitItem -> Product -> brand
+        - Returns from ReturnRequest via OrderItem
+        """
+        brand = self.get_by_id(brand_id)
+        if not brand:
+            return {}
+
+        products = self.get_brand_products(brand_id)
+        product_ids = [p.id for p in products]
+        total_skus = sum(len(p.skus) for p in products)
+
+        # Headline counters: FOUR independent aggregates over four unrelated
+        # tables, issued as ONE round trip instead of four.
+        #
+        # WHY THIS SHAPE (measured, not guessed): against production these
+        # aggregates scan 3-114 rows and each still costs ~150ms, while a bare
+        # `SELECT 1` on the same connection also costs ~150ms. The cost is
+        # therefore network round-trip latency to the managed database, not
+        # query execution -- so an index would buy nothing and only reducing
+        # the NUMBER of round trips helps. Scalar subqueries in one SELECT are
+        # the correct tool: each subquery is exactly the query that ran before
+        # (same predicates, same semantics), so the numbers are unchanged; only
+        # the number of network hops drops from 4 to 1.
+        snapshot = self.get_activity_snapshot(brand_id, product_ids)
+        total_views = snapshot["total_views"]
+        total_tryons = snapshot["total_tryons"]
+        total_add_to_carts = snapshot["total_add_to_carts"]
+        total_purchases = snapshot["total_purchases"]
+        funnel_rate = snapshot["funnel_conversion_rate"]
 
         # 5. Outfit Performance: real ranking from OutfitItem
         # Count appearances of each product in outfits
@@ -527,7 +573,7 @@ class BrandRepository:
             "bopis_store_fulfillment_rate": bopis_rate,
             "return_cohorts": returns,
             "data_source": "transactional_snapshot",
-            "methodology": "All-time retained RecentlyViewed product-view rows, TryOnSession records (not necessarily completed), current CartItem lines, and non-cancelled/non-refunded/non-failed OrderItem purchase lines. Not a session-linked conversion funnel: these are independent per-table counts, so ratios mix measurement units and may exceed 100%. A null rate means the denominator is zero (not measurable), never 0%. Ad spend is reconciled against the append-only ad_ledger_entries journal (see /partner/billing/statement), not read from mutable counters.",
+            "methodology": self.ACTIVITY_METHODOLOGY,
             "ad_spend_total": to_float(ad_spend),
             "ad_revenue_total": to_float(ad_revenue)
         }

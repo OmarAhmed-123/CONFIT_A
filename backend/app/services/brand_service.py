@@ -11,13 +11,30 @@ class BrandService:
     def __init__(self, db: Session):
         self.db = db
         self.brand_repo = BrandRepository(db)
+        # Request-scoped memo. A BrandService is constructed per request (see the
+        # Depends(get_db) wiring in brand_controller), so this cache lives and
+        # dies with the request and can never serve one tenant's profile to
+        # another. It exists because a single endpoint resolved the SAME
+        # brand_profiles row up to three times -- once here, once through the
+        # user.brand_profile lazy load in the ownership check, and once inside
+        # the repository -- and against the managed database each of those cost
+        # a full network round trip.
+        self._brand_by_user: Dict[int, BrandProfile] = {}
 
-    def get_brand_profile_by_user(self, user: User) -> Dict[str, Any]:
-        """Resolves Brand Organization for the requesting user with strict tenant validation."""
+    def _resolve_brand(self, user: User) -> BrandProfile:
+        """Single place that turns an authenticated user into their tenant row."""
+        cached = self._brand_by_user.get(user.id)
+        if cached is not None:
+            return cached
         bp = self.brand_repo.get_by_user_id(user.id)
         if not bp:
             raise AuthorizationError("No Brand Organization linked to this account. Request partner onboarding; administrators must use explicit admin routes.")
-        return self._format_brand(bp)
+        self._brand_by_user[user.id] = bp
+        return bp
+
+    def get_brand_profile_by_user(self, user: User) -> Dict[str, Any]:
+        """Resolves Brand Organization for the requesting user with strict tenant validation."""
+        return self._format_brand(self._resolve_brand(user))
 
     def get_brand_analytics_dashboard(self, user: User, brand_id: int) -> Dict[str, Any]:
         """Returns analytics strictly scoped to the user's verified brand tenant."""
@@ -178,17 +195,28 @@ class BrandService:
             for p in placements
         ]
 
+    def assert_brand_ownership(self, user: User, target_brand_id: int) -> None:
+        """Public alias: controllers that bypass a dashboard helper still need
+        the tenant check, and must not reach for a private name to get it."""
+        self._assert_brand_ownership(user, target_brand_id)
+
     def _assert_brand_ownership(self, user: User, target_brand_id: int) -> None:
         """Verifies that the user has tenant authorization for target_brand_id."""
         if user.role == UserRole.ADMIN:
             return  # Platform Admin has global oversight
 
-        if not user.brand_profile:
+        # Resolved through the memo rather than the user.brand_profile lazy
+        # load: same row, same authorization decision, but it reuses the lookup
+        # the request has already paid for. The check itself is unchanged --
+        # a user still reaches exactly one brand, and a mismatch still raises.
+        try:
+            bp = self._resolve_brand(user)
+        except AuthorizationError:
             raise AuthorizationError("Access denied: User is not linked to any Brand Organization.")
 
-        if user.brand_profile.id != target_brand_id:
+        if bp.id != target_brand_id:
             raise AuthorizationError(
-                f"Tenant scope violation: Your account belongs to Brand #{user.brand_profile.id} ({user.brand_profile.brand_name}) "
+                f"Tenant scope violation: Your account belongs to Brand #{bp.id} ({bp.brand_name}) "
                 f"and cannot access or mutate resources of Brand #{target_brand_id}."
             )
 

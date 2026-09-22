@@ -21,6 +21,12 @@ def test_capabilities_contract_shape(client):
         "payments_mode",
         "bnpl_live",
         "vton_gpu_ready",
+        # Added 2026-09-22: the UI must distinguish "not offered on this
+        # deployment" from "offered and currently broken" without parsing
+        # English prose out of a detail string.
+        "vton_engine_state",
+        "vton_offered",
+        "vton_renderable",
         "ai_stylist_live",
         "bopis_live",
         "bopis_store_count",
@@ -29,6 +35,12 @@ def test_capabilities_contract_shape(client):
     }
     assert isinstance(caps["bopis_store_count"], int)
     assert caps["payments_mode"] in ("live", "demo")
+    assert caps["vton_engine_state"] in (
+        "available",
+        "cold_start",
+        "temporarily_unavailable",
+        "misconfigured",
+    )
 
 
 def test_payments_demo_by_default(client, monkeypatch):
@@ -81,18 +93,66 @@ def test_bopis_reflects_real_store_count(client, monkeypatch):
         assert caps["bopis_live"] is True
 
 
-def test_vton_and_stylist_flags_follow_configuration(client, monkeypatch):
-    monkeypatch.setattr(settings, "VTON_WORKER_URL", None)
+def test_stylist_flag_follows_configuration(client, monkeypatch):
+    """``ai_stylist_live`` means "a provider key exists", and says so.
+
+    Kept honest by naming: this flag answers a *configuration* question. It is
+    not a claim that the provider answered a request, and no probe exists for
+    it — see the note on ``vton_gpu_ready`` below for why conflating the two
+    caused a production incident.
+    """
     monkeypatch.setattr(settings, "NVIDIA_API_KEY", None)
     monkeypatch.setattr(settings, "GROK_API_KEY", None)
     monkeypatch.setattr(settings, "GEMINI_API_KEY", None)
     monkeypatch.setattr(settings, "OPENAI_API_KEY", None)
+    assert _get(client)["ai_stylist_live"] is False
+
+    monkeypatch.setattr(settings, "GROK_API_KEY", "gsk-test")
+    assert _get(client)["ai_stylist_live"] is True
+
+
+def test_vton_gpu_ready_does_not_follow_configuration(client, monkeypatch):
+    """REWRITTEN 2026-09-22 — this test used to assert the production defect.
+
+    As ``test_vton_and_stylist_flags_follow_configuration`` it asserted:
+
+        monkeypatch.setattr(settings, "VTON_WORKER_URL", "https://modal.example/process")
+        assert caps["vton_gpu_ready"] is True
+
+    That is the bug, written down as an expectation. It is why the defect
+    survived: the suite defended it, so the contradiction with
+    ``/try-on/capabilities`` (which probed the worker for real) read as a
+    passing state rather than a regression. Green tests are not evidence that
+    the thing being tested is true — they are evidence that code matches
+    whatever the test author believed.
+
+    Setting an environment variable is not a GPU becoming reachable. The flag
+    must track the live probe.
+    """
+    from backend.app.services import vton_worker_observability as vwo
+
+    monkeypatch.setattr(settings, "VTON_WORKER_URL", None)
     caps = _get(client)
     assert caps["vton_gpu_ready"] is False
-    assert caps["ai_stylist_live"] is False
+    assert caps["vton_offered"] is False
+    assert caps["vton_engine_state"] == "misconfigured"
 
+    # Configured but nothing measured: offered, NOT ready.
     monkeypatch.setattr(settings, "VTON_WORKER_URL", "https://modal.example/process")
-    monkeypatch.setattr(settings, "GROK_API_KEY", "gsk-test")
+    monkeypatch.setattr(
+        vwo, "vton_health_summary", lambda: {"verdict": vwo.VERDICT_UNAVAILABLE}
+    )
+    caps = _get(client)
+    assert caps["vton_offered"] is True, "the deployment offers try-on"
+    assert caps["vton_gpu_ready"] is False, (
+        "presence of VTON_WORKER_URL is not GPU readiness — 2026-09-22 defect"
+    )
+    assert caps["vton_renderable"] is False
+
+    # Only a live `ready` verdict may set it true.
+    monkeypatch.setattr(
+        vwo, "vton_health_summary", lambda: {"verdict": vwo.VERDICT_READY}
+    )
     caps = _get(client)
     assert caps["vton_gpu_ready"] is True
-    assert caps["ai_stylist_live"] is True
+    assert caps["vton_engine_state"] == "available"

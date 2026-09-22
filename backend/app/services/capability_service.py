@@ -34,7 +34,14 @@ from backend.app.core.readiness import (
     Capability,
 )
 from backend.app.models.catalog import StoreLocation
+from backend.app.services import vton_worker_observability as vton_observability
 from backend.app.services.storage_service import storage_status
+from backend.app.services.vton_worker_observability import (
+    ENGINE_STATE_AVAILABLE,
+    ENGINE_STATE_COLD_START,
+    engine_can_render,
+    engine_state_from_probe,
+)
 
 __all__ = ["capability_flags", "capability_probes", "RETURNS_WINDOW_DAYS"]
 
@@ -91,12 +98,15 @@ def _vton_capability(vton_worker: Dict[str, Any] | None) -> Capability:
             "not offered on this deployment (no VTON_WORKER_URL); not an outage",
         )
 
-    if probe.get("production_ready") is True:
+    # The state comes from the shared classifier, not from a second private
+    # derivation of the same fact (2026-09-22 consumer-role closure).
+    engine_state = engine_state_from_probe(probe, configured=configured)
+    if engine_state == ENGINE_STATE_AVAILABLE:
         return Capability(
             "virtual_try_on", STATE_READY, CRITICALITY_CORE,
             f"GPU worker reachable and model loaded (probe: {verdict})",
         )
-    if verdict == "cold_start":
+    if engine_state == ENGINE_STATE_COLD_START:
         return Capability(
             "virtual_try_on", STATE_DEGRADED, CRITICALITY_CORE,
             "worker reachable but cold or still loading the model",
@@ -109,20 +119,64 @@ def _vton_capability(vton_worker: Dict[str, Any] | None) -> Capability:
     )
 
 
-def capability_flags(db: Session) -> Dict[str, Any]:
-    """The ``/capabilities`` payload. Unchanged wire contract."""
+def capability_flags(
+    db: Session, vton_worker: Dict[str, Any] | None = None
+) -> Dict[str, Any]:
+    """The ``/capabilities`` payload.
+
+    ``vton_gpu_ready`` is MEASURED, not configured
+    ---------------------------------------------
+    Until 2026-09-22 this function answered ``bool(settings.VTON_WORKER_URL)``
+    under the comment "Unchanged wire contract" — while the very same file,
+    eighty lines below, carefully derived the identical fact from the live probe
+    and explained at length why configuration is not availability. The result
+    was served to production consumers:
+
+        GET /api/v1/catalog/capabilities -> "vton_gpu_ready": true
+        GET /api/v1/try-on/capabilities  -> "engine_state":
+                                            "temporarily_unavailable"
+
+    Both endpoints climbed through ``capability_service``; only one of them
+    asked the worker. The frontend binds its commerce/trust claims to *this*
+    payload (``useCapabilities``), so the one surface that drives user-visible
+    promises was the one that lied — the exact failure mode the module docstring
+    above condemns.
+
+    The derivation now lives in one place (``engine_state_from_probe``) and both
+    surfaces call it, so they cannot answer differently again.
+
+    Wire contract: the nine original keys keep their names and types.
+    ``vton_gpu_ready`` keeps its meaning (true only when try-on can really
+    render now) and simply stops being a lie. Two keys are added so the UI can
+    tell "we do not offer this here" apart from "this is broken right now"
+    without parsing English prose out of ``engine.detail``.
+    """
     store_count = db.query(StoreLocation).count()
+    probe = (
+        vton_worker
+        if vton_worker is not None
+        else vton_observability.vton_health_summary()
+    )
+    engine_state = engine_state_from_probe(probe)
     return {
         "payments_live": bool(settings.PAYMENTS_LIVE),
         "payments_mode": "live" if settings.PAYMENTS_LIVE else "demo",
         "bnpl_live": _bnpl_configured(),
-        "vton_gpu_ready": bool(settings.VTON_WORKER_URL),
+        # Measured: true only for a live `ready` verdict from the GPU worker.
+        "vton_gpu_ready": engine_state == ENGINE_STATE_AVAILABLE,
+        # Canonical state, identical to /try-on/capabilities `engine_state`.
+        "vton_engine_state": engine_state,
+        # Whether the deployment offers try-on at all (worker configured).
+        # False is "not offered", not an outage — see _vton_capability().
+        "vton_offered": bool(settings.VTON_WORKER_URL),
+        "vton_renderable": engine_can_render(engine_state),
         "ai_stylist_live": bool(_ai_provider_keys()),
         "bopis_live": store_count > 0,
         "bopis_store_count": int(store_count),
         "storage_mode": settings.STORAGE_PROVIDER,
         "returns_window_days": RETURNS_WINDOW_DAYS,
     }
+
 
 
 def capability_probes(

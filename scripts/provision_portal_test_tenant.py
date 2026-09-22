@@ -39,6 +39,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -54,10 +55,21 @@ from backend.app.core.security import get_password_hash  # noqa: E402
 # standard email syntax validation.
 TEST_DOMAIN = "confit-portal-qa.example.com"
 SUFFIX = os.environ.get("CONFIT_TEST_SUFFIX", "v1")
+# brand_profiles.brand_name carries a UNIQUE index, so the suffix has to be part
+# of the NAME too -- not just the email. Keying idempotency on the email alone
+# let a second suffix reach the INSERT and die on
+# `duplicate key ... ix_brand_profiles_brand_name`, leaving a half-provisioned
+# tenant behind. Every globally-unique column this script writes must be
+# suffix-scoped.
 TENANTS = [
-    (f"qa-portal-a-{SUFFIX}@{TEST_DOMAIN}", "QA Portal Tenant A"),
-    (f"qa-portal-b-{SUFFIX}@{TEST_DOMAIN}", "QA Portal Tenant B"),
+    (f"qa-portal-a-{SUFFIX}@{TEST_DOMAIN}", f"QA Portal Tenant A ({SUFFIX})"),
+    (f"qa-portal-b-{SUFFIX}@{TEST_DOMAIN}", f"QA Portal Tenant B ({SUFFIX})"),
 ]
+
+
+def _slug(name: str) -> str:
+    """Slugify to the charset the app's own slugs use: lowercase, hyphens only."""
+    return re.sub(r"-+", "-", re.sub(r"[^a-z0-9]+", "-", name.lower())).strip("-")
 
 
 def _assert_test_account(email: str) -> None:
@@ -105,7 +117,7 @@ def provision(conn, password: str) -> list[dict]:
                         'مستأجر مؤقت للتحقق', TRUE, NOW())
                 RETURNING id
             """), {"u": user_id, "n": brand_name,
-                   "slug": brand_name.lower().replace(" ", "-") + f"-{SUFFIX}"}).scalar()
+                   "slug": _slug(brand_name)}).scalar()
 
         # Give the tenant one product + SKU + store + inventory row so the
         # verification harness can exercise real flows (placements need a real

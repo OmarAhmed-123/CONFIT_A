@@ -163,8 +163,17 @@ def get_brand_analytics(
 def get_conversion_analytics(user: User = Depends(brand_auth), db: Session = Depends(get_db)):
     service = BrandService(db)
     bp = service.get_brand_profile_by_user(user)
-    an = service.get_brand_analytics_dashboard(user, bp["id"])
+    # Tenant check stays explicit and unconditional -- the speedup below must
+    # never come at the cost of the authorization step.
+    service.assert_brand_ownership(user, bp["id"])
     repo = BrandRepository(db)
+    # Only the activity snapshot is needed here, not the whole dashboard. The
+    # previous call to get_brand_analytics_dashboard() also computed outfit
+    # rankings, return cohorts, BOPIS fulfilment and ad totals -- five extra
+    # round trips to the managed database whose results were thrown away, on an
+    # endpoint the audit measured at over 6s. Same six values, same definitions
+    # (both callers share get_activity_snapshot), far fewer hops.
+    an = repo.get_activity_snapshot(bp["id"])
     per_sku = repo.get_conversion_analytics_per_sku(bp["id"])
     return {
         "views": an["total_views"],

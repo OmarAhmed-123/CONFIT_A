@@ -80,6 +80,28 @@ def login(email: str, password: str) -> str | None:
     return None
 
 
+def _store_rows(rows) -> list:
+    """Flatten /partner/inventory to its store-level rows.
+
+    The response nests them as product -> skus[] -> store_inventories[], and each
+    row's primary key is `id`. An earlier version of this harness looked for a
+    top-level `store_breakdown[].inventory_id`, which does not exist: it found
+    nothing, reported "no inventory returned", and made the phase-6 consistency
+    check vacuous at the same time. A verifier that reads the wrong field fails
+    an endpoint that works -- and would equally MISS a real regression, which is
+    the more dangerous half of the bug.
+    """
+    out = []
+    for r in rows:
+        if not isinstance(r, dict):
+            continue
+        for sku in (r.get("skus") or []):
+            if isinstance(sku, dict):
+                out.extend(si for si in (sku.get("store_inventories") or [])
+                           if isinstance(si, dict))
+    return out
+
+
 def main() -> int:
     password = os.environ.get("CONFIT_TEST_PASSWORD")
     if not password:
@@ -181,25 +203,27 @@ def main() -> int:
         store_count = len(stores) if isinstance(stores, list) else len(
             (stores or {}).get("stores", []) or [])
         rows = inv if isinstance(inv, list) else (inv or {}).get("inventory", []) or []
-        breakdown = sum(len(r.get("store_breakdown") or []) for r in rows
-                        if isinstance(r, dict))
+        breakdown = _store_rows(rows)
         record("zero stores => zero store-level inventory rows",
-               not (store_count == 0 and breakdown > 0),
-               f"{store_count} stores, {breakdown} breakdown entries")
+               not (store_count == 0 and len(breakdown) > 0),
+               f"{store_count} stores, {len(breakdown)} breakdown entries")
+        # The original P1 bug was a COUNT that disagreed with the BREAKDOWN, so
+        # checking only the zero case is vacuous whenever a store exists. Every
+        # store referenced by an inventory row must also appear in /partner/stores
+        # -- that is the contradiction the audit actually saw.
+        listed = {s.get("id") for s in (stores if isinstance(stores, list) else [])
+                  if isinstance(s, dict)}
+        referenced = {b.get("store_id") for b in breakdown if b.get("store_id") is not None}
+        record("every store in the inventory breakdown is listed by /partner/stores",
+               referenced <= listed,
+               f"breakdown refs {sorted(referenced)}, stores lists {sorted(listed)}")
 
     print("\n[7] INVENTORY MUTATION -> DATABASE READ-BACK (200 is not proof)")
     st, inv_a, _ = call("GET", "/partner/inventory", tok_a)
     rows_a = inv_a if isinstance(inv_a, list) else (inv_a or {}).get("inventory", []) or []
-    inv_row = None
-    for r in rows_a:
-        for b in (r.get("store_breakdown") or []):
-            if b.get("inventory_id"):
-                inv_row = b
-                break
-        if inv_row:
-            break
+    inv_row = next((b for b in _store_rows(rows_a) if b.get("id") is not None), None)
     if inv_row:
-        inv_id = inv_row["inventory_id"]
+        inv_id = inv_row["id"]
         new_qty = int(inv_row.get("quantity", 0)) + 3
         st, _, _ = call("PATCH", f"/partner/inventory/{inv_id}", tok_a, {"quantity": new_qty})
         record("update own stock", st == 200, f"{st} -> quantity={new_qty}")

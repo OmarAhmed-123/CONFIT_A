@@ -577,3 +577,103 @@ def vton_health_summary() -> Dict[str, Any]:
             "VTON_WORKER_* URLs. Configuration alone is not availability."
         )
     return summary
+
+
+# ---------------------------------------------------------------------------
+# Canonical engine-state classifier — the ONE place the question
+# "can try-on render right now?" is answered.
+# ---------------------------------------------------------------------------
+# Why this exists (consumer-role closure 2026-09-22)
+# ------------------------------------------------
+# ``tryon_service.get_vton_capabilities`` derived ``engine_state`` from the live
+# probe; ``capability_service.capability_flags`` derived ``vton_gpu_ready`` from
+# ``bool(settings.VTON_WORKER_URL)``. Two surfaces, two derivations, two answers
+# — and the consumer UI binds to the *second* one. Production therefore served:
+#
+#     GET /api/v1/catalog/capabilities -> "vton_gpu_ready": true
+#     GET /api/v1/try-on/capabilities  -> "engine_state": "temporarily_unavailable"
+#     GET /api/v1/health               -> "ready": false, blocking: virtual_try_on
+#
+# The first two disagreed while both were believed to share "one source of
+# truth". Unifying the *probe* was not enough: the defect was a second
+# *derivation* of the same fact. So the derivation itself now lives here, once,
+# and every surface — try-on capabilities, catalog capability flags, readiness,
+# the health contract — calls :func:`engine_state_from_probe`.
+#
+# Adding a surface that reports try-on availability means calling this function.
+# There is no supported way to answer the question any other way, and
+# ``tests/test_capability_single_source.py`` fails if a surface re-derives it.
+
+#: Wire values published as ``engine_state`` (try-on capabilities contract).
+ENGINE_STATE_AVAILABLE = "available"
+ENGINE_STATE_COLD_START = "cold_start"
+ENGINE_STATE_UNAVAILABLE = "temporarily_unavailable"
+ENGINE_STATE_MISCONFIGURED = "misconfigured"
+ENGINE_STATE_UNKNOWN = "unknown"
+
+#: States in which a job can still produce a render. A cold worker renders too —
+#: it is slow on the first call, not broken — so both are "renderable".
+RENDERABLE_ENGINE_STATES = frozenset({ENGINE_STATE_AVAILABLE, ENGINE_STATE_COLD_START})
+
+#: Backend-authored user-facing sentences. Kept here (not in the controller and
+#: not in the frontend) so the platform cannot describe one engine state two
+#: ways, and so an honesty label cannot drift away from the verdict it labels.
+_ENGINE_STATE_USER_MESSAGES: Dict[str, str] = {
+    ENGINE_STATE_MISCONFIGURED: (
+        "Virtual try-on is not configured for this deployment."
+    ),
+    ENGINE_STATE_UNAVAILABLE: (
+        "Virtual try-on is offline right now — the rendering capacity is not "
+        "available. Your photo is never stored. Please try again later."
+    ),
+    ENGINE_STATE_COLD_START: (
+        "The rendering engine is warming up. The first try can take up to a "
+        "minute; please retry in about 30 seconds."
+    ),
+}
+
+
+def engine_state_from_probe(
+    probe: Dict[str, Any] | None, configured: bool | None = None
+) -> str:
+    """Map a live worker probe to the canonical ``engine_state`` wire value.
+
+    ``configured`` defaults to whether ``VTON_WORKER_URL`` is set, but it is a
+    *gate on the feature being offered at all*, never evidence that it works:
+    a configured-but-unreachable worker is ``temporarily_unavailable``, which is
+    exactly the case production was in while the catalog claimed ``true``.
+
+    An ``unknown`` verdict (the probe could not be performed) resolves to
+    ``temporarily_unavailable``: the honest answer when availability was not
+    established is "we cannot render", never "ready".
+    """
+    if configured is None:
+        configured = bool(getattr(settings, "VTON_WORKER_URL", None))
+    if not configured:
+        return ENGINE_STATE_MISCONFIGURED
+
+    verdict = (probe or {}).get("verdict")
+    if verdict == VERDICT_READY:
+        return ENGINE_STATE_AVAILABLE
+    if verdict == VERDICT_COLD_START:
+        return ENGINE_STATE_COLD_START
+    if verdict == VERDICT_UNKNOWN:
+        # Not measured is not the same as measured-and-broken; the operator
+        # detail differs even though the user-facing gate does not.
+        return ENGINE_STATE_UNAVAILABLE
+    return ENGINE_STATE_UNAVAILABLE
+
+
+def engine_state_user_message(engine_state: str) -> Optional[str]:
+    """The backend-authored sentence for an engine state, or ``None``.
+
+    ``None`` for renderable states: the platform does not apologise for a
+    capability that works, and a banner on a healthy engine teaches users to
+    ignore banners.
+    """
+    return _ENGINE_STATE_USER_MESSAGES.get(engine_state)
+
+
+def engine_can_render(engine_state: str) -> bool:
+    """Whether a job submitted in this state can produce a render."""
+    return engine_state in RENDERABLE_ENGINE_STATES

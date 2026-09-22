@@ -158,6 +158,24 @@ MUTATIONS: list[Mutation] = [
         "    except (ValueError, TypeError):\n        return plain_password == hashed_password",
         ["backend/tests/test_silent_fallback_regressions.py"],
     ),
+    Mutation(
+        "M17",
+        "VTON: catalog capability flags derive GPU readiness from configuration "
+        "presence instead of the live probe (2026-09-22 consumer-role defect)",
+        "backend/app/services/capability_service.py",
+        '        "vton_gpu_ready": engine_state == ENGINE_STATE_AVAILABLE,',
+        '        "vton_gpu_ready": bool(settings.VTON_WORKER_URL),',
+        ["backend/tests/test_capability_single_source.py"],
+    ),
+    Mutation(
+        "M18",
+        "VTON: try-on capabilities re-derive engine_state locally instead of "
+        "using the shared classifier in vton_worker_observability",
+        "backend/app/services/tryon_service.py",
+        "        engine_state = vwo.engine_state_from_probe(probe, configured=bool(worker_url))",
+        "        engine_state = \"available\" if worker_url else \"misconfigured\"",
+        ["backend/tests/test_capability_single_source.py"],
+    ),
 ]
 
 

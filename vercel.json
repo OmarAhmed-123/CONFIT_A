@@ -1,6 +1,9 @@
 {
   "buildCommand": "npm --prefix frontend ci && npm --prefix frontend run build",
   "outputDirectory": "frontend/dist",
+  "regions": [
+    "fra1"
+  ],
   "functions": {
     "api/index.py": {
       "maxDuration": 300

@@ -329,7 +329,14 @@ export const catalogService = {
       payments_live: boolean;
       payments_mode: "live" | "demo";
       bnpl_live: boolean;
+      /** Measured (live probe), not "the env var is set". See useCapabilities. */
       vton_gpu_ready: boolean;
+      /** Canonical engine state, shared with /try-on/capabilities. */
+      vton_engine_state: string;
+      /** false = this deployment does not offer try-on (not an outage). */
+      vton_offered: boolean;
+      /** true when a job submitted now can render (ready or cold start). */
+      vton_renderable: boolean;
       ai_stylist_live: boolean;
       bopis_live: boolean;
       bopis_store_count: number;

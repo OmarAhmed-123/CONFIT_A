@@ -154,7 +154,12 @@
     "engine_warming_detail": "The first render can take up to {{seconds}} seconds while the model loads. After that it is fast.",
     "engine_offline_title": "Virtual try-on is offline right now",
     "engine_offline_fallback": "The rendering capacity is not available. Your photo is never stored — please try again later.",
-    "engine_offline_retry": "Automatic retry available in about {{seconds}}s."
+    "engine_offline_retry": "Automatic retry available in about {{seconds}}s.",
+    "engine_misconfigured_detail": "Virtual try-on is not set up on this deployment. Try the no-photo fit check instead — it works without photos.",
+    "cta_try_on": "Try On",
+    "cta_fit_check": "Fit Check",
+    "cta_fit_check_instead": "Fit check instead",
+    "vton_card_caption": "Backend/provider garment rendering on your photo — an honest 2D visual preview, not a size guarantee."
   },
   "wardrobe": {
     "title": "Virtual Wardrobe & Smart Reuse",

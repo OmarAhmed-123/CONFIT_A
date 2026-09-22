@@ -101,5 +101,11 @@ export const queryKeys = {
     all: (userId?: number) => ['tryon', userId] as const,
     session: (sessionId: number, userId?: number) => ['tryon', userId, 'session', sessionId] as const,
     job: (jobId: string) => ['tryon', 'job', jobId] as const,
+    /**
+     * Engine-only capability probe (no product ids). One entry shared by every
+     * mounted try-on CTA, so the availability gate costs exactly one request
+     * regardless of how many entry points a page renders (2026-09-22).
+     */
+    engine: () => ['tryon', 'capabilities', 'engine'] as const,
   },
 };

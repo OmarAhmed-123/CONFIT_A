@@ -16,6 +16,8 @@ import {
 import { CameraScanModal } from "../../components/tryon/CameraScanModal";
 import { TryOnEngineStatus } from "../../components/tryon/TryOnEngineStatus";
 import { CircularGalleryShowcase } from "../../components/showcase/DesignShowcases";
+import { useTryOnAvailability } from "../../hooks/useTryOnAvailability";
+import { resolveMessage } from "../../i18n/messages";
 
 export const TryOnFitView: React.FC = () => {
   const { t } = useTranslation();
@@ -27,6 +29,10 @@ export const TryOnFitView: React.FC = () => {
     refresh: refreshCatalog,
   } = useCatalogViewModel();
   const { openTryOn, openRuler, openVisualSearch } = useUIStore();
+  // The feature card below used to select the virtual-try-on tab unconditionally,
+  // so a shopper landed on a studio that could not render (2026-09-22).
+  const tryOn = useTryOnAvailability();
+  const tryOnKind = tryOn.ctaKind(true);
 
   const [activeTab, setActiveTab] = useState<
     "vton" | "scan" | "ruler" | "visual"
@@ -119,29 +125,41 @@ export const TryOnFitView: React.FC = () => {
 
       {/* Feature Selector Cards (4 columns) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* 1. Virtual Try-On */}
+        {/* 1. Virtual Try-On — routes to the working capability when the GPU
+            cannot render, instead of selecting a tab that will fail. */}
         <div
-          onClick={() => setActiveTab("vton")}
+          onClick={() =>
+            setActiveTab(tryOnKind === "render" ? "vton" : "ruler")
+          }
+          aria-disabled={tryOnKind === "blocked"}
           className={`p-5 rounded-3xl border-2 transition-all cursor-pointer flex flex-col justify-between ${
             activeTab === "vton"
               ? "border-[#C5A059] bg-[#FDF8EE] shadow-md"
               : "border-slate-200 bg-white hover:border-slate-300"
-          }`}
+          } ${tryOnKind === "blocked" ? "opacity-60" : ""}`}
         >
           <div className="space-y-2">
             <div className="w-10 h-10 rounded-xl bg-[#1B1F3B] flex items-center justify-center text-white">
-              <TryOnIcon size={22} color="#C5A059" isAi={true} />
+              {tryOnKind === "render" ? (
+                <TryOnIcon size={22} color="#C5A059" isAi={true} />
+              ) : (
+                <RulerIcon size={22} color="#C5A059" />
+              )}
             </div>
             <h3 className="font-serif text-base font-bold text-[#1B1F3B]">
               {t("nav.virtual_tryon")}
             </h3>
             <p className="text-xs text-slate-600 font-light">
-              Backend/provider garment rendering on your photo — an honest 2D
-              visual preview, not a size guarantee.
+              {tryOn.userMessage
+                ? resolveMessage(tryOn.userMessage, t)
+                : t("tryon.vton_card_caption")}
             </p>
           </div>
           <span className="text-xs font-bold text-[#7A5C28] mt-4 block">
-            Select Garment →
+            {tryOnKind === "render"
+              ? t("tryon.cta_try_on")
+              : t("tryon.cta_fit_check")}{" "}
+            →
           </span>
         </div>
 
@@ -275,12 +293,14 @@ export const TryOnFitView: React.FC = () => {
                       />
                       <span
                         className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider ${
-                          isTryOnSupported(p.category_name)
+                          isTryOnSupported(p.category_name) &&
+                          tryOnKind === "render"
                             ? "bg-emerald-500/90 text-white"
                             : "bg-slate-950/80 text-slate-200"
                         }`}
                       >
-                        {isTryOnSupported(p.category_name)
+                        {isTryOnSupported(p.category_name) &&
+                        tryOnKind === "render"
                           ? "VTON category"
                           : "Fit check only"}
                       </span>
@@ -306,16 +326,28 @@ export const TryOnFitView: React.FC = () => {
                     <span>Ruler</span>
                   </button>
                   <button
-                    onClick={() =>
-                      isTryOnSupported(p.category_name)
-                        ? openTryOn(p)
-                        : openRuler(p)
+                    onClick={tryOn.gate({
+                      render: () =>
+                        isTryOnSupported(p.category_name)
+                          ? openTryOn(p)
+                          : openRuler(p),
+                      fitCheck: () => openRuler(p),
+                    })}
+                    aria-disabled={
+                      !isTryOnSupported(p.category_name) ||
+                      tryOnKind === "blocked"
                     }
-                    className="py-2 px-2 rounded-xl bg-[#1B1F3B] hover:bg-[#2A3C78] text-white text-[11px] font-semibold flex items-center justify-center gap-1 shadow-sm"
+                    className="py-2 px-2 rounded-xl bg-[#1B1F3B] hover:bg-[#2A3C78] text-white text-[11px] font-semibold flex items-center justify-center gap-1 shadow-sm disabled:opacity-50"
                   >
-                    <TryOnIcon size={13} color="#C5A059" />
+                    {isTryOnSupported(p.category_name) &&
+                    tryOnKind === "render" ? (
+                      <TryOnIcon size={13} color="#C5A059" />
+                    ) : (
+                      <RulerIcon size={13} color="#C5A059" />
+                    )}
                     <span>
-                      {isTryOnSupported(p.category_name)
+                      {isTryOnSupported(p.category_name) &&
+                      tryOnKind === "render"
                         ? "Try On"
                         : "Fit Check"}
                     </span>

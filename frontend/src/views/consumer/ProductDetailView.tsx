@@ -19,6 +19,8 @@ import {
 } from "../../components/common/CommonComponents";
 import { CardStackShowcase } from "../../components/showcase/DesignShowcases";
 import { HonestProductImage } from "../../components/common/HonestProductImage";
+import { useTranslation } from "react-i18next";
+import { useTryOnAvailability } from "../../hooks/useTryOnAvailability";
 
 export const ProductDetailView: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -43,6 +45,12 @@ export const ProductDetailView: React.FC = () => {
 
   const { openTryOn, openRuler, showToast } = useUIStore();
   const { addItem } = useCartStore();
+  const { t } = useTranslation();
+  // Honest try-on gating: the label and the destination below are derived from
+  // the live engine verdict, so a shopper is never sent into a render that
+  // cannot happen (2026-09-22). `openRuler` is the working no-photo path.
+  const tryOn = useTryOnAvailability();
+  const tryOnKind = tryOn.ctaKind(true);
 
   // C6 FIX: BOPIS failure handling - differentiate no stores vs API failure vs network
   const fetchBopisStores = (skuId: number) => {
@@ -214,11 +222,25 @@ export const ProductDetailView: React.FC = () => {
             </button>
 
             <button
-              onClick={() => openTryOn(product)}
-              className="absolute bottom-4 right-4 px-5 py-3 rounded-2xl bg-[#1B1F3B]/95 hover:bg-[#C5A059] text-white hover:text-slate-950 text-xs font-bold shadow-xl backdrop-blur-md transition-all flex items-center gap-2"
+              onClick={tryOn.gate({
+                render: () => openTryOn(product),
+                fitCheck: () => openRuler(product),
+              })}
+              disabled={tryOnKind === "blocked"}
+              className="absolute bottom-4 right-4 px-5 py-3 rounded-2xl bg-[#1B1F3B]/95 hover:bg-[#C5A059] text-white hover:text-slate-950 text-xs font-bold shadow-xl backdrop-blur-md transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <TryOnIcon size={18} color="currentColor" />
-              <span>Launch Virtual Try-On</span>
+              {tryOnKind === "render" ? (
+                <TryOnIcon size={18} color="currentColor" />
+              ) : (
+                <RulerIcon size={18} color="currentColor" />
+              )}
+              <span>
+                {t(
+                  tryOnKind === "render"
+                    ? "tryon.cta_try_on"
+                    : "tryon.cta_fit_check_instead",
+                )}
+              </span>
             </button>
           </div>
 
@@ -379,11 +401,25 @@ export const ProductDetailView: React.FC = () => {
             </button>
 
             <button
-              onClick={() => openTryOn(product)}
-              className="w-full py-3.5 rounded-2xl bg-[#FDF8EE] hover:bg-[#C5A059] text-[#7A5C28] hover:text-white border border-[#C5A059]/40 font-bold text-xs shadow-2xs transition-all flex items-center justify-center gap-2"
+              onClick={tryOn.gate({
+                render: () => openTryOn(product),
+                fitCheck: () => openRuler(product),
+              })}
+              disabled={tryOnKind === "blocked"}
+              className="w-full py-3.5 rounded-2xl bg-[#FDF8EE] hover:bg-[#C5A059] text-[#7A5C28] hover:text-white border border-[#C5A059]/40 font-bold text-xs shadow-2xs transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <TryOnIcon size={16} color="currentColor" />
-              <span>Try on digitally</span>
+              {tryOnKind === "render" ? (
+                <TryOnIcon size={16} color="currentColor" />
+              ) : (
+                <RulerIcon size={16} color="currentColor" />
+              )}
+              <span>
+                {t(
+                  tryOnKind === "render"
+                    ? "tryon.cta_try_on"
+                    : "tryon.cta_fit_check_instead",
+                )}
+              </span>
             </button>
           </div>
 

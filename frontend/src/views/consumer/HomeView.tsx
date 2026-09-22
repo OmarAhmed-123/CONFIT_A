@@ -15,6 +15,7 @@ import {
 import { useUIStore } from "../../stores/uiStore";
 import { useCatalogViewModel } from "../../viewmodels/useCatalogViewModel";
 import { useCapabilities } from "../../hooks/useCapabilities";
+import { useTryOnAvailability } from "../../hooks/useTryOnAvailability";
 import {
   FitScoreBadge,
   BNPLBadge,
@@ -126,6 +127,10 @@ export const HomeView: React.FC = () => {
   } = useCatalogViewModel();
   // J-01: trust badges render what the platform can ACTUALLY do right now.
   const { capabilities } = useCapabilities();
+  // Try-on CTAs (three on this page) bind to the live engine verdict, so none
+  // of them promises a render the GPU cannot deliver (2026-09-22).
+  const tryOn = useTryOnAvailability();
+  const tryOnKind = tryOn.ctaKind(true);
   const { addItem } = useCartStore();
   const [guideOccasion, setGuideOccasion] = React.useState("Work");
   const [guideBudget, setGuideBudget] = React.useState("450");
@@ -307,11 +312,26 @@ export const HomeView: React.FC = () => {
               </button>
 
               <button
-                onClick={() => navigate("/tryon-studio")}
+                onClick={() =>
+                  // The studio still opens: it hosts the no-photo fit check too.
+                  // Only the *label* changes, and only when a render is off the
+                  // table, so the hero never advertises a broken capability.
+                  navigate(tryOnKind === "render" ? "/tryon-studio" : "/fit-finder")
+                }
                 className="px-5 py-3.5 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold text-xs sm:text-sm backdrop-blur-md transition-all flex items-center gap-2 active:scale-98"
               >
-                <TryOnIcon size={16} color="#FFFFFF" isAi={true} />
-                <span>Try on a piece</span>
+                {tryOnKind === "render" ? (
+                  <TryOnIcon size={16} color="#FFFFFF" isAi={true} />
+                ) : (
+                  <RulerIcon size={16} color="#FFFFFF" />
+                )}
+                <span>
+                  {t(
+                    tryOnKind === "render"
+                      ? "tryon.cta_try_on"
+                      : "tryon.cta_fit_check",
+                  )}
+                </span>
               </button>
 
               <Link
@@ -686,11 +706,25 @@ export const HomeView: React.FC = () => {
                   </div>
                   <div className="flex items-center gap-2">
                     <button
-                      onClick={() => openTryOn(prod)}
-                      className="flex-1 px-3 py-2 rounded-xl border border-slate-200 hover:border-[#1B1F3B] text-xs font-semibold text-slate-700 transition-all flex items-center justify-center gap-1.5"
+                      onClick={tryOn.gate({
+                        render: () => openTryOn(prod),
+                        fitCheck: () => openRuler(prod),
+                      })}
+                      disabled={tryOnKind === "blocked"}
+                      className="flex-1 px-3 py-2 rounded-xl border border-slate-200 hover:border-[#1B1F3B] text-xs font-semibold text-slate-700 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <TryOnIcon size={14} color="#1B1F3B" />
-                      <span>Try On</span>
+                      {tryOnKind === "render" ? (
+                        <TryOnIcon size={14} color="#1B1F3B" />
+                      ) : (
+                        <RulerIcon size={14} color="#1B1F3B" />
+                      )}
+                      <span>
+                        {t(
+                          tryOnKind === "render"
+                            ? "tryon.cta_try_on"
+                            : "tryon.cta_fit_check",
+                        )}
+                      </span>
                     </button>
                     <button
                       onClick={() => navigate(`/product/${prod.slug}`)}
@@ -838,11 +872,23 @@ export const HomeView: React.FC = () => {
                         <RulerIcon size={14} color="#1B1F3B" />
                       </button>
                       <button
-                        onClick={() => openTryOn(p)}
-                        className="p-2 rounded-full bg-[#1B1F3B]/90 hover:bg-[#C5A059] text-white hover:text-slate-950 shadow-sm backdrop-blur-xs transition-all"
-                        title="Virtual Try-On"
+                        onClick={tryOn.gate({
+                          render: () => openTryOn(p),
+                          fitCheck: () => openRuler(p),
+                        })}
+                        disabled={tryOnKind === "blocked"}
+                        className="p-2 rounded-full bg-[#1B1F3B]/90 hover:bg-[#C5A059] text-white hover:text-slate-950 shadow-sm backdrop-blur-xs transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        title={t(
+                          tryOnKind === "render"
+                            ? "tryon.cta_try_on"
+                            : "tryon.cta_fit_check",
+                        )}
                       >
-                        <TryOnIcon size={14} color="currentColor" />
+                        {tryOnKind === "render" ? (
+                          <TryOnIcon size={14} color="currentColor" />
+                        ) : (
+                          <RulerIcon size={14} color="currentColor" />
+                        )}
                       </button>
                     </div>
                   </div>

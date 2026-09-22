@@ -222,10 +222,28 @@ def main() -> int:
     st, inv_a, _ = call("GET", "/partner/inventory", tok_a)
     rows_a = inv_a if isinstance(inv_a, list) else (inv_a or {}).get("inventory", []) or []
     inv_row = next((b for b in _store_rows(rows_a) if b.get("id") is not None), None)
+    # PATCH /partner/inventory/{id} deliberately requires store_id and sku_id in
+    # the body as well as the path id, and rejects anything else (extra="forbid").
+    # That is a good contract -- it makes the caller state which store/SKU pair it
+    # believes it is editing, so a stale client cannot silently move stock on a
+    # row that has been reassigned. Sending only {"quantity": N} correctly earns
+    # a 422; the earlier harness did exactly that and then blamed the endpoint.
+    sku_id_for_row = None
+    if inv_row is not None:
+        for r in rows_a:
+            for sku in (r.get("skus") or []):
+                if any(si.get("id") == inv_row["id"]
+                       for si in (sku.get("store_inventories") or [])):
+                    sku_id_for_row = sku.get("id")
+                    break
+            if sku_id_for_row:
+                break
     if inv_row:
         inv_id = inv_row["id"]
         new_qty = int(inv_row.get("quantity", 0)) + 3
-        st, _, _ = call("PATCH", f"/partner/inventory/{inv_id}", tok_a, {"quantity": new_qty})
+        patch_body = {"store_id": inv_row.get("store_id"), "sku_id": sku_id_for_row,
+                      "quantity": new_qty}
+        st, _, _ = call("PATCH", f"/partner/inventory/{inv_id}", tok_a, patch_body)
         record("update own stock", st == 200, f"{st} -> quantity={new_qty}")
         # Independent read-back straight from the authoritative database.
         dsn = os.environ.get("VERIFY_DB_URL")
@@ -240,8 +258,14 @@ def main() -> int:
                    f"db quantity={got[0] if got else None}, expected {new_qty}")
         # Cross-tenant write must be refused.
         if tok_b:
-            st, _, _ = call("PATCH", f"/partner/inventory/{inv_id}", tok_b, {"quantity": 999})
-            record("B cannot mutate A's inventory", st in (403, 404), f"got {st}")
+            # B sends a WELL-FORMED request for A's row: the rejection must come
+            # from tenant scoping, not from schema validation. A 422 here would
+            # prove nothing about isolation.
+            st, _, _ = call("PATCH", f"/partner/inventory/{inv_id}", tok_b,
+                            {"store_id": inv_row.get("store_id"),
+                             "sku_id": sku_id_for_row, "quantity": 999})
+            record("B cannot mutate A's inventory", st in (403, 404),
+                   f"got {st} (must be 403/404 from tenant scoping, not 422)")
             if dsn:
                 import psycopg2
                 cx = psycopg2.connect(dsn); cu = cx.cursor()

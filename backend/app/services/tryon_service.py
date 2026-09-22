@@ -1275,14 +1275,11 @@ class TryOnService:
         circuit = probe.get("circuit") or {}
         verdict = probe.get("verdict")
 
-        if not worker_url:
-            engine_state = "misconfigured"
-        elif verdict == "ready":
-            engine_state = "available"
-        elif verdict == "cold_start":
-            engine_state = "cold_start"
-        else:
-            engine_state = "temporarily_unavailable"
+        # The engine state and the user-facing sentence come from the shared
+        # classifier/registry in vton_worker_observability, so this endpoint and
+        # /catalog/capabilities cannot disagree (2026-09-22 consumer-role
+        # closure: they did, and the catalog was the one the UI believed).
+        engine_state = vwo.engine_state_from_probe(probe, configured=bool(worker_url))
 
         engine_block = {
             "verdict": verdict,
@@ -1302,19 +1299,7 @@ class TryOnService:
             "delivery_ttl_seconds": float(getattr(settings, "VTON_DELIVERY_TTL_SECONDS", 900.0)),
             "max_garments_per_job": 8,
         }
-        user_message = None
-        if engine_state == "misconfigured":
-            user_message = "Virtual try-on is not configured for this deployment."
-        elif engine_state == "temporarily_unavailable":
-            user_message = (
-                "Virtual try-on is offline right now — the rendering capacity is not "
-                "available. Your photo is never stored. Please try again later."
-            )
-        elif engine_state == "cold_start":
-            user_message = (
-                "The rendering engine is warming up. The first try can take up to a "
-                "minute; please retry in about 30 seconds."
-            )
+        user_message = vwo.engine_state_user_message(engine_state)
 
         out = {
             "provider": provider,

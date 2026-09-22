@@ -268,7 +268,14 @@ class CapabilityFlagsOut(BaseModel):
     payments_live: bool
     payments_mode: str
     bnpl_live: bool
+    #: MEASURED GPU readiness (live probe), not the presence of VTON_WORKER_URL.
     vton_gpu_ready: bool
+    #: Canonical engine state; identical to /try-on/capabilities `engine_state`.
+    vton_engine_state: str
+    #: Whether the deployment offers try-on at all. False = not offered here.
+    vton_offered: bool
+    #: Whether a job submitted now can produce a render (ready or cold start).
+    vton_renderable: bool
     ai_stylist_live: bool
     bopis_live: bool
     bopis_store_count: int
@@ -283,5 +290,12 @@ def get_capability_flags(db: Session = Depends(get_db)):
     Delegates to ``capability_service`` — the same source of truth the health
     endpoints use, so this surface and ``/health`` cannot disagree about what
     the deployment can do.
+
+    That claim was aspirational until 2026-09-22: ``capability_flags``
+    hardcoded ``vton_gpu_ready = bool(settings.VTON_WORKER_URL)`` while
+    ``/try-on/capabilities`` probed the worker live, so production answered
+    ``true`` and ``temporarily_unavailable`` about the same GPU at the same
+    moment. The flag is now derived from the shared probe classifier, and
+    ``tests/test_capability_single_source.py`` pins the agreement.
     """
     return CapabilityFlagsOut(**capability_flags(db))

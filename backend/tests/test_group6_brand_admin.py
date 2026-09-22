@@ -557,6 +557,12 @@ class TestSponsoredPlacements:
             # Cleanup
             plc = db.query(SponsoredPlacement).filter(SponsoredPlacement.id == placement_id).first()
             if plc:
+                # Ledger rows reference this placement; clear them first so a
+                # reused placement id in a later test cannot inherit another
+                # test's spend (the shared session-scoped DB makes ids recycle).
+                from backend.app.models.brand_analytics import AdLedgerEntry
+                db.query(AdLedgerEntry).filter(
+                    AdLedgerEntry.placement_id == plc.id).delete(synchronize_session=False)
                 db.delete(plc)
             db.delete(prod)
             db.delete(prod2)
@@ -653,6 +659,12 @@ class TestSponsoredPlacements:
             # Cleanup
             plc = db.query(SponsoredPlacement).filter(SponsoredPlacement.id == placement_id).first()
             if plc:
+                # Ledger rows reference this placement; clear them first so a
+                # reused placement id in a later test cannot inherit another
+                # test's spend (the shared session-scoped DB makes ids recycle).
+                from backend.app.models.brand_analytics import AdLedgerEntry
+                db.query(AdLedgerEntry).filter(
+                    AdLedgerEntry.placement_id == plc.id).delete(synchronize_session=False)
                 db.delete(plc)
             db.delete(prod)
             db.commit()

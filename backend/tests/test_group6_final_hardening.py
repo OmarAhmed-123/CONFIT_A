@@ -283,13 +283,59 @@ class TestInventoryNPlusOneFixed:
     """Verify N+1 fix for inventory endpoint"""
 
     def test_inventory_uses_single_query(self):
-        import inspect
-        from backend.app.controllers import brand_controller
-        source = inspect.getsource(brand_controller.get_partner_inventory)
-        # Should use inv_map and single query, not per-SKU query in loop
-        assert "inv_map" in source, "Should use inv_map to avoid N+1"
-        assert "all_sku_ids" in source or "sku_id.in_" in source, "Should query all inventories at once"
-        # Old pattern was db.query(StoreInventory).filter(sku_id == sku.id).all() inside loop
-        # New pattern should not have that inside loop, but outside
-        # Count occurrences of StoreInventory query - should be 1, not per loop
-        assert source.count("StoreInventory") <= 3, f"Should have limited StoreInventory queries, found {source.count('StoreInventory')}"
+        """No N+1: the store-inventory breakdown must cost ONE query, however
+        many SKUs the brand has.
+
+        Rewritten from source-text grepping to BEHAVIOUR measurement. The old
+        version asserted that the controller body contained the substrings
+        "inv_map" and "all_sku_ids"; that passes for code which merely looks
+        right and fails for correct code that was refactored. The query is now
+        owned by BrandRepository.get_brand_store_inventory_map (so the store
+        count and the breakdown share one tenant-scoped source of truth), so
+        the literal-string assertion tested nothing but the old layout.
+
+        This counts real SELECTs against store_inventories instead.
+        """
+        from sqlalchemy import event
+        from backend.app.repositories.brand_repository import BrandRepository
+
+        db = TestingSessionLocal()
+        try:
+            user, brand, cat = create_test_user_and_brand(db, "inventory_n_plus_one")
+            products = []
+            for i in range(5):
+                prod = Product(
+                    brand_id=brand.id, category_id=cat.id, title=f"NPlus1 {i}",
+                    title_ar="اختبار", slug=f"nplus1-{brand.id}-{i}", description="t",
+                    description_ar="ت", base_price=100.0, color_family="Navy",
+                    thumbnail_url="https://example.com/img.jpg", is_active=True)
+                db.add(prod)
+                db.flush()
+                for size in ("S", "M", "L"):
+                    db.add(ProductSKU(product_id=prod.id, sku_code=f"NP-{brand.id}-{i}-{size}",
+                                      size=size, color="Navy", stock_level=5))
+                products.append(prod)
+            db.commit()
+
+            statements = []
+
+            def record(conn, cursor, statement, params, context, executemany):
+                if "store_inventories" in statement.lower():
+                    statements.append(statement)
+
+            event.listen(db.get_bind(), "before_cursor_execute", record)
+            try:
+                BrandRepository(db).get_brand_store_inventory_map(brand.id)
+            finally:
+                event.remove(db.get_bind(), "before_cursor_execute", record)
+
+            assert len(statements) == 1, (
+                f"Expected exactly ONE store_inventories query for 15 SKUs, got "
+                f"{len(statements)} — this is the N+1 regression:\n" + "\n".join(statements))
+
+            for prod in products:
+                db.query(ProductSKU).filter(ProductSKU.product_id == prod.id).delete()
+                db.delete(prod)
+            db.commit()
+        finally:
+            db.close()

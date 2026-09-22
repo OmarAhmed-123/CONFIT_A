@@ -202,15 +202,34 @@ class TestClickSpendIsDecimal:
             pid = plc.id
         finally:
             db.close()
+        # NOTE (ad ledger): clicks are billed through AdBillingService, which
+        # de-duplicates repeat clicks from the SAME actor inside a short fraud
+        # window. This test is about DECIMAL ACCUMULATION, not about the dedup
+        # rule, so it drives distinct actors to keep every click billable —
+        # otherwise it would silently stop testing float drift at all.
+        from backend.app.services.ad_billing_service import AdBillingService, AdBillingError
         try:
-            for expected in ("0.10", "0.20", "0.30"):
-                r = raw_client.post(f"/api/v1/partner/placements/{pid}/click", headers=brand_ctx["headers"])
-                assert r.status_code == 200, r.text
-                assert Decimal(str(r.json()["spent_today"])) == Decimal(expected)
+            for i, expected in enumerate(("0.10", "0.20", "0.30")):
+                db = TestingSessionLocal()
+                try:
+                    out = AdBillingService(db).record_event(
+                        pid, brand_ctx["brand_id"], "click",
+                        event_key=f"drift-{pid}-{i}", actor_user_id=770000 + i)
+                finally:
+                    db.close()
+                assert out["status"] == "recorded", out
+                assert Decimal(out["spent_today"]) == Decimal(expected)
             # 0.1+0.1+0.1 == 0.3 exactly (float would give 0.30000000000000004 and
             # a fourth click would be admitted); budget is now exhausted
-            r = raw_client.post(f"/api/v1/partner/placements/{pid}/click", headers=brand_ctx["headers"])
-            assert r.status_code == 400
+            db = TestingSessionLocal()
+            try:
+                with pytest.raises(AdBillingError) as exc:
+                    AdBillingService(db).record_event(
+                        pid, brand_ctx["brand_id"], "click",
+                        event_key=f"drift-{pid}-overflow", actor_user_id=779999)
+                assert exc.value.code in ("BUDGET_EXHAUSTED", "PLACEMENT_CLOSED")
+            finally:
+                db.close()
             db = TestingSessionLocal()
             try:
                 row = db.get(SponsoredPlacement, pid)

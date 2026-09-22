@@ -31,7 +31,9 @@ WHAT THIS MIGRATION FIXES
 
    Existing violations are QUARANTINED (copied to
    `store_inventories_tenant_quarantine`, then deleted) rather than silently
-   reassigned: we must not invent which tenant a leaked row belonged to.
+   reassigned: we must not invent which tenant a leaked row belonged to. The
+   quarantine table is the audit evidence for that deletion, and `downgrade()`
+   restores those rows before dropping it, so the migration is a true inverse.
 
 2. DAILY BUDGET WINDOW
    `sponsored_placements.spent_today` had no date, so it was never reset and a
@@ -257,7 +259,18 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    """Genuine reversal, not just DDL removal.
+
+    The upgrade quarantined cross-tenant rows because the new composite FKs
+    reject them. A downgrade removes those constraints, so those rows become
+    legal again — therefore the honest inverse is to RESTORE them and then drop
+    the quarantine table, leaving the database exactly as it was found. A
+    downgrade that silently kept rows deleted would not be reversible, and one
+    that left the quarantine table behind would not be a clean base (the
+    migration-chain gate checks precisely this).
+    """
     if _is_postgres():
+        # Drop the constraints FIRST so the restore below cannot be rejected.
         op.execute("ALTER TABLE store_inventories DROP CONSTRAINT IF EXISTS fk_store_inv_sku_tenant")
         op.execute("ALTER TABLE store_inventories DROP CONSTRAINT IF EXISTS fk_store_inv_store_tenant")
         op.execute("ALTER TABLE store_locations DROP CONSTRAINT IF EXISTS uq_store_locations_id_brand")
@@ -268,9 +281,49 @@ def downgrade() -> None:
         op.execute("DROP TRIGGER IF EXISTS trg_cascade_product_brand ON products")
         op.execute("DROP FUNCTION IF EXISTS confit_sync_sku_brand()")
         op.execute("DROP FUNCTION IF EXISTS confit_cascade_product_brand()")
+        # Put the quarantined rows back exactly as they were, now that nothing
+        # rejects them. ON CONFLICT guards against a row having been recreated
+        # in the meantime.
+        op.execute("""
+            DO $$ BEGIN
+                IF to_regclass('public.store_inventories_tenant_quarantine') IS NOT NULL THEN
+                    INSERT INTO store_inventories (id, store_id, sku_id, quantity, reserved_quantity)
+                    SELECT q.id, q.store_id, q.sku_id, q.quantity, q.reserved_quantity
+                      FROM store_inventories_tenant_quarantine q
+                     WHERE NOT EXISTS (
+                        SELECT 1 FROM store_inventories si WHERE si.id = q.id
+                     );
+                END IF;
+            END $$;
+        """)
+        op.execute("DROP TABLE IF EXISTS store_inventories_tenant_quarantine")
         op.execute("ALTER TABLE store_inventories DROP COLUMN IF EXISTS brand_id")
         op.execute("ALTER TABLE product_skus DROP COLUMN IF EXISTS brand_id")
         op.execute("DROP INDEX IF EXISTS ix_sponsored_placements_spend_date")
-    # Quarantine table is intentionally retained: it is forensic evidence.
-    op.execute("ALTER TABLE sponsored_placements DROP COLUMN IF EXISTS spend_date")
-    op.execute("DROP TABLE IF EXISTS ad_ledger_entries")
+    # SQLite has no "DROP COLUMN IF EXISTS" (and no IF EXISTS on ALTER at all),
+    # so the cross-dialect steps are driven by inspection rather than by
+    # Postgres-only DDL. Batch mode handles SQLite's table-rebuild requirement.
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    tables = set(inspector.get_table_names())
+
+    if "sponsored_placements" in tables:
+        cols = {c["name"] for c in inspector.get_columns("sponsored_placements")}
+        if "spend_date" in cols:
+            if _is_postgres():
+                op.execute("ALTER TABLE sponsored_placements DROP COLUMN spend_date")
+            else:
+                # SQLite implements DROP COLUMN by rebuilding the table and
+                # replaying its reflected indexes. The index on spend_date must
+                # therefore be dropped BEFORE the column, otherwise the rebuild
+                # tries to recreate an index over a column that no longer
+                # exists ("no such column: spend_date").
+                existing = {i["name"] for i in inspector.get_indexes("sponsored_placements")}
+                if "ix_sponsored_placements_spend_date" in existing:
+                    op.drop_index("ix_sponsored_placements_spend_date",
+                                  table_name="sponsored_placements")
+                with op.batch_alter_table("sponsored_placements") as batch:
+                    batch.drop_column("spend_date")
+
+    if "ad_ledger_entries" in tables:
+        op.drop_table("ad_ledger_entries")

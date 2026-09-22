@@ -286,11 +286,21 @@ class TestSponsoredPlacementHardening:
             assert resp.status_code == 201
             placement_id = resp.json()["id"]
 
-            # Verify with_for_update is used in click tracking (code inspection)
+            # Row-level locking is still used, but it now lives in
+            # AdBillingService.record_event (the controller delegates to it),
+            # so grepping the controller body proves nothing about safety.
+            # Assert against the code that actually performs the locked
+            # read-modify-write on the placement row.
             import inspect
-            from backend.app.controllers import brand_controller
-            source = inspect.getsource(brand_controller.track_click)
-            assert "with_for_update" in source, "Click tracking must use SELECT FOR UPDATE for concurrency safety"
+            from backend.app.services import ad_billing_service
+            billing_source = inspect.getsource(ad_billing_service.AdBillingService.record_event)
+            assert "with_for_update" in billing_source, (
+                "Click billing must take SELECT FOR UPDATE on the placement row "
+                "before reading the budget, or two concurrent clicks can both "
+                "observe 'budget remaining' and jointly overspend.")
+            # ...and the lock must be taken BEFORE spend is read, not after.
+            assert billing_source.index("with_for_update") < billing_source.index("_spent_today("), (
+                "The placement row must be locked before its spend is read")
 
             # Cleanup
             plc = db.query(SponsoredPlacement).filter(SponsoredPlacement.id == placement_id).first()

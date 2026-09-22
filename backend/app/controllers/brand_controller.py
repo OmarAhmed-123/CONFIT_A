@@ -655,9 +655,38 @@ def delete_placement(
     if not plc:
         raise HTTPException(status_code=404, detail=f"Placement {placement_id} not found")
 
+    # FINANCIAL RECORD RETENTION.
+    # A hard DELETE cascades to ad_ledger_entries and destroys the billing
+    # history of money that was actually charged — the brand loses the evidence
+    # behind its invoice, and a later placement reusing the id would inherit
+    # the orphaned rows. A journal you can delete is not a journal.
+    #
+    # So: a placement that has EVER been billed is cancelled (soft-deleted),
+    # never erased. One with no financial history has nothing to protect and is
+    # removed as before, so the endpoint stays useful for clearing mistakes.
+    from backend.app.models.brand_analytics import AdLedgerEntry
+    ledger_rows = db.query(AdLedgerEntry).filter(
+        AdLedgerEntry.placement_id == placement_id).count()
+
     _audit(db, user, "BRAND_PLACEMENT_DELETED", "SponsoredPlacement", placement_id,
            {"brand_id": bp["id"], "status": plc.status,
-            "daily_budget": str(plc.daily_budget), "bid": str(plc.bid_amount_per_click)})
+            "daily_budget": str(plc.daily_budget), "bid": str(plc.bid_amount_per_click),
+            "ledger_entries": ledger_rows,
+            "mode": "cancelled_retaining_ledger" if ledger_rows else "hard_deleted"})
+
+    if ledger_rows:
+        plc.status = "cancelled"
+        db.commit()
+        return {
+            "status": "cancelled",
+            "placement_id": placement_id,
+            "detail": (f"Placement has {ledger_rows} billing ledger entr"
+                       f"{'y' if ledger_rows == 1 else 'ies'} and was cancelled rather than "
+                       "deleted. It will no longer serve; its financial history is retained "
+                       "for reconciliation and invoicing."),
+            "ledger_entries_retained": ledger_rows,
+        }
+
     db.delete(plc)
     db.commit()
     return {"status": "deleted", "placement_id": placement_id}

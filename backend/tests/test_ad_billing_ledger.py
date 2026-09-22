@@ -269,3 +269,89 @@ def test_statement_is_derived_from_the_ledger_only(billing):
         assert rec["balanced"] is False
         assert rec["ledger_total"] == "4.00"
         assert rec["difference"] == "5.00"
+
+
+def test_billed_placement_is_cancelled_not_erased(billing):
+    """Financial records must survive a delete.
+
+    A hard DELETE cascades to ad_ledger_entries and destroys the evidence for
+    money that was actually charged; worse, a later placement reusing the id
+    would inherit the orphaned rows. A journal you can delete is not a journal.
+    """
+    from fastapi.testclient import TestClient
+    from backend.app.core.database import get_db
+    from backend.app.core.security import create_access_token
+    from backend.app.main import app
+
+    factory, ctx = billing
+    with factory() as db:
+        AdBillingService(db).record_event(ctx["placement_id"], ctx["brand_id"], "click",
+                                          event_key="keep-me", actor_user_id=ctx["user_id"])
+
+    previous = app.dependency_overrides.get(get_db)
+
+    def _session():
+        with factory() as db:
+            yield db
+
+    app.dependency_overrides[get_db] = _session
+    try:
+        client = TestClient(app)
+        token = create_access_token({"sub": str(ctx["user_id"])})
+        resp = client.delete(f"/api/v1/partner/placements/{ctx['placement_id']}",
+                             headers={"Authorization": f"Bearer {token}"})
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+        assert body["status"] == "cancelled", "A billed placement must not be hard-deleted"
+        assert body["ledger_entries_retained"] == 1
+    finally:
+        if previous:
+            app.dependency_overrides[get_db] = previous
+        else:
+            app.dependency_overrides.pop(get_db, None)
+
+    with factory() as db:
+        plc = db.query(SponsoredPlacement).get(ctx["placement_id"])
+        assert plc is not None, "Placement row must be retained"
+        assert plc.status == "cancelled", "Cancelled placements must stop serving"
+        assert db.query(AdLedgerEntry).count() == 1, "Billing history must survive"
+
+    # ...and a cancelled placement must refuse to bill further.
+    with factory() as db:
+        with pytest.raises(AdBillingError) as exc:
+            AdBillingService(db).record_event(ctx["placement_id"], ctx["brand_id"], "click",
+                                              event_key="after-cancel", actor_user_id=123456)
+        assert exc.value.code == "PLACEMENT_CLOSED"
+
+
+def test_unbilled_placement_can_still_be_deleted(billing):
+    """The retention rule must not block housekeeping: a placement with no
+    financial history has nothing to protect."""
+    from fastapi.testclient import TestClient
+    from backend.app.core.database import get_db
+    from backend.app.core.security import create_access_token
+    from backend.app.main import app
+
+    factory, ctx = billing
+    previous = app.dependency_overrides.get(get_db)
+
+    def _session():
+        with factory() as db:
+            yield db
+
+    app.dependency_overrides[get_db] = _session
+    try:
+        client = TestClient(app)
+        token = create_access_token({"sub": str(ctx["user_id"])})
+        resp = client.delete(f"/api/v1/partner/placements/{ctx['placement_id']}",
+                             headers={"Authorization": f"Bearer {token}"})
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["status"] == "deleted"
+    finally:
+        if previous:
+            app.dependency_overrides[get_db] = previous
+        else:
+            app.dependency_overrides.pop(get_db, None)
+
+    with factory() as db:
+        assert db.query(SponsoredPlacement).get(ctx["placement_id"]) is None

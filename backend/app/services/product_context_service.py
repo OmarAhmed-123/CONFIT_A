@@ -14,6 +14,7 @@ from backend.app.core.config import settings
 from backend.app.models.catalog import Product
 from backend.app.models.user import User
 from backend.app.providers.bnpl_provider import BNPLProvider
+from backend.app.services.capability_service import bnpl_is_live
 from backend.app.providers.payment.capability_registry import MarketPaymentCapabilityRegistry
 from backend.app.core.exceptions import EncryptionError
 from backend.app.core.logging import logger
@@ -279,6 +280,22 @@ class ProductContextService:
         }
 
     def _bnpl_teaser(self, product: Product) -> Dict[str, Any]:
+        """The instalment line on the product page.
+
+        Until 2026-09-23 this published a lender's name unconditionally. The
+        quote is computed locally (``BNPLProvider.quote_sync`` — no provider is
+        contacted; see its ``_fetch_remote_quote``), so production told shoppers
+        "4 payments of 72.25 USD with Tabby" while the deployment had no Tabby
+        key, no live PSP adapter, ``payments_mode=demo`` and ``bnpl_live=false``.
+        A named lender's offer that the lender never made is a false claim, not
+        a teaser.
+
+        Now the brand is attached only when ``bnpl_is_live()`` — the same
+        authority the capability flags and the health probe read. Otherwise the
+        split is published as an explicitly-labelled estimate with no lender
+        attribution and a disclosure that instalments are not enabled, so the
+        shopper sees the same fact the trust footer states.
+        """
         market = (settings.MARKET or "EG").upper()
         capabilities = MarketPaymentCapabilityRegistry.get_capabilities_for_market(market)
         bnpl_methods = [m for m in capabilities.available_methods if m.installment_available]
@@ -294,6 +311,23 @@ class ProductContextService:
         quote = provider.quote_sync(amount=product.base_price, currency=product.currency or capabilities.currency_code)
         quote["market"] = market
         quote["method_id"] = chosen.id
+
+        live = bnpl_is_live()
+        quote["is_estimate"] = not live
+        if live:
+            # A real offer: the provider is named because the provider stands behind it.
+            quote["disclaimer"] = (
+                f"Split in {quote.get('installments_count')} interest-free payments of "
+                f"{quote.get('installment_amount')} {product.currency or capabilities.currency_code} "
+                f"with {chosen.provider_name.title()}."
+            )
+        else:
+            # No lender is named: it has offered nothing here.
+            quote["provider"] = None
+            quote["disclaimer"] = (
+                "Illustrative only — instalment payments are not enabled on this "
+                "deployment, so this is not an offer and not a payment plan."
+            )
         return quote
 
     def _complete_the_look(self, product: Product) -> List[Dict[str, Any]]:

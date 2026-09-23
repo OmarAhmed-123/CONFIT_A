@@ -48,7 +48,26 @@ class PaymentOrchestrator:
         return key, cls.LIVE_PSP_ADAPTERS.get(key) if key else None
 
     def get_market_methods(self, country_code: str = "EG") -> MarketPaymentCapabilitiesResponse:
-        return self.registry.get_capabilities_for_market(country_code)
+        """Methods for a market, each stamped with THIS deployment's real state.
+
+        ``PAYMENT_CATALOG`` describes what the platform supports *in principle*
+        and ships ``is_live=True`` on every entry. That literal reached the
+        shopper: production returned ``bnpl_tabby`` as live ("Sharia compliant
+        instalment financing") while ``/catalog/capabilities`` on the same
+        deployment answered ``bnpl_live=false`` and ``payments_mode=demo``.
+
+        ``model_copy`` is used deliberately: the catalog holds module-level
+        instances shared by every request, so stamping them in place would leak
+        one deployment's state into another's response.
+        """
+        from backend.app.services.capability_service import payment_method_is_live
+
+        response = self.registry.get_capabilities_for_market(country_code)
+        response.available_methods = [
+            method.model_copy(update={"is_live": payment_method_is_live(method.id)})
+            for method in response.available_methods
+        ]
+        return response
 
     async def initiate_payment(
         self,

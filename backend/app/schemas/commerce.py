@@ -50,6 +50,9 @@ class CartOut(BaseModel):
     currency: str = "USD"
     items_count: int
     bnpl_monthly_quote: float
+    #: True when the figure above is an illustrative estimate rather than an
+    #: offer: no live PSP adapter exists for the provider (see bnpl_is_live()).
+    bnpl_is_estimate: bool = True
     promo_code: Optional[str] = None
     brands: List[str] = []
     fit_summary: List[Dict[str, Any]] = []

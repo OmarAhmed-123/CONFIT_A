@@ -62,8 +62,8 @@ The 4 failures are `test_vton_pose_artifact_regression.py`, which imports `media
 
 | Item | Value |
 |---|---|
-| `origin/main` HEAD | `edea4ccc66331a5a231479fd6ab935437d182f94` (merge of PR #177) |
-| Merged this engagement | #176 → `8f0a9117`; #177 → `edea4ccc` (both re-fetched from the GitHub API) |
+| `origin/main` HEAD | `edea4ccc66331a5a231479fd6ab935437d182f94` (merge of PR #177) — the **code** artifact. Documentation-only merges (this report included) advance `main` without changing runtime code; the authority for the current HEAD is `git log --oneline origin/main`, and the claim "nothing but docs changed since" is reproducible with `git diff --stat edea4ccc..origin/main -- ':!docs'` (measured empty on 2026-09-23) |
+| Merged this engagement | #176 → `8f0a9117`; #177 → `edea4ccc`; #178 → this report's merge (both code merges re-fetched from the GitHub API) |
 | Open PRs (not mine, untouched) | #119, #150, #141 |
 | Required checks | `backend`, `frontend`, `release gate (production schema parity)`; `strict=true`; 0 required reviews |
 | `Workers Builds: confit-a` | fails instantly on every branch (Cloudflare build infrastructure); **not a required check**; reported, not hidden |
@@ -322,8 +322,9 @@ Progression across the engagement: M1–M23 (23 killed) → M1–M28 (28 killed)
 
 | Item | Value |
 |---|---|
-| Vercel production deployment | `dpl_B8JcWL6nA7iF4ssi7rJTbo6bXjKJ` — state **READY** at commit `edea4ccc66331a5a231479fd6ab935437d182f94` |
-| `origin/main` HEAD (re-fetched after merge) | `edea4ccc66331a5a231479fd6ab935437d182f94` — **identical** |
+| Vercel production deployment | `dpl_B8JcWL6nA7iF4ssi7rJTbo6bXjKJ` — state **READY** at commit `edea4ccc66331a5a231479fd6ab935437d182f94` (the code merge) |
+| `origin/main` HEAD at that moment | `edea4ccc66331a5a231479fd6ab935437d182f94` — **identical** (re-fetched after the merge) |
+| Documentation-only merges after that | **Measured empty of runtime change:** `git diff --stat edea4ccc..origin/main -- ':!docs'` returns 0 lines; Vercel redeploys `main` for those commits with the same runtime code. This sentence stays true as documentation merges land; `git log --oneline origin/main` remains the authority |
 | Production alias | `confit-a.vercel.app` (the only domain on the project — see §M: there is **no separate staging environment**) |
 | Proof the alias serves this build | The probes below return wording that exists only in the `c61d785`/`edea4ccc` artifact (the conditional disclaimer) |
 
@@ -453,7 +454,7 @@ Two directions: what the **product/API** claimed versus what measurement shows, 
 | Order/cart ownership (IDOR class) | PASS (tests; exploitation not attempted) | NOT TESTED | NOT TESTED (no foreign-object access attempted) | §E.2 |
 | Idempotency replay ownership (409) | PASS (4 tests; gates M22/M23) | NOT TESTED | **NOT TESTED** (requires placing orders) | §K.5 |
 | Production PostgreSQL parity | NOT APPLICABLE (SQLite locally) | NOT TESTED | **PARTIALLY VERIFIED** — CI check `release gate (production schema parity)` green on #177; no direct prod DB query | §K.6 |
-| Deployment identity | — | — | **PASS** — Vercel `READY` at `edea4ccc` = `origin/main` HEAD | §I.1 |
+| Deployment identity | — | — | **PASS** — code artifact: Vercel `READY` at `edea4ccc` = `origin/main` HEAD at merge time; later docs-only merges carry no runtime change (`git diff --stat edea4ccc..origin/main -- ':!docs'` = 0 lines) | §I.1 |
 | Accessibility (keyboard/screen-reader) | **NOT TESTED** | NOT TESTED | NOT TESTED | §K.8 |
 | Rate limiting / CSRF cookie flags | **NOT TESTED** | NOT TESTED | NOT TESTED | §K.9 |
 

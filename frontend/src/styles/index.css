@@ -139,3 +139,34 @@
 ::-webkit-scrollbar-thumb:hover {
   background: #94A3B8;
 }
+
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   WCAG 2.2 SC 2.4.11 — Focus Not Obscured (Minimum)
+
+   ConsumerLayout renders a floating "AI Stylist" FAB with position: fixed at
+   bottom-20 (5rem) on small screens and lg:bottom-8 (2rem) from 1024px up. It
+   measures 50px tall — at 1280x800 its box is y=718..768 inside an 800px
+   viewport.
+
+   Measured defect (2026-09-23): tabbing to the footer's legal links landed focus
+   UNDER that FAB. With a five-point hit test, "GDPR Compliance" in English was
+   ENTIRELY hidden — a genuine SC 2.4.11 (AA) failure, not a cosmetic overlap.
+   axe-core reports nothing here: it has no rule for hit-test occlusion.
+
+   Remedy (W3C Understanding SC 2.4.11; MDN scroll-padding): reserve the overlay's
+   height in the scroll container's scroll-padding so browser-driven focus
+   scrolling stops clear of the fixed band, and leave trailing space below the
+   footer so the last controls can actually be scrolled above it. Values are the
+   measured FAB offset + height + margin: 5rem + 50px ≈ 9.5rem on small screens,
+   2rem + 50px ≈ 6.5rem at lg.
+   ───────────────────────────────────────────────────────────────────────────── */
+html {
+  scroll-padding-bottom: 9.5rem;
+}
+
+@media (min-width: 1024px) {
+  html {
+    scroll-padding-bottom: 6.5rem;
+  }
+}

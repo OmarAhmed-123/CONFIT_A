@@ -78,7 +78,12 @@ export const ConsumerLayout: React.FC = () => {
       <CartDrawer />
 
       {/* Luxury Footer */}
-      <footer className="bg-[#0C0E1E] text-slate-300 text-xs border-t border-slate-800 py-14 px-4 sm:px-8 mt-auto">
+      {/* pb-28 (112px) is not decoration: it is the space the browser needs to
+          scroll the last focusable items clear of the fixed AI Stylist FAB.
+          Combined with `scroll-padding-bottom` in styles/index.css, this is the
+          WCAG 2.2 SC 2.4.11 (Focus Not Obscured) fix — without trailing space the
+          page cannot scroll any further and the links stay under the FAB. */}
+      <footer className="bg-[#0C0E1E] text-slate-300 text-xs border-t border-slate-800 pt-14 pb-28 px-4 sm:px-8 mt-auto">
         <div className="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10">
           <div className="space-y-3">
             <div className="font-serif tracking-widest text-2xl font-bold text-white flex items-center gap-2">

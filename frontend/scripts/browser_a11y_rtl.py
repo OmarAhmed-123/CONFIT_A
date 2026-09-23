@@ -23,7 +23,7 @@ import argparse
 import json
 import pathlib
 import sys
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 
 from playwright.sync_api import sync_playwright
 
@@ -50,11 +50,23 @@ ALLOWLIST_LATIN_IN_ARABIC = [
 ROUTES = [
     ("home", "/"),
     ("discover", "/discover"),
-    ("product", "/product/1"),
+    # A REAL slug, not /product/1: the route is /product/:slug, so an arbitrary
+    # numeric id may render an empty or partial shell — measuring a surface the
+    # shopper never sees would make the whole sweep unfaithful.
+    ("product", "/product/silk-slip-column-maxi-dress"),
     ("cart", "/cart"),
     ("checkout", "/checkout"),
     ("stylist", "/stylist"),
     ("wardrobe", "/wardrobe"),
+    # Added 2026-09-23 after the route table was read instead of assumed: these
+    # consumer routes existed all cycle and were never in the sweep, so their
+    # findings could not appear in any total the report quoted.
+    ("fit_finder", "/fit"),
+    ("my_looks", "/my-looks"),
+    ("builder", "/builder"),
+    ("orders", "/orders"),
+    ("profile", "/profile"),
+    ("returns", "/returns"),
 ]
 
 
@@ -170,7 +182,7 @@ def _untranslated_probe(page, allow: List[str]) -> Dict[str, Any]:
             const walk = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
             let node;
             while ((node = walk.nextNode())) {
-                const text = (node.nodeValue || '').replace(/\s+/g, ' ').trim();
+                const text = (node.nodeValue || '').replace(/\\s+/g, ' ').trim();
                 if (text.length < 4) continue;
                 if (!/^[A-Za-z]/.test(text)) continue;               // starts Latin
                 if (!/[A-Za-z]{3,}/.test(text)) continue;            // has a real word
@@ -195,6 +207,98 @@ def _untranslated_probe(page, allow: List[str]) -> Dict[str, Any]:
     )
 
 
+#: ARIA roles that are controls a user must be able to identify by name.
+_AX_CONTROL_ROLES = {
+    "button", "link", "checkbox", "radio", "combobox", "listbox", "menuitem",
+    "menuitemcheckbox", "menuitemradio", "slider", "spinbutton", "switch", "tab",
+    "textbox", "searchbox",
+}
+
+
+def _ax_name_audit(page) -> Dict[str, Any]:
+    """Ask the BROWSER for accessible names instead of guessing them.
+
+    Why this replaced a JavaScript heuristic (2026-09-23)
+    ----------------------------------------------------
+    The previous version decided a control was unnamed unless it had
+    `aria-label`, `title` or text content:
+
+        const name = (el.getAttribute('aria-label') || el.textContent || el.getAttribute('title') || '').trim();
+
+    That ignores the most ordinary way to name a form field — a `<label for>` —
+    so it reported five nameless inputs on /fit (fit-height, fit-weight,
+    fit-chest, fit-waist, fit-hip) when the browser's own accessibility tree
+    names every one of them ("Height", "Weight", "Chest / Bust (optional)", ...).
+    Five invented findings is the same class of failure as a hidden one: the
+    report would have claimed a defect that does not exist, and a future fix
+    would have "resolved" nothing.
+
+    The authoritative source is the accessibility tree Chrome builds. It applies
+    the full accessible-name computation (aria-labelledby → aria-label →
+    associated label → placeholder → title → contents), so what it reports is
+    what a screen reader actually announces. `placeholder` as the ONLY name is
+    real but weaker — the name disappears the moment the user types — so it is
+    counted in its own bucket and never silently merged into "unnamed".
+    """
+    cdp = page.context.new_cdp_session(page)
+    try:
+        cdp.send("Accessibility.enable")
+        # The DOM domain must be enabled before pushNodesByBackendIdsToFrontend /
+        # getOuterHTML / getAttributes will answer ("Document needs to be
+        # requested first" otherwise) — a probe-side protocol requirement, not an
+        # application defect.
+        cdp.send("DOM.enable")
+        cdp.send("DOM.getDocument", {"depth": 0})   # "Document needs to be requested first"
+        tree = cdp.send("Accessibility.getFullAXTree")
+        nameless: List[Dict[str, Any]] = []
+        placeholder_only: List[Dict[str, Any]] = []
+        controls = 0
+        pending: List[Tuple[str, int]] = []       # (bucket, backendNodeId)
+        for node in tree.get("nodes", []):
+            if node.get("ignored"):
+                continue
+            role = (node.get("role") or {}).get("value") or ""
+            if role not in _AX_CONTROL_ROLES:
+                continue
+            backend_id = node.get("backendDOMNodeId")
+            if not backend_id:
+                continue
+            controls += 1
+            name = ((node.get("name") or {}).get("value") or "").strip()
+            if not name:
+                pending.append(("nameless", backend_id))
+            else:
+                pending.append(("check_placeholder", backend_id))
+
+        # Resolve the DOM element for each control of interest so the evidence
+        # shows real markup, not just a role name.
+        frontend_ids = cdp.send(
+            "DOM.pushNodesByBackendIdsToFrontend",
+            {"backendNodeIds": [b for _, b in pending]},
+        ).get("nodeIds", [])
+        for (bucket, _), node_id in zip(pending, frontend_ids):
+            if not node_id:
+                continue
+            html = cdp.send("DOM.getOuterHTML", {"nodeId": node_id}).get("outerHTML", "")
+            if bucket == "nameless":
+                nameless.append({"html": html[:160]})
+                continue
+            attrs = cdp.send("DOM.getAttributes", {"nodeId": node_id}).get("attributes", [])
+            amap = dict(zip(attrs[0::2], attrs[1::2]))
+            placeholder = (amap.get("placeholder") or "").strip()
+            if placeholder and placeholder in html.split(">", 1)[0]:
+                placeholder_only.append({"placeholder": placeholder[:80], "html": html[:160]})
+        return {
+            "axControls": controls,
+            "namelessCount": len(nameless),
+            "nameless": nameless[:10],
+            "placeholderOnlyCount": len(placeholder_only),
+            "placeholderOnly": placeholder_only[:10],
+        }
+    finally:
+        cdp.detach()
+
+
 def _keyboard_census(page) -> Dict[str, Any]:
     """A STATIC census of the focusable controls on the page.
 
@@ -211,14 +315,11 @@ def _keyboard_census(page) -> Dict[str, Any]:
             const focusables = [...document.querySelectorAll(
                 'a[href], button:not([disabled]), input:not([disabled]), select, textarea, [tabindex]:not([tabindex="-1"])'
             )];
-            const nameless = focusables.filter(el => {
-                const name = (el.getAttribute('aria-label') || el.textContent || el.getAttribute('title') || '').trim();
-                return name.length === 0;
-            }).map(el => ({ tag: el.tagName.toLowerCase(), type: el.getAttribute('type') || '', id: el.id || '' }));
+            // Accessible-name verdicts moved to `_ax_name_audit`, which asks the
+            // browser's accessibility tree. A DOM-text guess here produced five
+            // false "unnamed control" findings on /fit.
             return {
                 focusableCount: focusables.length,
-                controlsWithoutAccessibleName: nameless.slice(0, 10),
-                unnamedCount: nameless.length,
                 imagesWithoutAlt: [...document.querySelectorAll('img')]
                     .filter(i => !i.hasAttribute('alt')).length,
                 landmarks: {
@@ -259,15 +360,40 @@ _FOCUS_SNAPSHOT_JS = """() => {
     if (!el || el === document.body || el === document.documentElement) return {};
     const cs = getComputedStyle(el);
     const r = el.getBoundingClientRect();
-    // Who is painted at the centre of the focused element? WCAG 2.2 2.4.11
-    // (Focus Not Obscured) is about the focused component being hidden behind
-    // something else — a sticky header, a chat bubble, an overlay.
-    // elementFromPoint answers that directly instead of guessing from z-index.
-    const cx = Math.round(r.left + r.width / 2);
-    const cy = Math.round(r.top + r.height / 2);
-    const atPoint = (cx > 0 && cy > 0 && cx < innerWidth && cy < innerHeight)
-        ? document.elementFromPoint(cx, cy) : null;
-    const obscured = !!(atPoint && atPoint !== el && !el.contains(atPoint));
+
+    // ── WCAG 2.2 2.4.11 (AA) vs 2.4.12 (AAA) ────────────────────────────────
+    // AA fails only when the focused component is ENTIRELY hidden; the AAA
+    // criterion is the one that forbids PARTIAL covering. A single centre-point
+    // hit test cannot tell those apart — it answers "the centre is covered",
+    // which is neither claim, and would report a partly visible control as an AA
+    // failure. Five points are therefore sampled (centre + four inset corners)
+    // and the visible fraction is reported:
+    //     visibleFraction == 0 → entirelyObscured → 2.4.11 AA failure
+    //     0 < fraction < 1     → partlyObscured   → 2.4.12 AAA concern only
+    // PROPORTIONAL sampling, not a fixed 2px inset. With a fixed inset the four
+    // "corner" points of a small or visually-clipped control (the skip link is
+    // clipped to a sliver by design) fall OUTSIDE the element, so it scored
+    // visibleFraction=0.2 and was reported as partly obscured when nothing was
+    // covering it at all — a fabricated finding. Sampling at 25%/75% of the
+    // element's own width and height keeps every point inside it, whatever its
+    // size.
+    const pts = [
+        [r.left + r.width / 2, r.top + r.height / 2],
+        [r.left + r.width * 0.25, r.top + r.height * 0.25],
+        [r.left + r.width * 0.75, r.top + r.height * 0.25],
+        [r.left + r.width * 0.25, r.top + r.height * 0.75],
+        [r.left + r.width * 0.75, r.top + r.height * 0.75],
+    ];
+    let hits = 0, mine = 0;
+    for (const p of pts) {
+        if (p[0] <= 0 || p[1] <= 0 || p[0] >= innerWidth || p[1] >= innerHeight) continue;
+        const hit = document.elementFromPoint(p[0], p[1]);
+        hits += 1;
+        if (hit === el || el.contains(hit)) mine += 1;
+    }
+    const centre = document.elementFromPoint(Math.round(r.left + r.width / 2), Math.round(r.top + r.height / 2));
+    const centreHit = (centre && centre !== el && !el.contains(centre))
+        ? (centre.tagName + '.' + String(centre.className || '').split(' ').slice(0, 2).join('.')) : null;
     return {
         tag: el.tagName.toLowerCase(),
         text: (el.getAttribute('aria-label') || el.textContent || '').trim().slice(0, 50),
@@ -278,10 +404,36 @@ _FOCUS_SNAPSHOT_JS = """() => {
         outline: cs.outlineStyle + ' ' + cs.outlineWidth + ' ' + cs.outlineColor,
         hasOutline: cs.outlineStyle !== 'none' && parseFloat(cs.outlineWidth) > 0,
         boxShadow: cs.boxShadow,
-        obscured,
-        obscuredBy: obscured ? (atPoint.tagName + '.' + String(atPoint.className || '').split(' ')[0]) : null,
+        samplePoints: hits,
+        visibleFraction: hits ? Math.round((mine / hits) * 100) / 100 : null,
+        entirelyObscured: hits > 0 && mine === 0,
+        partlyObscured: hits > 0 && mine > 0 && mine < hits,
+        obscuredBy: centreHit,
     };
 }"""
+
+
+def _settle_focus(page, attempts: int = 8) -> None:
+    """Wait until focus-driven scrolling has stopped moving the focused element.
+
+    Reason (2026-09-23): the traversal pressed Tab and hit-tested immediately. If
+    the browser was still scrolling the newly focused element into view, the
+    coordinates were stale and a perfectly visible control could be reported as
+    obscured. A measurement that depends on scroll-animation timing is not a
+    measurement. The rect must be identical on two consecutive reads.
+    """
+    previous = None
+    for _ in range(attempts):
+        rect = page.evaluate(
+            """() => { const el = document.activeElement;
+                        if (!el) return null;
+                        const r = el.getBoundingClientRect();
+                        return [Math.round(r.top), Math.round(r.left)]; }"""
+        )
+        if rect == previous:
+            return
+        previous = rect
+        page.wait_for_timeout(70)
 
 
 def _keyboard_traversal(page) -> Dict[str, Any]:
@@ -309,6 +461,7 @@ def _keyboard_traversal(page) -> Dict[str, Any]:
     seen = set()
     for _ in range(KEYBOARD_TAB_BUDGET):
         page.keyboard.press("Tab")
+        _settle_focus(page)
         snap = page.evaluate(_FOCUS_SNAPSHOT_JS)
         if not snap.get("tag"):
             break
@@ -327,7 +480,8 @@ def _keyboard_traversal(page) -> Dict[str, Any]:
         if not s["hasOutline"] and s["boxShadow"] in ("none", "")
         and any(m in (s.get("text") or "").lower() for m in DEV_ONLY_CONTROL_MARKERS)
     ]
-    obscured = [s for s in stops if s["obscured"]]
+    obscured = [s for s in stops if s.get("entirelyObscured")]
+    partly = [s for s in stops if s.get("partlyObscured")]
     return {
         "tabBudget": KEYBOARD_TAB_BUDGET,
         "stopsObserved": len(stops),
@@ -337,8 +491,49 @@ def _keyboard_traversal(page) -> Dict[str, Any]:
         "devOnlyChrome": [{"tag": s["tag"], "text": s["text"]} for s in dev_only[:4]],
         "obscured": obscured[:8],
         "obscuredCount": len(obscured),
+        "partlyObscured": [{"tag": s["tag"], "text": s["text"],
+                            "visibleFraction": s["visibleFraction"],
+                            "obscuredBy": s.get("obscuredBy")} for s in partly[:8]],
+        "partlyObscuredCount": len(partly),
         "truth": [{"tag": s["tag"], "text": s["text"], "indicator": "outline" if s["hasOutline"] else ("shadow" if s["boxShadow"] not in ("none", "") else "none")} for s in stops[:12]],
     }
+
+
+
+def _raw_key_probe(page) -> Dict[str, Any]:
+    """Visible text that looks like an UNRESOLVED i18n key or a lost placeholder.
+
+    Why this exists (found 2026-09-23, in my own earlier patch): a scripted edit
+    rewrote four JSX attributes as `eyebrow="{t('key')}"` instead of
+    `eyebrow={t('key')}`. The braces were inside a STRING literal, so React
+    rendered the placeholder itself: the Discover mood stack and the product
+    "complete the look" stack displayed `{t('discover.mood_stack_title')}` to
+    shoppers. TypeScript, ESLint and the i18n key-parity gate all passed — the
+    file is syntactically valid JSX and the key really does exist. Only rendering
+    it reveals the mistake.
+
+    The untranslated-text detector did see these strings, but reported them as
+    generic untranslated copy, which is how a self-inflicted regression passes for
+    technical debt. This probe names the shape explicitly.
+    """
+    return page.evaluate(
+        """() => {
+            const text = document.body.innerText || '';
+            const patterns = [
+                /\\{t\\(/gi,            // {t('key')} rendered as text
+                /\bt\\(['"][a-z0-9_.]+['"]\\)/gi,  // a bare t('key') call in output
+                /\\{\\{\\w+\\}\\}/g,      // unconsumed interpolation slot
+            ];
+            const hits = [];
+            for (const re of patterns) {
+                let m;
+                while ((m = re.exec(text)) !== null && hits.length < 12) {
+                    hits.push({ pattern: String(re), match: m[0].slice(0, 60) });
+                }
+            }
+            return { hits, count: hits.length };
+        }"""
+    )
 
 
 def run(base_url: str, language: str, out: List[Dict[str, Any]]) -> None:
@@ -442,7 +637,9 @@ def run(base_url: str, language: str, out: List[Dict[str, Any]]) -> None:
                     out.append(entry)
                     continue
                 entry["violations"] = _axe(page, injected)
+                entry["raw_keys"] = _raw_key_probe(page)
                 entry["keyboard"] = _keyboard_census(page)
+                entry["ax_names"] = _ax_name_audit(page)
                 entry["keyboard_traversal"] = _keyboard_traversal(page)
                 entry["typography"] = page.evaluate(
                     """() => {
@@ -511,7 +708,7 @@ def main() -> int:
     pathlib.Path(args.json).write_text(json.dumps(results, indent=2, ensure_ascii=False))
 
     violations = 0
-    print(f"{'surface':10} {'lang':4} {'axe violations':>15} {'unnamed':>8} {'img no alt':>11} {'overflowX':>10}")
+    print(f"{'surface':10} {'lang':4} {'axe violations':>15} {'unnamedAX':>10} {'img no alt':>11} {'overflowX':>10}")
     for r in results:
         if r["surface"] in ("__console__", "__console_control__"):
             console = r.get("errors") or []
@@ -537,20 +734,22 @@ def main() -> int:
         axe = r.get("violations") or []
         kb = r.get("keyboard") or {}
         rtl = r.get("rtl") or {}
-        violations += len(axe) + int(kb.get("unnamedCount", 0)) + int(kb.get("imagesWithoutAlt", 0))
+        violations += len(axe) + int((r.get("ax_names") or {}).get("namelessCount") or 0) \
+            + int(kb.get("imagesWithoutAlt", 0))
         # Violation rule, stated so it can be argued with: element-level overflow
         # counts only when the PAGE scrolls horizontally, which is the symptom a
         # shopper feels. A section that is 32px wider than its container because
         # it uses negative margins for edge-to-edge bleed, on a page that does not
         # scroll, is the intended layout — it is printed as information with its
         # measurements, never silently dropped.
+        violations += int((r.get("raw_keys") or {}).get("count") or 0)
         violations += int((r.get("keyboard_traversal") or {}).get("noIndicatorCount") or 0)
         violations += int((r.get("keyboard_traversal") or {}).get("obscuredCount") or 0)
         violations += 1 if (rtl.get("documentOverflowX") or 0) > 0 else 0
         violations += int((r.get("untranslated") or {}).get("total") or 0)
         print(
             f"{r['surface']:10} {r['language']:4} {len(axe):>15} "
-            f"{kb.get('unnamedCount', '-'):>8} {kb.get('imagesWithoutAlt', '-'):>11} "
+            f"{(r.get('ax_names') or {}).get('namelessCount', '-'):>8} {kb.get('imagesWithoutAlt', '-'):>11} "
             f"{rtl.get('documentOverflowX', '-'):>10}"
         )
         for v in axe:
@@ -570,6 +769,18 @@ def main() -> int:
             print(f"    · typography [{r['language']}]: body={typ.get('bodyFontFamily','')[:46]!r} "
                   f"cairo_usable={typ.get('cairoUsable')} cairo_faces={len(typ.get('cairoFaces') or [])} "
                   f"loaded_faces={typ.get('loadedFaces')}")
+        raw = r.get("raw_keys") or {}
+        if raw.get("count"):
+            print(f"    · RAW i18n PLACEHOLDER rendered [{r['language']}]: {raw['count']} -> "
+                  + "; ".join(h['match'] for h in raw['hits'][:3]))
+        ax = r.get("ax_names") or {}
+        if ax.get("namelessCount"):
+            print(f"    · UNNAMED CONTROL (browser AX tree) [{r['language']}]: {ax['namelessCount']} -> "
+                  + " | ".join(h["html"][:90] for h in ax["nameless"][:3]))
+        if ax.get("placeholderOnlyCount"):
+            print(f"    · PLACEHOLDER-ONLY LABEL (weaker, counted separately) [{r['language']}]: "
+                  f"{ax['placeholderOnlyCount']} -> '"
+                  + " | ".join(h["placeholder"] for h in ax["placeholderOnly"][:3]) + "'")
         kt = r.get("keyboard_traversal") or {}
         if kt:
             print(f"    · keyboard traversal [{r['language']}]: {kt['stopsObserved']}/{kt['tabBudget']} stops"
@@ -577,6 +788,9 @@ def main() -> int:
                   f" obscured: {kt['obscuredCount']}")
             for st in (kt.get("stopsWithoutFocusIndicator") or [])[:3]:
                 print(f"        no focus indicator: <{st['tag']}> {st['text'][:40]!r}")
+            if kt.get("partlyObscuredCount"):
+                print(f"        · partly obscured (2.4.12 AAA concern, NOT an AA failure): "
+                      f"{kt['partlyObscuredCount']}")
             for st in (kt.get("obscured") or [])[:3]:
                 print(f"        OBSCURED (2.4.11): <{st['tag']}> {st['text'][:32]!r} hidden by {st['obscuredBy']}")
         unt = r.get("untranslated") or {}

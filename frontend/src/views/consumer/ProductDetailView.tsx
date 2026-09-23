@@ -158,8 +158,8 @@ export const ProductDetailView: React.FC = () => {
       <CardStackShowcase
         tone="consumer"
         compact
-        eyebrow="{t('product.complete_the_look_title')}"
-        title="{t('product.complete_the_look_body')}"
+        eyebrow={t('product.complete_the_look_title')}
+        title={t('product.complete_the_look_body')}
         description="Product detail pages use the animated stack to connect a single item to realistic complementary directions."
       />
       <nav className="text-xs text-slate-500 flex items-center gap-2 font-light">

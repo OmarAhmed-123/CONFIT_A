@@ -277,7 +277,7 @@ def _ax_name_audit(page) -> Dict[str, Any]:
         # shows real markup, not just a role name.
         frontend_ids = cdp.send(
             "DOM.pushNodesByBackendIdsToFrontend",
-            {"backendNodeIds": [b for _, b in pending]},
+            {"backendNodeIds": [entry[1] for entry in pending]},
         ).get("nodeIds", [])
         # Ids that a real <label for=...> points at: a control with one of these is
         # labelled by content, whatever else it also carries.

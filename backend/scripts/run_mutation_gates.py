@@ -284,6 +284,29 @@ MUTATIONS: list[Mutation] = [
         '    "cancelled": set(),\n    "completed": set(),\n    "awaiting_customs": set(),',
         ["backend/tests/test_capabilities_endpoint.py::test_every_order_state_has_a_frontend_translation_key"],
     ),
+    Mutation(
+        "M29",
+        "Payment methods: answer every request with the default market, so a "
+        "client asking for AE/SA is silently served EG's rails and currency "
+        "(the silent-fallback defect: an unknown parameter value or name must "
+        "not be answered as if it were the default)",
+        "backend/app/controllers/commerce_controller.py",
+        'return orchestrator.get_market_methods(country_code or "EG")',
+        'return orchestrator.get_market_methods("EG")',
+        ["backend/tests/test_capabilities_endpoint.py::test_payment_methods_answer_for_the_requested_market"],
+    ),
+    Mutation(
+        "M30",
+        "Payment disclaimer: restore the unconditional compliance sentence "
+        "('All transactions in {code} are processed in compliance with local "
+        "central bank regulations and PCI-DSS tokenization standards') so it "
+        "is published for markets where nothing but cash on delivery can "
+        "settle — a regulated claim standing on nothing measured",
+        "backend/app/services/capability_service.py",
+        '    if live - {"cod"}:',
+        "    if True:",
+        ["backend/tests/test_capabilities_endpoint.py::test_payment_disclaimer_makes_no_compliance_claim_nothing_can_back"],
+    ),
 ]
 
 

@@ -60,13 +60,24 @@ class PaymentOrchestrator:
         instances shared by every request, so stamping them in place would leak
         one deployment's state into another's response.
         """
-        from backend.app.services.capability_service import payment_method_is_live
+        from backend.app.services.capability_service import (
+            payment_disclaimer,
+            payment_method_is_live,
+        )
 
         response = self.registry.get_capabilities_for_market(country_code)
         response.available_methods = [
             method.model_copy(update={"is_live": payment_method_is_live(method.id)})
             for method in response.available_methods
         ]
+        # The disclaimer is stamped from the same two inputs as `is_live` above,
+        # so the sentence and the flags cannot disagree: a market where nothing
+        # but cash can settle cannot carry a PCI-DSS compliance claim.
+        response.disclaimer_en, response.disclaimer_ar = payment_disclaimer(
+            response.market_code,
+            [method.id for method in response.available_methods],
+            [method.id for method in response.available_methods if method.is_live],
+        )
         return response
 
     async def initiate_payment(

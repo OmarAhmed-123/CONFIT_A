@@ -6,6 +6,9 @@ contract: flags must reflect CONFIGURATION, never assert capabilities.
 """
 
 from backend.app.core.config import settings
+from backend.app.providers.payment.capability_registry import (
+    MarketPaymentCapabilityRegistry,
+)
 
 
 def _get(client):
@@ -208,10 +211,33 @@ def test_vton_gpu_ready_does_not_follow_configuration(client, monkeypatch):
 # ---------------------------------------------------------------------------
 
 
-def _methods(client, country="EG"):
-    res = client.get(f"/api/v1/commerce/payment-methods?country={country}")
+def _methods(client, country_code="EG"):
+    res = client.get(f"/api/v1/commerce/payment-methods?country_code={country_code}")
     assert res.status_code == 200, res.text
-    return {m["id"]: m for m in res.json()["available_methods"]}
+    body = res.json()
+    expected_market = MarketPaymentCapabilityRegistry.market_code(country_code)
+    assert body["market_code"] == expected_market, (
+        f"asked for {country_code!r} and was answered for {body['market_code']!r} — "
+        "a request for one market must never be silently answered with another"
+    )
+    return {m["id"]: m for m in body["available_methods"]}
+
+
+def test_payment_methods_answer_for_the_requested_market(client):
+    """A client asking for one market must not be answered for another.
+
+    Regression guard for a defect this suite carried itself: the helper used to
+    send ``?country=`` while the endpoint's parameter is ``country_code``.
+    FastAPI ignores unknown query parameters, so every call was silently served
+    the default market (EG) while looking market-aware — a test that passes
+    without executing the branch it appears to exercise. The helper now asserts
+    the echoed market, and the assumption that the branches differ is pinned
+    here: Tamara is an AE/SA method and must not appear for EG.
+    """
+    ae = _methods(client, "AE")
+    assert "bnpl_tamara" in ae, "AE must resolve to the AE catalogue, not the default"
+    eg = _methods(client, "EG")
+    assert "bnpl_tamara" not in eg, "EG must not be served the AE catalogue"
 
 
 def test_payment_method_is_live_is_measured_not_a_literal(client, monkeypatch):
@@ -263,14 +289,85 @@ def test_stamping_is_live_does_not_mutate_the_shared_catalog(client, monkeypatch
     response (a demo deployment marking an entry live for the next caller), so
     the copy is asserted, not assumed.
     """
-    from backend.app.providers.payment.capability_registry import (
-        MarketPaymentCapabilityRegistry,
-    )
-
     before = MarketPaymentCapabilityRegistry.PAYMENT_CATALOG["bnpl_tabby"].is_live
     _methods(client)
     after = MarketPaymentCapabilityRegistry.PAYMENT_CATALOG["bnpl_tabby"].is_live
     assert before == after == True  # noqa: E712 — the catalog default is untouched
+
+
+def _payment_body(client, country_code="EG"):
+    res = client.get(f"/api/v1/commerce/payment-methods?country_code={country_code}")
+    assert res.status_code == 200, res.text
+    return res.json()
+
+
+def test_payment_disclaimer_makes_no_compliance_claim_nothing_can_back(client, monkeypatch):
+    """PCI-DSS and central-bank wording require a rail that can actually settle.
+
+    Production served "All transactions in EG are processed in compliance with
+    local central bank regulations and PCI-DSS tokenization standards." while
+    card, Tabby, Vodafone Cash and InstaPay were all ``is_live=false`` and the
+    deployment held no PSP credential. Nothing was tokenized; nothing was
+    regulated; the sentence was decoration on the money path.
+    """
+    from backend.app.providers.payment.orchestrator import PaymentOrchestrator
+
+    monkeypatch.setattr(settings, "PAYMENTS_LIVE", False)
+    monkeypatch.setattr(settings, "TABBY_API_KEY", None)
+    monkeypatch.setattr(settings, "TAMARA_API_KEY", None)
+    monkeypatch.setattr(settings, "STRIPE_SECRET_KEY", None)
+    monkeypatch.setattr(PaymentOrchestrator, "LIVE_PSP_ADAPTERS", {})
+
+    body = _payment_body(client, "EG")
+    live = [m["id"] for m in body["available_methods"] if m["is_live"]]
+    assert live == ["cod"], f"precondition: only COD may settle here, got {live}"
+
+    for field in ("disclaimer_en", "disclaimer_ar"):
+        assert "PCI-DSS" not in body[field], f"{field} still claims tokenization: {body[field]}"
+        assert "central bank" not in body[field].lower()
+    assert "not enabled" in body["disclaimer_en"]
+    assert "Cash on delivery is the only live payment method in EG" in body["disclaimer_en"]
+    assert "الاستلام" in body["disclaimer_ar"], "the Arabic must say it, not just the English"
+
+
+def test_payment_disclaimer_keeps_the_compliance_line_when_a_psp_method_is_live(
+    client, monkeypatch
+):
+    """The sentence is kept where it is earned — otherwise it is only deleted."""
+    from backend.app.providers.payment.orchestrator import PaymentOrchestrator
+
+    monkeypatch.setattr(settings, "PAYMENTS_LIVE", True)
+    monkeypatch.setattr(settings, "TABBY_API_KEY", "sk-test-tabby")
+    # The adapter registry is keyed by PROVIDER ("tabby"), not by method id —
+    # `live_adapter_for` maps method -> provider first.
+    monkeypatch.setattr(
+        PaymentOrchestrator, "LIVE_PSP_ADAPTERS", {"tabby": object()}
+    )
+
+    body = _payment_body(client, "EG")
+    assert _methods(client, "EG")["bnpl_tabby"]["is_live"] is True, (
+        "precondition: this is the live case"
+    )
+    assert "PCI-DSS" in body["disclaimer_en"]
+    assert "PCI-DSS" in body["disclaimer_ar"]
+
+
+def test_payment_disclaimer_speaks_for_markets_with_no_method_at_all(client, monkeypatch):
+    """`?country_code=XX` was told "All transactions in XX are processed...".
+
+    An unserved market now gets an unserved-market sentence — not the EG one,
+    and not a compliance claim about a country the platform does not operate in.
+    """
+    from backend.app.providers.payment.orchestrator import PaymentOrchestrator
+
+    monkeypatch.setattr(settings, "PAYMENTS_LIVE", False)
+    monkeypatch.setattr(PaymentOrchestrator, "LIVE_PSP_ADAPTERS", {})
+
+    body = _payment_body(client, "XX")
+    live = [m["id"] for m in body["available_methods"] if m["is_live"]]
+    assert live == [], f"precondition: nothing may settle in XX, got {live}"
+    assert "No payment method is enabled for XX" in body["disclaimer_en"]
+    assert "PCI-DSS" not in body["disclaimer_en"]
 
 
 def test_photo_upload_available_is_measured_while_storage_mode_is_a_name(client, monkeypatch):

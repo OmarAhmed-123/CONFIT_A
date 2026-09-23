@@ -1490,7 +1490,16 @@ class CommerceService:
         previous file write failed with PermissionError on the read-only
         serverless filesystem and the file would not have survived a cold start).
         """
-        ref = f"RA-{uuid.uuid4().hex[:10].upper()}"
+        # 16 hex characters = 64 bits. This reference is the ONLY protection on
+        # `GET /returns/labels/{ref}`, which is deliberately unauthenticated (a
+        # shopper must be able to print their authorisation without signing back
+        # in) and discloses the order number and return status. It was 10
+        # characters (40 bits) until 2026-09-23: unpredictable, because uuid4 is
+        # a CSPRNG, but below the 64-bit floor for a value that *is* the
+        # credential. The route's accepted shape is `RA-[A-Z0-9]{6,16}`, so
+        # existing 10-character references stay redeemable and the download
+        # route is unchanged.
+        ref = f"RA-{uuid.uuid4().hex[:16].upper()}"
         return f"/api/v1/returns/labels/{ref}", ref
 
     def render_return_authorisation(self, ref: str) -> Tuple[str, str]:

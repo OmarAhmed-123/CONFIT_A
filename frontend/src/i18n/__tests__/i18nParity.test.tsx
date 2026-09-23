@@ -253,6 +253,36 @@ describe('format.ts — numbers follow the app language, not the browser', () =>
     }
   });
 
+  it('is immune to region-qualified tags and to the browser locale', () => {
+    // Research note (MDN `Intl.DisplayNames`, tc39 proposal-intl-displaynames-v2
+    // §1.3.1): `languageDisplay` defaults to "dialect", which is what renders
+    // "en-US" as "American English" and "ar-EG" as "العربية (مصر)". The helper
+    // must not depend on a default it does not control, and it must not leak a
+    // region qualifier into a language switcher.
+    //
+    // Each of these is a tag a caller could plausibly pass — a future locale
+    // picker, a URL parameter, a browser language — so each is asserted
+    // against the BASE language name rather than left to chance.
+    for (const tag of ['en', 'en-US', 'en-GB', 'en-AU', 'EN', 'en-us']) {
+      expect(languageDisplayName(tag)).toBe('English');
+    }
+    for (const tag of ['ar', 'ar-EG', 'ar-SA', 'AR', 'ar-eg']) {
+      expect(languageDisplayName(tag)).toBe('العربية');
+    }
+    // The regression in plain terms: none of the region spellings may reappear.
+    const names = ['en', 'en-US', 'en-GB', 'ar', 'ar-EG'].map((t) => languageDisplayName(t));
+    for (const name of names) {
+      expect(name).not.toMatch(/American|British|United States|United Kingdom|مصر|السعودية|Egypt|Saudi/i);
+    }
+  });
+
+  it('resolves the name in the requested UI language even for a region tag', () => {
+    // The live-region announcement path: an English UI user switching to an
+    // Arabic-region tag should hear the Arabic name AS WRITTEN IN ENGLISH.
+    expect(languageDisplayName('ar-EG', 'en')).toMatch(/Arabic/i);
+    expect(languageDisplayName('en-US', 'ar')).toMatch(/[\u0600-\u06FF]/);
+  });
+
   it('names the target language in the language the user is reading, for speech', () => {
     // The visible control shows self-names; the live-region announcement must
     // stay in the active UI language so screen readers do not switch script

@@ -133,6 +133,41 @@ export function formatRelativeDays(days: number, lang: AppLanguage | string): st
  *   for the name of the target language as written in the language the user is
  *   already reading.
  */
-export function languageDisplayName(lang: AppLanguage, uiLang?: AppLanguage): string {
-  return new Intl.DisplayNames([INTL_LOCALE[uiLang ?? lang]], { type: 'language' }).of(lang) ?? lang;
+/** Base language subtag of a BCP-47 tag: `en-GB` → `en`, `AR-eg` → `ar`. */
+function baseLanguage(tag: AppLanguage | string): string {
+  return String(tag ?? '').split('-')[0].toLowerCase();
 }
+
+export function languageDisplayName(lang: AppLanguage | string, uiLang?: AppLanguage): string {
+  // Hardened 2026-09-23 after researching the spec (MDN `Intl.DisplayNames`,
+  // tc39 proposal-intl-displaynames-v2 §1.3.1): `languageDisplay` DEFAULTS to
+  // `"dialect"`, and dialect display is what turns "en-US" into "American
+  // English" and "ar-EG" into "العربية (مصر)". That default is exactly how the
+  // defect above reached shoppers, so this helper no longer relies on a default
+  // it does not control:
+  //   * both the NAMED language and the RESOLVER language are reduced to their
+  //     base subtag — a language switcher names languages, not regions;
+  //   * `languageDisplay: 'standard'` is passed EXPLICITLY, so a region tag
+  //     still renders as "English", never "American English";
+  //   * the resolver locale is looked up by base subtag and falls back to `en`.
+  //     The first version of this hardening indexed `INTL_LOCALE` with the full
+  //     tag, so `languageDisplayName('en-US')` produced
+  //     `new Intl.DisplayNames([undefined])` and threw
+  //     `TypeError: Language ID should be string or object` — a crash reachable
+  //     by any caller passing a region tag. The test written for this function
+  //     found it; that is why the matrix is asserted rather than the two
+  //     supported codes.
+  // `lang` is typed as a BCP-47 tag rather than only `AppLanguage` so the
+  // regional case is representable, and therefore testable.
+  const base = baseLanguage(lang);
+  if (!base) return String(lang);
+  const resolverBase = baseLanguage(uiLang ?? lang) as AppLanguage;
+  const resolverLocale = INTL_LOCALE[resolverBase] ?? INTL_LOCALE.en;
+  return (
+    new Intl.DisplayNames([resolverLocale], {
+      type: 'language',
+      languageDisplay: 'standard',
+    }).of(base) ?? base
+  );
+}
+

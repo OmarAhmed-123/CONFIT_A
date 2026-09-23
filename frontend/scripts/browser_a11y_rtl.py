@@ -195,8 +195,17 @@ def _untranslated_probe(page, allow: List[str]) -> Dict[str, Any]:
     )
 
 
-def _keyboard_probe(page) -> Dict[str, Any]:
-    """Tab through the page: every stop must be focusable AND visibly focused."""
+def _keyboard_census(page) -> Dict[str, Any]:
+    """A STATIC census of the focusable controls on the page.
+
+    Renamed 2026-09-23. It used to be called `_keyboard_probe` with the
+    docstring "Tab through the page: every stop must be focusable AND visibly
+    focused" — but it never pressed Tab, never checked that focus is visible and
+    never looked at focus order. The name claimed a measurement the function did
+    not perform, which is the defect class this whole script exists to catch, so
+    the claim was corrected in both directions: this function now says what it
+    is, and `_keyboard_traversal` below performs the real traversal.
+    """
     return page.evaluate(
         """() => {
             const focusables = [...document.querySelectorAll(
@@ -222,6 +231,114 @@ def _keyboard_probe(page) -> Dict[str, Any]:
             };
         }"""
     )
+
+
+#: How many Tab presses per page. Bounded on purpose: a page with a hundred
+#: stops should not spend a minute proving it, and 30 stops is enough to reach
+#: the primary navigation, the main content and any sticky overlay — which is
+#: where focus problems actually live. The bound is REPORTED as a bound.
+KEYBOARD_TAB_BUDGET = 30
+
+#: Controls that exist only in the DEV build and must not be reported as
+#: application accessibility findings. `App.tsx` renders
+#: `{import.meta.env.DEV && <ReactQueryDevtools/>}`, and that widget's toggle is
+#: a focusable button with no visible focus indicator — measured locally and, on
+#: purpose, absent from production (the production pass of 2026-09-23 found zero
+#: such controls), which is what makes it environment noise rather than a
+#: defect. Classified by name so any NEW indicator-less control still fails.
+DEV_ONLY_CONTROL_MARKERS = ("tanstack query devtools", "open tanstack")
+
+_FOCUS_SNAPSHOT_JS = """() => {
+    // Reads `document.activeElement` INSIDE the page. The first version took the
+    // element as an argument from a separate `page.evaluate`, which serialises a
+    // DOM node into a plain object — `getComputedStyle` then threw
+    // "Failed to execute 'getComputedStyle' on 'Window'" on every surface, and
+    // the run was correctly reported as RUN INVALID rather than as a clean pass
+    // (that gate is the reason this bug was caught instead of published).
+    const el = document.activeElement;
+    if (!el || el === document.body || el === document.documentElement) return {};
+    const cs = getComputedStyle(el);
+    const r = el.getBoundingClientRect();
+    // Who is painted at the centre of the focused element? WCAG 2.2 2.4.11
+    // (Focus Not Obscured) is about the focused component being hidden behind
+    // something else — a sticky header, a chat bubble, an overlay.
+    // elementFromPoint answers that directly instead of guessing from z-index.
+    const cx = Math.round(r.left + r.width / 2);
+    const cy = Math.round(r.top + r.height / 2);
+    const atPoint = (cx > 0 && cy > 0 && cx < innerWidth && cy < innerHeight)
+        ? document.elementFromPoint(cx, cy) : null;
+    const obscured = !!(atPoint && atPoint !== el && !el.contains(atPoint));
+    return {
+        tag: el.tagName.toLowerCase(),
+        text: (el.getAttribute('aria-label') || el.textContent || '').trim().slice(0, 50),
+        rect: { top: Math.round(r.top), left: Math.round(r.left),
+                w: Math.round(r.width), h: Math.round(r.height) },
+        inViewport: r.top >= 0 && r.bottom <= innerHeight,
+        visible: !!(r.width && r.height) && cs.visibility !== 'hidden' && cs.display !== 'none',
+        outline: cs.outlineStyle + ' ' + cs.outlineWidth + ' ' + cs.outlineColor,
+        hasOutline: cs.outlineStyle !== 'none' && parseFloat(cs.outlineWidth) > 0,
+        boxShadow: cs.boxShadow,
+        obscured,
+        obscuredBy: obscured ? (atPoint.tagName + '.' + String(atPoint.className || '').split(' ')[0]) : null,
+    };
+}"""
+
+
+def _keyboard_traversal(page) -> Dict[str, Any]:
+    """Press Tab for real and measure what the keyboard user experiences.
+
+    What is actually measured, per stop:
+      * the element that received focus (tag, name, geometry);
+      * whether it is visible and how far down the page it sits;
+      * whether a focus INDICATOR is present, and of which kind — an outline or
+        a box-shadow. Both are legitimate; the absence of both is the failure.
+        This is a proxy for WCAG 2.4.7 (Focus Visible) and 2.4.13 (Focus
+        Appearance); it deliberately does not claim to measure indicator
+        CONTRAST, which needs a pixel comparison the probe cannot do reliably
+        against gradients.
+      * WCAG 2.2 2.4.11 (Focus Not Obscured, AA): whether the element painted at
+        the centre of the focused control is the control itself. A sticky header
+        covering the focused link is a real failure that axe does not detect.
+
+    Bounded: at most KEYBOARD_TAB_BUDGET stops, reported as `tabBudget`.
+    Keyboard state is reset first (focus the document body) so the traversal
+    starts from a known point rather than wherever the previous probe left it.
+    """
+    page.evaluate("() => { document.body.focus?.(); document.activeElement?.blur?.(); }")
+    stops: List[Dict[str, Any]] = []
+    seen = set()
+    for _ in range(KEYBOARD_TAB_BUDGET):
+        page.keyboard.press("Tab")
+        snap = page.evaluate(_FOCUS_SNAPSHOT_JS)
+        if not snap.get("tag"):
+            break
+        key = (snap["tag"], snap.get("text"), snap["rect"]["top"], snap["rect"]["left"])
+        if key in seen:  # focus has cycled — the traversal is complete
+            break
+        seen.add(key)
+        stops.append(snap)
+    no_indicator = [
+        s for s in stops
+        if not s["hasOutline"] and s["boxShadow"] in ("none", "")
+        and not any(m in (s.get("text") or "").lower() for m in DEV_ONLY_CONTROL_MARKERS)
+    ]
+    dev_only = [
+        s for s in stops
+        if not s["hasOutline"] and s["boxShadow"] in ("none", "")
+        and any(m in (s.get("text") or "").lower() for m in DEV_ONLY_CONTROL_MARKERS)
+    ]
+    obscured = [s for s in stops if s["obscured"]]
+    return {
+        "tabBudget": KEYBOARD_TAB_BUDGET,
+        "stopsObserved": len(stops),
+        "stoppedEarly": len(stops) < KEYBOARD_TAB_BUDGET,
+        "stopsWithoutFocusIndicator": no_indicator[:8],
+        "noIndicatorCount": len(no_indicator),
+        "devOnlyChrome": [{"tag": s["tag"], "text": s["text"]} for s in dev_only[:4]],
+        "obscured": obscured[:8],
+        "obscuredCount": len(obscured),
+        "truth": [{"tag": s["tag"], "text": s["text"], "indicator": "outline" if s["hasOutline"] else ("shadow" if s["boxShadow"] not in ("none", "") else "none")} for s in stops[:12]],
+    }
 
 
 def run(base_url: str, language: str, out: List[Dict[str, Any]]) -> None:
@@ -325,7 +442,8 @@ def run(base_url: str, language: str, out: List[Dict[str, Any]]) -> None:
                     out.append(entry)
                     continue
                 entry["violations"] = _axe(page, injected)
-                entry["keyboard"] = _keyboard_probe(page)
+                entry["keyboard"] = _keyboard_census(page)
+                entry["keyboard_traversal"] = _keyboard_traversal(page)
                 entry["typography"] = page.evaluate(
                     """() => {
                          const body = getComputedStyle(document.body);
@@ -426,6 +544,8 @@ def main() -> int:
         # it uses negative margins for edge-to-edge bleed, on a page that does not
         # scroll, is the intended layout — it is printed as information with its
         # measurements, never silently dropped.
+        violations += int((r.get("keyboard_traversal") or {}).get("noIndicatorCount") or 0)
+        violations += int((r.get("keyboard_traversal") or {}).get("obscuredCount") or 0)
         violations += 1 if (rtl.get("documentOverflowX") or 0) > 0 else 0
         violations += int((r.get("untranslated") or {}).get("total") or 0)
         print(
@@ -450,6 +570,15 @@ def main() -> int:
             print(f"    · typography [{r['language']}]: body={typ.get('bodyFontFamily','')[:46]!r} "
                   f"cairo_usable={typ.get('cairoUsable')} cairo_faces={len(typ.get('cairoFaces') or [])} "
                   f"loaded_faces={typ.get('loadedFaces')}")
+        kt = r.get("keyboard_traversal") or {}
+        if kt:
+            print(f"    · keyboard traversal [{r['language']}]: {kt['stopsObserved']}/{kt['tabBudget']} stops"
+                  f" (early stop: {kt['stoppedEarly']}), no indicator: {kt['noIndicatorCount']},"
+                  f" obscured: {kt['obscuredCount']}")
+            for st in (kt.get("stopsWithoutFocusIndicator") or [])[:3]:
+                print(f"        no focus indicator: <{st['tag']}> {st['text'][:40]!r}")
+            for st in (kt.get("obscured") or [])[:3]:
+                print(f"        OBSCURED (2.4.11): <{st['tag']}> {st['text'][:32]!r} hidden by {st['obscuredBy']}")
         unt = r.get("untranslated") or {}
         for u in (unt.get("sample") or [])[:4]:
             print(f"    · UNTRANSLATED in ar: <{u['tag']} class=\"{u['cls']}\"> {u['text']!r}")

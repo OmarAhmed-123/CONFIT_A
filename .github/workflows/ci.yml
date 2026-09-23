@@ -119,6 +119,10 @@ jobs:
           SECRET_KEY: ci-only-not-a-secret-0123456789abcdef0123456789abcdef
           JWT_REFRESH_SECRET: ci-only-not-a-secret-0123456789abcdef0123456789abcdef
           ENCRYPTION_KEY_FOR_BODY_DATA: ci-only-not-a-secret-0123456789abcdef
+          # 0020: dedicated audit-chain HMAC key — the production validator
+          # refuses to boot without it (and refuses SECRET_KEY reuse), so the
+          # CI boot probe must supply a distinct value like production does.
+          AUDIT_HMAC_KEY: ci-only-audit-chain-key-fedcba9876543210fedcba9876543210
         run: PYTHONPATH=. python3 -c "import api.index; print('vercel entrypoint import ok')"
       - name: Deployment contract tests
         run: |

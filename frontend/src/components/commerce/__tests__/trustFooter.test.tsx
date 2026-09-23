@@ -205,4 +205,35 @@ describe('the disclosure is reachable and localized', () => {
     expect(/[\u0600-\u06FF]/.test(text)).toBe(true);
     expect(text).not.toContain(i18n.getFixedT('en')('footer.bopis_available', { count: 2 }));
   });
+
+  it('states the COD-only truth instead of claiming no goods are shipped', () => {
+    // 2026-09-23 hardening. `payments_live` had been `bool(PAYMENTS_LIVE)`, so
+    // one env var published "Card payments are processed by a live payment
+    // service provider." on a deployment with no key and no adapter. The flag
+    // is now measured; this pins the *other* half of the same honesty problem —
+    // when no PSP rail is live but cash on delivery settles, the demo
+    // disclosure's "no goods are shipped" is false for a COD order.
+    setCaps({ payments_live: false, cod_live: true, bopis_live: true, bopis_store_count: 1 });
+    renderFooter();
+    const text = screen.getByTestId('trust-footer').textContent!;
+    expect(text).toContain(i18n.getFixedT('en')('footer.payment_mode_disclosure_cod'));
+    expect(text).not.toContain(i18n.getFixedT('en')('footer.payment_mode_disclosure'));
+    expect(text).not.toContain(i18n.getFixedT('en')('footer.payments_live'));
+  });
+
+  it('claims a live payment provider only when the server measured one', () => {
+    setCaps({ payments_live: true, cod_live: true, bopis_live: true, bopis_store_count: 1 });
+    renderFooter();
+    expect(screen.getByTestId('trust-footer').textContent).toContain(
+      i18n.getFixedT('en')('footer.payments_live'),
+    );
+  });
+
+  it('falls back to the plain demo disclosure when nothing can settle', () => {
+    setCaps({ payments_live: false, cod_live: false, bopis_live: false, bopis_store_count: 0 });
+    renderFooter();
+    expect(screen.getByTestId('trust-footer').textContent).toContain(
+      i18n.getFixedT('en')('footer.payment_mode_disclosure'),
+    );
+  });
 });

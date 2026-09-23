@@ -1,6 +1,9 @@
 from typing import Dict
 
-from backend.app.providers.payment.schemas import PaymentMethodOption, MarketPaymentCapabilitiesResponse
+from backend.app.providers.payment.schemas import (
+    MarketPaymentCatalogResponse,
+    PaymentMethodOption,
+)
 
 import json
 from dataclasses import dataclass
@@ -202,7 +205,6 @@ class MarketPaymentCapabilityRegistry(MarketSettlement):
             description_ar="فيزا، ماستركارد، أمريكان إكسبريس مع حماية ثلاثية الأبعاد",
             icon_name="card",
             provider_name="stripe_or_paymob",
-            is_live=True,
             supported_countries=["EG", "AE", "SA", "QA", "KW", "BH", "OM", "US", "GLOBAL"]
         ),
         "bnpl_tabby": PaymentMethodOption(
@@ -213,7 +215,6 @@ class MarketPaymentCapabilityRegistry(MarketSettlement):
             description_ar="قسّم على 4 دفعات شهرية بدون فوائد أو رسوم تأخير. متوافق مع الشريعة.",
             icon_name="tabby",
             provider_name="tabby",
-            is_live=True,
             supported_countries=["AE", "SA", "KW", "BH", "QA", "EG"],
             installment_available=True,
             installments_count=4
@@ -226,7 +227,6 @@ class MarketPaymentCapabilityRegistry(MarketSettlement):
             description_ar="قسّم على 4 دفعات شهرية بدون فوائد وبدون رسوم خفية.",
             icon_name="tamara",
             provider_name="tamara",
-            is_live=True,
             supported_countries=["SA", "AE", "KW"],
             installment_available=True,
             installments_count=4
@@ -239,7 +239,6 @@ class MarketPaymentCapabilityRegistry(MarketSettlement):
             description_ar="دفع فوري ببصمة الإصبع أو الوجه مع أبل باي",
             icon_name="apple_pay",
             provider_name="apple_pay_psp",
-            is_live=True,
             supported_countries=["AE", "SA", "QA", "KW", "BH", "OM", "US"]
         ),
         "vodafone_cash": PaymentMethodOption(
@@ -250,7 +249,6 @@ class MarketPaymentCapabilityRegistry(MarketSettlement):
             description_ar="ادفع مباشرة من محفظتك الإلكترونية المصرية عبر بوابة باي موب",
             icon_name="wallet",
             provider_name="paymob_wallets",
-            is_live=True,
             supported_countries=["EG"]
         ),
         "instapay_bridge": PaymentMethodOption(
@@ -261,7 +259,6 @@ class MarketPaymentCapabilityRegistry(MarketSettlement):
             description_ar="تحويل بنكي فوري عبر شبكة المدفوعات اللحظية IPN المعتمدة مع مطابقة آلية",
             icon_name="instapay",
             provider_name="paymob_fawry_bridge",
-            is_live=True,
             supported_countries=["EG"],
             requires_redirect=True
         ),
@@ -273,13 +270,12 @@ class MarketPaymentCapabilityRegistry(MarketSettlement):
             description_ar="ادفع نقدًا عند استلام شحنتك الفاخرة على باب منزلك",
             icon_name="cod",
             provider_name="confit_logistics",
-            is_live=True,
             supported_countries=["EG", "AE", "SA", "KW", "BH", "OM"]
         )
     }
 
     @classmethod
-    def get_capabilities_for_market(cls, country_code: str = "EG") -> MarketPaymentCapabilitiesResponse:
+    def get_capabilities_for_market(cls, country_code: str = "EG") -> MarketPaymentCatalogResponse:
         code = cls.market_code(country_code)
         currency = cls.currency_for_market(code)
 
@@ -303,7 +299,7 @@ class MarketPaymentCapabilityRegistry(MarketSettlement):
         disclaimer_en = f"Payment availability in {code} is reported per method below."
         disclaimer_ar = f"يُبيَّن توفّر كل وسيلة دفع في {code} أدناه."
 
-        return MarketPaymentCapabilitiesResponse(
+        return MarketPaymentCatalogResponse(
             market_code=code,
             currency_code=currency,
             available_methods=methods,

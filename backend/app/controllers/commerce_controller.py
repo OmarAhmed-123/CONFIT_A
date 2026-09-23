@@ -7,6 +7,7 @@ from fastapi.responses import PlainTextResponse
 from sqlalchemy.orm import Session
 from backend.app.core.config import settings
 from backend.app.core.database import get_db
+from backend.app.core.rate_limit import limiter
 from backend.app.core.dependencies import get_current_user_optional, get_current_user, require_role
 from backend.app.models.user import User, UserRole
 from backend.app.services.commerce_service import CommerceService
@@ -129,7 +130,13 @@ def remove_from_cart(
 
 @router.post("/commerce/cart/promo", response_model=CartOut)
 @router.post("/cart/promo", response_model=CartOut)
+# Threat: promo codes are a guessable-credential surface — an unlimited endpoint
+# is an oracle for discount codes, and each hit is a pricing decision. Bounded
+# per caller so enumeration is not free. A 404/422 for a bad code stays as it
+# is: this control limits attempts, it does not change the answer.
+@limiter.limit("10/minute")
 def apply_promo(
+    request: Request,
     payload: PromoApplyRequest,
     x_session_token: str = Header(...),
     user: Optional[User] = Depends(get_current_user_optional),
@@ -154,7 +161,12 @@ def merge_guest_cart(
 
 @router.post("/commerce/checkout", response_model=OrderOut)
 @router.post("/checkout", response_model=OrderOut)
+# Threat: checkout mints orders (and order numbers) and, in demo mode, drive the
+# whole fulfilment path. Idempotency protects against a REPLAYED request; it does
+# not bound a client that varies the key or places many carts. Bounded per caller.
+@limiter.limit("10/minute")
 async def checkout_order(
+    request: Request,
     payload: CheckoutRequest,
     x_session_token: str = Header(...),
     user: Optional[User] = Depends(get_current_user_optional),
@@ -173,7 +185,10 @@ async def checkout_order(
 # full lifecycle with PostgreSQL persistence per remediation matrix.
 
 @router.post("/checkout/sessions", response_model=Dict[str, Any])
+# Same surface as /checkout: a session is the first half of an order.
+@limiter.limit("10/minute")
 def create_checkout_session(
+    request: Request,
     payload: CheckoutRequest,
     x_session_token: str = Header(...),
     user: Optional[User] = Depends(get_current_user_optional),

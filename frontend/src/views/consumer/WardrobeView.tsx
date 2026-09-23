@@ -358,7 +358,9 @@ export const WardrobeView: React.FC = () => {
               <p className="text-sm font-semibold text-rose-800">
                 {t("wardrobe.closet_load_failed")}
               </p>
-              <p className="text-xs text-rose-600 mt-1">{isClosetError}</p>
+              {/* Measured 2026-09-23 (axe, real browser): rose-600 on the
+                  rose-50 panel is 4.27:1 at 12px — below AA. rose-700 clears it. */}
+              <p className="text-xs text-rose-700 mt-1">{isClosetError}</p>
               <button
                 onClick={() => fetchWardrobe(activeCategory)}
                 className="mt-4 px-5 py-2.5 rounded-2xl bg-[#1B1F3B] text-white text-xs font-bold hover:bg-[#2A3C78] transition-all"
@@ -765,7 +767,9 @@ export const WardrobeView: React.FC = () => {
               <p className="text-sm font-semibold text-rose-800">
                 {t("wardrobe.gaps_failed")}
               </p>
-              <p className="text-xs text-rose-600 mt-1">{isGapError}</p>
+              <p /* Measured 2026-09-23 (axe, real browser): rose-600 on the rose-50 panel is
+                  4.27:1 at 12px — below AA. rose-700 clears it. */
+              className="text-xs text-rose-700 mt-1">{isGapError}</p>
               <button
                 onClick={() => fetchGaps()}
                 className="mt-4 px-5 py-2.5 rounded-2xl bg-[#1B1F3B] text-white text-xs font-bold hover:bg-[#2A3C78] transition-all"
@@ -877,7 +881,9 @@ export const WardrobeView: React.FC = () => {
           ) : isBoardsError ? (
             <div role="alert" className="rounded-3xl border border-rose-200 bg-rose-50 p-6 text-center">
               <p className="text-sm font-semibold text-rose-800">{t("wardrobe.boards_load_failed")}</p>
-              <p className="text-xs text-rose-600 mt-1">{isBoardsError}</p>
+              <p /* Measured 2026-09-23 (axe, real browser): rose-600 on the rose-50 panel is
+                  4.27:1 at 12px — below AA. rose-700 clears it. */
+              className="text-xs text-rose-700 mt-1">{isBoardsError}</p>
               <button
                 onClick={() => fetchMoodBoards()}
                 className="mt-4 px-5 py-2.5 rounded-2xl bg-[#1B1F3B] text-white text-xs font-bold hover:bg-[#2A3C78] transition-all"

@@ -189,10 +189,17 @@ MUTATIONS: list[Mutation] = [
         "M20",
         "AI stylist: read the deprecated GROK_API_KEY field instead of the "
         "canonical groq_api_key property (hides the documented GROQ_API_KEY)",
-        "backend/app/services/capability_service.py",
-        "            settings.groq_api_key,",
-        '            getattr(settings, "GROK_API_KEY", None),',
-        ["backend/tests/test_health_readiness_contract.py"],
+        # RETARGETED 2026-09-23. This gate went NOT_APPLICABLE after
+        # `_ai_provider_keys()` was reduced to a delegate of
+        # `ai_readiness.configured_provider_names()`: the anchor it mutated no
+        # longer existed, so the gate had silently stopped protecting anything.
+        # The runner reports NOT_APPLICABLE rather than passing it quietly, which
+        # is how it was caught. The defect can still return — at the new single
+        # authority — so the mutation moved there.
+        "backend/app/services/ai_readiness.py",
+        '    groq_key = getattr(settings, "groq_api_key", None)',
+        '    groq_key = getattr(settings, "GROK_API_KEY", None)',
+        ["backend/tests/test_health_readiness_contract.py::test_ai_provider_keys_honours_the_documented_groq_variable"],
     ),
     Mutation(
         "M21",
@@ -238,13 +245,44 @@ MUTATIONS: list[Mutation] = [
     ),
     Mutation(
         "M24",
-        "Payments: serve the catalog's hardcoded `is_live=True` instead of the "
-        "measured per-method state (production claimed live Tabby instalment "
-        "financing with no key, no adapter and payments_mode=demo)",
+        "Payments: publish a literal `is_live=True` instead of the measured "
+        "per-method state (production claimed live Tabby instalment financing "
+        "with no key, no adapter and payments_mode=demo)",
         "backend/app/providers/payment/orchestrator.py",
-        '            method.model_copy(update={"is_live": payment_method_is_live(method.id)})',
-        "            method",
+        "                **option.model_dump(), is_live=payment_method_is_live(option.id)",
+        "                **option.model_dump(), is_live=True",
         ["backend/tests/test_capabilities_endpoint.py"],
+    ),
+    Mutation(
+        "M31",
+        "Payment catalogue: reinstate the optimistic default on the shared "
+        "model (`PaymentMethodOption.is_live: bool = True`), so the catalogue "
+        "is once again an internal source of truth able to publish a liveness "
+        "claim the deployment cannot back — the latent trap #177 left behind",
+        "backend/app/providers/payment/schemas.py",
+        "    provider_name: str\n    requires_redirect: bool = False",
+        "    provider_name: str\n    is_live: bool = True\n    requires_redirect: bool = False",
+        ["backend/tests/test_capabilities_endpoint.py::test_catalog_cannot_carry_a_liveness_claim_and_stamping_never_mutates_it"],
+    ),
+    Mutation(
+        "M33",
+        "Capability flags: publish `payments_live` from the PAYMENTS_LIVE switch "
+        "again instead of the measured PSP rail, so one environment variable "
+        "makes the consumer trust footer claim a live payment service provider "
+        "(and the COD-only disclosure disappears)",
+        "backend/app/services/capability_service.py",
+        '        "payments_live": bool(psp_methods_live),',
+        '        "payments_live": bool(settings.PAYMENTS_LIVE),',
+        ["backend/tests/test_capabilities_endpoint.py::test_payments_live_is_measured_not_the_environment_variable"],
+    ),
+    Mutation(
+        "M32",
+        "Availability model: give the measured field a default (`is_live: bool "
+        "= True`), so a forgotten stamp publishes a claim instead of raising",
+        "backend/app/providers/payment/schemas.py",
+        "    is_live: bool\n\n\nclass MarketPaymentCapabilitiesResponse",
+        "    is_live: bool = True\n\n\nclass MarketPaymentCapabilitiesResponse",
+        ["backend/tests/test_capabilities_endpoint.py::test_a_forgotten_liveness_stamp_is_an_error_not_a_false_claim"],
     ),
     Mutation(
         "M25",
@@ -283,6 +321,63 @@ MUTATIONS: list[Mutation] = [
         '    "cancelled": set(),\n    "completed": set(),',
         '    "cancelled": set(),\n    "completed": set(),\n    "awaiting_customs": set(),',
         ["backend/tests/test_capabilities_endpoint.py::test_every_order_state_has_a_frontend_translation_key"],
+    ),
+    Mutation(
+        "M34",
+        "AI Stylist: publish `ai_stylist_live` from provider-key presence again "
+        "instead of the measured readiness state (configuration standing in for "
+        "reachability — the defect the probe was added to remove)",
+        "backend/app/services/capability_service.py",
+        '        "ai_stylist_live": ai_stylist_state() == "ready",',
+        '        "ai_stylist_live": bool(_ai_provider_keys()),',
+        ["backend/tests/test_capabilities_endpoint.py::test_stylist_flag_is_measured_and_configuration_has_its_own_name"],
+    ),
+    Mutation(
+        "M35",
+        "AI readiness: stop withdrawing a stale snapshot, so `ready` is reported "
+        "indefinitely from a measurement nobody can date (stale success)",
+        "backend/app/services/ai_readiness.py",
+        "        return snap is not None and snap.age_seconds() > self._max_age",
+        "        return False",
+        ["backend/tests/test_ai_readiness_probe.py::test_a_stale_verdict_is_withdrawn_not_reported"],
+    ),
+    Mutation(
+        "M36",
+        "AI readiness: treat an authentication failure as ready, so a revoked or "
+        "wrong credential is published as a working stylist",
+        "backend/app/services/ai_readiness.py",
+        "    if status_code == 200:\n        return ProviderProbe(provider, STATE_READY, status_code, latency_ms,",
+        "    if status_code in (200, 401, 403):\n        return ProviderProbe(provider, STATE_READY, status_code, latency_ms,",
+        ["backend/tests/test_ai_readiness_probe.py::test_failures_are_classified_not_lumped_together"],
+    ),
+    Mutation(
+        "M37",
+        "AI readiness: ignore the total probe budget, so the inline /health "
+        "refresh can wait on every provider in turn and the probe becomes the "
+        "slowest part of a health check",
+        "backend/app/services/ai_readiness.py",
+        "        if total_budget_seconds is not None and (time.time() - started) >= total_budget_seconds:",
+        "        if False:",
+        ["backend/tests/test_ai_readiness_probe.py::test_the_probe_respects_its_total_budget"],
+    ),
+    Mutation(
+        "M38",
+        "Rate limiting: drop the limit from the AI stylist chat, so an unlimited "
+        "and anonymous endpoint spends this deployment's provider quota per call "
+        "(the 2026-09-23 gap)",
+        "backend/app/controllers/stylist_controller.py",
+        '@limiter.limit("20/hour")\nasync def chat_with_stylist(',
+        "async def chat_with_stylist(",
+        ["backend/tests/test_rate_limiting.py::test_stylist_chat_rate_limit_returns_429"],
+    ),
+    Mutation(
+        "M39",
+        "Rate limiting: key every caller by address only, so all shoppers behind "
+        "one proxy share a single bucket (and one client can starve the rest)",
+        "backend/app/core/rate_limit.py",
+        "    credential = _bearer_token(request) or _session_token(request)",
+        "    credential = None",
+        ["backend/tests/test_rate_limiting.py::test_the_key_isolates_callers_by_token_not_only_by_address"],
     ),
     Mutation(
         "M29",

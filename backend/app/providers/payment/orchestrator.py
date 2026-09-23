@@ -64,21 +64,42 @@ class PaymentOrchestrator:
             payment_disclaimer,
             payment_method_is_live,
         )
+        from backend.app.providers.payment.schemas import (
+            MarketPaymentCapabilitiesResponse,
+            PaymentMethodAvailability,
+        )
 
-        response = self.registry.get_capabilities_for_market(country_code)
-        response.available_methods = [
-            method.model_copy(update={"is_live": payment_method_is_live(method.id)})
-            for method in response.available_methods
+        catalog = self.registry.get_capabilities_for_market(country_code)
+
+        # The one place liveness is attached. `PaymentMethodAvailability.is_live`
+        # has no default, so this construction is the only way to produce the
+        # field — a catalogue entry cannot carry it (it is not that type) and a
+        # forgotten stamp raises ValidationError instead of publishing `true`.
+        methods = [
+            PaymentMethodAvailability(
+                **option.model_dump(), is_live=payment_method_is_live(option.id)
+            )
+            for option in catalog.available_methods
         ]
-        # The disclaimer is stamped from the same two inputs as `is_live` above,
+
+        # The disclaimer is derived from the same two inputs as the flags above,
         # so the sentence and the flags cannot disagree: a market where nothing
         # but cash can settle cannot carry a PCI-DSS compliance claim.
-        response.disclaimer_en, response.disclaimer_ar = payment_disclaimer(
-            response.market_code,
-            [method.id for method in response.available_methods],
-            [method.id for method in response.available_methods if method.is_live],
+        disclaimer_en, disclaimer_ar = payment_disclaimer(
+            catalog.market_code,
+            [method.id for method in methods],
+            [method.id for method in methods if method.is_live],
         )
-        return response
+
+        return MarketPaymentCapabilitiesResponse(
+            market_code=catalog.market_code,
+            currency_code=catalog.currency_code,
+            available_methods=methods,
+            cod_eligible=catalog.cod_eligible,
+            bopis_eligible=catalog.bopis_eligible,
+            disclaimer_en=disclaimer_en,
+            disclaimer_ar=disclaimer_ar,
+        )
 
     async def initiate_payment(
         self,

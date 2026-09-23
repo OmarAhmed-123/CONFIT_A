@@ -69,12 +69,26 @@ export const TrustFooter: React.FC = () => {
 
   const {
     payments_live,
-    payments_mode,
+    cod_live,
     bnpl_live,
     bopis_live,
     bopis_store_count,
     returns_window_days,
   } = capabilities;
+
+  /**
+   * `payments_live` is measured (a PSP rail that can really charge), and the
+   * sentence behind the live badge is about a payment service provider — so the
+   * two now agree. When it is false there are two different truths, and saying
+   * the wrong one is a claim either way:
+   *
+   *  * cash on delivery settles → the shopper CAN complete an order; the demo
+   *    disclosure's "no goods are shipped" would be false;
+   *  * nothing settles → the original disclosure is exactly right.
+   */
+  const paymentDisclosureKey = cod_live
+    ? 'footer.payment_mode_disclosure_cod'
+    : 'footer.payment_mode_disclosure';
 
   /**
    * A capability flag says a FEATURE is enabled; it does not guarantee that the
@@ -102,7 +116,7 @@ export const TrustFooter: React.FC = () => {
       <li className="flex items-start gap-2">
         {badge(payments_live, 'footer.badge_live', 'footer.badge_demo')}
         <span className="text-slate-300">
-          {payments_live ? t('footer.payments_live') : t('footer.payment_mode_disclosure')}
+          {payments_live ? t('footer.payments_live') : t(paymentDisclosureKey)}
         </span>
       </li>
 
@@ -151,7 +165,9 @@ export const TrustFooter: React.FC = () => {
       )}
 
       <li className="pt-1">
-        <Link to="/privacy" className="text-[10px] text-slate-500 hover:text-slate-300 underline">
+        <Link to="/privacy" // Measured 2026-09-23 (axe, real browser): slate-500 on this panel is
+        // 4.02:1 at 10px — below the 4.5:1 AA threshold. slate-400 clears it.
+        className="text-[10px] text-slate-400 hover:text-slate-300 underline">
           {t('footer.disclosure_source')}
         </Link>
       </li>

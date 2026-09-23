@@ -342,6 +342,7 @@
     "badge_demo": "Demo mode",
     "badge_unavailable": "Not configured",
     "payment_mode_disclosure": "Payments are in demo mode on this deployment — no real charge is made and no goods are shipped.",
+    "payment_mode_disclosure_cod": "Card, wallet and instalment payments are not enabled on this deployment. Cash on delivery is available.",
     "bnpl_unavailable": "Instalment payments are not enabled on this deployment.",
     "bopis_unavailable": "Boutique pickup is not enabled on this deployment.",
     "bnpl_available": "Instalment payments available at checkout via {{providers}}.",
@@ -891,5 +892,9 @@
       "instapay_bridge": "InstaPay transfer",
       "cod": "cash on delivery"
     }
+  },
+  "discover": {
+    "search_label": "Search the catalogue",
+    "search_placeholder": "Search blazers, oxford shirts, silk dresses..."
   }
 }

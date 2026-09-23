@@ -26,10 +26,13 @@ credential taking precedence.
 """
 
 import hashlib
-from typing import Optional
+import time
+from typing import Any, Dict, Optional
 
 from fastapi import Request
+from fastapi.responses import JSONResponse, Response
 from slowapi import Limiter
+from slowapi.errors import RateLimitExceeded
 
 
 def _bearer_token(request: Request) -> Optional[str]:
@@ -89,4 +92,69 @@ def client_key(request: Request) -> str:
     return f"ip:{_client_ip(request)}"
 
 
+# ``headers_enabled`` is deliberately left OFF, and that is a measured decision.
+#
+# Setting it True makes slowapi's per-endpoint wrapper call
+# ``_inject_headers(kwargs["response"], …)``. Endpoints that do not declare a
+# ``response: Response`` parameter — which is most of this codebase's routes, since
+# services return dicts — pass ``None`` and slowapi raises
+# "parameter `response` must be an instance of starlette.responses.Response".
+# DEFECT I INTRODUCED AND THEN MEASURED (2026-09-23): with the flag on,
+# ``GET /orders/CONF-436F4425`` (a guest order that must stay readable anonymously)
+# returned 500 while the identical call returned 200 with the flag off. The flag is
+# therefore not usable here.
+#
+# The Retry-After / X-RateLimit contract is instead served by
+# ``rate_limit_exceeded_handler`` below, which builds the 429 itself and has no
+# ``response`` parameter constraint.
 limiter = Limiter(key_func=client_key)
+
+
+def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded) -> Response:
+    """429 in this project's error envelope, carrying ``Retry-After``.
+
+    Two contract points, both measured:
+
+    1. **Shape.** slowapi's stock handler returns ``{"error": "Rate limit exceeded: …"}``,
+       a bare string where every other error path in this API returns
+       ``{"error": {"code", "message", "details"}}``. A client cannot branch on a
+       machine code it is not given, so the 429 is expressed in the same envelope as
+       the rest of the API with the stable code ``RATE_LIMITED``.
+    2. **Back-off information.** The stock handler injected headers only when the
+       limiter was constructed with ``headers_enabled=True`` (unusable here, see the
+       note on ``limiter`` above), so a throttled caller received a 429 with no hint
+       of when to retry — measured 2026-09-23: 30 requests passed, the next ones
+       returned 429 with an empty ``Retry-After``. RFC 6585 defines ``Retry-After``
+       for 429 precisely so clients back off instead of retrying immediately.
+
+    The retry delay comes from the limiter's own window statistics, so it reflects
+    the real window rather than a hardcoded guess. If the storage cannot be read the
+    header is omitted and ``details.retry_after_seconds`` is absent — an absent
+    header is honest; a fabricated one is not.
+    """
+    retry_after: Optional[int] = None
+    window = getattr(request.state, "view_rate_limit", None)
+    if window:
+        try:
+            reset_epoch = limiter.limiter.get_window_stats(window[0], *window[1])[0]
+            retry_after = max(1, int(1 + reset_epoch - time.time()))
+        except Exception:  # storage unreachable — omit rather than invent
+            retry_after = None
+
+    details: Dict[str, Any] = {"limit": str(exc.detail)}
+    if retry_after is not None:
+        details["retry_after_seconds"] = retry_after
+
+    response = JSONResponse(
+        status_code=429,
+        content={
+            "error": {
+                "code": "RATE_LIMITED",
+                "message": "Too many requests. Please retry after the indicated delay.",
+                "details": details,
+            }
+        },
+    )
+    if retry_after is not None:
+        response.headers["Retry-After"] = str(retry_after)
+    return response

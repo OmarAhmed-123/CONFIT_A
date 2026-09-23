@@ -28,8 +28,7 @@ from backend.app.controllers.brand_controller import router as brand_router
 from backend.app.controllers.admin_controller import router as admin_router
 from backend.app.controllers.telemetry_controller import router as telemetry_router
 from backend.app.controllers.moodboard_controller import router as moodboard_router
-from backend.app.core.rate_limit import limiter
-from slowapi import _rate_limit_exceeded_handler
+from backend.app.core.rate_limit import limiter, rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -86,7 +85,7 @@ app = FastAPI(
 
 # Rate limiting (429 on breach) — registered before routes so limits apply.
 app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
 app.add_middleware(SlowAPIMiddleware)
 
 # CORS configuration

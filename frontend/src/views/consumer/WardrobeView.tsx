@@ -233,7 +233,7 @@ export const WardrobeView: React.FC = () => {
       <CardStackShowcase
         tone="wardrobe"
         compact
-        eyebrow="Wardrobe Styling Stack"
+        eyebrow={t('wardrobe.eyebrow_styling_stack')}
         title={t('wardrobe.reuse_caption')}
         description="Saved garments become styled rotations instead of a static closet grid, encouraging realistic reuse and smarter recommendations."
       />
@@ -1256,11 +1256,11 @@ export const WardrobeView: React.FC = () => {
                     onChange={(e) => setNewCategory(e.target.value)}
                     className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs bg-white"
                   >
-                    <option value="Outerwear">Outerwear</option>
-                    <option value="Tops">Tops & Shirts</option>
-                    <option value="Bottoms">Bottoms & Trousers</option>
-                    <option value="Footwear">Footwear</option>
-                    <option value="Accessories">Accessories</option>
+                    <option value="Outerwear">{t('wardrobe.category_outerwear')}</option>
+                    <option value="Tops">{t('wardrobe.category_tops')}</option>
+                    <option value="Bottoms">{t('wardrobe.category_bottoms')}</option>
+                    <option value="Footwear">{t('wardrobe.category_footwear')}</option>
+                    <option value="Accessories">{t('wardrobe.category_accessories')}</option>
                   </select>
                 </div>
 

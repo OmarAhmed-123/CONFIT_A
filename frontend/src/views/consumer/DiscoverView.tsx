@@ -150,8 +150,8 @@ export const DiscoverView: React.FC = () => {
       <CardStackShowcase
         tone="consumer"
         compact
-        eyebrow="Discovery Mood Stack"
-        title="Browse by real outfit direction, not only filters"
+        eyebrow="{t('discover.mood_stack_title')}"
+        title="{t('discover.mood_stack_body')}"
         description="The animated stack introduces tactile editorial browsing before customers refine by category, occasion, brand, and size."
       />
       {/* Header & Search Bar */}
@@ -261,7 +261,7 @@ export const DiscoverView: React.FC = () => {
             title="Search by Photo"
           >
             <VisualSearchIcon size={16} color="currentColor" />
-            <span className="hidden sm:inline">Photo Match</span>
+            <span className="hidden sm:inline">{t('discover.photo_match')}</span>
           </button>
         </div>
       </div>
@@ -278,7 +278,7 @@ export const DiscoverView: React.FC = () => {
                 : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
             }`}
           >
-            All Categories
+            {t('discover.all_categories')}
           </button>
           {categories.map((cat) => (
             <button
@@ -297,7 +297,7 @@ export const DiscoverView: React.FC = () => {
 
         <div className="flex items-center gap-2 overflow-x-auto pb-1">
           <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider shrink-0">
-            Occasion:
+            {t('discover.occasion_label')}
           </span>
           <button
             onClick={() => setSelectedOccasion("")}

@@ -200,12 +200,9 @@ export const CheckoutView: React.FC = () => {
       <div className="bg-amber-50 border-2 border-amber-400 rounded-2xl p-4 flex items-start gap-3">
         <div className="text-amber-600 text-xl">⚠️</div>
         <div className="flex-1">
-          <h4 className="text-xs font-black text-amber-900 uppercase tracking-widest">Demo Payment Mode</h4>
+          <h4 className="text-xs font-black text-amber-900 uppercase tracking-widest">{t('checkout.demo_mode_title')}</h4>
           <p className="text-[11px] text-amber-800 mt-1 leading-relaxed">
-            This checkout uses a <strong>simulated payment adapter</strong> - no real money will be charged.
-            Card/BNPL transactions are authorized locally and labelled as demo.
-            When PAYMENTS_LIVE=true, real PSP credentials (Stripe/Tabby/Tamara) are required and charges will be live.
-            You will see "payment_mode: demo" in order confirmation.
+            {t('checkout.demo_mode_body')}
           </p>
         </div>
       </div>
@@ -215,7 +212,7 @@ export const CheckoutView: React.FC = () => {
           {t('commerce.checkout')}
         </h1>
         <p className="text-xs sm:text-sm text-slate-500 mt-1 font-light">
-          Multi-brand checkout. Totals, tax, and discounts are calculated on the server.
+          {t('checkout.subtitle_server_totals')}
         </p>
       </div>
 

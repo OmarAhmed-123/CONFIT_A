@@ -38,7 +38,7 @@ export const LanguageSwitcher: React.FC<{ className?: string }> = ({ className =
   const select = (next: AppLanguage) => {
     if (next === language) return;
     setLanguage(next);
-    setAnnouncement(t('a11y.language_switched', { language: languageDisplayName(next) }));
+    setAnnouncement(t('a11y.language_switched', { language: languageDisplayName(next, language) }));
   };
 
   return (

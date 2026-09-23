@@ -158,8 +158,8 @@ export const ProductDetailView: React.FC = () => {
       <CardStackShowcase
         tone="consumer"
         compact
-        eyebrow="Complete The Look Stack"
-        title="Style this garment inside a full outfit story"
+        eyebrow="{t('product.complete_the_look_title')}"
+        title="{t('product.complete_the_look_body')}"
         description="Product detail pages use the animated stack to connect a single item to realistic complementary directions."
       />
       <nav className="text-xs text-slate-500 flex items-center gap-2 font-light">
@@ -303,7 +303,7 @@ export const ProductDetailView: React.FC = () => {
               <div className="flex items-center gap-1.5">
                 <SparkleIcon size={16} color="#C5A059" />
                 <span className="text-xs font-bold text-[#1B1F3B]">
-                  Size & fit
+                  {t('product.size_and_fit')}
                 </span>
               </div>
               <button
@@ -311,7 +311,7 @@ export const ProductDetailView: React.FC = () => {
                 className="text-xs font-bold text-[#7A5C28] hover:underline flex items-center gap-1"
               >
                 <RulerIcon size={14} color="#C5A059" />
-                <span>Find my size</span>
+                <span>{t('product.find_my_size')}</span>
               </button>
             </div>
 
@@ -335,7 +335,7 @@ export const ProductDetailView: React.FC = () => {
             <div>
               <div className="flex justify-between items-center mb-1.5">
                 <span className="text-xs font-bold text-slate-700">
-                  Available sizes
+                  {t('product.available_sizes')}
                 </span>
                 <span className="text-[10px] font-semibold text-slate-500">
                   {currentSku?.is_in_stock
@@ -435,17 +435,17 @@ export const ProductDetailView: React.FC = () => {
                 className="w-full flex justify-between items-center font-bold text-slate-800 text-left"
                 aria-expanded={activeAccordion === "materials"}
               >
-                <span>Fabric, care & details</span>
+                <span>{t('product.fabric_care_details')}</span>
                 <span>{activeAccordion === "materials" ? "−" : "+"}</span>
               </button>
               {activeAccordion === "materials" && (
                 <div className="pt-2 text-slate-500 space-y-1.5 font-light leading-relaxed">
                   <div>
-                    <strong>Composition:</strong>{" "}
+                    <strong>{t('product.composition_label')}</strong>{" "}
                     {product.material || "Not specified"}
                   </div>
                   <div>
-                    <strong>Care:</strong>{" "}
+                    <strong>{t('product.care_label')}</strong>{" "}
                     {product.care_instructions || "See garment label"}
                   </div>
                   {product.description && (

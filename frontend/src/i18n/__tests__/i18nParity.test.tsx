@@ -238,9 +238,27 @@ describe('format.ts — numbers follow the app language, not the browser', () =>
     expect(formatPercent(NaN, 'en')).toBe('');
   });
 
-  it('names each language in its own language', () => {
+  it('names each language in its own language, without a region qualifier', () => {
     expect(languageDisplayName('ar')).toMatch(/[\u0600-\u06FF]/);
     expect(languageDisplayName('en')).toMatch(/English/i);
+    // REGRESSION 2026-09-23: the switcher used to label the English option
+    // "American English" / "العربية (مصر)" because the name was resolved from
+    // the en-US / ar-EG FORMATTING tag. That leaked a regional variant into a
+    // language selector on every page of a Cairo-market product. Assert the
+    // exact base names so resolving from INTL_LOCALE again kills this test.
+    expect(languageDisplayName('en')).toBe('English');
+    expect(languageDisplayName('ar')).toBe('العربية');
+    for (const name of [languageDisplayName('en'), languageDisplayName('ar')]) {
+      expect(name).not.toMatch(/American|United States|مصر|Egypt/i);
+    }
+  });
+
+  it('names the target language in the language the user is reading, for speech', () => {
+    // The visible control shows self-names; the live-region announcement must
+    // stay in the active UI language so screen readers do not switch script
+    // mid-sentence.
+    expect(languageDisplayName('en', 'ar')).toMatch(/[\u0600-\u06FF]/);
+    expect(languageDisplayName('ar', 'en')).toMatch(/Arabic/i);
   });
 });
 

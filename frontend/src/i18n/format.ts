@@ -116,7 +116,23 @@ export function formatRelativeDays(days: number, lang: AppLanguage | string): st
 /**
  * Display name of the language itself, always written IN that language — an
  * Arabic speaker looking for Arabic should read "العربية", not "Arabic".
+ *
+ * DEFECT FIXED 2026-09-23 (found by the Arabic browser pass, not by static
+ * analysis — the string is produced by `Intl` at runtime, so no grep and no
+ * static i18n gate can see it):
+ *   the name was resolved from `INTL_LOCALE[lang]`, i.e. the tag used for
+ *   NUMBER/DATE FORMATTING. `Intl.DisplayNames(['en-US']).of('en-US')` is
+ *   "American English" and `…(['ar-EG']).of('ar-EG')` is "العربية (مصر)" — so
+ *   the language switcher on EVERY page advertised a regional variant of the
+ *   language, and labelled the English option with a Latin string on Arabic
+ *   pages. The formatting tag is a different concept from the language name.
+ *
+ *   The name is now resolved from the BASE language tag (`en` → "English",
+ *   `ar` → "العربية"). `uiLang` is optional and only for SPOKEN contexts: the
+ *   live-region announcement must stay in the current UI language, so it asks
+ *   for the name of the target language as written in the language the user is
+ *   already reading.
  */
-export function languageDisplayName(lang: AppLanguage): string {
-  return new Intl.DisplayNames([INTL_LOCALE[lang]], { type: 'language' }).of(INTL_LOCALE[lang]) ?? lang;
+export function languageDisplayName(lang: AppLanguage, uiLang?: AppLanguage): string {
+  return new Intl.DisplayNames([INTL_LOCALE[uiLang ?? lang]], { type: 'language' }).of(lang) ?? lang;
 }

@@ -48,7 +48,20 @@
     "occasion_casual": "الكاجوال الأنيق",
     "trending_title": "الإطلالات الأكثر رواجاً",
     "recently_viewed": "شوهدت مؤخراً",
-    "new_drops": "وصل حديثاً من علاماتك المفضلة"
+    "new_drops": "وصل حديثاً من علاماتك المفضلة",
+    "stylist_flow_cta_body": "ابدأ تجربة تنسيق موجّهة تحدّد المناسبة والميزانية والألوان وتفضيلات المقاس قبل الشراء.",
+    "get_first_look": "احصل على إطلالتك الأولى",
+    "shop_catalog_cta": "تسوّق الكتالوج →",
+    "fact_no_account": "لا حاجة إلى حساب للبدء",
+    "fact_photo_optional": "الصورة اختيارية لفحص المقاس",
+    "fact_privacy": "تفاصيل الخصوصية قبل رفع الصور",
+    "example_result": "نتيجة توضيحية",
+    "why_this_works": "لماذا ينجح هذا التنسيق",
+    "why_this_works_body": "الأكتاف المهيكلة توازن البنطال المريح وتمنح الإطلالة جاهزية اجتماعات العمل.",
+    "fit_next_step": "الخطوة التالية للمقاس",
+    "fit_next_step_body": "أضف مقاساتك أو جرّب معاينة بصرية قبل الحفظ أو الشراء.",
+    "intent_question": "لأي مناسبة تختار إطلالتك؟",
+    "budget_guide": "دليل الميزانية"
   },
   "stylist": {
     "title": "منسق المظهر الذكي CONFIT",
@@ -213,7 +226,13 @@
     "eg_color": "مثال: أزرق كحلي",
     "capsule_caption": "عرض دوّار لكبسولات خزانتك",
     "reuse_caption": "أعد استخدام قطعك ضمن تركيبات إطلالات جاهزة",
-    "style_what_i_own": "نسّق ما أملكه"
+    "style_what_i_own": "نسّق ما أملكه",
+    "eyebrow_styling_stack": "منظومة تنسيق الخزانة",
+    "category_outerwear": "معاطف",
+    "category_tops": "قمصان وتوبات",
+    "category_bottoms": "بناطيل وسراويل",
+    "category_footwear": "أحذية",
+    "category_accessories": "إكسسوارات"
   },
   "commerce": {
     "add_to_cart": "إضافة للحقيبة",
@@ -842,7 +861,10 @@
     "partial_look": "إطلالة جزئية"
   },
   "checkout": {
-    "payment_method_demo_note": "وضع تجريبي — هذه الوسيلة لا تُحرّك أموالاً على هذا النشر."
+    "payment_method_demo_note": "وضع تجريبي — هذه الوسيلة لا تُحرّك أموالاً على هذا النشر.",
+    "demo_mode_title": "وضع الدفع التجريبي",
+    "demo_mode_body": "هذه الصفحة تستخدم محوّل دفع محاكى — لن يُخصم أي مبلغ حقيقي. تُعتمد معاملات البطاقة والتقسيط محليًا وتُوسم بأنها تجريبية. وعند تفعيل PAYMENTS_LIVE=true تصبح بيانات مزوّد الدفع الحقيقية مطلوبة وتكون المعاملات فعلية. سترى \"payment_mode: demo\" في تأكيد الطلب.",
+    "subtitle_server_totals": "دفع متعدد العلامات. تُحسب الإجماليات والضرائب والخصومات على الخادم."
   },
   "order": {
     "state_unknown": "الحالة غير متاحة",
@@ -895,6 +917,24 @@
   },
   "discover": {
     "search_label": "ابحث في المنتجات",
-    "search_placeholder": "ابحث عن بليزر، قميص أوكسفورد، فستان حرير..."
+    "search_placeholder": "ابحث عن بليزر، قميص أوكسفورد، فستان حرير...",
+    "mood_stack_title": "تشكيلة الحالة المزاجية",
+    "mood_stack_body": "تصفّح حسب اتجاه الإطلالة الحقيقي، وليس الفلاتر فقط",
+    "all_categories": "كل الفئات",
+    "photo_match": "مطابقة الصورة",
+    "occasion_label": "المناسبة:"
+  },
+  "brand": {
+    "tagline": "ثقة + مقاس مضبوط"
+  },
+  "product": {
+    "complete_the_look_title": "أكمل الإطلالة",
+    "complete_the_look_body": "نسّق هذه القطعة داخل إطلالة متكاملة",
+    "find_my_size": "اعرف مقاسي",
+    "available_sizes": "المقاسات المتاحة",
+    "fabric_care_details": "القماش والعناية والتفاصيل",
+    "size_and_fit": "المقاس والملاءمة",
+    "composition_label": "التركيب:",
+    "care_label": "العناية:"
   }
 }

@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 export interface ConfitLogoProps {
   className?: string;
@@ -13,6 +14,7 @@ export const ConfitLogo: React.FC<ConfitLogoProps> = ({
   theme = 'dark',
   size = 'md',
 }) => {
+  const { t } = useTranslation();
   const isLight = theme === 'light';
 
   const markSize = size === 'sm' ? 28 : size === 'lg' ? 44 : 36;
@@ -85,7 +87,7 @@ export const ConfitLogo: React.FC<ConfitLogoProps> = ({
             <span
               className={`uppercase tracking-[0.25em] font-semibold -mt-0.5 ${isLight ? 'text-slate-300' : 'text-slate-600'} ${tagSize}`}
             >
-              Confidence + Fit
+              {t('brand.tagline')}
             </span>
           )}
         </div>

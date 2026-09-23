@@ -77,7 +77,11 @@ export const WardrobeView: React.FC = () => {
   const navigate = useNavigate();
   const initialTab = searchParams.get("tab") || "closet";
   const { capabilities } = useCapabilities();
-  const photoUploadUnavailable = capabilities.storage_mode === "local";
+  // Measured, not inferred from the provider's name: `storage_mode` reads "s3"
+  // even when the bucket is unreachable or the credential was revoked, which
+  // used to offer uploads that could only fail. `photo_upload_available` folds
+  // in the live storage probe.
+  const photoUploadUnavailable = capabilities.photo_upload_available === false;
 
   const [activeTab, setActiveTab] = useState<"closet" | "looks" | "gaps" | "boards">(
     initialTab as any,

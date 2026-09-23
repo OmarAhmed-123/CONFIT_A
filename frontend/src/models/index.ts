@@ -111,10 +111,19 @@ export interface Product {
   bnpl_monthly_installment?: number | null;
   bnpl?: {
     eligible: boolean;
+    /** null when no lender may be named — see `is_estimate`. */
     provider?: string | null;
     installment_amount?: number | null;
     installments_count?: number;
     disclaimer?: string;
+    /**
+     * True when the split is an illustrative estimate rather than an offer from
+     * a lender. The server sets it from `bnpl_is_live()`: a live PSP adapter for
+     * the provider must exist before any provider is named.
+     */
+    is_estimate?: boolean;
+    market?: string;
+    method_id?: string;
   } | null;
   brand?: BrandSummary;
   related_outfits?: Array<{
@@ -520,6 +529,13 @@ export interface Cart {
   currency: string;
   items_count: number;
   bnpl_monthly_quote: number;
+  /**
+   * True when the instalment figure is an illustrative estimate: the server sets
+   * it from `bnpl_is_live()` (a live PSP adapter must exist before a lender is
+   * named). Optional because older cached payloads predate the field, which the
+   * call sites treat as an estimate — the safe direction.
+   */
+  bnpl_is_estimate?: boolean;
   promo_code?: string | null;
   brands?: string[];
   fit_summary?: Array<{

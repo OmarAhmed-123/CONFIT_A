@@ -267,15 +267,34 @@ class CapabilityFlagsOut(BaseModel):
       provider's *name* and is not a verdict;
     * ``bnpl_live`` — from ``bnpl_is_live()``: payments live AND a provider key
       AND a live PSP adapter. A configured key alone is not an instalment offer;
-    * ``payments_live`` mirrors ``PAYMENTS_LIVE`` (a deliberate switch, not a probe);
-    * ``ai_stylist_live`` means at least one provider key is configured (the
-      deterministic grounded fallback answers otherwise). The *state* of the
-      stylist lives in the health capability, which reports ``not_probed`` rather
-      than claiming readiness from a key;
+    * ``payments_live`` — MEASURED: a payment service provider rail is live on
+      this deployment (``payment_method_is_live`` for at least one method other
+      than cash on delivery). It used to mirror ``PAYMENTS_LIVE``, and the
+      consumer trust footer renders it as "Card payments are processed by a live
+      payment service provider." — so one environment variable, with no key and
+      no adapter, published a live-PSP claim (2026-09-23, same class as the
+      catalogue literal);
+    * ``payments_live_methods`` — the measured ids behind that verdict, so the
+      claim is auditable rather than summarised;
+    * ``cod_live`` — cash on delivery settles without a PSP, so it is reported
+      separately: blocking it into ``payments_live`` would let the UI say
+      "nothing works" on a deployment where COD orders do flow;
+    * ``ai_stylist_live`` — MEASURED (2026-09-23): true only when a cached probe
+      reached a provider and its credential was accepted. It used to mean "at
+      least one provider key is configured", i.e. configuration published as
+      readiness; the configuration fact now has its own name,
+      ``ai_stylist_configured``, and ``ai_stylist_state`` carries the measured
+      verdict (``not_probed`` before the first probe — the honest answer, and
+      the reason the flag is then False rather than assumed true);
     * ``bopis_store_count`` is a real COUNT from the stores table — the UI must
       not promise cities the DB does not contain.
     """
     payments_live: bool
+    #: MEASURED live method ids (see the module docstring). One list, not a claim.
+    payments_live_methods: List[str]
+    #: Measured: cash on delivery can settle here (no PSP involved).
+    cod_live: bool
+    #: CONFIGURATION: which mode this deployment is switched to. Not a verdict.
     payments_mode: str
     bnpl_live: bool
     #: MEASURED GPU readiness (live probe), not the presence of VTON_WORKER_URL.
@@ -287,6 +306,11 @@ class CapabilityFlagsOut(BaseModel):
     #: Whether a job submitted now can produce a render (ready or cold start).
     vton_renderable: bool
     ai_stylist_live: bool
+    #: CONFIGURATION, not readiness: is at least one provider key present?
+    ai_stylist_configured: bool
+    #: MEASURED state: not_configured | not_probed | ready | degraded |
+    #: unavailable | auth_failed | quota_exhausted | rate_limited | timeout.
+    ai_stylist_state: str
     #: MEASURED: can a consumer photo actually be persisted right now?
     #: Derived from storage_status() (live probe when enabled), NOT from the
     #: `storage_mode` name — a configured-but-unreachable bucket reports "s3".

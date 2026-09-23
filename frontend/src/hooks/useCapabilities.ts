@@ -21,7 +21,23 @@ export type VtonEngineState =
   | 'misconfigured';
 
 export interface Capabilities {
+  /**
+   * MEASURED: a payment service provider rail is live on this deployment.
+   *
+   * The trust footer renders this as "Card payments are processed by a live
+   * payment service provider." Until 2026-09-23 the value was
+   * `bool(PAYMENTS_LIVE)`, so one environment variable — with no provider key
+   * and no live adapter, production's exact shape — published that sentence
+   * about a rail that could not charge anything. Same defect class as the
+   * payment-catalogue literal, one level up. Cash on delivery is deliberately
+   * excluded (no PSP is engaged); read `cod_live` for that fact.
+   */
   payments_live: boolean;
+  /** The measured live method ids behind `payments_live`. Auditable, not a summary. */
+  payments_live_methods: string[];
+  /** MEASURED: cash on delivery can settle here (no PSP involved). */
+  cod_live: boolean;
+  /** CONFIGURATION: which mode this deployment is switched to. NOT a verdict. */
   payments_mode: 'live' | 'demo';
   bnpl_live: boolean;
   /**
@@ -59,6 +75,8 @@ export interface Capabilities {
 
 export const HONEST_FALLBACK_CAPABILITIES: Capabilities = {
   payments_live: false,
+  payments_live_methods: [],
+  cod_live: false,
   payments_mode: 'demo',
   bnpl_live: false,
   vton_gpu_ready: false,

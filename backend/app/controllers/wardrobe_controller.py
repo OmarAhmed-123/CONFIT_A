@@ -1,7 +1,8 @@
 from typing import List, Optional
-from fastapi import APIRouter, Depends, Query, HTTPException, status, UploadFile, File
+from fastapi import APIRouter, Depends, Query, HTTPException, status, UploadFile, File, Request
 from sqlalchemy.orm import Session
 from backend.app.core.database import get_db
+from backend.app.core.rate_limit import limiter
 from backend.app.core.dependencies import get_current_user, get_current_user_optional
 from backend.app.models.user import User
 from backend.app.services.wardrobe_service import WardrobeService
@@ -84,7 +85,13 @@ def delete_wardrobe_item(
 
 
 @router.post("/upload", response_model=WardrobeUploadResponse, status_code=status.HTTP_201_CREATED)
+# Threat: each upload writes to object storage AND runs a vision model on
+# consumer-provided bytes — both cost money, and consumer bytes are the classic
+# abuse surface (upload abuse). Bounded per caller; the size/type validation in
+# WardrobeService is a separate control and stays.
+@limiter.limit("30/hour")
 async def upload_wardrobe_image(
+    request: Request,
     file: UploadFile = File(...),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -105,7 +112,10 @@ async def upload_wardrobe_image(
 
 
 @router.post("/upload/bulk", response_model=WardrobeUploadResponse, status_code=status.HTTP_201_CREATED)
+# Bulk multiplies the per-upload cost, so it gets its own, tighter bucket.
+@limiter.limit("10/hour")
 async def bulk_upload_wardrobe_images(
+    request: Request,
     files: List[UploadFile] = File(...),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -124,7 +134,10 @@ async def bulk_upload_wardrobe_images(
 
 
 @router.post("/items/{item_id}/analyze", response_model=WardrobeItemOut)
-async def analyze_wardrobe_item(item_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+# Vision-model cost on a retry path: a client looping on a failing item would
+# otherwise spend unbounded provider quota.
+@limiter.limit("30/hour")
+async def analyze_wardrobe_item(request: Request, item_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """(Re)run AI analysis on an owned item — the retry path for failed items.
     Ownership is enforced in the service; another user's item resolves to 404."""
     service = WardrobeService(db)
@@ -132,7 +145,11 @@ async def analyze_wardrobe_item(item_id: int, user: User = Depends(get_current_u
 
 
 @router.post("/auto-tag")
+# Unauthenticated vision call (upload-form preview): the only AI endpoint a
+# guest can reach, so it needs the limit most.
+@limiter.limit("30/hour")
 async def auto_tag_item(
+    request: Request,
     payload: WardrobeAutoTagRequest,
     db: Session = Depends(get_db)
 ):

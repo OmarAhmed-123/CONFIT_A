@@ -221,6 +221,13 @@ def _probe(db: Session):
                        "detail": f"probe failed: {type(exc).__name__}: {str(exc)[:140]}"}
 
     database_ok = db_status == "healthy"
+    # The AI readiness probe is refreshed HERE, on the operator surface, and
+    # never on a consumer read path. `ensure_readiness` is bounded by a total
+    # budget, so it cannot become the slowest part of a health check, and it
+    # returns the cached verdict when that verdict is still fresh.
+    from backend.app.services.ai_readiness import ensure_readiness
+
+    ensure_readiness()
     capabilities = capability_probes(db, database_ok, vton_worker=vton_worker)
     readiness = summarise_capabilities(capabilities)
     status = liveness_status(database_ok, bool(schema.get("acceptable")))

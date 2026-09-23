@@ -150,40 +150,73 @@ def _ai_stylist_capability() -> Capability:
             ),
         )
 
+    # 2026-09-23: the probe now exists, so this no longer has to end at
+    # `not_probed`. It reads a CACHED snapshot (ai_readiness never probes on a
+    # read path — consumer traffic must not become provider load) and maps the
+    # measured verdict onto this project's vocabulary. `not_probed` remains the
+    # honest answer before the first probe, after a refresh failure, and once
+    # the snapshot passes its hard maximum age — a stale "ready" is not a ready.
+    from backend.app.services.ai_readiness import (
+        STATE_READY,
+        STATE_NOT_CONFIGURED,
+        ai_readiness,
+    )
+
+    readiness = ai_readiness()
+    measured_state = readiness.get("state")
+
+    if measured_state == STATE_READY:
+        return Capability(
+            "ai_stylist", STATE_READY, CRITICALITY_SUPPORTING,
+            "live probe: {} provider(s) answered an authenticated request "
+            "({}s old); the deterministic grounded engine remains the fallback".format(
+                len(readiness.get("ready_providers") or []),
+                readiness.get("probe_age_seconds"),
+            ),
+        )
+
+    if measured_state == STATE_NOT_CONFIGURED:
+        return Capability(
+            "ai_stylist", STATE_DEGRADED, CRITICALITY_SUPPORTING,
+            "no provider key configured; the deterministic grounded fallback answers",
+        )
+
+    if measured_state and measured_state != "not_probed":
+        # auth_failed / quota_exhausted / rate_limited / unavailable / timeout:
+        # a real measurement of a real failure. The shopper is still served by
+        # the grounded fallback, so `degraded` — impaired, not absent.
+        return Capability(
+            "ai_stylist", STATE_DEGRADED, CRITICALITY_SUPPORTING,
+            "live probe: {} ({}) — the deterministic grounded fallback answers".format(
+                measured_state, readiness.get("detail"),
+            ),
+        )
+
     return Capability(
         "ai_stylist", STATE_NOT_PROBED, CRITICALITY_SUPPORTING,
         "{} provider key(s) configured and no provider is currently quarantined, "
-        "but no availability probe exists — a configured key is not a measurement".format(
-            len(providers)
-        ),
+        "but no availability measurement is available — a configured key is not "
+        "a measurement".format(len(providers)),
     )
 
 
 def _ai_provider_keys() -> List[str]:
-    """Configured AI provider keys, read through the canonical accessors.
+    """Configured AI provider keys — delegated to the readiness module.
 
-    ``groq_api_key`` (the property) is used for the Groq slot, NOT the
-    ``GROK_API_KEY`` field. The field is a backwards-compatible alias only:
-    ``docs/PRODUCTION_DEPLOYMENT_CONTRACT.md`` documents ``GROQ_API_KEY`` (Groq,
-    api.groq.com — a different vendor from xAI's Grok), and
-    ``MultiProviderAIOrchestrator`` already resolves both through the property.
+    This function used to hold its own list of settings. That list and the probe's
+    list were two statements of the same fact, which is how a flag and the thing
+    that measures it start disagreeing. There is now one enumeration
+    (``ai_readiness.configured_provider_names``) and this is a thin alias, kept
+    because existing tests and callers name it.
 
-    Reading the field directly made the capability contract disagree with the
-    orchestrator about reality, and it failed in the *silent* direction: measured
-    on 2026-09-22, a deployment configured with the documented ``GROQ_API_KEY``
-    reported ``ai_stylist_live: false`` while ``settings.groq_api_key`` resolved
-    to a real key and the orchestrator was genuinely calling Groq. Under-claiming
-    a working capability is the same class of defect as over-claiming a broken
-    one — the contract simply was not reading what the system actually uses.
+    The Groq nuance it used to carry is preserved there: ``groq_api_key`` (the
+    property) resolves ``GROQ_API_KEY`` first and ``GROK_API_KEY`` as the
+    backwards-compatible alias, and a whitespace-only value counts as unset — so
+    a deployment using the documented spelling is not reported as unconfigured.
     """
-    return [
-        k for k in (
-            settings.NVIDIA_API_KEY,
-            settings.groq_api_key,
-            settings.GEMINI_API_KEY,
-            settings.OPENAI_API_KEY,
-        ) if k
-    ]
+    from backend.app.services.ai_readiness import configured_provider_names
+
+    return configured_provider_names()
 
 
 def _bnpl_configured() -> bool:
@@ -194,6 +227,36 @@ def _bnpl_configured() -> bool:
     module exists to prevent (see :func:`bnpl_is_live`).
     """
     return bool(settings.PAYMENTS_LIVE and (settings.TABBY_API_KEY or settings.TAMARA_API_KEY))
+
+
+def ai_stylist_state() -> str:
+    """The measured AI Stylist readiness state (see ``services.ai_readiness``).
+
+    One function so the flag, the state field and the health capability cannot
+    answer differently — the failure mode this module exists to prevent.
+
+    Returns ``not_configured`` when no key exists, the cached measured verdict
+    otherwise. It never probes: consumer traffic must not generate provider
+    calls, so before the first probe (or after a refresh failure) the honest
+    answer is ``not_probed``, which is why ``ai_stylist_live`` is then False.
+    """
+    from backend.app.services.ai_readiness import ai_readiness
+
+    return str(ai_readiness().get("state") or "not_probed")
+
+
+def payment_method_ids() -> List[str]:
+    """Every method id the catalogue defines — one list, used by both surfaces.
+
+    The capability flag and `/commerce/payment-methods` must not disagree about
+    which methods exist; deriving both from the catalogue keeps a new method
+    from being measured by one and forgotten by the other.
+    """
+    from backend.app.providers.payment.capability_registry import (
+        MarketPaymentCapabilityRegistry,
+    )
+
+    return list(MarketPaymentCapabilityRegistry.PAYMENT_CATALOG)
 
 
 def payment_method_is_live(method_id: str) -> bool:
@@ -431,8 +494,28 @@ def capability_flags(
         else vton_observability.vton_health_summary()
     )
     engine_state = engine_state_from_probe(probe)
+
+    # Measured, not configured. The published flag drove a consumer-visible
+    # sentence -- `footer.payment_mode_disclosure`'s sibling
+    # "Card payments are processed by a live payment service provider." -- while
+    # its value was `bool(settings.PAYMENTS_LIVE)`. One environment variable
+    # (`PAYMENTS_LIVE=true`) with no provider key and no live adapter therefore
+    # made the trust footer claim a live PSP on a deployment where
+    # `payment_method_is_live("card")` is False. Same defect class as the
+    # catalogue literal: configuration published as capability.
+    #
+    # cash on delivery settles without a PSP, so it is excluded from the
+    # "live payments" verdict: the sentence above is about a payment service
+    # provider, and COD does not involve one. `cod_live` carries that fact
+    # separately so the UI can state it truthfully instead of implying either
+    # "everything works" or "nothing works".
+    live_method_ids = [m for m in payment_method_ids() if payment_method_is_live(m)]
+    psp_methods_live = [m for m in live_method_ids if m != "cod"]
+
     return {
-        "payments_live": bool(settings.PAYMENTS_LIVE),
+        "payments_live": bool(psp_methods_live),
+        "payments_live_methods": live_method_ids,
+        "cod_live": "cod" in live_method_ids,
         "payments_mode": "live" if settings.PAYMENTS_LIVE else "demo",
         # Measured: live only when a live PSP adapter for the provider exists.
         "bnpl_live": bnpl_is_live(),
@@ -444,7 +527,17 @@ def capability_flags(
         # False is "not offered", not an outage — see _vton_capability().
         "vton_offered": bool(settings.VTON_WORKER_URL),
         "vton_renderable": engine_can_render(engine_state),
-        "ai_stylist_live": bool(_ai_provider_keys()),
+        # MEASURED (2026-09-23): `ready` only when a probe reached a provider and
+        # its credential was accepted. Until now this was
+        # `bool(_ai_provider_keys())` — configuration standing in for
+        # reachability, one env var away from a claim nothing verified. The
+        # configuration fact is still published, under a name that says so.
+        "ai_stylist_live": ai_stylist_state() == "ready",
+        #: CONFIGURATION: is at least one provider key present? NOT readiness.
+        "ai_stylist_configured": bool(_ai_provider_keys()),
+        #: The measured state (not_configured / not_probed / ready / degraded /
+        #: unavailable / auth_failed / quota_exhausted / rate_limited / timeout).
+        "ai_stylist_state": ai_stylist_state(),
         "bopis_live": store_count > 0,
         "bopis_store_count": int(store_count),
         "storage_mode": settings.STORAGE_PROVIDER,

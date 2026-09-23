@@ -5,6 +5,8 @@ contract: flags must reflect CONFIGURATION, never assert capabilities.
 2026-09-06 remediation regression guard.
 """
 
+import pytest
+
 from backend.app.core.config import settings
 from backend.app.providers.payment.capability_registry import (
     MarketPaymentCapabilityRegistry,
@@ -31,11 +33,21 @@ def test_capabilities_contract_shape(client):
         "vton_offered",
         "vton_renderable",
         "ai_stylist_live",
+        # Added 2026-09-23 (hardening): the configuration fact and the measured
+        # state, so "we have a key" and "a provider answered" stop sharing one
+        # boolean.
+        "ai_stylist_configured",
+        "ai_stylist_state",
         # Added 2026-09-23: Wardrobe gated uploads on `storage_mode` — the
         # provider's NAME — so a deployment configured for s3 with an
         # unreachable bucket offered uploads that could only fail. This flag is
         # the measurement (live probe folded in by storage_status()).
         "photo_upload_available",
+        # Added 2026-09-23 (hardening): the measured basis of `payments_live`
+        # and the COD fact, so the trust footer can state what is actually
+        # available instead of summarising it into one unearned sentence.
+        "payments_live_methods",
+        "cod_live",
         "bopis_live",
         "bopis_store_count",
         "storage_mode",
@@ -49,6 +61,41 @@ def test_capabilities_contract_shape(client):
         "temporarily_unavailable",
         "misconfigured",
     )
+
+
+def test_payments_live_is_measured_not_the_environment_variable(client, monkeypatch):
+    """The trust footer renders `payments_live` as a live-PSP sentence.
+
+    Measured 2026-09-23: the value was `bool(settings.PAYMENTS_LIVE)`, so one
+    environment variable — with no provider key and no live adapter, which is
+    production's exact shape (`LIVE_PSP_ADAPTERS = {}`) — made the consumer
+    footer state "Card payments are processed by a live payment service
+    provider." while `payment_method_is_live("card")` was False. Same defect
+    class as the catalogue literal, one level up.
+    """
+    from backend.app.providers.payment.orchestrator import PaymentOrchestrator
+
+    monkeypatch.setattr(PaymentOrchestrator, "LIVE_PSP_ADAPTERS", {})
+
+    # The switch alone: configured live, but nothing can charge anything.
+    monkeypatch.setattr(settings, "PAYMENTS_LIVE", True)
+    monkeypatch.setattr(settings, "TABBY_API_KEY", None)
+    monkeypatch.setattr(settings, "STRIPE_SECRET_KEY", None)
+    caps = _get(client)
+    assert caps["payments_mode"] == "live", "precondition: the switch is on"
+    assert caps["payments_live"] is False, (
+        "the footer would claim a live payment service provider on a "
+        "deployment where no PSP method can settle"
+    )
+    assert caps["payments_live_methods"] == ["cod"]
+    assert caps["cod_live"] is True, "cash on delivery is available and must be stated"
+
+    # And the earned case: a method that can really settle.
+    monkeypatch.setattr(settings, "STRIPE_SECRET_KEY", "sk-test-stripe")
+    monkeypatch.setattr(PaymentOrchestrator, "LIVE_PSP_ADAPTERS", {"stripe": object()})
+    caps = _get(client)
+    assert caps["payments_live"] is True
+    assert "card" in caps["payments_live_methods"]
 
 
 def test_payments_demo_by_default(client, monkeypatch):
@@ -133,22 +180,55 @@ def test_bopis_reflects_real_store_count(client, monkeypatch):
         assert caps["bopis_live"] is True
 
 
-def test_stylist_flag_follows_configuration(client, monkeypatch):
-    """``ai_stylist_live`` means "a provider key exists", and says so.
+def test_stylist_flag_is_measured_and_configuration_has_its_own_name(client, monkeypatch):
+    """REWRITTEN 2026-09-23 — this test used to assert the defect.
 
-    Kept honest by naming: this flag answers a *configuration* question. It is
-    not a claim that the provider answered a request, and no probe exists for
-    it — see the note on ``vton_gpu_ready`` below for why conflating the two
-    caused a production incident.
+    It was written to keep the *configuration* semantics of `ai_stylist_live`
+    honest by naming ("it answers a configuration question"), and the name lied
+    anyway: the flag is called `_live`. A key is not a measurement, so the flag
+    now means measured readiness, and the configuration fact is published as
+    `ai_stylist_configured`.
+
+    Measured 2026-09-23: production reports `ai_stylist_live: true` derived from
+    `bool(provider key)`; no provider had ever been contacted by that code path.
     """
+    import httpx
+
+    from backend.app.services import ai_readiness
+
     monkeypatch.setattr(settings, "NVIDIA_API_KEY", None)
     monkeypatch.setattr(settings, "GROK_API_KEY", None)
+    monkeypatch.setattr(settings, "GROQ_API_KEY", None)
     monkeypatch.setattr(settings, "GEMINI_API_KEY", None)
     monkeypatch.setattr(settings, "OPENAI_API_KEY", None)
-    assert _get(client)["ai_stylist_live"] is False
+    ai_readiness.reset_cache_for_tests()
 
-    monkeypatch.setattr(settings, "GROK_API_KEY", "gsk-test")
-    assert _get(client)["ai_stylist_live"] is True
+    caps = _get(client)
+    assert caps["ai_stylist_live"] is False
+    assert caps["ai_stylist_configured"] is False
+    assert caps["ai_stylist_state"] == "not_configured"
+
+    # A key is now CONFIGURATION: it does not make the flag live by itself.
+    monkeypatch.setattr(settings, "GROQ_API_KEY", "gsk-test")
+    caps = _get(client)
+    assert caps["ai_stylist_configured"] is True, "the key must be visible as configuration"
+    assert caps["ai_stylist_live"] is False, (
+        "a configured key published as `live` is the defect this test used to assert"
+    )
+    assert caps["ai_stylist_state"] == "not_probed"
+
+    # Only a MEASUREMENT makes it live.
+    monkeypatch.setattr(
+        ai_readiness, "_configured_providers",
+        lambda: {"groq": {"url": "https://api.groq.com/openai/v1/models", "auth": "Bearer k"}},
+    )
+    ai_readiness._cache.store(
+        ai_readiness.probe_now(transport=httpx.MockTransport(lambda r: httpx.Response(200, json={})))
+    )
+    caps = _get(client)
+    assert caps["ai_stylist_live"] is True
+    assert caps["ai_stylist_state"] == "ready"
+    ai_readiness.reset_cache_for_tests()
 
 
 def test_vton_gpu_ready_does_not_follow_configuration(client, monkeypatch):
@@ -282,17 +362,71 @@ def test_payment_method_live_requires_key_adapter_and_live_mode(client, monkeypa
     assert _methods(client)["bnpl_tabby"]["is_live"] is True
 
 
-def test_stamping_is_live_does_not_mutate_the_shared_catalog(client, monkeypatch):
-    """PAYMENT_CATALOG holds module-level singletons shared by every request.
+def test_catalog_cannot_carry_a_liveness_claim_and_stamping_never_mutates_it(client):
+    """The latent trap: a catalogue entry able to publish liveness again.
 
-    Stamping `is_live` in place would leak one deployment's state into another
-    response (a demo deployment marking an entry live for the next caller), so
-    the copy is asserted, not assumed.
+    PR #176 measured `is_live` at the endpoint boundary, but `PAYMENT_CATALOG`
+    still held `is_live=True` on seven entries and the shared model still
+    defaulted it to `True` — an internal source of truth that could reproduce
+    the false claim the moment a caller stopped stamping. The catalogue is now a
+    different model that has no liveness field at all, and this test fails if
+    the concept is ever reintroduced there.
+
+    It also keeps the shared-singleton invariant it was written for:
+    `PAYMENT_CATALOG` holds module-level instances shared by every request, so
+    stamping must produce new objects, never edit the shared ones.
     """
-    before = MarketPaymentCapabilityRegistry.PAYMENT_CATALOG["bnpl_tabby"].is_live
-    _methods(client)
-    after = MarketPaymentCapabilityRegistry.PAYMENT_CATALOG["bnpl_tabby"].is_live
-    assert before == after == True  # noqa: E712 — the catalog default is untouched
+    entries = list(MarketPaymentCapabilityRegistry.PAYMENT_CATALOG.values())
+    assert entries, "precondition: the catalogue is not empty"
+
+    for entry in entries:
+        assert not hasattr(entry, "is_live"), (
+            f"catalogue entry {entry.id!r} exposes `is_live`: liveness is a "
+            "property of a deployment, not of a catalogue entry — a literal "
+            "here can be serialised into a shopper-visible claim"
+        )
+
+    ids_before = sorted(MarketPaymentCapabilityRegistry.PAYMENT_CATALOG)
+    snapshots = {i: MarketPaymentCapabilityRegistry.PAYMENT_CATALOG[i].model_dump() for i in ids_before}
+
+    res = client.get("/api/v1/commerce/payment-methods?country_code=EG")
+    assert res.status_code == 200, res.text
+    served = {m["id"]: m for m in res.json()["available_methods"]}
+    assert served["cod"]["is_live"] is True  # the measured layer does publish it
+
+    assert sorted(MarketPaymentCapabilityRegistry.PAYMENT_CATALOG) == ids_before
+    for i in ids_before:
+        after = MarketPaymentCapabilityRegistry.PAYMENT_CATALOG[i].model_dump()
+        assert after == snapshots[i], (
+            f"a request mutated the shared catalogue entry {i!r}: one "
+            "deployment's measured state would leak into another response"
+        )
+
+
+def test_a_forgotten_liveness_stamp_is_an_error_not_a_false_claim():
+    """The unsafe default, gone: omission must fail loudly.
+
+    `is_live: bool = True` on the shared model is what let a forgotten stamp
+    become a regulated claim. The measured model has no default, so building one
+    without a measurement is a ValidationError — verified here rather than
+    asserted in prose.
+    """
+    from pydantic import ValidationError
+
+    from backend.app.providers.payment.schemas import (
+        PaymentMethodAvailability,
+        PaymentMethodOption,
+    )
+
+    option = MarketPaymentCapabilityRegistry.PAYMENT_CATALOG["bnpl_tabby"]
+    with pytest.raises(ValidationError):
+        PaymentMethodAvailability(**option.model_dump())
+
+    stamped = PaymentMethodAvailability(**option.model_dump(), is_live=False)
+    assert stamped.is_live is False
+    # The two concepts stay separate: the catalogue type is not the wire type.
+    assert not issubclass(PaymentMethodOption, PaymentMethodAvailability)
+    assert issubclass(PaymentMethodAvailability, PaymentMethodOption)
 
 
 def _payment_body(client, country_code="EG"):

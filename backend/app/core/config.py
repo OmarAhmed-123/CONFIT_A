@@ -219,6 +219,25 @@ class Settings(BaseSettings):
 
     # AI Failover Configuration
     AI_PROVIDERS: str = "nvidia,groq,gemini,openai,unorouter"
+
+    # AI readiness probe (2026-09-23). `ai_stylist_live` was `bool(key)`, which
+    # is configuration, not reachability. The probe reads each provider's model
+    # catalogue (free — no chat completion, no tokens, no quota burn) to verify
+    # DNS/TLS/status and that the credential is accepted. It runs in the
+    # background off a TTL cache, so no request waits on it, and its snapshot is
+    # WITHDRAWN past the max age so a stale "ready" can never be reported.
+    AI_PROBE_ENABLED: bool = True
+    AI_PROBE_TTL_SECONDS: float = 300.0
+    #: Hard maximum age: past this the verdict becomes `not_probed`, not `ready`.
+    #: 30 min = 2x the 15-minute uptime-monitor cadence that refreshes it, so a
+    #: single missed cycle does not withdraw a verdict that is still good.
+    AI_PROBE_MAX_AGE_SECONDS: float = 1800.0
+    #: Per-provider attempt budget. Deliberately short: /health must not wait.
+    AI_PROBE_TIMEOUT_SECONDS: float = 3.0
+    #: TOTAL budget for the inline refresh /health performs when its cached
+    #: verdict is missing or stale. Providers not attempted inside the budget
+    #: are reported as unmeasured, never guessed.
+    AI_PROBE_SYNC_BUDGET_SECONDS: float = 5.0
     # Per-provider HTTP budget. Measured live 2026-09-04: Groq 0.48-0.56s,
     # OpenAI 1.46s, gemini-3.8-flash 2.9s when it answers and >4s when it 503s.
     # One shared 4.0s literal was generous for Groq and marginal for a thinking

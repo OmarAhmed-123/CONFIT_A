@@ -172,6 +172,10 @@ export const DiscoverView: React.FC = () => {
         {/* Search & Visual Match Button */}
         <div className="flex items-center gap-2 max-w-md w-full relative">
           <div className="relative flex-1">
+            {/* A placeholder is not an accessible name: it disappears as soon
+                as the user types and is not reliably announced. Measured
+                2026-09-23 with axe in a real browser — this shared search
+                control had no accessible name on /discover and /stylist. */}
             <input
               ref={searchInputRef}
               type="text"
@@ -184,7 +188,8 @@ export const DiscoverView: React.FC = () => {
               onBlur={() => {
                 setTimeout(() => setShowSuggestions(false), 200);
               }}
-              placeholder="Search blazers, oxford shirts, silk dresses..."
+              aria-label={t('discover.search_label')}
+              placeholder={t('discover.search_placeholder')}
               className="w-full pl-4 pr-10 py-3 rounded-2xl border border-slate-200 text-xs focus:outline-none focus:border-[#C5A059] bg-white shadow-2xs placeholder:text-slate-500"
             />
             {searchQuery && (

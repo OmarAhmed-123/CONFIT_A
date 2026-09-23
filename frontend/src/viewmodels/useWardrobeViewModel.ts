@@ -1,4 +1,6 @@
 import { msg, detail } from '../i18n/messages';
+import { localizeApiError } from '../i18n/apiErrors';
+import i18n from '../i18n/i18n';
 import { useState, useCallback, useEffect } from 'react';
 import { wardrobeService, moodBoardService, WardrobeUploadResponse, WardrobeFirstOutfit, AutoTagResponse, MoodBoard } from '../services/apiServices';
 import { WardrobeItem, GapAnalysisItem } from '../models';
@@ -30,6 +32,23 @@ export function useWardrobeViewModel() {
 
   const { showToast } = useUIStore();
 
+  /**
+   * The message a shopper reads when a load fails.
+   *
+   * REGRESSION FIXED 2026-09-23: these three states stored `detail(err)` — the
+   * server's message verbatim — and the view rendered it directly. Measured in a
+   * real browser in Arabic: the wardrobe showed "Sign in to access your personal
+   * style profile and account features." in English, i.e. backend English
+   * diagnostics shown to an Arabic-first shopper. This is the same defect class
+   * already fixed on the checkout money path; the helper existed, this surface
+   * had not been converted. Known error codes now resolve to localized text,
+   * and only genuinely unknown codes fall back to the server's wording.
+   */
+  const errorText = useCallback(
+    (err: unknown) => localizeApiError(err, i18n.t.bind(i18n)),
+    [],
+  );
+
   const fetchWardrobe = useCallback(async (cat?: string) => {
     setIsLoading(true);
     setClosetError(null);
@@ -39,7 +58,7 @@ export function useWardrobeViewModel() {
       setIsLoading(false);
     } catch (err: any) {
       setIsLoading(false);
-      setClosetError(detail(err));
+      setClosetError(errorText(err));
       showToast(msg('toast.wardrobe_load_failed', { reason: detail(err) }), 'error');
     }
   }, [activeCategory, showToast]);
@@ -54,7 +73,7 @@ export function useWardrobeViewModel() {
       setIsGapLoading(false);
     } catch (err: any) {
       setIsGapLoading(false);
-      setGapError(detail(err));
+      setGapError(errorText(err));
       showToast(msg('toast.gap_analysis_failed', { reason: detail(err) }), 'error');
     }
   }, [showToast]);
@@ -70,7 +89,7 @@ export function useWardrobeViewModel() {
       setIsBoardsLoading(false);
     } catch (err: any) {
       setIsBoardsLoading(false);
-      setBoardsError(detail(err));
+      setBoardsError(errorText(err));
       showToast(msg('toast.boards_load_failed', { reason: detail(err) }), 'error');
     }
   }, [showToast]);

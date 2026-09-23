@@ -327,6 +327,8 @@ export const catalogService = {
   getCapabilities: () =>
     request<{
       payments_live: boolean;
+      payments_live_methods: string[];
+      cod_live: boolean;
       payments_mode: "live" | "demo";
       bnpl_live: boolean;
       /** Measured (live probe), not "the env var is set". See useCapabilities. */

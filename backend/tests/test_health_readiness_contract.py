@@ -274,7 +274,18 @@ def test_the_ai_stylist_state_does_not_follow_the_provider_keys(monkeypatch):
         assert "fallback" in states["ai_stylist"].detail
 
         # Keys configured, nothing measured: NAME THE GAP, do not claim ready.
-        monkeypatch.setattr(capability_service, "_ai_provider_keys", lambda: ["k1", "k2"])
+        # REWRITTEN 2026-09-23. `_ai_provider_keys` no longer decides anything:
+        # the state comes from the readiness measurement, so pinning the key list
+        # alone would leave the test measuring the real settings. It pins both
+        # halves — providers ARE configured, nothing has been measured.
+        from backend.app.services import ai_readiness
+
+        ai_readiness.reset_cache_for_tests()  # no probe has run
+        monkeypatch.setattr(
+            ai_readiness, "_configured_providers",
+            lambda: {"groq": {"url": "https://api.groq.com/openai/v1/models", "auth": "Bearer k"}},
+        )
+        monkeypatch.setattr(capability_service, "_ai_provider_keys", lambda: ["groq"])
         # Pin the runtime measurement deterministically: no provider is
         # quarantined, so the state must be `not_probed`, never `ready`.
         monkeypatch.setattr(
@@ -286,7 +297,9 @@ def test_the_ai_stylist_state_does_not_follow_the_provider_keys(monkeypatch):
             "the 2026-09-22 ai_stylist defect"
         )
         assert states["ai_stylist"].criticality == CRITICALITY_SUPPORTING
-        assert "no availability probe" in states["ai_stylist"].detail
+        # 2026-09-23: the probe now exists, so the detail names it rather than
+        # saying none exists — the state is still `not_probed` until it runs.
+        assert "no availability measurement" in states["ai_stylist"].detail
         # And an honest gap must not make the platform unready.
         assert "ai_stylist" not in summarise_capabilities(
             capability_service.capability_probes(db, True)
@@ -305,9 +318,15 @@ def test_the_ai_stylist_state_degrades_from_a_measured_failure(monkeypatch):
     """
     from backend.tests.conftest import TestingSessionLocal
     from backend.app.providers.orchestrator import get_orchestrator
+    from backend.app.services import ai_readiness
 
     db = TestingSessionLocal()
     try:
+        ai_readiness.reset_cache_for_tests()
+        monkeypatch.setattr(
+            ai_readiness, "_configured_providers",
+            lambda: {"groq": {"url": "https://api.groq.com/openai/v1/models", "auth": "Bearer k"}},
+        )
         monkeypatch.setattr(capability_service, "_ai_provider_keys", lambda: ["k1"])
         orch = get_orchestrator()
         orch.cooldowns.clear()
@@ -335,6 +354,55 @@ def test_the_ai_stylist_state_degrades_from_a_measured_failure(monkeypatch):
         db.close()
 
 
+def test_the_ai_stylist_state_degrades_from_a_measured_probe_failure(monkeypatch):
+    """The probe's own verdicts drive the capability, at last.
+
+    Until 2026-09-23 the capability could not do this: no probe existed, so a
+    deployment whose provider key was revoked reported an honest `not_probed` and
+    nothing else. Now a measured `auth_failed` / `quota_exhausted` / `timeout`
+    must surface as `degraded` (served by the deterministic grounded fallback),
+    still as a SUPPORTING capability so an AI outage cannot mark the platform
+    unready.
+    """
+    import time
+
+    import httpx
+
+    from backend.app.services import ai_readiness
+    from backend.tests.conftest import TestingSessionLocal
+
+    db = TestingSessionLocal()
+    try:
+        monkeypatch.setattr(capability_service, "_ai_quarantine_state", lambda: ({}, {}))
+        monkeypatch.setattr(
+            ai_readiness, "_configured_providers",
+            lambda: {"groq": {"url": "https://api.groq.com/openai/v1/models", "auth": "Bearer k"}},
+        )
+
+        for status, expected_state in ((200, STATE_READY), (401, STATE_DEGRADED), (429, STATE_DEGRADED)):
+            ai_readiness.reset_cache_for_tests()
+            transport = httpx.MockTransport(lambda request: httpx.Response(status, json={}))
+            ai_readiness._cache.store(ai_readiness.probe_now(transport=transport))
+
+            states = {c.name: c for c in capability_service.capability_probes(db, True)}
+            cap = states["ai_stylist"]
+            assert cap.state == expected_state, (
+                f"a measured HTTP {status} from the provider must map to "
+                f"{expected_state}, got {cap.state} ({cap.detail})"
+            )
+            assert cap.criticality == "supporting"
+            summary = summarise_capabilities(capability_service.capability_probes(db, True))
+            assert "ai_stylist" not in summary["blocking_capabilities"]
+            if expected_state == STATE_READY:
+                assert "live probe" in cap.detail
+            else:
+                assert "fallback" in cap.detail
+        assert time.time() > 0
+    finally:
+        ai_readiness.reset_cache_for_tests()
+        db.close()
+
+
 def test_ai_provider_keys_honours_the_documented_groq_variable(monkeypatch):
     """The capability contract must read the same setting the system uses.
 
@@ -354,14 +422,18 @@ def test_ai_provider_keys_honours_the_documented_groq_variable(monkeypatch):
     monkeypatch.setattr(settings, "GROQ_API_KEY", "gsk_documented")
     monkeypatch.setattr(settings, "GROK_API_KEY", None)
     assert settings.groq_api_key == "gsk_documented"
-    assert capability_service._ai_provider_keys() == ["gsk_documented"], (
+    # 2026-09-23: this returns provider NAMES now, not key values. The capability
+    # contract only ever needs to know *which* providers are configured; the
+    # readiness probe resolves the credential itself. Returning secrets here put
+    # them one accidental log statement away from a response body.
+    assert capability_service._ai_provider_keys() == ["groq"], (
         "the documented GROQ_API_KEY must be visible to the capability contract"
     )
 
     # The legacy spelling keeps working (backwards compatibility is intentional).
     monkeypatch.setattr(settings, "GROQ_API_KEY", None)
     monkeypatch.setattr(settings, "GROK_API_KEY", "gsk_legacy")
-    assert capability_service._ai_provider_keys() == ["gsk_legacy"]
+    assert capability_service._ai_provider_keys() == ["groq"]
 
     # A blank/whitespace value from a partially-filled .env is unset, not a key.
     monkeypatch.setattr(settings, "GROK_API_KEY", "   ")

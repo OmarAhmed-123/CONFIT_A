@@ -175,6 +175,19 @@ def get_conversion_analytics(user: User = Depends(brand_auth), db: Session = Dep
     # (both callers share get_activity_snapshot), far fewer hops.
     an = repo.get_activity_snapshot(bp["id"])
     per_sku = repo.get_conversion_analytics_per_sku(bp["id"])
+    # Two DIFFERENT things, deliberately returned under two different keys.
+    #
+    # activity_snapshot counts four unrelated tables independently. Dividing one
+    # by another mixes measurement units -- that is how this endpoint previously
+    # produced 3500% (35 try-on rows over 0 retained view rows). It stays because
+    # raw volume is genuinely useful, but it is NOT a funnel.
+    #
+    # attributed_funnel only ever counts SESSIONS, each stage a subset of the one
+    # before it, so it cannot exceed 100%. It reports its own coverage because it
+    # can only see activity that carried a session token.
+    #
+    # The legacy top-level keys are preserved so existing clients do not break.
+    funnel = repo.get_attributed_funnel(bp["id"])
     return {
         "views": an["total_views"],
         "tryons": an["total_tryons"],
@@ -183,7 +196,17 @@ def get_conversion_analytics(user: User = Depends(brand_auth), db: Session = Dep
         "conversion_rate": an["funnel_conversion_rate"],
         "per_sku": per_sku,
         "grain": "product",
-        "methodology": an["methodology"]
+        "methodology": an["methodology"],
+        "activity_snapshot": {
+            "grain": "product",
+            "is_funnel": False,
+            "views": an["total_views"],
+            "tryons": an["total_tryons"],
+            "add_to_cart": an["total_add_to_carts"],
+            "purchases": an["total_purchases"],
+            "methodology": an["methodology"],
+        },
+        "attributed_funnel": funnel,
     }
 
 

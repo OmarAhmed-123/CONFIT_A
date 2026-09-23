@@ -361,6 +361,148 @@ class BrandRepository:
         "All-time retained RecentlyViewed product-view rows, TryOnSession records (not necessarily completed), current CartItem lines, and non-cancelled/non-refunded/non-failed OrderItem purchase lines. Not a session-linked conversion funnel: these are independent per-table counts, so ratios mix measurement units and may exceed 100%. A null rate means the denominator is zero (not measurable), never 0%. Ad spend is reconciled against the append-only ad_ledger_entries journal (see /partner/billing/statement), not read from mutable counters."
     )
 
+    ATTRIBUTED_FUNNEL_METHODOLOGY = (
+        "Session-linked funnel at SESSION grain, not event counts. A session enters "
+        "the denominator only if it produced a view event for one of this brand's "
+        "products carrying a session_token; each later stage counts how many of "
+        "THOSE SAME sessions also reached that stage, so the sequence is monotonically "
+        "non-increasing by construction and a rate can never exceed 100%. Try-on is "
+        "joined via tryon_sessions.guest_session_token and constrained to products "
+        "owned by this brand; cart via carts.session_token; purchase via a purchase "
+        "event on the same token. Anonymous activity with no session_token is NOT "
+        "attributable and is excluded from every stage -- attributable_view_coverage "
+        "reports what fraction of view events could be used, so a low-coverage funnel "
+        "is never mistaken for a complete one. Rates are None (N/A) when the "
+        "denominator is zero. This is observational co-occurrence within a session, "
+        "not a causal claim."
+    )
+
+    def get_attributed_funnel(self, brand_id: int) -> Dict[str, Any]:
+        """A real session-linked funnel, or an explicit statement that there isn't one.
+
+        WHY THIS IS SEPARATE FROM get_activity_snapshot()
+        The activity snapshot counts four unrelated tables independently. Dividing
+        one by another mixes measurement units, which is how a dashboard ends up
+        printing 3500%: 35 try-on rows over 0 retained view rows is not a rate, it
+        is two different things in a fraction. That snapshot is still useful as a
+        volume indicator, so it stays -- but it is NOT a funnel and must not be
+        presented as one.
+
+        This method only ever counts SESSIONS, and every stage is a subset of the
+        stage before it. Because each stage filters the same starting set of view
+        sessions, the counts cannot increase down the funnel and a ratio cannot
+        exceed 100%. That property is structural, not something we validate after
+        the fact.
+
+        HONESTY ABOUT COVERAGE
+        Only events carrying a session_token can be attributed. In production that
+        is 66% of view events for one brand and 19.5% for another, so a funnel
+        presented without that number would look authoritative while silently
+        describing a fifth of the traffic. attributable_view_coverage is returned
+        alongside the funnel and is intended to be displayed with it.
+        """
+        # Stage 0: the attributable denominator -- sessions that viewed a product
+        # belonging to THIS brand. brand_id is applied on the event itself, so a
+        # session that only ever viewed another tenant's products never enters.
+        view_sessions = select(BrandAnalyticsEvent.session_token).where(
+            BrandAnalyticsEvent.brand_id == brand_id,
+            BrandAnalyticsEvent.event_type == "view",
+            BrandAnalyticsEvent.session_token.isnot(None),
+        ).distinct().subquery()
+        vs = select(view_sessions.c.session_token).scalar_subquery()
+
+        # Try-on is tenant-scoped through the product, because tryon_sessions has
+        # no brand column -- without that join a session that tried on another
+        # brand's garment would be credited to this one.
+        brand_tryon_tokens = select(TryOnSession.guest_session_token).join(
+            Product, Product.id == TryOnSession.product_id
+        ).where(
+            Product.brand_id == brand_id,
+            TryOnSession.guest_session_token.isnot(None),
+        ).distinct().scalar_subquery()
+
+        cart_tokens = select(Cart.session_token).where(
+            Cart.session_token.isnot(None)
+        ).distinct().scalar_subquery()
+
+        purchase_tokens = select(BrandAnalyticsEvent.session_token).where(
+            BrandAnalyticsEvent.brand_id == brand_id,
+            BrandAnalyticsEvent.event_type == "purchase",
+            BrandAnalyticsEvent.session_token.isnot(None),
+        ).distinct().scalar_subquery()
+
+        row = self.db.execute(
+            select(
+                select(func.count()).select_from(view_sessions)
+                .scalar_subquery().label("viewed"),
+
+                select(func.count()).select_from(view_sessions)
+                .where(view_sessions.c.session_token.in_(brand_tryon_tokens))
+                .scalar_subquery().label("tried_on"),
+
+                select(func.count()).select_from(view_sessions)
+                .where(view_sessions.c.session_token.in_(cart_tokens))
+                .scalar_subquery().label("added_to_cart"),
+
+                select(func.count()).select_from(view_sessions)
+                .where(view_sessions.c.session_token.in_(purchase_tokens))
+                .scalar_subquery().label("purchased"),
+
+                select(func.count(BrandAnalyticsEvent.id)).where(
+                    BrandAnalyticsEvent.brand_id == brand_id,
+                    BrandAnalyticsEvent.event_type == "view",
+                ).scalar_subquery().label("view_events_total"),
+
+                select(func.count(BrandAnalyticsEvent.id)).where(
+                    BrandAnalyticsEvent.brand_id == brand_id,
+                    BrandAnalyticsEvent.event_type == "view",
+                    BrandAnalyticsEvent.session_token.isnot(None),
+                ).scalar_subquery().label("view_events_attributable"),
+            )
+        ).one()
+
+        viewed = int(row.viewed or 0)
+
+        def rate(numerator: int) -> Optional[float]:
+            # Zero sessions means the rate is undefined, not zero. Returning 0.0
+            # would assert "nobody converted", which is a different and unproven
+            # claim from "there is nothing to divide by".
+            if viewed <= 0:
+                return None
+            return round(numerator / viewed * 100, 2)
+
+        tried_on = int(row.tried_on or 0)
+        added = int(row.added_to_cart or 0)
+        purchased = int(row.purchased or 0)
+        total_views = int(row.view_events_total or 0)
+        attributable = int(row.view_events_attributable or 0)
+
+        return {
+            "grain": "session",
+            "available": viewed > 0,
+            "stages": [
+                {"stage": "viewed", "sessions": viewed, "rate_of_viewed": rate(viewed)},
+                {"stage": "tried_on", "sessions": tried_on, "rate_of_viewed": rate(tried_on)},
+                {"stage": "added_to_cart", "sessions": added, "rate_of_viewed": rate(added)},
+                {"stage": "purchased", "sessions": purchased, "rate_of_viewed": rate(purchased)},
+            ],
+            "view_sessions": viewed,
+            "tryon_sessions": tried_on,
+            "cart_sessions": added,
+            "purchase_sessions": purchased,
+            "try_on_rate": rate(tried_on),
+            "add_to_cart_rate": rate(added),
+            "purchase_rate": rate(purchased),
+            # Displayed WITH the funnel: a funnel built on 19.5% of traffic must
+            # not look as authoritative as one built on 100%.
+            "attributable_view_coverage": (
+                round(attributable / total_views * 100, 2) if total_views else None
+            ),
+            "view_events_total": total_views,
+            "view_events_attributable": attributable,
+            "methodology": self.ATTRIBUTED_FUNNEL_METHODOLOGY,
+        }
+
     def get_activity_snapshot(self, brand_id: int,
                               product_ids: Optional[List[int]] = None) -> Dict[str, Any]:
         """The four headline activity counters plus the funnel ratio, in ONE round trip.

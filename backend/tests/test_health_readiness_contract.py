@@ -30,6 +30,7 @@ from backend.app.core.readiness import (
     CRITICALITY_SUPPORTING,
     STATE_BLOCKED,
     STATE_DEGRADED,
+    STATE_NOT_PROBED,
     STATE_READY,
     Capability,
     liveness_status,
@@ -241,22 +242,130 @@ def test_try_on_distinguishes_not_offered_from_broken(monkeypatch):
     assert "VTON_WORKER_NOT_READY" in cap.detail
 
 
-def test_the_ai_stylist_state_follows_the_provider_keys(monkeypatch):
+def test_the_ai_stylist_state_does_not_follow_the_provider_keys(monkeypatch):
+    """REWRITTEN 2026-09-22 — this test used to assert a false claim.
+
+    It was ``test_the_ai_stylist_state_follows_the_provider_keys`` and it
+    asserted, with two keys configured:
+
+        assert states["ai_stylist"].state == STATE_READY
+        assert "2 live provider key(s)" in states["ai_stylist"].detail
+
+    ``ready`` means "probed and working" in this project's own contract, and
+    nothing had been probed: no provider had been contacted, and the word
+    "live" described a key that had never been used. That is the same
+    configuration-as-measurement defect as ``vton_gpu_ready`` — it merely
+    failed in the quiet direction (a capability that might be broken reported
+    as working) rather than the loud one.
+
+    Same pattern as the VTON case: the defect was encoded as an expectation, so
+    the suite defended it. The test now asserts the honest contract — a
+    configured key yields ``not_probed``, and only a MEASURED failure yields
+    ``degraded``.
+    """
     from backend.tests.conftest import TestingSessionLocal
 
     db = TestingSessionLocal()
     try:
+        # No key: the deterministic grounded fallback answers. Unchanged.
         monkeypatch.setattr(capability_service, "_ai_provider_keys", lambda: [])
         states = {c.name: c for c in capability_service.capability_probes(db, True)}
         assert states["ai_stylist"].state == STATE_DEGRADED
         assert "fallback" in states["ai_stylist"].detail
 
+        # Keys configured, nothing measured: NAME THE GAP, do not claim ready.
         monkeypatch.setattr(capability_service, "_ai_provider_keys", lambda: ["k1", "k2"])
+        # Pin the runtime measurement deterministically: no provider is
+        # quarantined, so the state must be `not_probed`, never `ready`.
+        monkeypatch.setattr(
+            capability_service, "_ai_quarantine_state", lambda: ({}, {})
+        )
         states = {c.name: c for c in capability_service.capability_probes(db, True)}
-        assert states["ai_stylist"].state == STATE_READY
-        assert "2 live provider key(s)" in states["ai_stylist"].detail
+        assert states["ai_stylist"].state == STATE_NOT_PROBED, (
+            "a configured key is not a measurement — reporting `ready` here is "
+            "the 2026-09-22 ai_stylist defect"
+        )
+        assert states["ai_stylist"].criticality == CRITICALITY_SUPPORTING
+        assert "no availability probe" in states["ai_stylist"].detail
+        # And an honest gap must not make the platform unready.
+        assert "ai_stylist" not in summarise_capabilities(
+            capability_service.capability_probes(db, True)
+        )["blocking_capabilities"]
     finally:
         db.close()
+
+
+def test_the_ai_stylist_state_degrades_from_a_measured_failure(monkeypatch):
+    """The half that IS measurable must actually be used.
+
+    A provider enters quarantine only after it really failed (HTTP 402/429/auth),
+    so "all configured providers are quarantined" is an observation, not a
+    configuration read. When that is true the live path is down and the platform
+    must say ``degraded`` — on the fallback — rather than staying silent.
+    """
+    from backend.tests.conftest import TestingSessionLocal
+    from backend.app.providers.orchestrator import get_orchestrator
+
+    db = TestingSessionLocal()
+    try:
+        monkeypatch.setattr(capability_service, "_ai_provider_keys", lambda: ["k1"])
+        orch = get_orchestrator()
+        orch.cooldowns.clear()
+        try:
+            # Before any failure: not_probed (nothing measured yet).
+            states = {c.name: c for c in capability_service.capability_probes(db, True)}
+            assert states["ai_stylist"].state == STATE_NOT_PROBED
+
+            # A REAL failure quarantines the provider -> measured degradation.
+            orch.mark_cooling("groq", "HTTP 402")
+            states = {c.name: c for c in capability_service.capability_probes(db, True)}
+            cap = states["ai_stylist"]
+            assert cap.state == STATE_DEGRADED, (
+                "a quarantined provider is a measured outage; the capability must "
+                "degrade rather than report ready/not_probed"
+            )
+            assert "quarantined" in cap.detail and "fallback" in cap.detail
+            # Supporting criticality: visible, but never sets ready=false.
+            summary = summarise_capabilities(capability_service.capability_probes(db, True))
+            assert "ai_stylist" in summary["degraded_capabilities"]
+            assert "ai_stylist" not in summary["blocking_capabilities"]
+        finally:
+            orch.cooldowns.clear()
+    finally:
+        db.close()
+
+
+def test_ai_provider_keys_honours_the_documented_groq_variable(monkeypatch):
+    """The capability contract must read the same setting the system uses.
+
+    The Groq slot was read from the deprecated ``GROK_API_KEY`` FIELD while the
+    orchestrator resolves it through the ``groq_api_key`` PROPERTY, which prefers
+    the documented ``GROQ_API_KEY``. Measured 2026-09-22: a deployment configured
+    with the documented spelling reported ``ai_stylist_live: false`` although the
+    key resolved and Groq was genuinely being called — a false NEGATIVE, the
+    mirror image of the VTON false positive.
+    """
+    from backend.app.core.config import settings
+
+    monkeypatch.setattr(settings, "NVIDIA_API_KEY", None)
+    monkeypatch.setattr(settings, "GEMINI_API_KEY", None)
+    monkeypatch.setattr(settings, "OPENAI_API_KEY", None)
+    # Only the DOCUMENTED variable is set; the legacy alias is empty.
+    monkeypatch.setattr(settings, "GROQ_API_KEY", "gsk_documented")
+    monkeypatch.setattr(settings, "GROK_API_KEY", None)
+    assert settings.groq_api_key == "gsk_documented"
+    assert capability_service._ai_provider_keys() == ["gsk_documented"], (
+        "the documented GROQ_API_KEY must be visible to the capability contract"
+    )
+
+    # The legacy spelling keeps working (backwards compatibility is intentional).
+    monkeypatch.setattr(settings, "GROQ_API_KEY", None)
+    monkeypatch.setattr(settings, "GROK_API_KEY", "gsk_legacy")
+    assert capability_service._ai_provider_keys() == ["gsk_legacy"]
+
+    # A blank/whitespace value from a partially-filled .env is unset, not a key.
+    monkeypatch.setattr(settings, "GROK_API_KEY", "   ")
+    assert capability_service._ai_provider_keys() == []
 
 
 def test_bnpl_reports_blocked_without_a_psp_key(monkeypatch):

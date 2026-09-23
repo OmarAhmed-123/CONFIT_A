@@ -105,6 +105,28 @@ class InvalidStateTransitionError(ConfitException):
         )
 
 
+class IdempotencyKeyConflictError(ConfitException):
+    """A client-supplied idempotency key already belongs to another shopper.
+
+    Raised instead of returning the matching order. The key is stored uniquely
+    across the whole table and the replay lookup is global, so without this the
+    checkout endpoint would hand a caller whatever order happens to carry the
+    key they sent — the same cross-customer read that ``assert_order_access``
+    exists to prevent on the order-detail route.
+
+    The message is deliberately generic: it must not confirm that the key
+    matches a real order, whose it is, or what it contains.
+    """
+
+    def __init__(self):
+        super().__init__(
+            "This checkout attempt conflicts with an existing order. "
+            "Start a new checkout to continue.",
+            code="IDEMPOTENCY_KEY_CONFLICT",
+            status_code=status.HTTP_409_CONFLICT,
+        )
+
+
 class FulfillmentBlockedError(ConfitException):
     """PAY-01: fulfilment gate — goods may only move for settled payment.
 

@@ -334,12 +334,15 @@ def get_audit_integrity(
     user: User = Depends(require_role([UserRole.ADMIN])),
     db: Session = Depends(get_db),
 ):
-    """Structural self-check with concrete violations and stated limits.
+    """Structural self-check + hash-chain verification, with stated limits.
 
-    Reports ``tamper_evident: false`` honestly: ``audit_logs`` has no persisted
-    hash chain, so this endpoint verifies the invariants the write path
-    guarantees (required columns populated, actor resolvable, no unredacted
-    secrets) and explicitly refuses to claim more than that.
+    Since migration 0020 every audit insert carries an HMAC-SHA256 hash chain
+    (core/audit_chain.py), and this endpoint RECOMPUTES it over the sampled
+    window: a modified row fails its own HMAC, a deleted/reordered row breaks
+    its successor's link. ``tamper_evident`` is computed from that
+    verification — never asserted from configuration — and the residual
+    limits (key compromise, tail truncation across runs, pre-migration rows)
+    are named in ``limitations``.
     """
     result = AuditTrailService(db).integrity(window_days=window_days)
     _audit_read(request, db, user, "ADMIN_AUDIT_INTEGRITY_CHECK", "AuditLog",

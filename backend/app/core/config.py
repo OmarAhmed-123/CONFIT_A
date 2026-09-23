@@ -144,6 +144,18 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30
     ENCRYPTION_KEY_FOR_BODY_DATA: str = "confit_body_privacy_key_32bytes_default"
 
+    # Tamper-evident audit chain (P0 closure, 2026-09-22 admin audit).
+    # A DEDICATED HMAC key — deliberately separate from SECRET_KEY so a JWT
+    # key leak alone cannot re-forge the audit chain (key separation).
+    # When unset, core/audit_chain.py derives a dev/test fallback from
+    # SECRET_KEY via HMAC with a fixed label (never equal to SECRET_KEY
+    # itself). Production deployments must set a real value.
+    # AUDIT_CHAIN_KEY_VERSION is persisted per row (chain_key_version) so the
+    # key can rotate without invalidating history: bump the version, keep the
+    # retired key resolvable in audit_chain.resolve_key.
+    AUDIT_HMAC_KEY: Optional[str] = None
+    AUDIT_CHAIN_KEY_VERSION: int = 1
+
     # OAuth 2.0 client configuration — Group 1 §7 real provider verification.
     # Missing values cause social-login to return 501 FEATURE_NOT_CONFIGURED
     # rather than silently trusting the client-supplied identity.
@@ -593,6 +605,24 @@ class Settings(BaseSettings):
                 problems.append(f"{name} is a publicly known value (repository default or published in docs)")
             elif len(value) < MIN_SECRET_LENGTH:
                 problems.append(f"{name} is shorter than {MIN_SECRET_LENGTH} characters")
+
+        # Audit-chain key separation (P0 closure): production must sign the
+        # audit chain with a DEDICATED key. The dev fallback (derived from
+        # SECRET_KEY) would make a JWT-key leak sufficient to re-forge the
+        # chain, which silently voids the tamper-evidence claim — so refuse
+        # to boot rather than claim a guarantee that does not hold.
+        audit_key = self.AUDIT_HMAC_KEY or ""
+        if not audit_key:
+            problems.append(
+                "AUDIT_HMAC_KEY is required in production (tamper-evident audit "
+                "chain needs a key separate from SECRET_KEY)"
+            )
+        elif audit_key in PUBLICLY_KNOWN_SECRET_VALUES:
+            problems.append("AUDIT_HMAC_KEY is a publicly known value")
+        elif len(audit_key) < MIN_SECRET_LENGTH:
+            problems.append(f"AUDIT_HMAC_KEY is shorter than {MIN_SECRET_LENGTH} characters")
+        elif audit_key == (self.SECRET_KEY or ""):
+            problems.append("AUDIT_HMAC_KEY must differ from SECRET_KEY (key separation)")
 
         db = (self.DATABASE_URL or "").lower()
         if not db.startswith(("postgresql://", "postgres://", "postgresql+")):

@@ -790,6 +790,7 @@
     "integrity_verdict": "verdict: {{verdict}}",
     "integrity_counts": "{{rows}} rows · {{actors}} actors · {{beforeAfter}} with before/after · {{requestId}} with request-id · {{ip}} with client IP",
     "integrity_tamper": "tamper_evident: {{value}} — {{note}}",
+    "integrity_chain": "hash chain: {{chained}} chained · {{unchained}} pre-migration (unchained) · {{breaks}} breaks · key v{{keyVersion}}",
     "filters_aria": "Audit trail filters",
     "filters_action": "Action",
     "filters_resource_type": "Resource type",

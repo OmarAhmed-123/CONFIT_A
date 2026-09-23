@@ -117,6 +117,18 @@ class AuditLog(Base):
     after_json = Column(Text, nullable=True)
     request_id = Column(String(64), nullable=True)
     timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    # 0020: tamper-evident HMAC hash chain (P0 from the 2026-09-22 audit).
+    # prev_hash links each row to its predecessor (64-zero genesis for the
+    # first), entry_hash is HMAC-SHA256 over the canonical row content +
+    # prev_hash, chain_key_version selects the HMAC key so rotation never
+    # invalidates history. Populated by a mapper-level before_insert listener
+    # (core/audit_chain.py) so EVERY insert is chained — there is no
+    # unchained write path for a call site to forget. Nullable because rows
+    # written before 0020 legitimately predate the chain and are reported as
+    # such by the integrity endpoint, never silently re-signed.
+    prev_hash = Column(String(64), nullable=True)
+    entry_hash = Column(String(64), nullable=True, index=True)
+    chain_key_version = Column(Integer, nullable=True)
 
 
 class RefreshToken(Base):
@@ -185,3 +197,14 @@ class MFABackupCode(Base):
 
 
 Index("ix_refresh_tokens_user_active", RefreshToken.user_id, RefreshToken.revoked_at)
+
+
+# --- Tamper-evident audit chain: single enforcement point -------------------
+# Registered on the mapper (not in any repository) so every AuditLog insert —
+# UserRepository.log_audit, partner_lead_service, brand_catalog_service, and
+# any future call site — is chained. See core/audit_chain.py for the design
+# and its stated limits.
+from sqlalchemy import event as _sa_event  # noqa: E402
+from backend.app.core.audit_chain import chain_before_insert as _chain_before_insert  # noqa: E402
+
+_sa_event.listen(AuditLog, "before_insert", _chain_before_insert)

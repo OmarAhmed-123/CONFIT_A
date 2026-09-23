@@ -156,14 +156,20 @@ class AuditTrailService:
 
     # --- integrity ------------------------------------------------------
     def integrity(self, window_days: int = 30, sample_limit: int = 500) -> Dict[str, Any]:
-        """Structural self-check over real rows, with its limits stated.
+        """Structural self-check + hash-chain verification over real rows.
 
         Returns concrete violations rather than a boolean, because "the audit
         log is fine" is exactly the kind of unverifiable claim this feature is
         supposed to eliminate.
-        """
-        from datetime import datetime, timedelta, timezone
 
+        Since migration 0020 every insert carries an HMAC-SHA256 hash chain
+        (core/audit_chain.py), so this check now RECOMPUTES the chain over the
+        sampled rows: a modified row fails its own HMAC, a deleted or
+        reordered row breaks the linkage of its successor. ``tamper_evident``
+        is true only when chained rows exist and the chain verifies — never
+        asserted from configuration alone.
+        """
+        from backend.app.core.audit_chain import verify_chain
         from backend.app.core.audit_redaction import REDACTED_PREFIX, contains_secret
 
         window_days = min(MAX_WINDOW_DAYS, max(1, int(window_days or 30)))
@@ -195,9 +201,39 @@ class AuditTrailService:
             if REDACTED_PREFIX in blob:
                 redaction_markers += 1
 
+        # Chain verification runs in ascending id order (oldest → newest);
+        # ``recent`` returns newest-first, so reverse the same sample.
+        chain = verify_chain(list(reversed(rows)))
+        for broken in chain["breaks"]:
+            violations.append(
+                {"row_id": broken["row_id"], "issue": broken["issue"], "detail": broken["detail"]}
+            )
+
+        chained_rows = int(chain["rows_verified"])
+        tamper_evident = chained_rows > 0 and not chain["breaks"]
+
         verdict = "ok" if not violations else "violations_found"
         if checked == 0:
             verdict = "no_data"
+
+        limitations = [
+            f"Sampled at most {sample_limit} of {checked} rows in the window; the "
+            "chain is verified over that sample in id order.",
+            "Chain HMAC uses a dedicated AUDIT_HMAC_KEY (separate from the JWT "
+            "key); an attacker holding BOTH direct DB write access AND that key "
+            "could re-forge the chain forward from the tampered point. External "
+            "anchoring (WORM/signed Merkle roots) is the documented next step.",
+            "Deleting only the newest rows (tail truncation) is detectable across "
+            "runs by comparing head_hash, not within a single run.",
+        ]
+        if chain["unchained_rows"]:
+            limitations.append(
+                f"{chain['unchained_rows']} sampled row(s) predate migration 0020 "
+                "and carry no hash; they are reported here, never silently "
+                "re-signed (that would fabricate a guarantee that did not exist "
+                "when they were written)."
+            )
+
         return {
             "checked_rows": checked,
             "window_days": window_days,
@@ -210,13 +246,14 @@ class AuditTrailService:
             "rows_with_ip": with_ip,
             "distinct_actors": distinct_actors,
             "verdict": verdict,
-            "tamper_evident": False,
-            "limitations": [
-                "Not tamper-evident: audit_logs has no persisted hash chain, so a "
-                "writer with direct database access could alter historical rows "
-                "undetected. Closing this requires a schema migration.",
-                f"Sampled at most {sample_limit} of {checked} rows in the window.",
-                "Retention/deletion policy is not enforced by the application; rows "
-                "are append-only by convention only.",
-            ],
+            "tamper_evident": tamper_evident,
+            "chain": {
+                "chained_rows": chained_rows,
+                "unchained_rows": chain["unchained_rows"],
+                "breaks": chain["breaks"][:50],
+                "head_hash": chain["head_hash"],
+                "key_version": chain["key_version"],
+                "canonical_version": chain["canonical_version"],
+            },
+            "limitations": limitations,
         }

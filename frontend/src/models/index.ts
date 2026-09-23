@@ -932,6 +932,17 @@ export interface AuditViolation {
   row_id: number;
   issue: string;
   action?: string;
+  detail?: string;
+}
+
+/** Hash-chain verification block (migration 0020, core/audit_chain.py). */
+export interface AuditChain {
+  chained_rows: number;
+  unchained_rows: number;
+  breaks: AuditViolation[];
+  head_hash?: string | null;
+  key_version: number;
+  canonical_version: number;
 }
 
 export interface AuditIntegrity {
@@ -946,8 +957,13 @@ export interface AuditIntegrity {
   rows_with_ip: number;
   distinct_actors?: number;
   verdict: string;
-  /** Always false today: audit_logs has no persisted hash chain. */
+  /**
+   * Computed by the backend from real chain verification: true only when
+   * HMAC-chained rows exist in the sample and the chain verifies. Never
+   * asserted from configuration alone.
+   */
   tamper_evident: boolean;
+  chain?: AuditChain | null;
   limitations: string[];
 }
 

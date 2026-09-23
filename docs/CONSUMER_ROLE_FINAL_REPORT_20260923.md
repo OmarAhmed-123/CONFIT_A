@@ -1,318 +1,474 @@
-# CONFIT_A — Consumer Role: Evidence-Based Verification Report
+# CONFIT_A — Consumer Role: Final Evidence Report (Part 2b, structure A–M)
 
-**Date:** 2026-09-23 · **Scope lock:** Consumer Role only (no brand/admin/partner scope was entered)
-**Branch used:** `fix/consumer-role-capability-honesty` (single branch, sequential PRs)
-**Supersedes:** `docs/CONSUMER_ROLE_FINAL_REPORT_20260922.md` — that report is a starting point, not the source of truth. Every fact below was re-measured or re-fetched; nothing was carried over on trust.
+**Date:** 2026-09-23 · **Repository:** `OmarAhmed-123/CONFIT_A` · **Production:** `https://confit-a.vercel.app/`
+**Scope lock:** Consumer Role only. Brand/Partner/Admin were not redesigned; shared infrastructure was touched only where the consumer path depended on it.
+**Branch discipline:** exactly one branch for this engagement — `fix/consumer-role-capability-honesty`. No second branch was created. `tmp-later` is local-only and was never pushed.
+**This document supersedes:** the 10-section Part-2 report that occupied this path at commit `d2ddb1b` / PR #173. This is not a cosmetic rewrite: every number, PR, commit, deployment and production string below was re-fetched or re-measured on 2026-09-23 **after** PR #176 and PR #177 were merged.
 
-**Truth sources used:** code (read + executed), runtime (local server + production HTTP), tests (executed), database (schema revision + integrity script), deployment (Vercel API), external dependencies (live probes), Git history and CI (GitHub API).
-
-**Status vocabulary used in this document:** `VERIFIED` · `PARTIALLY VERIFIED` · `BLOCKED` · `NOT TESTED` · `NOT APPLICABLE`. No "perfect", "100%", "fully complete", "everything works".
-
-**Environment separation is enforced throughout:** LOCAL (this sandbox), STAGING (a Vercel *preview* deployment), PRODUCTION (`confit-a.vercel.app`). Statements are never mixed across environments.
+**Truth sources used:** code (read + executed), runtime (local HTTP + production HTTP, read-only), tests (executed), CI (GitHub API), deployment (Vercel API), external infrastructure (live probes), git history.
+**Status vocabulary, and nothing else:** `VERIFIED` · `PARTIALLY VERIFIED` · `BLOCKED` · `NOT TESTED` · `NOT APPLICABLE`.
+**Standing rule:** the implementation must earn the claim; the claim must never invent the implementation. Where a previous claim and a current measurement disagree, the measurement wins and the claim is corrected in §L.
 
 ---
 
-## 1. Current State
+## A. Executive Summary
 
-### 1.1 Local (this sandbox)
+**What was asked.** Deep audit → deep remediation → verification of the consumer role, with an Evidence Ledger per capability, pattern-hunting across defect classes, mutation gates that must *kill* a reverted defect, production verification under read-only constraints, and a final report that is honest about what is unverified.
+
+**What this cycle actually found.** The consumer path had a **class** of defect that no amount of green tests had caught: *configuration published as capability*. The deployment told shoppers three mutually contradictory things at the same time:
+
+| Surface | What it said (production, before) | What was true |
+|---|---|---|
+| `/catalog/capabilities` | `payments_mode=demo`, `bnpl_live=false` | true |
+| `/commerce/payment-methods?country=EG` | `bnpl_tabby.is_live=true`, "Tabby — Split in 4", "Sharia compliant" | false |
+| `/catalog/products/1` | `bnpl.provider="Tabby"`, `"4 payments of 72.25 USD with Tabby"` | false — no lender made that offer |
+
+Behind it: a hardcoded `is_live=True` literal on every entry of `PAYMENT_CATALOG`, an unsafe `PaymentMethodOption.is_live` default, and a product teaser that named a lender unconditionally. The deployment held no `PAYMENTS_LIVE`, no `TABBY_API_KEY`, no `TAMARA_API_KEY`, and `LIVE_PSP_ADAPTERS` was empty by design.
+
+**What was fixed and merged.** PR **#176** (three commits) removed the literal and replaced it with a measurement; PR **#177** (one commit) removed a *second* unearned claim found in the same audit (PCI-DSS / central-bank compliance wording served for markets where no card or instalment rail could settle) and repaired a defect **in the test suite itself** — a helper that sent a query parameter the endpoint did not have, so market-aware tests were silently always answered for the default market.
+
+| Question | Answer | Evidence |
+|---|---|---|
+| Does production still publish a lender's offer the deployment cannot honour? | **No.** `bnpl.provider=null`, `is_estimate=true`, disclaimer "not an offer and not a payment plan" | §I.2 |
+| Does production still claim PCI-DSS/central-bank compliance where nothing but cash can settle? | **No.** The compliance sentence now appears only when a PSP method is measured live | §I.2 |
+| Can a client be answered for a market it did not ask for, silently? | **No.** AE resolves to AED + Tamara; `XX` is echoed as `XX` with "No payment method is enabled for XX" | §I.2, gate M29 |
+| Is every regression test able to fail? | **30 of 30 mutations killed, 0 survived, 0 not applicable** | §H |
+| Is the deployed artifact the merged one? | **Yes** — Vercel production `READY` at `edea4ccc` = `origin/main` HEAD | §I.1 |
+| Can a real payment settle in production? | **No — `BLOCKED`, external PSP credentials required.** COD only | §J.2 |
+
+**What is deliberately not claimed.** No live PSP settlement, no VTON render, no production write path exercised, no Arabic/RTL visual pass of the tracking page in a browser, no production PostgreSQL internals (local tests run on SQLite; the PostgreSQL contract is enforced by the CI parity gate, which is a different kind of evidence and is labelled as such in §M).
+
+---
+
+## B. Current Baseline
+
+### B.1 Local environment (measured this cycle)
 
 | Item | Value |
 |---|---|
-| HEAD | `87a242eb` (branch `fix/consumer-role-capability-honesty`) |
-| Backend suite (executed) | **2490 passed / 4 failed / 8 skipped** (442.56s) |
-| Baseline on clean `origin/main` (`353f7b0`, worktree at `/tmp/baseline-main`) | **2484 passed / 4 failed / 8 skipped** (421.10s) |
-| Delta vs baseline | **+6 passing tests, the same 4 failures** — the 4 are pre-existing and reproduce on the baseline, not on my change |
-| Frontend suite (executed) | **33 files / 280 tests passed** |
+| Python | 3.13.14 (`/home/user/.venv`) |
+| pytest / FastAPI / SQLAlchemy | 9.1.1 / 0.141.1 / 2.0.54 |
+| Node / npm | v20.20.2 / 10.8.2 |
+| Test database | SQLite (in-process) — see §K.7 for why this is *not* evidence about production PostgreSQL |
+| Backend suite | **4 failed / 2527 passed / 9 skipped in 366.14s** |
+| Frontend suite | **36 files / 294 tests passed** (40.27s) |
 | `tsc --noEmit` | exit 0 |
 | `i18n:check` | PASSED |
-| Mutation gates, all of them (executed) | **23 killed / 0 survived / 0 not applicable** |
+| Mutation gates | **M1–M30: 30 killed / 0 survived / 0 not applicable** |
 
-The 4 failures are `backend/tests/test_vton_pose_artifact_regression.py`, which imports `mediapipe`; mediapipe publishes no Python 3.13 wheels (sandbox is 3.13.14). They fail identically on unmodified `origin/main` — environmental, not a regression from this work. Stated as an environment gap, not excused away.
+The 4 failures are `test_vton_pose_artifact_regression.py`, which imports `mediapipe`; mediapipe publishes no Python 3.13 wheels. They fail **identically on unmodified `origin/main`** (§G) — an environment gap, reported as such, never excused as "passing anyway".
 
-### 1.2 Production
+### B.2 Repository baseline
 
 | Item | Value |
 |---|---|
-| Vercel production deployment | **READY at `66fdf5f7`** = merge commit of PR #172 = `main` HEAD |
-| `main` HEAD | `66fdf5f7` |
-| `/api/v1/health` | `ready=false`, blocking `["virtual_try_on"]`, degraded `["buy_now_pay_later","payments"]` |
-| `/api/v1/catalog/capabilities` | `vton_gpu_ready=false`, `vton_engine_state=temporarily_unavailable`, `vton_offered=true`, `vton_renderable=false`, `payments_mode=demo`, `payments_live=false`, `ai_stylist_live=true` |
-| `/api/v1/try-on/capabilities` | `production_ready=false`, `VTON_ENGINE_UNAVAILABLE`, `probe_age_seconds≈5`, honest user message |
-| Public API schema | `/api/v1/openapi.json` → **404** (not exposed) |
+| `origin/main` HEAD | `edea4ccc66331a5a231479fd6ab935437d182f94` (merge of PR #177) |
+| Merged this engagement | #176 → `8f0a9117`; #177 → `edea4ccc` (both re-fetched from the GitHub API) |
+| Open PRs (not mine, untouched) | #119, #150, #141 |
+| Required checks | `backend`, `frontend`, `release gate (production schema parity)`; `strict=true`; 0 required reviews |
+| `Workers Builds: confit-a` | fails instantly on every branch (Cloudflare build infrastructure); **not a required check**; reported, not hidden |
 
-**Cross-surface contradiction check: RESOLVED.** Catalog, try-on capabilities and health now agree: try-on is offered, cannot render, and says so.
+### B.3 Evidence Ledger (per capability)
 
-The single reason the platform reports `ready=false` is the VTON GPU path, and the single reason for that is external (§6).
+Confidence is one of the five mandated values. "LOCAL" = this sandbox; "PROD" = `confit-a.vercel.app`, read-only.
 
----
-
-## 2. Defects Found (this cycle)
-
-Each defect below was **measured**, not inferred from a component existing. Defects D1–D4 were found in this cycle; D5 is carried from the same engagement with its severity **corrected downward** (§9).
-
-### D1 — `ai_stylist_live` was a false negative (config read from the wrong field)
-
-`capability_service._ai_provider_keys()` read the deprecated `GROK_API_KEY` **field**. The orchestrator resolves the same slot through the `groq_api_key` **property** (`backend/app/core/config.py:488`), which prefers the documented `GROQ_API_KEY`.
-
-Measured, with only the documented variable set:
-
-```
-settings.groq_api_key  -> True     # the key the system actually uses
-_ai_provider_keys()    -> []       # what the capability contract reported
-```
-
-So a deployment with a working Groq key advertised `ai_stylist_live: false`. A false negative is still a lie — it is the same failure as the earlier `vton_gpu_ready` defect, pointed the other way.
-
-**Status:** VERIFIED as a defect (reproduced locally and against the production configuration shape) → fixed (#172).
-
-### D2 — `ai_stylist` reported configuration as readiness
-
-The capability returned `STATE_READY` whenever provider keys existed, with the detail `"N live provider key(s)"` — calling a key that had **never been used** "live", against this project's own published contract:
-
-```
-STATE_READY = "probed and working"
-STATE_NOT_PROBED = "no probe exists — an honest gap, never a silent ok"
-```
-
-`backend/tests/test_health_readiness_contract.py:244` asserted the defect (`STATE_READY` + `"2 live provider key(s)"`), so the suite defended it.
-
-**Status:** VERIFIED as a defect → fixed (#172). The test was **rewritten, not deleted and not loosened**.
-
-### D3 — Checkout returned another shopper's order (idempotency replay had no ownership check)
-
-`orders.idempotency_key` is `UNIQUE` table-wide, and `CommerceRepository.get_order_by_idempotency` filters on **the key alone**:
-
-```python
-return self.db.query(Order).filter(Order.idempotency_key == key).first()
-```
-
-`POST /checkout` then returned `self.get_order(existing.order_number)` — the full order (items, recipient, phone, address, totals) — with **no ownership assertion**, in two places:
-
-1. the pre-flight replay check;
-2. the `except IntegrityError` branch, i.e. the loser of a concurrent race on that key.
-
-The project already treats this as a defect class: `GET /orders/{n}` calls `assert_order_access` ("Access denied: You cannot view order details of another customer."), and `get_order_tracking` asserts the same. The checkout replay path asserted nothing.
-
-**Status:** VERIFIED as a defect (two call sites read in code; behaviour reproduced end-to-end in tests) → fixed (#172). Exploitation against a real shopper was **not attempted** (§7).
-
-### D4 — The product specification taught the unsafe token pattern
-
-`docs/CONFIT_Feature_Spec_G5_Commerce_Payments_Fulfillment.md:178` specified the reference implementation as:
-
-```js
-idempotency_key: 'idemp_' + Math.random().toString(36).substring(2, 12),
-```
-
-— the exact pattern removed from the product code in #168. Left in the normative spec, the next implementation of this flow reintroduces it.
-
-**Status:** VERIFIED (read) → corrected (#172). The specified behaviour is unchanged; only the generator was corrected. This is not documentation used to cover a defect.
-
-### D5 — Guest session token was generated with `Math.random()` (carried; severity corrected)
-
-`frontend/src/services/apiClient.ts` minted the guest session token — a capability that resolves carts — with `Math.random()`. Measured with the PRNG and the clock pinned: **50 calls produced 1 unique token**, i.e. zero input-derived entropy.
-
-**Status:** VERIFIED as a weakness → fixed (#168). The previous report's description of its impact was overstated and is corrected in §9.
+| Capability | Claim being checked | Evidence source | Env | Test / probe | Result | Confidence |
+|---|---|---|---|---|---|---|
+| Payment method liveness | "Only COD can settle here" | `capability_service.payment_method_is_live()` | PROD | `GET /commerce/payment-methods?country_code=EG` | `live=['cod']`; card/tabby/tamara/vodafone/instapay `false` | VERIFIED |
+| BNPL product teaser | "No lender is named; the figure is illustrative" | `product_context_service._bnpl_teaser()` | PROD | `GET /catalog/products/1` | `provider=null`, `is_estimate=true`, "not an offer and not a payment plan" | VERIFIED |
+| Cart BNPL flag | "The cart also labels the figure an estimate" | `commerce_service` + test | LOCAL | `test_cart_marks_the_instalment_figure_as_an_estimate_when_not_live` | passed (16/16 in file) | VERIFIED (local). PROD **NOT TESTED** — reading a cart requires creating a guest session (write) |
+| Payment disclaimer | "No compliance claim without a rail" | `capability_service.payment_disclaimer()` | PROD | EG / AE / XX probes | "PCI-DSS" absent; COD-only wording; XX: "No payment method is enabled for XX" | VERIFIED |
+| Market resolution | "The requested market is the answered market" | controller + registry | PROD + LOCAL | AE probe; gate M29 | AE→AED+Tamara; EG→no Tamara; XX echoed | VERIFIED |
+| Photo upload availability | "Uploads are offered only where they can be measured writable" | `capability_service.uploads_ready()` | PROD (flag) / LOCAL (rule) | `photo_upload_available=true`, `storage_mode=s3`; unit tests | flag measured; end-to-end upload write not exercised in PROD | PARTIALLY VERIFIED |
+| Order tracking localization | "No raw machine tokens; Arabic exists" | `src/i18n/orderState.ts` + drift test | LOCAL | i18n suite (35), cross-layer drift guard | passed; M28 kills a state without a translation | VERIFIED (local). Browser AR/RTL visual pass **NOT TESTED** |
+| API-error localization (money path) | "No backend English diagnostic shown to the shopper" | `src/i18n/apiErrors.ts` | LOCAL | `apiErrors.test.ts` (5) | passed | VERIFIED (local) |
+| Capabilities contract | "13 keys, config-derived" | `catalog_controller` | PROD | `GET /catalog/capabilities` | 13 keys; `payments_mode=demo`; `bnpl_live=false`; `photo_upload_available=true` | VERIFIED |
+| Health readiness | "Honest blocking/degraded lists" | `capability_service` + `readiness` | PROD | `GET /health` | `ready=false`, blocking `["virtual_try_on"]`, degraded `["buy_now_pay_later","payments"]` | VERIFIED |
+| Virtual Try-On | "Offered, not renderable, nothing faked" | try-on capabilities + Modal probes | PROD | `GET /try-on/capabilities` | `production_ready=false`, `VTON_ENGINE_UNAVAILABLE`; Modal workspace disabled | VERIFIED as unavailable; **BLOCKED** externally |
+| AI Stylist | "`ai_stylist_live=true`" | capability contract | PROD (flag) | field + contract tests | flag is configuration-derived; no availability probe exists | PARTIALLY VERIFIED — live provider call **NOT TESTED** (would consume quota and write a row) |
+| Live PSP settlement | "Real payment" | Vercel env + code | PROD config | env names; `LIVE_PSP_ADAPTERS = {}` | no `PAYMENTS_LIVE`, no PSP key, no adapter | **BLOCKED** — external credentials required |
+| Order/cart ownership | "A shopper cannot read another shopper's object" | `assert_order_access` + tests | LOCAL | `test_cart_item_idor_blocked`, ownership tests | passed; exploitation deliberately not attempted | VERIFIED (local) |
+| Idempotency replay ownership | "A foreign key returns a generic 409" | `commerce_service` + 4 tests | LOCAL | gate M22/M23 | killed → tests can fail | VERIFIED (local). PROD **NOT TESTED** (requires placing orders) |
+| Deployment identity | "Merged artifact = deployed artifact" | GitHub API + Vercel API | PROD | `READY at edea4ccc` = `origin/main` | equal | VERIFIED |
+| Accessibility (consumer) | "Consumer surfaces are keyboard/screen-reader sane" | — | LOCAL | — | no browser pass this cycle | **NOT TESTED** |
+| Production PostgreSQL | "Schema/constraints behave as tested" | CI parity gate | CI | `release gate (production schema parity)` | green on #177 | PARTIALLY VERIFIED — local suite is SQLite; no direct PROD DB query |
 
 ---
 
-## 3. Changes Made
+## C. Defects Found
 
-All changes are code + tests + one specification correction. No requirement was bent to fit the code.
+Severity is graded to the evidence, never to the drama: **Observation** (a gap, no incorrect behaviour) · **Weakness** (incorrect behaviour, no exploit shown) · **Exploitability** (a path exists, not exercised) · **Demonstrated exploit** · **Impact** (measured harm). None of the defects below has a measured impact on a person; two of them published **false statements to shoppers in production**, which this project treats as a defect of the first order, not a cosmetic one.
 
-| # | File | Change | Evidence |
+### C.1 Defect D6 — Payment methods published `is_live=True` as a literal *(fixed, PR #176)*
+
+**Severity:** false claim published in production (demonstrated); no exploit path, no user harm measured.
+**Evidence (production, read-only, before the fix):** `GET /api/v1/commerce/payment-methods?country=EG` → `{"id":"bnpl_tabby","title_en":"Tabby — Split in 4","description_en":"Split in 4 interest-free monthly payments. Sharia compliant.","is_live":true}` on a deployment whose own `/catalog/capabilities` answered `payments_mode=demo`, `bnpl_live=false`, and whose environment contained no `PAYMENTS_LIVE`, `TABBY_API_KEY` or `TAMARA_API_KEY`.
+**Root cause:** `PAYMENT_CATALOG` hardcoded `is_live=True` on every entry and `PaymentMethodOption.is_live` defaulted to `True`. Configuration (a catalogue entry exists) was published as capability (this deployment can charge this method).
+**Impact if unfixed:** a regulated financing claim — "Sharia compliant instalment financing, live" — with nothing behind it; a shopper could select a method that must fail.
+**Fix:** `capability_service.payment_method_is_live()` — one rule in one place: `cod` engages no PSP and is live where offered; every other method requires `PAYMENTS_LIVE` **and** an implemented live adapter **and** that provider's credential. `PaymentOrchestrator.get_market_methods()` stamps the measured value with `model_copy` (the catalogue holds module-level singletons; stamping in place would leak one deployment's state into another response).
+**Regression protection:** `test_payment_method_is_live_is_measured_not_a_literal`, `test_payment_method_live_requires_key_adapter_and_live_mode`, `test_stamping_is_live_does_not_mutate_the_shared_catalog`; gate **M24** kills the reverted stamping.
+
+### C.2 Defect D7 — The product page named a lender unconditionally *(fixed, PR #176)*
+
+**Severity:** false claim published in production (demonstrated).
+**Evidence:** `GET /catalog/products/1` → `bnpl.provider="Tabby"`, `installment_amount=72.25`, `disclaimer="4 payments of 72.25 USD with Tabby"`. The quote is computed locally — `BNPLProvider._fetch_remote_quote()` never contacts a provider — so no lender had offered anything.
+**Root cause:** `_bnpl_teaser()` attached the brand whenever a BNPL *catalogue entry* existed; the only liveness check in the flow lived elsewhere (and the two "can we offer BNPL?" truths had drifted apart).
+**Fix:** the brand is attached only when `bnpl_is_live()`; otherwise `provider=None`, `is_estimate=True`, and a disclosure that instalments are not enabled. Two authority functions (`bnpl_is_live()`, `payment_method_is_live("bnpl_<provider>")`) now answer the same question from the same inputs; a drift guard asserts they agree.
+**Regression protection:** rewritten `test_bnpl_requires_payments_live_and_psp_key` (the old one *asserted the defect*: config present ⇒ live); group-5 lender-name assertion rewritten; gates **M25**, **M26**.
+
+### C.3 Defect D8 — Uploads were gated on a provider's **name** *(fixed, PR #176)*
+
+**Severity:** Weakness — UI offering an action that can only fail.
+**Root cause:** the wardrobe decided "can the shopper upload?" from `storage_mode == "local"`. `storage_mode` is the provider's *name*; a deployment configured for S3 with a revoked credential or an unreachable bucket still reports `s3`.
+**Fix:** `capability_service.uploads_ready()` measures; the capability payload publishes `photo_upload_available`; the wardrobe gates on it (13th capability key). Production: `storage_mode=s3`, `photo_upload_available=true`.
+**Regression protection:** gate **M27** restores the name-based gate and is killed.
+
+### C.4 Defect D9 — Raw machine enums on the order-tracking surface *(fixed, PR #176)*
+
+**Severity:** Weakness (a shopper reads `awaiting_customs`, `payment_pending`), no data harm.
+**Fix:** `src/i18n/orderState.ts` — literal maps for 22 order statuses, 9 payment statuses, 8 payment methods, plus helpers; unknown tokens fall back to the raw token by design (visibility over silence). The BNPL estimate/disclaimer copy lives in the locale files, not in components.
+**Regression protection:** a cross-layer drift test reads `ORDER_TRANSITIONS` (Python) and the TypeScript maps **together** and fails if a lifecycle state has no localized copy — proven able to fail by injecting `"awaiting_customs": set(),` and observing the failure (then reverted; grep count 0). Gate **M28** makes it permanent.
+
+### C.5 Defect D10 — English backend diagnostics on the money path *(fixed, PR #176)*
+
+**Severity:** Observation → Weakness (an Arabic-first shopper receives an English server string on checkout failure).
+**Fix:** `src/i18n/apiErrors.ts` — `API_ERROR_KEYS` + `localizeApiError(error, t)`; known codes localize, unknown codes show the server message, and a missing key is detected rather than rendered (`errors.some_key` must never appear). Wired into the checkout catch.
+**Self-caught defect in my own map:** the first version lacked `errors.validation`; my own new test failed on it (`apiErrors.test.ts`). Fixed in both locales rather than by loosening the test.
+
+### C.6 Defect D11 — The API asserted a compliance claim no rail could back *(fixed, PR #177)*
+
+**Severity:** false claim published in production (demonstrated).
+**Evidence:** `GET /commerce/payment-methods?country=EG` → *"All transactions in EG are processed in compliance with local central bank regulations and PCI-DSS tokenization standards."* on the same endpoint that answered `is_live=false` for card, Tabby, Vodafone Cash and InstaPay. The same sentence was served for markets the platform does not serve at all (`?country_code=XX` → *"All transactions in XX are processed…"*).
+**Root cause:** `MarketPaymentCapabilityRegistry.get_capabilities_for_market()` produced one hardcoded sentence per market from the *catalogue*, while liveness was measured in a different layer. Nothing tied the sentence to the measurement.
+**Impact if unfixed:** a regulated compliance claim (PCI-DSS tokenization, central-bank compliance) for transactions that never occur, served on a public endpoint, in a market that may not even be served.
+**Fix:** the sentence is now derived from the same two inputs as `is_live`, in one place — a PSP method measured live earns it; a cash-only deployment says so and names COD; an unserved market is told no payment method is enabled. The catalogue layer now makes no compliance claim at all, because it is also called directly (`product_context_service`) and describes what the platform supports *in principle*. Both languages are derived; the Arabic states the same fact rather than echoing the English.
+**Regression protection:** 3 new tests; gate **M30** restores the unconditional sentence and is killed.
+**Consistency with project convention:** the project already requires that a disclaimer describe what actually happened (`test_fit_finder_api.py::test_measurement_disclaimer_matches_the_real_source`).
+
+### C.7 Defect D12 — A market-aware test that never exercised a market *(fixed, PR #177)*
+
+**Severity:** Weakness — **in the test suite**, i.e. a missing protection, not a product defect. This one is mine.
+**Evidence:** `_methods()` in `test_capabilities_endpoint.py` requested `?country={code}`; the endpoint's parameter is `country_code`. FastAPI ignores unknown query parameters, so every call was answered for the default market (EG) while the helper looked market-aware — a test that passes without executing the branch it appears to exercise (the exact class this engagement was told to hunt).
+**Blast radius, measured:** no assertion was invalidated (all callers used the EG default, and the default *is* EG), so no green result was a lie — but any future non-EG use would have been one.
+**Fix:** the helper sends the real parameter **and** asserts the echoed `market_code`, so a silent fallback to the default now fails instead of hiding inside the test; a new test pins that AE resolves to the AE catalogue (Tamara present) and EG does not (D12 vs. prod: `?country_code=XX` is echoed as `XX`, so a client can detect an unserved market).
+**Regression protection:** gate **M29** hardcodes the controller's market default and is killed.
+
+### C.8 Carried defects (previous cycle, status unchanged)
+
+| ID | Defect | Fix | Current status |
 |---|---|---|---|
-| 1 | `backend/app/services/capability_service.py` | `_ai_provider_keys()` reads `settings.groq_api_key` (the property the system uses) instead of the deprecated field | Measured before/after in §D1 |
-| 2 | `backend/app/services/capability_service.py` | New `_ai_stylist_capability()`: keys present + nothing measured → `not_probed`; a **measured** quarantine of all known providers → `degraded`; no keys → `degraded` (deterministic grounded fallback). Supporting criticality, so an AI outage can never set platform readiness false | `test_health_readiness_contract.py` (3 tests), gates M19/M20/M21 |
-| 3 | `backend/app/services/capability_service.py` | New `_ai_quarantine_state()` — the one place the module reads runtime state; quarantine records are **no longer discarded** when the provider's `configured` flag is false (that flag is configuration; dropping the record threw away the only real measurement) | gate M21 kills the older behaviour; a read failure falls through to `not_probed`, never to `ready` |
-| 4 | `backend/app/services/commerce_service.py` | `_is_caller_own_idempotent_order(order, user_id, session_token, guest_email)` — signed-in shopper: only their own account's orders; guest: only orders carrying their own guest session token (the credential the cart already uses), e-mail fallback for legacy rows only | `test_group5_commerce.py` (4 tests), gates M22/M23 |
-| 5 | `backend/app/services/commerce_service.py` | Both replay call sites now apply rule 4; a foreign key raises `IdempotencyKeyConflictError` | same |
-| 6 | `backend/app/core/exceptions.py` | New `IdempotencyKeyConflictError` → HTTP **409**, code `IDEMPOTENCY_KEY_CONFLICT`, deliberately generic message (must not confirm that the key matches a real order, whose it is, or what it contains) | asserted in 3 tests, including that the victim's order number, phone and address never appear in the response body |
-| 7 | `backend/tests/test_health_readiness_contract.py` | Defect-asserting test **rewritten** to the honest contract; added the measured-failure case and the documented-variable case | readiness + capabilities-endpoint + single-source suites: **52 passed** |
-| 8 | `backend/tests/test_group5_commerce.py` | 4 new idempotency-ownership tests: another account's key; guest-session isolation (with the original session still replaying); the signed-in/guest boundary; the lost-race branch | all pass; M22 and M23 both kill |
-| 9 | `backend/scripts/run_mutation_gates.py` | Gates **M19–M23** added (M20 covers the wrong-field read) | full set: 23 killed / 0 survived |
-| 10 | `docs/CONFIT_Feature_Spec_G5_Commerce_Payments_Fulfillment.md` | Reference implementation corrected to the CSPRNG helper | §D4 |
-
-**Deliberate non-changes.** No design pattern was added for display; no algorithm was changed without a cause; no new VTON provider was added; no test assertion was weakened; no document was edited to hide a defect. The 409 is a purpose-built error because the existing 409 (`InvalidStateTransitionError`) means "order state transition", which is a different fact and would have mislabelled the condition.
+| D1 | `ai_stylist_live` was a false **negative** — config read from the deprecated `GROK_API_KEY` field instead of the `groq_api_key` property | #172 | fixed; contract tests pass in this tree |
+| D2 | `ai_stylist` reported configuration as readiness (`STATE_READY` + "N live provider key(s)") | #172 — now `not_probed` / `measured degraded` | fixed; probe still absent (§J.3) |
+| D3 | Checkout idempotency replay returned **another shopper's order** (global unique key, no ownership assertion) | #172 — caller-scoped replay, generic 409 `IDEMPOTENCY_KEY_CONFLICT` | fixed; gates M22/M23 kill the reverted code |
+| D4 | The G5 specification **taught** the unsafe `Math.random()` token pattern | #172 — spec corrected | fixed (docs); the code fix is S1 |
+| D5 | Guest session token minted with `Math.random()` (capability for cart resolution) | #168 — CSPRNG helper, fail-closed | fixed; impact description in the previous report was **overstated** and corrected |
 
 ---
 
-## 4. Tests
+## D. Architectural Findings
 
-All numbers below were produced by commands run in this cycle. Baseline rule: every "after" number is paired with a **measured** "before" number on clean `origin/main`, never with arithmetic or assumption.
+**D-1. The root pattern was "several owners of one truth".** Before this cycle the answer to "can this deployment charge with method X?" existed in three places at once: a hardcoded literal in the catalogue, a `bool(KEY)` check scattered in controllers, and a separate BNPL-specific check. They disagreed, and the shopper saw the most optimistic of the three. **Fix:** one authority module (`capability_service`) with a documented split — *configuration* (`_bnpl_configured`) is reported as configuration, *capability* (`bnpl_is_live`, `payment_method_is_live`, `uploads_ready`) requires a measurement, and *self-description* (`/catalog/capabilities`) publishes the capability. Adding a method now means adding it in one place.
 
-| Suite | Before (clean `origin/main` `353f7b0`) | After (merged content `87a242eb`) |
-|---|---|---|
-| Full backend | **2484 passed / 4 failed / 8 skipped** | **2490 passed / 4 failed / 8 skipped** |
-| Frontend (vitest) | 33 files / 280 tests passed | 33 files / 280 tests passed (no frontend change this cycle) |
-| `tsc --noEmit` | exit 0 | exit 0 |
-| `i18n:check` | PASSED | PASSED |
-| Mutation gates | M1–M18 existing (M17/M18 killed) | **M1–M23: 23 killed / 0 survived / 0 not applicable** |
+**D-2. Catalogue vs. deployment separation is now explicit.** `MarketPaymentCapabilityRegistry` answers "what does the platform support in principle"; `PaymentOrchestrator.get_market_methods()` answers "what can *this* deployment settle". The response the client receives is the second one, stamped at a single boundary.
 
-The 4 failures are identical in both columns and are the mediapipe/Python-3.13 environment gap (§1.1).
+**D-3. A latent trap remains, reported rather than hidden.** `PAYMENT_CATALOG` still ships `is_live=True` literals; honesty depends on the orchestrator's total rewrite of every entry. A future caller that reads the registry directly and publishes `is_live` would reintroduce D6. This is **not** theoretical: `product_context_service` *does* call the registry directly — it happens not to read `is_live` (verified by search: the only consumer of `PaymentMethodOption.is_live` is the orchestrator's own `model_copy` rewrite; the frontend consumes it only from the endpoint). Graded **Weakness (latent)**, evidence: code read + the passing stamping test + gate M24. Removing the literals from the catalogue is the clean end-state; it was not done here because it would have widened a merged, verified change set for no consumer-visible gain — it is recorded as follow-up, not as done.
 
-**Regression tests added and what each one holds:**
+**D-4. Shared singletons must not be mutated per request.** `PAYMENT_CATALOG` holds module-level instances shared by every request; the measured stamp uses `model_copy`, so one deployment's state cannot leak into another response. Asserted, not assumed (`test_stamping_is_live_does_not_mutate_the_shared_catalog`; gate M24).
 
-* `test_the_ai_stylist_state_does_not_follow_the_provider_keys` — keys configured, nothing measured ⇒ `not_probed`; and the honest gap must **not** make the platform unready.
-* `test_the_ai_stylist_state_degrades_from_a_measured_failure` — a real failure (quarantine entry) ⇒ `degraded`, visible in `degraded_capabilities`, never in `blocking_capabilities`.
-* `test_ai_provider_keys_honours_the_documented_groq_variable` — the documented variable is visible; the legacy spelling still works; a whitespace-only value is unset, not a key.
-* `test_idempotency_key_does_not_disclose_another_shoppers_order` — 409 + `IDEMPOTENCY_KEY_CONFLICT`, and the victim's order number, phone and address must not appear anywhere in the response.
-* `test_guest_idempotency_key_does_not_cross_guest_sessions` — a different guest session is refused **while the original session still replays its own order** (no over-blocking).
-* `test_signed_in_shopper_cannot_replay_a_guest_orders_key` — documented boundary.
-* `test_concurrent_key_race_does_not_disclose_another_shoppers_order` — the `except IntegrityError` branch, with the interleaving scripted.
+**D-5. Cross-layer contracts need cross-layer tests.** The order-state contract spans Python (`ORDER_TRANSITIONS`) and TypeScript (literal maps). A one-sided test cannot see drift, so the guard imports both and compares. Same idea for the payment rule: the capability flags, the orchestrator stamp and the disclaimer now read the *same* two inputs, which is why they cannot disagree.
 
-**Honest note on my own test.** The first version of the race test posted a duplicate key and asserted 409. That assertion passes via the **pre-flight** path alone, so the test proved nothing about the branch it was named after — and mutation **M23 survived it**, which is how the weakness was caught. It now scripts the interleaving (pre-flight sees nothing → insert loses the race → handler sees the winner's row) and asserts the handler was actually reached. A surviving mutant is the test suite telling the truth about a test; it was fixed at the cause, not by relaxing the assertion.
+**D-6. i18n architecture: per-domain map modules, not per-component strings.** `orderState.ts` and `apiErrors.ts` are literal maps with total functions (`localizeApiError`) and explicit unknown-token behaviour. Unknown order states show the raw token (visibility) and unknown API codes show the server message (no fake translation) — chosen deliberately and tested.
 
-**Not tested this cycle:** the manual keyboard pass of the accessibility audit, the live AI Stylist provider path against a real provider (would consume quota and write a message row), and production write paths (deliberately, §5.3).
+**D-7. No new abstraction was added for display.** No new table, cache, queue, provider, microservice or design pattern was introduced for this work. The two new functions are pure and testable; the disclaimer is a pure function of two sets.
 
 ---
 
-## 5. Production Evidence
+## E. Security Findings
 
-### 5.1 What was verified in production (read-only)
+Graded: theoretical risk · demonstrated weakness · exploitability · confirmed impact. **No exploitation was attempted against any real account, order, cart or payment, and no production data was created, modified or deleted.**
 
-* **Deployment:** Vercel API reports production `READY` at `66fdf5f7`, the merge commit of PR #172 — i.e. `main` HEAD and the deployed artifact are the same commit.
-* **Read-only HTTP probes, anonymous, no writes:** `/catalog/products` 200 · `/catalog/products/1` 200 · `/catalog/categories` 200 · `/catalog/capabilities` 200 · `/try-on/capabilities` 200 · `/health` 200 · `/orders/CONF-000000` 404 · `/api/v1/openapi.json` 404.
-* **Product detail honesty:** `ai_fit_score=null`, `style_compatibility_score=null`, `fit_available=false` — the surface does not invent fit or style scores.
-* **Capability agreement** across catalog / try-on / health: consistent (§1.2).
+### E.1 New in this cycle: none, and that is the finding
 
-### 5.2 What could have gone wrong and did not
+The two defects fixed in #176/#177 are **honesty/consistency** defects, not authorization or disclosure defects. Stated explicitly so the absence is not read as an untested area: the payment-capability work changed *labels and wording only*; it did not change who may read what. No new attack surface was introduced (no new endpoint, parameter, credential or provider adapter — `LIVE_PSP_ADAPTERS` remains empty).
 
-`/commerce/cart` → **422** is **not** evidence of protection and is not reported as one: the route resolves the caller with `get_current_user_optional` (guest carts are intentional) and requires an `X-Session-Token` header, so 422 is a **missing-header validation rejection**. A 404 on `/api/v1/openapi.json` is a non-exposed schema, not an outage. A 404 on `/api/v1/liveness` and `/stylist/recommendations` reflects **no such routes** (the stylist router exposes `POST /stylist/chat` and `POST /stylist/compatibility`) — I checked the route table instead of filing a false finding.
+### E.2 Carried, re-checked in this tree
 
-### 5.3 What is explicitly NOT verified in production
-
-* The **new 409 idempotency behaviour** was not exercised in production: doing so requires placing orders, which is production data mutation. It is verified by local end-to-end tests, mutation gates, and the deployed commit — **NOT VERIFIED IN PRODUCTION**, and the reason is stated rather than hidden.
-* The **AI Stylist live provider path** was not invoked in production (would consume provider quota and write a message row without operational authorization) — **NOT VERIFIED IN PRODUCTION**.
-* `/health/ready` (the admin surface publishing `unprobed_capabilities`) was not read in production — it requires an admin bearer token; anonymous access is refused by design — **NOT VERIFIED IN PRODUCTION**.
-
----
-
-## 6. Remaining Blockers
-
-### B1 — Virtual Try-On GPU capacity: BLOCKED (external, not code)
-
-Re-measured this cycle, because a billing cause must not be assumed to still hold:
-
-* Live probes of both workers → **HTTP 404 `workspace ac-io3nXB7Q2nuaHHl8mVkeLH is disabled`**.
-* Modal: **all apps `deployed`, 0 tasks** running; metered cost 30.85, deployed apps 29.91, credits −30.00, billed $0.02.
-* Interpretation: the workspace is disabled for spend. `deployed` with zero tasks is exactly the shape of "the app exists but nothing can run" — configuration is not availability, and "deployed" was read here as status text, not as capacity.
-
-**Blocking condition:** restoring the Modal workspace (spend limit / credits) — an operational, external action. No code change restores it. **Decision honoured:** stay honest about the offline state (offered + not renderable + `VTON_ENGINE_UNAVAILABLE` + a fit-check fallback), and do not substitute anything for a render.
-
-### B2 — AI Stylist has no availability probe: honest gap, open
-
-`ai_stylist` now reports `not_probed` when keys exist and nothing has been measured. That is truthful, and it is also a **gap**: nothing yet tells the platform whether the stylist can actually answer. A bounded probe (strict timeout, bounded retry, classified failures, recorded state) would close it. **Not implemented** — listed as remaining work rather than described as done.
-
-### B3 — Payments live settlement: BLOCKED — external PSP credentials required
-
-`payments_mode=demo`, `payments_live=false`. Demo is Demo; it is not called a live transaction anywhere in this document. Live settlement claims require live PSP credentials, which are not present.
-
-### B4 — Open PR not mine, reported only
-
-**PR #119** `feature/vton-complete-gap-closure` is open: 243 files, +29193/−150, base `10d80a12`, opened 2026-09-19. Also open: **#150** `fix/brand-partner-portal`, **#141** `feat/i18n-ux-privacy-terms-remediation`. None were touched. Risk noted for the repository owner: a 243-file branch based on a commit far behind `main` is a merge hazard.
-
-### B5 — Unverified surfaces
-
-`/health/ready` admin readiness payload, CSRF cookie flags, and rate-limit behaviour were **NOT TESTED** in this cycle (§5.3 for the first; the other two were not re-measured here and are not claimed).
-
----
-
-## 7. Security Findings
-
-Graded as required: **theoretical risk** vs **demonstrated weakness** vs **demonstrated exploitability** vs **confirmed impact**. Where exploitation was not attempted, that is stated, with the reason.
-
-### S1 — Guest session token was not a CSPRNG value (fixed, #168)
-
-* **Theoretical risk:** a non-CSPRNG token used as a capability is predictable in principle.
-* **Demonstrated weakness:** yes — with `Math.random` and the clock pinned, 50 calls produced **1 unique token**; the input-derived entropy was zero. The token is a capability: it resolves carts for unauthenticated callers, and `/cart/merge` accepts a `guest_token` from an authenticated caller.
-* **Demonstrated exploitability:** **no.** I did not predict or guess any real token, observe any real cart, or touch any account. Whether the PRNG state can be recovered across browsers/sessions is **not established**.
-* **Confirmed impact:** none observed.
-* **Fix:** `frontend/src/lib/secureId.ts` (CSPRNG, 128-bit, fail-closed), 11 tests including "pin `Math.random()`, assert 50 distinct tokens".
-
-### S2 — Checkout idempotency replay returned another shopper's order (fixed, #172)
-
-* **Demonstrated weakness:** yes, in code and in end-to-end tests: a global unique-key lookup plus no ownership assertion on both replay paths, while the sibling order routes do assert ownership.
-* **Demonstrated exploitability:** requires knowing the victim's idempotency key. I did not attempt it against any real account, and no production order data was read or written from another identity.
-* **Confirmed impact:** none observed; the potential impact if a key were known was disclosure of another customer's order (items, recipient, phone, address, totals).
-* **Fix:** ownership-scoped replay + generic 409; gates M22/M23.
-
-### S3 — Cart merge trusts knowledge of the guest token (residual, reported)
-
-`/cart/merge` merges the cart named by the caller-supplied `guest_token` into the authenticated caller's account. Authority is derived from **possessing the token**, not from a server-issued association. This cycle's CSPRNG fix makes *prediction* infeasible, but the design still treats token possession as sufficient authority, so the residual risk is **token leakage** (shared device, logs, referrer), not prediction. Grade: **theoretical risk**; no exploit attempted; not re-architected this cycle.
-
-### S4 — Positive findings (verified this cycle)
-
-* Order-detail and tracking routes enforce ownership via `assert_order_access` (admin bypass / owner / other-user refused / guest capability by unguessable order number) — read in code and covered by tests.
-* Public API schema is not exposed in production (`/openapi.json` → 404).
-* Anonymous probes of protected consumer surfaces returned 401/404 as designed; the one 422 is a header-validation rejection and is not reported as protection (§5.2).
-* Payment path fails closed: `PAYMENTS_LIVE=true` without live provider support yields a fabricated "authorized" only under mutation M13, which the suite kills.
-
----
-
-## 8. Git / PR / Deployment Evidence
-
-Every PR number, commit and check status below was **re-fetched from the GitHub API in this cycle**. None was reused from the previous report on trust.
-
-| PR | Title | Merged | Merge commit |
+| ID | Finding | Degree of proof | Status |
 |---|---|---|---|
-| #163 | Single-source capability contract | true | `1204757a7c1557ecf9dc3879dcf016783411558b` |
-| #165 | 8 consumer try-on CTAs gated | true | `c540920be8b1f9895d270a25b0ed5ada3786a8ed` |
-| #166 | Evidence + GPU strategy docs | true | `c56d63e7d9cbb57968385c51cb26ed98746febd6` |
-| #168 | CSPRNG session token (security) | true | `0a72b8ce4e9b3159018d433f14ee8855cd6354f2` |
-| #170 | Final report (previous cycle) | true | `353f7b06c77114b48af2f03a5447940d34ceef70` |
-| #172 | Honest `ai_stylist` capability + caller-scoped idempotency replay | true | `66fdf5f78fdf7c556a2a1b7547bf025d667b34cb` |
+| S1 | Guest session token was not a CSPRNG value | **Demonstrated weakness**: with `Math.random` and the clock pinned, 50 calls produced 1 unique token (zero input-derived entropy). **Exploitability: not demonstrated** — no real token predicted, no cart observed. **Impact: none observed.** | Fixed (#168); 11 tests incl. "pin `Math.random()`, assert 50 distinct tokens" |
+| S2 | Checkout idempotency replay returned another shopper's order | **Demonstrated weakness** in code and end-to-end tests (two call sites). **Exploitability: requires knowing the victim's key — not attempted.** Potential impact if known: disclosure of items, recipient, phone, address, totals. | Fixed (#172); generic 409; gates M22/M23 |
+| S3 | `/cart/merge` treats *possession* of the guest token as authority | **Theoretical risk** (residual by design, not a regression). Residual risk is token leakage (shared device, logs, referrer), not prediction. | Reported, not re-architected |
+| S4 | Positive findings re-checked | Order/tracking routes assert ownership (`assert_order_access`); anonymous probes of protected consumer surfaces return 401/404 as designed; `/api/v1/openapi.json` → 404 (schema not exposed); live payment path fails closed without an adapter (gate M13 kills the fabricated "authorized") | VERIFIED (local + PROD probes) |
 
-* **Branch discipline:** exactly one branch, `fix/consumer-role-capability-honesty`, used for every PR in this engagement. No second branch was created. `tmp-later` was never pushed.
-* **Required checks** (`backend`, `frontend`, `release gate (production schema parity)`) were all **success** on PR #172 before merging (measured by polling the check-runs API).
-* **`Workers Builds: confit-a` fails on every branch, including untouched ones** (0s, zero annotations) — Cloudflare build infrastructure, not a code failure, and not a required check. Reported, not hidden, not blamed on code.
-* **Merge mechanics:** a `behind` PR returns HTTP 405 ("3 of 3 required status checks are expected") under `strict=true`. Each time, `origin/main` was merged into the branch, the checks re-run, and the merge retried. This happened three times this cycle (#168, #170, #172) and is documented rather than presented as a token or policy problem.
-* **Deployment:** production `READY` at `66fdf5f7` (= `main` HEAD). The merged artifact is the deployed artifact.
-* **Self-correction:** my PR #172 body first stated `2486 passed` — the number from an intermediate commit. It was corrected to the measured final `2490 passed / 4 failed / 8 skipped` with the measured baseline, because a stale number in a merged PR is still a false claim.
+### E.3 One new *test-integrity* finding (D12), reported as such
+
+A test that cannot fail is a security control that does not exist. `_methods()` was such a control for market resolution; it is fixed and now guarded by gate M29. It is recorded here rather than in a footnote because "the test suite lies" is the failure mode this engagement is most exposed to.
 
 ---
 
-## 9. False-Claim Audit
+## F. Changes Implemented
 
-Includes findings against **my own** previous report. Where the previous report conflicts with Git/measurement, the measurement wins and the report is corrected.
+All changes are code + tests + documentation that reflects reality. No requirement was bent to fit the code; no test was loosened to become green.
 
-| Previous claim | Current measurement | Verdict |
-|---|---|---|
-| PRs #163/#165/#166/#168/#170 merged, with those merge SHAs | Re-fetched from the GitHub API: all `merged=true`, SHAs identical | **Confirmed** |
-| Production deployment matched `main` HEAD (`353f7b06`) | Vercel API at the time: READY at `353f7b06` | **Confirmed then**; superseded now by `66fdf5f7` |
-| "8 consumer try-on CTAs gated" | Re-verified by grep + hook tests in this cycle | **Confirmed** |
-| Mutation gates M17/M18 killed | Re-executed this cycle: both killed again (and 21 more) | **Confirmed** |
-| `ai_stylist_live` "is configuration-derived — latent risk" | Upgraded to a **confirmed defect**: a false negative *and* a configuration-as-readiness claim (D1, D2) | **Corrected upward** — the risk was real and worse than described |
-| "…a predicted token would allow cart theft" | Conditional consequence, not a measured exploit. The weakness is demonstrated (1 unique token from 50 calls with the PRNG pinned); cross-user predictability was **not** demonstrated and was not attempted | **Overstated → corrected.** The measurement stands; the impact claim was stronger than the evidence |
-| Test count quoted while a commit was still in flight | Final measured number differs by 4 | **Self-corrected** in the PR body |
-| "/cart 422 shows the route is protected" | It is a missing `X-Session-Token` header rejection; guest carts are by design | **Never claimed as protection** — checked and avoided |
+### F.1 PR #176 → merge `8f0a9117` (three commits)
 
-**Standing rule applied throughout:** "exists in code" ≠ "proven in production". Every production sentence above names the probe and its result, or is marked NOT VERIFIED.
+| Commit | Content |
+|---|---|
+| `5d35010` | `capability_service`: `payment_method_is_live()` (three-condition rule, COD exempt), `bnpl_is_live()`, `uploads_ready()`; `PaymentOrchestrator.get_market_methods()` stamps measured `is_live` via `model_copy`; `_bnpl_teaser()` names a lender only when measured live, else `is_estimate=True` + disclosure; cart payload gains `bnpl_is_estimate` (`schemas/commerce.py`); `/catalog/capabilities` gains `photo_upload_available` (13 keys) |
+| `c47f8e5` | Consumer UI: `BNPLBadge.isEstimate` (required prop), wardrobe gate on `photo_upload_available`, product/cart/detail views consume `is_estimate`, checkout localizes payment-method titles via the existing `isArabic` convention |
+| `89e5a4f` | i18n: `src/i18n/orderState.ts` (order/payment status + method maps, estimate copy), `src/i18n/apiErrors.ts` (code → localized message), locale keys in `en.json`/`ar.json`, checkout catch wired through `localizeApiError` |
+
+### F.2 PR #177 → merge `edea4ccc` (one commit + merge)
+
+| Commit | Content |
+|---|---|
+| `c61d785` | `capability_service.payment_disclaimer()` — the disclaimer becomes a pure function of (offered methods, measured-live methods): compliance sentence only when a PSP method is live; cash-only wording naming COD; "No payment method is enabled for {code}" otherwise. Orchestrator stamps `disclaimer_en/ar` from the same two inputs as `is_live`. The registry no longer makes any compliance claim. Tests: 3 new + helper hardened with a market echo assertion + 1 new market-resolution test. Gates **M29**, **M30** |
+
+### F.3 Deliberate non-changes
+
+* No new PSP provider, adapter, key or credential path (a provider requires license/commercial/VRAM/quality/latency/cost/security evaluation; none was performed).
+* No fake VTON output, no sample render, no user image returned as output; the CPU path stays labelled a fit check and is never called "Try-On".
+* No new abstraction, table, cache or queue; no design pattern added for display.
+* No test assertion weakened; the two tests that *asserted* defects were rewritten to assert the honest contract.
+* No documentation edited to cover a defect (the only documentation change is the correction of a normative spec that taught the unsafe token pattern, and this report).
 
 ---
 
-## 10. Final Status
+## G. Tests (Before / After / Delta)
 
-| Area | Status | Basis |
+Every "after" number is paired with a **measured** "before" number on clean `origin/main`; nothing is inferred by arithmetic.
+
+| Suite | Before (clean `origin/main` `c980489`) | After #176 (`8f0a9117` tree) | After #177 (this tree) | Delta vs baseline |
+|---|---|---|---|---|
+| Backend (full) | **4 failed / 2516 passed / 9 skipped** (360.54s) | 4 failed / 2523 passed / 9 skipped (365.13s) | **4 failed / 2527 passed / 9 skipped** (366.14s) | **+11 passed**; same 4 failures |
+| Frontend (vitest) | 34 files / 285 tests | 36 files / 294 tests | **36 files / 294 tests** (40.27s) | **+2 files / +9 tests** |
+| `tsc --noEmit` | exit 0 | exit 0 | **exit 0** | no change |
+| `i18n:check` | PASSED | PASSED | **PASSED** | no change |
+| Mutation gates | M1–M23: 23 killed | M1–M28: 28 killed | **M1–M30: 30 killed / 0 survived / 0 not applicable** | +7 gates |
+
+The 4 backend failures are identical on both sides of every column: `test_vton_pose_artifact_regression.py` cannot import `mediapipe` on Python 3.13. Same count, same tests, no new failure — that is a comparison, not an assertion of "no regressions".
+
+**What the new tests hold (and what each kills):**
+
+| Test | Holds | Killed mutation |
 |---|---|---|
-| Consumer capability contract (single source, honest states) | **VERIFIED** | Local tests + production probes agree; gates M17–M21 |
-| `ai_stylist` configuration read (documented variable) | **VERIFIED** | Measured before/after; regression test; gate M20 |
-| `ai_stylist` state honesty (`not_probed` vs measured `degraded`) | **VERIFIED** | Tests + gate M19/M21 |
-| `ai_stylist` live availability | **NOT TESTED** | No probe exists (B2); not invoked in production |
-| Checkout idempotency ownership | **VERIFIED (local/staging evidence)** | 4 end-to-end tests + gates M22/M23 |
-| Same, in production | **NOT VERIFIED IN PRODUCTION** | Would require placing orders (B5, §5.3) |
-| Guest session token entropy | **VERIFIED** | 11 tests incl. pinned-PRNG distinctness |
-| Cart merge authority model | **PARTIALLY VERIFIED** | CSPRNG mitigates prediction; token-possession-as-authority remains (S3) |
-| Virtual Try-On rendering | **BLOCKED** | External: Modal workspace disabled (B1) |
-| Try-on UX honesty (offered, not renderable, no fake output) | **VERIFIED** | Production payloads + gated CTAs |
-| Payments | **BLOCKED — external PSP credentials required** | `payments_mode=demo` |
-| Orders / tracking ownership | **VERIFIED** | Code + tests + production 404 on unknown order |
-| Database integrity script / schema revision | **PARTIALLY VERIFIED** | `/health` reports revision `0019_brand_tenant_integrity_and_ad_ledger`, schema verdict `ok`; full integrity script not re-run this cycle |
-| Accessibility (automation) | **PARTIALLY VERIFIED** | 53 tests passed earlier in this engagement; manual keyboard pass NOT TESTED |
-| Localization EN/AR/RTL | **PARTIALLY VERIFIED** | `i18n:check` PASSED (172→164); RTL visual pass NOT TESTED |
-| Error-state engineering (401/403/404/409/422/5xx/timeout) | **PARTIALLY VERIFIED** | Exercised in tests; 409 for idempotency conflict added; no infinite-spinner evidence collected this cycle |
-| Security posture | **PARTIALLY VERIFIED** | See §7: two demonstrated weaknesses fixed; three lines of enquiry NOT TESTED this cycle |
-| CI / merge / deployment discipline | **VERIFIED** | GitHub API + Vercel API evidence in §8 |
+| `test_payment_method_is_live_is_measured_not_a_literal` | A demo deployment labels no PSP method live; COD stays live | M24 |
+| `test_payment_method_live_requires_key_adapter_and_live_mode` | Each condition alone is insufficient | M25 |
+| `test_stamping_is_live_does_not_mutate_the_shared_catalog` | `model_copy`, not in-place mutation of shared singletons | M24 |
+| `test_bnpl_requires_payments_live_and_psp_key` (rewritten) | Config + key without an adapter is not an offer | M25 |
+| group-5 lender-name assertion (rewritten) | No lender is named when not live | M26 |
+| `test_photo_upload_available_is_measured_while_storage_mode_is_a_name` | Provider name ≠ readiness | M27 |
+| `test_every_order_state_has_a_frontend_translation_key` | Python lifecycle ↔ TypeScript maps agree | M28 (proven able to fail by injection) |
+| `test_cart_marks_the_instalment_figure_as_an_estimate_when_not_live` | The cart is honest too | (covered by M24/M25 path) |
+| `test_payment_methods_answer_for_the_requested_market` | A request for one market is never answered for another | **M29** |
+| `test_payment_disclaimer_makes_no_compliance_claim_nothing_can_back` | No PCI-DSS/central-bank claim in EN **or AR** without a live rail | **M30** |
+| `test_payment_disclaimer_keeps_the_compliance_line_when_a_psp_method_is_live` | The sentence is kept where it is earned (not merely deleted) | M30 (inverse branch) |
+| `test_payment_disclaimer_speaks_for_markets_with_no_method_at_all` | Unserved markets are told the truth | M30 |
+| `bnplBadge.test.tsx` (5 tests) | The estimate branch names no lender, shows the disclosure, and **cannot** omit `isEstimate` (compile-time `@ts-expect-error` gate) | type-level |
+| `apiErrors.test.ts` (5 tests) | Known codes localize; unknown codes fall back; a missing key never renders `errors.x` | n/a (frontend) |
+| `orderState.test.ts` (35 i18n tests total) | Total maps, AR present, unknown token behaviour | M28 |
 
-**Bottom line.** The consumer role's *honesty* is now verified end to end: the platform says try-on is offered but cannot render, and it is true; it says the stylist's keys exist but are unprobed, and that is true; checkout refuses to replay another shopper's order and cannot leak it in the refusal. The one thing that would make try-on actually work is an external payment to a GPU provider, and no amount of code addresses it — which is why the code was changed to stop pretending, and the report says so.
+**Honest notes on tests I had to fix (all mine, all disclosed):**
 
-*Nothing in this document is asserted to work beyond the evidence cited beside it. Where the evidence is missing, the words "NOT TESTED" or "NOT VERIFIED IN PRODUCTION" are used instead of an adjective.*
+1. **Two new capability tests first failed from my own harness errors** — the "credential revoked" case had not revoked the credential, and the `storage_mode` case patched a probe flag while `storage_mode` reads `settings.STORAGE_PROVIDER`. Fixed at the cause.
+2. **My `apiErrors` map lacked `errors.validation`** — caught by my own new test; fixed in both locales.
+3. **`BNPLBadge.isEstimate` first shipped with a `false` default** — a forgotten flag would silently render the lender-naming branch, i.e. reintroduce D7 through the back door. Caught by the frontend test; the default was removed (the prop is now required) and the omission is a compile error.
+4. **The `?country=` helper (D12)** — a market-aware test that never exercised a market. Caught by reading the endpoint signature while probing production, then fixed and gated.
+5. **Mutation gate hygiene:** the runner mutates working-tree files; `git status` during a run can show a backend file as modified. Waited for the run to finish before trusting diffs, and verified zero residue afterwards.
+
+**Not tested this cycle:** browser-level keyboard/screen-reader pass; live AI provider call; production write paths (all prohibited without operational authorization); production PostgreSQL internals; the Arabic/RTL visual rendering of the tracking page in a browser.
+
+---
+
+## H. Mutation Results (exact output)
+
+Runner: `backend/scripts/run_mutation_gates.py` (it reverts a real fix in the working tree and requires the suite to fail; a survivor means the test cannot see the defect).
+
+Full run, this tree (gate titles elided at 95 characters for readability; the summary line is verbatim, and the full titles are in the source):
+
+```
+[M24] KILLED    Payments: serve the catalog's hardcoded `is_live=True` instead of the measured ...
+[M25] KILLED    BNPL: treat PAYMENTS_LIVE + a provider key as an instalment offer, dropping the ...
+[M26] KILLED    Product page: name the lender unconditionally, even when no live provider exist...
+[M27] KILLED    Wardrobe: gate photo uploads on the storage provider NAME instead of the measur...
+[M28] KILLED    Order states: add a lifecycle state that has no localized copy, so the shopper ...
+[M29] KILLED    Payment methods: answer every request with the default market, so a client aski...
+[M30] KILLED    Payment disclaimer: restore the unconditional compliance sentence ('All transac...
+
+MUTATION GATES: 30 killed, 0 survived, 0 not applicable
+```
+
+Individually re-run while the change was being finalised:
+
+```
+[M29] KILLED  ... (5.6s)  -> 1 failed, 2 warnings in 3.93s
+[M30] KILLED  ... (5.7s)  -> 1 failed, 2 warnings in 4.02s
+MUTATION GATES: 2 killed, 0 survived, 0 not applicable
+```
+
+Progression across the engagement: M1–M23 (23 killed) → M1–M28 (28 killed) → **M1–M30 (30 killed)**.
+
+**Survivors found and what happened to them.** One previously surviving mutant (M23 in the earlier cycle) is why the idempotency *race* test now scripts the interleaving instead of passing through the pre-flight path — a real instance of the suite being wrong and being fixed at the cause. In this cycle no mutant survived, and the M28 drift guard was additionally proven able to fail by manual injection before being frozen as a gate.
+
+**Limitation, stated plainly:** the runner executes pytest only. The frontend has **no mutation gate**; its protections are the vitest suite (294 tests) and a compile-time gate (`@ts-expect-error` on the required `isEstimate` prop), which is a type-level mutation kill rather than a runtime one. This is a gap in test *methodology*, not in the results quoted above.
+
+---
+
+## I. Production Evidence (exact probes)
+
+**Constraints honoured:** read-only, anonymous, no orders, no payments, no uploads, no account changes, no deletions. Where a claim would require a write, it is marked NOT TESTED rather than dressed up.
+
+### I.1 Deployment identity
+
+| Item | Value |
+|---|---|
+| Vercel production deployment | `dpl_B8JcWL6nA7iF4ssi7rJTbo6bXjKJ` — state **READY** at commit `edea4ccc66331a5a231479fd6ab935437d182f94` |
+| `origin/main` HEAD (re-fetched after merge) | `edea4ccc66331a5a231479fd6ab935437d182f94` — **identical** |
+| Production alias | `confit-a.vercel.app` (the only domain on the project — see §M: there is **no separate staging environment**) |
+| Proof the alias serves this build | The probes below return wording that exists only in the `c61d785`/`edea4ccc` artifact (the conditional disclaimer) |
+
+### I.2 Before → after, same endpoints, same kind of deployment (read-only)
+
+| Probe | BEFORE (#173 deployment `018ff2c7`) | AFTER (`edea4ccc`) |
+|---|---|---|
+| `GET /api/v1/commerce/payment-methods?country_code=EG` | `bnpl_tabby.is_live=true`, "Tabby — Split in 4", "…Sharia compliant."; disclaimer asserted PCI-DSS/central-bank compliance | `live=['cod']`; EN: *"Card and instalment payments are not enabled on this deployment. Cash on delivery is the only live payment method in EG."*; AR: *"الدفع بالبطاقة والتقسيط غير مُفعّل على هذا النشر…"*; **"PCI-DSS" absent from both** |
+| `GET /api/v1/catalog/products/1` | `bnpl.provider="Tabby"`, `installment_amount=72.25`, `disclaimer="4 payments of 72.25 USD with Tabby"` | `bnpl.provider=null`, `is_estimate=true`, *"Illustrative only — instalment payments are not enabled on this deployment, so this is not an offer and not a payment plan."* |
+| `GET /api/v1/commerce/payment-methods?country_code=AE` | (same literal `is_live=true` class of answer) | `market_code=AE`, `currency_code=AED`, methods `card, bnpl_tabby, bnpl_tamara, apple_pay, cod`, live `['cod']`; same honest COD-only wording |
+| `GET /api/v1/commerce/payment-methods?country_code=XX` | *"All transactions in XX are processed in compliance with…"* | `market_code=XX`, `currency_code=USD`, methods `['card']`, live `[]`; *"No payment method is enabled for XX on this deployment."* |
+| `GET /api/v1/catalog/capabilities` | 12 keys | **13 keys**; `payments_mode=demo`, `bnpl_live=false`, `photo_upload_available=true`, `storage_mode=s3`, `vton_renderable=false`, `ai_stylist_live=true` |
+| `GET /api/v1/health` | `ready=false`, blocking `["virtual_try_on"]`, degraded `["buy_now_pay_later","payments"]` | unchanged |
+
+### I.3 Anonymous HTTP status sweep (read-only, after the merge)
+
+```
+/catalog/products                 200      /commerce/cart (no session header)   422
+/catalog/categories               200      /orders/CONF-000000 (unknown)        404
+/catalog/products/1               200      /wardrobe/items (anonymous)          401
+/catalog/capabilities             200      /profile (anonymous)                 404
+/commerce/payment-methods (EG)    200      /returns/labels/RA-FAKE000000        404
+/commerce/payment-methods (AE)    200      /stylist/chat (GET, route is POST)   405
+/commerce/payment-methods (XX)    200
+/try-on/capabilities              200
+/health                           200
+```
+
+**What these statuses are not.** The `422` on `/commerce/cart` is a missing `X-Session-Token` header rejection (guest carts are intentional) and is **not** reported as protection. The `404`s on `/orders/…` and `/returns/labels/…` mean "no such object for this caller", not "ownership proven" — ownership is enforced by `assert_order_access` and its tests, not by this probe. The `405` on `/stylist/chat` confirms the route exists (POST-only); it says nothing about the provider being reachable.
+
+### I.4 What was deliberately not written to production
+
+No order was placed, no payment initiated, no cart mutated, no file uploaded, no account or profile changed, no record deleted. Consequences are listed in §K, not glossed over.
+
+---
+
+## J. Remaining Blockers (external only)
+
+**J.1 Virtual Try-On GPU capacity — BLOCKED (external).** Modal workspace `ac-io3nXB7Q2nuaHHl8mVkeLH` is disabled: live worker probes return HTTP 404 `workspace … is disabled`, apps report `deployed` with **0 tasks** running. "Deployed" is status text, not capacity. Production therefore reports `production_ready=false`, `VTON_ENGINE_UNAVAILABLE`, `vton_renderable=false` while still offering the feature with an honest message, and the CPU path is presented as a **fit check**, never as a render. Restoring the workspace (spend limit/credits) is an operational action outside the code.
+
+**J.2 Live PSP settlement — BLOCKED: external PSP credentials required.** Production has `payments_mode=demo`; `PAYMENTS_LIVE`, `TABBY_API_KEY` and `TAMARA_API_KEY` are absent, and `LIVE_PSP_ADAPTERS` is empty by design until an integration is verified against a provider sandbox. Demo is Demo: nothing in this report calls a demo transaction a live one. When credentials and a verified adapter exist, `payment_method_is_live()` will report the truth without another code change.
+
+**J.3 Repository-level items outside this scope (reported, untouched).** Open PRs #119 (243 files), #150 and #141 remain open as re-fetched from the GitHub API; #119 is based far behind `main` and is a merge hazard for whoever owns it. `Workers Builds: confit-a` fails instantly on all branches (Cloudflare infrastructure) and is not a required check.
+
+---
+
+## K. Not Verified
+
+Ranked by what a reader might most reasonably assume was covered.
+
+1. **Live payment settlement** — no live PSP credentials, no adapter, no sandbox verification. **BLOCKED** (§J.2). Every payment statement in this report is about *labels and measurement*, never about money moving.
+2. **Arabic/RTL visual rendering of the tracking page in a browser** — the state maps and locale parity are tested (`VERIFIED` at the code level), but no browser pass was performed this cycle. **NOT TESTED**.
+3. **Virtual Try-On output** — cannot be rendered while the Modal workspace is disabled; nothing was faked to fill the gap. **BLOCKED** for the render, VERIFIED for the honest "unavailable" state.
+4. **AI Stylist availability** — the capability reports configuration, and no probe exists (open gap from the previous cycle, still open). A live provider call was not made (it consumes quota and writes a message row without operational authorization). **PARTIALLY VERIFIED / NOT TESTED** for the live path.
+5. **Production write paths** — cart creation, checkout, order placement, uploads, returns. Verified by local end-to-end tests and the CI schema gate; **NOT VERIFIED IN PRODUCTION** by design, because verification would require creating real production data.
+6. **Production PostgreSQL internals** — the local suite runs on SQLite. The PostgreSQL contract is enforced by the CI check `release gate (production schema parity)`, which is a real but *different* kind of evidence: **PARTIALLY VERIFIED**, and local SQLite results are never presented as proof about production PostgreSQL.
+7. **`/health/ready` (admin readiness payload, `unprobed_capabilities`)** — requires an admin bearer token; anonymous access is refused by design. **NOT TESTED**.
+8. **Accessibility, keyboard and screen-reader pass on consumer surfaces** — not performed this cycle. **NOT TESTED**.
+9. **Rate limiting and CSRF cookie flags** — not re-measured this cycle. **NOT TESTED** (not claimed either way).
+
+---
+
+## L. False-Claim Audit
+
+Two directions: what the **product/API** claimed versus what measurement shows, and what **my own reports** claimed versus what re-measurement shows. Findings against my own work are included deliberately.
+
+### L.1 Product / API claims
+
+| Claim (as served or implied) | Measurement | Verdict |
+|---|---|---|
+| "Tabby — Split in 4 … Sharia compliant", `is_live: true` | No Tabby key, no adapter, `payments_mode=demo` | **False claim → removed (#176)** |
+| "4 payments of 72.25 USD with Tabby" (product page) | No provider contacted; quote computed locally | **False claim → removed; now an explicit estimate (#176)** |
+| "All transactions in EG are processed in compliance with local central bank regulations and PCI-DSS tokenization standards" | Only COD could settle; no card transaction occurs | **False claim → removed where unearned (#177); kept where a PSP method is measured live** |
+| The same sentence served for `XX`, a market the platform does not serve | `XX` is not a supported market | **False claim → replaced (#177)** |
+| "Try On" labelled CTA / suggestible render | `vton_renderable=false`, engine unavailable | Wording already corrected in the previous cycle: the CPU path is a **fit check** and is not called Try-On; **no fake render exists** |
+| `photo_upload_available` (wardrobe gate) | Measured against storage probes, not the provider name | Now **earned**, not asserted |
+| `ai_stylist_live=true` | Keys exist; nothing probed | **Weaker than "live" implies** — the contract says `not_probed` where that is the case; the flag remains configuration-derived and is labelled PARTIALLY VERIFIED (§B.3), not "working" |
+
+### L.2 Claims in my own earlier report (this file's predecessor)
+
+| Earlier claim | Re-measurement | Verdict |
+|---|---|---|
+| "Cross-surface contradiction check: RESOLVED. Catalog, try-on capabilities and health now agree." | True for those three surfaces — **but a contradiction existed on surfaces the sentence did not name**: `/commerce/payment-methods` and the product BNPL teaser told shoppers a lender was live. A reader would reasonably infer overall consistency from that sentence. | **Previous claim disproven by current measurement.** Corrected by #176/#177; this report states the scope of every consistency claim explicitly |
+| Production READY at `66fdf5f7` / `018ff2c7` | Re-fetched: superseded by `8f0a9117` then `edea4ccc` | Confirmed then; superseded now |
+| D1–D5 as described (incl. "correction downward" of the token impact) | Carried unchanged; tested in this tree | Confirmed |
+| Test counts quoted for the earlier cycle | Re-measured this cycle with a fresh baseline comparison | Confirmed for their tree; new numbers reported in §G |
+| (implicit) "the payment capability surface is measured" | True for `is_live` after #176; the **disclaimer** was still an unearned claim, found by auditing the same payload | **Incomplete → completed in #177** |
+
+### L.3 My own mistakes in this engagement (found, explained, fixed, prevented)
+
+| Mistake | How it was caught | What prevents recurrence |
+|---|---|---|
+| First platform capability test asserted configuration ⇒ live (a test defending the defect) | Reading the contract while auditing D6 | Test rewritten to the honest contract, not deleted or loosened |
+| Locale file rebuilt from `git show HEAD:` wiped the `order` group | The i18n gate failed on missing keys | Locale edits now merge into the working copy; the gate is the enforcement |
+| Arabic brand names first written in Latin script | The locale-parity test (`ar.json is NOT a copy of en.json`) | Follow the project's transliteration convention; the gate's exception list was **not** widened |
+| `errors.validation` missing from my API-error map | My own new test | Tests stay strict; a test that cannot fail is worthless |
+| Committed onto local `main`, then a push that silently no-opped ("Everything up-to-date" with 3 new commits) | Comparing the push message with `git log` | `git branch --show-current` before every commit; refs corrected; **no second branch was created** |
+| `BNPLBadge.isEstimate` shipped with a `false` default (would silently name a lender) | The frontend test failed on the default branch | Prop is now required; omission is a compile error |
+| `?country=` test helper never exercised a market (D12) | Reading the endpoint signature during production probing | Helper asserts the echoed market; gate M29 |
+| My own production probe first used `?country=AE` and reported "market: EG" | The response contradicted the request; re-probed with the correct parameter | Probes now assert the echoed value they depend on |
+| Quoted a test count from an intermediate commit in a PR body | Re-reading the PR against the final run | PR bodies cite the final measured numbers only |
+
+**Not claimed anywhere in this document:** "perfect", "100%", "fully complete", "everything works", "production ready", or "secure" without the probe that backs it.
+
+---
+
+## M. Final Environment Matrix
+
+**Environment definitions.** LOCAL = this sandbox. STAGING = a Vercel preview deployment of this repository. PRODUCTION = `confit-a.vercel.app`. **Measured fact:** the Vercel project has exactly one domain (`confit-a.vercel.app`) — there is **no standing staging environment**, so STAGING rows are `NOT APPLICABLE` / `NOT TESTED` rather than filled with local results wearing a staging label.
+
+| Surface | LOCAL | STAGING | PRODUCTION | Evidence |
+|---|---|---|---|---|
+| Backend suite | **PASS** (4 failed / 2527 passed / 9 skipped; failures = mediapipe/Py3.13, identical on baseline) | NOT APPLICABLE (no staging env) | NOT APPLICABLE (no test suite runs against prod) | §G log tails |
+| Frontend suite / tsc / i18n gate | **PASS** (36 files / 294 tests; `tsc` exit 0; i18n PASSED) | NOT APPLICABLE | NOT APPLICABLE | §G |
+| Mutation gates M1–M30 | **PASS** (30 killed / 0 survived / 0 n/a) | NOT APPLICABLE | NOT APPLICABLE | §H |
+| Payment liveness (`is_live`) | PASS (unit + endpoint tests) | NOT TESTED | **PASS** (`live=['cod']` on EG/AE; others false) | §I.2 |
+| Payment disclaimer honesty | PASS (3 tests, EN+AR) | NOT TESTED | **PASS** (no PCI-DSS claim; COD-only wording; XX honest) | §I.2 |
+| Market resolution | PASS (gate M29) | NOT TESTED | **PASS** (AE→AED+Tamara; XX echoed) | §I.2 |
+| BNPL product teaser | PASS (group-5) | NOT TESTED | **PASS** (`provider=null`, `is_estimate=true`) | §I.2 |
+| Cart BNPL estimate | PASS | NOT TESTED | **NOT TESTED** (needs a guest cart — a write) | §K.5 |
+| Order tracking i18n | PASS (35 i18n tests + drift guard) | NOT TESTED | NOT TESTED (no browser AR/RTL pass) | §K.2 |
+| Capabilities contract (13 keys) | PASS | NOT TESTED | **PASS** | §I.2 |
+| Health readiness | PASS | NOT TESTED | **PASS** (`ready=false` for the VTON reason only) | §I.2 |
+| Virtual Try-On render | NOT APPLICABLE (no GPU locally) | NOT TESTED | **BLOCKED** (Modal workspace disabled; honest unavailable state verified) | §J.1 |
+| AI Stylist live call | NOT TESTED (quota + write) | NOT TESTED | **NOT TESTED** | §K.4 |
+| Live payment settlement | **BLOCKED** (no credentials/adapter) | BLOCKED | **BLOCKED — external PSP credentials required** | §J.2 |
+| Order/cart ownership (IDOR class) | PASS (tests; exploitation not attempted) | NOT TESTED | NOT TESTED (no foreign-object access attempted) | §E.2 |
+| Idempotency replay ownership (409) | PASS (4 tests; gates M22/M23) | NOT TESTED | **NOT TESTED** (requires placing orders) | §K.5 |
+| Production PostgreSQL parity | NOT APPLICABLE (SQLite locally) | NOT TESTED | **PARTIALLY VERIFIED** — CI check `release gate (production schema parity)` green on #177; no direct prod DB query | §K.6 |
+| Deployment identity | — | — | **PASS** — Vercel `READY` at `edea4ccc` = `origin/main` HEAD | §I.1 |
+| Accessibility (keyboard/screen-reader) | **NOT TESTED** | NOT TESTED | NOT TESTED | §K.8 |
+| Rate limiting / CSRF cookie flags | **NOT TESTED** | NOT TESTED | NOT TESTED | §K.9 |
+
+---
+
+## Final Status
+
+**Merged and verified in production, read-only:**
+
+* PR #176 → `8f0a9117`, PR #177 → `edea4ccc`; `origin/main` HEAD = `edea4ccc` = the deployed artifact (Vercel `READY`).
+* Three consumer-visible false claims removed from production (lender-named BNPL offer; `is_live` literal; PCI-DSS/central-bank compliance wording), each replaced by a value derived from a measurement, each guarded by a mutation gate that kills its return.
+* 30/30 mutation gates killed; backend `4 failed / 2527 passed / 9 skipped` with the same 4 environment failures on the clean baseline; frontend 36 files / 294 tests; `tsc` clean; i18n gate green.
+
+**Blocked (external only):** VTON GPU capacity (Modal workspace disabled); live PSP settlement (credentials and a verified adapter absent).
+
+**Not verified, and said so:** production write paths, Arabic/RTL browser rendering, AI Stylist live call, admin readiness payload, accessibility pass, rate limiting/CSRF flags, production PostgreSQL internals.
+
+**The engineering outcome, stated without decoration:** the consumer surface no longer says things the deployment cannot do. Where it cannot do something, it says that instead — and the tests that protect that behaviour are able to fail when the defect returns.

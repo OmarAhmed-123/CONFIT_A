@@ -58,7 +58,7 @@ ROUTES = [
 ]
 
 
-def _axe(page) -> Dict[str, Any]:
+def _axe(page, injected=None) -> Dict[str, Any]:
     """Run axe-core in the page and return the violations, compactly.
 
     Two strategies, because production enforces `script-src 'self'`: injecting
@@ -73,11 +73,22 @@ def _axe(page) -> Dict[str, Any]:
             "engine every surface would report zero violations and the pass would be meaningless"
         )
     source = AXE_SOURCE.read_text()
+    # ORDER MATTERS FOR MEASUREMENT INTEGRITY: `add_script_tag` was tried first,
+    # and in production the CSP `script-src 'self'` blocks it — which the browser
+    # logs as "Executing inline script violates the following Content Security
+    # Policy". Those log lines were then collected by this script's own console
+    # listener and reported as console errors, i.e. the probe accused the app of
+    # a violation the probe itself committed. A no-injection control run on the
+    # same deployment shows 0 console errors. The debugger channel used by
+    # `page.evaluate` is not governed by the page CSP, so it goes FIRST and the
+    # (noisier, sometimes-blocked) script-tag route is only a fallback.
     try:
-        page.add_script_tag(content=source)
+        page.evaluate(source)
         assert page.evaluate("typeof window.axe !== 'undefined'")
     except Exception:
-        page.evaluate(source)
+        page.add_script_tag(content=source)
+    if injected is not None:
+        injected[0] = True
     result = page.evaluate(
         """async () => {
             const r = await window.axe.run(document, {
@@ -218,8 +229,22 @@ def run(base_url: str, language: str, out: List[Dict[str, Any]]) -> None:
         browser = p.chromium.launch()
         context = browser.new_context(viewport={"width": 1280, "height": 900})
         page = context.new_page()
-        console_errors: List[str] = []
-        page.on("console", lambda m: console_errors.append(m.text) if m.type == "error" else None)
+        console_errors: List[Dict[str, str]] = []
+        injected = [False]
+        # Errors are tagged with whether THIS SCRIPT had injected axe when they
+        # fired. Injected code can itself violate the page CSP (production sends
+        # `script-src 'self'`) and Chromium then logs the violation as if the page
+        # had caused it — an earlier version of this script collected those and
+        # very nearly reported two production defects that were its own doing. The
+        # no-injection control pass below is what settles it.
+        page.on(
+            "console",
+            lambda m: console_errors.append(
+                {"during": "probe-injected" if injected[0] else "app-only", "text": m.text}
+            )
+            if m.type == "error"
+            else None,
+        )
         page.on("pageerror", lambda e: console_errors.append(str(e)))
 
         # Set the language the way the app does. The key is `confit_lang`
@@ -299,8 +324,19 @@ def run(base_url: str, language: str, out: List[Dict[str, Any]]) -> None:
                     )
                     out.append(entry)
                     continue
-                entry["violations"] = _axe(page)
+                entry["violations"] = _axe(page, injected)
                 entry["keyboard"] = _keyboard_probe(page)
+                entry["typography"] = page.evaluate(
+                    """() => {
+                         const body = getComputedStyle(document.body);
+                         const faces = [];
+                         document.fonts.forEach(f => faces.push(f.family + ' ' + f.status));
+                         return { bodyFontFamily: body.fontFamily,
+                                  cairoUsable: document.fonts.check('16px Cairo'),
+                                  cairoFaces: faces.filter(f => /cairo/i.test(f)),
+                                  loadedFaces: document.fonts.size };
+                       }"""
+                )
                 if language == "ar":
                     entry["rtl"] = _rtl_probe(page)
                     entry["untranslated"] = _untranslated_probe(
@@ -311,9 +347,36 @@ def run(base_url: str, language: str, out: List[Dict[str, Any]]) -> None:
             out.append(entry)
 
         entry_console = {"surface": "__console__", "language": language,
-                         "errors": [e for e in console_errors if "favicon" not in e.lower()][:10]}
+                         "errors": [e for e in console_errors
+                                    if "favicon" not in str(e.get("text", "")).lower()][:10]}
         out.append(entry_console)
         browser.close()
+
+
+def console_control(base_url: str, language: str) -> Dict[str, Any]:
+    """Same pages, same language, NO injection: the app's own console output.
+
+    This exists because the probe's axe injection can trip the production CSP and
+    the resulting log lines are indistinguishable from app errors once collected.
+    Whatever this pass reports is the application's; whatever the instrumented
+    pass reports on top of it belongs to the instrument.
+    """
+    errors: List[Dict[str, str]] = []
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch()
+        page = browser.new_page()
+        page.on("console", lambda m: errors.append({"tag": m.type, "text": m.text})
+                if m.type == "error" else None)
+        page.on("pageerror", lambda e: errors.append({"tag": "pageerror", "text": str(e)}))
+        page.goto(base_url, wait_until="domcontentloaded")
+        page.evaluate("(lang) => { localStorage.setItem('confit_lang', lang); }", language)
+        page.reload(wait_until="networkidle")
+        for _, route in ROUTES:
+            page.goto(base_url + route, wait_until="networkidle", timeout=45000)
+            page.wait_for_timeout(500)
+        browser.close()
+    return {"surface": "__console_control__", "language": language,
+            "injection": False, "errors": errors}
 
 
 def main() -> int:
@@ -325,17 +388,29 @@ def main() -> int:
     results: List[Dict[str, Any]] = []
     for language in ("en", "ar"):
         run(args.base_url, language, results)
+        results.append(console_control(args.base_url, language))
 
     pathlib.Path(args.json).write_text(json.dumps(results, indent=2, ensure_ascii=False))
 
     violations = 0
     print(f"{'surface':10} {'lang':4} {'axe violations':>15} {'unnamed':>8} {'img no alt':>11} {'overflowX':>10}")
     for r in results:
-        if r["surface"] == "__console__":
+        if r["surface"] in ("__console__", "__console_control__"):
             console = r.get("errors") or []
-            print(f"\nconsole errors ({r['language']}): {len(console)}")
+            if r["surface"] == "__console_control__":
+                print(f"\nconsole errors, NO injection ({r['language']}) — these are the APP's: "
+                      f"{len(console)}")
+                for e in console[:5]:
+                    print(f"   - {str(e.get('text') if isinstance(e, dict) else e)[:140]}")
+                continue
+            app_only = [e for e in console if isinstance(e, dict) and e.get("during") == "app-only"]
+            probe = [e for e in console if isinstance(e, dict) and e.get("during") == "probe-injected"]
+            print(f"\nconsole errors while instrumented ({r['language']}): {len(console)} "
+                  f"[app-only {len(app_only)}, probe-injected {len(probe)}]")
             for e in console[:5]:
-                print(f"   - {e[:140]}")
+                txt = e.get("text") if isinstance(e, dict) else e
+                during = e.get("during", "?") if isinstance(e, dict) else "?"
+                print(f"   - [{during}] {str(txt)[:130]}")
             continue
         if "error" in r:
             print(f"{r['surface']:10} {r['language']:4} LOAD ERROR: {r['error'][:80]}")
@@ -370,6 +445,11 @@ def main() -> int:
             print(f"    · unclipped overflow dx={o['dx']} in <{o['tag']} class=\"{o['cls']}\"> {o['text']!r}")
         for o in (rtl.get("clippedByDesign") or [])[:2]:
             print(f"    · (info) clipped by design: <{o['tag']}> {o['text']!r}")
+        typ = r.get("typography") or {}
+        if typ:
+            print(f"    · typography [{r['language']}]: body={typ.get('bodyFontFamily','')[:46]!r} "
+                  f"cairo_usable={typ.get('cairoUsable')} cairo_faces={len(typ.get('cairoFaces') or [])} "
+                  f"loaded_faces={typ.get('loadedFaces')}")
         unt = r.get("untranslated") or {}
         for u in (unt.get("sample") or [])[:4]:
             print(f"    · UNTRANSLATED in ar: <{u['tag']} class=\"{u['cls']}\"> {u['text']!r}")

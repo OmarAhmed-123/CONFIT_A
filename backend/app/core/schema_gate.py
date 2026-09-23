@@ -113,8 +113,11 @@ REQUIRED_TABLES: tuple[str, ...] = (
     "checkout_sessions",      # 0009
     "brand_analytics_events",  # 0010 — /brand/analytics, /admin/analytics
     "catalog_import_jobs",    # 0010
-    "sponsored_placements",   # /brand/placements
+    "sponsored_placements",    # /brand/placements
     "migration_audit_log",    # 0013
+    # 0021 — cross-run tail-truncation anchor for the audit chain. Without
+    # it the integrity endpoint crashes, so absence is blocking drift.
+    "audit_verification_runs",
 )
 
 # Tables created by a migration only (no ORM model): a create_all database

@@ -198,3 +198,57 @@ class TestIntegrityEndpointBehaviour:
         from backend.app.core.config import settings
 
         assert resolve_key(1) != settings.SECRET_KEY.encode("utf-8")
+
+
+class TestTailTruncationAcrossRuns:
+    """0021: the one attack single-run verification cannot see — deleting the
+    NEWEST rows — must surface on the next run via the persisted head."""
+
+    def test_verification_run_is_persisted_with_the_global_head(self, db):
+        from backend.app.models.user import AuditVerificationRun
+
+        _write(db, "CHAIN_T11", details="anchor me")
+        result = AuditTrailService(db).integrity(window_days=30)
+        run = (
+            db.query(AuditVerificationRun)
+            .order_by(AuditVerificationRun.id.desc())
+            .first()
+        )
+        assert run is not None
+        assert run.head_hash and run.head_row_id
+        assert run.verdict == result["verdict"]
+        # The recorded head must be the newest chained audit row globally.
+        newest = (
+            db.query(AuditLog)
+            .filter(AuditLog.entry_hash.isnot(None))
+            .order_by(AuditLog.id.desc())
+            .first()
+        )
+        assert run.head_row_id == newest.id
+        assert run.head_hash == newest.entry_hash
+
+    def test_tail_truncation_detected_on_next_run(self, db):
+        _write(db, "CHAIN_T12_TAIL", details="will be truncated")
+        svc = AuditTrailService(db)
+        first = svc.integrity(window_days=30)
+        assert first["truncation_check"]["verdict"] in {"anchored", "no_prior_run"}
+
+        # Attacker deletes the newest rows (including the recorded head).
+        from backend.app.models.user import AuditVerificationRun
+
+        run = db.query(AuditVerificationRun).order_by(AuditVerificationRun.id.desc()).first()
+        db.execute(text("DELETE FROM audit_logs WHERE id >= :id"), {"id": run.head_row_id})
+        db.commit()
+        db.expire_all()
+
+        second = AuditTrailService(db).integrity(window_days=30)
+        assert second["truncation_check"]["verdict"] == "tail_truncation_detected"
+        assert second["tamper_evident"] is False
+        assert any(v["issue"] == "tail_truncation_detected" for v in second["violations"])
+
+    def test_intact_tail_is_anchored_on_next_run(self, db):
+        _write(db, "CHAIN_T13", details="stays put")
+        svc = AuditTrailService(db)
+        svc.integrity(window_days=30)
+        result = AuditTrailService(db).integrity(window_days=30)
+        assert result["truncation_check"]["verdict"] == "anchored"

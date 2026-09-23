@@ -344,8 +344,12 @@ def get_audit_integrity(
     limits (key compromise, tail truncation across runs, pre-migration rows)
     are named in ``limitations``.
     """
-    result = AuditTrailService(db).integrity(window_days=window_days)
+    result = AuditTrailService(db).integrity(
+        window_days=window_days, actor_id=user.id, request_id=_request_id(request)
+    )
     _audit_read(request, db, user, "ADMIN_AUDIT_INTEGRITY_CHECK", "AuditLog",
-                {"window_days": window_days, "verdict": result["verdict"]})
+                {"window_days": window_days, "verdict": result["verdict"],
+                 "tamper_evident": result["tamper_evident"],
+                 "truncation": result["truncation_check"]["verdict"]})
     return result
 

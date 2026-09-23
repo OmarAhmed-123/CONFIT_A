@@ -131,6 +131,39 @@ class AuditLog(Base):
     chain_key_version = Column(Integer, nullable=True)
 
 
+class AuditVerificationRun(Base):
+    """One immutable record per integrity-check run (migration 0021).
+
+    Closes the tail-truncation limit stated by 0020: each run persists the
+    global chain head it observed; the next run asserts that head still
+    exists in ``audit_logs``. If the newest rows were deleted, the recorded
+    head is gone and the truncation surfaces as a concrete violation instead
+    of remaining invisible to single-run verification.
+
+    Append-only by application policy: no update or delete path exists in
+    the codebase, and the run itself is announced by a chained
+    ``ADMIN_AUDIT_INTEGRITY_CHECK`` audit row.
+    """
+    __tablename__ = "audit_verification_runs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    run_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    window_days = Column(Integer, nullable=False)
+    checked_rows = Column(Integer, nullable=False)
+    sampled_rows = Column(Integer, nullable=False)
+    chained_rows = Column(Integer, nullable=False)
+    unchained_rows = Column(Integer, nullable=False)
+    break_count = Column(Integer, nullable=False)
+    verdict = Column(String(32), nullable=False)
+    tamper_evident = Column(Boolean, nullable=False)
+    head_hash = Column(String(64), nullable=True)
+    head_row_id = Column(Integer, nullable=True)
+    key_version = Column(Integer, nullable=False)
+    canonical_version = Column(Integer, nullable=False)
+    triggered_by_user_id = Column(Integer, nullable=True)
+    request_id = Column(String(64), nullable=True)
+
+
 class RefreshToken(Base):
     """Server-tracked refresh tokens with rotation + reuse detection.
 

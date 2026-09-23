@@ -246,7 +246,9 @@
     "remove_item": "Remove item",
     "cart_explore": "Explore the Catalog",
     "bnpl_line": "or 4 interest-free payments of {{amount}} with {{provider}}",
-    "bnpl_default_provider": "your instalment partner"
+    "bnpl_default_provider": "your instalment partner",
+    "bnpl_estimate_line": "4 payments of {{amount}} — illustrative only, instalments are not enabled",
+    "bnpl_not_live": "BNPL instalments are not enabled on this deployment."
   },
   "b2b": {
     "dashboard_title": "Brand Partner Command Center",
@@ -430,7 +432,24 @@
     "file_skipped": "{{name}} could not be processed and was skipped.",
     "webcam_restricted": "Webcam access is restricted in this browser context. You can use Photo Upload or Presets below.",
     "image_unprocessed": "That image could not be processed.",
-    "photo_unprocessed": "That photo could not be processed. Please try another image."
+    "photo_unprocessed": "That photo could not be processed. Please try another image.",
+    "idempotency_conflict": "This checkout conflicts with an order that already exists. Start a new checkout to continue — nothing was charged twice.",
+    "insufficient_stock": "One of your items sold out while you were checking out. Please review your bag.",
+    "payment_failed": "The payment was declined. No money moved; you can try another method.",
+    "bnpl_rejected": "Instalment financing was not approved for this order. Please choose another payment method.",
+    "promo_ineligible": "That promo code does not apply to this bag.",
+    "return_ineligible": "This item can no longer be returned — the return window has closed or a return is already in progress.",
+    "fulfillment_payment_required": "This delivery option needs the payment to clear first.",
+    "invalid_state_transition": "That action is not available for this order in its current state.",
+    "auth_failed": "Your session has expired. Please sign in again.",
+    "forbidden": "You do not have access to this item.",
+    "not_configured": "This feature is not enabled on this deployment.",
+    "vton_unavailable": "Virtual try-on is offline right now — the rendering capacity is not available. Your photo is never stored. Please try again later.",
+    "vton_result_gone": "That try-on result has expired. You can generate it again.",
+    "provider_error": "A payment service is temporarily unavailable. Nothing was charged.",
+    "encryption": "We could not process your data securely, so the action was stopped.",
+    "styling_rule": "The stylist could not build a valid outfit from those settings.",
+    "validation": "Please review the highlighted fields and try again."
   },
   "toast": {
     "bag_transferred": "Your bag followed you — {{count}} item(s) kept.",
@@ -820,5 +839,57 @@
     "expiry_note": "Expires {{date}}. Anyone with this link can see the look until then, or until you revoke it.",
     "complete_look": "Complete Look",
     "partial_look": "Partial Look"
+  },
+  "checkout": {
+    "payment_method_demo_note": "Demo mode — this method does not move money on this deployment."
+  },
+  "order": {
+    "state_unknown": "Status unavailable",
+    "demo_adapter_note": "demo adapter — no money moved",
+    "status": {
+      "placed": "Order placed",
+      "payment_pending": "Awaiting payment",
+      "processing": "Being prepared",
+      "preparing": "Being prepared",
+      "ready_for_pickup": "Ready for pickup",
+      "dispatched": "Dispatched",
+      "shipped": "Shipped",
+      "out_for_delivery": "Out for delivery",
+      "picked_up": "Picked up",
+      "delivered": "Delivered",
+      "failed_delivery": "Delivery attempt failed",
+      "return_requested": "Return requested",
+      "partially_returned": "Partially returned",
+      "returned": "Returned",
+      "refund_pending": "Refund pending",
+      "refunded": "Refunded",
+      "refund_failed": "Refund failed",
+      "exchange_requested": "Exchange requested",
+      "completed": "Completed",
+      "cancelled": "Cancelled",
+      "failed": "Failed",
+      "rejected": "Return rejected"
+    },
+    "payment_status": {
+      "pending": "pending",
+      "pending_delivery": "due on delivery",
+      "authorized": "authorized",
+      "paid": "paid",
+      "credit_due": "credit due",
+      "delta_due": "difference due",
+      "refunded": "refunded",
+      "failed": "failed",
+      "not_required": "not required"
+    },
+    "payment_method": {
+      "card": "card",
+      "bnpl_tabby": "Tabby instalments",
+      "bnpl_tamara": "Tamara instalments",
+      "apple_pay": "Apple Pay",
+      "google_pay": "Google Pay",
+      "vodafone_cash": "mobile wallet",
+      "instapay_bridge": "InstaPay transfer",
+      "cod": "cash on delivery"
+    }
   }
 }

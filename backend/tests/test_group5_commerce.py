@@ -51,8 +51,30 @@ def test_product_detail_does_not_invent_fit_or_style_scores(client: TestClient) 
     assert detail.get("style_compatibility_score") is None
     assert detail.get("fit_available") is False
     assert isinstance(detail.get("related_outfits"), list)
+    # REWRITTEN 2026-09-23. This used to require a lender NAME in the payload
+    # (`provider in {tabby, tamara, ...}`) with no check that the lender was
+    # live — so the test demanded the defect. Production therefore advertised
+    # "4 payments of 72.25 USD with Tabby" on a deployment whose own capability
+    # contract said bnpl_live=false, whose mode was demo, and which held no
+    # Tabby key: a named lender's offer that the lender never made.
+    #
+    # The honest contract: the split may still be shown (it is arithmetic on a
+    # real price), but a provider is named ONLY when bnpl_is_live() is true, and
+    # otherwise the payload must say it is an estimate.
+    from backend.app.services.capability_service import bnpl_is_live
+
     bnpl = detail.get("bnpl") or {}
-    assert (bnpl.get("provider") or "").lower() in {"tabby", "tamara", "afterpay", "klarna", "klarna"}
+    if bnpl.get("eligible"):
+        if bnpl_is_live():
+            assert (bnpl.get("provider") or "").lower() in {"tabby", "tamara"}
+            assert bnpl.get("is_estimate") is False
+        else:
+            assert bnpl.get("provider") is None, (
+                "no lender may be named while no live PSP adapter exists for it: "
+                + repr(bnpl.get("provider"))
+            )
+            assert bnpl.get("is_estimate") is True
+            assert "not enabled" in (bnpl.get("disclaimer") or "")
 
 
 def test_product_detail_fit_uses_usp_when_authenticated(client: TestClient) -> None:
@@ -658,3 +680,21 @@ def test_concurrent_key_race_does_not_disclose_another_shoppers_order(
     )
     assert victim_order["order_number"] not in raced.text
     assert "+971500000123" not in raced.text
+
+
+def test_cart_marks_the_instalment_figure_as_an_estimate_when_not_live(client) -> None:
+    """The cart badge shows a split of the real total.
+
+    That arithmetic is fine; naming a lender behind it is not, unless the
+    lender can actually be charged. The payload says which it is, so the badge
+    cannot render an offer that does not exist (2026-09-23).
+    """
+    from backend.app.services.capability_service import bnpl_is_live
+
+    headers = {"X-Session-Token": "sess_bnpl_estimate"}
+    _fill_cart(client, headers)
+    cart = client.get("/api/v1/commerce/cart", headers=headers).json()
+    assert cart["bnpl_monthly_quote"] > 0, "the split of a real total must still be shown"
+    assert cart["bnpl_is_estimate"] == (not bnpl_is_live()), (
+        "the cart must disclose whether the instalment figure is an offer or an estimate"
+    )

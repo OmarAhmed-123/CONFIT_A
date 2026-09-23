@@ -338,6 +338,8 @@ export const catalogService = {
       /** true when a job submitted now can render (ready or cold start). */
       vton_renderable: boolean;
       ai_stylist_live: boolean;
+      /** MEASURED storage readiness — see hooks/useCapabilities.ts. */
+      photo_upload_available: boolean;
       bopis_live: boolean;
       bopis_store_count: number;
       storage_mode: string;

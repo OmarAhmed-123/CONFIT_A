@@ -291,6 +291,7 @@ export const ProductDetailView: React.FC = () => {
                   price={product.base_price}
                   provider={bnpl.provider || undefined}
                   installmentAmount={bnpl.installment_amount}
+                  isEstimate={bnpl.is_estimate !== false}
                   eligible
                 />
               </div>

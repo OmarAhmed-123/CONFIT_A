@@ -236,6 +236,54 @@ MUTATIONS: list[Mutation] = [
         "                    return self.get_order(existing.order_number)",
         ["backend/tests/test_group5_commerce.py"],
     ),
+    Mutation(
+        "M24",
+        "Payments: serve the catalog's hardcoded `is_live=True` instead of the "
+        "measured per-method state (production claimed live Tabby instalment "
+        "financing with no key, no adapter and payments_mode=demo)",
+        "backend/app/providers/payment/orchestrator.py",
+        '            method.model_copy(update={"is_live": payment_method_is_live(method.id)})',
+        "            method",
+        ["backend/tests/test_capabilities_endpoint.py"],
+    ),
+    Mutation(
+        "M25",
+        "BNPL: treat PAYMENTS_LIVE + a provider key as an instalment offer, "
+        "dropping the live-adapter requirement (2026-09-23 defect)",
+        "backend/app/services/capability_service.py",
+        '    provider = (settings.BNPL_DEFAULT_PROVIDER or "tabby").lower()\n'
+        '    return payment_method_is_live(f"bnpl_{provider}")',
+        '    return _bnpl_configured()',
+        ["backend/tests/test_capabilities_endpoint.py", "backend/tests/test_group5_commerce.py"],
+    ),
+    Mutation(
+        "M26",
+        "Product page: name the lender unconditionally, even when no live provider "
+        "exists (a named offer the lender never made)",
+        "backend/app/services/product_context_service.py",
+        "        live = bnpl_is_live()",
+        "        live = True",
+        ["backend/tests/test_group5_commerce.py"],
+    ),
+    Mutation(
+        "M27",
+        "Wardrobe: gate photo uploads on the storage provider NAME instead of the "
+        "measured probe (s3 with an unreachable bucket offers uploads that fail)",
+        "backend/app/services/capability_service.py",
+        '    storage = storage_status()\n'
+        '    return bool(storage.get("production_grade")) and bool(storage.get("writable", True))',
+        '    return (settings.STORAGE_PROVIDER or "local").lower() != "local"',
+        ["backend/tests/test_capabilities_endpoint.py"],
+    ),
+    Mutation(
+        "M28",
+        "Order states: add a lifecycle state that has no localized copy, so the "
+        "shopper would read a raw machine token on the tracking page",
+        "backend/app/services/commerce_service.py",
+        '    "cancelled": set(),\n    "completed": set(),',
+        '    "cancelled": set(),\n    "completed": set(),\n    "awaiting_customs": set(),',
+        ["backend/tests/test_capabilities_endpoint.py::test_every_order_state_has_a_frontend_translation_key"],
+    ),
 ]
 
 

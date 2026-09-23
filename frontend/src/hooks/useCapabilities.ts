@@ -41,8 +41,18 @@ export interface Capabilities {
   /** Whether a job submitted now can produce a render (ready or cold start). */
   vton_renderable: boolean;
   ai_stylist_live: boolean;
+  /**
+   * MEASURED: can a consumer photo actually be persisted right now?
+   *
+   * Server-derived from the storage probe (put/get/delete round trip where the
+   * deployment enables it). Do NOT gate uploads on `storage_mode`: that is the
+   * provider's *name*, and a deployment configured for s3 with an unreachable
+   * bucket or a revoked credential still reports "s3" while every upload fails.
+   */
+  photo_upload_available: boolean;
   bopis_live: boolean;
   bopis_store_count: number;
+  /** Provider NAME for display/telemetry only. Never a readiness verdict. */
   storage_mode: string;
   returns_window_days: number;
 }
@@ -56,6 +66,7 @@ export const HONEST_FALLBACK_CAPABILITIES: Capabilities = {
   vton_offered: false,
   vton_renderable: false,
   ai_stylist_live: false,
+  photo_upload_available: false,
   bopis_live: false,
   bopis_store_count: 0,
   storage_mode: 'local',

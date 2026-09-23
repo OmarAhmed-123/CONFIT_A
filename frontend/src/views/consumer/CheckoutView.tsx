@@ -1,5 +1,6 @@
 import { validateCheckoutSubmission, isValidEmail, CheckoutField } from '../../lib/checkoutValidation';
 import { generateIdempotencyKey } from '../../lib/secureId';
+import { localizeApiError } from '../../i18n/apiErrors';
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -33,7 +34,11 @@ function newIdempotencyKey(): string {
 }
 
 export const CheckoutView: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  // Same precedent as BNPLBadge: pick the localized field by LANGUAGE, not by
+  // visual direction. The API ships title_ar/description_ar for every method
+  // and the checkout was rendering title_en to Arabic shoppers.
+  const isArabic = (i18n.resolvedLanguage ?? 'en').startsWith('ar');
   const navigate = useNavigate();
   const { cart, fetchCart, applyPromo, updateQuantity, removeItem } = useCartStore();
   const { user, isAuthenticated } = useAuthStore();
@@ -45,7 +50,20 @@ export const CheckoutView: React.FC = () => {
   const [bopisStores, setBopisStores] = useState<StoreInventoryLocation[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<string>('card');
   const [paymentOptions, setPaymentOptions] = useState<
-    Array<{ id: string; title_en: string; description_en: string; installment_available?: boolean }>
+    Array<{
+      id: string;
+      title_en: string;
+      title_ar?: string;
+      description_en: string;
+      description_ar?: string;
+      /**
+       * Server-derived from `payment_method_is_live()`. False = this deployment
+       * cannot settle with this method; the option is still selectable in demo
+       * mode, but the shopper is told which is which.
+       */
+      is_live?: boolean;
+      installment_available?: boolean;
+    }>
   >([]);
 
   const [recipientName, setRecipientName] = useState(user?.full_name || '');
@@ -167,7 +185,10 @@ export const CheckoutView: React.FC = () => {
       await fetchCart();
       navigate(`/orders/${order.order_number}`);
     } catch (err: any) {
-      showToast(err?.message || 'Checkout failed', 'error');
+      // Localized by error CODE, so an Arabic shopper reads Arabic instead of a
+      // raw English server diagnostic on the payment path. Unknown codes keep
+      // the server's own wording rather than a vague generic sentence.
+      showToast(localizeApiError(err, t), 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -455,8 +476,19 @@ export const CheckoutView: React.FC = () => {
                         className="accent-[#C5A059]"
                       />
                       <div>
-                        <div className="text-xs font-bold text-slate-900">{pm.title_en}</div>
-                        <div className="text-[11px] text-slate-500 font-light">{pm.description_en}</div>
+                        {/* Localized: the API ships both languages, and an Arabic
+                            shopper was being shown the English `title_en`. */}
+                        <div className="text-xs font-bold text-slate-900">
+                          {isArabic && pm.title_ar ? pm.title_ar : pm.title_en}
+                        </div>
+                        <div className="text-[11px] text-slate-500 font-light">
+                          {isArabic && pm.description_ar ? pm.description_ar : pm.description_en}
+                        </div>
+                        {pm.is_live === false && (
+                          <div className="mt-1 inline-flex items-center gap-1 text-[10px] font-medium text-amber-700 bg-amber-50 border border-amber-300 rounded px-1.5 py-0.5">
+                            {t('checkout.payment_method_demo_note')}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </label>
@@ -576,7 +608,12 @@ export const CheckoutView: React.FC = () => {
               </div>
             </div>
             {cart && cart.bnpl_monthly_quote > 0 && (
-              <BNPLBadge price={total} installmentAmount={cart.bnpl_monthly_quote} eligible />
+              <BNPLBadge
+                price={total}
+                installmentAmount={cart.bnpl_monthly_quote}
+                isEstimate={cart.bnpl_is_estimate !== false}
+                eligible
+              />
             )}
             <button
               type="submit"

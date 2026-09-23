@@ -257,13 +257,23 @@ class CapabilityFlagsOut(BaseModel):
     flags instead of hardcoding them — a claim shown without the matching
     capability is a bug, not a marketing decision.
 
-    Every flag is derived from live configuration/state, never asserted:
-    payments_live mirrors PAYMENTS_LIVE, bnpl adds the PSP key requirement,
-    vton_gpu_ready means a worker URL is configured (per-job readiness is
-    still checked by the try-on pipeline itself), ai_stylist_live means at
-    least one live provider key exists (the deterministic grounded fallback
-    answers otherwise), and bopis_store_count is a real COUNT from the
-    stores table — the UI must not promise cities the DB does not contain.
+    Every flag is derived from live configuration OR a real measurement, and the
+    two are never conflated:
+
+    * ``vton_gpu_ready`` / ``vton_engine_state`` / ``vton_renderable`` — from the
+      live GPU worker probe, not from ``VTON_WORKER_URL``;
+    * ``photo_upload_available`` — from ``storage_status()``, which folds the live
+      put/get/delete probe into ``production_grade``; ``storage_mode`` is the
+      provider's *name* and is not a verdict;
+    * ``bnpl_live`` — from ``bnpl_is_live()``: payments live AND a provider key
+      AND a live PSP adapter. A configured key alone is not an instalment offer;
+    * ``payments_live`` mirrors ``PAYMENTS_LIVE`` (a deliberate switch, not a probe);
+    * ``ai_stylist_live`` means at least one provider key is configured (the
+      deterministic grounded fallback answers otherwise). The *state* of the
+      stylist lives in the health capability, which reports ``not_probed`` rather
+      than claiming readiness from a key;
+    * ``bopis_store_count`` is a real COUNT from the stores table — the UI must
+      not promise cities the DB does not contain.
     """
     payments_live: bool
     payments_mode: str
@@ -277,6 +287,10 @@ class CapabilityFlagsOut(BaseModel):
     #: Whether a job submitted now can produce a render (ready or cold start).
     vton_renderable: bool
     ai_stylist_live: bool
+    #: MEASURED: can a consumer photo actually be persisted right now?
+    #: Derived from storage_status() (live probe when enabled), NOT from the
+    #: `storage_mode` name — a configured-but-unreachable bucket reports "s3".
+    photo_upload_available: bool
     bopis_live: bool
     bopis_store_count: int
     storage_mode: str

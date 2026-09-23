@@ -47,6 +47,7 @@ from backend.app.core.logging import logger
 from backend.app.models.commerce import Cart, Order, OrderItem, PaymentTransaction
 from backend.app.models.catalog import ProductSKU
 from backend.app.providers.bnpl_provider import BNPLProvider
+from backend.app.services.capability_service import bnpl_is_live
 from backend.app.providers.payment.orchestrator import PaymentOrchestrator
 from backend.app.providers.payment.capability_registry import MarketPaymentCapabilityRegistry
 from backend.app.repositories.catalog_repository import CatalogRepository
@@ -1623,6 +1624,11 @@ class CommerceService:
                                   ("tax", tax), ("shipping", shipping), ("total", total)):
                 assert_money_range(_fval, _fname)
 
+        # The cart shows an instalment figure; WHO stands behind it is a separate
+        # question, and only `bnpl_is_live()` — the shared authority — can answer
+        # it. When it is False the number is an illustrative estimate and the
+        # payload says so, so the badge cannot read as a lender's offer.
+        bnpl_live = bnpl_is_live()
         quote = BNPLProvider(provider_name=settings.BNPL_DEFAULT_PROVIDER).quote_sync(
             amount=total, currency=cart_currency
         )
@@ -1638,6 +1644,7 @@ class CommerceService:
             "currency": cart_currency,
             "items_count": count,
             "bnpl_monthly_quote": quote.get("installment_amount") or 0.0,
+            "bnpl_is_estimate": not bnpl_live,
             "promo_code": promo_code,
             "brands": sorted(brands),
             "fit_summary": [

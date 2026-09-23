@@ -128,9 +128,21 @@ export const BNPLBadge: React.FC<{
   currency?: string;
   provider?: string;
   installmentAmount?: number | null;
+  /**
+   * True when the figure is an illustrative split, not an offer from a lender.
+   * The server sets this from `bnpl_is_live()`: a live PSP adapter must exist
+   * before any provider is named. An estimate therefore renders WITHOUT a
+   * provider name — "4 payments ... with Tabby" on a deployment where Tabby has
+   * offered nothing is a false claim, not a teaser.
+   *
+   * REQUIRED, deliberately: with a default, a call site that forgets the flag
+   * silently renders one of the two branches, and the wrong one names a lender.
+   * Omitting it is now a `tsc --noEmit` failure rather than a judgement call.
+   */
+  isEstimate: boolean;
   eligible?: boolean;
   className?: string;
-}> = ({ price, currency = 'USD', provider, installmentAmount, eligible = true, className = '' }) => {
+}> = ({ price, currency = 'USD', provider, installmentAmount, isEstimate, eligible = true, className = '' }) => {
   const { t, i18n } = useTranslation();
   if (!eligible) {
     return null;
@@ -145,10 +157,14 @@ export const BNPLBadge: React.FC<{
       className={`inline-flex items-center gap-1.5 text-[11px] text-slate-600 bg-slate-50 border border-slate-200/80 px-2.5 py-1 rounded-lg ${className}`}
     >
       <span>
-        {t('commerce.bnpl_line', {
-          amount: formatMoney(Math.round(installment * 100), currency, lang),
-          provider: provider ?? t('commerce.bnpl_default_provider'),
-        })}
+        {isEstimate
+          ? t('commerce.bnpl_estimate_line', {
+              amount: formatMoney(Math.round(installment * 100), currency, lang),
+            })
+          : t('commerce.bnpl_line', {
+              amount: formatMoney(Math.round(installment * 100), currency, lang),
+              provider: provider ?? t('commerce.bnpl_default_provider'),
+            })}
       </span>
     </div>
   );

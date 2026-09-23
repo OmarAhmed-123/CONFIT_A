@@ -187,7 +187,99 @@ def _ai_provider_keys() -> List[str]:
 
 
 def _bnpl_configured() -> bool:
+    """Is the BNPL provider CONFIGURED? (Configuration only — not availability.)
+
+    Kept separate on purpose. ``len(keys) > 0`` and "a shopper can pay in
+    instalments" are different facts, and collapsing them is the defect this
+    module exists to prevent (see :func:`bnpl_is_live`).
+    """
     return bool(settings.PAYMENTS_LIVE and (settings.TABBY_API_KEY or settings.TAMARA_API_KEY))
+
+
+def payment_method_is_live(method_id: str) -> bool:
+    """Can THIS deployment actually settle a payment with this method?
+
+    Replaces a literal. ``PaymentMethodOption.is_live`` defaulted to ``True`` and
+    every entry of ``PAYMENT_CATALOG`` hardcoded ``is_live=True``, so production
+    served ``{"id": "bnpl_tabby", "title_en": "Tabby — Split in 4",
+    "description_en": "Split in 4 interest-free monthly payments. Sharia
+    compliant.", "is_live": true}`` while the same deployment reported
+    ``payments_mode=demo``, ``bnpl_live=false`` and had no Tabby key at all.
+    "Sharia compliant instalment financing, live" is not a styling choice; it is
+    a regulated financial claim, and nothing measured it.
+
+    The rule, one place:
+
+    * ``cod`` — cash on delivery engages no PSP, so it is live wherever offered;
+    * otherwise ``PAYMENTS_LIVE`` must be on, a live adapter for the method must
+      be *implemented* (``LIVE_PSP_ADAPTERS`` is deliberately empty until an
+      integration is verified against the provider's sandbox), and that
+      provider's credential must be configured.
+
+    A method that fails this is still *offered* in demo mode — the shopper can
+    exercise the flow — but it is labelled not-live, which is the difference
+    between a demo and a claim about a lender.
+    """
+    method = (method_id or "").strip().lower()
+    if not method:
+        return False
+    if method == "cod":
+        return True
+    if not settings.PAYMENTS_LIVE:
+        return False
+    from backend.app.providers.payment.orchestrator import PaymentOrchestrator
+
+    provider_key, adapter = PaymentOrchestrator.live_adapter_for(method)
+    if adapter is None or not provider_key:
+        return False
+    credential = {
+        "stripe": settings.STRIPE_SECRET_KEY,
+        "tabby": settings.TABBY_API_KEY,
+        "tamara": settings.TAMARA_API_KEY,
+        "paymob": settings.PAYMOB_API_KEY,
+    }.get(provider_key)
+    return bool(credential)
+
+
+def bnpl_is_live() -> bool:
+    """Can a shopper actually pay in instalments right now?
+
+    Three independent conditions, all required:
+
+    1. ``PAYMENTS_LIVE`` is on;
+    2. a Tabby/Tamara key is configured;
+    3. a live PSP adapter for that provider is **implemented**.
+
+    The third is the one that was missing everywhere. ``LIVE_PSP_ADAPTERS`` is
+    empty by design until an integration is written and verified against the
+    provider's sandbox, so "configured" said nothing about whether an
+    instalment could be charged. Measured 2026-09-23: production had
+    ``bnpl_live=false`` and no provider key at all, while the product page told
+    shoppers "4 payments of 72.25 USD with Tabby" — the quote is a local
+    calculation (:meth:`BNPLProvider.quote_sync`) with a lender's name attached.
+
+    This is the single authority for that question. The capability flag, the
+    capability probe, the product teaser and the cart quote all read it, so the
+    four surfaces cannot disagree.
+    """
+    provider = (settings.BNPL_DEFAULT_PROVIDER or "tabby").lower()
+    return payment_method_is_live(f"bnpl_{provider}")
+
+
+def uploads_ready() -> bool:
+    """Can a consumer actually persist a photo right now?
+
+    One derivation for both the shopper-facing flag and the health probe. The
+    Wardrobe UI used to read ``storage_mode == "local"`` — the provider's *name*
+    — so a deployment configured for s3 with an unreachable bucket offered
+    uploads that could only fail, which is the same
+    configuration-as-measurement defect in a different costume.
+    ``storage_status()`` folds the live put/get/delete probe into
+    ``production_grade`` when the probe is enabled, so this is a measurement
+    wherever the deployment asks for one.
+    """
+    storage = storage_status()
+    return bool(storage.get("production_grade")) and bool(storage.get("writable", True))
 
 
 def _vton_capability(vton_worker: Dict[str, Any] | None) -> Capability:
@@ -286,7 +378,8 @@ def capability_flags(
     return {
         "payments_live": bool(settings.PAYMENTS_LIVE),
         "payments_mode": "live" if settings.PAYMENTS_LIVE else "demo",
-        "bnpl_live": _bnpl_configured(),
+        # Measured: live only when a live PSP adapter for the provider exists.
+        "bnpl_live": bnpl_is_live(),
         # Measured: true only for a live `ready` verdict from the GPU worker.
         "vton_gpu_ready": engine_state == ENGINE_STATE_AVAILABLE,
         # Canonical state, identical to /try-on/capabilities `engine_state`.
@@ -299,6 +392,8 @@ def capability_flags(
         "bopis_live": store_count > 0,
         "bopis_store_count": int(store_count),
         "storage_mode": settings.STORAGE_PROVIDER,
+        # Measured (live storage probe when enabled): can a photo be persisted?
+        "photo_upload_available": uploads_ready(),
         "returns_window_days": RETURNS_WINDOW_DAYS,
     }
 
@@ -326,7 +421,7 @@ def capability_probes(
     )
 
     storage = storage_status()
-    uploads_ok = bool(storage.get("production_grade")) and bool(storage.get("writable", True))
+    uploads_ok = uploads_ready()
     out.append(
         Capability(
             name="file_uploads",
@@ -364,12 +459,24 @@ def capability_probes(
     out.append(
         Capability(
             name="buy_now_pay_later",
-            state=STATE_READY if _bnpl_configured() else STATE_BLOCKED,
+            state=(
+                STATE_READY
+                if bnpl_is_live()
+                else STATE_DEGRADED
+                if _bnpl_configured()
+                else STATE_BLOCKED
+            ),
             criticality=CRITICALITY_SUPPORTING,
             detail=(
-                "PSP key present and payments live"
-                if _bnpl_configured()
-                else "requires PAYMENTS_LIVE plus a Tabby or Tamara key"
+                "live PSP adapter present, payments live and a provider key configured"
+                if bnpl_is_live()
+                else (
+                    "a provider key is configured and payments are live, but no live "
+                    "PSP adapter is implemented for this provider — instalments are an "
+                    "estimate and cannot be charged"
+                    if _bnpl_configured()
+                    else "requires PAYMENTS_LIVE, a Tabby or Tamara key, and a live PSP adapter"
+                )
             ),
         )
     )

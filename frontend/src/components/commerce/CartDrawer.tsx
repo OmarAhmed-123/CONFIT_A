@@ -162,7 +162,12 @@ export const CartDrawer: React.FC = () => {
 
               {cart && cart.bnpl_monthly_quote > 0 && (
                 <div className="p-2.5 rounded-xl bg-[#FDF8EE] border border-[#B8935A]/30 text-center">
-                  <BNPLBadge price={total} installmentAmount={cart.bnpl_monthly_quote} eligible />
+                  <BNPLBadge
+                    price={total}
+                    installmentAmount={cart.bnpl_monthly_quote}
+                    isEstimate={cart.bnpl_is_estimate !== false}
+                    eligible
+                  />
                 </div>
               )}
 

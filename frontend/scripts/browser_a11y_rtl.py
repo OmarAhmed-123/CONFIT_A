@@ -47,6 +47,9 @@ ALLOWLIST_LATIN_IN_ARABIC = [
     "SAR", "COD", "SKU", "http", "www", "@", ".com",
 ]
 
+ONLY_ROUTES: Optional[set] = None   # set by --only; None means all
+
+
 ROUTES = [
     ("home", "/"),
     ("discover", "/discover"),
@@ -266,9 +269,9 @@ def _ax_name_audit(page) -> Dict[str, Any]:
             controls += 1
             name = ((node.get("name") or {}).get("value") or "").strip()
             if not name:
-                pending.append(("nameless", backend_id))
+                pending.append(("nameless", backend_id, ""))
             else:
-                pending.append(("check_placeholder", backend_id))
+                pending.append(("check_placeholder", backend_id, name))
 
         # Resolve the DOM element for each control of interest so the evidence
         # shows real markup, not just a role name.
@@ -276,7 +279,15 @@ def _ax_name_audit(page) -> Dict[str, Any]:
             "DOM.pushNodesByBackendIdsToFrontend",
             {"backendNodeIds": [b for _, b in pending]},
         ).get("nodeIds", [])
-        for (bucket, _), node_id in zip(pending, frontend_ids):
+        # Ids that a real <label for=...> points at: a control with one of these is
+        # labelled by content, whatever else it also carries.
+        labelled_ids = set(
+            cdp.send("Runtime.evaluate", {
+                "expression": "Array.from(document.querySelectorAll('label[for]')).map(l => l.htmlFor)",
+                "returnByValue": True,
+            }).get("result", {}).get("value") or []
+        )
+        for (bucket, _, ax_name), node_id in zip(pending, frontend_ids):
             if not node_id:
                 continue
             html = cdp.send("DOM.getOuterHTML", {"nodeId": node_id}).get("outerHTML", "")
@@ -286,8 +297,26 @@ def _ax_name_audit(page) -> Dict[str, Any]:
             attrs = cdp.send("DOM.getAttributes", {"nodeId": node_id}).get("attributes", [])
             amap = dict(zip(attrs[0::2], attrs[1::2]))
             placeholder = (amap.get("placeholder") or "").strip()
-            if placeholder and placeholder in html.split(">", 1)[0]:
-                placeholder_only.append({"placeholder": placeholder[:80], "html": html[:160]})
+            # PLACEHOLDER-ONLY means the placeholder IS the name. The first rule tested
+            # for the mere PRESENCE of a placeholder attribute and so flagged any input
+            # that had one — measured 2026-09-23: it reported
+            # `<input placeholder="…" aria-label="اسم الإطلالة">` as placeholder-only, an
+            # input whose accessible name comes from aria-label and survives typing. A
+            # check that fires on a correctly labelled control is not a finding, it is a
+            # broken instrument. Three conditions are required instead:
+            #   1. the computed accessible NAME is the placeholder text, and
+            #   2. no aria-label / aria-labelledby is present, and
+            #   3. no <label for=...> points at the control.
+            has_explicit_label = bool(
+                (amap.get("aria-label") or "").strip()
+                or (amap.get("aria-labelledby") or "").strip()
+                or (amap.get("id") and amap["id"] in labelled_ids)
+            )
+            if placeholder and not has_explicit_label and ax_name == placeholder:
+                placeholder_only.append({
+                    "placeholder": placeholder[:80], "accessibleName": ax_name[:80],
+                    "html": html[:160],
+                })
         return {
             "axControls": controls,
             "namelessCount": len(nameless),
@@ -465,6 +494,30 @@ def _keyboard_traversal(page) -> Dict[str, Any]:
         snap = page.evaluate(_FOCUS_SNAPSHOT_JS)
         if not snap.get("tag"):
             break
+        # ── An obscured reading must REPRODUCE before it is reported ──────────
+        # `entirelyObscured` was measured exactly once per stop. Focus can land
+        # while the browser is still scrolling the element into view (or while
+        # React is re-rendering around a layout shift), and a single reading taken
+        # at that moment describes neither the settled page nor a user experience
+        # — it is a photograph of a transition. A finding that cannot be reproduced
+        # 300ms later is not a finding; it is my instrument's timing.
+        # Measured 2026-09-23: /builder (ar) reported one entirely-obscured button
+        # this way; re-checking the identical focus by hand showed the element
+        # hit-testing to itself, i.e. not obscured once things settled.
+        if snap.get("entirelyObscured"):
+            first_read = snap.get("obscuredBy")
+            confirmed = False
+            for _ in range(3):
+                page.wait_for_timeout(300)
+                recheck = page.evaluate(_FOCUS_SNAPSHOT_JS)
+                if recheck.get("tag") and recheck.get("entirelyObscured"):
+                    confirmed = True
+                    snap = recheck
+                    break
+            if not confirmed:
+                snap["obscuredTransient"] = True
+                snap["obscuredByOnFirstRead"] = first_read
+                snap["entirelyObscured"] = False
         key = (snap["tag"], snap.get("text"), snap["rect"]["top"], snap["rect"]["left"])
         if key in seen:  # focus has cycled — the traversal is complete
             break
@@ -481,6 +534,10 @@ def _keyboard_traversal(page) -> Dict[str, Any]:
         and any(m in (s.get("text") or "").lower() for m in DEV_ONLY_CONTROL_MARKERS)
     ]
     obscured = [s for s in stops if s.get("entirelyObscured")]
+    transient = [
+        s for s in stops
+        if s.get("obscuredTransient")
+    ]
     partly = [s for s in stops if s.get("partlyObscured")]
     return {
         "tabBudget": KEYBOARD_TAB_BUDGET,
@@ -491,6 +548,11 @@ def _keyboard_traversal(page) -> Dict[str, Any]:
         "devOnlyChrome": [{"tag": s["tag"], "text": s["text"]} for s in dev_only[:4]],
         "obscured": obscured[:8],
         "obscuredCount": len(obscured),
+        "obscuredTransientNotReproduced": [
+            {"tag": s["tag"], "text": s["text"], "firstReadSaw": s.get("obscuredByOnFirstRead")}
+            for s in transient[:6]
+        ],
+        "obscuredTransientCount": len(transient),
         "partlyObscured": [{"tag": s["tag"], "text": s["text"],
                             "visibleFraction": s["visibleFraction"],
                             "obscuredBy": s.get("obscuredBy")} for s in partly[:8]],
@@ -616,6 +678,8 @@ def run(base_url: str, language: str, out: List[Dict[str, Any]]) -> None:
               f"(latin/arabic on an AR page = untranslated-content debt)")
 
         for name, route in ROUTES:
+            if ONLY_ROUTES is not None and name not in ONLY_ROUTES:
+                continue
             url = base_url + route
             entry: Dict[str, Any] = {"surface": name, "url": url, "language": language}
             try:
@@ -698,7 +762,20 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--base-url", default="http://localhost:43123")
     ap.add_argument("--json", default="/tmp/browser-a11y-rtl.json")
+    # Subset re-measurement: a probe that can only run the full sweep cannot
+    # answer "did THIS route change?", and re-running 26 surfaces to check one
+    # is how a capped sample starts looking like a total.
+    ap.add_argument("--only", default=None,
+                    help="comma-separated route names to measure (default: all)")
     args = ap.parse_args()
+
+    global ONLY_ROUTES
+    if args.only:
+        ONLY_ROUTES = {n.strip() for n in args.only.split(",") if n.strip()}
+        unknown = ONLY_ROUTES - {name for name, _ in ROUTES}
+        if unknown:
+            # a typo would otherwise produce an empty sweep that looks like a clean one
+            raise SystemExit(f"--only names not in the route table: {sorted(unknown)}")
 
     results: List[Dict[str, Any]] = []
     for language in ("en", "ar"):

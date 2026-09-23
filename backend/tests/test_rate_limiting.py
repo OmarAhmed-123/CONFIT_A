@@ -166,3 +166,50 @@ def test_every_expensive_consumer_endpoint_declares_a_limit():
 def test_limiter_disabled_state_restored():
     """Sanity: after the proof tests, the suite-wide disabled state holds."""
     assert app.state.limiter.enabled is False
+
+
+def test_429_carries_a_machine_code_and_a_retry_delay(limiter_on):
+    """The throttle response must be actionable and machine-readable.
+
+    Two contract points measured on this API before the handler existed:
+
+    * the body was slowapi's ``{"error": "Rate limit exceeded: 30 per 1 minute"}`` — a
+      bare string where every other error path returns
+      ``{"error": {"code", "message", "details"}}``, so a client could not branch on a
+      stable code;
+    * no ``Retry-After`` and no ``X-RateLimit-*`` headers were emitted (slowapi only
+      injects them when the limiter is built with ``headers_enabled=True``, which is
+      unusable here — it raises for any endpoint without a ``response: Response``
+      parameter, which is most of them), so a throttled caller was told "no" with no
+      indication of when to ask again. RFC 6585 defines ``Retry-After`` for 429.
+
+    This asserts the fixed contract: the project's error envelope, a stable code, and a
+    positive retry delay that agrees between the header and the body.
+    """
+    last = None
+    for _ in range(11):
+        last = client.post("/api/v1/auth/login", json={
+            "email": "shopper@confit.io", "password": "Password123!",
+        })
+        if last.status_code == 429:
+            break
+    assert last is not None and last.status_code == 429, (
+        f"expected the login limit to fire within 11 requests, got {last and last.status_code}"
+    )
+
+    payload = last.json()
+    assert "error" in payload and isinstance(payload["error"], dict), payload
+    assert payload["error"]["code"] == "RATE_LIMITED", payload
+    assert payload["error"]["message"], payload
+    details = payload["error"]["details"]
+    assert details.get("limit"), details
+
+    retry_after = last.headers.get("Retry-After")
+    assert retry_after is not None, (
+        "a 429 without Retry-After gives the client no way to back off: "
+        f"headers={dict(last.headers)}"
+    )
+    assert int(retry_after) > 0
+    assert details.get("retry_after_seconds") is not None, payload
+    # Both channels must agree — two different numbers would be worse than one.
+    assert abs(int(details["retry_after_seconds"]) - int(retry_after)) <= 1, (details, retry_after)

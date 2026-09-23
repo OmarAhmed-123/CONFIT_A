@@ -359,9 +359,21 @@ def get_user_orders(
     return [service.get_order(o.order_number) for o in orders]
 
 
+# Threat: the order number is the lookup key for an anonymous capability (guest
+# orders) drawn from a 32-bit space, which makes this endpoint an enumeration
+# oracle — for order existence unconditionally, and before the ownership fix
+# above, for order contents. Bounded per caller; the answers themselves
+# (404 / 401 / 200) are unchanged.
 @router.get("/commerce/orders/{order_number}", response_model=OrderOut)
 @router.get("/orders/{order_number}", response_model=OrderOut)
+# NOTE ON DECORATOR ORDER (measured 2026-09-23): this must sit BELOW the router
+# decorators. @router.get(...) registers the callable it is given; a @limiter.limit
+# stacked ABOVE it therefore wraps a function that is already registered, and the
+# limit silently never runs — 35 rapid requests produced 35×404 and no 429 with the
+# decorator in the wrong position.
+@limiter.limit("30/minute")
 def get_order_by_number(
+    request: Request,
     order_number: str,
     user: Optional[User] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
@@ -372,9 +384,13 @@ def get_order_by_number(
     return order
 
 
+# Same enumeration surface as the detail route above: tracking exposes pickup
+# codes and shipment state, so it carries the same bound.
 @router.get("/commerce/orders/{order_number}/tracking", response_model=OrderTrackingTimelineOut)
 @router.get("/orders/{order_number}/tracking", response_model=OrderTrackingTimelineOut)
+@limiter.limit("30/minute")
 def get_order_tracking_timeline(
+    request: Request,
     order_number: str,
     user: Optional[User] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)

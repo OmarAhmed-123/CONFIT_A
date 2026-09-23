@@ -17,6 +17,7 @@ os.environ.setdefault("CONFIT_VTON_DISABLE_REMBG", "1")
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
+from sqlalchemy import text
 from sqlalchemy.orm import sessionmaker
 from backend.app.core.database import get_db, engine as app_engine
 from backend.app.seed_data import seed_database
@@ -61,6 +62,22 @@ def setup_test_db():
     """
     os.makedirs("./backend/data", exist_ok=True)
     seed_database(target_engine=test_engine, force=True)  # tests intentionally reset their own throwaway DB
+
+    # ── Stock the throwaway DB so the suite cannot run itself out of inventory ──
+    # Inventory is CONSUMED by every order the suite places, and the seeded stock for
+    # some demo SKUs is smaller than the number of checkouts one session performs: the
+    # clutch's only SKU ships with ``stock_level: 12`` while the order-placing helpers
+    # each draw 1–2 units from whichever product the catalog lists first.
+    # MEASURED 2026-09-23: after a full run that SKU sat at 0 units and seven tests in
+    # two unrelated files failed with ``StopIteration`` from
+    # ``next(s for s in detail["skus"] if s["is_in_stock"])`` — a harness running out of
+    # stock, dressed up as a product failure. It cost real time to trace, and the same
+    # run had passed only hours earlier, so the failure looked like a regression.
+    # Stocking the throwaway DB makes a run repeatable. It cannot mask inventory
+    # behaviour: tests that assert on stock either set their own levels through the API
+    # or compare before/after values inside a session.
+    with test_engine.begin() as conn:
+        conn.execute(text("UPDATE product_skus SET stock_level = 500, is_in_stock = 1"))
     # Also seed the app-level engine so tests that use SessionLocal directly
     # (i.e. not via the get_db override) have the same seed data available.
     # Both engines resolve to file-scoped SQLite DBs, so this is cheap.

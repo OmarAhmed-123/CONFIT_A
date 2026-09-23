@@ -723,9 +723,28 @@ class CommerceService:
             return
         if user and order.get("user_id") and order.get("user_id") != user.id:
             raise AuthorizationError("Access denied: You cannot view order details of another customer.")
-        # Guest access: unguessable order number is the capability. Authenticated
-        # cross-user access is already rejected above.
+        # Anonymous callers get the guest capability for GENUINE guest orders only —
+        # orders with no owning account. It must never cover an order that belongs to
+        # a registered customer, or the order number becomes the only thing between a
+        # stranger and that customer's name, address and line items.
+        #
+        # Measured 2026-09-23: GET /api/v1/orders/{number} returned 200 with the
+        # recipient name, address line, city and items to a caller sending NO
+        # credentials at all — and to a caller sending an invalid bearer token —
+        # while the same request from a *different authenticated user* returned 403.
+        # An absent identity was being treated as "guest" without consulting
+        # ownership. 30 consecutive anonymous lookups were also unthrottled (no 429)
+        # in a process where /auth/register did answer 429, so enumeration was free.
+        #
+        # OWASP IDOR Prevention Cheat Sheet: "even with complex identifiers, access
+        # control checks are essential. If attackers obtain URLs for unauthorized
+        # objects, the application should still block their access attempts." The
+        # 32-bit random order number is defence in depth, never the authorisation.
         if user is None:
+            if order.get("user_id"):
+                raise AuthenticationError(
+                    "Authentication required: this order belongs to a registered customer."
+                )
             return
 
     def get_order_tracking(

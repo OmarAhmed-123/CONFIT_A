@@ -71,7 +71,14 @@ def _first_in_stock_sku(client: TestClient) -> dict:
     return next(s for s in detail["skus"] if s["is_in_stock"])
 
 
-def _checkout_one_item(client: TestClient, headers: dict) -> dict:
+def _checkout_one_item(client: TestClient, headers: dict, guest_email: str = None) -> dict:
+    """Place a one-item order.
+
+    ``guest_email`` is required by the checkout contract when the caller has no
+    account ("Sign in or provide guest_email to complete checkout") — measured, not
+    assumed: omitting it returns 401 and the fixture fails loudly rather than
+    producing an order that no guest path could ever have created.
+    """
     _empty_cart(client, headers)
     sku = _first_in_stock_sku(client)
     added = client.post(
@@ -80,19 +87,18 @@ def _checkout_one_item(client: TestClient, headers: dict) -> dict:
         headers=headers,
     )
     assert added.status_code in {200, 201}, added.text
-    r = client.post(
-        "/api/v1/commerce/checkout",
-        headers=headers,
-        json={
-            "payment_method": "card",
-            "fulfillment_type": "delivery",
-            "recipient_name": "Test Buyer",
-            "phone": "+971500000000",
-            "address_line": "1 Corniche",
-            "city": "Dubai",
-            "country": "AE",
-        },
-    )
+    payload = {
+        "payment_method": "card",
+        "fulfillment_type": "delivery",
+        "recipient_name": "Test Buyer",
+        "phone": "+971500000000",
+        "address_line": "1 Corniche",
+        "city": "Dubai",
+        "country": "AE",
+    }
+    if guest_email:
+        payload["guest_email"] = guest_email
+    r = client.post("/api/v1/commerce/checkout", headers=headers, json=payload)
     assert r.status_code == 200, r.text
     return r.json()
 
@@ -109,10 +115,25 @@ def test_order_tracking_blocks_cross_user_access(client: TestClient) -> None:
     )
     assert ok.status_code == 200, ok.text
 
-    # An anonymous guest with the (unguessable) order number is still allowed —
-    # this is the intended capability model, and it must not regress.
-    guest = client.get(f"/api/v1/commerce/orders/{order_number}/tracking")
-    assert guest.status_code == 200, guest.text
+    # A caller with NO credentials aimed at THIS order must be denied. It previously
+    # returned 200: ``assert_order_access`` treated an absent identity as "guest" without
+    # consulting ownership, so anyone holding the number read the recipient name, address
+    # and line items. OWASP's IDOR prevention guidance is explicit that an unguessable
+    # identifier is defence in depth and "the application should still block their access
+    # attempts" — the number is not the authorization. The guest CAPABILITY is not lost
+    # by this: it is asserted for a genuine guest order in
+    # ``test_anonymous_read_is_guest_only_and_owned_orders_are_denied`` below.
+    # "No headers" is NOT "no credentials": the TestClient keeps a cookie jar, and the
+    # login above put the owner's session cookie in it, so this request would still be
+    # authenticated as the owner. The jar is cleared first — a credential-free call is
+    # the only thing that measures the anonymous path.
+    client.cookies.clear()
+    anonymous = client.get(f"/api/v1/commerce/orders/{order_number}/tracking")
+    assert anonymous.status_code == 401, (
+        f"an anonymous caller read an order that belongs to a registered customer: "
+        f"{anonymous.status_code} {anonymous.text[:200]}"
+    )
+    assert anonymous.json()["error"]["code"] == "AUTH_FAILED"
 
     # A *different* authenticated consumer must be denied.
     intruder_email = f"g5ac_intruder_{uuid.uuid4().hex[:6]}@confit.io"
@@ -221,3 +242,51 @@ def test_checkout_session_confirm_guest_ownership_enforced(client: TestClient) -
         json=confirm_payload,
     )
     assert ok.status_code == 200, ok.text
+
+
+def test_anonymous_read_is_guest_only_and_owned_orders_are_denied(client: TestClient) -> None:
+    """The anonymous order capability must cover GUEST orders and nothing else.
+
+    Three separate claims, each measured, because a single assertion cannot
+    distinguish "anonymous is denied" from "anonymous is denied everything":
+    an owned order is closed to anonymous callers, an invalid token counts as
+    anonymous (it must not be treated as an authenticated stranger), and a real
+    guest order stays readable by the shopper who placed it without an account.
+    """
+    owner_token = _login(client, "shopper@confit.io")
+    owner_h = _headers(owner_token, "g5ac_anon_owner")
+    owned = _checkout_one_item(client, owner_h)
+    owned_number = owned["order_number"]
+
+    assert owned.get("user_id") is not None, "fixture guard: this order must belong to a customer"
+
+    # Clear the cookie jar: the login above authenticated this client, and a request
+    # without headers would still carry its session cookie — that measures the owner,
+    # not an anonymous caller.
+    client.cookies.clear()
+    no_credentials = client.get(f"/api/v1/commerce/orders/{owned_number}")
+    assert no_credentials.status_code == 401, no_credentials.text
+    assert client.get(f"/api/v1/commerce/orders/{owned_number}/tracking").status_code == 401
+
+    # A bearer token that does not resolve is still an anonymous caller; treating it as
+    # "some other authenticated user" would leak the same data through a wrong backend.
+    invalid = {"Authorization": "Bearer not-a-real-token"}
+    assert client.get(f"/api/v1/commerce/orders/{owned_number}", headers=invalid).status_code == 401
+
+    # The owner keeps full access, on both prefixes.
+    assert client.get(f"/api/v1/commerce/orders/{owned_number}", headers=owner_h).status_code == 200
+    assert client.get(f"/api/v1/orders/{owned_number}", headers=owner_h).status_code == 200
+
+    # A genuine guest order: same anonymous read, still allowed, or the fix would have
+    # removed a capability the store actually offers to signed-out shoppers.
+    guest_token = f"g5ac_anon_guest_{uuid.uuid4().hex[:6]}"
+    guest = _checkout_one_item(client, _guest_headers(guest_token),
+                               guest_email="g5ac.guest@example.com")
+    guest_number = guest["order_number"]
+    assert guest.get("user_id") is None, "fixture guard: this order must have no owning account"
+
+    client.cookies.clear()   # the guest order is placed with a token header, not a cookie
+    guest_read = client.get(f"/api/v1/commerce/orders/{guest_number}")
+    assert guest_read.status_code == 200, guest_read.text
+    assert guest_read.json()["order_number"] == guest_number
+    assert client.get(f"/api/v1/commerce/orders/{guest_number}/tracking").status_code == 200

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useBrandViewModel } from '../../viewmodels/useBrandViewModel';
 import { LoadingSpinner, EmptyState } from '../../components/common/CommonComponents';
 import { CardStackShowcase } from '../../components/showcase/DesignShowcases';
+import { ReadinessBanner } from '../../components/admin/ReadinessBanner';
 import type { StyleHeatmapCell } from '../../models';
 
 const HeatmapDimension: React.FC<{
@@ -67,6 +68,10 @@ export const AdminAnalyticsView: React.FC = () => {
 
   return (
     <div className="space-y-8 pb-20">
+      {/* P1 (2026-09-22 audit): the readiness verdict from /health must be
+          visible HERE, so KPI cards can never imply an operational platform
+          while a core capability is blocked. */}
+      <ReadinessBanner />
       <CardStackShowcase
         tone="analytics"
         compact

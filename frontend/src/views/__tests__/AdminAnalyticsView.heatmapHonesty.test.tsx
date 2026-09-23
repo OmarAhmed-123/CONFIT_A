@@ -24,6 +24,12 @@ vi.mock('../../viewmodels/useBrandViewModel', () => ({
 vi.mock('../../components/showcase/DesignShowcases', () => ({
   CardStackShowcase: () => null,
 }));
+// The readiness banner has its own contract test (ReadinessBanner.contract.
+// test.tsx) with all three verdicts; here it is pinned to "unknown" so the
+// heatmap assertions stay independent of the health fetch.
+vi.mock('../../hooks/usePlatformReadiness', () => ({
+  usePlatformReadiness: () => ({ verdict: 'unknown', readiness: null, isLoading: true }),
+}));
 
 import { AdminAnalyticsView } from '../b2b/AdminAnalyticsView';
 

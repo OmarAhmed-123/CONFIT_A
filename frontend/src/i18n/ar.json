@@ -790,6 +790,7 @@
     "integrity_verdict": "النتيجة: {{verdict}}",
     "integrity_counts": "{{rows}} سطر · {{actors}} فاعل · {{beforeAfter}} بقبل/بعد · {{requestId}} بمعرّف الطلب · {{ip}} بعنوان العميل",
     "integrity_tamper": "مقاومة العبث (tamper_evident): {{value}} — {{note}}",
+    "integrity_chain": "سلسلة التجزئة: {{chained}} مسلسل · {{unchained}} قبل الترحيل (غير مسلسل) · {{breaks}} كسور · مفتاح v{{keyVersion}}",
     "filters_aria": "عوامل تصفية سجل التدقيق",
     "filters_action": "الإجراء",
     "filters_resource_type": "نوع المورد",

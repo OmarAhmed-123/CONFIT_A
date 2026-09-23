@@ -46,6 +46,8 @@ docs) is refused** — the blocklist is `PUBLICLY_KNOWN_SECRET_VALUES` in `core/
 | `SECRET_KEY` | yes | `core/security.py` — signs **access** tokens | ≥32 chars, unique |
 | `JWT_REFRESH_SECRET` | yes | `core/security.py` — signs **refresh** tokens | ≥32 chars, **different** from `SECRET_KEY` |
 | `ENCRYPTION_KEY_FOR_BODY_DATA` | yes | `core/security.py` Fernet key (sha256) for `user_style_profiles.encrypted_body_data` | ≥32 chars. Rotating it makes existing ciphertext unreadable — re-encrypt first |
+| `AUDIT_HMAC_KEY` | yes | `core/audit_chain.py` — HMAC-SHA256 key for the tamper-evident audit hash chain (migration 0020) | ≥32 chars, **different** from `SECRET_KEY` (key separation). Rotate by bumping `AUDIT_CHAIN_KEY_VERSION` and keeping the retired key resolvable — never by replacing the value in place |
+| `AUDIT_CHAIN_KEY_VERSION` | no (default `1`) | `core/audit_chain.py` — persisted per audit row so key rotation never invalidates history | integer, bump on rotation |
 | `CORS_ORIGINS` | yes | `main.py` | JSON list of the real origins; default is localhost dev ports |
 | `STORAGE_PROVIDER` | recommended `s3` or `r2` | `services/storage_service.py` | with `AWS_S3_BUCKET`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, optional `S3_ENDPOINT_URL`. `boto3` must be in the manifest that installs it. Until configured: wardrobe/moodboard uploads → 501 |
 | `VTON_WORKER_URL` | yes for try-on | `services/tryon_service.py`, `/health/vton-contract` | the Modal **`-process`** URL |

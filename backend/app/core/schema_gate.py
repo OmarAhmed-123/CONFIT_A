@@ -140,6 +140,11 @@ REQUIRED_COLUMNS: Dict[str, tuple[str, ...]] = {
     # Without these the public-look endpoint cannot enforce revocation, so a
     # drifted DB would silently serve permanently-live share links.
     "outfits": ("share_expires_at", "share_revoked_at", "share_view_count", "updated_at"),
+    # 0020 — tamper-evident audit hash chain. Without these columns the
+    # mapper-level before_insert listener would crash EVERY audit write
+    # (and with it every audited business action), so their absence is a
+    # blocking drift, not a degraded feature.
+    "audit_logs": ("prev_hash", "entry_hash", "chain_key_version"),
 }
 
 

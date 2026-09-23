@@ -106,15 +106,35 @@ class AuditStatsOut(BaseModel):
     )
 
 
+class AuditChainOut(BaseModel):
+    """Hash-chain verification result (migration 0020, core/audit_chain.py).
+
+    ``chained_rows`` counts sampled rows whose HMAC verified; ``unchained_rows``
+    counts rows that predate the migration (reported, never re-signed);
+    ``breaks`` lists concrete per-row failures — an ``entry_hash_mismatch``
+    means the row content was altered after write, a ``chain_link_mismatch``
+    means a row was deleted, inserted or reordered at that point.
+    """
+
+    chained_rows: int
+    unchained_rows: int
+    breaks: List[Dict[str, Any]] = Field(default_factory=list)
+    head_hash: Optional[str] = None
+    key_version: int
+    canonical_version: int
+
+
 class AuditIntegrityOut(BaseModel):
-    """Structural self-check of the audit table.
+    """Structural self-check + hash-chain verification of the audit table.
 
     This is an honest, bounded check — it verifies the invariants the write
     path actually guarantees (required columns populated, ordering, actor
-    resolvable, redaction applied) and reports what it could not check. It
-    does **not** claim tamper-evidence: that would require a persisted hash
-    chain, which needs a schema migration this branch deliberately does not
-    introduce (see the gap register).
+    resolvable, redaction applied) AND, since migration 0020, recomputes the
+    persisted HMAC hash chain over the sampled rows (core/audit_chain.py).
+    ``tamper_evident`` is computed from that verification — chained rows
+    exist and the chain verifies — never asserted from configuration alone;
+    the residual limits (key compromise, tail truncation across runs) are
+    listed in ``limitations``.
     """
 
     checked_rows: int
@@ -127,4 +147,5 @@ class AuditIntegrityOut(BaseModel):
     rows_with_ip: int
     verdict: str
     tamper_evident: bool = False
+    chain: Optional[AuditChainOut] = None
     limitations: List[str] = Field(default_factory=list)

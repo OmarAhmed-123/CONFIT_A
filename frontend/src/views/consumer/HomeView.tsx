@@ -290,8 +290,7 @@ export const HomeView: React.FC = () => {
             </h1>
 
             <p className="text-sm sm:leading-relaxed text-slate-200 font-light max-w-xl">
-              Start a guided styling flow for occasion, budget, palette, and fit
-              preference before you shop.
+              {t('home.stylist_flow_cta_body')}
             </p>
             <p className="text-xs sm:text-sm sm:leading-relaxed text-slate-400 font-light max-w-xl">
               {t("home.hero_subtitle")}
@@ -308,7 +307,7 @@ export const HomeView: React.FC = () => {
                 className="px-7 py-3.5 rounded-2xl bg-[#C5A059] hover:bg-[#E2BF70] text-[#0C0E1E] font-bold text-xs sm:text-sm tracking-wide shadow-lg hover:shadow-[#C5A059]/20 transition-all flex items-center gap-2 active:scale-98"
               >
                 <SparkleIcon size={16} color="#0C0E1E" />
-                <span>Get your first look</span>
+                <span>{t('home.get_first_look')}</span>
               </button>
 
               <button
@@ -338,15 +337,15 @@ export const HomeView: React.FC = () => {
                 to="/discover"
                 className="px-4 py-3.5 rounded-2xl text-slate-300 hover:text-[#E2BF70] font-semibold text-xs sm:text-sm transition-all"
               >
-                Shop the catalog →
+                {t('home.shop_catalog_cta')}
               </Link>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 max-w-2xl pt-2">
               {[
-                "No account required to start",
-                "Photo optional for fit checks",
-                "Privacy details before uploads",
+                t('home.fact_no_account'),
+                t('home.fact_photo_optional'),
+                t('home.fact_privacy'),
               ].map((item) => (
                 <div
                   key={item}
@@ -369,7 +368,7 @@ export const HomeView: React.FC = () => {
                 <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
                 <div className="absolute bottom-0 left-0 right-0 p-5 text-white">
                   <span className="rounded-full bg-[#C5A059] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-[#0C0E1E]">
-                    Example result
+                    {t('home.example_result')}
                   </span>
                   <h2 className="mt-3 font-serif text-2xl font-bold">
                     Tailored Power · Work
@@ -382,17 +381,15 @@ export const HomeView: React.FC = () => {
               <div className="mt-4 grid grid-cols-2 gap-3 text-xs">
                 <div className="rounded-2xl bg-white/90 p-3 text-[#1B1F3B]">
                   <span className="block text-[10px] font-bold uppercase tracking-wider text-[#A37E44]">
-                    Why this works
+                    {t('home.why_this_works')}
                   </span>
-                  Structured shoulders balance relaxed trousers and keep the
-                  look boardroom-ready.
+                  {t('home.why_this_works_body')}
                 </div>
                 <div className="rounded-2xl bg-[#0C0E1E]/90 p-3 text-white">
                   <span className="block text-[10px] font-bold uppercase tracking-wider text-[#C5A059]">
-                    Fit next step
+                    {t('home.fit_next_step')}
                   </span>
-                  Add measurements or try a visual preview before saving or
-                  buying.
+                  {t('home.fit_next_step_body')}
                 </div>
               </div>
             </div>
@@ -424,7 +421,7 @@ export const HomeView: React.FC = () => {
           <div className="space-y-4">
             <div>
               <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                What are you dressing for?
+                {t('home.intent_question')}
               </p>
               <div className="mt-2 flex flex-wrap gap-2">
                 {guideOccasions.map((occasion) => (
@@ -444,7 +441,7 @@ export const HomeView: React.FC = () => {
             <div className="grid gap-3 sm:grid-cols-3">
               <label className="space-y-2 text-xs font-semibold text-slate-600">
                 <span className="block text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                  Budget guide
+                  {t('home.budget_guide')}
                 </span>
                 <select
                   value={guideBudget}

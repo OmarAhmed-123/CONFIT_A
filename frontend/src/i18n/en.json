@@ -48,7 +48,20 @@
     "occasion_casual": "Smart Casual",
     "trending_title": "Trending Silhouettes",
     "recently_viewed": "Recently Viewed",
-    "new_drops": "New From Preferred Brands"
+    "new_drops": "New From Preferred Brands",
+    "stylist_flow_cta_body": "Start a guided styling flow for occasion, budget, palette, and fit preference before you shop.",
+    "get_first_look": "Get your first look",
+    "shop_catalog_cta": "Shop the catalog →",
+    "fact_no_account": "No account required to start",
+    "fact_photo_optional": "Photo optional for fit checks",
+    "fact_privacy": "Privacy details before uploads",
+    "example_result": "Example result",
+    "why_this_works": "Why this works",
+    "why_this_works_body": "Structured shoulders balance relaxed trousers and keep the look boardroom-ready.",
+    "fit_next_step": "Fit next step",
+    "fit_next_step_body": "Add measurements or try a visual preview before saving or buying.",
+    "intent_question": "What are you dressing for?",
+    "budget_guide": "Budget guide"
   },
   "stylist": {
     "title": "CONFIT AI Stylist",
@@ -213,7 +226,13 @@
     "eg_color": "e.g. Navy Blue",
     "capsule_caption": "A rotating capsule view for your wardrobe stories",
     "reuse_caption": "Reuse owned pieces through premium outfit formulas",
-    "style_what_i_own": "Style What I Own"
+    "style_what_i_own": "Style What I Own",
+    "eyebrow_styling_stack": "Wardrobe Styling Stack",
+    "category_outerwear": "Outerwear",
+    "category_tops": "Tops & Shirts",
+    "category_bottoms": "Bottoms & Trousers",
+    "category_footwear": "Footwear",
+    "category_accessories": "Accessories"
   },
   "commerce": {
     "add_to_cart": "Add to Bag",
@@ -842,7 +861,10 @@
     "partial_look": "Partial Look"
   },
   "checkout": {
-    "payment_method_demo_note": "Demo mode — this method does not move money on this deployment."
+    "payment_method_demo_note": "Demo mode — this method does not move money on this deployment.",
+    "demo_mode_title": "Demo Payment Mode",
+    "demo_mode_body": "This checkout uses a simulated payment adapter - no real money will be charged. Card/BNPL transactions are authorized locally and labelled as demo. When PAYMENTS_LIVE=true, real PSP credentials (Stripe/Tabby/Tamara) are required and charges will be live. You will see \"payment_mode: demo\" in order confirmation.",
+    "subtitle_server_totals": "Multi-brand checkout. Totals, tax, and discounts are calculated on the server."
   },
   "order": {
     "state_unknown": "Status unavailable",
@@ -895,6 +917,24 @@
   },
   "discover": {
     "search_label": "Search the catalogue",
-    "search_placeholder": "Search blazers, oxford shirts, silk dresses..."
+    "search_placeholder": "Search blazers, oxford shirts, silk dresses...",
+    "mood_stack_title": "Discovery Mood Stack",
+    "mood_stack_body": "Browse by real outfit direction, not only filters",
+    "all_categories": "All Categories",
+    "photo_match": "Photo Match",
+    "occasion_label": "Occasion:"
+  },
+  "brand": {
+    "tagline": "Confidence + Fit"
+  },
+  "product": {
+    "complete_the_look_title": "Complete The Look Stack",
+    "complete_the_look_body": "Style this garment inside a full outfit story",
+    "find_my_size": "Find my size",
+    "available_sizes": "Available sizes",
+    "fabric_care_details": "Fabric, care & details",
+    "size_and_fit": "Size & fit",
+    "composition_label": "Composition:",
+    "care_label": "Care:"
   }
 }

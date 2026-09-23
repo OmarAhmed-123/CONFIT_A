@@ -5,13 +5,14 @@ An import may update a variant, but cannot move it to a different product.
 Partial success is intentional: each accepted row commits independently.
 """
 import csv
+import difflib
 import io
 import json
 import hashlib
 import re
 from datetime import datetime, timezone
 from urllib.parse import urlsplit
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from backend.app.core.money import validate_money
@@ -19,6 +20,15 @@ from backend.app.core.logging import logger
 from backend.app.models.catalog import Product, ProductSKU, Category
 from backend.app.models.user import BrandProfile, AuditLog
 from backend.app.repositories.brand_repository import BrandRepository
+
+
+class CatalogHeaderError(ValueError):
+    """Raised when the header row itself is unusable.
+
+    Carrying the classification in the TYPE rather than sniffing for the word
+    'header' inside the message means the wording can be improved freely
+    without silently re-labelling the error's field as 'file'.
+    """
 
 
 class CatalogImportError:
@@ -150,12 +160,99 @@ class BrandCatalogService:
         return valid, errors, dict(total=len(rows), accepted=len(valid),
                                   rejected=len({e.row for e in errors}), duplicate=duplicate)
 
+    def _diagnose_header(self, fields: List[str]) -> Optional[str]:
+        """Explain what is actually wrong with a header row, or return None if it is fine.
+
+        WHY THIS EXISTS: every header failure used to produce one identical
+        sentence listing the required columns. A one-character typo, an Excel
+        file saved with semicolons, and a password manager export uploaded by
+        mistake were indistinguishable to the user -- the message restated the
+        rule but never said which part of THEIR file broke it, so the only
+        recovery strategy was guesswork. The observed consequence was a brand
+        retrying three times and giving up with 0 rows imported.
+
+        The message must stay strictly structural: header NAMES only. Cell
+        values are never quoted back, because the file may well be something
+        the user never meant to upload (we have seen a password export), and
+        this text is persisted to catalog_import_jobs.errors_json.
+        """
+        required = list(self.REQUIRED_FIELDS)
+        if not fields:
+            return ('The file has no header row. The first line must name the columns: '
+                    + ', '.join(required))
+
+        # A single-column header row almost always means the delimiter is wrong:
+        # Excel in several locales writes ';' and CSV readers see one big column.
+        if len(fields) == 1 and any(d in fields[0] for d in (';', '\t', '|')):
+            delimiter = next(d for d in (';', '\t', '|') if d in fields[0])
+            name = {';': 'semicolons', '\t': 'tabs', '|': 'pipes'}[delimiter]
+            return (f'The columns look separated by {name}, not commas. Re-save the file as '
+                    f'"CSV (comma delimited)" -- in Excel use File > Save As and pick that '
+                    f'exact format.')
+
+        duplicates = sorted({f for f in fields if fields.count(f) > 1})
+        if duplicates:
+            return ('These column names appear more than once: ' + ', '.join(duplicates)
+                    + '. Every column must have a unique name.')
+
+        missing = [f for f in required if f not in fields]
+        if not missing:
+            return None
+
+        # Name the likely culprit for each missing column instead of listing all
+        # five. Case and surrounding whitespace are the two mistakes that look
+        # identical to the eye but are not equal as strings.
+        lookup = {f.strip().lower(): f for f in fields}
+
+        # Whole-file mistakes get one sentence instead of one per column: a file
+        # saved with UPPERCASE headers would otherwise produce five near-identical
+        # clauses, which buries the instruction it is trying to give.
+        if all(lookup.get(f) not in (None, f) for f in missing):
+            if all((lookup.get(f) or '').strip().lower() == f
+                   and (lookup.get(f) or '') == (lookup.get(f) or '').strip()
+                   for f in missing) and len(missing) > 1:
+                return ('The column names are in the wrong case. Header names must be '
+                        'lowercase: ' + ', '.join(required))
+            if all((lookup.get(f) or '').strip() != (lookup.get(f) or '') for f in missing) and len(missing) > 1:
+                return ('The column names have extra spaces around them. Remove the spaces so '
+                        'the header reads exactly: ' + ', '.join(required))
+
+        hints, unresolved = [], []
+        for field in missing:
+            candidate = lookup.get(field)
+            if candidate is not None and candidate != field:
+                if candidate.strip() != candidate:
+                    hints.append(f'"{candidate}" has extra spaces around it -- rename it to "{field}"')
+                else:
+                    hints.append(f'"{candidate}" is the wrong case -- rename it to "{field}" (lowercase)')
+                continue
+            close = difflib.get_close_matches(field, fields, n=1, cutoff=0.75)
+            if close:
+                hints.append(f'"{close[0]}" looks like a misspelling of "{field}"')
+            else:
+                unresolved.append(field)
+
+        parts = []
+        if unresolved:
+            parts.append('Missing required column(s): ' + ', '.join(unresolved))
+        if hints:
+            parts.append('; '.join(hints))
+
+        # Nothing matched even loosely: this is very likely not a catalog file.
+        if unresolved and not hints and len(unresolved) == len(required):
+            return ('This does not look like a product catalog file -- none of the required '
+                    'columns are present. Expected: ' + ', '.join(required)
+                    + '. Found: ' + ', '.join(fields[:8])
+                    + (', ...' if len(fields) > 8 else ''))
+        return '. '.join(parts) + '.'
+
     def parse_csv(self, csv_content, brand_id) -> Tuple[list, list, dict]:
         try:
             reader = csv.DictReader(io.StringIO(csv_content.lstrip('\ufeff')), strict=True)
             fields = reader.fieldnames or []
-            if len(fields) != len(set(fields)) or any(f not in fields for f in self.REQUIRED_FIELDS):
-                raise ValueError('CSV needs unique headers including: ' + ', '.join(self.REQUIRED_FIELDS))
+            problem = self._diagnose_header(fields)
+            if problem:
+                raise CatalogHeaderError(problem)
             rows = []
             for source in reader:
                 if len(rows) >= self.MAX_ROWS:
@@ -166,7 +263,8 @@ class BrandCatalogService:
                 raise ValueError('CSV contains no data rows')
             return self._prepare_rows(rows, brand_id)
         except (csv.Error, ValueError) as exc:
-            return [], [CatalogImportError(0, 'header' if 'header' in str(exc) else 'file', str(exc))], dict(total=0, accepted=0, rejected=0, duplicate=0)
+            field = 'header' if isinstance(exc, CatalogHeaderError) else 'file'
+            return [], [CatalogImportError(0, field, str(exc))], dict(total=0, accepted=0, rejected=0, duplicate=0)
 
     def import_products(self, valid_rows, brand_id):
         accepted, rejected, errors = 0, 0, []

@@ -289,13 +289,19 @@ class MarketPaymentCapabilityRegistry(MarketSettlement):
             if code in m.supported_countries or "GLOBAL" in m.supported_countries
         ]
 
-        disclaimer_en = (
-            f"All transactions in {code} are processed in compliance with local central bank regulations "
-            "and PCI-DSS tokenization standards."
-        )
-        disclaimer_ar = (
-            f"تتم جميع المعاملات في {code} بما يتوافق مع تعليمات البنوك المركزية ومعايير التشفير الآمن PCI-DSS."
-        )
+        # The catalogue makes no compliance claim. `PAYMENT_CATALOG` describes
+        # what the platform supports *in principle*, and this method is called
+        # directly by `product_context_service` as well as through the
+        # orchestrator, so a sentence written here would be published without any
+        # measurement behind it. Until 2026-09-23 this hardcoded "All
+        # transactions in {code} are processed in compliance with local central
+        # bank regulations and PCI-DSS tokenization standards." — served for EG
+        # while nothing but cash on delivery could settle, and served for
+        # markets the platform does not serve at all. The truth-checked wording
+        # lives in `capability_service.payment_disclaimer` and is stamped onto
+        # every response by `PaymentOrchestrator.get_market_methods`.
+        disclaimer_en = f"Payment availability in {code} is reported per method below."
+        disclaimer_ar = f"يُبيَّن توفّر كل وسيلة دفع في {code} أدناه."
 
         return MarketPaymentCapabilitiesResponse(
             market_code=code,

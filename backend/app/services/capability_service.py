@@ -241,6 +241,62 @@ def payment_method_is_live(method_id: str) -> bool:
     return bool(credential)
 
 
+def payment_disclaimer(
+    country_code: str,
+    offered_method_ids: List[str],
+    live_method_ids: List[str],
+) -> tuple[str, str]:
+    """What may honestly be said about payment on THIS deployment, in this market.
+
+    Replaces a literal. ``MarketPaymentCapabilityRegistry`` shipped one sentence
+    for every market::
+
+        All transactions in {code} are processed in compliance with local
+        central bank regulations and PCI-DSS tokenization standards.
+
+    Measured 2026-09-23: production served that sentence for EG while its own
+    ``/commerce/payment-methods`` answered ``is_live=false`` for card, Tabby,
+    Vodafone Cash and InstaPay, ``payments_mode=demo``, and no PSP credential
+    existed. No card transaction was processed, so no tokenization standard was
+    engaged — a compliance claim standing on nothing measured. It was also
+    served for markets the platform does not serve at all (``?country_code=XX``
+    → "All transactions in XX are processed..."). The project already holds the
+    opposite convention: a disclaimer must describe what actually happened
+    (see ``test_fit_finder_api.py::test_measurement_disclaimer_matches_the_real_source``).
+
+    So the text is derived from the measurement, not the catalogue:
+
+    * a PSP method is live → the compliance sentence is *earned* and kept;
+    * only ``cod`` is live → say so, name it, and claim nothing else;
+    * nothing is live in this market → say that instead of implying a rail.
+
+    ``available_methods[].is_live`` and this text therefore read from the same
+    two inputs, which is why the orchestrator stamps both.
+    """
+    code = (country_code or "EG").strip().upper() or "EG"
+    offered = {str(m).strip().lower() for m in (offered_method_ids or [])}
+    live = {str(m).strip().lower() for m in (live_method_ids or [])} & offered
+
+    if live - {"cod"}:
+        return (
+            f"All transactions in {code} are processed in compliance with local "
+            "central bank regulations and PCI-DSS tokenization standards.",
+            f"تتم جميع المعاملات في {code} بما يتوافق مع تعليمات البنوك المركزية "
+            "ومعايير التشفير الآمن PCI-DSS.",
+        )
+    if "cod" in live:
+        return (
+            f"Card and instalment payments are not enabled on this deployment. "
+            f"Cash on delivery is the only live payment method in {code}.",
+            f"الدفع بالبطاقة والتقسيط غير مُفعّل على هذا النشر. "
+            f"الدفع نقدًا عند الاستلام هو وسيلة الدفع الحيّة الوحيدة في {code}.",
+        )
+    return (
+        f"No payment method is enabled for {code} on this deployment.",
+        f"لا توجد وسيلة دفع مُفعّلة في {code} على هذا النشر.",
+    )
+
+
 def bnpl_is_live() -> bool:
     """Can a shopper actually pay in instalments right now?
 

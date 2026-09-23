@@ -103,6 +103,7 @@
     "guided_mode": "Guided mode",
     "no_size": "No purchasable size",
     "name_placeholder": "Give your look a name...",
+    "name_label": "Outfit name",
     "formula_hint": "Start from a styled formula, then customize the canvas",
     "replace_hint": "Start with a formula, then replace one item at a time",
     "formula_added": "Starter formula added. Replace any item to personalize the look.",

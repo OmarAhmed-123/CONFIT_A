@@ -379,11 +379,19 @@ export const OutfitBuilderView: React.FC = () => {
             {/* Canvas Title & Occasion */}
             <div className="bg-white rounded-3xl border border-slate-200/80 p-5 shadow-2xs space-y-3">
               <div className="flex flex-col sm:flex-row gap-3">
+                {/* The name field previously had only a placeholder to identify
+                    it. Chrome does expose the placeholder as the accessible name
+                    (measured 2026-09-23 with the CDP accessibility tree:
+                    role=textbox, name="Give your look a name..."), but it is
+                    announced as a hint and disappears the moment the user types,
+                    leaving the field unnamed — WCAG 3.3.2 Labels or Instructions.
+                    `aria-label` gives it a name that survives typing. */}
                 <input
                   type="text"
                   value={outfitTitle}
                   onChange={(e) => setOutfitTitle(e.target.value)}
                   placeholder={t('outfit_builder.name_placeholder')}
+                  aria-label={t('outfit_builder.name_label')}
                   className="flex-1 font-serif text-base font-bold text-[#1B1F3B] border-b border-slate-200 focus:outline-none focus:border-[#C5A059] py-1"
                 />
                 <select

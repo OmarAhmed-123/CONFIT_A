@@ -150,8 +150,8 @@ export const DiscoverView: React.FC = () => {
       <CardStackShowcase
         tone="consumer"
         compact
-        eyebrow="{t('discover.mood_stack_title')}"
-        title="{t('discover.mood_stack_body')}"
+        eyebrow={t('discover.mood_stack_title')}
+        title={t('discover.mood_stack_body')}
         description="The animated stack introduces tactile editorial browsing before customers refine by category, occasion, brand, and size."
       />
       {/* Header & Search Bar */}

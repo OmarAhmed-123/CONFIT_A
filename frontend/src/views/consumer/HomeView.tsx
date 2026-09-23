@@ -912,10 +912,12 @@ export const HomeView: React.FC = () => {
                   </div>
                   <div className="mt-1.5">
                     {capabilities.bnpl_live ? (
-                      <BNPLBadge price={p.base_price} provider="Tabby" />
+                      // bnpl_live is the measured flag (live PSP adapter + key +
+                      // live mode), so a badge shown here IS an offer.
+                      <BNPLBadge price={p.base_price} provider="Tabby" isEstimate={false} />
                     ) : (
                       <span className="text-[11px] text-slate-500">
-                        BNPL is not live in this environment.
+                        {t('commerce.bnpl_not_live')}
                       </span>
                     )}
                   </div>

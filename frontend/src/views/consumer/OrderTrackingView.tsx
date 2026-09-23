@@ -4,6 +4,11 @@ import { CardStackShowcase } from '../../components/showcase/DesignShowcases';
 import { useTranslation } from 'react-i18next';
 import { commerceService } from '../../services/apiServices';
 import { Order, OrderTrackingTimeline } from '../../models';
+import {
+  localizeOrderStatus,
+  localizePaymentMethod,
+  localizePaymentStatus,
+} from '../../i18n/orderState';
 import { BopisIcon } from '../../components/icons/ConfitIcons';
 import { LoadingSpinner, EmptyState } from '../../components/common/CommonComponents';
 
@@ -90,14 +95,16 @@ export const OrderTrackingView: React.FC = () => {
       <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <span className="text-xs font-bold text-[#B8935A] uppercase tracking-wider">
-            {timeline.current_status.replace(/_/g, ' ')}
+            {localizeOrderStatus(timeline.current_status, t)}
           </span>
           <h1 className="font-serif text-2xl sm:text-3xl font-bold text-[#1B1F3B] mt-1">
             Order #{order.order_number}
           </h1>
           <p className="text-xs text-slate-500 mt-1">
-            Placed on {new Date(order.created_at).toLocaleDateString()} · {order.payment_method} · payment {order.payment_status}
-            {order.payment_mode === 'demo' ? ' (demo adapter)' : ''}
+            {new Date(order.created_at).toLocaleDateString()} ·{' '}
+            {localizePaymentMethod(order.payment_method, t)} ·{' '}
+            {localizePaymentStatus(order.payment_status, t)}
+            {order.payment_mode === 'demo' ? ` (${t('order.demo_adapter_note')})` : ''}
           </p>
           {timeline.tracking_number && (
             <p className="text-xs text-slate-600 mt-1">

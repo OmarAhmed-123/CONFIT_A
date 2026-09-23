@@ -175,7 +175,10 @@ export function useCheckoutViewModel() {
         city: shippingDetails.city,
         country: shippingDetails.country || 'UAE',
         promo_code: shippingDetails.promoCode || undefined,
-        idempotency_key: 'idemp_' + Math.random().toString(36).substring(2, 12),
+        // CSPRNG, never Math.random(): this key decides whether a retry is the
+        // same purchase, so predictability is a replay hazard and a collision is
+        // a correctness bug. See frontend/src/lib/secureId.ts.
+        idempotency_key: generateIdempotencyKey(),
         try_on_assisted: true,
       });
 

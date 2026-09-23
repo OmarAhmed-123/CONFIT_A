@@ -211,6 +211,205 @@ def test_checkout_idempotency_returns_same_order(client: TestClient) -> None:
     assert first.json()["order_number"] == second.json()["order_number"]
 
 
+# ---------------------------------------------------------------------------
+# Idempotency-key ownership (2026-09-22)
+#
+# `orders.idempotency_key` is UNIQUE table-wide and the replay lookup was
+# global, with no ownership assertion on the returned order. GET
+# /orders/{n} DOES assert ownership (`assert_order_access`); the replay path
+# did not, so a caller who sent another shopper's key received that shopper's
+# order. These tests hold the replay path to the rule the rest of commerce
+# already follows. Legitimate same-caller replay above must keep working.
+# ---------------------------------------------------------------------------
+
+
+def _register_shopper(client: TestClient, email: str) -> dict:
+    """A fresh account, so the test owns both sides of any cross-account call."""
+    client.post(
+        "/api/v1/auth/register",
+        json={"email": email, "password": "Password123!", "full_name": "Idem Owner"},
+    )
+    login = client.post(
+        "/api/v1/auth/login", json={"email": email, "password": "Password123!"}
+    )
+    assert login.status_code == 200, login.text
+    return {"Authorization": f"Bearer {login.json()['access_token']}"}
+
+
+def _fill_cart(client: TestClient, headers: dict) -> None:
+    """One in-stock SKU into the cart identified by `headers` (201 Created)."""
+    sku = client.get("/api/v1/catalog/products").json()[0]
+    detail = client.get(f"/api/v1/catalog/products/{sku['id']}").json()
+    in_stock = next(s for s in detail["skus"] if s["is_in_stock"])
+    added = client.post(
+        "/api/v1/commerce/cart/items",
+        json={"product_sku_id": in_stock["id"], "quantity": 1},
+        headers=headers,
+    )
+    assert added.status_code in (200, 201), added.text
+
+
+def _place_order(client: TestClient, headers: dict, key: str, session: str) -> dict:
+    h = {**headers, "X-Session-Token": session}
+    _fill_cart(client, h)
+    csrf = client.cookies.get("confit_csrf")
+    if csrf:
+        h = {**h, "X-CSRF-Token": csrf}
+    placed = client.post(
+        "/api/v1/commerce/checkout",
+        json={
+            "payment_method": "cod",
+            "fulfillment_type": "delivery",
+            "idempotency_key": key,
+            "recipient_name": "Idem Owner",
+            "phone": "+971500000123",
+            "address_line": "1 Test Road",
+            "city": "Dubai",
+            "country": "AE",
+        },
+        headers=h,
+    )
+    assert placed.status_code == 200, placed.text
+    return placed.json()
+
+
+def test_idempotency_key_does_not_disclose_another_shoppers_order(
+    client: TestClient,
+) -> None:
+    """Account B must not receive account A's order by sending A's key."""
+    owner = _register_shopper(client, "idem.owner@confit-test.dev")
+    intruder = _register_shopper(client, "idem.intruder@confit-test.dev")
+
+    # A places a real order and the key is spent.
+    victim_order = _place_order(client, owner, "key-owned-by-a", "sess_idem_a")
+    assert victim_order["order_number"]
+
+    # B replays it. Same key, different account.
+    response = client.post(
+        "/api/v1/commerce/checkout",
+        json={
+            "payment_method": "cod",
+            "fulfillment_type": "delivery",
+            "idempotency_key": "key-owned-by-a",
+            "recipient_name": "Intruder",
+            "phone": "+971500000999",
+            "address_line": "9 Other Road",
+            "city": "Abu Dhabi",
+            "country": "AE",
+        },
+        headers={**intruder, "X-Session-Token": "sess_idem_b"},
+    )
+    assert response.status_code == 409, (
+        "a spent key belonging to another shopper must not replay their order: "
+        + response.text
+    )
+    assert response.json().get("error", {}).get("code") == "IDEMPOTENCY_KEY_CONFLICT"
+    # The refusal must not leak the order, or even confirm it exists.
+    assert victim_order["order_number"] not in response.text
+    assert "+971500000123" not in response.text
+    assert "1 Test Road" not in response.text
+
+
+def test_guest_idempotency_key_does_not_cross_guest_sessions(client: TestClient) -> None:
+    """A guest key is scoped to the guest session that spent it."""
+    email = "idem.guest@confit-test.dev"
+    _fill_cart(client, {"X-Session-Token": "sess_idem_guest_1"})
+    first = client.post(
+        "/api/v1/commerce/checkout",
+        json={
+            "payment_method": "cod",
+            "fulfillment_type": "delivery",
+            "guest_email": email,
+            "idempotency_key": "guest-owned-key",
+            "recipient_name": "Guest One",
+            "phone": "+971500000111",
+            "address_line": "1 Guest Road",
+            "city": "Dubai",
+            "country": "AE",
+        },
+        headers={"X-Session-Token": "sess_idem_guest_1"},
+    )
+    assert first.status_code == 200, first.text
+    order_number = first.json()["order_number"]
+
+    # A DIFFERENT guest session sends the same key.
+    crossed = client.post(
+        "/api/v1/commerce/checkout",
+        json={
+            "payment_method": "cod",
+            "fulfillment_type": "delivery",
+            "guest_email": "someone.else@confit-test.dev",
+            "idempotency_key": "guest-owned-key",
+            "recipient_name": "Guest Two",
+            "phone": "+971500000222",
+            "address_line": "2 Guest Road",
+            "city": "Dubai",
+            "country": "AE",
+        },
+        headers={"X-Session-Token": "sess_idem_guest_2"},
+    )
+    assert crossed.status_code == 409, crossed.text
+    assert order_number not in crossed.text
+
+    # The ORIGINAL session still replays its own order (no over-blocking).
+    replay = client.post(
+        "/api/v1/commerce/checkout",
+        json={
+            "payment_method": "cod",
+            "fulfillment_type": "delivery",
+            "guest_email": email,
+            "idempotency_key": "guest-owned-key",
+            "recipient_name": "Guest One",
+            "phone": "+971500000111",
+            "address_line": "1 Guest Road",
+            "city": "Dubai",
+            "country": "AE",
+        },
+        headers={"X-Session-Token": "sess_idem_guest_1"},
+    )
+    assert replay.status_code == 200, replay.text
+    assert replay.json()["order_number"] == order_number
+
+
+def test_signed_in_shopper_cannot_replay_a_guest_orders_key(client: TestClient) -> None:
+    """Boundary: an account never inherits a guest order by knowing its key."""
+    _fill_cart(client, {"X-Session-Token": "sess_boundary_guest"})
+    guest = client.post(
+        "/api/v1/commerce/checkout",
+        json={
+            "payment_method": "cod",
+            "fulfillment_type": "delivery",
+            "guest_email": "boundary.guest@confit-test.dev",
+            "idempotency_key": "boundary-guest-key",
+            "recipient_name": "Boundary Guest",
+            "phone": "+971500000333",
+            "address_line": "3 Boundary Road",
+            "city": "Dubai",
+            "country": "AE",
+        },
+        headers={"X-Session-Token": "sess_boundary_guest"},
+    )
+    assert guest.status_code == 200, guest.text
+
+    shopper = _register_shopper(client, "boundary.shopper@confit-test.dev")
+    attempt = client.post(
+        "/api/v1/commerce/checkout",
+        json={
+            "payment_method": "cod",
+            "fulfillment_type": "delivery",
+            "idempotency_key": "boundary-guest-key",
+            "recipient_name": "Boundary Shopper",
+            "phone": "+971500000444",
+            "address_line": "4 Boundary Road",
+            "city": "Dubai",
+            "country": "AE",
+        },
+        headers={**shopper, "X-Session-Token": "sess_boundary_shopper"},
+    )
+    assert attempt.status_code == 409, attempt.text
+    assert guest.json()["order_number"] not in attempt.text
+
+
 def test_client_cannot_set_paid_or_override_totals(client: TestClient) -> None:
     headers = _auth(client, "g5_totals")
     _empty_cart(client, headers)
@@ -388,3 +587,74 @@ def test_tracking_does_not_invent_carrier_milestones(client: TestClient) -> None
     delivered = next(m for m in track["timeline"] if m["status_key"] == "delivered")
     assert delivered["is_completed"] is False
     assert completed  # at least "placed" from the order event
+
+
+def test_concurrent_key_race_does_not_disclose_another_shoppers_order(
+    client: TestClient, monkeypatch
+) -> None:
+    """The IntegrityError branch is the SECOND way a spent key is discovered.
+
+    Two shoppers can both pass the pre-flight replay check and then race on the
+    UNIQUE constraint; the loser lands in the `except IntegrityError` handler,
+    which returned the matching order just as unconditionally as the pre-flight
+    path did.
+
+    Reproducing that needs the exact interleaving, so the lookup is scripted:
+    the FIRST call (pre-flight) sees nothing, the insert then loses the race,
+    and the SECOND call (inside the handler) sees the winner's committed row.
+    A first attempt at this test simply posted a duplicate key and asserted 409
+    — which the PRE-FLIGHT path raises on its own, so it passed against the
+    unguarded handler too and proved nothing (mutation M23 survived). `calls`
+    is asserted below so the test cannot silently stop reaching the branch it
+    is named after.
+    """
+    import sqlalchemy
+    from backend.app.repositories.commerce_repository import CommerceRepository
+
+    owner = _register_shopper(client, "race.owner@confit-test.dev")
+    victim_order = _place_order(client, owner, "key-raced", "sess_race_a")
+
+    intruder = _register_shopper(client, "race.intruder@confit-test.dev")
+    _fill_cart(client, {**intruder, "X-Session-Token": "sess_race_b"})
+
+    real_lookup = CommerceRepository.get_order_by_idempotency
+    real_create_order = CommerceRepository.create_order
+    calls = {"n": 0}
+
+    def _racing_lookup(self, key):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return None  # pre-flight: the winner has not committed yet
+        return real_lookup(self, key)  # handler: the winner's row is now visible
+
+    def _lose_the_race(self, *args, **kwargs):
+        raise sqlalchemy.exc.IntegrityError("stmt", {}, Exception("duplicate key"))
+
+    monkeypatch.setattr(CommerceRepository, "get_order_by_idempotency", _racing_lookup)
+    monkeypatch.setattr(CommerceRepository, "create_order", _lose_the_race)
+
+    raced = client.post(
+        "/api/v1/commerce/checkout",
+        json={
+            "payment_method": "cod",
+            "fulfillment_type": "delivery",
+            "idempotency_key": "key-raced",
+            "recipient_name": "Racer",
+            "phone": "+971500000777",
+            "address_line": "7 Race Road",
+            "city": "Dubai",
+            "country": "AE",
+        },
+        headers={**intruder, "X-Session-Token": "sess_race_b"},
+    )
+
+    assert calls["n"] >= 2, (
+        "the race handler was never reached — the assertions below would be "
+        "vacuous (this is what let mutation M23 survive the first draft)"
+    )
+    assert raced.status_code == 409, (
+        "the IntegrityError branch must not hand over the order that won the race: "
+        + raced.text
+    )
+    assert victim_order["order_number"] not in raced.text
+    assert "+971500000123" not in raced.text

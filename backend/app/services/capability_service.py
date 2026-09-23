@@ -25,11 +25,13 @@ from typing import Any, Dict, List
 from sqlalchemy.orm import Session
 
 from backend.app.core.config import settings
+from backend.app.core.logging import logger
 from backend.app.core.readiness import (
     CRITICALITY_CORE,
     CRITICALITY_SUPPORTING,
     STATE_BLOCKED,
     STATE_DEGRADED,
+    STATE_NOT_PROBED,
     STATE_READY,
     Capability,
 )
@@ -50,11 +52,134 @@ __all__ = ["capability_flags", "capability_probes", "RETURNS_WINDOW_DAYS"]
 RETURNS_WINDOW_DAYS = 30
 
 
+def _ai_quarantine_state() -> "tuple[Dict[str, Any], Dict[str, Any]]":
+    """(configured, quarantined) provider maps from the live orchestrator.
+
+    Split out as its own function for two reasons: it is the one place this
+    module reads runtime state instead of configuration, and it lets tests pin
+    the measurement deterministically instead of depending on whether some
+    earlier request happened to trip a cooldown.
+
+    Returns empty maps on any failure. A failure to *read* availability is not
+    evidence of availability, so the caller falls through to ``not_probed`` —
+    which is what "we could not establish it" honestly is. Nothing here raises:
+    an observability helper that can take down /health is worse than none.
+    """
+    configured: Dict[str, Any] = {}
+    quarantined: Dict[str, Any] = {}
+    try:
+        from backend.app.providers.orchestrator import get_orchestrator
+
+        for name, entry in (get_orchestrator().provider_status() or {}).items():
+            if not isinstance(entry, dict):
+                continue
+            if entry.get("configured"):
+                configured[name] = entry
+            # A quarantine record is NOT gated on the current `configured` flag:
+            # the entry only exists because a provider was actually called and
+            # actually failed. Dropping it when the flag disagrees discarded the
+            # only real measurement this function has. (When the last key is
+            # removed the caller returns earlier, so a stale quarantine for a
+            # no-longer-configured provider cannot surface as a false outage.)
+            if float(entry.get("cooling_for_seconds") or 0) > 0:
+                quarantined[name] = entry
+    except Exception as exc:
+        logger.warning("ai_stylist_quarantine_read_failed", error=str(exc))
+        return {}, {}
+    return configured, quarantined
+
+
+def _ai_stylist_capability() -> Capability:
+    """AI Stylist availability — measured where measurable, honest where not.
+
+    ``ready`` means "probed and working" in this project's own vocabulary
+    (``backend/app/core/readiness``). Until 2026-09-22 this capability was
+    reported ``ready`` whenever a provider key existed:
+
+        state=STATE_READY if providers else STATE_DEGRADED,
+        detail=f"{len(providers)} live provider key(s) configured"
+
+    A key is not a measurement, and the detail string said "live" about a value
+    nobody had contacted. That is the same configuration-as-measurement defect
+    as ``vton_gpu_ready``, on the same payload — it happened to fail quietly
+    rather than loudly, which does not make it less wrong.
+
+    What CAN be measured is the shared orchestrator's live quarantine registry:
+    a provider is quarantined only after it actually failed (HTTP 402/429/auth),
+    so "every configured provider is quarantined" is a real observation that the
+    live path is down right now. That yields ``degraded`` — working, on the
+    deterministic grounded fallback.
+
+    With providers configured and none quarantined, the honest state is
+    ``not_probed``: no availability probe exists, and the absence of a recorded
+    failure is not evidence of success. It is a **supporting** capability, so
+    ``not_probed`` does not set the platform unready; it names an honest gap
+    instead of asserting a value nobody checked.
+    """
+    providers = _ai_provider_keys()
+    if not providers:
+        return Capability(
+            "ai_stylist", STATE_DEGRADED, CRITICALITY_SUPPORTING,
+            "no provider key configured; the deterministic grounded fallback answers",
+        )
+
+    configured, quarantined = _ai_quarantine_state()
+
+    # A quarantine entry exists only after a provider really failed, so the
+    # quarantine count is the measured half of this decision — and it must drive
+    # the verdict on its own when the configuration registry disagrees with the
+    # key list. Keying the decision off `configured` alone silently discarded
+    # the measurement in exactly that disagreement case.
+    if quarantined and len(quarantined) >= len(configured):
+        return Capability(
+            "ai_stylist", STATE_DEGRADED, CRITICALITY_SUPPORTING,
+            "all {} known live provider(s) are quarantined after real failures "
+            "({}); the deterministic grounded fallback answers".format(
+                len(quarantined), ", ".join(sorted(quarantined))
+            ),
+        )
+
+    if quarantined:
+        return Capability(
+            "ai_stylist", STATE_DEGRADED, CRITICALITY_SUPPORTING,
+            "{}/{} live provider(s) quarantined after real failures ({}); the "
+            "remaining provider(s) still answer, with the deterministic grounded "
+            "fallback behind them".format(
+                len(quarantined), len(configured) or len(quarantined),
+                ", ".join(sorted(quarantined)),
+            ),
+        )
+
+    return Capability(
+        "ai_stylist", STATE_NOT_PROBED, CRITICALITY_SUPPORTING,
+        "{} provider key(s) configured and no provider is currently quarantined, "
+        "but no availability probe exists — a configured key is not a measurement".format(
+            len(providers)
+        ),
+    )
+
+
 def _ai_provider_keys() -> List[str]:
+    """Configured AI provider keys, read through the canonical accessors.
+
+    ``groq_api_key`` (the property) is used for the Groq slot, NOT the
+    ``GROK_API_KEY`` field. The field is a backwards-compatible alias only:
+    ``docs/PRODUCTION_DEPLOYMENT_CONTRACT.md`` documents ``GROQ_API_KEY`` (Groq,
+    api.groq.com — a different vendor from xAI's Grok), and
+    ``MultiProviderAIOrchestrator`` already resolves both through the property.
+
+    Reading the field directly made the capability contract disagree with the
+    orchestrator about reality, and it failed in the *silent* direction: measured
+    on 2026-09-22, a deployment configured with the documented ``GROQ_API_KEY``
+    reported ``ai_stylist_live: false`` while ``settings.groq_api_key`` resolved
+    to a real key and the orchestrator was genuinely calling Groq. Under-claiming
+    a working capability is the same class of defect as over-claiming a broken
+    one — the contract simply was not reading what the system actually uses.
+    """
     return [
         k for k in (
             settings.NVIDIA_API_KEY,
-            getattr(settings, "GROK_API_KEY", None),
+            settings.groq_api_key,
             settings.GEMINI_API_KEY,
             settings.OPENAI_API_KEY,
         ) if k
@@ -234,19 +359,7 @@ def capability_probes(
 
     out.append(_vton_capability(vton_worker))
 
-    providers = _ai_provider_keys()
-    out.append(
-        Capability(
-            name="ai_stylist",
-            state=STATE_READY if providers else STATE_DEGRADED,
-            criticality=CRITICALITY_SUPPORTING,
-            detail=(
-                f"{len(providers)} live provider key(s) configured"
-                if providers
-                else "no provider key configured; the deterministic grounded fallback answers"
-            ),
-        )
-    )
+    out.append(_ai_stylist_capability())
 
     out.append(
         Capability(

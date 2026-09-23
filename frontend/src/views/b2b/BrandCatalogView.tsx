@@ -5,6 +5,14 @@ import React, { useState, useRef } from 'react';
 import { useBrandViewModel } from '../../viewmodels/useBrandViewModel';
 import { LoadingSpinner } from '../../components/common/CommonComponents';
 
+/** The importer's required columns, in the order the backend documents them.
+ *  Single source for BOTH the on-screen example and the downloadable template,
+ *  so the text a user reads can never drift from the file they receive. */
+const SAMPLE_CSV = [
+  'title,category_slug,base_price,color_family,thumbnail_url,size,color,stock_level',
+  '"Tailored Blazer",outerwear,299.99,Navy,https://example.com/blazer.jpg,M,Navy,20',
+].join('\n') + '\n';
+
 export const BrandCatalogView: React.FC = () => {
   const { t } = useTranslation();
   const { products, updateSKUInventory, isLoading, uploadCatalogCSV, importJobs, fetchErrors, refresh, isUploading } = useBrandViewModel();
@@ -23,6 +31,21 @@ export const BrandCatalogView: React.FC = () => {
   if (isLoading) {
     return <LoadingSpinner text="Loading brand catalog and SKU inventory..." />;
   }
+
+  /** Hand the user a guaranteed-valid file rather than asking them to retype one.
+   *  A BOM is included because Excel otherwise misreads UTF-8 accents, which
+   *  would turn a "here is a working template" gesture into a fresh bug report. */
+  const downloadSampleCsv = useCallback(() => {
+    const blob = new Blob(['\ufeff' + SAMPLE_CSV], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'confit-catalog-template.csv';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }, []);
 
   const handleSaveSku = async (skuId: number) => {
     if (saving) return;
@@ -335,11 +358,22 @@ export const BrandCatalogView: React.FC = () => {
             </div>
 
             <div className="pt-3 border-t border-slate-100 text-[11px] text-slate-500">
-              <span className="font-bold">Sample CSV:</span>
-              <pre className="mt-1 p-2 bg-slate-50 rounded text-[10px] overflow-x-auto">
-title,category_slug,base_price,color_family,thumbnail_url,size,color,stock_level
-"Tailored Blazer",outerwear,299.99,Navy,https://example.com/blazer.jpg,M,Navy,20
-              </pre>
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-bold">Sample CSV:</span>
+                <button
+                  type="button"
+                  onClick={downloadSampleCsv}
+                  className="px-2 py-1 rounded-lg border border-[#1B1F3B] text-[#1B1F3B] text-[10px] font-semibold hover:bg-[#1B1F3B] hover:text-white transition-colors"
+                >
+                  Download template
+                </button>
+              </div>
+              {/* whitespace-pre-wrap + break-all, NOT overflow-x-auto: inside this
+                  narrow dialog the scrollable variant clipped the example to
+                  '"Tail', so the one thing a stuck user needs to copy was the
+                  thing they could not read. The download button above hands them
+                  a byte-for-byte valid file, which beats copying by hand. */}
+              <pre className="mt-1 p-2 bg-slate-50 rounded text-[10px] whitespace-pre-wrap break-all leading-relaxed">{SAMPLE_CSV}</pre>
             </div>
           </div>
         </div>

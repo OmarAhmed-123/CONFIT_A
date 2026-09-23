@@ -43,6 +43,14 @@ class Mutation:
     # some fixes are expressed twice in the same file (e.g. four controller
     # branches) — replace every occurrence by default
     count: int | None = None
+    # Which test runner proves this mutation is killed. Added 2026-09-23: the
+    # harness only knew how to run pytest, so a gate aimed at a FRONTEND source
+    # file would have been executed as `pytest <file.tsx>` — it would have
+    # "failed" for being the wrong kind of path, and the gate would have
+    # reported KILLED for a reason that has nothing to do with the defect. A
+    # gate that cannot fail for the right reason protects nothing, so the
+    # runner is now part of the mutation's definition.
+    runner: str = "pytest"
 
 
 MUTATIONS: list[Mutation] = [
@@ -402,12 +410,52 @@ MUTATIONS: list[Mutation] = [
         "    if True:",
         ["backend/tests/test_capabilities_endpoint.py::test_payment_disclaimer_makes_no_compliance_claim_nothing_can_back"],
     ),
+    # ── 2026-09-23 (this cycle) ──────────────────────────────────────────────
+    Mutation(
+        "M40",
+        "Payment liveness: give the ADAPTER BASE a boolean `is_live` again, so a "
+        "subclassed PSP adapter carries a second, defaulted source of truth for "
+        "the one fact the platform must not get wrong (the shape that published "
+        "`bnpl_tabby` as live with no Tabby credential, one layer down)",
+        "backend/app/providers/payment/base.py",
+        "    def __init__(self, name: str):\n        self.name = name",
+        "    def __init__(self, name: str, is_live: bool = False):\n        self.name = name\n        self.is_live = is_live",
+        ["backend/tests/test_payment_adapter_liveness_owner.py"],
+    ),
+    Mutation(
+        "M41",
+        "Return label: shrink the capability reference back to 40 bits, so an "
+        "unauthenticated endpoint that discloses the order number is protected "
+        "by a value below the 64-bit floor for a bearer credential",
+        "backend/app/services/commerce_service.py",
+        'ref = f"RA-{uuid.uuid4().hex[:16].upper()}"',
+        'ref = f"RA-{uuid.uuid4().hex[:10].upper()}"',
+        ["backend/tests/test_return_label_capability_entropy.py"],
+    ),
+    Mutation(
+        "M42",
+        "i18n naming: stop normalising the language tag before asking "
+        "`Intl.DisplayNames`, so a region-qualified tag is rendered through the "
+        "spec default (dialect) — 'American English' / 'العربية (مصر)' in a "
+        "language switcher — and `en-US` reaches the resolver unguarded",
+        "frontend/src/i18n/format.ts",
+        "  const base = baseLanguage(lang);",
+        "  const base = String(lang);",
+        ["src/i18n/__tests__/i18nParity.test.tsx"],
+        runner="vitest",
+    ),
 ]
 
 
-def run_tests(tests: list[str], env: dict) -> tuple[int, str]:
-    cmd = [sys.executable, "-m", "pytest", "-q", "-x", "-p", "no:cacheprovider", "--tb=line", *tests]
-    p = subprocess.run(cmd, capture_output=True, text=True, env=env, timeout=1500)
+def run_tests(tests: list[str], env: dict, runner: str = "pytest") -> tuple[int, str]:
+    if runner == "vitest":
+        # Frontend gate: same contract (non-zero exit = the mutation was killed).
+        cmd = ["npx", "vitest", "run", *tests]
+        p = subprocess.run(cmd, capture_output=True, text=True, env=env,
+                           cwd=str(REPO / "frontend"), timeout=1500)
+    else:
+        cmd = [sys.executable, "-m", "pytest", "-q", "-x", "-p", "no:cacheprovider", "--tb=line", *tests]
+        p = subprocess.run(cmd, capture_output=True, text=True, env=env, timeout=1500)
     tail = "\n".join((p.stdout or "").strip().splitlines()[-3:])
     return p.returncode, tail
 
@@ -425,12 +473,15 @@ def main() -> int:
     snapshots = {m.path: (REPO / m.path).read_bytes() for m in MUTATIONS if not wanted or m.mid in wanted}
     all_tests = sorted({t for m in MUTATIONS if not wanted or m.mid in wanted for t in m.tests})
     if not args.skip_baseline:
-        print(f"[baseline] running {len(all_tests)} test files unmutated ...", flush=True)
-        rc, tail = run_tests(all_tests, env)
-        print(f"[baseline] rc={rc} {tail.splitlines()[-1] if tail else ''}")
-        if rc != 0:
-            print("BASELINE FAILS — fix the suite before measuring mutations", file=sys.stderr)
-            return 2
+        for runner in sorted({m.runner for m in MUTATIONS if not wanted or m.mid in wanted}):
+            subset = sorted({t for m in MUTATIONS
+                             if (not wanted or m.mid in wanted) and m.runner == runner for t in m.tests})
+            print(f"[baseline:{runner}] running {len(subset)} test file(s) unmutated ...", flush=True)
+            rc, tail = run_tests(subset, env, runner)
+            print(f"[baseline:{runner}] rc={rc} {tail.splitlines()[-1] if tail else ''}")
+            if rc != 0:
+                print("BASELINE FAILS — fix the suite before measuring mutations", file=sys.stderr)
+                return 2
 
     for m in MUTATIONS:
         if wanted and m.mid not in wanted:
@@ -447,7 +498,7 @@ def main() -> int:
         t0 = time.time()
         try:
             path.write_text(mutated, encoding="utf-8")
-            rc, tail = run_tests(m.tests, env)
+            rc, tail = run_tests(m.tests, env, m.runner)
         finally:
             path.write_bytes(original)
             assert path.read_bytes() == original

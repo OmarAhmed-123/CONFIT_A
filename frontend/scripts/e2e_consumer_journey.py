@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 import time
 from pathlib import Path
@@ -41,6 +42,12 @@ MIN_RENDERED_TEXT = 1200
 
 class Invalid(Exception):
     """The measurement itself is not trustworthy — never treated as a pass."""
+
+
+#: Module-level so the failure paths in __main__ can still write the raw
+#: evidence of every step that DID run. An instrument that discards its artefact
+#: when a step fails cannot support any statement about that failure.
+EV = None
 
 
 class Evidence:
@@ -115,8 +122,10 @@ def main() -> int:
     ap.add_argument("--place-order", action="store_true", default=True)
     ap.add_argument("--no-place-order", dest="place_order", action="store_false")
     args = ap.parse_args()
+    global EV
     base = args.base_url.rstrip("/")
     ev = Evidence()
+    EV = ev
 
     started = time.time()
     with sync_playwright() as p:
@@ -325,6 +334,143 @@ def main() -> int:
             else:
                 ev.step("the order opens its tracking page", False, url=page.url.replace(base, "/"))
 
+        # ── 7c. LOCALIZATION SURFACE + FILTER INTEGRITY (Arabic) ───────────
+        # The localization pass split every filter option into
+        # { value: <English catalogue token>, labelKey: <i18n key> }. Two things
+        # must hold at runtime, and only a browser can show both:
+        #   (a) the shopper reads Arabic, and
+        #   (b) the filter still matches `product.occasion_tags` /
+        #       `product.color_family` — i.e. the VALUE was not translated.
+        # A translated value would not throw, would not fail tsc, and would not
+        # fail the i18n gate; it would just return an empty grid for Arabic
+        # shoppers. Hence this phase.
+        switch_language(page, "ar", base)
+        page.goto(base + "/discover", wait_until="networkidle", timeout=90000)
+        page.wait_for_timeout(2500)
+        discover_ar = assert_renderable(page, "discover-ar", 900)
+        dir_ar = page.evaluate("document.documentElement.dir")
+
+        catalogue = page.evaluate(
+            """async () => {
+                 const p = await (await fetch('/api/v1/catalog/products')).json();
+                 const c = await (await fetch('/api/v1/catalog/categories')).json();
+                 const items = Array.isArray(p) ? p : (p.items || p.data || []);
+                 const cats = Array.isArray(c) ? c : (c.items || c.data || []);
+                 return {items: items, cats: cats};
+               }"""
+        )
+        if not catalogue["items"]:
+            raise Invalid("catalogue API returned no products for the Arabic phase")
+
+        # (a) the labels the shopper reads
+        ar_labels = ["العمل", "زفاف", "سهرة", "سفر", "يومي"]
+        missing_labels = [l for l in ar_labels if l not in discover_ar]
+        chips = page.evaluate(
+            "() => [...document.querySelectorAll('button')].map(b => b.textContent.trim())"
+        )
+        token_leaks = [t for t in ["Work", "Wedding", "Evening", "Travel", "Everyday",
+                                   "Navy Blue", "Midnight Black", "Optic White",
+                                   "Champagne Gold", "Emerald Green"]
+                       if t in chips]
+        ev.step(
+            "Arabic filter labels render, English catalogue tokens do not",
+            not missing_labels and not token_leaks and dir_ar == "rtl",
+            missing=missing_labels, token_leaks=token_leaks, dir=dir_ar,
+        )
+
+        # labels for the taxonomy must come from the API's own name_ar field
+        ar_names = [c.get("name_ar") for c in catalogue["cats"] if c.get("name_ar")]
+        rendered_ar_names = [n for n in ar_names if n in chips]
+        ev.step(
+            "category chips use the API's Arabic names (name_ar)",
+            bool(ar_names) and len(rendered_ar_names) == len(ar_names),
+            from_api=len(ar_names), rendered=len(rendered_ar_names), sample=rendered_ar_names[:2],
+        )
+
+        # (b) the filter must still match the English token against live data
+        expected = [
+            i["title"] for i in catalogue["items"]
+            if any("work" in (t or "").lower() for t in (i.get("occasion_tags") or []))
+        ]
+        if not expected:
+            raise Invalid("no catalogue product carries a 'work' occasion tag — filter cannot be probed")
+        body_before = rendered_text(page)
+        all_titles = [i["title"] for i in catalogue["items"]]
+        before_titles = [t for t in all_titles if t in body_before]
+        page.get_by_role("button", name="العمل", exact=True).first.click(timeout=10000)
+        page.wait_for_timeout(2000)
+        body_after = rendered_text(page)
+        after_titles = [t for t in all_titles if t in body_after]
+        ev.step(
+            "tapping the Arabic 'Work' chip filters using the English token",
+            sorted(after_titles) == sorted(expected) and len(after_titles) < len(before_titles),
+            before=len(before_titles), after=len(after_titles), expected_by_api=len(expected),
+        )
+
+        # price digits must follow the Arabic locale (not Latin '$12.00')
+        arabic_digits = re.findall(r"[\u0660-\u0669]", body_after)
+        ev.step(
+            "prices render with the Arabic locale digit set",
+            bool(arabic_digits),
+            arabic_digit_count=len(arabic_digits),
+        )
+
+        # a chip that matches nothing must fail HONESTLY (localized empty state),
+        # never as a blank grid — this also records the pre-existing vocabulary gap
+        page.get_by_role("button", name="سفر", exact=True).first.click(timeout=10000)
+        page.wait_for_timeout(1800)
+        empty_text = rendered_text(page)
+        travel_matches = [
+            i["title"] for i in catalogue["items"]
+            if any("travel" in (t or "").lower() for t in (i.get("occasion_tags") or []))
+        ]
+        ev.step(
+            "a zero-match Arabic chip shows the localized empty state, not a blank grid",
+            "لا توجد قطع فاخرة تطابق معاييرك" in empty_text
+            and "إعادة تعيين كل الفلاتر" in empty_text,
+            api_matches_for_travel=len(travel_matches),
+        )
+
+        # the guided-look option VALUES go to the stylist API, so they stay English
+        page.goto(base + "/", wait_until="networkidle", timeout=90000)
+        page.wait_for_timeout(2000)
+        option_pairs = page.evaluate(
+            """() => [...document.querySelectorAll('select option')]
+                 .map(o => [o.value, o.textContent.trim()])"""
+        )
+        budget_pairs = [p for p in option_pairs if p[0] in ("300", "450", "650", "900")]
+        ev.step(
+            "guided-look budget keeps numeric values with Arabic labels",
+            bool(budget_pairs) and all(v.isascii() for v, _ in budget_pairs)
+            and all(not l.isascii() for _, l in budget_pairs),
+            sample=budget_pairs[:2],
+        )
+
+        # and switching back must restore the exact English copy (no drift)
+        switch_language(page, "en", base)
+        page.goto(base + "/discover", wait_until="networkidle", timeout=90000)
+        page.wait_for_timeout(1800)
+        discover_en = assert_renderable(page, "discover-en", 900)
+        restore_chips = page.evaluate(
+            "() => [...document.querySelectorAll('button')].map(b => b.textContent.trim())"
+        )
+        dir_en_again = page.evaluate("document.documentElement.dir")
+        chips_seen = [c for c in ["Work", "Wedding", "Evening", "Travel", "Everyday"] if c in restore_chips]
+        # MEASURED: this span is styled `uppercase`, and Playwright's inner_text()
+        # returns the CSS-transformed text ("YOU ARE BROWSING:"), so the first
+        # version of this assertion compared against the source casing and failed
+        # on a rendering that was correct. Compare case-insensitively.
+        ev.step(
+            "switching back restores the original English chip copy",
+            len(chips_seen) == 5
+            and "you are browsing:" in discover_en.lower()
+            and dir_en_again == "ltr",
+            dir=dir_en_again,
+            chips_seen=chips_seen,
+            chips_sample=restore_chips[:12],
+            browsing_line=[l for l in discover_en.splitlines() if "browsing" in l.lower()][:1],
+        )
+
         browser.close()
 
     server_errors = [n for n in ev.network if n["status"] >= 500]
@@ -348,12 +494,40 @@ def main() -> int:
     return 0
 
 
+def _dump(out: str, base: str, verdict: str, error: str | None = None) -> None:
+    """Write whatever the run produced — including on an invalid/failed run."""
+    if EV is None:
+        return
+    payload = {
+        "base_url": base,
+        "steps": EV.steps,
+        "api_calls": len(EV.network),
+        "server_errors": [n for n in EV.network if n["status"] >= 500],
+        "console_errors": EV.console_errors[:10],
+        "screenshots": EV.screenshots,
+        "verdict": verdict,
+    }
+    if error:
+        payload["error"] = error
+    Path(out).write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(f"  partial evidence -> {out}")
+
+
 if __name__ == "__main__":
+    _out = "/tmp/e2e_consumer_journey.json"
+    _base = "http://127.0.0.1:43123"
+    for _i, _a in enumerate(sys.argv):
+        if _a == "--out" and _i + 1 < len(sys.argv):
+            _out = sys.argv[_i + 1]
+        if _a == "--base-url" and _i + 1 < len(sys.argv):
+            _base = sys.argv[_i + 1]
     try:
         sys.exit(main())
     except Invalid as exc:
         print(f"\n  MEASUREMENT INVALID — no verdict: {exc}")
+        _dump(_out, _base, "INVALID: measurement not trustworthy", str(exc))
         sys.exit(3)
     except AssertionError as exc:
         print(f"\n  FAIL: {exc}")
+        _dump(_out, _base, "FAIL: a journey step failed", str(exc))
         sys.exit(1)

@@ -25,9 +25,14 @@ import { HonestProductImage } from "../../components/common/HonestProductImage";
 import { useCapabilities } from "../../hooks/useCapabilities";
 import { useTryOnAvailability } from "../../hooks/useTryOnAvailability";
 import { resolvePurchasableSku } from "../../lib/catalogSku";
+import { formatMoney } from "../../i18n/format";
 
 export const DiscoverView: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  // The active UI language drives number/currency formatting; the data
+  // tokens in the filter arrays below stay English regardless.
+  const lang = i18n.resolvedLanguage ?? "en";
+  const isArabic = lang.startsWith("ar");
   const navigate = useNavigate();
   const {
     products,
@@ -93,9 +98,9 @@ export const DiscoverView: React.FC = () => {
         category: p.category_name,
         color: p.color_family,
       });
-      showToast("Added to bag", "success");
+      showToast(t("discover.added_to_bag"), "success");
     } catch (err: any) {
-      showToast(err?.message || "Could not add this item to bag.", "error");
+        showToast(err?.message || t("discover.add_to_bag_failed"), "error");
     }
   };
 
@@ -125,24 +130,56 @@ export const DiscoverView: React.FC = () => {
     return true;
   });
 
+  // `value` is the catalogue token this swatch is matched against
+  // (`product.color_family`); `labelKey` is what the shopper reads.
+  // Translating the value would silently break palette filtering for
+  // Arabic shoppers — the label is the translatable unit, never the token.
   const colorSwatches = [
-    { label: "All", hex: "transparent" },
-    { label: "Navy Blue", hex: "#1B1F3B" },
-    { label: "Midnight Black", hex: "#111111" },
-    { label: "Optic White", hex: "#FAF9F6" },
-    { label: "Champagne Gold", hex: "#D4AF37" },
-    { label: "Emerald Green", hex: "#2D4A3E" },
+    { value: "", labelKey: "discover.filter_all", hex: "transparent" },
+    { value: "Navy Blue", labelKey: "discover.color_navy_blue", hex: "#1B1F3B" },
+    { value: "Midnight Black", labelKey: "discover.color_midnight_black", hex: "#111111" },
+    { value: "Optic White", labelKey: "discover.color_optic_white", hex: "#FAF9F6" },
+    { value: "Champagne Gold", labelKey: "discover.color_champagne_gold", hex: "#D4AF37" },
+    { value: "Emerald Green", labelKey: "discover.color_emerald_green", hex: "#2D4A3E" },
   ];
 
-  const occasionFilters = ["Work", "Wedding", "Evening", "Travel", "Everyday"];
-  const activeCategoryName = categories.find(
+  // Same contract: `value` is compared case-insensitively against
+  // `product.occasion_tags`; `labelKey` is display only.
+  const occasionFilters = [
+    { value: "Work", labelKey: "discover.occasion_work" },
+    { value: "Wedding", labelKey: "discover.occasion_wedding" },
+    { value: "Evening", labelKey: "discover.occasion_evening" },
+    { value: "Travel", labelKey: "discover.occasion_travel" },
+    { value: "Everyday", labelKey: "discover.occasion_everyday" },
+  ];
+  // Category names ship from the API in both spellings (`name`, `name_ar`);
+  // the Arabic one was previously ignored on this screen.
+  const categoryLabel = (cat: { name: string; name_ar?: string }) =>
+    isArabic && cat.name_ar ? cat.name_ar : cat.name;
+  const activeCategory = categories.find(
     (cat) => cat.slug === selectedCategory,
-  )?.name;
+  );
   const activeFilters = [
-    activeCategoryName ? `Category: ${activeCategoryName}` : null,
-    selectedOccasion ? `Occasion: ${selectedOccasion}` : null,
-    selectedColor ? `Palette: ${selectedColor}` : null,
-    searchQuery ? `Search: ${searchQuery}` : null,
+    activeCategory
+      ? t('discover.active_category', { name: categoryLabel(activeCategory) })
+      : null,
+    selectedOccasion
+      ? t('discover.active_occasion', {
+          name: t(
+            occasionFilters.find((o) => o.value === selectedOccasion)?.labelKey ??
+              selectedOccasion,
+          ),
+        })
+      : null,
+    selectedColor
+      ? t('discover.active_palette', {
+          name: t(
+            colorSwatches.find((c) => c.value === selectedColor)?.labelKey ??
+              selectedColor,
+          ),
+        })
+      : null,
+    searchQuery ? t('discover.active_search', { query: searchQuery }) : null,
   ].filter(Boolean);
 
   return (
@@ -152,20 +189,19 @@ export const DiscoverView: React.FC = () => {
         compact
         eyebrow={t('discover.mood_stack_title')}
         title={t('discover.mood_stack_body')}
-        description="The animated stack introduces tactile editorial browsing before customers refine by category, occasion, brand, and size."
+        description={t('discover.stack_description')}
       />
       {/* Header & Search Bar */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200/80 pb-6">
         <div>
           <span className="text-[10px] font-bold text-[#7A5C28] uppercase tracking-widest block">
-            Luxury Multi-Brand Catalog
+            {t('discover.badge_multi_brand')}
           </span>
           <h1 className="font-serif text-3xl font-bold text-[#1B1F3B] tracking-tight">
             {t("nav.style_discover")}
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 mt-1 font-light">
-            Curated European tailoring, sculptural classics, and silk evening
-            silhouettes.
+            {t('discover.subtitle')}
           </p>
         </div>
 
@@ -208,7 +244,7 @@ export const DiscoverView: React.FC = () => {
             {showSuggestions && autocompleteSuggestions.length > 0 && (
               <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden z-50 animate-in fade-in duration-100 divide-y divide-slate-100">
                 <div className="p-2.5 bg-[#FAF9F6] text-[10px] font-bold text-[#C5A059] uppercase tracking-wider">
-                  Instant Suggested Matches
+                  {t('discover.suggested_matches')}
                 </div>
                 {autocompleteSuggestions.map((sug, idx) => (
                   <div
@@ -258,7 +294,7 @@ export const DiscoverView: React.FC = () => {
           <button
             onClick={openVisualSearch}
             className="px-4 py-3 rounded-2xl bg-[#FDF8EE] hover:bg-[#C5A059] hover:text-white border border-[#C5A059]/40 text-[#7A5C28] text-xs font-semibold shadow-2xs transition-all flex items-center gap-1.5 shrink-0"
-            title="Search by Photo"
+            title={t('discover.search_by_photo')}
           >
             <VisualSearchIcon size={16} color="currentColor" />
             <span className="hidden sm:inline">{t('discover.photo_match')}</span>
@@ -290,7 +326,7 @@ export const DiscoverView: React.FC = () => {
                   : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
               }`}
             >
-              {cat.name}
+              {categoryLabel(cat)}
             </button>
           ))}
         </div>
@@ -307,19 +343,19 @@ export const DiscoverView: React.FC = () => {
                 : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
             }`}
           >
-            All
+            {t('discover.filter_all')}
           </button>
           {occasionFilters.map((occasion) => (
             <button
-              key={occasion}
-              onClick={() => setSelectedOccasion(occasion)}
+              key={occasion.value}
+              onClick={() => setSelectedOccasion(occasion.value)}
               className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all shrink-0 ${
-                selectedOccasion === occasion
+                selectedOccasion === occasion.value
                   ? "bg-[#1B1F3B] text-white"
                   : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
               }`}
             >
-              {occasion}
+              {t(occasion.labelKey)}
             </button>
           ))}
         </div>
@@ -333,13 +369,11 @@ export const DiscoverView: React.FC = () => {
             </span>
             {colorSwatches.map((col) => (
               <button
-                key={col.label}
-                onClick={() =>
-                  setSelectedColor(col.label === "All" ? "" : col.label)
-                }
+                key={col.labelKey}
+                onClick={() => setSelectedColor(col.value)}
                 className={`flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-medium transition-all ${
-                  (selectedColor === "" && col.label === "All") ||
-                  selectedColor === col.label
+                  (selectedColor === "" && col.value === "") ||
+                  selectedColor === col.value
                     ? "bg-[#1B1F3B] text-white"
                     : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
                 }`}
@@ -350,7 +384,7 @@ export const DiscoverView: React.FC = () => {
                     style={{ backgroundColor: col.hex }}
                   />
                 )}
-                <span>{col.label}</span>
+                <span>{t(col.labelKey)}</span>
               </button>
             ))}
           </div>
@@ -359,21 +393,21 @@ export const DiscoverView: React.FC = () => {
           <div className="flex items-center gap-2">
             <span
               className="text-[11px] text-slate-500"
-              title="Recommended order uses the catalog ranking returned by the API for the selected filters."
+              title={t('discover.sort_hint')}
             >
-              Sort by:
+              {t('discover.sort_label')}
             </span>
             <select
-              aria-label="Sort products"
+              aria-label={t('a11y.sort_products')}
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
               className="text-xs font-semibold bg-white border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:border-[#C5A059]"
             >
-              <option value="recommended">Top rated catalog order</option>
-              <option value="price_asc">Price: Low to High</option>
-              <option value="price_desc">Price: High to Low</option>
-              <option value="rating">Customer Rating</option>
-              <option value="newest">Newest Arrivals</option>
+              <option value="recommended">{t('discover.sort_recommended')}</option>
+              <option value="price_asc">{t('discover.sort_price_asc')}</option>
+              <option value="price_desc">{t('discover.sort_price_desc')}</option>
+              <option value="rating">{t('discover.sort_rating')}</option>
+              <option value="newest">{t('discover.sort_newest')}</option>
             </select>
           </div>
         </div>
@@ -382,7 +416,7 @@ export const DiscoverView: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-2xs">
         <div className="flex flex-wrap items-center gap-2 text-xs">
           <span className="font-bold text-slate-500 uppercase tracking-wider">
-            You are browsing:
+            {t('discover.browsing_prefix')}
           </span>
           {activeFilters.length > 0 ? (
             activeFilters.map((filter) => (
@@ -395,7 +429,7 @@ export const DiscoverView: React.FC = () => {
             ))
           ) : (
             <span className="text-slate-500">
-              All live catalog products, ordered by rating and catalog recency.
+              {t('discover.browsing_all')}
             </span>
           )}
         </div>
@@ -409,7 +443,7 @@ export const DiscoverView: React.FC = () => {
             }}
             className="text-xs font-bold text-[#1B1F3B] hover:text-[#C5A059]"
           >
-            Clear filters
+            {t('discover.clear_filters')}
           </button>
         )}
       </div>
@@ -427,16 +461,16 @@ export const DiscoverView: React.FC = () => {
         // here on any backend failure. An unreachable catalog must render as an
         // explicit error with a retry — never as a stocked store.
         <EmptyState
-          title="The catalog couldn't be loaded"
+          title={t('discover.catalog_error_title')}
           description={catalogError}
-          actionText="Retry"
+          actionText={t('common.retry')}
           onAction={refreshCatalog}
         />
       ) : filteredProducts.length === 0 ? (
         <EmptyState
-          title="No luxury garments match your criteria"
-          description="Try selecting a broader palette, clearing search terms, or exploring another collection."
-          actionText="Reset All Filters"
+          title={t('discover.empty_title')}
+          description={t('discover.empty_body')}
+          actionText={t('discover.reset_filters')}
           onAction={() => {
             setSelectedCategory("");
             setSelectedOccasion("");
@@ -459,7 +493,7 @@ export const DiscoverView: React.FC = () => {
                       type="button"
                       onClick={() => navigate(`/product/${p.slug}`)}
                       className="h-full w-full text-left"
-                      aria-label={`View ${p.title}`}
+                      aria-label={t('a11y.view_product', { name: p.title })}
                     >
                       <HonestProductImage
                         src={p.thumbnail_url}
@@ -472,15 +506,15 @@ export const DiscoverView: React.FC = () => {
                     <div className="absolute top-2.5 left-2.5 flex flex-col gap-1">
                       <FitScoreBadge
                         score={p.style_compatibility_score}
-                        label="Match"
-                        verdict="Color Harmony"
+                        label={t('product.fit_match')}
+                        verdict={t('product.fit_color_harmony')}
                       />
                     </div>
 
                     <button
                       onClick={() => toggleWishlist(p.id)}
                       className="absolute top-2.5 right-2.5 p-2 rounded-full bg-white/90 hover:bg-white text-slate-700 shadow-sm backdrop-blur-xs transition-all"
-                      aria-label="Toggle Wishlist"
+                      aria-label={t('a11y.toggle_wishlist')}
                     >
                       <HeartIcon size={15} isLiked={isLiked} />
                     </button>
@@ -489,7 +523,7 @@ export const DiscoverView: React.FC = () => {
                       <button
                         onClick={() => openRuler(p)}
                         className="p-2 rounded-full bg-white/90 hover:bg-white text-slate-800 shadow-sm backdrop-blur-xs transition-all"
-                        title="No-Photo Measurement Fit"
+                        title={t('a11y.no_photo_fit')}
                       >
                         <RulerIcon size={14} color="#1B1F3B" />
                       </button>
@@ -526,7 +560,7 @@ export const DiscoverView: React.FC = () => {
                   </h3>
                   <div className="flex items-center justify-between mt-1">
                     <span className="text-xs sm:text-sm font-bold text-[#1B1F3B]">
-                      ${p.base_price}
+                      {formatMoney(Math.round(p.base_price * 100), p.currency || "USD", lang)}
                     </span>
                     <span className="text-[11px] text-slate-500 font-light truncate max-w-[80px]">
                       {p.color_family}
@@ -545,8 +579,8 @@ export const DiscoverView: React.FC = () => {
                   </div>
                   <div className="mt-2 rounded-2xl bg-[#FAF9F6] px-3 py-2 text-[11px] text-slate-600">
                     {p.fit_available && p.recommended_size
-                      ? `Likely fit: ${p.recommended_size}`
-                      : "Set measurements for fit confidence"}
+                      ? t('discover.likely_fit', { size: p.recommended_size })
+                      : t('discover.set_measurements')}
                   </div>
                 </div>
 
@@ -555,7 +589,7 @@ export const DiscoverView: React.FC = () => {
                     onClick={() => navigate(`/product/${p.slug}`)}
                     className="py-2.5 rounded-xl bg-[#1B1F3B] hover:bg-[#0C0E1E] text-white text-xs font-semibold transition-all shadow-2xs"
                   >
-                    View details
+                    {t('discover.view_details')}
                   </button>
                   <button
                     onClick={tryOn.gate({
@@ -576,7 +610,7 @@ export const DiscoverView: React.FC = () => {
                     className="col-span-2 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold transition-all flex items-center justify-center gap-1.5"
                   >
                     <BagIcon size={14} color="currentColor" />
-                    <span>Add to Bag</span>
+                    <span>{t('commerce.add_to_cart')}</span>
                   </button>
                 </div>
               </div>

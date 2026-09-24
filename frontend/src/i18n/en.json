@@ -76,7 +76,13 @@
     "add_all_to_cart": "Add Complete Look to Cart",
     "save_to_looks": "Save to My Looks",
     "try_on_outfit": "Try On Look",
-    "substitute": "Swap Item"
+    "substitute": "Swap Item",
+    "engine_label": "Answer engine",
+    "engine_provider": "Answered by {{engine}}",
+    "engine_grounded": "Answered by CONFIT's grounded styling engine — the AI provider was unavailable",
+    "engine_none": "No styling engine was used for this reply",
+    "you_label": "You",
+    "assistant_label": "CONFIT AI Stylist"
   },
   "outfit_builder": {
     "title": "Interactive Outfit Canvas",

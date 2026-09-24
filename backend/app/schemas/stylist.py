@@ -91,6 +91,13 @@ class StylistMessageOut(BaseModel):
     intent_detected: Dict[str, Any]
     recommendations: List[OutfitOut]
     created_at: datetime
+    #: Which engine produced this answer. A provider call yields
+    #: "<Provider> <model actually served>"; a total provider failure yields
+    #: "CONFIT Grounded Styling Engine" (deterministic, catalogue-grounded);
+    #: "none" means no provider was called (clarifying question). Without this
+    #: the client cannot tell generated advice from fallback prose — see the
+    #: comment in stylist_service.interact_with_stylist.
+    engine: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 

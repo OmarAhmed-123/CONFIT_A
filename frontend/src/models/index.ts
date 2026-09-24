@@ -243,6 +243,14 @@ export interface StylistMessage {
   content: string;
   audio_url?: string;
   intent_detected?: Record<string, any>;
+  /**
+   * Which engine produced this answer, straight from the API:
+   * "<Provider> <model actually served>" | "CONFIT Grounded Styling Engine"
+   * (deterministic fallback after every provider failed) | "none" (a
+   * clarifying question, no engine called). The drawer shows this so a reader
+   * is never told that fallback prose is a live model answer.
+   */
+  engine?: string | null;
   recommendations: Outfit[];
   created_at: string;
 }

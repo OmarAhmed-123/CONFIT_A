@@ -1,6 +1,6 @@
 {
-  "ran_at": "2026-09-24T14:06:15.483Z",
-  "environment": "LOCAL only (Vite + migrated SQLite; not production)",
+  "ran_at": "2026-09-24T15:20:18.099Z",
+  "environment": "LOCAL only (Vite + migrated PostgreSQL 17; not production)",
   "browser": "153.0.8010.52",
   "login": {
     "status": 200,
@@ -43,7 +43,45 @@
       "detailsButton": {
         "width": 44,
         "height": 44,
-        "tag": "BUTTON"
+        "tag": "BUTTON",
+        "accessibleName": "Show details for audit row 2"
+      },
+      "integrityContrast": {
+        "samples": [
+          {
+            "text": "Integrity self-check (30d)",
+            "ratio": 9.46
+          },
+          {
+            "text": "verdict: ok",
+            "ratio": 14.63
+          },
+          {
+            "text": "4 rows · 1 actors · 3 with before/after · 3 with request-id · 4 with client IP",
+            "ratio": 9.46
+          },
+          {
+            "text": "tamper_evident: true — Sampled at most 500 of 4 rows in the window; the chain is",
+            "ratio": 7.02
+          },
+          {
+            "text": "hash chain: 4 chained · 0 unchained · 0 breaks · key v1coverage: window_sample —",
+            "ratio": 9.46
+          },
+          {
+            "text": "coverage: window_sample — 4 of 4 rows in a 30-day window; full history is verifi",
+            "ratio": 6.92
+          },
+          {
+            "text": "· head df3be7a1539ff3a2…",
+            "ratio": 6.92
+          },
+          {
+            "text": "verification runs: 1 signed · 0 legacy unsigned · 0 suspected forgeries · 0 brea",
+            "ratio": 9.46
+          }
+        ],
+        "minimumRatio": 6.92
       }
     },
     {
@@ -78,7 +116,45 @@
       "detailsButton": {
         "width": 44,
         "height": 44,
-        "tag": "BUTTON"
+        "tag": "BUTTON",
+        "accessibleName": "Show details for audit row 6"
+      },
+      "integrityContrast": {
+        "samples": [
+          {
+            "text": "Integrity self-check (30d)",
+            "ratio": 9.46
+          },
+          {
+            "text": "verdict: ok",
+            "ratio": 14.63
+          },
+          {
+            "text": "8 rows · 1 actors · 7 with before/after · 7 with request-id · 8 with client IP",
+            "ratio": 9.46
+          },
+          {
+            "text": "tamper_evident: true — Sampled at most 500 of 8 rows in the window; the chain is",
+            "ratio": 7.02
+          },
+          {
+            "text": "hash chain: 8 chained · 0 unchained · 0 breaks · key v1coverage: window_sample —",
+            "ratio": 9.46
+          },
+          {
+            "text": "coverage: window_sample — 8 of 8 rows in a 30-day window; full history is verifi",
+            "ratio": 6.92
+          },
+          {
+            "text": "· head 4b7edecdfdba7815…",
+            "ratio": 6.92
+          },
+          {
+            "text": "verification runs: 3 signed · 0 legacy unsigned · 0 suspected forgeries · 0 brea",
+            "ratio": 9.46
+          }
+        ],
+        "minimumRatio": 6.92
       }
     },
     {
@@ -113,7 +189,45 @@
       "detailsButton": {
         "width": 44,
         "height": 44,
-        "tag": "BUTTON"
+        "tag": "BUTTON",
+        "accessibleName": "Show details for audit row 10"
+      },
+      "integrityContrast": {
+        "samples": [
+          {
+            "text": "Integrity self-check (30d)",
+            "ratio": 9.46
+          },
+          {
+            "text": "verdict: ok",
+            "ratio": 14.63
+          },
+          {
+            "text": "12 rows · 1 actors · 11 with before/after · 11 with request-id · 12 with client ",
+            "ratio": 9.46
+          },
+          {
+            "text": "tamper_evident: true — Sampled at most 500 of 12 rows in the window; the chain i",
+            "ratio": 7.02
+          },
+          {
+            "text": "hash chain: 12 chained · 0 unchained · 0 breaks · key v1coverage: window_sample ",
+            "ratio": 9.46
+          },
+          {
+            "text": "coverage: window_sample — 12 of 12 rows in a 30-day window; full history is veri",
+            "ratio": 6.92
+          },
+          {
+            "text": "· head 74d402dede77e562…",
+            "ratio": 6.92
+          },
+          {
+            "text": "verification runs: 5 signed · 0 legacy unsigned · 0 suspected forgeries · 0 brea",
+            "ratio": 9.46
+          }
+        ],
+        "minimumRatio": 6.92
       }
     },
     {
@@ -148,7 +262,118 @@
       "detailsButton": {
         "width": 44,
         "height": 44,
-        "tag": "BUTTON"
+        "tag": "BUTTON",
+        "accessibleName": "Show details for audit row 14"
+      },
+      "integrityContrast": {
+        "samples": [
+          {
+            "text": "Integrity self-check (30d)",
+            "ratio": 9.46
+          },
+          {
+            "text": "verdict: ok",
+            "ratio": 14.63
+          },
+          {
+            "text": "16 rows · 1 actors · 15 with before/after · 15 with request-id · 16 with client ",
+            "ratio": 9.46
+          },
+          {
+            "text": "tamper_evident: true — Sampled at most 500 of 16 rows in the window; the chain i",
+            "ratio": 7.02
+          },
+          {
+            "text": "hash chain: 16 chained · 0 unchained · 0 breaks · key v1coverage: window_sample ",
+            "ratio": 9.46
+          },
+          {
+            "text": "coverage: window_sample — 16 of 16 rows in a 30-day window; full history is veri",
+            "ratio": 6.92
+          },
+          {
+            "text": "· head ea42b0006055aee5…",
+            "ratio": 6.92
+          },
+          {
+            "text": "verification runs: 7 signed · 0 legacy unsigned · 0 suspected forgeries · 0 brea",
+            "ratio": 9.46
+          }
+        ],
+        "minimumRatio": 6.92
+      }
+    },
+    {
+      "width": 1440,
+      "direction": "ltr",
+      "pageClientWidth": 1440,
+      "pageScrollWidth": 1440,
+      "pageHorizontalOverflow": false,
+      "navClientWidth": 1280,
+      "navScrollWidth": 1280,
+      "navHorizontallyScrollable": false,
+      "allSevenDestinationsPresent": true,
+      "governance": [
+        {
+          "text": "Platform Admin",
+          "left": 112,
+          "right": 225,
+          "inInitialViewport": true,
+          "height": 44
+        },
+        {
+          "text": "Audit Trail",
+          "left": 229,
+          "right": 312,
+          "inInitialViewport": true,
+          "height": 44
+        }
+      ],
+      "auditRegionClientWidth": 1214,
+      "auditRegionScrollWidth": 1214,
+      "tableContainedByOwnScroller": false,
+      "detailsButton": {
+        "width": 44,
+        "height": 44,
+        "tag": "BUTTON",
+        "accessibleName": "Show details for audit row 18"
+      },
+      "integrityContrast": {
+        "samples": [
+          {
+            "text": "Integrity self-check (30d)",
+            "ratio": 9.46
+          },
+          {
+            "text": "verdict: ok",
+            "ratio": 14.63
+          },
+          {
+            "text": "20 rows · 1 actors · 19 with before/after · 19 with request-id · 20 with client ",
+            "ratio": 9.46
+          },
+          {
+            "text": "tamper_evident: true — Sampled at most 500 of 20 rows in the window; the chain i",
+            "ratio": 7.02
+          },
+          {
+            "text": "hash chain: 20 chained · 0 unchained · 0 breaks · key v1coverage: window_sample ",
+            "ratio": 9.46
+          },
+          {
+            "text": "coverage: window_sample — 20 of 20 rows in a 30-day window; full history is veri",
+            "ratio": 6.92
+          },
+          {
+            "text": "· head fa59c9327767948f…",
+            "ratio": 6.92
+          },
+          {
+            "text": "verification runs: 9 signed · 0 legacy unsigned · 0 suspected forgeries · 0 brea",
+            "ratio": 9.46
+          }
+        ],
+        "minimumRatio": 6.92
       }
     }
   ],
@@ -156,8 +381,11 @@
     "reachedDetailsButton": true,
     "visibleFocusIndicator": true,
     "expandedWithEnter": true,
+    "collapsedWithSpace": true,
+    "focusRetainedAfterOpen": true,
+    "focusRetainedAfterClose": true,
     "tag": "BUTTON",
-    "ariaControls": "audit-row-details-44",
+    "ariaControls": "audit-row-details-22",
     "outlineStyle": "solid",
     "boxShadow": "rgb(2, 6, 23) 0px 0px 0px 2px, rgb(226, 191, 112) 0px 0px 0px 4px, rgba(0, 0, 0, 0) 0px 0px 0px 0px"
   },

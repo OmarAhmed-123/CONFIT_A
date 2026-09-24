@@ -40,7 +40,7 @@ correlation as causal, or an operational amount as a settled ledger amount.
 5. Money remains partitioned by currency; no implicit FX or `$` label.
 6. Return numerator/denominator use one unit and one cohort assignment.
 7. Authenticated authorization denials and sensitive audit reads are audited.
-8. Admin governance remains usable at 390/414/768/1024 widths and by keyboard;
+8. Admin governance remains usable at 390/414/768/1024/1440 widths and by keyboard;
    automated semantics do not substitute for a manual AT/contrast evaluation.
 
 ### Non-goals
@@ -163,7 +163,7 @@ next check. This still does not close actor I (DB + HMAC keys).
 | Mixed currencies are never summed | repository currency partition | production payload after deployment pending | mixed/single-currency DB tests | CONFIRMED locally |
 | Return cohorts use matching boundaries | repository distinct-order query | production values not independently recomputed | duplicate/rejected/window tests | CONFIRMED locally |
 | External WORM anchoring exists | none | none | none | REQUIRES INFRASTRUCTURE |
-| 390px navigation keeps all actions | navbar + native detail button | local Chromium 153 at 390/414/768/1024: no page overflow; 7 links; governance links initially visible; own table scroller; keyboard Enter expanded | structural/axe tests + `docs/evidence/admin-governance-browser-report.json` | CONFIRMED locally; production authenticated UI UNVERIFIED |
+| Responsive/keyboard audit access | navbar + native detail button | local Chromium 153 + PostgreSQL 17 at 390/414/768/1024/1440: no page overflow; 7 links; governance links initially visible; intentional table scroller where needed; computed integrity-text contrast minimum 6.92:1; named 44px control; Enter/Space and focus retention; RTL 390 | structural/axe tests + `docs/evidence/admin-governance-browser-report.json` | CONFIRMED locally; not a formal WCAG conformance claim; production authenticated UI UNVERIFIED |
 | WCAG 2.2 conformance | no conformance evaluation | none | axe excludes contrast/target-size in jsdom | UNVERIFIED — no compliance claim |
 
 Allowed status vocabulary is intentional: CONFIRMED, PARTIALLY CONFIRMED,

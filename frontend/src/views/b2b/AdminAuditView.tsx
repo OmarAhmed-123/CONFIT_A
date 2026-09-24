@@ -142,11 +142,11 @@ export const AdminAuditView: React.FC = () => {
   return (
     <div className="space-y-6 pb-20 text-slate-900">
       <header className="border-b border-slate-200 pb-4">
-        <span className="text-[10px] font-bold uppercase tracking-widest text-[#C5A059]">
+        <span className="text-[10px] font-bold uppercase tracking-widest text-[#765515]">
           {t('admin_audit.eyebrow')}
         </span>
         <h1 className="font-serif text-3xl font-bold">{t('admin_audit.title')}</h1>
-        <p className="mt-1 text-xs text-slate-400">{t('admin_audit.lede')}</p>
+        <p className="mt-1 text-xs text-slate-600">{t('admin_audit.lede')}</p>
       </header>
 
       {integrity && (
@@ -155,10 +155,11 @@ export const AdminAuditView: React.FC = () => {
             integrity.verdict === 'ok'
               ? 'border-emerald-500/30 bg-emerald-500/5'
               : integrity.verdict === 'no_data'
-                ? 'border-slate-700 bg-slate-900/60'
+                ? 'border-slate-300 bg-slate-100'
                 : 'border-rose-500/40 bg-rose-500/5'
           }`}
           aria-label={t('admin_audit.integrity_aria')}
+          data-testid="audit-integrity"
         >
           <div className="flex flex-wrap items-center gap-3">
             <span className="text-[10px] font-bold uppercase tracking-widest text-slate-700">
@@ -206,7 +207,7 @@ export const AdminAuditView: React.FC = () => {
                 </span>
               )}
               {(integrity.chain.bypass_suspected_rows ?? 0) > 0 && (
-                <span role="alert" className="block font-semibold text-rose-300">
+                <span role="alert" className="block font-semibold text-rose-800">
                   {t('admin_audit.integrity_bypass', {
                     count: integrity.chain.bypass_suspected_rows,
                   })}

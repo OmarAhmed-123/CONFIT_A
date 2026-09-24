@@ -37,7 +37,7 @@ export const CartDrawer: React.FC = () => {
                   {t('commerce.cart_title')}
                 </h3>
                 <span className="text-xs text-slate-500">
-                  {cart?.items_count || 0} items from multi-brand boutiques
+                  {cart?.items_count || 0} {t('commerce.items_from_boutiques')}
                 </span>
               </div>
             </div>
@@ -57,10 +57,10 @@ export const CartDrawer: React.FC = () => {
                   <BagIcon size={28} />
                 </div>
                 <h4 className="font-serif text-base font-bold text-[#1B1F3B] mb-1">
-                  Your bag is currently empty
+                  {t('commerce.cart_empty_title')}
                 </h4>
                 <p className="text-xs text-slate-500 max-w-xs mx-auto mb-4">
-                  Discover curated silhouettes or style your personal look with our AI Director.
+                  {t('commerce.cart_empty_body')}
                 </p>
                 <button
                   onClick={() => {
@@ -69,7 +69,7 @@ export const CartDrawer: React.FC = () => {
                   }}
                   className="px-5 py-2.5 rounded-full bg-[#1B1F3B] text-white text-xs font-semibold hover:bg-[#2A3C78] transition-all"
                 >
-                  Explore Fashion Catalog
+                  {t('commerce.explore_catalog')}
                 </button>
               </div>
             ) : (
@@ -91,7 +91,7 @@ export const CartDrawer: React.FC = () => {
                         <button
                           onClick={() => removeItem(item.id)}
                           className="text-slate-500 hover:text-rose-500 text-xs"
-                          title="Remove item"
+                          title={t('commerce.remove_item')}
                         >
                           ✕
                         </button>
@@ -142,7 +142,7 @@ export const CartDrawer: React.FC = () => {
                 </div>
                 {(cart?.discount_amount || 0) > 0 && (
                   <div className="flex justify-between text-emerald-600">
-                    <span>Discount</span>
+                    <span>{t('commerce.discount')}</span>
                     <span>-${(cart?.discount_amount || 0).toFixed(2)}</span>
                   </div>
                 )}

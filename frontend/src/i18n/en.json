@@ -274,7 +274,11 @@
     "bnpl_line": "or 4 interest-free payments of {{amount}} with {{provider}}",
     "bnpl_default_provider": "your instalment partner",
     "bnpl_estimate_line": "4 payments of {{amount}} — illustrative only, instalments are not enabled",
-    "bnpl_not_live": "BNPL instalments are not enabled on this deployment."
+    "bnpl_not_live": "BNPL instalments are not enabled on this deployment.",
+    "items_from_boutiques": "items from multi-brand boutiques",
+    "cart_empty_title": "Your bag is currently empty",
+    "cart_empty_body": "Discover curated silhouettes or style your personal look with our AI Director.",
+    "explore_catalog": "Explore Fashion Catalog"
   },
   "b2b": {
     "dashboard_title": "Brand Partner Command Center",
@@ -340,7 +344,9 @@
     "rename": "Rename",
     "delete": "Delete",
     "apply": "Apply",
-    "create_account": "Create Account"
+    "create_account": "Create Account",
+    "retry": "Retry",
+    "retry_now": "Retry now"
   },
   "layout": {
     "ai_stylist_director": "AI Stylist Director",
@@ -417,7 +423,8 @@
     "visual_search_dialog": "Visual search",
     "try_on_studio": "Virtual try-on studio",
     "scan_studio": "Body scan size studio",
-    "language_current": "Language {{position}} of 2: {{language}}"
+    "language_current": "Language {{position}} of 2: {{language}}",
+    "product_image_alt": "{{name}} image {{index}}"
   },
   "meta": {
     "home_title": "CONFIT — Where Style Meets Your Character",
@@ -959,7 +966,27 @@
       "vodafone_cash": "mobile wallet",
       "instapay_bridge": "InstaPay transfer",
       "cod": "cash on delivery"
-    }
+    },
+    "not_found": "Order not found",
+    "track_subtitle": "Track every step with premium visual clarity",
+    "number_label": "Order #",
+    "selected_boutique": "Selected boutique",
+    "pickup_code": "Pickup code",
+    "fulfillment_progress": "Fulfillment progress",
+    "current_step": "Current",
+    "items_label": "Items",
+    "returned_suffix": " · returned",
+    "request_return": "Request return",
+    "return_authorised": "Return authorised",
+    "return_authorised_detail": "A return authorisation document was issued. Carrier labels are generated only when a shipping provider is configured.",
+    "download_authorisation": "Download authorisation",
+    "return_reason": "Reason",
+    "reason_wrong_size": "Wrong Size",
+    "reason_color": "Color Difference",
+    "reason_style": "Style Mismatch",
+    "reason_changed_mind": "Changed Mind",
+    "reason_quality": "Quality Issue",
+    "submit_return": "Submit return"
   },
   "discover": {
     "search_label": "Search the catalogue",
@@ -981,6 +1008,27 @@
     "fabric_care_details": "Fabric, care & details",
     "size_and_fit": "Size & fit",
     "composition_label": "Composition:",
-    "care_label": "Care:"
+    "care_label": "Care:",
+    "unavailable_heading": "Product unavailable",
+    "unavailable_title": "This piece is unavailable",
+    "breadcrumb_catalog": "Catalog",
+    "fit_match": "Match",
+    "recommended_size_out_of_stock": "The recommended size is not currently in stock.",
+    "complete_profile_for_size": "Complete your body profile to see a personal size recommendation. Until then, choose a size from available stock.",
+    "out_of_stock": "Out of stock",
+    "not_specified": "Not specified",
+    "see_garment_label": "See garment label",
+    "bopis_title": "Boutique pickup (BOPIS)",
+    "bopis_checking": "Checking boutique availability...",
+    "bopis_failed": "Boutique availability check failed",
+    "bopis_unreachable": "Unable to reach inventory service. Please try again or use home delivery.",
+    "bopis_no_store": "No nearby stores currently hold this size. Home delivery remains available at checkout.",
+    "bopis_no_store_stock": "No nearby stores currently hold this size with available stock. Home delivery remains available at checkout.",
+    "open_map": "Open map",
+    "in_stock": "in stock",
+    "delivery_returns": "Delivery & returns",
+    "delivery_note": "Standard or express home delivery is quoted at checkout from live cart totals.",
+    "returns_note": "Eligible orders can be returned within 30 days from the order date. Return authorisation is issued from order history.",
+    "complete_the_look": "Complete the look"
   }
 }

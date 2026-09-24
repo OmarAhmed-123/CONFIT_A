@@ -187,6 +187,22 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "sqlite:///./backend/data/confit.db"
     REDIS_URL: str = "redis://localhost:6379/0"
 
+    #: Where the rate limiter keeps its counters.
+    #:
+    #: Deliberately ``None``. The honest default is the in-process store, because
+    #: that is what this deployment actually has: a value here would be a claim
+    #: about infrastructure, and MEASURED 2026-09-24 there is no managed Redis
+    #: provisioned for this project. A synthesised ``redis://…`` default would
+    #: make the limiter look global while every instance still kept its own
+    #: counters — a fake distributed limiter, which is forbidden.
+    #:
+    #: Set it to a real endpoint (``redis://``/``rediss://``) and the limiter's
+    #: counters become shared by every instance. When the shared store is
+    #: unreachable the limiter degrades to the in-process store rather than
+    #: failing requests, and ``/health`` reports that state — see
+    #: ``core.rate_limit.rate_limit_store_report``.
+    RATE_LIMIT_STORAGE_URL: Optional[str] = None
+
     # CORS (Explicit Origins only when credentials enabled).
     # Vercel/Modal/docker inject plain strings; accepted forms are a JSON array
     # ('["https://a","https://b"]'), a comma-separated list ("https://a,https://b")

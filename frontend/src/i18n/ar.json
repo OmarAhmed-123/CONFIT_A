@@ -814,7 +814,7 @@
     "integrity_verdict": "النتيجة: {{verdict}}",
     "integrity_counts": "{{rows}} سطر · {{actors}} فاعل · {{beforeAfter}} بقبل/بعد · {{requestId}} بمعرّف الطلب · {{ip}} بعنوان العميل",
     "integrity_tamper": "مقاومة العبث (tamper_evident): {{value}} — {{note}}",
-    "integrity_chain": "سلسلة التجزئة: {{chained}} مسلسل · {{unchained}} قبل الترحيل (غير مسلسل) · {{breaks}} كسور · مفتاح v{{keyVersion}}",
+    "integrity_chain": "سلسلة التجزئة: {{chained}} مسلسل · {{unchained}} غير مسلسل · {{breaks}} كسور · مفتاح v{{keyVersion}}",
     "filters_aria": "عوامل تصفية سجل التدقيق",
     "filters_action": "الإجراء",
     "filters_resource_type": "نوع المورد",
@@ -842,7 +842,10 @@
     "pagination": "{{total}} سطر · صفحة {{page}} من {{pages}}",
     "previous": "السابق",
     "next": "التالي",
-    "not_available": "غير متاح"
+    "not_available": "غير متاح",
+    "integrity_coverage": "التغطية: {{mode}} — {{sampled}} من {{inWindow}} صف خلال نافذة {{days}} يوم؛ التاريخ الكامل يُتحقق منه دوريًا خارج الطلبات",
+    "integrity_bypass": "{{count}} صف غير مسلسل بعد بدء السلسلة — احتمال تجاوز لمسار الكتابة، يتطلب تحقيقًا",
+    "audit_table_caption": "سجل تدقيق إجراءات الأدمن"
   },
   "admin_heatmap": {
     "title": "خريطة إشارات الأسلوب — {{scope}}",

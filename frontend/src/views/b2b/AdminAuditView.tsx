@@ -194,6 +194,23 @@ export const AdminAuditView: React.FC = () => {
                 breaks: integrity.chain.breaks.length,
                 keyVersion: integrity.chain.key_version,
               })}
+              {integrity.coverage && (
+                <span className="block text-slate-500">
+                  {t('admin_audit.integrity_coverage', {
+                    mode: integrity.coverage.mode,
+                    sampled: integrity.coverage.sampled_rows,
+                    inWindow: integrity.coverage.rows_in_window,
+                    days: integrity.coverage.window_days,
+                  })}
+                </span>
+              )}
+              {(integrity.chain.bypass_suspected_rows ?? 0) > 0 && (
+                <span role="alert" className="block font-semibold text-rose-300">
+                  {t('admin_audit.integrity_bypass', {
+                    count: integrity.chain.bypass_suspected_rows,
+                  })}
+                </span>
+              )}
               {integrity.chain.head_hash && (
                 <span className="text-slate-500">
                   {' '}
@@ -332,10 +349,11 @@ export const AdminAuditView: React.FC = () => {
 
       <div className="overflow-x-auto rounded-2xl border border-slate-800">
         <table className="w-full text-left text-xs">
+          <caption className="sr-only">{t('admin_audit.audit_table_caption')}</caption>
           <thead className="bg-slate-900/80 text-[10px] uppercase tracking-wider text-slate-400">
             <tr>
               {columns.map(([label, key]) => (
-                <th key={key} className="px-3 py-2">
+                <th key={key} scope="col" className="px-3 py-2">
                   {label}
                 </th>
               ))}

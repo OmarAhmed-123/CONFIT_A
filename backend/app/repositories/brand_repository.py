@@ -1228,6 +1228,8 @@ class BrandRepository:
             else None
         )
 
+        from backend.app.core.metric_semantics import MIN_SAMPLE_POLICY, measured_metric
+
         return {
             "total_orders": int(total_orders),
             "tryon_orders": int(tryon_orders),
@@ -1239,7 +1241,25 @@ class BrandRepository:
             "return_rate_tryon_users": tryon_return_rate,
             "return_rate_non_tryon_users": non_tryon_return_rate,
             "return_reduction_percentage": reduction,
-            "methodology": "Cohort analysis: try-on assisted orders vs non-try-on orders, return rate comparison. Try-on adoption attributed via Order.try_on_assisted and ReturnRequest.try_on_used_for_item from real VTON events. null = cohort denominator was zero (unmeasured, not zero)."
+            # Machine-readable semantics (2026-09-24 re-audit): each rate
+            # carries its own status + sample size so a consumer can tell a
+            # MEASURED ZERO (denominator > 0, nobody returned anything) from
+            # an UNMEASURED cohort (denominator == 0, value is N/A) — and can
+            # never present n=3 with the confidence of n=30,000. The flat
+            # fields above are kept verbatim for API compatibility.
+            "metrics": {
+                "platform_avg_return_rate": measured_metric(platform_avg, total_orders),
+                "return_rate_tryon_users": measured_metric(tryon_return_rate, tryon_orders),
+                "return_rate_non_tryon_users": measured_metric(non_tryon_return_rate, non_tryon_orders),
+                "return_reduction_percentage": {
+                    "value": reduction,
+                    "status": "measured" if reduction is not None else "unmeasured_requires_both_cohorts",
+                    "sample_size": {"tryon_orders": int(tryon_orders), "non_tryon_orders": int(non_tryon_orders)},
+                },
+            },
+            "min_sample_policy": MIN_SAMPLE_POLICY,
+            "semantic_type": "observational_cohort_comparison",
+            "methodology": "Cohort analysis: try-on assisted orders vs non-try-on orders, return rate comparison. Try-on adoption attributed via Order.try_on_assisted and ReturnRequest.try_on_used_for_item from real VTON events. null = cohort denominator was zero (unmeasured, not zero). OBSERVATIONAL comparison of self-selected cohorts — a rate DIFFERENCE, not a causal claim that try-on REDUCES returns (no randomisation, no seasonality adjustment)."
         }
 
     # Order states whose items are NOT eligible revenue (order-level).
@@ -1377,6 +1397,16 @@ class BrandRepository:
                 "commission or settlement must reconcile against payment "
                 "provider records independently."
             ),
+            # 2026-09-24 re-audit: machine-readable financial state, not just
+            # prose. Amounts here are RECORDED and ATTRIBUTED — they are not
+            # captured, settled or reconciled, and no reconciliation against
+            # payment-provider records has ever been performed (there is no
+            # provider integration to reconcile against yet).
+            "value_semantics": "recorded_attributed_unsettled",
+            "reconciliation_status": "unreconciled",
+            "reconciled_against": None,
+            "computed_at": datetime.now(timezone.utc).isoformat(),
+            "freshness": "computed live from transactional tables at request time",
         }
 
     # --- Style signal heatmap (single implementation, G-01/G-02/G-04) ------

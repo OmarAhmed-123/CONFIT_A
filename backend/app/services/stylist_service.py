@@ -82,6 +82,10 @@ class StylistService:
                 intent_json=intent,
                 recommendations_json=[]
             )
+            # No provider was called on this path (the prompt was too vague to
+            # act on), so there is no engine to attribute. `engine: "none"` is
+            # stated rather than left absent, so a client cannot mistake a
+            # clarifying question for a generated styling answer.
             return {
                 "id": assistant_msg.id,
                 "session_id": session.id,
@@ -89,6 +93,7 @@ class StylistService:
                 "content": assistant_msg.content,
                 "audio_url": None,
                 "intent_detected": intent,
+                "engine": "none",
                 "recommendations": [],
                 "created_at": assistant_msg.created_at
             }
@@ -132,6 +137,18 @@ class StylistService:
         )
 
         # 8. Save assistant response
+        #
+        # WHICH ENGINE ANSWERED IS PART OF THE RECORD, NOT A LOG DETAIL.
+        # The orchestrator already labels the answer truthfully — a real call
+        # returns "<Provider> <model the provider actually served>", and a total
+        # provider failure returns "CONFIT Grounded Styling Engine". That label
+        # used to be computed and then DROPPED here: not persisted, not returned,
+        # so neither the consumer nor a reviewer could tell a provider answer
+        # from deterministic fallback prose while the capability flag still said
+        # the stylist was live. It is now written into the stored message and
+        # returned to the caller.
+        engine = ai_result.get("provider_used")
+        intent["engine"] = engine
         assistant_msg = self.stylist_repo.add_message(
             session_id=session.id,
             sender="assistant",
@@ -147,6 +164,7 @@ class StylistService:
             "content": assistant_msg.content,
             "audio_url": None,
             "intent_detected": intent,
+            "engine": engine,
             "recommendations": recommended_outfits,
             "created_at": assistant_msg.created_at
         }

@@ -230,13 +230,30 @@ export const VirtualStylistDrawer: React.FC = () => {
                   <div className="flex items-center gap-2 mb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
                     <span>
                       {msg.sender === "user"
-                        ? "You"
-                        : "CONFIT Senior AI Stylist"}
+                        ? t("stylist.you_label")
+                        : t("stylist.assistant_label")}
                     </span>
                   </div>
                   <p className="text-slate-800 font-light leading-relaxed">
                     {msg.content}
                   </p>
+                  {/* Which engine answered, stated in the message itself. The
+                      bubble used to claim "AI Stylist" unconditionally, so a
+                      deterministic fallback answer (every provider down) was
+                      presented as a live model reply. The API now reports the
+                      engine; this renders it. */}
+                  {msg.sender === "assistant" && msg.engine && (
+                    <p
+                      className="mt-2 pt-2 border-t border-slate-100 text-[10px] text-slate-500"
+                      data-engine={msg.engine}
+                    >
+                      {msg.engine === "none"
+                        ? t("stylist.engine_none")
+                        : String(msg.engine).includes("Grounded Styling Engine")
+                          ? t("stylist.engine_grounded")
+                          : t("stylist.engine_provider", { engine: msg.engine })}
+                    </p>
+                  )}
                 </div>
 
                 {/* Render Recommended Outfits */}

@@ -175,6 +175,57 @@ def build_payload(schema: Dict[str, Any], spec: Dict[str, Any]) -> Dict[str, Any
     return out
 
 
+def instrument_controls(client: "Client", results: Dict[str, Any]) -> None:
+    """Prove this harness can grade, before it grades anything (sections 30 + 64).
+
+    Three controls, on the same code path the matrix itself uses:
+
+    * POSITIVE — a public read must answer 200 to an anonymous caller. This
+      doubles as a reachability control: a dead target answering 404/000 to
+      everything would otherwise look like a wall of correct denials.
+    * NEGATIVE — an anonymous read of a PROTECTED route must not be 200. The
+      whole matrix presumes "signed-out means refused"; if that premise is
+      false on the target, every refusal verdict below would be meaningless.
+    * FAIL-PROPAGATION — one probe is graded against a knowingly impossible
+      expectation and the run aborts unless the harness records a FAIL. A
+      harness that cannot report a failure cannot report a pass either.
+    """
+    st, _ = client.call("GET", "/catalog/capabilities")
+    if st != 200:
+        raise Loud(
+            f"positive control: anonymous GET /catalog/capabilities returned {st}, expected 200 — "
+            f"the target is unreachable or serving errors; refusing to grade against it"
+        )
+
+    st_prot, _ = client.call("GET", "/wardrobe/items")
+    if st_prot == 200:
+        raise Loud(
+            "negative control: anonymous GET /wardrobe/items returned 200 — a protected route "
+            "answered an unauthenticated caller, so this target does not satisfy the premise the "
+            "matrix is built on"
+        )
+    if st_prot not in (401, 403):
+        raise Loud(
+            f"negative control: anonymous protected read returned {st_prot} rather than a clean "
+            f"401/403 — 'denied' cannot be told apart from 'broken', so the run is not gradeable"
+        )
+
+    expected = (200,)
+    verdict = ("OK" if st_prot in expected else f"FAIL — expected {expected}, got {st_prot}")
+    if not verdict.startswith("FAIL"):
+        raise Loud(
+            "fail-propagation control: a knowingly wrong expectation was graded OK — the FAIL path "
+            "is broken, so no PASS from this run would mean anything"
+        )
+
+    results["instrument_controls"] = {
+        "positive": {"request": "GET /catalog/capabilities (anonymous)", "status": st},
+        "negative": {"request": "GET /wardrobe/items (anonymous)", "status": st_prot},
+        "fail_propagation": "verified — a knowingly wrong expectation is reported as FAIL",
+        "note": "these three controls run before grading; a failure here aborts with exit 3",
+    }
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--base-url", default="http://localhost:8000")
@@ -360,6 +411,9 @@ def main() -> int:
     anon = Client(args.base_url)
     anon.token = ""
 
+    # Controls first: they decide whether this run may grade at all.
+    instrument_controls(anon, results)
+
     def order_check(check: str, path: str, client_obj, expected: tuple,
                     fail_below: bool = False, **kw) -> None:
         """Record one order-read probe with an explicit expectation, not a vibe.
@@ -524,6 +578,10 @@ def main() -> int:
     print(f"{'check':58} {'status':>7}  verdict")
     for c in results["checks"]:
         print(f"{c['check'][:58]:58} {str(c['status']):>7}  {c.get('verdict','')[:60]}")
+    ctrl = results.get("instrument_controls") or {}
+    if ctrl:
+        print(f"\ninstrument controls: public read {ctrl['positive']['status']} | "
+              f"protected read {ctrl['negative']['status']} | fail path {ctrl['fail_propagation'][:9]}")
     print(f"\nsummary: {results['summary']}")
     if fails:
         print("\nFAILURES:")

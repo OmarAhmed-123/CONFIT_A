@@ -65,11 +65,35 @@ ROUTES = [
     ("returns", "/returns"),
 ]
 
+#: A route that rendered nothing is not evidence of a clean route. MEASURED: a
+#: real consumer surface renders hundreds of characters of visible text (the
+#: smallest observed was the signed-out wardrobe notice); a blank shell, an SPA
+#: crash or an offline navigation renders almost none. Without this gate the
+#: census would print "(no failed requests)" for a page that never loaded —
+#: a clean-looking result produced by measuring nothing.
+MIN_RENDERED_TEXT = 120
+
 #: A signed-out visitor is allowed a small, bounded number of failures per route:
 #: one protected call that 401s plus the single refresh attempt that answers 401
 #: as well. Anything above this is a pattern worth investigating, and the census
 #: says so out loud instead of leaving the reader to eyeball the numbers.
 BENIGN_FAILURES_PER_ROUTE = 2
+
+
+def rendered_state(page) -> Dict[str, object]:
+    """What the page actually shows — the precondition for counting anything."""
+    return page.evaluate(
+        """() => {
+            const root = document.getElementById('root') || document.body;
+            const text = (document.body.innerText || '').trim();
+            return {
+                readyState: document.readyState,
+                title: document.title || '',
+                textLength: text.length,
+                rootChildren: root.children.length,
+            };
+        }"""
+    )
 
 
 def main() -> int:
@@ -107,6 +131,7 @@ def main() -> int:
             page.on("response", handler)
             page.goto(args.base_url + route, wait_until="networkidle")
             page.wait_for_timeout(1200)
+            state = rendered_state(page)
             # ONE listener, removed before the next route: Playwright keeps every
             # listener registered on a page for its lifetime, so registering per
             # route without removing multiplies every later measurement by the
@@ -117,12 +142,23 @@ def main() -> int:
             for status, url in hits:
                 key = f"{status} {url.split('?')[0]}"
                 grouped[key] = grouped.get(key, 0) + 1
-            out.append({"surface": name, "route": route, "language": args.language,
-                        "failures": grouped, "total": len(hits)})
-            if grouped:
-                print(f"{name:11} {route:44} {json.dumps(grouped)}")
+            entry = {"surface": name, "route": route, "language": args.language,
+                     "failures": grouped, "total": len(hits), "rendered": state}
+            if (state["textLength"] or 0) < MIN_RENDERED_TEXT or (state["rootChildren"] or 0) < 1:
+                entry["error"] = (
+                    f"route did not render: {state['textLength']} chars of visible text, "
+                    f"{state['rootChildren']} root children, title={state['title']!r}, "
+                    f"readyState={state['readyState']}"
+                )
+            out.append(entry)
+            if entry.get("error"):
+                print(f"{name:11} {route:44} RUN INVALID — {entry['error']}")
+            elif grouped:
+                print(f"{name:11} {route:44} {json.dumps(grouped)} "
+                      f"(rendered {state['textLength']} chars)")
             else:
-                print(f"{name:11} {route:44} (no failed requests)")
+                print(f"{name:11} {route:44} (no failed requests; rendered "
+                      f"{state['textLength']} chars)")
         browser.close()
 
     with open(args.json, "w") as fh:
@@ -133,6 +169,14 @@ def main() -> int:
     worst = max(out, key=lambda e: e["total"], default={"total": 0, "surface": "-"})
     print(f"\ntotal failed requests, signed-out visitor, {len(out)} route(s): {total}; "
           f"worst route: {worst['surface']} ({worst['total']}); /auth/refresh 401s: {refresh_401}")
+
+    invalid = [e for e in out if e.get("error")]
+    if invalid:
+        print(f"\nRUN INVALID — {len(invalid)} route(s) never rendered, so their zero "
+              f"cannot be read as a pass:")
+        for e in invalid:
+            print(f"    ! {e['surface']} {e['route']}: {e['error']}")
+        return 3
 
     over = [e["surface"] for e in out if e["total"] > BENIGN_FAILURES_PER_ROUTE]
     if over:

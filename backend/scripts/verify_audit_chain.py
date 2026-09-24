@@ -66,6 +66,7 @@ def run(database_url: str, batch_size: int = 1000) -> Dict[str, Any]:
         head_hash = None
         head_row_id = None
         latest_run_reference = None
+        malformed_run_crosslinks = []
         last_id = 0
 
         while True:
@@ -82,10 +83,14 @@ def run(database_url: str, batch_size: int = 1000) -> Dict[str, Any]:
             for row in batch:
                 reference = verification_run_crosslink(row)
                 if reference is not None:
-                    # Ascending scan: the final retained reference is the
-                    # newest cross-link in the independently verified audit
-                    # chain, including a malformed newest reference.
-                    latest_run_reference = reference
+                    if reference.get("verdict") == "malformed_crosslink":
+                        malformed_run_crosslinks.append(reference)
+                    elif (latest_run_reference is None
+                          or reference["run_id"] > latest_run_reference["run_id"]):
+                        # Concurrent responses can commit cross-links out of
+                        # run order; the greatest signed run id is the tail
+                        # anchor, not the newest audit-row id.
+                        latest_run_reference = reference
                 if row.entry_hash is None:
                     if first_chained_id is None:
                         legacy_rows += 1
@@ -139,6 +144,12 @@ def run(database_url: str, batch_size: int = 1000) -> Dict[str, Any]:
                 and latest_run_reference.get("verdict") == "reference_found"):
             linked_run = run_by_id.get(latest_run_reference["run_id"])
         run_anchor = verify_verification_run_crosslink(latest_run_reference, linked_run)
+        for malformed in malformed_run_crosslinks:
+            breaks.append({
+                "run_id": None,
+                "issue": "verification_run_malformed_crosslink",
+                "detail": malformed.get("detail"),
+            })
         if run_anchor["verdict"] in {
             "malformed_crosslink", "tail_deletion_detected", "crosslink_mismatch",
         }:
@@ -190,9 +201,11 @@ def run(database_url: str, batch_size: int = 1000) -> Dict[str, Any]:
                 "forgery_suspected_run_ids": forged_run_ids,
                 "breaks": verification_chain["breaks"],
                 "tail_anchor": run_anchor,
+                "malformed_crosslinks": len(malformed_run_crosslinks),
                 "intact": bool(
                     verification_chain["intact"]
                     and not forged_run_ids
+                    and not malformed_run_crosslinks
                     and run_anchor["verdict"] not in {
                         "malformed_crosslink", "tail_deletion_detected", "crosslink_mismatch",
                     }

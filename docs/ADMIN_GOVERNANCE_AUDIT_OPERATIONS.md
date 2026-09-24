@@ -66,8 +66,8 @@ DATABASE_URL=postgresql://... AUDIT_HMAC_KEY=... \
 
 Read-only. It verifies BOTH chains from genesis: `audit_logs` and, since 0023,
 `audit_verification_runs` (including unsigned-after-signed forged inserts),
-validates the newest run cross-link in the audit chain, then checks the last
-run's recorded audit head. Exit 0 = intact, 1 =
+validates the highest referenced run cross-link in the audit chain, then checks
+the last run's recorded audit head. Exit 0 = intact, 1 =
 violations, 2 = could not run. Run it after every key rotation, during incident
 response and periodically. Never wire it into a request path.
 
@@ -113,8 +113,8 @@ failed CLI run.
 ## 5. Verification cost model
 
 - Dashboard endpoint: bounded audit sample (`sample_limit` ≤ 500) + bounded
-  verification-run tail (≤100) + latest 0023 cross-link among at most 100
-  integrity-read events + indexed anchor/global bypass counts — no full-history
+  verification-run tail (≤100) + highest referenced 0023 run among at most 100
+  integrity-read events (safe under out-of-order concurrent responses) + indexed anchor/global bypass counts — no full-history
   request scan.
 - CLI verifier: O(n) over audit rows plus O(r) over verification runs —
   deliberate runs only.

@@ -180,7 +180,7 @@ def verification_run_crosslink(audit_row: Any) -> Optional[Dict[str, Any]]:
 def verify_verification_run_crosslink(
     reference: Optional[Dict[str, Any]], persisted_run: Optional[Any]
 ) -> Dict[str, Any]:
-    """Check the latest audit-chain cross-link to close run-chain tail deletion."""
+    """Check the highest referenced run cross-link to close tail deletion."""
     if reference is None:
         return {"audit_row_id": None, "run_id": None, "verdict": "no_prior_crosslink"}
     if reference.get("verdict") == "malformed_crosslink":

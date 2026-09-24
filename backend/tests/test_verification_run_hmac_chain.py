@@ -176,12 +176,28 @@ class TestRunTampering:
             action="CHAIN_ORIGIN", resource_type="RunTailDeletionTest"
         )
         first = AuditTrailService(db).integrity(window_days=30, sample_limit=10)
+        second = _run(db, request_id="newer-run-crosslinked-first")
+        second_reference = {
+            "id": second.id,
+            "run_hash": second.run_hash,
+            "previous_run_hash": second.run_prev_hash,
+            "hmac_key_version": second.run_hmac_key_version,
+        }
+        # Reproduce concurrent response ordering: the newer run's audit link
+        # commits first, then the older run's link becomes the newest audit
+        # row. The verifier must anchor max(run_id), not max(audit_row_id).
+        UserRepository(db).log_audit(
+            action="ADMIN_AUDIT_INTEGRITY_CHECK",
+            resource_type="AuditLog",
+            after={"verification_run": second_reference},
+        )
         UserRepository(db).log_audit(
             action="ADMIN_AUDIT_INTEGRITY_CHECK",
             resource_type="AuditLog",
             after={"verification_run": first["verification_run"]},
         )
-        deleted_id = first["verification_run"]["id"]
+        deleted_id = second.id
+        db.expunge(second)  # raw DELETE below; avoid a stale SQLite identity-map row
         db.execute(
             text("DELETE FROM audit_verification_runs WHERE id=:id"),
             {"id": deleted_id},
@@ -190,6 +206,7 @@ class TestRunTampering:
 
         report = AuditTrailService(db).integrity(window_days=30, sample_limit=10)
         assert report["verification_runs"]["anchor"]["verdict"] == "tail_deletion_detected"
+        assert report["verification_runs"]["anchor"]["run_id"] == deleted_id
         assert any(
             violation["issue"] == "verification_run_tail_deletion_detected"
             for violation in report["violations"]

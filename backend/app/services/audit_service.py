@@ -337,7 +337,9 @@ class AuditTrailService:
         # Every HTTP integrity run is therefore cross-linked by the controller
         # into the independently chained audit log. Validate the latest 0023
         # reference here before creating this run. The lookup is bounded; old
-        # pre-0023 integrity-read events are skipped honestly.
+        # pre-0023 integrity-read events are skipped honestly. The highest
+        # referenced run id wins because concurrent responses can cross-link
+        # in a different order from run creation.
         prior_integrity_events = (
             self.db.query(AuditLog)
             .filter(AuditLog.action == "ADMIN_AUDIT_INTEGRITY_CHECK")
@@ -345,10 +347,26 @@ class AuditTrailService:
             .limit(100)
             .all()
         )
-        run_reference = next(
-            (reference for event in prior_integrity_events
-             if (reference := verification_run_crosslink(event)) is not None),
-            None,
+        run_references = [
+            reference for event in prior_integrity_events
+            if (reference := verification_run_crosslink(event)) is not None
+        ]
+        valid_run_references = [
+            reference for reference in run_references
+            if reference.get("verdict") == "reference_found"
+        ]
+        malformed_run_crosslinks = [
+            reference for reference in run_references
+            if reference.get("verdict") == "malformed_crosslink"
+        ]
+        # Concurrent integrity requests may commit their audit cross-links out
+        # of response order. Audit-row recency is therefore not equivalent to
+        # verification-run recency: anchor the greatest referenced run id.
+        run_reference = (
+            max(valid_run_references, key=lambda reference: reference["run_id"])
+            if valid_run_references else (
+                malformed_run_crosslinks[0] if malformed_run_crosslinks else None
+            )
         )
         referenced_run = None
         if run_reference is not None and run_reference.get("verdict") == "reference_found":
@@ -358,9 +376,13 @@ class AuditTrailService:
                 .first()
             )
         run_anchor = verify_verification_run_crosslink(run_reference, referenced_run)
-        if run_anchor["verdict"] in {
-            "malformed_crosslink", "tail_deletion_detected", "crosslink_mismatch",
-        }:
+        for malformed in malformed_run_crosslinks:
+            violations.append({
+                "row_id": None,
+                "issue": "verification_run_malformed_crosslink",
+                "detail": malformed.get("detail"),
+            })
+        if run_anchor["verdict"] in {"tail_deletion_detected", "crosslink_mismatch"}:
             violations.append({
                 "row_id": run_anchor.get("run_id"),
                 "issue": f"verification_run_{run_anchor['verdict']}",
@@ -408,6 +430,7 @@ class AuditTrailService:
             and bypass_suspected_rows == 0
             and not run_chain["breaks"]
             and forged_run_rows == 0
+            and not malformed_run_crosslinks
             and run_anchor["verdict"] not in {
                 "malformed_crosslink", "tail_deletion_detected", "crosslink_mismatch",
             }
@@ -520,9 +543,11 @@ class AuditTrailService:
                 "forgery_suspected_rows": forged_run_rows,
                 "breaks": run_chain["breaks"][:50],
                 "anchor": run_anchor,
+                "malformed_crosslinks": len(malformed_run_crosslinks),
                 "intact": bool(
                     run_chain["intact"]
                     and forged_run_rows == 0
+                    and not malformed_run_crosslinks
                     and run_anchor["verdict"] not in {
                         "malformed_crosslink", "tail_deletion_detected", "crosslink_mismatch",
                     }

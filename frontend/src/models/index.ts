@@ -1014,6 +1014,7 @@ export interface AuditIntegrity {
     first_signed_run_id?: number | null;
     forgery_suspected_rows: number;
     breaks: Array<{ run_id?: number | null; issue: string; detail?: string }>;
+    malformed_crosslinks?: number;
     anchor?: {
       audit_row_id?: number | null;
       run_id?: number | null;

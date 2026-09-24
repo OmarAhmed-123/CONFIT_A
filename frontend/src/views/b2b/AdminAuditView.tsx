@@ -232,7 +232,8 @@ export const AdminAuditView: React.FC = () => {
                 signed: integrity.verification_runs.signed_rows,
                 unsigned: integrity.verification_runs.unsigned_rows,
                 forged: integrity.verification_runs.forgery_suspected_rows,
-                breaks: integrity.verification_runs.breaks.length,
+                breaks: integrity.verification_runs.breaks.length
+                  + (integrity.verification_runs.malformed_crosslinks ?? 0),
                 coverage: integrity.verification_runs.coverage_mode,
                 anchor: integrity.verification_runs.anchor?.verdict ?? 'no_prior_crosslink',
               })}

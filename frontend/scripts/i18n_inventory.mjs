@@ -30,6 +30,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
+const REQUEST_FUNCTIONS = new Set(['sendPrompt', 'request', 'post', 'put', 'patch']);
 import ts from 'typescript';
 
 const args = process.argv.slice(2);
@@ -104,10 +105,34 @@ const PROPER_NOUNS = [
 ];
 
 const CLASS_SOUP = /(^|\s)(-?[a-z]+(-[a-z0-9]+)*:)?[a-z-]+-\[[^\]]+\]|\b(px|py|mt|mb|ml|mr|gap|grid|flex|text|bg|border|rounded|shadow|w|h|max-w|min-h)-[a-z0-9-]+\b/;
+
+/**
+ * Is this string a CSS utility-class list rather than human copy?
+ *
+ * The previous test was "contains a utility token AND has 3+ words", which missed
+ * short lists: `bg-black/70 text-white` (2 tokens) was reported as MUST_LOCALIZE
+ * copy in VirtualStylistDrawer. A count threshold is the wrong shape for this
+ * question — EVERY token being a utility class is the right one, and it does not
+ * care how many tokens there are.
+ *
+ * Examples that must be class lists:  "bg-black/70 text-white", "p-3 rounded-xl"
+ * Examples that must NOT be:          "Complete Look", "Navy Blue", "Try"
+ */
+const isUtilityToken = (tok) => {
+  const t = tok.replace(/^[a-z-]+:/i, '');        // responsive/state prefixes: sm:, hover:
+  if (!t || /^[A-Z]/.test(t)) return false;
+  if (t.includes('/') || t.includes('[')) return true;              // bg-black/70, text-[#fff]
+  return /^(bg|text|border|rounded|shadow|p|px|py|pt|pb|pl|pr|m|mx|my|mt|mb|ml|mr|gap|grid|flex|inline|block|hidden|w|h|min|max|top|bottom|left|right|z|opacity|font|leading|tracking|space|overflow|items|justify|self|absolute|relative|fixed|sticky|inset|translate|scale|transition|duration|ease|animate|ring|outline|divide|col|row)-[a-z0-9-]+$/i.test(t);
+};
+const isClassList = (text) => {
+  const tokens = text.trim().split(/\s+/).filter(Boolean);
+  return tokens.length >= 2 && tokens.every(isUtilityToken);
+};
 const looksTechnical = (s) => {
   const t = s.trim();
   if (!t) return true;
   // defence in depth for anything that still reaches here as a class list
+  if (isClassList(t)) return true;
   if (CLASS_SOUP.test(t) && t.split(/\s+/).length >= 3) return true;
   if (TECHNICAL.some((re) => re.test(t))) return true;
   // a single token with no space that is not a known proper noun and has no
@@ -249,9 +274,11 @@ for (const file of files) {
         } else if (!isConsoleArg(node) && !isDataComparison(node)) {
           const contract = inContractPosition(node);
           const labelled = nearLabelKey(node);
+          const payload = requestPayloadFn(node);
           push(node, contract ? 'object:value' : labelled ? 'object:label' : 'literal', node.text, {
             contract,
             nearLabelKey: labelled,
+            requestPayload: payload,
           });
         }
       }
@@ -277,15 +304,50 @@ for (const file of files) {
 }
 
 /* ── classification ────────────────────────────────────────────────────────── */
+/**
+ * Functions whose string arguments are REQUEST PAYLOAD, not copy.
+ *
+ * Measured 2026-09-24: after the stylist drawer was localized, the English strings
+ * that remain in it are the ones the UI SENDS — `sendPrompt("Style an outfit for
+ * …", "Work & Business")`. The backend parses those with English keyword matching,
+ * so translating them would silently break occasion detection. They are contract
+ * values and are reported as such, with the function name in the reason.
+ */
+
+
+
+/**
+ * Is this string literal an argument to one of the API-calling helpers?
+ * Walks up only as far as the nearest call expression, so it cannot misfire on
+ * unrelated calls further up the tree.
+ */
+// A function DECLARATION, not a const arrow: the collector below runs before this
+// line, so a const would be in its temporal dead zone and throw
+// "Cannot access 'requestPayloadFn' before initialization" at the first literal.
+function requestPayloadFn(node) {
+  let p = node.parent;
+  while (p && !ts.isCallExpression(p)) {
+    if (ts.isStatement(p) || ts.isJsxElement(p) || ts.isFunctionDeclaration(p)) return null;
+    p = p.parent;
+  }
+  if (!p) return null;
+  const callee = p.expression;
+  const name = ts.isIdentifier(callee) ? callee.text
+    : ts.isPropertyAccessExpression(callee) ? callee.name.text : null;
+  return name && REQUEST_FUNCTIONS.has(name) ? name : null;
+}
+
 const corrections = CORRECTIONS ? JSON.parse(fs.readFileSync(CORRECTIONS, 'utf8')) : {};
 const classify = (f) => {
   const key = `${f.file}:${f.line}:${f.kind}:${f.text}`;
   if (corrections[key]) return corrections[key];              // {class, reason}
+  if (f.requestPayload) return { class: 'CONTRACT_VALUE', reason: `argument to ${f.requestPayload}() — sent to the API, not displayed` };
   if (f.contract) return { class: 'CONTRACT_VALUE', reason: 'object property named value/code/slug — matched or sent, not displayed' };
   if (f.nearLabelKey) return { class: 'DISPLAY_LABEL', reason: 'sits beside a labelKey: label is the translatable unit' };
   if (f.kind === 'template') return { class: 'DYNAMIC_LOCALIZATION', reason: 'template literal interpolates runtime data' };
   if (f.kind === 'code') return { class: 'TECHNICAL', reason: 'framework directive or DOM selector' };
   if (f.kind === 'object:value') return { class: 'CONTRACT_VALUE', reason: 'value: property in a literal array/object' };
+  if (isClassList(f.text)) return { class: 'TECHNICAL', reason: 'CSS class list (every token is a utility class)' };
   if (CLASS_SOUP.test(f.text) && f.text.split(/\s+/).length >= 3) return { class: 'TECHNICAL', reason: 'CSS class list' };
   if (looksTechnical(f.text)) return { class: 'TECHNICAL', reason: 'code-like token (not human copy)' };
   if (PROPER_NOUNS.some((p) => new RegExp(`\\b${p}\\b`).test(f.text))) {

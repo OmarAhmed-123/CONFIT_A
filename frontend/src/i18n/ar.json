@@ -274,7 +274,11 @@
     "bnpl_line": "أو ٤ دفعات بدون فوائد بقيمة {{amount}} عبر {{provider}}",
     "bnpl_default_provider": "شريك التقسيط",
     "bnpl_estimate_line": "4 دفعات بقيمة {{amount}} — توضيحي فقط، التقسيط غير مُفعّل",
-    "bnpl_not_live": "الدفعات (BNPL) غير مُفعّلة على هذا النشر."
+    "bnpl_not_live": "الدفعات (BNPL) غير مُفعّلة على هذا النشر.",
+    "items_from_boutiques": "قطعة من متاجر متعددة العلامات",
+    "cart_empty_title": "حقيبتك فارغة حاليًا",
+    "cart_empty_body": "استكشف إطلالات منسّقة أو نسّق مظهرك الخاص مع مدير الأناقة بالذكاء الاصطناعي.",
+    "explore_catalog": "تسوّق المجموعة"
   },
   "b2b": {
     "dashboard_title": "لوحة تحكم شريك العلامة التجارية",
@@ -340,7 +344,9 @@
     "rename": "إعادة تسمية",
     "delete": "حذف",
     "apply": "تطبيق",
-    "create_account": "إنشاء حساب"
+    "create_account": "إنشاء حساب",
+    "retry": "إعادة المحاولة",
+    "retry_now": "أعد المحاولة الآن"
   },
   "layout": {
     "ai_stylist_director": "المدير الأسلوبي بالذكاء الاصطناعي",
@@ -417,7 +423,8 @@
     "visual_search_dialog": "البحث البصري",
     "try_on_studio": "استوديو القياس الافتراضي",
     "scan_studio": "استوديو المسح الضوئي للمقاسات",
-    "language_current": "اللغة {{position}} من ٢: {{language}}"
+    "language_current": "اللغة {{position}} من ٢: {{language}}",
+    "product_image_alt": "صورة {{name}} {{index}}"
   },
   "meta": {
     "home_title": "كونفت — حيث تلتقي الأناقة بشخصيتك",
@@ -959,7 +966,27 @@
       "vodafone_cash": "محفظة موبايل",
       "instapay_bridge": "تحويل إنستاباي",
       "cod": "الدفع عند الاستلام"
-    }
+    },
+    "not_found": "لم يتم العثور على الطلب",
+    "track_subtitle": "تابع كل خطوة بوضوح بصري كامل",
+    "number_label": "طلب رقم",
+    "selected_boutique": "الفرع المختار",
+    "pickup_code": "رمز الاستلام",
+    "fulfillment_progress": "مراحل تنفيذ الطلب",
+    "current_step": "الحالي",
+    "items_label": "المنتجات",
+    "returned_suffix": " · مُرتجع",
+    "request_return": "طلب إرجاع",
+    "return_authorised": "تم اعتماد الإرجاع",
+    "return_authorised_detail": "تم إصدار مستند اعتماد الإرجاع. تُنشأ ملصقات الشحن فقط عند تهيئة مزوّد شحن.",
+    "download_authorisation": "تنزيل مستند الاعتماد",
+    "return_reason": "السبب",
+    "reason_wrong_size": "مقاس غير مناسب",
+    "reason_color": "اختلاف اللون",
+    "reason_style": "عدم توافق الأسلوب",
+    "reason_changed_mind": "تغيير الرأي",
+    "reason_quality": "مشكلة في الجودة",
+    "submit_return": "إرسال طلب الإرجاع"
   },
   "discover": {
     "search_label": "ابحث في المنتجات",
@@ -981,6 +1008,27 @@
     "fabric_care_details": "القماش والعناية والتفاصيل",
     "size_and_fit": "المقاس والملاءمة",
     "composition_label": "التركيب:",
-    "care_label": "العناية:"
+    "care_label": "العناية:",
+    "unavailable_heading": "المنتج غير متاح",
+    "unavailable_title": "هذه القطعة غير متاحة",
+    "breadcrumb_catalog": "المجموعة",
+    "fit_match": "التوافق",
+    "recommended_size_out_of_stock": "المقاس الموصى به غير متوفر حاليًا.",
+    "complete_profile_for_size": "أكمل ملف قياساتك لعرض توصية مقاس شخصية. وحتى ذلك الحين اختر مقاسًا من المخزون المتوفر.",
+    "out_of_stock": "غير متوفر",
+    "not_specified": "غير محدد",
+    "see_garment_label": "راجع بطاقة المنتج",
+    "bopis_title": "الاستلام من المتجر (BOPIS)",
+    "bopis_checking": "جارٍ التحقق من توفر الفروع...",
+    "bopis_failed": "فشل التحقق من توفر الفروع",
+    "bopis_unreachable": "تعذّر الوصول إلى خدمة المخزون. حاول مرة أخرى أو اختر التوصيل إلى المنزل.",
+    "bopis_no_store": "لا يوجد فرع قريب يتوفر به هذا المقاس حاليًا. التوصيل إلى المنزل متاح عند الدفع.",
+    "bopis_no_store_stock": "لا يوجد فرع قريب يتوفر به هذا المقاس بمخزون متاح. التوصيل إلى المنزل متاح عند الدفع.",
+    "open_map": "افتح الخريطة",
+    "in_stock": "متوفر",
+    "delivery_returns": "التوصيل والإرجاع",
+    "delivery_note": "يُحتسب الشحن العادي أو السريع عند الدفع بناءً على إجمالي الحقيبة الفعلي.",
+    "returns_note": "يمكن إرجاع الطلبات المؤهلة خلال 30 يومًا من تاريخ الطلب. يُصدر اعتماد الإرجاع من سجل الطلبات.",
+    "complete_the_look": "أكمل الإطلالة"
   }
 }

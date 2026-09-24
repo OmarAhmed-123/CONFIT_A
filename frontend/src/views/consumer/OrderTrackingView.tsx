@@ -58,7 +58,7 @@ export const OrderTrackingView: React.FC = () => {
   if (loadError || !order || !timeline) {
     return (
       <EmptyState
-        title="Order not found"
+        title={t('order.not_found')}
         description={loadError || 'We could not load this order. Check the order number and try again.'}
       />
     );
@@ -89,7 +89,7 @@ export const OrderTrackingView: React.FC = () => {
         tone="commerce"
         compact
         eyebrow="Fulfillment Story Stack"
-        title="Track every step with premium visual clarity"
+        title={t('order.track_subtitle')}
         description="The order experience uses the card stack to make pickup, courier, returns, and status checkpoints feel transparent."
       />
       <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -98,7 +98,7 @@ export const OrderTrackingView: React.FC = () => {
             {localizeOrderStatus(timeline.current_status, t)}
           </span>
           <h1 className="font-serif text-2xl sm:text-3xl font-bold text-[#1B1F3B] mt-1">
-            Order #{order.order_number}
+            {t('order.number_label')}{order.order_number}
           </h1>
           <p className="text-xs text-slate-500 mt-1">
             {new Date(order.created_at).toLocaleDateString()} ·{' '}
@@ -131,9 +131,9 @@ export const OrderTrackingView: React.FC = () => {
               <BopisIcon size={24} color="#0F172A" />
             </div>
             <div>
-              <span className="text-xs font-bold text-[#B8935A] uppercase tracking-wider">Pickup</span>
+              <span className="text-xs font-bold text-[#B8935A] uppercase tracking-wider">{t('checkout.pickup')}</span>
               <h3 className="font-serif text-lg font-bold text-[#1B1F3B]">
-                {order.bopis_store_name || timeline.bopis_store_info?.name || 'Selected boutique'}
+                {order.bopis_store_name || timeline.bopis_store_info?.name || t('order.selected_boutique')}
               </h3>
               {timeline.bopis_store_info?.address && (
                 <p className="text-xs text-slate-600">{timeline.bopis_store_info.address}</p>
@@ -142,7 +142,7 @@ export const OrderTrackingView: React.FC = () => {
           </div>
           {order.bopis_pickup_code && (
             <div className="text-center sm:text-right bg-white px-6 py-3 rounded-2xl border border-[#B8935A]/30 shadow-2xs">
-              <span className="text-[10px] text-slate-400 font-bold uppercase block">Pickup code</span>
+              <span className="text-[10px] text-slate-400 font-bold uppercase block">{t('order.pickup_code')}</span>
               <span className="font-mono text-2xl font-black text-[#1B1F3B] tracking-widest">
                 {order.bopis_pickup_code}
               </span>
@@ -152,7 +152,7 @@ export const OrderTrackingView: React.FC = () => {
       )}
 
       <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-sm space-y-6">
-        <h2 className="font-serif text-xl font-bold text-[#1B1F3B]">Fulfillment progress</h2>
+        <h2 className="font-serif text-xl font-bold text-[#1B1F3B]">{t('order.fulfillment_progress')}</h2>
         <div className="relative pl-6 space-y-8 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200">
           {timeline.timeline.map((step) => (
             <div key={step.status_key} className="relative">
@@ -173,7 +173,7 @@ export const OrderTrackingView: React.FC = () => {
                   </h4>
                   {step.is_current && (
                     <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#B8935A]/20 text-[#B8935A] font-semibold">
-                      Current
+                      {t('order.current_step')}
                     </span>
                   )}
                 </div>
@@ -189,7 +189,7 @@ export const OrderTrackingView: React.FC = () => {
 
       <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-4">
         <h3 className="font-serif text-lg font-bold text-[#1B1F3B] pb-3 border-b border-slate-100">
-          Items ({order.items.length})
+          {t('order.items_label')} ({order.items.length})
         </h3>
         <div className="divide-y divide-slate-100">
           {order.items.map((it) => (
@@ -197,8 +197,8 @@ export const OrderTrackingView: React.FC = () => {
               <div>
                 <div className="font-bold text-slate-900">{it.product_title}</div>
                 <div className="text-slate-500 text-[11px]">
-                  {it.brand_name} · Size {it.size} · {it.color}
-                  {it.is_returned ? ' · returned' : ''}
+                  {it.brand_name} · {t('checkout.size')} {it.size} · {it.color}
+                  {it.is_returned ? t('order.returned_suffix') : ''}
                 </div>
               </div>
               <div className="text-right font-bold text-slate-900">${it.subtotal.toFixed(2)}</div>
@@ -211,48 +211,48 @@ export const OrderTrackingView: React.FC = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="return-title">
           <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl p-6 space-y-4">
             <h3 id="return-title" className="font-serif text-lg font-bold text-[#1B1F3B]">
-              Request return
+              {t('order.request_return')}
             </h3>
             {returnLabelUrl ? (
               <div className="text-center py-6 space-y-2">
-                <h4 className="font-bold text-slate-900 text-sm">Return authorised</h4>
+                <h4 className="font-bold text-slate-900 text-sm">{t('order.return_authorised')}</h4>
                 <p className="text-xs text-slate-500">
-                  A return authorisation document was issued. Carrier labels are generated only when a shipping provider is configured.
+                  {t('order.return_authorised_detail')}
                 </p>
                 <a href={returnLabelUrl} className="text-xs font-bold text-[#C5A059] underline" target="_blank" rel="noreferrer">
-                  Download authorisation
+                  {t('order.download_authorisation')}
                 </a>
                 <button
                   onClick={() => setReturnModalOpen(false)}
                   className="mt-4 px-5 py-2 rounded-xl bg-[#1B1F3B] text-white text-xs font-semibold"
                 >
-                  Close
+                  {t('common.close')}
                 </button>
               </div>
             ) : (
               <form onSubmit={handleReturnSubmit} className="space-y-4 text-xs">
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1" htmlFor="return-reason">Reason</label>
+                  <label className="font-bold text-slate-700 block mb-1" htmlFor="return-reason">{t('order.return_reason')}</label>
                   <select
                     id="return-reason"
                     value={returnReason}
                     onChange={(e) => setReturnReason(e.target.value)}
                     className="w-full p-2.5 rounded-xl border border-slate-200 bg-white"
                   >
-                    <option value="Wrong Size">Wrong Size</option>
-                    <option value="Color Difference">Color Difference</option>
-                    <option value="Style Mismatch">Style Mismatch</option>
-                    <option value="Changed Mind">Changed Mind</option>
-                    <option value="Quality Issue">Quality Issue</option>
+                    <option value="Wrong Size">{t('order.reason_wrong_size')}</option>
+                    <option value="Color Difference">{t('order.reason_color')}</option>
+                    <option value="Style Mismatch">{t('order.reason_style')}</option>
+                    <option value="Changed Mind">{t('order.reason_changed_mind')}</option>
+                    <option value="Quality Issue">{t('order.reason_quality')}</option>
                   </select>
                 </div>
                 {returnError && <p className="text-rose-600">{returnError}</p>}
                 <div className="flex gap-2 pt-2">
                   <button type="button" onClick={() => setReturnModalOpen(false)} className="flex-1 py-2.5 rounded-xl border border-slate-200 font-semibold">
-                    Cancel
+                    {t('common.cancel')}
                   </button>
                   <button type="submit" disabled={returnSubmitting} className="flex-1 py-2.5 rounded-xl bg-[#1B1F3B] text-white font-semibold shadow-md disabled:opacity-50">
-                    {returnSubmitting ? 'Submitting...' : 'Submit return'}
+                    {returnSubmitting ? 'Submitting...' : t('order.submit_return')}
                   </button>
                 </div>
               </form>

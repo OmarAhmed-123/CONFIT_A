@@ -7,6 +7,7 @@ from backend.app.core.config import settings, vton_engine_metadata
 from backend.app.core.database import get_db, engine
 from backend.app.core import schema_gate
 from backend.app.core.readiness import CONTRACT, liveness_status, summarise_capabilities
+from backend.app.core.rate_limit import rate_limit_store_report
 from backend.app.services.capability_service import capability_probes
 from backend.app.core.dependencies import require_role, ADMIN_ROLES
 from backend.app.models.user import User
@@ -238,6 +239,7 @@ def _probe(db: Session):
         "vton_worker": vton_worker,
         "capabilities": capabilities,
         "readiness": readiness,
+        "rate_limit": rate_limit_store_report(),
         "status": status,
     }
 
@@ -315,6 +317,19 @@ def health_ready(
         "blocking_capabilities": readiness["blocking_capabilities"],
         "degraded_capabilities": readiness["degraded_capabilities"],
         "unprobed_capabilities": readiness["unprobed_capabilities"],
+        # Where the rate limiter's counters actually live, and therefore what its
+        # quota means. Reported on the OPERATOR surface only: which storage backend
+        # the API uses is not a shopper's business, and publishing it in the public
+        # contract would be topology disclosure with no consumer benefit.
+        #
+        # MEASURED 2026-09-24, twice wrong before it was right: the first attempt
+        # put this value in the _probe() payload (dead data — both health endpoints
+        # build their own dicts), and the second landed in the PUBLIC endpoint,
+        # because `str.replace(..., 1)` matched the first of two identical returns
+        # and the public surface briefly published storage topology. A test in
+        # test_rate_limit_store.py now pins both halves (operator has it, public
+        # does not) so an edit cannot drift back to either mistake.
+        "rate_limit": probe["rate_limit"],
         "timestamp": time.time(),
         "uptime_seconds": round(time.time() - START_TIME, 1),
         "version": settings.VERSION,

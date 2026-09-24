@@ -8,12 +8,30 @@ the cheap endpoints is not cost control.
 
 Honest scope of the control
 ---------------------------
-``Limiter`` is constructed **without a storage URI**, so counters live in the
-process. On a single long-lived server that is per-deployment; on serverless
-(Vercel) each warm instance keeps its own counters, so this bounds *per-client
-bursts against one instance* — it is not a global quota. Closing that gap needs
-a shared counter store (e.g. Redis), which this deployment does not have; that
-is recorded as a limitation (report §K), not papered over.
+Where the counters live is now a **configured decision with a reported answer**,
+not a silent property:
+
+* ``RATE_LIMIT_STORAGE_URL`` unset (the state of this deployment, and the
+  default) -> the in-process store. On serverless each warm instance keeps its
+  own counters, so the limiter bounds *per-client bursts against one instance*
+  and is **not** a global quota. ``rate_limit_store_report()`` says exactly that
+  and ``/health`` publishes it, so nobody has to read this docstring to find out
+  which of the two they are running.
+* set to a real ``redis://`` / ``rediss://`` endpoint -> counters are shared by
+  every instance, and the report says the quota is global.
+
+Degradation is explicit rather than fatal: when a shared store is configured but
+unreachable, the limiter falls back to the in-process store (``swallow_errors``
++ ``in_memory_fallback``) so a store outage cannot turn every request into a 500,
+and the fallback is named in the report. Falling back silently would be the fake
+version of this feature; falling back loudly is the honest one.
+
+The algorithm is intentionally unchanged: slowapi's default fixed window, with
+the 429 envelope and ``Retry-After`` behaviour this project already tests.
+Sliding-window and token-bucket were considered and rejected for THIS change
+because the defect being closed is *where the counter lives*, not how it decays
+— swapping the algorithm at the same time would make the regression evidence
+ambiguous. See the report for the comparison.
 
 Keying
 ------
@@ -28,6 +46,8 @@ credential taking precedence.
 import hashlib
 import time
 from typing import Any, Dict, Optional
+
+from backend.app.core.config import settings
 
 from fastapi import Request
 from fastapi.responses import JSONResponse, Response
@@ -132,7 +152,93 @@ def client_key(request: Request) -> str:
 # logical route share a single allowance, which is what the limit always claimed
 # to be. Views of a *different* resource (detail vs tracking) keep their own
 # bucket, because they are different endpoints reached at different cost.
-limiter = Limiter(key_func=client_key, key_style="endpoint")
+MEMORY_STORE = "memory://"
+SHARED_STORE_SCHEMES = ("redis://", "rediss://", "unix://", "memcached://", "mongodb://")
+
+
+def configured_storage_uri() -> str:
+    """The store this deployment is configured to use. Never synthesised.
+
+    Unset/blank -> ``memory://`` (the in-process store). A value that is not a
+    recognised shared scheme is honoured verbatim by ``limits`` and reported as
+    an unknown store rather than being quietly rewritten into something that
+    looks global.
+    """
+    raw = getattr(settings, "RATE_LIMIT_STORAGE_URL", None)
+    uri = (raw or "").strip()
+    return uri or MEMORY_STORE
+
+
+def is_shared_store(uri: str) -> bool:
+    return any(uri.startswith(scheme) for scheme in SHARED_STORE_SCHEMES)
+
+
+def build_limiter(storage_uri: Optional[str] = None, key_func: Optional[Any] = None) -> Limiter:
+    """Construct a limiter against an explicit store.
+
+    A factory rather than a literal so tests can build one against a real Redis
+    (or against a store that is down) without touching the module-level
+    ``limiter`` the application uses.
+    """
+    uri = storage_uri.strip() if isinstance(storage_uri, str) and storage_uri.strip() else (
+        storage_uri if storage_uri is None else MEMORY_STORE
+    )
+    uri = uri or configured_storage_uri()
+    kwargs: Dict[str, Any] = {}
+    if is_shared_store(uri):
+        # A store outage must not become an outage of the API: fall back to the
+        # in-process counters and report the degradation (see the module docstring).
+        #
+        # MEASURED 2026-09-24 while building this: `in_memory_fallback` takes
+        # LIMIT STRINGS, not a storage URI. Passing `["memory://"]` (the first
+        # version of this code) made slowapi parse "memory://" as a limit and
+        # raise ValueError inside the request path — the fallback then 500'd the
+        # API it was there to protect. `in_memory_fallback_enabled` is the switch;
+        # the list is for *changing* the limits while degraded, which this project
+        # does not want: the same limits must apply in both states, or a client
+        # could lift its own quota by breaking the store.
+        kwargs = {
+            "swallow_errors": True,
+            "in_memory_fallback_enabled": True,
+        }
+    return Limiter(
+        key_func=key_func or client_key,
+        key_style="endpoint",
+        storage_uri=uri,
+        **kwargs,
+    )
+
+
+def rate_limit_store_report(storage_uri: Optional[str] = None) -> Dict[str, Any]:
+    """What the limiter's counters actually are, in words that cannot overclaim.
+
+    Read by ``/health`` (the operator surface). It deliberately does NOT appear in
+    the public capability contract: which storage backend an app uses is not a
+    shopper's business, and publishing it would be topology disclosure for no
+    consumer benefit.
+    """
+    uri = storage_uri if storage_uri is not None else configured_storage_uri()
+    shared = is_shared_store(uri)
+    if shared:
+        scheme = uri.split("://", 1)[0]
+        return {
+            "store": scheme,
+            "shared_across_instances": True,
+            "quota_semantics": "global: every instance counts against one quota",
+            "on_store_failure": "degrades to in-process counters (per-instance) and reports it",
+        }
+    return {
+        "store": "memory" if uri == MEMORY_STORE else uri.split("://", 1)[0],
+        "shared_across_instances": False,
+        "quota_semantics": (
+            "per-instance: bounds a client's burst against one warm instance; "
+            "it is NOT a global quota"
+        ),
+        "on_store_failure": None,
+    }
+
+
+limiter = build_limiter()
 
 
 def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded) -> Response:

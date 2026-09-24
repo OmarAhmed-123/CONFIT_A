@@ -2,6 +2,7 @@ import React, { useEffect } from "react";
 import { useModalFocus } from "../../hooks/useModalFocus";
 import { useTranslation } from "react-i18next";
 import { resolveMessage } from "../../i18n/messages";
+import { STYLIST_PROMPT_MAX_CHARS } from "../../i18n/promptBounds";
 import { formatMoney, formatNumber } from '../../i18n/format';
 import { useUIStore } from "../../stores/uiStore";
 import { useStylistViewModel } from "../../viewmodels/useStylistViewModel";
@@ -524,6 +525,8 @@ export const VirtualStylistDrawer: React.FC = () => {
                 type="text"
                 value={inputPrompt}
                 onChange={(e) => setInputPrompt(e.target.value)}
+                maxLength={STYLIST_PROMPT_MAX_CHARS}
+                aria-describedby={inputPrompt.length > STYLIST_PROMPT_MAX_CHARS * 0.9 ? "stylist-prompt-limit" : undefined}
                 placeholder={t("stylist.input_placeholder")}
                 className="flex-1 px-4 py-3 rounded-2xl border border-slate-200 focus:outline-none focus:border-[#C5A059] text-xs sm:text-sm bg-[#FAF9F6]"
               />
@@ -537,6 +540,15 @@ export const VirtualStylistDrawer: React.FC = () => {
                 <span>{t("stylist.submit")}</span>
               </button>
             </form>
+            {inputPrompt.length > STYLIST_PROMPT_MAX_CHARS * 0.9 && (
+              <p id="stylist-prompt-limit"
+                 className="mt-1.5 text-[10px] text-slate-500 text-center"
+                 role="status">
+                {t("stylist.prompt_limit_hint", {
+                  remaining: STYLIST_PROMPT_MAX_CHARS - inputPrompt.length,
+                })}
+              </p>
+            )}
           </div>
         </div>
       </div>

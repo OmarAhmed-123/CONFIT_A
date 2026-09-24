@@ -176,7 +176,8 @@
     "voice_unsupported": "Voice input is not supported in this browser. Please type your request.",
     "voice_permission_denied": "Microphone permission denied. Enable microphone access to use voice styling.",
     "voice_error": "Voice recognition failed. Please type your request instead.",
-    "voice_start_failed": "Could not start voice input. Please type your request instead."
+    "voice_start_failed": "Could not start voice input. Please type your request instead.",
+    "prompt_limit_hint": "{{remaining}} characters left"
   },
   "outfit_builder": {
     "title": "Interactive Outfit Canvas",

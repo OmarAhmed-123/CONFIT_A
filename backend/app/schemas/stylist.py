@@ -19,9 +19,47 @@ class GuidedRecommendationConstraints(BaseModel):
     size_shoes: Optional[str] = Field(default=None, max_length=20)
 
 
+#: ENGINEERING SAFETY DEFAULT — 2000 characters. NOT A PRODUCT REQUIREMENT.
+#:
+#: Research (2026-09-24): no requirement for a prompt length exists anywhere in the
+#: repository — not in the BRD, the API contract checklist, the UX specification or
+#: the analytics definitions; the only place the gap is written down is the consumer
+#: acceptance report, which records it as an open item. So this bound is an
+#: engineering decision, and it is labelled as one.
+#:
+#: Why a bound at all: the field is `str` with no maximum, the endpoint accepts
+#: anonymous callers, and every accepted call spends provider quota and writes a row.
+#: A single request could therefore carry an arbitrarily large body — a free
+#: amplification path for cost and for the fallback parser, which walks the text.
+#:
+#: Why 2000: measured against the production database the same day —
+#:   stylist_messages: 71 user prompts, p50 53 chars, p95 146, p99 240, MAX 240,
+#:   and zero prompts above 1000 characters.
+#: 2000 characters is 8.3x the longest prompt any real shopper has sent and ~37x the
+#: median, so it cannot truncate observed usage while it still caps the abuse surface
+#: (two orders of magnitude below the 4.5 MB serverless request-body ceiling and far
+#: below every configured provider's context window, which is not the binding
+#: constraint here — cost and abuse are).
+#:
+#: What a product owner should decide later: whether a hard rejection is the right UX
+#: versus truncation with a visible notice, and whether the bound should differ for
+#: authenticated users. Until that decision exists, this value is documented as an
+#: engineering default, not presented as a product rule.
+STYLIST_PROMPT_MAX_CHARS = 2000
+
+
 class StylistPromptRequest(BaseModel):
     session_id: Optional[int] = None
-    prompt: str = Field(description="Natural language request or occasion text e.g. 'I need a smart casual outfit for an art gallery opening under $300'")
+    prompt: str = Field(
+        min_length=1,
+        max_length=STYLIST_PROMPT_MAX_CHARS,
+        description=(
+            "Natural language request or occasion text e.g. 'I need a smart casual "
+            f"outfit for an art gallery opening under $300'. Maximum "
+            f"{STYLIST_PROMPT_MAX_CHARS} characters (engineering safety default; "
+            "exceeding it is rejected with 422 before any provider call)."
+        ),
+    )
     occasion: Optional[str] = None
     budget_limit: Optional[float] = Field(default=None, ge=0, allow_inf_nan=False)
     voice_input_used: bool = False

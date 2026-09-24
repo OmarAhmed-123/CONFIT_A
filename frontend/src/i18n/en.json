@@ -168,7 +168,15 @@
     "ensemble_total": "Ensemble Total",
     "items_count": "items",
     "add_complete_to_bag": "Add Complete Look to Bag",
-    "add_core_to_bag": "Add Core Look to Bag"
+    "add_core_to_bag": "Add Core Look to Bag",
+    "thinking": "Styling…",
+    "retry": "Retry",
+    "error_unavailable": "The stylist is momentarily unavailable. Please try again.",
+    "error_toast": "Could not reach the stylist. Check your connection and try again.",
+    "voice_unsupported": "Voice input is not supported in this browser. Please type your request.",
+    "voice_permission_denied": "Microphone permission denied. Enable microphone access to use voice styling.",
+    "voice_error": "Voice recognition failed. Please type your request instead.",
+    "voice_start_failed": "Could not start voice input. Please type your request instead."
   },
   "outfit_builder": {
     "title": "Interactive Outfit Canvas",

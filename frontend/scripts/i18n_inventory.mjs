@@ -349,6 +349,23 @@ const classify = (f) => {
   if (f.kind === 'object:value') return { class: 'CONTRACT_VALUE', reason: 'value: property in a literal array/object' };
   if (isClassList(f.text)) return { class: 'TECHNICAL', reason: 'CSS class list (every token is a utility class)' };
   if (CLASS_SOUP.test(f.text) && f.text.split(/\s+/).length >= 3) return { class: 'TECHNICAL', reason: 'CSS class list' };
+  // Position beats shape for the question "is this copy?". A literal's LENGTH and
+  // SHAPE cannot answer it: `Retry`, `Save`, `Size` are copy, `mt-4`, `snake_case`,
+  // `application/json` are not — and the previous rules asked only about shape, so
+  // every one-word label rendered as JSX text was filed as code and never counted
+  // as actionable. `Retry` in VirtualStylistDrawer's error state sat at class
+  // TECHNICAL while that drawer was being reported as fully localized. Text between
+  // tags is rendered, therefore it is copy — unless it is a brand name, which stays
+  // untranslated wherever it appears.
+  if (f.kind === 'jsx-text') {
+    const brand = PROPER_NOUNS.some((p) => new RegExp(`\\b${p}\\b`).test(f.text));
+    if (brand) {
+      const words = f.text.split(/\s+/).filter((w) => HAS_LATIN_WORD.test(w));
+      if (words.length <= 2) return { class: 'PROPER_NOUN', reason: 'brand/entity name (rendered, but not translatable)' };
+      return { class: 'EDITORIAL', reason: 'sentence containing a brand name — needs a human read, not blind translation' };
+    }
+    return { class: 'MUST_LOCALIZE', reason: 'text rendered as JSX children' };
+  }
   if (looksTechnical(f.text)) return { class: 'TECHNICAL', reason: 'code-like token (not human copy)' };
   if (PROPER_NOUNS.some((p) => new RegExp(`\\b${p}\\b`).test(f.text))) {
     const words = f.text.split(/\s+/).filter((w) => HAS_LATIN_WORD.test(w));

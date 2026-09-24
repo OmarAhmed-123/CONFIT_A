@@ -199,6 +199,69 @@ def main() -> int:
                not re.search(r"(AI Stylist|الستايلست الذكي)", label_text or ""),
                label=label_text[:80])
 
+        # ── 2b. the ERROR state ──────────────────────────────────────────────
+        # Why this section exists: the first version of this instrument only ever
+        # saw the happy path. `Styling…` (loading) and `Retry` (error) sat in the
+        # drawer as English literals, and the sweep reported a clean drawer because
+        # neither state was on screen. A measurement that only visits the success
+        # path cannot say a surface is localized. The API is failed ON PURPOSE here.
+        page.route("**/api/v1/stylist/chat", lambda route: route.fulfill(
+            status=500, content_type="application/json",
+            body=json.dumps({"detail": "injected failure: error-state localization sweep"})))
+
+        box = dialog.locator("input[type=text]").first
+        box.fill("أريد إطلالة للعمل")
+        box.press("Enter")
+        page.wait_for_timeout(3500)
+
+        # Two different questions, measured separately:
+        #   chrome  — the drawer's own furniture (error box, retry, input, chips)
+        #   content — the answer card (generated prose + catalogue data)
+        # Mixing them reported the answer's English product titles as if they were
+        # untranslated interface copy, which is a different (and real) finding.
+        err_nodes = page.evaluate("""(sel) => {
+          const root = document.querySelector(sel);
+          if (!root) return null;
+          const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+          const chrome = [], content = [];
+          let n;
+          while ((n = w.nextNode())) {
+            const t = (n.textContent || '').trim();
+            if (!t) continue;
+            let p = n.parentElement, inAnswer = false;
+            while (p && p !== root) {
+              if (p.hasAttribute && (p.hasAttribute('data-engine') || p.hasAttribute('data-answer') || p.hasAttribute('data-conversation'))) { inAnswer = true; break; }
+              p = p.parentElement;
+            }
+            (inAnswer ? content : chrome).push(t);
+          }
+          return { chrome, content };
+        }""", dialog_sel)
+        if err_nodes is None:
+            raise Invalid("the drawer closed before the error-state sweep")
+        allowed = re.compile(r"^(CONFIT|COS|H&M|Zara|Arket|Reiss|Uniqlo|Massimo\s+Dutti)$", re.I)
+        def latin_only(texts):
+            return [t for t in texts
+                    if re.search(r"[A-Za-z]{3}", t) and not re.search(r"[\u0600-\u06FF]", t)
+                    and not allowed.match(t)]
+        chrome_leaks = latin_only(err_nodes["chrome"])
+        content_leaks = latin_only(err_nodes["content"])
+        record("the error state renders an Arabic action (Retry)",
+               ar["stylist"]["retry"] in err_nodes["chrome"],
+               retry_label_present=ar["stylist"]["retry"] in err_nodes["chrome"])
+        record("the error state's own chrome is Arabic (no transport string, no status code)",
+               not chrome_leaks and not any(re.search(r"\b(4|5)\d\d\b", t) for t in err_nodes["chrome"]),
+               chrome_nodes=len(err_nodes["chrome"]), leaks=chrome_leaks[:6])
+        observe("the answer card still renders English content in the Arabic UI",
+                english_content_nodes=len(content_leaks),
+                sample=content_leaks[:4],
+                note="catalogue data (product titles, category names) is legitimately English — it is "
+                     "the same value the API and database hold. The generated PROSE in the same card "
+                     "is not: it is produced by the deterministic engine in English. Recorded as an "
+                     "open finding; D-4 covers the drawer's own copy, not the answer body.")
+
+        page.unroute("**/api/v1/stylist/chat")
+
         # ── 3. language switch, both directions ──────────────────────────────
         # The SPA reloads on a language switch, which closes the drawer; each side of
         # the switch is therefore reopened before it is judged.

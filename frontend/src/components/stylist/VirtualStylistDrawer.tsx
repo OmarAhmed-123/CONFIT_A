@@ -1,6 +1,7 @@
 import React, { useEffect } from "react";
 import { useModalFocus } from "../../hooks/useModalFocus";
 import { useTranslation } from "react-i18next";
+import { resolveMessage } from "../../i18n/messages";
 import { formatMoney, formatNumber } from '../../i18n/format';
 import { useUIStore } from "../../stores/uiStore";
 import { useStylistViewModel } from "../../viewmodels/useStylistViewModel";
@@ -184,7 +185,10 @@ export const VirtualStylistDrawer: React.FC = () => {
             {OCCASION_PROMPTS.map((occ) => (
               <button
                 key={occ.value}
-                onClick={() => sendPrompt(`Style an outfit for ${occ.value}`, occ.value)}
+                onClick={() =>
+                  sendPrompt(`Style an outfit for ${occ.value}`, occ.value, undefined,
+                             undefined, t(occ.labelKey))
+                }
                 className="px-3 py-1 rounded-full bg-white border border-slate-200 text-[11px] font-medium text-slate-700 hover:border-[#C5A059] hover:bg-[#FDF8EE] transition-all shrink-0 shadow-2xs"
               >
                 {t(occ.labelKey)}
@@ -193,7 +197,8 @@ export const VirtualStylistDrawer: React.FC = () => {
           </div>
 
           {/* Messages & Recommendations Feed */}
-          <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5 bg-[#FAF9F6]">
+          <div data-conversation
+               className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5 bg-[#FAF9F6]">
             {messages.length === 0 && (
               <div className="text-center py-12 px-4 bg-white rounded-3xl border border-slate-200/80 shadow-2xs">
                 <div className="w-14 h-14 rounded-2xl bg-[#FDF8EE] text-[#C5A059] mx-auto flex items-center justify-center mb-3 shadow-xs">
@@ -216,6 +221,8 @@ export const VirtualStylistDrawer: React.FC = () => {
                         "I need a formal wedding outfit with navy suit and green tie under 500",
                         "Formal & Wedding",
                         500,
+                        undefined,
+                        t("stylist.example_formal_wedding"),
                       )
                     }
                     className="p-3.5 rounded-2xl border border-slate-200 hover:border-[#C5A059] bg-[#FAF9F6] hover:bg-[#FDF8EE] text-xs font-medium text-slate-800 transition-all"
@@ -228,6 +235,8 @@ export const VirtualStylistDrawer: React.FC = () => {
                         "Find me a champagne silk dress for an evening gala",
                         "Evening & Party",
                         600,
+                        undefined,
+                        t("stylist.example_evening_gala"),
                       )
                     }
                     className="p-3.5 rounded-2xl border border-slate-200 hover:border-[#C5A059] bg-[#FAF9F6] hover:bg-[#FDF8EE] text-xs font-medium text-slate-800 transition-all"
@@ -464,23 +473,30 @@ export const VirtualStylistDrawer: React.FC = () => {
                 <span className="w-2 h-2 rounded-full bg-[#C5A059] animate-bounce [animation-delay:0.2s]"></span>
                 <span className="w-2 h-2 rounded-full bg-[#C5A059] animate-bounce [animation-delay:0.4s]"></span>
                 <span className="text-[10px] font-bold text-slate-400 ml-1">
-                  Styling...
+                  {t("stylist.thinking")}
                 </span>
               </div>
             )}
 
-            {error && (
+          </div>
+
+          {/* The failure banner sits OUTSIDE the transcript scroll area, directly
+              above the input: inside it, the very message telling the shopper the
+              request failed could be scrolled out of view while they stare at an
+              unchanged conversation. It is interface furniture, not a message. */}
+          {error && (
+            <div className="px-4 pt-3">
               <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-2xl text-xs text-rose-700 flex justify-between items-center">
-                <span>{error}</span>
+                <span>{resolveMessage(error, t)}</span>
                 <button
                   onClick={() => sendPrompt()}
                   className="text-xs font-bold underline ml-2"
                 >
-                  Retry
+                  {t("stylist.retry")}
                 </button>
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
           {/* Drawer Footer Input */}
           <div className="p-4 border-t border-slate-200 bg-white">

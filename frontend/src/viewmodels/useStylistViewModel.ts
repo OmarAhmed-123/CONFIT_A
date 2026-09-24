@@ -1,4 +1,4 @@
-import { msg, detail } from '../i18n/messages';
+import { msg, detail, translatableFrom, type TranslatableMessage } from '../i18n/messages';
 import { useState, useCallback, useRef } from "react";
 import { stylistService } from "../services/apiServices";
 import { StylistMessage, Outfit } from "../models";
@@ -23,7 +23,12 @@ export function useStylistViewModel() {
   const [inputPrompt, setInputPrompt] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // The failure the shopper sees is a KEY, resolved at the render boundary — a view
+  // model has no i18n context, and the previous code put the raw transport string on
+  // screen: the Arabic drawer showed `Request failed with status 500`. The technical
+  // detail still goes to the console, where an engineer can read it and a shopper
+  // never can.
+  const [error, setError] = useState<TranslatableMessage | null>(null);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
 
   const { addItem, openCart } = useCartStore();
@@ -42,6 +47,12 @@ export function useStylistViewModel() {
         size_bottoms?: string;
         size_shoes?: string;
       },
+      // What the shopper sees in their own message bubble. The REQUEST text is
+      // English by contract (the backend parses English occasion/material
+      // keywords), but echoing that contract value back into an Arabic transcript
+      // showed an Arabic shopper their own request in English. Value -> API,
+      // label -> screen.
+      displayText?: string,
     ) => {
       const textToSend = promptText || inputPrompt;
       if (!textToSend.trim()) return;
@@ -50,7 +61,7 @@ export function useStylistViewModel() {
         id: Date.now(),
         session_id: 1,
         sender: "user",
-        content: textToSend,
+        content: displayText || textToSend,
         recommendations: [],
         created_at: new Date().toISOString(),
       };
@@ -72,12 +83,11 @@ export function useStylistViewModel() {
         setMessages((prev) => [...prev, response]);
         setIsTyping(false);
       } catch (err: any) {
-        setError(err.message || "Stylist service momentarily unavailable");
+        // eslint-disable-next-line no-console
+        console.error("[stylist] request failed:", err?.code ?? "", err?.message ?? err);
+        setError(msg("stylist.error_unavailable"));
         setIsTyping(false);
-        showToast(
-          "Stylist error: " + (err.message || "Check connection"),
-          "error",
-        );
+        showToast(msg("stylist.error_toast"), "error");
       }
     },
     [inputPrompt, isRecording, showToast],
@@ -94,10 +104,7 @@ export function useStylistViewModel() {
     const w = window as any;
     const SR = w.SpeechRecognition || w.webkitSpeechRecognition;
     if (!SR) {
-      showToast(
-        "Voice input is not supported in this browser. Please type your request.",
-        "error",
-      );
+      showToast(msg("stylist.voice_unsupported"), "error");
       return;
     }
     const rec: SpeechRecognitionLike = new SR();
@@ -120,15 +127,11 @@ export function useStylistViewModel() {
     rec.onerror = (e: any) => {
       setIsRecording(false);
       if (e?.error === "not-allowed" || e?.error === "service-not-allowed") {
-        showToast(
-          "Microphone permission denied. Enable mic access to use voice styling.",
-          "error",
-        );
+        showToast(msg("stylist.voice_permission_denied"), "error");
       } else if (e?.error !== "aborted") {
-        showToast(
-          "Voice recognition error: " + (e?.error || "unknown"),
-          "error",
-        );
+        // eslint-disable-next-line no-console
+        console.error("[stylist] voice recognition error:", e?.error);
+        showToast(msg("stylist.voice_error"), "error");
       }
     };
     rec.onend = () => {
@@ -143,10 +146,9 @@ export function useStylistViewModel() {
       rec.start();
     } catch (err: any) {
       setIsRecording(false);
-      showToast(
-        "Could not start voice input: " + (err?.message || "unknown"),
-        "error",
-      );
+      // eslint-disable-next-line no-console
+      console.error("[stylist] voice start failed:", err?.message ?? err);
+      showToast(translatableFrom(err, "stylist.voice_start_failed"), "error");
     }
   }, [isRecording, sendPrompt, showToast]);
 

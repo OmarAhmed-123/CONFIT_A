@@ -931,7 +931,16 @@ class BrandRepository:
             *in_order_window,
         ).scalar() or 0
 
-        tryon_adoption_rate = round((tryon_orders / total_orders * 100) if total_orders > 0 else 0.0, 1)
+        # P1 (2026-09-22 audit): a zero denominator must publish None (wire:
+        # null -> UI: N/A), never 0.0 — "0.0%" claims a measurement that was
+        # not made and reads as "nobody adopted/returned", which is a
+        # different, unproven statement.
+        def _rate(numerator: int, denominator: int, digits: int = 1) -> Optional[float]:
+            if denominator <= 0:
+                return None
+            return round(numerator / denominator * 100, digits)
+
+        tryon_adoption_rate = _rate(tryon_orders, total_orders)
 
         # Stylist conversion: saved outfits in the window, and those whose
         # items were actually purchased (OrderItem.outfit_id lineage).
@@ -945,22 +954,22 @@ class BrandRepository:
             OrderItem.outfit_id.isnot(None), *in_order_window
         ).scalar() or 0
 
-        stylist_conversion = round((outfits_with_purchase / total_saved_outfits * 100) if total_saved_outfits > 0 else 0.0, 1)
+        stylist_conversion = _rate(outfits_with_purchase, total_saved_outfits)
 
         # Return rates: try-on users vs non-try-on users.
         total_returns = self.db.query(func.count(ReturnRequest.id)).filter(
             *tr.bound(ReturnRequest.created_at)
         ).scalar() or 0
-        platform_avg_return = round((total_returns / total_orders * 100) if total_orders > 0 else 0.0, 1)
+        platform_avg_return = _rate(total_returns, total_orders)
 
         returns_tryon = self.db.query(func.count(ReturnRequest.id)).filter(
             ReturnRequest.try_on_used_for_item == True, *tr.bound(ReturnRequest.created_at)
         ).scalar() or 0
 
         returns_non_tryon = total_returns - returns_tryon
-        tryon_return_rate = round((returns_tryon / tryon_orders * 100) if tryon_orders > 0 else 0.0, 1)
+        tryon_return_rate = _rate(returns_tryon, tryon_orders)
         non_tryon_orders = total_orders - tryon_orders
-        non_tryon_return_rate = round((returns_non_tryon / non_tryon_orders * 100) if non_tryon_orders > 0 else 0.0, 1)
+        non_tryon_return_rate = _rate(returns_non_tryon, non_tryon_orders)
 
         # Revenue attribution: canonical item-grain ledger (order_item_id lineage).
         _ledger = self.compute_item_grain_attribution()
@@ -1058,9 +1067,9 @@ class BrandRepository:
             brand_tryons = int(tryons_by_brand.get(brand.id, 0))
             brand_returns = int(returns_by_brand.get(brand.id, 0))
 
-            conversion = round((brand_orders / brand_views * 100) if brand_views > 0 else 0.0, 2)
-            tryon_rate = round((brand_tryons / brand_views * 100) if brand_views > 0 else 0.0, 1)
-            brand_return_rate = round((brand_returns / brand_orders * 100) if brand_orders > 0 else 0.0, 1)
+            conversion = _rate(brand_orders, brand_views, digits=2)
+            tryon_rate = _rate(brand_tryons, brand_views)
+            brand_return_rate = _rate(brand_returns, brand_orders)
 
             brand_performance.append({
                 "brand_id": brand.id,
@@ -1069,10 +1078,12 @@ class BrandRepository:
                 "views": brand_views,
                 "tryons": brand_tryons,
                 "orders": brand_orders,
-                "conversion_rate": float(conversion),
-                "tryon_rate": f"{tryon_rate}%",
-                "return_rate": f"{brand_return_rate}%",
-                "return_rate_value": float(brand_return_rate)
+                # None (wire: null) when the denominator is zero — "N/A", not
+                # a fabricated 0.0 that reads as a measured zero.
+                "conversion_rate": conversion,
+                "tryon_rate": f"{tryon_rate}%" if tryon_rate is not None else "N/A",
+                "return_rate": f"{brand_return_rate}%" if brand_return_rate is not None else "N/A",
+                "return_rate_value": brand_return_rate,
             })
 
         # Sort by orders descending
@@ -1090,11 +1101,13 @@ class BrandRepository:
             "total_brands_count": int(total_brands),
             "total_gmv": to_float(total_gmv),
             "total_orders": int(total_orders),
-            "tryon_adoption_rate": float(tryon_adoption_rate),
-            "stylist_conversion_ratio": float(stylist_conversion),
-            "platform_avg_return_rate": float(platform_avg_return),
-            "return_rate_tryon_users": float(tryon_return_rate),
-            "return_rate_non_tryon_users": float(non_tryon_return_rate),
+            # None (wire: null) when the denominator was zero — the UI shows
+            # N/A. A fabricated 0.0 would claim "measured: nobody" (P1).
+            "tryon_adoption_rate": tryon_adoption_rate,
+            "stylist_conversion_ratio": stylist_conversion,
+            "platform_avg_return_rate": platform_avg_return,
+            "return_rate_tryon_users": tryon_return_rate,
+            "return_rate_non_tryon_users": non_tryon_return_rate,
             "revenue_attribution": {
                 "ai_virtual_stylist": to_float(stylist_rev_exclusive),
                 "outfit_builder": to_float(outfit_rev_exclusive),
@@ -1103,7 +1116,7 @@ class BrandRepository:
             },
             "top_performing_brands": brand_performance[:10],
             "most_styled_items": most_styled_items,
-            "outfit_to_purchase_ratio": float(stylist_conversion),
+            "outfit_to_purchase_ratio": stylist_conversion,
             "style_preference_heatmap": style_heatmap,
             "revenue_basis": REVENUE_BASIS,
             "revenue_excludes_statuses": sorted(NON_REVENUE_ORDER_STATUSES),
@@ -1171,13 +1184,15 @@ class BrandRepository:
         # Use max of both methods for accuracy
         purchased_count = max(purchased, purchased_alt)
 
-        ratio = round((purchased_count / total_saved * 100) if total_saved > 0 else 0.0, 2)
+        # None (wire: null -> UI: N/A) when nothing was saved yet: 0.0 would
+        # claim a measured zero conversion that never happened (P1).
+        ratio = round(purchased_count / total_saved * 100, 2) if total_saved > 0 else None
 
         return {
             "total_saved_outfits": int(total_saved),
             "purchased_outfits": int(purchased_count),
-            "outfit_to_purchase_ratio": float(ratio),
-            "methodology": "Saved outfits where at least one item was purchased with outfit_id attribution"
+            "outfit_to_purchase_ratio": ratio,
+            "methodology": "Saved outfits where at least one item was purchased with outfit_id attribution. null = no saved outfits yet (unmeasured, not zero)."
         }
 
     def get_return_reduction_metrics(self) -> Dict[str, Any]:
@@ -1201,11 +1216,17 @@ class BrandRepository:
         non_tryon_orders = total_orders - tryon_orders
         non_tryon_returns = total_returns - tryon_returns
 
-        tryon_return_rate = round((tryon_returns / tryon_orders * 100) if tryon_orders > 0 else 0.0, 2)
-        non_tryon_return_rate = round((non_tryon_returns / non_tryon_orders * 100) if non_tryon_orders > 0 else 0.0, 2)
-        platform_avg = round((total_returns / total_orders * 100) if total_orders > 0 else 0.0, 2)
+        # P1: zero denominators publish None (N/A), never a fabricated 0.0.
+        tryon_return_rate = round(tryon_returns / tryon_orders * 100, 2) if tryon_orders > 0 else None
+        non_tryon_return_rate = round(non_tryon_returns / non_tryon_orders * 100, 2) if non_tryon_orders > 0 else None
+        platform_avg = round(total_returns / total_orders * 100, 2) if total_orders > 0 else None
 
-        reduction = round(((non_tryon_return_rate - tryon_return_rate) / non_tryon_return_rate * 100) if non_tryon_return_rate > 0 else 0.0, 1)
+        # The reduction claim requires BOTH cohorts to be measured.
+        reduction = (
+            round((non_tryon_return_rate - tryon_return_rate) / non_tryon_return_rate * 100, 1)
+            if (tryon_return_rate is not None and non_tryon_return_rate is not None and non_tryon_return_rate > 0)
+            else None
+        )
 
         return {
             "total_orders": int(total_orders),
@@ -1214,11 +1235,11 @@ class BrandRepository:
             "total_returns": int(total_returns),
             "tryon_returns": int(tryon_returns),
             "non_tryon_returns": int(non_tryon_returns),
-            "platform_avg_return_rate": float(platform_avg),
-            "return_rate_tryon_users": float(tryon_return_rate),
-            "return_rate_non_tryon_users": float(non_tryon_return_rate),
-            "return_reduction_percentage": float(reduction),
-            "methodology": "Cohort analysis: try-on assisted orders vs non-try-on orders, return rate comparison. Try-on adoption attributed via Order.try_on_assisted and ReturnRequest.try_on_used_for_item from real VTON events."
+            "platform_avg_return_rate": platform_avg,
+            "return_rate_tryon_users": tryon_return_rate,
+            "return_rate_non_tryon_users": non_tryon_return_rate,
+            "return_reduction_percentage": reduction,
+            "methodology": "Cohort analysis: try-on assisted orders vs non-try-on orders, return rate comparison. Try-on adoption attributed via Order.try_on_assisted and ReturnRequest.try_on_used_for_item from real VTON events. null = cohort denominator was zero (unmeasured, not zero)."
         }
 
     # Order states whose items are NOT eligible revenue (order-level).
@@ -1347,6 +1368,15 @@ class BrandRepository:
             ),
             "attribution_window": "30 days from visual_search view event to purchase (same product, same user or browser session)",
             "dedup_policy": "One purchase event per OrderItem enforced by unique index uq_brand_analytics_item_event",
+            # P1 (2026-09-22 audit): attribution numbers are OPERATIONAL
+            # metrics, not a billing ledger — spelled out on the wire so no
+            # consumer can mistake the payload for an invoiceable statement.
+            "financial_semantics": (
+                "operational_metrics — attribution derived from transactional "
+                "tables and analytics events. NOT a verified billing ledger: "
+                "commission or settlement must reconcile against payment "
+                "provider records independently."
+            ),
         }
 
     # --- Style signal heatmap (single implementation, G-01/G-02/G-04) ------

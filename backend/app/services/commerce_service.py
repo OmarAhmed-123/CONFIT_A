@@ -863,18 +863,28 @@ class CommerceService:
             "shipments": shipments,
         }
 
-    def transition_order(self, order_number: str, new_status: str) -> Dict[str, Any]:
+    def transition_order(
+        self, order_number: str, new_status: str, commit: bool = True
+    ) -> Dict[str, Any]:
+        """``commit=False`` defers the COMMIT to the caller so a privileged
+        transition and its audit row can persist atomically (P2, 2026-09-22
+        audit): either the order moves AND the trail records it, or neither.
+        """
         order = self.commerce_repo.get_order_by_number(order_number)
         if not order:
             raise ResourceNotFoundError("Order", order_number)
         self._transition(order, new_status)
         self.commerce_repo.add_order_event(
-            order.id, new_status, f"Status → {new_status}", f"Order moved to {new_status}."
+            order.id, new_status, f"Status → {new_status}",
+            f"Order moved to {new_status}.", commit=commit,
         )
-        self.db.commit()
+        if commit:
+            self.db.commit()
+        else:
+            self.db.flush()
         return self.get_order(order.order_number)
 
-    def capture_demo_payment(self, order_number: str) -> Dict[str, Any]:
+    def capture_demo_payment(self, order_number: str, commit: bool = True) -> Dict[str, Any]:
         """PAY-01: explicit DEMO-mode capture of an authorized payment.
 
         The demo adapter authorizes at checkout; the capture (which flips the
@@ -908,14 +918,19 @@ class CommerceService:
             status="paid",
             mode="demo",
             idempotency_key=f"demo-capture:{order.order_number}",
+            commit=commit,
         )
         self.commerce_repo.add_order_event(
             order.id,
             "paid",
             "Payment captured",
             "Demo adapter captured the authorized amount (demo — not a live charge).",
+            commit=commit,
         )
-        self.db.commit()
+        if commit:
+            self.db.commit()
+        else:
+            self.db.flush()
         return self.get_order(order_number)
 
     # --------------------------------------------------------------- returns

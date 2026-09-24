@@ -443,7 +443,8 @@ class CommerceRepository:
         self.db.refresh(order)
         return order
 
-    def add_order_event(self, order_id: int, status_key: str, title: str, description: str) -> None:
+    def add_order_event(self, order_id: int, status_key: str, title: str,
+                        description: str, commit: bool = True) -> None:
         self.db.add(
             OrderEvent(
                 order_id=order_id,
@@ -452,7 +453,12 @@ class CommerceRepository:
                 description=description,
             )
         )
-        self.db.commit()
+        # commit=False lets a caller keep the event inside a larger atomic
+        # unit (mutation + audit row committed together — P2 closure).
+        if commit:
+            self.db.commit()
+        else:
+            self.db.flush()
 
     def get_order_by_number(self, order_number: str) -> Optional[Order]:
         return (
@@ -492,6 +498,7 @@ class CommerceRepository:
         status: str,
         mode: str,
         idempotency_key: Optional[str],
+        commit: bool = True,
     ) -> PaymentTransaction:
         existing = None
         if idempotency_key:
@@ -514,8 +521,13 @@ class CommerceRepository:
             idempotency_key=idempotency_key,
         )
         self.db.add(tx)
-        self.db.commit()
-        self.db.refresh(tx)
+        # commit=False keeps the transaction row inside a larger atomic unit
+        # (capture + audit row committed together — P2 closure).
+        if commit:
+            self.db.commit()
+            self.db.refresh(tx)
+        else:
+            self.db.flush()
         return tx
 
     def get_webhook_event(self, provider: str, event_id: str) -> Optional[WebhookEvent]:

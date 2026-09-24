@@ -783,12 +783,18 @@ export interface AdminPlatformAnalytics {
   total_brands_count: number;
   total_gmv: number;
   total_orders: number;
-  tryon_adoption_rate: number;
-  stylist_conversion_ratio: number;
-  platform_avg_return_rate: number;
-  return_rate_tryon_users: number;
-  return_rate_non_tryon_users: number;
+  /**
+   * P1 honesty contract: null = the denominator was zero, nothing was
+   * measured — render N/A. A 0 here is a REAL measured zero.
+   */
+  tryon_adoption_rate: number | null;
+  stylist_conversion_ratio: number | null;
+  platform_avg_return_rate: number | null;
+  return_rate_tryon_users: number | null;
+  return_rate_non_tryon_users: number | null;
   revenue_attribution: Record<string, number>;
+  /** Operational metrics vs billing ledger — echoed from the backend. */
+  financial_semantics?: string;
   top_performing_brands: Array<{
     brand_id?: number;
     brand: string;

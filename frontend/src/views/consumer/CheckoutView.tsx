@@ -241,10 +241,10 @@ export const CheckoutView: React.FC = () => {
             </div>
             <div>
               <h3 className="font-serif text-base font-bold text-[#1B1F3B]">
-                Guest checkout
+                {t('checkout.guest_checkout')}
               </h3>
               <p className="text-xs text-slate-500 font-light mt-0.5">
-                Sign in to save your style profile, or continue as a guest with an email address.
+                {t('checkout.guest_intro')}
               </p>
             </div>
           </div>
@@ -254,14 +254,14 @@ export const CheckoutView: React.FC = () => {
               onClick={() => openAuthModal('login')}
               className="flex-1 sm:flex-initial px-5 py-2.5 rounded-xl bg-[#1B1F3B] hover:bg-[#0C0E1E] text-white text-xs font-semibold shadow-2xs transition-all"
             >
-              Sign In
+              {t('common.sign_in')}
             </button>
             <button
               type="button"
               onClick={() => openAuthModal('register')}
               className="flex-1 sm:flex-initial px-5 py-2.5 rounded-xl bg-[#FDF8EE] hover:bg-[#C5A059] text-[#C5A059] hover:text-white border border-[#C5A059]/40 text-xs font-semibold shadow-2xs transition-all"
             >
-              Create Account
+              {t('common.create_account')}
             </button>
           </div>
         </div>
@@ -270,7 +270,7 @@ export const CheckoutView: React.FC = () => {
       <form noValidate onSubmit={handleSubmitOrder} className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         <div className="lg:col-span-7 space-y-6">
           <div className="bg-white rounded-3xl border border-slate-200/80 p-6 shadow-2xs space-y-4">
-            <h3 className="font-serif text-base font-bold text-[#1B1F3B]">1. Fulfillment</h3>
+            <h3 className="font-serif text-base font-bold text-[#1B1F3B]">{t('checkout.step_fulfillment')}</h3>
             <div className="grid grid-cols-2 gap-3">
               <button
                 type="button"
@@ -285,7 +285,7 @@ export const CheckoutView: React.FC = () => {
                   <OrdersIcon size={20} color={fulfillmentType === 'delivery' ? '#1B1F3B' : '#777777'} />
                   <span className="text-xs font-bold text-slate-900">{t('commerce.delivery')}</span>
                 </div>
-                <span className="text-[11px] text-slate-500 font-light">Standard or express · estimated at checkout</span>
+                <span className="text-[11px] text-slate-500 font-light">{t('checkout.shipping_estimate')}</span>
               </button>
               <button
                 type="button"
@@ -300,7 +300,7 @@ export const CheckoutView: React.FC = () => {
                   <BopisIcon size={20} color={fulfillmentType === 'bopis' ? '#C5A059' : '#777777'} />
                   <span className="text-xs font-bold text-slate-900">{t('commerce.bopis')}</span>
                 </div>
-                <span className="text-[11px] text-[#A37E44] font-semibold">Pickup from stores with live stock</span>
+                <span className="text-[11px] text-[#A37E44] font-semibold">{t('checkout.pickup_live_stock')}</span>
               </button>
             </div>
 
@@ -315,7 +315,7 @@ export const CheckoutView: React.FC = () => {
                       shippingMethod === m ? 'border-[#1B1F3B] bg-[#1B1F3B] text-white' : 'border-slate-200'
                     }`}
                   >
-                    {m === 'standard' ? 'Standard' : 'Express'}
+                    {m === 'standard' ? t('checkout.shipping_standard') : t('checkout.shipping_express')}
                   </button>
                 ))}
               </div>
@@ -323,9 +323,9 @@ export const CheckoutView: React.FC = () => {
 
             {fulfillmentType === 'bopis' && (
               <div className="pt-3 border-t border-slate-100 space-y-2">
-                <label className="text-xs font-bold text-slate-800 block">Boutique with stock</label>
+                <label className="text-xs font-bold text-slate-800 block">{t('checkout.boutique_with_stock')}</label>
                 {bopisStores.length === 0 ? (
-                  <p className="text-xs text-slate-500">No store currently holds this SKU. Switch to home delivery.</p>
+                  <p className="text-xs text-slate-500">{t('checkout.no_store_for_sku')}</p>
                 ) : (
                   bopisStores.map((s) => (
                     <label
@@ -358,11 +358,11 @@ export const CheckoutView: React.FC = () => {
           </div>
 
           <div className="bg-white rounded-3xl border border-slate-200/80 p-6 shadow-2xs space-y-4">
-            <h3 className="font-serif text-base font-bold text-[#1B1F3B]">2. Contact & address</h3>
+            <h3 className="font-serif text-base font-bold text-[#1B1F3B]">{t('checkout.step_contact')}</h3>
             {!isAuthenticated && (
               <div>
                 <label className="text-xs font-bold text-slate-800 block mb-1" htmlFor="guest-email">
-                  Guest email
+                  {t('checkout.guest_email')}
                 </label>
                 <input
                   id="guest-email"
@@ -372,21 +372,21 @@ export const CheckoutView: React.FC = () => {
                   aria-describedby={fieldError === 'guest_email' ? 'guest-email-error' : undefined}
                   value={guestEmail}
                   onChange={(e) => { setGuestEmail(e.target.value); if (fieldError === 'guest_email') setFieldError(null); }}
-                  placeholder="you@example.com"
+                  placeholder={t('checkout.email_placeholder')}
                   className={`w-full px-4 py-2.5 rounded-xl border text-xs focus:outline-none focus:border-[#C5A059] ${fieldError === 'guest_email' ? 'border-rose-400 bg-rose-50' : 'border-slate-200'}`}
                 />
                 {fieldError === 'guest_email' && (
                   <p id="guest-email-error" role="alert" className="text-[11px] text-rose-600 font-semibold mt-1">
                     {isValidEmail(guestEmail.trim()) || !guestEmail.trim()
-                      ? 'Enter an email for guest checkout, or sign in.'
-                      : 'That email address looks invalid — check it and try again.'}
+                      ? t('errors.guest_email_required')
+                      : t('errors.email_invalid')}
                   </p>
                 )}
               </div>
             )}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="text-xs font-bold text-slate-800 block mb-1" htmlFor="full-name">Full name</label>
+                <label className="text-xs font-bold text-slate-800 block mb-1" htmlFor="full-name">{t('checkout.full_name')}</label>
                 <input
                   id="full-name"
                   type="text"
@@ -397,7 +397,7 @@ export const CheckoutView: React.FC = () => {
                 />
               </div>
               <div>
-                <label className="text-xs font-bold text-slate-800 block mb-1" htmlFor="phone">Phone</label>
+                <label className="text-xs font-bold text-slate-800 block mb-1" htmlFor="phone">{t('checkout.phone')}</label>
                 <input
                   id="phone"
                   type="tel"
@@ -411,7 +411,7 @@ export const CheckoutView: React.FC = () => {
             {fulfillmentType === 'delivery' && (
               <>
                 <div>
-                  <label className="text-xs font-bold text-slate-800 block mb-1" htmlFor="address">Delivery address</label>
+                  <label className="text-xs font-bold text-slate-800 block mb-1" htmlFor="address">{t('checkout.delivery_address')}</label>
                   <input
                     id="address"
                     type="text"
@@ -423,7 +423,7 @@ export const CheckoutView: React.FC = () => {
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs font-bold text-slate-800 block mb-1" htmlFor="city">City</label>
+                    <label className="text-xs font-bold text-slate-800 block mb-1" htmlFor="city">{t('checkout.city')}</label>
                     <input
                       id="city"
                       type="text"
@@ -434,7 +434,7 @@ export const CheckoutView: React.FC = () => {
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-bold text-slate-800 block mb-1" htmlFor="country">Country</label>
+                    <label className="text-xs font-bold text-slate-800 block mb-1" htmlFor="country">{t('checkout.country')}</label>
                     <input
                       id="country"
                       type="text"
@@ -450,9 +450,9 @@ export const CheckoutView: React.FC = () => {
           </div>
 
           <div className="bg-white rounded-3xl border border-slate-200/80 p-6 shadow-2xs space-y-4">
-            <h3 className="font-serif text-base font-bold text-[#1B1F3B]">3. Payment</h3>
+            <h3 className="font-serif text-base font-bold text-[#1B1F3B]">{t('checkout.step_payment')}</h3>
             {paymentOptions.length === 0 ? (
-              <p className="text-xs text-slate-500">Payment methods for this market could not be loaded.</p>
+              <p className="text-xs text-slate-500">{t('checkout.payment_methods_unavailable')}</p>
             ) : (
               <div className="space-y-2.5">
                 {paymentOptions.map((pm) => (
@@ -498,7 +498,7 @@ export const CheckoutView: React.FC = () => {
         <div className="lg:col-span-5 space-y-6">
           <div className="bg-white rounded-3xl border border-slate-200/80 p-6 shadow-2xs space-y-4">
             <h3 className="font-serif text-base font-bold text-[#1B1F3B] pb-3 border-b border-slate-100">
-              Order summary ({cart?.items_count || 0})
+              {t('checkout.order_summary')} ({cart?.items_count || 0})
             </h3>
             {cart?.fit_summary && cart.fit_summary.length > 0 && (
               <ul className="text-[11px] text-slate-600 space-y-1">
@@ -518,7 +518,7 @@ export const CheckoutView: React.FC = () => {
                   <div className="flex-1 min-w-0">
                     <div className="font-bold text-slate-900 truncate">{it.product_title}</div>
                     <div className="text-slate-500 text-[11px] font-light">
-                      {it.brand_name} · Size {it.size}
+                      {it.brand_name} · {t('checkout.size')} {it.size}
                     </div>
                     <div className="text-slate-900 font-bold mt-0.5">${it.subtotal.toFixed(2)}</div>
                     <div className="flex items-center gap-1.5 mt-1">
@@ -534,7 +534,7 @@ export const CheckoutView: React.FC = () => {
                         −
                       </button>
                       <span className="text-[11px] text-slate-600 font-medium w-10 text-center" aria-live="polite">
-                        Qty {it.quantity}
+                        {t('checkout.qty')} {it.quantity}
                       </span>
                       <button
                         type="button"
@@ -567,8 +567,8 @@ export const CheckoutView: React.FC = () => {
                 type="text"
                 value={promoInput}
                 onChange={(e) => setPromoInput(e.target.value)}
-                placeholder="Promo code"
-                aria-label="Promo code"
+                placeholder={t('checkout.promo_code')}
+                aria-label={t('checkout.promo_code')}
                 className="flex-1 px-3.5 py-2 rounded-xl border border-slate-200 text-xs uppercase font-semibold focus:outline-none focus:border-[#C5A059]"
               />
               <button
@@ -576,31 +576,31 @@ export const CheckoutView: React.FC = () => {
                 onClick={handleApplyPromo}
                 className="px-3.5 py-2 rounded-xl bg-slate-100 text-xs font-bold text-slate-700 hover:bg-slate-200 transition-colors"
               >
-                Apply
+                {t('common.apply')}
               </button>
             </div>
             {promoError && <p className="text-[11px] text-rose-600">{promoError}</p>}
             <div className="space-y-2 text-xs text-slate-600 pt-3 border-t border-slate-100 font-light">
               <div className="flex justify-between">
-                <span>Subtotal</span>
+                <span>{t('commerce.subtotal')}</span>
                 <span className="font-medium text-slate-900">${subtotal.toFixed(2)}</span>
               </div>
               {discount > 0 && (
                 <div className="flex justify-between text-emerald-600 font-medium">
-                  <span>Discount {cart?.promo_code ? `(${cart.promo_code})` : ''}</span>
+                  <span>{t('commerce.discount')} {cart?.promo_code ? `(${cart.promo_code})` : ''}</span>
                   <span>-${discount.toFixed(2)}</span>
                 </div>
               )}
               <div className="flex justify-between">
-                <span>Tax</span>
+                <span>{t('checkout.tax')}</span>
                 <span>${tax.toFixed(2)}</span>
               </div>
               <div className="flex justify-between">
-                <span>Shipping</span>
-                <span>{fulfillmentType === 'bopis' ? 'Pickup' : `$${shipping.toFixed(2)}`}</span>
+                <span>{t('commerce.shipping')}</span>
+                <span>{fulfillmentType === 'bopis' ? t('checkout.pickup') : `$${shipping.toFixed(2)}`}</span>
               </div>
               <div className="flex justify-between text-base font-bold text-[#1B1F3B] pt-3 border-t border-slate-200">
-                <span>Total</span>
+                <span>{t('commerce.total')}</span>
                 <span>${total.toFixed(2)}</span>
               </div>
             </div>
@@ -618,7 +618,7 @@ export const CheckoutView: React.FC = () => {
               className="w-full py-4 rounded-2xl bg-[#1B1F3B] hover:bg-[#0C0E1E] disabled:opacity-50 text-white font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2"
             >
               <SparkleIcon size={16} color="#C5A059" />
-              <span>{isSubmitting ? 'Placing order...' : 'Place order'}</span>
+              <span>{isSubmitting ? t('checkout.placing_order') : t('checkout.place_order')}</span>
             </button>
           </div>
         </div>

@@ -814,7 +814,7 @@
     "integrity_verdict": "verdict: {{verdict}}",
     "integrity_counts": "{{rows}} rows · {{actors}} actors · {{beforeAfter}} with before/after · {{requestId}} with request-id · {{ip}} with client IP",
     "integrity_tamper": "tamper_evident: {{value}} — {{note}}",
-    "integrity_chain": "hash chain: {{chained}} chained · {{unchained}} pre-migration (unchained) · {{breaks}} breaks · key v{{keyVersion}}",
+    "integrity_chain": "hash chain: {{chained}} chained · {{unchained}} unchained · {{breaks}} breaks · key v{{keyVersion}}",
     "filters_aria": "Audit trail filters",
     "filters_action": "Action",
     "filters_resource_type": "Resource type",
@@ -842,7 +842,10 @@
     "pagination": "{{total}} rows · page {{page}} of {{pages}}",
     "previous": "Previous",
     "next": "Next",
-    "not_available": "n/a"
+    "not_available": "n/a",
+    "integrity_coverage": "coverage: {{mode}} — {{sampled}} of {{inWindow}} rows in a {{days}}-day window; full history is verified offline, not per-request",
+    "integrity_bypass": "{{count}} unchained row(s) AFTER chaining began — possible write-path bypass, investigate",
+    "audit_table_caption": "Admin audit trail entries"
   },
   "admin_heatmap": {
     "title": "Style Signal Heatmap — {{scope}}",

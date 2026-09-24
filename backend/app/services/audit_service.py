@@ -11,7 +11,10 @@ SQLAlchemy) so the same policy is applied no matter which endpoint asks.
 from __future__ import annotations
 
 import json
+import logging
 from typing import Any, Dict, List, Optional, Tuple
+
+logger = logging.getLogger("confit.audit.integrity")
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -323,6 +326,25 @@ class AuditTrailService:
         verdict = "ok" if not violations else "violations_found"
         if checked == 0:
             verdict = "no_data"
+
+        if verdict == "violations_found":
+            # Structured, secret-free operational signal: issue kinds and
+            # counts only — never row payloads, hashes or key material. This
+            # is what alerting hooks into (see incident runbook §4).
+            issue_counts: Dict[str, int] = {}
+            for violation in violations:
+                issue_counts[violation["issue"]] = issue_counts.get(violation["issue"], 0) + 1
+            logger.warning(
+                "audit integrity violations detected",
+                extra={
+                    "audit_verdict": verdict,
+                    "audit_issue_counts": issue_counts,
+                    "audit_window_days": window_days,
+                    "audit_sampled_rows": len(rows),
+                    "audit_bypass_suspected_rows": bypass_suspected_rows,
+                    "audit_truncation_verdict": truncation_check["verdict"],
+                },
+            )
 
         limitations = [
             f"Sampled at most {sample_limit} of {checked} rows in the window; the "

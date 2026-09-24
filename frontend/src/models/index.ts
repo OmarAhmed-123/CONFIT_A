@@ -953,10 +953,30 @@ export interface AuditViolation {
 export interface AuditChain {
   chained_rows: number;
   unchained_rows: number;
+  /** id of the first chained row; unchained rows AFTER it are suspicious. */
+  first_chained_row_id?: number | null;
+  /** Unchained rows written AFTER chaining began — possible write-path bypass. */
+  bypass_suspected_rows?: number;
   breaks: AuditViolation[];
   head_hash?: string | null;
   key_version: number;
   canonical_version: number;
+}
+
+/**
+ * Explicit verification coverage (2026-09-24 re-audit): the dashboard check
+ * is a WINDOW SAMPLE — this block exists so no consumer can present it as a
+ * full-history guarantee. Full history is verified by an offline procedure.
+ */
+export interface AuditCoverage {
+  mode: string;
+  window_days: number;
+  sample_limit: number;
+  sampled_rows: number;
+  rows_in_window: number;
+  window_anchored_to_predecessor: boolean;
+  full_history: boolean;
+  full_history_procedure?: string;
 }
 
 export interface AuditIntegrity {
@@ -977,6 +997,7 @@ export interface AuditIntegrity {
    * asserted from configuration alone.
    */
   tamper_evident: boolean;
+  coverage?: AuditCoverage | null;
   chain?: AuditChain | null;
   limitations: string[];
 }

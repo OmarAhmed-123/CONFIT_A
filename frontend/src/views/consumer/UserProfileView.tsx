@@ -8,6 +8,7 @@ import { CircularGalleryShowcase } from '../../components/showcase/DesignShowcas
 import { useUIStore } from '../../stores/uiStore';
 import { SparkleIcon, UserIcon, RulerIcon, ShieldIcon } from '../../components/icons/ConfitIcons';
 import { LoadingSpinner } from '../../components/common/CommonComponents';
+import { formatAmount, formatMoney, formatNumber } from '../../i18n/format';
 
 /**
  * Canonical JSON — byte-identical to the backend's integrity form:
@@ -35,8 +36,117 @@ const formatBytes = (n: number): string => {
   return `${(n / (1024 * 1024)).toFixed(2)} MB`;
 };
 
+/**
+ * Option tables for the style quiz and the stored-profile chips.
+ *
+ * WHY `value` AND `labelKey` ARE SEPARATE
+ * ---------------------------------------
+ * Every `value` here is written into the shopper's style profile through the API
+ * (`style_archetypes`, `preferred_colors`, `avoided_colors`, `fashion_aesthetics`,
+ * `blacklisted_brands`, `occasion_weights`, `size_*`, `fit_preference`,
+ * `body_attributes.body_shape`) and is what the recommender matches on.
+ * `labelKey` is the only thing rendered. Translating a value would write Arabic
+ * into a field the backend matches against — silently, with no type error and no
+ * failing i18n gate — and would then reject the profile of an Arabic shopper.
+ *
+ * Brand names are proper nouns, so their label would equal their token anyway;
+ * they are kept as plain strings deliberately rather than inventing a key that
+ * would translate a brand name.
+ */
+export const PROFILE_OPTIONS = {
+  archetypes: [
+    { value: 'Smart Casual', labelKey: 'profile.arch_smart_casual' },
+    { value: 'Quiet Luxury', labelKey: 'profile.arch_quiet_luxury' },
+    { value: 'Modern Minimalist', labelKey: 'profile.arch_modern_minimalist' },
+    { value: 'Streetwear Tailored', labelKey: 'profile.arch_streetwear_tailored' },
+    { value: 'Old Money', labelKey: 'profile.arch_old_money' },
+    { value: 'Bohemian Refined', labelKey: 'profile.arch_bohemian_refined' },
+  ],
+  colors: [
+    { value: 'Navy', labelKey: 'profile.color_navy' },
+    { value: 'Beige', labelKey: 'profile.color_beige' },
+    { value: 'Black', labelKey: 'profile.color_black' },
+    { value: 'White', labelKey: 'profile.color_white' },
+    { value: 'Forest Green', labelKey: 'profile.color_forest_green' },
+    { value: 'Ivory', labelKey: 'profile.color_ivory' },
+    { value: 'Burgundy', labelKey: 'profile.color_burgundy' },
+    { value: 'Camel', labelKey: 'profile.color_camel' },
+    { value: 'Charcoal', labelKey: 'profile.color_charcoal' },
+  ],
+  avoidColors: [
+    { value: 'Neon Orange', labelKey: 'profile.avoid_neon_orange' },
+    { value: 'Magenta', labelKey: 'profile.avoid_magenta' },
+    { value: 'Neon Yellow', labelKey: 'profile.avoid_neon_yellow' },
+    { value: 'Fluoro Pink', labelKey: 'profile.avoid_fluoro_pink' },
+    { value: 'Lime', labelKey: 'profile.avoid_lime' },
+    { value: 'Turquoise', labelKey: 'profile.avoid_turquoise' },
+  ],
+  aesthetics: [
+    { value: 'Old Money', labelKey: 'profile.aesthetic_old_money' },
+    { value: 'Quiet Luxury', labelKey: 'profile.aesthetic_quiet_luxury' },
+    { value: 'Modern Tailored', labelKey: 'profile.aesthetic_modern_tailored' },
+    { value: 'Streetwear', labelKey: 'profile.aesthetic_streetwear' },
+    { value: 'Minimalist', labelKey: 'profile.aesthetic_minimalist' },
+    { value: 'Preppy', labelKey: 'profile.aesthetic_preppy' },
+    { value: 'Athleisure', labelKey: 'profile.aesthetic_athleisure' },
+    { value: 'Y2K', labelKey: 'profile.aesthetic_y2k' },
+    { value: 'Dark Academia', labelKey: 'profile.aesthetic_dark_academia' },
+    { value: 'Cottagecore', labelKey: 'profile.aesthetic_cottagecore' },
+  ],
+  shapes: [
+    { value: 'Athletic', labelKey: 'profile.shape_athletic' },
+    { value: 'Hourglass', labelKey: 'profile.shape_hourglass' },
+    { value: 'Rectangle', labelKey: 'profile.shape_rectangle' },
+    { value: 'Pear', labelKey: 'profile.shape_pear' },
+    { value: 'Inverted Triangle', labelKey: 'profile.shape_inverted_triangle' },
+    { value: 'Apple', labelKey: 'profile.shape_apple' },
+  ],
+  fits: [
+    { value: 'slim', labelKey: 'profile.fit_slim' },
+    { value: 'regular', labelKey: 'profile.fit_regular' },
+    { value: 'oversized', labelKey: 'profile.fit_oversized' },
+    { value: 'relaxed', labelKey: 'profile.fit_relaxed' },
+  ],
+  occasions: [
+    { value: 'work', labelKey: 'profile.occ_work' },
+    { value: 'casual', labelKey: 'profile.occ_casual' },
+    { value: 'party', labelKey: 'profile.occ_party' },
+    { value: 'formal', labelKey: 'profile.occ_formal' },
+    { value: 'sports', labelKey: 'profile.occ_sports' },
+    { value: 'travel', labelKey: 'profile.occ_travel' },
+  ],
+  blacklist: [
+    { value: 'Shein', labelKey: 'profile.black_shein' },
+    { value: 'Fast Fashion', labelKey: 'profile.black_fast_fashion' },
+    { value: 'Fur', labelKey: 'profile.black_fur' },
+    { value: 'Leather', labelKey: 'profile.black_leather' },
+  ],
+  /** Proper nouns: the brand is the label, so no key is invented for it. */
+  preferredBrands: ['Massimo Dutti', 'COS', 'Reiss', 'Arket', 'Zara', 'H&M', 'Uniqlo'],
+} as const;
+
+type OptionGroup = 'archetypes' | 'colors' | 'avoidColors' | 'aesthetics' | 'shapes' | 'fits' | 'occasions' | 'blacklist';
+
+/**
+ * Display key for a token stored in a profile.
+ *
+ * Matching is case-insensitive and whitespace-tolerant on purpose: the value
+ * saved by an older client (or by the backend's own normalisation) may be
+ * `athletic` while the table holds `Athletic`. An unknown or free-form value
+ * returns `undefined`, and the caller then renders the raw token rather than
+ * inventing a label for it.
+ */
+export const labelKeyFor = (group: OptionGroup, value: string): string | undefined => {
+  const needle = value.trim().toLowerCase();
+  const table = PROFILE_OPTIONS[group] as readonly { value: string; labelKey: string }[];
+  return table.find((o) => o.value.toLowerCase() === needle)?.labelKey;
+};
+
 export const UserProfileView: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  // Active UI language drives number/currency rendering; stored profile
+  // tokens stay English regardless (see PROFILE_OPTIONS).
+  const lang = i18n.resolvedLanguage ?? 'en';
   const [searchParams] = useSearchParams();
   const { user, isAuthenticated, logout } = useAuthStore();
   const { showToast, openAuthModal } = useUIStore();
@@ -119,7 +229,7 @@ export const UserProfileView: React.FC = () => {
       setMfaCode('');
       setMfaPanel('enroll');
     } catch (err: any) {
-      showToast('MFA setup failed: ' + err.message, 'error');
+      showToast(t('profile.mfa_setup_failed', { detail: err.message }), 'error');
     } finally {
       setMfaBusy(false);
     }
@@ -135,7 +245,7 @@ export const UserProfileView: React.FC = () => {
       setMfaEnabled(true);
       setMfaPanel('codes');
     } catch (err: any) {
-      showToast('Verification failed: ' + err.message, 'error');
+      showToast(t('profile.mfa_verify_failed', { detail: err.message }), 'error');
     } finally {
       setMfaBusy(false);
     }
@@ -149,9 +259,9 @@ export const UserProfileView: React.FC = () => {
       setMfaPassword('');
       setMfaDisableCode('');
       setMfaPanel('idle');
-      showToast('Two-factor authentication disabled.', 'info');
+      showToast(t('profile.mfa_disabled'), 'info');
     } catch (err: any) {
-      showToast('Disable failed: ' + err.message, 'error');
+      showToast(t('profile.mfa_disable_failed', { detail: err.message }), 'error');
     } finally {
       setMfaBusy(false);
     }
@@ -167,7 +277,7 @@ export const UserProfileView: React.FC = () => {
       setMfaDisableCode('');
       setMfaPanel('codes');
     } catch (err: any) {
-      showToast('Regeneration failed: ' + err.message, 'error');
+      showToast(t('profile.mfa_regen_failed', { detail: err.message }), 'error');
     } finally {
       setMfaBusy(false);
     }
@@ -175,7 +285,7 @@ export const UserProfileView: React.FC = () => {
 
   const changePassword = async () => {
     if (pwNew !== pwConfirm) {
-      showToast('The new passwords do not match.', 'error');
+      showToast(t('profile.password_mismatch'), 'error');
       return;
     }
     setPwBusy(true);
@@ -187,12 +297,12 @@ export const UserProfileView: React.FC = () => {
       });
       setPwPanel(false);
       setPwCurrent(''); setPwNew(''); setPwConfirm(''); setPwMfa('');
-      showToast('Password changed. Please sign in again with your new password.', 'success');
+      showToast(t('profile.password_changed'), 'success');
       // The server revoked EVERY session (including this one) — sign out
       // locally so the UI reflects the real state instead of a ghost session.
       await logout();
     } catch (err: any) {
-      showToast('Password change failed: ' + err.message, 'error');
+      showToast(t('profile.password_change_failed', { detail: err.message }), 'error');
     } finally {
       setPwBusy(false);
     }
@@ -241,7 +351,7 @@ export const UserProfileView: React.FC = () => {
       })
       .catch((err) => {
         setIsLoading(false);
-        showToast('Profile sync: ' + err.message, 'info');
+        showToast(t('profile.profile_sync', { detail: err.message }), 'info');
       });
   }, [isAuthenticated, showToast]);
 
@@ -289,14 +399,14 @@ export const UserProfileView: React.FC = () => {
       const updated = await profileService.submitOnboardingQuiz(payload);
       setUsp(updated as any);
       setIsQuizOpen(false);
-      showToast('User Style Profile (USP) saved.', 'success');
+      showToast(t('profile.usp_saved'), 'success');
     } catch (err: any) {
-      showToast('Save failed: ' + err.message, 'error');
+      showToast(t('profile.save_failed', { detail: err.message }), 'error');
     }
   };
 
   const handleDeleteBodyAttributes = async () => {
-    if (!window.confirm('Delete your saved body measurements? This does not affect your account.')) return;
+    if (!window.confirm(t('profile.confirm_delete_body'))) return;
     try {
       await profileService.deleteBodyAttributes();
       setHeight(null);
@@ -304,9 +414,9 @@ export const UserProfileView: React.FC = () => {
       setShape('');
       setBodyTouched(false);
       if (usp) setUsp({ ...usp, body_attributes: undefined, body_shape_tag: undefined } as any);
-      showToast('Body measurements deleted.', 'success');
+      showToast(t('profile.body_deleted'), 'success');
     } catch (err: any) {
-      showToast('Delete failed: ' + err.message, 'error');
+      showToast(t('profile.delete_failed', { detail: err.message }), 'error');
     }
   };
 
@@ -333,9 +443,12 @@ export const UserProfileView: React.FC = () => {
           .map((b) => b.toString(16).padStart(2, '0'))
           .join('');
         if (hex === integrity.checksum_sha256) {
-          integrityNote = ` Verified sha256 ${hex.slice(0, 12)}…, ${formatBytes(integrity.canonical_bytes)}.`;
+integrityNote = t('profile.exported_integrity', {
+            hash: hex.slice(0, 12),
+            size: formatBytes(integrity.canonical_bytes),
+          });
         } else {
-          showToast('Export integrity check FAILED — the archive does not match its checksum. Do not trust this file; please retry.', 'error');
+          showToast(t('profile.export_integrity_failed'), 'error');
           return;
         }
       }
@@ -348,9 +461,9 @@ export const UserProfileView: React.FC = () => {
       downloadAnchor.click();
       downloadAnchor.remove();
       URL.revokeObjectURL(url);
-      showToast('GDPR Data archive exported successfully.' + integrityNote, 'success');
+      showToast(t('profile.exported_ok') + integrityNote, 'success');
     } catch (err: any) {
-      showToast('Export failed: ' + err.message, 'error');
+      showToast(t('profile.export_failed', { detail: err.message }), 'error');
     }
   };
 
@@ -359,14 +472,14 @@ export const UserProfileView: React.FC = () => {
     // password + MFA code when enrolled. The panel below collects these;
     // this handler fires the real request.
     if (!isAuthenticated) return;
-    if (!window.confirm('Are you sure you want to permanently delete your account and all associated encrypted biometric data? This cannot be undone.')) return;
+    if (!window.confirm(t('profile.confirm_delete_account'))) return;
     setDeleteBusy(true);
     try {
       await authService.deleteAccount(deletePassword, mfaEnabled ? deleteMfaCode.trim() : undefined);
       logout();
-      showToast('Account permanently erased.', 'info');
+      showToast(t('profile.account_erased'), 'info');
     } catch (err: any) {
-      showToast('Deletion error: ' + err.message, 'error');
+      showToast(t('profile.deletion_error', { detail: err.message }), 'error');
     } finally {
       setDeleteBusy(false);
     }
@@ -381,9 +494,9 @@ export const UserProfileView: React.FC = () => {
       <CircularGalleryShowcase
         tone="consumer"
         compact
-        eyebrow="Style DNA Gallery"
-        title="Your profile powers a rotating style identity"
-        description="Preference, sizing, and behavior data connect to real editorial directions that can be reused across the account experience."
+        eyebrow={t('profile.gallery_eyebrow')}
+        title={t('profile.gallery_title')}
+        description={t('profile.gallery_body')}
       />
       {/* Guest Mode Callout Banner */}
       {!isAuthenticated && (
@@ -395,14 +508,14 @@ export const UserProfileView: React.FC = () => {
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="font-serif text-lg font-bold text-[#1B1F3B]">
-                  Guest Style Exploration
+                  {t('profile.guest_title')}
                 </h2>
                 <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-[#FDF8EE] text-[#A37E44] font-bold border border-[#C5A059]/30">
-                  Temporary Session
+                  {t('profile.guest_badge')}
                 </span>
               </div>
               <p className="text-xs text-slate-500 font-light mt-0.5">
-                Sign in to save your personal measurements, access permanent closet gap analysis, and unlock order tracking.
+                {t('profile.guest_body')}
               </p>
             </div>
           </div>
@@ -412,13 +525,13 @@ export const UserProfileView: React.FC = () => {
               onClick={() => openAuthModal('login')}
               className="flex-1 sm:flex-initial px-5 py-2.5 rounded-xl bg-[#1B1F3B] hover:bg-[#0C0E1E] text-white text-xs font-semibold shadow-2xs transition-all"
             >
-              Sign In
+              {t('common.sign_in')}
             </button>
             <button
               onClick={() => openAuthModal('register')}
               className="flex-1 sm:flex-initial px-5 py-2.5 rounded-xl bg-[#FDF8EE] hover:bg-[#C5A059] text-[#C5A059] hover:text-white border border-[#C5A059]/40 text-xs font-semibold shadow-2xs transition-all"
             >
-              Create Account
+              {t('common.create_account')}
             </button>
           </div>
         </div>
@@ -433,15 +546,15 @@ export const UserProfileView: React.FC = () => {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="font-serif text-2xl font-bold text-[#1B1F3B]">
-                {user?.full_name || 'Guest Style Explorer'}
+                {user?.full_name || t('profile.guest_explorer')}
               </h1>
               {isAuthenticated && (
                 <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-[#FDF8EE] text-[#A37E44] font-bold border border-[#C5A059]/30">
-                  Verified Profile
+                  {t('profile.verified_badge')}
                 </span>
               )}
             </div>
-            <p className="text-xs text-slate-500 font-light mt-0.5">{user?.email || 'Anonymous Discovery Session'}</p>
+            <p className="text-xs text-slate-500 font-light mt-0.5">{user?.email || t('profile.anonymous_session')}</p>
           </div>
         </div>
 
@@ -453,7 +566,7 @@ export const UserProfileView: React.FC = () => {
           className="px-5 py-2.5 rounded-2xl bg-[#C5A059] hover:bg-[#A37E44] text-slate-950 font-bold text-xs shadow-2xs transition-all flex items-center gap-1.5"
         >
           <SparkleIcon size={14} color="#0C0E1E" />
-          <span>Retake 5-Step Style Quiz</span>
+          <span>{t('profile.retake_quiz')}</span>
         </button>
       </div>
 
@@ -464,17 +577,17 @@ export const UserProfileView: React.FC = () => {
           <div className="bg-white rounded-3xl border border-slate-200/80 p-6 shadow-2xs space-y-4">
             <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
               <SparkleIcon size={18} color="#C5A059" />
-              <h3 className="font-serif text-base font-bold text-[#1B1F3B]">Style Archetypes & Palette</h3>
+              <h3 className="font-serif text-base font-bold text-[#1B1F3B]">{t('profile.archetypes_title')}</h3>
             </div>
 
             <div>
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">
-                Primary Aesthetics
+                {t('profile.primary_aesthetics')}
               </span>
               <div className="flex flex-wrap gap-1.5">
                 {usp.style_archetypes.map((a) => (
                   <span key={a} className="px-3 py-1 rounded-xl bg-slate-100 text-xs font-semibold text-slate-800">
-                    {a}
+                    {labelKeyFor('archetypes', a) ? t(labelKeyFor('archetypes', a)!) : a}
                   </span>
                 ))}
               </div>
@@ -482,12 +595,12 @@ export const UserProfileView: React.FC = () => {
 
             <div>
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">
-                Preferred Colors
+                {t('profile.preferred_colors')}
               </span>
               <div className="flex flex-wrap gap-1.5">
                 {usp.preferred_colors.map((c) => (
                   <span key={c} className="px-3 py-1 rounded-xl bg-[#FDF8EE] text-[#A37E44] border border-[#C5A059]/30 text-xs font-semibold">
-                    {c}
+                    {labelKeyFor('colors', c) ? t(labelKeyFor('colors', c)!) : c}
                   </span>
                 ))}
               </div>
@@ -495,10 +608,15 @@ export const UserProfileView: React.FC = () => {
 
             <div>
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">
-                Budget Constraints
+                {t('profile.budget_constraints')}
               </span>
               <div className="text-xs text-slate-700 font-light">
-                Target per Outfit: <strong className="font-semibold text-slate-900">${usp.budget_per_outfit_max}</strong> · Monthly Allocation: <strong className="font-semibold text-slate-900">${usp.budget_monthly_max}</strong>
+                {usp.budget_per_outfit_max != null
+                  ? t('profile.target_per_outfit', { amount: formatMoney(Math.round(usp.budget_per_outfit_max * 100), 'USD', lang) })
+                  : ''}
+                {usp.budget_monthly_max != null
+                  ? t('profile.monthly_allocation', { amount: formatMoney(Math.round(usp.budget_monthly_max * 100), 'USD', lang) })
+                  : ''}
               </div>
             </div>
           </div>
@@ -508,36 +626,50 @@ export const UserProfileView: React.FC = () => {
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
               <div className="flex items-center gap-2">
                 <RulerIcon size={18} color="#1B1F3B" />
-                <h3 className="font-serif text-base font-bold text-[#1B1F3B]">Body Attributes & Sizing</h3>
+                <h3 className="font-serif text-base font-bold text-[#1B1F3B]">{t('profile.body_attrs_title')}</h3>
               </div>
               <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                🔒 Fernet-256 Encrypted
+                {t('profile.encrypted_badge')}
               </span>
             </div>
 
             <div className="grid grid-cols-2 gap-3 text-xs">
               <div className="p-3 rounded-2xl bg-[#FAF9F6] border border-slate-100">
-                <span className="text-slate-400 block text-[10px]">Height / Weight</span>
+                <span className="text-slate-400 block text-[10px]">{t('profile.height_weight')}</span>
                 <span className="font-bold text-slate-900">
-                  {usp.body_attributes?.height_cm || 178} cm · {usp.body_attributes?.weight_kg || 72} kg
+                  {usp.body_attributes?.height_cm
+                    ? `${formatNumber(usp.body_attributes.height_cm, lang)} ${t('profile.unit_cm')}`
+                    : t('profile.not_set')}
+                  {' · '}
+                  {usp.body_attributes?.weight_kg
+                    ? `${formatNumber(usp.body_attributes.weight_kg, lang)} ${t('profile.unit_kg')}`
+                    : t('profile.not_set')}
                 </span>
               </div>
               <div className="p-3 rounded-2xl bg-[#FAF9F6] border border-slate-100">
-                <span className="text-slate-400 block text-[10px]">Silhouette</span>
-                <span className="font-bold text-slate-900">{usp.body_shape_tag || 'Athletic'}</span>
+                <span className="text-slate-400 block text-[10px]">{t('profile.silhouette')}</span>
+                  {usp.body_shape_tag
+                    ? labelKeyFor('shapes', usp.body_shape_tag)
+                      ? t(labelKeyFor('shapes', usp.body_shape_tag)!)
+                      : usp.body_shape_tag
+                    : t('profile.not_set')}
               </div>
               <div className="p-3 rounded-2xl bg-[#FAF9F6] border border-slate-100">
-                <span className="text-slate-400 block text-[10px]">Tops / Bottoms</span>
+                <span className="text-slate-400 block text-[10px]">{t('profile.tops_bottoms')}</span>
                 <span className="font-bold text-slate-900">{usp.size_tops} / {usp.size_bottoms}</span>
               </div>
               <div className="p-3 rounded-2xl bg-[#FAF9F6] border border-slate-100">
-                <span className="text-slate-400 block text-[10px]">Fit Preference</span>
-                <span className="font-bold text-slate-900 capitalize">{usp.fit_preference}</span>
+                <span className="text-slate-400 block text-[10px]">{t('profile.fit_preference')}</span>
+                  {usp.fit_preference
+                    ? labelKeyFor('fits', usp.fit_preference)
+                      ? t(labelKeyFor('fits', usp.fit_preference)!)
+                      : usp.fit_preference
+                    : t('profile.not_set')}
               </div>
             </div>
 
             <p className="text-[10px] text-slate-400 font-light leading-relaxed">
-              Data is strictly encrypted at rest and used solely to compute AI garment drape scaling and fit risk scores. Never sold or shared with brand partners without explicit consent.
+              {t('profile.privacy_note')}
             </p>
 
             {usp.body_attributes && (
@@ -545,7 +677,7 @@ export const UserProfileView: React.FC = () => {
                 onClick={handleDeleteBodyAttributes}
                 className="text-[11px] font-semibold text-rose-600 hover:text-rose-700 hover:underline"
               >
-                Delete my saved measurements
+                {t('profile.delete_my_measurements')}
               </button>
             )}
           </div>
@@ -557,18 +689,18 @@ export const UserProfileView: React.FC = () => {
         <div className="bg-white rounded-3xl border border-slate-200/80 p-6 shadow-2xs space-y-4">
           <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
             <ShieldIcon size={18} color="#C5A059" />
-            <h3 className="font-serif text-base font-bold text-[#1B1F3B]">Security — Two-Factor Authentication</h3>
+            <h3 className="font-serif text-base font-bold text-[#1B1F3B]">{t('profile.mfa_title')}</h3>
           </div>
 
           <div className="flex items-center justify-between gap-3">
             <div>
               <div className="text-xs font-bold text-slate-900">
-                MFA is {mfaEnabled ? 'enabled' : 'disabled'}
+                MFA is {mfaEnabled ? t('profile.mfa_is_enabled') : t('profile.mfa_is_disabled')}
               </div>
               <div className="text-[11px] text-slate-500 font-light">
                 {mfaEnabled
-                  ? 'Your account requires a 6-digit authenticator code (or a single-use recovery code) at sign-in.'
-                  : 'Add a second layer of protection: a time-based code from your authenticator app.'}
+                  ? t('profile.mfa_enrolled_body')
+                  : t('profile.mfa_intro_body')}
               </div>
             </div>
             <span className={`text-[10px] px-2.5 py-1 rounded-full font-bold border shrink-0 ${
@@ -576,7 +708,7 @@ export const UserProfileView: React.FC = () => {
                 ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                 : 'bg-slate-100 text-slate-600 border-slate-200'
             }`}>
-              {mfaEnabled ? 'ON' : 'OFF'}
+              {mfaEnabled ? t('profile.mfa_on') : t('profile.mfa_off')}
             </span>
           </div>
 
@@ -584,8 +716,7 @@ export const UserProfileView: React.FC = () => {
           {mfaPanel === 'enroll' && (
             <div className="space-y-3 pt-2 border-t border-slate-100">
               <p className="text-[11px] text-slate-600">
-                Scan this provisioning URI with your authenticator app (Google Authenticator, Authy, 1Password…),
-                then enter the 6-digit code it shows.
+                {t('profile.mfa_enroll_body')}
               </p>
               <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 break-all font-mono text-[11px] text-slate-800 select-all">
                 {mfaQrUri}
@@ -594,7 +725,7 @@ export const UserProfileView: React.FC = () => {
                 <input
                   type="text"
                   inputMode="numeric"
-                  placeholder="6-digit code"
+                  placeholder={t('profile.mfa_code_placeholder')}
                   value={mfaCode}
                   onChange={(e) => setMfaCode(e.target.value)}
                   className="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-[#C5A059]"
@@ -604,7 +735,7 @@ export const UserProfileView: React.FC = () => {
                   disabled={mfaBusy || mfaCode.trim().length < 6}
                   className="px-4 py-2 rounded-xl bg-[#C5A059] hover:bg-[#A37E44] text-slate-950 text-xs font-bold disabled:opacity-50"
                 >
-                  Verify & Enable
+                  {t('profile.mfa_verify_enable')}
                 </button>
               </div>
             </div>
@@ -614,8 +745,8 @@ export const UserProfileView: React.FC = () => {
           {mfaPanel === 'codes' && (
             <div className="space-y-3 pt-2 border-t border-slate-100">
               <p className="text-[11px] text-slate-600">
-                Save these single-use recovery codes somewhere safe. Each works once if you lose your
-                authenticator. <span className="font-bold text-slate-800">They will never be shown again.</span>
+                {t('profile.mfa_codes_warning')}{' '}
+                <span className="font-bold text-slate-800">{t('profile.mfa_codes_never_shown')}</span>
               </p>
               <div className="grid grid-cols-2 gap-1.5">
                 {mfaBackupCodes.map((c) => (
@@ -628,7 +759,7 @@ export const UserProfileView: React.FC = () => {
                 onClick={() => { setMfaPanel('idle'); setMfaBackupCodes([]); }}
                 className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-800"
               >
-                I've saved my codes
+                {t('profile.mfa_codes_saved')}
               </button>
             </div>
           )}
@@ -637,13 +768,12 @@ export const UserProfileView: React.FC = () => {
           {mfaPanel === 'regenerate' && (
             <div className="space-y-3 pt-2 border-t border-slate-100">
               <p className="text-[11px] text-slate-600">
-                Regenerating replaces ALL existing recovery codes. Re-enter your
-                password AND a current authenticator (or recovery) code to continue.
+                {t('profile.mfa_regen_warning')}
               </p>
               <div className="flex flex-col sm:flex-row gap-2">
                 <input
                   type="password"
-                  placeholder="Current password"
+                  placeholder={t('profile.current_password')}
                   value={mfaPassword}
                   onChange={(e) => setMfaPassword(e.target.value)}
                   className="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-slate-400"
@@ -651,7 +781,7 @@ export const UserProfileView: React.FC = () => {
                 <input
                   type="text"
                   inputMode="numeric"
-                  placeholder="Authenticator or recovery code"
+                  placeholder={t('profile.auth_or_recovery')}
                   value={mfaDisableCode}
                   onChange={(e) => setMfaDisableCode(e.target.value)}
                   className="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-slate-400"
@@ -661,7 +791,7 @@ export const UserProfileView: React.FC = () => {
                   disabled={mfaBusy || !mfaPassword || !mfaDisableCode.trim()}
                   className="px-4 py-2 rounded-xl bg-[#1B1F3B] hover:bg-[#2A2F52] text-white text-xs font-semibold disabled:opacity-50"
                 >
-                  Regenerate
+                  {t('profile.mfa_regen_short')}
                 </button>
               </div>
             </div>
@@ -671,13 +801,12 @@ export const UserProfileView: React.FC = () => {
           {mfaPanel === 'disable' && (
             <div className="space-y-3 pt-2 border-t border-slate-100">
               <p className="text-[11px] text-slate-600">
-                Re-enter your password AND a current authenticator (or recovery) code
-                to disable two-factor authentication.
+                {t('profile.mfa_disable_body')}
               </p>
               <div className="flex flex-col sm:flex-row gap-2">
                 <input
                   type="password"
-                  placeholder="Current password"
+                  placeholder={t('profile.current_password')}
                   value={mfaPassword}
                   onChange={(e) => setMfaPassword(e.target.value)}
                   className="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-rose-400"
@@ -685,7 +814,7 @@ export const UserProfileView: React.FC = () => {
                 <input
                   type="text"
                   inputMode="numeric"
-                  placeholder="Authenticator or recovery code"
+                  placeholder={t('profile.auth_or_recovery')}
                   value={mfaDisableCode}
                   onChange={(e) => setMfaDisableCode(e.target.value)}
                   className="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-rose-400"
@@ -695,7 +824,7 @@ export const UserProfileView: React.FC = () => {
                   disabled={mfaBusy || !mfaPassword || !mfaDisableCode.trim()}
                   className="px-4 py-2 rounded-xl border border-rose-200 hover:bg-rose-50 text-xs font-semibold text-rose-600 disabled:opacity-50"
                 >
-                  Disable MFA
+                  {t('profile.disable_mfa')}
                 </button>
               </div>
             </div>
@@ -710,7 +839,7 @@ export const UserProfileView: React.FC = () => {
                   disabled={mfaBusy}
                   className="px-4 py-2 rounded-xl bg-[#1B1F3B] hover:bg-[#2A2F52] text-white text-xs font-semibold disabled:opacity-50"
                 >
-                  Enable MFA
+                  {t('profile.enable_mfa')}
                 </button>
               ) : (
                 <>
@@ -719,14 +848,14 @@ export const UserProfileView: React.FC = () => {
                     disabled={mfaBusy}
                     className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-800 disabled:opacity-50"
                   >
-                    Regenerate recovery codes
+                    {t('profile.mfa_regenerate')}
                   </button>
                   <button
                     onClick={() => { setMfaPassword(''); setMfaPanel('disable'); }}
                     disabled={mfaBusy}
                     className="px-4 py-2 rounded-xl border border-rose-200 hover:bg-rose-50 text-xs font-semibold text-rose-600 disabled:opacity-50"
                   >
-                    Disable MFA
+                    {t('profile.disable_mfa')}
                   </button>
                 </>
               )}
@@ -742,9 +871,9 @@ export const UserProfileView: React.FC = () => {
         <div className="bg-white rounded-3xl border border-slate-200/80 p-6 shadow-2xs space-y-4">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <div className="text-xs font-bold text-slate-900">Password</div>
+              <div className="text-xs font-bold text-slate-900">{t('profile.password_label')}</div>
               <div className="text-[11px] text-slate-500 font-light">
-                Changing your password signs you out everywhere — all sessions are revoked.
+                {t('profile.password_intro')}
               </div>
             </div>
             <button
@@ -755,7 +884,7 @@ export const UserProfileView: React.FC = () => {
               disabled={pwBusy}
               className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-800 disabled:opacity-50 shrink-0"
             >
-              {pwPanel ? 'Cancel' : 'Change password'}
+              {pwPanel ? t('common.cancel') : t('profile.change_password')}
             </button>
           </div>
 
@@ -763,26 +892,26 @@ export const UserProfileView: React.FC = () => {
             <div className="space-y-3 pt-2 border-t border-slate-100">
               {mfaEnabled && (
                 <p className="text-[11px] text-slate-600">
-                  Two-factor authentication is on — enter a current authenticator (or recovery) code as well.
+                  {t('profile.password_mfa_body')}
                 </p>
               )}
               <input
                 type="password"
-                placeholder="Current password"
+                placeholder={t('profile.current_password')}
                 value={pwCurrent}
                 onChange={(e) => setPwCurrent(e.target.value)}
                 className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-[#C5A059]"
               />
               <input
                 type="password"
-                placeholder="New password (min 8 chars, mixed case / digit / symbol)"
+                placeholder={t('profile.new_password_placeholder')}
                 value={pwNew}
                 onChange={(e) => setPwNew(e.target.value)}
                 className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-[#C5A059]"
               />
               <input
                 type="password"
-                placeholder="Confirm new password"
+                placeholder={t('profile.confirm_new_password')}
                 value={pwConfirm}
                 onChange={(e) => setPwConfirm(e.target.value)}
                 className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-[#C5A059]"
@@ -791,7 +920,7 @@ export const UserProfileView: React.FC = () => {
                 <input
                   type="text"
                   inputMode="numeric"
-                  placeholder="6-digit MFA code (or recovery code)"
+                  placeholder={t('profile.mfa_code_mfa')}
                   value={pwMfa}
                   onChange={(e) => setPwMfa(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-[#C5A059]"
@@ -808,7 +937,7 @@ export const UserProfileView: React.FC = () => {
                 }
                 className="px-4 py-2 rounded-xl bg-[#C5A059] hover:bg-[#A37E44] text-slate-950 text-xs font-bold disabled:opacity-50"
               >
-                Update password
+                {t('profile.update_password')}
               </button>
             </div>
           )}
@@ -818,19 +947,19 @@ export const UserProfileView: React.FC = () => {
       {/* GDPR & Privacy Controls */}
       <div className="bg-white rounded-3xl border border-slate-200/80 p-6 shadow-2xs space-y-4">
         <h3 className="font-serif text-base font-bold text-[#1B1F3B] pb-2 border-b border-slate-100">
-          Privacy, Consents & GDPR Compliance
+          {t('profile.privacy_title')}
         </h3>
 
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pt-1">
           <div>
-            <div className="text-xs font-bold text-slate-900">Export All Account & Biometric Data (GDPR)</div>
-            <div className="text-[11px] text-slate-500 font-light">Download a complete structured JSON archive of your style profile, fit logs, and purchase history.</div>
+            <div className="text-xs font-bold text-slate-900">{t('profile.export_title')}</div>
+            <div className="text-[11px] text-slate-500 font-light">{t('profile.export_body')}</div>
           </div>
           <button
             onClick={handleGdprExport}
             className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-800 transition-all shrink-0"
           >
-            Export JSON Archive
+            {t('profile.export_button')}
           </button>
         </div>
 
@@ -838,25 +967,25 @@ export const UserProfileView: React.FC = () => {
           <div className="flex flex-col gap-3 pt-3 border-t border-slate-100">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
               <div>
-                <div className="text-xs font-bold text-rose-600">Delete Account & Biometrics</div>
-                <div className="text-[11px] text-slate-500 font-light">Irrevocably erase your style profile, uploaded photos, and fit models from CONFIT servers. Order history is anonymized (retained for tax/audit), never left linked to you.</div>
+                <div className="text-xs font-bold text-rose-600">{t('profile.delete_section_title')}</div>
+                <div className="text-[11px] text-slate-500 font-light">{t('profile.delete_body')}</div>
               </div>
               <button
                 onClick={() => setDeletePanelOpen((v) => !v)}
                 className="px-4 py-2 rounded-xl border border-rose-200 hover:bg-rose-50 text-xs font-semibold text-rose-600 transition-all shrink-0"
               >
-                {deletePanelOpen ? 'Cancel' : 'Permanently Erase'}
+                {deletePanelOpen ? t('common.cancel') : t('profile.erase_button')}
               </button>
             </div>
             {deletePanelOpen && (
               <div className="space-y-2 p-3 rounded-xl bg-rose-50/50 border border-rose-100">
                 <p className="text-[11px] text-slate-600">
-                  Confirm your identity to proceed: current password{mfaEnabled ? ' and a current authenticator (or recovery) code' : ''}.
+                  {t('profile.delete_stepup_a')}{mfaEnabled ? t('profile.delete_stepup_b') : ''}.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-2">
                   <input
                     type="password"
-                    placeholder="Current password"
+                    placeholder={t('profile.current_password')}
                     value={deletePassword}
                     onChange={(e) => setDeletePassword(e.target.value)}
                     className="flex-1 px-3 py-2 rounded-xl border border-rose-200 text-xs focus:outline-none focus:border-rose-400"
@@ -865,7 +994,7 @@ export const UserProfileView: React.FC = () => {
                     <input
                       type="text"
                       inputMode="numeric"
-                      placeholder="Authenticator or recovery code"
+                      placeholder={t('profile.auth_or_recovery')}
                       value={deleteMfaCode}
                       onChange={(e) => setDeleteMfaCode(e.target.value)}
                       className="flex-1 px-3 py-2 rounded-xl border border-rose-200 text-xs focus:outline-none focus:border-rose-400"
@@ -876,7 +1005,7 @@ export const UserProfileView: React.FC = () => {
                     disabled={deleteBusy || !deletePassword || (mfaEnabled && !deleteMfaCode.trim())}
                     className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold disabled:opacity-50 shrink-0"
                   >
-                    {deleteBusy ? 'Deleting…' : 'Delete forever'}
+                    {deleteBusy ? t('profile.deleting') : t('profile.delete_forever')}
                   </button>
                 </div>
               </div>
@@ -892,10 +1021,10 @@ export const UserProfileView: React.FC = () => {
             <div className="p-5 bg-[#0C0E1E] text-white flex justify-between items-center border-b border-slate-800">
               <div>
                 <span className="text-[10px] font-bold text-[#C5A059] uppercase tracking-wider">
-                  Step {quizStep} of 5
+                  {t('profile.step_of', { step: quizStep })}
                 </span>
                 <h3 className="font-serif text-base font-bold text-white">
-                  CONFIT Style Profile Wizard
+                  {t('profile.wizard_title')}
                 </h3>
               </div>
               <button onClick={() => setIsQuizOpen(false)} className="text-slate-300 hover:text-white">
@@ -906,22 +1035,22 @@ export const UserProfileView: React.FC = () => {
             <div className="p-6 overflow-y-auto flex-1 space-y-4">
               {quizStep === 1 && (
                 <div className="space-y-3">
-                  <h4 className="text-sm font-bold text-slate-900">What style aesthetics resonate with you?</h4>
+                  <h4 className="text-sm font-bold text-slate-900">{t('profile.q_aesthetics')}</h4>
                   <div className="grid grid-cols-2 gap-2">
-                    {['Smart Casual', 'Quiet Luxury', 'Modern Minimalist', 'Streetwear Tailored', 'Old Money', 'Bohemian Refined'].map((arch) => (
+                    {PROFILE_OPTIONS.archetypes.map((arch) => (
                       <button
-                        key={arch}
+                        key={arch.value}
                         onClick={() => {
-                          if (archetypes.includes(arch)) setArchetypes(archetypes.filter((a) => a !== arch));
-                          else setArchetypes([...archetypes, arch]);
+                          if (archetypes.includes(arch.value)) setArchetypes(archetypes.filter((a) => a !== arch.value));
+                          else setArchetypes([...archetypes, arch.value]);
                         }}
                         className={`p-3 rounded-2xl border text-xs font-semibold transition-all text-left ${
-                          archetypes.includes(arch)
+                          archetypes.includes(arch.value)
                             ? 'border-[#C5A059] bg-[#FDF8EE] text-[#A37E44]'
                             : 'border-slate-200 text-slate-700'
                         }`}
                       >
-                        {arch}
+                        {t(arch.labelKey)}
                       </button>
                     ))}
                   </div>
@@ -930,22 +1059,22 @@ export const UserProfileView: React.FC = () => {
 
               {quizStep === 2 && (
                 <div className="space-y-3">
-                  <h4 className="text-sm font-bold text-slate-900">Select your core color palette:</h4>
+                  <h4 className="text-sm font-bold text-slate-900">{t('profile.q_colors')}</h4>
                   <div className="grid grid-cols-3 gap-2">
-                    {['Navy', 'Beige', 'Black', 'White', 'Forest Green', 'Ivory', 'Burgundy', 'Camel', 'Charcoal'].map((col) => (
+                    {PROFILE_OPTIONS.colors.map((col) => (
                       <button
-                        key={col}
+                        key={col.value}
                         onClick={() => {
-                          if (colors.includes(col)) setColors(colors.filter((c) => c !== col));
-                          else setColors([...colors, col]);
+                          if (colors.includes(col.value)) setColors(colors.filter((c) => c !== col.value));
+                          else setColors([...colors, col.value]);
                         }}
                         className={`p-2.5 rounded-xl border text-xs font-semibold text-center transition-all ${
-                          colors.includes(col)
+                          colors.includes(col.value)
                             ? 'border-[#C5A059] bg-[#FDF8EE] text-[#A37E44]'
                             : 'border-slate-200 text-slate-700'
                         }`}
                       >
-                        {col}
+                        {t(col.labelKey)}
                       </button>
                     ))}
                   </div>
@@ -956,11 +1085,9 @@ export const UserProfileView: React.FC = () => {
                 <div className="space-y-3">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <h4 className="text-sm font-bold text-slate-900">Body measurements (optional)</h4>
+                      <h4 className="text-sm font-bold text-slate-900">{t('profile.q_body_title')}</h4>
                       <p className="text-[10px] text-slate-500 mt-0.5">
-                        Encrypted at rest with Fernet AES-256. Used only for AI sizing;
-                        never shared with brands without your consent. You can skip this
-                        step entirely.
+                        {t('profile.q_body_body')}
                       </p>
                     </div>
                     {bodyTouched && (
@@ -969,67 +1096,64 @@ export const UserProfileView: React.FC = () => {
                         onClick={() => { setHeight(null); setWeight(null); setShape(''); setBodyTouched(false); }}
                         className="text-[10px] font-semibold text-rose-500 hover:underline shrink-0"
                       >
-                        Clear
+                        {t('profile.clear')}
                       </button>
                     )}
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="text-xs font-bold text-slate-700 block mb-1">Height (cm)</label>
+                      <label className="text-xs font-bold text-slate-700 block mb-1">{t('profile.height_cm_label')}</label>
                       <input
                         type="number"
                         min={100} max={250}
                         value={height ?? ''}
                         onChange={(e) => { setHeight(e.target.value ? Number(e.target.value) : null); setBodyTouched(true); }}
-                        placeholder="e.g. 178"
+                        placeholder={t('profile.height_placeholder')}
                         className="w-full p-2.5 rounded-xl border border-slate-200 text-xs"
                       />
                     </div>
                     <div>
-                      <label className="text-xs font-bold text-slate-700 block mb-1">Weight (kg)</label>
+                      <label className="text-xs font-bold text-slate-700 block mb-1">{t('profile.weight_kg_label')}</label>
                       <input
                         type="number"
                         min={30} max={250}
                         value={weight ?? ''}
                         onChange={(e) => { setWeight(e.target.value ? Number(e.target.value) : null); setBodyTouched(true); }}
-                        placeholder="e.g. 72"
+                        placeholder={t('profile.weight_placeholder')}
                         className="w-full p-2.5 rounded-xl border border-slate-200 text-xs"
                       />
                     </div>
                   </div>
                   <div>
-                    <label className="text-xs font-bold text-slate-700 block mb-1">Silhouette shape</label>
+                    <label className="text-xs font-bold text-slate-700 block mb-1">{t('profile.silhouette_shape')}</label>
                     <select
                       value={shape}
                       onChange={(e) => { setShape(e.target.value); setBodyTouched(true); }}
                       className="w-full p-2.5 rounded-xl border border-slate-200 text-xs bg-white"
                     >
-                      <option value="">Select (optional)…</option>
-                      <option value="Athletic">Athletic</option>
-                      <option value="Hourglass">Hourglass</option>
-                      <option value="Rectangle">Rectangle</option>
-                      <option value="Pear">Pear</option>
-                      <option value="Inverted Triangle">Inverted Triangle</option>
-                      <option value="Apple">Apple</option>
+                      <option value="">{t('profile.select_optional')}</option>
+                      {PROFILE_OPTIONS.shapes.map((s) => (
+                        <option key={s.value} value={s.value}>{t(s.labelKey)}</option>
+                      ))}
                     </select>
                   </div>
                   <div className="grid grid-cols-3 gap-3 pt-2 border-t border-slate-100">
                     <div>
-                      <label className="text-[10px] font-bold text-slate-700 block mb-1">Tops size</label>
+                      <label className="text-[10px] font-bold text-slate-700 block mb-1">{t('profile.tops_size')}</label>
                       <select value={sizeTop} onChange={(e) => setSizeTop(e.target.value)} className="w-full p-2 rounded-xl border border-slate-200 text-xs bg-white">
                         <option value="">—</option>
                         {['XS','S','M','L','XL','XXL'].map(s => <option key={s} value={s}>{s}</option>)}
                       </select>
                     </div>
                     <div>
-                      <label className="text-[10px] font-bold text-slate-700 block mb-1">Bottoms</label>
+                      <label className="text-[10px] font-bold text-slate-700 block mb-1">{t('profile.bottoms_size')}</label>
                       <select value={sizeBottom} onChange={(e) => setSizeBottom(e.target.value)} className="w-full p-2 rounded-xl border border-slate-200 text-xs bg-white">
                         <option value="">—</option>
                         {['28','30','32','34','36','38','40','42'].map(s => <option key={s} value={s}>{s}</option>)}
                       </select>
                     </div>
                     <div>
-                      <label className="text-[10px] font-bold text-slate-700 block mb-1">Shoes (EU)</label>
+                      <label className="text-[10px] font-bold text-slate-700 block mb-1">{t('profile.shoes_eu')}</label>
                       <select value={sizeShoes} onChange={(e) => setSizeShoes(e.target.value)} className="w-full p-2 rounded-xl border border-slate-200 text-xs bg-white">
                         <option value="">—</option>
                         {['36','37','38','39','40','41','42','43','44','45','46'].map(s => <option key={s} value={s}>{s}</option>)}
@@ -1037,18 +1161,18 @@ export const UserProfileView: React.FC = () => {
                     </div>
                   </div>
                   <div>
-                    <label className="text-[10px] font-bold text-slate-700 block mb-1">Preferred fit</label>
+                    <label className="text-[10px] font-bold text-slate-700 block mb-1">{t('profile.preferred_fit')}</label>
                     <div className="grid grid-cols-4 gap-2">
-                      {(['slim','regular','oversized','relaxed'] as const).map(f => (
+                      {PROFILE_OPTIONS.fits.map(f => (
                         <button
-                          key={f}
+                          key={f.value}
                           type="button"
-                          onClick={() => setFitPref(f)}
+                          onClick={() => setFitPref(f.value)}
                           className={`p-2 rounded-xl border text-[11px] font-semibold capitalize transition-all ${
-                            fitPref === f ? 'border-[#C5A059] bg-[#FDF8EE] text-[#A37E44]' : 'border-slate-200 text-slate-700'
+                            fitPref === f.value ? 'border-[#C5A059] bg-[#FDF8EE] text-[#A37E44]' : 'border-slate-200 text-slate-700'
                           }`}
                         >
-                          {f}
+                          {t(f.labelKey)}
                         </button>
                       ))}
                     </div>
@@ -1058,12 +1182,12 @@ export const UserProfileView: React.FC = () => {
 
               {quizStep === 4 && (
                 <div className="space-y-4">
-                  <h4 className="text-sm font-bold text-slate-900">Budget & occasions</h4>
+                  <h4 className="text-sm font-bold text-slate-900">{t('profile.budget_occasions')}</h4>
 
                   <div>
                     <div className="flex justify-between text-xs font-bold text-slate-800 mb-1">
-                      <span>Monthly budget (min)</span>
-                      <span className="text-[#A37E44]">${budgetMonthlyMin ?? '—'}</span>
+                      <span>{t('profile.monthly_budget_min')}</span>
+                      <span className="text-[#A37E44]">{formatMoney(Math.round((budgetMonthlyMin ?? 0) * 100), 'USD', lang)}</span>
                     </div>
                     <input type="range" min={0} max={2000} step={50}
                       value={budgetMonthlyMin ?? 0}
@@ -1072,8 +1196,8 @@ export const UserProfileView: React.FC = () => {
                   </div>
                   <div>
                     <div className="flex justify-between text-xs font-bold text-slate-800 mb-1">
-                      <span>Monthly budget (max)</span>
-                      <span className="text-[#A37E44]">${budgetMonthlyMax ?? '—'}</span>
+                      <span>{t('profile.monthly_budget_max')}</span>
+                      <span className="text-[#A37E44]">{formatMoney(Math.round((budgetMonthlyMax ?? 0) * 100), 'USD', lang)}</span>
                     </div>
                     <input type="range" min={0} max={5000} step={50}
                       value={budgetMonthlyMax ?? 0}
@@ -1082,8 +1206,8 @@ export const UserProfileView: React.FC = () => {
                   </div>
                   <div>
                     <div className="flex justify-between text-xs font-bold text-slate-800 mb-1">
-                      <span>Max per outfit</span>
-                      <span className="text-[#A37E44]">${budgetOutfitMax ?? '—'}</span>
+                      <span>{t('profile.max_per_outfit')}</span>
+                      <span className="text-[#A37E44]">{formatMoney(Math.round((budgetOutfitMax ?? 0) * 100), 'USD', lang)}</span>
                     </div>
                     <input type="range" min={50} max={2000} step={25}
                       value={budgetOutfitMax ?? 0}
@@ -1093,19 +1217,19 @@ export const UserProfileView: React.FC = () => {
 
                   <div className="pt-2 border-t border-slate-100">
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">
-                      How you spend your week (must sum to 1.0)
+                      {t('profile.week_split')}
                     </span>
                     <div className="grid grid-cols-2 gap-2">
-                      {['work','casual','party','formal','sports','travel'].map(occ => (
-                        <label key={occ} className="flex items-center gap-2 text-xs">
-                          <span className="w-16 capitalize text-slate-700">{occ}</span>
+                      {PROFILE_OPTIONS.occasions.map(occ => (
+                        <label key={occ.value} className="flex items-center gap-2 text-xs">
+                          <span className="w-16 capitalize text-slate-700">{t(occ.labelKey)}</span>
                           <input
                             type="number"
                             step="0.05"
                             min="0"
                             max="1"
-                            value={occasionWeights[occ] ?? 0}
-                            onChange={(e) => setOccasionWeights({ ...occasionWeights, [occ]: Number(e.target.value) })}
+                            value={occasionWeights[occ.value] ?? 0}
+                            onChange={(e) => setOccasionWeights({ ...occasionWeights, [occ.value]: Number(e.target.value) })}
                             className="flex-1 p-1.5 rounded-lg border border-slate-200 text-xs"
                           />
                         </label>
@@ -1118,26 +1242,26 @@ export const UserProfileView: React.FC = () => {
               {quizStep === 2 && (
                 <div className="pt-4 border-t border-slate-100 space-y-2">
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                    Also — colours to AVOID
+                    {t('profile.avoid_colors')}
                   </span>
                   <div className="grid grid-cols-3 gap-2">
-                    {['Neon Orange','Magenta','Neon Yellow','Fluoro Pink','Lime','Turquoise'].map(col => (
-                      <button key={col} type="button"
-                        onClick={() => setAvoidedColors(avoidedColors.includes(col) ? avoidedColors.filter(c=>c!==col) : [...avoidedColors, col])}
-                        className={`p-2 rounded-xl border text-xs font-semibold ${avoidedColors.includes(col) ? 'border-rose-400 bg-rose-50 text-rose-700' : 'border-slate-200 text-slate-700'}`}>
-                        {col}
+                    {PROFILE_OPTIONS.avoidColors.map(col => (
+                      <button key={col.value} type="button"
+                        onClick={() => setAvoidedColors(avoidedColors.includes(col.value) ? avoidedColors.filter(c=>c!==col.value) : [...avoidedColors, col.value])}
+                        className={`p-2 rounded-xl border text-xs font-semibold ${avoidedColors.includes(col.value) ? 'border-rose-400 bg-rose-50 text-rose-700' : 'border-slate-200 text-slate-700'}`}>
+                        {t(col.labelKey)}
                       </button>
                     ))}
                   </div>
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block pt-2">
-                    Fashion aesthetics
+                    {t('profile.fashion_aesthetics')}
                   </span>
                   <div className="flex flex-wrap gap-2">
-                    {['Old Money','Quiet Luxury','Modern Tailored','Streetwear','Minimalist','Preppy','Athleisure','Y2K','Dark Academia','Cottagecore'].map(a => (
-                      <button key={a} type="button"
-                        onClick={() => setAesthetics(aesthetics.includes(a) ? aesthetics.filter(x=>x!==a) : [...aesthetics, a])}
-                        className={`px-3 py-1.5 rounded-xl border text-[11px] font-semibold ${aesthetics.includes(a) ? 'border-[#C5A059] bg-[#FDF8EE] text-[#A37E44]' : 'border-slate-200 text-slate-700'}`}>
-                        {a}
+                    {PROFILE_OPTIONS.aesthetics.map(a => (
+                      <button key={a.value} type="button"
+                        onClick={() => setAesthetics(aesthetics.includes(a.value) ? aesthetics.filter(x=>x!==a.value) : [...aesthetics, a.value])}
+                        className={`px-3 py-1.5 rounded-xl border text-[11px] font-semibold ${aesthetics.includes(a.value) ? 'border-[#C5A059] bg-[#FDF8EE] text-[#A37E44]' : 'border-slate-200 text-slate-700'}`}>
+                        {t(a.labelKey)}
                       </button>
                     ))}
                   </div>
@@ -1146,11 +1270,11 @@ export const UserProfileView: React.FC = () => {
 
               {quizStep === 5 && (
                 <div className="space-y-4">
-                  <h4 className="text-sm font-bold text-slate-900">Brands, privacy & consent</h4>
+                  <h4 className="text-sm font-bold text-slate-900">{t('profile.brands_privacy')}</h4>
                   <div>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">Preferred brands</span>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">{t('profile.preferred_brands')}</span>
                     <div className="flex flex-wrap gap-2">
-                      {['Massimo Dutti','COS','Reiss','Arket','Zara','H&M','Uniqlo'].map(b => (
+                      {PROFILE_OPTIONS.preferredBrands.map(b => (
                         <button key={b} type="button"
                           onClick={() => setPreferredBrands(preferredBrands.includes(b) ? preferredBrands.filter(x=>x!==b) : [...preferredBrands, b])}
                           className={`px-3 py-1.5 rounded-xl border text-[11px] font-semibold ${preferredBrands.includes(b) ? 'border-[#C5A059] bg-[#FDF8EE] text-[#A37E44]' : 'border-slate-200 text-slate-700'}`}>
@@ -1160,14 +1284,14 @@ export const UserProfileView: React.FC = () => {
                     </div>
                   </div>
                   <div>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">Blacklist (never recommend)</span>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">{t('profile.blacklist')}</span>
                     <div className="flex flex-wrap gap-2">
-                      {['Shein','Fast Fashion','Fur','Leather'].map(b => (
-                        <button key={b} type="button"
-                          onClick={() => setBlacklistedBrands(blacklistedBrands.includes(b) ? blacklistedBrands.filter(x=>x!==b) : [...blacklistedBrands, b])}
-                          className={`px-3 py-1.5 rounded-xl border text-[11px] font-semibold ${blacklistedBrands.includes(b) ? 'border-rose-400 bg-rose-50 text-rose-700' : 'border-slate-200 text-slate-700'}`}>
-                          {b}
-                        </button>
+                      {PROFILE_OPTIONS.blacklist.map(b => (
+                        <button key={b.value} type="button"
+                          onClick={() => setBlacklistedBrands(blacklistedBrands.includes(b.value) ? blacklistedBrands.filter(x=>x!==b.value) : [...blacklistedBrands, b.value])}
+                          className={`px-3 py-1.5 rounded-xl border text-[11px] font-semibold ${blacklistedBrands.includes(b.value) ? 'border-rose-400 bg-rose-50 text-rose-700' : 'border-slate-200 text-slate-700'}`}>
+                        {t(b.labelKey)}
+                      </button>
                       ))}
                     </div>
                   </div>
@@ -1179,7 +1303,7 @@ export const UserProfileView: React.FC = () => {
                         onChange={(e) => setConsentTryon(e.target.checked)}
                         className="accent-[#C5A059]"
                       />
-                      <span>Allow session retention of VTON models for instant 1-click try-on</span>
+                      <span>{t('profile.vton_consent')}</span>
                     </label>
                   </div>
                 </div>
@@ -1192,7 +1316,7 @@ export const UserProfileView: React.FC = () => {
                   onClick={() => setQuizStep(quizStep - 1)}
                   className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700"
                 >
-                  ← Back
+                  {t('profile.back')}
                 </button>
               ) : <div />}
 
@@ -1201,14 +1325,14 @@ export const UserProfileView: React.FC = () => {
                   onClick={() => setQuizStep(quizStep + 1)}
                   className="px-5 py-2 rounded-xl bg-[#1B1F3B] text-white text-xs font-semibold"
                 >
-                  Next Step →
+                  {t('profile.next_step')}
                 </button>
               ) : (
                 <button
                   onClick={handleSaveQuiz}
                   className="px-5 py-2 rounded-xl bg-[#C5A059] text-slate-950 font-bold text-xs"
                 >
-                  Finish & Save Profile
+                  {t('profile.finish_save')}
                 </button>
               )}
             </div>

@@ -107,7 +107,32 @@ def client_key(request: Request) -> str:
 # The Retry-After / X-RateLimit contract is instead served by
 # ``rate_limit_exceeded_handler`` below, which builds the 429 itself and has no
 # ``response`` parameter constraint.
-limiter = Limiter(key_func=client_key)
+# ``key_style="endpoint"`` — measured, not stylistic.
+#
+# slowapi buckets a limit by ``endpoint_url if self._key_style == "url" else
+# endpoint_func_name`` (slowapi/extension.py, ``_check_request_limit``), and ``url``
+# is the default. This API mounts the same router under several prefixes and
+# registers most consumer routes under two spellings (``/orders/{n}`` and
+# ``/commerce/orders/{n}``, ``/cart`` and ``/commerce/cart``, and so on), so a
+# URL-keyed bucket hands the caller one allowance PER SPELLING.
+#
+# MEASURED 2026-09-23 against production (``confit-a.vercel.app``), same client
+# identity, same minute, on the order-lookup limit that exists to bound
+# enumeration of order numbers:
+#
+#     /api/v1/orders/CONF-00000000          30 × 404, then 429   (bucket exhausted)
+#     /api/v1/commerce/orders/CONF-00000000 -> 404  PROCESSED    (separate bucket)
+#
+# and locally, where every prefix is served:
+#
+#     /v1/orders/…  -> 404 PROCESSED     /orders/…  -> 404 PROCESSED
+#
+# i.e. the intended 30/minute was really 2× (production spellings) to 6× (all
+# prefixes served). Keying by the endpoint function makes every spelling of one
+# logical route share a single allowance, which is what the limit always claimed
+# to be. Views of a *different* resource (detail vs tracking) keep their own
+# bucket, because they are different endpoints reached at different cost.
+limiter = Limiter(key_func=client_key, key_style="endpoint")
 
 
 def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded) -> Response:

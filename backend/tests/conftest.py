@@ -14,6 +14,26 @@ import os
 # release report for the runtime-verified rembg evidence).
 os.environ.setdefault("CONFIT_VTON_DISABLE_REMBG", "1")
 
+# --- AI readiness probing is OFF for the test suite -------------------------
+# The consumer capability endpoint can start a bounded background readiness
+# refresh (services/ai_readiness.refresh_when_unmeasured) — the measured verdict
+# used to exist only on whichever instance the operator probe happened to warm,
+# so the shopper-facing contract answered `ai_stylist_live = false` for a
+# healthy provider. Inside a test session that turns any read of
+# /catalog/capabilities into a real outbound provider call; with placeholder
+# keys it answers `unavailable`, and the snapshot then leaks into unrelated
+# tests. MEASURED: it made a self-heal test read `unavailable` where the truth
+# was `not_probed`.
+#
+# This must be set BEFORE backend.app.core.config is imported (settings reads
+# the environment once at import), which is why it sits at the top of this file
+# and not next to the limiter switch below.
+#
+# Tests that exercise probing mock the transport and re-enable it explicitly,
+# exactly like test_rate_limiting.py does for the limiter. Production is
+# unaffected: AI_PROBE_ENABLED defaults to True.
+os.environ.setdefault("AI_PROBE_ENABLED", "false")
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -80,6 +100,17 @@ app.dependency_overrides[get_db] = override_get_db
 # globally; test_rate_limiting.py re-enables it explicitly to prove the 429
 # path works for real.
 app.state.limiter.enabled = False
+
+# Fail loudly if the switch above did not take (settings is imported once): a
+# silent miss would let the suite make real provider calls.
+from backend.app.core.config import settings as _settings  # noqa: E402
+
+if getattr(_settings, "AI_PROBE_ENABLED", True):
+    raise RuntimeError(
+        "AI_PROBE_ENABLED must be False for the test suite; the env var was set "
+        "after settings was imported. Move it above the first backend.app import."
+    )
+
 
 
 @pytest.fixture(scope="session", autouse=True)

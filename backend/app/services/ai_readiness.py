@@ -215,9 +215,17 @@ class _CachedReadiness:
       longer date, so the verdict becomes ``not_probed`` instead.
     """
 
-    def __init__(self, ttl_seconds: float, max_age_seconds: float) -> None:
+    def __init__(self, ttl_seconds: float, max_age_seconds: float,
+                 min_retry_seconds: float = 0.0) -> None:
         self._ttl = ttl_seconds
         self._max_age = max_age_seconds
+        #: Floor between background attempts. A consumer read path may ask for a
+        #: refresh, and if `probe_now` raises nothing is stored — a failing
+        #: provider plus consumer traffic would then retry on every request.
+        #: That is the "self-inflicted burst" this module refuses to create, so
+        #: attempts are spaced even when they fail.
+        self._min_retry = min_retry_seconds
+        self._last_attempt = 0.0
         self._lock = threading.Lock()
         self._snapshot: Optional[ReadinessSnapshot] = None
         self._refreshing = False
@@ -246,11 +254,19 @@ class _CachedReadiness:
             self._snapshot = snap
 
     def refresh_in_background(self, transport: Optional[httpx.BaseTransport] = None) -> bool:
-        """Start a refresh unless one is already running. Never blocks."""
+        """Start a refresh unless one is already running, or ran recently.
+
+        Never blocks. Returns True only when a refresh was actually started, so
+        a caller can tell "I asked" from "someone already did".
+        """
+        now = time.time()
         with self._lock:
             if self._refreshing:
                 return False
+            if self._min_retry and (now - self._last_attempt) < self._min_retry:
+                return False
             self._refreshing = True
+            self._last_attempt = now
 
         def _work() -> None:
             try:
@@ -267,7 +283,16 @@ class _CachedReadiness:
 
 _TTL = float(getattr(settings, "AI_PROBE_TTL_SECONDS", 300.0) or 300.0)
 _MAX_AGE = float(getattr(settings, "AI_PROBE_MAX_AGE_SECONDS", 900.0) or 900.0)
-_cache = _CachedReadiness(_TTL, max(_TTL, _MAX_AGE))
+#: MEASURED 2026-09-24: the verdict lived only on the instance that had been
+#: asked for it. On Vercel, `/health` (the operator surface) refreshed one warm
+#: instance, and the consumer capability endpoint answered `not_probed` ->
+#: `ai_stylist_live = false` from every instance that had never probed, for the
+#: same healthy provider. Three consumer calls read `not_probed`; one `/health`
+#: hit later, six consecutive consumer calls read `ready`. The floor below makes
+#: a consumer-triggered refresh safe: at most one attempt per interval per
+#: instance, and never on the request's critical path.
+_MIN_RETRY = float(getattr(settings, "AI_PROBE_MIN_RETRY_SECONDS", 30.0) or 30.0)
+_cache = _CachedReadiness(_TTL, max(_TTL, _MAX_AGE), min_retry_seconds=_MIN_RETRY)
 
 
 def ai_readiness() -> Dict[str, Any]:
@@ -345,16 +370,39 @@ def ai_readiness() -> Dict[str, Any]:
     }
 
 
-def refresh_ai_readiness_if_stale(transport: Optional[httpx.BaseTransport] = None) -> bool:
-    """Called by the operator-facing health surface: refresh when due.
+def refresh_when_unmeasured(transport: Optional[httpx.BaseTransport] = None) -> bool:
+    """Consumer read paths: give THIS instance a verdict, without blocking it.
 
-    Returns True when a refresh was started. Satisfies "bounded probe, cached
-    readiness, TTL" without letting ordinary consumer traffic pay for it.
+    Why this exists (found 2026-09-24, measured on production): the probe used to
+    be reachable only from the operator/heath surface, so the measured verdict
+    lived on whichever warm instance the uptime monitor happened to hit. Every
+    other instance served the consumer capability contract with
+    ``ai_stylist_state = not_probed`` and therefore ``ai_stylist_live = false``
+    for a provider that was demonstrably healthy — the same deployment answering
+    two different things about one capability, decided by instance routing.
+    (Before a `/health` hit: three consumer reads said ``not_probed``. After one:
+    six consecutive reads said ``ready``.)
+
+    What it does NOT do: it does not probe inline, so the request that calls it
+    still returns within its own budget and still reports ``not_probed`` when
+    that is the truth. It starts the existing bounded background refresh, and the
+    *next* read on this instance answers from a real verdict.
+
+    Bounded by design: only starts when this instance holds no usable verdict
+    (never measured, or withdrawn past the hard max age), only one in flight, and
+    never more often than the retry floor — a dead provider must not turn
+    consumer traffic into a burst against it.
+
+    ``note`` — this replaces ``refresh_ai_readiness_if_stale``, whose docstring
+    claimed the health surface called it. Nothing did: the health path uses the
+    inline ``ensure_readiness`` for the serverless reason documented there, so
+    that function was unreachable code carrying a false description.
     """
     if not getattr(settings, "AI_PROBE_ENABLED", True):
         return False
     snap = _cache.snapshot()
-    if not _cache.is_stale(snap):
+    usable = snap is not None and not _cache.is_withdrawn(snap)
+    if usable:
         return False
     return _cache.refresh_in_background(transport=transport)
 
@@ -388,7 +436,16 @@ def ensure_readiness(transport: Optional[httpx.BaseTransport] = None) -> Dict[st
 
 
 def reset_cache_for_tests() -> None:
-    """Drop the cached snapshot. Test-only; there is no production caller."""
+    """Drop the cached snapshot AND the attempt clock. Test-only.
+
+    The attempt clock is part of the cache's state: leaving it armed made the
+    second test in a file inherit the first test's retry floor, so a test that
+    expected to be able to start a refresh was silently told "not yet". That is
+    a test-only concern (production has one long-lived cache), but a reset that
+    resets half the state is a trap for the next person.
+    """
     _cache.store(None)  # type: ignore[arg-type]
+    with _cache._lock:
+        _cache._last_attempt = 0.0
     with _cache._lock:
         _cache._snapshot = None

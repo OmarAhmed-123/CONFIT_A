@@ -116,12 +116,25 @@ class AdminPlatformAnalyticsOut(BaseModel):
     total_brands_count: int
     total_gmv: float
     total_orders: int
-    tryon_adoption_rate: float
-    stylist_conversion_ratio: float
-    platform_avg_return_rate: float
-    return_rate_tryon_users: float
-    return_rate_non_tryon_users: float
+    # P1 (2026-09-22 audit): rates are Optional — None means "denominator was
+    # zero, nothing was measured" and renders as N/A. A forced 0.0 would claim
+    # a measured zero that never happened.
+    tryon_adoption_rate: Optional[float] = None
+    stylist_conversion_ratio: Optional[float] = None
+    platform_avg_return_rate: Optional[float] = None
+    return_rate_tryon_users: Optional[float] = None
+    return_rate_non_tryon_users: Optional[float] = None
     revenue_attribution: Dict[str, Any]  # Exclusive attribution with priority to avoid double count
+    # P1 financial-semantics separation: these figures are OPERATIONAL
+    # metrics derived from transactional tables. They are NOT a billing
+    # ledger: commission/attribution amounts must not be invoiced from this
+    # payload without independent reconciliation against payment records.
+    financial_semantics: str = (
+        "operational_metrics — derived from transactional tables (orders, "
+        "order_items, analytics events). NOT a verified billing ledger: do "
+        "not invoice or settle from these figures; reconcile against payment "
+        "provider records first."
+    )
     top_performing_brands: List[Dict[str, Any]]
     style_preference_heatmap: Dict[str, Any]
     most_styled_items: Optional[List[Dict[str, Any]]] = None

@@ -65,6 +65,10 @@ export const AdminAnalyticsView: React.FC = () => {
   const heatmap = adminAnalytics.style_preference_heatmap;
   const cellShare = (cell: StyleHeatmapCell) =>
     t('admin_heatmap.cell_share', { share: cell.share, count: cell.count });
+  // P1 honesty contract: null = unmeasured (zero denominator) -> N/A.
+  // A real 0 renders as "0%" — measured zero and unmeasured are different facts.
+  const pct = (value: number | null | undefined) =>
+    value === null || value === undefined ? 'N/A' : `${value}%`;
 
   return (
     <div className="space-y-8 pb-20">
@@ -105,13 +109,13 @@ export const AdminAnalyticsView: React.FC = () => {
           <div className="text-2xl font-serif font-black text-[#1B1F3B]">
             {adminAnalytics.total_orders.toLocaleString()}
           </div>
-          <div className="text-[11px] text-slate-500 font-medium">Try-On Assisted: {adminAnalytics.tryon_adoption_rate}% from Order.try_on_assisted</div>
+          <div className="text-[11px] text-slate-500 font-medium">Try-On Assisted: {pct(adminAnalytics.tryon_adoption_rate)} from Order.try_on_assisted</div>
         </div>
 
         <div className="bg-white rounded-3xl border border-slate-200 p-5 shadow-sm space-y-1">
           <span className="text-xs font-bold text-slate-400 uppercase">Outfit-to-Purchase Ratio (Real)</span>
           <div className="text-2xl font-serif font-black text-[#B8935A]">
-            {adminAnalytics.stylist_conversion_ratio}%
+            {pct(adminAnalytics.stylist_conversion_ratio)}
           </div>
           <div className="text-[11px] text-slate-500 font-medium">Saved Outfit to Purchase, from Outfit.is_saved + OrderItem.outfit_id</div>
         </div>
@@ -119,9 +123,9 @@ export const AdminAnalyticsView: React.FC = () => {
         <div className="bg-white rounded-3xl border border-slate-200 p-5 shadow-sm space-y-1">
           <span className="text-xs font-bold text-slate-400 uppercase">Platform Return Rate (Real)</span>
           <div className="text-2xl font-serif font-black text-emerald-600">
-            {adminAnalytics.platform_avg_return_rate}%
+            {pct(adminAnalytics.platform_avg_return_rate)}
           </div>
-          <div className="text-[11px] text-slate-500">Try-On: {adminAnalytics.return_rate_tryon_users}% vs Non-Try-On: {adminAnalytics.return_rate_non_tryon_users}%</div>
+          <div className="text-[11px] text-slate-500">Try-On: {pct(adminAnalytics.return_rate_tryon_users)} vs Non-Try-On: {pct(adminAnalytics.return_rate_non_tryon_users)}</div>
         </div>
       </div>
 
@@ -134,6 +138,11 @@ export const AdminAnalyticsView: React.FC = () => {
             </h3>
             <p className="text-xs text-slate-500">Direct sales from Order flags, not fake percentages</p>
             <p className="text-[10px] text-slate-400 mt-1">Last-touch: Virtual Stylist via Order.stylist_assisted, Outfit Builder via OrderItem.outfit_id, Visual Search via BrandAnalyticsEvent. Uses Order.total_amount authoritative, not frontend. Refunds excluded.</p>
+            {/* P1 financial-semantics separation: operational metrics, not a
+                billing ledger — echoed from the backend contract. */}
+            <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-2 py-1.5 text-[10px] font-semibold text-amber-800">
+              Operational metrics — NOT a verified billing ledger. Do not invoice or settle from these figures; reconcile against payment provider records first.
+            </p>
           </div>
 
           <div className="space-y-3 text-xs">
@@ -271,11 +280,11 @@ export const AdminAnalyticsView: React.FC = () => {
         </div>
         <div className="p-4 rounded-2xl bg-white border border-slate-200">
           <span className="text-slate-400 text-[10px] uppercase block">Try-On Adoption</span>
-          <span className="font-bold text-lg text-[#B8935A]">{adminAnalytics.tryon_adoption_rate}%</span>
+          <span className="font-bold text-lg text-[#B8935A]">{pct(adminAnalytics.tryon_adoption_rate)}</span>
         </div>
         <div className="p-4 rounded-2xl bg-white border border-slate-200">
           <span className="text-slate-400 text-[10px] uppercase block">Outfit-to-Purchase</span>
-          <span className="font-bold text-lg text-emerald-600">{adminAnalytics.stylist_conversion_ratio}%</span>
+          <span className="font-bold text-lg text-emerald-600">{pct(adminAnalytics.stylist_conversion_ratio)}</span>
         </div>
       </div>
     </div>

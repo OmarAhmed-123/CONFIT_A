@@ -335,5 +335,21 @@ def get_capability_flags(db: Session = Depends(get_db)):
     ``true`` and ``temporarily_unavailable`` about the same GPU at the same
     moment. The flag is now derived from the shared probe classifier, and
     ``tests/test_capability_single_source.py`` pins the agreement.
+
+    Why this endpoint also *starts* a readiness measurement (2026-09-24): the AI
+    verdict is measured per process, and on serverless the operator `/health`
+    probe only warms the instance it lands on. Measured in production: three
+    consumer reads reported ``ai_stylist_state = not_probed`` /
+    ``ai_stylist_live = false``, and after a single `/health` hit six consecutive
+    consumer reads reported ``ready`` — one capability, two answers, decided by
+    instance routing. ``refresh_when_unmeasured`` starts the existing bounded
+    background refresh only when THIS instance has no usable verdict, so the
+    response a shopper gets is still immediate and still honest (``not_probed``
+    stays ``not_probed``) and the next read on that instance carries a real
+    measurement. It never probes inline and is floored by a retry interval, so a
+    failed provider cannot be turned into a burst by page traffic.
     """
+    from backend.app.services.ai_readiness import refresh_when_unmeasured
+
+    refresh_when_unmeasured()
     return CapabilityFlagsOut(**capability_flags(db))

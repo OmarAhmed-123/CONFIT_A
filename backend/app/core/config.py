@@ -250,6 +250,12 @@ class Settings(BaseSettings):
     #: verdict is missing or stale. Providers not attempted inside the budget
     #: are reported as unmeasured, never guessed.
     AI_PROBE_SYNC_BUDGET_SECONDS: float = 5.0
+    #: Floor between background refresh attempts started from a CONSUMER read
+    #: path (seconds). The shopper-facing capability contract may ask this
+    #: instance to establish its own AI-readiness verdict; without a floor a
+    #: provider that is down would be retried by page traffic, which is the
+    #: self-inflicted burst services/ai_readiness.py refuses to create.
+    AI_PROBE_MIN_RETRY_SECONDS: float = 30.0
     # Per-provider HTTP budget. Measured live 2026-09-04: Groq 0.48-0.56s,
     # OpenAI 1.46s, gemini-3.8-flash 2.9s when it answers and >4s when it 503s.
     # One shared 4.0s literal was generous for Groq and marginal for a thinking

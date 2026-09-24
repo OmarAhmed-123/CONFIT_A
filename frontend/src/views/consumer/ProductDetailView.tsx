@@ -118,7 +118,7 @@ export const ProductDetailView: React.FC = () => {
             onClick={() => setReloadTick((t) => t + 1)}
             className="px-4 py-2 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:border-[#C5A059]"
           >
-            Retry now
+            {t('common.retry_now')}
           </button>
         )}
       </div>
@@ -128,9 +128,9 @@ export const ProductDetailView: React.FC = () => {
   if (loadError || !product) {
     return (
       <>
-        <h1 className="sr-only">Product unavailable</h1>
+        <h1 className="sr-only">{t('product.unavailable_heading')}</h1>
         <EmptyState
-          title="This piece is unavailable"
+          title={t('product.unavailable_title')}
           description={
             loadError || "The product could not be loaded from the catalogue."
           }
@@ -164,7 +164,7 @@ export const ProductDetailView: React.FC = () => {
       />
       <nav className="text-xs text-slate-500 flex items-center gap-2 font-light">
         <Link to="/discover" className="hover:text-[#1B1F3B] transition-colors">
-          Catalog
+          {t('product.breadcrumb_catalog')}
         </Link>
         <span>/</span>
         <Link
@@ -193,7 +193,7 @@ export const ProductDetailView: React.FC = () => {
               {styleScore != null && (
                 <FitScoreBadge
                   score={styleScore}
-                  label="Match"
+                  label={t('product.fit_match')}
                   verdict={
                     product.style_compatibility_reason || "catalog style score"
                   }
@@ -216,7 +216,7 @@ export const ProductDetailView: React.FC = () => {
             <button
               onClick={() => setIsWishlisted(!isWishlisted)}
               className="absolute top-4 right-4 p-2.5 rounded-full bg-white/90 hover:bg-white text-slate-800 shadow-md backdrop-blur-xs transition-all"
-              aria-label="Add to wishlist"
+              aria-label={t('a11y.add_to_wishlist')}
             >
               <HeartIcon size={18} isLiked={isWishlisted} />
             </button>
@@ -250,7 +250,7 @@ export const ProductDetailView: React.FC = () => {
                 <button
                   key={idx}
                   onClick={() => setActiveImageIndex(idx)}
-                  aria-label={`View image ${idx + 1}`}
+                  aria-label={t('a11y.view_image', { index: idx + 1 })}
                   className={`w-20 h-24 rounded-2xl overflow-hidden border-2 transition-all shrink-0 ${
                     activeImageIndex === idx
                       ? "border-[#C5A059] ring-2 ring-[#C5A059]/30"
@@ -259,7 +259,7 @@ export const ProductDetailView: React.FC = () => {
                 >
                   <HonestProductImage
                     src={img}
-                    alt={`${product.title} image ${idx + 1}`}
+                    alt={t('a11y.product_image_alt', { name: product.title, index: idx + 1 })}
                     className="w-full h-full object-cover"
                   />
                 </button>
@@ -321,14 +321,13 @@ export const ProductDetailView: React.FC = () => {
                   `Recommended size ${product.recommended_size}.`}
                 {product.recommended_size_available === false && (
                   <span className="block mt-1 text-amber-700 font-medium">
-                    The recommended size is not currently in stock.
+                    {t('product.recommended_size_out_of_stock')}
                   </span>
                 )}
               </p>
             ) : (
               <p className="text-xs text-slate-500 leading-relaxed font-light">
-                Complete your body profile to see a personal size
-                recommendation. Until then, choose a size from available stock.
+                {t('product.complete_profile_for_size')}
               </p>
             )}
 
@@ -340,13 +339,13 @@ export const ProductDetailView: React.FC = () => {
                 <span className="text-[10px] font-semibold text-slate-500">
                   {currentSku?.is_in_stock
                     ? `${currentSku.stock_level} in stock`
-                    : "Out of stock"}
+                    : t('product.out_of_stock')}
                 </span>
               </div>
               <div
                 className="flex gap-2 flex-wrap"
                 role="group"
-                aria-label="Select size"
+                aria-label={t('a11y.select_size')}
               >
                 {product.skus?.map((sku) => (
                   <button
@@ -394,7 +393,7 @@ export const ProductDetailView: React.FC = () => {
               <BagIcon size={16} color="#FFFFFF" />
               <span>
                 {!currentSku?.is_in_stock
-                  ? "Out of stock"
+                  ? t('product.out_of_stock')
                   : adding
                     ? "Adding..."
                     : `Add to bag — $${(currentSku?.price_override ?? product.base_price).toFixed(2)}`}
@@ -442,11 +441,11 @@ export const ProductDetailView: React.FC = () => {
                 <div className="pt-2 text-slate-500 space-y-1.5 font-light leading-relaxed">
                   <div>
                     <strong>{t('product.composition_label')}</strong>{" "}
-                    {product.material || "Not specified"}
+                    {product.material || t('product.not_specified')}
                   </div>
                   <div>
                     <strong>{t('product.care_label')}</strong>{" "}
-                    {product.care_instructions || "See garment label"}
+                    {product.care_instructions || t('product.see_garment_label')}
                   </div>
                   {product.description && (
                     <p className="pt-1">{product.description}</p>
@@ -465,24 +464,24 @@ export const ProductDetailView: React.FC = () => {
                 className="w-full flex justify-between items-center font-bold text-slate-800 text-left"
                 aria-expanded={activeAccordion === "bopis"}
               >
-                <span>Boutique pickup (BOPIS)</span>
+                <span>{t('product.bopis_title')}</span>
                 <span>{activeAccordion === "bopis" ? "−" : "+"}</span>
               </button>
               {activeAccordion === "bopis" && (
                 <div className="pt-2 space-y-2">
                   {bopisStatus === "loading" && (
                     <p className="text-slate-500 font-light text-xs">
-                      Checking boutique availability...
+                      {t('product.bopis_checking')}
                     </p>
                   )}
                   {bopisStatus === "error" && (
                     <div className="p-3 rounded-xl bg-rose-50 border border-rose-200">
                       <p className="text-[11px] font-bold text-rose-800">
-                        Boutique availability check failed
+                        {t('product.bopis_failed')}
                       </p>
                       <p className="text-[11px] text-rose-600 mt-1">
                         {bopisError ||
-                          "Unable to reach inventory service. Please try again or use home delivery."}
+                          "{t('product.bopis_unreachable')}"}
                       </p>
                       <button
                         onClick={() =>
@@ -490,22 +489,20 @@ export const ProductDetailView: React.FC = () => {
                         }
                         className="mt-2 px-3 py-1.5 rounded-lg bg-white border border-rose-200 text-[11px] font-bold text-rose-700 hover:bg-rose-50"
                       >
-                        Retry
+                        {t('common.retry')}
                       </button>
                     </div>
                   )}
                   {bopisStatus === "empty" && (
                     <p className="text-slate-500 font-light text-xs">
-                      No nearby stores currently hold this size. Home delivery
-                      remains available at checkout.
+                      {t('product.bopis_no_store')}
                     </p>
                   )}
                   {bopisStatus === "success" &&
                     bopisStores.filter((s) => s.is_available_for_pickup)
                       .length === 0 && (
                       <p className="text-slate-500 font-light text-xs">
-                        No nearby stores currently hold this size with available
-                        stock. Home delivery remains available at checkout.
+                        {t('product.bopis_no_store_stock')}
                       </p>
                     )}
                   {bopisStatus === "success" &&
@@ -534,13 +531,13 @@ export const ProductDetailView: React.FC = () => {
                                       target="_blank"
                                       rel="noreferrer"
                                     >
-                                      Open map
+                                      {t('product.open_map')}
                                     </a>
                                   )}
                               </div>
                               <div className="text-right">
                                 <span className="text-[11px] font-bold text-emerald-600">
-                                  {store.quantity_available} in stock
+                                  {store.quantity_available} {t('product.in_stock')}
                                 </span>
                               </div>
                             </div>
@@ -561,19 +558,16 @@ export const ProductDetailView: React.FC = () => {
                 className="w-full flex justify-between items-center font-bold text-slate-800 text-left"
                 aria-expanded={activeAccordion === "delivery"}
               >
-                <span>Delivery & returns</span>
+                <span>{t('product.delivery_returns')}</span>
                 <span>{activeAccordion === "delivery" ? "−" : "+"}</span>
               </button>
               {activeAccordion === "delivery" && (
                 <div className="pt-2 text-slate-500 space-y-1.5 font-light leading-relaxed">
                   <div>
-                    Standard or express home delivery is quoted at checkout from
-                    live cart totals.
+                    {t('product.delivery_note')}
                   </div>
                   <div>
-                    Eligible orders can be returned within 30 days from the
-                    order date. Return authorisation is issued from order
-                    history.
+                    {t('product.returns_note')}
                   </div>
                 </div>
               )}
@@ -585,7 +579,7 @@ export const ProductDetailView: React.FC = () => {
       {product.related_outfits && product.related_outfits.length > 0 && (
         <section className="space-y-4">
           <h2 className="font-serif text-xl font-bold text-[#1B1F3B]">
-            Complete the look
+            {t('product.complete_the_look')}
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {product.related_outfits.map((outfit, idx) => (

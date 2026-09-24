@@ -369,11 +369,16 @@ def test_profile_persists_across_fresh_db_sessions():
     from sqlalchemy import create_engine
     from sqlalchemy.orm import sessionmaker
     from backend.app.models.profile import UserStyleProfile
-    from backend.tests.conftest import TEST_DB_URL
-    fresh_engine = create_engine(
-        TEST_DB_URL.replace("sqlite:///./", "sqlite:///"),
-        connect_args={"check_same_thread": False},
+    from backend.tests.conftest import TEST_DB_URL, new_test_engine
+    # Same database, brand-new engine, no shared identity map. The factory owns
+    # the dialect-specific connect arguments, so the freshness of the read is
+    # still proven on PostgreSQL instead of failing on a SQLite-only option.
+    base_url = (
+        TEST_DB_URL.replace("sqlite:///./", "sqlite:///")
+        if TEST_DB_URL.startswith("sqlite")
+        else TEST_DB_URL
     )
+    fresh_engine = new_test_engine(base_url)
     FreshSession = sessionmaker(autocommit=False, autoflush=False, bind=fresh_engine)
     fresh_session = FreshSession()
     try:

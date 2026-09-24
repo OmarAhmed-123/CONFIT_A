@@ -10,6 +10,7 @@ Proves:
 - money arithmetic uses exact Decimal
 """
 
+from backend.tests.conftest import new_test_engine
 import pytest
 from decimal import Decimal, ROUND_HALF_UP
 from datetime import datetime, timedelta, timezone
@@ -30,7 +31,7 @@ from backend.app.models.commerce import Order, OrderItem
 from backend.app.models.catalog_import import BrandAnalyticsEvent
 
 TEST_DB_URL = "sqlite:///./backend/data/confit_test.db"
-test_engine = create_engine(TEST_DB_URL, connect_args={"check_same_thread": False})
+test_engine = new_test_engine()
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
 
 

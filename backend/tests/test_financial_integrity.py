@@ -5,6 +5,7 @@ Financial integrity regression tests for release-gate
 - Visual search product-level attribution
 """
 
+from backend.tests.conftest import new_test_engine
 import pytest
 from decimal import Decimal
 from sqlalchemy import create_engine
@@ -18,7 +19,7 @@ from backend.app.models.catalog_import import BrandAnalyticsEvent
 from backend.app.models.user import User, BrandProfile
 
 TEST_DB_URL = "sqlite:///./backend/data/confit_test.db"
-test_engine = create_engine(TEST_DB_URL, connect_args={"check_same_thread": False})
+test_engine = new_test_engine()
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
 client = TestClient(app)
 
@@ -152,7 +153,7 @@ class TestVTONMultiGarmentSequential:
         from sqlalchemy.orm import sessionmaker
         from backend.app.models.catalog import Product
         TEST_DB_URL = "sqlite:///./backend/data/confit_test.db"
-        test_engine = create_engine(TEST_DB_URL, connect_args={"check_same_thread": False})
+        test_engine = new_test_engine()
         TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
         db = TestingSessionLocal()
         try:

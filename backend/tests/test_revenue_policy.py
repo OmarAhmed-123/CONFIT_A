@@ -99,7 +99,14 @@ def seeded(db):
         if returned:
             db.add(
                 ReturnRequest(
-                    return_number=f"{PREFIX}-rr-{order.order_number}",
+                    # ``return_requests.return_number`` is String(50) and the
+                    # product generates "RET-XXXXXXXX" (12 chars). A 63-char
+                    # fixture only ever "worked" on SQLite, which ignores
+                    # VARCHAR length; PostgreSQL enforces it (measured:
+                    # StringDataRightTruncation). Mirror the real generator,
+                    # keep uniqueness via uuid, and let the assertion below
+                    # test the intended policy instead of a fixture artefact.
+                    return_number=f"RET-{uuid.uuid4().hex[:8].upper()}",
                     order_id=order.id,
                     reason="does not fit",
                     refund_amount=Decimal(str(amount)),

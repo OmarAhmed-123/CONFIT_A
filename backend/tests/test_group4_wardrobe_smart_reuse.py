@@ -115,8 +115,8 @@ def navy_blazer_consumer(client: TestClient) -> dict:
             "created_at) values (:u, 'Structured Navy Travel Blazer', 'Outerwear', 'Navy Blue', "
             "'#1B1F3B', 'Solid', 'Massimo Dutti', "
             "'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?w=500', "
-            "'[]', '[]', '[]', 'All-Season', 'regular', 0, 0, 'ready', 280.0, CURRENT_TIMESTAMP)"
-        ), {"u": user_id})
+            "'[]', '[]', '[]', 'All-Season', 'regular', 0, :fav, 'ready', 280.0, CURRENT_TIMESTAMP)"
+        ), {"u": user_id, "fav": False})
         db.commit()
     finally:
         db.close()

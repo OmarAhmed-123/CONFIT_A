@@ -23,8 +23,45 @@ from backend.app.core.database import get_db, engine as app_engine
 from backend.app.seed_data import seed_database
 from backend.app.main import app
 
-TEST_DB_URL = "sqlite:///./backend/data/confit_test.db"
-test_engine = create_engine(TEST_DB_URL, connect_args={"check_same_thread": False})
+# The suite runs on SQLite by default (fast, no service to start). SQLite is NOT
+# PostgreSQL: SQLAlchemy documents different transaction/concurrency behaviour for
+# it, so a green SQLite run does not prove the Postgres behaviour this deployment
+# actually uses. ``CONFIT_TEST_DB_URL`` therefore lets the same suite run against a
+# real PostgreSQL instance — that is how the concurrency-sensitive paths
+# (idempotency arbitration, stock decrement, order creation) were measured on
+# Postgres instead of being asserted from SQLite. Example:
+#
+#   CONFIT_TEST_DB_URL=postgresql+psycopg2://confit@/confit_probe?host=/tmp \
+#       python -m pytest backend/tests -q
+#
+# Nothing about the default changes when the variable is unset.
+# Deliberately NOT an alias of ``CONFIT_TEST_PG_URL``, although the names look
+# interchangeable. Measured 2026-09-23: making this variable read that one turns
+# the CI step "Schema-drift gate + migration tests on PostgreSQL" red with 8
+# failures — "relation \"store_locations\" does not exist" — because the drift
+# tests drop and re-create tables in their target on purpose, while this engine
+# also answers the application's requests. The two variables therefore name
+# different things and must stay separate:
+#   CONFIT_TEST_DB_URL  - a database the whole suite may read AND write (seeded);
+#   CONFIT_TEST_PG_URL  - a scratch database the migration/drift tests may drop.
+# Unset -> unchanged SQLite default.
+TEST_DB_URL = os.environ.get("CONFIT_TEST_DB_URL", "sqlite:///./backend/data/confit_test.db")
+
+#: Dialect-specific connection arguments live HERE and nowhere else.
+#  Ten test modules used to repeat ``create_engine(TEST_DB_URL,
+#  connect_args={"check_same_thread": False})``. Pointing CONFIT_TEST_DB_URL at
+#  PostgreSQL then handed that SQLite-only option to psycopg2, which answers
+#  "invalid dsn: invalid connection option \"check_same_thread\"" — the suite
+#  reported database errors that were really one duplicated line. The factory
+#  below is the single owner of that decision.
+def new_test_engine(url: str = None):
+    target = url or TEST_DB_URL
+    if target.startswith("sqlite"):
+        return create_engine(target, connect_args={"check_same_thread": False})
+    return create_engine(target, pool_pre_ping=True)
+
+
+test_engine = new_test_engine()
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
 
 
@@ -60,7 +97,8 @@ def setup_test_db():
     for the dev engine so those tests still find their expected data on a
     fresh checkout / CI runner.
     """
-    os.makedirs("./backend/data", exist_ok=True)
+    if TEST_DB_URL.startswith("sqlite"):
+        os.makedirs("./backend/data", exist_ok=True)
     seed_database(target_engine=test_engine, force=True)  # tests intentionally reset their own throwaway DB
 
     # ── Stock the throwaway DB so the suite cannot run itself out of inventory ──
@@ -76,8 +114,17 @@ def setup_test_db():
     # Stocking the throwaway DB makes a run repeatable. It cannot mask inventory
     # behaviour: tests that assert on stock either set their own levels through the API
     # or compare before/after values inside a session.
+    # ``is_in_stock = 1`` is a SQLite-ism: there the column is an integer, while
+    # PostgreSQL (the deployment's actual engine) defines it as BOOLEAN and rejects
+    # the literal — measured: 50 errors, every one of them
+    # "column \"is_in_stock\" is of type boolean but expression is of type integer".
+    # The value is bound as a parameter with an explicit type so one statement runs
+    # on both engines and the first PostgreSQL run of this suite was not a false alarm.
     with test_engine.begin() as conn:
-        conn.execute(text("UPDATE product_skus SET stock_level = 500, is_in_stock = 1"))
+        conn.execute(
+            text("UPDATE product_skus SET stock_level = :stock, is_in_stock = :in_stock"),
+            {"stock": 500, "in_stock": True},
+        )
     # Also seed the app-level engine so tests that use SessionLocal directly
     # (i.e. not via the get_db override) have the same seed data available.
     # Both engines resolve to file-scoped SQLite DBs, so this is cheap.

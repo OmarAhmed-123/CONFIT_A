@@ -1,3 +1,4 @@
+from backend.tests.conftest import new_test_engine
 from backend.tests.test_brand_portal_regressions import portal, row, upload
 """
 Group 6 Final Hardening — Tests for JOIN multiplication fix, tenant isolation for impression/click,
@@ -18,7 +19,7 @@ from backend.app.models.commerce import Order, OrderItem
 from backend.app.core.security import get_password_hash
 
 TEST_DB_URL = "sqlite:///./backend/data/confit_test.db"
-test_engine = create_engine(TEST_DB_URL, connect_args={"check_same_thread": False})
+test_engine = new_test_engine()
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
 client = TestClient(app)
 

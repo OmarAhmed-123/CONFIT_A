@@ -1,3 +1,4 @@
+from backend.tests.conftest import new_test_engine
 import json
 import io
 import csv
@@ -18,7 +19,7 @@ from backend.app.core.security import get_password_hash as hash_password
 
 
 TEST_DB_URL = "sqlite:///./backend/data/confit_test.db"
-test_engine = create_engine(TEST_DB_URL, connect_args={"check_same_thread": False})
+test_engine = new_test_engine()
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
 
 client = TestClient(app)

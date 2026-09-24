@@ -99,6 +99,23 @@ jobs:
           backend/tests/test_brand_portal_analytics.py
           backend/tests/test_brand_portal_postgres.py
 
+      # MFA single-use invariants under REAL concurrency (6 parallel attempts per
+      # invariant: TOTP replay, recovery-code reuse, duplicate enrollment).
+      #
+      # WHY THIS STEP EXISTS: `test_mfa_concurrency_postgres.py` skips unless
+      # CONFIT_CONCURRENCY_PG_URL is set, and no workflow set it — so the file
+      # never executed anywhere. A skipped test is not coverage, and this is the
+      # one class SQLite cannot model at all (SQLite serialises writers, so a
+      # race passes there by construction). The suite drops and recreates the
+      # schema, so it gets its OWN database; pointing it at confit_ci would wipe
+      # the schema the steps above rely on.
+      - name: MFA single-use invariants under concurrency (isolated PostgreSQL)
+        env:
+          CONFIT_CONCURRENCY_PG_URL: postgresql://confit:${{ env.CI_PG_PASSWORD }}@localhost:5432/confit_conc
+        run: |
+          PGPASSWORD="$CI_PG_PASSWORD" createdb -h localhost -U confit confit_conc
+          PYTHONPATH=. python3 -m pytest -q backend/tests/test_mfa_concurrency_postgres.py
+
   # Guards against "works on the developer machine" regressions: the Vercel
   # function manifest, entrypoint, environment contract and forbidden
   # local-only references are checked as data, independent of the test DB.

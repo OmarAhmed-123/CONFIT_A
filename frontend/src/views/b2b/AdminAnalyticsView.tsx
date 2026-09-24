@@ -47,15 +47,15 @@ export const AdminAnalyticsView: React.FC = () => {
   const { adminAnalytics, fetchErrors, isLoading, refresh } = useBrandViewModel('admin');
 
   if (isLoading) {
-    return <LoadingSpinner text="Aggregating platform-wide telemetry & style heatmaps..." />;
+    return <LoadingSpinner text={t('admin_analytics.loading')} />;
   }
 
   if (!adminAnalytics) {
     return (
       <EmptyState
-        title="Platform telemetry unavailable"
-        description={fetchErrors.adminAnalytics || 'The admin analytics endpoint could not be reached. Retry when the service is back — no numbers are ever simulated here.'}
-        actionText="Retry"
+        title={t('admin_analytics.unavailable_title')}
+        description={fetchErrors.adminAnalytics || t('admin_analytics.unavailable_fallback')}
+        actionText={t('admin_analytics.retry')}
         onAction={refresh}
       />
     );
@@ -68,7 +68,21 @@ export const AdminAnalyticsView: React.FC = () => {
   // P1 honesty contract: null = unmeasured (zero denominator) -> N/A.
   // A real 0 renders as "0%" — measured zero and unmeasured are different facts.
   const pct = (value: number | null | undefined) =>
-    value === null || value === undefined ? 'N/A' : `${value}%`;
+    value === null || value === undefined ? t('admin_analytics.not_available') : `${value}%`;
+  const money = (value: number | null | undefined, currency?: string | null) => {
+    if (value === null || value === undefined || !currency) {
+      return t('admin_analytics.not_available');
+    }
+    try {
+      return new Intl.NumberFormat(undefined, {
+        style: 'currency', currency, minimumFractionDigits: 2,
+      }).format(value);
+    } catch {
+      return `${currency} ${value.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+    }
+  };
+  const gmvEntries = Object.entries(adminAnalytics.gmv_by_currency ?? {});
+  const attributionGroups = Object.entries(adminAnalytics.attribution_by_currency ?? {});
 
   return (
     <div className="space-y-8 pb-20">
@@ -79,53 +93,74 @@ export const AdminAnalyticsView: React.FC = () => {
       <CardStackShowcase
         tone="analytics"
         compact
-        eyebrow="Platform Governance Stack"
-        title="Audit-ready design system across admin operations"
-        description="The admin surface reuses the components as a governance overview for attribution, catalog quality, and operational control."
+        eyebrow={t('admin_analytics.eyebrow')}
+        title={t('admin_analytics.showcase_title')}
+        description={t('admin_analytics.showcase_desc')}
       />
       <div className="border-b border-slate-200 pb-4">
-        <h1 className="font-serif text-3xl font-bold text-[#1B1F3B]">
-          Platform Administration & Revenue Attribution - Real Data
+        <h1 className="font-serif text-2xl font-bold text-[#1B1F3B] sm:text-3xl">
+          {t('admin_analytics.title')}
         </h1>
-        <p className="text-xs sm:text-sm text-slate-500 mt-1">
-          Macro metrics from transactional DB: Order, OrderItem, Outfit, ReturnRequest, BrandAnalyticsEvent. No fake numbers.
+        <p className="mt-1 text-xs text-slate-500 sm:text-sm">
+          {t('admin_analytics.lede')}
         </p>
-        <p className="text-[11px] text-slate-400 mt-1">Methodology: GMV from SUM(Order.total_amount) where status not cancelled/refunded. Try-on adoption from Order.try_on_assisted. Outfit-to-purchase from Outfit.is_saved + OrderItem.outfit_id. Return rates cohort analysis try-on vs non-try-on. Revenue attribution last-touch: stylist_assisted flag, outfit_id, BrandAnalyticsEvent.attribution_source. Brand performance from real views/tryons/orders.</p>
+        <p className="mt-1 text-[11px] text-slate-500">
+          {t('admin_analytics.methodology')}
+        </p>
       </div>
 
       {/* Platform Macro KPIs - REAL */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         <div className="bg-white rounded-3xl border border-slate-200 p-5 shadow-sm space-y-1">
-          <span className="text-xs font-bold text-slate-400 uppercase">Platform GMV (Real)</span>
-          <div className="text-2xl font-serif font-black text-[#1B1F3B]">
-            ${adminAnalytics.total_gmv.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+          <span className="text-xs font-bold uppercase text-slate-500">{t('admin_analytics.gmv_title')}</span>
+          <div className="font-serif text-2xl font-black text-[#1B1F3B]">
+            {money(adminAnalytics.total_gmv, adminAnalytics.currency)}
           </div>
-          <div className="text-[11px] text-slate-500 font-medium">From Order.total_amount SUM, excl cancelled/refunded</div>
-          {!hasData && <div className="text-[10px] text-amber-600">No orders yet</div>}
+          {gmvEntries.length > 0 && adminAnalytics.currency_status === 'mixed_currencies' && (
+            <ul className="space-y-1 font-mono text-xs text-slate-700">
+              {gmvEntries.map(([code, amount]) => (
+                <li key={code}>{money(amount, code)}</li>
+              ))}
+            </ul>
+          )}
+          <div className="text-[11px] font-medium text-slate-600">{t('admin_analytics.gmv_source')}</div>
+          {adminAnalytics.currency_status === 'mixed_currencies' && (
+            <div role="status" className="text-[10px] font-semibold text-amber-700">
+              {t('admin_analytics.mixed_currency')}
+            </div>
+          )}
+          {!hasData && <div className="text-[10px] text-amber-700">{t('admin_analytics.no_orders')}</div>}
         </div>
 
         <div className="bg-white rounded-3xl border border-slate-200 p-5 shadow-sm space-y-1">
-          <span className="text-xs font-bold text-slate-400 uppercase">Total Orders (Real)</span>
-          <div className="text-2xl font-serif font-black text-[#1B1F3B]">
+          <span className="text-xs font-bold uppercase text-slate-500">{t('admin_analytics.orders_title')}</span>
+          <div className="font-serif text-2xl font-black text-[#1B1F3B]">
             {adminAnalytics.total_orders.toLocaleString()}
           </div>
-          <div className="text-[11px] text-slate-500 font-medium">Try-On Assisted: {pct(adminAnalytics.tryon_adoption_rate)} from Order.try_on_assisted</div>
+          <div className="text-[11px] font-medium text-slate-600">
+            {t('admin_analytics.tryon_assisted', { value: pct(adminAnalytics.tryon_adoption_rate) })}
+          </div>
         </div>
 
         <div className="bg-white rounded-3xl border border-slate-200 p-5 shadow-sm space-y-1">
-          <span className="text-xs font-bold text-slate-400 uppercase">Outfit-to-Purchase Ratio (Real)</span>
-          <div className="text-2xl font-serif font-black text-[#B8935A]">
+          <span className="text-xs font-bold uppercase text-slate-500">{t('admin_analytics.outfit_ratio_title')}</span>
+          <div className="font-serif text-2xl font-black text-[#8A6A2F]">
             {pct(adminAnalytics.stylist_conversion_ratio)}
           </div>
-          <div className="text-[11px] text-slate-500 font-medium">Saved Outfit to Purchase, from Outfit.is_saved + OrderItem.outfit_id</div>
+          <div className="text-[11px] font-medium text-slate-600">{t('admin_analytics.outfit_ratio_source')}</div>
         </div>
 
         <div className="bg-white rounded-3xl border border-slate-200 p-5 shadow-sm space-y-1">
-          <span className="text-xs font-bold text-slate-400 uppercase">Platform Return Rate (Real)</span>
-          <div className="text-2xl font-serif font-black text-emerald-600">
+          <span className="text-xs font-bold uppercase text-slate-500">{t('admin_analytics.return_rate_title')}</span>
+          <div className="font-serif text-2xl font-black text-emerald-700">
             {pct(adminAnalytics.platform_avg_return_rate)}
           </div>
-          <div className="text-[11px] text-slate-500">Try-On: {pct(adminAnalytics.return_rate_tryon_users)} vs Non-Try-On: {pct(adminAnalytics.return_rate_non_tryon_users)}</div>
+          <div className="text-[11px] text-slate-600">
+            {t('admin_analytics.tryon_vs', {
+              tryon: pct(adminAnalytics.return_rate_tryon_users),
+              nonTryon: pct(adminAnalytics.return_rate_non_tryon_users),
+            })}
+          </div>
         </div>
       </div>
 
@@ -133,28 +168,52 @@ export const AdminAnalyticsView: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         <div className="lg:col-span-6 bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-4">
           <div className="pb-3 border-b border-slate-100">
-            <h3 className="font-serif text-lg font-bold text-[#1B1F3B]">
-              Revenue Attribution by AI Feature - Real
-            </h3>
-            <p className="text-xs text-slate-500">Direct sales from Order flags, not fake percentages</p>
-            <p className="text-[10px] text-slate-400 mt-1">Last-touch: Virtual Stylist via Order.stylist_assisted, Outfit Builder via OrderItem.outfit_id, Visual Search via BrandAnalyticsEvent. Uses Order.total_amount authoritative, not frontend. Refunds excluded.</p>
-            {/* P1 financial-semantics separation: operational metrics, not a
-                billing ledger — echoed from the backend contract. */}
-            <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-2 py-1.5 text-[10px] font-semibold text-amber-800">
-              Operational metrics — NOT a verified billing ledger. Do not invoice or settle from these figures; reconcile against payment provider records first.
+            <h2 className="font-serif text-lg font-bold text-[#1B1F3B]">
+              {t('admin_analytics.attribution_title')}
+            </h2>
+            <p className="text-xs text-slate-600">{t('admin_analytics.attribution_subtitle')}</p>
+            <p className="mt-1 text-[10px] text-slate-500">{t('admin_analytics.attribution_methodology')}</p>
+            <p className="mt-2 rounded-lg border border-amber-300 bg-amber-50 px-2 py-1.5 text-[10px] font-semibold text-amber-900">
+              {t('admin_analytics.financial_warning')}
             </p>
           </div>
 
-          <div className="space-y-3 text-xs">
-            {Object.entries(adminAnalytics.revenue_attribution).map(([feat, rev]) => (
-              <div key={feat} className="flex justify-between items-center p-3 rounded-2xl bg-[#FAF9F6] border border-slate-100">
-                <span className="font-bold text-slate-800 capitalize">{feat.replace('_', ' ')}</span>
-                <span className="font-mono text-sm font-bold text-[#1B1F3B]">
-                  ${Number(rev).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                </span>
+          <div className="space-y-4 text-xs">
+            {attributionGroups.length > 0 ? (
+              attributionGroups.map(([currencyCode, channels]) => (
+                <section key={currencyCode} aria-label={t('admin_analytics.currency_group', { currency: currencyCode })}>
+                  <h3 className="mb-2 font-mono text-[11px] font-bold text-slate-600">{currencyCode}</h3>
+                  <div className="space-y-2">
+                    {Object.entries(channels).map(([feat, rev]) => (
+                      <div key={feat} className="flex items-center justify-between gap-3 rounded-2xl border border-slate-100 bg-[#FAF9F6] p-3">
+                        <span className="font-bold text-slate-800">
+                          {t(`admin_analytics.channel.${feat}`, { defaultValue: feat.replace(/_/g, ' ') })}
+                        </span>
+                        <span className="font-mono text-sm font-bold text-[#1B1F3B]">
+                          {money(rev, currencyCode)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              ))
+            ) : (
+              Object.entries(adminAnalytics.revenue_attribution).map(([feat, rev]) => (
+                <div key={feat} className="flex items-center justify-between gap-3 rounded-2xl border border-slate-100 bg-[#FAF9F6] p-3">
+                  <span className="font-bold text-slate-800">
+                    {t(`admin_analytics.channel.${feat}`, { defaultValue: feat.replace(/_/g, ' ') })}
+                  </span>
+                  <span className="font-mono text-sm font-bold text-[#1B1F3B]">
+                    {money(rev, adminAnalytics.currency)}
+                  </span>
+                </div>
+              ))
+            )}
+            {!hasData && (
+              <div className="rounded bg-amber-50 p-3 text-[11px] text-amber-800">
+                {t('admin_analytics.no_revenue')}
               </div>
-            ))}
-            {!hasData && <div className="text-[11px] text-amber-700 bg-amber-50 p-3 rounded">No revenue yet - will populate from Order.total_amount when orders occur with attribution flags.</div>}
+            )}
           </div>
         </div>
 
@@ -214,8 +273,8 @@ export const AdminAnalyticsView: React.FC = () => {
       {/* Most Styled Items - REAL */}
       {(adminAnalytics as any).most_styled_items && (
         <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-4">
-          <h3 className="font-serif text-lg font-bold text-[#1B1F3B]">Most Styled Items - Real Ranking</h3>
-          <p className="text-[11px] text-slate-500">Ranking by outfit appearances across all users, from OutfitItem grouped by product_id ORDER BY count DESC, real data not random.</p>
+          <h2 className="font-serif text-lg font-bold text-[#1B1F3B]">{t('admin_analytics.most_styled_title')}</h2>
+          <p className="text-[11px] text-slate-600">{t('admin_analytics.most_styled_methodology')}</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {(adminAnalytics as any).most_styled_items.slice(0, 6).map((item: any, idx: number) => (
               <div key={item.product_id} className="flex items-center gap-3 p-3 rounded-2xl bg-[#FAF9F6] border">
@@ -223,7 +282,9 @@ export const AdminAnalyticsView: React.FC = () => {
                 <div className="w-10 h-12 rounded bg-white overflow-hidden"><img src={item.thumbnail_url} alt={item.title} className="w-full h-full object-cover" /></div>
                 <div className="flex-1 min-w-0">
                   <div className="text-xs font-bold truncate">{item.title}</div>
-                  <div className="text-[10px] text-slate-500">{item.brand_name} · {item.appearances} appearances</div>
+                  <div className="text-[10px] text-slate-600">
+                    {item.brand_name} · {t('admin_analytics.appearances', { count: item.appearances })}
+                  </div>
                 </div>
               </div>
             ))}
@@ -233,20 +294,26 @@ export const AdminAnalyticsView: React.FC = () => {
 
       {/* Brand Performance Table - REAL */}
       <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-4">
-        <h3 className="font-serif text-lg font-bold text-[#1B1F3B]">Brand Performance Table - Real Side-by-Side</h3>
-        <p className="text-[11px] text-slate-500">Side-by-side comparison of brand conversion rates from real platform data: views from RecentlyViewed, tryons from TryOnSession, orders from OrderItem, conversion = orders/views*100, return rate from ReturnRequest. Sorted by orders DESC. No fake rows.</p>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
+        <h2 className="font-serif text-lg font-bold text-[#1B1F3B]">{t('admin_analytics.brand_perf_title')}</h2>
+        <p className="text-[11px] text-slate-600">{t('admin_analytics.brand_perf_methodology')}</p>
+        <div
+          role="region"
+          aria-label={t('admin_analytics.brand_table_caption')}
+          tabIndex={0}
+          className="overflow-x-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B8935A]"
+        >
+          <table className="min-w-[760px] w-full text-left text-xs">
+            <caption className="sr-only">{t('admin_analytics.brand_table_caption')}</caption>
             <thead>
-              <tr className="border-b border-slate-100 text-slate-400 uppercase text-[10px]">
-                <th className="py-2">Brand</th>
-                <th className="py-2">Products</th>
-                <th className="py-2">Views</th>
-                <th className="py-2">Try-Ons</th>
-                <th className="py-2">Orders</th>
-                <th className="py-2">Conv %</th>
-                <th className="py-2">Try-On Rate</th>
-                <th className="py-2">Return Rate</th>
+              <tr className="border-b border-slate-100 text-[10px] uppercase text-slate-500">
+                <th scope="col" className="py-2">{t('admin_analytics.brand')}</th>
+                <th scope="col" className="py-2">{t('admin_analytics.products')}</th>
+                <th scope="col" className="py-2">{t('admin_analytics.views')}</th>
+                <th scope="col" className="py-2">{t('admin_analytics.tryons')}</th>
+                <th scope="col" className="py-2">{t('admin_analytics.orders')}</th>
+                <th scope="col" className="py-2">{t('admin_analytics.conversion')}</th>
+                <th scope="col" className="py-2">{t('admin_analytics.tryon_rate')}</th>
+                <th scope="col" className="py-2">{t('admin_analytics.return_rate')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -264,26 +331,30 @@ export const AdminAnalyticsView: React.FC = () => {
               ))}
             </tbody>
           </table>
-          {!hasData && <div className="p-4 text-center text-xs text-amber-700 bg-amber-50 rounded-xl mt-3">No brand performance data yet - will populate from real orders, views, try-ons.</div>}
+          {!hasData && (
+            <div className="mt-3 rounded-xl bg-amber-50 p-4 text-center text-xs text-amber-800">
+              {t('admin_analytics.no_brand_data')}
+            </div>
+          )}
         </div>
       </div>
 
       {/* System Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
         <div className="p-4 rounded-2xl bg-white border border-slate-200">
-          <span className="text-slate-400 text-[10px] uppercase block">Total Users</span>
+          <span className="block text-[10px] uppercase text-slate-500">{t('admin_analytics.total_users')}</span>
           <span className="font-bold text-lg">{adminAnalytics.total_users_count}</span>
         </div>
         <div className="p-4 rounded-2xl bg-white border border-slate-200">
-          <span className="text-slate-400 text-[10px] uppercase block">Total Brands</span>
+          <span className="block text-[10px] uppercase text-slate-500">{t('admin_analytics.total_brands')}</span>
           <span className="font-bold text-lg">{adminAnalytics.total_brands_count}</span>
         </div>
         <div className="p-4 rounded-2xl bg-white border border-slate-200">
-          <span className="text-slate-400 text-[10px] uppercase block">Try-On Adoption</span>
+          <span className="block text-[10px] uppercase text-slate-500">{t('admin_analytics.tryon_adoption')}</span>
           <span className="font-bold text-lg text-[#B8935A]">{pct(adminAnalytics.tryon_adoption_rate)}</span>
         </div>
         <div className="p-4 rounded-2xl bg-white border border-slate-200">
-          <span className="text-slate-400 text-[10px] uppercase block">Outfit-to-Purchase</span>
+          <span className="block text-[10px] uppercase text-slate-500">{t('admin_analytics.outfit_to_purchase')}</span>
           <span className="font-bold text-lg text-emerald-600">{pct(adminAnalytics.stylist_conversion_ratio)}</span>
         </div>
       </div>

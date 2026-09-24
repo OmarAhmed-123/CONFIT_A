@@ -39,6 +39,7 @@ describe('ReadinessBanner (admin readiness honesty)', () => {
         ready: false,
         blocking_capabilities: ['virtual_try_on'],
         degraded_capabilities: ['payments', 'buy_now_pay_later'],
+        unprobed_capabilities: ['ai_stylist'],
       },
     });
     render(<ReadinessBanner />);
@@ -59,6 +60,7 @@ describe('ReadinessBanner (admin readiness honesty)', () => {
         ready: true,
         blocking_capabilities: [],
         degraded_capabilities: ['buy_now_pay_later'],
+        unprobed_capabilities: [],
       },
     });
     render(<ReadinessBanner />);
@@ -77,9 +79,24 @@ describe('ReadinessBanner (admin readiness honesty)', () => {
     expect(screen.queryByTestId('readiness-banner-blocked')).toBeNull();
   });
 
-  it('renders nothing while the first fetch is in flight (no premature verdict)', () => {
+  it('announces a neutral loading status while the first fetch is in flight', () => {
     readinessMock.mockReturnValue({ verdict: 'unknown', isLoading: true, readiness: null });
-    const { container } = render(<ReadinessBanner />);
-    expect(container.firstChild).toBeNull();
+    render(<ReadinessBanner />);
+    const loading = screen.getByTestId('readiness-banner-loading');
+    expect(loading.getAttribute('role')).toBe('status');
+    expect(screen.queryByTestId('readiness-banner-ready')).toBeNull();
+  });
+
+  it('names unprobed capabilities — unknown never disappears behind the summary', () => {
+    readinessMock.mockReturnValue({
+      verdict: 'ready', isLoading: false,
+      readiness: {
+        status: 'healthy', ready: true,
+        blocking_capabilities: [], degraded_capabilities: [],
+        unprobed_capabilities: ['optional_ai'],
+      },
+    });
+    render(<ReadinessBanner />);
+    expect(screen.getByTestId('readiness-unprobed-list').textContent).toContain('optional_ai');
   });
 });

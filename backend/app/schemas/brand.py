@@ -114,7 +114,13 @@ class BrandAnalyticsDashboardOut(BaseModel):
 class AdminPlatformAnalyticsOut(BaseModel):
     total_users_count: int
     total_brands_count: int
-    total_gmv: float
+    # Null when the selected population contains multiple currencies: adding
+    # USD + EGP would fabricate a monetary total. Use gmv_by_currency instead.
+    total_gmv: Optional[float] = None
+    currency: Optional[str] = None
+    currency_status: str = "no_data"
+    gmv_by_currency: Dict[str, float] = Field(default_factory=dict)
+    attribution_by_currency: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
     total_orders: int
     # P1 (2026-09-22 audit): rates are Optional — None means "denominator was
     # zero, nothing was measured" and renders as N/A. A forced 0.0 would claim

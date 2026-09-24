@@ -129,6 +129,7 @@ export const AdminAuditView: React.FC = () => {
   const facets = data?.facets;
 
   const columns: Array<[string, string]> = [
+    [t('admin_audit.col_details'), 'details'],
     [t('admin_audit.col_when'), 'when'],
     [t('admin_audit.col_action'), 'action'],
     [t('admin_audit.col_actor'), 'actor'],
@@ -139,8 +140,8 @@ export const AdminAuditView: React.FC = () => {
   ];
 
   return (
-    <div className="space-y-6 pb-20 text-slate-100">
-      <header className="border-b border-slate-800 pb-4">
+    <div className="space-y-6 pb-20 text-slate-900">
+      <header className="border-b border-slate-200 pb-4">
         <span className="text-[10px] font-bold uppercase tracking-widest text-[#C5A059]">
           {t('admin_audit.eyebrow')}
         </span>
@@ -160,13 +161,13 @@ export const AdminAuditView: React.FC = () => {
           aria-label={t('admin_audit.integrity_aria')}
         >
           <div className="flex flex-wrap items-center gap-3">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-300">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-700">
               {t('admin_audit.integrity_label', { days: integrity.window_days })}
             </span>
-            <span className="rounded-full bg-slate-800 px-2 py-0.5 font-mono text-[10px]">
+            <span className="rounded-full bg-slate-800 px-2 py-0.5 font-mono text-[10px] text-white">
               {t('admin_audit.integrity_verdict', { verdict: integrity.verdict })}
             </span>
-            <span className="font-mono text-[10px] text-slate-400">
+            <span className="font-mono text-[10px] text-slate-700">
               {t('admin_audit.integrity_counts', {
                 rows: integrity.checked_rows,
                 actors: integrity.distinct_actors ?? 0,
@@ -178,7 +179,7 @@ export const AdminAuditView: React.FC = () => {
           </div>
           <p
             className={`mt-2 text-[11px] ${
-              integrity.tamper_evident ? 'text-emerald-300/90' : 'text-amber-300/90'
+              integrity.tamper_evident ? 'text-emerald-800' : 'text-amber-900'
             }`}
           >
             {t('admin_audit.integrity_tamper', {
@@ -187,7 +188,7 @@ export const AdminAuditView: React.FC = () => {
             })}
           </p>
           {integrity.chain && (
-            <p className="mt-1 font-mono text-[10px] text-slate-400">
+            <p className="mt-1 font-mono text-[10px] text-slate-700">
               {t('admin_audit.integrity_chain', {
                 chained: integrity.chain.chained_rows,
                 unchained: integrity.chain.unchained_rows,
@@ -195,7 +196,7 @@ export const AdminAuditView: React.FC = () => {
                 keyVersion: integrity.chain.key_version,
               })}
               {integrity.coverage && (
-                <span className="block text-slate-500">
+                <span className="block text-slate-600">
                   {t('admin_audit.integrity_coverage', {
                     mode: integrity.coverage.mode,
                     sampled: integrity.coverage.sampled_rows,
@@ -212,7 +213,7 @@ export const AdminAuditView: React.FC = () => {
                 </span>
               )}
               {integrity.chain.head_hash && (
-                <span className="text-slate-500">
+                <span className="text-slate-600">
                   {' '}
                   · head {integrity.chain.head_hash.slice(0, 16)}…
                 </span>
@@ -244,7 +245,7 @@ export const AdminAuditView: React.FC = () => {
             value={draft.action}
             onChange={(e) => setDraft({ ...draft, action: e.target.value })}
             placeholder="ADMIN_ORDER_TRANSITION"
-            className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-xs normal-case tracking-normal text-slate-100"
+            className="min-h-11 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-xs normal-case tracking-normal text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E2BF70]"
           />
           <datalist id="audit-actions">
             {(facets?.actions ?? []).map((facet) => (
@@ -260,7 +261,7 @@ export const AdminAuditView: React.FC = () => {
             value={draft.resource_type}
             onChange={(e) => setDraft({ ...draft, resource_type: e.target.value })}
             placeholder="Order"
-            className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-xs normal-case tracking-normal text-slate-100"
+            className="min-h-11 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-xs normal-case tracking-normal text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E2BF70]"
           />
           <datalist id="audit-resources">
             {(facets?.resource_types ?? []).map((facet) => (
@@ -275,7 +276,7 @@ export const AdminAuditView: React.FC = () => {
             value={draft.resource_id}
             onChange={(e) => setDraft({ ...draft, resource_id: e.target.value })}
             placeholder="CONF-…"
-            className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-xs normal-case tracking-normal text-slate-100"
+            className="min-h-11 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-xs normal-case tracking-normal text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E2BF70]"
           />
         </label>
 
@@ -285,7 +286,7 @@ export const AdminAuditView: React.FC = () => {
             value={draft.search}
             onChange={(e) => setDraft({ ...draft, search: e.target.value })}
             placeholder={t('admin_audit.placeholder_search')}
-            className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-xs normal-case tracking-normal text-slate-100"
+            className="min-h-11 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-xs normal-case tracking-normal text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E2BF70]"
           />
         </label>
 
@@ -295,7 +296,7 @@ export const AdminAuditView: React.FC = () => {
             type="date"
             value={draft.date_from}
             onChange={(e) => setDraft({ ...draft, date_from: e.target.value })}
-            className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-xs normal-case tracking-normal text-slate-100"
+            className="min-h-11 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-xs normal-case tracking-normal text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E2BF70]"
           />
         </label>
 
@@ -305,13 +306,14 @@ export const AdminAuditView: React.FC = () => {
             type="date"
             value={draft.date_to}
             onChange={(e) => setDraft({ ...draft, date_to: e.target.value })}
-            className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-xs normal-case tracking-normal text-slate-100"
+            className="min-h-11 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-xs normal-case tracking-normal text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E2BF70]"
           />
         </label>
 
-        <label className="flex items-end gap-2 pb-2 text-[11px] text-slate-300">
+        <label className="flex min-h-11 cursor-pointer items-center gap-2 text-[11px] text-slate-300">
           <input
             type="checkbox"
+            className="h-6 w-6 rounded border-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E2BF70]"
             checked={draft.only_admin_actions}
             onChange={(e) => setDraft({ ...draft, only_admin_actions: e.target.checked })}
           />
@@ -321,14 +323,14 @@ export const AdminAuditView: React.FC = () => {
         <div className="flex items-end gap-2">
           <button
             type="submit"
-            className="flex-1 rounded-xl bg-[#C5A059] px-4 py-2 text-[11px] font-bold uppercase tracking-wider text-[#0C0E1E]"
+            className="min-h-11 flex-1 rounded-xl bg-[#C5A059] px-4 py-2 text-[11px] font-bold uppercase tracking-wider text-[#0C0E1E] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E2BF70] focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
           >
             {t('admin_audit.filters_apply')}
           </button>
           <button
             type="button"
             onClick={reset}
-            className="rounded-xl border border-slate-700 px-4 py-2 text-[11px] uppercase tracking-wider text-slate-300"
+            className="min-h-11 rounded-xl border border-slate-700 px-4 py-2 text-[11px] uppercase tracking-wider text-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E2BF70] focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
           >
             {t('admin_audit.filters_reset')}
           </button>
@@ -341,14 +343,23 @@ export const AdminAuditView: React.FC = () => {
           className="rounded-xl border border-rose-500/40 bg-rose-500/10 p-3 text-xs text-rose-200"
         >
           {error}{' '}
-          <button onClick={load} className="underline">
+          <button
+            type="button"
+            onClick={load}
+            className="inline-flex min-h-11 items-center rounded px-2 underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-200"
+          >
             {t('admin_audit.retry')}
           </button>
         </div>
       )}
 
-      <div className="overflow-x-auto rounded-2xl border border-slate-800">
-        <table className="w-full text-left text-xs">
+      <div
+        role="region"
+        aria-label={t('admin_audit.audit_table_caption')}
+        tabIndex={0}
+        className="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-950 text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059] focus-visible:ring-offset-2"
+      >
+        <table className="min-w-[980px] w-full text-left text-xs">
           <caption className="sr-only">{t('admin_audit.audit_table_caption')}</caption>
           <thead className="bg-slate-900/80 text-[10px] uppercase tracking-wider text-slate-400">
             <tr>
@@ -362,11 +373,24 @@ export const AdminAuditView: React.FC = () => {
           <tbody className="divide-y divide-slate-800">
             {items.map((row) => (
               <React.Fragment key={row.id}>
-                <tr
-                  className="cursor-pointer hover:bg-slate-900/60"
-                  onClick={() => setExpanded(expanded === row.id ? null : row.id)}
-                  aria-expanded={expanded === row.id}
-                >
+                <tr className="hover:bg-slate-900/60">
+                  <td className="px-3 py-2">
+                    <button
+                      type="button"
+                      aria-expanded={expanded === row.id}
+                      aria-controls={`audit-row-details-${row.id}`}
+                      aria-label={t(
+                        expanded === row.id
+                          ? 'admin_audit.hide_details'
+                          : 'admin_audit.show_details',
+                        { id: row.id },
+                      )}
+                      onClick={() => setExpanded(expanded === row.id ? null : row.id)}
+                      className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-slate-700 px-3 text-base text-[#E2BF70] hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E2BF70] focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+                    >
+                      <span aria-hidden="true">{expanded === row.id ? '−' : '+'}</span>
+                    </button>
+                  </td>
                   <td className="whitespace-nowrap px-3 py-2 font-mono text-[10px] text-slate-400">
                     {row.timestamp
                       ? new Date(row.timestamp).toISOString().replace('T', ' ').slice(0, 19)
@@ -379,10 +403,10 @@ export const AdminAuditView: React.FC = () => {
                       {row.actor_role ?? t('admin_audit.role_unknown')}
                     </div>
                   </td>
-                  <td className="px-3 py-2">
+                  <td className="max-w-56 break-all px-3 py-2">
                     {row.resource_type}
                     {row.resource_id ? (
-                      <span className="text-slate-500"> #{row.resource_id}</span>
+                      <span className="text-slate-400"> #{row.resource_id}</span>
                     ) : null}
                   </td>
                   <td className="px-3 py-2 font-mono text-[10px] text-slate-300">
@@ -396,8 +420,8 @@ export const AdminAuditView: React.FC = () => {
                   </td>
                 </tr>
                 {expanded === row.id && (
-                  <tr>
-                    <td colSpan={columns.length} className="space-y-2 bg-slate-950/40 px-3 py-3">
+                  <tr id={`audit-row-details-${row.id}`}>
+                    <td colSpan={columns.length} className="space-y-2 bg-slate-900 px-3 py-3">
                       <div className="grid gap-3 sm:grid-cols-2">
                         <div>
                           <div className="mb-1 text-[10px] uppercase tracking-wider text-slate-500">
@@ -443,7 +467,7 @@ export const AdminAuditView: React.FC = () => {
       </div>
 
       {meta && (
-        <div className="flex items-center justify-between text-xs text-slate-400">
+        <div className="flex flex-col gap-3 text-xs text-slate-600 sm:flex-row sm:items-center sm:justify-between">
           <span>
             {t('admin_audit.pagination', {
               total: meta.total.toLocaleString(),
@@ -455,14 +479,14 @@ export const AdminAuditView: React.FC = () => {
             <button
               disabled={!meta.has_previous}
               onClick={() => setPage((current) => Math.max(1, current - 1))}
-              className="rounded-xl border border-slate-700 px-3 py-1.5 disabled:opacity-40"
+              className="min-h-11 rounded-xl border border-slate-700 px-3 py-2 text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B8935A] disabled:opacity-40"
             >
               ← {t('admin_audit.previous')}
             </button>
             <button
               disabled={!meta.has_next}
               onClick={() => setPage((current) => current + 1)}
-              className="rounded-xl border border-slate-700 px-3 py-1.5 disabled:opacity-40"
+              className="min-h-11 rounded-xl border border-slate-700 px-3 py-2 text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B8935A] disabled:opacity-40"
             >
               {t('admin_audit.next')} →
             </button>

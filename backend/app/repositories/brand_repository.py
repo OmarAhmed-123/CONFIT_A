@@ -916,11 +916,30 @@ class BrandRepository:
         ).scalar() or 0
         total_orders = self.db.query(func.count(Order.id)).filter(*in_order_window).scalar() or 0
 
-        # G-13: GMV and the attribution ledger below must filter the same
-        # population, or the four channel figures cannot sum to this headline.
-        total_gmv = self.db.query(func.sum(Order.total_amount)).filter(
-            revenue_eligible(Order.status), *in_order_window
-        ).scalar() or 0.0
+        # G-13 + 2026-09-24 re-audit: GMV and attribution use the SAME
+        # time population, and money is NEVER added across currencies. A flat
+        # headline exists only for a single-currency population; mixed
+        # currencies publish null + an explicit per-currency breakdown.
+        gmv_rows = (
+            self.db.query(Order.currency, func.sum(Order.total_amount))
+            .filter(revenue_eligible(Order.status), *in_order_window)
+            .group_by(Order.currency)
+            .all()
+        )
+        gmv_by_currency = {
+            str(currency or "UNKNOWN").upper(): quantize_money(to_decimal(amount or 0))
+            for currency, amount in gmv_rows
+        }
+        currencies = sorted(gmv_by_currency)
+        currency_status = (
+            "no_data" if not currencies
+            else "single_currency" if len(currencies) == 1
+            else "mixed_currencies"
+        )
+        currency = currencies[0] if len(currencies) == 1 else None
+        total_gmv = gmv_by_currency[currency] if currency else (
+            Decimal("0.00") if not currencies else None
+        )
 
         # Try-on adoption. This count doubles as the denominator of a return
         # rate below, so it keeps refunded orders: excluding them would lower
@@ -956,28 +975,50 @@ class BrandRepository:
 
         stylist_conversion = _rate(outfits_with_purchase, total_saved_outfits)
 
-        # Return rates: try-on users vs non-try-on users.
-        total_returns = self.db.query(func.count(ReturnRequest.id)).filter(
-            *tr.bound(ReturnRequest.created_at)
-        ).scalar() or 0
+        # Return cohorts use ONE unit and ONE cohort flag end-to-end:
+        # distinct eligible orders with a non-rejected return request, grouped
+        # by Order.try_on_assisted. Previously the denominator used Order while
+        # the numerator counted every ReturnRequest and classified it by a
+        # different flag; duplicate requests and excluded orders could produce
+        # rates over 100% or put one order in two different cohorts.
+        returned_cohorts = (
+            self.db.query(
+                Order.try_on_assisted,
+                func.count(func.distinct(ReturnRequest.order_id)),
+            )
+            .join(Order, Order.id == ReturnRequest.order_id)
+            .filter(
+                return_denominator_eligible(Order.status),
+                ReturnRequest.status != "rejected",
+                *in_order_window,
+            )
+            .group_by(Order.try_on_assisted)
+            .all()
+        )
+        returned_by_tryon = {
+            bool(assisted): int(count) for assisted, count in returned_cohorts
+        }
+        returns_tryon = returned_by_tryon.get(True, 0)
+        returns_non_tryon = returned_by_tryon.get(False, 0)
+        total_returns = returns_tryon + returns_non_tryon
         platform_avg_return = _rate(total_returns, total_orders)
-
-        returns_tryon = self.db.query(func.count(ReturnRequest.id)).filter(
-            ReturnRequest.try_on_used_for_item == True, *tr.bound(ReturnRequest.created_at)
-        ).scalar() or 0
-
-        returns_non_tryon = total_returns - returns_tryon
         tryon_return_rate = _rate(returns_tryon, tryon_orders)
         non_tryon_orders = total_orders - tryon_orders
         non_tryon_return_rate = _rate(returns_non_tryon, non_tryon_orders)
 
-        # Revenue attribution: canonical item-grain ledger (order_item_id lineage).
-        _ledger = self.compute_item_grain_attribution()
-        stylist_rev_exclusive = _ledger["channels"]["virtual_stylist"]
-        outfit_rev_exclusive = _ledger["channels"]["outfit_builder"]
-        visual_rev_exclusive = _ledger["channels"]["visual_search"]
-        organic_revenue = _ledger["channels"]["organic"]
-        total_revenue = to_decimal(total_gmv)
+        # Revenue attribution: canonical item-grain ledger (order_item_id
+        # lineage), bounded to the EXACT same period as GMV.
+        _ledger = self.compute_item_grain_attribution(
+            date_from=tr.date_from, date_to=tr.date_to
+        )
+        single_currency_channels = (
+            _ledger["by_currency"].get(currency, {}).get("channels", {})
+            if currency else {}
+        )
+        stylist_rev_exclusive = single_currency_channels.get("virtual_stylist")
+        outfit_rev_exclusive = single_currency_channels.get("outfit_builder")
+        visual_rev_exclusive = single_currency_channels.get("visual_search")
+        organic_revenue = single_currency_channels.get("organic")
 
         # --- G-14: most-styled ranking in ONE query -------------------------
         # Previously: one grouped query for the ids, then one `Product` SELECT
@@ -1099,7 +1140,12 @@ class BrandRepository:
         return {
             "total_users_count": int(total_users),
             "total_brands_count": int(total_brands),
-            "total_gmv": to_float(total_gmv),
+            "total_gmv": to_float(total_gmv) if total_gmv is not None else None,
+            "currency": currency,
+            "currency_status": currency_status,
+            "gmv_by_currency": {
+                code: to_float(amount) for code, amount in gmv_by_currency.items()
+            },
             "total_orders": int(total_orders),
             # None (wire: null) when the denominator was zero — the UI shows
             # N/A. A fabricated 0.0 would claim "measured: nobody" (P1).
@@ -1109,10 +1155,19 @@ class BrandRepository:
             "return_rate_tryon_users": tryon_return_rate,
             "return_rate_non_tryon_users": non_tryon_return_rate,
             "revenue_attribution": {
-                "ai_virtual_stylist": to_float(stylist_rev_exclusive),
-                "outfit_builder": to_float(outfit_rev_exclusive),
-                "visual_search": to_float(visual_rev_exclusive),
-                "organic_discovery": to_float(organic_revenue)
+                "ai_virtual_stylist": to_float(stylist_rev_exclusive) if stylist_rev_exclusive is not None else None,
+                "outfit_builder": to_float(outfit_rev_exclusive) if outfit_rev_exclusive is not None else None,
+                "visual_search": to_float(visual_rev_exclusive) if visual_rev_exclusive is not None else None,
+                "organic_discovery": to_float(organic_revenue) if organic_revenue is not None else None,
+            },
+            "attribution_by_currency": {
+                code: {
+                    "ai_virtual_stylist": to_float(values["channels"]["virtual_stylist"]),
+                    "outfit_builder": to_float(values["channels"]["outfit_builder"]),
+                    "visual_search": to_float(values["channels"]["visual_search"]),
+                    "organic_discovery": to_float(values["channels"]["organic"]),
+                }
+                for code, values in _ledger["by_currency"].items()
             },
             "top_performing_brands": brand_performance[:10],
             "most_styled_items": most_styled_items,
@@ -1124,8 +1179,9 @@ class BrandRepository:
             "methodology": {
                 "time_window": tr.describe(),
                 "boundary_semantics": "inclusive on both ends, matching /admin/audit",
-                "revenue": f"order-level, accrual basis; excludes {sorted(NON_REVENUE_ORDER_STATUSES)}",
-                "return_rates": "denominator keeps refunded orders — a completed return is evidence, not noise",
+                "revenue": f"order-level, accrual basis; excludes {sorted(NON_REVENUE_ORDER_STATUSES)}; never sums different currencies — mixed populations publish per-currency values and a null flat headline",
+                "currency": "Order.currency; UNKNOWN is explicit; no FX conversion is performed",
+                "return_rates": "observational order-created cohort: distinct eligible orders with >=1 non-rejected return request; numerator and denominator both grouped by Order.try_on_assisted; multiple requests per order count once; recent cohorts are right-censored",
                 "attribution": "item-grain ledger keyed on BrandAnalyticsEvent.order_item_id",
                 "brand_comparison": "single grouped aggregate per metric; no per-brand query loop",
             },
@@ -1208,13 +1264,27 @@ class BrandRepository:
             return_denominator_eligible(Order.status)
         ).scalar() or 0
 
-        total_returns = self.db.query(func.count(ReturnRequest.id)).scalar() or 0
-        tryon_returns = self.db.query(func.count(ReturnRequest.id)).filter(
-            ReturnRequest.try_on_used_for_item == True
-        ).scalar() or 0
+        returned_cohorts = (
+            self.db.query(
+                Order.try_on_assisted,
+                func.count(func.distinct(ReturnRequest.order_id)),
+            )
+            .join(Order, Order.id == ReturnRequest.order_id)
+            .filter(
+                return_denominator_eligible(Order.status),
+                ReturnRequest.status != "rejected",
+            )
+            .group_by(Order.try_on_assisted)
+            .all()
+        )
+        returned_by_tryon = {
+            bool(assisted): int(count) for assisted, count in returned_cohorts
+        }
+        tryon_returns = returned_by_tryon.get(True, 0)
+        non_tryon_returns = returned_by_tryon.get(False, 0)
+        total_returns = tryon_returns + non_tryon_returns
 
         non_tryon_orders = total_orders - tryon_orders
-        non_tryon_returns = total_returns - tryon_returns
 
         # P1: zero denominators publish None (N/A), never a fabricated 0.0.
         tryon_return_rate = round(tryon_returns / tryon_orders * 100, 2) if tryon_orders > 0 else None
@@ -1259,7 +1329,8 @@ class BrandRepository:
             },
             "min_sample_policy": MIN_SAMPLE_POLICY,
             "semantic_type": "observational_cohort_comparison",
-            "methodology": "Cohort analysis: try-on assisted orders vs non-try-on orders, return rate comparison. Try-on adoption attributed via Order.try_on_assisted and ReturnRequest.try_on_used_for_item from real VTON events. null = cohort denominator was zero (unmeasured, not zero). OBSERVATIONAL comparison of self-selected cohorts — a rate DIFFERENCE, not a causal claim that try-on REDUCES returns (no randomisation, no seasonality adjustment)."
+            "methodology": "OBSERVATIONAL order-cohort comparison: distinct eligible orders with at least one non-rejected ReturnRequest, divided by eligible orders; BOTH numerator and denominator are grouped by Order.try_on_assisted. Multiple requests for one order count once. null = cohort denominator was zero (unmeasured, not zero). This is a rate DIFFERENCE between self-selected cohorts, not a causal claim that try-on reduces returns (no randomisation, matching or seasonality adjustment). Recent order cohorts are right-censored: later returns can change their observed rate."
+
         }
 
     # Order states whose items are NOT eligible revenue (order-level).
@@ -1273,7 +1344,12 @@ class BrandRepository:
     INELIGIBLE_ORDER_STATUSES = tuple(sorted(NON_REVENUE_ORDER_STATUSES))
     ATTRIBUTION_CHANNELS = ("visual_search", "outfit_builder", "virtual_stylist", "organic")
 
-    def compute_item_grain_attribution(self, brand_id: Optional[int] = None) -> Dict[str, Any]:
+    def compute_item_grain_attribution(
+        self,
+        brand_id: Optional[int] = None,
+        date_from: Optional[datetime] = None,
+        date_to: Optional[datetime] = None,
+    ) -> Dict[str, Any]:
         """Canonical item-grain revenue attribution ledger.
 
         Source of truth: brand_analytics_events joined to order_items THROUGH
@@ -1295,11 +1371,20 @@ class BrandRepository:
         """
         eligible_items = (
             self.db.query(OrderItem)
+            .options(joinedload(OrderItem.order))
             .join(Order, OrderItem.order_id == Order.id)
             .filter(revenue_eligible(Order.status))
         )
         if brand_id is not None:
             eligible_items = eligible_items.filter(OrderItem.brand_id == brand_id)
+        # The admin dashboard is windowed. Attribution MUST use the exact same
+        # Order.created_at bounds as GMV; combining windowed GMV with an
+        # all-time attribution ledger was a period mismatch, not a harmless
+        # label issue.
+        if date_from is not None:
+            eligible_items = eligible_items.filter(Order.created_at >= to_naive_utc(date_from))
+        if date_to is not None:
+            eligible_items = eligible_items.filter(Order.created_at <= to_naive_utc(date_to))
         items = eligible_items.all()
         item_ids = [it.id for it in items]
 
@@ -1325,12 +1410,26 @@ class BrandRepository:
         # computed independently so a corrupt / missing / duplicated ledger row
         # shows up as conserved=False instead of being papered over.
         channel_totals: Dict[str, Decimal] = {c: Decimal("0.00") for c in self.ATTRIBUTION_CHANNELS}
+        # Financial amounts are never added across currencies on the wire.
+        # The legacy aggregate below remains only for single-currency callers;
+        # ``by_currency`` is the authoritative representation.
+        currency_ledgers: Dict[str, Dict[str, Any]] = {}
         gross = Decimal("0.00")
         returned = Decimal("0.00")
         uninstrumented_items = 0
         for it in items:
+            currency = str(getattr(it.order, "currency", None) or "UNKNOWN").upper()
+            per_currency = currency_ledgers.setdefault(
+                currency,
+                {
+                    "gross": Decimal("0.00"),
+                    "returned": Decimal("0.00"),
+                    "channels": {c: Decimal("0.00") for c in self.ATTRIBUTION_CHANNELS},
+                },
+            )
             sub = to_decimal(it.subtotal)
             gross += sub
+            per_currency["gross"] += sub
             purchase = purchase_by_item.get(it.id)
             if purchase is None:
                 uninstrumented_items += 1
@@ -1338,12 +1437,33 @@ class BrandRepository:
             else:
                 channel, amount = purchase
             channel_totals[channel] += amount
+            per_currency["channels"][channel] += amount
             if it.id in return_by_item:
                 returned += sub
-                channel_totals[channel] -= return_by_item[it.id]  # item-level refund netting
+                per_currency["returned"] += sub
+                refund = return_by_item[it.id]
+                channel_totals[channel] -= refund  # item-level refund netting
+                per_currency["channels"][channel] -= refund
 
         net = quantize_money(gross - returned)
         attributed_sum = quantize_money(sum(channel_totals.values(), Decimal("0.00")))
+        by_currency: Dict[str, Dict[str, Any]] = {}
+        for currency, amounts in sorted(currency_ledgers.items()):
+            currency_net = quantize_money(amounts["gross"] - amounts["returned"])
+            currency_channels = {
+                c: quantize_money(v) for c, v in amounts["channels"].items()
+            }
+            currency_attributed = quantize_money(
+                sum(currency_channels.values(), Decimal("0.00"))
+            )
+            by_currency[currency] = {
+                "gross_item_revenue": quantize_money(amounts["gross"]),
+                "returned_item_revenue": quantize_money(amounts["returned"]),
+                "net_item_revenue": currency_net,
+                "channels": currency_channels,
+                "attributed_sum": currency_attributed,
+                "conserved": currency_attributed == currency_net,
+            }
         return {
             "eligible_items": len(items),
             "gross_item_revenue": quantize_money(gross),
@@ -1352,29 +1472,71 @@ class BrandRepository:
             "channels": {c: quantize_money(v) for c, v in channel_totals.items()},
             "attributed_sum": attributed_sum,
             "conserved": attributed_sum == net,
+            "currencies": sorted(by_currency),
+            "by_currency": by_currency,
             "uninstrumented_items": uninstrumented_items,
         }
 
     def get_revenue_attribution(self) -> Dict[str, Any]:
         """Revenue attributable to Virtual Stylist, Outfit Builder, Visual Search (JSON view)."""
-        total_gmv = self.db.query(func.sum(Order.total_amount)).filter(
-            revenue_eligible(Order.status)
-        ).scalar() or Decimal("0.00")
+        gmv_rows = (
+            self.db.query(Order.currency, func.sum(Order.total_amount))
+            .filter(revenue_eligible(Order.status))
+            .group_by(Order.currency)
+            .all()
+        )
+        gmv_by_currency = {
+            str(currency or "UNKNOWN").upper(): quantize_money(to_decimal(amount or 0))
+            for currency, amount in gmv_rows
+        }
+        currencies = sorted(gmv_by_currency)
+        currency_status = (
+            "no_data" if not currencies
+            else "single_currency" if len(currencies) == 1
+            else "mixed_currencies"
+        )
+        currency = currencies[0] if len(currencies) == 1 else None
 
         ledger = self.compute_item_grain_attribution()
-        ch = ledger["channels"]
+        one = ledger["by_currency"].get(currency) if currency else None
+        ch = one["channels"] if one else None
         return {
-            "total_gmv": to_float(total_gmv),
-            "attribution_base_item_subtotal": to_float(ledger["net_item_revenue"]),
-            "gross_item_subtotal": to_float(ledger["gross_item_revenue"]),
-            "returned_item_subtotal": to_float(ledger["returned_item_revenue"]),
-            "revenue_attribution": {
-                "ai_virtual_stylist": to_float(ch["virtual_stylist"]),
-                "outfit_builder": to_float(ch["outfit_builder"]),
-                "visual_search": to_float(ch["visual_search"]),
-                "organic_discovery": to_float(ch["organic"]),
+            "total_gmv": (
+                to_float(gmv_by_currency[currency]) if currency
+                else 0.0 if not currencies else None
+            ),
+            "currency": currency,
+            "currency_status": currency_status,
+            "gmv_by_currency": {
+                code: to_float(amount) for code, amount in gmv_by_currency.items()
             },
-            "conservation_holds": bool(ledger["conserved"]),
+            "attribution_base_item_subtotal": to_float(one["net_item_revenue"]) if one else None,
+            "gross_item_subtotal": to_float(one["gross_item_revenue"]) if one else None,
+            "returned_item_subtotal": to_float(one["returned_item_revenue"]) if one else None,
+            "revenue_attribution": {
+                "ai_virtual_stylist": to_float(ch["virtual_stylist"]) if ch else None,
+                "outfit_builder": to_float(ch["outfit_builder"]) if ch else None,
+                "visual_search": to_float(ch["visual_search"]) if ch else None,
+                "organic_discovery": to_float(ch["organic"]) if ch else None,
+            },
+            "attribution_by_currency": {
+                code: {
+                    "attribution_base_item_subtotal": to_float(values["net_item_revenue"]),
+                    "gross_item_subtotal": to_float(values["gross_item_revenue"]),
+                    "returned_item_subtotal": to_float(values["returned_item_revenue"]),
+                    "revenue_attribution": {
+                        "ai_virtual_stylist": to_float(values["channels"]["virtual_stylist"]),
+                        "outfit_builder": to_float(values["channels"]["outfit_builder"]),
+                        "visual_search": to_float(values["channels"]["visual_search"]),
+                        "organic_discovery": to_float(values["channels"]["organic"]),
+                    },
+                    "conservation_holds": bool(values["conserved"]),
+                }
+                for code, values in ledger["by_currency"].items()
+            },
+            "conservation_holds": all(
+                bool(values["conserved"]) for values in ledger["by_currency"].values()
+            ),
             "uninstrumented_items": int(ledger["uninstrumented_items"]),
             "attribution_methodology": (
                 "ITEM-LEVEL ledger: each eligible OrderItem (order not cancelled/refunded/failed/rejected) "
@@ -1384,7 +1546,8 @@ class BrandRepository:
                 "ledger event are netted to zero at item grain (partial refunds subtract only the returned item). "
                 "Items without a purchase event (pre-instrumentation) are reported as organic and counted in "
                 "uninstrumented_items. Invariant: visual+outfit+stylist+organic == net eligible item subtotal. "
-                "Order.total_amount (tax+shipping) is reported separately as total_gmv and is NEVER the attribution base."
+                "Order.total_amount (tax+shipping) is reported separately as total_gmv and is NEVER the attribution base. "
+                "Amounts are partitioned by Order.currency; different currencies are NEVER summed and no FX conversion is performed."
             ),
             "attribution_window": "30 days from visual_search view event to purchase (same product, same user or browser session)",
             "dedup_policy": "One purchase event per OrderItem enforced by unique index uq_brand_analytics_item_event",

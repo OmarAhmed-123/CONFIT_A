@@ -80,13 +80,17 @@ CONTRACT = {
     ),
     "ready": (
         "capability scope — can the platform do everything it advertises? "
-        "False when any core capability is blocked; see blocking_capabilities."
+        "False when any core capability is blocked OR not probed; UNKNOWN is "
+        "not READY. See blocking_capabilities and unprobed_capabilities."
     ),
     "states": {
         STATE_READY: "probed and working",
         STATE_DEGRADED: "working, but not at production quality or on a fallback path",
         STATE_BLOCKED: "not working; a core capability in this state sets ready=false",
-        STATE_NOT_PROBED: "no probe exists — an honest gap, never a silent ok",
+        STATE_NOT_PROBED: (
+            "no current measurement exists — an honest gap, never a silent ok; "
+            "blocks readiness when the capability is core"
+        ),
     },
     "criticality": {
         CRITICALITY_CORE: "blocking: the platform cannot deliver its product without it",
@@ -121,15 +125,17 @@ class Capability:
 def summarise_capabilities(capabilities: Iterable[Capability]) -> Dict[str, object]:
     """Reduce probed capabilities to the readiness verdict.
 
-    ``ready`` is false only for a **core** capability that is **blocked**.
-    Degraded and unprobed capabilities are reported by name so they are
-    visible, but they do not by themselves declare the platform unready — a
-    supporting feature running on a fallback is not an outage.
+    ``ready`` is false for a **core** capability that is either ``blocked``
+    OR ``not_probed``. UNKNOWN is not READY: if the platform cannot measure a
+    core promise, it cannot truthfully claim that promise is ready. A
+    supporting ``not_probed`` capability remains non-blocking but is always
+    named in ``unprobed_capabilities``.
     """
     items: List[Capability] = list(capabilities)
     blocking = sorted(
         c.name for c in items
-        if c.criticality == CRITICALITY_CORE and c.state == STATE_BLOCKED
+        if c.criticality == CRITICALITY_CORE
+        and c.state in (STATE_BLOCKED, STATE_NOT_PROBED)
     )
     degraded = sorted(
         c.name for c in items

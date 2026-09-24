@@ -13,8 +13,9 @@
  *     hardcoded colour chips inside a dashboard titled "Real Data".
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, cleanup, screen } from '@testing-library/react';
+import { render, cleanup, screen, act } from '@testing-library/react';
 import React from 'react';
+import { setAppLanguage } from '../../i18n/i18n';
 
 const { vmMock } = vi.hoisted(() => ({ vmMock: vi.fn() }));
 
@@ -50,9 +51,10 @@ const BASE = {
 const FABRICATED = ['Quiet Luxury / Old Money', 'Modern Minimalist', '#1B1F3B (Navy)'];
 
 describe('AdminAnalyticsView style heatmap', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     cleanup();
     vmMock.mockReset();
+    await act(async () => { await setAppLanguage('en'); });
   });
 
   it('explains a suppressed aggregate instead of inventing one', () => {
@@ -145,4 +147,60 @@ describe('AdminAnalyticsView style heatmap', () => {
     expect(screen.getByText(/Trending colours/i)).toBeTruthy();
     expect(screen.getAllByText(/no cell met the k-anonymity floor in this window/i).length).toBe(2);
   });
+
+  it('renders mixed currencies separately and never fabricates one combined total', () => {
+    vmMock.mockReturnValue({
+      adminAnalytics: {
+        ...BASE,
+        total_gmv: null,
+        total_orders: 2,
+        currency: null,
+        currency_status: 'mixed_currencies',
+        gmv_by_currency: { USD: 100, EGP: 5000 },
+        revenue_attribution: {
+          ai_virtual_stylist: null, outfit_builder: null,
+          visual_search: null, organic_discovery: null,
+        },
+        attribution_by_currency: {
+          USD: { ai_virtual_stylist: 100, outfit_builder: 0, visual_search: 0, organic_discovery: 0 },
+          EGP: { ai_virtual_stylist: 0, outfit_builder: 0, visual_search: 0, organic_discovery: 5000 },
+        },
+        style_preference_heatmap: {
+          region: 'Platform-wide', sample_size: 0, min_sample_required: 10,
+          data_available: false, top_aesthetics: [], trending_colors: [], top_occasions: [], limitations: [],
+        },
+      },
+      fetchErrors: {}, loadFailed: false, isLoading: false, refresh: vi.fn(),
+    });
+
+    const { container } = render(<AdminAnalyticsView />);
+    expect(container.textContent).toContain('USD');
+    expect(container.textContent).toContain('EGP');
+    expect(screen.getByText(/Multiple currencies in scope/i)).toBeTruthy();
+    expect(container.textContent).not.toContain('$5,100');
+  });
+
+  it('renders governance copy in Arabic when the application is RTL', async () => {
+    await act(async () => { await setAppLanguage('ar'); });
+    vmMock.mockReturnValue({
+      adminAnalytics: {
+        ...BASE,
+        total_gmv: 0,
+        currency: null,
+        currency_status: 'no_data',
+        gmv_by_currency: {}, attribution_by_currency: {},
+        style_preference_heatmap: {
+          region: 'على مستوى المنصة', sample_size: 0, min_sample_required: 10,
+          data_available: false, top_aesthetics: [], trending_colors: [], top_occasions: [], limitations: [],
+        },
+      },
+      fetchErrors: {}, loadFailed: false, isLoading: false, refresh: vi.fn(),
+    });
+    render(<AdminAnalyticsView />);
+    expect(screen.getByRole('heading', { name: 'إدارة المنصة والإسناد المسجّل' })).toBeTruthy();
+    expect(screen.getByText('إجمالي الطلبات')).toBeTruthy();
+  });
+
+
+
 });

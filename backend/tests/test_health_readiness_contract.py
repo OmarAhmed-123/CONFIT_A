@@ -120,9 +120,14 @@ def test_the_full_diagnostics_are_admin_only(client: TestClient, admin, consumer
 
 def test_public_health_still_publishes_the_contract(client: TestClient):
     """The meaning of each field travels with the payload, not in a wiki."""
-    contract = client.get(HEALTH).json()["contract"]
+    payload = client.get(HEALTH).json()
+    contract = payload["contract"]
     assert "status" in contract and "ready" in contract
     assert set(contract["states"]) == {"ready", "degraded", "blocked", "not_probed"}
+    # Names only — no sensitive provider detail — but UNKNOWN must not vanish
+    # from the same public payload the admin banner reads.
+    assert "unprobed_capabilities" in payload
+    assert isinstance(payload["unprobed_capabilities"], list)
 
 
 # --- G-09: a blocked core capability cannot hide behind a green status ------
@@ -486,10 +491,18 @@ def test_a_core_blocker_blocks_and_a_supporting_one_does_not():
     assert out["blocking_capabilities"] == ["c"]
 
 
-def test_an_unprobed_capability_is_reported_never_assumed_ok():
+def test_an_unprobed_core_capability_blocks_readiness_unknown_is_not_ready():
     out = summarise_capabilities([Capability("x", "not_probed", CRITICALITY_CORE)])
-    assert out["ready"] is True, "unprobed is a gap, not a blocker"
-    assert out["unprobed_capabilities"] == ["x"], "but it must not be invisible either"
+    assert out["ready"] is False, "UNKNOWN core capability must never become READY"
+    assert out["blocking_capabilities"] == ["x"]
+    assert out["unprobed_capabilities"] == ["x"], "it must also be explicit on the wire"
+
+
+def test_an_unprobed_supporting_capability_is_visible_but_non_blocking():
+    out = summarise_capabilities([Capability("x", "not_probed", CRITICALITY_SUPPORTING)])
+    assert out["ready"] is True, "an optional/supporting unknown is not a core outage"
+    assert out["blocking_capabilities"] == []
+    assert out["unprobed_capabilities"] == ["x"]
 
 
 @pytest.mark.parametrize(

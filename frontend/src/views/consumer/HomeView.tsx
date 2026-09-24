@@ -25,6 +25,7 @@ import {
 import { HonestProductImage } from "../../components/common/HonestProductImage";
 import { useCartStore } from "../../stores/cartStore";
 import { resolvePurchasableSku } from "../../lib/catalogSku";
+import { formatAmount, formatMoney, formatNumber } from "../../i18n/format";
 import {
   CircularGallery,
   type GalleryItem,
@@ -115,7 +116,10 @@ const editorialGalleryData: GalleryItem[] = [
 ];
 
 export const HomeView: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  // The active UI language drives number/currency formatting; the guide
+  // option values sent to the stylist stay English tokens.
+  const lang = i18n.resolvedLanguage ?? "en";
   const navigate = useNavigate();
   const { openStylist, openTryOn, openRuler, openVisualSearch, showToast } =
     useUIStore();
@@ -137,22 +141,32 @@ export const HomeView: React.FC = () => {
   const [guidePalette, setGuidePalette] = React.useState("Navy / neutral");
   const [guideFit, setGuideFit] = React.useState("No preference");
 
+  // `value` is the literal sent to the stylist request (`occasion=`); only the
+  // label is localized. See startGuidedLook below.
   const guideOccasions = [
-    "Work",
-    "Wedding",
-    "Evening",
-    "Travel",
-    "Everyday",
-    "Exploring",
+    { value: "Work", labelKey: "home.guide_occasion_work" },
+    { value: "Wedding", labelKey: "home.guide_occasion_wedding" },
+    { value: "Evening", labelKey: "home.guide_occasion_evening" },
+    { value: "Travel", labelKey: "home.guide_occasion_travel" },
+    { value: "Everyday", labelKey: "home.guide_occasion_everyday" },
+    { value: "Exploring", labelKey: "home.guide_occasion_exploring" },
   ];
   const guideBudgets = ["300", "450", "650", "900"];
+  // `value` is the key looked up by paletteMap below (-> structured catalog-colour
+  // constraint), so it must not be translated.
   const guidePalettes = [
-    "Navy / neutral",
-    "Warm ivory",
-    "Black / metallic",
-    "No preference",
+    { value: "Navy / neutral", labelKey: "home.guide_palette_navy_neutral" },
+    { value: "Warm ivory", labelKey: "home.guide_palette_warm_ivory" },
+    { value: "Black / metallic", labelKey: "home.guide_palette_black_metallic" },
+    { value: "No preference", labelKey: "home.no_preference" },
   ];
-  const guideFits = ["No preference", "Tailored", "Relaxed", "Modest coverage"];
+  // `value` is the key looked up by fitMap below, so it must not be translated.
+  const guideFits = [
+    { value: "No preference", labelKey: "home.no_preference" },
+    { value: "Tailored", labelKey: "home.guide_fit_tailored" },
+    { value: "Relaxed", labelKey: "home.guide_fit_relaxed" },
+    { value: "Modest coverage", labelKey: "home.guide_fit_modest" },
+  ];
 
   const startGuidedLook = () => {
     const budget = Number(guideBudget);
@@ -282,7 +296,7 @@ export const HomeView: React.FC = () => {
           <div className="max-w-2xl space-y-6">
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#C5A059]/15 border border-[#C5A059]/30 text-[#E2BF70] text-[11px] font-semibold uppercase tracking-widest backdrop-blur-md">
               <SparkleIcon size={13} color="#E2BF70" />
-              <span>CONFIT Fashion Tech · Where Style Meets Character</span>
+              <span>{t('home.hero_badge')}</span>
             </div>
 
             <h1 className="font-serif text-3xl sm:text-5xl lg:text-6xl font-bold leading-[1.1] text-white tracking-tight">
@@ -362,7 +376,7 @@ export const HomeView: React.FC = () => {
               <div className="relative h-72 overflow-hidden rounded-3xl bg-slate-900">
                 <img
                   src="https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=900&auto=format&fit=crop&q=80"
-                  alt="Example tailored work look"
+                  alt={t('home.example_look_alt')}
                   className="h-full w-full object-cover opacity-90"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
@@ -371,10 +385,10 @@ export const HomeView: React.FC = () => {
                     {t('home.example_result')}
                   </span>
                   <h2 className="mt-3 font-serif text-2xl font-bold">
-                    Tailored Power · Work
+                    {t('home.example_look_title')}
                   </h2>
                   <p className="mt-1 text-xs text-slate-200">
-                    Navy blazer, crisp shirt, relaxed trouser, polished loafers.
+                    {t('home.example_look_body')}
                   </p>
                 </div>
               </div>
@@ -404,17 +418,13 @@ export const HomeView: React.FC = () => {
         <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
           <div>
             <span className="text-[10px] font-bold uppercase tracking-widest text-[#7A5C28]">
-              Guided first look
+              {t('home.guided_eyebrow')}
             </span>
             <h2 className="mt-2 font-serif text-3xl font-bold text-[#1B1F3B]">
-              Tell CONFIT the moment before browsing everything
+              {t('home.guided_title')}
             </h2>
             <p className="mt-3 text-sm font-light leading-relaxed text-slate-500">
-              This starts a real AI stylist request using the current catalog
-              endpoint. Occasion, budget, and palette are structured inputs. Fit
-              preference is structured too, but it only becomes size-aware when
-              a saved/requested size is available. It does not fabricate
-              products, sizes, or inventory.
+              {t('home.guided_body')}
             </p>
           </div>
 
@@ -426,13 +436,13 @@ export const HomeView: React.FC = () => {
               <div className="mt-2 flex flex-wrap gap-2">
                 {guideOccasions.map((occasion) => (
                   <button
-                    key={occasion}
+                  key={occasion.value}
                     type="button"
-                    aria-pressed={guideOccasion === occasion}
-                    onClick={() => setGuideOccasion(occasion)}
-                    className={`rounded-full px-3 py-2 text-xs font-semibold transition ${guideOccasion === occasion ? "bg-[#1B1F3B] text-white" : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"}`}
+                  aria-pressed={guideOccasion === occasion.value}
+                  onClick={() => setGuideOccasion(occasion.value)}
+                    className={`rounded-full px-3 py-2 text-xs font-semibold transition ${guideOccasion === occasion.value ? "bg-[#1B1F3B] text-white" : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"}`}
                   >
-                    {occasion}
+                    {t(occasion.labelKey)}
                   </button>
                 ))}
               </div>
@@ -450,14 +460,14 @@ export const HomeView: React.FC = () => {
                 >
                   {guideBudgets.map((budget) => (
                     <option key={budget} value={budget}>
-                      Under ${budget}
+                      {t('home.budget_under', { amount: formatAmount(Number(budget), lang, 0) })}
                     </option>
                   ))}
                 </select>
               </label>
               <label className="space-y-2 text-xs font-semibold text-slate-600">
                 <span className="block text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                  Palette preference
+                  {t('home.palette_preference')}
                 </span>
                 <select
                   value={guidePalette}
@@ -465,15 +475,15 @@ export const HomeView: React.FC = () => {
                   className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm text-[#1B1F3B] focus:border-[#C5A059] focus:outline-none"
                 >
                   {guidePalettes.map((palette) => (
-                    <option key={palette} value={palette}>
-                      {palette}
+                    <option key={palette.value} value={palette.value}>
+                      {t(palette.labelKey)}
                     </option>
                   ))}
                 </select>
               </label>
               <label className="space-y-2 text-xs font-semibold text-slate-600">
                 <span className="block text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                  Fit preference
+                  {t('home.fit_preference')}
                 </span>
                 <select
                   value={guideFit}
@@ -481,8 +491,8 @@ export const HomeView: React.FC = () => {
                   className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm text-[#1B1F3B] focus:border-[#C5A059] focus:outline-none"
                 >
                   {guideFits.map((fit) => (
-                    <option key={fit} value={fit}>
-                      {fit}
+                    <option key={fit.value} value={fit.value}>
+                      {t(fit.labelKey)}
                     </option>
                   ))}
                 </select>
@@ -495,11 +505,10 @@ export const HomeView: React.FC = () => {
                 onClick={startGuidedLook}
                 className="rounded-2xl bg-[#1B1F3B] px-5 py-3 text-xs font-bold text-white transition hover:bg-[#C5A059] hover:text-[#0C0E1E]"
               >
-                Ask stylist for this look →
+                {t('home.ask_stylist_cta')}
               </button>
               <p className="text-xs text-slate-500">
-                Guest-friendly: account creation is not required before the
-                first stylist response.
+                {t('home.guest_friendly')}
               </p>
             </div>
           </div>
@@ -510,14 +519,13 @@ export const HomeView: React.FC = () => {
       <section className="relative -mx-4 overflow-hidden rounded-[36px] border border-[#C5A059]/25 bg-gradient-to-b from-[#FAF9F6] via-white to-[#F0F2F8] py-10 shadow-2xs sm:-mx-6 lg:-mx-8">
         <div className="relative z-10 mx-auto mb-6 max-w-2xl px-6 text-center">
           <span className="text-[10px] font-bold uppercase tracking-widest text-[#7A5C28]">
-            Scroll-Activated Lookbook
+            {t('home.lookbook_eyebrow')}
           </span>
           <h2 className="mt-2 font-serif text-3xl font-bold text-[#1B1F3B] sm:text-4xl">
-            Rotate through CONFIT editorial styling stories
+            {t('home.lookbook_title')}
           </h2>
           <p className="mt-3 text-sm font-light leading-relaxed text-slate-500">
-            Explore realistic mood directions, fit contexts, and outfit stories
-            before moving into products you can try on, save, or shop.
+            {t('home.lookbook_body')}
           </p>
         </div>
         <div className="relative h-[520px] overflow-hidden sm:h-[620px]">
@@ -535,9 +543,9 @@ export const HomeView: React.FC = () => {
 
       <CardStackShowcase
         tone="consumer"
-        eyebrow="Swipeable Style Stack"
-        title="Explore curated fashion stories in a tactile animated stack"
-        description="Drag, tap, or use keyboard arrows to browse real editorial outfit moods before moving into brand collections and product cards."
+        eyebrow={t("home.stack_eyebrow")}
+        title={t("home.stack_title")}
+        description={t("home.stack_description")}
       />
 
       {/* 2. Luxury Brand Pavilion */}
@@ -545,17 +553,17 @@ export const HomeView: React.FC = () => {
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2 border-b border-slate-200/80 pb-4">
           <div>
             <span className="text-[10px] font-bold text-[#7A5C28] uppercase tracking-widest block">
-              Curated European & Scandinavian Houses
+              {t('home.brands_eyebrow')}
             </span>
             <h2 className="font-serif text-2xl font-bold text-[#1B1F3B]">
-              Multi-Brand Boutique Partners
+              {t('home.brands_title')}
             </h2>
           </div>
           <Link
             to="/discover"
             className="text-xs font-semibold text-[#1B1F3B] hover:text-[#C5A059] transition-colors flex items-center gap-1"
           >
-            <span>Explore All 4 Brand Catalogs</span>
+            <span>{t('home.brands_cta')}</span>
             <span>→</span>
           </Link>
         </div>
@@ -591,7 +599,7 @@ export const HomeView: React.FC = () => {
               </div>
 
               <div className="pt-4 border-t border-slate-100 mt-4 flex items-center justify-between text-xs font-semibold text-[#1B1F3B] group-hover:text-[#C5A059]">
-                <span>Browse Collection</span>
+                <span>{t('home.browse_collection')}</span>
                 <span>→</span>
               </div>
             </div>
@@ -617,7 +625,7 @@ export const HomeView: React.FC = () => {
             onClick={() => openStylist()}
             className="text-xs font-bold text-[#7A5C28] hover:underline flex items-center gap-1"
           >
-            <span>Ask Stylist for Alternatives</span>
+            <span>{t('home.ask_stylist_alt')}</span>
             <span>→</span>
           </button>
         </div>
@@ -649,20 +657,20 @@ export const HomeView: React.FC = () => {
         {!isLoading && catalogError && (
           <div className="bg-white rounded-3xl border border-rose-200 p-6 text-center space-y-3">
             <p className="text-xs text-rose-600 font-semibold">
-              Today's picks could not be loaded from the catalogue.
+              {t('home.picks_error')}
             </p>
             <button
               onClick={refreshCatalog}
               className="px-4 py-2 rounded-xl bg-[#1B1F3B] text-white text-xs font-bold"
             >
-              Try again
+              {t('my_looks.try_again')}
             </button>
           </div>
         )}
         {!isLoading && !catalogError && products.length === 0 && (
           <div className="bg-white rounded-3xl border border-slate-200/80 p-8 text-center">
             <p className="text-xs text-slate-500">
-              The catalogue is empty right now — nothing to show yet.
+              {t('home.picks_empty')}
             </p>
           </div>
         )}
@@ -676,7 +684,7 @@ export const HomeView: React.FC = () => {
                 <button
                   onClick={() => navigate(`/product/${prod.slug}`)}
                   className="relative h-56 overflow-hidden bg-slate-100 cursor-pointer text-left"
-                  aria-label={`View ${prod.title}`}
+                  aria-label={t('a11y.view_product', { name: prod.title })}
                 >
                   <HonestProductImage
                     src={prod.thumbnail_url}
@@ -698,7 +706,7 @@ export const HomeView: React.FC = () => {
                       {prod.title}
                     </h3>
                     <span className="text-sm font-bold text-[#1B1F3B] block mt-1">
-                      {prod.currency} {prod.base_price.toFixed(2)}
+                      {formatMoney(Math.round(prod.base_price * 100), prod.currency, lang)}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
@@ -727,7 +735,7 @@ export const HomeView: React.FC = () => {
                       onClick={() => navigate(`/product/${prod.slug}`)}
                       className="flex-1 px-3 py-2 rounded-xl bg-[#1B1F3B] hover:bg-[#0C0E1E] text-white text-xs font-semibold transition-all"
                     >
-                      View Piece
+                      {t('home.view_piece')}
                     </button>
                   </div>
                 </div>
@@ -745,8 +753,7 @@ export const HomeView: React.FC = () => {
               {t("home.occasions")}
             </h2>
             <p className="text-xs sm:text-sm text-slate-500 mt-0.5 font-light">
-              Tap any occasion to activate instant grounded stylist
-              recommendations
+              {t('home.occasions_hint')}
             </p>
           </div>
         </div>
@@ -766,7 +773,7 @@ export const HomeView: React.FC = () => {
               <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/35 to-transparent p-6 flex flex-col justify-end">
                 <span className="text-[10px] font-bold text-[#C5A059] uppercase tracking-wider mb-1 flex items-center gap-1">
                   <SparkleIcon size={12} color="#C5A059" />
-                  <span>Instant AI Stylist</span>
+                  <span>{t('home.instant_ai_stylist')}</span>
                 </span>
                 <h2 className="font-serif text-xl font-bold text-white mb-1">
                   {occ.title}
@@ -784,7 +791,7 @@ export const HomeView: React.FC = () => {
                   ))}
                 </div>
                 <div className="flex items-center gap-1 text-xs font-semibold text-[#C5A059] group-hover:translate-x-1 transition-transform">
-                  <span>Style this occasion →</span>
+                  <span>{t('home.style_occasion_cta')}</span>
                 </div>
               </div>
             </button>
@@ -803,15 +810,15 @@ export const HomeView: React.FC = () => {
               </h2>
             </div>
             <p className="text-xs sm:text-sm text-slate-500 mt-0.5 font-light">
-              High-confidence garments available across regional boutique stores
+              {t('home.trending_hint')}
             </p>
           </div>
           <button
             onClick={() => navigate("/discover")}
             className="text-xs font-bold text-[#1B1F3B] hover:text-[#C5A059] transition-colors"
           >
-            View All Catalog
-            {!isLoading && products.length > 0 ? ` (${products.length})` : ""} →
+            {t('home.view_all_catalog')}
+            {!isLoading && products.length > 0 ? ` (${formatNumber(products.length, lang)})` : ""} →
           </button>
         </div>
 
@@ -826,9 +833,9 @@ export const HomeView: React.FC = () => {
           // N-1: honest failure state — no fabricated trending products when
           // the catalog API is down (the client-side fallback was removed).
           <EmptyState
-            title="Trending picks couldn't be loaded"
+            title={t('home.trending_error_title')}
             description={catalogError}
-            actionText="Retry"
+            actionText={t('common.retry')}
             onAction={refreshCatalog}
           />
         ) : (
@@ -844,7 +851,7 @@ export const HomeView: React.FC = () => {
                       type="button"
                       onClick={() => navigate(`/product/${p.slug}`)}
                       className="h-full w-full text-left"
-                      aria-label={`View ${p.title}`}
+                      aria-label={t('a11y.view_product', { name: p.title })}
                     >
                       <HonestProductImage
                         src={p.thumbnail_url}
@@ -855,8 +862,8 @@ export const HomeView: React.FC = () => {
                     <div className="absolute top-2 left-2 flex flex-col gap-1">
                       <FitScoreBadge
                         score={p.style_compatibility_score}
-                        label="Match"
-                        verdict="Color Harmony"
+                        label={t('product.fit_match')}
+                        verdict={t('product.fit_color_harmony')}
                       />
                     </div>
 
@@ -864,7 +871,7 @@ export const HomeView: React.FC = () => {
                       <button
                         onClick={() => openRuler(p)}
                         className="p-2 rounded-full bg-white/90 hover:bg-white text-slate-800 shadow-sm backdrop-blur-xs transition-all"
-                        title="No-Photo Measurement Fit"
+                        title={t('a11y.no_photo_fit')}
                       >
                         <RulerIcon size={14} color="#1B1F3B" />
                       </button>
@@ -901,7 +908,7 @@ export const HomeView: React.FC = () => {
                   </h4>
                   <div className="flex items-center justify-between mt-1">
                     <span className="text-xs sm:text-sm font-bold text-[#1B1F3B]">
-                      ${p.base_price}
+                      {formatMoney(Math.round(p.base_price * 100), p.currency || "USD", lang)}
                     </span>
                     <span className="text-[11px] text-slate-500 font-light truncate max-w-[80px]">
                       {p.color_family}
@@ -926,7 +933,7 @@ export const HomeView: React.FC = () => {
                     className="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-[#1B1F3B] hover:text-white text-xs font-semibold text-slate-800 transition-all flex items-center justify-center gap-1.5"
                   >
                     <BagIcon size={14} color="currentColor" />
-                    <span>Add to Bag</span>
+                    <span>{t('commerce.add_to_cart')}</span>
                   </button>
                 </div>
               </div>
@@ -943,13 +950,10 @@ export const HomeView: React.FC = () => {
               <SparkleIcon size={20} color="#C5A059" />
             </div>
             <h2 className="font-serif text-sm font-bold text-[#1B1F3B]">
-              Private In-Browser Fit Studio
+              {t('home.fit_studio_title')}
             </h2>
             <p className="text-xs text-slate-500 font-light leading-relaxed">
-              No-photo measurements can stay in browser memory. Photo try-on is
-              sent to the backend/provider only when you choose visual
-              rendering, and persistent photo uploads require configured object
-              storage.
+              {t('home.fit_studio_body')}
             </p>
           </div>
 
@@ -958,12 +962,14 @@ export const HomeView: React.FC = () => {
               <BopisIcon size={20} color="#C5A059" />
             </div>
             <h2 className="font-serif text-sm font-bold text-[#1B1F3B]">
-              Boutique Pickup (BOPIS)
+              {t('home.bopis_feature_title')}
             </h2>
             <p className="text-xs text-slate-500 font-light leading-relaxed">
               {capabilities.bopis_live
-                ? `Reserve online and collect at our ${capabilities.bopis_store_count === 1 ? "boutique" : `${capabilities.bopis_store_count} boutiques`} — pickup options are shown per piece at checkout.`
-                : "Boutique pickup is coming soon — home delivery is available at checkout."}
+                ? capabilities.bopis_store_count === 1
+                  ? t('home.bopis_live_single')
+                  : t('home.bopis_live_count', { stores: capabilities.bopis_store_count })
+                : t('home.bopis_soon')}
             </p>
           </div>
 
@@ -972,12 +978,10 @@ export const HomeView: React.FC = () => {
               <ShieldIcon size={20} color="#C5A059" />
             </div>
             <h2 className="font-serif text-sm font-bold text-[#1B1F3B]">
-              30-Day Zero-Fee Returns
+              {t('home.returns_title')}
             </h2>
             <p className="text-xs text-slate-500 font-light leading-relaxed">
-              Preview styling where supported and review size guidance before
-              checkout. Eligible orders can be returned within the configured
-              30-day return window.
+              {t('home.returns_body')}
             </p>
           </div>
 
@@ -986,15 +990,13 @@ export const HomeView: React.FC = () => {
               <BagIcon size={20} color="#C5A059" />
             </div>
             <h2 className="font-serif text-sm font-bold text-[#1B1F3B]">
-              0% Interest BNPL Payments
+              {t('home.bnpl_title')}
             </h2>
             <p className="text-xs text-slate-500 font-light leading-relaxed">
-              When BNPL is live, eligible orders can show supported installment
-              options at checkout.
+              {t('home.bnpl_body')}
               {!capabilities.bnpl_live && (
                 <span className="block mt-1 text-[10px] font-bold text-amber-700">
-                  Currently in demo mode — no live BNPL charges are processed
-                  yet.
+                  {t('home.bnpl_demo_note')}
                 </span>
               )}
             </p>

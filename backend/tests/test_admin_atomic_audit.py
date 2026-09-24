@@ -18,14 +18,28 @@ mutation + audit row. These tests prove the atomicity BEHAVES:
 from __future__ import annotations
 
 import pytest
-from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+from backend.tests.conftest import new_test_engine
 from backend.app.models.user import AuditLog
 from backend.app.repositories.user_repository import UserRepository
 
-TEST_DB_URL = "sqlite:///./backend/data/confit_test.db"
-engine = create_engine(TEST_DB_URL, connect_args={"check_same_thread": False})
+# WHY THE SHARED FACTORY AND NOT THIS MODULE'S OWN ENGINE (measured 2026-09-24):
+# This module used to build its own engine from a hardcoded SQLite URL
+# (`sqlite:///./backend/data/confit_test.db`), which made its result depend on
+# two things outside the test: whether that side-file happened to exist, and
+# which rows earlier modules had left in it. Two consequences, both measured:
+#   * with CONFIT_TEST_DB_URL pointing at PostgreSQL, the module still wrote to
+#     the SQLite side-file, so 17 tests failed for a reason that had nothing to
+#     do with the code under test (4 here, 13 in test_audit_hash_chain) — while
+#     CI stayed green because CI never runs this module on PostgreSQL;
+#   * on a fresh checkout the side-file does not exist, so the tables were
+#     missing and every test in the module failed at once.
+# The suite's `new_test_engine()` is the single owner of that decision
+# (conftest), so the module now runs where the suite was pointed — SQLite by
+# default, PostgreSQL when asked — and the schema is seeded by the suite's
+# session fixture instead of by luck.
+engine = new_test_engine()
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 

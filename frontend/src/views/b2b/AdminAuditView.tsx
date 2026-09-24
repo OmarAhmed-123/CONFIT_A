@@ -220,8 +220,25 @@ export const AdminAuditView: React.FC = () => {
               )}
             </p>
           )}
+          {integrity.verification_runs && (
+            <p
+              className={`mt-2 font-mono text-[10px] ${
+                integrity.verification_runs.intact ? 'text-slate-700' : 'font-semibold text-rose-800'
+              }`}
+              role={integrity.verification_runs.intact ? 'status' : 'alert'}
+            >
+              {t('admin_audit.verification_run_chain', {
+                signed: integrity.verification_runs.signed_rows,
+                unsigned: integrity.verification_runs.unsigned_rows,
+                forged: integrity.verification_runs.forgery_suspected_rows,
+                breaks: integrity.verification_runs.breaks.length,
+                coverage: integrity.verification_runs.coverage_mode,
+                anchor: integrity.verification_runs.anchor?.verdict ?? 'no_prior_crosslink',
+              })}
+            </p>
+          )}
           {integrity.violations.length > 0 && (
-            <ul className="mt-2 space-y-1 text-[11px] text-rose-300">
+            <ul className="mt-2 space-y-1 text-[11px] text-rose-800">
               {integrity.violations.slice(0, 5).map((violation, index) => (
                 <li key={index} className="font-mono">
                   row {violation.row_id}: {violation.issue}

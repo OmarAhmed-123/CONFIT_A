@@ -22,8 +22,8 @@ Scope: `audit_logs`, `audit_verification_runs`, the hash chain
 | A. Anonymous user | HTTP only | No access. Admin endpoints require admin JWT (RBAC tests). Failed logins are themselves audited. |
 | B. Authenticated non-admin | HTTP only | 403 on all `/admin/*` (RBAC/IDOR tests). Cannot read or write audit rows. |
 | C. Admin (legitimate) | Admin API | Can read the trail; every read/mutation is itself audited. No API mutates or deletes audit rows (no such endpoint exists). |
-| D. Compromised app process / runtime DB credential (`confit_app_rw`) | SQL as runtime role | Can INSERT forged rows going forward, **cannot** rewrite history: UPDATE/DELETE/TRUNCATE are revoked *and* trigger-blocked (0022, verified on production). Forged inserts without the HMAC key produce `entry_hash_mismatch`/`chain_bypass_suspected` findings. |
-| E. DB owner credential (`neondb_owner`, migrations) | SQL + DDL | Can DROP the 0022 triggers, then mutate. Mutation of chained rows still breaks the HMAC chain (**tamper-evident**), and tail deletion is caught cross-run via `audit_verification_runs` heads. DDL access is the trust boundary — this is why the runtime does not use this credential. |
+| D. Compromised app process / runtime DB credential (`confit_app_rw`) | SQL as runtime role | Can INSERT rows going forward, **cannot** rewrite history: UPDATE/DELETE/TRUNCATE are revoked *and* trigger-blocked (0022, verified on production). Raw audit inserts produce `entry_hash_mismatch`/`chain_bypass_suspected`; raw verification-run inserts produce `verification_run_forgery_suspected` after 0023. A compromised web process that also reads the HMAC secret has actor-I capability. |
+| E. DB owner credential (`neondb_owner`, migrations) | SQL + DDL | Can DROP the 0022 triggers, then mutate. Mutation of chained rows still breaks the HMAC chains (**tamper-evident**). Audit-log tail deletion is caught by persisted run heads; verification-run tail deletion is caught by the independent audit-chain cross-link from the next check. DDL access is the trust boundary — this is why the runtime does not use this credential. |
 | F. Infrastructure operator (Neon/Vercel) | Storage/snapshot access | Same as E plus snapshot rewrites. Tamper-evident only; prevention requires external anchoring (**REQUIRES INFRASTRUCTURE**). |
 | G. Holder of app secrets (not DB) | `AUDIT_HMAC_KEY` etc. | Can compute valid HMACs but has no DB write path; alone, harmless to stored history. |
 | H. DB write access without HMAC key | SQL | Any edit/deletion of chained rows is detected (HMAC recompute fails / links break / predecessor anchor fails). |
@@ -36,7 +36,8 @@ Scope: `audit_logs`, `audit_verification_runs`, the hash chain
 | HMAC-SHA256 hash chain, canonical v1, genesis-anchored | **CONFIRMED** (local + production row evidence) |
 | Separator-injection hardening at the single write path | **CONFIRMED** (tests: `test_audit_trust_boundary.py::TestCanonicalisation`) |
 | DB-restricted append-only for runtime role (REVOKE + triggers, both audit tables) | **CONFIRMED** on PostgreSQL (0022; behavioural tests + production probe). SQLite dev: no-op, **documented parity limitation** |
-| Key rotation K1→K2, fail-closed on missing retired key | **CONFIRMED** (tests: `TestKeyRotation`) |
+| Verification-run provenance / forged INSERT detection | **CONFIRMED** locally (0023): independent domain-separated HMAC chain plus audit-chain tail cross-link; modification, middle/tail deletion, reordering, raw forgery, missing/wrong/versioned keys, K1→K2, separator injection and PostgreSQL concurrent append tests. Production verification follows deployment. |
+| Key rotation K1→K2, fail-closed on missing retired key | **CONFIRMED** (tests: `TestKeyRotation` + verification-run rotation) |
 | Window verification anchored to actual DB predecessor / genesis | **CONFIRMED** (tests: `TestVerificationCoverage`) |
 | Bypass-vs-legacy classification of unchained rows | **CONFIRMED** (tests + global count on the wire) |
 | Cross-run tail-truncation detection | **CONFIRMED** (0021, existing tests) |

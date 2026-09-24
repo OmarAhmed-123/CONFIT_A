@@ -126,6 +126,24 @@ transaction and rollback tests prove both-or-neither.
   The API now also says machine-readably: `recorded_attributed_unsettled`,
   `unreconciled`, `reconciled_against: null`. No ledger was fabricated.
 
+### Post-#201 correction — evidence must cross the HTTP boundary
+
+PR #201 correctly added `coverage`, predecessor anchoring and bypass fields to
+the **service result**, but `AuditIntegrityOut` omitted those fields. FastAPI's
+response-model filtering silently removed them from real HTTP responses. The
+service-only test passed while the user-facing claim was false. Migration 0023
+remediation adds the fields to the schema and an HTTP test that calls the real
+endpoint and asserts they survive serialization.
+
+0022 also left INSERT intentionally available to the runtime role; therefore a
+DB credential holder could forge an arbitrary `audit_verification_runs` row.
+0023 adds a separate, domain-separated HMAC chain for verification-run
+provenance. Legacy runs stay unsigned; raw unsigned inserts after enforcement,
+content modification, middle deletion/reordering, wrong/missing key versions
+and chain forks are detectable. Each HTTP run is also cross-linked into the
+independent primary audit chain, closing deletion of the newest run tail on the
+next check. This still does not close actor I (DB + HMAC keys).
+
 ## 3. Evidence matrix
 
 | Claim | Source | Runtime evidence | Test evidence | Status |
@@ -134,6 +152,8 @@ transaction and rollback tests prove both-or-neither.
 | Historical legacy rows were protected at creation | none | 436 production rows had no hash | tests label them unchained; no backfill | NOT CONFIRMED (intentionally never claimed) |
 | Runtime role cannot mutate audit tables | migration 0022, `audit_db_guard.py` | production UPDATE/DELETE/TRUNCATE as `confit_app_rw` blocked | PG trust-boundary tests | CONFIRMED |
 | Verification-run table is immutable | no external/WORM boundary | owner can DROP trigger using DDL | trigger + privilege tests only | PARTIALLY CONFIRMED: database-restricted append-only, not immutable |
+| Verification-run rows have authentic provenance | 0023 domain-separated HMAC chain + primary-chain tail cross-link | production pending 0023 deployment | modification/middle+tail deletion/reordering/raw forgery/missing+wrong key/rotation/separator/PG concurrency + HTTP tests | CONFIRMED locally; production UNVERIFIED |
+| Dashboard coverage metadata reaches HTTP | `AuditIntegrityOut.coverage` | production pending deployment | real TestClient endpoint regression | CONFIRMED locally; #201 service-only claim was false |
 | Dashboard integrity verifies all history | no | API mode is `window_sample` | coverage contract tests | NOT CONFIRMED (claim removed) |
 | Deliberate full-history path exists | `scripts/verify_audit_chain.py` | production read-only scan executed | trust-boundary tests | CONFIRMED |
 | Tail deletion after a persisted run is detected | migration/service 0021 | production run history not exercised with destructive test | real DB behavioural delete test | CONFIRMED locally; production destructive test not performed |

@@ -64,9 +64,12 @@ DATABASE_URL=postgresql://... AUDIT_HMAC_KEY=... \
   python -m backend.scripts.verify_audit_chain
 ```
 
-Read-only (single SELECT stream). Exit 0 = intact, 1 = violations, 2 = could
-not run. Run it: after every key rotation; during incident response; as a
-periodic ops check. Never wire it into a request path.
+Read-only. It verifies BOTH chains from genesis: `audit_logs` and, since 0023,
+`audit_verification_runs` (including unsigned-after-signed forged inserts),
+validates the newest run cross-link in the audit chain, then checks the last
+run's recorded audit head. Exit 0 = intact, 1 =
+violations, 2 = could not run. Run it after every key rotation, during incident
+response and periodically. Never wire it into a request path.
 
 ## 4. Incident response — audit integrity
 
@@ -83,8 +86,19 @@ failed CLI run.
      verification run.
    - `chain_bypass_suspected` → something wrote unchained rows after chaining
      began (writing path bypass, or hash columns nulled).
-   - `key_unavailable` → operational (missing retired key), not necessarily
-     an attack — fix the secret store first, re-run.
+   - `key_unavailable` / `verification_run_key_unavailable` → operational
+     (missing retired key), not necessarily an attack — fix the secret store
+     first, re-run.
+   - `verification_run_hash_mismatch` → persisted verification result changed.
+   - `verification_run_link_mismatch` → a signed verification result was
+     deleted/reordered within the checked chain.
+   - `verification_run_tail_deletion_detected` → the newest run referenced by
+     the independent audit chain no longer exists.
+   - `verification_run_crosslink_mismatch` / `verification_run_malformed_crosslink`
+     → the persisted run no longer matches its audit-chain reference, or that
+     reference is structurally invalid.
+   - `verification_run_forgery_suspected` → unsigned result inserted after
+     signed-run enforcement began (raw/Core/direct SQL bypass).
 3. **Contain**: rotate `AUDIT_HMAC_KEY` (§1) — assume actor I until excluded.
    Rotate the `confit_app_rw` password if process compromise is plausible.
    Check Neon logs for DDL (`DROP TRIGGER`) and direct connections.
@@ -98,7 +112,10 @@ failed CLI run.
 
 ## 5. Verification cost model
 
-- Dashboard endpoint: bounded (`sample_limit` ≤ 500 rows + O(1) anchor
-  queries) — safe per-request.
-- CLI verifier: O(n) over the whole table, batched — deliberate runs only.
+- Dashboard endpoint: bounded audit sample (`sample_limit` ≤ 500) + bounded
+  verification-run tail (≤100) + latest 0023 cross-link among at most 100
+  integrity-read events + indexed anchor/global bypass counts — no full-history
+  request scan.
+- CLI verifier: O(n) over audit rows plus O(r) over verification runs —
+  deliberate runs only.
 - Never add a full scan to a request path; that is what the CLI is for.

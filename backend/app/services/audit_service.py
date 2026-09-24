@@ -271,6 +271,101 @@ class AuditTrailService:
         # does not, the newest rows were deleted after that run — the one
         # attack single-run chain verification cannot see.
         from backend.app.models.user import AuditLog, AuditVerificationRun
+        from backend.app.core.audit_verification_chain import (
+            RUN_GENESIS_HASH,
+            verification_run_crosslink,
+            verify_verification_run_crosslink,
+            verify_verification_runs,
+        )
+
+        # Verify the provenance of the persisted verification results
+        # themselves. Bounded tail check (100) for request cost, anchored to
+        # its real DB predecessor exactly like the audit-row window. A global
+        # unsigned-after-first-signed count catches raw/Core/direct-SQL INSERT
+        # bypasses even when they fall outside this tail sample.
+        run_rows_desc = (
+            self.db.query(AuditVerificationRun)
+            .order_by(AuditVerificationRun.id.desc())
+            .limit(100)
+            .all()
+        )
+        run_rows = list(reversed(run_rows_desc))
+        first_signed_run = next((r for r in run_rows if r.run_hash), None)
+        expected_run_prev = None
+        if first_signed_run is not None:
+            predecessor_run = (
+                self.db.query(AuditVerificationRun.run_hash)
+                .filter(
+                    AuditVerificationRun.run_hash.isnot(None),
+                    AuditVerificationRun.id < first_signed_run.id,
+                )
+                .order_by(AuditVerificationRun.id.desc())
+                .first()
+            )
+            expected_run_prev = predecessor_run[0] if predecessor_run else RUN_GENESIS_HASH
+        run_chain = verify_verification_runs(run_rows, expected_prev=expected_run_prev)
+        first_signed_run_id = (
+            self.db.query(func.min(AuditVerificationRun.id))
+            .filter(AuditVerificationRun.run_hash.isnot(None))
+            .scalar()
+        )
+        forged_run_rows = 0
+        if first_signed_run_id is not None:
+            forged_run_rows = int(
+                self.db.query(func.count(AuditVerificationRun.id))
+                .filter(
+                    AuditVerificationRun.id > first_signed_run_id,
+                    AuditVerificationRun.run_hash.is_(None),
+                )
+                .scalar() or 0
+            )
+        for broken in run_chain["breaks"]:
+            violations.append({
+                "row_id": broken["run_id"],
+                "issue": broken["issue"],
+                "detail": broken["detail"],
+            })
+        if forged_run_rows:
+            violations.append({
+                "row_id": None,
+                "issue": "verification_run_forgery_suspected",
+                "detail": f"{forged_run_rows} unsigned verification row(s) appear "
+                          "after signed-run enforcement began.",
+            })
+
+        # A hash chain by itself cannot detect deletion of its newest tail.
+        # Every HTTP integrity run is therefore cross-linked by the controller
+        # into the independently chained audit log. Validate the latest 0023
+        # reference here before creating this run. The lookup is bounded; old
+        # pre-0023 integrity-read events are skipped honestly.
+        prior_integrity_events = (
+            self.db.query(AuditLog)
+            .filter(AuditLog.action == "ADMIN_AUDIT_INTEGRITY_CHECK")
+            .order_by(AuditLog.id.desc())
+            .limit(100)
+            .all()
+        )
+        run_reference = next(
+            (reference for event in prior_integrity_events
+             if (reference := verification_run_crosslink(event)) is not None),
+            None,
+        )
+        referenced_run = None
+        if run_reference is not None and run_reference.get("verdict") == "reference_found":
+            referenced_run = (
+                self.db.query(AuditVerificationRun)
+                .filter(AuditVerificationRun.id == run_reference["run_id"])
+                .first()
+            )
+        run_anchor = verify_verification_run_crosslink(run_reference, referenced_run)
+        if run_anchor["verdict"] in {
+            "malformed_crosslink", "tail_deletion_detected", "crosslink_mismatch",
+        }:
+            violations.append({
+                "row_id": run_anchor.get("run_id"),
+                "issue": f"verification_run_{run_anchor['verdict']}",
+                "detail": run_anchor.get("detail"),
+            })
 
         truncation_check: Dict[str, Any] = {"previous_run": None, "verdict": "no_prior_run"}
         prior = (
@@ -310,6 +405,12 @@ class AuditTrailService:
         tamper_evident = (
             chained_rows > 0
             and not chain["breaks"]
+            and bypass_suspected_rows == 0
+            and not run_chain["breaks"]
+            and forged_run_rows == 0
+            and run_anchor["verdict"] not in {
+                "malformed_crosslink", "tail_deletion_detected", "crosslink_mismatch",
+            }
             and truncation_check["verdict"] != "tail_truncation_detected"
         )
 
@@ -343,6 +444,7 @@ class AuditTrailService:
                     "audit_sampled_rows": len(rows),
                     "audit_bypass_suspected_rows": bypass_suspected_rows,
                     "audit_truncation_verdict": truncation_check["verdict"],
+                    "verification_run_anchor_verdict": run_anchor["verdict"],
                 },
             )
 
@@ -356,6 +458,11 @@ class AuditTrailService:
             "Tail truncation is detected ACROSS runs via the persisted head of "
             "the previous verification run (audit_verification_runs); a first "
             "run has no prior anchor and says so.",
+            "Verification-run records are themselves domain-separated HMAC chained "
+            "from migration 0023; older runs remain honestly unsigned. The endpoint "
+            "checks a predecessor-anchored tail window of at most 100 runs, a global "
+            "unsigned-after-signed bypass count, and the newest 0023 cross-link in at "
+            "most 100 integrity-read audit events. This is still not an external anchor.",
         ]
         if chain["unchained_rows"]:
             limitations.append(
@@ -403,30 +510,57 @@ class AuditTrailService:
                 "canonical_version": chain["canonical_version"],
             },
             "truncation_check": truncation_check,
+            "verification_runs": {
+                "coverage_mode": "tail_window",
+                "sample_limit": 100,
+                "sampled_rows": len(run_rows),
+                "signed_rows": run_chain["signed_rows"],
+                "unsigned_rows": run_chain["unsigned_rows"],
+                "first_signed_run_id": first_signed_run_id,
+                "forgery_suspected_rows": forged_run_rows,
+                "breaks": run_chain["breaks"][:50],
+                "anchor": run_anchor,
+                "intact": bool(
+                    run_chain["intact"]
+                    and forged_run_rows == 0
+                    and run_anchor["verdict"] not in {
+                        "malformed_crosslink", "tail_deletion_detected", "crosslink_mismatch",
+                    }
+                ),
+                "head_hash": run_chain["head_hash"],
+                "canonical_version": run_chain["canonical_version"],
+            },
             "limitations": limitations,
         }
 
-        # Record this run as an immutable event (0021) so the NEXT run can
-        # detect tail truncation. Written after the result is composed so a
-        # failure to persist the run can never alter the verdict; it would
-        # surface as an exception, not a silently different answer.
-        self.db.add(
-            AuditVerificationRun(
-                window_days=window_days,
-                checked_rows=checked,
-                sampled_rows=len(rows),
-                chained_rows=chained_rows,
-                unchained_rows=int(chain["unchained_rows"]),
-                break_count=len(chain["breaks"]),
-                verdict=verdict,
-                tamper_evident=tamper_evident,
-                head_hash=global_head[1] if global_head else None,
-                head_row_id=global_head[0] if global_head else None,
-                key_version=int(chain["key_version"]),
-                canonical_version=int(chain["canonical_version"]),
-                triggered_by_user_id=actor_id,
-                request_id=request_id,
-            )
+        # Record this run as a database-restricted append-only + HMAC-chained
+        # event (0021/0022/0023) so the NEXT run can detect tail truncation and
+        # forged verification results. Legacy pre-0023 runs remain unsigned.
+        # Written after the result is composed so a failure to persist the run
+        # surfaces as an exception, never a silently different verdict.
+        verification_run = AuditVerificationRun(
+            window_days=window_days,
+            checked_rows=checked,
+            sampled_rows=len(rows),
+            chained_rows=chained_rows,
+            unchained_rows=int(chain["unchained_rows"]),
+            break_count=len(chain["breaks"]),
+            verdict=verdict,
+            tamper_evident=tamper_evident,
+            head_hash=global_head[1] if global_head else None,
+            head_row_id=global_head[0] if global_head else None,
+            key_version=int(chain["key_version"]),
+            canonical_version=int(chain["canonical_version"]),
+            triggered_by_user_id=actor_id,
+            request_id=request_id,
         )
+        self.db.add(verification_run)
+        self.db.flush()  # listener has now populated id + HMAC-chain fields
+        result["verification_run"] = {
+            "id": verification_run.id,
+            "run_hash": verification_run.run_hash,
+            "previous_run_hash": verification_run.run_prev_hash,
+            "hmac_key_version": verification_run.run_hmac_key_version,
+        }
         self.db.commit()
         return result

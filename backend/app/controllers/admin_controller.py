@@ -365,6 +365,10 @@ def get_audit_integrity(
     _audit_read(request, db, user, "ADMIN_AUDIT_INTEGRITY_CHECK", "AuditLog",
                 {"window_days": window_days, "verdict": result["verdict"],
                  "tamper_evident": result["tamper_evident"],
-                 "truncation": result["truncation_check"]["verdict"]})
+                 "truncation": result["truncation_check"]["verdict"],
+                 # Cross-link the signed verification result into the main
+                 # audit HMAC chain. Deleting/forging a run now leaves an
+                 # independently chained reference behind.
+                 "verification_run": result.get("verification_run")})
     return result
 

@@ -1004,6 +1004,32 @@ export interface AuditIntegrity {
   tamper_evident: boolean;
   coverage?: AuditCoverage | null;
   chain?: AuditChain | null;
+  /** 0023 HMAC-chain status for persisted verification results themselves. */
+  verification_runs?: {
+    coverage_mode: string;
+    sample_limit: number;
+    sampled_rows: number;
+    signed_rows: number;
+    unsigned_rows: number;
+    first_signed_run_id?: number | null;
+    forgery_suspected_rows: number;
+    breaks: Array<{ run_id?: number | null; issue: string; detail?: string }>;
+    anchor?: {
+      audit_row_id?: number | null;
+      run_id?: number | null;
+      verdict: string;
+      detail?: string;
+    } | null;
+    intact: boolean;
+    head_hash?: string | null;
+    canonical_version: number;
+  } | null;
+  verification_run?: {
+    id: number;
+    run_hash: string;
+    previous_run_hash: string;
+    hmac_key_version: number;
+  } | null;
   limitations: string[];
 }
 

@@ -155,7 +155,13 @@ class AuditTrailService:
         }
 
     # --- integrity ------------------------------------------------------
-    def integrity(self, window_days: int = 30, sample_limit: int = 500) -> Dict[str, Any]:
+    def integrity(
+        self,
+        window_days: int = 30,
+        sample_limit: int = 500,
+        actor_id: Optional[int] = None,
+        request_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
         """Structural self-check + hash-chain verification over real rows.
 
         Returns concrete violations rather than a boolean, because "the audit
@@ -209,8 +215,62 @@ class AuditTrailService:
                 {"row_id": broken["row_id"], "issue": broken["issue"], "detail": broken["detail"]}
             )
 
+        # Tail-truncation detection across runs (0021): the head recorded by
+        # the PREVIOUS verification run must still exist in audit_logs. If it
+        # does not, the newest rows were deleted after that run — the one
+        # attack single-run chain verification cannot see.
+        from backend.app.models.user import AuditLog, AuditVerificationRun
+
+        truncation_check: Dict[str, Any] = {"previous_run": None, "verdict": "no_prior_run"}
+        prior = (
+            self.db.query(AuditVerificationRun)
+            .order_by(AuditVerificationRun.id.desc())
+            .first()
+        )
+        if prior is not None:
+            truncation_check["previous_run"] = {
+                "run_at": prior.run_at,
+                "head_row_id": prior.head_row_id,
+                "head_hash": prior.head_hash,
+            }
+            if prior.head_hash:
+                still_there = (
+                    self.db.query(AuditLog.id)
+                    .filter(AuditLog.id == prior.head_row_id,
+                            AuditLog.entry_hash == prior.head_hash)
+                    .first()
+                )
+                if still_there:
+                    truncation_check["verdict"] = "anchored"
+                else:
+                    truncation_check["verdict"] = "tail_truncation_detected"
+                    violations.append({
+                        "row_id": prior.head_row_id,
+                        "issue": "tail_truncation_detected",
+                        "detail": "The chain head recorded by the previous "
+                                  "verification run no longer exists in "
+                                  "audit_logs — rows were deleted after "
+                                  f"{prior.run_at}.",
+                    })
+            else:
+                truncation_check["verdict"] = "prior_run_had_no_head"
+
         chained_rows = int(chain["rows_verified"])
-        tamper_evident = chained_rows > 0 and not chain["breaks"]
+        tamper_evident = (
+            chained_rows > 0
+            and not chain["breaks"]
+            and truncation_check["verdict"] != "tail_truncation_detected"
+        )
+
+        # The anchor for the NEXT run is the newest chained row globally
+        # (not window-scoped — truncation of any tail must be visible even
+        # if the window has since moved past it).
+        global_head = (
+            self.db.query(AuditLog.id, AuditLog.entry_hash)
+            .filter(AuditLog.entry_hash.isnot(None))
+            .order_by(AuditLog.id.desc())
+            .first()
+        )
 
         verdict = "ok" if not violations else "violations_found"
         if checked == 0:
@@ -223,8 +283,9 @@ class AuditTrailService:
             "key); an attacker holding BOTH direct DB write access AND that key "
             "could re-forge the chain forward from the tampered point. External "
             "anchoring (WORM/signed Merkle roots) is the documented next step.",
-            "Deleting only the newest rows (tail truncation) is detectable across "
-            "runs by comparing head_hash, not within a single run.",
+            "Tail truncation is detected ACROSS runs via the persisted head of "
+            "the previous verification run (audit_verification_runs); a first "
+            "run has no prior anchor and says so.",
         ]
         if chain["unchained_rows"]:
             limitations.append(
@@ -234,7 +295,7 @@ class AuditTrailService:
                 "when they were written)."
             )
 
-        return {
+        result = {
             "checked_rows": checked,
             "window_days": window_days,
             "sampled_rows": len(rows),
@@ -255,5 +316,31 @@ class AuditTrailService:
                 "key_version": chain["key_version"],
                 "canonical_version": chain["canonical_version"],
             },
+            "truncation_check": truncation_check,
             "limitations": limitations,
         }
+
+        # Record this run as an immutable event (0021) so the NEXT run can
+        # detect tail truncation. Written after the result is composed so a
+        # failure to persist the run can never alter the verdict; it would
+        # surface as an exception, not a silently different answer.
+        self.db.add(
+            AuditVerificationRun(
+                window_days=window_days,
+                checked_rows=checked,
+                sampled_rows=len(rows),
+                chained_rows=chained_rows,
+                unchained_rows=int(chain["unchained_rows"]),
+                break_count=len(chain["breaks"]),
+                verdict=verdict,
+                tamper_evident=tamper_evident,
+                head_hash=global_head[1] if global_head else None,
+                head_row_id=global_head[0] if global_head else None,
+                key_version=int(chain["key_version"]),
+                canonical_version=int(chain["canonical_version"]),
+                triggered_by_user_id=actor_id,
+                request_id=request_id,
+            )
+        )
+        self.db.commit()
+        return result

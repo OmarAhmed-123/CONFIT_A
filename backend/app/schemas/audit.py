@@ -148,4 +148,8 @@ class AuditIntegrityOut(BaseModel):
     verdict: str
     tamper_evident: bool = False
     chain: Optional[AuditChainOut] = None
+    # 0021: cross-run tail-truncation check. verdict ∈ {no_prior_run,
+    # anchored, tail_truncation_detected, prior_run_had_no_head}; the
+    # previous run's head must still exist in audit_logs.
+    truncation_check: Optional[Dict[str, Any]] = None
     limitations: List[str] = Field(default_factory=list)

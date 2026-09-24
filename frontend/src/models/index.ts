@@ -789,7 +789,12 @@ export interface StyleHeatmap {
 export interface AdminPlatformAnalytics {
   total_users_count: number;
   total_brands_count: number;
-  total_gmv: number;
+  /** Null when the selected orders contain multiple currencies. */
+  total_gmv: number | null;
+  currency?: string | null;
+  currency_status?: 'no_data' | 'single_currency' | 'mixed_currencies';
+  gmv_by_currency?: Record<string, number>;
+  attribution_by_currency?: Record<string, Record<string, number>>;
   total_orders: number;
   /**
    * P1 honesty contract: null = the denominator was zero, nothing was
@@ -800,7 +805,7 @@ export interface AdminPlatformAnalytics {
   platform_avg_return_rate: number | null;
   return_rate_tryon_users: number | null;
   return_rate_non_tryon_users: number | null;
-  revenue_attribution: Record<string, number>;
+  revenue_attribution: Record<string, number | null>;
   /** Operational metrics vs billing ledger — echoed from the backend. */
   financial_semantics?: string;
   top_performing_brands: Array<{
@@ -943,7 +948,7 @@ export interface AuditTrailPage {
 }
 
 export interface AuditViolation {
-  row_id: number;
+  row_id: number | null;
   issue: string;
   action?: string;
   detail?: string;

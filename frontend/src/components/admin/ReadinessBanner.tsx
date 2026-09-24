@@ -23,7 +23,18 @@ export const ReadinessBanner: React.FC = () => {
   const { t } = useTranslation();
   const { verdict, readiness, isLoading } = usePlatformReadiness();
 
-  if (isLoading) return null;
+  if (isLoading) {
+    return (
+      <div
+        role="status"
+        aria-live="polite"
+        data-testid="readiness-banner-loading"
+        className="rounded-2xl border border-slate-300 bg-slate-50 p-3 text-xs text-slate-700"
+      >
+        {t('admin_readiness.loading_body')}
+      </div>
+    );
+  }
 
   if (verdict === 'not_ready' && readiness) {
     return (
@@ -53,6 +64,12 @@ export const ReadinessBanner: React.FC = () => {
             {readiness.degraded_capabilities.join(', ')}
           </p>
         )}
+        {(readiness.unprobed_capabilities?.length ?? 0) > 0 && (
+          <p className="mt-1 font-mono text-xs text-amber-800" data-testid="readiness-unprobed-list">
+            {t('admin_readiness.unprobed_label')}{' '}
+            {readiness.unprobed_capabilities.join(', ') }
+          </p>
+        )}
       </div>
     );
   }
@@ -79,6 +96,11 @@ export const ReadinessBanner: React.FC = () => {
       {readiness?.degraded_capabilities?.length ? (
         <span className="ml-1 font-mono" data-testid="readiness-degraded-list">
           {t('admin_readiness.degraded_label')} {readiness.degraded_capabilities.join(', ')}
+        </span>
+      ) : null}
+      {readiness?.unprobed_capabilities?.length ? (
+        <span className="ml-1 font-mono text-amber-900" data-testid="readiness-unprobed-list">
+          {t('admin_readiness.unprobed_label')} {readiness.unprobed_capabilities.join(', ')}
         </span>
       ) : null}
     </div>

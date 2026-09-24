@@ -485,7 +485,9 @@
     "provider_error": "A payment service is temporarily unavailable. Nothing was charged.",
     "encryption": "We could not process your data securely, so the action was stopped.",
     "styling_rule": "The stylist could not build a valid outfit from those settings.",
-    "validation": "Please review the highlighted fields and try again."
+    "validation": "Please review the highlighted fields and try again.",
+    "readiness_malformed_object": "Readiness response is malformed: expected an object.",
+    "readiness_malformed_fields": "Readiness response is malformed: required fields are missing or invalid."
   },
   "toast": {
     "bag_transferred": "Your bag followed you — {{count}} item(s) kept.",
@@ -799,7 +801,9 @@
     "blocking_label": "Blocking:",
     "degraded_label": "Degraded:",
     "unknown_body": "Readiness unknown — the health endpoint could not be reached. This banner never assumes green; retry or check /api/v1/health directly.",
-    "ready_body": "All core capabilities report ready (live verdict from /health)."
+    "ready_body": "All core capabilities report ready (live verdict from /health).",
+    "loading_body": "Checking the live platform-readiness verdict…",
+    "unprobed_label": "Not probed (unknown, non-blocking when optional):"
   },
   "admin_audit": {
     "eyebrow": "Platform Governance",
@@ -845,7 +849,10 @@
     "not_available": "n/a",
     "integrity_coverage": "coverage: {{mode}} — {{sampled}} of {{inWindow}} rows in a {{days}}-day window; full history is verified offline, not per-request",
     "integrity_bypass": "{{count}} unchained row(s) AFTER chaining began — possible write-path bypass, investigate",
-    "audit_table_caption": "Admin audit trail entries"
+    "audit_table_caption": "Admin audit trail entries",
+    "col_details": "Details",
+    "show_details": "Show details for audit row {{id}}",
+    "hide_details": "Hide details for audit row {{id}}"
   },
   "admin_heatmap": {
     "title": "Style Signal Heatmap — {{scope}}",
@@ -1033,5 +1040,74 @@
     "delivery_note": "Standard or express home delivery is quoted at checkout from live cart totals.",
     "returns_note": "Eligible orders can be returned within 30 days from the order date. Return authorisation is issued from order history.",
     "complete_the_look": "Complete the look"
+  },
+  "brand_nav": {
+    "aria": "Platform and brand-partner navigation",
+    "scroll_hint": "Navigation scrolls horizontally on small screens; all destinations remain available.",
+    "dashboard": "Dashboard",
+    "catalog": "Catalog & SKUs",
+    "inventory": "BOPIS Inventory",
+    "analytics": "Return Telemetry",
+    "placements": "Placements",
+    "platform_admin": "Platform Admin",
+    "audit_trail": "Audit Trail",
+    "storefront": "Storefront",
+    "sign_out": "Sign Out",
+    "governance": "Platform Governance",
+    "partner_hub": "Brand Partner Hub"
+  },
+  "admin_analytics": {
+    "loading": "Aggregating platform-wide telemetry and style heatmaps…",
+    "unavailable_title": "Platform telemetry unavailable",
+    "unavailable_fallback": "The admin analytics endpoint could not be reached. Retry when the service is back — no numbers are ever simulated here.",
+    "retry": "Retry",
+    "eyebrow": "Platform Governance Stack",
+    "showcase_title": "Audit-ready design system across admin operations",
+    "showcase_desc": "The admin surface reuses the components as a governance overview for attribution, catalog quality, and operational control.",
+    "title": "Platform administration and recorded attribution",
+    "lede": "Operational metrics from transactional tables. No simulated numbers. Monetary figures are never summed across currencies.",
+    "methodology": "Methodology: GMV is grouped by Order.currency and excludes non-revenue statuses. Adoption uses Order.try_on_assisted. Outfit conversion uses Outfit.is_saved plus OrderItem.outfit_id. Return cohorts are observational. Attribution is item-grain and bounded to the selected order period.",
+    "gmv_title": "Recorded GMV",
+    "gmv_source": "Order.total_amount, grouped by currency; excludes non-revenue statuses",
+    "mixed_currency": "Multiple currencies in scope — no combined total or FX conversion. Per-currency values are shown.",
+    "no_orders": "No orders in this period",
+    "orders_title": "Total orders",
+    "tryon_assisted": "Try-on assisted: {{value}} from Order.try_on_assisted",
+    "outfit_ratio_title": "Outfit-to-purchase ratio",
+    "outfit_ratio_source": "Saved outfits to purchases using OrderItem.outfit_id",
+    "return_rate_title": "Observed platform return rate",
+    "tryon_vs": "Try-on cohort: {{tryon}} vs non-try-on cohort: {{nonTryon}}",
+    "attribution_title": "Recorded attribution by feature",
+    "attribution_subtitle": "Item-level attributed order-item amounts, not settlement",
+    "attribution_methodology": "Same order period as GMV. Each item has one attribution channel; returned items are netted at item grain.",
+    "financial_warning": "Operational, recorded and unreconciled — NOT a billing ledger. Do not invoice or settle from these figures; reconcile against payment-provider records first.",
+    "no_revenue": "No attributed item value in this period. Values will populate only from recorded orders and attribution events.",
+    "most_styled_title": "Most-styled items — recorded ranking",
+    "most_styled_methodology": "Ranking by recorded outfit appearances, grouped by product.",
+    "appearances": "{{count}} appearances",
+    "brand_perf_title": "Brand performance — recorded side-by-side",
+    "brand_perf_methodology": "Recorded views, try-ons and order items. Rates publish N/A when their denominator is zero; no rows or rates are simulated.",
+    "brand_table_caption": "Recorded brand-performance metrics",
+    "brand": "Brand",
+    "products": "Products",
+    "views": "Views",
+    "tryons": "Try-ons",
+    "orders": "Orders",
+    "conversion": "Conversion",
+    "tryon_rate": "Try-on rate",
+    "return_rate": "Return rate",
+    "no_brand_data": "No brand-performance data in this period.",
+    "total_users": "Total users",
+    "total_brands": "Total brands",
+    "tryon_adoption": "Try-on adoption",
+    "outfit_to_purchase": "Outfit-to-purchase",
+    "currency_group": "{{currency}} amounts",
+    "not_available": "N/A",
+    "channel": {
+      "ai_virtual_stylist": "AI virtual stylist",
+      "outfit_builder": "Outfit builder",
+      "visual_search": "Visual search",
+      "organic_discovery": "Organic discovery"
+    }
   }
 }

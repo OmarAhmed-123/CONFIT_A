@@ -1,0 +1,175 @@
+{
+  "ran_at": "2026-09-24T14:06:15.483Z",
+  "environment": "LOCAL only (Vite + migrated SQLite; not production)",
+  "browser": "153.0.8010.52",
+  "login": {
+    "status": 200,
+    "role": "admin",
+    "credentials": "local seeded account; no secret recorded"
+  },
+  "routes": [
+    "/admin/audit"
+  ],
+  "widths": [
+    {
+      "width": 390,
+      "direction": "ltr",
+      "pageClientWidth": 390,
+      "pageScrollWidth": 390,
+      "pageHorizontalOverflow": false,
+      "navClientWidth": 390,
+      "navScrollWidth": 788,
+      "navHorizontallyScrollable": true,
+      "allSevenDestinationsPresent": true,
+      "governance": [
+        {
+          "text": "Platform Admin",
+          "left": 16,
+          "right": 129,
+          "inInitialViewport": true,
+          "height": 44
+        },
+        {
+          "text": "Audit Trail",
+          "left": 133,
+          "right": 216,
+          "inInitialViewport": true,
+          "height": 44
+        }
+      ],
+      "auditRegionClientWidth": 356,
+      "auditRegionScrollWidth": 980,
+      "tableContainedByOwnScroller": true,
+      "detailsButton": {
+        "width": 44,
+        "height": 44,
+        "tag": "BUTTON"
+      }
+    },
+    {
+      "width": 414,
+      "direction": "ltr",
+      "pageClientWidth": 414,
+      "pageScrollWidth": 414,
+      "pageHorizontalOverflow": false,
+      "navClientWidth": 414,
+      "navScrollWidth": 788,
+      "navHorizontallyScrollable": true,
+      "allSevenDestinationsPresent": true,
+      "governance": [
+        {
+          "text": "Platform Admin",
+          "left": 16,
+          "right": 129,
+          "inInitialViewport": true,
+          "height": 44
+        },
+        {
+          "text": "Audit Trail",
+          "left": 133,
+          "right": 216,
+          "inInitialViewport": true,
+          "height": 44
+        }
+      ],
+      "auditRegionClientWidth": 380,
+      "auditRegionScrollWidth": 980,
+      "tableContainedByOwnScroller": true,
+      "detailsButton": {
+        "width": 44,
+        "height": 44,
+        "tag": "BUTTON"
+      }
+    },
+    {
+      "width": 768,
+      "direction": "ltr",
+      "pageClientWidth": 768,
+      "pageScrollWidth": 768,
+      "pageHorizontalOverflow": false,
+      "navClientWidth": 768,
+      "navScrollWidth": 804,
+      "navHorizontallyScrollable": true,
+      "allSevenDestinationsPresent": true,
+      "governance": [
+        {
+          "text": "Platform Admin",
+          "left": 24,
+          "right": 137,
+          "inInitialViewport": true,
+          "height": 44
+        },
+        {
+          "text": "Audit Trail",
+          "left": 141,
+          "right": 224,
+          "inInitialViewport": true,
+          "height": 44
+        }
+      ],
+      "auditRegionClientWidth": 718,
+      "auditRegionScrollWidth": 980,
+      "tableContainedByOwnScroller": true,
+      "detailsButton": {
+        "width": 44,
+        "height": 44,
+        "tag": "BUTTON"
+      }
+    },
+    {
+      "width": 1024,
+      "direction": "ltr",
+      "pageClientWidth": 1024,
+      "pageScrollWidth": 1024,
+      "pageHorizontalOverflow": false,
+      "navClientWidth": 1024,
+      "navScrollWidth": 1024,
+      "navHorizontallyScrollable": false,
+      "allSevenDestinationsPresent": true,
+      "governance": [
+        {
+          "text": "Platform Admin",
+          "left": 32,
+          "right": 145,
+          "inInitialViewport": true,
+          "height": 44
+        },
+        {
+          "text": "Audit Trail",
+          "left": 149,
+          "right": 232,
+          "inInitialViewport": true,
+          "height": 44
+        }
+      ],
+      "auditRegionClientWidth": 958,
+      "auditRegionScrollWidth": 980,
+      "tableContainedByOwnScroller": true,
+      "detailsButton": {
+        "width": 44,
+        "height": 44,
+        "tag": "BUTTON"
+      }
+    }
+  ],
+  "keyboard": {
+    "reachedDetailsButton": true,
+    "visibleFocusIndicator": true,
+    "expandedWithEnter": true,
+    "tag": "BUTTON",
+    "ariaControls": "audit-row-details-44",
+    "outlineStyle": "solid",
+    "boxShadow": "rgb(2, 6, 23) 0px 0px 0px 2px, rgb(226, 191, 112) 0px 0px 0px 4px, rgba(0, 0, 0, 0) 0px 0px 0px 0px"
+  },
+  "rtl390": {
+    "dir": "rtl",
+    "platformAdmin": true,
+    "auditTrail": true,
+    "overflow": false
+  },
+  "limits": [
+    "This verifies Chromium layout/interaction, not screen-reader speech.",
+    "This does not constitute WCAG 2.2 conformance.",
+    "Production admin route was not authenticated by this script."
+  ]
+}

@@ -8,6 +8,8 @@ from backend.app.core.security import decode_token
 from backend.app.models.user import User, UserRole
 from backend.app.repositories.user_repository import UserRepository
 from backend.app.core.exceptions import AuthenticationError, AuthorizationError, AdminReauthRequiredError
+from backend.app.core.logging import logger
+from backend.app.core.request_context import client_ip, request_id as current_request_id
 
 security = HTTPBearer(auto_error=False)
 
@@ -98,10 +100,47 @@ def get_current_user(
 
 
 def require_role(allowed_roles: List[UserRole]):
-    """Enforces role-based access control (RBAC) with hierarchical administrative privileges."""
-    def role_checker(user: User = Depends(get_current_user)) -> User:
+    """Enforce RBAC and audit authenticated authorization failures.
+
+    ASVS V16.3.2: a denied privileged operation is itself a security event.
+    The event records only method/path/roles — never the Authorization header,
+    query string, cookie or request body. Audit failure is observable but can
+    never turn a denial into access (fail closed).
+    """
+    def role_checker(
+        request: Request,
+        user: User = Depends(get_current_user),
+        db: Session = Depends(get_db),
+    ) -> User:
         if user.role not in allowed_roles and user.role != UserRole.ADMIN:
-            raise AuthorizationError(f"Access restricted to {', '.join(r.value for r in allowed_roles)}. Current user role: {user.role.value}")
+            try:
+                UserRepository(db).log_audit(
+                    action="AUTHORIZATION_DENIED",
+                    resource_type="Authorization",
+                    resource_id=request.url.path[:255],
+                    user_id=user.id,
+                    ip_address=client_ip(request),
+                    request_id=current_request_id(request),
+                    after={
+                        "method": request.method,
+                        "path": request.url.path,
+                        "required_roles": sorted(r.value for r in allowed_roles),
+                        "actual_role": user.role.value,
+                    },
+                )
+            except Exception as exc:
+                db.rollback()
+                logger.warning(
+                    "authorization_denial_audit_failed",
+                    path=request.url.path,
+                    method=request.method,
+                    user_id=user.id,
+                    error_type=type(exc).__name__,
+                )
+            raise AuthorizationError(
+                f"Access restricted to {', '.join(r.value for r in allowed_roles)}. "
+                f"Current user role: {user.role.value}"
+            )
         return user
     return role_checker
 

@@ -273,6 +273,10 @@ def health_check(db: Session = Depends(get_db)):
         "ready": readiness["ready"],
         "blocking_capabilities": readiness["blocking_capabilities"],
         "degraded_capabilities": readiness["degraded_capabilities"],
+        # Capability names only (no provider/storage detail): safe for the
+        # public contract and necessary so UNKNOWN never disappears behind an
+        # otherwise-ready boolean. Full details remain admin-only below.
+        "unprobed_capabilities": readiness["unprobed_capabilities"],
         "timestamp": time.time(),
         "uptime_seconds": round(time.time() - START_TIME, 1),
         "version": settings.VERSION,

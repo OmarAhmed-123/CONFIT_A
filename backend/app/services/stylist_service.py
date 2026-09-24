@@ -43,7 +43,13 @@ class StylistService:
 
         # 3. Retrieve user profile if authenticated
         usp = self.profile_repo.get_by_user_id(user_id) if user_id else None
-        user_styles = json.loads(usp.style_archetypes) if usp and usp.style_archetypes else ["Smart Casual", "Quiet Luxury"]
+        # Whether a PERSISTED profile actually provided the styles. The fallback
+        # list below is a matching input, not a fact about the shopper — the
+        # prose used to say "tailored to your Smart Casual profile" to an
+        # anonymous caller because that distinction did not exist (measured
+        # 2026-09-24; see services/styling/attribution.py).
+        profile_styles_present = bool(usp and usp.style_archetypes)
+        user_styles = json.loads(usp.style_archetypes) if profile_styles_present else ["Smart Casual", "Quiet Luxury"]
         user_colors = json.loads(usp.preferred_colors) if usp and usp.preferred_colors else ["Navy", "Beige", "Black"]
         # Only a user-stated budget (explicit request param, or text the parser
         # extracts) is a HARD constraint. A stored profile default is a soft
@@ -57,7 +63,8 @@ class StylistService:
             occasion_hint=occasion,
             budget_hint=explicit_budget,
             user_styles=user_styles,
-            user_colors=user_colors
+            user_colors=user_colors,
+            profile_styles_present=profile_styles_present,
         )
         # Ensure the composer always has a numeric ceiling for scoring even when
         # no explicit budget was stated (soft profile default).
@@ -117,12 +124,17 @@ class StylistService:
             intent["recommendation_constraints"] = constraint_meta
 
         # 7. Compose strict slot-based complete outfits grounded in the catalog
-        recommended_outfits = StylingEngine.compose_outfits(
+        recommended_outfits, alternatives_meta = StylingEngine.compose_outfits_with_meta(
             available_products=all_products,
             intent=intent,
             user_profile=usp,
             max_outfits=2
         )
+        # Whether a second look was requested, published, or suppressed because it
+        # held the same products as the first — part of the record, not a log
+        # detail (styling/diversity.py explains the rule).
+        if alternatives_meta.get("suppressed"):
+            intent["alternatives"] = alternatives_meta
 
         primary_outfit = recommended_outfits[0] if recommended_outfits else None
 

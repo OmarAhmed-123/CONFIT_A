@@ -3,6 +3,10 @@ import httpx
 from typing import Dict, Any, List, Optional, Tuple
 from backend.app.core.config import settings
 from backend.app.core.logging import logger
+from backend.app.services.styling.attribution import (
+    STYLE_SOURCE_UNKNOWN,
+    style_attribution_phrase,
+)
 from backend.app.services.styling_engine import StylingEngine
 
 
@@ -93,8 +97,17 @@ class MultiProviderAIOrchestrator:
         grounded_context = "\n".join(grounded_lines) if grounded_lines else "Curated multi-brand luxury ensemble."
         total_price = selected_outfit.get("total_price", detected_budget) if selected_outfit else detected_budget
 
+        # Honesty constraint handed to the provider: the deterministic engine is
+        # not the only writer of this prose, so the rule has to travel WITH the
+        # request rather than live only in the fallback.
+        style_source = intent.get("style_source", STYLE_SOURCE_UNKNOWN)
         system_prompt = (
             "You are CONFIT's Senior AI Fashion Director. Your mission is to provide personalized, sophisticated styling guidance. "
+            f"THE SHOPPER'S STYLE DIRECTION COMES FROM: {style_source}. "
+            "If that source is 'profile', you may call it their profile. "
+            "If it is 'conversation', attribute it to what they asked for in this message. "
+            "If it is 'default' or 'unknown', do NOT describe it as their profile or as a stored preference — say it is a starting point. "
+            "Do not state any other fact about the shopper that is not in the request or the selected items. "
             "IMPORTANT: Your response must be strictly grounded in the exact selected items below. Explicitly reference the chosen products, "
             "their brand names, colors, and how they harmonize for the target occasion. Keep the tone refined, warm, and concise (2-3 sentences max)."
         )
@@ -513,8 +526,13 @@ class MultiProviderAIOrchestrator:
         else:
             occasion = intent.get("occasion", "Smart Casual")
             aesthetic = intent.get("aesthetic", "Quiet Luxury")
+            # Only a profile-backed source may claim the shopper's profile; a
+            # system default says so out loud instead (attribution.py).
+            attribution = style_attribution_phrase(
+                aesthetic, intent.get("style_source", STYLE_SOURCE_UNKNOWN)
+            )
             content = (
-                f"Here is a curated {occasion} look tailored to your {aesthetic} profile. "
+                f"Here is a curated {occasion} look {attribution}. "
                 f"I paired balanced neutral tones with tailored silhouettes, "
                 f"keeping the complete outfit cohesive, proportional, and within your target budget."
             )

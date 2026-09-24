@@ -8,6 +8,7 @@ survived review (G-16).
 
 from __future__ import annotations
 
+from backend.tests.conftest import new_test_engine
 import json
 
 import pytest
@@ -28,7 +29,7 @@ from backend.app.models.user import AuditLog, User, UserRole
 from backend.app.core.security import get_password_hash
 
 TEST_DB_URL = "sqlite:///./backend/data/confit_test.db"
-test_engine = create_engine(TEST_DB_URL, connect_args={"check_same_thread": False})
+test_engine = new_test_engine()
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
 
 AUDIT_ENDPOINTS = [

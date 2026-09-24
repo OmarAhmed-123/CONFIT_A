@@ -24,6 +24,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy.exc import DataError, IntegrityError
 
 from backend.app.core.security import get_password_hash, verify_password
 from backend.app.main import app
@@ -191,7 +192,22 @@ class TestCorruptCheckoutSnapshot:
     @pytest.mark.parametrize("snapshot", ["{not json", "", "\x00\x01", "[1,2"])
     def test_unreadable_snapshot_returns_422(self, client, snapshot):
         token = "chk_corrupt_" + str(abs(hash(snapshot)) % 10_000_000)
-        self._make_session(snapshot, token)
+        try:
+            self._make_session(snapshot, token)
+        except (DataError, IntegrityError, ValueError) as exc:
+            # A NUL byte is unstorable in PostgreSQL text: psycopg2 refuses it
+            # while binding (ValueError "A string literal cannot contain NUL"),
+            # a server-side store would raise DataError. Either way the garbage
+            # is refused BEFORE the application can read it back — a stronger
+            # guard than the 422 asserted below, so for that byte the only
+            # engine-valid assertion is "the garbage never round-trips". The
+            # refusal reason is checked so no unrelated error can take this path.
+            reason = str(exc)
+            assert "\x00" in snapshot, "only an unstorable byte may take this path"
+            assert ("NUL" in reason or "0x00" in reason or "byte" in reason.lower()), (
+                f"storage refusal expected, got {type(exc).__name__}: {reason[:200]}"
+            )
+            return
         r = client.get(f"/api/v1/checkout/sessions/{token}",
                        headers={"X-Session-Token": "guest-corrupt-snapshot"})
         assert r.status_code == 422, f"{r.status_code} {r.text[:300]}"

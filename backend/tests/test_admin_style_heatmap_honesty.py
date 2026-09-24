@@ -17,6 +17,7 @@ reads a window around that stamp, which no seeded data can occupy.
 
 from __future__ import annotations
 
+from backend.tests.conftest import new_test_engine
 import json
 from datetime import datetime, timedelta, timezone
 from typing import List, Sequence, Tuple
@@ -33,7 +34,7 @@ from backend.app.models.user import User
 from backend.app.repositories.brand_repository import BrandRepository
 
 TEST_DB_URL = "sqlite:///./backend/data/confit_test.db"
-test_engine = create_engine(TEST_DB_URL, connect_args={"check_same_thread": False})
+test_engine = new_test_engine()
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
 
 MARKER = "HEATMAP_HONESTY_TEST"

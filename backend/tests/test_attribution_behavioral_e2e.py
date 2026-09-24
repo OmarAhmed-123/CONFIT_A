@@ -36,6 +36,28 @@ def _brand_and_products(db):
     return prods
 
 
+def _real_user(db, tag: str) -> int:
+    """Persist a throw-away user and return its id.
+
+    ``brand_analytics_events.user_id`` is a real foreign key. The tests below
+    used to invent ids (999321...), which SQLite accepted because it does not
+    enforce foreign keys by default but PostgreSQL rejects outright
+    (measured: ForeignKeyViolation). The behaviour under test — per-user
+    attribution isolation — needs two *real* identities, so build them.
+    """
+    import uuid
+    from backend.app.models.user import User
+    u = User(
+        email=f"attrib.{tag}.{uuid.uuid4().hex[:10]}@example.com",
+        hashed_password="x", full_name=f"Attrib {tag}",
+        role="consumer", preferred_language="en",
+        is_active=True, is_verified=False, mfa_enabled=False,
+    )
+    db.add(u)
+    db.commit()
+    return u.id
+
+
 def _two_fresh_order_items(db, prod_a, prod_b, amounts=(Decimal("300.00"), Decimal("700.00"))):
     """Persist a throw-away order with one OrderItem per product so purchase
     events have a real order_item_id lineage (0014). Status 'placed'.
@@ -117,7 +139,7 @@ class TestVisualSearchProductIdentitySemantics:
         repo = BrandRepository(db)
         prods = _brand_and_products(db)
         a, b = prods[0], prods[1]
-        uid = 999321
+        uid = _real_user(db, "a")
         repo.create_analytics_event(
             brand_id=a.brand_id, event_type="view", attribution_source="visual_search",
             product_id=a.id, user_id=uid,
@@ -129,7 +151,9 @@ class TestVisualSearchProductIdentitySemantics:
     def test_other_user_search_does_not_attribute(self, db):
         repo = BrandRepository(db)
         a = _brand_and_products(db)[0]
-        ux, uy = 999401, 999402
+        # Two REAL identities: user_id carries a foreign key, so an invented
+        # id is not a valid test of isolation on PostgreSQL.
+        ux, uy = _real_user(db, "x"), _real_user(db, "y")
         repo.create_analytics_event(
             brand_id=a.brand_id, event_type="view", attribution_source="visual_search",
             product_id=a.id, user_id=ux,
@@ -140,7 +164,7 @@ class TestVisualSearchProductIdentitySemantics:
     def test_expired_window_not_attributed(self, db):
         repo = BrandRepository(db)
         a = _brand_and_products(db)[0]
-        uid = 999501
+        uid = _real_user(db, "b")
         ev = repo.create_analytics_event(
             brand_id=a.brand_id, event_type="view", attribution_source="visual_search",
             product_id=a.id, user_id=uid,
@@ -152,7 +176,7 @@ class TestVisualSearchProductIdentitySemantics:
     def test_organic_source_view_does_not_grant_visual_attribution(self, db):
         repo = BrandRepository(db)
         a = _brand_and_products(db)[0]
-        uid = 999601
+        uid = _real_user(db, "c")
         repo.create_analytics_event(
             brand_id=a.brand_id, event_type="view", attribution_source="organic",
             product_id=a.id, user_id=uid,

@@ -276,8 +276,8 @@ def test_database_rejects_a_second_item_for_the_same_order_line(client: TestClie
                 "seasonality, wear_frequency, wear_count, is_favorite, processing_status, "
                 "source_order_item_id, created_at) "
                 "values (:u, 'dup', 'Tops', 'Black', '#000000', 'Solid', 'B', 'x', '[]', '[]', "
-                "'[]', 'All-Season', 'regular', 0, 0, 'ready', :oi, CURRENT_TIMESTAMP)"
-            ), {"u": rows[0]["user_id"], "oi": rows[0]["source_order_item_id"]})
+                "'[]', 'All-Season', 'regular', 0, :fav, 'ready', :oi, CURRENT_TIMESTAMP)"
+            ), {"u": rows[0]["user_id"], "oi": rows[0]["source_order_item_id"], "fav": False})
             db.commit()
     finally:
         db.rollback()
@@ -392,7 +392,7 @@ def test_returned_lines_are_not_synchronised(client: TestClient) -> None:
         # Mark every purchased line as returned, then drop the synced items so
         # the re-sync has to make the decision again from scratch.
         db.execute(text(
-            "update order_items set is_returned = 1 where order_id = "
+            "update order_items set is_returned = true where order_id = "
             "(select id from orders where order_number = :on)"), {"on": order["order_number"]})
         db.execute(text(
             "delete from wardrobe_items where source_order_item_id in "
@@ -432,8 +432,8 @@ def test_failed_payment_webhook_revokes_synced_items(client: TestClient, monkeyp
             "pattern, brand_name, image_url, ai_tags, occasions, secondary_colors, seasonality, "
             "wear_frequency, wear_count, is_favorite, processing_status, source_order_item_id, "
             "created_at) values (:u, 'My Own Upload', 'Tops', 'Black', '#000000', 'Solid', "
-            "'Own Collection', 'local/x.png', '[]', '[]', '[]', 'All-Season', 'regular', 0, 0, "
-            "'ready', NULL, CURRENT_TIMESTAMP)"), {"u": owner_id})
+            "'Own Collection', 'local/x.png', '[]', '[]', '[]', 'All-Season', 'regular', 0, :fav, "
+            "'ready', NULL, CURRENT_TIMESTAMP)"), {"u": owner_id, "fav": False})
         db.commit()
     finally:
         db.close()

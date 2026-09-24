@@ -9,6 +9,7 @@ Group 6 Final Forensic Production Audit — Comprehensive tests for new instrume
 - Catalog import CSV injection protection
 """
 
+from backend.tests.conftest import new_test_engine
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -21,7 +22,7 @@ from backend.app.models.catalog_import import BrandAnalyticsEvent
 from backend.app.models.commerce import Order
 
 TEST_DB_URL = "sqlite:///./backend/data/confit_test.db"
-test_engine = create_engine(TEST_DB_URL, connect_args={"check_same_thread": False})
+test_engine = new_test_engine()
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
 client = TestClient(app)
 

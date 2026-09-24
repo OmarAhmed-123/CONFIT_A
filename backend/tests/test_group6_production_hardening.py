@@ -11,6 +11,7 @@ Verifies:
 - Return reduction same period cohort honest methodology
 - No fake KPIs, no hardcoded analytics
 """
+from backend.tests.conftest import new_test_engine
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -25,7 +26,7 @@ from backend.app.models.commerce import Order, OrderItem
 from backend.app.core.security import get_password_hash
 
 TEST_DB_URL = "sqlite:///./backend/data/confit_test.db"
-test_engine = create_engine(TEST_DB_URL, connect_args={"check_same_thread": False})
+test_engine = new_test_engine()
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
 client = TestClient(app)
 

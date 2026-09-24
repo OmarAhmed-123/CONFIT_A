@@ -369,6 +369,15 @@ def _keyboard_census(page) -> Dict[str, Any]:
 #: where focus problems actually live. The bound is REPORTED as a bound.
 KEYBOARD_TAB_BUDGET = 30
 
+#: Per-navigation timeout. The default matches what earlier sweeps used; it is a
+#  knob because a CPU-starved machine can take longer than 30s to serve a dev
+#  server's module graph, and a timeout here fails the surface (RUN INVALID)
+#  rather than being scored — so raising it cannot manufacture a pass, it only
+#  gives a slow environment a chance to be measured. MEASURED 2026-09-24 in this
+#  sandbox (2 vCPU, ~1.9GB, Chromium + Vite + API sharing them): page.reload
+#  exceeded 30s while the same route served in 5ms to curl.
+NAV_TIMEOUT_MS = 45000
+
 #: Controls that exist only in the DEV build and must not be reported as
 #: application accessibility findings. `App.tsx` renders
 #: `{import.meta.env.DEV && <ReactQueryDevtools/>}`, and that widget's toggle is
@@ -465,7 +474,7 @@ def _settle_focus(page, attempts: int = 8) -> None:
         page.wait_for_timeout(70)
 
 
-def _keyboard_traversal(page) -> Dict[str, Any]:
+def _keyboard_traversal(page, budget: int = None) -> Dict[str, Any]:
     """Press Tab for real and measure what the keyboard user experiences.
 
     What is actually measured, per stop:
@@ -488,7 +497,10 @@ def _keyboard_traversal(page) -> Dict[str, Any]:
     page.evaluate("() => { document.body.focus?.(); document.activeElement?.blur?.(); }")
     stops: List[Dict[str, Any]] = []
     seen = set()
-    for _ in range(KEYBOARD_TAB_BUDGET):
+    # ``budget`` exists so the built-in self-test can validate the traversal
+    # without paying 30 stops x focus-settle x reproduce-gate on two fixtures.
+    # Real sweeps never pass it and keep KEYBOARD_TAB_BUDGET.
+    for _ in range(budget or KEYBOARD_TAB_BUDGET):
         page.keyboard.press("Tab")
         _settle_focus(page)
         snap = page.evaluate(_FOCUS_SNAPSHOT_JS)
@@ -540,7 +552,7 @@ def _keyboard_traversal(page) -> Dict[str, Any]:
     ]
     partly = [s for s in stops if s.get("partlyObscured")]
     return {
-        "tabBudget": KEYBOARD_TAB_BUDGET,
+        "tabBudget": budget or KEYBOARD_TAB_BUDGET,
         "stopsObserved": len(stops),
         "stoppedEarly": len(stops) < KEYBOARD_TAB_BUDGET,
         "stopsWithoutFocusIndicator": no_indicator[:8],
@@ -628,13 +640,13 @@ def run(base_url: str, language: str, out: List[Dict[str, Any]]) -> None:
         # it exercised Arabic and did not, which is precisely the defect class
         # this audit hunts. The precondition below makes that impossible: if the
         # document is not in the requested language, the run fails loudly.
-        page.goto(base_url, wait_until="domcontentloaded")
+        page.goto(base_url, wait_until="domcontentloaded", timeout=NAV_TIMEOUT_MS)
         page.evaluate(
             """(lang) => { localStorage.setItem('confit_lang', lang); }""", language
         )
         # The app applies the language at module load, so the document must be
         # reloaded for the stored choice to take effect.
-        page.reload(wait_until="domcontentloaded")
+        page.reload(wait_until="domcontentloaded", timeout=NAV_TIMEOUT_MS)
         page.wait_for_timeout(500)
         state = page.evaluate(
             """() => ({ lang: document.documentElement.lang, dir: document.documentElement.dir })"""
@@ -683,7 +695,7 @@ def run(base_url: str, language: str, out: List[Dict[str, Any]]) -> None:
             url = base_url + route
             entry: Dict[str, Any] = {"surface": name, "url": url, "language": language}
             try:
-                page.goto(url, wait_until="networkidle", timeout=45000)
+                page.goto(url, wait_until="networkidle", timeout=NAV_TIMEOUT_MS)
                 page.wait_for_timeout(700)
                 actual = page.evaluate("() => document.documentElement.lang")
                 entry["document_lang"] = actual
@@ -749,16 +761,140 @@ def console_control(base_url: str, language: str) -> Dict[str, Any]:
         page.on("pageerror", lambda e: errors.append({"tag": "pageerror", "text": str(e)}))
         page.goto(base_url, wait_until="domcontentloaded")
         page.evaluate("(lang) => { localStorage.setItem('confit_lang', lang); }", language)
-        page.reload(wait_until="networkidle")
+        page.reload(wait_until="networkidle", timeout=NAV_TIMEOUT_MS)
         for _, route in ROUTES:
-            page.goto(base_url + route, wait_until="networkidle", timeout=45000)
+            page.goto(base_url + route, wait_until="networkidle", timeout=NAV_TIMEOUT_MS)
             page.wait_for_timeout(500)
         browser.close()
     return {"surface": "__console_control__", "language": language,
             "injection": False, "errors": errors}
 
 
+# ── BUILT-IN CONTROL — a probe that has never detected a known defect is an
+#    unvalidated instrument (section 30 of the brief) ─────────────────────────
+#
+# The first positive control for this script was an ad-hoc /tmp/broken.html that
+# existed on one machine and was never part of the tool: nothing in the
+# instrument itself proved it could see anything, so a silent breakage (axe
+# bundle missing, CDP AX rename, tab traversal no-op) would still have printed a
+# clean sweep and read as a pass. `--self-test` closes that hole: it measures a
+# fixture with seeded defects and the same fixture repaired, and fails loudly if
+# the instrumentation cannot tell them apart. It needs no server and no app.
+#
+# The rule ids below are the WCAG A/AA rules `_axe` is allowed to run
+# (runOnly tags wcag2a/wcag2aa/wcag21a/wcag21aa), so the assertion is about the
+# configuration actually used in production sweeps, not a broader axe run.
+_SELFTEST_RULES = ("image-alt", "label", "button-name", "select-name", "color-contrast")
+
+_PIXEL = ("data:image/gif;base64,"
+          "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7")
+
+_SELFTEST_BAD = f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
+<title>seeded defects</title></head><body><main>
+<h1>Fixture</h1>
+<img src="{_PIXEL}" width="40" height="40">
+<form>
+  <input type="text">
+  <input type="text" placeholder="Email">
+  <select><option>One</option></select>
+</form>
+<button></button>
+<a href="#details"></a>
+<div style="color:#b9b9b9;background:#ffffff">low contrast copy</div>
+<div id="overlay" style="position:fixed;inset:0;background:rgba(255,255,255,.98);z-index:9999">
+  covers the controls</div>
+</main></body></html>"""
+
+_SELFTEST_GOOD = f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
+<title>repaired</title></head><body><main>
+<h1>Fixture</h1>
+<img src="{_PIXEL}" alt="A navy blazer on a hanger" width="40" height="40">
+<form>
+  <label for="st-email">Email</label><input id="st-email" type="text">
+  <label for="st-size">Size</label><select id="st-size"><option>One</option></select>
+</form>
+<button>Add to cart</button>
+<a href="#details">See details</a>
+<div style="color:#111111;background:#ffffff">readable copy</div>
+</main></body></html>"""
+
+
+def self_test() -> int:
+    """Prove this instrument detects seeded defects, and stays silent on none.
+
+    RUN VALID only when the defective fixture trips every seeded rule AND the
+    repaired fixture trips none of them. A probe that "finds nothing" on both
+    fixtures is broken, not reassuring.
+    """
+    def measure(html: str) -> Dict[str, Any]:
+        with sync_playwright() as p:
+            browser = p.chromium.launch()
+            page = browser.new_context(
+                viewport={"width": 1280, "height": 900}
+            ).new_page()
+            page.set_content(html, wait_until="load")
+            page.wait_for_timeout(300)
+            axe = _axe(page)
+            ax = _ax_name_audit(page)
+            # 3 stops: enough to prove the obscured-class detection fires, while
+            # each obscured reading still pays its reproduce gate (measured
+            # ~9s/stop in this sandbox, so 30 stops would make the control too
+            # slow to run routinely — an unrun control is not a control).
+            kb = _keyboard_traversal(page, budget=3)
+            browser.close()
+            return {"rules": {v["id"] for v in axe}, "axe_count": len(axe),
+                    "nameless": ax.get("namelessCount", 0),
+                    "placeholderOnly": ax.get("placeholderOnlyCount", 0),
+                    "obscured": kb.get("obscuredCount", 0)}
+
+    bad = measure(_SELFTEST_BAD)
+    good = measure(_SELFTEST_GOOD)
+
+    misses = [r for r in _SELFTEST_RULES if r not in bad["rules"]]
+    false_positives = [r for r in sorted(good["rules"]) if r in _SELFTEST_RULES]
+
+    print("self-test, defective fixture:")
+    print(f"   axe rules fired: {sorted(bad['rules'])}")
+    print(f"   controls without an accessible name: {bad['nameless']}")
+    print(f"   placeholder-only labels (weaker class): {bad['placeholderOnly']}")
+    print(f"   focus stops obscured by the overlay: {bad['obscured']}")
+    print("self-test, repaired fixture:")
+    print(f"   axe rules fired: {sorted(good['rules'])}")
+    print(f"   controls without an accessible name: {good['nameless']}")
+    print(f"   placeholder-only labels: {good['placeholderOnly']}")
+    print(f"   focus stops obscured: {good['obscured']}")
+
+    problems = []
+    if misses:
+        problems.append(f"defective fixture did NOT trip: {misses}")
+    if false_positives:
+        problems.append(f"repaired fixture wrongly tripped: {false_positives}")
+    if bad["nameless"] < 1:
+        problems.append("AX name audit found no unnamed control in the defective fixture")
+    if good["nameless"] != 0:
+        problems.append(f"AX name audit reported {good['nameless']} unnamed control(s) in the repaired fixture")
+    if bad["placeholderOnly"] < 1:
+        # placeholder is accepted as a last-resort accessible name, so it is NOT
+        # a WCAG failure — but the probe must still SEE and separate that class.
+        problems.append("placeholder-only label not detected as its own class")
+    if good["placeholderOnly"] != 0:
+        problems.append(f"placeholder-only counter reported {good['placeholderOnly']} on the repaired fixture")
+    if bad["obscured"] < 1:
+        problems.append("keyboard traversal did not see the overlay obscuring a focused control")
+    if good["obscured"] != 0:
+        problems.append(f"keyboard traversal reported {good['obscured']} obscured stop(s) without an overlay")
+
+    if problems:
+        print("\nINSTRUMENT INVALID — the probe cannot be trusted on real surfaces:")
+        for pr in problems:
+            print(f"    ! {pr}")
+        return 2
+    print("\nINSTRUMENT VALID — seeded defects detected, repaired fixture clean.")
+    return 0
+
+
 def main() -> int:
+    global NAV_TIMEOUT_MS
     ap = argparse.ArgumentParser()
     ap.add_argument("--base-url", default="http://localhost:43123")
     ap.add_argument("--json", default="/tmp/browser-a11y-rtl.json")
@@ -767,7 +903,18 @@ def main() -> int:
     # is how a capped sample starts looking like a total.
     ap.add_argument("--only", default=None,
                     help="comma-separated route names to measure (default: all)")
+    ap.add_argument("--nav-timeout", type=int, default=NAV_TIMEOUT_MS,
+                    help="per-navigation timeout in ms (default 45000); a timeout "
+                         "still fails the surface rather than scoring it")
+    ap.add_argument("--self-test", action="store_true",
+                    help="validate the instrumentation itself on seeded fixtures "
+                         "(no server needed) instead of measuring routes")
     args = ap.parse_args()
+
+    NAV_TIMEOUT_MS = args.nav_timeout
+
+    if args.self_test:
+        return self_test()
 
     global ONLY_ROUTES
     if args.only:

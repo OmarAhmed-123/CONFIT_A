@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 from typing import Any, Dict, List, Optional, Tuple
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from backend.app.models.user import AuditLog
@@ -175,7 +176,7 @@ class AuditTrailService:
         is true only when chained rows exist and the chain verifies — never
         asserted from configuration alone.
         """
-        from backend.app.core.audit_chain import verify_chain
+        from backend.app.core.audit_chain import GENESIS_HASH, verify_chain
         from backend.app.core.audit_redaction import REDACTED_PREFIX, contains_secret
 
         window_days = min(MAX_WINDOW_DAYS, max(1, int(window_days or 30)))
@@ -209,11 +210,58 @@ class AuditTrailService:
 
         # Chain verification runs in ascending id order (oldest → newest);
         # ``recent`` returns newest-first, so reverse the same sample.
-        chain = verify_chain(list(reversed(rows)))
+        from backend.app.models.user import AuditLog as _AuditLog
+
+        ordered = list(reversed(rows))
+
+        # Anchor the window's first chained row against its ACTUAL database
+        # predecessor, not against whatever the row itself claims: without
+        # this, deleting rows just before the window (or the entire earlier
+        # chain) is invisible to a window-scoped check. If no chained
+        # predecessor exists, the first chained row must anchor to GENESIS.
+        expected_prev = None
+        first_chained = next((r for r in ordered if r.entry_hash is not None), None)
+        if first_chained is not None:
+            predecessor = (
+                self.db.query(_AuditLog.entry_hash)
+                .filter(_AuditLog.entry_hash.isnot(None), _AuditLog.id < first_chained.id)
+                .order_by(_AuditLog.id.desc())
+                .first()
+            )
+            expected_prev = predecessor[0] if predecessor else GENESIS_HASH
+
+        chain = verify_chain(ordered, expected_prev=expected_prev)
         for broken in chain["breaks"]:
             violations.append(
                 {"row_id": broken["row_id"], "issue": broken["issue"], "detail": broken["detail"]}
             )
+
+        # Unchained rows are only "legacy" if they predate the first chained
+        # row. An unchained row WRITTEN AFTER chaining began means some write
+        # path bypassed the mapper listener — that is a finding, not history.
+        # Checked globally (not just the sample) so a bypass can't hide
+        # outside the sampled window.
+        min_chained_id = (
+            self.db.query(func.min(_AuditLog.id))
+            .filter(_AuditLog.entry_hash.isnot(None))
+            .scalar()
+        )
+        bypass_suspected_rows = 0
+        if min_chained_id is not None:
+            bypass_suspected_rows = int(
+                self.db.query(func.count(_AuditLog.id))
+                .filter(_AuditLog.entry_hash.is_(None), _AuditLog.id > min_chained_id)
+                .scalar() or 0
+            )
+            if bypass_suspected_rows:
+                violations.append({
+                    "row_id": None,
+                    "issue": "chain_bypass_suspected",
+                    "detail": f"{bypass_suspected_rows} unchained row(s) have ids AFTER the "
+                              f"first chained row (id={min_chained_id}) — they were written "
+                              "through a path that skipped the hash-chain listener, or their "
+                              "hashes were nulled. Legacy rows cannot appear there.",
+                })
 
         # Tail-truncation detection across runs (0021): the head recorded by
         # the PREVIOUS verification run must still exist in audit_logs. If it
@@ -289,10 +337,10 @@ class AuditTrailService:
         ]
         if chain["unchained_rows"]:
             limitations.append(
-                f"{chain['unchained_rows']} sampled row(s) predate migration 0020 "
-                "and carry no hash; they are reported here, never silently "
-                "re-signed (that would fabricate a guarantee that did not exist "
-                "when they were written)."
+                f"{chain['unchained_rows']} sampled row(s) carry no hash. Rows "
+                "older than the first chained row are legacy (pre-0020) and are "
+                "never silently re-signed; unchained rows NEWER than that are "
+                "flagged as chain_bypass_suspected, not excused as legacy."
             )
 
         result = {
@@ -308,9 +356,25 @@ class AuditTrailService:
             "distinct_actors": distinct_actors,
             "verdict": verdict,
             "tamper_evident": tamper_evident,
+            # Explicit coverage semantics: what this check DID and DID NOT
+            # look at, machine-readable so no UI can imply a full-history
+            # guarantee that a window sample cannot give.
+            "coverage": {
+                "mode": "window_sample",
+                "window_days": window_days,
+                "sample_limit": sample_limit,
+                "sampled_rows": len(rows),
+                "rows_in_window": checked,
+                "window_anchored_to_predecessor": expected_prev is not None,
+                "full_history": False,
+                "full_history_procedure": "backend/scripts/verify_audit_chain.py "
+                                          "(deliberate offline run; never per-request)",
+            },
             "chain": {
                 "chained_rows": chained_rows,
                 "unchained_rows": chain["unchained_rows"],
+                "first_chained_row_id": min_chained_id,
+                "bypass_suspected_rows": bypass_suspected_rows,
                 "breaks": chain["breaks"][:50],
                 "head_hash": chain["head_hash"],
                 "key_version": chain["key_version"],

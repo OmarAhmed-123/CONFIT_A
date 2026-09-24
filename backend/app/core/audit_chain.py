@@ -43,6 +43,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import os
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -81,16 +82,40 @@ def active_key_version() -> int:
     return int(getattr(settings, "AUDIT_CHAIN_KEY_VERSION", 1) or 1)
 
 
+class AuditKeyUnavailableError(LookupError):
+    """No key material exists for a requested ``chain_key_version``.
+
+    Raised instead of silently falling back to the wrong key: a row whose
+    key cannot be resolved must be reported as *unverifiable*, never as
+    intact (fail closed).
+    """
+
+
 def resolve_key(key_version: Optional[int]) -> bytes:
     """Key bytes for a given ``chain_key_version``.
 
-    Today one active version exists; on rotation, add the retired key here
-    (e.g. ``AUDIT_HMAC_KEY_V1``) so historical rows stay verifiable.
+    * ``key_version`` equal to the ACTIVE version (or ``None`` for new rows)
+      resolves to ``AUDIT_HMAC_KEY`` (or the derived dev/test fallback).
+    * A RETIRED version ``n`` resolves ONLY from the explicit environment
+      variable ``AUDIT_HMAC_KEY_V{n}`` — there is deliberately no fallback,
+      so a missing retired key makes verification fail closed rather than
+      quietly verifying old rows with the wrong key.
+
+    Rotation runbook: docs/ADMIN_GOVERNANCE_AUDIT_OPERATIONS.md.
     """
-    configured = getattr(settings, "AUDIT_HMAC_KEY", None)
-    if configured:
-        return str(configured).encode("utf-8")
-    return _derived_fallback_key()
+    version = int(key_version) if key_version is not None else active_key_version()
+    if version == active_key_version():
+        configured = getattr(settings, "AUDIT_HMAC_KEY", None)
+        if configured:
+            return str(configured).encode("utf-8")
+        return _derived_fallback_key()
+    retired = os.environ.get(f"AUDIT_HMAC_KEY_V{version}")
+    if retired:
+        return retired.encode("utf-8")
+    raise AuditKeyUnavailableError(
+        f"no key material for retired chain_key_version={version}: "
+        f"set AUDIT_HMAC_KEY_V{version} (see key lifecycle runbook)"
+    )
 
 
 def _norm(value: Any) -> str:
@@ -180,6 +205,20 @@ def chain_before_insert(mapper, connection, target) -> None:
     current head sees rows already flushed in this transaction, and the
     advisory lock (PostgreSQL) serialises concurrent appenders until commit.
     """
+    # Canonical v1 joins fields with \x1f, which is only unambiguous if the
+    # separator can never appear INSIDE a field. json.dumps escapes control
+    # characters, but free-text columns (notably ip_address, which can be
+    # influenced by X-Forwarded-For) could smuggle a raw \x1f and craft two
+    # different rows with identical canonical bytes. Enforce the invariant
+    # at the single write path: no stored field ever contains the separator.
+    for field in (
+        "action", "resource_type", "resource_id", "ip_address",
+        "details_json", "before_json", "after_json", "request_id",
+    ):
+        value = getattr(target, field, None)
+        if isinstance(value, str) and _FIELD_SEPARATOR in value:
+            setattr(target, field, value.replace(_FIELD_SEPARATOR, "\\u001f"))
+
     # The ORM column default for ``timestamp`` resolves at statement-compile
     # time — after this listener — so pin it here to include it in the HMAC.
     if target.timestamp is None:
@@ -239,9 +278,14 @@ def verify_chain(rows: List[Any], *, expected_prev: Optional[str] = None) -> Dic
 
     for row in rows:
         if row.entry_hash is None or row.prev_hash is None:
-            # Row predates the chain migration and was never backfilled.
+            # Row was never chained (legacy pre-migration row, or a write
+            # that bypassed the mapper listener — the caller classifies
+            # which; see AuditService.verify_integrity). Unchained rows do
+            # NOT advance the chain head, so ``prev`` is deliberately kept:
+            # the next chained row must still link to the last chained
+            # entry_hash, otherwise an attacker could hide a deletion by
+            # interleaving an unchained row.
             unchained += 1
-            prev = None  # linkage cannot be asserted across an unchained gap
             continue
         if prev is not None and row.prev_hash != prev:
             breaks.append(
@@ -253,7 +297,19 @@ def verify_chain(rows: List[Any], *, expected_prev: Optional[str] = None) -> Dic
                               "reordered at or before this point.",
                 }
             )
-        key = resolve_key(row.chain_key_version)
+        try:
+            key = resolve_key(row.chain_key_version)
+        except AuditKeyUnavailableError as exc:
+            # Fail closed: a row we cannot check is a finding, not a pass.
+            breaks.append(
+                {
+                    "row_id": row.id,
+                    "issue": "key_unavailable",
+                    "detail": str(exc),
+                }
+            )
+            prev = row.entry_hash
+            continue
         recomputed = entry_hash_for_row(row, row.prev_hash, key)
         if not hmac.compare_digest(recomputed, row.entry_hash):
             breaks.append(

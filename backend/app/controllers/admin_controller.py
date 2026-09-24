@@ -28,7 +28,8 @@ def _request_id(request: Request) -> str:
 
 def _audit_admin(request: Request, db: Session, user: User, action: str,
                  resource_type: str, resource_id: str,
-                 before: Dict[str, Any], after: Dict[str, Any]) -> None:
+                 before: Dict[str, Any], after: Dict[str, Any],
+                 commit: bool = True) -> None:
     """ADMIN-01: every state-changing admin action is audited with the actor,
     action, resource, full before/after state (secret-free field subset), the
     actor's address and the request correlation id.
@@ -36,6 +37,11 @@ def _audit_admin(request: Request, db: Session, user: User, action: str,
     The client address was missing entirely until G-05: ``ip_address`` was
     never passed, so the column was NULL for every admin action and the trail
     could not answer "from where".
+
+    P2 atomicity (2026-09-22 audit): pass ``commit=False`` after a service
+    call that also deferred its commit — the endpoint then issues ONE commit
+    for mutation + audit row, so a privileged change can never persist
+    without its trail entry (and vice versa).
     """
     UserRepository(db).log_audit(
         action=action,
@@ -46,6 +52,7 @@ def _audit_admin(request: Request, db: Session, user: User, action: str,
         request_id=_request_id(request),
         before=before,
         after=after,
+        commit=commit,
     )
 
 
@@ -87,9 +94,14 @@ def transition_order_status(
     service = CommerceService(db)
     current = service.get_order(order_number)  # 404 if unknown — before mutation
     before = {"status": current.get("status"), "payment_status": current.get("payment_status")}
-    result = service.transition_order(order_number, payload.new_status)
+    # P2 atomicity: the transition and its audit row share ONE transaction —
+    # commit=False everywhere, then a single COMMIT below. A crash between
+    # the two leaves neither, never a mutation without its trail entry.
+    result = service.transition_order(order_number, payload.new_status, commit=False)
     after = {"status": result.get("status"), "payment_status": result.get("payment_status")}
-    _audit_admin(request, db, user, "ADMIN_ORDER_TRANSITION", "Order", order_number, before, after)
+    _audit_admin(request, db, user, "ADMIN_ORDER_TRANSITION", "Order", order_number,
+                 before, after, commit=False)
+    db.commit()
     return result
 
 
@@ -109,9 +121,12 @@ def capture_order_payment(
     service = CommerceService(db)
     current = service.get_order(order_number)
     before = {"status": current.get("status"), "payment_status": current.get("payment_status")}
-    result = service.capture_demo_payment(order_number)
+    # P2 atomicity: capture + audit row commit together (see transition above).
+    result = service.capture_demo_payment(order_number, commit=False)
     after = {"status": result.get("status"), "payment_status": result.get("payment_status")}
-    _audit_admin(request, db, user, "ADMIN_DEMO_CAPTURE", "Order", order_number, before, after)
+    _audit_admin(request, db, user, "ADMIN_DEMO_CAPTURE", "Order", order_number,
+                 before, after, commit=False)
+    db.commit()
     return result
 
 
@@ -334,15 +349,22 @@ def get_audit_integrity(
     user: User = Depends(require_role([UserRole.ADMIN])),
     db: Session = Depends(get_db),
 ):
-    """Structural self-check with concrete violations and stated limits.
+    """Structural self-check + hash-chain verification, with stated limits.
 
-    Reports ``tamper_evident: false`` honestly: ``audit_logs`` has no persisted
-    hash chain, so this endpoint verifies the invariants the write path
-    guarantees (required columns populated, actor resolvable, no unredacted
-    secrets) and explicitly refuses to claim more than that.
+    Since migration 0020 every audit insert carries an HMAC-SHA256 hash chain
+    (core/audit_chain.py), and this endpoint RECOMPUTES it over the sampled
+    window: a modified row fails its own HMAC, a deleted/reordered row breaks
+    its successor's link. ``tamper_evident`` is computed from that
+    verification — never asserted from configuration — and the residual
+    limits (key compromise, tail truncation across runs, pre-migration rows)
+    are named in ``limitations``.
     """
-    result = AuditTrailService(db).integrity(window_days=window_days)
+    result = AuditTrailService(db).integrity(
+        window_days=window_days, actor_id=user.id, request_id=_request_id(request)
+    )
     _audit_read(request, db, user, "ADMIN_AUDIT_INTEGRITY_CHECK", "AuditLog",
-                {"window_days": window_days, "verdict": result["verdict"]})
+                {"window_days": window_days, "verdict": result["verdict"],
+                 "tamper_evident": result["tamper_evident"],
+                 "truncation": result["truncation_check"]["verdict"]})
     return result
 

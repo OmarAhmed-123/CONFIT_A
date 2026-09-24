@@ -777,6 +777,15 @@
     "saved": "Measurements saved to your profile.",
     "girths_estimate_note": "Height and weight alone can only estimate your girths."
   },
+  "admin_readiness": {
+    "blocked_tag": "Not production-ready",
+    "blocked_title": "A core capability is blocked — the platform is not fully operational",
+    "blocked_body": "This verdict comes from the same capability registry the services read (/health). The metrics below remain real, but they describe a platform that cannot currently deliver every advertised capability.",
+    "blocking_label": "Blocking:",
+    "degraded_label": "Degraded:",
+    "unknown_body": "Readiness unknown — the health endpoint could not be reached. This banner never assumes green; retry or check /api/v1/health directly.",
+    "ready_body": "All core capabilities report ready (live verdict from /health)."
+  },
   "admin_audit": {
     "eyebrow": "Platform Governance",
     "title": "Audit Trail",
@@ -790,6 +799,7 @@
     "integrity_verdict": "verdict: {{verdict}}",
     "integrity_counts": "{{rows}} rows · {{actors}} actors · {{beforeAfter}} with before/after · {{requestId}} with request-id · {{ip}} with client IP",
     "integrity_tamper": "tamper_evident: {{value}} — {{note}}",
+    "integrity_chain": "hash chain: {{chained}} chained · {{unchained}} pre-migration (unchained) · {{breaks}} breaks · key v{{keyVersion}}",
     "filters_aria": "Audit trail filters",
     "filters_action": "Action",
     "filters_resource_type": "Resource type",

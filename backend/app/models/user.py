@@ -117,6 +117,51 @@ class AuditLog(Base):
     after_json = Column(Text, nullable=True)
     request_id = Column(String(64), nullable=True)
     timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    # 0020: tamper-evident HMAC hash chain (P0 from the 2026-09-22 audit).
+    # prev_hash links each row to its predecessor (64-zero genesis for the
+    # first), entry_hash is HMAC-SHA256 over the canonical row content +
+    # prev_hash, chain_key_version selects the HMAC key so rotation never
+    # invalidates history. Populated by a mapper-level before_insert listener
+    # (core/audit_chain.py) so EVERY insert is chained — there is no
+    # unchained write path for a call site to forget. Nullable because rows
+    # written before 0020 legitimately predate the chain and are reported as
+    # such by the integrity endpoint, never silently re-signed.
+    prev_hash = Column(String(64), nullable=True)
+    entry_hash = Column(String(64), nullable=True, index=True)
+    chain_key_version = Column(Integer, nullable=True)
+
+
+class AuditVerificationRun(Base):
+    """One immutable record per integrity-check run (migration 0021).
+
+    Closes the tail-truncation limit stated by 0020: each run persists the
+    global chain head it observed; the next run asserts that head still
+    exists in ``audit_logs``. If the newest rows were deleted, the recorded
+    head is gone and the truncation surfaces as a concrete violation instead
+    of remaining invisible to single-run verification.
+
+    Append-only by application policy: no update or delete path exists in
+    the codebase, and the run itself is announced by a chained
+    ``ADMIN_AUDIT_INTEGRITY_CHECK`` audit row.
+    """
+    __tablename__ = "audit_verification_runs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    run_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    window_days = Column(Integer, nullable=False)
+    checked_rows = Column(Integer, nullable=False)
+    sampled_rows = Column(Integer, nullable=False)
+    chained_rows = Column(Integer, nullable=False)
+    unchained_rows = Column(Integer, nullable=False)
+    break_count = Column(Integer, nullable=False)
+    verdict = Column(String(32), nullable=False)
+    tamper_evident = Column(Boolean, nullable=False)
+    head_hash = Column(String(64), nullable=True)
+    head_row_id = Column(Integer, nullable=True)
+    key_version = Column(Integer, nullable=False)
+    canonical_version = Column(Integer, nullable=False)
+    triggered_by_user_id = Column(Integer, nullable=True)
+    request_id = Column(String(64), nullable=True)
 
 
 class RefreshToken(Base):
@@ -185,3 +230,14 @@ class MFABackupCode(Base):
 
 
 Index("ix_refresh_tokens_user_active", RefreshToken.user_id, RefreshToken.revoked_at)
+
+
+# --- Tamper-evident audit chain: single enforcement point -------------------
+# Registered on the mapper (not in any repository) so every AuditLog insert —
+# UserRepository.log_audit, partner_lead_service, brand_catalog_service, and
+# any future call site — is chained. See core/audit_chain.py for the design
+# and its stated limits.
+from sqlalchemy import event as _sa_event  # noqa: E402
+from backend.app.core.audit_chain import chain_before_insert as _chain_before_insert  # noqa: E402
+
+_sa_event.listen(AuditLog, "before_insert", _chain_before_insert)

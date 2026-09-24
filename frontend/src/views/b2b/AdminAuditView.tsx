@@ -176,12 +176,32 @@ export const AdminAuditView: React.FC = () => {
               })}
             </span>
           </div>
-          <p className="mt-2 text-[11px] text-amber-300/90">
+          <p
+            className={`mt-2 text-[11px] ${
+              integrity.tamper_evident ? 'text-emerald-300/90' : 'text-amber-300/90'
+            }`}
+          >
             {t('admin_audit.integrity_tamper', {
               value: String(integrity.tamper_evident),
               note: integrity.limitations[0] ?? '',
             })}
           </p>
+          {integrity.chain && (
+            <p className="mt-1 font-mono text-[10px] text-slate-400">
+              {t('admin_audit.integrity_chain', {
+                chained: integrity.chain.chained_rows,
+                unchained: integrity.chain.unchained_rows,
+                breaks: integrity.chain.breaks.length,
+                keyVersion: integrity.chain.key_version,
+              })}
+              {integrity.chain.head_hash && (
+                <span className="text-slate-500">
+                  {' '}
+                  · head {integrity.chain.head_hash.slice(0, 16)}…
+                </span>
+              )}
+            </p>
+          )}
           {integrity.violations.length > 0 && (
             <ul className="mt-2 space-y-1 text-[11px] text-rose-300">
               {integrity.violations.slice(0, 5).map((violation, index) => (

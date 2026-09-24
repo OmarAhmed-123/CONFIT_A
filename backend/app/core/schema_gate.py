@@ -113,8 +113,11 @@ REQUIRED_TABLES: tuple[str, ...] = (
     "checkout_sessions",      # 0009
     "brand_analytics_events",  # 0010 — /brand/analytics, /admin/analytics
     "catalog_import_jobs",    # 0010
-    "sponsored_placements",   # /brand/placements
+    "sponsored_placements",    # /brand/placements
     "migration_audit_log",    # 0013
+    # 0021 — cross-run tail-truncation anchor for the audit chain. Without
+    # it the integrity endpoint crashes, so absence is blocking drift.
+    "audit_verification_runs",
 )
 
 # Tables created by a migration only (no ORM model): a create_all database
@@ -140,6 +143,11 @@ REQUIRED_COLUMNS: Dict[str, tuple[str, ...]] = {
     # Without these the public-look endpoint cannot enforce revocation, so a
     # drifted DB would silently serve permanently-live share links.
     "outfits": ("share_expires_at", "share_revoked_at", "share_view_count", "updated_at"),
+    # 0020 — tamper-evident audit hash chain. Without these columns the
+    # mapper-level before_insert listener would crash EVERY audit write
+    # (and with it every audited business action), so their absence is a
+    # blocking drift, not a degraded feature.
+    "audit_logs": ("prev_hash", "entry_hash", "chain_key_version"),
 }
 
 

@@ -40,6 +40,9 @@ GOOD_PROD_ENV = {
     "SECRET_KEY": "x" * 48,
     "JWT_REFRESH_SECRET": "y" * 48,
     "ENCRYPTION_KEY_FOR_BODY_DATA": "z" * 48,
+    # 0020: dedicated audit-chain HMAC key — required in production, must
+    # differ from SECRET_KEY (key separation for tamper evidence).
+    "AUDIT_HMAC_KEY": "a" * 48,
 }
 
 
@@ -72,6 +75,20 @@ class TestProductionSettingsContract:
     def test_short_secret_refused(self, field):
         with pytest.raises(ValidationError, match="shorter than"):
             _settings(**{field: "short"})
+
+    def test_missing_audit_hmac_key_refused_in_production(self):
+        """0020: the tamper-evidence claim is void without a dedicated key,
+        so production refuses to boot rather than claim it falsely."""
+        with pytest.raises(ValidationError, match="AUDIT_HMAC_KEY is required"):
+            _settings(AUDIT_HMAC_KEY="")
+
+    def test_audit_hmac_key_must_differ_from_jwt_secret(self):
+        with pytest.raises(ValidationError, match="must differ from SECRET_KEY"):
+            _settings(AUDIT_HMAC_KEY=GOOD_PROD_ENV["SECRET_KEY"])
+
+    def test_short_audit_hmac_key_refused(self):
+        with pytest.raises(ValidationError, match="AUDIT_HMAC_KEY is shorter"):
+            _settings(AUDIT_HMAC_KEY="short")
 
     def test_published_compose_and_docs_values_are_in_the_blocklist(self):
         """The two values that were committed to docker-compose.yml / docs in

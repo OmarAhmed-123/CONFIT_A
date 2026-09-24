@@ -522,7 +522,7 @@ def test_migration_0015_round_trip_and_unique_lineage() -> None:
         os.unlink(path)
 
 
-def test_migration_chain_has_a_single_head_at_0019() -> None:
+def test_migration_chain_has_a_single_head_at_0021() -> None:
     from backend.app.core.schema_gate import expected_head_revision, migration_chain
 
     chain = migration_chain()
@@ -532,7 +532,11 @@ def test_migration_chain_has_a_single_head_at_0019() -> None:
     # The chain must stay linear with exactly one head, and the head must only
     # ever move consciously: 0015 -> 0016 (VTON temporary delivery) -> 0017
     # (audit before/after) -> 0018 (OUTFIT-01 outfit share lifecycle) ->
-    # 0019 (brand-portal tenant integrity + ad billing ledger).
-    assert expected_head_revision() == "0019_brand_tenant_integrity_and_ad_ledger"
+    # 0019 (brand-portal tenant integrity + ad billing ledger) -> 0020
+    # (tamper-evident audit hash chain — P0 closure, 2026-09-22 audit) ->
+    # 0021 (persisted verification runs: cross-run tail-truncation anchor).
+    assert expected_head_revision() == "0021_audit_verification_runs"
+    assert chain["0021_audit_verification_runs"] == "0020_audit_hash_chain"
+    assert chain["0020_audit_hash_chain"] == "0019_brand_tenant_integrity_and_ad_ledger"
     assert chain["0019_brand_tenant_integrity_and_ad_ledger"] == "0018_outfit_share_lifecycle"
     assert "0015_wardrobe_purchase_lineage" in chain.values()

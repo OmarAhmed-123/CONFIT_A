@@ -64,6 +64,7 @@ class UserRepository:
         before: Optional[dict] = None,
         after: Optional[dict] = None,
         request_id: Optional[str] = None,
+        commit: bool = True,
     ):
         """Persist a security-relevant audit event.
 
@@ -100,5 +101,13 @@ class UserRepository:
             request_id=request_id,
         )
         self.db.add(log)
-        self.db.commit()
+        # P2 atomicity (2026-09-22 audit): callers that mutate business state
+        # in the SAME session pass commit=False so the mutation and its audit
+        # row commit together — either both persist or neither does. The
+        # default (True) keeps standalone audit events (logins, reads)
+        # self-contained.
+        if commit:
+            self.db.commit()
+        else:
+            self.db.flush()
         return _hits + _h2 + _h3

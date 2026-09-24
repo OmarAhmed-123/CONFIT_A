@@ -777,6 +777,15 @@
     "saved": "تم حفظ القياسات في ملفك.",
     "girths_estimate_note": "الطول والوزن وحدهما لا يعطيان إلا تقديراً للمحيطات."
   },
+  "admin_readiness": {
+    "blocked_tag": "غير جاهز للإنتاج",
+    "blocked_title": "قدرة أساسية معطّلة — المنصة ليست جاهزة بالكامل",
+    "blocked_body": "هذا الحكم صادر من نفس سجل القدرات الذي تقرأه الخدمات (/health). الأرقام أدناه حقيقية، لكنها تصف منصة لا تستطيع حاليًا تقديم كل القدرات المعلنة.",
+    "blocking_label": "معطّل:",
+    "degraded_label": "متدهور:",
+    "unknown_body": "الجاهزية غير معروفة — تعذّر الوصول إلى نقطة الفحص الصحي. هذا الشريط لا يفترض الجاهزية أبدًا؛ أعد المحاولة أو افحص /api/v1/health مباشرة.",
+    "ready_body": "كل القدرات الأساسية تُبلغ بأنها جاهزة (حكم حي من /health)."
+  },
   "admin_audit": {
     "eyebrow": "حوكمة المنصة",
     "title": "سجل التدقيق",
@@ -790,6 +799,7 @@
     "integrity_verdict": "النتيجة: {{verdict}}",
     "integrity_counts": "{{rows}} سطر · {{actors}} فاعل · {{beforeAfter}} بقبل/بعد · {{requestId}} بمعرّف الطلب · {{ip}} بعنوان العميل",
     "integrity_tamper": "مقاومة العبث (tamper_evident): {{value}} — {{note}}",
+    "integrity_chain": "سلسلة التجزئة: {{chained}} مسلسل · {{unchained}} قبل الترحيل (غير مسلسل) · {{breaks}} كسور · مفتاح v{{keyVersion}}",
     "filters_aria": "عوامل تصفية سجل التدقيق",
     "filters_action": "الإجراء",
     "filters_resource_type": "نوع المورد",

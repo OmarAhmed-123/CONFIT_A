@@ -11,14 +11,17 @@ Honest scope of the control
 Where the counters live is now a **configured decision with a reported answer**,
 not a silent property:
 
-* ``RATE_LIMIT_STORAGE_URL`` unset (the state of this deployment, and the
-  default) -> the in-process store. On serverless each warm instance keeps its
+* ``RATE_LIMIT_STORAGE_URL`` unset and no operator-provided ``REDIS_URL`` ->
+  the in-process store. On serverless each warm instance keeps its
   own counters, so the limiter bounds *per-client bursts against one instance*
   and is **not** a global quota. ``rate_limit_store_report()`` says exactly that
   and ``/health`` publishes it, so nobody has to read this docstring to find out
   which of the two they are running.
 * set to a real ``redis://`` / ``rediss://`` endpoint -> counters are shared by
-  every instance, and the report says the quota is global.
+  every instance, and the report says the quota is global. When it is unset, an
+  operator-provided ``REDIS_URL`` is used instead — see
+  ``configured_storage_uri`` for why that fallback exists and what it refuses to
+  treat as configuration.
 
 Degradation is explicit rather than fatal: when a shared store is configured but
 unreachable, the limiter falls back to the in-process store (``swallow_errors``
@@ -44,6 +47,7 @@ credential taking precedence.
 """
 
 import hashlib
+import os
 import time
 from typing import Any, Dict, Optional
 
@@ -156,17 +160,51 @@ MEMORY_STORE = "memory://"
 SHARED_STORE_SCHEMES = ("redis://", "rediss://", "unix://", "memcached://", "mongodb://")
 
 
-def configured_storage_uri() -> str:
+def configured_storage_uri(source: Optional[Dict[str, str]] = None) -> str:
     """The store this deployment is configured to use. Never synthesised.
 
-    Unset/blank -> ``memory://`` (the in-process store). A value that is not a
-    recognised shared scheme is honoured verbatim by ``limits`` and reported as
-    an unknown store rather than being quietly rewritten into something that
-    looks global.
+    Resolution order, and why there is more than one step:
+
+      1. ``RATE_LIMIT_STORAGE_URL`` — the explicit switch. Nothing overrides it.
+      2. ``REDIS_URL`` **as provided by the operator in the environment** — the
+         endpoint this deployment already runs (Celery broker, wardrobe cache).
+         MEASURED 2026-09-24 against the live project: ``REDIS_URL`` exists for the
+         ``production`` and ``preview`` targets while ``RATE_LIMIT_STORAGE_URL``
+         exists in no target, so the deployment had a shared endpoint and the
+         limiter was not using it. The variable is marked *sensitive* and the API
+         will not return its value, so the honest fix is not to copy the secret
+         around but to have the application read the variable it already has.
+         Only the ENVIRONMENT is consulted here, never the code default: the
+         settings model gives ``REDIS_URL`` a loopback address on the standard
+         Redis port, and treating that default as "configured" would make every
+         serverless instance dial the loopback address of its own container on
+         every limited request — a pointless failure dressed up as a global
+         quota. (The parity guard that keeps developer-machine addresses out of
+         this package flagged the first wording of this comment, which is the
+         guard doing its job.)
+      3. otherwise ``memory://`` (in-process, per-instance), reported as such.
+
+    A value that is not a recognised shared scheme is honoured verbatim by
+    ``limits`` and reported as an unknown store rather than being quietly
+    rewritten into something that looks global. ``source``, when passed a dict,
+    receives where the answer came from so the report can say it.
     """
     raw = getattr(settings, "RATE_LIMIT_STORAGE_URL", None)
-    uri = (raw or "").strip()
-    return uri or MEMORY_STORE
+    explicit = (raw or "").strip()
+    if explicit:
+        if source is not None:
+            source["from"] = "RATE_LIMIT_STORAGE_URL"
+        return explicit
+
+    env_redis = (os.environ.get("REDIS_URL") or "").strip()
+    if env_redis and is_shared_store(env_redis):
+        if source is not None:
+            source["from"] = "REDIS_URL (operator-provided in the environment)"
+        return env_redis
+
+    if source is not None:
+        source["from"] = "default (in-process counters)"
+    return MEMORY_STORE
 
 
 def is_shared_store(uri: str) -> bool:
@@ -217,19 +255,23 @@ def rate_limit_store_report(storage_uri: Optional[str] = None) -> Dict[str, Any]
     shopper's business, and publishing it would be topology disclosure for no
     consumer benefit.
     """
-    uri = storage_uri if storage_uri is not None else configured_storage_uri()
+    source: Dict[str, str] = {}
+    uri = storage_uri if storage_uri is not None else configured_storage_uri(source)
     shared = is_shared_store(uri)
+    origin = source.get("from", "explicit argument" if storage_uri is not None else "unknown")
     if shared:
         scheme = uri.split("://", 1)[0]
         return {
             "store": scheme,
             "shared_across_instances": True,
+            "configured_from": origin,
             "quota_semantics": "global: every instance counts against one quota",
             "on_store_failure": "degrades to in-process counters (per-instance) and reports it",
         }
     return {
         "store": "memory" if uri == MEMORY_STORE else uri.split("://", 1)[0],
         "shared_across_instances": False,
+        "configured_from": origin,
         "quota_semantics": (
             "per-instance: bounds a client's burst against one warm instance; "
             "it is NOT a global quota"

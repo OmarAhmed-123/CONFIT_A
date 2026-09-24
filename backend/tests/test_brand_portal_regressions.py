@@ -26,10 +26,15 @@ def portal():
         if target.host not in ('localhost', '127.0.0.1'):
             raise RuntimeError('Portal regression DB must be a local throwaway PostgreSQL service')
         schema = 'portal_test_' + uuid.uuid4().hex
-        admin_engine = create_engine(pg_url)
+        # Same URL rule the application uses: a bare `postgresql://` no longer means
+        # psycopg2 under SQLAlchemy 2.1, and this fixture must not be the one place
+        # that disagrees with production about which driver opens the database.
+        from backend.app.core.postgres_url import normalise_postgres_url
+        pg_url, pg_connect_args = normalise_postgres_url(pg_url)
+        admin_engine = create_engine(pg_url, connect_args=pg_connect_args)
         with admin_engine.begin() as conn:
             conn.execute(text(f'CREATE SCHEMA {schema}'))
-        engine = create_engine(pg_url, connect_args={'options': f'-csearch_path={schema}'})
+        engine = create_engine(pg_url, connect_args={**pg_connect_args, 'options': f'-csearch_path={schema}'})
     else:
         engine = create_engine('sqlite://', connect_args={'check_same_thread': False}, poolclass=StaticPool)
     Base.metadata.create_all(engine)

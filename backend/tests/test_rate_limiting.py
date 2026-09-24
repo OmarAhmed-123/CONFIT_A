@@ -213,3 +213,48 @@ def test_429_carries_a_machine_code_and_a_retry_delay(limiter_on):
     assert details.get("retry_after_seconds") is not None, payload
     # Both channels must agree — two different numbers would be worse than one.
     assert abs(int(details["retry_after_seconds"]) - int(retry_after)) <= 1, (details, retry_after)
+
+
+def test_aliases_and_prefixes_share_one_bucket(limiter_on):
+    """One logical route must have ONE allowance, whatever spelling reaches it.
+
+    Measured 2026-09-23 in production before this test existed: after exhausting
+    ``/api/v1/orders/{n}`` (30 × 404 then 429), ``/api/v1/commerce/orders/{n}``
+    still answered 404 — processed, not throttled — with the same client identity
+    in the same minute, because slowapi's default ``key_style="url"`` buckets by
+    the URL string rather than by the endpoint. The same call reached the router
+    under three prefixes locally, giving six buckets for one limit.
+
+    The limit exists to bound enumeration of order numbers, so an allowance that
+    multiplies with the number of spellings is not the control it claims to be.
+    """
+    import json as _json
+    import urllib.request as _req
+    import urllib.error as _err
+
+    # TestClient + the limiter share one in-process store, but TestClient requests
+    # all carry the same address, so the bucket identity is stable across calls.
+    statuses = []
+    for _ in range(31):
+        r = client.get("/api/v1/orders/CONF-00000000")
+        statuses.append(r.status_code)
+    assert 429 in statuses, f"the detail limit never fired: {statuses}"
+
+    # The alias must now be throttled by the SAME counter…
+    alias = client.get("/api/v1/commerce/orders/CONF-00000000")
+    assert alias.status_code == 429, (
+        "the /commerce alias has its own bucket — the 30/minute bound is bypassable "
+        f"by changing spelling: {alias.status_code}"
+    )
+    # …and the same must hold for the other mounted prefix if this router serves it.
+    for prefix in ("/v1", ""):
+        st = client.get(f"{prefix}/orders/CONF-00000000").status_code
+        assert st in (429, 404), f"{prefix}/orders unexpectedly {st}"
+        if st == 404:
+            # A 404 before the limit is exhausted would mean a separate bucket again.
+            # It can only be correct here if this prefix is not served at all, which
+            # the body distinguishes: a served route answers with the domain code.
+            body = client.get(f"{prefix}/orders/CONF-00000000").json()
+            assert body.get("detail") == "Not Found", (
+                f"{prefix}/orders is served but was not throttled: {body}"
+            )

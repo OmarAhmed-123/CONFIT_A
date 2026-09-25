@@ -72,3 +72,74 @@ describe('every mapped error code resolves to localized copy', () => {
       .toBe('Server said no.');
   });
 });
+
+// ── 2026-09-24: the transport string that reached an Arabic shopper ──────────
+//
+// MEASURED: with no server-supplied message, `apiClient` sets
+// `message = "Request failed with status 500"` and `code = "HTTP_ERROR"`. That code
+// had no mapping, so the stylist drawer rendered the transport string verbatim —
+// English, with an HTTP status code, in the Arabic interface. These tests pin the
+// mapping and the retryability decision that goes with it.
+import { apiErrorDescriptor, isRetryable, NON_RETRYABLE_CODES } from '../apiErrors';
+
+describe('HTTP_ERROR is localized rather than shown as a status line', () => {
+  const httpError = { code: 'HTTP_ERROR', message: 'Request failed with status 500', status: 500 };
+
+  it('maps to a real sentence in both locales', () => {
+    const descriptor = apiErrorDescriptor(httpError);
+    expect(descriptor.key).toBe('errors.request_failed');
+    const leaf = descriptor.key.split('.').slice(1);
+    expect((en.errors as any)[leaf[0]]).toBeTruthy();
+    expect((ar.errors as any)[leaf[0]]).toBeTruthy();
+  });
+
+  it('never carries the transport string into the descriptor', () => {
+    const descriptor = apiErrorDescriptor(httpError);
+    expect(JSON.stringify(descriptor)).not.toMatch(/500|status/i);
+  });
+
+  it('is not the generic key, so the shopper is not told "something went wrong"', () => {
+    expect(apiErrorDescriptor(httpError).key).not.toBe('errors.generic');
+  });
+});
+
+describe('an unknown code still localizes', () => {
+  it('a code with no mapping falls back to the request-failed sentence, not to the server wording', () => {
+    const descriptor = apiErrorDescriptor({ code: 'SOME_NEW_CODE', message: 'internal detail: table xyz' });
+    expect(descriptor.key).toBe('errors.request_failed');
+    expect(JSON.stringify(descriptor)).not.toMatch(/xyz/);
+  });
+
+  it('a mapped code keeps its specific sentence', () => {
+    expect(apiErrorDescriptor({ code: 'INSUFFICIENT_STOCK' }).key).toBe('errors.insufficient_stock');
+  });
+
+  it('every mapped key exists in both locales (no key path can render)', () => {
+    for (const key of Object.values(API_ERROR_KEYS)) {
+      const [section, leaf] = key.split('.');
+      expect((en as any)[section]?.[leaf]).toBeTruthy();
+      expect((ar as any)[section]?.[leaf]).toBeTruthy();
+    }
+  });
+});
+
+describe('retryability is decided, not assumed', () => {
+  it('a validation rejection is not retryable', () => {
+    expect(isRetryable({ code: 'VALIDATION_ERROR', status: 422 })).toBe(false);
+  });
+
+  it('a transient failure is retryable', () => {
+    expect(isRetryable({ code: 'HTTP_ERROR', status: 500 })).toBe(true);
+    expect(isRetryable({ code: 'NETWORK_ERROR', status: 0 })).toBe(true);
+    expect(isRetryable({ code: 'REQUEST_TIMEOUT', status: 0 })).toBe(true);
+  });
+
+  it('every non-retryable code has a localized sentence (no dead-end with a raw message)', () => {
+    for (const code of NON_RETRYABLE_CODES) {
+      const key = API_ERROR_KEYS[code];
+      expect(key).toBeTruthy();
+      const [section, leaf] = key.split('.');
+      expect((ar as any)[section]?.[leaf]).toBeTruthy();
+    }
+  });
+});

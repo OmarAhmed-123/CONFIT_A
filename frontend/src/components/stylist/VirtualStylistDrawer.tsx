@@ -66,6 +66,7 @@ export const VirtualStylistDrawer: React.FC = () => {
     isTyping,
     isRecording,
     error,
+    errorRetryable,
     sendPrompt,
     startVoiceInput,
     addCompleteLookToCart,
@@ -489,12 +490,16 @@ export const VirtualStylistDrawer: React.FC = () => {
             <div className="px-4 pt-3">
               <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-2xl text-xs text-rose-700 flex justify-between items-center">
                 <span>{resolveMessage(error, t)}</span>
-                <button
-                  onClick={() => sendPrompt()}
-                  className="text-xs font-bold underline ml-2"
-                >
-                  {t("stylist.retry")}
-                </button>
+                {/* Retry only where retrying can change the outcome: a validation
+                    rejection cannot be fixed by pressing the same button again. */}
+                {errorRetryable && (
+                  <button
+                    onClick={() => sendPrompt()}
+                    className="text-xs font-bold underline ml-2"
+                  >
+                    {t("stylist.retry")}
+                  </button>
+                )}
               </div>
             </div>
           )}

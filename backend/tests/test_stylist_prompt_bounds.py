@@ -87,6 +87,44 @@ def test_an_empty_prompt_is_refused():
         StylistPromptRequest(prompt="")
 
 
+# ── §22: the explicit input matrix ───────────────────────────────────────────
+
+@pytest.mark.parametrize("label,value", [
+    ("one character", "a"),
+    ("one Arabic letter", "أ"),
+    ("emoji only", "👗👠"),
+    ("Arabic and English mixed", "أريد look للعمل navy blazer"),
+    ("repeated characters", "x" * 1999),
+    ("punctuation only", "?!..."),
+    ("newlines and tabs", "work\noutfit\tplease"),
+])
+def test_these_are_accepted(label, value):
+    assert StylistPromptRequest(prompt=value).prompt
+
+
+@pytest.mark.parametrize("label,value", [
+    ("empty", ""),
+    ("single space", " "),
+    ("whitespace only", "   \t\n  "),
+])
+def test_these_are_refused(label, value):
+    import pydantic
+    with pytest.raises(pydantic.ValidationError):
+        StylistPromptRequest(prompt=value)
+
+
+def test_surrounding_whitespace_is_trimmed_not_counted():
+    """A prompt of 2000 characters plus padding must not be refused for the padding."""
+    padded = "  " + ("x" * STYLIST_PROMPT_MAX_CHARS) + "\n\n"
+    assert StylistPromptRequest(prompt=padded).prompt == "x" * STYLIST_PROMPT_MAX_CHARS
+
+
+def test_a_very_large_payload_is_refused_by_the_schema(client):
+    """1 MB of input: refused at validation, before the parser, the provider or the DB."""
+    res = _chat(client, "x" * 1_000_000)
+    assert res.status_code == 422, res.status_code
+
+
 # ── the property that matters over HTTP: a refused request spends nothing ─────
 
 def test_an_over_long_prompt_is_refused_without_writing_anything(client, db_session):

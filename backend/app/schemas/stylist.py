@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Optional, List, Dict, Any
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 
 
 class GuidedRecommendationConstraints(BaseModel):
@@ -57,9 +57,26 @@ class StylistPromptRequest(BaseModel):
             "Natural language request or occasion text e.g. 'I need a smart casual "
             f"outfit for an art gallery opening under $300'. Maximum "
             f"{STYLIST_PROMPT_MAX_CHARS} characters (engineering safety default; "
-            "exceeding it is rejected with 422 before any provider call)."
+            "exceeding it is rejected with 422 before any provider call). "
+            "Leading/trailing whitespace is trimmed and a whitespace-only prompt is "
+            "refused: it is not a request, and answering it would spend a provider "
+            "call on nothing."
         ),
     )
+
+    # BEFORE, not after: Pydantic applies min_length/max_length to the raw value
+    # first, so an "after" validator means 2000 characters plus padding is refused
+    # for the padding. The order is the whole point of a bound expressed in
+    # characters the user actually typed.
+    @field_validator("prompt", mode="before")
+    @classmethod
+    def _strip_and_reject_blank(cls, value):
+        if isinstance(value, str):
+            trimmed = value.strip()
+            if not trimmed:
+                raise ValueError("prompt must contain at least one non-whitespace character")
+            return trimmed
+        return value
     occasion: Optional[str] = None
     budget_limit: Optional[float] = Field(default=None, ge=0, allow_inf_nan=False)
     voice_input_used: bool = False

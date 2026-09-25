@@ -1,4 +1,5 @@
 import { msg, detail, translatableFrom, type TranslatableMessage } from '../i18n/messages';
+import { apiErrorDescriptor, isRetryable } from '../i18n/apiErrors';
 import { useState, useCallback, useRef } from "react";
 import { stylistService } from "../services/apiServices";
 import { StylistMessage, Outfit } from "../models";
@@ -29,6 +30,8 @@ export function useStylistViewModel() {
   // detail still goes to the console, where an engineer can read it and a shopper
   // never can.
   const [error, setError] = useState<TranslatableMessage | null>(null);
+  //: Whether offering "Retry" is honest for the current failure.
+  const [errorRetryable, setErrorRetryable] = useState(true);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
 
   const { addItem, openCart } = useCartStore();
@@ -70,6 +73,7 @@ export function useStylistViewModel() {
       setInputPrompt("");
       setIsTyping(true);
       setError(null);
+      setErrorRetryable(true);
 
       try {
         const response = await stylistService.chat({
@@ -85,7 +89,11 @@ export function useStylistViewModel() {
       } catch (err: any) {
         // eslint-disable-next-line no-console
         console.error("[stylist] request failed:", err?.code ?? "", err?.message ?? err);
-        setError(msg("stylist.error_unavailable"));
+        // A KNOWN code gets its own sentence; anything else gets the generic one.
+        // The technical detail goes to the console (above) so an engineer can read
+        // it and a shopper never sees a status line.
+        setError(apiErrorDescriptor(err));
+        setErrorRetryable(isRetryable(err));
         setIsTyping(false);
         showToast(msg("stylist.error_toast"), "error");
       }
@@ -202,6 +210,7 @@ export function useStylistViewModel() {
     isTyping,
     isRecording,
     error,
+    errorRetryable,
     sendPrompt,
     startVoiceInput,
     addCompleteLookToCart,

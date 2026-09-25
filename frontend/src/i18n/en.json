@@ -583,7 +583,8 @@
     "styling_rule": "The stylist could not build a valid outfit from those settings.",
     "validation": "Please review the highlighted fields and try again.",
     "readiness_malformed_object": "Readiness response is malformed: expected an object.",
-    "readiness_malformed_fields": "Readiness response is malformed: required fields are missing or invalid."
+    "readiness_malformed_fields": "Readiness response is malformed: required fields are missing or invalid.",
+    "request_failed": "The request could not be completed. Please try again."
   },
   "toast": {
     "bag_transferred": "Your bag followed you — {{count}} item(s) kept.",

@@ -210,6 +210,23 @@ def test_jaccard_and_threshold_boundaries():
     assert is_distinct({"items": [{"title": "no ids"}]}, [primary]) is False
 
 
+def test_the_same_products_in_a_different_order_are_still_the_same_outfit():
+    """§18: order is presentation, not content.
+
+    Two looks that contain the same products are the same outfit however the slots
+    are arranged — the shopper can see they are identical. A set comparison must
+    therefore be order-insensitive; a sequence comparison would publish this pair.
+    """
+    from backend.app.services.styling.diversity import is_distinct, jaccard
+
+    primary = {"product_ids": [3, 4, 6], "title": "The Essential Look"}
+    reordered = {"product_ids": [6, 3, 4], "title": "A Different-Looking Title"}
+    assert jaccard(primary["product_ids"], reordered["product_ids"]) == 1.0
+    assert not is_distinct(reordered, [primary]), (
+        "the same product set in a different order was accepted as a distinct alternative"
+    )
+
+
 def test_the_threshold_is_the_documented_value():
     assert MIN_DISTINCTNESS_OVERLAP == 0.5, (
         "the constant changed; the docstring in styling/diversity.py explains why 0.5 "

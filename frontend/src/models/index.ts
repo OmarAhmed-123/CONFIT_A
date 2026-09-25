@@ -147,6 +147,75 @@ export interface Product {
   style_compatibility_reason?: string | null;
 }
 
+export interface AdminCatalogBrandSummary {
+  id: number;
+  brand_name: string;
+  slug: string;
+  is_verified: boolean;
+  product_count: number;
+  active_product_count: number;
+  sku_count: number;
+  store_count: number;
+  placement_count: number;
+}
+
+export interface AdminCatalogProduct {
+  id: number;
+  brand_id: number;
+  brand_name: string;
+  category_id: number;
+  category_name: string;
+  category_slug: string;
+  title: string;
+  title_ar: string;
+  slug: string;
+  description: string;
+  description_ar: string;
+  base_price: number;
+  currency: string;
+  material?: string | null;
+  care_instructions?: string | null;
+  color_family: string;
+  dominant_hex?: string | null;
+  thumbnail_url: string;
+  images: string[];
+  style_tags: string[];
+  occasion_tags: string[];
+  is_featured: boolean;
+  is_active: boolean;
+  created_at: string;
+  skus: ProductSKU[];
+}
+
+export interface AdminCatalogInventoryProduct {
+  product_id: number;
+  title: string;
+  thumbnail_url: string;
+  is_active: boolean;
+  total_stock: number;
+  skus: Array<ProductSKU & {
+    store_inventories: Array<{
+      id: number;
+      store_id: number;
+      store_name: string;
+      quantity: number;
+      reserved: number;
+      available: number;
+    }>;
+  }>;
+}
+
+export interface AdminCatalogSnapshot {
+  brand: AdminCatalogBrandSummary;
+  products: AdminCatalogProduct[];
+  inventory: AdminCatalogInventoryProduct[];
+  placements: Array<Record<string, any>>;
+  stores: Array<Record<string, any>>;
+  imports: Array<Record<string, any>>;
+  categories: Array<{ id: number; name: string; name_ar: string; slug: string }>;
+  generated_at: string;
+}
+
 export interface StoreInventoryLocation {
   store_id: number;
   store_name: string;

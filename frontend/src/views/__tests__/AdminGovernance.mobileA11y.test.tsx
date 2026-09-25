@@ -62,10 +62,10 @@ describe('admin navigation at 390px', () => {
 
     const links = Array.from(nav.querySelectorAll('a'));
     expect(links.map((link) => link.textContent?.trim())).toEqual([
-      'Platform Admin', 'Platform Analytics', 'Audit Trail',
+      'Platform Admin', 'Catalog Control', 'Platform Analytics', 'Audit Trail',
     ]);
     expect(links.map((link) => link.getAttribute('href'))).toEqual([
-      '/admin', '/admin/analytics', '/admin/audit',
+      '/admin', '/admin/catalog', '/admin/analytics', '/admin/audit',
     ]);
     expect(links.every((link) => link.className.includes('shrink-0'))).toBe(true);
     expect(links.every((link) => link.className.includes('min-h-11'))).toBe(true);

@@ -19,6 +19,7 @@ const PARTNER_LINKS: NavDestination[] = [
 
 const GOVERNANCE_LINKS: NavDestination[] = [
   { href: '/admin', labelKey: 'brand_nav.platform_admin' },
+  { href: '/admin/catalog', labelKey: 'brand_nav.admin_catalog' },
   { href: '/admin/analytics', labelKey: 'brand_nav.platform_analytics' },
   { href: '/admin/audit', labelKey: 'brand_nav.audit_trail' },
 ];

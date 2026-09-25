@@ -541,6 +541,7 @@ def test_migration_chain_has_a_single_head_at_0024() -> None:
     # HMAC chain for verification-run provenance; forged INSERT detection) ->
     # 0024 (DB-enforced signed provenance presence on every new audit INSERT).
     assert expected_head_revision() == "0024_audit_insert_provenance_guard"
+    assert chain["0024_audit_insert_provenance_guard"] == "0023_verification_run_hmac_chain"
     assert chain["0023_verification_run_hmac_chain"] == "0022_audit_append_only_guard"
     assert chain["0022_audit_append_only_guard"] == "0021_audit_verification_runs"
     assert chain["0021_audit_verification_runs"] == "0020_audit_hash_chain"

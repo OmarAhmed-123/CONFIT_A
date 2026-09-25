@@ -950,7 +950,8 @@
     "audit_table_caption": "سجل تدقيق إجراءات الأدمن",
     "col_details": "التفاصيل",
     "show_details": "عرض تفاصيل صف التدقيق {{id}}",
-    "hide_details": "إخفاء تفاصيل صف التدقيق {{id}}"
+    "hide_details": "إخفاء تفاصيل صف التدقيق {{id}}",
+    "verification_run_chain": "تشغيلات التحقق: {{signed}} موقعة · {{unsigned}} قديمة غير موقعة · {{forged}} اشتباه تزوير · {{breaks}} كسور · {{coverage}} · مرساة الذيل: {{anchor}}"
   },
   "admin_heatmap": {
     "title": "خريطة إشارات الأسلوب — {{scope}}",

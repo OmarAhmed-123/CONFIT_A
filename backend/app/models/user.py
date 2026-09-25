@@ -132,7 +132,12 @@ class AuditLog(Base):
 
 
 class AuditVerificationRun(Base):
-    """One immutable record per integrity-check run (migration 0021).
+    """One database-restricted append-only integrity run (0021/0022/0023).
+
+    It is not immutable: the DB owner can drop the 0022 guard triggers. The
+    runtime role is denied UPDATE/DELETE/TRUNCATE, while the 0023 HMAC chain
+    and independent audit-log cross-link make unsupported mutation, forged
+    inserts and tail deletion detectable within their stated coverage.
 
     Closes the tail-truncation limit stated by 0020: each run persists the
     global chain head it observed; the next run asserts that head still
@@ -140,9 +145,10 @@ class AuditVerificationRun(Base):
     head is gone and the truncation surfaces as a concrete violation instead
     of remaining invisible to single-run verification.
 
-    Append-only by application policy: no update or delete path exists in
-    the codebase, and the run itself is announced by a chained
-    ``ADMIN_AUDIT_INTEGRITY_CHECK`` audit row.
+    No application update/delete path exists. PostgreSQL 0022 additionally
+    revokes mutation privileges and installs rejecting triggers. Each HTTP run
+    is announced by a chained ``ADMIN_AUDIT_INTEGRITY_CHECK`` row; 0023 checks
+    that independent cross-link to detect deletion of the run-chain tail.
     """
     __tablename__ = "audit_verification_runs"
 
@@ -162,6 +168,12 @@ class AuditVerificationRun(Base):
     canonical_version = Column(Integer, nullable=False)
     triggered_by_user_id = Column(Integer, nullable=True)
     request_id = Column(String(64), nullable=True)
+    # 0023: independent, domain-separated HMAC chain for verification-run
+    # provenance. Nullable for legacy pre-0023 rows; a NULL written later via
+    # a mapper-bypassing raw insert is classified as suspected forgery.
+    run_prev_hash = Column(String(64), nullable=True)
+    run_hash = Column(String(64), nullable=True, index=True)
+    run_hmac_key_version = Column(Integer, nullable=True)
 
 
 class RefreshToken(Base):
@@ -239,5 +251,9 @@ Index("ix_refresh_tokens_user_active", RefreshToken.user_id, RefreshToken.revoke
 # and its stated limits.
 from sqlalchemy import event as _sa_event  # noqa: E402
 from backend.app.core.audit_chain import chain_before_insert as _chain_before_insert  # noqa: E402
+from backend.app.core.audit_verification_chain import (  # noqa: E402
+    verification_run_before_insert as _verification_run_before_insert,
+)
 
 _sa_event.listen(AuditLog, "before_insert", _chain_before_insert)
+_sa_event.listen(AuditVerificationRun, "before_insert", _verification_run_before_insert)

@@ -7,12 +7,17 @@
 fastapi>=0.115.0
 pydantic>=2.9.0
 pydantic-settings>=2.5.0
-# Upper bound is 2.2 ON PURPOSE: SQLAlchemy 2.1 changed the default DBAPI behind a
-# bare `postgresql://` URL from psycopg2 to psycopg 3 (which this project does not
-# install), and this repository was broken by that change within hours of its release.
-# The explicit-driver rule in core/postgres_url.py handles 2.1 correctly, so the bound
-# is not there to freeze the problem — it makes the NEXT silent default change arrive
-# as a dependency decision instead of an incident. See docs/POSTGRES_DRIVER_POLICY.md.
+# Upper bound is 2.2 ON PURPOSE, and it is not a freeze.
+#
+# SQLAlchemy 2.1 changed the default DBAPI behind a bare `postgresql://` URL from
+# psycopg2 to psycopg 3, which this project does not install. An earlier state of
+# this file capped 2.0 to keep that change away; the root cause has since been
+# removed instead: core/postgres_url.normalise_postgres_url() names the driver
+# explicitly and is applied at EVERY engine construction site, and
+# backend/tests/test_postgres_driver_selection.py fails if that step is removed
+# (mutation: 7 failed / 11 errors). With the cause fixed, the bound exists so that
+# the NEXT silent default change arrives as a dependency decision rather than an
+# incident. See docs/POSTGRES_DRIVER_POLICY.md.
 sqlalchemy>=2.0.35,<2.2
 pg8000>=1.30.0
 redis>=5.1.0

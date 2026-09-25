@@ -148,6 +148,9 @@ REQUIRED_COLUMNS: Dict[str, tuple[str, ...]] = {
     # (and with it every audited business action), so their absence is a
     # blocking drift, not a degraded feature.
     "audit_logs": ("prev_hash", "entry_hash", "chain_key_version"),
+    "audit_verification_runs": (
+        "run_prev_hash", "run_hash", "run_hmac_key_version",
+    ),
 }
 
 

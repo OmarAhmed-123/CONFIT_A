@@ -950,7 +950,8 @@
     "audit_table_caption": "Admin audit trail entries",
     "col_details": "Details",
     "show_details": "Show details for audit row {{id}}",
-    "hide_details": "Hide details for audit row {{id}}"
+    "hide_details": "Hide details for audit row {{id}}",
+    "verification_run_chain": "verification runs: {{signed}} signed · {{unsigned}} legacy unsigned · {{forged}} suspected forgeries · {{breaks}} breaks · {{coverage}} · tail anchor: {{anchor}}"
   },
   "admin_heatmap": {
     "title": "Style Signal Heatmap — {{scope}}",

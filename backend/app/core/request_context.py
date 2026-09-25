@@ -43,6 +43,12 @@ def _valid_ip(candidate: Optional[str]) -> Optional[str]:
     return candidate
 
 
+def valid_ip(candidate: Optional[str]) -> Optional[str]:
+    """Public form of the validator, so other modules share ONE notion of a
+    valid client address instead of each rolling its own."""
+    return _valid_ip(candidate)
+
+
 def client_ip(request: Request) -> Optional[str]:
     """Best-available client address, most-trusted source first."""
     direct = _valid_ip(request.headers.get("x-real-ip"))

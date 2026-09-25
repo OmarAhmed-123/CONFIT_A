@@ -111,9 +111,34 @@ def test_the_key_isolates_callers_by_token_not_only_by_address():
     assert alice == client_key(make(headers={"authorization": "Bearer alice-token"}))
     # Same address, different credentials -> different buckets.
     assert client_key(make(headers={"authorization": "Bearer alice-token"}, host="198.51.100.1")) == alice
-    # No credential -> the address is the bucket, and XFF's first hop is the client.
-    assert client_key(make(headers={"x-forwarded-for": "198.51.100.7, 10.0.0.1"})) == "ip:198.51.100.7"
-    assert client_key(make(headers={"x-real-ip": "198.51.100.8"})) == "ip:198.51.100.8"
+    # No credential -> the address is the bucket. WHICH address is decided by the
+    # trust model in tests/test_rate_limit_identity.py, and the old expectation here
+    # ("XFF's first hop is the client") is exactly what the independent sweep
+    # disproved: a caller rotating X-Forwarded-For minted a fresh bucket each time.
+    # The intent below is unchanged — shoppers behind one edge keep separate
+    # buckets, nobody can choose their own bucket — only the source of truth moved
+    # to the hop the trusted proxy appended.
+    import os as _os
+
+    previous = _os.environ.get("TRUSTED_PROXY_IPS")
+    _os.environ["TRUSTED_PROXY_IPS"] = "10.0.0.0/8"
+    try:
+        # The edge (10.0.0.1) appended the real client address...
+        assert client_key(make(headers={"x-forwarded-for": "198.51.100.7"}, host="10.0.0.1")) == "ip:198.51.100.7"
+        assert client_key(make(headers={"x-forwarded-for": "198.51.100.8"}, host="10.0.0.1")) == "ip:198.51.100.8"
+        # ...and a value the client prepended to the chain is not the identity.
+        assert client_key(
+            make(headers={"x-forwarded-for": "203.0.113.250, 198.51.100.7"}, host="10.0.0.1")
+        ) == "ip:198.51.100.7"
+    finally:
+        if previous is None:
+            _os.environ.pop("TRUSTED_PROXY_IPS", None)
+        else:
+            _os.environ["TRUSTED_PROXY_IPS"] = previous
+
+    # Off-platform, with no configured proxy: caller-supplied headers are ignored.
+    assert client_key(make(headers={"x-forwarded-for": "198.51.100.7, 10.0.0.1"})) == "ip:203.0.113.9"
+    assert client_key(make(headers={"x-real-ip": "198.51.100.8"})) == "ip:203.0.113.9"
     assert client_key(make()) == "ip:203.0.113.9"
 
     # The key must never contain the credential itself (logs/metrics).

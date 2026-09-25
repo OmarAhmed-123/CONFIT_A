@@ -47,6 +47,7 @@ credential taking precedence.
 """
 
 import hashlib
+import ipaddress
 import os
 import time
 from typing import Any, Dict, Optional
@@ -55,6 +56,7 @@ from backend.app.core.config import settings
 
 from fastapi import Request
 from fastapi.responses import JSONResponse, Response
+from backend.app.core.request_context import valid_ip as _valid_ip
 from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
 
@@ -86,21 +88,106 @@ def _session_token(request: Request) -> Optional[str]:
     return None
 
 
-def _client_ip(request: Request) -> str:
-    """The client address, preferring proxy-set headers.
+# ---------------------------------------------------------------------------
+# Bucket identity: who pays for this request.
+#
+# DEFECT FOUND BY THE INDEPENDENT SWEEP (2026-09-25). The previous rule was
+# "x-real-ip, else the LEFT-most x-forwarded-for entry, else the socket peer".
+# Measured against the running API: three requests carrying three different
+# spoofed ``X-Forwarded-For`` values produced THREE separate limiter buckets in
+# Redis (``LIMITS:LIMITER/ip:203.0.113.7/...``, ``.../ip:203.0.113.8/...``,
+# ``.../ip:198.51.100.9/...``). The bucket identity — the thing that decides
+# whether the AI-cost limit applies — was therefore chosen by the caller, and
+# ``X-Forwarded-For`` is a header any client can send.
+#
+# The repository already documented this exact hazard elsewhere:
+# ``core/request_context.py`` says the left-most entry "is client-supplied and
+# spoofable". Two notions of "who is calling" cannot both be right, so the
+# limiter now follows one closed-by-default policy:
+#
+#   1. on the hosting platform (``VERCEL`` in the environment, the same signal
+#      ``core/database.py`` uses), the platform-set headers are authoritative —
+#      ``x-vercel-forwarded-for`` first because Vercel documents that it
+#      survives an upstream proxy that overwrites ``x-forwarded-for``, then
+#      ``x-real-ip``, then the RIGHT-most ``x-forwarded-for`` hop;
+#   2. off-platform, headers are trusted ONLY when the socket peer is inside
+#      ``TRUSTED_PROXY_IPS`` (comma-separated CIDRs) — a self-hosted deployment
+#      behind nginx/ALB sets this; when it is set, the right-most hop is used
+#      because that is the address the trusted proxy itself appended;
+#   3. otherwise the socket peer.
+#
+# The left-most ``x-forwarded-for`` entry is never used, at any trust level, so
+# a caller can never mint a fresh bucket by sending a header. Every candidate is
+# validated as an IP address, so junk cannot become a bucket either.
+# ---------------------------------------------------------------------------
 
-    ``x-real-ip`` is set by the platform's edge; ``x-forwarded-for`` is the
-    standard fallback (first hop = original client). When neither is present the
-    socket address is used. Whichever is chosen *is* the bucket identity, so the
-    choice is stated here rather than buried in a decorator.
+def _first_valid_ip(*candidates: Optional[str]) -> Optional[str]:
+    """First candidate that is actually an IP address (junk is ignored)."""
+    for candidate in candidates:
+        validated = _valid_ip(candidate)
+        if validated:
+            return validated
+    return None
+
+
+def _rightmost_forwarded(header: Optional[str]) -> Optional[str]:
+    """The hop appended by the nearest trusted proxy (never the left-most)."""
+    if not header:
+        return None
+    for hop in reversed([part.strip() for part in header.split(",") if part.strip()]):
+        validated = _valid_ip(hop)
+        if validated:
+            return validated
+    return None
+
+
+def _peer_trusted(peer: Optional[str]) -> bool:
+    """Is the direct connection from a proxy we are configured to trust?"""
+    if not peer:
+        return False
+    configured = (os.environ.get("TRUSTED_PROXY_IPS") or "").strip()
+    if not configured:
+        return False
+    try:
+        peer_ip = ipaddress.ip_address(peer)
+    except ValueError:
+        return False
+    for entry in configured.split(","):
+        entry = entry.strip()
+        if not entry:
+            continue
+        try:
+            if peer_ip in ipaddress.ip_network(entry, strict=False):
+                return True
+        except ValueError:
+            continue
+    return False
+
+
+def _client_ip(request: Request) -> str:
+    """The bucket identity — see the policy block above.
+
+    Returns a validated IP address, or ``"unknown"`` when no address can be
+    trusted; ``"unknown"`` is itself a single shared bucket, which fails closed
+    (all such callers share one allowance) rather than open.
     """
-    real_ip = (request.headers.get("x-real-ip") or "").strip()
-    if real_ip:
-        return real_ip
-    forwarded = (request.headers.get("x-forwarded-for") or "").split(",")[0].strip()
-    if forwarded:
-        return forwarded
-    return request.client.host if request.client else "unknown"
+    peer = request.client.host if request.client else None
+
+    if os.environ.get("VERCEL", "").strip():
+        platform = _first_valid_ip(
+            request.headers.get("x-vercel-forwarded-for"),
+            request.headers.get("x-real-ip"),
+            _rightmost_forwarded(request.headers.get("x-forwarded-for")),
+        )
+        if platform:
+            return platform
+
+    if _peer_trusted(peer):
+        forwarded = _rightmost_forwarded(request.headers.get("x-forwarded-for"))
+        if forwarded:
+            return forwarded
+
+    return _valid_ip(peer) or "unknown"
 
 
 def client_key(request: Request) -> str:

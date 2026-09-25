@@ -14,7 +14,9 @@ What it does, strictly READ-ONLY (no writes):
 2. Recomputes every audit-row HMAC and link (the endpoint's verifier).
 3. Classifies unchained audit rows: legacy vs chain_bypass_suspected.
 4. Verifies every ``audit_verification_runs`` HMAC/link from its own genesis
-   (0023), classifying unsigned legacy vs forged-after-enforcement.
+   (0023), classifying unsigned legacy vs forged-after-enforcement. Migration
+   0024 prevents new NULL-provenance rows at any attacker-chosen id; this
+   verifier still cannot infer the insertion time of pre-0024 legacy rows.
 5. Resolves the newest verification-run reference embedded in the independent
    audit chain, so deletion of the verification-run tail is detectable.
 6. Cross-checks the newest persisted run's audit head against the live table

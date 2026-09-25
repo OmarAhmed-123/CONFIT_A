@@ -436,16 +436,22 @@ def ensure_readiness(transport: Optional[httpx.BaseTransport] = None) -> Dict[st
 
 
 def reset_cache_for_tests() -> None:
-    """Drop the cached snapshot AND the attempt clock. Test-only.
+    """Wait for an in-flight test refresh, then reset all reusable state.
 
-    The attempt clock is part of the cache's state: leaving it armed made the
-    second test in a file inherit the first test's retry floor, so a test that
-    expected to be able to start a refresh was silently told "not yet". That is
-    a test-only concern (production has one long-lived cache), but a reset that
-    resets half the state is a trap for the next person.
+    A worker stores its snapshot just before clearing ``_refreshing``. Merely
+    waiting for a verdict therefore leaves a narrow race where the next test
+    sees ``_refreshing=True`` and cannot start its own probe. Never force that
+    flag false: the old worker could then overwrite the next test's state.
+    Waiting for the bounded worker to finish preserves the real concurrency
+    invariant and makes fixture isolation deterministic.
     """
-    _cache.store(None)  # type: ignore[arg-type]
-    with _cache._lock:
-        _cache._last_attempt = 0.0
-    with _cache._lock:
-        _cache._snapshot = None
+    deadline = time.time() + 5.0
+    while True:
+        with _cache._lock:
+            if not _cache._refreshing:
+                _cache._snapshot = None
+                _cache._last_attempt = 0.0
+                return
+        if time.time() >= deadline:
+            raise RuntimeError("AI readiness test worker did not finish within 5 seconds")
+        time.sleep(0.005)

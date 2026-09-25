@@ -160,10 +160,21 @@ def scrub(value: Any, _depth: int = 0) -> Tuple[Any, int]:
         out, hits = {}, 0
         for key, item in value.items():
             if is_secret_key(key):
-                if isinstance(item, bool) or item in (None, "", [], {}):
+                if (
+                    isinstance(item, bool)
+                    or item in (None, "", [], {})
+                    or (isinstance(item, str) and item.startswith(REDACTED_PREFIX))
+                ):
                     # A boolean/flag is safe AND informative — `password: true`
                     # means "the password field changed", which is exactly what
                     # an auditor needs. Empty values carry no secret either.
+                    #
+                    # Redaction must also be IDEMPOTENT. Integrity verification
+                    # scans already-scrubbed persisted rows by calling scrub()
+                    # again. Treating `[REDACTED:key=credential_state]` as a new
+                    # secret made compliant rows report
+                    # `unredacted_secret_in_payload`; the marker is proof the
+                    # write path removed the value, not a value to redact twice.
                     out[key] = item
                 else:
                     out[key] = f"{REDACTED_PREFIX}:key={str(key).lower()}]"

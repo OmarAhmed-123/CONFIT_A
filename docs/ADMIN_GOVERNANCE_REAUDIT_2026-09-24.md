@@ -68,9 +68,10 @@ bypass rows among 438 rows at that time.
 - "single enforcement point" covered ORM mapper inserts, not SQLAlchemy Core,
   bulk helpers or direct SQL. Supported production code had no such bulk path,
   but the database allowed one. The re-audit added global bypass detection and
-  a static production-path gate; direct SQL inserts are still possible to a
-  credential with INSERT (expected for the app role) and are detected if
-  unchained.
+  a static production-path gate. Direct SQL inserts remain possible to a
+  credential with INSERT (expected for the app role); unchained rows with
+  monotonic ids are detected, but an explicit low id can still sort into the
+  legacy prefix. Database INSERT enforcement remains open.
 - `resolve_key(key_version)` ignored `key_version`; rotation was documented but
   not implemented. PR #201 implemented active/retired version resolution and
   fail-closed tests.
@@ -138,11 +139,16 @@ endpoint and asserts they survive serialization.
 0022 also left INSERT intentionally available to the runtime role; therefore a
 DB credential holder could forge an arbitrary `audit_verification_runs` row.
 0023 adds a separate, domain-separated HMAC chain for verification-run
-provenance. Legacy runs stay unsigned; raw unsigned inserts after enforcement,
-content modification, middle deletion/reordering, wrong/missing key versions
-and chain forks are detectable. Each HTTP run is also cross-linked into the
-independent primary audit chain, closing deletion of the newest run tail on the
-next check. This still does not close actor I (DB + HMAC keys).
+provenance. Legacy runs stay unsigned; invalid signed inserts, ordinary
+unsigned inserts that sort after the first signed id, content modification,
+middle deletion/reordering, wrong/missing key versions and chain forks are
+detectable. Each HTTP run is cross-linked into the independent primary audit
+chain in the same transaction, closing deletion of the newest cross-linked run
+tail on the next check. A reproduced residual gap remains: the runtime role can
+supply an explicit low id, allowing a new unsigned row to sort into the legacy
+prefix. That requires a database INSERT guard in a follow-up migration; 0023
+alone must not be described as detecting every forged INSERT. Actor I (DB +
+HMAC keys) also remains outside the internal guarantee.
 
 ## 3. Evidence matrix
 
@@ -152,8 +158,8 @@ next check. This still does not close actor I (DB + HMAC keys).
 | Historical legacy rows were protected at creation | none | 436 production rows had no hash | tests label them unchained; no backfill | NOT CONFIRMED (intentionally never claimed) |
 | Runtime role cannot mutate audit tables | migration 0022, `audit_db_guard.py` | production UPDATE/DELETE/TRUNCATE as `confit_app_rw` blocked | PG trust-boundary tests | CONFIRMED |
 | Verification-run table is immutable | no external/WORM boundary | owner can DROP trigger using DDL | trigger + privilege tests only | PARTIALLY CONFIRMED: database-restricted append-only, not immutable |
-| Verification-run rows have authentic provenance | 0023 domain-separated HMAC chain + primary-chain tail cross-link | production pending 0023 deployment | modification/middle+tail deletion/reordering/raw forgery/missing+wrong key/rotation/separator/PG concurrency + HTTP tests | CONFIRMED locally; production UNVERIFIED |
-| Dashboard coverage metadata reaches HTTP | `AuditIntegrityOut.coverage` | production pending deployment | real TestClient endpoint regression | CONFIRMED locally; #201 service-only claim was false |
+| Verification-run rows have authentic provenance | 0023 domain-separated HMAC chain + atomic primary-chain tail cross-link | production schema verified at 0023 on 2026-09-25, but zero run rows before code deployment | modification/middle+tail deletion/reordering/ordinary raw forgery/missing+wrong key/rotation/separator/PG concurrency + HTTP rollback tests; explicit low-id unsigned bypass reproduced | PARTIALLY CONFIRMED; low-id INSERT guard REMAINS OPEN and production signed behavior UNVERIFIED |
+| Dashboard coverage metadata reaches HTTP | `AuditIntegrityOut.coverage` | production schema is ready; endpoint code pending deployment | real TestClient endpoint regression | CONFIRMED locally; #201 service-only claim was false; production HTTP UNVERIFIED |
 | Dashboard integrity verifies all history | no | API mode is `window_sample` | coverage contract tests | NOT CONFIRMED (claim removed) |
 | Deliberate full-history path exists | `scripts/verify_audit_chain.py` | production read-only scan executed | trust-boundary tests | CONFIRMED |
 | Tail deletion after a persisted run is detected | migration/service 0021 | production run history not exercised with destructive test | real DB behavioural delete test | CONFIRMED locally; production destructive test not performed |

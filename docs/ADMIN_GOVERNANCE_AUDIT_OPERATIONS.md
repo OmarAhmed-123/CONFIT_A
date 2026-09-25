@@ -65,9 +65,12 @@ DATABASE_URL=postgresql://... AUDIT_HMAC_KEY=... \
 ```
 
 Read-only. It verifies BOTH chains from genesis: `audit_logs` and, since 0023,
-`audit_verification_runs` (including unsigned-after-signed forged inserts),
-validates the highest referenced run cross-link in the audit chain, then checks
-the last run's recorded audit head. Exit 0 = intact, 1 =
+`audit_verification_runs` (including invalid signatures and unsigned rows that
+sort after the first signed id), validates the highest referenced run cross-link
+in the audit chain, then checks the last run's recorded audit head. Until a DB
+INSERT guard is deployed, an attacker can explicitly choose a low id and make a
+new unsigned row sort into the legacy prefix; the CLI cannot infer insertion
+time from an untrusted row. Exit 0 = intact, 1 =
 violations, 2 = could not run. Run it after every key rotation, during incident
 response and periodically. Never wire it into a request path.
 

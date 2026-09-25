@@ -214,9 +214,11 @@ export const AdminCatalogView: React.FC = () => {
       const requestedBrand = rows.find((row) => row.id === requestedBrandId.current);
       // Select the most populated real tenant on first entry so an existing
       // catalog is visible immediately; all other brands remain selectable.
-      const initial = requestedBrand ?? [...rows].sort(
-        (a, b) => b.product_count - a.product_count || a.brand_name.localeCompare(b.brand_name),
-      )[0];
+      const initial = requestedBrand ?? [...rows].sort((a, b) => {
+        const operationalA = a.product_count + a.store_count + a.placement_count;
+        const operationalB = b.product_count + b.store_count + b.placement_count;
+        return operationalB - operationalA || a.brand_name.localeCompare(b.brand_name);
+      })[0];
       setSelectedBrandId((current) => current && rows.some((row) => row.id === current) ? current : initial.id);
     } catch (loadError) {
       setError(errorText(loadError, t('admin_catalog.error_load_brands')));

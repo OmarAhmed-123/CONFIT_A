@@ -40,7 +40,7 @@ from backend.app.core.audit_chain import (
     resolve_key,
     verify_chain,
 )
-from backend.app.models.user import AuditLog
+from backend.app.models.user import AuditLog, AuditVerificationRun
 from backend.app.repositories.user_repository import UserRepository
 from backend.app.services.audit_service import AuditTrailService
 
@@ -320,3 +320,77 @@ class TestAppendOnlyGuardPostgres:
     def test_insert_still_works_under_guard(self, db):
         _write(db, "GUARDED_INSERT_OK")
         assert _rows(db)[-1].entry_hash is not None
+
+
+# ---------------------------------------------------------------------------
+# PostgreSQL signed-provenance INSERT guard (migration 0024)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.skipif(engine.dialect.name != "postgresql",
+                    reason="PostgreSQL trigger behaviour requires PostgreSQL")
+class TestInsertProvenanceGuardPostgres:
+    @pytest.fixture(autouse=True)
+    def guard(self, db):
+        from backend.app.core.audit_insert_guard import (
+            insert_guard_install_sql,
+            insert_guard_remove_sql,
+        )
+        for stmt in insert_guard_install_sql("postgresql"):
+            db.execute(text(stmt))
+        db.commit()
+        yield
+        for stmt in insert_guard_remove_sql("postgresql"):
+            db.execute(text(stmt))
+        db.commit()
+
+    def test_unsigned_low_id_rows_are_rejected_for_both_tables(self, db):
+        statements = (
+            """
+            INSERT INTO audit_logs
+                (id, action, resource_type, timestamp)
+            VALUES
+                (-910001, 'RAW_LOW_ID', 'governance_test', CURRENT_TIMESTAMP)
+            """,
+            """
+            INSERT INTO audit_verification_runs
+                (id, run_at, window_days, checked_rows, sampled_rows,
+                 chained_rows, unchained_rows, break_count, verdict,
+                 tamper_evident, key_version, canonical_version)
+            VALUES
+                (-910001, CURRENT_TIMESTAMP, 30, 1, 1, 1, 0, 0,
+                 'ok', true, 1, 1)
+            """,
+        )
+        for statement in statements:
+            with pytest.raises(Exception, match="requires signed chain provenance"):
+                db.execute(text(statement))
+                db.commit()
+            db.rollback()
+
+    def test_legitimate_mapper_rows_pass_the_database_guard(self, db):
+        _write(db, "SIGNED_AUDIT_INSERT")
+        run = AuditVerificationRun(
+            window_days=30, checked_rows=1, sampled_rows=1,
+            chained_rows=1, unchained_rows=0, break_count=0,
+            verdict="ok", tamper_evident=True, head_hash="a" * 64,
+            head_row_id=1, key_version=1, canonical_version=1,
+            request_id="signed-postgres-insert",
+        )
+        db.add(run)
+        db.commit()
+        assert _rows(db)[-1].entry_hash
+        assert run.run_hash
+
+    def test_non_null_low_id_forgery_cannot_hide_as_legacy(self, db):
+        db.execute(text("""
+            INSERT INTO audit_logs
+                (id, action, resource_type, timestamp, prev_hash, entry_hash,
+                 chain_key_version)
+            VALUES
+                (-910002, 'FORGED_LOW_ID', 'governance_test', CURRENT_TIMESTAMP,
+                 :prev, :bad_hash, 1)
+        """), {"prev": GENESIS_HASH, "bad_hash": "f" * 64})
+        db.commit()
+        result = verify_chain(_rows(db), expected_prev=GENESIS_HASH)
+        assert not result["intact"]
+        assert "entry_hash_mismatch" in {item["issue"] for item in result["breaks"]}

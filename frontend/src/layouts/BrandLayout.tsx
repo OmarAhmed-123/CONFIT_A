@@ -3,6 +3,7 @@ import { Outlet, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { BrandNavbar } from '../components/navigation/BrandNavbar';
 import { SkipLink, SKIP_TARGET_ID } from '../components/common/SkipLink';
+import { PortalBackButton } from '../components/navigation/PortalBackButton';
 
 export const BrandLayout: React.FC = () => {
   const { t } = useTranslation();
@@ -21,6 +22,7 @@ export const BrandLayout: React.FC = () => {
         tabIndex={-1}
         className="flex-1 min-w-0 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-8 outline-none"
       >
+        <PortalBackButton />
         <Outlet />
       </main>
 

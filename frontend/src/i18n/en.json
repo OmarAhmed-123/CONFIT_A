@@ -1193,7 +1193,8 @@
     "storefront": "Storefront",
     "sign_out": "Sign Out",
     "governance": "Platform Governance",
-    "partner_hub": "Brand Partner Hub"
+    "partner_hub": "Brand Partner Hub",
+    "platform_analytics": "Platform Analytics"
   },
   "admin_analytics": {
     "loading": "Aggregating platform-wide telemetry and style heatmaps…",
@@ -1421,5 +1422,9 @@
     "gallery_eyebrow": "Style DNA Gallery",
     "gallery_title": "Your profile powers a rotating style identity",
     "gallery_body": "Preference, sizing, and behavior data connect to real editorial directions that can be reused across the account experience."
+  },
+  "portal_back": {
+    "label": "Back",
+    "aria_label": "Go back to the previous portal page"
   }
 }

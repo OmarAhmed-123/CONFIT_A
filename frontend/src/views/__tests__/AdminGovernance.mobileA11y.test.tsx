@@ -3,9 +3,10 @@
  *
  * jsdom cannot calculate CSS layout or colour contrast, so these tests do NOT
  * claim a visual WCAG conformance audit. They pin what is mechanically
- * provable here: governance destinations are present and first at 390px, the
- * nav is explicitly horizontally scrollable (no functionality removed), all
- * targets meet the project's 44px target class, focus is visible, labels are
+ * provable here: governance destinations are present at 390px, partner-tenant
+ * links are not exposed to an unlinked platform admin, the nav remains
+ * horizontally scrollable, all targets meet the project's 44px target class,
+ * focus is visible, labels are
  * translated, and axe finds no serious/critical semantic issue.
  */
 import React from 'react';
@@ -53,7 +54,7 @@ afterEach(async () => {
 });
 
 describe('admin navigation at 390px', () => {
-  it('keeps governance links first and every partner destination available', () => {
+  it('shows only explicit admin destinations, never partner-tenant links', () => {
     renderNav();
     const nav = screen.getByTestId('brand-primary-nav');
     expect(nav.className).toContain('overflow-x-auto');
@@ -61,8 +62,10 @@ describe('admin navigation at 390px', () => {
 
     const links = Array.from(nav.querySelectorAll('a'));
     expect(links.map((link) => link.textContent?.trim())).toEqual([
-      'Platform Admin', 'Audit Trail', 'Dashboard', 'Catalog & SKUs',
-      'BOPIS Inventory', 'Return Telemetry', 'Placements',
+      'Platform Admin', 'Platform Analytics', 'Audit Trail',
+    ]);
+    expect(links.map((link) => link.getAttribute('href'))).toEqual([
+      '/admin', '/admin/analytics', '/admin/audit',
     ]);
     expect(links.every((link) => link.className.includes('shrink-0'))).toBe(true);
     expect(links.every((link) => link.className.includes('min-h-11'))).toBe(true);

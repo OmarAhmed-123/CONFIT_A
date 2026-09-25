@@ -84,6 +84,19 @@ export function useStylistViewModel() {
           recommendation_constraints: recommendationConstraints,
         });
 
+        // D-4 §14 (empty response). An answer with no usable text must not be
+        // appended as an empty bubble — that looks like a silent failure and is
+        // not an answer. Nothing the shopper did caused it, so it is retryable and
+        // reuses the same contract as a transport failure: a localizable sentence,
+        // a stable code, and the Retry affordance.
+        if (!String((response as any)?.content ?? "").trim()) {
+          setError({ key: "errors.empty_answer" });
+          setErrorRetryable(true);
+          setIsTyping(false);
+          showToast(msg("stylist.error_toast"), "error");
+          return;
+        }
+
         setMessages((prev) => [...prev, response]);
         setIsTyping(false);
       } catch (err: any) {

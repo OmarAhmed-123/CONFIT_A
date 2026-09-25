@@ -584,7 +584,8 @@
     "validation": "Please review the highlighted fields and try again.",
     "readiness_malformed_object": "Readiness response is malformed: expected an object.",
     "readiness_malformed_fields": "Readiness response is malformed: required fields are missing or invalid.",
-    "request_failed": "The request could not be completed. Please try again."
+    "request_failed": "The request could not be completed. Please try again.",
+    "empty_answer": "The stylist did not return an answer. Please try again."
   },
   "toast": {
     "bag_transferred": "Your bag followed you — {{count}} item(s) kept.",

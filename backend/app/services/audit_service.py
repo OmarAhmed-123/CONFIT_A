@@ -165,6 +165,7 @@ class AuditTrailService:
         sample_limit: int = 500,
         actor_id: Optional[int] = None,
         request_id: Optional[str] = None,
+        commit: bool = True,
     ) -> Dict[str, Any]:
         """Structural self-check + hash-chain verification over real rows.
 
@@ -587,5 +588,11 @@ class AuditTrailService:
             "previous_run_hash": verification_run.run_prev_hash,
             "hmac_key_version": verification_run.run_hmac_key_version,
         }
-        self.db.commit()
+        # HTTP callers pass commit=False so the signed run and its independent
+        # ADMIN_AUDIT_INTEGRITY_CHECK cross-link commit atomically in the
+        # controller. Standalone service callers keep the historical default.
+        # If cross-link creation fails, the request transaction can now roll
+        # back this flushed run instead of leaving an unanchored tail record.
+        if commit:
+            self.db.commit()
         return result

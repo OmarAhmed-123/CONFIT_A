@@ -399,3 +399,43 @@ class TestIntegrityHttpContract:
             second_body["verification_runs"]["anchor"]["run_id"]
             == body["verification_run"]["id"]
         )
+
+    def test_failed_http_crosslink_rolls_back_the_signed_run(self, monkeypatch):
+        """The run and ADMIN_AUDIT_INTEGRITY_CHECK cross-link are one unit.
+
+        Before this regression gate, the service committed the run first; an
+        audit-write failure then returned HTTP 500 but left an unanchored tail
+        run persisted, weakening deletion detection for that record.
+        """
+        from backend.app.controllers import admin_controller
+        from backend.app.core.database import SessionLocal
+
+        login_client = TestClient(app)
+        login = login_client.post("/api/v1/auth/login", json={
+            "email": "admin@confit.io", "password": "Password123!",
+        })
+        assert login.status_code == 200
+
+        before_db = SessionLocal()
+        try:
+            before = before_db.query(AuditVerificationRun).count()
+        finally:
+            before_db.close()
+
+        def fail_crosslink(*args, **kwargs):
+            raise RuntimeError("simulated audit cross-link failure")
+
+        monkeypatch.setattr(admin_controller, "_audit_read", fail_crosslink)
+        failing_client = TestClient(app, raise_server_exceptions=False)
+        response = failing_client.get(
+            "/api/v1/admin/audit/integrity?window_days=30",
+            headers={"Authorization": f"Bearer {login.json()['access_token']}"},
+        )
+        assert response.status_code == 500
+
+        after_db = SessionLocal()
+        try:
+            after = after_db.query(AuditVerificationRun).count()
+        finally:
+            after_db.close()
+        assert after == before

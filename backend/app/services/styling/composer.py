@@ -3,6 +3,8 @@ from decimal import Decimal, ROUND_HALF_UP
 from typing import List, Dict, Any, Optional
 from backend.app.core.money import to_decimal, to_float, money_sum, quantize_money
 from backend.app.services.styling.ontology import SlotType, classify_product_slot
+from backend.app.services.styling.attribution import resolve_style_source
+from backend.app.services.styling.diversity import MIN_DISTINCTNESS_OVERLAP, is_distinct, suppression_reason
 from backend.app.services.styling.rules import StylingRulesEngine
 
 
@@ -56,7 +58,8 @@ class OutfitComposer:
         occasion_hint: Optional[str] = None,
         budget_hint: Optional[float] = None,
         user_styles: Optional[List[str]] = None,
-        user_colors: Optional[List[str]] = None
+        user_colors: Optional[List[str]] = None,
+        profile_styles_present: bool = False,
     ) -> Dict[str, Any]:
         prompt_lower = prompt.lower().strip()
 
@@ -107,12 +110,20 @@ class OutfitComposer:
         aesthetic = "Quiet Luxury"
         if user_styles and len(user_styles) > 0:
             aesthetic = user_styles[0]
+        # Whether the SHOPPER's own words, in this request, chose the aesthetic.
+        # Tracked separately from `aesthetic` itself: the value alone cannot say
+        # where it came from, and that difference decides what we may claim
+        # (see services/styling/attribution.py).
+        prompt_drove_aesthetic = False
         if "minimalist" in prompt_lower or "minimal" in prompt_lower:
             aesthetic = "Modern Minimalist"
+            prompt_drove_aesthetic = True
         elif "old money" in prompt_lower or "classic" in prompt_lower:
             aesthetic = "Old Money / Tailored Classic"
+            prompt_drove_aesthetic = True
         elif "modern" in prompt_lower or "contemporary" in prompt_lower:
             aesthetic = "Contemporary Tailored"
+            prompt_drove_aesthetic = True
 
         # Ambiguity detection (GROUP 2 fix, BRD 21/E2E-12): a meaningful request
         # carries at least one real signal — an occasion keyword, a budget, a
@@ -137,6 +148,12 @@ class OutfitComposer:
             "formality": formality,
             "detected_budget": parsed_budget,
             "aesthetic": aesthetic,
+            # Provenance of the aesthetic, not just its value: a system default
+            # must never be presented as the shopper's profile (attribution.py).
+            "style_source": resolve_style_source(
+                profile_styles_present=profile_styles_present,
+                prompt_drove_aesthetic=prompt_drove_aesthetic,
+            ),
             "requested_dress": requested_dress,
             "requested_suit": requested_suit,
             "requested_tie": requested_tie,
@@ -157,9 +174,14 @@ class OutfitComposer:
         available_products: List[Any],
         intent: Dict[str, Any],
         user_profile: Optional[Any] = None,
-        max_outfits: int = 2
+        max_outfits: int = 2,
+        meta_out: Optional[Dict[str, Any]] = None,
     ) -> List[Dict[str, Any]]:
         if not available_products:
+            if meta_out is not None:
+                meta_out.clear()
+                meta_out.update({"requested": max_outfits, "published": 0, "suppressed": 0,
+                                 "reasons": ["no products available"]})
             return []
 
         occasion = intent.get("occasion", "Smart Casual")
@@ -219,8 +241,12 @@ class OutfitComposer:
 
         is_dress_intent = intent.get("requested_dress", False) or (formality in ["cocktail", "formal"] and len(slot_map[SlotType.DRESS]) > 0 and not intent.get("requested_suit", False))
 
-        outfits = []
+        outfits: List[Dict[str, Any]] = []
         used_product_ids = set()
+        # Why a requested second look was NOT published. Recorded rather than
+        # dropped: "we found no distinct alternative" is information the shopper
+        # and the operator are both entitled to (see styling/diversity.py).
+        suppressed_alternatives: List[str] = []
 
         # =========================================================================
         # --- LOOK 1: PRIMARY CURATED ENSEMBLE ---
@@ -412,30 +438,66 @@ class OutfitComposer:
             if len(palette2) < 3:
                 palette2.extend(["#FAF9F6", "#C5A059"])
 
-            outfits.append({
+            look2_candidate = {
                 "id": 102,
                 "title": title2,
-                "description": desc2,
-                "occasion": occasion,
-                "total_price": total2,
-                "compatibility_score": eval2["composite_score"],
-                "color_palette": palette2[:4],
-                "style_tags": ["Modern Silhouette", "Tonal Harmony", eval2["completeness_label"]],
-                "is_saved": False,
-                "is_system_curated": True,
-                "is_complete": eval2["is_complete"],
-                "completeness_status": eval2["completeness_status"],
-                "completeness_label": eval2["completeness_label"],
-                "missing_slots": eval2["missing_slots"],
-                "color_harmony_score": eval2["color_harmony_score"],
-                "formality_score": 92,
-                "budget_limit": budget2["budget_limit"],
-                "within_budget": budget2["within_budget"],
-                "budget_note": budget2["budget_note"],
                 "items": look2_items,
-                "created_at": look2_items[0]["created_at"] if look2_items else "2026-08-18T00:00:00Z"
-            })
+            }
+            # THE INVARIANT. The `alt_*` lines above fall back to slot_map[...][0] —
+            # exactly what look 1 used — so on a small catalogue look 2 can be the
+            # same products under a different title ("DIVERSE & NON-OVERLAPPING").
+            # Nothing may be published as an alternative unless its product set is
+            # sufficiently different from every look already presented.
+            if not is_distinct(look2_candidate, outfits, MIN_DISTINCTNESS_OVERLAP):
+                suppressed_alternatives.append(suppression_reason(look2_candidate, outfits))
+                look2_items = []
+            else:
+                outfits.append({
+                    "id": 102,
+                    "title": title2,
+                    "description": desc2,
+                    "occasion": occasion,
+                    "total_price": total2,
+                    "compatibility_score": eval2["composite_score"],
+                    "color_palette": palette2[:4],
+                    "style_tags": ["Modern Silhouette", "Tonal Harmony", eval2["completeness_label"]],
+                    "is_saved": False,
+                    "is_system_curated": True,
+                    "is_complete": eval2["is_complete"],
+                    "completeness_status": eval2["completeness_status"],
+                    "completeness_label": eval2["completeness_label"],
+                    "missing_slots": eval2["missing_slots"],
+                    "color_harmony_score": eval2["color_harmony_score"],
+                    "formality_score": 92,
+                    "budget_limit": budget2["budget_limit"],
+                    "within_budget": budget2["within_budget"],
+                    "budget_note": budget2["budget_note"],
+                    "items": look2_items,
+                    "created_at": look2_items[0]["created_at"] if look2_items else "2026-08-18T00:00:00Z",
+                    "composition_warnings": [],
+                })
+                outfits[0]["alternatives_published"] = len(outfits) - 1
 
+        if suppressed_alternatives and outfits:
+            # State the suppression on the look the shopper actually sees, so the
+            # client can render "no distinct alternative was found" instead of
+            # silently showing one look and implying there was only ever one.
+            outfits[0].setdefault("composition_warnings", [])
+            outfits[0]["composition_warnings"].extend(suppressed_alternatives)
+            outfits[0]["alternatives_suppressed"] = len(suppressed_alternatives)
+
+        if meta_out is not None:
+            # Reported through an explicit out-parameter, NOT through instance
+            # state: this composer is a process-wide singleton, so stashing the
+            # last result on `self` would let two concurrent requests read each
+            # other's alternatives metadata.
+            meta_out.clear()
+            meta_out.update({
+                "requested": max_outfits,
+                "published": len(outfits),
+                "suppressed": len(suppressed_alternatives),
+                "reasons": suppressed_alternatives,
+            })
         return outfits
 
     def _candidate_pool(self, slot_map: Dict[SlotType, List[Any]], position: str) -> List[Any]:

@@ -87,7 +87,16 @@ def _ensure_wide_version_table(connection) -> None:
 
 def run_migrations_online() -> None:
     configuration = config.get_section(config.config_ini_section) or {}
-    configuration["sqlalchemy.url"] = _get_url()
+    # Migrations connect through the APPLICATION's URL rule. A bare
+    # `postgresql://` is not driver-neutral: SQLAlchemy 2.1 resolves it to psycopg 3
+    # (not installed here), and this project's migrations would then fail with
+    # `ModuleNotFoundError: No module named 'psycopg'` before running a single
+    # revision — while the API, which normalises its URL, connected fine.
+    from backend.app.core.postgres_url import normalise_postgres_url
+
+    _url, _connect_args = normalise_postgres_url(_get_url())
+    configuration["sqlalchemy.url"] = _url
+    configuration["connect_args"] = _connect_args
     connectable = engine_from_config(
         configuration,
         prefix="sqlalchemy.",

@@ -41,7 +41,8 @@ _CONCURRENCY = 6  # parallel attempts per invariant
 def pg():
     """Engine + fresh schema on the throwaway PostgreSQL database."""
     from sqlalchemy.orm import sessionmaker
-    from backend.app.core.database import Base, normalise_postgres_url
+    from backend.app.core.database import Base
+    from backend.app.core.postgres_url import normalise_postgres_url
     from sqlalchemy import create_engine
 
     url, connect_args = normalise_postgres_url(PG_URL)

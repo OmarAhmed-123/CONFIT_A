@@ -268,6 +268,11 @@ def _resolve_engine(url: str | None) -> Engine:
         raise SystemExit(
             "No DATABASE_URL configured. Pass --url or set DATABASE_URL."
         )
+    from backend.app.core.postgres_url import normalise_postgres_url
+
+    if url.startswith("postgres"):
+        url, connect_args = normalise_postgres_url(url)
+        return create_engine(url, connect_args=connect_args)
     return create_engine(url)
 
 

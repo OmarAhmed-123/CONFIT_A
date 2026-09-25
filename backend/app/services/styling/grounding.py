@@ -1,4 +1,8 @@
 from typing import Dict, Any
+from backend.app.services.styling.attribution import (
+    STYLE_SOURCE_UNKNOWN,
+    style_attribution_phrase,
+)
 
 
 class GroundingGenerator:
@@ -59,7 +63,8 @@ class GroundingGenerator:
             items_str += f" with {parts[4]}"
 
         text = (
-            f"Here is your grounded {occasion} ensemble tailored to your {aesthetic} profile. "
+            f"Here is your grounded {occasion} ensemble "
+            f"{style_attribution_phrase(aesthetic, intent.get('style_source', STYLE_SOURCE_UNKNOWN))}. "
             f"I curated a cohesive look featuring {items_str}. "
             f"Every piece aligns in silhouette, fabric texture, and color harmony, bringing the complete shoppable look to ${total_price:.2f}."
         )

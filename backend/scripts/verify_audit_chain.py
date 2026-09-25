@@ -55,7 +55,13 @@ def run(database_url: str, batch_size: int = 1000) -> Dict[str, Any]:
     )
     from backend.app.models.user import AuditLog, AuditVerificationRun
 
-    engine = create_engine(database_url)
+    from backend.app.core.postgres_url import normalise_postgres_url
+
+    if database_url.startswith("postgres"):
+        database_url, _connect_args = normalise_postgres_url(database_url)
+        engine = create_engine(database_url, connect_args=_connect_args)
+    else:
+        engine = create_engine(database_url)
     session = sessionmaker(bind=engine)()
     try:
         total = session.query(AuditLog).count()

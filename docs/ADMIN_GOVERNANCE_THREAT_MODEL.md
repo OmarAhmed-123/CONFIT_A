@@ -1,9 +1,9 @@
 # Admin Governance — Audit Trail Threat Model & Exact Guarantees
 
-Date: 2026-09-24 (re-audit of PRs #187/#188/#189; hardened by migration 0022).
+Date: 2026-09-25 (re-audit of PRs #187/#188/#189; hardened through migration 0024).
 Scope: `audit_logs`, `audit_verification_runs`, the hash chain
-(`backend/app/core/audit_chain.py`), the DB guard
-(`backend/app/core/audit_db_guard.py`), verification
+(`backend/app/core/audit_chain.py`), the mutation and INSERT-provenance guards
+(`backend/app/core/audit_db_guard.py`, `backend/app/core/audit_insert_guard.py`), verification
 (`AuditTrailService.integrity`, `backend/scripts/verify_audit_chain.py`).
 
 ## Terminology (used precisely, everywhere)
@@ -22,8 +22,8 @@ Scope: `audit_logs`, `audit_verification_runs`, the hash chain
 | A. Anonymous user | HTTP only | No access. Admin endpoints require admin JWT (RBAC tests). Failed logins are themselves audited. |
 | B. Authenticated non-admin | HTTP only | 403 on all `/admin/*` (RBAC/IDOR tests). Cannot read or write audit rows. |
 | C. Admin (legitimate) | Admin API | Can read the trail; every read/mutation is itself audited. No API mutates or deletes audit rows (no such endpoint exists). |
-| D. Compromised app process / runtime DB credential (`confit_app_rw`) | SQL as runtime role | Can INSERT rows going forward, **cannot** rewrite history: UPDATE/DELETE/TRUNCATE are revoked *and* trigger-blocked (0022, verified on production). Invalid signed rows fail HMAC/link checks and ordinary unsigned rows that sort after enforcement are classified as bypass/forgery. **Remaining 0023 limit:** because the legacy classifier is id-ordered and INSERT permits an explicit id, an unsigned row deliberately inserted below the first signed id can masquerade as legacy until a database insert guard is deployed. A compromised web process that also reads the HMAC secret has actor-I capability. |
-| E. DB owner credential (`neondb_owner`, migrations) | SQL + DDL | Can DROP the 0022 triggers, then mutate. Mutation of chained rows still breaks the HMAC chains (**tamper-evident**). Audit-log tail deletion is caught by persisted run heads; verification-run tail deletion is caught by the independent audit-chain cross-link from the next check. DDL access is the trust boundary — this is why the runtime does not use this credential. |
+| D. Compromised app process / runtime DB credential (`confit_app_rw`) | SQL as runtime role | Can INSERT rows going forward, **cannot** rewrite history: UPDATE/DELETE/TRUNCATE are revoked *and* trigger-blocked (0022, verified on production). Since 0024, both PostgreSQL tables reject every new INSERT missing any signed-provenance field, regardless of an attacker-chosen id. Non-NULL garbage still enters (PostgreSQL does not hold the HMAC key) but fails HMAC/link verification regardless of id. A compromised web process that also reads the HMAC secret has actor-I capability. |
+| E. DB owner credential (`neondb_owner`, migrations) | SQL + DDL | Can DROP the 0022/0024 triggers, then mutate or insert unsigned rows. Mutation of chained rows still breaks the HMAC chains (**tamper-evident**). Audit-log tail deletion is caught by persisted run heads; verification-run tail deletion is caught by the independent audit-chain cross-link from the next check. DDL access is the trust boundary — this is why the runtime does not use this credential. |
 | F. Infrastructure operator (Neon/Vercel) | Storage/snapshot access | Same as E plus snapshot rewrites. Tamper-evident only; prevention requires external anchoring (**REQUIRES INFRASTRUCTURE**). |
 | G. Holder of app secrets (not DB) | `AUDIT_HMAC_KEY` etc. | Can compute valid HMACs but has no DB write path; alone, harmless to stored history. |
 | H. DB write access without HMAC key | SQL | Any edit/deletion of chained rows is detected (HMAC recompute fails / links break / predecessor anchor fails). |
@@ -35,11 +35,11 @@ Scope: `audit_logs`, `audit_verification_runs`, the hash chain
 |---|---|
 | HMAC-SHA256 hash chain, canonical v1, genesis-anchored | **CONFIRMED** (local + production row evidence) |
 | Separator-injection hardening at the single write path | **CONFIRMED** (tests: `test_audit_trust_boundary.py::TestCanonicalisation`) |
-| DB-restricted append-only for runtime role (REVOKE + triggers, both audit tables) | **CONFIRMED** on PostgreSQL (0022; behavioural tests + production probe). SQLite dev: no-op, **documented parity limitation** |
-| Verification-run provenance / forged INSERT detection | **PARTIALLY CONFIRMED** (0023): independent domain-separated HMAC chain plus an atomically committed audit-chain tail cross-link detect modification, middle/tail deletion, reordering, invalid/ordinary unsigned forgery, missing/wrong/versioned keys and chain forks. Production schema is at 0023 but has no signed run yet. Explicit low-id unsigned INSERT can still be misclassified as legacy; database INSERT enforcement remains open. |
+| DB-restricted append-only for runtime role (REVOKE + triggers, both audit tables) | **CONFIRMED** on PostgreSQL (0022; behavioural tests + production probe). SQLite has no role/privilege model and its mutation guard remains a documented parity limit. |
+| Verification-run provenance / forged INSERT detection | **CONFIRMED** for post-0024 writes: the 0023 domain-separated HMAC chain plus atomically committed primary-chain cross-link detect modification, middle/tail deletion, reordering, non-NULL forgery, missing/wrong/versioned keys and chain forks; 0024 rejects NULL-provenance INSERTs regardless of explicit id. Production at 0024 contains one signed run and its anchored cross-link, both verified from genesis. Actor I and pre-0024 unknowable legacy provenance remain explicit limits. |
 | Key rotation K1→K2, fail-closed on missing retired key | **CONFIRMED** (tests: `TestKeyRotation` + verification-run rotation) |
 | Window verification anchored to actual DB predecessor / genesis | **CONFIRMED** (tests: `TestVerificationCoverage`) |
-| Bypass-vs-legacy classification of unchained rows | **PARTIALLY CONFIRMED** (tests + global count on the wire): correct for monotonic application ids, but an explicit low id can sort a new unsigned row into the legacy prefix until the database insert guard is deployed. |
+| Bypass-vs-legacy classification of unchained rows | **PARTIALLY CONFIRMED** historically, **CONFIRMED** for new 0024-era INSERTs: PostgreSQL and SQLite triggers reject missing provenance regardless of id; an unsigned low-id row inserted before 0024 cannot be distinguished retrospectively from genuine legacy data. |
 | Cross-run tail-truncation detection | **CONFIRMED** (0021, existing tests) |
 | Full-history verification | **CONFIRMED** as a deliberate offline CLI (`verify_audit_chain.py`), never per-request |
 | External anchoring (WORM / transparency log) | **REQUIRES INFRASTRUCTURE** — the only credential-isolated sink available today (S3-compatible bucket) lives in the *same* secret store as the app; anchoring there would not move the trust boundary, so claiming it would be theatre. |

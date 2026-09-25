@@ -69,9 +69,11 @@ bypass rows among 438 rows at that time.
   bulk helpers or direct SQL. Supported production code had no such bulk path,
   but the database allowed one. The re-audit added global bypass detection and
   a static production-path gate. Direct SQL inserts remain possible to a
-  credential with INSERT (expected for the app role); unchained rows with
-  monotonic ids are detected, but an explicit low id can still sort into the
-  legacy prefix. Database INSERT enforcement remains open.
+  credential with INSERT (expected for the app role); at that point unchained
+  rows with monotonic ids were detected but an explicit low id could sort into
+  the legacy prefix. Migration 0024 now rejects any new row missing signed
+  provenance regardless of id on PostgreSQL and SQLite; non-NULL garbage is
+  admitted for HMAC verification to detect.
 - `resolve_key(key_version)` ignored `key_version`; rotation was documented but
   not implemented. PR #201 implemented active/retired version resolution and
   fail-closed tests.
@@ -144,22 +146,26 @@ unsigned inserts that sort after the first signed id, content modification,
 middle deletion/reordering, wrong/missing key versions and chain forks are
 detectable. Each HTTP run is cross-linked into the independent primary audit
 chain in the same transaction, closing deletion of the newest cross-linked run
-tail on the next check. A reproduced residual gap remains: the runtime role can
-supply an explicit low id, allowing a new unsigned row to sort into the legacy
-prefix. That requires a database INSERT guard in a follow-up migration; 0023
-alone must not be described as detecting every forged INSERT. Actor I (DB +
-HMAC keys) also remains outside the internal guarantee.
+tail on the next check. The re-audit then reproduced a residual gap: the runtime
+role could supply an explicit low id, allowing a new unsigned row to sort into
+the legacy prefix. Migration 0024 closes that gap for new rows with database
+BEFORE INSERT guards on both audit tables in PostgreSQL and SQLite. Rolled-back
+production runtime probes received SQLSTATE `23514`; a supported HTTP-handler
+execution then successfully persisted one signed run and cross-link under those
+guards. Actor I (DB + HMAC keys), deliberate owner removal of the guard, and the
+unknowable provenance of pre-0024 unsigned legacy rows remain outside the
+internal guarantee.
 
 ## 3. Evidence matrix
 
 | Claim | Source | Runtime evidence | Test evidence | Status |
 |---|---|---|---|---|
-| Audit rows after 0020 are HMAC chained | `core/audit_chain.py`, migration 0020 | production full CLI: 2 chained rows, no breaks (point-in-time) | `test_audit_hash_chain.py` | CONFIRMED |
+| Audit rows after 0020 are HMAC chained | `core/audit_chain.py`, migration 0020 | production full CLI after 0024: 4 chained + 436 legacy rows, zero breaks/bypass suspects | `test_audit_hash_chain.py` | CONFIRMED |
 | Historical legacy rows were protected at creation | none | 436 production rows had no hash | tests label them unchained; no backfill | NOT CONFIRMED (intentionally never claimed) |
 | Runtime role cannot mutate audit tables | migration 0022, `audit_db_guard.py` | production UPDATE/DELETE/TRUNCATE as `confit_app_rw` blocked | PG trust-boundary tests | CONFIRMED |
 | Verification-run table is immutable | no external/WORM boundary | owner can DROP trigger using DDL | trigger + privilege tests only | PARTIALLY CONFIRMED: database-restricted append-only, not immutable |
-| Verification-run rows have authentic provenance | 0023 domain-separated HMAC chain + atomic primary-chain tail cross-link | production schema verified at 0023 on 2026-09-25, but zero run rows before code deployment | modification/middle+tail deletion/reordering/ordinary raw forgery/missing+wrong key/rotation/separator/PG concurrency + HTTP rollback tests; explicit low-id unsigned bypass reproduced | PARTIALLY CONFIRMED; low-id INSERT guard REMAINS OPEN and production signed behavior UNVERIFIED |
-| Dashboard coverage metadata reaches HTTP | `AuditIntegrityOut.coverage` | production schema is ready; endpoint code pending deployment | real TestClient endpoint regression | CONFIRMED locally; #201 service-only claim was false; production HTTP UNVERIFIED |
+| Verification-run rows have authentic provenance | 0023 domain-separated HMAC chain + atomic primary-chain tail cross-link; 0024 DB INSERT guard | production at 0024: one signed run + anchored cross-link; low-id NULL-provenance runtime probes rejected on both tables; full history intact | modification/middle+tail deletion/reordering/non-NULL forgery/missing+wrong key/rotation/separator/PG concurrency + HTTP rollback; PostgreSQL/SQLite low-id rejection and downgrade/up tests | CONFIRMED for post-0024 rows; pre-0024 legacy provenance and actor I remain NOT CONFIRMED |
+| Dashboard coverage metadata reaches HTTP | `AuditIntegrityOut.coverage` | production-storage HTTP handler returned `coverage.mode: window_sample`; direct Vercel-origin authenticated call unavailable | real TestClient endpoint regression plus production-storage execution | CONFIRMED in HTTP serialization/storage; Vercel-origin authenticated response UNVERIFIED |
 | Dashboard integrity verifies all history | no | API mode is `window_sample` | coverage contract tests | NOT CONFIRMED (claim removed) |
 | Deliberate full-history path exists | `scripts/verify_audit_chain.py` | production read-only scan executed | trust-boundary tests | CONFIRMED |
 | Tail deletion after a persisted run is detected | migration/service 0021 | production run history not exercised with destructive test | real DB behavioural delete test | CONFIRMED locally; production destructive test not performed |

@@ -1,12 +1,13 @@
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, Query, Request, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from backend.app.core.database import get_db
 from backend.app.core.dependencies import require_role, require_admin_recent
-from backend.app.core.exceptions import ValidationDomainError
+from backend.app.core.exceptions import ResourceNotFoundError, ValidationDomainError
 from backend.app.core.timeutils import TimeRange, TimeRangeError
 from backend.app.core.request_context import client_ip, request_id as current_request_id
 from backend.app.models.user import User, UserRole
@@ -18,6 +19,16 @@ from backend.app.schemas.brand import AdminPlatformAnalyticsOut
 from backend.app.schemas.commerce import OrderOut, OrderTransitionRequest
 from backend.app.services.audit_service import AuditTrailService
 from backend.app.services.commerce_service import CommerceService
+from backend.app.services.admin_catalog_service import AdminCatalogService
+from backend.app.schemas.admin_catalog import (
+    AdminCatalogBrandSummaryOut,
+    AdminCatalogProductCreate,
+    AdminCatalogProductPatch,
+    AdminCatalogSKUCreate,
+    AdminCatalogSKUPatch,
+    AdminCatalogSnapshotOut,
+)
+from backend.app.models.catalog import Product, ProductSKU
 
 router = APIRouter(prefix="/admin", tags=["Platform Admin Analytics & Governance"])
 
@@ -387,3 +398,235 @@ def get_audit_integrity(
     db.commit()
     return result
 
+
+# ---------------------------------------------------------------------------
+# Explicit admin catalog operations
+# ---------------------------------------------------------------------------
+
+def _catalog_product_state(product: Product) -> Dict[str, Any]:
+    """Secret-free audit projection; financial/user data never enters details."""
+    return {
+        "id": product.id,
+        "brand_id": product.brand_id,
+        "category_id": product.category_id,
+        "title": product.title,
+        "title_ar": product.title_ar,
+        "base_price": str(product.base_price),
+        "currency": product.currency,
+        "color_family": product.color_family,
+        "thumbnail_url": product.thumbnail_url,
+        "is_featured": bool(product.is_featured),
+        "is_active": bool(product.is_active),
+    }
+
+
+def _catalog_sku_state(sku: ProductSKU) -> Dict[str, Any]:
+    return {
+        "id": sku.id,
+        "product_id": sku.product_id,
+        "sku_code": sku.sku_code,
+        "stock_level": int(sku.stock_level or 0),
+        "price_override": str(sku.price_override) if sku.price_override is not None else None,
+        "is_in_stock": bool(sku.is_in_stock),
+    }
+
+
+@router.get("/catalog/brands", response_model=List[AdminCatalogBrandSummaryOut])
+def get_admin_catalog_brands(
+    user: User = Depends(require_role([UserRole.ADMIN])),
+    db: Session = Depends(get_db),
+):
+    """Brands an admin may deliberately select; no implicit admin tenant."""
+    return AdminCatalogService(db).list_brands()
+
+
+@router.get("/catalog/brands/{brand_id}", response_model=AdminCatalogSnapshotOut)
+def get_admin_catalog_snapshot(
+    brand_id: int,
+    request: Request,
+    user: User = Depends(require_role([UserRole.ADMIN])),
+    db: Session = Depends(get_db),
+):
+    """One internally consistent operational snapshot for a selected brand."""
+    result = AdminCatalogService(db).snapshot(brand_id)
+    _audit_read(
+        request, db, user, "ADMIN_CATALOG_READ", "BrandProfile",
+        {
+            "brand_id": brand_id,
+            "products": len(result["products"]),
+            "stores": len(result["stores"]),
+            "placements": len(result["placements"]),
+        },
+    )
+    return result
+
+
+@router.post(
+    "/catalog/brands/{brand_id}/products",
+    status_code=status.HTTP_201_CREATED,
+)
+def create_admin_catalog_product(
+    brand_id: int,
+    payload: AdminCatalogProductCreate,
+    request: Request,
+    user: User = Depends(require_admin_recent(max_age_minutes=60)),
+    db: Session = Depends(get_db),
+):
+    service = AdminCatalogService(db)
+    try:
+        product = service.create_product(brand_id, payload)
+        after = _catalog_product_state(product)
+        after["sku_count"] = len(payload.skus)
+        _audit_admin(
+            request, db, user, "ADMIN_CATALOG_PRODUCT_CREATED", "Product",
+            str(product.id), {}, after, commit=False,
+        )
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise ValidationDomainError(
+            "Catalog conflict; verify product title and SKU uniqueness"
+        ) from exc
+    return {"status": "created", "product_id": product.id, "brand_id": brand_id}
+
+
+@router.patch("/catalog/brands/{brand_id}/products/{product_id}")
+def update_admin_catalog_product(
+    brand_id: int,
+    product_id: int,
+    payload: AdminCatalogProductPatch,
+    request: Request,
+    user: User = Depends(require_admin_recent(max_age_minutes=60)),
+    db: Session = Depends(get_db),
+):
+    current = db.query(Product).filter(
+        Product.id == product_id, Product.brand_id == brand_id
+    ).with_for_update().first()
+    if not current:
+        raise ResourceNotFoundError("Product", product_id)
+    before = _catalog_product_state(current)
+    try:
+        product = AdminCatalogService(db).update_product(brand_id, product_id, payload)
+        after = _catalog_product_state(product)
+        _audit_admin(
+            request, db, user, "ADMIN_CATALOG_PRODUCT_UPDATED", "Product",
+            str(product_id), before, after, commit=False,
+        )
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise ValidationDomainError(
+            "Catalog conflict; verify product title and category"
+        ) from exc
+    return {"status": "updated", "product_id": product_id, "brand_id": brand_id}
+
+
+@router.delete("/catalog/brands/{brand_id}/products/{product_id}")
+def deactivate_admin_catalog_product(
+    brand_id: int,
+    product_id: int,
+    request: Request,
+    user: User = Depends(require_admin_recent(max_age_minutes=60)),
+    db: Session = Depends(get_db),
+):
+    current = db.query(Product).filter(
+        Product.id == product_id, Product.brand_id == brand_id
+    ).with_for_update().first()
+    if not current:
+        raise ResourceNotFoundError("Product", product_id)
+    before = _catalog_product_state(current)
+    product, cancelled = AdminCatalogService(db).set_product_active(
+        brand_id, product_id, False
+    )
+    after = _catalog_product_state(product)
+    after["placements_cancelled"] = cancelled
+    _audit_admin(
+        request, db, user, "ADMIN_CATALOG_PRODUCT_DEACTIVATED", "Product",
+        str(product_id), before, after, commit=False,
+    )
+    db.commit()
+    return {
+        "status": "deactivated",
+        "product_id": product_id,
+        "placements_cancelled": cancelled,
+        "detail": "Product is hidden from the storefront; historical records were retained.",
+    }
+
+
+@router.post("/catalog/brands/{brand_id}/products/{product_id}/activate")
+def reactivate_admin_catalog_product(
+    brand_id: int,
+    product_id: int,
+    request: Request,
+    user: User = Depends(require_admin_recent(max_age_minutes=60)),
+    db: Session = Depends(get_db),
+):
+    current = db.query(Product).filter(
+        Product.id == product_id, Product.brand_id == brand_id
+    ).with_for_update().first()
+    if not current:
+        raise ResourceNotFoundError("Product", product_id)
+    before = _catalog_product_state(current)
+    product, _ = AdminCatalogService(db).set_product_active(brand_id, product_id, True)
+    after = _catalog_product_state(product)
+    _audit_admin(
+        request, db, user, "ADMIN_CATALOG_PRODUCT_REACTIVATED", "Product",
+        str(product_id), before, after, commit=False,
+    )
+    db.commit()
+    return {
+        "status": "active",
+        "product_id": product_id,
+        "detail": "Product is active. Cancelled placements remain cancelled.",
+    }
+
+
+@router.post(
+    "/catalog/brands/{brand_id}/products/{product_id}/skus",
+    status_code=status.HTTP_201_CREATED,
+)
+def add_admin_catalog_sku(
+    brand_id: int,
+    product_id: int,
+    payload: AdminCatalogSKUCreate,
+    request: Request,
+    user: User = Depends(require_admin_recent(max_age_minutes=60)),
+    db: Session = Depends(get_db),
+):
+    try:
+        sku = AdminCatalogService(db).add_sku(brand_id, product_id, payload)
+        after = _catalog_sku_state(sku)
+        _audit_admin(
+            request, db, user, "ADMIN_CATALOG_SKU_CREATED", "ProductSKU",
+            str(sku.id), {}, after, commit=False,
+        )
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise ValidationDomainError("SKU code is already in use") from exc
+    return {"status": "created", "sku_id": sku.id, "product_id": product_id}
+
+
+@router.patch("/catalog/brands/{brand_id}/skus/{sku_id}")
+def update_admin_catalog_sku(
+    brand_id: int,
+    sku_id: int,
+    payload: AdminCatalogSKUPatch,
+    request: Request,
+    user: User = Depends(require_admin_recent(max_age_minutes=60)),
+    db: Session = Depends(get_db),
+):
+    current = db.query(ProductSKU).join(Product).filter(
+        ProductSKU.id == sku_id, Product.brand_id == brand_id
+    ).with_for_update().first()
+    if not current:
+        raise ResourceNotFoundError("ProductSKU", sku_id)
+    before = _catalog_sku_state(current)
+    sku = AdminCatalogService(db).update_sku(brand_id, sku_id, payload)
+    after = _catalog_sku_state(sku)
+    _audit_admin(
+        request, db, user, "ADMIN_CATALOG_SKU_UPDATED", "ProductSKU",
+        str(sku_id), before, after, commit=False,
+    )
+    db.commit()
+    return {"status": "updated", "sku_id": sku_id, **after}

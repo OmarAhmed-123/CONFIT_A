@@ -67,7 +67,11 @@ def _fill(path: str) -> str:
         number = order.order_number
     finally:
         db.close()
-    return re.sub(r"\{[^}]+\}", number, path)
+    def value(match: re.Match) -> str:
+        parameter = match.group(0)
+        return number if "order_number" in parameter else "1"
+
+    return re.sub(r"\{[^}]+\}", value, path)
 
 
 def _login(email: str) -> str:

@@ -30,6 +30,8 @@ import {
   AuditFacets,
   AuditIntegrity,
   AuditStats,
+  AdminCatalogBrandSummary,
+  AdminCatalogSnapshot,
 } from "../models";
 
 // 1. Authentication Services (G1)
@@ -1131,7 +1133,81 @@ const auditQuery = (params: AuditTrailQuery = {}): string => {
   return qs ? `?${qs}` : "";
 };
 
+export interface AdminCatalogSKUInput {
+  sku_code: string;
+  size: string;
+  color: string;
+  color_hex?: string;
+  price_override?: number | null;
+  stock_level: number;
+}
+
+export interface AdminCatalogProductInput {
+  category_id: number;
+  title: string;
+  title_ar: string;
+  description: string;
+  description_ar: string;
+  base_price: number;
+  currency: string;
+  material?: string | null;
+  care_instructions?: string | null;
+  color_family: string;
+  dominant_hex: string;
+  thumbnail_url: string;
+  images: string[];
+  style_tags: string[];
+  occasion_tags: string[];
+  is_featured: boolean;
+  skus: AdminCatalogSKUInput[];
+}
+
+export type AdminCatalogProductPatch = Omit<AdminCatalogProductInput, "skus">;
+
 export const adminService = {
+  getCatalogBrands: () =>
+    request<AdminCatalogBrandSummary[]>("/admin/catalog/brands"),
+  getCatalogSnapshot: (brandId: number) =>
+    request<AdminCatalogSnapshot>(`/admin/catalog/brands/${brandId}`),
+  createCatalogProduct: (brandId: number, payload: AdminCatalogProductInput) =>
+    request<{ status: string; product_id: number; brand_id: number }>(
+      `/admin/catalog/brands/${brandId}/products`,
+      { method: "POST", body: JSON.stringify(payload) },
+    ),
+  updateCatalogProduct: (
+    brandId: number,
+    productId: number,
+    payload: Partial<AdminCatalogProductPatch>,
+  ) =>
+    request<{ status: string; product_id: number; brand_id: number }>(
+      `/admin/catalog/brands/${brandId}/products/${productId}`,
+      { method: "PATCH", body: JSON.stringify(payload) },
+    ),
+  deactivateCatalogProduct: (brandId: number, productId: number) =>
+    request<{ status: string; product_id: number; placements_cancelled: number }>(
+      `/admin/catalog/brands/${brandId}/products/${productId}`,
+      { method: "DELETE" },
+    ),
+  reactivateCatalogProduct: (brandId: number, productId: number) =>
+    request<{ status: string; product_id: number }>(
+      `/admin/catalog/brands/${brandId}/products/${productId}/activate`,
+      { method: "POST" },
+    ),
+  addCatalogSKU: (brandId: number, productId: number, payload: AdminCatalogSKUInput) =>
+    request<{ status: string; sku_id: number; product_id: number }>(
+      `/admin/catalog/brands/${brandId}/products/${productId}/skus`,
+      { method: "POST", body: JSON.stringify(payload) },
+    ),
+  updateCatalogSKU: (
+    brandId: number,
+    skuId: number,
+    payload: { stock_level?: number; price_override?: number | null },
+  ) =>
+    request<{ status: string; sku_id: number; stock_level: number }>(
+      `/admin/catalog/brands/${brandId}/skus/${skuId}`,
+      { method: "PATCH", body: JSON.stringify(payload) },
+    ),
+
   getPlatformAnalytics: () =>
     request<AdminPlatformAnalytics>("/admin/analytics"),
   getBrandComparison: () => request<any[]>("/admin/analytics/brands"),

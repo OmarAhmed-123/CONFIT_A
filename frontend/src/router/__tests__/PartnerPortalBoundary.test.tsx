@@ -26,11 +26,11 @@ beforeEach(() => setIdentity('admin'));
 describe('partner/admin route separation', () => {
   it.each([
     ['/b2b', '/admin'],
-    ['/b2b/catalog', '/admin'],
-    ['/b2b/inventory', '/admin'],
-    ['/b2b/placements', '/admin'],
+    ['/b2b/catalog', '/admin/catalog'],
+    ['/b2b/inventory', '/admin/catalog'],
+    ['/b2b/placements', '/admin/catalog'],
     ['/b2b/analytics', '/admin/analytics'],
-    ['/partner/catalog', '/admin'],
+    ['/partner/catalog', '/admin/catalog'],
   ])('redirects an admin bookmark %s to %s without mounting partner content', (from, to) => {
     render(
       <MemoryRouter initialEntries={[from]}>

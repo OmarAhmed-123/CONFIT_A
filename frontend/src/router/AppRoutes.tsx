@@ -50,6 +50,7 @@ import { BrandAnalyticsView } from '../views/b2b/BrandAnalyticsView';
 import { BrandPlacementsView } from '../views/b2b/BrandPlacementsView';
 import { AdminAnalyticsView } from '../views/b2b/AdminAnalyticsView';
 import { AdminAuditView } from '../views/b2b/AdminAuditView';
+import { AdminCatalogView } from '../views/b2b/AdminCatalogView';
 
 const PARTNER_ROLES = ['brand_owner', 'brand_manager', 'brand_staff'];
 const ADMIN_ROLES = ['admin'];
@@ -72,7 +73,13 @@ export const PartnerPortalBoundary: React.FC<{ children: React.ReactNode }> = ({
     const normalized = location.pathname.replace(/^\/(partner|b2b)(?=\/|$)/, '');
     const destination = normalized === '/analytics' || normalized === '/admin-platform'
       ? '/admin/analytics'
-      : '/admin';
+      : normalized === '/catalog'
+        ? '/admin/catalog'
+        : normalized === '/inventory'
+          ? '/admin/catalog?tab=inventory'
+          : normalized === '/placements'
+            ? '/admin/catalog?tab=placements'
+            : '/admin';
     return <Navigate to={destination} replace />;
   }
 
@@ -236,10 +243,8 @@ export const AppRoutes: React.FC = () => {
           <Route index element={<AdminAnalyticsView />} />
           <Route path="overview" element={<AdminAnalyticsView />} />
           <Route path="analytics" element={<AdminAnalyticsView />} />
-          {/* This legacy route used the partner dashboard and therefore made
-              tenant requests as an unlinked admin. Keep the URL safe until the
-              explicit cross-brand catalog surface is mounted here. */}
-          <Route path="partners" element={<Navigate to="/admin" replace />} />
+          <Route path="catalog" element={<AdminCatalogView />} />
+          <Route path="partners" element={<AdminCatalogView />} />
           {/* G-07: this route used to render the analytics dashboard, so the
               audit trail had no UI at all. */}
           <Route path="audit" element={<AdminAuditView />} />

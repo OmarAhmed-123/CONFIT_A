@@ -51,9 +51,39 @@ import { BrandPlacementsView } from '../views/b2b/BrandPlacementsView';
 import { AdminAnalyticsView } from '../views/b2b/AdminAnalyticsView';
 import { AdminAuditView } from '../views/b2b/AdminAuditView';
 
+const PARTNER_ROLES = ['brand_owner', 'brand_manager', 'brand_staff'];
+const ADMIN_ROLES = ['admin'];
+
+/**
+ * Keep platform administration and partner tenancy as separate trust domains.
+ *
+ * Admin users have no BrandProfile by design. Before this boundary existed,
+ * /b2b pages made six tenant-scoped requests with the admin identity and then
+ * rendered "every request failed". Legacy/bookmarked partner URLs now lead an
+ * admin to the matching explicit admin surface; partner roles still use the
+ * original tenant-isolated portal.
+ */
+export const PartnerPortalBoundary: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user, isAuthenticated, hasAttemptedBootstrap } = useAuthStore();
+  const location = useLocation();
+  const isAdmin = user?.role?.toLowerCase() === 'admin';
+
+  if (hasAttemptedBootstrap && isAuthenticated && isAdmin) {
+    const normalized = location.pathname.replace(/^\/(partner|b2b)(?=\/|$)/, '');
+    const destination = normalized === '/analytics' || normalized === '/admin-platform'
+      ? '/admin/analytics'
+      : '/admin';
+    return <Navigate to={destination} replace />;
+  }
+
+  return (
+    <RoleGuard allowedRoles={PARTNER_ROLES} fallbackTitle="Brand Partner Portal">
+      {children}
+    </RoleGuard>
+  );
+};
+
 export const AppRoutes: React.FC = () => {
-  const BRAND_ROLES = ['brand_owner', 'brand_manager', 'brand_staff', 'admin'];
-  const ADMIN_ROLES = ['admin'];
 
   return (
     // Router context is provided by App (AUTH-02: root-mounted AuthModal needs navigate()).
@@ -158,13 +188,13 @@ export const AppRoutes: React.FC = () => {
           />
         </Route>
 
-        {/* 2. B2B Brand Partner Routes (Protected by BRAND_ROLES) */}
+        {/* 2. B2B Brand Partner Routes (tenant roles only; admins redirect) */}
         <Route
           path="/b2b"
           element={
-            <RoleGuard allowedRoles={BRAND_ROLES} fallbackTitle="Brand Partner Hub Access">
+            <PartnerPortalBoundary>
               <BrandLayout />
-            </RoleGuard>
+            </PartnerPortalBoundary>
           }
         >
           <Route index element={<BrandDashboardView />} />
@@ -172,23 +202,18 @@ export const AppRoutes: React.FC = () => {
           <Route path="inventory" element={<BrandInventoryView />} />
           <Route path="analytics" element={<BrandAnalyticsView />} />
           <Route path="placements" element={<BrandPlacementsView />} />
-          <Route
-            path="admin-platform"
-            element={
-              <RoleGuard allowedRoles={ADMIN_ROLES} fallbackTitle="Platform Governance Only">
-                <AdminAnalyticsView />
-              </RoleGuard>
-            }
-          />
+          {/* Kept as a legacy URL. PartnerPortalBoundary redirects an admin to
+              /admin/analytics; partner roles do not receive platform access. */}
+          <Route path="admin-platform" element={<Navigate to="/b2b" replace />} />
         </Route>
 
         {/* 3. Partner Aliases */}
         <Route
           path="/partner"
           element={
-            <RoleGuard allowedRoles={BRAND_ROLES} fallbackTitle="Brand Partner Portal">
+            <PartnerPortalBoundary>
               <BrandLayout />
-            </RoleGuard>
+            </PartnerPortalBoundary>
           }
         >
           <Route index element={<BrandDashboardView />} />
@@ -211,7 +236,10 @@ export const AppRoutes: React.FC = () => {
           <Route index element={<AdminAnalyticsView />} />
           <Route path="overview" element={<AdminAnalyticsView />} />
           <Route path="analytics" element={<AdminAnalyticsView />} />
-          <Route path="partners" element={<BrandDashboardView />} />
+          {/* This legacy route used the partner dashboard and therefore made
+              tenant requests as an unlinked admin. Keep the URL safe until the
+              explicit cross-brand catalog surface is mounted here. */}
+          <Route path="partners" element={<Navigate to="/admin" replace />} />
           {/* G-07: this route used to render the analytics dashboard, so the
               audit trail had no UI at all. */}
           <Route path="audit" element={<AdminAuditView />} />

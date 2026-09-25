@@ -19,6 +19,7 @@ const PARTNER_LINKS: NavDestination[] = [
 
 const GOVERNANCE_LINKS: NavDestination[] = [
   { href: '/admin', labelKey: 'brand_nav.platform_admin' },
+  { href: '/admin/analytics', labelKey: 'brand_nav.platform_analytics' },
   { href: '/admin/audit', labelKey: 'brand_nav.audit_trail' },
 ];
 
@@ -34,11 +35,11 @@ export const BrandNavbar: React.FC = () => {
   const { t } = useTranslation();
   const path = location.pathname.replace(/^\/partner(?=\/|$)/, '/b2b');
 
-  // Governance is the admin's primary task, so those two links come FIRST.
-  // At 390px they are in the initial viewport rather than hidden at the far
-  // end of a long partner menu. All partner links remain available in the
-  // same horizontally-scrollable nav — no mobile functionality is removed.
-  const links = isAdmin ? [...GOVERNANCE_LINKS, ...PARTNER_LINKS] : PARTNER_LINKS;
+  // Admin is a platform identity, not a partner tenant. Showing partner links
+  // here sent admins to endpoints that correctly require a linked BrandProfile,
+  // producing an all-requests-failed screen. Keep the two security domains
+  // explicit: admin sees governance routes; brand roles see tenant routes.
+  const links = isAdmin ? GOVERNANCE_LINKS : PARTNER_LINKS;
 
   const handleLogout = async () => {
     try {
@@ -53,7 +54,7 @@ export const BrandNavbar: React.FC = () => {
     <header className="sticky top-0 z-40 border-b border-slate-800 bg-[#0C0E1E] text-white">
       <div className="mx-auto flex min-h-20 max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
         <Link
-          to="/b2b"
+          to={isAdmin ? '/admin' : '/b2b'}
           className={`flex min-h-11 min-w-0 items-center gap-3 rounded-lg ${focusRing}`}
           aria-label={t('b2b.dashboard_link_label')}
         >

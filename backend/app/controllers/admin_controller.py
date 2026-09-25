@@ -57,7 +57,8 @@ def _audit_admin(request: Request, db: Session, user: User, action: str,
 
 
 def _audit_read(request: Request, db: Session, user: User, action: str,
-                resource_type: str, details: Dict[str, Any]) -> None:
+                resource_type: str, details: Dict[str, Any],
+                commit: bool = True) -> None:
     """Audit a privileged READ.
 
     Reading the audit trail discloses every other privileged action on the
@@ -73,6 +74,7 @@ def _audit_read(request: Request, db: Session, user: User, action: str,
         request_id=_request_id(request),
         before=None,
         after=details,
+        commit=commit,
     )
 
 
@@ -359,12 +361,29 @@ def get_audit_integrity(
     limits (key compromise, tail truncation across runs, pre-migration rows)
     are named in ``limitations``.
     """
+    # The signed run and its independent audit-chain cross-link are one
+    # transaction. A failed audit insert or final commit leaves neither row;
+    # it must never leave an unanchored verification-run tail behind.
     result = AuditTrailService(db).integrity(
-        window_days=window_days, actor_id=user.id, request_id=_request_id(request)
+        window_days=window_days,
+        actor_id=user.id,
+        request_id=_request_id(request),
+        commit=False,
     )
-    _audit_read(request, db, user, "ADMIN_AUDIT_INTEGRITY_CHECK", "AuditLog",
-                {"window_days": window_days, "verdict": result["verdict"],
-                 "tamper_evident": result["tamper_evident"],
-                 "truncation": result["truncation_check"]["verdict"]})
+    _audit_read(
+        request,
+        db,
+        user,
+        "ADMIN_AUDIT_INTEGRITY_CHECK",
+        "AuditLog",
+        {"window_days": window_days, "verdict": result["verdict"],
+         "tamper_evident": result["tamper_evident"],
+         "truncation": result["truncation_check"]["verdict"],
+         # Cross-link the signed verification result into the main audit HMAC
+         # chain. Deleting/forging a run leaves this independent reference.
+         "verification_run": result.get("verification_run")},
+        commit=False,
+    )
+    db.commit()
     return result
 

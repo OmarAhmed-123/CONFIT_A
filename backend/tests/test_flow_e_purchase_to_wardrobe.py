@@ -522,7 +522,7 @@ def test_migration_0015_round_trip_and_unique_lineage() -> None:
         os.unlink(path)
 
 
-def test_migration_chain_has_a_single_head_at_0022() -> None:
+def test_migration_chain_has_a_single_head_at_0023() -> None:
     from backend.app.core.schema_gate import expected_head_revision, migration_chain
 
     chain = migration_chain()
@@ -537,8 +537,10 @@ def test_migration_chain_has_a_single_head_at_0022() -> None:
     # 0021 (persisted verification runs: cross-run tail-truncation anchor) ->
     # 0022 (database-restricted append-only guard: REVOKE + triggers on the
     # audit tables — closes the forensic finding that the production runtime
-    # role could UPDATE/DELETE/TRUNCATE audit history).
-    assert expected_head_revision() == "0022_audit_append_only_guard"
+    # role could UPDATE/DELETE/TRUNCATE audit history) -> 0023 (domain-separated
+    # HMAC chain for verification-run provenance; forged INSERT detection).
+    assert expected_head_revision() == "0023_verification_run_hmac_chain"
+    assert chain["0023_verification_run_hmac_chain"] == "0022_audit_append_only_guard"
     assert chain["0022_audit_append_only_guard"] == "0021_audit_verification_runs"
     assert chain["0021_audit_verification_runs"] == "0020_audit_hash_chain"
     assert chain["0020_audit_hash_chain"] == "0019_brand_tenant_integrity_and_ad_ledger"

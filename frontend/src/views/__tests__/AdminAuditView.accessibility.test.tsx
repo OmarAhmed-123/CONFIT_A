@@ -60,6 +60,13 @@ const INTEGRITY = {
     breaks: [], head_hash: 'a'.repeat(64), key_version: 1,
     canonical_version: 1,
   },
+  verification_runs: {
+    coverage_mode: 'tail_window', sample_limit: 100, sampled_rows: 2,
+    signed_rows: 2, unsigned_rows: 0, first_signed_run_id: 1,
+    forgery_suspected_rows: 0, breaks: [], intact: true,
+    head_hash: 'b'.repeat(64), canonical_version: 1,
+    anchor: { audit_row_id: 88, run_id: 2, verdict: 'anchored' },
+  },
   limitations: ['Window sample only.'],
 };
 
@@ -77,6 +84,7 @@ describe('AdminAuditView accessible interaction', () => {
     expect(button.tagName).toBe('BUTTON');
     expect(button.getAttribute('aria-expanded')).toBe('false');
     expect(button.className).toContain('min-h-11');
+    expect(await screen.findByText(/verification runs: 2 signed.*tail anchor: anchored/i)).toBeTruthy();
     expect(button.className).toContain('focus-visible:ring-2');
     expect(container.querySelector('tr[aria-expanded]')).toBeNull();
 

@@ -40,7 +40,7 @@ correlation as causal, or an operational amount as a settled ledger amount.
 5. Money remains partitioned by currency; no implicit FX or `$` label.
 6. Return numerator/denominator use one unit and one cohort assignment.
 7. Authenticated authorization denials and sensitive audit reads are audited.
-8. Admin governance remains usable at 390/414/768/1024 widths and by keyboard;
+8. Admin governance remains usable at 390/414/768/1024/1440 widths and by keyboard;
    automated semantics do not substitute for a manual AT/contrast evaluation.
 
 ### Non-goals
@@ -68,9 +68,10 @@ bypass rows among 438 rows at that time.
 - "single enforcement point" covered ORM mapper inserts, not SQLAlchemy Core,
   bulk helpers or direct SQL. Supported production code had no such bulk path,
   but the database allowed one. The re-audit added global bypass detection and
-  a static production-path gate; direct SQL inserts are still possible to a
-  credential with INSERT (expected for the app role) and are detected if
-  unchained.
+  a static production-path gate. Direct SQL inserts remain possible to a
+  credential with INSERT (expected for the app role); unchained rows with
+  monotonic ids are detected, but an explicit low id can still sort into the
+  legacy prefix. Database INSERT enforcement remains open.
 - `resolve_key(key_version)` ignored `key_version`; rotation was documented but
   not implemented. PR #201 implemented active/retired version resolution and
   fail-closed tests.
@@ -126,6 +127,29 @@ transaction and rollback tests prove both-or-neither.
   The API now also says machine-readably: `recorded_attributed_unsettled`,
   `unreconciled`, `reconciled_against: null`. No ledger was fabricated.
 
+### Post-#201 correction — evidence must cross the HTTP boundary
+
+PR #201 correctly added `coverage`, predecessor anchoring and bypass fields to
+the **service result**, but `AuditIntegrityOut` omitted those fields. FastAPI's
+response-model filtering silently removed them from real HTTP responses. The
+service-only test passed while the user-facing claim was false. Migration 0023
+remediation adds the fields to the schema and an HTTP test that calls the real
+endpoint and asserts they survive serialization.
+
+0022 also left INSERT intentionally available to the runtime role; therefore a
+DB credential holder could forge an arbitrary `audit_verification_runs` row.
+0023 adds a separate, domain-separated HMAC chain for verification-run
+provenance. Legacy runs stay unsigned; invalid signed inserts, ordinary
+unsigned inserts that sort after the first signed id, content modification,
+middle deletion/reordering, wrong/missing key versions and chain forks are
+detectable. Each HTTP run is cross-linked into the independent primary audit
+chain in the same transaction, closing deletion of the newest cross-linked run
+tail on the next check. A reproduced residual gap remains: the runtime role can
+supply an explicit low id, allowing a new unsigned row to sort into the legacy
+prefix. That requires a database INSERT guard in a follow-up migration; 0023
+alone must not be described as detecting every forged INSERT. Actor I (DB +
+HMAC keys) also remains outside the internal guarantee.
+
 ## 3. Evidence matrix
 
 | Claim | Source | Runtime evidence | Test evidence | Status |
@@ -134,6 +158,8 @@ transaction and rollback tests prove both-or-neither.
 | Historical legacy rows were protected at creation | none | 436 production rows had no hash | tests label them unchained; no backfill | NOT CONFIRMED (intentionally never claimed) |
 | Runtime role cannot mutate audit tables | migration 0022, `audit_db_guard.py` | production UPDATE/DELETE/TRUNCATE as `confit_app_rw` blocked | PG trust-boundary tests | CONFIRMED |
 | Verification-run table is immutable | no external/WORM boundary | owner can DROP trigger using DDL | trigger + privilege tests only | PARTIALLY CONFIRMED: database-restricted append-only, not immutable |
+| Verification-run rows have authentic provenance | 0023 domain-separated HMAC chain + atomic primary-chain tail cross-link | production schema verified at 0023 on 2026-09-25, but zero run rows before code deployment | modification/middle+tail deletion/reordering/ordinary raw forgery/missing+wrong key/rotation/separator/PG concurrency + HTTP rollback tests; explicit low-id unsigned bypass reproduced | PARTIALLY CONFIRMED; low-id INSERT guard REMAINS OPEN and production signed behavior UNVERIFIED |
+| Dashboard coverage metadata reaches HTTP | `AuditIntegrityOut.coverage` | production schema is ready; endpoint code pending deployment | real TestClient endpoint regression | CONFIRMED locally; #201 service-only claim was false; production HTTP UNVERIFIED |
 | Dashboard integrity verifies all history | no | API mode is `window_sample` | coverage contract tests | NOT CONFIRMED (claim removed) |
 | Deliberate full-history path exists | `scripts/verify_audit_chain.py` | production read-only scan executed | trust-boundary tests | CONFIRMED |
 | Tail deletion after a persisted run is detected | migration/service 0021 | production run history not exercised with destructive test | real DB behavioural delete test | CONFIRMED locally; production destructive test not performed |
@@ -143,7 +169,7 @@ transaction and rollback tests prove both-or-neither.
 | Mixed currencies are never summed | repository currency partition | production payload after deployment pending | mixed/single-currency DB tests | CONFIRMED locally |
 | Return cohorts use matching boundaries | repository distinct-order query | production values not independently recomputed | duplicate/rejected/window tests | CONFIRMED locally |
 | External WORM anchoring exists | none | none | none | REQUIRES INFRASTRUCTURE |
-| 390px navigation keeps all actions | navbar + native detail button | local Chromium 153 at 390/414/768/1024: no page overflow; 7 links; governance links initially visible; own table scroller; keyboard Enter expanded | structural/axe tests + `docs/evidence/admin-governance-browser-report.json` | CONFIRMED locally; production authenticated UI UNVERIFIED |
+| Responsive/keyboard audit access | navbar + native detail button | local Chromium 153 + PostgreSQL 17 at 390/414/768/1024/1440: no page overflow; 7 links; governance links initially visible; intentional table scroller where needed; computed integrity-text contrast minimum 6.92:1; named 44px control; Enter/Space and focus retention; RTL 390 | structural/axe tests + `docs/evidence/admin-governance-browser-report.json` | CONFIRMED locally; not a formal WCAG conformance claim; production authenticated UI UNVERIFIED |
 | WCAG 2.2 conformance | no conformance evaluation | none | axe excludes contrast/target-size in jsdom | UNVERIFIED — no compliance claim |
 
 Allowed status vocabulary is intentional: CONFIRMED, PARTIALLY CONFIRMED,

@@ -244,6 +244,7 @@ class TestVerificationCoverage:
         issues = {v["issue"] for v in report["violations"]}
         assert "chain_bypass_suspected" in issues
         assert report["chain"]["bypass_suspected_rows"] == 1
+        assert report["tamper_evident"] is False
 
     def test_true_legacy_rows_are_not_flagged_as_bypass(self, db):
         # Unchained row BEFORE any chained row = legacy, not bypass.

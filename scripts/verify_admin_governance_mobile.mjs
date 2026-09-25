@@ -3,7 +3,7 @@
  * Real-browser mobile evidence for Admin Governance.
  *
  * This is deliberately separate from jsdom/axe: Chromium computes actual
- * layout, overflow, focus dimensions and direction at 390/414/768/1024 px.
+ * layout, overflow, contrast, focus and direction at 390/414/768/1024/1440 px.
  * It logs into a LOCAL seeded admin account only. Run against Vite + local API:
  *
  *   node scripts/verify_admin_governance_mobile.mjs
@@ -45,7 +45,7 @@ const login = await page.evaluate(async () => {
 });
 if (login.role !== 'admin') throw new Error(`expected local admin, got ${login.role}`);
 
-const widths = [390, 414, 768, 1024];
+const widths = [390, 414, 768, 1024, 1440];
 const results = [];
 for (const width of widths) {
   await page.setViewportSize({ width, height: width <= 414 ? 844 : 900 });
@@ -66,6 +66,47 @@ for (const width of widths) {
     });
     const details = document.querySelector('button[aria-controls^="audit-row-details-"]');
     const dr = details?.getBoundingClientRect();
+
+    // Computed-color evidence for the current real integrity state. This is
+    // not a formal WCAG audit; it catches the concrete regression where tiny
+    // status text inherited a low-contrast colour on the light card.
+    const parseColor = (value) => {
+      const parts = value.match(/[\d.]+/g)?.map(Number) || [];
+      return { r: parts[0] || 0, g: parts[1] || 0, b: parts[2] || 0,
+        a: parts.length > 3 ? parts[3] : 1 };
+    };
+    const blend = (top, bottom) => ({
+      r: top.r * top.a + bottom.r * (1 - top.a),
+      g: top.g * top.a + bottom.g * (1 - top.a),
+      b: top.b * top.a + bottom.b * (1 - top.a),
+      a: 1,
+    });
+    const effectiveBackground = (element) => {
+      const layers = [];
+      for (let node = element; node instanceof HTMLElement; node = node.parentElement) {
+        layers.push(parseColor(getComputedStyle(node).backgroundColor));
+      }
+      return layers.reverse().reduce((base, layer) => blend(layer, base),
+        { r: 255, g: 255, b: 255, a: 1 });
+    };
+    const luminance = (color) => {
+      const channel = (value) => {
+        const normal = value / 255;
+        return normal <= 0.04045 ? normal / 12.92 : ((normal + 0.055) / 1.055) ** 2.4;
+      };
+      return 0.2126 * channel(color.r) + 0.7152 * channel(color.g) + 0.0722 * channel(color.b);
+    };
+    const contrast = (element) => {
+      const foreground = parseColor(getComputedStyle(element).color);
+      const background = effectiveBackground(element);
+      const light = Math.max(luminance(foreground), luminance(background));
+      const dark = Math.min(luminance(foreground), luminance(background));
+      return Number(((light + 0.05) / (dark + 0.05)).toFixed(2));
+    };
+    const integrity = document.querySelector('[data-testid="audit-integrity"]');
+    const contrastSamples = Array.from(integrity?.querySelectorAll('span, p') || [])
+      .filter((element) => element.textContent?.trim() && getComputedStyle(element).display !== 'none')
+      .map((element) => ({ text: element.textContent.trim().slice(0, 80), ratio: contrast(element) }));
     return {
       width: window.innerWidth,
       direction: document.documentElement.dir,
@@ -80,7 +121,15 @@ for (const width of widths) {
       auditRegionClientWidth: auditRegion?.clientWidth,
       auditRegionScrollWidth: auditRegion?.scrollWidth,
       tableContainedByOwnScroller: Boolean(auditRegion && auditRegion.scrollWidth > auditRegion.clientWidth),
-      detailsButton: dr ? { width: Math.round(dr.width), height: Math.round(dr.height), tag: details?.tagName } : null,
+      detailsButton: dr ? {
+        width: Math.round(dr.width), height: Math.round(dr.height), tag: details?.tagName,
+        accessibleName: details?.getAttribute('aria-label') || details?.textContent?.trim(),
+      } : null,
+      integrityContrast: {
+        samples: contrastSamples,
+        minimumRatio: contrastSamples.length
+          ? Math.min(...contrastSamples.map((sample) => sample.ratio)) : null,
+      },
     };
   });
   if (data.pageHorizontalOverflow) throw new Error(`page overflows horizontally at ${width}px`);
@@ -91,6 +140,12 @@ for (const width of widths) {
   }
   if (!data.detailsButton || data.detailsButton.tag !== 'BUTTON' || data.detailsButton.height < 44) {
     throw new Error(`details target is not a >=44px native button at ${width}px`);
+  }
+  if (!data.detailsButton.accessibleName) {
+    throw new Error(`details target has no screen-reader name at ${width}px`);
+  }
+  if (data.integrityContrast.minimumRatio === null || data.integrityContrast.minimumRatio < 4.5) {
+    throw new Error(`integrity text contrast below 4.5:1 at ${width}px: ${JSON.stringify(data.integrityContrast)}`);
   }
   results.push(data);
   if (width === 390) {
@@ -123,8 +178,18 @@ if (keyboardFocus.outlineStyle === 'none' && keyboardFocus.boxShadow === 'none')
   throw new Error('details button received keyboard focus with no visible indicator');
 }
 await page.keyboard.press('Enter');
-const expandedByKeyboard = await page.locator('button[aria-controls^="audit-row-details-"]').first().getAttribute('aria-expanded');
+const detailsControl = page.locator('button[aria-controls^="audit-row-details-"]').first();
+const expandedByKeyboard = await detailsControl.getAttribute('aria-expanded');
 if (expandedByKeyboard !== 'true') throw new Error('Enter did not expand audit row');
+const focusAfterOpen = await page.evaluate(() =>
+  document.activeElement?.getAttribute('aria-controls')?.startsWith('audit-row-details-') ?? false);
+if (!focusAfterOpen) throw new Error('focus left the details control after opening');
+await page.keyboard.press('Space');
+const collapsedBySpace = await detailsControl.getAttribute('aria-expanded');
+if (collapsedBySpace !== 'false') throw new Error('Space did not collapse audit row');
+const focusAfterClose = await page.evaluate(() =>
+  document.activeElement?.getAttribute('aria-controls')?.startsWith('audit-row-details-') ?? false);
+if (!focusAfterClose) throw new Error('focus left the details control after closing');
 
 // Arabic/RTL at the same 390px real viewport.
 await page.evaluate(() => localStorage.setItem('confit_lang', 'ar'));
@@ -143,12 +208,18 @@ await page.screenshot({ path: path.join(outDir, 'admin-audit-390-ar.png'), fullP
 
 const report = {
   ran_at: new Date().toISOString(),
-  environment: 'LOCAL only (Vite + migrated SQLite; not production)',
+  environment: process.env.CONFIT_BROWSER_ENVIRONMENT ||
+    'LOCAL only (Vite + migrated database; not production)',
   browser: await browser.version(),
   login: { status: login.status, role: login.role, credentials: 'local seeded account; no secret recorded' },
   routes: ['/admin/audit'],
   widths: results,
-  keyboard: { reachedDetailsButton: true, visibleFocusIndicator: true, expandedWithEnter: true, ...keyboardFocus },
+  keyboard: {
+    reachedDetailsButton: true, visibleFocusIndicator: true,
+    expandedWithEnter: true, collapsedWithSpace: true,
+    focusRetainedAfterOpen: focusAfterOpen, focusRetainedAfterClose: focusAfterClose,
+    ...keyboardFocus,
+  },
   rtl390: rtl,
   limits: [
     'This verifies Chromium layout/interaction, not screen-reader speech.',

@@ -118,6 +118,8 @@ class AuditChainOut(BaseModel):
 
     chained_rows: int
     unchained_rows: int
+    first_chained_row_id: Optional[int] = None
+    bypass_suspected_rows: int = 0
     breaks: List[Dict[str, Any]] = Field(default_factory=list)
     head_hash: Optional[str] = None
     key_version: int
@@ -139,17 +141,26 @@ class AuditIntegrityOut(BaseModel):
 
     checked_rows: int
     window_days: int
+    sampled_rows: int = 0
     violations: List[Dict[str, Any]]
     unresolved_actors: int
     redaction_markers: int
     rows_with_before_after: int
     rows_with_request_id: int
     rows_with_ip: int
+    distinct_actors: int = 0
     verdict: str
     tamper_evident: bool = False
+    # Machine-readable scope: window_sample != full-history verification.
+    # These fields existed in the service result after #201 but were missing
+    # from this response model, so FastAPI silently stripped them from HTTP.
+    coverage: Optional[Dict[str, Any]] = None
     chain: Optional[AuditChainOut] = None
     # 0021: cross-run tail-truncation check. verdict ∈ {no_prior_run,
     # anchored, tail_truncation_detected, prior_run_had_no_head}; the
     # previous run's head must still exist in audit_logs.
     truncation_check: Optional[Dict[str, Any]] = None
+    # 0023: authenticity/integrity of the verification-run history itself.
+    verification_runs: Optional[Dict[str, Any]] = None
+    verification_run: Optional[Dict[str, Any]] = None
     limitations: List[str] = Field(default_factory=list)

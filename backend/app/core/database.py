@@ -1,5 +1,4 @@
 import os
-import ssl
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
 from backend.app.core.config import settings
@@ -9,62 +8,7 @@ raw_url = settings.DATABASE_URL or os.environ.get("DATABASE_URL") or "sqlite:///
 
 
 
-def _postgres_driver_available(name: str) -> bool:
-    try:
-        __import__(name)
-        return True
-    except ImportError:
-        return False
-
-
-def normalise_postgres_url(url: str):
-    """Return (sqlalchemy_url, connect_args) for a PostgreSQL DSN.
-
-    Driver selection is DETERMINISTIC and based on what is installed, not on
-    whether the operator happened to append ``sslmode=`` to the DSN:
-
-      * Vercel installs only ``pg8000`` (requirements.txt: no C extensions), so
-        a plain ``postgresql://`` DSN must still use pg8000 — previously it
-        selected the psycopg2 dialect and the function crashed at import.
-      * Docker/CI (backend/requirements.txt) has psycopg2, which understands
-        ``sslmode`` natively.
-
-    With pg8000 the libpq-only ``sslmode`` query parameter is stripped and
-    translated into an SSL context (``sslmode=disable`` -> no TLS).
-    """
-    url = url.replace("postgres://", "postgresql://", 1)
-    explicit_driver = url.startswith("postgresql+")
-    if explicit_driver:
-        driver = url.split("+", 1)[1].split("://", 1)[0]
-    elif _postgres_driver_available("psycopg2"):
-        driver = "psycopg2"
-    elif _postgres_driver_available("pg8000"):
-        driver = "pg8000"
-    else:
-        raise RuntimeError(
-            "DATABASE_URL is PostgreSQL but neither psycopg2 nor pg8000 is installed "
-            "(Vercel manifest requirements.txt provides pg8000; backend/requirements.txt provides psycopg2)"
-        )
-    args = {}
-    if driver == "pg8000":
-        base, _, query = url.partition("?")
-        params = [kv for kv in query.split("&") if kv]
-        sslmode = None
-        kept = []
-        for kv in params:
-            k, _, v = kv.partition("=")
-            if k == "sslmode":
-                sslmode = v
-            elif k in ("channel_binding",):
-                continue  # libpq-only
-            else:
-                kept.append(kv)
-        url = base + ("?" + "&".join(kept) if kept else "")
-        if not url.startswith("postgresql+pg8000://"):
-            url = url.replace("postgresql://", "postgresql+pg8000://", 1)
-        if sslmode != "disable":
-            args = {"ssl_context": ssl.create_default_context()}
-    return url, args
+from backend.app.core.postgres_url import normalise_postgres_url  # noqa: F401  (re-export)
 
 
 connect_args = {}

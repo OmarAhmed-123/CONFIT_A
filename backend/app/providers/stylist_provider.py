@@ -1,6 +1,16 @@
 import re
 from typing import Any, Dict, List, Optional
 from backend.app.providers.base import BaseProvider
+from backend.app.services.styling.attribution import (
+    STYLE_SOURCE_UNKNOWN,
+    style_attribution_phrase,
+)
+
+# NOTE (measured 2026-09-24): nothing in backend/app instantiates this class — the
+# live stylist path is MultiProviderAIOrchestrator. It is kept honest anyway,
+# because a legacy prose writer that claims "your profile" would silently
+# re-introduce the D-3 defect the moment somebody wires it up again.
+# Its default is UNKNOWN precisely because this path receives no profile context.
 
 
 class StylistAIProvider(BaseProvider):
@@ -13,7 +23,8 @@ class StylistAIProvider(BaseProvider):
         user_style_tags: List[str],
         preferred_colors: List[str],
         budget_limit: Optional[float] = None,
-        available_catalog: Optional[List[Dict[str, Any]]] = None
+        available_catalog: Optional[List[Dict[str, Any]]] = None,
+        style_source: str = STYLE_SOURCE_UNKNOWN,
     ) -> Dict[str, Any]:
         return await self.execute_with_resilience(
             self._call_ai_model,
@@ -21,7 +32,8 @@ class StylistAIProvider(BaseProvider):
             user_style_tags=user_style_tags,
             preferred_colors=preferred_colors,
             budget_limit=budget_limit,
-            available_catalog=available_catalog
+            available_catalog=available_catalog,
+            style_source=style_source,
         )
 
     async def _call_ai_model(self, **kwargs) -> Dict[str, Any]:
@@ -35,7 +47,8 @@ class StylistAIProvider(BaseProvider):
         user_style_tags: List[str],
         preferred_colors: List[str],
         budget_limit: Optional[float] = None,
-        available_catalog: Optional[List[Dict[str, Any]]] = None
+        available_catalog: Optional[List[Dict[str, Any]]] = None,
+        style_source: str = STYLE_SOURCE_UNKNOWN,
     ) -> Dict[str, Any]:
         prompt_lower = prompt.lower()
         occasion = "Casual"
@@ -56,8 +69,11 @@ class StylistAIProvider(BaseProvider):
         color_suggestion = preferred_colors[0] if preferred_colors else "Navy & Neutral Cream"
         aesthetic = user_style_tags[0] if user_style_tags else "Refined Modern"
 
+        # Same rule on this path: this provider has no profile argument at all, so
+        # it can only know what the request carried.
+        attribution = style_attribution_phrase(aesthetic, style_source)
         content = (
-            f"Here is a curated {occasion} look tailored to your {aesthetic} profile. "
+            f"Here is a curated {occasion} look {attribution}. "
             f"I paired balanced neutral tones with your preferred {color_suggestion} palette, "
             f"keeping the complete silhouette cohesive, proportional, and within your ${parsed_budget:.0f} target."
         )

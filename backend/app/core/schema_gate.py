@@ -466,9 +466,11 @@ def _cli(argv: Optional[list] = None) -> int:
         print("schema gate: ERROR no database URL given (positional arg, SCHEMA_GATE_DATABASE_URL, "
               "ALEMBIC_DATABASE_URL or DATABASE_URL)")
         return 2
-    if url.startswith("postgres://"):
-        url = url.replace("postgres://", "postgresql://", 1)
-    engine = create_engine(url, pool_pre_ping=True)
+    # The gate must connect through the same URL rule the application uses —
+    # otherwise the gate can pass on a URL shape the app cannot even open.
+    from backend.app.core.postgres_url import normalise_postgres_url
+    url, connect_args = normalise_postgres_url(url)
+    engine = create_engine(url, connect_args=connect_args, pool_pre_ping=True)
     try:
         report = evaluate(engine)
     finally:

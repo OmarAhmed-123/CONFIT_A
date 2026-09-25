@@ -1,6 +1,9 @@
 import React, { useEffect } from "react";
 import { useModalFocus } from "../../hooks/useModalFocus";
 import { useTranslation } from "react-i18next";
+import { resolveMessage } from "../../i18n/messages";
+import { STYLIST_PROMPT_MAX_CHARS } from "../../i18n/promptBounds";
+import { formatMoney, formatNumber } from '../../i18n/format';
 import { useUIStore } from "../../stores/uiStore";
 import { useStylistViewModel } from "../../viewmodels/useStylistViewModel";
 import {
@@ -22,8 +25,30 @@ const getResolvedOutfitItems = (outfit: any) => {
   return [];
 };
 
+
+/**
+ * Quick-prompt occasions.
+ *
+ * `value` is a CONTRACT VALUE: `sendPrompt(prompt, occ.value)` sends it to
+ * `POST /api/v1/stylist/chat` as the occasion hint, and the backend matches
+ * English keywords ("work", "office", "wedding", "gala"…). Translating it would
+ * make every Arabic request fall back to the default occasion — silently, with
+ * no error. `labelKey` is the only translatable unit here.
+ *
+ * Same rule as the style quiz (PROFILE_OPTIONS): value = stable token,
+ * label = localized copy.
+ */
+const OCCASION_PROMPTS = [
+  { value: "Formal & Wedding", labelKey: "stylist.occasion_formal" },
+  { value: "Work & Business", labelKey: "stylist.occasion_work" },
+  { value: "Evening & Party", labelKey: "stylist.occasion_evening" },
+  { value: "Casual Weekend", labelKey: "stylist.occasion_casual" },
+] as const;
+
 export const VirtualStylistDrawer: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  // Active UI language drives number/currency rendering.
+  const lang = i18n.resolvedLanguage ?? 'en';
   const {
     isStylistDrawerOpen,
     closeStylist,
@@ -41,6 +66,7 @@ export const VirtualStylistDrawer: React.FC = () => {
     isTyping,
     isRecording,
     error,
+    errorRetryable,
     sendPrompt,
     startVoiceInput,
     addCompleteLookToCart,
@@ -85,7 +111,7 @@ export const VirtualStylistDrawer: React.FC = () => {
         };
       case "top":
         return {
-          label: "Top / Shirt",
+          label: t("stylist.position_top"),
           bg: "bg-indigo-950 text-indigo-200 border border-indigo-700/40",
         };
       case "bottom":
@@ -105,11 +131,11 @@ export const VirtualStylistDrawer: React.FC = () => {
         };
       case "dress":
         return {
-          label: "Gown / Dress",
+          label: t("stylist.position_gown"),
           bg: "bg-[#C5A059] text-slate-950 font-bold border border-[#C5A059]",
         };
       default:
-        return { label: pos || "Garment", bg: "bg-black/70 text-white" };
+        return { label: pos || t("stylist.position_garment"), bg: "bg-black/70 text-white" };
     }
   };
 
@@ -120,7 +146,7 @@ export const VirtualStylistDrawer: React.FC = () => {
           ref={panelRef}
           role="dialog"
           aria-modal="true"
-          aria-label="AI stylist"
+          aria-label={t("stylist.dialog_label")}
           tabIndex={-1}
           className="w-screen max-w-2xl bg-white shadow-2xl flex flex-col border-l border-slate-200"
         >
@@ -134,7 +160,7 @@ export const VirtualStylistDrawer: React.FC = () => {
                 <h2 className="font-serif text-lg font-bold text-white flex items-center gap-2">
                   <span>{t("stylist.title")}</span>
                   <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-[#C5A059]/20 text-[#E2BF70] font-sans font-semibold">
-                    Rules-Grounded Engine
+                    {t("stylist.engine_badge")}
                   </span>
                 </h2>
                 <p className="text-xs text-slate-400 font-light">
@@ -153,51 +179,57 @@ export const VirtualStylistDrawer: React.FC = () => {
           {/* Occasion Quick Chips */}
           <div className="px-4 py-2.5 bg-[#FAF9F6] border-b border-slate-200/80 flex items-center gap-2 overflow-x-auto">
             <span className="text-[10px] font-bold text-[#A37E44] uppercase tracking-wider shrink-0">
-              Style Prompts:
+              {t("stylist.style_prompts")}
             </span>
-            {[
-              "Formal & Wedding",
-              "Work & Business",
-              "Evening & Party",
-              "Casual Weekend",
-            ].map((occ) => (
+            {/* CONTRACT VALUES: `value` is sent to the API as the occasion hint and
+                the backend matches ENGLISH keywords, so it is never translated.
+                Only the label is localized (see the module docstring). */}
+            {OCCASION_PROMPTS.map((occ) => (
               <button
-                key={occ}
-                onClick={() => sendPrompt(`Style an outfit for ${occ}`, occ)}
+                key={occ.value}
+                onClick={() =>
+                  sendPrompt(`Style an outfit for ${occ.value}`, occ.value, undefined,
+                             undefined, t(occ.labelKey))
+                }
                 className="px-3 py-1 rounded-full bg-white border border-slate-200 text-[11px] font-medium text-slate-700 hover:border-[#C5A059] hover:bg-[#FDF8EE] transition-all shrink-0 shadow-2xs"
               >
-                {occ}
+                {t(occ.labelKey)}
               </button>
             ))}
           </div>
 
           {/* Messages & Recommendations Feed */}
-          <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5 bg-[#FAF9F6]">
+          <div data-conversation
+               className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5 bg-[#FAF9F6]">
             {messages.length === 0 && (
               <div className="text-center py-12 px-4 bg-white rounded-3xl border border-slate-200/80 shadow-2xs">
                 <div className="w-14 h-14 rounded-2xl bg-[#FDF8EE] text-[#C5A059] mx-auto flex items-center justify-center mb-3 shadow-xs">
                   <SparkleIcon size={28} color="#C5A059" />
                 </div>
                 <h4 className="font-serif text-lg font-bold text-[#1B1F3B] mb-1">
-                  How can I style you today?
+                  {t("stylist.empty_title")}
                 </h4>
                 <p className="text-xs text-slate-500 max-w-sm mx-auto mb-5 font-light leading-relaxed">
-                  Tell me your event, dress code, preferred tones, or budget. I
-                  compose verified multi-brand ensembles with strict slot
-                  integrity, color harmony, and zero hallucinated pieces.
+                  {t("stylist.empty_body")}
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-left">
                   <button
                     onClick={() =>
                       sendPrompt(
+                        // The PROMPT stays English on purpose: the backend parses
+                        // English occasion/material keywords, so sending Arabic text
+                        // here would silently downgrade every Arabic request to the
+                        // default occasion. The label above it is localized.
                         "I need a formal wedding outfit with navy suit and green tie under 500",
                         "Formal & Wedding",
                         500,
+                        undefined,
+                        t("stylist.example_formal_wedding"),
                       )
                     }
                     className="p-3.5 rounded-2xl border border-slate-200 hover:border-[#C5A059] bg-[#FAF9F6] hover:bg-[#FDF8EE] text-xs font-medium text-slate-800 transition-all"
                   >
-                    "Formal wedding navy suit with green tie"
+                    {t("stylist.example_formal_wedding")}
                   </button>
                   <button
                     onClick={() =>
@@ -205,11 +237,13 @@ export const VirtualStylistDrawer: React.FC = () => {
                         "Find me a champagne silk dress for an evening gala",
                         "Evening & Party",
                         600,
+                        undefined,
+                        t("stylist.example_evening_gala"),
                       )
                     }
                     className="p-3.5 rounded-2xl border border-slate-200 hover:border-[#C5A059] bg-[#FAF9F6] hover:bg-[#FDF8EE] text-xs font-medium text-slate-800 transition-all"
                   >
-                    "Champagne silk dress for an evening gala"
+                    {t("stylist.example_evening_gala")}
                   </button>
                 </div>
               </div>
@@ -279,8 +313,8 @@ export const VirtualStylistDrawer: React.FC = () => {
                               >
                                 {outfit.completeness_label ||
                                   (outfit.is_complete !== false
-                                    ? "Complete Look"
-                                    : "Core Look")}
+                                    ? t("stylist.complete_look")
+                                    : t("stylist.core_look"))}
                               </span>
                             </div>
                             <h4 className="font-serif font-bold text-base text-[#1B1F3B]">
@@ -289,8 +323,8 @@ export const VirtualStylistDrawer: React.FC = () => {
                           </div>
                           <FitScoreBadge
                             score={outfit.compatibility_score}
-                            label="Match"
-                            verdict="Color Harmony"
+                            label={t("stylist.match")}
+                            verdict={t("stylist.color_harmony")}
                           />
                         </div>
 
@@ -356,10 +390,10 @@ export const VirtualStylistDrawer: React.FC = () => {
                                       } as any)
                                     }
                                     className="px-2 py-1 rounded-lg bg-white border border-slate-200 hover:border-[#C5A059] text-[10px] font-semibold text-slate-700 flex items-center gap-1 shadow-2xs"
-                                    title="Try on this item"
+                                    title={t("stylist.try_item")}
                                   >
                                     <TryOnIcon size={11} color="#C5A059" />
-                                    <span>Try</span>
+                                    <span>{t("stylist.try")}</span>
                                   </button>
                                 </div>
                               </div>
@@ -382,12 +416,16 @@ export const VirtualStylistDrawer: React.FC = () => {
                             <div className="flex items-center gap-1.5 font-bold">
                               <span>
                                 {outfit.within_budget
-                                  ? "✓ Within budget"
-                                  : "⚠ Budget exceeded"}
+                                  ? t("stylist.within_budget")
+                                  : t("stylist.budget_exceeded")}
                               </span>
                               <span className="font-normal">
-                                — Target: ${outfit.budget_limit?.toFixed(2)},
-                                Total: ${outfit.total_price.toFixed(2)}
+                                — {t("stylist.budget_target")}
+                                {outfit.budget_limit != null
+                                  ? formatMoney(Math.round(outfit.budget_limit * 100), "USD", lang)
+                                  : ""}
+                                , {t("stylist.budget_total")}
+                                {formatMoney(Math.round(outfit.total_price * 100), "USD", lang)}
                               </span>
                             </div>
                             {outfit.budget_note && (
@@ -401,11 +439,12 @@ export const VirtualStylistDrawer: React.FC = () => {
                         <div className="flex items-center justify-between pt-3 border-t border-slate-100">
                           <div>
                             <span className="text-[10px] text-slate-400 uppercase tracking-wider block font-semibold">
-                              Ensemble Total (
-                              {getResolvedOutfitItems(outfit).length} items):
+                              {t("stylist.ensemble_total")} (
+                              {formatNumber(getResolvedOutfitItems(outfit).length, lang)}{" "}
+                              {t("stylist.items_count")}):
                             </span>
-                            <div className="text-base font-serif font-black text-[#1B1F3B]">
-                              ${outfit.total_price.toFixed(2)}
+                            <div className="text-base font-serif font-black text-[#1B1F3B]" dir="ltr">
+                              {formatMoney(Math.round(outfit.total_price * 100), "USD", lang)}
                             </div>
                           </div>
                           <button
@@ -418,8 +457,8 @@ export const VirtualStylistDrawer: React.FC = () => {
                             <BagIcon size={14} color="#FFFFFF" />
                             <span>
                               {outfit.is_complete !== false
-                                ? "Add Complete Look to Bag"
-                                : "Add Core Look to Bag"}
+                                ? t("stylist.add_complete_to_bag")
+                                : t("stylist.add_core_to_bag")}
                             </span>
                           </button>
                         </div>
@@ -436,23 +475,34 @@ export const VirtualStylistDrawer: React.FC = () => {
                 <span className="w-2 h-2 rounded-full bg-[#C5A059] animate-bounce [animation-delay:0.2s]"></span>
                 <span className="w-2 h-2 rounded-full bg-[#C5A059] animate-bounce [animation-delay:0.4s]"></span>
                 <span className="text-[10px] font-bold text-slate-400 ml-1">
-                  Styling...
+                  {t("stylist.thinking")}
                 </span>
               </div>
             )}
 
-            {error && (
-              <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-2xl text-xs text-rose-700 flex justify-between items-center">
-                <span>{error}</span>
-                <button
-                  onClick={() => sendPrompt()}
-                  className="text-xs font-bold underline ml-2"
-                >
-                  Retry
-                </button>
-              </div>
-            )}
           </div>
+
+          {/* The failure banner sits OUTSIDE the transcript scroll area, directly
+              above the input: inside it, the very message telling the shopper the
+              request failed could be scrolled out of view while they stare at an
+              unchanged conversation. It is interface furniture, not a message. */}
+          {error && (
+            <div className="px-4 pt-3">
+              <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-2xl text-xs text-rose-700 flex justify-between items-center">
+                <span>{resolveMessage(error, t)}</span>
+                {/* Retry only where retrying can change the outcome: a validation
+                    rejection cannot be fixed by pressing the same button again. */}
+                {errorRetryable && (
+                  <button
+                    onClick={() => sendPrompt()}
+                    className="text-xs font-bold underline ml-2"
+                  >
+                    {t("stylist.retry")}
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Drawer Footer Input */}
           <div className="p-4 border-t border-slate-200 bg-white">
@@ -471,7 +521,7 @@ export const VirtualStylistDrawer: React.FC = () => {
                     ? "bg-rose-500 text-white border-rose-600 animate-pulse"
                     : "bg-slate-50 border-slate-200 text-slate-600 hover:text-[#C5A059] hover:bg-[#FDF8EE]"
                 }`}
-                title="Hold for Voice Styling"
+                title={t("stylist.hold_voice")}
               >
                 🎙️
               </button>
@@ -480,6 +530,8 @@ export const VirtualStylistDrawer: React.FC = () => {
                 type="text"
                 value={inputPrompt}
                 onChange={(e) => setInputPrompt(e.target.value)}
+                maxLength={STYLIST_PROMPT_MAX_CHARS}
+                aria-describedby={inputPrompt.length > STYLIST_PROMPT_MAX_CHARS * 0.9 ? "stylist-prompt-limit" : undefined}
                 placeholder={t("stylist.input_placeholder")}
                 className="flex-1 px-4 py-3 rounded-2xl border border-slate-200 focus:outline-none focus:border-[#C5A059] text-xs sm:text-sm bg-[#FAF9F6]"
               />
@@ -490,9 +542,18 @@ export const VirtualStylistDrawer: React.FC = () => {
                 className="px-6 py-3 rounded-2xl bg-[#1B1F3B] hover:bg-[#0C0E1E] disabled:opacity-40 text-white text-xs font-bold transition-all shadow-md flex items-center gap-1.5"
               >
                 <SparkleIcon size={14} color="#C5A059" />
-                <span>Style</span>
+                <span>{t("stylist.submit")}</span>
               </button>
             </form>
+            {inputPrompt.length > STYLIST_PROMPT_MAX_CHARS * 0.9 && (
+              <p id="stylist-prompt-limit"
+                 className="mt-1.5 text-[10px] text-slate-500 text-center"
+                 role="status">
+                {t("stylist.prompt_limit_hint", {
+                  remaining: STYLIST_PROMPT_MAX_CHARS - inputPrompt.length,
+                })}
+              </p>
+            )}
           </div>
         </div>
       </div>

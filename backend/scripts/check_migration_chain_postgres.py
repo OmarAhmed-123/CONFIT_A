@@ -67,8 +67,10 @@ def main(argv: list[str]) -> int:
     import backend.app.models  # noqa: F401  registers every mapper
     from backend.app.core.database import Base
     from backend.app.core import schema_gate
+    from backend.app.core.postgres_url import normalise_postgres_url
 
-    engine = create_engine(url, pool_pre_ping=True)
+    url, connect_args = normalise_postgres_url(url)
+    engine = create_engine(url, connect_args=connect_args, pool_pre_ping=True)
     failures: list[str] = []
 
     def table_count() -> int:

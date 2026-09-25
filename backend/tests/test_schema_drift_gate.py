@@ -63,7 +63,9 @@ def _drop_everything(engine):
 def scratch_db():
     """A fresh database URL + engine; migrated by the test itself."""
     if PG_URL:
-        engine = create_engine(PG_URL)
+        from backend.app.core.postgres_url import normalise_postgres_url
+        _url, _ca = normalise_postgres_url(PG_URL)
+        engine = create_engine(_url, connect_args=_ca)
         _drop_everything(engine)
         yield PG_URL, engine
         _drop_everything(engine)

@@ -78,7 +78,19 @@ def new_test_engine(url: str = None):
     target = url or TEST_DB_URL
     if target.startswith("sqlite"):
         return create_engine(target, connect_args={"check_same_thread": False})
-    return create_engine(target, pool_pre_ping=True)
+    # Route through the application's own URL rule, so a test can never exercise a
+    # driver/SQLAlchemy default that production does not use. (SQLAlchemy 2.1 made
+    # a bare `postgresql://` mean psycopg 3 rather than psycopg2 — see
+    # backend/app/core/postgres_url.py.)
+    from backend.app.core.postgres_url import normalise_postgres_url
+    target, connect_args = normalise_postgres_url(target)
+    return create_engine(target, connect_args=connect_args, pool_pre_ping=True)
+
+
+def normalise_pg_url(url: str):
+    """(url, connect_args) for a PostgreSQL DSN, via the application's rule."""
+    from backend.app.core.postgres_url import normalise_postgres_url
+    return normalise_postgres_url(url)
 
 
 test_engine = new_test_engine()

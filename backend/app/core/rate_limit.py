@@ -11,14 +11,17 @@ Honest scope of the control
 Where the counters live is now a **configured decision with a reported answer**,
 not a silent property:
 
-* ``RATE_LIMIT_STORAGE_URL`` unset (the state of this deployment, and the
-  default) -> the in-process store. On serverless each warm instance keeps its
+* ``RATE_LIMIT_STORAGE_URL`` unset and no operator-provided ``REDIS_URL`` ->
+  the in-process store. On serverless each warm instance keeps its
   own counters, so the limiter bounds *per-client bursts against one instance*
   and is **not** a global quota. ``rate_limit_store_report()`` says exactly that
   and ``/health`` publishes it, so nobody has to read this docstring to find out
   which of the two they are running.
 * set to a real ``redis://`` / ``rediss://`` endpoint -> counters are shared by
-  every instance, and the report says the quota is global.
+  every instance, and the report says the quota is global. When it is unset, an
+  operator-provided ``REDIS_URL`` is used instead — see
+  ``configured_storage_uri`` for why that fallback exists and what it refuses to
+  treat as configuration.
 
 Degradation is explicit rather than fatal: when a shared store is configured but
 unreachable, the limiter falls back to the in-process store (``swallow_errors``
@@ -44,6 +47,8 @@ credential taking precedence.
 """
 
 import hashlib
+import ipaddress
+import os
 import time
 from typing import Any, Dict, Optional
 
@@ -51,6 +56,7 @@ from backend.app.core.config import settings
 
 from fastapi import Request
 from fastapi.responses import JSONResponse, Response
+from backend.app.core.request_context import valid_ip as _valid_ip
 from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
 
@@ -82,21 +88,106 @@ def _session_token(request: Request) -> Optional[str]:
     return None
 
 
-def _client_ip(request: Request) -> str:
-    """The client address, preferring proxy-set headers.
+# ---------------------------------------------------------------------------
+# Bucket identity: who pays for this request.
+#
+# DEFECT FOUND BY THE INDEPENDENT SWEEP (2026-09-25). The previous rule was
+# "x-real-ip, else the LEFT-most x-forwarded-for entry, else the socket peer".
+# Measured against the running API: three requests carrying three different
+# spoofed ``X-Forwarded-For`` values produced THREE separate limiter buckets in
+# Redis (``LIMITS:LIMITER/ip:203.0.113.7/...``, ``.../ip:203.0.113.8/...``,
+# ``.../ip:198.51.100.9/...``). The bucket identity — the thing that decides
+# whether the AI-cost limit applies — was therefore chosen by the caller, and
+# ``X-Forwarded-For`` is a header any client can send.
+#
+# The repository already documented this exact hazard elsewhere:
+# ``core/request_context.py`` says the left-most entry "is client-supplied and
+# spoofable". Two notions of "who is calling" cannot both be right, so the
+# limiter now follows one closed-by-default policy:
+#
+#   1. on the hosting platform (``VERCEL`` in the environment, the same signal
+#      ``core/database.py`` uses), the platform-set headers are authoritative —
+#      ``x-vercel-forwarded-for`` first because Vercel documents that it
+#      survives an upstream proxy that overwrites ``x-forwarded-for``, then
+#      ``x-real-ip``, then the RIGHT-most ``x-forwarded-for`` hop;
+#   2. off-platform, headers are trusted ONLY when the socket peer is inside
+#      ``TRUSTED_PROXY_IPS`` (comma-separated CIDRs) — a self-hosted deployment
+#      behind nginx/ALB sets this; when it is set, the right-most hop is used
+#      because that is the address the trusted proxy itself appended;
+#   3. otherwise the socket peer.
+#
+# The left-most ``x-forwarded-for`` entry is never used, at any trust level, so
+# a caller can never mint a fresh bucket by sending a header. Every candidate is
+# validated as an IP address, so junk cannot become a bucket either.
+# ---------------------------------------------------------------------------
 
-    ``x-real-ip`` is set by the platform's edge; ``x-forwarded-for`` is the
-    standard fallback (first hop = original client). When neither is present the
-    socket address is used. Whichever is chosen *is* the bucket identity, so the
-    choice is stated here rather than buried in a decorator.
+def _first_valid_ip(*candidates: Optional[str]) -> Optional[str]:
+    """First candidate that is actually an IP address (junk is ignored)."""
+    for candidate in candidates:
+        validated = _valid_ip(candidate)
+        if validated:
+            return validated
+    return None
+
+
+def _rightmost_forwarded(header: Optional[str]) -> Optional[str]:
+    """The hop appended by the nearest trusted proxy (never the left-most)."""
+    if not header:
+        return None
+    for hop in reversed([part.strip() for part in header.split(",") if part.strip()]):
+        validated = _valid_ip(hop)
+        if validated:
+            return validated
+    return None
+
+
+def _peer_trusted(peer: Optional[str]) -> bool:
+    """Is the direct connection from a proxy we are configured to trust?"""
+    if not peer:
+        return False
+    configured = (os.environ.get("TRUSTED_PROXY_IPS") or "").strip()
+    if not configured:
+        return False
+    try:
+        peer_ip = ipaddress.ip_address(peer)
+    except ValueError:
+        return False
+    for entry in configured.split(","):
+        entry = entry.strip()
+        if not entry:
+            continue
+        try:
+            if peer_ip in ipaddress.ip_network(entry, strict=False):
+                return True
+        except ValueError:
+            continue
+    return False
+
+
+def _client_ip(request: Request) -> str:
+    """The bucket identity — see the policy block above.
+
+    Returns a validated IP address, or ``"unknown"`` when no address can be
+    trusted; ``"unknown"`` is itself a single shared bucket, which fails closed
+    (all such callers share one allowance) rather than open.
     """
-    real_ip = (request.headers.get("x-real-ip") or "").strip()
-    if real_ip:
-        return real_ip
-    forwarded = (request.headers.get("x-forwarded-for") or "").split(",")[0].strip()
-    if forwarded:
-        return forwarded
-    return request.client.host if request.client else "unknown"
+    peer = request.client.host if request.client else None
+
+    if os.environ.get("VERCEL", "").strip():
+        platform = _first_valid_ip(
+            request.headers.get("x-vercel-forwarded-for"),
+            request.headers.get("x-real-ip"),
+            _rightmost_forwarded(request.headers.get("x-forwarded-for")),
+        )
+        if platform:
+            return platform
+
+    if _peer_trusted(peer):
+        forwarded = _rightmost_forwarded(request.headers.get("x-forwarded-for"))
+        if forwarded:
+            return forwarded
+
+    return _valid_ip(peer) or "unknown"
 
 
 def client_key(request: Request) -> str:
@@ -156,17 +247,51 @@ MEMORY_STORE = "memory://"
 SHARED_STORE_SCHEMES = ("redis://", "rediss://", "unix://", "memcached://", "mongodb://")
 
 
-def configured_storage_uri() -> str:
+def configured_storage_uri(source: Optional[Dict[str, str]] = None) -> str:
     """The store this deployment is configured to use. Never synthesised.
 
-    Unset/blank -> ``memory://`` (the in-process store). A value that is not a
-    recognised shared scheme is honoured verbatim by ``limits`` and reported as
-    an unknown store rather than being quietly rewritten into something that
-    looks global.
+    Resolution order, and why there is more than one step:
+
+      1. ``RATE_LIMIT_STORAGE_URL`` — the explicit switch. Nothing overrides it.
+      2. ``REDIS_URL`` **as provided by the operator in the environment** — the
+         endpoint this deployment already runs (Celery broker, wardrobe cache).
+         MEASURED 2026-09-24 against the live project: ``REDIS_URL`` exists for the
+         ``production`` and ``preview`` targets while ``RATE_LIMIT_STORAGE_URL``
+         exists in no target, so the deployment had a shared endpoint and the
+         limiter was not using it. The variable is marked *sensitive* and the API
+         will not return its value, so the honest fix is not to copy the secret
+         around but to have the application read the variable it already has.
+         Only the ENVIRONMENT is consulted here, never the code default: the
+         settings model gives ``REDIS_URL`` a loopback address on the standard
+         Redis port, and treating that default as "configured" would make every
+         serverless instance dial the loopback address of its own container on
+         every limited request — a pointless failure dressed up as a global
+         quota. (The parity guard that keeps developer-machine addresses out of
+         this package flagged the first wording of this comment, which is the
+         guard doing its job.)
+      3. otherwise ``memory://`` (in-process, per-instance), reported as such.
+
+    A value that is not a recognised shared scheme is honoured verbatim by
+    ``limits`` and reported as an unknown store rather than being quietly
+    rewritten into something that looks global. ``source``, when passed a dict,
+    receives where the answer came from so the report can say it.
     """
     raw = getattr(settings, "RATE_LIMIT_STORAGE_URL", None)
-    uri = (raw or "").strip()
-    return uri or MEMORY_STORE
+    explicit = (raw or "").strip()
+    if explicit:
+        if source is not None:
+            source["from"] = "RATE_LIMIT_STORAGE_URL"
+        return explicit
+
+    env_redis = (os.environ.get("REDIS_URL") or "").strip()
+    if env_redis and is_shared_store(env_redis):
+        if source is not None:
+            source["from"] = "REDIS_URL (operator-provided in the environment)"
+        return env_redis
+
+    if source is not None:
+        source["from"] = "default (in-process counters)"
+    return MEMORY_STORE
 
 
 def is_shared_store(uri: str) -> bool:
@@ -217,19 +342,23 @@ def rate_limit_store_report(storage_uri: Optional[str] = None) -> Dict[str, Any]
     shopper's business, and publishing it would be topology disclosure for no
     consumer benefit.
     """
-    uri = storage_uri if storage_uri is not None else configured_storage_uri()
+    source: Dict[str, str] = {}
+    uri = storage_uri if storage_uri is not None else configured_storage_uri(source)
     shared = is_shared_store(uri)
+    origin = source.get("from", "explicit argument" if storage_uri is not None else "unknown")
     if shared:
         scheme = uri.split("://", 1)[0]
         return {
             "store": scheme,
             "shared_across_instances": True,
+            "configured_from": origin,
             "quota_semantics": "global: every instance counts against one quota",
             "on_store_failure": "degrades to in-process counters (per-instance) and reports it",
         }
     return {
         "store": "memory" if uri == MEMORY_STORE else uri.split("://", 1)[0],
         "shared_across_instances": False,
+        "configured_from": origin,
         "quota_semantics": (
             "per-instance: bounds a client's burst against one warm instance; "
             "it is NOT a global quota"

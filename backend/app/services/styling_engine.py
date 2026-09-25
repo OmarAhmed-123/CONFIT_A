@@ -18,13 +18,15 @@ class StylingEngine:
         occasion_hint: Optional[str] = None,
         budget_hint: Optional[float] = None,
         user_styles: Optional[List[str]] = None,
-        user_colors: Optional[List[str]] = None
+        user_colors: Optional[List[str]] = None,
+        profile_styles_present: bool = False,
     ) -> Dict[str, Any]:
         return cls._composer.parse_intent(
             prompt=prompt,
             occasion_hint=occasion_hint,
             budget_hint=budget_hint,
             user_styles=user_styles,
+            profile_styles_present=profile_styles_present,
             user_colors=user_colors
         )
 
@@ -42,6 +44,30 @@ class StylingEngine:
             user_profile=user_profile,
             max_outfits=max_outfits
         )
+
+    @classmethod
+    def compose_outfits_with_meta(
+        cls,
+        available_products: List[Any],
+        intent: Dict[str, Any],
+        user_profile: Optional[Any] = None,
+        max_outfits: int = 2,
+    ) -> "tuple[List[Dict[str, Any]], Dict[str, Any]]":
+        """Same composition, plus why fewer looks were published than requested.
+
+        Kept as a separate entry point so existing callers keep the list-only
+        contract; the alternatives metadata is filled through an out-parameter
+        because the composer is a process-wide singleton.
+        """
+        meta: Dict[str, Any] = {}
+        outfits = cls._composer.compose_outfits(
+            available_products=available_products,
+            intent=intent,
+            user_profile=user_profile,
+            max_outfits=max_outfits,
+            meta_out=meta,
+        )
+        return outfits, meta
 
     # Canonical occasion keyword groups (shared by scoring + suggestions).
     _OCCASION_KEYWORDS = {

@@ -368,6 +368,27 @@ class TestRedaction:
         assert contains_secret({"token": "abc"}) is True
         assert contains_secret({"status": "ok"}) is False
 
+    def test_redaction_is_idempotent_and_integrity_safe(self) -> None:
+        """A persisted redaction marker is evidence of removal, not a secret.
+
+        The integrity verifier scans an already-scrubbed row by calling the
+        same scrubber again. Before this regression gate, a field such as
+        ``credential_state`` became ``[REDACTED:key=credential_state]`` on
+        write, then the second pass counted that marker as an unredacted value.
+        The dashboard consequently reported a false integrity violation for a
+        correctly redacted operator password-reset event.
+        """
+        first, first_hits = scrub({
+            "credential_state": "rotated",
+            "nested": {"api_key": "private-value", "status": "ok"},
+        })
+        second, second_hits = scrub(first)
+
+        assert first_hits == 2
+        assert second == first
+        assert second_hits == 0
+        assert contains_secret(first) is False
+
     def test_admin_mutation_payload_is_scrubbed_end_to_end(self, client: TestClient) -> None:
         """The real write path: an admin action whose before/after contains a
         credential must land redacted."""

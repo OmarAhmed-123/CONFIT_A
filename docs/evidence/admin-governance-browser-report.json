@@ -1,7 +1,7 @@
 {
-  "ran_at": "2026-09-24T15:20:18.099Z",
-  "environment": "LOCAL only (Vite + migrated PostgreSQL 17; not production)",
-  "browser": "153.0.8010.52",
+  "ran_at": "2026-09-25T19:24:27.396Z",
+  "environment": "LOCAL browser verification (Vite + migrated PostgreSQL 17 scratch; not production)",
+  "browser": "153.0.8010.12",
   "login": {
     "status": 200,
     "role": "admin",
@@ -73,7 +73,7 @@
             "ratio": 6.92
           },
           {
-            "text": "· head df3be7a1539ff3a2…",
+            "text": "· head 5f9c5b4207173804…",
             "ratio": 6.92
           },
           {
@@ -146,7 +146,7 @@
             "ratio": 6.92
           },
           {
-            "text": "· head 4b7edecdfdba7815…",
+            "text": "· head 233bb0a19e7607b5…",
             "ratio": 6.92
           },
           {
@@ -219,7 +219,7 @@
             "ratio": 6.92
           },
           {
-            "text": "· head 74d402dede77e562…",
+            "text": "· head 6034fb03b594b57b…",
             "ratio": 6.92
           },
           {
@@ -292,7 +292,7 @@
             "ratio": 6.92
           },
           {
-            "text": "· head ea42b0006055aee5…",
+            "text": "· head 6c3d8a9c2e45373d…",
             "ratio": 6.92
           },
           {
@@ -365,7 +365,7 @@
             "ratio": 6.92
           },
           {
-            "text": "· head fa59c9327767948f…",
+            "text": "· head cd655f0586f87fb6…",
             "ratio": 6.92
           },
           {

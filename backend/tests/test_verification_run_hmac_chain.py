@@ -264,6 +264,20 @@ class TestRunKeyRotation:
     reason="transaction advisory-lock concurrency is PostgreSQL-specific",
 )
 class TestRunConcurrencyPostgres:
+    @pytest.fixture(autouse=True)
+    def insert_guard(self):
+        from backend.app.core.audit_insert_guard import (
+            insert_guard_install_sql,
+            insert_guard_remove_sql,
+        )
+        with PG_ENGINE.begin() as connection:
+            for statement in insert_guard_install_sql("postgresql"):
+                connection.execute(text(statement))
+        yield
+        with PG_ENGINE.begin() as connection:
+            for statement in insert_guard_remove_sql("postgresql"):
+                connection.execute(text(statement))
+
     def test_two_concurrent_appends_form_one_linear_run_chain(self):
         import threading
         import uuid

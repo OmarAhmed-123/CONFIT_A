@@ -90,6 +90,19 @@ jobs:
           backend/tests/test_migration_integrity_behavioral.py
           backend/tests/test_migration_0013_quarantine_audit.py
 
+      # Audit HMAC append concurrency and the 0022/0024 trigger controls are
+      # PostgreSQL properties. Run them against a separate seeded database so
+      # migration/drift tests may continue dropping confit_ci independently.
+      - name: Admin audit trust boundary on isolated PostgreSQL
+        env:
+          CONFIT_TEST_DB_URL: postgresql://confit:${{ env.CI_PG_PASSWORD }}@localhost:5432/confit_audit
+        run: |
+          PGPASSWORD="$CI_PG_PASSWORD" createdb -h localhost -U confit confit_audit
+          PYTHONPATH=. python3 -m pytest -q \
+            backend/tests/test_audit_trust_boundary.py \
+            backend/tests/test_verification_run_hmac_chain.py \
+            backend/tests/test_audit_insert_provenance_guard.py
+
       - name: Partner portal behavior and concurrent mutations on PostgreSQL
         env:
           CONFIT_PORTAL_TEST_PG_URL: postgresql://confit:${{ env.CI_PG_PASSWORD }}@localhost:5432/confit_ci

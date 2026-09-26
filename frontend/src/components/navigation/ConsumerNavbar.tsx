@@ -79,9 +79,10 @@ export const ConsumerNavbar: React.FC = () => {
       <div className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-2xs transition-all">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
           {/* Far Left: CONFIT Master Logo */}
-          <div className="flex items-center gap-8">
-            <Link to="/" className="flex items-center group">
-              <ConfitLogo variant="full" theme="dark" size="md" />
+          <div className="flex min-w-0 items-center gap-8">
+            <Link to="/" className="flex shrink-0 items-center group">
+              <ConfitLogo variant="mark" theme="dark" size="sm" className="sm:hidden" />
+              <ConfitLogo variant="full" theme="dark" size="md" className="hidden sm:inline-flex" />
             </Link>
 
             {/* Desktop Primary Nav */}

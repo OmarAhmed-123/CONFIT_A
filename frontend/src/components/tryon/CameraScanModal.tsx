@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useModalFocus } from '../../hooks/useModalFocus';
 import { usePhotoConsent } from '../../privacy/usePhotoConsent';
 import { useTranslation } from 'react-i18next';
-import { RulerIcon, SparkleIcon, TryOnIcon, LockIcon, ShieldIcon } from '../icons/ConfitIcons';
+import { RulerIcon, SparkleIcon, TryOnIcon, LockIcon } from '../icons/ConfitIcons';
 import { FitScoreBadge } from '../common/CommonComponents';
 import { measurementService } from '../../services/measurementService';
 import { computeSizeProfileConfidence } from '../../lib/sizeProfile';
@@ -29,8 +29,7 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
   onClose,
   onApplyMeasurements,
 }) => {
-  const { t } = useTranslation();
-  const panelRef = useModalFocus<HTMLDivElement>(onClose, isOpen);
+  const { t, i18n } = useTranslation();
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   // Consent for the body-scan photo. The gate is what makes the
@@ -39,6 +38,8 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const animFrameId = useRef<number | null>(null);
+  const cameraRequestId = useRef(0);
+  const analysisTimerIds = useRef<number[]>([]);
   const lastFrameTime = useRef<number>(performance.now());
   const frameCount = useRef<number>(0);
 
@@ -86,23 +87,33 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
     hip_estimated: boolean;
     source: string;
     predicted_size: string;
-    scanned_image_url?: string;
   } | null>(null);
 
-  // Enumerate video devices
+  // Enumerate video devices without treating enumeration failure as camera
+  // availability. Browsers commonly hide device labels/counts until the user
+  // grants permission.
   useEffect(() => {
-    if (navigator?.mediaDevices?.enumerateDevices) {
+    if (typeof navigator !== 'undefined' && navigator.mediaDevices?.enumerateDevices) {
       navigator.mediaDevices.enumerateDevices().then((devices) => {
         const videoInputs = devices.filter((d) => d.kind === 'videoinput');
-        if (videoInputs.length > 1) {
-          setHasMultipleCameras(true);
-        }
-      }).catch(() => {});
+        setHasMultipleCameras(videoInputs.length > 1);
+      }).catch(() => {
+        setHasMultipleCameras(false);
+      });
     }
   }, []);
 
+  const clearAnalysisTimers = useCallback(() => {
+    analysisTimerIds.current.forEach((timerId) => window.clearTimeout(timerId));
+    analysisTimerIds.current = [];
+  }, []);
+
   const stopCamera = useCallback(() => {
-    if (animFrameId.current) {
+    // Invalidates an in-flight getUserMedia request. If it resolves after the
+    // user changes tabs or closes the dialog, its tracks are stopped below in
+    // startCamera rather than being attached to a hidden video element.
+    cameraRequestId.current += 1;
+    if (animFrameId.current !== null) {
       cancelAnimationFrame(animFrameId.current);
       animFrameId.current = null;
     }
@@ -117,11 +128,57 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
     setCameraLoading(false);
   }, []);
 
+  const resetPrivateSession = useCallback(() => {
+    stopCamera();
+    clearAnalysisTimers();
+    setCapturedImage(null);
+    setEstimatedData(null);
+    setScanStep('ready');
+    setScanProgress(0);
+    setAnalysisLogs([]);
+    setCameraError(null);
+    setActiveTab('camera');
+    setUserCalibrationHeightCm(178);
+    setHeightCm(178);
+    setShoulderCm(46);
+    setChestCm(98);
+    setWaistCm(82);
+    setHipCm(96);
+    setSelectedSilhouette('Athletic V-Taper');
+    setModifiedInputs({});
+    if (canvasRef.current) {
+      // Resetting either bitmap dimension clears its backing buffer without
+      // asking for a rendering context (which may itself be unavailable).
+      canvasRef.current.width = 0;
+      canvasRef.current.height = 0;
+    }
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  }, [clearAnalysisTimers, stopCamera]);
+
+  const handleClose = useCallback(() => {
+    // Clear camera bytes and self-reported body data before handing control
+    // back to the parent. The privacy promise therefore describes behavior,
+    // not merely where the data was processed.
+    resetPrivateSession();
+    onClose();
+  }, [onClose, resetPrivateSession]);
+
+  const panelRef = useModalFocus<HTMLDivElement>(handleClose, isOpen);
+
   useEffect(() => {
-    if (!isOpen || activeTab !== 'camera' || scanStep !== 'ready') {
+    if (!isOpen) {
+      resetPrivateSession();
+      return;
+    }
+    if (activeTab !== 'camera' || scanStep !== 'ready') {
       stopCamera();
     }
-  }, [isOpen, activeTab, scanStep, stopCamera]);
+  }, [isOpen, activeTab, scanStep, resetPrivateSession, stopCamera]);
+
+  useEffect(() => () => {
+    stopCamera();
+    clearAnalysisTimers();
+  }, [clearAnalysisTimers, stopCamera]);
 
   // Real-time canvas landmark rendering and HUD overlay loop
   const drawPoseOverlay = useCallback(() => {
@@ -220,11 +277,12 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
   }, [cameraActive, drawPoseOverlay]);
 
   const startCamera = async (mode: 'user' | 'environment' = facingMode) => {
+    stopCamera();
+    const requestId = ++cameraRequestId.current;
     setCameraLoading(true);
     setCameraError(null);
-    stopCamera();
 
-    if (!navigator?.mediaDevices?.getUserMedia) {
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
       setCameraError(msg('errors.webcam_restricted'));
       setCameraLoading(false);
       return;
@@ -240,24 +298,45 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
         audio: false,
       });
 
+      // A late permission response must not resurrect the camera after the
+      // user closes the studio or chooses a no-camera fallback.
+      if (requestId !== cameraRequestId.current) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
+
       streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
+      if (!videoRef.current) {
+        stream.getTracks().forEach((track) => track.stop());
+        streamRef.current = null;
+        setCameraError(msg('tryon.scan_camera_unavailable'));
+        setCameraLoading(false);
+        return;
+      }
+
+      videoRef.current.srcObject = stream;
+      await videoRef.current.play();
+      if (requestId !== cameraRequestId.current) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
       }
       setCameraActive(true);
       setCameraLoading(false);
-    } catch (err: any) {
-      console.warn('Camera stream error:', err);
-      let msg = 'Camera access unavailable. Please choose Photo Upload or Presets below.';
-      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-        msg = 'Camera permission was denied. Please allow camera permissions in your browser URL bar.';
-      } else if (err.name === 'NotFoundError') {
-        msg = 'No physical camera detected on this device.';
-      }
-      setCameraError(msg);
-      setCameraActive(false);
-      setCameraLoading(false);
+    } catch (error: unknown) {
+      if (requestId !== cameraRequestId.current) return;
+      console.warn('Camera stream error:', error);
+      const errorName = error instanceof DOMException
+        ? error.name
+        : typeof error === 'object' && error && 'name' in error
+          ? String(error.name)
+          : '';
+      const errorMessage = errorName === 'NotAllowedError' || errorName === 'PermissionDeniedError'
+        ? msg('tryon.scan_camera_permission_denied')
+        : errorName === 'NotFoundError' || errorName === 'DevicesNotFoundError'
+          ? msg('tryon.scan_camera_not_found')
+          : msg('tryon.scan_camera_unavailable');
+      stopCamera();
+      setCameraError(errorMessage);
     }
   };
 
@@ -265,6 +344,14 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
     const nextMode = facingMode === 'user' ? 'environment' : 'user';
     setFacingMode(nextMode);
     startCamera(nextMode);
+  };
+
+  const selectTab = (tab: 'camera' | 'upload' | 'preset' | 'ruler') => {
+    setActiveTab(tab);
+    setScanStep('ready');
+    setCameraError(null);
+    if (tab === 'camera') startCamera();
+    else stopCamera();
   };
 
   const captureCameraFrame = () => {
@@ -283,7 +370,7 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
     }
 
     stopCamera();
-    runVisionAnalysis('live_camera', capturedDataUrl);
+    runVisionAnalysis('live_camera');
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -295,7 +382,7 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
     try {
       const { dataUrl } = await compressImageToDataUrl(file);
       setCapturedImage(dataUrl);
-      runVisionAnalysis('uploaded_photo', dataUrl);
+      runVisionAnalysis('uploaded_photo');
     } catch (err) {
       setCameraError(translatableFrom(err));
     }
@@ -308,7 +395,8 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
     return 'Size XL (Relaxed Tailored)';
   };
 
-  const runVisionAnalysis = (source: string, imgDataUrl?: string | null) => {
+  const runVisionAnalysis = (source: string) => {
+    clearAnalysisTimers();
     setScanStep('analyzing');
     setScanProgress(15);
     // Truthful processing logs: this flow compiles the user's SELF-REPORTED
@@ -329,8 +417,7 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
       { p: 100, log: `✓ Profile ready — ${profile.confidence}% self-reported confidence` },
     ];
 
-    steps.forEach((step, idx) => {
-      setTimeout(() => {
+    analysisTimerIds.current = steps.map((step, idx) => window.setTimeout(() => {
         setScanProgress(step.p);
         setAnalysisLogs((prev) => [...prev, step.log]);
 
@@ -358,7 +445,6 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
             hip_estimated: !modifiedInputs.hip,
             source,
             predicted_size: predSize,
-            scanned_image_url: imgDataUrl || undefined,
           };
 
           setEstimatedData(derived);
@@ -402,8 +488,7 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
             }
           })();
         }
-      }, (idx + 1) * 350);
-    });
+      }, (idx + 1) * 350));
   };
 
   const applyPresetSilhouette = (preset: {
@@ -422,17 +507,18 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
     setHipCm(preset.hip);
     setSelectedSilhouette(preset.shape);
     setModifiedInputs({ shoulder: true, chest: true, waist: true, hip: true, body_shape: true });
-    runVisionAnalysis('silhouette_preset', null);
+    runVisionAnalysis('silhouette_preset');
   };
 
   const handleApply = () => {
     if (estimatedData) {
       onApplyMeasurements(estimatedData);
-      onClose();
+      handleClose();
     }
   };
 
   const handleRetake = () => {
+    clearAnalysisTimers();
     setCapturedImage(null);
     setEstimatedData(null);
     setScanStep('ready');
@@ -446,113 +532,159 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
   if (!isOpen) return null;
 
   const silhouettePresets = [
-    { shape: 'Athletic V-Taper', height: 178, chest: 99, waist: 82, shoulder: 46, hip: 96, desc: 'Tapered athletic torso with broad shoulders' },
-    { shape: 'Hourglass Feminine', height: 172, chest: 92, waist: 68, shoulder: 40, hip: 96, desc: 'Balanced chest and hip contours with defined waistline' },
-    { shape: 'Tall Structured', height: 186, chest: 104, waist: 86, shoulder: 48, hip: 100, desc: 'Elongated frame with structured tailoring proportions' },
-    { shape: 'Classic Regular', height: 175, chest: 96, waist: 84, shoulder: 44, hip: 95, desc: 'Standard balanced drape and regular ease' },
+    { shape: 'Athletic V-Taper', label: t('tryon.scan_preset_athletic'), height: 178, chest: 99, waist: 82, shoulder: 46, hip: 96, desc: t('tryon.scan_preset_athletic_desc') },
+    { shape: 'Hourglass Feminine', label: t('tryon.scan_preset_hourglass'), height: 172, chest: 92, waist: 68, shoulder: 40, hip: 96, desc: t('tryon.scan_preset_hourglass_desc') },
+    { shape: 'Tall Structured', label: t('tryon.scan_preset_tall'), height: 186, chest: 104, waist: 86, shoulder: 48, hip: 100, desc: t('tryon.scan_preset_tall_desc') },
+    { shape: 'Classic Regular', label: t('tryon.scan_preset_regular'), height: 175, chest: 96, waist: 84, shoulder: 44, hip: 95, desc: t('tryon.scan_preset_regular_desc') },
   ];
 
   return (
     <>
       {consentDialog}
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-in fade-in duration-150">
-      <div ref={panelRef} role="dialog" aria-modal="true" aria-label={t('tryon.scan_studio_aria')} tabIndex={-1} className="w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden max-h-[92vh] flex flex-col">
+    <div data-testid="camera-modal-overlay" className="fixed inset-0 z-50 !m-0 flex items-center justify-center bg-slate-950/85 p-0 backdrop-blur-md animate-in fade-in duration-150 sm:p-4">
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="camera-scan-title"
+        aria-describedby="camera-scan-summary"
+        tabIndex={-1}
+        dir={i18n.dir()}
+        className="flex h-[100dvh] max-h-[100dvh] w-full min-w-0 flex-col overflow-hidden border border-slate-100 bg-white shadow-2xl sm:h-auto sm:max-w-2xl sm:max-h-[92dvh] sm:rounded-3xl"
+      >
         {/* Header */}
-        <div className="p-4 sm:p-5 bg-[#0C0E1E] text-white flex justify-between items-center border-b border-slate-800">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#C5A059] text-slate-950 flex items-center justify-center font-bold shadow-xs">
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-slate-800 bg-[#0C0E1E] p-4 text-white sm:items-center sm:p-5">
+          <div className="flex min-w-0 items-start gap-3 sm:items-center">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#C5A059] font-bold text-slate-950 shadow-xs">
               <RulerIcon size={22} color="#0C0E1E" />
             </div>
-            <div>
-              <h3 className="font-serif text-base sm:text-lg font-bold text-white flex items-center gap-2">
-                <span>{t('tryon.scan_studio_title')}</span>
-                <span className="text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full font-mono">
-                  Private · In-Browser
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 id="camera-scan-title" className="font-serif text-base font-bold text-white sm:text-lg">
+                  {t('tryon.scan_studio_title')}
+                </h3>
+                <span className="rounded-full border border-emerald-500/30 bg-emerald-500/20 px-2 py-0.5 font-mono text-[10px] text-emerald-400">
+                  {t('tryon.scan_privacy_badge')}
                 </span>
-              </h3>
-              <p className="text-[11px] text-slate-400 font-light">
-                Estimates body proportions in browser memory without storing raw photos on servers.
+              </div>
+              <p id="camera-scan-summary" className="mt-1 text-[11px] font-light leading-relaxed text-slate-400">
+                {t('tryon.scan_privacy_summary')}
               </p>
             </div>
           </div>
           <button
-            onClick={onClose}
-            className="w-8 h-8 rounded-full bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center text-sm transition-colors"
+            type="button"
+            onClick={handleClose}
+            aria-label={t('tryon.scan_close')}
+            title={t('tryon.scan_close')}
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-slate-800 text-sm text-slate-300 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059]"
           >
-            ✕
+            <span aria-hidden="true">✕</span>
           </button>
         </div>
 
-        {/* Tab Navigation */}
-        <div className="flex border-b border-slate-200 bg-[#FAF9F6] p-1.5 gap-1.5 text-xs font-semibold">
+        {/* Two rows on narrow screens keep every target readable and visible;
+            a four-column strip returns at the first practical tablet width. */}
+        <div role="tablist" aria-label={t('tryon.scan_modes')} className="grid shrink-0 grid-cols-2 gap-1.5 border-b border-slate-200 bg-[#FAF9F6] p-1.5 text-xs font-semibold sm:grid-cols-4">
           {[
-            { id: 'camera' as const, label: '📹 Live Camera' },
-            { id: 'upload' as const, label: '🖼️ Photo Upload' },
-            { id: 'preset' as const, label: '👤 Presets' },
-            { id: 'ruler' as const, label: '📐 Manual Ruler' },
-          ].map((tItem) => (
+            { id: 'camera' as const, icon: '📹', label: t('tryon.scan_tab_camera') },
+            { id: 'upload' as const, icon: '🖼️', label: t('tryon.scan_tab_upload') },
+            { id: 'preset' as const, icon: '👤', label: t('tryon.scan_tab_preset') },
+            { id: 'ruler' as const, icon: '📐', label: t('tryon.scan_tab_ruler') },
+          ].map((tab) => (
             <button
-              key={tItem.id}
-              onClick={() => {
-                setActiveTab(tItem.id);
-                setScanStep('ready');
-                if (tItem.id === 'camera') startCamera();
-                else stopCamera();
-              }}
-              className={`flex-1 py-2.5 rounded-xl transition-all ${
-                activeTab === tItem.id
+              key={tab.id}
+              type="button"
+              role="tab"
+              id={`camera-scan-tab-${tab.id}`}
+              aria-selected={activeTab === tab.id}
+              aria-controls={`camera-scan-panel-${tab.id}`}
+              onClick={() => selectTab(tab.id)}
+              className={`min-h-11 min-w-0 rounded-xl px-2 py-2.5 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059] ${
+                activeTab === tab.id
                   ? 'bg-[#1B1F3B] text-white shadow-xs'
                   : 'text-slate-600 hover:bg-slate-200/60'
               }`}
             >
-              {tItem.label}
+              <span aria-hidden="true">{tab.icon}</span>{' '}
+              <span>{tab.label}</span>
             </button>
           ))}
         </div>
 
         {/* Modal Body */}
-        <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-4">
+        <div className="min-w-0 flex-1 space-y-4 overflow-x-hidden overflow-y-auto p-3 sm:p-6">
           {scanStep === 'ready' && (
             <>
               {/* Reference Height Calibration Input */}
-              <div className="p-3.5 rounded-2xl bg-[#FDF8EE] border border-[#C5A059]/30 flex items-center justify-between gap-4">
-                <div>
-                  <label className="text-xs font-bold text-[#1B1F3B] block">
-                    Calibration Stature Reference:
+              <div className="flex flex-col gap-3 rounded-2xl border border-[#C5A059]/30 bg-[#FDF8EE] p-3.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                <div className="min-w-0">
+                  <label htmlFor="camera-calibration-height" className="block text-xs font-bold text-[#1B1F3B]">
+                    {t('tryon.scan_calibration_label')}
                   </label>
-                  <span className="text-[10px] text-slate-500 font-light">
-                    Used to accurately convert camera pixels into physical centimeters.
+                  <span className="text-[11px] font-light leading-relaxed text-slate-600">
+                    {t('tryon.scan_calibration_hint')}
                   </span>
                 </div>
-                <div className="flex items-center gap-1.5 shrink-0">
+                <div className="flex shrink-0 items-center gap-1.5">
                   <input
+                    id="camera-calibration-height"
                     type="number"
+                    inputMode="numeric"
                     min="140"
                     max="220"
                     value={userCalibrationHeightCm}
-                    onChange={(e) => setUserCalibrationHeightCm(Number(e.target.value))}
-                    className="w-20 px-2.5 py-1.5 rounded-xl border border-slate-300 text-xs font-bold text-slate-900 focus:outline-none focus:border-[#C5A059] bg-white text-center"
+                    onChange={(e) => {
+                      setUserCalibrationHeightCm(Number(e.target.value));
+                      markModified('height');
+                    }}
+                    className="w-24 rounded-xl border border-slate-300 bg-white px-2.5 py-2 text-center text-xs font-bold text-slate-900 focus:border-[#C5A059] focus:outline-none"
                   />
-                  <span className="text-xs font-bold text-slate-700">cm</span>
+                  <span className="text-xs font-bold text-slate-700">{t('tryon.scan_unit_cm')}</span>
                 </div>
               </div>
 
               {/* --- TAB 1: LIVE CAMERA --- */}
               {activeTab === 'camera' && (
-                <div className="space-y-4">
+                <div
+                  id="camera-scan-panel-camera"
+                  role="tabpanel"
+                  aria-labelledby="camera-scan-tab-camera"
+                  className="min-w-0 space-y-4"
+                >
                   {cameraError && (
-                    <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-800 text-xs flex items-center justify-between">
-                      <span>{resolveMessage(cameraError, t)}</span>
-                      <button
-                        onClick={() => startCamera()}
-                        className="px-3 py-1 bg-amber-600 text-white rounded-lg text-[10px] font-bold"
-                      >
-                        Retry
-                      </button>
+                    <div role="alert" className="space-y-3 rounded-2xl border border-amber-200 bg-amber-50 p-3.5 text-xs text-amber-900">
+                      <p className="font-medium leading-relaxed">{resolveMessage(cameraError, t)}</p>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => startCamera()}
+                          className="min-h-10 rounded-lg bg-amber-700 px-3 py-2 text-[11px] font-bold text-white hover:bg-amber-800"
+                        >
+                          {t('tryon.scan_camera_retry')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => selectTab('upload')}
+                          className="min-h-10 rounded-lg border border-amber-300 bg-white px-3 py-2 text-[11px] font-bold text-amber-900 hover:bg-amber-100"
+                        >
+                          {t('tryon.scan_camera_use_upload')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => selectTab('ruler')}
+                          className="min-h-10 rounded-lg border border-amber-300 bg-white px-3 py-2 text-[11px] font-bold text-amber-900 hover:bg-amber-100"
+                        >
+                          {t('tryon.scan_camera_use_manual')}
+                        </button>
+                      </div>
                     </div>
                   )}
 
-                  <div className="relative rounded-3xl overflow-hidden bg-slate-950 aspect-[4/3] flex items-center justify-center border border-slate-800 shadow-lg">
+                  <div
+                    data-testid="camera-stage"
+                    className="relative isolate flex aspect-[4/3] min-w-0 items-center justify-center overflow-hidden rounded-2xl border border-slate-800 bg-slate-950 shadow-lg sm:rounded-3xl"
+                  >
                     <video
                       ref={videoRef}
                       playsInline
@@ -562,67 +694,70 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
                     />
                     <canvas
                       ref={canvasRef}
-                      className="w-full h-full object-cover"
+                      data-testid="camera-preview-canvas"
+                      aria-hidden={!cameraActive}
+                      className={`absolute inset-0 h-full w-full object-cover ${cameraActive ? 'block' : 'hidden'}`}
                     />
 
                     {/* HUD Status Bar & Scanning Laser */}
                     {cameraActive && (
                       <>
-                        <div className="absolute top-3 left-3 right-3 flex justify-between items-center pointer-events-none z-10">
-                          <div className="px-3 py-1 rounded-full bg-slate-950/80 backdrop-blur-md text-[#C5A059] text-[10px] font-mono font-bold flex items-center gap-1.5 border border-[#C5A059]/40 shadow-xs">
-                            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                        <div className="pointer-events-none absolute inset-x-3 top-3 z-10 flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-1.5 rounded-full border border-[#C5A059]/40 bg-slate-950/80 px-3 py-1 font-mono text-[10px] font-bold text-[#C5A059] shadow-xs backdrop-blur-md">
+                            <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-emerald-400"></span>
                             <span>{t('tryon.scan_align_hint')}</span>
                           </div>
-                          <div className="px-2.5 py-1 rounded-full bg-slate-950/80 text-slate-300 text-[10px] font-mono border border-slate-700">
-                            Live {fps} FPS
+                          <div className="shrink-0 rounded-full border border-slate-700 bg-slate-950/80 px-2.5 py-1 font-mono text-[10px] text-slate-300">
+                            {t('tryon.scan_camera_live_fps', { fps: fps })}
                           </div>
                         </div>
 
                         {/* Animated Laser Scanning Beam */}
-                        <div className="absolute inset-x-0 h-1 bg-gradient-to-r from-transparent via-[#C5A059] to-transparent shadow-[0_0_15px_#C5A059] pointer-events-none animate-[scan_2.5s_ease-in-out_infinite]" />
+                        <div className="pointer-events-none absolute inset-x-0 h-1 animate-[scan_2.5s_ease-in-out_infinite] bg-gradient-to-r from-transparent via-[#C5A059] to-transparent shadow-[0_0_15px_#C5A059]" />
                       </>
                     )}
 
                     {!cameraActive && !cameraLoading && (
-                      <div className="text-center p-6 space-y-3">
-                        <div className="w-14 h-14 rounded-2xl bg-slate-900 border border-slate-700 text-[#C5A059] mx-auto flex items-center justify-center shadow-md">
+                      <div data-testid="camera-empty-state" className="absolute inset-0 flex flex-col items-center justify-center gap-3 overflow-y-auto p-4 text-center sm:p-6">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-slate-700 bg-slate-900 text-[#C5A059] shadow-md sm:h-14 sm:w-14">
                           <TryOnIcon size={28} color="#C5A059" isAi={true} />
                         </div>
-                        <p className="text-xs text-slate-400 max-w-xs mx-auto font-light leading-relaxed">
-                          Click below to start browser camera. Measurements are calculated in client memory and raw video never leaves your device.
+                        <p className="mx-auto max-w-sm text-[11px] font-light leading-relaxed text-slate-300 sm:text-xs">
+                          {t('tryon.scan_camera_start_hint')}
                         </p>
                         <button
+                          type="button"
                           onClick={() => startCamera()}
-                          className="px-6 py-2.5 rounded-xl bg-[#C5A059] hover:bg-[#E2BF70] text-slate-950 font-bold text-xs shadow-md transition-all active:scale-98"
+                          className="min-h-11 rounded-xl bg-[#C5A059] px-5 py-2.5 text-xs font-bold text-slate-950 shadow-md transition-all hover:bg-[#E2BF70] active:scale-95"
                         >
-                          Enable Live Camera
+                          {t('tryon.scan_camera_enable')}
                         </button>
                       </div>
                     )}
 
                     {cameraLoading && (
-                      <div className="text-center space-y-2">
-                        <div className="w-8 h-8 border-3 border-[#C5A059] border-t-transparent rounded-full animate-spin mx-auto"></div>
-                        <span className="text-xs text-slate-400">{t('tryon.scan_init_stream')}</span>
+                      <div role="status" className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-4 text-center">
+                        <div className="h-8 w-8 animate-spin rounded-full border-3 border-[#C5A059] border-t-transparent"></div>
+                        <span className="text-xs text-slate-300">{t('tryon.scan_init_stream')}</span>
                       </div>
                     )}
                   </div>
 
                   {cameraActive && (
-                    <div className="flex gap-2.5">
+                    <div className="flex flex-col gap-2.5 sm:flex-row">
                       {hasMultipleCameras && (
                         <button
                           type="button"
                           onClick={toggleCameraFacing}
-                          className="px-4 py-3 rounded-xl border border-slate-300 text-slate-700 text-xs font-semibold hover:bg-slate-50 transition-colors"
+                          className="min-h-11 rounded-xl border border-slate-300 px-4 py-3 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50"
                         >
-                          🔄 Switch
+                          {t('tryon.scan_camera_switch')}
                         </button>
                       )}
                       <button
                         type="button"
                         onClick={captureCameraFrame}
-                        className="flex-1 py-3.5 rounded-2xl bg-[#1B1F3B] hover:bg-[#0C0E1E] text-white font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2"
+                        className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-2xl bg-[#1B1F3B] py-3.5 text-xs font-bold text-white shadow-md transition-all hover:bg-[#0C0E1E]"
                       >
                         <SparkleIcon size={16} color="#C5A059" />
                         <span>{t('tryon.scan_capture_cta')}</span>
@@ -634,61 +769,74 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
 
               {/* --- TAB 2: PHOTO UPLOAD --- */}
               {activeTab === 'upload' && (
-                <div className="space-y-4">
-                  <div
+                <div
+                  id="camera-scan-panel-upload"
+                  role="tabpanel"
+                  aria-labelledby="camera-scan-tab-upload"
+                  className="space-y-4"
+                >
+                  <button
+                    type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="border-2 border-dashed border-slate-300 hover:border-[#C5A059] rounded-3xl p-8 text-center cursor-pointer transition-all bg-[#FAF9F6] space-y-3"
+                    className="w-full space-y-3 rounded-3xl border-2 border-dashed border-slate-300 bg-[#FAF9F6] p-6 text-center transition-all hover:border-[#C5A059] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059] sm:p-8"
                   >
-                    <div className="w-12 h-12 rounded-2xl bg-white border border-slate-200 mx-auto flex items-center justify-center text-[#C5A059] shadow-xs">
+                    <span aria-hidden="true" className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-white text-[#C5A059] shadow-xs">
                       📸
-                    </div>
-                    <h4 className="font-serif text-sm font-bold text-[#1B1F3B]">
-                      Upload a full-length upright photo
-                    </h4>
-                    <p className="text-xs text-slate-500 max-w-sm mx-auto font-light">
-                      JPG, PNG or WEBP. Image is processed locally in browser memory.
-                    </p>
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*"
-                      onChange={handleFileUpload}
-                      className="hidden"
-                    />
-                  </div>
+                    </span>
+                    <span className="block font-serif text-sm font-bold text-[#1B1F3B]">
+                      {t('tryon.scan_upload_title')}
+                    </span>
+                    <span className="mx-auto block max-w-sm text-xs font-light leading-relaxed text-slate-500">
+                      {t('tryon.scan_upload_hint')}
+                    </span>
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    aria-label={t('tryon.scan_upload_title')}
+                    onChange={handleFileUpload}
+                    className="sr-only"
+                  />
                 </div>
               )}
 
               {/* --- TAB 3: PRESETS --- */}
               {activeTab === 'preset' && (
-                <div className="space-y-3">
+                <div
+                  id="camera-scan-panel-preset"
+                  role="tabpanel"
+                  aria-labelledby="camera-scan-tab-preset"
+                  className="space-y-3"
+                >
                   <h4 className="font-serif text-sm font-bold text-[#1B1F3B]">
-                    Select an Archetypal Tailored Silhouette:
+                    {t('tryon.scan_preset_title')}
                   </h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     {silhouettePresets.map((preset) => (
-                      <div
+                      <button
+                        type="button"
                         key={preset.shape}
                         onClick={() => applyPresetSilhouette(preset)}
-                        className="p-4 rounded-2xl border border-slate-200 bg-white hover:border-[#C5A059] hover:bg-[#FDF8EE] transition-all cursor-pointer shadow-2xs space-y-1.5"
+                        className="space-y-1.5 rounded-2xl border border-slate-200 bg-white p-4 text-start shadow-2xs transition-all hover:border-[#C5A059] hover:bg-[#FDF8EE] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059]"
                       >
-                        <div className="flex justify-between items-center">
-                          <h5 className="font-serif text-xs font-bold text-[#1B1F3B]">
-                            {preset.shape}
-                          </h5>
-                          <span className="text-[10px] font-mono font-bold bg-white px-2 py-0.5 rounded border border-slate-200">
-                            {preset.height} cm
+                        <span className="flex items-start justify-between gap-2">
+                          <span className="font-serif text-xs font-bold text-[#1B1F3B]">
+                            {preset.label}
                           </span>
-                        </div>
-                        <p className="text-[11px] text-slate-500 font-light">{preset.desc}</p>
-                        <div className="flex gap-2 pt-1 text-[10px] font-medium text-slate-600">
-                          <span>Chest: {preset.chest}cm</span>
-                          <span>•</span>
-                          <span>Waist: {preset.waist}cm</span>
-                          <span>•</span>
-                          <span>Shoulder: {preset.shoulder}cm</span>
-                        </div>
-                      </div>
+                          <span className="shrink-0 rounded border border-slate-200 bg-white px-2 py-0.5 font-mono text-[10px] font-bold">
+                            {preset.height} {t('tryon.scan_unit_cm')}
+                          </span>
+                        </span>
+                        <span className="block text-[11px] font-light leading-relaxed text-slate-500">{preset.desc}</span>
+                        <span className="flex flex-wrap gap-x-2 gap-y-1 pt-1 text-[10px] font-medium text-slate-600">
+                          <span>{t('tryon.scan_chest')}: {preset.chest} {t('tryon.scan_unit_cm')}</span>
+                          <span aria-hidden="true">•</span>
+                          <span>{t('tryon.scan_waist')}: {preset.waist} {t('tryon.scan_unit_cm')}</span>
+                          <span aria-hidden="true">•</span>
+                          <span>{t('tryon.scan_shoulder')}: {preset.shoulder} {t('tryon.scan_unit_cm')}</span>
+                        </span>
+                      </button>
                     ))}
                   </div>
                 </div>
@@ -696,15 +844,20 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
 
               {/* --- TAB 4: MANUAL RULER --- */}
               {activeTab === 'ruler' && (
-                <div className="space-y-4 bg-[#FAF9F6] p-5 rounded-2xl border border-slate-200">
+                <div
+                  id="camera-scan-panel-ruler"
+                  role="tabpanel"
+                  aria-labelledby="camera-scan-tab-ruler"
+                  className="space-y-4 rounded-2xl border border-slate-200 bg-[#FAF9F6] p-4 sm:p-5"
+                >
                   <h4 className="font-serif text-sm font-bold text-[#1B1F3B]">
-                    Precision Manual Dimension Controls
+                    {t('tryon.scan_manual_title')}
                   </h4>
 
                   <div className="space-y-3 text-xs">
                     <div>
                       <div className="flex justify-between mb-1 font-semibold text-slate-700">
-                        <span>Height:</span>
+                        <span>{t('tryon.scan_height')}:</span>
                         <span className="font-bold text-[#1B1F3B]">{heightCm} cm</span>
                       </div>
                       <input
@@ -723,7 +876,7 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
 
                     <div>
                       <div className="flex justify-between mb-1 font-semibold text-slate-700">
-                        <span>Shoulder Breadth:</span>
+                        <span>{t('tryon.scan_shoulder')}:</span>
                         <span className="font-bold text-[#1B1F3B]">{shoulderCm} cm</span>
                       </div>
                       <input
@@ -738,7 +891,7 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
 
                     <div>
                       <div className="flex justify-between mb-1 font-semibold text-slate-700">
-                        <span>Chest Circumference:</span>
+                        <span>{t('tryon.scan_chest')}:</span>
                         <span className="font-bold text-[#1B1F3B]">{chestCm} cm</span>
                       </div>
                       <input
@@ -753,7 +906,7 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
 
                     <div>
                       <div className="flex justify-between mb-1 font-semibold text-slate-700">
-                        <span>Waistline:</span>
+                        <span>{t('tryon.scan_waist')}:</span>
                         <span className="font-bold text-[#1B1F3B]">{waistCm} cm</span>
                       </div>
                       <input
@@ -768,10 +921,10 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
                   </div>
 
                   <button
-                    onClick={() => runVisionAnalysis('manual_ruler', null)}
+                    onClick={() => runVisionAnalysis('manual_ruler')}
                     className="w-full py-3 rounded-xl bg-[#1B1F3B] hover:bg-[#0C0E1E] text-white font-bold text-xs shadow-md transition-all"
                   >
-                    Compile My Size Profile
+                    {t('tryon.scan_compile_profile')}
                   </button>
                 </div>
               )}
@@ -903,9 +1056,9 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
               </div>
 
               {/* Privacy Shield Notice */}
-              <p className="text-[11px] text-slate-500 font-light bg-[#FAF9F6] p-3 rounded-xl border border-slate-200 leading-relaxed flex items-center gap-2">
-                <LockIcon size={16} color="#C5A059" />
-                <span><strong>Privacy Guarantee:</strong> Processed 100% in browser memory. Raw camera images are wiped upon closing this modal.</span>
+              <p className="flex items-start gap-2 rounded-xl border border-slate-200 bg-[#FAF9F6] p-3 text-[11px] font-light leading-relaxed text-slate-600">
+                <span className="mt-0.5 shrink-0"><LockIcon size={16} color="#C5A059" /></span>
+                <span>{t('tryon.scan_privacy_result')}</span>
               </p>
 
               {/* Actions */}
@@ -915,7 +1068,7 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
                   onClick={handleRetake}
                   className="flex-1 py-3 rounded-xl border border-slate-300 hover:bg-slate-50 text-slate-700 font-semibold text-xs transition-colors"
                 >
-                  Retake / Adjust
+                  {t('tryon.scan_retake')}
                 </button>
                 <button
                   type="button"

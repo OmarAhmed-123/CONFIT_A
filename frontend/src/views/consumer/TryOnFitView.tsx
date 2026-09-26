@@ -55,7 +55,7 @@ export const TryOnFitView: React.FC = () => {
     );
 
   return (
-    <div className="space-y-10 pb-20">
+    <div className="min-w-0 space-y-10 overflow-x-hidden pb-20">
       <CircularGalleryShowcase
         tone="tryon"
         compact
@@ -180,15 +180,15 @@ export const TryOnFitView: React.FC = () => {
               <SparkleIcon size={22} color="#0C0E1E" />
             </div>
             <h3 className="font-serif text-base font-bold text-[#1B1F3B]">
-              Live Camera Body Scan
+              {t('tryon.scan_feature_title')}
             </h3>
             <p className="text-xs text-slate-500 font-light">
               Browser camera or manual measurements for a self-reported size
               profile; raw video is not uploaded by this flow.
             </p>
           </div>
-          <span className="text-xs font-bold text-[#7A5C28] mt-4 block">
-            Launch Body Scan →
+          <span className="mt-4 block text-xs font-bold text-[#7A5C28]">
+            {t('tryon.scan_feature_cta')} <span aria-hidden="true">→</span>
           </span>
         </div>
 

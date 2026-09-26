@@ -66,6 +66,11 @@ export const VirtualTryOnModal: React.FC = () => {
   } = useTryOnViewModel(tryOnProduct);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  // This hook must run on EVERY render. The modal stays mounted globally and
+  // returns null while no product is selected; placing it below that early
+  // return changed the hook count when a product opened and crashed React with
+  // invariant #310 (the production white screen reported on 2026-09-26).
+  const { requestConsent, consentDialog } = usePhotoConsent('try_on');
   const [isCameraScanOpen, setIsCameraScanOpen] = useState(false);
   const [activeCategoryFilter, setActiveCategoryFilter] =
     useState<string>("All");
@@ -225,9 +230,6 @@ export const VirtualTryOnModal: React.FC = () => {
       console.warn("Drop error:", err);
     }
   };
-
-  // Consent for the person photo this modal uploads to the try-on worker.
-  const { requestConsent, consentDialog } = usePhotoConsent('try_on');
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

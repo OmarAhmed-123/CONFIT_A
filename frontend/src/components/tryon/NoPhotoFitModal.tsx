@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useUIStore } from '../../stores/uiStore';
 import { useTryOnViewModel } from '../../viewmodels/useTryOnViewModel';
@@ -8,7 +8,7 @@ import { CameraScanModal } from './CameraScanModal';
 
 export const NoPhotoFitModal: React.FC = () => {
   const { t } = useTranslation();
-  const { rulerProduct, closeRuler } = useUIStore();
+  const { rulerProduct, rulerMeasurements, closeRuler } = useUIStore();
   const { rulerLoading, noPhotoResult, runNoPhotoFit } = useTryOnViewModel(rulerProduct);
   const { addItem, openCart } = useCartStore();
 
@@ -19,6 +19,23 @@ export const NoPhotoFitModal: React.FC = () => {
   const [waist, setWaist] = useState(82);
   const [fitPref, setFitPref] = useState('regular');
   const [isCameraScanOpen, setIsCameraScanOpen] = useState(false);
+
+  // CameraScanModal can hand a completed self-reported profile directly to
+  // this fallback when the rendering engine is unavailable. Preserve those
+  // exact values and calculate immediately instead of discarding the user's
+  // work and reopening a form with unrelated defaults.
+  useEffect(() => {
+    if (!rulerProduct || !rulerMeasurements) return;
+    setHeight(rulerMeasurements.height_cm);
+    setWeight(rulerMeasurements.weight_kg);
+    setShape(rulerMeasurements.body_shape);
+    setChest(rulerMeasurements.chest_cm);
+    setWaist(rulerMeasurements.waist_cm);
+    void runNoPhotoFit({
+      ...rulerMeasurements,
+      preferred_fit: 'regular',
+    });
+  }, [rulerProduct, rulerMeasurements, runNoPhotoFit]);
 
   if (!rulerProduct) return null;
 
@@ -45,7 +62,12 @@ export const NoPhotoFitModal: React.FC = () => {
   return (
     <>
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md animate-in fade-in duration-150">
-        <div className="w-full max-w-3xl bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden max-h-[92vh] flex flex-col">
+        <div
+          className="w-full max-w-3xl bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden max-h-[92vh] flex flex-col"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="no-photo-fit-title"
+        >
           {/* Modal Header */}
           <div className="p-4 sm:p-6 border-b border-slate-100 bg-[#FAF9F6] flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -53,7 +75,7 @@ export const NoPhotoFitModal: React.FC = () => {
                 <RulerIcon size={22} color="#1B1F3B" />
               </div>
               <div>
-                <h3 className="font-serif text-lg font-bold text-[#1B1F3B]">
+                <h3 id="no-photo-fit-title" className="font-serif text-lg font-bold text-[#1B1F3B]">
                   {t('tryon.ruler_mode')}
                 </h3>
                 <p className="text-xs text-slate-500 font-light">
@@ -62,7 +84,9 @@ export const NoPhotoFitModal: React.FC = () => {
               </div>
             </div>
             <button
+              type="button"
               onClick={closeRuler}
+              aria-label={t('common.close')}
               className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:text-slate-900 flex items-center justify-center transition-colors"
             >
               ✕

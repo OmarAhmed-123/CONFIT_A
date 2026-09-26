@@ -4,6 +4,7 @@ import { Outlet, Link } from 'react-router-dom';
 import { ConsumerNavbar } from '../components/navigation/ConsumerNavbar';
 import { VirtualStylistDrawer } from '../components/stylist/VirtualStylistDrawer';
 import { VirtualTryOnModal } from '../components/tryon/VirtualTryOnModal';
+import { TryOnStudioErrorBoundary } from '../components/tryon/TryOnStudioErrorBoundary';
 import { NoPhotoFitModal } from '../components/tryon/NoPhotoFitModal';
 import { VisualSearchModal } from '../components/tryon/VisualSearchModal';
 import { DuplicateAlertModal } from '../components/wardrobe/DuplicateAlertModal';
@@ -71,7 +72,9 @@ export const ConsumerLayout: React.FC = () => {
 
       {/* Global Modals & Drawers (AuthModal + Toast live at App root) */}
       <VirtualStylistDrawer />
-      <VirtualTryOnModal />
+      <TryOnStudioErrorBoundary>
+        <VirtualTryOnModal />
+      </TryOnStudioErrorBoundary>
       <NoPhotoFitModal />
       <VisualSearchModal />
       <DuplicateAlertModal />

@@ -138,6 +138,7 @@ export function useTryOnViewModel(initialProduct?: Product | null) {
       chest_cm?: number;
       waist_cm?: number;
       hip_cm?: number;
+      shoulder_cm?: number;
       preferred_fit?: string;
     }) => {
       if (!initialProduct?.id) return;
@@ -151,6 +152,7 @@ export function useTryOnViewModel(initialProduct?: Product | null) {
           chest: measurements.chest_cm ?? null,
           waist: measurements.waist_cm ?? null,
           hip: measurements.hip_cm ?? null,
+          shoulder: measurements.shoulder_cm ?? null,
           body_shape: measurements.body_shape ?? null,
           preferred_fit: measurements.preferred_fit ?? 'regular',
         });

@@ -20,6 +20,7 @@ import { renderHook, waitFor, act } from "@testing-library/react";
 const mocks = vi.hoisted(() => ({
   multiRenderTryOn: vi.fn(),
   getCapabilities: vi.fn(),
+  calculateNoPhotoFit: vi.fn(),
   showToast: vi.fn(),
   addItem: vi.fn(),
   openCart: vi.fn(),
@@ -29,6 +30,7 @@ vi.mock("../../services/apiServices", () => ({
   tryOnService: {
     multiRenderTryOn: mocks.multiRenderTryOn,
     getCapabilities: mocks.getCapabilities,
+    calculateNoPhotoFit: mocks.calculateNoPhotoFit,
   },
 }));
 vi.mock("../../stores/uiStore", () => ({
@@ -92,6 +94,7 @@ describe("switching the active product (stale-state regression)", () => {
     mocks.multiRenderTryOn.mockImplementation((p: any) =>
       Promise.resolve(OK(p.product_ids[0])),
     );
+    mocks.calculateNoPhotoFit.mockResolvedValue({ recommended: false });
     mocks.getCapabilities.mockImplementation((ids: number[]) =>
       Promise.resolve({
         provider: "test",
@@ -202,6 +205,36 @@ describe("switching the active product (stale-state regression)", () => {
     ]);
     expect(payloadOf(1)).toMatchObject({
       product_ids: expect.arrayContaining([3, 4]),
+    });
+  });
+
+  it("forwards every captured body measurement to the no-photo fit contract", async () => {
+    const { result } = renderHook(() => useTryOnViewModel(PRODUCT_A));
+
+    await act(async () => {
+      await result.current.runNoPhotoFit({
+        height_cm: 178,
+        weight_kg: 70,
+        body_shape: "Athletic V-Taper",
+        chest_cm: 98,
+        waist_cm: 82,
+        hip_cm: 96,
+        shoulder_cm: 46,
+        preferred_fit: "regular",
+      });
+    });
+
+    expect(mocks.calculateNoPhotoFit).toHaveBeenCalledWith({
+      product_id: PRODUCT_A.id,
+      units: "metric",
+      height: 178,
+      weight: 70,
+      chest: 98,
+      waist: 82,
+      hip: 96,
+      shoulder: 46,
+      body_shape: "Athletic V-Taper",
+      preferred_fit: "regular",
     });
   });
 });

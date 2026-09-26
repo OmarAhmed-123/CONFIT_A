@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   kind: 'fitCheck' as 'render' | 'fitCheck' | 'blocked',
+  renderAvailable: false as boolean | null,
   openTryOn: vi.fn(),
   openRuler: vi.fn(),
   openVisualSearch: vi.fn(),
@@ -68,6 +69,7 @@ vi.mock('../../stores/uiStore', () => ({
 vi.mock('../../hooks/useTryOnAvailability', () => ({
   useTryOnAvailability: () => ({
     ctaKind: () => mocks.kind,
+    renderAvailable: mocks.renderAvailable,
     userMessage: null,
     gate: (handlers: { render: () => void; fitCheck: () => void }) => () =>
       mocks.kind === 'render' ? handlers.render() : handlers.fitCheck(),
@@ -103,6 +105,7 @@ function renderView() {
 
 beforeEach(() => {
   mocks.kind = 'fitCheck';
+  mocks.renderAvailable = false;
   vi.clearAllMocks();
 });
 
@@ -120,11 +123,23 @@ describe('TryOnFitView measurement apply flow', () => {
 
   it('opens visual try-on only when the live capability gate says it can render', () => {
     mocks.kind = 'render';
+    mocks.renderAvailable = true;
     renderView();
     fireEvent.click(screen.getByText(/camera-assisted size profile/i));
     fireEvent.click(screen.getByRole('button', { name: /apply measured profile/i }));
 
     expect(mocks.openTryOn).toHaveBeenCalledWith(PRODUCT);
     expect(mocks.openRuler).not.toHaveBeenCalled();
+  });
+
+  it('uses fit instead of treating an unresolved capability probe as render permission', () => {
+    mocks.kind = 'render';
+    mocks.renderAvailable = null;
+    renderView();
+    fireEvent.click(screen.getByText(/camera-assisted size profile/i));
+    fireEvent.click(screen.getByRole('button', { name: /apply measured profile/i }));
+
+    expect(mocks.openRuler).toHaveBeenCalledWith(PRODUCT, MEASUREMENTS);
+    expect(mocks.openTryOn).not.toHaveBeenCalled();
   });
 });

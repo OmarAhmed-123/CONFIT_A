@@ -364,8 +364,21 @@ export const TryOnFitView: React.FC = () => {
         isOpen={isCameraScanOpen}
         onClose={() => setIsCameraScanOpen(false)}
         onApplyMeasurements={(measurements) => {
-          if (products.length > 0) {
-            openTryOn(products[0]);
+          // A body-size profile must target apparel, not whichever catalogue
+          // item happens to sort first (production currently starts with an
+          // accessory that has no meaningful body-size recommendation).
+          const product = products.find((candidate) =>
+            isTryOnSupported(candidate.category_name),
+          );
+          if (!product) return;
+          // Never bypass the same live capability gate used by product CTAs.
+          // When GPU rendering is unavailable, carry the completed profile
+          // into the real no-photo fit engine rather than opening a renderer
+          // that cannot fulfill the request.
+          if (tryOnKind === 'render') {
+            openTryOn(product);
+          } else {
+            openRuler(product, measurements);
           }
         }}
       />

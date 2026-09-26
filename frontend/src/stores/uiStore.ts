@@ -3,6 +3,17 @@ import { Product } from "../models";
 import i18n, { isSupportedLanguage, setAppLanguage, type AppLanguage } from "../i18n/i18n";
 import type { TranslatableMessage } from "../i18n/messages";
 
+export interface FitMeasurementPrefill {
+  height_cm: number;
+  weight_kg: number;
+  body_shape: string;
+  chest_cm: number;
+  waist_cm: number;
+  shoulder_cm?: number;
+  hip_cm?: number;
+  confidence_score?: number;
+}
+
 type StylistPrefill =
   | {
       prompt: string;
@@ -23,6 +34,7 @@ interface UIState {
   // Modal states
   tryOnProduct: Product | null;
   rulerProduct: Product | null;
+  rulerMeasurements: FitMeasurementPrefill | null;
   isVisualSearchOpen: boolean;
   isStylistDrawerOpen: boolean;
   stylistPrefillOccasion: StylistPrefill | null;
@@ -48,7 +60,7 @@ interface UIState {
   // Actions
   openTryOn: (product: Product) => void;
   closeTryOn: () => void;
-  openRuler: (product: Product) => void;
+  openRuler: (product: Product, measurements?: FitMeasurementPrefill) => void;
   closeRuler: () => void;
   openVisualSearch: () => void;
   closeVisualSearch: () => void;
@@ -74,6 +86,7 @@ const toastIdentity = (message: TranslatableMessage): string =>
 export const useUIStore = create<UIState>((set) => ({
   tryOnProduct: null,
   rulerProduct: null,
+  rulerMeasurements: null,
   isVisualSearchOpen: false,
   isStylistDrawerOpen: false,
   stylistPrefillOccasion: null,
@@ -85,8 +98,9 @@ export const useUIStore = create<UIState>((set) => ({
   openTryOn: (product) => set({ tryOnProduct: product }),
   closeTryOn: () => set({ tryOnProduct: null }),
 
-  openRuler: (product) => set({ rulerProduct: product }),
-  closeRuler: () => set({ rulerProduct: null }),
+  openRuler: (product, measurements) =>
+    set({ rulerProduct: product, rulerMeasurements: measurements ?? null }),
+  closeRuler: () => set({ rulerProduct: null, rulerMeasurements: null }),
 
   openVisualSearch: () => set({ isVisualSearchOpen: true }),
   closeVisualSearch: () => set({ isVisualSearchOpen: false }),

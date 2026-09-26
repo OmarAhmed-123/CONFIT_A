@@ -371,11 +371,11 @@ export const TryOnFitView: React.FC = () => {
             isTryOnSupported(candidate.category_name),
           );
           if (!product) return;
-          // Never bypass the same live capability gate used by product CTAs.
-          // When GPU rendering is unavailable, carry the completed profile
-          // into the real no-photo fit engine rather than opening a renderer
-          // that cannot fulfill the request.
-          if (tryOnKind === 'render') {
+          // This handoff requires an affirmative live rendering verdict. The
+          // shared CTA kind is intentionally optimistic while its probe is
+          // unresolved, but Apply must not spend the user's completed profile
+          // on an unverified renderer. False OR unknown falls back safely.
+          if (tryOn.renderAvailable === true) {
             openTryOn(product);
           } else {
             openRuler(product, measurements);

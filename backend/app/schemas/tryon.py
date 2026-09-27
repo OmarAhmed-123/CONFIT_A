@@ -470,6 +470,10 @@ class VisualSearchResultItem(BaseModel):
     title: str
     brand_name: str
     price: float
+    # Carried so the client can format the amount for the shopper's locale.
+    # Without it the UI printed a bare "$" regardless of the brand's actual
+    # currency, which is simply the wrong price for a non-USD catalogue.
+    currency: str = "USD"
     image_url: str
     similarity_score: int
     detected_color: str

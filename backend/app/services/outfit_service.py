@@ -215,6 +215,7 @@ class OutfitService:
                     "occasion_tags": json.loads(p.occasion_tags) if p.occasion_tags else [],
                     "category": p.category.name if p.category else "Apparel",
                     "price": to_float(p.base_price),
+                    "currency": p.currency or "USD",
                     "position": _position_for_product(p),
                     "slot_type": classify_product_slot(p)[0].value,
                 })
@@ -518,6 +519,7 @@ class OutfitService:
                     "dominant_hex": p.dominant_hex,
                     "image_url": p.thumbnail_url,
                     "price": to_float(p.base_price),
+                    "currency": p.currency or "USD",
                 })
 
         return {

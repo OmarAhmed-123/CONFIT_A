@@ -10,6 +10,7 @@ import { measurementService } from '../../services/measurementService';
 import { NoPhotoFitResult, Product } from '../../models';
 import { RulerIcon, SparkleIcon, TryOnIcon } from '../../components/icons/ConfitIcons';
 import { FitScoreBadge } from '../../components/common/CommonComponents';
+import { formatMoney } from '../../i18n/format';
 
 /**
  * FIT-01 — dedicated Fit Finder page at /fit.
@@ -97,7 +98,8 @@ const toDisplayWeight = (kg: number, units: Units) =>
   units === 'metric' ? kg : Math.round((kg / KG_PER_LB) * 10) / 10;
 
 export const FitFinderView: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const lang = i18n.resolvedLanguage ?? 'en';
   const navigate = useNavigate();
   const { products, isLoading: catalogLoading } = useCatalogViewModel();
   const { showToast } = useUIStore();
@@ -365,7 +367,13 @@ export const FitFinderView: React.FC = () => {
                 <option value="">— Select a product —</option>
                 {products.map((p) => (
                   <option key={p.id} value={p.id}>
-                    {p.brand_name} · {p.title} (${p.base_price})
+                    {p.brand_name} · {p.title} (
+                    {formatMoney(
+                      Math.round(p.base_price * 100),
+                      p.currency || 'USD',
+                      lang,
+                    )}
+                    )
                   </option>
                 ))}
               </select>

@@ -6,9 +6,11 @@ import { request } from '../../services/apiClient';
 import { useBrandViewModel } from '../../viewmodels/useBrandViewModel';
 import { SparkleIcon } from '../../components/icons/ConfitIcons';
 import { LoadingSpinner } from '../../components/common/CommonComponents';
+import { formatMoney } from '../../i18n/format';
 
 export const BrandPlacementsView: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const lang = i18n.resolvedLanguage ?? 'en';
   const { placements, products, createSponsoredSlot, fetchErrors, isLoading, refresh } = useBrandViewModel();
   const [actionMessage, setActionMessage] = useState('');
   const [saving, setSaving] = useState(false);
@@ -218,7 +220,17 @@ export const BrandPlacementsView: React.FC = () => {
                 >
                   {products.map((p) => (
                     <option key={p.id} value={p.id}>
-                      {p.title} (${p.base_price}) - ID {p.id}
+                      {/* Was a raw interpolation of the base price with a
+                          hard-coded dollar sign: Latin digits and the wrong
+                          symbol for any non-USD brand, and wrong again in the
+                          Arabic UI. */}
+                      {p.title} (
+                      {formatMoney(
+                        Math.round(p.base_price * 100),
+                        p.currency || 'USD',
+                        lang,
+                      )}
+                      ) - ID {p.id}
                     </option>
                   ))}
                 </select>

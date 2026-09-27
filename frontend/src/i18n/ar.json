@@ -214,7 +214,9 @@
     "occasion_gala": "حفل رسمي وزفاف",
     "occasion_weekend": "نزهة نهاية الأسبوع",
     "look_not_found": "هذه الإطلالة غير موجودة، أو أنها ليست لك.",
-    "look_load_failed": "تعذّر تحميل هذه الإطلالة. يُرجى المحاولة مرة أخرى."
+    "look_load_failed": "تعذّر تحميل هذه الإطلالة. يُرجى المحاولة مرة أخرى.",
+    "add_to_outfit": "أضف {{name}} للإطلالة",
+    "drag_or_enter": "اسحب أو اضغط Enter للإضافة"
   },
   "tryon": {
     "title": "استوديو القياس الافتراضي (Try-On)",
@@ -1232,7 +1234,9 @@
     "in_stock_count": "متوفر {{count}}",
     "low_stock_count": "باقي {{count}} فقط",
     "available_at_stores": "متوفر في المتاجر",
-    "you_save": "بتوفّر {{amount}}"
+    "you_save": "بتوفّر {{amount}}",
+    "colour": "اللون",
+    "total_units_available": "متوفر {{count}} قطعة في {{variants}} نوع"
   },
   "brand_nav": {
     "aria": "تنقّل إدارة المنصة وشركاء العلامات",

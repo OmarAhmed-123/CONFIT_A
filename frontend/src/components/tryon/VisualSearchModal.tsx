@@ -10,9 +10,11 @@ import { VisualSearchIcon, SparkleIcon } from "../icons/ConfitIcons";
 import { catalogService } from "../../services/apiServices";
 import { HonestProductImage } from "../common/HonestProductImage";
 import { useTryOnAvailability } from "../../hooks/useTryOnAvailability";
+import { formatMoney } from '../../i18n/format';
 
 export const VisualSearchModal: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const lang = i18n.resolvedLanguage ?? 'en';
   const { isVisualSearchOpen, closeVisualSearch, openTryOn, openRuler, showToast } =
     useUIStore();
   // Every try-on entry point goes through this gate. Without it this modal
@@ -337,7 +339,7 @@ export const VisualSearchModal: React.FC = () => {
                         {match.title}
                       </h5>
                       <span className="text-sm font-bold text-[#1B1F3B]">
-                        ${match.price}
+                        {formatMoney(Math.round(match.price * 100), match.currency || 'USD', lang)}
                       </span>
                     </div>
 

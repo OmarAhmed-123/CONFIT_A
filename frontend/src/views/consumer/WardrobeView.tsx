@@ -29,6 +29,7 @@ import {
   CardStackShowcase,
   CircularGalleryShowcase,
 } from "../../components/showcase/DesignShowcases";
+import { formatMoney } from '../../i18n/format';
 
 /**
  * Placeholder for a manually added wardrobe item.
@@ -46,7 +47,8 @@ const MANUAL_WARDROBE_IMAGE =
   );
 
 export const WardrobeView: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const lang = i18n.resolvedLanguage ?? 'en';
   // WARD-01 closure: the 'looks' tab previously rendered a STATIC mock
   // ensemble (hardcoded images, $529.00, score 97) regardless of the user's
   // data. Saved looks now come from the real backend (GET /outfits); guests
@@ -640,7 +642,7 @@ export const WardrobeView: React.FC = () => {
                             {it.product_title}
                           </p>
                           <p className="text-[11px] font-bold text-[#B8935A]">
-                            ${it.price}
+                            {formatMoney(Math.round(it.price * 100), it.currency || 'USD', lang)}
                           </p>
                         </div>
                       ))}
@@ -850,7 +852,7 @@ export const WardrobeView: React.FC = () => {
                             {rec.title}
                           </span>
                           <span className="text-xs font-bold text-[#B8935A]">
-                            ${rec.price}
+                            {formatMoney(Math.round(rec.price * 100), rec.currency || 'USD', lang)}
                           </span>
                         </div>
                       </div>

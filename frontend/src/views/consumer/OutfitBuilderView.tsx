@@ -22,9 +22,13 @@ import {
   SparkleIcon,
   BagIcon,
   SavedLooksIcon,
+  TryOnIcon,
+  RulerIcon,
 } from '../../components/icons/ConfitIcons';
 import { FitScoreBadge } from '../../components/common/CommonComponents';
 import { Product } from '../../models';
+import { formatMoney } from '../../i18n/format';
+import { useTryOnAvailability } from '../../hooks/useTryOnAvailability';
 
 type SlotKey = CanvasItem['slot'];
 
@@ -55,40 +59,78 @@ const DraggableProduct: React.FC<{
   product: Product;
   onAdd: (p: Product) => void;
 }> = ({ product, onAdd }) => {
+  const { t, i18n } = useTranslation();
+  const lang = i18n.resolvedLanguage ?? 'en';
+  const { openTryOn, openRuler } = useUIStore();
+  // Same availability gate as every other try-on entry point: the label and
+  // the destination follow the live engine verdict, never a hard-coded hope.
+  const tryOn = useTryOnAvailability();
+  const tryOnKind = tryOn.ctaKind(true);
+
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: `product-${product.id}`,
     data: { product },
   });
 
+  // The try-on control is a SIBLING of the draggable button, not a child.
+  // Nesting interactive elements is invalid HTML, and in practice the drag
+  // listeners on the outer button swallow the inner click, so a nested
+  // control would render but not work. A positioned overlay keeps both
+  // controls independently clickable and independently focusable.
   return (
-    <button
-      ref={setNodeRef}
-      type="button"
-      {...listeners}
-      {...attributes}
-      onClick={() => onAdd(product)}
-      style={{ transform: CSS.Translate.toString(transform) }}
-      aria-label={`Add ${product.title} to outfit`}
-      className={`text-left bg-[#FAF9F6] border rounded-2xl p-2 cursor-grab transition-all flex flex-col justify-between ${
-        isDragging
-          ? 'opacity-50 border-[#C5A059] shadow-lg z-50'
-          : 'border-slate-200/80 hover:border-[#C5A059] hover:shadow-sm'
-      }`}
-    >
-      <div className="h-28 rounded-xl overflow-hidden bg-white mb-1.5 relative w-full">
-        <img src={product.thumbnail_url} alt={product.title} className="w-full h-full object-cover" />
-        <span className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/60 text-[9px] text-white font-medium">
-          Drag or Enter to add
-        </span>
-      </div>
-      <div>
-        <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider block truncate">
-          {product.brand_name}
-        </span>
-        <span className="text-[11px] font-bold text-[#1B1F3B] line-clamp-1">{product.title}</span>
-        <span className="text-xs font-bold text-[#1B1F3B] mt-0.5 block">${product.base_price}</span>
-      </div>
-    </button>
+    <div className="relative" style={{ transform: CSS.Translate.toString(transform) }}>
+      <button
+        ref={setNodeRef}
+        type="button"
+        {...listeners}
+        {...attributes}
+        onClick={() => onAdd(product)}
+        aria-label={t('outfit_builder.add_to_outfit', { name: product.title })}
+        className={`w-full text-left bg-[#FAF9F6] border rounded-2xl p-2 cursor-grab transition-all flex flex-col justify-between ${
+          isDragging
+            ? 'opacity-50 border-[#C5A059] shadow-lg z-50'
+            : 'border-slate-200/80 hover:border-[#C5A059] hover:shadow-sm'
+        }`}
+      >
+        <div className="h-28 rounded-xl overflow-hidden bg-white mb-1.5 relative w-full">
+          <img src={product.thumbnail_url} alt={product.title} className="w-full h-full object-cover" />
+          <span className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded bg-black/60 text-[9px] text-white font-medium">
+            {t('outfit_builder.drag_or_enter')}
+          </span>
+        </div>
+        <div>
+          <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider block truncate">
+            {product.brand_name}
+          </span>
+          <span className="text-[11px] font-bold text-[#1B1F3B] line-clamp-1">{product.title}</span>
+          {/* Was a raw interpolation of the base price with a hard-coded
+              dollar sign, printing Latin digits inside the Arabic RTL page. */}
+          <span className="text-xs font-bold text-[#1B1F3B] mt-0.5 block">
+            {formatMoney(Math.round(product.base_price * 100), product.currency || 'USD', lang)}
+          </span>
+        </div>
+      </button>
+
+      <button
+        type="button"
+        onClick={tryOn.gate({
+          render: () => openTryOn(product),
+          fitCheck: () => openRuler(product),
+        })}
+        disabled={tryOnKind === 'blocked'}
+        title={
+          tryOnKind === 'blocked' && tryOn.userMessage
+            ? resolveMessage(tryOn.userMessage, t)
+            : t(tryOnKind === 'render' ? 'tryon.cta_try_on' : 'tryon.cta_fit_check')
+        }
+        aria-label={t(tryOnKind === 'render' ? 'tryon.cta_try_on' : 'tryon.cta_fit_check')}
+        className="absolute top-3 right-3 p-1.5 rounded-full bg-[#1B1F3B]/90 hover:bg-[#C5A059] text-white hover:text-slate-950 shadow-sm backdrop-blur-xs transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        {tryOnKind === 'render'
+          ? <TryOnIcon size={13} color="currentColor" />
+          : <RulerIcon size={13} color="currentColor" />}
+      </button>
+    </div>
   );
 };
 
@@ -100,7 +142,8 @@ const DroppableSlot: React.FC<{
 }> = ({ slot, item, onRemove }) => {
   // The slot card is its own component, so it needs its own translator: the
   // container's `t` is not in scope here.
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const lang = i18n.resolvedLanguage ?? 'en';
   const { setNodeRef, isOver } = useDroppable({ id: `slot-${slot.key}` });
 
   return (
@@ -152,7 +195,13 @@ const DroppableSlot: React.FC<{
             {item.skuStatus === 'ready' && item.selectedSku && (
               <span className="text-[10px] text-slate-500 font-medium block">Size {item.selectedSku.size}</span>
             )}
-            <span className="text-xs font-bold text-[#A37E44]">${item.product.base_price}</span>
+            <span className="text-xs font-bold text-[#A37E44]">
+              {formatMoney(
+                Math.round(item.product.base_price * 100),
+                item.product.currency || 'USD',
+                lang,
+              )}
+            </span>
           </div>
         </>
       ) : (

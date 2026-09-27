@@ -4,6 +4,7 @@ import { catalogService } from "../../services/apiServices";
 import { Product, StoreInventoryLocation } from "../../models";
 import { useUIStore } from "../../stores/uiStore";
 import { formatMoney } from "../../i18n/format";
+import { buildVariantOptions, skuForColour } from "../../lib/productVariants";
 import { useCartStore } from "../../stores/cartStore";
 import {
   TryOnIcon,
@@ -145,6 +146,14 @@ export const ProductDetailView: React.FC = () => {
 
   const currentSku =
     product.skus?.find((s) => s.id === selectedSkuId) || product.skus?.[0];
+
+  // Variant rule lives in lib/productVariants so it can be tested against the
+  // awkward shapes (two colourways, partial stock, missing hex, no SKUs)
+  // without mounting this page.
+  const skus = product.skus ?? [];
+  const { colours, selectedColour, sizesForColour, totalStock } =
+    buildVariantOptions(product, selectedSkuId);
+
   const images =
     product.images && product.images.length > 0
       ? product.images
@@ -372,14 +381,84 @@ export const ProductDetailView: React.FC = () => {
               </p>
             )}
 
+            {/* Colour selection. Rendered as a chooser only when there is a
+                choice to make; a single-colourway product states the colour
+                instead of offering a pointless one-option control. */}
+            {colours.length > 0 && (
+              <div>
+                <div className="flex justify-between items-center mb-1.5">
+                  <span className="text-xs font-bold text-slate-700">
+                    {t("product.colour")}
+                  </span>
+                  <span className="text-[11px] text-slate-500 font-light">
+                    {selectedColour}
+                  </span>
+                </div>
+                {colours.length > 1 ? (
+                  <div
+                    className="flex gap-2 flex-wrap"
+                    role="group"
+                    aria-label={t("product.colour")}
+                  >
+                    {colours.map((c) => {
+                      const active = c.color === selectedColour;
+                      return (
+                        <button
+                          key={c.color}
+                          onClick={() => {
+                            const next = skuForColour(
+                              skus,
+                              c.color,
+                              currentSku?.size,
+                            );
+                            if (next) setSelectedSkuId(next.id);
+                          }}
+                          disabled={!c.inStock}
+                          aria-pressed={active}
+                          title={c.color}
+                          className={`h-9 pl-1.5 pr-3 rounded-xl border flex items-center gap-2 text-[11px] font-semibold transition-all ${
+                            active
+                              ? "border-[#1B1F3B] bg-[#1B1F3B] text-white"
+                              : c.inStock
+                                ? "border-slate-200 hover:border-slate-300 bg-white text-slate-800"
+                                : "border-slate-100 bg-slate-50 text-slate-300 cursor-not-allowed line-through"
+                          }`}
+                        >
+                          <span
+                            aria-hidden="true"
+                            className="w-5 h-5 rounded-lg border border-black/10 shrink-0"
+                            style={{ backgroundColor: c.hex }}
+                          />
+                          <span>{c.color}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <span
+                      aria-hidden="true"
+                      className="w-5 h-5 rounded-lg border border-black/10"
+                      style={{ backgroundColor: colours[0].hex }}
+                    />
+                    <span className="text-xs text-slate-700">
+                      {colours[0].color}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div>
               <div className="flex justify-between items-center mb-1.5">
                 <span className="text-xs font-bold text-slate-700">
                   {t('product.available_sizes')}
                 </span>
+                {/* Was a hand-built English string, which rendered Latin text
+                    and digits inside the Arabic RTL page. */}
                 <span className="text-[10px] font-semibold text-slate-500">
                   {currentSku?.is_in_stock
-                    ? `${currentSku.stock_level} in stock`
+                    ? t('product.in_stock_count', { count: currentSku.stock_level })
                     : t('product.out_of_stock')}
                 </span>
               </div>
@@ -388,7 +467,7 @@ export const ProductDetailView: React.FC = () => {
                 role="group"
                 aria-label={t('a11y.select_size')}
               >
-                {product.skus?.map((sku) => (
+                {sizesForColour.map((sku) => (
                   <button
                     key={sku.id}
                     onClick={() => setSelectedSkuId(sku.id)}
@@ -406,6 +485,18 @@ export const ProductDetailView: React.FC = () => {
                   </button>
                 ))}
               </div>
+
+              {/* Total sellable units across every variant. Kept separate from
+                  the per-store pickup quantities further down: those are a
+                  different pool and adding them together would double-count. */}
+              <p className="mt-2 text-[11px] text-slate-500">
+                {totalStock > 0
+                  ? t('product.total_units_available', {
+                      count: totalStock,
+                      variants: skus.length,
+                    })
+                  : t('product.out_of_stock')}
+              </p>
             </div>
           </div>
 
@@ -653,7 +744,11 @@ export const ProductDetailView: React.FC = () => {
                       </div>
                       {item.price != null && (
                         <div className="text-[11px] font-semibold">
-                          ${item.price}
+                          {formatMoney(
+                            Math.round(item.price * 100),
+                            product.currency || 'USD',
+                            lang,
+                          )}
                         </div>
                       )}
                     </Link>

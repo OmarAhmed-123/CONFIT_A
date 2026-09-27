@@ -131,6 +131,7 @@ class VisualSearchService:
                 "title": p.title,
                 "brand_name": p.brand.brand_name if p.brand else "CONFIT",
                 "price": to_float(p.base_price),
+                "currency": p.currency or "USD",
                 "image_url": p.thumbnail_url,
                 "similarity_score": int(sim),
                 "detected_color": p.color_family,

@@ -137,6 +137,30 @@ describe('consumer data tokens stay English while their labels localize', () => 
   it('Money and numbers go through the locale formatters, not hand-built strings', () => {
     // `${p.base_price}` / `{prod.currency} {price.toFixed(2)}` rendered Latin
     // digits and a bare "$" inside the Arabic RTL page.
+    // Project-wide, not just the three files above. The per-file list missed
+    // OutfitBuilderView, which rendered `${product.base_price}` with a
+    // hard-coded "$" — a bare dollar sign and Latin digits inside the Arabic
+    // RTL page, i.e. exactly the defect this test was written to stop.
+    const allViews: Record<string, string> = {};
+    const walk = (dir: string) => {
+      for (const entry of fs.readdirSync(dir)) {
+        if (entry === 'node_modules' || entry === '__tests__') continue;
+        const full = path.join(dir, entry);
+        if (fs.statSync(full).isDirectory()) walk(full);
+        else if (/\.tsx$/.test(entry)) {
+          allViews[path.relative(SRC, full)] = fs.readFileSync(full, 'utf8');
+        }
+      }
+    };
+    walk(path.join(SRC, 'views'));
+    walk(path.join(SRC, 'components'));
+
+    for (const [name, source] of Object.entries(allViews)) {
+      expect(source, `${name} interpolates a raw price into a string`).not.toMatch(
+        /\$\{\s*\w+(\.\w+)*\.(base_price|price|unit_price|total|subtotal)\s*\}/,
+      );
+    }
+
     for (const [name, source] of Object.entries(FILES)) {
       expect(source, `${name} interpolates a raw price`).not.toMatch(
         /\$\{\w+\.base_price\}/,

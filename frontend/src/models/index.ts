@@ -525,6 +525,8 @@ export interface VisualSearchResultItem {
   title: string;
   brand_name: string;
   price: number;
+  /** Sent by the API so the client never guesses the symbol. */
+  currency?: string;
   image_url: string;
   similarity_score: number;
   detected_color: string;
@@ -581,6 +583,8 @@ export interface GapAnalysisItem {
     title: string;
     brand_name: string;
     price: number;
+    /** Sent alongside the price so the client never guesses the symbol. */
+    currency?: string;
     image_url: string;
   }>;
 }

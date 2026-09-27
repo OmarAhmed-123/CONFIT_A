@@ -18,9 +18,11 @@ import { FitScoreBadge } from "../common/CommonComponents";
 import { CameraScanModal } from "./CameraScanModal";
 import { compressImageToDataUrl } from "../../lib/imageUpload";
 import { usePhotoConsent } from "../../privacy/usePhotoConsent";
+import { formatMoney } from '../../i18n/format';
 
 export const VirtualTryOnModal: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const lang = i18n.resolvedLanguage ?? 'en';
   const { tryOnProduct, closeTryOn, showToast } = useUIStore();
   const tryOnPanelRef = useModalFocus<HTMLDivElement>(
     closeTryOn,
@@ -688,7 +690,7 @@ export const VirtualTryOnModal: React.FC = () => {
                           {item.title}
                         </span>
                         <span className="font-bold text-[#A37E44]">
-                          ${item.base_price}
+                          {formatMoney(Math.round(item.base_price * 100), item.currency || 'USD', lang)}
                         </span>
                         <button
                           onClick={() => removeGarmentFromCanvas(slot)}
@@ -820,7 +822,7 @@ export const VirtualTryOnModal: React.FC = () => {
                             {p.title}
                           </h5>
                           <span className="text-xs font-bold text-[#A37E44] mt-0.5 block">
-                            ${p.base_price}
+                            {formatMoney(Math.round(p.base_price * 100), p.currency || 'USD', lang)}
                           </span>
                         </div>
 

@@ -785,6 +785,8 @@ export interface WardrobeFirstOutfitItem {
   dominant_hex?: string;
   image_url: string;
   price: number;
+  /** Sent alongside every price so the client never guesses the symbol. */
+  currency?: string;
 }
 
 export interface WardrobeFirstOutfit {

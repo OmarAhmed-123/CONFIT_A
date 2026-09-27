@@ -214,7 +214,9 @@
     "occasion_gala": "Formal Gala & Wedding",
     "occasion_weekend": "Weekend Gallery Tour",
     "look_not_found": "This look does not exist, or it is not yours.",
-    "look_load_failed": "Could not load this look. Please try again."
+    "look_load_failed": "Could not load this look. Please try again.",
+    "add_to_outfit": "Add {{name}} to outfit",
+    "drag_or_enter": "Drag or press Enter to add"
   },
   "tryon": {
     "title": "Virtual Try-On Studio",
@@ -1232,7 +1234,9 @@
     "in_stock_count": "{{count}} in stock",
     "low_stock_count": "Only {{count}} left",
     "available_at_stores": "Available at stores",
-    "you_save": "You save {{amount}}"
+    "you_save": "You save {{amount}}",
+    "colour": "Colour",
+    "total_units_available": "{{count}} units available across {{variants}} variants"
   },
   "brand_nav": {
     "aria": "Platform and brand-partner navigation",

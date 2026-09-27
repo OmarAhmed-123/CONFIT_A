@@ -4,9 +4,11 @@ import { useTranslation } from 'react-i18next';
 import { useCartStore } from '../../stores/cartStore';
 import { BagIcon, SparkleIcon } from '../icons/ConfitIcons';
 import { BNPLBadge } from '../common/CommonComponents';
+import { formatMoney } from '../../i18n/format';
 
 export const CartDrawer: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const lang = i18n.resolvedLanguage ?? 'en';
   const navigate = useNavigate();
   const { cart, isOpen, closeCart, fetchCart, updateQuantity, removeItem } = useCartStore();
 
@@ -124,7 +126,9 @@ export const CartDrawer: React.FC = () => {
                           +
                         </button>
                       </div>
-                      <span className="text-xs font-bold text-[#1B1F3B]">${item.subtotal}</span>
+                      <span className="text-xs font-bold text-[#1B1F3B]">
+                        {formatMoney(Math.round(item.subtotal * 100), cart?.currency || 'USD', lang)}
+                      </span>
                     </div>
                   </div>
                 </div>

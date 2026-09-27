@@ -169,6 +169,9 @@ class SearchService:
                     title_ar=p.title_ar,
                     slug=p.slug,
                     base_price=p.base_price,
+                    # Search results feed the same product card as the
+                    # catalogue, so they must carry the discount too.
+                    compare_at_price=p.compare_at_price,
                     currency=p.currency,
                     thumbnail_url=p.thumbnail_url,
                     color_family=p.color_family,

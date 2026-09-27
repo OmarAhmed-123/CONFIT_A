@@ -7,25 +7,15 @@ import { useUIStore } from "../../stores/uiStore";
 import { useCartStore } from "../../stores/cartStore";
 import { catalogService } from "../../services/apiServices";
 import { AutocompleteSuggestion } from "../../models";
+import { VisualSearchIcon } from "../../components/icons/ConfitIcons";
 import {
-  TryOnIcon,
-  RulerIcon,
-  BagIcon,
-  VisualSearchIcon,
-  SparkleIcon,
-  HeartIcon,
-} from "../../components/icons/ConfitIcons";
-import {
-  FitScoreBadge,
   BNPLBadge,
   SkeletonCard,
   EmptyState,
 } from "../../components/common/CommonComponents";
-import { HonestProductImage } from "../../components/common/HonestProductImage";
 import { useCapabilities } from "../../hooks/useCapabilities";
-import { useTryOnAvailability } from "../../hooks/useTryOnAvailability";
 import { resolvePurchasableSku } from "../../lib/catalogSku";
-import { formatMoney } from "../../i18n/format";
+import { ProductCard } from "../../components/product/ProductCard";
 
 export const DiscoverView: React.FC = () => {
   const { t, i18n } = useTranslation();
@@ -50,11 +40,9 @@ export const DiscoverView: React.FC = () => {
     refresh: refreshCatalog,
   } = useCatalogViewModel();
 
-  const { openTryOn, openRuler, openVisualSearch, showToast } = useUIStore();
+  const { openVisualSearch, showToast } = useUIStore();
   // Try-on CTAs bind to the live engine verdict (2026-09-22): when the GPU
   // cannot render, these route to the no-photo fit check instead of failing.
-  const tryOn = useTryOnAvailability();
-  const tryOnKind = tryOn.ctaKind(true);
   const { capabilities } = useCapabilities();
   const { addItem } = useCartStore();
 
@@ -480,96 +468,19 @@ export const DiscoverView: React.FC = () => {
         />
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
-          {filteredProducts.map((p) => {
-            const isLiked = wishlist.includes(p.id);
-            return (
-              <div
-                key={p.id}
-                className="bg-white rounded-3xl border border-slate-200/80 p-3 sm:p-4 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between group"
-              >
-                <div>
-                  <div className="relative aspect-[3/4] rounded-2xl overflow-hidden bg-slate-100 mb-3">
-                    <button
-                      type="button"
-                      onClick={() => navigate(`/product/${p.slug}`)}
-                      className="h-full w-full text-left"
-                      aria-label={t('a11y.view_product', { name: p.title })}
-                    >
-                      <HonestProductImage
-                        src={p.thumbnail_url}
-                        alt={p.title}
-                        loading="lazy"
-                        decoding="async"
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 cursor-pointer"
-                      />
-                    </button>
-                    <div className="absolute top-2.5 left-2.5 flex flex-col gap-1">
-                      <FitScoreBadge
-                        score={p.style_compatibility_score}
-                        label={t('product.fit_match')}
-                        verdict={t('product.fit_color_harmony')}
-                      />
-                    </div>
-
-                    <button
-                      onClick={() => toggleWishlist(p.id)}
-                      className="absolute top-2.5 right-2.5 p-2 rounded-full bg-white/90 hover:bg-white text-slate-700 shadow-sm backdrop-blur-xs transition-all"
-                      aria-label={t('a11y.toggle_wishlist')}
-                    >
-                      <HeartIcon size={15} isLiked={isLiked} />
-                    </button>
-
-                    <div className="absolute bottom-2.5 right-2.5 flex items-center gap-1.5">
-                      <button
-                        onClick={() => openRuler(p)}
-                        className="p-2 rounded-full bg-white/90 hover:bg-white text-slate-800 shadow-sm backdrop-blur-xs transition-all"
-                        title={t('a11y.no_photo_fit')}
-                      >
-                        <RulerIcon size={14} color="#1B1F3B" />
-                      </button>
-                      <button
-                        onClick={tryOn.gate({
-                          render: () => openTryOn(p),
-                          fitCheck: () => openRuler(p),
-                        })}
-                        disabled={tryOnKind === "blocked"}
-                        className="p-2 rounded-full bg-[#1B1F3B]/90 hover:bg-[#C5A059] text-white hover:text-slate-950 shadow-sm backdrop-blur-xs transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                        title={t(
-                          tryOnKind === "render"
-                            ? "tryon.cta_try_on"
-                            : "tryon.cta_fit_check",
-                        )}
-                      >
-                        {tryOnKind === "render" ? (
-                          <TryOnIcon size={14} color="currentColor" />
-                        ) : (
-                          <RulerIcon size={14} color="currentColor" />
-                        )}
-                      </button>
-                    </div>
-                  </div>
-
-                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                    {p.brand_name}
-                  </span>
-                  <h3
-                    onClick={() => navigate(`/product/${p.slug}`)}
-                    className="font-serif text-xs sm:text-sm font-bold text-[#1B1F3B] line-clamp-1 hover:text-[#C5A059] cursor-pointer mt-0.5"
-                  >
-                    {p.title}
-                  </h3>
-                  <div className="flex items-center justify-between mt-1">
-                    <span className="text-xs sm:text-sm font-bold text-[#1B1F3B]">
-                      {formatMoney(Math.round(p.base_price * 100), p.currency || "USD", lang)}
-                    </span>
-                    <span className="text-[11px] text-slate-500 font-light truncate max-w-[80px]">
-                      {p.color_family}
-                    </span>
-                  </div>
-                  <div className="mt-1.5">
+          {filteredProducts.map((p) => (
+            <ProductCard
+              key={p.id}
+              product={p}
+              isWishlisted={wishlist.includes(p.id)}
+              onToggleWishlist={toggleWishlist}
+              onAddToBag={addCatalogCardToBag}
+              footerSlot={
+                <>
+                  <div>
                     {capabilities.bnpl_live ? (
-                      // bnpl_live is the measured flag (live PSP adapter + key +
-                      // live mode), so a badge shown here IS an offer.
+                      // bnpl_live is the measured flag (live PSP adapter + key
+                      // + live mode), so a badge shown here IS an offer.
                       <BNPLBadge price={p.base_price} provider="Tabby" isEstimate={false} />
                     ) : (
                       <span className="text-[11px] text-slate-500">
@@ -577,45 +488,15 @@ export const DiscoverView: React.FC = () => {
                       </span>
                     )}
                   </div>
-                  <div className="mt-2 rounded-2xl bg-[#FAF9F6] px-3 py-2 text-[11px] text-slate-600">
+                  <div className="rounded-2xl bg-[#FAF9F6] px-3 py-2 text-[11px] text-slate-600">
                     {p.fit_available && p.recommended_size
                       ? t('discover.likely_fit', { size: p.recommended_size })
                       : t('discover.set_measurements')}
                   </div>
-                </div>
-
-                <div className="pt-3 border-t border-slate-100 mt-3 grid grid-cols-2 gap-2">
-                  <button
-                    onClick={() => navigate(`/product/${p.slug}`)}
-                    className="py-2.5 rounded-xl bg-[#1B1F3B] hover:bg-[#0C0E1E] text-white text-xs font-semibold transition-all shadow-2xs"
-                  >
-                    {t('discover.view_details')}
-                  </button>
-                  <button
-                    onClick={tryOn.gate({
-                      render: () => openTryOn(p),
-                      fitCheck: () => openRuler(p),
-                    })}
-                    disabled={tryOnKind === "blocked"}
-                    className="py-2.5 rounded-xl border border-[#7A5C28]/40 bg-[#FDF8EE] text-[#7A5C28] hover:bg-[#7A5C28] hover:text-white text-xs font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {t(
-                      tryOnKind === "render"
-                        ? "tryon.cta_try_on"
-                        : "tryon.cta_fit_check",
-                    )}
-                  </button>
-                  <button
-                    onClick={() => addCatalogCardToBag(p)}
-                    className="col-span-2 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold transition-all flex items-center justify-center gap-1.5"
-                  >
-                    <BagIcon size={14} color="currentColor" />
-                    <span>{t('commerce.add_to_cart')}</span>
-                  </button>
-                </div>
-              </div>
-            );
-          })}
+                </>
+              }
+            />
+          ))}
         </div>
       )}
     </div>

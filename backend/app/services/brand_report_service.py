@@ -20,8 +20,15 @@ Every figure is derived from authoritative commerce records -- `orders` and
   returned_units SUM(quantity) of lines flagged is_returned. NOTE: that flag
                 marks an OPENED return, not a completed refund, so this is
                 reported as "returns opened" and never silently called a refund.
-  net_sales     gross_sales minus the value of returned lines. Labelled
-                "net of returns opened" for the same reason.
+  discount_total SUM(order_items.discount_amount) -- this brand's apportioned
+                share of order-level promo discounts, allocated per line at
+                checkout by the largest-remainder method so the shares sum to
+                the order discount exactly.
+  net_sales     gross_sales minus discount_total minus the value of returned
+                lines. Labelled "net of returns opened" for the same reason.
+                CORRECTED 2026-09-27: this previously omitted the discount
+                term entirely, overstating brand revenue on every order that
+                used a promo code.
   return_rate   returned_units / units_sold, and **None** when units_sold is 0.
                 A rate with an empty denominator is undefined, not 0% and not
                 infinity. The renderer prints N/A.
@@ -114,6 +121,13 @@ class BrandReportService:
                         OrderItem.quantity * OrderItem.unit_price
                         * func.cast(OrderItem.is_returned, __import__("sqlalchemy").Integer)
                     ), 0).label("returned_value"),
+                    # This brand's share of order-level promo discounts.
+                    # Apportioned per line at checkout (migration 0025); before
+                    # that column existed this figure had no source at all and
+                    # net_sales silently overstated what the brand earned.
+                    func.coalesce(
+                        func.sum(OrderItem.discount_amount), 0
+                    ).label("discount"),
                 )
                 .join(Order, Order.id == OrderItem.order_id)
                 .where(OrderItem.brand_id == brand_id,
@@ -131,6 +145,7 @@ class BrandReportService:
                     "gross": quantize_money(to_decimal(row.gross or 0)),
                     "returned_units": int(row.returned_units or 0),
                     "returned_value": quantize_money(to_decimal(row.returned_value or 0)),
+                    "discount": quantize_money(to_decimal(row.discount or 0)),
                 }
 
         # --- stock: sellable pool and BOPIS pool, kept separate -------------
@@ -171,6 +186,7 @@ class BrandReportService:
             gross = s["gross"] if s else Decimal("0.00")
             ret_units = s["returned_units"] if s else 0
             ret_value = s["returned_value"] if s else Decimal("0.00")
+            discount = s["discount"] if s else Decimal("0.00")
             rows.append({
                 "product_id": p.id,
                 "title": p.title,
@@ -181,8 +197,12 @@ class BrandReportService:
                 "sku_count": st.get("sku_count", 0),
                 "units_sold": units,
                 "gross_sales": gross,
+                "discount_total": discount,
                 "returned_units": ret_units,
-                "net_sales": quantize_money(gross - ret_value),
+                # Gross, minus the promo discount this brand's lines actually
+                # bore, minus returns opened. Omitting the discount term
+                # overstated revenue on every order placed with a promo code.
+                "net_sales": quantize_money(gross - discount - ret_value),
                 # Undefined, not zero, when nothing was sold.
                 "return_rate": (round(ret_units / units * 100, 1) if units else None),
                 "stock_level": st.get("stock_level", 0),
@@ -192,6 +212,7 @@ class BrandReportService:
 
         total_units = sum(r["units_sold"] for r in rows)
         total_gross = quantize_money(sum((r["gross_sales"] for r in rows), Decimal("0.00")))
+        total_discount = quantize_money(sum((r["discount_total"] for r in rows), Decimal("0.00")))
         total_net = quantize_money(sum((r["net_sales"] for r in rows), Decimal("0.00")))
         total_returned = sum(r["returned_units"] for r in rows)
 
@@ -210,6 +231,7 @@ class BrandReportService:
                 "products": len(rows),
                 "units_sold": total_units,
                 "gross_sales": total_gross,
+                "discount_total": total_discount,
                 "net_sales": total_net,
                 "returned_units": total_returned,
                 "return_rate": (round(total_returned / total_units * 100, 1)

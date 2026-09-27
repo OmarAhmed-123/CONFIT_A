@@ -3,6 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import { catalogService } from "../../services/apiServices";
 import { Product, StoreInventoryLocation } from "../../models";
 import { useUIStore } from "../../stores/uiStore";
+import { formatMoney } from "../../i18n/format";
 import { useCartStore } from "../../stores/cartStore";
 import {
   TryOnIcon,
@@ -45,7 +46,8 @@ export const ProductDetailView: React.FC = () => {
 
   const { openTryOn, openRuler, showToast } = useUIStore();
   const { addItem } = useCartStore();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const lang = i18n.resolvedLanguage ?? "en";
   // Honest try-on gating: the label and the destination below are derived from
   // the live engine verdict, so a shopper is never sent into a render that
   // cannot happen (2026-09-22). `openRuler` is the working no-photo path.
@@ -276,10 +278,49 @@ export const ProductDetailView: React.FC = () => {
             <h1 className="font-serif text-2xl sm:text-3xl font-bold text-[#1B1F3B] leading-tight">
               {product.title}
             </h1>
-            <div className="flex items-baseline gap-3 mt-2">
+            <div className="flex items-baseline flex-wrap gap-x-3 gap-y-1 mt-2">
               <span className="text-2xl font-serif font-black text-[#1B1F3B]">
-                ${product.base_price.toFixed(2)}
+                {formatMoney(
+                  Math.round(product.base_price * 100),
+                  product.currency || "USD",
+                  lang,
+                )}
               </span>
+              {/* Shown ONLY from a server-provided prior price. The client
+                  never computes a "was" figure: a strike-through price that
+                  was never charged is a false discount claim. */}
+              {product.compare_at_price != null &&
+                product.compare_at_price > product.base_price && (
+                  <>
+                    <span className="text-sm text-slate-400 line-through">
+                      {formatMoney(
+                        Math.round(product.compare_at_price * 100),
+                        product.currency || "USD",
+                        lang,
+                      )}
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full bg-[#7A1F2B] text-white text-[11px] font-bold">
+                      {t("product.percent_off", {
+                        percent: Math.round(
+                          ((product.compare_at_price - product.base_price) /
+                            product.compare_at_price) *
+                            100,
+                        ),
+                      })}
+                    </span>
+                    <span className="w-full text-[11px] font-semibold text-[#7A1F2B]">
+                      {t("product.you_save", {
+                        amount: formatMoney(
+                          Math.round(
+                            (product.compare_at_price - product.base_price) * 100,
+                          ),
+                          product.currency || "USD",
+                          lang,
+                        ),
+                      })}
+                    </span>
+                  </>
+                )}
               <span className="text-xs text-slate-500 font-light">
                 {product.currency}
               </span>

@@ -25,7 +25,7 @@ Usage:
 from __future__ import annotations
 
 from decimal import Decimal, ROUND_HALF_UP, InvalidOperation, getcontext
-from typing import Union, Optional
+from typing import List, Optional, Sequence, Union
 
 # Set high precision for intermediate calculations, final quantized to 2 decimals
 getcontext().prec = 28
@@ -251,3 +251,133 @@ def to_str(value: MoneyInput) -> str:
 def is_decimal(value) -> bool:
     """Check if value is Decimal (exact) not float."""
     return isinstance(value, Decimal)
+
+
+# =========================================================================
+# Proportional allocation
+# =========================================================================
+
+def allocate_proportionally(
+    total: MoneyInput,
+    weights: Sequence[MoneyInput],
+) -> List[Decimal]:
+    """Split ``total`` across ``weights`` so the parts sum to it EXACTLY.
+
+    WHY THIS EXISTS
+    ---------------
+    An order-level discount is a single number, but every consumer of it needs
+    it per line: a brand must know the discount borne by ITS items, a refund
+    must return what was actually paid for the unit, and tax is owed on the
+    discounted amount. Splitting naively is where money goes missing.
+
+    THE FAILURE THIS PREVENTS
+    -------------------------
+    ``round(total * weight / sum_weights)`` per line does not re-sum to
+    ``total``. Splitting 10.00 across three equal lines yields 3.33 * 3 = 9.99
+    and one cent evaporates; with ROUND_HALF_UP it can instead yield 10.01 and
+    a cent is conjured. Over many orders this is a real, compounding
+    discrepancy between the customer's total and the sum of brand statements,
+    and it is the kind of drift that surfaces as an unreconcilable ledger.
+
+    THE ALGORITHM — LARGEST REMAINDER METHOD
+    ----------------------------------------
+    Work in integer minor units (cents), never floats:
+
+    1. For each weight, compute ``total_cents * weight / sum_weights`` and keep
+       the integer quotient and the fractional remainder.
+    2. The quotients under-allocate by some whole number of cents, because each
+       was floored.
+    3. Hand those leftover cents out one at a time, to the lines with the
+       largest remainders first.
+
+    Each line's share is therefore within one cent of its exact proportional
+    share, and the parts sum to ``total`` by construction rather than by luck.
+    This is the method used for payroll, dividend distribution and seat
+    apportionment, and it is what Square, TaxCloud and Drupal Commerce all use
+    to apportion an order-level discount across line items.
+
+    Ties are broken by ascending index, so the result is DETERMINISTIC. That
+    matters: the same order must allocate identically on re-computation, or a
+    brand statement would change between reads.
+
+    EDGE CASES (all deliberate)
+    ---------------------------
+    - ``weights`` empty              -> ``[]``
+    - ``total`` is 0                 -> all zeros
+    - every weight is 0              -> split EQUALLY. A zero-weight basket
+      still has to absorb the whole discount somewhere, and refusing would
+      lose it. Proportionality is undefined, so equal is the honest fallback.
+    - a single non-zero weight       -> that line takes the entire total
+
+    Args:
+        total: The amount to split. Must be non-negative.
+        weights: Relative sizes, normally each line's subtotal. Must be
+            non-negative.
+
+    Returns:
+        One Decimal per weight, each quantized to 2 places, summing exactly to
+        ``quantize_money(total)``.
+
+    Raises:
+        ValueError: if ``total`` or any weight is negative.
+    """
+    total_dec = quantize_money(to_decimal(total, "total"))
+    if total_dec < 0:
+        raise ValueError(
+            f"allocate_proportionally: total must be non-negative, got {total_dec}"
+        )
+
+    weight_decs = [to_decimal(w, "weight") for w in weights]
+    for i, w in enumerate(weight_decs):
+        if w < 0:
+            raise ValueError(
+                f"allocate_proportionally: weight[{i}] must be non-negative, got {w}"
+            )
+
+    n = len(weight_decs)
+    if n == 0:
+        return []
+
+    # Integer cents throughout. Decimal is exact, but integers make the
+    # conservation property trivially checkable.
+    total_cents = int((total_dec * 100).to_integral_value(rounding=ROUND_HALF_UP))
+    if total_cents == 0:
+        return [Decimal("0.00")] * n
+
+    weight_cents = [
+        int((w * 100).to_integral_value(rounding=ROUND_HALF_UP)) for w in weight_decs
+    ]
+    sum_weights = sum(weight_cents)
+
+    if sum_weights == 0:
+        # Proportionality is undefined; split equally and give the remainder to
+        # the earliest lines so the total is still conserved.
+        base, leftover = divmod(total_cents, n)
+        cents = [base + (1 if i < leftover else 0) for i in range(n)]
+        return [(Decimal(c) / 100).quantize(TWOPLACES) for c in cents]
+
+    quotients: List[int] = []
+    remainders: List[tuple] = []  # (remainder, index)
+    for i, w in enumerate(weight_cents):
+        numerator = total_cents * w
+        q, r = divmod(numerator, sum_weights)
+        quotients.append(q)
+        remainders.append((r, i))
+
+    leftover = total_cents - sum(quotients)
+
+    # Largest remainder first; ties resolved by ascending index for determinism.
+    remainders.sort(key=lambda pair: (-pair[0], pair[1]))
+    for k in range(leftover):
+        quotients[remainders[k][1]] += 1
+
+    allocation = [(Decimal(c) / 100).quantize(TWOPLACES) for c in quotients]
+
+    # Conservation is the whole point of this function; assert it rather than
+    # trusting the arithmetic above.
+    if sum(allocation) != total_dec:
+        raise AssertionError(
+            f"allocate_proportionally broke conservation: "
+            f"sum({allocation}) != {total_dec}"
+        )
+    return allocation

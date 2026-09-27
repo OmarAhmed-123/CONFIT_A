@@ -34,6 +34,13 @@ const SRC = path.resolve(__dirname, '../..');
 const FILES = {
   discover: fs.readFileSync(path.join(SRC, 'views/consumer/DiscoverView.tsx'), 'utf8'),
   home: fs.readFileSync(path.join(SRC, 'views/consumer/HomeView.tsx'), 'utf8'),
+  // The product card was extracted from Home/Discover on 2026-09-27; price
+  // rendering for every catalogue surface now lives here, so this is where
+  // the money-formatting contract has to be enforced.
+  productCard: fs.readFileSync(
+    path.join(SRC, 'components/product/ProductCard.tsx'),
+    'utf8',
+  ),
 };
 
 type Pair = { file: string; value: string; labelKey: string };
@@ -130,10 +137,19 @@ describe('consumer data tokens stay English while their labels localize', () => 
   it('Money and numbers go through the locale formatters, not hand-built strings', () => {
     // `${p.base_price}` / `{prod.currency} {price.toFixed(2)}` rendered Latin
     // digits and a bare "$" inside the Arabic RTL page.
-    expect(FILES.discover).not.toMatch(/\$\{p\.base_price\}/);
-    expect(FILES.home).not.toMatch(/\$\{p\.base_price\}/);
+    for (const [name, source] of Object.entries(FILES)) {
+      expect(source, `${name} interpolates a raw price`).not.toMatch(
+        /\$\{\w+\.base_price\}/,
+      );
+      expect(source, `${name} hand-builds a price string`).not.toMatch(
+        /\.base_price\.toFixed\(/,
+      );
+    }
     expect(FILES.home).not.toContain('{prod.currency} {prod.base_price.toFixed(2)}');
-    expect(FILES.discover).toContain('formatMoney(');
-    expect(FILES.home).toContain('formatMoney(');
+    // Home and Discover now delegate catalogue prices to ProductCard, so the
+    // formatter call lives there. Asserting it on the views would only
+    // re-pin where the markup happens to sit today; asserting it on the card
+    // pins the thing that actually renders money.
+    expect(FILES.productCard).toContain('formatMoney(');
   });
 });

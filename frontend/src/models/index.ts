@@ -91,6 +91,13 @@ export interface Product {
   title_ar: string;
   slug: string;
   base_price: number;
+  /**
+   * The price previously charged, when one genuinely existed. Absent/null
+   * means there is no discount to advertise. NEVER synthesise this on the
+   * client: a strike-through price that was never charged is a false claim,
+   * and it is regulated in several of the markets this storefront serves.
+   */
+  compare_at_price?: number | null;
   currency: string;
   thumbnail_url: string;
   color_family: string;
@@ -1113,4 +1120,68 @@ export interface AuditStats {
   distinct_actors: number;
   admin_action_events: number;
   methodology?: string;
+}
+
+
+/**
+ * One sold line as the OWNING BRAND sees it.
+ *
+ * Money is carried as strings, exactly as the API sends them: the backend
+ * computes in Decimal and apportions the order discount with the
+ * largest-remainder method, and converting to JS `number` here would undo
+ * that precision for the sake of display convenience.
+ */
+export interface BrandOrderLine {
+  line_id: number;
+  order_id: number;
+  order_number: string;
+  placed_at: string | null;
+  order_status: string;
+  fulfillment_status: string | null;
+  fulfillment_type: string;
+  tracking_number: string | null;
+  payment_status: string;
+  payment_method: string;
+  /** Shipping recipient, account holder, or a masked guest address. */
+  customer_name: string;
+  customer_city: string | null;
+  product_id: number;
+  product_title: string;
+  thumbnail_url: string | null;
+  sku_code: string | null;
+  size: string;
+  color: string;
+  quantity: number;
+  /** null = the SKU row is gone, so remaining stock is UNKNOWN, not zero. */
+  sku_stock_remaining: number | null;
+  store_id: number | null;
+  store_name: string | null;
+  currency: string;
+  unit_price: string;
+  gross_amount: string;
+  discount_amount: string;
+  net_amount: string;
+  promo_code: string | null;
+  is_returned: boolean;
+}
+
+export interface BrandOrderLinesResponse {
+  lines: BrandOrderLine[];
+  pagination: {
+    limit: number;
+    offset: number;
+    returned: number;
+    total_lines: number;
+    has_more: boolean;
+  };
+  /** Computed over the WHOLE filtered set, never just the current page. */
+  totals: {
+    orders: number;
+    lines: number;
+    units: number;
+    gross_amount: string;
+    discount_amount: string;
+    net_amount: string;
+  };
+  filters: Record<string, unknown>;
 }

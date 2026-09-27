@@ -19,6 +19,7 @@ import {
   Order,
   OrderTrackingTimeline,
   BrandProfile,
+  BrandOrderLinesResponse,
   BrandAnalyticsDashboard,
   SearchResponse,
   AutocompleteResponse,
@@ -1073,6 +1074,32 @@ export const brandService = {
     request<BrandAnalyticsDashboard>("/brand/analytics"),
 
   getProducts: () => request<Product[]>("/brand/products"),
+
+  /**
+   * Per-line sales visibility: which customer, which size/colour left stock,
+   * from which store, and the gross / discount / net triple for each line.
+   *
+   * Money fields arrive as STRINGS and must stay strings until formatted.
+   * Parsing them into JS numbers would reintroduce binary-float error into
+   * figures the backend deliberately computes in exact Decimal.
+   */
+  getOrderLines: (params: {
+    dateFrom?: string;
+    dateTo?: string;
+    productId?: number;
+    status?: string;
+    limit?: number;
+    offset?: number;
+  } = {}) => {
+    const q = new URLSearchParams();
+    if (params.dateFrom) q.set("date_from", params.dateFrom);
+    if (params.dateTo) q.set("date_to", params.dateTo);
+    if (params.productId != null) q.set("product_id", String(params.productId));
+    if (params.status) q.set("status", params.status);
+    q.set("limit", String(params.limit ?? 50));
+    q.set("offset", String(params.offset ?? 0));
+    return request<BrandOrderLinesResponse>(`/partner/orders?${q.toString()}`);
+  },
 
   updateSKU: (skuId: number, stockLevel: number, priceOverride?: number) => {
     const q = priceOverride ? `&price_override=${priceOverride}` : "";

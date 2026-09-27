@@ -30,6 +30,14 @@ class Product(Base):
     description = Column(Text, nullable=False)
     description_ar = Column(Text, nullable=False)
     base_price = Column(Numeric(12, 2), nullable=False)
+    # The price this item was previously offered at, when one genuinely
+    # existed. NULL means "no prior price" and the UI shows no strike-through.
+    #
+    # Deliberately nullable with no default: a "was" price that was never
+    # actually charged is a false claim about the discount, and several
+    # jurisdictions regulate exactly that. The storefront renders a discount
+    # badge ONLY from this column, never by computing one.
+    compare_at_price = Column(Numeric(12, 2), nullable=True)
     currency = Column(String(10), default="USD", nullable=False)
     material = Column(String(255), nullable=True)
     care_instructions = Column(String(500), nullable=True)

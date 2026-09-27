@@ -9,11 +9,18 @@ import { useTryOnViewModel } from "../../viewmodels/useTryOnViewModel";
 import { VisualSearchIcon, SparkleIcon } from "../icons/ConfitIcons";
 import { catalogService } from "../../services/apiServices";
 import { HonestProductImage } from "../common/HonestProductImage";
+import { useTryOnAvailability } from "../../hooks/useTryOnAvailability";
 
 export const VisualSearchModal: React.FC = () => {
   const { t } = useTranslation();
-  const { isVisualSearchOpen, closeVisualSearch, openTryOn, showToast } =
+  const { isVisualSearchOpen, closeVisualSearch, openTryOn, openRuler, showToast } =
     useUIStore();
+  // Every try-on entry point goes through this gate. Without it this modal
+  // promised "Try On This Match" even when the engine had already reported it
+  // could not render — the shopper picked a match, waited, and got nothing.
+  const tryOn = useTryOnAvailability();
+  const tryOnKind = tryOn.ctaKind(true);
+
   const panelRef = useModalFocus<HTMLDivElement>(
     closeVisualSearch,
     isVisualSearchOpen,
@@ -81,11 +88,18 @@ export const VisualSearchModal: React.FC = () => {
   ];
 
   const openMatchInTryOn = async (productId: number) => {
+    if (tryOnKind === "blocked") return;
     setOpeningMatchId(productId);
     try {
       const detail = await catalogService.getProductDetail(String(productId));
       closeVisualSearch();
-      openTryOn(detail);
+      // Degrade to the measurement path rather than opening a studio that
+      // cannot render; the label below already says which one this is.
+      if (tryOnKind === "fit_check") {
+        openRuler(detail);
+      } else {
+        openTryOn(detail);
+      }
     } catch (err: any) {
       showToast(
         err?.message || "Could not load the matched product detail.",
@@ -329,13 +343,25 @@ export const VisualSearchModal: React.FC = () => {
 
                     <button
                       onClick={() => openMatchInTryOn(match.product_id)}
-                      disabled={openingMatchId === match.product_id}
+                      disabled={
+                        openingMatchId === match.product_id ||
+                        tryOnKind === "blocked"
+                      }
+                      title={
+                        tryOnKind === "blocked" && tryOn.userMessage
+                          ? resolveMessage(tryOn.userMessage, t)
+                          : undefined
+                      }
                       className="mt-3 w-full py-2 rounded-xl bg-slate-100 hover:bg-[#1B1F3B] hover:text-white disabled:opacity-50 text-xs font-semibold text-slate-800 transition-all flex items-center justify-center gap-1.5"
                     >
                       <span>
                         {openingMatchId === match.product_id
-                          ? "Loading product…"
-                          : "Try On This Match"}
+                          ? t("tryon.loading_product")
+                          : t(
+                              tryOnKind === "render"
+                                ? "tryon.cta_try_on"
+                                : "tryon.cta_fit_check",
+                            )}
                       </span>
                     </button>
                   </div>

@@ -22,6 +22,7 @@ Every setting is documented with its consumer in
 fails when the two drift apart.
 """
 import json
+import os
 from typing import Any, List, Optional
 from pydantic import field_validator, model_validator
 from pydantic_settings import NoDecode
@@ -46,6 +47,30 @@ PUBLICLY_KNOWN_SECRET_VALUES = frozenset({
     "confit_refresh_signing_key_production_2026_secure_rotation",
 })
 MIN_SECRET_LENGTH = 32
+
+
+def _env_files() -> tuple:
+    """Dotenv files to load — EMPTY when the test suite is running.
+
+    The suite must be hermetic. Until 2026-09-27 these settings always read
+    ``backend/.env``, which meant a developer's local file silently changed
+    BUSINESS behaviour under pytest, not just infrastructure wiring.
+
+    MEASURED the first time a populated backend/.env existed: 13 tests across
+    five files flipped to red — mood-board upload, wardrobe upload validation,
+    commerce settlement currency and the health-readiness contract — purely
+    because the file set STORAGE_PROVIDER=s3 and a real DATABASE_URL. The same
+    commit was green on a clean checkout. A suite whose result depends on an
+    untracked, gitignored file is not a suite you can trust, and "works on my
+    machine" is exactly the failure mode it is supposed to prevent.
+
+    ``conftest.py`` sets CONFIT_IGNORE_DOTENV=1 before importing this module, so
+    tests read ONLY explicit environment variables and the defaults declared
+    here. Production and development are unaffected.
+    """
+    if os.environ.get("CONFIT_IGNORE_DOTENV") == "1":
+        return ()
+    return ("backend/.env", ".env")
 
 
 PRODUCTION_ENVIRONMENTS = {"production"}
@@ -480,7 +505,7 @@ class Settings(BaseSettings):
     WARDROBE_PROCESSING_STALE_MINUTES: int = 10
 
     model_config = SettingsConfigDict(
-        env_file=("backend/.env", ".env"),
+        env_file=_env_files(),
         extra="allow",
         case_sensitive=True
     )

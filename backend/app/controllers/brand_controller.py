@@ -890,6 +890,64 @@ def _report_params(date_from: Optional[str], date_to: Optional[str],
     return parsed["date_from"], parsed["date_to"], category_id, product_id
 
 
+@router.get("/partner/orders")
+@router.get("/brand/orders")
+def brand_order_lines(
+    date_from: Optional[str] = Query(None, description="ISO date, inclusive"),
+    date_to: Optional[str] = Query(None, description="ISO date, inclusive"),
+    product_id: Optional[int] = Query(None),
+    status: Optional[str] = Query(None, description="Filter by order status"),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    user: User = Depends(brand_auth),
+    db: Session = Depends(get_db),
+):
+    """Per-line sales visibility for the authenticated brand.
+
+    Answers the operational questions the aggregate product-sales report
+    cannot: which customer, which size/colour left stock, from which store,
+    and — stated as three separate figures so the arithmetic is auditable —
+    what the line grossed, what discount it bore, and what it netted.
+
+    Tenant-scoped by `OrderItem.brand_id`. An order spanning several brands
+    yields only this brand's lines, and the order's own totals are never
+    exposed, because they describe a basket this brand only partly owns.
+    """
+    from backend.app.services.brand_order_lines_service import BrandOrderLinesService
+
+    bp = BrandService(db).get_brand_profile_by_user(user)
+    df, dt, _cid, pid = _report_params(date_from, date_to, None, product_id)
+    data = BrandOrderLinesService(db).build_order_lines(
+        bp["id"], date_from=df, date_to=dt, product_id=pid,
+        status=status, limit=limit, offset=offset,
+    )
+
+    def _money(v):
+        # Decimal -> str: exact on the wire. A float here would reintroduce
+        # the rounding error the allocation work exists to eliminate.
+        return str(v)
+
+    return {
+        **data,
+        "lines": [
+            {**ln,
+             "placed_at": ln["placed_at"].isoformat() if ln["placed_at"] else None,
+             "unit_price": _money(ln["unit_price"]),
+             "gross_amount": _money(ln["gross_amount"]),
+             "discount_amount": _money(ln["discount_amount"]),
+             "net_amount": _money(ln["net_amount"])}
+            for ln in data["lines"]
+        ],
+        "totals": {**data["totals"],
+                   "gross_amount": _money(data["totals"]["gross_amount"]),
+                   "discount_amount": _money(data["totals"]["discount_amount"]),
+                   "net_amount": _money(data["totals"]["net_amount"])},
+        "filters": {**data["filters"],
+                    "date_from": df.isoformat() if df else None,
+                    "date_to": dt.isoformat() if dt else None},
+    }
+
+
 @router.get("/partner/reports/product-sales")
 @router.get("/brand/reports/product-sales")
 def brand_product_sales_report(

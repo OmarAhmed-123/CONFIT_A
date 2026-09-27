@@ -13,6 +13,7 @@ import {
   TryOnIcon,
 } from "../icons/ConfitIcons";
 import { FitScoreBadge } from "../common/CommonComponents";
+import { useTryOnAvailability } from "../../hooks/useTryOnAvailability";
 
 const getResolvedOutfitItems = (outfit: any) => {
   if (outfit.items && outfit.items.length > 0) {
@@ -54,11 +55,18 @@ export const VirtualStylistDrawer: React.FC = () => {
     closeStylist,
     stylistPrefillOccasion,
     openTryOn,
+    openRuler,
   } = useUIStore();
   const panelRef = useModalFocus<HTMLDivElement>(
     closeStylist,
     isStylistDrawerOpen,
   );
+  // The stylist recommends garments, so its "try it" control is a try-on
+  // entry point like any other and must obey the same availability gate.
+  // Without it the drawer opened the studio unconditionally, and a shopper
+  // acting on a recommendation hit a render that could not happen.
+  const tryOn = useTryOnAvailability();
+  const tryOnKind = tryOn.ctaKind(true);
   const {
     messages,
     inputPrompt,
@@ -375,8 +383,11 @@ export const VirtualStylistDrawer: React.FC = () => {
                                     ${item.price.toFixed(2)}
                                   </span>
                                   <button
+                                    disabled={tryOnKind === "blocked"}
                                     onClick={() =>
-                                      openTryOn({
+                                      (tryOnKind === "fit_check"
+                                        ? openRuler
+                                        : openTryOn)({
                                         id: item.product_id,
                                         title: item.product_title,
                                         brand_name: item.brand_name,
@@ -389,8 +400,12 @@ export const VirtualStylistDrawer: React.FC = () => {
                                           outfit.compatibility_score,
                                       } as any)
                                     }
-                                    className="px-2 py-1 rounded-lg bg-white border border-slate-200 hover:border-[#C5A059] text-[10px] font-semibold text-slate-700 flex items-center gap-1 shadow-2xs"
-                                    title={t("stylist.try_item")}
+                                    className="px-2 py-1 rounded-lg bg-white border border-slate-200 hover:border-[#C5A059] disabled:opacity-50 disabled:cursor-not-allowed text-[10px] font-semibold text-slate-700 flex items-center gap-1 shadow-2xs"
+                                    title={
+                                      tryOnKind === "blocked" && tryOn.userMessage
+                                        ? resolveMessage(tryOn.userMessage, t)
+                                        : t("stylist.try_item")
+                                    }
                                   >
                                     <TryOnIcon size={11} color="#C5A059" />
                                     <span>{t("stylist.try")}</span>

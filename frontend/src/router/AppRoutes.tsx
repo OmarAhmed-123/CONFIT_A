@@ -47,6 +47,7 @@ import { PrivacyPolicyView, TermsOfServiceView, GdprView } from '../views/legal/
 import { BrandDashboardView } from '../views/b2b/BrandDashboardView';
 import { BrandCatalogView } from '../views/b2b/BrandCatalogView';
 import { BrandInventoryView } from '../views/b2b/BrandInventoryView';
+import { BrandOrdersView } from '../views/b2b/BrandOrdersView';
 import { BrandAnalyticsView } from '../views/b2b/BrandAnalyticsView';
 import { BrandPlacementsView } from '../views/b2b/BrandPlacementsView';
 import { AdminAnalyticsView } from '../views/b2b/AdminAnalyticsView';
@@ -214,6 +215,7 @@ export const AppRoutes: React.FC = () => {
           <Route index element={<BrandDashboardView />} />
           <Route path="catalog" element={<BrandCatalogView />} />
           <Route path="inventory" element={<BrandInventoryView />} />
+          <Route path="orders" element={<BrandOrdersView />} />
           <Route path="analytics" element={<BrandAnalyticsView />} />
           <Route path="placements" element={<BrandPlacementsView />} />
           {/* Kept as a legacy URL. PartnerPortalBoundary redirects an admin to
@@ -234,6 +236,7 @@ export const AppRoutes: React.FC = () => {
           <Route path="dashboard" element={<BrandDashboardView />} />
           <Route path="catalog" element={<BrandCatalogView />} />
           <Route path="inventory" element={<BrandInventoryView />} />
+          <Route path="orders" element={<BrandOrdersView />} />
           <Route path="analytics" element={<BrandAnalyticsView />} />
           <Route path="placements" element={<BrandPlacementsView />} />
         </Route>

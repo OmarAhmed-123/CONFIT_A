@@ -77,6 +77,10 @@ class ProductSummaryOut(BaseModel):
     title_ar: str
     slug: str
     base_price: float
+    # Prior price, when one really existed. None = no discount to advertise.
+    # The client must not synthesise this; an invented "was" price is a false
+    # claim about a discount that never happened.
+    compare_at_price: Optional[float] = None
     currency: str
     thumbnail_url: str
     color_family: str

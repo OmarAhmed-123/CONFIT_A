@@ -522,7 +522,7 @@ def test_migration_0015_round_trip_and_unique_lineage() -> None:
         os.unlink(path)
 
 
-def test_migration_chain_has_a_single_head_at_0024() -> None:
+def test_migration_chain_has_a_single_head_at_0025() -> None:
     from backend.app.core.schema_gate import expected_head_revision, migration_chain
 
     chain = migration_chain()
@@ -539,8 +539,14 @@ def test_migration_chain_has_a_single_head_at_0024() -> None:
     # audit tables — closes the forensic finding that the production runtime
     # role could UPDATE/DELETE/TRUNCATE audit history) -> 0023 (domain-separated
     # HMAC chain for verification-run provenance; forged INSERT detection) ->
-    # 0024 (DB-enforced signed provenance presence on every new audit INSERT).
-    assert expected_head_revision() == "0024_audit_insert_provenance_guard"
+    # 0024 (DB-enforced signed provenance presence on every new audit INSERT)
+    # -> 0025 (apportion the order-level discount onto order_items, and add
+    # products.compare_at_price). 0025 moved the head consciously: before it,
+    # `orders.discount_amount` was never distributed to lines, so the brand
+    # sales report computed net_sales = gross - returns and overstated brand
+    # revenue on every order placed with a promo code.
+    assert expected_head_revision() == "0025_order_item_discount_allocation"
+    assert chain["0025_order_item_discount_allocation"] == "0024_audit_insert_provenance_guard"
     assert chain["0024_audit_insert_provenance_guard"] == "0023_verification_run_hmac_chain"
     assert chain["0023_verification_run_hmac_chain"] == "0022_audit_append_only_guard"
     assert chain["0022_audit_append_only_guard"] == "0021_audit_verification_runs"

@@ -320,7 +320,8 @@
     "cta_try_on": "Try On",
     "cta_fit_check": "Fit Check",
     "cta_fit_check_instead": "Fit check instead",
-    "vton_card_caption": "Backend/provider garment rendering on your photo — an honest 2D visual preview, not a size guarantee."
+    "vton_card_caption": "Backend/provider garment rendering on your photo — an honest 2D visual preview, not a size guarantee.",
+    "loading_product": "Loading product…"
   },
   "wardrobe": {
     "title": "Virtual Wardrobe & Smart Reuse",
@@ -487,7 +488,9 @@
     "apply": "Apply",
     "create_account": "Create Account",
     "retry": "Retry",
-    "retry_now": "Retry now"
+    "retry_now": "Retry now",
+    "previous": "Previous",
+    "next": "Next"
   },
   "layout": {
     "ai_stylist_director": "AI Stylist Director",
@@ -1224,7 +1227,12 @@
     "delivery_note": "Standard or express home delivery is quoted at checkout from live cart totals.",
     "returns_note": "Eligible orders can be returned within 30 days from the order date. Return authorisation is issued from order history.",
     "complete_the_look": "Complete the look",
-    "fit_color_harmony": "Color Harmony"
+    "fit_color_harmony": "Color Harmony",
+    "percent_off": "{{percent}}% off",
+    "in_stock_count": "{{count}} in stock",
+    "low_stock_count": "Only {{count}} left",
+    "available_at_stores": "Available at stores",
+    "you_save": "You save {{amount}}"
   },
   "brand_nav": {
     "aria": "Platform and brand-partner navigation",
@@ -1241,7 +1249,8 @@
     "governance": "Platform Governance",
     "partner_hub": "Brand Partner Hub",
     "platform_analytics": "Platform Analytics",
-    "admin_catalog": "Catalog Control"
+    "admin_catalog": "Catalog Control",
+    "orders": "Orders"
   },
   "admin_analytics": {
     "loading": "Aggregating platform-wide telemetry and style heatmaps…",
@@ -1566,5 +1575,33 @@
     "accepted": "Accepted",
     "rejected": "Rejected",
     "no_imports": "No catalog import jobs exist for this brand."
+  },
+  "brand_orders": {
+    "title": "Orders & Stock Movement",
+    "subtitle": "Every line sold from your catalogue: who bought it, what left stock, and what it earned after discount.",
+    "totals_label": "Totals for the selected period",
+    "total_orders": "Orders",
+    "total_units": "Units",
+    "total_gross": "Gross",
+    "total_discount": "Discount",
+    "total_net": "Net",
+    "totals_scope": "Totals cover all {{count}} matching lines, not just this page.",
+    "col_item": "Item",
+    "col_order": "Order",
+    "col_customer": "Customer",
+    "col_stock": "Stock movement",
+    "col_gross": "Gross",
+    "col_discount": "Discount",
+    "col_net": "Net",
+    "units_pulled": "{{count}} pulled",
+    "stock_remaining": "{{count}} left in stock",
+    "stock_unknown": "Remaining stock unknown",
+    "no_store": "No store assigned",
+    "returned": "Return opened",
+    "empty_title": "No sales yet",
+    "empty_body": "When a shopper buys one of your pieces it appears here with the customer, the stock pulled and the net amount.",
+    "table_caption": "Order lines for your brand with customer, stock movement and net amount",
+    "load_failed": "Could not load your order lines.",
+    "showing": "Showing {{from}}–{{to}} of {{total}}"
   }
 }

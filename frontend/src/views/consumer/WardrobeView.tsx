@@ -147,7 +147,10 @@ export const WardrobeView: React.FC = () => {
   const [renamingBoardId, setRenamingBoardId] = useState<number | null>(null);
   const [renameTitle, setRenameTitle] = useState("");
 
-  const { openTryOn, showToast } = useUIStore();
+  // `openTryOn` was destructured here but never called — dead since the
+  // wardrobe grid has no try-on control. Removed 2026-09-27 so it cannot be
+  // picked up later as a convenient ungated entry point.
+  const { showToast } = useUIStore();
 
   const handleAddSubmit = (e: React.FormEvent) => {
     e.preventDefault();

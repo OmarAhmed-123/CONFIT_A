@@ -133,13 +133,13 @@ class MultiProviderAIOrchestrator:
                 # model that was not the one invoked — previously the Groq label
                 # claimed "LLaMA-3.3-70B" while `openai/gpt-oss-120b` was called.
                 if provider == "nvidia" and settings.NVIDIA_API_KEY:
-                    res = await self._call_nvidia_llama(system_prompt, user_prompt)
+                    res = await self._call_nvidia_primary(system_prompt, user_prompt)
                     if self._is_usable(res):
                         text, model_id = res
                         return self._format_response(text, prompt, intent, f"NVIDIA {model_id}", selected_outfit)
 
                 elif provider in ["nvidia2", "nemotron"] and (settings.NVIDIA_CHAT_KEY_2 or settings.NVIDIA_API_KEY):
-                    res = await self._call_nvidia_nemotron(system_prompt, user_prompt)
+                    res = await self._call_nvidia_secondary(system_prompt, user_prompt)
                     if self._is_usable(res):
                         text, model_id = res
                         return self._format_response(text, prompt, intent, f"NVIDIA {model_id}", selected_outfit)
@@ -179,49 +179,79 @@ class MultiProviderAIOrchestrator:
         logger.info("Routing to CONFIT deterministic StylingEngine fallback")
         return self._deterministic_fallback(prompt, intent, selected_outfit)
 
-    async def _call_nvidia_llama(self, system_prompt: str, user_prompt: str) -> Optional[Tuple[str, str]]:
-        async with httpx.AsyncClient(timeout=self._timeout("chat")) as client:
-            res = await client.post(
-                "https://integrate.api.nvidia.com/v1/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {settings.NVIDIA_API_KEY}",
-                    "Content-Type": "application/json"
-                },
-                json={
-                    "model": "meta/llama-3.1-70b-instruct",
-                    "messages": [
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": user_prompt}
-                    ],
-                    "max_tokens": self._max_tokens(),
-                    "temperature": 0.7
-                }
-            )
-            res.raise_for_status()
-            return self._accept_chat_completion(
-                "nvidia", res.json(), "meta/llama-3.1-70b-instruct")
+    # ── NVIDIA legs ─────────────────────────────────────────────────────────
+    # Model ids are NO LONGER hardcoded here. Until 2026-09-27 this file pinned
+    # `meta/llama-3.1-70b-instruct` and `nvidia/nemotron-nano-12b-v2-vl`; both
+    # reached end-of-life on 2026-08-26 and had been answering 410 Gone ever
+    # since, so the NVIDIA leg — which `AI_PROVIDERS` lists FIRST — was a
+    # guaranteed no-op that silently cost a round-trip on every stylist call.
+    # `ai_readiness` could not catch it because GET /v1/models returns 200 for
+    # a valid key regardless of whether the MODEL still exists.
+    #
+    # Selection now comes from backend/app/providers/nvidia/registry.py, where
+    # every binding carries measured evidence and is re-verified by
+    # `backend/scripts/verify_nvidia_models.py`. The method names say "primary"
+    # and "secondary" rather than a model family, so they cannot go stale or
+    # misreport: this module already learned that lesson when the Groq label
+    # claimed LLaMA-3.3-70B while `openai/gpt-oss-120b` was invoked.
 
-    async def _call_nvidia_nemotron(self, system_prompt: str, user_prompt: str) -> Optional[Tuple[str, str]]:
+    def _nvidia_spec(self, position: int):
+        """The registry's stylist model for `position` (0 = primary)."""
+        from backend.app.providers.nvidia import ModelRole, get_chain
+        chain = get_chain(ModelRole.STYLIST_CHAT)
+        return chain[min(position, len(chain) - 1)]
+
+    def _nvidia_key(self, spec, legacy_fallback: Optional[str]) -> Optional[str]:
+        """Prefer the pooled credential registered for this model, so per-model
+        usage accounting stays clean; fall back to the legacy single-key
+        contract so an existing deployment keeps working unchanged."""
+        from backend.app.providers.nvidia import key_pool
+        return key_pool.slot(spec.slot_key_env) or legacy_fallback
+
+    async def _call_nvidia_at(
+        self, position: int, provider_label: str, legacy_key: Optional[str],
+        system_prompt: str, user_prompt: str,
+    ) -> Optional[Tuple[str, str]]:
+        spec = self._nvidia_spec(position)
+        api_key = self._nvidia_key(spec, legacy_key)
+        if not api_key:
+            return None
+        # spec.params carries the guards that make a model behave correctly —
+        # notably the enable_thinking flags that stop a reasoning model from
+        # serving its chain-of-thought as the answer. Never drop them.
+        payload = {
+            **dict(spec.params),
+            "model": spec.model_id,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            "max_tokens": self._max_tokens(),
+        }
+        payload.setdefault("temperature", 0.7)
         async with httpx.AsyncClient(timeout=self._timeout("chat")) as client:
             res = await client.post(
-                "https://integrate.api.nvidia.com/v1/chat/completions",
+                spec.endpoint,
                 headers={
-                    "Authorization": f"Bearer {settings.NVIDIA_CHAT_KEY_2 or settings.NVIDIA_API_KEY}",
-                    "Content-Type": "application/json"
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
                 },
-                json={
-                    "model": "nvidia/nemotron-nano-12b-v2-vl",
-                    "messages": [
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": user_prompt}
-                    ],
-                    "max_tokens": self._max_tokens(),
-                    "temperature": 0.7
-                }
+                json=payload,
             )
             res.raise_for_status()
             return self._accept_chat_completion(
-                "nvidia2", res.json(), "nvidia/nemotron-nano-12b-v2-vl")
+                provider_label, res.json(), spec.model_id)
+
+    async def _call_nvidia_primary(self, system_prompt: str, user_prompt: str) -> Optional[Tuple[str, str]]:
+        """Registry primary for ModelRole.STYLIST_CHAT."""
+        return await self._call_nvidia_at(
+            0, "nvidia", settings.NVIDIA_API_KEY, system_prompt, user_prompt)
+
+    async def _call_nvidia_secondary(self, system_prompt: str, user_prompt: str) -> Optional[Tuple[str, str]]:
+        """Registry first-failover for ModelRole.STYLIST_CHAT."""
+        return await self._call_nvidia_at(
+            1, "nvidia2", settings.NVIDIA_CHAT_KEY_2 or settings.NVIDIA_API_KEY,
+            system_prompt, user_prompt)
 
     async def _call_groq(self, system_prompt: str, user_prompt: str) -> Optional[Tuple[str, str]]:
         async with httpx.AsyncClient(timeout=self._timeout("chat")) as client:

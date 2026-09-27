@@ -1,5 +1,7 @@
 import json
 import uuid
+
+from backend.app.core.money import allocate_proportionally
 from decimal import Decimal
 from datetime import datetime, timedelta, timezone
 from typing import Optional, List, Dict, Any
@@ -390,9 +392,23 @@ class CommerceRepository:
         self.db.add(order)
         self.db.flush()
 
+        # Apportion the order-level discount across the lines BEFORE any item
+        # is built, so every line is written with its share already known.
+        #
+        # `orders.discount_amount` alone cannot answer "what did this brand
+        # earn?" — that question is per-line, and leaving it unanswered is what
+        # made the brand sales report overstate revenue on every discounted
+        # order. Largest-remainder keeps the shares summing to the order
+        # discount exactly, so the customer's total and the sum of brand
+        # statements can never disagree by a stray cent.
+        line_discounts = allocate_proportionally(
+            discount_amount or Decimal("0.00"),
+            [item_data["subtotal"] for item_data in items],
+        )
+
         # Brand-level fulfillment groups (one logical cart, partitioned internally).
         groups_by_brand: Dict[int, FulfillmentGroup] = {}
-        for item_data in items:
+        for idx, item_data in enumerate(items):
             brand_id = item_data["brand_id"]
             if brand_id not in groups_by_brand:
                 group = FulfillmentGroup(
@@ -427,6 +443,7 @@ class CommerceRepository:
                 unit_price=item_data["unit_price"],
                 quantity=item_data["quantity"],
                 subtotal=item_data["subtotal"],
+                discount_amount=line_discounts[idx],
                 is_returned=False,
             )
             self.db.add(order_item)

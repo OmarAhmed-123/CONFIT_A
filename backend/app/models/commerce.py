@@ -181,6 +181,21 @@ class OrderItem(Base):
     unit_price = Column(Numeric(12, 2), nullable=False)
     quantity = Column(Integer, default=1, nullable=False)
     subtotal = Column(Numeric(12, 2), nullable=False)
+    # This line's share of the ORDER-level discount (a positive magnitude).
+    #
+    # Added 2026-09-27 (migration 0025). Before it existed, `orders.discount_amount`
+    # was stored only as a single order-wide figure and never apportioned, so
+    # nothing downstream could answer "what did THIS brand actually earn?".
+    # The brand sales report consequently computed
+    # `net_sales = gross - returns` and OVERSTATED revenue on every discounted
+    # order — the money the brand is owed is less than the number it was shown.
+    #
+    # Apportioned by `core.money.allocate_proportionally` (largest-remainder),
+    # so the sum of this column across an order's items equals
+    # `orders.discount_amount` EXACTLY, with no rounding drift.
+    #
+    # Net revenue for a line is therefore `subtotal - discount_amount`.
+    discount_amount = Column(Numeric(12, 2), default=0.0, nullable=False)
     is_returned = Column(Boolean, default=False, nullable=False)
 
     order = relationship("Order", back_populates="items")

@@ -13,6 +13,7 @@ const PARTNER_LINKS: NavDestination[] = [
   { href: '/b2b', labelKey: 'brand_nav.dashboard' },
   { href: '/b2b/catalog', labelKey: 'brand_nav.catalog' },
   { href: '/b2b/inventory', labelKey: 'brand_nav.inventory' },
+  { href: '/b2b/orders', labelKey: 'brand_nav.orders' },
   { href: '/b2b/analytics', labelKey: 'brand_nav.analytics' },
   { href: '/b2b/placements', labelKey: 'brand_nav.placements' },
 ];

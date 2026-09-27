@@ -3,29 +3,26 @@ import { useNavigate, Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
   SparkleIcon,
-  OutfitBuilderIcon,
   TryOnIcon,
   FlameIcon,
   BagIcon,
   RulerIcon,
   ShieldIcon,
   BopisIcon,
-  HeartIcon,
 } from "../../components/icons/ConfitIcons";
 import { useUIStore } from "../../stores/uiStore";
 import { useCatalogViewModel } from "../../viewmodels/useCatalogViewModel";
 import { useCapabilities } from "../../hooks/useCapabilities";
 import { useTryOnAvailability } from "../../hooks/useTryOnAvailability";
+import { ProductCard } from "../../components/product/ProductCard";
 import {
-  FitScoreBadge,
   BNPLBadge,
   SkeletonCard,
   EmptyState,
 } from "../../components/common/CommonComponents";
-import { HonestProductImage } from "../../components/common/HonestProductImage";
 import { useCartStore } from "../../stores/cartStore";
 import { resolvePurchasableSku } from "../../lib/catalogSku";
-import { formatAmount, formatMoney, formatNumber } from "../../i18n/format";
+import { formatAmount, formatNumber } from "../../i18n/format";
 import {
   CircularGallery,
   type GalleryItem,
@@ -121,7 +118,7 @@ export const HomeView: React.FC = () => {
   // option values sent to the stylist stay English tokens.
   const lang = i18n.resolvedLanguage ?? "en";
   const navigate = useNavigate();
-  const { openStylist, openTryOn, openRuler, openVisualSearch, showToast } =
+  const { openStylist, showToast } =
     useUIStore();
   const {
     products,
@@ -677,69 +674,11 @@ export const HomeView: React.FC = () => {
         {!isLoading && !catalogError && products.length > 0 && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {products.slice(0, 6).map((prod) => (
-              <article
+              <ProductCard
                 key={prod.id}
-                className="bg-white rounded-3xl border border-slate-200/80 shadow-2xs overflow-hidden group hover:shadow-md transition-all flex flex-col"
-              >
-                <button
-                  onClick={() => navigate(`/product/${prod.slug}`)}
-                  className="relative h-56 overflow-hidden bg-slate-100 cursor-pointer text-left"
-                  aria-label={t('a11y.view_product', { name: prod.title })}
-                >
-                  <HonestProductImage
-                    src={prod.thumbnail_url}
-                    alt={prod.title}
-                    loading="lazy"
-                    decoding="async"
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                  />
-                  <span className="absolute bottom-2 left-2 px-2 py-0.5 rounded bg-black/70 text-[9px] text-white">
-                    {prod.brand_name}
-                  </span>
-                </button>
-                <div className="p-4 flex flex-col flex-1 justify-between gap-3">
-                  <div>
-                    <span className="text-[10px] font-bold text-[#7A5C28] uppercase tracking-wide">
-                      {prod.category_name}
-                    </span>
-                    <h3 className="font-serif text-sm font-bold text-[#1B1F3B] leading-snug mt-0.5">
-                      {prod.title}
-                    </h3>
-                    <span className="text-sm font-bold text-[#1B1F3B] block mt-1">
-                      {formatMoney(Math.round(prod.base_price * 100), prod.currency, lang)}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={tryOn.gate({
-                        render: () => openTryOn(prod),
-                        fitCheck: () => openRuler(prod),
-                      })}
-                      disabled={tryOnKind === "blocked"}
-                      className="flex-1 px-3 py-2 rounded-xl border border-slate-200 hover:border-[#1B1F3B] text-xs font-semibold text-slate-700 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {tryOnKind === "render" ? (
-                        <TryOnIcon size={14} color="#1B1F3B" />
-                      ) : (
-                        <RulerIcon size={14} color="#1B1F3B" />
-                      )}
-                      <span>
-                        {t(
-                          tryOnKind === "render"
-                            ? "tryon.cta_try_on"
-                            : "tryon.cta_fit_check",
-                        )}
-                      </span>
-                    </button>
-                    <button
-                      onClick={() => navigate(`/product/${prod.slug}`)}
-                      className="flex-1 px-3 py-2 rounded-xl bg-[#1B1F3B] hover:bg-[#0C0E1E] text-white text-xs font-semibold transition-all"
-                    >
-                      {t('home.view_piece')}
-                    </button>
-                  </div>
-                </div>
-              </article>
+                product={prod}
+                priority
+              />
             ))}
           </div>
         )}
@@ -841,102 +780,22 @@ export const HomeView: React.FC = () => {
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
             {products.slice(0, 4).map((p) => (
-              <div
+              <ProductCard
                 key={p.id}
-                className="bg-white rounded-3xl border border-slate-200/80 p-3 sm:p-4 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between group"
-              >
-                <div>
-                  <div className="relative aspect-[3/4] rounded-2xl overflow-hidden bg-slate-100 mb-3">
-                    <button
-                      type="button"
-                      onClick={() => navigate(`/product/${p.slug}`)}
-                      className="h-full w-full text-left"
-                      aria-label={t('a11y.view_product', { name: p.title })}
-                    >
-                      <HonestProductImage
-                        src={p.thumbnail_url}
-                        alt={p.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 cursor-pointer"
-                      />
-                    </button>
-                    <div className="absolute top-2 left-2 flex flex-col gap-1">
-                      <FitScoreBadge
-                        score={p.style_compatibility_score}
-                        label={t('product.fit_match')}
-                        verdict={t('product.fit_color_harmony')}
-                      />
-                    </div>
-
-                    <div className="absolute bottom-2 right-2 flex items-center gap-1.5">
-                      <button
-                        onClick={() => openRuler(p)}
-                        className="p-2 rounded-full bg-white/90 hover:bg-white text-slate-800 shadow-sm backdrop-blur-xs transition-all"
-                        title={t('a11y.no_photo_fit')}
-                      >
-                        <RulerIcon size={14} color="#1B1F3B" />
-                      </button>
-                      <button
-                        onClick={tryOn.gate({
-                          render: () => openTryOn(p),
-                          fitCheck: () => openRuler(p),
-                        })}
-                        disabled={tryOnKind === "blocked"}
-                        className="p-2 rounded-full bg-[#1B1F3B]/90 hover:bg-[#C5A059] text-white hover:text-slate-950 shadow-sm backdrop-blur-xs transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                        title={t(
-                          tryOnKind === "render"
-                            ? "tryon.cta_try_on"
-                            : "tryon.cta_fit_check",
-                        )}
-                      >
-                        {tryOnKind === "render" ? (
-                          <TryOnIcon size={14} color="currentColor" />
-                        ) : (
-                          <RulerIcon size={14} color="currentColor" />
-                        )}
-                      </button>
-                    </div>
-                  </div>
-
-                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                    {p.brand_name}
-                  </span>
-                  <h4
-                    onClick={() => navigate(`/product/${p.slug}`)}
-                    className="font-serif text-xs sm:text-sm font-bold text-[#1B1F3B] line-clamp-1 hover:text-[#C5A059] cursor-pointer mt-0.5"
-                  >
-                    {p.title}
-                  </h4>
-                  <div className="flex items-center justify-between mt-1">
-                    <span className="text-xs sm:text-sm font-bold text-[#1B1F3B]">
-                      {formatMoney(Math.round(p.base_price * 100), p.currency || "USD", lang)}
+                product={p}
+                onAddToBag={addCatalogProductToBag}
+                footerSlot={
+                  capabilities.bnpl_live ? (
+                    // bnpl_live is the measured flag (live PSP adapter + key +
+                    // live mode), so a badge shown here IS an offer.
+                    <BNPLBadge price={p.base_price} provider="Tabby" isEstimate={false} />
+                  ) : (
+                    <span className="text-[11px] text-slate-500">
+                      {t('commerce.bnpl_not_live')}
                     </span>
-                    <span className="text-[11px] text-slate-500 font-light truncate max-w-[80px]">
-                      {p.color_family}
-                    </span>
-                  </div>
-                  <div className="mt-1.5">
-                    {capabilities.bnpl_live ? (
-                      // bnpl_live is the measured flag (live PSP adapter + key +
-                      // live mode), so a badge shown here IS an offer.
-                      <BNPLBadge price={p.base_price} provider="Tabby" isEstimate={false} />
-                    ) : (
-                      <span className="text-[11px] text-slate-500">
-                        {t('commerce.bnpl_not_live')}
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                <div className="pt-3 border-t border-slate-100 mt-3">
-                  <button
-                    onClick={() => addCatalogProductToBag(p)}
-                    className="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-[#1B1F3B] hover:text-white text-xs font-semibold text-slate-800 transition-all flex items-center justify-center gap-1.5"
-                  >
-                    <BagIcon size={14} color="currentColor" />
-                    <span>{t('commerce.add_to_cart')}</span>
-                  </button>
-                </div>
-              </div>
+                  )
+                }
+              />
             ))}
           </div>
         )}

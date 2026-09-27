@@ -64,6 +64,26 @@ regexes = [
   # on any suspicion and audit Neon access logs.
   # ---------------------------------------------------------------------
   '''neondb_owner:npg_[^@]*@ep-frosty-term-b2ivqwuz''',
+  # ---------------------------------------------------------------------
+  # 2026-09-27: NVIDIA per-model key SLOT NAMES, not key values.
+  #
+  # The NVIDIA routing work introduced one environment variable per routed
+  # model. `generic-api-key` fires on them purely because the identifiers are
+  # long and high-entropy:
+  #
+  #   .env.example      NVIDIA_KEY_DEEPSEEK_V4_1_FLASH=      <- empty value
+  #   registry.py       slot_key_env="NVIDIA_KEY_GLM_5_3"    <- a name
+  #
+  # Verified before allowlisting, not assumed: every NVIDIA_KEY_* line in
+  # .env.example has an EMPTY right-hand side, and `git grep` for
+  # "nvapi-[A-Za-z0-9_-]{20,}" over every ref returns nothing. Real NVIDIA
+  # credentials are `nvapi-` prefixed and live only in gitignored files.
+  #
+  # Anchored on the NVIDIA_KEY_ prefix so it suppresses the NAME shape only.
+  # A real `nvapi-` key remains catchable: it does not match this pattern,
+  # and the dedicated rule below still covers it.
+  # ---------------------------------------------------------------------
+  '''NVIDIA_KEY_[A-Z0-9_]+''',
 ]
 
 # ---------------------------------------------------------------------------
@@ -117,3 +137,20 @@ id = "gemini-api-key-aq"
 description = "Gemini API key (AQ. format)"
 regex = '''\bAQ\.[A-Za-z0-9_\-]{20,}\b'''
 keywords = ["AQ."]
+
+[[rules]]
+id = "nvidia-nim-api-key"
+description = "NVIDIA NIM / build.nvidia.com API key (nvapi-)"
+# Added 2026-09-27 alongside the NVIDIA routing work. No default rule covers
+# this format, so 19 live keys would have been invisible to the scanner — the
+# same blind spot that let a Modal token id sit in a public branch (see the
+# CYCLE 11 note above). Anchored on the documented prefix, never on a value.
+# ref: https://docs.nvidia.com/nim/ (nvapi-… personal / service keys)
+regex = '''\bnvapi-[A-Za-z0-9_\-]{32,}\b'''
+keywords = ["nvapi-"]
+  [[rules.allowlists]]
+  description = "The synthetic example used by redact() and the test fixture"
+  regexes = [
+    '''nvapi-AbCd\.\.\.wxyz''',
+    '''nvapi-test-not-a-real-key''',
+  ]

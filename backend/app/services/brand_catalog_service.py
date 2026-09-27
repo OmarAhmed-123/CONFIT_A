@@ -82,7 +82,7 @@ class BrandCatalogService:
             value = row.get(field)
             if value is not None and (not isinstance(value, str) or len(value) > limit):
                 error(field, f'Must be text of at most {limit} characters')
-        for field in ('base_price', 'price_override'):
+        for field in ('base_price', 'price_override', 'compare_at_price'):
             if row.get(field) not in (None, ''):
                 try:
                     value = validate_money(row[field], field, allow_zero=False, required=True, exact_scale=True)
@@ -90,6 +90,22 @@ class BrandCatalogService:
                         error(field, 'Price exceeds maximum')
                 except (ValueError, TypeError):
                     error(field, 'Price must be finite, positive and have at most two decimal places')
+        # A "was" price that is not above the selling price is not a discount.
+        # Advertising one would be a false claim about a reduction that never
+        # happened, which is regulated in several markets CONFIT sells into,
+        # so it is rejected at import rather than rendered as a badge.
+        if row.get('compare_at_price') not in (None, '') and row.get('base_price') not in (None, ''):
+            try:
+                _was = validate_money(row['compare_at_price'], 'compare_at_price', allow_zero=False,
+                                      required=True, exact_scale=True)
+                _now = validate_money(row['base_price'], 'base_price', allow_zero=False,
+                                      required=True, exact_scale=True)
+                if _was <= _now:
+                    error('compare_at_price',
+                          'compare_at_price must be greater than base_price — a strike-through '
+                          'price that was never higher is not a discount')
+            except (ValueError, TypeError):
+                pass
         value = row.get('stock_level', 0)
         if isinstance(value, bool) or not re.fullmatch(r'\d{1,6}', str(value)) or not 0 <= int(value) <= 100000:
             error('stock_level', 'Stock must be a whole number between 0 and 100000')
@@ -301,6 +317,16 @@ class BrandCatalogService:
                     self.db.add(product)
                 product.category_id = category.id
                 product.base_price = validate_money(row['base_price'], 'base_price', allow_zero=False, required=True, exact_scale=True)
+                # Optional prior price. An explicit empty cell CLEARS the
+                # discount, so a brand can end a sale by re-importing — leaving
+                # a stale badge up would keep advertising a price that no
+                # longer applies.
+                if 'compare_at_price' in row:
+                    product.compare_at_price = (
+                        validate_money(row['compare_at_price'], 'compare_at_price', allow_zero=False,
+                                       required=True, exact_scale=True)
+                        if row.get('compare_at_price') not in (None, '') else None
+                    )
                 for field in ('color_family', 'thumbnail_url', 'currency', 'material', 'dominant_hex', 'title_ar', 'description', 'description_ar', 'style_tags', 'occasion_tags', 'images'):
                     if row.get(field) not in (None, ''):
                         setattr(product, field, row[field])

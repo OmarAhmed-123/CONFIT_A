@@ -37,6 +37,12 @@ def _product_summary(p, fit_score=None, style_score=None) -> ProductSummaryOut:
         title_ar=p.title_ar,
         slug=p.slug,
         base_price=p.base_price,
+        # Real prior price, when one exists. Added to BOTH builders in this
+        # file: they construct the response field-by-field, so a new column
+        # is silently dropped and Pydantic's default (None) is served
+        # instead — the storefront then shows no discount even though the
+        # database has one.
+        compare_at_price=p.compare_at_price,
         currency=p.currency,
         thumbnail_url=p.thumbnail_url,
         color_family=p.color_family,
@@ -214,6 +220,12 @@ def get_product_detail(
         title_ar=p.title_ar,
         slug=p.slug,
         base_price=p.base_price,
+        # Real prior price, when one exists. Added to BOTH builders in this
+        # file: they construct the response field-by-field, so a new column
+        # is silently dropped and Pydantic's default (None) is served
+        # instead — the storefront then shows no discount even though the
+        # database has one.
+        compare_at_price=p.compare_at_price,
         currency=p.currency,
         thumbnail_url=p.thumbnail_url,
         color_family=p.color_family,

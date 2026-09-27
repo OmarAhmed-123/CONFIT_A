@@ -34,6 +34,49 @@ os.environ.setdefault("CONFIT_VTON_DISABLE_REMBG", "1")
 # unaffected: AI_PROBE_ENABLED defaults to True.
 os.environ.setdefault("AI_PROBE_ENABLED", "false")
 
+# --- The test suite is HERMETIC: no developer .env may reach it --------------
+# Settings reads backend/.env at import. A populated dev file then changes
+# business behaviour under pytest — measured 2026-09-27: 13 tests went red
+# across mood-board upload, wardrobe validation, commerce settlement currency
+# and the health-readiness contract, purely because the file set
+# STORAGE_PROVIDER=s3 and a real DATABASE_URL. The identical commit was green on
+# a clean checkout. Tests must depend only on explicit env vars and declared
+# defaults, never on an untracked file. Must be set BEFORE config is imported.
+os.environ.setdefault("CONFIT_IGNORE_DOTENV", "1")
+
+# --- The test suite may NEVER touch a remote database ------------------------
+# `backend/.env` legitimately carries the real Neon DATABASE_URL for local
+# development. `Settings` reads that file at import, so without this guard the
+# application engine built below would point at PRODUCTION while the fixtures
+# happily create, seed, drop and mutate tables.
+#
+# MEASURED 2026-09-27, the first time a populated backend/.env existed: the
+# suite reached the live Neon instance and only stopped because the least-
+# privilege role lacked DDL rights —
+#   psycopg2.errors.InsufficientPrivilege: must be owner of table order_items
+#   [SQL: ALTER TABLE order_items DROP CONSTRAINT fk_order_items_fulfillment_group]
+# With the owner credentials in DATABASE_URL instead, that statement would have
+# SUCCEEDED against production data. The least-privilege role is what turned a
+# silent catastrophe into a loud error; it is not a control we should rely on.
+#
+# So the environment is overridden here, before `backend.app.core.config` is
+# imported, and the override is unconditional unless the operator explicitly
+# names a test database via CONFIT_TEST_DB_URL. Opting in is deliberate; opting
+# out by accident is not possible.
+# The value is REMOVED rather than overwritten. Pointing it at the fixtures'
+# own SQLite file looked equivalent and was not: the application engine and the
+# fixture engine then opened the SAME file through two pools, and SQLite lock
+# contention turned 9 commerce/settlement/concurrency tests red (measured
+# 2026-09-27). Clearing the variable restores the declared default in
+# `Settings`, which is exactly the state a clean checkout runs in.
+if os.environ.get("CONFIT_TEST_DB_URL"):
+    os.environ["DATABASE_URL"] = os.environ["CONFIT_TEST_DB_URL"]
+else:
+    os.environ.pop("DATABASE_URL", None)
+# Alembic reads its own variable; a stale production value here would let a
+# migration test run DDL against the live schema for exactly the same reason.
+os.environ.pop("ALEMBIC_DATABASE_URL", None)
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine

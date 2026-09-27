@@ -77,18 +77,48 @@ class _FakeClientFactory:
         return self.client
 
 
+def _nvidia_stylist_model(position: int) -> str:
+    """Resolve the NVIDIA stylist model from the registry, never a literal.
+
+    These two rows used to hardcode ``meta/llama-3.1-70b-instruct`` and
+    ``nvidia/nemotron-nano-12b-v2-vl``. Both were end-of-lifed on 2026-08-26
+    and answered 410 Gone for a month, yet this test kept passing — because
+    the fake client echoed whatever literal the test itself supplied, so the
+    assertion only ever proved the orchestrator agreed with the test, not that
+    the model existed. Deriving from the registry means a stale id now fails
+    in `verify_nvidia_models.py` instead of hiding here.
+    """
+    from backend.app.providers.nvidia import ModelRole, get_chain
+    chain = get_chain(ModelRole.STYLIST_CHAT)
+    return chain[min(position, len(chain) - 1)].model_id
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "method_name,url_substr,expected_model",
     [
-        ("_call_nvidia_llama", "integrate.api.nvidia.com", "meta/llama-3.1-70b-instruct"),
-        ("_call_nvidia_nemotron", "integrate.api.nvidia.com", "nvidia/nemotron-nano-12b-v2-vl"),
+        ("_call_nvidia_primary", "integrate.api.nvidia.com", _nvidia_stylist_model(0)),
+        ("_call_nvidia_secondary", "integrate.api.nvidia.com", _nvidia_stylist_model(1)),
         ("_call_groq", "api.groq.com", "openai/gpt-oss-120b"),
         ("_call_openai", "api.openai.com", "gpt-4o-mini"),
     ],
 )
-async def test_reported_model_equals_invoked_model(method_name, url_substr, expected_model):
+async def test_reported_model_equals_invoked_model(
+    method_name, url_substr, expected_model, monkeypatch
+):
     """The model in the request body must equal the model reported in the label."""
+    # A syntactically valid but fake credential. Every provider leg returns
+    # None before building a request when no key is present, which would make
+    # this test vacuously "pass" by never asserting anything. The transport is
+    # faked below, so nothing leaves the process.
+    #
+    # Required since the suite was made hermetic (2026-09-27): the key pool no
+    # longer reads .env files under pytest, so tests must state the credentials
+    # they depend on instead of inheriting a developer's.
+    for var in ("NVIDIA_API_KEY", "NVIDIA_CHAT_KEY_2"):
+        monkeypatch.setattr(settings, var, "nvapi-test-not-a-real-key", raising=False)
+    monkeypatch.setenv("NVIDIA_API_KEY", "nvapi-test-not-a-real-key")
+
     factory = _FakeClientFactory(expected_model)
     orchestrator = MultiProviderAIOrchestrator()
     method = getattr(orchestrator, method_name)
@@ -96,7 +126,10 @@ async def test_reported_model_equals_invoked_model(method_name, url_substr, expe
     with patch("backend.app.providers.orchestrator.httpx.AsyncClient", factory):
         result = await method("system", "user")
 
-    assert result is not None
+    assert result is not None, (
+        f"{method_name} returned None — the leg never issued a request, so this "
+        f"test would assert nothing. Check credential resolution."
+    )
     content, reported_model = result
     assert reported_model == expected_model, (
         f"{method_name} reported model {reported_model!r} but sent {factory.client.captured_model!r}"

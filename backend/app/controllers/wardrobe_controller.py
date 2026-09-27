@@ -6,6 +6,11 @@ from backend.app.core.rate_limit import limiter
 from backend.app.core.dependencies import get_current_user, get_current_user_optional
 from backend.app.models.user import User
 from backend.app.services.wardrobe_service import WardrobeService
+from backend.app.services.content_safety_service import (
+    ContentSafetyService,
+    content_safety_service,
+    refusal_for,
+)
 from backend.app.services.gap_analysis_service import GapAnalysisService, DuplicateDetectorService
 from backend.app.schemas.wardrobe import (
     WardrobeItemCreate,
@@ -20,6 +25,65 @@ from backend.app.schemas.wardrobe import (
 )
 
 router = APIRouter(prefix="/wardrobe", tags=["Virtual Wardrobe & Smart Reuse"])
+
+
+async def _require_safe_image(
+    blob: bytes,
+    content_type: Optional[str],
+    *,
+    user_id: int,
+    service: ContentSafetyService = content_safety_service,
+) -> None:
+    """Moderate raw upload bytes, or refuse the upload.
+
+    FAIL-CLOSED by design. The policy's S4 categories (body imagery of minors,
+    non-consensual imagery) carry "block, do not persist" — a rule that can only
+    be honoured before the bytes reach object storage, and one that an
+    unreachable classifier must not be able to bypass. A rejected upload costs
+    the user one retry; a stored illegal image is unrecoverable.
+
+    The single exception is a deployment with no NVIDIA credentials at all:
+    that is a legitimate configuration (self-hosted, air-gapped, local dev), not
+    a failure, so the gate stands down rather than bricking every upload. It is
+    visible in /health via the provider status rather than hidden here.
+    """
+    if not service.configured:
+        return
+
+    import base64
+
+    from backend.app.services.wardrobe_service import ALLOWED_IMAGE_TYPES
+
+    mime = (content_type or "").split(";")[0].strip().lower()
+    if mime not in ALLOWED_IMAGE_TYPES:
+        # Cheap, deterministic validation runs FIRST. An unsupported type is
+        # rejected by WardrobeService._validate_image with the precise error the
+        # API contract promises; moderating it here would both waste a model
+        # call on bytes that can never be stored and replace that specific
+        # 422 with a generic safety refusal.
+        return
+    data_uri = f"data:{mime};base64,{base64.b64encode(blob).decode('ascii')}"
+    verdict = await service.check_image(data_uri, context="wardrobe_upload")
+
+    if not verdict.measured:
+        # Classifier configured but unreachable -> refuse. 503, not 422: the
+        # user did nothing wrong and the request is retryable.
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=(
+                "Image safety screening is temporarily unavailable, so the "
+                "upload was not saved. Please try again shortly."
+            ),
+        )
+
+    if verdict.should_block:
+        # Never echo the category back: it accuses the user and leaks how the
+        # classifier behaves (policy, Refusal guidance).
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=refusal_for(verdict, is_image=True),
+        )
+
 
 
 @router.get("/items", response_model=List[WardrobeItemOut])
@@ -103,6 +167,13 @@ async def upload_wardrobe_image(
     fake 'ready' item with invented tags.
     """
     data = await file.read()
+
+    # Moderation gate — runs BEFORE storage on purpose. The S4 rule in
+    # docs/safety/confit_safety_policy_v1.0.0.md is "block, do not persist":
+    # once bytes reach the object store, a hard-block outcome is no longer
+    # achievable. Fails CLOSED (see _require_safe_image).
+    await _require_safe_image(data, file.content_type, user_id=user.id)
+
     service = WardrobeService(db)
     result = await service.upload_items(user.id, [(file.filename or "upload", file.content_type, data)])
     entry = result["results"][0]
@@ -128,7 +199,11 @@ async def bulk_upload_wardrobe_images(
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Bulk import is limited to 20 files per batch.")
     payload = []
     for f in files:
-        payload.append((f.filename or "upload", f.content_type, await f.read()))
+        blob = await f.read()
+        # Every file is gated individually — a batch must not become a way to
+        # smuggle one unmoderated image past the single-upload guard.
+        await _require_safe_image(blob, f.content_type, user_id=user.id)
+        payload.append((f.filename or "upload", f.content_type, blob))
     service = WardrobeService(db)
     return await service.upload_items(user.id, payload)
 

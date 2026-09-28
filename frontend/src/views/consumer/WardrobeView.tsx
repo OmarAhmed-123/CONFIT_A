@@ -30,6 +30,7 @@ import {
   CircularGalleryShowcase,
 } from "../../components/showcase/DesignShowcases";
 import { formatMoney } from '../../i18n/format';
+import { TryOnButton } from '../../components/product/TryOnButton';
 
 /**
  * Placeholder for a manually added wardrobe item.
@@ -855,6 +856,21 @@ export const WardrobeView: React.FC = () => {
                             {formatMoney(Math.round(rec.price * 100), rec.currency || 'USD', lang)}
                           </span>
                         </div>
+                        {/* These are catalogue garments, so they get the same
+                            try-on control as any other surface. They had none
+                            purely because this tile is not a ProductCard. */}
+                        <TryOnButton
+                          variant="icon"
+                          className="shrink-0"
+                          product={{
+                            id: rec.product_id,
+                            title: rec.title,
+                            brand_name: rec.brand_name,
+                            thumbnail_url: rec.image_url,
+                            base_price: rec.price,
+                            currency: rec.currency,
+                          }}
+                        />
                       </div>
                     ))}
                   </div>

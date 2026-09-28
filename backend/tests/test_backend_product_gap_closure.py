@@ -76,6 +76,10 @@ def test_vton_capability_registry_distinguishes_supported_and_unsupported(client
 
 def test_vton_capability_reports_engine_offline_instead_of_supported(client, monkeypatch):
     """A supported CATEGORY on a dead ENGINE must not read 'supported'."""
+    # Pin the WORKER's honesty: close the pilot path so this test measures
+    # what it was written to measure. A pilot-tier engine can now serve a
+    # down worker (2026-09-28), which is a different question.
+    monkeypatch.setattr(settings, "VTON_LICENSE_TIER", "commercial", raising=False)
     from backend.app.services import vton_worker_observability as vwo
 
     monkeypatch.setattr(settings, 'VTON_WORKER_URL', 'https://worker.example/process', raising=False)

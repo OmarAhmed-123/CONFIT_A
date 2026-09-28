@@ -644,6 +644,20 @@ def pilot_engines_available(worker_configured: bool = False) -> bool:
         from backend.app.providers.vton.registry import GarmentCategory, resolve_chain
     except Exception:  # pragma: no cover - defensive; never fail a health probe
         return False
+
+    # A resolvable chain is necessary but NOT sufficient: every pilot engine
+    # is a Hugging Face Space reached through gradio_client, which is
+    # deliberately absent from the Vercel function (VERCEL_OPTIONAL). Without
+    # it the render raises and the shopper gets nothing.
+    #
+    # Reporting `available` on a runtime that cannot actually call the engine
+    # would open every try-on CTA and fail at the end — the over-promising
+    # defect of 2026-09-22, rebuilt. Availability must mean "this process can
+    # render", so the transport is checked here.
+    try:
+        import gradio_client  # noqa: F401
+    except ImportError:
+        return False
     tier = resolve_tier(getattr(settings, "VTON_LICENSE_TIER", None))
     return bool(
         resolve_chain(
@@ -693,6 +707,21 @@ def engine_state_from_probe(
         return ENGINE_STATE_AVAILABLE
     if verdict == VERDICT_COLD_START:
         return ENGINE_STATE_COLD_START
+
+    # The worker is configured but cannot render (unreachable, disabled app,
+    # spend limit, or never measured). Before reporting an outage, ask whether
+    # a pilot-tier engine can serve instead.
+    #
+    # Covering only the UNCONFIGURED case — as the first version of this did —
+    # missed the situation production is actually in: VTON_WORKER_URL is set
+    # and the Modal worker is down. A working renderer existed and the
+    # platform still told every shopper try-on was unavailable.
+    #
+    # `unknown` is included deliberately: not measured is not evidence the
+    # worker works, so if something else can render, it should.
+    if pilot_engines_available(worker_configured=True):
+        return ENGINE_STATE_AVAILABLE
+
     if verdict == VERDICT_UNKNOWN:
         # Not measured is not the same as measured-and-broken; the operator
         # detail differs even though the user-facing gate does not.

@@ -585,8 +585,6 @@ class TryOnService:
             except PilotRenderUnavailable as exc:
                 raise RuntimeError(f"VTON_ENGINE_UNAVAILABLE: {exc}") from exc
 
-            raise RuntimeError("VTON_ENGINE_UNAVAILABLE: No GPU worker configured (VTON_WORKER_URL)")
-
         if not person_image:
             raise ValueError("VTON_INPUT_INVALID: person image is required")
         if not garments:

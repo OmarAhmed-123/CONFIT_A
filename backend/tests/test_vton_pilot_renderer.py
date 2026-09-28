@@ -193,3 +193,32 @@ def test_a_pilot_render_is_flagged_as_not_commercially_safe(stub_engine):
     )
     assert out["commercial_safe"] is False
     assert all(l["license"] for l in out["layers"])
+
+
+def test_availability_requires_a_usable_transport(monkeypatch):
+    """`available` must mean THIS process can render, not that a Space exists.
+
+    Every pilot engine is reached through gradio_client, which is absent from
+    the Vercel function on purpose. Reporting availability there would open
+    every try-on CTA and fail at the end — the 2026-09-22 over-promising
+    defect rebuilt on a new cause.
+    """
+    import builtins
+
+    from backend.app.core.config import settings
+    from backend.app.services import vton_worker_observability as vwo
+
+    monkeypatch.setattr(settings, "VTON_LICENSE_TIER", "pilot", raising=False)
+    assert vwo.pilot_engines_available() is True, "baseline: transport present"
+
+    real_import = builtins.__import__
+
+    def no_gradio(name, *args, **kwargs):
+        if name == "gradio_client":
+            raise ImportError("not installed in this runtime")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", no_gradio)
+    assert vwo.pilot_engines_available() is False, (
+        "without the transport the platform must not claim it can render"
+    )

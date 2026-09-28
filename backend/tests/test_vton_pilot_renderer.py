@@ -222,3 +222,36 @@ def test_availability_requires_a_usable_transport(monkeypatch):
     assert vwo.pilot_engines_available() is False, (
         "without the transport the platform must not claim it can render"
     )
+
+
+def test_hf_cache_is_redirected_to_tmp_before_import(monkeypatch, tmp_path):
+    """Serverless filesystems are read-only except /tmp.
+
+    `gradio_client` pulls in `huggingface_hub`, which writes a cache tree
+    under $HOME. On Vercel that raises OSError(30, 'Read-only file system')
+    and the engine appears to fail for no visible reason — which is exactly
+    what production showed while `vton_renderable` reported True.
+    """
+    from backend.app.providers.vton import hf_space_client as hf
+
+    for key in ("HF_HOME", "HUGGINGFACE_HUB_CACHE", "XDG_CACHE_HOME"):
+        monkeypatch.delenv(key, raising=False)
+
+    hf._prepare_hf_cache()
+
+    import os
+
+    assert os.environ["HF_HOME"].startswith("/tmp")
+    assert os.environ["HUGGINGFACE_HUB_CACHE"].startswith("/tmp")
+    assert os.path.isdir(os.environ["HF_HOME"]), "the cache dir must exist"
+
+
+def test_an_existing_hf_home_is_respected(monkeypatch):
+    """A container with a writable HOME keeps its own cache."""
+    from backend.app.providers.vton import hf_space_client as hf
+
+    monkeypatch.setenv("HF_HOME", "/workspace/hf")
+    hf._prepare_hf_cache()
+    import os
+
+    assert os.environ["HF_HOME"] == "/workspace/hf"

@@ -76,6 +76,38 @@ _OOTD_CATEGORY = {
 }
 
 
+#: Serverless filesystems are read-only except /tmp. `gradio_client` pulls in
+#: `huggingface_hub`, which writes a token/cache tree under $HOME on import and
+#: on first use — on Vercel that raises OSError(30, 'Read-only file system'),
+#: which surfaces as the engine "failing" for no visible reason.
+#:
+#: Pointing the cache at /tmp before the import is what makes these engines
+#: usable on a serverless runtime at all. Set only when unset, so a container
+#: or workstation that already has a writable HOME keeps its own cache.
+_HF_CACHE_ENV = {
+    "HF_HOME": "/tmp/hf",
+    "HUGGINGFACE_HUB_CACHE": "/tmp/hf/hub",
+    "XDG_CACHE_HOME": "/tmp/hf/xdg",
+    # The Spaces used here are public; disabling telemetry avoids an extra
+    # network round trip per call on a cold serverless invocation.
+    "HF_HUB_DISABLE_TELEMETRY": "1",
+}
+
+
+def _prepare_hf_cache() -> None:
+    for key, value in _HF_CACHE_ENV.items():
+        os.environ.setdefault(key, value)
+    for key in ("HF_HOME", "HUGGINGFACE_HUB_CACHE", "XDG_CACHE_HOME"):
+        path = os.environ.get(key)
+        if path and path.startswith("/tmp"):
+            try:
+                os.makedirs(path, exist_ok=True)
+            except OSError:
+                # Nothing to gain by failing here: the import below will raise
+                # a far more informative error if the cache is truly unusable.
+                pass
+
+
 def _import_gradio(engine: str):
     """Single ImportError boundary for the optional gradio_client dependency.
 
@@ -85,6 +117,7 @@ def _import_gradio(engine: str):
     failure mode the deployment dependency gate exists to catch, and why
     `gradio_client` may be listed as optional for the Vercel target.
     """
+    _prepare_hf_cache()
     try:
         from gradio_client import Client, handle_file  # noqa: WPS433
     except ImportError as exc:  # pragma: no cover - environment-dependent

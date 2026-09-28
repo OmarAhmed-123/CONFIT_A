@@ -62,6 +62,52 @@ const getCsrfToken = (): string | null => {
 // options.signal still win (AbortSignal.any keeps both cancellable).
 const DEFAULT_TIMEOUT_MS = 30_000;
 
+/**
+ * Endpoints that legitimately run longer than the default, with the budget
+ * they actually need.
+ *
+ * WHY THIS EXISTS
+ * ---------------
+ * Every request shared one 30s ceiling. A virtual try-on render measured
+ * ~22s for a SINGLE garment layer, and a multi-layer outfit applies each
+ * layer in turn — so a two-piece look needs ~40s before the queue is even
+ * counted. The client aborted at 30s and surfaced
+ * "The request timed out. Please try again.", which reads as a backend
+ * failure when in fact the server was still working and Vercel allows the
+ * function 300s (vercel.json maxDuration).
+ *
+ * The budget lives here, keyed by endpoint prefix, rather than as a magic
+ * number passed at each call site: a per-call override drifts, and the
+ * render paths are reached from four different view-models.
+ *
+ * Kept BELOW the 300s server ceiling so the client never gives up on work
+ * the server would still have delivered.
+ */
+const LONG_RUNNING_TIMEOUTS_MS: ReadonlyArray<readonly [string, number]> = [
+  // Multi-garment: one diffusion pass per layer, sequentially.
+  ['/tryon/animation-render', 240_000],
+  ['/tryon/multi-render', 240_000],
+  // Single garment, still a full diffusion pass.
+  ['/tryon/render', 150_000],
+  ['/try-on/jobs', 150_000],
+  // Vision analysis: slower than a CRUD call, far faster than a render.
+  ['/tryon/visual-search', 60_000],
+  ['/tryon/validate-image', 60_000],
+];
+
+/** Timeout budget for an endpoint. Longest matching prefix wins. */
+export function timeoutForEndpoint(endpoint: string): number {
+  let best = DEFAULT_TIMEOUT_MS;
+  let bestLen = -1;
+  for (const [prefix, ms] of LONG_RUNNING_TIMEOUTS_MS) {
+    if (endpoint.startsWith(prefix) && prefix.length > bestLen) {
+      best = ms;
+      bestLen = prefix.length;
+    }
+  }
+  return best;
+}
+
 async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: number): Promise<Response> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -146,7 +192,7 @@ export async function request<T>(
   }
 
   try {
-    const res = await fetchWithTimeout(url, { ...options, headers }, DEFAULT_TIMEOUT_MS);
+    const res = await fetchWithTimeout(url, { ...options, headers }, timeoutForEndpoint(endpoint));
 
     // P0-02: surface gateway body-limit failures (HTTP 413) with an
     // actionable message instead of an opaque FUNCTION_PAYLOAD_TOO_LARGE.

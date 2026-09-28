@@ -553,28 +553,40 @@ class TryOnService:
         import httpx
 
         worker_url, admin_token = self._get_worker_config()
-        if not worker_url:
-            # No GPU worker. Before refusing, offer the PILOT-tier engines.
-            #
-            # This is the single render path (three call sites reach it), so
-            # hooking in here gives every try-on flow the fallback without a
-            # second copy of the logic. The pilot renderer returns the SAME
-            # dict shape, so the output validation and the per-layer
-            # verify.PASS invariant below still apply to it unchanged.
-            #
-            # resolve_tier() defaults to COMMERCIAL on anything unrecognised,
-            # so a typo in VTON_LICENSE_TIER restricts rather than widens —
-            # and under COMMERCIAL the chain is empty without a worker, which
-            # raises exactly the error that follows.
+        # PILOT-TIER FALLBACK — attempted whenever the GPU worker cannot
+        # deliver, not only when one was never configured.
+        #
+        # The first version of this hook only covered `not worker_url`, and
+        # production proved that insufficient: VTON_WORKER_URL IS set there,
+        # pointing at a Modal app that is out of credit. So every render spent
+        # 35s on three retries and returned VTON_WORKER_NOT_READY while a
+        # working pilot engine sat unused — and /try-on/capabilities said
+        # "available", because the capability classifier HAD been taught about
+        # pilot engines and the render path had not. The two disagreed about
+        # the same question.
+        #
+        # `_try_pilot_render` is defined once and called from both places
+        # below, so the render path and the capability probe cannot drift
+        # apart again.
+        async def _try_pilot_render(reason: str):
+            """Render with the pilot chain, or return None if it may not.
+
+            Returns None (rather than raising) when the licence tier forbids
+            it or no engine can serve, so the caller can surface the ORIGINAL
+            worker error instead of a misleading one about pilot engines.
+            """
             from backend.app.providers.vton.pilot_renderer import (
                 PilotRenderUnavailable,
                 render_layers,
                 resolve_tier,
             )
 
+            # resolve_tier() defaults to COMMERCIAL on anything unrecognised,
+            # so a typo restricts rather than widens; under COMMERCIAL with no
+            # healthy worker the chain is empty and this returns None.
             tier = resolve_tier(getattr(settings, "VTON_LICENSE_TIER", None))
             try:
-                return await asyncio.to_thread(
+                result = await asyncio.to_thread(
                     render_layers,
                     person_image=person_image,
                     garments=list(garments or []),
@@ -583,7 +595,25 @@ class TryOnService:
                     job_id=job_id,
                 )
             except PilotRenderUnavailable as exc:
-                raise RuntimeError(f"VTON_ENGINE_UNAVAILABLE: {exc}") from exc
+                logger.warn("vton_pilot_unavailable", job_id=job_id,
+                            reason=reason, detail=str(exc)[:200])
+                return None
+            except Exception as exc:
+                logger.error("vton_pilot_failed", job_id=job_id,
+                             reason=reason, detail=str(exc)[:200])
+                return None
+            logger.info("vton_pilot_served", job_id=job_id, reason=reason,
+                        engine=result.get("model_used"))
+            return result
+
+        if not worker_url:
+            served = await _try_pilot_render("worker_not_configured")
+            if served is not None:
+                return served
+            raise RuntimeError(
+                "VTON_ENGINE_UNAVAILABLE: No GPU worker configured "
+                "(VTON_WORKER_URL) and no pilot engine may serve"
+            )
 
         if not person_image:
             raise ValueError("VTON_INPUT_INVALID: person image is required")
@@ -704,6 +734,15 @@ class TryOnService:
                     classified_code=classified["code"],
                     retryable=classified["retryable"],
                 )
+                # The worker is genuinely unusable. Try the pilot chain BEFORE
+                # failing: this is the state production has been in — a
+                # configured Modal app that is out of credit — and spending
+                # 35s on retries only to refuse, while a working engine sat
+                # unused, is what made try-on look broken.
+                served = await _try_pilot_render(classified["code"])
+                if served is not None:
+                    return served
+
                 raise RuntimeError(
                     f"{classified['code']}: {classified['detail']} — {str(last_error or 'unreachable')[:200]}"
                 )

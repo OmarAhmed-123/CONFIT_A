@@ -226,6 +226,13 @@ def test_try_on_distinguishes_not_offered_from_broken(monkeypatch):
     """PR #142's lesson: configuration is not availability, and absence is not outage."""
     from backend.app.services.capability_service import _vton_capability
 
+    # Close the pilot path: this test is about how the WORKER's own states are
+    # classified. A pilot-tier engine can serve an absent or down worker
+    # (2026-09-28), which would otherwise mask the distinction being asserted.
+    monkeypatch.setattr(
+        capability_service.settings, "VTON_LICENSE_TIER", "commercial", raising=False
+    )
+
     # not configured, not production -> the feature is simply not offered
     monkeypatch.setattr(capability_service.settings, "VTON_WORKER_URL", None, raising=False)
     cap = _vton_capability({"verdict": "not_configured"})

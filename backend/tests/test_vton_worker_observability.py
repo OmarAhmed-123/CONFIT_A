@@ -258,7 +258,7 @@ def dead_worker(monkeypatch):
     vwo.reset_worker_observability()
 
 
-def test_health_reports_degraded_and_the_real_reason(dead_worker):
+def test_health_reports_degraded_and_the_real_reason(dead_worker, monkeypatch):
     """A dead try-on engine must be reported — and named, not just darkened.
 
     G-09 split the two questions this test used to fold into one field.
@@ -268,6 +268,10 @@ def test_health_reports_degraded_and_the_real_reason(dead_worker):
     because it says *what* is broken. The machine-readable worker verdict and
     the human string moved to the admin-only readiness surface (G-08).
     """
+    # Pin the WORKER's honesty: close the pilot path so this test measures
+    # what it was written to measure. A pilot-tier engine can now serve a
+    # down worker (2026-09-28), which is a different question.
+    monkeypatch.setattr(settings, "VTON_LICENSE_TIER", "commercial", raising=False)
     res = client.get("/api/v1/health")
     assert res.status_code == 200
     public = res.json()
@@ -285,7 +289,11 @@ def test_health_reports_degraded_and_the_real_reason(dead_worker):
     assert "VTON_ENGINE_UNAVAILABLE" in body["capabilities"]["virtual_try_on"]["detail"]
 
 
-def test_capabilities_no_longer_claims_available(dead_worker):
+def test_capabilities_no_longer_claims_available(dead_worker, monkeypatch):
+    # Pin the WORKER's honesty: close the pilot path so this test measures
+    # what it was written to measure. A pilot-tier engine can now serve a
+    # down worker (2026-09-28), which is a different question.
+    monkeypatch.setattr(settings, "VTON_LICENSE_TIER", "commercial", raising=False)
     res = client.get("/api/v1/try-on/capabilities?product_ids=3")
     assert res.status_code == 200
     body = res.json()

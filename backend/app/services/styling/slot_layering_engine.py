@@ -60,6 +60,23 @@ class SlotLayeringEngine:
         "accessory": 30
     }
 
+    #: Internal layering names -> the canonical VTON slot vocabulary
+    #: (tryon_service.SUPPORTED_SLOTS). The layering engine reasons about
+    #: anatomy ("full_body"); the try-on contract speaks garment slots
+    #: ("dress"). Only the names that actually differ appear here.
+    INTERNAL_TO_VTON_SLOT = {"full_body": "dress"}
+
+    @classmethod
+    def to_vton_slot(cls, internal_slot: str) -> str:
+        """Translate an internal layering slot to the VTON contract name.
+
+        Unknown values pass through unchanged: this maps a known vocabulary
+        difference, it does not validate. `tryon_service` rejects anything
+        outside SUPPORTED_SLOTS, and silently rewriting an unrecognised slot
+        here would hide that from the caller.
+        """
+        return cls.INTERNAL_TO_VTON_SLOT.get(internal_slot, internal_slot)
+
     @classmethod
     def _layer_order(cls, slot: str) -> int:
         """Canonical layer-rank accessor. The ONLY source of truth for VTON
@@ -159,8 +176,14 @@ class SlotLayeringEngine:
             "product_title": new_product.title,
             "brand_name": new_product.brand.brand_name if hasattr(new_product, "brand") and new_product.brand else "CONFIT Partner",
             "category_name": new_product.category.name if hasattr(new_product, "category") and new_product.category else "Apparel",
-            "position": "dress" if effective_slot == "full_body" else effective_slot,
-            "slot_type": effective_slot,
+            "position": cls.to_vton_slot(effective_slot),
+            # Was `effective_slot`, i.e. the INTERNAL name. `position` was
+            # translated and `slot_type` was not, so a dress reached the VTON
+            # contract as "full_body" — a value SUPPORTED_SLOTS does not
+            # contain — and animated try-on died with
+            # "VTON_INPUT_INVALID: unsupported slot_type full_body" before
+            # rendering a single frame. One vocabulary, one translation.
+            "slot_type": cls.to_vton_slot(effective_slot),
             "image_url": new_product.thumbnail_url,
             "color_family": getattr(new_product, "color_family", "Neutral"),
             "color_hex": getattr(new_product, "dominant_hex", "#1B1F3B"),

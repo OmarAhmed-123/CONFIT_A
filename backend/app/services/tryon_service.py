@@ -554,6 +554,37 @@ class TryOnService:
 
         worker_url, admin_token = self._get_worker_config()
         if not worker_url:
+            # No GPU worker. Before refusing, offer the PILOT-tier engines.
+            #
+            # This is the single render path (three call sites reach it), so
+            # hooking in here gives every try-on flow the fallback without a
+            # second copy of the logic. The pilot renderer returns the SAME
+            # dict shape, so the output validation and the per-layer
+            # verify.PASS invariant below still apply to it unchanged.
+            #
+            # resolve_tier() defaults to COMMERCIAL on anything unrecognised,
+            # so a typo in VTON_LICENSE_TIER restricts rather than widens —
+            # and under COMMERCIAL the chain is empty without a worker, which
+            # raises exactly the error that follows.
+            from backend.app.providers.vton.pilot_renderer import (
+                PilotRenderUnavailable,
+                render_layers,
+                resolve_tier,
+            )
+
+            tier = resolve_tier(getattr(settings, "VTON_LICENSE_TIER", None))
+            try:
+                return await asyncio.to_thread(
+                    render_layers,
+                    person_image=person_image,
+                    garments=list(garments or []),
+                    tier=tier,
+                    worker_configured=False,
+                    job_id=job_id,
+                )
+            except PilotRenderUnavailable as exc:
+                raise RuntimeError(f"VTON_ENGINE_UNAVAILABLE: {exc}") from exc
+
             raise RuntimeError("VTON_ENGINE_UNAVAILABLE: No GPU worker configured (VTON_WORKER_URL)")
 
         if not person_image:
@@ -1281,8 +1312,25 @@ class TryOnService:
         # closure: they did, and the catalog was the one the UI believed).
         engine_state = vwo.engine_state_from_probe(probe, configured=bool(worker_url))
 
+        # Pilot-tier availability is resolved inside
+        # vton_worker_observability.engine_state_from_probe so this endpoint
+        # and /catalog/capabilities cannot disagree. Nothing to do here.
+        pilot_tier = None
+        pilot_engines: list[str] = []
+        if engine_state == vwo.ENGINE_STATE_AVAILABLE and not worker_url:
+            from backend.app.providers.vton.pilot_renderer import resolve_tier
+            from backend.app.providers.vton.registry import (
+                GarmentCategory as _Cat, resolve_chain as _chain,
+            )
+            pilot_tier = resolve_tier(getattr(settings, "VTON_LICENSE_TIER", None))
+            pilot_engines = [s.key for s in _chain(_Cat.DRESS, pilot_tier)]
+
         engine_block = {
             "verdict": verdict,
+            # Stated so the UI and an operator can tell a pilot render from a
+            # GPU-worker render without inspecting the result.
+            "tier": (pilot_tier.value if pilot_tier else "commercial"),
+            "pilot_engines": pilot_engines,
             "production_ready": bool(probe.get("production_ready")),
             "detail": probe.get("detail"),
             "probe_age_seconds": probe.get("probe_age_seconds"),

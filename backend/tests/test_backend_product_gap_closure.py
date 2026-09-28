@@ -100,12 +100,37 @@ def test_vton_capability_reports_engine_offline_instead_of_supported(client, mon
 
 
 def test_vton_capability_misconfigured_is_not_supported(client, monkeypatch):
+    """No worker AND no permitted pilot engine must report misconfigured.
+
+    Since 2026-09-28 an empty VTON_WORKER_URL no longer implies "cannot
+    render": pilot-tier Hugging Face engines can serve. The invariant being
+    protected here is the original one — the platform must not claim a
+    capability it cannot deliver — so the pilot path is closed for this test
+    by selecting the commercial tier, where the only clean engine lives on the
+    worker that is absent.
+    """
     monkeypatch.setattr(settings, 'VTON_WORKER_URL', '', raising=False)
+    monkeypatch.setattr(settings, 'VTON_LICENSE_TIER', 'commercial', raising=False)
     res = client.get('/api/v1/try-on/capabilities?product_ids=1')
     assert res.status_code == 200
     body = res.json()
     assert body['engine_state'] == 'misconfigured'
     assert body['products'][0]['state'] == 'misconfigured'
+
+
+def test_vton_pilot_tier_reports_available_without_a_worker(client, monkeypatch):
+    """The other half of the same rule: a working renderer must be offered.
+
+    Reporting misconfigured while the backend can in fact render would degrade
+    every call to action to the ruler for no reason — the inverse of the
+    2026-09-22 over-promising defect, and just as dishonest.
+    """
+    monkeypatch.setattr(settings, 'VTON_WORKER_URL', '', raising=False)
+    monkeypatch.setattr(settings, 'VTON_LICENSE_TIER', 'pilot', raising=False)
+    body = client.get('/api/v1/try-on/capabilities?product_ids=1').json()
+    assert body['engine_state'] == 'available'
+    assert body['engine']['tier'] == 'pilot'
+    assert body['engine']['pilot_engines'], 'must name the engines it will use'
 
 
 def test_partner_request_demo_persists_and_duplicates(client):

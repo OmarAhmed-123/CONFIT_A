@@ -107,6 +107,15 @@ class VtonEngineHealthOut(BaseModel):
 
     verdict: str  # ready|cold_start|unavailable|not_configured|unknown
     production_ready: bool
+    # Which licence class is serving. "pilot" means a research-weight engine
+    # (CC BY-NC-SA) is rendering, which is permitted while CONFIT is
+    # evaluating and must be switched to "commercial" before it trades.
+    # Exposed so the UI and an operator can tell a pilot render from a
+    # GPU-worker render without inspecting the output.
+    tier: Optional[str] = None
+    #: Engine keys that will actually be tried, in order. Empty under the
+    #: commercial tier with no worker.
+    pilot_engines: List[str] = []
     detail: Optional[str] = None
     probe_age_seconds: Optional[float] = None
     error_code: Optional[str] = None

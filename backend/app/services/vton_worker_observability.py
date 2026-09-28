@@ -633,6 +633,25 @@ _ENGINE_STATE_USER_MESSAGES: Dict[str, str] = {
 }
 
 
+def pilot_engines_available(worker_configured: bool = False) -> bool:
+    """True when a non-worker engine may render under the current licence tier.
+
+    Imported lazily: the registry pulls in the provider package, and this
+    module is imported by the health endpoints on every request.
+    """
+    try:
+        from backend.app.providers.vton.pilot_renderer import resolve_tier
+        from backend.app.providers.vton.registry import GarmentCategory, resolve_chain
+    except Exception:  # pragma: no cover - defensive; never fail a health probe
+        return False
+    tier = resolve_tier(getattr(settings, "VTON_LICENSE_TIER", None))
+    return bool(
+        resolve_chain(
+            GarmentCategory.DRESS, tier, worker_configured=worker_configured
+        )
+    )
+
+
 def engine_state_from_probe(
     probe: Dict[str, Any] | None, configured: bool | None = None
 ) -> str:
@@ -650,7 +669,24 @@ def engine_state_from_probe(
     if configured is None:
         configured = bool(getattr(settings, "VTON_WORKER_URL", None))
     if not configured:
-        return ENGINE_STATE_MISCONFIGURED
+        # No GPU worker. Before declaring the feature misconfigured, ask
+        # whether a PILOT-tier engine may serve instead.
+        #
+        # This lives in the SHARED classifier, not in either endpoint,
+        # because /try-on/capabilities and /catalog/capabilities must give the
+        # same answer. Putting it in one of them reproduced the 2026-09-22
+        # defect within minutes of being written: the two surfaces disagreed
+        # and the UI believed the wrong one.
+        #
+        # The claim stays evidence-based — `available` only when a chain
+        # genuinely resolves under the configured licence tier. Under the
+        # commercial tier with no worker the chain is empty and this returns
+        # misconfigured exactly as before.
+        return (
+            ENGINE_STATE_AVAILABLE
+            if pilot_engines_available()
+            else ENGINE_STATE_MISCONFIGURED
+        )
 
     verdict = (probe or {}).get("verdict")
     if verdict == VERDICT_READY:

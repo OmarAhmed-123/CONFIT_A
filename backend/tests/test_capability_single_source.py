@@ -210,9 +210,25 @@ def test_catalog_flags_agree_with_readiness_capability(db, monkeypatch):
 # ---------------------------------------------------------------------------
 
 
+@pytest.fixture(autouse=True)
+def _no_pilot_engines(monkeypatch):
+    """Pin the classifier's pure mapping, independent of pilot availability.
+
+    Without this the parametrised rows below would depend on which Hugging
+    Face engines happen to be registered, which is a different question from
+    "does the verdict map correctly".
+    """
+    monkeypatch.setattr(vwo, "pilot_engines_available", lambda *a, **k: False)
+
+
 @pytest.mark.parametrize(
     "verdict,configured,expected",
     [
+        # `configured=False` now means "no GPU WORKER", not "no renderer":
+        # since 2026-09-28 the classifier asks whether a pilot-tier engine may
+        # serve first. These rows pin the PURE mapping, so the pilot lookup is
+        # disabled (see the autouse fixture below) and the historical
+        # behaviour is asserted unchanged. The pilot path has its own rows.
         (None, False, vwo.ENGINE_STATE_MISCONFIGURED),
         (vwo.VERDICT_NOT_CONFIGURED, True, vwo.ENGINE_STATE_UNAVAILABLE),
         (vwo.VERDICT_READY, True, vwo.ENGINE_STATE_AVAILABLE),
@@ -255,3 +271,43 @@ def test_unavailable_message_does_not_blame_the_user_or_leak_a_secret():
         assert leak.lower() not in msg.lower(), (
             f"operator diagnostic {leak!r} leaked into a shopper-facing sentence"
         )
+
+
+# ---------------------------------------------------------------------------
+# The pilot-tier fallback, pinned separately from the pure mapping
+# ---------------------------------------------------------------------------
+
+
+def test_no_worker_but_a_pilot_engine_reports_available(monkeypatch):
+    """A renderer that genuinely works must not be reported as misconfigured.
+
+    Until pilot engines existed, "no VTON_WORKER_URL" meant "cannot render",
+    and misconfigured was the honest answer. Now it can render, and keeping
+    the old answer would be the inverse defect: degrading every CTA to the
+    ruler while the backend was able to serve.
+    """
+    monkeypatch.setattr(vwo, "pilot_engines_available", lambda *a, **k: True)
+    assert (
+        vwo.engine_state_from_probe({"verdict": None}, configured=False)
+        == vwo.ENGINE_STATE_AVAILABLE
+    )
+
+
+def test_no_worker_and_no_pilot_engine_is_still_misconfigured(monkeypatch):
+    """The commercial tier with no worker must still refuse."""
+    monkeypatch.setattr(vwo, "pilot_engines_available", lambda *a, **k: False)
+    assert (
+        vwo.engine_state_from_probe({"verdict": None}, configured=False)
+        == vwo.ENGINE_STATE_MISCONFIGURED
+    )
+
+
+def test_pilot_lookup_never_raises_into_a_health_probe(monkeypatch):
+    """A broken registry import must not take down the health endpoint."""
+    import backend.app.providers.vton.registry as _reg
+
+    monkeypatch.setattr(
+        _reg, "resolve_chain",
+        lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom")),
+    )
+    assert vwo.pilot_engines_available() is False

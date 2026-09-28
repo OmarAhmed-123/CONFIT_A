@@ -519,13 +519,20 @@ def capability_flags(
         "payments_mode": "live" if settings.PAYMENTS_LIVE else "demo",
         # Measured: live only when a live PSP adapter for the provider exists.
         "bnpl_live": bnpl_is_live(),
-        # Measured: true only for a live `ready` verdict from the GPU worker.
-        "vton_gpu_ready": engine_state == ENGINE_STATE_AVAILABLE,
+        # Measured: true only for a live `ready` verdict from the GPU WORKER.
+        #
+        # Scoped to the worker on purpose (2026-09-28). Pilot-tier Hugging
+        # Face engines can now render without a worker, which makes
+        # `engine_state` available — but the GPU is still not ready, and a key
+        # named gpu_ready that means "something somewhere can render" is the
+        # same class of lie as the 2026-09-22 defect this function exists to
+        # prevent. "Can we render right now?" is `vton_renderable`.
+        "vton_gpu_ready": engine_state == ENGINE_STATE_AVAILABLE and bool(settings.VTON_WORKER_URL),
         # Canonical state, identical to /try-on/capabilities `engine_state`.
         "vton_engine_state": engine_state,
-        # Whether the deployment offers try-on at all (worker configured).
-        # False is "not offered", not an outage — see _vton_capability().
-        "vton_offered": bool(settings.VTON_WORKER_URL),
+        # Whether the deployment offers try-on at all — by a GPU worker OR by
+        # a permitted pilot engine. False is "not offered", not an outage.
+        "vton_offered": bool(settings.VTON_WORKER_URL) or engine_can_render(engine_state),
         "vton_renderable": engine_can_render(engine_state),
         # MEASURED (2026-09-23): `ready` only when a probe reached a provider and
         # its credential was accepted. Until now this was

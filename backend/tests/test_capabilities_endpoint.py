@@ -251,11 +251,29 @@ def test_vton_gpu_ready_does_not_follow_configuration(client, monkeypatch):
     """
     from backend.app.services import vton_worker_observability as vwo
 
+    # No worker AND no permitted pilot engine: nothing can render.
+    # The commercial tier is selected because its only clean engine lives on
+    # the worker, so this still exercises the original invariant.
     monkeypatch.setattr(settings, "VTON_WORKER_URL", None)
+    monkeypatch.setattr(settings, "VTON_LICENSE_TIER", "commercial", raising=False)
     caps = _get(client)
     assert caps["vton_gpu_ready"] is False
     assert caps["vton_offered"] is False
     assert caps["vton_engine_state"] == "misconfigured"
+
+    # No worker but a PILOT engine may serve (2026-09-28). The deployment now
+    # offers try-on and can render — but the GPU is still not ready, and
+    # `vton_gpu_ready` must keep saying so. Conflating "something can render"
+    # with "the GPU is up" would be the same class of lie as the 2026-09-22
+    # defect this test was rewritten to catch.
+    monkeypatch.setattr(settings, "VTON_LICENSE_TIER", "pilot", raising=False)
+    caps = _get(client)
+    assert caps["vton_gpu_ready"] is False, "no worker means no GPU readiness"
+    assert caps["vton_offered"] is True
+    assert caps["vton_renderable"] is True
+    assert caps["vton_engine_state"] == "available"
+
+    monkeypatch.setattr(settings, "VTON_LICENSE_TIER", "commercial", raising=False)
 
     # Configured but nothing measured: offered, NOT ready.
     monkeypatch.setattr(settings, "VTON_WORKER_URL", "https://modal.example/process")

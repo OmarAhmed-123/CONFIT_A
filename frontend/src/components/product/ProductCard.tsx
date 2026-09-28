@@ -7,14 +7,9 @@ import { useUIStore } from "../../stores/uiStore";
 import { useTryOnAvailability } from "../../hooks/useTryOnAvailability";
 import { HonestProductImage } from "../common/HonestProductImage";
 import { FitScoreBadge } from "../common/CommonComponents";
-import {
-  TryOnIcon,
-  RulerIcon,
-  BagIcon,
-  HeartIcon,
-} from "../icons/ConfitIcons";
+import { RulerIcon, BagIcon, HeartIcon } from "../icons/ConfitIcons";
+import { TryOnButton } from "./TryOnButton";
 import { formatMoney } from "../../i18n/format";
-import { resolveMessage } from "../../i18n/messages";
 
 /**
  * The ONE product card.
@@ -109,22 +104,6 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   const openDetails = () =>
     onOpenDetails ? onOpenDetails(product) : navigate(`/product/${product.slug}`);
 
-  // One binding for every try-on entry point on this card, so the icon, the
-  // label and the destination can never disagree with each other.
-  const tryOnAction = tryOn.gate({
-    render: () => openTryOn(product),
-    fitCheck: () => openRuler(product),
-  });
-  const tryOnLabel = t(
-    tryOnKind === "render" ? "tryon.cta_try_on" : "tryon.cta_fit_check",
-  );
-  const TryOnGlyph = tryOnKind === "render" ? TryOnIcon : RulerIcon;
-  // `resolveMessage` is the project's single MessageDescriptor renderer; a
-  // hand-rolled t(key, params) here would drift from it.
-  const tryOnTitle =
-    tryOnKind === "blocked" && tryOn.userMessage
-      ? resolveMessage(tryOn.userMessage, t)
-      : tryOnLabel;
 
   const isCompact = variant === "compact";
 
@@ -194,16 +173,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           >
             <RulerIcon size={14} color="#1B1F3B" />
           </button>
-          <button
-            onClick={tryOnAction}
-            disabled={tryOnKind === "blocked"}
-            className="p-2 rounded-full bg-[#1B1F3B]/90 hover:bg-[#C5A059] text-white hover:text-slate-950 shadow-sm backdrop-blur-xs transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-            title={tryOnTitle}
-            aria-label={tryOnLabel}
-            data-testid="product-card-tryon-icon"
-          >
-            <TryOnGlyph size={14} color="currentColor" />
-          </button>
+          <TryOnButton product={product} variant="icon" />
         </div>
       </div>
 
@@ -255,16 +225,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           >
             {t("discover.view_details")}
           </button>
-          <button
-            onClick={tryOnAction}
-            disabled={tryOnKind === "blocked"}
-            title={tryOnTitle}
-            className="py-2.5 rounded-xl border border-[#7A5C28]/40 bg-[#FDF8EE] text-[#7A5C28] hover:bg-[#7A5C28] hover:text-white text-xs font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
-            data-testid="product-card-tryon"
-          >
-            <TryOnGlyph size={13} color="currentColor" />
-            <span>{tryOnLabel}</span>
-          </button>
+          <TryOnButton product={product} variant="full" className="w-full" />
 
           {onAddToBag && (
             <button

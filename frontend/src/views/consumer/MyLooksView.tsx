@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useMyLooksViewModel } from '../../viewmodels/useMyLooksViewModel';
 import { Outfit, ShareLink } from '../../models';
 import { SavedLooksIcon, SparkleIcon } from '../../components/icons/ConfitIcons';
+import { TryOnButton } from '../../components/product/TryOnButton';
 
 /**
  * My Looks — saved outfits plus honest, fully manageable share links.
@@ -182,6 +183,21 @@ const LookCard: React.FC<{
             <span className="text-[9px] text-slate-500 block truncate mt-0.5">
               {item.position}
             </span>
+            {/* A saved look is the surface a shopper most wants to try on,
+                and it had no control at all — the tile is not a ProductCard,
+                so before TryOnButton existed adding one meant copying the
+                whole gate. */}
+            {item.product_id ? (
+              <TryOnButton
+                variant="icon"
+                className="mt-1 w-full"
+                product={{
+                  id: item.product_id,
+                  title: item.product_title,
+                  thumbnail_url: item.image_url ?? undefined,
+                }}
+              />
+            ) : null}
           </div>
         ))}
       </div>

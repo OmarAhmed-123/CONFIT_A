@@ -73,3 +73,61 @@ describe("Try-On availability gate coverage", () => {
     ).toEqual([]);
   });
 });
+
+/**
+ * The gap the test above could not see.
+ *
+ * `tryOnGateCoverage` asks "if a file OPENS try-on, does it consult the
+ * gate?". That is necessary and it is not sufficient: a surface that shows a
+ * garment and offers NO try-on at all passes it trivially, because it never
+ * calls openTryOn.
+ *
+ * That blind spot is exactly what shipped. WardrobeView's gap
+ * recommendations and MyLooksView's saved-look items both render catalogue
+ * garments, and neither had a control — not because anyone decided against
+ * it, but because those tiles are not ProductCards and adding one meant
+ * copying the whole gate by hand. TryOnButton removed that cost; this test
+ * stops the omission recurring.
+ */
+describe("Try-On reach across consumer garment surfaces", () => {
+  /** Consumer surfaces that render a garment a shopper could wear. */
+  const GARMENT_SURFACES = [
+    "views/consumer/HomeView.tsx",
+    "views/consumer/DiscoverView.tsx",
+    "views/consumer/ProductDetailView.tsx",
+    "views/consumer/WardrobeView.tsx",
+    "views/consumer/MyLooksView.tsx",
+    "views/consumer/OutfitBuilderView.tsx",
+  ];
+
+  /** Any of these means the surface offers try-on. */
+  const OFFERS = ["TryOnButton", "ProductCard", "useTryOnAvailability"];
+
+  /** Comments are prose, not behaviour. A file that merely MENTIONS
+   *  TryOnButton in a note must still fail — verified by deleting the control
+   *  and leaving the comment, which is exactly how the first version of this
+   *  test was fooled. */
+  const stripComments = (src: string) =>
+    src.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/(^|[^:])\/\/.*$/gm, "$1");
+
+  it.each(GARMENT_SURFACES)("%s offers a try-on control", (rel) => {
+    const source = stripComments(readFileSync(join(SRC, rel), "utf8"));
+    const offered = OFFERS.some((token) => source.includes(token));
+    expect(
+      offered,
+      `${rel} renders garments but offers no try-on. Render <TryOnButton /> ` +
+        `— it carries the availability gate, so there is nothing to re-derive.`,
+    ).toBe(true);
+  });
+
+  it("the try-on control itself is defined exactly once", () => {
+    const definitions = walk(SRC).filter((file) => {
+      const src = readFileSync(file, "utf8");
+      return /export const TryOnButton|export function TryOnButton/.test(src);
+    });
+    expect(
+      definitions.map((f) => relative(SRC, f)),
+      "a second definition would let the two drift apart",
+    ).toHaveLength(1);
+  });
+});

@@ -645,19 +645,15 @@ def pilot_engines_available(worker_configured: bool = False) -> bool:
     except Exception:  # pragma: no cover - defensive; never fail a health probe
         return False
 
-    # A resolvable chain is necessary but NOT sufficient: every pilot engine
-    # is a Hugging Face Space reached through gradio_client, which is
-    # deliberately absent from the Vercel function (VERCEL_OPTIONAL). Without
-    # it the render raises and the shopper gets nothing.
+    # A resolvable chain used to be necessary but not sufficient: the Space
+    # transport was `gradio_client`, which the Vercel function did not carry,
+    # so availability had to be qualified by whether the package imported.
     #
-    # Reporting `available` on a runtime that cannot actually call the engine
-    # would open every try-on CTA and fail at the end — the over-promising
-    # defect of 2026-09-22, rebuilt. Availability must mean "this process can
-    # render", so the transport is checked here.
-    try:
-        import gradio_client  # noqa: F401
-    except ImportError:
-        return False
+    # The transport is now plain httpx (a core dependency of this service), so
+    # there is no longer a runtime in which the chain resolves but the engine
+    # cannot be called. The qualifier is gone rather than left as a check that
+    # can only ever return True — a permanently-true guard reads like a real
+    # one and hides that the condition stopped being meaningful.
     tier = resolve_tier(getattr(settings, "VTON_LICENSE_TIER", None))
     return bool(
         resolve_chain(

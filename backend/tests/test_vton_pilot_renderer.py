@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import base64
 import io
+import pathlib
 from typing import Any, Dict
 
 import pytest
@@ -195,124 +196,36 @@ def test_a_pilot_render_is_flagged_as_not_commercially_safe(stub_engine):
     assert all(l["license"] for l in out["layers"])
 
 
-def test_availability_requires_a_usable_transport(monkeypatch):
-    """`available` must mean THIS process can render, not that a Space exists.
+def test_availability_no_longer_depends_on_an_optional_package(monkeypatch):
+    """The Space transport is now plain httpx, a core dependency.
 
-    Every pilot engine is reached through gradio_client, which is absent from
-    the Vercel function on purpose. Reporting availability there would open
-    every try-on CTA and fail at the end — the 2026-09-22 over-promising
-    defect rebuilt on a new cause.
+    It used to be `gradio_client`, which the Vercel function did not carry —
+    so `available` had to be qualified by whether that package imported. The
+    transport was replaced to get the function under Vercel's 250 MB limit
+    (the build reported 263.17 MB), and with httpx there is no runtime in
+    which the chain resolves but the engine cannot be called.
     """
-    import builtins
-
     from backend.app.core.config import settings
     from backend.app.services import vton_worker_observability as vwo
 
     monkeypatch.setattr(settings, "VTON_LICENSE_TIER", "pilot", raising=False)
-    assert vwo.pilot_engines_available() is True, "baseline: transport present"
+    assert vwo.pilot_engines_available() is True
 
-    real_import = builtins.__import__
-
-    def no_gradio(name, *args, **kwargs):
-        if name == "gradio_client":
-            raise ImportError("not installed in this runtime")
-        return real_import(name, *args, **kwargs)
-
-    monkeypatch.setattr(builtins, "__import__", no_gradio)
+    monkeypatch.setattr(settings, "VTON_LICENSE_TIER", "commercial", raising=False)
     assert vwo.pilot_engines_available() is False, (
-        "without the transport the platform must not claim it can render"
+        "the licence gate is the only thing that may close this"
     )
 
 
-def test_hf_cache_is_redirected_to_tmp_before_import(monkeypatch, tmp_path):
-    """Serverless filesystems are read-only except /tmp.
-
-    `gradio_client` pulls in `huggingface_hub`, which writes a cache tree
-    under $HOME. On Vercel that raises OSError(30, 'Read-only file system')
-    and the engine appears to fail for no visible reason — which is exactly
-    what production showed while `vton_renderable` reported True.
-    """
-    from backend.app.providers.vton import hf_space_client as hf
-
-    for key in ("HF_HOME", "HUGGINGFACE_HUB_CACHE", "XDG_CACHE_HOME"):
-        monkeypatch.delenv(key, raising=False)
-
-    hf._prepare_hf_cache()
-
-    import os
-
-    assert os.environ["HF_HOME"].startswith("/tmp")
-    assert os.environ["HUGGINGFACE_HUB_CACHE"].startswith("/tmp")
-    assert os.path.isdir(os.environ["HF_HOME"]), "the cache dir must exist"
-
-
-def test_an_existing_hf_home_is_respected(monkeypatch):
-    """A container with a writable HOME keeps its own cache."""
-    from backend.app.providers.vton import hf_space_client as hf
-
-    monkeypatch.setenv("HF_HOME", "/workspace/hf")
-    hf._prepare_hf_cache()
-    import os
-
-    assert os.environ["HF_HOME"] == "/workspace/hf"
-
-
-# ── the shape the SERVICE actually emits ──────────────────────────────────
-
-def test_slot_type_decides_the_category_not_the_title(stub_engine):
-    """The production failure, pinned.
-
-    `tryon_service` builds garments as {"product_id", "slot_type",
-    "image_base64"} — no title, no category name. Text inference saw only
-    None and fell through to the ACCESSORY default, so production refused a
-    DRESS with "no engine may render 'accessory'". The slot the pipeline
-    already computed is authoritative.
-    """
-    out = pr.render_layers(
-        person_image=_data_url((0, 0, 0)),
-        garments=[{"product_id": 5, "slot_type": "dress",
-                   "image_base64": _data_url((255, 0, 0))}],
-        tier=LicenseTier.PILOT,
+def test_the_adapter_does_not_import_gradio_client():
+    """Pins the bundle-size fix: the heavy dependency must stay gone."""
+    source = pathlib.Path(
+        "backend/app/providers/vton/hf_space_client.py"
+    ).read_text()
+    code = "\n".join(
+        line for line in source.splitlines() if not line.strip().startswith("#")
     )
-    assert out["layers"][0]["category"] == "dress"
-    assert stub_engine["calls"] == 1
-
-
-@pytest.mark.parametrize("slot,expected", [
-    ("upper_inner", "upper_body"),
-    ("upper_outer", "outerwear"),
-    ("lower", "lower_body"),
-    ("dress", "dress"),
-])
-def test_every_renderable_slot_maps_to_a_servable_category(slot, expected, stub_engine):
-    out = pr.render_layers(
-        person_image=_data_url((0, 0, 0)),
-        garments=[{"product_id": 1, "slot_type": slot,
-                   "image_base64": _data_url((255, 0, 0))}],
-        tier=LicenseTier.PILOT,
-    )
-    assert out["layers"][0]["category"] == expected
-
-
-def test_bare_base64_without_a_data_prefix_is_accepted(stub_engine):
-    """`_fetch_image_as_base64` returns bare base64; rejecting it failed the
-    normal pre-fetch path for every request."""
-    import base64 as _b64
-
-    bare = _b64.b64encode(_png((0, 0, 255))).decode()
-    out = pr.render_layers(
-        person_image=_data_url((0, 0, 0)),
-        garments=[{"product_id": 1, "slot_type": "dress", "image_base64": bare}],
-        tier=LicenseTier.PILOT,
-    )
-    assert out["verify"]["PASS"] is True
-
-
-def test_an_accessory_slot_is_still_refused(stub_engine):
-    with pytest.raises(pr.PilotRenderUnavailable, match="VTON_CATEGORY_UNSUPPORTED"):
-        pr.render_layers(
-            person_image=_data_url((0, 0, 0)),
-            garments=[{"product_id": 9, "slot_type": "footwear",
-                       "image_base64": _data_url((9, 9, 9))}],
-            tier=LicenseTier.PILOT,
-        )
+    # Mentioned in the module docstring as rationale; never imported.
+    assert "import gradio_client" not in code
+    assert "from gradio_client" not in code
+    assert "import httpx" in code

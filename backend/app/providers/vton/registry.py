@@ -287,6 +287,41 @@ _CATEGORY_HINTS: Sequence[Tuple[GarmentCategory, Tuple[str, ...]]] = (
 )
 
 
+#: The project's OWN canonical VTON slots (tryon_service.CATEGORY_TO_VTON_SLOT)
+#: mapped onto engine categories.
+#:
+#: This is the authoritative signal and must be preferred over text inference.
+#: The service builds garment dicts as
+#: ``{"product_id", "slot_type", "image_base64"}`` — with NO title and NO
+#: category name — so inferring from text saw only `None` and fell through to
+#: the ACCESSORY default, which refuses. Production therefore declined to
+#: render a DRESS with "no engine may render 'accessory'", while the same
+#: garment rendered fine locally because the test harness passed titles.
+#:
+#: Deriving a category that the pipeline already computed was the mistake;
+#: this maps it instead.
+SLOT_TO_CATEGORY: Dict[str, GarmentCategory] = {
+    "upper_inner": GarmentCategory.UPPER,
+    "upper_outer": GarmentCategory.OUTERWEAR,
+    "lower": GarmentCategory.LOWER,
+    "dress": GarmentCategory.DRESS,
+    "footwear": GarmentCategory.ACCESSORY,
+    "accessory": GarmentCategory.ACCESSORY,
+}
+
+
+def category_from_slot(slot: Optional[str]) -> Optional[GarmentCategory]:
+    """Map a canonical VTON slot to an engine category, or None if unknown.
+
+    Returns None rather than a default so the caller can fall back to text
+    inference deliberately, instead of silently treating an unrecognised slot
+    as an accessory.
+    """
+    if not slot:
+        return None
+    return SLOT_TO_CATEGORY.get(str(slot).strip().lower())
+
+
 def infer_category(*texts: Optional[str]) -> GarmentCategory:
     """Best-effort category from a product title / category name / tags.
 

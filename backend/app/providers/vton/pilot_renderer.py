@@ -57,6 +57,7 @@ from backend.app.providers.vton.prompt import (
 )
 from backend.app.providers.vton.registry import (
     GarmentCategory,
+    category_from_slot,
     LicenseTier,
     VtonEngineSpec,
     infer_category,
@@ -104,7 +105,24 @@ def _fetch_to_temp(ref: str, suffix: str = ".jpg") -> str:
             with open(path, "wb") as handle:
                 handle.write(response.content)
         return path
-    raise ValueError("VTON_INPUT_INVALID: image must be a data URL or http(s) URL")
+    # Bare base64, no data: prefix. `_fetch_image_as_base64` in the service
+    # returns this shape, so rejecting it would have failed every request that
+    # took the pre-fetch path — i.e. the normal one.
+    candidate = ref.strip()
+    if len(candidate) > 64 and not candidate.startswith(("http", "data:", "/")):
+        try:
+            raw = base64.b64decode(candidate, validate=True)
+        except Exception as exc:
+            raise ValueError(
+                "VTON_INPUT_INVALID: image is neither a URL nor valid base64"
+            ) from exc
+        if len(raw) < 100:
+            raise ValueError("VTON_INPUT_INVALID: decoded image is too small")
+        with open(path, "wb") as handle:
+            handle.write(raw)
+        return path
+
+    raise ValueError("VTON_INPUT_INVALID: image must be a data URL, http(s) URL or base64")
 
 
 def _measure(before_path: str, after_path: str) -> Dict[str, float]:
@@ -172,7 +190,14 @@ def render_layers(
 
     try:
         for index, garment in enumerate(garments):
-            category = infer_category(
+            # Prefer the slot the pipeline ALREADY computed. The service
+            # emits {"product_id", "slot_type", "image_base64"} with no title
+            # and no category name, so text inference saw only None and fell
+            # through to the ACCESSORY default — which refuses. That is why
+            # production declined a dress with "no engine may render
+            # 'accessory'" while the same garment worked locally, where the
+            # harness happened to pass a title.
+            category = category_from_slot(garment.get("slot_type")) or infer_category(
                 garment.get("category_name"),
                 garment.get("title"),
                 garment.get("product_title"),
@@ -187,9 +212,14 @@ def render_layers(
                     f"'{category.value}' under the {tier.value} licence tier"
                 )
 
-            garment_ref = garment.get("image_url") or ""
+            # The service prefers image_base64 (it pre-fetches to avoid worker
+            # SSRF), falling back to image_url. Reading only image_url would
+            # have failed every request that took the primary path.
+            garment_ref = garment.get("image_base64") or garment.get("image_url") or ""
             if not garment_ref:
-                raise ValueError("VTON_GARMENT_ASSET_INVALID: garment image_url missing")
+                raise ValueError(
+                    "VTON_GARMENT_ASSET_INVALID: garment image_base64/image_url missing"
+                )
             garment_path = _fetch_to_temp(garment_ref)
             temp_files.append(garment_path)
 

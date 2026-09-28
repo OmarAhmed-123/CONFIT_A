@@ -154,8 +154,13 @@ def test_commercial_tier_still_refuses_a_dead_worker(monkeypatch, stub_pilot):
 
     with pytest.raises(RuntimeError) as exc:
         _call(svc)
-    # The ORIGINAL worker error surfaces, not a misleading one about pilots.
-    assert "pilot" not in str(exc.value).lower()
+    message = str(exc.value)
+    # The ORIGINAL worker failure must lead — that is what an operator acts
+    # on. The pilot outcome is appended as context, labelled as a licence
+    # refusal rather than a crash, so the two are never confused.
+    assert message.startswith(("VTON_WORKER", "VTON_ENGINE", "GPU_WORKER")), message
+    assert "pilot_unavailable" in message
+    assert "pilot_error" not in message, "a licence refusal is not a crash"
 
 
 def test_pilot_failure_surfaces_the_original_worker_error(monkeypatch, stub_pilot):
@@ -167,3 +172,41 @@ def test_pilot_failure_surfaces_the_original_worker_error(monkeypatch, stub_pilo
 
     with pytest.raises(RuntimeError, match="VTON_ENGINE_UNAVAILABLE"):
         _call(svc)
+
+
+def test_the_pilot_reason_is_surfaced_not_swallowed(monkeypatch, stub_pilot):
+    """When both paths fail, the caller must learn WHY the pilot declined.
+
+    The first version returned None from `_try_pilot_render` and re-raised
+    only the worker error, so a 503 read "worker unreachable" whether the
+    pilot had been tried, refused on licence, or crashed inside the engine.
+    On a serverless plan without log access that difference is the entire
+    diagnosis, so it belongs in the error.
+    """
+    svc = _service()
+    monkeypatch.setattr(svc, "_get_worker_config", lambda: (None, ""), raising=False)
+    monkeypatch.setattr(settings, "VTON_LICENSE_TIER", "pilot", raising=False)
+    stub_pilot["raise"] = RuntimeError("read-only file system: /home/sbx_user")
+
+    with pytest.raises(RuntimeError) as exc:
+        _call(svc)
+
+    message = str(exc.value)
+    assert "VTON_ENGINE_UNAVAILABLE" in message
+    assert "pilot_error" in message, "the pilot outcome must be reported"
+    assert "read-only file system" in message, (
+        "the engine's own reason must survive to the caller"
+    )
+
+
+def test_a_licence_refusal_is_labelled_differently_from_a_crash(
+    monkeypatch, stub_pilot
+):
+    """'Not permitted' and 'broke' are different operator actions."""
+    svc = _service()
+    monkeypatch.setattr(svc, "_get_worker_config", lambda: (None, ""), raising=False)
+    monkeypatch.setattr(settings, "VTON_LICENSE_TIER", "commercial", raising=False)
+
+    with pytest.raises(RuntimeError) as exc:
+        _call(svc)
+    assert "pilot_unavailable" in str(exc.value)

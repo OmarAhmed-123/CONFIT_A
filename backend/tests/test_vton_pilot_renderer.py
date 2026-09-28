@@ -255,3 +255,64 @@ def test_an_existing_hf_home_is_respected(monkeypatch):
     import os
 
     assert os.environ["HF_HOME"] == "/workspace/hf"
+
+
+# ── the shape the SERVICE actually emits ──────────────────────────────────
+
+def test_slot_type_decides_the_category_not_the_title(stub_engine):
+    """The production failure, pinned.
+
+    `tryon_service` builds garments as {"product_id", "slot_type",
+    "image_base64"} — no title, no category name. Text inference saw only
+    None and fell through to the ACCESSORY default, so production refused a
+    DRESS with "no engine may render 'accessory'". The slot the pipeline
+    already computed is authoritative.
+    """
+    out = pr.render_layers(
+        person_image=_data_url((0, 0, 0)),
+        garments=[{"product_id": 5, "slot_type": "dress",
+                   "image_base64": _data_url((255, 0, 0))}],
+        tier=LicenseTier.PILOT,
+    )
+    assert out["layers"][0]["category"] == "dress"
+    assert stub_engine["calls"] == 1
+
+
+@pytest.mark.parametrize("slot,expected", [
+    ("upper_inner", "upper_body"),
+    ("upper_outer", "outerwear"),
+    ("lower", "lower_body"),
+    ("dress", "dress"),
+])
+def test_every_renderable_slot_maps_to_a_servable_category(slot, expected, stub_engine):
+    out = pr.render_layers(
+        person_image=_data_url((0, 0, 0)),
+        garments=[{"product_id": 1, "slot_type": slot,
+                   "image_base64": _data_url((255, 0, 0))}],
+        tier=LicenseTier.PILOT,
+    )
+    assert out["layers"][0]["category"] == expected
+
+
+def test_bare_base64_without_a_data_prefix_is_accepted(stub_engine):
+    """`_fetch_image_as_base64` returns bare base64; rejecting it failed the
+    normal pre-fetch path for every request."""
+    import base64 as _b64
+
+    bare = _b64.b64encode(_png((0, 0, 255))).decode()
+    out = pr.render_layers(
+        person_image=_data_url((0, 0, 0)),
+        garments=[{"product_id": 1, "slot_type": "dress", "image_base64": bare}],
+        tier=LicenseTier.PILOT,
+    )
+    assert out["verify"]["PASS"] is True
+
+
+def test_an_accessory_slot_is_still_refused(stub_engine):
+    with pytest.raises(pr.PilotRenderUnavailable, match="VTON_CATEGORY_UNSUPPORTED"):
+        pr.render_layers(
+            person_image=_data_url((0, 0, 0)),
+            garments=[{"product_id": 9, "slot_type": "footwear",
+                       "image_base64": _data_url((9, 9, 9))}],
+            tier=LicenseTier.PILOT,
+        )

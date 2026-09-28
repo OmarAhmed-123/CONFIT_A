@@ -642,3 +642,36 @@ def test_every_payment_status_and_method_has_a_translation_key():
         m for m in MarketPaymentCapabilityRegistry.PAYMENT_CATALOG if m not in mapped_methods
     )
     assert not missing_methods, f"payment methods rendered untranslated: {missing_methods}"
+
+
+def test_gpu_ready_is_false_when_the_worker_is_unreachable_but_a_pilot_serves(
+    client, monkeypatch
+):
+    """The exact state production shipped in, briefly, on 2026-09-28.
+
+    VTON_WORKER_URL was SET but pointing at a dead Modal app, and a pilot
+    engine could render. `vton_gpu_ready` was derived from `engine_state`, so
+    it published TRUE while the probe said "GPU worker is NOT reachable" —
+    the 2026-09-22 defect rebuilt out of two half-truths: configuration
+    presence plus somebody else's renderer.
+
+    Only the worker's own `ready` verdict may set this flag.
+    """
+    from backend.app.services import vton_worker_observability as vwo
+
+    monkeypatch.setattr(
+        settings, "VTON_WORKER_URL", "https://modal.example/process", raising=False
+    )
+    monkeypatch.setattr(settings, "VTON_LICENSE_TIER", "pilot", raising=False)
+    monkeypatch.setattr(
+        vwo, "vton_health_summary", lambda: {"verdict": vwo.VERDICT_UNAVAILABLE}
+    )
+    monkeypatch.setattr(vwo, "pilot_engines_available", lambda *a, **k: True)
+
+    caps = _get(client)
+    assert caps["vton_gpu_ready"] is False, (
+        "the GPU worker is unreachable; no pilot engine can make it ready"
+    )
+    # ...while the platform may still honestly say it can render.
+    assert caps["vton_renderable"] is True
+    assert caps["vton_engine_state"] == "available"

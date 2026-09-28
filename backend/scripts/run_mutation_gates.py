@@ -177,7 +177,7 @@ MUTATIONS: list[Mutation] = [
         # flag named gpu_ready that means "something somewhere can render"
         # is the same lie this gate exists to catch. The mutation still
         # replaces the measured expression with configuration presence.
-        '        "vton_gpu_ready": engine_state == ENGINE_STATE_AVAILABLE and bool(settings.VTON_WORKER_URL),',
+        '        "vton_gpu_ready": (probe or {}).get("verdict") == VERDICT_READY,',
         '        "vton_gpu_ready": bool(settings.VTON_WORKER_URL),',
         ["backend/tests/test_capability_single_source.py"],
     ),

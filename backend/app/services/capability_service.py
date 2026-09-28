@@ -39,6 +39,7 @@ from backend.app.models.catalog import StoreLocation
 from backend.app.services import vton_worker_observability as vton_observability
 from backend.app.services.storage_service import storage_status
 from backend.app.services.vton_worker_observability import (
+    VERDICT_READY,
     ENGINE_STATE_AVAILABLE,
     ENGINE_STATE_COLD_START,
     engine_can_render,
@@ -527,7 +528,19 @@ def capability_flags(
         # named gpu_ready that means "something somewhere can render" is the
         # same class of lie as the 2026-09-22 defect this function exists to
         # prevent. "Can we render right now?" is `vton_renderable`.
-        "vton_gpu_ready": engine_state == ENGINE_STATE_AVAILABLE and bool(settings.VTON_WORKER_URL),
+        # Measured from the WORKER'S OWN PROBE, not from engine_state.
+        #
+        # Deriving it from engine_state was wrong and shipped briefly: once a
+        # pilot engine can serve, engine_state becomes `available`, and with
+        # VTON_WORKER_URL merely SET (pointing at a dead Modal app) this
+        # published `vton_gpu_ready: true` while the probe said
+        # "GPU worker is NOT reachable". Configuration presence plus someone
+        # else's renderer is not GPU readiness — that is the 2026-09-22 defect
+        # rebuilt from two half-truths.
+        #
+        # The only thing that may set this true is the worker's own `ready`
+        # verdict. "Can we render at all?" is `vton_renderable`.
+        "vton_gpu_ready": (probe or {}).get("verdict") == VERDICT_READY,
         # Canonical state, identical to /try-on/capabilities `engine_state`.
         "vton_engine_state": engine_state,
         # Whether the deployment offers try-on at all — by a GPU worker OR by

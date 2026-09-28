@@ -67,3 +67,11 @@ mediapipe>=1.0.0
 # PDF generation for brand product/sales reports (pure-Python, no system deps,
 # which matters on serverless where native libraries like cairo are unavailable).
 reportlab==5.0.1
+
+# Pilot-tier virtual try-on: client for the Hugging Face Space engines
+# (IDM-VTON / Leffa / OOTDiffusion) used while VTON_LICENSE_TIER=pilot.
+# Imported lazily behind a single ImportError boundary in
+# providers/vton/hf_space_client, so the Vercel function omits it and
+# degrades honestly; the Docker runtime carries it.
+gradio-client>=1.3,<2
+

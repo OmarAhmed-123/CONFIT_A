@@ -10,6 +10,7 @@ import { useUIStore } from './stores/uiStore';
 import { AuthModal } from './views/auth/AuthModal';
 import { Toast } from './components/common/CommonComponents';
 import './i18n/i18n';
+import { CatalogFreshness } from "./components/common/CatalogFreshness";
 
 export const App: React.FC = () => {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
@@ -58,6 +59,11 @@ export const App: React.FC = () => {
             unmounted by the very navigation it reports will often miss its own
             update. It also owns document.title and route focus. */}
         <RouteAnnouncer />
+        {/* Polls one tiny fingerprint endpoint and invalidates catalogue
+            queries when stock, price or a sale actually changes, so a brand's
+            edit reaches shoppers and admins without waiting out the 5-minute
+            cache. */}
+        <CatalogFreshness />
         <AppRoutes />
         <AuthModal />
         {toast && <Toast message={toast.message} type={toast.type} onClose={hideToast} />}

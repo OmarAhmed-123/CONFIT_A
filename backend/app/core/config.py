@@ -317,6 +317,19 @@ class Settings(BaseSettings):
     # Production default is the COMMERCIAL segmentation-free FASHN fork; the
     # non-commercial CatVTON engine is never the production default.
     VTON_ENGINE: str = "fashn_vton_segfee"
+
+    # Which licence class of try-on engine may serve traffic.
+    #
+    #   pilot      -> research weights (CC BY-NC-SA) are permitted. Correct
+    #                 while CONFIT is evaluating: no custom domain, no trading.
+    #   commercial -> ONLY engines whose whole dependency chain is cleared for
+    #                 commercial use, i.e. fashn_vton_segfee.
+    #
+    # Flipping this one value retires every non-commercial engine from the
+    # routing chain (see providers/vton/registry.resolve_chain). It filters
+    # rather than reorders, so a research engine cannot survive as a
+    # "temporary" fallback once the platform starts trading.
+    VTON_LICENSE_TIER: str = "pilot"
     # GPU worker (Modal). VTON_WORKER_URL is the /process endpoint. Modal
     # generates one hostname per web endpoint and hash-truncates long labels,
     # so health/readiness cannot always be derived — set them explicitly.

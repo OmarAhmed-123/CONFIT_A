@@ -1,6 +1,8 @@
 import json
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel
+import hashlib
+from sqlalchemy import Integer
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from backend.app.core.database import get_db
@@ -331,6 +333,65 @@ class CapabilityFlagsOut(BaseModel):
     bopis_store_count: int
     storage_mode: str
     returns_window_days: int
+
+
+@router.get("/revision")
+def get_catalog_revision(db: Session = Depends(get_db)):
+    """A cheap fingerprint of everything a shopper could see change.
+
+    WHY THIS EXISTS
+    ---------------
+    The web client caches catalogue queries with `staleTime: 5 minutes`. That
+    is right for bandwidth and wrong for stock: when a brand sells out a size
+    or edits a price, every other role — shoppers browsing, an admin auditing,
+    a second brand user — kept seeing the OLD figure for up to five minutes,
+    with no way to know it was stale. A shopper could add a sold-out size to
+    their bag and only discover it at checkout.
+
+    Long-polling the full catalogue would fix staleness by throwing away the
+    cache. Instead this endpoint returns a single hash over the fields that
+    actually matter, so the client can poll something tiny and invalidate ONLY
+    when something really moved.
+
+    The signature covers stock levels, in-stock flags, prices, the sale price
+    and store-level quantities — i.e. exactly the values rendered on a card, a
+    product page and the brand inventory table. It deliberately excludes
+    descriptive fields: re-fetching the world because someone fixed a typo
+    would reintroduce the cost this is meant to avoid.
+
+    One aggregate query, no row materialisation.
+    """
+    from sqlalchemy import func as _f
+    from backend.app.models.catalog import Product as _P, ProductSKU as _S, StoreInventory as _I
+
+    sku = db.query(
+        _f.count(_S.id), _f.coalesce(_f.sum(_S.stock_level), 0),
+        _f.coalesce(_f.sum(_f.cast(_S.is_in_stock, Integer)), 0),
+        _f.coalesce(_f.sum(_S.price_override), 0),
+    ).one()
+    prod = db.query(
+        _f.count(_P.id), _f.coalesce(_f.sum(_P.base_price), 0),
+        _f.coalesce(_f.sum(_P.compare_at_price), 0),
+        _f.coalesce(_f.sum(_f.cast(_P.is_active, Integer)), 0),
+    ).one()
+    inv = db.query(
+        _f.count(_I.id), _f.coalesce(_f.sum(_I.quantity), 0),
+        _f.coalesce(_f.sum(_I.reserved_quantity), 0),
+    ).one()
+
+    payload = "|".join(str(v) for v in (*sku, *prod, *inv))
+    revision = hashlib.sha256(payload.encode()).hexdigest()[:16]
+    return {
+        "revision": revision,
+        # Stated so an operator can see WHY it changed without guessing.
+        "counts": {
+            "products": int(prod[0]), "skus": int(sku[0]),
+            "store_inventory_rows": int(inv[0]),
+        },
+        "sellable_units": int(sku[1]),
+        "store_units": int(inv[1]),
+        "reserved_units": int(inv[2]),
+    }
 
 
 @router.get("/capabilities", response_model=CapabilityFlagsOut)

@@ -92,6 +92,15 @@ VERCEL_OPTIONAL = {
     # that degrades honestly (QwenVisionError) if the SDK is absent. The Vercel
     # function therefore does not install modal.
     "modal": "qwen_vision remote transport; lazy import under ImportError guard, web transport is the default",
+    # gradio_client is imported ONLY inside providers/vton/hf_space_client via
+    # the single _import_gradio() ImportError boundary. Those engines are
+    # Hugging Face Spaces used for PILOT-tier try-on (VTON_LICENSE_TIER=pilot);
+    # the commercial engine (fashn_vton_segfee) runs on the GPU worker and
+    # needs no client library. Absent the package, render() raises
+    # VtonRenderError(retryable=False) and the chain advances or declines
+    # honestly — it never crashes the request. The Vercel function therefore
+    # does not install a heavy ML client it would almost never call.
+    "gradio_client": "pilot-tier HF Space try-on; single lazy import under ImportError guard, commercial engine uses the GPU worker",
 }
 
 TARGETS = {

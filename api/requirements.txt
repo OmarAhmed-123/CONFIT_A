@@ -60,3 +60,11 @@ botocore>=1.35.0
 # PDF generation for brand product/sales reports (pure-Python, no system deps,
 # which matters on serverless where native libraries like cairo are unavailable).
 reportlab==5.0.1
+
+# Virtual try-on transport for the pilot-tier Hugging Face Space engines
+# (IDM-VTON / Leffa). Shipped to the serverless function so the deployed
+# site can render while the Modal GPU worker is down: vercel.json sets
+# maxDuration=300 and a measured render is ~22s, so it fits comfortably.
+# Still imported lazily behind one ImportError boundary, so a build that
+# omits it degrades honestly instead of failing at import.
+gradio-client>=1.3,<2

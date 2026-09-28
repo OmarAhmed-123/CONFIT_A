@@ -52,6 +52,9 @@ from typing import Any, Dict, List, Optional, Sequence
 import httpx
 
 from backend.app.providers.vton import hf_space_client as hf
+from backend.app.providers.vton.prompt import (
+    garment_description as build_garment_description,
+)
 from backend.app.providers.vton.registry import (
     GarmentCategory,
     LicenseTier,
@@ -190,12 +193,21 @@ def render_layers(
             garment_path = _fetch_to_temp(garment_ref)
             temp_files.append(garment_path)
 
+            # One builder for every engine: a raw catalogue title carries
+            # season codes and marketing words that describe the listing, not
+            # the garment.
+            description = build_garment_description(
+                title=garment.get("title") or garment.get("product_title"),
+                category=category,
+                colour=garment.get("color") or garment.get("color_family"),
+                material=garment.get("material"),
+            )
             result = _render_one_with_fallback(
                 chain=chain,
                 person_path=current_person,
                 garment_path=garment_path,
                 category=category,
-                description=str(garment.get("title") or ""),
+                description=description,
                 job_id=job_id,
                 layer=index,
             )

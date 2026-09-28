@@ -568,6 +568,8 @@ class TryOnService:
         # `_try_pilot_render` is defined once and called from both places
         # below, so the render path and the capability probe cannot drift
         # apart again.
+        pilot_failure: dict = {"detail": None}
+
         async def _try_pilot_render(reason: str):
             """Render with the pilot chain, or return None if it may not.
 
@@ -595,10 +597,18 @@ class TryOnService:
                     job_id=job_id,
                 )
             except PilotRenderUnavailable as exc:
+                # Record it: a log line is invisible on a serverless plan
+                # without log access, and "the pilot declined" is the single
+                # most useful fact when try-on is down. It is surfaced in the
+                # error below rather than swallowed.
+                pilot_failure["detail"] = f"pilot_unavailable: {str(exc)[:300]}"
                 logger.warn("vton_pilot_unavailable", job_id=job_id,
                             reason=reason, detail=str(exc)[:200])
                 return None
             except Exception as exc:
+                pilot_failure["detail"] = (
+                    f"pilot_error: {type(exc).__name__}: {str(exc)[:300]}"
+                )
                 logger.error("vton_pilot_failed", job_id=job_id,
                              reason=reason, detail=str(exc)[:200])
                 return None
@@ -613,6 +623,7 @@ class TryOnService:
             raise RuntimeError(
                 "VTON_ENGINE_UNAVAILABLE: No GPU worker configured "
                 "(VTON_WORKER_URL) and no pilot engine may serve"
+                + (f" [{pilot_failure['detail']}]" if pilot_failure["detail"] else "")
             )
 
         if not person_image:
@@ -743,8 +754,13 @@ class TryOnService:
                 if served is not None:
                     return served
 
+                # Carry the pilot reason too. Without it the caller sees only
+                # "worker unreachable" and cannot tell whether the fallback
+                # was tried, declined on licence, or failed inside the engine.
                 raise RuntimeError(
-                    f"{classified['code']}: {classified['detail']} — {str(last_error or 'unreachable')[:200]}"
+                    f"{classified['code']}: {classified['detail']} — "
+                    f"{str(last_error or 'unreachable')[:200]}"
+                    + (f" [{pilot_failure['detail']}]" if pilot_failure["detail"] else "")
                 )
 
             # Phase 2: Inference call

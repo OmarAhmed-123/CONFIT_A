@@ -73,7 +73,11 @@ class StylingEngine:
     _OCCASION_KEYWORDS = {
         "formal": ["formal", "black tie", "black-tie", "black_tie", "gala", "tuxedo", "wedding", "reception", "ball"],
         "work": ["work", "office", "business", "meeting", "boardroom", "interview", "corporate", "executive", "presentation"],
-        "party": ["party", "dinner", "cocktail", "date", "night out", "evening", "gallery", "opening"],
+        # "going out" / "outing" were absent, so the most ordinary way a
+        # shopper phrases this ("something for going out") matched nothing,
+        # intent fell to default and the stylist asked them to rephrase.
+        "party": ["party", "dinner", "cocktail", "date", "night out", "going out",
+                  "outing", "evening", "gallery", "opening", "drinks", "club"],
         "casual": ["casual", "weekend", "brunch", "relaxed", "vacation", "resort", "travel", "summer"],
     }
 

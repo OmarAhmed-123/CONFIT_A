@@ -522,7 +522,7 @@ def test_migration_0015_round_trip_and_unique_lineage() -> None:
         os.unlink(path)
 
 
-def test_migration_chain_has_a_single_head_at_0026() -> None:
+def test_migration_chain_has_a_single_head_at_0027() -> None:
     from backend.app.core.schema_gate import expected_head_revision, migration_chain
 
     chain = migration_chain()
@@ -548,7 +548,10 @@ def test_migration_chain_has_a_single_head_at_0026() -> None:
     # -> 0026 (products.style_embedding: visual search moved from keyword
     # matching on a Gemini description to real image-embedding retrieval,
     # which needs the catalogue vectors to live somewhere).
-    assert expected_head_revision() == "0026_product_style_embedding"
+    # -> 0027 (products.gender: a men's request was returning women's
+    # heeled sandals because the table had no gender to filter on).
+    assert expected_head_revision() == "0027_product_gender"
+    assert chain["0027_product_gender"] == "0026_product_style_embedding"
     assert chain["0026_product_style_embedding"] == "0025_order_item_discount_allocation"
     assert chain["0025_order_item_discount_allocation"] == "0024_audit_insert_provenance_guard"
     assert chain["0024_audit_insert_provenance_guard"] == "0023_verification_run_hmac_chain"

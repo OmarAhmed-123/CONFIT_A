@@ -51,6 +51,18 @@ class Product(Base):
     images = Column(Text, default="[]", nullable=False)          # JSON list of image URLs
     size_chart_json = Column(Text, default="{}", nullable=False) # JSON measurement mappings
 
+    # Who the garment is for: mens | womens | unisex.
+    #
+    # Added 2026-09-30. Before this the table had NO gender at all — the
+    # only "gender" in the codebase was the try-on render parameter, which
+    # describes the PHOTO, not the product. So a men's request returned
+    # women's heeled sandals, because the composer had nothing to filter on.
+    #
+    # Defaults to unisex, which the filter treats permissively: a poplin
+    # shirt suits anyone, and excluding neutral items from a gendered
+    # request would leave too few slots to build a complete outfit.
+    gender = Column(String(16), default="unisex", nullable=False, server_default="unisex")
+
     # Visual-search embedding (HopitAI/moda-fashion-distilled, 768-d).
     #
     # Stored as a JSON array of floats rather than a vector type so this

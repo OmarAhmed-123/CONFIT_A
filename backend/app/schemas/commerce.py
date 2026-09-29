@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Optional, List, Dict, Any
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from backend.app.schemas.money_types import PositiveMoney
 
 
@@ -86,11 +86,36 @@ class OrderItemOut(BaseModel):
     unit_price: float
     quantity: int
     subtotal: float
+    #: This line's apportioned share of the order-level promo discount
+    #: (migration 0025, largest-remainder allocation).
+    #:
+    #: The column was populated and conserved in the database from the start,
+    #: but never exposed here — so an order that really carried an 18.00
+    #: discount returned `discount_amount: null` on every line, and neither
+    #: the shopper nor the brand could see where the money went. The value
+    #: existed; the contract hid it.
+    discount_amount: float = 0.0
+    #: subtotal - discount_amount. Served rather than left to each client to
+    #: recompute, because a client that forgets the subtraction shows the
+    #: pre-discount figure as if it were what was charged.
+    net_amount: float = 0.0
     is_returned: bool
     outfit_id: Optional[int] = None
     fulfillment_group_id: Optional[int] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+    @model_validator(mode="after")
+    def _derive_net(self):
+        """net = subtotal - discount, computed once on the server.
+
+        Done here so every endpoint returning an order line agrees, instead
+        of each caller subtracting (or forgetting to).
+        """
+        object.__setattr__(
+            self, "net_amount", round(float(self.subtotal) - float(self.discount_amount or 0.0), 2)
+        )
+        return self
 
 
 class OrderOut(BaseModel):

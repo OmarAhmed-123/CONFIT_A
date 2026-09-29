@@ -75,6 +75,7 @@ class MultiProviderAIOrchestrator:
         preferred_colors: Optional[List[str]] = None,
         budget_limit: Optional[float] = None,
         selected_outfit: Optional[Dict[str, Any]] = None,
+        alternate_outfits: Optional[List[Dict[str, Any]]] = None,
         intent: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """Orchestrates live AI stylist requests grounded strictly in selected outfit products."""
@@ -95,6 +96,26 @@ class MultiProviderAIOrchestrator:
                 grounded_lines.append(f"- {item.get('position', 'Item').capitalize()}: {item.get('product_title')} by {item.get('brand_name')} in {item.get('color_family', item.get('color_hex'))} (${item.get('price', 0):.2f})")
 
         grounded_context = "\n".join(grounded_lines) if grounded_lines else "Curated multi-brand luxury ensemble."
+
+        # Every outfit shown gets described, in ONE call.
+        #
+        # Only outfit[0] was ever sent, so a second recommendation reached the
+        # shopper carrying a template string ("A cohesive multi-brand ensemble
+        # combining structured Arket with...") that never mentioned what was
+        # actually in it. Describing each look with its own request would
+        # double an already ~9s response, so the alternates travel in the same
+        # prompt and the reply is split on the OUTFIT_n markers below.
+        alternate_blocks = []
+        for index, outfit in enumerate(alternate_outfits or [], start=2):
+            lines = [
+                f"- {i.get('position', 'Item').capitalize()}: {i.get('product_title')}"
+                f" by {i.get('brand_name')}"
+                for i in (outfit.get("items") or [])
+            ]
+            if lines:
+                alternate_blocks.append(
+                    f"OUTFIT_{index} items:\n" + "\n".join(lines)
+                )
         total_price = selected_outfit.get("total_price", detected_budget) if selected_outfit else detected_budget
 
         # Honesty constraint handed to the provider: the deterministic engine is
@@ -119,6 +140,15 @@ class MultiProviderAIOrchestrator:
             f"Selected Recommended Items:\n{grounded_context}\n"
             f"Explain why these exact items work together perfectly for this occasion."
         )
+        if alternate_blocks:
+            user_prompt += (
+                "\n\nThere are also these alternative looks:\n"
+                + "\n\n".join(alternate_blocks)
+                + "\n\nAfter your main answer, add one line per alternative in "
+                "exactly this format, referencing its real items:\n"
+                "OUTFIT_2: <one sentence>\n"
+                "(and OUTFIT_3, OUTFIT_4 if present)"
+            )
 
         providers = [p.strip().lower() for p in settings.AI_PROVIDERS.split(",") if p.strip()]
 

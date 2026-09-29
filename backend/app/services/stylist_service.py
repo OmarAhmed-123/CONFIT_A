@@ -8,6 +8,7 @@ from backend.app.repositories.wardrobe_repository import WardrobeRepository
 from backend.app.providers.orchestrator import get_orchestrator
 from backend.app.services.styling_engine import StylingEngine
 from backend.app.services.query_translation import translate_query
+from backend.app.services.styling.outfit_prose import attach_prose, split_outfit_prose
 from backend.app.services.styling.garment_gender import (
     gender_from_query,
     is_compatible as is_gender_compatible,
@@ -219,8 +220,24 @@ class StylistService:
             preferred_colors=user_colors,
             budget_limit=max_budget,
             selected_outfit=primary_outfit,
+            # Every look shown gets described, in the same call. Sending only
+            # outfit[0] meant the second recommendation reached the shopper
+            # with a template string that never named what was in it.
+            alternate_outfits=recommended_outfits[1:],
             intent=intent
         )
+
+        # Split the reply and attach each grounded sentence to its outfit.
+        # A sentence that does not name anything really in that outfit is
+        # dropped and the template stands: a wrong description is worse than
+        # a generic one.
+        advice_text = ai_result.get("styling_advice_text", "") or ""
+        main_text, outfit_notes = split_outfit_prose(advice_text)
+        if outfit_notes:
+            attached = attach_prose(recommended_outfits, outfit_notes)
+            intent["alternate_prose_attached"] = attached
+            if main_text:
+                ai_result["styling_advice_text"] = main_text
 
         # 8. Save assistant response
         #

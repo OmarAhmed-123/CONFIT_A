@@ -81,6 +81,9 @@ class ProductSummaryOut(BaseModel):
     # The client must not synthesise this; an invented "was" price is a false
     # claim about a discount that never happened.
     compare_at_price: Optional[float] = None
+    #: mens | womens | unisex. Surfaced so the storefront can label and
+    #: filter without re-deriving it from the title.
+    gender: str = "unisex"
     currency: str
     thumbnail_url: str
     color_family: str

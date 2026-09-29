@@ -73,6 +73,8 @@ _LEXICON: Dict[str, str] = {
     "مقابلة": "interview", "انترفيو": "interview",
     "كاجوال": "casual", "كاچوال": "casual", "يومي": "casual",
     "حفلة": "party", "حفله": "party", "بارتي": "party",
+    "خروجة": "going out", "خروجه": "going out", "الخروجه": "going out",
+    "الخروجة": "going out", "نزلة": "going out", "تمشية": "going out",
     "عشاء": "dinner", "غدا": "lunch", "مناسبة": "occasion", "مناسبه": "occasion",
     "رسمي": "formal", "رسميه": "formal", "رسمية": "formal",
     "سفر": "travel", "اجازة": "vacation", "إجازة": "vacation",

@@ -8,6 +8,10 @@ from backend.app.repositories.wardrobe_repository import WardrobeRepository
 from backend.app.providers.orchestrator import get_orchestrator
 from backend.app.services.styling_engine import StylingEngine
 from backend.app.services.query_translation import translate_query
+from backend.app.services.styling.garment_gender import (
+    gender_from_query,
+    is_compatible as is_gender_compatible,
+)
 from backend.app.services.recommendation_constraints import constraints_from_payload, apply_constraints
 from backend.app.services.content_safety_service import (
     POLICY_VERSION as SAFETY_POLICY_VERSION,
@@ -169,8 +173,17 @@ class StylistService:
         # 6. Retrieve candidate products from the real catalog. Availability
         #    gate (BRD 15): only products with at least one in-stock SKU are
         #    eligible for recommendation; out-of-stock items are never composed.
+        # Gender filter. The catalogue gained a `gender` column in migration
+        # 0027 because it had none: a men's request returned women's heeled
+        # sandals, since the composer had nothing to filter on.
+        #
+        # Read from the ORIGINAL prompt, not the translation — the Arabic
+        # term is recognised directly, and a paraphrase can drop it.
+        requested_gender = gender_from_query(prompt) or gender_from_query(search_prompt)
+
         all_products = [
             p for p in self.catalog_repo.filter_products(limit=100)
+            if is_gender_compatible(getattr(p, "gender", None), requested_gender)
             if getattr(p, "skus", None) and any(s.is_in_stock and s.stock_level > 0 for s in p.skus)
         ]
 

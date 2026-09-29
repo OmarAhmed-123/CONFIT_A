@@ -1,0 +1,8 @@
+# Sidecar only — deliberately NOT in the app manifests. torch alone exceeds
+# the 250 MB serverless function limit the main API must stay under.
+torch>=2.2
+open_clip_torch>=2.24
+transformers>=4.40
+pillow>=10.0
+fastapi>=0.110
+uvicorn>=0.29

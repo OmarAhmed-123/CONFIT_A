@@ -67,20 +67,14 @@ class OutfitComposer:
         occasion = occasion_hint or "Smart Casual"
         formality = "smart_casual"
 
-        if any(w in prompt_lower for w in ["wedding", "marriage", "gala", "black tie", "black-tie", "tuxedo", "formal", "reception", "ball", "suit"]):
-            occasion = "Formal & Wedding"
-            formality = "formal"
-            if any(w in prompt_lower for w in ["black tie", "black-tie", "tuxedo", "gala"]):
-                formality = "black_tie"
-        elif any(w in prompt_lower for w in ["work", "office", "business", "meeting", "boardroom", "presentation", "interview", "corporate", "executive"]):
-            occasion = "Work & Business"
-            formality = "business_formal"
-        elif any(w in prompt_lower for w in ["party", "dinner", "cocktail", "date", "night out", "gallery", "opening", "evening"]):
-            occasion = "Evening & Party"
-            formality = "cocktail"
-        elif any(w in prompt_lower for w in ["weekend", "brunch", "casual", "relaxed", "vacation", "resort", "travel", "summer", "linen"]):
-            occasion = "Casual Weekend"
-            formality = "casual"
+        # Delegated to the ONE vocabulary. This block used to hold a second
+        # copy of the same word lists, and they drifted: "going out" was
+        # added to the other list and this one still deflected the shopper.
+        from backend.app.services.styling_engine import StylingEngine
+
+        detected, detected_formality = StylingEngine.detect_occasion(prompt_lower)
+        if detected:
+            occasion, formality = detected, detected_formality
 
         # 2. Detect Budget Mentions - Decimal exact
         budget_match = re.search(r'(?:under|below|budget(?:\s*of)?|\$)\s*(\d+)', prompt_lower)

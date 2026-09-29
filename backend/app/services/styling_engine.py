@@ -70,6 +70,50 @@ class StylingEngine:
         return outfits, meta
 
     # Canonical occasion keyword groups (shared by scoring + suggestions).
+    #: Occasion -> (display label, formality, trigger words).
+    #:
+    #: SINGLE SOURCE OF TRUTH. There used to be a second, independent copy
+    #: of this vocabulary inside `composer.parse_intent`, and the two had
+    #: already drifted: "going out" was added here and the stylist still
+    #: deflected, because intent detection reads the OTHER list. Two lists
+    #: of the same thing means every fix has to be made twice and one of
+    #: them is always forgotten.
+    OCCASION_RULES = (
+        ("Formal & Wedding", "formal",
+         ("wedding", "marriage", "gala", "black tie", "black-tie", "tuxedo",
+          "formal", "reception", "ball", "suit", "engagement")),
+        ("Work & Business", "business_formal",
+         ("work", "office", "business", "meeting", "boardroom", "presentation",
+          "interview", "corporate", "executive")),
+        ("Evening & Party", "cocktail",
+         ("party", "dinner", "cocktail", "date", "night out", "going out",
+          "outing", "drinks", "club", "gallery", "opening", "evening")),
+        ("Casual Weekend", "casual",
+         ("weekend", "brunch", "casual", "relaxed", "vacation", "resort",
+          "travel", "summer", "linen")),
+    )
+
+    #: Black-tie is a refinement of formal, not a separate occasion.
+    BLACK_TIE_WORDS = ("black tie", "black-tie", "tuxedo", "gala")
+
+    @classmethod
+    def detect_occasion(cls, text: str):
+        """(occasion, formality) for a prompt, or (None, None) if unstated.
+
+        Returning None rather than a default lets the caller distinguish
+        "the shopper said casual" from "the shopper said nothing" — the
+        difference between styling and guessing.
+        """
+        lowered = (text or "").lower().strip()
+        for occasion, formality, words in cls.OCCASION_RULES:
+            if any(w in lowered for w in words):
+                if occasion == "Formal & Wedding" and any(
+                    w in lowered for w in cls.BLACK_TIE_WORDS
+                ):
+                    return occasion, "black_tie"
+                return occasion, formality
+        return None, None
+
     _OCCASION_KEYWORDS = {
         "formal": ["formal", "black tie", "black-tie", "black_tie", "gala", "tuxedo", "wedding", "reception", "ball"],
         "work": ["work", "office", "business", "meeting", "boardroom", "interview", "corporate", "executive", "presentation"],

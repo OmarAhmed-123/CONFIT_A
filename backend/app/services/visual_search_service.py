@@ -18,6 +18,120 @@ class VisualSearchService:
         self.tryon_repo = TryOnRepository(db)
         self.ai_provider = VisualSearchAIProvider()
 
+
+    async def _embedding_matches(
+        self,
+        target_img: str,
+        *,
+        limit: int,
+        in_stock_only: bool,
+        min_price=None,
+        max_price=None,
+        brand_ids=None,
+    ) -> dict:
+        """Visual similarity from real image embeddings, or {} if unavailable.
+
+        Returns {product_id: similarity_percent}. Empty means "not used" —
+        never an error, because the keyword path below is a working fallback
+        and an optional accelerator must not take the feature down.
+
+        Only products embedded with the SAME model are considered. Vectors
+        from two models are not comparable, and scoring across them degrades
+        ranking silently instead of failing.
+        """
+        from backend.app.providers.moda import embeddings as moda
+
+        if not moda.is_available():
+            return {}
+
+        raw = await self._image_bytes(target_img)
+        if not raw:
+            return {}
+
+        query_vector = await moda.embed_image(raw)
+        if not query_vector:
+            return {}
+
+        import json as _json
+
+        from backend.app.models.catalog import Product
+
+        rows = (
+            self.db.query(Product.id, Product.style_embedding)
+            .filter(
+                Product.is_active.is_(True),
+                Product.style_embedding.isnot(None),
+                Product.style_embedding_model == moda.MODEL_ID,
+            )
+            .all()
+        )
+        catalog = {}
+        for product_id, blob in rows:
+            try:
+                vector = _json.loads(blob)
+            except Exception:
+                # A corrupt row must not abort the whole search.
+                continue
+            if isinstance(vector, list) and len(vector) == moda.EMBED_DIM:
+                catalog[product_id] = vector
+
+        if not catalog:
+            logger.info("visual_search_no_embedded_products")
+            return {}
+
+        ranked = moda.rank_catalog(query_vector, catalog, limit=limit)
+        logger.info(
+            "visual_search_embedding_ranked",
+            embedded_products=len(catalog),
+            matches=len(ranked),
+        )
+        return {r.product_id: r.similarity_percent for r in ranked}
+
+    async def _image_bytes(self, target_img: str) -> bytes | None:
+        """Materialise a data URL or http(s) URL to bytes for embedding."""
+        import base64 as _b64
+
+        if target_img.startswith("data:"):
+            try:
+                return _b64.b64decode(target_img.split(",", 1)[1])
+            except Exception:
+                return None
+        if target_img.startswith(("http://", "https://")):
+            from backend.app.core.security import is_safe_image_url
+
+            if not is_safe_image_url(target_img):
+                return None
+            import httpx
+
+            try:
+                async with httpx.AsyncClient(timeout=20.0) as client:
+                    response = await client.get(target_img)
+                    response.raise_for_status()
+                    return response.content
+            except Exception:
+                return None
+        return None
+
+    def _apply_embedding_scores(self, scored_matches, embedding_matches):
+        """Replace keyword scores with visual ones where we have them.
+
+        A product the embedding model ranked is scored by SIGHT; the rest
+        keep their keyword score. Visual matches are offset above the
+        keyword band so a genuine visual hit cannot be outranked by a
+        coincidental word overlap — that inversion is the whole reason this
+        path exists.
+        """
+        if not embedding_matches:
+            return scored_matches
+        rescored = []
+        for score, product, breakdown in scored_matches:
+            visual = embedding_matches.get(product.id)
+            if visual is not None:
+                breakdown = {**breakdown, "visual_embedding": visual}
+                score = 100.0 + visual
+            rescored.append((score, product, breakdown))
+        return rescored
+
     async def search_by_image(
         self,
         image_url: Optional[str] = None,
@@ -48,6 +162,18 @@ class VisualSearchService:
         # 2. Retrieve real catalog products from database
         #    Filters are pushed into the DB query — not filtered on a sliced
         #    in-memory set — so they work across the whole catalogue.
+        # 1b. EMBEDDING RETRIEVAL — preferred when an embedding service is
+        #     configured and the catalogue has been backfilled.
+        #
+        #     The keyword path below compares WORDS from a Gemini description.
+        #     This compares the IMAGES. It is attempted first and falls
+        #     through silently when unavailable, so the feature degrades to
+        #     exactly its previous behaviour rather than failing.
+        embedding_matches = await self._embedding_matches(
+            target_img, limit=limit, in_stock_only=in_stock_only,
+            min_price=min_price, max_price=max_price, brand_ids=brand_ids,
+        )
+
         all_prods = self.catalog_repo.filter_products(
             min_price=min_price,
             max_price=max_price,
@@ -108,6 +234,10 @@ class VisualSearchService:
                         score += 8.0
                 score = min(98.0, round(score, 1))
                 scored_matches.append((score, p, {"base": 50.0, "category": 30.0 if any(t in p_cat or t in p_title for t in cat_tokens) and analysis_available else 0.0, "color": 15.0 if any(t in p_color for t in col_tokens) and analysis_available else 0.0, "style": 8.0 if any(t in p_tags for t in sty_tokens) and analysis_available else 0.0}))
+
+        scored_matches = self._apply_embedding_scores(
+            scored_matches, embedding_matches
+        )
 
         # Sort by similarity score descending, with deterministic tie-breaking
         # for enhanced scoring (higher category score wins, then higher color score)

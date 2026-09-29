@@ -51,6 +51,20 @@ class Product(Base):
     images = Column(Text, default="[]", nullable=False)          # JSON list of image URLs
     size_chart_json = Column(Text, default="{}", nullable=False) # JSON measurement mappings
 
+    # Visual-search embedding (HopitAI/moda-fashion-distilled, 768-d).
+    #
+    # Stored as a JSON array of floats rather than a vector type so this
+    # works on both the SQLite test database and Neon Postgres without a
+    # dialect fork. The catalogue is hundreds of rows, not millions, so a
+    # linear cosine scan is cheaper than the operational cost of pgvector.
+    #
+    # `style_embedding_model` is stored WITH the vector because embeddings
+    # from two different models are not comparable. Mixing them degrades
+    # ranking silently instead of failing, so the backfill and the search
+    # both refuse vectors whose model id does not match the one in use.
+    style_embedding = Column(Text, nullable=True)
+    style_embedding_model = Column(String(120), nullable=True)
+
     rating = Column(Float, default=4.8)
     review_count = Column(Integer, default=42)
     style_compatibility_base = Column(Integer, default=85)       # Base compatibility %

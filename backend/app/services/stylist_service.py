@@ -7,6 +7,7 @@ from backend.app.repositories.profile_repository import ProfileRepository
 from backend.app.repositories.wardrobe_repository import WardrobeRepository
 from backend.app.providers.orchestrator import get_orchestrator
 from backend.app.services.styling_engine import StylingEngine
+from backend.app.services.query_translation import translate_query
 from backend.app.services.recommendation_constraints import constraints_from_payload, apply_constraints
 from backend.app.services.content_safety_service import (
     POLICY_VERSION as SAFETY_POLICY_VERSION,
@@ -101,9 +102,25 @@ class StylistService:
         explicit_budget = budget_limit if budget_limit is not None else None
         max_budget = budget_limit or (usp.budget_per_outfit_max if usp else 450.0)
 
+        # 3b. Arabic -> English BEFORE intent parsing.
+        #
+        # StylingEngine._OCCASION_KEYWORDS is an English-only vocabulary, so
+        # an Arabic request matched nothing, intent fell back to
+        # style_source="default" and the shopper was asked to rephrase.
+        # Measured on production: the Arabic form of a query returned 0
+        # recommendations where its English equivalent returned 2. CONFIT
+        # prices in EGP/AED/SAR with a fully Arabic UI, so that was its
+        # primary market getting no recommendation at all.
+        #
+        # English input is returned untouched — no call, no latency. The
+        # translated text is used for RETRIEVAL only; `prompt` keeps the
+        # shopper's own words for the transcript and the reply.
+        translation = await translate_query(prompt)
+        search_prompt = translation.text
+
         # 4. Parse user intent, occasion, style, and slot expectations
         intent = StylingEngine.parse_intent(
-            prompt=prompt,
+            prompt=search_prompt,
             occasion_hint=occasion,
             budget_hint=explicit_budget,
             user_styles=user_styles,

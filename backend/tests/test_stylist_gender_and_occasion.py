@@ -152,3 +152,61 @@ def test_an_unqualified_request_still_returns_something(client: TestClient) -> N
     """The filter must not narrow a request that stated no gender."""
     body = _chat(client, "formal wedding look, evening")
     assert body.get("recommendations"), "the gender filter over-narrowed"
+
+
+# ── one vocabulary, not two ────────────────────────────────────────────────
+
+@pytest.mark.parametrize("prompt,expected", [
+    ("going out", "Evening & Party"),
+    ("mens outfit for going out", "Evening & Party"),
+    ("something for an outing", "Evening & Party"),
+    ("wedding", "Formal & Wedding"),
+    ("black tie gala", "Formal & Wedding"),
+    ("office meeting", "Work & Business"),
+    ("weekend brunch", "Casual Weekend"),
+])
+def test_detect_occasion_covers_what_shoppers_say(prompt, expected):
+    occasion, _ = StylingEngine.detect_occasion(prompt)
+    assert occasion == expected, prompt
+
+
+def test_black_tie_refines_formal_rather_than_replacing_it():
+    assert StylingEngine.detect_occasion("black tie gala") == (
+        "Formal & Wedding", "black_tie"
+    )
+    assert StylingEngine.detect_occasion("wedding") == ("Formal & Wedding", "formal")
+
+
+def test_an_unstated_occasion_returns_none_not_a_default():
+    """'The shopper said casual' and 'the shopper said nothing' differ."""
+    assert StylingEngine.detect_occasion("hello") == (None, None)
+    assert StylingEngine.detect_occasion("") == (None, None)
+
+
+def test_the_occasion_vocabulary_is_not_duplicated():
+    """The bug this pins: two independent copies that drifted apart.
+
+    "going out" was added to `_OCCASION_KEYWORDS` and the stylist still
+    deflected, because intent detection read a SECOND list inside
+    `composer.parse_intent`. Every fix had to be made twice and one was
+    always forgotten.
+    """
+    import inspect
+
+    from backend.app.services.styling import composer
+
+    source = inspect.getsource(composer.OutfitComposer.parse_intent)
+    assert "detect_occasion" in source, "composer must delegate, not re-list"
+    for word in ("boardroom", "cocktail", "brunch"):
+        assert word not in source, (
+            f"'{word}' is a second copy of the occasion vocabulary inside "
+            f"composer.parse_intent — it must live in StylingEngine only"
+        )
+
+
+def test_arabic_going_out_resolves_through_the_single_vocabulary():
+    from backend.app.services.query_translation import apply_lexicon
+
+    translated, _ = apply_lexicon("عايز حاجه رجالي للخروجه")
+    occasion, _ = StylingEngine.detect_occasion(translated)
+    assert occasion == "Evening & Party", translated

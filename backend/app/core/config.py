@@ -297,6 +297,22 @@ class Settings(BaseSettings):
     #: if the box is slow the hosted chain is a better answer than waiting.
     LOCAL_LLM_TIMEOUT_SECONDS: float = 12.0
 
+    # ── Visual search embeddings (activates on GPU renewal) ──────────────
+    #
+    # HopitAI/moda-fashion-distilled, a SigLIP model distilled for fashion
+    # retrieval. torch + open_clip + weights is ~3 GB against a 250 MB
+    # serverless limit, so the model runs behind an HTTP endpoint and the
+    # app holds only a client.
+    #
+    #   MODA_EMBED_BASE_URL=http://<gpu-host>:8002
+    #
+    # Unset = visual search keeps its existing keyword behaviour, and
+    # nothing in this path executes. One variable is the whole switch.
+    MODA_EMBED_BASE_URL: str = ""
+    #: Embedding is one forward pass (0.34s measured on CPU, faster on GPU).
+    #: A tight budget so an unhealthy box falls back instead of stalling.
+    MODA_EMBED_TIMEOUT_SECONDS: float = 15.0
+
     # AI readiness probe (2026-09-23). `ai_stylist_live` was `bool(key)`, which
     # is configuration, not reachability. The probe reads each provider's model
     # catalogue (free — no chat completion, no tokens, no quota burn) to verify

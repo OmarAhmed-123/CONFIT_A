@@ -271,7 +271,31 @@ class Settings(BaseSettings):
     NVIDIA_CHAT_KEY_2: Optional[str] = None
 
     # AI Failover Configuration
-    AI_PROVIDERS: str = "nvidia,groq,gemini,openai,unorouter"
+    # `local_gpu` leads the chain so a self-hosted model is PREFERRED the
+    # moment one exists. It is skipped with zero cost while
+    # LOCAL_LLM_BASE_URL is unset, so listing it first costs nothing today
+    # and needs no code change on the day the GPU subscription renews.
+    AI_PROVIDERS: str = "local_gpu,nvidia,groq,gemini,openai,unorouter"
+
+    # ── Self-hosted stylist inference (activates on GPU renewal) ──────────
+    #
+    # Point this at any OpenAI-compatible server and the stylist starts
+    # using it. vLLM exposes exactly that surface, so:
+    #
+    #   python -m vllm.entrypoints.openai.api_server \
+    #     --model Qwen/Qwen2.5-7B-Instruct --served-model-name qwen-stylist \
+    #     --max-model-len 8192 --port 8001
+    #   LOCAL_LLM_BASE_URL=http://<host>:8001/v1
+    #
+    # Empty = the leg is skipped. That is the whole activation mechanism:
+    # one environment variable, no redeploy of application logic, and no
+    # dead code sitting in the request path while it is unset.
+    LOCAL_LLM_BASE_URL: str = ""
+    LOCAL_LLM_MODEL: str = "qwen-stylist"
+    LOCAL_LLM_API_KEY: str = "EMPTY"  # vLLM ignores it; header must exist
+    #: Self-hosted means no queue and no egress, so a tight budget is right:
+    #: if the box is slow the hosted chain is a better answer than waiting.
+    LOCAL_LLM_TIMEOUT_SECONDS: float = 12.0
 
     # AI readiness probe (2026-09-23). `ai_stylist_live` was `bool(key)`, which
     # is configuration, not reachability. The probe reads each provider's model

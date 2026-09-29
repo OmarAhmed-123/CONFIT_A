@@ -132,7 +132,20 @@ class MultiProviderAIOrchestrator:
                 # `provider_used` label is built from that so it can never report a
                 # model that was not the one invoked — previously the Groq label
                 # claimed "LLaMA-3.3-70B" while `openai/gpt-oss-120b` was called.
-                if provider == "nvidia" and settings.NVIDIA_API_KEY:
+                if provider == "local_gpu":
+                    # Skipped in one comparison when no self-hosted server is
+                    # configured, which is the normal state today.
+                    if not settings.LOCAL_LLM_BASE_URL:
+                        continue
+                    res = await self._call_local_gpu(system_prompt, user_prompt)
+                    if self._is_usable(res):
+                        text, model_id = res
+                        return self._format_response(
+                            text, prompt, intent, f"Self-hosted {model_id}",
+                            selected_outfit,
+                        )
+
+                elif provider == "nvidia" and settings.NVIDIA_API_KEY:
                     res = await self._call_nvidia_primary(system_prompt, user_prompt)
                     if self._is_usable(res):
                         text, model_id = res
@@ -252,6 +265,47 @@ class MultiProviderAIOrchestrator:
         return await self._call_nvidia_at(
             1, "nvidia2", settings.NVIDIA_CHAT_KEY_2 or settings.NVIDIA_API_KEY,
             system_prompt, user_prompt)
+
+    async def _call_local_gpu(
+        self, system_prompt: str, user_prompt: str
+    ) -> Optional[Tuple[str, str]]:
+        """Self-hosted OpenAI-compatible inference (vLLM, TGI, llama.cpp).
+
+        Exists so the stylist can move onto owned hardware the day a GPU is
+        available, without a code change: setting LOCAL_LLM_BASE_URL is the
+        entire activation. While it is unset the leg is never reached, so
+        this costs nothing in the current deployment.
+
+        Deliberately NOT a new client: every OpenAI-compatible server speaks
+        the same wire format the Groq leg already uses, so this reuses
+        `_accept_chat_completion` and the same response validation. A second
+        parser would be a second place for a silent model-label mismatch.
+        """
+        base = (settings.LOCAL_LLM_BASE_URL or "").rstrip("/")
+        if not base:
+            return None
+        model = settings.LOCAL_LLM_MODEL
+        async with httpx.AsyncClient(
+            timeout=settings.LOCAL_LLM_TIMEOUT_SECONDS
+        ) as client:
+            res = await client.post(
+                f"{base}/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {settings.LOCAL_LLM_API_KEY}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": model,
+                    "messages": [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt},
+                    ],
+                    "max_tokens": self._max_tokens(),
+                    "temperature": 0.7,
+                },
+            )
+            res.raise_for_status()
+            return self._accept_chat_completion("local_gpu", res.json(), model)
 
     async def _call_groq(self, system_prompt: str, user_prompt: str) -> Optional[Tuple[str, str]]:
         async with httpx.AsyncClient(timeout=self._timeout("chat")) as client:

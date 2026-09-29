@@ -266,6 +266,46 @@ ROLE_CHAINS: Dict[ModelRole, List[ModelSpec]] = {
 
     # ── Arabic localisation (Giza/MENA market) ───────────────────────────────
     ModelRole.TRANSLATION: [
+        # PRIMARY for INBOUND query translation (added 2026-09-29).
+        #
+        # riva-translate is a purpose-built translator and is still correct for
+        # OUTBOUND prose (EN->AR), where fluency is what matters. It is WRONG
+        # for inbound shopping queries, measured on the live endpoint:
+        #
+        #   'فستان سواريه أحمر'  -> "Red Swarovski Dress"   (brand invented)
+        #   'بدلة شغل كلاسيك'    -> "Classic work trousers" (suit -> trousers)
+        #   'فرح مسائي'          -> "evening party"         (wedding lost)
+        #
+        # It also ignores the system turn, so a domain glossary cannot be
+        # supplied to it. Each of those errors changes WHICH GARMENT the
+        # catalogue search then looks for, so the shopper is answered about a
+        # different product than the one they asked for.
+        #
+        # nemotron-3-super follows the system turn and got all three right:
+        #   -> "evening wedding, not too formal" / "work suit" / "evening gown"
+        # measured 0.89-1.09s on the same calls.
+        ModelSpec(
+            model_id="nvidia/nemotron-3-super-120b-a12b",
+            endpoint=CHAT_COMPLETIONS_URL,
+            params={
+                "temperature": 0.0,
+                "max_tokens": 160,
+                "chat_template_kwargs": {"enable_thinking": False},
+            },
+            measured_latency_s=(0.89, 1.09),
+            slot_key_env="NVIDIA_KEY_NEMOTRON_3_SUPER_120B_A12B",
+            evidence=(
+                "2026-09-29, AR->EN of three real shopping queries: 0.89-1.09s, "
+                "all three preserved the garment and occasion where "
+                "riva-translate did not (wedding/suit/evening gown). One 503 "
+                "observed under repeat calls, which the key rotation and the "
+                "next entry in this chain cover."
+            ),
+            notes=(
+                "Inbound AR->EN only. Obeys a glossary in the system turn, "
+                "which is what makes dialect terms ('فرح', 'سواريه') survive."
+            ),
+        ),
         ModelSpec(
             model_id="nvidia/riva-translate-4b-instruct-v2",
             endpoint=CHAT_COMPLETIONS_URL,
@@ -278,9 +318,11 @@ ROLE_CHAINS: Dict[ModelRole, List[ModelSpec]] = {
                 "Fluent MSA, correct fashion register."
             ),
             notes=(
-                "Purpose-built translation model — do NOT translate with a "
-                "general chat model, which will paraphrase and silently drop "
-                "the grounding guarantees the stylist prose depends on."
+                "OUTBOUND prose (EN->AR) only, where fluency is the goal. "
+                "Measured UNSAFE for inbound shopping queries: it ignores the "
+                "system turn, so no glossary can be supplied, and it renamed "
+                "a garment and invented a brand in live tests. Kept in the "
+                "chain as the failover for outbound work, not as the primary."
             ),
         ),
     ],

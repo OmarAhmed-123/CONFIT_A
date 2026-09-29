@@ -210,3 +210,27 @@ def test_a_licence_refusal_is_labelled_differently_from_a_crash(
     with pytest.raises(RuntimeError) as exc:
         _call(svc)
     assert "pilot_unavailable" in str(exc.value)
+
+
+def test_animation_failure_preserves_both_causes():
+    """The animation handler must not overwrite the layer's own error.
+
+    It used to replace whatever went wrong with a fixed
+    "Animated try-on requires GPU worker" sentence, discarding the
+    per-engine reason the render path had just attached. Every animation
+    failure therefore read identically, whatever had actually happened —
+    which is why diagnosing it took several deploys.
+    """
+    import inspect
+
+    from backend.app.services import tryon_service as ts
+
+    source = inspect.getsource(ts.TryOnService.execute_animated_tryon)
+    assert "layer_error" in source, (
+        "the originating layer error must travel with the animation failure"
+    )
+    assert "provider_error" in source, (
+        "the provider fallback's own error must be reported too"
+    )
+    # The bare, information-free sentence must be gone.
+    assert "Animated try-on requires GPU worker. " not in source

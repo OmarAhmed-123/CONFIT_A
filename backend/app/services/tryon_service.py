@@ -2109,11 +2109,22 @@ class TryOnService:
                         )
                         keyframes = anim_res.get("keyframes_sequence", [])
                         animation_style = anim_res.get("animation_style", "premium_realistic")
-                    except Exception:
+                    except Exception as provider_exc:
+                        # Preserve BOTH causes. This handler used to replace
+                        # the original message with a fixed sentence, which
+                        # discarded the per-engine reason the render path had
+                        # just attached — so an animation failure always read
+                        # "requires GPU worker" even when the pilot chain had
+                        # run and failed for an entirely different reason.
+                        # Losing the diagnostic is what made this take several
+                        # deploys to find the first time.
                         raise RuntimeError(
-                            "VTON_ENGINE_UNAVAILABLE: Animated try-on requires GPU worker. "
-                            "Set VTON_WORKER_URL to enable real CatVTON inference per layer."
-                        )
+                            "VTON_ENGINE_UNAVAILABLE: Animated try-on could not "
+                            "render. Set VTON_WORKER_URL for per-layer GPU "
+                            f"inference. [layer_error: {error_str[:300]}] "
+                            f"[provider_error: {type(provider_exc).__name__}: "
+                            f"{str(provider_exc)[:200]}]"
+                        ) from provider_exc
                 elif "VTON_ANIMATED" in error_str:
                     raise
                 else:

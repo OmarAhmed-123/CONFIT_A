@@ -149,3 +149,69 @@ def test_model_identity_is_recorded():
     """Vectors from two models are not comparable; the id must be stored."""
     assert moda.MODEL_ID == "HopitAI/moda-fashion-distilled"
     assert moda.EMBED_DIM == 768
+
+
+# ── the wiring: this provider must not be dead code ────────────────────────
+
+def test_visual_search_actually_imports_the_provider():
+    """The mistake this pins: a provider built and never called.
+
+    The VTON registry shipped once as dead code — registered, documented,
+    imported by nothing, while the endpoint still reported unavailable. The
+    same thing happened to this module in its first commit. A provider that
+    no service imports is a claim, not a feature.
+    """
+    import inspect
+
+    from backend.app.services import visual_search_service as vss
+
+    source = inspect.getsource(vss)
+    assert "providers.moda" in source, (
+        "visual_search_service must import the embedding provider"
+    )
+    assert "_embedding_matches" in source
+
+
+def test_embedding_scores_outrank_keyword_scores():
+    """A genuine visual match must not lose to a coincidental word overlap.
+
+    That inversion is the entire reason the embedding path exists, so the
+    offset is asserted rather than assumed.
+    """
+    from backend.app.services.visual_search_service import VisualSearchService
+
+    class _P:
+        def __init__(self, pid): self.id = pid
+
+    service = VisualSearchService.__new__(VisualSearchService)
+    scored = [(98.0, _P(1), {"base": 50.0}), (50.0, _P(2), {"base": 50.0})]
+    # product 2 is the real visual match, but scores lower on keywords
+    out = service._apply_embedding_scores(scored, {2: 91.0})
+
+    by_id = {p.id: s for s, p, _ in out}
+    assert by_id[2] > by_id[1], (
+        "a visual match at 91% lost to a keyword score of 98 — the ranking "
+        "inversion this path exists to fix"
+    )
+    breakdown = next(b for _, p, b in out if p.id == 2)
+    assert breakdown["visual_embedding"] == 91.0, "the visual score must be shown"
+
+
+def test_no_embedding_matches_leaves_keyword_ranking_untouched():
+    """Dormant must mean byte-for-byte unchanged behaviour."""
+    from backend.app.services.visual_search_service import VisualSearchService
+
+    class _P:
+        def __init__(self, pid): self.id = pid
+
+    service = VisualSearchService.__new__(VisualSearchService)
+    scored = [(98.0, _P(1), {"base": 50.0}), (50.0, _P(2), {"base": 50.0})]
+    assert service._apply_embedding_scores(scored, {}) == scored
+
+
+def test_products_can_store_a_vector_and_its_model():
+    """Vectors from two models are not comparable; the id must travel."""
+    from backend.app.models.catalog import Product
+
+    assert hasattr(Product, "style_embedding")
+    assert hasattr(Product, "style_embedding_model")

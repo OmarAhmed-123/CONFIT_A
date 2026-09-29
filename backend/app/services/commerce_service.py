@@ -655,6 +655,12 @@ class CommerceService:
                 "unit_price": it.unit_price,
                 "quantity": it.quantity,
                 "subtotal": it.subtotal,
+                # The apportioned share of the order-level promo discount.
+                # Omitted here for as long as the column existed, so every
+                # line reported null while the database held a conserved
+                # allocation — the same field-by-field drop that hid
+                # compare_at_price on the catalogue endpoints.
+                "discount_amount": it.discount_amount or 0,
                 "is_returned": it.is_returned,
                 "outfit_id": it.outfit_id,
                 "fulfillment_group_id": it.fulfillment_group_id,

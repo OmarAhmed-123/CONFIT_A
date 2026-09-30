@@ -206,7 +206,7 @@ The default mode reads `GET /v1/models` only — no tokens burned, safe on every
 
 ## 7. Integration status
 
-**Delivered — additive only.** `git status` shows two new untracked paths plus `.env.example`; **no existing file's behaviour was modified**, so the 1083-test backend suite is unaffected.
+**Delivered.** The provider package landed additively on 2026-09-27; on 2026-09-30 the `GARMENT_VISION` role gained its first real consumer (§7.2), which does change behaviour in `tryon_provider.py` and is covered by new tests.
 
 ```
 backend/app/providers/nvidia/__init__.py     public surface
@@ -218,11 +218,57 @@ backend/scripts/verify_nvidia_models.py      live verifier
 .env.nvidia                                  19 keys (gitignored, chmod 600)
 ```
 
-**Not yet done** — each needs a decision, so none was assumed:
+### 7.1 Consumers (updated 2026-09-30)
 
-1. Repoint `orchestrator.py` off the two 410-Gone models onto `ModelRole.STYLIST_CHAT`.
-2. Wire `GARMENT_VISION` into `visual_search_service` / `wardrobe_service` as a Gemini/Qwen peer.
-3. Wire `CONTENT_SAFETY` into the upload and stylist paths (closes the `image-moderation` P2 gap in `MODEL_REGISTRY.json` at 0.5 s).
-4. Wire `TRANSLATION` into an Arabic surface.
-5. Correct the two docs that still advertise LLaMA 3.1 70B.
-6. Decide on `kumo-relational`.
+| Role | Consumer | Status |
+|---|---|---|
+| `STYLIST_CHAT` | `providers/orchestrator.py` | wired |
+| `CONTENT_SAFETY` | `services/content_safety_service.py` | wired |
+| `TRANSLATION` | `services/query_translation.py` | wired |
+| `GARMENT_VISION` | `providers/tryon_provider.py::VisualSearchAIProvider` | **wired 2026-09-30** — Smart Wardrobe auto-tagging + Visual Search |
+| `EMBEDDING` | — | not wired (no vector-retrieval feature is in approved scope; see `MODEL_REGISTRY.json` on marqo-fashionCLIP) |
+| `BATCH_REASONING`, `CREATIVE_COPY`, `UTILITY_JSON` | — | not wired; offline surfaces, awaiting a product decision |
+
+### 7.2 GARMENT_VISION wiring — why and what was measured
+
+**The gap.** `GARMENT_VISION` was verified but had **no caller**, so every
+vision path in the product still had exactly one working backend: Gemini. The
+two documented fallbacks are both conditional — the self-hosted Qwen2.5-VL
+worker is a no-op unless `QWEN_VL_WORKER_URL` is set (unset in production, see
+`MODEL_REGISTRY.json`), and UnoRouter needs its own key. A Gemini outage
+therefore degraded Smart Wardrobe to `analysis_available=False` for **every**
+upload.
+
+**The fix.** `VisualSearchAIProvider.fallback()` now runs a role-routed NVIDIA
+tier first: `NVIDIA -> Qwen worker -> UnoRouter -> honest degradation`. It is
+the only unconditional tier — it needs no extra deployment, only the pooled
+credentials that already exist. It returns `None` (never raises, never
+fabricates) when it cannot produce a usable payload.
+
+**Measured end-to-end, 2026-09-30, `GEMINI_API_KEY` deliberately blanked:**
+
+| Input | Result | Model | Time |
+|---|---|---|---|
+| Real navy blazer product photo | `Outerwear / Blazer / Navy #2B3A67 / Solid / All-Season`, occasions `[Casual, Smart Casual, Work & Business, Formal]`, confidence 1.0 | `google/diffusiongemma-26b-a4b-it` | ~3.9 s |
+| Same photo, visual-search prompt | `detected_category=Outerwear`, `detected_attributes={collar: lapel, closure: single-button, pockets: [chest, patch], sleeves: long}` | same | ~3.6 s |
+| Solid navy 512×512 colour swatch (the 2026-09-08 false-positive case) | `{category: null, confidence: 0.0}` → service reports "no clothing item" | same | ~2.0 s |
+
+Contract tests: `backend/tests/test_nvidia_garment_vision_tier.py` (7 tests).
+Full backend suite after the change: **3144 passed, 20 skipped, 0 failed**.
+
+**Two secondary corrections shipped with it:**
+
+* `analyze_*` now skips `execute_with_resilience` when `GEMINI_API_KEY` is
+  absent. Retrying a provider that *cannot* be configured burned ~0.3 s of
+  sleep per upload and logged two misleading "provider failed" errors before
+  reaching the fallback chain.
+* `wardrobe_service` no longer tells the user "set GEMINI_API_KEY" — that
+  string was leaking an internal provider name into end-user UI and, now that
+  Gemini is one tier of four, it was simply wrong.
+
+**Still not done** — each needs a decision, so none was assumed:
+
+1. Wire `EMBEDDING` (needs a retrieval feature to exist first).
+2. Wire `BATCH_REASONING` / `CREATIVE_COPY` into brand reports and mood-board copy.
+3. Correct the two docs that still advertise LLaMA 3.1 70B.
+4. Decide on `kumo-relational` (key valid, model 404 on this account).

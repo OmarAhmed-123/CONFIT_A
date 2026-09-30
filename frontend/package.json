@@ -49,5 +49,8 @@
     "vite": "^8.2.2",
     "vitest": "^4.1.11",
     "vitest-axe": "^0.1.0"
+  },
+  "overrides": {
+    "undici": "^7.30.0"
   }
 }

@@ -300,10 +300,23 @@ class VisualSearchAIProvider(BaseProvider):
         self._qwen_provider = QwenVisionProvider()
 
     async def analyze_fashion_image(self, image_url_or_base64: str) -> Dict[str, Any]:
+        return await self._analyze(image_url_or_base64, self.VISION_PROMPT)
+
+    async def _analyze(self, image_url_or_base64: str, prompt: str) -> Dict[str, Any]:
+        """Single entry point for both vision consumers (§30: one call path).
+
+        When GEMINI_API_KEY is absent the primary can never succeed, so the
+        resilience wrapper is skipped entirely: retrying an unconfigurable
+        provider twice only burned ~0.3s of sleep per upload and logged two
+        misleading "provider failed" errors before reaching the fallback
+        chain. Skipping it is behaviour-identical and strictly faster.
+        """
+        if not settings.GEMINI_API_KEY:
+            return await self.fallback(image_url_or_base64, prompt=prompt)
         return await self.execute_with_resilience(
             self._call_gemini_vision,
             image_url_or_base64=image_url_or_base64,
-            prompt=self.VISION_PROMPT,
+            prompt=prompt,
         )
 
     # Group 4 — wardrobe auto-tagging. Same vision backend (Gemini Flash,
@@ -356,11 +369,7 @@ class VisualSearchAIProvider(BaseProvider):
         analysis_available=False — the service layer then marks the item
         failed/retryable instead of inventing tags.
         """
-        return await self.execute_with_resilience(
-            self._call_gemini_vision,
-            image_url_or_base64=image_url_or_base64,
-            prompt=self.WARDROBE_TAG_PROMPT,
-        )
+        return await self._analyze(image_url_or_base64, self.WARDROBE_TAG_PROMPT)
 
     async def _image_to_base64(self, ref: str) -> tuple[str, str]:
         """Returns (base64_data, mime_type). Downloads http(s) images with validation."""
@@ -417,16 +426,109 @@ class VisualSearchAIProvider(BaseProvider):
             parsed["analysis_source"] = settings.VISION_MODEL
             return parsed
 
+    async def _as_data_url(self, ref: str) -> str:
+        """Normalise any accepted image reference to a ``data:`` URL.
+
+        Reuses ``_image_to_base64`` (§30: one download/validation path) so the
+        SSRF guard, the MIME allow-list and the 15MB ceiling apply identically
+        no matter which tier consumes the image.
+        """
+        if ref.startswith("data:image"):
+            return ref
+        b64_data, mime = await self._image_to_base64(ref)
+        return f"data:{mime};base64,{b64_data}"
+
+    async def _call_nvidia_vision(self, image_url_or_base64: str, prompt: str) -> Optional[Dict[str, Any]]:
+        """Vision tier backed by ``ModelRole.GARMENT_VISION``.
+
+        WHY THIS TIER EXISTS
+        --------------------
+        Before this, every vision path in the product (Group 4 wardrobe
+        auto-tagging AND visual search) had exactly one working backend:
+        Gemini. The documented fallbacks were both conditional — the
+        self-hosted Qwen2.5-VL worker is a no-op unless ``QWEN_VL_WORKER_URL``
+        is set (it is unset in production, see MODEL_REGISTRY.json), and
+        UnoRouter needs its own key. So a Gemini outage or quota exhaustion
+        degraded Smart Wardrobe to ``analysis_available=False`` for every
+        upload, with nothing in between.
+
+        ``registry.py`` already had a MEASURED three-model GARMENT_VISION chain
+        and ``verify_nvidia_models.py --live`` passes on it, but NO caller
+        consumed the role — the routing table was inert for vision. This method
+        is that missing caller.
+
+        Returns ``None`` (never raises) when the tier cannot produce a usable
+        payload, so the caller simply moves to the next tier.
+        """
+        from backend.app.providers.nvidia import (
+            ImagePart,
+            ModelRole,
+            NvidiaNotConfigured,
+            NvidiaProviderError,
+            nvidia_client,
+        )
+
+        if not nvidia_client.configured:
+            logger.info("visual_search_nvidia_tier_not_configured")
+            return None
+
+        wardrobe_mode = prompt == self.WARDROBE_TAG_PROMPT
+        # The key the consumer branches on. wardrobe_service rejects
+        # category=None as "no clothing item"; visual search reads
+        # detected_category. A payload missing its key is unusable, not empty.
+        required_key = "category" if wardrobe_mode else "detected_category"
+
+        try:
+            data_url = await self._as_data_url(image_url_or_base64)
+        except (ValueError, httpx.HTTPError) as exc:
+            logger.warning("visual_search_nvidia_image_unreadable", detail=str(exc)[:200])
+            return None
+
+        try:
+            parsed = await nvidia_client.chat_json(
+                ModelRole.GARMENT_VISION,
+                user=prompt,
+                images=[ImagePart(url=data_url)],
+            )
+        except NvidiaNotConfigured:
+            return None
+        except NvidiaProviderError as exc:
+            # Chain already exhausted internally (all models + all keys).
+            logger.warning("visual_search_nvidia_tier_failed", detail=str(exc)[:300])
+            return None
+
+        if required_key not in parsed:
+            logger.warning(
+                "visual_search_nvidia_tier_unusable",
+                model=parsed.get("_model_id"),
+                missing=required_key,
+            )
+            return None
+
+        model_id = parsed.pop("_model_id", "unknown")
+        parsed.pop("_latency_s", None)
+        parsed["analysis_available"] = True
+        # Attribution is built from the model the endpoint actually SERVED,
+        # so the audit trail can never overstate which engine answered.
+        parsed["analysis_source"] = f"nvidia:{model_id}"
+        logger.info(
+            "visual_search_nvidia_tier_used",
+            model=model_id,
+            mode="wardrobe" if wardrobe_mode else "visual_search",
+        )
+        return parsed
+
     async def fallback(self, image_url_or_base64: str, **kwargs) -> Dict[str, Any]:
-        # Fallback order: (1) local self-hosted Qwen2.5-VL worker (when
-        # configured) -> (2) UnoRouter vision gateway (when configured)
-        # -> (3) honest degradation. No detection is ever fabricated.
+        # Fallback order: (1) NVIDIA NIM GARMENT_VISION chain (registry-routed,
+        # pooled keys, live-verified) -> (2) local self-hosted Qwen2.5-VL worker
+        # (when configured) -> (3) UnoRouter vision gateway (when configured)
+        # -> (4) honest degradation. No detection is ever fabricated.
         # Both consumers (visual search, Group 4 wardrobe auto-tagging)
         # check analysis_available first, so the unavailable payload
         # carries both key sets with null detections.
         honest_unavailable = {
             "analysis_available": False,
-            "analysis_source": "unavailable (set GEMINI_API_KEY)",
+            "analysis_source": "unavailable (no vision tier reachable)",
             "detected_category": None,
             "detected_color": None,
             "detected_pattern": None,
@@ -435,7 +537,15 @@ class VisualSearchAIProvider(BaseProvider):
             "category": None,
         }
 
-        # (1) Self-hosted Qwen2.5-VL worker
+        # (1) NVIDIA NIM — the only unconditional fallback. Needs no extra
+        # deployment, only the pooled credentials that already exist.
+        nvidia_result = await self._call_nvidia_vision(
+            image_url_or_base64, kwargs.get("prompt") or self.VISION_PROMPT
+        )
+        if nvidia_result is not None:
+            return nvidia_result
+
+        # (2) Self-hosted Qwen2.5-VL worker
         if self._qwen_provider.is_configured():
             prompt = kwargs.get("prompt") or self.VISION_PROMPT
             mode = "wardrobe" if prompt == self.WARDROBE_TAG_PROMPT else "visual_search"
@@ -453,7 +563,7 @@ class VisualSearchAIProvider(BaseProvider):
         else:
             logger.info("visual_search_local_fallback_not_configured")
 
-        # (2) UnoRouter vision gateway (free-tier multimodal models)
+        # (3) UnoRouter vision gateway (free-tier multimodal models)
         from backend.app.providers import unorouter_provider
         if unorouter_provider.is_configured():
             prompt = kwargs.get("prompt") or self.VISION_PROMPT
@@ -465,6 +575,6 @@ class VisualSearchAIProvider(BaseProvider):
             except unorouter_provider.UnoRouterError as exc:
                 logger.warning("visual_search_unorouter_fallback_failed", reason=exc.reason, detail=exc.message[:200])
 
-        # (3) Honest degradation
+        # (4) Honest degradation
         logger.info("visual_search_all_fallbacks_exhausted")
         return honest_unavailable

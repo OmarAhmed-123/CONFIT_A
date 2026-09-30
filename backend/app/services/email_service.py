@@ -81,6 +81,38 @@ def _connect():
     return client
 
 
+# ── Observed transport reality ───────────────────────────────────────────────
+# MEASURED ON PRODUCTION, 2026-09-30. With SMTP_* correctly configured the
+# capability probe reported `email_delivery: ready` while the relay was in
+# fact answering `525 5.7.1 Unauthorized IP address` to Vercel's egress IP.
+# `/auth/forgot-password` therefore answered 200 "reset instructions have been
+# sent" and nothing was sent — a worse state than the honest 501 it replaced.
+#
+# Configuration is a claim; a completed handshake is evidence. This records the
+# last OBSERVED verdict so the capability probe can report what actually
+# happened instead of what was configured. Written by BOTH the real send path
+# and the admin diagnostic, read by capability_service — one fact, two
+# reporters, no duplicated logic.
+#
+# Process-local and best-effort by design: serverless containers are
+# short-lived, so this is a fast truth-teller for a warm container, never a
+# durable store. A cold container simply has no observation yet and says so.
+_LAST_TRANSPORT: dict = {"observed": False}
+
+
+def record_transport_result(ok: bool, stage: str, detail: str, code=None) -> None:
+    """Remember what the relay actually did. Never raises."""
+    _LAST_TRANSPORT.update(
+        {"observed": True, "ok": bool(ok), "stage": stage,
+         "detail": (detail or "")[:300], "code": code, "at": time.time()}
+    )
+
+
+def last_transport_result() -> dict:
+    """The last observed verdict, or ``{"observed": False}`` if none yet."""
+    return dict(_LAST_TRANSPORT)
+
+
 def check_transport() -> dict:
     """Prove the relay will accept us — WITHOUT sending mail.
 
@@ -111,6 +143,7 @@ def check_transport() -> dict:
     if not settings.EMAIL_PROVIDER:
         return {"ok": False, "stage": "configuration",
                 "detail": "EMAIL_PROVIDER is unset", "code": None}
+    _record = record_transport_result
     try:
         _require_config()
     except EmailDeliveryError as exc:
@@ -120,6 +153,7 @@ def check_transport() -> dict:
     client = None
     try:
         client = _connect()
+        _record(True, "authenticated", "handshake accepted")
         return {
             "ok": True,
             "stage": "authenticated",
@@ -133,11 +167,13 @@ def check_transport() -> dict:
         # The interesting case: 525 5.7.1 means the credentials were fine and
         # the SOURCE IP was refused. Surfaced verbatim so the remediation is
         # obvious instead of being flattened into "auth failed".
+        _record(False, "authentication", _decode(exc.smtp_error), exc.smtp_code)
         return {"ok": False, "stage": "authentication", "code": exc.smtp_code,
                 "detail": _decode(exc.smtp_error),
                 "host": settings.SMTP_HOST, "port": int(settings.SMTP_PORT or 587),
                 "latency_ms": int((time.time() - started) * 1000)}
     except (smtplib.SMTPException, OSError) as exc:
+        _record(False, "connection", f"{type(exc).__name__}: {exc}", None)
         return {"ok": False, "stage": "connection",
                 "detail": f"{type(exc).__name__}: {exc}"[:300], "code": None,
                 "host": settings.SMTP_HOST, "port": int(settings.SMTP_PORT or 587),
@@ -171,14 +207,23 @@ def send_email(to: str, subject: str, html: str, text: Optional[str] = None) -> 
         try:
             client = _connect()
             client.send_message(msg)
+            # A completed send is the strongest possible evidence the
+            # transport works; record it so the capability probe can report
+            # observed reality instead of configuration.
+            record_transport_result(True, "sent", "message accepted by the relay")
             return {"message_id": msg["Message-ID"]}
         except smtplib.SMTPException as exc:  # relay spoke and refused
             logger.error(
                 "Email rejected by relay (attempt %s): %s", attempt, type(exc).__name__
             )
+            record_transport_result(
+                False, "send", f"{type(exc).__name__}: {exc}",
+                getattr(exc, "smtp_code", None),
+            )
             raise EmailDeliveryError(f"Relay rejected message: {type(exc).__name__}") from exc
         except Exception as exc:  # network / timeout / DNS — transient class
             last_error = exc
+            record_transport_result(False, "send", f"{type(exc).__name__}: {exc}", None)
             logger.warn(
                 "Email transport attempt %s failed: %s", attempt, str(exc)[:120]
             )

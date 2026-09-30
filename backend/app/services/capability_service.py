@@ -596,6 +596,8 @@ def _email_delivery_capability() -> Capability:
     lands in `degraded_capabilities`, which is visible, honest and actionable
     — and `detail` names the exact variables an operator must set.
     """
+    from backend.app.services.email_service import last_transport_result
+
     provider = (getattr(settings, "EMAIL_PROVIDER", "") or "").strip()
     if not provider:
         return Capability(
@@ -621,17 +623,49 @@ def _email_delivery_capability() -> Capability:
             criticality=CRITICALITY_SUPPORTING,
             detail=f"EMAIL_PROVIDER={provider} but {', '.join(missing)} missing",
         )
-    # Configured is not the same as proven: no mail is sent to probe this, so
-    # the honest verdict is "wired", not "delivering". A send-probe would mail
-    # a real recipient on every health check.
+    # OBSERVED REALITY BEATS CONFIGURATION (measured on production 2026-09-30).
+    # With SMTP_* correctly set this branch reported `ready` while the relay
+    # was answering `525 5.7.1 Unauthorized IP address` to Vercel's egress IP,
+    # so /auth/forgot-password returned 200 "instructions have been sent" and
+    # nothing was sent. Configuration is a claim; a completed handshake or a
+    # completed send is evidence. email_service records the last observed
+    # verdict from BOTH the real send path and the admin diagnostic.
+    observed = last_transport_result()
+    if observed.get("observed") and not observed.get("ok"):
+        return Capability(
+            name="email_delivery",
+            state=STATE_BLOCKED,
+            criticality=CRITICALITY_SUPPORTING,
+            detail=(
+                f"configured, but the last OBSERVED attempt failed at "
+                f"{observed.get('stage')}: {observed.get('detail')}"
+                + (f" (relay code {observed['code']})" if observed.get("code") else "")
+                + ". Password reset and email verification are not being "
+                  "delivered. Run GET /admin/diagnostics/email after fixing"
+            ),
+        )
+    if observed.get("observed") and observed.get("ok"):
+        return Capability(
+            name="email_delivery",
+            state=STATE_READY,
+            criticality=CRITICALITY_SUPPORTING,
+            detail=(
+                f"DELIVERY-VERIFIED: last observed attempt succeeded at "
+                f"{observed.get('stage')} (provider={provider})"
+            ),
+        )
+    # No observation yet (cold container). Configured is not the same as
+    # proven, and saying so is the only honest option: a send-probe on every
+    # health check would mail a real recipient every 15 minutes.
     return Capability(
         name="email_delivery",
         state=STATE_READY,
         criticality=CRITICALITY_SUPPORTING,
         detail=(
             f"SMTP transport configured (provider={provider}, host set). "
-            "Configuration-verified, not delivery-verified: health checks do "
-            "not send mail"
+            "Configuration-verified, not delivery-verified: no send or "
+            "handshake observed yet in this process. Run "
+            "GET /admin/diagnostics/email to confirm"
         ),
     )
 

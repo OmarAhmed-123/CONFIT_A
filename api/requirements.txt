@@ -60,3 +60,5 @@ botocore>=1.35.0
 # PDF generation for brand product/sales reports (pure-Python, no system deps,
 # which matters on serverless where native libraries like cairo are unavailable).
 reportlab==5.0.1
+# Error tracking — GlitchTip is Sentry-SDK compatible (backend/app/core/error_tracking.py)
+sentry-sdk[fastapi]==2.20.0

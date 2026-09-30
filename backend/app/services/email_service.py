@@ -242,6 +242,111 @@ def send_email(to: str, subject: str, html: str, text: Optional[str] = None) -> 
 # Templates — bilingual (the product is EN/AR); links point at the SPA.
 # ---------------------------------------------------------------------------
 
+def render_platform_test_email(recipient_note: str = "") -> tuple[str, str, str]:
+    """The operator-triggered deliverability proof.
+
+    Deliberately NOT a marketing template: its job is to be evidence that the
+    whole chain works — relay auth, sender acceptance, DKIM/SPF, HTML and
+    plain-text parts, RTL Arabic rendering and inbox placement. So it states
+    what it is, carries no tracking pixel and asks for nothing.
+
+    Bilingual because the product is EN/AR and a template that renders only
+    one of them is half-tested.
+    """
+    subject = "CONFIT — email delivery verified / تم التحقق من إرسال البريد"
+    text = (
+        "CONFIT — transactional email is live\n"
+        "=====================================\n\n"
+        f"{recipient_note}\n\n"
+        "This message was sent by the CONFIT platform itself, from production,\n"
+        "through its configured SMTP relay. It is the first transactional email\n"
+        "the platform has successfully delivered.\n\n"
+        "What this proves:\n"
+        "  - the relay accepted our credentials and our sending IP\n"
+        "  - the sender address was accepted\n"
+        "  - HTML and plain-text alternatives both render\n"
+        "  - Arabic (RTL) content survives transport\n\n"
+        "What it unlocks: password reset, email verification and order\n"
+        "notifications, all of which were previously refused with an honest\n"
+        "HTTP 501 rather than pretending to send.\n\n"
+        "-----------------------------------------------------------------\n"
+        "CONFIT — تم تفعيل البريد\n\n"
+        "تم إرسال هذه الرسالة من منصة CONFIT نفسها، من بيئة الإنتاج، عبر خادم\n"
+        "البريد المهيّأ لها. هذه أول رسالة بريد تعاملية تنجح المنصة في تسليمها.\n\n"
+        "ما تثبته: قبول بيانات الاعتماد وعنوان الإرسال، وسلامة المحتوى\n"
+        "بالإنجليزية والعربية.\n\n"
+        "وما تفتحه: إعادة تعيين كلمة المرور، وتأكيد البريد، وإشعارات الطلبات.\n\n"
+        "-----------------------------------------------------------------\n"
+        "This is an automated message. No action is required.\n"
+        "رسالة آلية — لا يلزم اتخاذ أي إجراء.\n"
+    )
+    html = (
+        '<!DOCTYPE html><html><head><meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width,initial-scale=1"></head>'
+        '<body style="margin:0;padding:0;background:#FDF8EE;'
+        'font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif;">'
+        '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
+        'style="background:#FDF8EE;padding:32px 16px;"><tr><td align="center">'
+        '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
+        'style="max-width:600px;background:#ffffff;border-radius:14px;overflow:hidden;'
+        'border:1px solid #EADFC8;">'
+        # header
+        '<tr><td style="background:#1B1F3B;padding:28px 32px;">'
+        '<div style="color:#C9A227;font-size:12px;letter-spacing:3px;'
+        'text-transform:uppercase;font-weight:700;">CONFIT</div>'
+        '<div style="color:#ffffff;font-size:21px;font-weight:600;margin-top:6px;">'
+        'Transactional email is live</div>'
+        '<div style="color:#B9BEd6;font-size:13px;margin-top:4px;">'
+        'Where Style Meets Your Character in Every Moment</div>'
+        '</td></tr>'
+        # english body
+        '<tr><td style="padding:30px 32px 8px 32px;color:#1B1F3B;">'
+        f'<p style="margin:0 0 16px 0;font-size:15px;line-height:1.65;">{recipient_note}</p>'
+        '<p style="margin:0 0 16px 0;font-size:15px;line-height:1.65;">'
+        'This message was sent by the CONFIT platform itself, from '
+        '<strong>production</strong>, through its configured SMTP relay. It is the '
+        'first transactional email the platform has successfully delivered.</p>'
+        '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
+        'style="background:#FDF8EE;border-left:3px solid #C9A227;border-radius:6px;'
+        'margin:18px 0;"><tr><td style="padding:16px 18px;">'
+        '<div style="font-size:12px;font-weight:700;letter-spacing:1.5px;'
+        'text-transform:uppercase;color:#7A5C28;margin-bottom:10px;">What this proves</div>'
+        '<div style="font-size:14px;line-height:1.9;color:#1B1F3B;">'
+        '&#10003; the relay accepted our credentials and our sending IP<br>'
+        '&#10003; the sender address was accepted<br>'
+        '&#10003; HTML and plain-text alternatives both render<br>'
+        '&#10003; Arabic (RTL) content survives transport</div>'
+        '</td></tr></table>'
+        '<p style="margin:0 0 22px 0;font-size:15px;line-height:1.65;">'
+        'It unlocks <strong>password reset</strong>, <strong>email verification</strong> '
+        'and <strong>order notifications</strong> — all of which were previously refused '
+        'with an honest <code style="background:#F2EEE4;padding:1px 5px;border-radius:3px;'
+        'font-size:13px;">HTTP 501</code> rather than pretending to send.</p>'
+        '</td></tr>'
+        # divider
+        '<tr><td style="padding:0 32px;"><div style="height:1px;background:#EADFC8;"></div></td></tr>'
+        # arabic body
+        '<tr><td dir="rtl" lang="ar" style="padding:24px 32px 10px 32px;color:#1B1F3B;'
+        'text-align:right;">'
+        '<div style="font-size:17px;font-weight:600;margin-bottom:12px;">تم تفعيل البريد</div>'
+        '<p style="margin:0 0 14px 0;font-size:15px;line-height:1.9;">'
+        'أُرسلت هذه الرسالة من منصة CONFIT نفسها، من بيئة الإنتاج، عبر خادم البريد '
+        'المهيّأ لها. وهي أول رسالة بريد تعاملية تنجح المنصة في تسليمها.</p>'
+        '<p style="margin:0 0 20px 0;font-size:15px;line-height:1.9;">'
+        'تفتح هذه الخطوة: إعادة تعيين كلمة المرور، وتأكيد البريد الإلكتروني، '
+        'وإشعارات الطلبات.</p>'
+        '</td></tr>'
+        # footer
+        '<tr><td style="background:#FAF7F0;padding:18px 32px;border-top:1px solid #EADFC8;">'
+        '<div style="font-size:12px;color:#7A7E92;line-height:1.7;">'
+        'This is an automated message. No action is required.<br>'
+        '<span dir="rtl">رسالة آلية — لا يلزم اتخاذ أي إجراء.</span></div>'
+        '</td></tr>'
+        '</table></td></tr></table></body></html>'
+    )
+    return subject, html, text
+
+
 def render_password_reset_email(full_name: str, reset_url: str) -> tuple[str, str, str]:
     subject = "Reset your CONFIT password / إعادة تعيين كلمة المرور"
     text = (

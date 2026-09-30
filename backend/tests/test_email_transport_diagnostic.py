@@ -197,3 +197,44 @@ def test_a_real_send_failure_also_updates_the_observation(monkeypatch):
     observed = email_service.last_transport_result()
     assert observed["observed"] is True and observed["ok"] is False
     assert observed["stage"] == "send"
+
+
+# ── the admin send-test endpoint ─────────────────────────────────────────────
+
+def test_send_test_endpoint_requires_admin(client):
+    r = client.post("/api/v1/admin/diagnostics/email/test",
+                    json={"to": "someone@example.test"})
+    assert r.status_code in (401, 403)
+
+
+def test_send_test_rejects_a_caller_chosen_subject_or_body(client):
+    """An admin endpoint that lets the caller pick subject+HTML is an open
+    relay wearing an auth check. extra='forbid' makes that impossible."""
+    from backend.app.controllers.admin_controller import EmailTestRequest
+    import pydantic
+
+    with pytest.raises(pydantic.ValidationError):
+        EmailTestRequest(to="a@b.test", subject="Free money", html="<p>spam</p>")
+
+
+def test_send_test_validates_the_recipient():
+    from backend.app.controllers.admin_controller import EmailTestRequest
+    import pydantic
+
+    with pytest.raises(pydantic.ValidationError):
+        EmailTestRequest(to="not-an-email")
+
+
+def test_launch_template_is_bilingual_and_has_both_parts():
+    from backend.app.services.email_service import render_platform_test_email
+
+    subject, html, text = render_platform_test_email("note here")
+    assert subject and html and text
+    # Arabic present in both alternatives — a template that renders only one
+    # language is half-tested in an EN/AR product.
+    assert any("\u0600" <= ch <= "\u06FF" for ch in html)
+    assert any("\u0600" <= ch <= "\u06FF" for ch in text)
+    assert 'dir="rtl"' in html
+    assert "note here" in html and "note here" in text
+    # No tracking pixel in an operational proof email.
+    assert "<img" not in html.lower()

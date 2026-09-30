@@ -1,11 +1,13 @@
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, Query, Request, status
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from backend.app.core.database import get_db
+from backend.app.core.rate_limit import limiter
 from backend.app.core.dependencies import require_role, require_admin_recent
 from backend.app.core.exceptions import ResourceNotFoundError, ValidationDomainError
 from backend.app.core.timeutils import TimeRange, TimeRangeError
@@ -88,6 +90,76 @@ def _audit_read(request: Request, db: Session, user: User, action: str,
         commit=commit,
     )
 
+
+
+class EmailTestRequest(BaseModel):
+    """Deliberately minimal: one recipient, no subject/body override.
+
+    An admin endpoint that lets a caller choose the SUBJECT and HTML would be
+    an open relay wearing an auth check — anyone who compromised one admin
+    session could send arbitrary branded mail from the company domain. The
+    template is fixed in email_service; only the destination is a parameter.
+    """
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    to: EmailStr
+    note: str = Field("", max_length=200)
+
+
+@router.post("/diagnostics/email/test", status_code=status.HTTP_202_ACCEPTED)
+@limiter.limit("5/hour")
+def send_test_email(
+    request: Request,
+    payload: EmailTestRequest,
+    user: User = Depends(require_admin_recent(max_age_minutes=60)),
+    db: Session = Depends(get_db),
+):
+    """Send ONE real email through the production transport.
+
+    The handshake diagnostic proves the relay will talk to us; only an actual
+    delivery proves the sender address is accepted, DKIM/SPF pass and the
+    message reaches an inbox rather than a spam folder. Those are different
+    failures and the second cannot be inferred from the first.
+
+    Controls, because this endpoint can email a stranger:
+      * admin-only with a 60-minute re-auth window
+      * 5/hour rate limit — enough to debug, useless for sending campaigns
+      * fixed template (see EmailTestRequest) — the caller picks the
+        destination, never the content
+      * audited with the recipient recorded, so a misuse is attributable
+      * the real send path (email_service.send_email), so a success here
+        means password-reset mail will work, not merely that this endpoint does
+
+    A delivery failure is returned as a 502 with the relay's own words — the
+    caller asked whether mail works, and "it did not" is the honest answer.
+    """
+    from backend.app.services.email_service import (
+        EmailDeliveryError,
+        render_platform_test_email,
+        send_email,
+    )
+
+    note = payload.note or (
+        "Sent by CONFIT production at an administrator's request, to verify "
+        "end-to-end email delivery."
+    )
+    subject, html, text = render_platform_test_email(note)
+    try:
+        result = send_email(payload.to, subject, html, text)
+    except EmailDeliveryError as exc:
+        _audit_admin(request, db, user, "ADMIN_EMAIL_TEST_FAILED", "EmailTransport",
+                     payload.to, None, {"error": str(exc)[:200]})
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail={"code": "EMAIL_DELIVERY_FAILED", "message": str(exc)[:300]},
+        )
+    _audit_admin(request, db, user, "ADMIN_EMAIL_TEST_SENT", "EmailTransport",
+                 payload.to, None, {"message_id": result.get("message_id")})
+    return {
+        "delivered": True,
+        "to": payload.to,
+        "message_id": result.get("message_id"),
+        "detail": "Accepted by the relay. Inbox placement depends on SPF/DKIM/DMARC.",
+    }
 
 
 @router.get("/diagnostics/email")

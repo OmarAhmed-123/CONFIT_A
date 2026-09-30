@@ -151,17 +151,53 @@ def test_full_lifecycle_upload_edit_outfit_gap_delete(client, broker_down, visio
     gap_cats = {g["missing_category"] for g in res.json()}
     assert gap_cats == {"Outerwear", "Accessories"}
 
-    # DELETE: DB row and the stored object both go away
+    # DELETE — CONTRACT CHANGED 2026-09-30 (migration 0030, Undo spec).
+    # This block previously asserted "delete must remove the stored object".
+    # That was the correct assertion for the OLD behaviour and it is exactly
+    # what made an honest Undo impossible: the row was hard-deleted and the
+    # user's photograph was destroyed in the same call, so nothing could be
+    # restored. The assertion is not weakened here — it is MOVED to the
+    # permanent path, and the reversible path gains the stronger guarantee
+    # that the image SURVIVES so a restore returns the real photo.
     stored_url = client.get(f"/api/v1/wardrobe/items/{uploaded['id']}", headers=headers) \
         .json()["image_url"]
+    local_path = (
+        os.path.join("backend", "data", "uploads", stored_url[len("/uploads/"):])
+        if stored_url.startswith("/uploads/") else None
+    )
+
+    # 1. Reversible delete: hidden from the list, row and image both kept.
     res = client.delete(f"/api/v1/wardrobe/items/{uploaded['id']}", headers=headers)
     assert res.status_code == 200
+    body = res.json()
+    assert body["undoable"] is True and body["permanent"] is False
+    assert body["restore_endpoint"].endswith(f"/wardrobe/items/{uploaded['id']}/restore")
     remaining = client.get("/api/v1/wardrobe/items", headers=headers).json()
     assert all(it["id"] != uploaded["id"] for it in remaining)
-    if stored_url.startswith("/uploads/"):
-        # Local dev backend root (STORAGE_LOCAL_DIR default, relative to CWD).
-        local_path = os.path.join("backend", "data", "uploads", stored_url[len("/uploads/"):])
-        assert not os.path.exists(local_path), "delete must remove the stored object"
+    if local_path:
+        assert os.path.exists(local_path), (
+            "a reversible delete must KEEP the photograph, or Undo returns a "
+            "broken thumbnail"
+        )
+
+    # 2. Undo actually restores it — through the real endpoint, not local state.
+    res = client.post(f"/api/v1/wardrobe/items/{uploaded['id']}/restore", headers=headers)
+    assert res.status_code == 200 and res.json()["status"] == "restored"
+    back = client.get("/api/v1/wardrobe/items", headers=headers).json()
+    assert [it["id"] for it in back].count(uploaded["id"]) == 1, "no duplicates after restore"
+
+    # 3. Permanent delete: NOW the row and the stored object both go away.
+    res = client.delete(
+        f"/api/v1/wardrobe/items/{uploaded['id']}?permanent=true", headers=headers
+    )
+    assert res.status_code == 200 and res.json()["undoable"] is False
+    assert client.get(f"/api/v1/wardrobe/items/{uploaded['id']}", headers=headers).status_code == 404
+    if local_path:
+        assert not os.path.exists(local_path), "permanent delete must remove the stored object"
+
+    # 4. Undo after a permanent delete must FAIL, not pretend.
+    res = client.post(f"/api/v1/wardrobe/items/{uploaded['id']}/restore", headers=headers)
+    assert res.status_code == 404
 
 
 def test_upload_report_and_listing_consistent_after_failure(client, monkeypatch):

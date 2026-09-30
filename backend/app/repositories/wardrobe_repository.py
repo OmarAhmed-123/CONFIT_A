@@ -1,7 +1,21 @@
 import json
 from typing import Optional, List, Dict, Any
+from datetime import datetime, timedelta, timezone
+
 from sqlalchemy.orm import Session
 from backend.app.models.wardrobe import WardrobeItem, WardrobeGapAnalysis
+
+
+def live(query):
+    """Restrict a WardrobeItem query to items that are NOT in the bin.
+
+    ONE definition of "live", applied by every read path. A second copy of
+    `deleted_at IS NULL` in a service or controller is how a binned item
+    eventually reappears on one screen and not another — the acceptance
+    criterion "no duplicates in the list" is really a single-source-of-truth
+    requirement.
+    """
+    return query.filter(WardrobeItem.deleted_at.is_(None))
 
 
 class WardrobeRepository:
@@ -9,23 +23,48 @@ class WardrobeRepository:
         self.db = db
 
     def get_user_items(self, user_id: int, category: Optional[str] = None) -> List[WardrobeItem]:
-        query = self.db.query(WardrobeItem).filter(WardrobeItem.user_id == user_id)
+        query = live(self.db.query(WardrobeItem).filter(WardrobeItem.user_id == user_id))
         if category and category.lower() != "all":
             query = query.filter(WardrobeItem.category.ilike(category))
         return query.order_by(WardrobeItem.created_at.desc()).all()
 
     def get_item_by_id(self, item_id: int, user_id: int) -> Optional[WardrobeItem]:
-        return self.db.query(WardrobeItem).filter(WardrobeItem.id == item_id, WardrobeItem.user_id == user_id).first()
+        """A LIVE item. Binned items are invisible to every normal read, which
+        is what makes the bin safe: nothing downstream can accidentally style,
+        export or analyse something the user deleted."""
+        return live(
+            self.db.query(WardrobeItem).filter(
+                WardrobeItem.id == item_id, WardrobeItem.user_id == user_id
+            )
+        ).first()
 
-    def get_item_by_image_hash(self, user_id: int, image_hash: str) -> Optional[WardrobeItem]:
+    def get_binned_item_by_id(self, item_id: int, user_id: int) -> Optional[WardrobeItem]:
+        """The explicit opposite, for restore and permanent delete only."""
+        return (
+            self.db.query(WardrobeItem)
+            .filter(
+                WardrobeItem.id == item_id,
+                WardrobeItem.user_id == user_id,
+                WardrobeItem.deleted_at.isnot(None),
+            )
+            .first()
+        )
+
+    def get_item_by_image_hash(self, user_id: int, image_hash: str,
+                               include_binned: bool = False) -> Optional[WardrobeItem]:
         """Duplicate-upload protection: same owner + same bytes = same item.
         Always scoped to the caller — one user's upload can never match or
         leak another user's image hash."""
-        return (
-            self.db.query(WardrobeItem)
-            .filter(WardrobeItem.user_id == user_id, WardrobeItem.image_hash == image_hash)
-            .first()
+        query = self.db.query(WardrobeItem).filter(
+            WardrobeItem.user_id == user_id, WardrobeItem.image_hash == image_hash
         )
+        # `include_binned` exists for ONE caller: the upload path. The unique
+        # index on (user_id, image_hash) is still enforced against binned
+        # rows, so re-uploading a photo that is sitting in the bin would raise
+        # IntegrityError and surface as a 500. The upload path looks for the
+        # binned row and revives it instead — one row per (user, image) at all
+        # times, which is the invariant the constraint actually protects.
+        return (query if include_binned else live(query)).first()
 
     def get_item_by_source_order_item(self, order_item_id: int) -> Optional[WardrobeItem]:
         """FLOW E idempotency read: the wardrobe piece synchronised from a
@@ -96,8 +135,42 @@ class WardrobeRepository:
         self.db.refresh(item)
         return item
 
-    def delete_item(self, item: WardrobeItem) -> None:
+    def soft_delete_item(self, item: WardrobeItem) -> WardrobeItem:
+        """Move to the bin. The row and its stored image both survive."""
+        item.deleted_at = datetime.now(timezone.utc)
+        self.db.commit()
+        self.db.refresh(item)
+        return item
+
+    def restore_item(self, item: WardrobeItem) -> WardrobeItem:
+        item.deleted_at = None
+        self.db.commit()
+        self.db.refresh(item)
+        return item
+
+    def purge_item(self, item: WardrobeItem) -> None:
+        """Irreversible row removal. Callers must delete the stored image
+        themselves — the repository does not reach into object storage."""
         self.db.delete(item)
+        self.db.commit()
+
+    def expired_binned_items(self, user_id: int, retention: timedelta) -> List[WardrobeItem]:
+        """Binned items whose grace window has elapsed.
+
+        Returned rather than deleted here so the caller can remove the stored
+        image in the same unit of work; a repository that silently called out
+        to S3 would be doing two jobs.
+        """
+        cutoff = datetime.now(timezone.utc) - retention
+        return (
+            self.db.query(WardrobeItem)
+            .filter(
+                WardrobeItem.user_id == user_id,
+                WardrobeItem.deleted_at.isnot(None),
+                WardrobeItem.deleted_at < cutoff,
+            )
+            .all()
+        )
         self.db.commit()
 
     def get_gap_analyses(self, user_id: int) -> List[WardrobeGapAnalysis]:

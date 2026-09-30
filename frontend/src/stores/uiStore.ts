@@ -50,6 +50,10 @@ interface UIState {
     message: TranslatableMessage;
     type: "success" | "error" | "info";
     id: string;
+    /** Optional recovery action (Undo). The store holds the handler; the
+     *  component resolves the LABEL, because only the render boundary has
+     *  t() and therefore the user's active language. */
+    action?: { labelKey: string; onAction: () => void } | null;
   } | null;
 
   // Language — MIRROR of the i18next instance, never a second source of
@@ -68,7 +72,7 @@ interface UIState {
   closeStylist: () => void;
   openAuthModal: (mode?: "login" | "register") => void;
   closeAuthModal: () => void;
-  showToast: (message: TranslatableMessage, type?: "success" | "error" | "info") => void;
+  showToast: (message: TranslatableMessage, type?: "success" | "error" | "info", action?: { labelKey: string; onAction: () => void } | null) => void;
   hideToast: () => void;
   setLanguage: (lang: AppLanguage) => void;
 }
@@ -114,7 +118,7 @@ export const useUIStore = create<UIState>((set) => ({
     set({ isAuthModalOpen: true, authModalMode: mode }),
   closeAuthModal: () => set({ isAuthModalOpen: false }),
 
-  showToast: (message, type = "info") => {
+  showToast: (message, type = "info", action = null) => {
     const now = Date.now();
     // Debounce duplicate messages within 1.5 seconds. Identity is the
     // key+params pair, so the same key with different values still shows.
@@ -128,12 +132,16 @@ export const useUIStore = create<UIState>((set) => ({
     if (toastTimer) clearTimeout(toastTimer);
 
     const toastId = `toast_${now}_${Math.random().toString(36).substring(2, 7)}`;
-    set({ toast: { message, type, id: toastId } });
+    set({ toast: { message, type, id: toastId, action } });
 
+    // An Undo toast lives longer: 4s is enough to READ a confirmation but not
+    // to decide you regret a deletion and move the pointer to the button.
+    // It is still a display duration, NOT a promise about the server-side
+    // grace window — the backend owns that and returns `restorable_until`.
     toastTimer = setTimeout(() => {
       set({ toast: null });
       toastTimer = null;
-    }, 4000);
+    }, action ? 9000 : 4000);
   },
 
   hideToast: () => {

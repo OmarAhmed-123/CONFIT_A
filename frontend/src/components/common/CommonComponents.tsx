@@ -9,7 +9,14 @@ export const Toast: React.FC<{
   message: TranslatableMessage;
   type?: 'success' | 'error' | 'info';
   onClose: () => void;
-}> = ({ message, type = 'info', onClose }) => {
+  /**
+   * Optional recovery action (Undo). Extended here rather than as a separate
+   * UndoToast so there is ONE aria-live region, one dismiss control and one
+   * set of logical-direction classes; a forked component is how the Arabic
+   * layout drifts from the English one.
+   */
+  action?: { label: string; onAction: () => void } | null;
+}> = ({ message, type = 'info', onClose, action = null }) => {
   const { t } = useTranslation();
   const bgClass =
     type === 'success'
@@ -32,6 +39,18 @@ export const Toast: React.FC<{
       >
         <span className="w-2 h-2 rounded-full shrink-0 bg-[#C5A059] animate-pulse" aria-hidden="true" />
         <span className="text-xs font-medium tracking-wide leading-relaxed">{text}</span>
+        {action ? (
+          <button
+            type="button"
+            onClick={() => { action.onAction(); onClose(); }}
+            /* min-h/min-w 44px: the spec's touch target floor. The visible
+               pill is smaller, so the tap area is grown rather than the
+               label, keeping the toast compact on a 390px screen. */
+            className="ms-1 shrink-0 min-h-[44px] min-w-[44px] px-3 inline-flex items-center justify-center rounded-xl border border-[#C5A059]/50 text-[#E9D8A6] hover:bg-[#C5A059]/15 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[#C5A059] text-xs font-semibold tracking-wide transition-colors"
+          >
+            {action.label}
+          </button>
+        ) : null}
         <button
           onClick={onClose}
           className="text-slate-400 hover:text-white text-xs ms-auto ps-2 transition-colors"

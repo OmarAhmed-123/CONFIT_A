@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { request } from "./apiClient";
 import type { CurrencyCatalog } from "../lib/currency";
 import {
@@ -806,6 +807,30 @@ export interface WardrobeFirstOutfit {
   message: string;
 }
 
+/**
+ * Response contracts for reversible deletion, validated with zod because the
+ * Undo affordance is rendered FROM this payload: a missing `undoable` or a
+ * malformed `restorable_until` must fail loudly here rather than render an
+ * Undo button that cannot work.
+ */
+const wardrobeDeleteSchema = z.object({
+  status: z.string(),
+  permanent: z.boolean(),
+  undoable: z.boolean(),
+  item_id: z.number(),
+  message: z.string().optional(),
+  deleted_at: z.string().optional(),
+  restorable_until: z.string().optional(),
+  restore_endpoint: z.string().optional(),
+});
+export type WardrobeDeleteResult = z.infer<typeof wardrobeDeleteSchema>;
+
+const wardrobeRestoreSchema = z.object({
+  item_id: z.number(),
+  status: z.literal("restored"),
+  detail: z.string().optional(),
+});
+
 export const wardrobeService = {
   getItems: (category?: string) => {
     const q = category && category !== "All" ? `?category=${category}` : "";
@@ -824,10 +849,27 @@ export const wardrobeService = {
       body: JSON.stringify(data),
     }),
 
-  deleteItem: (itemId: number) =>
-    request<{ status: string }>(`/wardrobe/items/${itemId}`, {
-      method: "DELETE",
-    }),
+  /**
+   * Reversible delete. The item goes to a server-side bin and the response
+   * carries the REAL undo contract — `restorable_until` is a deadline the
+   * backend owns, not a guess the UI invents.
+   *
+   * `permanent: true` is the separate, explicitly-confirmed destructive path
+   * (row AND stored photograph). It is opt-in so an older client that omits
+   * the flag keeps the SAFE behaviour.
+   */
+  deleteItem: (itemId: number, permanent = false) =>
+    request<unknown>(
+      `/wardrobe/items/${itemId}${permanent ? "?permanent=true" : ""}`,
+      { method: "DELETE" },
+    ).then((raw) => wardrobeDeleteSchema.parse(raw)),
+
+  /** Undo a reversible delete. 404 when the window has passed — the caller
+   *  must surface that rather than pretend the item came back. */
+  restoreItem: (itemId: number) =>
+    request<unknown>(`/wardrobe/items/${itemId}/restore`, {
+      method: "POST",
+    }).then((raw) => wardrobeRestoreSchema.parse(raw)),
 
   getGapAnalysis: () => request<GapAnalysisItem[]>("/wardrobe/gap-analysis"),
 

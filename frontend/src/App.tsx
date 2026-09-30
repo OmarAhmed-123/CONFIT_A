@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { BrowserRouter } from 'react-router-dom';
@@ -13,6 +14,7 @@ import './i18n/i18n';
 import { CatalogFreshness } from "./components/common/CatalogFreshness";
 
 export const App: React.FC = () => {
+  const { t } = useTranslation();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const user = useAuthStore((s) => s.user);
   const fetchMe = useAuthStore((s) => s.fetchMe);
@@ -66,7 +68,21 @@ export const App: React.FC = () => {
         <CatalogFreshness />
         <AppRoutes />
         <AuthModal />
-        {toast && <Toast message={toast.message} type={toast.type} onClose={hideToast} />}
+        {toast && (
+          <Toast
+            message={toast.message}
+            type={toast.type}
+            onClose={hideToast}
+            /* The store holds the handler; the LABEL is translated here,
+               because only the render boundary has t() and therefore the
+               user's active language. */
+            action={
+              toast.action
+                ? { label: t(toast.action.labelKey), onAction: toast.action.onAction }
+                : null
+            }
+          />
+        )}
       </BrowserRouter>
       {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}
     </QueryClientProvider>

@@ -116,18 +116,54 @@ class PresentationCurrency:
             return float(quantize_money(dec))
         return float(quantize_money(dec / self.rate))
 
-    def convert(self, amount: Any) -> Optional[float]:
+    def factor_from(self, source_currency: Optional[str]) -> Decimal:
+        """Conversion factor FROM ``source_currency`` INTO this currency.
+
+        DEFECT THIS FIXES — found in production, 2026-09-30, caused by the
+        first cut of this very module. ``commerce_service`` ALREADY converts
+        cart money through ``MarketSettlement`` before returning it. That
+        conversion had been a silent no-op for as long as ``MARKET_FX_RATES``
+        was empty; the moment real rates were configured it woke up, and a
+        presentation layer that blindly converted "from the price book"
+        converted a SECOND time. Measured on production: a 180.00 USD line
+        rendered as 488,444.65 EGP (180 x 52.09 x 52.09).
+
+        The fix is to stop assuming the input denomination. A payload states
+        its own currency, and converting from THAT is idempotent: it does not
+        matter whether an upstream layer already converted, and any number of
+        presentation passes produce the same answer. Composability here is a
+        correctness property, not a nicety.
+        """
+        source = (source_currency or "").strip().upper() or self.pricing_currency
+        if source == self.code:
+            return Decimal("1")
+        rates = dict(_Registry.fx_rates())
+        rates[self.pricing_currency] = Decimal("1")
+        src_rate = rates.get(source)
+        dst_rate = rates.get(self.code)
+        if src_rate is None or dst_rate is None or src_rate <= 0:
+            # An unknown denomination is not a licence to guess. Leaving the
+            # amount untouched keeps it consistent with the label already on
+            # it, which is the only honest option.
+            return Decimal("1")
+        return dst_rate / src_rate
+
+    def convert(self, amount: Any, source_currency: Optional[str] = None) -> Optional[float]:
         """Convert one money value, preserving ``None`` as ``None``.
 
         ``None`` means "no such price" (e.g. no prior price to advertise);
         turning it into 0.0 would invent a free product.
+
+        ``source_currency`` defaults to the price book. Callers that know the
+        payload's real denomination MUST pass it — see ``factor_from``.
         """
         if amount is None:
             return None
         dec = to_decimal(amount, field="presentation_amount")
-        if not self.converted:
+        factor = self.factor_from(source_currency)
+        if factor == 1:
             return float(quantize_money(dec))
-        return float(quantize_money(dec * self.rate))
+        return float(quantize_money(dec * factor))
 
 
 def supported_currencies() -> List[Dict[str, Any]]:
@@ -203,7 +239,8 @@ def resolve_presentation(
     )
 
 
-def present(payload: Any, presentation: PresentationCurrency) -> Any:
+def present(payload: Any, presentation: PresentationCurrency,
+            source_currency: Optional[str] = None) -> Any:
     """Recursively convert declared money fields and restamp currency labels.
 
     Applied to the SERIALISED payload, so it works identically for a dict, a
@@ -215,18 +252,29 @@ def present(payload: Any, presentation: PresentationCurrency) -> Any:
     we are removing is a label that disagrees with the numbers beside it.
     """
     if isinstance(payload, list):
-        return [present(item, presentation) for item in payload]
+        return [present(item, presentation, source_currency) for item in payload]
     if not isinstance(payload, (dict, Mapping)):
         return payload
+
+    # A payload that declares its own currency is the authority on what its
+    # numbers mean. Inheriting the enclosing declaration keeps nested items
+    # (cart lines inside a cart) consistent with their parent.
+    declared = None
+    for key in _CURRENCY_KEYS:
+        value = payload.get(key)
+        if isinstance(value, str) and value.strip():
+            declared = value.strip().upper()
+            break
+    source = declared or source_currency
 
     out: Dict[str, Any] = {}
     for key, value in payload.items():
         if key in MONEY_FIELDS and isinstance(value, (int, float, str, Decimal)) and not isinstance(value, bool):
-            out[key] = presentation.convert(value)
+            out[key] = presentation.convert(value, source)
         elif key in _CURRENCY_KEYS and isinstance(value, str):
             out[key] = presentation.code
         elif isinstance(value, (dict, list, Mapping)):
-            out[key] = present(value, presentation)
+            out[key] = present(value, presentation, source)
         else:
             out[key] = value
     return out

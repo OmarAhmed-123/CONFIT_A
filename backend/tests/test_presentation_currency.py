@@ -182,3 +182,54 @@ def test_product_schema_money_fields_are_all_declared():
     }
     missing = money_like - pp.MONEY_FIELDS
     assert not missing, f"money fields not registered in MONEY_FIELDS: {sorted(missing)}"
+
+
+# ── idempotence (the production defect of 2026-09-30) ────────────────────────
+
+def test_present_is_idempotent_on_an_already_converted_payload(rates):
+    """The exact production regression: commerce_service ALREADY converts cart
+    money through MarketSettlement. While MARKET_FX_RATES was empty that was a
+    silent no-op; the moment real rates landed it woke up and a second blind
+    conversion produced 180.00 USD -> 488,444.65 EGP on production
+    (180 x 52.09 x 52.09). This fixture uses 48.5 for readability.
+    """
+    fx = resolve_presentation("EGP")
+    once = present({"unit_price": 180.0, "currency": "USD"}, fx)
+    assert once["unit_price"] == 8730.0
+    twice = present(once, fx)
+    assert twice == once, "a second presentation pass must change nothing"
+
+
+def test_cross_currency_conversion_uses_the_declared_source(rates):
+    """A cart already settled in EGP, displayed in SAR, must cross-convert."""
+    fx = resolve_presentation("SAR")
+    out = present({"total": 8730.0, "currency": "EGP"}, fx)
+    # 8730 EGP / 48.5 = 180.00 USD -> x 3.75 = 675.00 SAR
+    assert out["total"] == pytest.approx(675.0, abs=0.05)
+    assert out["currency"] == "SAR"
+
+
+def test_nested_lines_inherit_the_parents_declared_currency(rates):
+    fx = resolve_presentation("USD")
+    cart = {
+        "currency": "EGP",
+        "total": 8730.0,
+        "items": [{"unit_price": 8730.0, "subtotal": 8730.0}],
+    }
+    out = present(cart, fx)
+    assert out["total"] == pytest.approx(180.0, abs=0.01)
+    assert out["items"][0]["unit_price"] == pytest.approx(180.0, abs=0.01)
+    assert out["currency"] == "USD"
+
+
+def test_undeclared_payload_still_assumes_the_price_book(rates):
+    """Catalogue rows carry currency; anything that does not is price-book
+    denominated, which is the pre-existing contract."""
+    fx = resolve_presentation("EGP")
+    assert present({"base_price": 100.0}, fx)["base_price"] == 4850.0
+
+
+def test_unknown_declared_currency_is_left_alone_not_guessed(rates):
+    fx = resolve_presentation("EGP")
+    out = present({"total": 100.0, "currency": "XYZ"}, fx)
+    assert out["total"] == 100.0

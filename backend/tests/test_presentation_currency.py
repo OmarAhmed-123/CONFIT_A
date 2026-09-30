@@ -233,3 +233,52 @@ def test_unknown_declared_currency_is_left_alone_not_guessed(rates):
     fx = resolve_presentation("EGP")
     out = present({"total": 100.0, "currency": "XYZ"}, fx)
     assert out["total"] == 100.0
+
+
+# ── default display currency (EGP home market) ───────────────────────────────
+
+def test_no_signal_at_all_lands_on_the_home_market_currency(rates, monkeypatch):
+    """A visitor with no country and no choice must not be handed a USD price
+    book. Two independent mechanisms both land on EGP here: settings.MARKET
+    (EG) inside MarketSettlement, and DEFAULT_DISPLAY_CURRENCY behind it."""
+    monkeypatch.setattr("backend.app.core.config.settings.DEFAULT_DISPLAY_CURRENCY", "EGP", raising=False)
+    r = resolve_presentation(None, None)
+    assert r.code == "EGP" and r.converted is True
+
+
+def test_an_unknown_country_also_uses_the_home_market_default(rates, monkeypatch):
+    monkeypatch.setattr("backend.app.core.config.settings.DEFAULT_DISPLAY_CURRENCY", "EGP", raising=False)
+    r = resolve_presentation(None, "ZZ")
+    assert (r.code, r.reason) == ("EGP", "default_display_currency")
+
+
+def test_a_known_market_beats_the_home_default(rates, monkeypatch):
+    """Regression guard: overriding a REAL market signal with the home default
+    would show a US shopper Egyptian pounds."""
+    monkeypatch.setattr("backend.app.core.config.settings.DEFAULT_DISPLAY_CURRENCY", "EGP", raising=False)
+    assert resolve_presentation(None, "US").code == "USD"
+    assert resolve_presentation(None, "SA").code == "SAR"
+
+
+def test_default_display_currency_is_independent_of_the_price_book(rates, monkeypatch):
+    """They are separate settings on purpose — changing the storefront default
+    must not require re-denominating every product row."""
+    from backend.app.services.pricing_presentation import default_display_currency
+
+    monkeypatch.setattr("backend.app.core.config.settings.DEFAULT_DISPLAY_CURRENCY", "AED", raising=False)
+    assert default_display_currency() == "AED"
+    # An UNKNOWN market is the case the default governs. With no country at
+    # all, MarketSettlement already applies settings.MARKET (EG -> EGP), which
+    # is a stronger, more specific signal and is left alone.
+    assert resolve_presentation(None, "ZZ").code == "AED"
+    assert resolve_presentation("USD").pricing_currency == "USD"
+
+
+def test_supported_currencies_covers_every_rated_currency_not_just_markets(rates):
+    """Before 2026-09-30 only the eight registry markets were offered, so a
+    shopper outside them had no option at all."""
+    codes = {c["currency"] for c in supported_currencies()}
+    assert {"USD", "EGP", "SAR", "AED", "QAR", "KWD"} <= codes
+    by_code = {c["currency"]: c for c in supported_currencies()}
+    assert by_code["EGP"]["is_market_currency"] is True
+    assert by_code["USD"]["is_pricing_currency"] is True

@@ -42,6 +42,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Set
 
+from backend.app.core.config import settings
 from backend.app.core.money import quantize_money, to_decimal
 from backend.app.providers.payment.capability_registry import (
     MarketPaymentCapabilityRegistry as _Registry,
@@ -166,31 +167,59 @@ class PresentationCurrency:
         return float(quantize_money(dec * factor))
 
 
+def default_display_currency() -> str:
+    """Storefront default when the shopper has expressed no preference.
+
+    Separate from ``PRICING_CURRENCY`` on purpose: the price book is stored in
+    one denomination (USD today) while CONFIT's home market reads in EGP.
+    Conflating the two would mean re-denominating every product row just to
+    change a default.
+    """
+    raw = (getattr(settings, "DEFAULT_DISPLAY_CURRENCY", "") or "").strip().upper()
+    return raw or _Registry.pricing_currency()
+
+
+def rate_snapshot():
+    """Provenance-carrying rate table (live / stale_live / configured)."""
+    from backend.app.services.fx_rates import fx_rates as _live
+
+    return _live.snapshot()
+
+
 def supported_currencies() -> List[Dict[str, Any]]:
     """Every currency the platform can actually render, with proof.
 
-    ``available`` is the honest bit: a currency the registry knows about but
-    has no configured rate for is listed as NOT available rather than offered
-    and then silently served at 1:1.
+    Changed 2026-09-30: this used to enumerate only the eight registry market
+    currencies. It now enumerates every currency the live rate table carries
+    (166 today), because a shopper outside those eight markets previously had
+    no option at all. Registry markets are still flagged so the UI can list
+    them first.
+
+    ``available`` stays the honest bit: a currency with no rate is reported
+    NOT available rather than offered and then silently served at 1:1.
     """
     pricing = _Registry.pricing_currency()
-    rates = _Registry.fx_rates()
-    seen: Dict[str, Dict[str, Any]] = {}
+    snapshot = rate_snapshot()
+    rates = snapshot.rates
+    markets_by_currency: Dict[str, List[str]] = {}
     for market, currency in sorted(_Registry.MARKET_CURRENCIES.items()):
-        entry = seen.setdefault(
-            currency,
-            {
-                "currency": currency,
-                "markets": [],
-                "is_pricing_currency": currency == pricing,
-                "rate_from_pricing_currency": (
-                    "1" if currency == pricing else (str(rates[currency]) if currency in rates else None)
-                ),
-                "available": currency == pricing or currency in rates,
-            },
-        )
-        entry["markets"].append(market)
-    return [seen[c] for c in sorted(seen)]
+        markets_by_currency.setdefault(currency, []).append(market)
+
+    codes = set(rates) | set(markets_by_currency) | {pricing, default_display_currency()}
+    out: List[Dict[str, Any]] = []
+    for code in sorted(codes):
+        is_pricing = code == pricing
+        rate = Decimal("1") if is_pricing else rates.get(code)
+        out.append({
+            "currency": code,
+            "markets": markets_by_currency.get(code, []),
+            "is_pricing_currency": is_pricing,
+            "is_market_currency": code in markets_by_currency,
+            "is_default": code == default_display_currency(),
+            "rate_from_pricing_currency": str(rate) if rate is not None else None,
+            "available": rate is not None,
+        })
+    return out
 
 
 def resolve_presentation(
@@ -203,9 +232,12 @@ def resolve_presentation(
 
     1. An explicit shopper choice that the platform can actually honour.
     2. The market's own currency, when a rate exists for it.
-    3. The price-book currency — the only honest answer when no rate is
-       configured, because rendering "EGP 289" from a 289 USD price book would
-       be a 48x lie.
+    3. ``DEFAULT_DISPLAY_CURRENCY`` (EGP — CONFIT's home market), when a rate
+       exists for it. A visitor with no market signal should not be shown a
+       USD price book.
+    4. The price-book currency — the only honest answer when no rate exists at
+       all, because rendering "EGP 289" from a 289 USD price book would be a
+       ~52x lie.
     """
     pricing = _Registry.pricing_currency()
     rates = _Registry.fx_rates()
@@ -233,6 +265,32 @@ def resolve_presentation(
         )
 
     settlement = _Registry.resolve_settlement(country_code)
+    if settlement.converted:
+        return PresentationCurrency(
+            code=settlement.currency, pricing_currency=pricing, rate=settlement.rate,
+            converted=True, reason=settlement.reason, requested=None,
+        )
+
+    # Settlement could not place the shopper in a converted market currency.
+    # Two different situations hide behind that, and they need different
+    # answers:
+    #
+    #   (a) The caller named a country the registry KNOWS (e.g. "US" -> USD).
+    #       Settlement's answer is correct and final; overriding a real market
+    #       signal with the home-market default would show a US shopper EGP.
+    #   (b) There was no country signal, or an unknown one. Only here does the
+    #       storefront default apply — CONFIT's home market reads in EGP, and
+    #       a visitor with no signal should not be handed a USD price book.
+    known_market = (
+        country_code is not None
+        and _Registry.market_code(country_code) in _Registry.MARKET_CURRENCIES
+    )
+    fallback = default_display_currency()
+    if not known_market and fallback != pricing and fallback in rates:
+        return PresentationCurrency(
+            code=fallback, pricing_currency=pricing, rate=rates[fallback],
+            converted=True, reason="default_display_currency", requested=None,
+        )
     return PresentationCurrency(
         code=settlement.currency, pricing_currency=pricing, rate=settlement.rate,
         converted=settlement.converted, reason=settlement.reason, requested=None,
@@ -295,6 +353,9 @@ def presentation_meta(presentation: PresentationCurrency) -> Dict[str, Any]:
         "reason": presentation.reason,
         "requested_currency": presentation.requested,
         "honoured": presentation.requested is None or presentation.requested == presentation.code,
+        # Provenance: a rate nobody can date is a rate nobody can audit.
+        "rate_source": rate_snapshot().source,
+        "rate_as_of": rate_snapshot().as_of,
     }
 
 

@@ -27,8 +27,12 @@ export interface CurrencyOption {
   currency: string;
   markets: string[];
   is_pricing_currency: boolean;
+  /** One of CONFIT's eight registry markets — listed first in the switcher. */
+  is_market_currency: boolean;
+  /** The storefront default (EGP) when the shopper expresses no preference. */
+  is_default: boolean;
   rate_from_pricing_currency: string | null;
-  /** False when the platform has no configured rate: the option is shown as
+  /** False when the platform has no rate for it: the option is shown as
    *  unavailable rather than silently served at 1:1. */
   available: boolean;
 }
@@ -43,6 +47,12 @@ export interface ActiveCurrency {
   /** False when the backend could not honour the request — the UI must say so
    *  instead of pretending the switch worked. */
   honoured: boolean;
+  /** Provenance of the rate used: `live` | `stale_live` | `configured` |
+   *  `unavailable`. Surfaced so the UI can warn when prices are not being
+   *  converted at a current rate. */
+  rate_source: string;
+  /** Upstream publication time of the rate, when known. */
+  rate_as_of: string | null;
 }
 
 export interface CurrencyCatalog {

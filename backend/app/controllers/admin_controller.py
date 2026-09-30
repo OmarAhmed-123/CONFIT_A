@@ -90,6 +90,47 @@ def _audit_read(request: Request, db: Session, user: User, action: str,
 
 
 
+@router.get("/diagnostics/email")
+def email_transport_diagnostic(
+    request: Request,
+    user: User = Depends(require_admin_recent(max_age_minutes=60)),
+    db: Session = Depends(get_db),
+):
+    """Prove — from THIS deployment's own egress IP — that mail can be sent.
+
+    WHY AN ENDPOINT AND NOT A HEALTH CHECK
+    Measured 2026-09-30: Brevo (like SES, Mailgun, Postmark) enforces a
+    per-account IP allow-list. With correct credentials the relay answered
+    `525 5.7.1 Unauthorized IP address`. Configuration alone is therefore NOT
+    evidence of deliverability, and the only IP whose verdict matters is the
+    one the serverless function actually dials out from — which cannot be
+    tested from a laptop or CI.
+
+    It is deliberately NOT part of /health: an authenticated SMTP session
+    opened every 15 minutes by the uptime monitor is abusive to the relay and
+    would itself become a reliability risk. Admin-only, re-auth gated, and it
+    sends no message (EHLO -> STARTTLS -> AUTH -> QUIT), so it cannot mail a
+    real person by accident.
+
+    The response carries no credential: host, port, stage, relay code and the
+    relay's own text only.
+    """
+    from backend.app.services.email_service import check_transport
+    from backend.app.services.capability_service import _email_delivery_capability
+
+    result = check_transport()
+    _audit_admin(request, db, user, "ADMIN_EMAIL_TRANSPORT_CHECK", "EmailTransport",
+                 str(result.get("host") or "unset"),
+                 None, {"ok": result.get("ok"), "stage": result.get("stage"),
+                        "code": result.get("code")})
+    return {
+        "transport": result,
+        # The probe's static verdict beside the live one, so a disagreement
+        # ("configured" but "unauthorized IP") is visible in one payload.
+        "capability": _email_delivery_capability().as_dict(),
+    }
+
+
 @router.post("/orders/{order_number}/transition", response_model=OrderOut)
 def transition_order_status(
     order_number: str,

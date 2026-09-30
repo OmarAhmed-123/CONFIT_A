@@ -381,6 +381,11 @@ class CommerceService:
                 tax_amount=tax,
                 shipping_amount=shipping,
                 currency=currency,
+                # Lock the arithmetic alongside the amounts. `settlement` is
+                # the SAME resolution used to compute every figure above, so
+                # the stored rate provably produced the stored total.
+                pricing_currency=settlement.pricing_currency,
+                fx_rate_used=settlement.rate,
                 payment_method=payment_method,
                 payment_status="pending",
                 payment_installments=installments,
@@ -694,6 +699,11 @@ class CommerceService:
             "tax_amount": order.tax_amount,
             "shipping_amount": order.shipping_amount,
             "currency": order.currency,
+            # Provenance of the locked total. Null on rows created before
+            # migration 0028 recorded it — surfaced as null rather than
+            # back-filled with a guess at read time.
+            "pricing_currency": order.pricing_currency,
+            "fx_rate_used": order.fx_rate_used,
             "promo_code": order.promo_code,
             "payment_method": order.payment_method,
             "payment_status": order.payment_status,

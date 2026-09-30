@@ -354,12 +354,18 @@ class CommerceRepository:
         payment_mode: str = "demo",
         shipping_method: str = "standard",
         estimated_delivery_date: Optional[datetime] = None,
+        pricing_currency: Optional[str] = None,
+        fx_rate_used: Optional[Decimal] = None,
     ) -> Order:
         order_number = f"CONF-{uuid.uuid4().hex[:8].upper()}"
         bopis_code = f"PICKUP-{uuid.uuid4().hex[:6].upper()}" if fulfillment_type == "bopis" else None
 
         order = Order(
             order_number=order_number,
+            # FX lock (migration 0028): record the arithmetic, not just the
+            # result, so a settled total can be audited and never re-derived.
+            pricing_currency=pricing_currency,
+            fx_rate_used=fx_rate_used,
             user_id=user_id,
             guest_email=guest_email,
             guest_session_token=guest_session_token,

@@ -522,7 +522,7 @@ def test_migration_0015_round_trip_and_unique_lineage() -> None:
         os.unlink(path)
 
 
-def test_migration_chain_has_a_single_head_at_0028() -> None:
+def test_migration_chain_has_a_single_head_at_0029() -> None:
     from backend.app.core.schema_gate import expected_head_revision, migration_chain
 
     chain = migration_chain()
@@ -556,7 +556,13 @@ def test_migration_chain_has_a_single_head_at_0028() -> None:
     # only in a 6-hour in-process cache, so a settled total could not be
     # audited or re-checked. Recording the rate makes an order
     # self-describing (amount + currency + source denomination + rate).
-    assert expected_head_revision() == "0028_order_fx_lock"
+    # -> 0029 (brand_profiles NOT NULL + server_default). Found by live role
+    # testing: GET /brand/profile returned HTTP 500 for a brand manager whose
+    # row had NULL commission_rate/return_rate_benchmark/current_return_rate/
+    # is_verified. Those had Python-side ORM defaults only, so any non-ORM
+    # writer produced a row BrandProfileOut (int/bool, not Optional) refused.
+    assert expected_head_revision() == "0029_brand_profile_not_null_defaults"
+    assert chain["0029_brand_profile_not_null_defaults"] == "0028_order_fx_lock"
     assert chain["0028_order_fx_lock"] == "0027_product_gender"
     assert chain["0027_product_gender"] == "0026_product_style_embedding"
     assert chain["0026_product_style_embedding"] == "0025_order_item_discount_allocation"

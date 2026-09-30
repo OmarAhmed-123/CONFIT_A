@@ -1,5 +1,6 @@
 import enum
 from datetime import datetime, timezone
+from sqlalchemy import true as sa_true
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text, Index
 from sqlalchemy.types import TypeDecorator
 from sqlalchemy.orm import relationship
@@ -88,10 +89,15 @@ class BrandProfile(Base):
     description = Column(Text, nullable=True)
     description_ar = Column(Text, nullable=True)
     website = Column(String(500), nullable=True)
-    commission_rate = Column(Integer, default=15)
-    return_rate_benchmark = Column(Integer, default=28)
-    current_return_rate = Column(Integer, default=11)
-    is_verified = Column(Boolean, default=True)
+    # NOT NULL + server_default (migration 0029). A Python-side `default=`
+    # alone only fires on the ORM path; a raw-SQL import, backfill or ops fix
+    # produced a NULL that BrandProfileOut (which types these as int/bool,
+    # not Optional) then refused — a live HTTP 500 on GET /brand/profile, the
+    # B2B portal's own landing call.
+    commission_rate = Column(Integer, default=15, server_default="15", nullable=False)
+    return_rate_benchmark = Column(Integer, default=28, server_default="28", nullable=False)
+    current_return_rate = Column(Integer, default=11, server_default="11", nullable=False)
+    is_verified = Column(Boolean, default=True, server_default=sa_true(), nullable=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
     user = relationship("User", back_populates="brand_profile")

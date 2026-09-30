@@ -1,4 +1,5 @@
 import { generateSessionToken } from '../lib/secureId';
+import { currencyHeaders } from '../lib/currency';
 
 const API_BASE_URL = '/api/v1';
 
@@ -180,6 +181,15 @@ export async function request<T>(
 
   // Inject session token for guest carts and anonymous session identification
   headers.set('X-Session-Token', getSessionToken());
+
+  // Presentation currency. Sent on EVERY request rather than on the price
+  // endpoints only: the shopper's choice must reach any handler that returns
+  // money, and adding it here means a new priced endpoint cannot forget it.
+  // Absent header = "use the market default", which is a real answer, not a
+  // missing one (see frontend/src/lib/currency.ts).
+  for (const [key, value] of Object.entries(currencyHeaders())) {
+    headers.set(key, value);
+  }
 
   // Auth travels via the httpOnly session cookie (same-origin). No Bearer
   // header is attached from JS — there is deliberately no readable token.

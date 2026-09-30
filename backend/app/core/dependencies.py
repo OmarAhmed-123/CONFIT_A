@@ -193,3 +193,21 @@ def require_brand_scope(user: User = Depends(get_current_user)) -> User:
     if not user.brand_profile:
         raise AuthorizationError("Access denied: No brand organization linked to this account.")
     return user
+
+
+# ── Presentation currency ────────────────────────────────────────────────────
+# One dependency, so every read path resolves the shopper's display currency
+# the same way and no controller re-implements header parsing.
+def get_presentation_currency(request: Request):
+    """Resolve the display currency for this request.
+
+    Precedence: explicit ``?currency=`` (shareable/bookmarkable URLs) →
+    ``X-Currency`` header (set once by the client store) → the market default.
+    The country hint lets a market that has no explicit choice still settle on
+    its own currency instead of the price-book default.
+    """
+    from backend.app.services.pricing_presentation import resolve_presentation
+
+    requested = request.query_params.get("currency") or request.headers.get("x-currency")
+    country = request.query_params.get("country") or request.headers.get("x-market-country")
+    return resolve_presentation(requested, country)

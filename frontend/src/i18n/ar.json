@@ -571,7 +571,11 @@
     "scan_studio": "استوديو المسح الضوئي للمقاسات",
     "language_current": "اللغة {{position}} من ٢: {{language}}",
     "product_image_alt": "صورة {{name}} {{index}}",
-    "no_photo_fit": "ملاءمة المقاس بدون صورة"
+    "no_photo_fit": "ملاءمة المقاس بدون صورة",
+    "currency_switcher": "تغيير عملة العرض",
+    "currency_market_default": "العملة الافتراضية للسوق",
+    "currency_switched": "يتم عرض الأسعار الآن بعملة {{currency}}",
+    "currency_not_available": "عملة {{currency}} غير متاحة حاليًا — يتم عرض الأسعار بعملة {{fallback}}"
   },
   "meta": {
     "home_title": "كونفت — حيث تلتقي الأناقة بشخصيتك",

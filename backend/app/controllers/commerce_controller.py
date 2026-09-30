@@ -7,8 +7,9 @@ from fastapi.responses import PlainTextResponse
 from sqlalchemy.orm import Session
 from backend.app.core.config import settings
 from backend.app.core.database import get_db
+from backend.app.services.pricing_presentation import PresentationCurrency, present
 from backend.app.core.rate_limit import limiter
-from backend.app.core.dependencies import get_current_user_optional, get_current_user, require_role
+from backend.app.core.dependencies import get_current_user_optional, get_current_user, require_role, get_presentation_currency
 from backend.app.models.user import User, UserRole
 from backend.app.services.commerce_service import CommerceService
 from backend.app.providers.bnpl_provider import BNPLProvider
@@ -38,6 +39,17 @@ from backend.app.core.exceptions import (
 from pydantic import BaseModel
 
 router = APIRouter(tags=["Commerce, Payments & Fulfillment"])
+
+
+# ── Presentation currency for every cart response ───────────────────────────
+# All six cart endpoints return the SAME CartOut shape, so the conversion is
+# applied through one helper rather than copy-pasted six times. The cart is
+# the surface where the old bug was visible: it returned "USD" to an Egyptian
+# shopper whose checkout was quoted in EGP.
+def _present_cart(cart, fx):
+    payload = cart if isinstance(cart, dict) else cart.model_dump()
+    return present(payload, fx)
+
 
 
 def _audit_commerce(db: Session, user: User, action: str, resource_type: str,
@@ -76,10 +88,11 @@ def get_payment_methods_for_market(
 def get_cart(
     x_session_token: str = Header(...),
     user: Optional[User] = Depends(get_current_user_optional),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    fx: PresentationCurrency = Depends(get_presentation_currency),
 ):
     service = CommerceService(db)
-    return service.get_cart(x_session_token, user_id=user.id if user else None)
+    return _present_cart(service.get_cart(x_session_token, user_id=user.id if user else None), fx)
 
 
 @router.post("/commerce/cart/items", response_model=CartOut, status_code=status.HTTP_201_CREATED)
@@ -88,16 +101,17 @@ def add_to_cart(
     payload: CartItemAdd,
     x_session_token: str = Header(...),
     user: Optional[User] = Depends(get_current_user_optional),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    fx: PresentationCurrency = Depends(get_presentation_currency),
 ):
     service = CommerceService(db)
-    return service.add_to_cart(
+    return _present_cart(service.add_to_cart(
         session_token=x_session_token,
         product_sku_id=payload.product_sku_id,
         quantity=payload.quantity,
         user_id=user.id if user else None,
         outfit_id=payload.outfit_id
-    )
+    ), fx)
 
 
 @router.put("/commerce/cart/items/{item_id}", response_model=CartOut)
@@ -108,12 +122,13 @@ def update_cart_item(
     payload: CartItemQuantityUpdate,
     x_session_token: str = Header(...),
     user: Optional[User] = Depends(get_current_user_optional),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    fx: PresentationCurrency = Depends(get_presentation_currency),
 ):
     service = CommerceService(db)
-    return service.update_quantity(
+    return _present_cart(service.update_quantity(
         x_session_token, item_id, payload.quantity, user_id=user.id if user else None
-    )
+    ), fx)
 
 
 @router.delete("/commerce/cart/items/{item_id}", response_model=CartOut)
@@ -122,10 +137,11 @@ def remove_from_cart(
     item_id: int,
     x_session_token: str = Header(...),
     user: Optional[User] = Depends(get_current_user_optional),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    fx: PresentationCurrency = Depends(get_presentation_currency),
 ):
     service = CommerceService(db)
-    return service.remove_item(x_session_token, item_id, user_id=user.id if user else None)
+    return _present_cart(service.remove_item(x_session_token, item_id, user_id=user.id if user else None), fx)
 
 
 @router.post("/commerce/cart/promo", response_model=CartOut)
@@ -140,12 +156,13 @@ def apply_promo(
     payload: PromoApplyRequest,
     x_session_token: str = Header(...),
     user: Optional[User] = Depends(get_current_user_optional),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    fx: PresentationCurrency = Depends(get_presentation_currency),
 ):
     service = CommerceService(db)
-    return service.apply_promo(
+    return _present_cart(service.apply_promo(
         x_session_token, payload.promo_code, user_id=user.id if user else None
-    )
+    ), fx)
 
 
 @router.post("/cart/merge", response_model=CartOut)
@@ -153,10 +170,11 @@ def apply_promo(
 def merge_guest_cart(
     payload: CartMergeRequest,
     user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    fx: PresentationCurrency = Depends(get_presentation_currency),
 ):
     service = CommerceService(db)
-    return service.merge_guest_cart(payload.guest_token, user.id)
+    return _present_cart(service.merge_guest_cart(payload.guest_token, user.id), fx)
 
 
 @router.post("/commerce/checkout", response_model=OrderOut)

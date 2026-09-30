@@ -24,6 +24,7 @@ import { useCartStore } from '../../stores/cartStore';
 import { useAuthStore } from '../../stores/authStore';
 import { useUIStore } from '../../stores/uiStore';
 import { LanguageSwitcher } from './LanguageSwitcher';
+import { CurrencySwitcher } from './CurrencySwitcher';
 
 export const ConsumerNavbar: React.FC = () => {
   const { t } = useTranslation();
@@ -72,6 +73,7 @@ export const ConsumerNavbar: React.FC = () => {
           )}
           <div className="h-3 w-px bg-slate-800" />
           <LanguageSwitcher />
+          <CurrencySwitcher />
         </div>
       </div>
 

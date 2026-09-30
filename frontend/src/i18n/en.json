@@ -571,7 +571,11 @@
     "scan_studio": "Body scan size studio",
     "language_current": "Language {{position}} of 2: {{language}}",
     "product_image_alt": "{{name}} image {{index}}",
-    "no_photo_fit": "No-Photo Measurement Fit"
+    "no_photo_fit": "No-Photo Measurement Fit",
+    "currency_switcher": "Change display currency",
+    "currency_market_default": "Market default",
+    "currency_switched": "Prices are now shown in {{currency}}",
+    "currency_not_available": "{{currency}} is not available yet — showing prices in {{fallback}}"
   },
   "meta": {
     "home_title": "CONFIT — Where Style Meets Your Character",

@@ -1,4 +1,5 @@
 import { request } from "./apiClient";
+import type { CurrencyCatalog } from "../lib/currency";
 import {
   User,
   UserStyleProfile,
@@ -321,6 +322,10 @@ export const catalogService = {
 
   getProductDetail: (slug: string) =>
     request<Product>(`/catalog/products/${slug}`),
+
+  /** Currencies the storefront can actually render, plus what THIS request
+   *  resolved to. The client never holds FX rates — see lib/currency.ts. */
+  getCurrencies: () => request<CurrencyCatalog>(`/catalog/currencies`),
 
   /** The detail endpoint resolves slug OR id; saved outfit items store the
    *  numeric product id, so rehydrating a look uses this path. */

@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from backend.app.core.database import get_db
 from backend.app.core.config import settings
-from backend.app.core.dependencies import get_current_user_optional
+from backend.app.core.dependencies import get_current_user_optional, get_presentation_currency
 from backend.app.models.user import User
 from backend.app.repositories.catalog_repository import CatalogRepository
 from backend.app.services.search_service import SearchService
@@ -24,6 +24,12 @@ from backend.app.schemas.catalog import (
 from backend.app.core.exceptions import ResourceNotFoundError
 from backend.app.models.catalog import StoreLocation
 from backend.app.services.capability_service import capability_flags
+from backend.app.services.pricing_presentation import (
+    PresentationCurrency,
+    present,
+    presentation_meta,
+    supported_currencies,
+)
 
 router = APIRouter(prefix="/catalog", tags=["Catalog & Products"])
 
@@ -69,13 +75,14 @@ def get_home_dashboard(
     lat: Optional[float] = Query(None, ge=-90, le=90),
     lon: Optional[float] = Query(None, ge=-180, le=180),
     user: Optional[User] = Depends(get_current_user_optional),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    fx: PresentationCurrency = Depends(get_presentation_currency),
 ):
     """Home Dashboard (G2.4): personalized picks, trending, real recently-viewed,
     and new-from-your-brands, composed from the profile + real catalog.
     Optional lat/lon enable the real weather provider when configured (G2-S5)."""
     service = DashboardService(db)
-    return service.get_dashboard(user.id if user else None, lat=lat, lon=lon)
+    return present(service.get_dashboard(user.id if user else None, lat=lat, lon=lon), fx)
 
 
 @router.get("/search", response_model=SearchResponseOut)
@@ -90,21 +97,26 @@ def search_catalog(
     sort_by: str = Query("relevance", description="'relevance', 'price_asc', 'price_desc', 'rating', 'newest'"),
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    fx: PresentationCurrency = Depends(get_presentation_currency),
 ):
     service = SearchService(db)
-    return service.search_products(
+    result = service.search_products(
         query=q,
         category=category,
         brand_id=brand_id,
         color=color,
         occasion=occasion,
-        min_price=min_price,
-        max_price=max_price,
+        min_price=fx.to_pricing(min_price),
+        max_price=fx.to_pricing(max_price),
         page=page,
         limit=limit,
         sort_by=sort_by
     )
+    # The price-range facet is money too — converting the results but not the
+    # facet would hand the UI a slider whose bounds exclude its own items.
+    payload = result if isinstance(result, dict) else result.model_dump()
+    return present(payload, fx)
 
 
 @router.get("/autocomplete", response_model=AutocompleteResponse)
@@ -129,7 +141,8 @@ def list_products(
     is_featured: Optional[bool] = Query(None),
     limit: int = Query(50, ge=1, le=100),
     offset: int = Query(0, ge=0),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    fx: PresentationCurrency = Depends(get_presentation_currency),
 ):
     # Defense in depth: JS clients that accidentally serialize undefined/null
     # send the literal strings "undefined"/"null" — treat them as absent
@@ -144,8 +157,11 @@ def list_products(
         brand_id=brand_id,
         color=_clean(color),
         occasion=_clean(occasion),
-        min_price=min_price,
-        max_price=max_price,
+        # Filters arrive in the DISPLAYED currency, so they are converted
+        # back to the price book before they touch SQL (see
+        # PresentationCurrency.to_pricing).
+        min_price=fx.to_pricing(min_price),
+        max_price=fx.to_pricing(max_price),
         search_query=_clean(search),
         is_featured=is_featured,
         limit=limit,
@@ -155,14 +171,15 @@ def list_products(
 
     # List views do not invent fit/style percentages. Those scores are
     # computed on the product page against the shopper's profile.
-    return [_product_summary(p) for p in products]
+    return present([_product_summary(p).model_dump() for p in products], fx)
 
 
 @router.get("/products/{slug_or_id}", response_model=ProductDetailOut)
 def get_product_detail(
     slug_or_id: str,
     user: Optional[User] = Depends(get_current_user_optional),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    fx: PresentationCurrency = Depends(get_presentation_currency),
 ):
     repo = CatalogRepository(db)
     if slug_or_id.isdigit():
@@ -212,7 +229,7 @@ def get_product_detail(
     bnpl = context.get("bnpl") or {}
     installment = bnpl.get("installment_amount") if bnpl.get("eligible") else None
 
-    return ProductDetailOut(
+    detail = ProductDetailOut(
         id=p.id,
         brand_id=p.brand_id,
         brand_name=p.brand.brand_name,
@@ -256,6 +273,25 @@ def get_product_detail(
         style_compatibility_available=bool(context.get("style_compatibility_available")),
         style_compatibility_reason=context.get("style_compatibility_reason"),
     )
+    # SKU price overrides and the BNPL installment are money too, and they are
+    # nested — present() walks the whole payload so no nested price escapes
+    # conversion while its parent gets converted.
+    return present(detail.model_dump(), fx)
+
+
+@router.get("/currencies")
+def list_currencies(fx: PresentationCurrency = Depends(get_presentation_currency)):
+    """Currencies the storefront can actually render, plus what this request
+    resolved to.
+
+    Deliberately reports ``available: false`` for a market currency with no
+    configured FX rate instead of offering it and serving 1:1 numbers — a
+    silently wrong price is worse than an unavailable option.
+    """
+    return {
+        "active": presentation_meta(fx),
+        "supported": supported_currencies(),
+    }
 
 
 @router.get("/skus/{sku_id}/stores", response_model=List[StoreInventoryOut])

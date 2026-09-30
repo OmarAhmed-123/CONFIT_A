@@ -128,6 +128,12 @@ class OrderOut(BaseModel):
     tax_amount: float
     shipping_amount: float
     currency: str
+    #: Denomination of the price book the amounts were converted FROM, and the
+    #: exact rate used. Null for orders created before migration 0028; the
+    #: null is deliberate — a back-filled guess at read time would look like
+    #: recorded provenance without being any.
+    pricing_currency: Optional[str] = None
+    fx_rate_used: Optional[float] = None
     payment_method: str
     payment_status: str
     payment_installments: int

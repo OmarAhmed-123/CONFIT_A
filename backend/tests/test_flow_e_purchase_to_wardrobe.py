@@ -522,7 +522,7 @@ def test_migration_0015_round_trip_and_unique_lineage() -> None:
         os.unlink(path)
 
 
-def test_migration_chain_has_a_single_head_at_0027() -> None:
+def test_migration_chain_has_a_single_head_at_0028() -> None:
     from backend.app.core.schema_gate import expected_head_revision, migration_chain
 
     chain = migration_chain()
@@ -550,7 +550,14 @@ def test_migration_chain_has_a_single_head_at_0027() -> None:
     # which needs the catalogue vectors to live somewhere).
     # -> 0027 (products.gender: a men's request was returning women's
     # heeled sandals because the table had no gender to filter on).
-    assert expected_head_revision() == "0027_product_gender"
+    # -> 0028 (orders.pricing_currency + orders.fx_rate_used). The head moved
+    # consciously: order AMOUNTS were already locked at creation, but with
+    # live FX rates (services/fx_rates.py) the rate that produced them lived
+    # only in a 6-hour in-process cache, so a settled total could not be
+    # audited or re-checked. Recording the rate makes an order
+    # self-describing (amount + currency + source denomination + rate).
+    assert expected_head_revision() == "0028_order_fx_lock"
+    assert chain["0028_order_fx_lock"] == "0027_product_gender"
     assert chain["0027_product_gender"] == "0026_product_style_embedding"
     assert chain["0026_product_style_embedding"] == "0025_order_item_discount_allocation"
     assert chain["0025_order_item_discount_allocation"] == "0024_audit_insert_provenance_guard"

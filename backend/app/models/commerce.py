@@ -111,6 +111,14 @@ class Order(Base):
     tax_amount = Column(Numeric(12, 2), default=0.0, nullable=False)
     shipping_amount = Column(Numeric(12, 2), default=0.0, nullable=False)
     currency = Column(String(10), default="USD", nullable=False)
+    # FX LOCK (migration 0028). The amounts above were always locked at order
+    # creation; these two columns lock the ARITHMETIC that produced them, so a
+    # settled order is self-describing (amount + currency + source
+    # denomination + rate) and can be audited or refused for re-conversion.
+    # Nullable on purpose: a future path that forgets to record the rate must
+    # surface a visible NULL, not a plausible-looking 1.0.
+    pricing_currency = Column(String(10), nullable=True)
+    fx_rate_used = Column(Numeric(18, 8), nullable=True)
     promo_code = Column(String(50), nullable=True)
 
     payment_method = Column(String(50), default="card", nullable=False)

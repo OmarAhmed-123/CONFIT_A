@@ -122,12 +122,12 @@ describe('uiStore carries the recovery action', () => {
     const onAction = vi.fn();
     useUIStore.getState().showToast(
       { key: 'toast.item_removed' } as never, 'info',
-      { labelKey: 'a11y.undo_remove', onAction },
+      { i18nLabel: 'a11y.undo_remove', onAction },
     );
     const toast = useUIStore.getState().toast;
     // A store has no t(); translating there would freeze the label in
     // whatever language was active when the toast was created.
-    expect(toast?.action?.labelKey).toBe('a11y.undo_remove');
+    expect(toast?.action?.i18nLabel).toBe('a11y.undo_remove');
     expect(toast?.action?.onAction).toBe(onAction);
   });
 
@@ -139,7 +139,7 @@ describe('uiStore carries the recovery action', () => {
       // `toast.item_removed`. Reusing it here would be silently swallowed and
       // the assertion would pass or fail for the wrong reason.
       useUIStore.getState().showToast({ key: 'toast.item_restored' } as never, 'info', {
-        labelKey: 'a11y.undo_remove',
+        i18nLabel: 'a11y.undo_remove',
         onAction: () => {},
       });
       // 4s is enough to READ a confirmation, not to decide you regret a

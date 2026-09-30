@@ -129,3 +129,71 @@ def test_the_diagnostic_never_sends_a_message(monkeypatch):
 
 def test_diagnostic_endpoint_requires_admin(client):
     assert client.get("/api/v1/admin/diagnostics/email").status_code in (401, 403)
+
+
+# ── observed reality must beat configuration ────────────────────────────────
+
+# The observation recorder is reset suite-wide by an autouse fixture in
+# conftest.py — it is process-global, so containing it per-file is not enough.
+
+
+def test_capability_is_blocked_after_an_observed_failure(monkeypatch):
+    """THE PRODUCTION DEFECT, 2026-09-30: with SMTP_* correctly set the probe
+    said `ready` while the relay answered 525 Unauthorized IP, so
+    /auth/forgot-password returned 200 "instructions have been sent" and
+    nothing was sent — worse than the honest 501 it replaced."""
+    from backend.app.core.readiness import STATE_BLOCKED
+    from backend.app.services.capability_service import _email_delivery_capability
+
+    _configure(monkeypatch)
+
+    def _boom():
+        raise smtplib.SMTPAuthenticationError(525, b"5.7.1 Unauthorized IP address")
+
+    monkeypatch.setattr(email_service, "_connect", _boom)
+    email_service.check_transport()
+
+    cap = _email_delivery_capability()
+    assert cap.state == STATE_BLOCKED
+    assert "Unauthorized IP address" in cap.detail
+    assert "525" in cap.detail
+    assert "not being" in cap.detail and "delivered" in cap.detail
+
+
+def test_capability_is_delivery_verified_after_an_observed_success(monkeypatch):
+    from backend.app.core.readiness import STATE_READY
+    from backend.app.services.capability_service import _email_delivery_capability
+
+    _configure(monkeypatch)
+    monkeypatch.setattr(email_service, "_connect", _FakeClient)
+    email_service.check_transport()
+
+    cap = _email_delivery_capability()
+    assert cap.state == STATE_READY
+    assert "DELIVERY-VERIFIED" in cap.detail
+
+
+def test_with_no_observation_yet_it_says_so_instead_of_claiming_delivery(monkeypatch):
+    from backend.app.services.capability_service import _email_delivery_capability
+
+    _configure(monkeypatch)
+    detail = _email_delivery_capability().detail
+    assert "not delivery-verified" in detail
+    assert "no send or handshake observed yet" in detail
+
+
+def test_a_real_send_failure_also_updates_the_observation(monkeypatch):
+    """The admin diagnostic is not the only reporter — production traffic
+    teaches the capability too."""
+    _configure(monkeypatch)
+
+    def _boom():
+        raise smtplib.SMTPRecipientsRefused({"a@b.test": (550, b"nope")})
+
+    monkeypatch.setattr(email_service, "_connect", _boom)
+    with pytest.raises(email_service.EmailDeliveryError):
+        email_service.send_email("a@b.test", "s", "<p>h</p>", "t")
+
+    observed = email_service.last_transport_result()
+    assert observed["observed"] is True and observed["ok"] is False
+    assert observed["stage"] == "send"

@@ -263,3 +263,25 @@ def catalog_state_guard():
         db.commit()
     finally:
         db.close()
+
+
+@pytest.fixture(autouse=True)
+def _reset_email_transport_observation():
+    """Clear the process-global SMTP observation between tests.
+
+    `email_service` records the last OBSERVED transport verdict so the
+    capability probe can report reality instead of configuration. That
+    recorder is module-level, so a test that provokes a send failure leaks a
+    "blocked" verdict into every later test that asserts on the capability.
+    Measured 2026-09-30: the transport tests passed on their own and made
+    test_email_delivery_capability fail in the full run — the same
+    order-dependent shape as the catalogue-state leak, so it is contained in
+    the same place, once, for the whole suite.
+    """
+    from backend.app.services import email_service
+
+    email_service._LAST_TRANSPORT.clear()
+    email_service._LAST_TRANSPORT["observed"] = False
+    yield
+    email_service._LAST_TRANSPORT.clear()
+    email_service._LAST_TRANSPORT["observed"] = False

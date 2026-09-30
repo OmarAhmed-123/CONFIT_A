@@ -75,7 +75,9 @@ class DashboardService:
                 occasion_weights = {}
 
         top_occasion = max(occasion_weights, key=occasion_weights.get) if occasion_weights else None
-        candidates = self.catalog.filter_products(limit=100)
+        # Home dashboard is a storefront surface: never recommend something
+        # that cannot be bought.
+        candidates = self.catalog.filter_products(limit=100, in_stock_only=True)
 
         def _pick_score(p) -> float:
             score = float(p.rating or 0)

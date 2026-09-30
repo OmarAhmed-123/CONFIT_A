@@ -5,6 +5,7 @@ import re
 from typing import List, Dict, Optional, Tuple
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import or_
+from backend.app.repositories.catalog_repository import purchasable_criterion
 from backend.app.models.catalog import Product, Category
 from backend.app.models.user import BrandProfile
 from backend.app.schemas.catalog import (
@@ -103,6 +104,10 @@ class SearchService:
                 joinedload(Product.skus)
             )
             .filter(Product.is_active == True)
+            # Same purchasability gate as the catalogue list — one definition
+            # in catalog_repository.purchasable_criterion(), so search results
+            # and the shelf can never disagree about what is buyable.
+            .filter(purchasable_criterion())
         )
 
         # 2. Hard Filters

@@ -34,6 +34,11 @@ class WardrobeItem(Base):
     pattern = Column(String(50), default="Solid", nullable=False)
     brand_name = Column(String(100), default="Own Collection", nullable=False)
     image_url = Column(String(1000), nullable=False)
+    # Soft delete (migration 0030). NULL = live, timestamp = in the bin.
+    # Deletion is a state transition, not a row removal, because Undo cannot
+    # be honest otherwise: the old hard delete also destroyed the stored
+    # photograph, so nothing could bring the item back.
+    deleted_at = Column(DateTime(timezone=True), nullable=True, index=True)
 
     ai_tags = Column(Text, default="[]", nullable=False)         # JSON list: ["smart_casual", "cotton", "breathable"]
     occasions = Column(Text, default="[]", nullable=False)       # JSON list: ["work", "dinner"]

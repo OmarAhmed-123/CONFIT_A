@@ -370,11 +370,107 @@ class WardrobeService:
         self.wardrobe_repo.update_item(item)
         return self._to_dict(item)
 
-    def delete_item(self, user_id: int, item_id: int) -> None:
+    #: How long a binned item can be restored. Exposed on the delete response
+    #: so the UI can render a real deadline instead of guessing, and NOT a
+    #: promise of eventual permanent deletion — expiry is enforced lazily on
+    #: the owner's next read (see _purge_expired_bin), because this
+    #: deployment is serverless and has no scheduler to rely on. Saying
+    #: "deleted after 30 days" when nothing runs to do it would be a lie.
+    BIN_RETENTION = timedelta(days=30)
+
+    def delete_item(self, user_id: int, item_id: int) -> Dict[str, Any]:
+        """Move an item to the bin. REVERSIBLE.
+
+        Replaces a hard DELETE that also removed the stored photograph. The
+        Undo specification requires a real restore path; with the old
+        behaviour an Undo button could not have worked — the row was gone and
+        the image was gone from object storage with it.
+
+        The image is deliberately KEPT for the grace window so a restore
+        returns the actual photograph rather than a broken thumbnail.
+        Permanent deletion (purge_item) is the only path that removes it.
+
+        Returns the undo contract: what was removed, and until when it can
+        come back.
+        """
         item = self.get_item(user_id, item_id)
+        self.wardrobe_repo.soft_delete_item(item)
+        deleted_at = item.deleted_at or datetime.now(timezone.utc)
+        if deleted_at.tzinfo is None:
+            deleted_at = deleted_at.replace(tzinfo=timezone.utc)
+        return {
+            "item_id": item.id,
+            "status": "binned",
+            "deleted_at": deleted_at,
+            "restorable_until": deleted_at + self.BIN_RETENTION,
+            "restore_endpoint": f"/wardrobe/items/{item.id}/restore",
+        }
+
+    def restore_item(self, user_id: int, item_id: int) -> Dict[str, Any]:
+        """Bring a binned item back. Idempotent-ish and honest about failure.
+
+        A restore that arrives after the grace window, or for an item that was
+        permanently deleted, returns 404 rather than silently succeeding — the
+        UI must be able to tell the user their Undo did not work. Undo that
+        lies is worse than no Undo.
+        """
+        item = self.wardrobe_repo.get_binned_item_by_id(item_id, user_id)
+        if not item:
+            # Already live? Then the user clicked Undo twice, or two tabs
+            # raced. That is a success from their point of view, not an error.
+            live_item = self.wardrobe_repo.get_item_by_id(item_id, user_id)
+            if live_item:
+                return {"item_id": live_item.id, "status": "restored",
+                        "detail": "Item was already restored."}
+            raise ResourceNotFoundError("Wardrobe item", str(item_id))
+
+        deleted_at = item.deleted_at
+        if deleted_at is not None and deleted_at.tzinfo is None:
+            deleted_at = deleted_at.replace(tzinfo=timezone.utc)
+        if deleted_at is not None and (
+            datetime.now(timezone.utc) - deleted_at > self.BIN_RETENTION
+        ):
+            raise ResourceNotFoundError("Wardrobe item", str(item_id))
+
+        self.wardrobe_repo.restore_item(item)
+        return {"item_id": item.id, "status": "restored",
+                "detail": "Item restored to your wardrobe."}
+
+    def purge_item(self, user_id: int, item_id: int) -> Dict[str, Any]:
+        """Permanent, irreversible deletion — row AND stored image.
+
+        Accepts an item in either state so a user can delete outright without
+        a round trip through the bin; the explicit confirmation required for
+        this action lives at the API/UI boundary, not here.
+        """
+        item = (
+            self.wardrobe_repo.get_item_by_id(item_id, user_id)
+            or self.wardrobe_repo.get_binned_item_by_id(item_id, user_id)
+        )
+        if not item:
+            raise ResourceNotFoundError("Wardrobe item", str(item_id))
         image_url = item.image_url
-        self.wardrobe_repo.delete_item(item)
+        self.wardrobe_repo.purge_item(item)
         self._delete_owned_image(image_url)  # no orphaned media (BRD §14)
+        return {"item_id": item_id, "status": "permanently_deleted"}
+
+    def _purge_expired_bin(self, user_id: int) -> int:
+        """Remove binned items whose grace window elapsed. Never raises.
+
+        Lazy, on the owner's own read, because Vercel functions have no
+        scheduler. It therefore bounds storage for ACTIVE users only, which
+        is stated plainly rather than dressed up as a retention guarantee.
+        """
+        purged = 0
+        try:
+            for item in self.wardrobe_repo.expired_binned_items(user_id, self.BIN_RETENTION):
+                image_url = item.image_url
+                self.wardrobe_repo.purge_item(item)
+                self._delete_owned_image(image_url)
+                purged += 1
+        except Exception as exc:  # noqa: BLE001 - housekeeping must never break a read
+            logger.warn("wardrobe_bin_purge_failed", user_id=user_id, error=str(exc)[:160])
+        return purged
 
     # ─────────────────── image upload pipeline ─────────────────
     def _validate_image(
@@ -558,7 +654,26 @@ class WardrobeService:
                 ext = self._validate_image(content_type, data, filename)
                 image_url, digest = self._store_image(user_id, data, ext)
 
-                existing = self.wardrobe_repo.get_item_by_image_hash(user_id, digest)
+                existing = self.wardrobe_repo.get_item_by_image_hash(
+                    user_id, digest, include_binned=True
+                )
+                if existing is not None and existing.deleted_at is not None:
+                    # The same photograph is sitting in the bin. Inserting
+                    # would violate uq_wardrobe_items_user_image_hash and
+                    # surface as a 500; relaxing the constraint would allow
+                    # duplicates, which the spec forbids. Revive the row
+                    # instead — one row per (user, image), and the user gets
+                    # exactly what they asked for.
+                    self._delete_owned_image(image_url)
+                    self.wardrobe_repo.restore_item(existing)
+                    entry.update({
+                        "status": "restored",
+                        "detail": "This image was in your bin and has been restored.",
+                        "item": self._to_dict(existing),
+                    })
+                    results.append(entry)
+                    succeeded += 1
+                    continue
                 if existing:
                     self._delete_owned_image(image_url)
                     entry.update({
@@ -592,7 +707,7 @@ class WardrobeService:
                     # Roll back and return the canonical item — idempotent.
                     self.db.rollback()
                     self._delete_owned_image(image_url)
-                    canonical = self.wardrobe_repo.get_item_by_image_hash(user_id, digest)
+                    canonical = self.wardrobe_repo.get_item_by_image_hash(user_id, digest, include_binned=True)
                     entry.update({
                         "status": "duplicate",
                         "detail": "This exact image is already in your wardrobe.",

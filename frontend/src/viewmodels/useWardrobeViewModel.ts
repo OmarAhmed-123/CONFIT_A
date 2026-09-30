@@ -313,15 +313,68 @@ export function useWardrobeViewModel() {
     });
   }, [updateItem]);
 
-  const deleteItem = useCallback(async (itemId: number) => {
+  /**
+   * Remove an item with a real Undo.
+   *
+   * State contract: active -> removing -> removed/undo-available -> restored,
+   * or error/rollback.
+   *
+   * OPTIMISTIC ONLY BECAUSE THE SERVER CAN ACTUALLY REVERSE IT. The backend
+   * now soft-deletes (migration 0030) and keeps the stored photograph for the
+   * grace window, so `restoreItem` returns the real image. Before that change
+   * an Undo button here would have been a lie: the row was hard-deleted and
+   * the photo was removed from object storage in the same call.
+   *
+   * The optimistic removal is rolled back on failure by REFETCHING rather
+   * than by re-inserting the remembered copy — the server is the source of
+   * truth, and re-inserting a stale snapshot is how a list ends up with a
+   * duplicate or a ghost row after a concurrent edit.
+   */
+  const deleteItem = useCallback(async (itemId: number, permanent = false) => {
+    // Keep a copy in memory ONLY for ordering; never rendered as if live.
+    const index = items.findIndex((i) => i.id === itemId);
+    const snapshot = index >= 0 ? items[index] : null;
+
+    setItems((prev) => prev.filter((i) => i.id !== itemId));   // removing
     try {
-      await wardrobeService.deleteItem(itemId);
-      setItems((prev) => prev.filter((i) => i.id !== itemId));
-      showToast(msg('toast.item_removed'), 'info');
+      const result = await wardrobeService.deleteItem(itemId, permanent);
+
+      if (!result.undoable) {
+        showToast(msg('toast.item_deleted_permanently'), 'info');
+        return;
+      }
+
+      showToast(msg('toast.item_removed'), 'info', {
+        labelKey: 'a11y.undo_remove',
+        onAction: () => {
+          void (async () => {
+            try {
+              await wardrobeService.restoreItem(itemId);
+              // Refetch, do not re-insert `snapshot`: the server owns order
+              // and content, and the item may have changed elsewhere.
+              await fetchWardrobe(activeCategory);
+              showToast(msg('toast.item_restored'), 'success');
+            } catch (err: any) {
+              // The window may have closed, or the item was purged. Say so —
+              // an Undo that silently fails is worse than no Undo.
+              await fetchWardrobe(activeCategory);
+              showToast(msg('toast.item_restore_failed', { reason: detail(err) }), 'error');
+            }
+          })();
+        },
+      });
     } catch (err: any) {
+      // rollback: the delete never happened, so the item must come back.
+      if (snapshot) {
+        setItems((prev) =>
+          prev.some((i) => i.id === itemId)
+            ? prev                                  // a refetch already restored it
+            : [...prev.slice(0, index), snapshot, ...prev.slice(index)],
+        );
+      }
       showToast(msg('toast.item_delete_failed', { reason: detail(err) }), 'error');
     }
-  }, [showToast]);
+  }, [items, activeCategory, fetchWardrobe, showToast]);
 
   useEffect(() => {
     fetchWardrobe(activeCategory);

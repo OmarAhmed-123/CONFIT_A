@@ -96,6 +96,10 @@ def get_my_wardrobe(
     # 401 — there is no "preview as user #1" fallback leaking a real
     # account's items to guests.
     service = WardrobeService(db)
+    # Housekeeping on the owner's own read: this deployment is serverless and
+    # has no scheduler, so the bin is bounded here rather than by a cron that
+    # does not exist. Never raises; a failed purge must not break a list.
+    service._purge_expired_bin(user.id)
     return service.get_user_wardrobe(user.id, category)
 
 
@@ -140,12 +144,66 @@ def update_wardrobe_item(
 @router.delete("/items/{item_id}")
 def delete_wardrobe_item(
     item_id: int,
+    permanent: bool = Query(
+        False,
+        description=(
+            "Irreversible. Removes the row AND the stored photograph. The "
+            "client must obtain explicit user confirmation before setting it."
+        ),
+    ),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    """Delete a wardrobe item — reversibly by default.
+
+    The default moves the item to a bin and returns the undo contract:
+    `restorable_until` (a real deadline the UI can render instead of guessing)
+    and `restore_endpoint`. The stored photograph is kept for the window, so a
+    restore returns the actual image and not a broken thumbnail.
+
+    `?permanent=true` is the explicitly-confirmed destructive path. It is a
+    separate parameter rather than a separate default so that a client which
+    has not been updated keeps the SAFE behaviour: an old build that forgets
+    the flag bins the item, it does not destroy it.
+    """
     service = WardrobeService(db)
-    service.delete_item(user.id, item_id)
-    return {"status": "success", "message": "Item deleted from wardrobe."}
+    if permanent:
+        result = service.purge_item(user.id, item_id)
+        return {
+            "status": "success",
+            "permanent": True,
+            "undoable": False,
+            "message": "Item permanently deleted.",
+            **result,
+        }
+    result = service.delete_item(user.id, item_id)
+    return {
+        "status": "success",
+        "permanent": False,
+        "undoable": True,
+        "message": "Item moved to the bin.",
+        **result,
+    }
+
+
+@router.post("/items/{item_id}/restore")
+def restore_wardrobe_item(
+    item_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Undo a reversible delete.
+
+    404 when the grace window has passed or the item was permanently
+    deleted — the UI must be able to tell the user their Undo did not work.
+    An Undo that reports success without restoring anything is worse than no
+    Undo at all.
+
+    Clicking Undo twice, or two tabs racing, returns success: the item is
+    live, which is what the user asked for.
+    """
+    service = WardrobeService(db)
+    return service.restore_item(user.id, item_id)
 
 
 @router.post("/upload", response_model=WardrobeUploadResponse, status_code=status.HTTP_201_CREATED)

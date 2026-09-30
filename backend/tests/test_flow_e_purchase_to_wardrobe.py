@@ -522,7 +522,7 @@ def test_migration_0015_round_trip_and_unique_lineage() -> None:
         os.unlink(path)
 
 
-def test_migration_chain_has_a_single_head_at_0029() -> None:
+def test_migration_chain_has_a_single_head_at_0030() -> None:
     from backend.app.core.schema_gate import expected_head_revision, migration_chain
 
     chain = migration_chain()
@@ -561,7 +561,13 @@ def test_migration_chain_has_a_single_head_at_0029() -> None:
     # row had NULL commission_rate/return_rate_benchmark/current_return_rate/
     # is_verified. Those had Python-side ORM defaults only, so any non-ORM
     # writer produced a row BrandProfileOut (int/bool, not Optional) refused.
-    assert expected_head_revision() == "0029_brand_profile_not_null_defaults"
+    # -> 0030 (wardrobe_items.deleted_at). The head moved consciously: the
+    # Undo specification permits reversible deletion only where the backend
+    # can actually reverse it, and delete_item was a hard DELETE that also
+    # destroyed the stored photograph. Soft delete keeps the image for the
+    # grace window so a restore returns the real image.
+    assert expected_head_revision() == "0030_wardrobe_soft_delete"
+    assert chain["0030_wardrobe_soft_delete"] == "0029_brand_profile_not_null_defaults"
     assert chain["0029_brand_profile_not_null_defaults"] == "0028_order_fx_lock"
     assert chain["0028_order_fx_lock"] == "0027_product_gender"
     assert chain["0027_product_gender"] == "0026_product_style_embedding"

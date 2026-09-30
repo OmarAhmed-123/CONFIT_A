@@ -74,6 +74,14 @@ async def lifespan(app: FastAPI):
     logger.info("Shutting down CONFIT API Engine")
 
 
+# Error tracking is initialised BEFORE the app object exists so the SDK's
+# FastAPI/Starlette integration can install its middleware, and so an
+# exception raised during startup is still captured. Fail-open by design:
+# see core/error_tracking.py — telemetry must never stop the API booting.
+from backend.app.core.error_tracking import init_error_tracking  # noqa: E402
+
+init_error_tracking()
+
 app = FastAPI(
     title="CONFIT — Fashion Tech Core API",
     description="Enterprise-grade REST API powering the CONFIT AI Fashion Platform across G1–G6.",

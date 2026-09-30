@@ -448,6 +448,10 @@ class Settings(BaseSettings):
     # Free-tier rate limit: ~1 req/min per account. Integrated as additional
     # fallback AFTER the existing direct providers (NVIDIA, Groq, Gemini, OpenAI).
     UNOROUTER_API_KEY: Optional[str] = None
+    # Error tracking (core/error_tracking.py). GlitchTip is Sentry-SDK
+    # compatible, so this DSN also accepts a Sentry DSN unchanged. Unset =
+    # tracking silently disabled (local dev and CI must not need a DSN).
+    GLITCHTIP_DSN: Optional[str] = None
     UNOROUTER_CHAT_MODEL: str = "glm-5.3-flash:free"
     UNOROUTER_VISION_MODEL: str = "qwen2.5-vl-7b-instruct-awq:free"
     UNOROUTER_TIMEOUT_SECONDS: float = 30.0

@@ -238,3 +238,28 @@ def test_launch_template_is_bilingual_and_has_both_parts():
     assert "note here" in html and "note here" in text
     # No tracking pixel in an operational proof email.
     assert "<img" not in html.lower()
+
+
+def test_send_test_never_claims_delivery_it_cannot_prove():
+    """MEASURED 2026-09-30: the endpoint returned {"delivered": true} for a
+    message the relay accepted (SMTP 250, message id issued) and then rejected
+    asynchronously — "the sender you used ... is not valid". Brevo's event log
+    said `error`; our API said delivered.
+
+    SMTP acceptance means QUEUED. Delivery, bounce, spam placement and sender
+    validation are decided afterwards. The response contract must not overstate
+    what the protocol can know.
+    """
+    import inspect
+
+    from backend.app.controllers import admin_controller
+
+    src = inspect.getsource(admin_controller.send_test_email)
+    assert '"accepted_by_relay": True' in src
+    assert '"delivery_confirmed": False' in src
+    assert '"delivered": True' not in src, (
+        "a field named `delivered` claims an outcome SMTP cannot report"
+    )
+    # The caution is split across source lines, so assert on the rendered
+    # response rather than the literal.
+    assert "proof of delivery" in src and "event log" in src

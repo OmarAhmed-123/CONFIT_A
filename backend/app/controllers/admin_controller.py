@@ -154,11 +154,30 @@ def send_test_email(
         )
     _audit_admin(request, db, user, "ADMIN_EMAIL_TEST_SENT", "EmailTransport",
                  payload.to, None, {"message_id": result.get("message_id")})
+    # NOT "delivered". MEASURED 2026-09-30: this endpoint returned
+    # {"delivered": true} for a message the relay accepted at SMTP level
+    # (250 OK, message id issued) and then REJECTED asynchronously —
+    # "the sender you used no-reply@confit-a.vercel.app is not valid".
+    # Brevo's own event log said `error`; our API said delivered. That is the
+    # fake-success this codebase forbids, produced by a field name that
+    # claimed more than the protocol can know.
+    #
+    # SMTP acceptance means the relay QUEUED it. Delivery, bounce, spam
+    # placement and sender-validation rejection all happen afterwards and are
+    # only observable in the provider's event log. The response now says
+    # exactly what was proven and names where to confirm the rest.
     return {
-        "delivered": True,
+        "accepted_by_relay": True,
+        "delivery_confirmed": False,
         "to": payload.to,
         "message_id": result.get("message_id"),
-        "detail": "Accepted by the relay. Inbox placement depends on SPF/DKIM/DMARC.",
+        "detail": (
+            "The relay accepted and queued this message (SMTP 250). That is NOT "
+            "proof of delivery: sender validation, SPF/DKIM/DMARC, bounces and "
+            "spam placement are all decided afterwards and are only visible in "
+            "the provider's event log. Confirm the outcome there before "
+            "reporting email as working."
+        ),
     }
 
 

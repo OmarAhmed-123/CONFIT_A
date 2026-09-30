@@ -81,6 +81,81 @@ def _connect():
     return client
 
 
+def check_transport() -> dict:
+    """Prove the relay will accept us — WITHOUT sending mail.
+
+    WHY THIS EXISTS (measured 2026-09-30)
+    -------------------------------------
+    Setting SMTP_* is not the same as being able to send. Brevo (and SES,
+    Mailgun, Postmark) enforce a per-account **IP allow-list**, and a
+    serverless platform sends from a rotating pool. Verified from this
+    workspace against the real relay with valid credentials:
+
+        smtp-relay.brevo.com:587 -> 525 5.7.1 Unauthorized IP address
+
+    Credentials correct, transport refused. If configuration alone were
+    treated as proof, the capability probe would report `email_delivery:
+    ready` while every password-reset mail failed at AUTH — a health signal
+    that is confidently wrong, which is worse than one that says "unknown".
+
+    So: a real EHLO -> STARTTLS -> AUTH handshake, then QUIT. No RCPT, no
+    DATA, no message. It is deliberately NOT wired into /health — a poll that
+    opens an authenticated SMTP session every 15 minutes is abusive to the
+    relay and would itself become a reliability risk. It is an on-demand
+    admin diagnostic.
+
+    Reuses ``_connect()``, the exact path ``send_email`` uses, so a green
+    check cannot mean something different from a real send. Returns a plain
+    dict and never raises; nothing here echoes a credential.
+    """
+    if not settings.EMAIL_PROVIDER:
+        return {"ok": False, "stage": "configuration",
+                "detail": "EMAIL_PROVIDER is unset", "code": None}
+    try:
+        _require_config()
+    except EmailDeliveryError as exc:
+        return {"ok": False, "stage": "configuration", "detail": str(exc), "code": None}
+
+    started = time.time()
+    client = None
+    try:
+        client = _connect()
+        return {
+            "ok": True,
+            "stage": "authenticated",
+            "detail": "EHLO + STARTTLS + AUTH accepted by the relay; no message was sent",
+            "code": None,
+            "host": settings.SMTP_HOST,
+            "port": int(settings.SMTP_PORT or 587),
+            "latency_ms": int((time.time() - started) * 1000),
+        }
+    except smtplib.SMTPAuthenticationError as exc:
+        # The interesting case: 525 5.7.1 means the credentials were fine and
+        # the SOURCE IP was refused. Surfaced verbatim so the remediation is
+        # obvious instead of being flattened into "auth failed".
+        return {"ok": False, "stage": "authentication", "code": exc.smtp_code,
+                "detail": _decode(exc.smtp_error),
+                "host": settings.SMTP_HOST, "port": int(settings.SMTP_PORT or 587),
+                "latency_ms": int((time.time() - started) * 1000)}
+    except (smtplib.SMTPException, OSError) as exc:
+        return {"ok": False, "stage": "connection",
+                "detail": f"{type(exc).__name__}: {exc}"[:300], "code": None,
+                "host": settings.SMTP_HOST, "port": int(settings.SMTP_PORT or 587),
+                "latency_ms": int((time.time() - started) * 1000)}
+    finally:
+        if client is not None:
+            try:
+                client.quit()
+            except Exception:  # noqa: BLE001 - closing must never mask the verdict
+                pass
+
+
+def _decode(value) -> str:
+    if isinstance(value, bytes):
+        return value.decode("utf-8", "replace")[:300]
+    return str(value)[:300]
+
+
 def send_email(to: str, subject: str, html: str, text: Optional[str] = None) -> dict:
     """Send one transactional email. Raises EmailDeliveryError on hard failure.
 

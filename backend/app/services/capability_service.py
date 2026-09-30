@@ -568,6 +568,74 @@ def capability_flags(
 
 
 
+def _email_delivery_capability() -> Capability:
+    """Can the platform actually send transactional mail?
+
+    FOUND BY LIVE PRODUCTION TESTING, 2026-09-30. `POST /auth/forgot-password`
+    answers **HTTP 501 FEATURE_NOT_CONFIGURED (email_delivery)** in production:
+    `EMAIL_PROVIDER` is set for the preview environment only, and no SMTP_*
+    variables exist at all. A user who forgets their password therefore cannot
+    recover their account, and email verification cannot complete.
+
+    The 501 itself is correct behaviour — the platform refuses rather than
+    pretending a mail was queued, which is exactly the honesty rule this code
+    base is built on. The gap was one level up: `capability_probes` covered
+    database, uploads, payments, try-on, stylist, BNPL and click-and-collect,
+    but said NOTHING about email. So `/api/v1/health` reported
+    `degraded_capabilities: [buy_now_pay_later, payments]` while a completely
+    dead account-recovery path went unmentioned, and neither the uptime
+    monitor nor an operator reading the readiness contract could see it.
+    A capability that is never probed cannot be missed, and that is the defect.
+
+    CRITICALITY: supporting, not core. This is a deliberate, arguable call.
+    Account recovery matters, but the platform can still be browsed, searched
+    and bought from without it, and the repository's own definition reserves
+    `core` for "the platform cannot deliver its product without it". Marking
+    it core would flip production to `ready: false` and make the readiness
+    signal mean something different overnight. As `supporting` + `blocked` it
+    lands in `degraded_capabilities`, which is visible, honest and actionable
+    — and `detail` names the exact variables an operator must set.
+    """
+    provider = (getattr(settings, "EMAIL_PROVIDER", "") or "").strip()
+    if not provider:
+        return Capability(
+            name="email_delivery",
+            state=STATE_BLOCKED,
+            criticality=CRITICALITY_SUPPORTING,
+            detail=(
+                "EMAIL_PROVIDER is unset: password reset and email verification "
+                "return 501. Set EMAIL_PROVIDER=smtp, SMTP_HOST, SMTP_PORT, "
+                "SMTP_USERNAME, SMTP_PASSWORD and EMAIL_FROM_ADDRESS"
+            ),
+        )
+    missing = [
+        name for name in ("SMTP_HOST", "EMAIL_FROM_ADDRESS")
+        if not (getattr(settings, name, "") or "").strip()
+    ]
+    if missing:
+        # Settings refuses to boot in this state (config.py validates it), so
+        # reaching here means the guard changed. Report, do not assume.
+        return Capability(
+            name="email_delivery",
+            state=STATE_BLOCKED,
+            criticality=CRITICALITY_SUPPORTING,
+            detail=f"EMAIL_PROVIDER={provider} but {', '.join(missing)} missing",
+        )
+    # Configured is not the same as proven: no mail is sent to probe this, so
+    # the honest verdict is "wired", not "delivering". A send-probe would mail
+    # a real recipient on every health check.
+    return Capability(
+        name="email_delivery",
+        state=STATE_READY,
+        criticality=CRITICALITY_SUPPORTING,
+        detail=(
+            f"SMTP transport configured (provider={provider}, host set). "
+            "Configuration-verified, not delivery-verified: health checks do "
+            "not send mail"
+        ),
+    )
+
+
 def capability_probes(
     db: Session, database_ok: bool, vton_worker: Dict[str, Any] | None = None
 ) -> List[Capability]:
@@ -649,6 +717,8 @@ def capability_probes(
             ),
         )
     )
+
+    out.append(_email_delivery_capability())
 
     store_count = db.query(StoreLocation).count()
     out.append(

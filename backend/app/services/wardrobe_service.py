@@ -776,7 +776,7 @@ class WardrobeService:
         if not raw.get("analysis_available"):
             return {
                 "analysis_available": False,
-                "detail": "AI auto-tagging is not configured (set GEMINI_API_KEY).",
+                "detail": "AI auto-tagging is temporarily unavailable. Please try again shortly.",
             }
         if not raw.get("category"):
             return {"analysis_available": False, "detail": "No clothing item detected in the image."}

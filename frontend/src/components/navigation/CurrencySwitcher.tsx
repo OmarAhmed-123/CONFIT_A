@@ -48,10 +48,19 @@ export const CurrencySwitcher: React.FC<{ className?: string }> = ({ className =
   });
 
   const active = data?.active;
-  const options = React.useMemo(
-    () => (data?.supported ?? []).filter((o) => o.available || o.currency === active?.currency),
-    [data, active],
-  );
+
+  // 166 currencies is a usable list only if the ones shoppers actually need
+  // are at the top. Registry markets (EGP, SAR, AED, QAR, KWD, BHD, OMR, USD)
+  // are grouped first; everything else follows alphabetically.
+  const { primary, others } = React.useMemo(() => {
+    const usable = (data?.supported ?? []).filter(
+      (o) => o.available || o.currency === active?.currency,
+    );
+    return {
+      primary: usable.filter((o) => o.is_market_currency),
+      others: usable.filter((o) => !o.is_market_currency),
+    };
+  }, [data, active]);
 
   const onChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     const next = event.target.value || null;
@@ -82,11 +91,20 @@ export const CurrencySwitcher: React.FC<{ className?: string }> = ({ className =
         className="px-2.5 py-1 text-[11px] font-semibold rounded-full border border-slate-200 bg-white text-slate-700 hover:bg-[#FDF8EE] focus:outline-hidden focus:ring-2 focus:ring-[#7A5C28]"
       >
         <option value="">{t('a11y.currency_market_default')}</option>
-        {options.map((option) => (
-          <option key={option.currency} value={option.currency} disabled={!option.available}>
-            {label(option.currency)}
-          </option>
-        ))}
+        <optgroup label={t('a11y.currency_group_markets')}>
+          {primary.map((option) => (
+            <option key={option.currency} value={option.currency} disabled={!option.available}>
+              {label(option.currency)}
+            </option>
+          ))}
+        </optgroup>
+        <optgroup label={t('a11y.currency_group_all')}>
+          {others.map((option) => (
+            <option key={option.currency} value={option.currency} disabled={!option.available}>
+              {label(option.currency)}
+            </option>
+          ))}
+        </optgroup>
       </select>
 
       {/* Honesty: the server is the authority on whether the switch took
@@ -95,6 +113,15 @@ export const CurrencySwitcher: React.FC<{ className?: string }> = ({ className =
       {active && active.honoured === false ? (
         <p className="mt-1 text-[10px] text-amber-700">
           {t('a11y.currency_not_available', { currency: active.requested_currency ?? '', fallback: active.currency })}
+        </p>
+      ) : null}
+
+      {/* Rate provenance. A converted price whose rate is stale or hand-configured
+          is still a real price, but the shopper is entitled to know it is not a
+          current market rate — silence here would be a quiet overstatement. */}
+      {active && active.converted && active.rate_source !== 'live' ? (
+        <p className="mt-1 text-[10px] text-slate-500">
+          {t('a11y.currency_rate_not_live', { source: active.rate_source })}
         </p>
       ) : null}
 

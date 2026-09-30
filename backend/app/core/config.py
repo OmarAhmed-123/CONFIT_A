@@ -472,6 +472,16 @@ class Settings(BaseSettings):
     # amount that was never priced in it would mislabel money.
     PRICING_CURRENCY: str = "USD"
     MARKET_FX_RATES: str = ""
+    # The currency the storefront DISPLAYS when the shopper has expressed no
+    # preference and the market gives no stronger signal. EGP because CONFIT's
+    # home market is Egypt; it is deliberately SEPARATE from PRICING_CURRENCY,
+    # which is the denomination the price book is stored in. Conflating them
+    # would mean re-denominating every product row to change a default.
+    DEFAULT_DISPLAY_CURRENCY: str = "EGP"
+    # Live FX (services/fx_rates.py). Disable to pin the storefront to the
+    # static MARKET_FX_RATES table — e.g. during a treasury freeze.
+    FX_LIVE_RATES_ENABLED: bool = True
+    FX_RATE_TTL_SECONDS: int = 21600
     FULFILL_PACE: str = "demo"
     BNPL_DEFAULT_PROVIDER: str = "tabby"
     PAYMENT_DEFAULT_PROVIDER: str = "mock"

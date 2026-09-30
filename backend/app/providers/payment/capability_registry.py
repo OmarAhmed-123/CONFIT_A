@@ -93,12 +93,29 @@ class MarketSettlement:
 
     @classmethod
     def fx_rates(cls) -> Dict[str, Decimal]:
-        """Configured rates FROM the pricing currency, e.g. {"EGP": "48.5"}.
+        """Rates FROM the pricing currency, e.g. {"EGP": "52.09"}.
 
-        Parsed defensively: a malformed table must never take checkout down,
-        and a malformed *entry* must never be silently treated as 1.0 (that
-        would mislabel money). Bad entries are dropped and logged.
+        SOURCE (changed 2026-09-30): this now delegates to
+        ``services/fx_rates.py``, which serves LIVE rates from
+        exchangerate-api with an in-process TTL cache and degrades
+        live -> last good snapshot -> this method's static
+        ``MARKET_FX_RATES`` parsing -> empty. Delegating rather than adding a
+        second table is deliberate: settlement and presentation MUST read the
+        same snapshot, or the price a shopper is shown can disagree with the
+        price they are charged. That exact class of bug has already cost this
+        project one production incident.
+
+        The static parsing below remains as the last-resort fallback and is
+        still parsed defensively: a malformed table must never take checkout
+        down, and a malformed *entry* must never be silently treated as 1.0
+        (that would mislabel money). Bad entries are dropped and logged.
         """
+        from backend.app.services.fx_rates import fx_rates as _live
+
+        live = _live.rates()
+        if live:
+            return live
+
         raw = getattr(settings, "MARKET_FX_RATES", "") or ""
         if isinstance(raw, dict):
             parsed: Dict[str, object] = raw

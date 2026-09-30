@@ -575,7 +575,10 @@
     "currency_switcher": "تغيير عملة العرض",
     "currency_market_default": "العملة الافتراضية للسوق",
     "currency_switched": "يتم عرض الأسعار الآن بعملة {{currency}}",
-    "currency_not_available": "عملة {{currency}} غير متاحة حاليًا — يتم عرض الأسعار بعملة {{fallback}}"
+    "currency_not_available": "عملة {{currency}} غير متاحة حاليًا — يتم عرض الأسعار بعملة {{fallback}}",
+    "currency_group_markets": "أسواق كونفيت",
+    "currency_group_all": "كل العملات",
+    "currency_rate_not_live": "التحويل تم بسعر {{source}} وليس بسعر السوق الحالي"
   },
   "meta": {
     "home_title": "كونفت — حيث تلتقي الأناقة بشخصيتك",

@@ -575,7 +575,10 @@
     "currency_switcher": "Change display currency",
     "currency_market_default": "Market default",
     "currency_switched": "Prices are now shown in {{currency}}",
-    "currency_not_available": "{{currency}} is not available yet — showing prices in {{fallback}}"
+    "currency_not_available": "{{currency}} is not available yet — showing prices in {{fallback}}",
+    "currency_group_markets": "CONFIT markets",
+    "currency_group_all": "All currencies",
+    "currency_rate_not_live": "Converted using a {{source}} rate, not a current market rate"
   },
   "meta": {
     "home_title": "CONFIT — Where Style Meets Your Character",

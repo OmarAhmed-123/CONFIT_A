@@ -221,3 +221,45 @@ def setup_test_db():
 @pytest.fixture
 def client():
     return TestClient(app)
+
+
+@pytest.fixture
+def catalog_state_guard():
+    """Snapshot catalogue pricing/stock and restore it after the test.
+
+    WHY: `setup_test_db` seeds once per SESSION, so a test that writes
+    `stock_level = 0` or changes a `base_price` leaks that state into every
+    later test in the run. Measured 2026-09-30: new storefront-stock tests
+    passed in isolation and made `test_stylist_grounding` fail 200 tests
+    later, because the stylist could no longer find the garment they had
+    sold out. Order-dependent failures are the most expensive kind to debug,
+    so the mutation is contained here rather than remembered by each test.
+
+    Restores exactly the rows that existed at setup — it does not re-seed,
+    so it cannot mask a test that legitimately creates new rows.
+    """
+    from backend.app.models.catalog import Product, ProductSKU
+
+    db = TestingSessionLocal()
+    try:
+        skus = {
+            s.id: (s.stock_level, s.is_in_stock, s.price_override)
+            for s in db.query(ProductSKU).all()
+        }
+        products = {p.id: (p.base_price, p.is_active) for p in db.query(Product).all()}
+    finally:
+        db.close()
+
+    yield
+
+    db = TestingSessionLocal()
+    try:
+        for sku in db.query(ProductSKU).all():
+            if sku.id in skus:
+                sku.stock_level, sku.is_in_stock, sku.price_override = skus[sku.id]
+        for product in db.query(Product).all():
+            if product.id in products:
+                product.base_price, product.is_active = products[product.id]
+        db.commit()
+    finally:
+        db.close()

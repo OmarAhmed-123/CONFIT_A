@@ -6,6 +6,27 @@ from backend.app.models.catalog import Category, Product, ProductSKU, StoreLocat
 from backend.app.models.user import BrandProfile
 
 
+def purchasable_criterion():
+    """SQL predicate for "a shopper can actually buy this product right now".
+
+    ONE definition, imported by every storefront read path (catalogue list,
+    dashboard, search, autocomplete) so the answer to "is it buyable?" cannot
+    drift between the page that lists a product and the page that sells it.
+
+    A product is purchasable when at least one of its SKUs is both flagged
+    in-stock AND carries a positive stock level. Both conditions are required
+    because they are maintained by different code paths: `is_in_stock` is a
+    merchandising flag a brand can toggle, `stock_level` is decremented by
+    checkout (commerce_service, line ~1403). Trusting either alone lets a
+    sold-out product stay listed, or a deliberately hidden one reappear.
+
+    Kept as a criterion rather than a Python filter so the database does the
+    work: filtering in Python would break LIMIT/OFFSET pagination (you would
+    page over rows you then discard) and force a full table read.
+    """
+    return Product.skus.any((ProductSKU.is_in_stock == True) & (ProductSKU.stock_level > 0))  # noqa: E712
+
+
 class CatalogRepository:
     def __init__(self, db: Session):
         self.db = db
@@ -83,9 +104,7 @@ class CatalogRepository:
             # which was a second, latent TypeError behind the visual-search 500.
             query = query.filter(Product.brand_id.in_(list(brand_ids)))
         if in_stock_only:
-            query = query.filter(
-                Product.skus.any((ProductSKU.is_in_stock == True) & (ProductSKU.stock_level > 0))
-            )
+            query = query.filter(purchasable_criterion())
         if color:
             query = query.filter(Product.color_family.ilike(f"%{color}%"))
         if occasion:

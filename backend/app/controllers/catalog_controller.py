@@ -139,6 +139,13 @@ def list_products(
     search: Optional[str] = Query(None),
     sort_by: Optional[str] = Query("recommended"),
     is_featured: Optional[bool] = Query(None),
+    include_sold_out: bool = Query(
+        False,
+        description=(
+            "Storefront reads hide products with no purchasable stock. Set true "
+            "only for merchandising/QA views that must see sold-out rows."
+        ),
+    ),
     limit: int = Query(50, ge=1, le=100),
     offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
@@ -166,7 +173,12 @@ def list_products(
         is_featured=is_featured,
         limit=limit,
         offset=offset,
-        sort_by=_clean(sort_by) or "recommended"
+        sort_by=_clean(sort_by) or "recommended",
+        # A sold-out product on the shelf is a promise the platform cannot
+        # keep: the shopper clicks through, picks a size and only then meets
+        # an InventoryUnavailableError at add-to-cart. Hidden by DEFAULT, and
+        # in SQL so pagination still counts real rows.
+        in_stock_only=not include_sold_out,
     )
 
     # List views do not invent fit/style percentages. Those scores are

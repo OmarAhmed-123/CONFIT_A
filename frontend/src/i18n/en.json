@@ -30,7 +30,9 @@
     "switch_to_consumer": "Consumer App",
     "partner_portal": "Partner Portal",
     "admin_governance": "Admin Governance",
-    "brand_partner_hub": "Brand Partner Hub"
+    "brand_partner_hub": "Brand Partner Hub",
+    "brand_line": "CONFIT Precision Fashion Technology — Fit & Sizing Intelligence",
+    "all_collections": "All Collections"
   },
   "home": {
     "hero_title": "Where Style Meets Your Character in Every Moment",
@@ -587,7 +589,11 @@
     "currency_group_markets": "CONFIT markets",
     "currency_group_all": "All currencies",
     "currency_rate_not_live": "Converted using a {{source}} rate, not a current market rate",
-    "undo_remove": "Undo removal"
+    "undo_remove": "Undo removal",
+    "open_menu": "Open navigation menu",
+    "close_menu": "Close navigation menu",
+    "mobile_nav_label": "Main navigation",
+    "account_menu": "Account menu"
   },
   "meta": {
     "home_title": "CONFIT — Where Style Meets Your Character",
@@ -939,7 +945,25 @@
     "sign_in_to_continue": "Sign In to Continue",
     "create_account": "Create New Account",
     "return_to_storefront": "← Return to Consumer Storefront",
-    "ask_stylist": "Ask the AI Stylist"
+    "ask_stylist": "Ask the AI Stylist",
+    "hero_title": "Reduce fit uncertainty before shoppers reach checkout.",
+    "hero_body": "CONFIT connects premium catalog ingestion, fit intelligence, and virtual try-on workflows so brand teams can understand the partner workflow before signing in.",
+    "request_partnership": "Request partnership",
+    "existing_sign_in": "Existing partner sign in",
+    "feat_catalog_title": "Catalog ingestion",
+    "feat_catalog_copy": "Validate imagery, attributes, SKU availability, and try-on readiness before publishing.",
+    "feat_fit_title": "Fit intelligence",
+    "feat_fit_copy": "Expose supported categories, measurement confidence, and return-risk signals.",
+    "feat_tryon_title": "Virtual try-on",
+    "feat_tryon_copy": "Give shoppers an honest visual preview while keeping fit recommendations separate.",
+    "feat_ops_title": "Operational clarity",
+    "feat_ops_copy": "Track pickup, inventory, placement, and analytics workflows from one portal.",
+    "pillar_problem_title": "Merchant problem",
+    "pillar_problem_copy": "Sizing uncertainty, low confidence, and unready product data create preventable friction.",
+    "pillar_launch_title": "Launch path",
+    "pillar_launch_copy": "Connect catalog, verify product metadata, then activate fit and try-on experiences by supported category.",
+    "pillar_proof_title": "Proof readiness",
+    "pillar_proof_copy": "Use real analytics only — views, try-ons, conversions, inventory, returns, and attribution are never fabricated."
   },
   "nav_desc": {
     "visual_search": "Find catalog matches from any photo",
@@ -950,7 +974,10 @@
     "catalog": "Curated multi-brand catalog",
     "stylist": "Conversational AI recommendations",
     "wardrobe": "Auto-tagged owned clothing",
-    "studio": "CONFIT AI Studio"
+    "studio": "CONFIT AI Studio",
+    "builder_canvas": "Multi-brand canvas & live budget tracker",
+    "no_photo_fit": "Zero-photo size & measurement engine",
+    "orders_timeline": "Real-time status & timelines"
   },
   "fit_finder": {
     "brand_tendency": "Brand tendency",
@@ -1669,5 +1696,23 @@
     "forgot_unconfigured": "Password reset email is not configured on this deployment yet, so no email was sent. Please contact support to recover your account.",
     "forgot_failed": "Could not submit the request — please try again.",
     "back_to_signin": "Back to sign in"
+  },
+  "account": {
+    "style_profile": "Style Profile",
+    "orders_tracking": "My Orders & Tracking",
+    "virtual_wardrobe": "Virtual Wardrobe",
+    "admin_panel": "Admin Governance Panel",
+    "partner_dashboard": "Brand Partner Dashboard",
+    "sign_out": "Sign Out",
+    "role_label": "Role:"
+  },
+  "guard": {
+    "verifying_session": "Verifying your session…",
+    "forbidden_badge": "403 Forbidden · Role Restriction",
+    "access_restricted": "Access Restricted",
+    "registered_as": "Your account is registered as",
+    "requires_roles": "This portal requires one of the following permissions:",
+    "return_storefront": "Return to Consumer Storefront",
+    "switch_account": "Switch Account / Re-authenticate"
   }
 }

@@ -92,7 +92,7 @@ export const PartnerPortalBoundary: React.FC<{ children: React.ReactNode }> = ({
   }
 
   return (
-    <RoleGuard allowedRoles={PARTNER_ROLES} fallbackTitle="Brand Partner Portal">
+    <RoleGuard allowedRoles={PARTNER_ROLES} portal="partner">
       {children}
     </RoleGuard>
   );
@@ -245,7 +245,7 @@ export const AppRoutes: React.FC = () => {
         <Route
           path="/admin"
           element={
-            <RoleGuard allowedRoles={ADMIN_ROLES} fallbackTitle="Platform Super-Admin Portal">
+            <RoleGuard allowedRoles={ADMIN_ROLES} portal="admin">
               <BrandLayout />
             </RoleGuard>
           }

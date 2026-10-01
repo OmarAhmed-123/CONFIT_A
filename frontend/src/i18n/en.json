@@ -498,7 +498,9 @@
     "retry": "Retry",
     "retry_now": "Retry now",
     "previous": "Previous",
-    "next": "Next"
+    "next": "Next",
+    "sign_in_to_continue": "Sign in to continue — your selection is kept.",
+    "offline_retry": "You appear to be offline — check your connection and try again."
   },
   "layout": {
     "ai_stylist_director": "AI Stylist Director",
@@ -1097,7 +1099,8 @@
     "tax": "Tax",
     "pickup": "Pickup",
     "placing_order": "Placing order...",
-    "place_order": "Place order"
+    "place_order": "Place order",
+    "order_placed_confirmed": "Order placed. Payment status is confirmed by the server."
   },
   "order": {
     "state_unknown": "Status unavailable",

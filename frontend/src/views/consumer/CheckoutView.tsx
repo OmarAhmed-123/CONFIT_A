@@ -181,7 +181,7 @@ export const CheckoutView: React.FC = () => {
         shipping_method: shippingMethod,
         idempotency_key: newIdempotencyKey(),
       });
-      showToast('Order placed. Payment status is confirmed by the server.', 'success');
+      showToast(t('checkout.order_placed_confirmed'), 'success');
       await fetchCart();
       navigate(`/orders/${order.order_number}`);
     } catch (err: any) {
@@ -615,11 +615,18 @@ export const CheckoutView: React.FC = () => {
             <button
               type="submit"
               disabled={isSubmitting || !cart || cart.items_count === 0}
-              className="w-full py-4 rounded-2xl bg-[#1B1F3B] hover:bg-[#0C0E1E] disabled:opacity-50 text-white font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2"
+              aria-busy={isSubmitting}
+              className="w-full min-h-[44px] py-4 rounded-2xl bg-[#1B1F3B] hover:bg-[#0C0E1E] disabled:opacity-50 text-white font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2"
             >
               <SparkleIcon size={16} color="#C5A059" />
               <span>{isSubmitting ? t('checkout.placing_order') : t('checkout.place_order')}</span>
             </button>
+            {/* Spec 01: the payment action announces its pending state as
+                text. Success is only ever announced AFTER the server
+                confirms (toast + navigation above) — never optimistically. */}
+            <span className="sr-only" role="status" aria-live="polite">
+              {isSubmitting ? t('checkout.placing_order') : ''}
+            </span>
           </div>
         </div>
       </form>

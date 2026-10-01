@@ -138,6 +138,82 @@ describe("one button never sends twice", () => {
   });
 });
 
+describe("unauthorized: the fix is signing in, not retrying (spec 01 §5)", () => {
+  it("a 401 opens auth WITHOUT losing context and never claims success or generic failure", async () => {
+    const onUnauthorized = vi.fn();
+    const action = vi.fn(async () => {
+      throw Object.assign(new Error("auth"), { status: 401, code: "AUTH_REQUIRED" });
+    });
+    wrap(
+      <AsyncActionButton
+        onAction={action}
+        onUnauthorized={onUnauthorized}
+        idleLabel={IDLE}
+      />,
+    );
+
+    const button = screen.getByRole("button");
+    fireEvent.click(button);
+
+    await waitFor(() => {
+      expect(button).toHaveAttribute("data-state", "unauthorized");
+    });
+    // Auth was opened exactly once — as a modal, so the page (context) stays.
+    expect(onUnauthorized).toHaveBeenCalledTimes(1);
+    // The control says what the next step is, as text.
+    expect(button).toHaveTextContent("Sign in to continue — your selection is kept.");
+    // No success claim, no generic "try again" lie about a retryable failure.
+    expect(button).not.toHaveTextContent("Added");
+    expect(screen.queryAllByText("Could not add — try again")).toEqual([]);
+    // Still actionable after signing in.
+    expect(button).not.toBeDisabled();
+  });
+});
+
+describe("offline: a request that never left the device is neither success nor failure", () => {
+  it("names the offline condition and keeps retry available", async () => {
+    const onLineSpy = vi
+      .spyOn(window.navigator, "onLine", "get")
+      .mockReturnValue(false);
+    const action = vi.fn(async () => {
+      throw new TypeError("Failed to fetch");
+    });
+    wrap(<AsyncActionButton onAction={action} idleLabel={IDLE} />);
+
+    const button = screen.getByRole("button");
+    fireEvent.click(button);
+
+    await waitFor(() => {
+      expect(button).toHaveAttribute("data-state", "offline");
+    });
+    expect(button).toHaveTextContent(
+      "You appear to be offline — check your connection and try again.",
+    );
+    expect(button).not.toHaveTextContent("Added");
+    expect(button).not.toBeDisabled();
+    // The live region carries the same truth for screen readers.
+    expect(screen.getByRole("status")).toHaveTextContent(/offline/i);
+
+    onLineSpy.mockRestore();
+  });
+});
+
+describe("aria-busy mirrors the pending state (spec 01 §5)", () => {
+  it("is true while the mutation is in flight and false after it resolves", async () => {
+    const gate = deferred<ActionOutcome>();
+    wrap(<AsyncActionButton onAction={() => gate.promise} idleLabel={IDLE} />);
+
+    const button = screen.getByRole("button");
+    expect(button).toHaveAttribute("aria-busy", "false");
+
+    fireEvent.click(button);
+    await waitFor(() => expect(button).toHaveAttribute("aria-busy", "true"));
+
+    gate.resolve("success");
+    await waitFor(() => expect(button).toHaveAttribute("aria-busy", "false"));
+  });
+});
+
 describe("reduced motion: the feature IS the text, the motion is garnish", () => {
   function forceReducedMotion() {
     window.matchMedia = ((query: string) => ({

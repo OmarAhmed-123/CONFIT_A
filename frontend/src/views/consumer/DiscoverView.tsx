@@ -16,7 +16,10 @@ import {
 import { useCapabilities } from "../../hooks/useCapabilities";
 import { resolvePurchasableSku } from "../../lib/catalogSku";
 import { ProductCard } from "../../components/product/ProductCard";
-import type { ActionOutcome } from "../../components/common/InteractionPrimitives";
+import {
+  classifyActionError,
+  type ActionOutcome,
+} from "../../components/common/InteractionPrimitives";
 
 export const DiscoverView: React.FC = () => {
   const { t, i18n } = useTranslation();
@@ -95,8 +98,13 @@ export const DiscoverView: React.FC = () => {
       showToast(t("discover.added_to_bag"), "success");
       return "success";
     } catch (err: any) {
-      showToast(err?.message || t("discover.add_to_bag_failed"), "error");
-      return "error";
+      // 401 -> auth modal (context kept); offline -> named as such on the
+      // control. Only a real server failure earns the generic error toast.
+      const kind = classifyActionError(err);
+      if (kind === "error") {
+        showToast(err?.message || t("discover.add_to_bag_failed"), "error");
+      }
+      return kind;
     }
   };
 

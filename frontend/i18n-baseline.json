@@ -1,7 +1,7 @@
 {
   "$comment": "Debt register for user-facing copy that still bypasses i18n. This file may only SHRINK. Fix a call site (move the string into src/i18n/<locale>.json and use t()/msg()), then remove its entry here — run `npm run i18n:baseline` to regenerate after the fix. Adding an entry means accepting new untranslated UI copy in a bilingual product and must be justified in review.",
   "$generated": "2026-10-01",
-  "count": 65,
+  "count": 64,
   "allow": [
     "src/components/common/ConfitLogo.tsx::CONFIT Brand Monogram",
     "src/components/navigation/ConsumerNavbar.tsx::Multi-brand canvas & live budget tracker",
@@ -61,7 +61,6 @@
     "src/views/b2b/BrandPlacementsView.tsx::Trending Hero",
     "src/views/consumer/CheckoutView.tsx::Could not remove item",
     "src/views/consumer/CheckoutView.tsx::Could not update quantity",
-    "src/views/consumer/CheckoutView.tsx::Order placed. Payment status is confirmed by the server.",
     "src/views/consumer/CheckoutView.tsx::Promotion applied",
     "src/views/public/SharedLookView.tsx::Back to CONFIT",
     "src/views/public/SharedLookView.tsx::Something went wrong",

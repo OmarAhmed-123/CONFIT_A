@@ -22,7 +22,10 @@ import {
 } from "../../components/common/CommonComponents";
 import { useCartStore } from "../../stores/cartStore";
 import { resolvePurchasableSku } from "../../lib/catalogSku";
-import type { ActionOutcome } from "../../components/common/InteractionPrimitives";
+import {
+  classifyActionError,
+  type ActionOutcome,
+} from "../../components/common/InteractionPrimitives";
 import { formatAmount, formatNumber } from "../../i18n/format";
 import {
   CircularGallery,
@@ -213,8 +216,13 @@ export const HomeView: React.FC = () => {
       showToast(t("toast.added_to_bag"), "success");
       return "success";
     } catch (err: any) {
-      showToast(err?.message || t("discover.add_to_bag_failed"), "error");
-      return "error";
+      // 401 -> auth modal (context kept); offline -> named as such on the
+      // control. Only a real server failure earns the generic error toast.
+      const kind = classifyActionError(err);
+      if (kind === "error") {
+        showToast(err?.message || t("discover.add_to_bag_failed"), "error");
+      }
+      return kind;
     }
   };
 

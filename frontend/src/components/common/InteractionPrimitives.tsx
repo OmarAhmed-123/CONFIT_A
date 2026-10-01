@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTranslation } from "react-i18next";
+import { useUIStore } from "../../stores/uiStore";
 
 /**
  * Interaction primitives for commerce actions (add to bag / save / add to
@@ -58,8 +59,20 @@ export function usePrefersReducedMotion(): boolean {
   return reduce;
 }
 
-export type ActionOutcome = "success" | "error" | "unavailable" | "handled";
-export type AsyncActionState = "idle" | "pending" | "success" | "error";
+export type ActionOutcome =
+  | "success"
+  | "error"
+  | "unavailable"
+  | "handled"
+  | "unauthorized"
+  | "offline";
+export type AsyncActionState =
+  | "idle"
+  | "pending"
+  | "success"
+  | "error"
+  | "unauthorized"
+  | "offline";
 
 export type AsyncAction = () =>
   | Promise<ActionOutcome | void>
@@ -70,15 +83,48 @@ const SUCCESS_RESET_MS = 2000;
 const ERROR_RESET_MS = 4000;
 
 /**
+ * Maps a thrown mutation error onto the action contract (spec 01 §5):
+ *   - the browser says we are offline     → "offline" (never claim failure
+ *     of a request that could not leave the device, never claim success);
+ *   - ApiError 401 / code AUTH_REQUIRED   → "unauthorized" (the fix is
+ *     signing in, not retrying);
+ *   - anything else                       → "error" (actionable retry).
+ * Exported so view-level handlers that catch for their own toasts can
+ * return the same classification instead of flattening everything to error.
+ */
+export function classifyActionError(err: unknown): "unauthorized" | "offline" | "error" {
+  if (typeof navigator !== "undefined" && navigator.onLine === false) {
+    return "offline";
+  }
+  const e = err as { status?: number; code?: string } | null;
+  if (e && (e.status === 401 || e.code === "AUTH_REQUIRED")) {
+    return "unauthorized";
+  }
+  return "error";
+}
+
+/**
  * State machine for a single mutation-backed control.
  * Guarantees: never two in-flight sends from the same control; success is
  * only ever entered from a resolved action; timers are cleaned on unmount.
  */
-export function useAsyncAction(action: AsyncAction) {
+export function useAsyncAction(
+  action: AsyncAction,
+  opts?: {
+    /**
+     * Fired once on entering "unauthorized". The default button wires this
+     * to the auth MODAL (uiStore.openAuthModal), which keeps the shopper on
+     * the page — context is preserved, nothing navigates away.
+     */
+    onUnauthorized?: () => void;
+  },
+) {
   const [state, setState] = useState<AsyncActionState>("idle");
   const inFlight = useRef(false);
   const mounted = useRef(true);
   const resetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onUnauthorizedRef = useRef(opts?.onUnauthorized);
+  onUnauthorizedRef.current = opts?.onUnauthorized;
 
   useEffect(() => {
     mounted.current = true;
@@ -98,10 +144,12 @@ export function useAsyncAction(action: AsyncAction) {
     try {
       const res = await action();
       outcome = (res as ActionOutcome | undefined) ?? "success";
-    } catch {
+    } catch (err) {
       // The caller owns the human-readable error (toast with the server's
-      // message); this machine owns the control's own state.
-      outcome = "error";
+      // message); this machine owns the control's own state — classified,
+      // because "sign in" and "you are offline" are different next steps
+      // than "retry".
+      outcome = classifyActionError(err);
     }
 
     inFlight.current = false;
@@ -116,6 +164,22 @@ export function useAsyncAction(action: AsyncAction) {
       // Another surface (duplicate dialog, size picker…) continues the flow.
       // Claiming success here would be a lie; claiming failure would too.
       setState("idle");
+    } else if (outcome === "unauthorized") {
+      // The action needs a signed-in user. Open auth WITHOUT losing context
+      // (modal, no navigation) and say so as text on the control itself.
+      setState("unauthorized");
+      onUnauthorizedRef.current?.();
+      resetTimer.current = setTimeout(() => {
+        if (mounted.current) setState("idle");
+      }, ERROR_RESET_MS);
+    } else if (outcome === "offline") {
+      // The request never reached the server: claiming failure of the
+      // OPERATION would be as dishonest as claiming success. Name the real
+      // problem and keep the control actionable for retry.
+      setState("offline");
+      resetTimer.current = setTimeout(() => {
+        if (mounted.current) setState("idle");
+      }, ERROR_RESET_MS);
     } else {
       setState("error");
       resetTimer.current = setTimeout(() => {
@@ -133,7 +197,9 @@ export const ActionStatusLive: React.FC<{
   pendingText: string;
   successText: string;
   errorText: string;
-}> = ({ state, pendingText, successText, errorText }) => (
+  unauthorizedText?: string;
+  offlineText?: string;
+}> = ({ state, pendingText, successText, errorText, unauthorizedText, offlineText }) => (
   <span className="sr-only" role="status" aria-live="polite">
     {state === "pending"
       ? pendingText
@@ -141,7 +207,11 @@ export const ActionStatusLive: React.FC<{
         ? successText
         : state === "error"
           ? errorText
-          : ""}
+          : state === "unauthorized"
+            ? (unauthorizedText ?? "")
+            : state === "offline"
+              ? (offlineText ?? "")
+              : ""}
   </span>
 );
 
@@ -183,6 +253,13 @@ export interface AsyncActionButtonProps {
   pendingLabel?: string;
   successLabel?: string;
   errorLabel?: string;
+  unauthorizedLabel?: string;
+  offlineLabel?: string;
+  /**
+   * Fired on entering "unauthorized". Defaults to opening the auth modal —
+   * the shopper stays on the page, so nothing they were doing is lost.
+   */
+  onUnauthorized?: () => void;
   /** Leading icon in idle state (semantic, from ConfitIcons). */
   icon?: React.ReactNode;
   /** Icon used by the decorative lift-off hint. Defaults to `icon`. */
@@ -203,6 +280,9 @@ export const AsyncActionButton: React.FC<AsyncActionButtonProps> = ({
   pendingLabel,
   successLabel,
   errorLabel,
+  unauthorizedLabel,
+  offlineLabel,
+  onUnauthorized,
   icon,
   flightIcon,
   disabled = false,
@@ -210,12 +290,17 @@ export const AsyncActionButton: React.FC<AsyncActionButtonProps> = ({
   "data-testid": dataTestId,
 }) => {
   const { t } = useTranslation();
-  const { state, run, isPending } = useAsyncAction(onAction);
+  const openAuthModal = useUIStore((s) => s.openAuthModal);
+  const { state, run, isPending } = useAsyncAction(onAction, {
+    onUnauthorized: onUnauthorized ?? (() => openAuthModal("login")),
+  });
 
   const labels = {
     pending: pendingLabel ?? t("commerce.adding"),
     success: successLabel ?? t("commerce.added_confirm"),
     error: errorLabel ?? t("commerce.add_failed_retry"),
+    unauthorized: unauthorizedLabel ?? t("common.sign_in_to_continue"),
+    offline: offlineLabel ?? t("common.offline_retry"),
   };
 
   const visibleLabel =
@@ -225,7 +310,11 @@ export const AsyncActionButton: React.FC<AsyncActionButtonProps> = ({
         ? labels.success
         : state === "error"
           ? labels.error
-          : idleLabel;
+          : state === "unauthorized"
+            ? labels.unauthorized
+            : state === "offline"
+              ? labels.offline
+              : idleLabel;
 
   return (
     <button
@@ -233,11 +322,12 @@ export const AsyncActionButton: React.FC<AsyncActionButtonProps> = ({
       onClick={run}
       disabled={disabled || isPending}
       aria-disabled={disabled || isPending}
+      aria-busy={isPending}
       data-state={state}
       data-testid={dataTestId}
       className={[
         "relative min-h-[44px] transition-all",
-        state === "error" ? "ring-1 ring-[#7A1F2B]/40" : "",
+        state === "error" || state === "offline" ? "ring-1 ring-[#7A1F2B]/40" : "",
         className,
       ]
         .filter(Boolean)
@@ -268,6 +358,8 @@ export const AsyncActionButton: React.FC<AsyncActionButtonProps> = ({
         pendingText={labels.pending}
         successText={labels.success}
         errorText={labels.error}
+        unauthorizedText={labels.unauthorized}
+        offlineText={labels.offline}
       />
     </button>
   );

@@ -24,6 +24,7 @@ import { HonestProductImage } from "../../components/common/HonestProductImage";
 import {
   AsyncActionButton,
   WishlistToggle,
+  classifyActionError,
 } from "../../components/common/InteractionPrimitives";
 import { useTranslation } from "react-i18next";
 import { useTryOnAvailability } from "../../hooks/useTryOnAvailability";
@@ -524,8 +525,11 @@ export const ProductDetailView: React.FC = () => {
                   showToast(t("toast.added_to_bag"), "success");
                   return "success";
                 } catch (err: any) {
-                  showToast(err?.message || t("discover.add_to_bag_failed"), "error");
-                  return "error";
+                  const kind = classifyActionError(err);
+                  if (kind === "error") {
+                    showToast(err?.message || t("discover.add_to_bag_failed"), "error");
+                  }
+                  return kind;
                 }
               }}
               icon={<BagIcon size={16} color="#FFFFFF" />}

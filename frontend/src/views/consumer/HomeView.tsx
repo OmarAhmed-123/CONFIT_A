@@ -550,7 +550,6 @@ export const HomeView: React.FC = () => {
                 ? 360
                 : 560
             }
-            autoRotateSpeed={0.015}
           />
         </div>
       </section>

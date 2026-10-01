@@ -22,12 +22,17 @@ interface CircularGalleryProps extends HTMLAttributes<HTMLDivElement> {
   items: GalleryItem[];
   /** Controls how far the items are from the center. */
   radius?: number;
-  /** Controls the speed of auto-rotation when not scrolling. */
+  /**
+   * Speed of idle auto-rotation. Defaults to 0 (OFF): spec 10 §6.4 bans
+   * autoplay by default — rotation should be driven by the user's scroll.
+   */
   autoRotateSpeed?: number;
+  /** Translated accessible name for the gallery region (spec 10 §7). */
+  ariaLabel?: string;
 }
 
 const CircularGallery = React.forwardRef<HTMLDivElement, CircularGalleryProps>(
-  ({ items, className, radius = 600, autoRotateSpeed = 0.02, ...props }, ref) => {
+  ({ items, className, radius = 600, autoRotateSpeed = 0, ariaLabel, ...props }, ref) => {
     const [rotation, setRotation] = useState(0);
     const [isScrolling, setIsScrolling] = useState(false);
     const [reduceMotion, setReduceMotion] = useState(false);
@@ -102,7 +107,7 @@ const CircularGallery = React.forwardRef<HTMLDivElement, CircularGalleryProps>(
       <div
         ref={ref}
         role="region"
-        aria-label="Circular 3D Gallery"
+        aria-label={ariaLabel ?? "Gallery"}
         className={cn('relative flex h-full w-full items-center justify-center', className)}
         style={{ perspective: '2000px' }}
         {...props}

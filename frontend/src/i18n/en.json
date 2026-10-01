@@ -1769,5 +1769,128 @@
     "png_failed": "Sorry, the image could not be generated. Please try again.",
     "unavailable_body": "The share link is invalid, expired, or was revoked by its owner.",
     "unavailable_title": "This look is no longer available"
+  },
+  "carousel": {
+    "loading": "Loading items…",
+    "retry": "Retry",
+    "empty": "Nothing to show here yet.",
+    "previous": "Previous",
+    "next": "Next",
+    "position": "Item {{current}} of {{total}}",
+    "go_to": "Go to {{title}}",
+    "open_item": "Open {{title}}"
+  },
+  "showcase": {
+    "stack_region": "Style stories carousel",
+    "gallery_region": "Visual collection gallery",
+    "gallery_eyebrow_suffix": "Gallery",
+    "gallery_title": "Rotating visual system for every journey",
+    "gallery_description": "A real, reusable 3D gallery brings collection stories, fit journeys, and operational insights into one premium interface.",
+    "items": {
+      "tailored_power": {
+        "title": "Tailored Power",
+        "description": "Structured tailoring for work, dinners, and polished day-to-night moments."
+      },
+      "evening_silk": {
+        "title": "Evening Silk",
+        "description": "Occasion dressing with fluid gowns, satin finishes, and gold accents."
+      },
+      "minimal_capsule": {
+        "title": "Minimal Capsule",
+        "description": "Quiet luxury essentials built for repeat wear and easy outfit pairing."
+      },
+      "street_utility": {
+        "title": "Street Utility",
+        "description": "Relaxed layers, sharp proportions, and practical weekend styling."
+      },
+      "resort_linen": {
+        "title": "Resort Linen",
+        "description": "Breathable neutrals and travel-friendly summer silhouettes."
+      },
+      "catalog_quality": {
+        "title": "Catalog Quality Gate",
+        "description": "Merchandising teams review imagery, attributes, stock signals, and fit metadata before publishing."
+      },
+      "inventory_ops": {
+        "title": "Inventory Operations",
+        "description": "Boutique teams monitor live stock, pickup readiness, replenishment, and SKU-level health."
+      },
+      "placement_engine": {
+        "title": "Placement Engine",
+        "description": "Premium placements balance brand priority with shopper intent and conversion confidence."
+      },
+      "analytics_control": {
+        "title": "Analytics Control Room",
+        "description": "Executive dashboards connect visual merchandising to margin, attribution, and try-on engagement."
+      },
+      "fulfillment_trust": {
+        "title": "Fulfillment Trust",
+        "description": "Operational transparency covers order status, pickup windows, courier flows, and returns."
+      }
+    },
+    "gallery_items": {
+      "workwear_fit": {
+        "name": "Workwear Fit",
+        "caption": "Structured blazer + trouser balance",
+        "alt": "Tailored suit styling"
+      },
+      "evening_texture": {
+        "name": "Evening Texture",
+        "caption": "Silk, satin, and event-ready polish",
+        "alt": "Evening dress styling"
+      },
+      "capsule_layering": {
+        "name": "Capsule Layering",
+        "caption": "Modern neutrals for daily rotation",
+        "alt": "Minimal fashion styling"
+      },
+      "visual_search_mood": {
+        "name": "Visual Search Mood",
+        "caption": "Camera-led outfit inspiration matching",
+        "alt": "Fashion shopping and visual discovery"
+      },
+      "wardrobe_reuse": {
+        "name": "Wardrobe Reuse",
+        "caption": "Owned pieces styled into new looks",
+        "alt": "Organized clothing wardrobe"
+      },
+      "boutique_operations": {
+        "name": "Boutique Operations",
+        "caption": "Catalog readiness and retail execution",
+        "alt": "Premium retail boutique"
+      }
+    },
+    "tones": {
+      "consumer": {
+        "label": "Consumer Style System",
+        "title": "Interactive premium fashion discovery",
+        "description": "Swipe through real editorial outfit directions and jump into catalog exploration with visual continuity."
+      },
+      "tryon": {
+        "label": "Virtual Try-On Journey",
+        "title": "From inspiration to body-aware fit",
+        "description": "Use the same design language to connect moodboards, garments, visual search, and fit decisions."
+      },
+      "wardrobe": {
+        "label": "Wardrobe Reuse",
+        "title": "Turn saved garments into styled rotations",
+        "description": "Card stacks present reusable outfit formulas while circular galleries add premium visual browsing moments."
+      },
+      "commerce": {
+        "label": "Checkout Confidence",
+        "title": "A premium purchase and fulfillment journey",
+        "description": "Show delivery, returns, and pickup trust signals using the same tactile visual system."
+      },
+      "brand": {
+        "label": "Brand Partner UI",
+        "title": "Operational storytelling for partners",
+        "description": "B2B pages use the components for catalog, inventory, placements, and executive decisions."
+      },
+      "analytics": {
+        "label": "Performance Intelligence",
+        "title": "Visualize the path from styling to margin",
+        "description": "Analytics surfaces stay visual and decision-oriented without becoming decorative or cartoonish."
+      }
+    }
   }
 }

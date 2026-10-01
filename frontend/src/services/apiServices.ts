@@ -402,6 +402,25 @@ export const catalogService = {
 };
 
 // 4. Virtual Stylist & Outfitting Engine Services (G2.2)
+/** Validated because the Undo affordance is rendered FROM this payload: a
+ *  missing `undoable` must fail loudly, not render a button that cannot work. */
+const outfitDeleteSchema = z.object({
+  status: z.string(),
+  outfit_id: z.number(),
+  permanent: z.boolean(),
+  undoable: z.boolean(),
+  message: z.string().optional(),
+  deleted_at: z.string().nullable().optional(),
+  restorable_until: z.string().nullable().optional(),
+  restore_endpoint: z.string().optional(),
+});
+
+const outfitRestoreSchema = z.object({
+  outfit_id: z.number(),
+  status: z.literal("restored"),
+  detail: z.string().optional(),
+});
+
 export const stylistService = {
   chat: (payload: {
     prompt: string;
@@ -497,8 +516,18 @@ export const stylistService = {
       body: JSON.stringify(data),
     }),
 
-  deleteOutfit: (id: number) =>
-    request<{ status: string }>(`/outfits/${id}`, { method: "DELETE" }),
+  /** Reversible by default; `permanent` is the explicitly-confirmed path.
+   *  Same response shape as the wardrobe delete on purpose — one Undo flow
+   *  serves /wardrobe, /builder and /my-looks. */
+  deleteOutfit: (id: number, permanent = false) =>
+    request<unknown>(`/outfits/${id}${permanent ? "?permanent=true" : ""}`, {
+      method: "DELETE",
+    }).then((raw) => outfitDeleteSchema.parse(raw)),
+
+  /** Undo a reversible look deletion. 404 once the window has passed. */
+  restoreOutfit: (id: number) =>
+    request<unknown>(`/outfits/${id}/restore`, { method: "POST" })
+      .then((raw) => outfitRestoreSchema.parse(raw)),
 
   // C8/OUTFIT-01: mint (or fetch the idempotent) share token for an owned
   // outfit. The response carries the REAL expiry and active flag — no

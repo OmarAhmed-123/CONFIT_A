@@ -1,4 +1,6 @@
 from typing import List, Optional, Dict, Any
+from datetime import datetime, timezone
+from backend.app.core.exceptions import ResourceNotFoundError
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 from backend.app.core.database import get_db
@@ -22,6 +24,13 @@ from backend.app.schemas.stylist import (
     ShareRevokeOut,
     ShareRequestInput,
 )
+
+#: Restore window for a binned look. Mirrors WardrobeService.BIN_RETENTION so
+#: the two surfaces cannot drift into different "undo lasts N days" promises.
+#: Like the wardrobe one, it is a RESTORE WINDOW, not a guarantee of eventual
+#: permanent deletion.
+from backend.app.services.wardrobe_service import WardrobeService as _WardrobeService
+OUTFIT_BIN_RETENTION = _WardrobeService.BIN_RETENTION
 
 router = APIRouter(prefix="/outfits", tags=["Outfits & My Looks"])
 
@@ -133,13 +142,86 @@ def patch_outfit_by_id(
 @router.delete("/{outfit_id}", status_code=status.HTTP_200_OK)
 def delete_outfit_by_id(
     outfit_id: int,
+    permanent: bool = Query(
+        False,
+        description=(
+            "Irreversible. Removes the outfit AND every OutfitItem. The client "
+            "must obtain explicit user confirmation before setting it."
+        ),
+    ),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    """Remove a look — reversibly by default (migration 0031).
+
+    Mirrors the wardrobe contract deliberately: the same response shape means
+    the front end has ONE Undo flow for `/wardrobe`, `/builder` and
+    `/my-looks` rather than three near-identical ones.
+
+    Binning also revokes public visibility immediately — a look shared at
+    `/looks/{token}` stops resolving the moment it is deleted, and resolves
+    again if it is restored.
+
+    `permanent=true` is the explicitly-confirmed destructive path. Opt-in, so
+    a client that has not been updated keeps the SAFE behaviour.
+    """
     service = OutfitService(db)
     outfit = _get_owned_outfit(service, outfit_id, user)
-    service.stylist_repo.delete_outfit(outfit.id)
-    return {"status": "success", "outfit_id": outfit_id, "deleted": True}
+
+    if permanent:
+        service.stylist_repo.delete_outfit(outfit.id)
+        return {
+            "status": "success", "outfit_id": outfit_id,
+            "permanent": True, "undoable": False,
+            "message": "Look permanently deleted.",
+        }
+
+    binned = service.stylist_repo.soft_delete_outfit(outfit.id)
+    deleted_at = binned.deleted_at if binned else None
+    if deleted_at is not None and deleted_at.tzinfo is None:
+        deleted_at = deleted_at.replace(tzinfo=timezone.utc)
+    return {
+        "status": "success", "outfit_id": outfit_id,
+        "permanent": False, "undoable": True,
+        "message": "Look moved to the bin.",
+        "deleted_at": deleted_at,
+        "restorable_until": (deleted_at + OUTFIT_BIN_RETENTION) if deleted_at else None,
+        "restore_endpoint": f"/outfits/{outfit_id}/restore",
+    }
+
+
+@router.post("/{outfit_id}/restore", status_code=status.HTTP_200_OK)
+def restore_outfit_by_id(
+    outfit_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Undo a reversible look deletion.
+
+    404 once the window has passed or the look was permanently deleted — the
+    UI must be able to tell the user their Undo did not work. Clicking Undo
+    twice returns success: the look is live, which is what they asked for.
+    """
+    service = OutfitService(db)
+    binned = service.stylist_repo.get_binned_outfit(outfit_id, user.id)
+    if binned is None:
+        existing = service.stylist_repo.get_outfit_by_id(outfit_id)
+        if existing is not None and existing.user_id == user.id:
+            return {"outfit_id": outfit_id, "status": "restored",
+                    "detail": "Look was already restored."}
+        raise ResourceNotFoundError("Outfit", str(outfit_id))
+
+    deleted_at = binned.deleted_at
+    if deleted_at is not None and deleted_at.tzinfo is None:
+        deleted_at = deleted_at.replace(tzinfo=timezone.utc)
+    if deleted_at is not None and (
+        datetime.now(timezone.utc) - deleted_at > OUTFIT_BIN_RETENTION
+    ):
+        raise ResourceNotFoundError("Outfit", str(outfit_id))
+
+    service.stylist_repo.restore_outfit(binned)
+    return {"outfit_id": outfit_id, "status": "restored",
+            "detail": "Look restored."}
 
 
 @router.put("/{outfit_id}/items", response_model=OutfitOut)

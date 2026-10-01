@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { stylistService } from '../services/apiServices';
 import { Outfit, ShareLink } from '../models';
+import { useUndoableRemove } from '../hooks/useUndoableRemove';
 import { useUIStore } from '../stores/uiStore';
 import { msg, detail } from '../i18n/messages';
 
@@ -23,6 +24,7 @@ export function useMyLooksViewModel() {
   const [busyId, setBusyId] = useState<number | null>(null);
   const [shareLinks, setShareLinks] = useState<Record<number, ShareLink>>({});
   const { showToast } = useUIStore();
+  const undoableRemove = useUndoableRemove();
 
   const load = useCallback(async () => {
     setState('loading');
@@ -127,20 +129,40 @@ export function useMyLooksViewModel() {
     }
   }, []);
 
+  /**
+   * Remove a look WITH a real Undo.
+   *
+   * Delegates to the shared useUndoableRemove hook rather than repeating the
+   * optimistic-remove / toast / restore / rollback dance that /wardrobe and
+   * WardrobeView also need — three copies drift, and the user sees one
+   * product. Reversible because the backend soft-deletes (migration 0031)
+   * and exposes a real restore route; binning also revokes the look's public
+   * share link immediately.
+   */
   const remove = useCallback(
     async (id: number) => {
+      const snapshot = looks;
       setBusyId(id);
       try {
-        await stylistService.deleteOutfit(id);
-        setLooks((prev) => prev.filter((l) => l.id !== id));
-        showToast(msg('toast.look_deleted'), 'success');
-      } catch (err: any) {
-        showToast(msg('toast.look_delete_failed', { reason: detail(err) }), 'error');
+        await undoableRemove({
+          remove: () => stylistService.deleteOutfit(id),
+          restore: () => stylistService.restoreOutfit(id),
+          optimisticRemove: () => setLooks((prev) => prev.filter((l) => l.id !== id)),
+          rollback: () => setLooks(snapshot),
+          refetch: () => load(),
+          messages: {
+            removed: msg('toast.look_deleted'),
+            removeFailed: (reason) => msg('toast.look_delete_failed', { reason }),
+            restored: msg('toast.look_restored'),
+            restoreFailed: (reason) => msg('toast.look_restore_failed', { reason }),
+            removedPermanently: msg('toast.look_deleted_permanently'),
+          },
+        });
       } finally {
         setBusyId(null);
       }
     },
-    [showToast],
+    [looks, load, undoableRemove],
   );
 
   const rename = useCallback(

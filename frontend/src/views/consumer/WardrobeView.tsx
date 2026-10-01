@@ -1,5 +1,6 @@
 import React, { useCallback, useRef, useState } from "react";
 import { useModalFocus } from "../../hooks/useModalFocus";
+import { useUndoableRemove } from '../../hooks/useUndoableRemove';
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { compressImageToDataUrl } from "../../lib/imageUpload";
@@ -64,12 +65,33 @@ export const WardrobeView: React.FC = () => {
   });
   const savedLooks: Outfit[] = savedLooksQuery.data ?? [];
   const [deletingLookId, setDeletingLookId] = useState<number | null>(null);
+  // Third call site for the same gesture. It previously had NO toast and NO
+  // undo at all — the look just vanished. Routed through the shared hook so
+  // all three behave identically; react-query owns the list here, so the
+  // optimistic hide and the rollback are both cache invalidations.
+  const undoableRemove = useUndoableRemove();
   const handleDeleteLook = async (id: number) => {
     setDeletingLookId(id);
+    const invalidate = () =>
+      queryClient.invalidateQueries({ queryKey: ["wardrobe", "saved-looks"] });
     try {
-      await stylistService.deleteOutfit(id);
-      await queryClient.invalidateQueries({
-        queryKey: ["wardrobe", "saved-looks"],
+      await undoableRemove({
+        remove: () => stylistService.deleteOutfit(id),
+        restore: () => stylistService.restoreOutfit(id),
+        optimisticRemove: () =>
+          queryClient.setQueryData<Outfit[]>(
+            ["wardrobe", "saved-looks"],
+            (prev) => (prev ?? []).filter((l) => l.id !== id),
+          ),
+        rollback: () => { void invalidate(); },
+        refetch: invalidate,
+        messages: {
+          removed: msg('toast.look_deleted'),
+          removeFailed: (reason) => msg('toast.look_delete_failed', { reason }),
+          restored: msg('toast.look_restored'),
+          restoreFailed: (reason) => msg('toast.look_restore_failed', { reason }),
+          removedPermanently: msg('toast.look_deleted_permanently'),
+        },
       });
     } finally {
       setDeletingLookId(null);

@@ -54,21 +54,38 @@ class StylistRepository:
         self.db.refresh(msg)
         return msg
 
+    @staticmethod
+    def live_outfits(query):
+        """ONE definition of a live outfit, used by every read path.
+
+        A second copy of `deleted_at IS NULL` elsewhere is how a binned look
+        reappears on one screen and not another — and, worse here, how it
+        stays reachable through its public share link.
+        """
+        return query.filter(Outfit.deleted_at.is_(None))
+
     def get_user_outfits(self, user_id: int, saved_only: bool = False) -> List[Outfit]:
         query = self.db.query(Outfit).options(
             joinedload(Outfit.items).joinedload(OutfitItem.product).joinedload(Product.brand),
             joinedload(Outfit.items).joinedload(OutfitItem.product).joinedload(Product.category)
         ).filter(Outfit.user_id == user_id)
+        query = self.live_outfits(query)
         if saved_only:
             query = query.filter(Outfit.is_saved == True)
         return query.order_by(Outfit.created_at.desc()).all()
 
     def get_outfit_by_share_token(self, share_token: str) -> Optional[Outfit]:
-        """Look up a shared outfit by its public token (items eager-loaded)."""
+        """Look up a shared outfit by its public token (items eager-loaded).
+
+        PRIVACY: binned outfits are excluded. Without this a "deleted" look
+        would remain reachable by anyone holding the link — the user pressed
+        delete and the thing stayed on the internet. Restoring brings the
+        same token back, which is what Undo should mean.
+        """
         return (
             self.db.query(Outfit)
             .options(joinedload(Outfit.items))
-            .filter(Outfit.share_token == share_token)
+            .filter(Outfit.share_token == share_token, Outfit.deleted_at.is_(None))
             .first()
         )
 
@@ -80,7 +97,19 @@ class StylistRepository:
                 joinedload(Outfit.items).joinedload(OutfitItem.product).joinedload(Product.category),
                 joinedload(Outfit.items).joinedload(OutfitItem.sku)
             )
-            .filter(Outfit.id == outfit_id)
+            .filter(Outfit.id == outfit_id, Outfit.deleted_at.is_(None))
+            .first()
+        )
+
+    def get_binned_outfit(self, outfit_id: int, user_id: int) -> Optional[Outfit]:
+        """The explicit opposite, for restore and permanent delete only."""
+        return (
+            self.db.query(Outfit)
+            .filter(
+                Outfit.id == outfit_id,
+                Outfit.user_id == user_id,
+                Outfit.deleted_at.isnot(None),
+            )
             .first()
         )
 
@@ -130,11 +159,34 @@ class StylistRepository:
         self.db.refresh(outfit)
         return outfit
 
+    def soft_delete_outfit(self, outfit_id: int) -> Optional[Outfit]:
+        """Bin the look. Row and every OutfitItem survive, so Undo can work."""
+        outfit = self.db.query(Outfit).filter(
+            Outfit.id == outfit_id, Outfit.deleted_at.is_(None)
+        ).first()
+        if not outfit:
+            return None
+        outfit.deleted_at = datetime.now(timezone.utc)
+        self.db.commit()
+        self.db.refresh(outfit)
+        return outfit
+
+    def restore_outfit(self, outfit: Outfit) -> Outfit:
+        outfit.deleted_at = None
+        self.db.commit()
+        self.db.refresh(outfit)
+        return outfit
+
     def delete_outfit(self, outfit_id: int) -> bool:
+        """PERMANENT. OutfitItem rows cascade (all, delete-orphan).
+
+        Kept as the irreversible path behind an explicit confirmation; the
+        default delete route now bins instead.
+        """
         outfit = self.db.query(Outfit).filter(Outfit.id == outfit_id).first()
         if not outfit:
             return False
-        self.db.delete(outfit)  # OutfitItem rows cascade (all, delete-orphan)
+        self.db.delete(outfit)
         self.db.commit()
         return True
 

@@ -119,7 +119,24 @@
     "bnpl_title": "0% Interest BNPL Payments",
     "bnpl_body": "When BNPL is live, eligible orders can show supported installment options at checkout.",
     "bnpl_demo_note": "Currently in demo mode — no live BNPL charges are processed yet.",
-    "ask_stylist_alt": "Ask Stylist for Alternatives"
+    "ask_stylist_alt": "Ask Stylist for Alternatives",
+    "example_card_label": "Example styled look — open the outfit builder",
+    "brand_massimo_origin": "Barcelona / Italian fabrics",
+    "brand_massimo_aesthetic": "Quiet luxury & tailored architecture",
+    "brand_massimo_badge": "100% virgin wool & cashmere",
+    "brand_cos_origin": "London / Modern classics",
+    "brand_cos_aesthetic": "Sculptural minimalism & organic poplin",
+    "brand_cos_badge": "Sustainable organic cotton",
+    "brand_reiss_origin": "London / Heritage modern",
+    "brand_reiss_aesthetic": "Evening glamour & mulberry silks",
+    "brand_reiss_badge": "Pure mulberry silk",
+    "brand_arket_origin": "Stockholm / Nordic essentials",
+    "brand_arket_aesthetic": "Durable foundations & structured linens",
+    "brand_arket_badge": "Nordic circular tailoring",
+    "occasion_wedding_desc": "Champagne silk gowns & tuxedo tailoring",
+    "occasion_work_desc": "Executive virgin-wool double-breasted layers",
+    "occasion_party_desc": "Fluid cowl necklines & strappy metallic heels",
+    "occasion_casual_desc": "Relaxed organic poplin & tapered chinos"
   },
   "stylist": {
     "title": "CONFIT AI Stylist",
@@ -502,7 +519,8 @@
     "previous": "Previous",
     "next": "Next",
     "sign_in_to_continue": "Sign in to continue — your selection is kept.",
-    "offline_retry": "You appear to be offline — check your connection and try again."
+    "offline_retry": "You appear to be offline — check your connection and try again.",
+    "image_unavailable": "Image unavailable"
   },
   "layout": {
     "ai_stylist_director": "AI Stylist Director",

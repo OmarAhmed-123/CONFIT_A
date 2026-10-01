@@ -1,4 +1,5 @@
 import { CardStackShowcase } from "../../components/showcase/DesignShowcases";
+import { HeroSection, HeroLightCard } from "../../components/common/HeroSection";
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -195,22 +196,22 @@ export const DiscoverView: React.FC = () => {
         title={t('discover.mood_stack_body')}
         description={t('discover.stack_description')}
       />
-      {/* Header & Search Bar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200/80 pb-6">
-        <div>
-          <span className="text-[10px] font-bold text-[#7A5C28] uppercase tracking-widest block">
+      {/* Header & Search — spec 07: compact dark editorial hero; the search
+          cluster is the structured LIGHT card inside it. All text sits on
+          the solid gradient, never on an image. */}
+      <HeroSection
+        compact
+        headingLevel="h1"
+        eyebrow={
+          <span className="inline-flex rounded-full border border-[#C5A059]/40 bg-[#C5A059]/15 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-[#E2BF70]">
             {t('discover.badge_multi_brand')}
           </span>
-          <h1 className="font-serif text-3xl font-bold text-[#1B1F3B] tracking-tight">
-            {t("nav.style_discover")}
-          </h1>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1 font-light">
-            {t('discover.subtitle')}
-          </p>
-        </div>
-
-        {/* Search & Visual Match Button */}
-        <div className="flex items-center gap-2 max-w-md w-full relative">
+        }
+        title={t("nav.style_discover")}
+        lede={t('discover.subtitle')}
+        aside={
+          <HeroLightCard className="w-full lg:max-w-md lg:justify-self-end bg-white/95 border-white/40">
+            <div className="flex items-center gap-2 relative">
           <div className="relative flex-1">
             {/* A placeholder is not an accessible name: it disappears as soon
                 as the user types and is not reliably announced. Measured
@@ -230,7 +231,7 @@ export const DiscoverView: React.FC = () => {
               }}
               aria-label={t('discover.search_label')}
               placeholder={t('discover.search_placeholder')}
-              className="w-full pl-4 pr-10 py-3 rounded-2xl border border-slate-200 text-xs focus:outline-none focus:border-[#C5A059] bg-white shadow-2xs placeholder:text-slate-500"
+              className="w-full ps-4 pe-10 py-3 rounded-2xl border border-slate-200 text-xs focus:outline-none focus:border-[#C5A059] bg-white shadow-2xs placeholder:text-slate-500"
             />
             {searchQuery && (
               <button
@@ -238,7 +239,7 @@ export const DiscoverView: React.FC = () => {
                   setSearchQuery("");
                   setShowSuggestions(false);
                 }}
-                className="absolute right-3 top-3 text-xs text-slate-500 hover:text-slate-700"
+                className="absolute end-3 top-3 inline-flex min-h-6 min-w-6 items-center justify-center text-xs text-slate-500 hover:text-slate-700"
               >
                 ✕
               </button>
@@ -246,7 +247,7 @@ export const DiscoverView: React.FC = () => {
 
             {/* Instant Autocomplete Dropdown */}
             {showSuggestions && autocompleteSuggestions.length > 0 && (
-              <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden z-50 animate-in fade-in duration-100 divide-y divide-slate-100">
+              <div className="absolute top-full start-0 end-0 mt-2 bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden z-50 animate-in fade-in duration-100 divide-y divide-slate-100">
                 <div className="p-2.5 bg-[#FAF9F6] text-[10px] font-bold text-[#C5A059] uppercase tracking-wider">
                   {t('discover.suggested_matches')}
                 </div>
@@ -297,14 +298,17 @@ export const DiscoverView: React.FC = () => {
 
           <button
             onClick={openVisualSearch}
-            className="px-4 py-3 rounded-2xl bg-[#FDF8EE] hover:bg-[#C5A059] hover:text-white border border-[#C5A059]/40 text-[#7A5C28] text-xs font-semibold shadow-2xs transition-all flex items-center gap-1.5 shrink-0"
-            title={t('discover.search_by_photo')}
+            type="button"
+            aria-label={t('discover.search_by_photo')}
+            className="min-h-11 px-4 py-3 rounded-2xl bg-[#FDF8EE] hover:bg-[#C5A059] hover:text-white border border-[#C5A059]/40 text-[#7A5C28] text-xs font-semibold shadow-2xs transition-all flex items-center gap-1.5 shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059]"
           >
-            <VisualSearchIcon size={16} color="currentColor" />
+            <span aria-hidden="true"><VisualSearchIcon size={16} color="currentColor" /></span>
             <span className="hidden sm:inline">{t('discover.photo_match')}</span>
           </button>
-        </div>
-      </div>
+            </div>
+          </HeroLightCard>
+        }
+      />
 
       {/* Filter Tabs & Occasion Pills */}
       <div className="space-y-4">

@@ -9,3 +9,22 @@
 b49ab275c8e8139133bb886537c7ba88f58847f7:backend/app/core/database.py:database-dsn-with-password:8
 878e6491d2aa9a5bf476b9a40d22019c64e8b11c:backend/app/core/database.py:database-dsn-with-password:8
 878e6491d2aa9a5bf476b9a40d22019c64e8b11c:api/backend/app/core/database.py:database-dsn-with-password:8
+
+# ── FALSE POSITIVES, 2026-09-30 (PR #251) ───────────────────────────────────
+# gitleaks' generic-api-key rule matches the shape `...Key: '<string>'`. The
+# Undo toast carried a field named `labelKey` whose value is a translation id
+# (`a11y.undo_remove`), not a credential. Three findings, zero secrets.
+#
+# The field was RENAMED to `i18nLabel` in 42fe16a so the pattern cannot recur
+# in new code — that is the real fix. These three entries exist only because
+# the check scans FULL HISTORY and commit 37b12ac is immutable: the rename
+# cannot retroactively change what that commit contains, and rewriting
+# published history to silence a false positive would be far more dangerous
+# than the finding.
+#
+# Unlike the Neon DSN entries above, there is NO outstanding action here and
+# nothing to rotate: no secret material ever existed at these locations.
+# Verifiable by reading the three lines in 37b12ac.
+37b12ac3565ade1feaa6964a2ae2fcdd66feb85c:frontend/src/viewmodels/useWardrobeViewModel.ts:generic-api-key:348
+37b12ac3565ade1feaa6964a2ae2fcdd66feb85c:frontend/src/viewmodels/__tests__/useWardrobeUndo.test.tsx:generic-api-key:125
+37b12ac3565ade1feaa6964a2ae2fcdd66feb85c:frontend/src/viewmodels/__tests__/useWardrobeUndo.test.tsx:generic-api-key:142

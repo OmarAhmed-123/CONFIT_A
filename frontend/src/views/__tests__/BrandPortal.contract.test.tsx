@@ -2,6 +2,7 @@ import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const mocks = vi.hoisted(() => ({ vm: {} as any, auth: {} as any, create: vi.fn(), update: vi.fn(), request: vi.fn(), demo: vi.fn(), openAuth: vi.fn() }));
 vi.mock('../../viewmodels/useBrandViewModel', () => ({ useBrandViewModel: () => mocks.vm }));
@@ -65,7 +66,12 @@ describe('Partner operational contracts', () => {
   });
   it('store stock form submits actual store and SKU without warehouse mutation', async () => {
     mocks.request.mockImplementation((path: string) => Promise.resolve(path === '/partner/stores' ? [{id:2,name:'Giza',city:'Giza',country:'EG',address:'Test'}] : path === '/partner/inventory' ? [{product_id:9,title:'Coat',total_stock:5,skus:[{id:11,sku_code:'REAL-SKU',size:'M',color:'Navy',stock_level:5,store_inventories:[]}]}] : {}));
-    render(<BrandInventoryView />);
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <BrandInventoryView />
+      </QueryClientProvider>,
+    );
     await screen.findByLabelText('Inventory store');
     fireEvent.change(screen.getByLabelText('Inventory store'), {target:{value:'2'}});
     fireEvent.change(screen.getByLabelText('Inventory SKU'), {target:{value:'11'}});

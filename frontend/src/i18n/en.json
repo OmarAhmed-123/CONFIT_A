@@ -1917,5 +1917,10 @@
     "gallery_previous": "Previous look",
     "gallery_next": "Next look",
     "gallery_credit": "Photo: {{name}}"
+  },
+  "freshness": {
+    "checking": "Checking catalog freshness…",
+    "live": "Catalog in sync — fingerprint checked every {{seconds}}s",
+    "degraded": "Freshness check failing — figures may be out of date"
   }
 }

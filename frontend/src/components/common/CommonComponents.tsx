@@ -1,6 +1,8 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
+import { X } from 'lucide-react';
 import { SparkleIcon } from '../icons/ConfitIcons';
+import { StatusIcon } from './InteractionPrimitives';
 import { resolveMessage, type TranslatableMessage } from '../../i18n/messages';
 import { formatMoney } from '../../i18n/format';
 
@@ -30,14 +32,23 @@ export const Toast: React.FC<{
   const text = resolveMessage(message, t);
 
   return (
-    <div className="fixed bottom-20 sm:bottom-8 end-4 sm:end-8 z-50 animate-in fade-in slide-in-from-bottom-3 duration-200">
+    <div className="fixed bottom-20 sm:bottom-8 end-4 sm:end-8 z-50 animate-in fade-in slide-in-from-bottom-3 duration-200 motion-reduce:animate-none">
       <div
         className={`flex items-center gap-3.5 px-4 py-3 rounded-2xl border shadow-2xl backdrop-blur-xl max-w-md ${bgClass}`}
-        role="status"
-        aria-live="polite"
+        /* Spec 14 §6.3: the CONTAINER carries the live-region role, not the
+           icon. Errors interrupt (alert/assertive); the rest wait politely. */
+        role={type === 'error' ? 'alert' : 'status'}
+        aria-live={type === 'error' ? 'assertive' : 'polite'}
         aria-atomic="true"
       >
-        <span className="w-2 h-2 rounded-full shrink-0 bg-[#C5A059] animate-pulse" aria-hidden="true" />
+        {/* Shape per type — state is never colour-only (spec 14 §8). The
+            icon is decorative: the sentence beside it IS the status. */}
+        <StatusIcon
+          status={type === 'success' ? 'success' : type === 'error' ? 'error' : 'info'}
+          size={16}
+          className={type === 'info' ? 'text-[#C5A059]' : ''}
+          data-testid="toast-status-icon"
+        />
         <span className="text-xs font-medium tracking-wide leading-relaxed">{text}</span>
         {action ? (
           <button
@@ -53,11 +64,12 @@ export const Toast: React.FC<{
         ) : null}
         <button
           onClick={onClose}
-          className="text-slate-400 hover:text-white text-xs ms-auto ps-2 transition-colors"
+          /* 44px touch floor (spec 14 §7) — grown tap area, compact pill. */
+          className="ms-auto shrink-0 min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-xl text-slate-400 hover:text-white focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[#C5A059] transition-colors"
           aria-label={t('a11y.dismiss_notification')}
           type="button"
         >
-          ✕
+          <X size={16} aria-hidden="true" />
         </button>
       </div>
     </div>

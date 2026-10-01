@@ -1,6 +1,6 @@
 import React, { useCallback, useRef } from "react";
 import { motion } from "framer-motion";
-import { Check, AlertTriangle, WifiOff, Lock, PackageX } from "lucide-react";
+import { WifiOff, Lock, PackageX } from "lucide-react";
 import { useUIStore } from "../../stores/uiStore";
 import { recordCtaMetric } from "../../lib/ctaMetrics";
 import {
@@ -8,6 +8,7 @@ import {
   usePrefersReducedMotion,
   classifyActionError,
   ActionStatusLive,
+  StatusIcon,
   type ActionOutcome,
   type AsyncAction,
   type AsyncActionState,
@@ -97,9 +98,15 @@ export function outcomeFromResult(res: boolean | undefined | void): ActionOutcom
   return "handled";
 }
 
+/**
+ * Success/error route through the shared StatusIcon shapes (spec 14) so a
+ * button, a toast and a banner all speak one status language. The last
+ * three keep their MORE specific lucide shapes — a padlock says
+ * "unauthorized" better than a generic error triangle ever could.
+ */
 const stateIcon: Partial<Record<AsyncActionState, React.ReactNode>> = {
-  success: <Check size={14} strokeWidth={3} aria-hidden="true" />,
-  error: <AlertTriangle size={14} aria-hidden="true" />,
+  success: <StatusIcon status="success" size={14} className="text-current" />,
+  error: <StatusIcon status="error" size={14} className="text-current" />,
   unavailable: <PackageX size={14} aria-hidden="true" />,
   unauthorized: <Lock size={14} aria-hidden="true" />,
   offline: <WifiOff size={14} aria-hidden="true" />,
@@ -188,11 +195,11 @@ export const ActionButton: React.FC<ActionButtonProps> = ({
     <>
       <span className="flex items-center justify-center gap-1.5">
         {isPending ? (
-          <span
-            aria-hidden="true"
-            data-testid="cta-spinner"
-            className="inline-block h-3.5 w-3.5 rounded-full border-2 border-current border-t-transparent motion-safe:animate-spin"
-          />
+          /* Shared loading glyph (spec 14): motion-safe spin, static under
+             reduced motion — the pending LABEL carries the state either way. */
+          <span data-testid="cta-spinner" className="inline-flex items-center">
+            <StatusIcon status="loading" size={14} className="text-current" />
+          </span>
         ) : (
           <span aria-hidden="true" className="inline-flex items-center">
             {stateIcon[state] ?? icon ?? null}

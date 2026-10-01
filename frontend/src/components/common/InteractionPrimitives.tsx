@@ -1,6 +1,14 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTranslation } from "react-i18next";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Info,
+  Loader2,
+  XCircle,
+  type LucideIcon,
+} from "lucide-react";
 import { useUIStore } from "../../stores/uiStore";
 
 /**
@@ -35,6 +43,103 @@ import { useUIStore } from "../../stores/uiStore";
  *     as text inside an `aria-live="polite"` region.
  */
 
+
+/* ------------------------------------------------------------------ */
+/* StatusIcon — the one semantic status glyph (spec 14)                 */
+/* ------------------------------------------------------------------ */
+
+export type StatusIconStatus = "loading" | "success" | "error" | "warning" | "info";
+
+/**
+ * Fixed shape-per-status mapping: meaning is carried by the ICON SHAPE and
+ * by text, never by colour alone (§8 "لا تجعل error أحمر فقط") and never by
+ * a unicode glyph or emoji (§8). The same five shapes everywhere is what
+ * makes the status language learnable across Toast, banners and buttons.
+ */
+const STATUS_ICONS: Record<StatusIconStatus, LucideIcon> = {
+  loading: Loader2,
+  success: CheckCircle2,
+  error: XCircle,
+  warning: AlertTriangle,
+  info: Info,
+};
+
+/** Default colour accents — hosts may override via className, but the
+ *  shape stays; colour is always the SECOND channel, not the only one. */
+const STATUS_COLOR: Record<StatusIconStatus, string> = {
+  loading: "text-current",
+  success: "text-emerald-500",
+  error: "text-rose-500",
+  warning: "text-amber-500",
+  info: "text-sky-500",
+};
+
+/**
+ * StatusIcon — typed semantic status icon (spec 14).
+ *
+ * Rules it enforces so hosts cannot get them wrong:
+ *  · With visible text next to it (the default), the icon is DECORATIVE:
+ *    `aria-hidden`, no role — the container owns `role=status/alert`, the
+ *    text owns the meaning (§6.2/§6.3). Pass `label` ONLY for icon-only
+ *    placements; it then becomes `role="img"` with that accessible name —
+ *    never both a label and adjacent duplicate text (§6.4).
+ *  · loading spins via `motion-safe:animate-spin`: under
+ *    `prefers-reduced-motion` the same glyph renders STATIC and the text
+ *    still says "loading" — full function without motion (§5/§7).
+ *  · success/error/warning get ONE short entrance tween (opacity/scale,
+ *    0.18s) and then rest: no continuous dancing (§8). Entrance is skipped
+ *    entirely under reduced motion.
+ */
+export const StatusIcon: React.FC<{
+  status: StatusIconStatus;
+  /** Accessible name for ICON-ONLY placements. Omit when text sits beside it. */
+  label?: string;
+  size?: number;
+  className?: string;
+  "data-testid"?: string;
+}> = ({ status, label, size = 16, className = "", "data-testid": testId }) => {
+  const reduceMotion = usePrefersReducedMotion();
+  const Icon = STATUS_ICONS[status];
+
+  const a11yProps = label
+    ? ({ role: "img", "aria-label": label } as const)
+    : ({ "aria-hidden": true } as const);
+
+  const icon = (
+    <Icon
+      size={size}
+      className={status === "loading" ? "motion-safe:animate-spin" : undefined}
+      // The SVG itself is always presentational; the wrapper carries a11y.
+      aria-hidden="true"
+      focusable="false"
+    />
+  );
+
+  const shared = {
+    ...a11yProps,
+    "data-status": status,
+    "data-testid": testId,
+    className: `inline-flex shrink-0 items-center justify-center ${STATUS_COLOR[status]} ${className}`,
+  };
+
+  // Static hosts: loading has its CSS-only motion-safe spin; everything
+  // else is a resting glyph. One short entrance tween for state-change
+  // feedback, skipped under reduced motion.
+  if (reduceMotion || status === "loading" || status === "info") {
+    return <span {...shared}>{icon}</span>;
+  }
+
+  return (
+    <motion.span
+      {...shared}
+      initial={{ opacity: 0, scale: 0.8 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.18, ease: "easeOut" }}
+    >
+      {icon}
+    </motion.span>
+  );
+};
 
 /**
  * Deterministic prefers-reduced-motion read. framer-motion's own

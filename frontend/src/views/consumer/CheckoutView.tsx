@@ -1,3 +1,4 @@
+import { ActionButton } from '../../components/common/ActionButton';
 import { validateCheckoutSubmission, isValidEmail, CheckoutField } from '../../lib/checkoutValidation';
 import { generateIdempotencyKey } from '../../lib/secureId';
 import { localizeApiError } from '../../i18n/apiErrors';
@@ -612,21 +613,26 @@ export const CheckoutView: React.FC = () => {
                 eligible
               />
             )}
-            <button
+            {/* Spec 08: unified kinetic CTA in CONTROLLED mode — the form
+                owns isSubmitting, and there is deliberately NO success state
+                on this button: for a financial action the only success
+                surface is the server-confirmed navigation above. While
+                pending the control is click-guarded, never `disabled`, so
+                keyboard focus stays exactly where the shopper left it. */}
+            <ActionButton
               type="submit"
-              disabled={isSubmitting || !cart || cart.items_count === 0}
-              aria-busy={isSubmitting}
-              className="w-full min-h-[44px] py-4 rounded-2xl bg-[#1B1F3B] hover:bg-[#0C0E1E] disabled:opacity-50 text-white font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2"
-            >
-              <SparkleIcon size={16} color="#C5A059" />
-              <span>{isSubmitting ? t('checkout.placing_order') : t('checkout.place_order')}</span>
-            </button>
-            {/* Spec 01: the payment action announces its pending state as
-                text. Success is only ever announced AFTER the server
-                confirms (toast + navigation above) — never optimistically. */}
-            <span className="sr-only" role="status" aria-live="polite">
-              {isSubmitting ? t('checkout.placing_order') : ''}
-            </span>
+              financial
+              state={isSubmitting ? 'pending' : 'idle'}
+              disabled={!cart || cart.items_count === 0}
+              labels={{
+                idle: t('checkout.place_order'),
+                pending: t('checkout.placing_order'),
+                error: t('checkout.order_failed_retry'),
+              }}
+              icon={<SparkleIcon size={16} color="#C5A059" />}
+              data-testid="place-order-cta"
+              className="w-full py-4 rounded-2xl bg-[#1B1F3B] hover:bg-[#0C0E1E] disabled:opacity-50 text-white font-bold text-xs shadow-md transition-all"
+            />
           </div>
         </div>
       </form>

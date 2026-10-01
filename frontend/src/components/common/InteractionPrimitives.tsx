@@ -71,6 +71,7 @@ export type AsyncActionState =
   | "pending"
   | "success"
   | "error"
+  | "unavailable"
   | "unauthorized"
   | "offline";
 
@@ -172,6 +173,14 @@ export function useAsyncAction(
       resetTimer.current = setTimeout(() => {
         if (mounted.current) setState("idle");
       }, ERROR_RESET_MS);
+    } else if (outcome === "unavailable") {
+      // Spec 08: name the capability/stock gap instead of flattening it to a
+      // generic failure — retrying an unavailable thing is not actionable,
+      // but the control stays usable (e.g. after picking another size).
+      setState("unavailable");
+      resetTimer.current = setTimeout(() => {
+        if (mounted.current) setState("idle");
+      }, ERROR_RESET_MS);
     } else if (outcome === "offline") {
       // The request never reached the server: claiming failure of the
       // OPERATION would be as dishonest as claiming success. Name the real
@@ -199,7 +208,8 @@ export const ActionStatusLive: React.FC<{
   errorText: string;
   unauthorizedText?: string;
   offlineText?: string;
-}> = ({ state, pendingText, successText, errorText, unauthorizedText, offlineText }) => (
+  unavailableText?: string;
+}> = ({ state, pendingText, successText, errorText, unauthorizedText, offlineText, unavailableText }) => (
   <span className="sr-only" role="status" aria-live="polite">
     {state === "pending"
       ? pendingText
@@ -211,7 +221,9 @@ export const ActionStatusLive: React.FC<{
             ? (unauthorizedText ?? "")
             : state === "offline"
               ? (offlineText ?? "")
-              : ""}
+              : state === "unavailable"
+                ? (unavailableText ?? "")
+                : ""}
   </span>
 );
 

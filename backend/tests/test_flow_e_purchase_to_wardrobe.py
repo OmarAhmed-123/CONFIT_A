@@ -522,7 +522,7 @@ def test_migration_0015_round_trip_and_unique_lineage() -> None:
         os.unlink(path)
 
 
-def test_migration_chain_has_a_single_head_at_0030() -> None:
+def test_migration_chain_has_a_single_head_at_0031() -> None:
     from backend.app.core.schema_gate import expected_head_revision, migration_chain
 
     chain = migration_chain()
@@ -566,7 +566,12 @@ def test_migration_chain_has_a_single_head_at_0030() -> None:
     # can actually reverse it, and delete_item was a hard DELETE that also
     # destroyed the stored photograph. Soft delete keeps the image for the
     # grace window so a restore returns the real image.
-    assert expected_head_revision() == "0030_wardrobe_soft_delete"
+    # -> 0031 (outfits.deleted_at). Completes the Undo contract for
+    # /builder and /my-looks: "Remove look" was a hard delete that cascaded
+    # every OutfitItem, and a naive soft delete would have left a deleted
+    # look publicly reachable through its share token.
+    assert expected_head_revision() == "0031_outfit_soft_delete"
+    assert chain["0031_outfit_soft_delete"] == "0030_wardrobe_soft_delete"
     assert chain["0030_wardrobe_soft_delete"] == "0029_brand_profile_not_null_defaults"
     assert chain["0029_brand_profile_not_null_defaults"] == "0028_order_fx_lock"
     assert chain["0028_order_fx_lock"] == "0027_product_gender"

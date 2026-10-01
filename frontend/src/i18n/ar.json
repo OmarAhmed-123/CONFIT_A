@@ -754,7 +754,10 @@
     "look_rename_failed": "تعذّرت إعادة التسمية: {{reason}}",
     "item_restored": "تمت إعادة القطعة إلى خزانتك",
     "item_restore_failed": "تعذّر استرجاع القطعة: {{reason}}",
-    "item_deleted_permanently": "تم حذف القطعة نهائيًا"
+    "item_deleted_permanently": "تم حذف القطعة نهائيًا",
+    "look_restored": "تمت إعادة الإطلالة",
+    "look_restore_failed": "تعذّر استرجاع الإطلالة: {{reason}}",
+    "look_deleted_permanently": "تم حذف الإطلالة نهائيًا"
   },
   "consent": {
     "title": "قبل أن نعالج صورتك",

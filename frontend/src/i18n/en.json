@@ -754,7 +754,10 @@
     "look_rename_failed": "Could not rename: {{reason}}",
     "item_restored": "Item restored to your wardrobe",
     "item_restore_failed": "Could not restore the item: {{reason}}",
-    "item_deleted_permanently": "Item permanently deleted"
+    "item_deleted_permanently": "Item permanently deleted",
+    "look_restored": "Look restored",
+    "look_restore_failed": "Could not restore the look: {{reason}}",
+    "look_deleted_permanently": "Look permanently deleted"
   },
   "consent": {
     "title": "Before we process your photo",

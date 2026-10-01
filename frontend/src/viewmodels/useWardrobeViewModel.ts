@@ -4,6 +4,7 @@ import i18n from '../i18n/i18n';
 import { useState, useCallback, useEffect } from 'react';
 import { wardrobeService, moodBoardService, WardrobeUploadResponse, WardrobeFirstOutfit, AutoTagResponse, MoodBoard } from '../services/apiServices';
 import { WardrobeItem, GapAnalysisItem } from '../models';
+import { useUndoableRemove } from '../hooks/useUndoableRemove';
 import { useUIStore } from '../stores/uiStore';
 
 export function useWardrobeViewModel() {
@@ -31,6 +32,7 @@ export function useWardrobeViewModel() {
   const [retryingItemId, setRetryingItemId] = useState<number | null>(null);
 
   const { showToast } = useUIStore();
+  const undoableRemove = useUndoableRemove();
 
   /**
    * The message a shopper reads when a load fails.
@@ -314,67 +316,30 @@ export function useWardrobeViewModel() {
   }, [updateItem]);
 
   /**
-   * Remove an item with a real Undo.
+   * Remove a wardrobe item WITH a real Undo.
    *
-   * State contract: active -> removing -> removed/undo-available -> restored,
-   * or error/rollback.
-   *
-   * OPTIMISTIC ONLY BECAUSE THE SERVER CAN ACTUALLY REVERSE IT. The backend
-   * now soft-deletes (migration 0030) and keeps the stored photograph for the
-   * grace window, so `restoreItem` returns the real image. Before that change
-   * an Undo button here would have been a lie: the row was hard-deleted and
-   * the photo was removed from object storage in the same call.
-   *
-   * The optimistic removal is rolled back on failure by REFETCHING rather
-   * than by re-inserting the remembered copy — the server is the source of
-   * truth, and re-inserting a stale snapshot is how a list ends up with a
-   * duplicate or a ghost row after a concurrent edit.
+   * The optimistic-remove / toast / restore / rollback behaviour now lives in
+   * useUndoableRemove, shared with /my-looks and WardrobeView. It used to be
+   * written out here; keeping three copies is how one of them quietly loses
+   * its rollback or announces a success the server never confirmed.
    */
   const deleteItem = useCallback(async (itemId: number, permanent = false) => {
-    // Keep a copy in memory ONLY for ordering; never rendered as if live.
-    const index = items.findIndex((i) => i.id === itemId);
-    const snapshot = index >= 0 ? items[index] : null;
-
-    setItems((prev) => prev.filter((i) => i.id !== itemId));   // removing
-    try {
-      const result = await wardrobeService.deleteItem(itemId, permanent);
-
-      if (!result.undoable) {
-        showToast(msg('toast.item_deleted_permanently'), 'info');
-        return;
-      }
-
-      showToast(msg('toast.item_removed'), 'info', {
-        i18nLabel: 'a11y.undo_remove',
-        onAction: () => {
-          void (async () => {
-            try {
-              await wardrobeService.restoreItem(itemId);
-              // Refetch, do not re-insert `snapshot`: the server owns order
-              // and content, and the item may have changed elsewhere.
-              await fetchWardrobe(activeCategory);
-              showToast(msg('toast.item_restored'), 'success');
-            } catch (err: any) {
-              // The window may have closed, or the item was purged. Say so —
-              // an Undo that silently fails is worse than no Undo.
-              await fetchWardrobe(activeCategory);
-              showToast(msg('toast.item_restore_failed', { reason: detail(err) }), 'error');
-            }
-          })();
-        },
-      });
-    } catch (err: any) {
-      // rollback: the delete never happened, so the item must come back.
-      if (snapshot) {
-        setItems((prev) =>
-          prev.some((i) => i.id === itemId)
-            ? prev                                  // a refetch already restored it
-            : [...prev.slice(0, index), snapshot, ...prev.slice(index)],
-        );
-      }
-      showToast(msg('toast.item_delete_failed', { reason: detail(err) }), 'error');
-    }
-  }, [items, activeCategory, fetchWardrobe, showToast]);
+    const snapshot = items;
+    await undoableRemove({
+      remove: () => wardrobeService.deleteItem(itemId, permanent),
+      restore: () => wardrobeService.restoreItem(itemId),
+      optimisticRemove: () => setItems((prev) => prev.filter((i) => i.id !== itemId)),
+      rollback: () => setItems(snapshot),
+      refetch: () => fetchWardrobe(activeCategory),
+      messages: {
+        removed: msg('toast.item_removed'),
+        removeFailed: (reason) => msg('toast.item_delete_failed', { reason }),
+        restored: msg('toast.item_restored'),
+        restoreFailed: (reason) => msg('toast.item_restore_failed', { reason }),
+        removedPermanently: msg('toast.item_deleted_permanently'),
+      },
+    });
+  }, [items, activeCategory, fetchWardrobe, undoableRemove]);
 
   useEffect(() => {
     fetchWardrobe(activeCategory);

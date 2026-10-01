@@ -53,6 +53,12 @@ class Outfit(Base):
     share_expires_at = Column(DateTime, nullable=True)
     share_revoked_at = Column(DateTime, nullable=True)
     share_view_count = Column(Integer, default=0, nullable=False, server_default="0")
+    # Soft delete (migration 0031). NULL = live, timestamp = in the bin.
+    # "Remove look" previously destroyed the outfit AND cascaded every
+    # OutfitItem, so Undo had nothing to restore. A binned outfit is also
+    # excluded from share-token lookup: a deleted look must not remain
+    # publicly reachable at /looks/{token}.
+    deleted_at = Column(DateTime(timezone=True), nullable=True, index=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at = Column(
         DateTime,

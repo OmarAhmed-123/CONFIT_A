@@ -323,9 +323,28 @@ export function useWardrobeViewModel() {
    * written out here; keeping three copies is how one of them quietly loses
    * its rollback or announces a success the server never confirmed.
    */
-  const deleteItem = useCallback(async (itemId: number, permanent = false) => {
+  /**
+   * Spec 03 §2/§9: the PERMANENT path (row + stored photograph, no bin) is a
+   * separate, explicitly-confirmed decision. Requiring `confirmedPermanent`
+   * alongside `permanent` makes the destructive call unrepresentable from a
+   * stray boolean: a future call site cannot reach it without having shown
+   * the user an explicit confirmation first.
+   */
+  const deleteItem = useCallback(async (
+    itemId: number,
+    permanent = false,
+    confirmedPermanent = false,
+  ) => {
+    if (permanent && !confirmedPermanent) {
+      // Refuse rather than soft-delete silently: the caller asked for the
+      // destructive path without confirming it — that is a programming
+      // error, and doing something ELSE than asked would hide it.
+      showToast(msg('toast.permanent_delete_needs_confirm'), 'error');
+      return;
+    }
     const snapshot = items;
     await undoableRemove({
+      key: itemId,
       remove: () => wardrobeService.deleteItem(itemId, permanent),
       restore: () => wardrobeService.restoreItem(itemId),
       optimisticRemove: () => setItems((prev) => prev.filter((i) => i.id !== itemId)),
@@ -339,7 +358,7 @@ export function useWardrobeViewModel() {
         removedPermanently: msg('toast.item_deleted_permanently'),
       },
     });
-  }, [items, activeCategory, fetchWardrobe, undoableRemove]);
+  }, [items, activeCategory, fetchWardrobe, undoableRemove, showToast]);
 
   useEffect(() => {
     fetchWardrobe(activeCategory);

@@ -765,7 +765,10 @@
     "item_deleted_permanently": "تم حذف القطعة نهائيًا",
     "look_restored": "تمت إعادة الإطلالة",
     "look_restore_failed": "تعذّر استرجاع الإطلالة: {{reason}}",
-    "look_deleted_permanently": "تم حذف الإطلالة نهائيًا"
+    "look_deleted_permanently": "تم حذف الإطلالة نهائيًا",
+    "canvas_cleared": "تم إفراغ اللوحة — تمت إزالة {{count}} قطعة",
+    "canvas_restored": "تمت استعادة اللوحة",
+    "permanent_delete_needs_confirm": "الحذف النهائي يتطلب تأكيداً صريحاً"
   },
   "consent": {
     "title": "قبل أن نعالج صورتك",

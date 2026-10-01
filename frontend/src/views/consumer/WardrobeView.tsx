@@ -76,6 +76,7 @@ export const WardrobeView: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ["wardrobe", "saved-looks"] });
     try {
       await undoableRemove({
+        key: id,
         remove: () => stylistService.deleteOutfit(id),
         restore: () => stylistService.restoreOutfit(id),
         optimisticRemove: () =>
@@ -429,14 +430,14 @@ export const WardrobeView: React.FC = () => {
                     "https://images.unsplash.com/photo-1594938298603-c8148c4dae35?w=500&auto=format&fit=crop&q=80",
                     "https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=500&auto=format&fit=crop&q=80",
                     "https://images.unsplash.com/photo-1558769132-cb1aea458c5e?w=500&auto=format&fit=crop&q=80",
-                  ].map((src, index) => (
+                  ].map((src, exampleIndex) => (
                     <div
                       key={src}
                       className="overflow-hidden rounded-3xl border border-slate-200 bg-slate-100 shadow-sm"
                     >
                       <img
                         src={src}
-                        alt={`Example wardrobe upload ${index + 1}`}
+                        alt={`Example wardrobe upload ${exampleIndex + 1}`}
                         className="h-56 w-full object-cover"
                       />
                     </div>

@@ -145,6 +145,7 @@ export function useMyLooksViewModel() {
       setBusyId(id);
       try {
         await undoableRemove({
+          key: id,
           remove: () => stylistService.deleteOutfit(id),
           restore: () => stylistService.restoreOutfit(id),
           optimisticRemove: () => setLooks((prev) => prev.filter((l) => l.id !== id)),

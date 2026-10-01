@@ -765,7 +765,10 @@
     "item_deleted_permanently": "Item permanently deleted",
     "look_restored": "Look restored",
     "look_restore_failed": "Could not restore the look: {{reason}}",
-    "look_deleted_permanently": "Look permanently deleted"
+    "look_deleted_permanently": "Look permanently deleted",
+    "canvas_cleared": "Canvas cleared — {{count}} item(s) removed",
+    "canvas_restored": "Canvas restored",
+    "permanent_delete_needs_confirm": "Permanent deletion requires explicit confirmation"
   },
   "consent": {
     "title": "Before we process your photo",

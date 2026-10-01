@@ -1,5 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useBrandViewModel } from '../../viewmodels/useBrandViewModel';
 import { LoadingSpinner, EmptyState } from '../../components/common/CommonComponents';
 import { CardStackShowcase } from '../../components/showcase/DesignShowcases';
@@ -42,9 +43,51 @@ const HeatmapDimension: React.FC<{
   );
 };
 
+/** Spec 12 §6.3: the analysed window lives in the URL — shareable and
+ *  reload-proof. 'all' (no param) matches the API's own default. */
+const WINDOW_CHOICES = [30, 90, 365] as const;
+
 export const AdminAnalyticsView: React.FC = () => {
   const { t } = useTranslation();
-  const { adminAnalytics, fetchErrors, isLoading, refresh } = useBrandViewModel('admin');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const daysParam = Number(searchParams.get('days'));
+  const analyticsDays = (WINDOW_CHOICES as readonly number[]).includes(daysParam)
+    ? daysParam
+    : undefined;
+  const { adminAnalytics, fetchErrors, isLoading, refresh } = useBrandViewModel('admin', {
+    analyticsDays,
+  });
+
+  // Freshness is MEASURED, not decorative: stamped when a payload lands.
+  const [fetchedAt, setFetchedAt] = React.useState<Date | null>(null);
+  React.useEffect(() => {
+    if (adminAnalytics) setFetchedAt(new Date());
+  }, [adminAnalytics]);
+
+  const setWindow = (days?: number) => {
+    setSearchParams(
+      (previous) => {
+        const next = new URLSearchParams(previous);
+        if (days) next.set('days', String(days));
+        else next.delete('days');
+        return next;
+      },
+      { replace: true },
+    );
+  };
+
+  // Spec 12 §6.4: client-side sort of the ALREADY-LOADED brand rows (the
+  // endpoint returns one bounded list; there is no server sort to call —
+  // sorting what is on screen invents nothing).
+  const [sortKey, setSortKey] = React.useState<'orders' | 'products' | 'views' | 'conversion_rate'>('orders');
+  const [sortDir, setSortDir] = React.useState<'desc' | 'asc'>('desc');
+  const toggleSort = (key: typeof sortKey) => {
+    if (key === sortKey) setSortDir((d) => (d === 'desc' ? 'asc' : 'desc'));
+    else {
+      setSortKey(key);
+      setSortDir('desc');
+    }
+  };
 
   if (isLoading) {
     return <LoadingSpinner text={t('admin_analytics.loading')} />;
@@ -107,19 +150,75 @@ export const AdminAnalyticsView: React.FC = () => {
         <p className="mt-1 text-[11px] text-slate-500">
           {t('admin_analytics.methodology')}
         </p>
+
+        {/* Spec 12 §6.2: every number's provenance in one audited line —
+            the SERVER's echo of the analysed window + the measured fetch
+            time. Text, polite, never animation. */}
+        <p role="status" aria-live="polite" className="mt-2 text-[11px] font-medium text-slate-600">
+          {adminAnalytics.time_range
+            ? adminAnalytics.time_range.is_all_time
+              ? t('admin_analytics.window_all_time')
+              : t('admin_analytics.window_bounded', {
+                  from: adminAnalytics.time_range.date_from?.slice(0, 10) ?? '—',
+                  to: adminAnalytics.time_range.date_to?.slice(0, 10) ?? '—',
+                })
+            : t('admin_analytics.window_unreported')}
+          {fetchedAt
+            ? ` · ${t('admin_analytics.fetched_at', {
+                time: fetchedAt.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }),
+              })}`
+            : ''}
+        </p>
+
+        <div className="mt-3 flex flex-wrap items-center gap-2" role="group" aria-label={t('admin_analytics.window_label')}>
+          {WINDOW_CHOICES.map((days) => (
+            <button
+              key={days}
+              type="button"
+              onClick={() => setWindow(days)}
+              aria-pressed={analyticsDays === days}
+              className={`min-h-11 rounded-xl border px-4 text-xs font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B8935A] ${
+                analyticsDays === days
+                  ? 'border-[#1B1F3B] bg-[#1B1F3B] text-white'
+                  : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-100'
+              }`}
+            >
+              {t('admin_analytics.window_days', { days: days })}
+            </button>
+          ))}
+          <button
+            type="button"
+            onClick={() => setWindow(undefined)}
+            aria-pressed={analyticsDays === undefined}
+            className={`min-h-11 rounded-xl border px-4 text-xs font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B8935A] ${
+              analyticsDays === undefined
+                ? 'border-[#1B1F3B] bg-[#1B1F3B] text-white'
+                : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-100'
+            }`}
+          >
+            {t('admin_analytics.window_all')}
+          </button>
+          <button
+            type="button"
+            onClick={refresh}
+            className="min-h-11 rounded-xl border border-slate-300 bg-white px-4 text-xs font-bold text-slate-700 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B8935A]"
+          >
+            {t('admin_analytics.refresh')}
+          </button>
+        </div>
       </div>
 
       {/* Platform Macro KPIs - REAL */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         <div className="bg-white rounded-3xl border border-slate-200 p-5 shadow-sm space-y-1">
           <span className="text-xs font-bold uppercase text-slate-500">{t('admin_analytics.gmv_title')}</span>
-          <div className="font-serif text-2xl font-black text-[#1B1F3B]">
+          <div className="font-serif text-2xl font-black text-[#1B1F3B]" dir="ltr">
             {money(adminAnalytics.total_gmv, adminAnalytics.currency)}
           </div>
           {gmvEntries.length > 0 && adminAnalytics.currency_status === 'mixed_currencies' && (
             <ul className="space-y-1 font-mono text-xs text-slate-700">
               {gmvEntries.map(([code, amount]) => (
-                <li key={code}>{money(amount, code)}</li>
+                <li key={code} dir="ltr">{money(amount, code)}</li>
               ))}
             </ul>
           )}
@@ -189,7 +288,7 @@ export const AdminAnalyticsView: React.FC = () => {
                         <span className="font-bold text-slate-800">
                           {t(`admin_analytics.channel.${feat}`, { defaultValue: feat.replace(/_/g, ' ') })}
                         </span>
-                        <span className="font-mono text-sm font-bold text-[#1B1F3B]">
+                        <span className="font-mono text-sm font-bold text-[#1B1F3B]" dir="ltr">
                           {money(rev, currencyCode)}
                         </span>
                       </div>
@@ -203,7 +302,7 @@ export const AdminAnalyticsView: React.FC = () => {
                   <span className="font-bold text-slate-800">
                     {t(`admin_analytics.channel.${feat}`, { defaultValue: feat.replace(/_/g, ' ') })}
                   </span>
-                  <span className="font-mono text-sm font-bold text-[#1B1F3B]">
+                  <span className="font-mono text-sm font-bold text-[#1B1F3B]" dir="ltr">
                     {money(rev, adminAnalytics.currency)}
                   </span>
                 </div>
@@ -271,12 +370,12 @@ export const AdminAnalyticsView: React.FC = () => {
       </div>
 
       {/* Most Styled Items - REAL */}
-      {(adminAnalytics as any).most_styled_items && (
+      {adminAnalytics.most_styled_items?.length ? (
         <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-4">
           <h2 className="font-serif text-lg font-bold text-[#1B1F3B]">{t('admin_analytics.most_styled_title')}</h2>
           <p className="text-[11px] text-slate-600">{t('admin_analytics.most_styled_methodology')}</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {(adminAnalytics as any).most_styled_items.slice(0, 6).map((item: any, idx: number) => (
+            {adminAnalytics.most_styled_items.slice(0, 6).map((item, idx) => (
               <div key={item.product_id} className="flex items-center gap-3 p-3 rounded-2xl bg-[#FAF9F6] border">
                 <div className="w-8 h-8 rounded-xl bg-[#1B1F3B] text-white flex items-center justify-center font-bold text-xs">#{idx + 1}</div>
                 <div className="w-10 h-12 rounded bg-white overflow-hidden"><img src={item.thumbnail_url} alt={item.title} className="w-full h-full object-cover" /></div>
@@ -290,9 +389,25 @@ export const AdminAnalyticsView: React.FC = () => {
             ))}
           </div>
         </div>
-      )}
+      ) : null}
 
       {/* Brand Performance Table - REAL */}
+      {(() => {
+        const rows = [...adminAnalytics.top_performing_brands].sort((a, b) => {
+          const pick = (r: typeof a) =>
+            sortKey === 'orders' ? r.orders
+            : sortKey === 'products' ? r.products
+            : sortKey === 'views' ? r.views
+            : r.conversion_rate;
+          const av = pick(a);
+          const bv = pick(b);
+          // Missing values sort LAST regardless of direction — absence is
+          // not a ranking, it is absence (§2).
+          if (av === undefined || av === null) return 1;
+          if (bv === undefined || bv === null) return -1;
+          return sortDir === 'desc' ? Number(bv) - Number(av) : Number(av) - Number(bv);
+        });
+        return (
       <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-4">
         <h2 className="font-serif text-lg font-bold text-[#1B1F3B]">{t('admin_analytics.brand_perf_title')}</h2>
         <p className="text-[11px] text-slate-600">{t('admin_analytics.brand_perf_methodology')}</p>
@@ -307,28 +422,89 @@ export const AdminAnalyticsView: React.FC = () => {
             <thead>
               <tr className="border-b border-slate-100 text-[10px] uppercase text-slate-500">
                 <th scope="col" className="py-2">{t('admin_analytics.brand')}</th>
-                <th scope="col" className="py-2">{t('admin_analytics.products')}</th>
-                <th scope="col" className="py-2">{t('admin_analytics.views')}</th>
+                <th scope="col" className="py-2" aria-sort={sortKey === 'products' ? (sortDir === 'desc' ? 'descending' : 'ascending') : undefined}>
+                  <button
+                    type="button"
+                    onClick={() => toggleSort('products')}
+                    className="inline-flex min-h-11 items-center gap-1 font-bold uppercase focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B8935A]"
+                  >
+                    {t('admin_analytics.products')}
+                    <span aria-hidden="true">{sortKey === 'products' ? (sortDir === 'desc' ? '↓' : '↑') : ''}</span>
+                  </button>
+                </th>
+                <th scope="col" className="py-2" aria-sort={sortKey === 'views' ? (sortDir === 'desc' ? 'descending' : 'ascending') : undefined}>
+                  <button
+                    type="button"
+                    onClick={() => toggleSort('views')}
+                    className="inline-flex min-h-11 items-center gap-1 font-bold uppercase focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B8935A]"
+                  >
+                    {t('admin_analytics.views')}
+                    <span aria-hidden="true">{sortKey === 'views' ? (sortDir === 'desc' ? '↓' : '↑') : ''}</span>
+                  </button>
+                </th>
                 <th scope="col" className="py-2">{t('admin_analytics.tryons')}</th>
-                <th scope="col" className="py-2">{t('admin_analytics.orders')}</th>
-                <th scope="col" className="py-2">{t('admin_analytics.conversion')}</th>
+                <th scope="col" className="py-2" aria-sort={sortKey === 'orders' ? (sortDir === 'desc' ? 'descending' : 'ascending') : undefined}>
+                  <button
+                    type="button"
+                    onClick={() => toggleSort('orders')}
+                    className="inline-flex min-h-11 items-center gap-1 font-bold uppercase focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B8935A]"
+                  >
+                    {t('admin_analytics.orders')}
+                    <span aria-hidden="true">{sortKey === 'orders' ? (sortDir === 'desc' ? '↓' : '↑') : ''}</span>
+                  </button>
+                </th>
+                <th scope="col" className="py-2" aria-sort={sortKey === 'conversion_rate' ? (sortDir === 'desc' ? 'descending' : 'ascending') : undefined}>
+                  <button
+                    type="button"
+                    onClick={() => toggleSort('conversion_rate')}
+                    className="inline-flex min-h-11 items-center gap-1 font-bold uppercase focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B8935A]"
+                  >
+                    {t('admin_analytics.conversion')}
+                    <span aria-hidden="true">{sortKey === 'conversion_rate' ? (sortDir === 'desc' ? '↓' : '↑') : ''}</span>
+                  </button>
+                </th>
                 <th scope="col" className="py-2">{t('admin_analytics.tryon_rate')}</th>
                 <th scope="col" className="py-2">{t('admin_analytics.return_rate')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {adminAnalytics.top_performing_brands.map((brand: any) => (
-                <tr key={brand.brand_id || brand.brand} className="hover:bg-slate-50">
-                  <td className="py-3 font-bold">{brand.brand}</td>
-                  <td className="py-3">{brand.products ?? '-'}</td>
-                  <td className="py-3">{brand.views ?? '-'}</td>
-                  <td className="py-3">{brand.tryons ?? brand.orders ?? 0}</td>
-                  <td className="py-3 font-bold text-emerald-600">{brand.orders}</td>
-                  <td className="py-3 font-mono">{brand.conversion_rate ?? '-'}%</td>
-                  <td className="py-3">{brand.tryon_rate}</td>
-                  <td className="py-3">{brand.return_rate}</td>
+              {rows.map((brand) => {
+                /* §2: a metric the API did not send renders as N/A TEXT.
+                   The old cells fabricated data: tryons fell back to the
+                   ORDERS count and then to 0, and a missing conversion
+                   rendered "-%". */
+                const na = t('admin_analytics.not_available');
+                return (
+                <tr key={brand.brand_id ?? brand.brand} className="hover:bg-slate-50">
+                  <td className="py-3 font-bold">
+                    {brand.brand_id ? (
+                      /* §6.5 drill-down: restricted admin route; the catalog
+                         view already reads brand_id from the URL. */
+                      <Link
+                        to={`/admin/catalog?brand_id=${brand.brand_id}`}
+                        className="inline-flex min-h-11 items-center underline decoration-[#B8935A] underline-offset-2 hover:text-[#8A6A2F] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B8935A]"
+                        aria-label={t('admin_analytics.drill_down', { brand: brand.brand })}
+                      >
+                        {brand.brand}
+                      </Link>
+                    ) : (
+                      brand.brand
+                    )}
+                  </td>
+                  <td className="py-3" dir="ltr">{brand.products ?? na}</td>
+                  <td className="py-3" dir="ltr">{brand.views ?? na}</td>
+                  <td className="py-3" dir="ltr">{brand.tryons ?? na}</td>
+                  <td className="py-3 font-bold text-emerald-600" dir="ltr">{brand.orders}</td>
+                  <td className="py-3 font-mono" dir="ltr">
+                    {brand.conversion_rate === undefined || brand.conversion_rate === null
+                      ? na
+                      : `${brand.conversion_rate}%`}
+                  </td>
+                  <td className="py-3" dir="ltr">{brand.tryon_rate ?? na}</td>
+                  <td className="py-3" dir="ltr">{brand.return_rate ?? na}</td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
           {!hasData && (
@@ -338,6 +514,8 @@ export const AdminAnalyticsView: React.FC = () => {
           )}
         </div>
       </div>
+        );
+      })()}
 
       {/* System Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">

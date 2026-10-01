@@ -5,6 +5,7 @@
  * inherited near-white text from a light BrandLayout background.
  */
 import React from 'react';
+import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { axe } from 'vitest-axe';
@@ -79,7 +80,7 @@ beforeEach(() => {
 
 describe('AdminAuditView accessible interaction', () => {
   it('uses a named native button, not a mouse-only clickable row', async () => {
-    const { container } = render(<AdminAuditView />);
+    const { container } = render(<MemoryRouter><AdminAuditView /></MemoryRouter>);
     const button = await screen.findByRole('button', { name: /details.*77/i });
     expect(button.tagName).toBe('BUTTON');
     expect(button.getAttribute('aria-expanded')).toBe('false');
@@ -97,7 +98,7 @@ describe('AdminAuditView accessible interaction', () => {
   });
 
   it('keeps the wide table in a named keyboard-scrollable region at 390px', async () => {
-    const { container } = render(<AdminAuditView />);
+    const { container } = render(<MemoryRouter><AdminAuditView /></MemoryRouter>);
     await screen.findByText('ADMIN_ORDER_TRANSITION');
     const region = screen.getByRole('region', { name: /audit trail entries/i });
     expect(region.getAttribute('tabindex')).toBe('0');
@@ -108,7 +109,7 @@ describe('AdminAuditView accessible interaction', () => {
   });
 
   it('has no serious/critical axe semantic violation after data loads', async () => {
-    const { container } = render(<AdminAuditView />);
+    const { container } = render(<MemoryRouter><AdminAuditView /></MemoryRouter>);
     await screen.findByText('ADMIN_ORDER_TRANSITION');
     await waitFor(() => expect(requestMock).toHaveBeenCalledTimes(2));
     const result = await axe(container, {

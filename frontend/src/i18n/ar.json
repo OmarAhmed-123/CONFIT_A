@@ -1396,7 +1396,16 @@
       "outfit_builder": "منشئ الإطلالات",
       "visual_search": "البحث البصري",
       "organic_discovery": "الاكتشاف العضوي"
-    }
+    },
+    "window_label": "نافذة التحليل",
+    "window_days": "آخر {{days}} يومًا",
+    "window_all": "كل الفترات",
+    "window_all_time": "النافذة: كامل السجل المسجّل (كما أبلغ الخادم)",
+    "window_bounded": "النافذة: {{from}} ← {{to}} (كما أبلغ الخادم، شاملة الطرفين)",
+    "window_unreported": "النافذة: لم يبلغ عنها إصدار الخادم الحالي",
+    "fetched_at": "جُلبت في {{time}}",
+    "refresh": "تحديث البيانات",
+    "drill_down": "فتح حوكمة الكتالوج لعلامة {{brand}}"
   },
   "profile": {
     "mfa_setup_failed": "فشل إعداد المصادقة الثنائية: {{detail}}",

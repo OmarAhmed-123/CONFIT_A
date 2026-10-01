@@ -18,7 +18,15 @@ export interface CatalogImportJob {
   errors?: any[];
 }
 
-export function useBrandViewModel(scope: 'brand' | 'admin' = 'brand') {
+export interface BrandViewModelOptions {
+  /** Spec 12: rolling analytics window in days; undefined = all-time. */
+  analyticsDays?: number;
+}
+
+export function useBrandViewModel(
+  scope: 'brand' | 'admin' = 'brand',
+  options: BrandViewModelOptions = {},
+) {
   const generation = useRef(0);
   const [profile, setProfile] = useState<BrandProfile | null>(null);
   const [analytics, setAnalytics] = useState<BrandAnalyticsDashboard | null>(null);
@@ -41,7 +49,9 @@ export function useBrandViewModel(scope: 'brand' | 'admin' = 'brand') {
     setIsLoading(true);
     try {
       const current = ++generation.current;
-      const results = await Promise.allSettled(scope === 'admin' ? [adminService.getPlatformAnalytics()] : [
+      const results = await Promise.allSettled(scope === 'admin' ? [adminService.getPlatformAnalytics(
+        options.analyticsDays ? { days: options.analyticsDays } : undefined,
+      )] : [
         brandService.getProfile(), brandService.getAnalytics(), brandService.getProducts(),
         brandService.getPlacements(), request<CatalogImportJob[]>('/partner/catalog/imports'),
         request<any>('/partner/analytics/conversion'),
@@ -84,7 +94,7 @@ export function useBrandViewModel(scope: 'brand' | 'admin' = 'brand') {
       setIsLoading(false);
       showToast(msg('toast.b2b_load_failed', { reason: detail(err) }), 'error');
     }
-  }, [showToast, scope]);
+  }, [showToast, scope, options.analyticsDays]);
 
   const updateSKUInventory = useCallback(async (skuId: number, stock: number, priceOverride?: number) => {
     try {

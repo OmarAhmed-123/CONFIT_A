@@ -1213,6 +1213,46 @@ export const brandService = {
   getAdminAnalytics: () => request<AdminPlatformAnalytics>("/admin/analytics"),
 };
 
+/**
+ * Spec 12: the command center may only render numbers whose CONTRACT is
+ * verified. This schema pins the honesty-critical shape — nullable rates
+ * (null = unmeasured, NOT zero), the currency tri-state, and the server's
+ * own time_range echo — and passes everything else through untouched.
+ * A payload that violates it throws, so the view shows its honest error
+ * state instead of rendering garbage as fact.
+ */
+const adminAnalyticsContract = z
+  .object({
+    total_users_count: z.number(),
+    total_brands_count: z.number(),
+    total_orders: z.number(),
+    total_gmv: z.number().nullable().optional(),
+    currency: z.string().nullable().optional(),
+    currency_status: z
+      .enum(["no_data", "single_currency", "mixed_currencies"])
+      .optional(),
+    tryon_adoption_rate: z.number().nullable(),
+    stylist_conversion_ratio: z.number().nullable(),
+    platform_avg_return_rate: z.number().nullable(),
+    revenue_attribution: z.record(z.number().nullable()),
+    top_performing_brands: z.array(z.object({ brand: z.string() }).passthrough()),
+    time_range: z
+      .object({
+        source: z.string(),
+        date_from: z.string().nullable(),
+        date_to: z.string().nullable(),
+        is_all_time: z.boolean(),
+      })
+      .passthrough()
+      .optional(),
+  })
+  .passthrough();
+
+export interface AdminAnalyticsWindow {
+  /** Rolling window in days; omit for all-time (API default). */
+  days?: number;
+}
+
 // 9. Admin Service
 export interface AuditTrailQuery {
   page?: number;
@@ -1313,8 +1353,12 @@ export const adminService = {
       { method: "PATCH", body: JSON.stringify(payload) },
     ),
 
-  getPlatformAnalytics: () =>
-    request<AdminPlatformAnalytics>("/admin/analytics"),
+  getPlatformAnalytics: (window?: AdminAnalyticsWindow) =>
+    request<AdminPlatformAnalytics>(
+      window?.days ? `/admin/analytics?days=${window.days}` : "/admin/analytics",
+    ).then(
+      (raw) => adminAnalyticsContract.parse(raw) as unknown as AdminPlatformAnalytics,
+    ),
   getBrandComparison: () => request<any[]>("/admin/analytics/brands"),
   /** Paginated, filterable audit trail (ADMIN-01). Replaces the untyped
    *  bare-list call that no view ever consumed (G-07). */

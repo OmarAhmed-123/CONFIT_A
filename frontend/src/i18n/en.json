@@ -1396,7 +1396,16 @@
       "outfit_builder": "Outfit builder",
       "visual_search": "Visual search",
       "organic_discovery": "Organic discovery"
-    }
+    },
+    "window_label": "Analysis window",
+    "window_days": "Last {{days}} days",
+    "window_all": "All time",
+    "window_all_time": "Window: all recorded history (server-reported)",
+    "window_bounded": "Window: {{from}} → {{to}} (server-reported, inclusive)",
+    "window_unreported": "Window: not reported by this server version",
+    "fetched_at": "fetched at {{time}}",
+    "refresh": "Refresh data",
+    "drill_down": "Open catalog governance for {{brand}}"
   },
   "profile": {
     "mfa_setup_failed": "MFA setup failed: {{detail}}",

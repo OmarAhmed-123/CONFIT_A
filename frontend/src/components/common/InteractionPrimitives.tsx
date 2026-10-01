@@ -348,7 +348,10 @@ export const AsyncActionButton: React.FC<AsyncActionButtonProps> = ({
             ✓
           </span>
         ) : (
-          icon
+          // Decorative inside a text-labelled button: without aria-hidden the
+          // icon's own label (e.g. "Shopping Bag") leaks into the accessible
+          // name and the control stops being findable as its visible text.
+          icon && <span aria-hidden="true">{icon}</span>
         )}
         <span>{visibleLabel}</span>
       </span>

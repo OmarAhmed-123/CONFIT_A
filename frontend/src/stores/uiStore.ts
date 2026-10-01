@@ -40,6 +40,18 @@ interface UIState {
   stylistPrefillOccasion: StylistPrefill | null;
   isAuthModalOpen: boolean;
   authModalMode: "login" | "register";
+  /**
+   * Spec 02 (auth transition): what the user was TRYING to do when auth
+   * interrupted them, so finishing sign-in finishes the thought.
+   *  - `pendingAuthIntent` is a non-sensitive callback kept in MEMORY ONLY
+   *    (never serialized, never storage) and consumed EXACTLY ONCE on
+   *    successful auth. Closing the modal abandons it.
+   *  - `authReturnTo` is a route to restore after sign-in for flows that
+   *    DID navigate away (e.g. a deep link that bounced). Modal flows keep
+   *    the page underneath, so most callers never need it.
+   */
+  pendingAuthIntent: (() => void) | null;
+  authReturnTo: string | null;
 
   // Toast
   toast: {
@@ -77,8 +89,15 @@ interface UIState {
   closeVisualSearch: () => void;
   openStylist: (prefill?: StylistPrefill) => void;
   closeStylist: () => void;
-  openAuthModal: (mode?: "login" | "register") => void;
+  openAuthModal: (
+    mode?: "login" | "register",
+    opts?: { intent?: () => void; returnTo?: string },
+  ) => void;
   closeAuthModal: () => void;
+  /** One-shot: returns the pending intent and clears it atomically. */
+  consumeAuthIntent: () => (() => void) | null;
+  /** One-shot: returns the stored returnTo route and clears it. */
+  consumeAuthReturnTo: () => string | null;
   showToast: (message: TranslatableMessage, type?: "success" | "error" | "info", action?: { i18nLabel: string; onAction: () => void } | null) => void;
   hideToast: () => void;
   setLanguage: (lang: AppLanguage) => void;
@@ -94,7 +113,7 @@ const toastIdentity = (message: TranslatableMessage): string =>
     ? message
     : `${message.key}|${JSON.stringify(message.params ?? {})}`;
 
-export const useUIStore = create<UIState>((set) => ({
+export const useUIStore = create<UIState>((set, get) => ({
   tryOnProduct: null,
   rulerProduct: null,
   rulerMeasurements: null,
@@ -103,6 +122,8 @@ export const useUIStore = create<UIState>((set) => ({
   stylistPrefillOccasion: null,
   isAuthModalOpen: false,
   authModalMode: "login",
+  pendingAuthIntent: null,
+  authReturnTo: null,
   toast: null,
   language: (i18n.resolvedLanguage as AppLanguage) ?? "en",
 
@@ -121,9 +142,28 @@ export const useUIStore = create<UIState>((set) => ({
   closeStylist: () =>
     set({ isStylistDrawerOpen: false, stylistPrefillOccasion: null }),
 
-  openAuthModal: (mode = "login") =>
-    set({ isAuthModalOpen: true, authModalMode: mode }),
-  closeAuthModal: () => set({ isAuthModalOpen: false }),
+  openAuthModal: (mode = "login", opts) =>
+    set({
+      isAuthModalOpen: true,
+      authModalMode: mode,
+      pendingAuthIntent: opts?.intent ?? null,
+      authReturnTo: opts?.returnTo ?? null,
+    }),
+  // Abandoning auth abandons the intent — it must never fire later from a
+  // stale closure after the user explicitly declined to sign in.
+  closeAuthModal: () =>
+    set({ isAuthModalOpen: false, pendingAuthIntent: null, authReturnTo: null }),
+
+  consumeAuthIntent: () => {
+    const intent = get().pendingAuthIntent;
+    set({ pendingAuthIntent: null });
+    return intent;
+  },
+  consumeAuthReturnTo: () => {
+    const route = get().authReturnTo;
+    set({ authReturnTo: null });
+    return route;
+  },
 
   showToast: (message, type = "info", action = null) => {
     const now = Date.now();

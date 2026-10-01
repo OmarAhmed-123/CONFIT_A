@@ -190,5 +190,13 @@ if (typeof window !== 'undefined') {
   window.addEventListener(SESSION_EXPIRED_EVENT, () => {
     clearAuthTokens();
     useAuthStore.setState({ user: null, isAuthenticated: false, mfaRequired: false });
+    // Spec 02 (expired session): offer re-authentication IN PLACE. The modal
+    // keeps the page underneath, so the user re-enters credentials without
+    // losing the product/outfit/form they were on. Lazy import avoids a
+    // static authStore <-> uiStore cycle (uiStore is imported by cartStore
+    // which imports this store).
+    void import('./uiStore').then(({ useUIStore }) => {
+      useUIStore.getState().openAuthModal('login');
+    });
   });
 }

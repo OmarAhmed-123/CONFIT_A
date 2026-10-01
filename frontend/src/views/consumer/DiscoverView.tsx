@@ -1,4 +1,4 @@
-import { CardStackShowcase } from "../../components/showcase/DesignShowcases";
+import { CardStackShowcase, CircularGalleryShowcase } from "../../components/showcase/DesignShowcases";
 import { HeroSection, HeroLightCard } from "../../components/common/HeroSection";
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
@@ -519,6 +519,11 @@ export const DiscoverView: React.FC = () => {
           ))}
         </div>
       )}
+
+      {/* Spec 11: optional depth gallery as the closing mood/collection
+          moment — flag-gated, capability-gated, 2D fallback inside. Last
+          in the page so it can never become the LCP element. */}
+      <CircularGalleryShowcase tone="consumer" compact />
     </div>
   );
 };

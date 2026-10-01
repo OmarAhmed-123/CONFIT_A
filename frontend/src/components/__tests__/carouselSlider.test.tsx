@@ -338,15 +338,17 @@ describe('showcases i18n', () => {
     expect(screen.getByRole('button', { name: 'التالي' })).toBeInTheDocument();
   });
 
-  it('AR: CircularGalleryShowcase region + item names are Arabic', async () => {
+  it('AR: CircularGalleryShowcase region + item names are Arabic (flag-off ⇒ 2D fallback, spec 11)', async () => {
     await setAppLanguage('ar');
     render(
       <I18nextProvider i18n={i18n}>
         <CircularGalleryShowcase tone="consumer" />
       </I18nextProvider>,
     );
+    // Spec 11: without the depth flag the gallery is the static 2D list.
+    expect(screen.getByTestId('depth-gallery-2d')).toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'معرض بصري للتشكيلات' })).toBeInTheDocument();
-    expect(screen.getByRole('group', { name: 'إطلالة العمل' })).toBeInTheDocument();
+    expect(screen.getByText('إطلالة العمل')).toBeInTheDocument();
   });
 
   it('CircularGallery defaults: idle auto-rotation OFF (speed 0 by default §6.4)', () => {

@@ -1891,6 +1891,9 @@
         "title": "Visualize the path from styling to margin",
         "description": "Analytics surfaces stay visual and decision-oriented without becoming decorative or cartoonish."
       }
-    }
+    },
+    "gallery_previous": "Previous look",
+    "gallery_next": "Next look",
+    "gallery_credit": "Photo: {{name}}"
   }
 }

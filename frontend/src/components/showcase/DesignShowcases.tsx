@@ -6,6 +6,7 @@ import { CardStack, type CardStackItem } from '../ui/card-stack';
 import { CircularGallery, type GalleryItem } from '../ui/circular-gallery';
 import { AccessibleCarousel } from '../common/AccessibleCarousel';
 import { usePrefersReducedMotion } from '../common/InteractionPrimitives';
+import { assessDepthCapability, isDepthGalleryFlagOn } from '../../utils/depthCapability';
 
 /**
  * Spec 10 pass over the showcase carousels:
@@ -30,7 +31,14 @@ type CardStackShowcaseProps = {
   className?: string;
 };
 
-type CircularGalleryShowcaseProps = CardStackShowcaseProps;
+type CircularGalleryShowcaseProps = CardStackShowcaseProps & {
+  /**
+   * Spec 11 feature flag override (tests / explicit callers). Defaults to
+   * the build-time VITE_ENABLE_DEPTH_GALLERY flag. OFF, an unsupported
+   * engine, low memory or reduced motion all render the static 2D list.
+   */
+  enabled?: boolean;
+};
 
 /** Static (non-linguistic) item data; copy lives in i18n under showcase.items.* */
 type StackItemBase = { id: string; key: string; imageSrc: string; href: string; tag: string };
@@ -158,7 +166,7 @@ export const CardStackShowcase: React.FC<CardStackShowcaseProps> = ({
                 next: t('carousel.next'),
                 goTo: (itemTitle) => t('carousel.go_to', { title: itemTitle }),
                 open: (itemTitle) => t('carousel.open_item', { title: itemTitle }),
-                position: (current, total) => t('carousel.position', { current, total }),
+                position: (current, total) => t('carousel.position', { current: current, total: total }),
               }}
             />
           )}
@@ -175,10 +183,19 @@ export const CircularGalleryShowcase: React.FC<CircularGalleryShowcaseProps> = (
   description,
   compact = false,
   className,
+  enabled,
 }) => {
   const { t } = useTranslation();
+  const reduceMotion = usePrefersReducedMotion();
   const meta = toneMeta[tone];
   const Icon = meta.icon;
+
+  // Spec 11 §5 state contract: flag off / no preserve-3d / low memory /
+  // reduced motion ⇒ the SAME content as a static, accessible 2D list.
+  const depth = assessDepthCapability({
+    flagOn: enabled ?? isDepthGalleryFlagOn(),
+    reduceMotion,
+  });
 
   const galleryItems: GalleryItem[] = galleryBase.map((g) => ({
     common: t(`showcase.gallery_items.${g.key}.name`),
@@ -206,15 +223,56 @@ export const CircularGalleryShowcase: React.FC<CircularGalleryShowcaseProps> = (
           {description || t('showcase.gallery_description')}
         </p>
       </div>
-      <div className={cx('relative z-0 overflow-hidden', compact ? 'h-[430px]' : 'h-[540px]')}>
-        {/* No autoRotateSpeed: idle rotation stays OFF (§6.4); rotation
-            follows the user's scroll only. */}
-        <CircularGallery
-          items={galleryItems}
-          radius={compact ? 360 : 520}
-          ariaLabel={t('showcase.gallery_region')}
-        />
-      </div>
+      {depth.ok ? (
+        <div
+          data-testid="depth-gallery-3d"
+          className={cx('relative z-0 overflow-hidden', compact ? 'h-[430px]' : 'h-[540px]')}
+        >
+          {/* No autoRotateSpeed: idle rotation stays OFF (spec 10 §6.4);
+              rotation follows the user's scroll + the manual buttons. */}
+          <CircularGallery
+            items={galleryItems}
+            radius={compact ? 360 : 520}
+            ariaLabel={t('showcase.gallery_region')}
+            labels={{
+              previous: t('showcase.gallery_previous'),
+              next: t('showcase.gallery_next'),
+              position: (current, total) => t('carousel.position', { current: current, total: total }),
+              credit: (name) => t('showcase.gallery_credit', { name: name }),
+            }}
+          />
+        </div>
+      ) : (
+        /* Static 2D fallback (spec 11 §6.3): same real assets, native
+           scroll, no 3D transforms, images lazy-loaded. */
+        <div className="relative z-0 mt-6">
+          <AccessibleCarousel
+            items={galleryItems}
+            getKey={(g) => g.photo.url}
+            label={t('showcase.gallery_region')}
+            data-testid="depth-gallery-2d"
+            renderItem={(g) => (
+              <figure className="overflow-hidden rounded-2xl border border-[#C5A059]/25 bg-white">
+                <img
+                  src={g.photo.url}
+                  alt={g.photo.text}
+                  loading="lazy"
+                  decoding="async"
+                  className="h-56 w-full object-cover"
+                  style={{ objectPosition: g.photo.pos || 'center' }}
+                />
+                <figcaption className="space-y-1 p-4">
+                  <span className="block text-sm font-bold text-[#1B1F3B]">{g.common}</span>
+                  <span className="block text-xs italic text-slate-500">{g.binomial}</span>
+                  <span className="block text-[10px] text-slate-400">
+                    {t('showcase.gallery_credit', { name: g.photo.by })}
+                  </span>
+                </figcaption>
+              </figure>
+            )}
+          />
+        </div>
+      )}
     </section>
   );
 };

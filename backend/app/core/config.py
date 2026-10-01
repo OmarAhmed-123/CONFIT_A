@@ -309,6 +309,9 @@ class Settings(BaseSettings):
     # Unset = visual search keeps its existing keyword behaviour, and
     # nothing in this path executes. One variable is the whole switch.
     MODA_EMBED_BASE_URL: str = ""
+    #: Shared secret for the embedding worker. Falls back to the try-on
+    #: worker token so one rotation covers both rather than drifting.
+    MODA_EMBED_TOKEN: Optional[str] = None
     #: Embedding is one forward pass (0.34s measured on CPU, faster on GPU).
     #: A tight budget so an unhealthy box falls back instead of stalling.
     MODA_EMBED_TIMEOUT_SECONDS: float = 15.0

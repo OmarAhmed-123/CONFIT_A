@@ -88,6 +88,27 @@ class ScoredProduct:
     similarity_percent: float
 
 
+def _worker_headers() -> Dict[str, str]:
+    """Shared-secret header for the embedding worker.
+
+    The worker runs a 203M-parameter model on a public Modal URL. Without a
+    credential that is a free, anonymous compute endpoint attached to a
+    metered account — the straightforward way for someone who is not the
+    owner to drain a scarce subscription. The worker refuses /embed with 401
+    when the header is absent; /health stays open so probes need no secret.
+
+    Falls back through the same names the try-on worker uses so one rotated
+    token covers both rather than drifting into two.
+    """
+    token = (
+        getattr(settings, "MODA_EMBED_TOKEN", "")
+        or getattr(settings, "VTON_WORKER_ADMIN_TOKEN", "")
+        or getattr(settings, "CONFIT_WORKER_ADMIN_TOKEN", "")
+        or ""
+    )
+    return {"X-Worker-Token": token} if token else {}
+
+
 def is_available() -> bool:
     """True when an embedding service is configured.
 
@@ -178,6 +199,7 @@ async def embed_image(
             response = await client.post(
                 f"{base}/embed",
                 files={"image": ("query.jpg", image_bytes, "image/jpeg")},
+                headers=_worker_headers(),
             )
             response.raise_for_status()
             payload = response.json()

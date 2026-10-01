@@ -41,15 +41,31 @@ class VisualSearchService:
         """
         from backend.app.providers.moda import embeddings as moda
 
+        # WHY THIS RECORDS A REASON (added 2026-10-01)
+        # Every branch below returns {} and the caller silently falls back to
+        # keyword ranking with HTTP 200 and plausible-looking results. That is
+        # the correct DEGRADATION, but it was invisible: on production a
+        # self-match query (cosine 1.0, impossible to drop) still came back
+        # scored 56 from the keyword band, and nothing in the response said
+        # the visual path had not run. An operator could not tell a working
+        # visual search from a broken one. The reason is now recorded and
+        # surfaced in the payload.
+        self._embedding_skip_reason = None
+
         if not moda.is_available():
+            self._embedding_skip_reason = "not_configured"
             return {}
 
         raw = await self._image_bytes(target_img)
         if not raw:
+            self._embedding_skip_reason = "query_image_unreadable"
             return {}
 
         query_vector = await moda.embed_image(raw)
         if not query_vector:
+            # embed_image swallows every transport error by design, so this
+            # covers timeout, 401, 5xx and malformed payload alike.
+            self._embedding_skip_reason = "embed_call_failed"
             return {}
 
         import json as _json
@@ -76,10 +92,18 @@ class VisualSearchService:
                 catalog[product_id] = vector
 
         if not catalog:
+            self._embedding_skip_reason = "no_embedded_products"
             logger.info("visual_search_no_embedded_products")
             return {}
 
         ranked = moda.rank_catalog(query_vector, catalog, limit=limit)
+        if not ranked:
+            # Not a fault: every candidate scored below MIN_COSINE_SCORE, and
+            # dropping weak matches is deliberate. Measured on this model
+            # 2026-10-01: noise sits at 0.29-0.41, a genuine same-category
+            # match reaches 0.55-0.66, an identical image is 1.00. Saying so
+            # distinguishes "nothing looked similar" from "the path is down".
+            self._embedding_skip_reason = "all_below_threshold"
         logger.info(
             "visual_search_embedding_ranked",
             embedded_products=len(catalog),
@@ -338,4 +362,13 @@ class VisualSearchService:
             "results_count": len(matches),
             "matches": matches,
             "scoring_method": "enhanced" if use_enhanced else "baseline",
+            # Visual-embedding provenance. `True` means the ranking was
+            # decided by SIGHT; `False` plus a reason means it fell back to
+            # keywords, which the caller previously had no way to detect.
+            "visual_embedding_used": bool(embedding_matches),
+            "visual_embedding_detail": (
+                f"{len(embedding_matches)} product(s) ranked by image embedding"
+                if embedding_matches
+                else f"not applied: {getattr(self, '_embedding_skip_reason', None) or 'unknown'}"
+            ),
         }

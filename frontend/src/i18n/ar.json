@@ -1342,7 +1342,20 @@
     "partner_hub": "بوابة شركاء العلامات",
     "platform_analytics": "تحليلات المنصة",
     "admin_catalog": "إدارة الكتالوج",
-    "orders": "الطلبات"
+    "orders": "الطلبات",
+    "section_operations": "التشغيل",
+    "section_growth": "النمو",
+    "section_governance": "الحوكمة",
+    "section_intelligence": "الذكاء",
+    "section_trust": "الثقة والتدقيق",
+    "open_menu": "فتح قائمة التنقل",
+    "close_menu": "إغلاق قائمة التنقل",
+    "drawer_label": "تنقل البوابة",
+    "collapse_sidebar": "طي الشريط الجانبي",
+    "expand_sidebar": "توسيع الشريط الجانبي",
+    "state_collapsed": "الشريط الجانبي مطوي — التسميات مخفية وكل الوجهات لا تزال متاحة",
+    "state_expanded": "الشريط الجانبي موسع",
+    "breadcrumbs_aria": "موقعك الحالي"
   },
   "admin_analytics": {
     "loading": "جارٍ تجميع قياسات المنصة وخرائط تفضيلات الأسلوب…",

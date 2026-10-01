@@ -1,7 +1,7 @@
 import React from 'react';
 import { Outlet, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { BrandNavbar } from '../components/navigation/BrandNavbar';
+import { BrandNavbar, BrandBreadcrumbs } from '../components/navigation/BrandNavbar';
 import { SkipLink, SKIP_TARGET_ID } from '../components/common/SkipLink';
 import { PortalBackButton } from '../components/navigation/PortalBackButton';
 
@@ -15,16 +15,21 @@ export const BrandLayout: React.FC = () => {
       {/* WCAG 2.4.1: the brand portal has an even longer nav (catalog,
           inventory, analytics, placements, admin) before any content. */}
       <SkipLink />
-      <BrandNavbar />
+      {/* Spec 13: desktop = sidebar + content row; mobile = top bar +
+          drawer (both rendered by BrandNavbar). */}
+      <div className="flex flex-1 lg:flex-row flex-col min-w-0">
+        <BrandNavbar />
 
-      <main
-        id={SKIP_TARGET_ID}
-        tabIndex={-1}
-        className="flex-1 min-w-0 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-8 outline-none"
-      >
-        <PortalBackButton />
-        <Outlet />
-      </main>
+        <main
+          id={SKIP_TARGET_ID}
+          tabIndex={-1}
+          className="flex-1 min-w-0 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-8 outline-none"
+        >
+          <BrandBreadcrumbs />
+          <PortalBackButton />
+          <Outlet />
+        </main>
+      </div>
 
       <footer className="bg-slate-900 border-t border-slate-800 text-slate-500 text-xs py-8 px-4 sm:px-8 mt-auto">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">

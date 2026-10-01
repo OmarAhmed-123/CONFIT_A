@@ -1342,7 +1342,20 @@
     "partner_hub": "Brand Partner Hub",
     "platform_analytics": "Platform Analytics",
     "admin_catalog": "Catalog Control",
-    "orders": "Orders"
+    "orders": "Orders",
+    "section_operations": "Operations",
+    "section_growth": "Growth",
+    "section_governance": "Governance",
+    "section_intelligence": "Intelligence",
+    "section_trust": "Trust & Audit",
+    "open_menu": "Open navigation menu",
+    "close_menu": "Close navigation menu",
+    "drawer_label": "Portal navigation",
+    "collapse_sidebar": "Collapse sidebar",
+    "expand_sidebar": "Expand sidebar",
+    "state_collapsed": "Sidebar collapsed — labels hidden, all destinations still reachable",
+    "state_expanded": "Sidebar expanded",
+    "breadcrumbs_aria": "You are here"
   },
   "admin_analytics": {
     "loading": "Aggregating platform-wide telemetry and style heatmaps…",

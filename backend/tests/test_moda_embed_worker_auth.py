@@ -101,3 +101,65 @@ def test_identical_vectors_score_100_percent():
     q = [0.6, 0.8] + [0.0] * 766
     out = moda.rank_catalog(q, {7: list(q)}, limit=5)
     assert out[0].similarity_percent == 100.0
+
+
+# ── provenance: a silent degradation must become a visible one ──────────────
+
+@pytest.mark.asyncio
+async def test_skip_reason_records_not_configured(monkeypatch):
+    """MEASURED ON PRODUCTION 2026-10-01: a self-match query (cosine 1.0,
+    impossible to drop by threshold) came back scored 56 from the keyword
+    band, and NOTHING in the response said the visual path had not run. An
+    operator could not distinguish a working visual search from a broken one.
+    """
+    from backend.app.services.visual_search_service import VisualSearchService
+
+    _set(monkeypatch, MODA_EMBED_BASE_URL="")
+    svc = VisualSearchService(db=None)
+    out = await svc._embedding_matches("data:image/jpeg;base64,xx", limit=5, in_stock_only=False)
+    assert out == {}
+    assert svc._embedding_skip_reason == "not_configured"
+
+
+@pytest.mark.asyncio
+async def test_skip_reason_records_an_unreadable_query_image(monkeypatch):
+    from backend.app.services.visual_search_service import VisualSearchService
+
+    _set(monkeypatch, MODA_EMBED_BASE_URL="https://w.test", MODA_EMBED_TOKEN="t")
+    svc = VisualSearchService(db=None)
+    out = await svc._embedding_matches("not-a-url-at-all", limit=5, in_stock_only=False)
+    assert out == {} and svc._embedding_skip_reason == "query_image_unreadable"
+
+
+@pytest.mark.asyncio
+async def test_skip_reason_records_a_failed_embed_call(monkeypatch):
+    """Covers timeout, 401, 5xx and malformed payload alike — embed_image
+    swallows them all by design."""
+    from backend.app.services.visual_search_service import VisualSearchService
+
+    _set(monkeypatch, MODA_EMBED_BASE_URL="https://w.test", MODA_EMBED_TOKEN="t")
+    svc = VisualSearchService(db=None)
+
+    async def _none(*a, **k):
+        return None
+
+    monkeypatch.setattr(moda, "embed_image", _none)
+    out = await svc._embedding_matches(
+        "data:image/jpeg;base64," + ("QQ" * 80), limit=5, in_stock_only=False)
+    assert out == {} and svc._embedding_skip_reason == "embed_call_failed"
+
+
+def test_measured_threshold_separates_signal_from_noise():
+    """Calibration recorded against the LIVE worker, 2026-10-01, 48 pairs:
+
+        noise (cross-category)      0.29 - 0.41
+        genuine same-category match 0.55 - 0.66
+        identical image             1.00
+
+    MIN_COSINE_SCORE must sit between the noise ceiling and the match floor,
+    or visual search either returns nothing or returns everything.
+    """
+    assert 0.41 < moda.MIN_COSINE_SCORE <= 0.55, (
+        "threshold must exclude the measured noise band (<=0.41) and admit "
+        "genuine matches (>=0.55)"
+    )

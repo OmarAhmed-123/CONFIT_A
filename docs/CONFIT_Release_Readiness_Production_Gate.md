@@ -73,7 +73,8 @@ When an unauthenticated shopper reaches the checkout boundary, the system displa
 │ DOMAIN              │ PRIMARY ADAPTER   │ TIMEOUT │ RETRY LOGIC │ DETERMINISTIC DOMAIN FALLBACK  │
 ├─────────────────────┼───────────────────┼─────────┼─────────────┼────────────────────────────────┤
 │ **AI Stylist**      │ NVIDIA Nemotron-3 │ 5.0s    │ 2x exp-back │ Groq ──► Gemini ──► OpenAI     │
-│                     │ (LLaMA-3.1 70B)   │         │             │ ──► Heuristic Styling Engine   │
+│                     │ Ultra-550B ──►    │         │             │ ──► Heuristic Styling Engine   │
+│                     │ Super-120B        │         │             │ (role-routed via registry)     │
 ├─────────────────────┼───────────────────┼─────────┼─────────────┼────────────────────────────────┤
 │ **Virtual Try-On**  │ Diffusion VTON    │ 6.0s    │ 2x exp-back │ High-fidelity canvas compositor│
 │                     │ Service           │         │             │ issuing `VTON-CERT-*` hashes   │

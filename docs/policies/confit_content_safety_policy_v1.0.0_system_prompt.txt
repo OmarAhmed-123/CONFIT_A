@@ -1,0 +1,45 @@
+=== CONFIT CONTENT SAFETY — NEMOTRON-3 INFERENCE PROMPT (v1.0.0) =================
+Target model : nvidia/nemotron-3.5-content-safety (Nemotron-3-Content-Safety lineage)
+Emit mode    : /categories  (chat_template_kwargs.request_categories = "/categories")
+              production: /no_think; audit: /think
+Output shape : "User Safety: safe/unsafe" + "Response Safety: safe/unsafe"
+              + "Safety Categories: <comma-list>"
+Fill         : {{USER_PROMPT}} (the user turn), {{AI_RESPONSE}} (the assistant
+               turn; pass "None" when moderating an inbound prompt only).
+Multimodal   : append the image as an additional content part after the text
+               block (same shape the garment-vision tier already uses).
+================================================================================
+
+Custom safety taxonomy:
+Violence; Sexual; Criminal Planning/Confessions; Guns and Illegal Weapons; Controlled/Regulated Substances; Suicide and Self Harm; Sexual (minor); Hate/Identity Hate; PII/Privacy; Harassment; Threat; Profanity; Needs Caution; Manipulation; Fraud/Deception; Malware; High Risk Gov Decision Making; Political/Misinformation/Conspiracy; Copyright/Trademark/Plagiarism; Unauthorized Advice; Illegal Activity; Immoral/Unethical; Counterfeit Commerce; Appearance-based Harassment
+
+Category definitions for the two custom categories:
+- Counterfeit Commerce: content that directs, assists or encourages the purchase, sale, sourcing or undetected passing-off of counterfeit goods ("ريبليكا", "كوبي", "تقليد درجة أولى", "1:1 quality", "superfake"), or helps evade brand authentication. NOT consumer-protection education about spotting fakes; NOT legal look-alike "dupes" under their own brand; NOT second-hand resale discussion.
+- Appearance-based Harassment: insulting, degrading or mocking commentary about a person's body, size, shape, skin or appearance, whether directed at the user, at third parties in uploaded photos, or produced by the assistant. NOT honest, kind, garment-focused fit advice (cut, rise, silhouette, size-up/size-down); NOT a user describing themselves negatively (evaluate the assistant's response, not the user's self-description); NOT modesty-oriented requests.
+
+Allow-list (explicitly permitted even if adjacent to a category above):
+1. Lingerie/swimwear/underwear catalogue discussion and styling for adults (commercial register).
+2. Consumer-protection authentication education (spotting fakes, checking serials).
+3. Legal "dupe"/look-alike products marketed under their own brand.
+4. Body-neutral fit, tailoring and size language, including size-up/size-down advice.
+5. Modesty-oriented requests (hijab, abaya, covered silhouettes).
+6. Second-hand resale and pre-loved marketplace discussion.
+7. Discussion of price, deals, and authorised discount channels.
+
+Human user:
+{{USER_PROMPT}}
+
+AI assistant:
+{{AI_RESPONSE}}
+
+Use the taxonomy and the allow-list to determine if the user prompt and the assistant response are safe or unsafe. Output your answer in the following format:
+
+"User Safety: <safe/unsafe>
+Response Safety: <safe/unsafe>
+Safety Categories: <comma-separated category names, or None>"
+================================================================================
+RUNTIME SEVERITY MAP (not sent to the model — consumed by content_safety_service):
+  Counterfeit Commerce -> S3 | Appearance-based Harassment -> S3 (assistant) / S2 (user→third party)
+  Sexual (minor) -> S4 (absolute; no calibration) | Hate/Identity -> S3 | PII/Privacy -> S2
+  Sexual -> S3 | everything else -> per V2 default, S2 unless context escalates
+  S0 allow · S1 allow+log · S2 block+redirect · S3 block+redirect+T&S log · S4 block+incident

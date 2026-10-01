@@ -110,8 +110,10 @@ export function useMyLooksViewModel() {
           ),
         );
         showToast(msg('toast.look_revoked'), 'success');
+        return true;
       } catch (err: any) {
         showToast(msg('toast.share_revoke_failed', { reason: detail(err) }), 'error');
+        return false;
       } finally {
         setBusyId(null);
       }

@@ -243,6 +243,37 @@ describe('ActionButton trust guarantees', () => {
     expect(btn).toHaveAttribute('data-state', 'success');
   });
 
+  it('softDisabled (sibling in flight): clicks swallowed via aria-disabled, NEVER the disabled attribute — focus intact', () => {
+    const action = vi.fn();
+    renderCta({ onAction: action, softDisabled: true });
+    const btn = screen.getByRole('button');
+    // The lockout must not eject keyboard focus the way `disabled` would.
+    expect(btn).not.toBeDisabled();
+    expect(btn).toHaveAttribute('aria-disabled', 'true');
+    btn.focus();
+    expect(btn).toHaveFocus();
+    fireEvent.click(btn);
+    expect(action).not.toHaveBeenCalled();
+    expect(btn).toHaveFocus();
+  });
+
+  it('publish contract (my-looks): server link → success, null verdict → actionable error', async () => {
+    // Mirrors SharePanel's adoption: the viewmodel returns the minted link
+    // or null (toast already carries the server reason).
+    let serverResult: object | null = null;
+    renderCta({
+      onAction: async () => (serverResult ? ('success' as const) : ('error' as const)),
+      metricsId: 'looks.publish_link',
+    });
+    const btn = screen.getByRole('button');
+    await act(async () => void fireEvent.click(btn));
+    expect(btn).toHaveAttribute('data-state', 'error'); // no link = no success claim
+    serverResult = { share_url: '/looks/tok_x' };
+    await act(async () => void fireEvent.click(btn));
+    expect(btn).toHaveAttribute('data-state', 'success');
+    expect(getCtaMetrics().map((m) => m.outcome)).toEqual(['error', 'success']);
+  });
+
   it('caller-level disabled still works for real preconditions (empty cart, invalid look)', () => {
     const action = vi.fn();
     renderCta({ onAction: action, disabled: true });

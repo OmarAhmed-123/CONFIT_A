@@ -79,6 +79,12 @@ export interface ActionButtonProps {
   /** Leading icon for the idle state; rendered decorative (aria-hidden). */
   icon?: React.ReactNode;
   disabled?: boolean;
+  /**
+   * Cross-control lockout (e.g. "revoke is in flight, so hold publish"):
+   * swallows clicks + aria-disabled, but NEVER the `disabled` attribute —
+   * a sibling action must not eject this control's keyboard focus (§9).
+   */
+  softDisabled?: boolean;
   className?: string;
   "data-testid"?: string;
 }
@@ -110,6 +116,7 @@ export const ActionButton: React.FC<ActionButtonProps> = ({
   onUnauthorized,
   icon,
   disabled = false,
+  softDisabled = false,
   className = "",
   "data-testid": dataTestId,
 }) => {
@@ -164,7 +171,7 @@ export const ActionButton: React.FC<ActionButtonProps> = ({
     // One activation = at most one send. While pending (either mode) a
     // click is swallowed instead of the button being disabled — that keeps
     // keyboard focus where the user put it (§9 "focus لا يضيع").
-    if (disabled || isPending) {
+    if (disabled || softDisabled || isPending) {
       e.preventDefault();
       return;
     }
@@ -224,13 +231,14 @@ export const ActionButton: React.FC<ActionButtonProps> = ({
     // `disabled` ONLY for caller-level unavailability (empty cart, invalid
     // composition) — never for the transient pending phase (focus!).
     disabled,
-    "aria-disabled": disabled || isPending,
+    "aria-disabled": disabled || softDisabled || isPending,
     "aria-busy": isPending,
     "data-state": state,
     "data-financial": financial || undefined,
     "data-testid": dataTestId,
     className: [
       "relative min-h-[44px] select-none",
+      softDisabled && !isPending ? "opacity-40" : "",
       state === "error" || state === "offline" ? "ring-1 ring-[#7A1F2B]/40" : "",
       state === "unavailable" ? "ring-1 ring-slate-400/50" : "",
       className,
@@ -249,7 +257,7 @@ export const ActionButton: React.FC<ActionButtonProps> = ({
   return (
     <motion.button
       {...sharedProps}
-      whileTap={disabled || isPending ? undefined : { scale: 0.97 }}
+      whileTap={disabled || softDisabled || isPending ? undefined : { scale: 0.97 }}
       animate={{ opacity: 1, scale: state === "success" ? [1, 1.02, 1] : 1 }}
       transition={{ duration: 0.18, ease: "easeOut" }}
     >

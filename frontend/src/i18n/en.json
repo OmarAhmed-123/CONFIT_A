@@ -1121,7 +1121,15 @@
     "public_link_for": "Public link for {{title}}",
     "expiry_note": "Expires {{date}}. Anyone with this link can see the look until then, or until you revoke it.",
     "complete_look": "Complete Look",
-    "partial_look": "Partial Look"
+    "partial_look": "Partial Look",
+    "published_confirm": "Link is live",
+    "publish_failed_retry": "Publish failed — try again",
+    "rotating": "Creating new link…",
+    "rotated_confirm": "New link active",
+    "rotate_failed_retry": "Rotation failed — try again",
+    "revoking": "Revoking…",
+    "revoked_confirm": "Link revoked",
+    "revoke_failed_retry": "Revoke failed — try again"
   },
   "checkout": {
     "payment_method_demo_note": "Demo mode — this method does not move money on this deployment.",

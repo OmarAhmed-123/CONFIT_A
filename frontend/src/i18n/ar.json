@@ -1121,7 +1121,15 @@
     "public_link_for": "الرابط العام لـ {{title}}",
     "expiry_note": "ينتهي في {{date}}. يمكن لأي شخص يملك هذا الرابط رؤية الإطلالة حتى ذلك الحين، أو حتى تقوم بإلغائه.",
     "complete_look": "إطلالة كاملة",
-    "partial_look": "إطلالة جزئية"
+    "partial_look": "إطلالة جزئية",
+    "published_confirm": "الرابط نشط الآن",
+    "publish_failed_retry": "تعذّر النشر — حاول مرة أخرى",
+    "rotating": "جارٍ إنشاء رابط جديد…",
+    "rotated_confirm": "الرابط الجديد نشط",
+    "rotate_failed_retry": "تعذّر تدوير الرابط — حاول مرة أخرى",
+    "revoking": "جارٍ الإلغاء…",
+    "revoked_confirm": "تم إلغاء الرابط",
+    "revoke_failed_retry": "تعذّر الإلغاء — حاول مرة أخرى"
   },
   "checkout": {
     "payment_method_demo_note": "وضع تجريبي — هذه الوسيلة لا تُحرّك أموالاً على هذا النشر.",

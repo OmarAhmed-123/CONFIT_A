@@ -175,15 +175,20 @@
    Browsers without it keep the solid fallback declared above; nothing is
    readable "only with blur on" (§9). */
 @supports (backdrop-filter: blur(1px)) {
+  /* The blur is generated with Tailwind's own backdrop utilities (@apply)
+     rather than hand-written declarations: the global deploy check on
+     2026-10-01 caught the build pipeline DROPPING a hand-written standard
+     `backdrop-filter` while keeping only `-webkit-` — Firefox would have
+     received translucency with no blur. Tailwind's utility output
+     (webkit + standard via --tw-backdrop-* vars) provably survives the
+     same pipeline (verified against the deployed .backdrop-blur-md). */
   .surface-glass-light {
     background-color: var(--surface-glass-light);
-    backdrop-filter: blur(14px) saturate(140%);
-    -webkit-backdrop-filter: blur(14px) saturate(140%);
+    @apply backdrop-blur-lg backdrop-saturate-150;
   }
   .surface-glass-dark {
     background-color: var(--surface-glass-dark);
-    backdrop-filter: blur(14px) saturate(120%);
-    -webkit-backdrop-filter: blur(14px) saturate(120%);
+    @apply backdrop-blur-lg backdrop-saturate-150;
   }
 }
 

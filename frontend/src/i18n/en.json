@@ -1714,5 +1714,26 @@
     "requires_roles": "This portal requires one of the following permissions:",
     "return_storefront": "Return to Consumer Storefront",
     "switch_account": "Switch Account / Re-authenticate"
+  },
+  "share": {
+    "copied": "Link copied",
+    "copy_denied": "Copying was blocked by the browser — select the link text and copy it manually",
+    "copy_link": "Copy link",
+    "copy_unsupported": "This browser cannot copy automatically — select the link text and copy it manually",
+    "copying": "Copying…",
+    "native_share": "Share…",
+    "shared_fallback": "Sharing was unavailable — the link was copied instead"
+  },
+  "shared_look": {
+    "back_home": "Back to CONFIT",
+    "create_your_own": "Create your own look on CONFIT",
+    "download_png": "Download PNG",
+    "error_body": "We could not load this shared look. Please try again later.",
+    "error_title": "Something went wrong",
+    "generating": "Generating…",
+    "loading": "Loading shared look…",
+    "png_failed": "Sorry, the image could not be generated. Please try again.",
+    "unavailable_body": "The share link is invalid, expired, or was revoked by its owner.",
+    "unavailable_title": "This look is no longer available"
   }
 }

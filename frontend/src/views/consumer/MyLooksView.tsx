@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useMyLooksViewModel } from '../../viewmodels/useMyLooksViewModel';
 import { Outfit, ShareLink } from '../../models';
+import { ShareActions } from '../../components/outfit/ShareActions';
 import { SavedLooksIcon, SparkleIcon } from '../../components/icons/ConfitIcons';
 import { TryOnButton } from '../../components/product/TryOnButton';
 
@@ -31,21 +32,8 @@ const SharePanel: React.FC<{
   onRevoke: () => void;
 }> = ({ look, link, busy, onShare, onRevoke }) => {
   const { t } = useTranslation();
-  const [copied, setCopied] = useState(false);
   const isLive = Boolean(link?.is_active && link?.share_url);
   const absolute = link?.share_url ? `${window.location.origin}${link.share_url}` : '';
-
-  const copy = async () => {
-    if (!absolute) return;
-    try {
-      await navigator.clipboard.writeText(absolute);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // Clipboard can be blocked by permissions — say so instead of pretending.
-      setCopied(false);
-    }
-  };
 
   if (!isLive) {
     return (
@@ -75,20 +63,18 @@ const SharePanel: React.FC<{
         </span>
       </div>
 
-      <div className="flex gap-2">
-        <input
-          readOnly
-          value={absolute}
-          aria-label={t('my_looks.public_link_for', { title: look.title })}
-          className="flex-1 text-[11px] bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-slate-600"
-        />
-        <button
-          onClick={copy}
-          className="px-3 rounded-lg border border-slate-300 text-[11px] font-semibold hover:bg-slate-100"
-        >
-          {copied ? t('my_looks.copied') : t('my_looks.copy')}
-        </button>
-      </div>
+      {/* URLs are Latin codes — keep them LTR even inside the Arabic page. */}
+      <input
+        readOnly
+        dir="ltr"
+        value={absolute}
+        aria-label={t('my_looks.public_link_for', { title: look.title })}
+        className="w-full text-[11px] bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-slate-600"
+      />
+
+      {/* Spec 06: shared copy/native-share affordance with honest, announced
+          states. Mounted only here, where the server-minted link is LIVE. */}
+      <ShareActions url={absolute} title={look.title} compact />
 
       <p className="text-[10px] text-slate-500">
         {t('my_looks.expiry_note', { date: formatDate(link?.expires_at) })}

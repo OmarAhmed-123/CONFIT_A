@@ -422,7 +422,13 @@
     "items_from_boutiques": "قطعة من متاجر متعددة العلامات",
     "cart_empty_title": "حقيبتك فارغة حاليًا",
     "cart_empty_body": "استكشف إطلالات منسّقة أو نسّق مظهرك الخاص مع مدير الأناقة بالذكاء الاصطناعي.",
-    "explore_catalog": "تسوّق المجموعة"
+    "explore_catalog": "تسوّق المجموعة",
+    "adding": "جارٍ الإضافة…",
+    "added_confirm": "تمت الإضافة",
+    "add_failed_retry": "تعذّرت الإضافة — حاول مرة أخرى",
+    "no_purchasable_size": "لا يتوفر مقاس قابل للشراء لهذه القطعة حالياً.",
+    "wishlist_saved_device": "تم الحفظ في قائمة الأمنيات على هذا الجهاز",
+    "wishlist_removed": "تمت الإزالة من قائمة الأمنيات"
   },
   "b2b": {
     "dashboard_title": "لوحة تحكم شريك العلامة التجارية",
@@ -1250,7 +1256,8 @@
     "available_at_stores": "متوفر في المتاجر",
     "you_save": "بتوفّر {{amount}}",
     "colour": "اللون",
-    "total_units_available": "متوفر {{count}} قطعة في {{variants}} نوع"
+    "total_units_available": "متوفر {{count}} قطعة في {{variants}} نوع",
+    "add_to_bag_price": "أضِف إلى الحقيبة — {{price}}"
   },
   "brand_nav": {
     "aria": "تنقّل إدارة المنصة وشركاء العلامات",

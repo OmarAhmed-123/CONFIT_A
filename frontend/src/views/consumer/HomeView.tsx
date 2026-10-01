@@ -22,6 +22,7 @@ import {
 } from "../../components/common/CommonComponents";
 import { useCartStore } from "../../stores/cartStore";
 import { resolvePurchasableSku } from "../../lib/catalogSku";
+import type { ActionOutcome } from "../../components/common/InteractionPrimitives";
 import { formatAmount, formatNumber } from "../../i18n/format";
 import {
   CircularGallery,
@@ -190,25 +191,30 @@ export const HomeView: React.FC = () => {
     });
   };
 
-  const addCatalogProductToBag = async (prod: any) => {
+  // Returns the real outcome so the card's button state machine never claims
+  // "Added" for an add that did not happen (see InteractionPrimitives).
+  const addCatalogProductToBag = async (prod: any): Promise<ActionOutcome> => {
+    const sku = await resolvePurchasableSku(prod).catch(() => null);
+    if (!sku) {
+      showToast(t("commerce.no_purchasable_size"), "error");
+      return "unavailable";
+    }
     try {
-      const sku = await resolvePurchasableSku(prod);
-      if (!sku) {
-        showToast(
-          "No purchasable size is available for this item right now.",
-          "error",
-        );
-        return;
-      }
       await addItem(sku.id, {
         id: prod.id,
         title: prod.title,
         category: prod.category_name,
         color: prod.color_family,
       });
-      showToast("Added to bag", "success");
+      // Duplicate-SKU dialog intercepted the add — nothing is in the bag yet.
+      if (useCartStore.getState().pendingDuplicateAlert) {
+        return "handled";
+      }
+      showToast(t("toast.added_to_bag"), "success");
+      return "success";
     } catch (err: any) {
-      showToast(err?.message || "Could not add this item to bag.", "error");
+      showToast(err?.message || t("discover.add_to_bag_failed"), "error");
+      return "error";
     }
   };
 

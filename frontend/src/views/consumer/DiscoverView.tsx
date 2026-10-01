@@ -16,6 +16,7 @@ import {
 import { useCapabilities } from "../../hooks/useCapabilities";
 import { resolvePurchasableSku } from "../../lib/catalogSku";
 import { ProductCard } from "../../components/product/ProductCard";
+import type { ActionOutcome } from "../../components/common/InteractionPrimitives";
 
 export const DiscoverView: React.FC = () => {
   const { t, i18n } = useTranslation();
@@ -70,25 +71,32 @@ export const DiscoverView: React.FC = () => {
     }
   }, [searchQuery]);
 
-  const addCatalogCardToBag = async (p: any) => {
+  // Returns the real outcome so the card's button state machine never claims
+  // "Added" for an add that did not happen (see InteractionPrimitives).
+  const addCatalogCardToBag = async (p: any): Promise<ActionOutcome> => {
+    const sku = await resolvePurchasableSku(p).catch(() => null);
+    if (!sku) {
+      showToast(t("commerce.no_purchasable_size"), "error");
+      return "unavailable";
+    }
     try {
-      const sku = await resolvePurchasableSku(p);
-      if (!sku) {
-        showToast(
-          "No purchasable size is available for this item right now.",
-          "error",
-        );
-        return;
-      }
       await addItem(sku.id, {
         id: p.id,
         title: p.title,
         category: p.category_name,
         color: p.color_family,
       });
+      // addItem resolves without adding when the duplicate-SKU dialog takes
+      // over; the dialog is now the surface that finishes (or abandons) the
+      // add, so the button must not say "Added".
+      if (useCartStore.getState().pendingDuplicateAlert) {
+        return "handled";
+      }
       showToast(t("discover.added_to_bag"), "success");
+      return "success";
     } catch (err: any) {
-        showToast(err?.message || t("discover.add_to_bag_failed"), "error");
+      showToast(err?.message || t("discover.add_to_bag_failed"), "error");
+      return "error";
     }
   };
 

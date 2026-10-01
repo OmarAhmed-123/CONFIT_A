@@ -422,7 +422,13 @@
     "items_from_boutiques": "items from multi-brand boutiques",
     "cart_empty_title": "Your bag is currently empty",
     "cart_empty_body": "Discover curated silhouettes or style your personal look with our AI Director.",
-    "explore_catalog": "Explore Fashion Catalog"
+    "explore_catalog": "Explore Fashion Catalog",
+    "adding": "Adding…",
+    "added_confirm": "Added",
+    "add_failed_retry": "Could not add — try again",
+    "no_purchasable_size": "No purchasable size is available for this item right now.",
+    "wishlist_saved_device": "Saved to wishlist on this device",
+    "wishlist_removed": "Removed from wishlist"
   },
   "b2b": {
     "dashboard_title": "Brand Partner Command Center",
@@ -1250,7 +1256,8 @@
     "available_at_stores": "Available at stores",
     "you_save": "You save {{amount}}",
     "colour": "Colour",
-    "total_units_available": "{{count}} units available across {{variants}} variants"
+    "total_units_available": "{{count}} units available across {{variants}} variants",
+    "add_to_bag_price": "Add to bag — {{price}}"
   },
   "brand_nav": {
     "aria": "Platform and brand-partner navigation",

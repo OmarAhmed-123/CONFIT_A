@@ -78,7 +78,7 @@ export const App: React.FC = () => {
                user's active language. */
             action={
               toast.action
-                ? { label: t(toast.action.labelKey), onAction: toast.action.onAction }
+                ? { label: t(toast.action.i18nLabel), onAction: toast.action.onAction }
                 : null
             }
           />

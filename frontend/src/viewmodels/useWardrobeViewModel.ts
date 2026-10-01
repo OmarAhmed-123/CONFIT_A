@@ -345,7 +345,7 @@ export function useWardrobeViewModel() {
       }
 
       showToast(msg('toast.item_removed'), 'info', {
-        labelKey: 'a11y.undo_remove',
+        i18nLabel: 'a11y.undo_remove',
         onAction: () => {
           void (async () => {
             try {

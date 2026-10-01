@@ -52,8 +52,15 @@ interface UIState {
     id: string;
     /** Optional recovery action (Undo). The store holds the handler; the
      *  component resolves the LABEL, because only the render boundary has
-     *  t() and therefore the user's active language. */
-    action?: { labelKey: string; onAction: () => void } | null;
+     *  t() and therefore the user's active language.
+     *
+     *  Named `i18nLabel`, not `labelKey`: gitleaks' generic-api-key rule
+     *  matches `...Key: '<string>'` and flagged three of these as secrets.
+     *  Renaming removes the false positive at the source. The alternative —
+     *  a .gitleaksignore entry — would suppress a security control to
+     *  accommodate a variable name, and a scanner that is routinely silenced
+     *  stops being a control. */
+    action?: { i18nLabel: string; onAction: () => void } | null;
   } | null;
 
   // Language — MIRROR of the i18next instance, never a second source of
@@ -72,7 +79,7 @@ interface UIState {
   closeStylist: () => void;
   openAuthModal: (mode?: "login" | "register") => void;
   closeAuthModal: () => void;
-  showToast: (message: TranslatableMessage, type?: "success" | "error" | "info", action?: { labelKey: string; onAction: () => void } | null) => void;
+  showToast: (message: TranslatableMessage, type?: "success" | "error" | "info", action?: { i18nLabel: string; onAction: () => void } | null) => void;
   hideToast: () => void;
   setLanguage: (lang: AppLanguage) => void;
 }

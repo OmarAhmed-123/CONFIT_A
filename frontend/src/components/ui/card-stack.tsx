@@ -76,7 +76,6 @@ export type CardStackProps<T extends CardStackItem> = {
     goTo?: (title: string) => string;
     open?: (title: string) => string;
     position?: (current: number, total: number) => string;
-    noImage?: string;
   };
 };
 
@@ -140,7 +139,6 @@ export function CardStack<T extends CardStackItem>({
     position:
       labels?.position ??
       ((current: number, total: number) => `Card ${current} of ${total}`),
-    noImage: labels?.noImage ?? "No image",
   };
 
   const [active, setActive] = React.useState(() =>

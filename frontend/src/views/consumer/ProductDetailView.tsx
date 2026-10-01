@@ -231,7 +231,7 @@ export const ProductDetailView: React.FC = () => {
             <WishlistToggle
               isWishlisted={isWishlisted}
               onToggle={() => setIsWishlisted(!isWishlisted)}
-              className="absolute top-3 end-3 rounded-full bg-white/90 hover:bg-white text-slate-800 shadow-md backdrop-blur-xs transition-all"
+              className="surface-glass-light absolute top-3 end-3 rounded-full hover:bg-white text-slate-800 transition-all"
             >
               <HeartIcon size={18} isLiked={isWishlisted} />
             </WishlistToggle>
@@ -242,7 +242,7 @@ export const ProductDetailView: React.FC = () => {
                 fitCheck: () => openRuler(product),
               })}
               disabled={tryOnKind === "blocked"}
-              className="absolute bottom-4 right-4 px-5 py-3 rounded-2xl bg-[#1B1F3B]/95 hover:bg-[#C5A059] text-white hover:text-slate-950 text-xs font-bold shadow-xl backdrop-blur-md transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="surface-glass-dark absolute bottom-4 end-4 min-h-11 px-5 py-3 rounded-2xl hover:bg-[#C5A059] hover:text-slate-950 text-xs font-bold transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {tryOnKind === "render" ? (
                 <TryOnIcon size={18} color="currentColor" />
@@ -352,7 +352,7 @@ export const ProductDetailView: React.FC = () => {
             )}
           </div>
 
-          <div className="p-4.5 rounded-2xl bg-white border border-slate-200/80 shadow-2xs space-y-3.5">
+          <div className="surface-raised p-4.5 rounded-2xl space-y-3.5">
             <div className="flex justify-between items-center pb-2 border-b border-slate-100">
               <div className="flex items-center gap-1.5">
                 <SparkleIcon size={16} color="#C5A059" />
@@ -735,7 +735,7 @@ export const ProductDetailView: React.FC = () => {
             {product.related_outfits.map((outfit, idx) => (
               <div
                 key={`${outfit.title}-${idx}`}
-                className="rounded-3xl border border-slate-200 p-4 bg-white space-y-3"
+                className="surface-solid rounded-3xl p-4 space-y-3"
               >
                 <h3 className="text-sm font-bold text-[#1B1F3B]">
                   {outfit.title}

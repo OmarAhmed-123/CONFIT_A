@@ -177,7 +177,9 @@ export const HeroLightCard: React.FC<{
   children: React.ReactNode;
   className?: string;
 }> = ({ to, label, children, className = '' }) => {
-  const base = `block rounded-[32px] border border-[#C5A059]/30 bg-white/10 p-4 shadow-2xl backdrop-blur-xl ${className}`;
+  // Spec 09: the card is a contextual overlay on the hero gradient —
+  // glass via the surface system (solid fallback, forced-colors border).
+  const base = `surface-glass-dark block rounded-[32px] border-[#C5A059]/30 p-4 shadow-2xl ${className}`;
   if (to) {
     return (
       <Link

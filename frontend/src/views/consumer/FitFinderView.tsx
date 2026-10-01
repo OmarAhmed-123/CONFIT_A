@@ -606,7 +606,7 @@ export const FitFinderView: React.FC = () => {
               </h3>
               <p className="text-xs text-amber-900 leading-relaxed">{result.confidence_disclosure}</p>
               {result.missing && result.missing.length > 0 && (
-                <div className="bg-white/70 rounded-2xl px-3 py-2">
+                <div className="surface-solid rounded-2xl px-3 py-2">
                   <p className="text-[10px] font-bold uppercase tracking-wider text-amber-800 mb-1">
                     What would fix it
                   </p>
@@ -627,7 +627,7 @@ export const FitFinderView: React.FC = () => {
 
           {/* ── Recommendation ── */}
           {result && result.recommended && !calcLoading && (
-            <div className="bg-white rounded-3xl border-2 border-[#C5A059]/50 p-6 shadow-md space-y-4" aria-live="polite">
+            <div className="surface-raised rounded-3xl border-2 border-[#C5A059]/50 p-6 space-y-4" aria-live="polite">
               <div className="flex items-start justify-between">
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">

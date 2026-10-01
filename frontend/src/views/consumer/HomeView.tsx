@@ -308,7 +308,7 @@ export const HomeView: React.FC = () => {
           and failure-proof via HeroMedia/HonestProductImage. */}
       <HeroSection
         eyebrow={
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#C5A059]/15 border border-[#C5A059]/30 text-[#E2BF70] text-[11px] font-semibold uppercase tracking-widest backdrop-blur-md">
+          <div className="surface-glass-dark inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border-[#C5A059]/30 !text-[#E2BF70] text-[11px] font-semibold uppercase tracking-widest">
             <span aria-hidden="true"><SparkleIcon size={13} color="#E2BF70" /></span>
             <span>{t('home.hero_badge')}</span>
           </div>
@@ -378,7 +378,7 @@ export const HomeView: React.FC = () => {
             ].map((item) => (
               <div
                 key={item}
-                className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-[11px] text-slate-300 backdrop-blur"
+                className="surface-glass-dark rounded-2xl border-white/10 px-3 py-2 text-[11px] !text-slate-300"
               >
                 {item}
               </div>
@@ -595,7 +595,7 @@ export const HomeView: React.FC = () => {
                   alt={brand.name}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                 />
-                <span className="absolute top-2.5 right-2.5 px-2.5 py-1 rounded-full bg-slate-950/80 backdrop-blur-md text-[9px] font-medium text-[#C5A059] border border-[#C5A059]/30">
+                <span className="surface-glass-dark absolute top-2.5 end-2.5 px-2.5 py-1 rounded-full text-[9px] font-medium !text-[#C5A059] border-[#C5A059]/30">
                   {brand.badge}
                 </span>
               </div>

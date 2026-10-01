@@ -1,9 +1,9 @@
 # NVIDIA NIM — Model Routing & Verification Report
 
-**Date:** 2026-09-27
+**Date:** 2026-09-27 · **re-verified live:** 2026-10-01
 **Endpoint:** `https://integrate.api.nvidia.com/v1`
-**Credentials supplied:** 19 `nvapi-` keys — **19/19 valid**, each seeing the same 82-model catalogue
-**Verifier:** `python backend/scripts/verify_nvidia_models.py --live` → **PASS** (12/12 routed models answered under strict pinning)
+**Credentials supplied:** 19 `nvapi-` keys — **19/19 valid** (re-confirmed 2026-10-01), each seeing the same 81-model catalogue
+**Verifier:** `python backend/scripts/verify_nvidia_models.py --live` → **PASS** on 2026-09-27 (12/12 routed models) · on **2026-10-01** it caught `kimi-k3` degraded (60–120 s / phantom-empty), which was demoted the same day — see §8
 
 Every latency and behaviour statement below is a **measured observation** against the live endpoint, not a vendor claim. Nothing is routed on the strength of a model card.
 
@@ -36,14 +36,14 @@ Services request a **role**, never a model id. Swapping a model is a one-line re
 
 | Role | Primary | Failover chain | Measured | Where it belongs in CONFIT |
 |---|---|---|---|---|
-| `STYLIST_CHAT` | `nvidia/nemotron-3-ultra-550b-a55b` | → `nemotron-3-super-120b-a12b` → `kimi-k3` | **0.8–4.1 s** | G2-02 Conversational AI Stylist |
-| `GARMENT_VISION` | `google/diffusiongemma-26b-a4b-it` | → `kimi-k3` → `nemotron-3-nano-omni-30b` | **1.7–2.8 s** | Wardrobe auto-tagging, Visual Search attributes |
+| `STYLIST_CHAT` | `nvidia/nemotron-3-ultra-550b-a55b` | → `nemotron-3-super-120b-a12b` | **0.8–4.1 s** | G2-02 Conversational AI Stylist |
+| `GARMENT_VISION` | `google/diffusiongemma-26b-a4b-it` | → `nemotron-3-nano-omni-30b` | **0.9–24.6 s** | Wardrobe auto-tagging, Visual Search attributes |
 | `CONTENT_SAFETY` | `nvidia/nemotron-3.5-content-safety` | — | **0.4–0.5 s** | Upload + stylist-turn moderation |
-| `TRANSLATION` | `nvidia/riva-translate-4b-instruct-v2` | — | **1.1 s** | Arabic ⇄ English (MENA market) |
-| `EMBEDDING` | `nvidia/nemotron-3-embed-1b` | — | **0.2 s**, 2048-dim | ⚠️ Infrastructure only — see §4 |
-| `BATCH_REASONING` | `z-ai/glm-5.3` | → `glm-5.3-flash` | **63–128 s** | Celery only: brand reports, gap analysis |
-| `CREATIVE_COPY` | `meta/muse-glimmer-30b` | — | **9.7–57 s** | Offline marketing / mood-board copy |
-| `UTILITY_JSON` | `nvidia/nemotron-3.5-lightning-30b-a3b` | — | **0.3–3.6 s** | Cheap structured helpers |
+| `TRANSLATION` | `nvidia/nemotron-3-super-120b-a12b` (inbound AR→EN) | → `riva-translate-4b-instruct-v2` (outbound prose) | **0.4–1.1 s** | Arabic ⇄ English (MENA market) |
+| `EMBEDDING` | `nvidia/nemotron-3-embed-1b` | — | **0.2–0.3 s**, 2048-dim | ⚠️ Infrastructure only — see §4 |
+| `BATCH_REASONING` | `z-ai/glm-5.3` | → `glm-5.3-flash` | **60–88 s** | Celery only: brand reports, gap analysis |
+| `CREATIVE_COPY` | `meta/muse-glimmer-30b` | — | **7.7–57 s** | Offline marketing / mood-board copy |
+| `UTILITY_JSON` | `nvidia/nemotron-3.5-lightning-30b-a3b` | — | **0.3–11.7 s** | Cheap structured helpers |
 
 ### Why the stylist primary is Ultra
 
@@ -270,5 +270,38 @@ Full backend suite after the change: **3144 passed, 20 skipped, 0 failed**.
 
 1. Wire `EMBEDDING` (needs a retrieval feature to exist first).
 2. Wire `BATCH_REASONING` / `CREATIVE_COPY` into brand reports and mood-board copy.
-3. Correct the two docs that still advertise LLaMA 3.1 70B.
-4. Decide on `kumo-relational` (key valid, model 404 on this account).
+3. ~~Correct the two docs that still advertise LLaMA 3.1 70B.~~ Done 2026-10-01: the RTM row was already corrected 2026-09-27; the Production Gate topology diagram is now fixed too.
+4. Decide on `kumo-relational` (endpoint live but returns 422 demanding a `{model, task, schema, context}` contract — needs a designed PQL task, not a stub).
+
+---
+
+## 8. Re-verification 2026-10-01 — kimi-k3 demoted
+
+The `--live` verifier was run again on 2026-10-01 with all 19 keys loaded from `.env.nvidia`.
+
+**Credentials:** 19/19 accepted, catalogue = 81 models.
+
+**Result per role (live probes, `pin_strict`):**
+
+| Role / position | Model | Result |
+|---|---|---|
+| stylist primary | `nemotron-3-ultra-550b-a55b` | ok **2.3 s** |
+| stylist failover_1 | `nemotron-3-super-120b-a12b` | ok **1.5 s** |
+| stylist failover_2 | `moonshotai/kimi-k3` | **timeout at 60 s** |
+| vision primary | `google/diffusiongemma-26b-a4b-it` | ok **0.9 s** |
+| vision failover_1 | `moonshotai/kimi-k3` | **timeout at 90 s, then phantom-empty 200** |
+| vision failover_2 | `nemotron-3-nano-omni-30b-a3b-reasoning` | ok **24.6 s** |
+| content safety | `nemotron-3.5-content-safety` | ok **0.45 s** |
+| translation (super / riva) | `nemotron-3-super-120b` / `riva-translate-4b` | ok **0.40 s / 0.49 s** |
+| embedding | `nemotron-3-embed-1b` | live-probed separately: 200, 2048-dim, **0.3 s** |
+| batch reasoning | `glm-5.3` / `glm-5.3-flash` | ok **87.7 s / 60.1 s** |
+| creative copy | `meta/muse-glimmer-30b` | ok **7.7 s** |
+| utility json | `nemotron-3.5-lightning-30b-a3b` | ok **11.7 s** |
+
+**kimi-k3 degraded — three manual re-probes (120 s budget each):**
+
+1. hard `ReadTimeout` at 120.2 s
+2. HTTP 200 at 103.5 s with `finish_reason=stop` and **empty content** (the phantom-empty failure mode)
+3. genuine 200 at **85.2 s**
+
+On 2026-09-27 the same model answered in 8.6–14.9 s. Its latency now exceeds every role deadline (60 s stylist / 90 s vision), so a chain containing it can never reach it before the caller degrades honestly. **Action taken the same day:** removed from `STYLIST_CHAT` (chain is now Ultra → Super, both healthy) and from `GARMENT_VISION` (nano-omni promoted to failover_1), and recorded in `UNROUTED_MODELS` so nobody re-wires it without re-measuring. The key stays in the pool. This is exactly the registry-vs-reality drift the verifier exists to catch — it returned exit 1 until the registry was corrected.

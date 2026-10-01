@@ -1,0 +1,269 @@
+{
+  "policy_name": "CONFIT Consumer Content Safety Policy",
+  "version": "1.0.0",
+  "date": "2026-10-01",
+  "owner": "OmarAhmed-123 (omarsafealden@gmail.com)",
+  "target_models": [
+    "ncs-vl"
+  ],
+  "use_cases": [
+    "runtime_guardrails"
+  ],
+  "taxonomy_mode": "v2_plus_custom",
+  "severity_model": "graded_s0_s4",
+  "assumptions": [
+    "Target model is the Nemotron-3 multimodal lineage slot (nvidia/nemotron-3.5-content-safety); Reasoning-4B not deployed.",
+    "Runtime consumes User Safety / Response Safety / Safety Categories outputs (emit mode /categories), matching current registry params.",
+    "Severity S0-S4 is enforced by content_safety_service.py (runtime layer), not by the model.",
+    "Image inputs are garment/try-on/wardrobe/mood-board photos only.",
+    "Policy covers stylist chat, uploads and catalogue copy; not internal admin tooling."
+  ],
+  "allow_list": [
+    "Lingerie/swimwear/underwear catalogue discussion and styling for adults (commercial register).",
+    "Consumer-protection authentication education (spotting fakes, checking serials).",
+    "Legal 'dupe'/look-alike products marketed under their own brand.",
+    "Body-neutral fit, tailoring and size language, including size-up/size-down advice.",
+    "Modesty-oriented requests (hijab, abaya, covered silhouettes).",
+    "Second-hand resale and pre-loved marketplace discussion.",
+    "Discussion of price, deals, and authorised discount channels."
+  ],
+  "response_guidance": {
+    "S0": "Allow. No action.",
+    "S1": "Allow with soft monitoring (log category, no user-visible signal).",
+    "S2": "Block the turn; stylist replies with the kind, on-brand redirect template.",
+    "S3": "Block + template redirect; log for Trust & Safety aggregate review.",
+    "S4": "Block; escalate to the incident path (AR self-harm resources where applicable; minor-safety incident process for S7)."
+  },
+  "jurisdiction_notes": "Primary market Egypt, Arabic-first (Egyptian dialect), English second. Dialect terms for replicas ('كوبي', 'ريبليكا', 'تقليد درجة أولى') treated identically to English equivalents. Counterfeit commerce is additionally a violation of Egyptian Consumer Protection Law No. 181/2018; S23 events are retained for Trust & Safety review. MENA modesty norms vary; the allow-list is locale-neutral and generous so legitimate regional requests never false-positive.",
+  "calibration_notes": "Recall-biased on S23 (counterfeit): ambiguous dupe/replica cases log as soft S1, block only on clear sourcing intent. Precision-biased on S24: fit advice is the core product; S24 fires only on directed insult language, not garment-focused descriptions. S7 is absolute: no calibration trade-off permitted.",
+  "cot_rules": "Production emit mode is /no_think + /categories (binary verdict plus category list, no reasoning trace). While auditing a new deployment use /think + /categories and inspect the <think> trace for category confusion between S19 and S23.",
+  "categories": [
+    {
+      "name": "counterfeit_commerce",
+      "display_name": "Counterfeit commerce",
+      "definition": "Content that directs, assists or encourages the purchase, sale, sourcing or undetected passing-off of counterfeit goods, or that helps evade brand authentication.",
+      "severity": "S3",
+      "custom": true,
+      "aegis_parent": "S19 Copyright/Trademark/Plagiarism",
+      "in_scope": [
+        "Where-to-buy guidance for replicas/counterfeits ('ريبليكا', 'كوبي', 'تقليد درجة أولى', '1:1 quality', 'superfake')",
+        "Which-seller-sells-exact-copies questions on any marketplace",
+        "Passing a fake off as authentic (removing serials, forging receipts, authentication evasion)",
+        "Assistant output knowingly recommending a counterfeit listing as genuine"
+      ],
+      "out_of_scope": [
+        "Consumer-protection education: how to spot a fake, verify a serial, assess a suspicious listing",
+        "Legal look-alike 'dupes' honestly marketed under their own brand name",
+        "Second-hand/authenticated resale discussion and authentication services",
+        "Style inspiration referencing a brand's aesthetic without trademark deception"
+      ],
+      "examples_safe": [
+        "How do I check if this second-hand Vuitton bag is real before I buy?",
+        "Any affordable brands with a similar minimalist aesthetic to The Row?"
+      ],
+      "examples_unsafe": [
+        "أنا عايز ريبليكا 1:1 لشنطة لويس فيتون — أفضل بائع فين؟",
+        "Which DHgate seller does the 'God quality' Prada nylon?"
+      ],
+      "edge_cases": [
+        {
+          "case": "User asks for a cheaper dress 'in this silhouette' (style copy, no trademark)",
+          "resolution": "SAFE",
+          "reasoning": "Style inspiration is legal; only trademark deception or sourcing guidance for fakes triggers S23."
+        },
+        {
+          "case": "User asks how to verify a bag they already bought is authentic",
+          "resolution": "SAFE",
+          "reasoning": "Authentication education is consumer protection, a carve-out listed in the allow-list."
+        }
+      ],
+      "modality_notes": "Photos used to ask 'is this fake?' are consumer protection (safe). Photos advertising replica stock with pricing ('متوفر كوبي') are S23."
+    },
+    {
+      "name": "appearance_harassment",
+      "display_name": "Appearance-based harassment",
+      "definition": "Insulting, degrading or mocking commentary about a person's body, size, shape, skin or appearance, whether directed at the user, at third parties in uploaded photos, or produced by the assistant.",
+      "severity": "S3",
+      "custom": true,
+      "aegis_parent": "S10 Harassment",
+      "in_scope": [
+        "Assistant output that shames a user's body ('هذا الموديل مش هينفع لجسمك')",
+        "Assistant output that amplifies a user's negative self-talk instead of redirecting it",
+        "User messages harassing a third party visible in an uploaded photo",
+        "Persistent unsolicited negative appearance judgments after the user asked to stop"
+      ],
+      "out_of_scope": [
+        "Honest, kind fit advice: cut, rise, silhouette, size-up/size-down — garment-focused language is the core product",
+        "A user describing THEMSELVES negatively; the assistant's kind redirect is evaluated, not the user's self-description",
+        "Medical/health vocabulary used neutrally",
+        "Modesty-oriented requests (hijab, abaya, covered silhouettes)"
+      ],
+      "examples_safe": [
+        "الواسعة دي هتبان أحسن مع جسمك من الضيقة (kind, garment-focused)",
+        "User: 'I hate my arms' -> Assistant redirects to styling options without agreeing the arms are a problem"
+      ],
+      "examples_unsafe": [
+        "مش هينفع عليكي، جسمك مش مناسب للفستان ده",
+        "Assistant replying to 'I look huge in this' with agreement that the user needs to lose weight (also borders S6)"
+      ],
+      "edge_cases": [
+        {
+          "case": "'What hides my belly?'",
+          "resolution": "SAFE",
+          "reasoning": "A garment-focused answer (empire waist / A-line) is compliant; 'yes, you do need to hide it' crosses into S24."
+        },
+        {
+          "case": "User's own try-on photo containing the user's body",
+          "resolution": "SAFE (image alone)",
+          "reasoning": "Try-on photos are expected product input; S24 fires on directed commentary, never on the image itself."
+        }
+      ],
+      "modality_notes": "Try-on/wardrobe photos routinely contain the user's own body: the image alone is never a violation. Only directed commentary about bodies in text triggers S24."
+    },
+    {
+      "name": "sexual",
+      "display_name": "Sexual content (fashion-context resolution)",
+      "definition": "V2 S2 as trained, with an explicit commercial-register carve-out for lingerie, swimwear and underwear.",
+      "severity": "S3",
+      "custom": false,
+      "in_scope": [
+        "Explicit sexual content in stylist chat or catalogue copy",
+        "Any sexualisation occurring in a try-on or wardrobe photo"
+      ],
+      "out_of_scope": [
+        "Adult lingerie/swimwear catalogue discussion and styling in a commercial register ('what bikini suits my shape')",
+        "Neutral garment descriptions of necklines, cuts, and fit"
+      ],
+      "examples_safe": [
+        "What swimwear styles suit a rectangular figure?",
+        "Describing a plunge neckline in product copy"
+      ],
+      "examples_unsafe": [
+        "Sexually explicit roleplay in the stylist chat",
+        "Sexualising commentary on a try-on photo"
+      ],
+      "edge_cases": [
+        {
+          "case": "Editorial swimwear content vs explicit content",
+          "resolution": "Judge by register and intent",
+          "reasoning": "Garment category never decides the verdict; the commercial register carve-out applies only to adults."
+        }
+      ],
+      "modality_notes": "Commercial garment imagery is expected input; sexualisation is assessed on text commentary and image sexualisation, not on the garment category."
+    },
+    {
+      "name": "sexual_minor",
+      "display_name": "Sexual (minor) — non-negotiable floor",
+      "definition": "V2 S7 as trained. No allow-list entry, override or calibration may ever permit this category.",
+      "severity": "S4",
+      "custom": false,
+      "in_scope": [
+        "Any sexualisation of minors in text or uploaded imagery",
+        "Any request that would produce it"
+      ],
+      "out_of_scope": [
+        "Nothing. There are no carve-outs."
+      ],
+      "examples_safe": [
+        "A parent asking for children's clothing size guidance (non-sexual commercial context)"
+      ],
+      "examples_unsafe": [
+        "Any sexualised content involving a minor, in any language or modality"
+      ],
+      "edge_cases": [
+        {
+          "case": "Uploaded photo sexualises a minor",
+          "resolution": "S4 block + incident process",
+          "reasoning": "The platform's minor-safety incident process fires in addition to the content block."
+        }
+      ],
+      "modality_notes": "Photos of children in normal clothing in a wardrobe context are not violations; any sexualisation is S4."
+    },
+    {
+      "name": "hate_identity",
+      "display_name": "Hate / Identity hate (garment-symbol resolution)",
+      "definition": "V2 S8 as trained, including hateful symbology carried by garment designs.",
+      "severity": "S3",
+      "custom": false,
+      "in_scope": [
+        "Requests to print or identify hateful symbols/slogans on garments",
+        "Hate speech in any chat direction"
+      ],
+      "out_of_scope": [
+        "The user's own face, skin tone or identity in their photos — identity itself is never a violation",
+        "Cultural/religious dress discussion"
+      ],
+      "examples_safe": [
+        "A user wearing a hijab in a try-on photo",
+        "Discussion of traditional dress across cultures"
+      ],
+      "examples_unsafe": [
+        "'Put this [hate logo] on the T-shirt design'"
+      ],
+      "edge_cases": [
+        {
+          "case": "Hateful symbol on a garment worn by a person",
+          "resolution": "Classify the symbol, not the wearer",
+          "reasoning": "The wearer's identity is irrelevant to the verdict; the symbology is the violation."
+        }
+      ],
+      "modality_notes": "Hateful symbology on garments is assessed visually; the wearer's identity is irrelevant to the verdict."
+    },
+    {
+      "name": "pii_privacy",
+      "display_name": "PII / Privacy (own-upload resolution)",
+      "definition": "V2 S9 as trained, with the platform's own-photo handling made explicit.",
+      "severity": "S2",
+      "custom": false,
+      "in_scope": [
+        "Requests to extract, dox or aggregate personal information",
+        "Publishing another person's identifiable data or image without consent"
+      ],
+      "out_of_scope": [
+        "Faces/identity in the user's OWN uploads: expected input for try-on, processed for garment/fit only, never republished"
+      ],
+      "examples_safe": [
+        "A user's own mirror photo for a try-on request"
+      ],
+      "examples_unsafe": [
+        "'Here's a photo of my coworker, tell me where she lives based on the background'"
+      ],
+      "edge_cases": [
+        {
+          "case": "Third-party photo uploaded without consent for mocking",
+          "resolution": "S24 and S9 both apply",
+          "reasoning": "Harassment (S24) and privacy (S9) are independent violations here."
+        }
+      ],
+      "modality_notes": "Own-photo processing is the product; the policy targets extraction and redistribution, not analysis."
+    },
+    {
+      "name": "ip_violation",
+      "display_name": "Copyright / Trademark / Plagiarism",
+      "definition": "V2 S19 as trained; the CONFIT-specific commerce sub-case is elevated to custom S23 (counterfeit_commerce).",
+      "severity": "S2",
+      "custom": false,
+      "in_scope": [
+        "Producing or helping reproduce protected designs, logos or copyrighted artwork without licence"
+      ],
+      "out_of_scope": [
+        "Brand-name style references ('a Zara-style blazer')",
+        "Legal look-alike products under their own brand (see S23 carve-outs)"
+      ],
+      "examples_safe": [
+        "'Find me a blazer like Zara's oversized one'"
+      ],
+      "examples_unsafe": [
+        "'Recreate this designer's exact copyrighted print for my store'"
+      ],
+      "edge_cases": [
+        {
+          "case": "Content is buying guidance for fakes rather than creation of copies",
+          "resolution": "Classify as S23 (counterfeit_commerce)",
+          "reasoning": "S19 covers the creation side; commerce guidance for counterfeits belongs to the custom category."
+        }
+      ],
+      "modality_notes": "N/A — primarily text."
+    }
+  ]
+}

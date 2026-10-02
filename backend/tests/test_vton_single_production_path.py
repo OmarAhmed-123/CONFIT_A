@@ -30,7 +30,8 @@ import pytest
 
 
 REPO = pathlib.Path(__file__).resolve().parents[2]
-MODAL_APP = REPO / "services" / "vton-worker" / "modal_app.py"
+MODAL_APP = REPO / "services" / "vton-worker" / "modal_app_v15.py"
+ENGINE = REPO / "services" / "vton-worker" / "engine" / "fashn_v15.py"
 PIPELINE = REPO / "services" / "vton-worker" / "pipeline"
 
 
@@ -111,8 +112,8 @@ class TestDeployedWorkerCannotBeShadowed:
 class TestMaskingDelegationAndPolarity:
     def test_modal_app_delegates_to_canonical_engine(self):
         src = MODAL_APP.read_text()
-        assert "from pipeline.segmentation import AgnosticMaskGenerator" in src
-        assert "AgnosticMaskGenerator.create_agnostic_mask(person, slot)" in src
+        assert 'get_engine("fashn_v15")' in src, "worker must delegate to the registered engine"
+        assert "render_outfit" in src, "composition lives in the engine, not the worker"
 
     def test_modal_app_draws_no_masks_itself(self):
         src = MODAL_APP.read_text()
@@ -121,8 +122,9 @@ class TestMaskingDelegationAndPolarity:
 
     def test_segmentation_is_shipped_and_rembg_installed_in_image(self):
         src = MODAL_APP.read_text()
-        assert "add_local_dir(" in src, "pipeline/ must be added to the Modal image"
-        assert "rembg" in src, "rembg must be installed in the Modal image"
+        assert "add_local_dir(" in src, "the vendored engine dirs must be added to the Modal image"
+        assert "fashn-human-parser" in src, "the parser must be installed in the Modal image"
+        assert "vendor\", \"fashn-vton-1.5\"" in src, "the pristine upstream must ship in the image"
 
     def test_polarity_white_is_regenerate(self):
         """AgnosticMaskGenerator must mark the SLOT region white."""
@@ -147,7 +149,11 @@ class TestMaskingDelegationAndPolarity:
 
     def test_upstream_polarity_documented(self):
         src = MODAL_APP.read_text()
-        assert "mask < 0.5" in src, "upstream polarity contract must be documented at the call site"
+        assert "non-commercial" in src.lower(), (
+            "the parser's NVIDIA non-commercial license must be documented "
+            "honestly at the deployment site (owner-approved early-stage use, "
+            "licensed swap planned)"
+        )
 
 
 class TestSegmentationResourceSafety:

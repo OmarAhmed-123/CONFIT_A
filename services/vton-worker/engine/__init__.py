@@ -18,7 +18,7 @@ the adapter contract without GPU, torch, or weights installed.
 
 from .base import VTONEngine  # noqa: F401
 
-__all__ = ["VTONEngine", "FashnSegfeeVTONEngine"]
+__all__ = ["VTONEngine", "FashnSegfeeVTONEngine", "FashnV15MultiGarmentEngine"]
 
 # Registered engines by the canonical `VTON_ENGINE` string the server sends.
 # NOTE: registration is optional/static; importing this module must never pull
@@ -41,3 +41,10 @@ def get_engine(name: str) -> type[VTONEngine] | None:
 from .fashn_segfee import FashnSegfeeVTONEngine  # noqa: E402
 
 register_engine("fashn_vton_segfee", FashnSegfeeVTONEngine)
+
+# Feature 03: multi-garment VTON on the pristine upstream pipeline with the
+# (owner-approved, non-commercial until swapped) fashn-human-parser. See
+# engine/fashn_v15.py for the license record and the swappable-parser seam.
+from .fashn_v15 import FashnV15MultiGarmentEngine  # noqa: E402
+
+register_engine("fashn_v15", FashnV15MultiGarmentEngine)

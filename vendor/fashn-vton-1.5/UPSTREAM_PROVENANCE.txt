@@ -1,0 +1,26 @@
+fashn-AI/fashn-vton-1.5 main @ 7c0f10af3f91ad4048fe9729c470a13ef905d25a
+Vendored: 2026-10-02 (pristine upstream, unmodified)
+
+Why this vendor exists (decision record):
+  - vendor/fashn-vton-segfee = segmentation-free commercial fork (parser
+    removed). Production single-garment VTON since 2026-09-04.
+  - vendor/fashn-vton-1.5   = PRISTINE upstream WITH fashn-human-parser,
+    vendored for feature 03 (multi-garment VTON).
+
+LICENSE HONESTY (read before shipping):
+  - Pipeline/model/DWPose/YOLOX: Apache-2.0.
+  - fashn-human-parser (fashn-ai/fashn-human-parser on PyPI 0.1.1,
+    HF model fashn-ai/fashn-human-parser, SegFormer fine-tune):
+    NVIDIA Source Code License for SegFormer -> NON-COMMERCIAL.
+  - Product decision (project owner, 2026-10-01): use the parser-enabled
+    upstream NOW while the project is early-stage; SWAP to a licensed
+    parser before any commercial scale. The parser is injected via
+    engine/fashn_v15.py `parser_impl` (duck-typed .predict()); the swap is
+    a one-class change with zero upstream modification.
+
+Weight files (identical to the segfee fork's, shared Modal volume
+`confit-vton-fashn-weights`):
+  - model.safetensors  (HF fashn-ai/fashn-vton-1.5)
+  - dwpose/            (DWPose ONNX, bundled by scripts/download_weights.py)
+  - HF cache for fashn-ai/fashn-human-parser (~244 MB; auto-downloaded to
+    HF_HOME on first use — the worker sets HF_HOME inside the volume)

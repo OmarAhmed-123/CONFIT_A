@@ -12,7 +12,7 @@ refuses to boot in production when the environment violates it.
 | Frontend | Vercel static build of `frontend/` | `vercel.json` → `npm --prefix frontend ci && npm --prefix frontend run build` |
 | API | Vercel Python serverless function `api/index.py` → `backend.app.main:app` (Mangum) | every push to `main`; `/api/*` rewritten to the function |
 | Database | Neon PostgreSQL (`sslmode=require`, driver **pg8000**) | schema managed **only** by Alembic (`backend/alembic`) |
-| VTON | Modal app `confit-vton-worker` (`services/vton-worker/modal_app.py`, CatVTON on T4) | `modal deploy services/vton-worker/modal_app.py` **from a committed tree** |
+| VTON | Modal app `confit-vton-worker` (`services/vton-worker/modal_app_v15.py`, fashn_v15 multi-garment on A10G) | `modal deploy services/vton-worker/modal_app_v15.py` **from a committed tree** |
 | AI providers | NVIDIA → Groq → Gemini → OpenAI (fail-over in `providers/orchestrator.py`) | API keys in Vercel env |
 | Background jobs | Celery + Redis (`backend/app/workers`) — **not** present on Vercel | optional; every Vercel code path has an inline fallback or returns 501 |
 
@@ -97,11 +97,12 @@ nobody believes setting them changes behaviour): `PROJECT_NAME`, `PORT`,
 4. Deploy the COMMERCIAL GPU worker **from the same commit**:
    `cd services/vton-worker && modal deploy modal_app_segfee.py`; verify
    `GET <health URL>` → `git_sha` equals the deployed backend commit,
-   `model_loaded=true`, `engine == "fashn_vton_segfee"`, `commercial=true`,
-   `parser_present=false` (the non-commercial human-parser is provably absent),
-   `cuda_available=true`. The canonical production engine is the
-   segmentation-free FASHN fork; the legacy CatVTON `modal_app.py` is a
-   non-production artifact and must NOT be deployed.
+   `model_loaded=true`, `engine == "fashn_v15"`, `multigarment=true`,
+   `parser.present=true` with the honest NVIDIA non-commercial license note
+   (owner-approved early-stage use 2026-10-01; licensed swap planned — see
+   `docs/VTON_FASHN_V15_FEATURE_03.md`), `cuda_available=true`. The legacy
+   single-garment `modal_app_segfee.py` remains deployed only until the
+   fashn_v15 cutover is verified, then it is deleted.
 5. As an admin: `GET /api/v1/health/vton-contract` → `contract == "consistent"`
    (a `token_mismatch` verdict means the Vercel token ≠ Modal secret; the
    endpoint never reveals either value).

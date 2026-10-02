@@ -293,7 +293,7 @@ class TestVTONConcurrency:
         """Too many garments should be rejected - test via importlib"""
         import importlib.util
         import os
-        worker_path = os.path.join(os.path.dirname(__file__), "..", "..", "services", "vton-worker", "modal_app.py")
+        worker_path = os.path.join(os.path.dirname(__file__), "..", "..", "services", "vton-worker", "modal_app_v15.py")
         spec = importlib.util.spec_from_file_location("modal_app", worker_path)
         modal_app = importlib.util.module_from_spec(spec)
         try:
@@ -319,7 +319,7 @@ class TestVTONConcurrency:
     def test_job_id_validation(self):
         import importlib.util
         import os
-        worker_path = os.path.join(os.path.dirname(__file__), "..", "..", "services", "vton-worker", "modal_app.py")
+        worker_path = os.path.join(os.path.dirname(__file__), "..", "..", "services", "vton-worker", "modal_app_v15.py")
         spec = importlib.util.spec_from_file_location("modal_app", worker_path)
         modal_app = importlib.util.module_from_spec(spec)
         try:

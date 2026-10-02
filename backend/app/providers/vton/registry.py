@@ -172,6 +172,35 @@ _ENGINES: Tuple[VtonEngineSpec, ...] = (
         ),
     ),
     VtonEngineSpec(
+        key="fashn_v15",
+        transport="gpu_worker",
+        endpoint="",  # resolved from VTON_WORKER_URL at call time
+        api_name="",
+        license="Apache-2.0 pipeline; NVIDIA SegFormer non-commercial parser "
+                "(owner-approved early-stage use 2026-10-01, licensed swap planned)",
+        commercial=False,  # honest: parser is non-commercial until swapped
+        categories=(
+            GarmentCategory.UPPER,
+            GarmentCategory.LOWER,
+            GarmentCategory.DRESS,
+            GarmentCategory.OUTERWEAR,
+        ),
+        priority=0,  # multi-garment + on-model garments: strongest when configured
+        verified=(
+            "Feature 03 worker (services/vton-worker/modal_app_v15.py): "
+            "multi-garment composition with per-layer honest verification. "
+            "GPU verification run logged at cutover."
+        ),
+        notes=(
+            "Pristine upstream pipeline with the parser enabled: composes "
+            "tops+bottoms in one call (layer 2+ parser-masked so earlier "
+            "layers stay pixel-exact) and segments garments out of on-model "
+            "catalogue photos (no flat-lay-only limit). Parser swap seam: "
+            "engine/fashn_v15.py parser_impl."
+        ),
+        requires_flatlay=False,
+    ),
+    VtonEngineSpec(
         key="fashn_vton_segfee",
         transport="gpu_worker",
         endpoint="",  # resolved from VTON_WORKER_URL at call time

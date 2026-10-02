@@ -49,21 +49,20 @@ CATEGORY_TO_VTON_SLOT = {
 DEFAULT_VTON_SLOT = "upper_inner"
 SUPPORTED_SLOTS = {"upper_outer", "upper_inner", "lower", "dress", "footwear", "accessory"}
 
-# ENGINE CAPABILITY (fashn_vton_segfee) — distinct from SUPPORTED_SLOTS
-# (which are the slots the API can express). The segmentation-free FASHN
-# engine renders tops / bottoms / one-pieces ONLY; footwear and accessory
-# images are rejected by the worker ("only tops/bottoms/one-pieces").
-# Verified live against the production worker (2026-09-05: footwear layer
-# rejected mid-chain after ~70 s of earlier layers). The API validates
-# against this set UPFRONT so users get an explicit 422 in <1 s instead of
-# a mid-chain failure after minutes of GPU time, and the UI communicates
-# the limitation (directive §23).
+# ENGINE CAPABILITY — distinct from SUPPORTED_SLOTS (which are the slots the
+# API can express). The FASHN engines (fashn_vton_segfee single-garment,
+# fashn_v15 multi-garment feature 03) render tops / bottoms / one-pieces ONLY;
+# footwear and accessory images are rejected by the worker. Verified live
+# against the production worker (2026-09-05: footwear layer rejected mid-chain
+# after ~70 s of earlier layers). The API validates against this set UPFRONT
+# so users get an explicit 422 in <1 s instead of a mid-chain failure after
+# minutes of GPU time, and the UI communicates the limitation (directive §23).
 VTON_ENGINE_RENDERABLE_SLOTS = {"upper_inner", "upper_outer", "lower", "dress"}
 
 VTON_UNSUPPORTED_SLOTS_MESSAGE = (
     "Virtual try-on currently supports tops, outerwear, bottoms and "
     "dresses. '{slots}' is not supported by the VTON engine "
-    "(fashn_vton_segfee) yet — remove it from the outfit to render."
+    "yet — remove it from the outfit to render."
 )
 
 # Maximum image size for person/garment fetching (15MB)
@@ -1018,50 +1017,49 @@ class TryOnService:
                 person_b64 = await self._prepare_person_image(effective_image)
                 garments = await self._build_garments_payload(valid_products)
 
-                # Worker contract (fashn_vton_segfee): max ONE garment per
-                # inference call. A complete outfit is therefore rendered by
-                # SEQUENTIAL single-garment chaining — layer i renders on the
-                # previous layer's output (the same sequential architecture
-                # the animated/Layer-Assembly path uses). The final frame is
-                # the complete-outfit result; every layer keeps the uploaded
-                # person as the identity/pose anchor (no layer may introduce
-                # the garment photo's pose/body).
-                gpu_data = None
-                rendered = None
-                layers_meta: List[Dict[str, Any]] = []
-                person_for_layer = person_b64
-                for li, g in enumerate(garments, start=1):
-                    layer_job_id = job_id if len(garments) == 1 else f"{job_id}_l{li}"
-                    if len(garments) > 1:
-                        job.current_stage = f"gpu_diffusion_rendering layer {li}/{len(garments)}"
-                        job.progress_pct = 65 + int(30 * (li - 1) / len(garments))
-                        self.db.commit()
-                    gpu_data = await self._call_gpu_worker(
-                        job_id=layer_job_id,
-                        person_image=person_for_layer,
-                        garments=[g],
-                        gender_mode=gender_mode or "infer_from_image",
-                        output_aspect=output_aspect or "9:16"
-                    )
-                    rendered = gpu_data.get("rendered_image_data_url")
-                    # Record EACH layer's verification outcome. The worker
-                    # always returns 200 + an image; verify.PASS=False means
-                    # that layer's garment did not materially change the image
-                    # (i.e. it was not really applied). We must NOT collapse
-                    # that into a clean "harmonized_and_verified" success.
-                    _lv = gpu_data.get("verify") or {}
-                    layers_meta.append({
-                        "layer": li,
-                        "product_id": g.get("product_id"),
-                        "slot_type": g.get("slot_type"),
+                # Worker contract (fashn_v15, feature 03): the worker composes
+                # the WHOLE outfit in ONE GPU call — sequential multi-garment
+                # composition inside the worker (layer 1 segmentation-free,
+                # layer k>1 parser-masked so earlier layers stay pixel-exact),
+                # returning honest per-layer verification in `layers`. The
+                # uploaded person remains the identity/pose anchor of the
+                # whole chain (no layer may introduce the garment photo's
+                # pose/body).
+                gpu_data = await self._call_gpu_worker(
+                    job_id=job_id,
+                    person_image=person_b64,
+                    garments=garments,
+                    gender_mode=gender_mode or "infer_from_image",
+                    output_aspect=output_aspect or "9:16"
+                )
+                rendered = gpu_data.get("rendered_image_data_url")
+                # Record EACH layer's verification outcome (worker-reported,
+                # in composition order). We must NOT collapse a failed layer
+                # into a clean "harmonized_and_verified" success.
+                layers_meta: List[Dict[str, Any]] = [
+                    {
+                        "layer": l.get("layer"),
+                        "product_id": l.get("product_id"),
+                        "slot_type": l.get("slot_type") or l.get("category"),
+                        "execution_time_ms": l.get("execution_time_ms"),
+                        "verify_pass": (l.get("verify") or {}).get("PASS"),
+                        "metric_pixel_change": (l.get("verify") or {}).get("metric_pixel_change"),
+                    }
+                    for l in (gpu_data.get("layers") or [])
+                ]
+                if not layers_meta:
+                    # Fallback shape (e.g. pilot-tier renderer without
+                    # per-layer reporting): synthesize ONE layer from the
+                    # whole-image verify gate — honest, never a free pass.
+                    _whole = gpu_data.get("quality_audit") or gpu_data.get("verify") or {}
+                    layers_meta = [{
+                        "layer": 1,
+                        "slot_type": garments[0].get("slot_type") if garments else None,
+                        "product_id": garments[0].get("product_id") if garments else None,
                         "execution_time_ms": gpu_data.get("execution_time_ms"),
-                        "verify_pass": _lv.get("PASS"),
-                        "metric_pixel_change": _lv.get("metric_pixel_change"),
-                    })
-                    # Output becomes the input for the next layer
-                    # (sequential architecture); the uploaded person remains
-                    # the identity/pose anchor of the whole chain.
-                    person_for_layer = rendered
+                        "verify_pass": _whole.get("PASS"),
+                        "metric_pixel_change": _whole.get("metric_pixel_change"),
+                    }]
 
                 # Honest, per-layer verification aggregation. A layer whose
                 # garment was not applied (verify_pass != True) must not be
@@ -1698,40 +1696,41 @@ class TryOnService:
                 # Person reference validated + fetched once (single fetch).
                 person_img = await self._prepare_person_image(effective_input_image)
 
-                # Worker contract (fashn_vton_segfee): max ONE garment per
-                # inference call. A complete outfit is rendered by SEQUENTIAL
-                # single-garment chaining — layer i renders on the previous
-                # layer's output (the same sequential architecture the
-                # animated/Layer-Assembly path uses). The final frame is the
-                # complete-outfit result; the uploaded person remains the
+                # Worker contract (fashn_v15, feature 03): the worker composes
+                # the WHOLE outfit in ONE GPU call (layer 1 segmentation-free,
+                # layer k>1 parser-masked) and returns honest per-layer
+                # verification in `layers`. The uploaded person remains the
                 # identity/pose anchor of the whole chain.
-                gpu_data = None
-                person_for_layer = person_img
-                sync_layers_meta: List[Dict[str, Any]] = []
-                for li, g in enumerate(garments, start=1):
-                    layer_job_id = job_id if len(garments) == 1 else f"{job_id}_l{li}"
-                    gpu_data = await self._call_gpu_worker(
-                        job_id=layer_job_id,
-                        person_image=person_for_layer,
-                        garments=[g],
-                        gender_mode=gender_mode or "infer_from_image",
-                        output_aspect="9:16"
-                    )
-                    # Record each layer's verification outcome. The worker
-                    # returns 200 + image regardless of whether the garment
-                    # was really applied — verify.PASS=False means that layer's
-                    # garment was not effectively applied by the engine.
-                    _lv = gpu_data.get("verify") or {}
-                    sync_layers_meta.append({
-                        "layer": li,
-                        "product_id": g.get("product_id"),
-                        "slot_type": g.get("slot_type"),
-                        "verify_pass": _lv.get("PASS"),
-                        "metric_pixel_change": _lv.get("metric_pixel_change"),
-                    })
-                    # Output becomes the input for the next layer
-                    # (sequential architecture).
-                    person_for_layer = gpu_data.get("rendered_image_data_url")
+                gpu_data = await self._call_gpu_worker(
+                    job_id=job_id,
+                    person_image=person_img,
+                    garments=garments,
+                    gender_mode=gender_mode or "infer_from_image",
+                    output_aspect="9:16"
+                )
+                # Worker-reported per-layer outcomes (composition order).
+                sync_layers_meta: List[Dict[str, Any]] = [
+                    {
+                        "layer": l.get("layer"),
+                        "product_id": l.get("product_id"),
+                        "slot_type": l.get("slot_type") or l.get("category"),
+                        "verify_pass": (l.get("verify") or {}).get("PASS"),
+                        "metric_pixel_change": (l.get("verify") or {}).get("metric_pixel_change"),
+                    }
+                    for l in (gpu_data.get("layers") or [])
+                ]
+                if not sync_layers_meta and garments:
+                    # Fallback shape (pilot-tier renderer without per-layer
+                    # reporting): synthesize ONE layer from the whole-image
+                    # verify gate — honest, never a free pass.
+                    _whole = gpu_data.get("quality_audit") or gpu_data.get("verify") or {}
+                    sync_layers_meta = [{
+                        "layer": 1,
+                        "slot_type": garments[0].get("slot_type"),
+                        "product_id": garments[0].get("product_id"),
+                        "verify_pass": _whole.get("PASS"),
+                        "metric_pixel_change": _whole.get("metric_pixel_change"),
+                    }]
 
                 rendered_url = gpu_data.get("rendered_image_data_url")
                 # Honest per-layer verification aggregation: a garment layer

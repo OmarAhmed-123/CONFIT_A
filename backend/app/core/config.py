@@ -82,7 +82,7 @@ KNOWN_ENVIRONMENTS = {"development", "test", "staging", "production"}
 # never silently presented as commercially deployable. This is configuration
 # + observability, NOT a license grant: commercial legality is the owner's
 # responsibility (see docs/VTON_RESEARCH_INTEGRATION_REPORT_20260904.md).
-SUPPORTED_VTON_ENGINES = frozenset({"catvton", "fashn_vton_1_5", "fashn_vton_segfee", "leffa"})
+SUPPORTED_VTON_ENGINES = frozenset({"catvton", "fashn_vton_1_5", "fashn_vton_segfee", "fashn_v15", "leffa"})
 
 # Map engine -> (license_summary, commercially_usable, upstream_source). Values
 # reflect the verified upstream terms; they are stated here because a flat
@@ -114,6 +114,21 @@ VTON_ENGINE_LICENSES: dict[str, dict] = {
                 "segmentation_free + flat-lay. Verified on real A10 GPU (see "
                 "docs/VTON_COMMERCIAL_MIGRATION_REPORT). Real generated try-on "
                 "image produced; parser_pre_import and parser_in_runtime both false.",
+    },
+    "fashn_v15": {
+        "license": "Apache-2.0 (pipeline/DWPose/YOLOX); NVIDIA Source Code License "
+                   "for SegFormer via fashn-human-parser (non-commercial)",
+        "commercial": False,
+        "multigarment": True,
+        "source": "pristine fashn-AI/fashn-vton-1.5 @ 7c0f10af (vendor/fashn-vton-1.5)",
+        "note": "Feature 03 multi-garment engine (tops+bottoms composed in one "
+                "worker call; parser-masked overlays; on-model garment photos "
+                "supported via parser segmentation). OWNER DECISION 2026-10-01: "
+                "ship the non-commercial parser while the project is early-stage; "
+                "SWAP to a licensed parser before commercial scale — the swap "
+                "seam is engine/fashn_v15.py parser_impl (one class, zero "
+                "upstream modification). Reported honestly as non-commercial "
+                "until that swap lands.",
     },
     "leffa": {
         "license": "MIT (repo); SCHP / DensePose / Detectron2 chain must be "

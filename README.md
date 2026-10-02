@@ -169,7 +169,7 @@ Every push and PR runs (and `main` cannot be merged unless both pass):
 
 ```bash
 pip install modal && modal token new
-modal deploy services/vton-worker/modal_app.py
+modal deploy services/vton-worker/modal_app_v15.py
 # then set VTON_WORKER_URL=<the printed URL> in Vercel Production env and redeploy
 ```
 

@@ -11,7 +11,7 @@ test.
 |---|---|---|
 | `requirements.txt` == `api/requirements.txt` (byte-identical, tested) | **Vercel** | fastapi, sqlalchemy, **pg8000** (no psycopg2), mangum, httpx, **Pillow**, **boto3** (S3/R2 uploads), redis client, pydantic-settings — **no** alembic (migrations run from CI/operator), celery worker, psycopg2, rembg, torch |
 | `backend/requirements.txt` | Docker / CI `backend` job | superset incl. psycopg2-binary, celery, redis |
-| `services/vton-worker` image (`modal_app.py`) | Modal build | torch/diffusers/CatVTON weights, rembg + baked u2net_human_seg/isnet weights |
+| `services/vton-worker` image (`modal_app_v15.py`) | Modal build | torch + pristine fashn-vton-1.5 weights (shared volume `confit-vton-fashn-weights`), fashn-human-parser (NVIDIA non-commercial, owner-approved early-stage) + DWPose |
 
 `backend/scripts/check_runtime_imports.py` and
 `backend/tests/test_deployment_dependency_manifest.py` model the Vercel

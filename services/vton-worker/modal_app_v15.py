@@ -278,7 +278,12 @@ class VTONJobRequest(BaseModel):
 
 
 @app.cls(
-    gpu="A10G",
+    gpu="L4",  # Ada (24GB): native bf16 — the upstream weights are bfloat16.
+    # 2026-10-02: Modal requires a payment method on this workspace for ANY
+    # new GPU deployment (A10G/L4/T4 all blocked) — existing deployed apps
+    # (moda-embed, vton-worker-segfee) keep running. Once a card is attached:
+    #   modal deploy services/vton-worker/modal_app_v15.py
+    # L4 is bf16-capable and cheaper per second than the segfee worker's A10G.
     image=_image,  # noqa: F821  (defined above; pydantic/modal resolve at build)
     secrets=[modal.Secret.from_name("confit-worker-admin-token")],
     scaledown_window=300,

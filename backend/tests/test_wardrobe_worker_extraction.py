@@ -128,14 +128,14 @@ def test_confidence_bounded_and_monotonic():
 
 def test_cutout_alpha_soft_and_rgb_preserved():
     rgb = Image.new("RGB", (10, 10), (200, 30, 40))
-    mask = np.full((10, 10), 0.9, dtype=np.float32)
+    mask = np.full((10, 10), 0.8, dtype=np.float32)
     mask[:, 5:] = 0.1
     mask[0, 0] = 0.6  # intermediate soft edge
     out = ex.compose_cutout(rgb, mask)
     arr = np.asarray(out)
     assert arr.shape == (10, 10, 4)
-    assert arr[0, 0, 3] == 153          # 0.6 -> continuous alpha, not binarised
-    assert (arr[:, :5, 3] == 229).all() # 0.9 -> 0.9*255
+    assert arr[0, 0, 3] == 153            # 0.6 -> continuous alpha, not binarised
+    assert (arr[1:, :5, 3] == 204).all()  # 0.8 -> round(0.8*255); skip the 0.6 pixel
     assert (arr[:, 5:, 3] == 0).all()   # below threshold -> fully transparent
     assert (arr[:, :5, :3] == (200, 30, 40)).all()  # RGB untouched
 

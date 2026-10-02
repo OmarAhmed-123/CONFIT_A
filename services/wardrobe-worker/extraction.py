@@ -124,7 +124,7 @@ def compose_cutout(crop_rgb, mask, threshold: float = 0.5) -> Any:
     if m.shape != rgb.shape[:2]:
         m = np.asarray(Image.fromarray((m * 255).astype(np.uint8)).resize((rgb.shape[1], rgb.shape[0])), dtype=np.float32) / 255.0
     m = np.clip(m, 0.0, 1.0)
-    alpha = (m * 255).astype(np.uint8)
+    alpha = np.round(m * 255).astype(np.uint8)  # round: 0.9f32*255=229.4999 -> 229, not 228
     alpha[m < threshold] = 0
     rgba = np.dstack([rgb, alpha])
     return Image.fromarray(rgba, "RGBA")

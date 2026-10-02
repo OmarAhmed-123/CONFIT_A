@@ -123,6 +123,7 @@ export const WardrobeView: React.FC = () => {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isCompressing, setIsCompressing] = useState(false);
   const [uploadSkipNotes, setUploadSkipNotes] = useState<string[]>([]);
+  const [outfitFile, setOutfitFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const {
@@ -156,6 +157,9 @@ export const WardrobeView: React.FC = () => {
     uploadFiles,
     isUploading,
     uploadReport,
+    importOutfitPhoto,
+    isImportingOutfit,
+    importReport,
     retryAnalysis,
     retryingItemId,
     toggleFavorite,
@@ -212,6 +216,37 @@ export const WardrobeView: React.FC = () => {
   // Consent for garment photos stored in the user's wardrobe. Separate from
   // try-on: agreeing to try a garment on is not agreeing to keep a photo of it.
   const { requestConsent, consentDialog } = usePhotoConsent('wardrobe');
+
+  /**
+   * Feature 04 — outfit-photo import. Same consent gate and the same
+   * client-side compression as garment upload (the serverless gateway caps
+   * multipart bodies; a full-outfit photo is usually the largest a user
+   * sends). One compressed JPEG goes to /wardrobe/import-outfit.
+   */
+  const handleOutfitImportSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!outfitFile) return;
+    if (!(await requestConsent())) return;
+    try {
+      const { dataUrl } = await compressImageToDataUrl(outfitFile, { maxDim: 1280 });
+      const blob = await (await fetch(dataUrl)).blob();
+      const compressed = new File(
+        [blob],
+        outfitFile.name.replace(/\.[^.]+$/, "") + ".jpg",
+        { type: "image/jpeg" },
+      );
+      const report = await importOutfitPhoto(compressed, 6);
+      if (report && report.summary.succeeded > 0) {
+        setOutfitFile(null);
+        if (report.summary.failed === 0) setUploadModalOpen(false);
+      }
+    } catch {
+      setUploadSkipNotes((prev) => [
+        ...prev,
+        t("errors.file_skipped", { name: outfitFile.name }),
+      ]);
+    }
+  };
 
   const handleUploadSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1266,6 +1301,100 @@ export const WardrobeView: React.FC = () => {
                       </span>
                     </div>
                   ))}
+                </div>
+              )}
+            </form>
+
+            {/* Mode 1b: outfit-photo import (Feature 04 — real SCHP-ATR-18 +
+                BiRefNet extraction: one photo -> several garment items). */}
+            <form
+              onSubmit={handleOutfitImportSubmit}
+              className="p-6 space-y-4 border-b border-slate-100 bg-slate-50/60"
+            >
+              <div>
+                <label className="text-xs font-bold text-slate-800 block mb-1">
+                  {t('wardrobe.import_outfit_title')}{" "}
+                  <span className="text-slate-400 font-normal">
+                    {t('wardrobe.import_outfit_hint')}
+                  </span>
+                </label>
+                {photoUploadUnavailable && (
+                  <p className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-3 mb-2 leading-relaxed">
+                    {t('wardrobe.import_outfit_unavailable')}
+                  </p>
+                )}
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0] ?? null;
+                    setOutfitFile(f);
+                  }}
+                  className="w-full text-xs text-slate-600 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-[#1B1F3B] file:text-white file:text-xs file:font-semibold hover:file:bg-[#2A3C78] file:cursor-pointer"
+                />
+                {outfitFile && (
+                  <p className="text-[11px] text-slate-500 mt-1.5">
+                    {outfitFile.name}
+                  </p>
+                )}
+              </div>
+
+              <button
+                type="submit"
+                disabled={!outfitFile || isImportingOutfit}
+                className="w-full py-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs transition-all shadow-md flex items-center justify-center gap-1.5 disabled:opacity-50"
+              >
+                <span>{isImportingOutfit ? t('wardrobe.import_outfit_busy') : t('wardrobe.import_outfit_cta')}</span>
+              </button>
+
+              {isImportingOutfit && (
+                <p className="text-[11px] text-slate-500 text-center animate-pulse">
+                  {t('wardrobe.import_outfit_wait')}
+                </p>
+              )}
+
+              {/* Honest per-garment report incl. the worker's skip list. */}
+              {importReport && (
+                <div className="space-y-1.5">
+                  {importReport.results.map((r, idx) => (
+                    <div
+                      key={idx}
+                      className={`flex items-center justify-between text-[11px] px-3 py-2 rounded-xl border ${
+                        r.status === "failed"
+                          ? "bg-rose-50 border-rose-200 text-rose-800"
+                          : r.status === "duplicate"
+                            ? "bg-amber-50 border-amber-200 text-amber-800"
+                            : r.item?.processing_status === "ready"
+                              ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+                              : "bg-amber-50 border-amber-200 text-amber-800"
+                      }`}
+                    >
+                      <span className="truncate font-medium">
+                        {r.item?.title ?? r.filename}
+                      </span>
+                      <span className="font-bold ml-2 shrink-0">
+                        {r.status === "failed"
+                          ? t('wardrobe.import_status_failed')
+                          : r.status === "duplicate"
+                            ? t('wardrobe.import_status_duplicate')
+                            : r.item?.processing_status === "ready"
+                              ? t('wardrobe.import_status_ready')
+                              : t('wardrobe.import_status_retryable')}
+                      </span>
+                    </div>
+                  ))}
+                  {importReport.extraction.skipped.length > 0 && (
+                    <p className="text-[11px] text-slate-500">
+                      {t('wardrobe.import_skipped_note', {
+                        labels: importReport.extraction.skipped
+                          .map((s) => s.label ?? s.reason)
+                          .join(", "),
+                      })}
+                    </p>
+                  )}
+                  <p className="text-[10px] text-slate-400">
+                    {importReport.extraction.engine} · {t('wardrobe.import_engine_note')}
+                  </p>
                 </div>
               )}
             </form>

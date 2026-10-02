@@ -2,7 +2,7 @@ import { msg, detail } from '../i18n/messages';
 import { localizeApiError } from '../i18n/apiErrors';
 import i18n from '../i18n/i18n';
 import { useState, useCallback, useEffect } from 'react';
-import { wardrobeService, moodBoardService, WardrobeUploadResponse, WardrobeFirstOutfit, AutoTagResponse, MoodBoard } from '../services/apiServices';
+import { wardrobeService, moodBoardService, WardrobeUploadResponse, WardrobeImportResponse, WardrobeFirstOutfit, AutoTagResponse, MoodBoard } from '../services/apiServices';
 import { WardrobeItem, GapAnalysisItem } from '../models';
 import { useUndoableRemove } from '../hooks/useUndoableRemove';
 import { useUIStore } from '../stores/uiStore';
@@ -27,6 +27,8 @@ export function useWardrobeViewModel() {
   const [autoTagResult, setAutoTagResult] = useState<AutoTagResponse | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadReport, setUploadReport] = useState<WardrobeUploadResponse | null>(null);
+  const [isImportingOutfit, setIsImportingOutfit] = useState(false);
+  const [importReport, setImportReport] = useState<WardrobeImportResponse | null>(null);
   const [outfitSuggestion, setOutfitSuggestion] = useState<WardrobeFirstOutfit | null>(null);
   const [isOutfitLoading, setIsOutfitLoading] = useState(false);
   const [retryingItemId, setRetryingItemId] = useState<number | null>(null);
@@ -270,6 +272,44 @@ export function useWardrobeViewModel() {
     }
   }, [showToast]);
 
+  /**
+   * Feature 04 — outfit-photo import: ONE photo -> several extracted garment
+   * items (real SCHP-ATR-18 + BiRefNet inference, 30-90s). Same honest
+   * report handling as uploadFiles: created items are prepended, failures
+   * surface per item, and the worker's skip report is kept for the UI.
+   */
+  const importOutfitPhoto = useCallback(async (file: File, maxItems = 4) => {
+    setIsImportingOutfit(true);
+    setImportReport(null);
+    try {
+      const report = await wardrobeService.importOutfitPhoto(file, maxItems);
+      setImportReport(report);
+      const created = report.results
+        .filter((r) => r.item)
+        .map((r) => r.item as WardrobeItem);
+      if (created.length) {
+        setItems((prev) => [...created.reverse(), ...prev]);
+      }
+      const { succeeded, failed, duplicates_skipped } = report.summary;
+      if (failed === 0 && duplicates_skipped === 0) {
+        showToast(msg('toast.wardrobe_import_complete', { succeeded }), 'success');
+      } else if (succeeded > 0) {
+        showToast(
+          msg('toast.wardrobe_upload_mixed', { succeeded, failed, duplicates: duplicates_skipped }),
+          'info',
+        );
+      } else {
+        showToast(msg('toast.wardrobe_import_all_failed'), 'error');
+      }
+      return report;
+    } catch (err: any) {
+      showToast(errorText(err), 'error');
+      return null;
+    } finally {
+      setIsImportingOutfit(false);
+    }
+  }, [showToast, errorText]);
+
   const retryAnalysis = useCallback(async (itemId: number) => {
     setRetryingItemId(itemId);
     try {
@@ -376,6 +416,10 @@ export function useWardrobeViewModel() {
     uploadFiles,
     isUploading,
     uploadReport,
+    importOutfitPhoto,
+    isImportingOutfit,
+    importReport,
+    setImportReport,
     retryAnalysis,
     retryingItemId,
     toggleFavorite,

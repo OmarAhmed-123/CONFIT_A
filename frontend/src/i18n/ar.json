@@ -383,7 +383,19 @@
     "category_tops": "قمصان وتوبات",
     "category_bottoms": "بناطيل وسراويل",
     "category_footwear": "أحذية",
-    "category_accessories": "إكسسوارات"
+    "category_accessories": "إكسسوارات",
+    "import_outfit_title": "استيراد من صورة إطلالة",
+    "import_outfit_hint": "(صورة إطلالة كاملة — يتم استخراج كل قطعة على حدة، ١–٢ دقيقة)",
+    "import_outfit_unavailable": "تخزين الصور غير مُهيأ في هذه البيئة — سيُرفض الاستيراد برسالة واضحة.",
+    "import_outfit_cta": "استخرج القطع بالذكاء الاصطناعي",
+    "import_outfit_busy": "جارٍ استخراج القطع…",
+    "import_outfit_wait": "استخراج حقيقي بالذكاء الاصطناعي (تحليل القطع + فصل الخلفية) — قد يستغرق ١–٢ دقيقة. يُرجى إبقاء النافذة مفتوحة.",
+    "import_status_failed": "فشل",
+    "import_status_duplicate": "مملوكة بالفعل",
+    "import_status_ready": "تم الاستخراج ✓",
+    "import_status_retryable": "محفوظة (إعادة تحليل ممكنة)",
+    "import_skipped_note": "لم يتم التعرف عليها (مُبلَّغ بأمانة): {{labels}}",
+    "import_engine_note": "موديلات SCHP-ATR-18 + BiRefNet (ترخيص MIT)"
   },
   "commerce": {
     "add_to_cart": "إضافة للحقيبة",
@@ -757,7 +769,9 @@
     "item_deleted_permanently": "تم حذف القطعة نهائيًا",
     "look_restored": "تمت إعادة الإطلالة",
     "look_restore_failed": "تعذّر استرجاع الإطلالة: {{reason}}",
-    "look_deleted_permanently": "تم حذف الإطلالة نهائيًا"
+    "look_deleted_permanently": "تم حذف الإطلالة نهائيًا",
+    "wardrobe_import_complete": "تم استيراد {{succeeded}} قطعة من صورتك.",
+    "wardrobe_import_all_failed": "فشل استيراد الإطلالة — لم يتم حفظ أي قطع."
   },
   "consent": {
     "title": "قبل أن نعالج صورتك",

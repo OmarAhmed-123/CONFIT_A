@@ -422,6 +422,24 @@ class Settings(BaseSettings):
     VTON_CIRCUIT_FAILURE_THRESHOLD: int = 2
     VTON_CIRCUIT_OPEN_SECONDS: float = 120.0
 
+    # Feature 04 — Smart Wardrobe extraction worker (Modal CPU app
+    # `confit-wardrobe-worker`: SCHP-ATR-18 parsing + BiRefNet_lite matting,
+    # both MIT). WARDROBE_WORKER_URL is the full /extract endpoint URL
+    # (Modal exposes each web endpoint at its own hostname root — same
+    # reason VTON_WORKER_URL/PROCESS_URL are set explicitly).
+    WARDROBE_WORKER_URL: Optional[str] = None
+    WARDROBE_WORKER_HEALTH_URL: Optional[str] = None
+    # Dedicated credential (Modal secret `confit-wardrobe-admin-token`, env
+    # VTON_WORKER_ADMIN_TOKEN inside that worker). Separate from the VTON
+    # token on purpose: the VTON workers are frozen (GPU gate) and must keep
+    # serving with the shared secret, while this one can be rotated freely.
+    # Sent as the X-VTON-Admin header, mirroring the other worker shells.
+    WARDROBE_WORKER_ADMIN_TOKEN: Optional[str] = None
+    # CPU extraction is real but slow: parse ~1s + ~10-15s matting per
+    # garment (measured live 2026-10-02: 29-45s for 3 garments, plus cold
+    # start). 180s covers a 6-garment extraction with margin.
+    WARDROBE_WORKER_TIMEOUT_SECONDS: float = 180.0
+
     # Self-hosted Qwen2.5-VL vision worker (LOCAL FALLBACK). When
     # QWEN_VL_WORKER_URL is set, VisualSearchAIProvider.fallback uses the local
     # Qwen worker when Gemini is exhausted/unavailable. Unset => unchanged.

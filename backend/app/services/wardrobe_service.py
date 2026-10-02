@@ -781,6 +781,191 @@ class WardrobeService:
             },
         }
 
+    # ─────────────────── Feature 04: outfit-photo import (SCHP-ATR-18 + BiRefNet_lite) ───────────
+    async def import_outfit_photo(
+        self,
+        user_id: int,
+        filename: str,
+        content_type: Optional[str],
+        data: bytes,
+        max_items: int = 4,
+    ) -> Dict[str, Any]:
+        """Import ONE outfit photo into MULTIPLE wardrobe items.
+
+        Pipeline: validate -> data URL -> Modal CPU worker `confit-wardrobe-worker`
+        (SCHP-ATR-18 parse + BiRefNet_lite matting) -> per-garment transparent
+        cutout PNG -> one wardrobe item per cutout -> the EXISTING per-item
+        vision analysis (_run_ai_analysis) refines title/color/pattern/tags.
+
+        Honesty rules (same as upload_items, BRD §13/§20):
+          * the worker reports sub-threshold regions in ``skipped`` — they are
+            passed through to the caller, never promoted to items;
+          * items the provider could not validate (dropped_items) are reported;
+          * a worker failure fails the WHOLE import honestly (the photo is not
+            stored, nothing half-imported) — unlike per-file bulk upload there
+            is exactly one input, so there is nothing to isolate;
+          * per-item analysis failure still leaves the cutout stored with
+            status failed (retryable) via _run_ai_analysis' own handling.
+        """
+        from backend.app.providers.wardrobe_extraction_provider import (
+            WardrobeExtractionProvider,
+            slot_title,
+        )
+
+        max_items = max(1, min(int(max_items or 4), 6))
+        ext = self._validate_image(content_type, data, filename)
+        mime = {
+            ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp",
+        }.get(ext, "image/jpeg")
+        data_url = f"data:{mime};base64,{base64.b64encode(data).decode('ascii')}"
+
+        provider = WardrobeExtractionProvider()
+        extraction = await provider.extract_garments(data_url, max_items=max_items)
+
+        if not extraction.get("extraction_available"):
+            reason = extraction.get("reason", "wardrobe_extraction_unavailable")
+            if reason == "wardrobe_extraction_not_configured":
+                raise ProviderIntegrationError(
+                    "wardrobe extraction",
+                    "Outfit-photo import is not configured on this deployment.",
+                    retryable=False,
+                )
+            if reason == "wardrobe_worker_input_invalid":
+                raise ValidationDomainError(
+                    "This photo could not be processed: " + str(extraction.get("detail") or "invalid image.")
+                )
+            raise ProviderIntegrationError(
+                "wardrobe extraction",
+                "Garment extraction is temporarily unavailable. Please try again shortly.",
+                retryable=True,
+            )
+
+        extracted = extraction.get("items") or []
+        dropped = extraction.get("dropped_items") or []
+        skipped = extraction.get("skipped") or []
+        if not extracted:
+            # Honest empty answer: nothing above the detection threshold was
+            # found. Not an error of ours — a user-facing validation message
+            # with the worker's own skip report so the UI can explain it.
+            summary = ", ".join(
+                f"{s.get('label')} ({s.get('reason')})" for s in skipped[:4]
+            ) or "no garments detected"
+            raise ValidationDomainError(
+                "No garments could be detected in this photo (details: " + summary + ")."
+                if skipped else
+                "No garments could be detected in this photo."
+            )
+
+        results: List[Dict[str, Any]] = []
+        succeeded = failed = duplicates = 0
+        for garment in extracted[:max_items]:
+            slot = garment["slot_type"]
+            try:
+                image_url, digest = self._store_image(user_id, garment["cutout_png"], ".png")
+                existing = self.wardrobe_repo.get_item_by_image_hash(user_id, digest, include_binned=True)
+                if existing is not None and existing.deleted_at is not None:
+                    self._delete_owned_image(image_url)
+                    self.wardrobe_repo.restore_item(existing)
+                    results.append({
+                        "filename": f"{slot}_cutout",
+                        "status": "restored",
+                        "detail": "This garment cutout was in your bin and has been restored.",
+                        "item": self._to_dict(existing),
+                    })
+                    succeeded += 1
+                    continue
+                if existing:
+                    self._delete_owned_image(image_url)
+                    results.append({
+                        "filename": f"{slot}_cutout",
+                        "status": "duplicate",
+                        "detail": "This garment is already in your wardrobe.",
+                        "item": self._to_dict(existing),
+                    })
+                    duplicates += 1
+                    continue
+
+                item = self.wardrobe_repo.add_item(
+                    user_id=user_id,
+                    title=slot_title(slot),
+                    category=garment["category"],
+                    subcategory=None,
+                    # Placeholder until the per-item vision analysis (which runs
+                    # immediately below) sets the real color/pattern; if that
+                    # analysis fails the item stays status=failed (never shown
+                    # as ready), so no invented attribute is ever presented.
+                    color_name="Unknown",
+                    color_hex="#9E9E9E",
+                    pattern="Solid",
+                    brand_name="Own Collection",
+                    image_url=image_url,
+                    ai_tags=list(garment.get("label_names") or [slot]),
+                    occasions=[],
+                    processing_status="processing",
+                    image_hash=digest,
+                )
+                item.ai_confidence = garment.get("confidence")
+                self.wardrobe_repo.update_item(item)
+            except (ValidationDomainError, ProviderIntegrationError) as exc:
+                results.append({
+                    "filename": f"{slot}_cutout",
+                    "status": "failed",
+                    "detail": str(exc),
+                })
+                failed += 1
+                continue
+            except Exception:
+                logger.error("wardrobe_import_item_error", user_id=user_id, slot=slot)
+                results.append({
+                    "filename": f"{slot}_cutout",
+                    "status": "failed",
+                    "detail": "Could not import this garment.",
+                })
+                failed += 1
+                continue
+
+            # Per-item refinement (color/pattern/subcategory) reuses the
+            # exact single-item analysis path, including its failure UX.
+            try:
+                item = await self._run_ai_analysis(item)
+            except Exception:
+                # _run_ai_analysis already recorded failed/retryable state.
+                pass
+            # Same semantics as upload_items: "created" means the row exists
+            # (cutout stored); the per-item analysis outcome lives in
+            # item.processing_status (ready | failed-with-retry).
+            results.append({
+                "filename": f"{slot}_cutout",
+                "status": "created",
+                "detail": None,
+                "item": self._to_dict(item),
+            })
+            if item.processing_status == "ready":
+                succeeded += 1
+            else:
+                failed += 1
+
+        return {
+            "results": results,
+            "summary": {
+                "total": len(results),
+                "succeeded": succeeded,
+                "failed": failed,
+                "duplicates_skipped": duplicates,
+            },
+            "extraction": {
+                "person_detected": extraction.get("person_detected"),
+                "person_labels": extraction.get("person_labels"),
+                "skipped": skipped,
+                "dropped_items": dropped,
+                "engine": extraction.get("engine"),
+                "commercial": extraction.get("commercial"),
+                "parse_seconds": extraction.get("parse_seconds"),
+                "matting_seconds": extraction.get("matting_seconds"),
+                "total_seconds": extraction.get("total_seconds"),
+            },
+        }
+
     # ─────────────────── AI analysis (real provider) ───────────
     async def _run_ai_analysis(self, item: WardrobeItem) -> WardrobeItem:
         """Run the configured vision provider against the stored image and

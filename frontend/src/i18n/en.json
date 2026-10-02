@@ -383,7 +383,19 @@
     "category_tops": "Tops & Shirts",
     "category_bottoms": "Bottoms & Trousers",
     "category_footwear": "Footwear",
-    "category_accessories": "Accessories"
+    "category_accessories": "Accessories",
+    "import_outfit_title": "Import from Outfit Photo",
+    "import_outfit_hint": "(one full-outfit photo — each garment extracted separately, 1–2 min)",
+    "import_outfit_unavailable": "Photo storage is not configured in this environment — the import will be rejected with a clear error.",
+    "import_outfit_cta": "Extract Garments with AI",
+    "import_outfit_busy": "Extracting garments…",
+    "import_outfit_wait": "Real AI extraction (garment parsing + matting) — this can take 1–2 minutes. Please keep this open.",
+    "import_status_failed": "Failed",
+    "import_status_duplicate": "Already owned",
+    "import_status_ready": "Extracted ✓",
+    "import_status_retryable": "Saved (AI retryable)",
+    "import_skipped_note": "Not detected (reported honestly): {{labels}}",
+    "import_engine_note": "SCHP-ATR-18 + BiRefNet (MIT)"
   },
   "commerce": {
     "add_to_cart": "Add to Bag",
@@ -757,7 +769,9 @@
     "item_deleted_permanently": "Item permanently deleted",
     "look_restored": "Look restored",
     "look_restore_failed": "Could not restore the look: {{reason}}",
-    "look_deleted_permanently": "Look permanently deleted"
+    "look_deleted_permanently": "Look permanently deleted",
+    "wardrobe_import_complete": "Imported {{succeeded}} garment(s) from your photo.",
+    "wardrobe_import_all_failed": "Outfit import failed — no garments could be saved."
   },
   "consent": {
     "title": "Before we process your photo",

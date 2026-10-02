@@ -79,6 +79,27 @@ class WardrobeUploadResponse(BaseModel):
     summary: WardrobeUploadSummary
 
 
+class WardrobeImportExtractionMeta(BaseModel):
+    """Feature 04 — provenance of a garment extraction (SCHP-ATR-18 +
+    BiRefNet_lite on Modal CPU). Everything the worker reported honestly:
+    skipped sub-threshold regions, dropped unparseable items, engine id."""
+    person_detected: Optional[bool] = None
+    person_labels: List[str] = []
+    skipped: List[dict] = []
+    dropped_items: List[dict] = []
+    engine: Optional[str] = None
+    commercial: Optional[bool] = None
+    parse_seconds: Optional[float] = None
+    matting_seconds: Optional[float] = None
+    total_seconds: Optional[float] = None
+
+
+class WardrobeImportResponse(BaseModel):
+    results: List[WardrobeUploadResultEntry]
+    summary: WardrobeUploadSummary
+    extraction: WardrobeImportExtractionMeta
+
+
 class WardrobeAutoTagRequest(BaseModel):
     image_url: Optional[str] = None
     image_base64: Optional[str] = None

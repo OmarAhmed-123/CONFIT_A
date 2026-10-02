@@ -36,12 +36,25 @@ import modal
 from fastapi import HTTPException, Header
 from pydantic import BaseModel, field_validator
 
-# Pure logic lives in extraction.py (importable without modal/torch for tests)
-import sys as _sys
+# Pure logic lives in extraction.py (importable without modal/torch for
+# tests). Imported lazily/defensively: Modal introspects THIS file during
+# the image build (before add_local_dir lands), so a hard module-level
+# import would break the build. The runtime image ships extraction.py on
+# PYTHONPATH (/root/wardrobe-worker).
+try:
+    import extraction as ex  # noqa: E402
+except ImportError:  # build-time introspection context
+    ex = None
+
+# Local dir containing extraction.py. In the builder's introspection context
+# __file__ points at /root/modal_app.py; the serialized Image from the client
+# import (correct local path) is what actually gets built (same pattern as
+# modal_app_v15.py, which builds fine).
 _HERE = os.path.dirname(os.path.abspath(__file__))
-if _HERE not in _sys.path:
-    _sys.path.insert(0, _HERE)
-import extraction as ex  # noqa: E402
+
+# Request-level bound for max_items (the grouping cap extraction.MAX_ITEMS
+# governs how many grouped items may be returned; keep both in sync).
+MAX_ITEMS_REQUEST = 6
 
 app = modal.App("confit-wardrobe-worker")
 
@@ -83,15 +96,20 @@ def _bake_weights() -> None:
 
 
 _image = (
-    modal.Image.debian_slim(python_version="3.11")
+    # Stack verified locally 2026-10-02 (see session memory): pirocheto/schp-atr-18
+    # was modernized 2026-04 for transformers>=5.5.3 / torch>=2.11 / pillow>=12.2
+    # (its config.json says transformers_version 5.5.0) and FAILS to import on
+    # the old 4.46.3 stack ("ImportError: configuration_schp"). BiRefNet_lite's
+    # custom code loads fine on transformers 5.18 but needs einops+kornia+timm.
+    modal.Image.debian_slim(python_version="3.12")
     .pip_install(
-        "torch==2.4.1", "torchvision==0.19.1",
+        "torch>=2.11", "torchvision>=0.26",
         extra_index_url="https://download.pytorch.org/whl/cpu",
     )
     .pip_install(
-        "transformers==4.46.3", "pillow==10.4.0", "numpy==1.26.4",
-        "huggingface_hub==0.25.2", "fastapi>=0.115.0", "pydantic>=2.9.0",
-        "httpx>=0.27.2", "scikit-image==0.24.0",
+        "transformers>=5.5.3", "pillow>=12.2", "numpy<3",
+        "huggingface_hub>=0.25", "fastapi>=0.115.0", "pydantic>=2.9.0",
+        "httpx>=0.27.2", "einops", "kornia", "timm",
     )
     .run_function(_bake_weights)
     .add_local_dir(_HERE, remote_path="/root/wardrobe-worker", copy=True)
@@ -116,8 +134,8 @@ class ExtractionRequest(BaseModel):
     @field_validator("max_items")
     @classmethod
     def validate_max_items(cls, v):
-        if not 1 <= v <= ex.MAX_ITEMS:
-            raise ValueError(f"max_items must be 1..{ex.MAX_ITEMS}")
+        if not 1 <= v <= MAX_ITEMS_REQUEST:
+            raise ValueError(f"max_items must be 1..{MAX_ITEMS_REQUEST}")
         return v
 
     @field_validator("image_base64_or_url")
@@ -205,15 +223,20 @@ def _fetch_image(ref: str, context: str):
 
 @app.cls(
     cpu=4.0,
-    memory=8192,
+    # 16GB: BiRefNet_lite at 1024² on CPU OOM-killed a small-RAM probe
+    # process; this leaves honest headroom for a parse + up to 6 mattes.
+    memory=16384,
     image=_image,
-    secrets=[modal.Secret.from_name("confit-worker-admin-token")],
+    # Dedicated credential for feature 04: rotating/inspecting the wardrobe
+    # token can never affect the frozen VTON workers (and vice versa). The
+    # backend sends it via WARDROBE_WORKER_ADMIN_TOKEN / X-VTON-Admin.
+    secrets=[modal.Secret.from_name("confit-wardrobe-admin-token")],
     scaledown_window=300,
     # min_containers=0: wardrobe imports are occasional; a CPU cold start
     # (~20-40s model load from the baked image) is honest and cheap. Setting
     # a warm container would burn ~$10+/month of the starter credits idle.
 )
-@modal.concurrent(max_inputs=2)  # CPU: two extractions can share 4 cores
+@modal.concurrent(max_inputs=1)  # one extraction per container; scale out, not in
 class WardrobeExtractionService:
     """Feature 04 — SCHP-ATR-18 parsing + BiRefNet_lite cutouts on CPU."""
 

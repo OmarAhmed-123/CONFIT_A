@@ -110,10 +110,11 @@ def item_confidence(area: int, image_area: int) -> float:
 def compose_cutout(crop_rgb, mask, threshold: float = 0.5) -> Any:
     """BiRefNet sigmoid mask + RGB crop -> RGBA cutout (transparent bg).
 
-    ``crop_rgb``: HxWx3 uint8 array; ``mask``: HxW float in [0,1] (already
-    resized to the crop). Alpha = mask*255 binarised at ``threshold`` for a
-    crisp edge (anti-aliased alpha from sigmoid boundaries causes ghosting
-    on product-coloured backgrounds).
+    ``crop_rgb``: PIL image; ``mask``: HxW float in [0,1] (resized to the
+    crop if needed). Alpha is CONTINUOUS (mask*255) — the soft edge is
+    BiRefNet's core quality and binarising it throws that away; below
+    ``threshold`` the pixel counts as background and alpha is forced to 0
+    so faint halo regions never bleed into the gallery render.
     """
     import numpy as np
     from PIL import Image
@@ -122,7 +123,9 @@ def compose_cutout(crop_rgb, mask, threshold: float = 0.5) -> Any:
     m = np.asarray(mask, dtype=np.float32)
     if m.shape != rgb.shape[:2]:
         m = np.asarray(Image.fromarray((m * 255).astype(np.uint8)).resize((rgb.shape[1], rgb.shape[0])), dtype=np.float32) / 255.0
-    alpha = ((m >= threshold).astype(np.uint8)) * 255
+    m = np.clip(m, 0.0, 1.0)
+    alpha = (m * 255).astype(np.uint8)
+    alpha[m < threshold] = 0
     rgba = np.dstack([rgb, alpha])
     return Image.fromarray(rgba, "RGBA")
 

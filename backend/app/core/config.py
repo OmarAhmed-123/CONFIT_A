@@ -440,6 +440,20 @@ class Settings(BaseSettings):
     # start). 180s covers a 6-garment extraction with margin.
     WARDROBE_WORKER_TIMEOUT_SECONDS: float = 180.0
 
+    # Feature 05 — body measurements from a photo (Modal CPU app
+    # `confit-anthropometry-worker`: MediaPipe pose_landmarker_heavy +
+    # vendored Landmarks2Anthropometry VISAPP-2024 Bayesian ridge, upstream
+    # license null -> unlicensed-research-only pilot tier, disclosed in every
+    # response). ANTHROPOMETRY_WORKER_URL is the full /estimate endpoint URL.
+    ANTHROPOMETRY_WORKER_URL: Optional[str] = None
+    # Dedicated credential (Modal secret `confit-anthropometry-admin-token`,
+    # env ANTHROPOMETRY_WORKER_ADMIN_TOKEN inside that worker) — rotatable
+    # independently of the wardrobe/VTON workers.
+    ANTHROPOMETRY_WORKER_ADMIN_TOKEN: Optional[str] = None
+    # CPU pose ~0.1-3s + linear predict (measured live 2026-10-02: ~0.6s
+    # warm; cold start adds ~10-20s). 120s leaves generous margin.
+    ANTHROPOMETRY_WORKER_TIMEOUT_SECONDS: float = 120.0
+
     # Self-hosted Qwen2.5-VL vision worker (LOCAL FALLBACK). When
     # QWEN_VL_WORKER_URL is set, VisualSearchAIProvider.fallback uses the local
     # Qwen worker when Gemini is exhausted/unavailable. Unset => unchanged.

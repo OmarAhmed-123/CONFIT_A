@@ -1,5 +1,7 @@
 from typing import List, Optional, Dict, Any
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, status, Request
+import base64
+
+from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Query, UploadFile, status, Request
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
@@ -12,6 +14,7 @@ from backend.app.services.tryon_service import TryOnService
 from backend.app.services.visual_search_service import VisualSearchService
 from backend.app.services.no_photo_fit_service import NoPhotoFitService
 from backend.app.services.measurement_service import MeasurementSessionService
+from backend.app.services.body_scan_service import BodyScanService
 from backend.app.services.fit.units import MeasurementValidationError
 from backend.app.schemas.tryon import (
     TryOnRequest,
@@ -754,7 +757,84 @@ def _measurement_disclaimer(res) -> str:
             "Estimated from on-device pose landmarks calibrated against the stated height. "
             "Camera estimates are approximations, not tape measurements."
         )
+    if "ai_photo_estimate" in source:
+        return (
+            "Estimated from a single photo (AI, ±2-3 cm). Approximations, not tape "
+            "measurements — see the per-measurement provenance in the scan result."
+        )
     return f"Measurements recorded from source '{res.source or 'unspecified'}'."
+
+
+# =========================================================================
+# 6b. Photo-based measurement (Feature 05 — server-side AI estimation)
+# =========================================================================
+# Reuses the F-14 session model: consent is captured at session creation,
+# this endpoint only ever runs against an owner-verified, consented session.
+# The image passes the same fail-closed S4 moderation gate as every other
+# photo upload before it is sent to the worker.
+@router.post("/measurements/sessions/{session_id}/photo-estimate", response_model=Dict[str, Any])
+@limiter.limit("10/hour")
+async def photo_estimate_measurements(
+    request: Request,
+    session_id: int,
+    file: UploadFile = File(...),
+    sex: str = Form(...),
+    height_cm: Optional[float] = Form(None),
+    user: Optional[User] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db),
+    x_session_token: Optional[str] = Header(None),
+):
+    """Estimate body measurements from one full-body photo (A-pose).
+
+    The Modal anthropometry worker (MediaPipe pose + VISAPP-2024 Bayesian
+    ridge, research-only license) returns honestly-labeled measurements:
+    per-item provenance (model vs direct geometry), the mandatory ±2-3 cm
+    note, and a transparent list of measurements it refused to estimate and
+    why. Out-of-envelope photos (no full body, turned away, bent arms) are
+    refused with actionable retake guidance — never estimated anyway.
+    """
+    if sex not in ("male", "female"):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="sex must be 'male' or 'female'.",
+        )
+    if height_cm is not None and not 50 <= height_cm <= 260:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="height_cm must be between 50 and 260.",
+        )
+
+    from backend.app.controllers.wardrobe_controller import _require_safe_image
+    from backend.app.services.wardrobe_service import ALLOWED_IMAGE_TYPES
+
+    mime = (file.content_type or "").split(";")[0].strip().lower()
+    if mime not in ALLOWED_IMAGE_TYPES:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Unsupported image type. Use JPEG, PNG or WebP.",
+        )
+    data = await file.read()
+    if not data:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Empty upload.",
+        )
+    # Same fail-closed moderation gate as wardrobe photos (body photos are
+    # people imagery — S4 policy applies before anything is processed).
+    if user is not None:
+        await _require_safe_image(data, mime, user_id=user.id)
+
+    data_url = f"data:{mime};base64," + base64.b64encode(data).decode("ascii")
+
+    service = BodyScanService(db)
+    return await service.estimate_from_photo(
+        session_id,
+        user=user,
+        guest_session_token=x_session_token,
+        data_url=data_url,
+        sex=sex,
+        height_cm=height_cm,
+    )
 
 
 @router.post("/measurements/sessions/{session_id}/save-to-profile", response_model=Dict[str, Any])

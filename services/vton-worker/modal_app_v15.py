@@ -449,10 +449,10 @@ class FashnV15InferenceService:
             b64 = base64.b64encode(buf.getvalue()).decode("ascii")
             rendered_data_url = "data:image/png;base64," + b64
         except Exception as e:
-            raise HTTPException(status_code=500, detail={"error": {"code": "OUTPUT_INVALID", "message": f"Failed to encode output: {e}"}})
+            raise HTTPException(status_code=500, detail={"error": {"code": "OUTPUT_INVALID", "message": f"Failed to encode output: {e}", "job_id": request_id}})
 
         if rendered_data_url == payload.user_image_base64_or_url:
-            raise HTTPException(status_code=500, detail={"error": {"code": "OUTPUT_INVALID", "message": "Model returned input unchanged (echo)"}})
+            raise HTTPException(status_code=500, detail={"error": {"code": "OUTPUT_INVALID", "message": "Model returned input unchanged (echo)", "job_id": request_id}})
 
         # Final-image verification vs the ORIGINAL person (whole-outfit change)
         verify = {"PASS": None}

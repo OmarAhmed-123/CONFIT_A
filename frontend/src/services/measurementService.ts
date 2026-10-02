@@ -45,6 +45,61 @@ export interface SaveToProfileResult {
   message: string;
 }
 
+/**
+ * Feature 05 — server-side photo estimation (Landmarks2Anthropometry worker).
+ *
+ * The response is the worker's honest contract, passed through verbatim:
+ * per-measurement provenance (`model` vs `direct_geometry`), a transparent
+ * `excluded` list with machine-readable reasons, the mandatory ±2-3 cm
+ * accuracy note, and quality full | partial | geometry_only. Anything the
+ * model set does not produce (shoulder, waist) is simply absent — the UI
+ * must render that absence, never paper over it.
+ */
+export interface PhotoEstimateMeasurement {
+  name: string;
+  value_mm: number;
+  value_cm: number;
+  source: 'model' | 'direct_geometry';
+}
+
+export interface PhotoEstimateExcluded {
+  name: string;
+  value_mm: number;
+  reason: string;
+}
+
+export interface PhotoEstimateResult {
+  status: 'completed';
+  sex: 'male' | 'female';
+  quality: 'full' | 'partial' | 'geometry_only';
+  measurements: PhotoEstimateMeasurement[];
+  measurement_count: number;
+  excluded: PhotoEstimateExcluded[];
+  excluded_count: number;
+  measurement_method: 'ai_estimate';
+  accuracy_note: string;
+  disclaimer: string;
+  result_id: number;
+  session_id: number;
+  confidence_score: number;
+  source: string;
+  stored_measurements: {
+    height_cm: number | null;
+    shoulder_width_cm: number | null;
+    chest_cm: number | null;
+    waist_cm: number | null;
+    hip_cm: number | null;
+    inseam_cm: number | null;
+  };
+  model: {
+    name: string;
+    license: string;
+    commercial: boolean;
+    [k: string]: unknown;
+  };
+  [k: string]: unknown;
+}
+
 export const measurementService = {
   createSession: (
     captureMode: 'client_side' | 'server_side' | 'manual' = 'client_side',
@@ -84,6 +139,33 @@ export const measurementService = {
     request<SaveToProfileResult>(`/measurements/sessions/${sessionId}/save-to-profile`, {
       method: 'POST',
     }),
+
+  /**
+   * Feature 05 — estimate measurements from one full-body photo.
+   *
+   * The photo is sent to the session's server-side estimator. The call can
+   * take a few seconds (real CPU inference on Modal) — callers must show a
+   * busy state. A 422 response is an HONEST refusal (bad pose, no person,
+   * implausible geometry): its guidance is meant to be shown to the user,
+   * not swallowed.
+   */
+  estimateFromPhoto: (
+    sessionId: number,
+    file: File,
+    sex: 'male' | 'female',
+    heightCm?: number | null
+  ) => {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('sex', sex);
+    if (heightCm != null && Number.isFinite(heightCm) && heightCm > 0) {
+      form.append('height_cm', String(Math.round(heightCm * 10) / 10));
+    }
+    return request<PhotoEstimateResult>(`/measurements/sessions/${sessionId}/photo-estimate`, {
+      method: 'POST',
+      body: form,
+    });
+  },
 
   applyToTryOn: (tryOnSessionId: number, measurements: MeasurementSessionResult) =>
     request<{ session_id: number; status: string; scaling_factor: number }>(

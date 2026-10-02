@@ -120,36 +120,53 @@ ROLE_CHAINS: Dict[ModelRole, List[ModelSpec]] = {
     # grounding quality decides the order. AI_PROVIDER_TIMEOUT_SECONDS is 4.0s
     # today, so anything above ~5s cannot be primary without a config change.
     ModelRole.STYLIST_CHAT: [
-        ModelSpec(
-            model_id="nvidia/nemotron-3-ultra-550b-a55b",
-            endpoint=CHAT_COMPLETIONS_URL,
-            params={"temperature": 0.6, "top_p": 0.95},
-            measured_latency_s=(0.8, 4.1),
-            slot_key_env="NVIDIA_KEY_NEMOTRON_3_ULTRA_550B_A55B",
-            evidence=(
-                "2026-09-27, real CONFIT stylist system+user prompt (3 grounded "
-                "catalogue items, $385 total): 200 in 4.1s / 126 completion "
-                "tokens. Output named every item, honoured the 2-3 sentence "
-                "cap, stated the budget correctly and invented nothing. "
-                "Re-verified live 2026-10-01: 200 in 2.3s."
-            ),
-            notes=(
-                "Best measured grounding-per-second of the 14 chat models "
-                "probed. Does NOT leak reasoning into content at default "
-                "settings, so no enable_thinking guard is required."
-            ),
-        ),
+        # ORDER SWAPPED 2026-10-01 (afternoon), evidence-based: across six live
+        # probes that day super answered in 0.4-4.8s while ultra ranged
+        # 2.3-12s+ (one 12s hard timeout against a 12s budget). The registry's
+        # own contingency note ("cheapest primary if Ultra saturates") applies:
+        # the NIM free tier's latency for the 550B flagship is currently
+        # volatile, and the shopper-facing budget cannot absorb it. Ultra keeps
+        # the failover slot — its grounding quality is still the best measured,
+        # and a one-line swap restores it the day NIM stabilises.
         ModelSpec(
             model_id="nvidia/nemotron-3-super-120b-a12b",
             endpoint=CHAT_COMPLETIONS_URL,
             params={"temperature": 0.6, "top_p": 0.95},
-            measured_latency_s=(2.4, 3.5),
+            measured_latency_s=(0.4, 4.8),
             slot_key_env="NVIDIA_KEY_NEMOTRON_3_SUPER_120B_A12B",
             evidence=(
-                "2026-09-27, same prompt: 200 in 3.5s / 256 tokens. Correct "
-                "grounding and budget; slightly more verbose than Ultra."
+                "2026-09-27, real CONFIT stylist prompt (3 grounded catalogue "
+                "items, $385 total): 200 in 3.5s / 256 tokens; correct "
+                "grounding and budget; slightly more verbose than Ultra. "
+                "2026-10-01: six live probes at 0.4 / 0.5 / 0.5 / 1.5 / 4.8s "
+                "plus one 11.4s outlier — the most stable high-quality "
+                "candidate measured that day."
             ),
-            notes="Fastest high-quality option — first failover, also the cheapest primary if Ultra saturates. Re-verified live 2026-10-01: 200 in 1.5s.",
+            notes=(
+                "PRIMARY (stability-first). Same slot also serves "
+                "TRANSLATION inbound, where it measured 0.89-1.09s — the "
+                "model is warm-tier friendly and budget-accurate."
+            ),
+        ),
+        ModelSpec(
+            model_id="nvidia/nemotron-3-ultra-550b-a55b",
+            endpoint=CHAT_COMPLETIONS_URL,
+            params={"temperature": 0.6, "top_p": 0.95},
+            measured_latency_s=(0.8, 12.0),
+            slot_key_env="NVIDIA_KEY_NEMOTRON_3_ULTRA_550B_A55B",
+            evidence=(
+                "2026-09-27, same prompt: 200 in 4.1s / 126 completion tokens; "
+                "named every item, honoured the 2-3 sentence cap, stated the "
+                "budget correctly, invented nothing. 2026-10-01: 2.3 / 4.8 / "
+                "5.9s live AND one 12s hard-timeout — latency became volatile "
+                "on the NIM free tier, which is why it moved to failover."
+            ),
+            notes=(
+                "FAILOVER_1. Best measured grounding-per-second of the 14 chat "
+                "models probed; does NOT leak reasoning into content at "
+                "default settings. Restore to primary when NIM latency "
+                "stabilises (one-line swap)."
+            ),
         ),
         # moonshotai/kimi-k3 was the third entry here until 2026-10-01, when a
         # live re-verification measured it at 85.2s / 103.5s-with-empty-content
@@ -281,11 +298,18 @@ ROLE_CHAINS: Dict[ModelRole, List[ModelSpec]] = {
                 "all three preserved the garment and occasion where "
                 "riva-translate did not (wedding/suit/evening gown). One 503 "
                 "observed under repeat calls, which the key rotation and the "
-                "next entry in this chain cover."
+                "next entry in this chain cover. 2026-10-01: also leads the "
+                "OUTBOUND EN->AR reply translation — measured live, riva "
+                "ignored the rules and turned 'sage-green' into 'الأبيض' "
+                "(white), while super with a strict system-turn rule block "
+                "produced zero leaked Latin words, the accurate colour per "
+                "glossary, and unchanged prices (0.8-1.4s). A wrong colour is "
+                "a wrong product on a fashion platform."
             ),
             notes=(
-                "Inbound AR->EN only. Obeys a glossary in the system turn, "
-                "which is what makes dialect terms ('فرح', 'سواريه') survive."
+                "PRIMARY for BOTH directions. Obeys a glossary in the system "
+                "turn, which is what makes dialect terms ('فرح', 'سواريه') "
+                "survive inbound and colours stay true outbound."
             ),
         ),
         ModelSpec(
@@ -300,11 +324,13 @@ ROLE_CHAINS: Dict[ModelRole, List[ModelSpec]] = {
                 "Fluent MSA, correct fashion register."
             ),
             notes=(
-                "OUTBOUND prose (EN->AR) only, where fluency is the goal. "
-                "Measured UNSAFE for inbound shopping queries: it ignores the "
-                "system turn, so no glossary can be supplied, and it renamed "
-                "a garment and invented a brand in live tests. Kept in the "
-                "chain as the failover for outbound work, not as the primary."
+                "FAILOVER for outbound EN->AR prose only (super leads both "
+                "directions since 2026-10-01). Fluent but instruction-blind: "
+                "it ignores the system turn, so no glossary can be supplied, "
+                "it renamed a garment and invented a brand on live inbound "
+                "tests, and it mistranslated a colour on live outbound tests. "
+                "Better than no translation when super is down — never the "
+                "first choice."
             ),
         ),
     ],

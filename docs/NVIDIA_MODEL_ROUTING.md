@@ -36,10 +36,10 @@ Services request a **role**, never a model id. Swapping a model is a one-line re
 
 | Role | Primary | Failover chain | Measured | Where it belongs in CONFIT |
 |---|---|---|---|---|
-| `STYLIST_CHAT` | `nvidia/nemotron-3-ultra-550b-a55b` | → `nemotron-3-super-120b-a12b` | **0.8–4.1 s** | G2-02 Conversational AI Stylist |
+| `STYLIST_CHAT` | `nvidia/nemotron-3-super-120b-a12b` | → `nemotron-3-ultra-550b-a55b` | **0.4–4.8 s** (2026-10-01 swap: super stability-first while NIM's 550B latency is volatile) | G2-02 Conversational AI Stylist |
 | `GARMENT_VISION` | `google/diffusiongemma-26b-a4b-it` | → `nemotron-3-nano-omni-30b` | **0.9–24.6 s** | Wardrobe auto-tagging, Visual Search attributes |
 | `CONTENT_SAFETY` | `nvidia/nemotron-3.5-content-safety` | — | **0.4–0.5 s** | Upload + stylist-turn moderation |
-| `TRANSLATION` | `nvidia/nemotron-3-super-120b-a12b` (inbound AR→EN) | → `riva-translate-4b-instruct-v2` (outbound prose) | **0.4–1.1 s** | Arabic ⇄ English (MENA market) |
+| `TRANSLATION` | `nvidia/nemotron-3-super-120b-a12b` (inbound AR→EN **and** outbound EN→AR replies) | → `riva-translate-4b-instruct-v2` (outbound failover) | **0.4–2.5 s** | Arabic ⇄ English (MENA market) |
 | `EMBEDDING` | `nvidia/nemotron-3-embed-1b` | — | **0.2–0.3 s**, 2048-dim | ⚠️ Infrastructure only — see §4 |
 | `BATCH_REASONING` | `z-ai/glm-5.3` | → `glm-5.3-flash` | **60–88 s** | Celery only: brand reports, gap analysis |
 | `CREATIVE_COPY` | `meta/muse-glimmer-30b` | — | **7.7–57 s** | Offline marketing / mood-board copy |

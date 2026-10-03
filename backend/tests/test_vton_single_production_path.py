@@ -31,6 +31,10 @@ import pytest
 
 REPO = pathlib.Path(__file__).resolve().parents[2]
 MODAL_APP = REPO / "services" / "vton-worker" / "modal_app_v15.py"
+# 2026-10-03: the worker HTTP layer lives in server_core.py, shared by
+# the Modal and Baseten shells — source pins read both, joined.
+SERVER_CORE = REPO / "services" / "vton-worker" / "server_core.py"
+MODAL_APP_SRC = MODAL_APP.read_text() + "\n" + SERVER_CORE.read_text()
 ENGINE = REPO / "services" / "vton-worker" / "engine" / "fashn_v15.py"
 PIPELINE = REPO / "services" / "vton-worker" / "pipeline"
 
@@ -104,24 +108,24 @@ class TestDeployedWorkerCannotBeShadowed:
                 assert "vton-worker/worker.py" not in p.read_text()
 
     def test_modal_is_the_only_declared_vton_app(self):
-        src = MODAL_APP.read_text()
+        src = MODAL_APP_SRC
         assert 'modal.App("confit-vton-worker")' in src
         assert "@modal.fastapi_endpoint" in src
 
 
 class TestMaskingDelegationAndPolarity:
     def test_modal_app_delegates_to_canonical_engine(self):
-        src = MODAL_APP.read_text()
+        src = MODAL_APP_SRC
         assert 'get_engine("fashn_v15")' in src, "worker must delegate to the registered engine"
         assert "render_outfit" in src, "composition lives in the engine, not the worker"
 
     def test_modal_app_draws_no_masks_itself(self):
-        src = MODAL_APP.read_text()
+        src = MODAL_APP_SRC
         assert "d.rectangle(" not in src
         assert "ImageDraw" not in src
 
     def test_segmentation_is_shipped_and_rembg_installed_in_image(self):
-        src = MODAL_APP.read_text()
+        src = MODAL_APP_SRC
         assert "add_local_dir(" in src, "the vendored engine dirs must be added to the Modal image"
         assert "fashn-human-parser" in src, "the parser must be installed in the Modal image"
         assert "vendor\", \"fashn-vton-1.5\"" in src, "the pristine upstream must ship in the image"
@@ -148,7 +152,7 @@ class TestMaskingDelegationAndPolarity:
         assert legs > chest, "lower-slot mask must mark LEGS white, not the chest"
 
     def test_upstream_polarity_documented(self):
-        src = MODAL_APP.read_text()
+        src = MODAL_APP_SRC
         assert "non-commercial" in src.lower(), (
             "the parser's NVIDIA non-commercial license must be documented "
             "honestly at the deployment site (owner-approved early-stage use, "
@@ -229,9 +233,11 @@ class TestNoSubstituteOutputEverReturnedAsSuccess:
         assert 'if "VTON_ENGINE_UNAVAILABLE" in error_str' in src
 
     def test_worker_returns_503_when_model_not_loaded(self):
-        src = MODAL_APP.read_text()
+        src = MODAL_APP_SRC
         assert "VTON_ENGINE_UNAVAILABLE" in src
-        assert "status_code=503" in src
+        # 2026-10-03: server_core._err(status, code, ...) replaced inline
+        # HTTPException(status_code=..., detail=...) — same 503, same taxonomy.
+        assert '_err(503, "VTON_ENGINE_UNAVAILABLE"' in src
 
 
 class TestRealSegmentationModelPath:

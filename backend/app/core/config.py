@@ -412,6 +412,11 @@ class Settings(BaseSettings):
     VTON_WORKER_TIMEOUT_SECONDS: float = 90.0
     VTON_WORKER_HEALTH_TIMEOUT_SECONDS: float = 5.0
     VTON_WORKER_MAX_RETRIES: int = 3
+    # Optional Authorization header VALUE for the GPU worker's platform
+    # gateway (e.g. "Api-Key <key>" when the worker runs on Baseten, whose
+    # router requires its own credential on every route IN ADDITION to our
+    # X-VTON-Admin token). Unset for a directly-exposed worker (Modal).
+    VTON_WORKER_GATEWAY_AUTHORIZATION: Optional[str] = None
     # Live worker observability + fail-fast circuit (audit closure 2026-09-21).
     # Before this, /health and /try-on/capabilities derived "available" from the
     # presence of env vars, and every request paid ~39 s of readiness retries

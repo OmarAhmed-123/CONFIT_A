@@ -1922,5 +1922,28 @@
     "checking": "Checking catalog freshness…",
     "live": "Catalog in sync — fingerprint checked every {{seconds}}s",
     "degraded": "Freshness check failing — figures may be out of date"
+  },
+  "registers": {
+    "editorial": {
+      "label": "Editorial"
+    },
+    "atelier": {
+      "label": "Your Atelier"
+    },
+    "fit": {
+      "label": "Fit Studio"
+    },
+    "commerce": {
+      "label": "Secure Shopping"
+    },
+    "account": {
+      "label": "Your Account"
+    },
+    "partner": {
+      "label": "Partner Operations"
+    },
+    "admin": {
+      "label": "Platform Governance"
+    }
   }
 }

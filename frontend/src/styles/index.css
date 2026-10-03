@@ -209,6 +209,40 @@
   }
 }
 
+/* ── Design registers (frontend/src/design/registers.ts) ────────────────────
+   Each surface family gets --register-accent / --register-ink via inline
+   custom properties on <main data-register="...">. The accent hairline on
+   <main> is pure decoration (never a control, never the only signal); the
+   ink is text-grade (every pair AA+ — ratios measured in registers.ts and
+   re-verified by registers.test.tsx). border-top is direction-neutral, so
+   RTL needs no mirroring. */
+main[data-register] {
+  border-top: 3px solid var(--register-accent, transparent);
+}
+
+/* The section rule grows once on entry — same motion language as the email
+   shell. Guarded: reduced-motion users get the static rule, full meaning. */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes register-rule-grow {
+    from { transform: scaleX(0); }
+    to { transform: scaleX(1); }
+  }
+  .register-rule {
+    transform-origin: 0 50%;
+    animation: register-rule-grow 0.6s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  }
+  [dir="rtl"] .register-rule {
+    transform-origin: 100% 50%;
+  }
+}
+
+/* Forced colors: the hairline joins the user's palette like every border. */
+@media (forced-colors: active) {
+  main[data-register] {
+    border-top-color: CanvasText;
+  }
+}
+
 /* Custom scrollbars */
 ::-webkit-scrollbar {
   width: 6px;

@@ -490,7 +490,8 @@
     "add_failed_retry": "Could not add — try again",
     "no_purchasable_size": "No purchasable size is available for this item right now.",
     "wishlist_saved_device": "Saved to wishlist on this device",
-    "wishlist_removed": "Removed from wishlist"
+    "wishlist_removed": "Removed from wishlist",
+    "unavailable_label": "Unavailable — pick another size"
   },
   "b2b": {
     "dashboard_title": "Brand Partner Command Center",
@@ -839,7 +840,8 @@
     "wardrobe_import_complete": "Imported {{succeeded}} garment(s) from your photo.",
     "wardrobe_import_all_failed": "Outfit import failed — no garments could be saved.",
     "slot_cleared": "Removed {{title}} from the canvas",
-    "slot_restored": "{{title}} is back on the canvas"
+    "slot_restored": "{{title}} is back on the canvas",
+    "bag_quantity_merged": "Already in your bag — quantity is now {{count}}"
   },
   "consent": {
     "title": "Before we process your photo",

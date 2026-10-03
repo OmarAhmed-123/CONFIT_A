@@ -84,7 +84,7 @@ export const DiscoverView: React.FC = () => {
       return "unavailable";
     }
     try {
-      await addItem(sku.id, {
+      const res = await addItem(sku.id, {
         id: p.id,
         title: p.title,
         category: p.category_name,
@@ -96,7 +96,13 @@ export const DiscoverView: React.FC = () => {
       if (useCartStore.getState().pendingDuplicateAlert) {
         return "handled";
       }
-      showToast(t("discover.added_to_bag"), "success");
+      // Spec §5: a duplicate SKU surfaces the MERGED quantity as text,
+      // derived from the server's own cart response.
+      if (res?.merged) {
+        showToast(t("toast.bag_quantity_merged", { count: res.quantity }), "success");
+      } else {
+        showToast(t("discover.added_to_bag"), "success");
+      }
       return "success";
     } catch (err: any) {
       // 401 -> auth modal (context kept); offline -> named as such on the

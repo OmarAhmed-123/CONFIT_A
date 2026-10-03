@@ -27,6 +27,7 @@ import {
   classifyActionError,
 } from "../../components/common/InteractionPrimitives";
 import { useTranslation } from "react-i18next";
+import { localizeApiError } from "../../i18n/apiErrors";
 import { useTryOnAvailability } from "../../hooks/useTryOnAvailability";
 
 export const ProductDetailView: React.FC = () => {
@@ -510,7 +511,7 @@ export const ProductDetailView: React.FC = () => {
               onAction={async () => {
                 if (!currentSku) return "unavailable";
                 try {
-                  await addItem(currentSku.id, {
+                  const res = await addItem(currentSku.id, {
                     id: product.id,
                     title: product.title,
                     category: product.category_name,
@@ -522,12 +523,20 @@ export const ProductDetailView: React.FC = () => {
                   if (useCartStore.getState().pendingDuplicateAlert) {
                     return "handled";
                   }
-                  showToast(t("toast.added_to_bag"), "success");
+                  // Spec §5: a re-added SKU says the MERGED quantity in words —
+                  // derived from the server's cart, never guessed locally.
+                  if (res?.merged) {
+                    showToast(t("toast.bag_quantity_merged", { count: res.quantity }), "success");
+                  } else {
+                    showToast(t("toast.added_to_bag"), "success");
+                  }
                   return "success";
                 } catch (err: any) {
                   const kind = classifyActionError(err);
                   if (kind === "error") {
-                    showToast(err?.message || t("discover.add_to_bag_failed"), "error");
+                    // Translated by code where possible; the honest server
+                    // text only as a last resort — never raw-EN-first.
+                    showToast(localizeApiError(err, t, "discover.add_to_bag_failed"), "error");
                   }
                   return kind;
                 }

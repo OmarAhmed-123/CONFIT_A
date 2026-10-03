@@ -159,7 +159,31 @@ def test_renders_all_four_parts_with_parity(template: str, locale: str):
     parser = _lint(content.html)
     assert parser.scripts == 0
     assert 'role="presentation"' in content.html
-    assert "<style" not in content.html  # inline CSS only — Gmail strips <style>
+
+    # Exactly ONE <style> block — progressive enhancement only. Layout and
+    # colour must survive Gmail/Outlook stripping it (proved separately in
+    # test_meaning_survives_style_stripping).
+    assert content.html.count("<style") == 1
+
+    # ALL animation lives inside prefers-reduced-motion:no-preference —
+    # no keyframes/animation property may appear before that guard.
+    style_block = content.html.split("<style>")[1].split("</style>")[0]
+    guard = "@media (prefers-reduced-motion: no-preference)"
+    assert guard in style_block
+    before_guard = style_block.split(guard)[0]
+    assert "@keyframes" not in before_guard
+    assert "animation" not in before_guard
+    # Dark-mode override block exists alongside the color-scheme meta.
+    assert "@media (prefers-color-scheme: dark)" in style_block
+
+    # Brand header: hosted logo image ABOVE the text wordmark, absolute
+    # URL, meaningful alt — and the wordmark text survives image blocking.
+    logo_at = content.html.index("/email/confit-logo.png")
+    assert content.html[:logo_at].rsplit("src=", 1)[-1].lstrip('"').startswith("http")
+    img_tag = content.html[content.html.rindex("<img", 0, logo_at):]
+    img_tag = img_tag[: img_tag.index(">") + 1]
+    assert 'alt="CONFIT"' in img_tag and 'width="56"' in img_tag
+    assert logo_at < content.html.index(">CONFIT<", logo_at)  # image above word
 
     # Preheader is present and hidden.
     assert content.preheader in content.html
@@ -186,6 +210,72 @@ def test_renders_all_four_parts_with_parity(template: str, locale: str):
     assert not EMOJI_RE.search(content.html)
     assert not EMOJI_RE.search(content.text)
     assert not EMOJI_RE.search(content.subject)
+
+
+# ---------------------------------------------------------------------------
+# Design system contract (post-spec-15 upgrade)
+# ---------------------------------------------------------------------------
+
+_STYLE_RE = re.compile(r"<style>.*?</style>", re.S)
+
+
+@pytest.mark.parametrize("template", sorted(TEMPLATES))
+@pytest.mark.parametrize("locale", SUPPORTED_LOCALES)
+def test_meaning_survives_style_stripping(template: str, locale: str):
+    """Gmail/Outlook-Windows discard <style>. Removing the entire block must
+    leave every fact, the CTA, the unsubscribe link and the logo intact —
+    the animation and dark mode are enhancements, never the meaning."""
+    content = render_email(template, locale, PAYLOADS[template])
+    stripped = _STYLE_RE.sub("", content.html)
+    assert "<style" not in stripped
+    # One CTA still present and clickable.
+    assert stripped.count("display:inline-block;padding:14px 30px") == 1
+    # Logo + wordmark + preheader still there.
+    assert "/email/confit-logo.png" in stripped
+    assert ">CONFIT<" in stripped
+    assert content.preheader in stripped
+    # Every absolute URL that was in the text version survives in HTML.
+    for url in re.findall(r"https?://\S+", content.text):
+        assert url.rstrip(".,)") in stripped
+    # Layout/colour remained inline: body copy still carries inline ink colour.
+    assert "color:#1B1F3B" in stripped
+
+
+def test_palette_is_documented_with_measured_contrast():
+    """The colour tokens actually used in the shell must be the documented,
+    contrast-measured ones — no ad-hoc colours for text roles."""
+    from backend.app.services.email_templates import CATEGORY_ACCENTS, EMAIL_COLORS
+
+    content = render_email("order_confirmation", "en", PAYLOADS["order_confirmation"])
+    for token in ("ink", "footer_text", "gold_wordmark", "hairline", "footer_bg"):
+        assert EMAIL_COLORS[token] in content.html
+    # Category accent is applied per registry category.
+    assert CATEGORY_ACCENTS[TEMPLATES["order_confirmation"].category] in content.html
+    assert CATEGORY_ACCENTS[TEMPLATES["newsletter"].category] in render_email(
+        "newsletter", "en", PAYLOADS["newsletter"]
+    ).html
+    # Retired low-contrast greys must not reappear as text colours.
+    assert "color:#7A7E92" not in content.html
+    assert "color:#9A9EB2" not in content.html
+
+
+def test_auth_shell_shares_logo_and_guarded_animation():
+    """Password-reset/verification mail (separate shell) carries the same
+    brand header: hosted logo above the wordmark, animation guarded."""
+    from backend.app.services.email_service import render_password_reset_email
+
+    _, html, text = render_password_reset_email(
+        "Omar", "https://confit-a.vercel.app/reset?token=abc"
+    )
+    logo_at = html.index("/email/confit-logo.png")
+    assert logo_at < html.index(">CONFIT<", logo_at)
+    assert html.count("<style") == 1
+    style_block = html.split("<style>")[1].split("</style>")[0]
+    guard = "@media (prefers-reduced-motion: no-preference)"
+    assert guard in style_block
+    assert "@keyframes" not in style_block.split(guard)[0]
+    assert "@media (prefers-color-scheme: dark)" in style_block
+    assert "https://confit-a.vercel.app/reset?token=abc" in text
 
 
 @pytest.mark.parametrize("template", sorted(TEMPLATES))

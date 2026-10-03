@@ -427,12 +427,14 @@ def _auth_shell(*, preheader: str, title: str, title_ar: str, body_en: str,
     footer) but EN + AR in one message because the user's locale is unknown
     at password-reset time. Inline CSS, table layout, no images, no emoji."""
     cta_url_safe = _h(cta_url)
+    from backend.app.services.email_templates import _ENHANCEMENT_CSS, logo_url
     return (
         '<!DOCTYPE html><html lang="en" dir="ltr"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width,initial-scale=1">'
         '<meta name="color-scheme" content="light dark">'
         '<meta name="supported-color-schemes" content="light dark">'
-        f'<title>{_h(title)}</title></head>'
+        f'<title>{_h(title)}</title>'
+        f'<style>{_ENHANCEMENT_CSS}</style></head>'
         '<body style="margin:0;padding:0;background:#FDF8EE;font-family:'
         "-apple-system,BlinkMacSystemFont,'Segoe UI',Tahoma,Helvetica,Arial,sans-serif;\">"
         '<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">'
@@ -440,13 +442,18 @@ def _auth_shell(*, preheader: str, title: str, title_ar: str, body_en: str,
         '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
         'style="background:#FDF8EE;padding:32px 16px;"><tr><td align="center">'
         '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
-        'style="max-width:600px;background:#FFFFFF;border-radius:14px;overflow:hidden;'
+        'class="cf-card" style="max-width:600px;background:#FFFFFF;border-radius:16px;overflow:hidden;'
         'border:1px solid #EADFC8;">'
-        '<tr><td style="background:#1B1F3B;padding:26px 32px;">'
-        '<div style="color:#C9A227;font-size:13px;letter-spacing:4px;'
-        'text-transform:uppercase;font-weight:700;">CONFIT</div>'
-        f'<div style="color:#FFFFFF;font-size:21px;font-weight:600;margin-top:8px;">'
-        f'{_h(title)}</div></td></tr>'
+        '<tr><td style="background:#1B1F3B;padding:30px 32px 26px 32px;text-align:center;">'
+        f'<img src="{_h(logo_url())}" width="56" height="56" alt="CONFIT" '
+        'style="display:block;margin:0 auto 12px auto;border-radius:14px;" />'
+        '<div style="color:#E2BF70;font-size:14px;letter-spacing:5px;'
+        "text-transform:uppercase;font-weight:700;font-family:Georgia,'Times New Roman',serif;\">CONFIT"
+        '<span style="color:#C9A227;">&#183;</span></div>'
+        f'<div style="color:#FFFFFF;font-size:22px;font-weight:600;margin-top:10px;">'
+        f'{_h(title)}</div>'
+        '<div class="cf-rule" style="height:2px;width:48px;background:#C9A227;'
+        'margin:14px auto 0 auto;font-size:0;">&nbsp;</div></td></tr>'
         f'<tr><td style="padding:28px 32px 4px 32px;color:#1B1F3B;">'
         f'<p style="margin:0 0 16px 0;font-size:15px;line-height:1.8;">{body_en}</p>'
         '<table role="presentation" cellpadding="0" cellspacing="0" '

@@ -59,24 +59,22 @@ export const TryOnFitView: React.FC = () => {
       <CircularGalleryShowcase
         tone="tryon"
         compact
-        eyebrow="Fit Preview Gallery"
+        eyebrow={t('tryon.gallery_eyebrow')}
         title={t('tryon.contexts_caption')}
-        description="The 3D gallery gives the fit studio a visual bridge between inspiration, garment selection, visual search, and no-photo measurements."
+        description={t('tryon.gallery_description')}
       />
       {/* Header */}
       <div className="bg-gradient-to-r from-[#1B1F3B] to-[#2A3C78] rounded-3xl text-white p-8 sm:p-12 shadow-xl border border-slate-800">
         <div className="max-w-2xl space-y-3">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#C5A059]/20 border border-[#C5A059]/40 text-[#E2BF70] text-xs font-semibold uppercase tracking-wider">
             <SparkleIcon size={14} color="#E2BF70" />
-            <span>Group 3: Virtual Visualization & Fit Studio</span>
+            <span>{t('tryon.studio_badge')}</span>
           </div>
           <h1 className="font-serif text-3xl sm:text-4xl font-bold leading-tight">
-            Virtual Visualization & Precision Fit Studio
+            {t('tryon.studio_headline')}
           </h1>
           <p className="text-xs sm:text-sm text-slate-300 font-light leading-relaxed">
-            CONFIT separates visual try-on from fit guidance. Visual rendering
-            is a backend/provider workflow; no-photo fit uses measurements and
-            size logic without pretending that a render proves size accuracy.
+            {t('tryon.studio_lede')}
           </p>
         </div>
       </div>
@@ -91,23 +89,21 @@ export const TryOnFitView: React.FC = () => {
         <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
           <div>
             <span className="text-[10px] font-bold uppercase tracking-widest text-[#7A5C28]">
-              Choose your privacy route first
+              {t('tryon.privacy_eyebrow')}
             </span>
             <h2 className="mt-1 font-serif text-2xl font-bold text-[#1B1F3B]">
-              Know what each fit option gives you
+              {t('tryon.privacy_title')}
             </h2>
             <p className="mt-2 text-sm font-light leading-relaxed text-slate-500">
-              Visual try-on is an honest 2D preview of drape and styling. Fit
-              confidence is separate and improves when you add measurements or
-              use the no-photo checker.
+              {t('tryon.privacy_body')}
             </p>
           </div>
           <div className="grid grid-cols-2 gap-3 text-xs sm:grid-cols-4">
             {[
-              "Choose goal or garment",
-              "Add optional fit info",
-              "See preview + confidence",
-              "Save, share, or shop",
+              t('tryon.step_choose'),
+              t('tryon.step_fit_info'),
+              t('tryon.step_preview'),
+              t('tryon.step_share'),
             ].map((step, index) => (
               <div
                 key={step}
@@ -251,14 +247,14 @@ export const TryOnFitView: React.FC = () => {
       <div className="space-y-4">
         <div className="flex justify-between items-center">
           <h3 className="font-serif text-xl font-bold text-[#1B1F3B]">
-            Select Garment from Multi-Brand Catalog:
+            {t('tryon.catalog_heading')}
           </h3>
           <span className="text-xs text-slate-500 font-light">
             {isLoading
-              ? "Loading catalog styles…"
+              ? t('tryon.catalog_loading')
               : catalogError && products.length === 0
-                ? "Catalog unavailable"
-                : `Showing ${products.length} styles from the live catalog`}
+                ? t('tryon.catalog_unavailable')
+                : t('tryon.catalog_showing', { count: products.length })}
           </span>
         </div>
 
@@ -266,9 +262,9 @@ export const TryOnFitView: React.FC = () => {
           // N-1: a failed catalog fetch must surface as an explicit error with
           // a retry — never as fabricated try-on garments.
           <EmptyState
-            title="Garment catalog couldn't be loaded"
+            title={t('tryon.catalog_error_title')}
             description={catalogError}
-            actionText="Retry"
+            actionText={t('common.retry')}
             onAction={refreshCatalog}
           />
         ) : (
@@ -288,8 +284,8 @@ export const TryOnFitView: React.FC = () => {
                     <div className="absolute top-2 left-2 flex flex-col gap-1">
                       <FitScoreBadge
                         score={p.style_compatibility_score}
-                        label="Style Match"
-                        verdict="catalog score"
+                        label={t('tryon.style_match')}
+                        verdict={t('tryon.style_match_verdict')}
                       />
                       <span
                         className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider ${
@@ -301,8 +297,8 @@ export const TryOnFitView: React.FC = () => {
                       >
                         {isTryOnSupported(p.category_name) &&
                         tryOnKind === "render"
-                          ? "VTON category"
-                          : "Fit check only"}
+                          ? t('tryon.chip_vton')
+                          : t('tryon.chip_fit_only')}
                       </span>
                     </div>
                   </div>
@@ -312,20 +308,27 @@ export const TryOnFitView: React.FC = () => {
                   <h4 className="font-serif text-sm font-bold text-[#1B1F3B] truncate">
                     {p.title}
                   </h4>
-                  <div className="text-sm font-bold text-[#1B1F3B] mt-1">
+                  {/* Price stays LTR inside the Arabic page (§7). */}
+                  <div className="text-sm font-bold text-[#1B1F3B] mt-1" dir="ltr">
                     ${p.base_price.toFixed(2)}
                   </div>
                 </div>
 
+                {/* Card CTAs: instant modal-open actions (the async "Run
+                    try-on" CTA inside the modal is the unified ActionButton).
+                    min-h-11 = 44px touch target (§7); labels are i18n text,
+                    never icon-only. */}
                 <div className="pt-3 border-t border-slate-100 mt-3 grid grid-cols-2 gap-2">
                   <button
+                    type="button"
                     onClick={() => openRuler(p)}
-                    className="py-2 px-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-[11px] font-semibold text-slate-700 flex items-center justify-center gap-1"
+                    className="min-h-11 py-2 px-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-[11px] font-semibold text-slate-700 flex items-center justify-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059]"
                   >
                     <RulerIcon size={13} />
-                    <span>Ruler</span>
+                    <span>{t('tryon.ruler_button')}</span>
                   </button>
                   <button
+                    type="button"
                     onClick={tryOn.gate({
                       render: () =>
                         isTryOnSupported(p.category_name)
@@ -337,7 +340,7 @@ export const TryOnFitView: React.FC = () => {
                       !isTryOnSupported(p.category_name) ||
                       tryOnKind === "blocked"
                     }
-                    className="py-2 px-2 rounded-xl bg-[#1B1F3B] hover:bg-[#2A3C78] text-white text-[11px] font-semibold flex items-center justify-center gap-1 shadow-sm disabled:opacity-50"
+                    className="min-h-11 py-2 px-2 rounded-xl bg-[#1B1F3B] hover:bg-[#2A3C78] text-white text-[11px] font-semibold flex items-center justify-center gap-1 shadow-sm disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059]"
                   >
                     {isTryOnSupported(p.category_name) &&
                     tryOnKind === "render" ? (
@@ -348,8 +351,8 @@ export const TryOnFitView: React.FC = () => {
                     <span>
                       {isTryOnSupported(p.category_name) &&
                       tryOnKind === "render"
-                        ? "Try On"
-                        : "Fit Check"}
+                        ? t('tryon.cta_try_on')
+                        : t('tryon.cta_fit_check')}
                     </span>
                   </button>
                 </div>

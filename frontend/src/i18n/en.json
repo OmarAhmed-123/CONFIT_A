@@ -837,7 +837,9 @@
     "canvas_restored": "Canvas restored",
     "permanent_delete_needs_confirm": "Permanent deletion requires explicit confirmation",
     "wardrobe_import_complete": "Imported {{succeeded}} garment(s) from your photo.",
-    "wardrobe_import_all_failed": "Outfit import failed — no garments could be saved."
+    "wardrobe_import_all_failed": "Outfit import failed — no garments could be saved.",
+    "slot_cleared": "Removed {{title}} from the canvas",
+    "slot_restored": "{{title}} is back on the canvas"
   },
   "consent": {
     "title": "Before we process your photo",

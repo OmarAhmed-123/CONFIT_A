@@ -131,9 +131,29 @@ export function useOutfitBuilderViewModel(
     }
   }, [showToast]);
 
+  /**
+   * Spec "Undo / Remove to Bin" §1: clearing ONE slot is undoable too, not
+   * just the whole canvas. Same reasoning as clearCanvas below: this state
+   * is memory-only (no server row until "save look"), so restoring the
+   * snapshot is a safe, honest reversal — no endpoint involved, none claimed.
+   * On reload both the canvas and the Undo offer vanish together: the truth.
+   *
+   * Restore REPLACES whatever occupies the slot at that moment — the canvas
+   * invariant is one item per slot, and this mirrors addItemToCanvas's own
+   * replace-on-occupied semantics rather than inventing a second rule.
+   */
   const removeItemFromCanvas = useCallback((slot: CanvasItem['slot']) => {
+    const removed = selectedItems.find((i) => i.slot === slot);
+    if (!removed) return; // empty slot: nothing removed — no toast, no dangling Undo
     setSelectedItems((prev) => prev.filter((i) => i.slot !== slot));
-  }, []);
+    showToast(msg('toast.slot_cleared', { title: removed.product.title }), 'info', {
+      i18nLabel: 'a11y.undo_remove',
+      onAction: () => {
+        setSelectedItems((prev) => [...prev.filter((i) => i.slot !== slot), removed]);
+        showToast(msg('toast.slot_restored', { title: removed.product.title }), 'success');
+      },
+    });
+  }, [selectedItems, showToast]);
 
   /**
    * Spec 03: clearing the canvas is undoable LOCALLY. This state lives only

@@ -120,34 +120,17 @@ ROLE_CHAINS: Dict[ModelRole, List[ModelSpec]] = {
     # grounding quality decides the order. AI_PROVIDER_TIMEOUT_SECONDS is 4.0s
     # today, so anything above ~5s cannot be primary without a config change.
     ModelRole.STYLIST_CHAT: [
-        # ORDER SWAPPED 2026-10-01 (afternoon), evidence-based: across six live
-        # probes that day super answered in 0.4-4.8s while ultra ranged
-        # 2.3-12s+ (one 12s hard timeout against a 12s budget). The registry's
-        # own contingency note ("cheapest primary if Ultra saturates") applies:
-        # the NIM free tier's latency for the 550B flagship is currently
-        # volatile, and the shopper-facing budget cannot absorb it. Ultra keeps
-        # the failover slot — its grounding quality is still the best measured,
-        # and a one-line swap restores it the day NIM stabilises.
-        ModelSpec(
-            model_id="nvidia/nemotron-3-super-120b-a12b",
-            endpoint=CHAT_COMPLETIONS_URL,
-            params={"temperature": 0.6, "top_p": 0.95},
-            measured_latency_s=(0.4, 4.8),
-            slot_key_env="NVIDIA_KEY_NEMOTRON_3_SUPER_120B_A12B",
-            evidence=(
-                "2026-09-27, real CONFIT stylist prompt (3 grounded catalogue "
-                "items, $385 total): 200 in 3.5s / 256 tokens; correct "
-                "grounding and budget; slightly more verbose than Ultra. "
-                "2026-10-01: six live probes at 0.4 / 0.5 / 0.5 / 1.5 / 4.8s "
-                "plus one 11.4s outlier — the most stable high-quality "
-                "candidate measured that day."
-            ),
-            notes=(
-                "PRIMARY (stability-first). Same slot also serves "
-                "TRANSLATION inbound, where it measured 0.89-1.09s — the "
-                "model is warm-tier friendly and budget-accurate."
-            ),
-        ),
+        # PRIMARY SWAP 2026-10-03, forced by the endpoint: nemotron-3-super-
+        # 120b-a12b answered 410 Gone (end-of-life) on every call and vanished
+        # from GET /v1/models — `verify_nvidia_models.py` FAILs on it in both
+        # roles it led. Since then production stylist turns have been served
+        # by the ultra failover slot (verified live 2026-10-03: three
+        # production /stylist/chat answers, grounded in real catalogue items,
+        # reported engine "NVIDIA nvidia/nemotron-3-ultra-550b-a55b"), so this
+        # swap formalises what production already runs. The 2026-10-01 order
+        # swap (super-first for latency) is now moot: there is no second
+        # nemotron chat model with measured stylist-role evidence, and the
+        # orchestrator's Groq leg remains the next provider after this chain.
         ModelSpec(
             model_id="nvidia/nemotron-3-ultra-550b-a55b",
             endpoint=CHAT_COMPLETIONS_URL,
@@ -155,19 +138,29 @@ ROLE_CHAINS: Dict[ModelRole, List[ModelSpec]] = {
             measured_latency_s=(0.8, 12.0),
             slot_key_env="NVIDIA_KEY_NEMOTRON_3_ULTRA_550B_A55B",
             evidence=(
-                "2026-09-27, same prompt: 200 in 4.1s / 126 completion tokens; "
+                "2026-09-27, real CONFIT stylist prompt (3 grounded catalogue "
+                "items, $385 total): 200 in 4.1s / 126 completion tokens; "
                 "named every item, honoured the 2-3 sentence cap, stated the "
                 "budget correctly, invented nothing. 2026-10-01: 2.3 / 4.8 / "
-                "5.9s live AND one 12s hard-timeout — latency became volatile "
-                "on the NIM free tier, which is why it moved to failover."
+                "5.9s live AND one 12s hard-timeout — moved to failover while "
+                "super was alive. 2026-10-03: super went 410 Gone; three live "
+                "production stylist turns then served by this slot, each "
+                "grounded and clean, so it takes the primary slot back."
             ),
             notes=(
-                "FAILOVER_1. Best measured grounding-per-second of the 14 chat "
+                "PRIMARY. Best measured grounding-per-second of the 14 chat "
                 "models probed; does NOT leak reasoning into content at "
-                "default settings. Restore to primary when NIM latency "
-                "stabilises (one-line swap)."
+                "default settings (stylist prose prompts). For terse "
+                "instruction prompts (translation) the chain there adds the "
+                "enable_thinking guard. Groq is the orchestrator's next leg "
+                "if this chain exhausts."
             ),
         ),
+        # nvidia/nemotron-3-super-120b-a12b was the primary here until
+        # 2026-10-03, when it was end-of-lifed by the endpoint (410 Gone,
+        # missing from GET /v1/models). Removed from every chain rather than
+        # demoted: a dead failover slot only adds a guaranteed failed
+        # round-trip before honest degradation. See UNROUTED_MODELS.
         # moonshotai/kimi-k3 was the third entry here until 2026-10-01, when a
         # live re-verification measured it at 85.2s / 103.5s-with-empty-content
         # / 120s-hard-timeout across three probes (it was 8.6-14.9s on
@@ -265,51 +258,66 @@ ROLE_CHAINS: Dict[ModelRole, List[ModelSpec]] = {
 
     # ── Arabic localisation (Giza/MENA market) ───────────────────────────────
     ModelRole.TRANSLATION: [
-        # PRIMARY for INBOUND query translation (added 2026-09-29).
+        # PRIMARY SWAP 2026-10-03, forced by the endpoint: nemotron-3-super-
+        # 120b-a12b answered 410 Gone (end-of-life) and left GET /v1/models,
+        # which silently demoted BOTH translation directions onto
+        # riva-translate — measured that day on production: Arabic prompts got
+        # English replies (reply_language="en", 0 Arabic characters) because
+        # riva, which ignores the system turn, answered the outbound EN->AR
+        # call in NORWEGIAN ("Den marineblå blazeren...") and the
+        # contains_arabic guard correctly refused to ship it. Inbound decayed
+        # the same way ('فرح مسائي' -> "Evening party", wedding lost).
         #
-        # riva-translate is a purpose-built translator and is still correct for
-        # OUTBOUND prose (EN->AR), where fluency is what matters. It is WRONG
-        # for inbound shopping queries, measured on the live endpoint:
-        #
-        #   'فستان سواريه أحمر'  -> "Red Swarovski Dress"   (brand invented)
-        #   'بدلة شغل كلاسيك'    -> "Classic work trousers" (suit -> trousers)
-        #   'فرح مسائي'          -> "evening party"         (wedding lost)
-        #
-        # It also ignores the system turn, so a domain glossary cannot be
-        # supplied to it. Each of those errors changes WHICH GARMENT the
-        # catalogue search then looks for, so the shopper is answered about a
-        # different product than the one they asked for.
-        #
-        # nemotron-3-super follows the system turn and got all three right:
-        #   -> "evening wedding, not too formal" / "work suit" / "evening gown"
-        # measured 0.89-1.09s on the same calls.
+        # Replacement candidate battery, measured live 2026-10-03 (same three
+        # inbound queries + two outbound sentences, enable_thinking=False):
+        #   - nemotron-3-ultra-550b-a55b: 'فرح مسائي فستان سواريه أحمر' ->
+        #     "Evening wedding red evening gown"; 'بدلة شغل كلاسيك رجالي
+        #     شتوي' -> "Men's classic winter work suit"; 'جاكيت كاجوال
+        #     للخروج' -> "Casual jacket for going out". Outbound: 104-114
+        #     Arabic chars, ZERO leaked Latin words (brands/prices preserved),
+        #     'sage-green' kept its colour (riva had turned it into 'الأبيض').
+        #     0.3-3.3s per call. SELECTED.
+        #   - nemotron-3-nano-omni-30b-a3b-reasoning: fluent Arabic but leaks
+        #     parenthetical English ("(virgin wool)") and lost 'فرح' ->
+        #     "red evening dress". REJECTED.
+        #   - nemotron-3.5-lightning-30b-a3b: 'فرح' -> "Evening party" +
+        #     invented "swimsuit". REJECTED (riva-class failure).
+        #   - z-ai/glm-5.3 / glm-5.3-flash: leak "The user wants me to
+        #     translate..." preamble into content. REJECTED.
+        #   - moonshotai/kimi-k3: correct when it answers but degenerated to
+        #     "Men's!!!!!!!!" on one probe, 53s for three calls. REJECTED
+        #     (matches its 2026-10-1 stylist degradation).
+        #   - llama-3.1-nemotron-70b/51b-instruct, nemotron-nano-3-30b-a3b:
+        #     404 function-not-found. DEAD.
         ModelSpec(
-            model_id="nvidia/nemotron-3-super-120b-a12b",
+            model_id="nvidia/nemotron-3-ultra-550b-a55b",
             endpoint=CHAT_COMPLETIONS_URL,
+            # enable_thinking is REQUIRED for this model in the translation
+            # role. Measured 2026-10-03: WITHOUT the flag, terse instruction
+            # prompts return the chain-of-thought ("The user wants me to
+            # translate an Egyptian Arabic shopping query into...") as
+            # content; WITH it, clean translations only. Stylist-prose prompts
+            # do not need the guard, which is why STYLIST_CHAT omits it.
             params={
                 "temperature": 0.0,
                 "max_tokens": 160,
                 "chat_template_kwargs": {"enable_thinking": False},
             },
-            measured_latency_s=(0.89, 1.09),
-            slot_key_env="NVIDIA_KEY_NEMOTRON_3_SUPER_120B_A12B",
+            measured_latency_s=(0.3, 3.3),
+            slot_key_env="NVIDIA_KEY_NEMOTRON_3_ULTRA_550B_A55B",
             evidence=(
-                "2026-09-29, AR->EN of three real shopping queries: 0.89-1.09s, "
-                "all three preserved the garment and occasion where "
-                "riva-translate did not (wedding/suit/evening gown). One 503 "
-                "observed under repeat calls, which the key rotation and the "
-                "next entry in this chain cover. 2026-10-01: also leads the "
-                "OUTBOUND EN->AR reply translation — measured live, riva "
-                "ignored the rules and turned 'sage-green' into 'الأبيض' "
-                "(white), while super with a strict system-turn rule block "
-                "produced zero leaked Latin words, the accurate colour per "
-                "glossary, and unchanged prices (0.8-1.4s). A wrong colour is "
-                "a wrong product on a fashion platform."
+                "2026-10-03 full candidate battery above: both directions "
+                "correct on every probe (wedding/suit/jacket preserved "
+                "inbound; zero Latin leakage, true colours, brands and prices "
+                "preserved outbound), 0.3-3.3s per call on the NIM free tier. "
+                "The slot is simultaneously STYLIST_CHAT primary, so it is "
+                "already warm in production."
             ),
             notes=(
-                "PRIMARY for BOTH directions. Obeys a glossary in the system "
-                "turn, which is what makes dialect terms ('فرح', 'سواريه') "
-                "survive inbound and colours stay true outbound."
+                "PRIMARY for BOTH directions. Follows the system turn, which "
+                "is what makes dialect terms ('فرح', 'سواريه') survive "
+                "inbound and colours stay true outbound — the exact property "
+                "super had and riva lacks."
             ),
         ),
         ModelSpec(
@@ -324,8 +332,9 @@ ROLE_CHAINS: Dict[ModelRole, List[ModelSpec]] = {
                 "Fluent MSA, correct fashion register."
             ),
             notes=(
-                "FAILOVER for outbound EN->AR prose only (super leads both "
-                "directions since 2026-10-01). Fluent but instruction-blind: "
+                "FAILOVER for outbound EN->AR prose only (ultra-550b leads "
+                "both directions since 2026-10-03, after super's 410). Fluent "
+                "but instruction-blind: "
                 "it ignores the system turn, so no glossary can be supplied, "
                 "it renamed a garment and invented a brand on live inbound "
                 "tests, and it mistranslated a colour on live outbound tests. "
@@ -438,6 +447,16 @@ ROLE_CHAINS: Dict[ModelRole, List[ModelSpec]] = {
 # ─────────────────────────────────────────────────────────────────────────────
 
 UNROUTED_MODELS: Dict[str, str] = {
+    "nvidia/nemotron-3-super-120b-a12b": (
+        "END-OF-LIFE (2026-10-03). Answered 410 Gone on every call and no "
+        "longer appears in GET /v1/models; `verify_nvidia_models.py` FAILs on "
+        "it. Was PRIMARY for stylist_chat AND translation until that day. "
+        "Until its removal production silently ran on the ultra-550b failover "
+        "for stylist (fine) and on riva for translation (broken: Arabic "
+        "prompts received English replies because riva answered the outbound "
+        "call in Norwegian and the contains_arabic guard refused to ship it). "
+        "Key slot retained in the pool; re-route only if NVIDIA revives it."
+    ),
     "moonshotai/kimi-k3": (
         "DEMOTED AFTER DEGRADATION (2026-10-01). Re-measured live with three "
         "probes: 120s hard read-timeout, then HTTP 200 in 103.5s with "

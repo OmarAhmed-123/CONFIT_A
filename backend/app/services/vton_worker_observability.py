@@ -489,12 +489,20 @@ def _perform_probe(timeout: float) -> Dict[str, Any]:
     async def _probe() -> Dict[str, Any]:
         import httpx
 
+        # Same platform-gateway header the try-on job path sends (Baseten
+        # requires it on every route; harmless header for a Modal worker).
+        gateway_auth = (
+            getattr(settings, "VTON_WORKER_GATEWAY_AUTHORIZATION", None)
+            or os.environ.get("VTON_WORKER_GATEWAY_AUTHORIZATION")
+        )
+        probe_headers = {"Authorization": gateway_auth} if gateway_auth else {}
+
         async with httpx.AsyncClient(timeout=timeout) as client:
             last_status: Optional[int] = None
             last_body = ""
             for url, kind in ((endpoints["readiness"], "readiness"), (endpoints["health"], "health")):
                 try:
-                    resp = await client.get(url)
+                    resp = await client.get(url, headers=probe_headers)
                     last_status = resp.status_code
                     last_body = (resp.text or "")[:300]
                     if resp.status_code == 200:

@@ -130,7 +130,10 @@ class TestVTONMultiGarmentSequential:
         engine_path = Path("services/vton-worker/engine/fashn_v15.py")
         worker_path = Path("services/vton-worker/modal_app_v15.py")
         engine_src = engine_path.read_text()
-        worker_src = worker_path.read_text()
+        # 2026-10-03: the worker HTTP layer moved to server_core.py (shared
+        # by the Modal + Baseten shells); the pins hold across BOTH files.
+        worker_src = worker_path.read_text() + Path(
+            "services/vton-worker/server_core.py").read_text()
         # Engine: output becomes input across layers; per-layer verification.
         assert "current = rendered" in engine_src  # layer output feeds the next layer
         assert "layers_meta" in engine_src
@@ -172,7 +175,8 @@ class TestVTONMultiGarmentSequential:
         """A layer that fails verification must fail the job honestly"""
         import inspect
         from pathlib import Path
-        worker_src = Path("services/vton-worker/modal_app_v15.py").read_text()
+        worker_src = Path("services/vton-worker/modal_app_v15.py").read_text() + Path(
+            "services/vton-worker/server_core.py").read_text()
         engine_src = Path("services/vton-worker/engine/fashn_v15.py").read_text()
         # Worker: honest error taxonomy (OOM + unverified layer = OUTPUT_INVALID)
         assert "GPU_OOM" in worker_src

@@ -160,7 +160,7 @@ def test_catalog_and_tryon_capabilities_agree(client, monkeypatch):
     """
     monkeypatch.setattr(settings, "VTON_WORKER_URL", "https://worker.test/process")
     monkeypatch.setattr(
-        vwo, "vton_health_summary", lambda: dict(PROBE_WORKSPACE_DISABLED)
+        vwo, "vton_health_summary", lambda *a, **k: dict(PROBE_WORKSPACE_DISABLED)
     )
     # tryon_service imports the module at call time and reads attributes off it,
     # so patching the module attribute is what both surfaces observe.

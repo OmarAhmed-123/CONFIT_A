@@ -1069,6 +1069,15 @@ class TryOnService:
                 # a previously opened breaker recovers on the first success
                 # instead of waiting out its window.
                 _circuit.record_success()
+                # And publish the same proof into the passive probe cache:
+                # the worker just demonstrated its own readiness by serving
+                # this job, so /health and the capability endpoints can
+                # report the last known state WITHOUT ever probing the GPU.
+                _vwo.record_job_observation(
+                    _vwo.VERDICT_READY,
+                    device=(gpu_data or {}).get("device"),
+                    git_sha=(gpu_data or {}).get("git_sha"),
+                )
                 _failed_layers = _verif_agg["failed_layers"]
                 _all_layers_verified = _verif_agg["all_layers_verified"]
                 quality = gpu_data.get("quality_audit") or gpu_data.get("verify") or {}
@@ -1353,7 +1362,9 @@ class TryOnService:
         worker_url = (
             getattr(settings, "VTON_WORKER_URL", None) or os.environ.get("VTON_WORKER_URL")
         )
-        probe = vwo.vton_health_summary()
+        # Passive read (2026-10-03): a public capabilities endpoint must not
+        # spin a scaled-to-zero GPU container; serve the last known state.
+        probe = vwo.vton_health_summary(allow_refresh=False)
         circuit = probe.get("circuit") or {}
         verdict = probe.get("verdict")
 

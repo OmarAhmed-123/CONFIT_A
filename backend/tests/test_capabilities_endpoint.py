@@ -278,7 +278,7 @@ def test_vton_gpu_ready_does_not_follow_configuration(client, monkeypatch):
     # Configured but nothing measured: offered, NOT ready.
     monkeypatch.setattr(settings, "VTON_WORKER_URL", "https://modal.example/process")
     monkeypatch.setattr(
-        vwo, "vton_health_summary", lambda: {"verdict": vwo.VERDICT_UNAVAILABLE}
+        vwo, "vton_health_summary", lambda *a, **k: {"verdict": vwo.VERDICT_UNAVAILABLE}
     )
     caps = _get(client)
     assert caps["vton_offered"] is True, "the deployment offers try-on"
@@ -289,7 +289,7 @@ def test_vton_gpu_ready_does_not_follow_configuration(client, monkeypatch):
 
     # Only a live `ready` verdict may set it true.
     monkeypatch.setattr(
-        vwo, "vton_health_summary", lambda: {"verdict": vwo.VERDICT_READY}
+        vwo, "vton_health_summary", lambda *a, **k: {"verdict": vwo.VERDICT_READY}
     )
     caps = _get(client)
     assert caps["vton_gpu_ready"] is True
@@ -664,7 +664,7 @@ def test_gpu_ready_is_false_when_the_worker_is_unreachable_but_a_pilot_serves(
     )
     monkeypatch.setattr(settings, "VTON_LICENSE_TIER", "pilot", raising=False)
     monkeypatch.setattr(
-        vwo, "vton_health_summary", lambda: {"verdict": vwo.VERDICT_UNAVAILABLE}
+        vwo, "vton_health_summary", lambda *a, **k: {"verdict": vwo.VERDICT_UNAVAILABLE}
     )
     monkeypatch.setattr(vwo, "pilot_engines_available", lambda *a, **k: True)
 

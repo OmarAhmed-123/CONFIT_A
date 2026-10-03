@@ -489,10 +489,15 @@ def capability_flags(
     without parsing English prose out of ``engine.detail``.
     """
     store_count = db.query(StoreLocation).count()
+    # Passive read (2026-10-03): this is a PUBLIC consumer endpoint. A live
+    # probe here spun a scaled-to-zero A10G container on every TTL window —
+    # bot or shopper traffic alone kept a billed GPU alive with zero real
+    # try-on jobs. The last known state (real job / admin check) is served
+    # instead; 'unknown' honestly means "not verified on this instance yet".
     probe = (
         vton_worker
         if vton_worker is not None
-        else vton_observability.vton_health_summary()
+        else vton_observability.vton_health_summary(allow_refresh=False)
     )
     engine_state = engine_state_from_probe(probe)
 

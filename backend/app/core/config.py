@@ -467,6 +467,25 @@ class Settings(BaseSettings):
     # load at container start). 90s covers cold start with margin.
     TAGGING_WORKER_TIMEOUT_SECONDS: float = 90.0
 
+    # Feature 06 — Outfit Builder compatibility (Modal CPU app
+    # `confit-outfit-worker`: OutfitTransformer OutfitCLIPTransformer —
+    # frozen FashionCLIP encoder + 6-layer transformer, Polyvore-trained,
+    # MIT; TATTOO (arXiv:2509.23242) pinned as the type-aware eval rubric).
+    # Each Modal web endpoint has its own URL (stable via endpoint labels),
+    # so — exactly like TAGGING_WORKER_URL — the config holds FULL endpoint
+    # URLs. COMPAT_URL is required for the model path; FITB_URL enables
+    # fill-in-the-blank on top.
+    OUTFIT_WORKER_COMPAT_URL: Optional[str] = None
+    OUTFIT_WORKER_FITB_URL: Optional[str] = None
+    # Dedicated credential (Modal secret `confit-outfit-admin-token`, env
+    # OUTFIT_WORKER_ADMIN_TOKEN inside that worker) — rotatable
+    # independently of the other workers.
+    OUTFIT_WORKER_ADMIN_TOKEN: Optional[str] = None
+    # CPU inference ~2-5s warm; cold start adds ~20-40s (769MB checkpoint
+    # from the Modal volume; the complementary model loads lazily on the
+    # first fill-in-the-blank call). 120s covers a cold start with margin.
+    OUTFIT_WORKER_TIMEOUT_SECONDS: float = 120.0
+
     # Self-hosted Qwen2.5-VL vision worker (LOCAL FALLBACK). When
     # QWEN_VL_WORKER_URL is set, VisualSearchAIProvider.fallback uses the local
     # Qwen worker when Gemini is exhausted/unavailable. Unset => unchanged.

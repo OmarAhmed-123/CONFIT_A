@@ -1,0 +1,23 @@
+name: outfit-transformer
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - pip
+  - pip:
+      # 🔥 PyTorch CUDA 12.x (cu121 wheel)
+      - torch==2.5.0+cu121
+      - torchvision==0.20.0+cu121
+      - torchaudio==2.5.0+cu121
+      - --extra-index-url https://download.pytorch.org/whl/cu121
+
+      # 기타 라이브러리
+      - pillow==11.0.0
+      - transformers==4.48.3
+      - scikit-learn
+      - faiss-cpu
+      - wandb
+      - tqdm
+      - gradio
+      - opencv-python
+      - datasets

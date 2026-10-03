@@ -276,3 +276,21 @@ describe("banner — i18n'd wayfinding, decorative accents, axe-clean", () => {
     expect(container.querySelector('[data-testid="register-banner"]')).toBeNull();
   });
 });
+
+describe("layout integration — <main> really carries the register", () => {
+  it("ConsumerLayout + BrandLayout wire resolveRegister onto <main data-register> with the custom properties", () => {
+    // Source-contract check (same technique as accessibility.rtl.test):
+    // the layouts are too heavy for jsdom, but the wiring is a static fact.
+    const read = (p: string) =>
+      fs.readFileSync(path.join(__dirname, "../../", p), "utf8");
+    for (const layout of ["layouts/ConsumerLayout.tsx", "layouts/BrandLayout.tsx"]) {
+      const src = read(layout);
+      expect(src).toContain("resolveRegister(location.pathname)");
+      expect(src).toContain("data-register={register}");
+      expect(src).toContain("registerStyle(register)");
+      expect(src).toContain("<RegisterBanner register={register} />");
+      // The register must be derived from the live location, never hardcoded.
+      expect(src).toContain("useLocation()");
+    }
+  });
+});

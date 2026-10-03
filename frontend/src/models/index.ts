@@ -369,6 +369,9 @@ export interface AnimationTryOnResult {
   dynamic_animation_prompt: string;
   applied_items: AppliedGarmentSlot[];
   total_price: number;
+  /** The REAL engine the worker reported (e.g. fashn-vton-v1.5) — shown to
+   *  the user instead of a hardcoded engine brand. */
+  model_used?: string | null;
 }
 
 export interface GarmentLayerVerification {
@@ -406,6 +409,10 @@ export interface MultiGarmentTryOnResult {
   // results). all_layers_verified=false means one or more garments were NOT
   // confirmed applied by the engine — the UI must show a truthful warning.
   verification?: OutfitVerification | null;
+  // How the outfit was composed on the worker: "single_call" (whole outfit in
+  // one GPU call — fashn_v15 contract) or "sequential_chain" (single-garment
+  // worker adaptation). Observable, never assumed.
+  composition_mode?: string | null;
 }
 
 export interface TryOnResult {

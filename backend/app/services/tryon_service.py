@@ -653,6 +653,15 @@ class TryOnService:
         headers = {}
         if admin_token:
             headers["X-VTON-Admin"] = admin_token
+        # Platform gateway auth (Baseten "Api-Key <key>"): required by the
+        # worker's HOST on every route, in addition to our own token check.
+        # Kept out of logs; empty for a directly-exposed (Modal) worker.
+        gateway_auth = (
+            getattr(settings, "VTON_WORKER_GATEWAY_AUTHORIZATION", None)
+            or os.environ.get("VTON_WORKER_GATEWAY_AUTHORIZATION")
+        )
+        if gateway_auth:
+            headers["Authorization"] = gateway_auth
 
         start_total = time.time()
         health_url, readiness_url, process_url = self._derive_worker_urls(worker_url)
@@ -678,7 +687,7 @@ class TryOnService:
                 try:
                     # Try readiness first (503 if not ready)
                     try:
-                        readiness_resp = await client.get(readiness_url, timeout=health_timeout)
+                        readiness_resp = await client.get(readiness_url, timeout=health_timeout, headers=headers)
                         if readiness_resp.status_code == 200:
                             rj = readiness_resp.json()
                             if rj.get("ready") is True:
@@ -694,7 +703,7 @@ class TryOnService:
                         # Readiness endpoint may not exist on old deploys, try health
                         logger.debug("vton_readiness_check_failed_try_health", attempt=attempt, error=str(e)[:100])
 
-                    health = await client.get(health_url, timeout=health_timeout)
+                    health = await client.get(health_url, timeout=health_timeout, headers=headers)
                     if health.status_code == 200:
                         data = health.json()
                         if data.get("model_loaded") is True or data.get("ready") is True:

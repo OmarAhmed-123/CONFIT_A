@@ -1,0 +1,85 @@
+# ==============================================================================
+# Build & push the CONFIT VTON (fashn_v15) Baseten image to GHCR.
+#
+# The sandbox/dev machines cannot hold a CUDA image (~10GB), so the image is
+# built on a GitHub Actions runner and pushed to the GitHub Container Registry.
+# Baseten deploys it with `truss push` in no_build mode
+# (services/vton-worker/baseten/config.yaml) — Baseten pulls from GHCR
+# registry-to-registry; no GPU time is spent building.
+#
+# Weights are downloaded at BUILD time from public Hugging Face repos
+# (fashn-ai/fashn-vton-1.5, fashn-ai/DWPose, fashn-ai/fashn-human-parser) and
+# baked in, so a cold replica never waits on the network. No secrets are in
+# the image (the admin token is injected at runtime via a Baseten secret).
+#
+# The package is public on GHCR: it contains only open weights (Apache-2.0
+# pipeline + non-commercial parser, both already public on HF) and open code.
+# ==============================================================================
+name: build vton baseten image
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Image tag (defaults to 'main')"
+        required: false
+        default: "main"
+  push:
+    branches: [main]
+    paths:
+      - "services/vton-worker/server_core.py"
+      - "services/vton-worker/baseten_server.py"
+      - "services/vton-worker/baseten/**"
+      - "services/vton-worker/engine/**"
+      - "vendor/fashn-vton-1.5/**"
+      - ".github/workflows/build-vton-baseten-image.yml"
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: vton-baseten-image-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: services/vton-worker/baseten/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/confit-vton-worker-baseten:${{ inputs.tag || 'main' }}
+            ghcr.io/${{ github.repository_owner }}/confit-vton-worker-baseten:sha-${{ github.sha }}
+          build-args: |
+            CONFIT_GIT_SHA=${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Make package public via API
+        # The backend pulls nothing, and Baseten pulls registry-to-registry
+        # anonymously for public packages. Keep the image public (open weights
+        # + open code only); fail soft if this ever 403s.
+        run: |
+          curl -s -X PATCH \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/user/packages/container/confit-vton-worker-baseten" \
+            -d '{"visibility":"public"}' || true

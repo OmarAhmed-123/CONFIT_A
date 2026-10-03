@@ -1,0 +1,46 @@
+# ==============================================================================
+# CONFIT VTON WORKER — Baseten deployment (feature 03, multi-garment)
+#
+# Deployed with truss in no_build mode against the pre-built GHCR image
+# (built by .github/workflows/build-vton-baseten-image.yml). The image is
+# self-contained (deps + vendored pristine upstream + weights); this config
+# only tells Baseten how to run it and where to route.
+#
+# Routing (no_build = 1:1 path mapping):
+#   https://model-<id>.api.baseten.co/environments/production/sync/health
+#   .../sync/readiness
+#   .../sync/process
+# The API service sets VTON_WORKER_URL=https://model-<id>.api.baseten.co/
+# environments/production/sync and derives /process /health /readiness itself
+# (TryOnService._derive_worker_urls), so the cutover is a URL change.
+#
+# GPU: L4 24GB — bf16-native (Ada), the same target class the Modal v15 app
+# specifies, ~$0.85/hour billed per minute. Autoscaling defaults give
+# scale-to-zero (min 0) with max 1 replica — one GPU composition at a time,
+# mirroring Modal's @modal.concurrent(max_inputs=1). Adjust in the console if
+# that ever needs to change; truss 0.18 has no autoscaling config field.
+#
+# Secret: `confit_worker_admin_token` is created org-side on Baseten with the
+# two env keys the worker reads (VTON_WORKER_ADMIN_TOKEN /
+# CONFIT_WORKER_ADMIN_TOKEN); the value is the rotated admin token — never
+# baked into the image, never in this file.
+# ==============================================================================
+
+base_image:
+  image: ghcr.io/omarahmed-123/confit-vton-worker-baseten:main
+
+docker_server:
+  no_build: true
+  start_command: uvicorn baseten_server:app --host 0.0.0.0 --port 8000
+  server_port: 8000
+  predict_endpoint: /process
+  readiness_endpoint: /readiness
+  liveness_endpoint: /health
+
+resources:
+  accelerator: L4
+  memory: 24Gi
+  cpu: "4"
+
+secrets:
+  confit_worker_admin_token: null

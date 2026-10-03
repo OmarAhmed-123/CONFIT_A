@@ -69,7 +69,18 @@ LOCAL_PACKAGES = {"pipeline", "services", "worker", "modal_app", "backend", "api
                   # CONFIT's wardrobe-worker pure logic (services/wardrobe-worker/
                   # extraction.py), unit-tested from backend/tests. Same rule: repo
                   # source shipped with the worker image, never a pip pin.
-                  "extraction"}
+                  "extraction",
+                  # CONFIT's shared VTON worker HTTP layer
+                  # (services/vton-worker/server_core.py), the single source of
+                  # truth both deployment shells (Modal + Baseten) serve; its
+                  # contract tests live in backend/tests. Repo source shipped in
+                  # the worker images, never deployed with the backend, never a
+                  # pip pin.
+                  "server_core",
+                  # The Modal shell for the VTON worker
+                  # (services/vton-worker/modal_app_v15.py), loaded by its tests.
+                  # Same rule: worker-image source, not a backend dependency.
+                  "modal_app_v15"}
 
 # Packages the Vercel function may legitimately lack. EVERY entry must name
 # the guard that makes the absence safe; an unguarded lazy import is NOT

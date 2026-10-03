@@ -1,3 +1,4 @@
+import { ActionButton } from "../common/ActionButton";
 import { translatableFrom } from "../../i18n/messages";
 import React, { useEffect, useState, useRef } from "react";
 import { useModalFocus } from "../../hooks/useModalFocus";
@@ -651,6 +652,31 @@ export const VirtualTryOnModal: React.FC = () => {
                     Dressed Garment Layers ({appliedList.length} items):
                   </span>
                   <div className="flex items-center gap-2">
+                    {/* Spec 08: explicit Run try-on CTA with trust state —
+                        CONTROLLED by the viewmodel's real workflow status.
+                        "failed" relabels to an actionable retry; pending is
+                        click-guarded (the engine never gets two renders from
+                        one control) and announced as text, not only by the
+                        overlay animation. */}
+                    {appliedList.length > 0 && (
+                      <ActionButton
+                        state={
+                          isRendering
+                            ? 'pending'
+                            : tryOnStatus === 'failed'
+                              ? 'error'
+                              : 'idle'
+                        }
+                        onPress={() => runTryOn()}
+                        labels={{
+                          idle: t('tryon.run_try_on'),
+                          pending: t('tryon.rendering'),
+                          error: t('tryon.retry_render'),
+                        }}
+                        data-testid="run-tryon-cta"
+                        className="px-3 rounded-xl bg-[#1B1F3B] hover:bg-[#0C0E1E] text-white text-[11px] font-bold transition-all"
+                      />
+                    )}
                     <button
                       onClick={undoLastAction}
                       className="text-[11px] font-semibold text-slate-500 hover:text-slate-900"

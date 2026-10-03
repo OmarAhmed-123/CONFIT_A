@@ -8,6 +8,30 @@
     --confit-gold: #B8935A;
     --confit-cream: #FAF9F6;
     --confit-grey: #777777;
+    /* Focus indicator color (spec 09 §9 "focus ≈3:1"). Measured 2026-10-01:
+       the brand gold #B8935A is only 2.71:1 against the cream body surface —
+       below the non-text 3:1 minimum this file previously claimed. #A37E44
+       is the darkened brand gold: 3.55:1 on cream AND 4.31:1 on navy, so one
+       token works on both scheme extremes. Verified by computation in
+       surfaceSystem.test.tsx — not by eye. */
+    --confit-focus: #A37E44;
+
+    /* ── Spec 09: Embossed Depth / Surface tokens ─────────────────────────
+       Three-layer hierarchy with a SOLID fallback first:
+       solid = data layer · raised = summary layer · glass = ONLY over
+       uncluttered imagery/gradients, never behind long text or tables. */
+    --surface-border: rgb(203 213 225 / 0.8);
+    --surface-solid-bg: #FFFFFF;
+    --surface-raised-bg: #FFFFFF;
+    --surface-raised-shadow: 0 10px 30px -12px rgb(27 31 59 / 0.18);
+    /* Fallback composites are near-opaque so text stays readable over the
+       WORST-case image (computed: dark fallback over a white photo is
+       16.8:1 for white text; light fallback over a black photo is 14.7:1
+       for navy text). The translucent values only apply inside @supports. */
+    --surface-glass-light-fallback: rgb(255 255 255 / 0.96);
+    --surface-glass-light: rgb(255 255 255 / 0.72);
+    --surface-glass-dark-fallback: rgb(12 14 30 / 0.94);
+    --surface-glass-dark: rgb(12 14 30 / 0.62);
 
     /* shadcn-compatible semantic tokens used by /components/ui primitives. */
     --background: 48 29% 97%;
@@ -40,7 +64,7 @@
      2.4.11. It is applied to :focus-visible only, so a mouse click does not
      draw a ring a sighted mouse user did not ask for. */
   :focus-visible {
-    outline: 3px solid var(--confit-gold);
+    outline: 3px solid var(--confit-focus);
     outline-offset: 2px;
     border-radius: 4px;
   }
@@ -100,6 +124,32 @@
    Icon-only controls in the navbar are 22–28px tall with 1px of padding. This
    guarantees the minimum hit area without changing the visual design. */
 @layer components {
+  /* ── Spec 09 surface classes ──────────────────────────────────────────
+     Border does the structural work (§6.2) — shadow only decorates the
+     raised layer and never marks focus (§8). Declared solid-first: the
+     glass upgrade lives exclusively inside @supports below (§6.3). */
+  .surface-solid {
+    background-color: var(--surface-solid-bg);
+    border: 1px solid var(--surface-border);
+  }
+
+  .surface-raised {
+    background-color: var(--surface-raised-bg);
+    border: 1px solid var(--surface-border);
+    box-shadow: var(--surface-raised-shadow);
+  }
+
+  .surface-glass-light {
+    background-color: var(--surface-glass-light-fallback);
+    border: 1px solid rgb(255 255 255 / 0.6);
+  }
+
+  .surface-glass-dark {
+    background-color: var(--surface-glass-dark-fallback);
+    border: 1px solid rgb(255 255 255 / 0.18);
+    color: #ffffff;
+  }
+
   .confit-tap-target {
     min-height: 24px;
     min-width: 24px;
@@ -118,6 +168,78 @@
     clip: rect(0, 0, 0, 0);
     white-space: nowrap;
     border-width: 0;
+  }
+}
+
+/* ── Spec 09 §6.3: the glass upgrade — ONLY where backdrop-filter exists.
+   Browsers without it keep the solid fallback declared above; nothing is
+   readable "only with blur on" (§9). */
+@supports (backdrop-filter: blur(1px)) {
+  /* The blur is generated with Tailwind's own backdrop utilities (@apply)
+     rather than hand-written declarations: the global deploy check on
+     2026-10-01 caught the build pipeline DROPPING a hand-written standard
+     `backdrop-filter` while keeping only `-webkit-` — Firefox would have
+     received translucency with no blur. Tailwind's utility output
+     (webkit + standard via --tw-backdrop-* vars) provably survives the
+     same pipeline (verified against the deployed .backdrop-blur-md). */
+  .surface-glass-light {
+    background-color: var(--surface-glass-light);
+    @apply backdrop-blur-lg backdrop-saturate-150;
+  }
+  .surface-glass-dark {
+    background-color: var(--surface-glass-dark);
+    @apply backdrop-blur-lg backdrop-saturate-150;
+  }
+}
+
+/* ── Spec 09 §6.5: forced colors (Windows High Contrast). Translucency and
+   shadows disappear; the border carries the entire hierarchy, in the
+   user's own palette. */
+@media (forced-colors: active) {
+  .surface-solid,
+  .surface-raised,
+  .surface-glass-light,
+  .surface-glass-dark {
+    background-color: Canvas;
+    color: CanvasText;
+    border: 1px solid CanvasText;
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+/* ── Design registers (frontend/src/design/registers.ts) ────────────────────
+   Each surface family gets --register-accent / --register-ink via inline
+   custom properties on <main data-register="...">. The accent hairline on
+   <main> is pure decoration (never a control, never the only signal); the
+   ink is text-grade (every pair AA+ — ratios measured in registers.ts and
+   re-verified by registers.test.tsx). border-top is direction-neutral, so
+   RTL needs no mirroring. */
+main[data-register] {
+  border-top: 3px solid var(--register-accent, transparent);
+}
+
+/* The section rule grows once on entry — same motion language as the email
+   shell. Guarded: reduced-motion users get the static rule, full meaning. */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes register-rule-grow {
+    from { transform: scaleX(0); }
+    to { transform: scaleX(1); }
+  }
+  .register-rule {
+    transform-origin: 0 50%;
+    animation: register-rule-grow 0.6s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  }
+  [dir="rtl"] .register-rule {
+    transform-origin: 100% 50%;
+  }
+}
+
+/* Forced colors: the hairline joins the user's palette like every border. */
+@media (forced-colors: active) {
+  main[data-register] {
+    border-top-color: CanvasText;
   }
 }
 

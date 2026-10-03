@@ -1,3 +1,4 @@
+import { ActionButton, outcomeFromResult } from '../../components/common/ActionButton';
 import { CardStackShowcase } from '../../components/showcase/DesignShowcases';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
@@ -348,27 +349,29 @@ export const OutfitBuilderView: React.FC = () => {
           >
             {t('outfit_builder.clear_canvas')}
           </button>
-          <button
-            onClick={saveOutfit}
-            disabled={
-              selectedItems.length === 0 || isSaving || verdict?.is_valid === false
-            }
-            title={
-              verdict?.is_valid === false
-                ? verdict.violations[0]?.message
-                : undefined
-            }
-            className="px-5 py-2 rounded-xl bg-[#C5A059] hover:bg-[#A37E44] disabled:opacity-40 text-slate-950 font-bold text-xs shadow-2xs transition-all flex items-center gap-1.5"
-          >
-            <SavedLooksIcon size={16} color="#0C0E1E" />
-            <span>
-              {isSaving
-                ? 'Saving...'
-                : isEditing
-                  ? 'Update look'
-                  : t('outfit_builder.save_outfit')}
-            </span>
-          </button>
+          {/* Spec 08: unified kinetic CTA. The machine owns pending (one
+              in-flight save, focus retained), and the viewmodel's
+              true/false/undefined verdict maps to an HONEST outcome:
+              success only when the server saved, error stays actionable,
+              and early validation exits ("handled") change nothing here —
+              their toast is the surface that explains. Also removes the
+              previously hardcoded English "Saving..."/"Update look". */}
+          <ActionButton
+            metricsId={isEditing ? 'builder.update_look' : 'builder.save_look'}
+            onAction={async () => outcomeFromResult(await saveOutfit())}
+            disabled={selectedItems.length === 0 || verdict?.is_valid === false}
+            labels={{
+              idle: isEditing
+                ? t('outfit_builder.update_look')
+                : t('outfit_builder.save_outfit'),
+              pending: t('outfit_builder.saving'),
+              success: t('outfit_builder.saved_confirm'),
+              error: t('outfit_builder.save_failed_retry'),
+            }}
+            icon={<SavedLooksIcon size={16} color="#0C0E1E" />}
+            data-testid="save-look-cta"
+            className="px-5 py-2 rounded-xl bg-[#C5A059] hover:bg-[#A37E44] disabled:opacity-40 text-slate-950 font-bold text-xs shadow-2xs transition-all"
+          />
         </div>
       </div>
 

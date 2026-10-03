@@ -30,7 +30,10 @@
     "switch_to_consumer": "Consumer App",
     "partner_portal": "Partner Portal",
     "admin_governance": "Admin Governance",
-    "brand_partner_hub": "Brand Partner Hub"
+    "brand_partner_hub": "Brand Partner Hub",
+    "brand_line": "CONFIT Precision Fashion Technology — Fit & Sizing Intelligence",
+    "all_collections": "All Collections",
+    "section_loading": "Loading this section…"
   },
   "home": {
     "hero_title": "Where Style Meets Your Character in Every Moment",
@@ -117,7 +120,24 @@
     "bnpl_title": "0% Interest BNPL Payments",
     "bnpl_body": "When BNPL is live, eligible orders can show supported installment options at checkout.",
     "bnpl_demo_note": "Currently in demo mode — no live BNPL charges are processed yet.",
-    "ask_stylist_alt": "Ask Stylist for Alternatives"
+    "ask_stylist_alt": "Ask Stylist for Alternatives",
+    "example_card_label": "Example styled look — open the outfit builder",
+    "brand_massimo_origin": "Barcelona / Italian fabrics",
+    "brand_massimo_aesthetic": "Quiet luxury & tailored architecture",
+    "brand_massimo_badge": "100% virgin wool & cashmere",
+    "brand_cos_origin": "London / Modern classics",
+    "brand_cos_aesthetic": "Sculptural minimalism & organic poplin",
+    "brand_cos_badge": "Sustainable organic cotton",
+    "brand_reiss_origin": "London / Heritage modern",
+    "brand_reiss_aesthetic": "Evening glamour & mulberry silks",
+    "brand_reiss_badge": "Pure mulberry silk",
+    "brand_arket_origin": "Stockholm / Nordic essentials",
+    "brand_arket_aesthetic": "Durable foundations & structured linens",
+    "brand_arket_badge": "Nordic circular tailoring",
+    "occasion_wedding_desc": "Champagne silk gowns & tuxedo tailoring",
+    "occasion_work_desc": "Executive virgin-wool double-breasted layers",
+    "occasion_party_desc": "Fluid cowl necklines & strappy metallic heels",
+    "occasion_casual_desc": "Relaxed organic poplin & tapered chinos"
   },
   "stylist": {
     "title": "CONFIT AI Stylist",
@@ -216,7 +236,11 @@
     "look_not_found": "This look does not exist, or it is not yours.",
     "look_load_failed": "Could not load this look. Please try again.",
     "add_to_outfit": "Add {{name}} to outfit",
-    "drag_or_enter": "Drag or press Enter to add"
+    "drag_or_enter": "Drag or press Enter to add",
+    "update_look": "Update look",
+    "saving": "Saving…",
+    "saved_confirm": "Look saved",
+    "save_failed_retry": "Save failed — try again"
   },
   "tryon": {
     "title": "Virtual Try-On Studio",
@@ -323,7 +347,10 @@
     "cta_fit_check": "Fit Check",
     "cta_fit_check_instead": "Fit check instead",
     "vton_card_caption": "Backend/provider garment rendering on your photo — an honest 2D visual preview, not a size guarantee.",
-    "loading_product": "Loading product…"
+    "loading_product": "Loading product…",
+    "run_try_on": "Run try-on",
+    "rendering": "Rendering…",
+    "retry_render": "Render failed — retry"
   },
   "wardrobe": {
     "title": "Virtual Wardrobe & Smart Reuse",
@@ -384,6 +411,30 @@
     "category_bottoms": "Bottoms & Trousers",
     "category_footwear": "Footwear",
     "category_accessories": "Accessories",
+    "files_skipped": "Some files were skipped: only JPEG/PNG/WebP up to 15MB are supported.",
+    "scanning": "Scanning your wardrobe…",
+    "fav_mark": "Mark as favorite",
+    "fav_remove": "Remove from favorites",
+    "analysis_failed_badge": "AI failed — retry",
+    "analysis_processing": "Processing…",
+    "retrying": "Retrying…",
+    "retry_analysis": "Retry AI analysis",
+    "style_in_canvas": "Style in canvas",
+    "shop_first_title": "Shop your wardrobe first",
+    "shop_first_desc": "A look built from pieces you already own — only what you're missing is suggested for purchase.",
+    "styling_pending": "Styling…",
+    "build_look": "Build wardrobe-first look",
+    "look_total": "Total:",
+    "delete_look_aria": "Delete look {{title}}",
+    "deleting": "Deleting…",
+    "optimizing_photos": "Optimizing photos…",
+    "uploading_analyzing": "Uploading & analyzing…",
+    "showcase_rotations_desc": "Saved garments become styled rotations instead of a static closet grid, encouraging realistic reuse and smarter recommendations.",
+    "showcase_capsule_desc": "The same component appears here as a wardrobe capsule browser, visually distinct from the stack above.",
+    "match_label": "Match",
+    "match_verdict": "stylist engine",
+    "upload_cta": "Upload {{count}} piece(s) & auto-tag with AI",
+    "worn_count": "Worn {{count}}x",
     "import_outfit_title": "Import from Outfit Photo",
     "import_outfit_hint": "(one full-outfit photo — each garment extracted separately, 1–2 min)",
     "import_outfit_unavailable": "Photo storage is not configured in this environment — the import will be rejected with a clear error.",
@@ -434,7 +485,14 @@
     "items_from_boutiques": "items from multi-brand boutiques",
     "cart_empty_title": "Your bag is currently empty",
     "cart_empty_body": "Discover curated silhouettes or style your personal look with our AI Director.",
-    "explore_catalog": "Explore Fashion Catalog"
+    "explore_catalog": "Explore Fashion Catalog",
+    "adding": "Adding…",
+    "added_confirm": "Added",
+    "add_failed_retry": "Could not add — try again",
+    "no_purchasable_size": "No purchasable size is available for this item right now.",
+    "wishlist_saved_device": "Saved to wishlist on this device",
+    "wishlist_removed": "Removed from wishlist",
+    "unavailable_label": "Unavailable — pick another size"
   },
   "b2b": {
     "dashboard_title": "Brand Partner Command Center",
@@ -504,7 +562,10 @@
     "retry": "Retry",
     "retry_now": "Retry now",
     "previous": "Previous",
-    "next": "Next"
+    "next": "Next",
+    "sign_in_to_continue": "Sign in to continue — your selection is kept.",
+    "offline_retry": "You appear to be offline — check your connection and try again.",
+    "image_unavailable": "Image unavailable"
   },
   "layout": {
     "ai_stylist_director": "AI Stylist Director",
@@ -591,7 +652,11 @@
     "currency_group_markets": "CONFIT markets",
     "currency_group_all": "All currencies",
     "currency_rate_not_live": "Converted using a {{source}} rate, not a current market rate",
-    "undo_remove": "Undo removal"
+    "undo_remove": "Undo removal",
+    "open_menu": "Open navigation menu",
+    "close_menu": "Close navigation menu",
+    "mobile_nav_label": "Main navigation",
+    "account_menu": "Account menu"
   },
   "meta": {
     "home_title": "CONFIT — Where Style Meets Your Character",
@@ -770,8 +835,14 @@
     "look_restored": "Look restored",
     "look_restore_failed": "Could not restore the look: {{reason}}",
     "look_deleted_permanently": "Look permanently deleted",
+    "canvas_cleared": "Canvas cleared — {{count}} item(s) removed",
+    "canvas_restored": "Canvas restored",
+    "permanent_delete_needs_confirm": "Permanent deletion requires explicit confirmation",
     "wardrobe_import_complete": "Imported {{succeeded}} garment(s) from your photo.",
-    "wardrobe_import_all_failed": "Outfit import failed — no garments could be saved."
+    "wardrobe_import_all_failed": "Outfit import failed — no garments could be saved.",
+    "slot_cleared": "Removed {{title}} from the canvas",
+    "slot_restored": "{{title}} is back on the canvas",
+    "bag_quantity_merged": "Already in your bag — quantity is now {{count}}"
   },
   "consent": {
     "title": "Before we process your photo",
@@ -942,7 +1013,25 @@
     "sign_in_to_continue": "Sign In to Continue",
     "create_account": "Create New Account",
     "return_to_storefront": "← Return to Consumer Storefront",
-    "ask_stylist": "Ask the AI Stylist"
+    "ask_stylist": "Ask the AI Stylist",
+    "hero_title": "Reduce fit uncertainty before shoppers reach checkout.",
+    "hero_body": "CONFIT connects premium catalog ingestion, fit intelligence, and virtual try-on workflows so brand teams can understand the partner workflow before signing in.",
+    "request_partnership": "Request partnership",
+    "existing_sign_in": "Existing partner sign in",
+    "feat_catalog_title": "Catalog ingestion",
+    "feat_catalog_copy": "Validate imagery, attributes, SKU availability, and try-on readiness before publishing.",
+    "feat_fit_title": "Fit intelligence",
+    "feat_fit_copy": "Expose supported categories, measurement confidence, and return-risk signals.",
+    "feat_tryon_title": "Virtual try-on",
+    "feat_tryon_copy": "Give shoppers an honest visual preview while keeping fit recommendations separate.",
+    "feat_ops_title": "Operational clarity",
+    "feat_ops_copy": "Track pickup, inventory, placement, and analytics workflows from one portal.",
+    "pillar_problem_title": "Merchant problem",
+    "pillar_problem_copy": "Sizing uncertainty, low confidence, and unready product data create preventable friction.",
+    "pillar_launch_title": "Launch path",
+    "pillar_launch_copy": "Connect catalog, verify product metadata, then activate fit and try-on experiences by supported category.",
+    "pillar_proof_title": "Proof readiness",
+    "pillar_proof_copy": "Use real analytics only — views, try-ons, conversions, inventory, returns, and attribution are never fabricated."
   },
   "nav_desc": {
     "visual_search": "Find catalog matches from any photo",
@@ -953,7 +1042,10 @@
     "catalog": "Curated multi-brand catalog",
     "stylist": "Conversational AI recommendations",
     "wardrobe": "Auto-tagged owned clothing",
-    "studio": "CONFIT AI Studio"
+    "studio": "CONFIT AI Studio",
+    "builder_canvas": "Multi-brand canvas & live budget tracker",
+    "no_photo_fit": "Zero-photo size & measurement engine",
+    "orders_timeline": "Real-time status & timelines"
   },
   "fit_finder": {
     "brand_tendency": "Brand tendency",
@@ -1105,7 +1197,15 @@
     "public_link_for": "Public link for {{title}}",
     "expiry_note": "Expires {{date}}. Anyone with this link can see the look until then, or until you revoke it.",
     "complete_look": "Complete Look",
-    "partial_look": "Partial Look"
+    "partial_look": "Partial Look",
+    "published_confirm": "Link is live",
+    "publish_failed_retry": "Publish failed — try again",
+    "rotating": "Creating new link…",
+    "rotated_confirm": "New link active",
+    "rotate_failed_retry": "Rotation failed — try again",
+    "revoking": "Revoking…",
+    "revoked_confirm": "Link revoked",
+    "revoke_failed_retry": "Revoke failed — try again"
   },
   "checkout": {
     "payment_method_demo_note": "Demo mode — this method does not move money on this deployment.",
@@ -1138,7 +1238,15 @@
     "tax": "Tax",
     "pickup": "Pickup",
     "placing_order": "Placing order...",
-    "place_order": "Place order"
+    "place_order": "Place order",
+    "order_placed_confirmed": "Order placed. Payment status is confirmed by the server.",
+    "order_failed_retry": "Order not placed — review and retry",
+    "qty_update_failed": "Could not update the quantity. Try again.",
+    "remove_failed": "Could not remove the item. Try again.",
+    "promo_applied": "Promotion applied",
+    "promo_failed": "This code could not be applied.",
+    "applying": "Applying…",
+    "complete_fields": "Please complete the highlighted fields."
   },
   "order": {
     "state_unknown": "Status unavailable",
@@ -1297,7 +1405,8 @@
     "available_at_stores": "Available at stores",
     "you_save": "You save {{amount}}",
     "colour": "Colour",
-    "total_units_available": "{{count}} units available across {{variants}} variants"
+    "total_units_available": "{{count}} units available across {{variants}} variants",
+    "add_to_bag_price": "Add to bag — {{price}}"
   },
   "brand_nav": {
     "aria": "Platform and brand-partner navigation",
@@ -1315,7 +1424,20 @@
     "partner_hub": "Brand Partner Hub",
     "platform_analytics": "Platform Analytics",
     "admin_catalog": "Catalog Control",
-    "orders": "Orders"
+    "orders": "Orders",
+    "section_operations": "Operations",
+    "section_growth": "Growth",
+    "section_governance": "Governance",
+    "section_intelligence": "Intelligence",
+    "section_trust": "Trust & Audit",
+    "open_menu": "Open navigation menu",
+    "close_menu": "Close navigation menu",
+    "drawer_label": "Portal navigation",
+    "collapse_sidebar": "Collapse sidebar",
+    "expand_sidebar": "Expand sidebar",
+    "state_collapsed": "Sidebar collapsed — labels hidden, all destinations still reachable",
+    "state_expanded": "Sidebar expanded",
+    "breadcrumbs_aria": "You are here"
   },
   "admin_analytics": {
     "loading": "Aggregating platform-wide telemetry and style heatmaps…",
@@ -1369,7 +1491,16 @@
       "outfit_builder": "Outfit builder",
       "visual_search": "Visual search",
       "organic_discovery": "Organic discovery"
-    }
+    },
+    "window_label": "Analysis window",
+    "window_days": "Last {{days}} days",
+    "window_all": "All time",
+    "window_all_time": "Window: all recorded history (server-reported)",
+    "window_bounded": "Window: {{from}} → {{to}} (server-reported, inclusive)",
+    "window_unreported": "Window: not reported by this server version",
+    "fetched_at": "fetched at {{time}}",
+    "refresh": "Refresh data",
+    "drill_down": "Open catalog governance for {{brand}}"
   },
   "profile": {
     "mfa_setup_failed": "MFA setup failed: {{detail}}",
@@ -1668,5 +1799,236 @@
     "table_caption": "Order lines for your brand with customer, stock movement and net amount",
     "load_failed": "Could not load your order lines.",
     "showing": "Showing {{from}}–{{to}} of {{total}}"
+  },
+  "auth": {
+    "heading_signin": "Sign in to CONFIT",
+    "heading_signup": "Create your CONFIT account",
+    "heading_forgot": "Reset your password",
+    "heading_mfa": "Two-factor verification",
+    "status_pending": "Processing your request…",
+    "status_mfa_required": "Enter your two-factor code to finish signing in.",
+    "welcome_back": "Welcome back to CONFIT!",
+    "account_created": "Account created — complete your style profile to personalize CONFIT.",
+    "mfa_signed_in": "Signed in with MFA.",
+    "mfa_instructions": "Enter the 6-digit code from your authenticator app, or one of your single-use recovery codes.",
+    "mfa_code_label": "MFA code / recovery code",
+    "verifying": "Verifying…",
+    "verify_sign_in": "Verify & sign in",
+    "email_label": "Email address",
+    "password_label": "Password",
+    "password_placeholder_new": "8+ chars incl. 3 of upper/lower/digit/symbol",
+    "password_rules": "Must be 8+ characters with at least 3 of: uppercase, lowercase, digit, symbol.",
+    "full_name_label": "Full name",
+    "full_name_placeholder": "Layla Al-Mansoor",
+    "phone_label": "Phone (optional)",
+    "processing": "Processing…",
+    "sign_in": "Sign in",
+    "create_account": "Create an account",
+    "new_to_confit": "New to CONFIT?",
+    "already_have_account": "Already have an account?",
+    "forgot_link": "Forgot your password?",
+    "forgot_intro": "Enter your account email. If an account exists for it, we will send a reset link.",
+    "send_reset_link": "Send reset link",
+    "sending": "Sending…",
+    "forgot_sent": "If an account exists for this email, a reset link is on its way. Check your inbox and spam folder.",
+    "forgot_unconfigured": "Password reset email is not configured on this deployment yet, so no email was sent. Please contact support to recover your account.",
+    "forgot_failed": "Could not submit the request — please try again.",
+    "back_to_signin": "Back to sign in",
+    "invalid_credentials": "Incorrect email or password. Please try again.",
+    "mfa_code_invalid": "That verification code is not valid. Check your authenticator app and try again.",
+    "email_exists": "An account with this email already exists. Try signing in instead."
+  },
+  "account": {
+    "style_profile": "Style Profile",
+    "orders_tracking": "My Orders & Tracking",
+    "virtual_wardrobe": "Virtual Wardrobe",
+    "admin_panel": "Admin Governance Panel",
+    "partner_dashboard": "Brand Partner Dashboard",
+    "sign_out": "Sign Out",
+    "role_label": "Role:"
+  },
+  "guard": {
+    "verifying_session": "Verifying your session…",
+    "forbidden_badge": "403 Forbidden · Role Restriction",
+    "access_restricted": "Access Restricted",
+    "registered_as": "Your account is registered as",
+    "requires_roles": "This portal requires one of the following permissions:",
+    "return_storefront": "Return to Consumer Storefront",
+    "switch_account": "Switch Account / Re-authenticate"
+  },
+  "share": {
+    "copied": "Link copied",
+    "copy_denied": "Copying was blocked by the browser — select the link text and copy it manually",
+    "copy_link": "Copy link",
+    "copy_unsupported": "This browser cannot copy automatically — select the link text and copy it manually",
+    "copying": "Copying…",
+    "native_share": "Share…",
+    "shared_fallback": "Sharing was unavailable — the link was copied instead"
+  },
+  "shared_look": {
+    "back_home": "Back to CONFIT",
+    "create_your_own": "Create your own look on CONFIT",
+    "download_png": "Download PNG",
+    "error_body": "We could not load this shared look. Please try again later.",
+    "error_title": "Something went wrong",
+    "generating": "Generating…",
+    "loading": "Loading shared look…",
+    "png_failed": "Sorry, the image could not be generated. Please try again.",
+    "unavailable_body": "The share link is invalid, expired, or was revoked by its owner.",
+    "unavailable_title": "This look is no longer available"
+  },
+  "carousel": {
+    "loading": "Loading items…",
+    "retry": "Retry",
+    "empty": "Nothing to show here yet.",
+    "previous": "Previous",
+    "next": "Next",
+    "position": "Item {{current}} of {{total}}",
+    "go_to": "Go to {{title}}",
+    "open_item": "Open {{title}}"
+  },
+  "showcase": {
+    "stack_region": "Style stories carousel",
+    "gallery_region": "Visual collection gallery",
+    "gallery_eyebrow_suffix": "Gallery",
+    "gallery_title": "Rotating visual system for every journey",
+    "gallery_description": "A real, reusable 3D gallery brings collection stories, fit journeys, and operational insights into one premium interface.",
+    "items": {
+      "tailored_power": {
+        "title": "Tailored Power",
+        "description": "Structured tailoring for work, dinners, and polished day-to-night moments."
+      },
+      "evening_silk": {
+        "title": "Evening Silk",
+        "description": "Occasion dressing with fluid gowns, satin finishes, and gold accents."
+      },
+      "minimal_capsule": {
+        "title": "Minimal Capsule",
+        "description": "Quiet luxury essentials built for repeat wear and easy outfit pairing."
+      },
+      "street_utility": {
+        "title": "Street Utility",
+        "description": "Relaxed layers, sharp proportions, and practical weekend styling."
+      },
+      "resort_linen": {
+        "title": "Resort Linen",
+        "description": "Breathable neutrals and travel-friendly summer silhouettes."
+      },
+      "catalog_quality": {
+        "title": "Catalog Quality Gate",
+        "description": "Merchandising teams review imagery, attributes, stock signals, and fit metadata before publishing."
+      },
+      "inventory_ops": {
+        "title": "Inventory Operations",
+        "description": "Boutique teams monitor live stock, pickup readiness, replenishment, and SKU-level health."
+      },
+      "placement_engine": {
+        "title": "Placement Engine",
+        "description": "Premium placements balance brand priority with shopper intent and conversion confidence."
+      },
+      "analytics_control": {
+        "title": "Analytics Control Room",
+        "description": "Executive dashboards connect visual merchandising to margin, attribution, and try-on engagement."
+      },
+      "fulfillment_trust": {
+        "title": "Fulfillment Trust",
+        "description": "Operational transparency covers order status, pickup windows, courier flows, and returns."
+      }
+    },
+    "gallery_items": {
+      "workwear_fit": {
+        "name": "Workwear Fit",
+        "caption": "Structured blazer + trouser balance",
+        "alt": "Tailored suit styling"
+      },
+      "evening_texture": {
+        "name": "Evening Texture",
+        "caption": "Silk, satin, and event-ready polish",
+        "alt": "Evening dress styling"
+      },
+      "capsule_layering": {
+        "name": "Capsule Layering",
+        "caption": "Modern neutrals for daily rotation",
+        "alt": "Minimal fashion styling"
+      },
+      "visual_search_mood": {
+        "name": "Visual Search Mood",
+        "caption": "Camera-led outfit inspiration matching",
+        "alt": "Fashion shopping and visual discovery"
+      },
+      "wardrobe_reuse": {
+        "name": "Wardrobe Reuse",
+        "caption": "Owned pieces styled into new looks",
+        "alt": "Organized clothing wardrobe"
+      },
+      "boutique_operations": {
+        "name": "Boutique Operations",
+        "caption": "Catalog readiness and retail execution",
+        "alt": "Premium retail boutique"
+      }
+    },
+    "tones": {
+      "consumer": {
+        "label": "Consumer Style System",
+        "title": "Interactive premium fashion discovery",
+        "description": "Swipe through real editorial outfit directions and jump into catalog exploration with visual continuity."
+      },
+      "tryon": {
+        "label": "Virtual Try-On Journey",
+        "title": "From inspiration to body-aware fit",
+        "description": "Use the same design language to connect moodboards, garments, visual search, and fit decisions."
+      },
+      "wardrobe": {
+        "label": "Wardrobe Reuse",
+        "title": "Turn saved garments into styled rotations",
+        "description": "Card stacks present reusable outfit formulas while circular galleries add premium visual browsing moments."
+      },
+      "commerce": {
+        "label": "Checkout Confidence",
+        "title": "A premium purchase and fulfillment journey",
+        "description": "Show delivery, returns, and pickup trust signals using the same tactile visual system."
+      },
+      "brand": {
+        "label": "Brand Partner UI",
+        "title": "Operational storytelling for partners",
+        "description": "B2B pages use the components for catalog, inventory, placements, and executive decisions."
+      },
+      "analytics": {
+        "label": "Performance Intelligence",
+        "title": "Visualize the path from styling to margin",
+        "description": "Analytics surfaces stay visual and decision-oriented without becoming decorative or cartoonish."
+      }
+    },
+    "gallery_previous": "Previous look",
+    "gallery_next": "Next look",
+    "gallery_credit": "Photo: {{name}}"
+  },
+  "freshness": {
+    "checking": "Checking catalog freshness…",
+    "live": "Catalog in sync — fingerprint checked every {{seconds}}s",
+    "degraded": "Freshness check failing — figures may be out of date"
+  },
+  "registers": {
+    "editorial": {
+      "label": "Editorial"
+    },
+    "atelier": {
+      "label": "Your Atelier"
+    },
+    "fit": {
+      "label": "Fit Studio"
+    },
+    "commerce": {
+      "label": "Secure Shopping"
+    },
+    "account": {
+      "label": "Your Account"
+    },
+    "partner": {
+      "label": "Partner Operations"
+    },
+    "admin": {
+      "label": "Platform Governance"
+    }
   }
 }

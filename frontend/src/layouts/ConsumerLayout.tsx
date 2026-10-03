@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Outlet, Link } from 'react-router-dom';
+import { Outlet, Link, useLocation } from 'react-router-dom';
 import { ConsumerNavbar } from '../components/navigation/ConsumerNavbar';
 import { VirtualStylistDrawer } from '../components/stylist/VirtualStylistDrawer';
 import { VirtualTryOnModal } from '../components/tryon/VirtualTryOnModal';
@@ -15,9 +15,13 @@ import { useCartStore } from '../stores/cartStore';
 import { SparkleIcon } from '../components/icons/ConfitIcons';
 import { SkipLink, SKIP_TARGET_ID } from '../components/common/SkipLink';
 import { TrustFooter } from '../components/commerce/TrustFooter';
+import { RegisterBanner } from '../components/common/RegisterBanner';
+import { resolveRegister, registerStyle } from '../design/registers';
 
 export const ConsumerLayout: React.FC = () => {
   const { t } = useTranslation();
+  const location = useLocation();
+  const register = resolveRegister(location.pathname);
   const { openStylist } = useUIStore();
   // AUTH-02 FIX: fetchMe bootstrap moved to App (session must restore on
   // /b2b and /admin too); AuthModal/Toast are now mounted at the app root.
@@ -48,8 +52,11 @@ export const ConsumerLayout: React.FC = () => {
       <main
         id={SKIP_TARGET_ID}
         tabIndex={-1}
+        data-register={register}
+        style={registerStyle(register) as React.CSSProperties}
         className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8 outline-none"
       >
+        <RegisterBanner register={register} />
         <Outlet />
       </main>
 

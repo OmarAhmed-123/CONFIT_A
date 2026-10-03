@@ -21,7 +21,13 @@ import {
 } from "../../components/common/CommonComponents";
 import { CardStackShowcase } from "../../components/showcase/DesignShowcases";
 import { HonestProductImage } from "../../components/common/HonestProductImage";
+import {
+  AsyncActionButton,
+  WishlistToggle,
+  classifyActionError,
+} from "../../components/common/InteractionPrimitives";
 import { useTranslation } from "react-i18next";
+import { localizeApiError } from "../../i18n/apiErrors";
 import { useTryOnAvailability } from "../../hooks/useTryOnAvailability";
 
 export const ProductDetailView: React.FC = () => {
@@ -43,7 +49,6 @@ export const ProductDetailView: React.FC = () => {
   const [isSlowLoad, setIsSlowLoad] = useState(false);
   const [reloadTick, setReloadTick] = useState(0);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [adding, setAdding] = useState(false);
 
   const { openTryOn, openRuler, showToast } = useUIStore();
   const { addItem } = useCartStore();
@@ -224,13 +229,13 @@ export const ProductDetailView: React.FC = () => {
               )}
             </div>
 
-            <button
-              onClick={() => setIsWishlisted(!isWishlisted)}
-              className="absolute top-4 right-4 p-2.5 rounded-full bg-white/90 hover:bg-white text-slate-800 shadow-md backdrop-blur-xs transition-all"
-              aria-label={t('a11y.add_to_wishlist')}
+            <WishlistToggle
+              isWishlisted={isWishlisted}
+              onToggle={() => setIsWishlisted(!isWishlisted)}
+              className="surface-glass-light absolute top-3 end-3 rounded-full hover:bg-white text-slate-800 transition-all"
             >
               <HeartIcon size={18} isLiked={isWishlisted} />
-            </button>
+            </WishlistToggle>
 
             <button
               onClick={tryOn.gate({
@@ -238,7 +243,7 @@ export const ProductDetailView: React.FC = () => {
                 fitCheck: () => openRuler(product),
               })}
               disabled={tryOnKind === "blocked"}
-              className="absolute bottom-4 right-4 px-5 py-3 rounded-2xl bg-[#1B1F3B]/95 hover:bg-[#C5A059] text-white hover:text-slate-950 text-xs font-bold shadow-xl backdrop-blur-md transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="surface-glass-dark absolute bottom-4 end-4 min-h-11 px-5 py-3 rounded-2xl hover:bg-[#C5A059] hover:text-slate-950 text-xs font-bold transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {tryOnKind === "render" ? (
                 <TryOnIcon size={18} color="currentColor" />
@@ -348,7 +353,7 @@ export const ProductDetailView: React.FC = () => {
             )}
           </div>
 
-          <div className="p-4.5 rounded-2xl bg-white border border-slate-200/80 shadow-2xs space-y-3.5">
+          <div className="surface-raised p-4.5 rounded-2xl space-y-3.5">
             <div className="flex justify-between items-center pb-2 border-b border-slate-100">
               <div className="flex items-center gap-1.5">
                 <SparkleIcon size={16} color="#C5A059" />
@@ -501,36 +506,58 @@ export const ProductDetailView: React.FC = () => {
           </div>
 
           <div className="space-y-2.5">
-            <button
-              disabled={!currentSku?.is_in_stock || adding}
-              onClick={async () => {
-                if (!currentSku) return;
-                setAdding(true);
+            <AsyncActionButton
+              disabled={!currentSku?.is_in_stock}
+              onAction={async () => {
+                if (!currentSku) return "unavailable";
                 try {
-                  await addItem(currentSku.id, {
+                  const res = await addItem(currentSku.id, {
                     id: product.id,
                     title: product.title,
                     category: product.category_name,
                     color: product.color_family,
                   });
-                  showToast("Added to bag", "success");
+                  // The duplicate-SKU dialog may have intercepted the add:
+                  // nothing is in the bag yet, so no success toast and no
+                  // "Added" state — the dialog finishes the flow.
+                  if (useCartStore.getState().pendingDuplicateAlert) {
+                    return "handled";
+                  }
+                  // Spec §5: a re-added SKU says the MERGED quantity in words —
+                  // derived from the server's cart, never guessed locally.
+                  if (res?.merged) {
+                    showToast(t("toast.bag_quantity_merged", { count: res.quantity }), "success");
+                  } else {
+                    showToast(t("toast.added_to_bag"), "success");
+                  }
+                  return "success";
                 } catch (err: any) {
-                  showToast(err?.message || "Could not add to bag", "error");
-                } finally {
-                  setAdding(false);
+                  const kind = classifyActionError(err);
+                  if (kind === "error") {
+                    // Translated by code where possible; the honest server
+                    // text only as a last resort — never raw-EN-first.
+                    showToast(localizeApiError(err, t, "discover.add_to_bag_failed"), "error");
+                  }
+                  return kind;
                 }
               }}
-              className="w-full py-4 rounded-2xl bg-[#1B1F3B] hover:bg-[#0C0E1E] disabled:opacity-50 text-white font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2"
-            >
-              <BagIcon size={16} color="#FFFFFF" />
-              <span>
-                {!currentSku?.is_in_stock
-                  ? t('product.out_of_stock')
-                  : adding
-                    ? "Adding..."
-                    : `Add to bag — $${(currentSku?.price_override ?? product.base_price).toFixed(2)}`}
-              </span>
-            </button>
+              icon={<BagIcon size={16} color="#FFFFFF" />}
+              idleLabel={
+                !currentSku?.is_in_stock
+                  ? t("product.out_of_stock")
+                  : t("product.add_to_bag_price", {
+                      price: formatMoney(
+                        Math.round(
+                          (currentSku?.price_override ?? product.base_price) * 100,
+                        ),
+                        product.currency || "USD",
+                        lang,
+                      ),
+                    })
+              }
+              data-testid="pdp-add-to-bag"
+              className="w-full py-4 rounded-2xl bg-[#1B1F3B] hover:bg-[#0C0E1E] disabled:opacity-50 text-white font-bold text-xs shadow-md"
+            />
 
             <button
               onClick={tryOn.gate({
@@ -717,7 +744,7 @@ export const ProductDetailView: React.FC = () => {
             {product.related_outfits.map((outfit, idx) => (
               <div
                 key={`${outfit.title}-${idx}`}
-                className="rounded-3xl border border-slate-200 p-4 bg-white space-y-3"
+                className="surface-solid rounded-3xl p-4 space-y-3"
               >
                 <h3 className="text-sm font-bold text-[#1B1F3B]">
                   {outfit.title}

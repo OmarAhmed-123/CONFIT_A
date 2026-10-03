@@ -7,6 +7,11 @@ import { useUIStore } from "../../stores/uiStore";
 import { useTryOnAvailability } from "../../hooks/useTryOnAvailability";
 import { HonestProductImage } from "../common/HonestProductImage";
 import { FitScoreBadge } from "../common/CommonComponents";
+import {
+  AsyncActionButton,
+  WishlistToggle,
+  type ActionOutcome,
+} from "../common/InteractionPrimitives";
 import { RulerIcon, BagIcon, HeartIcon } from "../icons/ConfitIcons";
 import { TryOnButton } from "./TryOnButton";
 import { formatMoney } from "../../i18n/format";
@@ -54,8 +59,14 @@ export interface ProductCardProps {
   /** Wishlist state and toggle. Omit to hide the control entirely. */
   isWishlisted?: boolean;
   onToggleWishlist?: (productId: number) => void;
-  /** Add-to-bag handler. Omit to hide the button (e.g. in the outfit builder). */
-  onAddToBag?: (product: Product) => void;
+  /**
+   * Add-to-bag handler. Omit to hide the button (e.g. in the outfit builder).
+   * The resolved `ActionOutcome` drives the button's state machine:
+   * "success" | void → Added; "handled" → another surface continues (e.g. the
+   * duplicate dialog), no success claim; "unavailable" | "error" | throw →
+   * failure state, button stays actionable. See InteractionPrimitives.
+   */
+  onAddToBag?: (product: Product) => Promise<ActionOutcome | void> | ActionOutcome | void;
   /** Rendered under the price — e.g. a BNPL badge or a fit hint. */
   footerSlot?: React.ReactNode;
   /** Overrides navigation to the product page. */
@@ -153,14 +164,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         </div>
 
         {onToggleWishlist && (
-          <button
-            onClick={() => onToggleWishlist(product.id)}
-            className="absolute top-2.5 right-2.5 p-2 rounded-full bg-white/90 hover:bg-white text-slate-700 shadow-sm backdrop-blur-xs transition-all"
-            aria-label={t("a11y.toggle_wishlist")}
-            aria-pressed={isWishlisted}
+          <WishlistToggle
+            isWishlisted={isWishlisted}
+            onToggle={() => onToggleWishlist(product.id)}
+            className="absolute top-1 end-1 rounded-full bg-white/90 hover:bg-white text-slate-700 shadow-sm backdrop-blur-xs transition-all"
           >
             <HeartIcon size={15} isLiked={isWishlisted} />
-          </button>
+          </WishlistToggle>
         )}
 
         {/* Quick try-on, always present on the image itself. */}
@@ -228,13 +238,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           <TryOnButton product={product} variant="full" className="w-full" />
 
           {onAddToBag && (
-            <button
-              onClick={() => onAddToBag(product)}
-              className="col-span-2 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold transition-all flex items-center justify-center gap-1.5"
-            >
-              <BagIcon size={14} color="currentColor" />
-              <span>{t("commerce.add_to_cart")}</span>
-            </button>
+            <AsyncActionButton
+              onAction={() => onAddToBag(product)}
+              idleLabel={t("commerce.add_to_cart")}
+              icon={<BagIcon size={14} color="currentColor" />}
+              data-testid="product-card-add-to-bag"
+              className="col-span-2 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 disabled:opacity-60 text-slate-800 text-xs font-semibold"
+            />
           )}
         </div>
       </div>

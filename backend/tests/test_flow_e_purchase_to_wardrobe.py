@@ -522,7 +522,7 @@ def test_migration_0015_round_trip_and_unique_lineage() -> None:
         os.unlink(path)
 
 
-def test_migration_chain_has_a_single_head_at_0031() -> None:
+def test_migration_chain_has_a_single_head_at_0032() -> None:
     from backend.app.core.schema_gate import expected_head_revision, migration_chain
 
     chain = migration_chain()
@@ -570,7 +570,13 @@ def test_migration_chain_has_a_single_head_at_0031() -> None:
     # /builder and /my-looks: "Remove look" was a hard delete that cascaded
     # every OutfitItem, and a naive soft delete would have left a deleted
     # look publicly reachable through its share token.
-    assert expected_head_revision() == "0031_outfit_soft_delete"
+    # -> 0032 (email_outbox). The head moved consciously: the spec-15 email
+    # template system needs delivery truth — one row per email EVENT with a
+    # UNIQUE event_key, so a replayed webhook or retried worker can never
+    # email a user twice, and a transport failure is a recorded status
+    # (failed/bounced), never a vanished log line.
+    assert expected_head_revision() == "0032_email_outbox"
+    assert chain["0032_email_outbox"] == "0031_outfit_soft_delete"
     assert chain["0031_outfit_soft_delete"] == "0030_wardrobe_soft_delete"
     assert chain["0030_wardrobe_soft_delete"] == "0029_brand_profile_not_null_defaults"
     assert chain["0029_brand_profile_not_null_defaults"] == "0028_order_fx_lock"

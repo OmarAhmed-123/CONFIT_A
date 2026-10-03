@@ -50,10 +50,15 @@ export default defineConfig({
           if (id.includes('node_modules/lucide-react')) {
             return 'vendor-icons';
           }
-          // B2B heavy views - separate chunk
-          if (id.includes('BrandAnalyticsView') || id.includes('AdminAnalyticsView')) {
-            return 'b2b-analytics';
-          }
+          // NOTE (Magic Navigation §5/§8): the old forced 'b2b-analytics'
+          // manualChunks rule is intentionally GONE. Forcing the two
+          // analytics views into a named chunk made the bundler hoist
+          // shared modules (including the i18n catalogues) into it, which
+          // turned the chunk into a STATIC dependency of the main bundle —
+          // every shopper downloaded ~650KB of partner/governance
+          // dashboards eagerly. The views are now React.lazy in
+          // AppRoutes.tsx, so each gets its own naturally dynamic chunk
+          // and the shared modules stay in the entry bundle.
         },
       },
     },

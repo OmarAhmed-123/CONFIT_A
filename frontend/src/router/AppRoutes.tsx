@@ -3,6 +3,7 @@ import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { ConsumerLayout } from '../layouts/ConsumerLayout';
 import { BrandLayout } from '../layouts/BrandLayout';
 import { RoleGuard, ProtectedRoute } from '../components/auth/RoleGuard';
+import { RoutePending } from '../components/navigation/RoutePending';
 import { useAuthStore } from '../stores/authStore';
 
 /**
@@ -48,9 +49,25 @@ import { BrandDashboardView } from '../views/b2b/BrandDashboardView';
 import { BrandCatalogView } from '../views/b2b/BrandCatalogView';
 import { BrandInventoryView } from '../views/b2b/BrandInventoryView';
 import { BrandOrdersView } from '../views/b2b/BrandOrdersView';
-import { BrandAnalyticsView } from '../views/b2b/BrandAnalyticsView';
+// Spec "Magic Navigation" §5: the two ANALYTICS views are the heaviest
+// modules in the app (recharts + dashboards — the 'b2b-analytics' chunk).
+// They are code-split with React.lazy so a SHOPPER never downloads partner/
+// governance tooling, and the pending navigation state while the chunk
+// loads is a visible, translated, politely-announced text — not a blank
+// screen (RoutePending below). Every other route stays eager: they are
+// small, and an instant shell beats a spinner.
+const BrandAnalyticsView = React.lazy(() =>
+  import('../views/b2b/BrandAnalyticsView').then((m) => ({ default: m.BrandAnalyticsView })),
+);
 import { BrandPlacementsView } from '../views/b2b/BrandPlacementsView';
-import { AdminAnalyticsView } from '../views/b2b/AdminAnalyticsView';
+const AdminAnalyticsView = React.lazy(() =>
+  import('../views/b2b/AdminAnalyticsView').then((m) => ({ default: m.AdminAnalyticsView })),
+);
+
+/** Lazy element + its announced pending state, in one expression. */
+const suspended = (node: React.ReactNode) => (
+  <React.Suspense fallback={<RoutePending />}>{node}</React.Suspense>
+);
 import { AdminAuditView } from '../views/b2b/AdminAuditView';
 import { AdminCatalogView } from '../views/b2b/AdminCatalogView';
 
@@ -92,7 +109,7 @@ export const PartnerPortalBoundary: React.FC<{ children: React.ReactNode }> = ({
   }
 
   return (
-    <RoleGuard allowedRoles={PARTNER_ROLES} fallbackTitle="Brand Partner Portal">
+    <RoleGuard allowedRoles={PARTNER_ROLES} portal="partner">
       {children}
     </RoleGuard>
   );
@@ -216,7 +233,7 @@ export const AppRoutes: React.FC = () => {
           <Route path="catalog" element={<BrandCatalogView />} />
           <Route path="inventory" element={<BrandInventoryView />} />
           <Route path="orders" element={<BrandOrdersView />} />
-          <Route path="analytics" element={<BrandAnalyticsView />} />
+          <Route path="analytics" element={suspended(<BrandAnalyticsView />)} />
           <Route path="placements" element={<BrandPlacementsView />} />
           {/* Kept as a legacy URL. PartnerPortalBoundary redirects an admin to
               /admin/analytics; partner roles do not receive platform access. */}
@@ -237,7 +254,7 @@ export const AppRoutes: React.FC = () => {
           <Route path="catalog" element={<BrandCatalogView />} />
           <Route path="inventory" element={<BrandInventoryView />} />
           <Route path="orders" element={<BrandOrdersView />} />
-          <Route path="analytics" element={<BrandAnalyticsView />} />
+          <Route path="analytics" element={suspended(<BrandAnalyticsView />)} />
           <Route path="placements" element={<BrandPlacementsView />} />
         </Route>
 
@@ -245,14 +262,14 @@ export const AppRoutes: React.FC = () => {
         <Route
           path="/admin"
           element={
-            <RoleGuard allowedRoles={ADMIN_ROLES} fallbackTitle="Platform Super-Admin Portal">
+            <RoleGuard allowedRoles={ADMIN_ROLES} portal="admin">
               <BrandLayout />
             </RoleGuard>
           }
         >
-          <Route index element={<AdminAnalyticsView />} />
-          <Route path="overview" element={<AdminAnalyticsView />} />
-          <Route path="analytics" element={<AdminAnalyticsView />} />
+          <Route index element={suspended(<AdminAnalyticsView />)} />
+          <Route path="overview" element={suspended(<AdminAnalyticsView />)} />
+          <Route path="analytics" element={suspended(<AdminAnalyticsView />)} />
           <Route path="catalog" element={<AdminCatalogView />} />
           <Route path="partners" element={<AdminCatalogView />} />
           {/* G-07: this route used to render the analytics dashboard, so the

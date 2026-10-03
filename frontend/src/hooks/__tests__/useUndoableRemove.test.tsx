@@ -430,6 +430,63 @@ describe('builder clear canvas — local undo', () => {
   });
 });
 
+describe('builder clear ONE slot — local undo (spec §1 "clear slot")', () => {
+  it('removing a slot item offers Undo, and Undo puts the exact item back', async () => {
+    const { result } = renderHook(() => useOutfitBuilderViewModel());
+    act(() => {
+      result.current.addItemToCanvas(fakeProduct(1), 'top');
+      result.current.addItemToCanvas(fakeProduct(2), 'bottom');
+    });
+    showToast.mockClear();
+
+    act(() => result.current.removeItemFromCanvas('top'));
+
+    // Only the targeted slot was cleared.
+    expect(result.current.selectedItems.map((i) => i.slot)).toEqual(['bottom']);
+    const t = lastToast();
+    expect(toastKey(t.message)).toBe('toast.slot_cleared');
+    expect((t.message as { params?: { title?: string } }).params?.title).toBe('Product 1');
+    expect(t.action?.i18nLabel).toBe('a11y.undo_remove');
+
+    act(() => t.action!.onAction());
+
+    expect(result.current.selectedItems.map((i) => i.product.id).sort()).toEqual([1, 2]);
+    await waitFor(() => expect(toastKey(lastToast().message)).toBe('toast.slot_restored'));
+  });
+
+  it('clearing an EMPTY slot is a silent no-op — no toast, no dangling Undo', () => {
+    const { result } = renderHook(() => useOutfitBuilderViewModel());
+    act(() => result.current.addItemToCanvas(fakeProduct(1), 'top'));
+    showToast.mockClear();
+
+    act(() => result.current.removeItemFromCanvas('footwear'));
+
+    expect(result.current.selectedItems).toHaveLength(1);
+    expect(showToast).not.toHaveBeenCalled();
+  });
+
+  it('Undo after the slot was REFILLED replaces the newer item (one-item-per-slot invariant, no duplicates)', () => {
+    const { result } = renderHook(() => useOutfitBuilderViewModel());
+    act(() => result.current.addItemToCanvas(fakeProduct(1), 'top'));
+    showToast.mockClear();
+
+    act(() => result.current.removeItemFromCanvas('top'));
+    const t = lastToast();
+
+    // The shopper drops a DIFFERENT product into the now-empty slot…
+    act(() => result.current.addItemToCanvas(fakeProduct(3), 'top'));
+    expect(result.current.selectedItems.map((i) => i.product.id)).toEqual([3]);
+
+    // …then hits Undo. Restore follows addItemToCanvas's replace-on-occupied
+    // rule: the slot holds the restored item, never two items, never a dupe.
+    act(() => t.action!.onAction());
+
+    const tops = result.current.selectedItems.filter((i) => i.slot === 'top');
+    expect(tops).toHaveLength(1);
+    expect(tops[0].product.id).toBe(1);
+  });
+});
+
 // ===========================================================================
 // D. screen reader — the REAL Toast carrying an Undo action
 // ===========================================================================

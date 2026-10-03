@@ -837,7 +837,9 @@
     "canvas_restored": "تمت استعادة اللوحة",
     "permanent_delete_needs_confirm": "الحذف النهائي يتطلب تأكيداً صريحاً",
     "wardrobe_import_complete": "تم استيراد {{succeeded}} قطعة من صورتك.",
-    "wardrobe_import_all_failed": "فشل استيراد الإطلالة — لم يتم حفظ أي قطع."
+    "wardrobe_import_all_failed": "فشل استيراد الإطلالة — لم يتم حفظ أي قطع.",
+    "slot_cleared": "تمت إزالة {{title}} من اللوحة",
+    "slot_restored": "عادت {{title}} إلى اللوحة"
   },
   "consent": {
     "title": "قبل أن نعالج صورتك",

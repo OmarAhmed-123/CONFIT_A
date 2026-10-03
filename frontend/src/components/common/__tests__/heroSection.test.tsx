@@ -245,3 +245,74 @@ describe('HeroSection a11y & i18n resilience', () => {
     expect(screen.getByRole('heading', { level: 1, name: 'Hero' })).toBeVisible();
   });
 });
+
+/* ------------------------------------------------------------------ */
+/* E. Re-pass: entrance motion is decoration, never a gate             */
+/* ------------------------------------------------------------------ */
+describe('HeroSection motion contract (re-pass)', () => {
+  const stubMatchMedia = (reduce: boolean) => {
+    window.matchMedia = ((query: string) => ({
+      matches: reduce && query.includes('prefers-reduced-motion'),
+      media: query,
+      onchange: null,
+      addListener: () => {},
+      removeListener: () => {},
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      dispatchEvent: () => false,
+    })) as unknown as typeof window.matchMedia;
+  };
+
+  it('motion ON: every block exists and the CTA works from the FIRST frame — nothing waits for an animation', () => {
+    stubMatchMedia(false);
+    let clicked = false;
+    wrap(
+      <HeroSection
+        title="Animated hero"
+        eyebrow={<span>Eyebrow</span>}
+        lede="Lede copy"
+        actions={
+          <button type="button" onClick={() => (clicked = true)}>
+            Primary CTA
+          </button>
+        }
+        aside={<div>Aside card</div>}
+      />,
+    );
+    // All content present immediately (opacity is animated, DOM is not).
+    expect(screen.getByRole('heading', { name: 'Animated hero' })).toBeInTheDocument();
+    expect(screen.getByText('Lede copy')).toBeInTheDocument();
+    expect(screen.getByText('Aside card')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Primary CTA' }));
+    expect(clicked).toBe(true);
+  });
+
+  it('breathing glows stay decorative: aria-hidden + pointer-events-none in BOTH motion modes', () => {
+    for (const reduce of [false, true]) {
+      stubMatchMedia(reduce);
+      const { container, unmount } = wrap(<HeroSection title="Glow check" />);
+      const glows = container.querySelectorAll('[aria-hidden="true"].pointer-events-none');
+      expect(glows.length).toBeGreaterThanOrEqual(2);
+      unmount();
+    }
+  });
+
+  it('reduced motion: ZERO animated styles — the render is the static hero (no initial opacity:0 anywhere)', () => {
+    stubMatchMedia(true);
+    const { container } = wrap(
+      <HeroSection
+        title="Static hero"
+        lede="Lede"
+        actions={<button type="button">CTA</button>}
+        aside={<div>Card</div>}
+      />,
+    );
+    // framer-motion writes `opacity: 0` inline for entrance initials;
+    // under reduced motion no element may carry it.
+    const hidden = Array.from(container.querySelectorAll<HTMLElement>('*')).filter(
+      (el) => el.style.opacity === '0',
+    );
+    expect(hidden).toEqual([]);
+    expect(screen.getByRole('button', { name: 'CTA' })).toBeVisible();
+  });
+});

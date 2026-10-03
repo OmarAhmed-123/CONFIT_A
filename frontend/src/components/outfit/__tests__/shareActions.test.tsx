@@ -343,3 +343,77 @@ describe('axe / RTL / keyboard / reduced motion', () => {
     }
   });
 });
+
+// ===========================================================================
+// E. Re-pass: the public page is a BRANDED, animated editorial surface —
+//    and every bit of motion is decoration behind the reduced-motion guard.
+// ===========================================================================
+describe('SharedLookView editorial chrome (re-pass design)', () => {
+  it('ready: shows the CONFIT masthead, the curated line and the look headline', async () => {
+    (publicLookService.getPublicLook as ReturnType<typeof vi.fn>).mockResolvedValue(READY_LOOK);
+    renderPublic('tok_live');
+
+    // Page h1 = curated line; the look's own title stays the ShareCard h2 —
+    // each heading name is UNIQUE (no duplicate landmarks for SR users).
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'A look curated on CONFIT' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: 'Evening Ensemble' })).toBeInTheDocument();
+    expect(screen.getByText('Shared look')).toBeInTheDocument();
+    // Masthead logo and footer CTA are DISTINCT accessible names.
+    expect(screen.getByRole('link', { name: 'CONFIT — home' })).toBeInTheDocument();
+  });
+
+  it('loading spinner is decorative and motion-safe only — text carries the state', async () => {
+    (publicLookService.getPublicLook as ReturnType<typeof vi.fn>).mockReturnValue(
+      new Promise(() => {}),
+    );
+    const { container } = renderPublic('tok_pending');
+
+    const status = screen.getByRole('status');
+    expect(status).toHaveTextContent(/preparing|loading|جارٍ/i);
+    const spinner = container.querySelector('[aria-hidden="true"].motion-safe\\:animate-spin');
+    expect(spinner).not.toBeNull();
+  });
+
+  it('unavailable state keeps the branded shell and a working home CTA', async () => {
+    (publicLookService.getPublicLook as ReturnType<typeof vi.fn>).mockRejectedValue(
+      Object.assign(new Error('gone'), { status: 404 }),
+    );
+    renderPublic('tok_dead');
+
+    await screen.findByText(/no longer available|لم تعد متاحة/i);
+    expect(screen.getByText('Shared look')).toBeInTheDocument();
+    expect(screen.getAllByRole('link').length).toBeGreaterThanOrEqual(2); // masthead + CTA
+  });
+
+  it('axe: the redesigned ready page is clean (EN/LTR)', async () => {
+    (publicLookService.getPublicLook as ReturnType<typeof vi.fn>).mockResolvedValue(READY_LOOK);
+    const { container } = renderPublic('tok_axe');
+    await screen.findByRole('heading', { level: 2, name: 'Evening Ensemble' });
+    expect((await axe(container)).violations).toEqual([]);
+  });
+
+  it('axe + Arabic: the page reads in Arabic and stays clean in RTL', async () => {
+    await act(async () => {
+      await setAppLanguage('ar');
+    });
+    (publicLookService.getPublicLook as ReturnType<typeof vi.fn>).mockResolvedValue(READY_LOOK);
+    const { container } = render(
+      <I18nextProvider i18n={i18n}>
+        <div dir="rtl">
+          <MemoryRouter initialEntries={['/looks/tok_ar']}>
+            <Routes>
+              <Route path="/looks/:token" element={<SharedLookView />} />
+            </Routes>
+          </MemoryRouter>
+        </div>
+      </I18nextProvider>,
+    );
+    await screen.findByText('إطلالة منسّقة على CONFIT');
+    expect((await axe(container)).violations).toEqual([]);
+    await act(async () => {
+      await setAppLanguage('en');
+    });
+  });
+});

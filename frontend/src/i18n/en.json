@@ -1875,7 +1875,10 @@
     "loading": "Loading shared look…",
     "png_failed": "Sorry, the image could not be generated. Please try again.",
     "unavailable_body": "The share link is invalid, expired, or was revoked by its owner.",
-    "unavailable_title": "This look is no longer available"
+    "unavailable_title": "This look is no longer available",
+    "masthead_tag": "Shared look",
+    "curated_line": "A look curated on CONFIT",
+    "masthead_home": "CONFIT — home"
   },
   "carousel": {
     "loading": "Loading items…",

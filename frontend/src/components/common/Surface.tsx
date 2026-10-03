@@ -1,6 +1,8 @@
 import React from "react";
 import clsx from "clsx";
 import { twMerge } from "tailwind-merge";
+import { motion } from "framer-motion";
+import { usePrefersReducedMotion } from "./InteractionPrimitives";
 
 /**
  * Surface — the embossed-depth surface system (spec 09).
@@ -42,6 +44,14 @@ type SurfaceProps<T extends React.ElementType> = {
   variant: SurfaceVariant;
   /** Rendered element — div by default; use section/article when semantic. */
   as?: T;
+  /**
+   * Re-pass: optional entrance reveal (opacity/translate only — no layout
+   * shift §9, no spring). Pure decoration: under prefers-reduced-motion the
+   * exact static element renders instead, same classes, same hierarchy (§5).
+   */
+  reveal?: boolean;
+  /** Stagger offset in seconds for sibling reveals. */
+  revealDelay?: number;
   className?: string;
   children?: React.ReactNode;
 } & Omit<React.ComponentPropsWithoutRef<T>, "as" | "className" | "children">;
@@ -49,17 +59,50 @@ type SurfaceProps<T extends React.ElementType> = {
 export const Surface = <T extends React.ElementType = "div">({
   variant,
   as,
+  reveal = false,
+  revealDelay = 0,
   className,
   children,
   ...rest
 }: SurfaceProps<T>) => {
   const Tag = (as ?? "div") as React.ElementType;
+  const reduceMotion = usePrefersReducedMotion();
+  const cls = twMerge(clsx(VARIANT_CLASS[variant], className));
+
+  if (reveal && !reduceMotion) {
+    // One memoized motion component per element type (motion() inside
+    // render would remount the subtree on every render).
+    const MotionTag = getMotionTag(Tag);
+    return (
+      <MotionTag
+        className={cls}
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: revealDelay, ease: "easeOut" }}
+        {...rest}
+      >
+        {children}
+      </MotionTag>
+    );
+  }
+
   return (
-    <Tag className={twMerge(clsx(VARIANT_CLASS[variant], className))} {...rest}>
+    <Tag className={cls} {...rest}>
       {children}
     </Tag>
   );
 };
+
+/** Cache of motion-wrapped tags — stable component identity across renders. */
+const motionTagCache = new Map<React.ElementType, React.ElementType>();
+function getMotionTag(Tag: React.ElementType): React.ElementType {
+  let cached = motionTagCache.get(Tag);
+  if (!cached) {
+    cached = motion.create(Tag as React.ComponentType);
+    motionTagCache.set(Tag, cached);
+  }
+  return cached;
+}
 
 /** §4 names this component GlassPanel — alias kept so intent is greppable. */
 export const GlassPanel = Surface;

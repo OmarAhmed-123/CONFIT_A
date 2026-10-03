@@ -27,7 +27,7 @@ def _schema_report() -> dict:
 
 
 def _vton_pipeline_status() -> str:
-    """One-line honest VTON status derived from a LIVE probe (cached).
+    """One-line honest VTON status from the LAST KNOWN evidence (passive).
 
     History of this field, in production:
       1. "operational" whenever VTON_WORKER_URL was set — a job then failed
@@ -36,9 +36,17 @@ def _vton_pipeline_status() -> str:
          but still wrong about the product: on 2026-09-21 every try-on job
          failed with VTON_WORKER_NOT_READY because the GPU workspace had
          exceeded its spend limit, while /health kept saying "configured".
-    Configuration is not availability, so the status is now taken from the
-    cached live probe (see ``vton_worker_observability``). The probe never
-    blocks: /health serves the last verdict and refreshes in the background.
+      3. Live-probe derived (cached, background-refreshed) — truthful, but a
+         burn vector (measured 2026-10-03): the try-on worker scales to zero,
+         so every TTL-window refresh of this line spun a billed A10G container
+         for its own health check. An external uptime monitor polling /health,
+         or a crawler hitting the public capability endpoints, would keep a
+         GPU container alive indefinitely without a single real try-on job.
+    A health read must never be the reason a billed GPU container exists, so
+    this line is now PASSIVE: it reports the last known state — earned by a
+    real try-on job or by an authenticated admin check — and never probes.
+    Live verification remains available on the operator surface
+    (/health/ready, /health/vton-contract, both admin-gated).
     """
     from backend.app.services.vton_worker_observability import vton_health_summary
 
@@ -57,15 +65,25 @@ def _vton_pipeline_status() -> str:
         return ("misconfigured: VTON_WORKER_URL set but no admin token "
                 "(VTON_WORKER_ADMIN_TOKEN) — every job will fail VTON_AUTH_FAILURE")
 
-    summary = vton_health_summary()
+    # Passive read: cached evidence only, never a probe (see docstring).
+    summary = vton_health_summary(allow_refresh=False)
     verdict = summary.get("verdict")
     detail = summary.get("detail")
     age = summary.get("probe_age_seconds")
-    age_txt = f" (live probe, {age}s ago)" if age is not None else ""
+    source = summary.get("evidence_source")
+    src_txt = "real try-on traffic" if source == "real_job" else "live verification"
+    age_txt = f" (last known from {src_txt}, {age}s ago)" if age is not None else ""
     if verdict == "ready":
-        return f"operational: GPU worker reachable and model loaded{age_txt}"
+        return f"operational: GPU worker served real traffic and was healthy{age_txt}"
     if verdict == "cold_start":
         return f"degraded: worker reachable but cold/model loading{age_txt}"
+    if verdict == "unknown":
+        return (
+            "unknown: no verification on this instance yet — this line is "
+            "passive by design (public health reads never spin a billed GPU "
+            "container); an admin /health/ready check or a real try-on job "
+            "establishes the verdict"
+        )
     reason = summary.get("reason") or summary.get("error_code") or "unreachable"
     return f"unavailable: {detail} — last probe said: {reason}{age_txt}"
 
@@ -190,11 +208,17 @@ async def vton_contract_check(user: User = Depends(require_role(ADMIN_ROLES))):
     return await probe_vton_worker_contract()
 
 
-def _probe(db: Session):
+def _probe(db: Session, passive_vton: bool = False):
     """Run the shared checks once, for whichever surface is answering.
 
     Split out so the public and admin endpoints cannot drift apart in what they
     measure — only in what they are willing to publish.
+
+    ``passive_vton=True`` (the PUBLIC surface) never probes the GPU worker:
+    the vton verdict comes from the cache (any age) or is honestly
+    ``unknown``. A public health read must not be the reason a scaled-to-zero,
+    billed GPU container spins up (2026-10-03). The admin surface keeps the
+    live probe.
     """
     db_status = "healthy"
     db_error = None
@@ -212,11 +236,15 @@ def _probe(db: Session):
         schema = {"verdict": "unreachable", "acceptable": False, "blocking": False,
                   "findings": [f"{type(exc).__name__}: {str(exc)[:160]}"]}
 
-    # Live GPU-worker verdict (cached, background-refreshed) from PR #142.
-    # Machine-readable; the human string lives in checks.vton_pipeline.
+    # GPU-worker verdict (cached) from PR #142, refreshed live only on the
+    # operator surface (passive_vton=False). Public callers pass
+    # passive_vton=True so external monitors cannot spin a billed GPU
+    # container; operators get live truth on /health/ready and
+    # /health/vton-contract. Machine-readable; the human string lives in
+    # checks.vton_pipeline.
     try:
         from backend.app.services.vton_worker_observability import vton_health_summary
-        vton_worker = vton_health_summary()
+        vton_worker = vton_health_summary(allow_refresh=not passive_vton)
     except Exception as exc:  # never crash health; report the failure instead
         vton_worker = {"verdict": "unknown", "production_ready": False,
                        "detail": f"probe failed: {type(exc).__name__}: {str(exc)[:140]}"}
@@ -265,7 +293,7 @@ def health_check(db: Session = Depends(get_db)):
     gate reads it to prove production can run the commit being merged, and
     removing it would blind the one check that prevents a schema-drift outage.
     """
-    probe = _probe(db)
+    probe = _probe(db, passive_vton=True)  # public surface: never probe the GPU
     schema = probe["schema"]
     readiness = probe["readiness"]
     return {

@@ -1,6 +1,8 @@
 import React, { useId } from 'react';
 import { Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { HonestProductImage } from './HonestProductImage';
+import { usePrefersReducedMotion } from './InteractionPrimitives';
 
 /**
  * HeroSection — the reusable "dark editorial hero + light structured card"
@@ -24,8 +26,12 @@ import { HonestProductImage } from './HonestProductImage';
  *    `decoding="async"`, `fetchpriority="low"`, and ships a responsive
  *    `srcSet` — it is a side panel hidden on small screens; the CTA group
  *    (§9 "فوق mobile fold") renders before it in DOM order.
- *  · NO MOTION DEPENDENCY: the hero is static CSS; nothing here waits for
- *    an animation, so `prefers-reduced-motion` changes nothing functional.
+ *  · MOTION IS DECORATION, NEVER THE CHANNEL (re-pass): the hero performs a
+ *    short staggered entrance (opacity/translate only) and the ambient glows
+ *    breathe slowly — both vanish entirely under `prefers-reduced-motion`,
+ *    where the render is byte-identical to the old static hero. Nothing
+ *    functional waits for an animation; the CTA group is interactive from
+ *    the first frame (§9 mobile fold + §7 reduced-motion full function).
  */
 export const HeroSection: React.FC<{
   /** Eyebrow badge row (already-localized node). */
@@ -60,6 +66,35 @@ export const HeroSection: React.FC<{
 }) => {
   const headingId = useId();
   const Heading = headingLevel;
+  const reduceMotion = usePrefersReducedMotion();
+
+  /**
+   * Entrance-only motion props for one hero block. Opacity/translate only —
+   * layout never shifts — and EMPTY under reduced motion, so the static
+   * render is exactly the pre-animation hero.
+   */
+  const enter = (order: number) =>
+    reduceMotion
+      ? {}
+      : {
+          initial: { opacity: 0, y: 16 },
+          animate: { opacity: 1, y: 0 },
+          transition: { duration: 0.45, delay: 0.07 * order, ease: 'easeOut' as const },
+        };
+
+  /** Slow decorative breathing for the ambient glows (≈12s cycle). */
+  const breathe = (phase: number) =>
+    reduceMotion
+      ? {}
+      : {
+          animate: { scale: [1, 1.12, 1], opacity: [0.75, 1, 0.75] },
+          transition: {
+            duration: 12,
+            delay: phase,
+            repeat: Infinity,
+            ease: 'easeInOut' as const,
+          },
+        };
 
   return (
     <section
@@ -68,9 +103,18 @@ export const HeroSection: React.FC<{
         compact ? 'p-5 sm:p-8 lg:p-10' : 'p-6 sm:p-12 lg:p-20'
       } ${className}`}
     >
-      {/* Ambient glows: decorative, pointer-transparent, behind content. */}
-      <div className="absolute -top-32 -end-32 w-[500px] h-[500px] bg-[#C5A059]/15 rounded-full blur-3xl pointer-events-none" aria-hidden="true" />
-      <div className="absolute -bottom-32 -start-32 w-[400px] h-[400px] bg-[#3D5296]/20 rounded-full blur-3xl pointer-events-none" aria-hidden="true" />
+      {/* Ambient glows: decorative, pointer-transparent, behind content.
+          They breathe slowly when motion is allowed — pure decoration. */}
+      <motion.div
+        {...breathe(0)}
+        className="absolute -top-32 -end-32 w-[500px] h-[500px] bg-[#C5A059]/15 rounded-full blur-3xl pointer-events-none"
+        aria-hidden="true"
+      />
+      <motion.div
+        {...breathe(6)}
+        className="absolute -bottom-32 -start-32 w-[400px] h-[400px] bg-[#3D5296]/20 rounded-full blur-3xl pointer-events-none"
+        aria-hidden="true"
+      />
 
       <div
         className={`relative z-10 grid items-center gap-8 ${
@@ -78,32 +122,53 @@ export const HeroSection: React.FC<{
         }`}
       >
         <div className={`space-y-5 ${compact ? 'max-w-3xl' : 'max-w-2xl space-y-6'}`}>
-          {eyebrow}
-          <Heading
-            id={headingId}
-            className={`font-serif font-bold tracking-tight text-white ${
-              compact
-                ? 'text-2xl sm:text-4xl leading-[1.15]'
-                : 'text-3xl sm:text-5xl lg:text-6xl leading-[1.1]'
-            }`}
-          >
-            {title}
-          </Heading>
+          {eyebrow && <motion.div {...enter(0)}>{eyebrow}</motion.div>}
+          <motion.div {...enter(1)}>
+            <Heading
+              id={headingId}
+              className={`font-serif font-bold tracking-tight text-white ${
+                compact
+                  ? 'text-2xl sm:text-4xl leading-[1.15]'
+                  : 'text-3xl sm:text-5xl lg:text-6xl leading-[1.1]'
+              }`}
+            >
+              {title}
+            </Heading>
+          </motion.div>
           {lede && (
-            <p className="text-sm sm:leading-relaxed text-slate-200 font-light max-w-xl">{lede}</p>
+            <motion.p
+              {...enter(2)}
+              className="text-sm sm:leading-relaxed text-slate-200 font-light max-w-xl"
+            >
+              {lede}
+            </motion.p>
           )}
           {support && (
-            <p className="text-xs sm:text-sm sm:leading-relaxed text-slate-400 font-light max-w-xl">
+            <motion.p
+              {...enter(3)}
+              className="text-xs sm:text-sm sm:leading-relaxed text-slate-400 font-light max-w-xl"
+            >
               {support}
-            </p>
+            </motion.p>
           )}
           {actions && (
-            <div className="pt-2 flex flex-wrap items-center gap-3 sm:gap-4">{actions}</div>
+            <motion.div
+              {...enter(4)}
+              className="pt-2 flex flex-wrap items-center gap-3 sm:gap-4"
+            >
+              {actions}
+            </motion.div>
           )}
-          {facts}
+          {facts && <motion.div {...enter(5)}>{facts}</motion.div>}
         </div>
 
-        {aside}
+        {/* `grid` wrapper keeps the aside's own justify-self/max-w behaviour
+            intact while giving the entrance animation a real box. */}
+        {aside && (
+          <motion.div {...enter(3)} className="grid w-full min-w-0">
+            {aside}
+          </motion.div>
+        )}
       </div>
     </section>
   );

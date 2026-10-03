@@ -542,7 +542,7 @@ export function useTryOnViewModel(initialProduct?: Product | null) {
           }, 1200);
         }
         showToast(
-          `Layer assembly sequence ready: ${successfulFrames.length} real keyframes generated via CatVTON.`,
+          `Layer assembly sequence ready: ${successfulFrames.length} real keyframes generated via ${res.model_used || "the VTON engine"}.`,
           "info",
         );
       } else {

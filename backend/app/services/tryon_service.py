@@ -432,6 +432,78 @@ class TryOnService:
         )
         return garments
 
+    async def _render_outfit_sequentially(
+        self,
+        job_id: str,
+        person_image: str,
+        garments: List[Dict[str, Any]],
+        gender_mode: str,
+        output_aspect: str,
+    ) -> Dict[str, Any]:
+        """Compose an outfit on a single-garment-per-call worker.
+
+        Used ONLY when the worker rejected the whole-outfit call with its
+        single-category 422 (see the adaptation in execute_multi_garment).
+        Layers are applied one call at a time, in the anatomical order
+        _build_garments_payload already sorted, each render feeding the next
+        call as the person image — the same proven chain the animated path
+        runs per keyframe. The original uploaded person stays the
+        identity/pose anchor of layer 1; layer k>1 anchors on layer k-1's
+        verified render.
+
+        Honesty rules (identical to the one-call contract):
+        * every layer's worker-reported verification is kept per-layer;
+        * a layer that is not verified as applied aborts the chain — a
+          partial outfit must never be reported as a success;
+        * the returned shape mirrors the one-call worker contract
+          (rendered_image_data_url + per-layer `layers`), so downstream
+          aggregation code has exactly one shape to trust.
+        """
+        current_person = person_image
+        layers: List[Dict[str, Any]] = []
+        last_data: Dict[str, Any] = {}
+        for idx, garment in enumerate(garments, start=1):
+            layer_job_id = f"{job_id}_L{idx}"
+            layer_data = await self._call_gpu_worker(
+                job_id=layer_job_id,
+                person_image=current_person,
+                garments=[garment],
+                gender_mode=gender_mode,
+                output_aspect=output_aspect,
+            )
+            last_data = layer_data
+            rendered = layer_data.get("rendered_image_data_url")
+            # Canonical gate: an unverified layer aborts (partial outfit is
+            # a failure, not a degraded success).
+            verify = layer_data.get("verify") or {}
+            if verify.get("PASS") is not True:
+                raise RuntimeError(
+                    f"VTON_LAYER_NOT_APPLIED: sequential layer {idx} "
+                    f"(product {garment.get('product_id')}) was not verified "
+                    "as applied — the outfit render was aborted rather than "
+                    "reporting a partial result as success."
+                )
+            layers.append({
+                "layer": idx,
+                "product_id": garment.get("product_id"),
+                "slot_type": garment.get("slot_type"),
+                "execution_time_ms": layer_data.get("execution_time_ms"),
+                "verify": verify,
+            })
+            current_person = rendered
+            logger.info(
+                "vton_sequential_layer_ok",
+                job_id=job_id,
+                layer=idx,
+                product_id=garment.get("product_id"),
+                pixel_change=verify.get("metric_pixel_change"),
+            )
+        # Mirror the one-call contract shape; the final layer's render is the
+        # outfit result, and every layer's verification travels in `layers`.
+        result = dict(last_data)
+        result["layers"] = layers
+        return result
+
     async def _prepare_person_image(self, person_ref: str) -> str:
         """Validate the person reference and return it as a data URL (base64).
 
@@ -1034,13 +1106,51 @@ class TryOnService:
                 # uploaded person remains the identity/pose anchor of the
                 # whole chain (no layer may introduce the garment photo's
                 # pose/body).
-                gpu_data = await self._call_gpu_worker(
-                    job_id=job_id,
-                    person_image=person_b64,
-                    garments=garments,
-                    gender_mode=gender_mode or "infer_from_image",
-                    output_aspect=output_aspect or "9:16"
-                )
+                try:
+                    gpu_data = await self._call_gpu_worker(
+                        job_id=job_id,
+                        person_image=person_b64,
+                        garments=garments,
+                        gender_mode=gender_mode or "infer_from_image",
+                        output_aspect=output_aspect or "9:16"
+                    )
+                    composition_mode = "single_call"
+                except RuntimeError as worker_exc:
+                    # Capability adaptation (NOT a quality fallback): a
+                    # single-category worker — the running fashn_vton_segfee
+                    # deployment rejects >1 garment per call with HTTP 422 at
+                    # the pydantic gate, BEFORE any GPU time is spent — can
+                    # still render the whole outfit as a sequential chain:
+                    # layer i+1 renders on layer i's output (the same chain
+                    # the animated path uses). Multi-garment-capable workers
+                    # (fashn_v15) accept the one-call contract and never reach
+                    # this branch, so the composition contract stays single.
+                    exc_text = str(worker_exc)
+                    single_garment_rejection = (
+                        "VTON_INPUT_INVALID" in exc_text
+                        and len(garments) > 1
+                        and (
+                            "max 1 garment" in exc_text
+                            or "single-category" in exc_text
+                            or "exactly one garment" in exc_text
+                        )
+                    )
+                    if not single_garment_rejection:
+                        raise
+                    logger.info(
+                        "vton_sequential_chain_adaptation",
+                        job_id=job_id,
+                        garments=len(garments),
+                        reason="worker is single-garment per call",
+                    )
+                    gpu_data = await self._render_outfit_sequentially(
+                        job_id=job_id,
+                        person_image=person_b64,
+                        garments=garments,
+                        gender_mode=gender_mode or "infer_from_image",
+                        output_aspect=output_aspect or "9:16",
+                    )
+                    composition_mode = "sequential_chain"
                 rendered = gpu_data.get("rendered_image_data_url")
                 # Record EACH layer's verification outcome (worker-reported,
                 # in composition order). We must NOT collapse a failed layer
@@ -1119,6 +1229,11 @@ class TryOnService:
                     job.model_used = _clamp_model_used(gpu_data["model_used"])
                 _metrics = dict(gpu_data.get("quality_audit") or gpu_data.get("verify") or {})
                 _metrics["garments_requested"] = len(garments)
+                # Which composition transport served the outfit — one whole-
+                # outfit call (fashn_v15 contract) or the sequential chain
+                # (single-garment worker adaptation). Observable, never
+                # assumed.
+                _metrics["composition_mode"] = composition_mode
                 if len(garments) > 1:
                     # Prove the WHOLE selected outfit was applied, in order.
                     _metrics["outfit_layers"] = layers_meta
@@ -1721,13 +1836,46 @@ class TryOnService:
                 # layer k>1 parser-masked) and returns honest per-layer
                 # verification in `layers`. The uploaded person remains the
                 # identity/pose anchor of the whole chain.
-                gpu_data = await self._call_gpu_worker(
-                    job_id=job_id,
-                    person_image=person_img,
-                    garments=garments,
-                    gender_mode=gender_mode or "infer_from_image",
-                    output_aspect="9:16"
-                )
+                try:
+                    gpu_data = await self._call_gpu_worker(
+                        job_id=job_id,
+                        person_image=person_img,
+                        garments=garments,
+                        gender_mode=gender_mode or "infer_from_image",
+                        output_aspect="9:16"
+                    )
+                    composition_mode = "single_call"
+                except RuntimeError as worker_exc:
+                    # Same capability adaptation as the job path: a worker
+                    # that rejects >1 garment per call (single-category
+                    # 422, zero GPU cost) still renders the outfit as a
+                    # sequential chain — see _render_outfit_sequentially.
+                    exc_text = str(worker_exc)
+                    single_garment_rejection = (
+                        "VTON_INPUT_INVALID" in exc_text
+                        and len(garments) > 1
+                        and (
+                            "max 1 garment" in exc_text
+                            or "single-category" in exc_text
+                            or "exactly one garment" in exc_text
+                        )
+                    )
+                    if not single_garment_rejection:
+                        raise
+                    logger.info(
+                        "vton_sequential_chain_adaptation",
+                        job_id=job_id,
+                        garments=len(garments),
+                        reason="worker is single-garment per call",
+                    )
+                    gpu_data = await self._render_outfit_sequentially(
+                        job_id=job_id,
+                        person_image=person_img,
+                        garments=garments,
+                        gender_mode=gender_mode or "infer_from_image",
+                        output_aspect="9:16",
+                    )
+                    composition_mode = "sequential_chain"
                 # Worker-reported per-layer outcomes (composition order).
                 sync_layers_meta: List[Dict[str, Any]] = [
                     {
@@ -1779,9 +1927,17 @@ class TryOnService:
                     # Real measured coverage: fraction of layers verified.
                     "fit_confidence": int(round(100.0 * _sync_verified_count / len(sync_layers_meta))) if sync_layers_meta else 0,
                     "traceability_hash": f"VTON-CERT-{hashlib.sha256(f'{job_id}{time.time()}'.encode()).hexdigest()[:16].upper()}",
-                    # Honest disclosure: model name only — no unconditional
-                    # "Identity Preserved" claim when a layer failed.
-                    "ai_disclosure": f"CONFIT VTON Engine — {gpu_data.get('model_used', 'CatVTON')}",
+                    # Honest disclosure: the REAL engine/model name reported
+                    # by the worker — never a hardcoded engine brand (the
+                    # historical 'CatVTON' default mislabelled fashn renders
+                    # and broke the disclosure's honesty contract).
+                    "ai_disclosure": (
+                        "CONFIT VTON Engine — "
+                        + str(gpu_data.get("model_used")
+                              or gpu_data.get("engine")
+                              or settings.VTON_ENGINE)
+                    ),
+                    "composition_mode": composition_mode,
                     "dynamic_prompt_generated": "",
                     "model_used": gpu_data.get("model_used"),
                     "execution_time_ms": gpu_data.get("execution_time_ms"),
@@ -1905,6 +2061,10 @@ class TryOnService:
             # The frontend reads this to show a truthful quality warning when
             # a garment layer was not confirmed applied.
             "verification": vton_result.get("verification"),
+            # How the outfit was composed on the worker: one whole-outfit
+            # call (fashn_v15 contract) or the sequential chain (single-
+            # garment worker adaptation). Observable, never assumed.
+            "composition_mode": vton_result.get("composition_mode"),
             "traceability_hash": vton_result.get("traceability_hash", f"VTON-CERT-{session.id}"),
             "layering_order": [it["position"] for it in applied_items],
             "dynamic_prompt_generated": vton_result.get("dynamic_prompt_generated", ""),
@@ -2182,6 +2342,14 @@ class TryOnService:
                 # This could be legitimate if model returns same image, but log warning
                 # Don't fail, but note in logs
 
+        # The real engine name travels from the worker per keyframe; the
+        # disclosure reports it instead of a hardcoded engine brand, and the
+        # verdict stays honest (fit_confidence/verdict are animation-presentation
+        # copy, the per-layer verification lives in each keyframe's record).
+        _anim_model = next(
+            (kf.get("model_used") for kf in keyframes if kf.get("model_used")),
+            None,
+        ) or settings.VTON_ENGINE
         return {
             "session_id": session.id,
             "status": "completed",
@@ -2192,7 +2360,7 @@ class TryOnService:
             "fit_confidence_score": 95,
             "body_fit_verdict": "Optimal Garment Fit",
             "traceability_hash": f"VTON-ANIM-{hashlib.sha256(f'{session.id}{time.time()}'.encode()).hexdigest()[:16].upper()}",
-            "ai_disclosure": "CONFIT VTON Engine — CatVTON — Identity Preserved — Real per-layer inference",
+            "ai_disclosure": f"CONFIT VTON Engine — {_anim_model} — Real per-layer inference",
             "dynamic_animation_prompt": "",
             "applied_items": applied_items,
             "total_price": total_price,

@@ -241,6 +241,10 @@ class MultiGarmentTryOnResponse(BaseModel):
     # layers) so the frontend can surface a truthful quality warning when a
     # garment layer was not confirmed applied by the engine.
     verification: Optional[Dict[str, Any]] = None
+    # How the outfit was composed on the worker: "single_call" (whole outfit
+    # in one GPU call — the fashn_v15 contract) or "sequential_chain"
+    # (single-garment-per-call worker adaptation). Observable, never assumed.
+    composition_mode: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 

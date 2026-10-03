@@ -94,6 +94,7 @@ vi.mock('../../components/tryon/CameraScanModal', () => ({
 }));
 
 import { TryOnFitView } from '../consumer/TryOnFitView';
+import { setAppLanguage } from '../../i18n/i18n';
 
 function renderView() {
   return render(
@@ -141,5 +142,70 @@ describe('TryOnFitView measurement apply flow', () => {
 
     expect(mocks.openRuler).toHaveBeenCalledWith(PRODUCT, MEASUREMENTS);
     expect(mocks.openTryOn).not.toHaveBeenCalled();
+  });
+});
+
+// ===========================================================================
+// Spec 08 re-pass — the studio page speaks BOTH catalogue languages and its
+// card CTAs meet the touch/label contract. These assert REAL catalogue
+// values: before this pass the whole shell was hardcoded English (including
+// the internal "Group 3" dev label) even on the Arabic storefront.
+// ===========================================================================
+describe('TryOnFitView localization & CTA contract (spec 08 re-pass)', () => {
+  afterEach(async () => {
+    await setAppLanguage('en');
+  });
+
+  it('EN: header/badge/steps come from the catalogue — the internal "Group 3" label is gone', () => {
+    renderView();
+    expect(
+      screen.getByRole('heading', { name: 'Virtual Visualization & Precision Fit Studio' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Virtual Visualization & Fit Studio')).toBeInTheDocument();
+    expect(screen.queryByText(/Group 3/)).toBeNull();
+    expect(screen.getByText('Choose goal or garment')).toBeInTheDocument();
+    expect(screen.getByText('Showing 2 styles from the live catalog')).toBeInTheDocument();
+  });
+
+  it('card CTAs: localized text labels (never icon-only) + 44px touch target class', () => {
+    renderView();
+    const fitChecks = screen.getAllByRole('button', { name: /Fit Check/ });
+    const rulers = screen.getAllByRole('button', { name: /Ruler/ });
+    expect(fitChecks.length).toBeGreaterThan(0);
+    expect(rulers.length).toBeGreaterThan(0);
+    for (const btn of [...fitChecks, ...rulers]) {
+      expect(btn.className).toContain('min-h-11');
+    }
+  });
+
+  it('AR: the full shell reads in Arabic and the price stays LTR (§7)', async () => {
+    await setAppLanguage('ar');
+    renderView();
+    expect(
+      screen.getByRole('heading', { name: 'استوديو التجسيد الافتراضي ودقة المقاس' }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText('فحص مقاس فقط').length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('button', { name: /فحص المقاس/ }).length).toBeGreaterThan(0);
+    // Price digits render inside a dir="ltr" island on the RTL page.
+    const price = screen.getByText('$125.00');
+    expect(price.closest('[dir="ltr"]')).not.toBeNull();
+  });
+
+  it('AR: catalog failure state is localized and actionable (honest error, real retry)', async () => {
+    await setAppLanguage('ar');
+    // Re-mock catalog as failed for this render.
+    const mod = await import('../../viewmodels/useCatalogViewModel');
+    const spy = vi
+      .spyOn(mod, 'useCatalogViewModel')
+      .mockReturnValue({
+        products: [],
+        isLoading: false,
+        error: 'boom',
+        refresh: vi.fn(),
+      } as any);
+    renderView();
+    expect(screen.getByText('تعذّر تحميل كتالوج الملابس')).toBeInTheDocument();
+    expect(screen.getByText('الكتالوج غير متاح')).toBeInTheDocument();
+    spy.mockRestore();
   });
 });

@@ -11,6 +11,7 @@ from backend.app.core.dependencies import require_role, BRAND_ROLES
 from backend.app.models.user import User
 from backend.app.services.brand_service import BrandService
 from backend.app.services.brand_catalog_service import BrandCatalogService
+from backend.app.services.product_tagging_service import ProductTaggingService
 from backend.app.repositories.brand_repository import BrandRepository
 from backend.app.schemas.brand import (
     BrandProfileOut,
@@ -369,6 +370,35 @@ def get_catalog_import_status(
         "started_at": job.started_at,
         "completed_at": job.completed_at
     }
+
+
+# ============================================================================
+# Feature 07 — AI product auto-tagging (FashionCLIP + GLiNER2 worker)
+# ============================================================================
+@router.post("/partner/products/{product_id}/auto-tag", response_model=Dict[str, Any])
+@router.post("/brand/products/{product_id}/auto-tag", response_model=Dict[str, Any])
+@limiter.limit("30/hour")
+async def auto_tag_product(
+    request: Request,
+    product_id: int,
+    dry_run: bool = Query(False, description="Run the models and report what would change, writing nothing."),
+    user: User = Depends(brand_auth),
+    db: Session = Depends(get_db)
+):
+    """Auto-tag one of YOUR products with FashionCLIP (image, MIT) + GLiNER2
+    (text, Apache-2.0) — per-tag confidence and provenance, unresolved axes
+    reported instead of guessed. AI tags are merged append-only: existing
+    human tags are never removed, and colour/material are only filled when
+    empty. The category column is a suggestion, never mutated."""
+    service = ProductTaggingService(db)
+    result = await service.auto_tag_product(user, product_id, dry_run=dry_run)
+    _audit(db, user, "BRAND_PRODUCT_AUTO_TAGGED", "Product", product_id, {
+        "quality": result.get("quality"),
+        "tag_count": result.get("tag_count"),
+        "applied_fields": [a["field"] for a in result.get("applied", [])],
+        "dry_run": dry_run,
+    })
+    return result
 
 
 @router.put("/brand/skus/{sku_id}", response_model=ProductSKUOut)

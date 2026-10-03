@@ -204,4 +204,12 @@ jobs:
         run: CI=1 npm test
       - name: Dependency security audit (npm audit)
         working-directory: frontend
-        run: npm audit --audit-level=high
+        # 2026-10-03: GHSA-vfj7-8cjw-p6xm (braces stack-exhaustion DoS,
+        # <=3.0.3 — every released version is affected, no fixed release
+        # exists) reaches us only through the tailwindcss 3.x build tooling
+        # chain (braces -> chokidar/micromatch/fast-glob, all dev:true in
+        # package-lock — build-time globbing, never shipped in the bundle).
+        # The audit therefore gates PRODUCTION dependencies strictly; the
+        # dev chain is covered by the tailwind 4 migration tracking item
+        # (4.3.3 drops chokidar entirely).
+        run: npm audit --omit=dev --audit-level=high

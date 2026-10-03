@@ -454,6 +454,19 @@ class Settings(BaseSettings):
     # warm; cold start adds ~10-20s). 120s leaves generous margin.
     ANTHROPOMETRY_WORKER_TIMEOUT_SECONDS: float = 120.0
 
+    # Feature 07 — Brand Portal product auto-tagging (Modal CPU app
+    # `confit-tagging-worker`: FashionCLIP patrickjohncyh/fashion-clip MIT
+    # + GLiNER urchade/gliner_multi-v2.1 Apache-2.0, both commercial-safe).
+    # TAGGING_WORKER_URL is the full /tag endpoint URL.
+    TAGGING_WORKER_URL: Optional[str] = None
+    # Dedicated credential (Modal secret `confit-tagging-admin-token`, env
+    # TAGGING_WORKER_ADMIN_TOKEN inside that worker) — rotatable
+    # independently of the other workers.
+    TAGGING_WORKER_ADMIN_TOKEN: Optional[str] = None
+    # Measured live 2026-10-03: ~2.1s warm; cold start ~15-30s (both models
+    # load at container start). 90s covers cold start with margin.
+    TAGGING_WORKER_TIMEOUT_SECONDS: float = 90.0
+
     # Self-hosted Qwen2.5-VL vision worker (LOCAL FALLBACK). When
     # QWEN_VL_WORKER_URL is set, VisualSearchAIProvider.fallback uses the local
     # Qwen worker when Gemini is exhausted/unavailable. Unset => unchanged.

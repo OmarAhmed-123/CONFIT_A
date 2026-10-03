@@ -91,8 +91,8 @@ def test_parse_intent_unmentioned_budget_stays_default_and_not_explicit():
 class _FakeChatResult:
     def __init__(self, text: str):
         self.text = text
-        self.model_id = "nvidia/nemotron-3-super-120b-a12b"
-        self.requested_model_id = "nvidia/nemotron-3-super-120b-a12b"
+        self.model_id = "nvidia/nemotron-3-ultra-550b-a55b"
+        self.requested_model_id = "nvidia/nemotron-3-ultra-550b-a55b"
         self.role = "translation"
         self.latency_s = 0.5
         self.attempts = 1
@@ -117,14 +117,15 @@ async def test_outbound_translation_returns_arabic_on_success(monkeypatch):
     )
     result = await qt.translate_reply_to_arabic("A beige and white look within your budget.")
     assert result.translated is True
-    assert result.source == "nvidia/nemotron-3-super-120b-a12b"
+    assert result.source == "nvidia/nemotron-3-ultra-550b-a55b"
     assert result.text == "تنسيق أنيق لبيج وأبيض ضمن ميزانيتك."
-    # The outbound rules ride the SYSTEM turn (super obeys it; riva would
-    # ignore it, which is why super leads the outbound path too).
+    # The outbound rules ride the SYSTEM turn (the nemotron primary obeys
+    # it; riva would ignore it, which is why a nemotron leads the path).
     assert "Egyptian Arabic" in (captured["system"] or "")
     assert "brand names" in (captured["system"] or "")
-    # No model pin: the registry chain decides (super -> riva), so a pin that
-    # would force riva's measured colour mistranslation can never sneak back.
+    # No model pin: the registry chain decides (ultra-550b -> riva), so a pin
+    # that would force riva's measured colour mistranslation can never
+    # sneak back.
     assert captured["model_id"] is None
     assert captured["user"] == "A beige and white look within your budget."
 

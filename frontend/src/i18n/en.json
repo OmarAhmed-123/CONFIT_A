@@ -1456,7 +1456,10 @@
     "add_to_bag_failed": "Could not add this item to bag.",
     "likely_fit": "Likely fit: {{size}}",
     "set_measurements": "Set measurements for fit confidence",
-    "view_details": "View details"
+    "view_details": "View details",
+    "rail_eyebrow": "Collection browsing",
+    "rail_title": "Glide through the live catalog",
+    "rail_label": "Browse the collection"
   },
   "brand": {
     "tagline": "Confidence + Fit"

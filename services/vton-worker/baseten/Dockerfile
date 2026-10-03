@@ -23,7 +23,6 @@ ENV DEBIAN_FRONTEND=noninteractive \
     TORCH_CUDA_ARCH_LIST="8.9" \
     CUDA_HOME=/usr/local/cuda \
     HF_HOME=/app/weights/hf-cache \
-    HF_HUB_OFFLINE=1 \
     VTON_WEIGHTS_DIR=/app/weights
 
 WORKDIR /app
@@ -66,6 +65,13 @@ RUN pip install --no-cache-dir hf_transfer \
 ARG CONFIT_GIT_SHA=unknown
 ENV CONFIT_GIT_SHA=${CONFIT_GIT_SHA} \
     PYTHONPATH=/app/vton-worker:/app/vendor/fashn-vton-1.5
+
+# Runtime hermeticity: set ONLY after the build-time downloads. Setting this in
+# the header ENV block made the weights-download RUN fail (LocalEntryNotFound)
+# because huggingface_hub refused every network call. At runtime the weights are
+# baked into the image, so offline mode is correct and desired.
+ENV HF_HUB_OFFLINE=1 \
+    TRANSFORMERS_OFFLINE=1
 
 # Baseten runs the container as a non-root user (default uid 60000 `app`);
 # everything the server needs is world-readable, no runtime writes required.

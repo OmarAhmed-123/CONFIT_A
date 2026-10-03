@@ -82,6 +82,7 @@ beforeEach(() => {
     isAuthenticated: false,
     isLoading: false,
     error: null,
+    errorCode: null,
     mfaRequired: false,
   } as any);
   useUIStore.setState({
@@ -122,11 +123,13 @@ describe('switching forms never costs the shopper their place', () => {
 });
 
 describe('register conflict is a visible, textual failure', () => {
-  it('a taken email shows the server message in an alert and creates no session', async () => {
+  it('a taken email shows the TRANSLATED conflict copy in an alert and creates no session', async () => {
+    // Real backend contract: auth_service raises ValidationDomainError
+    // ("An account with this email already exists.") → code VALIDATION_ERROR.
     mockedRegister.mockRejectedValue(
       Object.assign(new Error('An account with this email already exists.'), {
-        status: 409,
-        code: 'EMAIL_TAKEN',
+        status: 422,
+        code: 'VALIDATION_ERROR',
       }),
     );
     act(() => useUIStore.getState().openAuthModal('register'));
@@ -137,8 +140,10 @@ describe('register conflict is a visible, textual failure', () => {
     fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'Str0ng!Pass' } });
     fireEvent.click(screen.getByRole('button', { name: /create an account/i }));
 
+    // The UI maps the conflict to its OWN translated key — the raw server
+    // string is never the only thing a shopper reads.
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'An account with this email already exists.',
+      'An account with this email already exists. Try signing in instead.',
     );
     expect(useAuthStore.getState().isAuthenticated).toBe(false);
     // Modal stays open so the user can correct course — nothing was lost.

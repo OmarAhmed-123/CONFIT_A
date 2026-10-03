@@ -8,6 +8,13 @@ interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
+  /**
+   * Machine-readable code of the last auth failure (ApiError.code, e.g.
+   * AUTH_FAILED / VALIDATION_ERROR / NETWORK_ERROR). Spec 02 §6: the modal
+   * translates by CODE — the raw `error` message is an English server
+   * string and must never be the only thing an Arabic shopper reads.
+   */
+  errorCode: string | null;
   // AUTH-02 FIX: true once the app has asked the server "who am I?" at least
   // once this page load. Guards must wait for this before showing an
   // Authentication Required screen, otherwise a refresh on /b2b or /admin
@@ -52,18 +59,19 @@ export const useAuthStore = create<AuthState>((set) => ({
   isAuthenticated: false,
   isLoading: false,
   error: null,
+  errorCode: null,
   hasAttemptedBootstrap: false,
   mfaRequired: false,
 
-  resetError: () => set({ error: null }),
+  resetError: () => set({ error: null, errorCode: null }),
 
   login: async (email, password) => {
-    set({ isLoading: true, error: null, mfaRequired: false });
+    set({ isLoading: true, error: null, errorCode: null, mfaRequired: false });
     try {
       const res = await authService.login(email, password);
       setAuthTokens(res.access_token, res.refresh_token);
       localStorage.setItem('confit_user', JSON.stringify(res.user));
-      set({ user: res.user, isAuthenticated: true, isLoading: false, error: null, mfaRequired: false });
+      set({ user: res.user, isAuthenticated: true, isLoading: false, error: null, errorCode: null, mfaRequired: false });
       // Return the server response so call sites (AuthModal role landing)
       // can route by the authenticated role without a second /auth/me call.
       return res;
@@ -72,7 +80,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       // NOT an authentication failure — it's a pending state we resume
       // via completeMfaLogin. Keep the user logged-out until they verify.
       if (err?.details?.reason === 'MFA_REQUIRED') {
-        set({ isLoading: false, mfaRequired: true, error: null });
+        set({ isLoading: false, mfaRequired: true, error: null, errorCode: null });
         throw err;
       }
       // A failed login attempt does not invalidate any pre-existing
@@ -86,40 +94,42 @@ export const useAuthStore = create<AuthState>((set) => ({
         isLoading: false,
         mfaRequired: false,
         error: err?.message || 'Login failed',
+        errorCode: err?.code ?? null,
       });
       throw err;
     }
   },
 
   completeMfaLogin: async (email, password, mfaCode) => {
-    set({ isLoading: true, error: null });
+    set({ isLoading: true, error: null, errorCode: null });
     try {
       const res = await authService.login(email, password, mfaCode);
       setAuthTokens(res.access_token, res.refresh_token);
       localStorage.setItem('confit_user', JSON.stringify(res.user));
-      set({ user: res.user, isAuthenticated: true, isLoading: false, error: null, mfaRequired: false });
+      set({ user: res.user, isAuthenticated: true, isLoading: false, error: null, errorCode: null, mfaRequired: false });
       return res;
     } catch (err: any) {
       set({
         isLoading: false,
         error: err?.message || 'MFA verification failed',
+        errorCode: err?.code ?? null,
       });
       throw err;
     }
   },
 
   register: async (payload) => {
-    set({ isLoading: true, error: null });
+    set({ isLoading: true, error: null, errorCode: null });
     try {
       const res = await authService.register(payload);
       setAuthTokens(res.access_token, res.refresh_token);
       localStorage.setItem('confit_user', JSON.stringify(res.user));
-      set({ user: res.user, isAuthenticated: true, isLoading: false, error: null });
+      set({ user: res.user, isAuthenticated: true, isLoading: false, error: null, errorCode: null });
     } catch (err: any) {
       // Registration failure (taken email, rate limit, transient 5xx)
       // sets no session cookies server-side, and it must not destroy a
       // pre-existing valid session — see the note in `login`.
-      set({ user: null, isAuthenticated: false, isLoading: false, error: err?.message || 'Registration failed' });
+      set({ user: null, isAuthenticated: false, isLoading: false, error: err?.message || 'Registration failed', errorCode: err?.code ?? null });
       throw err;
     }
   },
@@ -134,7 +144,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       /* still fall through to local clear */
     }
     clearAuthTokens();
-    set({ user: null, isAuthenticated: false, mfaRequired: false, error: null });
+    set({ user: null, isAuthenticated: false, mfaRequired: false, error: null, errorCode: null });
   },
 
   fetchMe: async () => {

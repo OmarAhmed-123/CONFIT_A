@@ -1781,7 +1781,10 @@
     "forgot_sent": "If an account exists for this email, a reset link is on its way. Check your inbox and spam folder.",
     "forgot_unconfigured": "Password reset email is not configured on this deployment yet, so no email was sent. Please contact support to recover your account.",
     "forgot_failed": "Could not submit the request — please try again.",
-    "back_to_signin": "Back to sign in"
+    "back_to_signin": "Back to sign in",
+    "invalid_credentials": "Incorrect email or password. Please try again.",
+    "mfa_code_invalid": "That verification code is not valid. Check your authenticator app and try again.",
+    "email_exists": "An account with this email already exists. Try signing in instead."
   },
   "account": {
     "style_profile": "Style Profile",

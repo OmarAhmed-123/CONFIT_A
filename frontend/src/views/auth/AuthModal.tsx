@@ -6,6 +6,7 @@ import { useModalFocus } from '../../hooks/useModalFocus';
 import { useAuthStore } from '../../stores/authStore';
 import { useUIStore } from '../../stores/uiStore';
 import { authService } from '../../services/apiServices';
+import { localizeApiError } from '../../i18n/apiErrors';
 import { ConfitLogo } from '../../components/common/ConfitLogo';
 import { UserIcon } from '../../components/icons/ConfitIcons';
 import { usePrefersReducedMotion } from '../../components/common/InteractionPrimitives';
@@ -64,13 +65,14 @@ export const AuthModal: React.FC = () => {
   const {
     isAuthModalOpen,
     authModalMode,
+    openAuthModal,
     closeAuthModal,
     showToast,
     consumeAuthIntent,
     consumeAuthReturnTo,
   } = useUIStore();
   const panelRef = useModalFocus<HTMLDivElement>(closeAuthModal, isAuthModalOpen);
-  const { login, register, isLoading, error, mfaRequired, completeMfaLogin, resetError } =
+  const { login, register, isLoading, error, errorCode, mfaRequired, completeMfaLogin, resetError } =
     useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
@@ -84,12 +86,45 @@ export const AuthModal: React.FC = () => {
   const [mfaCode, setMfaCode] = useState('');
   const [forgotPhase, setForgotPhase] = useState<ForgotPhase>('idle');
 
+  // Spec 02 §9 "deep link works": `?auth=signin|login|signup|register|forgot`
+  // on ANY route opens the modal on that step, then the param is stripped
+  // (replace, not push) so Back never re-opens it and the URL stays shareable
+  // without the modal baked in. Unknown values are ignored — no modal, no
+  // navigation. The shopper stays exactly where the link pointed.
+  const deepLinkView = useRef<AuthView | null>(null);
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const raw = params.get('auth');
+    if (!raw) return;
+    const normalized =
+      raw === 'signup' || raw === 'register'
+        ? 'register'
+        : raw === 'signin' || raw === 'login' || raw === 'forgot'
+          ? 'login'
+          : null;
+    params.delete('auth');
+    const nextSearch = params.toString();
+    if (normalized) {
+      if (raw === 'forgot') deepLinkView.current = 'forgot';
+      openAuthModal(normalized);
+    }
+    navigate(
+      { pathname: location.pathname, search: nextSearch ? `?${nextSearch}` : '', hash: location.hash },
+      { replace: true },
+    );
+    // location.search is the full trigger; the rest are stable store/router fns.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.search]);
+
   // The store's authModalMode can change while the modal stays mounted
   // (e.g. RoleGuard opens 'login', footer opens 'register'). Keep the local
   // view in sync — previously a stale internal mode ignored the caller.
+  // A pending deep-link step (forgot) wins exactly once, then is cleared.
   useEffect(() => {
     if (isAuthModalOpen) {
-      setView(authModalMode === 'register' ? 'signup' : 'signin');
+      const deep = deepLinkView.current;
+      deepLinkView.current = null;
+      setView(deep ?? (authModalMode === 'register' ? 'signup' : 'signin'));
       setForgotPhase('idle');
     }
   }, [isAuthModalOpen, authModalMode]);
@@ -186,6 +221,24 @@ export const AuthModal: React.FC = () => {
           ? t('auth.heading_signup')
           : t('auth.heading_forgot');
 
+  // Spec 02 §6: failures are translated by CODE, never shown as the raw
+  // English server string. Context matters: AUTH_FAILED on the login form
+  // means "wrong credentials" (errors.auth_failed is the session-expiry
+  // copy — wrong message here); on the MFA step it means "bad code".
+  // Register conflict arrives as VALIDATION_ERROR — the server message is
+  // matched only to pick the translated conflict copy, the API contract is
+  // untouched. Everything else (network, timeout, HTTP) goes through the
+  // shared localizeApiError map; its last resort is the honest server text.
+  const displayError = !error
+    ? null
+    : errorCode === 'AUTH_FAILED'
+      ? mfaRequired
+        ? t('auth.mfa_code_invalid')
+        : t('auth.invalid_credentials')
+      : errorCode === 'VALIDATION_ERROR' && /already exists/i.test(error)
+        ? t('auth.email_exists')
+        : localizeApiError({ code: errorCode, message: error }, t);
+
   // 180–240ms local ENTER-only motion (spec 02 §8); none under reduced
   // motion. Enter-only means the next form mounts immediately — no exit
   // waiting, no layout jump, and the switch works identically with the
@@ -227,7 +280,12 @@ export const AuthModal: React.FC = () => {
           </button>
         </div>
 
-        <h2 id="auth-modal-heading" className="sr-only">
+        {/* Visible step heading — the current step is readable, not inferred
+            from field shapes. Same node carries the dialog's accessible name. */}
+        <h2
+          id="auth-modal-heading"
+          className="px-6 pt-5 font-serif text-lg font-bold text-[#1B1F3B] tracking-tight"
+        >
           {heading}
         </h2>
 
@@ -236,8 +294,8 @@ export const AuthModal: React.FC = () => {
         <span className="sr-only" role="status" aria-live="polite">
           {isLoading
             ? t('auth.status_pending')
-            : error
-              ? error
+            : displayError
+              ? displayError
               : mfaRequired
                 ? t('auth.status_mfa_required')
                 : forgotPhase === 'sent'
@@ -286,9 +344,9 @@ export const AuthModal: React.FC = () => {
               <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs">
                 {t('auth.mfa_instructions')}
               </div>
-              {error && (
+              {displayError && (
                 <div role="alert" className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 font-medium">
-                  {error}
+                  {displayError}
                 </div>
               )}
               <div>
@@ -378,9 +436,9 @@ export const AuthModal: React.FC = () => {
           {/* ── Sign in / Create account ──────────────────────────────── */}
           {(activeStep === 'signin' || activeStep === 'signup') && (
             <motion.form key={view} {...formMotion} onSubmit={handleSubmit} className="p-6 space-y-4 text-xs">
-              {error && (
+              {displayError && (
                 <div role="alert" className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 font-medium">
-                  {error}
+                  {displayError}
                 </div>
               )}
 

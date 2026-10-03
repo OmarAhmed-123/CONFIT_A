@@ -254,3 +254,57 @@ describe('FitFinderView — confidence must not read as a probability', () => {
     });
   });
 });
+
+// ===========================================================================
+// Spec 09 re-pass — the fit page speaks BOTH catalogue languages. Before
+// this pass the entire shell (header, steps, verdict cards, size table,
+// consent text) was hardcoded English even on the Arabic storefront.
+// ===========================================================================
+describe('FitFinder localization (spec 09 re-pass)', () => {
+  it('AR: shell + refusal card render in Arabic; the reason code stays an LTR island', async () => {
+    const { setAppLanguage } = await import('../../i18n/i18n');
+    await act(async () => {
+      await setAppLanguage('ar');
+    });
+    try {
+      calcMock.mockResolvedValue({
+        recommended: false,
+        reason_code: 'no_size_chart',
+        missing: ['chest_cm'],
+        confidence_disclosure: 'disclosure text from the engine',
+        engine_version: 'fit-engine/1.0.0',
+      });
+      renderView();
+      // Arabic shell
+      expect(screen.getByRole('heading', { name: 'محرك توصيات المقاس' })).toBeInTheDocument();
+      expect(screen.getByText('محدد المقاس — بدون صور')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /احسب مقاسي/ })).toBeInTheDocument();
+      // drive a refusal via ids (labels are Arabic now)
+      fireEvent.change(document.getElementById('fit-height') as HTMLInputElement, {
+        target: { value: '175' },
+      });
+      fireEvent.change(screen.getByLabelText(/القطعة|garment/i), { target: { value: '7' } });
+      fireEvent.click(screen.getByRole('button', { name: /احسب مقاسي/ }));
+      await waitFor(() => {
+        expect(screen.getByText('لا توجد توصية مقاس لهذه القطعة')).toBeInTheDocument();
+      });
+      expect(screen.getByText('ما الذي قد يصلح الأمر')).toBeInTheDocument();
+      // reason code: LTR island inside the RTL page
+      const code = screen.getByText(/no_size_chart/);
+      expect(code.closest('[dir="ltr"]')).not.toBeNull();
+    } finally {
+      await act(async () => {
+        await setAppLanguage('en');
+      });
+    }
+  });
+
+  it('EN: constants keep API VALUES while labels localize (demographics select)', () => {
+    renderView();
+    const select = screen.getByLabelText(/size chart to use/i) as HTMLSelectElement;
+    const values = Array.from(select.options).map((o) => o.value);
+    expect(values).toEqual(['unisex', 'men', 'women']); // §11 contract untouched
+    const labels = Array.from(select.options).map((o) => o.textContent);
+    expect(labels).toEqual(['Prefer not to say', "Men's sizing", "Women's sizing"]);
+  });
+});

@@ -261,3 +261,70 @@ describe('reduced motion', () => {
     expect(rmBlock).not.toContain('border');
   });
 });
+
+/* ------------------------------------------------------------------ */
+/* E. Re-pass: the reveal entrance is decoration, never hierarchy      */
+/* ------------------------------------------------------------------ */
+describe('Surface reveal (re-pass)', () => {
+  const stubMatchMedia = (reduce: boolean) => {
+    const original = window.matchMedia;
+    window.matchMedia = ((query: string) => ({
+      matches: reduce && query.includes('prefers-reduced-motion'),
+      media: query,
+      onchange: null,
+      addListener: () => {},
+      removeListener: () => {},
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      dispatchEvent: () => false,
+    })) as unknown as typeof window.matchMedia;
+    return () => {
+      window.matchMedia = original;
+    };
+  };
+
+  it('reveal + motion: content and system class exist from the FIRST frame', () => {
+    const restore = stubMatchMedia(false);
+    render(
+      <Surface variant="raised" reveal data-testid="s">
+        Verdict content
+      </Surface>,
+    );
+    const el = screen.getByTestId('s');
+    expect(el.className).toContain('surface-raised');
+    expect(screen.getByText('Verdict content')).toBeInTheDocument();
+    restore();
+  });
+
+  it('reveal + reduced motion: renders the PLAIN static element — no inline animated opacity', () => {
+    const restore = stubMatchMedia(true);
+    render(
+      <Surface variant="raised" reveal data-testid="s2">
+        Static verdict
+      </Surface>,
+    );
+    const el = screen.getByTestId('s2');
+    expect(el.className).toContain('surface-raised');
+    expect(el.style.opacity).not.toBe('0');
+    // hierarchy identical: same class set as a non-reveal surface
+    render(
+      <Surface variant="raised" data-testid="s3">
+        Control
+      </Surface>,
+    );
+    expect(screen.getByTestId('s3').className).toBe(el.className);
+    restore();
+  });
+
+  it('reveal preserves the semantic element given via `as`', () => {
+    const restore = stubMatchMedia(false);
+    render(
+      <Surface variant="solid" reveal as="section" aria-label="spec panel">
+        sectioned
+      </Surface>,
+    );
+    const el = screen.getByLabelText('spec panel');
+    expect(el.tagName).toBe('SECTION');
+    restore();
+  });
+});

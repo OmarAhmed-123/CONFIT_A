@@ -187,7 +187,9 @@ def _parser_info() -> Dict[str, Any]:
 
 def _expected_admin_token() -> str:
     """The X-VTON-Admin token, from env (Modal/Baseten env) or the Baseten
-    secrets file mount (/secrets/<name>, read-only file with the raw value)."""
+    secrets file mounts. On Baseten a secret is mounted as a read-only file
+    named after the secret; with a single-value secret the file /secrets/
+    confit_worker_admin_token CONTAINS the raw token."""
     tok = (
         os.environ.get("VTON_WORKER_ADMIN_TOKEN")
         or os.environ.get("CONFIT_WORKER_ADMIN_TOKEN")
@@ -196,6 +198,9 @@ def _expected_admin_token() -> str:
     if tok:
         return tok.strip()
     for candidate in (
+        # Baseten single-value secret: the file holds the token itself.
+        "/secrets/confit_worker_admin_token",
+        # Key-value secret layout (if the secret is ever recreated as a dict).
         "/secrets/confit-worker-admin-token/VTON_WORKER_ADMIN_TOKEN",
         "/secrets/confit-worker-admin-token/CONFIT_WORKER_ADMIN_TOKEN",
     ):

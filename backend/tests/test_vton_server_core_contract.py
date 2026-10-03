@@ -171,17 +171,14 @@ def test_process_token_from_baseten_secrets_file(tmp_path, monkeypatch):
     """On Baseten the token may arrive as a read-only secrets FILE, not env."""
     monkeypatch.delenv("VTON_WORKER_ADMIN_TOKEN", raising=False)
     monkeypatch.delenv("CONFIT_WORKER_ADMIN_TOKEN", raising=False)
-    sec = tmp_path / "confit-worker-admin-token"
-    sec.mkdir()
-    (sec / "VTON_WORKER_ADMIN_TOKEN").write_text("file-token-123\n")
-    original = server_core._expected_admin_token
-    # point the candidates at the tmp dir by patching os.environ-free path
+    sec = tmp_path / "confit_worker_admin_token"
+    sec.write_text("file-token-123\n")
     import builtins
     real_open = builtins.open
 
     def _fake_open(path, *a, **k):
-        if str(path).endswith("VTON_WORKER_ADMIN_TOKEN"):
-            return real_open(sec / "VTON_WORKER_ADMIN_TOKEN", *a, **k)
+        if str(path).endswith("confit_worker_admin_token"):
+            return real_open(sec, *a, **k)
         return real_open(path, *a, **k)
 
     monkeypatch.setattr(builtins, "open", _fake_open)

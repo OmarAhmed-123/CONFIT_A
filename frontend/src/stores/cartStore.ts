@@ -47,12 +47,19 @@ interface CartState {
   closeCart: () => void;
   fetchCart: () => Promise<void>;
   syncAfterLogin: () => Promise<void>;
+  /**
+   * Resolves with HOW the server recorded the add (spec "flight feedback"
+   * §5: a duplicate SKU must surface the merged quantity, not silently grow
+   * a line). `merged` is DERIVED from the real server response — the line
+   * for this SKU existed before and its quantity rose — never guessed.
+   * Callers that ignore the result keep their old behaviour.
+   */
   addItem: (
     productSkuId: number,
     productInfo?: { id: number; title: string; category: string; color: string },
     quantity?: number,
     outfitId?: number
-  ) => Promise<void>;
+  ) => Promise<{ merged: boolean; quantity: number } | undefined>;
   confirmAddDuplicate: () => Promise<void>;
   dismissDuplicate: () => void;
   updateQuantity: (cartItemId: number, quantity: number) => Promise<void>;
@@ -130,9 +137,17 @@ export const useCartStore = create<CartState>((set, get) => ({
         }
       }
 
+      const prevLine = get().cart?.items.find((i) => i.product_sku_id === productSkuId);
       const updatedCart = await commerceService.addToCart(productSkuId, quantity, outfitId);
       persistCart(updatedCart);
       set({ cart: updatedCart, isOpen: true, isLoading: false, error: null });
+      const newLine = updatedCart.items.find((i) => i.product_sku_id === productSkuId);
+      // Merge = the SAME line existed before and the server grew it. Both
+      // facts come from server responses; nothing here is a UI guess.
+      if (prevLine && newLine && newLine.quantity > prevLine.quantity) {
+        return { merged: true, quantity: newLine.quantity };
+      }
+      return { merged: false, quantity: newLine?.quantity ?? quantity };
     } catch (err: any) {
       // P0-01b: an add failure must never be silent — explicit error toast
       // with the server's message; UI state rolls back to the last cart.
@@ -147,9 +162,18 @@ export const useCartStore = create<CartState>((set, get) => ({
     if (!pending) return;
     set({ isLoading: true });
     try {
+      const prevLine = get().cart?.items.find((i) => i.product_sku_id === pending.product_sku_id);
       const updatedCart = await commerceService.addToCart(pending.product_sku_id, pending.quantity);
       persistCart(updatedCart);
       set({ cart: updatedCart, pendingDuplicateAlert: null, isLoading: false, isOpen: true });
+      const newLine = updatedCart.items.find((i) => i.product_sku_id === pending.product_sku_id);
+      if (prevLine && newLine && newLine.quantity > prevLine.quantity) {
+        // The dialog shows no toast itself; the merged state must still be
+        // said in words (spec §5), not inferred from a number in the drawer.
+        useUIStore.getState().showToast(msg('toast.bag_quantity_merged', { count: newLine.quantity }), 'success');
+      } else {
+        useUIStore.getState().showToast(msg('toast.added_to_bag'), 'success');
+      }
     } catch (err) {
       set({ isLoading: false });
       throw err;

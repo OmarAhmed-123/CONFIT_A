@@ -490,7 +490,8 @@
     "add_failed_retry": "تعذّرت الإضافة — حاول مرة أخرى",
     "no_purchasable_size": "لا يتوفر مقاس قابل للشراء لهذه القطعة حالياً.",
     "wishlist_saved_device": "تم الحفظ في قائمة الأمنيات على هذا الجهاز",
-    "wishlist_removed": "تمت الإزالة من قائمة الأمنيات"
+    "wishlist_removed": "تمت الإزالة من قائمة الأمنيات",
+    "unavailable_label": "غير متاح — اختر مقاسًا آخر"
   },
   "b2b": {
     "dashboard_title": "لوحة تحكم شريك العلامة التجارية",
@@ -839,7 +840,8 @@
     "wardrobe_import_complete": "تم استيراد {{succeeded}} قطعة من صورتك.",
     "wardrobe_import_all_failed": "فشل استيراد الإطلالة — لم يتم حفظ أي قطع.",
     "slot_cleared": "تمت إزالة {{title}} من اللوحة",
-    "slot_restored": "عادت {{title}} إلى اللوحة"
+    "slot_restored": "عادت {{title}} إلى اللوحة",
+    "bag_quantity_merged": "موجود في حقيبتك بالفعل — الكمية الآن {{count}}"
   },
   "consent": {
     "title": "قبل أن نعالج صورتك",

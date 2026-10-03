@@ -121,6 +121,61 @@ describe("success is a server fact, not a UI guess", () => {
   });
 });
 
+describe("unavailable NAMES the gap on the control itself (spec §5)", () => {
+  it("renders the unavailable text as the visible label AND announces it politely", async () => {
+    wrap(
+      <AsyncActionButton
+        onAction={async () => "unavailable" as ActionOutcome}
+        idleLabel={IDLE}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: IDLE }));
+
+    // The control itself says why — not just a toast the shopper may miss.
+    await waitFor(() =>
+      expect(screen.getByRole("button")).toHaveTextContent(
+        "Unavailable — pick another size",
+      ),
+    );
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Unavailable — pick another size",
+    );
+    // Not a dead end: the control returns to an actionable state (timed
+    // revert to idle is covered by the machine; it is never `disabled`).
+    expect(screen.getByRole("button")).not.toBeDisabled();
+  });
+
+  it("speaks Arabic in the Arabic page — never the raw EN fallback", async () => {
+    await setAppLanguage("ar");
+    wrap(
+      <AsyncActionButton
+        onAction={async () => "unavailable" as ActionOutcome}
+        idleLabel="أضف إلى الحقيبة"
+      />,
+    );
+    fireEvent.click(screen.getByRole("button"));
+    await waitFor(() =>
+      expect(screen.getByRole("button")).toHaveTextContent(
+        "غير متاح — اختر مقاسًا آخر",
+      ),
+    );
+  });
+
+  it("a caller-supplied unavailableLabel wins over the default", async () => {
+    wrap(
+      <AsyncActionButton
+        onAction={async () => "unavailable" as ActionOutcome}
+        idleLabel={IDLE}
+        unavailableLabel="This size sold out"
+      />,
+    );
+    fireEvent.click(screen.getByRole("button"));
+    await waitFor(() =>
+      expect(screen.getByRole("button")).toHaveTextContent("This size sold out"),
+    );
+  });
+});
+
 describe("one button never sends twice", () => {
   it("ignores a second tap while the first mutation is in flight", async () => {
     const gate = deferred<ActionOutcome>();

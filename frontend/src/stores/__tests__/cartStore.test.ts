@@ -121,3 +121,85 @@ describe('P0-01e: guest cart merges into the authenticated cart on login', () =>
     expect(fetchCartServiceMock).toHaveBeenCalled();
   });
 });
+
+describe('spec "flight feedback" §5: a duplicate SKU surfaces the MERGED quantity', () => {
+  const lineCart = (skuId: number, qty: number): Cart => ({
+    ...cartWith(1),
+    items: [{ id: 7, product_sku_id: skuId, quantity: qty }],
+  } as unknown as Cart);
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+  });
+
+  it('re-adding an existing SKU resolves { merged: true } with the server-grown quantity', async () => {
+    useCartStore.setState({ cart: lineCart(500, 1), error: null, isLoading: false });
+    addToCartMock.mockResolvedValueOnce(lineCart(500, 2));
+
+    const res = await useCartStore.getState().addItem(500);
+
+    expect(res).toEqual({ merged: true, quantity: 2 });
+    // The claim comes from the server's cart, which the store also adopted.
+    expect(useCartStore.getState().cart?.items[0].quantity).toBe(2);
+  });
+
+  it('a brand-new SKU resolves { merged: false } — no fake "merged" talk', async () => {
+    useCartStore.setState({ cart: lineCart(500, 1), error: null, isLoading: false });
+    addToCartMock.mockResolvedValueOnce({
+      ...cartWith(2),
+      items: [
+        { id: 7, product_sku_id: 500, quantity: 1 },
+        { id: 8, product_sku_id: 600, quantity: 1 },
+      ],
+    } as unknown as Cart);
+
+    const res = await useCartStore.getState().addItem(600);
+
+    expect(res).toEqual({ merged: false, quantity: 1 });
+  });
+
+  it('confirmAddDuplicate announces the merged quantity in words when the line grew', async () => {
+    useCartStore.setState({
+      cart: lineCart(500, 1),
+      error: null,
+      isLoading: false,
+      pendingDuplicateAlert: {
+        product_sku_id: 500,
+        quantity: 1,
+        owned_item: { id: 1 } as never,
+        alert_message: 'similar piece',
+      },
+    } as never);
+    addToCartMock.mockResolvedValueOnce(lineCart(500, 2));
+
+    await useCartStore.getState().confirmAddDuplicate();
+
+    expect(showToastMock).toHaveBeenCalledWith(
+      expect.objectContaining({ key: 'toast.bag_quantity_merged', params: { count: 2 } }),
+      'success',
+    );
+  });
+
+  it('confirmAddDuplicate falls back to the plain added message for a fresh line', async () => {
+    useCartStore.setState({
+      cart: { ...cartWith(0), items: [] } as unknown as Cart,
+      error: null,
+      isLoading: false,
+      pendingDuplicateAlert: {
+        product_sku_id: 500,
+        quantity: 1,
+        owned_item: { id: 1 } as never,
+        alert_message: 'similar piece',
+      },
+    } as never);
+    addToCartMock.mockResolvedValueOnce(lineCart(500, 1));
+
+    await useCartStore.getState().confirmAddDuplicate();
+
+    expect(showToastMock).toHaveBeenCalledWith(
+      expect.objectContaining({ key: 'toast.added_to_bag' }),
+      'success',
+    );
+  });
+});

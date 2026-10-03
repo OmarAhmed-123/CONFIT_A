@@ -373,6 +373,14 @@ export interface AsyncActionButtonProps {
   unauthorizedLabel?: string;
   offlineLabel?: string;
   /**
+   * Visible text for the "unavailable" outcome (no purchasable SKU, stock
+   * gap). Spec §5: "unavailable" must NAME the reason — before this prop the
+   * state machine entered `unavailable` but the button kept rendering its
+   * idle label and the live region announced an empty string, so the only
+   * explanation (if any) was a toast the shopper may have missed.
+   */
+  unavailableLabel?: string;
+  /**
    * Fired on entering "unauthorized". Defaults to opening the auth modal —
    * the shopper stays on the page, so nothing they were doing is lost.
    */
@@ -399,6 +407,7 @@ export const AsyncActionButton: React.FC<AsyncActionButtonProps> = ({
   errorLabel,
   unauthorizedLabel,
   offlineLabel,
+  unavailableLabel,
   onUnauthorized,
   icon,
   flightIcon,
@@ -418,6 +427,7 @@ export const AsyncActionButton: React.FC<AsyncActionButtonProps> = ({
     error: errorLabel ?? t("commerce.add_failed_retry"),
     unauthorized: unauthorizedLabel ?? t("common.sign_in_to_continue"),
     offline: offlineLabel ?? t("common.offline_retry"),
+    unavailable: unavailableLabel ?? t("commerce.unavailable_label"),
   };
 
   const visibleLabel =
@@ -431,7 +441,9 @@ export const AsyncActionButton: React.FC<AsyncActionButtonProps> = ({
             ? labels.unauthorized
             : state === "offline"
               ? labels.offline
-              : idleLabel;
+              : state === "unavailable"
+                ? labels.unavailable
+                : idleLabel;
 
   return (
     <button
@@ -444,7 +456,9 @@ export const AsyncActionButton: React.FC<AsyncActionButtonProps> = ({
       data-testid={dataTestId}
       className={[
         "relative min-h-[44px] transition-all",
-        state === "error" || state === "offline" ? "ring-1 ring-[#7A1F2B]/40" : "",
+        state === "error" || state === "offline" || state === "unavailable"
+          ? "ring-1 ring-[#7A1F2B]/40"
+          : "",
         className,
       ]
         .filter(Boolean)
@@ -480,6 +494,7 @@ export const AsyncActionButton: React.FC<AsyncActionButtonProps> = ({
         errorText={labels.error}
         unauthorizedText={labels.unauthorized}
         offlineText={labels.offline}
+        unavailableText={labels.unavailable}
       />
     </button>
   );

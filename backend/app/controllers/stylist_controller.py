@@ -44,12 +44,15 @@ async def chat_with_stylist(
 
 
 @router.post("/compatibility", response_model=CompatibilityCheckResponse)
-def check_outfit_compatibility(
+async def check_outfit_compatibility(
     payload: CompatibilityCheckRequest,
     db: Session = Depends(get_db)
 ):
     service = OutfitService(db)
-    return service.evaluate_compatibility(
+    # Feature 06: the real OutfitTransformer model scores the set when the
+    # worker is configured; the deterministic rules heuristic answers
+    # otherwise. The response names which engine produced the score.
+    return await service.evaluate_compatibility(
         product_ids=payload.product_ids,
         target_occasion=payload.target_occasion or "Casual"
     )

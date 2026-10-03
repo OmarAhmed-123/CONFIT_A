@@ -16,6 +16,8 @@ from backend.app.services.commerce_service import CommerceService
 from backend.app.schemas.stylist import (
     CompositionPreviewInput,
     CompositionVerdictOut,
+    FillInTheBlankRequest,
+    FillInTheBlankResponse,
     OutfitCreateInput,
     OutfitItemsReplaceInput,
     OutfitOut,
@@ -272,6 +274,31 @@ def preview_composition(
         product_sku_ids=payload.product_sku_ids or [],
         product_ids=payload.product_ids or [],
     )
+
+
+@router.post("/fill-in-the-blank", response_model=FillInTheBlankResponse)
+async def fill_in_the_blank(
+    payload: FillInTheBlankRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Feature 06 — complete a partial outfit.
+
+    The OutfitTransformer complementary model (CIR) ranks catalog candidates
+    for the blank slot; when the worker is unavailable the deterministic
+    rules engine ranks outfit+candidate sets instead. The response names the
+    engine — a fallback ranking is real, but never presented as the model's.
+    """
+    service = OutfitService(db)
+    try:
+        return await service.fill_in_the_blank(
+            product_ids=payload.product_ids,
+            target_slot=payload.target_slot,
+            candidate_product_ids=payload.candidate_product_ids,
+            top_k=payload.top_k,
+        )
+    except ResourceNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
 
 
 @router.post("/{outfit_id}/share", response_model=ShareLinkOut)

@@ -44,13 +44,24 @@ on every route (the backend sends it from
 #    Actions: "build vton baseten image" — produces
 #    ghcr.io/omarahmed-123/confit-vton-worker-baseten:main + :sha-<sha>
 
-# 2. Create the secret ONCE on Baseten (org-level), value = rotated admin
-#    token; the worker reads VTON_WORKER_ADMIN_TOKEN / CONFIT_WORKER_ADMIN_TOKEN.
+# 2. Create the secret ONCE on Baseten (org-level). A Baseten secret is a
+#    name -> single value, mounted at /secrets/confit_worker_admin_token with
+#    the value as the file content (server_core._expected_admin_token reads
+#    that flat file). Create it via the UI (Settings -> Secrets) or the API:
+#    POST /v1/secrets {"name": "confit_worker_admin_token", "value": <token>}
+#    NOTE: this call needs an API key of type WORKSPACE_MANAGE_ALL — a
+#    WORKSPACE_MANAGE_API_KEYS key gets 403 on /v1/secrets.
 
 # 3. Deploy (no GPU time is spent: Baseten copies the image registry-to-registry)
+#    NOTE: custom base images (docker_server / no_build) must be enabled for
+#    the organization — otherwise truss push fails with
+#    "Custom base images not supported for your organization".
 truss push services/vton-worker/baseten/   # config.yaml points at the GHCR image
 
 # 4. Verify (this DOES spend GPU minutes — surgical, one pass)
+#    Readiness first (no GPU): expect 200 {"ready": true, ...} once warm
+curl -H "Authorization: Api-Key $BASETEN_API_KEY" \
+     https://model-<id>.api.baseten.co/environments/production/sync/readiness
 curl -H "Authorization: Api-Key $BASETEN_API_KEY" \
      https://model-<id>.api.baseten.co/environments/production/sync/health
 # expect: model_loaded=true, engine=fashn_v15, multigarment=true, device=L4

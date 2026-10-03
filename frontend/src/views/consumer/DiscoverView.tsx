@@ -17,6 +17,8 @@ import {
 import { useCapabilities } from "../../hooks/useCapabilities";
 import { resolvePurchasableSku } from "../../lib/catalogSku";
 import { ProductCard } from "../../components/product/ProductCard";
+import { AccessibleCarousel } from "../../components/common/AccessibleCarousel";
+import { Surface } from "../../components/common/Surface";
 import {
   classifyActionError,
   type ActionOutcome,
@@ -315,6 +317,38 @@ export const DiscoverView: React.FC = () => {
           </HeroLightCard>
         }
       />
+
+      {/* Spec 10 — REAL-data collection rail: the AccessibleCarousel wired
+          to the live catalog query (same fetch as the grid — no new API,
+          no invented "trending" metric §11). Keyboard arrows + Home/End,
+          RTL-correct, no autoplay, honest loading/error/empty states. */}
+      <Surface as="section" variant="raised" reveal className="space-y-3 rounded-2xl p-4 sm:p-6">
+        <div>
+          <span className="text-[10px] font-bold uppercase tracking-widest text-[#7A5C28]">
+            {t('discover.rail_eyebrow')}
+          </span>
+          <h2 className="mt-1 font-serif text-2xl font-bold text-[#1B1F3B]">
+            {t('discover.rail_title')}
+          </h2>
+        </div>
+        <AccessibleCarousel
+          items={products.slice(0, 10)}
+          getKey={(p) => p.id}
+          label={t('discover.rail_label')}
+          isLoading={isLoading}
+          error={products.length === 0 ? catalogError : null}
+          onRetry={refreshCatalog}
+          data-testid="discover-collection-rail"
+          renderItem={(p) => (
+            <ProductCard
+              product={p}
+              variant="compact"
+              isWishlisted={wishlist.includes(p.id)}
+              onToggleWishlist={toggleWishlist}
+            />
+          )}
+        />
+      </Surface>
 
       {/* Filter Tabs & Occasion Pills */}
       <div className="space-y-4">

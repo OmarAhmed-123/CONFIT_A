@@ -7,7 +7,11 @@ from backend.app.repositories.profile_repository import ProfileRepository
 from backend.app.repositories.wardrobe_repository import WardrobeRepository
 from backend.app.providers.orchestrator import get_orchestrator
 from backend.app.services.styling_engine import StylingEngine
-from backend.app.services.query_translation import translate_query
+from backend.app.services.query_translation import (
+    contains_arabic,
+    translate_query,
+    translate_reply_to_arabic,
+)
 from backend.app.services.styling.outfit_prose import attach_prose, split_outfit_prose
 from backend.app.services.styling.garment_gender import (
     gender_from_query,
@@ -252,10 +256,30 @@ class StylistService:
         # returned to the caller.
         engine = ai_result.get("provider_used")
         intent["engine"] = engine
+
+        # 8b. Outbound language: answer in the shopper's language.
+        #
+        # Measured on production 2026-10-01: an Arabic prompt received an
+        # English reply. The inbound layer (translate_query) makes retrieval
+        # work; this makes the ANSWER readable for the primary market.
+        # Only the stylist's prose is translated — recommendation payloads
+        # (prices, titles, scores) stay in their catalogue language, which the
+        # Arabic UI already renders. On any translation failure the English
+        # prose ships unchanged (honest degradation), and 'reply_language'
+        # records what actually happened.
+        final_content = ai_result.get("styling_advice_text", "Here is your curated complete look.")
+        if contains_arabic(prompt or ""):
+            outbound = await translate_reply_to_arabic(final_content)
+            if outbound.translated:
+                final_content = outbound.text
+            intent["reply_language"] = "ar" if outbound.translated else "en"
+        else:
+            intent["reply_language"] = "en"
+
         assistant_msg = self.stylist_repo.add_message(
             session_id=session.id,
             sender="assistant",
-            content=ai_result.get("styling_advice_text", "Here is your curated complete look."),
+            content=final_content,
             intent_json=intent,
             recommendations_json=recommended_outfits
         )

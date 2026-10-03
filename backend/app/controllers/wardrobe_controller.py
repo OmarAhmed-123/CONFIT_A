@@ -1,5 +1,5 @@
 from typing import List, Optional
-from fastapi import APIRouter, Depends, Query, HTTPException, status, UploadFile, File, Request
+from fastapi import APIRouter, Depends, Form, Query, HTTPException, status, UploadFile, File, Request
 from sqlalchemy.orm import Session
 from backend.app.core.database import get_db
 from backend.app.core.rate_limit import limiter
@@ -21,6 +21,7 @@ from backend.app.schemas.wardrobe import (
     DuplicateCheckRequest,
     DuplicateAlertResponse,
     WardrobeUploadResponse,
+    WardrobeImportResponse,
     WardrobeFirstOutfitOut,
 )
 
@@ -264,6 +265,44 @@ async def bulk_upload_wardrobe_images(
         payload.append((f.filename or "upload", f.content_type, blob))
     service = WardrobeService(db)
     return await service.upload_items(user.id, payload)
+
+
+@router.post("/import-outfit", response_model=WardrobeImportResponse, status_code=status.HTTP_201_CREATED)
+# Feature 04 (Smart Wardrobe). One outfit photo -> up to 6 real garment
+# extractions (SCHP-ATR-18 + BiRefNet_lite, Modal CPU). Each import costs a
+# 30-90s CPU extraction plus one vision analysis per garment — the tightest
+# bucket of the wardrobe upload family, below bulk's 10/hour.
+@limiter.limit("5/hour")
+async def import_outfit_photo(
+    request: Request,
+    file: UploadFile = File(...),
+    max_items: int = Form(4),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Import one outfit photo into multiple wardrobe items.
+
+    The photo goes through the same fail-closed moderation gate as every
+    other wardrobe upload (block-before-persist, S4), then through the real
+    extraction worker. The response reports every garment the worker
+    honestly detected — sub-threshold regions come back in
+    ``extraction.skipped`` with reasons, never as items.
+    """
+    if not 1 <= max_items <= 6:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="max_items must be between 1 and 6.",
+        )
+    data = await file.read()
+    await _require_safe_image(data, file.content_type, user_id=user.id)
+    service = WardrobeService(db)
+    result = await service.import_outfit_photo(
+        user.id, file.filename or "outfit", file.content_type, data, max_items=max_items
+    )
+    # 201 with the honest per-item report even when some garments failed
+    # analysis; the extraction itself succeeded. Full-worker failures raise
+    # ProviderIntegrationError (502) / ValidationDomainError (422) instead.
+    return result
 
 
 @router.post("/items/{item_id}/analyze", response_model=WardrobeItemOut)

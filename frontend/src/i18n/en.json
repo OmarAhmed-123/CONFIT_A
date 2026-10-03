@@ -433,7 +433,19 @@
     "match_label": "Match",
     "match_verdict": "stylist engine",
     "upload_cta": "Upload {{count}} piece(s) & auto-tag with AI",
-    "worn_count": "Worn {{count}}x"
+    "worn_count": "Worn {{count}}x",
+    "import_outfit_title": "Import from Outfit Photo",
+    "import_outfit_hint": "(one full-outfit photo — each garment extracted separately, 1–2 min)",
+    "import_outfit_unavailable": "Photo storage is not configured in this environment — the import will be rejected with a clear error.",
+    "import_outfit_cta": "Extract Garments with AI",
+    "import_outfit_busy": "Extracting garments…",
+    "import_outfit_wait": "Real AI extraction (garment parsing + matting) — this can take 1–2 minutes. Please keep this open.",
+    "import_status_failed": "Failed",
+    "import_status_duplicate": "Already owned",
+    "import_status_ready": "Extracted ✓",
+    "import_status_retryable": "Saved (AI retryable)",
+    "import_skipped_note": "Not detected (reported honestly): {{labels}}",
+    "import_engine_note": "SCHP-ATR-18 + BiRefNet (MIT)"
   },
   "commerce": {
     "add_to_cart": "Add to Bag",
@@ -823,7 +835,9 @@
     "look_deleted_permanently": "Look permanently deleted",
     "canvas_cleared": "Canvas cleared — {{count}} item(s) removed",
     "canvas_restored": "Canvas restored",
-    "permanent_delete_needs_confirm": "Permanent deletion requires explicit confirmation"
+    "permanent_delete_needs_confirm": "Permanent deletion requires explicit confirmation",
+    "wardrobe_import_complete": "Imported {{succeeded}} garment(s) from your photo.",
+    "wardrobe_import_all_failed": "Outfit import failed — no garments could be saved."
   },
   "consent": {
     "title": "Before we process your photo",
@@ -1042,7 +1056,40 @@
     "fix_fields": "Fix the highlighted measurement fields first.",
     "select_garment": "Select a garment to size first.",
     "saved": "Measurements saved to your profile.",
-    "girths_estimate_note": "Height and weight alone can only estimate your girths."
+    "girths_estimate_note": "Height and weight alone can only estimate your girths.",
+    "photo_estimate": {
+      "title": "Estimate from a photo (AI)",
+      "show": "How?",
+      "hide": "Hide",
+      "intro": "Upload one full-body photo (arms relaxed, whole body visible) and the AI estimates your measurements — approximate,",
+      "intro_accuracy": "not a tape measurement.",
+      "choose_file": "Choose a full-body photo…",
+      "bad_type": "Unsupported image type. Use JPEG, PNG or WebP.",
+      "too_large": "That photo is larger than 15 MB. Please pick a smaller one.",
+      "sex": "Sizing model",
+      "sex_male": "Men's",
+      "sex_female": "Women's",
+      "height": "Your height",
+      "height_unit": "cm",
+      "height_hint": "Your real height makes the estimate far more accurate — it anchors the photo's scale. Leave it empty only if you cannot measure it.",
+      "consent": "I agree that CONFIT processes this photo server-side to estimate my body measurements (±2–3 cm). The photo is sent for estimation and is not stored in my wardrobe.",
+      "working": "Estimating…",
+      "estimate": "Estimate my measurements",
+      "refused": "The photo could not be used",
+      "error_generic": "Photo estimation is unavailable right now.",
+      "retry_hint": "This is usually temporary — please try again in a moment.",
+      "result_title": "Estimated measurements",
+      "field_height": "Height",
+      "field_chest": "Chest",
+      "field_hip": "Hip",
+      "field_waist": "Waist",
+      "not_estimated": "not estimated",
+      "excluded_summary": "{{count}} measurements were excluded for honesty",
+      "accuracy_line": "AI estimate, accuracy {{note}}. Provenance per measurement is listed above the fold in the scan record.",
+      "apply": "Use these numbers in the form",
+      "applied_short": "✓ Applied to the form",
+      "applied": "Estimated measurements applied to the form."
+    }
   },
   "admin_readiness": {
     "blocked_tag": "Not production-ready",

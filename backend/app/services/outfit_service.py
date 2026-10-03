@@ -1,5 +1,6 @@
 import json
 import secrets
+from backend.app.core.exceptions import ResourceNotFoundError
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import List, Dict, Any, Optional
@@ -17,6 +18,8 @@ from backend.app.services.styling.composition_policy import (
     evaluate_composition,
     order_items,
 )
+from backend.app.providers.outfit_compat_provider import OutfitCompatProvider
+from backend.app.services.styling.slot_layering_engine import SlotLayeringEngine
 
 
 class OutfitCompositionError(Exception):
@@ -42,6 +45,16 @@ MAX_SHARE_TTL_DAYS = 365
 def _utcnow() -> datetime:
     """Naive-UTC 'now', matching the DateTime columns in this schema."""
     return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+def _to_int_id(raw: Any) -> Optional[int]:
+    """Worker candidate ids are strings (CandidateSpec.id); the catalog's are
+    ints. Coerce without ever guessing on malformed input."""
+    try:
+        return int(str(raw))
+    except (TypeError, ValueError):
+        return None
+
 from backend.app.services.storage_service import storage_public_url
 
 
@@ -200,27 +213,323 @@ class OutfitService:
             "created_at": outfit.created_at,
         }
 
-    def evaluate_compatibility(self, product_ids: List[int], target_occasion: str = "Casual") -> Dict[str, Any]:
+    # ── Feature 06 — OutfitTransformer compatibility (model + heuristic) ──
+
+    @staticmethod
+    def _product_image_url(p) -> Optional[str]:
+        """First usable public image URL of a product (images JSON, then
+        thumbnail). None when there is genuinely no image — the model path
+        then declines honestly instead of sending a placeholder."""
+        try:
+            urls = json.loads(p.images) if p.images else []
+        except (ValueError, TypeError):
+            urls = []
+        if isinstance(urls, list):
+            for u in urls:
+                if isinstance(u, str) and u.startswith(("http://", "https://")):
+                    return u
+        thumb = getattr(p, "thumbnail_url", None)
+        if isinstance(thumb, str) and thumb.startswith(("http://", "https://")):
+            return thumb
+        return None
+
+    @classmethod
+    def _worker_item_from_product(cls, p) -> Optional[Dict[str, Any]]:
+        """Product → worker item {image_base64_or_url, slot, title}.
+
+        The slot is the COARSE layering vocabulary (upper_inner, lower,
+        footwear, …) from SlotLayeringEngine.map_category_to_slot — the
+        single source of truth the worker maps onto the model's Polyvore
+        categories. (The fine-grained ontology values like "formal_shirt"
+        would be meaningless to the model.)
+        Returns None when the product has no image: the compatibility model
+        is multimodal and an image-less item would make the whole score a
+        lie. The caller treats that as 'model path unavailable for this set'.
+        """
+        image_url = cls._product_image_url(p)
+        if not image_url:
+            return None
+        return {
+            "image_base64_or_url": image_url,
+            "slot": SlotLayeringEngine.map_category_to_slot(p)[0],
+            "title": p.title or "",
+        }
+
+    @staticmethod
+    def _compat_dict(p) -> Dict[str, Any]:
+        """Product row → the heuristic engine's product dict. ONE builder
+        shared by compatibility, the FITB fallback and the legacy path —
+        the three surfaces can never disagree about what a product is."""
+        return {
+            "id": p.id,
+            "title": p.title,
+            "product_title": p.title,
+            "color_family": p.color_family,
+            "dominant_hex": p.dominant_hex,
+            "style_tags": json.loads(p.style_tags) if p.style_tags else [],
+            "occasion_tags": json.loads(p.occasion_tags) if p.occasion_tags else [],
+            "category": p.category.name if p.category else "Apparel",
+            "price": to_float(p.base_price),
+            "currency": p.currency or "USD",
+            "position": _position_for_product(p),
+            "slot_type": classify_product_slot(p)[0].value,
+        }
+
+    def _load_compat_products(
+        self, product_ids: List[int],
+    ) -> "tuple[List[Any], List[Dict[str, Any]]]":
+        """Fetch product rows + their heuristic-engine dicts by id."""
+        product_rows = []
         products = []
         for pid in product_ids:
             p = self.catalog_repo.get_product_by_id(pid)
             if p:
-                products.append({
-                    "id": p.id,
-                    "title": p.title,
-                    "product_title": p.title,
-                    "color_family": p.color_family,
-                    "dominant_hex": p.dominant_hex,
-                    "style_tags": json.loads(p.style_tags) if p.style_tags else [],
-                    "occasion_tags": json.loads(p.occasion_tags) if p.occasion_tags else [],
-                    "category": p.category.name if p.category else "Apparel",
-                    "price": to_float(p.base_price),
-                    "currency": p.currency or "USD",
-                    "position": _position_for_product(p),
-                    "slot_type": classify_product_slot(p)[0].value,
-                })
+                product_rows.append(p)
+                products.append(self._compat_dict(p))
+        return product_rows, products
 
-        return StylingEngine.calculate_compatibility(products, target_occasion=target_occasion)
+    def _heuristic_result(
+        self, product_ids: List[int], target_occasion: str = "Casual",
+    ) -> Dict[str, Any]:
+        """The pre-feature-06 deterministic answer, unchanged. Kept as its
+        own method so the equality between the labeled heuristic path and
+        the legacy behavior is a TESTABLE property, not a hope."""
+        _, products = self._load_compat_products(product_ids)
+        return StylingEngine.calculate_compatibility(
+            products, target_occasion=target_occasion)
+
+    async def evaluate_compatibility(
+        self, product_ids: List[int], target_occasion: str = "Casual",
+    ) -> Dict[str, Any]:
+        """Compatibility of a product set, by the real model when possible.
+
+        Score source is named in the response (`engine` / `compatibility_source`):
+        OutfitTransformer (Modal CPU worker) when configured and every item
+        has an image; otherwise the deterministic rules heuristic that has
+        always answered here — same numbers as before, honestly labeled.
+        The rules-engine explanations (color harmony, occasion, budget)
+        travel in BOTH paths: they are derived from the same products and
+        stay meaningful regardless of who computed the headline number.
+        """
+        product_rows, products = self._load_compat_products(product_ids)
+
+        result = StylingEngine.calculate_compatibility(
+            products, target_occasion=target_occasion)
+        result["engine"] = "rules_heuristic"
+        result["compatibility_source"] = "heuristic"
+        result["compatibility_available"] = False
+
+        provider = OutfitCompatProvider()
+        if not provider.is_configured():
+            result["reason"] = "outfit_model_not_configured"
+            return result
+
+        if len(product_rows) < 2:
+            result["reason"] = "not_enough_products"
+            return result
+
+        items = [self._worker_item_from_product(p) for p in product_rows]
+        if not all(items):
+            # At least one product lacks a real image — refuse the model
+            # path for the whole set rather than score a partial outfit and
+            # present it as the full one.
+            result["reason"] = "product_image_missing"
+            return result
+
+        model_result = await provider.score_compatibility([i for i in items if i])
+        if model_result.get("compatibility_available"):
+            result["compatibility_score"] = model_result[
+                "compatibility_score_0_100"]
+            result["engine"] = "outfit_transformer_clip"
+            result["compatibility_source"] = "model"
+            result["compatibility_available"] = True
+            result["model_detail"] = {
+                "model_score": model_result.get("compatibility_score"),
+                "type_aware": model_result.get("type_aware"),
+                "aesthetic_axes": model_result.get("aesthetic_axes"),
+                "models": model_result.get("models"),
+                "training_data_note": model_result.get("training_data_note"),
+                "timings": model_result.get("timings"),
+                "job_id": model_result.get("job_id"),
+            }
+            # A type-aware model warning (duplicate slot, missing essential)
+            # is more actionable than a generic suggestion — surface it first.
+            for warning in (model_result.get("type_aware") or {}).get("warnings", []):
+                if warning not in result["suggestions"]:
+                    result["suggestions"].insert(0, warning)
+        else:
+            result["reason"] = model_result.get("reason", "outfit_model_unavailable")
+        return result
+
+    async def fill_in_the_blank(
+        self,
+        product_ids: List[int],
+        target_slot: Optional[str] = None,
+        candidate_product_ids: Optional[List[int]] = None,
+        top_k: int = 5,
+    ) -> Dict[str, Any]:
+        """Complete a partial outfit: rank catalog candidates for the blank.
+
+        Model path: OutfitTransformer complementary retrieval (CIR) — the
+        partial outfit + target category embed to a query vector; candidates
+        are ranked by cosine similarity in the model's learned space.
+        Fallback path (model unavailable): the deterministic rules engine
+        scores outfit+candidate for each candidate — a real ranking, labeled
+        rules_heuristic, never presented as the model's.
+        """
+        outfit_rows = []
+        for pid in product_ids:
+            p = self.catalog_repo.get_product_by_id(pid)
+            if p is None:
+                raise ResourceNotFoundError("Product", pid)
+            outfit_rows.append(p)
+        if not outfit_rows:
+            return {
+                "fitb_available": False, "reason": "empty_outfit",
+                "engine": None, "target_slot": target_slot,
+                "outfit_product_ids": [], "ranked": [],
+            }
+
+        # Candidate pool: explicit ids, else a bounded catalog sweep
+        # filtered to the target slot by the same classifier the rest of
+        # the styling stack uses.
+        if candidate_product_ids:
+            candidate_rows = []
+            for pid in candidate_product_ids:
+                p = self.catalog_repo.get_product_by_id(pid)
+                if p is not None and p.id not in set(product_ids):
+                    candidate_rows.append(p)
+        else:
+            sweep = self.catalog_repo.filter_products(limit=120)
+            in_outfit = set(product_ids)
+            pool = []
+            for p in sweep:
+                if p.id in in_outfit:
+                    continue
+                if target_slot and SlotLayeringEngine.map_category_to_slot(p)[0] != target_slot:
+                    continue
+                pool.append(p)
+                if len(pool) >= 16:
+                    break
+            candidate_rows = pool
+
+        if not candidate_rows:
+            return {
+                "fitb_available": False, "reason": "no_candidates",
+                "engine": None, "target_slot": target_slot,
+                "outfit_product_ids": [p.id for p in outfit_rows],
+                "ranked": [],
+            }
+
+        provider = OutfitCompatProvider()
+        if provider.is_configured():
+            outfit_items = [self._worker_item_from_product(p) for p in outfit_rows]
+            candidate_items = [
+                (c, self._worker_item_from_product(c)) for c in candidate_rows
+            ]
+            if all(outfit_items) and all(item for _, item in candidate_items):
+                # candidate items carry the product id (stringified) so the
+                # worker's ranking can be mapped back onto real products.
+                worker_candidates = [
+                    {**item, "id": str(row.id)}
+                    for row, item in candidate_items if item
+                ]
+                model_result = await provider.fill_in_the_blank(
+                    [i for i in outfit_items if i],
+                    worker_candidates,
+                    target_slot=target_slot,
+                    top_k=top_k,
+                )
+                if model_result.get("compatibility_available"):
+                    by_id = {c.id: c for c in candidate_rows}
+                    ranked = []
+                    for entry in model_result.get("ranked", [])[:top_k]:
+                        row = by_id.get(_to_int_id(entry.get("id")))
+                        if row is None:
+                            continue
+                        ranked.append({
+                            "product_id": row.id,
+                            "rank": entry["rank"],
+                            "similarity": entry["similarity"],
+                            "title": row.title,
+                            "image_url": self._product_image_url(row),
+                            "price": to_float(row.base_price),
+                            "currency": row.currency or "USD",
+                        })
+                    return {
+                        "fitb_available": True,
+                        "engine": "outfit_transformer_clip",
+                        "target_slot": target_slot,
+                        "target_category_used": model_result.get(
+                            "target_category_used"),
+                        "outfit_product_ids": [p.id for p in outfit_rows],
+                        "ranked": ranked,
+                        "method_note": (
+                            "Complementary item retrieval (CIR): cosine "
+                            "similarity in the OutfitTransformer's learned "
+                            "space, single step regardless of outfit length."
+                        ),
+                    }
+                reason = model_result.get("reason", "outfit_model_unavailable")
+            else:
+                reason = "product_image_missing"
+        else:
+            reason = "outfit_model_not_configured"
+
+        # Honest deterministic fallback: rank candidates by the rules
+        # engine's compatibility of outfit+candidate — same engine that
+        # answers /compatibility when the model is down, so the two
+        # surfaces can never disagree with each other.
+        ranked = self._heuristic_fitb_ranking(
+            outfit_rows, candidate_rows, top_k)
+        if not ranked:
+            return {
+                "fitb_available": False,
+                "engine": None,
+                "reason": reason,
+                "target_slot": target_slot,
+                "outfit_product_ids": [p.id for p in outfit_rows],
+                "ranked": [],
+            }
+        return {
+            "fitb_available": True,
+            "engine": "rules_heuristic",
+            # fitb_available=True with a fallback engine: the ranking is
+            # real, but the reason the model was skipped stays visible.
+            "reason": reason,
+            "target_slot": target_slot,
+            "outfit_product_ids": [p.id for p in outfit_rows],
+            "ranked": ranked,
+            "method_note": (
+                "The compatibility model is unavailable; ranking is the "
+                "deterministic rules engine (color harmony + occasion fit) "
+                "over outfit+candidate sets."
+            ),
+        }
+
+    def _heuristic_fitb_ranking(
+        self, outfit_rows: List[Any], candidate_rows: List[Any], top_k: int,
+    ) -> List[Dict[str, Any]]:
+        """Rules-engine FITB: score outfit+candidate per candidate, rank."""
+        base = [self._compat_dict(p) for p in outfit_rows]
+        scored = []
+        for cand in candidate_rows:
+            verdict = StylingEngine.calculate_compatibility(
+                base + [self._compat_dict(cand)], target_occasion="Casual")
+            scored.append((verdict.get("compatibility_score", 0), cand))
+        scored.sort(key=lambda pair: pair[0], reverse=True)
+        ranked = []
+        for rank_pos, (score, cand) in enumerate(scored[:top_k], start=1):
+            ranked.append({
+                "product_id": cand.id,
+                "rank": rank_pos,
+                "similarity": round(score / 100.0, 4),
+                "title": cand.title,
+                "image_url": self._product_image_url(cand),
+                "price": to_float(cand.base_price),
+                "currency": cand.currency or "USD",
+            })
+        return ranked
 
     def save_outfit(
         self,

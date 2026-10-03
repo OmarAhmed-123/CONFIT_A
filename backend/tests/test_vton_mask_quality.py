@@ -236,30 +236,27 @@ class TestVTONMultiGarmentQuality:
 @pytest.mark.skipif(not PIPELINE_AVAILABLE, reason="VTON pipeline not available")
 class TestVTONPartialFailure:
     def test_partial_failure_reports_the_failing_layer(self):
-        """Every per-layer failure exit in the diffusion loop must name failed_layer.
+        """Every inference failure exit must be honest and attributable.
 
-        Previously this was `assert True` with a comment claiming code inspection.
-        It now actually parses modal_app.py and checks each raise inside the
-        garment loop, so deleting the field breaks the test.
+        fashn_v15 contract: the WORKER's GPU_OOM / INFERENCE_FAILED /
+        OUTPUT_INVALID raises carry the job_id, and the ENGINE's composition
+        loop names the failing layer (a non-applied layer aborts — never
+        composites on top of). Deleting either breaks this test.
         """
         import ast
 
-        src = (REPO / "services" / "vton-worker" / "modal_app.py").read_text()
-        tree = ast.parse(src)
+        worker_src = (REPO / "services" / "vton-worker" / "modal_app_v15.py").read_text()
+        tree = ast.parse(worker_src)
 
+        # Worker: every inference-failure raise carries the job id.
         raises = [
             n for n in ast.walk(tree)
-            if isinstance(n, ast.Raise) and "failed_layer" not in ast.unparse(n)
-            and any(code in ast.unparse(n) for code in ("GPU_OOM", "INFERENCE_FAILED"))
+            if isinstance(n, ast.Raise) and "job_id" not in ast.unparse(n)
+            and any(code in ast.unparse(n) for code in ("GPU_OOM", "INFERENCE_FAILED", "OUTPUT_INVALID"))
         ]
         assert raises == [], [ast.unparse(n)[:120] for n in raises]
 
-        # and the field must be populated with the loop index, not a constant
-        for code in ("GPU_OOM", "INFERENCE_FAILED"):
-            hit = [
-                ast.unparse(n) for n in ast.walk(tree)
-                if isinstance(n, ast.Raise) and code in ast.unparse(n)
-            ]
-            assert hit, f"no raise found for {code}"
-            for h in hit:
-                assert "'failed_layer': idx" in h or '"failed_layer": idx' in h, h
+        # Engine: the failing layer is named in the abort message.
+        engine_src = (REPO / "services" / "vton-worker" / "engine" / "fashn_v15.py").read_text()
+        assert "failed output verification" in engine_src
+        assert "layer {idx + 1}" in engine_src

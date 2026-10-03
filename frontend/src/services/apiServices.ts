@@ -809,6 +809,28 @@ export interface WardrobeUploadResponse {
   };
 }
 
+/**
+ * Feature 04 — outfit-photo import. One photo -> N items; `extraction`
+ * carries the worker's honest report: sub-threshold regions it refused to
+ * invent (`skipped`), items it had to drop (`dropped_items`), and the
+ * engine provenance. Mirrors backend WardrobeImportResponse.
+ */
+export interface WardrobeImportExtraction {
+  person_detected: boolean | null;
+  person_labels: string[];
+  skipped: Array<{ label?: string; reason?: string; area?: number }>;
+  dropped_items: Array<{ label?: string | null; reason?: string }>;
+  engine: string | null;
+  commercial: boolean | null;
+  parse_seconds: number | null;
+  matting_seconds: number | null;
+  total_seconds: number | null;
+}
+
+export interface WardrobeImportResponse extends WardrobeUploadResponse {
+  extraction: WardrobeImportExtraction;
+}
+
 export interface WardrobeFirstOutfitItem {
   position: string;
   source: "owned" | "catalog";
@@ -928,6 +950,19 @@ export const wardrobeService = {
     const form = new FormData();
     files.forEach((f) => form.append("files", f));
     return request<WardrobeUploadResponse>("/wardrobe/upload/bulk", {
+      method: "POST",
+      body: form,
+    });
+  },
+
+  // Feature 04 — one outfit photo, up to 6 extracted garments. This call is
+  // SLOW by design (real CPU inference: SCHP-ATR-18 parse + BiRefNet_lite
+  // matting per garment, 30-90s) — callers must show a busy state.
+  importOutfitPhoto: (file: File, maxItems = 4) => {
+    const form = new FormData();
+    form.append("file", file);
+    form.append("max_items", String(maxItems));
+    return request<WardrobeImportResponse>("/wardrobe/import-outfit", {
       method: "POST",
       body: form,
     });

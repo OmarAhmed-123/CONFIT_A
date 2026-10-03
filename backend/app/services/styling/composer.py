@@ -45,6 +45,89 @@ _SIGNAL_VOCAB = {
     "luxury", "hot", "cold", "weather", "rain", "winter",
 }
 
+# ── Budget-mention detection (bilingual, both digit systems) ────────────────
+#
+# CONFIT's primary market is Egypt: shoppers write Arabic-Indic digits (٣ آلاف
+# جنيه), Egyptian dialect (حوالي / بحد أقصى / أقل من), and English with EGP
+# suffixes (around 500 EGP). All three were measured failing against the old
+# English-only 'under|below|budget of|$' pattern on 2026-10-01 — every one of
+# them silently fell to the 450.00 default and the composer then reported
+# 'within_budget' against a budget the shopper never stated.
+
+# Arabic-Indic (U+0660-0669) and Extended/Persian (U+06F0-06F9) digits -> ASCII.
+_ARABIC_DIGIT_TABLE = str.maketrans({
+    "\u0660": "0", "\u0661": "1", "\u0662": "2", "\u0663": "3", "\u0664": "4",
+    "\u0665": "5", "\u0666": "6", "\u0667": "7", "\u0668": "8", "\u0669": "9",
+    "\u06f0": "0", "\u06f1": "1", "\u06f2": "2", "\u06f3": "3", "\u06f4": "4",
+    "\u06f5": "5", "\u06f6": "6", "\u06f7": "7", "\u06f8": "8", "\u06f9": "9",
+    # Arabic decimal/grouping separators shoppers mix in
+    "\u066b": ".", "\u066c": "",
+})
+
+# Multiplier words that FOLLOW a number: ٣ آلاف = 3000, 2 مليون = 2,000,000,
+# 5k / 5 thousand = 5000.
+_MULTIPLIERS = {
+    "ألف": 1000, "آلاف": 1000, "الاف": 1000, "الف": 1000, "الآف": 1000,
+    "thousand": 1000, "k": 1000,
+    "مليون": 1_000_000, "million": 1_000_000, "ملايين": 1_000_000,
+}
+
+# Prefix phrases that signal the number that follows is a budget ceiling.
+_BUDGET_PREFIX_EN = (
+    r"(?:under|below|around|about|approx(?:imately)?|up\s*to|max(?:imum)?"
+    r"|budget(?:\s*(?:of|around|about|:))?)"
+)
+_BUDGET_PREFIX_AR = (
+    r"(?:تحت|أقل\s*من|اقل\s*من|حوالي|حواليّ|حد\s*أقصى|بحد\s*أقصى"
+    r"|ميزانية(?:\s*(?:حوالي|أقصى|من))?)"
+)
+_NUM = r"(\d+(?:\.\d+)?)"
+# Currency tokens that either prefix the number ($) or follow it (EGP/LE/جنيه).
+_CURRENCY_SUFFIX = r"(?:egp|l\.?e\.?|جنيه|ج\b)"
+
+
+def detect_budget_mention(prompt: str) -> Optional[Decimal]:
+    """Extract a shopper-stated budget ceiling from a bilingual prompt.
+
+    Returns ``None`` when no budget is actually mentioned — the caller then
+    falls back to its hint/default, and 'budget_explicit' stays false. Every
+    pattern here is anchored to an explicit budget signal (a prefix phrase,
+    a currency token, or a multiplier word) so a bare number that is NOT a
+    budget ('room 12', 'size 42') can never masquerade as one.
+    """
+    if not prompt:
+        return None
+    text = prompt.translate(_ARABIC_DIGIT_TABLE).lower()
+
+    # 1) number + multiplier + optional currency: '٣ آلاف جنيه' -> 3000,
+    #    '2 million' -> 2000000, '5k' -> 5000.
+    m = re.search(
+        rf"{_NUM}\s*({'|'.join(re.escape(k) for k in _MULTIPLIERS)})\b",
+        text,
+    )
+    if m:
+        value = to_decimal(m.group(1)) * to_decimal(_MULTIPLIERS[m.group(2)])
+        return value.quantize(Decimal("0.01"))
+
+    # 2) prefix phrase + number: 'under 200', 'حوالي 500', 'بحد أقصى 2000',
+    #    'budget around 500'.
+    m = re.search(
+        rf"(?:{_BUDGET_PREFIX_EN}|{_BUDGET_PREFIX_AR})\s*{_NUM}", text
+    )
+    if m:
+        return to_decimal(m.group(1)).quantize(Decimal("0.01"))
+
+    # 3) currency-anchored number, either side: '$250', '500 EGP', '500 جنيه',
+    #    '250ج'. The currency token itself is the budget signal.
+    m = re.search(rf"\$\s*{_NUM}", text)
+    if m:
+        return to_decimal(m.group(1)).quantize(Decimal("0.01"))
+    m = re.search(rf"{_NUM}\s*{_CURRENCY_SUFFIX}", text)
+    if m:
+        return to_decimal(m.group(1)).quantize(Decimal("0.01"))
+
+    return None
+
 
 class OutfitComposer:
     """Production Multi-Brand Outfit Recommendation & Slot Composition Engine."""
@@ -77,9 +160,17 @@ class OutfitComposer:
             occasion, formality = detected, detected_formality
 
         # 2. Detect Budget Mentions - Decimal exact
-        budget_match = re.search(r'(?:under|below|budget(?:\s*of)?|\$)\s*(\d+)', prompt_lower)
-        if budget_match:
-            parsed_budget = to_decimal(budget_match.group(1))
+        #
+        # MEASURED FAILURES OF THE PREVIOUS PATTERN (2026-10-01, production):
+        #   'عايز أطلعة...ميزانيتي حوالي ٣ آلاف جنيه'  -> 450.00 (default)
+        #   'budget around 500 EGP'                     -> 450.00 (default)
+        # The old regex only knew 'under|below|budget of|$'. CONFIT's primary
+        # market writes Arabic-Indic digits with ألف multipliers and EGP
+        # suffixes, so the parser now handles both languages, both digit
+        # systems, and multiplier words.
+        budget_match = detect_budget_mention(prompt)
+        if budget_match is not None:
+            parsed_budget = budget_match
         elif budget_hint is not None:
             parsed_budget = to_decimal(budget_hint)
         else:

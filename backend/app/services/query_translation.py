@@ -205,3 +205,96 @@ async def translate_query(text: str) -> TranslationResult:
         original=original,
         latency_seconds=round(time.time() - started, 3),
     )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# OUTBOUND: the stylist's English answer -> shopper-facing Arabic.
+#
+# The inbound layer above exists so retrieval works; this one exists so the
+# ANSWER comes back in the shopper's language. Measured on production
+# 2026-10-01: an Arabic prompt ('عايز أطلعة لحفل خطوبة...') received an
+# English reply — correct recommendations, wrong language for CONFIT's
+# primary market.
+#
+# Model choice is MEASURED, both directions (2026-10-01, live):
+#   riva-translate: fluent Egyptian Arabic, but it IGNORES instructions and
+#     mistranslated a colour — 'sage-green' became 'الأبيض' (white). On a
+#     fashion product a wrong colour is a wrong product.
+#   nemotron-3-super: obeys the system turn — with a strict rule block it
+#     produced ZERO leaked Latin words, translated sage-green accurately per
+#     the glossary, and kept every price unchanged (0.8-1.4s).
+# The call therefore rides the registry TRANSLATION chain unmodified: super
+# leads (same model the inbound path uses, warm and glossary-aware), riva is
+# the failover and still translates passably without the rules.
+#
+# Failure degrades honestly: English text is returned unchanged with
+# translated=False. Never a half-invented hybrid language.
+# ─────────────────────────────────────────────────────────────────────────────
+
+_OUTBOUND_SYSTEM_PROMPT = (
+    "You translate an e-commerce fashion stylist's replies from English into natural "
+    "Egyptian Arabic that a shopper reads comfortably. Rules: "
+    "(1) translate EVERY word — the only Latin words allowed are brand names like "
+    "Reiss or Arket; common nouns like weekend, tote or silhouette MUST become Arabic "
+    "(نهاية الأسبوع، شنطة، قوام); "
+    "(2) keep numbers, prices and currency amounts exactly as written; "
+    "(3) translate garment and colour names accurately "
+    "(sage-green = أخضر فاتح مائل للرمادي); "
+    "(4) reply with the Arabic translation only — no explanations, no transliteration "
+    "of ordinary words. "
+)
+
+
+async def translate_reply_to_arabic(text: str) -> TranslationResult:
+    """Render the stylist's English answer as Egyptian-market Arabic prose."""
+    import time
+
+    original = (text or "").strip()
+    started = time.time()
+    if not original:
+        return TranslationResult(
+            text=original, translated=False, source="passthrough", original=original
+        )
+
+    try:
+        from backend.app.providers.nvidia.client import NvidiaClient
+        from backend.app.providers.nvidia.registry import ModelRole
+
+        client = NvidiaClient()
+        rendered = await client.chat(
+            ModelRole.TRANSLATION,
+            system=_OUTBOUND_SYSTEM_PROMPT,
+            user=original,
+            max_tokens=1024,
+        )
+        candidate = (rendered.text or "").strip() if hasattr(rendered, "text") else ""
+        # The reply must actually BE Arabic — a translator that echoed English
+        # back has not translated, and shipping it would silently keep the
+        # wrong-language answer while claiming the feature works.
+        if candidate and contains_arabic(candidate):
+            logger.info(
+                "reply_translated_to_arabic",
+                extra={"model": getattr(rendered, "model_id", "?")},
+            )
+            return TranslationResult(
+                text=candidate,
+                translated=True,
+                source=getattr(rendered, "model_id", "nvidia"),
+                original=original,
+                latency_seconds=round(time.time() - started, 3),
+            )
+        logger.warning("outbound_translation_returned_non_arabic")
+    except Exception as exc:
+        # Fail OPEN with the English text: an English answer is honest and
+        # usable; a fabricated or half-translated one is not.
+        logger.warning(
+            "outbound_translation_unavailable", extra={"detail": str(exc)[:200]}
+        )
+
+    return TranslationResult(
+        text=original,
+        translated=False,
+        source="passthrough",
+        original=original,
+        latency_seconds=round(time.time() - started, 3),
+    )

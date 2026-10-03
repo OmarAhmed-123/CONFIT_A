@@ -291,3 +291,58 @@ class CompatibilityCheckResponse(BaseModel):
     occasion_score: int
     budget_status: str
     suggestions: List[str]
+    # ── Feature 06 (additive; defaults keep every pre-06 client green) ──
+    # engine names WHO produced compatibility_score: the OutfitTransformer
+    # model (Modal CPU worker) or the deterministic rules heuristic. The
+    # shopper must never mistake one for the other.
+    engine: Optional[str] = None                 # "outfit_transformer_clip" | "rules_heuristic"
+    model_detail: Optional[Dict[str, Any]] = None  # worker's type_aware + aesthetic_axes + disclosures
+    compatibility_source: Optional[str] = None   # "model" | "heuristic"
+    compatibility_available: Optional[bool] = None  # False + reason when the model path was unavailable
+    reason: Optional[str] = None                 # honest reason the model path was skipped
+
+
+class FillInTheBlankRequest(BaseModel):
+    """Complete a partial outfit from the catalog.
+
+    product_ids: the items the shopper already has (>=1).
+    target_slot: coarse layering slot to complete ("footwear", "lower", …);
+        optional — without it the model free-completes.
+    candidate_product_ids: optional explicit candidate pool; by default a
+        bounded catalog sweep filtered to the target slot.
+    """
+    product_ids: List[int]
+    target_slot: Optional[str] = None
+    candidate_product_ids: Optional[List[int]] = None
+    top_k: int = 5
+
+    @field_validator("top_k")
+    @classmethod
+    def _top_k_range(cls, v: int) -> int:
+        if not 1 <= v <= 20:
+            raise ValueError("top_k must be 1-20")
+        return v
+
+
+class FillInTheBlankCandidateOut(BaseModel):
+    """One ranked completion: a REAL catalog product with the model's
+    similarity score. Nothing is invented — id/similarity come verbatim
+    from the complementary model's cosine ranking."""
+    product_id: int
+    rank: int
+    similarity: float
+    title: Optional[str] = None
+    image_url: Optional[str] = None
+    price: Optional[float] = None
+    currency: Optional[str] = None
+
+
+class FillInTheBlankResponse(BaseModel):
+    fitb_available: bool
+    engine: Optional[str] = None        # "outfit_transformer_clip" | "rules_heuristic" | None
+    reason: Optional[str] = None        # honest reason when unavailable
+    target_slot: Optional[str] = None
+    target_category_used: Optional[str] = None
+    outfit_product_ids: List[int] = []
+    ranked: List[FillInTheBlankCandidateOut] = []
+    method_note: Optional[str] = None

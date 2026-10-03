@@ -125,11 +125,11 @@ MUTATIONS: list[Mutation] = [
         ["backend/tests/test_vton_single_production_path.py", "backend/tests/test_vton_mask_quality.py"],
     ),
     Mutation(
-        "M9", "VTON: rectangle masking substituted in modal_app (second implementation)",
-        "services/vton-worker/modal_app.py",
-        "    mask = AgnosticMaskGenerator.create_agnostic_mask(person, slot)",
-        "    from PIL import ImageDraw\n    mask = Image.new(\"L\", person.size, 0)\n    d = ImageDraw.Draw(mask)\n    d.rectangle((0, 0, person.width, person.height), fill=255)",
-        ["backend/tests/test_vton_single_production_path.py"],
+        "M9", "VTON: per-layer honest verification disabled in the multi-garment engine (fake PASS)",
+        "services/vton-worker/engine/fashn_v15.py",
+        "            if not verdict[\"PASS\"]:",
+        "            if False and not verdict[\"PASS\"]:",
+        ["backend/tests/test_vton_fashn_v15_multigarment.py", "backend/tests/test_vton_mask_quality.py"],
     ),
     Mutation(
         "M10", "VTON: worker echo (input image returned unchanged) accepted as success",

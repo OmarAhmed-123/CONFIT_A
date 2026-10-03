@@ -63,11 +63,32 @@ def mock_worker(monkeypatch):
     def handler(request: httpx.Request) -> httpx.Response:
         host = request.url.host
         if host.endswith("-process.modal.run"):
-            calls["process"].append(json.loads(request.content or b"{}"))
+            body = json.loads(request.content or b"{}")
+            calls["process"].append(body)
+            # fashn_v15 worker contract: ONE multi-garment call, the worker
+            # composes the outfit and returns honest per-layer verification.
+            layers = [
+                {
+                    "layer": i + 1,
+                    "category": {"upper_inner": "tops", "upper_outer": "tops",
+                                 "inner_layer": "tops", "knit_layer": "tops",
+                                 "lower": "bottoms", "dress": "one-pieces"}
+                    .get(g.get("slot_type"), "tops"),
+                    "slot_type": g.get("slot_type"),
+                    "product_id": g.get("product_id"),
+                    "photo_type": "flat-lay",
+                    "segmentation_free": i == 0,
+                    "verify": {"PASS": True, "metric_pixel_change": 40.0},
+                }
+                for i, g in enumerate(body.get("garments", []))
+            ]
             return httpx.Response(200, json={
                 "status": "completed",
                 "rendered_image_data_url": _rendered_data_url(layer=len(calls["process"]) - 1),
                 "model_used": "fashn-vton-v1.5 (test)",
+                "engine": "fashn_v15",
+                "layers": layers,
+                "all_layers_verified": True,
                 "verify": {"PASS": True, "metric_pixel_change": 40.0},
             })
         if host.endswith("-health.modal.run"):
@@ -255,27 +276,85 @@ def test_valid_full_outfit_job_completes(mock_worker):
 
 
 # ---------------------------------------------------------------------------
-# Full-outfit chaining (worker contract: max 1 garment per inference call)
+# Full-outfit composition (fashn_v15 worker contract: ONE multi-garment call)
 # ---------------------------------------------------------------------------
 
 @pytest.fixture
+def partial_worker(monkeypatch):
+    """Same as ``mock_worker`` but the composed outfit's SECOND layer comes
+    back verify.PASS=False — the garment was not effectively applied. Used to
+    prove the job reports an honest partial result, never a clean success."""
+    calls = {"process": []}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        host = request.url.host
+        if host.endswith("-process.modal.run"):
+            body = json.loads(request.content or b"{}")
+            calls["process"].append(body)
+            layers = [
+                {
+                    "layer": i + 1,
+                    "slot_type": g.get("slot_type"),
+                    "product_id": g.get("product_id"),
+                    "verify": {"PASS": i == 0, "metric_pixel_change": 40.0 if i == 0 else 0.2},
+                }
+                for i, g in enumerate(body.get("garments", []))
+            ]
+            return httpx.Response(200, json={
+                "status": "completed",
+                "rendered_image_data_url": _rendered_data_url(layer=0),
+                "model_used": "fashn-vton-v1.5 (test)",
+                "engine": "fashn_v15",
+                "layers": layers,
+                "all_layers_verified": False,
+                "verify": {"PASS": True, "metric_pixel_change": 40.0},
+            })
+        if host.endswith("-health.modal.run"):
+            return httpx.Response(200, json={
+                "status": "healthy", "model_loaded": True, "ready": True,
+                "device": "NVIDIA A10", "git_sha": "testsha",
+            })
+        import random
+
+        rng = random.Random(7)
+        img = Image.new("RGB", (600, 800), color=(90, 90, 140))
+        px = img.load()
+        for _ in range(20000):
+            px[rng.randrange(600), rng.randrange(800)] = (
+                rng.randrange(60, 180), rng.randrange(60, 180), rng.randrange(60, 180))
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG", quality=85)
+        return httpx.Response(200, content=buf.getvalue(),
+                              headers={"content-type": "image/jpeg"})
+
+    state = {"transport": httpx.MockTransport(handler)}
+    real = httpx.AsyncClient
+
+    class _Client(real):
+        def __init__(self, *a, **kw):
+            kw["transport"] = state["transport"]
+            super().__init__(*a, **kw)
+
+    monkeypatch.setattr(httpx, "AsyncClient", _Client)
+    monkeypatch.setattr(settings, "VTON_WORKER_URL", PROCESS, raising=False)
+    monkeypatch.setattr(settings, "VTON_WORKER_HEALTH_URL", None, raising=False)
+    monkeypatch.setattr(settings, "VTON_WORKER_READINESS_URL", None, raising=False)
+    monkeypatch.delenv("VTON_WORKER_HEALTH_URL", raising=False)
+    monkeypatch.delenv("VTON_WORKER_READINESS_URL", raising=False)
+    return calls
+
+@pytest.fixture
 def flaky_worker(monkeypatch):
-    """Same as ``mock_worker`` but the SECOND process call fails with 500 —
-    used to prove a mid-chain layer failure fails the whole job honestly."""
+    """Same as ``mock_worker`` but the (single multi-garment) process call
+    fails with 500 — used to prove an inference failure fails the whole job
+    honestly (no partial image is ever presented as a completed outfit)."""
     calls = {"process": []}
 
     def handler(request: httpx.Request) -> httpx.Response:
         host = request.url.host
         if host.endswith("-process.modal.run"):
             calls["process"].append(json.loads(request.content or b"{}"))
-            if len(calls["process"]) == 1:
-                return httpx.Response(200, json={
-                    "status": "completed",
-                    "rendered_image_data_url": _rendered_data_url(layer=0),
-                    "model_used": "fashn-vton-v1.5 (test)",
-                    "verify": {"PASS": True, "metric_pixel_change": 40.0},
-                })
-            return httpx.Response(500, json={"detail": "boom on layer 2"})
+            return httpx.Response(500, json={"detail": "boom during outfit composition"})
         if host.endswith("-health.modal.run"):
             return httpx.Response(200, json={
                 "status": "healthy", "model_loaded": True, "ready": True,
@@ -311,11 +390,11 @@ def flaky_worker(monkeypatch):
     return calls
 
 
-def test_full_outfit_chains_single_garment_inferences(mock_worker):
-    """A 2-garment job must run 2 sequential single-garment inferences where
-    layer 2 renders on layer 1's OUTPUT (complete outfit on the uploaded
-    person) — never one combined multi-garment call (the deployed worker
-    rejects those: 'max 1 garment per job')."""
+def test_full_outfit_is_one_multi_garment_inference(mock_worker):
+    """fashn_v15 worker contract (feature 03): a 2-garment job makes ONE
+    worker call carrying BOTH garments — the worker composes the outfit
+    internally (layer 2 renders on layer 1's output) and returns honest
+    per-layer verification. The job result is the composed final frame."""
     client = TestClient(app)
     res = client.post("/api/v1/try-on/jobs", json={
         "product_ids": [1, 2], "user_image_url": PERSON})
@@ -323,19 +402,16 @@ def test_full_outfit_chains_single_garment_inferences(mock_worker):
     job = res.json()
     assert job["status"] == "completed", job
 
-    assert len(mock_worker["process"]) == 2, "2 garments -> 2 sequential inferences"
-    for c in mock_worker["process"]:
-        assert len(c["garments"]) == 1, "worker never receives a multi-garment call"
-    assert [g["product_id"] for g in mock_worker["process"][0]["garments"]] == [1]
-    assert [g["product_id"] for g in mock_worker["process"][1]["garments"]] == [2]
+    assert len(mock_worker["process"]) == 1, "2 garments -> ONE multi-garment inference"
+    call = mock_worker["process"][0]
+    assert [g["product_id"] for g in call["garments"]] == [1, 2], (
+        "the single call carries the whole outfit, in sorted order")
 
-    # layer 1 anchors the resolved person; layer 2 renders on layer 1's
-    # output; the job result is the FINAL frame (complete outfit).
-    render_1, render_2 = _rendered_data_url(layer=0), _rendered_data_url(layer=1)
-    assert mock_worker["process"][0]["user_image_base64_or_url"].startswith("data:image")
-    assert mock_worker["process"][1]["user_image_base64_or_url"] == render_1, (
-        "layer 2 must render on layer 1's output (sequential architecture)")
-    assert job["result_image_data_url"] == render_2, "result is the FINAL frame"
+    # The single call anchors the resolved person; the job result is the
+    # worker's composed frame (complete outfit).
+    assert call["user_image_base64_or_url"].startswith("data:image")
+    assert job["result_image_data_url"] == _rendered_data_url(layer=0), (
+        "result is the composed final frame")
 
     row = _job_row(res.json()["job_id"])
     metrics = json.loads(row.metrics_json)
@@ -345,8 +421,8 @@ def test_full_outfit_chains_single_garment_inferences(mock_worker):
 
 
 def test_chain_layer_failure_fails_job_honestly(flaky_worker):
-    """If the second layer's inference fails, the job must FAIL — a partial
-    first-layer image may never be presented as the completed full outfit."""
+    """If the outfit inference call fails, the job must FAIL — a partial
+    image may never be presented as the completed full outfit."""
     client = TestClient(app)
     res = client.post("/api/v1/try-on/jobs", json={
         "product_ids": [1, 2], "user_image_url": PERSON})
@@ -354,17 +430,34 @@ def test_chain_layer_failure_fails_job_honestly(flaky_worker):
     assert job["status"] == "failed", job
     assert job.get("result_image_data_url") in (None, ""), "no partial result as success"
     assert job.get("error_code") is not None
-    assert len(flaky_worker["process"]) == 2, "both layers were attempted in order"
+    assert len(flaky_worker["process"]) == 1, "the single composition call was attempted"
+
+
+def test_unverified_layer_reported_honestly(partial_worker):
+    """A 200 whose per-layer verification says a garment was NOT applied must
+    surface as completed_with_unverified_layers — never a clean verified
+    success (honest per-layer aggregation from the worker's layers)."""
+    client = TestClient(app)
+    res = client.post("/api/v1/try-on/jobs", json={
+        "product_ids": [1, 2], "user_image_url": PERSON})
+    assert res.status_code == 202, res.text
+    job = res.json()
+    assert job["status"] == "completed", job
+    row = _job_row(job["job_id"])
+    metrics = json.loads(row.metrics_json)
+    assert metrics["verification"]["all_layers_verified"] is False
+    assert metrics["verification"]["layers_failed"] == 1
+    assert metrics["verification"]["failed_layers"][0]["product_id"] == 2
 
 
 def test_layer_order_is_deliberate_not_request_order(mock_worker):
     """Item 17: garment application order must be deliberate and
     category-aware (inner -> outer), NOT the client's request order.
 
-    Requesting [blazer(1, upper_outer), shirt(3, upper_inner)] MUST apply
-    the shirt FIRST and the blazer SECOND (so the inner layer is not hidden
-    by the outer one), with the chain intact (layer 2 renders on layer 1's
-    output).
+    Requesting [blazer(1, upper_outer), shirt(3, upper_inner)] must send the
+    garments to the worker in the canonical order — shirt FIRST, blazer
+    SECOND (so the inner layer is not hidden by the outer one). The worker
+    (fashn_v15) composes them in that order internally.
     """
     client = TestClient(app)
     res = client.post("/api/v1/try-on/jobs", json={
@@ -373,16 +466,14 @@ def test_layer_order_is_deliberate_not_request_order(mock_worker):
     job = res.json()
     assert job["status"] == "completed", job
 
-    assert len(mock_worker["process"]) == 2
-    first = mock_worker["process"][0]["garments"][0]
-    second = mock_worker["process"][1]["garments"][0]
+    assert len(mock_worker["process"]) == 1
+    sent = mock_worker["process"][0]["garments"]
+    first, second = sent[0], sent[1]
     assert first["product_id"] == 3 and first["slot_type"] == "upper_inner", (
         "shirt (inner top) must be applied FIRST regardless of request order")
     assert second["product_id"] == 1 and second["slot_type"] == "upper_outer", (
         "blazer (outerwear) must be applied SECOND")
-    # chain integrity: layer 2 renders on layer 1's output
-    assert mock_worker["process"][1]["user_image_base64_or_url"] == _rendered_data_url(layer=0)
-    assert job["result_image_data_url"] == _rendered_data_url(layer=1)
+    assert job["result_image_data_url"] == _rendered_data_url(layer=0)
 
     row = _job_row(res.json()["job_id"])
     metrics = json.loads(row.metrics_json)
@@ -392,7 +483,7 @@ def test_layer_order_is_deliberate_not_request_order(mock_worker):
 
 def test_full_category_ordering_inner_to_outer(mock_worker):
     """Item 13/17: a multi-category outfit (outerwear, tops, bottoms,
-    accessories by catalog category) is applied in the canonical
+    accessories by catalog category) is sent to the worker in the canonical
     anatomical order from SlotLayeringEngine.LAYER_HIERARCHY:
     inner tops (2) -> outerwear (4) -> bottoms (10) -> footwear (20) ->
     accessories (30)."""
@@ -403,9 +494,10 @@ def test_full_category_ordering_inner_to_outer(mock_worker):
     assert res.status_code == 202, res.text
     job = res.json()
     assert job["status"] == "completed", job
-    assert len(mock_worker["process"]) == 3
-    slots = [c["garments"][0]["slot_type"] for c in mock_worker["process"]]
-    pids = [c["garments"][0]["product_id"] for c in mock_worker["process"]]
+    assert len(mock_worker["process"]) == 1
+    sent = mock_worker["process"][0]["garments"]
+    slots = [g["slot_type"] for g in sent]
+    pids = [g["product_id"] for g in sent]
     assert slots == ["upper_inner", "upper_outer", "lower"], (
         f"expected inner->outer->bottom order, got {slots}")
     assert pids == [3, 1, 4], pids
@@ -487,4 +579,5 @@ def test_supported_full_outfit_still_renders(mock_worker):
     assert res.status_code == 202, res.text
     job = res.json()
     assert job["status"] == "completed", job
-    assert len(mock_worker["process"]) == 3
+    assert len(mock_worker["process"]) == 1, "one multi-garment composition call"
+    assert len(mock_worker["process"][0]["garments"]) == 3

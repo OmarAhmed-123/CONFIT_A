@@ -1,0 +1,63 @@
+bigohofone/outfit-transformer main @ eef4be55dbdc2f86f47e3a5d9d4b85c2f17de08b
+(redirects from owj0421/outfit-transformer; cloned 2026-10-03)
+Vendored: 2026-10-03 (pristine upstream, unmodified — nested .git removed for a
+plain-file vendor snapshot, exactly like vendor/fashn-vton-1.5 and
+vendor/landmarks2anthropometry).
+
+WHAT THIS IS (decision record)
+  - Research implementation of "OutfitTransformer: Learning Outfit
+    Representations for Fashion Recommendation" (Sarkar, Gao, V. Nagarajan,
+    CVPRW 2022; extended WACV 2023). An outfit is an UNORDERED SET of items;
+    self-attention over item embeddings produces an outfit token used for
+    Compatibility Prediction (CP), and a target-item token used for
+    Complementary Item Retrieval (CIR) / Fill-in-the-Blank (FITB) in a single
+    step regardless of outfit length.
+  - Used by Feature 06 (Outfit Builder) as the compatibility + FITB engine in
+    `confit-outfit-worker` (Modal, CPU-only, scale-to-zero).
+  - The deployed variant is OutfitCLIPTransformer (model_type="clip"):
+    frozen FashionCLIP item encoder + 6-layer transformer head. Reported
+    upstream performance: CP AUC 0.93 / FITB 67.02 (original);
+    CP 0.95 / FITB 69.24 (+CLIP, SOTA) on Polyvore.
+  - The item encoder is patrickjohncyh/fashion-clip — the SAME FashionCLIP
+    already deployed in confit-tagging-worker (Feature 07), so Feature 06
+    introduces NO new model family. The blueprint suggested reusing
+    moda-embed embeddings, but the trained checkpoint requires its own
+    FashionCLIP encoder space (aggregation='concat' of image+text); feeding
+    moda-fashion-distilled vectors would be architecturally invalid. Deviation
+    is deliberate and documented here.
+
+WHY CPU-ONLY
+  - ResNet/SentenceBERT-free CLIP variant is ViT-B/32 + a 6-layer transformer:
+    inference is a few seconds per request on 2 vCPU. No GPU is burned for
+    Feature 06 (standing constraint: GPU only where a model needs it).
+
+CHECKPOINTS (not vendored here — 769MB each; hosted on Modal volume
+`confit-outfit-weights` at checkpoints/*.pth, uploaded 2026-10-03)
+  - checkpoints/compatibility_clip_best.pth
+      sha256 fb33e811c223278856dd7b04ce53fe67ffbca12e5b896ca99c8aab47cd45a4dc
+  - checkpoints/complementary_clip_best.pth
+      sha256 1a41ef5eba2ce0e6fda0469941b139e21c7d092c8bc14a43d3c2bf238cd0a886
+  - Upstream source: `gdown --id 1mzNqGBmd8UjVJjKwVa5GdGYHKutZKSSi`
+    (checkpoints.zip, linked from the upstream readme).
+
+LICENSE HONESTY
+  - Upstream LICENSE: MIT (David Sarfati, Oshri Katzin, sagikeren3,
+    bigohofone). Vendored code is MIT — commercial use OK.
+  - FashionCLIP (patrickjohncyh/fashion-clip): MIT (Padora AI / patrickjohncyh,
+    trained on Farfetch product data). Known bias: white-background product
+    photos; disclosed in worker responses.
+  - Trained on Polyvore outfits; scores are compatibility in the Polyvore
+    fashion sense — the worker response carries this as a disclaimer.
+
+TATTOO (benchmark pin — evaluation methodology only, NOT shipped as a model)
+  - TATTOO: "Training-free AesTheTic-aware Outfit recOmmendation"
+    (Wu, Hu, Zhou, Lu — arXiv:2509.23242). Pinned at build time as the
+    type-aware evaluation rubric for Feature 06:
+      * its aesthetic axes (color / style / occasion / season / material /
+        balance) structure the worker's honest advisory `aesthetic_axes`
+        block (CLIP text-anchor projection — a training-free profile in
+        TATTOO's spirit, NOT the paper's MLLM pipeline; labeled as such);
+      * its type-aware evaluation philosophy (does the model actually score
+        type-consistent outfits above type-inconsistent ones?) is enforced
+        by the deployed-worker validation suite
+        (services/outfit-worker/tests/test_deployed_type_aware_eval.py).

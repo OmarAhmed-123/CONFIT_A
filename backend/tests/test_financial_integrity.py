@@ -125,13 +125,17 @@ class TestVTONMultiGarmentSequential:
     def test_sequential_architecture(self):
         import inspect
         from pathlib import Path
-        modal_path = Path("services/vton-worker/modal_app.py")
-        source = modal_path.read_text()
-        # Must have sequential loop where output becomes input
-        assert "current_image = result_image" in source or "current_image = frame_url" in source or "output becomes input" in source.lower()
-        assert "for idx, garment_item" in source or "for idx, item" in source
-        assert "layers_processed" in source
-        assert "applied_slots" in source
+        # Feature 03: sequential multi-garment composition lives in the
+        # fashn_v15 engine (worker = ONE call; engine composes layers).
+        engine_path = Path("services/vton-worker/engine/fashn_v15.py")
+        worker_path = Path("services/vton-worker/modal_app_v15.py")
+        engine_src = engine_path.read_text()
+        worker_src = worker_path.read_text()
+        # Engine: output becomes input across layers; per-layer verification.
+        assert "current = rendered" in engine_src  # layer output feeds the next layer
+        assert "layers_meta" in engine_src
+        assert "render_outfit" in worker_src  # worker drives the composition
+        assert "layers" in worker_src  # per-layer outcomes returned honestly
 
     def test_same_slot_handling(self):
         """Multiple garments sharing a slot should be handled via layer_order"""
@@ -165,11 +169,13 @@ class TestVTONMultiGarmentSequential:
             db.close()
 
     def test_layer_failure_handling(self):
-        """Failure on layer 2 after successful layer 1 must be honest"""
+        """A layer that fails verification must fail the job honestly"""
         import inspect
         from pathlib import Path
-        source = Path("services/vton-worker/modal_app.py").read_text()
-        # Must have per-layer OOM handling and failed_layer tracking
-        assert "failed_layer" in source
-        assert "GPU_OOM" in source
-        assert "layer {idx}" in source or "layer" in source.lower()
+        worker_src = Path("services/vton-worker/modal_app_v15.py").read_text()
+        engine_src = Path("services/vton-worker/engine/fashn_v15.py").read_text()
+        # Worker: honest error taxonomy (OOM + unverified layer = OUTPUT_INVALID)
+        assert "GPU_OOM" in worker_src
+        assert "Layer verification failed" in worker_src
+        # Engine: a non-applied layer aborts compositing (never stacks on it)
+        assert "failed output verification" in engine_src

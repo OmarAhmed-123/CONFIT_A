@@ -1,0 +1,35 @@
+DavidBoja/Landmarks2Anthropometry main @ de2df48dd428dce457339141c709d7510e0e6f2b
+Vendored: 2026-10-02 (pristine upstream, unmodified — nested .git removed
+for a plain-file vendor snapshot, exactly like vendor/fashn-vton-1.5)
+
+What this is (decision record):
+  - Upstream research code for "Landmarks2Anthropometry: A step towards
+    body measurements from 2D landmarks" (VISAPP 2024, David Boja).
+  - Used by Feature 05 (photo -> body measurements) as the regression
+    model layer: per-measurement BayesianRidge bundles (models/male.pkl,
+    models/female.pkl) predicting circumference estimates from pose
+    landmark configurations.
+  - The landmark detector is Google MediaPipe pose_landmarker_heavy
+    (Apache-2.0) — NOT vendored here; the Modal worker image installs it
+    from PyPI.
+
+LICENSE HONESTY (read before shipping):
+  - The upstream repository carries NO license file. Under GitHub's
+    default terms the author retains all rights; absent an explicit
+    permissive grant this code is UNLICENSED-RESEARCH-ONLY.
+  - Consequence for CONFIT: the deployed worker reports
+    license=unlicensed-research-only, commercial=false in EVERY response,
+    and the API surface carries the mandatory ±2-3 cm accuracy
+    disclosure. Feature 05 is a pilot-tier capability on this basis —
+    commercial use requires either an upstream license grant or a
+    reimplementation under a permissive model set.
+  - models/*..pkl are trained artifacts distributed by the author under
+    the same (absent) license — same constraint.
+
+Provenance of this snapshot:
+  - Cloned from https://github.com/DavidBoja/Landmarks2Anthropometry at
+    commit de2df48dd428dce457339141c709d7510e0e6f2b (recorded verbatim
+    in the worker's response as model.vendor_commit).
+  - Files kept: estimate_measurements.py, landmark_utils.py,
+    measurement_utils.py, models/, data/, assets/, README.md.
+  - Files dropped: none besides .git metadata and __pycache__.

@@ -82,7 +82,7 @@ KNOWN_ENVIRONMENTS = {"development", "test", "staging", "production"}
 # never silently presented as commercially deployable. This is configuration
 # + observability, NOT a license grant: commercial legality is the owner's
 # responsibility (see docs/VTON_RESEARCH_INTEGRATION_REPORT_20260904.md).
-SUPPORTED_VTON_ENGINES = frozenset({"catvton", "fashn_vton_1_5", "fashn_vton_segfee", "leffa"})
+SUPPORTED_VTON_ENGINES = frozenset({"catvton", "fashn_vton_1_5", "fashn_vton_segfee", "fashn_v15", "leffa"})
 
 # Map engine -> (license_summary, commercially_usable, upstream_source). Values
 # reflect the verified upstream terms; they are stated here because a flat
@@ -114,6 +114,21 @@ VTON_ENGINE_LICENSES: dict[str, dict] = {
                 "segmentation_free + flat-lay. Verified on real A10 GPU (see "
                 "docs/VTON_COMMERCIAL_MIGRATION_REPORT). Real generated try-on "
                 "image produced; parser_pre_import and parser_in_runtime both false.",
+    },
+    "fashn_v15": {
+        "license": "Apache-2.0 (pipeline/DWPose/YOLOX); NVIDIA Source Code License "
+                   "for SegFormer via fashn-human-parser (non-commercial)",
+        "commercial": False,
+        "multigarment": True,
+        "source": "pristine fashn-AI/fashn-vton-1.5 @ 7c0f10af (vendor/fashn-vton-1.5)",
+        "note": "Feature 03 multi-garment engine (tops+bottoms composed in one "
+                "worker call; parser-masked overlays; on-model garment photos "
+                "supported via parser segmentation). OWNER DECISION 2026-10-01: "
+                "ship the non-commercial parser while the project is early-stage; "
+                "SWAP to a licensed parser before commercial scale — the swap "
+                "seam is engine/fashn_v15.py parser_impl (one class, zero "
+                "upstream modification). Reported honestly as non-commercial "
+                "until that swap lands.",
     },
     "leffa": {
         "license": "MIT (repo); SCHP / DensePose / Detectron2 chain must be "
@@ -406,6 +421,70 @@ class Settings(BaseSettings):
     VTON_WORKER_PROBE_TIMEOUT_SECONDS: float = 6.0
     VTON_CIRCUIT_FAILURE_THRESHOLD: int = 2
     VTON_CIRCUIT_OPEN_SECONDS: float = 120.0
+
+    # Feature 04 — Smart Wardrobe extraction worker (Modal CPU app
+    # `confit-wardrobe-worker`: SCHP-ATR-18 parsing + BiRefNet_lite matting,
+    # both MIT). WARDROBE_WORKER_URL is the full /extract endpoint URL
+    # (Modal exposes each web endpoint at its own hostname root — same
+    # reason VTON_WORKER_URL/PROCESS_URL are set explicitly).
+    WARDROBE_WORKER_URL: Optional[str] = None
+    WARDROBE_WORKER_HEALTH_URL: Optional[str] = None
+    # Dedicated credential (Modal secret `confit-wardrobe-admin-token`, env
+    # VTON_WORKER_ADMIN_TOKEN inside that worker). Separate from the VTON
+    # token on purpose: the VTON workers are frozen (GPU gate) and must keep
+    # serving with the shared secret, while this one can be rotated freely.
+    # Sent as the X-VTON-Admin header, mirroring the other worker shells.
+    WARDROBE_WORKER_ADMIN_TOKEN: Optional[str] = None
+    # CPU extraction is real but slow: parse ~1s + ~10-15s matting per
+    # garment (measured live 2026-10-02: 29-45s for 3 garments, plus cold
+    # start). 180s covers a 6-garment extraction with margin.
+    WARDROBE_WORKER_TIMEOUT_SECONDS: float = 180.0
+
+    # Feature 05 — body measurements from a photo (Modal CPU app
+    # `confit-anthropometry-worker`: MediaPipe pose_landmarker_heavy +
+    # vendored Landmarks2Anthropometry VISAPP-2024 Bayesian ridge, upstream
+    # license null -> unlicensed-research-only pilot tier, disclosed in every
+    # response). ANTHROPOMETRY_WORKER_URL is the full /estimate endpoint URL.
+    ANTHROPOMETRY_WORKER_URL: Optional[str] = None
+    # Dedicated credential (Modal secret `confit-anthropometry-admin-token`,
+    # env ANTHROPOMETRY_WORKER_ADMIN_TOKEN inside that worker) — rotatable
+    # independently of the wardrobe/VTON workers.
+    ANTHROPOMETRY_WORKER_ADMIN_TOKEN: Optional[str] = None
+    # CPU pose ~0.1-3s + linear predict (measured live 2026-10-02: ~0.6s
+    # warm; cold start adds ~10-20s). 120s leaves generous margin.
+    ANTHROPOMETRY_WORKER_TIMEOUT_SECONDS: float = 120.0
+
+    # Feature 07 — Brand Portal product auto-tagging (Modal CPU app
+    # `confit-tagging-worker`: FashionCLIP patrickjohncyh/fashion-clip MIT
+    # + GLiNER urchade/gliner_multi-v2.1 Apache-2.0, both commercial-safe).
+    # TAGGING_WORKER_URL is the full /tag endpoint URL.
+    TAGGING_WORKER_URL: Optional[str] = None
+    # Dedicated credential (Modal secret `confit-tagging-admin-token`, env
+    # TAGGING_WORKER_ADMIN_TOKEN inside that worker) — rotatable
+    # independently of the other workers.
+    TAGGING_WORKER_ADMIN_TOKEN: Optional[str] = None
+    # Measured live 2026-10-03: ~2.1s warm; cold start ~15-30s (both models
+    # load at container start). 90s covers cold start with margin.
+    TAGGING_WORKER_TIMEOUT_SECONDS: float = 90.0
+
+    # Feature 06 — Outfit Builder compatibility (Modal CPU app
+    # `confit-outfit-worker`: OutfitTransformer OutfitCLIPTransformer —
+    # frozen FashionCLIP encoder + 6-layer transformer, Polyvore-trained,
+    # MIT; TATTOO (arXiv:2509.23242) pinned as the type-aware eval rubric).
+    # Each Modal web endpoint has its own URL (stable via endpoint labels),
+    # so — exactly like TAGGING_WORKER_URL — the config holds FULL endpoint
+    # URLs. COMPAT_URL is required for the model path; FITB_URL enables
+    # fill-in-the-blank on top.
+    OUTFIT_WORKER_COMPAT_URL: Optional[str] = None
+    OUTFIT_WORKER_FITB_URL: Optional[str] = None
+    # Dedicated credential (Modal secret `confit-outfit-admin-token`, env
+    # OUTFIT_WORKER_ADMIN_TOKEN inside that worker) — rotatable
+    # independently of the other workers.
+    OUTFIT_WORKER_ADMIN_TOKEN: Optional[str] = None
+    # CPU inference ~2-5s warm; cold start adds ~20-40s (769MB checkpoint
+    # from the Modal volume; the complementary model loads lazily on the
+    # first fill-in-the-blank call). 120s covers a cold start with margin.
+    OUTFIT_WORKER_TIMEOUT_SECONDS: float = 120.0
 
     # Self-hosted Qwen2.5-VL vision worker (LOCAL FALLBACK). When
     # QWEN_VL_WORKER_URL is set, VisualSearchAIProvider.fallback uses the local

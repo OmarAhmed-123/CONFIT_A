@@ -10,6 +10,7 @@ import { measurementService } from '../../services/measurementService';
 import { NoPhotoFitResult, Product } from '../../models';
 import { RulerIcon, SparkleIcon, TryOnIcon } from '../../components/icons/ConfitIcons';
 import { FitScoreBadge } from '../../components/common/CommonComponents';
+import { PhotoEstimatePanel } from '../../components/tryon/PhotoEstimatePanel';
 import { formatMoney } from '../../i18n/format';
 
 /**
@@ -196,6 +197,29 @@ export const FitFinderView: React.FC = () => {
   }, [form, displayLimits, unitLabel, weightLabel]);
 
   const measuredCount = [form.chest, form.waist, form.hip].filter((v) => v !== null).length;
+
+  /**
+   * Feature 05 — apply a photo estimate (metric cm) to the form. The form
+   * holds DISPLAY values, so in imperial mode the centimetres are converted
+   * here for display only; the server still owns conversion at submission
+   * time. Fields the worker did not estimate (waist, shoulder) are left as
+   * they are — absence is honest, blanks stay blank.
+   */
+  const handleApplyPhotoEstimate = (v: {
+    heightCm: number | null;
+    chestCm: number | null;
+    hipCm: number | null;
+    waistCm: number | null;
+  }) => {
+    // A new estimate invalidates any computed recommendation built from the
+    // old numbers — same stale-async discipline as manual edits.
+    setResult(null);
+    setSaveState('idle');
+    if (v.heightCm != null) set('height', toDisplay(v.heightCm, units));
+    if (v.chestCm != null) set('chest', toDisplay(v.chestCm, units));
+    if (v.hipCm != null) set('hip', toDisplay(v.hipCm, units));
+    // waistCm is always null in v1 (the model set has no waist) — nothing to do.
+  };
 
   const handleCalculate = async () => {
     if (!selectedProduct) {
@@ -503,6 +527,15 @@ export const FitFinderView: React.FC = () => {
                 </select>
               </div>
             </div>
+
+            {/* Feature 05 — AI photo estimate (optional path into the same fields) */}
+            <PhotoEstimatePanel
+              onApply={handleApplyPhotoEstimate}
+              defaultHeightCm={
+                units === 'metric' ? form.height : Math.round(form.height * CM_PER_IN * 10) / 10
+              }
+              defaultSex={form.demographic === 'women' ? 'female' : form.demographic === 'men' ? 'male' : null}
+            />
 
             {/* Honest nudge: the engine is measurably better with real girths. */}
             <div

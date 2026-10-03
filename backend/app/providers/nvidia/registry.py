@@ -120,53 +120,59 @@ ROLE_CHAINS: Dict[ModelRole, List[ModelSpec]] = {
     # grounding quality decides the order. AI_PROVIDER_TIMEOUT_SECONDS is 4.0s
     # today, so anything above ~5s cannot be primary without a config change.
     ModelRole.STYLIST_CHAT: [
-        ModelSpec(
-            model_id="nvidia/nemotron-3-ultra-550b-a55b",
-            endpoint=CHAT_COMPLETIONS_URL,
-            params={"temperature": 0.6, "top_p": 0.95},
-            measured_latency_s=(0.8, 4.1),
-            slot_key_env="NVIDIA_KEY_NEMOTRON_3_ULTRA_550B_A55B",
-            evidence=(
-                "2026-09-27, real CONFIT stylist system+user prompt (3 grounded "
-                "catalogue items, $385 total): 200 in 4.1s / 126 completion "
-                "tokens. Output named every item, honoured the 2-3 sentence "
-                "cap, stated the budget correctly and invented nothing."
-            ),
-            notes=(
-                "Best measured grounding-per-second of the 14 chat models "
-                "probed. Does NOT leak reasoning into content at default "
-                "settings, so no enable_thinking guard is required."
-            ),
-        ),
+        # ORDER SWAPPED 2026-10-01 (afternoon), evidence-based: across six live
+        # probes that day super answered in 0.4-4.8s while ultra ranged
+        # 2.3-12s+ (one 12s hard timeout against a 12s budget). The registry's
+        # own contingency note ("cheapest primary if Ultra saturates") applies:
+        # the NIM free tier's latency for the 550B flagship is currently
+        # volatile, and the shopper-facing budget cannot absorb it. Ultra keeps
+        # the failover slot — its grounding quality is still the best measured,
+        # and a one-line swap restores it the day NIM stabilises.
         ModelSpec(
             model_id="nvidia/nemotron-3-super-120b-a12b",
             endpoint=CHAT_COMPLETIONS_URL,
             params={"temperature": 0.6, "top_p": 0.95},
-            measured_latency_s=(2.4, 3.5),
+            measured_latency_s=(0.4, 4.8),
             slot_key_env="NVIDIA_KEY_NEMOTRON_3_SUPER_120B_A12B",
             evidence=(
-                "2026-09-27, same prompt: 200 in 3.5s / 256 tokens. Correct "
-                "grounding and budget; slightly more verbose than Ultra."
-            ),
-            notes="Fastest high-quality option — first failover, also the cheapest primary if Ultra saturates.",
-        ),
-        ModelSpec(
-            model_id="moonshotai/kimi-k3",
-            endpoint=CHAT_COMPLETIONS_URL,
-            params={"temperature": 0.6, "top_p": 0.95, "max_tokens": 3000},
-            supports_vision=True,
-            measured_latency_s=(8.6, 14.9),
-            slot_key_env="NVIDIA_KEY_KIMI_K3",
-            evidence=(
-                "2026-09-27, same prompt: 200 in 14.9s / 110 tokens; the "
-                "richest prose of the set. Vision verified separately."
+                "2026-09-27, real CONFIT stylist prompt (3 grounded catalogue "
+                "items, $385 total): 200 in 3.5s / 256 tokens; correct "
+                "grounding and budget; slightly more verbose than Ultra. "
+                "2026-10-01: six live probes at 0.4 / 0.5 / 0.5 / 1.5 / 4.8s "
+                "plus one 11.4s outlier — the most stable high-quality "
+                "candidate measured that day."
             ),
             notes=(
-                "Third, not first: 14.9s exceeds the stylist latency budget. "
-                "Needs a generous max_tokens — with max_tokens=4096 and a "
-                "trivial prompt it returned reasoning-only content."
+                "PRIMARY (stability-first). Same slot also serves "
+                "TRANSLATION inbound, where it measured 0.89-1.09s — the "
+                "model is warm-tier friendly and budget-accurate."
             ),
         ),
+        ModelSpec(
+            model_id="nvidia/nemotron-3-ultra-550b-a55b",
+            endpoint=CHAT_COMPLETIONS_URL,
+            params={"temperature": 0.6, "top_p": 0.95},
+            measured_latency_s=(0.8, 12.0),
+            slot_key_env="NVIDIA_KEY_NEMOTRON_3_ULTRA_550B_A55B",
+            evidence=(
+                "2026-09-27, same prompt: 200 in 4.1s / 126 completion tokens; "
+                "named every item, honoured the 2-3 sentence cap, stated the "
+                "budget correctly, invented nothing. 2026-10-01: 2.3 / 4.8 / "
+                "5.9s live AND one 12s hard-timeout — latency became volatile "
+                "on the NIM free tier, which is why it moved to failover."
+            ),
+            notes=(
+                "FAILOVER_1. Best measured grounding-per-second of the 14 chat "
+                "models probed; does NOT leak reasoning into content at "
+                "default settings. Restore to primary when NIM latency "
+                "stabilises (one-line swap)."
+            ),
+        ),
+        # moonshotai/kimi-k3 was the third entry here until 2026-10-01, when a
+        # live re-verification measured it at 85.2s / 103.5s-with-empty-content
+        # / 120s-hard-timeout across three probes (it was 8.6-14.9s on
+        # 2026-09-27). With a 60s stylist deadline it can never complete, so
+        # keeping it here only delayed honest degradation. See UNROUTED_MODELS.
     ],
 
     # ── Wardrobe auto-tagging / Visual Search attributes ─────────────────────
@@ -199,41 +205,34 @@ ROLE_CHAINS: Dict[ModelRole, List[ModelSpec]] = {
             notes=(
                 "Fastest correct VLM measured and the only one that emitted "
                 "bare JSON. 5x faster than the Qwen worker's 5.1s warm path. "
-                "See the enable_thinking comment above — it is load-bearing."
+                "See the enable_thinking comment above — it is load-bearing. "
+                "Re-verified live 2026-10-01: 200 in 0.9s."
             ),
         ),
-        ModelSpec(
-            model_id="moonshotai/kimi-k3",
-            endpoint=CHAT_COMPLETIONS_URL,
-            params={"temperature": 0.2, "top_p": 0.95, "max_tokens": 2048},
-            supports_vision=True,
-            measured_latency_s=(8.6, 10.3),
-            slot_key_env="NVIDIA_KEY_KIMI_K3",
-            evidence=(
-                "2026-09-27, same garment + prompt: 200 in 10.3s, clean JSON, "
-                "and the most precise pattern label of the set "
-                '("windowpane check" vs gemma-4\'s looser "plaid").'
-            ),
-            notes="Accuracy-first failover; use as primary for admin catalogue enrichment where latency is irrelevant.",
-        ),
+        # moonshotai/kimi-k3 sat here (failover_1) until 2026-10-01, when a
+        # live re-verification timed it out at 90s and caught a phantom-empty
+        # 200 (finish_reason=stop, content="") on a separate probe. Demoted
+        # to UNROUTED_MODELS; nano-omni takes the failover slot.
         ModelSpec(
             model_id="nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
             endpoint=CHAT_COMPLETIONS_URL,
             params={"temperature": 0.2, "top_p": 0.95, "max_tokens": 2048,
                     "reasoning_budget": 1024},
             supports_vision=True,
-            measured_latency_s=(0.8, 6.8),
+            measured_latency_s=(0.8, 24.6),
             slot_key_env="NVIDIA_KEY_NEMOTRON_3_NANO_OMNI_30B_A3B_REASONING",
             evidence=(
                 "2026-09-27: correct single-word vision answer in 6.8s, BUT "
                 "returned HTTP 503 'ResourceExhausted: Worker local total "
                 "request limit reached (16/16)' on two separate concurrent "
-                "runs."
+                "runs. Re-verified live 2026-10-01: correct vision answer in "
+                "24.6s — it works, but it is slow."
             ),
             notes=(
-                "TERTIARY ONLY. The 16-request worker ceiling makes it unsafe "
+                "FAILOVER ONLY. The 16-request worker ceiling makes it unsafe "
                 "as a primary under real traffic; the client's 503 handling "
-                "rotates off it automatically."
+                "rotates off it automatically. Promoted to failover_1 on "
+                "2026-10-01 after kimi-k3 was demoted."
             ),
         ),
     ],
@@ -299,11 +298,18 @@ ROLE_CHAINS: Dict[ModelRole, List[ModelSpec]] = {
                 "all three preserved the garment and occasion where "
                 "riva-translate did not (wedding/suit/evening gown). One 503 "
                 "observed under repeat calls, which the key rotation and the "
-                "next entry in this chain cover."
+                "next entry in this chain cover. 2026-10-01: also leads the "
+                "OUTBOUND EN->AR reply translation — measured live, riva "
+                "ignored the rules and turned 'sage-green' into 'الأبيض' "
+                "(white), while super with a strict system-turn rule block "
+                "produced zero leaked Latin words, the accurate colour per "
+                "glossary, and unchanged prices (0.8-1.4s). A wrong colour is "
+                "a wrong product on a fashion platform."
             ),
             notes=(
-                "Inbound AR->EN only. Obeys a glossary in the system turn, "
-                "which is what makes dialect terms ('فرح', 'سواريه') survive."
+                "PRIMARY for BOTH directions. Obeys a glossary in the system "
+                "turn, which is what makes dialect terms ('فرح', 'سواريه') "
+                "survive inbound and colours stay true outbound."
             ),
         ),
         ModelSpec(
@@ -318,11 +324,13 @@ ROLE_CHAINS: Dict[ModelRole, List[ModelSpec]] = {
                 "Fluent MSA, correct fashion register."
             ),
             notes=(
-                "OUTBOUND prose (EN->AR) only, where fluency is the goal. "
-                "Measured UNSAFE for inbound shopping queries: it ignores the "
-                "system turn, so no glossary can be supplied, and it renamed "
-                "a garment and invented a brand in live tests. Kept in the "
-                "chain as the failover for outbound work, not as the primary."
+                "FAILOVER for outbound EN->AR prose only (super leads both "
+                "directions since 2026-10-01). Fluent but instruction-blind: "
+                "it ignores the system turn, so no glossary can be supplied, "
+                "it renamed a garment and invented a brand on live inbound "
+                "tests, and it mistranslated a colour on live outbound tests. "
+                "Better than no translation when super is down — never the "
+                "first choice."
             ),
         ),
     ],
@@ -335,7 +343,7 @@ ROLE_CHAINS: Dict[ModelRole, List[ModelSpec]] = {
             params={"encoding_format": "float", "input_type": "query"},
             measured_latency_s=(0.2, 0.2),
             slot_key_env="NVIDIA_KEY_NEMOTRON_3_EMBED_1B",
-            evidence="2026-09-27: 200 in 0.2s, 2048-dimension float vector returned.",
+            evidence="2026-09-27: 200 in 0.2s, 2048-dimension float vector returned. Re-verified live 2026-10-01: 200 in 0.3s, 2048 dimensions.",
             notes=(
                 "MODEL_REGISTRY.json correctly records that NO vector "
                 "retrieval exists in CONFIT today. This binding is therefore "
@@ -430,6 +438,16 @@ ROLE_CHAINS: Dict[ModelRole, List[ModelSpec]] = {
 # ─────────────────────────────────────────────────────────────────────────────
 
 UNROUTED_MODELS: Dict[str, str] = {
+    "moonshotai/kimi-k3": (
+        "DEMOTED AFTER DEGRADATION (2026-10-01). Re-measured live with three "
+        "probes: 120s hard read-timeout, then HTTP 200 in 103.5s with "
+        "finish_reason=stop and EMPTY content (the phantom-empty failure "
+        "mode), then a genuine 200 in 85.2s. On 2026-09-27 the same probes "
+        "took 8.6-14.9s. Its latency now exceeds every role deadline (60s "
+        "stylist / 90s vision), so a chain containing it can never reach it "
+        "in time — keeping it wired only delayed the honest-degradation path. "
+        "Key retained in the pool. Re-evaluate only if NVIDIA stabilises it."
+    ),
     "deepseek-ai/deepseek-v4.1-flash": (
         "UNUSABLE (measured). 200 OK but 283.7s for a 2-token reply and 299.4s "
         "for one vision call, on separate runs. Despite the 'flash' name this "
@@ -528,7 +546,7 @@ def describe() -> Dict[str, Any]:
     """
     return {
         "endpoint": "https://integrate.api.nvidia.com/v1",
-        "verified_on": "2026-09-27",
+        "verified_on": "2026-10-01",
         "roles": {
             role.value: [
                 {

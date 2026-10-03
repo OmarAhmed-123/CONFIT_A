@@ -65,7 +65,11 @@ LOCAL_PACKAGES = {"pipeline", "services", "worker", "modal_app", "backend", "api
                   # CONFIT's VTON engine adapter package (services/vton-worker/engine).
                   # A local package, not a third-party dependency: the Docker image
                   # ships it as repo source, so it must NOT be declared as a pip pin.
-                  "engine"}
+                  "engine",
+                  # CONFIT's wardrobe-worker pure logic (services/wardrobe-worker/
+                  # extraction.py), unit-tested from backend/tests. Same rule: repo
+                  # source shipped with the worker image, never a pip pin.
+                  "extraction"}
 
 # Packages the Vercel function may legitimately lack. EVERY entry must name
 # the guard that makes the absence safe; an unguarded lazy import is NOT

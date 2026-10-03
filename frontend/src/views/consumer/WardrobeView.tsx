@@ -31,6 +31,7 @@ import {
   CircularGalleryShowcase,
 } from "../../components/showcase/DesignShowcases";
 import { formatMoney } from '../../i18n/format';
+import { X, Star } from 'lucide-react';
 import { TryOnButton } from '../../components/product/TryOnButton';
 
 /**
@@ -70,6 +71,22 @@ export const WardrobeView: React.FC = () => {
   // all three behave identically; react-query owns the list here, so the
   // optimistic hide and the rollback are both cache invalidations.
   const undoableRemove = useUndoableRemove();
+  /* Spec 01 §5/§6: one in-flight op per garment card. pending = aria-busy +
+     spinner; the attribute `disabled` is never flipped mid-flight (it would
+     eject keyboard focus) — clicks are swallowed instead. */
+  const [itemBusy, setItemBusy] = useState<{ id: number; op: "delete" | "favorite" } | null>(null);
+  const runItemOp = async (id: number, op: "delete" | "favorite", fn: () => Promise<unknown>) => {
+    if (itemBusy) return; // no double submit, no overlapping ops
+    setItemBusy({ id, op });
+    try {
+      await fn();
+    } catch {
+      // Error surfacing (toast + state restore) is the viewmodel's job —
+      // the button only guarantees it settles back to idle, never success.
+    } finally {
+      setItemBusy(null);
+    }
+  };
   const handleDeleteLook = async (id: number) => {
     setDeletingLookId(id);
     const invalidate = () =>
@@ -202,9 +219,7 @@ export const WardrobeView: React.FC = () => {
       return f.size <= 15 * 1024 * 1024;
     });
     if (valid.length !== files.length) {
-      alert(
-        "Some files were skipped: only JPEG/PNG/WebP up to 15MB are supported.",
-      );
+      showToast(t("wardrobe.files_skipped"), "error");
     }
     setSelectedFiles(valid.slice(0, 20));
     setUploadSkipNotes([]);
@@ -264,7 +279,7 @@ export const WardrobeView: React.FC = () => {
         compact
         eyebrow={t('wardrobe.eyebrow_styling_stack')}
         title={t('wardrobe.reuse_caption')}
-        description="Saved garments become styled rotations instead of a static closet grid, encouraging realistic reuse and smarter recommendations."
+        description={t("wardrobe.showcase_rotations_desc")}
       />
 
       <CircularGalleryShowcase
@@ -272,7 +287,7 @@ export const WardrobeView: React.FC = () => {
         compact
         eyebrow="Circular Closet Capsules"
         title={t('wardrobe.capsule_caption')}
-        description="The same component appears here as a wardrobe capsule browser, visually distinct from the stack above."
+        description={t("wardrobe.showcase_capsule_desc")}
       />
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-6">
@@ -377,7 +392,7 @@ export const WardrobeView: React.FC = () => {
           </div>
 
           {isLoading ? (
-            <LoadingSpinner text="Scanning your wardrobe..." />
+            <LoadingSpinner text={t("wardrobe.scanning")} />
           ) : isClosetError ? (
             /* Honest error state: a failed fetch is NOT an empty wardrobe. */
             <div
@@ -463,31 +478,41 @@ export const WardrobeView: React.FC = () => {
                         alt={item.title}
                         className="w-full h-full object-cover"
                       />
+                      {/* Spec 01: always visible (no hover-only control), ≥44px
+                          target, aria-busy pending, label is a real accessible
+                          name — not a title tooltip. */}
                       <button
-                        onClick={() => deleteItem(item.id)}
-                        className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/60 hover:bg-rose-600 text-white flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-all"
-                        title={t('wardrobe.delete_aria')}
+                        onClick={() => runItemOp(item.id, "delete", () => deleteItem(item.id))}
+                        aria-label={t('wardrobe.delete_aria')}
+                        aria-busy={itemBusy?.id === item.id && itemBusy.op === "delete"}
+                        className="absolute top-1.5 end-1.5 w-11 h-11 rounded-full bg-black/55 hover:bg-rose-600 focus-visible:bg-rose-600 text-white flex items-center justify-center transition-colors"
                       >
-                        ✕
+                        {itemBusy?.id === item.id && itemBusy.op === "delete" ? (
+                          <span aria-hidden="true" className="w-4 h-4 rounded-full border-2 border-white/40 border-t-white motion-safe:animate-spin" />
+                        ) : (
+                          <X size={16} aria-hidden="true" />
+                        )}
                       </button>
                       {/* Favorite toggle (BRD 4.1: persistent Favorite state) */}
                       <button
-                        onClick={() => toggleFavorite(item)}
-                        className={`absolute top-2 left-2 w-7 h-7 rounded-full flex items-center justify-center text-xs transition-all ${
+                        onClick={() => runItemOp(item.id, "favorite", () => toggleFavorite(item))}
+                        aria-pressed={item.is_favorite}
+                        aria-label={item.is_favorite ? t("wardrobe.fav_remove") : t("wardrobe.fav_mark")}
+                        aria-busy={itemBusy?.id === item.id && itemBusy.op === "favorite"}
+                        className={`absolute top-1.5 start-1.5 w-11 h-11 rounded-full flex items-center justify-center transition-colors ${
                           item.is_favorite
                             ? "bg-[#B8935A] text-white"
-                            : "bg-black/40 text-white opacity-0 group-hover:opacity-100"
+                            : "bg-black/40 hover:bg-black/60 focus-visible:bg-black/60 text-white"
                         }`}
-                        title={
-                          item.is_favorite
-                            ? "Remove from favorites"
-                            : "Mark as favorite"
-                        }
                       >
-                        ★
+                        {itemBusy?.id === item.id && itemBusy.op === "favorite" ? (
+                          <span aria-hidden="true" className="w-4 h-4 rounded-full border-2 border-white/40 border-t-white motion-safe:animate-spin" />
+                        ) : (
+                          <Star size={16} aria-hidden="true" fill={item.is_favorite ? "currentColor" : "none"} />
+                        )}
                       </button>
                       <span className="absolute bottom-2 left-2 px-2 py-0.5 rounded-full bg-white/90 text-[10px] font-bold text-slate-800">
-                        Worn {item.wear_count}x
+                        {t("wardrobe.worn_count", { count: item.wear_count })}
                       </span>
                       {/* Lifecycle status badge — upload is not 'done' until AI analysis succeeded */}
                       {item.processing_status &&
@@ -500,8 +525,8 @@ export const WardrobeView: React.FC = () => {
                             }`}
                           >
                             {item.processing_status === "failed"
-                              ? "AI failed — retry"
-                              : "Processing…"}
+                              ? t("wardrobe.analysis_failed_badge")
+                              : t("wardrobe.analysis_processing")}
                           </span>
                         )}
                     </div>
@@ -509,9 +534,9 @@ export const WardrobeView: React.FC = () => {
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                       {item.brand_name}
                     </span>
-                    <h3 className="font-serif text-sm font-bold text-[#1B1F3B] truncate mt-0.5">
+                    <h2 className="font-serif text-sm font-bold text-[#1B1F3B] truncate mt-0.5">
                       {item.title}
-                    </h3>
+                    </h2>
                     <p className="text-xs text-slate-500">
                       {item.color_name} · {item.category}
                     </p>
@@ -521,12 +546,12 @@ export const WardrobeView: React.FC = () => {
                       value={item.wear_frequency}
                       onChange={(e) => setWearFrequency(item, e.target.value)}
                       className="mt-1.5 w-full px-2 py-1 rounded-lg border border-slate-200 text-[10px] bg-white text-slate-600"
-                      title={t('wardrobe.wear_frequency')}
+                      aria-label={t('wardrobe.wear_frequency')}
                     >
-                      <option value="favorite">★ Favorite</option>
+                      <option value="favorite">{t("wardrobe.favorite")}</option>
                       <option value="regular">{t('wardrobe.wear_regular')}</option>
                       <option value="rarely_worn">{t('wardrobe.wear_rarely')}</option>
-                      <option value="seasonal">Seasonal</option>
+                      <option value="seasonal">{t("wardrobe.seasonal")}</option>
                     </select>
 
                     {/* AI Tags */}
@@ -547,20 +572,22 @@ export const WardrobeView: React.FC = () => {
                   <div className="pt-3 border-t border-slate-100 mt-3 flex items-center gap-2">
                     {item.processing_status === "failed" ? (
                       <button
-                        onClick={() => retryAnalysis(item.id)}
-                        disabled={retryingItemId === item.id}
-                        className="w-full py-2 rounded-xl bg-rose-50 border border-rose-200 hover:bg-rose-100 text-xs font-semibold text-rose-800 transition-all disabled:opacity-50"
+                        onClick={() => { if (retryingItemId == null) retryAnalysis(item.id); }}
+                        aria-busy={retryingItemId === item.id}
+                        aria-disabled={retryingItemId === item.id}
+                        className="w-full min-h-11 py-2 rounded-xl bg-rose-50 border border-rose-200 hover:bg-rose-100 text-xs font-semibold text-rose-800 transition-colors flex items-center justify-center gap-1.5"
                       >
-                        {retryingItemId === item.id
-                          ? "Retrying…"
-                          : "↻ Retry AI Analysis"}
+                        {retryingItemId === item.id && (
+                          <span aria-hidden="true" className="w-3.5 h-3.5 rounded-full border-2 border-rose-300 border-t-rose-700 motion-safe:animate-spin" />
+                        )}
+                        {retryingItemId === item.id ? t("wardrobe.retrying") : t("wardrobe.retry_analysis")}
                       </button>
                     ) : (
                       <button
                         onClick={() => navigate("/builder")}
                         className="w-full py-2 rounded-xl bg-slate-100 hover:bg-[#1B1F3B] hover:text-white text-xs font-semibold text-slate-800 transition-all"
                       >
-                        Style in Canvas
+                        {t("wardrobe.style_in_canvas")}
                       </button>
                     )}
                   </div>
@@ -581,19 +608,22 @@ export const WardrobeView: React.FC = () => {
               <div>
                 <h3 className="font-serif text-lg font-bold text-[#1B1F3B] flex items-center gap-2">
                   <SparkleIcon size={18} color="#B8935A" />
-                  Shop Your Wardrobe First
+                  {t("wardrobe.shop_first_title")}
                 </h3>
                 <p className="text-xs text-slate-500">
-                  A look built from pieces you already own — only what you're
-                  missing is suggested for purchase.
+                  {t("wardrobe.shop_first_desc")}
                 </p>
               </div>
               <button
-                onClick={() => fetchOutfitSuggestion("Smart Casual")}
-                disabled={isOutfitLoading}
-                className="px-4 py-2 rounded-xl bg-[#B8935A] hover:bg-[#a07f4c] text-white text-xs font-semibold shadow-sm disabled:opacity-50"
+                onClick={() => { if (!isOutfitLoading) fetchOutfitSuggestion("Smart Casual"); }}
+                aria-busy={isOutfitLoading}
+                aria-disabled={isOutfitLoading}
+                className="px-4 min-h-11 py-2 rounded-xl bg-[#B8935A] hover:bg-[#a07f4c] text-white text-xs font-semibold shadow-sm flex items-center justify-center gap-1.5"
               >
-                {isOutfitLoading ? "Styling…" : "Build Wardrobe-First Look"}
+                {isOutfitLoading && (
+                  <span aria-hidden="true" className="w-3.5 h-3.5 rounded-full border-2 border-white/40 border-t-white motion-safe:animate-spin" />
+                )}
+                {isOutfitLoading ? t("wardrobe.styling_pending") : t("wardrobe.build_look")}
               </button>
             </div>
 
@@ -738,19 +768,26 @@ export const WardrobeView: React.FC = () => {
                       </div>
                       <FitScoreBadge
                         score={look.compatibility_score}
-                        label="Match"
-                        verdict="stylist engine"
+                        label={t("wardrobe.match_label")}
+                        verdict={t("wardrobe.match_verdict")}
                       />
                     </div>
                     <div className="flex justify-between items-center pt-2 text-xs font-bold text-[#1B1F3B]">
-                      <span>Total: ${Number(look.total_price).toFixed(2)}</span>
+                      <span>
+                        {t("wardrobe.look_total")}{" "}
+                        <bdi dir="ltr">{formatMoney(Math.round(Number(look.total_price ?? 0) * 100), "USD", lang)}</bdi>
+                      </span>
                       <button
-                        onClick={() => handleDeleteLook(look.id)}
-                        disabled={deletingLookId === look.id}
-                        className="text-rose-500 hover:text-rose-700 disabled:opacity-40"
-                        aria-label={`Delete ${look.title}`}
+                        onClick={() => { if (deletingLookId == null) handleDeleteLook(look.id); }}
+                        aria-busy={deletingLookId === look.id}
+                        aria-disabled={deletingLookId === look.id}
+                        className="min-h-11 px-2 text-rose-600 hover:text-rose-800 flex items-center gap-1"
+                        aria-label={t("wardrobe.delete_look_aria", { title: look.title })}
                       >
-                        {deletingLookId === look.id ? "Deleting…" : "Delete"}
+                        {deletingLookId === look.id && (
+                          <span aria-hidden="true" className="w-3 h-3 rounded-full border-2 border-rose-300 border-t-rose-700 motion-safe:animate-spin" />
+                        )}
+                        {deletingLookId === look.id ? t("wardrobe.deleting") : t("common.delete")}
                       </button>
                     </div>
                   </div>
@@ -1224,16 +1261,22 @@ export const WardrobeView: React.FC = () => {
 
               <button
                 type="submit"
-                disabled={!selectedFiles.length || isUploading || isCompressing}
-                className="w-full py-3 rounded-xl bg-[#B8935A] hover:bg-[#a07f4c] text-white font-semibold text-xs transition-all shadow-md flex items-center justify-center gap-1.5 disabled:opacity-50"
+                disabled={!selectedFiles.length}
+                aria-busy={isUploading || isCompressing}
+                aria-disabled={!selectedFiles.length || isUploading || isCompressing}
+                className="w-full min-h-11 py-3 rounded-xl bg-[#B8935A] hover:bg-[#a07f4c] text-white font-semibold text-xs transition-colors shadow-md flex items-center justify-center gap-1.5 disabled:opacity-50"
               >
-                <SparkleIcon size={14} color="#fff" />
+                {isUploading || isCompressing ? (
+                  <span aria-hidden="true" className="w-3.5 h-3.5 rounded-full border-2 border-white/40 border-t-white motion-safe:animate-spin" />
+                ) : (
+                  <SparkleIcon size={14} color="#fff" />
+                )}
                 <span>
                   {isCompressing
-                    ? "Optimizing photos…"
+                    ? t("wardrobe.optimizing_photos")
                     : isUploading
-                      ? "Uploading & Analyzing…"
-                      : `Upload ${selectedFiles.length > 1 ? `${selectedFiles.length} Pieces` : "Piece"} & Auto-Tag with AI`}
+                      ? t("wardrobe.uploading_analyzing")
+                      : t("wardrobe.upload_cta", { count: selectedFiles.length })}
                 </span>
               </button>
 

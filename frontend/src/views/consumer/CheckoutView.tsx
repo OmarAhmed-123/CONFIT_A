@@ -5,6 +5,7 @@ import { localizeApiError } from '../../i18n/apiErrors';
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { formatMoney } from '../../i18n/format';
 import { useCartStore } from '../../stores/cartStore';
 import { useAuthStore } from '../../stores/authStore';
 import { useUIStore } from '../../stores/uiStore';
@@ -40,6 +41,16 @@ export const CheckoutView: React.FC = () => {
   // visual direction. The API ships title_ar/description_ar for every method
   // and the checkout was rendering title_en to Arabic shoppers.
   const isArabic = (i18n.resolvedLanguage ?? 'en').startsWith('ar');
+  const lang = i18n.resolvedLanguage ?? 'en';
+  /* Spec 01 §5/§6: one in-flight cart mutation at a time — pending is shown
+     (aria-busy + spinner), clicks are swallowed, no double submit. */
+  const [cartBusyId, setCartBusyId] = useState<number | null>(null);
+  const [isApplyingPromo, setIsApplyingPromo] = useState(false);
+  const runCartOp = async (id: number, fn: () => Promise<unknown>, failMsg: string) => {
+    if (cartBusyId !== null) return;
+    setCartBusyId(id);
+    try { await fn(); } catch { showToast(failMsg, 'error'); } finally { setCartBusyId(null); }
+  };
   const navigate = useNavigate();
   const { cart, fetchCart, applyPromo, updateQuantity, removeItem } = useCartStore();
   const { user, isAuthenticated } = useAuthStore();
@@ -123,12 +134,17 @@ export const CheckoutView: React.FC = () => {
   const shipping = cart?.shipping_amount || 0;
 
   const handleApplyPromo = async () => {
+    if (isApplyingPromo) return; // no double submit
     setPromoError(null);
+    setIsApplyingPromo(true);
     try {
       await applyPromo(promoInput.trim());
-      showToast('Promotion applied', 'success');
+      showToast(t('checkout.promo_applied'), 'success');
     } catch (err: any) {
-      setPromoError(err?.message || 'Code could not be applied');
+      // Honest failure: the input keeps the user's code, the reason is shown.
+      setPromoError(err?.message || t('checkout.promo_failed'));
+    } finally {
+      setIsApplyingPromo(false);
     }
   };
 
@@ -149,7 +165,7 @@ export const CheckoutView: React.FC = () => {
     });
     if (!verdict.ok) {
       setFieldError(verdict.field ?? null);
-      showToast(verdict.message || 'Please complete the highlighted fields.', 'error');
+      showToast(verdict.message || t('checkout.complete_fields'), 'error');
       const fieldId =
         verdict.field === 'guest_email' ? 'guest-email' :
         verdict.field === 'recipient_name' ? 'full-name' :
@@ -201,7 +217,7 @@ export const CheckoutView: React.FC = () => {
       <div className="bg-amber-50 border-2 border-amber-400 rounded-2xl p-4 flex items-start gap-3">
         <div className="text-amber-600 text-xl">⚠️</div>
         <div className="flex-1">
-          <h4 className="text-xs font-black text-amber-900 uppercase tracking-widest">{t('checkout.demo_mode_title')}</h4>
+          <p className="text-xs font-black text-amber-900 uppercase tracking-widest">{t('checkout.demo_mode_title')}</p>
           <p className="text-[11px] text-amber-800 mt-1 leading-relaxed">
             {t('checkout.demo_mode_body')}
           </p>
@@ -241,9 +257,9 @@ export const CheckoutView: React.FC = () => {
               <UserIcon size={20} color="#C5A059" />
             </div>
             <div>
-              <h3 className="font-serif text-base font-bold text-[#1B1F3B]">
+              <h2 className="font-serif text-base font-bold text-[#1B1F3B]">
                 {t('checkout.guest_checkout')}
-              </h3>
+              </h2>
               <p className="text-xs text-slate-500 font-light mt-0.5">
                 {t('checkout.guest_intro')}
               </p>
@@ -271,7 +287,7 @@ export const CheckoutView: React.FC = () => {
       <form noValidate onSubmit={handleSubmitOrder} className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         <div className="lg:col-span-7 space-y-6">
           <div className="bg-white rounded-3xl border border-slate-200/80 p-6 shadow-2xs space-y-4">
-            <h3 className="font-serif text-base font-bold text-[#1B1F3B]">{t('checkout.step_fulfillment')}</h3>
+            <h2 className="font-serif text-base font-bold text-[#1B1F3B]">{t('checkout.step_fulfillment')}</h2>
             <div className="grid grid-cols-2 gap-3">
               <button
                 type="button"
@@ -359,7 +375,7 @@ export const CheckoutView: React.FC = () => {
           </div>
 
           <div className="bg-white rounded-3xl border border-slate-200/80 p-6 shadow-2xs space-y-4">
-            <h3 className="font-serif text-base font-bold text-[#1B1F3B]">{t('checkout.step_contact')}</h3>
+            <h2 className="font-serif text-base font-bold text-[#1B1F3B]">{t('checkout.step_contact')}</h2>
             {!isAuthenticated && (
               <div>
                 <label className="text-xs font-bold text-slate-800 block mb-1" htmlFor="guest-email">
@@ -451,7 +467,7 @@ export const CheckoutView: React.FC = () => {
           </div>
 
           <div className="bg-white rounded-3xl border border-slate-200/80 p-6 shadow-2xs space-y-4">
-            <h3 className="font-serif text-base font-bold text-[#1B1F3B]">{t('checkout.step_payment')}</h3>
+            <h2 className="font-serif text-base font-bold text-[#1B1F3B]">{t('checkout.step_payment')}</h2>
             {paymentOptions.length === 0 ? (
               <p className="text-xs text-slate-500">{t('checkout.payment_methods_unavailable')}</p>
             ) : (
@@ -498,9 +514,9 @@ export const CheckoutView: React.FC = () => {
 
         <div className="lg:col-span-5 space-y-6">
           <div className="bg-white rounded-3xl border border-slate-200/80 p-6 shadow-2xs space-y-4">
-            <h3 className="font-serif text-base font-bold text-[#1B1F3B] pb-3 border-b border-slate-100">
+            <h2 className="font-serif text-base font-bold text-[#1B1F3B] pb-3 border-b border-slate-100">
               {t('checkout.order_summary')} ({cart?.items_count || 0})
-            </h3>
+            </h2>
             {cart?.fit_summary && cart.fit_summary.length > 0 && (
               <ul className="text-[11px] text-slate-600 space-y-1">
                 {cart.fit_summary.map((row) => (
@@ -521,16 +537,15 @@ export const CheckoutView: React.FC = () => {
                     <div className="text-slate-500 text-[11px] font-light">
                       {it.brand_name} · {t('checkout.size')} {it.size}
                     </div>
-                    <div className="text-slate-900 font-bold mt-0.5">${it.subtotal.toFixed(2)}</div>
+                    <div className="text-slate-900 font-bold mt-0.5"><bdi dir="ltr">{formatMoney(Math.round((it.subtotal) * 100), cart?.currency || 'USD', lang)}</bdi></div>
                     <div className="flex items-center gap-1.5 mt-1">
                       <button
                         type="button"
                         aria-label={t('commerce.qty_decrease')}
                         disabled={it.quantity <= 1}
-                        onClick={() => {
-                          updateQuantity(it.id, it.quantity - 1).catch(() => showToast('Could not update quantity', 'error'));
-                        }}
-                        className="w-6 h-6 rounded-lg border border-slate-200 text-slate-700 font-bold leading-none hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                        aria-busy={cartBusyId === it.id}
+                        onClick={() => runCartOp(it.id, () => updateQuantity(it.id, it.quantity - 1), t('checkout.qty_update_failed'))}
+                        className="w-11 h-11 rounded-lg border border-slate-200 text-slate-700 font-bold leading-none hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed"
                       >
                         −
                       </button>
@@ -541,20 +556,18 @@ export const CheckoutView: React.FC = () => {
                         type="button"
                         aria-label={t('commerce.qty_increase')}
                         disabled={it.quantity >= 10}
-                        onClick={() => {
-                          updateQuantity(it.id, it.quantity + 1).catch(() => showToast('Could not update quantity', 'error'));
-                        }}
-                        className="w-6 h-6 rounded-lg border border-slate-200 text-slate-700 font-bold leading-none hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                        aria-busy={cartBusyId === it.id}
+                        onClick={() => runCartOp(it.id, () => updateQuantity(it.id, it.quantity + 1), t('checkout.qty_update_failed'))}
+                        className="w-11 h-11 rounded-lg border border-slate-200 text-slate-700 font-bold leading-none hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed"
                       >
                         +
                       </button>
                       <button
                         type="button"
                         aria-label={t('commerce.remove_item')}
-                        onClick={() => {
-                          removeItem(it.id).catch(() => showToast('Could not remove item', 'error'));
-                        }}
-                        className="ml-auto text-[10px] font-semibold text-slate-400 hover:text-rose-600 underline underline-offset-2"
+                        aria-busy={cartBusyId === it.id}
+                        onClick={() => runCartOp(it.id, () => removeItem(it.id), t('checkout.remove_failed'))}
+                        className="ms-auto min-h-11 text-[10px] font-semibold text-slate-400 hover:text-rose-600 underline underline-offset-2"
                       >
                         {t('commerce.remove_item')}
                       </button>
@@ -575,34 +588,39 @@ export const CheckoutView: React.FC = () => {
               <button
                 type="button"
                 onClick={handleApplyPromo}
-                className="px-3.5 py-2 rounded-xl bg-slate-100 text-xs font-bold text-slate-700 hover:bg-slate-200 transition-colors"
+                aria-busy={isApplyingPromo}
+                aria-disabled={isApplyingPromo}
+                className="px-3.5 min-h-11 py-2 rounded-xl bg-slate-100 text-xs font-bold text-slate-700 hover:bg-slate-200 transition-colors flex items-center gap-1.5"
               >
-                {t('common.apply')}
+                {isApplyingPromo && (
+                  <span aria-hidden="true" className="w-3 h-3 rounded-full border-2 border-slate-300 border-t-slate-700 motion-safe:animate-spin" />
+                )}
+                {isApplyingPromo ? t('checkout.applying') : t('common.apply')}
               </button>
             </div>
-            {promoError && <p className="text-[11px] text-rose-600">{promoError}</p>}
+            {promoError && <p role="alert" className="text-[11px] text-rose-600">{promoError}</p>}
             <div className="space-y-2 text-xs text-slate-600 pt-3 border-t border-slate-100 font-light">
               <div className="flex justify-between">
                 <span>{t('commerce.subtotal')}</span>
-                <span className="font-medium text-slate-900">${subtotal.toFixed(2)}</span>
+                <span className="font-medium text-slate-900"><bdi dir="ltr">{formatMoney(Math.round((subtotal) * 100), cart?.currency || 'USD', lang)}</bdi></span>
               </div>
               {discount > 0 && (
                 <div className="flex justify-between text-emerald-600 font-medium">
                   <span>{t('commerce.discount')} {cart?.promo_code ? `(${cart.promo_code})` : ''}</span>
-                  <span>-${discount.toFixed(2)}</span>
+                  <span><bdi dir="ltr">-{formatMoney(Math.round(discount * 100), cart?.currency || 'USD', lang)}</bdi></span>
                 </div>
               )}
               <div className="flex justify-between">
                 <span>{t('checkout.tax')}</span>
-                <span>${tax.toFixed(2)}</span>
+                <span><bdi dir="ltr">{formatMoney(Math.round((tax) * 100), cart?.currency || 'USD', lang)}</bdi></span>
               </div>
               <div className="flex justify-between">
                 <span>{t('commerce.shipping')}</span>
-                <span>{fulfillmentType === 'bopis' ? t('checkout.pickup') : `$${shipping.toFixed(2)}`}</span>
+                <span>{fulfillmentType === 'bopis' ? t('checkout.pickup') : <bdi dir="ltr">{formatMoney(Math.round(shipping * 100), cart?.currency || 'USD', lang)}</bdi>}</span>
               </div>
               <div className="flex justify-between text-base font-bold text-[#1B1F3B] pt-3 border-t border-slate-200">
                 <span>{t('commerce.total')}</span>
-                <span>${total.toFixed(2)}</span>
+                <span><bdi dir="ltr">{formatMoney(Math.round((total) * 100), cart?.currency || 'USD', lang)}</bdi></span>
               </div>
             </div>
             {cart && cart.bnpl_monthly_quote > 0 && (

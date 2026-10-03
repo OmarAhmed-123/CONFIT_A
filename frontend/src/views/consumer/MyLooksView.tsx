@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ActionButton } from '../../components/common/ActionButton';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { formatMoney } from '../../i18n/format';
 import { useMyLooksViewModel } from '../../viewmodels/useMyLooksViewModel';
 import { Outfit, ShareLink } from '../../models';
 import { ShareActions } from '../../components/outfit/ShareActions';
@@ -139,7 +140,8 @@ const LookCard: React.FC<{
   onDelete: () => void;
   onRename: (title: string) => void;
 }> = ({ look, link, busy, onShare, onRevoke, onDelete, onRename }) => {
-  const { t } = useTranslation();
+  const { t, i18n: lookI18n } = useTranslation();
+  const lookCardLang = lookI18n.resolvedLanguage ?? 'en';
   const [title, setTitle] = useState(look.title);
   const complete = look.completeness_status === 'complete_look';
 
@@ -170,7 +172,7 @@ const LookCard: React.FC<{
         <span>{look.items.length} {t('my_looks.pieces')}</span>
         <span>·</span>
         <span className="font-bold text-[#1B1F3B]">
-          ${Number(look.total_price ?? 0).toFixed(2)}
+          <bdi dir="ltr">{formatMoney(Math.round(Number(look.total_price ?? 0) * 100), 'USD', lookCardLang)}</bdi>
         </span>
       </div>
 

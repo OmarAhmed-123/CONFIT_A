@@ -21,6 +21,7 @@ import {
 } from "../../components/common/CommonComponents";
 import { CardStackShowcase } from "../../components/showcase/DesignShowcases";
 import { HonestProductImage } from "../../components/common/HonestProductImage";
+import { Surface } from "../../components/common/Surface";
 import {
   AsyncActionButton,
   WishlistToggle,
@@ -353,7 +354,7 @@ export const ProductDetailView: React.FC = () => {
             )}
           </div>
 
-          <div className="surface-raised p-4.5 rounded-2xl space-y-3.5">
+          <Surface variant="raised" reveal className="p-4.5 rounded-2xl space-y-3.5">
             <div className="flex justify-between items-center pb-2 border-b border-slate-100">
               <div className="flex items-center gap-1.5">
                 <SparkleIcon size={16} color="#C5A059" />
@@ -503,7 +504,7 @@ export const ProductDetailView: React.FC = () => {
                   : t('product.out_of_stock')}
               </p>
             </div>
-          </div>
+          </Surface>
 
           <div className="space-y-2.5">
             <AsyncActionButton
@@ -742,9 +743,12 @@ export const ProductDetailView: React.FC = () => {
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {product.related_outfits.map((outfit, idx) => (
-              <div
+              <Surface
+                variant="solid"
+                reveal
+                revealDelay={Math.min(idx * 0.06, 0.3)}
                 key={`${outfit.title}-${idx}`}
-                className="surface-solid rounded-3xl p-4 space-y-3"
+                className="rounded-3xl p-4 space-y-3"
               >
                 <h3 className="text-sm font-bold text-[#1B1F3B]">
                   {outfit.title}
@@ -781,7 +785,7 @@ export const ProductDetailView: React.FC = () => {
                     </Link>
                   ))}
                 </div>
-              </div>
+              </Surface>
             ))}
           </div>
         </section>

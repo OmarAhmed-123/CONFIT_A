@@ -1,5 +1,6 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Surface } from '../../components/common/Surface';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCatalogViewModel } from '../../viewmodels/useCatalogViewModel';
 import { useUIStore } from '../../stores/uiStore';
@@ -45,16 +46,24 @@ type Units = 'metric' | 'imperial';
 const CM_PER_IN = 2.54;
 const KG_PER_LB = 0.453592;
 
+// VALUES are the API contract and never change (§11); labels are i18n keys.
 const BODY_SHAPES = ['Hourglass', 'Athletic', 'Rectangle', 'Pear', 'Inverted Triangle'];
+const SHAPE_LABEL_KEYS: Record<string, string> = {
+  Hourglass: 'fit_finder.shape_hourglass',
+  Athletic: 'fit_finder.shape_athletic',
+  Rectangle: 'fit_finder.shape_rectangle',
+  Pear: 'fit_finder.shape_pear',
+  'Inverted Triangle': 'fit_finder.shape_inverted_triangle',
+};
 const FIT_PREFS = [
-  { value: 'slim', label: 'Slim / Tailored' },
-  { value: 'regular', label: 'Regular' },
-  { value: 'relaxed', label: 'Relaxed' },
+  { value: 'slim', labelKey: 'fit_finder.pref_slim' },
+  { value: 'regular', labelKey: 'fit_finder.pref_regular' },
+  { value: 'relaxed', labelKey: 'fit_finder.pref_relaxed' },
 ];
 const DEMOGRAPHICS = [
-  { value: 'unisex', label: 'Prefer not to say' },
-  { value: 'men', label: "Men's sizing" },
-  { value: 'women', label: "Women's sizing" },
+  { value: 'unisex', labelKey: 'fit_finder.demo_unisex' },
+  { value: 'men', labelKey: 'fit_finder.demo_men' },
+  { value: 'women', labelKey: 'fit_finder.demo_women' },
 ] as const;
 
 interface FormState {
@@ -182,7 +191,7 @@ export const FitFinderView: React.FC = () => {
       if (value === null) return;
       const { min, max } = displayLimits[key];
       if (value < min || value > max) {
-        errs[key] = `Must be ${min}–${max} ${unitLabel}`;
+        errs[key] = t('fit_finder.range_error', { min: min, max: max, unit: unitLabel });
       }
     };
     check('height', form.height);
@@ -191,10 +200,10 @@ export const FitFinderView: React.FC = () => {
     check('hip', form.hip);
     const { min, max } = displayLimits.weight;
     if (form.weight < min || form.weight > max) {
-      errs.weight = `Must be ${min}–${max} ${weightLabel}`;
+      errs.weight = t('fit_finder.range_error', { min: min, max: max, unit: weightLabel });
     }
     return errs;
-  }, [form, displayLimits, unitLabel, weightLabel]);
+  }, [form, displayLimits, unitLabel, weightLabel, t]);
 
   const measuredCount = [form.chest, form.waist, form.hip].filter((v) => v !== null).length;
 
@@ -308,7 +317,7 @@ export const FitFinderView: React.FC = () => {
   ) => (
     <div>
       <label htmlFor={`fit-${key}`} className="text-xs font-bold text-slate-800 block mb-1">
-        {label} <span className="text-slate-500 font-light">(optional)</span>
+        {label} <span className="text-slate-500 font-light">{t('fit_finder.optional_suffix')}</span>
       </label>
       <div className="flex items-center gap-2">
         <input
@@ -342,24 +351,21 @@ export const FitFinderView: React.FC = () => {
         <div className="max-w-2xl space-y-3">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#C5A059]/20 border border-[#C5A059]/40 text-[#E2BF70] text-xs font-semibold uppercase tracking-wider">
             <RulerIcon size={14} color="#E2BF70" />
-            <span>Fit Finder — No Photo Required</span>
+            <span>{t('fit_finder.badge')}</span>
           </div>
           <h1 className="font-serif text-3xl sm:text-4xl font-bold leading-tight">
-            Size Recommendation Engine
+            {t('fit_finder.headline')}
           </h1>
           <p className="text-xs sm:text-sm text-slate-300 font-light leading-relaxed">
-            Your measurements are compared against this garment's own size chart, section by
-            section, using the ease the style is cut for. You get the size, the reasoning, and an
-            honest confidence — and when the data is not good enough, you get told that instead of
-            a guess.
+            {t('fit_finder.lede')}
           </p>
           <p className="text-[11px] text-slate-500">
-            Looking for the photo-based studio instead?{' '}
+            {t('fit_finder.photo_studio_q')}{' '}
             <button
               onClick={() => navigate('/tryon-studio')}
               className="text-[#C5A059] font-semibold hover:underline inline-flex items-center gap-1"
             >
-              Open Virtual Try-On <TryOnIcon size={12} color="#C5A059" />
+              {t('fit_finder.open_tryon')} <TryOnIcon size={12} color="#C5A059" />
             </button>
           </p>
         </div>
@@ -371,7 +377,7 @@ export const FitFinderView: React.FC = () => {
           <div className="bg-white rounded-3xl border border-slate-200/80 p-5 shadow-2xs space-y-3">
             <h3 className="font-serif text-base font-bold text-[#1B1F3B] flex items-center gap-2">
               <span className="w-6 h-6 rounded-lg bg-[#1B1F3B] text-white text-[11px] flex items-center justify-center font-sans font-bold">1</span>
-              Choose the garment to size
+              {t('fit_finder.step_garment')}
             </h3>
             {catalogLoading ? (
               <div className="h-10 rounded-xl bg-slate-100 animate-pulse" aria-label={t('fit_finder.loading_catalog')} />
@@ -416,7 +422,7 @@ export const FitFinderView: React.FC = () => {
             <div className="flex items-center justify-between">
               <h3 className="font-serif text-base font-bold text-[#1B1F3B] flex items-center gap-2">
                 <span className="w-6 h-6 rounded-lg bg-[#1B1F3B] text-white text-[11px] flex items-center justify-center font-sans font-bold">2</span>
-                Your measurements
+                {t('fit_finder.step_measurements')}
               </h3>
               <div className="flex items-center bg-slate-100 rounded-xl p-1 text-[11px] font-bold" role="group" aria-label={t('fit_finder.unit_system')}>
                 <button
@@ -441,7 +447,7 @@ export const FitFinderView: React.FC = () => {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label htmlFor="fit-height" className="text-xs font-bold text-slate-800 block mb-1">
-                  Height
+                  {t('fit_finder.label_height')}
                 </label>
                 <div className="flex items-center gap-2">
                   <input
@@ -467,7 +473,7 @@ export const FitFinderView: React.FC = () => {
 
               <div>
                 <label htmlFor="fit-weight" className="text-xs font-bold text-slate-800 block mb-1">
-                  Weight
+                  {t('fit_finder.label_weight')}
                 </label>
                 <div className="flex items-center gap-2">
                   <input
@@ -491,13 +497,13 @@ export const FitFinderView: React.FC = () => {
                 )}
               </div>
 
-              {numberField('chest', 'Chest / Bust')}
-              {numberField('waist', 'Waist')}
-              {numberField('hip', 'Hip')}
+              {numberField('chest', t('fit_finder.label_chest'))}
+              {numberField('waist', t('fit_finder.label_waist'))}
+              {numberField('hip', t('fit_finder.label_hip'))}
 
               <div>
                 <label htmlFor="fit-shape" className="text-xs font-bold text-slate-800 block mb-1">
-                  Body shape
+                  {t('fit_finder.body_shape')}
                 </label>
                 <select
                   id="fit-shape"
@@ -506,14 +512,14 @@ export const FitFinderView: React.FC = () => {
                   className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-[#C5A059]"
                 >
                   {BODY_SHAPES.map((s) => (
-                    <option key={s} value={s}>{s}</option>
+                    <option key={s} value={s}>{t(SHAPE_LABEL_KEYS[s] ?? s, s)}</option>
                   ))}
                 </select>
               </div>
 
               <div>
                 <label htmlFor="fit-demographic" className="text-xs font-bold text-slate-800 block mb-1">
-                  Size chart to use
+                  {t('fit_finder.chart_to_use')}
                 </label>
                 <select
                   id="fit-demographic"
@@ -522,7 +528,7 @@ export const FitFinderView: React.FC = () => {
                   className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-[#C5A059]"
                 >
                   {DEMOGRAPHICS.map((d) => (
-                    <option key={d.value} value={d.value}>{d.label}</option>
+                    <option key={d.value} value={d.value}>{t(d.labelKey)}</option>
                   ))}
                 </select>
               </div>
@@ -547,13 +553,10 @@ export const FitFinderView: React.FC = () => {
             >
               {measuredCount === 0 ? (
                 <>
-                  <strong>{t('fit_finder.girths_estimate_note')}</strong> Add a
-                  real chest, waist or hip measurement for a recommendation the engine can stand
-                  behind — without them the result is explicitly labelled an estimate, and for some
-                  garments it will decline to name a size at all.
+                  <strong>{t('fit_finder.girths_estimate_note')}</strong> {t('fit_finder.girths_add_body')}
                 </>
               ) : (
-                <>Using {measuredCount} measured girth{measuredCount > 1 ? 's' : ''}. Adding the rest raises confidence further.</>
+                <>{t('fit_finder.girths_using', { count: measuredCount })}</>
               )}
             </div>
 
@@ -572,7 +575,7 @@ export const FitFinderView: React.FC = () => {
                         : 'border-slate-200 text-slate-600 hover:border-slate-300'
                     }`}
                   >
-                    {f.label}
+                    {t(f.labelKey)}
                   </button>
                 ))}
               </div>
@@ -584,10 +587,10 @@ export const FitFinderView: React.FC = () => {
               className="w-full py-3.5 rounded-2xl bg-[#1B1F3B] hover:bg-[#0C0E1E] disabled:opacity-40 text-white font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2"
             >
               <RulerIcon size={16} color="#C5A059" />
-              <span>{calcLoading ? 'Computing your size…' : 'Calculate My Size'}</span>
+              <span>{calcLoading ? t('fit_finder.computing') : t('fit_finder.calculate')}</span>
             </button>
             <p className="text-[10px] text-slate-500 text-center font-light">
-              Sent as anonymous numbers over HTTPS. Nothing is stored unless you choose “Save”.
+              {t('fit_finder.privacy_line')}
             </p>
           </div>
         </div>
@@ -599,7 +602,7 @@ export const FitFinderView: React.FC = () => {
               <div className="h-8 w-32 rounded-lg bg-slate-100 animate-pulse" />
               <div className="h-4 w-full rounded bg-slate-100 animate-pulse" />
               <div className="h-4 w-5/6 rounded bg-slate-100 animate-pulse" />
-              <p className="text-[11px] text-slate-500">Comparing your measurements with the size chart…</p>
+              <p className="text-[11px] text-slate-500">{t('fit_finder.comparing')}</p>
             </div>
           )}
 
@@ -611,7 +614,7 @@ export const FitFinderView: React.FC = () => {
                 onClick={handleCalculate}
                 className="mt-1 px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-bold"
               >
-                Try again
+                {t('common.retry')}
               </button>
             </div>
           )}
@@ -621,27 +624,28 @@ export const FitFinderView: React.FC = () => {
               <RulerIcon size={26} color="#94A3B8" />
               <h3 className="font-serif text-base font-bold text-slate-700">{t('fit_finder.recommendation_placeholder')}</h3>
               <p className="text-[11px] text-slate-500 font-light leading-relaxed">
-                Pick a garment and enter your measurements. You will see the size, the chart it came
-                from, how each section fits, and how confident the engine actually is.
+                {t('fit_finder.placeholder_body')}
               </p>
             </div>
           )}
 
           {/* ── Refusal: a first-class, honest outcome ── */}
           {result && !result.recommended && !calcLoading && (
-            <div
+            <Surface
+              variant="solid"
+              reveal
               className="bg-amber-50 border-2 border-amber-300 rounded-3xl p-6 space-y-3"
               role="status"
               aria-live="polite"
             >
               <h3 className="font-serif text-base font-bold text-amber-900">
-                No size recommendation for this item
+                {t('fit_finder.no_rec_title')}
               </h3>
               <p className="text-xs text-amber-900 leading-relaxed">{result.confidence_disclosure}</p>
               {result.missing && result.missing.length > 0 && (
                 <div className="surface-solid rounded-2xl px-3 py-2">
                   <p className="text-[10px] font-bold uppercase tracking-wider text-amber-800 mb-1">
-                    What would fix it
+                    {t('fit_finder.fix_title')}
                   </p>
                   <ul className="text-[11px] text-amber-900 list-disc list-inside space-y-0.5">
                     {result.missing.map((m) => (
@@ -651,26 +655,27 @@ export const FitFinderView: React.FC = () => {
                 </div>
               )}
               <p className="text-[10px] text-amber-800">
-                We would rather say nothing than name a size we cannot justify — a wrong size is a
-                return, and a confident wrong size is worse.
-                {result.reason_code ? ` (reason: ${result.reason_code})` : ''}
+                {t('fit_finder.refusal_footer')}{' '}
+                {result.reason_code && (
+                  <span dir="ltr">{t('fit_finder.reason_code', { code: result.reason_code })}</span>
+                )}
               </p>
-            </div>
+            </Surface>
           )}
 
           {/* ── Recommendation ── */}
           {result && result.recommended && !calcLoading && (
-            <div className="surface-raised rounded-3xl border-2 border-[#C5A059]/50 p-6 space-y-4" aria-live="polite">
+            <Surface variant="raised" reveal className="rounded-3xl border-2 border-[#C5A059]/50 p-6 space-y-4" aria-live="polite">
               <div className="flex items-start justify-between">
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
-                    Recommended size
+                    {t('fit_finder.rec_size')}
                   </p>
                   <p className="font-serif text-5xl font-black text-[#1B1F3B] leading-tight">
                     {result.recommended_size}
                   </p>
                   <p className="text-[11px] text-slate-500 font-light">
-                    for {selectedProduct?.brand_name} · {selectedProduct?.title}
+                    {t('fit_finder.rec_for', { brand: selectedProduct?.brand_name, title: selectedProduct?.title })}
                   </p>
                 </div>
                 {/* The band is the honest signal. The 0-100 score is an
@@ -678,7 +683,7 @@ export const FitFinderView: React.FC = () => {
                     is NOT rendered as a percentage here. */}
                 <div className="text-right shrink-0">
                   <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
-                    Confidence
+                    {t('fit_finder.confidence')}
                   </p>
                   <p
                     className={`font-serif text-2xl font-black capitalize leading-tight ${
@@ -689,7 +694,7 @@ export const FitFinderView: React.FC = () => {
                           : 'text-slate-700'
                     }`}
                   >
-                    {result.confidence_band ?? 'unrated'}
+                    {result.confidence_band ? t(`fit_finder.band_${result.confidence_band}`, result.confidence_band) : t('fit_finder.band_unrated')}
                   </p>
                   <p className="text-[10px] text-slate-500">{result.fit_verdict}</p>
                 </div>
@@ -698,18 +703,14 @@ export const FitFinderView: React.FC = () => {
               {result.confidence_band_reason && (
                 <p className="text-[11px] text-slate-600 leading-relaxed bg-[#FAF9F6] border border-slate-100 rounded-2xl px-3 py-2">
                   {result.confidence_band_reason}{' '}
-                  <span className="text-slate-400">
-                    This is a rule-based rating of the evidence, not a statistical
-                    probability.
-                  </span>
+                  <span className="text-slate-400">{t('fit_finder.band_rule_note')}</span>
                 </p>
               )}
 
               {result.is_between_sizes && result.alternative_size && (
                 <div className="bg-[#FDF8EE] border border-[#C5A059]/40 rounded-2xl px-3 py-2">
                   <p className="text-[11px] text-[#7A5C28] leading-relaxed">
-                    <strong>{t('fit_finder.between_sizes')}</strong> {result.recommended_size} for a closer
-                    fit, {result.alternative_size} for more room.
+                    <strong>{t('fit_finder.between_sizes')}</strong> {t('fit_finder.between_body', { rec: result.recommended_size, alt: result.alternative_size })}
                   </p>
                 </div>
               )}
@@ -717,8 +718,7 @@ export const FitFinderView: React.FC = () => {
               {result.is_estimated && (
                 <div className="bg-amber-50 border border-amber-200 rounded-2xl px-3 py-2">
                   <p className="text-[11px] text-amber-900 leading-relaxed">
-                    <strong>{t('fit_finder.partly_estimated')}</strong> Some girths were modelled from your height
-                    and weight rather than measured, which is why the confidence is capped.
+                    <strong>{t('fit_finder.partly_estimated')}</strong> {t('fit_finder.estimated_body')}
                   </p>
                 </div>
               )}
@@ -727,13 +727,17 @@ export const FitFinderView: React.FC = () => {
               {chartSource && (
                 <div className="bg-[#FAF9F6] rounded-2xl p-3 border border-slate-100">
                   <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                    Size chart used
+                    {t('fit_finder.chart_used')}
                   </p>
                   <p className="text-xs text-slate-700 font-semibold mt-1">{chartSource.label}</p>
                   <p className="text-[10px] text-slate-500 mt-0.5">
                     {chartSource.is_brand_published
-                      ? `Published by the brand${chartSource.updated_at ? ` · updated ${chartSource.updated_at}` : ' · no update date published'}`
-                      : `Public standard${chartSource.standard ? ` (${chartSource.standard})` : ''} — not this brand's own measurements`}
+                      ? chartSource.updated_at
+                        ? t('fit_finder.chart_brand_dated', { date: chartSource.updated_at })
+                        : t('fit_finder.chart_brand_undated')
+                      : chartSource.standard
+                        ? t('fit_finder.chart_public_std', { standard: chartSource.standard })
+                        : t('fit_finder.chart_public_nostd')}
                   </p>
                   {chartSource.notes?.map((note) => (
                     <p key={note} className="text-[10px] text-slate-500 mt-1">{note}</p>
@@ -744,7 +748,7 @@ export const FitFinderView: React.FC = () => {
               {/* Why this size — per-section evidence */}
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2">
-                  Why this size
+                  {t('fit_finder.why_size')}
                 </p>
                 <ul className="space-y-1.5">
                   {Object.entries(result.fit_breakdown).map(([region, verdict]) => (
@@ -764,15 +768,15 @@ export const FitFinderView: React.FC = () => {
                 <div className="overflow-x-auto">
                   <table className="w-full text-[11px]">
                     <caption className="sr-only">
-                      Body measurement ranges and fit score for every size this product sells
+                      {t('fit_finder.table_caption')}
                     </caption>
                     <thead>
                       <tr className="text-slate-500 uppercase tracking-wider text-[9px]">
-                        <th scope="col" className="text-left py-1">Size</th>
-                        <th scope="col" className="text-left py-1">Chest (cm)</th>
-                        <th scope="col" className="text-left py-1">Waist (cm)</th>
-                        <th scope="col" className="text-left py-1">Fit</th>
-                        <th scope="col" className="text-left py-1">Stock</th>
+                        <th scope="col" className="text-start py-1">{t('fit_finder.th_size')}</th>
+                        <th scope="col" className="text-start py-1">{t('fit_finder.th_chest')}</th>
+                        <th scope="col" className="text-start py-1">{t('fit_finder.th_waist')}</th>
+                        <th scope="col" className="text-start py-1">{t('fit_finder.th_fit')}</th>
+                        <th scope="col" className="text-start py-1">{t('fit_finder.th_stock')}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -792,10 +796,10 @@ export const FitFinderView: React.FC = () => {
                             <td className="py-1.5">{row.fit_rating}</td>
                             <td className="py-1.5">
                               {row.in_stock === null || row.availability === 'unknown'
-                                ? 'Not confirmed'
+                                ? t('fit_finder.stock_unconfirmed')
                                 : row.in_stock
-                                  ? 'In stock'
-                                  : 'Out of stock'}
+                                  ? t('fit_finder.stock_in')
+                                  : t('fit_finder.stock_out')}
                             </td>
                           </tr>
                         );
@@ -828,7 +832,7 @@ export const FitFinderView: React.FC = () => {
               {result.confidence_factors?.length > 0 && (
                 <details className="bg-[#FAF9F6] rounded-2xl border border-slate-100 px-3 py-2">
                   <summary className="text-[11px] font-bold text-slate-700 cursor-pointer">
-                    How this {result.confidence_band} confidence rating was decided
+                    {t('fit_finder.confidence_how', { band: result.confidence_band ? t(`fit_finder.band_${result.confidence_band}`, result.confidence_band) : t('fit_finder.band_unrated') })}
                   </summary>
                   <ul className="mt-2 space-y-1">
                     {result.confidence_factors.map((factor, i) => (
@@ -836,8 +840,7 @@ export const FitFinderView: React.FC = () => {
                     ))}
                   </ul>
                   <p className="text-[10px] text-slate-500 mt-2">
-                    Engine {result.engine_version}. No remote method can guarantee fit, so the score
-                    is deliberately capped below certainty.
+                    {t('fit_finder.engine_note', { version: result.engine_version })}
                   </p>
                 </details>
               )}
@@ -866,8 +869,7 @@ export const FitFinderView: React.FC = () => {
                         className="mt-0.5"
                       />
                       <span>
-                        I agree to CONFIT storing these body measurements on my profile
-                        (encrypted at rest). I can delete them at any time.
+                        {t('fit_finder.consent_store')}
                       </span>
                     </label>
                     <button
@@ -876,28 +878,28 @@ export const FitFinderView: React.FC = () => {
                       className="w-full py-2.5 rounded-xl border border-[#C5A059]/50 text-[#A37E44] hover:bg-[#FDF8EE] disabled:opacity-50 text-[11px] font-bold transition-all"
                     >
                       {saveState === 'saving'
-                        ? 'Saving…'
+                        ? t('fit_finder.saving')
                         : saveState === 'saved'
-                          ? '✓ Saved to your profile'
-                          : 'Save these measurements to my profile'}
+                          ? t('fit_finder.saved_profile')
+                          : t('fit_finder.save_cta')}
                     </button>
                   </>
                 ) : (
                   <p className="text-[10px] text-slate-500 text-center">
                     <Link to="/" onClick={() => useUIStore.getState().openAuthModal('login')} className="text-[#C5A059] font-bold hover:underline">
-                      Sign in
+                      {t('auth.sign_in')}
                     </Link>{' '}
-                    to keep your measurements for next time (optional — the size works without an account).
+                    {t('fit_finder.signin_keep')}
                   </p>
                 )}
                 <button
                   onClick={() => navigate(`/product/${selectedProduct?.slug}`)}
                   className="w-full py-2.5 rounded-xl bg-[#1B1F3B] hover:bg-[#0C0E1E] text-white text-[11px] font-bold transition-all"
                 >
-                  Open {selectedProduct?.brand_name} product page
+                  {t('fit_finder.open_product', { brand: selectedProduct?.brand_name })}
                 </button>
               </div>
-            </div>
+            </Surface>
           )}
         </div>
       </div>

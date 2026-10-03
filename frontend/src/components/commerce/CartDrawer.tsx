@@ -38,16 +38,17 @@ export const CartDrawer: React.FC = () => {
                 <h3 className="font-serif text-base font-bold text-[#1B1F3B]">
                   {t('commerce.cart_title')}
                 </h3>
-                <span className="text-xs text-slate-500">
+                <span className="text-xs text-slate-500" aria-live="polite">
                   {cart?.items_count || 0} {t('commerce.items_from_boutiques')}
                 </span>
               </div>
             </div>
             <button
               onClick={closeCart}
-              className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:text-slate-900 flex items-center justify-center transition-colors"
+              aria-label={t('common.close')}
+              className="min-w-[44px] min-h-[44px] rounded-full bg-slate-100 text-slate-500 hover:text-slate-900 flex items-center justify-center transition-colors"
             >
-              ✕
+              <span aria-hidden="true">✕</span>
             </button>
           </div>
 

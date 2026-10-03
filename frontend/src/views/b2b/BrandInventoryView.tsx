@@ -4,6 +4,7 @@ import { useCallback } from 'react';
 import React, { useState, useEffect } from 'react';
 import { BopisIcon } from '../../components/icons/ConfitIcons';
 import { LoadingSpinner } from '../../components/common/CommonComponents';
+import { CatalogFreshnessIndicator } from '../../components/common/CatalogFreshness';
 import { request } from '../../services/apiClient';
 
 interface Store {
@@ -123,6 +124,8 @@ export const BrandInventoryView: React.FC = () => {
             Real store locations from StoreLocation table, inventory from StoreInventory with SKU-level and location-level stock, reserved/available tracking. Tenant isolated, transactional.
           </p>
           <p className="text-[11px] text-slate-400 mt-1">Inventory model: Brand → SKU → Location → Stock → Reserved → Available. Concurrency with SELECT FOR UPDATE, no negative inventory, no double deduction.</p>
+          {/* Spec 14: honest freshness status — stock is where stale data hurts. */}
+          <CatalogFreshnessIndicator className="mt-2" />
         </div>
         <button onClick={() => setShowStoreModal(true)} className="px-4 py-2.5 rounded-2xl bg-[#1B1F3B] text-white text-xs font-semibold">+ Add Store</button>
       </div>

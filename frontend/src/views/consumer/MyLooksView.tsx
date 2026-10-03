@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
+import { ActionButton } from '../../components/common/ActionButton';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { formatMoney } from '../../i18n/format';
 import { useMyLooksViewModel } from '../../viewmodels/useMyLooksViewModel';
 import { Outfit, ShareLink } from '../../models';
+import { ShareActions } from '../../components/outfit/ShareActions';
 import { SavedLooksIcon, SparkleIcon } from '../../components/icons/ConfitIcons';
 import { TryOnButton } from '../../components/product/TryOnButton';
 
@@ -27,25 +30,12 @@ const SharePanel: React.FC<{
   look: Outfit;
   link?: ShareLink;
   busy: boolean;
-  onShare: (rotate?: boolean) => void;
-  onRevoke: () => void;
+  onShare: (rotate?: boolean) => Promise<unknown | null>;
+  onRevoke: () => Promise<boolean>;
 }> = ({ look, link, busy, onShare, onRevoke }) => {
   const { t } = useTranslation();
-  const [copied, setCopied] = useState(false);
   const isLive = Boolean(link?.is_active && link?.share_url);
   const absolute = link?.share_url ? `${window.location.origin}${link.share_url}` : '';
-
-  const copy = async () => {
-    if (!absolute) return;
-    try {
-      await navigator.clipboard.writeText(absolute);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // Clipboard can be blocked by permissions — say so instead of pretending.
-      setCopied(false);
-    }
-  };
 
   if (!isLive) {
     return (
@@ -53,13 +43,22 @@ const SharePanel: React.FC<{
         <p className="text-[11px] text-slate-500 font-light">
           {t('my_looks.private_note')}
         </p>
-        <button
-          onClick={() => onShare(false)}
-          disabled={busy}
-          className="w-full py-2.5 rounded-xl bg-[#1B1F3B] hover:bg-[#0C0E1E] disabled:opacity-40 text-white text-xs font-bold transition-all"
-        >
-          {busy ? t('my_looks.creating') : t('my_looks.create_link')}
-        </button>
+        {/* Spec 08: Publish is a critical action — unified kinetic CTA.
+            Success only when the server returned a live link; a null
+            result keeps the toast's reason and relabels actionable. */}
+        <ActionButton
+          metricsId="looks.publish_link"
+          onAction={async () => ((await onShare(false)) ? 'success' : 'error')}
+          softDisabled={busy}
+          labels={{
+            idle: t('my_looks.create_link'),
+            pending: t('my_looks.creating'),
+            success: t('my_looks.published_confirm'),
+            error: t('my_looks.publish_failed_retry'),
+          }}
+          data-testid="publish-look-cta"
+          className="w-full py-2.5 rounded-xl bg-[#1B1F3B] hover:bg-[#0C0E1E] text-white text-xs font-bold transition-all"
+        />
       </div>
     );
   }
@@ -75,20 +74,18 @@ const SharePanel: React.FC<{
         </span>
       </div>
 
-      <div className="flex gap-2">
-        <input
-          readOnly
-          value={absolute}
-          aria-label={t('my_looks.public_link_for', { title: look.title })}
-          className="flex-1 text-[11px] bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-slate-600"
-        />
-        <button
-          onClick={copy}
-          className="px-3 rounded-lg border border-slate-300 text-[11px] font-semibold hover:bg-slate-100"
-        >
-          {copied ? t('my_looks.copied') : t('my_looks.copy')}
-        </button>
-      </div>
+      {/* URLs are Latin codes — keep them LTR even inside the Arabic page. */}
+      <input
+        readOnly
+        dir="ltr"
+        value={absolute}
+        aria-label={t('my_looks.public_link_for', { title: look.title })}
+        className="w-full text-[11px] bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-slate-600"
+      />
+
+      {/* Spec 06: shared copy/native-share affordance with honest, announced
+          states. Mounted only here, where the server-minted link is LIVE. */}
+      <ShareActions url={absolute} title={look.title} compact />
 
       <p className="text-[10px] text-slate-500">
         {t('my_looks.expiry_note', { date: formatDate(link?.expires_at) })}
@@ -103,21 +100,32 @@ const SharePanel: React.FC<{
         >
           {t('my_looks.open')}
         </a>
-        <button
-          onClick={() => onShare(true)}
-          disabled={busy}
-          className="flex-1 py-2 rounded-xl border border-slate-300 text-[11px] font-semibold hover:bg-slate-100 disabled:opacity-40"
-          title={t('my_looks.new_link_hint')}
-        >
-          {t('my_looks.new_link')}
-        </button>
-        <button
-          onClick={onRevoke}
-          disabled={busy}
-          className="flex-1 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 disabled:opacity-40 text-white text-[11px] font-bold"
-        >
-          {busy ? '…' : t('my_looks.revoke')}
-        </button>
+        <ActionButton
+          metricsId="looks.rotate_link"
+          onAction={async () => ((await onShare(true)) ? 'success' : 'error')}
+          softDisabled={busy}
+          labels={{
+            idle: t('my_looks.new_link'),
+            pending: t('my_looks.rotating'),
+            success: t('my_looks.rotated_confirm'),
+            error: t('my_looks.rotate_failed_retry'),
+          }}
+          data-testid="rotate-link-cta"
+          className="flex-1 py-2 rounded-xl border border-slate-300 text-[11px] font-semibold hover:bg-slate-100"
+        />
+        <ActionButton
+          metricsId="looks.revoke_link"
+          onAction={async () => ((await onRevoke()) ? 'success' : 'error')}
+          softDisabled={busy}
+          labels={{
+            idle: t('my_looks.revoke'),
+            pending: t('my_looks.revoking'),
+            success: t('my_looks.revoked_confirm'),
+            error: t('my_looks.revoke_failed_retry'),
+          }}
+          data-testid="revoke-link-cta"
+          className="flex-1 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-bold"
+        />
       </div>
     </div>
   );
@@ -127,12 +135,13 @@ const LookCard: React.FC<{
   look: Outfit;
   link?: ShareLink;
   busy: boolean;
-  onShare: (rotate?: boolean) => void;
-  onRevoke: () => void;
+  onShare: (rotate?: boolean) => Promise<unknown | null>;
+  onRevoke: () => Promise<boolean>;
   onDelete: () => void;
   onRename: (title: string) => void;
 }> = ({ look, link, busy, onShare, onRevoke, onDelete, onRename }) => {
-  const { t } = useTranslation();
+  const { t, i18n: lookI18n } = useTranslation();
+  const lookCardLang = lookI18n.resolvedLanguage ?? 'en';
   const [title, setTitle] = useState(look.title);
   const complete = look.completeness_status === 'complete_look';
 
@@ -163,7 +172,7 @@ const LookCard: React.FC<{
         <span>{look.items.length} {t('my_looks.pieces')}</span>
         <span>·</span>
         <span className="font-bold text-[#1B1F3B]">
-          ${Number(look.total_price ?? 0).toFixed(2)}
+          <bdi dir="ltr">{formatMoney(Math.round(Number(look.total_price ?? 0) * 100), 'USD', lookCardLang)}</bdi>
         </span>
       </div>
 
@@ -317,8 +326,8 @@ export const MyLooksView: React.FC = () => {
               look={look}
               link={shareLinks[look.id]}
               busy={busyId === look.id}
-              onShare={(rotate) => void share(look.id, { rotate })}
-              onRevoke={() => void revoke(look.id)}
+              onShare={(rotate) => share(look.id, { rotate })}
+              onRevoke={() => revoke(look.id)}
               onDelete={() => void remove(look.id)}
               onRename={(t) => void rename(look.id, t)}
             />

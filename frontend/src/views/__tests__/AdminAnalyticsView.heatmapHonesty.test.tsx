@@ -15,6 +15,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, cleanup, screen, act } from '@testing-library/react';
 import React from 'react';
+import { MemoryRouter } from 'react-router-dom';
 import { setAppLanguage } from '../../i18n/i18n';
 
 const { vmMock } = vi.hoisted(() => ({ vmMock: vi.fn() }));
@@ -79,7 +80,7 @@ describe('AdminAnalyticsView style heatmap', () => {
       refresh: vi.fn(),
     });
 
-    render(<AdminAnalyticsView />);
+    render(<MemoryRouter><AdminAnalyticsView /></MemoryRouter>);
 
     expect(screen.getByText(/Not enough data to publish an aggregate/i)).toBeTruthy();
     expect(screen.getByText(/Nothing is simulated to fill this panel/i)).toBeTruthy();
@@ -109,7 +110,7 @@ describe('AdminAnalyticsView style heatmap', () => {
       refresh: vi.fn(),
     });
 
-    const { container } = render(<AdminAnalyticsView />);
+    const { container } = render(<MemoryRouter><AdminAnalyticsView /></MemoryRouter>);
 
     expect(screen.getByText('Quiet Luxury')).toBeTruthy();
     expect(screen.getByText('61.5% · 8 outfits')).toBeTruthy();
@@ -143,7 +144,7 @@ describe('AdminAnalyticsView style heatmap', () => {
       refresh: vi.fn(),
     });
 
-    render(<AdminAnalyticsView />);
+    render(<MemoryRouter><AdminAnalyticsView /></MemoryRouter>);
     expect(screen.getByText(/Trending colours/i)).toBeTruthy();
     expect(screen.getAllByText(/no cell met the k-anonymity floor in this window/i).length).toBe(2);
   });
@@ -173,7 +174,7 @@ describe('AdminAnalyticsView style heatmap', () => {
       fetchErrors: {}, loadFailed: false, isLoading: false, refresh: vi.fn(),
     });
 
-    const { container } = render(<AdminAnalyticsView />);
+    const { container } = render(<MemoryRouter><AdminAnalyticsView /></MemoryRouter>);
     expect(container.textContent).toContain('USD');
     expect(container.textContent).toContain('EGP');
     expect(screen.getByText(/Multiple currencies in scope/i)).toBeTruthy();
@@ -196,7 +197,7 @@ describe('AdminAnalyticsView style heatmap', () => {
       },
       fetchErrors: {}, loadFailed: false, isLoading: false, refresh: vi.fn(),
     });
-    render(<AdminAnalyticsView />);
+    render(<MemoryRouter><AdminAnalyticsView /></MemoryRouter>);
     expect(screen.getByRole('heading', { name: 'إدارة المنصة والإسناد المسجّل' })).toBeTruthy();
     expect(screen.getByText('إجمالي الطلبات')).toBeTruthy();
   });

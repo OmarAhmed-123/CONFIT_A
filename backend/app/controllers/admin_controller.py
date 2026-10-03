@@ -181,6 +181,64 @@ def send_test_email(
     }
 
 
+@router.get("/diagnostics/email/templates")
+def list_email_templates(
+    user: User = Depends(require_role([UserRole.ADMIN])),
+):
+    """The template registry (spec 15): ids, categories, supported locales.
+
+    Read-only metadata — no rendering, no user data, no transport.
+    """
+    from backend.app.services.email_templates import SUPPORTED_LOCALES, TEMPLATES
+
+    return {
+        "locales": list(SUPPORTED_LOCALES),
+        "templates": [
+            {"id": template_id, "category": spec.category}
+            for template_id, spec in sorted(TEMPLATES.items())
+        ],
+    }
+
+
+@router.get("/diagnostics/email/preview")
+def preview_email_template(
+    template: str = Query(..., max_length=64),
+    locale: str = Query("en", max_length=8),
+    user: User = Depends(require_role([UserRole.ADMIN])),
+):
+    """Render ONE template with its FIXED sample payload (spec 15).
+
+    Why fixed samples: an endpoint that rendered caller-supplied payloads
+    would be a phishing-content factory behind one compromised admin
+    session — the same no-open-relay rule as the test-send endpoint. Every
+    sample value is prefixed SAMPLE so a screenshot can never be mistaken
+    for a real order. Render-only: nothing is sent, nothing is stored.
+    """
+    from backend.app.services.email_templates import (
+        EmailTemplateError,
+        render_email,
+        sample_payload,
+    )
+
+    try:
+        content = render_email(template, locale, sample_payload(template))
+    except EmailTemplateError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"code": "EMAIL_TEMPLATE_ERROR", "message": str(exc)[:300]},
+        )
+    return {
+        "template": template,
+        "locale": locale,
+        "subject": content.subject,
+        "preheader": content.preheader,
+        "html": content.html,
+        "text": content.text,
+        "list_unsubscribe": content.list_unsubscribe,
+        "sample_data": True,
+    }
+
+
 @router.get("/diagnostics/email")
 def email_transport_diagnostic(
     request: Request,

@@ -155,6 +155,14 @@ interface RoleGuardProps {
   children?: React.ReactNode;
   fallbackTitle?: string;
   fallbackMessage?: string;
+  /**
+   * Which trust domain this guard protects (spec 05 §6.5). Previously the
+   * partner-portal experience was selected by SNIFFING the English
+   * `fallbackTitle` for the words "brand"/"partner" — a translated or
+   * reworded title silently swapped the partner onboarding page for the
+   * generic auth wall. The domain is now declared, not inferred.
+   */
+  portal?: 'partner' | 'admin';
 }
 
 export const RoleGuard: React.FC<RoleGuardProps> = ({
@@ -162,6 +170,7 @@ export const RoleGuard: React.FC<RoleGuardProps> = ({
   children,
   fallbackTitle,
   fallbackMessage,
+  portal,
 }) => {
   const { t } = useTranslation();
   const location = useLocation();
@@ -179,17 +188,22 @@ export const RoleGuard: React.FC<RoleGuardProps> = ({
         aria-live="polite"
       >
         <div className="flex flex-col items-center gap-4 text-slate-400">
-          <div className="w-10 h-10 rounded-full border-2 border-[#C5A059]/30 border-t-[#C5A059] animate-spin" />
+          <div className="w-10 h-10 rounded-full border-2 border-[#C5A059]/30 border-t-[#C5A059] animate-spin" aria-hidden="true" />
           <span className="text-[11px] tracking-widest uppercase font-semibold">
-            Verifying your session…
+            {t('guard.verifying_session')}
           </span>
         </div>
       </div>
     );
   }
 
-  const isPartnerPortal = (fallbackTitle || '').toLowerCase().includes('brand') ||
-    (fallbackTitle || '').toLowerCase().includes('partner');
+  // Explicit domain declaration, with the legacy title-sniff kept ONLY as a
+  // fallback for any call site not yet passing `portal`.
+  const isPartnerPortal =
+    portal === 'partner' ||
+    (!portal &&
+      ((fallbackTitle || '').toLowerCase().includes('brand') ||
+        (fallbackTitle || '').toLowerCase().includes('partner')));
   const needsPartnerOnboarding = isPartnerPortal && user?.role === 'consumer';
   // Public onboarding never grants a role; logged-in consumers see it too.
   if (!isAuthenticated || !user || needsPartnerOnboarding) {
@@ -206,46 +220,32 @@ export const RoleGuard: React.FC<RoleGuardProps> = ({
                     {t('partner.portal_badge')}
                   </span>
                   <h1 className="font-serif text-4xl font-bold leading-tight sm:text-5xl">
-                    Reduce fit uncertainty before shoppers reach checkout.
+                    {t('partner.hero_title')}
                   </h1>
                   <p className="max-w-2xl text-sm font-light leading-relaxed text-slate-300">
-                    CONFIT connects premium catalog ingestion, fit intelligence,
-                    and virtual try-on workflows so brand teams can understand
-                    the partner workflow before signing in.
+                    {t('partner.hero_body')}
                   </p>
                   <div className="flex flex-wrap gap-3">
                     <button
                       onClick={() => document.getElementById('partner-request')?.scrollIntoView({ behavior: 'smooth' })}
-                      className="rounded-2xl bg-[#C5A059] px-5 py-3 text-xs font-bold uppercase tracking-wider text-[#0C0E1E] transition hover:bg-[#E2BF70]"
+                      className="min-h-11 rounded-2xl bg-[#C5A059] px-5 py-3 text-xs font-bold uppercase tracking-wider text-[#0C0E1E] transition hover:bg-[#E2BF70]"
                     >
-                      Request partnership
+                      {t('partner.request_partnership')}
                     </button>
                     <button
                       onClick={() => openAuthModal("login")}
-                      className="rounded-2xl border border-white/20 bg-white/10 px-5 py-3 text-xs font-bold uppercase tracking-wider text-white transition hover:bg-white/20"
+                      className="min-h-11 rounded-2xl border border-white/20 bg-white/10 px-5 py-3 text-xs font-bold uppercase tracking-wider text-white transition hover:bg-white/20"
                     >
-                      Existing partner sign in
+                      {t('partner.existing_sign_in')}
                     </button>
                   </div>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
                   {[
-                    [
-                      "Catalog ingestion",
-                      "Validate imagery, attributes, SKU availability, and try-on readiness before publishing.",
-                    ],
-                    [
-                      "Fit intelligence",
-                      "Expose supported categories, measurement confidence, and return-risk signals.",
-                    ],
-                    [
-                      "Virtual try-on",
-                      "Give shoppers an honest visual preview while keeping fit recommendations separate.",
-                    ],
-                    [
-                      "Operational clarity",
-                      "Track pickup, inventory, placement, and analytics workflows from one portal.",
-                    ],
+                    [t('partner.feat_catalog_title'), t('partner.feat_catalog_copy')],
+                    [t('partner.feat_fit_title'), t('partner.feat_fit_copy')],
+                    [t('partner.feat_tryon_title'), t('partner.feat_tryon_copy')],
+                    [t('partner.feat_ops_title'), t('partner.feat_ops_copy')],
                   ].map(([title, copy]) => (
                     <div
                       key={title}
@@ -267,18 +267,9 @@ export const RoleGuard: React.FC<RoleGuardProps> = ({
 
             <section className="grid gap-4 md:grid-cols-3">
               {[
-                [
-                  "Merchant problem",
-                  "Sizing uncertainty, low confidence, and unready product data create preventable friction.",
-                ],
-                [
-                  "Launch path",
-                  "Connect catalog, verify product metadata, then activate fit and try-on experiences by supported category.",
-                ],
-                [
-                  "Proof readiness",
-                  "Use real analytics only—views, try-ons, conversions, inventory, returns, and attribution are never fabricated.",
-                ],
+                [t('partner.pillar_problem_title'), t('partner.pillar_problem_copy')],
+                [t('partner.pillar_launch_title'), t('partner.pillar_launch_copy')],
+                [t('partner.pillar_proof_title'), t('partner.pillar_proof_copy')],
               ].map(([title, copy]) => (
                 <div
                   key={title}
@@ -322,7 +313,7 @@ export const RoleGuard: React.FC<RoleGuardProps> = ({
               onClick={() => openAuthModal("login")}
               className="w-full py-3.5 rounded-xl bg-[#C5A059] hover:bg-[#E2BF70] text-[#0C0E1E] font-bold text-xs tracking-wider uppercase shadow-md transition-all flex items-center justify-center gap-2"
             >
-              <UserIcon size={16} color="#0C0E1E" />
+              <span aria-hidden="true"><UserIcon size={16} color="#0C0E1E" /></span>
               <span>{t('partner.sign_in_to_continue')}</span>
             </button>
 
@@ -361,21 +352,26 @@ export const RoleGuard: React.FC<RoleGuardProps> = ({
           </div>
 
           <div className="space-y-2">
+            {/* State is text, not colour alone: the badge names the refusal. */}
             <span className="text-[10px] font-bold tracking-widest text-rose-400 uppercase">
-              403 Forbidden · Role Restriction
+              {t('guard.forbidden_badge')}
             </span>
             <h2 className="font-serif text-2xl font-bold text-white">
-              Access Restricted
+              {t('guard.access_restricted')}
             </h2>
             <p className="text-xs text-slate-400 font-light leading-relaxed">
-              Your account (<strong className="text-white">{user.email}</strong>
-              ) is registered with the{" "}
-              <span className="px-2 py-0.5 rounded bg-slate-800 text-[#C5A059] font-mono text-[11px]">
+              {t('guard.registered_as')}{' '}
+              {/* Email and role codes are Latin identifiers — keep them LTR
+                  inside the Arabic sentence (spec §7). */}
+              <strong className="text-white" dir="ltr">{user.email}</strong>
+              {' · '}
+              <span className="px-2 py-0.5 rounded bg-slate-800 text-[#C5A059] font-mono text-[11px]" dir="ltr">
                 {user.role}
-              </span>{" "}
-              role. This portal requires one of the following permissions:{" "}
-              <span className="text-slate-300 font-medium">
-                {allowedRoles?.join(", ")}
+              </span>
+              {'. '}
+              {t('guard.requires_roles')}{' '}
+              <span className="text-slate-300 font-medium" dir="ltr">
+                {allowedRoles?.join(', ')}
               </span>
               .
             </p>
@@ -384,16 +380,16 @@ export const RoleGuard: React.FC<RoleGuardProps> = ({
           <div className="space-y-3 pt-2">
             <Link
               to="/"
-              className="w-full py-3.5 rounded-xl bg-[#1B1F3B] hover:bg-slate-800 text-white font-bold text-xs border border-slate-700 tracking-wider uppercase shadow-md transition-all flex items-center justify-center gap-2"
+              className="w-full min-h-11 py-3.5 rounded-xl bg-[#1B1F3B] hover:bg-slate-800 text-white font-bold text-xs border border-slate-700 tracking-wider uppercase shadow-md transition-all flex items-center justify-center gap-2"
             >
-              <span>← Return to Consumer Storefront</span>
+              <span>{t('guard.return_storefront')}</span>
             </Link>
 
             <button
               onClick={() => openAuthModal("login")}
-              className="w-full py-2.5 rounded-xl text-xs text-[#C5A059] hover:underline"
+              className="w-full min-h-11 py-2.5 rounded-xl text-xs text-[#C5A059] hover:underline"
             >
-              Switch Account / Re-authenticate
+              {t('guard.switch_account')}
             </button>
           </div>
         </div>

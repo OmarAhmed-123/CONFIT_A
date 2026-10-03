@@ -110,8 +110,10 @@ export function useMyLooksViewModel() {
           ),
         );
         showToast(msg('toast.look_revoked'), 'success');
+        return true;
       } catch (err: any) {
         showToast(msg('toast.share_revoke_failed', { reason: detail(err) }), 'error');
+        return false;
       } finally {
         setBusyId(null);
       }
@@ -145,6 +147,7 @@ export function useMyLooksViewModel() {
       setBusyId(id);
       try {
         await undoableRemove({
+          key: id,
           remove: () => stylistService.deleteOutfit(id),
           restore: () => stylistService.restoreOutfit(id),
           optimisticRemove: () => setLooks((prev) => prev.filter((l) => l.id !== id)),

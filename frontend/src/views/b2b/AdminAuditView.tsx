@@ -1,5 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
+import { useSearchParams } from 'react-router-dom';
 import { LoadingSpinner, EmptyState } from '../../components/common/CommonComponents';
 import { request } from '../../services/apiClient';
 import type { AuditTrailPage, AuditIntegrity } from '../../models';
@@ -65,11 +66,40 @@ const Json: React.FC<{ value: unknown; label: string }> = ({ value, label }) => 
   );
 };
 
+/** Spec 12 §6.3: filters live in the URL so an investigation is shareable
+ *  and survives reload. The URL is the single source of truth; the draft
+ *  form state only exists until Apply. */
+const FILTER_KEYS: Array<keyof Filters> = [
+  'action', 'resource_type', 'resource_id', 'search', 'date_from', 'date_to',
+];
+
+const filtersFromParams = (params: URLSearchParams): Filters => ({
+  action: params.get('action') ?? '',
+  resource_type: params.get('resource_type') ?? '',
+  resource_id: params.get('resource_id') ?? '',
+  search: params.get('search') ?? '',
+  date_from: params.get('date_from') ?? '',
+  date_to: params.get('date_to') ?? '',
+  only_admin_actions: params.get('only_admin_actions') === 'true',
+});
+
 export const AdminAuditView: React.FC = () => {
   const { t } = useTranslation();
-  const [page, setPage] = React.useState(1);
-  const [filters, setFilters] = React.useState<Filters>(EMPTY_FILTERS);
-  const [draft, setDraft] = React.useState<Filters>(EMPTY_FILTERS);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const page = Math.max(1, Number(searchParams.get('page')) || 1);
+  const filters = React.useMemo(
+    () => filtersFromParams(searchParams),
+    [searchParams],
+  );
+  const setPage = (next: number) => {
+    setSearchParams((previous) => {
+      const p = new URLSearchParams(previous);
+      if (next > 1) p.set('page', String(next));
+      else p.delete('page');
+      return p;
+    }, { replace: true });
+  };
+  const [draft, setDraft] = React.useState<Filters>(() => filtersFromParams(searchParams));
   const [data, setData] = React.useState<AuditTrailPage | null>(null);
   const [integrity, setIntegrity] = React.useState<AuditIntegrity | null>(null);
   const [loading, setLoading] = React.useState(true);
@@ -99,14 +129,20 @@ export const AdminAuditView: React.FC = () => {
 
   const apply = (e: React.FormEvent) => {
     e.preventDefault();
-    setPage(1);
-    setFilters(draft);
+    setSearchParams(() => {
+      const p = new URLSearchParams();
+      for (const key of FILTER_KEYS) {
+        const value = draft[key];
+        if (typeof value === 'string' && value) p.set(key, value);
+      }
+      if (draft.only_admin_actions) p.set('only_admin_actions', 'true');
+      return p; // page intentionally reset to 1 (absent)
+    }, { replace: true });
   };
 
   const reset = () => {
     setDraft(EMPTY_FILTERS);
-    setFilters(EMPTY_FILTERS);
-    setPage(1);
+    setSearchParams(new URLSearchParams(), { replace: true });
   };
 
   if (loading && !data) {
@@ -497,14 +533,14 @@ export const AdminAuditView: React.FC = () => {
           <div className="flex gap-2">
             <button
               disabled={!meta.has_previous}
-              onClick={() => setPage((current) => Math.max(1, current - 1))}
+              onClick={() => setPage(Math.max(1, page - 1))}
               className="min-h-11 rounded-xl border border-slate-700 px-3 py-2 text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B8935A] disabled:opacity-40"
             >
               ← {t('admin_audit.previous')}
             </button>
             <button
               disabled={!meta.has_next}
-              onClick={() => setPage((current) => current + 1)}
+              onClick={() => setPage(page + 1)}
               className="min-h-11 rounded-xl border border-slate-700 px-3 py-2 text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B8935A] disabled:opacity-40"
             >
               {t('admin_audit.next')} →

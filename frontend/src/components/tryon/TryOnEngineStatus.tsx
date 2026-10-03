@@ -1,6 +1,7 @@
 import React, { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useTryOnViewModel } from "../../viewmodels/useTryOnViewModel";
+import { StatusIcon } from "../common/InteractionPrimitives";
 
 /**
  * Honest engine-status banner for Virtual Try-On.
@@ -48,9 +49,9 @@ export const TryOnEngineStatus: React.FC<{
         role="status"
         className={`flex items-start gap-3 rounded-2xl border border-emerald-500/40 bg-emerald-950/70 px-4 py-3 text-sm text-emerald-50 backdrop-blur ${className}`}
       >
-        <span aria-hidden="true" className="mt-0.5 text-emerald-400">
-          ●
-        </span>
+        {/* Spec 14: semantic SHAPE, not a unicode glyph — the state is
+            readable without colour and without motion. */}
+        <StatusIcon status="success" size={18} className="mt-0.5 text-emerald-400" />
         <div>
           <p className="font-semibold">{t("tryon.engine_online_title")}</p>
           {engineSla ? (
@@ -76,9 +77,7 @@ export const TryOnEngineStatus: React.FC<{
         role="status"
         className={`flex items-start gap-3 rounded-2xl border border-amber-500/40 bg-amber-950/70 px-4 py-3 text-sm text-amber-50 backdrop-blur ${className}`}
       >
-        <span aria-hidden="true" className="mt-0.5 text-amber-400">
-          ▲
-        </span>
+        <StatusIcon status="warning" size={18} className="mt-0.5 text-amber-400" />
         <div>
           <p className="font-semibold">{t("tryon.engine_warming_title")}</p>
           <p className="text-amber-200/80">
@@ -97,9 +96,7 @@ export const TryOnEngineStatus: React.FC<{
       role="alert"
       className={`flex items-start gap-3 rounded-2xl border border-rose-500/40 bg-rose-950/70 px-4 py-3 text-sm text-rose-50 backdrop-blur ${className}`}
     >
-      <span aria-hidden="true" className="mt-0.5 text-rose-400">
-        ■
-      </span>
+      <StatusIcon status="error" size={18} className="mt-0.5 text-rose-400" />
       <div>
         <p className="font-semibold">{t("tryon.engine_offline_title")}</p>
         <p className="text-rose-200/85">

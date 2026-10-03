@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import { useUIStore } from '../stores/uiStore';
 import type { TranslatableMessage } from '../i18n/messages';
 
@@ -42,6 +42,14 @@ export interface UndoableRemoveOptions {
    * may not work. Unknown must fail safe, not fail silent.
    */
   remove: () => Promise<{ undoable?: boolean }>;
+  /**
+   * Identity of the thing being removed (spec 03 §10 "duplicate click").
+   * While a remove for this key is in flight, further calls for the SAME
+   * key are ignored: a double-tap must produce one DELETE, not a second
+   * request that 404s and surfaces a misleading error toast. Omitting the
+   * key keeps the old behaviour (no guard) for callers without identity.
+   */
+  key?: string | number;
   /** Server-side restore. Called only when the server said `undoable`. */
   restore: () => Promise<unknown>;
   /** Hide the row immediately (optimistic). */
@@ -67,10 +75,17 @@ export function useUndoableRemove() {
   // the store differently works in production and breaks every test that
   // mocks it — matching the house style is the cheaper correctness.
   const { showToast } = useUIStore();
+  // One in-flight set per hook instance (i.e. per view). A Set, not a
+  // boolean: removing item A must not block removing item B.
+  const inFlight = useRef<Set<string | number>>(new Set());
 
   return useCallback(
     async (options: UndoableRemoveOptions) => {
-      const { remove, restore, optimisticRemove, rollback, refetch, messages } = options;
+      const { remove, restore, optimisticRemove, rollback, refetch, messages, key } = options;
+
+      // Duplicate click: the first tap already owns this removal.
+      if (key !== undefined && inFlight.current.has(key)) return;
+      if (key !== undefined) inFlight.current.add(key);
 
       optimisticRemove();                                   // active -> removing
       let result: { undoable?: boolean };
@@ -80,6 +95,8 @@ export function useUndoableRemove() {
         rollback();                                         // -> error/rollback
         showToast(messages.removeFailed(errorReason(err)), 'error');
         return;
+      } finally {
+        if (key !== undefined) inFlight.current.delete(key);
       }
 
       if (result?.undoable !== true) {   // absent or false => no Undo offered

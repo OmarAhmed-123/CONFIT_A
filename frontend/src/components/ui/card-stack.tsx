@@ -1,8 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { SquareArrowOutUpRight } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { SquareArrowOutUpRight, ChevronLeft, ChevronRight } from "lucide-react";
+import { usePrefersReducedMotion } from "../common/InteractionPrimitives";
 
 function cn(...classes: Array<string | undefined | null | false>) {
   return classes.filter(Boolean).join(" ");
@@ -53,9 +54,6 @@ export type CardStackProps<T extends CardStackItem> = {
 
   /** Behavior */
   loop?: boolean;
-  autoAdvance?: boolean;
-  intervalMs?: number;
-  pauseOnHover?: boolean;
 
   /** UI */
   showDots?: boolean;
@@ -66,6 +64,19 @@ export type CardStackProps<T extends CardStackItem> = {
 
   /** Custom renderer (optional) */
   renderCard?: (item: T, state: { active: boolean }) => React.ReactNode;
+
+  /**
+   * Translated copy injected by the host (spec 10 §7): this ui primitive
+   * must not hardcode English. Defaults exist only as a dev safety net.
+   */
+  labels?: {
+    carousel?: string;
+    previous?: string;
+    next?: string;
+    goTo?: (title: string) => string;
+    open?: (title: string) => string;
+    position?: (current: number, total: number) => string;
+  };
 };
 
 function wrapIndex(n: number, len: number) {
@@ -106,23 +117,33 @@ export function CardStack<T extends CardStackItem>({
   springDamping = 28,
 
   loop = true,
-  autoAdvance = false,
-  intervalMs = 2800,
-  pauseOnHover = true,
 
   showDots = true,
   className,
 
   onChangeIndex,
   renderCard,
+  labels,
 }: CardStackProps<T>) {
-  const reduceMotion = useReducedMotion();
+  // Deterministic media-query read — framer's useReducedMotion caches the
+  // value in a module singleton and goes stale (see InteractionPrimitives).
+  const reduceMotion = usePrefersReducedMotion();
   const len = items.length;
+
+  const L = {
+    carousel: labels?.carousel ?? "Carousel",
+    previous: labels?.previous ?? "Previous card",
+    next: labels?.next ?? "Next card",
+    goTo: labels?.goTo ?? ((title: string) => `Go to ${title}`),
+    open: labels?.open ?? ((title: string) => `Open ${title}`),
+    position:
+      labels?.position ??
+      ((current: number, total: number) => `Card ${current} of ${total}`),
+  };
 
   const [active, setActive] = React.useState(() =>
     wrapIndex(initialIndex, len),
   );
-  const [hovering, setHovering] = React.useState(false);
 
   // keep active in bounds if items change
   React.useEffect(() => {
@@ -155,54 +176,50 @@ export function CardStack<T extends CardStackItem>({
     setActive((a) => wrapIndex(a + 1, len));
   }, [canGoNext, len]);
 
-  // keyboard navigation (when container focused)
+  // Keyboard navigation (when container focused). Physical arrows map to
+  // VISUAL direction: on an RTL page the arrow pointing at the next card
+  // is ArrowLeft, so the handlers swap (§5 RTL direction).
   const onKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "ArrowLeft") prev();
-    if (e.key === "ArrowRight") next();
+    const isRtl =
+      typeof document !== "undefined" &&
+      document.documentElement.dir === "rtl";
+    const nextKey = isRtl ? "ArrowLeft" : "ArrowRight";
+    const prevKey = isRtl ? "ArrowRight" : "ArrowLeft";
+    if (e.key === nextKey) {
+      e.preventDefault();
+      next();
+    } else if (e.key === prevKey) {
+      e.preventDefault();
+      prev();
+    } else if (e.key === "Home") {
+      e.preventDefault();
+      setActive(0);
+    } else if (e.key === "End") {
+      e.preventDefault();
+      setActive(len - 1);
+    }
   };
 
-  // autoplay
-  React.useEffect(() => {
-    if (!autoAdvance) return;
-    if (reduceMotion) return;
-    if (!len) return;
-    if (pauseOnHover && hovering) return;
-
-    const id = window.setInterval(
-      () => {
-        if (loop || active < len - 1) next();
-      },
-      Math.max(700, intervalMs),
-    );
-
-    return () => window.clearInterval(id);
-  }, [
-    autoAdvance,
-    intervalMs,
-    hovering,
-    pauseOnHover,
-    reduceMotion,
-    len,
-    loop,
-    active,
-    next,
-  ]);
+  // Spec 10 §6.4: the autoplay machinery was REMOVED from this component —
+  // a carousel that moves by itself moves focus targets under the user.
+  // Navigation is now exclusively user-initiated (buttons, keys, swipe,
+  // card click).
 
   if (!len) return null;
 
   const activeItem = items[active]!;
 
   return (
-    <div
-      className={cn("w-full", className)}
-      onMouseEnter={() => setHovering(true)}
-      onMouseLeave={() => setHovering(false)}
-    >
-      {/* Stage */}
+    <div className={cn("w-full", className)}>
+      {/* Stage — a labelled carousel group; the live region below carries
+          the position as text so the state never depends on motion (§7). */}
       <div
         className="relative w-full"
         style={{ height: Math.max(380, cardHeight + 80) }}
         tabIndex={0}
+        role="group"
+        aria-roledescription="carousel"
+        aria-label={L.carousel}
         onKeyDown={onKeyDown}
       >
         {/* background wash / spotlight (unique feel) */}
@@ -305,11 +322,15 @@ export function CardStack<T extends CardStackItem>({
                     // so we use a custom transform via style below.
                     scale,
                   }}
-                  transition={{
-                    type: "spring",
-                    stiffness: springStiffness,
-                    damping: springDamping,
-                  }}
+                  transition={
+                    reduceMotion
+                      ? { duration: 0 }
+                      : {
+                          type: "spring",
+                          stiffness: springStiffness,
+                          damping: springDamping,
+                        }
+                  }
                   // translateZ via style transform (kept stable w/ motion values above)
                   // We apply translateZ by using a CSS transform in a child wrapper.
                   onClick={() => setActive(i)}
@@ -335,40 +356,82 @@ export function CardStack<T extends CardStackItem>({
         </div>
       </div>
 
-      {/* Dots navigation centered at bottom */}
-      {showDots ? (
-        <div className="mt-6 flex items-center justify-center gap-3">
-          <div className="flex items-center gap-2">
+      {/* Controls: swipe is never the only way (§2). Previous/next are
+          real ≥44px buttons; the position is visible text AND a polite
+          announcement; dots are secondary jump targets at the WCAG 2.5.8
+          minimum (24px). */}
+      <div className="mt-4 flex items-center justify-center gap-3">
+        <button
+          type="button"
+          onClick={prev}
+          disabled={!canGoPrev}
+          aria-label={L.previous}
+          className="min-h-11 min-w-11 flex items-center justify-center rounded-xl border border-black/10 text-foreground/70 hover:bg-black/5 disabled:opacity-40"
+        >
+          <span aria-hidden="true" className="rtl:rotate-180">
+            <ChevronLeft className="h-4 w-4" />
+          </span>
+        </button>
+
+        <span className="text-[11px] font-semibold text-foreground/60" dir="ltr">
+          {active + 1} / {len}
+        </span>
+        <span className="sr-only" role="status" aria-live="polite">
+          {L.position(active + 1, len)}
+        </span>
+
+        {showDots ? (
+          <div className="flex items-center">
             {items.map((it, idx) => {
               const on = idx === active;
               return (
                 <button
                   key={it.id}
+                  type="button"
                   onClick={() => setActive(idx)}
-                  className={cn(
-                    "h-2 w-2 rounded-full transition",
-                    on
-                      ? "bg-foreground"
-                      : "bg-foreground/30 hover:bg-foreground/50",
-                  )}
-                  aria-label={`Go to ${it.title}`}
-                />
+                  aria-label={L.goTo(it.title)}
+                  aria-current={on ? "true" : undefined}
+                  className="flex h-6 min-w-6 items-center justify-center"
+                >
+                  <span
+                    aria-hidden="true"
+                    className={cn(
+                      "h-2 w-2 rounded-full transition",
+                      on
+                        ? "bg-foreground"
+                        : "bg-foreground/30 hover:bg-foreground/50",
+                    )}
+                  />
+                </button>
               );
             })}
           </div>
-          {activeItem.href ? (
-            <a
-              href={activeItem.href}
-              target="_blank"
-              rel="noreferrer"
-              className="text-muted-foreground transition hover:text-foreground"
-              aria-label="Open link"
-            >
+        ) : null}
+
+        <button
+          type="button"
+          onClick={next}
+          disabled={!canGoNext}
+          aria-label={L.next}
+          className="min-h-11 min-w-11 flex items-center justify-center rounded-xl border border-black/10 text-foreground/70 hover:bg-black/5 disabled:opacity-40"
+        >
+          <span aria-hidden="true" className="rtl:rotate-180">
+            <ChevronRight className="h-4 w-4" />
+          </span>
+        </button>
+
+        {activeItem.href ? (
+          <a
+            href={activeItem.href}
+            className="min-h-11 min-w-11 flex items-center justify-center text-muted-foreground transition hover:text-foreground"
+            aria-label={L.open(activeItem.title)}
+          >
+            <span aria-hidden="true">
               <SquareArrowOutUpRight className="h-4 w-4" />
-            </a>
-          ) : null}
-        </div>
-      ) : null}
+            </span>
+          </a>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -387,9 +450,10 @@ function DefaultFanCard({ item }: { item: CardStackItem; active: boolean }) {
             loading="eager"
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center bg-secondary text-sm text-muted-foreground">
-            No image
-          </div>
+          <div
+            aria-hidden="true"
+            className="flex h-full w-full items-center justify-center bg-secondary"
+          />
         )}
       </div>
 

@@ -910,6 +910,22 @@ export interface AdminPlatformAnalytics {
     outfit_count?: number;
   }>;
   outfit_to_purchase_ratio?: number;
+  /**
+   * Spec 12 §6.2 — the server's own description of the analysed window
+   * (TimeRange.describe() in backend/app/core/timeutils.py). Rendering it
+   * verbatim is what makes every number auditable: source + bounds.
+   */
+  time_range?: {
+    source: string;
+    date_from: string | null;
+    date_to: string | null;
+    date_to_inclusive?: boolean;
+    is_all_time: boolean;
+  };
+  /** Echoed by the backend: what counts as revenue (accrual basis note). */
+  revenue_basis?: string;
+  revenue_excludes_statuses?: string[];
+  methodology?: Record<string, unknown>;
 }
 
 export type TryOnJobStatusType =

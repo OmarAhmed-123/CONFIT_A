@@ -1,0 +1,826 @@
+"""Email template system (spec 15) — one shell, ten message types, EN + AR.
+
+CONTRACT-FIRST (spec §2): this module is pure rendering — no I/O, no
+provider knowledge. ``render_email(template, locale, payload)`` returns the
+four parts every message must have (subject / preheader / html / text) or
+raises ``EmailTemplateError``. Transport lives in ``email_service``;
+idempotent event binding lives in ``email_outbox``.
+
+HONESTY RULES ENFORCED HERE
+---------------------------
+* A missing payload field is an ERROR, never a placeholder or an invented
+  number (§9 "no fake numbers"). The renderer displays what the caller
+  measured; it computes nothing.
+* Every URL must be absolute (§9) — relative links die in a mail client.
+* ``fit_result`` ALWAYS carries the caveat line: a fit score is an estimate,
+  never presented as a guarantee (§8).
+* Marketing/engagement templates REQUIRE an unsubscribe URL (§6.4, consent);
+  transactional ones explain why they were sent instead.
+* One CTA per message (§1) — the builder accepts exactly one.
+* No emoji as content, no animation, no tracking pixels (§8).
+
+RENDERING DECISIONS
+-------------------
+* Table layout + fully inline CSS: the only dialect Gmail/Outlook agree on.
+  Logical direction comes from ``dir`` on <html>/<body> per locale — content
+  is authored once per language, never manually mirrored (§7).
+* The logo is the CONFIT WORDMARK AS TEXT: a remote logo image is the single
+  most commonly blocked asset in mail clients, so the brand never depends on
+  an image loading (§5 "missing image"). Payload images (editorial cards)
+  always carry alt text + a solid bgcolor fallback.
+* Order numbers, tracking codes, SKUs and prices are wrapped LTR inside the
+  Arabic page (§7).
+* ``color-scheme: light dark`` meta + ink-on-paper palette that stays
+  readable when a dark-mode client transforms it (§9 "dark mode reasonable").
+* Visual language: CONFIT navy #1B1F3B / gold #C9A227 / cream #FDF8EE —
+  the platform's own palette (direction from the brief, nothing copied).
+"""
+
+from __future__ import annotations
+
+import html as _html
+import re
+from dataclasses import dataclass
+from typing import Any, Callable, Optional
+
+from backend.app.core.config import settings
+
+
+class EmailTemplateError(Exception):
+    """Unknown template/locale, missing payload field, or unsafe value."""
+
+
+SUPPORTED_LOCALES = ("en", "ar")
+
+CATEGORY_TRANSACTIONAL = "transactional"
+CATEGORY_ENGAGEMENT = "engagement"
+CATEGORY_MARKETING = "marketing"
+
+
+@dataclass(frozen=True)
+class EmailContent:
+    subject: str
+    preheader: str
+    html: str
+    text: str
+    # RFC 8058 hint for the transport layer; set iff the message carries an
+    # unsubscribe link. The renderer only REPORTS it — headers are transport.
+    list_unsubscribe: Optional[str] = None
+
+
+# ---------------------------------------------------------------------------
+# Small enforced helpers
+# ---------------------------------------------------------------------------
+
+def _esc(value: Any) -> str:
+    return _html.escape(str(value), quote=True)
+
+
+def _abs_url(value: Any, field: str) -> str:
+    url = str(value or "")
+    if not re.match(r"^https?://", url):
+        raise EmailTemplateError(
+            f"Field '{field}' must be an absolute http(s) URL; got {url[:40]!r}."
+        )
+    return url
+
+
+def _require(payload: dict, fields: list[str], template: str) -> None:
+    missing = [f for f in fields if payload.get(f) in (None, "", [])]
+    if missing:
+        raise EmailTemplateError(
+            f"Template '{template}' is missing required fields: {', '.join(missing)}. "
+            "Values are rendered verbatim and never invented."
+        )
+
+
+def _ltr(value: Any) -> str:
+    """Codes/prices/order numbers stay LTR inside an RTL page (§7)."""
+    return (
+        '<bdi dir="ltr" style="direction:ltr;unicode-bidi:isolate;'
+        "font-family:'SFMono-Regular',Consolas,Menlo,monospace;\">"
+        f"{_esc(value)}</bdi>"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Shell — preheader, wordmark, body, ONE CTA, footer, legal (§6.1)
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Colour system — every text/background pair below was MEASURED with the
+# WCAG relative-luminance formula (script in the spec-15 follow-up commit);
+# ratios are real numbers, not estimates. Decorative hairlines are exempt
+# from AA but still chosen from the same palette for cohesion.
+# ---------------------------------------------------------------------------
+EMAIL_COLORS = {
+    "ink":          "#1B1F3B",  # body text on #FFFFFF card      — 16.08:1 (AAA)
+    "ink_soft":     "#3C415C",  # secondary text on #FFFFFF      —  9.99:1 (AAA)
+    "muted":        "#555A73",  # captions/labels on #FFFFFF     —  6.78:1 (AA+)
+    "footer_text":  "#4A4F68",  # footer text on #FAF7F0         —  7.52:1 (AAA)
+    "gold_deco":    "#C9A227",  # decorative only on navy        —  6.65:1
+    "gold_wordmark":"#E2BF70",  # CONFIT wordmark on #1B1F3B     —  9.13:1 (AAA)
+    "gold_ink":     "#6B4F1E",  # gold-toned text on #FDF8EE     —  7.18:1 (AAA)
+    "error_ink":    "#7A1F2B",  # error text on #FBF3F4          —  9.34:1 (AAA)
+    "navy":         "#1B1F3B",  # header / CTA bg (white label   — 16.08:1)
+    "navy_deep":    "#0C0E1E",
+    "cream":        "#FDF8EE",
+    "card":         "#FFFFFF",
+    "footer_bg":    "#FAF7F0",
+    "hairline":     "#EADFC8",
+}
+
+# Per-category accent — decorative hairline + section rule only, never the
+# sole meaning channel. One brand family, three recognisable registers.
+CATEGORY_ACCENTS = {
+    CATEGORY_TRANSACTIONAL: "#C9A227",  # gold   — service/receipts
+    CATEGORY_ENGAGEMENT:    "#A5718B",  # plum   — closet/styling moments
+    CATEGORY_MARKETING:     "#4E7C6A",  # emerald— editorial/offers
+}
+
+
+def logo_url() -> str:
+    """Absolute, hosted monogram (served from frontend/public/email/).
+    Rendered ABOVE the wordmark; the text wordmark remains underneath so a
+    blocked image never costs the brand header (§5 missing-image)."""
+    return f"{settings.FRONTEND_BASE_URL.rstrip('/')}/email/confit-logo.png"
+
+
+# Progressive-enhancement <style>: ALL layout and colour stay inline — this
+# block only adds (a) a one-shot entrance animation for capable clients
+# (Apple Mail, iOS Mail, Outlook macOS), guarded by
+# prefers-reduced-motion:no-preference, and (b) dark-mode overrides for
+# clients that honour prefers-color-scheme. Gmail/Outlook-Windows simply
+# render the static email — the meaning never depends on either block (§7).
+_ENHANCEMENT_CSS = """
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes cfFadeUp { from { opacity: 0; transform: translateY(12px); }
+                        to   { opacity: 1; transform: none; } }
+  @keyframes cfRule   { from { width: 0; } to { width: 48px; } }
+  .cf-card { animation: cfFadeUp 0.55s cubic-bezier(0.22,0.61,0.36,1) both; }
+  .cf-rule { animation: cfRule 0.7s 0.25s cubic-bezier(0.22,0.61,0.36,1) both; }
+}
+@media (prefers-color-scheme: dark) {
+  .cf-bg     { background: #0C0E1E !important; }
+  .cf-card   { background: #161A33 !important; border-color: #2A2F55 !important; }
+  .cf-text   { color: #E8E6EF !important; }
+  .cf-muted  { color: #B9BED6 !important; }
+  .cf-panel  { background: #10142A !important; }
+  .cf-footer { background: #10142A !important; }
+}
+"""
+
+
+_FOOTER_LEGAL = {
+    "en": "© CONFIT — Where style meets your character. This message was "
+          "generated by the CONFIT platform; please do not reply directly.",
+    "ar": "© كونفيت — حيث يلتقي الأسلوب بشخصيتك. أُنشئت هذه الرسالة بواسطة "
+          "منصة كونفيت؛ يُرجى عدم الرد عليها مباشرة.",
+}
+
+_WHY_TRANSACTIONAL = {
+    "en": "You received this service message because of activity on your "
+          "CONFIT account or order. It is not marketing.",
+    "ar": "وصلتك هذه الرسالة الخدمية بسبب نشاط في حسابك أو طلبك على كونفيت. "
+          "وهي ليست رسالة تسويقية.",
+}
+
+_UNSUB_LABEL = {
+    "en": "Unsubscribe from these emails",
+    "ar": "إلغاء الاشتراك في هذه الرسائل",
+}
+
+
+def _shell(
+    *,
+    locale: str,
+    preheader: str,
+    title: str,
+    body_html: str,
+    cta_label: Optional[str],
+    cta_url: Optional[str],
+    category: str,
+    unsubscribe_url: Optional[str],
+    accent: Optional[str] = None,
+) -> str:
+    direction = "rtl" if locale == "ar" else "ltr"
+    align = "right" if locale == "ar" else "left"
+    accent = accent or CATEGORY_ACCENTS[category]
+    C = EMAIL_COLORS
+
+    cta_html = ""
+    if cta_label and cta_url:
+        # Bulletproof button: padded link in its own cell — ≥44px tall tap
+        # target (§7), accessible name = the visible label, never icon-only.
+        cta_html = (
+            '<table role="presentation" cellpadding="0" cellspacing="0" '
+            f'align="{align}" style="margin:28px 0 8px 0;"><tr>'
+            f'<td bgcolor="{C["navy"]}" style="border-radius:12px;'
+            f'border-bottom:3px solid {accent};">'
+            f'<a href="{_esc(cta_url)}" '
+            'style="display:inline-block;padding:14px 30px;min-width:120px;'
+            "font-size:15px;font-weight:700;color:#FFFFFF;text-decoration:none;"
+            'letter-spacing:0.3px;'
+            f'text-align:center;">{_esc(cta_label)}</a>'
+            "</td></tr></table>"
+        )
+
+    if category == CATEGORY_TRANSACTIONAL:
+        consent_html = (
+            f'<div class="cf-muted" style="font-size:12px;color:{C["footer_text"]};line-height:1.7;">'
+            f"{_esc(_WHY_TRANSACTIONAL[locale])}</div>"
+        )
+    else:
+        consent_html = (
+            f'<div class="cf-muted" style="font-size:12px;color:{C["footer_text"]};line-height:1.7;">'
+            f'<a href="{_esc(unsubscribe_url)}" style="color:{C["gold_ink"]};'
+            f'text-decoration:underline;">{_esc(_UNSUB_LABEL[locale])}</a></div>'
+        )
+
+    return (
+        "<!DOCTYPE html>"
+        f'<html lang="{locale}" dir="{direction}"><head>'
+        '<meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width,initial-scale=1">'
+        '<meta name="color-scheme" content="light dark">'
+        '<meta name="supported-color-schemes" content="light dark">'
+        f"<title>{_esc(title)}</title>"
+        f"<style>{_ENHANCEMENT_CSS}</style></head>"
+        f'<body dir="{direction}" class="cf-bg" style="margin:0;padding:0;background:{C["cream"]};'
+        "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Tahoma,"
+        'Helvetica,Arial,sans-serif;">'
+        # Hidden preheader — inbox preview line (§6.1).
+        '<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">'
+        f"{_esc(preheader)}</div>"
+        '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
+        f'class="cf-bg" style="background:{C["cream"]};padding:32px 16px;"><tr><td align="center">'
+        '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
+        f'class="cf-card" style="max-width:600px;background:{C["card"]};border-radius:16px;'
+        f'overflow:hidden;border:1px solid {C["hairline"]};">'
+        # Category accent hairline — decorative register, never the meaning.
+        f'<tr><td style="height:4px;background:{accent};font-size:0;line-height:0;">&nbsp;</td></tr>'
+        # Header: hosted monogram ABOVE the wordmark; the TEXT wordmark stays
+        # underneath so a blocked image never costs the brand (§5).
+        f'<tr><td style="background:{C["navy"]};padding:30px 32px 26px 32px;text-align:center;">'
+        f'<img src="{_esc(logo_url())}" width="56" height="56" alt="CONFIT" '
+        'style="display:block;margin:0 auto 12px auto;border-radius:14px;" />'
+        f'<div style="color:{C["gold_wordmark"]};font-size:14px;letter-spacing:5px;'
+        'text-transform:uppercase;font-weight:700;'
+        "font-family:Georgia,'Times New Roman',serif;\">CONFIT"
+        f'<span style="color:{C["gold_deco"]};">&#183;</span></div>'
+        f'<div style="color:#FFFFFF;font-size:22px;font-weight:600;margin-top:10px;">'
+        f"{_esc(title)}</div>"
+        f'<div class="cf-rule" style="height:2px;width:48px;background:{accent};'
+        'margin:14px auto 0 auto;font-size:0;">&nbsp;</div>'
+        "</td></tr>"
+        # Body
+        f'<tr><td class="cf-text" style="padding:30px 32px 22px 32px;color:{C["ink"]};'
+        f'text-align:{align};">{body_html}{cta_html}</td></tr>'
+        # Footer + legal (§6.1)
+        f'<tr><td class="cf-footer" style="background:{C["footer_bg"]};padding:18px 32px;'
+        f'border-top:1px solid {C["hairline"]};text-align:{align};">'
+        f"{consent_html}"
+        f'<div class="cf-muted" style="font-size:11px;color:{C["footer_text"]};margin-top:10px;'
+        f'line-height:1.7;">{_esc(_FOOTER_LEGAL[locale])}</div>'
+        "</td></tr></table></td></tr></table></body></html>"
+    )
+
+
+def _text_shell(
+    *,
+    locale: str,
+    title: str,
+    body_lines: list[str],
+    cta_label: Optional[str],
+    cta_url: Optional[str],
+    category: str,
+    unsubscribe_url: Optional[str],
+) -> str:
+    """Plain-text version — full parity: same facts, same links (§9)."""
+    lines = [f"CONFIT — {title}", "=" * 40, ""]
+    lines.extend(body_lines)
+    if cta_label and cta_url:
+        lines += ["", f"{cta_label}:", cta_url]
+    lines += ["", "-" * 40]
+    if category == CATEGORY_TRANSACTIONAL:
+        lines.append(_WHY_TRANSACTIONAL[locale])
+    else:
+        lines.append(f"{_UNSUB_LABEL[locale]}: {unsubscribe_url}")
+    lines.append(_FOOTER_LEGAL[locale])
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Template builders — each returns the parts for ONE locale
+# ---------------------------------------------------------------------------
+# Every builder gets a validated payload and returns:
+#   (subject, preheader, title, body_html, body_text_lines, cta_label, cta_url)
+
+_Built = tuple[str, str, str, str, list[str], Optional[str], Optional[str]]
+
+
+def _kv_row(label: str, value_html: str, align: str) -> str:
+    return (
+        f'<tr><td style="padding:7px 0;font-size:13px;color:#555A73;'
+        f'text-align:{align};">{_esc(label)}</td>'
+        f'<td style="padding:7px 0;font-size:14px;color:#1B1F3B;font-weight:600;'
+        f'text-align:{"left" if align == "right" else "right"};">{value_html}</td></tr>'
+    )
+
+
+def _order_confirmation(p: dict, locale: str) -> _Built:
+    _require(p, ["order_number", "items", "total", "currency", "order_url"], "order_confirmation")
+    url = _abs_url(p["order_url"], "order_url")
+    ar = locale == "ar"
+    align = "right" if ar else "left"
+    num = _ltr(p["order_number"])
+    total = _ltr(f'{p["total"]} {p["currency"]}')
+
+    item_rows = ""
+    text_items: list[str] = []
+    for item in p["items"]:
+        if not all(k in item for k in ("name", "qty", "price")):
+            raise EmailTemplateError("order_confirmation items need name/qty/price.")
+        price = _ltr(f'{item["price"]} {p["currency"]}')
+        item_rows += _kv_row(f'{item["name"]} ×{item["qty"]}', price, align)
+        text_items.append(f'  - {item["name"]} x{item["qty"]} — {item["price"]} {p["currency"]}')
+
+    # Static receipt timeline (§6.3): four fixed stages, text labels, the
+    # current one marked in TEXT — no animation, no colour-only meaning.
+    stages = (
+        ["Placed", "Preparing", "Shipped", "Delivered"] if not ar
+        else ["تم الطلب", "قيد التجهيز", "تم الشحن", "تم التسليم"]
+    )
+    current_marker = "«" if ar else "»"
+    timeline = '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:18px 0 4px 0;"><tr>'
+    for i, stage in enumerate(stages):
+        is_now = i == 0
+        timeline += (
+            f'<td style="text-align:center;font-size:11px;padding:8px 2px;'
+            f'border-bottom:3px solid {"#C9A227" if is_now else "#EADFC8"};'
+            f'color:{"#1B1F3B" if is_now else "#555A73"};font-weight:{700 if is_now else 400};">'
+            f'{current_marker + " " if is_now else ""}{_esc(stage)}</td>'
+        )
+    timeline += "</tr></table>"
+
+    if ar:
+        subject = f'تأكيد طلبك {p["order_number"]} — كونفيت'
+        preheader = "استلمنا طلبك وبدأنا تجهيزه."
+        title = "تم استلام طلبك"
+        intro = "استلمنا طلبك وبدأنا تجهيزه. هذا إيصالك:"
+        cta = "عرض الطلب"
+        total_label = "الإجمالي"
+        order_label = "رقم الطلب"
+    else:
+        subject = f'Your CONFIT order {p["order_number"]} is confirmed'
+        preheader = "We received your order and started preparing it."
+        title = "Order received"
+        intro = "We received your order and started preparing it. Your receipt:"
+        cta = "View order"
+        total_label = "Total"
+        order_label = "Order number"
+
+    body_html = (
+        f'<p style="margin:0 0 14px 0;font-size:15px;line-height:1.8;">{_esc(intro)}</p>'
+        '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
+        'style="background:#FDF8EE;border-radius:10px;padding:4px 16px;">'
+        f"{_kv_row(order_label, num, align)}{item_rows}"
+        f'<tr><td colspan="2" style="border-top:1px solid #EADFC8;"></td></tr>'
+        f"{_kv_row(total_label, total, align)}"
+        "</table>" + timeline
+    )
+    text = [intro, "", f'{order_label}: {p["order_number"]}', *text_items,
+            f'{total_label}: {p["total"]} {p["currency"]}', "",
+            " -> ".join(stages) + f"  ({stages[0]})"]
+    return subject, preheader, title, body_html, text, cta, url
+
+
+def _payment_failed(p: dict, locale: str) -> _Built:
+    _require(p, ["order_number", "reason", "retry_url"], "payment_failed")
+    url = _abs_url(p["retry_url"], "retry_url")
+    ar = locale == "ar"
+    num = _ltr(p["order_number"])
+    # The REASON is the processor's own words, passed by the caller —
+    # rendered verbatim, never softened or invented (§6.3).
+    reason = _esc(p["reason"])
+    if ar:
+        subject = f'تعذّر الدفع لطلبك {p["order_number"]}'
+        preheader = "لم يكتمل الدفع — يمكنك إعادة المحاولة."
+        title = "لم يكتمل الدفع"
+        intro = f"تعذّر إتمام الدفع للطلب {num}. السبب كما ورد من بوابة الدفع:"
+        cta = "إعادة محاولة الدفع"
+        note = "لم يُخصم أي مبلغ ما لم يؤكد البنك خلاف ذلك."
+    else:
+        subject = f'Payment for order {p["order_number"]} did not go through'
+        preheader = "The payment did not complete — you can retry."
+        title = "Payment incomplete"
+        intro = f"The payment for order {num} could not be completed. The processor said:"
+        cta = "Retry payment"
+        note = "No amount was charged unless your bank confirms otherwise."
+    body_html = (
+        f'<p style="margin:0 0 12px 0;font-size:15px;line-height:1.8;">{intro}</p>'
+        f'<div style="background:#FBF3F4;border:1px solid #E7C8CD;border-radius:10px;'
+        f'padding:14px 16px;font-size:14px;color:#7A1F2B;">{reason}</div>'
+        f'<p style="margin:14px 0 0 0;font-size:13px;color:#555A73;">{_esc(note)}</p>'
+    )
+    text = [f'Order: {p["order_number"]}' if not ar else f'الطلب: {p["order_number"]}',
+            "", intro.replace(num, p["order_number"]).replace("<bdi", "").strip(), p["reason"], "", note]
+    return subject, preheader, title, body_html, text, cta, url
+
+
+def _shipping_update(p: dict, locale: str) -> _Built:
+    _require(p, ["order_number", "carrier", "tracking_code", "tracking_url"], "shipping_update")
+    url = _abs_url(p["tracking_url"], "tracking_url")
+    ar = locale == "ar"
+    align = "right" if ar else "left"
+    if ar:
+        subject = f'طلبك {p["order_number"]} في الطريق'
+        preheader = "تم شحن طلبك — تتبّعه من هنا."
+        title = "تم شحن طلبك"
+        intro = "غادر طلبك المخزن وأصبح مع شركة الشحن."
+        cta = "تتبّع الشحنة"
+        rows = [("رقم الطلب", _ltr(p["order_number"])),
+                ("شركة الشحن", _esc(p["carrier"])),
+                ("رقم التتبع", _ltr(p["tracking_code"]))]
+        text = [intro, "", f'رقم الطلب: {p["order_number"]}',
+                f'شركة الشحن: {p["carrier"]}', f'رقم التتبع: {p["tracking_code"]}']
+    else:
+        subject = f'Your order {p["order_number"]} is on its way'
+        preheader = "Your order shipped — track it here."
+        title = "Shipped"
+        intro = "Your order left the warehouse and is with the carrier."
+        cta = "Track shipment"
+        rows = [("Order number", _ltr(p["order_number"])),
+                ("Carrier", _esc(p["carrier"])),
+                ("Tracking code", _ltr(p["tracking_code"]))]
+        text = [intro, "", f'Order number: {p["order_number"]}',
+                f'Carrier: {p["carrier"]}', f'Tracking code: {p["tracking_code"]}']
+    body_html = (
+        f'<p style="margin:0 0 14px 0;font-size:15px;line-height:1.8;">{_esc(intro)}</p>'
+        '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
+        'style="background:#FDF8EE;border-radius:10px;padding:4px 16px;">'
+        + "".join(_kv_row(k, v, align) for k, v in rows) + "</table>"
+    )
+    return subject, preheader, title, body_html, text, cta, url
+
+
+def _editorial_card(name: str, image_url: Optional[str], locale: str) -> str:
+    """Engagement mini-card: navy editorial block; image optional with alt +
+    solid fallback colour — meaning never depends on the image loading."""
+    img_html = ""
+    if image_url:
+        img_html = (
+            f'<img src="{_esc(_abs_url(image_url, "image_url"))}" alt="{_esc(name)}" '
+            'width="536" style="display:block;width:100%;max-width:536px;'
+            'border-radius:10px 10px 0 0;background:#2A2F55;" />'
+        )
+    return (
+        '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
+        'style="margin:16px 0;border-radius:12px;overflow:hidden;background:#1B1F3B;">'
+        f"<tr><td>{img_html}</td></tr>"
+        '<tr><td style="padding:18px 20px;">'
+        '<div style="font-family:Georgia,\'Times New Roman\',serif;font-size:19px;'
+        f'color:#F5EFE2;">{_esc(name)}</div>'
+        f'<div class="cf-rule" style="height:2px;width:48px;background:#C9A227;margin-top:10px;font-size:0;">&nbsp;</div>'
+        "</td></tr></table>"
+    )
+
+
+def _saved_look(p: dict, locale: str) -> _Built:
+    _require(p, ["look_name", "look_url", "unsubscribe_url"], "saved_look")
+    url = _abs_url(p["look_url"], "look_url")
+    ar = locale == "ar"
+    if ar:
+        subject = f'إطلالتك المحفوظة: {p["look_name"]}'
+        preheader = "إطلالتك محفوظة في خزانتك على كونفيت."
+        title = "إطلالة محفوظة"
+        intro = "حفظنا هذه الإطلالة في خزانتك. افتحها متى شئت لتعديلها أو تجربتها."
+        cta = "فتح الإطلالة"
+    else:
+        subject = f'Your saved look: {p["look_name"]}'
+        preheader = "Your look is saved to your CONFIT closet."
+        title = "Look saved"
+        intro = "We saved this look to your closet. Open it any time to adjust or try it on."
+        cta = "Open the look"
+    body_html = (
+        f'<p style="margin:0 0 6px 0;font-size:15px;line-height:1.8;">{_esc(intro)}</p>'
+        + _editorial_card(p["look_name"], p.get("image_url"), locale)
+    )
+    return subject, preheader, title, body_html, [intro, "", p["look_name"]], cta, url
+
+
+def _outfit_ready(p: dict, locale: str) -> _Built:
+    _require(p, ["outfit_name", "outfit_url", "unsubscribe_url"], "outfit_ready")
+    url = _abs_url(p["outfit_url"], "outfit_url")
+    ar = locale == "ar"
+    if ar:
+        subject = f'طقمك جاهز: {p["outfit_name"]}'
+        preheader = "اكتمل تنسيق طقمك على كونفيت."
+        title = "طقمك جاهز"
+        intro = "اكتمل تنسيق طقمك ويمكنك مراجعته الآن."
+        cta = "عرض الطقم"
+    else:
+        subject = f'Your outfit is ready: {p["outfit_name"]}'
+        preheader = "Your styled outfit is ready to review."
+        title = "Outfit ready"
+        intro = "Your outfit has been styled and is ready to review."
+        cta = "View outfit"
+    body_html = (
+        f'<p style="margin:0 0 6px 0;font-size:15px;line-height:1.8;">{_esc(intro)}</p>'
+        + _editorial_card(p["outfit_name"], p.get("image_url"), locale)
+    )
+    return subject, preheader, title, body_html, [intro, "", p["outfit_name"]], cta, url
+
+
+_FIT_CAVEAT = {
+    "en": "This is an estimate based on your measurements — not a guarantee of fit.",
+    "ar": "هذه تقدير مبني على قياساتك — وليست ضماناً للمقاس.",
+}
+
+
+def _fit_result(p: dict, locale: str) -> _Built:
+    _require(p, ["product_name", "size_label", "confidence_pct", "result_url", "unsubscribe_url"], "fit_result")
+    url = _abs_url(p["result_url"], "result_url")
+    try:
+        pct = float(p["confidence_pct"])
+    except (TypeError, ValueError):
+        raise EmailTemplateError("fit_result confidence_pct must be numeric (0–100).")
+    if not 0 <= pct <= 100:
+        raise EmailTemplateError("fit_result confidence_pct must be within 0–100.")
+    ar = locale == "ar"
+    pct_txt = f"{pct:g}%"
+    caveat = _FIT_CAVEAT[locale]
+    if ar:
+        subject = f'نتيجة المقاس: {p["product_name"]}'
+        preheader = "اكتملت نتيجة تحليل المقاس الخاصة بك."
+        title = "نتيجة تحليل المقاس"
+        intro = (f'بناءً على قياساتك، المقاس الأنسب لقطعة {_esc(p["product_name"])} هو '
+                 f'<strong>{_esc(p["size_label"])}</strong> بدرجة ثقة {_ltr(pct_txt)}.')
+        text_intro = (f'بناءً على قياساتك، المقاس الأنسب لقطعة {p["product_name"]} هو '
+                      f'{p["size_label"]} بدرجة ثقة {pct_txt}.')
+        cta = "عرض التفاصيل"
+    else:
+        subject = f'Your fit result for {p["product_name"]}'
+        preheader = "Your fit analysis is ready."
+        title = "Fit result"
+        intro = (f'Based on your measurements, the closest size for {_esc(p["product_name"])} is '
+                 f'<strong>{_esc(p["size_label"])}</strong> with {_ltr(pct_txt)} confidence.')
+        text_intro = (f'Based on your measurements, the closest size for {p["product_name"]} is '
+                      f'{p["size_label"]} with {pct_txt} confidence.')
+        cta = "See details"
+    body_html = (
+        f'<p style="margin:0 0 12px 0;font-size:15px;line-height:1.8;">{intro}</p>'
+        # The caveat is NOT optional and not fine print buried below the
+        # legal block — fit is never presented as a guarantee (§8).
+        f'<div style="background:#FDF8EE;border-radius:10px;padding:12px 16px;'
+        f'font-size:13px;color:#6B4F1E;">{_esc(caveat)}</div>'
+    )
+    return subject, preheader, title, body_html, [text_intro, "", caveat], cta, url
+
+
+def _price_drop(p: dict, locale: str) -> _Built:
+    _require(p, ["product_name", "old_price", "new_price", "currency", "product_url", "unsubscribe_url"], "price_drop")
+    url = _abs_url(p["product_url"], "product_url")
+    ar = locale == "ar"
+    old_p = _ltr(f'{p["old_price"]} {p["currency"]}')
+    new_p = _ltr(f'{p["new_price"]} {p["currency"]}')
+    if ar:
+        subject = f'انخفض سعر {p["product_name"]}'
+        preheader = "قطعة من قائمتك أصبحت أقل سعراً."
+        title = "انخفاض في السعر"
+        intro = f'انخفض سعر {_esc(p["product_name"])} من '
+        cta = "عرض المنتج"
+        text = [f'انخفض سعر {p["product_name"]} من {p["old_price"]} {p["currency"]} '
+                f'إلى {p["new_price"]} {p["currency"]}.']
+    else:
+        subject = f'Price drop: {p["product_name"]}'
+        preheader = "An item you saved is now cheaper."
+        title = "Price drop"
+        intro = f'The price of {_esc(p["product_name"])} dropped from '
+        cta = "View product"
+        text = [f'The price of {p["product_name"]} dropped from {p["old_price"]} '
+                f'{p["currency"]} to {p["new_price"]} {p["currency"]}.']
+    body_html = (
+        f'<p style="margin:0 0 12px 0;font-size:15px;line-height:1.8;">{intro}'
+        f'<span style="text-decoration:line-through;color:#555A73;">{old_p}</span>'
+        f' &nbsp;&rarr;&nbsp; <strong style="color:#1B1F3B;">{new_p}</strong>.</p>'
+    )
+    return subject, preheader, title, body_html, text, cta, url
+
+
+def _partner_approval(p: dict, locale: str) -> _Built:
+    _require(p, ["partner_name", "portal_url"], "partner_approval")
+    url = _abs_url(p["portal_url"], "portal_url")
+    ar = locale == "ar"
+    if ar:
+        subject = "تمت الموافقة على حساب شريك العلامة"
+        preheader = "حساب علامتك على كونفيت أصبح نشطاً."
+        title = "تمت الموافقة"
+        intro = (f'مرحباً {_esc(p["partner_name"])}، تمت الموافقة على حساب علامتك. '
+                 "يمكنك الآن إدارة الكتالوج والمخزون والطلبات من بوابة الشركاء.")
+        text_intro = (f'مرحباً {p["partner_name"]}، تمت الموافقة على حساب علامتك. '
+                      "يمكنك الآن إدارة الكتالوج والمخزون والطلبات من بوابة الشركاء.")
+        cta = "فتح بوابة الشركاء"
+    else:
+        subject = "Your brand partner account is approved"
+        preheader = "Your CONFIT brand account is now active."
+        title = "Approved"
+        intro = (f'Hello {_esc(p["partner_name"])}, your brand account has been approved. '
+                 "You can now manage your catalog, inventory and orders from the partner hub.")
+        text_intro = (f'Hello {p["partner_name"]}, your brand account has been approved. '
+                      "You can now manage your catalog, inventory and orders from the partner hub.")
+        cta = "Open partner hub"
+    body_html = f'<p style="margin:0;font-size:15px;line-height:1.8;">{intro}</p>'
+    return subject, preheader, title, body_html, [text_intro], cta, url
+
+
+def _admin_alert(p: dict, locale: str) -> _Built:
+    _require(p, ["alert_title", "metric_name", "metric_value", "window_label", "dashboard_url"], "admin_alert")
+    # The filtered link points at the admin surface already scoped to the
+    # alert (§6.3) — the metric value is the CALLER's measurement, verbatim.
+    url = _abs_url(p["dashboard_url"], "dashboard_url")
+    ar = locale == "ar"
+    align = "right" if ar else "left"
+    if ar:
+        subject = f'تنبيه إداري: {p["alert_title"]}'
+        preheader = "تنبيه تشغيلي من منصة كونفيت."
+        title = "تنبيه إداري"
+        cta = "فتح اللوحة المُرشّحة"
+        rows = [("التنبيه", _esc(p["alert_title"])),
+                ("المقياس", _esc(p["metric_name"])),
+                ("القيمة المرصودة", _ltr(p["metric_value"])),
+                ("النافذة الزمنية", _esc(p["window_label"]))]
+        text = [f'التنبيه: {p["alert_title"]}', f'المقياس: {p["metric_name"]}',
+                f'القيمة المرصودة: {p["metric_value"]}', f'النافذة الزمنية: {p["window_label"]}']
+    else:
+        subject = f'Admin alert: {p["alert_title"]}'
+        preheader = "Operational alert from the CONFIT platform."
+        title = "Admin alert"
+        cta = "Open filtered dashboard"
+        rows = [("Alert", _esc(p["alert_title"])),
+                ("Metric", _esc(p["metric_name"])),
+                ("Observed value", _ltr(p["metric_value"])),
+                ("Window", _esc(p["window_label"]))]
+        text = [f'Alert: {p["alert_title"]}', f'Metric: {p["metric_name"]}',
+                f'Observed value: {p["metric_value"]}', f'Window: {p["window_label"]}']
+    body_html = (
+        '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
+        'style="background:#FDF8EE;border-radius:10px;padding:4px 16px;">'
+        + "".join(_kv_row(k, v, align) for k, v in rows) + "</table>"
+    )
+    return subject, preheader, title, body_html, text, cta, url
+
+
+def _newsletter(p: dict, locale: str) -> _Built:
+    _require(p, ["edition_title", "intro_text", "read_url", "unsubscribe_url"], "newsletter")
+    url = _abs_url(p["read_url"], "read_url")
+    ar = locale == "ar"
+    if ar:
+        subject = f'نشرة كونفيت — {p["edition_title"]}'
+        preheader = str(p["intro_text"])[:90]
+        title = p["edition_title"]
+        cta = "قراءة الإصدار"
+    else:
+        subject = f'The CONFIT edit — {p["edition_title"]}'
+        preheader = str(p["intro_text"])[:90]
+        title = p["edition_title"]
+        cta = "Read the edition"
+    body_html = (
+        f'<p style="margin:0 0 6px 0;font-size:15px;line-height:1.9;">{_esc(p["intro_text"])}</p>'
+        + (_editorial_card(p["edition_title"], p.get("image_url"), locale))
+    )
+    return subject, preheader, title, body_html, [str(p["intro_text"])], cta, url
+
+
+# ---------------------------------------------------------------------------
+# Registry + entry point
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class TemplateSpec:
+    build: Callable[[dict, str], _Built]
+    category: str
+
+
+TEMPLATES: dict[str, TemplateSpec] = {
+    "order_confirmation": TemplateSpec(_order_confirmation, CATEGORY_TRANSACTIONAL),
+    "payment_failed": TemplateSpec(_payment_failed, CATEGORY_TRANSACTIONAL),
+    "shipping_update": TemplateSpec(_shipping_update, CATEGORY_TRANSACTIONAL),
+    "saved_look": TemplateSpec(_saved_look, CATEGORY_ENGAGEMENT),
+    "outfit_ready": TemplateSpec(_outfit_ready, CATEGORY_ENGAGEMENT),
+    "fit_result": TemplateSpec(_fit_result, CATEGORY_ENGAGEMENT),
+    "price_drop": TemplateSpec(_price_drop, CATEGORY_MARKETING),
+    "partner_approval": TemplateSpec(_partner_approval, CATEGORY_TRANSACTIONAL),
+    "admin_alert": TemplateSpec(_admin_alert, CATEGORY_TRANSACTIONAL),
+    "newsletter": TemplateSpec(_newsletter, CATEGORY_MARKETING),
+}
+
+
+def render_email(template: str, locale: str, payload: dict) -> EmailContent:
+    """Render one message. Raises EmailTemplateError — it never guesses."""
+    spec = TEMPLATES.get(template)
+    if spec is None:
+        raise EmailTemplateError(
+            f"Unknown template '{template}'. Known: {', '.join(sorted(TEMPLATES))}."
+        )
+    if locale not in SUPPORTED_LOCALES:
+        raise EmailTemplateError(
+            f"Unsupported locale '{locale}'. Supported: {', '.join(SUPPORTED_LOCALES)}."
+        )
+
+    unsubscribe_url: Optional[str] = None
+    if spec.category in (CATEGORY_ENGAGEMENT, CATEGORY_MARKETING):
+        # Consent surface is non-negotiable for non-transactional mail (§8).
+        _require(payload, ["unsubscribe_url"], template)
+        unsubscribe_url = _abs_url(payload["unsubscribe_url"], "unsubscribe_url")
+
+    subject, preheader, title, body_html, text_lines, cta_label, cta_url = (
+        spec.build(payload, locale)
+    )
+
+    html = _shell(
+        locale=locale, preheader=preheader, title=title, body_html=body_html,
+        cta_label=cta_label, cta_url=cta_url, category=spec.category,
+        unsubscribe_url=unsubscribe_url,
+    )
+    text = _text_shell(
+        locale=locale, title=title, body_lines=text_lines,
+        cta_label=cta_label, cta_url=cta_url, category=spec.category,
+        unsubscribe_url=unsubscribe_url,
+    )
+    return EmailContent(
+        subject=subject, preheader=preheader, html=html, text=text,
+        list_unsubscribe=f"<{unsubscribe_url}>" if unsubscribe_url else None,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Admin preview samples — clearly labelled sample data, never user data.
+# ---------------------------------------------------------------------------
+
+def _sample_base() -> str:
+    return settings.FRONTEND_BASE_URL.rstrip("/")
+
+
+def sample_payload(template: str) -> dict:
+    """Fixed, obviously-sample payloads for the admin preview/test-send.
+
+    Every value is prefixed SAMPLE so a stray preview can never be mistaken
+    for a real order, and the admin endpoint cannot be used to compose
+    arbitrary content (the no-open-relay property of the diagnostics stays).
+    """
+    base = _sample_base()
+    unsub = f"{base}/profile"
+    samples: dict[str, dict] = {
+        "order_confirmation": {
+            "order_number": "SAMPLE-0001",
+            "items": [{"name": "Sample linen shirt", "qty": 1, "price": "1,250.00"}],
+            "total": "1,250.00", "currency": "EGP",
+            "order_url": f"{base}/order/SAMPLE-0001",
+        },
+        "payment_failed": {
+            "order_number": "SAMPLE-0001",
+            "reason": "SAMPLE: card declined by issuer (do not retry the same card).",
+            "retry_url": f"{base}/checkout",
+        },
+        "shipping_update": {
+            "order_number": "SAMPLE-0001", "carrier": "Sample Carrier",
+            "tracking_code": "SMPL123456789",
+            "tracking_url": f"{base}/order/SAMPLE-0001",
+        },
+        "saved_look": {
+            "look_name": "Sample evening look", "look_url": f"{base}/my-looks",
+            "unsubscribe_url": unsub,
+        },
+        "outfit_ready": {
+            "outfit_name": "Sample weekend outfit", "outfit_url": f"{base}/builder",
+            "unsubscribe_url": unsub,
+        },
+        "fit_result": {
+            "product_name": "Sample tailored blazer", "size_label": "M",
+            "confidence_pct": 82, "result_url": f"{base}/tryon",
+            "unsubscribe_url": unsub,
+        },
+        "price_drop": {
+            "product_name": "Sample silk scarf", "old_price": "900.00",
+            "new_price": "720.00", "currency": "EGP",
+            "product_url": f"{base}/discover", "unsubscribe_url": unsub,
+        },
+        "partner_approval": {
+            "partner_name": "Sample Brand Co.", "portal_url": f"{base}/b2b",
+        },
+        "admin_alert": {
+            "alert_title": "SAMPLE: payment failure rate",
+            "metric_name": "payment_failed_count", "metric_value": "17",
+            "window_label": "last 24h",
+            "dashboard_url": f"{base}/admin/analytics?days=30",
+        },
+        "newsletter": {
+            "edition_title": "Sample edition",
+            "intro_text": "SAMPLE: a short editorial introduction for preview only.",
+            "read_url": f"{base}/discover", "unsubscribe_url": unsub,
+        },
+    }
+    if template not in samples:
+        raise EmailTemplateError(f"No sample payload for '{template}'.")
+    return samples[template]

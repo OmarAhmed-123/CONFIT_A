@@ -348,6 +348,8 @@ def render_platform_test_email(recipient_note: str = "") -> tuple[str, str, str]
 
 
 def render_password_reset_email(full_name: str, reset_url: str) -> tuple[str, str, str]:
+    """Password reset — bilingual (locale unknown at send time), spec-15 shell
+    quality: preheader, one CTA, plain-text parity, no emoji, no images."""
     subject = "Reset your CONFIT password / إعادة تعيين كلمة المرور"
     text = (
         f"Hello {full_name},\n\n"
@@ -355,34 +357,113 @@ def render_password_reset_email(full_name: str, reset_url: str) -> tuple[str, st
         f"This link is valid for 30 minutes and can be used once:\n"
         f"{reset_url}\n\n"
         f"If you did not request this, you can ignore this email — "
-        f"your password will not change.\n\n— CONFIT"
+        f"your password will not change.\n\n"
+        f"-----------------------------------------------------------------\n"
+        f"مرحباً {full_name}،\n"
+        f"وصلنا طلب لإعادة تعيين كلمة مرور كونفيت. الرابط صالح 30 دقيقة "
+        f"وللاستخدام مرة واحدة. إذا لم تطلب ذلك فتجاهل هذه الرسالة — "
+        f"لن تتغير كلمة المرور.\n\n— CONFIT"
     )
-    html = f"""<div style="font-family:system-ui,Segoe UI,Tahoma,sans-serif;max-width:520px">
-<p>مرحبًا {full_name}،</p>
-<p>وصلك طلب لإعادة تعيين كلمة مرور CONFIT. الرابط صالح 30 دقيقة وللاستخدام مرة واحدة:</p>
-<p><a href="{reset_url}">إعادة تعيين كلمة المرور / Reset my password</a></p>
-<p>إذا لم تطلب ذلك، تجاهل هذه الرسالة — لن تتغير كلمة المرور.</p>
-<hr />
-<p>Hello {full_name}, we received a request to reset your CONFIT password.
-The link above is valid for 30 minutes and single-use. If you did not request
-this, ignore this email — your password will not change.</p>
-</div>"""
+    html = _auth_shell(
+        preheader="Your password reset link — valid 30 minutes, single use.",
+        title="Reset your password",
+        title_ar="إعادة تعيين كلمة المرور",
+        body_en=(
+            f"Hello {_h(full_name)}, we received a request to reset your CONFIT "
+            "password. The button below is valid for <strong>30 minutes</strong> "
+            "and can be used once. If you did not request this, ignore this "
+            "email — your password will not change."
+        ),
+        body_ar=(
+            f"مرحباً {_h(full_name)}، وصلنا طلب لإعادة تعيين كلمة مرور كونفيت. "
+            "الزر أدناه صالح <strong>30 دقيقة</strong> وللاستخدام مرة واحدة. "
+            "إذا لم تطلب ذلك فتجاهل هذه الرسالة — لن تتغير كلمة المرور."
+        ),
+        cta_label="Reset password / إعادة التعيين",
+        cta_url=reset_url,
+    )
     return subject, html, text
 
 
 def render_verification_email(full_name: str, verify_url: str) -> tuple[str, str, str]:
+    """Email verification — bilingual, spec-15 shell quality (no emoji §8)."""
     subject = "Verify your CONFIT email / تأكيد بريدك الإلكتروني"
     text = (
         f"Welcome to CONFIT, {full_name}!\n\n"
         f"Confirm your email address to secure your account:\n{verify_url}\n\n"
-        f"This link is valid for 24 hours.\n\n— CONFIT"
+        f"This link is valid for 24 hours.\n\n"
+        f"-----------------------------------------------------------------\n"
+        f"أهلاً {full_name} في كونفيت. أكّد بريدك الإلكتروني لتأمين حسابك. "
+        f"الرابط صالح 24 ساعة.\n\n— CONFIT"
     )
-    html = f"""<div style="font-family:system-ui,Segoe UI,Tahoma,sans-serif;max-width:520px">
-<p>أهلًا {full_name} في CONFIT 👋</p>
-<p>أكّد بريدك الإلكتروني لتأمين حسابك. الرابط صالح 24 ساعة:</p>
-<p><a href="{verify_url}">تأكيد البريد / Verify my email</a></p>
-<hr />
-<p>Welcome to CONFIT! Confirm your email address to secure your account.
-The link above is valid for 24 hours.</p>
-</div>"""
+    html = _auth_shell(
+        preheader="Confirm your email address — the link is valid 24 hours.",
+        title="Verify your email",
+        title_ar="تأكيد بريدك الإلكتروني",
+        body_en=(
+            f"Welcome to CONFIT, {_h(full_name)}. Confirm your email address to "
+            "secure your account. The button below is valid for "
+            "<strong>24 hours</strong>."
+        ),
+        body_ar=(
+            f"أهلاً {_h(full_name)} في كونفيت. أكّد بريدك الإلكتروني لتأمين "
+            "حسابك. الزر أدناه صالح <strong>24 ساعة</strong>."
+        ),
+        cta_label="Verify email / تأكيد البريد",
+        cta_url=verify_url,
+    )
     return subject, html, text
+
+
+def _h(value) -> str:
+    import html as _html_mod
+    return _html_mod.escape(str(value), quote=True)
+
+
+def _auth_shell(*, preheader: str, title: str, title_ar: str, body_en: str,
+                body_ar: str, cta_label: str, cta_url: str) -> str:
+    """Bilingual auth-mail shell: same visual language as email_templates
+    (navy/gold/cream, text wordmark, hidden preheader, ONE bulletproof CTA,
+    footer) but EN + AR in one message because the user's locale is unknown
+    at password-reset time. Inline CSS, table layout, no images, no emoji."""
+    cta_url_safe = _h(cta_url)
+    return (
+        '<!DOCTYPE html><html lang="en" dir="ltr"><head><meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width,initial-scale=1">'
+        '<meta name="color-scheme" content="light dark">'
+        '<meta name="supported-color-schemes" content="light dark">'
+        f'<title>{_h(title)}</title></head>'
+        '<body style="margin:0;padding:0;background:#FDF8EE;font-family:'
+        "-apple-system,BlinkMacSystemFont,'Segoe UI',Tahoma,Helvetica,Arial,sans-serif;\">"
+        '<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">'
+        f'{_h(preheader)}</div>'
+        '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
+        'style="background:#FDF8EE;padding:32px 16px;"><tr><td align="center">'
+        '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
+        'style="max-width:600px;background:#FFFFFF;border-radius:14px;overflow:hidden;'
+        'border:1px solid #EADFC8;">'
+        '<tr><td style="background:#1B1F3B;padding:26px 32px;">'
+        '<div style="color:#C9A227;font-size:13px;letter-spacing:4px;'
+        'text-transform:uppercase;font-weight:700;">CONFIT</div>'
+        f'<div style="color:#FFFFFF;font-size:21px;font-weight:600;margin-top:8px;">'
+        f'{_h(title)}</div></td></tr>'
+        f'<tr><td style="padding:28px 32px 4px 32px;color:#1B1F3B;">'
+        f'<p style="margin:0 0 16px 0;font-size:15px;line-height:1.8;">{body_en}</p>'
+        '<table role="presentation" cellpadding="0" cellspacing="0" '
+        'style="margin:10px 0 22px 0;"><tr>'
+        '<td bgcolor="#1B1F3B" style="border-radius:12px;">'
+        f'<a href="{cta_url_safe}" style="display:inline-block;padding:14px 30px;'
+        'font-size:15px;font-weight:700;color:#FFFFFF;text-decoration:none;">'
+        f'{_h(cta_label)}</a></td></tr></table></td></tr>'
+        '<tr><td style="padding:0 32px;"><div style="height:1px;background:#EADFC8;">'
+        '</div></td></tr>'
+        '<tr><td dir="rtl" lang="ar" style="padding:22px 32px 26px 32px;'
+        'color:#1B1F3B;text-align:right;">'
+        f'<div style="font-size:17px;font-weight:600;margin-bottom:10px;">{_h(title_ar)}</div>'
+        f'<p style="margin:0;font-size:15px;line-height:1.9;">{body_ar}</p></td></tr>'
+        '<tr><td style="background:#FAF7F0;padding:18px 32px;border-top:1px solid #EADFC8;">'
+        '<div style="font-size:12px;color:#7A7E92;line-height:1.7;">'
+        'This is a service message about your CONFIT account.<br>'
+        '<span dir="rtl">رسالة خدمية تخص حسابك على كونفيت.</span></div>'
+        '</td></tr></table></td></tr></table></body></html>'
+    )

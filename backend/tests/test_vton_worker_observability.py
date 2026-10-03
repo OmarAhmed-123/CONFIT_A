@@ -217,7 +217,7 @@ def test_health_summary_is_never_production_ready_on_configuration_alone(monkeyp
     monkeypatch.setattr(settings, "VTON_WORKER_ADMIN_TOKEN", "tok", raising=False)
     monkeypatch.setattr(
         vwo, "probe_worker_state",
-        lambda force=False: {"verdict": "unavailable", "ok": False, "status_code": 404,
+        lambda force=False, allow_refresh=True: {"verdict": "unavailable", "ok": False, "status_code": 404,
                          "reason": f"HTTP 404: {MODAL_DISABLED_BODY}",
                          "error_code": "VTON_ENGINE_UNAVAILABLE"},
     )
@@ -246,7 +246,7 @@ def dead_worker(monkeypatch):
     monkeypatch.setattr(settings, "VTON_WORKER_PROBE_TIMEOUT_SECONDS", 1.0, raising=False)
     monkeypatch.setattr(
         vwo, "probe_worker_state",
-        lambda force=False: {
+        lambda force=False, allow_refresh=True: {
             "verdict": "unavailable", "ok": False, "status_code": 404,
             "reason": f"HTTP 404: {MODAL_DISABLED_BODY}",
             "error_code": "VTON_ENGINE_UNAVAILABLE",
@@ -376,3 +376,129 @@ def test_health_degrades_in_production_when_tryon_is_not_configured(monkeypatch)
     finally:
         monkeypatch.setattr(settings, "ENVIRONMENT", "development", raising=False)
         vwo.reset_worker_observability()
+
+
+# ---------------------------------------------------------------------------
+# 5. PASSIVE health (2026-10-03): a public health read must never be the
+# reason a billed, scaled-to-zero GPU container spins up.
+# ---------------------------------------------------------------------------
+def test_public_health_never_probes_the_worker(monkeypatch):
+    """/health serves cached evidence only; with no cache it says unknown.
+
+    Before 2026-10-03 the /health vton line live-probed (first call
+    synchronously, later reads via background refresh), so an external
+    uptime monitor polling /health kept an A10G container alive forever
+    without a single real try-on job.
+    """
+    monkeypatch.delenv("VTON_WORKER_URL", raising=False)
+    monkeypatch.setattr(settings, "VTON_WORKER_URL", "https://worker.example/process", raising=False)
+    monkeypatch.setattr(settings, "VTON_WORKER_ADMIN_TOKEN", "tok", raising=False)
+    vwo.reset_worker_observability()
+
+    calls = {"n": 0}
+
+    def _count_probe(*a, **k):
+        calls["n"] += 1
+        return {"verdict": vwo.VERDICT_READY, "ok": True, "status_code": 200}
+
+    monkeypatch.setattr(WorkerProbe, "_run_probe", _count_probe)
+    try:
+        # PUBLIC /health: cold cache — must answer WITHOUT a single probe.
+        body = client.get("/api/v1/health").json()
+        assert body["status"] in ("healthy", "degraded")  # never a crash
+        assert "virtual_try_on" in body.get("degraded_capabilities", []) or \
+            body.get("ready") is False
+        assert calls["n"] == 0, "public /health must not probe the GPU worker"
+        # unknown must not silently claim availability either
+        summary = vwo.vton_health_summary(allow_refresh=False)
+        assert summary["verdict"] == vwo.VERDICT_UNKNOWN
+        assert summary["production_ready"] is False
+    finally:
+        vwo.reset_worker_observability()
+
+
+def test_real_job_success_feeds_the_passive_line(monkeypatch):
+    """After a real try-on job, /health reports the last known state — no probe.
+
+    record_job_observation is the zero-cost evidence source: the worker
+    proved itself by serving inference, so the passive line can be both
+    honest AND informative.
+    """
+    monkeypatch.delenv("VTON_WORKER_URL", raising=False)
+    monkeypatch.setattr(settings, "VTON_WORKER_URL", "https://worker.example/process", raising=False)
+    monkeypatch.setattr(settings, "VTON_WORKER_ADMIN_TOKEN", "tok", raising=False)
+    vwo.reset_worker_observability()
+
+    calls = {"n": 0}
+
+    def _count_probe(*a, **k):
+        calls["n"] += 1
+        return {"verdict": vwo.VERDICT_READY, "ok": True, "status_code": 200}
+
+    monkeypatch.setattr(WorkerProbe, "_run_probe", _count_probe)
+    try:
+        vwo.record_job_observation(vwo.VERDICT_READY, device="NVIDIA A10", git_sha="abc1234")
+        # Public /health: the observation IS the last known state -> operational
+        # without a probe (cache is fresh, so even an active read would not
+        # fire — the point is the passive path serves real evidence).
+        body = client.get("/api/v1/health").json()
+        assert calls["n"] == 0
+        # Operator surface carries the human string built from that evidence.
+        ready = client.get("/api/v1/health/ready", headers=_admin()).json()
+        line = ready["checks"]["vton_pipeline"]
+        assert line.startswith("operational:")
+        assert "real try-on traffic" in line
+        summary = vwo.vton_health_summary(allow_refresh=False)
+        assert summary["verdict"] == vwo.VERDICT_READY
+        assert summary["production_ready"] is True
+        assert summary["evidence_source"] == "real_job"
+        assert "no probe was made" in summary["detail"]
+        assert calls["n"] == 0, "a fresh real-job observation needs no probe"
+    finally:
+        vwo.reset_worker_observability()
+
+
+def test_stale_cache_is_served_passively_without_refresh(monkeypatch):
+    """A stale verdict is served with its age instead of triggering a refresh."""
+    monkeypatch.delenv("VTON_WORKER_URL", raising=False)
+    monkeypatch.setattr(settings, "VTON_WORKER_URL", "https://worker.example/process", raising=False)
+    vwo.reset_worker_observability()
+
+    class _FrozenClock:
+        def __init__(self): self.t = 1_000_000.0
+        def __call__(self): return self.t
+
+    clock = _FrozenClock()
+    probe = WorkerProbe(ttl_seconds=60.0, probe_timeout=1.0, clock=clock)
+    probe.set_observation({"verdict": vwo.VERDICT_READY, "ok": True, "source": "real_job"})
+
+    def _no_network(*a, **k):  # pragma: no cover - fails the test if reached
+        raise AssertionError("stale passive read must not refresh")
+
+    monkeypatch.setattr(WorkerProbe, "_run_probe", _no_network)
+    monkeypatch.setattr(WorkerProbe, "_refresh_in_background", _no_network)
+
+    clock.t += 3_600.0  # an hour later — far past the TTL
+    out = probe.get(allow_refresh=False)
+    assert out["verdict"] == vwo.VERDICT_READY
+    assert out["passive"] is True
+    assert out["age_seconds"] == 3600.0
+
+
+def test_active_read_still_refreshes_for_operator_surfaces(monkeypatch):
+    """allow_refresh=True (the default) keeps the live behaviour: a cold cache
+    performs one bounded probe. /health/ready and /health/vton-contract rely
+    on this — operators keep a place to get live truth."""
+    monkeypatch.delenv("VTON_WORKER_URL", raising=False)
+    monkeypatch.setattr(settings, "VTON_WORKER_URL", "https://worker.example/process", raising=False)
+    probe = WorkerProbe(ttl_seconds=60.0, probe_timeout=0.2)
+    called = {"n": 0}
+
+    def _fake_run_probe():
+        called["n"] += 1
+        return {"verdict": vwo.VERDICT_READY, "ok": True, "status_code": 200}
+
+    monkeypatch.setattr(probe, "_run_probe", _fake_run_probe)
+    out = probe.get()  # cold cache, active mode
+    assert out["verdict"] == vwo.VERDICT_READY
+    assert called["n"] == 1

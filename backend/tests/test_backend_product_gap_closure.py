@@ -56,7 +56,7 @@ def test_vton_capability_registry_distinguishes_supported_and_unsupported(client
     monkeypatch.setattr(settings, 'VTON_WORKER_ADMIN_TOKEN', 'token', raising=False)
     monkeypatch.setattr(
         vwo, 'probe_worker_state',
-        lambda force=False: {'verdict': 'ready', 'ok': True, 'status_code': 200, 'reason': None},
+        lambda force=False, allow_refresh=True: {'verdict': 'ready', 'ok': True, 'status_code': 200, 'reason': None},
     )
     vwo.reset_worker_observability()
     try:
@@ -86,7 +86,7 @@ def test_vton_capability_reports_engine_offline_instead_of_supported(client, mon
     monkeypatch.setattr(settings, 'VTON_WORKER_ADMIN_TOKEN', 'token', raising=False)
     monkeypatch.setattr(
         vwo, 'probe_worker_state',
-        lambda force=False: {
+        lambda force=False, allow_refresh=True: {
             'verdict': 'unavailable', 'ok': False, 'status_code': 404,
             'reason': 'HTTP 404: modal-http: workspace ac-x is disabled',
             'error_code': 'VTON_ENGINE_UNAVAILABLE', 'retryable': False,

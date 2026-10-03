@@ -346,7 +346,11 @@ class WorkerProbe:
         self._refreshing = False
 
     # ------------------------------------------------------------------ public
-    def get(self, force: bool = False) -> Dict[str, Any]:
+    def get(
+        self,
+        force: bool = False,
+        allow_refresh: bool = True,
+    ) -> Dict[str, Any]:
         now = self._clock()
         with self._lock:
             cached = self._result
@@ -356,6 +360,28 @@ class WorkerProbe:
             out = dict(cached)
             out["age_seconds"] = round(age or 0.0, 1)
             return out
+        if not allow_refresh:
+            # PASSIVE READ (2026-10-03): public, unauthenticated surfaces must
+            # never be the reason a billed GPU container exists. A passive
+            # read serves whatever the cache holds — at any age, honestly
+            # labelled — and NEVER touches the network: no synchronous probe,
+            # no background refresh. With no cache at all it reports
+            # ``unknown`` rather than guessing.
+            if cached is not None:
+                out = dict(cached)
+                out["age_seconds"] = round(age or 0.0, 1)
+                out["passive"] = True
+                return out
+            return {
+                "verdict": VERDICT_UNKNOWN,
+                "ok": False,
+                "passive": True,
+                "reason": (
+                    "no cached verification on this instance yet — passive "
+                    "reads never probe the GPU worker"
+                ),
+                "status_code": None,
+            }
         if force or cached is None:
             # Nothing to serve yet (cold process) — do one bounded probe so the
             # first request gets a truthful answer instead of "unknown".
@@ -364,6 +390,18 @@ class WorkerProbe:
         out = dict(cached)
         out["age_seconds"] = round(age or 0.0, 1)
         return out
+
+    def set_observation(self, observation: Dict[str, Any]) -> None:
+        """Publish a verdict earned by REAL traffic into the cache.
+
+        The try-on job path calls this after a job completes against the
+        worker: the worker just proved its own state by serving inference, so
+        recording it costs nothing and keeps the passive /health line truthful
+        without a single probe. Written under the lock; never raises.
+        """
+        with self._lock:
+            self._result = dict(observation)
+            self._at = self._clock()
 
     def reset(self) -> None:
         with self._lock:
@@ -524,9 +562,43 @@ circuit_breaker = WorkerCircuitBreaker(
 )
 
 
-def probe_worker_state(force: bool = False) -> Dict[str, Any]:
-    """Cached live verdict about the GPU worker. Never raises."""
-    return _probe.get(force=force)
+def probe_worker_state(
+    force: bool = False, allow_refresh: bool = True
+) -> Dict[str, Any]:
+    """Cached live verdict about the GPU worker. Never raises.
+
+    ``allow_refresh=False`` is the passive mode public surfaces must use: it
+    serves the cache (any age) and never probes — see :class:`WorkerProbe`.
+    """
+    return _probe.get(force=force, allow_refresh=allow_refresh)
+
+
+def record_job_observation(
+    verdict: str,
+    *,
+    device: Optional[str] = None,
+    git_sha: Optional[str] = None,
+    reason: Optional[str] = None,
+) -> None:
+    """Record what a REAL try-on job just proved about the worker.
+
+    Called from the try-on service when a job finishes against the worker
+    (success -> ``ready``, classified failure -> the classified verdict).
+    This is the evidence source that keeps passive reads honest: the last
+    known state is 'the worker served real inference N seconds ago', not a
+    guess, and obtaining it costs zero extra GPU time. The entry carries
+    ``source: "real_job"`` so /health can say HOW the verdict was earned.
+    """
+    _probe.set_observation({
+        "verdict": verdict,
+        "ok": verdict == VERDICT_READY,
+        "reason": reason,
+        "status_code": None,
+        "source": "real_job",
+        "device": device,
+        "git_sha": git_sha,
+        "token_configured": True,  # a real job authenticated successfully
+    })
 
 
 def reset_worker_observability() -> None:
@@ -535,20 +607,28 @@ def reset_worker_observability() -> None:
     circuit_breaker.reset()
 
 
-def vton_health_summary() -> Dict[str, Any]:
+def vton_health_summary(allow_refresh: bool = True) -> Dict[str, Any]:
     """The block /health publishes.
 
     Honest by construction: it states whether the verdict came from
-    configuration or from a live probe, how old that probe is, and what the
-    worker actually said. ``production_ready`` is only true for a live
-    ``ready`` verdict — never for "the env vars are present".
+    configuration, from a live probe, or from a real try-on job, how old that
+    evidence is, and what the worker actually said. ``production_ready`` is
+    only true for a verified ``ready`` verdict — never for "the env vars are
+    present".
+
+    ``allow_refresh=False`` (passive) is what every public, unauthenticated
+    surface must pass: it never probes the worker, because a health read must
+    not be the reason a billed GPU container spins up (an external monitor
+    polling /health every TTL window would otherwise keep one alive forever).
     """
-    state = probe_worker_state()
+    state = probe_worker_state(allow_refresh=allow_refresh)
     circuit = circuit_breaker.snapshot()
     verdict = state.get("verdict")
+    source = state.get("source") or "live_probe"
     summary: Dict[str, Any] = {
         "verdict": verdict,
-        "live_probed": True,
+        "live_probed": not state.get("passive") and source == "live_probe",
+        "evidence_source": source,
         "probe_age_seconds": state.get("age_seconds"),
         "probe_ms": state.get("probe_ms"),
         "status_code": state.get("status_code"),
@@ -562,7 +642,13 @@ def vton_health_summary() -> Dict[str, Any]:
         "production_ready": verdict == VERDICT_READY,
     }
     if verdict == VERDICT_READY:
-        summary["detail"] = "GPU worker reachable and model loaded (live probe)"
+        if source == "real_job":
+            summary["detail"] = (
+                "GPU worker served a real try-on job (last known state; "
+                "passive line, no probe was made)"
+            )
+        else:
+            summary["detail"] = "GPU worker reachable and model loaded (live probe)"
     elif verdict == VERDICT_COLD_START:
         summary["detail"] = (
             "GPU worker reachable but cold/model not loaded — the first job may need "
@@ -570,6 +656,13 @@ def vton_health_summary() -> Dict[str, Any]:
         )
     elif verdict == VERDICT_NOT_CONFIGURED:
         summary["detail"] = "no GPU worker configured (VTON_WORKER_URL) — try-on cannot render"
+    elif verdict == VERDICT_UNKNOWN and state.get("passive"):
+        summary["detail"] = (
+            "no verification on this instance yet — this line is passive by "
+            "design: public health reads never spin a billed GPU container. "
+            "An admin /health/ready check or a real try-on job establishes "
+            "the verdict."
+        )
     else:
         summary["detail"] = (
             "GPU worker is NOT reachable: every try-on job will fail. "

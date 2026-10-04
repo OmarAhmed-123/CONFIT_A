@@ -7,8 +7,12 @@ Engine (services/vton-worker/engine/fashn_v15.py):
   * normalize_garments: canonical tops-before-bottoms order (client order
     never trusted), one-pieces conflict rejection, unsupported slots
     rejection, max 3 garments, missing image rejection;
-  * detect_garment_photo_type: person labels -> model, none -> flat-lay,
-    no parser verdict -> flat-lay (safe default);
+  * detect_garment_photo_type: person labels -> model, none -> flat-lay;
+  * classify_garment_photo (the anti-contamination gate): parser labels
+    first, DWPose body-keypoint fallback when the parser has no verdict,
+    conservative 'model' when BOTH detectors are inconclusive (a loud
+    verification failure beats a silently contaminated render); the deciding
+    detector is recorded per layer (photo_type_detector);
   * render_outfit with a fake pipeline: layer 1 segmentation-free, layer 2+
     parser-masked, layer 2 receives layer 1's output, honest per-layer
     verification, failed layer aborts (never composites on a non-applied
@@ -504,3 +508,152 @@ def test_provenance_records_owner_decision_and_swap_plan():
     assert "NON-COMMERCIAL" in text
     assert "2026-10-01" in text
     assert "swap" in text.lower()
+
+
+# --- photo-type CLASSIFICATION: the two-detector anti-contamination gate --------
+#
+# classify_garment_photo is the gate that keeps a garment photo's PERSON out
+# of the composition. Detector order: parser labels (primary) -> DWPose body
+# keypoints (independent fallback) -> conservative 'model' if both are
+# inconclusive (a loud verification failure is better than a silently
+# contaminated render).
+
+
+class _BrokenParser:
+    """Parser that yields no verdict (raises) — triggers the DWPose fallback."""
+
+    def predict(self, image):
+        raise RuntimeError("parser unavailable")
+
+
+class _FakePoseModel:
+    """DWPose-shaped detector: ``bodies.subset`` with N visible body keypoints.
+
+    After DWPose's own thresholding (dwpose.py __call__), a visible keypoint
+    carries its index and an invisible one is -1 — the engine counts the
+    non-(-1) entries."""
+
+    def __init__(self, visible_body_keypoints: int, raise_on_call: bool = False):
+        self.visible = visible_body_keypoints
+        self.raise_on_call = raise_on_call
+        self.calls = []
+
+    def __call__(self, img):
+        import numpy as np
+
+        self.calls.append(img)
+        if self.raise_on_call:
+            raise RuntimeError("pose detector unavailable")
+        subset = np.full((1, 18), -1.0)
+        for j in range(min(self.visible, 18)):
+            subset[0, j] = float(j)  # visible -> its index, DWPose convention
+        return {
+            "bodies": {"candidate": np.zeros((18, 3)), "subset": subset},
+            "hands": np.full((1, 42), -1.0),
+            "faces": np.full((1, 68), -1.0),
+        }
+
+
+def _classifier_engine(parser, pose_visible=None, pose_raises=False):
+    """Engine wired with a chosen parser verdict and a DWPose-shaped pose model."""
+    inst = _engine_with_fake_pipeline(parser=parser)
+    inst._pipe.pose_model = _FakePoseModel(pose_visible or 0, raise_on_call=pose_raises)
+    return inst
+
+
+def test_classification_parser_verdict_wins_when_available():
+    engine = _classifier_engine(_FakeParser())  # working parser, no person labels
+    ptype, evidence = engine.classify_garment_photo(_img())
+    assert ptype == "flat-lay"
+    assert evidence["detector"] == "parser"
+    # The pose fallback must NOT have run when the parser already decided.
+    assert engine._pipe.pose_model.calls == []
+
+
+class _PersonParser:
+    """Parser that always reports a person label (a worn garment photo)."""
+
+    def predict(self, image):
+        import numpy as np
+
+        arr = np.zeros((10, 10), dtype=np.uint8)
+        arr[0, 0] = 1  # face -> personhood label
+        return arr
+
+
+def test_classification_parser_person_labels_report_model():
+    engine = _classifier_engine(_PersonParser())
+    ptype, evidence = engine.classify_garment_photo(_img())
+    assert ptype == "model"
+    assert evidence["detector"] == "parser"
+    # The parser already decided: the pose fallback must not have run.
+    assert engine._pipe.pose_model.calls == []
+
+
+def test_classification_dwpose_fallback_detects_person_when_parser_dead():
+    # HARD CASE: the parser is down AND the garment photo is worn. Without
+    # the fallback this defaulted to 'flat-lay' and fed the photo's person
+    # straight into the composition — the contamination this gate exists for.
+    engine = _classifier_engine(_BrokenParser(), pose_visible=7)
+    ptype, evidence = engine.classify_garment_photo(_img())
+    assert ptype == "model"
+    assert evidence["detector"] == "dwpose"
+
+
+def test_classification_dwpose_fallback_flatlay_when_no_person():
+    engine = _classifier_engine(_BrokenParser(), pose_visible=0)
+    ptype, evidence = engine.classify_garment_photo(_img())
+    assert ptype == "flat-lay"
+    assert evidence["detector"] == "dwpose"
+
+
+def test_classification_keypoint_threshold_boundary():
+    # Exactly the minimum (4 body keypoints: a face/shoulders silhouette)
+    # counts as a person; one below does not.
+    assert _classifier_engine(_BrokenParser(), pose_visible=4).classify_garment_photo(_img())[0] == "model"
+    assert _classifier_engine(_BrokenParser(), pose_visible=3).classify_garment_photo(_img())[0] == "flat-lay"
+
+
+def test_classification_conservative_model_when_both_detectors_dead():
+    # HARDEST CASE: no detector can answer. Choosing 'model' risks a degraded
+    # render that honest verification fails LOUDLY; choosing 'flat-lay' risks
+    # a silently contaminated render. The loud failure is the correct default.
+    engine = _classifier_engine(_BrokenParser(), pose_raises=True)
+    ptype, evidence = engine.classify_garment_photo(_img())
+    assert ptype == "model"
+    assert evidence["detector"] == "none-conservative"
+
+
+def test_classification_pose_result_is_boolean_not_keypoint_count():
+    engine = _classifier_engine(_BrokenParser(), pose_visible=18)
+    verdict, _ = engine.classify_garment_photo(_img())
+    assert verdict in ("model", "flat-lay") and verdict == "model"
+
+
+def test_render_outfit_records_detector_and_respects_explicit_photo_type():
+    # Explicit client-supplied photo_type is respected verbatim (detector
+    # 'explicit', no detector runs), and the per-layer metadata records BOTH
+    # the photo type and WHICH detector decided it.
+    engine = _engine_with_fake_pipeline()
+    img = _img()
+    _, layers = engine.render_outfit(
+        _img(),
+        garments=[{"image": img, "slot_type": "upper_outer", "photo_type": "flat-lay"}],
+    )
+    assert layers[0]["photo_type"] == "flat-lay"
+    assert layers[0]["photo_type_detector"] == "explicit"
+    assert engine._pipe.calls[0]["photo_type"] == "flat-lay"
+
+
+def test_render_outfit_end_to_end_dwpose_fallback_flow():
+    # End-to-end: parser dead + worn garment -> DWPose decides 'model' ->
+    # the pipeline receives garment_photo_type='model' (masking ON) and the
+    # layer metadata shows the dwpose detector.
+    engine = _classifier_engine(_BrokenParser(), pose_visible=6)
+    _, layers = engine.render_outfit(
+        _img(),
+        garments=[{"image": _img(), "slot_type": "upper_outer"}],
+    )
+    assert layers[0]["photo_type"] == "model"
+    assert layers[0]["photo_type_detector"] == "dwpose"
+    assert engine._pipe.calls[0]["photo_type"] == "model"

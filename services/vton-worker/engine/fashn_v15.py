@@ -66,6 +66,12 @@ MAX_GARMENTS = 3
 # is WORN by a person (model photo) rather than a flat-lay product shot.
 _PERSONHOOD_LABEL_IDS = {1, 2, 12, 13}  # face, hair, arms, hands
 
+# DWPose body keypoints (of 18) above the visibility threshold that mean "a
+# person is present" in the garment photo. Used by the FALLBACK detector
+# when the parser yields no verdict. 4 = face/shoulders minimum silhouette;
+# flat-lays and ghost mannequins produce none.
+_PERSON_KEYPOINT_MIN = 4
+
 
 class FashnV15MultiGarmentEngine(VTONEngine):
     """Multi-garment adapter around the pristine fashn-vton-1.5 pipeline."""
@@ -172,7 +178,7 @@ class FashnV15MultiGarmentEngine(VTONEngine):
         contains none. Returns 'model' or 'flat-lay'.
         """
         if seg_pred is None:
-            return "flat-lay"  # no parser verdict: safe default
+            return "flat-lay"  # no parser verdict: see classify_garment_photo
         try:
             import numpy as np
 
@@ -180,6 +186,57 @@ class FashnV15MultiGarmentEngine(VTONEngine):
             return "model" if labels & _PERSONHOOD_LABEL_IDS else "flat-lay"
         except Exception:
             return "flat-lay"
+
+    def classify_garment_photo(self, garment) -> "tuple":
+        """Two INDEPENDENT detectors decide worn vs flat-lay — the anti-
+        contamination gate for garment images.
+
+        WHY THIS EXISTS: when a garment photo is WORN by a person (a model
+        shot), the pipeline must know so it masks the garment out of the
+        photo before conditioning the diffusion. Treating a worn photo as a
+        flat-lay feeds the photo's PERSON (face, hair, background) into the
+        composition — the exact "the garment photo's person was pasted onto
+        the user" failure. Detection order:
+
+        1. parser labels (primary): person-label pixels present -> 'model';
+        2. DWPose body keypoints (independent fallback, used when the parser
+           yields no verdict): >= _PERSON_KEYPOINT_MIN visible body
+           keypoints -> 'model', else 'flat-lay';
+        3. BOTH inconclusive -> 'model' (CONSERVATIVE). Mislabelling a
+           flat-lay as 'model' at worst degrades one render that honest
+           output verification then fails loudly; mislabelling a worn photo
+           as 'flat-lay' silently contaminates the output. Between a loud
+           failure and a silent bad image, the loud failure is correct.
+
+        Returns (photo_type, evidence) — the evidence records WHICH detector
+        decided, so per-layer metadata shows exactly how the outfit was
+        classified (observable, never assumed).
+        """
+        seg = self._safe_predict(garment)
+        if seg is not None:
+            return self.detect_garment_photo_type(seg), {"detector": "parser"}
+
+        pose_person = self._safe_pose_person(garment)
+        if pose_person is None:
+            return "model", {"detector": "none-conservative"}
+        return ("model" if pose_person else "flat-lay"), {"detector": "dwpose"}
+
+    def _safe_pose_person(self, garment):
+        """DWPose person-presence, degrading to None (inconclusive) instead of
+        failing the job. The pose model is the pipeline's own DWPose instance
+        — an independent signal that shares no weights with the parser."""
+        try:
+            import numpy as np
+
+            pose = self._pipe.pose_model(
+                np.asarray(garment.convert("RGB"))[..., ::-1]  # RGB -> BGR (DWPose)
+            )
+            subset = np.asarray(pose["bodies"]["subset"])
+            # After DWPose's own thresholding, visible keypoints carry their
+            # index and invisible ones are -1: count the visible body ones.
+            return int(np.count_nonzero(subset != -1)) >= _PERSON_KEYPOINT_MIN
+        except Exception:
+            return None
 
     # -- validation ------------------------------------------------------------
 
@@ -278,11 +335,14 @@ class FashnV15MultiGarmentEngine(VTONEngine):
         for idx, g in enumerate(items):
             garment = g["image"].convert("RGB")
             photo_type = g.get("photo_type")
-            if not photo_type:
-                # Auto-detect worn vs flat-lay via the parser (the parser's
-                # second production role after layer masking).
-                seg = self._safe_predict(garment)
-                photo_type = self.detect_garment_photo_type(seg)
+            if photo_type:
+                photo_detector = "explicit"
+            else:
+                # Anti-contamination gate: two independent detectors decide
+                # worn vs flat-lay so a model photo's PERSON never bleeds
+                # into the composition (see classify_garment_photo).
+                photo_type, photo_evidence = self.classify_garment_photo(garment)
+                photo_detector = photo_evidence.get("detector")
 
             layer_person = current
             segmentation_free = True if idx == 0 else (overlay_mode == "segfree")
@@ -306,6 +366,7 @@ class FashnV15MultiGarmentEngine(VTONEngine):
                     "slot_type": g.get("slot_type"),
                     "product_id": g.get("product_id"),
                     "photo_type": photo_type,
+                    "photo_type_detector": photo_detector,
                     "segmentation_free": segmentation_free,
                     "verify": verdict,
                 }

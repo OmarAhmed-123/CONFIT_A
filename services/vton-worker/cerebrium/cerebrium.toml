@@ -1,0 +1,71 @@
+# ==============================================================================
+# CONFIT VTON WORKER (fashn_v15, multi-garment) — Cerebrium deployment
+#
+# Deploys the SAME image the Baseten path uses (see ./Dockerfile — a one-line
+# shim FROM the public GHCR package built by CI from
+# services/vton-worker/baseten/Dockerfile). Nothing is rebuilt here: no pip
+# installs, no weight downloads; the build stage is a base-image pull plus
+# this directory's files.
+#
+# Routes map 1:1 onto the worker's server_core contract:
+#     https://api.cerebrium.ai/v4/<project-id>/confit-vton-worker/health
+#     https://api.cerebrium.ai/v4/<project-id>/confit-vton-worker/readiness
+#     https://api.cerebrium.ai/v4/<project-id>/confit-vton-worker/process
+#
+# Deploy (from this directory):
+#     export CEREBRIUM_SERVICE_ACCOUNT_TOKEN=<token>
+#     cerebrium project set <project-id>          # p-b99cd366 as of 2026-10-04
+#     cerebrium deploy --config-file cerebrium.toml
+#
+# Prerequisites (dashboard, one-time):
+#   * Service account with deploy grants on the project (API Keys page).
+#   * Project secret VTON_WORKER_ADMIN_TOKEN = the X-VTON-Admin token (same
+#     value as the Baseten secret confit_worker_admin_token) — injected as an
+#     env var at runtime; never baked into any image or file.
+#
+# Auth model: disable_auth = false → Cerebrium requires its inference token in
+# the Authorization header, AND the worker still enforces X-VTON-Admin
+# (defense in depth; the API service sends both).
+# ==============================================================================
+
+[cerebrium.deployment]
+name = "confit-vton-worker"
+python_version = "3.11"
+disable_auth = false
+# Only this directory ships; the heavy lifting (deps, code, weights) is in the
+# base image the Dockerfile pulls.
+include = ["./Dockerfile", "./cerebrium.toml"]
+exclude = [".*"]
+# With dockerfile_path set, dependencies/shell_commands are ignored by design —
+# the base image already contains everything.
+shell_commands = []
+pre_build_commands = []
+
+[cerebrium.runtime.custom]
+# EXPOSE 8000 and CMD uvicorn baseten_server:app are inherited from the base
+# image; the port here must match it.
+port = 8000
+healthcheck_endpoint = "/health"
+readycheck_endpoint = "/readiness"
+dockerfile_path = "./Dockerfile"
+
+[cerebrium.hardware]
+# NVIDIA L4 (24GB) — cheapest GPU that fits the v15 pipeline; Hobby+ plan.
+# Identifier from https://docs.cerebrium.ai/cerebrium/hardware/using-gpus.
+compute = "ADA_L4"
+cpu = 4
+memory = 16.0
+gpu_count = 1
+provider = "aws"
+region = "us-east-1"
+
+[cerebrium.scaling]
+# Surgical scale-to-zero: a replica exists ONLY while a real request runs
+# (plus the cooldown window). max_replicas=1 keeps demo spend bounded and
+# guarantees one cold load at a time; raise only with measured need.
+min_replicas = 0
+max_replicas = 1
+replica_concurrency = 1
+cooldown = 60
+# Long grace period: try-on renders can take minutes; never cut one mid-flight.
+response_grace_period = 900

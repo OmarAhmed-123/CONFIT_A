@@ -167,6 +167,57 @@ async function trySessionRefresh(): Promise<boolean> {
   return refreshInFlight;
 }
 
+/**
+ * Fetch a FILE (e.g. the admin brand-report PDF) with the same session
+ * semantics as `request`: httpOnly cookie auth, session token header, one
+ * transparent refresh on 401, honest ApiError otherwise. Returns the raw
+ * blob plus the server's Content-Disposition filename — the SERVER names
+ * the artifact; the client never invents a filename for real data.
+ */
+export async function requestBlob(
+  endpoint: string,
+  isRetry = false
+): Promise<{ blob: Blob; filename: string | null }> {
+  const url = `${API_BASE_URL}${endpoint}`;
+  const headers = new Headers();
+  headers.set('X-Session-Token', getSessionToken());
+
+  const res = await fetchWithTimeout(url, { headers }, timeoutForEndpoint(endpoint));
+
+  if (res.ok) {
+    const contentType = res.headers.get('content-type') || '';
+    // An HTML body with 200 means static hosting answered, not the API —
+    // the same dishonesty class request() guards against.
+    if (contentType.includes('text/html')) {
+      throw new ApiError(
+        'The server returned a non-file response. The API may not be deployed.',
+        'API_NOT_REACHABLE',
+        res.status
+      );
+    }
+    const disposition = res.headers.get('content-disposition') || '';
+    const match = disposition.match(/filename="([^"]+)"/);
+    return { blob: await res.blob(), filename: match ? match[1] : null };
+  }
+
+  if (res.status === 401 && !isRetry) {
+    if (await trySessionRefresh()) {
+      return requestBlob(endpoint, true);
+    }
+  }
+
+  let message = `Request failed with status ${res.status}`;
+  let code = 'API_ERROR';
+  try {
+    const body = await res.json();
+    message = body?.error?.message || body?.detail || message;
+    code = body?.error?.code || code;
+  } catch {
+    /* non-JSON error body: keep the status-based message */
+  }
+  throw new ApiError(message, code, res.status);
+}
+
 export async function request<T>(
   endpoint: string,
   options: RequestInit = {},

@@ -6,6 +6,7 @@ import { LoadingSpinner, EmptyState } from '../../components/common/CommonCompon
 import { CardStackShowcase } from '../../components/showcase/DesignShowcases';
 import { ReadinessBanner } from '../../components/admin/ReadinessBanner';
 import { Reveal } from '../../components/common/Surface';
+import { BrandReportDownloadButton } from '../../components/admin/BrandReportDownloadButton';
 import type { StyleHeatmapCell } from '../../models';
 
 const HeatmapDimension: React.FC<{
@@ -479,6 +480,8 @@ export const AdminAnalyticsView: React.FC = () => {
                 </th>
                 <th scope="col" className="py-2">{t('admin_analytics.tryon_rate')}</th>
                 <th scope="col" className="py-2">{t('admin_analytics.return_rate')}</th>
+                {/* Spec 12 export: the real PDF contract, next to each brand. */}
+                <th scope="col" className="py-2">{t('admin_catalog.report_pdf')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -516,6 +519,18 @@ export const AdminAnalyticsView: React.FC = () => {
                   </td>
                   <td className="py-3" dir="ltr">{brand.tryon_rate ?? na}</td>
                   <td className="py-3" dir="ltr">{brand.return_rate ?? na}</td>
+                  <td className="py-3">
+                    {brand.brand_id ? (
+                      <BrandReportDownloadButton
+                        brandId={brand.brand_id}
+                        brandName={brand.brand}
+                      />
+                    ) : (
+                      /* No brand_id on the row ⇒ no real endpoint to call —
+                         say so instead of a dead button (§2 honesty). */
+                      <span className="text-[11px] text-slate-400">{na}</span>
+                    )}
+                  </td>
                 </tr>
                 );
               })}

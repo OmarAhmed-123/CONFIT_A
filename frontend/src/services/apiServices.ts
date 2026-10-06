@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { request } from "./apiClient";
+import { requestBlob, request } from "./apiClient";
 import type { CurrencyCatalog } from "../lib/currency";
 import {
   User,
@@ -1347,6 +1347,10 @@ export type AdminCatalogProductPatch = Omit<AdminCatalogProductInput, "skus">;
 export const adminService = {
   getCatalogBrands: () =>
     request<AdminCatalogBrandSummary[]>("/admin/catalog/brands"),
+  /** Spec 12 export (real contract): one brand's product/sales report as a
+      PDF. Admin-only server-side; every generation is audited server-side. */
+  downloadBrandReportPdf: (brandId: number) =>
+    requestBlob(`/admin/catalog/brands/${brandId}/reports/product-sales.pdf`),
   getCatalogSnapshot: (brandId: number) =>
     request<AdminCatalogSnapshot>(`/admin/catalog/brands/${brandId}`),
   createCatalogProduct: (brandId: number, payload: AdminCatalogProductInput) =>

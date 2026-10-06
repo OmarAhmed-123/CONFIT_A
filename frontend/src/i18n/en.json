@@ -1871,7 +1871,12 @@
     "file": "File",
     "accepted": "Accepted",
     "rejected": "Rejected",
-    "no_imports": "No catalog import jobs exist for this brand."
+    "no_imports": "No catalog import jobs exist for this brand.",
+    "report_pdf": "Report (PDF)",
+    "download_report": "Download the product & sales report for {{brand}} (PDF)",
+    "report_pending": "Preparing the report…",
+    "report_done": "Report downloaded.",
+    "report_failed": "The report could not be generated. The server refused or is unreachable — nothing was downloaded."
   },
   "brand_orders": {
     "title": "Orders & Stock Movement",

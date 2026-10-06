@@ -42,6 +42,7 @@ import { CheckoutView } from '../views/consumer/CheckoutView';
 import { OrderTrackingView } from '../views/consumer/OrderTrackingView';
 import { UserProfileView } from '../views/consumer/UserProfileView';
 import { SharedLookView } from '../views/public/SharedLookView';
+import { EmailUnsubscribeView } from '../views/public/EmailUnsubscribeView';
 import { PrivacyPolicyView, TermsOfServiceView, GdprView } from '../views/legal/LegalViews';
 
 // B2B Views
@@ -123,6 +124,9 @@ export const AppRoutes: React.FC = () => {
       <Routes>
         {/* 0. Public Shared Look (C8) — intentionally outside any guarded layout */}
         <Route path="/looks/:token" element={<SharedLookView />} />
+        {/* Spec 15: landing for email-footer unsubscribe links. PUBLIC —
+            the signed token in the URL is the credential; no session. */}
+        <Route path="/email/unsubscribe" element={<EmailUnsubscribeView />} />
 
         {/* 0b. LEGAL-01: real legal pages — public, not gated behind /profile.
             The audit found Privacy/Terms/GDPR links landing on the

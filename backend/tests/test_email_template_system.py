@@ -415,10 +415,10 @@ def _dispatch(db, monkeypatch, sends: list, *, fail=False, **overrides):
     from backend.app.services import email_outbox as outbox_mod
     from backend.app.services.email_service import EmailDeliveryError
 
-    def fake_send(to, subject, html, text=None):
+    def fake_send(to, subject, html, text=None, headers=None):
         if fail:
             raise EmailDeliveryError("Relay rejected message: 525 5.7.1")
-        sends.append({"to": to, "subject": subject})
+        sends.append({"to": to, "subject": subject, "headers": headers})
         return {"message_id": f"<msg-{len(sends)}@confit.test>"}
 
     monkeypatch.setattr(outbox_mod, "send_email", fake_send)

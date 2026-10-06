@@ -30,6 +30,7 @@ from backend.app.models.brand_analytics import SponsoredPlacement, StyleHeatmapA
 from backend.app.models.catalog_import import CatalogImportJob, BrandAnalyticsEvent
 # Email outbox (spec 15): registered so create_all/alembic autogenerate see it.
 from backend.app.models.email_outbox import EmailOutbox
+from backend.app.models.email_preference import EmailPreference
 
 __all__ = [
     "User",

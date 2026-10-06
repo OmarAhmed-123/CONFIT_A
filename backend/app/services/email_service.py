@@ -53,13 +53,24 @@ def _require_config() -> None:
         raise EmailDeliveryError("EMAIL_PROVIDER is set but EMAIL_FROM_ADDRESS is missing.")
 
 
-def _build_message(to: str, subject: str, html: str, text: str) -> EmailMessage:
+def _build_message(
+    to: str, subject: str, html: str, text: str,
+    headers: "Optional[dict[str, str]]" = None,
+) -> EmailMessage:
     msg = EmailMessage()
     msg["From"] = settings.EMAIL_FROM_ADDRESS
     msg["To"] = to
     msg["Subject"] = subject
     msg["Date"] = formatdate(localtime=False)
     msg["Message-ID"] = make_msgid(domain=(settings.EMAIL_FROM_ADDRESS.partition("@")[2] or "confit.local"))
+    # Spec 15: engagement/marketing mail carries List-Unsubscribe +
+    # List-Unsubscribe-Post (RFC 8058) so inbox providers can render their
+    # native one-click control. The caller decides; transactional mail
+    # passes no headers. Never From/To/Subject overrides.
+    for name, value in (headers or {}).items():
+        if name.lower() in ("from", "to", "subject", "date", "message-id"):
+            continue
+        msg[name] = value
     msg.set_content(text or (html or ""))
     if html:
         msg.add_alternative(html, subtype="html")
@@ -192,7 +203,10 @@ def _decode(value) -> str:
     return str(value)[:300]
 
 
-def send_email(to: str, subject: str, html: str, text: Optional[str] = None) -> dict:
+def send_email(
+    to: str, subject: str, html: str, text: Optional[str] = None,
+    headers: Optional[dict] = None,
+) -> dict:
     """Send one transactional email. Raises EmailDeliveryError on hard failure.
 
     Returns ``{"message_id": ...}`` for audit trails. Two attempts max; the
@@ -200,7 +214,7 @@ def send_email(to: str, subject: str, html: str, text: Optional[str] = None) -> 
     explicitly rejected the message — a rejection is honest and final).
     """
     _require_config()
-    msg = _build_message(to, subject, html, text)
+    msg = _build_message(to, subject, html, text, headers=headers)
     last_error: Optional[Exception] = None
     for attempt in range(1, _ATTEMPTS + 1):
         client = None

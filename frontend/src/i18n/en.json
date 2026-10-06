@@ -2139,5 +2139,26 @@
     "admin": {
       "label": "Platform Governance"
     }
+  },
+  "email_unsubscribe": {
+    "checking": "Checking your link…",
+    "checking_detail": "One moment — we are validating this unsubscribe link.",
+    "invalid_title": "This link is not valid",
+    "invalid_detail": "The unsubscribe link is incomplete or has been altered. You can still manage every email category from your account settings.",
+    "expired_title": "This link has expired",
+    "expired_detail": "Unsubscribe links are signed and expire for your safety. Manage your email preferences from your account settings instead.",
+    "ready_title": "Unsubscribe from {{category}}?",
+    "ready_detail": "This stops {{category}} emails only. Order receipts, payment and shipping notices are not affected — those are facts about your purchases, not promotions.",
+    "working": "Updating your preference…",
+    "done_title": "You are unsubscribed",
+    "done_detail": "We will no longer send you {{category}} emails. This took effect immediately.",
+    "error_title": "The server could not confirm",
+    "error_detail": "Your preference was NOT changed. Please try again — nothing happens until the server confirms.",
+    "confirm_cta": "Unsubscribe from {{category}}",
+    "retry_cta": "Try again",
+    "manage_hint": "You can review or change every email category anytime in",
+    "manage_link": "account settings",
+    "category_engagement": "style updates",
+    "category_marketing": "offers & newsletter"
   }
 }

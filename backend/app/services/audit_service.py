@@ -213,10 +213,17 @@ class AuditTrailService:
                 redaction_markers += 1
 
         # Chain verification runs in ascending id order (oldest → newest);
-        # ``recent`` returns newest-first, so reverse the same sample.
+        # ``verify_chain`` requires ASCENDING ID order — the order the chain
+        # was appended in. ``recent`` sorts by TIMESTAMP (display order), and
+        # two rows written concurrently can carry microsecond-inverted
+        # timestamps while their ids (and hash links) are correct. Reversing
+        # the timestamp order therefore walked such pairs swapped and
+        # reported chain_link_mismatch on an INTACT chain (observed on the
+        # production ledger, rows 862-864, 2026-10-06 verification session).
+        # Sort by id: the chain's own append order, not the display order.
         from backend.app.models.user import AuditLog as _AuditLog
 
-        ordered = list(reversed(rows))
+        ordered = sorted(rows, key=lambda r: r.id)
 
         # Anchor the window's first chained row against its ACTUAL database
         # predecessor, not against whatever the row itself claims: without

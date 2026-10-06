@@ -193,6 +193,30 @@ describe('Discover collection rail — real-data AccessibleCarousel integration'
     expect(screen.getByText(i18n.t('discover.rail_title', { lng: 'ar' }))).toBeInTheDocument();
   });
 
+  /* ---- Spec 11 — depth gallery placement & perf budget on /discover ---- */
+
+  it('spec 11: the depth gallery is the LAST section of /discover (can never be the LCP element)', () => {
+    const { container } = renderView();
+    const pageRoot = container.firstElementChild as HTMLElement;
+    const last = pageRoot.lastElementChild as HTMLElement;
+    // The closing mood/collection moment: the gallery region lives inside
+    // the final section — below every conversion surface.
+    expect(
+      within(last).getByRole('region', { name: i18n.t('showcase.gallery_region') }),
+    ).toBeInTheDocument();
+  });
+
+  it('spec 11 perf budget: at most ONE eager image inside the gallery section', () => {
+    const { container } = renderView();
+    const pageRoot = container.firstElementChild as HTMLElement;
+    const last = pageRoot.lastElementChild as HTMLElement;
+    const eager = Array.from(last.querySelectorAll('img')).filter(
+      (img) => img.getAttribute('loading') !== 'lazy',
+    );
+    // 3D path: front item only is eager; 2D fallback: everything lazy.
+    expect(eager.length).toBeLessThanOrEqual(1);
+  });
+
   it('rail subtree passes axe in the populated state', async () => {
     renderView();
     // Same project convention as carouselSlider.test.tsx: assert the raw

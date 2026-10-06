@@ -494,6 +494,8 @@ integrityNote = t('profile.exported_integrity', {
       <CircularGalleryShowcase
         tone="consumer"
         compact
+        /* Spec 11 §1: 3D is Discover-only — this page always gets the 2D list. */
+        enabled={false}
         eyebrow={t('profile.gallery_eyebrow')}
         title={t('profile.gallery_title')}
         description={t('profile.gallery_body')}

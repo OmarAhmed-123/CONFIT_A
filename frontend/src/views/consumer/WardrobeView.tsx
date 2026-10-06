@@ -317,10 +317,13 @@ export const WardrobeView: React.FC = () => {
         description={t("wardrobe.showcase_rotations_desc")}
       />
 
+      {/* Spec 11 §1: the 3D depth experience is Discover-ONLY. Other pages
+          keep the gallery as the accessible 2D list (design variety intact). */}
       <CircularGalleryShowcase
         tone="wardrobe"
         compact
-        eyebrow="Circular Closet Capsules"
+        enabled={false}
+        eyebrow={t('wardrobe.capsule_eyebrow')}
         title={t('wardrobe.capsule_caption')}
         description={t("wardrobe.showcase_capsule_desc")}
       />

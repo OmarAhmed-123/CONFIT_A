@@ -468,7 +468,8 @@
     "import_status_ready": "Extracted ✓",
     "import_status_retryable": "Saved (AI retryable)",
     "import_skipped_note": "Not detected (reported honestly): {{labels}}",
-    "import_engine_note": "SCHP-ATR-18 + BiRefNet (MIT)"
+    "import_engine_note": "SCHP-ATR-18 + BiRefNet (MIT)",
+    "capsule_eyebrow": "Circular closet capsules"
   },
   "commerce": {
     "add_to_cart": "Add to Bag",

@@ -14,6 +14,7 @@ import {
 } from "../icons/ConfitIcons";
 import { FitScoreBadge } from "../common/CommonComponents";
 import { useTryOnAvailability } from "../../hooks/useTryOnAvailability";
+import { StatusIcon } from '../common/InteractionPrimitives';
 
 const getResolvedOutfitItems = (outfit: any) => {
   if (outfit.items && outfit.items.length > 0) {
@@ -429,6 +430,14 @@ export const VirtualStylistDrawer: React.FC = () => {
                             className={`p-2.5 rounded-xl border text-[11px] ${outfit.within_budget ? "bg-emerald-50 border-emerald-200 text-emerald-800" : "bg-amber-50 border-amber-300 text-amber-800"}`}
                           >
                             <div className="flex items-center gap-1.5 font-bold">
+                              {/* Spec 14: semantic shape instead of the old
+                                  check/warn unicode glyphs that lived in the
+                                  locale strings — words + shape, colour third. */}
+                              <StatusIcon
+                                status={outfit.within_budget ? "success" : "warning"}
+                                size={12}
+                                className="text-current"
+                              />
                               <span>
                                 {outfit.within_budget
                                   ? t("stylist.within_budget")

@@ -129,13 +129,36 @@ export const StatusIcon: React.FC<{
     return <span {...shared}>{icon}</span>;
   }
 
+  // Re-pass: each status speaks its OWN motion dialect — one short,
+  // one-shot phrase (§8 "no continuous dancing"), transform/opacity only:
+  //   success  settles in with a confident pop,
+  //   error    gives one brief "no" shake,
+  //   warning  tilts once like a raised flag.
+  // `key={status}` remounts on every status CHANGE so the entrance replays
+  // when loading→success or success→error swap on the same mounted host —
+  // without it framer only plays `initial` on first mount and later
+  // transitions appeared with no feedback at all.
+  const entrance =
+    status === "success"
+      ? {
+          initial: { opacity: 0, scale: 0.5 },
+          animate: { opacity: 1, scale: [0.5, 1.08, 1] },
+          transition: { duration: 0.28, ease: "easeOut" as const },
+        }
+      : status === "error"
+        ? {
+            initial: { opacity: 0 },
+            animate: { opacity: 1, x: [0, -2, 2, -1, 0] },
+            transition: { duration: 0.3, ease: "easeOut" as const },
+          }
+        : {
+            initial: { opacity: 0, rotate: -8 },
+            animate: { opacity: 1, rotate: [-8, 4, 0] },
+            transition: { duration: 0.26, ease: "easeOut" as const },
+          };
+
   return (
-    <motion.span
-      {...shared}
-      initial={{ opacity: 0, scale: 0.8 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.18, ease: "easeOut" }}
-    >
+    <motion.span key={status} {...shared} {...entrance}>
       {icon}
     </motion.span>
   );
@@ -475,9 +498,9 @@ export const AsyncActionButton: React.FC<AsyncActionButtonProps> = ({
             className="inline-block w-3.5 h-3.5 rounded-full border-2 border-current border-t-transparent motion-safe:animate-spin"
           />
         ) : state === "success" ? (
-          <span aria-hidden="true" className="font-bold">
-            ✓
-          </span>
+          // Spec 14 §8: no unicode glyph as a production status — the shared
+          // semantic shape, decorative beside the visible success label.
+          <StatusIcon status="success" size={14} className="text-current" />
         ) : (
           // Decorative inside a text-labelled button: without aria-hidden the
           // icon's own label (e.g. "Shopping Bag") leaks into the accessible

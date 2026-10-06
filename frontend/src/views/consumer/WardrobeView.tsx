@@ -1341,7 +1341,7 @@ export const WardrobeView: React.FC = () => {
                           : r.status === "duplicate"
                             ? "Duplicate — already owned"
                             : r.item?.processing_status === "ready"
-                              ? "Analyzed ✓"
+                              ? "Analyzed"
                               : r.item?.processing_status === "failed"
                                 ? "Saved (AI retryable)"
                                 : "Processing…"}

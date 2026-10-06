@@ -1,6 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { StatusIcon } from '../common/InteractionPrimitives';
 
 interface BoundaryState {
   error: Error | null;
@@ -58,8 +59,10 @@ export const TryOnStudioErrorBoundary: React.FC<{ children: React.ReactNode }> =
           role="alert"
           className="mx-auto my-12 max-w-2xl rounded-3xl border border-amber-200 bg-white p-6 text-center shadow-sm sm:p-10"
         >
-          <span aria-hidden="true" className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-50 text-xl">
-            ⚠️
+          {/* Spec 14 §8: semantic shape, not an emoji — the heading beside
+              it carries the meaning; the badge is decorative. */}
+          <span aria-hidden="true" className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-50">
+            <StatusIcon status="warning" size={24} className="text-amber-600" />
           </span>
           <h1 className="mt-4 font-serif text-2xl font-bold text-[#1B1F3B]">
             {t('tryon.studio_error_title')}

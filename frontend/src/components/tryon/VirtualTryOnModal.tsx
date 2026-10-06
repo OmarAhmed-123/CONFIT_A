@@ -20,6 +20,7 @@ import { CameraScanModal } from "./CameraScanModal";
 import { compressImageToDataUrl } from "../../lib/imageUpload";
 import { usePhotoConsent } from "../../privacy/usePhotoConsent";
 import { formatMoney } from '../../i18n/format';
+import { StatusIcon } from '../common/InteractionPrimitives';
 
 export const VirtualTryOnModal: React.FC = () => {
   const { t, i18n } = useTranslation();
@@ -629,7 +630,7 @@ export const VirtualTryOnModal: React.FC = () => {
                     {/* Active Rendering Overlay */}
                     {isRendering && (
                       <div className="absolute inset-0 bg-slate-950/70 backdrop-blur-xs flex flex-col items-center justify-center p-6 text-center space-y-3 animate-in fade-in duration-150">
-                        <div className="w-10 h-10 border-3 border-[#C5A059] border-t-transparent rounded-full animate-spin"></div>
+                        <div className="w-10 h-10 border-3 border-[#C5A059] border-t-transparent rounded-full motion-safe:animate-spin"></div>
                         <div>
                           <h4 className="font-serif text-sm font-bold text-white">
                             Synthesizing Virtual Try-On Layer...
@@ -837,7 +838,7 @@ export const VirtualTryOnModal: React.FC = () => {
                             </span>
                             {isAlreadyDressed && (
                               <span className="absolute bottom-1 right-1 px-2 py-0.5 rounded-full bg-emerald-600 text-[9px] text-white font-bold shadow-xs">
-                                ✓ In Outfit
+                                <StatusIcon status="success" size={9} className="me-0.5 align-middle" /> In Outfit
                               </span>
                             )}
                           </div>

@@ -336,7 +336,7 @@ export const BrandCatalogView: React.FC = () => {
               />
               {isUploading ? (
                 <div className="space-y-2">
-                  <div className="animate-spin w-6 h-6 border-2 border-[#1B1F3B] border-t-transparent rounded-full mx-auto"></div>
+                  <div className="motion-safe:animate-spin w-6 h-6 border-2 border-[#1B1F3B] border-t-transparent rounded-full mx-auto"></div>
                   <div className="text-xs font-semibold text-[#1B1F3B]">Processing CSV...</div>
                 </div>
               ) : (

@@ -11,6 +11,7 @@ import { catalogService } from "../../services/apiServices";
 import { HonestProductImage } from "../common/HonestProductImage";
 import { useTryOnAvailability } from "../../hooks/useTryOnAvailability";
 import { formatMoney } from '../../i18n/format';
+import { StatusIcon } from '../common/InteractionPrimitives';
 
 export const VisualSearchModal: React.FC = () => {
   const { t, i18n } = useTranslation();
@@ -259,7 +260,7 @@ export const VisualSearchModal: React.FC = () => {
               role="alert"
             >
               <div className="flex items-start gap-2 bg-rose-50 border border-rose-200 p-3 rounded-xl text-xs text-rose-700">
-                <span aria-hidden="true">⚠️</span>
+                <StatusIcon status="error" size={14} className="mt-0.5 shrink-0" />
                 <span>{visualSearchError}</span>
               </div>
               <button

@@ -188,7 +188,7 @@ export const RoleGuard: React.FC<RoleGuardProps> = ({
         aria-live="polite"
       >
         <div className="flex flex-col items-center gap-4 text-slate-400">
-          <div className="w-10 h-10 rounded-full border-2 border-[#C5A059]/30 border-t-[#C5A059] animate-spin" aria-hidden="true" />
+          <div className="w-10 h-10 rounded-full border-2 border-[#C5A059]/30 border-t-[#C5A059] motion-safe:animate-spin" aria-hidden="true" />
           <span className="text-[11px] tracking-widest uppercase font-semibold">
             {t('guard.verifying_session')}
           </span>

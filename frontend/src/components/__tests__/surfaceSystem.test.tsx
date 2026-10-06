@@ -28,7 +28,7 @@ import { axe } from 'vitest-axe';
 import { I18nextProvider } from 'react-i18next';
 
 import i18n, { setAppLanguage } from '../../i18n/i18n';
-import { Surface, GlassPanel } from '../common/Surface';
+import { Surface, GlassPanel, Reveal } from '../common/Surface';
 
 const css = fs.readFileSync(
   path.join(__dirname, '../../styles/index.css'),
@@ -325,6 +325,69 @@ describe('Surface reveal (re-pass)', () => {
     );
     const el = screen.getByLabelText('spec panel');
     expect(el.tagName).toBe('SECTION');
+    restore();
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/* F. Spec 12 re-pass: Reveal — the entrance WITHOUT surface chrome    */
+/* ------------------------------------------------------------------ */
+describe('Reveal (chrome-less entrance, spec 12 admin)', () => {
+  const stubMatchMedia = (reduce: boolean) => {
+    const original = window.matchMedia;
+    window.matchMedia = ((query: string) => ({
+      matches: reduce && query.includes('prefers-reduced-motion'),
+      media: query,
+      onchange: null,
+      addListener: () => {},
+      removeListener: () => {},
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      dispatchEvent: () => false,
+    })) as unknown as typeof window.matchMedia;
+    return () => {
+      window.matchMedia = original;
+    };
+  };
+
+  it('motion: children + caller classes render from the FIRST frame, no surface class injected', () => {
+    const restore = stubMatchMedia(false);
+    render(
+      <Reveal data-testid="r" className="grid gap-5">
+        KPI cards
+      </Reveal>,
+    );
+    const el = screen.getByTestId('r');
+    expect(el.className).toContain('grid');
+    expect(el.className).not.toContain('surface-');
+    expect(screen.getByText('KPI cards')).toBeInTheDocument();
+    restore();
+  });
+
+  it('reduced motion: byte-identical static element (same tag, same classes, no animated opacity)', () => {
+    const restore = stubMatchMedia(true);
+    render(
+      <Reveal data-testid="r2" as="section" aria-label="audit header" className="pb-4">
+        header
+      </Reveal>,
+    );
+    const el = screen.getByTestId('r2');
+    expect(el.tagName).toBe('SECTION');
+    expect(el.getAttribute('aria-label')).toBe('audit header');
+    expect(el.className).toBe('pb-4');
+    expect(el.style.opacity).not.toBe('0');
+    restore();
+  });
+
+  it('semantic `as` + ARIA pass through under motion too', () => {
+    const restore = stubMatchMedia(false);
+    render(
+      <Reveal as="header" aria-label="admin header" delay={0.1}>
+        h
+      </Reveal>,
+    );
+    const el = screen.getByLabelText('admin header');
+    expect(el.tagName).toBe('HEADER');
     restore();
   });
 });

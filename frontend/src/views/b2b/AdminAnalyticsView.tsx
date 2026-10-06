@@ -5,6 +5,7 @@ import { useBrandViewModel } from '../../viewmodels/useBrandViewModel';
 import { LoadingSpinner, EmptyState } from '../../components/common/CommonComponents';
 import { CardStackShowcase } from '../../components/showcase/DesignShowcases';
 import { ReadinessBanner } from '../../components/admin/ReadinessBanner';
+import { Reveal } from '../../components/common/Surface';
 import type { StyleHeatmapCell } from '../../models';
 
 const HeatmapDimension: React.FC<{
@@ -54,7 +55,7 @@ export const AdminAnalyticsView: React.FC = () => {
   const analyticsDays = (WINDOW_CHOICES as readonly number[]).includes(daysParam)
     ? daysParam
     : undefined;
-  const { adminAnalytics, fetchErrors, isLoading, refresh } = useBrandViewModel('admin', {
+  const { adminAnalytics, fetchErrors, fetchErrorMeta = {}, isLoading, refresh } = useBrandViewModel('admin', {
     analyticsDays,
   });
 
@@ -94,6 +95,18 @@ export const AdminAnalyticsView: React.FC = () => {
   }
 
   if (!adminAnalytics) {
+    // §5 permission denied ≠ outage: a server-side 401/403 is a ROLE verdict.
+    // Localized (the raw server string is English-only), and no retry button —
+    // retrying cannot change a refusal, it only suggests the data is flaky.
+    const denialStatus = fetchErrorMeta.adminAnalytics?.status;
+    if (denialStatus === 401 || denialStatus === 403) {
+      return (
+        <EmptyState
+          title={t('admin_analytics.permission_denied_title')}
+          description={t('admin_analytics.permission_denied_body')}
+        />
+      );
+    }
     return (
       <EmptyState
         title={t('admin_analytics.unavailable_title')}
@@ -208,8 +221,9 @@ export const AdminAnalyticsView: React.FC = () => {
         </div>
       </div>
 
-      {/* Platform Macro KPIs - REAL */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+      {/* Platform Macro KPIs - REAL. Reveal = spec-09 entrance (opacity/
+          translate only, reduced-motion renders the identical static grid). */}
+      <Reveal className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         <div className="bg-white rounded-3xl border border-slate-200 p-5 shadow-sm space-y-1">
           <span className="text-xs font-bold uppercase text-slate-500">{t('admin_analytics.gmv_title')}</span>
           <div className="font-serif text-2xl font-black text-[#1B1F3B]" dir="ltr">
@@ -261,10 +275,10 @@ export const AdminAnalyticsView: React.FC = () => {
             })}
           </div>
         </div>
-      </div>
+      </Reveal>
 
       {/* Revenue Attribution & Style Preference Heatmap - REAL */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+      <Reveal delay={0.1} className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         <div className="lg:col-span-6 bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-4">
           <div className="pb-3 border-b border-slate-100">
             <h2 className="font-serif text-lg font-bold text-[#1B1F3B]">
@@ -367,7 +381,7 @@ export const AdminAnalyticsView: React.FC = () => {
             </ul>
           )}
         </div>
-      </div>
+      </Reveal>
 
       {/* Most Styled Items - REAL */}
       {adminAnalytics.most_styled_items?.length ? (
@@ -408,7 +422,7 @@ export const AdminAnalyticsView: React.FC = () => {
           return sortDir === 'desc' ? Number(bv) - Number(av) : Number(av) - Number(bv);
         });
         return (
-      <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-4">
+      <Reveal delay={0.15} className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-4">
         <h2 className="font-serif text-lg font-bold text-[#1B1F3B]">{t('admin_analytics.brand_perf_title')}</h2>
         <p className="text-[11px] text-slate-600">{t('admin_analytics.brand_perf_methodology')}</p>
         <div
@@ -513,7 +527,7 @@ export const AdminAnalyticsView: React.FC = () => {
             </div>
           )}
         </div>
-      </div>
+      </Reveal>
         );
       })()}
 

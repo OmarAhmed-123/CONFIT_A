@@ -39,6 +39,12 @@ export function useBrandViewModel(
   // never masquerade as an empty dataset or an eternal spinner. Views render
   // an explicit error + retry for these instead of "no data" copy.
   const [fetchErrors, setFetchErrors] = useState<Record<string, string>>({});
+  // Spec 12 §5: the HTTP status/code of each failure, so views can tell a
+  // permission refusal (401/403) from an outage. Parallel to fetchErrors —
+  // additive, nothing existing changes shape.
+  const [fetchErrorMeta, setFetchErrorMeta] = useState<
+    Record<string, { status?: number; code?: string; message: string }>
+  >({});
   const [loadFailed, setLoadFailed] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
@@ -74,12 +80,20 @@ export function useBrandViewModel(
       // owned — a 500 on one must not be shown to the operator as
       // "nothing to import"/"no conversions"/an eternal loading spinner).
       const errors: Record<string, string> = {};
+      const errorMeta: Record<string, { status?: number; code?: string; message: string }> = {};
       results.forEach((r, i) => {
         if (r.status === 'rejected') {
-          errors[keys[i]] = (r.reason as any)?.message || `Failed to load ${keys[i]}.`;
+          const reason = r.reason as any;
+          errors[keys[i]] = reason?.message || `Failed to load ${keys[i]}.`;
+          errorMeta[keys[i]] = {
+            status: typeof reason?.status === 'number' ? reason.status : undefined,
+            code: typeof reason?.code === 'string' ? reason.code : undefined,
+            message: errors[keys[i]],
+          };
         }
       });
       setFetchErrors(errors);
+      setFetchErrorMeta(errorMeta);
       // The dashboard/analyst/admin/placements views block on their payload:
       // if EVERY request failed there is no data to block on — surface a
       // terminal error state instead of an infinite spinner.
@@ -176,6 +190,7 @@ export function useBrandViewModel(
     importJobs,
     conversionPerSku,
     fetchErrors,
+    fetchErrorMeta,
     loadFailed,
     isLoading,
     isUploading,

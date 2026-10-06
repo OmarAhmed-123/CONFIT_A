@@ -356,3 +356,64 @@ describe('axe + AR', () => {
     expect(results.violations).toEqual([]);
   });
 });
+
+/* ------------------------------------------------------------------ */
+/* H. Spec 12 re-pass — 401/403 is a ROLE verdict, not an outage (§5)  */
+/* ------------------------------------------------------------------ */
+describe('permission refusal — localized, no futile retry', () => {
+  it('403 on analytics renders the localized refusal and NO retry button', () => {
+    vmMock.mockReturnValue(vmValue({
+      adminAnalytics: null,
+      fetchErrors: { adminAnalytics: 'Admin role required for platform analytics.' },
+      fetchErrorMeta: { adminAnalytics: { status: 403, message: 'Admin role required for platform analytics.' } },
+    }));
+    renderAnalytics();
+    expect(screen.getByText('Access refused by the server')).toBeInTheDocument();
+    // A refusal is not flaky data: retrying cannot change the role verdict.
+    expect(screen.queryByRole('button', { name: /Retry|Try again/i })).not.toBeInTheDocument();
+    // And no cached numbers leak around the refusal.
+    expect(screen.queryByText('Alpha')).not.toBeInTheDocument();
+  });
+
+  it('the Arabic shell shows the refusal in Arabic — not the raw EN server string', async () => {
+    await act(async () => { await setAppLanguage('ar'); });
+    vmMock.mockReturnValue(vmValue({
+      adminAnalytics: null,
+      fetchErrors: { adminAnalytics: 'Admin role required for platform analytics.' },
+      fetchErrorMeta: { adminAnalytics: { status: 403, message: 'Admin role required for platform analytics.' } },
+    }));
+    renderAnalytics();
+    expect(screen.getByText('السيرفر رفض الوصول')).toBeInTheDocument();
+    expect(screen.queryByText('Admin role required for platform analytics.')).not.toBeInTheDocument();
+    await act(async () => { await setAppLanguage('en'); });
+  });
+
+  it('a plain outage (no status / 500) keeps the generic error WITH retry — regression', () => {
+    const refresh = vi.fn();
+    vmMock.mockReturnValue(vmValue({
+      adminAnalytics: null,
+      fetchErrors: { adminAnalytics: 'upstream exploded' },
+      fetchErrorMeta: { adminAnalytics: { status: 500, message: 'upstream exploded' } },
+      refresh,
+    }));
+    renderAnalytics();
+    expect(screen.getByText('upstream exploded')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Retry|Try again/i }));
+    expect(refresh).toHaveBeenCalled();
+  });
+
+  it('403 on the audit trail renders the localized refusal and NO retry', async () => {
+    requestMock.mockRejectedValue(
+      Object.assign(new Error('Admin role required.'), { status: 403 }),
+    );
+    render(
+      <MemoryRouter initialEntries={['/admin/audit']}>
+        <Routes>
+          <Route path="/admin/audit" element={<AdminAuditView />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    expect(await screen.findByText('Access refused by the server')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Retry|Try again/i })).not.toBeInTheDocument();
+  });
+});

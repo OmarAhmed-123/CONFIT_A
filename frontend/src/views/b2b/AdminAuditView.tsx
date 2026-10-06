@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 import { LoadingSpinner, EmptyState } from '../../components/common/CommonComponents';
 import { request } from '../../services/apiClient';
+import { Reveal } from '../../components/common/Surface';
 import type { AuditTrailPage, AuditIntegrity } from '../../models';
 
 /**
@@ -104,11 +105,15 @@ export const AdminAuditView: React.FC = () => {
   const [integrity, setIntegrity] = React.useState<AuditIntegrity | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
+  // §5: HTTP status of the failure — 401/403 renders the localized
+  // permission refusal instead of a retry that cannot succeed.
+  const [errorStatus, setErrorStatus] = React.useState<number | null>(null);
   const [expanded, setExpanded] = React.useState<number | null>(null);
 
   const load = React.useCallback(async () => {
     setLoading(true);
     setError(null);
+    setErrorStatus(null);
     try {
       const [trail, check] = await Promise.all([
         request<AuditTrailPage>(`/admin/audit?${buildQuery(filters, page)}`),
@@ -118,6 +123,7 @@ export const AdminAuditView: React.FC = () => {
       setIntegrity(check);
     } catch (err: any) {
       setError(err?.message || t('admin_audit.unavailable_fallback'));
+      setErrorStatus(typeof err?.status === 'number' ? err.status : null);
     } finally {
       setLoading(false);
     }
@@ -150,6 +156,14 @@ export const AdminAuditView: React.FC = () => {
   }
 
   if (error && !data) {
+    if (errorStatus === 401 || errorStatus === 403) {
+      return (
+        <EmptyState
+          title={t('admin_audit.permission_denied_title')}
+          description={t('admin_audit.permission_denied_body')}
+        />
+      );
+    }
     return (
       <EmptyState
         title={t('admin_audit.unavailable_title')}
@@ -177,16 +191,19 @@ export const AdminAuditView: React.FC = () => {
 
   return (
     <div className="space-y-6 pb-20 text-slate-900">
-      <header className="border-b border-slate-200 pb-4">
+      {/* Reveal = spec-09 entrance; reduced-motion renders the identical
+          static element (§7). */}
+      <Reveal as="header" className="border-b border-slate-200 pb-4">
         <span className="text-[10px] font-bold uppercase tracking-widest text-[#765515]">
           {t('admin_audit.eyebrow')}
         </span>
         <h1 className="font-serif text-3xl font-bold">{t('admin_audit.title')}</h1>
         <p className="mt-1 text-xs text-slate-600">{t('admin_audit.lede')}</p>
-      </header>
+      </Reveal>
 
       {integrity && (
-        <section
+        <Reveal
+          as="section"
           className={`rounded-2xl border p-4 text-xs ${
             integrity.verdict === 'ok'
               ? 'border-emerald-500/30 bg-emerald-500/5'
@@ -285,7 +302,7 @@ export const AdminAuditView: React.FC = () => {
               ))}
             </ul>
           )}
-        </section>
+        </Reveal>
       )}
 
       <form

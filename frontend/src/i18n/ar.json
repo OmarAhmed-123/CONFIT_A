@@ -1249,7 +1249,9 @@
     "col_details": "التفاصيل",
     "show_details": "عرض تفاصيل صف التدقيق {{id}}",
     "hide_details": "إخفاء تفاصيل صف التدقيق {{id}}",
-    "verification_run_chain": "تشغيلات التحقق: {{signed}} موقعة · {{unsigned}} قديمة غير موقعة · {{forged}} اشتباه تزوير · {{breaks}} كسور · {{coverage}} · مرساة الذيل: {{anchor}}"
+    "verification_run_chain": "تشغيلات التحقق: {{signed}} موقعة · {{unsigned}} قديمة غير موقعة · {{forged}} اشتباه تزوير · {{breaks}} كسور · {{coverage}} · مرساة الذيل: {{anchor}}",
+    "permission_denied_title": "السيرفر رفض الوصول",
+    "permission_denied_body": "حسابك لم يعد يحمل دور الأدمن المطلوب لسجل التدقيق. الرفض صادر من السيرفر — إعادة المحاولة لن تغيّره."
   },
   "admin_heatmap": {
     "title": "خريطة إشارات الأسلوب — {{scope}}",
@@ -1597,7 +1599,9 @@
     "window_unreported": "النافذة: لم يبلغ عنها إصدار الخادم الحالي",
     "fetched_at": "جُلبت في {{time}}",
     "refresh": "تحديث البيانات",
-    "drill_down": "فتح حوكمة الكتالوج لعلامة {{brand}}"
+    "drill_down": "فتح حوكمة الكتالوج لعلامة {{brand}}",
+    "permission_denied_title": "السيرفر رفض الوصول",
+    "permission_denied_body": "حسابك لم يعد يحمل دور الأدمن المطلوب لتحليلات المنصة. الرفض صادر من السيرفر — إعادة المحاولة لن تغيّره. إن كان ذلك غير متوقع، اطلب من أدمن آخر مراجعة دورك في سجل التدقيق."
   },
   "profile": {
     "mfa_setup_failed": "فشل إعداد المصادقة الثنائية: {{detail}}",

@@ -8,6 +8,7 @@ import {
   type AdminCatalogProductPatch,
 } from '../../services/apiServices';
 import { Reveal } from '../../components/common/Surface';
+import { BrandReportDownloadButton } from '../../components/admin/BrandReportDownloadButton';
 import type {
   AdminCatalogBrandSummary,
   AdminCatalogProduct,
@@ -389,6 +390,16 @@ export const AdminCatalogView: React.FC = () => {
               </option>
             ))}
           </select>
+          {/* Spec 12 export: the selected brand's real PDF report, right
+              next to its name — admin-only + audited server-side. */}
+          {selectedBrandId != null && (
+            <div className="mt-3">
+              <BrandReportDownloadButton
+                brandId={selectedBrandId}
+                brandName={brands.find((b) => b.id === selectedBrandId)?.brand_name ?? String(selectedBrandId)}
+              />
+            </div>
+          )}
         </div>
       </Reveal>
 

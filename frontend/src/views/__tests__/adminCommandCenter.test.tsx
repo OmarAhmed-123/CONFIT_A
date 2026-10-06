@@ -417,3 +417,35 @@ describe('permission refusal — localized, no futile retry', () => {
     expect(screen.queryByRole('button', { name: /Retry|Try again/i })).not.toBeInTheDocument();
   });
 });
+
+/* ------------------------------------------------------------------ */
+/* I. Spec 12 export — the PDF contract sits next to each brand name   */
+/* ------------------------------------------------------------------ */
+describe('brand report export column', () => {
+  it('every brand row with a brand_id gets a download button named after the brand', () => {
+    renderAnalytics();
+    expect(
+      screen.getByRole('button', { name: 'Download the product & sales report for Alpha (PDF)' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Download the product & sales report for Beta (PDF)' }),
+    ).toBeInTheDocument();
+  });
+
+  it('a row without brand_id shows N/A — never a dead button (§2)', () => {
+    vmMock.mockReturnValue(vmValue({
+      adminAnalytics: {
+        ...ANALYTICS,
+        top_performing_brands: [
+          { brand: 'Legacy Brand', orders: 2, tryon_rate: '1%', return_rate: '0%' },
+        ],
+      },
+    }));
+    renderAnalytics();
+    expect(
+      screen.queryByRole('button', { name: /Download the product & sales report/ }),
+    ).not.toBeInTheDocument();
+    const row = screen.getByText('Legacy Brand').closest('tr')!;
+    expect(row.textContent).toContain('N/A');
+  });
+});

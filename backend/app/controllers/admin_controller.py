@@ -651,6 +651,83 @@ def get_admin_catalog_snapshot(
     return result
 
 
+@router.get("/catalog/brands/{brand_id}/reports/product-sales.pdf")
+def get_admin_brand_report_pdf(
+    brand_id: int,
+    request: Request,
+    date_from: Optional[str] = Query(None, description="ISO date, inclusive"),
+    date_to: Optional[str] = Query(None, description="ISO date, inclusive"),
+    user: User = Depends(require_role([UserRole.ADMIN])),
+    db: Session = Depends(get_db),
+):
+    """One brand's product/sales report as a PDF, for a platform admin.
+
+    This closes the documented spec-12 export gap WITH a real contract:
+    the exact dataset the brand itself gets from
+    ``/brand/reports/product-sales`` (same service, same SQL — the admin
+    sees what the partner sees, never a privileged superset with PII),
+    rendered by the same ``reportlab`` renderer, downloadable from the
+    command center next to each brand name.
+
+    Governance: the export is admin-only (server-side RBAC) and every
+    generation writes an immutable audit row BEFORE the bytes leave, so
+    the trail can answer "who exported which brand's numbers, when, from
+    where". A missing renderer or an unknown brand is said plainly —
+    never an empty 200.
+    """
+    from datetime import datetime as _dt
+
+    parsed = {}
+    for name, raw in (("date_from", date_from), ("date_to", date_to)):
+        if not raw:
+            parsed[name] = None
+            continue
+        try:
+            parsed[name] = _dt.fromisoformat(raw)
+        except ValueError:
+            raise HTTPException(status_code=422,
+                                detail=f"{name} must be ISO-8601 (YYYY-MM-DD)")
+    if parsed["date_from"] and parsed["date_to"] and parsed["date_from"] > parsed["date_to"]:
+        raise HTTPException(status_code=422,
+                            detail="date_from must be on or before date_to")
+
+    from backend.app.services.brand_report_service import BrandReportService
+    try:
+        data = BrandReportService(db).build_product_sales_report(
+            brand_id, date_from=parsed["date_from"], date_to=parsed["date_to"])
+    except ValueError:
+        raise HTTPException(status_code=404, detail=f"Brand {brand_id} not found")
+
+    try:
+        from backend.app.services.brand_report_pdf import render_report_pdf
+    except ImportError:
+        # Never pretend: if the renderer is unavailable, say exactly that.
+        raise HTTPException(
+            status_code=503,
+            detail="PDF rendering is unavailable in this deployment (reportlab "
+                   "missing). The same data is available as JSON at "
+                   "/brand/reports/product-sales for the brand owner.")
+
+    pdf = render_report_pdf(data)
+    _audit_read(
+        request, db, user, "ADMIN_BRAND_REPORT_PDF_GENERATED", "BrandProfile",
+        {
+            "brand_id": brand_id,
+            "rows": len(data["rows"]),
+            "period": data["period"]["label"],
+        },
+    )
+    db.commit()
+
+    from fastapi.responses import Response
+    slug = (data["brand"]["slug"] or f"brand-{brand_id}")
+    stamp = data["generated_at"].strftime("%Y%m%d")
+    return Response(
+        content=pdf, media_type="application/pdf",
+        headers={"Content-Disposition":
+                 f'attachment; filename="confit-{slug}-product-sales-{stamp}.pdf"'})
+
+
 @router.post(
     "/catalog/brands/{brand_id}/products",
     status_code=status.HTTP_201_CREATED,

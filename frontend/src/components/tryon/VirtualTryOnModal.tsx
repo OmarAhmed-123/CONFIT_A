@@ -862,13 +862,16 @@ export const VirtualTryOnModal: React.FC = () => {
                             (capabilityLoading ||
                               supportUnknown ||
                               !isSupported);
+                          // Spec 14 §8: words carry the state — no unicode
+                          // glyph as a status channel (the button's disabled
+                          // state + title explain the rest).
                           const label = isAlreadyDressed
-                            ? "✕ Remove"
+                            ? "Remove"
                             : capabilityLoading || supportUnknown
                               ? "Checking support…"
                               : isSupported
                                 ? "+ Dress on Body"
-                                : "⚠ Not in Virtual Try-On yet";
+                                : "Not in Virtual Try-On yet";
                           const title =
                             capability?.message ||
                             "Virtual try-on support is verified by the backend capability registry before rendering.";

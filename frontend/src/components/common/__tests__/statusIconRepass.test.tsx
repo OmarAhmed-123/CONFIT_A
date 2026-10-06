@@ -158,7 +158,7 @@ describe('source guard (§8/§7)', () => {
         const lines = fs.readFileSync(full, 'utf8').split('\n');
         lines.forEach((line, i) => {
           const code = line.split('//')[0]; // ignore trailing comments
-          if (/[✓✔✗✅❌]|⚠️/u.test(code) && !/['"`]use/.test(code)) {
+          if (/[✓✔✗✅❌⚠]/u.test(code) && !/['"`]use/.test(code)) {
             offenders.push({ file: full, line: i + 1, text: line.trim().slice(0, 80) });
           }
           if (/(?<!motion-safe:)animate-spin/.test(code)) {
@@ -172,6 +172,19 @@ describe('source guard (§8/§7)', () => {
   it('no production .tsx uses unicode/emoji as a status channel', () => {
     walk(SRC);
     expect(offenders).toEqual([]);
+  });
+
+  it('no LOCALE STRING carries a unicode status glyph — the purge covers i18n too', () => {
+    // Found live on Vercel: the .tsx sweep was clean while the shipped
+    // bundle still carried '✓ Within budget' etc. — the glyphs lived in
+    // en.json/ar.json. Status shape belongs to StatusIcon, words to i18n.
+    for (const loc of ['en', 'ar']) {
+      const raw = fs.readFileSync(path.join(SRC, 'i18n', `${loc}.json`), 'utf8');
+      const hits = raw.split('\n')
+        .map((l, i) => ({ line: i + 1, text: l }))
+        .filter(({ text }) => /[✓✔✗✅❌⚠]/u.test(text));
+      expect(hits, `${loc}.json`).toEqual([]);
+    }
   });
 
   it('every animate-spin is motion-safe gated', () => {

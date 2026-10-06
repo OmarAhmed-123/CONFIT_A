@@ -468,7 +468,8 @@
     "import_status_ready": "تم الاستخراج ✓",
     "import_status_retryable": "محفوظة (إعادة تحليل ممكنة)",
     "import_skipped_note": "لم يتم التعرف عليها (مُبلَّغ بأمانة): {{labels}}",
-    "import_engine_note": "موديلات SCHP-ATR-18 + BiRefNet (ترخيص MIT)"
+    "import_engine_note": "موديلات SCHP-ATR-18 + BiRefNet (ترخيص MIT)",
+    "capsule_eyebrow": "كبسولات الخزانة الدائرية"
   },
   "commerce": {
     "add_to_cart": "إضافة للحقيبة",

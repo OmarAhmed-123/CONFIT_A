@@ -59,6 +59,8 @@ export const TryOnFitView: React.FC = () => {
       <CircularGalleryShowcase
         tone="tryon"
         compact
+        /* Spec 11 §1: 3D is Discover-only — this page always gets the 2D list. */
+        enabled={false}
         eyebrow={t('tryon.gallery_eyebrow')}
         title={t('tryon.contexts_caption')}
         description={t('tryon.gallery_description')}

@@ -248,3 +248,54 @@ describe('axe', () => {
     expect((await axe(container, AXE_RULES)).violations).toEqual([]);
   });
 });
+
+/* ------------------------------------------------------------------ */
+/* F. Spec 11 §1 — the 3D experience is Discover-ONLY                  */
+/* ------------------------------------------------------------------ */
+/**
+ * Lint-style guard (same rationale as tryOnGateCoverage): the rule
+ * "only /discover may offer the 3D path" is a property of the whole view
+ * tree, not of one component. Any view other than DiscoverView that
+ * mounts CircularGalleryShowcase MUST pin `enabled={false}` so the
+ * production flag (ON since spec 11 shipped) can never light up 3D on
+ * an off-spec page. A render test would miss next month's new view.
+ */
+import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { join, relative } from 'node:path';
+
+describe('Discover-only 3D guard', () => {
+  const VIEWS = join(__dirname, '..', '..', 'views');
+  const ALLOWED_3D = new Set(['consumer/DiscoverView.tsx']);
+
+  function walk(dir: string, out: string[] = []): string[] {
+    for (const entry of readdirSync(dir)) {
+      if (entry === '__tests__') continue;
+      const full = join(dir, entry);
+      if (statSync(full).isDirectory()) walk(full, out);
+      else if (/\.tsx?$/.test(entry)) out.push(full);
+    }
+    return out;
+  }
+
+  it('every non-Discover view that mounts the gallery forces the 2D list', () => {
+    const offenders: string[] = [];
+    for (const file of walk(VIEWS)) {
+      const rel = relative(VIEWS, file).split(/[\\/]/).join('/');
+      const src = readFileSync(file, 'utf8');
+      if (!src.includes('<CircularGalleryShowcase')) continue;
+      if (ALLOWED_3D.has(rel)) continue;
+      // Each usage outside Discover must carry enabled={false}.
+      const usages = src.split('<CircularGalleryShowcase').slice(1);
+      for (const u of usages) {
+        const openTag = u.slice(0, u.indexOf('/>') >= 0 ? u.indexOf('/>') : u.length);
+        if (!openTag.includes('enabled={false}')) offenders.push(rel);
+      }
+    }
+    expect(
+      offenders,
+      `These views can render the 3D gallery but spec 11 §1 allows it on ` +
+        `/discover only — add enabled={false}:\n` +
+        offenders.map((f) => `  - ${f}`).join('\n'),
+    ).toEqual([]);
+  });
+});

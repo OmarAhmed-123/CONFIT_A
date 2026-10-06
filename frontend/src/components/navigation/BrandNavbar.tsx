@@ -1,6 +1,8 @@
 import { useTranslation } from 'react-i18next';
 import { msg } from '../../i18n/messages';
 import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { motion } from 'framer-motion';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   BarChart3, Boxes, ClipboardList, FolderCog, LayoutDashboard, LogOut,
@@ -11,6 +13,7 @@ import { ConfitLogo } from '../common/ConfitLogo';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { useAuthStore } from '../../stores/authStore';
 import { useUIStore } from '../../stores/uiStore';
+import { usePrefersReducedMotion } from '../common/InteractionPrimitives';
 
 /**
  * Spec 13 — responsive B2B/Admin shell: a dense sidebar on desktop
@@ -100,12 +103,45 @@ const focusRing =
 
 const COLLAPSE_KEY = 'confit.b2b.sidebar_collapsed';
 
+/**
+ * Re-pass: each trust domain carries its OWN register accent (measured in
+ * design/registers.ts — partner steel #3E5C76, admin graphite #5A5E6A) so
+ * the two portals are visually unmistakable. The accent is never the only
+ * channel: the portal title text ("Partner hub" / "Platform governance")
+ * says the same thing in words (§7 "not color alone").
+ */
+const DOMAIN_ACCENT: Record<'partner' | 'admin', { ribbon: string; chip: string }> = {
+  partner: { ribbon: '#3E5C76', chip: 'rgba(62, 92, 118, 0.35)' },
+  admin: { ribbon: '#5A5E6A', chip: 'rgba(90, 94, 106, 0.35)' },
+};
+
+/** Animated active-route marker. Separate layoutIds per surface: the
+ *  desktop sidebar stays in the DOM (CSS-hidden) while the drawer is open,
+ *  and a shared id would cross-animate between the two. */
+const ActiveMarker: React.FC<{ layoutId: string; reduce: boolean }> = ({ layoutId, reduce }) =>
+  reduce ? (
+    <span
+      data-testid="nav-active-marker"
+      aria-hidden="true"
+      className="absolute inset-y-2 start-0 w-1 rounded-full bg-[#E2BF70]"
+    />
+  ) : (
+    <motion.span
+      data-testid="nav-active-marker"
+      aria-hidden="true"
+      layoutId={layoutId}
+      transition={{ type: 'tween', duration: 0.25, ease: 'easeOut' }}
+      className="absolute inset-y-2 start-0 w-1 rounded-full bg-[#E2BF70]"
+    />
+  );
+
 /* ------------------------------------------------------------------ */
 /* Breadcrumbs (§1): derived from the SAME role-gated config           */
 /* ------------------------------------------------------------------ */
 export const BrandBreadcrumbs: React.FC = () => {
   const { t } = useTranslation();
   const location = useLocation();
+  const reduce = usePrefersReducedMotion();
   const { user } = useAuthStore();
   const isAdmin = user?.role?.toLowerCase() === 'admin';
   const path = normalizePath(location.pathname);
@@ -126,9 +162,16 @@ export const BrandBreadcrumbs: React.FC = () => {
 
   // Unknown deep routes (e.g. product drill-downs) keep the home crumb —
   // we never invent a label for a page the config does not know (§2).
+  // Re-pass: the trail nudges in on every route change — a quiet, LOCAL
+  // movement (4px fade-rise) that marks "you moved"; reduced motion ⇒ none.
   return (
     <nav aria-label={t('brand_nav.breadcrumbs_aria')} className="mb-4 text-xs text-slate-500">
-      <ol className="flex flex-wrap items-center gap-1">
+      <motion.ol
+        key={path}
+        initial={reduce ? false : { opacity: 0, y: 4 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: reduce ? 0 : 0.18, ease: 'easeOut' }}
+        className="flex flex-wrap items-center gap-1">
         <li>
           {item && item.href === home.href ? (
             <span aria-current="page" className="font-bold text-slate-800">{home.label}</span>
@@ -153,7 +196,7 @@ export const BrandBreadcrumbs: React.FC = () => {
             </li>
           </>
         )}
-      </ol>
+      </motion.ol>
     </nav>
   );
 };
@@ -166,8 +209,15 @@ const NavLinks: React.FC<{
   path: string;
   collapsed?: boolean;
   onNavigate?: () => void;
-}> = ({ sections, path, collapsed = false, onNavigate }) => {
-  const { t } = useTranslation();
+  /** Distinct per surface — see ActiveMarker. */
+  markerId: string;
+  /** Drawer entrance: items cascade in. Never on when motion is reduced. */
+  stagger?: boolean;
+}> = ({ sections, path, collapsed = false, onNavigate, markerId, stagger = false }) => {
+  const { t, i18n } = useTranslation();
+  const reduce = usePrefersReducedMotion();
+  const enterX = (i18n.dir() === 'rtl' ? -1 : 1) * 10;
+  let flatIndex = 0;
   return (
     <div className="space-y-5">
       {sections.map((section) => (
@@ -182,24 +232,35 @@ const NavLinks: React.FC<{
           <ul className="space-y-1">
             {section.items.map(({ href, labelKey, icon: Icon }) => {
               const active = isItemActive(href, path);
+              const index = flatIndex++;
+              const animate = stagger && !reduce;
+              const ItemTag = animate ? motion.li : 'li';
+              const itemProps = animate
+                ? {
+                    initial: { opacity: 0, x: enterX },
+                    animate: { opacity: 1, x: 0 },
+                    transition: { duration: 0.2, ease: 'easeOut' as const, delay: 0.04 * index },
+                  }
+                : {};
               return (
-                <li key={href}>
+                <ItemTag key={href} {...itemProps}>
                   <Link
                     to={href}
                     onClick={onNavigate}
                     aria-current={active ? 'page' : undefined}
                     aria-label={collapsed ? t(labelKey) : undefined}
                     title={collapsed ? t(labelKey) : undefined}
-                    className={`flex min-h-11 items-center gap-3 rounded-xl px-3 text-xs font-semibold ${focusRing} ${
+                    className={`relative flex min-h-11 items-center gap-3 rounded-xl px-3 text-xs font-semibold ${focusRing} ${
                       active
                         ? 'bg-slate-800 text-[#E2BF70]'
                         : 'text-slate-200 hover:bg-slate-800'
                     } ${collapsed ? 'justify-center px-0' : ''}`}
                   >
+                    {active && <ActiveMarker layoutId={markerId} reduce={reduce} />}
                     <span aria-hidden="true"><Icon size={16} /></span>
                     {!collapsed && <span className="truncate">{t(labelKey)}</span>}
                   </Link>
-                </li>
+                </ItemTag>
               );
             })}
           </ul>
@@ -219,8 +280,10 @@ const BrandNavDrawer: React.FC<{
   path: string;
   portalTitle: string;
   onSignOut: () => void;
-}> = ({ open, onClose, sections, path, portalTitle, onSignOut }) => {
-  const { t } = useTranslation();
+  domain: 'partner' | 'admin';
+}> = ({ open, onClose, sections, path, portalTitle, onSignOut, domain }) => {
+  const { t, i18n } = useTranslation();
+  const reduce = usePrefersReducedMotion();
   const panelRef = useRef<HTMLDivElement>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
 
@@ -262,18 +325,42 @@ const BrandNavDrawer: React.FC<{
 
   if (!open) return null;
 
-  return (
+  // §6.2: the drawer lives in a PORTAL on document.body — it can never be
+  // clipped or stacked under page content, and the overlay owns the page.
+  // Enter animation: scrim fades, panel slides from the INLINE START
+  // (dir-aware: from the right in RTL). Reduced motion ⇒ no transforms,
+  // instant presence — function identical (§7).
+  const slideFrom = (i18n.dir() === 'rtl' ? 1 : -1) * 100;
+
+  return createPortal(
     <div className="lg:hidden fixed inset-0 z-50" onKeyDown={onKeyDown}>
       {/* Plain scrim — no backdrop-filter; click outside closes (§5). */}
-      <div className="absolute inset-0 bg-slate-950/70" onClick={onClose} aria-hidden="true" />
-      <div
+      <motion.div
+        initial={reduce ? false : { opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: reduce ? 0 : 0.2 }}
+        className="absolute inset-0 bg-slate-950/70"
+        onClick={onClose}
+        aria-hidden="true"
+      />
+      <motion.div
         ref={panelRef}
+        initial={reduce ? false : { x: `${slideFrom}%` }}
+        animate={{ x: 0 }}
+        transition={{ type: 'tween', duration: reduce ? 0 : 0.26, ease: 'easeOut' }}
         role="dialog"
         aria-modal="true"
         aria-label={t('brand_nav.drawer_label')}
         data-testid="brand-nav-drawer"
         className="absolute inset-y-0 start-0 flex w-[85vw] max-w-sm flex-col bg-[#0C0E1E] text-white shadow-2xl"
       >
+        {/* Domain ribbon — the register accent of THIS trust domain. */}
+        <span
+          aria-hidden="true"
+          data-testid="domain-ribbon"
+          className="h-1 w-full shrink-0"
+          style={{ backgroundColor: DOMAIN_ACCENT[domain].ribbon }}
+        />
         <div className="flex items-center justify-between border-b border-slate-800 px-4 py-4">
           <div className="flex min-w-0 items-center gap-3">
             <ConfitLogo variant="compact" theme="light" size="sm" />
@@ -293,7 +380,13 @@ const BrandNavDrawer: React.FC<{
           aria-label={t('brand_nav.aria')}
           className="flex-1 overflow-y-auto px-3 py-4"
         >
-          <NavLinks sections={sections} path={path} onNavigate={onClose} />
+          <NavLinks
+            sections={sections}
+            path={path}
+            onNavigate={onClose}
+            markerId="brand-drawer-active"
+            stagger
+          />
         </nav>
         <div className="space-y-1 border-t border-slate-800 px-3 py-3">
           <Link
@@ -313,8 +406,9 @@ const BrandNavDrawer: React.FC<{
             {t('brand_nav.sign_out')}
           </button>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </div>,
+    document.body,
   );
 };
 
@@ -330,6 +424,7 @@ export const BrandNavbar: React.FC = () => {
   const { t } = useTranslation();
   const path = normalizePath(location.pathname);
   const sections = sectionsForRole(isAdmin);
+  const domain: 'partner' | 'admin' = isAdmin ? 'admin' : 'partner';
   const portalTitle = isAdmin ? t('brand_nav.governance') : t('brand_nav.partner_hub');
 
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -372,6 +467,14 @@ export const BrandNavbar: React.FC = () => {
     <>
       {/* ── Mobile top bar (lg:hidden): the way into the drawer ── */}
       <header className="sticky top-0 z-40 border-b border-slate-800 bg-[#0C0E1E] text-white lg:hidden">
+        {/* Same domain ribbon as the drawer/sidebar — one visual identity
+            per trust domain on every surface. */}
+        <span
+          aria-hidden="true"
+          data-testid="domain-ribbon"
+          className="block h-1 w-full"
+          style={{ backgroundColor: DOMAIN_ACCENT[domain].ribbon }}
+        />
         <div className="flex min-h-16 items-center justify-between gap-2 px-4">
           <button
             type="button"
@@ -402,6 +505,7 @@ export const BrandNavbar: React.FC = () => {
         path={path}
         portalTitle={portalTitle}
         onSignOut={handleLogout}
+        domain={domain}
       />
 
       {/* ── Desktop sidebar (hidden below lg) ── */}
@@ -411,6 +515,12 @@ export const BrandNavbar: React.FC = () => {
           collapsed ? 'w-[4.5rem]' : 'w-64'
         }`}
       >
+        <span
+          aria-hidden="true"
+          data-testid="domain-ribbon"
+          className="h-1 w-full shrink-0"
+          style={{ backgroundColor: DOMAIN_ACCENT[domain].ribbon }}
+        />
         <div className={`flex items-center gap-3 border-b border-slate-800 px-4 py-5 ${collapsed ? 'justify-center px-0' : ''}`}>
           <Link
             to={isAdmin ? '/admin' : '/b2b'}
@@ -429,7 +539,12 @@ export const BrandNavbar: React.FC = () => {
           data-testid="brand-primary-nav"
           className="flex-1 overflow-y-auto px-3 py-4"
         >
-          <NavLinks sections={sections} path={path} collapsed={collapsed} />
+          <NavLinks
+            sections={sections}
+            path={path}
+            collapsed={collapsed}
+            markerId="brand-sidebar-active"
+          />
         </nav>
 
         {/* Collapse state is TEXT for assistive tech, not just width (§7). */}

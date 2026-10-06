@@ -153,6 +153,21 @@ export const authService = {
       body: JSON.stringify({ token, new_password }),
     }),
 
+  /** Redeem the one-time token from the verification email (24 h expiry). */
+  verifyEmail: (token: string) =>
+    request<{ status: string; message: string }>("/auth/verify-email", {
+      method: "POST",
+      body: JSON.stringify({ token }),
+    }),
+
+  /** Non-committal by design: the server never reveals whether the address
+   *  exists or still needs verification. */
+  requestEmailVerification: (email: string) =>
+    request<{ status: string; message: string }>("/auth/verify-email/request", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    }),
+
   exportGDPR: () => request<any>("/auth/gdpr-export"),
 
   // Step-up contract: permanent deletion requires explicit confirmation,

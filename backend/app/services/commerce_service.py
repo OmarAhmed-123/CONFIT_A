@@ -466,6 +466,52 @@ class CommerceService:
         except Exception:
             logger.warn("commerce_notification_failed", order_number=order.order_number)
 
+        # --- Spec 15 §6.5: the order-confirmation EMAIL EVENT -----------------
+        # Wired idempotently through the outbox (event_key = one per order).
+        # Transactional category: no consent switch, no unsubscribe link.
+        # Best-effort by design — mail transport trouble is recorded honestly
+        # on the outbox row (status=failed + relay's words) and must NEVER
+        # break or roll back a committed order.
+        try:
+            from backend.app.models.user import User as UserModel
+            from backend.app.services.email_outbox import dispatch as dispatch_email
+
+            recipient = guest_email
+            if user_id is not None:
+                buyer = self.db.query(UserModel).filter(UserModel.id == user_id).first()
+                recipient = (buyer.email if buyer else None) or guest_email
+            if recipient:
+                locale = checkout_data.get("locale")
+                locale = locale if locale in ("en", "ar") else "en"
+                base = settings.FRONTEND_BASE_URL.rstrip("/")
+                dispatch_email(
+                    self.db,
+                    event_key=f"order:{order.order_number}:confirmation",
+                    template="order_confirmation",
+                    locale=locale,
+                    recipient=recipient,
+                    user_id=user_id,
+                    payload={
+                        "order_number": order.order_number,
+                        "items": [
+                            {
+                                "name": _p["product_title"],
+                                "qty": _p["quantity"],
+                                "price": str(quantize_money(to_decimal(_p["unit_price"]))),
+                            }
+                            for _p in order_items_payload
+                        ],
+                        "total": str(quantize_money(total)),
+                        "currency": currency,
+                        "order_url": f"{base}/orders/{order.order_number}",
+                    },
+                )
+        except Exception as _e:  # noqa: BLE001
+            logger.error(
+                "order_confirmation_email_failed",
+                order_number=order.order_number, error=str(_e)[:200],
+            )
+
         pay_result = await self.payments.initiate_payment(
             method_id=payment_method,
             amount_minor=int((quantize_money(total) * Decimal("100")).to_integral_value(rounding=ROUND_HALF_UP)),

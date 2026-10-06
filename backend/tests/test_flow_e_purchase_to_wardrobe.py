@@ -522,7 +522,7 @@ def test_migration_0015_round_trip_and_unique_lineage() -> None:
         os.unlink(path)
 
 
-def test_migration_chain_has_a_single_head_at_0032() -> None:
+def test_migration_chain_has_a_single_head_at_0033() -> None:
     from backend.app.core.schema_gate import expected_head_revision, migration_chain
 
     chain = migration_chain()
@@ -575,7 +575,15 @@ def test_migration_chain_has_a_single_head_at_0032() -> None:
     # UNIQUE event_key, so a replayed webhook or retried worker can never
     # email a user twice, and a transport failure is a recorded status
     # (failed/bounced), never a vanished log line.
-    assert expected_head_revision() == "0032_email_outbox"
+    # -> 0033 (email_preferences). The head moved consciously: the spec-15
+    # re-pass closed the documented consent gap — the outbox could record
+    # 'unsubscribed' but NOTHING stored the user's answer to "may I send
+    # this category?". One row per user, engagement + marketing booleans;
+    # transactional mail has no switch by design (receipts are facts about
+    # the shopper's money, not promotions). Signed expiring tokens make the
+    # one-click unsubscribe in every footer work without a session.
+    assert expected_head_revision() == "0033_email_preferences"
+    assert chain["0033_email_preferences"] == "0032_email_outbox"
     assert chain["0032_email_outbox"] == "0031_outfit_soft_delete"
     assert chain["0031_outfit_soft_delete"] == "0030_wardrobe_soft_delete"
     assert chain["0030_wardrobe_soft_delete"] == "0029_brand_profile_not_null_defaults"

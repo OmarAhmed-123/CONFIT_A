@@ -17,6 +17,7 @@ from backend.app.core.money import MoneyRangeError, MoneyValueError
 from backend.app.models.user import UserRole
 from backend.app.controllers.auth_controller import router as auth_router
 from backend.app.controllers.profile_controller import router as profile_router
+from backend.app.controllers.email_controller import router as email_router
 from backend.app.controllers.catalog_controller import router as catalog_router
 from backend.app.controllers.stylist_controller import router as stylist_router
 from backend.app.controllers.outfit_controller import router as outfit_router
@@ -285,6 +286,7 @@ for prefix in [settings.API_V1_STR, "/v1", ""]:
     app.include_router(telemetry_router, prefix=prefix)
     app.include_router(auth_router, prefix=prefix)
     app.include_router(profile_router, prefix=prefix)
+    app.include_router(email_router, prefix=prefix)
     app.include_router(catalog_router, prefix=prefix)
     app.include_router(stylist_router, prefix=prefix)
     app.include_router(outfit_router, prefix=prefix)

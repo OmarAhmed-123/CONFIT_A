@@ -1410,3 +1410,47 @@ export const adminService = {
   getAuditIntegrity: (windowDays = 30) =>
     request<AuditIntegrity>(`/admin/audit/integrity?window_days=${windowDays}`),
 };
+
+/* ------------------------------------------------------------------ */
+/* Email consent (spec 15 re-pass)                                     */
+/* ------------------------------------------------------------------ */
+
+export interface EmailPreferences {
+  engagement: boolean;
+  marketing: boolean;
+  links: { engagement: string; marketing: string };
+  categories: Record<string, { switchable: boolean; reason?: string }>;
+}
+
+export interface UnsubscribeValidation {
+  valid: boolean;
+  category?: 'engagement' | 'marketing';
+  reason?: 'expired' | 'invalid';
+}
+
+export interface UnsubscribeResult {
+  status: 'unsubscribed';
+  category: 'engagement' | 'marketing';
+  engagement: boolean;
+  marketing: boolean;
+}
+
+export const emailService = {
+  getPreferences: () => request<EmailPreferences>('/email/preferences'),
+  updatePreferences: (payload: { engagement?: boolean; marketing?: boolean }) =>
+    request<EmailPreferences>('/email/preferences', {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    }),
+  /** Public: validate a token from an email link. GET never mutates. */
+  validateUnsubscribeToken: (token: string) =>
+    request<UnsubscribeValidation>(
+      `/email/unsubscribe?token=${encodeURIComponent(token)}`,
+    ),
+  /** Public one-click unsubscribe (RFC 8058 shape) — the only mutation. */
+  unsubscribe: (token: string) =>
+    request<UnsubscribeResult>('/email/unsubscribe', {
+      method: 'POST',
+      body: JSON.stringify({ token }),
+    }),
+};

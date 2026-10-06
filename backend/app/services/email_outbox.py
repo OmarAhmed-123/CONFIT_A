@@ -12,11 +12,14 @@ Guarantees:
 * HONEST: a transport failure is recorded as status=failed with the relay's
   own words. Nothing pretends to be sent. Retrying a FAILED event with the
   same key IS allowed — failure is the one state a retry may leave.
-* CONSENT: the caller resolves opt-out BEFORE dispatch and passes
-  ``suppressed=True`` → the row is recorded as 'unsubscribed' and nothing
-  is rendered or sent. (There is no user-level preference store in the
-  schema today — documented gap; the hook is here so wiring it is a
-  one-line change at each call site.)
+* CONSENT: resolved HERE, not by every caller. Pass ``user_id`` and the
+  template's category is checked against the user's EmailPreference row:
+  an opted-out category records status='unsubscribed' and nothing is
+  rendered or sent. For engagement/marketing the signed unsubscribe link
+  is minted and injected into the payload automatically, and the send
+  carries List-Unsubscribe + List-Unsubscribe-Post (RFC 8058) headers.
+  ``suppressed=True`` remains for callers that resolved consent at a
+  different boundary (e.g. guest recipients with no user row).
 
 The provider transport (``email_service.send_email``) keeps its own
 two-attempt transient retry; this layer never duplicates that.
@@ -29,8 +32,13 @@ import logging
 from sqlalchemy.orm import Session
 
 from backend.app.models.email_outbox import EmailOutbox
+from backend.app.services.email_consent import (
+    is_allowed,
+    unsubscribe_url_for,
+)
 from backend.app.services.email_service import EmailDeliveryError, send_email
 from backend.app.services.email_templates import (
+    TEMPLATES,
     EmailTemplateError,
     render_email,
 )
@@ -47,10 +55,19 @@ def dispatch(
     recipient: str,
     payload: dict,
     suppressed: bool = False,
+    user_id: int | None = None,
 ) -> EmailOutbox:
     """Render + send one templated email, exactly once per event_key."""
     if not event_key or len(event_key) > 255:
         raise EmailTemplateError("event_key must be a non-empty string (<=255 chars).")
+
+    spec = TEMPLATES.get(template)
+    category = spec.category if spec else "transactional"
+
+    # Consent gate (spec 15 §8): resolved against the preference store when
+    # the recipient is a known user. Transactional mail is always allowed.
+    if user_id is not None and not is_allowed(db, user_id, category):
+        suppressed = True
 
     row = (
         db.query(EmailOutbox).filter(EmailOutbox.event_key == event_key).first()
@@ -73,13 +90,28 @@ def dispatch(
         db.commit()
         return row
 
+    # Engagement/marketing to a known user: mint the signed, expiring
+    # unsubscribe link the templates demand — footers and headers point at
+    # the SAME mechanism the account screen shows.
+    if user_id is not None and category in ("engagement", "marketing"):
+        payload = {**payload, "unsubscribe_url": unsubscribe_url_for(user_id, category)}
+
     # Render BEFORE touching the transport: a bad payload must fail loudly
     # here and never consume a send attempt.
     content = render_email(template, locale, payload)
 
+    headers: dict[str, str] | None = None
+    if content.list_unsubscribe:
+        headers = {
+            "List-Unsubscribe": content.list_unsubscribe,
+            "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+        }
+
     row.attempts = (row.attempts or 0) + 1
     try:
-        result = send_email(recipient, content.subject, content.html, content.text)
+        result = send_email(
+            recipient, content.subject, content.html, content.text, headers=headers
+        )
         row.status = "sent"
         row.message_id = result.get("message_id")
         row.last_error = None

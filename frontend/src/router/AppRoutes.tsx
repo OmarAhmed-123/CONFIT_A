@@ -43,6 +43,9 @@ import { OrderTrackingView } from '../views/consumer/OrderTrackingView';
 import { UserProfileView } from '../views/consumer/UserProfileView';
 import { SharedLookView } from '../views/public/SharedLookView';
 import { EmailUnsubscribeView } from '../views/public/EmailUnsubscribeView';
+import { ResetPasswordView } from '../views/public/ResetPasswordView';
+import { VerifyEmailView } from '../views/public/VerifyEmailView';
+import { NotFoundView } from '../views/public/NotFoundView';
 import { PrivacyPolicyView, TermsOfServiceView, GdprView } from '../views/legal/LegalViews';
 
 // B2B Views
@@ -127,6 +130,12 @@ export const AppRoutes: React.FC = () => {
         {/* Spec 15: landing for email-footer unsubscribe links. PUBLIC —
             the signed token in the URL is the credential; no session. */}
         <Route path="/email/unsubscribe" element={<EmailUnsubscribeView />} />
+        {/* Audit 2026-10-06: the backend has emailed these two URLs since
+            cycle 4 and neither route existed — the links bounced to the
+            home page via the silent catch-all. PUBLIC: the one-time token
+            in the URL is the credential. */}
+        <Route path="/reset-password" element={<ResetPasswordView />} />
+        <Route path="/verify-email" element={<VerifyEmailView />} />
 
         {/* 0b. LEGAL-01: real legal pages — public, not gated behind /profile.
             The audit found Privacy/Terms/GDPR links landing on the
@@ -281,8 +290,10 @@ export const AppRoutes: React.FC = () => {
           <Route path="audit" element={<AdminAuditView />} />
         </Route>
 
-        {/* 5. Fallback */}
-        <Route path="*" element={<Navigate to="/" replace />} />
+        {/* 5. Fallback — an HONEST 404, not a silent redirect home.
+            Audit 2026-10-06: the old `Navigate to="/"` hid every broken
+            link from the person who followed it. */}
+        <Route path="*" element={<NotFoundView />} />
       </Routes>
     </>
   );

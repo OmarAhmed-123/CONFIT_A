@@ -9,6 +9,7 @@ import { useUIStore } from '../../stores/uiStore';
 import { SparkleIcon, UserIcon, RulerIcon, ShieldIcon } from '../../components/icons/ConfitIcons';
 import { LoadingSpinner } from '../../components/common/CommonComponents';
 import { formatAmount, formatMoney, formatNumber } from '../../i18n/format';
+import { EmailPreferencesSection } from '../../components/account/EmailPreferencesSection';
 
 /**
  * Canonical JSON — byte-identical to the backend's integrity form:
@@ -945,6 +946,11 @@ integrityNote = t('profile.exported_integrity', {
           )}
         </div>
       )}
+
+      {/* Email preferences — the switches the unsubscribe page promises.
+          Audit 2026-10-06: /email/unsubscribe has linked here since spec 15
+          and this section did not exist. */}
+      <EmailPreferencesSection />
 
       {/* GDPR & Privacy Controls */}
       <div className="bg-white rounded-3xl border border-slate-200/80 p-6 shadow-2xs space-y-4">

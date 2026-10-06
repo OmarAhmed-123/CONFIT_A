@@ -61,17 +61,24 @@ def test_inverted_timestamps_do_not_fake_a_chain_break(client: TestClient):
         assert len(rows) == 2
         assert rows[0].timestamp > rows[1].timestamp, "inversion must be present"
         assert rows[1].prev_hash == rows[0].entry_hash, "chain is intact by id"
+        probe_ids = {rows[0].id, rows[1].id}
     finally:
         db.close()
 
     headers = {"Authorization": f"Bearer {_login(client, 'admin@confit.io')}"}
     body = client.get("/api/v1/admin/audit/integrity", headers=headers).json()
 
+    # Scoped to THIS test's pair: other tests in the shared fixtures session
+    # deliberately tamper their own rows to prove detection works, so a
+    # whole-ledger cleanliness assertion would be hostage to test order.
+    # The ordering bug manifests precisely AT the inverted pair — with the
+    # fix, the pair contributes no violation at all.
     chain_issues = [
         v for v in body.get("violations", [])
         if v.get("issue") in ("chain_link_mismatch", "entry_hash_mismatch")
+        and v.get("row_id") in probe_ids
     ]
     assert chain_issues == [], (
-        "an intact chain with write-time inverted timestamps must verify "
-        f"clean; got {chain_issues}"
+        "an intact, write-time-inverted pair must verify clean; "
+        f"got {chain_issues}"
     )

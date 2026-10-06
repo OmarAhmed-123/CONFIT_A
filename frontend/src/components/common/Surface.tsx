@@ -106,3 +106,53 @@ function getMotionTag(Tag: React.ElementType): React.ElementType {
 
 /** §4 names this component GlassPanel — alias kept so intent is greppable. */
 export const GlassPanel = Surface;
+
+type RevealProps<T extends React.ElementType> = {
+  /** Rendered element — div by default; use section/article when semantic. */
+  as?: T;
+  /** Stagger offset in seconds for sibling reveals. */
+  delay?: number;
+  className?: string;
+  children?: React.ReactNode;
+} & Omit<React.ComponentPropsWithoutRef<T>, "as" | "className" | "children">;
+
+/**
+ * Reveal — the Surface entrance motion WITHOUT the surface chrome.
+ *
+ * For sections that already own their visual treatment (admin cards,
+ * tables, filter panels) and only need the spec-09 reveal contract:
+ * opacity/translate entrance, no layout shift, no spring; under
+ * prefers-reduced-motion the byte-identical static element renders
+ * instead — same tag, same classes, full function (§5/§7).
+ */
+export const Reveal = <T extends React.ElementType = "div">({
+  as,
+  delay = 0,
+  className,
+  children,
+  ...rest
+}: RevealProps<T>) => {
+  const Tag = (as ?? "div") as React.ElementType;
+  const reduceMotion = usePrefersReducedMotion();
+
+  if (!reduceMotion) {
+    const MotionTag = getMotionTag(Tag);
+    return (
+      <MotionTag
+        className={className}
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay, ease: "easeOut" }}
+        {...rest}
+      >
+        {children}
+      </MotionTag>
+    );
+  }
+
+  return (
+    <Tag className={className} {...rest}>
+      {children}
+    </Tag>
+  );
+};

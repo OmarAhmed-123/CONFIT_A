@@ -7,6 +7,7 @@ import {
   type AdminCatalogProductInput,
   type AdminCatalogProductPatch,
 } from '../../services/apiServices';
+import { Reveal } from '../../components/common/Surface';
 import type {
   AdminCatalogBrandSummary,
   AdminCatalogProduct,
@@ -361,7 +362,9 @@ export const AdminCatalogView: React.FC = () => {
 
   return (
     <div className="space-y-7 pb-20">
-      <section className="overflow-hidden rounded-3xl bg-[#10152C] p-6 text-white shadow-xl sm:p-8">
+      {/* Reveal = spec-09 entrance; reduced-motion renders the identical
+          static element (§7). */}
+      <Reveal as="section" className="overflow-hidden rounded-3xl bg-[#10152C] p-6 text-white shadow-xl sm:p-8">
         <div className="max-w-3xl">
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#E2BF70]">{t('admin_catalog.eyebrow')}</p>
           <h1 className="mt-2 font-serif text-3xl font-black sm:text-4xl">{t('admin_catalog.title')}</h1>
@@ -387,7 +390,7 @@ export const AdminCatalogView: React.FC = () => {
             ))}
           </select>
         </div>
-      </section>
+      </Reveal>
 
       {error && (
         <div role="alert" className="flex flex-col gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 sm:flex-row sm:items-center sm:justify-between">

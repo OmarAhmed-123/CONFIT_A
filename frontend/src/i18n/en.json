@@ -1249,7 +1249,9 @@
     "col_details": "Details",
     "show_details": "Show details for audit row {{id}}",
     "hide_details": "Hide details for audit row {{id}}",
-    "verification_run_chain": "verification runs: {{signed}} signed · {{unsigned}} legacy unsigned · {{forged}} suspected forgeries · {{breaks}} breaks · {{coverage}} · tail anchor: {{anchor}}"
+    "verification_run_chain": "verification runs: {{signed}} signed · {{unsigned}} legacy unsigned · {{forged}} suspected forgeries · {{breaks}} breaks · {{coverage}} · tail anchor: {{anchor}}",
+    "permission_denied_title": "Access refused by the server",
+    "permission_denied_body": "Your account no longer holds the admin role required for the audit trail. The refusal was decided server-side — retrying will not change it."
   },
   "admin_heatmap": {
     "title": "Style Signal Heatmap — {{scope}}",
@@ -1597,7 +1599,9 @@
     "window_unreported": "Window: not reported by this server version",
     "fetched_at": "fetched at {{time}}",
     "refresh": "Refresh data",
-    "drill_down": "Open catalog governance for {{brand}}"
+    "drill_down": "Open catalog governance for {{brand}}",
+    "permission_denied_title": "Access refused by the server",
+    "permission_denied_body": "Your account no longer holds the admin role required for platform analytics. The refusal was decided server-side — retrying will not change it. If this is unexpected, ask another administrator to check your role in the audit trail."
   },
   "profile": {
     "mfa_setup_failed": "MFA setup failed: {{detail}}",

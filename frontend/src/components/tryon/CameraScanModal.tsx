@@ -8,6 +8,7 @@ import { FitScoreBadge } from '../common/CommonComponents';
 import { measurementService } from '../../services/measurementService';
 import { computeSizeProfileConfidence } from '../../lib/sizeProfile';
 import { compressImageToDataUrl } from '../../lib/imageUpload';
+import { StatusIcon } from '../common/InteractionPrimitives';
 
 export interface CameraScanModalProps {
   isOpen: boolean;
@@ -414,7 +415,7 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
     const steps = [
       { p: 45, log: '[2/3] Weight estimated from height ratio (BMI model)' },
       { p: 75, log: '[3/3] Matching brand size chart' },
-      { p: 100, log: `✓ Profile ready — ${profile.confidence}% self-reported confidence` },
+      { p: 100, log: `Profile ready — ${profile.confidence}% self-reported confidence` },
     ];
 
     analysisTimerIds.current = steps.map((step, idx) => window.setTimeout(() => {
@@ -737,7 +738,7 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
 
                     {cameraLoading && (
                       <div role="status" className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-4 text-center">
-                        <div className="h-8 w-8 animate-spin rounded-full border-3 border-[#C5A059] border-t-transparent"></div>
+                        <div className="h-8 w-8 motion-safe:animate-spin rounded-full border-3 border-[#C5A059] border-t-transparent"></div>
                         <span className="text-xs text-slate-300">{t('tryon.scan_init_stream')}</span>
                       </div>
                     )}
@@ -1011,7 +1012,7 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
                   <div className="w-32 h-40 rounded-2xl overflow-hidden bg-slate-950 border border-[#C5A059]/40 relative shrink-0 shadow-md">
                     <img src={capturedImage} alt="Scanned" className="w-full h-full object-cover" />
                     <div className="absolute bottom-1 inset-x-1 py-0.5 rounded bg-slate-950/80 text-[8px] font-mono text-center text-[#C5A059]">
-                      ✓ Calibrated
+                      <StatusIcon status="success" size={9} className="me-0.5 align-middle text-[#C5A059]" /> Calibrated
                     </div>
                   </div>
                 )}

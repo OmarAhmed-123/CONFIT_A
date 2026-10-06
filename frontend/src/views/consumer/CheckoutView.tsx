@@ -18,6 +18,7 @@ import {
   UserIcon,
 } from '../../components/icons/ConfitIcons';
 import { BNPLBadge } from '../../components/common/CommonComponents';
+import { StatusIcon } from '../../components/common/InteractionPrimitives';
 
 function marketCode(country: string): string {
   const c = country.trim().toUpperCase();
@@ -215,7 +216,7 @@ export const CheckoutView: React.FC = () => {
     <div className="space-y-8 pb-24 max-w-5xl mx-auto">
       {/* C4 FIX: Payment Demo Safety - unmistakable banner when PAYMENTS_LIVE=false */}
       <div className="bg-amber-50 border-2 border-amber-400 rounded-2xl p-4 flex items-start gap-3">
-        <div className="text-amber-600 text-xl">⚠️</div>
+        <div aria-hidden="true" className="text-amber-600"><StatusIcon status="warning" size={22} className="text-amber-600" /></div>
         <div className="flex-1">
           <p className="text-xs font-black text-amber-900 uppercase tracking-widest">{t('checkout.demo_mode_title')}</p>
           <p className="text-[11px] text-amber-800 mt-1 leading-relaxed">

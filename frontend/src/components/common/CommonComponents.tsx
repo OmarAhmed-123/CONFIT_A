@@ -209,7 +209,7 @@ export const LoadingSpinner: React.FC<{ text?: string }> = ({ text }) => {
       role="status"
       aria-live="polite"
     >
-      <div className="w-8 h-8 border-2 border-slate-200 border-t-[#C5A059] rounded-full animate-spin" aria-hidden="true"></div>
+      <div className="w-8 h-8 border-2 border-slate-200 border-t-[#C5A059] rounded-full motion-safe:animate-spin" aria-hidden="true"></div>
       <span className="text-xs font-medium text-slate-600 tracking-wide">{text ?? t('common.loading')}</span>
     </div>
   );

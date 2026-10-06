@@ -160,6 +160,16 @@ export const authService = {
       body: JSON.stringify({ token }),
     }),
 
+  /** MFA step alternative (2026-10-06): email a one-time 6-digit sign-in
+   *  code. Takes the SAME credentials as login (no session exists yet);
+   *  the server answers "sent" only when the transport really accepted
+   *  the message — delivery failure is an honest 502. */
+  requestMfaEmailCode: (email: string, password: string) =>
+    request<{ status: string; sent_to: string; expires_in_minutes: number }>(
+      "/auth/mfa/email-code",
+      { method: "POST", body: JSON.stringify({ email, password }) },
+    ),
+
   /** Non-committal by design: the server never reveals whether the address
    *  exists or still needs verification. */
   requestEmailVerification: (email: string) =>

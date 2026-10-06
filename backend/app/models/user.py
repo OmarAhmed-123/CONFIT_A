@@ -230,6 +230,28 @@ class EmailVerificationToken(Base):
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
 
+class MFAEmailCode(Base):
+    """One-time 6-digit login codes DELIVERED BY EMAIL for the MFA step.
+
+    WHY (2026-10-06): the two-factor dialog offered only authenticator /
+    recovery codes. A shopper without their phone was locked out. These rows
+    are the email alternative: hashed at rest (sha256, same discipline as
+    password-reset tokens), 10-minute expiry, single-use via an atomic
+    guarded UPDATE, and a per-row failed-attempt counter so a mailbox code
+    cannot be brute-forced while it is live.
+    """
+
+    __tablename__ = "mfa_email_codes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    code_hash = Column(String(128), nullable=False, index=True)
+    expires_at = Column(DateTime, nullable=False)
+    used_at = Column(DateTime, nullable=True)
+    attempts = Column(Integer, nullable=False, default=0)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+
+
 class MFABackupCode(Base):
     """Per-user random single-use MFA recovery codes. Only the bcrypt hash
     of each code is stored — the plaintext codes are returned exactly ONCE

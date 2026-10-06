@@ -1942,7 +1942,18 @@
     "back_to_signin": "Back to sign in",
     "invalid_credentials": "Incorrect email or password. Please try again.",
     "mfa_code_invalid": "That verification code is not valid. Check your authenticator app and try again.",
-    "email_exists": "An account with this email already exists. Try signing in instead."
+    "email_exists": "An account with this email already exists. Try signing in instead.",
+    "mfa_method_label": "How do you want to verify?",
+    "mfa_method_app": "Authenticator app",
+    "mfa_method_email": "Email me a code",
+    "mfa_instructions_email": "We can email a one-time 6-digit code to the address on this account. Press send, then type the code from your inbox.",
+    "mfa_email_send": "Send code to my email",
+    "mfa_email_sending": "Sending…",
+    "mfa_email_sent_to": "Code sent to {{email}} — valid for {{minutes}} minutes, usable once.",
+    "mfa_email_resend": "Send a new code",
+    "mfa_email_resend_in": "Send a new code in {{seconds}}s",
+    "mfa_email_code_label": "Code from your email",
+    "mfa_email_send_failed": "We could not deliver the code to your email — nothing was sent. Please try again, or use your authenticator app."
   },
   "account": {
     "style_profile": "Style Profile",

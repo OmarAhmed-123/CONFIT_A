@@ -114,6 +114,13 @@ class ForgotPasswordRequest(BaseModel):
     email: EmailStr
 
 
+class MFAEmailCodeRequest(BaseModel):
+    """The MFA step of login re-presents the login credentials — the shopper
+    is NOT authenticated yet, so a bearer dependency cannot guard this."""
+    email: EmailStr
+    password: str
+
+
 class ResetPasswordRequest(BaseModel):
     token: str
     new_password: str = Field(min_length=8, max_length=72)
@@ -351,6 +358,24 @@ def get_current_user_profile(user: User = Depends(get_current_user)):
 # Every MFA mutation endpoint is rate-limited: setup/disable/regenerate are
 # re-authentication surfaces (password and/or TOTP guesses), and unlimited
 # calls also allowed silent secret-rotation loops.
+@router.post("/mfa/email-code")
+@limiter.limit("3/minute")
+def request_mfa_email_code(
+    request: Request, payload: MFAEmailCodeRequest, db: Session = Depends(get_db)
+):
+    """Email a one-time 6-digit code for the two-factor step (2026-10-06).
+
+    The dialog offered only authenticator/recovery codes; a shopper without
+    their phone was locked out. Requires the same credentials as login
+    (same non-leaking 401 on failure), is rate-limited, and NEVER answers
+    "sent" unless the transport actually accepted the message — a delivery
+    failure is an honest 502.
+    """
+    return AuthService(db).request_mfa_email_code(
+        payload.email, payload.password, ip_address=_client_ip(request)
+    )
+
+
 @router.post("/mfa/setup", response_model=MFASetupResponse)
 @limiter.limit("5/minute")
 def setup_mfa(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):

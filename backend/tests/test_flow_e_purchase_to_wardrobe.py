@@ -522,7 +522,7 @@ def test_migration_0015_round_trip_and_unique_lineage() -> None:
         os.unlink(path)
 
 
-def test_migration_chain_has_a_single_head_at_0033() -> None:
+def test_migration_chain_has_a_single_head_at_0034() -> None:
     from backend.app.core.schema_gate import expected_head_revision, migration_chain
 
     chain = migration_chain()
@@ -582,7 +582,13 @@ def test_migration_chain_has_a_single_head_at_0033() -> None:
     # transactional mail has no switch by design (receipts are facts about
     # the shopper's money, not promotions). Signed expiring tokens make the
     # one-click unsubscribe in every footer work without a session.
-    assert expected_head_revision() == "0033_email_preferences"
+    # -> 0034 (mfa_email_codes). The head moved consciously: the two-factor
+    # dialog offered only authenticator/recovery codes, locking out any
+    # shopper without their phone. One-time 6-digit codes delivered by
+    # email: hashed at rest, 10-minute expiry, single-use atomic claim,
+    # per-row attempt counter against brute force.
+    assert expected_head_revision() == "0034_mfa_email_codes"
+    assert chain["0034_mfa_email_codes"] == "0033_email_preferences"
     assert chain["0033_email_preferences"] == "0032_email_outbox"
     assert chain["0032_email_outbox"] == "0031_outfit_soft_delete"
     assert chain["0031_outfit_soft_delete"] == "0030_wardrobe_soft_delete"

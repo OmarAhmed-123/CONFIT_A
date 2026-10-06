@@ -44,13 +44,21 @@ def is_email_configured() -> bool:
     return bool(settings.EMAIL_PROVIDER)
 
 
+def _provider() -> str:
+    return (settings.EMAIL_PROVIDER or "").lower()
+
+
 def _require_config() -> None:
     if not settings.EMAIL_PROVIDER:
         raise EmailDeliveryError("EMAIL_PROVIDER is not configured.")
-    if not settings.SMTP_HOST:
-        raise EmailDeliveryError("EMAIL_PROVIDER is set but SMTP_HOST is missing.")
     if not settings.EMAIL_FROM_ADDRESS:
         raise EmailDeliveryError("EMAIL_PROVIDER is set but EMAIL_FROM_ADDRESS is missing.")
+    if _provider() == "brevo_api":
+        if not settings.BREVO_API_KEY:
+            raise EmailDeliveryError("EMAIL_PROVIDER=brevo_api but BREVO_API_KEY is missing.")
+        return
+    if not settings.SMTP_HOST:
+        raise EmailDeliveryError("EMAIL_PROVIDER is set but SMTP_HOST is missing.")
 
 
 def _build_message(
@@ -160,6 +168,9 @@ def check_transport() -> dict:
     except EmailDeliveryError as exc:
         return {"ok": False, "stage": "configuration", "detail": str(exc), "code": None}
 
+    if _provider() == "brevo_api":
+        return _check_brevo_transport()
+
     started = time.time()
     client = None
     try:
@@ -203,6 +214,83 @@ def _decode(value) -> str:
     return str(value)[:300]
 
 
+# ── Brevo transactional HTTP API transport ──────────────────────────────────
+# WHY (measured): smtp-relay.brevo.com:587 answers `525 5.7.1 Unauthorized IP
+# address` to Vercel's rotating egress IPs — credentials fine, source IP
+# refused — while the same account's HTTP API (key auth, no IP allow-list)
+# accepts. stdlib urllib only: still zero new dependencies.
+
+_BREVO_SEND_URL = "https://api.brevo.com/v3/smtp/email"
+_BREVO_ACCOUNT_URL = "https://api.brevo.com/v3/account"
+
+
+def _brevo_request(url: str, payload: Optional[dict] = None) -> dict:
+    import json as _json
+    import urllib.request
+    import urllib.error
+
+    req = urllib.request.Request(url, method="POST" if payload is not None else "GET")
+    req.add_header("api-key", settings.BREVO_API_KEY or "")
+    req.add_header("Content-Type", "application/json")
+    req.add_header("Accept", "application/json")
+    data = _json.dumps(payload).encode("utf-8") if payload is not None else None
+    try:
+        with urllib.request.urlopen(req, data, timeout=_TIMEOUT_SECONDS) as res:
+            body = res.read()
+            return _json.loads(body) if body else {}
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", "replace")[:300]
+        record_transport_result(False, "send", f"HTTP {exc.code}: {detail}", exc.code)
+        raise EmailDeliveryError(f"Brevo API rejected request: HTTP {exc.code}: {detail}") from exc
+    except OSError as exc:
+        record_transport_result(False, "connection", f"{type(exc).__name__}: {exc}", None)
+        raise EmailDeliveryError(f"Brevo API unreachable: {type(exc).__name__}") from exc
+
+
+def _send_via_brevo_api(
+    to: str, subject: str, html: str, text: Optional[str],
+    headers: Optional[dict] = None,
+) -> dict:
+    sender_email = settings.EMAIL_FROM_ADDRESS or ""
+    payload: dict = {
+        "sender": {"email": sender_email, "name": "CONFIT"},
+        "to": [{"email": to}],
+        "subject": subject,
+        "textContent": text or (html or ""),
+    }
+    if html:
+        payload["htmlContent"] = html
+    # Same override guard as the SMTP path: never From/To/Subject/Date/Message-ID.
+    extra = {
+        k: v for k, v in (headers or {}).items()
+        if k.lower() not in ("from", "to", "subject", "date", "message-id")
+    }
+    if extra:
+        payload["headers"] = extra
+    result = _brevo_request(_BREVO_SEND_URL, payload)
+    message_id = result.get("messageId") or ""
+    record_transport_result(True, "sent", "message accepted by Brevo HTTP API")
+    return {"message_id": message_id}
+
+
+def _check_brevo_transport() -> dict:
+    """Prove the Brevo API key is accepted — GET /v3/account, no send."""
+    started = time.time()
+    try:
+        account = _brevo_request(_BREVO_ACCOUNT_URL)
+        record_transport_result(True, "authenticated", "Brevo API key accepted")
+        return {
+            "ok": True, "stage": "authenticated",
+            "detail": f"Brevo API key accepted (account: {account.get('email', 'unknown')}); no message was sent",
+            "code": None, "host": "api.brevo.com", "port": 443,
+            "latency_ms": int((time.time() - started) * 1000),
+        }
+    except EmailDeliveryError as exc:
+        return {"ok": False, "stage": "authentication", "detail": str(exc)[:300],
+                "code": None, "host": "api.brevo.com", "port": 443,
+                "latency_ms": int((time.time() - started) * 1000)}
+
+
 def send_email(
     to: str, subject: str, html: str, text: Optional[str] = None,
     headers: Optional[dict] = None,
@@ -214,6 +302,8 @@ def send_email(
     explicitly rejected the message — a rejection is honest and final).
     """
     _require_config()
+    if _provider() == "brevo_api":
+        return _send_via_brevo_api(to, subject, html, text, headers=headers)
     msg = _build_message(to, subject, html, text, headers=headers)
     last_error: Optional[Exception] = None
     for attempt in range(1, _ATTEMPTS + 1):
@@ -358,6 +448,58 @@ def render_platform_test_email(recipient_note: str = "") -> tuple[str, str, str]
         '</td></tr>'
         '</table></td></tr></table></body></html>'
     )
+    return subject, html, text
+
+
+def render_mfa_code_email(full_name: str, code: str, ttl_minutes: int) -> tuple[str, str, str]:
+    """Emailed MFA login code — bilingual, one idea, NO link or CTA.
+
+    Deliberately link-free: a sign-in code email that also carries a link is
+    phishing-shaped. The code is the entire message. Digits render LTR in
+    both languages (they are a token, not prose); plain-text parity included.
+    """
+    subject = "Your CONFIT sign-in code / رمز تسجيل الدخول"
+    text = (
+        f"Hello {full_name},\n\n"
+        f"Your CONFIT sign-in code is: {code}\n"
+        f"It is valid for {ttl_minutes} minutes and can be used once.\n"
+        f"If you were not signing in, you can ignore this email — your\n"
+        f"password alone cannot open the account.\n\n"
+        f"-- -- --\n\n"
+        f"مرحبًا {full_name}،\n\n"
+        f"رمز تسجيل الدخول إلى CONFIT هو: {code}\n"
+        f"الرمز صالح لمدة {ttl_minutes} دقائق ويعمل مرة واحدة فقط.\n"
+        f"إذا لم تكن تحاول تسجيل الدخول فتجاهل هذه الرسالة — كلمة المرور\n"
+        f"وحدها لا تفتح الحساب.\n"
+    )
+    html = f"""<!DOCTYPE html>
+<html>
+<body style="margin:0;padding:0;background-color:#FAF9F6;">
+  <div style="display:none;max-height:0;overflow:hidden;">Your one-time CONFIT sign-in code — valid {ttl_minutes} minutes.</div>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#FAF9F6;padding:32px 16px;">
+    <tr><td align="center">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;background-color:#ffffff;border:1px solid #e8e4dc;border-radius:16px;">
+        <tr><td style="padding:28px 32px 8px;text-align:center;">
+          <span style="font-family:Georgia,serif;font-size:20px;font-weight:bold;color:#1B1F3B;letter-spacing:0.18em;">CONFIT</span>
+        </td></tr>
+        <tr><td style="padding:8px 32px 0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.6;color:#333;">
+          <p style="margin:0 0 4px;">Hello {full_name},</p>
+          <p style="margin:0;">Your one-time sign-in code:</p>
+        </td></tr>
+        <tr><td align="center" style="padding:16px 32px;">
+          <div dir="ltr" style="display:inline-block;background-color:#FDF8EE;border:1px solid #C9A227;border-radius:12px;padding:14px 28px;font-family:'Courier New',monospace;font-size:28px;font-weight:bold;letter-spacing:0.35em;color:#1B1F3B;">{code}</div>
+        </td></tr>
+        <tr><td style="padding:0 32px 8px;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.6;color:#666;">
+          <p style="margin:0;">Valid for {ttl_minutes} minutes, usable once. If you were not signing in, ignore this email — your password alone cannot open the account.</p>
+        </td></tr>
+        <tr><td dir="rtl" style="padding:12px 32px 24px;border-top:1px solid #f0ece4;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.8;color:#666;text-align:right;">
+          <p style="margin:8px 0 0;">مرحبًا {full_name}، رمز تسجيل الدخول أعلاه صالح لمدة {ttl_minutes} دقائق ويعمل مرة واحدة فقط. إذا لم تكن تحاول تسجيل الدخول فتجاهل هذه الرسالة — كلمة المرور وحدها لا تفتح الحساب.</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>"""
     return subject, html, text
 
 

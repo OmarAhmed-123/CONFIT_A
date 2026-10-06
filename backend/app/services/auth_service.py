@@ -32,6 +32,7 @@ from sqlalchemy.orm import Session
 from backend.app.core.config import settings
 from backend.app.services.email_service import (
     EmailDeliveryError,
+    render_mfa_code_email,
     render_password_reset_email,
     render_verification_email,
     send_email,
@@ -59,6 +60,7 @@ from backend.app.core.security import (
 from backend.app.models.user import (
     EmailVerificationToken,
     MFABackupCode,
+    MFAEmailCode,
     PasswordResetToken,
     RefreshToken,
     User,
@@ -622,6 +624,124 @@ class AuthService:
         self._record_accepted_totp_step(user, matched_step)
         return True
 
+    # ------------------------------------------------------------------
+    # MFA email codes — the mailbox alternative for the two-factor step
+    # ------------------------------------------------------------------
+    _MFA_EMAIL_CODE_TTL_MINUTES = 10
+    _MFA_EMAIL_CODE_MAX_ATTEMPTS = 5
+
+    def request_mfa_email_code(
+        self, email: str, password: str, ip_address: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Issue a one-time 6-digit login code and REALLY email it.
+
+        Called from the MFA step of login, i.e. the caller must present the
+        same credentials login takes — failure is the same non-leaking 401
+        as login itself. Honest by construction: if the transport refuses
+        the message, the caller gets a 502, never a fake "sent".
+        """
+        user = self.user_repo.get_by_email(email)
+        if not user or not verify_password(password, user.hashed_password):
+            self.user_repo.log_audit(
+                "USER_LOGIN_FAILED", "User",
+                str(user.id) if user else "", user_id=user.id if user else None,
+                ip_address=ip_address,
+            )
+            raise AuthenticationError("Invalid email or password.")
+        if not user.is_active:
+            raise AuthenticationError("Account has been deactivated.")
+        if not user.mfa_enabled:
+            raise ValidationDomainError("MFA is not enabled for this account.")
+        if not settings.EMAIL_PROVIDER:
+            raise FeatureNotConfiguredError(
+                "email_delivery",
+                hint="Configure EMAIL_PROVIDER to enable emailed MFA codes.",
+            )
+
+        now = datetime.now(timezone.utc)
+        # Exactly one live code per user: issuing a new one retires the rest.
+        self.db.query(MFAEmailCode).filter(
+            MFAEmailCode.user_id == user.id, MFAEmailCode.used_at.is_(None)
+        ).update({"used_at": now}, synchronize_session=False)
+
+        code = f"{secrets.randbelow(1_000_000):06d}"
+        row = MFAEmailCode(
+            user_id=user.id,
+            code_hash=_sha256_hex(code),
+            expires_at=now + timedelta(minutes=self._MFA_EMAIL_CODE_TTL_MINUTES),
+            created_at=now,
+        )
+        self.db.add(row)
+        self.db.commit()
+
+        subject, html, text = render_mfa_code_email(
+            user.full_name or "there", code, self._MFA_EMAIL_CODE_TTL_MINUTES
+        )
+        try:
+            send_email(to=user.email, subject=subject, html=html, text=text)
+        except EmailDeliveryError as exc:
+            # Honest failure: retire the undeliverable code and say so.
+            row.used_at = datetime.now(timezone.utc)
+            self.db.commit()
+            self.user_repo.log_audit(
+                "MFA_EMAIL_CODE_SEND_FAILED", "User", str(user.id), user_id=user.id,
+                ip_address=ip_address,
+            )
+            raise ProviderIntegrationError(
+                "email", f"Could not deliver the MFA code: {exc}", retryable=True
+            ) from exc
+
+        self.user_repo.log_audit(
+            "MFA_EMAIL_CODE_SENT", "User", str(user.id), user_id=user.id,
+            ip_address=ip_address,
+        )
+        local, _, domain = user.email.partition("@")
+        masked = f"{local[:2]}***@{domain}" if domain else "***"
+        return {
+            "status": "sent",
+            "sent_to": masked,
+            "expires_in_minutes": self._MFA_EMAIL_CODE_TTL_MINUTES,
+        }
+
+    def _consume_mfa_email_code(self, user: User, code: str) -> bool:
+        """Single-use redemption of an emailed code. Caller holds the row lock."""
+        candidate = (code or "").strip()
+        if not (candidate.isdigit() and len(candidate) == 6):
+            return False
+        now = datetime.now(timezone.utc)
+        rows = (
+            self.db.query(MFAEmailCode)
+            .filter(
+                MFAEmailCode.user_id == user.id,
+                MFAEmailCode.used_at.is_(None),
+                MFAEmailCode.attempts < self._MFA_EMAIL_CODE_MAX_ATTEMPTS,
+            )
+            .all()
+        )
+        live = [r for r in rows if r.expires_at.replace(tzinfo=timezone.utc) >= now]
+        target_hash = _sha256_hex(candidate)
+        for row in live:
+            if secrets.compare_digest(row.code_hash, target_hash):
+                claimed = (
+                    self.db.query(MFAEmailCode)
+                    .filter(MFAEmailCode.id == row.id, MFAEmailCode.used_at.is_(None))
+                    .update({"used_at": now}, synchronize_session=False)
+                )
+                if claimed != 1:
+                    self.db.rollback()
+                    return False
+                self.db.commit()
+                return True
+        # A wrong 6-digit guess burns an attempt on every LIVE code.
+        if live:
+            self.db.query(MFAEmailCode).filter(
+                MFAEmailCode.id.in_([r.id for r in live])
+            ).update(
+                {"attempts": MFAEmailCode.attempts + 1}, synchronize_session=False
+            )
+            self.db.commit()
+        return False
+
     def setup_mfa(self, user: User) -> Dict[str, Any]:
         """Start (or restart) MFA enrollment. Not enabled until `verify_mfa_setup`.
 
@@ -765,6 +885,13 @@ class AuthService:
         """
         self._lock_user_row_for_mfa(user)
         if user.mfa_secret and self._verify_totp_with_replay_guard(user, code):
+            return True
+        # Email-delivered one-time code (2026-10-06): tried between TOTP and
+        # recovery codes. Same single-use discipline — the claim is an atomic
+        # guarded UPDATE, and every failed try against a LIVE code bumps its
+        # attempt counter so a mailbox code cannot be brute-forced while
+        # it is valid.
+        if self._consume_mfa_email_code(user, code):
             return True
         rows = self.db.query(MFABackupCode).filter(
             MFABackupCode.user_id == user.id, MFABackupCode.used_at.is_(None)

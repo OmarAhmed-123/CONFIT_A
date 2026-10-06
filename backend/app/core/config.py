@@ -210,8 +210,16 @@ class Settings(BaseSettings):
     # When set (smtp), a REAL transport must be reachable (see
     # services/email_service.py) — a provider flag without SMTP_HOST is a
     # configuration error and refuses to boot in production (validator below).
-    EMAIL_PROVIDER: Optional[str] = None  # "smtp" | None
+    EMAIL_PROVIDER: Optional[str] = None  # "smtp" | "brevo_api" | None
     EMAIL_FROM_ADDRESS: Optional[str] = None
+    # Brevo transactional HTTP API (https://api.brevo.com/v3/smtp/email).
+    # WHY IT EXISTS (measured 2026-09-30 → 2026-10-06): Brevo's SMTP relay
+    # enforces an IP allow-list and Vercel sends from a rotating pool —
+    # smtp-relay.brevo.com answered `525 5.7.1 Unauthorized IP address` to
+    # every production send while the SAME account's HTTP API accepted
+    # requests. The HTTP path authenticates by key, not source IP, so it is
+    # the transport that actually works from serverless.
+    BREVO_API_KEY: Optional[str] = None
     PARTNER_LEAD_NOTIFY_EMAIL: Optional[str] = None
     SMTP_HOST: Optional[str] = None
     SMTP_PORT: int = 587
@@ -797,6 +805,11 @@ class Settings(BaseSettings):
                 problems.append("EMAIL_PROVIDER=smtp requires SMTP_HOST (refusing to boot: sends would be fake)")
             if not self.EMAIL_FROM_ADDRESS:
                 problems.append("EMAIL_PROVIDER=smtp requires EMAIL_FROM_ADDRESS")
+        if (self.EMAIL_PROVIDER or "").lower() == "brevo_api":
+            if not self.BREVO_API_KEY:
+                problems.append("EMAIL_PROVIDER=brevo_api requires BREVO_API_KEY (refusing to boot: sends would be fake)")
+            if not self.EMAIL_FROM_ADDRESS:
+                problems.append("EMAIL_PROVIDER=brevo_api requires EMAIL_FROM_ADDRESS")
             if not self.FRONTEND_BASE_URL.startswith("https://"):
                 problems.append("FRONTEND_BASE_URL must be https:// in production (email links)")
 

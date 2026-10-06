@@ -85,6 +85,21 @@ export const AuthModal: React.FC = () => {
   const [phone, setPhone] = useState('');
   const [mfaCode, setMfaCode] = useState('');
   const [forgotPhase, setForgotPhase] = useState<ForgotPhase>('idle');
+  // ── MFA second factor via EMAIL (2026-10-06) ─────────────────────────
+  // The dialog offered only authenticator/recovery codes; a shopper
+  // without their phone was locked out. 'app' stays the default.
+  const [mfaMethod, setMfaMethod] = useState<'app' | 'email'>('app');
+  const [emailCodePhase, setEmailCodePhase] = useState<'idle' | 'sending' | 'sent' | 'failed'>('idle');
+  const [emailCodeInfo, setEmailCodeInfo] = useState<{ sentTo: string; minutes: number } | null>(null);
+  const [emailCodeError, setEmailCodeError] = useState<string | null>(null);
+  const [resendIn, setResendIn] = useState(0);
+
+  // Resend cooldown ticks once a second while armed.
+  useEffect(() => {
+    if (resendIn <= 0) return;
+    const id = window.setInterval(() => setResendIn((v) => v - 1), 1000);
+    return () => window.clearInterval(id);
+  }, [resendIn > 0]);
 
   // Spec 02 §9 "deep link works": `?auth=signin|login|signup|register|forgot`
   // on ANY route opens the modal on that step, then the param is stripped
@@ -126,6 +141,11 @@ export const AuthModal: React.FC = () => {
       deepLinkView.current = null;
       setView(deep ?? (authModalMode === 'register' ? 'signup' : 'signin'));
       setForgotPhase('idle');
+      setMfaMethod('app');
+      setEmailCodePhase('idle');
+      setEmailCodeInfo(null);
+      setEmailCodeError(null);
+      setResendIn(0);
     }
   }, [isAuthModalOpen, authModalMode]);
 
@@ -190,6 +210,31 @@ export const AuthModal: React.FC = () => {
       finishAuth(res);
     } catch {
       // Error surfaced via `error` in the store.
+    }
+  };
+
+  const handleSendEmailCode = async () => {
+    if (emailCodePhase === 'sending' || resendIn > 0) return;
+    setEmailCodePhase('sending');
+    setEmailCodeError(null);
+    try {
+      const res = await authService.requestMfaEmailCode(email, password);
+      // "sent" is the SERVER's word — the transport really accepted it.
+      setEmailCodeInfo({ sentTo: res.sent_to, minutes: res.expires_in_minutes });
+      setEmailCodePhase('sent');
+      setResendIn(30);
+    } catch (err) {
+      // Honest failure (502 transport / 501 unconfigured / 401) — no
+      // "check your inbox" for a mail that was never accepted. The generic
+      // PROVIDER_ERROR catalogue string talks about PAYMENTS ("nothing was
+      // charged") — flatly wrong here, so this path owns its own words.
+      const code = (err as { code?: string } | null)?.code;
+      setEmailCodeError(
+        code === 'PROVIDER_ERROR' || code === 'FEATURE_NOT_CONFIGURED'
+          ? t('auth.mfa_email_send_failed')
+          : localizeApiError(err, t, 'auth.mfa_email_send_failed'),
+      );
+      setEmailCodePhase('failed');
     }
   };
 
@@ -341,9 +386,84 @@ export const AuthModal: React.FC = () => {
         {/* ── MFA challenge (second step of signin) ─────────────────── */}
         {activeStep === 'mfa' && (
             <motion.form key="mfa" {...formMotion} onSubmit={handleMfaSubmit} className="p-6 space-y-4 text-xs">
-              <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs">
-                {t('auth.mfa_instructions')}
+              {/* Where should the second factor come from? The shopper
+                  chooses: authenticator app (default) or a one-time code
+                  REALLY sent to their inbox. */}
+              <div
+                role="radiogroup"
+                aria-label={t('auth.mfa_method_label')}
+                className="relative grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1"
+              >
+                {(['app', 'email'] as const).map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    role="radio"
+                    aria-checked={mfaMethod === m}
+                    onClick={() => { setMfaMethod(m); resetError(); }}
+                    className={`relative min-h-9 rounded-lg px-2 font-bold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059] ${
+                      mfaMethod === m ? 'text-[#1B1F3B]' : 'text-slate-500 hover:text-slate-700'
+                    }`}
+                  >
+                    {mfaMethod === m && (
+                      <motion.span
+                        layoutId="mfa-method-pill"
+                        aria-hidden="true"
+                        transition={reduceMotion ? { duration: 0 } : { type: 'tween', duration: 0.18, ease: 'easeOut' }}
+                        className="absolute inset-0 rounded-lg bg-white shadow-sm"
+                      />
+                    )}
+                    <span className="relative">
+                      {m === 'app' ? t('auth.mfa_method_app') : t('auth.mfa_method_email')}
+                    </span>
+                  </button>
+                ))}
               </div>
+
+              <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs">
+                {mfaMethod === 'app' ? t('auth.mfa_instructions') : t('auth.mfa_instructions_email')}
+              </div>
+
+              {mfaMethod === 'email' && (
+                <div className="space-y-2">
+                  {emailCodePhase !== 'sent' && (
+                    <button
+                      type="button"
+                      onClick={handleSendEmailCode}
+                      disabled={emailCodePhase === 'sending'}
+                      aria-busy={emailCodePhase === 'sending'}
+                      className="w-full min-h-10 rounded-xl border border-[#C5A059]/60 bg-[#FDF8EE] px-4 font-bold text-[#1B1F3B] hover:border-[#A37E44] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059] disabled:opacity-60"
+                    >
+                      {emailCodePhase === 'sending' ? t('auth.mfa_email_sending') : t('auth.mfa_email_send')}
+                    </button>
+                  )}
+                  <div role="status" aria-live="polite">
+                    {emailCodePhase === 'sent' && emailCodeInfo && (
+                      <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 space-y-1.5">
+                        <p className="font-medium">
+                          {t('auth.mfa_email_sent_to', { email: emailCodeInfo.sentTo, minutes: emailCodeInfo.minutes })}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={handleSendEmailCode}
+                          disabled={resendIn > 0}
+                          className="font-bold text-emerald-900 underline-offset-2 hover:underline disabled:no-underline disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059] rounded"
+                        >
+                          {resendIn > 0
+                            ? t('auth.mfa_email_resend_in', { seconds: resendIn })
+                            : t('auth.mfa_email_resend')}
+                        </button>
+                      </div>
+                    )}
+                    {emailCodePhase === 'failed' && emailCodeError && (
+                      <p className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 font-medium">
+                        {emailCodeError}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {displayError && (
                 <div role="alert" className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 font-medium">
                   {displayError}
@@ -351,7 +471,7 @@ export const AuthModal: React.FC = () => {
               )}
               <div>
                 <label htmlFor="auth-mfa-code" className="font-bold text-slate-700 block mb-1">
-                  {t('auth.mfa_code_label')}
+                  {mfaMethod === 'app' ? t('auth.mfa_code_label') : t('auth.mfa_email_code_label')}
                 </label>
                 {/* Codes stay LTR in the Arabic page — they are tokens. */}
                 <input
@@ -360,9 +480,10 @@ export const AuthModal: React.FC = () => {
                   required
                   autoFocus
                   autoComplete="one-time-code"
+                  inputMode={mfaMethod === 'email' ? 'numeric' : undefined}
                   value={mfaCode}
                   onChange={(e) => setMfaCode(e.target.value)}
-                  placeholder="123456 / CONFIT-XXXX-XXXX"
+                  placeholder={mfaMethod === 'app' ? '123456 / CONFIT-XXXX-XXXX' : '123456'}
                   dir="ltr"
                   className={`${inputClass} font-mono tracking-wider`}
                 />

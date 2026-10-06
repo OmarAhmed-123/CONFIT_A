@@ -1,4 +1,4 @@
-from backend.app.models.user import User, UserRole, BrandProfile, AuditLog, RefreshToken, PasswordResetToken, EmailVerificationToken, MFABackupCode
+from backend.app.models.user import User, UserRole, BrandProfile, AuditLog, RefreshToken, PasswordResetToken, EmailVerificationToken, MFABackupCode, MFAEmailCode
 from backend.app.models.profile import UserStyleProfile, MoodBoard, MoodBoardItem
 from backend.app.models.catalog import Category, Product, ProductSKU, StoreLocation, StoreInventory
 from backend.app.models.stylist import StylistSession, StylistMessage, Outfit, OutfitItem
@@ -41,6 +41,7 @@ __all__ = [
     "PasswordResetToken",
     "EmailVerificationToken",
     "MFABackupCode",
+    "MFAEmailCode",
     "UserStyleProfile",
     "MoodBoard",
     "MoodBoardItem",

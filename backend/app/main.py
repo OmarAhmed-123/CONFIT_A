@@ -126,7 +126,12 @@ async def request_id_guard(request: Request, call_next):
 # Requests authenticated by a Bearer header are immune by design (headers
 # can't be forged cross-site); requests authenticated by the httpOnly cookie
 # must present X-CSRF-Token matching the readable confit_csrf cookie.
-CSRF_EXEMPT_PATH_PREFIXES = ("/api/v1/auth/login", "/api/v1/auth/register", "/api/v1/auth/social-login", "/v1/auth/", "/auth/")
+# /auth/mfa/email-code is exempt for the same reason login is: it is
+# credential-authenticated (email+password in the body, verified server-side
+# BEFORE any session exists) — a cross-site attacker cannot supply those, so
+# the double-submit cookie adds nothing and would only break the MFA step
+# for a shopper who still carries a stale session cookie.
+CSRF_EXEMPT_PATH_PREFIXES = ("/api/v1/auth/login", "/api/v1/auth/register", "/api/v1/auth/social-login", "/api/v1/auth/mfa/email-code", "/v1/auth/", "/auth/")
 
 
 @app.middleware("http")

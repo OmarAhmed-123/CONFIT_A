@@ -15,7 +15,19 @@ import { axe } from 'vitest-axe';
 import { I18nextProvider } from 'react-i18next';
 import { MemoryRouter } from 'react-router-dom';
 
+import { vi } from 'vitest';
+
+vi.mock('../../../services/apiServices', async (importOriginal) => {
+  const original =
+    await importOriginal<typeof import('../../../services/apiServices')>();
+  return {
+    ...original,
+    authService: { ...original.authService, login: vi.fn() },
+  };
+});
+
 import i18n from '../../../i18n/i18n';
+import { authService } from '../../../services/apiServices';
 import {
   PasswordPolicyChecklist,
   passwordPolicyMet,
@@ -126,5 +138,73 @@ describe('C. AuthModal — cluster parity', () => {
     expect(
       screen.getAllByText(new RegExp(i18n.t('reset_password.rule_met'))),
     ).toHaveLength(2); // length + categories; no match row in the modal
+  });
+});
+
+describe('D. cluster pass 2 — caps lock, mobile hygiene, trims, 48px floor', () => {
+  const mockedLogin = authService.login as ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    mockedLogin.mockReset();
+    act(() => {
+      useUIStore.getState().openAuthModal('login');
+    });
+  });
+  afterEach(() => {
+    act(() => {
+      useUIStore.getState().closeAuthModal();
+    });
+  });
+
+  it('warns while Caps Lock is on and clears the warning on blur', () => {
+    wrap(<AuthModal />);
+    const pw = document.getElementById('auth-password') as HTMLInputElement;
+    const hint = i18n.t('auth.caps_lock_on');
+
+    expect(screen.queryByText(hint)).toBeNull();
+    fireEvent.keyDown(pw, { key: 'a', modifierCapsLock: true });
+    expect(screen.getByText(hint)).toBeInTheDocument();
+    // The OS state is read from the event — turning it off updates live.
+    fireEvent.keyUp(pw, { key: 'CapsLock', modifierCapsLock: false });
+    expect(screen.queryByText(hint)).toBeNull();
+    // And a stale warning never survives leaving the field.
+    fireEvent.keyDown(pw, { key: 'a', modifierCapsLock: true });
+    fireEvent.blur(pw);
+    expect(screen.queryByText(hint)).toBeNull();
+  });
+
+  it('email field refuses mobile keyboard "help" (no autocapitalize/autocorrect)', () => {
+    wrap(<AuthModal />);
+    const email = document.getElementById('auth-email') as HTMLInputElement;
+    expect(email.getAttribute('autocapitalize')).toBe('none');
+    expect(email.getAttribute('autocorrect')).toBe('off');
+    expect(email.getAttribute('spellcheck')).toBe('false');
+  });
+
+  it('submits the TRIMMED email — invisible trailing spaces never cause AUTH_FAILED', async () => {
+    mockedLogin.mockResolvedValue({
+      access_token: 'at',
+      refresh_token: 'rt',
+      user: { id: 7, role: 'consumer', full_name: 'T', email: 's@x.io' },
+    });
+    wrap(<AuthModal />);
+    fireEvent.change(document.getElementById('auth-email') as HTMLInputElement, {
+      target: { value: '  shopper@confit.io  ' },
+    });
+    fireEvent.change(document.getElementById('auth-password') as HTMLInputElement, {
+      target: { value: 'Password123!' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: i18n.t('auth.sign_in') }));
+    await screen.findByText(i18n.t('auth.sign_in'), {}, { timeout: 2000 }).catch(() => null);
+    await vi.waitFor(() => expect(mockedLogin).toHaveBeenCalled());
+    expect(mockedLogin).toHaveBeenCalledWith('shopper@confit.io', 'Password123!');
+  });
+
+  it('field and primary CTA stand on the 48px token floor', () => {
+    wrap(<AuthModal />);
+    const email = document.getElementById('auth-email') as HTMLInputElement;
+    const submit = screen.getByRole('button', { name: i18n.t('auth.sign_in') });
+    expect(email.className).toContain('min-h-12');
+    expect(submit.className).toContain('min-h-12');
   });
 });

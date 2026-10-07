@@ -72,6 +72,16 @@ MONEY_FIELDS: Set[str] = {
     "total_amount",
     "budget_limit",
     "bnpl_monthly_quote",
+    # Product-detail instalment figures. The cart's `bnpl_monthly_quote` was
+    # declared here from day one, but the PDP publishes the SAME money under
+    # two other names — `bnpl_monthly_installment` (top level) and
+    # `bnpl.installment_amount` (nested teaser). Neither was in this allowlist,
+    # so an EGP storefront converted the price to EGP 3,932.37 while the badge
+    # right under it kept quoting the price book's $18.75 — wrong currency AND
+    # wrong arithmetic in the same sentence (observed in production,
+    # 2026-10-07 screenshot audit).
+    "bnpl_monthly_installment",
+    "installment_amount",
     "line_total",
     "line_discount",
 }

@@ -10,7 +10,6 @@ import { catalogService } from "../../services/apiServices";
 import { AutocompleteSuggestion } from "../../models";
 import { VisualSearchIcon } from "../../components/icons/ConfitIcons";
 import {
-  BNPLBadge,
   SkeletonCard,
   EmptyState,
 } from "../../components/common/CommonComponents";
@@ -539,9 +538,15 @@ export const DiscoverView: React.FC = () => {
                 <>
                   <div>
                     {capabilities.bnpl_live ? (
-                      // bnpl_live is the measured flag (live PSP adapter + key
-                      // + live mode), so a badge shown here IS an offer.
-                      <BNPLBadge price={p.base_price} provider="Tabby" isEstimate={false} />
+                      // bnpl_live is measured, but the LIST payload carries no
+                      // instalment figure and no provider: the old badge here
+                      // hardcoded "Tabby" and divided the price by 4 in the
+                      // browser — claims the API never made. The real figure
+                      // (server-computed, currency-converted) lives on the
+                      // product page and in the cart.
+                      <span className="text-[11px] text-slate-600">
+                        {t('commerce.bnpl_available_checkout')}
+                      </span>
                     ) : (
                       <span className="text-[11px] text-slate-500">
                         {t('commerce.bnpl_not_live')}

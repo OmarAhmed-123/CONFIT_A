@@ -515,7 +515,8 @@
     "no_purchasable_size": "لا يتوفر مقاس قابل للشراء لهذه القطعة حالياً.",
     "wishlist_saved_device": "تم الحفظ في قائمة الأمنيات على هذا الجهاز",
     "wishlist_removed": "تمت الإزالة من قائمة الأمنيات",
-    "unavailable_label": "غير متاح — اختر مقاسًا آخر"
+    "unavailable_label": "غير متاح — اختر مقاسًا آخر",
+    "bnpl_available_checkout": "تقسيط بدون فوائد متاح عند إتمام الشراء"
   },
   "b2b": {
     "dashboard_title": "لوحة تحكم شريك العلامة التجارية",
@@ -1504,8 +1505,13 @@
     "available_at_stores": "متوفر في المتاجر",
     "you_save": "بتوفّر {{amount}}",
     "colour": "اللون",
-    "total_units_available": "متوفر {{count}} قطعة في {{variants}} نوع",
-    "add_to_bag_price": "أضِف إلى الحقيبة — {{price}}"
+    "total_units_available": "متوفر {{units}} في {{variants}}",
+    "add_to_bag_price": "أضِف إلى الحقيبة — {{price}}",
+    "recommended_size_fallback": "المقاس الموصى به: {{size}}.",
+    "unit_count_one": "قطعة واحدة",
+    "unit_count_many": "{{count}} قطعة",
+    "variant_count_one": "خيار واحد",
+    "variant_count_many": "{{count}} خيارًا"
   },
   "brand_nav": {
     "aria": "تنقّل إدارة المنصة وشركاء العلامات",

@@ -155,9 +155,20 @@ export const FitScoreBadge: React.FC<{ score?: number | null; verdict?: string; 
  * through useCapabilities — see the footer trust block for the pattern.
  */
 export const BNPLBadge: React.FC<{
-  price: number;
-  currency?: string;
+  /**
+   * REQUIRED, same precedent as `isEstimate` below: this component used to
+   * default to `'USD'`, and the product page forgot to pass the prop — so an
+   * EGP storefront showed "4 payments of $18.75" under a price of
+   * EGP 3,932.37 (production screenshot, 2026-10-07). A missing currency is
+   * now a `tsc --noEmit` failure instead of a silent dollar sign.
+   */
+  currency: string;
   provider?: string;
+  /**
+   * The server's figure, verbatim. There is deliberately NO `price / 4`
+   * fallback any more: a number invented in the browser is exactly the class
+   * of claim this badge exists to prevent. No server figure → no badge.
+   */
   installmentAmount?: number | null;
   /**
    * True when the figure is an illustrative split, not an offer from a lender.
@@ -173,13 +184,13 @@ export const BNPLBadge: React.FC<{
   isEstimate: boolean;
   eligible?: boolean;
   className?: string;
-}> = ({ price, currency = 'USD', provider, installmentAmount, isEstimate, eligible = true, className = '' }) => {
+}> = ({ currency, provider, installmentAmount, isEstimate, eligible = true, className = '' }) => {
   const { t, i18n } = useTranslation();
   if (!eligible) {
     return null;
   }
-  const installment = installmentAmount ?? price / 4;
-  if (!Number.isFinite(installment)) {
+  const installment = installmentAmount;
+  if (installment == null || !Number.isFinite(installment) || installment <= 0) {
     return null;
   }
   const lang = i18n.resolvedLanguage ?? 'en';

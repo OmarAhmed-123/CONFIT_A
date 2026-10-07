@@ -37,7 +37,6 @@ function renderBadge(props: Parameters<typeof BNPLBadge>[0]) {
 describe('an instalment estimate must not name a lender', () => {
   it('omits the provider name when the split is only an estimate', () => {
     renderBadge({
-      price: 289,
       currency: 'USD',
       provider: 'Tabby',
       installmentAmount: 72.25,
@@ -54,7 +53,6 @@ describe('an instalment estimate must not name a lender', () => {
 
   it('names the provider when the server says it is a real offer', () => {
     renderBadge({
-      price: 289,
       currency: 'USD',
       provider: 'Tabby',
       installmentAmount: 72.25,
@@ -77,7 +75,6 @@ describe('an instalment estimate must not name a lender', () => {
     // `tsc --noEmit` fails the build — so this stays a compile-time gate.
     // @ts-expect-error isEstimate is required: omitting it must not compile.
     renderBadge({
-      price: 289,
       currency: 'USD',
       provider: 'Tabby',
       installmentAmount: 72.25,
@@ -86,13 +83,40 @@ describe('an instalment estimate must not name a lender', () => {
   });
 
   it('renders nothing for an ineligible amount, in either branch', () => {
-    renderBadge({ price: 12, currency: 'USD', installmentAmount: null, eligible: false, isEstimate: true });
+    renderBadge({ currency: 'USD', installmentAmount: null, eligible: false, isEstimate: true });
     expect(screen.queryByText(/4 payments of/)).toBeNull();
   });
 
   it('localizes the estimate copy into Arabic', () => {
     setAppLanguage('ar');
-    renderBadge({ price: 289, currency: 'USD', provider: 'Tabby', installmentAmount: 72.25, isEstimate: true });
+    renderBadge({ currency: 'USD', provider: 'Tabby', installmentAmount: 72.25, isEstimate: true });
     expect(screen.getByText(/توضيحي فقط/)).toBeTruthy();
+  });
+});
+
+describe('the figure must carry the currency the shopper is actually browsing in', () => {
+  it('renders the EGP-formatted amount, never a dollar glyph, for an EGP figure', () => {
+    // The production defect this pins (screenshot, 2026-10-07): the PDP price
+    // said EGP 3,932.37 while this badge said "$18.75" — the call site forgot
+    // `currency` and the component silently defaulted to USD. `currency` is
+    // now a required prop, and this asserts the rendered glyphs.
+    renderBadge({ currency: 'EGP', installmentAmount: 983.09, isEstimate: true });
+    const text = screen.getByText(/4 payments of/).textContent ?? '';
+    expect(text).not.toContain('$');
+    expect(text).toMatch(/EGP|E£/);
+  });
+});
+
+describe('no server figure, no badge — the browser must not invent one', () => {
+  it('renders nothing when installmentAmount is absent (the old price/4 fallback is gone)', () => {
+    // Previously the component computed price/4 locally when the server sent
+    // no figure — a number no lender quoted and no API returned.
+    renderBadge({ currency: 'USD', installmentAmount: null, isEstimate: true });
+    expect(screen.queryByText(/payments of/)).toBeNull();
+  });
+
+  it('renders nothing for a zero or negative figure', () => {
+    renderBadge({ currency: 'USD', installmentAmount: 0, isEstimate: true });
+    expect(screen.queryByText(/payments of/)).toBeNull();
   });
 });

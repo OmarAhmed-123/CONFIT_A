@@ -336,15 +336,12 @@ export const ProductDetailView: React.FC = () => {
                     </span>
                   </>
                 )}
-              <span className="text-xs text-slate-500 font-light">
-                {product.currency}
-              </span>
             </div>
 
             {bnpl?.eligible && bnpl.installment_amount != null && (
               <div className="mt-3 p-3 rounded-2xl bg-[#FDF8EE] border border-[#C5A059]/30">
                 <BNPLBadge
-                  price={product.base_price}
+                  currency={product.currency || "USD"}
                   provider={bnpl.provider || undefined}
                   installmentAmount={bnpl.installment_amount}
                   isEstimate={bnpl.is_estimate !== false}
@@ -373,8 +370,13 @@ export const ProductDetailView: React.FC = () => {
 
             {product.fit_available ? (
               <p className="text-xs text-slate-600 leading-relaxed font-light">
+                {/* The fallback was a hand-built English template literal,
+                    which rendered untranslated Latin text inside the Arabic
+                    RTL page whenever fit_reasoning was absent. */}
                 {product.fit_reasoning ||
-                  `Recommended size ${product.recommended_size}.`}
+                  t("product.recommended_size_fallback", {
+                    size: product.recommended_size,
+                  })}
                 {product.recommended_size_available === false && (
                   <span className="block mt-1 text-amber-700 font-medium">
                     {t('product.recommended_size_out_of_stock')}
@@ -496,10 +498,20 @@ export const ProductDetailView: React.FC = () => {
                   the per-store pickup quantities further down: those are a
                   different pool and adding them together would double-count. */}
               <p className="mt-2 text-[11px] text-slate-500">
+                {/* "21 units available across 1 variants" — the raw counts
+                    were interpolated with no grammatical number agreement
+                    (production screenshot, 2026-10-07). Each count now picks
+                    its own singular/plural phrase before composing. */}
                 {totalStock > 0
                   ? t('product.total_units_available', {
-                      count: totalStock,
-                      variants: skus.length,
+                      units:
+                        totalStock === 1
+                          ? t('product.unit_count_one')
+                          : t('product.unit_count_many', { count: totalStock }),
+                      variants:
+                        skus.length === 1
+                          ? t('product.variant_count_one')
+                          : t('product.variant_count_many', { count: skus.length }),
                     })
                   : t('product.out_of_stock')}
               </p>

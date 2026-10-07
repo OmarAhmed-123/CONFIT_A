@@ -626,7 +626,7 @@ export const CheckoutView: React.FC = () => {
             </div>
             {cart && cart.bnpl_monthly_quote > 0 && (
               <BNPLBadge
-                price={total}
+                currency={cart.currency || 'USD'}
                 installmentAmount={cart.bnpl_monthly_quote}
                 isEstimate={cart.bnpl_is_estimate !== false}
                 eligible

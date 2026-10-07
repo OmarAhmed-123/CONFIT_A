@@ -61,6 +61,7 @@ export const AnnouncementBar: React.FC<{
   const body = (
     <div
       role="region"
+      data-testid="announcement-bar"
       aria-label={t("home.announcement_aria")}
       className="flex items-center justify-center gap-3 rounded-2xl border border-[#C5A059]/30 bg-[#0C0E1E] px-4 py-2.5"
     >

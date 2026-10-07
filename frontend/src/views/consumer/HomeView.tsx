@@ -249,7 +249,19 @@ export const HomeView: React.FC = () => {
         palette: paletteMap[guidePalette],
         preferred_fit: fitMap[guideFit],
       },
-      prompt: `First-look request: occasion=${guideOccasion}; budget=${guideBudget ? `$${guideBudget}` : "open"}; palette=${guidePalette}; fit preference=${guideFit}. Recommend only real catalog products. Palette is sent as a structured catalog-color constraint; fit preference uses saved/requested sizes only when available.`,
+      // The free-text brief mirrors ONLY what the structured half actually
+      // sends: no currency symbol (budget is a unitless server-side figure —
+      // the UI shows it through formatAmount, the API receives the bare
+      // number), and "No preference" never leaks as a pseudo-constraint.
+      prompt: [
+        `First-look request: occasion=${guideOccasion}`,
+        Number.isFinite(budget) ? `budget=${guideBudget}` : "budget=open",
+        paletteMap[guidePalette] ? `palette=${paletteMap[guidePalette]}` : null,
+        fitMap[guideFit] ? `fit preference=${fitMap[guideFit]}` : null,
+        "Recommend only real catalog products. Palette is a structured catalog-color constraint; fit preference uses saved/requested sizes only when available.",
+      ]
+        .filter(Boolean)
+        .join("; "),
     });
   };
 

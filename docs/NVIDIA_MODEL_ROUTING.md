@@ -1,6 +1,6 @@
 # NVIDIA NIM — Model Routing & Verification Report
 
-**Date:** 2026-09-27 · **re-verified live:** 2026-10-01
+**Date:** 2026-09-27 · **re-verified live:** 2026-10-01, 2026-10-07 (§9 — super-120b revived, stylist chain regained its failover)
 **Endpoint:** `https://integrate.api.nvidia.com/v1`
 **Credentials supplied:** 19 `nvapi-` keys — **19/19 valid** (re-confirmed 2026-10-01), each seeing the same 81-model catalogue
 **Verifier:** `python backend/scripts/verify_nvidia_models.py --live` → **PASS** on 2026-09-27 (12/12 routed models) · on **2026-10-01** it caught `kimi-k3` degraded (60–120 s / phantom-empty), which was demoted the same day — see §8
@@ -305,3 +305,116 @@ The `--live` verifier was run again on 2026-10-01 with all 19 keys loaded from `
 3. genuine 200 at **85.2 s**
 
 On 2026-09-27 the same model answered in 8.6–14.9 s. Its latency now exceeds every role deadline (60 s stylist / 90 s vision), so a chain containing it can never reach it before the caller degrades honestly. **Action taken the same day:** removed from `STYLIST_CHAT` (chain is now Ultra → Super, both healthy) and from `GARMENT_VISION` (nano-omni promoted to failover_1), and recorded in `UNROUTED_MODELS` so nobody re-wires it without re-measuring. The key stays in the pool. This is exactly the registry-vs-reality drift the verifier exists to catch — it returned exit 1 until the registry was corrected.
+
+---
+
+## 9. Re-verification 2026-10-07 — super-120b revived; the stylist chain has a failover again
+
+Run during the environment-setup pass, with the 19 slot keys loaded from
+`.env.nvidia` locally and pushed to the Vercel project (production + preview)
+under the **same env var names** `backend/app/providers/nvidia/keypool.py`
+already reads. No key was added to git; `git grep` over tracked files for any
+live `nvapi-` value returns nothing.
+
+**Credentials:** 19/19 accepted, catalogue = **80 models** visible.
+
+**`verify_nvidia_models.py --live` (role-appropriate probes, `pin_strict`):**
+
+| Role / position | Model | Measured 2026-10-07 |
+|---|---|---|
+| stylist_chat primary | `nvidia/nemotron-3-ultra-550b-a55b` | ok **4.94 s** |
+| garment_vision primary | `google/diffusiongemma-26b-a4b-it` | ok **2.59 s** |
+| garment_vision failover_1 | `nvidia/nemotron-3-nano-omni-30b-a3b-reasoning` | ok **11.04 s** |
+| content_safety primary | `nvidia/nemotron-3.5-content-safety` | ok **1.27 s** |
+| translation primary / failover_1 | `ultra-550b` / `riva-translate-4b` | ok **5.72 s** / **0.58 s** |
+| embedding primary | `nvidia/nemotron-3-embed-1b` | listed (2048-dim on direct probe) |
+| batch_reasoning primary / failover_1 | `glm-5.3` / `glm-5.3-flash` | ok **226.2 s** / **91.4 s** |
+| creative_copy primary | `meta/muse-glimmer-30b` | ok **41.6 s** |
+| utility_json primary | `nemotron-3.5-lightning-30b-a3b` | ok **2.55 s** |
+
+Two capacity events were observed *during* the run and handled by the pool, not
+by the product: `503 ResourceExhausted: Worker local total request limit
+reached` on `ultra-550b` (twice) and on `nano-omni`. `NvidiaKeyPool` rotated the
+credential and the probe completed — this is the behaviour §2 describes, seen
+again on live traffic.
+
+### 9.1 `nemotron-3-super-120b-a12b` is alive — re-routed
+
+On 2026-10-03 this model answered `410 Gone` on every call and left
+`GET /v1/models`, so it was removed from every chain and recorded in
+`UNROUTED_MODELS`. On 2026-10-07 it is **back**:
+
+| Probe | Result |
+|---|---|
+| stylist prompt, default settings × 3 | 200 — 0.90 s / 0.91 s / 1.28 s, grounded outfits, budget stated |
+| stylist prompt, `enable_thinking:false` × 2 | 200 — 0.88 s / 0.72 s, clean prose, no reasoning leakage |
+| EN→AR translation × 2 | 200 — 5.14 s / 1.89 s, correct Egyptian Arabic, prices and the sage-green colour preserved |
+| AR→EN translation × 3 | 200 — 0.24–0.38 s, but two replies carried a literal `Message:` prefix and `فرح مسائي` came back as "Evening joy" (ultra renders it "Evening wedding") |
+
+**Action taken:** `STYLIST_CHAT` regains a real failover (`ultra` → `super`).
+This is the substantive fix of this pass: until today the stylist chain had
+**one** slot, so a single `503` fell all the way through to the next provider
+instead of advancing to a second NVIDIA model. `TRANSLATION` gains
+`super` as failover_1 *ahead of* `riva` — it follows the system turn and its
+outbound Arabic is clean, where riva answers blindly and once answered in
+Norwegian. It is **not** promoted to translation primary: the `Message:` prefix
+and the `فرح` false friend are quality defects ultra does not have. Promotion
+conditions are written next to the spec so the next person does not have to
+re-derive them.
+
+`UNROUTED_MODELS` no longer lists `super-120b`; the history is kept as a comment
+beside the dict so the removal→revival is not mistaken for an oversight.
+
+**Still unrouted, unchanged:** `kimi-k3` (85–120 s, phantom-empty — 166.8 s TTFB
+in this pass's streaming probe), `deepseek-v4.1-flash` (>240 s), `gemma-4-31b-it`
+(>240 s on both probes today, consistent with its demotion), `laguna-xs-2.1`
+(503 `ResourceExhausted` on every attempt, and out of product scope),
+`ising-calibration-1.5-31b` (quantum domain), `nemotron-voicechat` (absent from
+the catalogue; the entry from the credential file lists no endpoint),
+`kumo-relational` (endpoint live, still demanding the `{predict, output}`
+contract — the 2026-09-27 payload shape returns 422).
+
+### 9.2 Production was NOT running on NVIDIA — the root cause was the timeout, not the key
+
+A live `POST /api/v1/stylist/chat` against <https://confit-a.vercel.app> answered:
+
+```
+engine: "Groq openai/gpt-oss-120b"        (14.5s / 3.8s / 7.9s across three probes)
+```
+
+even though `NVIDIA_API_KEY` and all 19 slot keys are set on the platform and
+`AI_PROVIDERS` lists the NVIDIA legs first. Two platform facts were invisible
+from the outside — both are `sensitive` in Vercel, so their values cannot be
+read back — and both were corrected:
+
+| Variable | Set to | Why |
+|---|---|---|
+| `AI_PROVIDERS` | `nvidia,nvidia2,groq,gemini,openai,unorouter` | makes the NVIDIA legs explicit and first; `nvidia2` is the legacy second-slot name the orchestrator reads |
+| `AI_PROVIDER_TIMEOUT_SECONDS` | `6` (was 4.0) | see below |
+
+**Root cause, reproduced locally with the orchestrator's own leg.** Running
+`_call_nvidia_at()` — the exact code path production uses — with the real
+payload (`max_tokens=900` + the live stylist system prompt):
+
+| Slot | Result |
+|---|---|
+| position 0 — `ultra-550b` | `503 ResourceExhausted` at 0.34s, then **200 in 21.89s** |
+| position 1 — `super-120b` | **200 in 2.71s**, then **200 in 3.58s**, grounded in the supplied items, EGP prices preserved |
+
+Against a 4.0s budget, an Ultra answer that needs ~22s cannot ever be served —
+the leg timed out on every request and the orchestrator advanced to Groq. **A
+configured provider that cannot answer inside its budget is indistinguishable
+from an absent one**, and nothing in `/api/v1/health` reports it: the AI legs
+are not part of readiness. This is the second time this exact failure shape has
+been recorded in this file (§0 was the EOL-model version of it).
+
+**Consequence for the registry:** `STYLIST_CHAT` primary is now `super-120b`
+(measured 2.71s / 3.58s on the production-shaped payload) with `ultra-550b` as
+failover_1 (best grounding, 21.89s tail). Order is set by whether a model can
+answer inside the budget, not by model size. `ultra-550b` keeps the
+`TRANSLATION` primary slot, where the `nvidia_client` deadline is far wider.
+
+### 9.3 Post-change production probe
+
+_(recorded immediately after the registry change is deployed — same session,
+section filled with the measured engine label)_

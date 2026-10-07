@@ -19,6 +19,7 @@ import {
   AUTH_FIELD_CLASS,
   AUTH_PRIMARY_BTN_CLASS,
 } from '../../components/auth/authStyles';
+import { useCapsLock, CapsLockHint } from '../../components/auth/CapsLockHint';
 
 /**
  * The page the password-reset EMAIL lands on.
@@ -52,6 +53,7 @@ export const ResetPasswordView: React.FC = () => {
   const [show, setShow] = useState(false);
   const [phase, setPhase] = useState<Phase>('form');
   const [serverError, setServerError] = useState<string | null>(null);
+  const { capsLockOn, capsLockProps } = useCapsLock();
 
   const checks = useMemo(
     () => ({
@@ -158,17 +160,19 @@ export const ResetPasswordView: React.FC = () => {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             className={`${AUTH_FIELD_CLASS} pe-11`}
+            {...capsLockProps}
           />
           <button
             type="button"
             onClick={() => setShow((v) => !v)}
             aria-label={show ? t('reset_password.hide_password') : t('reset_password.show_password')}
             aria-pressed={show}
-            className="absolute end-1 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-slate-500 hover:text-[#1B1F3B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059]"
+            className="absolute end-0.5 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-lg text-slate-500 hover:text-[#1B1F3B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059]"
           >
             <span aria-hidden="true">{show ? <EyeOff size={16} /> : <Eye size={16} />}</span>
           </button>
         </div>
+        <CapsLockHint on={capsLockOn} />
 
         <label htmlFor="rp-confirm" className="mt-4 block text-xs font-bold text-slate-700">
           {t('reset_password.confirm_label')}

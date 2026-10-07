@@ -10,15 +10,15 @@
  * font-mono for OTP codes).
  */
 
-/** Text field: 44px floor, gold focus ring + border, luxury easing. */
+/** Text field: 48px floor (master-prompt target floor), gold focus ring + border, luxury easing. */
 export const AUTH_FIELD_CLASS =
-  'w-full min-h-11 rounded-xl border border-slate-200 bg-white px-3 py-2.5 ' +
+  'w-full min-h-12 rounded-xl border border-slate-200 bg-white px-3 py-2.5 ' +
   'text-sm text-[#1B1F3B] transition-colors duration-300 ease-luxury ' +
   'focus:border-[#A37E44] focus:outline-none focus:ring-2 focus:ring-[#C5A059]/40';
 
-/** Primary action: full-width, 44px floor, visible focus ring, honest disabled. */
+/** Primary action: full-width, 48px floor, visible focus ring, honest disabled. */
 export const AUTH_PRIMARY_BTN_CLASS =
-  'inline-flex w-full min-h-11 items-center justify-center gap-2 rounded-xl ' +
+  'inline-flex w-full min-h-12 items-center justify-center gap-2 rounded-xl ' +
   'bg-[#1B1F3B] px-5 text-sm font-bold text-white shadow-md ' +
   'transition-all duration-300 ease-luxury hover:bg-[#0C0E1E] ' +
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059] ' +

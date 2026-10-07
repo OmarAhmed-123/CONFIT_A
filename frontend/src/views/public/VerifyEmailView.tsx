@@ -144,6 +144,9 @@ export const VerifyEmailView: React.FC = () => {
             <input
               id="ve-email"
               type="email"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
               autoComplete="email"
               value={resendEmail}
               onChange={(e) => setResendEmail(e.target.value)}

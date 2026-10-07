@@ -1957,7 +1957,8 @@
     "mfa_email_resend": "Send a new code",
     "mfa_email_resend_in": "Send a new code in {{seconds}}s",
     "mfa_email_code_label": "Code from your email",
-    "mfa_email_send_failed": "We could not deliver the code to your email — nothing was sent. Please try again, or use your authenticator app."
+    "mfa_email_send_failed": "We could not deliver the code to your email — nothing was sent. Please try again, or use your authenticator app.",
+    "caps_lock_on": "Caps Lock is on"
   },
   "account": {
     "style_profile": "Style Profile",

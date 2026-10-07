@@ -9,9 +9,10 @@ import { authService } from '../../services/apiServices';
 import { localizeApiError } from '../../i18n/apiErrors';
 import { ConfitLogo } from '../../components/common/ConfitLogo';
 import { UserIcon } from '../../components/icons/ConfitIcons';
-import { usePrefersReducedMotion } from '../../components/common/InteractionPrimitives';
+import { usePrefersReducedMotion, StatusIcon } from '../../components/common/InteractionPrimitives';
 import { Eye, EyeOff } from 'lucide-react';
 import { PasswordPolicyChecklist } from '../../components/auth/PasswordPolicyChecklist';
+import { useCapsLock, CapsLockHint } from '../../components/auth/CapsLockHint';
 import {
   AUTH_FIELD_CLASS,
   AUTH_PRIMARY_BTN_CLASS,
@@ -91,6 +92,7 @@ export const AuthModal: React.FC = () => {
   const [phone, setPhone] = useState('');
   const [mfaCode, setMfaCode] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const { capsLockOn, capsLockProps } = useCapsLock();
   const [forgotPhase, setForgotPhase] = useState<ForgotPhase>('idle');
   // ── MFA second factor via EMAIL (2026-10-06) ─────────────────────────
   // The dialog offered only authenticator/recovery codes; a shopper
@@ -196,11 +198,11 @@ export const AuthModal: React.FC = () => {
         // Group 1 §11: two-step login. If the account has MFA, `login`
         // throws with reason=MFA_REQUIRED and the store flips a flag;
         // the second-step form below sends the code.
-        const res = await login(email, password);
+        const res = await login(email.trim(), password);
         showToast(t('auth.welcome_back'), 'success');
         finishAuth(res);
       } else {
-        const res = await register({ email, password, full_name: fullName, phone });
+        const res = await register({ email: email.trim(), password, full_name: fullName.trim(), phone });
         showToast(t('auth.account_created'), 'success');
         finishAuth(res);
       }
@@ -213,7 +215,7 @@ export const AuthModal: React.FC = () => {
   const handleMfaSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await completeMfaLogin(email, password, mfaCode);
+      const res = await completeMfaLogin(email.trim(), password, mfaCode.trim());
       showToast(t('auth.mfa_signed_in'), 'success');
       finishAuth(res);
     } catch {
@@ -505,7 +507,12 @@ export const AuthModal: React.FC = () => {
                 />
               </div>
               <button type="submit" disabled={isLoading} aria-busy={isLoading} className={primaryButtonClass}>
-                {isLoading ? t('auth.verifying') : t('auth.verify_sign_in')}
+                {isLoading && (
+                  <span aria-hidden="true">
+                    <StatusIcon status="loading" size={14} className="text-white" />
+                  </span>
+                )}
+                <span>{isLoading ? t('auth.verifying') : t('auth.verify_sign_in')}</span>
               </button>
             </motion.form>
           )}
@@ -540,6 +547,9 @@ export const AuthModal: React.FC = () => {
                       id="auth-forgot-email"
                       type="email"
                       required
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      spellCheck={false}
                       autoComplete="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
@@ -605,6 +615,9 @@ export const AuthModal: React.FC = () => {
                   id="auth-email"
                   type="email"
                   required
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
                   autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -629,17 +642,19 @@ export const AuthModal: React.FC = () => {
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder={view === 'signup' ? t('auth.password_placeholder_new') : '••••••••'}
                     className={`${inputClass} pe-11`}
+                    {...capsLockProps}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword((v) => !v)}
                     aria-label={showPassword ? t('reset_password.hide_password') : t('reset_password.show_password')}
                     aria-pressed={showPassword}
-                    className="absolute end-1 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-slate-500 transition-colors duration-300 ease-luxury hover:text-[#1B1F3B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059]"
+                    className="absolute end-0.5 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-lg text-slate-500 transition-colors duration-300 ease-luxury hover:text-[#1B1F3B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059]"
                   >
                     <span aria-hidden="true">{showPassword ? <EyeOff size={16} /> : <Eye size={16} />}</span>
                   </button>
                 </div>
+                <CapsLockHint on={capsLockOn} />
                 {view === 'signup' && (
                   /* LIVE mirror of the server's policy — the same component
                      the reset page uses. Guidance only: the submit stays
@@ -670,7 +685,11 @@ export const AuthModal: React.FC = () => {
                 {/* Decorative: aria-hidden keeps the accessible name equal to
                     the visible label ("Sign in"), not "User Account Sign in". */}
                 <span aria-hidden="true">
-                  <UserIcon size={14} color="#FFFFFF" />
+                  {isLoading ? (
+                    <StatusIcon status="loading" size={14} className="text-white" />
+                  ) : (
+                    <UserIcon size={14} color="#FFFFFF" />
+                  )}
                 </span>
                 <span>
                   {isLoading

@@ -358,6 +358,13 @@ export const catalogService = {
   getProductById: (id: number) => request<Product>(`/catalog/products/${id}`),
 
   getCategories: () => request<Category[]>("/catalog/categories"),
+
+  /** The REAL occasion vocabulary of the live catalogue (lowercase canonical
+   *  tokens + product counts). Filter pills render from this so the UI can
+   *  never advertise an occasion the data cannot answer — the previous
+   *  hardcoded list included tokens with zero matching products. */
+  getOccasions: () =>
+    request<{ value: string; count: number }[]>("/catalog/occasions"),
   getCapabilities: () =>
     request<{
       payments_live: boolean;

@@ -66,8 +66,13 @@ function leaf(bundle: unknown, key: string): string | undefined {
 
 describe('consumer data tokens stay English while their labels localize', () => {
   it('finds the full set of token/label pairs (guards against regex rot)', () => {
-    // 6 palette + 5 occasion in Discover; 6 occasion + 4 palette + 4 fit in Home.
-    expect(PAIRS).toHaveLength(25);
+    // 6 palette in Discover; 6 occasion + 4 palette + 4 fit in Home.
+    // (C02 pass 2, 2026-10-07: Discover's 5 hardcoded occasion pairs are
+    // GONE — occasion pills now render from GET /catalog/occasions, the
+    // live tag vocabulary, so the UI can never advertise an occasion with
+    // zero matching products. Their token/label split is pinned below in
+    // the occasionLabel() assertions instead.)
+    expect(PAIRS).toHaveLength(20);
   });
 
   it.each(PAIRS.filter((p) => p.value !== ''))(
@@ -107,7 +112,12 @@ describe('consumer data tokens stay English while their labels localize', () => 
 
   it('Display: every render path goes through labelKey, never the raw token', () => {
     expect(FILES.discover).toContain('{t(col.labelKey)}');
-    expect(FILES.discover).toContain('{t(occasion.labelKey)}');
+    // Occasion pills are data-driven: the API token is NEVER rendered
+    // directly — it goes through occasionLabel(), which translates known
+    // tags (discover.occasion_<token>) and humanises unknown ones.
+    expect(FILES.discover).toContain('occasionLabel(occasion.value)');
+    expect(FILES.discover).toMatch(/const occasionLabel = \(value: string\)/);
+    expect(FILES.discover).toContain('i18n.exists(key) ? t(key)');
     expect(FILES.home).toContain('{t(palette.labelKey)}');
     expect(FILES.home).toContain('{t(fit.labelKey)}');
     expect(FILES.home).toContain('{t(occasion.labelKey)}');

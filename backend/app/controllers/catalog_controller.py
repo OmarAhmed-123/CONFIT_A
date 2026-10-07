@@ -19,7 +19,8 @@ from backend.app.schemas.catalog import (
     ProductDetailOut,
     StoreInventoryOut,
     SearchResponseOut,
-    AutocompleteResponse
+    AutocompleteResponse,
+    OccasionTagOut,
 )
 from backend.app.core.exceptions import ResourceNotFoundError
 from backend.app.models.catalog import StoreLocation
@@ -126,6 +127,15 @@ def autocomplete_catalog(
 ):
     service = SearchService(db)
     return service.autocomplete(query=q)
+
+
+@router.get("/occasions", response_model=List[OccasionTagOut])
+def list_occasions(db: Session = Depends(get_db)):
+    """The REAL occasion vocabulary of the live catalogue, with counts.
+    The storefront renders its occasion filter pills from this list so a
+    pill can never promise a filter the data cannot answer."""
+    repo = CatalogRepository(db)
+    return repo.get_occasion_vocabulary()
 
 
 @router.get("/products", response_model=List[ProductSummaryOut])

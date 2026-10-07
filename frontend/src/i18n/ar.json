@@ -1466,7 +1466,16 @@
     "clear_search": "مسح البحث",
     "sug_type_product": "منتج",
     "sug_type_brand": "ماركة",
-    "sug_type_category": "فئة"
+    "sug_type_category": "فئة",
+    "occasion_party": "حفلات",
+    "occasion_gala": "مناسبات كبرى",
+    "occasion_dinner": "عشاء",
+    "occasion_business": "أعمال",
+    "occasion_black_tie": "سهرة رسمية",
+    "occasion_formal": "رسمي",
+    "occasion_casual": "كاجوال",
+    "occasion_weekend": "نهاية الأسبوع",
+    "suggestions_status": "{{count}} اقتراحات متاحة"
   },
   "brand": {
     "tagline": "ثقة + مقاس مضبوط"

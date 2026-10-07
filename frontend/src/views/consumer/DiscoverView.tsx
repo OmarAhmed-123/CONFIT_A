@@ -34,15 +34,10 @@ const COLOR_SWATCHES = [
   { value: "Champagne Gold", labelKey: "discover.color_champagne_gold", hex: "#D4AF37" },
   { value: "Emerald Green", labelKey: "discover.color_emerald_green", hex: "#2D4A3E" },
 ];
-const OCCASION_FILTERS = [
-  { value: "Work", labelKey: "discover.occasion_work" },
-  { value: "Wedding", labelKey: "discover.occasion_wedding" },
-  { value: "Evening", labelKey: "discover.occasion_evening" },
-  { value: "Travel", labelKey: "discover.occasion_travel" },
-  { value: "Everyday", labelKey: "discover.occasion_everyday" },
-];
 const COLOR_VALUES = COLOR_SWATCHES.map((c) => c.value).filter(Boolean);
-const OCCASION_VALUES = OCCASION_FILTERS.map((o) => o.value);
+// How many occasion pills to surface before the row gets noisy; the
+// vocabulary endpoint already orders by product count descending.
+const MAX_OCCASION_PILLS = 6;
 const SORT_VALUES = ["recommended", "price_asc", "price_desc", "rating", "newest"];
 
 /** One pill, one contract: 44px floor, aria-pressed state, luxury easing.
@@ -76,10 +71,13 @@ export const DiscoverView: React.FC = () => {
   const {
     products,
     categories,
+    occasions = [],
     selectedCategory,
     setSelectedCategory,
     selectedOccasion,
     setSelectedOccasion,
+    selectedColor,
+    setSelectedColor,
     searchQuery,
     setSearchQuery,
     sortBy,
@@ -129,8 +127,6 @@ export const DiscoverView: React.FC = () => {
   useEffect(() => {
     if (hydratedRef.current) return;
     hydratedRef.current = true;
-    const occ = searchParams.get("occasion");
-    if (occ && OCCASION_VALUES.includes(occ)) setSelectedOccasion(occ);
     const pal = searchParams.get("palette");
     if (pal && COLOR_VALUES.includes(pal)) setSelectedColor(pal);
     const q = searchParams.get("q");
@@ -139,6 +135,22 @@ export const DiscoverView: React.FC = () => {
     if (sort && SORT_VALUES.includes(sort)) setSortBy(sort);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ?occasion= validates against the LIVE vocabulary (which loads async),
+  // so it hydrates once that data exists — same contract as ?category=.
+  // Tokens are normalised to lowercase; junk is ignored, never applied.
+  const appliedOccasionRef = useRef<string | null>(null);
+  const requestedOccasion = searchParams.get("occasion");
+  useEffect(() => {
+    if (!requestedOccasion || occasions.length === 0) return;
+    if (appliedOccasionRef.current === requestedOccasion) return;
+    const token = requestedOccasion.trim().toLowerCase();
+    if (occasions.some((o) => o.value === token)) {
+      appliedOccasionRef.current = requestedOccasion;
+      setSelectedOccasion(token);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [requestedOccasion, occasions]);
   // Try-on CTAs bind to the live engine verdict (2026-09-22): when the GPU
   // cannot render, these route to the no-photo fit check instead of failing.
   const { capabilities } = useCapabilities();
@@ -148,7 +160,9 @@ export const DiscoverView: React.FC = () => {
     AutocompleteSuggestion[]
   >([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const [selectedColor, setSelectedColor] = useState<string>("");
+  // Which suggestion the arrow keys have reached (-1 = none). Focus never
+  // leaves the input — the APG combobox pattern.
+  const [activeSugIdx, setActiveSugIdx] = useState(-1);
   // The heart previously lived in useState only — it silently vanished on
   // every navigation. It is a CLIENT-side saved list (no wishlist API
   // exists — documented gap), so localStorage is the honest ceiling.
@@ -163,6 +177,17 @@ export const DiscoverView: React.FC = () => {
   });
   const searchInputRef = useRef<HTMLInputElement | null>(null);
 
+  const selectSuggestion = (sug: AutocompleteSuggestion) => {
+    if (sug.type === "product") {
+      navigate(`/product/${sug.slug_or_query}`);
+    } else {
+      setSearchQuery(sug.title);
+      syncParams({ q: sug.title });
+    }
+    setShowSuggestions(false);
+    setActiveSugIdx(-1);
+  };
+
   // Live Autocomplete
   useEffect(() => {
     if (searchQuery.trim().length >= 2) {
@@ -171,6 +196,7 @@ export const DiscoverView: React.FC = () => {
         .then((res) => {
           setAutocompleteSuggestions(res.suggestions || []);
           setShowSuggestions((res.suggestions || []).length > 0);
+          setActiveSugIdx(-1);
         })
         .catch(() => setAutocompleteSuggestions([]));
     } else {
@@ -233,28 +259,22 @@ export const DiscoverView: React.FC = () => {
     });
   };
 
-  const filteredProducts = products.filter((p) => {
-    if (
-      selectedColor &&
-      !p.color_family.toLowerCase().includes(selectedColor.toLowerCase())
-    ) {
-      return false;
-    }
-    if (
-      selectedOccasion &&
-      !(p.occasion_tags || []).some((tag) =>
-        tag.toLowerCase().includes(selectedOccasion.toLowerCase()),
-      )
-    ) {
-      return false;
-    }
-    return true;
-  });
+  // No client-side re-filtering: category, occasion, palette and search all
+  // filter SERVER-side through the view model's query. Filtering the API's
+  // answer a second time hid products whenever the two implementations
+  // disagreed (and the server is the one that is actually right).
 
   // Category names ship from the API in both spellings (`name`, `name_ar`);
   // the Arabic one was previously ignored on this screen.
   const categoryLabel = (cat: { name: string; name_ar?: string }) =>
     isArabic && cat.name_ar ? cat.name_ar : cat.name;
+  // Known tags get a real translation; an unknown tag added by
+  // merchandising tomorrow still renders readably ("black_tie" → "black
+  // tie") instead of leaking a raw token or vanishing.
+  const occasionLabel = (value: string) => {
+    const key = `discover.occasion_${value}`;
+    return i18n.exists(key) ? t(key) : value.replace(/_/g, " ");
+  };
   const activeCategory = categories.find(
     (cat) => cat.slug === selectedCategory,
   );
@@ -263,12 +283,7 @@ export const DiscoverView: React.FC = () => {
       ? t('discover.active_category', { name: categoryLabel(activeCategory) })
       : null,
     selectedOccasion
-      ? t('discover.active_occasion', {
-          name: t(
-            OCCASION_FILTERS.find((o) => o.value === selectedOccasion)?.labelKey ??
-              selectedOccasion,
-          ),
-        })
+      ? t('discover.active_occasion', { name: occasionLabel(selectedOccasion) })
       : null,
     selectedColor
       ? t('discover.active_palette', {
@@ -314,10 +329,41 @@ export const DiscoverView: React.FC = () => {
             <input
               ref={searchInputRef}
               type="text"
+              role="combobox"
+              aria-expanded={showSuggestions && autocompleteSuggestions.length > 0}
+              aria-controls="discover-suggestions"
+              aria-autocomplete="list"
+              aria-activedescendant={
+                showSuggestions && activeSugIdx >= 0
+                  ? `discover-sug-${activeSugIdx}`
+                  : undefined
+              }
               value={searchQuery}
               onChange={(e) => {
                 setSearchQuery(e.target.value);
+                setActiveSugIdx(-1);
                 syncParams({ q: e.target.value.trim() || null });
+              }}
+              onKeyDown={(e) => {
+                if (!showSuggestions || autocompleteSuggestions.length === 0) {
+                  if (e.key === "Escape") setShowSuggestions(false);
+                  return;
+                }
+                const last = autocompleteSuggestions.length - 1;
+                if (e.key === "ArrowDown") {
+                  e.preventDefault();
+                  setActiveSugIdx((i) => (i >= last ? 0 : i + 1));
+                } else if (e.key === "ArrowUp") {
+                  e.preventDefault();
+                  setActiveSugIdx((i) => (i <= 0 ? last : i - 1));
+                } else if (e.key === "Enter" && activeSugIdx >= 0) {
+                  e.preventDefault();
+                  selectSuggestion(autocompleteSuggestions[activeSugIdx]);
+                } else if (e.key === "Escape") {
+                  e.preventDefault();
+                  setShowSuggestions(false);
+                  setActiveSugIdx(-1);
+                }
               }}
               onFocus={() => {
                 if (autocompleteSuggestions.length > 0)
@@ -357,24 +403,38 @@ export const DiscoverView: React.FC = () => {
                 <div className="p-2.5 bg-[#FAF9F6] text-[10px] font-bold text-[#C5A059] uppercase tracking-wider">
                   {t('discover.suggested_matches')}
                 </div>
+                {/* Screen readers hear how many matches arrived without
+                    leaving the input. */}
+                <div role="status" className="sr-only">
+                  {t('discover.suggestions_status', {
+                    count: autocompleteSuggestions.length,
+                  })}
+                </div>
+                <div
+                  id="discover-suggestions"
+                  role="listbox"
+                  aria-label={t('discover.suggested_matches')}
+                  className="divide-y divide-slate-100"
+                >
                 {autocompleteSuggestions.map((sug, idx) => (
-                  /* Real BUTTONS: the old rows were divs with onMouseDown —
-                     unreachable by keyboard entirely. The serif monogram
-                     replaces the emoji fallback (spec 14: no emoji as
-                     production state). */
-                  <button
+                  /* APG combobox: options are NOT tab stops — focus stays in
+                     the input and ArrowDown/ArrowUp + Enter drive selection
+                     via aria-activedescendant. onMouseDown preventDefault
+                     keeps a mouse click from blurring the input (which
+                     would close the list before the click registered). */
+                  <div
                     key={idx}
-                    type="button"
-                    onClick={() => {
-                      if (sug.type === "product") {
-                        navigate(`/product/${sug.slug_or_query}`);
-                      } else {
-                        setSearchQuery(sug.title);
-                        syncParams({ q: sug.title });
-                        setShowSuggestions(false);
-                      }
-                    }}
-                    className="w-full p-3 hover:bg-[#FAF9F6] cursor-pointer flex items-center justify-between gap-2 text-xs text-start transition-colors duration-300 ease-luxury focus-visible:outline-none focus-visible:bg-[#FAF9F6] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#C5A059]"
+                    id={`discover-sug-${idx}`}
+                    role="option"
+                    aria-selected={activeSugIdx === idx}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => selectSuggestion(sug)}
+                    onMouseEnter={() => setActiveSugIdx(idx)}
+                    className={`w-full p-3 cursor-pointer flex items-center justify-between gap-2 text-xs text-start transition-colors duration-300 ease-luxury ${
+                      activeSugIdx === idx
+                        ? "bg-[#FAF9F6] ring-2 ring-inset ring-[#C5A059]"
+                        : "hover:bg-[#FAF9F6]"
+                    }`}
                   >
                     <div className="flex items-center gap-3">
                       {sug.thumbnail_url ? (
@@ -411,8 +471,9 @@ export const DiscoverView: React.FC = () => {
                             : 'discover.sug_type_category',
                       )}
                     </span>
-                  </button>
+                  </div>
                 ))}
+                </div>
               </div>
             )}
           </div>
@@ -503,7 +564,7 @@ export const DiscoverView: React.FC = () => {
           >
             {t('discover.filter_all')}
           </FilterPill>
-          {OCCASION_FILTERS.map((occasion) => (
+          {occasions.slice(0, MAX_OCCASION_PILLS).map((occasion) => (
             <FilterPill
               key={occasion.value}
               selected={selectedOccasion === occasion.value}
@@ -512,7 +573,7 @@ export const DiscoverView: React.FC = () => {
                 syncParams({ occasion: occasion.value });
               }}
             >
-              {t(occasion.labelKey)}
+              <span className="capitalize">{occasionLabel(occasion.value)}</span>
             </FilterPill>
           ))}
         </div>
@@ -633,7 +694,7 @@ export const DiscoverView: React.FC = () => {
           actionText={t('common.retry')}
           onAction={refreshCatalog}
         />
-      ) : filteredProducts.length === 0 ? (
+      ) : products.length === 0 ? (
         <EmptyState
           title={t('discover.empty_title')}
           description={t('discover.empty_body')}
@@ -648,7 +709,7 @@ export const DiscoverView: React.FC = () => {
         />
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
-          {filteredProducts.map((p) => (
+          {products.map((p) => (
             <ProductCard
               key={p.id}
               product={p}

@@ -145,8 +145,10 @@ describe('Discover collection rail — real-data AccessibleCarousel integration'
     // grid uses — assert against the fixture catalogue, not copy.
     expect(within(region).getAllByTestId('product-card')).toHaveLength(3);
     expect(
-      within(region).getByRole('button', { name: /view .*rail product 1/i }),
-    ).toBeInTheDocument();
+      // C02 upgrade: the detail entry is a REAL link now (new-tab/middle
+      // -click capable), not a JS-only button — assert the href too.
+      within(region).getByRole('link', { name: /view .*rail product 1/i }),
+    ).toHaveAttribute('href', '/product/rail-product-1');
 
     // Position indicator text ("1 / 3") + prev/next controls ≥ labelled.
     expect(within(region).getByText(/1\s*\/\s*3/)).toBeInTheDocument();

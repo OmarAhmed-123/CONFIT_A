@@ -1,5 +1,5 @@
 import React from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
 import { Product } from "../../models";
@@ -112,8 +112,14 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   const tryOnKind = tryOn.ctaKind(true);
 
   const discount = useDiscount(product);
+  const detailsHref = `/product/${product.slug}`;
   const openDetails = () =>
-    onOpenDetails ? onOpenDetails(product) : navigate(`/product/${product.slug}`);
+    onOpenDetails ? onOpenDetails(product) : navigate(detailsHref);
+  // C02 Goal-E2E finding (2026-10-07): the card navigated ONLY via onClick —
+  // no real <a>, so middle-click/new-tab/copy-link were impossible and the
+  // title was mouse-only. The three detail entries are now true links when
+  // the card navigates (the optional onOpenDetails modal override keeps its
+  // button semantics).
 
 
   const isCompact = variant === "compact";
@@ -129,21 +135,39 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       data-product-id={product.id}
     >
       <div className="relative overflow-hidden bg-slate-100">
-        <button
-          onClick={openDetails}
-          className={`block w-full text-left cursor-pointer ${
-            isCompact ? "h-44" : "h-56"
-          }`}
-          aria-label={t("a11y.view_product", { name: product.title })}
-        >
-          <HonestProductImage
-            src={product.thumbnail_url}
-            alt={product.title}
-            loading={priority ? "eager" : "lazy"}
-            decoding="async"
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-          />
-        </button>
+        {onOpenDetails ? (
+          <button
+            onClick={openDetails}
+            className={`block w-full text-left cursor-pointer ${
+              isCompact ? "h-44" : "h-56"
+            }`}
+            aria-label={t("a11y.view_product", { name: product.title })}
+          >
+            <HonestProductImage
+              src={product.thumbnail_url}
+              alt={product.title}
+              loading={priority ? "eager" : "lazy"}
+              decoding="async"
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            />
+          </button>
+        ) : (
+          <Link
+            to={detailsHref}
+            className={`block w-full text-left cursor-pointer ${
+              isCompact ? "h-44" : "h-56"
+            }`}
+            aria-label={t("a11y.view_product", { name: product.title })}
+          >
+            <HonestProductImage
+              src={product.thumbnail_url}
+              alt={product.title}
+              loading={priority ? "eager" : "lazy"}
+              decoding="async"
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            />
+          </Link>
+        )}
 
         <div className="absolute top-2.5 left-2.5 flex flex-col items-start gap-1">
           {discount && (
@@ -192,11 +216,19 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
             {product.brand_name}
           </span>
-          <h3
-            onClick={openDetails}
-            className="font-serif text-xs sm:text-sm font-bold text-[#1B1F3B] line-clamp-1 hover:text-[#C5A059] cursor-pointer mt-0.5"
-          >
-            {product.title}
+          <h3 className="font-serif text-xs sm:text-sm font-bold text-[#1B1F3B] line-clamp-1 mt-0.5">
+            {onOpenDetails ? (
+              <button
+                onClick={openDetails}
+                className="text-left hover:text-[#C5A059] cursor-pointer"
+              >
+                {product.title}
+              </button>
+            ) : (
+              <Link to={detailsHref} className="hover:text-[#C5A059]">
+                {product.title}
+              </Link>
+            )}
           </h3>
 
           <div className="flex items-center justify-between mt-1 gap-2">
@@ -229,12 +261,21 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         {footerSlot}
 
         <div className="mt-auto pt-3 border-t border-slate-100 grid grid-cols-2 gap-2">
-          <button
-            onClick={openDetails}
-            className="py-2.5 rounded-xl bg-[#1B1F3B] hover:bg-[#0C0E1E] text-white text-xs font-semibold transition-all shadow-2xs"
-          >
-            {t("discover.view_details")}
-          </button>
+          {onOpenDetails ? (
+            <button
+              onClick={openDetails}
+              className="py-2.5 rounded-xl bg-[#1B1F3B] hover:bg-[#0C0E1E] text-white text-xs font-semibold transition-all shadow-2xs"
+            >
+              {t("discover.view_details")}
+            </button>
+          ) : (
+            <Link
+              to={detailsHref}
+              className="inline-flex items-center justify-center py-2.5 rounded-xl bg-[#1B1F3B] hover:bg-[#0C0E1E] text-white text-xs font-semibold transition-all shadow-2xs"
+            >
+              {t("discover.view_details")}
+            </Link>
+          )}
           <TryOnButton product={product} variant="full" className="w-full" />
 
           {onAddToBag && (

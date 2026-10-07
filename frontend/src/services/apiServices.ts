@@ -380,6 +380,11 @@ export const catalogService = {
       bopis_store_count: number;
       storage_mode: string;
       returns_window_days: number;
+      /** Free-shipping threshold in shipping_currency (server-converted with
+       *  the cart's own rate table), or null when no policy exists. */
+      free_shipping_threshold: number | null;
+      standard_shipping_fee: number | null;
+      shipping_currency: string | null;
     }>("/catalog/capabilities"),
 
   getFeaturedCollections: () =>

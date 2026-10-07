@@ -52,6 +52,12 @@ def test_capabilities_contract_shape(client):
         "bopis_store_count",
         "storage_mode",
         "returns_window_days",
+        # Added 2026-10-08 (home re-pass): the storefront announcement bar
+        # binds to a REAL free-shipping policy, currency-converted with the
+        # same rate table the cart uses — never to a hardcoded figure.
+        "free_shipping_threshold",
+        "standard_shipping_fee",
+        "shipping_currency",
     }
     assert isinstance(caps["bopis_store_count"], int)
     assert caps["payments_mode"] in ("live", "demo")
@@ -675,3 +681,50 @@ def test_gpu_ready_is_false_when_the_worker_is_unreachable_but_a_pilot_serves(
     # ...while the platform may still honestly say it can render.
     assert caps["vton_renderable"] is True
     assert caps["vton_engine_state"] == "available"
+
+
+# ── free-shipping policy (2026-10-08 home re-pass) ──────────────────────────
+
+def test_free_shipping_fields_convert_with_the_request_currency(client, monkeypatch):
+    """The announcement bar must show the SAME money the cart will compute.
+
+    The policy is configured in the price book (USD 250). A shopper browsing
+    in EGP must see the threshold converted with the same rate table the cart
+    totals use — not the raw price-book figure, and never a hardcoded one.
+    """
+    monkeypatch.setattr(
+        "backend.app.core.config.settings.MARKET_FX_RATES",
+        '{"EGP": "48.5"}',
+        raising=False,
+    )
+    monkeypatch.setattr(
+        "backend.app.core.config.settings.PRICING_CURRENCY", "USD", raising=False
+    )
+    monkeypatch.setattr(
+        "backend.app.core.config.settings.FREE_SHIPPING_THRESHOLD", 250.0, raising=False
+    )
+    monkeypatch.setattr(
+        "backend.app.core.config.settings.STANDARD_SHIPPING_FEE", 15.0, raising=False
+    )
+
+    caps = client.get("/api/v1/catalog/capabilities?currency=EGP").json()
+    assert caps["shipping_currency"] == "EGP"
+    assert caps["free_shipping_threshold"] == 12125.0  # 250 x 48.5
+    assert caps["standard_shipping_fee"] == 727.5      # 15 x 48.5
+
+    # And the price-book request is the exact configured figure.
+    caps_usd = client.get("/api/v1/catalog/capabilities?currency=USD").json()
+    assert caps_usd["shipping_currency"] == "USD"
+    assert caps_usd["free_shipping_threshold"] == 250.0
+
+
+def test_disabled_free_shipping_policy_publishes_nothing(client, monkeypatch):
+    """No policy, no fields — the UI must have nothing to render rather than
+    a zero that reads as 'free shipping on everything'."""
+    monkeypatch.setattr(
+        "backend.app.core.config.settings.FREE_SHIPPING_THRESHOLD", 0.0, raising=False
+    )
+    caps = client.get("/api/v1/catalog/capabilities").json()
+    assert caps["free_shipping_threshold"] is None
+    assert caps["standard_shipping_fee"] is None
+    assert caps["shipping_currency"] is None

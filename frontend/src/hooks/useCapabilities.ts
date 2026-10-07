@@ -71,6 +71,17 @@ export interface Capabilities {
   /** Provider NAME for display/telemetry only. Never a readiness verdict. */
   storage_mode: string;
   returns_window_days: number;
+  /**
+   * Free-shipping threshold in `shipping_currency`, converted server-side
+   * with the SAME rate table the cart totals use. `null` means the
+   * deployment has no free-shipping policy — the announcement bar renders
+   * NOTHING rather than inventing an offer.
+   */
+  free_shipping_threshold?: number | null;
+  /** Standard shipping fee in `shipping_currency`. */
+  standard_shipping_fee?: number | null;
+  /** Currency of the two figures above (this request's display currency). */
+  shipping_currency?: string | null;
 }
 
 export const HONEST_FALLBACK_CAPABILITIES: Capabilities = {
@@ -89,6 +100,11 @@ export const HONEST_FALLBACK_CAPABILITIES: Capabilities = {
   bopis_store_count: 0,
   storage_mode: 'local',
   returns_window_days: 30,
+  // No flags fetched -> no shipping promise. The honest degradation is an
+  // absent announcement, never a stale or invented threshold.
+  free_shipping_threshold: null,
+  standard_shipping_fee: null,
+  shipping_currency: null,
 };
 
 export function useCapabilities() {

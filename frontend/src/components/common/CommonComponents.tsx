@@ -226,10 +226,14 @@ export const LoadingSpinner: React.FC<{ text?: string }> = ({ text }) => {
   );
 };
 
+/* Home pass 3: the hero image block carries a directional shimmer sweep
+   (geometry-tailored, RTL-aware, auto-disabled under reduced motion — see
+   .skeleton-shimmer in styles/index.css) instead of a flat opacity pulse;
+   the text lines keep the quieter pulse so the sweep stays ONE light. */
 export const SkeletonCard: React.FC = () => (
-  <div className="bg-white rounded-3xl border border-slate-200/80 p-3.5 shadow-2xs animate-pulse space-y-3" aria-hidden="true">
-    <div className="h-64 rounded-2xl bg-slate-100"></div>
-    <div className="space-y-1.5 pt-1">
+  <div className="bg-white rounded-3xl border border-slate-200/80 p-3.5 shadow-2xs space-y-3" aria-hidden="true">
+    <div className="skeleton-shimmer h-64 rounded-2xl bg-slate-100"></div>
+    <div className="space-y-1.5 pt-1 animate-pulse">
       <div className="h-3 w-16 bg-slate-100 rounded"></div>
       <div className="h-4 w-3/4 bg-slate-200 rounded"></div>
       <div className="h-4 w-20 bg-slate-100 rounded"></div>

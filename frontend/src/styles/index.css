@@ -124,6 +124,33 @@
    Icon-only controls in the navbar are 22–28px tall with 1px of padding. This
    guarantees the minimum hit area without changing the visual design. */
 @layer components {
+  /* ── Skeleton shimmer (home pass 3) ──────────────────────────────────
+     A directional light sweep tailored to the block it sits on, replacing
+     the flat opacity pulse. The global prefers-reduced-motion rule above
+     collapses the sweep to a static block (0.001ms × 1 iteration), so no
+     extra guard is needed here. The sweep follows reading direction. */
+  .skeleton-shimmer {
+    position: relative;
+    overflow: hidden;
+  }
+  .skeleton-shimmer::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgb(255 255 255 / 0.65),
+      transparent
+    );
+    animation: confit-shimmer 1.8s cubic-bezier(0.25, 1, 0.5, 1) infinite;
+  }
+  [dir="rtl"] .skeleton-shimmer::after {
+    transform: translateX(100%);
+    animation-name: confit-shimmer-rtl;
+  }
+
   /* ── Spec 09 surface classes ──────────────────────────────────────────
      Border does the structural work (§6.2) — shadow only decorates the
      raised layer and never marks focus (§8). Declared solid-first: the
@@ -290,5 +317,18 @@ html {
 @media (min-width: 1024px) {
   html {
     scroll-padding-bottom: 6.5rem;
+  }
+}
+
+/* Keyframes for .skeleton-shimmer (declared outside @layer so Tailwind never
+   tree-shakes them). LTR sweeps left→right; RTL mirrors it. */
+@keyframes confit-shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+@keyframes confit-shimmer-rtl {
+  100% {
+    transform: translateX(-100%);
   }
 }

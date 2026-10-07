@@ -10,6 +10,12 @@ import { localizeApiError } from '../../i18n/apiErrors';
 import { ConfitLogo } from '../../components/common/ConfitLogo';
 import { UserIcon } from '../../components/icons/ConfitIcons';
 import { usePrefersReducedMotion } from '../../components/common/InteractionPrimitives';
+import { Eye, EyeOff } from 'lucide-react';
+import { PasswordPolicyChecklist } from '../../components/auth/PasswordPolicyChecklist';
+import {
+  AUTH_FIELD_CLASS,
+  AUTH_PRIMARY_BTN_CLASS,
+} from '../../components/auth/authStyles';
 
 // Group 1 §14: demo-persona quick-login buttons are DEV-only. They are
 // hard-gated on Vite's build-time constant so production bundles never
@@ -84,6 +90,7 @@ export const AuthModal: React.FC = () => {
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [mfaCode, setMfaCode] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [forgotPhase, setForgotPhase] = useState<ForgotPhase>('idle');
   // ── MFA second factor via EMAIL (2026-10-06) ─────────────────────────
   // The dialog offered only authenticator/recovery codes; a shopper
@@ -140,6 +147,7 @@ export const AuthModal: React.FC = () => {
       const deep = deepLinkView.current;
       deepLinkView.current = null;
       setView(deep ?? (authModalMode === 'register' ? 'signup' : 'signin'));
+      setShowPassword(false);
       setForgotPhase('idle');
       setMfaMethod('app');
       setEmailCodePhase('idle');
@@ -296,21 +304,29 @@ export const AuthModal: React.FC = () => {
         transition: { duration: 0.2, ease: 'easeOut' as const },
       };
 
-  const inputClass =
-    'w-full p-2.5 min-h-[44px] rounded-xl border border-slate-200 focus:outline-none focus:border-[#C5A059]';
-  const primaryButtonClass =
-    'w-full py-3 min-h-[44px] rounded-xl bg-[#1B1F3B] hover:bg-[#0C0E1E] disabled:opacity-60 text-white font-bold text-xs shadow-md transition-all flex items-center justify-center gap-1.5';
+  // Auth design tokens (shared with the reset/verify pages) — the modal's
+  // previous local copies had NO focus ring on fields and NO focus-visible
+  // ring on the primary button.
+  const inputClass = AUTH_FIELD_CLASS;
+  const primaryButtonClass = AUTH_PRIMARY_BTN_CLASS;
 
   const activeStep = mfaRequired ? 'mfa' : view;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md animate-in fade-in duration-150">
-      <div
+      <motion.div
         ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="auth-modal-heading"
         tabIndex={-1}
+        initial={reduceMotion ? false : { y: 16, scale: 0.97 }}
+        animate={{ y: 0, scale: 1 }}
+        transition={
+          reduceMotion
+            ? { duration: 0 }
+            : { duration: 0.35, ease: [0.25, 1, 0.5, 1] }
+        }
         className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-100"
       >
         {/* Luxury Top Banner */}
@@ -602,19 +618,33 @@ export const AuthModal: React.FC = () => {
                 <label htmlFor="auth-password" className="font-bold text-slate-700 block mb-1">
                   {t('auth.password_label')}
                 </label>
-                <input
-                  id="auth-password"
-                  type="password"
-                  required
-                  autoComplete={view === 'signup' ? 'new-password' : 'current-password'}
-                  minLength={view === 'signup' ? 8 : undefined}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder={view === 'signup' ? t('auth.password_placeholder_new') : '••••••••'}
-                  className={inputClass}
-                />
+                <div className="relative">
+                  <input
+                    id="auth-password"
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    autoComplete={view === 'signup' ? 'new-password' : 'current-password'}
+                    minLength={view === 'signup' ? 8 : undefined}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder={view === 'signup' ? t('auth.password_placeholder_new') : '••••••••'}
+                    className={`${inputClass} pe-11`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((v) => !v)}
+                    aria-label={showPassword ? t('reset_password.hide_password') : t('reset_password.show_password')}
+                    aria-pressed={showPassword}
+                    className="absolute end-1 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-slate-500 transition-colors duration-300 ease-luxury hover:text-[#1B1F3B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059]"
+                  >
+                    <span aria-hidden="true">{showPassword ? <EyeOff size={16} /> : <Eye size={16} />}</span>
+                  </button>
+                </div>
                 {view === 'signup' && (
-                  <p className="text-[10px] text-slate-400 mt-1">{t('auth.password_rules')}</p>
+                  /* LIVE mirror of the server's policy — the same component
+                     the reset page uses. Guidance only: the submit stays
+                     enabled and the server stays the authority. */
+                  <PasswordPolicyChecklist password={password} className="mt-2" />
                 )}
               </div>
 
@@ -690,7 +720,7 @@ export const AuthModal: React.FC = () => {
               </div>
             </motion.form>
           )}
-      </div>
+      </motion.div>
     </div>
   );
 };

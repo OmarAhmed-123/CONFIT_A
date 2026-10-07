@@ -10,7 +10,11 @@ import {
   StatusIcon,
   usePrefersReducedMotion,
 } from '../../components/common/InteractionPrimitives';
-import { ConfitLogo } from '../../components/common/ConfitLogo';
+import { AuthPageShell } from '../../components/auth/AuthPageShell';
+import {
+  AUTH_FIELD_CLASS,
+  AUTH_PRIMARY_BTN_CLASS,
+} from '../../components/auth/authStyles';
 
 /**
  * The page the verification EMAIL lands on.
@@ -75,17 +79,7 @@ export const VerifyEmailView: React.FC = () => {
   };
 
   return (
-    <main className="min-h-screen bg-[#FAF9F6] px-4 py-14">
-      <motion.section
-        initial={reduce ? false : { opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: reduce ? 0 : 0.3, ease: 'easeOut' }}
-        className="mx-auto w-full max-w-md rounded-3xl border border-slate-200/80 bg-white p-8 text-center shadow-sm"
-      >
-        <div className="mx-auto mb-5 flex justify-center">
-          <ConfitLogo variant="compact" theme="dark" size="sm" />
-        </div>
-
+    <AuthPageShell>
         <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#FDF8EE]">
           {phase === 'ready' && (
             <span aria-hidden="true" className="text-[#A37E44]"><MailCheck size={22} /></span>
@@ -126,7 +120,7 @@ export const VerifyEmailView: React.FC = () => {
           <button
             type="button"
             onClick={confirm}
-            className="mt-6 inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-[#1B1F3B] px-5 text-sm font-bold text-white hover:bg-[#0C0E1E] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059]"
+            className={`${AUTH_PRIMARY_BTN_CLASS} mt-6`}
           >
             {t('verify_email.confirm_cta')}
           </button>
@@ -135,7 +129,7 @@ export const VerifyEmailView: React.FC = () => {
         {phase === 'done' && (
           <Link
             to="/discover"
-            className="mt-6 inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-[#1B1F3B] px-5 text-sm font-bold text-white hover:bg-[#0C0E1E] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059]"
+            className={`${AUTH_PRIMARY_BTN_CLASS} mt-6`}
           >
             {t('verify_email.continue_cta')}
           </Link>
@@ -153,7 +147,7 @@ export const VerifyEmailView: React.FC = () => {
               autoComplete="email"
               value={resendEmail}
               onChange={(e) => setResendEmail(e.target.value)}
-              className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-[#1B1F3B] focus:border-[#A37E44] focus:outline-none focus:ring-2 focus:ring-[#C5A059]/40"
+              className={`${AUTH_FIELD_CLASS} mt-1`}
             />
             <div role="status" aria-live="polite" className="mt-2 min-h-5">
               {resendPhase === 'sent' && (
@@ -175,13 +169,12 @@ export const VerifyEmailView: React.FC = () => {
               type="submit"
               disabled={!resendEmail.trim() || resendPhase === 'pending'}
               aria-busy={resendPhase === 'pending'}
-              className="mt-2 inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-[#1B1F3B] px-5 text-sm font-bold text-white transition-opacity hover:bg-[#0C0E1E] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059] disabled:cursor-not-allowed disabled:opacity-40"
+              className={`${AUTH_PRIMARY_BTN_CLASS} mt-2`}
             >
               {t('verify_email.resend_cta')}
             </button>
           </form>
         )}
-      </motion.section>
-    </main>
+    </AuthPageShell>
   );
 };

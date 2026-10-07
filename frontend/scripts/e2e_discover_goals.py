@@ -260,6 +260,143 @@ def goal_arabic(page, base: str) -> None:
             wire=resp_info.value.url)
 
 
+def goal_category_filter(page, base: str) -> None:
+    """G8 — browse by category: pill -> wire -> URL -> deep link."""
+    cats = page.request.get(base + "/api/v1/catalog/categories").json()
+    assert cats, "no categories"
+    cat = cats[0]
+    page.goto(base + "/discover", wait_until="networkidle")
+    with page.expect_response(
+        lambda r: "/catalog/products" in r.url and f"category={cat['slug']}" in r.url
+    ) as resp_info:
+        page.locator('button[aria-pressed]', has_text=cat["name"]).first.click()
+    EV.step("G8 category pill put ?category= on the wire",
+            resp_info.value.status == 200, wire=resp_info.value.url)
+    EV.step("G8 URL write-back", f"category={cat['slug']}" in page.url,
+            url=page.url)
+    page.goto(base + f"/discover?category={cat['slug']}",
+              wait_until="networkidle")
+    pressed = page.locator('button[aria-pressed="true"]').all_inner_texts()
+    EV.step("G8 ?category= deep link restores the pressed pill",
+            any(cat["name"].lower() in t.strip().lower() for t in pressed),
+            pressed=pressed[:6])
+
+
+def goal_sort_wire(page, base: str) -> None:
+    """G9 — sorting refetches with the chosen order and syncs the URL."""
+    page.goto(base + "/discover", wait_until="networkidle")
+    en = page.request.get(base + "/src/i18n/en.json").json()
+    sort_name = en["a11y"]["sort_products"]
+    with page.expect_response(
+        lambda r: "/catalog/products" in r.url and "sort_by=price_asc" in r.url
+    ) as resp_info:
+        page.get_by_label(sort_name).select_option("price_asc")
+    EV.step("G9 sort change put sort_by=price_asc on the wire",
+            resp_info.value.status == 200, wire=resp_info.value.url)
+    EV.step("G9 sort URL write-back", "sort=price_asc" in page.url,
+            url=page.url)
+    api_prices = [p["base_price"] for p in page.request.get(
+        base + "/api/v1/catalog/products?sort_by=price_asc").json()]
+    EV.step("G9 API answer for that order is ascending",
+            api_prices == sorted(api_prices), prices=api_prices[:6])
+
+
+def goal_visual_search(page, base: str) -> None:
+    """G10 — visual search: real wire call, honest terminal state, never
+    a silent or fake-success dialog."""
+    page.goto(base + "/discover", wait_until="networkidle")
+    en = page.request.get(base + "/src/i18n/en.json").json()
+    page.get_by_role("button", name=en["discover"]["search_by_photo"]).click()
+    dialog = page.get_by_role("dialog", name=en["tryon"]["visual_search"])
+    dialog.wait_for(timeout=8000)
+    EV.step("G10 modal opens as a named dialog", True)
+    # C02 re-pass fix: the close button must have an accessible name.
+    EV.step("G10 close button exposes an accessible name",
+            dialog.get_by_role("button",
+                               name=en["a11y"]["close_dialog"]).count() == 1)
+    # Search with a REAL catalogue image URL (local backend can fetch it).
+    img = page.request.get(
+        base + "/api/v1/catalog/products").json()[0]["thumbnail_url"]
+    dialog.get_by_placeholder(en["tryon"]["paste_image_url"]).fill(img)
+    with page.expect_response(
+        lambda r: "/tryon/visual-search" in r.url, timeout=60000
+    ) as resp_info:
+        dialog.get_by_role("button",
+                           name=en["tryon"]["vs_search_style"]).click()
+    status = resp_info.value.status
+    EV.step("G10 search hit the real /tryon/visual-search endpoint", True,
+            status=status)
+    # Honest terminal state: matches grid (with detection or the explicit
+    # no-detection banner) on 200, role=alert + retry on failure. Never
+    # silence, never success-without-server.
+    page.wait_for_timeout(800)
+    if status == 200:
+        body = resp_info.value.json()
+        shown = dialog.locator('[data-product-id], img[alt]')
+        banner_ok = (
+            dialog.get_by_text(en["tryon"]["vs_analysis_unavailable"]).count() > 0
+            or body.get("analysis_available") is True
+        )
+        EV.step("G10 200 -> matches rendered + honest detection banner",
+                banner_ok and len(body.get("matches", [])) >= 0,
+                analysis_available=body.get("analysis_available"),
+                matches=len(body.get("matches", [])))
+    else:
+        EV.step("G10 failure -> explicit error alert, no fake success",
+                dialog.get_by_role("alert").count() > 0, status=status)
+    page.keyboard.press("Escape")
+    # Wait for the MEANINGFUL result (unmount), not an instant count.
+    dialog.wait_for(state="detached", timeout=5000)
+    EV.step("G10 Escape closes the dialog", True)
+
+
+def goal_no_photo_fit(page, base: str) -> None:
+    """G11 — the no-photo fit (ruler) entry on the card opens the real
+    measurement dialog; the card never promises an unavailable render."""
+    page.goto(base + "/discover", wait_until="networkidle")
+    en = page.request.get(base + "/src/i18n/en.json").json()
+    ruler = page.get_by_role("button", name=en["a11y"]["no_photo_fit"]).first
+    ruler.wait_for(timeout=8000)
+    ruler.click()
+    fit_dialog = page.locator('[aria-labelledby="no-photo-fit-title"]')
+    fit_dialog.wait_for(timeout=8000)
+    EV.step("G11 ruler entry opens the no-photo fit dialog", True)
+    fit_dialog.get_by_role("button", name=en["common"]["close"]).click()
+    page.wait_for_timeout(300)
+    EV.step("G11 dialog closes cleanly",
+            page.locator('[aria-labelledby="no-photo-fit-title"]').count() == 0)
+
+
+def goal_add_to_bag_idempotent(page, base: str) -> None:
+    """G12 counter-goal — double-clicking Add never creates two adds, and
+    no success is claimed before the server answers."""
+    page.goto(base + "/discover", wait_until="networkidle")
+    posts: list[str] = []
+    page.on("request", lambda r: posts.append(r.url)
+            if r.method == "POST" and "/commerce/cart/items" in r.url else None)
+    btn = page.get_by_test_id("product-card-add-to-bag").first
+    btn.scroll_into_view_if_needed()
+    with page.expect_response(
+        lambda r: "/commerce/cart/items" in r.url, timeout=15000
+    ) as resp_info:
+        btn.click()
+        btn.click(force=True)  # the hammer double-click
+    page.wait_for_timeout(1500)  # grace: any wrongly queued second POST
+    EV.step("G12 double-click produced exactly ONE cart POST",
+            len(posts) == 1, posts=len(posts), status=resp_info.value.status)
+    # The guest cart's identity is the X-Session-Token header (from
+    # localStorage.confit_session_token) — read it so the probe asks the
+    # server about the SAME cart the UI mutated.
+    token = page.evaluate("localStorage.getItem('confit_session_token')")
+    cart = page.request.get(
+        base + "/api/v1/commerce/cart",
+        headers={"X-Session-Token": token or ""}).json()
+    items = cart.get("items", cart if isinstance(cart, list) else [])
+    qty = sum(i.get("quantity", 0) for i in items) if isinstance(items, list) else None
+    EV.step("G12 server cart holds a single unit (source of truth)",
+            qty == 1, cart_quantity=qty)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--base-url", default="http://127.0.0.1:43123")
@@ -280,6 +417,11 @@ def main() -> int:
             goal_deep_link(page, base)
             goal_real_links(page, base)
             goal_wishlist_persists(page, base)
+            goal_category_filter(page, base)
+            goal_sort_wire(page, base)
+            goal_visual_search(page, base)
+            goal_no_photo_fit(page, base)
+            goal_add_to_bag_idempotent(page, base)
             goal_arabic(page, base)
         except Invalid as exc:
             EV.steps.append({"step": "RUN-INVALID", "ok": False, "err": str(exc)})

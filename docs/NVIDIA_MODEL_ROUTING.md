@@ -414,7 +414,41 @@ failover_1 (best grounding, 21.89s tail). Order is set by whether a model can
 answer inside the budget, not by model size. `ultra-550b` keeps the
 `TRANSLATION` primary slot, where the `nvidia_client` deadline is far wider.
 
-### 9.3 Post-change production probe
+### 9.3 Post-change production probe — the NVIDIA leg is live again
 
-_(recorded immediately after the registry change is deployed — same session,
-section filled with the measured engine label)_
+Merged as #300 (squash `6c57f35`), deployed to production, then probed on the
+live domain. Every line below is the `engine` field returned by
+`POST /api/v1/stylist/chat` — the same field that read `Groq openai/gpt-oss-120b`
+for every request before this change.
+
+| Prompt | `engine` | `reply_language` | Wall clock |
+|---|---|---|---|
+| "smart casual outfit for a dinner in Cairo, budget 400 EGP" | `NVIDIA nvidia/nemotron-3-super-120b-a12b` | `en` | **3.57 s** |
+| same prompt | `NVIDIA nvidia/nemotron-3-super-120b-a12b` | `en` | **3.33 s** |
+| same prompt | `NVIDIA nvidia/nemotron-3-super-120b-a12b` | `en` | **2.11 s** |
+| "عايز لوك سمارت كاجوال لعشاء في القاهرة بميزانية ٤٠٠ جنيه" | `NVIDIA nvidia/nemotron-3-super-120b-a12b` | `ar` | **15.52 s** |
+
+The Arabic turn is the full bilingual round trip in one request: AR→EN inbound
+via the `TRANSLATION` role, stylist prose from the same model, EN→AR outbound —
+and it came back in Egyptian Arabic with the real catalogue items and the
+budget intact (Arket tote, Massimo Dutti trousers, prices preserved), not the
+Norwegian/English fall-through §8 recorded for the riva-only chain.
+
+Before: Groq, 14.5 s / 3.8 s / 7.9 s. After: NVIDIA, 2.1–3.6 s English. The
+Arabic turn is slower because it is three model calls in sequence, which is the
+expected shape and not a regression.
+
+**Reproduce this section** (any of the three, no auth — `/stylist/chat` accepts
+anonymous callers, rate-limited to 20/hour per caller):
+
+```bash
+curl -s -X POST https://confit-a.vercel.app/api/v1/stylist/chat \
+  -H 'Content-Type: application/json' \
+  -d '{"prompt":"I need a smart casual outfit for a dinner in Cairo, budget 400 EGP"}' \
+  | python3 -c "import json,sys; print(json.load(sys.stdin)['engine'])"
+```
+
+**Still not proved, and not claimed:** the vision and safety roles have live
+endpoint proof (§9) but no end-to-end production proof in this pass — wardrobe
+auto-tagging and moderation need real uploads through an authenticated session,
+which is the next pass's job.

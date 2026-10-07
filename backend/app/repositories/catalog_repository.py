@@ -72,6 +72,36 @@ class CatalogRepository:
     def get_featured_products(self, limit: int = 10) -> List[Product]:
         return self.filter_products(is_featured=True, limit=limit)
 
+    def get_occasion_vocabulary(self) -> List[dict]:
+        """Distinct occasion tags across ACTIVE products with counts,
+        most-stocked first. This is the single source of truth for the
+        storefront's occasion filter pills — a hardcoded pill list drifted
+        from the real tags and permanently showed empty results."""
+        import json as _json
+        rows = (
+            self.db.query(Product.occasion_tags)
+            .filter(Product.is_active == True)
+            .all()
+        )
+        counts: dict = {}
+        for (raw,) in rows:
+            if not raw:
+                continue
+            try:
+                tags = _json.loads(raw)
+            except (ValueError, TypeError):
+                continue
+            if not isinstance(tags, list):
+                continue
+            for tag in tags:
+                if isinstance(tag, str) and tag.strip():
+                    key = tag.strip().lower()
+                    counts[key] = counts.get(key, 0) + 1
+        return [
+            {"value": v, "count": c}
+            for v, c in sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))
+        ]
+
     def filter_products(
         self,
         category_slug: Optional[str] = None,
@@ -108,7 +138,11 @@ class CatalogRepository:
         if color:
             query = query.filter(Product.color_family.ilike(f"%{color}%"))
         if occasion:
-            query = query.filter(Product.occasion_tags.like(f"%{occasion}%"))
+            # ilike, not like: tags are stored lowercase ("work") while UI
+            # tokens historically arrived capitalized ("Work") — the
+            # case-sensitive LIKE silently returned an EMPTY catalogue for
+            # every occasion filter in production.
+            query = query.filter(Product.occasion_tags.ilike(f"%{occasion}%"))
         if min_price is not None:
             query = query.filter(Product.base_price >= min_price)
         if max_price is not None:

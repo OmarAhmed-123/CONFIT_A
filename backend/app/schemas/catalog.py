@@ -2,6 +2,14 @@ from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, ConfigDict, field_validator
 
 
+class OccasionTagOut(BaseModel):
+    """One distinct occasion tag that exists on at least one active
+    product, with how many products carry it. Values are lowercase
+    canonical tokens (e.g. "work", "black_tie")."""
+    value: str
+    count: int
+
+
 class CategoryOut(BaseModel):
     id: int
     name: str

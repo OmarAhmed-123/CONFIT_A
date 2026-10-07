@@ -118,7 +118,9 @@ class SearchService:
         if color:
             base_query = base_query.filter(Product.color_family.ilike(f"%{color}%"))
         if occasion:
-            base_query = base_query.filter(Product.occasion_tags.like(f"%{occasion}%"))
+            # Same fix as CatalogRepository.filter_products: tags are stored
+            # lowercase; matching must be case-insensitive.
+            base_query = base_query.filter(Product.occasion_tags.ilike(f"%{occasion}%"))
         if min_price is not None:
             base_query = base_query.filter(Product.base_price >= min_price)
         if max_price is not None:

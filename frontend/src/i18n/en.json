@@ -1466,7 +1466,16 @@
     "clear_search": "Clear search",
     "sug_type_product": "Product",
     "sug_type_brand": "Brand",
-    "sug_type_category": "Category"
+    "sug_type_category": "Category",
+    "occasion_party": "Party",
+    "occasion_gala": "Gala",
+    "occasion_dinner": "Dinner",
+    "occasion_business": "Business",
+    "occasion_black_tie": "Black Tie",
+    "occasion_formal": "Formal",
+    "occasion_casual": "Casual",
+    "occasion_weekend": "Weekend",
+    "suggestions_status": "{{count}} suggestions available"
   },
   "brand": {
     "tagline": "Confidence + Fit"

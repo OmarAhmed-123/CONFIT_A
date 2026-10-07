@@ -41,9 +41,21 @@ export function useCatalogViewModel() {
     gcTime: 1000 * 60 * 60,
   });
 
+  // Occasion pills are DATA, not copy: the vocabulary endpoint returns the
+  // distinct tags that exist on active products, so a pill can never filter
+  // to a permanently empty catalogue. Failure here simply hides the pill
+  // row — it must never block the product grid.
+  const occasionsQuery = useQuery({
+    queryKey: queryKeys.catalog.occasions(),
+    queryFn: () => catalogService.getOccasions(),
+    staleTime: 1000 * 60 * 10,
+    gcTime: 1000 * 60 * 60,
+  });
+
   return {
     products: productsQuery.data || [],
     categories: categoriesQuery.data || [],
+    occasions: occasionsQuery.data || [],
     selectedCategory,
     setSelectedCategory,
     selectedOccasion,

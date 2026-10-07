@@ -124,6 +124,21 @@
    Icon-only controls in the navbar are 22–28px tall with 1px of padding. This
    guarantees the minimum hit area without changing the visual design. */
 @layer components {
+  /* ── Quiet entrance (C03) ────────────────────────────────────────────
+     The codebase referenced `animate-in fade-in` in several modals, but
+     no plugin defines those classes — they compile to NOTHING (verified:
+     zero matches in the built CSS). This is the real, token-based
+     equivalent: opacity-only (safe for jsdom's toBeVisible and for
+     transform-based layout), on the house luxury curve. The global
+     prefers-reduced-motion rule above collapses it to a static frame. */
+  .confit-fade-in {
+    animation: confit-fade-in 0.5s cubic-bezier(0.25, 1, 0.5, 1) both;
+  }
+  @keyframes confit-fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
   /* ── Skeleton shimmer (home pass 3) ──────────────────────────────────
      A directional light sweep tailored to the block it sits on, replacing
      the flat opacity pulse. The global prefers-reduced-motion rule above

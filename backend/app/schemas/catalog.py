@@ -124,6 +124,10 @@ ProductOut = ProductSummaryOut
 
 
 class ProductDetailOut(ProductSummaryOut):
+    #: Category slug for storefront deep links (/discover?category=<slug>).
+    #: The PDP breadcrumb previously linked with category_id, which the
+    #: Discover filter (slug-based) silently ignored. Additive + optional.
+    category_slug: Optional[str] = None
     description: str
     description_ar: str
     material: Optional[str]

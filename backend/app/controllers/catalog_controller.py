@@ -257,6 +257,7 @@ def get_product_detail(
         brand_name=p.brand.brand_name,
         category_id=p.category_id,
         category_name=p.category.name,
+        category_slug=p.category.slug,
         title=p.title,
         title_ar=p.title_ar,
         slug=p.slug,

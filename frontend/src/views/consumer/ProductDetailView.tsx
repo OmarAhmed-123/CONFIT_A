@@ -19,7 +19,6 @@ import {
   LoadingSpinner,
   EmptyState,
 } from "../../components/common/CommonComponents";
-import { CardStackShowcase } from "../../components/showcase/DesignShowcases";
 import { HonestProductImage } from "../../components/common/HonestProductImage";
 import { Surface } from "../../components/common/Surface";
 import {
@@ -29,7 +28,9 @@ import {
 } from "../../components/common/InteractionPrimitives";
 import { useTranslation } from "react-i18next";
 import { localizeApiError } from "../../i18n/apiErrors";
+import { resolveMessage } from "../../i18n/messages";
 import { useTryOnAvailability } from "../../hooks/useTryOnAvailability";
+import { useDeviceWishlist } from "../../hooks/useDeviceWishlist";
 
 export const ProductDetailView: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -42,7 +43,9 @@ export const ProductDetailView: React.FC = () => {
     "idle" | "loading" | "success" | "empty" | "error"
   >("idle");
   const [bopisError, setBopisError] = useState<string | null>(null);
-  const [isWishlisted, setIsWishlisted] = useState(false);
+  // C03: this heart was a bare useState(false) — it reset on every reload
+  // and disagreed with the Discover grid. One shared device list now.
+  const { toggleWishlist, isWishlisted: isInWishlist } = useDeviceWishlist();
   const [activeAccordion, setActiveAccordion] = useState<
     "materials" | "bopis" | "delivery" | null
   >("materials");
@@ -74,7 +77,7 @@ export const ProductDetailView: React.FC = () => {
       .catch((err: any) => {
         setBopisStores([]);
         setBopisStatus("error");
-        const msg = err?.message || "Unable to load boutique availability";
+        const msg = err?.message || null;
         setBopisError(msg);
         // Don't show toast for BOPIS - it's secondary info, show inline error instead
       });
@@ -102,7 +105,10 @@ export const ProductDetailView: React.FC = () => {
       })
       .catch((err) => {
         setIsLoading(false);
-        setLoadError(err.message || "Product not found");
+        // Keep the server's sentence when it sent one; otherwise let the
+        // UI translate — "Product not found" hardcoded EN leaked into the
+        // Arabic failure state (C03 test caught it).
+        setLoadError(err?.message || null);
       })
       .finally(() => clearTimeout(slowTimer));
   }, [slug, reloadTick]);
@@ -118,8 +124,8 @@ export const ProductDetailView: React.FC = () => {
         <LoadingSpinner
           text={
             isSlowLoad
-              ? "Still loading — the catalogue is waking up…"
-              : "Loading garment details..."
+              ? t("product.loading_cold_start")
+              : t("product.loading_details")
           }
         />
         {isSlowLoad && (
@@ -140,10 +146,8 @@ export const ProductDetailView: React.FC = () => {
         <h1 className="sr-only">{t('product.unavailable_heading')}</h1>
         <EmptyState
           title={t('product.unavailable_title')}
-          description={
-            loadError || "The product could not be loaded from the catalogue."
-          }
-          actionText="Try again"
+          description={loadError || t("product.load_failed_desc")}
+          actionText={t("common.try_again")}
           onAction={() => setReloadTick((t) => t + 1)}
         />
       </>
@@ -171,21 +175,28 @@ export const ProductDetailView: React.FC = () => {
   const fitScore = product.fit_available ? product.ai_fit_score : null;
 
   return (
-    <div className="space-y-12 pb-24 max-w-6xl mx-auto">
-      <CardStackShowcase
-        tone="consumer"
-        compact
-        eyebrow={t('product.complete_the_look_title')}
-        title={t('product.complete_the_look_body')}
-        description="Product detail pages use the animated stack to connect a single item to realistic complementary directions."
-      />
+    <div className="space-y-10 pb-24 max-w-6xl mx-auto">
+      {/* C03 redesign: the generic CardStackShowcase was REMOVED from this
+          page. It sat above the product itself (first mobile viewport!),
+          showed stock imagery unrelated to the item, and carried a
+          hardcoded EN caption written for developers. A PDP is a purchase
+          surface — the product opens the page; the REAL, API-driven
+          "complete the look" section below keeps the styling story. */}
       <nav className="text-xs text-slate-500 flex items-center gap-2 font-light">
         <Link to="/discover" className="hover:text-[#1B1F3B] transition-colors">
           {t('product.breadcrumb_catalog')}
         </Link>
         <span>/</span>
         <Link
-          to={`/discover?category=${product.category_id}`}
+          /* category_id was sent to a SLUG-based filter — Discover ignored
+             it silently. The detail payload now carries category_slug; an
+             older cached payload degrades to the unfiltered catalogue
+             rather than a filter that lies. */
+          to={
+            product.category_slug
+              ? `/discover?category=${product.category_slug}`
+              : "/discover"
+          }
           className="hover:text-[#1B1F3B] transition-colors"
         >
           {product.category_name}
@@ -199,12 +210,18 @@ export const ProductDetailView: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
         <div className="lg:col-span-7 space-y-4">
           <div className="aspect-[3/4] sm:h-[540px] rounded-3xl overflow-hidden bg-slate-100 border border-slate-200/80 relative group shadow-sm">
+            {/* key= remounts on switch so each image enters with a quiet
+                crossfade (confit-fade-in only touches opacity — safe for
+                reduced motion and for jsdom's toBeVisible). The zoom is
+                hover-only, 700ms on the luxury curve: media breathes,
+                layout never moves. */}
             <HonestProductImage
+              key={activeImageIndex}
               src={images[activeImageIndex] || product.thumbnail_url}
               alt={product.title}
               loading="lazy"
               decoding="async"
-              className="w-full h-full object-cover"
+              className="w-full h-full object-cover confit-fade-in group-hover:scale-105 transition-transform duration-700 ease-luxury"
             />
             <div className="absolute top-4 left-4 flex flex-col gap-2">
               {styleScore != null && (
@@ -212,7 +229,8 @@ export const ProductDetailView: React.FC = () => {
                   score={styleScore}
                   label={t('product.fit_match')}
                   verdict={
-                    product.style_compatibility_reason || "catalog style score"
+                    product.style_compatibility_reason ||
+                    t("product.style_score_verdict")
                   }
                 />
               )}
@@ -222,20 +240,24 @@ export const ProductDetailView: React.FC = () => {
                   verdict={
                     product.recommended_size
                       ? product.recommended_size_available
-                        ? `Recommended ${product.recommended_size}`
-                        : `${product.recommended_size} unavailable`
-                      : "Fit score"
+                        ? t("product.recommended_badge", {
+                            size: product.recommended_size,
+                          })
+                        : t("product.recommended_badge_unavailable", {
+                            size: product.recommended_size,
+                          })
+                      : t("product.fit_score_verdict")
                   }
                 />
               )}
             </div>
 
             <WishlistToggle
-              isWishlisted={isWishlisted}
-              onToggle={() => setIsWishlisted(!isWishlisted)}
+              isWishlisted={isInWishlist(product.id)}
+              onToggle={() => toggleWishlist(product.id)}
               className="surface-glass-light absolute top-3 end-3 rounded-full hover:bg-white text-slate-800 transition-all"
             >
-              <HeartIcon size={18} isLiked={isWishlisted} />
+              <HeartIcon size={18} isLiked={isInWishlist(product.id)} />
             </WishlistToggle>
 
             <button
@@ -244,6 +266,11 @@ export const ProductDetailView: React.FC = () => {
                 fitCheck: () => openRuler(product),
               })}
               disabled={tryOnKind === "blocked"}
+              title={
+                tryOnKind === "blocked" && tryOn.userMessage
+                  ? resolveMessage(tryOn.userMessage, t)
+                  : undefined
+              }
               className="surface-glass-dark absolute bottom-4 end-4 min-h-11 px-5 py-3 rounded-2xl hover:bg-[#C5A059] hover:text-slate-950 text-xs font-bold transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {tryOnKind === "render" ? (
@@ -268,6 +295,7 @@ export const ProductDetailView: React.FC = () => {
                   key={idx}
                   onClick={() => setActiveImageIndex(idx)}
                   aria-label={t('a11y.view_image', { index: idx + 1 })}
+                  aria-pressed={activeImageIndex === idx}
                   className={`w-20 h-24 rounded-2xl overflow-hidden border-2 transition-all shrink-0 ${
                     activeImageIndex === idx
                       ? "border-[#C5A059] ring-2 ring-[#C5A059]/30"
@@ -285,7 +313,9 @@ export const ProductDetailView: React.FC = () => {
           )}
         </div>
 
-        <div className="lg:col-span-5 space-y-6">
+        {/* Buy column stays in view while the gallery scrolls — the
+            decision context (price, size, CTA) never leaves the screen. */}
+        <div className="lg:col-span-5 space-y-6 lg:sticky lg:top-24 lg:self-start">
           <div>
             <span className="text-xs font-bold text-[#7A5C28] uppercase tracking-widest block mb-1">
               {product.brand_name}
@@ -578,6 +608,11 @@ export const ProductDetailView: React.FC = () => {
                 fitCheck: () => openRuler(product),
               })}
               disabled={tryOnKind === "blocked"}
+              title={
+                tryOnKind === "blocked" && tryOn.userMessage
+                  ? resolveMessage(tryOn.userMessage, t)
+                  : undefined
+              }
               className="w-full py-3.5 rounded-2xl bg-[#FDF8EE] hover:bg-[#C5A059] text-[#7A5C28] hover:text-white border border-[#C5A059]/40 font-bold text-xs shadow-2xs transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {tryOnKind === "render" ? (
@@ -607,10 +642,10 @@ export const ProductDetailView: React.FC = () => {
                 aria-expanded={activeAccordion === "materials"}
               >
                 <span>{t('product.fabric_care_details')}</span>
-                <span>{activeAccordion === "materials" ? "−" : "+"}</span>
+                <span aria-hidden="true" className="text-[#C5A059] transition-transform duration-300 ease-luxury">{activeAccordion === "materials" ? "−" : "+"}</span>
               </button>
               {activeAccordion === "materials" && (
-                <div className="pt-2 text-slate-500 space-y-1.5 font-light leading-relaxed">
+                <div className="pt-2 text-slate-500 space-y-1.5 font-light leading-relaxed confit-fade-in">
                   <div>
                     <strong>{t('product.composition_label')}</strong>{" "}
                     {product.material || t('product.not_specified')}
@@ -637,10 +672,10 @@ export const ProductDetailView: React.FC = () => {
                 aria-expanded={activeAccordion === "bopis"}
               >
                 <span>{t('product.bopis_title')}</span>
-                <span>{activeAccordion === "bopis" ? "−" : "+"}</span>
+                <span aria-hidden="true" className="text-[#C5A059] transition-transform duration-300 ease-luxury">{activeAccordion === "bopis" ? "−" : "+"}</span>
               </button>
               {activeAccordion === "bopis" && (
-                <div className="pt-2 space-y-2">
+                <div className="pt-2 space-y-2 confit-fade-in">
                   {bopisStatus === "loading" && (
                     <p className="text-slate-500 font-light text-xs">
                       {t('product.bopis_checking')}
@@ -652,8 +687,10 @@ export const ProductDetailView: React.FC = () => {
                         {t('product.bopis_failed')}
                       </p>
                       <p className="text-[11px] text-rose-600 mt-1">
-                        {bopisError ||
-                          "{t('product.bopis_unreachable')}"}
+                        {/* BUG FIX: this fallback was the LITERAL text
+                            "{t('product.bopis_unreachable')}" in quotes —
+                            the raw code rendered on screen. */}
+                        {bopisError || t("product.bopis_fallback_error")}
                       </p>
                       <button
                         onClick={() =>
@@ -731,10 +768,10 @@ export const ProductDetailView: React.FC = () => {
                 aria-expanded={activeAccordion === "delivery"}
               >
                 <span>{t('product.delivery_returns')}</span>
-                <span>{activeAccordion === "delivery" ? "−" : "+"}</span>
+                <span aria-hidden="true" className="text-[#C5A059] transition-transform duration-300 ease-luxury">{activeAccordion === "delivery" ? "−" : "+"}</span>
               </button>
               {activeAccordion === "delivery" && (
-                <div className="pt-2 text-slate-500 space-y-1.5 font-light leading-relaxed">
+                <div className="pt-2 text-slate-500 space-y-1.5 font-light leading-relaxed confit-fade-in">
                   <div>
                     {t('product.delivery_note')}
                   </div>

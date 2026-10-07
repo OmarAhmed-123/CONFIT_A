@@ -1461,7 +1461,12 @@
     "view_details": "عرض التفاصيل",
     "rail_eyebrow": "تصفّح التشكيلة",
     "rail_title": "تنقّل داخل الكتالوج المباشر",
-    "rail_label": "تصفّح التشكيلة"
+    "rail_label": "تصفّح التشكيلة",
+    "palette_label": "اللوحة اللونية:",
+    "clear_search": "مسح البحث",
+    "sug_type_product": "منتج",
+    "sug_type_brand": "ماركة",
+    "sug_type_category": "فئة"
   },
   "brand": {
     "tagline": "ثقة + مقاس مضبوط"

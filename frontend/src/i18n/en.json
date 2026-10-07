@@ -1461,7 +1461,12 @@
     "view_details": "View details",
     "rail_eyebrow": "Collection browsing",
     "rail_title": "Glide through the live catalog",
-    "rail_label": "Browse the collection"
+    "rail_label": "Browse the collection",
+    "palette_label": "Palette:",
+    "clear_search": "Clear search",
+    "sug_type_product": "Product",
+    "sug_type_brand": "Brand",
+    "sug_type_category": "Category"
   },
   "brand": {
     "tagline": "Confidence + Fit"

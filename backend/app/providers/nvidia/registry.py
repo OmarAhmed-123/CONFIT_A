@@ -156,11 +156,45 @@ ROLE_CHAINS: Dict[ModelRole, List[ModelSpec]] = {
                 "if this chain exhausts."
             ),
         ),
-        # nvidia/nemotron-3-super-120b-a12b was the primary here until
-        # 2026-10-03, when it was end-of-lifed by the endpoint (410 Gone,
-        # missing from GET /v1/models). Removed from every chain rather than
-        # demoted: a dead failover slot only adds a guaranteed failed
-        # round-trip before honest degradation. See UNROUTED_MODELS.
+        # REVIVED 2026-10-07. nemotron-3-super-120b-a12b answered 410 Gone
+        # from 2026-10-03 and was pulled from every chain; on 2026-10-07 it
+        # answered five consecutive 200s on the real CONFIT stylist prompt and
+        # is back in the catalogue. It takes the FAILOVER slot, not the
+        # primary: ultra keeps the primary on its measured grounding, while
+        # this slot exists so a 503 (measured on ultra twice today —
+        # `503 ResourceExhausted: Worker local total request limit reached`)
+        # advances to a second real model instead of degrading. Before this
+        # entry the chain had exactly one slot, so any capacity blip fell
+        # straight through to the next provider.
+        ModelSpec(
+            model_id="nvidia/nemotron-3-super-120b-a12b",
+            endpoint=CHAT_COMPLETIONS_URL,
+            params={
+                "temperature": 0.6,
+                "top_p": 0.95,
+                "chat_template_kwargs": {"enable_thinking": False},
+            },
+            measured_latency_s=(0.72, 1.28),
+            slot_key_env="NVIDIA_KEY_NEMOTRON_3_SUPER_120B_A12B",
+            evidence=(
+                "2026-10-07, five live stylist-role probes on the real CONFIT "
+                "outfit prompt ('smart-casual dinner in Cairo, budget 400'): "
+                "200 at 0.90 / 0.91 / 1.28s (default thinking) and 0.88 / "
+                "0.72s with enable_thinking=False. Every answer named real "
+                "garments, stated the budget, and honoured the one-sentence "
+                "cap; no reasoning text leaked into content once the flag was "
+                "set. Same session: it was 410 Gone in GET /v1/models on "
+                "2026-10-03, and is listed again today."
+            ),
+            notes=(
+                "FAILOVER_1 for STYLIST_CHAT. enable_thinking=False is "
+                "REQUIRED: with thinking on, the reply arrives one sentence "
+                "late and carries a reasoning prefix. Fastest measured "
+                "high-quality chat model in the pool (~0.8s vs ultra's "
+                "0.8-12.0s), so it is also the right first choice when the "
+                "caller can trade a little grounding depth for latency."
+            ),
+        ),
         # moonshotai/kimi-k3 was the third entry here until 2026-10-01, when a
         # live re-verification measured it at 85.2s / 103.5s-with-empty-content
         # / 120s-hard-timeout across three probes (it was 8.6-14.9s on
@@ -320,6 +354,43 @@ ROLE_CHAINS: Dict[ModelRole, List[ModelSpec]] = {
                 "super had and riva lacks."
             ),
         ),
+        # REVIVED 2026-10-07 as the translation failover (see the STYLIST_CHAT
+        # entry above for the revival evidence). It is deliberately NOT the
+        # primary for this role even though it is 10x faster than ultra: the
+        # 2026-10-07 battery reproduced the exact defect that had it benched.
+        ModelSpec(
+            model_id="nvidia/nemotron-3-super-120b-a12b",
+            endpoint=CHAT_COMPLETIONS_URL,
+            params={
+                "temperature": 0.0,
+                "max_tokens": 256,
+                "chat_template_kwargs": {"enable_thinking": False},
+            },
+            measured_latency_s=(0.24, 5.14),
+            slot_key_env="NVIDIA_KEY_NEMOTRON_3_SUPER_120B_A12B",
+            evidence=(
+                "2026-10-07, same inbound/outbound battery the 2026-10-03 "
+                "candidate sweep used. OUTBOUND EN->AR: correct Egyptian "
+                "Arabic both probes (51 and 54 Arabic characters), brand "
+                "'Massimo Dutti' dropped as expected but every price and the "
+                "sage-green colour preserved — 5.14s and 1.89s. INBOUND "
+                "AR->EN: 0.24-0.38s, but two of three probes prefixed the "
+                "answer with the literal token 'Message:' and one rendered "
+                "'فرح مسائي' (evening wedding) as 'Evening joy' — the same "
+                "false friend that got riva benched. Correct on the other "
+                "two queries ('بدلة شغل كلاسيك رجالي شتوي' -> \"Men's classic "
+                "winter work suit\")."
+            ),
+            notes=(
+                "FAILOVER_1 for translation, ahead of riva: it follows the "
+                "system turn (riva ignores it), and its outbound Arabic is "
+                "clean where riva's was Norwegian. NOT primary because of the "
+                "'Message:' prefix leak and the 'فرح' false friend inbound — "
+                "both are quality defects ultra does not have. Promote it "
+                "only after a bigger inbound battery clears, or with a "
+                "strip_prefix guard in the caller."
+            ),
+        ),
         ModelSpec(
             model_id="nvidia/riva-translate-4b-instruct-v2",
             endpoint=CHAT_COMPLETIONS_URL,
@@ -332,8 +403,9 @@ ROLE_CHAINS: Dict[ModelRole, List[ModelSpec]] = {
                 "Fluent MSA, correct fashion register."
             ),
             notes=(
-                "FAILOVER for outbound EN->AR prose only (ultra-550b leads "
-                "both directions since 2026-10-03, after super's 410). Fluent "
+                "FAILOVER_2 for outbound EN->AR prose only (ultra-550b leads "
+                "both directions since 2026-10-03; super-120b took failover_1 "
+                "on 2026-10-07 when it came back). Fluent "
                 "but instruction-blind: "
                 "it ignores the system turn, so no glossary can be supplied, "
                 "it renamed a garment and invented a brand on live inbound "
@@ -447,16 +519,15 @@ ROLE_CHAINS: Dict[ModelRole, List[ModelSpec]] = {
 # ─────────────────────────────────────────────────────────────────────────────
 
 UNROUTED_MODELS: Dict[str, str] = {
-    "nvidia/nemotron-3-super-120b-a12b": (
-        "END-OF-LIFE (2026-10-03). Answered 410 Gone on every call and no "
-        "longer appears in GET /v1/models; `verify_nvidia_models.py` FAILs on "
-        "it. Was PRIMARY for stylist_chat AND translation until that day. "
-        "Until its removal production silently ran on the ultra-550b failover "
-        "for stylist (fine) and on riva for translation (broken: Arabic "
-        "prompts received English replies because riva answered the outbound "
-        "call in Norwegian and the contains_arabic guard refused to ship it). "
-        "Key slot retained in the pool; re-route only if NVIDIA revives it."
-    ),
+    # nvidia/nemotron-3-super-120b-a12b was listed here as END-OF-LIFE from
+    # 2026-10-03 (410 Gone on every call, absent from GET /v1/models). It was
+    # REVIVED on 2026-10-07 — five consecutive 200s at 0.72-1.28s on the real
+    # stylist prompt, and back in the catalogue — so it is routed again as
+    # stylist_chat failover_1 and translation failover_1. Both chain entries
+    # carry the new measurements; this note stays so the next reader can see
+    # the full history instead of assuming the entry was never considered.
+    # Its original promotion conditions (bigger inbound translation battery,
+    # or a prefix-stripping guard) are recorded in the TRANSLATION specs.
     "moonshotai/kimi-k3": (
         "DEMOTED AFTER DEGRADATION (2026-10-01). Re-measured live with three "
         "probes: 120s hard read-timeout, then HTTP 200 in 103.5s with "

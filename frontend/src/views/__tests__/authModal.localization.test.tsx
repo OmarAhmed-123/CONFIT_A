@@ -138,7 +138,7 @@ describe('auth failures are translated by code, never raw server English (§6)',
 
   async function failLogin() {
     fireEvent.change(screen.getByLabelText(/email|البريد/i), { target: { value: 's@x.io' } });
-    fireEvent.change(screen.getByLabelText(/^password$|كلمة المرور/i), {
+    fireEvent.change(screen.getByLabelText(/^password$|كلمة المرور/i, { selector: 'input' }), {
       target: { value: 'wrong-pass-1' },
     });
     fireEvent.click(screen.getByRole('button', { name: /sign in|تسجيل الدخول/i }));

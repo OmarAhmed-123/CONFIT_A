@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
-import { Check, Eye, EyeOff, KeyRound, ShieldCheck } from 'lucide-react';
+import { Eye, EyeOff, KeyRound, ShieldCheck } from 'lucide-react';
 
 import { authService } from '../../services/apiServices';
 import { localizeApiError } from '../../i18n/apiErrors';
@@ -10,7 +10,15 @@ import {
   StatusIcon,
   usePrefersReducedMotion,
 } from '../../components/common/InteractionPrimitives';
-import { ConfitLogo } from '../../components/common/ConfitLogo';
+import { AuthPageShell } from '../../components/auth/AuthPageShell';
+import {
+  PasswordPolicyChecklist,
+  passwordPolicyChecks,
+} from '../../components/auth/PasswordPolicyChecklist';
+import {
+  AUTH_FIELD_CLASS,
+  AUTH_PRIMARY_BTN_CLASS,
+} from '../../components/auth/authStyles';
 
 /**
  * The page the password-reset EMAIL lands on.
@@ -33,12 +41,6 @@ import { ConfitLogo } from '../../components/common/ConfitLogo';
 
 type Phase = 'form' | 'submitting' | 'done' | 'error';
 
-const POLICY = {
-  length: (v: string) => v.length >= 8 && v.length <= 72,
-  categories: (v: string) =>
-    [/[a-z]/, /[A-Z]/, /[0-9]/, /[^a-zA-Z0-9]/].filter((r) => r.test(v)).length >= 3,
-};
-
 export const ResetPasswordView: React.FC = () => {
   const { t } = useTranslation();
   const reduce = usePrefersReducedMotion();
@@ -53,8 +55,7 @@ export const ResetPasswordView: React.FC = () => {
 
   const checks = useMemo(
     () => ({
-      length: POLICY.length(password),
-      categories: POLICY.categories(password),
+      ...passwordPolicyChecks(password),
       match: password.length > 0 && password === confirm,
     }),
     [password, confirm],
@@ -77,29 +78,10 @@ export const ResetPasswordView: React.FC = () => {
     }
   };
 
-  const checklistRow = (ok: boolean, label: string) => (
-    <li className="flex items-center gap-2 text-xs">
-      <span
-        aria-hidden="true"
-        className={`flex h-4 w-4 items-center justify-center rounded-full transition-colors duration-200 ${
-          ok ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-transparent'
-        }`}
-      >
-        <Check size={10} strokeWidth={3} />
-      </span>
-      <span className={ok ? 'text-emerald-700' : 'text-slate-500'}>
-        {label}
-        <span className="sr-only">
-          {ok ? ` — ${t('reset_password.rule_met')}` : ` — ${t('reset_password.rule_unmet')}`}
-        </span>
-      </span>
-    </li>
-  );
-
   // ---- token missing: honest dead end with a working way forward ----------
   if (!token) {
     return (
-      <Shell reduce={reduce}>
+      <AuthPageShell>
         <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#FDF8EE]">
           <StatusIcon status="error" size={22} />
         </div>
@@ -113,18 +95,18 @@ export const ResetPasswordView: React.FC = () => {
         </div>
         <Link
           to="/?auth=forgot"
-          className="mt-6 inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-[#1B1F3B] px-5 text-sm font-bold text-white hover:bg-[#0C0E1E] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059]"
+          className={`${AUTH_PRIMARY_BTN_CLASS} mt-6`}
         >
           {t('reset_password.request_new_link')}
         </Link>
-      </Shell>
+      </AuthPageShell>
     );
   }
 
   // ---- success: sessions are revoked server-side; route to sign-in --------
   if (phase === 'done') {
     return (
-      <Shell reduce={reduce}>
+      <AuthPageShell>
         <motion.div
           initial={reduce ? false : { scale: 0.6, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
@@ -143,17 +125,17 @@ export const ResetPasswordView: React.FC = () => {
         </div>
         <Link
           to="/?auth=signin"
-          className="mt-6 inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-[#1B1F3B] px-5 text-sm font-bold text-white hover:bg-[#0C0E1E] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059]"
+          className={`${AUTH_PRIMARY_BTN_CLASS} mt-6`}
         >
           {t('reset_password.signin_cta')}
         </Link>
-      </Shell>
+      </AuthPageShell>
     );
   }
 
   // ---- the form ------------------------------------------------------------
   return (
-    <Shell reduce={reduce}>
+    <AuthPageShell>
       <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#FDF8EE] text-[#A37E44]">
         <span aria-hidden="true"><KeyRound size={22} /></span>
       </div>
@@ -175,7 +157,7 @@ export const ResetPasswordView: React.FC = () => {
             autoComplete="new-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 pe-11 text-sm text-[#1B1F3B] focus:border-[#A37E44] focus:outline-none focus:ring-2 focus:ring-[#C5A059]/40"
+            className={`${AUTH_FIELD_CLASS} pe-11`}
           />
           <button
             type="button"
@@ -197,15 +179,12 @@ export const ResetPasswordView: React.FC = () => {
           autoComplete="new-password"
           value={confirm}
           onChange={(e) => setConfirm(e.target.value)}
-          className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-[#1B1F3B] focus:border-[#A37E44] focus:outline-none focus:ring-2 focus:ring-[#C5A059]/40"
+          className={`${AUTH_FIELD_CLASS} mt-1`}
         />
 
-        {/* Live mirror of the SERVER's real policy — no invented rules. */}
-        <ul className="mt-4 space-y-1.5" aria-label={t('reset_password.rules_title')}>
-          {checklistRow(checks.length, t('reset_password.rule_length'))}
-          {checklistRow(checks.categories, t('reset_password.rule_categories'))}
-          {checklistRow(checks.match, t('reset_password.rule_match'))}
-        </ul>
+        {/* Live mirror of the SERVER's real policy — shared with the
+            register form (PasswordPolicyChecklist), no invented rules. */}
+        <PasswordPolicyChecklist password={password} confirm={confirm} className="mt-4" />
 
         <div role="status" aria-live="polite" className="mt-3 min-h-5">
           {phase === 'error' && serverError && (
@@ -223,7 +202,7 @@ export const ResetPasswordView: React.FC = () => {
           type="submit"
           disabled={!ready}
           aria-busy={phase === 'submitting'}
-          className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#1B1F3B] px-5 text-sm font-bold text-white transition-opacity hover:bg-[#0C0E1E] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059] disabled:cursor-not-allowed disabled:opacity-40"
+          className={`${AUTH_PRIMARY_BTN_CLASS} mt-3`}
         >
           <span aria-hidden="true"><ShieldCheck size={16} /></span>
           {t('reset_password.submit_cta')}
@@ -241,26 +220,7 @@ export const ResetPasswordView: React.FC = () => {
           </p>
         )}
       </form>
-    </Shell>
+    </AuthPageShell>
   );
 };
 
-/** Shared card shell — one entrance tween, disabled under reduced motion. */
-const Shell: React.FC<{ reduce: boolean; children: React.ReactNode }> = ({
-  reduce,
-  children,
-}) => (
-  <main className="min-h-screen bg-[#FAF9F6] px-4 py-14">
-    <motion.section
-      initial={reduce ? false : { opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: reduce ? 0 : 0.3, ease: 'easeOut' }}
-      className="mx-auto w-full max-w-md rounded-3xl border border-slate-200/80 bg-white p-8 text-center shadow-sm"
-    >
-      <div className="mx-auto mb-5 flex justify-center">
-        <ConfitLogo variant="compact" theme="dark" size="sm" />
-      </div>
-      {children}
-    </motion.section>
-  </main>
-);

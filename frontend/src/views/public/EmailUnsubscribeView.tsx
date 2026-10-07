@@ -1,15 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { motion } from 'framer-motion';
 import { MailX, Settings } from 'lucide-react';
 
 import { emailService } from '../../services/apiServices';
-import {
-  StatusIcon,
-  usePrefersReducedMotion,
-} from '../../components/common/InteractionPrimitives';
-import { ConfitLogo } from '../../components/common/ConfitLogo';
+import { StatusIcon } from '../../components/common/InteractionPrimitives';
+import { AuthPageShell } from '../../components/auth/AuthPageShell';
+import { AUTH_PRIMARY_BTN_CLASS } from '../../components/auth/authStyles';
 
 /**
  * Spec 15 re-pass — the page every email footer's unsubscribe link lands on.
@@ -38,7 +35,6 @@ type Phase =
 
 export const EmailUnsubscribeView: React.FC = () => {
   const { t } = useTranslation();
-  const reduce = usePrefersReducedMotion();
   const [params] = useSearchParams();
   const token = params.get('token') ?? '';
 
@@ -114,17 +110,7 @@ export const EmailUnsubscribeView: React.FC = () => {
   };
 
   return (
-    <main className="min-h-screen bg-[#FAF9F6] px-4 py-14">
-      <motion.section
-        initial={reduce ? false : { opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: reduce ? 0 : 0.3, ease: 'easeOut' }}
-        className="mx-auto w-full max-w-md rounded-3xl border border-slate-200/80 bg-white p-8 text-center shadow-sm"
-      >
-        <div className="mx-auto mb-5 flex justify-center">
-          <ConfitLogo variant="compact" theme="dark" size="sm" />
-        </div>
-
+    <AuthPageShell>
         <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#FDF8EE]">
           {icon[phase]}
         </div>
@@ -143,7 +129,7 @@ export const EmailUnsubscribeView: React.FC = () => {
           <button
             type="button"
             onClick={confirm}
-            className="mt-6 inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-[#1B1F3B] px-5 text-sm font-bold text-white hover:bg-[#0C0E1E] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059]"
+            className={`${AUTH_PRIMARY_BTN_CLASS} mt-6`}
           >
             {t('email_unsubscribe.confirm_cta', { category: categoryLabel })}
           </button>
@@ -153,7 +139,7 @@ export const EmailUnsubscribeView: React.FC = () => {
           <button
             type="button"
             onClick={confirm}
-            className="mt-6 inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-[#1B1F3B] px-5 text-sm font-bold text-white hover:bg-[#0C0E1E] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059]"
+            className={`${AUTH_PRIMARY_BTN_CLASS} mt-6`}
           >
             {t('email_unsubscribe.retry_cta')}
           </button>
@@ -173,7 +159,6 @@ export const EmailUnsubscribeView: React.FC = () => {
             </Link>
           </p>
         )}
-      </motion.section>
-    </main>
+    </AuthPageShell>
   );
 };

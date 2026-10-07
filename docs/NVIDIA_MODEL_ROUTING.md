@@ -374,23 +374,47 @@ the catalogue; the entry from the credential file lists no endpoint),
 `kumo-relational` (endpoint live, still demanding the `{predict, output}`
 contract — the 2026-09-27 payload shape returns 422).
 
-### 9.2 Production was NOT running on NVIDIA
+### 9.2 Production was NOT running on NVIDIA — the root cause was the timeout, not the key
 
-A live `POST /api/v1/stylist/chat` against <https://confit-a.vercel.app> before
-this pass returned:
+A live `POST /api/v1/stylist/chat` against <https://confit-a.vercel.app> answered:
 
 ```
-engine: "Groq openai/gpt-oss-120b"    (14.5 s)
+engine: "Groq openai/gpt-oss-120b"        (14.5s / 3.8s / 7.9s across three probes)
 ```
 
-`AI_PROVIDERS` lists `nvidia` first and the orchestrator skips the leg silently
-when its key is falsy, so an empty/stale platform value degrades to the next
-provider with no error. The 21 NVIDIA variables were re-pushed to the Vercel
-project from the credential file the owner supplied (19 slot keys + the two
-legacy aliases the orchestrator still reads) and the deployment was refreshed;
-the engine label is re-measured in §9.3 *after* that refresh. A green
-`/api/v1/health` proves none of this — the AI legs are not part of readiness.
+even though `NVIDIA_API_KEY` and all 19 slot keys are set on the platform and
+`AI_PROVIDERS` lists the NVIDIA legs first. Two platform facts were invisible
+from the outside — both are `sensitive` in Vercel, so their values cannot be
+read back — and both were corrected:
 
-### 9.3 Post-refresh production probe
+| Variable | Set to | Why |
+|---|---|---|
+| `AI_PROVIDERS` | `nvidia,nvidia2,groq,gemini,openai,unorouter` | makes the NVIDIA legs explicit and first; `nvidia2` is the legacy second-slot name the orchestrator reads |
+| `AI_PROVIDER_TIMEOUT_SECONDS` | `6` (was 4.0) | see below |
 
-_(filled in immediately after the deployment refresh — same session)_
+**Root cause, reproduced locally with the orchestrator's own leg.** Running
+`_call_nvidia_at()` — the exact code path production uses — with the real
+payload (`max_tokens=900` + the live stylist system prompt):
+
+| Slot | Result |
+|---|---|
+| position 0 — `ultra-550b` | `503 ResourceExhausted` at 0.34s, then **200 in 21.89s** |
+| position 1 — `super-120b` | **200 in 2.71s**, then **200 in 3.58s**, grounded in the supplied items, EGP prices preserved |
+
+Against a 4.0s budget, an Ultra answer that needs ~22s cannot ever be served —
+the leg timed out on every request and the orchestrator advanced to Groq. **A
+configured provider that cannot answer inside its budget is indistinguishable
+from an absent one**, and nothing in `/api/v1/health` reports it: the AI legs
+are not part of readiness. This is the second time this exact failure shape has
+been recorded in this file (§0 was the EOL-model version of it).
+
+**Consequence for the registry:** `STYLIST_CHAT` primary is now `super-120b`
+(measured 2.71s / 3.58s on the production-shaped payload) with `ultra-550b` as
+failover_1 (best grounding, 21.89s tail). Order is set by whether a model can
+answer inside the budget, not by model size. `ultra-550b` keeps the
+`TRANSLATION` primary slot, where the `nvidia_client` deadline is far wider.
+
+### 9.3 Post-change production probe
+
+_(recorded immediately after the registry change is deployed — same session,
+section filled with the measured engine label)_

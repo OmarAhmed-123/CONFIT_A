@@ -120,52 +120,26 @@ ROLE_CHAINS: Dict[ModelRole, List[ModelSpec]] = {
     # grounding quality decides the order. AI_PROVIDER_TIMEOUT_SECONDS is 4.0s
     # today, so anything above ~5s cannot be primary without a config change.
     ModelRole.STYLIST_CHAT: [
-        # PRIMARY SWAP 2026-10-03, forced by the endpoint: nemotron-3-super-
-        # 120b-a12b answered 410 Gone (end-of-life) on every call and vanished
-        # from GET /v1/models — `verify_nvidia_models.py` FAILs on it in both
-        # roles it led. Since then production stylist turns have been served
-        # by the ultra failover slot (verified live 2026-10-03: three
-        # production /stylist/chat answers, grounded in real catalogue items,
-        # reported engine "NVIDIA nvidia/nemotron-3-ultra-550b-a55b"), so this
-        # swap formalises what production already runs. The 2026-10-01 order
-        # swap (super-first for latency) is now moot: there is no second
-        # nemotron chat model with measured stylist-role evidence, and the
-        # orchestrator's Groq leg remains the next provider after this chain.
-        ModelSpec(
-            model_id="nvidia/nemotron-3-ultra-550b-a55b",
-            endpoint=CHAT_COMPLETIONS_URL,
-            params={"temperature": 0.6, "top_p": 0.95},
-            measured_latency_s=(0.8, 12.0),
-            slot_key_env="NVIDIA_KEY_NEMOTRON_3_ULTRA_550B_A55B",
-            evidence=(
-                "2026-09-27, real CONFIT stylist prompt (3 grounded catalogue "
-                "items, $385 total): 200 in 4.1s / 126 completion tokens; "
-                "named every item, honoured the 2-3 sentence cap, stated the "
-                "budget correctly, invented nothing. 2026-10-01: 2.3 / 4.8 / "
-                "5.9s live AND one 12s hard-timeout — moved to failover while "
-                "super was alive. 2026-10-03: super went 410 Gone; three live "
-                "production stylist turns then served by this slot, each "
-                "grounded and clean, so it takes the primary slot back."
-            ),
-            notes=(
-                "PRIMARY. Best measured grounding-per-second of the 14 chat "
-                "models probed; does NOT leak reasoning into content at "
-                "default settings (stylist prose prompts). For terse "
-                "instruction prompts (translation) the chain there adds the "
-                "enable_thinking guard. Groq is the orchestrator's next leg "
-                "if this chain exhausts."
-            ),
-        ),
-        # REVIVED 2026-10-07. nemotron-3-super-120b-a12b answered 410 Gone
-        # from 2026-10-03 and was pulled from every chain; on 2026-10-07 it
-        # answered five consecutive 200s on the real CONFIT stylist prompt and
-        # is back in the catalogue. It takes the FAILOVER slot, not the
-        # primary: ultra keeps the primary on its measured grounding, while
-        # this slot exists so a 503 (measured on ultra twice today —
-        # `503 ResourceExhausted: Worker local total request limit reached`)
-        # advances to a second real model instead of degrading. Before this
-        # entry the chain had exactly one slot, so any capacity blip fell
-        # straight through to the next provider.
+        # PRIMARY SWAP 2026-10-07, measured on the PRODUCTION-SHAPED payload.
+        #
+        # Why it was needed. Production was serving every stylist turn with
+        # "Groq openai/gpt-oss-120b" (14.5s / 3.8s / 7.9s probe, engine label
+        # read off the live response) even though NVIDIA_API_KEY and all 19 slot
+        # keys are set on the platform and AI_PROVIDERS lists the nvidia legs
+        # first. The leg was not missing — it was unreachable: with the
+        # orchestrator's real payload (max_tokens=900 plus the live stylist
+        # system prompt) ultra-550b answered in **21.89s** and 503'd on the
+        # first attempt, while AI_PROVIDER_TIMEOUT_SECONDS is 4.0s. Every call
+        # therefore timed out and fell through to Groq. A configured provider
+        # that cannot answer inside its budget is indistinguishable from an
+        # absent one, and nothing in /api/v1/health showed it.
+        #
+        # The order below is set by that measurement, not by model size:
+        #  * super-120b answers the SAME production-shaped payload in 2.71s and
+        #    3.58s, grounded in the supplied catalogue, EGP prices preserved.
+        #  * ultra-550b keeps the failover slot: its grounding is still the best
+        #    measured (see its evidence), and as a failover it is allowed to
+        #    miss a 6s budget without costing the shopper the first answer.
         ModelSpec(
             model_id="nvidia/nemotron-3-super-120b-a12b",
             endpoint=CHAT_COMPLETIONS_URL,
@@ -174,25 +148,54 @@ ROLE_CHAINS: Dict[ModelRole, List[ModelSpec]] = {
                 "top_p": 0.95,
                 "chat_template_kwargs": {"enable_thinking": False},
             },
-            measured_latency_s=(0.72, 1.28),
+            measured_latency_s=(0.72, 3.58),
             slot_key_env="NVIDIA_KEY_NEMOTRON_3_SUPER_120B_A12B",
             evidence=(
-                "2026-10-07, five live stylist-role probes on the real CONFIT "
-                "outfit prompt ('smart-casual dinner in Cairo, budget 400'): "
-                "200 at 0.90 / 0.91 / 1.28s (default thinking) and 0.88 / "
-                "0.72s with enable_thinking=False. Every answer named real "
-                "garments, stated the budget, and honoured the one-sentence "
-                "cap; no reasoning text leaked into content once the flag was "
-                "set. Same session: it was 410 Gone in GET /v1/models on "
-                "2026-10-03, and is listed again today."
+                "2026-10-07, production-shaped payload through the orchestrator's "
+                "own leg (_call_nvidia_at): 2.71s and 3.58s, both grounded in the "
+                "supplied items ('pair the Pleated Tapered Virgin Wool Trousers "
+                "(165 EGP) with ...'), budget respected. Shorter stylist probes "
+                "the same day: 0.90 / 0.91 / 1.28s (default thinking) and 0.88 / "
+                "0.72s with enable_thinking=False. REVIVED today: it answered 410 "
+                "Gone on 2026-10-03 and was absent from GET /v1/models, which is "
+                "why it had been benched."
             ),
             notes=(
-                "FAILOVER_1 for STYLIST_CHAT. enable_thinking=False is "
-                "REQUIRED: with thinking on, the reply arrives one sentence "
-                "late and carries a reasoning prefix. Fastest measured "
-                "high-quality chat model in the pool (~0.8s vs ultra's "
-                "0.8-12.0s), so it is also the right first choice when the "
-                "caller can trade a little grounding depth for latency."
+                "PRIMARY. enable_thinking=False is REQUIRED: with thinking on the "
+                "reply carries a reasoning prefix and arrives a sentence late. "
+                "~4x faster than ultra on identical payloads, which is what makes "
+                "the NVIDIA leg actually serve instead of timing out. ultra-550b "
+                "is the next candidate if this one 503s."
+            ),
+        ),
+        ModelSpec(
+            model_id="nvidia/nemotron-3-ultra-550b-a55b",
+            endpoint=CHAT_COMPLETIONS_URL,
+            params={"temperature": 0.6, "top_p": 0.95},
+            measured_latency_s=(0.8, 21.89),
+            slot_key_env="NVIDIA_KEY_NEMOTRON_3_ULTRA_550B_A55B",
+            evidence=(
+                "Best grounding measured in the pool: 2026-09-27, real CONFIT "
+                "stylist prompt (3 grounded catalogue items, $385 total): 200 in "
+                "4.1s / 126 completion tokens; named every item, honoured the "
+                "2-3 sentence cap, stated the budget correctly, invented nothing. "
+                "2026-10-01: 2.3 / 4.8 / 5.9s plus one 12s hard timeout. "
+                "2026-10-07 (production-shaped payload): one 503 "
+                "'ResourceExhausted: Worker local total request limit reached' at "
+                "0.34s, then 200 in 21.89s — the measurement that explains why the "
+                "NVIDIA leg was invisible in production, and why this slot is no "
+                "longer the primary. Needs AI_PROVIDER_TIMEOUT_SECONDS >= 25 to "
+                "serve reliably, which no shopper-facing turn should wait for."
+            ),
+            notes=(
+                "FAILOVER_1. Still the best-grounded model in the pool, but its "
+                "tail latency on the production payload (21.89s measured) exceeds "
+                "any sane per-provider budget, so it is reached only when the "
+                "primary fails fast. It REMAINS the translation primary, where the "
+                "nvidia_client deadline is much wider and the 2026-10-03 battery "
+                "showed it preserves 'فرح' and true colours. Groq is the "
+                "orchestrator's next leg if this chain exhausts — honest "
+                "degradation, never a synthesised answer."
             ),
         ),
         # moonshotai/kimi-k3 was the third entry here until 2026-10-01, when a

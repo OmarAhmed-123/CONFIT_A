@@ -226,14 +226,15 @@ export const ConsumerNavbar: React.FC = () => {
           <span className="hidden sm:inline text-slate-300 font-light tracking-wide">{t('nav.brand_line')}</span>
           <span className="sm:hidden text-slate-300">{t('nav_desc.studio')}</span>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center justify-end gap-x-4 gap-y-1">
           {isPrivileged ? (
             <Link
               to={isAdmin ? '/admin' : '/b2b'}
               className="inline-flex min-h-8 items-center gap-1.5 text-[#C5A059] hover:text-[#E2BF70] font-semibold transition-colors text-xs"
             >
               <span aria-hidden="true">{isAdmin ? <ShieldIcon size={14} color="#C5A059" /> : <BrandDashboardIcon size={14} color="#C5A059" />}</span>
-              <span>{isAdmin ? t('nav.admin_governance') : t('nav.brand_partner_hub')}</span>
+              <span className="hidden sm:inline">{isAdmin ? t('nav.admin_governance') : t('nav.brand_partner_hub')}</span>
+              <span className="sr-only sm:hidden">{isAdmin ? t('nav.admin_governance') : t('nav.brand_partner_hub')}</span>
             </Link>
           ) : (
             <Link
@@ -241,7 +242,8 @@ export const ConsumerNavbar: React.FC = () => {
               className="inline-flex min-h-8 items-center gap-1.5 text-slate-400 hover:text-[#C5A059] font-medium transition-colors text-xs"
             >
               <span aria-hidden="true"><BrandDashboardIcon size={14} color="#C5A059" /></span>
-              <span>{t('nav.partner_portal')}</span>
+              <span className="hidden sm:inline">{t('nav.partner_portal')}</span>
+              <span className="sr-only sm:hidden">{t('nav.partner_portal')}</span>
             </Link>
           )}
           <div className="h-3 w-px bg-slate-800" aria-hidden="true" />

@@ -140,35 +140,42 @@ export const CartDrawer: React.FC = () => {
           {/* Footer Checkout Summary */}
           {items.length > 0 && (
             <div className="p-4 sm:p-6 border-t border-slate-200 bg-white space-y-3">
+              {/* Every line item above already rendered through
+                  formatMoney(cart.currency) — but this totals block hardcoded
+                  the "$" glyph, so an EGP cart showed dollar-prefixed EGP
+                  numbers in its own summary (2026-10-07 audit). Same
+                  formatter, same currency authority, every row. */}
               <div className="space-y-1.5 text-xs text-slate-600">
                 <div className="flex justify-between">
                   <span>{t('commerce.subtotal')}</span>
-                  <span className="font-semibold text-slate-900">${subtotal.toFixed(2)}</span>
+                  <span className="font-semibold text-slate-900">
+                    <bdi dir="ltr">{formatMoney(Math.round(subtotal * 100), cart?.currency || 'USD', lang)}</bdi>
+                  </span>
                 </div>
                 {(cart?.discount_amount || 0) > 0 && (
                   <div className="flex justify-between text-emerald-600">
                     <span>{t('commerce.discount')}</span>
-                    <span>-${(cart?.discount_amount || 0).toFixed(2)}</span>
+                    <span><bdi dir="ltr">-{formatMoney(Math.round((cart?.discount_amount || 0) * 100), cart?.currency || 'USD', lang)}</bdi></span>
                   </div>
                 )}
                 <div className="flex justify-between">
                   <span>{t('commerce.tax')}</span>
-                  <span>${(cart?.tax_amount ?? 0).toFixed(2)}</span>
+                  <span><bdi dir="ltr">{formatMoney(Math.round((cart?.tax_amount ?? 0) * 100), cart?.currency || 'USD', lang)}</bdi></span>
                 </div>
                 <div className="flex justify-between">
                   <span>{t('commerce.shipping')}</span>
-                  <span>${(cart?.shipping_amount ?? 0).toFixed(2)}</span>
+                  <span><bdi dir="ltr">{formatMoney(Math.round((cart?.shipping_amount ?? 0) * 100), cart?.currency || 'USD', lang)}</bdi></span>
                 </div>
                 <div className="flex justify-between text-sm font-bold text-[#1B1F3B] pt-2 border-t border-slate-100">
                   <span>{t('commerce.total')}</span>
-                  <span>${total.toFixed(2)}</span>
+                  <span><bdi dir="ltr">{formatMoney(Math.round(total * 100), cart?.currency || 'USD', lang)}</bdi></span>
                 </div>
               </div>
 
               {cart && cart.bnpl_monthly_quote > 0 && (
                 <div className="p-2.5 rounded-xl bg-[#FDF8EE] border border-[#B8935A]/30 text-center">
                   <BNPLBadge
-                    price={total}
+                    currency={cart.currency || 'USD'}
                     installmentAmount={cart.bnpl_monthly_quote}
                     isEstimate={cart.bnpl_is_estimate !== false}
                     eligible

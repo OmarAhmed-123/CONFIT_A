@@ -282,3 +282,48 @@ def test_supported_currencies_covers_every_rated_currency_not_just_markets(rates
     by_code = {c["currency"]: c for c in supported_currencies()}
     assert by_code["EGP"]["is_market_currency"] is True
     assert by_code["USD"]["is_pricing_currency"] is True
+
+
+# ── the PDP instalment figures (production screenshot, 2026-10-07) ──────────
+
+def test_pdp_bnpl_figures_convert_with_the_price_beside_them(rates):
+    """The defect: `bnpl_monthly_quote` (cart) was in MONEY_FIELDS from day
+    one, but the product page publishes the SAME money as
+    `bnpl_monthly_installment` and nested `bnpl.installment_amount`. Neither
+    was declared, so an EGP storefront showed base_price EGP 3,637.50 next to
+    an instalment of $18.75 — wrong currency and wrong arithmetic in one
+    sentence.
+    """
+    fx = resolve_presentation("EGP")
+    out = present(
+        {
+            "currency": "USD",
+            "base_price": 75.0,
+            "bnpl_monthly_installment": 18.75,
+            "bnpl": {
+                "eligible": True,
+                "provider": None,
+                "installment_amount": 18.75,
+                "installments_count": 4,
+                "is_estimate": True,
+            },
+        },
+        fx,
+    )
+    assert out["base_price"] == 3637.5
+    assert out["bnpl_monthly_installment"] == pytest.approx(909.38, abs=0.01)
+    assert out["bnpl"]["installment_amount"] == pytest.approx(909.38, abs=0.01)
+    # 4x the converted instalment must still reassemble the converted price —
+    # the two numbers now live in the same currency.
+    assert out["bnpl"]["installment_amount"] * 4 == pytest.approx(out["base_price"], abs=0.05)
+    # counts are counts, not money
+    assert out["bnpl"]["installments_count"] == 4
+    assert out["currency"] == "EGP"
+
+
+def test_pdp_bnpl_conversion_is_idempotent(rates):
+    """Same ratchet as the cart: a payload that already went through
+    presentation must not convert its instalment a second time."""
+    fx = resolve_presentation("EGP")
+    once = present({"currency": "USD", "bnpl": {"installment_amount": 18.75}}, fx)
+    assert present(once, fx) == once

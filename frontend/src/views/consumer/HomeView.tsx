@@ -16,7 +16,6 @@ import { useCapabilities } from "../../hooks/useCapabilities";
 import { useTryOnAvailability } from "../../hooks/useTryOnAvailability";
 import { ProductCard } from "../../components/product/ProductCard";
 import {
-  BNPLBadge,
   SkeletonCard,
   EmptyState,
 } from "../../components/common/CommonComponents";
@@ -802,9 +801,16 @@ export const HomeView: React.FC = () => {
                 onAddToBag={addCatalogProductToBag}
                 footerSlot={
                   capabilities.bnpl_live ? (
-                    // bnpl_live is the measured flag (live PSP adapter + key +
-                    // live mode), so a badge shown here IS an offer.
-                    <BNPLBadge price={p.base_price} provider="Tabby" isEstimate={false} />
+                    // bnpl_live is measured, but the LIST payload carries no
+                    // instalment figure and no provider: the old badge here
+                    // hardcoded "Tabby" in the frontend and divided the price
+                    // by 4 in the browser — both are claims the API never
+                    // made. A non-numeric line states the true fact; the real
+                    // figure (server-computed, currency-converted) appears on
+                    // the product page and in the cart.
+                    <span className="text-[11px] text-slate-600">
+                      {t('commerce.bnpl_available_checkout')}
+                    </span>
                   ) : (
                     <span className="text-[11px] text-slate-500">
                       {t('commerce.bnpl_not_live')}

@@ -515,7 +515,8 @@
     "no_purchasable_size": "No purchasable size is available for this item right now.",
     "wishlist_saved_device": "Saved to wishlist on this device",
     "wishlist_removed": "Removed from wishlist",
-    "unavailable_label": "Unavailable — pick another size"
+    "unavailable_label": "Unavailable — pick another size",
+    "bnpl_available_checkout": "Interest-free instalments available at checkout"
   },
   "b2b": {
     "dashboard_title": "Brand Partner Command Center",
@@ -1504,8 +1505,13 @@
     "available_at_stores": "Available at stores",
     "you_save": "You save {{amount}}",
     "colour": "Colour",
-    "total_units_available": "{{count}} units available across {{variants}} variants",
-    "add_to_bag_price": "Add to bag — {{price}}"
+    "total_units_available": "{{units}} available across {{variants}}",
+    "add_to_bag_price": "Add to bag — {{price}}",
+    "recommended_size_fallback": "Recommended size: {{size}}.",
+    "unit_count_one": "1 unit",
+    "unit_count_many": "{{count}} units",
+    "variant_count_one": "a single variant",
+    "variant_count_many": "{{count}} variants"
   },
   "brand_nav": {
     "aria": "Platform and brand-partner navigation",

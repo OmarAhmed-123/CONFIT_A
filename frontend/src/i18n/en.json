@@ -132,7 +132,9 @@
     "sale_hint": "Real markdowns — the prior price is shown beside every piece.",
     "brand_pieces_one": "One piece in the catalogue",
     "brand_pieces_many": "{{count}} pieces in the catalogue",
-    "open_catalog": "View in the catalogue"
+    "open_catalog": "View in the catalogue",
+    "announce_free_shipping": "Free shipping on orders over {{amount}}",
+    "announcement_aria": "Store announcement"
   },
   "stylist": {
     "title": "CONFIT AI Stylist",
@@ -675,7 +677,8 @@
     "open_menu": "Open navigation menu",
     "close_menu": "Close navigation menu",
     "mobile_nav_label": "Main navigation",
-    "account_menu": "Account menu"
+    "account_menu": "Account menu",
+    "dismiss_announcement": "Dismiss announcement"
   },
   "meta": {
     "home_title": "CONFIT — Where Style Meets Your Character",

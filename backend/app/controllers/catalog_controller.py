@@ -381,6 +381,18 @@ class CapabilityFlagsOut(BaseModel):
     bopis_store_count: int
     storage_mode: str
     returns_window_days: int
+    #: Free-shipping threshold for THIS request's display currency, converted
+    #: with the SAME rate table the cart totals use (one authority — the bar
+    #: in the storefront and the shipping row at checkout cannot disagree).
+    #: None when the deployment has no free-shipping policy, so the UI shows
+    #: nothing instead of inventing an offer (2026-10-08 home re-pass: the
+    #: announcement bar binds to these, never to a hardcoded "$50").
+    free_shipping_threshold: Optional[float] = None
+    #: Standard shipping fee in `shipping_currency`. None when unconfigured.
+    standard_shipping_fee: Optional[float] = None
+    #: The currency the two figures above are denominated in (presentation
+    #: currency of this request, same resolver as every money payload).
+    shipping_currency: Optional[str] = None
 
 
 @router.get("/revision")
@@ -443,7 +455,10 @@ def get_catalog_revision(db: Session = Depends(get_db)):
 
 
 @router.get("/capabilities", response_model=CapabilityFlagsOut)
-def get_capability_flags(db: Session = Depends(get_db)):
+def get_capability_flags(
+    db: Session = Depends(get_db),
+    fx: PresentationCurrency = Depends(get_presentation_currency),
+):
     """Shopper-facing capability flags.
 
     Delegates to ``capability_service`` — the same source of truth the health
@@ -473,4 +488,18 @@ def get_capability_flags(db: Session = Depends(get_db)):
     from backend.app.services.ai_readiness import refresh_when_unmeasured
 
     refresh_when_unmeasured()
-    return CapabilityFlagsOut(**capability_flags(db))
+    flags = capability_flags(db)
+
+    # Free-shipping policy, published ONLY when it really exists. The figures
+    # convert through the same PresentationCurrency the catalogue and cart
+    # money use, so the announcement in the storefront and the shipping row
+    # at checkout are denominated identically for this shopper.
+    threshold = float(settings.FREE_SHIPPING_THRESHOLD or 0)
+    if threshold > 0:
+        flags["free_shipping_threshold"] = fx.convert(threshold)
+        flags["standard_shipping_fee"] = fx.convert(
+            float(settings.STANDARD_SHIPPING_FEE or 0)
+        )
+        flags["shipping_currency"] = fx.code
+
+    return CapabilityFlagsOut(**flags)

@@ -39,7 +39,7 @@ import type { Product, Category } from "../../models";
 
 /* ------------------------------------------------------------------ mocks */
 
-const { vmState, newestMock, setSelectedCategoryMock } = vi.hoisted(() => ({
+const { vmState, newestMock, setSelectedCategoryMock, capState } = vi.hoisted(() => ({
   vmState: {
     products: [] as unknown[],
     categories: [] as unknown[],
@@ -48,6 +48,15 @@ const { vmState, newestMock, setSelectedCategoryMock } = vi.hoisted(() => ({
   },
   newestMock: vi.fn(),
   setSelectedCategoryMock: vi.fn(),
+  capState: {
+    value: {
+      bnpl_live: false,
+      tryon_live: false,
+      bopis_live: false,
+      free_shipping_threshold: null as number | null,
+      shipping_currency: null as string | null,
+    },
+  },
 }));
 
 vi.mock("../../viewmodels/useCatalogViewModel", () => ({
@@ -87,7 +96,7 @@ vi.mock("../../services/apiServices", async (importOriginal) => {
 
 vi.mock("../../hooks/useCapabilities", () => ({
   useCapabilities: () => ({
-    capabilities: { bnpl_live: false, tryon_live: false, bopis_live: false },
+    capabilities: capState.value,
     isLoading: false,
   }),
 }));
@@ -398,5 +407,75 @@ describe("Discover — ?category= deep link from the home rail", () => {
       await new Promise((r) => setTimeout(r, 10));
     });
     expect(setSelectedCategoryMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("Home — announcement bar binds to the REAL shipping policy", () => {
+  beforeEach(() => {
+    cleanup();
+    window.localStorage.clear();
+    vmState.products = PRODUCTS;
+    vmState.categories = CATEGORIES;
+    vmState.isLoading = false;
+    vmState.error = null;
+    newestMock.mockReset().mockResolvedValue([]);
+    capState.value = {
+      bnpl_live: false,
+      tryon_live: false,
+      bopis_live: false,
+      free_shipping_threshold: 12125,
+      shipping_currency: "EGP",
+    };
+  });
+
+  it("renders the server's converted threshold — never a hardcoded figure", () => {
+    renderHome();
+    const region = screen.getByRole("region", {
+      name: i18n.t("home.announcement_aria"),
+    });
+    // The sentence carries the SERVER's number (EGP 12,125.00), rendered by
+    // the shared money formatter.
+    expect(region.textContent).toContain("12,125.00");
+    expect(region.textContent).not.toContain("$50");
+  });
+
+  it("renders NOTHING when the server publishes no policy", () => {
+    capState.value = {
+      ...capState.value,
+      free_shipping_threshold: null,
+      shipping_currency: null,
+    };
+    renderHome();
+    expect(
+      screen.queryByRole("region", { name: i18n.t("home.announcement_aria") }),
+    ).toBeNull();
+  });
+
+  it("dismissal persists for the SAME policy but a changed threshold is news again", async () => {
+    const { unmount } = renderHome();
+    const dismiss = screen.getByRole("button", {
+      name: i18n.t("a11y.dismiss_announcement"),
+    });
+    await act(async () => {
+      dismiss.click();
+    });
+    expect(
+      screen.queryByRole("region", { name: i18n.t("home.announcement_aria") }),
+    ).toBeNull();
+    unmount();
+
+    // Same policy on a fresh mount: stays dismissed.
+    renderHome();
+    expect(
+      screen.queryByRole("region", { name: i18n.t("home.announcement_aria") }),
+    ).toBeNull();
+    cleanup();
+
+    // The merchandiser changes the threshold: the new fact is announced.
+    capState.value = { ...capState.value, free_shipping_threshold: 9999 };
+    renderHome();
+    expect(
+      screen.getByRole("region", { name: i18n.t("home.announcement_aria") }),
+    ).toBeInTheDocument();
   });
 });

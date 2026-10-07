@@ -132,7 +132,9 @@
     "sale_hint": "تخفيضات حقيقية — السعر السابق معروض بجانب كل قطعة.",
     "brand_pieces_one": "قطعة واحدة في الكتالوج",
     "brand_pieces_many": "{{count}} قطعة في الكتالوج",
-    "open_catalog": "اعرض في الكتالوج"
+    "open_catalog": "اعرض في الكتالوج",
+    "announce_free_shipping": "شحن مجاني للطلبات فوق {{amount}}",
+    "announcement_aria": "إعلان المتجر"
   },
   "stylist": {
     "title": "منسق المظهر الذكي CONFIT",
@@ -675,7 +677,8 @@
     "open_menu": "افتح قائمة التنقل",
     "close_menu": "أغلق قائمة التنقل",
     "mobile_nav_label": "التنقل الرئيسي",
-    "account_menu": "قائمة الحساب"
+    "account_menu": "قائمة الحساب",
+    "dismiss_announcement": "إغلاق الإعلان"
   },
   "meta": {
     "home_title": "كونفت — حيث تلتقي الأناقة بشخصيتك",

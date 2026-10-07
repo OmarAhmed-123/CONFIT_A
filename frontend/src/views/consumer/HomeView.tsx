@@ -32,6 +32,7 @@ import { CardStackShowcase } from "../../components/showcase/DesignShowcases";
 import { HeroSection, HeroMedia, HeroLightCard } from "../../components/common/HeroSection";
 import { usePrefersReducedMotion } from "../../components/common/InteractionPrimitives";
 import { CollectionRail } from "../../components/home/CollectionRail";
+import { AnnouncementBar } from "../../components/home/AnnouncementBar";
 import { HonestProductImage } from "../../components/common/HonestProductImage";
 import { catalogService } from "../../services/apiServices";
 import { queryKeys } from "../../lib/queryClient";
@@ -315,6 +316,17 @@ export const HomeView: React.FC = () => {
 
   return (
     <div className="space-y-16 sm:space-y-24 pb-24">
+      {/* 0. Announcement bar — renders ONLY when the server publishes a real
+          free-shipping policy (currency-converted by the same authority as
+          the cart). Dismissible; the dismissal is keyed to the policy value
+          so a changed threshold is news again. */}
+      <div className="-mb-10 sm:-mb-16">
+        <AnnouncementBar
+          threshold={capabilities.free_shipping_threshold}
+          currency={capabilities.shipping_currency}
+        />
+      </div>
+
       {/* 1. Hero — reusable dark editorial panel + light structured card
           (spec 07). All copy sits on the solid dark gradient, never on a
           bare photograph; the aside card is ONE keyboard-focusable link to

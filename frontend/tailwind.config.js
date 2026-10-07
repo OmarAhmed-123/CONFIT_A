@@ -58,6 +58,12 @@ export default {
         sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
         arabic: ['Cairo', 'Tajawal', 'IBM Plex Sans Arabic', 'system-ui', 'sans-serif'],
         serif: ['Playfair Display', 'Georgia', 'serif'],
+      },
+      /* Motion token (home pass 3): ONE luxury easing curve for hover /
+         reveal transitions instead of ad-hoc default easings per call site.
+         cubic-bezier(0.25, 1, 0.5, 1) = fast start, long soft landing. */
+      transitionTimingFunction: {
+        luxury: 'cubic-bezier(0.25, 1, 0.5, 1)',
       }
     },
   },

@@ -33,6 +33,8 @@ import { HeroSection, HeroMedia, HeroLightCard } from "../../components/common/H
 import { usePrefersReducedMotion } from "../../components/common/InteractionPrimitives";
 import { CollectionRail } from "../../components/home/CollectionRail";
 import { AnnouncementBar } from "../../components/home/AnnouncementBar";
+import { SectionHeader } from "../../components/common/SectionHeader";
+import { motion } from "framer-motion";
 import { HonestProductImage } from "../../components/common/HonestProductImage";
 import { catalogService } from "../../services/apiServices";
 import { queryKeys } from "../../lib/queryClient";
@@ -600,26 +602,12 @@ export const HomeView: React.FC = () => {
           whole section disappears when the catalogue has nothing new. */}
       {(newInQuery.isLoading || newInQuery.isError || newArrivals.length > 0) && (
         <section aria-labelledby="home-new-in-title" className="space-y-6">
-          <div className="flex flex-col justify-between gap-2 border-b border-slate-200/80 pb-4 sm:flex-row sm:items-end">
-            <div>
-              <span className="block text-[10px] font-bold uppercase tracking-widest text-[#7A5C28]">
-                {t("home.new_in_eyebrow")}
-              </span>
-              <h2
-                id="home-new-in-title"
-                className="mt-1 font-serif text-2xl font-bold text-[#1B1F3B]"
-              >
-                {t("home.new_in_title")}
-              </h2>
-            </div>
-            <Link
-              to="/discover"
-              className="flex items-center gap-1 text-xs font-semibold text-[#1B1F3B] transition-colors hover:text-[#C5A059]"
-            >
-              <span>{t("home.view_all_catalog")}</span>
-              <span aria-hidden="true">→</span>
-            </Link>
-          </div>
+          <SectionHeader
+            eyebrow={t("home.new_in_eyebrow")}
+            title={t("home.new_in_title")}
+            titleId="home-new-in-title"
+            action={{ label: t("home.view_all_catalog"), to: "/discover" }}
+          />
 
           {newInQuery.isLoading && (
             <div
@@ -659,25 +647,13 @@ export const HomeView: React.FC = () => {
         </section>
       )}
 
-      {/* 2. Luxury Brand Pavilion */}
+      {/* 3. Luxury Brand Pavilion */}
       <section className="space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2 border-b border-slate-200/80 pb-4">
-          <div>
-            <span className="text-[10px] font-bold text-[#7A5C28] uppercase tracking-widest block">
-              {t('home.brands_eyebrow')}
-            </span>
-            <h2 className="font-serif text-2xl font-bold text-[#1B1F3B]">
-              {t('home.brands_title')}
-            </h2>
-          </div>
-          <Link
-            to="/discover"
-            className="text-xs font-semibold text-[#1B1F3B] hover:text-[#C5A059] transition-colors flex items-center gap-1"
-          >
-            <span>{t('home.brands_cta')}</span>
-            <span>→</span>
-          </Link>
-        </div>
+        <SectionHeader
+          eyebrow={t("home.brands_eyebrow")}
+          title={t("home.brands_title")}
+          action={{ label: t("home.brands_cta"), to: "/discover" }}
+        />
 
         {/* Honest-data remediation (home re-pass, 2026-10-08): these tiles
             were four HARDCODED brands with Unsplash stock photos of
@@ -692,7 +668,7 @@ export const HomeView: React.FC = () => {
             {[0, 1, 2, 3].map((i) => (
               <div
                 key={i}
-                className="h-72 animate-pulse rounded-3xl border border-slate-200/60 bg-slate-100"
+                className="skeleton-shimmer h-72 rounded-3xl border border-slate-200/60 bg-slate-100"
               />
             ))}
           </div>
@@ -715,7 +691,7 @@ export const HomeView: React.FC = () => {
                         alt={item.title}
                         loading="lazy"
                         unavailableLabel={t("common.image_unavailable")}
-                        className="h-full w-full object-cover transition-transform duration-500 motion-safe:group-hover:scale-105"
+                        className="h-full w-full object-cover transition-transform duration-700 ease-luxury motion-safe:group-hover:scale-105"
                       />
                     </div>
                   ))}
@@ -736,7 +712,7 @@ export const HomeView: React.FC = () => {
 
                 <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-4 text-xs font-semibold text-[#1B1F3B] group-hover:text-[#C5A059]">
                   <span>{t("home.open_catalog")}</span>
-                  <span aria-hidden="true">→</span>
+                  <span aria-hidden="true" className="rtl:rotate-180 transition-transform duration-300 ease-luxury motion-safe:group-hover:translate-x-1 rtl:motion-safe:group-hover:-translate-x-1">→</span>
                 </div>
               </Link>
             ))}
@@ -744,28 +720,14 @@ export const HomeView: React.FC = () => {
         ) : null}
       </section>
 
-      {/* 3. Today's AI Curated Daily Ensembles (Grounded & Multi-Brand) */}
+      {/* 4. Today's AI Curated Daily Ensembles (Grounded & Multi-Brand) */}
       <section className="space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2 border-b border-slate-200/80 pb-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <SparkleIcon size={20} color="#C5A059" />
-              <h2 className="font-serif text-2xl font-bold text-[#1B1F3B]">
-                {t("home.todays_picks")}
-              </h2>
-            </div>
-            <p className="text-xs sm:text-sm text-slate-500 mt-0.5 font-light">
-              {t("home.todays_picks_desc")}
-            </p>
-          </div>
-          <button
-            onClick={() => openStylist()}
-            className="text-xs font-bold text-[#7A5C28] hover:underline flex items-center gap-1"
-          >
-            <span>{t('home.ask_stylist_alt')}</span>
-            <span>→</span>
-          </button>
-        </div>
+        <SectionHeader
+          title={t("home.todays_picks")}
+          hint={t("home.todays_picks_desc")}
+          icon={<SparkleIcon size={20} color="#C5A059" />}
+          action={{ label: t("home.ask_stylist_alt"), onClick: () => openStylist() }}
+        />
 
         {/* Honest-data remediation (2026-09-06 audit, J-01): this section
             previously rendered two HARDCODED ensembles ("Executive
@@ -781,10 +743,10 @@ export const HomeView: React.FC = () => {
             {[0, 1, 2].map((i) => (
               <div
                 key={i}
-                className="bg-white rounded-3xl border border-slate-200/80 p-4 shadow-2xs animate-pulse space-y-3"
+                className="bg-white rounded-3xl border border-slate-200/80 p-4 shadow-2xs space-y-3"
               >
-                <div className="h-56 rounded-2xl bg-slate-100"></div>
-                <div className="h-3 w-20 bg-slate-100 rounded"></div>
+                <div className="skeleton-shimmer h-56 rounded-2xl bg-slate-100"></div>
+                <div className="h-3 w-20 animate-pulse bg-slate-100 rounded"></div>
                 <div className="h-4 w-3/4 bg-slate-200 rounded"></div>
                 <div className="h-3 w-1/3 bg-slate-100 rounded"></div>
               </div>
@@ -812,30 +774,41 @@ export const HomeView: React.FC = () => {
           </div>
         )}
         {!isLoading && !catalogError && products.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {products.slice(0, 6).map((prod) => (
-              <ProductCard
-                key={prod.id}
-                product={prod}
-                priority
-              />
+          /* Editorial offset rhythm (home pass 3): on desktop the middle
+             column of each row of three sits 2rem lower — the staggered
+             baseline luxury editorials use instead of a flat uniform grid.
+             Static layout (not motion), so no reduced-motion concern; the
+             container absorbs the drop with lg:pb-8. Mobile keeps the
+             clean single/two-column flow. */
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 lg:pb-8 lg:[&>*:nth-child(3n+2)]:translate-y-8">
+            {products.slice(0, 6).map((prod, idx) => (
+              /* Outer div carries the static editorial offset (framer owns
+                 the INNER element's transform, so the two never fight). */
+              <div key={prod.id}>
+                <motion.div
+                  initial={reduceMotion ? false : { opacity: 0, y: 24 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, margin: "-40px" }}
+                  transition={{
+                    duration: 0.5,
+                    delay: (idx % 3) * 0.08,
+                    ease: [0.25, 1, 0.5, 1],
+                  }}
+                >
+                  <ProductCard product={prod} priority />
+                </motion.div>
+              </div>
             ))}
           </div>
         )}
       </section>
 
-      {/* 4. Occasion Portals */}
+      {/* 5. Occasion Portals */}
       <section className="space-y-6">
-        <div className="flex items-center justify-between border-b border-slate-200/80 pb-4">
-          <div>
-            <h2 className="font-serif text-2xl font-bold text-[#1B1F3B]">
-              {t("home.occasions")}
-            </h2>
-            <p className="text-xs sm:text-sm text-slate-500 mt-0.5 font-light">
-              {t('home.occasions_hint')}
-            </p>
-          </div>
-        </div>
+        <SectionHeader
+          title={t("home.occasions")}
+          hint={t("home.occasions_hint")}
+        />
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
           {occasionCards.map((occ) => (
@@ -847,7 +820,8 @@ export const HomeView: React.FC = () => {
               <img
                 src={occ.img}
                 alt={occ.title}
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 brightness-75 group-hover:brightness-90"
+                loading="lazy"
+                className="w-full h-full object-cover motion-safe:group-hover:scale-105 transition-transform duration-700 ease-luxury brightness-75 group-hover:brightness-90"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/35 to-transparent p-6 flex flex-col justify-end">
                 <span className="text-[10px] font-bold text-[#C5A059] uppercase tracking-wider mb-1 flex items-center gap-1">
@@ -860,7 +834,8 @@ export const HomeView: React.FC = () => {
                 <p className="text-xs text-slate-300 line-clamp-1 font-light mb-2">
                   {occ.desc}
                 </p>
-                <div className="flex gap-1.5 mb-3">
+                {/* Palette chips are purely decorative colour hints. */}
+                <div className="flex gap-1.5 mb-3" aria-hidden="true">
                   {occ.palette.map((c, idx) => (
                     <span
                       key={idx}
@@ -869,7 +844,7 @@ export const HomeView: React.FC = () => {
                     />
                   ))}
                 </div>
-                <div className="flex items-center gap-1 text-xs font-semibold text-[#C5A059] group-hover:translate-x-1 transition-transform">
+                <div className="flex items-center gap-1 text-xs font-semibold text-[#C5A059] motion-safe:group-hover:translate-x-1 rtl:motion-safe:group-hover:-translate-x-1 transition-transform duration-300 ease-luxury">
                   <span>{t('home.style_occasion_cta')}</span>
                 </div>
               </div>
@@ -887,29 +862,19 @@ export const HomeView: React.FC = () => {
           rather than padding itself with full-price items. */}
       {saleItems.length > 0 && (
         <section aria-labelledby="home-sale-title" className="space-y-6">
-          <div className="flex items-center justify-between border-b border-slate-200/80 pb-4">
-            <div>
-              <div className="flex items-center gap-2">
-                <FlameIcon size={22} color="#C5A059" />
-                <h2
-                  id="home-sale-title"
-                  className="font-serif text-2xl font-bold text-[#1B1F3B]"
-                >
-                  {t("home.sale_title")}
-                </h2>
-              </div>
-              <p className="mt-0.5 text-xs font-light text-slate-500 sm:text-sm">
-                {t("home.sale_hint")}
-              </p>
-            </div>
-            <button
-              onClick={() => navigate("/discover")}
-              className="text-xs font-bold text-[#1B1F3B] transition-colors hover:text-[#C5A059]"
-            >
-              {t("home.view_all_catalog")}
-              {products.length > 0 ? ` (${formatNumber(products.length, lang)})` : ""} →
-            </button>
-          </div>
+          <SectionHeader
+            title={t("home.sale_title")}
+            titleId="home-sale-title"
+            hint={t("home.sale_hint")}
+            icon={<FlameIcon size={22} color="#C5A059" />}
+            action={{
+              label:
+                products.length > 0
+                  ? `${t("home.view_all_catalog")} (${formatNumber(products.length, lang)})`
+                  : t("home.view_all_catalog"),
+              to: "/discover",
+            }}
+          />
 
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 sm:gap-6">
             {saleItems.map((p) => (

@@ -386,7 +386,8 @@
     "vs_detail_error": "تعذر تحميل تفاصيل المنتج المطابق.",
     "vs_sample_blazer": "بليزر صوف كحلي",
     "vs_sample_dress": "فستان حرير انسيابي",
-    "vs_sample_shirt": "قميص أوكسفورد أنيق"
+    "vs_sample_shirt": "قميص أوكسفورد أنيق",
+    "ruler_privacy_subtitle": "تحليل مقاسات يحافظ على الخصوصية 100٪ لـ {{title}}"
   },
   "wardrobe": {
     "title": "الخزانة الذكية وإعادة الاستثمار",
@@ -1540,7 +1541,15 @@
     "unit_count_one": "قطعة واحدة",
     "unit_count_many": "{{count}} قطعة",
     "variant_count_one": "خيار واحد",
-    "variant_count_many": "{{count}} خيارًا"
+    "variant_count_many": "{{count}} خيارًا",
+    "loading_details": "جارٍ تحميل تفاصيل القطعة…",
+    "loading_cold_start": "ما زال التحميل جاريًا — الكتالوج يستيقظ…",
+    "load_failed_desc": "تعذر تحميل المنتج من الكتالوج.",
+    "style_score_verdict": "درجة التوافق مع الكتالوج",
+    "fit_score_verdict": "درجة الملاءمة",
+    "recommended_badge": "مقترح {{size}}",
+    "recommended_badge_unavailable": "{{size}} غير متاح",
+    "bopis_fallback_error": "تعذر تحميل توفر البوتيكات."
   },
   "brand_nav": {
     "aria": "تنقّل إدارة المنصة وشركاء العلامات",

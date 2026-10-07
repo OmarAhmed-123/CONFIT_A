@@ -87,6 +87,10 @@ export interface Product {
   brand_name: string;
   category_id: number;
   category_name: string;
+  /** Category slug for storefront deep links (/discover?category=<slug>).
+   *  Served on the DETAIL payload; optional because list payloads and
+   *  older cached responses do not carry it. */
+  category_slug?: string;
   title: string;
   title_ar: string;
   slug: string;

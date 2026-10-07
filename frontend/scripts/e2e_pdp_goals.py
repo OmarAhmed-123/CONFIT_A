@@ -1,0 +1,287 @@
+#!/usr/bin/env python3
+"""Local browser Goal-E2E — the C03 product detail page, EN + AR.
+
+House harness pattern (e2e_home_goals.py / e2e_discover_goals.py): every
+goal is proven UI action -> HTTP -> server truth -> UI state, with the
+network evidence kept in the output. A half-rendered page is a
+measurement failure, never a pass.
+
+Goals (visitor role):
+  G1  Arrival by slug: the REAL product (title, formatted price, one
+      size button per SKU) renders; the /products/:slug alias shows the
+      same page; zero failed /api requests; zero console errors.
+  G2  Variants: size buttons mirror SKU truth — selected has
+      aria-pressed, out-of-stock ones are disabled.
+  G3  Counter-goal: double-clicking Add to bag produces exactly ONE
+      cart POST and the SERVER cart holds one unit.
+  G4  One wishlist: the PDP heart persists to confit.wishlist.v1,
+      survives reload, AND the same product's card on /discover shows
+      pressed — one device list across surfaces.
+  G5  Breadcrumb truth: the category crumb carries ?category=<slug> and
+      landing on it shows the pressed category pill on Discover.
+  G6  No-photo fit: the fit CTA opens the real measurement dialog
+      (engine offline locally — the page must offer fit-check, never a
+      try-on promise it cannot keep).
+  G7  BOPIS honesty: the pickup accordion's terminal state matches the
+      API answer for the selected SKU (stores listed / none / error).
+  G8  Arabic RTL + 390/360px: dir=rtl, Arabic copy, no horizontal
+      overflow.
+
+Usage:
+    python3 scripts/e2e_pdp_goals.py [--base-url http://127.0.0.1:43123]
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import sys
+from pathlib import Path
+
+from playwright.sync_api import sync_playwright
+
+MIN_RENDERED_TEXT = 400
+
+
+class Invalid(Exception):
+    pass
+
+
+class Evidence:
+    def __init__(self) -> None:
+        self.steps: list[dict] = []
+        self.network: list[dict] = []
+        self.console_errors: list[str] = []
+
+    def step(self, name: str, ok: bool, **detail) -> None:
+        self.steps.append({"step": name, "ok": ok, **detail})
+        print(("PASS " if ok else "FAIL ") + name, flush=True)
+        if not ok:
+            raise Invalid(name + ": " + json.dumps(detail, default=str)[:400])
+
+
+EV = Evidence()
+
+
+def wire(page) -> None:
+    page.on("response", lambda r: EV.network.append(
+        {"url": r.url, "status": r.status}) if "/api/" in r.url else None)
+    page.on("pageerror", lambda e: EV.console_errors.append(str(e)))
+    page.on("console", lambda m: EV.console_errors.append(m.text)
+            if m.type == "error" else None)
+
+
+def api_failures() -> list[dict]:
+    return [n for n in EV.network
+            if n["status"] >= 400 and not (n["status"] == 401 and "/me" in n["url"])]
+
+
+def pick_product(page, base: str) -> dict:
+    """A seeded product with at least one in-stock SKU."""
+    for p in page.request.get(base + "/api/v1/catalog/products").json():
+        detail = page.request.get(
+            base + f"/api/v1/catalog/products/{p['slug']}").json()
+        if any(s["is_in_stock"] for s in detail.get("skus", [])):
+            return detail
+    raise Invalid("no in-stock seeded product")
+
+
+def goal_arrival(page, base: str, detail: dict, en: dict) -> None:
+    for path in (f"/product/{detail['slug']}", f"/products/{detail['slug']}"):
+        page.goto(base + path, wait_until="networkidle")
+        page.get_by_role("heading", name=detail["title"]).first.wait_for(
+            timeout=10000)
+        if len(page.inner_text("body")) < MIN_RENDERED_TEXT:
+            raise Invalid(f"{path} under-rendered")
+        EV.step(f"G1 {path} renders the real product", True)
+    size_group = page.get_by_role("group", name=en["a11y"]["select_size"])
+    sizes_ui = size_group.get_by_role("button")
+    EV.step("G1 one size control per SKU",
+            sizes_ui.count() == len(detail["skus"]),
+            ui=sizes_ui.count(), api=len(detail["skus"]))
+    EV.step("G1 zero failed /api requests", not api_failures(),
+            failures=api_failures()[:5])
+    EV.step("G1 zero console errors", not EV.console_errors,
+            errors=EV.console_errors[:3])
+
+
+def goal_variants(page, base: str, detail: dict, en: dict) -> None:
+    group = page.get_by_role("group", name=en["a11y"]["select_size"])
+    for sku in detail["skus"]:
+        btn = group.get_by_role("button", name=sku["size"], exact=True).first
+        disabled = btn.is_disabled()
+        if sku["is_in_stock"]:
+            EV.step(f"G2 in-stock size {sku['size']} is clickable",
+                    not disabled)
+            btn.click()
+            EV.step(f"G2 selecting {sku['size']} reflects aria-pressed",
+                    btn.get_attribute("aria-pressed") == "true")
+        else:
+            EV.step(f"G2 out-of-stock size {sku['size']} is disabled",
+                    disabled)
+
+
+def goal_add_to_bag(page, base: str, detail: dict) -> None:
+    page.goto(base + f"/product/{detail['slug']}", wait_until="networkidle")
+    posts: list[str] = []
+    page.on("request", lambda r: posts.append(r.url)
+            if r.method == "POST" and "/commerce/cart/items" in r.url else None)
+    btn = page.get_by_test_id("pdp-add-to-bag")
+    btn.scroll_into_view_if_needed()
+    with page.expect_response(
+        lambda r: "/commerce/cart/items" in r.url, timeout=15000
+    ) as resp_info:
+        btn.click()
+        btn.click(force=True)
+    page.wait_for_timeout(1500)
+    EV.step("G3 double-click produced exactly ONE cart POST",
+            len(posts) == 1, posts=len(posts), status=resp_info.value.status)
+    token = page.evaluate("localStorage.getItem('confit_session_token')")
+    cart = page.request.get(
+        base + "/api/v1/commerce/cart",
+        headers={"X-Session-Token": token or ""}).json()
+    qty = sum(i.get("quantity", 0) for i in cart.get("items", []))
+    EV.step("G3 server cart holds a single unit", qty == 1, qty=qty)
+
+
+def goal_wishlist_cross_surface(page, base: str, detail: dict, en: dict) -> None:
+    page.goto(base + f"/product/{detail['slug']}", wait_until="networkidle")
+    heart = page.get_by_role("button", name=en["a11y"]["toggle_wishlist"]).first
+    heart.click()
+    page.wait_for_timeout(300)
+    stored = json.loads(page.evaluate(
+        "localStorage.getItem('confit.wishlist.v1') || '[]'"))
+    EV.step("G4 heart persisted the product id to the device list",
+            detail["id"] in stored, stored=stored)
+    page.reload(wait_until="networkidle")
+    EV.step("G4 heart still pressed after reload",
+            page.get_by_role("button", name=en["a11y"]["toggle_wishlist"])
+                .first.get_attribute("aria-pressed") == "true")
+    # Cross-surface: the SAME product's grid card on /discover is pressed.
+    page.goto(base + "/discover", wait_until="networkidle")
+    card = page.locator(f'[data-product-id="{detail["id"]}"]').first
+    card.scroll_into_view_if_needed()
+    pressed = card.get_by_role(
+        "button", name=en["a11y"]["toggle_wishlist"]).get_attribute("aria-pressed")
+    EV.step("G4 the same heart is pressed on the Discover grid (one list)",
+            pressed == "true", pressed=pressed)
+
+
+def goal_breadcrumb(page, base: str, detail: dict) -> None:
+    page.goto(base + f"/product/{detail['slug']}", wait_until="networkidle")
+    crumb = page.get_by_role("link", name=detail["category_name"]).first
+    href = crumb.get_attribute("href")
+    EV.step("G5 crumb href carries the category SLUG",
+            href == f"/discover?category={detail['category_slug']}", href=href)
+    crumb.click()
+    page.wait_for_url(re.compile(r"/discover"), timeout=10000)
+    page.wait_for_timeout(800)
+    pressed = [t.strip().lower() for t in
+               page.locator('button[aria-pressed="true"]').all_inner_texts()]
+    EV.step("G5 Discover lands with the category pill pressed",
+            any(detail["category_name"].lower() in t for t in pressed),
+            pressed=pressed[:6])
+
+
+def goal_fit_check(page, base: str, detail: dict, en: dict) -> None:
+    page.goto(base + f"/product/{detail['slug']}", wait_until="networkidle")
+    # HONESTY: the main CTA's label must mirror the LIVE engine verdict —
+    # "Try On" only when the engine reports it can render, the fit-check
+    # wording otherwise. Read the same source of truth the page reads.
+    caps = page.request.get(base + "/api/v1/try-on/capabilities").json()
+    render_live = caps.get("engine_state") == "available"
+    expected = (en["tryon"]["cta_try_on"] if render_live
+                else en["tryon"]["cta_fit_check_instead"])
+    cta = page.get_by_role("button", name=expected).last
+    cta.scroll_into_view_if_needed()
+    EV.step("G6 CTA label mirrors the live engine verdict", cta.count() >= 1,
+            engine_state=caps.get("engine_state"), label=expected)
+    # The SIZE-SUGGESTION entry ("Find my size") always opens the real
+    # measurement dialog, whatever the engine says.
+    page.get_by_role("button", name=en["product"]["find_my_size"]).click()
+    dialog = page.locator('[aria-labelledby="no-photo-fit-title"]')
+    dialog.wait_for(timeout=8000)
+    EV.step("G6 find-my-size opens the real measurement dialog", True)
+    page.keyboard.press("Escape")
+    dialog.wait_for(state="detached", timeout=5000)
+    EV.step("G6 Escape closes the measurement dialog", True)
+
+
+def goal_bopis_truth(page, base: str, detail: dict, en: dict) -> None:
+    page.goto(base + f"/product/{detail['slug']}", wait_until="networkidle")
+    first_sku = next(s for s in detail["skus"] if s["is_in_stock"])
+    api_stores = page.request.get(
+        base + f"/api/v1/catalog/skus/{first_sku['id']}/stores").json()
+    pickup = [s for s in api_stores if s.get("is_available_for_pickup")]
+    page.get_by_role("button", name=en["product"]["bopis_title"]).click()
+    page.wait_for_timeout(1200)
+    if pickup:
+        shown = page.get_by_text(pickup[0]["store_name"]).count()
+        EV.step("G7 accordion lists the stores the API reports",
+                shown > 0, api_stores=len(pickup))
+    else:
+        empty_txt = (en["product"]["bopis_no_store"]
+                     if not api_stores else en["product"]["bopis_no_store_stock"])
+        EV.step("G7 accordion states the honest empty answer",
+                page.get_by_text(empty_txt).count() > 0,
+                api_stores=len(api_stores))
+
+
+def goal_arabic_mobile(page, browser, base: str, detail: dict) -> None:
+    page.goto(base + f"/product/{detail['slug']}", wait_until="domcontentloaded")
+    page.evaluate("localStorage.setItem('confit_lang','ar')")
+    page.goto(base + f"/product/{detail['slug']}", wait_until="networkidle")
+    EV.step("G8 dir=rtl in Arabic",
+            page.evaluate("document.documentElement.getAttribute('dir')") == "rtl")
+    EV.step("G8 Arabic copy renders",
+            re.search(r"[\u0600-\u06FF]{3,}", page.inner_text("body")) is not None)
+    for w in (390, 360):
+        ctx = browser.new_context(viewport={"width": w, "height": 844})
+        pg = ctx.new_page()
+        pg.goto(base + f"/product/{detail['slug']}", wait_until="networkidle")
+        overflow = pg.evaluate(
+            "document.documentElement.scrollWidth - document.documentElement.clientWidth")
+        EV.step(f"G8[mobile {w}px] no horizontal overflow", overflow <= 1,
+                overflow_px=overflow)
+        ctx.close()
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--base-url", default="http://127.0.0.1:43123")
+    ap.add_argument("--out", default="/tmp/e2e_pdp_goals.json")
+    args = ap.parse_args()
+    base = args.base_url.rstrip("/")
+
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
+        ctx = browser.new_context(viewport={"width": 1280, "height": 900})
+        page = ctx.new_page()
+        wire(page)
+        try:
+            en = page.request.get(base + "/src/i18n/en.json").json()
+            detail = pick_product(page, base)
+            goal_arrival(page, base, detail, en)
+            goal_variants(page, base, detail, en)
+            goal_add_to_bag(page, base, detail)
+            goal_wishlist_cross_surface(page, base, detail, en)
+            goal_breadcrumb(page, base, detail)
+            goal_fit_check(page, base, detail, en)
+            goal_bopis_truth(page, base, detail, en)
+            goal_arabic_mobile(page, browser, base, detail)
+        except Invalid as exc:
+            EV.steps.append({"step": "RUN-INVALID", "ok": False, "err": str(exc)})
+        finally:
+            Path(args.out).write_text(json.dumps(
+                {"steps": EV.steps, "network_tail": EV.network[-40:],
+                 "console_errors": EV.console_errors}, indent=2, default=str))
+            browser.close()
+
+    failed = [s for s in EV.steps if not s["ok"]]
+    print(f"\n{len(EV.steps) - len(failed)}/{len(EV.steps)} steps passed; "
+          f"evidence: {args.out}")
+    return 1 if failed else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

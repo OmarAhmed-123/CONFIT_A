@@ -386,7 +386,8 @@
     "vs_detail_error": "Could not load the matched product detail.",
     "vs_sample_blazer": "Navy Wool Blazer",
     "vs_sample_dress": "Silk Slip Dress",
-    "vs_sample_shirt": "Crisp Oxford Shirt"
+    "vs_sample_shirt": "Crisp Oxford Shirt",
+    "ruler_privacy_subtitle": "100% privacy-preserving measurement analysis for {{title}}"
   },
   "wardrobe": {
     "title": "Virtual Wardrobe & Smart Reuse",
@@ -1540,7 +1541,15 @@
     "unit_count_one": "1 unit",
     "unit_count_many": "{{count}} units",
     "variant_count_one": "a single variant",
-    "variant_count_many": "{{count}} variants"
+    "variant_count_many": "{{count}} variants",
+    "loading_details": "Loading garment details…",
+    "loading_cold_start": "Still loading — the catalogue is waking up…",
+    "load_failed_desc": "The product could not be loaded from the catalogue.",
+    "style_score_verdict": "Catalogue style score",
+    "fit_score_verdict": "Fit score",
+    "recommended_badge": "Recommended {{size}}",
+    "recommended_badge_unavailable": "{{size}} unavailable",
+    "bopis_fallback_error": "Unable to load boutique availability."
   },
   "brand_nav": {
     "aria": "Platform and brand-partner navigation",

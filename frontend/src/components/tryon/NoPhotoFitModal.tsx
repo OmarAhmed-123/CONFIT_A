@@ -5,6 +5,7 @@ import { useTryOnViewModel } from '../../viewmodels/useTryOnViewModel';
 import { RulerIcon, SparkleIcon, BagIcon } from '../icons/ConfitIcons';
 import { useCartStore } from '../../stores/cartStore';
 import { CameraScanModal } from './CameraScanModal';
+import { useModalFocus } from '../../hooks/useModalFocus';
 
 export const NoPhotoFitModal: React.FC = () => {
   const { t } = useTranslation();
@@ -19,6 +20,17 @@ export const NoPhotoFitModal: React.FC = () => {
   const [waist, setWaist] = useState(82);
   const [fitPref, setFitPref] = useState('regular');
   const [isCameraScanOpen, setIsCameraScanOpen] = useState(false);
+  // C03 (PDP goal-E2E): this dialog had NO keyboard contract — no Escape,
+  // no focus trap, no focus restore (WCAG 2.1.2). Every other modal goes
+  // through useModalFocus; now this one does too. The hook's top-most
+  // guard also keeps a stacked CameraScan modal in charge while open.
+  // `active` must track the OPEN signal (rulerProduct), not just mount:
+  // this component is always mounted and returns null until a product
+  // arrives, so a mount-only effect would bind to a null node forever.
+  const panelRef = useModalFocus<HTMLDivElement>(
+    closeRuler,
+    !!rulerProduct && !isCameraScanOpen,
+  );
 
   // CameraScanModal can hand a completed self-reported profile directly to
   // this fallback when the rendering engine is unavailable. Preserve those
@@ -63,6 +75,8 @@ export const NoPhotoFitModal: React.FC = () => {
     <>
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md animate-in fade-in duration-150">
         <div
+          ref={panelRef}
+          tabIndex={-1}
           className="w-full max-w-3xl bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden max-h-[92vh] flex flex-col"
           role="dialog"
           aria-modal="true"
@@ -79,7 +93,7 @@ export const NoPhotoFitModal: React.FC = () => {
                   {t('tryon.ruler_mode')}
                 </h3>
                 <p className="text-xs text-slate-500 font-light">
-                  100% Privacy-Preserving Anthropometric Analysis for <span className="font-semibold text-slate-800">{rulerProduct.title}</span>
+                  {t('tryon.ruler_privacy_subtitle', { title: rulerProduct.title })}
                 </p>
               </div>
             </div>
@@ -87,9 +101,9 @@ export const NoPhotoFitModal: React.FC = () => {
               type="button"
               onClick={closeRuler}
               aria-label={t('common.close')}
-              className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:text-slate-900 flex items-center justify-center transition-colors"
+              className="min-h-11 min-w-11 rounded-full bg-slate-100 text-slate-500 hover:text-slate-900 flex items-center justify-center transition-colors"
             >
-              ✕
+              <span aria-hidden="true">✕</span>
             </button>
           </div>
 

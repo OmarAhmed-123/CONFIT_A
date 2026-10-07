@@ -18,6 +18,7 @@ import { resolvePurchasableSku } from "../../lib/catalogSku";
 import { ProductCard } from "../../components/product/ProductCard";
 import { AccessibleCarousel } from "../../components/common/AccessibleCarousel";
 import { Surface } from "../../components/common/Surface";
+import { useDeviceWishlist } from "../../hooks/useDeviceWishlist";
 import {
   classifyActionError,
   type ActionOutcome,
@@ -163,18 +164,9 @@ export const DiscoverView: React.FC = () => {
   // Which suggestion the arrow keys have reached (-1 = none). Focus never
   // leaves the input — the APG combobox pattern.
   const [activeSugIdx, setActiveSugIdx] = useState(-1);
-  // The heart previously lived in useState only — it silently vanished on
-  // every navigation. It is a CLIENT-side saved list (no wishlist API
-  // exists — documented gap), so localStorage is the honest ceiling.
-  const [wishlist, setWishlist] = useState<number[]>(() => {
-    try {
-      const raw = window.localStorage.getItem("confit.wishlist.v1");
-      const parsed = raw ? JSON.parse(raw) : [];
-      return Array.isArray(parsed) ? parsed.filter((n) => typeof n === "number") : [];
-    } catch {
-      return [];
-    }
-  });
+  // Device-side saved list — shared single source (C03: the PDP heart used
+  // a bare useState and disagreed with this grid; see useDeviceWishlist).
+  const { wishlist, toggleWishlist } = useDeviceWishlist();
   const searchInputRef = useRef<HTMLInputElement | null>(null);
 
   const selectSuggestion = (sug: AutocompleteSuggestion) => {
@@ -243,20 +235,6 @@ export const DiscoverView: React.FC = () => {
       }
       return kind;
     }
-  };
-
-  const toggleWishlist = (productId: number) => {
-    setWishlist((prev) => {
-      const next = prev.includes(productId)
-        ? prev.filter((id) => id !== productId)
-        : [...prev, productId];
-      try {
-        window.localStorage.setItem("confit.wishlist.v1", JSON.stringify(next));
-      } catch {
-        /* private mode: the in-session list still works */
-      }
-      return next;
-    });
   };
 
   // No client-side re-filtering: category, occasion, palette and search all

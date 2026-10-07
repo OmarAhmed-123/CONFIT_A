@@ -25,6 +25,26 @@ if (i18n.resolvedLanguage !== 'en') {
 }
 i18n.options.interpolation = { ...(i18n.options.interpolation ?? {}), escapeValue: false };
 
+// jsdom has no IntersectionObserver; framer-motion's `whileInView` entrance
+// reveals (CollectionRail, Surface reveal) mount one on effect. The stub
+// never fires, so reveal targets simply stay at their initial style — the
+// tests assert content and semantics, not scroll-triggered opacity.
+if (!("IntersectionObserver" in window)) {
+  class IntersectionObserverStub {
+    readonly root = null;
+    readonly rootMargin = "";
+    readonly thresholds: number[] = [];
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+    takeRecords(): IntersectionObserverEntry[] {
+      return [];
+    }
+  }
+  (window as unknown as Record<string, unknown>).IntersectionObserver =
+    IntersectionObserverStub;
+}
+
 // jsdom has no matchMedia; several animation-aware components read it.
 if (!window.matchMedia) {
   window.matchMedia = ((query: string) => ({

@@ -1,7 +1,7 @@
 import { CardStackShowcase, CircularGalleryShowcase } from "../../components/showcase/DesignShowcases";
 import { HeroSection, HeroLightCard } from "../../components/common/HeroSection";
 import React, { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useCatalogViewModel } from "../../viewmodels/useCatalogViewModel";
 import { useUIStore } from "../../stores/uiStore";
@@ -47,6 +47,23 @@ export const DiscoverView: React.FC = () => {
   } = useCatalogViewModel();
 
   const { openVisualSearch, showToast } = useUIStore();
+
+  // Deep link: /discover?category=<slug> (the home page's collection rail
+  // links here). Applied once per param value, and only for a slug the
+  // categories API actually returned — an unknown slug is ignored instead of
+  // silently emptying the whole catalogue.
+  const [searchParams] = useSearchParams();
+  const requestedCategory = searchParams.get("category");
+  const appliedCategoryRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!requestedCategory || categories.length === 0) return;
+    if (appliedCategoryRef.current === requestedCategory) return;
+    if (categories.some((c) => c.slug === requestedCategory)) {
+      appliedCategoryRef.current = requestedCategory;
+      setSelectedCategory(requestedCategory);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [requestedCategory, categories]);
   // Try-on CTAs bind to the live engine verdict (2026-09-22): when the GPU
   // cannot render, these route to the no-photo fit check instead of failing.
   const { capabilities } = useCapabilities();

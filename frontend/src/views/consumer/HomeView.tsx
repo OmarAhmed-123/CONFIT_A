@@ -1,6 +1,7 @@
 import React from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { useQuery } from "@tanstack/react-query";
 import {
   SparkleIcon,
   TryOnIcon,
@@ -15,10 +16,7 @@ import { useCatalogViewModel } from "../../viewmodels/useCatalogViewModel";
 import { useCapabilities } from "../../hooks/useCapabilities";
 import { useTryOnAvailability } from "../../hooks/useTryOnAvailability";
 import { ProductCard } from "../../components/product/ProductCard";
-import {
-  SkeletonCard,
-  EmptyState,
-} from "../../components/common/CommonComponents";
+import { SkeletonCard } from "../../components/common/CommonComponents";
 import { useCartStore } from "../../stores/cartStore";
 import { resolvePurchasableSku } from "../../lib/catalogSku";
 import {
@@ -33,6 +31,11 @@ import {
 import { CardStackShowcase } from "../../components/showcase/DesignShowcases";
 import { HeroSection, HeroMedia, HeroLightCard } from "../../components/common/HeroSection";
 import { usePrefersReducedMotion } from "../../components/common/InteractionPrimitives";
+import { CollectionRail } from "../../components/home/CollectionRail";
+import { HonestProductImage } from "../../components/common/HonestProductImage";
+import { catalogService } from "../../services/apiServices";
+import { queryKeys } from "../../lib/queryClient";
+import type { Product } from "../../models";
 
 const editorialGalleryData: GalleryItem[] = [
   {
@@ -127,10 +130,61 @@ export const HomeView: React.FC = () => {
     useUIStore();
   const {
     products,
+    categories,
     isLoading,
     error: catalogError,
     refresh: refreshCatalog,
   } = useCatalogViewModel();
+
+  // "New in" is its own server question (sort_by=newest), not a re-slice of
+  // the recommended list — the two sections previously showed the SAME first
+  // products twice on one page. Separate query key, same 5-min cache policy
+  // as the view model.
+  const newInQuery = useQuery({
+    queryKey: queryKeys.catalog.products({ sort_by: "newest", limit: 8 }),
+    queryFn: () => catalogService.getProducts({ sort_by: "newest", limit: 8 }),
+    staleTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 30,
+  });
+  const newArrivals: Product[] = newInQuery.data ?? [];
+
+  // Today's picks own the first six recommended slots; the sale section
+  // excludes them so one product never fills two curated sections.
+  const pickIds = React.useMemo(
+    () => new Set(products.slice(0, 6).map((p) => p.id)),
+    [products],
+  );
+  // Only REAL markdowns: compare_at_price is server-sourced and absent when
+  // no prior price genuinely existed (see models/index.ts). No sale items →
+  // the section does not render. No fake urgency, ever.
+  const saleItems = React.useMemo(
+    () =>
+      products
+        .filter(
+          (p) =>
+            p.compare_at_price != null &&
+            p.compare_at_price > p.base_price &&
+            !pickIds.has(p.id),
+        )
+        .slice(0, 4),
+    [products, pickIds],
+  );
+
+  // The brand pavilion previously showed four HARDCODED brand tiles with
+  // stock photos of unrelated content. It now derives the maisons from the
+  // live catalogue: real names, real piece counts, real product imagery.
+  const brandSpotlights = React.useMemo(() => {
+    const byBrand = new Map<string, { name: string; items: Product[] }>();
+    for (const p of products) {
+      if (!p.brand_name) continue;
+      const entry = byBrand.get(p.brand_name) ?? { name: p.brand_name, items: [] };
+      entry.items.push(p);
+      byBrand.set(p.brand_name, entry);
+    }
+    return [...byBrand.values()]
+      .sort((a, b) => b.items.length - a.items.length)
+      .slice(0, 4);
+  }, [products]);
   // J-01: trust badges render what the platform can ACTUALLY do right now.
   const { capabilities } = useCapabilities();
   // Try-on CTAs (three on this page) bind to the live engine verdict, so none
@@ -227,45 +281,6 @@ export const HomeView: React.FC = () => {
       return kind;
     }
   };
-
-  const brandShowcase = [
-    {
-      name: "Massimo Dutti",
-      origin: t("home.brand_massimo_origin"),
-      aesthetic: t("home.brand_massimo_aesthetic"),
-      slug: "massimo-dutti",
-      image:
-        "https://images.unsplash.com/photo-1594938298603-c8148c4dae35?w=600&auto=format&fit=crop&q=80",
-      badge: t("home.brand_massimo_badge"),
-    },
-    {
-      name: "COS",
-      origin: t("home.brand_cos_origin"),
-      aesthetic: t("home.brand_cos_aesthetic"),
-      slug: "cos",
-      image:
-        "https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=600&auto=format&fit=crop&q=80",
-      badge: t("home.brand_cos_badge"),
-    },
-    {
-      name: "Reiss",
-      origin: t("home.brand_reiss_origin"),
-      aesthetic: t("home.brand_reiss_aesthetic"),
-      slug: "reiss",
-      image:
-        "https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=600&auto=format&fit=crop&q=80",
-      badge: t("home.brand_reiss_badge"),
-    },
-    {
-      name: "Arket",
-      origin: t("home.brand_arket_origin"),
-      aesthetic: t("home.brand_arket_aesthetic"),
-      slug: "arket",
-      image:
-        "https://images.unsplash.com/photo-1533867617858-e7b97e060509?w=600&auto=format&fit=crop&q=80",
-      badge: t("home.brand_arket_badge"),
-    },
-  ];
 
   const occasionCards = [
     {
@@ -424,6 +439,12 @@ export const HomeView: React.FC = () => {
         }
       />
 
+      {/* 1b. Collection navigation — the page's primary wayfinding, placed
+          directly under the hero and ABOVE every curated section (Baymard:
+          navigation must outrank promotional content). Real categories, real
+          deep links into the filtered Discover view. */}
+      <CollectionRail categories={categories} isLoading={isLoading} />
+
       <section
         id="guided-first-look"
         className="rounded-[32px] border border-[#C5A059]/25 bg-white p-6 shadow-2xs sm:p-8"
@@ -560,6 +581,72 @@ export const HomeView: React.FC = () => {
         description={t("home.stack_description")}
       />
 
+      {/* 2b. New in — the newest pieces by the server's own ordering
+          (sort_by=newest), presented as a horizontal snap rail so it reads
+          differently from the curated grids around it. Honest states: real
+          skeletons while loading, a retryable error line on failure, and the
+          whole section disappears when the catalogue has nothing new. */}
+      {(newInQuery.isLoading || newInQuery.isError || newArrivals.length > 0) && (
+        <section aria-labelledby="home-new-in-title" className="space-y-6">
+          <div className="flex flex-col justify-between gap-2 border-b border-slate-200/80 pb-4 sm:flex-row sm:items-end">
+            <div>
+              <span className="block text-[10px] font-bold uppercase tracking-widest text-[#7A5C28]">
+                {t("home.new_in_eyebrow")}
+              </span>
+              <h2
+                id="home-new-in-title"
+                className="mt-1 font-serif text-2xl font-bold text-[#1B1F3B]"
+              >
+                {t("home.new_in_title")}
+              </h2>
+            </div>
+            <Link
+              to="/discover"
+              className="flex items-center gap-1 text-xs font-semibold text-[#1B1F3B] transition-colors hover:text-[#C5A059]"
+            >
+              <span>{t("home.view_all_catalog")}</span>
+              <span aria-hidden="true">→</span>
+            </Link>
+          </div>
+
+          {newInQuery.isLoading && (
+            <div
+              className="flex gap-4 overflow-hidden"
+              aria-busy="true"
+            >
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} className="w-64 shrink-0">
+                  <SkeletonCard />
+                </div>
+              ))}
+            </div>
+          )}
+          {newInQuery.isError && (
+            <div className="space-y-3 rounded-3xl border border-rose-200 bg-white p-6 text-center">
+              <p className="text-xs font-semibold text-rose-600">
+                {t("home.new_in_error")}
+              </p>
+              <button
+                type="button"
+                onClick={() => newInQuery.refetch()}
+                className="rounded-xl bg-[#1B1F3B] px-4 py-2 text-xs font-bold text-white"
+              >
+                {t("common.retry")}
+              </button>
+            </div>
+          )}
+          {!newInQuery.isLoading && !newInQuery.isError && newArrivals.length > 0 && (
+            <ul className="-mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-2 [scrollbar-width:none] sm:mx-0 sm:px-0">
+              {newArrivals.map((p) => (
+                <li key={p.id} className="w-64 shrink-0 snap-start">
+                  <ProductCard product={p} />
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
+
       {/* 2. Luxury Brand Pavilion */}
       <section className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2 border-b border-slate-200/80 pb-4">
@@ -580,43 +667,69 @@ export const HomeView: React.FC = () => {
           </Link>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-          {brandShowcase.map((brand) => (
-            <div
-              key={brand.slug}
-              onClick={() => navigate(`/discover`)}
-              className="group relative rounded-3xl overflow-hidden bg-white border border-slate-200/80 shadow-2xs hover:shadow-lg transition-all duration-300 cursor-pointer flex flex-col justify-between p-5"
-            >
-              <div className="relative h-44 rounded-2xl overflow-hidden bg-slate-100 mb-4">
-                <img
-                  src={brand.image}
-                  alt={brand.name}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                />
-                <span className="surface-glass-dark absolute top-2.5 end-2.5 px-2.5 py-1 rounded-full text-[9px] font-medium !text-[#C5A059] border-[#C5A059]/30">
-                  {brand.badge}
-                </span>
-              </div>
+        {/* Honest-data remediation (home re-pass, 2026-10-08): these tiles
+            were four HARDCODED brands with Unsplash stock photos of
+            unrelated garments. Every tile below is derived from the live
+            catalogue — real maison name, real piece count, the brand's own
+            product imagery. */}
+        {isLoading ? (
+          <div
+            className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4"
+            aria-busy="true"
+          >
+            {[0, 1, 2, 3].map((i) => (
+              <div
+                key={i}
+                className="h-72 animate-pulse rounded-3xl border border-slate-200/60 bg-slate-100"
+              />
+            ))}
+          </div>
+        ) : brandSpotlights.length >= 2 ? (
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            {brandSpotlights.map((brand) => (
+              <Link
+                key={brand.name}
+                to="/discover"
+                className="group flex flex-col justify-between rounded-3xl border border-slate-200/80 bg-white p-5 shadow-2xs transition-all duration-300 hover:border-[#C5A059]/50 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059]"
+              >
+                <div className="mb-4 grid h-44 grid-cols-2 gap-2">
+                  {brand.items.slice(0, 2).map((item) => (
+                    <div
+                      key={item.id}
+                      className="overflow-hidden rounded-2xl bg-slate-100"
+                    >
+                      <HonestProductImage
+                        src={item.thumbnail_url}
+                        alt={item.title}
+                        loading="lazy"
+                        unavailableLabel={t("common.image_unavailable")}
+                        className="h-full w-full object-cover transition-transform duration-500 motion-safe:group-hover:scale-105"
+                      />
+                    </div>
+                  ))}
+                </div>
 
-              <div>
-                <h3 className="font-serif text-base font-bold text-[#1B1F3B] group-hover:text-[#C5A059] transition-colors">
-                  {brand.name}
-                </h3>
-                <span className="text-[11px] text-slate-500 font-light block">
-                  {brand.origin}
-                </span>
-                <p className="text-xs text-slate-600 font-light mt-1.5 line-clamp-2">
-                  {brand.aesthetic}
-                </p>
-              </div>
+                <div>
+                  <h3 className="font-serif text-base font-bold text-[#1B1F3B] transition-colors group-hover:text-[#C5A059]">
+                    {brand.name}
+                  </h3>
+                  <span className="block text-[11px] font-light text-slate-500">
+                    {brand.items.length === 1
+                      ? t("home.brand_pieces_one")
+                      : t("home.brand_pieces_many", {
+                          count: brand.items.length,
+                        })}
+                  </span>
+                </div>
 
-              <div className="pt-4 border-t border-slate-100 mt-4 flex items-center justify-between text-xs font-semibold text-[#1B1F3B] group-hover:text-[#C5A059]">
-                <span>{t('home.browse_collection')}</span>
-                <span>→</span>
-              </div>
-            </div>
-          ))}
-        </div>
+                <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-4 text-xs font-semibold text-[#1B1F3B] group-hover:text-[#C5A059]">
+                  <span>{t("home.open_catalog")}</span>
+                  <span aria-hidden="true">→</span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        ) : null}
       </section>
 
       {/* 3. Today's AI Curated Daily Ensembles (Grounded & Multi-Brand) */}
@@ -753,48 +866,41 @@ export const HomeView: React.FC = () => {
         </div>
       </section>
 
-      {/* 5. Trending Catalog Silhouettes */}
-      <section className="space-y-6">
-        <div className="flex items-center justify-between border-b border-slate-200/80 pb-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <FlameIcon size={22} color="#C5A059" />
-              <h2 className="font-serif text-2xl font-bold text-[#1B1F3B]">
-                {t("home.trending_title")}
-              </h2>
+      {/* 5. On sale now — replaces the old "Trending" grid, which re-rendered
+          the SAME first products the "Today's picks" grid had already shown
+          (both sliced one recommended query). This section only exists when
+          the live catalogue holds REAL markdowns (server-sourced
+          compare_at_price) that are not already on the page — no fake
+          urgency, no duplicated merchandise, and it disappears entirely
+          rather than padding itself with full-price items. */}
+      {saleItems.length > 0 && (
+        <section aria-labelledby="home-sale-title" className="space-y-6">
+          <div className="flex items-center justify-between border-b border-slate-200/80 pb-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <FlameIcon size={22} color="#C5A059" />
+                <h2
+                  id="home-sale-title"
+                  className="font-serif text-2xl font-bold text-[#1B1F3B]"
+                >
+                  {t("home.sale_title")}
+                </h2>
+              </div>
+              <p className="mt-0.5 text-xs font-light text-slate-500 sm:text-sm">
+                {t("home.sale_hint")}
+              </p>
             </div>
-            <p className="text-xs sm:text-sm text-slate-500 mt-0.5 font-light">
-              {t('home.trending_hint')}
-            </p>
+            <button
+              onClick={() => navigate("/discover")}
+              className="text-xs font-bold text-[#1B1F3B] transition-colors hover:text-[#C5A059]"
+            >
+              {t("home.view_all_catalog")}
+              {products.length > 0 ? ` (${formatNumber(products.length, lang)})` : ""} →
+            </button>
           </div>
-          <button
-            onClick={() => navigate("/discover")}
-            className="text-xs font-bold text-[#1B1F3B] hover:text-[#C5A059] transition-colors"
-          >
-            {t('home.view_all_catalog')}
-            {!isLoading && products.length > 0 ? ` (${formatNumber(products.length, lang)})` : ""} →
-          </button>
-        </div>
 
-        {isLoading ? (
-          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
-            <SkeletonCard />
-            <SkeletonCard />
-            <SkeletonCard />
-            <SkeletonCard />
-          </div>
-        ) : catalogError && products.length === 0 ? (
-          // N-1: honest failure state — no fabricated trending products when
-          // the catalog API is down (the client-side fallback was removed).
-          <EmptyState
-            title={t('home.trending_error_title')}
-            description={catalogError}
-            actionText={t('common.retry')}
-            onAction={refreshCatalog}
-          />
-        ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
-            {products.slice(0, 4).map((p) => (
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 sm:gap-6">
+            {saleItems.map((p) => (
               <ProductCard
                 key={p.id}
                 product={p}
@@ -802,12 +908,10 @@ export const HomeView: React.FC = () => {
                 footerSlot={
                   capabilities.bnpl_live ? (
                     // bnpl_live is measured, but the LIST payload carries no
-                    // instalment figure and no provider: the old badge here
-                    // hardcoded "Tabby" in the frontend and divided the price
-                    // by 4 in the browser — both are claims the API never
-                    // made. A non-numeric line states the true fact; the real
-                    // figure (server-computed, currency-converted) appears on
-                    // the product page and in the cart.
+                    // instalment figure and no provider: a non-numeric line
+                    // states the true fact; the real figure
+                    // (server-computed, currency-converted) appears on the
+                    // product page and in the cart.
                     <span className="text-[11px] text-slate-600">
                       {t('commerce.bnpl_available_checkout')}
                     </span>
@@ -820,8 +924,8 @@ export const HomeView: React.FC = () => {
               />
             ))}
           </div>
-        )}
-      </section>
+        </section>
+      )}
 
       {/* 6. Precision Luxury Technology Reassurance */}
       <section className="rounded-3xl bg-[#FAF9F6] border border-[#C5A059]/30 p-6 sm:p-10 shadow-2xs">

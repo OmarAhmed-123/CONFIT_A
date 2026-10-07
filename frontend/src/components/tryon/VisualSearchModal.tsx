@@ -77,18 +77,31 @@ export const VisualSearchModal: React.FC = () => {
 
   const samples = [
     {
-      label: "Navy Wool Blazer",
+      label: t("tryon.vs_sample_blazer"),
       url: "https://images.unsplash.com/photo-1594938298603-c8148c4dae35?w=500&auto=format&fit=crop&q=80",
     },
     {
-      label: "Silk Slip Dress",
+      label: t("tryon.vs_sample_dress"),
       url: "https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=500&auto=format&fit=crop&q=80",
     },
     {
-      label: "Crisp Oxford Shirt",
+      label: t("tryon.vs_sample_shirt"),
       url: "https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=500&auto=format&fit=crop&q=80",
     },
   ];
+
+  // The backend labels matches with EN display strings
+  // ("Exact Match"…). Translate the three known values; an unknown new
+  // value still renders readably instead of vanishing (same fallback
+  // philosophy as occasionLabel on DiscoverView).
+  const matchTypeLabel = (value: string) => {
+    const key = {
+      "Exact Match": "tryon.vs_match_type_exact",
+      "Silhouette Match": "tryon.vs_match_type_silhouette",
+      "Complementary Alternative": "tryon.vs_match_type_complementary",
+    }[value];
+    return key ? t(key) : value;
+  };
 
   const openMatchInTryOn = async (productId: number) => {
     if (tryOnKind === "blocked") return;
@@ -105,7 +118,7 @@ export const VisualSearchModal: React.FC = () => {
       }
     } catch (err: any) {
       showToast(
-        err?.message || "Could not load the matched product detail.",
+        err?.message || t("tryon.vs_detail_error"),
         "error",
       );
     } finally {
@@ -151,9 +164,11 @@ export const VisualSearchModal: React.FC = () => {
           </div>
           <button
             onClick={closeVisualSearch}
-            className="w-8 h-8 rounded-full bg-slate-800 text-slate-300 hover:text-white flex items-center justify-center transition-colors"
+            type="button"
+            aria-label={t("a11y.close_dialog")}
+            className="min-h-11 min-w-11 rounded-full bg-slate-800 text-slate-300 hover:text-white flex items-center justify-center transition-colors"
           >
-            ✕
+            <span aria-hidden="true">✕</span>
           </button>
         </div>
 
@@ -162,7 +177,7 @@ export const VisualSearchModal: React.FC = () => {
           {/* Top Input & Sample Inspiration */}
           <div className="space-y-3">
             <label className="text-xs font-bold text-slate-800 block">
-              1. Upload Your Own Photo, Choose a Sample, or Paste an Image URL:
+              {t("tryon.vs_step1_label")}
             </label>
 
             {/* Upload your own photo — visible labelled trigger (the VTON-02
@@ -189,11 +204,11 @@ export const VisualSearchModal: React.FC = () => {
                 <div className="flex items-center gap-2">
                   <img
                     src={uploadedImage}
-                    alt="Your uploaded query"
+                    alt={t("tryon.vs_uploaded_alt")}
                     className="w-10 h-10 rounded-lg object-cover border border-[#B8935A]"
                   />
                   <span className="text-[11px] text-slate-500 font-semibold">
-                    Searching with your photo…
+                    {t("tryon.vs_searching_with_photo")}
                   </span>
                 </div>
               )}
@@ -242,12 +257,22 @@ export const VisualSearchModal: React.FC = () => {
                 placeholder={t('tryon.paste_image_url')}
                 className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-[#B8935A]"
               />
+              {/* aria-busy, NOT disabled: `disabled` drops focus to <body>
+                  mid-search, and useModalFocus then ignores Escape (its
+                  top-most-modal guard requires focus inside the panel) —
+                  the shopper could no longer close the dialog from the
+                  keyboard. Found by the C02 goal E2E (G10). */}
               <button
-                onClick={() => handleSearch()}
-                disabled={visualSearchLoading}
-                className="px-5 py-2.5 rounded-xl bg-[#1B1F3B] hover:bg-[#2A3C78] text-white text-xs font-semibold shadow-sm transition-all"
+                onClick={() => {
+                  if (!visualSearchLoading) handleSearch();
+                }}
+                aria-busy={visualSearchLoading}
+                aria-disabled={visualSearchLoading}
+                className={`px-5 py-2.5 rounded-xl bg-[#1B1F3B] hover:bg-[#2A3C78] text-white text-xs font-semibold shadow-sm transition-all ${
+                  visualSearchLoading ? "opacity-60 cursor-wait" : ""
+                }`}
               >
-                {visualSearchLoading ? "Analyzing..." : "Search Style"}
+                {visualSearchLoading ? t("tryon.vs_analyzing") : t("tryon.vs_search_style")}
               </button>
             </div>
           </div>
@@ -267,7 +292,7 @@ export const VisualSearchModal: React.FC = () => {
                 onClick={() => handleSearch(selectedSample || undefined)}
                 className="px-4 py-2 rounded-xl bg-[#1B1F3B] hover:bg-[#0C0E1E] text-white text-xs font-semibold"
               >
-                Try again
+                {t("tryon.vs_try_again")}
               </button>
             </div>
           )}
@@ -276,11 +301,7 @@ export const VisualSearchModal: React.FC = () => {
             !visualSearchError &&
             !visualSearchLoading && (
               <div className="pt-4 border-t border-slate-100 text-center text-xs text-slate-500 font-light">
-                Pick a sample or paste an image URL, then press{" "}
-                <span className="font-semibold text-slate-600">
-                  Search Style
-                </span>{" "}
-                — matches from the live catalog appear here.
+                {t("tryon.vs_empty_hint", { cta: t("tryon.vs_search_style") })}
               </div>
             )}
 
@@ -291,24 +312,17 @@ export const VisualSearchModal: React.FC = () => {
                 <div className="flex items-center gap-2 bg-[#FDF8EE] border border-[#B8935A]/30 p-3 rounded-xl text-xs text-slate-800">
                   <SparkleIcon size={16} color="#B8935A" />
                   <span>
-                    Detected:{" "}
-                    <strong className="text-[#1B1F3B]">
-                      {visualSearchResult.detected_category}
-                    </strong>{" "}
-                    in{" "}
-                    <strong className="text-[#1B1F3B]">
-                      {visualSearchResult.detected_color}
-                    </strong>{" "}
-                    · Style: {visualSearchResult.detected_style}
+                    {t("tryon.vs_detected", {
+                      category: visualSearchResult.detected_category,
+                      color: visualSearchResult.detected_color,
+                      style: visualSearchResult.detected_style,
+                    })}
                   </span>
                 </div>
               ) : (
                 <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 p-3 rounded-xl text-xs text-slate-600">
                   <SparkleIcon size={16} color="#94A3B8" />
-                  <span>
-                    Vision analysis is unavailable right now — showing catalog
-                    matches without image detection.
-                  </span>
+                  <span>{t("tryon.vs_analysis_unavailable")}</span>
                 </div>
               )}
 
@@ -327,10 +341,10 @@ export const VisualSearchModal: React.FC = () => {
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                         />
                         <span className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-[#1B1F3B]/80 backdrop-blur-sm text-[10px] font-bold text-[#B8935A]">
-                          {match.similarity_score}% Match
+                          {t("tryon.vs_match_score", { score: match.similarity_score })}
                         </span>
                         <span className="absolute bottom-2 left-2 px-2 py-0.5 rounded bg-white/90 text-[10px] font-bold text-slate-800">
-                          {match.match_type}
+                          {matchTypeLabel(match.match_type)}
                         </span>
                       </div>
                       <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">

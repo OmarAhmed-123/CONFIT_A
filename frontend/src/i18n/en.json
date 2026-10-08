@@ -696,7 +696,8 @@
     "close_menu": "Close navigation menu",
     "mobile_nav_label": "Main navigation",
     "account_menu": "Account menu",
-    "dismiss_announcement": "Dismiss announcement"
+    "dismiss_announcement": "Dismiss announcement",
+    "zoom_toggle": "Zoom image"
   },
   "meta": {
     "home_title": "CONFIT — Where Style Meets Your Character",
@@ -1553,7 +1554,8 @@
     "add_to_bag": "Add to bag",
     "quick_buy_bar": "Quick add to bag",
     "offline_title": "You're offline",
-    "offline_desc": "This piece will load the moment your connection returns — we retry automatically."
+    "offline_desc": "This piece will load the moment your connection returns — we retry automatically.",
+    "recently_viewed": "Recently viewed"
   },
   "brand_nav": {
     "aria": "Platform and brand-partner navigation",

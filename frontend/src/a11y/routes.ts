@@ -68,6 +68,36 @@ export function titleKeyForPath(pathname: string): string {
   return best?.key ?? 'meta.home_title';
 }
 
+/* ------------------------------------------------------------------ */
+/* Dynamic title override (C03 pass 4)                                 */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Detail surfaces know a better title than the static route table —
+ * `/product/:slug` matched `meta.discover_title`, so every product tab
+ * read "Style & Discover · CONFIT": wrong page name, and five open
+ * product tabs were indistinguishable (comparison shopping is a core
+ * luxury behaviour; WCAG 2.4.2 wants titles that DESCRIBE the page).
+ *
+ * The owning view registers the real name once its data arrives and
+ * clears it on unmount. React runs child cleanups before parent
+ * effects, so on navigation the override is gone by the time
+ * useRouteAnnouncement re-titles — the next page can never inherit a
+ * stale product name.
+ */
+let titleOverride: string | null = null;
+
+export function setRouteTitleOverride(title: string | null): void {
+  titleOverride = title && title.trim() ? title.trim() : null;
+  if (titleOverride && typeof document !== 'undefined') {
+    document.title = composeTitle(titleOverride);
+  }
+}
+
+export function getRouteTitleOverride(): string | null {
+  return titleOverride;
+}
+
 /**
  * Compose a document title: "<page> · CONFIT". The brand suffix keeps the tab
  * identifiable when many tabs are open, and `document.title` is what a screen

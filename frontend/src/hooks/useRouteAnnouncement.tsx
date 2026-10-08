@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router-dom';
 import { SKIP_TARGET_ID } from '../components/common/SkipLink';
-import { composeTitle, titleKeyForPath } from '../a11y/routes';
+import { composeTitle, titleKeyForPath, getRouteTitleOverride } from '../a11y/routes';
 
 /**
  * useRouteAnnouncement — makes a client-side navigation perceivable.
@@ -47,7 +47,10 @@ export function useRouteAnnouncement(): string {
 
   useEffect(() => {
     const titleKey = titleKeyForPath(location.pathname);
-    const pageTitle = t(titleKey);
+    // A detail view may have registered the page's REAL name (e.g. the
+    // product title). Child cleanups run before this parent effect, so a
+    // surviving override always belongs to the CURRENT page.
+    const pageTitle = getRouteTitleOverride() ?? t(titleKey);
     const fullTitle = composeTitle(pageTitle);
 
     if (typeof document !== 'undefined') {
@@ -86,7 +89,9 @@ export function useRouteAnnouncement(): string {
   // announcement never lag the visible UI.
   useEffect(() => {
     if (typeof document !== 'undefined') {
-      document.title = composeTitle(t(titleKeyForPath(location.pathname)));
+      document.title = composeTitle(
+        getRouteTitleOverride() ?? t(titleKeyForPath(location.pathname)),
+      );
     }
   }, [i18n.resolvedLanguage, location.pathname, t]);
 

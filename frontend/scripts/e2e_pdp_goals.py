@@ -41,6 +41,16 @@ Goals (visitor role):
       names the offline state honestly (never the generic server
       error), and when the connection returns it recovers BY ITSELF —
       zero taps — via the browser 'online' event.
+  G12 Pass 4 — tab identity + structured data: document.title carries
+      the PRODUCT name (not the discover route meta), resets to the
+      route title after navigating away, and a valid schema.org
+      Product JSON-LD matching the API payload sits in <head>.
+  G13 Pass 4 — contextual zoom: clicking a point on the hero zooms at
+      THAT point (transform-origin from the click), aria-pressed
+      mirrors the state, Escape rests it.
+  G14 Pass 4 — browse memory: after visiting product A, product B's
+      page shows A in the recently-viewed rail; the card links back
+      to A's live page; A never lists itself.
 
 Usage:
     python3 scripts/e2e_pdp_goals.py [--base-url http://127.0.0.1:43123]
@@ -375,6 +385,89 @@ def goal_offline_recovery(browser, base: str, detail: dict, en: dict) -> None:
     ctx.close()
 
 
+def goal_tab_identity(browser, base: str, detail: dict, en: dict) -> None:
+    """G12: the tab names the product; leaving resets it; JSON-LD valid."""
+    ctx = browser.new_context(viewport={"width": 1280, "height": 900})
+    pg = ctx.new_page()
+    pg.goto(base + f"/product/{detail['slug']}", wait_until="networkidle")
+    pg.get_by_role("heading", name=detail["title"]).first.wait_for(timeout=10000)
+    title = pg.title()
+    EV.step("G12 tab carries the PRODUCT name",
+            title == f"{detail['title']} · CONFIT", title=title)
+    ld = pg.locator('script[data-testid="pdp-jsonld"]')
+    EV.step("G12 one JSON-LD block in head", ld.count() == 1)
+    data = json.loads(ld.first.text_content() or "{}")
+    EV.step("G12 JSON-LD mirrors the API payload",
+            data.get("@type") == "Product"
+            and data.get("name") == detail["title"]
+            and data.get("offers", {}).get("price") == detail["base_price"],
+            ld_name=data.get("name"))
+    # Navigating away: the override must not leak.
+    pg.get_by_role("link", name=en["product"]["breadcrumb_catalog"]).first.click()
+    pg.wait_for_url(re.compile(r"/discover"), timeout=10000)
+    pg.wait_for_timeout(400)
+    after = pg.title()
+    EV.step("G12 next page gets its OWN title back",
+            detail["title"] not in after, title=after)
+    ctx.close()
+
+
+def goal_contextual_zoom(browser, base: str, detail: dict) -> None:
+    """G13: zoom happens AT the clicked point and rests on Escape."""
+    ctx = browser.new_context(viewport={"width": 1280, "height": 900})
+    pg = ctx.new_page()
+    pg.goto(base + f"/product/{detail['slug']}", wait_until="networkidle")
+    toggle = pg.get_by_test_id("pdp-zoom-toggle")
+    box = toggle.bounding_box()
+    # Click the upper-start quarter — origin must land near 25%/25%.
+    toggle.click(position={"x": box["width"] * 0.25, "y": box["height"] * 0.25})
+    EV.step("G13 zoom toggle reports pressed",
+            toggle.get_attribute("aria-pressed") == "true")
+    hero = pg.locator(f'img[alt="{detail["title"]}"]').first
+    origin = hero.evaluate("e => e.style.transformOrigin")
+    ox = float(origin.split("%")[0])
+    EV.step("G13 transform-origin follows the clicked point",
+            10 <= ox <= 40, origin=origin)
+    # The zoom rides a 700ms luxury transition — wait for it to SETTLE
+    # instead of sampling the first interpolated frame (first run read
+    # matrix(1,...) immediately after the click).
+    pg.wait_for_function(
+        """() => {
+            const img = document.querySelector('img[fetchpriority="high"]');
+            return img && getComputedStyle(img).transform.startsWith('matrix(2');
+        }""",
+        timeout=5000,
+    )
+    EV.step("G13 the photograph actually scales to 2x", True)
+    toggle.focus()
+    pg.keyboard.press("Escape")
+    EV.step("G13 Escape rests the zoom",
+            toggle.get_attribute("aria-pressed") == "false"
+            and hero.evaluate("e => e.style.transformOrigin") == "")
+    ctx.close()
+
+
+def goal_browse_memory(page, browser, base: str, detail: dict, en: dict) -> None:
+    """G14: visit A, then B — B's rail shows A and links back to A."""
+    products = page.request.get(base + "/api/v1/catalog/products").json()
+    other = next(p for p in products if p["slug"] != detail["slug"])
+    ctx = browser.new_context(viewport={"width": 1280, "height": 900})
+    pg = ctx.new_page()
+    pg.goto(base + f"/product/{detail['slug']}", wait_until="networkidle")
+    pg.get_by_role("heading", name=detail["title"]).first.wait_for(timeout=10000)
+    EV.step("G14 product A never lists itself",
+            pg.get_by_test_id("pdp-recently-viewed").count() == 0)
+    pg.goto(base + f"/product/{other['slug']}", wait_until="networkidle")
+    rail = pg.get_by_test_id("pdp-recently-viewed")
+    rail.wait_for(timeout=8000)
+    card = rail.locator(f'a[href="/product/{detail["slug"]}"]').first
+    EV.step("G14 product B's rail shows A", card.count() == 1)
+    card.click()
+    pg.get_by_role("heading", name=detail["title"]).first.wait_for(timeout=10000)
+    EV.step("G14 the card leads back to A's live page", True)
+    ctx.close()
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--base-url", default="http://127.0.0.1:43123")
@@ -402,6 +495,9 @@ def main() -> int:
             goal_skeleton(browser, base, detail)
             goal_sticky_bar(browser, base, detail)
             goal_offline_recovery(browser, base, detail, en)
+            goal_tab_identity(browser, base, detail, en)
+            goal_contextual_zoom(browser, base, detail)
+            goal_browse_memory(page, browser, base, detail, en)
         except Invalid as exc:
             EV.steps.append({"step": "RUN-INVALID", "ok": False, "err": str(exc)})
         finally:

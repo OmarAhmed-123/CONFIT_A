@@ -34,6 +34,12 @@ import {
   TryOnCtaKind,
 } from "../../hooks/useTryOnAvailability";
 import { useDeviceWishlist } from "../../hooks/useDeviceWishlist";
+import { useRecentlyViewed } from "../../hooks/useRecentlyViewed";
+import { setRouteTitleOverride } from "../../a11y/routes";
+
+/** Server truth only: the amber urgency line appears at or under this
+ *  remaining stock, straight from the SKU's stock_level. */
+const LOW_STOCK_THRESHOLD = 3;
 
 /* ------------------------------------------------------------------ */
 /* PdpSkeleton — loading state shaped like the page it precedes        */
@@ -229,6 +235,12 @@ export const ProductDetailView: React.FC = () => {
   // the browser reports the connection back — the shopper never has to
   // understand what went wrong to recover.
   const [loadKind, setLoadKind] = useState<"error" | "offline" | null>(null);
+  // C03 pass 4 — contextual zoom: the point the shopper clicked becomes
+  // the transform origin, so the zoom inspects THAT detail (stitching,
+  // texture), not the image centre. null = resting.
+  const [zoomOrigin, setZoomOrigin] = useState<{ x: number; y: number } | null>(
+    null,
+  );
 
   // C03 pass 2 — mobile sticky buy bar. The bar renders ONLY while the
   // real CTA block is scrolled out of view (IntersectionObserver), only
@@ -254,6 +266,9 @@ export const ProductDetailView: React.FC = () => {
   // cannot happen (2026-09-22). `openRuler` is the working no-photo path.
   const tryOn = useTryOnAvailability();
   const tryOnKind = tryOn.ctaKind(true);
+  // Device-local browse memory (wishlist precedent): records this piece,
+  // returns the OTHERS for the rail below. No server, nothing invented.
+  const recentlyViewed = useRecentlyViewed(product);
 
   // C6 FIX: BOPIS failure handling - differentiate no stores vs API failure vs network
   const fetchBopisStores = (skuId: number) => {
@@ -316,6 +331,55 @@ export const ProductDetailView: React.FC = () => {
     if (!selectedSkuId) return;
     fetchBopisStores(selectedSkuId);
   }, [selectedSkuId]);
+
+  // Pass 4 — the tab tells the truth. /product/:slug matched the static
+  // discover route meta, so every product tab read "Style & Discover":
+  // five open tabs were indistinguishable during comparison shopping and
+  // the title described the WRONG page (WCAG 2.4.2). The override is
+  // registered when the real name arrives and cleared on unmount —
+  // child cleanup runs before the route hook's parent effect, so the
+  // next page can never inherit a product name.
+  useEffect(() => {
+    if (!product) return;
+    setRouteTitleOverride(
+      (lang === "ar" && product.title_ar) || product.title,
+    );
+    return () => setRouteTitleOverride(null);
+  }, [product, lang]);
+
+  // Pass 4 — schema.org/Product JSON-LD, from server data only. One
+  // script tag per mounted product, removed on cleanup; availability is
+  // the aggregate SKU truth, price is the server's base_price.
+  useEffect(() => {
+    if (!product) return;
+    const el = document.createElement("script");
+    el.type = "application/ld+json";
+    el.setAttribute("data-testid", "pdp-jsonld");
+    el.text = JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "Product",
+      name: product.title,
+      image: product.images?.length ? product.images : [product.thumbnail_url],
+      brand: { "@type": "Brand", name: product.brand_name },
+      offers: {
+        "@type": "Offer",
+        price: product.base_price,
+        priceCurrency: product.currency || "USD",
+        availability: product.skus?.some((s) => s.is_in_stock)
+          ? "https://schema.org/InStock"
+          : "https://schema.org/OutOfStock",
+      },
+    });
+    document.head.appendChild(el);
+    return () => {
+      document.head.removeChild(el);
+    };
+  }, [product]);
+
+  // A zoom targets ONE photograph; switching images resets to resting.
+  useEffect(() => {
+    setZoomOrigin(null);
+  }, [activeImageIndex, product]);
 
   // Automatic recovery: while the failure is an OFFLINE failure, one
   // 'online' event refetches without any tap. Bound to the failure
@@ -498,7 +562,62 @@ export const ProductDetailView: React.FC = () => {
               loading="eager"
               decoding="async"
               {...({ fetchpriority: "high" } as unknown as React.ImgHTMLAttributes<HTMLImageElement>)}
-              className="w-full h-full object-cover confit-fade-in motion-safe:group-hover:scale-105 transition-transform duration-700 ease-luxury"
+              className={`w-full h-full object-cover confit-fade-in transition-transform duration-700 ease-luxury ${
+                zoomOrigin
+                  ? "scale-[2]"
+                  : "motion-safe:group-hover:scale-105"
+              }`}
+              style={
+                zoomOrigin
+                  ? { transformOrigin: `${zoomOrigin.x}% ${zoomOrigin.y}%` }
+                  : undefined
+              }
+            />
+            {/* Pass 4 — contextual zoom. A transparent full-bleed toggle
+                UNDER the overlay controls (they are later siblings, so
+                they stack above and keep their own clicks): the clicked
+                point becomes the transform origin, so the shopper
+                inspects THAT stitch, not the centre. Escape or a second
+                activation rests it; switching images rests it. The
+                700ms luxury transition collapses under reduced motion
+                (user-initiated state change — an instant swap is the
+                correct reduced-motion behaviour). */}
+            <button
+              type="button"
+              aria-label={t("a11y.zoom_toggle")}
+              aria-pressed={!!zoomOrigin}
+              data-testid="pdp-zoom-toggle"
+              onClick={(e) => {
+                if (zoomOrigin) {
+                  setZoomOrigin(null);
+                  return;
+                }
+                const rect = e.currentTarget.getBoundingClientRect();
+                // Keyboard activation reports (0,0) clientX/Y — fall back
+                // to a centred zoom instead of the top-start corner.
+                const hasPoint = e.clientX || e.clientY;
+                setZoomOrigin(
+                  hasPoint
+                    ? {
+                        x: Math.round(
+                          ((e.clientX - rect.left) / rect.width) * 100,
+                        ),
+                        y: Math.round(
+                          ((e.clientY - rect.top) / rect.height) * 100,
+                        ),
+                      }
+                    : { x: 50, y: 50 },
+                );
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Escape" && zoomOrigin) {
+                  e.stopPropagation();
+                  setZoomOrigin(null);
+                }
+              }}
+              className={`absolute inset-0 w-full h-full ${
+                zoomOrigin ? "cursor-zoom-out" : "cursor-zoom-in"
+              }`}
             />
             <div className="absolute top-4 left-4 flex flex-col gap-2">
               {styleScore != null && (
@@ -756,10 +875,26 @@ export const ProductDetailView: React.FC = () => {
                   {t('product.available_sizes')}
                 </span>
                 {/* Was a hand-built English string, which rendered Latin text
-                    and digits inside the Arabic RTL page. */}
-                <span className="text-[10px] font-semibold text-slate-500">
+                    and digits inside the Arabic RTL page.
+                    Pass 4: product.low_stock_count existed in BOTH locales
+                    and was wired to nothing — the designed urgency signal
+                    never shipped. Server stock_level only, threshold 3.
+                    aria-live: switching a size announces the new stock
+                    truth instead of silently repainting it. */}
+                <span
+                  aria-live="polite"
+                  data-testid="pdp-stock-line"
+                  className={`text-[10px] font-semibold ${
+                    currentSku?.is_in_stock &&
+                    currentSku.stock_level <= LOW_STOCK_THRESHOLD
+                      ? "text-amber-700"
+                      : "text-slate-500"
+                  }`}
+                >
                   {currentSku?.is_in_stock
-                    ? t('product.in_stock_count', { count: currentSku.stock_level })
+                    ? currentSku.stock_level <= LOW_STOCK_THRESHOLD
+                      ? t('product.low_stock_count', { count: currentSku.stock_level })
+                      : t('product.in_stock_count', { count: currentSku.stock_level })
                     : t('product.out_of_stock')}
                 </span>
               </div>
@@ -1044,6 +1179,47 @@ export const ProductDetailView: React.FC = () => {
                   ))}
                 </div>
               </Surface>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Pass 4 — device-local browse memory. A horizontal scroll-snap
+          rail (native scrolling: links stay tab-focusable, no translateX
+          hijack, swipe is never the only way — spec 10). 4:5 portrait
+          tiles, the gallery's own 700ms hover zoom. Renders NOTHING when
+          the device has no other history: no dead section. */}
+      {recentlyViewed.length > 0 && (
+        <section className="space-y-4" data-testid="pdp-recently-viewed">
+          <h2 className="font-serif text-xl font-bold text-[#1B1F3B]">
+            {t('product.recently_viewed')}
+          </h2>
+          <div className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory">
+            {recentlyViewed.map((item) => (
+              <Link
+                key={item.id}
+                to={`/product/${item.slug}`}
+                className="group snap-start shrink-0 w-32 sm:w-36 rounded-2xl border border-slate-100 p-2 hover:border-[#C5A059] transition-colors flex flex-col bg-white"
+              >
+                <div className="overflow-hidden rounded-xl mb-2">
+                  <HonestProductImage
+                    src={item.thumbnail_url}
+                    alt={(lang === "ar" && item.title_ar) || item.title}
+                    loading="lazy"
+                    className="w-full aspect-[4/5] object-cover motion-safe:group-hover:scale-105 transition-transform duration-700 ease-luxury"
+                  />
+                </div>
+                <div className="text-[11px] font-bold text-slate-800 truncate">
+                  {(lang === "ar" && item.title_ar) || item.title}
+                </div>
+                <div className="text-[11px] font-semibold text-slate-600 mt-auto pt-0.5">
+                  {formatMoney(
+                    Math.round(item.base_price * 100),
+                    item.currency || "USD",
+                    lang,
+                  )}
+                </div>
+              </Link>
             ))}
           </div>
         </section>

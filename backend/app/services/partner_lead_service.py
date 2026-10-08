@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional
 
@@ -11,6 +12,8 @@ from backend.app.core.config import settings
 from backend.app.core.exceptions import RateLimitExceededError
 from backend.app.models.user import AuditLog
 from backend.app.services.email_service import EmailDeliveryError, is_email_configured, send_email
+
+logger = logging.getLogger(__name__)
 
 
 class PartnerLeadService:
@@ -108,11 +111,60 @@ class PartnerLeadService:
         self.db.add(row)
         self.db.commit()
         self.db.refresh(row)
+        # The notification outcome used to be written back INTO this row
+        # (`row.details_json = ...; commit()`), i.e. an UPDATE on audit_logs.
+        #
+        # That is illegal on production and it 500'd every single partner-lead
+        # submission: migration 0022 makes the audit tables database-restricted
+        # append-only — it REVOKEs UPDATE/DELETE/TRUNCATE from the runtime role
+        # AND installs a BEFORE UPDATE trigger that RAISE EXCEPTION. The INSERT
+        # above succeeded, so the lead was recorded, and then the UPDATE blew up
+        # and the prospect saw a 500 for a request that had actually worked.
+        #
+        # This was invisible to the test suite because 0022 is PostgreSQL-only
+        # ("SQLite (dev): no privilege system, no plpgsql — documented no-op"),
+        # so no local test could ever hit the trigger. The invariant is now
+        # asserted directly in
+        # test_partner_lead_submit_never_updates_audit_logs.
+        #
+        # The outcome is appended as its own row instead — append-only by
+        # construction, and a real audit event in its own right.
         notification_status = self._notify(row.id, details)
-        details["notification_status"] = notification_status
-        row.details_json = json.dumps(details, sort_keys=True)
-        self.db.commit()
+        self._record_notification(row.id, email, notification_status, now)
         return {"id": row.id, "status": details["status"], "notification_status": notification_status, "duplicate": bool(duplicate)}
+
+    def _record_notification(self, lead_id: int, email: str, notification_status: str,
+                             now: datetime) -> None:
+        """Append the notification outcome as a separate audit row.
+
+        Best-effort by design: the lead is already durably recorded and already
+        returned to the caller. A failure to persist the *outcome of the
+        notification* must never turn a successful lead capture into a 500 —
+        that is precisely the bug this replaces.
+        """
+        try:
+            self.db.add(
+                AuditLog(
+                    user_id=None,
+                    action="partner_lead_notification",
+                    resource_type="partner_lead",
+                    resource_id=email,
+                    ip_address=None,
+                    details_json=json.dumps(
+                        {"lead_id": lead_id, "notification_status": notification_status},
+                        sort_keys=True,
+                    ),
+                    after_json=json.dumps(
+                        {"lead_id": lead_id, "notification_status": notification_status},
+                        sort_keys=True,
+                    ),
+                    request_id=None,
+                    timestamp=now,
+                )
+            )
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
 
     def _notify(self, lead_id: int, details: Dict[str, Any]) -> str:
         if not is_email_configured():
@@ -130,4 +182,19 @@ class PartnerLeadService:
             send_email(to=recipient, subject=f"CONFIT partner demo request — {details['company_name']}", html="<pre>" + text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;") + "</pre>", text=text)
             return "sent"
         except EmailDeliveryError:
+            return "failed"
+        except Exception as exc:
+            # EmailDeliveryError is the *contracted* failure mode, but it is not
+            # the only one that can escape the transport: a relay that answers
+            # 200 with a non-JSON body makes json.loads raise JSONDecodeError,
+            # and a malformed From header raises inside the stdlib. None of
+            # those are the prospect's fault and none of them un-record the
+            # lead, so none of them may surface as a 500. The lead is already
+            # committed; the notification is best-effort and is recorded as
+            # such by _record_notification.
+            logger.warning(
+                "Partner-lead notification failed with an uncontracted error "
+                "(lead_id=%s): %s: %s",
+                lead_id, type(exc).__name__, str(exc)[:200],
+            )
             return "failed"

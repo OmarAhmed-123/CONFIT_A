@@ -237,7 +237,21 @@ def _brevo_request(url: str, payload: Optional[dict] = None) -> dict:
     try:
         with urllib.request.urlopen(req, data, timeout=_TIMEOUT_SECONDS) as res:
             body = res.read()
-            return _json.loads(body) if body else {}
+            if not body:
+                return {}
+            try:
+                return _json.loads(body)
+            except ValueError as exc:
+                # A 2xx whose body is not JSON is still a transport-level
+                # failure, not a programming error. Left unguarded this escaped
+                # send_email as a raw JSONDecodeError, which no caller contracts
+                # for — it surfaced to the end user as a 500.
+                record_transport_result(
+                    False, "send", f"non-JSON response body: {body[:200]!r}", None
+                )
+                raise EmailDeliveryError(
+                    f"Brevo API returned a non-JSON body: {type(exc).__name__}"
+                ) from exc
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode("utf-8", "replace")[:300]
         record_transport_result(False, "send", f"HTTP {exc.code}: {detail}", exc.code)

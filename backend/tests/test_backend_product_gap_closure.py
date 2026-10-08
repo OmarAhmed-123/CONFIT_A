@@ -224,3 +224,112 @@ def test_partner_request_demo_throttle_is_429_not_422(client):
     assert body['details']['retry_after_seconds'] == int(retry_after)
     assert body['details']['scope'] == 'partner_lead_ip'
 
+
+def test_partner_lead_submit_never_updates_audit_logs(client, monkeypatch):
+    """A partner lead must be recorded with INSERT only — never UPDATE.
+
+    PRODUCTION BUG this closes (found by probing confit-a.vercel.app, not by
+    reading code): three valid submissions returned **500 INTERNAL_SERVER_ERROR**.
+
+    Cause: ``PartnerLeadService.submit`` inserted the lead row, then wrote the
+    notification outcome back into it —
+
+        row.details_json = json.dumps(details, sort_keys=True)
+        self.db.commit()          # an UPDATE on audit_logs
+
+    Migration ``0022_audit_append_only_guard`` makes the audit tables
+    database-restricted append-only on PostgreSQL: it REVOKEs
+    UPDATE/DELETE/TRUNCATE from the runtime role ``confit_app_rw`` *and*
+    installs a ``BEFORE UPDATE`` trigger that RAISE EXCEPTION. So the INSERT
+    succeeded — the lead really was recorded — and the UPDATE then blew up,
+    handing the prospect a 500 for a request that had actually worked.
+
+    The suite could never see this: 0022 is PostgreSQL-only ("SQLite (dev): no
+    privilege system, no plpgsql — documented no-op"). So the invariant is
+    asserted directly here, where it is dialect-independent: capture every
+    statement the submit path emits and require that none of them UPDATE
+    ``audit_logs``.
+    """
+    from sqlalchemy import event
+    from backend.app.core.database import engine
+    from backend.tests.conftest import TestingSessionLocal
+    from backend.app.models.user import AuditLog
+
+    db = TestingSessionLocal()
+    try:
+        db.query(AuditLog).filter(
+            AuditLog.action.in_(["partner_request_demo", "partner_lead_notification"])
+        ).delete(synchronize_session=False)
+        db.commit()
+    finally:
+        db.close()
+
+    emitted: list[str] = []
+
+    def _capture(conn, cursor, statement, parameters, context, executemany):
+        emitted.append(statement)
+
+    event.listen(engine, "before_cursor_execute", _capture)
+    try:
+        res = client.post('/api/v1/brand/request-demo', json={
+            'company_name': 'Append Only Brand',
+            'contact_name': 'Append Only Contact',
+            'work_email': 'append-only-guard@example.com',
+        })
+    finally:
+        event.remove(engine, "before_cursor_execute", _capture)
+
+    assert res.status_code == 201, res.text
+
+    updates = [s for s in emitted if s.strip().lower().startswith("update audit_logs")]
+    assert not updates, (
+        "partner-lead capture must not UPDATE audit_logs — the table is "
+        "database-restricted append-only in production (migration 0022), so "
+        f"this 500s there. Offending statement(s): {updates}"
+    )
+
+    # The outcome is APPENDED as its own row instead, and is still reported.
+    assert res.json()['notification_status'] in ('sent', 'failed', 'not_configured')
+
+    db = TestingSessionLocal()
+    try:
+        outcome = (
+            db.query(AuditLog)
+            .filter(AuditLog.action == "partner_lead_notification")
+            .order_by(AuditLog.id.desc())
+            .first()
+        )
+    finally:
+        db.close()
+    assert outcome is not None, 'the notification outcome must be appended, not lost'
+
+
+def test_partner_lead_survives_an_uncontracted_notification_error(client, monkeypatch):
+    """A broken email transport must never fail a lead the DB already recorded.
+
+    ``_notify`` only caught ``EmailDeliveryError`` — the *contracted* failure
+    mode. It is not the only one that escapes: a relay answering 200 with a
+    non-JSON body made ``json.loads`` raise ``JSONDecodeError`` (reproduced
+    locally before the fix), and a malformed header raises inside the stdlib.
+    Any of those turned a recorded lead into a 500.
+    """
+    from backend.app.core.config import settings
+    from backend.app.services import partner_lead_service as pls
+
+    def _explode(*args, **kwargs):
+        raise ValueError('simulated uncontracted transport failure')
+
+    monkeypatch.setattr(pls, "is_email_configured", lambda: True)
+    # Without a recipient _notify short-circuits to "not_configured" and never
+    # reaches the transport, so the test would prove nothing.
+    monkeypatch.setattr(settings, "PARTNER_LEAD_NOTIFY_EMAIL",
+                        "partnerships@example.com", raising=False)
+    monkeypatch.setattr(pls, "send_email", _explode)
+
+    res = client.post('/api/v1/brand/request-demo', json={
+        'company_name': 'Broken Transport Brand',
+        'contact_name': 'Broken Transport Contact',
+        'work_email': 'broken-transport@example.com',
+    })
+    assert res.status_code == 201, res.text
+    assert res.json()['notification_status'] == 'failed'

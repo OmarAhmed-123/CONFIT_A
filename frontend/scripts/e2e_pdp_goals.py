@@ -37,6 +37,10 @@ Goals (visitor role):
       button produces exactly ONE cart POST and ONE server unit
       (cross-button single-flight guard); reaching the real CTA
       removes the bar (no duplicate pinned control on screen).
+  G11 Pass 3 — network dropout: with the connection cut the page
+      names the offline state honestly (never the generic server
+      error), and when the connection returns it recovers BY ITSELF —
+      zero taps — via the browser 'online' event.
 
 Usage:
     python3 scripts/e2e_pdp_goals.py [--base-url http://127.0.0.1:43123]
@@ -344,6 +348,33 @@ def goal_sticky_bar(browser, base: str, detail: dict) -> None:
     ctx.close()
 
 
+def goal_offline_recovery(browser, base: str, detail: dict, en: dict) -> None:
+    """G11: cut the network, navigate client-side to the product, see the
+    honest offline story; restore the network and watch the page recover
+    with ZERO user action."""
+    ctx = browser.new_context(viewport={"width": 1280, "height": 900})
+    pg = ctx.new_page()
+    # Warm the route module once so the SPA navigation below needs no
+    # network for code — only the API call will fail offline.
+    pg.goto(base + f"/product/{detail['slug']}", wait_until="networkidle")
+    pg.goto(base + "/discover", wait_until="networkidle")
+    ctx.set_offline(True)
+    link = pg.locator(f'a[href="/product/{detail["slug"]}"]').first
+    link.click()
+    offline_copy = pg.get_by_text(en["product"]["offline_desc"])
+    offline_copy.wait_for(timeout=10000)
+    EV.step("G11 dropout shows the honest offline story", True)
+    EV.step("G11 offline never claims a server error",
+            pg.get_by_text(en["product"]["load_failed_desc"]).count() == 0)
+    ctx.set_offline(False)
+    # No clicks from here: the 'online' listener must refetch alone.
+    pg.get_by_role("heading", name=detail["title"]).first.wait_for(
+        timeout=10000)
+    offline_copy.wait_for(state="detached", timeout=5000)
+    EV.step("G11 connection back -> page recovers with ZERO taps", True)
+    ctx.close()
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--base-url", default="http://127.0.0.1:43123")
@@ -370,6 +401,7 @@ def main() -> int:
             goal_arabic_mobile(page, browser, base, detail, ar)
             goal_skeleton(browser, base, detail)
             goal_sticky_bar(browser, base, detail)
+            goal_offline_recovery(browser, base, detail, en)
         except Invalid as exc:
             EV.steps.append({"step": "RUN-INVALID", "ok": False, "err": str(exc)})
         finally:

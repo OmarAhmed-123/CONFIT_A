@@ -375,4 +375,96 @@ describe("ProductDetailView — C03 contract", () => {
       io.restore();
     }
   });
+
+  /* ------------------------------------------------ C03 pass 3 contracts */
+
+  it("a dropped connection is named honestly and recovers BY ITSELF when it returns", async () => {
+    const onLineSpy = vi
+      .spyOn(window.navigator, "onLine", "get")
+      .mockReturnValue(false);
+    catalogMock.mockRejectedValueOnce(new Error(""));
+    try {
+      renderPdp();
+      // Offline copy — not the generic server-error sentence.
+      await waitFor(() =>
+        expect(
+          screen.getByText(i18n.t("product.offline_desc") as string),
+        ).toBeInTheDocument(),
+      );
+      expect(catalogMock).toHaveBeenCalledTimes(1);
+      // Connection returns: ONE 'online' event, zero taps — the page
+      // refetches on its own and the product renders.
+      onLineSpy.mockReturnValue(true);
+      catalogMock.mockResolvedValue(DETAIL());
+      await act(async () => {
+        window.dispatchEvent(new Event("online"));
+      });
+      await settled();
+      expect(catalogMock).toHaveBeenCalledTimes(2);
+    } finally {
+      onLineSpy.mockRestore();
+    }
+  });
+
+  it("a server failure (while online) still shows the server-error copy, not the offline story", async () => {
+    catalogMock.mockRejectedValue(new Error(""));
+    renderPdp();
+    await waitFor(() =>
+      expect(
+        screen.getByText(i18n.t("product.load_failed_desc") as string),
+      ).toBeInTheDocument(),
+    );
+    expect(
+      screen.queryByText(i18n.t("product.offline_desc") as string),
+    ).toBeNull();
+  });
+
+  it("BOPIS pending renders a store-card-shaped skeleton status, then the honest terminal answer", async () => {
+    let resolveStores!: (s: unknown[]) => void;
+    bopisMock.mockImplementation(
+      () =>
+        new Promise((res) => {
+          resolveStores = res;
+        }),
+    );
+    renderPdp();
+    await settled();
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: i18n.t("product.bopis_title") as string,
+      }),
+    );
+    const skeleton = screen.getByTestId("bopis-skeleton");
+    expect(skeleton).toHaveAttribute("role", "status");
+    expect(skeleton).toHaveAccessibleName(
+      i18n.t("product.bopis_checking") as string,
+    );
+    await act(async () => {
+      resolveStores([]);
+    });
+    expect(screen.queryByTestId("bopis-skeleton")).toBeNull();
+    expect(
+      screen.getByText(i18n.t("product.bopis_no_store") as string),
+    ).toBeInTheDocument();
+  });
+
+  it("accordion sections are heading-navigable (WAI-ARIA disclosure: h3 > button[aria-expanded])", async () => {
+    renderPdp();
+    await settled();
+    for (const key of [
+      "product.fabric_care_details",
+      "product.bopis_title",
+      "product.delivery_returns",
+    ]) {
+      const heading = screen.getByRole("heading", {
+        level: 3,
+        name: i18n.t(key) as string,
+      });
+      const button = screen.getByRole("button", {
+        name: i18n.t(key) as string,
+      });
+      expect(heading).toContainElement(button);
+      expect(button).toHaveAttribute("aria-expanded");
+    }
+  });
 });

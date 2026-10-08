@@ -32,7 +32,7 @@ export const Toast: React.FC<{
   const text = resolveMessage(message, t);
 
   return (
-    <div className="fixed bottom-20 sm:bottom-8 end-4 sm:end-8 z-50 animate-in fade-in slide-in-from-bottom-3 duration-200 motion-reduce:animate-none">
+    <div className="fixed bottom-20 sm:bottom-8 end-4 sm:end-8 z-50 confit-slide-up">
       <div
         className={`flex items-center gap-3.5 px-4 py-3 rounded-2xl border shadow-2xl backdrop-blur-xl max-w-md ${bgClass}`}
         /* Spec 14 §6.3: the CONTAINER carries the live-region role, not the
@@ -92,7 +92,7 @@ export const Modal: React.FC<{
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md animate-in fade-in duration-150">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md confit-fade-in">
       <div
         className={`w-full ${maxWidth} bg-white rounded-3xl shadow-2xl border border-slate-200/80 overflow-hidden max-h-[92vh] flex flex-col`}
         role="dialog"
@@ -134,7 +134,7 @@ export const FitScoreBadge: React.FC<{ score?: number | null; verdict?: string; 
   }
   return (
     <div
-      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FDF8EE] border border-[#C5A059]/30 shadow-2xs backdrop-blur-xs ${className}`}
+      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FDF8EE] border border-[#C5A059]/30 shadow-sm ${className}`}
     >
       <SparkleIcon size={13} color="#C5A059" />
       <span className="text-[11px] font-bold text-[#7A5C28]">{score}% {label}</span>
@@ -216,7 +216,7 @@ export const LoadingSpinner: React.FC<{ text?: string }> = ({ text }) => {
   const { t } = useTranslation();
   return (
     <div
-      className="flex flex-col items-center justify-center p-14 gap-3 text-slate-500 animate-in fade-in duration-200"
+      className="flex flex-col items-center justify-center p-14 gap-3 text-slate-500 confit-fade-in"
       role="status"
       aria-live="polite"
     >
@@ -231,7 +231,7 @@ export const LoadingSpinner: React.FC<{ text?: string }> = ({ text }) => {
    .skeleton-shimmer in styles/index.css) instead of a flat opacity pulse;
    the text lines keep the quieter pulse so the sweep stays ONE light. */
 export const SkeletonCard: React.FC = () => (
-  <div className="bg-white rounded-3xl border border-slate-200/80 p-3.5 shadow-2xs space-y-3" aria-hidden="true">
+  <div className="bg-white rounded-3xl border border-slate-200/80 p-3.5 shadow-sm space-y-3" aria-hidden="true">
     <div className="skeleton-shimmer h-64 rounded-2xl bg-slate-100"></div>
     <div className="space-y-1.5 pt-1 animate-pulse">
       <div className="h-3 w-16 bg-slate-100 rounded"></div>
@@ -248,8 +248,8 @@ export const EmptyState: React.FC<{
   onAction?: () => void;
   icon?: React.ReactNode;
 }> = ({ title, description, actionText, onAction, icon }) => (
-  <div className="flex flex-col items-center justify-center text-center p-12 bg-white rounded-3xl border border-slate-200/80 shadow-2xs my-6">
-    <div className="w-14 h-14 rounded-2xl bg-[#FDF8EE] border border-[#C5A059]/20 flex items-center justify-center text-[#C5A059] mb-3.5 shadow-2xs">
+  <div className="flex flex-col items-center justify-center text-center p-12 bg-white rounded-3xl border border-slate-200/80 shadow-sm my-6">
+    <div className="w-14 h-14 rounded-2xl bg-[#FDF8EE] border border-[#C5A059]/20 flex items-center justify-center text-[#C5A059] mb-3.5 shadow-sm">
       {icon || <SparkleIcon size={26} color="#C5A059" />}
     </div>
     <h2 className="font-serif text-lg font-bold text-[#1B1F3B] mb-1">{title}</h2>

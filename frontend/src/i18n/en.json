@@ -1551,7 +1551,9 @@
     "recommended_badge_unavailable": "{{size}} unavailable",
     "bopis_fallback_error": "Unable to load boutique availability.",
     "add_to_bag": "Add to bag",
-    "quick_buy_bar": "Quick add to bag"
+    "quick_buy_bar": "Quick add to bag",
+    "offline_title": "You're offline",
+    "offline_desc": "This piece will load the moment your connection returns — we retry automatically."
   },
   "brand_nav": {
     "aria": "Platform and brand-partner navigation",

@@ -73,7 +73,7 @@ export const NoPhotoFitModal: React.FC = () => {
 
   return (
     <>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md animate-in fade-in duration-150">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md confit-fade-in">
         <div
           ref={panelRef}
           tabIndex={-1}
@@ -119,7 +119,7 @@ export const NoPhotoFitModal: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsCameraScanOpen(true)}
-                  className="px-3 py-1.5 rounded-xl bg-[#C5A059] hover:bg-[#A37E44] text-slate-950 text-[11px] font-bold shadow-2xs"
+                  className="px-3 py-1.5 rounded-xl bg-[#C5A059] hover:bg-[#A37E44] text-slate-950 text-[11px] font-bold shadow-sm"
                 >
                   📸 Open Camera
                 </button>

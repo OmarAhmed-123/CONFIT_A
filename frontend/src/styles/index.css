@@ -139,6 +139,22 @@
     to { opacity: 1; }
   }
 
+  /* ── Entrance: slide-up (C03 pass 3) ─────────────────────────────────
+     For surfaces that arrive from the bottom edge (toast, mobile sticky
+     buy bar). Transform+opacity only — no layout shift — on the luxury
+     curve. Replaces the `animate-in fade-in slide-in-from-bottom-*`
+     stack, which was DEAD in this repo (no tailwindcss-animate plugin;
+     zero matches in built CSS) — the toast popped in with no motion at
+     all. The global prefers-reduced-motion rule above collapses this to
+     a static frame, so no extra guard is needed. */
+  .confit-slide-up {
+    animation: confit-slide-up 0.45s cubic-bezier(0.25, 1, 0.5, 1) both;
+  }
+  @keyframes confit-slide-up {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
   /* ── Skeleton shimmer (home pass 3) ──────────────────────────────────
      A directional light sweep tailored to the block it sits on, replacing
      the flat opacity pulse. The global prefers-reduced-motion rule above

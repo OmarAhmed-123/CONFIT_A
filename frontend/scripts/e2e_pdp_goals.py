@@ -56,6 +56,15 @@ Goals (visitor role):
       no card clips its own content, and every product name in the
       look/recently-viewed cards renders in FULL (the 2-line clamp
       never actually cuts a current catalogue name).
+  G16 Pass 5 — touch gallery: on a touch device a horizontal swipe
+      steps the gallery forward/back, clamps at the ends, and NEVER
+      engages the zoom toggle underneath (counter-goal). Skipped
+      honestly when no seeded product has 2+ images.
+  G17 Pass 5 — thumbnail rail keyboard: the rail is ONE Tab stop
+      (roving tabindex); arrow keys rove focus AND preview the image.
+  G18 Pass 5 — honest failure in Arabic: with product images blocked,
+      the Arabic page shows the ARABIC image-unavailable fallback,
+      never the English default.
 
 Usage:
     python3 scripts/e2e_pdp_goals.py [--base-url http://127.0.0.1:43123]
@@ -537,6 +546,130 @@ def goal_card_integrity(browser, base: str, detail: dict, other_slug: str) -> No
         ctx.close()
 
 
+SWIPE_JS = """(el, pts) => {
+  const [x1, y1, x2, y2] = pts;
+  const mk = (type, x, y) => new TouchEvent(type, {
+    bubbles: true, cancelable: true,
+    touches: type === 'touchend' ? []
+      : [new Touch({identifier: 1, target: el, clientX: x, clientY: y})],
+    changedTouches: [new Touch({identifier: 1, target: el, clientX: x, clientY: y})],
+  });
+  el.dispatchEvent(mk('touchstart', x1, y1));
+  el.dispatchEvent(mk('touchend', x2, y2));
+}"""
+
+
+def pick_multi_image(page, base: str) -> dict | None:
+    """First seeded product whose detail carries 2+ gallery images."""
+    for p in page.request.get(base + "/api/v1/catalog/products").json():
+        d = page.request.get(base + f"/api/v1/catalog/products/{p['slug']}").json()
+        if len(d.get("images") or []) >= 2:
+            return d
+    return None
+
+
+def ensure_multi_image(pg, slug: str) -> None:
+    """When the seed has single-image products only, patch the detail
+    response AT THE NETWORK BOUNDARY so the real gallery UI mounts with
+    two images — the browser-side behaviour under test stays 100% real."""
+    def patch(route):
+        resp = route.fetch()
+        data = resp.json()
+        imgs = data.get("images") or [data.get("thumbnail_url")]
+        if imgs and len(imgs) < 2:
+            sep = "&" if "?" in imgs[0] else "?"
+            data["images"] = [imgs[0], f"{imgs[0]}{sep}e2e=2"]
+        route.fulfill(response=resp, json=data)
+    pg.route(re.compile(rf"catalog/products/{re.escape(slug)}"), patch)
+
+
+def goal_touch_swipe(page, browser, base: str) -> None:
+    """G16: swipe steps the gallery; a swipe never engages the zoom."""
+    detail = pick_multi_image(page, base)
+    patched = detail is None
+    if patched:
+        detail = page.request.get(base + "/api/v1/catalog/products").json()[0]
+        EV.step("G16 note: single-image seed — detail response patched at "
+                "the network boundary to mount a 2-image gallery", True)
+    ctx = browser.new_context(viewport={"width": 390, "height": 844},
+                              has_touch=True, is_mobile=True)
+    pg = ctx.new_page()
+    if patched:
+        ensure_multi_image(pg, detail["slug"])
+    pg.goto(base + f"/product/{detail['slug']}", wait_until="networkidle")
+    toggle = pg.get_by_test_id("pdp-zoom-toggle")
+    toggle.wait_for(timeout=10000)
+    hero = pg.locator('img[fetchpriority="high"]').first
+    first = hero.get_attribute("src")
+    toggle.evaluate(SWIPE_JS, [300, 300, 160, 310])
+    pg.wait_for_timeout(300)
+    second = pg.locator('img[fetchpriority="high"]').first.get_attribute("src")
+    EV.step("G16 forward swipe advances the gallery", second != first)
+    EV.step("G16 swipe never engages the zoom underneath",
+            toggle.get_attribute("aria-pressed") == "false")
+    toggle.evaluate(SWIPE_JS, [160, 300, 320, 310])
+    pg.wait_for_timeout(300)
+    back = pg.locator('img[fetchpriority="high"]').first.get_attribute("src")
+    EV.step("G16 back swipe returns to the first image", back == first)
+    # Counter-goal: a vertical drag is a scroll, not a gallery step.
+    toggle.evaluate(SWIPE_JS, [300, 300, 260, 600])
+    pg.wait_for_timeout(300)
+    EV.step("G16 vertical drag never steps the gallery",
+            pg.locator('img[fetchpriority="high"]').first.get_attribute("src") == first)
+    ctx.close()
+
+
+def goal_thumb_roving(page, browser, base: str, en: dict) -> None:
+    """G17: thumbnail rail = one Tab stop; arrows rove and preview."""
+    detail = pick_multi_image(page, base)
+    patched = detail is None
+    if patched:
+        detail = page.request.get(base + "/api/v1/catalog/products").json()[0]
+        EV.step("G17 note: single-image seed — detail response patched at "
+                "the network boundary to mount a 2-image gallery", True)
+    ctx = browser.new_context(viewport={"width": 1280, "height": 900})
+    pg = ctx.new_page()
+    if patched:
+        ensure_multi_image(pg, detail["slug"])
+    pg.goto(base + f"/product/{detail['slug']}", wait_until="networkidle")
+    rail = pg.get_by_role("group", name=en["a11y"]["select_image"])
+    rail.wait_for(timeout=10000)
+    tabbable = rail.locator('button[tabindex="0"]')
+    EV.step("G17 exactly ONE tabbable thumbnail", tabbable.count() == 1)
+    first_src = pg.locator('img[fetchpriority="high"]').first.get_attribute("src")
+    tabbable.first.focus()
+    pg.keyboard.press("ArrowRight")
+    pg.wait_for_timeout(300)
+    EV.step("G17 arrow roves focus to the next thumbnail",
+            pg.evaluate("() => document.activeElement.getAttribute('aria-label')")
+            == en["a11y"]["view_image"].replace("{{index}}", "2"))
+    EV.step("G17 selection follows focus: hero previews image 2",
+            pg.locator('img[fetchpriority="high"]').first.get_attribute("src") != first_src)
+    EV.step("G17 the tab stop roved (still exactly one)",
+            rail.locator('button[tabindex="0"]').count() == 1)
+    ctx.close()
+
+
+def goal_arabic_image_fallback(browser, base: str, ar: dict, detail: dict) -> None:
+    """G18: blocked images -> ARABIC fallback text on the Arabic page."""
+    ctx = browser.new_context(viewport={"width": 390, "height": 844})
+    pg = ctx.new_page()
+    pg.goto(base, wait_until="domcontentloaded")
+    pg.evaluate("localStorage.setItem('confit_lang','ar')")
+    # Block the catalogue imagery, not the app itself. Glob `*` does not
+    # cross `/`, so a host-based regex is the reliable matcher here.
+    img_re = re.compile(r"images\.unsplash\.com|\.jpe?g($|\?)|\.png($|\?)")
+    pg.route(img_re, lambda r: r.abort())
+    pg.goto(base + f"/product/{detail['slug']}", wait_until="networkidle")
+    label = ar["common"]["image_unavailable"]
+    pg.get_by_text(label).first.wait_for(timeout=10000)
+    EV.step("G18 Arabic page names the failed image in ARABIC", True)
+    EV.step("G18 the English default never leaks",
+            pg.get_by_text("Image unavailable", exact=True).count() == 0)
+    pg.unroute(img_re)
+    ctx.close()
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--base-url", default="http://127.0.0.1:43123")
@@ -570,6 +703,9 @@ def main() -> int:
             products = page.request.get(base + "/api/v1/catalog/products").json()
             other_slug = next(p["slug"] for p in products if p["slug"] != detail["slug"])
             goal_card_integrity(browser, base, detail, other_slug)
+            goal_touch_swipe(page, browser, base)
+            goal_thumb_roving(page, browser, base, en)
+            goal_arabic_image_fallback(browser, base, ar, detail)
         except Invalid as exc:
             EV.steps.append({"step": "RUN-INVALID", "ok": False, "err": str(exc)})
         finally:

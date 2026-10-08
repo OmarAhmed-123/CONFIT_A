@@ -23,6 +23,7 @@ import {
   fireEvent,
   act,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { I18nextProvider } from "react-i18next";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
@@ -651,5 +652,101 @@ describe("ProductDetailView — C03 contract", () => {
     renderPdp(); // fixture: one colour, Navy
     await settled();
     expect(screen.getAllByText("Navy")).toHaveLength(1);
+  });
+
+  /* ------------------------------------------------- pass 5 contracts */
+
+  const swipe = (el: HTMLElement, from: [number, number], to: [number, number]) => {
+    fireEvent.touchStart(el, {
+      touches: [{ clientX: from[0], clientY: from[1] }],
+    });
+    fireEvent.touchEnd(el, {
+      changedTouches: [{ clientX: to[0], clientY: to[1] }],
+    });
+  };
+
+  it("mobile swipe steps the gallery; vertical scrolls and tiny drags never do", async () => {
+    renderPdp();
+    await settled();
+    const hero = () =>
+      screen.getByRole("img", { name: "Midnight Wool Blazer" }) as HTMLImageElement;
+    const surface = screen.getByTestId("pdp-zoom-toggle"); // bubbles to the container
+    expect(hero().src).toContain("b1.jpg");
+    // Counter-goal: a vertical-dominant drag is a scroll, not a swipe.
+    swipe(surface, [300, 300], [240, 500]);
+    expect(hero().src).toContain("b1.jpg");
+    // Counter-goal: a sub-threshold nudge does nothing.
+    swipe(surface, [300, 300], [270, 300]);
+    expect(hero().src).toContain("b1.jpg");
+    // A real LTR forward swipe (start-ward drag) advances…
+    swipe(surface, [300, 300], [180, 310]);
+    expect(hero().src).toContain("b2.jpg");
+    // …and clamps at the end instead of wrapping.
+    swipe(surface, [300, 300], [180, 310]);
+    expect(hero().src).toContain("b2.jpg");
+    // Swiping back returns.
+    swipe(surface, [180, 300], [320, 310]);
+    expect(hero().src).toContain("b1.jpg");
+  });
+
+  it("a swipe's trailing click must NOT toggle the zoom (one-shot guard)", async () => {
+    renderPdp();
+    await settled();
+    const toggle = screen.getByTestId("pdp-zoom-toggle");
+    swipe(toggle, [300, 300], [180, 310]);
+    // The browser fires a click after touchend — the guard consumes it.
+    fireEvent.click(toggle, { clientX: 300, clientY: 300 });
+    expect(toggle).toHaveAttribute("aria-pressed", "false");
+    // A genuine second click still zooms.
+    fireEvent.click(toggle, { clientX: 300, clientY: 300 });
+    expect(toggle).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("RTL flips the swipe direction: start-ward (rightward) means forward", async () => {
+    document.documentElement.dir = "rtl";
+    try {
+      renderPdp();
+      await settled();
+      const hero = () =>
+        screen.getByRole("img", { name: "Midnight Wool Blazer" }) as HTMLImageElement;
+      const surface = screen.getByTestId("pdp-zoom-toggle");
+      swipe(surface, [180, 300], [320, 310]); // rightward drag
+      expect(hero().src).toContain("b2.jpg");
+    } finally {
+      document.documentElement.dir = "ltr";
+    }
+  });
+
+  it("thumbnail rail is ONE Tab stop: roving tabindex, arrows rove + select", async () => {
+    renderPdp();
+    await settled();
+    const rail = screen.getByRole("group", {
+      name: i18n.t("a11y.select_image") as string,
+    });
+    const thumbs = within(rail).getAllByRole("button");
+    expect(thumbs).toHaveLength(2);
+    // Exactly one tabbable thumbnail.
+    expect(thumbs.filter((b) => b.tabIndex === 0)).toHaveLength(1);
+    expect(thumbs[0].tabIndex).toBe(0);
+    fireEvent.keyDown(rail, { key: "ArrowRight" });
+    // Selection follows focus: hero previews image 2, tab stop roves.
+    expect(
+      (screen.getByRole("img", { name: "Midnight Wool Blazer" }) as HTMLImageElement).src,
+    ).toContain("b2.jpg");
+    expect(thumbs[1].tabIndex).toBe(0);
+    expect(thumbs[0].tabIndex).toBe(-1);
+    fireEvent.keyDown(rail, { key: "Home" });
+    expect(thumbs[0].tabIndex).toBe(0);
+  });
+
+  it("a failed image speaks the ARABIC fallback on the Arabic page — never English", async () => {
+    renderPdp();
+    await settled();
+    await act(async () => {
+      await i18n.changeLanguage("ar");
+    });
+    fireEvent.error(screen.getByRole("img", { name: "Midnight Wool Blazer" }));
+    expect(await screen.findByText("الصورة غير متاحة")).toBeInTheDocument();
+    expect(screen.queryByText("Image unavailable")).toBeNull();
   });
 });

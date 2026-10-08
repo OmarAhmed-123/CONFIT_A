@@ -380,6 +380,20 @@ describe("OutfitBuilderView — behavioral contract (C04)", () => {
     expect(bar.getAttribute("aria-valuetext")).toBe(formatMoney(57000, "EGP", "en"));
   });
 
+  it("GOAL remaining allocation: within budget the tracker shows the real residual in catalog money; over budget the line disappears (the badge owns that case)", async () => {
+    renderBuilder();
+    await addByName("Navy Blazer"); // 120 of 450 → 330 remaining
+    const remaining = await screen.findByTestId("builder-budget-remaining");
+    expect(remaining.textContent).toBe(formatMoney(33000, "EGP", "en"));
+    await addByName("Silk Shirt"); // 240 → 210 remaining
+    expect(screen.getByTestId("builder-budget-remaining").textContent).toBe(
+      formatMoney(21000, "EGP", "en"),
+    );
+    await addByName("Wool Trousers"); // 450 (at limit, not over)
+    await addByName("Leather Loafers"); // 570 → over: no fake "remaining"
+    expect(screen.queryByTestId("builder-budget-remaining")).toBeNull();
+  });
+
   it("GOAL real outfit budget: a signed-in user's budget_per_outfit_max drives the tracker instead of the hard-coded 450", async () => {
     act(() => {
       useAuthStore.setState({

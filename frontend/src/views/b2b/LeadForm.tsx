@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { brandService } from "../../services/apiServices";
 import { ApiError } from "../../services/apiClient";
@@ -119,6 +119,16 @@ export const LeadForm: React.FC = () => {
   const [result, setResult] = useState<ResultState | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [sentCount, setSentCount] = useState<number>(() => readSentCount());
+  // Synchronous single-flight guard. `submitting` is React STATE, so it only
+  // reads true on the NEXT render: two activations inside one frame both saw
+  // `submitting === false`, both passed ActionButton's pending guard, and both
+  // fired a request. On this endpoint that is not a cosmetic duplicate — the
+  // second one burns another of the five requests this network is allowed per
+  // hour, and answers `duplicate: true`, which the panel then renders as
+  // "we already have a recent request" over a form the user only sent once.
+  // A ref is mutated in place, so the second call sees it immediately.
+  // Proven by e2e_partner_gateway_goals.py G5.
+  const inFlight = useRef(false);
 
   const set = useCallback(
     (key: FieldKey) => (value: string) => {
@@ -156,6 +166,9 @@ export const LeadForm: React.FC = () => {
   }, [values, t]);
 
   const submit = useCallback(async () => {
+    if (inFlight.current) {
+      return;
+    }
     setResult(null);
 
     // 1. Local validation first — an invalid form must not spend a request.
@@ -174,6 +187,7 @@ export const LeadForm: React.FC = () => {
     }
     setFieldErrors({});
 
+    inFlight.current = true;
     setSubmitting(true);
     try {
       const res = await brandService.requestDemo({
@@ -242,6 +256,7 @@ export const LeadForm: React.FC = () => {
         });
       }
     } finally {
+      inFlight.current = false;
       setSubmitting(false);
     }
   }, [validate, values, sentCount, t]);

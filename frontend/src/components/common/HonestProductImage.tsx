@@ -33,7 +33,7 @@ export const HonestProductImage: React.FC<HonestProductImageProps> = ({
         role="img"
         aria-label={`${alt} — ${unavailableLabel}`}
       >
-        <span className="rounded-xl border border-slate-200 bg-white/80 px-3 py-2 shadow-2xs">
+        <span className="rounded-xl border border-slate-200 bg-white/80 px-3 py-2 shadow-sm">
           {unavailableLabel}
         </span>
       </div>

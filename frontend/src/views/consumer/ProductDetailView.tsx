@@ -180,19 +180,25 @@ const AccordionSection: React.FC<{
   children: React.ReactNode;
 }> = ({ title, open, onToggle, children }) => (
   <div className="py-1.5">
-    <button
-      onClick={onToggle}
-      aria-expanded={open}
-      className="w-full min-h-12 flex justify-between items-center font-bold text-slate-800 text-start"
-    >
-      <span>{title}</span>
-      <span
-        aria-hidden="true"
-        className="text-[#C5A059] transition-transform duration-300 ease-luxury"
+    {/* Pass 3: the full WAI-ARIA disclosure pattern — the button lives
+        inside a heading, so screen-reader users can jump between the
+        page's sections by heading navigation. Preflight zeroes the
+        h3's own margin/size, so the visual stays identical. */}
+    <h3>
+      <button
+        onClick={onToggle}
+        aria-expanded={open}
+        className="w-full min-h-12 flex justify-between items-center font-bold text-slate-800 text-start"
       >
-        {open ? "−" : "+"}
-      </span>
-    </button>
+        <span>{title}</span>
+        <span
+          aria-hidden="true"
+          className="text-[#C5A059] transition-transform duration-300 ease-luxury"
+        >
+          {open ? "−" : "+"}
+        </span>
+      </button>
+    </h3>
     {open && <div className="pb-2 confit-fade-in">{children}</div>}
   </div>
 );
@@ -218,6 +224,11 @@ export const ProductDetailView: React.FC = () => {
   const [isSlowLoad, setIsSlowLoad] = useState(false);
   const [reloadTick, setReloadTick] = useState(0);
   const [loadError, setLoadError] = useState<string | null>(null);
+  // C03 pass 3: a dropped connection is not a server error. The failure
+  // state names it honestly, and the page retries BY ITSELF the moment
+  // the browser reports the connection back — the shopper never has to
+  // understand what went wrong to recover.
+  const [loadKind, setLoadKind] = useState<"error" | "offline" | null>(null);
 
   // C03 pass 2 — mobile sticky buy bar. The bar renders ONLY while the
   // real CTA block is scrolled out of view (IntersectionObserver), only
@@ -268,6 +279,7 @@ export const ProductDetailView: React.FC = () => {
     setIsLoading(true);
     setIsSlowLoad(false);
     setLoadError(null);
+    setLoadKind(null);
     // Cold-start honesty: serverless first hits can take a while — tell the
     // user instead of showing an apparently frozen skeleton (2026-09-06 audit).
     const slowTimer = setTimeout(() => setIsSlowLoad(true), 8000);
@@ -285,6 +297,13 @@ export const ProductDetailView: React.FC = () => {
       })
       .catch((err) => {
         setIsLoading(false);
+        // Offline is diagnosed from the browser's own connectivity flag,
+        // never guessed from error text.
+        setLoadKind(
+          typeof navigator !== "undefined" && navigator.onLine === false
+            ? "offline"
+            : "error",
+        );
         // Keep the server's sentence when it sent one; otherwise let the
         // UI translate — "Product not found" hardcoded EN leaked into the
         // Arabic failure state (C03 test caught it).
@@ -297,6 +316,16 @@ export const ProductDetailView: React.FC = () => {
     if (!selectedSkuId) return;
     fetchBopisStores(selectedSkuId);
   }, [selectedSkuId]);
+
+  // Automatic recovery: while the failure is an OFFLINE failure, one
+  // 'online' event refetches without any tap. Bound to the failure
+  // state, not to mount, so a later dropout re-arms it.
+  useEffect(() => {
+    if (loadKind !== "offline") return;
+    const retry = () => setReloadTick((n) => n + 1);
+    window.addEventListener("online", retry);
+    return () => window.removeEventListener("online", retry);
+  }, [loadKind]);
 
   // Observe the real CTA block; the sticky bar exists only while it is
   // off-screen. Re-runs when the product arrives because the block only
@@ -321,13 +350,18 @@ export const ProductDetailView: React.FC = () => {
     );
   }
 
-  if (loadError || !product) {
+  if (loadKind || loadError || !product) {
+    const offline = loadKind === "offline";
     return (
       <>
         <h1 className="sr-only">{t('product.unavailable_heading')}</h1>
         <EmptyState
-          title={t('product.unavailable_title')}
-          description={loadError || t("product.load_failed_desc")}
+          title={offline ? t('product.offline_title') : t('product.unavailable_title')}
+          description={
+            offline
+              ? t('product.offline_desc')
+              : loadError || t("product.load_failed_desc")
+          }
           actionText={t("common.try_again")}
           onAction={() => setReloadTick((n) => n + 1)}
         />
@@ -464,7 +498,7 @@ export const ProductDetailView: React.FC = () => {
               loading="eager"
               decoding="async"
               {...({ fetchpriority: "high" } as unknown as React.ImgHTMLAttributes<HTMLImageElement>)}
-              className="w-full h-full object-cover confit-fade-in group-hover:scale-105 transition-transform duration-700 ease-luxury"
+              className="w-full h-full object-cover confit-fade-in motion-safe:group-hover:scale-105 transition-transform duration-700 ease-luxury"
             />
             <div className="absolute top-4 left-4 flex flex-col gap-2">
               {styleScore != null && (
@@ -833,9 +867,20 @@ export const ProductDetailView: React.FC = () => {
             >
               <div className="space-y-2">
                 {bopisStatus === "loading" && (
-                  <p className="text-slate-500 font-light text-xs">
-                    {t('product.bopis_checking')}
-                  </p>
+                  // Pass 3: shimmer shaped like the store card it precedes
+                  // (same radius/height), not a bare sentence — the answer
+                  // appears to develop in place. Text stays for SRs.
+                  <div
+                    role="status"
+                    aria-label={t('product.bopis_checking')}
+                    data-testid="bopis-skeleton"
+                  >
+                    <span className="sr-only">{t('product.bopis_checking')}</span>
+                    <div
+                      aria-hidden="true"
+                      className="h-16 rounded-xl bg-slate-100 skeleton-shimmer"
+                    />
+                  </div>
                 )}
                 {bopisStatus === "error" && (
                   <div className="p-3 rounded-xl bg-rose-50 border border-rose-200">
@@ -976,7 +1021,7 @@ export const ProductDetailView: React.FC = () => {
                             src={item.image_url}
                             alt={item.product_title}
                             loading="lazy"
-                            className="w-full aspect-[4/5] object-cover group-hover:scale-105 transition-transform duration-700 ease-luxury"
+                            className="w-full aspect-[4/5] object-cover motion-safe:group-hover:scale-105 transition-transform duration-700 ease-luxury"
                           />
                         </div>
                       )}
@@ -1015,7 +1060,7 @@ export const ProductDetailView: React.FC = () => {
           role="region"
           aria-label={t("product.quick_buy_bar")}
           data-testid="pdp-sticky-bar"
-          className="lg:hidden fixed bottom-0 inset-x-0 z-40 confit-fade-in border-t border-slate-200 bg-white shadow-[0_-8px_24px_rgb(12_14_30/0.08)]"
+          className="lg:hidden fixed bottom-0 inset-x-0 z-40 confit-slide-up border-t border-slate-200 bg-white shadow-[0_-8px_24px_rgb(12_14_30/0.08)]"
           style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
         >
           <div className="max-w-6xl mx-auto px-4 py-2.5 flex items-center gap-3">

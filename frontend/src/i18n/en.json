@@ -1549,7 +1549,9 @@
     "fit_score_verdict": "Fit score",
     "recommended_badge": "Recommended {{size}}",
     "recommended_badge_unavailable": "{{size}} unavailable",
-    "bopis_fallback_error": "Unable to load boutique availability."
+    "bopis_fallback_error": "Unable to load boutique availability.",
+    "add_to_bag": "Add to bag",
+    "quick_buy_bar": "Quick add to bag"
   },
   "brand_nav": {
     "aria": "Platform and brand-partner navigation",

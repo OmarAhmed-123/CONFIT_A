@@ -1549,7 +1549,9 @@
     "fit_score_verdict": "درجة الملاءمة",
     "recommended_badge": "مقترح {{size}}",
     "recommended_badge_unavailable": "{{size}} غير متاح",
-    "bopis_fallback_error": "تعذر تحميل توفر البوتيكات."
+    "bopis_fallback_error": "تعذر تحميل توفر البوتيكات.",
+    "add_to_bag": "أضِف إلى الحقيبة",
+    "quick_buy_bar": "إضافة سريعة إلى الحقيبة"
   },
   "brand_nav": {
     "aria": "تنقّل إدارة المنصة وشركاء العلامات",

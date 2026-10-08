@@ -54,6 +54,8 @@ const {
   addItemMock,
   openCartMock,
   getProfileMock,
+  getShareStateMock,
+  shareOutfitMock,
 } = vi.hoisted(() => ({
   getProductsMock: vi.fn(),
   getProductByIdMock: vi.fn(),
@@ -68,6 +70,8 @@ const {
   addItemMock: vi.fn(),
   openCartMock: vi.fn(),
   getProfileMock: vi.fn(),
+  getShareStateMock: vi.fn(),
+  shareOutfitMock: vi.fn(),
 }));
 
 vi.mock("../../services/apiServices", async (importOriginal) => {
@@ -91,6 +95,8 @@ vi.mock("../../services/apiServices", async (importOriginal) => {
       updateOutfit: updateOutfitMock,
       previewComposition: previewCompositionMock,
       checkCompatibility: checkCompatibilityMock,
+      getShareState: getShareStateMock,
+      shareOutfit: shareOutfitMock,
     },
     profileService: {
       ...actual.profileService,
@@ -208,6 +214,10 @@ beforeEach(() => {
   previewCompositionMock.mockResolvedValue(VALID_VERDICT);
   checkCompatibilityMock.mockResolvedValue(COMPAT);
   saveOutfitMock.mockResolvedValue({ id: 99 });
+  getShareStateMock.mockResolvedValue({
+    outfit_id: 7, share_token: null, share_url: null,
+    expires_at: null, is_active: false, view_count: 0,
+  });
   addItemMock.mockResolvedValue({ merged: false, quantity: 1 });
 });
 
@@ -525,6 +535,72 @@ describe("OutfitBuilderView — behavioral contract (C04)", () => {
         (screen.getByTestId("save-look-cta") as HTMLButtonElement).disabled,
       ).toBe(true),
     );
+  });
+
+  it("GOAL share a saved look: edit mode offers the Spec-06 surface — mint only reports success AFTER the server returns a live link, which is then shown verbatim", async () => {
+    act(() => {
+      useAuthStore.setState({ isAuthenticated: true } as any);
+    });
+    getOutfitMock.mockResolvedValue({
+      id: 7,
+      title: "Client Dinner",
+      occasion: "Smart Casual Work",
+      items: [{ product_id: 1, sku_id: 10, position: "outerwear" }],
+    });
+    getProductByIdMock.mockResolvedValue(CATALOG[0]);
+    let resolveMint!: (v: unknown) => void;
+    shareOutfitMock.mockImplementation(() => new Promise((res) => (resolveMint = res)));
+
+    renderBuilder("/outfits/7");
+    const card = await screen.findByTestId("builder-share-card");
+    // not live yet → honest private note + publish CTA, no URL shown
+    expect(within(card).getByText(en("my_looks.private_note"))).toBeTruthy();
+    const cta = within(card).getByTestId("builder-publish-link");
+    await act(async () => {
+      fireEvent.click(cta);
+    });
+    await waitFor(() => expect(cta.getAttribute("aria-busy")).toBe("true"));
+    expect(within(card).queryByDisplayValue(/\/shared\//)).toBeNull(); // no fake link mid-flight
+    await act(async () => {
+      resolveMint({
+        outfit_id: 7, share_token: "tok_abc123", share_url: "/shared/tok_abc123",
+        expires_at: "2027-01-01T00:00:00Z", is_active: true, view_count: 0,
+      });
+    });
+    const url = await within(card).findByDisplayValue(
+      `${window.location.origin}/shared/tok_abc123`,
+    );
+    expect(url).toBeTruthy();
+    expect(shareOutfitMock).toHaveBeenCalledWith(7);
+  });
+
+  it("COUNTER-GOAL currency honesty under outage: with no catalog and an empty canvas the tracker shows an em-dash, never a fabricated $", async () => {
+    getProductsMock.mockRejectedValue(new Error("network down"));
+    renderBuilder();
+    await screen.findByText(en("outfit_builder.palette_error"));
+    const total = screen.getByTestId("builder-running-total");
+    const budget = screen.getByTestId("builder-budget-limit");
+    expect(total.textContent).toBe("—");
+    expect(budget.textContent).toBe("—");
+    expect(total.textContent).not.toContain("$");
+    expect(screen.getByTestId("builder-add-all").textContent).not.toContain("$");
+  });
+
+  it("COUNTER-GOAL palette honesty: a catalog outage shows a calm translated error with a REAL retry — never the 'empty catalog' lie", async () => {
+    getProductsMock.mockRejectedValue(new Error("network down"));
+    renderBuilder();
+    const alertEl = await screen.findByText(en("outfit_builder.palette_error"));
+    expect(alertEl).toBeTruthy();
+    expect(screen.queryByText(en("outfit_builder.palette_empty"))).toBeNull();
+    getProductsMock.mockResolvedValue(CATALOG);
+    const retryBtn = screen.getByRole("button", { name: en("common.retry") });
+    await act(async () => {
+      fireEvent.click(retryBtn);
+    });
+    // recovery is real: the palette renders the catalog pieces
+    await screen.findByRole("button", {
+      name: en("outfit_builder.add_to_outfit", { name: "Navy Blazer" }),
+    });
   });
 
   it("EDIT loading: while the saved look loads, a geometry-matched skeleton with a translated status replaces the bare English sentence", async () => {

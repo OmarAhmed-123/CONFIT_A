@@ -780,8 +780,12 @@ export const ProductDetailView: React.FC = () => {
               </button>
             </div>
 
+            {/* Card-clarity pass: body copy inside cards drops font-light
+                (300-weight at 12px renders thin and faint — the exact
+                "unclear text" complaint) and sits at slate-600 (7.6:1)
+                instead of slate-500 (4.8:1). */}
             {product.fit_available ? (
-              <p className="text-xs text-slate-600 leading-relaxed font-light">
+              <p className="text-xs text-slate-600 leading-relaxed">
                 {/* The fallback was a hand-built English template literal,
                     which rendered untranslated Latin text inside the Arabic
                     RTL page whenever fit_reasoning was absent. */}
@@ -796,7 +800,7 @@ export const ProductDetailView: React.FC = () => {
                 )}
               </p>
             ) : (
-              <p className="text-xs text-slate-500 leading-relaxed font-light">
+              <p className="text-xs text-slate-600 leading-relaxed">
                 {t('product.complete_profile_for_size')}
               </p>
             )}
@@ -810,9 +814,15 @@ export const ProductDetailView: React.FC = () => {
                   <span className="text-xs font-bold text-slate-700">
                     {t("product.colour")}
                   </span>
-                  <span className="text-[11px] text-slate-500 font-light">
-                    {selectedColour}
-                  </span>
+                  {/* The selection readout only earns its place when there
+                      is a selection to make — a single-colourway product
+                      printed the SAME name twice two lines apart
+                      (production screenshot, 2026-10-08). */}
+                  {colours.length > 1 && (
+                    <span className="text-[11px] text-slate-600">
+                      {selectedColour}
+                    </span>
+                  )}
                 </div>
                 {colours.length > 1 ? (
                   <div
@@ -881,10 +891,12 @@ export const ProductDetailView: React.FC = () => {
                     never shipped. Server stock_level only, threshold 3.
                     aria-live: switching a size announces the new stock
                     truth instead of silently repainting it. */}
+                {/* 10px was below the readable floor for a line the shopper
+                    must act on — 11px matches the card's other meta text. */}
                 <span
                   aria-live="polite"
                   data-testid="pdp-stock-line"
-                  className={`text-[10px] font-semibold ${
+                  className={`text-[11px] font-semibold ${
                     currentSku?.is_in_stock &&
                     currentSku.stock_level <= LOW_STOCK_THRESHOLD
                       ? "text-amber-700"
@@ -978,7 +990,7 @@ export const ProductDetailView: React.FC = () => {
                 )
               }
             >
-              <div className="text-slate-500 space-y-1.5 font-light leading-relaxed">
+              <div className="text-slate-600 space-y-1.5 leading-relaxed">
                 <div>
                   <strong>{t('product.composition_label')}</strong>{" "}
                   {product.material || t('product.not_specified')}
@@ -1039,14 +1051,14 @@ export const ProductDetailView: React.FC = () => {
                   </div>
                 )}
                 {bopisStatus === "empty" && (
-                  <p className="text-slate-500 font-light text-xs">
+                  <p className="text-slate-600 text-xs">
                     {t('product.bopis_no_store')}
                   </p>
                 )}
                 {bopisStatus === "success" &&
                   bopisStores.filter((s) => s.is_available_for_pickup)
                     .length === 0 && (
-                    <p className="text-slate-500 font-light text-xs">
+                    <p className="text-slate-600 text-xs">
                       {t('product.bopis_no_store_stock')}
                     </p>
                   )}
@@ -1065,7 +1077,7 @@ export const ProductDetailView: React.FC = () => {
                               <div className="font-bold text-slate-800 text-xs">
                                 {store.store_name}
                               </div>
-                              <div className="text-[11px] text-slate-500 font-light">
+                              <div className="text-[11px] text-slate-600">
                                 {store.address}
                               </div>
                               {store.latitude != null &&
@@ -1103,7 +1115,7 @@ export const ProductDetailView: React.FC = () => {
                 )
               }
             >
-              <div className="text-slate-500 space-y-1.5 font-light leading-relaxed">
+              <div className="text-slate-600 space-y-1.5 leading-relaxed">
                 <div>
                   {t('product.delivery_note')}
                 </div>
@@ -1160,10 +1172,18 @@ export const ProductDetailView: React.FC = () => {
                           />
                         </div>
                       )}
-                      <div className="text-[11px] font-bold text-slate-800 truncate">
+                      {/* Card-clarity pass: single-line truncate amputated
+                          real names ("Tuxedo Peak Lapel Evening Dinn…" —
+                          production screenshot, 2026-10-08), and even a
+                          2-line clamp cut "Silk Slip Column Maxi Dress
+                          with Drape Neck…" on mobile (G15 audit). Names
+                          now wrap in full — the grid equalises row
+                          heights and mt-auto keeps prices pinned, so
+                          nothing is ever amputated. */}
+                      <div className="text-[11px] font-bold text-slate-800 leading-snug min-h-[2.75em] break-words">
                         {item.product_title}
                       </div>
-                      <div className="text-[10px] text-slate-500">
+                      <div className="text-[11px] text-slate-600">
                         {item.brand_name}
                       </div>
                       {item.price != null && (
@@ -1199,7 +1219,7 @@ export const ProductDetailView: React.FC = () => {
               <Link
                 key={item.id}
                 to={`/product/${item.slug}`}
-                className="group snap-start shrink-0 w-32 sm:w-36 rounded-2xl border border-slate-100 p-2 hover:border-[#C5A059] transition-colors flex flex-col bg-white"
+                className="group snap-start shrink-0 w-36 sm:w-40 rounded-2xl border border-slate-100 p-2 hover:border-[#C5A059] transition-colors flex flex-col bg-white"
               >
                 <div className="overflow-hidden rounded-xl mb-2">
                   <HonestProductImage
@@ -1209,7 +1229,10 @@ export const ProductDetailView: React.FC = () => {
                     className="w-full aspect-[4/5] object-cover motion-safe:group-hover:scale-105 transition-transform duration-700 ease-luxury"
                   />
                 </div>
-                <div className="text-[11px] font-bold text-slate-800 truncate">
+                {/* Same contract as the look cards: the full name, always —
+                    no truncate, no clamp (tiles widened to w-36/40 so most
+                    names sit in two lines; longer ones simply take three). */}
+                <div className="text-[11px] font-bold text-slate-800 leading-snug min-h-[2.75em] break-words">
                   {(lang === "ar" && item.title_ar) || item.title}
                 </div>
                 <div className="text-[11px] font-semibold text-slate-600 mt-auto pt-0.5">

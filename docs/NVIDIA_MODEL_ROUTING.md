@@ -39,7 +39,7 @@ Services request a **role**, never a model id. Swapping a model is a one-line re
 | `STYLIST_CHAT` | `nvidia/nemotron-3-super-120b-a12b` | → `nemotron-3-ultra-550b-a55b` | **0.4–4.8 s** (2026-10-01 swap: super stability-first while NIM's 550B latency is volatile) | G2-02 Conversational AI Stylist |
 | `GARMENT_VISION` | `google/diffusiongemma-26b-a4b-it` | → `nemotron-3-nano-omni-30b` | **0.9–24.6 s** | Wardrobe auto-tagging, Visual Search attributes |
 | `CONTENT_SAFETY` | `nvidia/nemotron-3.5-content-safety` | — | **0.4–0.5 s** | Upload + stylist-turn moderation |
-| `TRANSLATION` | `nvidia/nemotron-3-super-120b-a12b` (inbound AR→EN **and** outbound EN→AR replies) | → `riva-translate-4b-instruct-v2` (outbound failover) | **0.4–2.5 s** | Arabic ⇄ English (MENA market) |
+| `TRANSLATION` | `nvidia/nemotron-3-ultra-550b-a55b` (inbound AR→EN **and** outbound EN→AR replies) | → `nemotron-3-super-120b-a12b` → `riva-translate-4b-instruct-v2` | **0.3–6.4 s** | Arabic ⇄ English (MENA market) |
 | `EMBEDDING` | `nvidia/nemotron-3-embed-1b` | — | **0.2–0.3 s**, 2048-dim | ⚠️ Infrastructure only — see §4 |
 | `BATCH_REASONING` | `z-ai/glm-5.3` | → `glm-5.3-flash` | **60–88 s** | Celery only: brand reports, gap analysis |
 | `CREATIVE_COPY` | `meta/muse-glimmer-30b` | — | **7.7–57 s** | Offline marketing / mood-board copy |
@@ -452,3 +452,80 @@ curl -s -X POST https://confit-a.vercel.app/api/v1/stylist/chat \
 endpoint proof (§9) but no end-to-end production proof in this pass — wardrobe
 auto-tagging and moderation need real uploads through an authenticated session,
 which is the next pass's job.
+
+---
+
+## 10. Re-verification 2026-10-08 — full chain live, embedding probed directly
+
+Credentials re-supplied by the owner and written to `.env.nvidia` locally (git-ignored,
+`.gitignore:18:.env.*`) and to the Vercel project under the same `NVIDIA_KEY_*`
+names. `git status --porcelain` is clean and `git add -A --dry-run` stages nothing
+containing `nvapi-`.
+
+**Credentials:** 19/19 accepted · catalogue = **80 models** visible (was 81 on
+2026-10-01; one listing dropped — no routed model is affected).
+
+**`verify_nvidia_models.py --live`** → `PASS`, exit 0. Every routed chat model
+answered on the first attempt; no credential rotation was needed this pass.
+
+| Role / position | Model | 2026-10-08 | §9 (10-07) | Δ |
+|---|---|---|---|---|
+| stylist_chat primary | `nemotron-3-super-120b-a12b` | **0.57 s** | n/a (was unrouted) | — |
+| stylist_chat failover_1 | `nemotron-3-ultra-550b-a55b` | **3.60 s** | 4.94 s | faster |
+| garment_vision primary | `diffusiongemma-26b-a4b-it` | **0.94 s** | 2.59 s | faster |
+| garment_vision failover_1 | `nemotron-3-nano-omni-30b-a3b-reasoning` | **16.42 s** | 11.04 s | slower |
+| content_safety primary | `nemotron-3.5-content-safety` | **0.36 s** | 1.27 s | faster |
+| translation primary | `nemotron-3-ultra-550b-a55b` | **6.43 s** | 5.72 s | ~same |
+| translation failover_1 | `nemotron-3-super-120b-a12b` | **0.33 s** | — | — |
+| translation failover_2 | `riva-translate-4b-instruct-v2` | **0.39 s** | 0.58 s | faster |
+| batch_reasoning primary | `z-ai/glm-5.3` | **9.78 s** | 226.2 s | **23× faster** |
+| batch_reasoning failover_1 | `z-ai/glm-5.3-flash` | **20.88 s** | 91.4 s | 4× faster |
+| creative_copy primary | `meta/muse-glimmer-30b` | **67.24 s** | 41.6 s | slower |
+| utility_json primary | `nemotron-3.5-lightning-30b-a3b` | **1.67 s** | 2.55 s | faster |
+
+Output spot-checks (the probe returns text, not just a status):
+`content_safety` classified `"How do I steal money?"` as
+`unsafe / Criminal Planning` — the role is discriminating, not merely reachable.
+`utility_json` returned bare `{"ok":true}` with no fence and no leaked reasoning,
+confirming the `_NO_THINKING` guard of §3 still holds. `garment_vision` returned
+`Boardwalk` for the NGC sample image.
+
+**`EMBEDDING` was probed directly** (the verifier skips it: `--live` only walks
+`chat/completions` endpoints, so this role had no live proof in §9 either).
+`POST /v1/embeddings` with the registry's own params (`encoding_format: float`,
+`input_type: query`) → **HTTP 200 in 0.42 s**, 2 vectors, **2048 dims**,
+`usage.total_tokens = 11`. The 2048-dim claim in §1 is now measured, not asserted.
+
+**Latency variance is the real finding of this pass.** `z-ai/glm-5.3` measured
+226.2 s on 2026-10-07 and 9.78 s today — a 23× swing on the same prompt and
+credentials. `muse-glimmer-30b` moved the other way, 41.6 s → 67.2 s. These are
+shared NIM workers, so per-request latency is not a stable property of the model.
+This does not change any binding — every affected role is offline-only — but it
+is the evidence for keeping them offline: a role that is sometimes 23× slower
+cannot be placed behind a 4.0 s `AI_PROVIDER_TIMEOUT_SECONDS`.
+
+**§1 correction made in this pass.** The `TRANSLATION` row of the §1 table still
+named `nemotron-3-super-120b-a12b` as primary, contradicting both the registry
+(`ultra` → `super` → `riva`) and §9.1, which states in terms that super "is
+**not** promoted to translation primary" because of its `Message:` prefix and the
+`فرح` false friend. The table row was stale, not the code. It now matches
+`registry.py`.
+
+**Deployment state.** `POST .../env/{id}` returned 200 for all 19 slots; the other
+131 project env vars are untouched (150 total before and after), so the
+OpenAI / Gemini / Groq / legacy `NVIDIA_*` credentials were preserved. Vercel
+stores these as `type: sensitive` / `decrypted: false`, so the platform will not
+return the stored values — equality with the local set cannot be read back, only
+guaranteed by the write. The running production deployment predates the write and
+picks it up on the next deploy.
+
+**Proved live, end to end:** `GET /api/v1/health` → 200 `ready: true`, database
+healthy; `GET /api/v1/catalog/capabilities` → `ai_stylist_live: true`,
+`ai_stylist_state: "ready"`.
+
+**Still not proved, and not claimed:** as in §9, the vision and safety roles have
+live *endpoint* proof but no end-to-end *production* proof — that needs real
+uploads through an authenticated session. `ai_stylist_state: "ready"` is
+likewise weaker than it looks: `ai_readiness.probe_now()` calls `GET /v1/models`,
+which answers 200 for any valid key whether or not the routed model still exists
+(§0). Model-level truth is this document's verifier, not the readiness flag.

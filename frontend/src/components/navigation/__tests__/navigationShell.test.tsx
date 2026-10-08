@@ -151,7 +151,14 @@ describe('RoleGuard role matrix', () => {
     expect(screen.queryByTestId('tenant-content')).toBeNull();
     // The partner value proposition + request form, not the generic wall.
     expect(screen.getByText(i18n.t('partner.hero_title'))).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: i18n.t('partner.request_partnership') })).toBeInTheDocument();
+    // The redesigned gateway (B01) deliberately places the primary CTA twice —
+    // once in the masthead so it is above the fold, once in the closing tier.
+    // Two same-named controls is the design, so assert presence, not uniqueness.
+    expect(
+      screen.getAllByRole('button', { name: i18n.t('partner.request_partnership') }).length,
+    ).toBeGreaterThanOrEqual(2);
+    // And the form itself, which is the actual conversion instrument.
+    expect(screen.getByTestId('lead-form')).toBeInTheDocument();
   });
 
   it('bootstrap in flight: a polite verifying state — never a premature auth wall', () => {

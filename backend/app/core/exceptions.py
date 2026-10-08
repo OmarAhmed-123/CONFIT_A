@@ -255,3 +255,34 @@ class DeliveryGoneError(ConfitException):
             details={"reason": reason},
             status_code=status.HTTP_410_GONE
         )
+
+
+class RateLimitExceededError(ConfitException):
+    """A caller exceeded a request ceiling. Status 429, never 422.
+
+    WHY THIS IS NOT A ValidationDomainError
+    ---------------------------------------
+    The public partner-lead throttle (``partner_lead_service``: at most 5
+    submissions per hashed IP per hour) was raised as a
+    ``ValidationDomainError``, which maps to **422 VALIDATION_ERROR** — the
+    same status and code the endpoint returns for a malformed email address.
+    The two are indistinguishable to a client, so the B01 gateway could not
+    tell "fix this field" from "stop and wait", and rendered both as one
+    generic error with a retry affordance. Retrying a rate limit is not just
+    useless, it extends the window.
+
+    429 is the semantically correct status: it tells the client the request
+    was well-formed but must not be repeated yet, and it lets intermediaries
+    honour ``Retry-After``. The message stays in English because it is a
+    machine-facing diagnostic; the client renders its own translated copy and
+    branches on ``code``, never on this string.
+    """
+
+    def __init__(self, message: str, retry_after_seconds: Optional[int] = None,
+                 scope: str = "request"):
+        super().__init__(
+            message,
+            code="RATE_LIMITED",
+            details={"retry_after_seconds": retry_after_seconds, "scope": scope},
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+        )

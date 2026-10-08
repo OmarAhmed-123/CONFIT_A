@@ -8,7 +8,7 @@ from typing import Any, Dict, Optional
 from sqlalchemy.orm import Session
 
 from backend.app.core.config import settings
-from backend.app.core.exceptions import ValidationDomainError
+from backend.app.core.exceptions import RateLimitExceededError
 from backend.app.models.user import AuditLog
 from backend.app.services.email_service import EmailDeliveryError, is_email_configured, send_email
 
@@ -53,13 +53,34 @@ class PartnerLeadService:
         duplicate = self._recent_duplicate(email, now)
         ip_hash = self._hash_ip(ip)
         if ip_hash:
-            recent_ip_count = (
-                self.db.query(AuditLog)
-                .filter(AuditLog.action == "partner_request_demo", AuditLog.ip_address == ip_hash, AuditLog.timestamp >= now - timedelta(hours=1))
-                .count()
+            window_start = now - timedelta(hours=1)
+            recent_rows = (
+                self.db.query(AuditLog.timestamp)
+                .filter(AuditLog.action == "partner_request_demo", AuditLog.ip_address == ip_hash, AuditLog.timestamp >= window_start)
+                .order_by(AuditLog.timestamp.asc())
+                .all()
             )
-            if recent_ip_count >= 5:
-                raise ValidationDomainError("Too many partner-demo requests from this network. Please try again later.")
+            if len(recent_rows) >= 5:
+                # 429, not 422: this is a ceiling, not a malformed field. See
+                # RateLimitExceededError — the client must be able to tell
+                # "fix this input" from "stop and wait", because retrying a
+                # rate limit extends the window instead of clearing it.
+                #
+                # Retry-After is COMPUTED, not guessed: the ceiling is a
+                # sliding one-hour window, so the caller is unblocked when the
+                # OLDEST of the five counted requests ages out of it. Telling
+                # them a flat "try later" when we can name the real moment is
+                # withholding information we already have.
+                oldest = recent_rows[0][0]
+                if oldest.tzinfo is None:
+                    oldest = oldest.replace(tzinfo=timezone.utc)
+                elapsed = (now - oldest).total_seconds()
+                retry_after = max(60, int(3600 - elapsed))
+                raise RateLimitExceededError(
+                    "Too many partner-demo requests from this network. Please try again later.",
+                    retry_after_seconds=retry_after,
+                    scope="partner_lead_ip",
+                )
         details = {
             "company_name": company,
             "contact_name": str(payload["contact_name"]).strip(),

@@ -283,6 +283,9 @@ describe("OutfitBuilderView — behavioral contract (C04)", () => {
   });
 
   it("COUNTER-GOAL no fake success: the save CTA shows pending until the server resolves, then success — and sends the real SKU ids", async () => {
+    act(() => {
+      useAuthStore.setState({ isAuthenticated: true } as any);
+    });
     let resolveSave!: (v: unknown) => void;
     saveOutfitMock.mockImplementation(
       () => new Promise((res) => (resolveSave = res)),
@@ -473,7 +476,26 @@ describe("OutfitBuilderView — behavioral contract (C04)", () => {
     await waitFor(() => expect(addAll.getAttribute("aria-busy")).toBe("false"));
   });
 
+  it("GUEST honesty: composing as a guest fires NO verdict/compatibility calls (no 401 -> login modal) and the cohesion card says sign-in is needed", async () => {
+    renderBuilder();
+    await addByName("Navy Blazer");
+    await screen.findByRole("button", {
+      name: en("outfit_builder.remove_item_aria", { item: "Navy Blazer", slot: en("outfit_builder.slot_outerwear") }),
+    });
+    // The defect observed on production: these background calls returned 401
+    // for guests and the global session-expired handler opened the login
+    // modal mid-composition. The contract is now: guests never trigger them.
+    expect(previewCompositionMock).not.toHaveBeenCalled();
+    expect(checkCompatibilityMock).not.toHaveBeenCalled();
+    expect(
+      screen.getAllByText(en("outfit_builder.sign_in_to_evaluate")).length,
+    ).toBeGreaterThan(0);
+  });
+
   it("BLOCKED verdict: an invalid composition shows the translated alert title and disables save", async () => {
+    act(() => {
+      useAuthStore.setState({ isAuthenticated: true } as any);
+    });
     previewCompositionMock.mockResolvedValue({
       is_valid: false,
       violations: [{ code: "DUP_SLOT", positions: [1], message: "Two footwear pieces." }],

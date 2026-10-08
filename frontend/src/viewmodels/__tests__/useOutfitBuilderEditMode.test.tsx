@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 /**
  * OUTFIT-03/04 — editing an existing look, and honest save gating.
@@ -44,6 +44,7 @@ vi.mock('../../stores/cartStore', () => ({
 
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { useOutfitBuilderViewModel } from '../useOutfitBuilderViewModel';
+import { useAuthStore } from '../../stores/authStore';
 
 const VALID = {
   is_valid: true,
@@ -80,8 +81,15 @@ const product = (id: number, category: string) => ({
 
 describe('BUILDER edit mode + server-authoritative save gating', () => {
   beforeEach(() => {
+    // C04 contract: automatic verdict/compatibility calls fire ONLY for an
+    // authenticated user (guests were getting 401 -> login modal on prod).
+    useAuthStore.setState({ isAuthenticated: true } as any);
     vi.clearAllMocks();
     previewCompositionMock.mockResolvedValue(VALID);
+  });
+
+  afterEach(() => {
+    useAuthStore.setState({ isAuthenticated: false } as any);
   });
 
   it('hydrates the canvas from the saved look being edited', async () => {

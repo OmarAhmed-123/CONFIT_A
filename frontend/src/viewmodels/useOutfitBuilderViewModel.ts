@@ -5,6 +5,7 @@ import { stylistService, catalogService } from '../services/apiServices';
 import { CompositionVerdict, Product, ProductSKU } from '../models';
 import { useUIStore } from '../stores/uiStore';
 import { useCartStore } from '../stores/cartStore';
+import { useAuthStore } from '../stores/authStore';
 
 export interface CanvasItem {
   product: Product;
@@ -52,6 +53,14 @@ export function useOutfitBuilderViewModel(
 
   const { showToast } = useUIStore();
   const { addItem, openCart } = useCartStore();
+  // C04 (prod-observed defect): the composition-verdict and compatibility
+  // endpoints require an account, so for a GUEST every canvas change fired a
+  // 401 → the api client's transparent session refresh failed → the global
+  // session-expired handler opened the LOGIN MODAL in the shopper's face,
+  // interrupting composition. Guests never get those automatic calls now;
+  // the cohesion card states honestly that scoring needs an account, and
+  // only a deliberate action (save) routes into authentication.
+  const { isAuthenticated } = useAuthStore();
 
   // Calculate live running budget
   const runningTotal = useMemo(() => {
@@ -252,6 +261,10 @@ export function useOutfitBuilderViewModel(
 
   // Server-authoritative composition validity for the current canvas.
   useEffect(() => {
+    if (!isAuthenticated) {
+      setVerdict(null);
+      return;
+    }
     const ready = selectedItems.filter((i) => i.skuStatus === 'ready' && i.selectedSku);
     if (ready.length === 0) {
       setVerdict(null);
@@ -265,11 +278,11 @@ export function useOutfitBuilderViewModel(
     return () => {
       cancelled = true;
     };
-  }, [selectedItems]);
+  }, [selectedItems, isAuthenticated]);
 
   // Live evaluate compatibility whenever items or occasion change
   useEffect(() => {
-    if (selectedItems.length === 0) {
+    if (!isAuthenticated || selectedItems.length === 0) {
       setCompatibility(null);
       return;
     }
@@ -285,7 +298,7 @@ export function useOutfitBuilderViewModel(
       .catch(() => {
         setIsEvaluating(false);
       });
-  }, [selectedItems, targetOccasion]);
+  }, [selectedItems, targetOccasion, isAuthenticated]);
 
   const saveOutfit = useCallback(async () => {
     if (selectedItems.length === 0) return;

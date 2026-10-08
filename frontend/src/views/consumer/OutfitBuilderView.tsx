@@ -705,13 +705,17 @@ export const OutfitBuilderView: React.FC = () => {
                 </p>
               )}
 
+              {/* C04: scoring requires an account — guests get an HONEST
+                  sentence instead of background 401s that popped the login
+                  modal mid-composition (observed on production). */}
               <div className="space-y-3 text-xs">
                 <div>
                   <span className="font-bold text-slate-700 block mb-0.5">
                     {t('outfit_builder.color_harmony')}:
                   </span>
                   <p className="text-slate-500 leading-relaxed bg-[#FAF9F6] p-2.5 rounded-xl border border-slate-100 font-light">
-                    {compatibility?.color_harmony_verdict || t('outfit_builder.harmony_empty')}
+                    {compatibility?.color_harmony_verdict ||
+                      t(isAuthenticated ? 'outfit_builder.harmony_empty' : 'outfit_builder.sign_in_to_evaluate')}
                   </p>
                 </div>
 
@@ -720,7 +724,8 @@ export const OutfitBuilderView: React.FC = () => {
                     {t('outfit_builder.aesthetic_synergy')}:
                   </span>
                   <p className="text-slate-500 leading-relaxed bg-[#FAF9F6] p-2.5 rounded-xl border border-slate-100 font-light">
-                    {compatibility?.aesthetic_consistency_verdict || t('outfit_builder.synergy_empty')}
+                    {compatibility?.aesthetic_consistency_verdict ||
+                      t(isAuthenticated ? 'outfit_builder.synergy_empty' : 'outfit_builder.sign_in_to_evaluate')}
                   </p>
                 </div>
               </div>

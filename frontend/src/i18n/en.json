@@ -261,7 +261,8 @@
     "match_label": "Match",
     "add_look_to_bag": "Add complete look to bag ({{total}})",
     "wrong_slot": "“{{title}}” doesn’t belong in the {{slot}} slot.",
-    "default_look_name": "My New Look"
+    "default_look_name": "My New Look",
+    "sign_in_to_evaluate": "Sign in to score color harmony and cohesion for this look."
   },
   "tryon": {
     "title": "Virtual Try-On Studio",

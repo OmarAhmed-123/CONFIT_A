@@ -261,7 +261,8 @@
     "match_label": "تطابق",
     "add_look_to_bag": "أضف الإطلالة كاملة إلى الحقيبة ({{total}})",
     "wrong_slot": "القطعة «{{title}}» لا تناسب خانة {{slot}}.",
-    "default_look_name": "إطلالتي الجديدة"
+    "default_look_name": "إطلالتي الجديدة",
+    "sign_in_to_evaluate": "سجّل الدخول لتقييم تناغم الألوان وتماسك هذه الإطلالة."
   },
   "tryon": {
     "title": "استوديو القياس الافتراضي (Try-On)",

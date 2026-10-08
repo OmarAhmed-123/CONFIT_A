@@ -15,7 +15,7 @@
  *     total while remaining invisible. The view now renders the accessory
  *     slot; this test pins the view-model slot taxonomy that backs it.
  */
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 const { checkCompatibilityMock, saveOutfitMock, getProductDetailMock, addItemMock, openCartMock } = vi.hoisted(() => ({
   checkCompatibilityMock: vi.fn().mockResolvedValue({ compatibility_score: 88 }),
@@ -63,6 +63,7 @@ vi.mock('../../stores/cartStore', () => ({
 import { renderHook, act } from '@testing-library/react';
 import { useOutfitBuilderViewModel } from '../useOutfitBuilderViewModel';
 import { Product, ProductSKU } from '../../models';
+import { useAuthStore } from '../../stores/authStore';
 
 const skuOf = (id: number): ProductSKU => ({
   id: id * 100,
@@ -107,7 +108,14 @@ const tie = makeProduct(6, 'Accessories', 75);
 
 describe('BUILDER: slot taxonomy & canvas state transitions', () => {
   beforeEach(() => {
+    // C04 contract: automatic verdict/compatibility calls fire ONLY for an
+    // authenticated user (guests were getting 401 -> login modal on prod).
+    useAuthStore.setState({ isAuthenticated: true } as any);
     vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    useAuthStore.setState({ isAuthenticated: false } as any);
   });
 
   it('maps every seeded category to its natural slot, accessories included', () => {

@@ -1,5 +1,6 @@
 import { msg, detail, TranslatableMessage } from '../i18n/messages';
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import i18n from '../i18n/i18n';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { stylistService, catalogService } from '../services/apiServices';
 import { CompositionVerdict, Product, ProductSKU } from '../models';
 import { useUIStore } from '../stores/uiStore';
@@ -26,8 +27,18 @@ export function useOutfitBuilderViewModel(
   editingOutfitId?: number,
 ) {
   const [selectedItems, setSelectedItems] = useState<CanvasItem[]>([]);
-  const [targetOccasion, setTargetOccasion] = useState('Smart Casual Work');
-  const [outfitTitle, setOutfitTitle] = useState('My Custom Tailored Ensemble');
+  // C04: the defaults were hard-coded ENGLISH ('Smart Casual Work', 'My
+  // Custom Tailored Ensemble'), so the Arabic UI opened with an English look
+  // name AND an occasion string that matched none of the (translated) select
+  // options — the select silently displayed the first option while the state
+  // held something else. Initialise from the live locale instead. Lazy
+  // initialisers: evaluated once at mount, in the mount-time language.
+  const [targetOccasion, setTargetOccasion] = useState(() =>
+    i18n.t('outfit_builder.occasion_smart_casual'),
+  );
+  const [outfitTitle, setOutfitTitle] = useState(() =>
+    i18n.t('outfit_builder.default_look_name'),
+  );
   const [compatibility, setCompatibility] = useState<any>(null);
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -328,8 +339,16 @@ export function useOutfitBuilderViewModel(
     }
   }, [selectedItems, outfitTitle, targetOccasion, showToast, verdict, editingOutfitId]);
 
+  // C04: without an in-flight guard a double-click ran the add loop twice
+  // and every piece landed in the bag with quantity 2 — the exact
+  // "double-submit duplicates" counter-goal. State drives the disabled/busy
+  // UI; the ref closes the race between the two synchronous click handlers.
+  const [isAddingAll, setIsAddingAll] = useState(false);
+  const addAllInFlight = useRef(false);
+
   const addAllToCart = useCallback(async () => {
     if (selectedItems.length === 0) return;
+    if (addAllInFlight.current) return;
     if (selectedItems.some((i) => i.skuStatus === 'pending')) {
       showToast(msg('toast.confirming_sizes'), 'error');
       return;
@@ -340,21 +359,30 @@ export function useOutfitBuilderViewModel(
       showToast(msg('toast.no_item_has_size'), 'error');
       return;
     }
-    for (const item of ready) {
-      await addItem(item.selectedSku!.id, {
-        id: item.product.id,
-        title: item.product.title,
-        category: item.product.category_name,
-        color: item.product.color_family,
-      });
+    addAllInFlight.current = true;
+    setIsAddingAll(true);
+    try {
+      for (const item of ready) {
+        await addItem(item.selectedSku!.id, {
+          id: item.product.id,
+          title: item.product.title,
+          category: item.product.category_name,
+          color: item.product.color_family,
+        });
+      }
+      // C04: these two toasts were raw English template literals — the only
+      // untranslated strings left in this viewmodel. Keyed like every other.
+      showToast(
+        skipped > 0
+          ? msg('toast.builder_added_partial', { count: ready.length, skipped })
+          : msg('toast.builder_added_to_bag', { count: ready.length }),
+        skipped > 0 ? 'info' : 'success'
+      );
+      openCart();
+    } finally {
+      addAllInFlight.current = false;
+      setIsAddingAll(false);
     }
-    showToast(
-      skipped > 0
-        ? `Added ${ready.length} items to Bag. ${skipped} skipped (size unavailable).`
-        : `Added ${ready.length} items from builder to Bag!`,
-      skipped > 0 ? 'info' : 'success'
-    );
-    openCart();
   }, [selectedItems, addItem, openCart, showToast]);
 
   return {
@@ -369,6 +397,7 @@ export function useOutfitBuilderViewModel(
     compatibility,
     isEvaluating,
     isSaving,
+    isAddingAll,
     isLoadingExisting,
     loadError,
     verdict,

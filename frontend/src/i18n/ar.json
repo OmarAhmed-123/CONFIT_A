@@ -237,7 +237,31 @@
     "update_look": "تحديث الإطلالة",
     "saving": "جارٍ الحفظ…",
     "saved_confirm": "تم حفظ الإطلالة",
-    "save_failed_retry": "تعذّر الحفظ — حاول مرة أخرى"
+    "save_failed_retry": "تعذّر الحفظ — حاول مرة أخرى",
+    "loading_look": "جارٍ تحميل هذه الإطلالة…",
+    "back_to_my_looks": "العودة إلى إطلالاتي",
+    "guided_intro": "تخطَّ الكانفاس الفارغ: ابدأ من هيكل مجرّب، ثم اضبط المقاس والميزانية وتناغم الألوان.",
+    "use_formula": "استخدم {{name}}",
+    "formula_tailored": "أناقة رسمية",
+    "formula_smart_casual": "كاجوال أنيق",
+    "formula_evening": "عشاء مسائي",
+    "formula_title": "تركيبة {{name}}",
+    "formula_nothing_added": "لا توجد قطع في الكتالوج تناسب هذه التركيبة بعد.",
+    "checking_size": "جارٍ التحقق من المقاس…",
+    "size_label": "المقاس {{size}}",
+    "drop_or_enter_hint": "أسقط قطعة هنا، أو اضغط Enter على منتج محدد",
+    "verdict_warning_title": "تنبيه",
+    "verdict_blocked_title": "لا يمكن حفظ هذه الإطلالة بعد",
+    "palette_empty": "لا توجد قطع متاحة في الكتالوج حالياً.",
+    "look_summary": "ملخص الإطلالة",
+    "awaiting_items": "بانتظار القطع",
+    "harmony_empty": "أضف قطعاً إلى الكانفاس لتقييم تناغم الألوان.",
+    "synergy_empty": "يُقيَّم تماسك الإطلالة بعد إضافة قطع إليها.",
+    "evaluating": "جارٍ تقييم التماسك…",
+    "match_label": "تطابق",
+    "add_look_to_bag": "أضف الإطلالة كاملة إلى الحقيبة ({{total}})",
+    "wrong_slot": "القطعة «{{title}}» لا تناسب خانة {{slot}}.",
+    "default_look_name": "إطلالتي الجديدة"
   },
   "tryon": {
     "title": "استوديو القياس الافتراضي (Try-On)",
@@ -884,7 +908,9 @@
     "wardrobe_import_all_failed": "فشل استيراد الإطلالة — لم يتم حفظ أي قطع.",
     "slot_cleared": "تمت إزالة {{title}} من اللوحة",
     "slot_restored": "عادت {{title}} إلى اللوحة",
-    "bag_quantity_merged": "موجود في حقيبتك بالفعل — الكمية الآن {{count}}"
+    "bag_quantity_merged": "موجود في حقيبتك بالفعل — الكمية الآن {{count}}",
+    "builder_added_to_bag": "تمت إضافة {{count}} قطعة من المنشئ إلى حقيبتك.",
+    "builder_added_partial": "تمت إضافة {{count}} قطعة إلى حقيبتك، وتم تخطي {{skipped}} (المقاس غير متاح)."
   },
   "consent": {
     "title": "قبل أن نعالج صورتك",

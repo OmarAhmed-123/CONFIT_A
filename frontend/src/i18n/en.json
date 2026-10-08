@@ -237,7 +237,31 @@
     "update_look": "Update look",
     "saving": "Saving…",
     "saved_confirm": "Look saved",
-    "save_failed_retry": "Save failed — try again"
+    "save_failed_retry": "Save failed — try again",
+    "loading_look": "Loading this look…",
+    "back_to_my_looks": "Back to My Looks",
+    "guided_intro": "Skip the blank canvas: start from a proven structure, then refine fit, budget, and color harmony.",
+    "use_formula": "Use {{name}}",
+    "formula_tailored": "Tailored Power",
+    "formula_smart_casual": "Smart Casual",
+    "formula_evening": "Evening Dinner",
+    "formula_title": "{{name}} Formula",
+    "formula_nothing_added": "No catalog pieces fit this formula yet.",
+    "checking_size": "Checking size…",
+    "size_label": "Size {{size}}",
+    "drop_or_enter_hint": "Drop a piece here, or press Enter on a focused product",
+    "verdict_warning_title": "Heads up",
+    "verdict_blocked_title": "This look cannot be saved yet",
+    "palette_empty": "No catalog pieces are available right now.",
+    "look_summary": "Look summary",
+    "awaiting_items": "Awaiting items",
+    "harmony_empty": "Add pieces to the canvas to evaluate color harmony.",
+    "synergy_empty": "Look cohesion is scored once the outfit contains items.",
+    "evaluating": "Evaluating cohesion…",
+    "match_label": "Match",
+    "add_look_to_bag": "Add complete look to bag ({{total}})",
+    "wrong_slot": "“{{title}}” doesn’t belong in the {{slot}} slot.",
+    "default_look_name": "My New Look"
   },
   "tryon": {
     "title": "Virtual Try-On Studio",
@@ -884,7 +908,9 @@
     "wardrobe_import_all_failed": "Outfit import failed — no garments could be saved.",
     "slot_cleared": "Removed {{title}} from the canvas",
     "slot_restored": "{{title}} is back on the canvas",
-    "bag_quantity_merged": "Already in your bag — quantity is now {{count}}"
+    "bag_quantity_merged": "Already in your bag — quantity is now {{count}}",
+    "builder_added_to_bag": "Added {{count}} items from the builder to your bag.",
+    "builder_added_partial": "Added {{count}} items to your bag. {{skipped}} skipped (size unavailable)."
   },
   "consent": {
     "title": "Before we process your photo",

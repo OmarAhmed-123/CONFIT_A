@@ -199,13 +199,35 @@ export const PartnerGatewayView: React.FC = () => {
           <figure className="col-span-12 lg:col-span-8">
             {/* 16:9 for the narrative sweep on desktop; 4:5 portrait on
                 mobile, where a tall crop holds attention in a vertical
-                scroll. Decorative only, so alt="" — it carries no claim the
-                analytics could not support. */}
+                scroll. Decorative only, so aria-hidden — it carries no claim
+                the analytics could not support.
+
+                PASS 2 (D19): this used to wear `skeleton-shimmer`, whose
+                `confit-shimmer` keyframe is `infinite`. A skeleton is a
+                promise that content is arriving; there is no image behind
+                this and never was, so the page animated a loading state
+                forever — a permanent repaint for a lie, and the one thing a
+                skeleton must never be. The `hover:scale-[1.03]` next to it
+                was a contextual zoom with nothing to zoom. Both removed.
+
+                What is left is honest: a deliberate brand composition in the
+                register's own three colours, presented as a surface rather
+                than as media pretending to load. */}
             <div
               aria-hidden="true"
-              className="skeleton-shimmer aspect-[4/5] overflow-hidden rounded-[20px] bg-[#E1E5F2] lg:aspect-[16/9]"
+              className="relative aspect-[4/5] overflow-hidden rounded-[20px] bg-[#1B1F3B] lg:aspect-[16/9]"
             >
-              <div className="h-full w-full bg-gradient-to-br from-[#1B1F3B] via-[#3D5296] to-[#B8935A] opacity-90 transition-transform duration-[520ms] ease-luxury hover:scale-[1.03]" />
+              <div className="absolute inset-0 bg-gradient-to-br from-[#1B1F3B] via-[#3D5296] to-[#B8935A]" />
+              {/* Hairline register rule, bottom-aligned: the same motif the
+                  masthead eyebrow uses, so the panel reads as part of the
+                  register system rather than as an unexplained colour block. */}
+              <span className="absolute inset-x-8 bottom-8 h-px bg-white/35" />
+              {/* Reuses the existing badge key rather than adding copy: the
+                  panel is decorative, so it signs the register, it does not
+                  start a new sentence. */}
+              <span className="absolute bottom-12 start-8 text-[0.625rem] font-bold uppercase tracking-[0.2em] text-white/75">
+                {t("partner.portal_badge")}
+              </span>
             </div>
           </figure>
 
@@ -252,7 +274,7 @@ export const PartnerGatewayView: React.FC = () => {
                     </span>
                     <ChevronDown
                       aria-hidden="true"
-                      className="shrink-0 text-slate-400 transition-transform duration-[260ms] ease-luxury"
+                      className="shrink-0 text-slate-500 transition-transform duration-[260ms] ease-luxury group-hover:text-[var(--register-ink)]"
                       style={{ transform: isOpen ? "rotate(180deg)" : "rotate(0deg)" }}
                     />
                   </button>

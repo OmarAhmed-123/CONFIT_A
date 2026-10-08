@@ -1,8 +1,17 @@
 from datetime import datetime, timezone
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Sequence
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import or_, desc, asc
-from backend.app.models.catalog import Category, Product, ProductSKU, StoreLocation, StoreInventory, RecentlyViewed
+from backend.app.models.catalog import (
+    Category,
+    Product,
+    ProductImage,
+    ProductSKU,
+    StoreLocation,
+    StoreInventory,
+    RecentlyViewed,
+)
+from backend.app.services.product_media_service import order_media, primary_url
 from backend.app.models.user import BrandProfile
 
 
@@ -30,6 +39,47 @@ def purchasable_criterion():
 class CatalogRepository:
     def __init__(self, db: Session):
         self.db = db
+
+    def images_for_product(self, product_id: int) -> List[ProductImage]:
+        """The registered media set for one product (empty when none exists).
+
+        Rows are returned in the gallery order defined by
+        ``services.product_media_service`` — primary first, then the ratio
+        ladder — so every caller (product page, media route, verification
+        script) sees the same first image and the same set.
+        """
+        rows = (
+            self.db.query(ProductImage)
+            .filter(ProductImage.product_id == product_id)
+            .all()
+        )
+        return order_media(rows)
+
+    def primary_media_urls(self, product_ids: Sequence[int]) -> Dict[int, str]:
+        """Hero URL per product in ONE query (list pages must not fan out).
+
+        The list endpoint serves up to 100 products; resolving each one's hero
+        with a separate query would turn one page render into 100 round trips.
+        The ratio/format preference is applied in Python so the same rule that
+        orders a gallery also picks the card image — the card and the first
+        gallery frame can therefore never disagree.
+        """
+        ids = [pid for pid in dict.fromkeys(product_ids) if pid is not None]
+        if not ids:
+            return {}
+        rows = (
+            self.db.query(ProductImage)
+            .filter(ProductImage.product_id.in_(ids))
+            .all()
+        )
+        grouped: Dict[int, List[ProductImage]] = {}
+        for row in rows:
+            grouped.setdefault(row.product_id, []).append(row)
+        return {
+            pid: url
+            for pid, group in grouped.items()
+            if (url := primary_url(order_media(group))) is not None
+        }
 
     def get_categories(self) -> List[Category]:
         return self.db.query(Category).all()

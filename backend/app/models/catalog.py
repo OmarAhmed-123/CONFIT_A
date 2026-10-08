@@ -88,6 +88,67 @@ class Product(Base):
     category = relationship("Category", back_populates="products")
     skus = relationship("ProductSKU", back_populates="product", cascade="all, delete-orphan")
     sponsored_placements = relationship("SponsoredPlacement", back_populates="product")
+    media = relationship(
+        "ProductImage",
+        back_populates="product",
+        cascade="all, delete-orphan",
+        order_by="ProductImage.id",
+    )
+
+
+class ProductImage(Base):
+    """One derived asset of a product's media set — the REAL storefront media.
+
+    WHY THIS MODEL EXISTS
+    ---------------------
+    The table has existed in production since the seeding pass that derived five
+    ratios (4:5, 1:1, 3:2, 16:9, master) in two formats (jpeg, webp) for every
+    product and recorded width/height/bytes/checksum/attribution for each. It
+    was, however, modelled NOWHERE in the application: no ORM class, no query, no
+    route. MEASURED 2026-10-08 against production: the storefront served the
+    legacy single stock ``thumbnail_url`` (25.9% of rendered images contradicted
+    their own aspect ratio — 52 of 201), while 120 professionally derived assets
+    sat unreferenced in the bucket, and every ``public_url`` in this table
+    answered HTTP 404 because the ``/api/v1/media/...`` route it advertised had
+    never been written.
+
+    So the column that holds ONE url (legacy) was read, and the table that holds
+    the correct multi-ratio set was not. This class is the missing link: it makes
+    the registry queryable, which lets the catalogue serve the derived set and
+    the media route prove a key exists before reading the bucket.
+
+    NOTE ON ``checksum``: it is the first 32 hex characters of the object's
+    SHA-256 (verified by recomputing all 120 objects on 2026-10-08: every row
+    matched its object's digest prefix). It is therefore a real integrity
+    fingerprint, but a TRUNCATED one — verification must compare the prefix, and
+    ``scripts/verify_product_media.py`` does exactly that. The column is exposed
+    as the response ETag for the same reason: it changes when the bytes change.
+    """
+
+    __tablename__ = "product_images"
+
+    id = Column(Integer, primary_key=True, index=True)
+    product_id = Column(Integer, ForeignKey("products.id", ondelete="CASCADE"), nullable=False, index=True)
+    storage_key = Column(String(500), nullable=False, unique=True)
+    public_url = Column(String(1000), nullable=False)
+    #: 4x5 | 1x1 | 3x2 | 16x9 | master — the design system's official ladder.
+    ratio = Column(String(10), nullable=False)
+    format = Column(String(10), nullable=False)
+    width = Column(Integer, nullable=False)
+    height = Column(Integer, nullable=False)
+    bytes = Column(Integer, nullable=False)
+    #: hero (the primary card/first-frame asset) | gallery | detail
+    role = Column(String(20), nullable=False)
+    is_primary = Column(Boolean, default=False, nullable=False)
+    #: stock | own | partner — WHO the picture belongs to. Never inferred in the UI.
+    source_type = Column(String(20), nullable=False)
+    provider = Column(String(40), nullable=True)
+    source_ref = Column(String(500), nullable=True)
+    attribution = Column(String(200), nullable=True)
+    checksum = Column(String(64), nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+
+    product = relationship("Product", back_populates="media")
 
 
 class ProductSKU(Base):

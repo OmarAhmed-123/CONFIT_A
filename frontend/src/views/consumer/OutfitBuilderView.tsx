@@ -73,6 +73,17 @@ const FORMULAS: Array<{ id: string; labelKey: string }> = [
 const FOCUS_RING =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059] focus-visible:ring-offset-2';
 
+/* ── C04 pass 2: page-scoped design tokens (DRY) ─────────────────────────
+   One easing curve, one surface recipe, one hover-lift recipe — declared
+   once, composed everywhere. The curve matches the house motion system in
+   styles/index.css (confit-fade-in / confit-slide-up / skeleton-shimmer),
+   so the page animates as ONE material, not five competing ones.
+   `motion-safe:` keeps every spatial move out of reduced-motion sessions. */
+const LUX_EASE = 'ease-[cubic-bezier(0.25,1,0.5,1)]';
+const SURFACE = 'bg-white rounded-3xl border border-slate-200/80 shadow-sm';
+const LIFT = `motion-safe:transition-[transform,box-shadow,border-color] motion-safe:duration-300 ${LUX_EASE} hover:-translate-y-0.5 hover:shadow-md`;
+const MEDIA_ZOOM = `motion-safe:transition-transform motion-safe:duration-500 ${LUX_EASE} group-hover:scale-[1.04]`;
+
 /** C6 — a draggable catalog product. Also a real <button>: keyboard users
  * press Enter/Space to add via the same ViewModel path (the accessible
  * fallback for pointer drag). */
@@ -107,20 +118,22 @@ const DraggableProduct: React.FC<{
         {...attributes}
         onClick={() => onAdd(product)}
         aria-label={t('outfit_builder.add_to_outfit', { name: product.title })}
-        className={`w-full text-start bg-[#FAF9F6] border rounded-2xl p-2 cursor-grab transition-all flex flex-col justify-between ${FOCUS_RING} ${
+        className={`w-full text-start bg-[#FAF9F6] border rounded-2xl p-2 cursor-grab flex flex-col justify-between group ${FOCUS_RING} ${
           isDragging
-            ? 'opacity-50 border-[#C5A059] shadow-lg z-50'
-            : 'border-slate-200/80 hover:border-[#C5A059] hover:shadow-sm'
+            ? 'opacity-50 border-[#C5A059] shadow-lg z-50 transition-all'
+            : `border-slate-200/80 hover:border-[#C5A059] ${LIFT}`
         }`}
       >
         <div className="h-28 rounded-xl overflow-hidden bg-white mb-1.5 relative w-full">
           {/* C04: raw <img> → HonestProductImage. A dead catalog URL now shows
-              the translated explicit placeholder, never a broken-image glyph. */}
+              the translated explicit placeholder, never a broken-image glyph.
+              Pass 2: contextual media zoom on hover — the garment leans in,
+              the card itself lifts; both on the house curve, both motion-safe. */}
           <HonestProductImage
             src={product.thumbnail_url}
             alt={product.title}
             unavailableLabel={t('common.image_unavailable')}
-            className="w-full h-full object-cover"
+            className={`w-full h-full object-cover ${MEDIA_ZOOM}`}
           />
           <span className="absolute bottom-1 start-1 px-1.5 py-0.5 rounded bg-black/60 text-[9px] text-white font-medium">
             {t('outfit_builder.drag_or_enter')}
@@ -158,7 +171,7 @@ const DraggableProduct: React.FC<{
         aria-label={t(tryOnKind === 'render' ? 'tryon.cta_try_on' : 'tryon.cta_fit_check')}
         className={`absolute top-0.5 end-0.5 h-11 w-11 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed group/tryon ${FOCUS_RING}`}
       >
-        <span className="h-7 w-7 rounded-full bg-[#1B1F3B]/90 group-hover/tryon:bg-[#C5A059] text-white group-hover/tryon:text-slate-950 shadow-sm backdrop-blur-sm transition-all flex items-center justify-center">
+        <span className="h-7 w-7 rounded-full bg-[#1B1F3B]/90 group-hover/tryon:bg-[#C5A059] text-white group-hover/tryon:text-slate-950 shadow-sm backdrop-blur-sm motion-safe:transition-[background-color,color] motion-safe:duration-300 flex items-center justify-center">
           {tryOnKind === 'render'
             ? <TryOnIcon size={13} color="currentColor" />
             : <RulerIcon size={13} color="currentColor" />}
@@ -168,23 +181,29 @@ const DraggableProduct: React.FC<{
   );
 };
 
-/** C6 — a droppable outfit slot with keyboard removal and live highlighting. */
+/** C6 — a droppable outfit slot with keyboard removal and live highlighting.
+ * C04 pass 2: a `variant` breaks the five-identical-cards monotony. The
+ * outerwear slot becomes the PORTRAIT visual anchor (fashion 4:5 energy,
+ * double height) while the rest tier down — an editorial composition, not a
+ * uniform grid. Grid placement itself lives on the parent via gridArea. */
 const DroppableSlot: React.FC<{
   slot: { key: SlotKey; labelKey: string };
   item?: CanvasItem;
   onRemove: (slot: SlotKey) => void;
-}> = ({ slot, item, onRemove }) => {
+  variant?: 'portrait' | 'standard';
+}> = ({ slot, item, onRemove, variant = 'standard' }) => {
   // The slot card is its own component, so it needs its own translator: the
   // container's `t` is not in scope here.
   const { t, i18n } = useTranslation();
   const lang = i18n.resolvedLanguage ?? 'en';
   const { setNodeRef, isOver } = useDroppable({ id: `slot-${slot.key}` });
+  const isPortrait = variant === 'portrait';
 
   return (
     <div
       ref={setNodeRef}
       data-testid={`slot-${slot.key}`}
-      className={`h-64 rounded-2xl border transition-all p-3 flex flex-col justify-between relative group ${
+      className={`${isPortrait ? 'min-h-[16rem] sm:min-h-0 sm:h-full' : 'h-64'} rounded-2xl border motion-safe:transition-[border-color,background-color,box-shadow] motion-safe:duration-300 ${LUX_EASE} p-3 flex flex-col justify-between relative group ${
         isOver
           ? 'border-[#C5A059] bg-[#C5A059]/10 ring-2 ring-[#C5A059]/40'
           : item
@@ -210,12 +229,14 @@ const DroppableSlot: React.FC<{
               ✕
             </span>
           </button>
-          <div className="h-36 w-full rounded-xl overflow-hidden bg-white my-auto shadow-sm">
+          <div
+            className={`${isPortrait ? 'h-36 sm:h-auto sm:flex-1 sm:min-h-0' : 'h-36'} w-full rounded-xl overflow-hidden bg-white my-auto shadow-sm confit-fade-in`}
+          >
             <HonestProductImage
               src={item.product.thumbnail_url}
               alt={item.product.title}
               unavailableLabel={t('common.image_unavailable')}
-              className="w-full h-full object-cover"
+              className={`w-full h-full object-cover ${MEDIA_ZOOM}`}
             />
           </div>
           <div className="text-center mt-1">
@@ -272,17 +293,21 @@ const BuilderSkeleton: React.FC<{ label: string }> = ({ label }) => (
       </div>
       <div className="h-9 w-32 rounded-xl bg-slate-200/80 motion-safe:animate-pulse" />
     </div>
+    {/* Pass 2: the skeleton mirrors the NEW asymmetric canvas — one portrait
+        anchor + four tiered tiles — and trades the flat pulse for the house
+        directional shimmer (already reduced-motion-safe globally). */}
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
       <div className="lg:col-span-7">
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          {SLOT_KEYS.map((k) => (
-            <div key={k} className="h-64 rounded-2xl bg-slate-100 motion-safe:animate-pulse" />
+        <div className="grid grid-cols-2 sm:grid-cols-6 gap-3 sm:[grid-auto-rows:minmax(8rem,auto)]">
+          <div className="col-span-2 sm:col-span-3 sm:row-span-2 min-h-[16rem] sm:min-h-0 sm:h-full rounded-2xl bg-slate-100 skeleton-shimmer" />
+          {SLOT_KEYS.slice(1).map((k) => (
+            <div key={k} className="col-span-1 sm:col-span-3 h-64 rounded-2xl bg-slate-100 skeleton-shimmer" />
           ))}
         </div>
       </div>
       <div className="lg:col-span-5 space-y-6">
-        <div className="h-40 rounded-3xl bg-slate-100 motion-safe:animate-pulse" />
-        <div className="h-64 rounded-3xl bg-slate-100 motion-safe:animate-pulse" />
+        <div className="h-40 rounded-3xl bg-slate-100 skeleton-shimmer" />
+        <div className="h-64 rounded-3xl bg-slate-100 skeleton-shimmer" />
       </div>
     </div>
   </div>
@@ -472,7 +497,7 @@ export const OutfitBuilderView: React.FC = () => {
           <button
             onClick={clearCanvas}
             disabled={selectedItems.length === 0}
-            className={`px-4 py-2 min-h-[44px] rounded-xl border border-slate-300 hover:bg-slate-100 disabled:opacity-40 text-xs font-semibold text-slate-700 transition-all ${FOCUS_RING}`}
+            className={`px-4 py-2 min-h-[44px] rounded-xl border border-slate-300 hover:bg-slate-100 active:scale-[0.98] disabled:opacity-40 text-xs font-semibold text-slate-700 motion-safe:transition-[background-color,transform] motion-safe:duration-300 ${LUX_EASE} ${FOCUS_RING}`}
           >
             {t('outfit_builder.clear_canvas')}
           </button>
@@ -497,13 +522,18 @@ export const OutfitBuilderView: React.FC = () => {
             }}
             icon={<SavedLooksIcon size={16} color="#0C0E1E" />}
             data-testid="save-look-cta"
-            className="px-5 py-2 rounded-xl bg-[#C5A059] hover:bg-[#A37E44] disabled:opacity-40 text-slate-950 font-bold text-xs shadow-sm transition-all"
+            className={`px-5 py-2 rounded-xl bg-[#C5A059] hover:bg-[#A37E44] active:scale-[0.98] disabled:opacity-40 text-slate-950 font-bold text-xs shadow-sm motion-safe:transition-[background-color,transform,opacity] motion-safe:duration-300 ${LUX_EASE}`}
           />
         </div>
       </div>
 
-      <section className="rounded-3xl border border-[#C5A059]/25 bg-white p-5 shadow-sm">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+      {/* C04 pass 2: the guided band sheds its third identical white card.
+          It is now an editorial strip — gold kicker, serif headline, a thin
+          gold hairline instead of a full border — structurally DIFFERENT
+          from the canvas and summary surfaces so the page reads as curated
+          tiers, not a stack of clones. Handlers and copy are unchanged. */}
+      <section className="relative ps-5 py-1 border-s-2 border-[#C5A059]/60">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <span className="text-[10px] font-bold uppercase tracking-widest text-[#7A5C28]">{t('outfit_builder.guided_mode')}</span>
             <h2 className="font-serif text-2xl font-bold text-[#1B1F3B]">{t('outfit_builder.replace_hint')}</h2>
@@ -516,7 +546,7 @@ export const OutfitBuilderView: React.FC = () => {
               <button
                 key={formula.id}
                 onClick={() => applyStarterFormula(t(formula.labelKey))}
-                className={`rounded-2xl bg-[#1B1F3B] px-4 py-2.5 min-h-[44px] text-xs font-bold text-white transition hover:bg-[#C5A059] hover:text-[#0C0E1E] ${FOCUS_RING}`}
+                className={`rounded-2xl bg-[#1B1F3B] px-4 py-2.5 min-h-[44px] text-xs font-bold text-white motion-safe:transition-[background-color,color,transform] motion-safe:duration-300 ${LUX_EASE} hover:bg-[#C5A059] hover:text-[#0C0E1E] active:scale-[0.98] ${FOCUS_RING}`}
               >
                 {t('outfit_builder.use_formula', { name: t(formula.labelKey) })}
               </button>
@@ -558,7 +588,7 @@ export const OutfitBuilderView: React.FC = () => {
           {/* Left: Interactive Outfit Canvas (7 cols) */}
           <div className="lg:col-span-7 space-y-6">
             {/* Canvas Title & Occasion */}
-            <div className="bg-white rounded-3xl border border-slate-200/80 p-5 shadow-sm space-y-3">
+            <div className={`${SURFACE} p-5 space-y-3`}>
               <div className="flex flex-col sm:flex-row gap-3">
                 {/* The name field previously had only a placeholder to identify
                     it. Chrome does expose the placeholder as the accessible name
@@ -591,21 +621,36 @@ export const OutfitBuilderView: React.FC = () => {
                 </select>
               </div>
 
-              {/* Canvas Silhouette Slots (droppable) */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-2">
-                {SLOTS.map((slot) => (
+              {/* Canvas Silhouette Slots (droppable).
+                  C04 pass 2 — editorial asymmetry instead of five identical
+                  tiles: the outerwear layer is the portrait ANCHOR (left
+                  column, double row, 4:5 media) and the remaining pieces
+                  tier down beside it, mirroring how a stylist pins a look on
+                  a board. Spans are logical (grid flows RTL automatically),
+                  and on mobile the anchor simply leads a 2-col stack. */}
+              <div className="grid grid-cols-2 sm:grid-cols-6 gap-3 pt-2 sm:[grid-auto-rows:minmax(8rem,auto)]">
+                <div className="col-span-2 sm:col-span-3 sm:row-span-2">
                   <DroppableSlot
-                    key={slot.key}
-                    slot={slot}
-                    item={selectedItems.find((i) => i.slot === slot.key)}
+                    slot={SLOTS[0]}
+                    item={selectedItems.find((i) => i.slot === SLOTS[0].key)}
                     onRemove={removeItemFromCanvas}
+                    variant="portrait"
                   />
+                </div>
+                {SLOTS.slice(1).map((slot) => (
+                  <div key={slot.key} className="col-span-1 sm:col-span-3">
+                    <DroppableSlot
+                      slot={slot}
+                      item={selectedItems.find((i) => i.slot === slot.key)}
+                      onRemove={removeItemFromCanvas}
+                    />
+                  </div>
                 ))}
               </div>
             </div>
 
             {/* Catalog Mix & Match Selector (draggable) */}
-            <div className="bg-white rounded-3xl border border-slate-200/80 p-5 shadow-sm space-y-4">
+            <div className={`${SURFACE} p-5 space-y-4`}>
               <h3 className="font-serif text-base font-bold text-[#1B1F3B]">
                 {t('outfit_builder.drop_garment_here')}
               </h3>
@@ -629,7 +674,7 @@ export const OutfitBuilderView: React.FC = () => {
               on desktop. */}
           <div className="lg:col-span-5 space-y-6 lg:sticky lg:top-24 self-start">
             {/* Live Budget Tracker Module */}
-            <div className="bg-white rounded-3xl border border-slate-200/80 p-6 shadow-sm space-y-4">
+            <div className={`${SURFACE} p-6 space-y-4`}>
               <div className="flex justify-between items-center pb-3 border-b border-slate-100">
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
                   {t('outfit_builder.look_summary')}
@@ -658,9 +703,24 @@ export const OutfitBuilderView: React.FC = () => {
                   <span>{t('outfit_builder.allocated_budget')}:</span>
                   <span data-testid="builder-budget-limit">{formattedBudget}</span>
                 </div>
+                {/* C04 pass 2: the tracker now answers the shopper's REAL
+                    question — "how much room is left?" — instead of making
+                    them do the subtraction. Rendered only while within
+                    allocation; the over-budget badge owns the other case. */}
+                {!isOverBudget && selectedItems.length > 0 && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-500">{t('outfit_builder.remaining_label')}:</span>
+                    <span data-testid="builder-budget-remaining" className="font-bold text-emerald-700">
+                      {formatMoney(Math.round((userBudgetLimit - runningTotal) * 100), displayCurrency, lang)}
+                    </span>
+                  </div>
+                )}
 
                 {/* Progress Bar — now a real progressbar for AT users, not a
-                    purely visual div. */}
+                    purely visual div. Pass 2: gold gradient fill easing on
+                    the house curve; rose only when the allocation is truly
+                    exceeded (error is never color-only — the badge text and
+                    this bar agree). */}
                 <div
                   role="progressbar"
                   aria-label={t('outfit_builder.budget_status')}
@@ -671,8 +731,10 @@ export const OutfitBuilderView: React.FC = () => {
                   className="w-full h-2.5 rounded-full bg-slate-100 overflow-hidden mt-2"
                 >
                   <div
-                    className={`h-full rounded-full transition-all duration-300 ${
-                      isOverBudget ? 'bg-rose-500' : 'bg-[#C5A059]'
+                    className={`h-full rounded-full motion-safe:transition-[width,background-color] motion-safe:duration-500 ${LUX_EASE} ${
+                      isOverBudget
+                        ? 'bg-rose-500'
+                        : 'bg-gradient-to-r from-[#B8935A] via-[#C5A059] to-[#E2BF70]'
                     }`}
                     style={{ width: `${Math.min(100, (runningTotal / userBudgetLimit) * 100)}%` }}
                   ></div>
@@ -681,7 +743,7 @@ export const OutfitBuilderView: React.FC = () => {
             </div>
 
             {/* AI Color Harmony & Silhouette Synergy */}
-            <div className="bg-white rounded-3xl border border-slate-200/80 p-6 shadow-sm space-y-4">
+            <div className={`${SURFACE} p-6 space-y-4`}>
               <div className="flex justify-between items-center pb-3 border-b border-slate-100">
                 <div className="flex items-center gap-1.5">
                   <SparkleIcon size={16} color="#C5A059" />
@@ -739,7 +801,7 @@ export const OutfitBuilderView: React.FC = () => {
                   disabled={selectedItems.length === 0 || isAddingAll}
                   aria-busy={isAddingAll}
                   data-testid="builder-add-all"
-                  className={`w-full py-3.5 min-h-[48px] rounded-2xl bg-[#1B1F3B] hover:bg-[#0C0E1E] disabled:opacity-40 text-white font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 ${FOCUS_RING}`}
+                  className={`w-full py-3.5 min-h-[48px] rounded-2xl bg-[#1B1F3B] hover:bg-[#0C0E1E] active:scale-[0.99] disabled:opacity-40 text-white font-bold text-xs shadow-md motion-safe:transition-[background-color,transform,opacity] motion-safe:duration-300 ${LUX_EASE} flex items-center justify-center gap-2 ${FOCUS_RING}`}
                 >
                   <BagIcon size={16} color="#FFFFFF" />
                   <span>{t('outfit_builder.add_look_to_bag', { total: formattedTotal })}</span>

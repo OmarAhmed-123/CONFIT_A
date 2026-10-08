@@ -247,6 +247,14 @@ export const ProductDetailView: React.FC = () => {
   // under lg, and only for a purchasable SKU: a dead disabled bar pinned
   // to the viewport would be decoration, which this codebase bans.
   const ctaBlockRef = useRef<HTMLDivElement | null>(null);
+  // Pass 5 — touch gallery navigation. Swipe is additive: thumbnails stay
+  // the non-gesture path (spec 10: swipe is never the only way).
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+  // A finger that swiped must not ALSO fire the zoom toggle's click —
+  // browsers emit click after touchend; the flag consumes exactly one.
+  const swipedRef = useRef(false);
+  // Pass 5 — roving tabindex over the thumbnail rail (one Tab stop).
+  const thumbRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const [ctaInView, setCtaInView] = useState(true);
   // Single-flight guard shared by BOTH add-to-bag buttons. Each
   // AsyncActionButton guards its own double-click, but two buttons are
@@ -543,7 +551,36 @@ export const ProductDetailView: React.FC = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
         <div className="lg:col-span-7 space-y-4">
-          <div className="aspect-[3/4] sm:h-[540px] rounded-3xl overflow-hidden bg-slate-100 border border-slate-200/80 relative group shadow-sm">
+          <div
+            className="aspect-[3/4] sm:h-[540px] rounded-3xl overflow-hidden bg-slate-100 border border-slate-200/80 relative group shadow-sm"
+            // Pass 5 — the natural mobile gesture. Horizontal-dominant
+            // swipes ≥48px step the gallery (clamped, no wrap); vertical
+            // scrolling is untouched. Direction follows the writing
+            // direction: in RTL "forward" is a start-ward (rightward)
+            // swipe, mirroring the rail's visual order.
+            onTouchStart={(e) => {
+              touchStartRef.current = {
+                x: e.touches[0].clientX,
+                y: e.touches[0].clientY,
+              };
+            }}
+            onTouchEnd={(e) => {
+              const start = touchStartRef.current;
+              touchStartRef.current = null;
+              if (!start || images.length < 2) return;
+              const dx = e.changedTouches[0].clientX - start.x;
+              const dy = e.changedTouches[0].clientY - start.y;
+              if (Math.abs(dx) < 48 || Math.abs(dx) <= Math.abs(dy)) return;
+              swipedRef.current = true;
+              const rtl = document.documentElement.dir === "rtl";
+              const forward = rtl ? dx > 0 : dx < 0;
+              setActiveImageIndex((i) =>
+                forward
+                  ? Math.min(i + 1, images.length - 1)
+                  : Math.max(i - 1, 0),
+              );
+            }}
+          >
             {/* key= remounts on switch so each image enters with a quiet
                 crossfade (confit-fade-in only touches opacity — safe for
                 reduced motion and for jsdom's toBeVisible). The zoom is
@@ -556,6 +593,7 @@ export const ProductDetailView: React.FC = () => {
                 through; the camelCase prop would warn). Thumbnails and
                 outfit tiles stay lazy. */}
             <HonestProductImage
+                    unavailableLabel={t('common.image_unavailable')}
               key={activeImageIndex}
               src={images[activeImageIndex] || product.thumbnail_url}
               alt={product.title}
@@ -588,6 +626,11 @@ export const ProductDetailView: React.FC = () => {
               aria-pressed={!!zoomOrigin}
               data-testid="pdp-zoom-toggle"
               onClick={(e) => {
+                // A swipe's trailing click must not toggle the zoom.
+                if (swipedRef.current) {
+                  swipedRef.current = false;
+                  return;
+                }
                 if (zoomOrigin) {
                   setZoomOrigin(null);
                   return;
@@ -665,10 +708,40 @@ export const ProductDetailView: React.FC = () => {
           </div>
 
           {images.length > 1 && (
-            <div className="flex gap-3 overflow-x-auto pb-1">
+            <div
+              className="flex gap-3 overflow-x-auto pb-1"
+              role="group"
+              aria-label={t("a11y.select_image")}
+              // Pass 5 — roving tabindex: the rail is ONE Tab stop
+              // (previously every thumbnail was its own, so keyboard
+              // users crossed N stops to pass the gallery). Arrows are
+              // logical (flipped in RTL), Home/End jump; selection
+              // follows focus so the hero previews while roving.
+              onKeyDown={(e) => {
+                if (
+                  !["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)
+                )
+                  return;
+                e.preventDefault();
+                const rtl = document.documentElement.dir === "rtl";
+                const forwardKey = rtl ? "ArrowLeft" : "ArrowRight";
+                let next = activeImageIndex;
+                if (e.key === "Home") next = 0;
+                else if (e.key === "End") next = images.length - 1;
+                else if (e.key === forwardKey)
+                  next = Math.min(activeImageIndex + 1, images.length - 1);
+                else next = Math.max(activeImageIndex - 1, 0);
+                setActiveImageIndex(next);
+                thumbRefs.current[next]?.focus();
+              }}
+            >
               {images.map((img, idx) => (
                 <button
                   key={idx}
+                  ref={(el) => {
+                    thumbRefs.current[idx] = el;
+                  }}
+                  tabIndex={activeImageIndex === idx ? 0 : -1}
                   onClick={() => setActiveImageIndex(idx)}
                   aria-label={t('a11y.view_image', { index: idx + 1 })}
                   aria-pressed={activeImageIndex === idx}
@@ -679,6 +752,7 @@ export const ProductDetailView: React.FC = () => {
                   }`}
                 >
                   <HonestProductImage
+                    unavailableLabel={t('common.image_unavailable')}
                     src={img}
                     alt={t('a11y.product_image_alt', { name: product.title, index: idx + 1 })}
                     loading="lazy"
@@ -1165,6 +1239,7 @@ export const ProductDetailView: React.FC = () => {
                       {item.image_url && (
                         <div className="overflow-hidden rounded-xl mb-2">
                           <HonestProductImage
+                    unavailableLabel={t('common.image_unavailable')}
                             src={item.image_url}
                             alt={item.product_title}
                             loading="lazy"
@@ -1223,6 +1298,7 @@ export const ProductDetailView: React.FC = () => {
               >
                 <div className="overflow-hidden rounded-xl mb-2">
                   <HonestProductImage
+                    unavailableLabel={t('common.image_unavailable')}
                     src={item.thumbnail_url}
                     alt={(lang === "ar" && item.title_ar) || item.title}
                     loading="lazy"
@@ -1268,6 +1344,7 @@ export const ProductDetailView: React.FC = () => {
               className="w-10 h-12 rounded-lg overflow-hidden bg-slate-100 shrink-0"
             >
               <HonestProductImage
+                    unavailableLabel={t('common.image_unavailable')}
                 src={images[activeImageIndex] || product.thumbnail_url}
                 alt=""
                 loading="lazy"

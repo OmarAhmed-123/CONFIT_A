@@ -62,9 +62,14 @@ export const ConsumerLayout: React.FC = () => {
 
       {/* Floating AI Stylist FAB */}
       <div className="fixed bottom-20 lg:bottom-8 end-6 z-40">
+        {/* px-4.5 is not a Tailwind token (same class of defect as the
+            p-4.5 card fixed in C03 pass 2) — the pill rendered with NO
+            horizontal padding and its label touched the rounded edge
+            (visible in the 2026-10-08 production screenshot). px-5 is
+            the nearest real step. */}
         <button
           onClick={() => openStylist()}
-          className="group flex items-center gap-2.5 px-4.5 py-3 rounded-full bg-[#0C0E1E] hover:bg-[#1B1F3B] text-white shadow-2xl hover:scale-105 active:scale-95 transition-all border border-[#C5A059]/40"
+          className="group flex items-center gap-2.5 px-5 py-3 rounded-full bg-[#0C0E1E] hover:bg-[#1B1F3B] text-white shadow-2xl hover:scale-105 active:scale-95 transition-all border border-[#C5A059]/40"
           aria-label={t('layout.open_ai_stylist')}
           type="button"
         >

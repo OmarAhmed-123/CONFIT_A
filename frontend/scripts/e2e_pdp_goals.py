@@ -51,6 +51,11 @@ Goals (visitor role):
   G14 Pass 4 — browse memory: after visiting product A, product B's
       page shows A in the recently-viewed rail; the card links back
       to A's live page; A never lists itself.
+  G15 Card integrity (card-clarity pass) — geometric proof on
+      desktop+mobile, EN+AR RTL: no element escapes its card's box,
+      no card clips its own content, and every product name in the
+      look/recently-viewed cards renders in FULL (the 2-line clamp
+      never actually cuts a current catalogue name).
 
 Usage:
     python3 scripts/e2e_pdp_goals.py [--base-url http://127.0.0.1:43123]
@@ -468,6 +473,70 @@ def goal_browse_memory(page, browser, base: str, detail: dict, en: dict) -> None
     ctx.close()
 
 
+CARD_AUDIT_JS = """
+() => {
+  const cards = [...document.querySelectorAll(
+    '.surface-solid, .surface-raised, .surface-glass-light, .surface-glass-dark'
+  )];
+  const issues = [];
+  for (const card of cards) {
+    const cr = card.getBoundingClientRect();
+    if (cr.width === 0 || cr.height === 0) continue;
+    for (const el of card.querySelectorAll('*')) {
+      const st = getComputedStyle(el);
+      if (st.position === 'fixed' || st.display === 'none' || st.visibility === 'hidden') continue;
+      const r = el.getBoundingClientRect();
+      if (r.width === 0 && r.height === 0) continue;
+      const worst = Math.max(cr.top - r.top, r.bottom - cr.bottom,
+                             cr.left - r.left, r.right - cr.right);
+      if (worst > 1.5) issues.push('escape:' + (el.textContent || '').trim().slice(0, 40));
+    }
+    if (card.scrollHeight > card.clientHeight + 2 &&
+        getComputedStyle(card).overflowY !== 'visible')
+      issues.push('card-clips-content');
+  }
+  // Product names in look/rail cards must never be line-clamped or
+  // vertically cut — the full name is the contract.
+  for (const el of document.querySelectorAll('[class*="line-clamp"]')) {
+    if (el.closest('[data-testid="pdp-recently-viewed"]') || el.closest('section'))
+      if (el.scrollHeight > el.clientHeight + 2)
+        issues.push('name-cut:' + (el.textContent || '').trim().slice(0, 40));
+  }
+  // Nothing may still single-line-truncate a product name inside a card.
+  for (const el of document.querySelectorAll(
+      '[data-testid="pdp-recently-viewed"] .truncate, section .truncate')) {
+    if (el.closest('[data-testid="pdp-sticky-bar"]')) continue;  // bar, not a card
+    if (el.closest('nav')) continue;                              // breadcrumb
+    if (el.scrollWidth > el.clientWidth + 2)
+      issues.push('truncated:' + (el.textContent || '').trim().slice(0, 40));
+  }
+  return issues;
+}
+"""
+
+
+def goal_card_integrity(browser, base: str, detail: dict, other_slug: str) -> None:
+    """G15: geometric card audit — desktop+mobile, EN+AR."""
+    for label, vp, lang in (
+        ("desktop-en", (1355, 900), "en"),
+        ("mobile-en", (390, 844), "en"),
+        ("desktop-ar", (1355, 900), "ar"),
+        ("mobile-ar", (390, 844), "ar"),
+    ):
+        ctx = browser.new_context(viewport={"width": vp[0], "height": vp[1]})
+        pg = ctx.new_page()
+        pg.goto(base, wait_until="domcontentloaded")
+        pg.evaluate(f"localStorage.setItem('confit_lang','{lang}')")
+        # Seed browse history so the recently-viewed rail is part of the audit.
+        pg.goto(base + f"/product/{other_slug}", wait_until="networkidle")
+        pg.goto(base + f"/product/{detail['slug']}", wait_until="networkidle")
+        pg.wait_for_timeout(1200)  # reveal animations settle
+        issues = pg.evaluate(CARD_AUDIT_JS)
+        EV.step(f"G15 {label}: every card holds its content, no name cut",
+                len(issues) == 0, issues=issues[:8])
+        ctx.close()
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--base-url", default="http://127.0.0.1:43123")
@@ -498,6 +567,9 @@ def main() -> int:
             goal_tab_identity(browser, base, detail, en)
             goal_contextual_zoom(browser, base, detail)
             goal_browse_memory(page, browser, base, detail, en)
+            products = page.request.get(base + "/api/v1/catalog/products").json()
+            other_slug = next(p["slug"] for p in products if p["slug"] != detail["slug"])
+            goal_card_integrity(browser, base, detail, other_slug)
         except Invalid as exc:
             EV.steps.append({"step": "RUN-INVALID", "ok": False, "err": str(exc)})
         finally:

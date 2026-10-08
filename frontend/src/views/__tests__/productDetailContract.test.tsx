@@ -593,4 +593,63 @@ describe("ProductDetailView — C03 contract", () => {
     await settled();
     expect(screen.queryByTestId("pdp-recently-viewed")).toBeNull();
   });
+
+  /* --------------------------------------------- card-integrity contracts */
+
+  it("look-card names read in FULL on two lines — never a one-line amputation", async () => {
+    const longName = "Tuxedo Peak Lapel Evening Dinner Jacket";
+    catalogMock.mockResolvedValue(
+      DETAIL({
+        related_outfits: [
+          {
+            title: "Black Tie",
+            items: [
+              {
+                product_id: 9,
+                slug: "tuxedo-jacket",
+                product_title: longName,
+                brand_name: "Reiss",
+                image_url: "https://img.example/t.jpg",
+                price: 820,
+              },
+            ],
+          },
+        ],
+      } as unknown as Partial<Product>),
+    );
+    renderPdp();
+    await settled();
+    // The FULL name is rendered with no truncate and no clamp — nothing
+    // can amputate it at any viewport.
+    const name = screen.getByText(longName);
+    expect(name.className).not.toContain("truncate");
+    expect(name.className).not.toContain("line-clamp");
+  });
+
+  it("recently-viewed tile names render in full — no truncate, no clamp", async () => {
+    window.localStorage.setItem(
+      RECENTLY_VIEWED_STORAGE_KEY,
+      JSON.stringify([
+        {
+          id: 7,
+          slug: "structured-clutch",
+          title: "Structured Metallic Evening Box Clutch",
+          thumbnail_url: "https://img.example/c.jpg",
+          base_price: 150,
+          currency: "USD",
+        },
+      ]),
+    );
+    renderPdp();
+    await settled();
+    const name = screen.getByText("Structured Metallic Evening Box Clutch");
+    expect(name.className).not.toContain("truncate");
+    expect(name.className).not.toContain("line-clamp");
+  });
+
+  it("a single-colourway product states its colour ONCE, not twice", async () => {
+    renderPdp(); // fixture: one colour, Navy
+    await settled();
+    expect(screen.getAllByText("Navy")).toHaveLength(1);
+  });
 });

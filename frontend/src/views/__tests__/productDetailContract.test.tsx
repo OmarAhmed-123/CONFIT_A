@@ -71,6 +71,8 @@ vi.mock("../../hooks/useTryOnAvailability", async (importOriginal) => {
 
 import { ProductDetailView } from "../consumer/ProductDetailView";
 import { useCartStore } from "../../stores/cartStore";
+import { getRouteTitleOverride } from "../../a11y/routes";
+import { RECENTLY_VIEWED_STORAGE_KEY } from "../../hooks/useRecentlyViewed";
 
 /**
  * C03 pass 2: the vitest.setup IntersectionObserver stub never fires, so
@@ -466,5 +468,129 @@ describe("ProductDetailView — C03 contract", () => {
       expect(heading).toContainElement(button);
       expect(button).toHaveAttribute("aria-expanded");
     }
+  });
+
+  /* ------------------------------------------------ C03 pass 4 contracts */
+
+  it("the tab carries the PRODUCT name (ar-aware) and never leaks it to the next page", async () => {
+    const { unmount } = renderPdp();
+    await settled();
+    expect(document.title).toBe("Midnight Wool Blazer · CONFIT");
+    // Arabic: the localized product name takes over.
+    await act(async () => {
+      await i18n.changeLanguage("ar");
+    });
+    expect(document.title).toContain("بليزر صوف كحلي");
+    // Unmount clears the override — the next route can never inherit it.
+    unmount();
+    expect(getRouteTitleOverride()).toBeNull();
+  });
+
+  it("emits schema.org/Product JSON-LD from server data and removes it on unmount", async () => {
+    const { unmount } = renderPdp();
+    await settled();
+    const el = document.head.querySelector(
+      'script[type="application/ld+json"][data-testid="pdp-jsonld"]',
+    );
+    expect(el).not.toBeNull();
+    const data = JSON.parse(el!.textContent || "{}");
+    expect(data["@type"]).toBe("Product");
+    expect(data.name).toBe("Midnight Wool Blazer");
+    expect(data.offers.price).toBe(240);
+    expect(data.offers.availability).toBe("https://schema.org/InStock");
+    unmount();
+    expect(
+      document.head.querySelector('[data-testid="pdp-jsonld"]'),
+    ).toBeNull();
+  });
+
+  it("contextual zoom: the clicked point becomes the origin; Escape and image-switch rest it", async () => {
+    renderPdp();
+    await settled();
+    const toggle = screen.getByTestId("pdp-zoom-toggle");
+    toggle.getBoundingClientRect = () =>
+      ({ left: 0, top: 0, width: 400, height: 500, right: 400, bottom: 500, x: 0, y: 0, toJSON: () => ({}) }) as DOMRect;
+    const hero = screen.getByRole("img", { name: "Midnight Wool Blazer" });
+    expect(toggle).toHaveAttribute("aria-pressed", "false");
+    fireEvent.click(toggle, { clientX: 100, clientY: 250 });
+    expect(toggle).toHaveAttribute("aria-pressed", "true");
+    expect(hero.style.transformOrigin).toBe("25% 50%");
+    // Escape rests it.
+    fireEvent.keyDown(toggle, { key: "Escape" });
+    expect(toggle).toHaveAttribute("aria-pressed", "false");
+    expect(hero.style.transformOrigin).toBe("");
+    // Zoom again, then switching the photograph rests it too.
+    fireEvent.click(toggle, { clientX: 100, clientY: 250 });
+    expect(toggle).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(
+      screen.getAllByRole("button", { name: /view image/i })[1],
+    );
+    expect(toggle).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("low stock speaks the designed urgency line (the key existed, wired to nothing) on a live region", async () => {
+    catalogMock.mockResolvedValue(
+      DETAIL({
+        skus: [
+          {
+            id: 7, product_id: 42, sku_code: "BLZ-M", size: "M",
+            color: "Navy", color_hex: "#1B1F3B", price_override: null,
+            stock_level: 2, is_in_stock: true,
+          },
+        ],
+      } as Partial<Product>),
+    );
+    renderPdp();
+    await settled();
+    const line = screen.getByTestId("pdp-stock-line");
+    expect(line).toHaveTextContent(
+      i18n.t("product.low_stock_count", { count: 2 }) as string,
+    );
+    expect(line).toHaveAttribute("aria-live", "polite");
+    expect(line.className).toContain("text-amber-700");
+  });
+
+  it("healthy stock stays the calm count — urgency is never faked", async () => {
+    renderPdp(); // fixture stock_level: 4
+    await settled();
+    const line = screen.getByTestId("pdp-stock-line");
+    expect(line).toHaveTextContent(
+      i18n.t("product.in_stock_count", { count: 4 }) as string,
+    );
+    expect(line.className).not.toContain("text-amber-700");
+  });
+
+  it("recently viewed: records this piece, shows OTHERS only, links to the live page", async () => {
+    window.localStorage.setItem(
+      RECENTLY_VIEWED_STORAGE_KEY,
+      JSON.stringify([
+        {
+          id: 7, slug: "silk-scarf", title: "Silk Scarf",
+          thumbnail_url: "https://img.example/s.jpg",
+          base_price: 90, currency: "USD",
+        },
+      ]),
+    );
+    renderPdp();
+    await settled();
+    const rail = screen.getByTestId("pdp-recently-viewed");
+    const link = screen.getByRole("link", { name: /silk scarf/i });
+    expect(rail).toContainElement(link);
+    expect(link).toHaveAttribute("href", "/product/silk-scarf");
+    // The current product never shows itself in its own rail…
+    expect(
+      screen.queryByRole("link", { name: /midnight wool blazer/i }),
+    ).toBeNull();
+    // …but it IS recorded, MRU-first, for the NEXT page.
+    const stored = JSON.parse(
+      window.localStorage.getItem(RECENTLY_VIEWED_STORAGE_KEY) || "[]",
+    );
+    expect(stored.map((s: { id: number }) => s.id)).toEqual([42, 7]);
+  });
+
+  it("no browse history -> no rail (no dead section)", async () => {
+    renderPdp();
+    await settled();
+    expect(screen.queryByTestId("pdp-recently-viewed")).toBeNull();
   });
 });

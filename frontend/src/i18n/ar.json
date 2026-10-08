@@ -263,7 +263,9 @@
     "wrong_slot": "القطعة «{{title}}» لا تناسب خانة {{slot}}.",
     "default_look_name": "إطلالتي الجديدة",
     "sign_in_to_evaluate": "سجّل الدخول لتقييم تناغم الألوان وتماسك هذه الإطلالة.",
-    "remaining_label": "المتبقي"
+    "remaining_label": "المتبقي",
+    "share_look": "مشاركة هذه الإطلالة",
+    "palette_error": "تعذر تحميل الكتالوج. تكوينك كما هو لم يُمس."
   },
   "tryon": {
     "title": "استوديو القياس الافتراضي (Try-On)",

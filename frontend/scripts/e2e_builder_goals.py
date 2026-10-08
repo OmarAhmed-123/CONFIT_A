@@ -294,9 +294,9 @@ def main() -> int:
                     restored=victim)
 
             # ════ G3 — save is honest and lands server-side ════
-            look_name = f"E2E Look {uuid.uuid4().hex[:6]}"
+            probe_title = "E2E Look " + uuid.uuid4().hex[:6]
             name_input = page.get_by_role("textbox", name="Outfit name")
-            name_input.fill(look_name)
+            name_input.fill(probe_title)
             save = page.get_by_test_id("save-look-cta")
             save.click()
             page.wait_for_function(
@@ -304,7 +304,7 @@ def main() -> int:
                            ?.getAttribute('data-state') === 'success'""",
                 timeout=15000)
             looks = api(page, "/outfits")
-            mine = [o for o in (looks["data"] or []) if o.get("title") == look_name]
+            mine = [o for o in (looks["data"] or []) if o.get("title") == probe_title]
             ev.step("saved look exists server-side", len(mine) == 1,
                     outfit_id=mine[0]["id"] if mine else None)
             outfit_id = mine[0]["id"]
@@ -314,14 +314,14 @@ def main() -> int:
             # not innerText (inputs are invisible to innerText).
             titles_on_page = page.evaluate(
                 "[...document.querySelectorAll('input')].map(i => i.value)")
-            ev.step("saved look visible on /my-looks", look_name in titles_on_page)
+            ev.step("saved look visible on /my-looks", probe_title in titles_on_page)
 
             # ════ G4 — /outfits/:id edits in place, no duplicate ════
             page.goto(f"{base}/outfits/{outfit_id}", wait_until="networkidle", timeout=90000)
             page.wait_for_timeout(1500)
             hydrated = page.get_by_role("textbox", name="Outfit name").input_value()
-            ev.step("edit alias hydrates the saved look", hydrated == look_name, value=hydrated)
-            new_name = look_name + " v2"
+            ev.step("edit alias hydrates the saved look", hydrated == probe_title, value=hydrated)
+            new_name = probe_title + " v2"
             page.get_by_role("textbox", name="Outfit name").fill(new_name)
             count_before = len(api(page, "/outfits")["data"] or [])
             page.get_by_test_id("save-look-cta").click()

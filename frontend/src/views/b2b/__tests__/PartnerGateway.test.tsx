@@ -292,6 +292,36 @@ describe("C. LeadForm", () => {
     expect(within(panel).getByText("CONFIT-4242")).toBeInTheDocument();
   });
 
+  // NOTE — the double-activation race is NOT reproducible here, deliberately
+  // not asserted in this file, and that is a measured finding rather than an
+  // omission. Under jsdom + React Testing Library, `fireEvent.click` runs
+  // inside act() and flushes state between the two activations, so the form
+  // sends ONE request whether or not the `inFlight` ref guard exists: a test
+  // written here passed 26/26 with the guard removed, i.e. it guarded nothing.
+  // The race only appears in a real browser, where both activations land
+  // inside one task before React re-renders — measured at 2 requests in 8 of 8
+  // trials without the guard and 1 in 8 of 8 with it. That is what
+  // scripts/e2e_partner_gateway_goals.py G5 asserts. Do not "port" it here and
+  // call it a regression test.
+
+  it("allows a deliberate second submission once the first has settled", async () => {
+    // The guard must not become a permanent lock: a prospect who sends one
+    // request, reads the reference, and then sends another is doing something
+    // legitimate and must not be silently ignored.
+    requestDemo.mockResolvedValue({
+      id: 1, status: "received", notification_status: "sent",
+      duplicate: false, message: "Request received.",
+    });
+    renderWithI18n(<LeadForm />);
+    await fill();
+
+    fireEvent.click(screen.getByTestId("lead-submit"));
+    await screen.findByTestId("lead-result");
+    fireEvent.click(screen.getByTestId("lead-submit"));
+
+    await waitFor(() => expect(requestDemo).toHaveBeenCalledTimes(2));
+  });
+
   it("renders a duplicate as notice, never as success", async () => {
     requestDemo.mockResolvedValue({
       id: 99,

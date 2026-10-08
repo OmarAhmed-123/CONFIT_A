@@ -1070,7 +1070,7 @@
     "volume_under_500": "Under 500",
     "volume_500_5000": "500–5,000",
     "volume_5000_plus": "5,000+",
-    "submit": "Submit real request",
+    "submit": "Request partnership review",
     "submitting": "Submitting…",
     "duplicate_request": "We already have a recent request for this email; the saved lead has been linked for review.",
     "submit_failed": "Could not submit the request. Please check the fields and try again.",
@@ -1080,7 +1080,7 @@
     "auth_required_body": "This privileged section requires an authenticated profile or merchant credential. Please sign in or create an account to proceed.",
     "sign_in_to_continue": "Sign In to Continue",
     "create_account": "Create New Account",
-    "return_to_storefront": "← Return to Consumer Storefront",
+    "return_to_storefront": "Return to Consumer Storefront",
     "ask_stylist": "Ask the AI Stylist",
     "hero_title": "Reduce fit uncertainty before shoppers reach checkout.",
     "hero_body": "CONFIT connects premium catalog ingestion, fit intelligence, and virtual try-on workflows so brand teams can understand the partner workflow before signing in.",
@@ -1099,7 +1099,28 @@
     "pillar_launch_title": "Launch path",
     "pillar_launch_copy": "Connect catalog, verify product metadata, then activate fit and try-on experiences by supported category.",
     "pillar_proof_title": "Proof readiness",
-    "pillar_proof_copy": "Use real analytics only — views, try-ons, conversions, inventory, returns, and attribution are never fabricated."
+    "pillar_proof_copy": "Use real analytics only — views, try-ons, conversions, inventory, returns, and attribution are never fabricated.",
+    "form_hint": "Reviewed by our partnerships team within one business day.",
+    "err_company": "Enter at least 2 characters.",
+    "err_contact": "Enter at least 2 characters.",
+    "err_email": "Enter a valid work email address.",
+    "success_title": "Request received.",
+    "success_detail": "Our partnerships team reviews every lead within one business day.",
+    "duplicate_title": "We already have a recent request for this email.",
+    "duplicate_detail": "It has been linked to this submission for review — you do not need to send it again.",
+    "error_title": "We could not send your request.",
+    "error_detail_validation": "Check the highlighted fields and submit again.",
+    "error_detail_generic": "Nothing was lost. Submit again, or email us directly.",
+    "offline_title": "You appear to be offline.",
+    "offline_detail": "The request never left your device. Reconnect and submit again.",
+    "throttled_title": "This network has reached the hourly request limit.",
+    "throttled_detail": "Retrying will not help — the limit resets within the hour. Email us instead and we will reply directly.",
+    "throttled_action": "Email partnerships instead",
+    "throttle_warning": "You are close to the hourly request limit.",
+    "throttle_warning_detail": "This network can send 5 requests per hour. Email is faster if you need to send more.",
+    "proof_quote": "Fit confidence is measured from real returns data, not estimated.",
+    "proof_attribution": "CONFIT partner analytics",
+    "close_title": "Start the partnership review."
   },
   "nav_desc": {
     "visual_search": "Find catalog matches from any photo",
@@ -2309,5 +2330,8 @@
     "transactional_title": "Order & account emails",
     "transactional_detail": "Receipts, payment and shipping notices — facts about your purchases, always delivered.",
     "transactional_always": "Always on"
+  },
+  "field": {
+    "optional_marker": "Optional"
   }
 }

@@ -161,3 +161,66 @@ def test_partner_request_demo_validates_email(client):
         'work_email': 'not-an-email',
     })
     assert res.status_code == 422
+
+
+def test_partner_request_demo_throttle_is_429_not_422(client):
+    """The per-IP ceiling must be distinguishable from a malformed field.
+
+    Regression evidence: the throttle was raised as a ``ValidationDomainError``
+    (422 VALIDATION_ERROR) — the SAME status and code the endpoint returns for
+    ``work_email: "not-an-email"``. A client could not tell "fix this input"
+    from "stop and wait", so the B01 gateway rendered both as one generic
+    error offering retry. Retrying a rate limit extends the window instead of
+    clearing it, so the distinction is load-bearing, not cosmetic.
+
+    slowapi is disabled in tests (conftest sets ``limiter.enabled = False``),
+    so this exercises the SERVICE ceiling rather than the route decorator.
+
+    The counter is per hashed IP over a sliding hour and is NOT reset between
+    tests, so the two partner tests above leave rows behind and this one would
+    trip early on a shared DB — measured: the 429 arrived on request 4, not 6.
+    Clearing the action's rows first makes the ceiling the only variable.
+    That shared-IP behaviour is itself the production finding: everyone behind
+    one NAT egress shares a single five-request budget.
+    """
+    from backend.tests.conftest import TestingSessionLocal
+    from backend.app.models.user import AuditLog
+
+    db = TestingSessionLocal()
+    try:
+        db.query(AuditLog).filter(
+            AuditLog.action == "partner_request_demo"
+        ).delete()
+        db.commit()
+    finally:
+        db.close()
+
+    for i in range(5):
+        res = client.post('/api/v1/brand/request-demo', json={
+            'company_name': f'Throttle Brand {i}',
+            'contact_name': f'Contact {i}',
+            'work_email': f'throttle{i}@example.com',
+        })
+        assert res.status_code == 201, f'request {i + 1} should pass: {res.text}'
+
+    sixth = client.post('/api/v1/brand/request-demo', json={
+        'company_name': 'Throttle Brand 6',
+        'contact_name': 'Contact 6',
+        'work_email': 'throttle6@example.com',
+    })
+    assert sixth.status_code == 429, sixth.text
+
+    body = sixth.json()['error']
+    assert body['code'] == 'RATE_LIMITED'
+    # A validation error must NOT share this status/code any more.
+    assert body['code'] != 'VALIDATION_ERROR'
+
+    # Retry-After is a real header, computed from the sliding window — not a
+    # guessed constant. Intermediaries read the header, not our body shape.
+    retry_after = sixth.headers.get('Retry-After')
+    assert retry_after is not None, 'a 429 must carry Retry-After'
+    assert retry_after.isdigit()
+    assert 60 <= int(retry_after) <= 3600
+    assert body['details']['retry_after_seconds'] == int(retry_after)
+    assert body['details']['scope'] == 'partner_lead_ip'
+

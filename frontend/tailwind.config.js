@@ -64,7 +64,25 @@ export default {
          cubic-bezier(0.25, 1, 0.5, 1) = fast start, long soft landing. */
       transitionTimingFunction: {
         luxury: 'cubic-bezier(0.25, 1, 0.5, 1)',
-      }
+      },
+      /* Shadow token (B01 pass): Tailwind v3's built-in scale is
+         sm/DEFAULT/md/lg/xl/2xl/inner/none — it has NO `xs` and NO `2xs`,
+         which are v4 names. 106 call sites across src/ were already written
+         against `shadow-2xs` (80) and `shadow-xs` (26) and therefore emitted
+         NO CSS at all: cards that read as flat were never given the hairline
+         depth their call site asked for. Verified by requiring
+         `tailwindcss/defaultTheme` from a clean 3.4.14 install rather than by
+         assumption.
+
+         Declaring the two missing steps here fixes every call site at once
+         instead of rewriting 106 class strings — and keeps the scale
+         monotonic, so `2xs < xs < sm < (default) < md …` still means
+         something. Values follow the existing --surface-raised-shadow
+         language in styles/index.css: low blur, negative spread, navy tint. */
+      boxShadow: {
+        '2xs': '0 1px 2px -1px rgb(27 31 59 / 0.06)',
+        'xs': '0 2px 4px -2px rgb(27 31 59 / 0.08)',
+      },
     },
   },
   plugins: [],

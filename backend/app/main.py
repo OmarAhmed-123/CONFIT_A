@@ -208,6 +208,16 @@ async def confit_exception_handler(request: Request, exc: ConfitException):
         message=exc.message,
         details=exc.details
     )
+    # A 429 must carry Retry-After as a HEADER, not only in the body: that is
+    # what lets a browser, a proxy or a well-behaved client back off without
+    # parsing our payload shape. Only emitted when the raiser actually
+    # computed a value — a fabricated "retry in 60s" would be a guess dressed
+    # as a fact.
+    headers = {}
+    if exc.status_code == 429:
+        retry_after = (exc.details or {}).get("retry_after_seconds")
+        if isinstance(retry_after, int) and retry_after > 0:
+            headers["Retry-After"] = str(retry_after)
     return JSONResponse(
         status_code=exc.status_code,
         content={
@@ -216,7 +226,8 @@ async def confit_exception_handler(request: Request, exc: ConfitException):
                 "message": exc.message,
                 "details": exc.details
             }
-        }
+        },
+        headers=headers or None
     )
 
 

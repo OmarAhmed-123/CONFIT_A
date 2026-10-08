@@ -70,6 +70,45 @@ vi.mock("../../hooks/useTryOnAvailability", async (importOriginal) => {
 });
 
 import { ProductDetailView } from "../consumer/ProductDetailView";
+import { useCartStore } from "../../stores/cartStore";
+
+/**
+ * C03 pass 2: the vitest.setup IntersectionObserver stub never fires, so
+ * the sticky buy bar (which exists only while the real CTA block is
+ * off-screen) stays unmounted in every other test. These helpers install
+ * a CONTROLLED observer whose callback the test fires by hand.
+ */
+function installControlledIO() {
+  const callbacks: IntersectionObserverCallback[] = [];
+  const Real = window.IntersectionObserver;
+  class ControlledIO {
+    constructor(cb: IntersectionObserverCallback) {
+      callbacks.push(cb);
+    }
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+    takeRecords(): IntersectionObserverEntry[] {
+      return [];
+    }
+  }
+  (window as unknown as Record<string, unknown>).IntersectionObserver =
+    ControlledIO;
+  return {
+    fire(isIntersecting: boolean) {
+      callbacks.forEach((cb) =>
+        cb(
+          [{ isIntersecting } as IntersectionObserverEntry],
+          {} as IntersectionObserver,
+        ),
+      );
+    },
+    restore() {
+      (window as unknown as Record<string, unknown>).IntersectionObserver =
+        Real;
+    },
+  };
+}
 
 /* -------------------------------------------------------------- fixtures */
 
@@ -248,5 +287,92 @@ describe("ProductDetailView — C03 contract", () => {
     fireEvent.click(thumbs[1]);
     expect(thumbs[1]).toHaveAttribute("aria-pressed", "true");
     expect(thumbs[0]).toHaveAttribute("aria-pressed", "false");
+  });
+
+  /* ------------------------------------------------ C03 pass 2 contracts */
+
+  it("loading is a page-shaped skeleton with an accessible status — not a blank spinner", async () => {
+    let resolveDetail!: (p: Product) => void;
+    catalogMock.mockImplementation(
+      () =>
+        new Promise<Product>((res) => {
+          resolveDetail = res;
+        }),
+    );
+    renderPdp();
+    const status = screen.getByRole("status");
+    expect(status).toHaveAccessibleName(
+      i18n.t("product.loading_details") as string,
+    );
+    expect(screen.getByTestId("pdp-skeleton")).toBeInTheDocument();
+    await act(async () => {
+      resolveDetail(DETAIL());
+    });
+    await settled();
+    expect(screen.queryByTestId("pdp-skeleton")).toBeNull();
+  });
+
+  it("counter-goal: main CTA and sticky bar share ONE flight — a cross-button double tap posts once", async () => {
+    const io = installControlledIO();
+    const originalAddItem = useCartStore.getState().addItem;
+    let posts = 0;
+    useCartStore.setState({
+      addItem: (async () => {
+        posts += 1;
+        await new Promise((r) => setTimeout(r, 40));
+        return { merged: false, quantity: 1 };
+      }) as typeof originalAddItem,
+    });
+    try {
+      renderPdp();
+      await settled();
+      // While the real CTA block is on screen there is NO sticky bar.
+      expect(screen.queryByTestId("pdp-sticky-bar")).toBeNull();
+      act(() => io.fire(false));
+      const sticky = await screen.findByTestId("pdp-add-to-bag-sticky");
+      const main = screen.getByTestId("pdp-add-to-bag");
+      fireEvent.click(main);
+      fireEvent.click(sticky);
+      await waitFor(() => expect(posts).toBe(1));
+      // Let the in-flight add resolve, then confirm nothing else fired.
+      await act(async () => {
+        await new Promise((r) => setTimeout(r, 80));
+      });
+      expect(posts).toBe(1);
+    } finally {
+      useCartStore.setState({ addItem: originalAddItem });
+      io.restore();
+    }
+  });
+
+  it("no dead pinned control: an out-of-stock product never mounts the sticky bar", async () => {
+    catalogMock.mockResolvedValue(
+      DETAIL({
+        skus: [
+          {
+            id: 7,
+            product_id: 42,
+            sku_code: "BLZ-M",
+            size: "M",
+            color: "Navy",
+            color_hex: "#1B1F3B",
+            price_override: null,
+            stock_level: 0,
+            is_in_stock: false,
+          },
+        ],
+      } as Partial<Product>),
+    );
+    const io = installControlledIO();
+    try {
+      renderPdp();
+      await settled();
+      act(() => io.fire(false));
+      expect(screen.queryByTestId("pdp-sticky-bar")).toBeNull();
+      // The main CTA stays, honestly disabled with the out-of-stock label.
+      expect(screen.getByTestId("pdp-add-to-bag")).toBeDisabled();
+    } finally {
+      io.restore();
+    }
   });
 });

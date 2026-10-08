@@ -25,7 +25,18 @@ Goals (visitor role):
   G7  BOPIS honesty: the pickup accordion's terminal state matches the
       API answer for the selected SKU (stores listed / none / error).
   G8  Arabic RTL + 390/360px: dir=rtl, Arabic copy, no horizontal
-      overflow.
+      overflow; pass-2 pin: accordion headers follow the writing
+      direction (the text-left regression rendered LTR alignment
+      inside the Arabic page).
+  G9  Pass 2 — perceived performance: while the detail API is held
+      open the page shows the geometry-matched skeleton (role=status),
+      and the skeleton leaves when the data lands. The route is HELD
+      and released by the test — no timing guesswork.
+  G10 Pass 2 — mobile sticky buy bar: on 390px the bar exists while
+      the real CTA block is below the fold; a double-tap on its Add
+      button produces exactly ONE cart POST and ONE server unit
+      (cross-button single-flight guard); reaching the real CTA
+      removes the bar (no duplicate pinned control on screen).
 
 Usage:
     python3 scripts/e2e_pdp_goals.py [--base-url http://127.0.0.1:43123]
@@ -103,6 +114,12 @@ def goal_arrival(page, base: str, detail: dict, en: dict) -> None:
             failures=api_failures()[:5])
     EV.step("G1 zero console errors", not EV.console_errors,
             errors=EV.console_errors[:3])
+    # Pass 2: the hero IS the LCP element — it must be requested eagerly
+    # with high priority, not lazily like the thumbnails.
+    hero = page.locator('img[fetchpriority="high"]').first
+    EV.step("G1 hero image carries LCP priority (eager + fetchpriority=high)",
+            hero.count() >= 1 and hero.get_attribute("loading") == "eager",
+            loading=hero.get_attribute("loading") if hero.count() else None)
 
 
 def goal_variants(page, base: str, detail: dict, en: dict) -> None:
@@ -128,11 +145,13 @@ def goal_add_to_bag(page, base: str, detail: dict) -> None:
             if r.method == "POST" and "/commerce/cart/items" in r.url else None)
     btn = page.get_by_test_id("pdp-add-to-bag")
     btn.scroll_into_view_if_needed()
+    # Pass 2: one synchronous burst (same rationale as G10) — two
+    # protocol clicks can straddle a fast local response, turning the
+    # counter-goal into a legitimate second add.
     with page.expect_response(
         lambda r: "/commerce/cart/items" in r.url, timeout=15000
     ) as resp_info:
-        btn.click()
-        btn.click(force=True)
+        btn.evaluate("b => { b.click(); b.click(); }")
     page.wait_for_timeout(1500)
     EV.step("G3 double-click produced exactly ONE cart POST",
             len(posts) == 1, posts=len(posts), status=resp_info.value.status)
@@ -227,7 +246,7 @@ def goal_bopis_truth(page, base: str, detail: dict, en: dict) -> None:
                 api_stores=len(api_stores))
 
 
-def goal_arabic_mobile(page, browser, base: str, detail: dict) -> None:
+def goal_arabic_mobile(page, browser, base: str, detail: dict, ar: dict) -> None:
     page.goto(base + f"/product/{detail['slug']}", wait_until="domcontentloaded")
     page.evaluate("localStorage.setItem('confit_lang','ar')")
     page.goto(base + f"/product/{detail['slug']}", wait_until="networkidle")
@@ -235,6 +254,13 @@ def goal_arabic_mobile(page, browser, base: str, detail: dict) -> None:
             page.evaluate("document.documentElement.getAttribute('dir')") == "rtl")
     EV.step("G8 Arabic copy renders",
             re.search(r"[\u0600-\u06FF]{3,}", page.inner_text("body")) is not None)
+    # Pass-2 pin: every accordion header follows the writing direction.
+    # The shipped text-left class computed to literal "left" in RTL.
+    for key in ("fabric_care_details", "bopis_title", "delivery_returns"):
+        btn = page.get_by_role("button", name=ar["product"][key]).first
+        align = btn.evaluate("e => getComputedStyle(e).textAlign")
+        EV.step(f"G8 '{key}' header follows RTL writing direction",
+                align != "left", align=align)
     for w in (390, 360):
         ctx = browser.new_context(viewport={"width": w, "height": 844})
         pg = ctx.new_page()
@@ -244,6 +270,78 @@ def goal_arabic_mobile(page, browser, base: str, detail: dict) -> None:
         EV.step(f"G8[mobile {w}px] no horizontal overflow", overflow <= 1,
                 overflow_px=overflow)
         ctx.close()
+
+
+def goal_skeleton(browser, base: str, detail: dict) -> None:
+    """G9: hold the detail API open; the page must show the page-shaped
+    skeleton (an accessible status), then swap to the product when the
+    route is released. Deterministic — no sleeps inside the handler."""
+    ctx = browser.new_context(viewport={"width": 1280, "height": 900})
+    pg = ctx.new_page()
+    held: dict = {}
+    pg.route(f"**/catalog/products/{detail['slug']}",
+             lambda route: held.setdefault("route", route))
+    pg.goto(base + f"/product/{detail['slug']}", wait_until="domcontentloaded")
+    skeleton = pg.get_by_test_id("pdp-skeleton")
+    skeleton.wait_for(timeout=8000)
+    EV.step("G9 held API shows the page-shaped skeleton", True)
+    EV.step("G9 skeleton is an accessible status",
+            skeleton.get_attribute("role") == "status"
+            and bool(skeleton.get_attribute("aria-label")),
+            role=skeleton.get_attribute("role"))
+    if "route" not in held:
+        raise Invalid("detail request never reached the held route")
+    held["route"].continue_()
+    pg.get_by_role("heading", name=detail["title"]).first.wait_for(timeout=10000)
+    skeleton.wait_for(state="detached", timeout=5000)
+    EV.step("G9 skeleton leaves when the data lands", True)
+    pg.unroute(f"**/catalog/products/{detail['slug']}")
+    ctx.close()
+
+
+def goal_sticky_bar(browser, base: str, detail: dict) -> None:
+    """G10: mobile sticky buy bar — present only while the real CTA block
+    is off screen, single-flight across its Add button, gone once the
+    real CTA is reached."""
+    ctx = browser.new_context(viewport={"width": 390, "height": 844})
+    pg = ctx.new_page()
+    posts: list[str] = []
+    pg.on("request", lambda r: posts.append(r.url)
+          if r.method == "POST" and "/commerce/cart/items" in r.url else None)
+    pg.goto(base + f"/product/{detail['slug']}", wait_until="networkidle")
+    bar = pg.get_by_test_id("pdp-sticky-bar")
+    bar.wait_for(timeout=8000)
+    EV.step("G10 bar present while the real CTA is below the fold", True)
+    btn = pg.get_by_test_id("pdp-add-to-bag-sticky")
+    # Double-tap as ONE synchronous burst. Two separate protocol clicks
+    # are racy against a fast local server: the second can land AFTER
+    # the first response, which is a legitimate second add, not a
+    # double-submit (observed flake: posts=2). Two clicks in the same
+    # JS tick make it impossible for the response to sit between them —
+    # exactly the burst the single-flight guard exists for. (A plain
+    # second force-click was worse: the success flow opens the cart
+    # drawer and the forced click hit the drawer's checkout control.)
+    with pg.expect_response(
+        lambda r: "/commerce/cart/items" in r.url, timeout=15000
+    ) as resp_info:
+        btn.evaluate("b => { b.click(); b.click(); }")
+    pg.wait_for_timeout(1500)
+    EV.step("G10 double-tap on the bar produced exactly ONE cart POST",
+            len(posts) == 1, posts=len(posts), status=resp_info.value.status)
+    token = pg.evaluate("localStorage.getItem('confit_session_token')")
+    cart = pg.request.get(
+        base + "/api/v1/commerce/cart",
+        headers={"X-Session-Token": token or ""}).json()
+    qty = sum(i.get("quantity", 0) for i in cart.get("items", []))
+    EV.step("G10 server cart holds a single unit", qty == 1, qty=qty)
+    # Fresh load (closes the drawer the success opened), then reach the
+    # real CTA: the bar must leave — no duplicate pinned control.
+    pg.goto(base + f"/product/{detail['slug']}", wait_until="networkidle")
+    bar.wait_for(timeout=8000)
+    pg.get_by_test_id("pdp-add-to-bag").scroll_into_view_if_needed()
+    bar.wait_for(state="detached", timeout=5000)
+    EV.step("G10 bar leaves once the real CTA is on screen", True)
+    ctx.close()
 
 
 def main() -> int:
@@ -260,6 +358,7 @@ def main() -> int:
         wire(page)
         try:
             en = page.request.get(base + "/src/i18n/en.json").json()
+            ar = page.request.get(base + "/src/i18n/ar.json").json()
             detail = pick_product(page, base)
             goal_arrival(page, base, detail, en)
             goal_variants(page, base, detail, en)
@@ -268,7 +367,9 @@ def main() -> int:
             goal_breadcrumb(page, base, detail)
             goal_fit_check(page, base, detail, en)
             goal_bopis_truth(page, base, detail, en)
-            goal_arabic_mobile(page, browser, base, detail)
+            goal_arabic_mobile(page, browser, base, detail, ar)
+            goal_skeleton(browser, base, detail)
+            goal_sticky_bar(browser, base, detail)
         except Invalid as exc:
             EV.steps.append({"step": "RUN-INVALID", "ok": False, "err": str(exc)})
         finally:

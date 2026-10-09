@@ -529,3 +529,28 @@ uploads through an authenticated session. `ai_stylist_state: "ready"` is
 likewise weaker than it looks: `ai_readiness.probe_now()` calls `GET /v1/models`,
 which answers 200 for any valid key whether or not the routed model still exists
 (§0). Model-level truth is this document's verifier, not the readiness flag.
+
+## 11. Pre-registered bench 2026-10-09 — translation primary moves to super; stylist: no eligible arm
+
+**Supersedes §1 and §10 for the TRANSLATION primary.** Ultra was primary since 2026-10-03, when super answered 410 Gone. Super is back, and the bench below measured both arms on the same day.
+
+Method. `backend/scripts/bench_nvidia_roles.py` sends the production prompts (`query_translation.py` system prompts; the orchestrator template with 12 fragments, checked for drift) straight to the NVIDIA endpoint: 208 planned calls, 2 repetitions for the stylist arms. Decision rules were written before the run and not changed afterwards: availability ≥ 0.97; p95 ≤ 6.0 s (a failure counts as 60 s); zero system-prompt leaks in the stylist; strict pass rate with a 0.02 quality margin; paired bootstrap (2000 resamples, seed 20261009). Raw data: `docs/bench/2026-10-09/summary.json` and `raw_calls.jsonl`. Catalog snapshot: `backend/scripts/bench_data/catalog_snapshot_2026-10-09.json`. Run window: 2026-10-08 22:19–22:25 UTC (= 2026-10-09 Cairo).
+
+| Role | Arm | n | Strict pass (95% CI) | p50 | p95 | Within 6 s | Prompt leaks | Gate |
+|---|---|---|---|---|---|---|---|---|
+| TRANSLATION | super | 32 | 0.781 (0.612–0.890) | 0.373 s | 1.148 s | 100% | 0 | PASS — winner |
+| TRANSLATION | ultra | 32 | 0.844 (0.683–0.931) | 1.301 s | 6.189 s | 94% | 0 | FAIL (p95 > 6.0 s) |
+| STYLIST_CHAT | super | 48 | 0.771 (0.635–0.867) | 1.105 s | 2.890 s | 98% | 2 | FAIL (prompt leak) |
+| STYLIST_CHAT | ultra | 48 | 1.000 (0.926–1.000) | 8.567 s | 21.476 s | 21% | 0 | FAIL (p95) |
+| STYLIST_CHAT | ultra_guard | 48 | 0.938 (0.832–0.979) | 4.001 s | 19.329 s | 73% | 2 | FAIL (leak, p95) |
+
+Paired strict-pass difference (arm A − arm B, 95% CI): TRANSLATION super − ultra = −0.0625 [−0.1875, +0.0625] (not significant; super is faster by 1.54 s on average, CI −2.18…−0.97). STYLIST_CHAT super − ultra = −0.2292 [−0.3542, −0.1250]; super − ultra_guard = −0.1667 [−0.2917, −0.0417]; ultra_guard − ultra = −0.0625 [−0.1250, 0.0000].
+
+Decision (from `summary.json` → `decision`):
+- **TRANSLATION:** eligible = [super], winner = super. Production change: super becomes the primary; ultra becomes the failover, because it has the higher strict pass rate but misses the latency gate.
+- **STYLIST_CHAT:** eligible = [], winner = none. No arm passes all gates. Production keeps the existing chain. The owner's decision (2026-10-09) is to keep super without a guard, accepting its measured 2/48 prompt leaks as a documented residual risk.
+
+Limits, stated plainly:
+- Ultra's translation p95 of 6.19 s misses the 6.0 s gate by 0.19 s. The gate was fixed in advance, so a near miss is a fail.
+- The quality difference on translation is not significant at n=32. The decision rests on the latency gate.
+- These numbers come from calls straight to the NVIDIA endpoint, not from the deployed Vercel endpoint. Production verification follows the deploy and is recorded in the PR.

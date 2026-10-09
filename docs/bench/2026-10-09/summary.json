@@ -1,0 +1,427 @@
+{
+ "plan": {
+  "started_utc": "2026-10-08T22:19:42+00:00",
+  "arms": {
+   "STYLIST_CHAT": [
+    "super",
+    "ultra",
+    "ultra_guard"
+   ],
+   "TRANSLATION": [
+    "super",
+    "ultra"
+   ]
+  },
+  "stylist_scenarios": 24,
+  "reps": 2,
+  "inbound_cases": 20,
+  "outbound_cases": 12,
+  "calls_planned": 208,
+  "stylist_max_tokens": 900,
+  "prod_timeout_s": 6.0,
+  "decision_rules": {
+   "availability_min": 0.97,
+   "p95_max_s": 6.0,
+   "max_prompt_leaks": 0,
+   "quality_margin": 0.02
+  },
+  "drift": {
+   "orchestrator_fragments_found": 12,
+   "fragment_digest": "d6829537a7de295b"
+  },
+  "payloads": {
+   "STYLIST_CHAT": {
+    "super": {
+     "model_id": "nvidia/nemotron-3-super-120b-a12b",
+     "endpoint": "https://integrate.api.nvidia.com/v1/chat/completions",
+     "params": {
+      "temperature": 0.6,
+      "top_p": 0.95,
+      "chat_template_kwargs": {
+       "enable_thinking": false
+      }
+     },
+     "slot_key_env": "NVIDIA_KEY_NEMOTRON_3_SUPER_120B_A12B",
+     "max_tokens_rule": "orchestrator: 900 overrides spec"
+    },
+    "ultra": {
+     "model_id": "nvidia/nemotron-3-ultra-550b-a55b",
+     "endpoint": "https://integrate.api.nvidia.com/v1/chat/completions",
+     "params": {
+      "temperature": 0.6,
+      "top_p": 0.95
+     },
+     "slot_key_env": "NVIDIA_KEY_NEMOTRON_3_ULTRA_550B_A55B",
+     "max_tokens_rule": "orchestrator: 900 overrides spec"
+    },
+    "ultra_guard": {
+     "model_id": "nvidia/nemotron-3-ultra-550b-a55b",
+     "endpoint": "https://integrate.api.nvidia.com/v1/chat/completions",
+     "params": {
+      "temperature": 0.6,
+      "top_p": 0.95,
+      "chat_template_kwargs": {
+       "enable_thinking": false
+      }
+     },
+     "slot_key_env": "NVIDIA_KEY_NEMOTRON_3_ULTRA_550B_A55B",
+     "max_tokens_rule": "orchestrator: 900 overrides spec"
+    }
+   },
+   "TRANSLATION": {
+    "super": {
+     "model_id": "nvidia/nemotron-3-super-120b-a12b",
+     "endpoint": "https://integrate.api.nvidia.com/v1/chat/completions",
+     "params": {
+      "temperature": 0.0,
+      "max_tokens": 256,
+      "chat_template_kwargs": {
+       "enable_thinking": false
+      }
+     },
+     "slot_key_env": "NVIDIA_KEY_NEMOTRON_3_SUPER_120B_A12B",
+     "max_tokens_rule": "client: spec wins, default 1024"
+    },
+    "ultra": {
+     "model_id": "nvidia/nemotron-3-ultra-550b-a55b",
+     "endpoint": "https://integrate.api.nvidia.com/v1/chat/completions",
+     "params": {
+      "temperature": 0.0,
+      "max_tokens": 160,
+      "chat_template_kwargs": {
+       "enable_thinking": false
+      }
+     },
+     "slot_key_env": "NVIDIA_KEY_NEMOTRON_3_ULTRA_550B_A55B",
+     "max_tokens_rule": "client: spec wins, default 1024"
+    }
+   }
+  },
+  "translation_prompt_sha256": {
+   "inbound": "626afd82a5f69caf",
+   "outbound": "6ef747f6d8464b78"
+  },
+  "finished_utc": "2026-10-08T22:24:56+00:00",
+  "wall_seconds": 314.1
+ },
+ "summary": {
+  "STYLIST_CHAT": {
+   "super": {
+    "model_id": "nvidia/nemotron-3-super-120b-a12b",
+    "n": 48,
+    "success_rate": 1.0,
+    "success_ci95": [
+     0.9259,
+     1.0
+    ],
+    "strict_pass_rate": 0.7708,
+    "strict_ci95": [
+     0.6346,
+     0.8669
+    ],
+    "per_check": {
+     "answered": 1.0,
+     "english_output": 1.0,
+     "format_clean": 1.0,
+     "grounded": 0.9792,
+     "no_prompt_leak": 0.9583,
+     "no_ungrounded_brand": 1.0,
+     "no_ungrounded_product": 1.0,
+     "not_truncated": 1.0,
+     "prices_consistent": 1.0,
+     "sentences_le_3": 0.7917
+    },
+    "latency_p50_s": 1.105,
+    "latency_p90_s": 2.143,
+    "latency_p95_s": 2.89,
+    "latency_max_s": 13.25,
+    "share_within_budget": 0.9792,
+    "mean_completion_tokens": 127.2,
+    "truncated_at_max_tokens": 0,
+    "reasoning_served_as_content": 0,
+    "prompt_leaks": 2,
+    "errors": {}
+   },
+   "ultra": {
+    "model_id": "nvidia/nemotron-3-ultra-550b-a55b",
+    "n": 48,
+    "success_rate": 1.0,
+    "success_ci95": [
+     0.9259,
+     1.0
+    ],
+    "strict_pass_rate": 1.0,
+    "strict_ci95": [
+     0.9259,
+     1.0
+    ],
+    "per_check": {
+     "answered": 1.0,
+     "english_output": 1.0,
+     "format_clean": 1.0,
+     "grounded": 1.0,
+     "no_prompt_leak": 1.0,
+     "no_ungrounded_brand": 1.0,
+     "no_ungrounded_product": 1.0,
+     "not_truncated": 1.0,
+     "prices_consistent": 1.0,
+     "sentences_le_3": 1.0
+    },
+    "latency_p50_s": 8.567,
+    "latency_p90_s": 17.605,
+    "latency_p95_s": 21.476,
+    "latency_max_s": 26.903,
+    "share_within_budget": 0.2083,
+    "mean_completion_tokens": 267.6,
+    "truncated_at_max_tokens": 0,
+    "reasoning_served_as_content": 0,
+    "prompt_leaks": 0,
+    "errors": {}
+   },
+   "ultra_guard": {
+    "model_id": "nvidia/nemotron-3-ultra-550b-a55b",
+    "n": 48,
+    "success_rate": 1.0,
+    "success_ci95": [
+     0.9259,
+     1.0
+    ],
+    "strict_pass_rate": 0.9375,
+    "strict_ci95": [
+     0.8316,
+     0.9785
+    ],
+    "per_check": {
+     "answered": 1.0,
+     "english_output": 1.0,
+     "format_clean": 1.0,
+     "grounded": 1.0,
+     "no_prompt_leak": 0.9583,
+     "no_ungrounded_brand": 1.0,
+     "no_ungrounded_product": 1.0,
+     "not_truncated": 1.0,
+     "prices_consistent": 1.0,
+     "sentences_le_3": 0.9792
+    },
+    "latency_p50_s": 4.001,
+    "latency_p90_s": 9.689,
+    "latency_p95_s": 19.329,
+    "latency_max_s": 35.768,
+    "share_within_budget": 0.7292,
+    "mean_completion_tokens": 100.4,
+    "truncated_at_max_tokens": 0,
+    "reasoning_served_as_content": 0,
+    "prompt_leaks": 2,
+    "errors": {}
+   }
+  },
+  "TRANSLATION": {
+   "super": {
+    "model_id": "nvidia/nemotron-3-super-120b-a12b",
+    "n": 32,
+    "success_rate": 1.0,
+    "success_ci95": [
+     0.8928,
+     1.0
+    ],
+    "strict_pass_rate": 0.7812,
+    "strict_ci95": [
+     0.6124,
+     0.8898
+    ],
+    "per_check": {
+     "answered": 1.0,
+     "arabic_output": 0.375,
+     "brands_preserved": 0.2188,
+     "english_output": 0.625,
+     "forbidden_absent": 0.625,
+     "format_clean": 1.0,
+     "length_sane": 1.0,
+     "must_terms": 0.875,
+     "no_untranslated_words": 0.3438,
+     "not_truncated": 1.0,
+     "numbers_preserved": 1.0
+    },
+    "latency_p50_s": 0.373,
+    "latency_p90_s": 0.654,
+    "latency_p95_s": 1.148,
+    "latency_max_s": 2.064,
+    "share_within_budget": 1.0,
+    "mean_completion_tokens": 20.6,
+    "truncated_at_max_tokens": 0,
+    "reasoning_served_as_content": 0,
+    "prompt_leaks": 0,
+    "errors": {}
+   },
+   "ultra": {
+    "model_id": "nvidia/nemotron-3-ultra-550b-a55b",
+    "n": 32,
+    "success_rate": 1.0,
+    "success_ci95": [
+     0.8928,
+     1.0
+    ],
+    "strict_pass_rate": 0.8438,
+    "strict_ci95": [
+     0.6825,
+     0.9314
+    ],
+    "per_check": {
+     "answered": 1.0,
+     "arabic_output": 0.375,
+     "brands_preserved": 0.375,
+     "english_output": 0.625,
+     "forbidden_absent": 0.625,
+     "format_clean": 1.0,
+     "length_sane": 1.0,
+     "must_terms": 0.8438,
+     "no_untranslated_words": 0.3438,
+     "not_truncated": 1.0,
+     "numbers_preserved": 1.0
+    },
+    "latency_p50_s": 1.301,
+    "latency_p90_s": 3.848,
+    "latency_p95_s": 6.189,
+    "latency_max_s": 7.815,
+    "share_within_budget": 0.9375,
+    "mean_completion_tokens": 19.6,
+    "truncated_at_max_tokens": 0,
+    "reasoning_served_as_content": 0,
+    "prompt_leaks": 0,
+    "errors": {}
+   }
+  }
+ },
+ "paired": {
+  "STYLIST_CHAT": {
+   "super_minus_ultra": {
+    "strict": {
+     "n": 48,
+     "mean_diff": -0.2292,
+     "ci95": [
+      -0.3542,
+      -0.125
+     ]
+    },
+    "latency": {
+     "n": 48,
+     "mean_diff": -8.5459,
+     "ci95": [
+      -10.32,
+      -6.9047
+     ]
+    }
+   },
+   "super_minus_ultra_guard": {
+    "strict": {
+     "n": 48,
+     "mean_diff": -0.1667,
+     "ci95": [
+      -0.2917,
+      -0.0417
+     ]
+    },
+    "latency": {
+     "n": 48,
+     "mean_diff": -4.5629,
+     "ci95": [
+      -6.6849,
+      -2.884
+     ]
+    }
+   },
+   "ultra_guard_minus_ultra": {
+    "strict": {
+     "n": 48,
+     "mean_diff": -0.0625,
+     "ci95": [
+      -0.125,
+      0.0
+     ]
+    },
+    "latency": {
+     "n": 48,
+     "mean_diff": -3.983,
+     "ci95": [
+      -5.9121,
+      -1.8965
+     ]
+    }
+   }
+  },
+  "TRANSLATION": {
+   "super_minus_ultra": {
+    "strict": {
+     "n": 32,
+     "mean_diff": -0.0625,
+     "ci95": [
+      -0.1875,
+      0.0625
+     ]
+    },
+    "latency": {
+     "n": 32,
+     "mean_diff": -1.5365,
+     "ci95": [
+      -2.1845,
+      -0.9693
+     ]
+    }
+   }
+  }
+ },
+ "decision": {
+  "STYLIST_CHAT": {
+   "gates": {
+    "super": {
+     "passes": false,
+     "detail": {
+      "availability": true,
+      "p95_within_budget": true,
+      "no_prompt_leak": false
+     }
+    },
+    "ultra": {
+     "passes": false,
+     "detail": {
+      "availability": true,
+      "p95_within_budget": false,
+      "no_prompt_leak": true
+     }
+    },
+    "ultra_guard": {
+     "passes": false,
+     "detail": {
+      "availability": true,
+      "p95_within_budget": false,
+      "no_prompt_leak": false
+     }
+    }
+   },
+   "eligible": [],
+   "winner": null
+  },
+  "TRANSLATION": {
+   "gates": {
+    "super": {
+     "passes": true,
+     "detail": {
+      "availability": true,
+      "p95_within_budget": true
+     }
+    },
+    "ultra": {
+     "passes": false,
+     "detail": {
+      "availability": true,
+      "p95_within_budget": false
+     }
+    }
+   },
+   "eligible": [
+    "super"
+   ],
+   "winner": "super"
+  }
+ }
+}

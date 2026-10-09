@@ -99,3 +99,50 @@ These are honest, tracked gaps — not failures of the plan:
 - Open items: **4**, all honestly recorded with owners and gates; none block the production of the plan.
 
 **Convergence status: CONVERGED for planning.** The artifacts are internally consistent and ready for owner review. Re-run this analysis after each implementation wave (per each workstream's final `/speckit.analyze` task) to re-converge against real code and test evidence.
+
+---
+
+## 7. Arena ↔ Cursor reconciliation (evidence-based)
+
+This section records the reconciliation of the "Arena" forensic-audit work and the
+"Cursor" master-roadmap / Spec Kit work, based on direct repository inspection (not on
+prior reports).
+
+**What actually exists in the repository:**
+
+- **One Spec Kit configuration — Cursor's.** The only Spec Kit install is `.specify/`
+  (templates, scripts, `memory/constitution.md`, workflows, integrations) plus the slash
+  commands under `.cursor/commands/speckit.*.md`. There is **no `.arena/` directory** and
+  **no `.arena/commands/`** anywhere in the tree.
+- **No Arena "adoption" branch exists.** `git ls-remote --heads origin` shows no
+  `spec-kit/adoption-first-spec-*` branch and no Arena-authored constitution/specs branch.
+  The reported Arena adoption artifacts (constitution, `.arena/commands/`, `specs/001`) were
+  never materialized or pushed and therefore cannot be reconciled against.
+- **The `arena/01a06cc0-confit-a` branch is application code, not planning artifacts.** It
+  contains zero Spec Kit / constitution / `specs/` / `.specify/` / `.arena/` files, so it
+  carries no competing planning configuration.
+- **The five forensic repair plans are the shared evidence base.** They live under
+  `docs/audits/` (PR #332 branch and inherited by the PR #333 branch) and are preserved
+  verbatim as historical evidence.
+
+**Reconciliation outcome (Rules A–F):**
+
+- **Rule A (preserve the five forensic plans):** satisfied — the five plans are present and
+  unmodified.
+- **Rule B (one canonical constitution):** satisfied — a single constitution at
+  `.specify/memory/constitution.md` (v1.0.0). No competing constitution exists.
+- **Rule C (one canonical spec per workstream):** satisfied — exactly one
+  `specs/001-checkout-total-parity/` (and one per workstream, 001–012); no duplicate
+  checkout spec.
+- **Rule D (agent-specific commands consistent):** satisfied — only `.cursor/commands/`
+  exists; there is no `.arena/commands/` to preserve or conflict with. Nothing was deleted.
+- **Rule E (preserve the 12 valid workstreams):** satisfied — all 12 remain with
+  spec+plan+tasks.
+- **Rule F (no false "implemented" migration claims):** satisfied — declarative "authored"
+  phrasing was corrected so artifacts describe the six migrations as **proposed tasks**; no
+  migration file exists (repo head `0034`), and none was created or executed.
+
+**Conclusion:** there is **no genuine dual-configuration conflict** to merge. The canonical
+planning foundation is the single Cursor Spec Kit configuration plus the preserved forensic
+plans. Reconciliation is therefore a convergence/clarification exercise, already reflected in
+these artifacts.

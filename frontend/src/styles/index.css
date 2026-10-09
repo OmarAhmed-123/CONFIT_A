@@ -147,6 +147,20 @@
      zero matches in built CSS) — the toast popped in with no motion at
      all. The global prefers-reduced-motion rule above collapses this to
      a static frame, so no extra guard is needed. */
+  /* ── Entrance: drawer slide from the inline end (C05) ───────────────
+     The stylist drawer is pinned to the physical right edge in both
+     directions, so the sheet travels from +X toward rest. Replaces the
+     DEAD `animate-in fade-in` reference on the drawer overlay (no
+     tailwindcss-animate plugin in this repo). Transform+opacity only;
+     the global prefers-reduced-motion rule collapses it. */
+  .confit-drawer-in {
+    animation: confit-drawer-in 0.45s cubic-bezier(0.25, 1, 0.5, 1) both;
+  }
+  @keyframes confit-drawer-in {
+    from { opacity: 0.4; transform: translateX(48px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
   .confit-slide-up {
     animation: confit-slide-up 0.45s cubic-bezier(0.25, 1, 0.5, 1) both;
   }

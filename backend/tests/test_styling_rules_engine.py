@@ -124,4 +124,7 @@ def test_grounding_generator_precision():
     assert "Organic Poplin Shirt" in text
     assert "Calfskin Oxford Shoes" in text
     assert "Mulberry Silk Tie" in text
-    assert "850.00" in text
+    # C05 money honesty: prose must NOT quote raw price-book amounts (the
+    # drawer card shows the converted figures) — and must point to the card.
+    assert "$" not in text
+    assert "look card" in text

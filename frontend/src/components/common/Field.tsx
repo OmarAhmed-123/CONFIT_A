@@ -85,7 +85,11 @@ const CONTROL_MIN_HEIGHT = "min-h-[48px]";
 const CONTROL_BASE = [
   "w-full rounded-[14px] border bg-white px-4 py-3 text-sm text-[#1B1F3B]",
   "transition-[border-color,box-shadow] duration-[180ms] ease-luxury",
-  "placeholder:text-slate-400",
+  // slate-500, not slate-400: 400 measures 2.56:1 on white and placeholder
+  // text is text — WCAG 2.2 AA asks 4.5:1. slate-500 is 4.76:1. This is a
+  // shared primitive, so the old token was shipping that failure to every
+  // form in the app, not just this one.
+  "placeholder:text-slate-500",
   "focus:outline-none focus-visible:outline-none focus:ring-[3px]",
 ].join(" ");
 
@@ -221,7 +225,13 @@ export const Field: React.FC<FieldProps> = ({
       </div>
 
       {counter && maxLength ? (
-        <p className="-mt-1 text-end text-[11px] tabular-nums text-slate-400" aria-hidden="true">
+        /* slate-500 (4.76:1), not slate-400 (2.56:1): a character count is
+           information, and it sits at 11px where low contrast costs the most.
+           It stays aria-hidden on purpose — a live "n / 600" announced on
+           every keystroke is noise, and the limit itself is enforced by
+           maxLength and stated in the label. Sighted and non-sighted users
+           get the constraint; only the running tally is visual. */
+        <p className="-mt-1 text-end text-[11px] tabular-nums text-slate-500" aria-hidden="true">
           {value.length} / {maxLength}
         </p>
       ) : null}

@@ -640,3 +640,55 @@ Measurable, not vibes.
 ---
 
 *Baseline verified against `RoleGuard.tsx` and the `/brand/request-demo` contract. Every defect cites a line, a build output, or a computed measurement. Where the existing code is already correct — contrast, reduced-motion handling, bootstrap guard, backend honesty — that is recorded rather than reinvented.*
+
+---
+
+# Pass 2 — audit of the page AS REBUILT (2026-10-08)
+
+Pass 1 critiqued the page that shipped inside `RoleGuard.tsx`. All 18 of its
+defects were fixed and merged. This pass re-measures the **current** code
+rather than restating the old findings, and separates what is genuinely sound
+from what still fails.
+
+## Measured sound — no action taken, and none invented
+
+| Property | Measurement |
+| --- | --- |
+| Motion spec | `cubic-bezier(0.25, 1, 0.5, 1)` throughout; reveal 0.52s, stagger 0.06s, gated on `prefers-reduced-motion` |
+| Touch targets | 8× `min-h-[48px]` + `min-h-12` across the gateway, form, `Field`, `StatusPanel` — zero `min-h-11` in scope (the 31 in `views/b2b/` are the admin/brand screens, out of scope) |
+| Content density | 207 words total across 5 tiers; ledger 46 words / 3 rows, pillars 47 / 4 — no text stuffing to remove |
+| Text contrast | navy on cream 15.28 · navy on white 16.08 · slate-600 7.58 · white on navy 16.08 · gold on deep navy 6.71 — all AA |
+| Grid | 12-column with `justify-between` on the masthead column for variable string length, as specified |
+
+## D19 — a skeleton that never resolves
+
+Tier 3's "media" wore `skeleton-shimmer` over a gradient, with no image behind
+it. `confit-shimmer` is declared `infinite` (`styles/index.css:178`), so the
+page animated a **loading state forever**: a permanent repaint in service of a
+promise nothing intended to keep. Beside it, `hover:scale-[1.03]` was a
+contextual zoom with nothing to zoom.
+
+Fix: both removed. What remains is presented honestly as a decorative brand
+surface in the register's own three colours, keeping the intended 4:5 mobile /
+16:9 desktop aspect ratios and signing itself with the existing
+`partner.portal_badge` key — no new copy, no new i18n key.
+
+## D20 — `text-slate-400` fails AA in three places (2.56:1)
+
+Introduced by the pass-1 rebuild, not pre-existing. WCAG 2.2 AA asks 4.5:1 for
+text and 3:1 for non-text UI (1.4.11); 2.56:1 fails both.
+
+| Site | Why it matters | Fix |
+| --- | --- | --- |
+| `PartnerGatewayView` accordion chevron | the visual expanded/collapsed cue | `text-slate-500` (4.76:1) + `group-hover` to register ink |
+| `Field` character counter, 11px | real information at the smallest size on the page | `text-slate-500`; kept `aria-hidden` deliberately — a live "n / 600" on every keystroke is noise, and the limit is enforced by `maxLength` and stated in the label |
+| `Field` `placeholder:text-slate-400` | **shared primitive** — the failure shipped to every form in the app | `placeholder:text-slate-500` |
+
+After the fix: 0 occurrences of `text-slate-400` in the four B01 files, and
+every text pair measures ≥ 4.52:1.
+
+## Verification
+
+`npm run verify` exit 0 (i18n gate, `tsc --noEmit`, 92/92 test files, `vite
+build`). `e2e_partner_gateway_goals.py --phase main` 44/44 steps — unchanged,
+confirming the visual pass did not move behaviour.

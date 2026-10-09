@@ -10,7 +10,7 @@ Status vocabulary: `VERIFIED / IMPLEMENTED / BUG-VERIFIED / GAP / PARTIAL / LIKE
 
 ## Coverage summary
 
-- **Total distinct findings mapped:** 84 (ADM ×20, BRD ×18, CUS ×24, DB ×7, STY ×17, VTON ×15 — minus duplicates where a DB finding is cross-referenced).
+- **Total distinct findings mapped:** 101 (ADM ×20, BRD ×18, CUS ×24, STY ×17, VTON ×15, DB ×7). Verified by `comm` against the audit corpus: 0 findings missing from this matrix, 0 matrix IDs absent from the audits.
 - **Repair-bearing findings:** every `BUG-VERIFIED`, `GAP`, `PARTIAL`, and `LIKELY` finding is assigned to exactly one owning workstream (cross-cutting UI items are owned by 010 and referenced by the feature workstream).
 - **Verified-positive findings:** assigned "protect (no workstream)" — tracked so later work does not regress them.
 - **Workstreams:** 12 (001–012); every repair-bearing finding resolves to one owner.

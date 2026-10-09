@@ -123,6 +123,29 @@ class ProductSummaryOut(BaseModel):
 ProductOut = ProductSummaryOut
 
 
+class ProductMediaOut(BaseModel):
+    """One registered asset of a product's media set.
+
+    Sent alongside ``images`` so the UI can pick the frame by ratio instead of
+    cropping one picture into every slot, and so attribution travels with the
+    file (a stock editorial image must never be presented as a boutique's own
+    product photograph).
+    """
+
+    url: str
+    storage_key: str
+    ratio: str
+    format: str
+    width: int
+    height: int
+    bytes: int
+    role: str
+    is_primary: bool = False
+    source_type: str
+    provider: Optional[str] = None
+    attribution: Optional[str] = None
+
+
 class ProductDetailOut(ProductSummaryOut):
     #: Category slug for storefront deep links (/discover?category=<slug>).
     #: The PDP breadcrumb previously linked with category_id, which the
@@ -133,6 +156,8 @@ class ProductDetailOut(ProductSummaryOut):
     material: Optional[str]
     care_instructions: Optional[str]
     images: List[str]
+    #: Metadata for every registered asset (additive; older clients ignore it).
+    media: List[ProductMediaOut] = []
     size_chart: Dict[str, Any]
     skus: List[ProductSKUOut]
     bnpl_monthly_installment: Optional[float] = None

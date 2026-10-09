@@ -1,0 +1,46 @@
+---
+description: CONFIT_A shared planning foundation — mandatory entry point, constitution, audits, specs, dependencies, and execution rules for every agent
+alwaysApply: true
+---
+
+# CONFIT_A Planning Foundation
+
+Before doing any non-trivial work in this repository, read **[`AGENTS.md`](/AGENTS.md)** at
+the repository root. It is the single entry point to the authoritative requirements,
+constitution, forensic audits, specifications, dependencies, and execution rules.
+
+## Authoritative sources (do not duplicate — link to these)
+
+- **Constitution (binding gate):** `.specify/memory/constitution.md` (v1.0.0).
+- **Forensic audits / findings:** `docs/audits/` — five role-based repair plans
+  (ADMIN, CUSTOMER, BRAND_OWNER, VIRTUAL_TRY_ON, STYLELIST_AI). Historical evidence; do not
+  rewrite.
+- **Specifications:** `specs/NNN-short-name/{spec,plan,tasks}.md` (12 workstreams, 001–012).
+- **Roadmap / traceability / gates:** `docs/roadmap/` —
+  `CONFIT_A_MASTER_IMPLEMENTATION_ROADMAP.md`, `FEATURE_TRACEABILITY_MATRIX.md`,
+  `DEPENDENCY_AND_RELEASE_GATES.md`, `CROSS_ARTIFACT_CONSISTENCY_ANALYSIS.md`.
+- **Spec Kit commands:** `.cursor/commands/speckit.*.md`.
+
+## Binding execution rules (summarized from the constitution)
+
+1. **Evidence before appearance** — nothing is "working" without proof. Use the strict
+   status vocabulary; track implementation and verification status separately; never say
+   "done".
+2. **Server-authoritative commerce** — the server is the sole authority for all money; the
+   client is never trusted for any value affecting money.
+3. **Real authorization, not hidden UI** — enforce privileged/object-scoped actions
+   server-side on DB roles with fail-closed tenant isolation.
+4. **Honest AI & external integrations** — degrade honestly (honest 503); never fabricate
+   images, recommendations, products, stock, price, or capability.
+5. **Test-first & E2E verification** — a workstream is "verified complete" only to the
+   extent its required tests actually ran and passed.
+6. **Spec-driven** — implementation-sized work flows through `specs/NNN-*/` with `FR-###` /
+   `SC-###` linked to finding IDs. Planning ≠ implementation ≠ verified completion.
+7. **Migrations are PROPOSED, not authored** — no new Alembic file exists; repo head is
+   `0034`; workstream 011 owns numbering; production head is UNVERIFIED pending an
+   authorized read-only check. Do not create or run migrations during planning.
+8. **No production mutations during planning**; no PR merged without explicit authorization
+   and passing safeguards (branch protection, required reviews, required CI).
+9. **Secrets: names only** — never print, log, commit, or embed secret values anywhere
+   (Markdown, specs, fixtures, screenshots, PR comments). Document only variable names in
+   `*.env.example` templates; advise rotation for any credential exposed in chat/logs.

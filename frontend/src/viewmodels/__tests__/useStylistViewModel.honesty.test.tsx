@@ -37,7 +37,7 @@ describe('STYLIST honesty contract', () => {
     expect(mocks.addItem).not.toHaveBeenCalled();
     expect(mocks.openCart).not.toHaveBeenCalled();
     expect(mocks.showToast).toHaveBeenCalledWith(
-      expect.stringContaining('no verified catalog items'),
+      expect.objectContaining({ key: 'stylist.toast_no_items' }),
       'error',
     );
   });
@@ -56,7 +56,7 @@ describe('STYLIST honesty contract', () => {
     expect(mocks.addItem).not.toHaveBeenCalled();
     expect(mocks.openCart).not.toHaveBeenCalled();
     expect(mocks.showToast).toHaveBeenCalledWith(
-      expect.stringContaining('missing verified SKU data'),
+      expect.objectContaining({ key: 'stylist.toast_missing_sku' }),
       'error',
     );
   });

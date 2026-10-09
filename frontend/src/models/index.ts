@@ -248,6 +248,9 @@ export interface OutfitItem {
   brand_name: string;
   category_name: string;
   price: number;
+  /** Real catalogue currency (e.g. "EGP"). Absent on legacy messages —
+   *  render an honest placeholder, never assume a currency. */
+  currency?: string | null;
   image_url: string;
   color_hex: string;
   position: string;
@@ -265,6 +268,8 @@ export interface Outfit {
   description?: string;
   occasion: string;
   total_price: number;
+  /** Currency of total_price, from the composed items themselves. */
+  currency?: string | null;
   compatibility_score: number;
   color_palette: string[];
   style_tags: string[];

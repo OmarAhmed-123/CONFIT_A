@@ -2,7 +2,8 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 from backend.app.core.database import get_db
-from backend.app.core.dependencies import get_current_user_optional
+from backend.app.core.dependencies import get_current_user_optional, get_presentation_currency
+from backend.app.services.pricing_presentation import PresentationCurrency, present
 from backend.app.core.rate_limit import limiter
 from backend.app.models.user import User
 from backend.app.services.stylist_service import StylistService
@@ -28,19 +29,28 @@ async def chat_with_stylist(
     request: Request,
     payload: StylistPromptRequest,
     user: Optional[User] = Depends(get_current_user_optional),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    fx: PresentationCurrency = Depends(get_presentation_currency),
 ):
     service = StylistService(db)
     user_id = user.id if user else None
-    return await service.interact_with_stylist(
+    # Money honesty (C05). The stylist was the ONE read path outside the
+    # presentation-currency system: it quoted raw price-book amounts (USD)
+    # while every other surface the shopper sees is converted (EGP). Same
+    # contract as the catalog: the budget arrives in the DISPLAYED currency
+    # and is converted to the price book before the engine compares it
+    # (PresentationCurrency.to_pricing); the response is converted back with
+    # the shared `present` walker, which restamps item/outfit currency labels.
+    result = await service.interact_with_stylist(
         user_id=user_id,
         prompt=payload.prompt,
         session_id=payload.session_id,
         occasion=payload.occasion,
-        budget_limit=payload.budget_limit,
+        budget_limit=fx.to_pricing(payload.budget_limit),
         voice_input_used=payload.voice_input_used,
         recommendation_constraints=(payload.recommendation_constraints.model_dump(exclude_none=True) if payload.recommendation_constraints else None)
     )
+    return present(result, fx)
 
 
 @router.post("/compatibility", response_model=CompatibilityCheckResponse)

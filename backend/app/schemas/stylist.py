@@ -91,6 +91,10 @@ class OutfitItemOut(BaseModel):
     brand_name: str
     category_name: str
     price: float
+    #: Real catalogue currency of this item (e.g. "EGP"). None on legacy
+    #: persisted messages — clients must render an honest placeholder, never
+    #: assume a currency.
+    currency: Optional[str] = None
     image_url: str
     color_hex: str
     position: str  # "top", "bottom", "outerwear", "shoes", "footwear", "accessory", "dress"
@@ -110,6 +114,8 @@ class OutfitOut(BaseModel):
     description: Optional[str]
     occasion: str
     total_price: float
+    #: Currency of total_price, from the composed items themselves.
+    currency: Optional[str] = None
     compatibility_score: int
     color_palette: List[str]
     style_tags: List[str]

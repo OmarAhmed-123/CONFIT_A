@@ -1,0 +1,988 @@
+{
+ "version": 1,
+ "generated_utc": "2026-10-09",
+ "db_revision_audited": "0035_product_images",
+ "rule": "Every product has an image source. Stock photos are licensed (Pexels, Unsplash). Generated visuals are AI illustrations and must be replaced with photographs before a public launch.",
+ "products": {
+  "tailored-italian-wool-double-breasted-blazer": {
+   "source": {
+    "provider": "pexels",
+    "photo_id": "450212",
+    "source_ref": "https://www.pexels.com/photo/450212/",
+    "attribution": "Photo: Pexels"
+   },
+   "renditions": [
+    {
+     "ratio": "4x5",
+     "role": "hero",
+     "is_primary": true,
+     "url": "https://images.pexels.com/photos/450212/pexels-photo-450212.jpeg?auto=compress&cs=tinysrgb&w=1200&h=1500&fit=crop",
+     "width": 1200,
+     "height": 1500,
+     "bytes": 135183,
+     "md5": "ff8ea61a7d420d63b91af4ea7deb1d9e",
+     "format": "jpeg",
+     "requested_w": 1200,
+     "requested_h": 1500
+    },
+    {
+     "ratio": "4x5",
+     "role": "thumb",
+     "is_primary": false,
+     "url": "https://images.pexels.com/photos/450212/pexels-photo-450212.jpeg?auto=compress&cs=tinysrgb&w=800&h=1000&fit=crop",
+     "width": 800,
+     "height": 1000,
+     "bytes": 54607,
+     "md5": "4a5258872777c1e0d350932ec4b0a3d4",
+     "format": "jpeg",
+     "requested_w": 800,
+     "requested_h": 1000
+    },
+    {
+     "ratio": "1x1",
+     "role": "gallery",
+     "is_primary": false,
+     "url": "https://images.pexels.com/photos/450212/pexels-photo-450212.jpeg?auto=compress&cs=tinysrgb&w=800&h=800&fit=crop",
+     "width": 800,
+     "height": 800,
+     "bytes": 44238,
+     "md5": "c0d3a61609c99ed7f07242d95e746b49",
+     "format": "jpeg",
+     "requested_w": 800,
+     "requested_h": 800
+    },
+    {
+     "ratio": "3x2",
+     "role": "gallery",
+     "is_primary": false,
+     "url": "https://images.pexels.com/photos/450212/pexels-photo-450212.jpeg?auto=compress&cs=tinysrgb&w=1200&h=800&fit=crop",
+     "width": 1200,
+     "height": 800,
+     "bytes": 53693,
+     "md5": "64572124eab9997ff4c33b38aef20473",
+     "format": "jpeg",
+     "requested_w": 1200,
+     "requested_h": 800
+    },
+    {
+     "ratio": "16x9",
+     "role": "gallery",
+     "is_primary": false,
+     "url": "https://images.pexels.com/photos/450212/pexels-photo-450212.jpeg?auto=compress&cs=tinysrgb&w=1280&h=720&fit=crop",
+     "width": 1280,
+     "height": 720,
+     "bytes": 50044,
+     "md5": "2973def32fea94c561bfc46422fc7c98",
+     "format": "jpeg",
+     "requested_w": 1280,
+     "requested_h": 720
+    },
+    {
+     "ratio": "master",
+     "role": "gallery",
+     "is_primary": false,
+     "url": "https://images.pexels.com/photos/450212/pexels-photo-450212.jpeg?auto=compress&cs=tinysrgb&w=1600",
+     "width": 1600,
+     "height": 1069,
+     "bytes": 91044,
+     "md5": "9cf63085ce0339e2da72acad9da77676",
+     "format": "jpeg",
+     "requested_w": 1600,
+     "requested_h": null
+    }
+   ]
+  },
+  "tuxedo-peak-lapel-evening-dinner-jacket": {
+   "source": {
+    "provider": "pexels",
+    "photo_id": "883362",
+    "source_ref": "https://www.pexels.com/photo/883362/",
+    "attribution": "Photo: Drew Rae / Pexels"
+   },
+   "renditions": [
+    {
+     "ratio": "4x5",
+     "role": "hero",
+     "is_primary": true,
+     "url": "https://images.pexels.com/photos/883362/pexels-photo-883362.jpeg?auto=compress&cs=tinysrgb&w=1200&h=1500&fit=crop",
+     "width": 1200,
+     "height": 1500,
+     "bytes": 132953,
+     "md5": "302214d78d579ee93c35406d32806a0e",
+     "format": "jpeg",
+     "requested_w": 1200,
+     "requested_h": 1500
+    },
+    {
+     "ratio": "4x5",
+     "role": "thumb",
+     "is_primary": false,
+     "url": "https://images.pexels.com/photos/883362/pexels-photo-883362.jpeg?auto=compress&cs=tinysrgb&w=800&h=1000&fit=crop",
+     "width": 800,
+     "height": 1000,
+     "bytes": 66840,
+     "md5": "031ee15aa492e3af628613546e730259",
+     "format": "jpeg",
+     "requested_w": 800,
+     "requested_h": 1000
+    },
+    {
+     "ratio": "1x1",
+     "role": "gallery",
+     "is_primary": false,
+     "url": "https://images.pexels.com/photos/883362/pexels-photo-883362.jpeg?auto=compress&cs=tinysrgb&w=800&h=800&fit=crop",
+     "width": 800,
+     "height": 800,
+     "bytes": 51648,
+     "md5": "1a10cb64eb223afa5090c852ac80cc5c",
+     "format": "jpeg",
+     "requested_w": 800,
+     "requested_h": 800
+    },
+    {
+     "ratio": "3x2",
+     "role": "gallery",
+     "is_primary": false,
+     "url": "https://images.pexels.com/photos/883362/pexels-photo-883362.jpeg?auto=compress&cs=tinysrgb&w=1200&h=800&fit=crop",
+     "width": 1200,
+     "height": 800,
+     "bytes": 65173,
+     "md5": "ea1add1b32ded69efd8310746693a9b6",
+     "format": "jpeg",
+     "requested_w": 1200,
+     "requested_h": 800
+    },
+    {
+     "ratio": "16x9",
+     "role": "gallery",
+     "is_primary": false,
+     "url": "https://images.pexels.com/photos/883362/pexels-photo-883362.jpeg?auto=compress&cs=tinysrgb&w=1280&h=720&fit=crop",
+     "width": 1280,
+     "height": 720,
+     "bytes": 63842,
+     "md5": "86093f9501ef93629a1acdb0020457e2",
+     "format": "jpeg",
+     "requested_w": 1280,
+     "requested_h": 720
+    },
+    {
+     "ratio": "master",
+     "role": "gallery",
+     "is_primary": false,
+     "url": "https://images.pexels.com/photos/883362/pexels-photo-883362.jpeg?auto=compress&cs=tinysrgb&w=1600",
+     "width": 1600,
+     "height": 1067,
+     "bytes": 104186,
+     "md5": "beee1fd67e057f5f7c06b979b90521b6",
+     "format": "jpeg",
+     "requested_w": 1600,
+     "requested_h": null
+    }
+   ]
+  },
+  "relaxed-organic-poplin-oxford-shirt": {
+   "source": {
+    "provider": "unsplash",
+    "photo_id": "1602810318383-e386cc2a3ccf",
+    "source_ref": "https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf",
+    "attribution": "Photo: Unsplash"
+   },
+   "renditions": [
+    {
+     "ratio": "4x5",
+     "role": "hero",
+     "is_primary": true,
+     "url": "https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?auto=format&fit=crop&w=1200&h=1500&q=80",
+     "width": 1200,
+     "height": 1500,
+     "bytes": 448561,
+     "md5": "d5c2dbb65c0e6e3eeaec209095e1d3cb",
+     "format": "jpeg",
+     "requested_w": 1200,
+     "requested_h": 1500
+    },
+    {
+     "ratio": "4x5",
+     "role": "thumb",
+     "is_primary": false,
+     "url": "https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?auto=format&fit=crop&w=800&h=1000&q=80",
+     "width": 800,
+     "height": 1000,
+     "bytes": 196495,
+     "md5": "eb10f76a79d7ef629c344db1044440dc",
+     "format": "jpeg",
+     "requested_w": 800,
+     "requested_h": 1000
+    },
+    {
+     "ratio": "1x1",
+     "role": "gallery",
+     "is_primary": false,
+     "url": "https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?auto=format&fit=crop&w=800&h=800&q=80",
+     "width": 800,
+     "height": 800,
+     "bytes": 142666,
+     "md5": "b490692d0d0d293c3cb0983984c21013",
+     "format": "jpeg",
+     "requested_w": 800,
+     "requested_h": 800
+    },
+    {
+     "ratio": "3x2",
+     "role": "gallery",
+     "is_primary": false,
+     "url": "https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?auto=format&fit=crop&w=1200&h=800&q=80",
+     "width": 1200,
+     "height": 800,
+     "bytes": 170059,
+     "md5": "5e2351a2ba108cb24b942bcbe383cdff",
+     "format": "jpeg",
+     "requested_w": 1200,
+     "requested_h": 800
+    },
+    {
+     "ratio": "16x9",
+     "role": "gallery",
+     "is_primary": false,
+     "url": "https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?auto=format&fit=crop&w=1280&h=720&q=80",
+     "width": 1280,
+     "height": 720,
+     "bytes": 175823,
+     "md5": "692805de522959257dac23b3e0b0b3b9",
+     "format": "jpeg",
+     "requested_w": 1280,
+     "requested_h": 720
+    },
+    {
+     "ratio": "master",
+     "role": "gallery",
+     "is_primary": false,
+     "url": "https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?auto=format&w=1600&q=80",
+     "width": 1600,
+     "height": 1067,
+     "bytes": 302264,
+     "md5": "f50b0d18234d1d5c9ffd5529b5a779cb",
+     "format": "jpeg",
+     "requested_w": 1600,
+     "requested_h": null
+    }
+   ]
+  },
+  "pleated-tapered-virgin-wool-trousers": {
+   "source": {
+    "provider": "pexels",
+    "photo_id": "8250140",
+    "source_ref": "https://www.pexels.com/photo/8250140/",
+    "attribution": "Photo: PNW Production / Pexels"
+   },
+   "renditions": [
+    {
+     "ratio": "4x5",
+     "role": "hero",
+     "is_primary": true,
+     "url": "https://images.pexels.com/photos/8250140/pexels-photo-8250140.jpeg?auto=compress&cs=tinysrgb&w=1200&h=1500&fit=crop",
+     "width": 1200,
+     "height": 1500,
+     "bytes": 99628,
+     "md5": "57f1fc1d89c521a7bc0c8b470d14ba86",
+     "format": "jpeg",
+     "requested_w": 1200,
+     "requested_h": 1500
+    },
+    {
+     "ratio": "4x5",
+     "role": "thumb",
+     "is_primary": false,
+     "url": "https://images.pexels.com/photos/8250140/pexels-photo-8250140.jpeg?auto=compress&cs=tinysrgb&w=800&h=1000&fit=crop",
+     "width": 800,
+     "height": 1000,
+     "bytes": 48176,
+     "md5": "f1ebcf8f94ed93bf480b1149914d93ec",
+     "format": "jpeg",
+     "requested_w": 800,
+     "requested_h": 1000
+    },
+    {
+     "ratio": "1x1",
+     "role": "gallery",
+     "is_primary": false,
+     "url": "https://images.pexels.com/photos/8250140/pexels-photo-8250140.jpeg?auto=compress&cs=tinysrgb&w=800&h=800&fit=crop",
+     "width": 800,
+     "height": 800,
+     "bytes": 43208,
+     "md5": "32b49685f7a981bcae0c55d2e93218c3",
+     "format": "jpeg",
+     "requested_w": 800,
+     "requested_h": 800
+    },
+    {
+     "ratio": "3x2",
+     "role": "gallery",
+     "is_primary": false,
+     "url": "https://images.pexels.com/photos/8250140/pexels-photo-8250140.jpeg?auto=compress&cs=tinysrgb&w=1200&h=800&fit=crop",
+     "width": 1200,
+     "height": 800,
+     "bytes": 67366,
+     "md5": "8d9a011b772c8fbe514f73307f72db87",
+     "format": "jpeg",
+     "requested_w": 1200,
+     "requested_h": 800
+    },
+    {
+     "ratio": "16x9",
+     "role": "gallery",
+     "is_primary": false,
+     "url": "https://images.pexels.com/photos/8250140/pexels-photo-8250140.jpeg?auto=compress&cs=tinysrgb&w=1280&h=720&fit=crop",
+     "width": 1280,
+     "height": 720,
+     "bytes": 67199,
+     "md5": "61f26219b7e0580c436c2a9afb093c3e",
+     "format": "jpeg",
+     "requested_w": 1280,
+     "requested_h": 720
+    },
+    {
+     "ratio": "master",
+     "role": "gallery",
+     "is_primary": false,
+     "url": "https://images.pexels.com/photos/8250140/pexels-photo-8250140.jpeg?auto=compress&cs=tinysrgb&w=1600",
+     "width": 1600,
+     "height": 2397,
+     "bytes": 173584,
+     "md5": "edb585a20497d9ff6c415805f187191a",
+     "format": "jpeg",
+     "requested_w": 1600,
+     "requested_h": null
+    }
+   ]
+  },
+  "silk-slip-column-maxi-dress": {
+   "source": {
+    "provider": "unsplash",
+    "photo_id": "1595777457583-95e059d581b8",
+    "source_ref": "https://images.unsplash.com/photo-1595777457583-95e059d581b8",
+    "attribution": "Photo: Unsplash"
+   },
+   "renditions": [
+    {
+     "ratio": "4x5",
+     "role": "hero",
+     "is_primary": true,
+     "url": "https://images.unsplash.com/photo-1595777457583-95e059d581b8?auto=format&fit=crop&w=1200&h=1500&q=80",
+     "width": 1200,
+     "height": 1500,
+     "bytes": 377854,
+     "md5": "a908b40b5ad2037326d3306df636e27d",
+     "format": "jpeg",
+     "requested_w": 1200,
+     "requested_h": 1500
+    },
+    {
+     "ratio": "4x5",
+     "role": "thumb",
+     "is_primary": false,
+     "url": "https://images.unsplash.com/photo-1595777457583-95e059d581b8?auto=format&fit=crop&w=800&h=1000&q=80",
+     "width": 800,
+     "height": 1000,
+     "bytes": 186262,
+     "md5": "5ddd6d30e1327846bdd18ae4cc87137b",
+     "format": "jpeg",
+     "requested_w": 800,
+     "requested_h": 1000
+    },
+    {
+     "ratio": "1x1",
+     "role": "gallery",
+     "is_primary": false,
+     "url": "https://images.unsplash.com/photo-1595777457583-95e059d581b8?auto=format&fit=crop&w=800&h=800&q=80",
+     "width": 800,
+     "height": 800,
+     "bytes": 146190,
+     "md5": "7c86603cd84f4278d0ffc9a86f7931c9",
+     "format": "jpeg",
+     "requested_w": 800,
+     "requested_h": 800
+    },
+    {
+     "ratio": "3x2",
+     "role": "gallery",
+     "is_primary": false,
+     "url": "https://images.unsplash.com/photo-1595777457583-95e059d581b8?auto=format&fit=crop&w=1200&h=800&q=80",
+     "width": 1200,
+     "height": 800,
+     "bytes": 191425,
+     "md5": "b394fb444ff745fd9ff0fb8f444ca254",
+     "format": "jpeg",
+     "requested_w": 1200,
+     "requested_h": 800
+    },
+    {
+     "ratio": "16x9",
+     "role": "gallery",
+     "is_primary": false,
+     "url": "https://images.unsplash.com/photo-1595777457583-95e059d581b8?auto=format&fit=crop&w=1280&h=720&q=80",
+     "width": 1280,
+     "height": 720,
+     "bytes": 183615,
+     "md5": "e7792949a4f0351b0fe6d67c6da35359",
+     "format": "jpeg",
+     "requested_w": 1280,
+     "requested_h": 720
+    },
+    {
+     "ratio": "master",
+     "role": "gallery",
+     "is_primary": false,
+     "url": "https://images.unsplash.com/photo-1595777457583-95e059d581b8?auto=format&w=1600&q=80",
+     "width": 1600,
+     "height": 1921,
+     "bytes": 602344,
+     "md5": "0254dd85a7293ea045c218c63499bcb4",
+     "format": "jpeg",
+     "requested_w": 1600,
+     "requested_h": null
+    }
+   ]
+  },
+  "goodyear-welted-leather-oxford-shoes": {
+   "source": {
+    "provider": "unsplash",
+    "photo_id": "1614252235316-8c857d38b5f4",
+    "source_ref": "https://images.unsplash.com/photo-1614252235316-8c857d38b5f4",
+    "attribution": "Photo: Unsplash"
+   },
+   "renditions": [
+    {
+     "ratio": "4x5",
+     "role": "hero",
+     "is_primary": true,
+     "url": "https://images.unsplash.com/photo-1614252235316-8c857d38b5f4?auto=format&fit=crop&w=1200&h=1500&q=80",
+     "width": 1200,
+     "height": 1500,
+     "bytes": 306244,
+     "md5": "ac1a0777d5ca7a25a9f1efbeeb3ff292",
+     "format": "jpeg",
+     "requested_w": 1200,
+     "requested_h": 1500
+    },
+    {
+     "ratio": "4x5",
+     "role": "thumb",
+     "is_primary": false,
+     "url": "https://images.unsplash.com/photo-1614252235316-8c857d38b5f4?auto=format&fit=crop&w=800&h=1000&q=80",
+     "width": 800,
+     "height": 1000,
+     "bytes": 147187,
+     "md5": "ad0e944f9c3f73086cfd0bb088a85063",
+     "format": "jpeg",
+     "requested_w": 800,
+     "requested_h": 1000
+    },
+    {
+     "ratio": "1x1",
+     "role": "gallery",
+     "is_primary": false,
+     "url": "https://images.unsplash.com/photo-1614252235316-8c857d38b5f4?auto=format&fit=crop&w=800&h=800&q=80",
+     "width": 800,
+     "height": 800,
+     "bytes": 118116,
+     "md5": "97a5e60788d369c068b6f06e983430ce",
+     "format": "jpeg",
+     "requested_w": 800,
+     "requested_h": 800
+    },
+    {
+     "ratio": "3x2",
+     "role": "gallery",
+     "is_primary": false,
+     "url": "https://images.unsplash.com/photo-1614252235316-8c857d38b5f4?auto=format&fit=crop&w=1200&h=800&q=80",
+     "width": 1200,
+     "height": 800,
+     "bytes": 148469,
+     "md5": "02ece8737088562bbc863ce547219ca6",
+     "format": "jpeg",
+     "requested_w": 1200,
+     "requested_h": 800
+    },
+    {
+     "ratio": "16x9",
+     "role": "gallery",
+     "is_primary": false,
+     "url": "https://images.unsplash.com/photo-1614252235316-8c857d38b5f4?auto=format&fit=crop&w=1280&h=720&q=80",
+     "width": 1280,
+     "height": 720,
+     "bytes": 134715,
+     "md5": "7748fbebad15f6f133a55786533812ec",
+     "format": "jpeg",
+     "requested_w": 1280,
+     "requested_h": 720
+    },
+    {
+     "ratio": "master",
+     "role": "gallery",
+     "is_primary": false,
+     "url": "https://images.unsplash.com/photo-1614252235316-8c857d38b5f4?auto=format&w=1600&q=80",
+     "width": 1600,
+     "height": 902,
+     "bytes": 198134,
+     "md5": "c48c1419929283b15f76539bbcf0c52f",
+     "format": "jpeg",
+     "requested_w": 1600,
+     "requested_h": null
+    }
+   ]
+  },
+  "strappy-metallic-leather-heeled-sandals": {
+   "source": {
+    "provider": "pexels",
+    "photo_id": "31450737",
+    "source_ref": "https://www.pexels.com/photo/31450737/",
+    "attribution": "Photo: pedro furtado / Pexels"
+   },
+   "renditions": [
+    {
+     "ratio": "4x5",
+     "role": "hero",
+     "is_primary": true,
+     "url": "https://images.pexels.com/photos/31450737/pexels-photo-31450737.jpeg?auto=compress&cs=tinysrgb&w=1200&h=1500&fit=crop",
+     "width": 1200,
+     "height": 1500,
+     "bytes": 142977,
+     "md5": "f11593a2c3006cf25982a585660f0ad2",
+     "format": "jpeg",
+     "requested_w": 1200,
+     "requested_h": 1500
+    },
+    {
+     "ratio": "4x5",
+     "role": "thumb",
+     "is_primary": false,
+     "url": "https://images.pexels.com/photos/31450737/pexels-photo-31450737.jpeg?auto=compress&cs=tinysrgb&w=800&h=1000&fit=crop",
+     "width": 800,
+     "height": 1000,
+     "bytes": 71163,
+     "md5": "1157281e30aac05cf5f01e3fb69727ef",
+     "format": "jpeg",
+     "requested_w": 800,
+     "requested_h": 1000
+    },
+    {
+     "ratio": "1x1",
+     "role": "gallery",
+     "is_primary": false,
+     "url": "https://images.pexels.com/photos/31450737/pexels-photo-31450737.jpeg?auto=compress&cs=tinysrgb&w=800&h=800&fit=crop",
+     "width": 800,
+     "height": 800,
+     "bytes": 50724,
+     "md5": "9a55154be38eab38118e559b31fd5f5d",
+     "format": "jpeg",
+     "requested_w": 800,
+     "requested_h": 800
+    },
+    {
+     "ratio": "3x2",
+     "role": "gallery",
+     "is_primary": false,
+     "url": "https://images.pexels.com/photos/31450737/pexels-photo-31450737.jpeg?auto=compress&cs=tinysrgb&w=1200&h=800&fit=crop",
+     "width": 1200,
+     "height": 800,
+     "bytes": 58221,
+     "md5": "c8781787820e31162ba88dd67d1efce0",
+     "format": "jpeg",
+     "requested_w": 1200,
+     "requested_h": 800
+    },
+    {
+     "ratio": "16x9",
+     "role": "gallery",
+     "is_primary": false,
+     "url": "https://images.pexels.com/photos/31450737/pexels-photo-31450737.jpeg?auto=compress&cs=tinysrgb&w=1280&h=720&fit=crop",
+     "width": 1280,
+     "height": 720,
+     "bytes": 54601,
+     "md5": "ef027b772c6f50f7e2d8d3c1742f60a4",
+     "format": "jpeg",
+     "requested_w": 1280,
+     "requested_h": 720
+    },
+    {
+     "ratio": "master",
+     "role": "gallery",
+     "is_primary": false,
+     "url": "https://images.pexels.com/photos/31450737/pexels-photo-31450737.jpeg?auto=compress&cs=tinysrgb&w=1600",
+     "width": 1600,
+     "height": 1159,
+     "bytes": 104023,
+     "md5": "96f12de9048fe257fc7648cbe230ca55",
+     "format": "jpeg",
+     "requested_w": 1600,
+     "requested_h": null
+    }
+   ]
+  },
+  "silk-jacquard-evening-necktie": {
+   "source": {
+    "provider": "unsplash",
+    "photo_id": "1589756823695-278bc923f962",
+    "source_ref": "https://images.unsplash.com/photo-1589756823695-278bc923f962",
+    "attribution": "Photo: Unsplash"
+   },
+   "renditions": [
+    {
+     "ratio": "4x5",
+     "role": "hero",
+     "is_primary": true,
+     "url": "https://images.unsplash.com/photo-1589756823695-278bc923f962?auto=format&fit=crop&w=1200&h=1500&q=80",
+     "width": 1200,
+     "height": 1500,
+     "bytes": 662314,
+     "md5": "65e923b1e2faff97050039537b78a519",
+     "format": "jpeg",
+     "requested_w": 1200,
+     "requested_h": 1500
+    },
+    {
+     "ratio": "4x5",
+     "role": "thumb",
+     "is_primary": false,
+     "url": "https://images.unsplash.com/photo-1589756823695-278bc923f962?auto=format&fit=crop&w=800&h=1000&q=80",
+     "width": 800,
+     "height": 1000,
+     "bytes": 272557,
+     "md5": "ff941cd94b581d5a02a21586cbca0d70",
+     "format": "jpeg",
+     "requested_w": 800,
+     "requested_h": 1000
+    },
+    {
+     "ratio": "1x1",
+     "role": "gallery",
+     "is_primary": false,
+     "url": "https://images.unsplash.com/photo-1589756823695-278bc923f962?auto=format&fit=crop&w=800&h=800&q=80",
+     "width": 800,
+     "height": 800,
+     "bytes": 225909,
+     "md5": "17789ee7c1d8f1ffb3302c52d36b56fd",
+     "format": "jpeg",
+     "requested_w": 800,
+     "requested_h": 800
+    },
+    {
+     "ratio": "3x2",
+     "role": "gallery",
+     "is_primary": false,
+     "url": "https://images.unsplash.com/photo-1589756823695-278bc923f962?auto=format&fit=crop&w=1200&h=800&q=80",
+     "width": 1200,
+     "height": 800,
+     "bytes": 380413,
+     "md5": "e8d68570d35c87501f79b06239d9f957",
+     "format": "jpeg",
+     "requested_w": 1200,
+     "requested_h": 800
+    },
+    {
+     "ratio": "16x9",
+     "role": "gallery",
+     "is_primary": false,
+     "url": "https://images.unsplash.com/photo-1589756823695-278bc923f962?auto=format&fit=crop&w=1280&h=720&q=80",
+     "width": 1280,
+     "height": 720,
+     "bytes": 371905,
+     "md5": "8d0fdbe35ec2fd52270dd149880b239c",
+     "format": "jpeg",
+     "requested_w": 1280,
+     "requested_h": 720
+    },
+    {
+     "ratio": "master",
+     "role": "gallery",
+     "is_primary": false,
+     "url": "https://images.unsplash.com/photo-1589756823695-278bc923f962?auto=format&w=1600&q=80",
+     "width": 1600,
+     "height": 2400,
+     "bytes": 1373484,
+     "md5": "b9fe2506ffc3d5a2ce7d0bd004916ea0",
+     "format": "jpeg",
+     "requested_w": 1600,
+     "requested_h": null
+    }
+   ]
+  },
+  "structured-metallic-evening-box-clutch": {
+   "source": {
+    "provider": "generated",
+    "photo_id": "structured-metallic-evening-box-clutch",
+    "source_ref": "frontend/public/product-media/structured-metallic-evening-box-clutch/ (AI-generated; prompt recorded here)",
+    "attribution": "AI-generated illustration, not a photograph of the item",
+    "prompt": "Professional e-commerce product photograph of a structured evening box clutch in a black and gold metallic finish, with a gold clasp and crisp edges, standing upright on a seamless warm off-white studio backdrop, soft diffused key light, subtle contact shadow, centered in portrait 4:5 framing, sharp focus. No people, no text, no logos, no watermark."
+   },
+   "renditions": [
+    {
+     "ratio": "4x5",
+     "role": "hero",
+     "is_primary": true,
+     "url": "https://confit-a.vercel.app/product-media/structured-metallic-evening-box-clutch/hero-4x5.jpg",
+     "width": 920,
+     "height": 1150,
+     "bytes": 158985,
+     "md5": "de8cca90e907ac677992901adbf5ef09",
+     "format": "jpeg",
+     "requested_w": 920,
+     "requested_h": 1150
+    },
+    {
+     "ratio": "4x5",
+     "role": "thumb",
+     "is_primary": false,
+     "url": "https://confit-a.vercel.app/product-media/structured-metallic-evening-box-clutch/thumb-4x5.jpg",
+     "width": 800,
+     "height": 1000,
+     "bytes": 119591,
+     "md5": "00690aeb90a8b27c94c71338f2bfec23",
+     "format": "jpeg",
+     "requested_w": 800,
+     "requested_h": 1000
+    },
+    {
+     "ratio": "master",
+     "role": "gallery",
+     "is_primary": false,
+     "url": "https://confit-a.vercel.app/product-media/structured-metallic-evening-box-clutch/master.jpg",
+     "width": 928,
+     "height": 1152,
+     "bytes": 158906,
+     "md5": "a1040880e97f3fd5589c8bfbe1e714b5",
+     "format": "jpeg",
+     "requested_w": 928,
+     "requested_h": 1152
+    }
+   ]
+  },
+  "brand-4-57ad561648ff0fe831b25730": {
+   "source": {
+    "provider": "generated",
+    "photo_id": "brand-4-57ad561648ff0fe831b25730",
+    "source_ref": "frontend/public/product-media/brand-4-57ad561648ff0fe831b25730/ (AI-generated; prompt recorded here)",
+    "attribution": "AI-generated illustration, not a photograph of the item",
+    "prompt": "Professional e-commerce product photograph of a relaxed-fit linen-blend utility overshirt in sage green, laid flat with sleeves neatly folded, visible patch pockets and button placket, on a seamless warm off-white studio backdrop, soft diffused light, centered in portrait 4:5 framing, sharp focus. No people, no text, no logos, no watermark."
+   },
+   "renditions": [
+    {
+     "ratio": "4x5",
+     "role": "hero",
+     "is_primary": true,
+     "url": "https://confit-a.vercel.app/product-media/brand-4-57ad561648ff0fe831b25730/hero-4x5.jpg",
+     "width": 920,
+     "height": 1150,
+     "bytes": 154177,
+     "md5": "07168b7eab99b73f2328c5b362024c85",
+     "format": "jpeg",
+     "requested_w": 920,
+     "requested_h": 1150
+    },
+    {
+     "ratio": "4x5",
+     "role": "thumb",
+     "is_primary": false,
+     "url": "https://confit-a.vercel.app/product-media/brand-4-57ad561648ff0fe831b25730/thumb-4x5.jpg",
+     "width": 800,
+     "height": 1000,
+     "bytes": 115606,
+     "md5": "75ece8cdbfa9904328e70ee3ec689aed",
+     "format": "jpeg",
+     "requested_w": 800,
+     "requested_h": 1000
+    },
+    {
+     "ratio": "master",
+     "role": "gallery",
+     "is_primary": false,
+     "url": "https://confit-a.vercel.app/product-media/brand-4-57ad561648ff0fe831b25730/master.jpg",
+     "width": 928,
+     "height": 1152,
+     "bytes": 152611,
+     "md5": "1a8695dacb66e84b834b7499bfc47afe",
+     "format": "jpeg",
+     "requested_w": 928,
+     "requested_h": 1152
+    }
+   ]
+  },
+  "brand-4-fee1711e782f7ace6376e856": {
+   "source": {
+    "provider": "pexels",
+    "photo_id": "2096476",
+    "source_ref": "https://www.pexels.com/photo/2096476/",
+    "attribution": "Photo: Mwabonje Ringa / Pexels"
+   },
+   "renditions": [
+    {
+     "ratio": "4x5",
+     "role": "hero",
+     "is_primary": true,
+     "url": "https://images.pexels.com/photos/2096476/pexels-photo-2096476.jpeg?auto=compress&cs=tinysrgb&w=1200&h=1500&fit=crop",
+     "width": 1200,
+     "height": 1500,
+     "bytes": 115419,
+     "md5": "93169745d2b5c4e9cdabf316a0c174fc",
+     "format": "jpeg",
+     "requested_w": 1200,
+     "requested_h": 1500
+    },
+    {
+     "ratio": "4x5",
+     "role": "thumb",
+     "is_primary": false,
+     "url": "https://images.pexels.com/photos/2096476/pexels-photo-2096476.jpeg?auto=compress&cs=tinysrgb&w=800&h=1000&fit=crop",
+     "width": 800,
+     "height": 1000,
+     "bytes": 60121,
+     "md5": "b36c1a5e0bd1fbbef5823345d5756606",
+     "format": "jpeg",
+     "requested_w": 800,
+     "requested_h": 1000
+    },
+    {
+     "ratio": "1x1",
+     "role": "gallery",
+     "is_primary": false,
+     "url": "https://images.pexels.com/photos/2096476/pexels-photo-2096476.jpeg?auto=compress&cs=tinysrgb&w=800&h=800&fit=crop",
+     "width": 800,
+     "height": 800,
+     "bytes": 50242,
+     "md5": "ddad93c55009d5a30d1d63b70ad5bb2a",
+     "format": "jpeg",
+     "requested_w": 800,
+     "requested_h": 800
+    },
+    {
+     "ratio": "3x2",
+     "role": "gallery",
+     "is_primary": false,
+     "url": "https://images.pexels.com/photos/2096476/pexels-photo-2096476.jpeg?auto=compress&cs=tinysrgb&w=1200&h=800&fit=crop",
+     "width": 1200,
+     "height": 800,
+     "bytes": 70617,
+     "md5": "b41a27aa21733d94f23f1fe8572f63fa",
+     "format": "jpeg",
+     "requested_w": 1200,
+     "requested_h": 800
+    },
+    {
+     "ratio": "16x9",
+     "role": "gallery",
+     "is_primary": false,
+     "url": "https://images.pexels.com/photos/2096476/pexels-photo-2096476.jpeg?auto=compress&cs=tinysrgb&w=1280&h=720&fit=crop",
+     "width": 1280,
+     "height": 720,
+     "bytes": 65982,
+     "md5": "7a6c15579612608aeb31ee3fd0b358ba",
+     "format": "jpeg",
+     "requested_w": 1280,
+     "requested_h": 720
+    },
+    {
+     "ratio": "master",
+     "role": "gallery",
+     "is_primary": false,
+     "url": "https://images.pexels.com/photos/2096476/pexels-photo-2096476.jpeg?auto=compress&cs=tinysrgb&w=1600",
+     "width": 1600,
+     "height": 2000,
+     "bytes": 192455,
+     "md5": "3d2a71d11ef39b1ebae1a3a71c83da74",
+     "format": "jpeg",
+     "requested_w": 1600,
+     "requested_h": null
+    }
+   ]
+  },
+  "brand-4-3d66cfe7feffab9866ecd84a": {
+   "source": {
+    "provider": "pexels",
+    "photo_id": "1214212",
+    "source_ref": "https://www.pexels.com/photo/1214212/",
+    "attribution": "Photo: Stephanie Ho / Pexels"
+   },
+   "renditions": [
+    {
+     "ratio": "4x5",
+     "role": "hero",
+     "is_primary": true,
+     "url": "https://images.pexels.com/photos/1214212/pexels-photo-1214212.jpeg?auto=compress&cs=tinysrgb&w=1200&h=1500&fit=crop",
+     "width": 1200,
+     "height": 1500,
+     "bytes": 106864,
+     "md5": "caa2d0d97c2fceb8ced6d8cc60788f29",
+     "format": "jpeg",
+     "requested_w": 1200,
+     "requested_h": 1500
+    },
+    {
+     "ratio": "4x5",
+     "role": "thumb",
+     "is_primary": false,
+     "url": "https://images.pexels.com/photos/1214212/pexels-photo-1214212.jpeg?auto=compress&cs=tinysrgb&w=800&h=1000&fit=crop",
+     "width": 800,
+     "height": 1000,
+     "bytes": 42932,
+     "md5": "1c2258846a86bc3f065891ee174a7d7d",
+     "format": "jpeg",
+     "requested_w": 800,
+     "requested_h": 1000
+    },
+    {
+     "ratio": "1x1",
+     "role": "gallery",
+     "is_primary": false,
+     "url": "https://images.pexels.com/photos/1214212/pexels-photo-1214212.jpeg?auto=compress&cs=tinysrgb&w=800&h=800&fit=crop",
+     "width": 800,
+     "height": 800,
+     "bytes": 31943,
+     "md5": "b9aba3ccd09e54af1f4c3975b9e360de",
+     "format": "jpeg",
+     "requested_w": 800,
+     "requested_h": 800
+    },
+    {
+     "ratio": "3x2",
+     "role": "gallery",
+     "is_primary": false,
+     "url": "https://images.pexels.com/photos/1214212/pexels-photo-1214212.jpeg?auto=compress&cs=tinysrgb&w=1200&h=800&fit=crop",
+     "width": 1200,
+     "height": 800,
+     "bytes": 51407,
+     "md5": "272d51e699a5d51b453b433b15d1f558",
+     "format": "jpeg",
+     "requested_w": 1200,
+     "requested_h": 800
+    },
+    {
+     "ratio": "16x9",
+     "role": "gallery",
+     "is_primary": false,
+     "url": "https://images.pexels.com/photos/1214212/pexels-photo-1214212.jpeg?auto=compress&cs=tinysrgb&w=1280&h=720&fit=crop",
+     "width": 1280,
+     "height": 720,
+     "bytes": 51183,
+     "md5": "324fb2984981d3b3d635e1577799ac05",
+     "format": "jpeg",
+     "requested_w": 1280,
+     "requested_h": 720
+    },
+    {
+     "ratio": "master",
+     "role": "gallery",
+     "is_primary": false,
+     "url": "https://images.pexels.com/photos/1214212/pexels-photo-1214212.jpeg?auto=compress&cs=tinysrgb&w=1600",
+     "width": 1600,
+     "height": 1600,
+     "bytes": 159930,
+     "md5": "4d10dec30eb62a2d4a06863873a4d6c6",
+     "format": "jpeg",
+     "requested_w": 1600,
+     "requested_h": null
+    }
+   ]
+  }
+ }
+}

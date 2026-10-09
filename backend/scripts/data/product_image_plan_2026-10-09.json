@@ -2,7 +2,7 @@
  "version": 1,
  "generated_utc": "2026-10-09",
  "db_revision_audited": "0035_product_images",
- "rule": "None source = no verified licensed match; the product is published with an empty thumbnail (honest placeholder).",
+ "rule": "Every product has an image source. Stock photos are licensed (Pexels, Unsplash). Generated visuals are AI illustrations and must be replaced with photographs before a public launch.",
  "products": {
   "tailored-italian-wool-double-breasted-blazer": {
    "source": {
@@ -709,12 +709,104 @@
    ]
   },
   "structured-metallic-evening-box-clutch": {
-   "source": null,
-   "renditions": []
+   "source": {
+    "provider": "generated",
+    "photo_id": "structured-metallic-evening-box-clutch",
+    "source_ref": "frontend/public/product-media/structured-metallic-evening-box-clutch/ (AI-generated; prompt recorded here)",
+    "attribution": "AI-generated illustration, not a photograph of the item",
+    "prompt": "Professional e-commerce product photograph of a structured evening box clutch in a black and gold metallic finish, with a gold clasp and crisp edges, standing upright on a seamless warm off-white studio backdrop, soft diffused key light, subtle contact shadow, centered in portrait 4:5 framing, sharp focus. No people, no text, no logos, no watermark."
+   },
+   "renditions": [
+    {
+     "ratio": "4x5",
+     "role": "hero",
+     "is_primary": true,
+     "url": "https://confit-a.vercel.app/product-media/structured-metallic-evening-box-clutch/hero-4x5.jpg",
+     "width": 920,
+     "height": 1150,
+     "bytes": 158985,
+     "md5": "de8cca90e907ac677992901adbf5ef09",
+     "format": "jpeg",
+     "requested_w": 920,
+     "requested_h": 1150
+    },
+    {
+     "ratio": "4x5",
+     "role": "thumb",
+     "is_primary": false,
+     "url": "https://confit-a.vercel.app/product-media/structured-metallic-evening-box-clutch/thumb-4x5.jpg",
+     "width": 800,
+     "height": 1000,
+     "bytes": 119591,
+     "md5": "00690aeb90a8b27c94c71338f2bfec23",
+     "format": "jpeg",
+     "requested_w": 800,
+     "requested_h": 1000
+    },
+    {
+     "ratio": "master",
+     "role": "gallery",
+     "is_primary": false,
+     "url": "https://confit-a.vercel.app/product-media/structured-metallic-evening-box-clutch/master.jpg",
+     "width": 928,
+     "height": 1152,
+     "bytes": 158906,
+     "md5": "a1040880e97f3fd5589c8bfbe1e714b5",
+     "format": "jpeg",
+     "requested_w": 928,
+     "requested_h": 1152
+    }
+   ]
   },
   "brand-4-57ad561648ff0fe831b25730": {
-   "source": null,
-   "renditions": []
+   "source": {
+    "provider": "generated",
+    "photo_id": "brand-4-57ad561648ff0fe831b25730",
+    "source_ref": "frontend/public/product-media/brand-4-57ad561648ff0fe831b25730/ (AI-generated; prompt recorded here)",
+    "attribution": "AI-generated illustration, not a photograph of the item",
+    "prompt": "Professional e-commerce product photograph of a relaxed-fit linen-blend utility overshirt in sage green, laid flat with sleeves neatly folded, visible patch pockets and button placket, on a seamless warm off-white studio backdrop, soft diffused light, centered in portrait 4:5 framing, sharp focus. No people, no text, no logos, no watermark."
+   },
+   "renditions": [
+    {
+     "ratio": "4x5",
+     "role": "hero",
+     "is_primary": true,
+     "url": "https://confit-a.vercel.app/product-media/brand-4-57ad561648ff0fe831b25730/hero-4x5.jpg",
+     "width": 920,
+     "height": 1150,
+     "bytes": 154177,
+     "md5": "07168b7eab99b73f2328c5b362024c85",
+     "format": "jpeg",
+     "requested_w": 920,
+     "requested_h": 1150
+    },
+    {
+     "ratio": "4x5",
+     "role": "thumb",
+     "is_primary": false,
+     "url": "https://confit-a.vercel.app/product-media/brand-4-57ad561648ff0fe831b25730/thumb-4x5.jpg",
+     "width": 800,
+     "height": 1000,
+     "bytes": 115606,
+     "md5": "75ece8cdbfa9904328e70ee3ec689aed",
+     "format": "jpeg",
+     "requested_w": 800,
+     "requested_h": 1000
+    },
+    {
+     "ratio": "master",
+     "role": "gallery",
+     "is_primary": false,
+     "url": "https://confit-a.vercel.app/product-media/brand-4-57ad561648ff0fe831b25730/master.jpg",
+     "width": 928,
+     "height": 1152,
+     "bytes": 152611,
+     "md5": "1a8695dacb66e84b834b7499bfc47afe",
+     "format": "jpeg",
+     "requested_w": 928,
+     "requested_h": 1152
+    }
+   ]
   },
   "brand-4-fee1711e782f7ace6376e856": {
    "source": {

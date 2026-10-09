@@ -19,6 +19,12 @@ GOALS (user outcomes, not DOM structure):
   G7  Keyboard: Enter on a focused palette card adds the piece (BUILDER-01).
   G8  Arabic/RTL: the page renders RTL with zero hard-coded-English leakage
       and locale-formatted money.
+  G9  Compatibility suggestions (pass 4): a signed-in shopper asks an empty
+      slot for ideas; the rail shows either REAL ranked catalog pieces (one
+      click composes the piece into that slot) or the server's honest
+      unavailable reason — both are valid truths, fabrication is not.
+  G10 Palette honesty (pass 4): the palette heading promises exactly what the
+      palette offers — catalog pieces — and no longer claims the wardrobe.
 
 RUN VALIDITY: a blank render or an unreachable API is MEASUREMENT INVALID
 (exit 3), never a pass. Network-boundary patches (route.abort) are test
@@ -423,6 +429,71 @@ def main() -> int:
             shown_ar = total_text(page)
             ev.step("Arabic total avoids hard-coded $ and parses as money",
                     ("$" not in shown_ar) and parse_amount(shown_ar) > 0, shown=shown_ar)
+
+            # ════ G9 — compatibility suggestions (pass 4) ════
+            switch_language(page, "en")
+            page.goto(base + "/builder", wait_until="networkidle", timeout=90000)
+            page.wait_for_timeout(1200)
+            page.wait_for_selector('button[aria-label^="Add "][aria-label$=" to outfit"]',
+                                   timeout=20000)
+            page.locator('button[aria-label^="Add "][aria-label$=" to outfit"]').first.click()
+            page.wait_for_timeout(600)
+            sug_btns = page.locator('button[aria-label^="Suggest a piece for "]')
+            ev.step("suggest affordance appears on empty slots for a signed-in shopper",
+                    sug_btns.count() >= 1, buttons=sug_btns.count())
+            before_fill = filled_slots(page)
+            sug_btns.first.click()
+            rail = page.locator('[data-testid="builder-suggestions"]')
+            rail.wait_for(state="visible", timeout=20000)
+            # wait for the pending skeleton to resolve into one of the two truths
+            page.wait_for_function(
+                """() => {
+                     const r = document.querySelector('[data-testid="builder-suggestions"]');
+                     if (!r) return false;
+                     return !!r.querySelector('button[aria-label^="Add suggestion "]')
+                         || r.textContent.includes('Suggestions are not available');
+                   }""", timeout=25000)
+            add_sug = rail.locator('button[aria-label^="Add suggestion "]')
+            if add_sug.count() > 0:
+                # engine named honestly next to the title
+                rail_text = rail.inner_text()
+                ev.step("suggestion rail names its engine honestly",
+                        ("Model ranking" in rail_text) or ("Rules-based ranking" in rail_text))
+                add_sug.first.click()
+                page.wait_for_timeout(800)
+                ev.step("clicking a suggestion composes the piece into the empty slot",
+                        filled_slots(page) == before_fill + 1,
+                        before=before_fill, after=filled_slots(page))
+            else:
+                ev.step("server declared suggestions unavailable and the rail says so honestly",
+                        "Suggestions are not available" in rail.inner_text())
+
+            # ════ G10 — palette heading honesty (pass 4) ════
+            # Scope: the PALETTE HEADING itself. The nav's "Wardrobe" link is
+            # legitimate (that page exists); the lie was the heading promising
+            # wardrobe pieces inside a catalog-only palette.
+            def palette_heading() -> str:
+                return page.evaluate(
+                    """() => {
+                         const els = [...document.querySelectorAll('h1,h2,h3,p,span')];
+                         const hit = els.find(e =>
+                           e.textContent.includes('Select pieces from the catalog below')
+                           || e.textContent.includes('اختر قطعًا من الكتالوج أدناه')
+                           || e.textContent.toLowerCase().includes('wardrobe below')
+                           || e.textContent.includes('خزانك'));
+                         return hit ? hit.textContent : '';
+                       }""")
+            h_en = palette_heading()
+            ev.step("EN palette heading promises the catalog only (no wardrobe claim)",
+                    ("Select pieces from the catalog below" in h_en)
+                    and ("wardrobe" not in h_en.lower()), heading=h_en[:80])
+            switch_language(page, "ar")
+            page.wait_for_timeout(1200)
+            h_ar = palette_heading()
+            ev.step("AR palette heading promises the catalog only (no wardrobe claim)",
+                    ("اختر قطعًا من الكتالوج أدناه" in h_ar)
+                    and ("خزانك" not in h_ar) and ("خزانتك" not in h_ar))
+            switch_language(page, "en")
 
             # The G5 harness deliberately aborted N POSTs; the browser logs
             # exactly one net::ERR_FAILED for each. Attribute those to the

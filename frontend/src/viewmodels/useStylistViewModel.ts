@@ -32,6 +32,10 @@ export function useStylistViewModel() {
   const [error, setError] = useState<TranslatableMessage | null>(null);
   //: Whether offering "Retry" is honest for the current failure.
   const [errorRetryable, setErrorRetryable] = useState(true);
+  // COUNTER-GOAL guard: adding a multi-piece look issues one cart write per
+  // piece; a double-click mid-flight would duplicate every piece. One
+  // in-flight add at a time, surfaced so the CTA can show a real busy state.
+  const [isAddingLook, setIsAddingLook] = useState(false);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
 
   const { addItem, openCart } = useCartStore();
@@ -175,24 +179,22 @@ export function useStylistViewModel() {
 
   const addCompleteLookToCart = useCallback(
     async (outfit: Outfit) => {
+      if (isAddingLook) return;
       try {
         const itemsToAdd = outfit.items || [];
         if (itemsToAdd.length === 0) {
-          showToast(
-            "This stylist look has no verified catalog items to add yet. Open a product detail page or ask for another recommendation.",
-            "error",
-          );
+          // Keys, not raw English: the Arabic drawer showed this sentence
+          // untranslated.
+          showToast(msg("stylist.toast_no_items"), "error");
           return;
         }
 
         const missingSku = itemsToAdd.find((it) => !it.sku_id);
         if (missingSku) {
-          showToast(
-            "This stylist look is missing verified SKU data, so it cannot be added to bag yet.",
-            "error",
-          );
+          showToast(msg("stylist.toast_missing_sku"), "error");
           return;
         }
+        setIsAddingLook(true);
 
         for (const it of itemsToAdd) {
           await addItem(
@@ -211,9 +213,11 @@ export function useStylistViewModel() {
         openCart();
       } catch (err: any) {
         showToast(msg('toast.add_all_failed', { reason: detail(err) }), "error");
+      } finally {
+        setIsAddingLook(false);
       }
     },
-    [addItem, openCart, showToast],
+    [addItem, openCart, showToast, isAddingLook],
   );
 
   return {
@@ -224,6 +228,7 @@ export function useStylistViewModel() {
     isRecording,
     error,
     errorRetryable,
+    isAddingLook,
     sendPrompt,
     startVoiceInput,
     addCompleteLookToCart,

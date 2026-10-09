@@ -1,5 +1,5 @@
 import { ActionButton, outcomeFromResult } from '../../components/common/ActionButton';
-import React from 'react';
+import React, { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 import { resolveMessage } from '../../i18n/messages';
@@ -18,8 +18,8 @@ import { useOutfitBuilderViewModel, CanvasItem } from '../../viewmodels/useOutfi
 import { useCatalogViewModel } from '../../viewmodels/useCatalogViewModel';
 import { useUIStore } from '../../stores/uiStore';
 import { useAuthStore } from '../../stores/authStore';
-import { useQuery } from '@tanstack/react-query';
-import { profileService } from '../../services/apiServices';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { profileService, stylistService } from '../../services/apiServices';
 import {
   OutfitBuilderIcon,
   SparkleIcon,
@@ -30,6 +30,7 @@ import {
 } from '../../components/icons/ConfitIcons';
 import { FitScoreBadge } from '../../components/common/CommonComponents';
 import { HonestProductImage } from '../../components/common/HonestProductImage';
+import { ShareActions } from '../../components/outfit/ShareActions';
 import { Product } from '../../models';
 import { formatMoney } from '../../i18n/format';
 import { useTryOnAvailability } from '../../hooks/useTryOnAvailability';
@@ -191,7 +192,11 @@ const DroppableSlot: React.FC<{
   item?: CanvasItem;
   onRemove: (slot: SlotKey) => void;
   variant?: 'portrait' | 'standard';
-}> = ({ slot, item, onRemove, variant = 'standard' }) => {
+  /** C04 pass 4: offered only to signed-in shoppers with ≥1 piece composed —
+   * the suggestion endpoint is auth-gated, and an empty canvas has nothing
+   * to complete. Absent = no dead decorative button. */
+  onSuggest?: (slot: SlotKey) => void;
+}> = ({ slot, item, onRemove, variant = 'standard', onSuggest }) => {
   // The slot card is its own component, so it needs its own translator: the
   // container's `t` is not in scope here.
   const { t, i18n } = useTranslation();
@@ -274,6 +279,17 @@ const DroppableSlot: React.FC<{
           <span className="text-[11px] font-light mt-1 text-slate-500">
             {t('outfit_builder.drop_or_enter_hint')}
           </span>
+          {onSuggest && (
+            <button
+              type="button"
+              onClick={() => onSuggest(slot.key)}
+              aria-label={t('outfit_builder.suggest_for_slot', { slot: t(slot.labelKey) })}
+              className={`mt-2 inline-flex items-center gap-1.5 px-3 py-2 min-h-[44px] rounded-xl border border-[#C5A059]/50 text-[11px] font-bold text-[#7A5C28] hover:bg-[#C5A059]/10 motion-safe:transition-[background-color,transform] motion-safe:duration-300 ${LUX_EASE} ${FOCUS_RING}`}
+            >
+              <SparkleIcon size={12} color="#C5A059" />
+              {t('outfit_builder.suggest_piece')}
+            </button>
+          )}
         </div>
       )}
     </div>
@@ -283,6 +299,86 @@ const DroppableSlot: React.FC<{
 /** C04: the loading state was a bare English sentence. A skeleton that
  * mirrors the real page geometry (header row, 5 slot cards, summary column)
  * keeps the layout stable while the saved look loads. */
+/** C04 pass 3 — the spec row lists "share the look" among this page's jobs,
+ * yet publishing lived ONLY in My Looks. In edit mode (`/outfits/:id`, an
+ * owned, saved look) the summary column now carries the same honest Spec-06
+ * share surface: mint on demand (success ONLY when the server returns a live
+ * link), real URL + expiry, copy/native-share via the shared ShareActions —
+ * zero new backend, zero duplicated logic, same i18n keys as My Looks. */
+const EditShareCard: React.FC<{ outfitId: number; title: string }> = ({ outfitId, title }) => {
+  const { t, i18n } = useTranslation();
+  const qc = useQueryClient();
+  const { data: link } = useQuery({
+    queryKey: ['outfit-share', outfitId],
+    queryFn: () => stylistService.getShareState(outfitId),
+    retry: false,
+  });
+  const isLive = Boolean(link?.is_active && link?.share_url);
+  const absolute = link?.share_url ? `${window.location.origin}${link.share_url}` : '';
+
+  return (
+    <div className={`${SURFACE} p-6 space-y-3`} data-testid="builder-share-card">
+      <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+        <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+          {t('outfit_builder.share_look')}
+        </span>
+        {isLive && (
+          <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700">
+            {t('my_looks.link_active')}
+          </span>
+        )}
+      </div>
+
+      {isLive ? (
+        <div className="space-y-2">
+          {/* URLs are Latin codes — keep them LTR even inside the Arabic page. */}
+          <input
+            readOnly
+            dir="ltr"
+            value={absolute}
+            aria-label={t('my_looks.public_link_for', { title: title })}
+            className="w-full text-[11px] bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-slate-600"
+          />
+          <ShareActions url={absolute} title={title} compact />
+          {link?.expires_at && (
+            <p className="text-[10px] text-slate-500">
+              {t('my_looks.expiry_note', {
+                date: new Date(link.expires_at).toLocaleDateString(
+                  i18n.resolvedLanguage === 'ar' ? 'ar-EG' : 'en-GB',
+                ),
+              })}
+            </p>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <p className="text-[11px] text-slate-500 font-light">{t('my_looks.private_note')}</p>
+          <ActionButton
+            metricsId="builder.publish_link"
+            onAction={async () => {
+              try {
+                const minted = await stylistService.shareOutfit(outfitId);
+                qc.setQueryData(['outfit-share', outfitId], minted);
+                return minted?.is_active && minted?.share_url ? 'success' : 'error';
+              } catch {
+                return 'error';
+              }
+            }}
+            labels={{
+              idle: t('my_looks.create_link'),
+              pending: t('my_looks.creating'),
+              success: t('my_looks.published_confirm'),
+              error: t('my_looks.publish_failed_retry'),
+            }}
+            data-testid="builder-publish-link"
+            className={`w-full py-2.5 min-h-[44px] rounded-xl bg-[#1B1F3B] hover:bg-[#0C0E1E] text-white text-xs font-bold motion-safe:transition-[background-color,transform,opacity] motion-safe:duration-300 ${LUX_EASE}`}
+          />
+        </div>
+      )}
+    </div>
+  );
+};
+
 const BuilderSkeleton: React.FC<{ label: string }> = ({ label }) => (
   <div role="status" aria-label={label} data-testid="builder-skeleton" className="space-y-8 pb-24">
     <span className="sr-only">{label}</span>
@@ -361,22 +457,51 @@ export const OutfitBuilderView: React.FC = () => {
     clearCanvas,
     saveOutfit,
     addAllToCart,
+    suggestions,
+    isSuggesting,
+    suggestError,
+    requestSuggestions,
+    dismissSuggestions,
     isLoadingExisting,
     loadError,
     verdict,
     isEditing,
   } = useOutfitBuilderViewModel(profileBudget ?? 450.0, editingOutfitId);
 
-  const { products } = useCatalogViewModel();
+
+  const {
+    products,
+    isLoading: catalogLoading,
+    error: catalogError,
+    refresh: retryCatalog,
+  } = useCatalogViewModel();
+  // C04 pass 4: the suggestion affordance exists only when it can actually
+  // work — signed-in (the endpoint is auth-gated) AND something composed
+  // (an empty canvas has nothing to complete). Guests never see a button
+  // that would only summon the login modal.
+  const canSuggest = isAuthenticated && selectedItems.length > 0;
+  const handleSuggest = useCallback(
+    (slotKey: SlotKey) => requestSuggestions(slotKey, products),
+    [requestSuggestions, products],
+  );
   const { showToast } = useUIStore();
 
   // C04: every money figure on this page used a hard-coded "$" even though
   // the catalog prices carry their own currency (EGP in production). Totals
   // are formatted in the currency of the pieces themselves.
+  // C04 pass 3 — currency HONESTY under outage: the old `|| 'USD'` fallback
+  // meant a catalog dropout silently re-labelled an Egyptian shopper's
+  // tracker in dollars ($0.00 / $450.00 — observed in the outage screenshot).
+  // When neither the canvas nor the catalog can state a currency, we don't
+  // invent one: money strings render as an em-dash until the truth arrives.
   const displayCurrency =
-    selectedItems[0]?.product.currency || products[0]?.currency || 'USD';
-  const formattedTotal = formatMoney(Math.round(runningTotal * 100), displayCurrency, lang);
-  const formattedBudget = formatMoney(Math.round(userBudgetLimit * 100), displayCurrency, lang);
+    selectedItems[0]?.product.currency || products[0]?.currency || null;
+  const formattedTotal = displayCurrency
+    ? formatMoney(Math.round(runningTotal * 100), displayCurrency, lang)
+    : '—';
+  const formattedBudget = displayCurrency
+    ? formatMoney(Math.round(userBudgetLimit * 100), displayCurrency, lang)
+    : '—';
 
   // BUILDER-01 FIX: PointerSensor previously had NO activationConstraint, so
   // a drag activated on raw pointerdown. dnd-kit then swallowed the ensuing
@@ -635,6 +760,7 @@ export const OutfitBuilderView: React.FC = () => {
                     item={selectedItems.find((i) => i.slot === SLOTS[0].key)}
                     onRemove={removeItemFromCanvas}
                     variant="portrait"
+                    onSuggest={canSuggest ? handleSuggest : undefined}
                   />
                 </div>
                 {SLOTS.slice(1).map((slot) => (
@@ -643,10 +769,109 @@ export const OutfitBuilderView: React.FC = () => {
                       slot={slot}
                       item={selectedItems.find((i) => i.slot === slot.key)}
                       onRemove={removeItemFromCanvas}
+                      onSuggest={canSuggest ? handleSuggest : undefined}
                     />
                   </div>
                 ))}
               </div>
+
+              {/* C04 pass 4 — compatibility suggestion rail. Every row is the
+                  server's truth: model vs rules engine named honestly, real
+                  catalog pieces only, and the unavailable/failure states say
+                  so instead of fabricating taste. */}
+              {(isSuggesting || suggestError || suggestions) && (
+                <div
+                  data-testid="builder-suggestions"
+                  className="rounded-2xl border border-[#C5A059]/30 bg-[#FAF9F6] p-4 space-y-3 confit-fade-in"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <SparkleIcon size={14} color="#C5A059" />
+                      <span className="text-xs font-bold text-[#1B1F3B] truncate">
+                        {suggestions
+                          ? t('outfit_builder.suggestions_for', {
+                              slot: t(SLOT_LABEL_KEY[suggestions.slot]),
+                            })
+                          : t('outfit_builder.suggest_piece')}
+                      </span>
+                      {suggestions?.engine && (
+                        <span className="text-[10px] font-semibold text-slate-500 shrink-0 flex items-center gap-1">
+                          <span aria-hidden="true">·</span>
+                          <span>
+                            {t(
+                              suggestions.engine === 'outfit_transformer_clip'
+                                ? 'outfit_builder.suggestions_engine_model'
+                                : 'outfit_builder.suggestions_engine_rules',
+                            )}
+                          </span>
+                        </span>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={dismissSuggestions}
+                      aria-label={t('common.close')}
+                      className={`h-11 w-11 shrink-0 flex items-center justify-center text-slate-500 hover:text-[#1B1F3B] ${FOCUS_RING}`}
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  {isSuggesting ? (
+                    <div role="status" aria-label={t('common.loading')} className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      <span className="sr-only">{t('common.loading')}</span>
+                      {[0, 1, 2, 3].map((k) => (
+                        <div key={k} className="h-36 rounded-xl bg-slate-100 skeleton-shimmer" />
+                      ))}
+                    </div>
+                  ) : suggestError ? (
+                    <p role="alert" className="text-xs font-light text-slate-600">
+                      {t('outfit_builder.suggestions_error')}
+                    </p>
+                  ) : suggestions && (suggestions.items.length === 0 || suggestions.unavailableReason) ? (
+                    <div className="space-y-1">
+                      <p className="text-xs font-light text-slate-600">
+                        {t('outfit_builder.suggestions_unavailable')}
+                      </p>
+                      {suggestions.unavailableReason && (
+                        <p className="text-[10px] text-slate-400" dir="ltr">
+                          {suggestions.unavailableReason}
+                        </p>
+                      )}
+                    </div>
+                  ) : suggestions ? (
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      {suggestions.items.map((p) => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => {
+                            addItemToCanvas(p, suggestions.slot);
+                            dismissSuggestions();
+                          }}
+                          aria-label={t('outfit_builder.add_suggestion', { name: p.title })}
+                          className={`group text-start rounded-xl border border-slate-200/80 bg-white p-2 hover:border-[#C5A059] ${LIFT} ${FOCUS_RING}`}
+                        >
+                          <div className="h-20 rounded-lg overflow-hidden bg-[#FAF9F6] mb-1.5">
+                            <HonestProductImage
+                              src={p.thumbnail_url}
+                              alt={p.title}
+                              unavailableLabel={t('common.image_unavailable')}
+                              className={`w-full h-full object-cover ${MEDIA_ZOOM}`}
+                            />
+                          </div>
+                          <span className="text-[10px] font-bold text-[#1B1F3B] line-clamp-1 block">
+                            {p.title}
+                          </span>
+                          <span className="text-[10px] font-bold text-[#A37E44] block">
+                            {formatMoney(Math.round(p.base_price * 100), p.currency || displayCurrency || 'EGP', lang)}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              )}
             </div>
 
             {/* Catalog Mix & Match Selector (draggable) */}
@@ -654,14 +879,56 @@ export const OutfitBuilderView: React.FC = () => {
               <h3 className="font-serif text-base font-bold text-[#1B1F3B]">
                 {t('outfit_builder.drop_garment_here')}
               </h3>
-              {products.length === 0 ? (
+              {/* C04 pass 3 — the palette now tells the TRUTH about why it is
+                  empty. The catalog VM always exposed isLoading/error/refresh;
+                  this view ignored them, so a network dropout or a 503 read
+                  as "the catalog is empty" — a soft lie. Three honest states:
+                  geometry-matched shimmer while loading, a calm error with a
+                  real retry, and palette_empty ONLY for a genuinely empty
+                  catalog. */}
+              {catalogLoading ? (
+                <div
+                  role="status"
+                  aria-label={t('common.loading')}
+                  className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3"
+                >
+                  <span className="sr-only">{t('common.loading')}</span>
+                  {[0, 1, 2, 3].map((k) => (
+                    <div key={k} className="rounded-2xl border border-slate-200/80 p-2">
+                      <div className="h-28 rounded-xl bg-slate-100 skeleton-shimmer mb-1.5" />
+                      <div className="h-3 w-3/4 rounded bg-slate-100 skeleton-shimmer mb-1" />
+                      <div className="h-3 w-1/2 rounded bg-slate-100 skeleton-shimmer" />
+                    </div>
+                  ))}
+                </div>
+              ) : catalogError ? (
+                <div role="alert" className="py-8 text-center space-y-3">
+                  <p className="text-sm font-light text-slate-600">
+                    {t('outfit_builder.palette_error')}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={retryCatalog}
+                    className={`px-5 py-2.5 min-h-[44px] rounded-xl border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-100 motion-safe:transition-[background-color,transform] motion-safe:duration-300 ${LUX_EASE} ${FOCUS_RING}`}
+                  >
+                    {t('common.retry')}
+                  </button>
+                </div>
+              ) : products.length === 0 ? (
                 <p className="py-10 text-center text-sm font-light text-slate-500">
                   {t('outfit_builder.palette_empty')}
                 </p>
               ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 max-h-96 overflow-y-auto pe-1">
+                /* Pass 3 structural diversity: on mobile the palette is a
+                   snap swiper (horizontal, momentum, logical-direction aware
+                   so RTL mirrors for free); from sm up it stays the dense
+                   scannable grid. Swipe is never the only way — every card
+                   is still a real button, and Enter still adds. */
+                <div className="grid grid-flow-col auto-cols-[11rem] gap-3 overflow-x-auto snap-x pb-2 sm:grid-flow-row sm:auto-cols-auto sm:grid-cols-3 md:grid-cols-4 sm:overflow-x-visible sm:max-h-96 sm:overflow-y-auto sm:pb-0 sm:pe-1">
                   {products.map((p) => (
-                    <DraggableProduct key={p.id} product={p} onAdd={(prod) => addItemToCanvas(prod)} />
+                    <div key={p.id} className="snap-start">
+                      <DraggableProduct product={p} onAdd={(prod) => addItemToCanvas(prod)} />
+                    </div>
                   ))}
                 </div>
               )}
@@ -707,7 +974,7 @@ export const OutfitBuilderView: React.FC = () => {
                     question — "how much room is left?" — instead of making
                     them do the subtraction. Rendered only while within
                     allocation; the over-budget badge owns the other case. */}
-                {!isOverBudget && selectedItems.length > 0 && (
+                {!isOverBudget && selectedItems.length > 0 && displayCurrency && (
                   <div className="flex justify-between text-xs">
                     <span className="text-slate-500">{t('outfit_builder.remaining_label')}:</span>
                     <span data-testid="builder-budget-remaining" className="font-bold text-emerald-700">
@@ -808,6 +1075,15 @@ export const OutfitBuilderView: React.FC = () => {
                 </button>
               </div>
             </div>
+
+            {/* Pass 3: share surface for a SAVED look (edit mode only — an
+                unsaved canvas has nothing the server can publish). */}
+            {isEditing && editingOutfitId ? (
+              <EditShareCard
+                outfitId={editingOutfitId}
+                title={outfitTitle || t('outfit_builder.default_look_name')}
+              />
+            ) : null}
           </div>
         </div>
       </DndContext>

@@ -54,6 +54,9 @@ const {
   addItemMock,
   openCartMock,
   getProfileMock,
+  getShareStateMock,
+  shareOutfitMock,
+  fillInTheBlankMock,
 } = vi.hoisted(() => ({
   getProductsMock: vi.fn(),
   getProductByIdMock: vi.fn(),
@@ -68,6 +71,9 @@ const {
   addItemMock: vi.fn(),
   openCartMock: vi.fn(),
   getProfileMock: vi.fn(),
+  getShareStateMock: vi.fn(),
+  shareOutfitMock: vi.fn(),
+  fillInTheBlankMock: vi.fn(),
 }));
 
 vi.mock("../../services/apiServices", async (importOriginal) => {
@@ -91,6 +97,9 @@ vi.mock("../../services/apiServices", async (importOriginal) => {
       updateOutfit: updateOutfitMock,
       previewComposition: previewCompositionMock,
       checkCompatibility: checkCompatibilityMock,
+      getShareState: getShareStateMock,
+      shareOutfit: shareOutfitMock,
+      fillInTheBlank: fillInTheBlankMock,
     },
     profileService: {
       ...actual.profileService,
@@ -208,6 +217,10 @@ beforeEach(() => {
   previewCompositionMock.mockResolvedValue(VALID_VERDICT);
   checkCompatibilityMock.mockResolvedValue(COMPAT);
   saveOutfitMock.mockResolvedValue({ id: 99 });
+  getShareStateMock.mockResolvedValue({
+    outfit_id: 7, share_token: null, share_url: null,
+    expires_at: null, is_active: false, view_count: 0,
+  });
   addItemMock.mockResolvedValue({ merged: false, quantity: 1 });
 });
 
@@ -490,6 +503,75 @@ describe("OutfitBuilderView — behavioral contract (C04)", () => {
     await waitFor(() => expect(addAll.getAttribute("aria-busy")).toBe("false"));
   });
 
+  it("GOAL compatibility suggestions: a signed-in shopper asks an empty slot for ideas — the server's ranked REAL pieces appear and one click composes it", async () => {
+    act(() => {
+      useAuthStore.setState({ isAuthenticated: true } as any);
+    });
+    fillInTheBlankMock.mockResolvedValue({
+      fitb_available: true, engine: "rules_heuristic", reason: null,
+      target_slot: null, target_category_used: null, outfit_product_ids: [1],
+      ranked: [
+        { product_id: 4, rank: 1, similarity: 0.91, title: "Leather Loafers", image_url: null, price: 120, currency: "EGP" },
+        { product_id: 2, rank: 2, similarity: 0.80, title: "Silk Shirt", image_url: null, price: 120, currency: "EGP" },
+      ],
+      method_note: null,
+    });
+    renderBuilder();
+    await addByName("Navy Blazer");
+    const suggestBtn = await screen.findByRole("button", {
+      name: en("outfit_builder.suggest_for_slot", { slot: en("outfit_builder.slot_footwear") }),
+    });
+    await act(async () => {
+      fireEvent.click(suggestBtn);
+    });
+    const rail = await screen.findByTestId("builder-suggestions");
+    // honest engine label: rules fallback is never presented as the model
+    expect(within(rail).getByText(en("outfit_builder.suggestions_engine_rules"))).toBeTruthy();
+    // only slot-valid pieces offered: the Silk Shirt (top) is filtered out of a footwear rail
+    expect(within(rail).queryByText("Silk Shirt")).toBeNull();
+    const addSug = within(rail).getByRole("button", {
+      name: en("outfit_builder.add_suggestion", { name: "Leather Loafers" }),
+    });
+    await act(async () => {
+      fireEvent.click(addSug);
+    });
+    expect(
+      within(screen.getByTestId("slot-footwear")).getByText("Leather Loafers"),
+    ).toBeTruthy();
+    expect(fillInTheBlankMock).toHaveBeenCalledWith({ product_ids: [1], top_k: 10 });
+  });
+
+  it("COUNTER-GOAL suggestion honesty: when the server declares fitb unavailable, the rail says so with the real reason — no fabricated taste", async () => {
+    act(() => {
+      useAuthStore.setState({ isAuthenticated: true } as any);
+    });
+    fillInTheBlankMock.mockResolvedValue({
+      fitb_available: false, engine: null, reason: "complementary model offline",
+      target_slot: null, target_category_used: null, outfit_product_ids: [1],
+      ranked: [], method_note: null,
+    });
+    renderBuilder();
+    await addByName("Navy Blazer");
+    fireEvent.click(await screen.findByRole("button", {
+      name: en("outfit_builder.suggest_for_slot", { slot: en("outfit_builder.slot_footwear") }),
+    }));
+    const rail = await screen.findByTestId("builder-suggestions");
+    await within(rail).findByText(en("outfit_builder.suggestions_unavailable"));
+    expect(within(rail).getByText("complementary model offline")).toBeTruthy();
+    expect(within(rail).queryByRole("button", { name: /Add suggestion/ })).toBeNull();
+  });
+
+  it("COUNTER-GOAL guest suggestions: a guest never sees the suggest affordance (the endpoint requires an account)", async () => {
+    renderBuilder();
+    await addByName("Navy Blazer");
+    expect(
+      screen.queryByRole("button", {
+        name: en("outfit_builder.suggest_for_slot", { slot: en("outfit_builder.slot_footwear") }),
+      }),
+    ).toBeNull();
+    expect(fillInTheBlankMock).not.toHaveBeenCalled();
+  });
+
   it("GUEST honesty: composing as a guest fires NO verdict/compatibility calls (no 401 -> login modal) and the cohesion card says sign-in is needed", async () => {
     renderBuilder();
     await addByName("Navy Blazer");
@@ -525,6 +607,72 @@ describe("OutfitBuilderView — behavioral contract (C04)", () => {
         (screen.getByTestId("save-look-cta") as HTMLButtonElement).disabled,
       ).toBe(true),
     );
+  });
+
+  it("GOAL share a saved look: edit mode offers the Spec-06 surface — mint only reports success AFTER the server returns a live link, which is then shown verbatim", async () => {
+    act(() => {
+      useAuthStore.setState({ isAuthenticated: true } as any);
+    });
+    getOutfitMock.mockResolvedValue({
+      id: 7,
+      title: "Client Dinner",
+      occasion: "Smart Casual Work",
+      items: [{ product_id: 1, sku_id: 10, position: "outerwear" }],
+    });
+    getProductByIdMock.mockResolvedValue(CATALOG[0]);
+    let resolveMint!: (v: unknown) => void;
+    shareOutfitMock.mockImplementation(() => new Promise((res) => (resolveMint = res)));
+
+    renderBuilder("/outfits/7");
+    const card = await screen.findByTestId("builder-share-card");
+    // not live yet → honest private note + publish CTA, no URL shown
+    expect(within(card).getByText(en("my_looks.private_note"))).toBeTruthy();
+    const cta = within(card).getByTestId("builder-publish-link");
+    await act(async () => {
+      fireEvent.click(cta);
+    });
+    await waitFor(() => expect(cta.getAttribute("aria-busy")).toBe("true"));
+    expect(within(card).queryByDisplayValue(/\/shared\//)).toBeNull(); // no fake link mid-flight
+    await act(async () => {
+      resolveMint({
+        outfit_id: 7, share_token: "tok_abc123", share_url: "/shared/tok_abc123",
+        expires_at: "2027-01-01T00:00:00Z", is_active: true, view_count: 0,
+      });
+    });
+    const url = await within(card).findByDisplayValue(
+      `${window.location.origin}/shared/tok_abc123`,
+    );
+    expect(url).toBeTruthy();
+    expect(shareOutfitMock).toHaveBeenCalledWith(7);
+  });
+
+  it("COUNTER-GOAL currency honesty under outage: with no catalog and an empty canvas the tracker shows an em-dash, never a fabricated $", async () => {
+    getProductsMock.mockRejectedValue(new Error("network down"));
+    renderBuilder();
+    await screen.findByText(en("outfit_builder.palette_error"));
+    const total = screen.getByTestId("builder-running-total");
+    const budget = screen.getByTestId("builder-budget-limit");
+    expect(total.textContent).toBe("—");
+    expect(budget.textContent).toBe("—");
+    expect(total.textContent).not.toContain("$");
+    expect(screen.getByTestId("builder-add-all").textContent).not.toContain("$");
+  });
+
+  it("COUNTER-GOAL palette honesty: a catalog outage shows a calm translated error with a REAL retry — never the 'empty catalog' lie", async () => {
+    getProductsMock.mockRejectedValue(new Error("network down"));
+    renderBuilder();
+    const alertEl = await screen.findByText(en("outfit_builder.palette_error"));
+    expect(alertEl).toBeTruthy();
+    expect(screen.queryByText(en("outfit_builder.palette_empty"))).toBeNull();
+    getProductsMock.mockResolvedValue(CATALOG);
+    const retryBtn = screen.getByRole("button", { name: en("common.retry") });
+    await act(async () => {
+      fireEvent.click(retryBtn);
+    });
+    // recovery is real: the palette renders the catalog pieces
+    await screen.findByRole("button", {
+      name: en("outfit_builder.add_to_outfit", { name: "Navy Blazer" }),
+    });
   });
 
   it("EDIT loading: while the saved look loads, a geometry-matched skeleton with a translated status replaces the bare English sentence", async () => {

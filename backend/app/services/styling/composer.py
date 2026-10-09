@@ -443,6 +443,7 @@ class OutfitComposer:
             "description": desc1,
             "occasion": occasion,
             "total_price": total1,
+            "currency": next((i.get("currency") for i in look1_items if i.get("currency")), None),
             "compatibility_score": eval1["composite_score"],
             "color_palette": palette1[:4],
             "style_tags": [aesthetic, "Precision Coordinated", eval1["completeness_label"]],
@@ -543,6 +544,7 @@ class OutfitComposer:
                     "description": desc2,
                     "occasion": occasion,
                     "total_price": total2,
+                    "currency": next((i.get("currency") for i in look2_items if i.get("currency")), None),
                     "compatibility_score": eval2["composite_score"],
                     "color_palette": palette2[:4],
                     "style_tags": ["Modern Silhouette", "Tonal Harmony", eval2["completeness_label"]],
@@ -671,11 +673,11 @@ class OutfitComposer:
         for it in items:
             it["budget_status"] = "within_budget" if within else "over_budget"
         if within:
-            note = f"Outfit total ${to_float(final_total_dec):.2f} is within your ${to_float(budget_dec):.2f} budget."
+            note = "The composed total sits within your target budget — both figures are shown beside this note in your display currency."
         else:
             floor = min_core_cost if min_core_cost is not None else final_total_dec
-            note = (f"Could not reach ${to_float(budget_dec):.2f} with the current catalog; "
-                    f"the minimum complete look available is ${to_float(floor):.2f}.")
+            note = ("The current catalog could not compose a complete look under your target; "
+                    "this is the least expensive complete option available.")
         return items, {"budget_limit": to_float(budget_dec), "within_budget": within, "budget_note": note}
 
     def _to_item_dict(self, product: Any, position: str, slot_type: SlotType, sort_order: int, role: str) -> Dict[str, Any]:
@@ -689,6 +691,9 @@ class OutfitComposer:
             "brand_name": product.brand.brand_name if hasattr(product, "brand") and product.brand else "CONFIT Partner",
             "category_name": product.category.name if hasattr(product, "category") and product.category else "Apparel",
             "price": to_float(product.base_price),
+            # Money honesty: the REAL catalogue currency travels with the item.
+            # The drawer used to hard-code USD while the catalogue sells in EGP.
+            "currency": getattr(product, "currency", None),
             "image_url": product.thumbnail_url,
             "color_hex": product.dominant_hex or "#1B1F3B",
             "color_family": getattr(product, "color_family", "Neutral"),

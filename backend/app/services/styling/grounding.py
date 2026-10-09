@@ -35,7 +35,7 @@ class GroundingGenerator:
                 text += f"We paired it with {shoes['brand_name']} {shoes['product_title']} to elevate the silhouette, "
             if acc:
                 text += f"and accented with the {acc['brand_name']} {acc['product_title']}. "
-            text += f"The full ensemble totals ${total_price:.2f}, delivering flawless drape and occasion-appropriate elegance."
+            text += "The full ensemble delivers flawless drape and occasion-appropriate elegance; the exact total is itemised on the look card below."
             return text
 
         outer = item_by_pos.get("outerwear")
@@ -66,6 +66,6 @@ class GroundingGenerator:
             f"Here is your grounded {occasion} ensemble "
             f"{style_attribution_phrase(aesthetic, intent.get('style_source', STYLE_SOURCE_UNKNOWN))}. "
             f"I curated a cohesive look featuring {items_str}. "
-            f"Every piece aligns in silhouette, fabric texture, and color harmony, bringing the complete shoppable look to ${total_price:.2f}."
+            f"Every piece aligns in silhouette, fabric texture, and color harmony — the complete shoppable total is itemised on the look card below."
         )
         return text

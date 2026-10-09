@@ -294,3 +294,17 @@ export const DuplicateAlertIcon: React.FC<IconProps> = ({ size = 20, className =
     </IconWrapper>
   );
 };
+
+// 21. Microphone (voice input) — replaces the 🎙️ emoji that rendered as an
+// uncontrolled platform glyph in a production control (spec 14: no emoji as
+// production state). Stroke-based, inherits the house icon grammar.
+export const MicIcon: React.FC<IconProps> = ({ size = 20, className = '', isActive = false, color, ariaLabel = 'Voice input' }) => {
+  const strokeColor = color || (isActive ? ConfitColors.gold : 'currentColor');
+  return (
+    <IconWrapper size={size} className={className} ariaLabel={ariaLabel}>
+      <rect x="9.5" y="4" width="5" height="9" rx="2.5" stroke={strokeColor} strokeWidth="1.75" fill={isActive ? `${ConfitColors.gold}20` : 'none'} />
+      <path d="M6 11.5C6 14.8 8.7 17.5 12 17.5C15.3 17.5 18 14.8 18 11.5" stroke={strokeColor} strokeWidth="1.75" strokeLinecap="round" />
+      <path d="M12 17.5V20.5" stroke={strokeColor} strokeWidth="1.75" strokeLinecap="round" />
+    </IconWrapper>
+  );
+};

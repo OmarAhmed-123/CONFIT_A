@@ -194,7 +194,16 @@
     "voice_permission_denied": "Microphone permission denied. Enable microphone access to use voice styling.",
     "voice_error": "Voice recognition failed. Please type your request instead.",
     "voice_start_failed": "Could not start voice input. Please type your request instead.",
-    "prompt_limit_hint": "{{remaining}} characters left"
+    "prompt_limit_hint": "{{remaining}} characters left",
+    "position_outerwear": "Outerwear",
+    "position_bottom": "Trousers",
+    "position_footwear": "Footwear",
+    "position_accessory": "Accessory",
+    "no_verified_items": "This stylist response did not include verified catalog items, so CONFIT is not showing placeholder products or enabling bag actions for this look.",
+    "toast_no_items": "This stylist look has no verified catalog items to add yet. Ask for another recommendation.",
+    "toast_missing_sku": "This stylist look is missing verified SKU data, so it cannot be added to the bag yet.",
+    "adding_to_bag": "Adding to bag…",
+    "voice_stop": "Stop voice input"
   },
   "outfit_builder": {
     "title": "Interactive Outfit Canvas",
@@ -210,7 +219,7 @@
     "clear_canvas": "Clear Canvas",
     "save_outfit": "Save Ensemble",
     "share_card": "Export Look Card",
-    "drop_garment_here": "Select items from catalog or wardrobe below to build your look",
+    "drop_garment_here": "Select pieces from the catalog below to build your look",
     "slot_outerwear": "Outerwear Layer",
     "slot_top": "Top / Shirt",
     "slot_bottom": "Trousers / Bottom",
@@ -263,7 +272,17 @@
     "wrong_slot": "“{{title}}” doesn’t belong in the {{slot}} slot.",
     "default_look_name": "My New Look",
     "sign_in_to_evaluate": "Sign in to score color harmony and cohesion for this look.",
-    "remaining_label": "Remaining"
+    "remaining_label": "Remaining",
+    "share_look": "Share this look",
+    "palette_error": "The catalog could not be loaded. Your composition is untouched.",
+    "suggest_piece": "Suggest a piece",
+    "suggest_for_slot": "Suggest a piece for {{slot}}",
+    "suggestions_for": "Suggestions for {{slot}}",
+    "suggestions_engine_model": "Model ranking",
+    "suggestions_engine_rules": "Rules-based ranking",
+    "suggestions_unavailable": "Suggestions are not available right now.",
+    "suggestions_error": "Could not fetch suggestions. Your composition is untouched.",
+    "add_suggestion": "Add suggestion {{name}}"
   },
   "tryon": {
     "title": "Virtual Try-On Studio",

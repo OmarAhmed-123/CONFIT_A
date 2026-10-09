@@ -90,4 +90,4 @@ As a customer, my recently-viewed list has no duplicates.
 ## Assumptions
 
 - Production access for the head check is OUT OF SCOPE for this planning assignment; the gate records it as a required, authorized prerequisite before any deploy/migration wave.
-- The six workstream migrations are authored under this workstream's numbering authority to avoid collisions.
+- The six workstream migrations are PROPOSED (as implementation tasks across 002/005/006/007/008/011) and will be numbered under this workstream's numbering authority to avoid collisions when they are authored during execution. No migration file is created during this planning assignment.

@@ -18,7 +18,7 @@ description: "Task list for Data Integrity & Migration Reconciliation"
 ### Tests first
 - [ ] T004 [P] [US2] `backend/tests/test_migration_single_head.py` + `test_migration_roundtrip.py`: exactly one `alembic heads`; `upgrade head`/`downgrade base` succeed on test DB; no shared `down_revision`. Linked: FR-003/004, SC-002/003. Acceptance: fails if collisions introduced.
 ### Implementation
-- [ ] T005 [US2] Apply the numbering plan to each workstream migration as it is authored (coordination task). Linked: FR-003.
+- [ ] T005 [US2] Apply the numbering plan to each workstream migration at the time it is authored during execution (coordination task; no migration file is created during planning). Linked: FR-003.
 
 ## Phase 4: US3 — Recently-viewed dedup (P2)
 ### Tests first

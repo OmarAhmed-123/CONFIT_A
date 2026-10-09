@@ -113,5 +113,5 @@ As an admin, I can create, view, edit, and deactivate promotions including globa
 ## Assumptions
 
 - On order cancellation/refund, a redeemed coupon is released back to the pool (reversing ledger entry) — to be confirmed with product; default is release-on-refund.
-- The promotions migration is authored but NOT executed during planning; execution and prod reconciliation are gated by workstream 011.
+- The promotions migration is PROPOSED as an implementation task (see `tasks.md` T002); no migration file exists yet and none is created or executed during planning. Authoring, test-DB validation, execution, and prod reconciliation are gated by workstream 011.
 - Pricing consumes the re-validated discount via workstream 001's `price_quote()`.

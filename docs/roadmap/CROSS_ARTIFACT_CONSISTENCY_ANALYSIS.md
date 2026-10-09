@@ -83,7 +83,7 @@ No circular hard-dependency was found. The one ordering subtlety (007 ledger pre
 
 These are honest, tracked gaps — not failures of the plan:
 
-1. **Production Alembic head is UNVERIFIED** pending an authorized read-only check (§21 / gate G-MIG-1). All six workstream migrations are authored under 011's numbering authority but **not executed**; the gate blocks any migration wave until the real prod head is confirmed and the prod `0035_product_images` is reconciled.
+1. **Production Alembic head is UNVERIFIED** pending an authorized read-only check (§21 / gate G-MIG-1). All six workstream migrations are **PROPOSED as implementation tasks** (to be authored under 011's numbering authority during execution) — no migration file exists in the repo today and none is created or executed during planning; the gate blocks any migration wave until the real prod head is confirmed and the prod `0035_product_images` is reconciled.
 2. **Environmental test failures** (`libEGL.so.1` for `test_vton_pose_artifact_regression.py`) are isolated as environmental, not app defects; they must be re-run in a GL-capable environment (workstream 008, T016).
 3. **Exact AI model IDs** (vision/multimodal) are configuration-driven and centrally documented (workstream 009, STY-16); no paid AI call is made during planning, so served-model behavior is proven via mocked/recorded providers.
 4. **P3 enhancements** (ADM-16/17, BRD-17, STY-10/11/15/17, VTON-15, CUS-20) are deliberately deferred to Wave 4 and tracked per-workstream.

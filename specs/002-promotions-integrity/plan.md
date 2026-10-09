@@ -29,7 +29,7 @@ Add promotion enforcement fields (caps, market scope, validity window) and a red
 - **III. Real Authorization**: PASS — admin CRUD enforced by DB role server-side, audited; not hidden UI.
 - **IV / V**: PASS — regression tests for each BUG-VERIFIED finding.
 
-Migration safety is a constitution concern (no prod mutation during planning). The migration is authored and tested on the test DB only; production application is gated by workstream 011. Documented, not a violation.
+Migration safety is a constitution concern (no prod mutation during planning). No migration file is created during this planning assignment; the migration is PROPOSED as an implementation task (`tasks.md` T002) to be authored and tested on the test DB only during execution, with production application gated by workstream 011. Documented, not a violation.
 
 ## Project Structure
 

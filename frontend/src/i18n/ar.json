@@ -210,7 +210,7 @@
     "clear_canvas": "مسح اللوحة",
     "save_outfit": "حفظ الإطلالة",
     "share_card": "تصدير بطاقة الإطلالة",
-    "drop_garment_here": "اختر قطعاً من الكتالوج أو من خزانك أدناه لبناء مظهرك",
+    "drop_garment_here": "اختر قطعًا من الكتالوج أدناه لبناء مظهرك",
     "slot_outerwear": "طبقة خارجية",
     "slot_top": "قميص / قمة",
     "slot_bottom": "بنطال / سُفلي",
@@ -265,7 +265,15 @@
     "sign_in_to_evaluate": "سجّل الدخول لتقييم تناغم الألوان وتماسك هذه الإطلالة.",
     "remaining_label": "المتبقي",
     "share_look": "مشاركة هذه الإطلالة",
-    "palette_error": "تعذر تحميل الكتالوج. تكوينك كما هو لم يُمس."
+    "palette_error": "تعذر تحميل الكتالوج. تكوينك كما هو لم يُمس.",
+    "suggest_piece": "اقترح قطعة",
+    "suggest_for_slot": "اقترح قطعة لخانة {{slot}}",
+    "suggestions_for": "اقتراحات لخانة {{slot}}",
+    "suggestions_engine_model": "ترتيب نموذج التنسيق",
+    "suggestions_engine_rules": "ترتيب قواعدي",
+    "suggestions_unavailable": "الاقتراحات غير متاحة حاليًا.",
+    "suggestions_error": "تعذر جلب الاقتراحات. تكوينك كما هو لم يُمس.",
+    "add_suggestion": "أضف الاقتراح {{name}}"
   },
   "tryon": {
     "title": "استوديو القياس الافتراضي (Try-On)",

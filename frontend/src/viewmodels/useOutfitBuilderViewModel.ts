@@ -300,6 +300,67 @@ export function useOutfitBuilderViewModel(
       });
   }, [selectedItems, targetOccasion, isAuthenticated]);
 
+  // ── C04 pass 4: compatibility SUGGESTIONS (spec row: "اقتراحات التوافق").
+  // The backend's Feature-06 fill-in-the-blank endpoint ranks REAL catalog
+  // products that complete the current canvas; it had zero consumers until
+  // now. The server names its engine honestly (model vs rules fallback) and
+  // declares unavailability with a reason — the UI repeats that truth, never
+  // papering over it. Auth-gated server-side, so guests never trigger it.
+  const [suggestions, setSuggestions] = useState<{
+    slot: CanvasItem['slot'];
+    engine: string | null;
+    items: Product[];
+    unavailableReason: string | null;
+  } | null>(null);
+  const [isSuggesting, setIsSuggesting] = useState(false);
+  const [suggestError, setSuggestError] = useState(false);
+  const suggestSeq = useRef(0);
+
+  const dismissSuggestions = useCallback(() => {
+    setSuggestions(null);
+    setSuggestError(false);
+  }, []);
+
+  const requestSuggestions = useCallback(
+    async (slot: CanvasItem['slot'], availableProducts: Product[]) => {
+      const pids = selectedItems.map((i) => i.product.id);
+      if (pids.length === 0) return;
+      const seq = ++suggestSeq.current;
+      setIsSuggesting(true);
+      setSuggestError(false);
+      setSuggestions(null);
+      try {
+        // No target_slot on the wire: the canvas slot taxonomy is this VM's
+        // (naturalSlotForProduct), so we free-complete server-side and apply
+        // the SAME client rule that governs drops — the suggestion rail can
+        // never offer a piece the slot itself would reject.
+        const res = await stylistService.fillInTheBlank({ product_ids: pids, top_k: 10 });
+        if (seq !== suggestSeq.current) return; // stale response: a newer request owns the rail
+        if (!res.fitb_available) {
+          setSuggestions({ slot, engine: null, items: [], unavailableReason: res.reason || null });
+          return;
+        }
+        const byId = new Map(availableProducts.map((p) => [p.id, p]));
+        const inCanvas = new Set(pids);
+        const items: Product[] = [];
+        for (const cand of res.ranked) {
+          if (inCanvas.has(cand.product_id)) continue;
+          const product = byId.get(cand.product_id);
+          if (!product || !isValidSlotForProduct(product, slot)) continue;
+          items.push(product);
+          if (items.length >= 4) break;
+        }
+        setSuggestions({ slot, engine: res.engine, items, unavailableReason: null });
+      } catch {
+        if (seq !== suggestSeq.current) return;
+        setSuggestError(true);
+      } finally {
+        if (seq === suggestSeq.current) setIsSuggesting(false);
+      }
+    },
+    [selectedItems, isValidSlotForProduct]
+  );
+
   const saveOutfit = useCallback(async () => {
     if (selectedItems.length === 0) return;
     const ready = selectedItems.filter((i) => i.skuStatus === 'ready' && i.selectedSku);
@@ -422,5 +483,10 @@ export function useOutfitBuilderViewModel(
     clearCanvas,
     saveOutfit,
     addAllToCart,
+    suggestions,
+    isSuggesting,
+    suggestError,
+    requestSuggestions,
+    dismissSuggestions,
   };
 }

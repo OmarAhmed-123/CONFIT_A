@@ -210,7 +210,7 @@
     "clear_canvas": "Clear Canvas",
     "save_outfit": "Save Ensemble",
     "share_card": "Export Look Card",
-    "drop_garment_here": "Select items from catalog or wardrobe below to build your look",
+    "drop_garment_here": "Select pieces from the catalog below to build your look",
     "slot_outerwear": "Outerwear Layer",
     "slot_top": "Top / Shirt",
     "slot_bottom": "Trousers / Bottom",
@@ -265,7 +265,15 @@
     "sign_in_to_evaluate": "Sign in to score color harmony and cohesion for this look.",
     "remaining_label": "Remaining",
     "share_look": "Share this look",
-    "palette_error": "The catalog could not be loaded. Your composition is untouched."
+    "palette_error": "The catalog could not be loaded. Your composition is untouched.",
+    "suggest_piece": "Suggest a piece",
+    "suggest_for_slot": "Suggest a piece for {{slot}}",
+    "suggestions_for": "Suggestions for {{slot}}",
+    "suggestions_engine_model": "Model ranking",
+    "suggestions_engine_rules": "Rules-based ranking",
+    "suggestions_unavailable": "Suggestions are not available right now.",
+    "suggestions_error": "Could not fetch suggestions. Your composition is untouched.",
+    "add_suggestion": "Add suggestion {{name}}"
   },
   "tryon": {
     "title": "Virtual Try-On Studio",

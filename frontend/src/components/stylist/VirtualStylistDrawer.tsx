@@ -11,10 +11,16 @@ import {
   SparkleIcon,
   BagIcon,
   TryOnIcon,
+  MicIcon,
 } from "../icons/ConfitIcons";
 import { FitScoreBadge } from "../common/CommonComponents";
+import { HonestProductImage } from "../common/HonestProductImage";
 import { useTryOnAvailability } from "../../hooks/useTryOnAvailability";
 import { StatusIcon } from '../common/InteractionPrimitives';
+
+/** House luxury curve + unified focus ring — single source for this drawer. */
+const LUX = "motion-safe:transition-all motion-safe:duration-300 ease-[cubic-bezier(0.25,1,0.5,1)]";
+const RING = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059] focus-visible:ring-offset-2";
 
 const getResolvedOutfitItems = (outfit: any) => {
   if (outfit.items && outfit.items.length > 0) {
@@ -76,6 +82,7 @@ export const VirtualStylistDrawer: React.FC = () => {
     isRecording,
     error,
     errorRetryable,
+    isAddingLook,
     sendPrompt,
     startVoiceInput,
     addCompleteLookToCart,
@@ -111,11 +118,14 @@ export const VirtualStylistDrawer: React.FC = () => {
 
   if (!isStylistDrawerOpen) return null;
 
+  // Every slot label is a KEY — the old switch hard-coded four English words
+  // ("Outerwear", "Trousers", "Footwear", "Accessory") straight into the
+  // Arabic transcript.
   const getPositionBadge = (pos: string) => {
     switch (pos?.toLowerCase()) {
       case "outerwear":
         return {
-          label: "Outerwear",
+          label: t("stylist.position_outerwear"),
           bg: "bg-[#1B1F3B] text-[#E2BF70] border border-[#C5A059]/40",
         };
       case "top":
@@ -125,17 +135,18 @@ export const VirtualStylistDrawer: React.FC = () => {
         };
       case "bottom":
         return {
-          label: "Trousers",
+          label: t("stylist.position_bottom"),
           bg: "bg-slate-900 text-slate-200 border border-slate-700/40",
         };
+      case "shoes":
       case "footwear":
         return {
-          label: "Footwear",
+          label: t("stylist.position_footwear"),
           bg: "bg-amber-950 text-amber-200 border border-amber-700/40",
         };
       case "accessory":
         return {
-          label: "Accessory",
+          label: t("stylist.position_accessory"),
           bg: "bg-emerald-950 text-emerald-200 border border-emerald-700/40",
         };
       case "dress":
@@ -148,8 +159,21 @@ export const VirtualStylistDrawer: React.FC = () => {
     }
   };
 
+  // Money honesty: render ONLY the currency the server declared for this
+  // item/look. No declared currency (legacy persisted messages) -> an honest
+  // em-dash, never an assumed "$" — same contract as the outfit builder.
+  const itemMoney = (price: number, currency?: string | null) =>
+    currency ? formatMoney(Math.round(price * 100), currency, lang) : "\u2014";
+
+  // The four quick-prompt occasions are contract values with localized
+  // labels; when a recommendation's occasion matches one, show the label.
+  const occasionLabel = (occ: string) => {
+    const hit = OCCASION_PROMPTS.find((o) => o.value === occ);
+    return hit ? t(hit.labelKey) : occ;
+  };
+
   return (
-    <div className="fixed inset-0 z-50 overflow-hidden bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 overflow-hidden bg-slate-950/60 backdrop-blur-sm confit-fade-in">
       <div className="absolute inset-y-0 right-0 max-w-full flex pl-6 sm:pl-10">
         <div
           ref={panelRef}
@@ -157,7 +181,7 @@ export const VirtualStylistDrawer: React.FC = () => {
           aria-modal="true"
           aria-label={t("stylist.dialog_label")}
           tabIndex={-1}
-          className="w-screen max-w-2xl bg-white shadow-2xl flex flex-col border-l border-slate-200"
+          className="w-screen max-w-2xl bg-white shadow-2xl flex flex-col border-l border-slate-200 confit-drawer-in"
         >
           {/* Drawer Header */}
           <div className="p-4 sm:p-6 border-b border-slate-800 bg-[#0C0E1E] text-white flex items-center justify-between">
@@ -179,7 +203,8 @@ export const VirtualStylistDrawer: React.FC = () => {
             </div>
             <button
               onClick={closeStylist}
-              className="w-8 h-8 rounded-full bg-slate-800 text-slate-300 hover:text-white flex items-center justify-center transition-colors"
+              aria-label={t("common.close")}
+              className={`w-11 h-11 rounded-full bg-slate-800 text-slate-300 hover:text-white flex items-center justify-center ${LUX} ${RING}`}
             >
               ✕
             </button>
@@ -200,7 +225,7 @@ export const VirtualStylistDrawer: React.FC = () => {
                   sendPrompt(`Style an outfit for ${occ.value}`, occ.value, undefined,
                              undefined, t(occ.labelKey))
                 }
-                className="px-3 py-1 rounded-full bg-white border border-slate-200 text-[11px] font-medium text-slate-700 hover:border-[#C5A059] hover:bg-[#FDF8EE] transition-all shrink-0 shadow-2xs"
+                className={`px-3 py-2.5 min-h-[44px] rounded-full bg-white border border-slate-200 text-[11px] font-medium text-slate-700 hover:border-[#C5A059] hover:bg-[#FDF8EE] shrink-0 shadow-2xs ${LUX} ${RING}`}
               >
                 {t(occ.labelKey)}
               </button>
@@ -236,7 +261,7 @@ export const VirtualStylistDrawer: React.FC = () => {
                         t("stylist.example_formal_wedding"),
                       )
                     }
-                    className="p-3.5 rounded-2xl border border-slate-200 hover:border-[#C5A059] bg-[#FAF9F6] hover:bg-[#FDF8EE] text-xs font-medium text-slate-800 transition-all"
+                    className={`p-3.5 min-h-[48px] rounded-2xl border border-slate-200 hover:border-[#C5A059] bg-[#FAF9F6] hover:bg-[#FDF8EE] text-xs font-medium text-slate-800 ${LUX} ${RING}`}
                   >
                     {t("stylist.example_formal_wedding")}
                   </button>
@@ -250,7 +275,7 @@ export const VirtualStylistDrawer: React.FC = () => {
                         t("stylist.example_evening_gala"),
                       )
                     }
-                    className="p-3.5 rounded-2xl border border-slate-200 hover:border-[#C5A059] bg-[#FAF9F6] hover:bg-[#FDF8EE] text-xs font-medium text-slate-800 transition-all"
+                    className={`p-3.5 min-h-[48px] rounded-2xl border border-slate-200 hover:border-[#C5A059] bg-[#FAF9F6] hover:bg-[#FDF8EE] text-xs font-medium text-slate-800 ${LUX} ${RING}`}
                   >
                     {t("stylist.example_evening_gala")}
                   </button>
@@ -311,7 +336,7 @@ export const VirtualStylistDrawer: React.FC = () => {
                           <div>
                             <div className="flex items-center gap-2 mb-1">
                               <span className="text-[10px] font-bold text-[#A37E44] uppercase tracking-wider">
-                                {outfit.occasion}
+                                {occasionLabel(outfit.occasion)}
                               </span>
                               <span
                                 className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${
@@ -320,10 +345,16 @@ export const VirtualStylistDrawer: React.FC = () => {
                                     : "bg-amber-100 text-amber-800 border border-amber-300"
                                 }`}
                               >
-                                {outfit.completeness_label ||
-                                  (outfit.is_complete !== false
-                                    ? t("stylist.complete_look")
-                                    : t("stylist.core_look"))}
+                                {/* Translate from the STABLE status token.
+                                    The free-text completeness_label is
+                                    English prose from the engine and used to
+                                    override the Arabic bundle ("COMPLETE
+                                    ENSEMBLE" leaked into the RTL drawer —
+                                    caught in the pass-1 visual review). */}
+                                {outfit.is_complete !== false ||
+                                outfit.completeness_status === "complete_look"
+                                  ? t("stylist.complete_look")
+                                  : t("stylist.core_look")}
                               </span>
                             </div>
                             <h4 className="font-serif font-bold text-base text-[#1B1F3B]">
@@ -337,24 +368,30 @@ export const VirtualStylistDrawer: React.FC = () => {
                           />
                         </div>
 
-                        {/* Garment Grid (Strict Slots) */}
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                          {getResolvedOutfitItems(outfit).map((item: any) => {
+                        {/* Garment tier — editorial asymmetry: the anchor
+                            garment (first slot) carries a 4:5 fashion
+                            portrait spanning two rows; supporting pieces sit
+                            in the standard grid. One look reads as a curated
+                            composition, not a uniform thumbnail strip. */}
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:[grid-auto-rows:minmax(0,auto)]">
+                          {getResolvedOutfitItems(outfit).map((item: any, itemIdx: number) => {
                             const badge = getPositionBadge(item.position);
+                            const isAnchor = itemIdx === 0 && getResolvedOutfitItems(outfit).length > 2;
                             return (
                               <div
                                 key={item.id}
-                                className="group relative bg-[#FAF9F6] border border-slate-200/80 rounded-2xl p-2.5 flex flex-col justify-between"
+                                className={`group relative bg-[#FAF9F6] border border-slate-200/80 rounded-2xl p-2.5 flex flex-col justify-between ${isAnchor ? "sm:row-span-2" : ""}`}
                               >
                                 <div>
-                                  <div className="h-32 w-full rounded-xl overflow-hidden bg-white mb-2 relative shadow-2xs">
-                                    <img
+                                  <div className={`${isAnchor ? "sm:aspect-[4/5] sm:h-auto h-32" : "h-32"} w-full rounded-xl overflow-hidden bg-white mb-2 relative shadow-2xs`}>
+                                    <HonestProductImage
                                       src={item.image_url}
                                       alt={item.product_title}
-                                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                      unavailableLabel={t("common.image_unavailable")}
+                                      className={`w-full h-full object-cover motion-safe:group-hover:scale-105 ${LUX}`}
                                     />
                                     <span
-                                      className={`absolute top-1.5 left-1.5 px-2 py-0.5 rounded-full text-[9px] font-semibold uppercase tracking-wider backdrop-blur-xs ${badge.bg}`}
+                                      className={`absolute top-1.5 start-1.5 px-2 py-0.5 rounded-full text-[9px] font-semibold uppercase tracking-wider backdrop-blur-xs ${badge.bg}`}
                                     >
                                       {badge.label}
                                     </span>
@@ -380,8 +417,8 @@ export const VirtualStylistDrawer: React.FC = () => {
                                 </div>
 
                                 <div className="flex items-center justify-between pt-2 border-t border-slate-100 mt-2">
-                                  <span className="text-xs font-bold text-[#1B1F3B]">
-                                    ${item.price.toFixed(2)}
+                                  <span className="text-xs font-bold text-[#1B1F3B]" dir="ltr">
+                                    {itemMoney(item.price, item.currency)}
                                   </span>
                                   <button
                                     disabled={tryOnKind === "blocked"}
@@ -401,7 +438,7 @@ export const VirtualStylistDrawer: React.FC = () => {
                                           outfit.compatibility_score,
                                       } as any)
                                     }
-                                    className="px-2 py-1 rounded-lg bg-white border border-slate-200 hover:border-[#C5A059] disabled:opacity-50 disabled:cursor-not-allowed text-[10px] font-semibold text-slate-700 flex items-center gap-1 shadow-2xs"
+                                    className={`px-2 py-2 min-h-[36px] rounded-lg bg-white border border-slate-200 hover:border-[#C5A059] disabled:opacity-50 disabled:cursor-not-allowed text-[10px] font-semibold text-slate-700 flex items-center gap-1 shadow-2xs ${LUX} ${RING}`}
                                     title={
                                       tryOnKind === "blocked" && tryOn.userMessage
                                         ? resolveMessage(tryOn.userMessage, t)
@@ -418,9 +455,7 @@ export const VirtualStylistDrawer: React.FC = () => {
                         </div>
                         {getResolvedOutfitItems(outfit).length === 0 && (
                           <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
-                            This stylist response did not include verified
-                            catalog items, so CONFIT is not showing placeholder
-                            products or enabling bag actions for this look.
+                            {t("stylist.no_verified_items")}
                           </div>
                         )}
 
@@ -446,10 +481,10 @@ export const VirtualStylistDrawer: React.FC = () => {
                               <span className="font-normal">
                                 — {t("stylist.budget_target")}
                                 {outfit.budget_limit != null
-                                  ? formatMoney(Math.round(outfit.budget_limit * 100), "USD", lang)
+                                  ? itemMoney(outfit.budget_limit, outfit.currency)
                                   : ""}
                                 , {t("stylist.budget_total")}
-                                {formatMoney(Math.round(outfit.total_price * 100), "USD", lang)}
+                                {itemMoney(outfit.total_price, outfit.currency)}
                               </span>
                             </div>
                             {outfit.budget_note && (
@@ -467,22 +502,25 @@ export const VirtualStylistDrawer: React.FC = () => {
                               {formatNumber(getResolvedOutfitItems(outfit).length, lang)}{" "}
                               {t("stylist.items_count")}):
                             </span>
-                            <div className="text-base font-serif font-black text-[#1B1F3B]" dir="ltr">
-                              {formatMoney(Math.round(outfit.total_price * 100), "USD", lang)}
+                            <div className="text-base font-serif font-black text-[#1B1F3B]" dir="ltr" data-testid="stylist-ensemble-total">
+                              {itemMoney(outfit.total_price, outfit.currency)}
                             </div>
                           </div>
                           <button
                             onClick={() => addCompleteLookToCart(outfit)}
+                            aria-busy={isAddingLook}
                             disabled={
                               getResolvedOutfitItems(outfit).length === 0
                             }
-                            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#1B1F3B] hover:bg-[#0C0E1E] text-white text-xs font-bold shadow-md transition-all disabled:cursor-not-allowed disabled:opacity-50"
+                            className={`inline-flex items-center gap-2 px-5 py-3 min-h-[48px] rounded-xl bg-[#1B1F3B] hover:bg-[#0C0E1E] text-white text-xs font-bold shadow-md disabled:cursor-not-allowed disabled:opacity-50 ${LUX} ${RING}`}
                           >
                             <BagIcon size={14} color="#FFFFFF" />
                             <span>
-                              {outfit.is_complete !== false
-                                ? t("stylist.add_complete_to_bag")
-                                : t("stylist.add_core_to_bag")}
+                              {isAddingLook
+                                ? t("stylist.adding_to_bag")
+                                : outfit.is_complete !== false
+                                  ? t("stylist.add_complete_to_bag")
+                                  : t("stylist.add_core_to_bag")}
                             </span>
                           </button>
                         </div>
@@ -494,13 +532,37 @@ export const VirtualStylistDrawer: React.FC = () => {
             ))}
 
             {isTyping && (
-              <div className="flex items-center gap-2 p-3.5 bg-white border border-slate-200 rounded-2xl w-32 shadow-2xs">
-                <span className="w-2 h-2 rounded-full bg-[#C5A059] animate-bounce"></span>
-                <span className="w-2 h-2 rounded-full bg-[#C5A059] animate-bounce [animation-delay:0.2s]"></span>
-                <span className="w-2 h-2 rounded-full bg-[#C5A059] animate-bounce [animation-delay:0.4s]"></span>
-                <span className="text-[10px] font-bold text-slate-400 ml-1">
-                  {t("stylist.thinking")}
-                </span>
+              <div role="status" aria-label={t("stylist.thinking")} className="space-y-3 confit-fade-in" data-testid="stylist-thinking">
+                <div className="flex items-center gap-2 p-3.5 bg-white border border-slate-200 rounded-2xl w-32 shadow-2xs">
+                  <span className="w-2 h-2 rounded-full bg-[#C5A059] motion-safe:animate-bounce"></span>
+                  <span className="w-2 h-2 rounded-full bg-[#C5A059] motion-safe:animate-bounce [animation-delay:0.2s]"></span>
+                  <span className="w-2 h-2 rounded-full bg-[#C5A059] motion-safe:animate-bounce [animation-delay:0.4s]"></span>
+                  <span className="text-[10px] font-bold text-slate-400 ms-1">
+                    {t("stylist.thinking")}
+                  </span>
+                </div>
+                {/* Skeleton matched to the recommendation card's real
+                    geometry (header row, asymmetric garment tier, total
+                    row) — the answer arrives into the silhouette it will
+                    occupy, not after a generic spinner. */}
+                <div className="bg-white border border-slate-200 rounded-3xl p-5 space-y-4" aria-hidden="true">
+                  <div className="flex justify-between items-start">
+                    <div className="space-y-2">
+                      <div className="h-3 w-24 rounded bg-slate-100 skeleton-shimmer" />
+                      <div className="h-4 w-44 rounded bg-slate-100 skeleton-shimmer" />
+                    </div>
+                    <div className="h-10 w-16 rounded-xl bg-slate-100 skeleton-shimmer" />
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                    <div className="sm:row-span-2 sm:aspect-[4/5] h-32 sm:h-auto rounded-2xl bg-slate-100 skeleton-shimmer" />
+                    <div className="h-32 rounded-2xl bg-slate-100 skeleton-shimmer" />
+                    <div className="h-32 rounded-2xl bg-slate-100 skeleton-shimmer" />
+                  </div>
+                  <div className="flex items-center justify-between pt-3 border-t border-slate-100">
+                    <div className="h-5 w-28 rounded bg-slate-100 skeleton-shimmer" />
+                    <div className="h-11 w-40 rounded-xl bg-slate-100 skeleton-shimmer" />
+                  </div>
+                </div>
               </div>
             )}
 
@@ -540,14 +602,16 @@ export const VirtualStylistDrawer: React.FC = () => {
               <button
                 type="button"
                 onClick={startVoiceInput}
-                className={`p-3 rounded-2xl border transition-all ${
+                aria-label={isRecording ? t("stylist.voice_stop") : t("stylist.hold_voice")}
+                aria-pressed={isRecording}
+                className={`p-3 min-h-[48px] min-w-[48px] flex items-center justify-center rounded-2xl border ${LUX} ${RING} ${
                   isRecording
-                    ? "bg-rose-500 text-white border-rose-600 animate-pulse"
+                    ? "bg-rose-500 text-white border-rose-600 motion-safe:animate-pulse"
                     : "bg-slate-50 border-slate-200 text-slate-600 hover:text-[#C5A059] hover:bg-[#FDF8EE]"
                 }`}
                 title={t("stylist.hold_voice")}
               >
-                🎙️
+                <MicIcon size={18} color="currentColor" />
               </button>
 
               <input
@@ -557,13 +621,13 @@ export const VirtualStylistDrawer: React.FC = () => {
                 maxLength={STYLIST_PROMPT_MAX_CHARS}
                 aria-describedby={inputPrompt.length > STYLIST_PROMPT_MAX_CHARS * 0.9 ? "stylist-prompt-limit" : undefined}
                 placeholder={t("stylist.input_placeholder")}
-                className="flex-1 px-4 py-3 rounded-2xl border border-slate-200 focus:outline-none focus:border-[#C5A059] text-xs sm:text-sm bg-[#FAF9F6]"
+                className={`flex-1 px-4 py-3 min-h-[48px] rounded-2xl border border-slate-200 focus:outline-none focus:border-[#C5A059] focus-visible:ring-2 focus-visible:ring-[#C5A059]/40 text-xs sm:text-sm bg-[#FAF9F6] ${LUX}`}
               />
 
               <button
                 type="submit"
                 disabled={!inputPrompt.trim() || isTyping}
-                className="px-6 py-3 rounded-2xl bg-[#1B1F3B] hover:bg-[#0C0E1E] disabled:opacity-40 text-white text-xs font-bold transition-all shadow-md flex items-center gap-1.5"
+                className={`px-6 py-3 min-h-[48px] rounded-2xl bg-[#1B1F3B] hover:bg-[#0C0E1E] disabled:opacity-40 text-white text-xs font-bold shadow-md flex items-center gap-1.5 ${LUX} ${RING}`}
               >
                 <SparkleIcon size={14} color="#C5A059" />
                 <span>{t("stylist.submit")}</span>

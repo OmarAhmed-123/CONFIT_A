@@ -167,7 +167,11 @@ def test_budget_impossible_reports_minimum_honestly():
         for o in outfits:
             assert o["within_budget"] is False
             assert o["is_complete"] is True  # never fabricate an incomplete 'cheap' look
-            assert "minimum complete look" in (o["budget_note"] or "").lower()
+            note = (o["budget_note"] or "").lower()
+            # honest refusal is still required — and no raw "$" amounts in
+            # prose (C05 money honesty: the card shows converted figures).
+            assert "least expensive complete option" in note
+            assert "$" not in note
     finally:
         db.close()
 

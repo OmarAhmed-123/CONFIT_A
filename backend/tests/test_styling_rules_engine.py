@@ -1,3 +1,4 @@
+import pytest
 from backend.app.services.styling.color_harmony import ColorHarmonyEngine
 from backend.app.services.styling.rules import (
     CategoryCompatibilityRule,
@@ -128,3 +129,23 @@ def test_grounding_generator_precision():
     # drawer card shows the converted figures) — and must point to the card.
     assert "$" not in text
     assert "look card" in text
+
+
+class TestBudgetRuleMoneyHonesty:
+    """C05 pass 2: BudgetRule explanations must never quote raw price-book
+    dollars — they surface in /stylist/compatibility suggestions while the
+    storefront presents converted currency. Relation, not figures."""
+
+    def _items(self, price):
+        return [{"price": price, "category_name": "Shirts"}]
+
+    @pytest.mark.parametrize("price,budget", [
+        (100.0, 450.0),   # within
+        (500.0, 450.0),   # slightly over (<=125%)
+        (900.0, 450.0),   # far over
+    ])
+    def test_budget_note_is_figure_free(self, price, budget):
+        from backend.app.services.styling.rules import BudgetRule
+        result = BudgetRule().evaluate(self._items(price), {"detected_budget": budget})
+        assert "$" not in result.explanation
+        assert not any(ch.isdigit() for ch in result.explanation.replace("1.25", ""))

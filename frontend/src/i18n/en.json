@@ -139,7 +139,7 @@
   "stylist": {
     "title": "CONFIT AI Stylist",
     "subtitle": "Your 24/7 personal fashion director",
-    "input_placeholder": "Describe what you want to wear, an occasion, or budget (e.g. 'Smart casual dinner outfit under $350')...",
+    "input_placeholder": "Describe what you want to wear, an occasion, or budget (e.g. 'Smart casual dinner outfit within my budget')...",
     "voice_start": "Hold to Speak",
     "voice_listening": "Listening to your style vision...",
     "voice_processing": "Processing speech intent...",
@@ -157,7 +157,6 @@
     "you_label": "You",
     "assistant_label": "CONFIT AI Stylist",
     "dialog_label": "AI stylist",
-    "engine_badge": "Rules-Grounded Engine",
     "style_prompts": "Style Prompts:",
     "occasion_formal": "Formal & Wedding",
     "occasion_work": "Work & Business",
@@ -203,7 +202,11 @@
     "toast_no_items": "This stylist look has no verified catalog items to add yet. Ask for another recommendation.",
     "toast_missing_sku": "This stylist look is missing verified SKU data, so it cannot be added to the bag yet.",
     "adding_to_bag": "Adding to bag…",
-    "voice_stop": "Stop voice input"
+    "voice_stop": "Stop voice input",
+    "catalogue_badge": "Verified catalogue pieces only",
+    "formality": "Formality",
+    "palette_label": "Look colour palette ({{count}} tones)",
+    "missing_slots_label": "Missing pieces:"
   },
   "outfit_builder": {
     "title": "Interactive Outfit Canvas",

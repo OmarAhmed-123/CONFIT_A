@@ -84,7 +84,9 @@ const outfit = (over: Record<string, unknown> = {}) => ({
   total_price: 360,
   currency: "EGP",
   compatibility_score: 91,
-  color_palette: ["#1B1F3B"],
+  color_harmony_score: 84,
+  formality_score: 72,
+  color_palette: ["#1B1F3B", "#C5A059", "#FAF9F6"],
   style_tags: [],
   is_saved: false,
   is_system_curated: true,
@@ -231,6 +233,78 @@ describe("VirtualStylistDrawer — behavioral contract (C05)", () => {
       name: new RegExp(en("stylist.add_complete_to_bag")),
     });
     expect((addBtn as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("GOAL real metrics: the harmony meters render the color_harmony_score and formality_score the API actually sent — no stamped verdicts", async () => {
+    chatMock.mockResolvedValue(assistantMessage());
+    renderDrawer();
+    await askStylist();
+    const color = await screen.findByTestId("stylist-meter-color");
+    const formality = await screen.findByTestId("stylist-meter-formality");
+    expect(color.textContent).toContain("84");
+    expect(formality.textContent).toContain("72");
+    // the pass-1 static verdict badge is gone: nothing claims "Color Harmony"
+    // as a verdict without its real score next to it
+  });
+
+  it("COUNTER-GOAL absent metrics: when the API sends no harmony/formality scores, no meter renders (nothing is invented)", async () => {
+    chatMock.mockResolvedValue(
+      assistantMessage({
+        recommendations: [outfit({ color_harmony_score: null, formality_score: null })],
+      }),
+    );
+    renderDrawer();
+    await askStylist();
+    await screen.findByTestId("stylist-ensemble-total");
+    expect(screen.queryByTestId("stylist-meter-color")).toBeNull();
+    expect(screen.queryByTestId("stylist-meter-formality")).toBeNull();
+  });
+
+  it("GOAL palette truth: colour dots equal the API palette, with an accessible count label", async () => {
+    chatMock.mockResolvedValue(assistantMessage());
+    renderDrawer();
+    await askStylist();
+    const palette = await screen.findByTestId("stylist-palette");
+    expect(palette.querySelectorAll("span").length).toBe(3);
+    expect(palette.getAttribute("aria-label")).toBeTruthy();
+  });
+
+  it("GOAL incomplete looks name their gaps: a core look lists the API's missing_slots as translated chips", async () => {
+    chatMock.mockResolvedValue(
+      assistantMessage({
+        recommendations: [
+          outfit({
+            is_complete: false,
+            completeness_status: "core_base_look",
+            missing_slots: ["outerwear", "footwear"],
+          }),
+        ],
+      }),
+    );
+    renderDrawer();
+    await askStylist();
+    const chips = await screen.findByTestId("stylist-missing-slots");
+    expect(chips.textContent).toContain("Outerwear");
+    expect(chips.textContent).toContain("Footwear");
+  });
+
+  it("COUNTER-GOAL user bubble legibility: the shopper's own message never renders in the dark ink used for assistant text (WCAG regression pin)", async () => {
+    chatMock.mockResolvedValue(assistantMessage());
+    renderDrawer();
+    const input = screen.getByPlaceholderText(en("stylist.input_placeholder"));
+    fireEvent.change(input, { target: { value: "wedding look please" } });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: new RegExp(en("stylist.submit")) }));
+    });
+    const userText = await screen.findByText("wedding look please");
+    expect(userText.className).toContain("text-white");
+    expect(userText.className).not.toContain("text-slate-800");
+  });
+
+  it("GOAL chrome money honesty: the input placeholder suggests a budget without quoting any dollar figure", async () => {
+    renderDrawer();
+    const input = screen.getByPlaceholderText((text) => text.length > 0);
+    expect(input.getAttribute("placeholder")).not.toContain("$");
   });
 
   it("ARABIC truth: the Arabic drawer carries no hard-coded English slot labels or banner prose", async () => {

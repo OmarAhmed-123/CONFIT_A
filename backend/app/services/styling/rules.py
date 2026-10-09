@@ -140,12 +140,19 @@ class BudgetRule(BaseStylingRule):
         total_price = to_float(total_price_dec)
         budget_f = to_float(budget_limit)
 
+        # Explanations are figure-free on purpose: these strings travel into
+        # shopper-facing diagnostics (/stylist/compatibility suggestions), and
+        # any amount quoted here would be a raw price-book dollar figure while
+        # the storefront presents EGP — the exact lie the C05 money-honesty
+        # pass removed from the chat prose. The look card remains the single
+        # money source; the rule reports the RELATION, never the number.
+        del total_price, budget_f  # ledger values; never shown to shoppers
         if total_price_dec <= budget_limit:
-            return RuleResult(True, 100, 0, f"Total look (${total_price:.2f}) is within target budget (${budget_f:.2f}).")
+            return RuleResult(True, 100, 0, "Total look is within the target budget.")
         elif total_price_dec <= budget_limit * Decimal("1.25"):
-            return RuleResult(True, 88, 8, f"Total look (${total_price:.2f}) slightly exceeds budget for premium tailoring quality.")
+            return RuleResult(True, 88, 8, "Total look slightly exceeds the budget for premium tailoring quality.")
         else:
-            return RuleResult(True, 75, 15, f"Total look (${total_price:.2f}) exceeds target budget (${budget_f:.2f}).")
+            return RuleResult(True, 75, 15, "Total look exceeds the target budget.")
 
 
 class StylingRulesEngine:

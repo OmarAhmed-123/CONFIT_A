@@ -13,7 +13,6 @@ import {
   TryOnIcon,
   MicIcon,
 } from "../icons/ConfitIcons";
-import { FitScoreBadge } from "../common/CommonComponents";
 import { HonestProductImage } from "../common/HonestProductImage";
 import { useTryOnAvailability } from "../../hooks/useTryOnAvailability";
 import { StatusIcon } from '../common/InteractionPrimitives';
@@ -52,6 +51,49 @@ const OCCASION_PROMPTS = [
   { value: "Evening & Party", labelKey: "stylist.occasion_evening" },
   { value: "Casual Weekend", labelKey: "stylist.occasion_casual" },
 ] as const;
+
+/** Slot → i18n key. One token map, zero duplicated badge logic (DRY). */
+const SLOT_LABEL_KEYS: Record<string, string> = {
+  outerwear: "stylist.position_outerwear",
+  top: "stylist.position_top",
+  bottom: "stylist.position_bottom",
+  shoes: "stylist.position_footwear",
+  footwear: "stylist.position_footwear",
+  accessory: "stylist.position_accessory",
+  dress: "stylist.position_gown",
+};
+
+/**
+ * Hairline score meter — renders ONLY when the API actually sent the metric.
+ * Replaces the pass-1 badge that stamped a static "Color Harmony" verdict on
+ * every look regardless of data: these are the real color_harmony_score /
+ * formality_score fields the endpoint already returns.
+ */
+const ScoreMeter: React.FC<{
+  label: string;
+  value?: number | null;
+  lang: string;
+  testid?: string;
+}> = ({ label, value, lang, testid }) => {
+  if (value == null) return null;
+  const clamped = Math.max(0, Math.min(100, value));
+  return (
+    <div className="flex items-center gap-2" data-testid={testid}>
+      <span className="text-[9px] font-semibold uppercase tracking-wider text-slate-400 w-24 shrink-0 truncate">
+        {label}
+      </span>
+      <div className="h-px flex-1 bg-slate-200 relative overflow-visible" aria-hidden="true">
+        <div
+          className="absolute inset-y-0 start-0 h-[3px] -top-[1px] rounded-full bg-[#C5A059] motion-safe:transition-[width] motion-safe:duration-700 ease-[cubic-bezier(0.25,1,0.5,1)]"
+          style={{ width: `${clamped}%` }}
+        />
+      </div>
+      <span className="text-[10px] font-bold text-[#1B1F3B] tabular-nums" dir="ltr">
+        {formatNumber(clamped, lang)}%
+      </span>
+    </div>
+  );
+};
 
 export const VirtualStylistDrawer: React.FC = () => {
   const { t, i18n } = useTranslation();
@@ -118,46 +160,19 @@ export const VirtualStylistDrawer: React.FC = () => {
 
   if (!isStylistDrawerOpen) return null;
 
-  // Every slot label is a KEY — the old switch hard-coded four English words
-  // ("Outerwear", "Trousers", "Footwear", "Accessory") straight into the
-  // Arabic transcript.
-  const getPositionBadge = (pos: string) => {
-    switch (pos?.toLowerCase()) {
-      case "outerwear":
-        return {
-          label: t("stylist.position_outerwear"),
-          bg: "bg-[#1B1F3B] text-[#E2BF70] border border-[#C5A059]/40",
-        };
-      case "top":
-        return {
-          label: t("stylist.position_top"),
-          bg: "bg-indigo-950 text-indigo-200 border border-indigo-700/40",
-        };
-      case "bottom":
-        return {
-          label: t("stylist.position_bottom"),
-          bg: "bg-slate-900 text-slate-200 border border-slate-700/40",
-        };
-      case "shoes":
-      case "footwear":
-        return {
-          label: t("stylist.position_footwear"),
-          bg: "bg-amber-950 text-amber-200 border border-amber-700/40",
-        };
-      case "accessory":
-        return {
-          label: t("stylist.position_accessory"),
-          bg: "bg-emerald-950 text-emerald-200 border border-emerald-700/40",
-        };
-      case "dress":
-        return {
-          label: t("stylist.position_gown"),
-          bg: "bg-[#C5A059] text-slate-950 font-bold border border-[#C5A059]",
-        };
-      default:
-        return { label: pos || t("stylist.position_garment"), bg: "bg-black/70 text-white" };
-    }
+  // Every slot label is a KEY (the old switch hard-coded English words into
+  // the Arabic transcript) and every slot shares ONE token pair: the pass-1
+  // six-colour badge rainbow (indigo/amber/emerald/slate…) read as a toy, not
+  // a luxury house. Statement slots (dress) carry the gold accent; everything
+  // else is quiet navy. Restraint IS the design system.
+  const slotLabel = (pos: string): string => {
+    const key = SLOT_LABEL_KEYS[pos?.toLowerCase?.() ?? ""];
+    return key ? t(key) : pos || t("stylist.position_garment");
   };
+  const slotTone = (pos: string) =>
+    pos?.toLowerCase?.() === "dress"
+      ? "bg-[#C5A059] text-slate-950 font-bold border border-[#C5A059]"
+      : "bg-[#0C0E1E]/85 text-[#E2BF70] border border-[#C5A059]/30";
 
   // Money honesty: render ONLY the currency the server declared for this
   // item/look. No declared currency (legacy persisted messages) -> an honest
@@ -192,8 +207,12 @@ export const VirtualStylistDrawer: React.FC = () => {
               <div>
                 <h2 className="font-serif text-lg font-bold text-white flex items-center gap-2">
                   <span>{t("stylist.title")}</span>
+                  {/* The old static badge claimed "Rules-Grounded Engine" on
+                      every reply — false whenever a live provider answered
+                      (per-message attribution is the engine truth). The one
+                      claim true in BOTH paths: verified catalogue pieces. */}
                   <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-[#C5A059]/20 text-[#E2BF70] font-sans font-semibold">
-                    {t("stylist.engine_badge")}
+                    {t("stylist.catalogue_badge")}
                   </span>
                 </h2>
                 <p className="text-xs text-slate-400 font-light">
@@ -204,9 +223,11 @@ export const VirtualStylistDrawer: React.FC = () => {
             <button
               onClick={closeStylist}
               aria-label={t("common.close")}
-              className={`w-11 h-11 rounded-full bg-slate-800 text-slate-300 hover:text-white flex items-center justify-center ${LUX} ${RING}`}
+              className={`w-11 h-11 rounded-full bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 flex items-center justify-center ${LUX} ${RING}`}
             >
-              ✕
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                <path d="M1 1l12 12M13 1L1 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
             </button>
           </div>
 
@@ -236,49 +257,64 @@ export const VirtualStylistDrawer: React.FC = () => {
           <div data-conversation
                className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5 bg-[#FAF9F6]">
             {messages.length === 0 && (
-              <div className="text-center py-12 px-4 bg-white rounded-3xl border border-slate-200/80 shadow-2xs">
-                <div className="w-14 h-14 rounded-2xl bg-[#FDF8EE] text-[#C5A059] mx-auto flex items-center justify-center mb-3 shadow-xs">
-                  <SparkleIcon size={28} color="#C5A059" />
+              <div className="confit-fade-in">
+                {/* Editorial intro — start-aligned, not a centered widget. */}
+                <div className="pt-6 pb-5">
+                  <div className="w-10 h-px bg-[#C5A059] mb-4" aria-hidden="true" />
+                  <h4 className="font-serif text-2xl font-bold text-[#1B1F3B] leading-snug max-w-xs">
+                    {t("stylist.empty_title")}
+                  </h4>
+                  <p className="text-xs text-slate-500 max-w-sm mt-2 font-light leading-relaxed">
+                    {t("stylist.empty_body")}
+                  </p>
                 </div>
-                <h4 className="font-serif text-lg font-bold text-[#1B1F3B] mb-1">
-                  {t("stylist.empty_title")}
-                </h4>
-                <p className="text-xs text-slate-500 max-w-sm mx-auto mb-5 font-light leading-relaxed">
-                  {t("stylist.empty_body")}
-                </p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-left">
-                  <button
-                    onClick={() =>
-                      sendPrompt(
-                        // The PROMPT stays English on purpose: the backend parses
-                        // English occasion/material keywords, so sending Arabic text
-                        // here would silently downgrade every Arabic request to the
-                        // default occasion. The label above it is localized.
+                {/* Numbered suggestion rows — index numerals as the only
+                    ornament; the whole row is one 48px+ touch target. */}
+                <div className="divide-y divide-slate-200/80 border-y border-slate-200/80">
+                  {[
+                    {
+                      prompt:
+                        // The PROMPT stays English on purpose: the backend
+                        // parses English occasion/material keywords, so Arabic
+                        // text here would silently downgrade every Arabic
+                        // request to the default occasion. Labels localize.
                         "I need a formal wedding outfit with navy suit and green tie under 500",
-                        "Formal & Wedding",
-                        500,
-                        undefined,
-                        t("stylist.example_formal_wedding"),
-                      )
-                    }
-                    className={`p-3.5 min-h-[48px] rounded-2xl border border-slate-200 hover:border-[#C5A059] bg-[#FAF9F6] hover:bg-[#FDF8EE] text-xs font-medium text-slate-800 ${LUX} ${RING}`}
-                  >
-                    {t("stylist.example_formal_wedding")}
-                  </button>
-                  <button
-                    onClick={() =>
-                      sendPrompt(
-                        "Find me a champagne silk dress for an evening gala",
-                        "Evening & Party",
-                        600,
-                        undefined,
-                        t("stylist.example_evening_gala"),
-                      )
-                    }
-                    className={`p-3.5 min-h-[48px] rounded-2xl border border-slate-200 hover:border-[#C5A059] bg-[#FAF9F6] hover:bg-[#FDF8EE] text-xs font-medium text-slate-800 ${LUX} ${RING}`}
-                  >
-                    {t("stylist.example_evening_gala")}
-                  </button>
+                      occasion: "Formal & Wedding",
+                      budget: 500,
+                      labelKey: "stylist.example_formal_wedding",
+                    },
+                    {
+                      prompt: "Find me a champagne silk dress for an evening gala",
+                      occasion: "Evening & Party",
+                      budget: 600,
+                      labelKey: "stylist.example_evening_gala",
+                    },
+                  ].map((ex, i) => (
+                    <button
+                      key={ex.labelKey}
+                      onClick={() =>
+                        sendPrompt(ex.prompt, ex.occasion, ex.budget, undefined, t(ex.labelKey))
+                      }
+                      className={`group w-full min-h-[56px] py-4 flex items-center gap-4 text-start hover:bg-white ${LUX} ${RING}`}
+                    >
+                      <span
+                        className="font-serif text-lg font-black text-[#C5A059]/50 group-hover:text-[#C5A059] tabular-nums shrink-0 w-8"
+                        aria-hidden="true"
+                        dir="ltr"
+                      >
+                        0{i + 1}
+                      </span>
+                      <span className="text-xs font-medium text-slate-800 flex-1">
+                        {t(ex.labelKey)}
+                      </span>
+                      <span
+                        className={`text-[#C5A059] opacity-0 group-hover:opacity-100 motion-safe:group-hover:translate-x-0 motion-safe:-translate-x-1 rtl:rotate-180 ${LUX}`}
+                        aria-hidden="true"
+                      >
+                        →
+                      </span>
+                    </button>
+                  ))}
                 </div>
               </div>
             )}
@@ -295,14 +331,25 @@ export const VirtualStylistDrawer: React.FC = () => {
                       : "bg-white border border-slate-200/80 text-slate-800 rounded-bl-none shadow-sm"
                   }`}
                 >
-                  <div className="flex items-center gap-2 mb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  <div
+                    className={`flex items-center gap-2 mb-1 text-[10px] font-bold uppercase tracking-wider ${
+                      msg.sender === "user" ? "text-[#E2BF70]/80" : "text-slate-400"
+                    }`}
+                  >
                     <span>
                       {msg.sender === "user"
                         ? t("stylist.you_label")
                         : t("stylist.assistant_label")}
                     </span>
                   </div>
-                  <p className="text-slate-800 font-light leading-relaxed">
+                  {/* WCAG fix: this paragraph used to force text-slate-800
+                      inside the navy user bubble — the shopper's own words
+                      were near-invisible dark-on-dark. */}
+                  <p
+                    className={`font-light leading-relaxed ${
+                      msg.sender === "user" ? "text-white" : "text-slate-800"
+                    }`}
+                  >
                     {msg.content}
                   </p>
                   {/* Which engine answered, stated in the message itself. The
@@ -360,11 +407,53 @@ export const VirtualStylistDrawer: React.FC = () => {
                             <h4 className="font-serif font-bold text-base text-[#1B1F3B]">
                               {outfit.title}
                             </h4>
+                            {/* Real palette from the API — colour dots, zero
+                                words. aria-label carries the count for SRs. */}
+                            {outfit.color_palette && outfit.color_palette.length > 0 && (
+                              <div
+                                className="flex items-center gap-1 mt-1.5"
+                                data-testid="stylist-palette"
+                                role="img"
+                                aria-label={t("stylist.palette_label", {
+                                  count: outfit.color_palette.length,
+                                })}
+                              >
+                                {outfit.color_palette.slice(0, 6).map((hex: string, i: number) => (
+                                  <span
+                                    key={`${hex}-${i}`}
+                                    className="w-3 h-3 rounded-full border border-slate-200 shadow-2xs"
+                                    style={{ backgroundColor: hex }}
+                                  />
+                                ))}
+                              </div>
+                            )}
                           </div>
-                          <FitScoreBadge
-                            score={outfit.compatibility_score}
-                            label={t("stylist.match")}
-                            verdict={t("stylist.color_harmony")}
+                          {/* Hero numeral replaces the pass-1 badge that
+                              stamped a static "Color Harmony" verdict on every
+                              look. The meters below it are the REAL
+                              color_harmony_score / formality_score fields. */}
+                          <div className="text-end shrink-0 ps-3">
+                            <div className="font-serif font-black text-3xl leading-none text-[#1B1F3B]" dir="ltr">
+                              {formatNumber(outfit.compatibility_score, lang)}
+                              <span className="text-sm text-[#C5A059] align-super">%</span>
+                            </div>
+                            <div className="text-[9px] font-bold uppercase tracking-widest text-[#A37E44] mt-0.5">
+                              {t("stylist.match")}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="space-y-1.5 pt-1" data-testid="stylist-harmony-meters">
+                          <ScoreMeter
+                            label={t("stylist.color_harmony")}
+                            value={outfit.color_harmony_score}
+                            lang={lang}
+                            testid="stylist-meter-color"
+                          />
+                          <ScoreMeter
+                            label={t("stylist.formality")}
+                            value={outfit.formality_score}
+                            lang={lang}
+                            testid="stylist-meter-formality"
                           />
                         </div>
 
@@ -375,12 +464,12 @@ export const VirtualStylistDrawer: React.FC = () => {
                             composition, not a uniform thumbnail strip. */}
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:[grid-auto-rows:minmax(0,auto)]">
                           {getResolvedOutfitItems(outfit).map((item: any, itemIdx: number) => {
-                            const badge = getPositionBadge(item.position);
                             const isAnchor = itemIdx === 0 && getResolvedOutfitItems(outfit).length > 2;
                             return (
                               <div
                                 key={item.id}
-                                className={`group relative bg-[#FAF9F6] border border-slate-200/80 rounded-2xl p-2.5 flex flex-col justify-between ${isAnchor ? "sm:row-span-2" : ""}`}
+                                className={`group relative bg-[#FAF9F6] border border-slate-200/80 rounded-2xl p-2.5 flex flex-col justify-between confit-fade-in ${isAnchor ? "sm:row-span-2" : ""}`}
+                                style={{ animationDelay: `${Math.min(itemIdx, 5) * 70}ms` }}
                               >
                                 <div>
                                   <div className={`${isAnchor ? "sm:aspect-[4/5] sm:h-auto h-32" : "h-32"} w-full rounded-xl overflow-hidden bg-white mb-2 relative shadow-2xs`}>
@@ -391,9 +480,9 @@ export const VirtualStylistDrawer: React.FC = () => {
                                       className={`w-full h-full object-cover motion-safe:group-hover:scale-105 ${LUX}`}
                                     />
                                     <span
-                                      className={`absolute top-1.5 start-1.5 px-2 py-0.5 rounded-full text-[9px] font-semibold uppercase tracking-wider backdrop-blur-xs ${badge.bg}`}
+                                      className={`absolute top-1.5 start-1.5 px-2 py-0.5 rounded-full text-[9px] font-semibold uppercase tracking-wider backdrop-blur-xs ${slotTone(item.position)}`}
                                     >
-                                      {badge.label}
+                                      {slotLabel(item.position)}
                                     </span>
                                   </div>
                                   <div className="flex items-center justify-between gap-1">
@@ -453,6 +542,26 @@ export const VirtualStylistDrawer: React.FC = () => {
                             );
                           })}
                         </div>
+                        {outfit.is_complete === false &&
+                          outfit.missing_slots &&
+                          outfit.missing_slots.length > 0 && (
+                            <div
+                              className="flex items-center gap-1.5 flex-wrap text-[10px] text-slate-500"
+                              data-testid="stylist-missing-slots"
+                            >
+                              <span className="font-semibold uppercase tracking-wider text-amber-700">
+                                {t("stylist.missing_slots_label")}
+                              </span>
+                              {outfit.missing_slots.map((slot: string) => (
+                                <span
+                                  key={slot}
+                                  className="px-2 py-0.5 rounded-full border border-amber-300 bg-amber-50 text-amber-800 font-medium"
+                                >
+                                  {slotLabel(slot)}
+                                </span>
+                              ))}
+                            </div>
+                          )}
                         {getResolvedOutfitItems(outfit).length === 0 && (
                           <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
                             {t("stylist.no_verified_items")}

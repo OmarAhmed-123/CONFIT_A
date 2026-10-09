@@ -1,0 +1,289 @@
+{
+ "snapshot_utc": "2026-10-09",
+ "source": "production neondb (read-only SELECT)",
+ "products": [
+  {
+   "id": 1,
+   "slug": "tailored-italian-wool-double-breasted-blazer",
+   "title": "Tailored Italian Wool Double-Breasted Blazer",
+   "title_ar": "سترة بليزر صوف إيطالي بصدر مزدوج",
+   "brand": "Massimo Dutti",
+   "color_family": "Navy Blue",
+   "base_price": 289.0,
+   "currency": "USD",
+   "category": "outerwear",
+   "occasion_tags": [
+    "wedding",
+    "formal",
+    "work",
+    "business",
+    "dinner",
+    "party"
+   ],
+   "style_tags": [
+    "smart_casual",
+    "quiet_luxury",
+    "formal",
+    "tailored"
+   ],
+   "compare_at_price": 412.86
+  },
+  {
+   "id": 2,
+   "slug": "tuxedo-peak-lapel-evening-dinner-jacket",
+   "title": "Tuxedo Peak Lapel Evening Dinner Jacket",
+   "title_ar": "سترة توكسيدو سهرة بياقة ساتان مدببة",
+   "brand": "Reiss",
+   "color_family": "Midnight Black",
+   "base_price": 395.0,
+   "currency": "USD",
+   "category": "outerwear",
+   "occasion_tags": [
+    "wedding",
+    "gala",
+    "black_tie",
+    "party"
+   ],
+   "style_tags": [
+    "formal",
+    "evening",
+    "quiet_luxury"
+   ],
+   "compare_at_price": null
+  },
+  {
+   "id": 3,
+   "slug": "relaxed-organic-poplin-oxford-shirt",
+   "title": "Relaxed Organic Poplin Oxford Shirt",
+   "title_ar": "قميص أكسفورد بوبلين عضوي بقصة مريحة",
+   "brand": "COS",
+   "color_family": "Optic White",
+   "base_price": 95.0,
+   "currency": "USD",
+   "category": "tops",
+   "occasion_tags": [
+    "work",
+    "casual",
+    "dinner",
+    "wedding"
+   ],
+   "style_tags": [
+    "smart_casual",
+    "minimalist",
+    "essential"
+   ],
+   "compare_at_price": null
+  },
+  {
+   "id": 4,
+   "slug": "pleated-tapered-virgin-wool-trousers",
+   "title": "Pleated Tapered Virgin Wool Trousers",
+   "title_ar": "بنطال صوف فيرجن بقصة مريحة وكسرات",
+   "brand": "Massimo Dutti",
+   "color_family": "Navy Blue",
+   "base_price": 165.0,
+   "currency": "USD",
+   "category": "bottoms",
+   "occasion_tags": [
+    "wedding",
+    "work",
+    "business",
+    "dinner"
+   ],
+   "style_tags": [
+    "formal",
+    "tailored",
+    "smart_casual"
+   ],
+   "compare_at_price": null
+  },
+  {
+   "id": 5,
+   "slug": "silk-slip-column-maxi-dress",
+   "title": "Silk Slip Column Maxi Dress with Drape Neckline",
+   "title_ar": "فستان ماكسي حرير بتصميم عمودي وياقة منسدلة",
+   "brand": "Reiss",
+   "color_family": "Champagne Gold",
+   "base_price": 340.0,
+   "currency": "USD",
+   "category": "dresses",
+   "occasion_tags": [
+    "wedding",
+    "party",
+    "gala",
+    "dinner"
+   ],
+   "style_tags": [
+    "formal",
+    "evening",
+    "glamour",
+    "quiet_luxury"
+   ],
+   "compare_at_price": 453.33
+  },
+  {
+   "id": 6,
+   "slug": "goodyear-welted-leather-oxford-shoes",
+   "title": "Goodyear Welted Leather Oxford Shoes",
+   "title_ar": "حذاء أكسفورد جلد بحياكة جوديير كلاسيكية",
+   "brand": "Massimo Dutti",
+   "color_family": "Obsidian Black",
+   "base_price": 245.0,
+   "currency": "USD",
+   "category": "footwear",
+   "occasion_tags": [
+    "wedding",
+    "work",
+    "business",
+    "dinner"
+   ],
+   "style_tags": [
+    "formal",
+    "tailored",
+    "smart_casual"
+   ],
+   "compare_at_price": 288.24
+  },
+  {
+   "id": 7,
+   "slug": "strappy-metallic-leather-heeled-sandals",
+   "title": "Strappy Metallic Leather Heeled Sandals",
+   "title_ar": "صندل بكعب وسيور جلدية ميتاليك",
+   "brand": "Reiss",
+   "color_family": "Metallic Gold",
+   "base_price": 250.0,
+   "currency": "USD",
+   "category": "footwear",
+   "occasion_tags": [
+    "wedding",
+    "party",
+    "gala",
+    "dinner"
+   ],
+   "style_tags": [
+    "evening",
+    "formal",
+    "glamour"
+   ],
+   "compare_at_price": null
+  },
+  {
+   "id": 8,
+   "slug": "silk-jacquard-evening-necktie",
+   "title": "Silk Jacquard Evening Necktie",
+   "title_ar": "ربطة عنق حريرية جاكار للمناسبات",
+   "brand": "Reiss",
+   "color_family": "Emerald Green",
+   "base_price": 75.0,
+   "currency": "USD",
+   "category": "accessories",
+   "occasion_tags": [
+    "wedding",
+    "work",
+    "business",
+    "dinner"
+   ],
+   "style_tags": [
+    "formal",
+    "tailored",
+    "smart_casual"
+   ],
+   "compare_at_price": 125.0
+  },
+  {
+   "id": 9,
+   "slug": "structured-metallic-evening-box-clutch",
+   "title": "Structured Metallic Evening Box Clutch",
+   "title_ar": "حقيبة يد كلاتش مسائية ميتاليك",
+   "brand": "Reiss",
+   "color_family": "Black & Gold",
+   "base_price": 180.0,
+   "currency": "USD",
+   "category": "accessories",
+   "occasion_tags": [
+    "wedding",
+    "party",
+    "gala",
+    "dinner"
+   ],
+   "style_tags": [
+    "quiet_luxury",
+    "evening",
+    "formal"
+   ],
+   "compare_at_price": null
+  },
+  {
+   "id": 18,
+   "slug": "brand-4-57ad561648ff0fe831b25730",
+   "title": "Relaxed Linen-Blend Utility Overshirt",
+   "title_ar": "قميص جاكيت عملي بقصة مريحة من مزيج الكتان",
+   "brand": "Arket",
+   "color_family": "Sage Green",
+   "base_price": 149.0,
+   "currency": "USD",
+   "category": "outerwear",
+   "occasion_tags": [
+    "casual",
+    "travel",
+    "weekend",
+    "work"
+   ],
+   "style_tags": [
+    "minimalist",
+    "smart_casual",
+    "utility",
+    "relaxed"
+   ],
+   "compare_at_price": null
+  },
+  {
+   "id": 19,
+   "slug": "brand-4-fee1711e782f7ace6376e856",
+   "title": "Fine Merino Rib-Knit Polo Shirt",
+   "title_ar": "قميص بولو محبوك من صوف الميرينو الناعم",
+   "brand": "Arket",
+   "color_family": "Deep Burgundy",
+   "base_price": 119.0,
+   "currency": "USD",
+   "category": "tops",
+   "occasion_tags": [
+    "work",
+    "dinner",
+    "weekend",
+    "travel"
+   ],
+   "style_tags": [
+    "minimalist",
+    "quiet_luxury",
+    "smart_casual",
+    "knitwear"
+   ],
+   "compare_at_price": null
+  },
+  {
+   "id": 20,
+   "slug": "brand-4-3d66cfe7feffab9866ecd84a",
+   "title": "Recycled Nylon Commuter Tote",
+   "title_ar": "حقيبة توت يومية من النايلون المعاد تدويره",
+   "brand": "Arket",
+   "color_family": "Graphite Black",
+   "base_price": 89.0,
+   "currency": "USD",
+   "category": "accessories",
+   "occasion_tags": [
+    "work",
+    "travel",
+    "casual",
+    "weekend"
+   ],
+   "style_tags": [
+    "minimalist",
+    "utility",
+    "urban",
+    "essential"
+   ],
+   "compare_at_price": null
+  }
+ ]
+}

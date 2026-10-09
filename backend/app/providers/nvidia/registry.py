@@ -326,37 +326,10 @@ ROLE_CHAINS: Dict[ModelRole, List[ModelSpec]] = {
         #     (matches its 2026-10-1 stylist degradation).
         #   - llama-3.1-nemotron-70b/51b-instruct, nemotron-nano-3-30b-a3b:
         #     404 function-not-found. DEAD.
-        ModelSpec(
-            model_id="nvidia/nemotron-3-ultra-550b-a55b",
-            endpoint=CHAT_COMPLETIONS_URL,
-            # enable_thinking is REQUIRED for this model in the translation
-            # role. Measured 2026-10-03: WITHOUT the flag, terse instruction
-            # prompts return the chain-of-thought ("The user wants me to
-            # translate an Egyptian Arabic shopping query into...") as
-            # content; WITH it, clean translations only. Stylist-prose prompts
-            # do not need the guard, which is why STYLIST_CHAT omits it.
-            params={
-                "temperature": 0.0,
-                "max_tokens": 160,
-                "chat_template_kwargs": {"enable_thinking": False},
-            },
-            measured_latency_s=(0.3, 3.3),
-            slot_key_env="NVIDIA_KEY_NEMOTRON_3_ULTRA_550B_A55B",
-            evidence=(
-                "2026-10-03 full candidate battery above: both directions "
-                "correct on every probe (wedding/suit/jacket preserved "
-                "inbound; zero Latin leakage, true colours, brands and prices "
-                "preserved outbound), 0.3-3.3s per call on the NIM free tier. "
-                "The slot is simultaneously STYLIST_CHAT primary, so it is "
-                "already warm in production."
-            ),
-            notes=(
-                "PRIMARY for BOTH directions. Follows the system turn, which "
-                "is what makes dialect terms ('فرح', 'سواريه') survive "
-                "inbound and colours stay true outbound — the exact property "
-                "super had and riva lacks."
-            ),
-        ),
+        # PRIMARY SWAP 2026-10-09 (pre-registered bench, docs/bench/2026-10-09): on the translation
+        # endpoint, super answered 32/32 with p95 1.15s; ultra p95 6.19s failed the 6.0s budget gate.
+        # Strict pass rates were 0.78 (super) vs 0.84 (ultra); the paired difference is not significant
+        # (95% CI -0.19..+0.06). The rule selects the only eligible arm: super.
         # REVIVED 2026-10-07 as the translation failover (see the STYLIST_CHAT
         # entry above for the revival evidence). It is deliberately NOT the
         # primary for this role even though it is 10x faster than ultra: the
@@ -392,6 +365,39 @@ ROLE_CHAINS: Dict[ModelRole, List[ModelSpec]] = {
                 "both are quality defects ultra does not have. Promote it "
                 "only after a bigger inbound battery clears, or with a "
                 "strip_prefix guard in the caller."
+            ),
+        ),
+        # DEMOTED 2026-10-09 to failover: fails the translation latency gate (p95 6.19s measured;
+        # budget 6.0s). Still the quality leader on strict pass, so it stays in the chain.
+        ModelSpec(
+            model_id="nvidia/nemotron-3-ultra-550b-a55b",
+            endpoint=CHAT_COMPLETIONS_URL,
+            # enable_thinking is REQUIRED for this model in the translation
+            # role. Measured 2026-10-03: WITHOUT the flag, terse instruction
+            # prompts return the chain-of-thought ("The user wants me to
+            # translate an Egyptian Arabic shopping query into...") as
+            # content; WITH it, clean translations only. Stylist-prose prompts
+            # do not need the guard, which is why STYLIST_CHAT omits it.
+            params={
+                "temperature": 0.0,
+                "max_tokens": 160,
+                "chat_template_kwargs": {"enable_thinking": False},
+            },
+            measured_latency_s=(0.3, 3.3),
+            slot_key_env="NVIDIA_KEY_NEMOTRON_3_ULTRA_550B_A55B",
+            evidence=(
+                "2026-10-03 full candidate battery above: both directions "
+                "correct on every probe (wedding/suit/jacket preserved "
+                "inbound; zero Latin leakage, true colours, brands and prices "
+                "preserved outbound), 0.3-3.3s per call on the NIM free tier. "
+                "The slot is simultaneously STYLIST_CHAT primary, so it is "
+                "already warm in production."
+            ),
+            notes=(
+                "PRIMARY for BOTH directions. Follows the system turn, which "
+                "is what makes dialect terms ('فرح', 'سواريه') survive "
+                "inbound and colours stay true outbound — the exact property "
+                "super had and riva lacks."
             ),
         ),
         ModelSpec(

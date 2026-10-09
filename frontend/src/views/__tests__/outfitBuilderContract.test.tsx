@@ -56,6 +56,7 @@ const {
   getProfileMock,
   getShareStateMock,
   shareOutfitMock,
+  fillInTheBlankMock,
 } = vi.hoisted(() => ({
   getProductsMock: vi.fn(),
   getProductByIdMock: vi.fn(),
@@ -72,6 +73,7 @@ const {
   getProfileMock: vi.fn(),
   getShareStateMock: vi.fn(),
   shareOutfitMock: vi.fn(),
+  fillInTheBlankMock: vi.fn(),
 }));
 
 vi.mock("../../services/apiServices", async (importOriginal) => {
@@ -97,6 +99,7 @@ vi.mock("../../services/apiServices", async (importOriginal) => {
       checkCompatibility: checkCompatibilityMock,
       getShareState: getShareStateMock,
       shareOutfit: shareOutfitMock,
+      fillInTheBlank: fillInTheBlankMock,
     },
     profileService: {
       ...actual.profileService,
@@ -498,6 +501,75 @@ describe("OutfitBuilderView — behavioral contract (C04)", () => {
     await waitFor(() => expect(openCartMock).toHaveBeenCalledTimes(1));
     expect(addItemMock).toHaveBeenCalledTimes(2); // two pieces, once each
     await waitFor(() => expect(addAll.getAttribute("aria-busy")).toBe("false"));
+  });
+
+  it("GOAL compatibility suggestions: a signed-in shopper asks an empty slot for ideas — the server's ranked REAL pieces appear and one click composes it", async () => {
+    act(() => {
+      useAuthStore.setState({ isAuthenticated: true } as any);
+    });
+    fillInTheBlankMock.mockResolvedValue({
+      fitb_available: true, engine: "rules_heuristic", reason: null,
+      target_slot: null, target_category_used: null, outfit_product_ids: [1],
+      ranked: [
+        { product_id: 4, rank: 1, similarity: 0.91, title: "Leather Loafers", image_url: null, price: 120, currency: "EGP" },
+        { product_id: 2, rank: 2, similarity: 0.80, title: "Silk Shirt", image_url: null, price: 120, currency: "EGP" },
+      ],
+      method_note: null,
+    });
+    renderBuilder();
+    await addByName("Navy Blazer");
+    const suggestBtn = await screen.findByRole("button", {
+      name: en("outfit_builder.suggest_for_slot", { slot: en("outfit_builder.slot_footwear") }),
+    });
+    await act(async () => {
+      fireEvent.click(suggestBtn);
+    });
+    const rail = await screen.findByTestId("builder-suggestions");
+    // honest engine label: rules fallback is never presented as the model
+    expect(within(rail).getByText(en("outfit_builder.suggestions_engine_rules"))).toBeTruthy();
+    // only slot-valid pieces offered: the Silk Shirt (top) is filtered out of a footwear rail
+    expect(within(rail).queryByText("Silk Shirt")).toBeNull();
+    const addSug = within(rail).getByRole("button", {
+      name: en("outfit_builder.add_suggestion", { name: "Leather Loafers" }),
+    });
+    await act(async () => {
+      fireEvent.click(addSug);
+    });
+    expect(
+      within(screen.getByTestId("slot-footwear")).getByText("Leather Loafers"),
+    ).toBeTruthy();
+    expect(fillInTheBlankMock).toHaveBeenCalledWith({ product_ids: [1], top_k: 10 });
+  });
+
+  it("COUNTER-GOAL suggestion honesty: when the server declares fitb unavailable, the rail says so with the real reason — no fabricated taste", async () => {
+    act(() => {
+      useAuthStore.setState({ isAuthenticated: true } as any);
+    });
+    fillInTheBlankMock.mockResolvedValue({
+      fitb_available: false, engine: null, reason: "complementary model offline",
+      target_slot: null, target_category_used: null, outfit_product_ids: [1],
+      ranked: [], method_note: null,
+    });
+    renderBuilder();
+    await addByName("Navy Blazer");
+    fireEvent.click(await screen.findByRole("button", {
+      name: en("outfit_builder.suggest_for_slot", { slot: en("outfit_builder.slot_footwear") }),
+    }));
+    const rail = await screen.findByTestId("builder-suggestions");
+    await within(rail).findByText(en("outfit_builder.suggestions_unavailable"));
+    expect(within(rail).getByText("complementary model offline")).toBeTruthy();
+    expect(within(rail).queryByRole("button", { name: /Add suggestion/ })).toBeNull();
+  });
+
+  it("COUNTER-GOAL guest suggestions: a guest never sees the suggest affordance (the endpoint requires an account)", async () => {
+    renderBuilder();
+    await addByName("Navy Blazer");
+    expect(
+      screen.queryByRole("button", {
+        name: en("outfit_builder.suggest_for_slot", { slot: en("outfit_builder.slot_footwear") }),
+      }),
+    ).toBeNull();
+    expect(fillInTheBlankMock).not.toHaveBeenCalled();
   });
 
   it("GUEST honesty: composing as a guest fires NO verdict/compatibility calls (no 401 -> login modal) and the cohesion card says sign-in is needed", async () => {

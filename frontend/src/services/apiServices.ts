@@ -497,6 +497,39 @@ export const stylistService = {
     });
   },
 
+  /** C04 pass 4 — compatibility suggestions (Feature 06, fill-in-the-blank).
+   * Completes a partial outfit from the catalog. The response is HONEST by
+   * contract: `fitb_available` + `engine` ("outfit_transformer_clip" |
+   * "rules_heuristic") + `reason` when unavailable — a fallback ranking is
+   * real but never presented as the model's. Auth required server-side. */
+  fillInTheBlank: (payload: {
+    product_ids: number[];
+    target_slot?: string;
+    candidate_product_ids?: number[];
+    top_k?: number;
+  }) =>
+    request<{
+      fitb_available: boolean;
+      engine: string | null;
+      reason: string | null;
+      target_slot: string | null;
+      target_category_used: string | null;
+      outfit_product_ids: number[];
+      ranked: Array<{
+        product_id: number;
+        rank: number;
+        similarity: number;
+        title: string | null;
+        image_url: string | null;
+        price: number | null;
+        currency: string | null;
+      }>;
+      method_note: string | null;
+    }>("/outfits/fill-in-the-blank", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+
   getSavedOutfits: () => request<Outfit[]>("/outfits"),
 
   saveOutfit: (data: {

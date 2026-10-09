@@ -125,12 +125,14 @@ def planned_rows(plan: dict, id_by_slug: dict) -> list[tuple]:
         if not p["source"]:
             continue
         pid = id_by_slug[slug]
+        # generated visuals are labelled as such, never as licensed stock
+        source_type = "generated" if p["source"]["provider"] == "generated" else "stock"
         for r in p["renditions"]:
             if r["role"] == "thumb":
                 continue
             rows.append((pid, f"{p['source']['provider']}:{p['source']['photo_id']}:{r['ratio']}:{r['role']}", r["url"],
                          r["ratio"], r["format"], r["width"], r["height"], r["bytes"], r["role"], r["is_primary"],
-                         "stock", p["source"]["provider"], p["source"]["source_ref"], p["source"]["attribution"], r["md5"]))
+                         source_type, p["source"]["provider"], p["source"]["source_ref"], p["source"]["attribution"], r["md5"]))
     return rows
 
 

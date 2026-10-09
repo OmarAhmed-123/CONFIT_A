@@ -83,6 +83,28 @@ def test_csp_img_src_allows_every_image_host_used_by_the_plan():
         assert host in img_src, f"{slug}: {host} is not allowed by img-src"
 
 
+def _load_repair_module():
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("repair_product_images", REPO / "backend/scripts/repair_product_images.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_planned_rows_label_generated_visuals_as_generated_not_stock():
+    """Regression: planned_rows used to write source_type='stock' for every row, including AI visuals."""
+    rows = _load_repair_module().planned_rows(PLAN, {slug: i + 1 for i, slug in enumerate(PLAN["products"])})
+    source_type_by_provider = {}
+    for row in rows:
+        provider, source_type = row[11], row[10]
+        source_type_by_provider.setdefault(provider, set()).add(source_type)
+    assert source_type_by_provider.get("generated") == {"generated"}
+    assert all(v == {"stock"} for k, v in source_type_by_provider.items() if k != "generated")
+    generated_products = [s for s, p in PLAN["products"].items() if p["source"] and p["source"]["provider"] == "generated"]
+    assert sum(1 for row in rows if row[11] == "generated") == 2 * len(generated_products)  # hero + master
+
+
 def _seed_thumbnails_and_images():
     tree = ast.parse(SEED_SRC)
     found = {}

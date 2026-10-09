@@ -1,40 +1,83 @@
 import { useTranslation } from 'react-i18next';
 import { useModalFocus } from '../../hooks/useModalFocus';
-import { useCallback } from 'react';
-import React, { useState, useRef } from 'react';
-import { useBrandViewModel } from '../../viewmodels/useBrandViewModel';
-import { LoadingSpinner } from '../../components/common/CommonComponents';
+import { useCallback, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
+import { Upload, Tags, RefreshCw } from 'lucide-react';
+import { useBrandViewModel, CatalogImportJob } from '../../viewmodels/useBrandViewModel';
+import { Surface } from '../../components/common/Surface';
+import { HonestProductImage } from '../../components/common/HonestProductImage';
+import { request } from '../../services/apiClient';
 
-/** The importer's required columns, in the order the backend documents them.
- *  Single source for BOTH the on-screen example and the downloadable template,
- *  so the text a user reads can never drift from the file they receive. */
+/**
+ * B03 — Catalog & SKU Management, re-pass (docs/B03_CATALOG_MANAGEMENT_REDESIGN.md).
+ *
+ * Measured defects closed: i18n debt (10 baseline entries deleted), slate-400/gold
+ * text on white (2.56/2.85:1), window.alert() file validation, 22px row buttons,
+ * full-page spinner, bare <img>, fire-and-forget import jobs (the view-model's
+ * getImportJobStatus was never called), and a tagging backend that the partner UI
+ * never exposed.
+ *
+ * Preserved contracts: `Edit Stock` / `Save` / `Stock for {sku}` accessible names
+ * (BrandPortal.contract.test.tsx), `{n} units` rendering and the hidden file input
+ * (check_brand_portal_browser.py). EN i18n values keep those exact strings.
+ */
+
+/** The importer's required columns — single source for the on-screen example AND
+ *  the downloadable template, so copy can never drift from the file. */
 const SAMPLE_CSV = [
   'title,category_slug,base_price,color_family,thumbnail_url,size,color,stock_level',
   '"Tailored Blazer",outerwear,299.99,Navy,https://example.com/blazer.jpg,M,Navy,20',
 ].join('\n') + '\n';
 
+const TERMINAL = new Set(['completed', 'partially_completed', 'failed']);
+
+type TagPhase =
+  | { phase: 'idle' }
+  | { phase: 'previewing' }
+  | { phase: 'applying' }
+  | { phase: 'preview' | 'applied'; data: any }
+  | { phase: 'error'; message: string; throttled?: boolean };
+
 export const BrandCatalogView: React.FC = () => {
   const { t } = useTranslation();
-  const { products, updateSKUInventory, isLoading, uploadCatalogCSV, importJobs, fetchErrors, refresh, isUploading } = useBrandViewModel();
+  const {
+    products, updateSKUInventory, isLoading, uploadCatalogCSV, importJobs,
+    fetchErrors, refresh, isUploading, getImportJobStatus,
+  } = useBrandViewModel();
+
   const [editingSkuId, setEditingSkuId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [editStock, setEditStock] = useState<number>(20);
   const [editPrice, setEditPrice] = useState<number | undefined>(undefined);
   const [bulkModalOpen, setBulkModalOpen] = useState(false);
   const [dragActive, setDragActive] = useState(false);
-  const [lastImportResult, setLastImportResult] = useState<any>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
+  const [lastImportResult, setLastImportResult] = useState<CatalogImportJob | null>(null);
+  const [tag, setTag] = useState<Record<number, TagPhase>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const pollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => { if (pollTimer.current) clearTimeout(pollTimer.current); }, []);
 
   const closeDialog = useCallback(() => { if (!isUploading) setBulkModalOpen(false); }, [isUploading]);
   const dialogRef = useModalFocus<HTMLDivElement>(closeDialog, bulkModalOpen);
 
-  if (isLoading) {
-    return <LoadingSpinner text="Loading brand catalog and SKU inventory..." />;
-  }
+  /** D8: follow a non-terminal job to its outcome instead of forgetting it. */
+  const followJob = useCallback((jobId: number, startedAt: number) => {
+    const step = async () => {
+      const job = await getImportJobStatus(jobId);
+      if (!job) return;
+      setLastImportResult(job);
+      if (TERMINAL.has(job.status)) {
+        refresh();
+        return;
+      }
+      if (Date.now() - startedAt > 90_000) return;
+      pollTimer.current = setTimeout(step, 2500);
+    };
+    pollTimer.current = setTimeout(step, 2500);
+  }, [getImportJobStatus, refresh]);
 
-  /** Hand the user a guaranteed-valid file rather than asking them to retype one.
-   *  A BOM is included because Excel otherwise misreads UTF-8 accents, which
-   *  would turn a "here is a working template" gesture into a fresh bug report. */
   const downloadSampleCsv = useCallback(() => {
     const blob = new Blob(['\ufeff' + SAMPLE_CSV], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -56,244 +99,380 @@ export const BrandCatalogView: React.FC = () => {
   };
 
   const handleFileUpload = async (file: File) => {
+    setFileError(null);
     if (!file.name.toLowerCase().endsWith('.csv')) {
-      alert('File must be CSV');
+      setFileError(t('b2b.cat.file_err_type'));
       return;
     }
     if (file.size > 10 * 1024 * 1024) {
-      alert('File exceeds 10MB limit');
+      setFileError(t('b2b.cat.file_err_size'));
       return;
     }
     try {
       const result = await uploadCatalogCSV(file);
       setLastImportResult(result);
+      if (result?.job_id != null && !TERMINAL.has(result.status)) {
+        followJob(result.job_id, Date.now());
+      } else {
+        refresh();
+      }
     } catch (err) {
-      console.error(err);
+      /* the view-model already toasts the failure; nothing to fabricate here */
     }
   };
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setDragActive(false);
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      handleFileUpload(e.dataTransfer.files[0]);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) handleFileUpload(e.dataTransfer.files[0]);
+  };
+
+  const runTag = async (productId: number, dry: boolean) => {
+    setTag((prev) => ({ ...prev, [productId]: { phase: dry ? 'previewing' : 'applying' } }));
+    try {
+      const data = await request<any>(`/brand/products/${productId}/auto-tag?dry_run=${dry}`, { method: 'POST' });
+      setTag((prev) => ({ ...prev, [productId]: { phase: dry ? 'preview' : 'applied', data } }));
+      if (!dry) refresh();
+    } catch (err: any) {
+      setTag((prev) => ({
+        ...prev,
+        [productId]: {
+          phase: 'error',
+          throttled: err?.status === 429,
+          message: err?.status === 429 ? t('b2b.cat.tag_throttled') : t('b2b.cat.tag_error', { reason: err?.message || 'failed' }),
+        },
+      }));
     }
   };
 
-  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      handleFileUpload(e.target.files[0]);
-    }
-  };
+  const btnPrimary =
+    'inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[var(--confit-navy)] px-5 text-xs font-semibold text-white transition-colors duration-300 ease-luxury hover:bg-[#0C0E1E] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--confit-focus)] disabled:opacity-50';
+  const btnGhost =
+    'inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-slate-300 px-4 text-xs font-semibold text-[var(--confit-navy)] transition-colors duration-300 ease-luxury hover:border-[var(--confit-gold)] hover:text-[#7A5C28] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--confit-focus)] disabled:opacity-50';
+
+  if (isLoading) {
+    return (
+      <div className="space-y-8 pb-20" role="status" aria-live="polite">
+        <span className="sr-only">{t('b2b.cat.loading')}</span>
+        <div className="flex items-center justify-between gap-4 border-b border-slate-200 pb-6" aria-hidden="true">
+          <div className="space-y-3">
+            <div className="skeleton-shimmer h-9 w-72 rounded-xl bg-slate-100" />
+            <div className="h-3 w-96 max-w-full animate-pulse rounded bg-slate-200" />
+          </div>
+          <div className="skeleton-shimmer h-12 w-40 rounded-xl bg-slate-100" />
+        </div>
+        {[0, 1].map((i) => (
+          <div key={i} className="space-y-4 rounded-2xl border border-slate-200 p-6" aria-hidden="true">
+            <div className="flex items-center gap-3">
+              <div className="skeleton-shimmer h-16 w-14 rounded-xl bg-slate-100" />
+              <div className="space-y-2">
+                <div className="h-3 w-24 animate-pulse rounded bg-slate-200" />
+                <div className="h-4 w-52 animate-pulse rounded bg-slate-200" />
+              </div>
+            </div>
+            <div className="skeleton-shimmer h-24 w-full rounded-xl bg-slate-100" />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  const statusTone = (s: string) =>
+    s === 'completed' ? 'bg-emerald-100 text-emerald-800'
+    : s === 'partially_completed' ? 'bg-amber-100 text-amber-800'
+    : s === 'failed' ? 'bg-rose-100 text-rose-800'
+    : 'bg-slate-100 text-slate-700';
+  const statusLabel = (s: string) => t(`b2b.cat.status_${s}` as any, { defaultValue: s });
 
   return (
     <div className="space-y-8 pb-20">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-6">
+      {/* ------------------------------------------------------ editorial header */}
+      <header className="flex flex-col justify-between gap-4 border-b border-slate-200 pb-6 sm:flex-row sm:items-end">
         <div>
-          <h1 className="font-serif text-3xl font-bold text-[#1B1F3B]">
-            Catalog & SKU Management
+          <div className="flex items-center gap-2">
+            <span className="h-px w-8 bg-[var(--confit-gold)]" aria-hidden="true" />
+            <span className="text-[11px] font-bold uppercase tracking-widest text-[#7A5C28]">
+              {t('b2b.cat.eyebrow')}
+            </span>
+          </div>
+          <h1 className="mt-2 font-serif text-3xl font-bold text-[var(--confit-navy)]">
+            {t('b2b.cat.header_title')}
           </h1>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Manage warehouse SKU stock here; store inventory is maintained separately. CSV imports report accepted and rejected rows.
+          <p className="mt-1 max-w-xl text-xs leading-relaxed text-slate-600 sm:text-sm">
+            {t('b2b.cat.header_hint')}
           </p>
         </div>
-
-        <button
-          onClick={() => setBulkModalOpen(true)}
-          className="px-4 py-2.5 rounded-2xl bg-[#1B1F3B] hover:bg-[#2A3C78] text-white text-xs font-semibold shadow-sm transition-all"
-        >
-          + Bulk CSV Import
+        <button type="button" onClick={() => { setFileError(null); setBulkModalOpen(true); }} className={btnPrimary}>
+          <Upload size={14} aria-hidden="true" />
+          {t('b2b.cat.bulk_cta')}
         </button>
-      </div>
+      </header>
 
-      {/* Import Jobs History — a failed fetch is shown as an explicit error,
-          never silently hidden (an empty table must mean "no imports", not "the API is down"). */}
+      {/* ------------------------------------------------------ import jobs ledger */}
       {fetchErrors.imports && (
-        <div role="alert" className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-xs text-rose-800 flex items-center justify-between gap-4">
-          <span>Could not load recent import jobs: {fetchErrors.imports}</span>
-          <button onClick={refresh} className="px-3 py-1.5 rounded-xl bg-rose-600 text-white font-semibold shrink-0">Retry</button>
+        <div role="alert" className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-rose-300 bg-rose-50 p-4 text-xs text-rose-800">
+          <span>{t('b2b.cat.jobs_err', { reason: fetchErrors.imports })}</span>
+          <button type="button" onClick={refresh} className="min-h-12 rounded-xl bg-rose-700 px-4 font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--confit-focus)]">
+            {t('common.retry')}
+          </button>
         </div>
       )}
+
       {importJobs.length > 0 && (
-        <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-4">
-          <h3 className="font-serif text-lg font-bold text-[#1B1F3B]">Recent Import Jobs</h3>
+        <Surface variant="solid" as="section" className="rounded-2xl p-6">
+          <h2 className="border-b border-slate-200 pb-3 font-serif text-lg font-bold text-[var(--confit-navy)]">
+            {t('b2b.cat.jobs_title')}
+          </h2>
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
+            <table className="w-full text-start text-xs">
+              <caption className="sr-only">{t('b2b.cat.caption_jobs')}</caption>
               <thead>
-                <tr className="border-b border-slate-100 text-slate-400 uppercase text-[10px]">
-                  <th className="py-2">Job ID</th>
-                  <th className="py-2">File</th>
-                  <th className="py-2">Status</th>
-                  <th className="py-2">Total</th>
-                  <th className="py-2">Accepted</th>
-                  <th className="py-2">Rejected</th>
-                  <th className="py-2">Duplicate</th>
+                <tr className="border-b border-slate-200 text-[11px] uppercase tracking-wider text-slate-600">
+                  <th scope="col" className="py-2 pe-3">{t('b2b.cat.th_job')}</th>
+                  <th scope="col" className="py-2 pe-3">{t('b2b.cat.th_file')}</th>
+                  <th scope="col" className="py-2 pe-3">{t('b2b.cat.th_status')}</th>
+                  <th scope="col" className="py-2 pe-3">{t('b2b.cat.th_total')}</th>
+                  <th scope="col" className="py-2 pe-3">{t('b2b.cat.th_accepted')}</th>
+                  <th scope="col" className="py-2 pe-3">{t('b2b.cat.th_rejected')}</th>
+                  <th scope="col" className="py-2">{t('b2b.cat.th_dup')}</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 text-slate-700">
                 {importJobs.slice(0, 5).map((job) => (
-                  <tr key={job.job_id} className="hover:bg-slate-50">
-                    <td className="py-2 font-mono">#{job.job_id}</td>
-                    <td className="py-2 truncate max-w-[150px]">{job.file_name || 'API import'}</td>
-                    <td className="py-2">
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                        job.status === 'completed' ? 'bg-emerald-100 text-emerald-800' :
-                        job.status === 'partially_completed' ? 'bg-amber-100 text-amber-800' :
-                        job.status === 'failed' ? 'bg-rose-100 text-rose-800' :
-                        'bg-slate-100 text-slate-600'
-                      }`}>{job.status}</span>
+                  <tr key={job.job_id}>
+                    <td className="py-2.5 pe-3 font-mono">#{job.job_id}</td>
+                    <td className="max-w-[150px] truncate py-2.5 pe-3">{job.file_name || t('b2b.cat.job_api')}</td>
+                    <td className="py-2.5 pe-3">
+                      <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${statusTone(job.status)}`}>
+                        {statusLabel(job.status)}
+                      </span>
                     </td>
-                    <td className="py-2">{job.total_rows}</td>
-                    <td className="py-2 text-emerald-600 font-bold">{job.accepted_rows}</td>
-                    <td className="py-2 text-rose-600">{job.rejected_rows}</td>
-                    <td className="py-2 text-amber-600">{job.duplicate_rows}</td>
+                    <td className="py-2.5 pe-3">{job.total_rows}</td>
+                    <td className="py-2.5 pe-3 font-bold text-emerald-700">{job.accepted_rows}</td>
+                    <td className="py-2.5 pe-3 text-rose-700">{job.rejected_rows}</td>
+                    <td className="py-2.5 text-amber-700">{job.duplicate_rows}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        </div>
+        </Surface>
       )}
 
-      {/* Last Import Result */}
+      {/* ------------------------------------------------------ last import result */}
       {lastImportResult && (
-        <div className={`rounded-3xl border p-6 space-y-3 ${lastImportResult.status === 'completed' ? 'bg-emerald-50 border-emerald-200' : lastImportResult.status === 'partially_completed' ? 'bg-amber-50 border-amber-200' : 'bg-rose-50 border-rose-200'}`}>
-          <h4 className="font-bold text-sm">Last Import: {lastImportResult.status}</h4>
-          <div className="grid grid-cols-4 gap-3 text-xs">
-            <div><span className="text-slate-500">Total:</span> <strong>{lastImportResult.total_rows}</strong></div>
-            <div><span className="text-slate-500">Accepted:</span> <strong className="text-emerald-600">{lastImportResult.accepted_rows}</strong></div>
-            <div><span className="text-slate-500">Rejected:</span> <strong className="text-rose-600">{lastImportResult.rejected_rows}</strong></div>
-            <div><span className="text-slate-500">Duplicate:</span> <strong className="text-amber-600">{lastImportResult.duplicate_rows}</strong></div>
+        <Surface
+          variant="solid"
+          role="status"
+          className={`space-y-3 rounded-2xl border p-6 ${
+            lastImportResult.status === 'completed' ? 'border-emerald-300 bg-emerald-50'
+            : lastImportResult.status === 'partially_completed' ? 'border-amber-300 bg-amber-50'
+            : 'border-rose-300 bg-rose-50'
+          }`}
+        >
+          <h3 className="text-sm font-bold text-[var(--confit-navy)]">
+            {t('b2b.cat.last_title', { status: statusLabel(lastImportResult.status) })}
+          </h3>
+          <div className="grid grid-cols-2 gap-3 text-xs sm:grid-cols-4">
+            <div><span className="text-slate-600">{t('b2b.cat.last_total')}</span> <strong>{lastImportResult.total_rows}</strong></div>
+            <div><span className="text-slate-600">{t('b2b.cat.last_accepted')}</span> <strong className="text-emerald-700">{lastImportResult.accepted_rows}</strong></div>
+            <div><span className="text-slate-600">{t('b2b.cat.last_rejected')}</span> <strong className="text-rose-700">{lastImportResult.rejected_rows}</strong></div>
+            <div><span className="text-slate-600">{t('b2b.cat.last_dup')}</span> <strong className="text-amber-700">{lastImportResult.duplicate_rows}</strong></div>
           </div>
           {lastImportResult.errors && lastImportResult.errors.length > 0 && (
-            <div className="pt-3 border-t border-slate-200">
-              <span className="text-xs font-bold text-slate-700 block mb-2">Errors (first 10):</span>
-              <div className="space-y-1 max-h-40 overflow-y-auto text-[11px]">
+            <div className="border-t border-slate-200 pt-3">
+              <span className="mb-2 block text-xs font-bold text-slate-700">{t('b2b.cat.errors_title')}</span>
+              <div className="max-h-40 space-y-1 overflow-y-auto text-[11px]">
                 {lastImportResult.errors.slice(0, 10).map((err: any, idx: number) => (
-                  <div key={idx} className="p-2 rounded bg-white border border-slate-200">
-                    <span className="font-bold">Row {err.row} - {err.field}:</span> {err.message} {err.value ? `(${err.value})` : ''}
+                  <div key={idx} className="rounded-lg border border-slate-200 bg-white p-2">
+                    <span className="font-bold">{t('b2b.cat.err_row', { row: err.row, field: err.field })}</span>{' '}
+                    {err.message} {err.value ? `(${err.value})` : ''}
                   </div>
                 ))}
               </div>
             </div>
           )}
-        </div>
+        </Surface>
       )}
 
-      {/* Product & SKU Table */}
-      <div className="space-y-6">
-        {products.length === 0 ? (
-          <div className="bg-white rounded-3xl border border-slate-200 p-12 text-center space-y-3">
-            <div className="text-4xl">📦</div>
-            <h3 className="font-serif text-lg font-bold text-slate-700">No products yet</h3>
-            <p className="text-xs text-slate-500">Upload your catalog via CSV to get started. Required columns: title, category_slug, base_price, color_family, thumbnail_url</p>
-            <button onClick={() => setBulkModalOpen(true)} className="mt-3 px-4 py-2 rounded-xl bg-[#1B1F3B] text-white text-xs font-semibold">Upload CSV</button>
-          </div>
-        ) : (
-          products.map((p) => (
-            <div key={p.id} className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+      {/* ------------------------------------------------------ product dossiers */}
+      {products.length === 0 ? (
+        <Surface variant="solid" className="space-y-3 rounded-2xl p-12 text-center">
+          <h2 className="font-serif text-lg font-bold text-slate-700">{t('b2b.cat.empty_title')}</h2>
+          <p className="mx-auto max-w-md text-xs leading-relaxed text-slate-600">{t('b2b.cat.empty_body')}</p>
+          <button type="button" onClick={() => setBulkModalOpen(true)} className={btnPrimary}>
+            {t('b2b.cat.empty_cta')}
+          </button>
+        </Surface>
+      ) : (
+        products.map((p) => {
+          const tagState = tag[p.id] ?? { phase: 'idle' as const };
+          return (
+            <Surface key={p.id} variant="solid" as="article" className="space-y-4 rounded-2xl p-6">
+              <div className="flex flex-col justify-between gap-3 border-b border-slate-200 pb-3 sm:flex-row sm:items-center">
                 <div className="flex items-center gap-3">
-                  <div className="w-14 h-16 rounded-xl bg-slate-100 overflow-hidden shrink-0">
-                    <img src={p.thumbnail_url} alt={p.title} className="w-full h-full object-cover" />
-                  </div>
+                  <span className="h-16 w-14 shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
+                    <HonestProductImage src={p.thumbnail_url} alt={p.title} className="h-full w-full object-cover" />
+                  </span>
                   <div>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase">{p.category_name}</span>
-                    <h3 className="font-serif text-base font-bold text-[#1B1F3B]">{p.title}</h3>
-                    <span className="text-xs font-bold text-[#B8935A]">{p.currency} {p.base_price}</span>
-                    <span className="text-[10px] text-slate-400 ml-2">ID: {p.id}</span>
+                    <span className="block text-[11px] font-bold uppercase tracking-wider text-slate-600">{p.category_name}</span>
+                    <h2 className="font-serif text-base font-bold text-[var(--confit-navy)]">{p.title}</h2>
+                    <span className="text-xs font-bold text-[#7A5C28]">{p.currency} {p.base_price}</span>
+                    <span className="ms-2 text-[11px] text-slate-500">ID: {p.id}</span>
                   </div>
                 </div>
+                <button
+                  type="button"
+                  disabled={tagState.phase === 'previewing' || tagState.phase === 'applying'}
+                  onClick={() => runTag(p.id, true)}
+                  className={btnGhost}
+                >
+                  <Tags size={14} aria-hidden="true" />
+                  {t('b2b.cat.tag_cta')}
+                </button>
               </div>
 
-              {/* SKUs Table */}
+              {/* ------------------------------------------ AI tag preview/apply */}
+              {tagState.phase !== 'idle' && (
+                <div className="space-y-3 rounded-xl border border-slate-200 bg-[var(--confit-cream)] p-4" role="status">
+                  {(tagState.phase === 'previewing' || tagState.phase === 'applying') && (
+                    <p className="text-xs font-semibold text-slate-600">
+                      {tagState.phase === 'previewing' ? t('b2b.cat.tag_previewing') : t('b2b.cat.tag_applying')}
+                    </p>
+                  )}
+                  {tagState.phase === 'error' && (
+                    <p className={`text-xs font-semibold ${tagState.throttled ? 'text-amber-700' : 'text-rose-700'}`}>
+                      {tagState.message}
+                    </p>
+                  )}
+                  {(tagState.phase === 'preview' || tagState.phase === 'applied') && (
+                    <>
+                      <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-600">
+                        <span className="font-bold text-[var(--confit-navy)]">
+                          {t('b2b.cat.tag_quality')}: {tagState.data.quality}
+                        </span>
+                        <span>{t('b2b.cat.tag_models')}: {(tagState.data.models || []).join(', ')}</span>
+                      </div>
+                      {Array.isArray(tagState.data.tags) && tagState.data.tags.length > 0 && (
+                        <ul className="flex flex-wrap gap-2">
+                          {tagState.data.tags.map((tg: any, i: number) => (
+                            <li key={i} className="rounded-full border border-slate-300 bg-white px-2.5 py-1 text-[11px] text-slate-700">
+                              <strong>{tg.axis}</strong>: {tg.value} · {t('b2b.cat.tag_confidence', { pct: Math.round((tg.confidence ?? 0) * 100) })}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                      {Array.isArray(tagState.data.axes_unresolved) && tagState.data.axes_unresolved.length > 0 ? (
+                        <div className="text-[11px] text-slate-600">
+                          <span className="font-bold text-amber-700">{t('b2b.cat.tag_unresolved')}:</span>{' '}
+                          {tagState.data.axes_unresolved.map((u: any) => `${u.axis} (${u.reason})`).join(' · ')}
+                        </div>
+                      ) : (
+                        <p className="text-[11px] text-slate-500">{t('b2b.cat.tag_resolved')}</p>
+                      )}
+                      {tagState.data.disclaimer && (
+                        <p className="text-[11px] text-slate-500">{tagState.data.disclaimer}</p>
+                      )}
+                      {tagState.phase === 'applied' ? (
+                        <div className="text-[11px] text-slate-600">
+                          <span className="font-bold text-emerald-700">{t('b2b.cat.tag_applied')}:</span>{' '}
+                          {(tagState.data.applied || []).map((a: any) => a.field).join(', ') || '—'}
+                          {' · '}
+                          <span className="font-bold text-slate-600">{t('b2b.cat.tag_skipped')}:</span>{' '}
+                          {(tagState.data.skipped || []).map((s: any) => s.field).join(', ') || '—'}
+                        </div>
+                      ) : (
+                        <div className="flex flex-wrap gap-2 pt-1">
+                          <button type="button" onClick={() => runTag(p.id, false)} className={btnPrimary}>
+                            {t('b2b.cat.tag_apply')}
+                          </button>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+
+              {/* ---------------------------------------------------- SKU table */}
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
+                <table className="w-full text-start text-xs">
+                  <caption className="sr-only">{t('b2b.cat.caption_products')}</caption>
                   <thead>
-                    <tr className="border-b border-slate-100 text-slate-400 uppercase text-[10px] tracking-wider">
-                      <th className="py-2">SKU Code</th>
-                      <th className="py-2">Size</th>
-                      <th className="py-2">Color</th>
-                      <th className="py-2">Warehouse Stock</th>
-                      <th className="py-2">Price Override</th>
-                      <th className="py-2">{t('b2b.warehouse_status')}</th>
-                      <th className="py-2 text-right">Actions</th>
+                    <tr className="border-b border-slate-200 text-[11px] uppercase tracking-wider text-slate-600">
+                      <th scope="col" className="py-2 pe-3">{t('b2b.cat.sku_th_code')}</th>
+                      <th scope="col" className="py-2 pe-3">{t('b2b.cat.sku_th_size')}</th>
+                      <th scope="col" className="py-2 pe-3">{t('b2b.cat.sku_th_color')}</th>
+                      <th scope="col" className="py-2 pe-3">{t('b2b.cat.sku_th_stock')}</th>
+                      <th scope="col" className="py-2 pe-3">{t('b2b.cat.sku_th_price')}</th>
+                      <th scope="col" className="py-2 pe-3">{t('b2b.warehouse_status')}</th>
+                      <th scope="col" className="py-2 text-end">{t('b2b.cat.sku_th_actions')}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-slate-700">
                     {p.skus?.map((sku) => (
-                      <tr key={sku.id} className="hover:bg-slate-50/60 transition-colors">
-                        <td className="py-3 font-mono font-semibold text-slate-900">{sku.sku_code}</td>
-                        <td className="py-3 font-bold">{sku.size}</td>
-                        <td className="py-3 flex items-center gap-1.5">
-                          <span className="w-3 h-3 rounded-full border border-slate-300" style={{ backgroundColor: sku.color_hex }}></span>
-                          <span>{sku.color}</span>
+                      <tr key={sku.id}>
+                        <td className="py-3 pe-3 font-mono font-semibold text-slate-900">{sku.sku_code}</td>
+                        <td className="py-3 pe-3 font-bold">{sku.size}</td>
+                        <td className="py-3 pe-3">
+                          <span className="flex items-center gap-1.5">
+                            <span className="h-3 w-3 rounded-full border border-slate-300" style={{ backgroundColor: sku.color_hex }} aria-hidden="true"></span>
+                            <span>{sku.color}</span>
+                          </span>
                         </td>
-                        <td className="py-3">
+                        <td className="py-3 pe-3">
                           {editingSkuId === sku.id ? (
                             <input
-                              aria-label={`Stock for ${sku.sku_code}`}
+                              aria-label={t('b2b.cat.stock_label', { sku: sku.sku_code })}
                               type="number"
                               value={editStock}
                               onChange={(e) => setEditStock(Number(e.target.value))}
-                              className="w-20 px-2 py-1 rounded border border-slate-300 text-xs font-bold"
+                              className="w-20 rounded-lg border border-slate-300 px-2 py-1 text-xs font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--confit-focus)]"
                               min={0}
                               max={100000}
                             />
                           ) : (
-                            <span className={`font-bold ${sku.stock_level > 5 ? 'text-slate-900' : 'text-rose-600'}`}>
-                              {sku.stock_level} units
+                            <span className={`font-bold ${sku.stock_level > 5 ? 'text-slate-900' : 'text-rose-700'}`}>
+                              {t('b2b.cat.units', { n: sku.stock_level })}
                             </span>
                           )}
                         </td>
-                        <td className="py-3">
+                        <td className="py-3 pe-3">
                           {editingSkuId === sku.id ? (
                             <input
-                              aria-label={`Price override for ${sku.sku_code}`}
+                              aria-label={t('b2b.cat.price_label', { sku: sku.sku_code })}
                               type="number"
                               step="0.01"
                               value={editPrice ?? ''}
                               onChange={(e) => setEditPrice(e.target.value ? Number(e.target.value) : undefined)}
                               placeholder={String(p.base_price)}
-                              className="w-20 px-2 py-1 rounded border border-slate-300 text-xs"
+                              className="w-20 rounded-lg border border-slate-300 px-2 py-1 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--confit-focus)]"
                             />
                           ) : (
                             <span className="font-mono">{p.currency} {sku.price_override ?? p.base_price}</span>
                           )}
                         </td>
-                        <td className="py-3">
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${sku.is_in_stock ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'}`}>
-                            {sku.is_in_stock ? 'Warehouse in stock' : 'Out of Stock'}
+                        <td className="py-3 pe-3">
+                          <span className={`rounded-full border px-2.5 py-1 text-[11px] font-bold ${sku.is_in_stock ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-rose-200 bg-rose-50 text-rose-700'}`}>
+                            {sku.is_in_stock ? t('b2b.cat.in_stock') : t('b2b.cat.out_stock')}
                           </span>
                         </td>
-                        <td className="py-3 text-right">
+                        <td className="py-3 text-end">
                           {editingSkuId === sku.id ? (
-                            <div className="flex justify-end gap-1.5">
-                              <button
-                                disabled={saving}
-                                onClick={() => handleSaveSku(sku.id)}
-                                className="px-3 py-1 rounded bg-[#1B1F3B] text-white text-[10px] font-bold"
-                              >
-                                Save
+                            <span className="flex justify-end gap-1.5">
+                              <button type="button" disabled={saving} onClick={() => handleSaveSku(sku.id)} className="min-h-12 rounded-xl bg-[var(--confit-navy)] px-4 text-[11px] font-bold text-white transition-colors duration-300 ease-luxury hover:bg-[#0C0E1E] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--confit-focus)] disabled:opacity-50">
+                                {t('b2b.cat.save')}
                               </button>
-                              <button
-                                onClick={() => setEditingSkuId(null)}
-                                className="px-2 py-1 rounded border border-slate-200 text-[10px]"
-                              >
-                                Cancel
+                              <button type="button" onClick={() => setEditingSkuId(null)} className="min-h-12 rounded-xl border border-slate-300 px-3 text-[11px] font-semibold text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--confit-focus)]">
+                                {t('b2b.cat.cancel')}
                               </button>
-                            </div>
+                            </span>
                           ) : (
                             <button
-                              onClick={() => {
-                                setEditingSkuId(sku.id);
-                                setEditStock(sku.stock_level);
-                                setEditPrice(sku.price_override);
-                              }}
-                              className="text-xs font-bold text-[#B8935A] hover:underline"
+                              type="button"
+                              onClick={() => { setEditingSkuId(sku.id); setEditStock(sku.stock_level); setEditPrice(sku.price_override); }}
+                              className="min-h-12 rounded-xl px-3 text-xs font-bold text-[#7A5C28] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--confit-focus)]"
                             >
-                              Edit Stock
+                              {t('b2b.cat.edit_stock')}
                             </button>
                           )}
                         </td>
@@ -302,20 +481,20 @@ export const BrandCatalogView: React.FC = () => {
                   </tbody>
                 </table>
               </div>
-            </div>
-          ))
-        )}
-      </div>
+            </Surface>
+          );
+        })
+      )}
 
-      {/* Bulk CSV Modal - REAL IMPLEMENTATION */}
+      {/* ------------------------------------------------------ bulk CSV modal */}
       {bulkModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm">
-          <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={t('b2b.import_catalog')} tabIndex={-1} className="w-full max-w-lg bg-white rounded-3xl p-6 shadow-2xl space-y-4">
-            <h3 className="font-serif text-lg font-bold text-[#1B1F3B]">Bulk SKU Catalog Importer</h3>
-            <div className="text-xs text-slate-600 space-y-2">
-              <p>Upload CSV with required columns: <code className="px-1.5 py-0.5 bg-slate-100 rounded text-[10px]">title, category_slug, base_price, color_family, thumbnail_url</code></p>
-              <p>Optional: title_ar, description, material, currency, style_tags, sku_code, size, color, stock_level, price_override, images</p>
-              <p className="text-[11px] text-amber-700 bg-amber-50 p-2 rounded">Limits: UTF-8 CSV, 10MB and 1,000 rows. Each accepted row is committed independently. Review rejected rows before retrying. Missing stock defaults to zero.</p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm">
+          <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={t('b2b.import_catalog')} tabIndex={-1} className="w-full max-w-lg space-y-4 rounded-2xl bg-white p-6 shadow-2xl">
+            <h2 className="font-serif text-lg font-bold text-[var(--confit-navy)]">{t('b2b.cat.modal_title')}</h2>
+            <div className="space-y-2 text-xs text-slate-600">
+              <p>{t('b2b.cat.modal_required', { cols: 'title, category_slug, base_price, color_family, thumbnail_url' })}</p>
+              <p>{t('b2b.cat.modal_optional', { cols: 'title_ar, description, material, currency, style_tags, sku_code, size, color, stock_level, price_override, images' })}</p>
+              <p className="rounded-lg bg-amber-50 p-2 text-[11px] leading-relaxed text-amber-700">{t('b2b.cat.modal_limits')}</p>
             </div>
 
             <div
@@ -325,55 +504,46 @@ export const BrandCatalogView: React.FC = () => {
               onDragLeave={() => setDragActive(false)}
               onDrop={handleDrop}
               onClick={() => fileInputRef.current?.click()}
-              className={`border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all ${dragActive ? 'border-[#1B1F3B] bg-[#1B1F3B]/5' : 'border-slate-300 bg-[#FAF9F6]'} ${isUploading ? 'opacity-50 pointer-events-none' : ''}`}
+              className={`cursor-pointer rounded-2xl border-2 border-dashed p-8 text-center transition-colors duration-300 ease-luxury ${dragActive ? 'border-[var(--confit-navy)] bg-[var(--confit-navy)]/5' : 'border-slate-300 bg-[var(--confit-cream)]'} ${isUploading ? 'pointer-events-none opacity-50' : ''}`}
             >
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".csv"
-                onChange={handleFileInputChange}
-                className="hidden"
-              />
+              <input ref={fileInputRef} type="file" accept=".csv" onChange={(e) => { if (e.target.files && e.target.files[0]) handleFileUpload(e.target.files[0]); }} className="hidden" />
               {isUploading ? (
                 <div className="space-y-2">
-                  <div className="motion-safe:animate-spin w-6 h-6 border-2 border-[#1B1F3B] border-t-transparent rounded-full mx-auto"></div>
-                  <div className="text-xs font-semibold text-[#1B1F3B]">Processing CSV...</div>
+                  <RefreshCw size={22} className="mx-auto motion-safe:animate-spin text-[var(--confit-navy)]" aria-hidden="true" />
+                  <p className="text-xs font-semibold text-[var(--confit-navy)]">{t('b2b.cat.drop_processing')}</p>
                 </div>
               ) : (
                 <div className="space-y-2">
-                  <div className="text-2xl">📤</div>
-                  <div className="text-xs text-slate-600 font-semibold">Drop CSV catalog file here or click to browse</div>
-                  <div className="text-[10px] text-slate-400">Max 10MB / 1,000 rows, UTF-8, headers required; missing stock defaults to zero</div>
+                  <Upload size={22} className="mx-auto text-[#7A5C28]" aria-hidden="true" />
+                  <p className="text-xs font-semibold text-slate-600">{t('b2b.cat.drop_cta')}</p>
+                  <p className="text-[11px] text-slate-500">{t('b2b.cat.drop_hint')}</p>
                 </div>
               )}
             </div>
 
-            <div className="flex justify-end gap-2 pt-2">
-              <button onClick={() => setBulkModalOpen(false)} className="px-4 py-2 rounded-xl border text-xs font-semibold" disabled={isUploading}>
-                Cancel
+            {fileError && (
+              <p role="alert" className="rounded-lg border border-rose-300 bg-rose-50 p-2 text-xs font-semibold text-rose-700">
+                {fileError}
+              </p>
+            )}
+
+            <div className="flex justify-end gap-2 pt-1">
+              <button type="button" onClick={() => setBulkModalOpen(false)} disabled={isUploading} className={btnGhost}>
+                {t('b2b.cat.modal_cancel')}
               </button>
-              <button onClick={() => fileInputRef.current?.click()} className="px-4 py-2 rounded-xl bg-[#1B1F3B] text-white text-xs font-semibold" disabled={isUploading}>
-                Browse Files
+              <button type="button" onClick={() => fileInputRef.current?.click()} disabled={isUploading} className={btnPrimary}>
+                {t('b2b.cat.modal_browse')}
               </button>
             </div>
 
-            <div className="pt-3 border-t border-slate-100 text-[11px] text-slate-500">
+            <div className="border-t border-slate-100 pt-3 text-[11px] text-slate-500">
               <div className="flex items-center justify-between gap-2">
-                <span className="font-bold">Sample CSV:</span>
-                <button
-                  type="button"
-                  onClick={downloadSampleCsv}
-                  className="px-2 py-1 rounded-lg border border-[#1B1F3B] text-[#1B1F3B] text-[10px] font-semibold hover:bg-[#1B1F3B] hover:text-white transition-colors"
-                >
-                  Download template
+                <span className="font-bold text-slate-700">{t('b2b.cat.sample_title')}</span>
+                <button type="button" onClick={downloadSampleCsv} className="min-h-12 rounded-xl border border-[var(--confit-navy)] px-3 text-[11px] font-semibold text-[var(--confit-navy)] transition-colors duration-300 ease-luxury hover:bg-[var(--confit-navy)] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--confit-focus)]">
+                  {t('b2b.cat.sample_dl')}
                 </button>
               </div>
-              {/* whitespace-pre-wrap + break-all, NOT overflow-x-auto: inside this
-                  narrow dialog the scrollable variant clipped the example to
-                  '"Tail', so the one thing a stuck user needs to copy was the
-                  thing they could not read. The download button above hands them
-                  a byte-for-byte valid file, which beats copying by hand. */}
-              <pre className="mt-1 p-2 bg-slate-50 rounded text-[10px] whitespace-pre-wrap break-all leading-relaxed">{SAMPLE_CSV}</pre>
+              <pre className="mt-1 whitespace-pre-wrap break-all rounded-lg bg-slate-50 p-2 text-[11px] leading-relaxed">{SAMPLE_CSV}</pre>
             </div>
           </div>
         </div>

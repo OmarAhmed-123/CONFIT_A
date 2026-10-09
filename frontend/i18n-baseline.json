@@ -1,13 +1,9 @@
 {
   "$comment": "Debt register for user-facing copy that still bypasses i18n. This file may only SHRINK. Fix a call site (move the string into src/i18n/<locale>.json and use t()/msg()), then remove its entry here — run `npm run i18n:baseline` to regenerate after the fix. Adding an entry means accepting new untranslated UI copy in a bilingual product and must be justified in review.",
-  "$generated": "2026-10-01",
-  "count": 57,
+  "$generated": "2026-10-09",
+  "count": 37,
   "allow": [
     "src/components/common/ConfitLogo.tsx::CONFIT Brand Monogram",
-    "src/components/navigation/ConsumerNavbar.tsx::Multi-brand canvas & live budget tracker",
-    "src/components/navigation/ConsumerNavbar.tsx::Real-time status & timelines",
-    "src/components/navigation/ConsumerNavbar.tsx::Zero-photo size & measurement engine",
-    "src/components/ui/card-stack.tsx::Open link",
     "src/views/b2b/BrandAnalyticsView.tsx::Telemetry unavailable",
     "src/views/b2b/BrandAnalyticsView.tsx::Try-on assisted orders",
     "src/views/b2b/BrandCatalogView.tsx::Bulk SKU Catalog Importer",
@@ -20,14 +16,6 @@
     "src/views/b2b/BrandCatalogView.tsx::SKU Code",
     "src/views/b2b/BrandCatalogView.tsx::Upload CSV",
     "src/views/b2b/BrandCatalogView.tsx::Warehouse Stock",
-    "src/views/b2b/BrandDashboardView.tsx::Add to Cart",
-    "src/views/b2b/BrandDashboardView.tsx::B2B telemetry unavailable",
-    "src/views/b2b/BrandDashboardView.tsx::From RecentlyViewed table",
-    "src/views/b2b/BrandDashboardView.tsx::No outfit appearances yet",
-    "src/views/b2b/BrandDashboardView.tsx::No views yet - will populate when users view your products",
-    "src/views/b2b/BrandDashboardView.tsx::Real Data",
-    "src/views/b2b/BrandDashboardView.tsx::Return Reduction",
-    "src/views/b2b/BrandDashboardView.tsx::Total Purchases",
     "src/views/b2b/BrandInventoryView.tsx::Add BOPIS Store Location",
     "src/views/b2b/BrandInventoryView.tsx::Add Store",
     "src/views/b2b/BrandInventoryView.tsx::Add your first BOPIS-enabled boutique to enable Buy Online Pickup In Store.",
@@ -51,14 +39,6 @@
     "src/views/b2b/BrandPlacementsView.tsx::Placement Type",
     "src/views/b2b/BrandPlacementsView.tsx::Sponsored network data failed to load",
     "src/views/b2b/BrandPlacementsView.tsx::Stylist Featured",
-    "src/views/b2b/BrandPlacementsView.tsx::Trending Hero",
-    "src/views/consumer/CheckoutView.tsx::Could not remove item",
-    "src/views/consumer/CheckoutView.tsx::Could not update quantity",
-    "src/views/consumer/CheckoutView.tsx::Promotion applied",
-    "src/views/public/SharedLookView.tsx::Back to CONFIT",
-    "src/views/public/SharedLookView.tsx::Something went wrong",
-    "src/views/public/SharedLookView.tsx::The share link is invalid or has expired.",
-    "src/views/public/SharedLookView.tsx::This look is no longer available",
-    "src/views/public/SharedLookView.tsx::We could not load this shared look. Please try again later."
+    "src/views/b2b/BrandPlacementsView.tsx::Trending Hero"
   ]
 }

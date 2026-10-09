@@ -1,225 +1,416 @@
 import { useTranslation } from 'react-i18next';
-import React from 'react';
-const percent = (value: number | null) => value == null ? 'Not enough data' : `${value}%`;
+import React, { useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
+import { RefreshCw } from 'lucide-react';
 import { useBrandViewModel } from '../../viewmodels/useBrandViewModel';
-import { LoadingSpinner, EmptyState } from '../../components/common/CommonComponents';
+import { Surface } from '../../components/common/Surface';
+import { HonestProductImage } from '../../components/common/HonestProductImage';
+import { usePrefersReducedMotion } from '../../components/common/InteractionPrimitives';
+
+/**
+ * B02 — Partner Command Center, re-pass (see docs/B02_PARTNER_DASHBOARD_REDESIGN.md).
+ *
+ * The previous build rendered a wall of hard-coded English, shipped database
+ * table names as user copy, repeated "Real Data" self-praise chips, and painted
+ * slate-400/gold text on white (2.56:1 / 2.85:1 — both fail WCAG 2.2 AA). This
+ * pass rebuilds the same REAL data on the B01 register: token surfaces, hairline
+ * ledger, human source notes, geometry-tailored shimmer, per-source failure
+ * states, and full EN/AR i18n (the eight baseline debt entries for this file are
+ * deleted).
+ *
+ * Honesty contract (backend/app/schemas/brand.py): every Optional rate renders
+ * the translated "Not enough data" when null — never a substituted 0%. The
+ * backend `methodology` string is shown verbatim as the single methodology
+ * footnote; that is the honest surface, and it replaces the "(Real)" chips.
+ */
 
 export const BrandDashboardView: React.FC = () => {
-  const { t } = useTranslation();
-  const { profile, analytics, products, fetchErrors, isLoading, refresh } = useBrandViewModel();
+  const { t, i18n } = useTranslation();
+  const reduceMotion = usePrefersReducedMotion();
+  const { profile, analytics, fetchErrors, isLoading, loadFailed, refresh } =
+    useBrandViewModel();
 
+  const [stamp, setStamp] = useState<string | null>(null);
+  useEffect(() => {
+    if (!isLoading && analytics) {
+      setStamp(
+        new Intl.DateTimeFormat(i18n.language, { hour: '2-digit', minute: '2-digit' }).format(
+          new Date(),
+        ),
+      );
+    }
+  }, [isLoading, analytics, i18n.language]);
+
+  const percent = (value: number | null | undefined) =>
+    value == null ? t('b2b.dash.not_enough_data') : `${value}%`;
+
+  /* ---------------------------------------------------------------- loading */
   if (isLoading) {
-    return <LoadingSpinner text="Connecting to B2B Merchant Telemetry..." />;
+    return (
+      <div className="space-y-8 pb-20" role="status" aria-live="polite">
+        <span className="sr-only">{t('b2b.dash.loading')}</span>
+        {/* masthead geometry */}
+        <div className="grid grid-cols-12 gap-8" aria-hidden="true">
+          <div className="col-span-12 lg:col-span-7 space-y-4 py-2">
+            <div className="h-3 w-40 animate-pulse rounded bg-slate-200" />
+            <div className="skeleton-shimmer h-12 w-4/5 rounded-xl bg-slate-100" />
+            <div className="skeleton-shimmer h-12 w-3/5 rounded-xl bg-slate-100" />
+            <div className="h-3 w-2/3 animate-pulse rounded bg-slate-200" />
+          </div>
+          <div className="col-span-12 lg:col-span-5 skeleton-shimmer h-40 rounded-2xl bg-slate-100" />
+        </div>
+        {/* ledger geometry */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-px" aria-hidden="true">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="space-y-3 p-5">
+              <div className="h-3 w-24 animate-pulse rounded bg-slate-200" />
+              <div className="skeleton-shimmer h-9 w-20 rounded-lg bg-slate-100" />
+              <div className="h-3 w-28 animate-pulse rounded bg-slate-200" />
+            </div>
+          ))}
+        </div>
+        {/* panels geometry */}
+        <div className="grid grid-cols-12 gap-8" aria-hidden="true">
+          <div className="col-span-12 lg:col-span-7 skeleton-shimmer h-64 rounded-2xl bg-slate-100" />
+          <div className="col-span-12 lg:col-span-5 skeleton-shimmer h-64 rounded-2xl bg-slate-100" />
+        </div>
+      </div>
+    );
   }
 
+  /* ------------------------------------------------------- terminal failure */
+  if (loadFailed) {
+    return (
+      <Surface variant="solid" className="rounded-2xl border-rose-300 p-8 text-center" role="alert">
+        <h1 className="font-serif text-xl font-bold text-[var(--confit-navy)]">
+          {t('b2b.dash.loadfailed_title')}
+        </h1>
+        <p className="mx-auto mt-2 max-w-md text-xs leading-relaxed text-slate-600">
+          {fetchErrors.analytics ?? t('b2b.dash.unavailable_body')}
+        </p>
+        <button
+          type="button"
+          onClick={refresh}
+          className="mt-5 inline-flex min-h-12 items-center gap-2 rounded-xl bg-[var(--confit-navy)] px-6 text-xs font-semibold text-white transition-colors duration-300 ease-luxury hover:bg-[#0C0E1E] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--confit-focus)]"
+        >
+          {t('common.retry')}
+        </button>
+      </Surface>
+    );
+  }
+
+  /* ------------------------------------------------- single-source failure */
   if (!analytics) {
     return (
-      <EmptyState
-        title="B2B telemetry unavailable"
-        description={fetchErrors.analytics || 'The merchant telemetry service could not be reached. No metrics are fabricated while it is down.'}
-        actionText="Retry"
-        onAction={refresh}
-      />
+      <Surface variant="solid" className="rounded-2xl border-rose-300 p-8 text-center" role="alert">
+        <h1 className="font-serif text-xl font-bold text-[var(--confit-navy)]">
+          {t('b2b.dash.unavailable_title')}
+        </h1>
+        <p className="mx-auto mt-2 max-w-md text-xs leading-relaxed text-slate-600">
+          {fetchErrors.analytics || t('b2b.dash.unavailable_body')}
+        </p>
+        <button
+          type="button"
+          onClick={refresh}
+          className="mt-5 inline-flex min-h-12 items-center gap-2 rounded-xl bg-[var(--confit-navy)] px-6 text-xs font-semibold text-white transition-colors duration-300 ease-luxury hover:bg-[#0C0E1E] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--confit-focus)]"
+        >
+          {t('common.retry')}
+        </button>
+      </Surface>
     );
   }
 
   const hasData = analytics.total_views > 0 || analytics.total_purchases > 0;
+  const sessionsPerView =
+    analytics.total_views > 0
+      ? `${((analytics.total_tryons / analytics.total_views) * 100).toFixed(1)}%`
+      : null;
+
+  const cohortBars = [
+    {
+      label: t('b2b.dash.cohort_before'),
+      rate: analytics.return_rate_before_vton,
+      bar: 'bg-rose-700',
+      text: 'text-rose-700',
+    },
+    {
+      label: t('b2b.dash.cohort_after'),
+      rate: analytics.return_rate_after_vton,
+      bar: 'bg-emerald-700',
+      text: 'text-emerald-700',
+    },
+  ];
 
   return (
-    <div className="space-y-8 pb-20">
-      {/* Brand Hero Banner */}
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 text-white flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-[#B8935A]/20 text-[#B8935A] font-bold uppercase tracking-wider">
-              {profile?.is_verified ? 'Verified Brand Partner' : 'Brand Partner — verification pending'}
+    <div className="space-y-10 pb-20">
+      {/* ----------------------------------------------- 1 · editorial masthead */}
+      <header className="grid grid-cols-12 items-start gap-8">
+        <div className="col-span-12 lg:col-span-7">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="h-px w-8 bg-[var(--confit-gold)]" aria-hidden="true" />
+            <span className="text-[11px] font-bold uppercase tracking-widest text-[#7A5C28]">
+              {t('b2b.dash.eyebrow')}
             </span>
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold uppercase">Real Data</span>
+            <span
+              className={
+                'rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide ' +
+                (profile?.is_verified
+                  ? 'bg-emerald-800 text-white'
+                  : 'bg-slate-200 text-slate-700')
+              }
+            >
+              {profile?.is_verified ? t('b2b.dash.verified') : t('b2b.dash.pending')}
+            </span>
           </div>
-          <h1 className="font-serif text-2xl sm:text-3xl font-bold text-white">
-            {profile?.brand_name || 'Brand'} Command Center
+          <h1
+            className="mt-3 font-serif font-bold text-[var(--confit-navy)]"
+            style={{ fontSize: 'clamp(1.75rem, 3.5vw, 2.75rem)', lineHeight: 1.08, letterSpacing: '-0.015em' }}
+          >
+            {t('b2b.dash.title', { brand: profile?.brand_name || 'Brand' })}
           </h1>
-          <p className="text-xs text-slate-400 mt-1">
-            Catalog: {analytics.total_products_count} products, {analytics.total_skus_count} SKUs · Commission: {profile?.commission_rate != null ? `${profile.commission_rate}%` : 'Unavailable'} · BOPIS: {percent(analytics.bopis_store_fulfillment_rate)} fulfillment
+          <p className="mt-3 max-w-xl text-xs leading-relaxed text-slate-600 sm:text-sm">
+            {t('b2b.dash.catalog_line', {
+              products: analytics.total_products_count.toLocaleString(i18n.language),
+              skus: analytics.total_skus_count.toLocaleString(i18n.language),
+              commission:
+                profile?.commission_rate != null ? `${profile.commission_rate}%` : t('b2b.dash.commission_unavailable'),
+              bopis: percent(analytics.bopis_store_fulfillment_rate),
+            })}
           </p>
-          <p className="text-[11px] text-slate-500 mt-1">{analytics.methodology}</p>
+          {fetchErrors.profile && (
+            <p className="mt-2 text-[11px] font-medium text-amber-700" role="status">
+              {t('b2b.dash.profile_failed')}
+            </p>
+          )}
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="bg-slate-800/80 px-4 py-2 rounded-2xl border border-slate-700 text-center">
-            <span className="text-[10px] text-slate-400 block uppercase">Return Reduction</span>
-            <span className="text-lg font-mono font-bold text-emerald-400">
-              {percent(analytics.return_reduction_percentage)}
+        <Surface variant="solid" reveal revealDelay={0.06} className="col-span-12 rounded-2xl p-5 lg:col-span-5">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <span className="block text-[11px] font-bold uppercase tracking-widest text-slate-600">
+                {t('b2b.dash.methodology')}
+              </span>
+              <p className="mt-1.5 text-[11px] leading-relaxed text-slate-500">
+                {analytics.methodology}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={refresh}
+              className="inline-flex min-h-12 shrink-0 items-center gap-2 rounded-xl border border-slate-300 px-4 text-xs font-semibold text-[var(--confit-navy)] transition-colors duration-300 ease-luxury hover:border-[var(--confit-gold)] hover:text-[#7A5C28] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--confit-focus)]"
+            >
+              <RefreshCw size={14} aria-hidden="true" />
+              {t('b2b.dash.refresh')}
+            </button>
+          </div>
+          {stamp && (
+            <p className="mt-3 border-t border-slate-200 pt-2 text-[11px] text-slate-500">
+              {t('b2b.dash.updated', { time: stamp })}
+            </p>
+          )}
+        </Surface>
+      </header>
+
+      {/* ------------------------------------------------- 2 · hairline ledger */}
+      <Surface variant="solid" reveal className="grid grid-cols-2 lg:grid-cols-4">
+        <div className="space-y-1.5 p-5">
+          <span className="block text-[11px] font-bold uppercase tracking-wider text-slate-600">
+            {t('b2b.dash.kpi_views')}
+          </span>
+          <span className="block font-serif text-2xl font-black text-[var(--confit-navy)]">
+            {analytics.total_views.toLocaleString(i18n.language)}
+          </span>
+          <span className="block text-[11px] text-slate-500">{t('b2b.dash.kpi_views_note')}</span>
+          {!hasData && (
+            <span className="block rounded-lg bg-amber-50 px-2 py-1 text-[11px] font-medium text-amber-700">
+              {t('b2b.dash.kpi_views_empty')}
             </span>
-          </div>
+          )}
         </div>
-      </div>
-
-      {/* Metric Cards Grid - REAL DATA */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        <div className="bg-white rounded-3xl border border-slate-200 p-5 shadow-sm space-y-1">
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-            Retained product-view records
+        <div className="space-y-1.5 border-s border-t border-slate-200 p-5 lg:border-t-0">
+          <span className="block text-[11px] font-bold uppercase tracking-wider text-slate-600">
+            {t('b2b.dash.kpi_tryons')}
           </span>
-          <div className="text-2xl font-serif font-black text-[#1B1F3B]">
-            {analytics.total_views.toLocaleString()}
-          </div>
-          <div className="text-[11px] text-slate-500 font-medium">From RecentlyViewed table</div>
-          {!hasData && <div className="text-[10px] text-amber-600">No views yet - will populate when users view your products</div>}
+          <span className="block font-serif text-2xl font-black text-[var(--confit-navy)]">
+            {analytics.total_tryons.toLocaleString(i18n.language)}
+          </span>
+          <span className="block text-[11px] text-slate-500">
+            {sessionsPerView != null
+              ? t('b2b.dash.kpi_tryons_note', { rate: sessionsPerView })
+              : t('b2b.dash.kpi_tryons_note_plain')}
+          </span>
         </div>
-
-        <div className="bg-white rounded-3xl border border-slate-200 p-5 shadow-sm space-y-1">
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-            Recorded try-on sessions
+        <div className="space-y-1.5 border-t border-slate-200 p-5 lg:border-s lg:border-t-0">
+          <span className="block text-[11px] font-bold uppercase tracking-wider text-slate-600">
+            {t('b2b.dash.kpi_ratio')}
           </span>
-          <div className="text-2xl font-serif font-black text-[#B8935A]">
-            {analytics.total_tryons.toLocaleString()}
-          </div>
-          <div className="text-[11px] text-slate-500 font-medium">
-            {analytics.total_views > 0 ? `${((analytics.total_tryons / analytics.total_views) * 100).toFixed(1)}% sessions per retained view` : 'From TryOnSession'}
-          </div>
-        </div>
-
-        <div className="bg-white rounded-3xl border border-slate-200 p-5 shadow-sm space-y-1">
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-            Order-line / retained-view ratio
-          </span>
-          <div className="text-2xl font-serif font-black text-emerald-600">
-            {/* null = zero views = undefined ratio. Rendering "null%" or a
-                substituted denominator would fabricate a statistic. */}
+          <span className="block font-serif text-2xl font-black text-[var(--confit-navy)]">
             {analytics.funnel_conversion_rate == null ? 'N/A' : `${analytics.funnel_conversion_rate}%`}
-          </div>
-          <div className="text-[11px] text-slate-500 font-medium">
-            {analytics.funnel_conversion_rate == null
-              ? 'No retained views yet — ratio not measurable'
-              : 'Purchases/Views*100, excludes cancelled'}
-          </div>
-        </div>
-
-        <div className="bg-white rounded-3xl border border-slate-200 p-5 shadow-sm space-y-1">
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-            Return-marked lines: try-on cohort
           </span>
-          <div className="text-2xl font-serif font-black text-emerald-600">
-            {percent(analytics.return_rate_after_vton)}
-          </div>
-          <div className="text-[11px] text-slate-500">
-            Non-try-on cohort: {percent(analytics.return_rate_before_vton)} (cohort: try-on vs non-try-on)
-          </div>
+          <span className="block text-[11px] text-slate-500">
+            {analytics.funnel_conversion_rate == null
+              ? t('b2b.dash.kpi_ratio_na')
+              : t('b2b.dash.kpi_ratio_note')}
+          </span>
         </div>
-      </div>
+        <div className="space-y-1.5 border-s border-t border-slate-200 p-5 lg:border-t-0">
+          <span className="block text-[11px] font-bold uppercase tracking-wider text-slate-600">
+            {t('b2b.dash.kpi_return')}
+          </span>
+          {/* colour only when a real measurement exists — green must mean "good news measured", not "no data" */}
+          <span
+            className={
+              'block font-serif text-2xl font-black ' +
+              (analytics.return_rate_after_vton == null
+                ? 'text-[var(--confit-navy)]'
+                : 'text-emerald-700')
+            }
+          >
+            {percent(analytics.return_rate_after_vton)}
+          </span>
+          <span className="block text-[11px] text-slate-500">
+            {t('b2b.dash.kpi_return_note', { rate: percent(analytics.return_rate_before_vton) })}
+          </span>
+        </div>
+      </Surface>
 
-      {/* Return Reduction Impact Chart & Funnel Analysis - REAL */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        <div className="lg:col-span-7 bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-6">
-          <div className="flex justify-between items-center pb-3 border-b border-slate-100">
+      {/* ------------------------- 3+4 · cohort bars (7) / most styled (5) */}
+      <div className="grid grid-cols-12 gap-8">
+        <Surface variant="solid" reveal as="section" className="col-span-12 space-y-6 rounded-2xl p-6 lg:col-span-7">
+          <div className="flex flex-wrap items-end justify-between gap-3 border-b border-slate-200 pb-3">
             <div>
-              <h3 className="font-serif text-lg font-bold text-[#1B1F3B]">
-                Observed return-marked line comparison
-              </h3>
-              <p className="text-xs text-slate-500">All-time observational cohorts; opened returns, not confirmed refunds</p>
+              <h2 className="font-serif text-lg font-bold text-[var(--confit-navy)]">
+                {t('b2b.dash.cohort_title')}
+              </h2>
+              <p className="mt-0.5 text-[11px] text-slate-500">{t('b2b.dash.cohort_hint')}</p>
             </div>
-            <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold">
-              {percent(analytics.return_reduction_percentage)} observed difference
+            <span className="rounded-full bg-emerald-800 px-3 py-1 text-[11px] font-bold text-white">
+              {t('b2b.dash.cohort_diff', { rate: percent(analytics.return_reduction_percentage) })}
             </span>
           </div>
 
-          <div className="space-y-4">
-            <div>
-              <div className="flex justify-between text-xs font-bold text-slate-700 mb-1">
-                <span>Order lines: no order-level try-on flag</span>
-                <span className="text-rose-600 font-mono text-sm">{percent(analytics.return_rate_before_vton)}</span>
-              </div>
-              <div className="w-full h-4 rounded-full bg-slate-100 overflow-hidden">
-                <div className="h-full bg-rose-500 rounded-full" style={{ width: `${Math.min(100, (analytics.return_rate_before_vton ?? 0))}%` }}></div>
-              </div>
-            </div>
-
-            <div>
-              <div className="flex justify-between text-xs font-bold text-slate-700 mb-1">
-                <span>Order lines: order-level try-on flag</span>
-                <span className="text-emerald-600 font-mono text-sm">{percent(analytics.return_rate_after_vton)}</span>
-              </div>
-              <div className="w-full h-4 rounded-full bg-slate-100 overflow-hidden">
-                <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${Math.min(100, (analytics.return_rate_after_vton ?? 0))}%` }}></div>
-              </div>
-            </div>
-          </div>
-
-          <div className="p-4 rounded-2xl bg-[#FAF9F6] border border-slate-200 text-xs text-slate-600 leading-relaxed space-y-2">
-            <div>💡 <strong>Methodology:</strong> {analytics.return_cohorts?.methodology}</div>
-            <div className="text-[11px] text-slate-500">Ad Spend: ${analytics.ad_spend_total} (real from SponsoredPlacement.spent_today), Ad Revenue: ${analytics.ad_revenue_total} (real from SponsoredPlacement.revenue_generated). BOPIS: {percent(analytics.bopis_store_fulfillment_rate)} of eligible pickup groups completed.</div>
-            {!hasData && <div className="text-amber-700 bg-amber-50 p-2 rounded">No return data yet - will populate when orders and returns occur with try-on attribution.</div>}
-          </div>
-        </div>
-
-        {/* Outfit Appearance Rankings - REAL */}
-        <div className="lg:col-span-5 bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-4">
-          <div className="pb-3 border-b border-slate-100">
-            <h3 className="font-serif text-lg font-bold text-[#1B1F3B]">
-              Most Styled Items (Real Outfit Data)
-            </h3>
-            <p className="text-xs text-slate-500">{t('b2b.ranked_by_appearances')}</p>
-          </div>
-
-          <div className="space-y-3">
-            {analytics.outfit_appearance_rankings.length === 0 ? (
-              <div className="p-6 text-center text-xs text-slate-500 space-y-2">
-                <div>No outfit appearances yet</div>
-                <div className="text-[11px]">When users create outfits with your products via OutfitBuilder, appearances will be counted from OutfitItem table grouped by product_id ORDER BY count DESC.</div>
-              </div>
-            ) : (
-              analytics.outfit_appearance_rankings.map((rank, idx) => (
-                <div
-                  key={rank.product_id}
-                  className="flex items-center gap-3 p-2.5 rounded-2xl bg-[#FAF9F6] border border-slate-200"
-                >
-                  <div className="w-8 h-8 rounded-xl bg-[#1B1F3B] text-white flex items-center justify-center font-bold text-xs shrink-0">
-                    #{idx + 1}
-                  </div>
-                  <div className="w-12 h-14 rounded-lg bg-white overflow-hidden shrink-0">
-                    <img src={rank.thumbnail_url} alt={rank.product_title} className="w-full h-full object-cover" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-xs font-bold text-[#1B1F3B] truncate">{rank.product_title}</div>
-                    <div className="text-[11px] text-slate-500">
-                      Styled in <strong className="text-[#B8935A]">{rank.outfit_appearances}</strong> ensembles (real from OutfitItem)
-                    </div>
-                    <div className="text-[10px] text-slate-400">Add-to-cart {rank.add_to_cart_rate}%, Purchase {rank.purchase_rate}%</div>
-                  </div>
-                  <div className="text-right text-[11px]">
-                    <span className="font-bold text-emerald-600">{rank.purchase_rate}%</span>
-                    <span className="text-slate-400 block text-[9px]">Conversion</span>
-                  </div>
+          <div className="space-y-5">
+            {cohortBars.map((c) => (
+              <div key={c.label}>
+                <div className="mb-1 flex items-baseline justify-between gap-3 text-xs font-bold text-slate-700">
+                  <span>{c.label}</span>
+                  <span className={`font-mono text-sm ${c.text}`}>{percent(c.rate)}</span>
                 </div>
-              ))
-            )}
+                <div className="h-4 w-full overflow-hidden rounded-full bg-slate-100">
+                  <motion.div
+                    className={`h-full rounded-full ${c.bar}`}
+                    initial={reduceMotion ? false : { width: 0 }}
+                    animate={{ width: `${Math.min(100, c.rate ?? 0)}%` }}
+                    transition={{ duration: 0.7, ease: [0.25, 1, 0.5, 1] }}
+                  />
+                </div>
+              </div>
+            ))}
           </div>
-        </div>
+
+          <div className="space-y-1.5 rounded-xl border border-slate-200 bg-[var(--confit-cream)] p-4 text-[11px] leading-relaxed text-slate-600">
+            <p>
+              <strong className="font-bold text-[var(--confit-navy)]">
+                {t('b2b.dash.methodology')}:
+              </strong>{' '}
+              {analytics.return_cohorts?.methodology}
+            </p>
+            <p className="text-slate-500">
+              {t('b2b.dash.spend_line', {
+                spend: `$${analytics.ad_spend_total}`,
+                revenue: `$${analytics.ad_revenue_total}`,
+                bopis: percent(analytics.bopis_store_fulfillment_rate),
+              })}
+            </p>
+            <p className="text-slate-500">{t('b2b.dash.source_note')}</p>
+          </div>
+        </Surface>
+
+        <Surface variant="solid" reveal revealDelay={0.06} as="section" className="col-span-12 space-y-4 rounded-2xl p-6 lg:col-span-5">
+          <div className="border-b border-slate-200 pb-3">
+            <h2 className="font-serif text-lg font-bold text-[var(--confit-navy)]">
+              {t('b2b.dash.styled_title')}
+            </h2>
+            <p className="mt-0.5 text-[11px] text-slate-500">{t('b2b.ranked_by_appearances')}</p>
+          </div>
+
+          {analytics.outfit_appearance_rankings.length === 0 ? (
+            <div className="space-y-1.5 py-8 text-center">
+              <p className="text-xs font-semibold text-slate-600">{t('b2b.dash.styled_empty')}</p>
+              <p className="mx-auto max-w-xs text-[11px] leading-relaxed text-slate-500">
+                {t('b2b.dash.styled_empty_note')}
+              </p>
+            </div>
+          ) : (
+            <ol className="space-y-3">
+              {analytics.outfit_appearance_rankings.map((rank: any, idx: number) => (
+                <li key={rank.product_id} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-[var(--confit-cream)] p-2.5">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--confit-navy)] text-xs font-bold text-white">
+                    #{idx + 1}
+                  </span>
+                  <span className="h-14 w-12 shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-white">
+                    <HonestProductImage
+                      src={rank.thumbnail_url}
+                      alt={rank.product_title}
+                      className="h-full w-full object-cover"
+                    />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-xs font-bold text-[var(--confit-navy)]">
+                      {rank.product_title}
+                    </span>
+                    <span className="block text-[11px] text-slate-500">
+                      {t('b2b.dash.styled_note', { count: rank.outfit_appearances })}
+                    </span>
+                    <span className="block text-[11px] text-slate-500">
+                      {t('b2b.dash.styled_rates', {
+                        cart: rank.add_to_cart_rate,
+                        purchase: rank.purchase_rate,
+                      })}
+                    </span>
+                  </span>
+                  <span className="text-end text-[11px]">
+                    <span className="block font-bold text-emerald-700">{rank.purchase_rate}%</span>
+                    <span className="block text-slate-500">{t('b2b.dash.conversion')}</span>
+                  </span>
+                </li>
+              ))}
+            </ol>
+          )}
+        </Surface>
       </div>
 
-      {/* Products Summary */}
-      <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm">
-        <h3 className="font-serif text-lg font-bold text-[#1B1F3B] mb-4">Catalog Summary (Real)</h3>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
-          <div className="p-3 rounded-xl bg-[#FAF9F6] border">
-            <span className="text-slate-400 text-[10px] uppercase block">Products</span>
-            <span className="font-bold text-lg">{analytics.total_products_count}</span>
+      {/* ---------------------------------------------------- 5 · catalog strip */}
+      <Surface variant="solid" reveal as="section" className="grid grid-cols-2 lg:grid-cols-4">
+        {(
+          [
+            ['b2b.dash.catalog_products', analytics.total_products_count, ''],
+            ['b2b.dash.catalog_skus', analytics.total_skus_count, ''],
+            ['b2b.dash.catalog_purchases', analytics.total_purchases, 'text-emerald-700'],
+            ['b2b.dash.catalog_cart', analytics.total_add_to_carts, ''],
+          ] as const
+        ).map(([key, value, tone], i) => (
+          <div
+            key={key}
+            className={
+              'space-y-1 p-5 ' +
+              [
+                '',
+                'border-s border-slate-200',
+                'border-t border-slate-200 lg:border-s lg:border-t-0',
+                'border-s border-t border-slate-200 lg:border-t-0',
+              ][i]
+            }
+          >
+            <span className="block text-[11px] font-bold uppercase tracking-wider text-slate-600">
+              {t(key)}
+            </span>
+            <span className={`block font-serif text-lg font-black ${tone || 'text-[var(--confit-navy)]'}`}>
+              {Number(value).toLocaleString(i18n.language)}
+            </span>
           </div>
-          <div className="p-3 rounded-xl bg-[#FAF9F6] border">
-            <span className="text-slate-400 text-[10px] uppercase block">SKUs</span>
-            <span className="font-bold text-lg">{analytics.total_skus_count}</span>
-          </div>
-          <div className="p-3 rounded-xl bg-[#FAF9F6] border">
-            <span className="text-slate-400 text-[10px] uppercase block">Total Purchases</span>
-            <span className="font-bold text-lg text-emerald-600">{analytics.total_purchases}</span>
-          </div>
-          <div className="p-3 rounded-xl bg-[#FAF9F6] border">
-            <span className="text-slate-400 text-[10px] uppercase block">Add to Cart</span>
-            <span className="font-bold text-lg">{analytics.total_add_to_carts}</span>
-          </div>
-        </div>
-      </div>
+        ))}
+      </Surface>
     </div>
   );
 };

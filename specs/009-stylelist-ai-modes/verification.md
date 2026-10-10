@@ -516,7 +516,7 @@ Colour extraction feeds `ColorHarmonyEngine` (`_coordinate_with_palette`). **Lim
 
 **Tests.** `backend/tests/test_stylist_occasion_gate.py` (6 new, unit). Focused stylist and composer set (11 files): exit 0, 134 passed. Full `pytest backend/tests`: exit 0, 3841 passed, 21 skipped.
 
-**Live budget.** No live provider calls in this increment. Round total remains 12 of 30 (§10.14). The local env has NVIDIA_KEY_* names only, not NVIDIA_API_KEY, so a live stylist turn is currently not configured locally (production key state UNKNOWN).
+**Live budget.** No live provider calls in this increment. Round total corrected in §10.17 to about 20 of 30 (estimate, see §10.17). The local env has NVIDIA_KEY_* names only, not NVIDIA_API_KEY, so a live stylist turn is currently not configured locally (production key state UNKNOWN).
 
 ### 10.16 Colour and anchor in the selection pipeline (directive 2026-10-10, no live calls)
 
@@ -537,3 +537,37 @@ Colour extraction feeds `ColorHarmonyEngine` (`_coordinate_with_palette`). **Lim
 **Still open.** Shoe, bag, and belt coverage; a complete look for every request; colour choice with more candidates; Arabic anchor parsing; the look still includes the tuxedo for "smart casual" (no gate for the un-stated occasion); live provider checks (not run in this increment: live budget 12 of 30 unchanged).
 
 **Image generation.** Not implemented. See `image-generation-provider-decision.md`. Interim visuals: catalogue or stock only, labelled as such.
+
+### 10.17 Completeness, colour proof, vision status (branch `feat/stylist-vision-colour-constraints`, 2026-10-10)
+
+**Commits.** `3d06d3b` (publish gate, colour selection, fixture, tests); `23cf8d8` (honest limitations, test corrections). Earlier `45a7185` is the base of this round. Both commits are on the PR #339 branch.
+
+**Identity note.** The first push of `3d06d3b` was correct. A later commit (`4c49400`) was made with an empty author email because the variable was not loaded in that shell. It was replaced by `23cf8d8` using `--force-with-lease` on this feature branch only. No `main` history was changed.
+
+**What changed.**
+* Publish gate: one completeness rule (`rules.look_completeness`), shared by evaluation and publishing. An incomplete look is never published. Before this change, the second look could be published with no bottoms or shoes.
+* Honest limitation: when no complete look is built, `fallback_reason` states the composer's reasons. When exactly one complete look is built, the limitation is stored in `intent.composition_limitations` only. **Gap:** the shopper does not see the one-look limitation yet. The frontend stage must surface it.
+* Eval metric (`_grounded`): a turn with no recommendations counts as grounded only when it states why. An empty result without a reason still fails.
+* Colour: `palette_bonus` (same colour +12, harmonising +8, clash -8, capped at +/-20). Neutrals are never penalised.
+
+**Tests (mocked providers; labelled MOCKED-PROVIDER where stubs are used).**
+* Full backend suite on `23cf8d8`: **3872 passed, 21 skipped, 0 failed**, exit 0 (531 s).
+* Frontend `npm run verify` on the same tree (no frontend files changed this round): i18n gate ok, `tsc --noEmit` ok, vitest **99 files, 1308 tests passed**, `vite build` ok.
+* Colour proof (real composer, candidate-rich fixture, real Pillow palette, MOCKED-PROVIDER): the olive photo and the navy photo each change the first look's selected product IDs compared with no photo. Forcing the palette term to 0 fails 5 colour tests (`mutation_palette.py`).
+* Vision outage (MOCKED-PROVIDER): reported, and the reply falls back to the no-photo selection.
+
+**Live provider evidence (NVIDIA only).**
+* Per-photo vision (`live_vision5.py`): 2 of 2 analysed. Olive cardigan: outerwear, olive. Navy suit: blazer and trousers, labelled "blue", so the model's colour name is coarser than the photo.
+* One real stylist turn with both photos (`live_turn2.py`): **not a success.** Photo 1: primary `google/diffusiongemma-26b-a4b-it` returned no parseable JSON (one request). Photo 2: primary exceeded the 15 s limit, then the failover returned HTTP 503 "Worker local total request limit reached (16/16)" (two attempts). The service reported "analysis did not answer" and answered from the text request only. Nothing was invented. Output: one complete look (navy blazer, optic white shirt, navy trousers, obsidian shoes). No photo colour steered the look in that turn.
+* Conclusion: **multi-image vision is not reliably available right now.** Failures are provider-side (timeout, empty JSON, per-worker capacity). The degraded path works. Real multi-image success has not been demonstrated on this branch.
+
+**Live budget (estimate).** The exact count was not captured because provider HTTP lines are suppressed in the logs. Counted from client attempt logs: about 14 before this round, + 2 per-photo vision, + about 4 in the turn run (1 photo-1 request, 2 photo-2 attempts, 1 text answer). **Total about 20 of 30.** The earlier figure "12 of 30" in §10.15 is superseded.
+
+**Catalogue limitations (seeded catalogue).**
+* No complete casual look. Casual-tagged items are a shirt, an overshirt and a tote. "Casual weekend" now returns no look with a stated reason.
+* Only one complete formal-work look for the test request.
+
+**Not done.** Frontend composer, attachments, microphone, acceptance scenarios A–J, live multi-image vision success, image-generation provider (pending user confirmation). Production configuration was not inspected.
+
+**Merge status.** PR #339 is `open`, base `main`, mergeable state `behind`. `main` is now `c67c11a`, one commit ahead of the branch base `8873ed8`. The branch has not been merged or rebased, and this round does not merge.
+

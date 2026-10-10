@@ -1624,7 +1624,15 @@
     "reason_style": "Style Mismatch",
     "reason_changed_mind": "Changed Mind",
     "reason_quality": "Quality Issue",
-    "submit_return": "Submit return"
+    "submit_return": "Submit return",
+    "guest_email_prompt": "This is a guest order. Enter the email used for this order to verify ownership (second factor).",
+    "guest_email_label": "Order email",
+    "guest_lookup_retry": "Verify email and load order",
+    "guest_return_note": "Guest return will be verified with the same email.",
+    "verify_prompt_title": "Verify your order",
+    "verify_prompt_desc": "Enter the email used for this order to verify ownership. This step does not reveal whether the order exists.",
+    "verify_failed": "We could not verify this order. Please check your order number and email, or sign in if this is a registered account.",
+    "verify_neutral": "Order not found or access denied. Please verify your order number and email."
   },
   "discover": {
     "search_label": "Search the catalogue",

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { CardStackShowcase } from '../../components/showcase/DesignShowcases';
 import { useTranslation } from 'react-i18next';
@@ -11,10 +11,12 @@ import {
 } from '../../i18n/orderState';
 import { BopisIcon } from '../../components/icons/ConfitIcons';
 import { LoadingSpinner, EmptyState } from '../../components/common/CommonComponents';
+import { useAuthStore } from '../../stores/authStore';
 
 export const OrderTrackingView: React.FC = () => {
   const { orderNumber } = useParams<{ orderNumber: string }>();
   const { t } = useTranslation();
+  const { isAuthenticated } = useAuthStore();
 
   const [order, setOrder] = useState<Order | null>(null);
   const [timeline, setTimeline] = useState<OrderTrackingTimeline | null>(null);
@@ -25,6 +27,69 @@ export const OrderTrackingView: React.FC = () => {
   const [returnLabelUrl, setReturnLabelUrl] = useState<string | null>(null);
   const [returnError, setReturnError] = useState<string | null>(null);
   const [returnSubmitting, setReturnSubmitting] = useState(false);
+  // CUS-09 second factor for guest orders + Cycle7 anti-enumeration
+  const [guestEmailInput, setGuestEmailInput] = useState('');
+  const [guestEmailForLookup, setGuestEmailForLookup] = useState<string | undefined>(undefined);
+  const [needsSecondFactor, setNeedsSecondFactor] = useState(false);
+
+  const loadOrder = useCallback(async (orderNum: string, guestEmail?: string) => {
+    setIsLoading(true);
+    setLoadError(null);
+    setNeedsSecondFactor(false);
+    try {
+      const [orderRes, trackRes] = await Promise.all([
+        commerceService.getOrderDetail(orderNum, guestEmail),
+        commerceService.getOrderTracking(orderNum, guestEmail),
+      ]);
+      setOrder(orderRes);
+      setTimeline(trackRes);
+      setIsLoading(false);
+    } catch (err: any) {
+      const msg = err?.message || 'Order could not be loaded.';
+      const status = err?.status || 0;
+      const code = (err?.code || '').toString().toLowerCase();
+      const lowerMsg = msg.toLowerCase();
+
+      // Cycle7 anti-enumeration: anonymous failures are normalized to 404 generic.
+      // We must not reveal whether order exists. For anonymous users, any failure
+      // (404, 401 with second factor, etc.) should prompt neutral verification
+      // without claiming existence. For authenticated 403, keep access-denied.
+      const isAuthError = status === 401 || status === 403 || code.includes('auth') || code.includes('forbidden');
+      const isNotFound = status === 404 || code.includes('not_found') || code.includes('resource_not_found') || lowerMsg.includes('not found') || lowerMsg.includes('access denied');
+
+      if (!isAuthenticated) {
+        // Anonymous: offer neutral verification prompt for any failure, unless
+        // it's clearly a business validation that should not be retried via email.
+        // After first attempt without email, or with wrong email, show verification.
+        if (isNotFound || isAuthError || lowerMsg.includes('second factor') || lowerMsg.includes('guest order access') || lowerMsg.includes('email') || !guestEmail) {
+          setNeedsSecondFactor(true);
+          // Use generic neutral message if backend already normalized
+          if (isNotFound) {
+            setLoadError(t('order.verify_failed'));
+          } else {
+            setLoadError(msg);
+          }
+        } else {
+          setLoadError(msg);
+        }
+      } else {
+        // Authenticated: if 403 cross-customer, do not prompt for email
+        if (status === 403) {
+          setNeedsSecondFactor(false);
+          setLoadError(msg);
+        } else if (isNotFound || lowerMsg.includes('second factor') || lowerMsg.includes('guest order access')) {
+          // Authenticated but trying guest flow? Still prompt neutral
+          setNeedsSecondFactor(true);
+          setLoadError(t('order.verify_failed'));
+        } else {
+          setLoadError(msg);
+        }
+      }
+      setOrder(null);
+      setTimeline(null);
+      setIsLoading(false);
+    }
+  }, [isAuthenticated, t]);
 
   useEffect(() => {
     if (!orderNumber) {
@@ -32,27 +97,44 @@ export const OrderTrackingView: React.FC = () => {
       setLoadError('No order number was provided.');
       return;
     }
-    setIsLoading(true);
-    setLoadError(null);
-    Promise.all([
-      commerceService.getOrderDetail(orderNumber),
-      commerceService.getOrderTracking(orderNumber),
-    ])
-      .then(([orderRes, trackRes]) => {
-        setOrder(orderRes);
-        setTimeline(trackRes);
-        setIsLoading(false);
-      })
-      .catch((err) => {
-        setOrder(null);
-        setTimeline(null);
-        setLoadError(err?.message || 'Order could not be loaded.');
-        setIsLoading(false);
-      });
-  }, [orderNumber]);
+    void loadOrder(orderNumber, guestEmailForLookup);
+  }, [orderNumber, guestEmailForLookup, loadOrder]);
+
+  const handleGuestEmailSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!guestEmailInput.trim()) return;
+    setGuestEmailForLookup(guestEmailInput.trim());
+  };
 
   if (isLoading) {
     return <LoadingSpinner text="Loading order tracking..." />;
+  }
+
+  if (needsSecondFactor) {
+    return (
+      <div className="max-w-md mx-auto mt-10 p-6 bg-white rounded-3xl border border-slate-200 shadow-sm space-y-4">
+        <h2 className="font-serif text-lg font-bold text-[#1B1F3B]">{t('order.verify_prompt_title')}</h2>
+        <p className="text-xs text-slate-600">{t('order.verify_prompt_desc')}</p>
+        <p className="text-[11px] text-slate-500">{t('order.verify_neutral')}</p>
+        <form onSubmit={handleGuestEmailSubmit} className="space-y-3">
+          <label className="block text-xs font-bold text-slate-700">
+            {t('order.guest_email_label')}
+            <input
+              type="email"
+              value={guestEmailInput}
+              onChange={(e) => setGuestEmailInput(e.target.value)}
+              placeholder="name@example.com"
+              required
+              className="mt-1 w-full p-2.5 rounded-xl border border-slate-200 text-xs"
+            />
+          </label>
+          <button type="submit" className="w-full py-2.5 rounded-xl bg-[#1B1F3B] text-white text-xs font-semibold">
+            {t('order.guest_lookup_retry')}
+          </button>
+        </form>
+        {loadError && <p className="text-[11px] text-rose-600">{loadError}</p>}
+      </div>
+    );
   }
 
   if (loadError || !order || !timeline) {
@@ -64,18 +146,32 @@ export const OrderTrackingView: React.FC = () => {
     );
   }
 
+  const isGuestOrder = !order.user_id && !!order.guest_email;
+
   const handleReturnSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setReturnError(null);
     setReturnSubmitting(true);
     try {
-      const res = await commerceService.createReturn({
-        order_id: order.id,
-        reason: returnReason,
-        details: 'Customer initiated return',
-        item_ids: order.items.filter((i) => !i.is_returned).map((i) => i.id),
-      });
-      setReturnLabelUrl(res.return_label_url || null);
+      if (isGuestOrder) {
+        // CUS-10 guest returns with second factor
+        const res = await commerceService.createGuestReturn({
+          order_number: order.order_number,
+          guest_email: guestEmailForLookup || order.guest_email || guestEmailInput || undefined,
+          reason: returnReason,
+          details: 'Customer initiated return (guest)',
+          item_ids: order.items.filter((i) => !i.is_returned).map((i) => i.id),
+        });
+        setReturnLabelUrl(res.return_label_url || null);
+      } else {
+        const res = await commerceService.createReturn({
+          order_id: order.id,
+          reason: returnReason,
+          details: 'Customer initiated return',
+          item_ids: order.items.filter((i) => !i.is_returned).map((i) => i.id),
+        });
+        setReturnLabelUrl(res.return_label_url || null);
+      }
     } catch (err: any) {
       setReturnError(err?.message || 'Return could not be created.');
     } finally {
@@ -111,6 +207,9 @@ export const OrderTrackingView: React.FC = () => {
               {timeline.carrier} · {timeline.tracking_number}
             </p>
           )}
+          {isGuestOrder && (
+            <p className="text-[10px] text-slate-400 mt-1">{t('order.guest_return_note')}</p>
+          )}
         </div>
         <button
           onClick={() => {
@@ -118,7 +217,7 @@ export const OrderTrackingView: React.FC = () => {
             setReturnError(null);
             setReturnLabelUrl(null);
           }}
-          className="px-4 py-2 rounded-xl border border-slate-300 hover:border-slate-400 text-slate-700 text-xs font-semibold transition-all"
+          className="px-4 py-2 rounded-xl border border-slate-300 hover:border-slate-400 text-slate-700 text-xs font-semibold transition-all min-h-11"
         >
           {t('commerce.return_item')}
         </button>
@@ -224,7 +323,7 @@ export const OrderTrackingView: React.FC = () => {
                 </a>
                 <button
                   onClick={() => setReturnModalOpen(false)}
-                  className="mt-4 px-5 py-2 rounded-xl bg-[#1B1F3B] text-white text-xs font-semibold"
+                  className="mt-4 px-5 py-2 rounded-xl bg-[#1B1F3B] text-white text-xs font-semibold min-h-11"
                 >
                   {t('common.close')}
                 </button>
@@ -237,7 +336,7 @@ export const OrderTrackingView: React.FC = () => {
                     id="return-reason"
                     value={returnReason}
                     onChange={(e) => setReturnReason(e.target.value)}
-                    className="w-full p-2.5 rounded-xl border border-slate-200 bg-white"
+                    className="w-full p-2.5 rounded-xl border border-slate-200 bg-white min-h-11"
                   >
                     <option value="Wrong Size">{t('order.reason_wrong_size')}</option>
                     <option value="Color Difference">{t('order.reason_color')}</option>
@@ -246,12 +345,25 @@ export const OrderTrackingView: React.FC = () => {
                     <option value="Quality Issue">{t('order.reason_quality')}</option>
                   </select>
                 </div>
-                {returnError && <p className="text-rose-600">{returnError}</p>}
+                {isGuestOrder && (
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">{t('order.guest_email_label')}</label>
+                    <input
+                      type="email"
+                      value={guestEmailForLookup || guestEmailInput}
+                      onChange={(e) => setGuestEmailInput(e.target.value)}
+                      placeholder="name@example.com"
+                      className="w-full p-2.5 rounded-xl border border-slate-200 min-h-11"
+                    />
+                    <p className="text-[10px] text-slate-500 mt-1">{t('order.guest_return_note')}</p>
+                  </div>
+                )}
+                {returnError && <p className="text-rose-600" role="alert">{returnError}</p>}
                 <div className="flex gap-2 pt-2">
-                  <button type="button" onClick={() => setReturnModalOpen(false)} className="flex-1 py-2.5 rounded-xl border border-slate-200 font-semibold">
+                  <button type="button" onClick={() => setReturnModalOpen(false)} className="flex-1 py-2.5 rounded-xl border border-slate-200 font-semibold min-h-11">
                     {t('common.cancel')}
                   </button>
-                  <button type="submit" disabled={returnSubmitting} className="flex-1 py-2.5 rounded-xl bg-[#1B1F3B] text-white font-semibold shadow-md disabled:opacity-50">
+                  <button type="submit" disabled={returnSubmitting} className="flex-1 py-2.5 rounded-xl bg-[#1B1F3B] text-white font-semibold shadow-md disabled:opacity-50 min-h-11">
                     {returnSubmitting ? 'Submitting...' : t('order.submit_return')}
                   </button>
                 </div>

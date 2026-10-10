@@ -158,9 +158,14 @@ def test_every_expensive_consumer_endpoint_declares_a_limit():
     import pathlib
     import re
 
+    # Resolve controllers directory relative to this file, not cwd — previous
+    # version used Path("backend/app/controllers") which fails when pytest is
+    # invoked from backend/ (KeyError stylist_controller.py missing).
+    controllers_dir = pathlib.Path(__file__).resolve().parents[1] / "app" / "controllers"
+    assert controllers_dir.is_dir(), f"controllers dir not found: {controllers_dir}"
     sources = {
         path.name: path.read_text()
-        for path in pathlib.Path("backend/app/controllers").glob("*.py")
+        for path in controllers_dir.glob("*.py")
     }
 
     protected = {
@@ -172,6 +177,10 @@ def test_every_expensive_consumer_endpoint_declares_a_limit():
         ("commerce_controller.py", '/cart/promo'): "10/minute",
         ("commerce_controller.py", '/checkout",'): "10/minute",
         ("commerce_controller.py", '/checkout/sessions'): "10/minute",
+        # Cycle 8: guest-order anti-enumeration endpoints must remain rate-limited
+        ("commerce_controller.py", '/orders/{order_number}"'): "30/minute",
+        ("commerce_controller.py", '/orders/{order_number}/tracking'): "30/minute",
+        ("commerce_controller.py", '/returns/guest'): "30/minute",
     }
 
     for (filename, route), limit in protected.items():

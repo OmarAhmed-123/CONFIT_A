@@ -7,7 +7,7 @@ from backend.app.core.config import settings, vton_engine_metadata
 from backend.app.core.database import get_db, engine
 from backend.app.core import schema_gate
 from backend.app.core.readiness import CONTRACT, liveness_status, summarise_capabilities
-from backend.app.core.rate_limit import rate_limit_store_report
+from backend.app.core.rate_limit import rate_limit_store_report, rate_limit_health_report
 from backend.app.services.capability_service import capability_probes
 from backend.app.core.dependencies import require_role, ADMIN_ROLES
 from backend.app.models.user import User
@@ -267,7 +267,10 @@ def _probe(db: Session, passive_vton: bool = False):
         "vton_worker": vton_worker,
         "capabilities": capabilities,
         "readiness": readiness,
-        "rate_limit": rate_limit_store_report(),
+        # Cycle9: expose configured vs active enforcement and degradation signal
+        # without leaking secrets (only scheme names, not URIs/creds). Active
+        # check is cheap boolean _storage_dead, not a Redis ping per probe.
+        "rate_limit": rate_limit_health_report(),
         "status": status,
     }
 

@@ -47,15 +47,24 @@ def test_stylist_prompt_diversity(client: TestClient):
     assert res_formal.status_code == 200
     assert res_casual.status_code == 200
 
-    formal_outfit = res_formal.json()["recommendations"][0]
-    casual_outfit = res_casual.json()["recommendations"][0]
+    formal_looks = res_formal.json()["recommendations"]
+    casual_data = res_casual.json()
+    casual_looks = casual_data["recommendations"]
 
-    formal_product_ids = {it["product_id"] for it in formal_outfit["items"]}
-    casual_product_ids = {it["product_id"] for it in casual_outfit["items"]}
+    # The formal request has a complete look in the seeded catalogue.
+    assert formal_looks, "formal request must return a complete look"
+    formal_outfit = formal_looks[0]
+    assert {it["product_id"] for it in formal_outfit["items"]}
 
-    # The formal outfit and casual outfit must have distinct product sets
-    assert formal_product_ids != casual_product_ids
-    assert formal_outfit["occasion"] != casual_outfit["occasion"]
+    if casual_looks:
+        # Casual looks, if the catalogue supports them, must differ from the formal set.
+        casual_outfit = casual_looks[0]
+        assert {it["product_id"] for it in formal_outfit["items"]} != {it["product_id"] for it in casual_outfit["items"]}
+        assert formal_outfit["occasion"] != casual_outfit["occasion"]
+    else:
+        # The seeded catalogue has no complete casual look (its casual-tagged items are
+        # a shirt, an overshirt and a tote). The reply must say so: no invented look.
+        assert casual_data.get("fallback_reason"), "an empty casual result must state why"
 
 
 def test_measurement_session_tryon_scaling(client: TestClient):

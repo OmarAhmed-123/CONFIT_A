@@ -221,6 +221,8 @@ class StylistService:
                         for c in merge_palettes(pixel_palettes)
                     ],
                     "colour_check": colour_check,
+                    # The pixel-supported colour families that actually steered the ranking.
+                    "palette_used": [p["color_family"] for p in palette_items if p.get("color_family")],
                     "images": len(images),
                 }
             else:
@@ -272,6 +274,19 @@ class StylistService:
         # detail (styling/diversity.py explains the rule).
         if alternatives_meta.get("suppressed"):
             intent["alternatives"] = alternatives_meta
+
+        # Honest limitation: when fewer than two complete looks exist, the reply says
+        # why, using the composer's own reasons (never a generated excuse).
+        limits = list(alternatives_meta.get("reasons") or [])
+        if limits and len(recommended_outfits) < 2:
+            if recommended_outfits:
+                note = f"Only {len(recommended_outfits)} complete look could be built from the catalogue. "
+            else:
+                note = "No complete outfit could be built from the catalogue for this request. "
+            note += " ".join(limits)
+            fallback_reason = f"{fallback_reason} {note}" if fallback_reason else note
+            intent["composition_limitations"] = limits
+            intent["fallback_reason"] = fallback_reason
 
         # 6c. Mode A colour coordination. The image's extracted palette is scored
         #     against each composed look with the same ColorHarmonyEngine used

@@ -66,13 +66,26 @@ def anchor_matches(product: Any, anchor: Dict[str, str]) -> bool:
 def palette_bonus(product_colour: str, palette_families: Iterable[str]) -> float:
     """Score adjustment for a product colour against the photo palette.
 
-    Each pixel-supported photo colour contributes +8 when ColorHarmonyEngine says the
-    pair harmonises, -8 when it clashes, 0 when the engine is undecided. The total
-    is capped to +/-20 so colour refines a choice without overriding category or
-    occasion scores."""
+    Per pixel-supported photo colour:
+      * +12 when the product colour names the same colour (e.g. "olive" and
+        "Olive Green"): the photo's colour is reinforced;
+      * +8 when ColorHarmonyEngine says the pair harmonises (neutrals pair with
+        everything, so a neutral product is never penalised for being neutral);
+      * -8 when the engine says it clashes;
+      * 0 when the engine is undecided.
+    The total is capped to +/-20 so colour refines a choice without overriding
+    category, occasion, or anchor constraints.
+    """
+    pc = (product_colour or "").lower().strip()
     total = 0.0
     for fam in palette_families or []:
-        verdict = ColorHarmonyEngine._pairs_harmonize(product_colour or "", fam or "")
+        f = (fam or "").lower().strip()
+        if not pc or not f:
+            continue
+        if f in pc or pc in f:
+            total += 12.0
+            continue
+        verdict = ColorHarmonyEngine._pairs_harmonize(pc, f)
         if verdict is True:
             total += 8.0
         elif verdict is False:

@@ -5,6 +5,7 @@ from backend.app.core.money import to_decimal, to_float, money_sum, quantize_mon
 from backend.app.services.styling.ontology import SlotType, classify_product_slot
 from backend.app.services.styling.attribution import resolve_style_source
 from backend.app.services.styling.occasion_gate import gate_products
+from backend.app.services.styling.rules import look_completeness
 from backend.app.services.styling.constraints import anchor_matches, palette_bonus, parse_anchor
 from backend.app.services.styling.diversity import MIN_DISTINCTNESS_OVERLAP, is_distinct, suppression_reason
 from backend.app.services.styling.rules import StylingRulesEngine
@@ -604,6 +605,23 @@ class OutfitComposer:
                     "composition_warnings": [],
                 })
                 outfits[0]["alternatives_published"] = len(outfits) - 1
+
+        # PUBLISH GATE: a look is shown only when it is a complete outfit. An
+        # incomplete look is never published to reach a target count; the gap is
+        # stated instead (see rules.look_completeness).
+        if outfits:
+            complete_looks = []
+            for look in outfits:
+                ok, missing = look_completeness(look.get("items", []))
+                if ok:
+                    complete_looks.append(look)
+                else:
+                    why = (f"; {len(occasion_excluded)} catalogue product(s) are tagged for other "
+                           f"occasions and were excluded" if occasion_excluded else "")
+                    suppressed_alternatives.append(
+                        f"look '{look.get('title')}' was not published: no {' or '.join(missing)} "
+                        f"is available for this request{why}")
+            outfits = complete_looks
 
         # HARD: every published look must contain the anchored garment. A look
         # that does not is removed and the removal is stated, not hidden.

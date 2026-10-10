@@ -48,9 +48,11 @@ def test_empty_palette_changes_nothing():
     assert palette_bonus("Navy Blue", []) == 0.0
 
 
-def test_harmonising_photo_colour_raises_score_and_is_capped():
-    assert palette_bonus("navy", ["navy"]) == 8.0
-    assert palette_bonus("navy", ["navy", "navy", "navy", "navy", "navy", "navy"]) == 20.0
+def test_same_colour_reinforces_and_harmony_adds_and_is_capped():
+    assert palette_bonus("Navy Blue", ["navy"]) == 12.0          # same colour named
+    assert palette_bonus("Optic White", ["navy"]) == 8.0         # neutral harmonises
+    assert palette_bonus("Burgundy", ["olive"]) == -8.0          # clash
+    assert palette_bonus("Navy Blue", ["navy"] * 6) == 20.0      # capped
 
 
 # --- composer on the real seeded catalogue ---

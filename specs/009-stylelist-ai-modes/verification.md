@@ -337,3 +337,23 @@ Not re-run in this pass: the full backend suite (3798 passed in §3), and the Po
 * **Merge: not yet.** Required checks for the new head must be observed green (see the Git section of the closeout). Workers Builds (T028) is failing and has no cause. It is unresolved, and the owner must decide whether it blocks merge.
 * **Deploy: not authorized.** No production action was taken.
 * **Still unverified:** live-provider quality, latency, and availability (T016); full-drawer colour contrast (T026); screen-reader behaviour; the Workers build cause (T028); cross-workstream catalogue copy in Arabic (T030, T031); the production migration head, which is unverified.
+
+### 10.10 CI result for the tested head `56d914f` (observed, not inferred)
+
+Head `56d914f` (remote SHA verified equal to local). Two runs per push and pull-request event.
+
+| Check | Result (both runs unless noted) | Required on `main` |
+| --- | --- | --- |
+| backend | success | yes |
+| frontend | success | yes |
+| release gate (production schema parity) | success | yes |
+| stylist drawer browser gate (a11y, keyboard, RTL) | **success**. Job log: axe exit 0, keyboard exit 0, `gate: result=PASS`. Artifact `stylist-browser-gate` uploaded | **no** (owner decision to add) |
+| postgres migration chain + schema gate | success | no |
+| production parity (deployment contract) | success | no |
+| gitleaks secret scan (full history) | success | no |
+| Vercel Preview Comments | success | no |
+| Workers Builds: confit-a | **failure** (build `114195237846`, no log text) | no |
+
+* Branch protection on `main` (readable): required checks are `backend`, `frontend`, `release gate (production schema parity)`. All three passed.
+* PR #335: open, **draft**, not merged. `mergeable_state` is `unstable`, because the non-required Workers check fails.
+* The PR is not marked ready for review, not merged, and not deployed.

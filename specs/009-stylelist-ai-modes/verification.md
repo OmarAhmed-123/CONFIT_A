@@ -231,3 +231,109 @@ Limit: the Mode A flag is applied to a real Mode B response. The vision path its
 **Remaining CRITICAL issues:** none in the spec artifacts. Two items block the release gate and need an owner: T028 (Workers build log) and the decision on live-provider quality (A20).
 
 **Final task status (this pass):** T018 `[x]` (E2E), T019 `[x]`, T020 `[x]`, T021 `[x]`, T024 `[x]`, T025 `[x]`, T026 `[ ]` (partial: 1 element measured), T016 `[ ]` (partial), T022 `[ ]` deferred, T023 `[ ]` blocked on 008, T027 `[ ]` not wired, T028 `[ ]` BLOCKED, T029 `[ ]`, T030–T031 `[ ]` cross-workstream.
+
+## 10. Release readiness: CI hardening pass (2026-10-10)
+
+### 10.1 Repository state, corrected
+
+* At the start of this pass the local clone was **behind** the remote: local HEAD was `5b4642d` and the remote head of `009-stylelist-ai-modes` was `f435e45`. The five commits from the previous pass (`62910f7`…`f435e45`) were present on the remote only.
+* Action: the local branch was fast-forwarded to `origin/009-stylelist-ai-modes` (`git reset`, no `--hard`). Before that, every tracked and untracked file was checked byte-for-byte against the remote, and a snapshot was saved outside the repository.
+* Mistake and cleanup: a copy command placed repository top-level entries directly into `/home/user/.cache/`. They were removed by name. The directory held no cache data at that point, and the repository was verified intact (21 top-level entries, `git status` as expected).
+* Preserved: the six `.specify/scripts/bash/*.sh` mode-only changes (100755 → 100644). They are not committed, as instructed.
+
+### 10.2 CI state for the previous head `f435e45` (before this pass's commits)
+
+Check-run results from the GitHub API for `f435e45`. Two runs appear for the frontend and backend (push and pull-request events).
+
+| Check | Result | Note |
+| --- | --- | --- |
+| backend | success (both runs) | |
+| frontend | **failure (one run)**, success (other run) | Same commit, different outcome. Cause: flaky test, see 10.3 |
+| postgres migration chain + schema gate | success (both runs) | |
+| production parity (deployment contract) | success (both runs) | |
+| release gate (production schema parity) | success | Fails closed if production state is unknown; passed |
+| gitleaks secret scan (full history) | success | |
+| Vercel Preview Comments | success | |
+| Workers Builds: confit-a | **failure** | Cloudflare-managed. See 10.4 |
+
+### 10.3 Frontend failure: a flaky test, not a regression
+
+* Failing test: `ActionButton controlled mode › checkout contract: caller owns pending` in `frontend/src/components/__tests__/actionButton.test.tsx`. The file is **not changed** on this branch relative to `main`.
+* Cause: the simulated server reply used a 10 ms timer. On a loaded runner, the reply could land before the first poll observed `aria-busy`, so `data-state` read `idle`.
+* Reproduction: the original file failed **1 of 12** local runs (`Tests 1 failed | 25 passed`). Commit `ef3edea` holds the test open with the file's existing `deferred()` helper until the pending state is asserted. The fixed file passed 26/26 in 5 of 5 runs.
+* No product code changed. The contract being tested is unchanged.
+
+### 10.4 T028: Cloudflare Workers Builds, status BLOCKED
+
+* Check run `114122737165` on `f435e45`: `failure`, started and completed at the same second (`2026-10-10T03:39:19Z`). Output: build link and script link only. No text, no annotations.
+* The dashboard log is required, and it is not reachable from this environment. The env file has no Cloudflare variables (names checked; values not read). No workflow in this repository defines this check. It is managed by Cloudflare's GitHub integration, so its build settings live in the dashboard.
+* On `main`, the same check passed on 2026-10-09 (the earlier report). The branch and `main` builds have not been compared with the dashboard log, so the cause is **not determined**. It is not called pre-existing, and it is not attributed to this branch.
+* Evidence needed to close: the build log for the failed build, or a read-only Workers Builds token, plus the branch build settings. With that, the cause will be classified as branch defect, configuration, or infrastructure.
+
+### 10.5 T029: focused drawer browser gate in CI, PARTIAL until the PR run is observed
+
+**Added** (commits `e81ec55` and the `ci.yml` job):
+
+* `frontend/scripts/stylist_browser_gate.sh`: serves `dist/` with `vite preview` on 127.0.0.1, waits for it, runs the two probes, then stops the server it started.
+* Job `stylist-browser-gate` in `.github/workflows/ci.yml`: Node 22, `npm ci`, `npm run build`, `npx playwright-core install --with-deps chromium`, the gate, and an artifact upload (`frontend/gate-artifacts/`, probe JSON and logs).
+
+**What the gate checks (fails on each):**
+
+| Check | Probe | Gating rule |
+| --- | --- | --- |
+| axe, WCAG 2.x A/AA and 2.2 AA, colour contrast on | a11y | Any serious or critical violation |
+| Text direction in the drawer | a11y | `ltr` in English and `rtl` in Arabic |
+| Photo-error message | a11y | Exact localized text |
+| Photo thumbnail alt text | a11y | Present |
+| Keyboard opens dialog, focus trapped, visible focus, Escape, focus restored | keyboard | Each check (14 per language) |
+| Accessible names, dialog label, aria-modal | keyboard | Each check |
+
+**What it does not cover:**
+
+* axe `incomplete` results are **reported, not passed**. The current run shows two per language: a critical `aria-valid-attr-value` on header triggers outside the drawer (`#:r0:-discover-trigger` and similar), and a serious `color-contrast` set on the page behind the scrim (75 nodes). Both are outside this workstream.
+* Colour contrast for the whole drawer is **not** established. The earlier pixel audit covered one element (4.76:1). T026 stays partial.
+* Catalogue copy in Arabic (T030, T031) is out of scope and is excluded from this gate on purpose.
+* Real screen-reader behaviour (NVDA, VoiceOver) is not tested.
+* The Mode A photo flow with a live vision provider is not tested. The gate stops at the drawer and makes no provider calls.
+
+**Local verification (this pass):**
+
+| Run | Result |
+| --- | --- |
+| Gate, production build, no backend | **PASS**. axe en/ar 0 violations; keyboard en 14/14, ar 14/14; direction ltr/rtl |
+| Negative control: prompt input's `aria-label` removed, rebuilt | **exit 1**, `KEYBOARD PROBE: 2 failing check(s)`. Source restored from git afterwards (diff empty) |
+| Orphan check after gate | No `vite preview` left running (a wrapper-PID bug was found and fixed) |
+| Original `actionButton` test file, 12 runs | 11 passed, 1 failed |
+| Fixed `actionButton` test file, 5 runs | 26/26 each time |
+
+**Environment caveat:** local runs used Node 20.20.2 and Playwright-core 1.63.0. CI uses Node 22. The PR run on the pushed head is the authoritative result for the job, and it has not been observed yet at the time of writing.
+
+### 10.6 T016: real-provider evaluation, PARTIAL (protocol written, not executed)
+
+* Protocol: `live-evaluation-protocol.md` (this folder). It defines provider configuration by variable name only, budgets and cost ceilings, the dataset rules (synthetic or licensed photos only, no customer images in any artifact), metrics, fallback expectations, and the seven evidence items required before production activation.
+* Offline evidence (mocked providers, Python 3.12, exit 0): `test_stylist_eval_harness.py`. Scorecard: 8 cases run; grounded 8/8; Mode A served model 3/3; honest fallback 1/1. This is contract evidence, **not** model quality.
+* Not done: any live call, latency measurement, failure-rate measurement, or human colour rating. None is claimed.
+
+### 10.7 T022: streaming, DEFERRED (decision record)
+
+* Decision: streaming (STY-11) stays deferred. No SSE endpoint and no new response protocol were added.
+* Reasons: on serverless hosting a long-lived stream has to finish within the function's time limit, and the chat response must be grounded in catalogue data **before** any product is streamed. Neither requirement is decided yet.
+* Acceptance criteria to resume: (1) a product owner's decision on streaming versus a faster single response; (2) a hosting decision for long-lived responses, with the function timeout confirmed; (3) grounding applied before the first streamed product, verified by a test; (4) an honest partial-failure message if the stream breaks mid-response; (5) a browser test for each of these.
+
+### 10.8 Regression results (this pass)
+
+| Suite | Command | Result |
+| --- | --- | --- |
+| Backend stylist subset (Python 3.12) | `pytest backend/tests -k "stylist or outfit or color_harmony or wardrobe or try_on_capab"`, `env -i` | **439 passed, 1 skipped, 3379 deselected, exit 0** |
+| Stylist eval harness (Python 3.12) | `pytest backend/tests/test_stylist_eval_harness.py -s` | Exit 0; scorecard as in 10.6 |
+| Frontend verify | `npm run verify` (i18n, `tsc --noEmit`, vitest, `vite build`) | **exit 0**; 97 files, **1274 tests passed** |
+| Browser gate | `bash frontend/scripts/stylist_browser_gate.sh` | **PASS** (exit 0); negative control exit 1 |
+
+Not re-run in this pass: the full backend suite (3798 passed in §3), and the PostgreSQL migration chain (CI-only; no migration was changed in this pass).
+
+### 10.9 Release recommendation
+
+* **Review: supported.** The branch has no open functional defect in the stylist drawer that these checks found. The gate and the flaky-test fix are in place, and the focused probes pass.
+* **Merge: not yet.** Required checks for the new head must be observed green (see the Git section of the closeout). Workers Builds (T028) is failing and has no cause. It is unresolved, and the owner must decide whether it blocks merge.
+* **Deploy: not authorized.** No production action was taken.
+* **Still unverified:** live-provider quality, latency, and availability (T016); full-drawer colour contrast (T026); screen-reader behaviour; the Workers build cause (T028); cross-workstream catalogue copy in Arabic (T030, T031); the production migration head, which is unverified.

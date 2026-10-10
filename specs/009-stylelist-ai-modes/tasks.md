@@ -47,7 +47,7 @@ description: "Task list for StyleList AI Mode A / grounding / failover"
 - [x] T015 [US5] Content-safety + size/format guardrails + per-user AI budget. Linked: FR-008/009.
 
 ## Phase N: Polish
-- [ ] T016 [POLISH] (partial: eval harness and STY-12/13 green; `/speckit.analyze` run 2026-10-10, see verification.md §9; live-provider quality not verified) Remaining: live-provider quality (needs authorization), STY-11/15/17 scheduling. Record final commit + env.
+- [ ] T016 [POLISH] PARTIAL. Protocol written (`live-evaluation-protocol.md`): provider config by name, budgets, dataset rules, metrics, fallback expectations, evidence list. Offline harness passes (8 cases; grounded 8/8; served model 3/3; fallback 1/1), which is contract evidence, not quality. NO live-provider run has happened. Needs written authorization, a call ceiling and a spend cap.
 
 ## Dependencies
 - T002/T003 block Mode A. Upload privacy pattern shared with workstream 008. Mode-A→VTON (STY-17) depends on workstream 008.
@@ -59,17 +59,18 @@ description: "Task list for StyleList AI Mode A / grounding / failover"
 - [x] T019 [FE] Real-browser axe with colour contrast enabled: 0 serious/critical in en and ar. Evidence: `frontend/scripts/stylist_drawer_a11y_probe.mjs`. axe 'incomplete' items are NOT counted as passes. One element was measured at pixel level (4.76:1 vs 4.5:1); coverage is partial (see T026).
 - [x] T020 [FE] RTL drawer verified in Chromium (en ltr, ar rtl). Evidence: `evidence/2026-10-10/stylist-drawer-ar.png` and `stylist-drawer-en.png`. Repo RTL tool on the stylist route: 0 axe violations in en/ar; 53 untranslated catalogue strings in ar remain (see T030).
 - [x] T021 [FE] Keyboard and focus walk in Chromium with real key presses, en and ar: 14/14 checks per language (Tab trap, visible focus on every stop, photo removal, submit, Escape, focus restore). Evidence: `stylist_drawer_keyboard_probe.mjs`, `verification.md` §8.1.
-- [ ] T022 [FE] Streaming (STY-11). Deferred; needs a product decision (SSE on serverless; grounding first).
-- [ ] T023 [FE] T-STY-09 Try-On handoff. Blocked on workstream 008 (T004–T006).
+- [ ] T022 [FE] Streaming (STY-11). DEFERRED. Decision record and resume criteria in `verification.md` §10.7. No SSE was added. Needs a product decision, a hosting decision, and grounding before any product is streamed.
+- [ ] T023 [FE] T-STY-09 Try-On handoff. BLOCKED on workstream 008 (T004–T006; 008 is 0/16 done).
 
 ## T-STY-07 closure and analysis (2026-10-10, second pass)
 
 - [x] T024 [FE] FR-011 save-as-look: authenticated browser E2E, persistence via `GET /outfits`, duplicate click, server error, signed-out, cross-user isolation, no image data stored. Evidence: `evidence/2026-10-10/save_look_e2e.json` (18/18).
 - [x] T025 [FE] Keyboard, focus and dialog semantics (FR-012): probe 14/14 en and 14/14 ar; regression tests added for input name, focus on open, Escape. Evidence: `keyboard_probe.json`, `stylistModeA.test.tsx`.
 - [ ] T026 [FE] Colour contrast, PARTIAL. Pixel audit measured 1 drawer element (step numeral, 4.76:1 vs 4.5:1, large text). The audit covers 1 element, so full drawer coverage is not shown. Shared gallery credit changed `text-slate-400` → `text-slate-600` but not pixel-measured. Evidence: `evidence/2026-10-10/contrast_audit.json`.
+- [x] T033 [FE] Stabilise `actionButton.test.tsx` checkout pending-state test (CI flake). DONE in `ef3edea`: the reply is held open until the pending state is asserted. Original reproduced failing 1 of 12 runs; fixed 26/26 in 5 of 5. No product change.
 - [ ] T027 [FE] Gemini vision as a second vision provider. NOT WIRED. Deferred; needs an owner decision (NVIDIA is the only verified vision path).
-- [ ] T028 [OPS] Cloudflare `Workers Builds: confit-a` failure on the branch (passes on `main`). BLOCKED: the build log is only in the Cloudflare dashboard, and no Cloudflare credential is configured. Needs the build log or a read-only token. Not claimed as resolved, and not claimed as pre-existing.
-- [ ] T029 [OPS] Automate browser probes in CI (`stylist_*.mjs`, `browser_a11y_rtl.py`). Not wired; needs an owner decision on running a backend and Chromium in CI.
+- [ ] T028 [OPS] Cloudflare `Workers Builds: confit-a` failure on the branch (passes on `main`). BLOCKED. Check run `114122737165` on `f435e45` fails with no text and no annotations. The dashboard build log is needed, or a read-only Workers Builds token plus branch build settings. Cause not determined; not called pre-existing, not attributed to the branch. See `verification.md` §10.4. BLOCKED: the build log is only in the Cloudflare dashboard, and no Cloudflare credential is configured. Needs the build log or a read-only token. Not claimed as resolved, and not claimed as pre-existing.
+- [ ] T029 [FE/OPS] Drawer browser gate in CI. PARTIAL. Implemented: `frontend/scripts/stylist_browser_gate.sh` and job `stylist-browser-gate` (axe + keyboard/focus/RTL, en and ar; no backend; no provider calls). Verified locally: PASS, and a negative control exits 1. Still open: a green run of the job on the PR head. Not included: `browser_a11y_rtl.py` (catalogue copy, T030/T031). See `verification.md` §10.5.
 - [ ] T030 [FE, cross-workstream] Stylist route (Discover) in Arabic: catalogue product names and brands are English data, and the language switcher shows "English" as a self-name. These are not drawer strings. Owned by catalogue/i18n content work, not 009.
 - [ ] T031 [FE, cross-workstream] Discover catalogue error text (`catalogError`) reaches the UI raw. Seen in Arabic when the API is down. Not a drawer string; owned by the catalogue workstream.
 - [ ] T032 [SPECKIT] Analysis findings A1–A21 in `verification.md` §9: fixes applied in this commit where they were within workstream scope; remaining items are owner decisions listed there.

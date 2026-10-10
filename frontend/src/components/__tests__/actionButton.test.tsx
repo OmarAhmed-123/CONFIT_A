@@ -289,13 +289,17 @@ describe('ActionButton trust guarantees', () => {
 /* ------------------------------------------------------------------ */
 describe('ActionButton controlled mode', () => {
   it('checkout contract: caller owns pending; the button NEVER paints success locally (§2/§9)', async () => {
+    // The server reply is held open until the test has observed the pending
+    // state. A fixed-length timer here raced the first waitFor poll (CI flake:
+    // the reply landed before aria-busy was observed, so data-state read 'idle').
+    const reply = deferred<void>();
     const Harness: React.FC = () => {
       const [submitting, setSubmitting] = React.useState(false);
       const [confirmed, setConfirmed] = React.useState(false);
       const placeOrder = async () => {
         setSubmitting(true);
         try {
-          await new Promise((res) => setTimeout(res, 10));
+          await reply.promise;
           setConfirmed(true); // ← the server reply is the ONLY success surface
         } finally {
           setSubmitting(false);
@@ -321,6 +325,7 @@ describe('ActionButton controlled mode', () => {
     // While the server has not replied there is NO success claim anywhere.
     expect(btn).toHaveAttribute('data-state', 'pending');
     expect(screen.queryByText('Order confirmed by server')).not.toBeInTheDocument();
+    await act(async () => { reply.resolve(); await Promise.resolve(); });
     await waitFor(() => expect(screen.getByText('Order confirmed by server')).toBeInTheDocument());
     // The button itself returned to idle — success was the server surface.
     expect(btn).toHaveAttribute('data-state', 'idle');

@@ -153,6 +153,7 @@
     "engine_label": "محرّك الإجابة",
     "engine_provider": "تمّت الإجابة بواسطة {{engine}}",
     "engine_grounded": "تمّت الإجابة بواسطة محرّك التنسيق المُسنَد الخاص بـ CONFIT — مزوّد الذكاء الاصطناعي غير متاح",
+    "engine_rejected": "تمّت الإجابة بواسطة محرّك التنسيق المُسنَد الخاص بـ CONFIT — ردّ الذكاء الاصطناعي ذكر علامة خارج الإطلالات المعروضة، فوُصفت الإطلالات المعروضة بدلاً منه",
     "engine_none": "لم يُستخدم أي محرّك تنسيق لهذا الرد",
     "you_label": "أنت",
     "assistant_label": "منسق المظهر الذكي CONFIT",
@@ -193,6 +194,10 @@
     "voice_permission_denied": "تم رفض إذن الميكروفون. اسمح بالوصول إلى الميكروفون لاستخدام التنسيق الصوتي.",
     "voice_error": "تعذّر التعرّف على الصوت. من فضلك اكتب طلبك بدلًا من ذلك.",
     "voice_start_failed": "تعذّر بدء الإدخال الصوتي. من فضلك اكتب طلبك بدلًا من ذلك.",
+    "voice_no_device": "لم يتم العثور على ميكروفون. تأكد من توصيل الميكروفون وتفعيله، أو اكتب طلبك.",
+    "voice_network": "تعذّر الوصول إلى خدمة التعرف على الصوت. تحقق من الاتصال، أو اكتب طلبك.",
+    "voice_no_speech": "لم يُسمع أي كلام. حاول مرة أخرى، أو اكتب طلبك.",
+    "voice_service_blocked": "حظر هذا المتصفح خدمة التعرف على الصوت. اكتب طلبك بدلًا من ذلك.",
     "prompt_limit_hint": "بقي {{remaining}} حرفًا",
     "position_outerwear": "طبقة خارجية",
     "position_bottom": "بنطال",
@@ -206,7 +211,24 @@
     "catalogue_badge": "قطع موثّقة من الكتالوج فقط",
     "formality": "درجة الرسمية",
     "palette_label": "لوحة ألوان الإطلالة ({{count}} درجات)",
-    "missing_slots_label": "القطع الناقصة:"
+    "missing_slots_label": "القطع الناقصة:",
+    "attach_photo": "إرفاق صورة للإطلالة",
+    "attach_photo_hint": "حتى 3 صور، بصيغة JPEG أو PNG أو WebP. تُصغَّر الصور الكبيرة تلقائياً",
+    "attach_error_type": "يمكن إرفاق صور بصيغة JPEG أو PNG أو WebP فقط.",
+    "attach_error_size": "يجب ألا تتجاوز كل صورة 1 ميغابايت.",
+    "attach_error_source_size": "الصورة كبيرة جداً للإرفاق. اختر صورة أصغر من 20 ميغابايت.",
+    "attach_error_count": "يمكنك إرفاق 3 صور كحد أقصى في الرسالة الواحدة.",
+    "remove_photo": "إزالة الصورة {{n}}",
+    "photos_attached": "تم إرفاق {{count}} صورة",
+    "mode_fallback_note": "تعذّر تحليل صورك، لذلك تعتمد هذه الإجابة على طلبك النصي فقط.",
+    "save_look": "حفظ الإطلالة",
+    "saving_look": "جارٍ حفظ الإطلالة…",
+    "look_saved": "تم حفظ الإطلالة",
+    "save_look_signin": "سجّل الدخول لحفظ هذه الإطلالة.",
+    "save_look_failed": "تعذّر حفظ هذه الإطلالة. حاول مرة أخرى.",
+    "input_label": "صف طلب الإطلالة الذي تريده",
+    "composer_hint": "Enter لسطر جديد · Ctrl+Enter (⌘+Enter على Mac) للإرسال",
+    "sending": "جارٍ الإرسال…"
   },
   "outfit_builder": {
     "title": "لوحة تصميم الإطلالات التفاعلية",
@@ -436,9 +458,9 @@
     "vs_sample_dress": "فستان حرير انسيابي",
     "vs_sample_shirt": "قميص أوكسفورد أنيق",
     "ruler_privacy_subtitle": "تحليل مقاسات يحافظ على الخصوصية 100٪ لـ {{title}}",
-    "scan_field_waistline": "الخصر",
-    "scan_canvas_shoulder_guide": "دليل (إدخالك): الكتف {{cm}} سم",
-    "scan_canvas_waistline": "الخصر: {{cm}} سم"
+    "scan_canvas_shoulder_guide": "الكتف: {cm} سم",
+    "scan_canvas_waistline": "الخصر: {cm} سم",
+    "scan_field_waistline": "محيط الخصر"
   },
   "wardrobe": {
     "title": "الخزانة الذكية وإعادة الاستثمار",
@@ -774,7 +796,7 @@
     "sign_in_to_continue": "سجّل الدخول للمتابعة — اختيارك محفوظ.",
     "offline_retry": "يبدو أنك غير متصل بالإنترنت — تحقّق من الاتصال وحاول مرة أخرى.",
     "image_unavailable": "الصورة غير متاحة",
-    "error": "حدث خطأ ما",
+    "error": "خطأ",
     "live_updating": "تحديث مباشر"
   },
   "layout": {
@@ -1624,15 +1646,7 @@
     "reason_style": "عدم توافق الأسلوب",
     "reason_changed_mind": "تغيير الرأي",
     "reason_quality": "مشكلة في الجودة",
-    "submit_return": "إرسال طلب الإرجاع",
-    "guest_email_prompt": "هذا طلب ضيف. أدخل البريد الإلكتروني المستخدم لهذا الطلب للتحقق من الملكية (عامل ثانٍ).",
-    "guest_email_label": "بريد الطلب",
-    "guest_lookup_retry": "تحقق من البريد وحمّل الطلب",
-    "guest_return_note": "سيتم التحقق من إرجاع الضيف بنفس البريد الإلكتروني.",
-    "verify_prompt_title": "تحقق من طلبك",
-    "verify_prompt_desc": "أدخل البريد الإلكتروني المستخدم لهذا الطلب للتحقق من الملكية. هذه الخطوة لا تكشف ما إذا كان الطلب موجودًا.",
-    "verify_failed": "تعذر التحقق من هذا الطلب. يرجى التحقق من رقم الطلب والبريد الإلكتروني، أو تسجيل الدخول إذا كان حسابًا مسجلاً.",
-    "verify_neutral": "الطلب غير موجود أو الوصول مرفوض. يرجى التحقق من رقم الطلب والبريد الإلكتروني."
+    "submit_return": "إرسال طلب الإرجاع"
   },
   "discover": {
     "search_label": "ابحث في المنتجات",
@@ -2130,7 +2144,7 @@
     "report_pending": "جارٍ تجهيز التقرير…",
     "report_done": "تم تنزيل التقرير.",
     "report_failed": "تعذّر إنشاء التقرير. السيرفر رفض أو غير متاح — لم يتم تنزيل أي شيء.",
-    "deactivate_title": "إلغاء تنشيط المنتج؟"
+    "deactivate_title": "إلغاء تفعيل المنتج؟"
   },
   "brand_orders": {
     "title": "الطلبات وحركة المخزون",
@@ -2490,36 +2504,36 @@
   "field": {
     "optional_marker": "اختياري"
   },
-  "brand_inventory": {
-    "store_network_failed": "فشل في جلب شبكة المتاجر",
-    "no_stores": "لا توجد متاجر بعد",
-    "no_stores_desc": "أضف أول متجر BOPIS لتفعيل الاستلام من المتجر.",
-    "add_store": "إضافة متجر",
-    "real_from_store": "حقيقي من موقع المتجر",
-    "live_inventory_title": "المخزون المباشر حسب SKU والموقع",
-    "inventory_failed": "فشل في جلب المخزون",
-    "warehouse": "المستودع",
-    "store_breakdown": "تفصيل المتجر",
-    "no_store_stock": "لا يوجد مخزون في المتجر",
-    "add_bopis_store": "إضافة موقع متجر BOPIS",
-    "create_store": "إنشاء متجر",
-    "longitude": "خط الطول"
-  },
   "brand_analytics": {
-    "telemetry_unavailable": "القياس غير متاح",
     "add_to_cart": "إضافة إلى السلة",
-    "purchases": "المشتريات",
     "non_tryon_cohort": "مجموعة بدون تجربة افتراضية",
+    "purchases": "المشتريات",
+    "telemetry_unavailable": "بيانات القياس غير متوفرة حالياً",
     "tryon_assisted_orders": "طلبات بمساعدة التجربة الافتراضية"
   },
+  "brand_inventory": {
+    "add_bopis_store": "إضافة متجر BOPIS",
+    "add_store": "إضافة متجر",
+    "create_store": "إنشاء متجر",
+    "inventory_failed": "فشل تحميل المخزون",
+    "live_inventory_title": "المخزون المباشر",
+    "longitude": "خط الطول",
+    "no_store_stock": "لا يوجد مخزون في المتجر",
+    "no_stores": "لا توجد متاجر",
+    "no_stores_desc": "أنشئ أول متجر لتمكين الاستلام من المتجر والمخزون في الوقت الفعلي",
+    "real_from_store": "مخزون حقيقي من المتجر",
+    "store_breakdown": "تفصيل المتاجر",
+    "store_network_failed": "فشل تحميل شبكة المتاجر",
+    "warehouse": "المستودع"
+  },
   "brand_placements": {
-    "sponsored_failed": "فشل تحميل بيانات الشبكة الممولة",
-    "no_placements": "لا توجد مواضع ممولة بعد",
+    "bid_exceeds_budget": "المزايدة تتجاوز الميزانية اليومية",
     "create_placement": "إنشاء موضع",
+    "fit_recommendation_top": "أعلى توصية مقاس",
+    "no_placements": "لا توجد مواضع بعد",
     "placement_type": "نوع الموضع",
+    "sponsored_failed": "فشل تحميل المواضع الممولة",
     "stylist_featured": "مميز من المنسق",
-    "trending_hero": "بطل رائج",
-    "fit_recommendation_top": "أعلى توصيات المقاس",
-    "bid_exceeds_budget": "لا يمكن أن تتجاوز المزايدة الميزانية اليومية"
+    "trending_hero": "بطل رائج"
   }
 }

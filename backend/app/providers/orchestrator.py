@@ -194,10 +194,12 @@ class MultiProviderAIOrchestrator:
         # the rest of the chain was unreachable (STY-04). Walking it once here
         # reaches every verified candidate exactly once per request.
         nvidia_walked = False
+        any_leg_available = False
 
         for provider in providers:
             if not self.is_provider_available(provider):
                 continue
+            any_leg_available = True
 
             try:
                 # Each `_call_*` returns (content, model_id) where model_id is the
@@ -215,7 +217,7 @@ class MultiProviderAIOrchestrator:
                         text, model_id = res
                         return self._format_response(
                             text, prompt, intent, f"Self-hosted {model_id}",
-                            selected_outfit, catalogue_brands)
+                            selected_outfit, catalogue_brands, alternate_outfits)
 
                 elif provider in ["nvidia", "nvidia2", "nemotron"] and not nvidia_walked and (
                     settings.NVIDIA_API_KEY or settings.NVIDIA_CHAT_KEY_2 or _stylist_nvidia_client.configured
@@ -224,31 +226,31 @@ class MultiProviderAIOrchestrator:
                     res = await self._call_nvidia_chain(system_prompt, user_prompt)
                     if self._is_usable(res):
                         text, model_id = res
-                        return self._format_response(text, prompt, intent, f"NVIDIA {model_id}", selected_outfit, catalogue_brands)
+                        return self._format_response(text, prompt, intent, f"NVIDIA {model_id}", selected_outfit, catalogue_brands, alternate_outfits)
 
                 elif provider in ["groq", "grok"] and settings.groq_api_key:
                     res = await self._call_groq(system_prompt, user_prompt)
                     if self._is_usable(res):
                         text, model_id = res
-                        return self._format_response(text, prompt, intent, f"Groq {model_id}", selected_outfit, catalogue_brands)
+                        return self._format_response(text, prompt, intent, f"Groq {model_id}", selected_outfit, catalogue_brands, alternate_outfits)
 
                 elif provider == "gemini" and settings.GEMINI_API_KEY:
                     res = await self._call_gemini(system_prompt, user_prompt)
                     if self._is_usable(res):
                         text, model_id = res
-                        return self._format_response(text, prompt, intent, f"Google {model_id}", selected_outfit, catalogue_brands)
+                        return self._format_response(text, prompt, intent, f"Google {model_id}", selected_outfit, catalogue_brands, alternate_outfits)
 
                 elif provider == "openai" and settings.OPENAI_API_KEY:
                     res = await self._call_openai(system_prompt, user_prompt)
                     if self._is_usable(res):
                         text, model_id = res
-                        return self._format_response(text, prompt, intent, f"OpenAI {model_id}", selected_outfit, catalogue_brands)
+                        return self._format_response(text, prompt, intent, f"OpenAI {model_id}", selected_outfit, catalogue_brands, alternate_outfits)
 
                 elif provider == "unorouter":
                     res = await self._call_unorouter(system_prompt, user_prompt)
                     if self._is_usable(res):
                         text, model_id = res
-                        return self._format_response(text, prompt, intent, f"UnoRouter {model_id}", selected_outfit, catalogue_brands)
+                        return self._format_response(text, prompt, intent, f"UnoRouter {model_id}", selected_outfit, catalogue_brands, alternate_outfits)
 
             except httpx.HTTPStatusError as exc:
                 if exc.response.status_code in [401, 402, 404, 429]:
@@ -257,9 +259,14 @@ class MultiProviderAIOrchestrator:
             except Exception as exc:
                 logger.warn(f"Provider {provider} failed, moving to failover", error=str(exc))
 
-        # Deterministic Grounded Fallback Engine
+        # Deterministic Grounded Fallback Engine. The answer_source says WHY:
+        # no leg was available (configuration) or every available leg failed
+        # (provider outage). It never claims a provider answered.
         logger.info("Routing to CONFIT deterministic StylingEngine fallback")
-        return self._deterministic_fallback(prompt, intent, selected_outfit)
+        return self._deterministic_fallback(
+            prompt, intent, selected_outfit,
+            answer_source="providers_unavailable" if any_leg_available else "no_provider_configured",
+        )
 
     # ── NVIDIA legs ─────────────────────────────────────────────────────────
     # Model ids are NO LONGER hardcoded here. Until 2026-09-27 this file pinned
@@ -629,6 +636,7 @@ class MultiProviderAIOrchestrator:
         ai_text: str,
         outfit: Optional[Dict[str, Any]],
         catalogue_brands: Optional[List[str]] = None,
+        alternate_outfits: Optional[List[Dict[str, Any]]] = None,
     ) -> bool:
         """Reject an answer that recommends a brand the shopper was not offered.
 
@@ -646,9 +654,15 @@ class MultiProviderAIOrchestrator:
             return False
         if not outfit or not outfit.get("items"):
             return True
+        # Every look the model was asked to describe is on offer, not only the
+        # primary one. Checking the primary look alone refused correct answers
+        # that described the second look (reproduced 2026-10-10: a Massimo Dutti
+        # piece from look 2 was refused, and the whole answer was replaced).
         offered = {
             (item.get("brand_name") or "").strip().lower()
-            for item in outfit.get("items", [])
+            for look in [outfit, *(alternate_outfits or [])]
+            if look
+            for item in look.get("items", [])
         }
         offered.discard("")
         text_lower = ai_text.lower()
@@ -657,6 +671,7 @@ class MultiProviderAIOrchestrator:
             if not name or name in offered:
                 continue
             if re.search(r"(?<!\w)" + re.escape(name) + r"(?!\w)", text_lower):
+                self._last_refused_brand = brand
                 return False
         return True
 
@@ -668,11 +683,23 @@ class MultiProviderAIOrchestrator:
         provider_name: str,
         selected_outfit: Optional[Dict[str, Any]],
         catalogue_brands: Optional[List[str]] = None,
+        alternate_outfits: Optional[List[Dict[str, Any]]] = None,
     ) -> Dict[str, Any]:
         # C14: Verify grounding before accepting AI response
-        if selected_outfit and not self._verify_grounding(ai_text, selected_outfit, catalogue_brands):
-            logger.info("Grounding failed, using deterministic fallback", provider=provider_name)
-            return self._deterministic_fallback(prompt, intent, selected_outfit)
+        self._last_refused_brand = None
+        if selected_outfit and not self._verify_grounding(
+            ai_text, selected_outfit, catalogue_brands, alternate_outfits
+        ):
+            # The model DID answer. Its answer was refused for naming a catalogue
+            # brand the shopper was not offered. Logged with the brand name only.
+            logger.info(
+                "Grounding failed, using deterministic fallback",
+                provider=provider_name,
+                refused_brand=self._last_refused_brand,
+            )
+            return self._deterministic_fallback(
+                prompt, intent, selected_outfit, answer_source="grounding_rejected",
+            )
 
         return {
             "occasion": intent.get("occasion", "Smart Casual"),
@@ -681,14 +708,16 @@ class MultiProviderAIOrchestrator:
             "styling_advice_text": ai_text.strip(),
             "color_palette_advice": selected_outfit.get("color_palette", ["#1B1F3B", "#C5A059", "#FAF9F6", "#111111"]) if selected_outfit else ["#1B1F3B", "#C5A059", "#FAF9F6", "#111111"],
             "harmony_type": "Complementary Balanced Contrast",
-            "provider_used": provider_name
+            "provider_used": provider_name,
+            "answer_source": "provider",
         }
 
     def _deterministic_fallback(
         self,
         prompt: str,
         intent: Dict[str, Any],
-        selected_outfit: Optional[Dict[str, Any]]
+        selected_outfit: Optional[Dict[str, Any]],
+        answer_source: str = "providers_unavailable",
     ) -> Dict[str, Any]:
         if selected_outfit:
             content = StylingEngine.generate_grounded_fallback_text(prompt, selected_outfit, intent)
@@ -713,7 +742,8 @@ class MultiProviderAIOrchestrator:
             "styling_advice_text": content,
             "color_palette_advice": selected_outfit.get("color_palette", ["#1B1F3B", "#C5A059", "#FAF9F6", "#111111"]) if selected_outfit else ["#1B1F3B", "#C5A059", "#FAF9F6", "#111111"],
             "harmony_type": "Balanced Neutral & Monochromatic Accent",
-            "provider_used": "CONFIT Grounded Styling Engine (Grounded & Resilient)"
+            "provider_used": "CONFIT Grounded Styling Engine (Grounded & Resilient)",
+            "answer_source": answer_source,
         }
 
 # Process-wide singleton: quarantine/cooldown state is meaningless if a fresh

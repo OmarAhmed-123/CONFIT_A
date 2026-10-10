@@ -404,6 +404,9 @@ class StylistService:
         # returned to the caller.
         engine = ai_result.get("provider_used")
         intent["engine"] = engine
+        answer_source = ai_result.get("answer_source")
+        if answer_source:
+            intent["answer_source"] = answer_source
 
         # 8b. Outbound language: answer in the shopper's language.
         #
@@ -440,6 +443,7 @@ class StylistService:
             "audio_url": None,
             "intent_detected": intent,
             "engine": engine,
+            "answer_source": answer_source,
             "mode": mode_used,
             "fallback_reason": fallback_reason,
             "image_analysis": image_analysis,

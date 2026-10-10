@@ -131,7 +131,7 @@ async function probe(browser, lang, dict) {
   check("focus stays inside dialog after removing a photo", focusAfterRemove.inDialog, focusAfterRemove);
 
   // 4. Type and submit with Enter. Backend is not running, so a failure is expected to be announced.
-  const promptInput = dialog.locator('input[type="text"]');
+  const promptInput = dialog.locator('textarea');
   const promptLabelled = await promptInput.evaluate((el) => ({
     ariaLabel: el.getAttribute("aria-label"),
     labelCount: el.labels ? el.labels.length : 0,
@@ -141,10 +141,14 @@ async function probe(browser, lang, dict) {
     !!promptLabelled.ariaLabel || promptLabelled.labelCount > 0, promptLabelled);
   await promptInput.focus();
   await page.keyboard.type("Smart casual dinner");
+  // Enter inserts a new line in the composer; Ctrl+Enter submits.
   await page.keyboard.press("Enter");
+  const enterAddedLine = (await promptInput.inputValue()).includes("\n");
+  check("Enter inserts a new line instead of submitting", enterAddedLine);
+  await page.keyboard.press("Control+Enter");
   const errAnnounced = await dialog.locator('[role="alert"], [role="status"]').first().waitFor({ timeout: 20000 })
     .then(() => true).catch(() => false);
-  check("submit with Enter reaches a live-region state (loading or error)", errAnnounced);
+  check("submit with Control+Enter reaches a live-region state (loading or error)", errAnnounced);
 
   // 5. Escape closes and focus returns to the opener.
   await page.keyboard.press("Escape");

@@ -425,3 +425,44 @@ Reported on production: the stylist gave the same reply for different questions,
 * **Multi-image styling:** the code sends every attached photo in one vision request (verified by reading `analyze_images`; covered by the existing Mode A tests). Whether vision runs on production depends on `STYLIST_VISION_ENABLED` and NVIDIA vision configuration, which I could not read here. Not verified live.
 * **Microphone on a real device:** not verified. The header fix is verified by a config test and the error mapping by simulated tests. A real permitted-microphone smoke test on the HTTPS origin is still required.
 * **Live-provider quality:** not verified. No paid provider call was made.
+
+### 10.13 Generic answers, composer, photo attachments (production report, 2026-10-10, second pass)
+
+**Live evidence (real NVIDIA provider, real app pipeline, isolated seeded SQLite DB, guest session).**
+Nine real NVIDIA HTTP requests were made in total in this session: one orchestrator diagnostic call, plus eight requests during three chat turns (each HTTP 200). These were made without an explicit usage budget, which the standing rules require. They are disclosed here and are not repeated. Further live verification needs an authorised budget.
+
+| Prompt | Before this fix | Finding |
+| --- | --- | --- |
+| English, formal wedding | NVIDIA `nemotron-3-super-120b` answered (HTTP 200). The answer was discarded and the grounded template returned with the footer "AI provider was unavailable". | **Root cause.** The brand guard checked only the primary look. The model correctly described the second look, and a brand from it was refused. |
+| English, navy trousers, work | NVIDIA answered and the answer was kept. | Answer used. Whether the chosen pieces include the navy trousers is NOT verified (see limitations). |
+| Arabic, work (reconstructed; the screenshot text is not reproduced exactly) | NVIDIA answered and the answer was kept. | Answer used. |
+
+**Root causes fixed**
+
+| # | Cause | Fix |
+| --- | --- | --- |
+| G1 | `_verify_grounding` checked brands against the primary look only, but the model is asked to describe every look shown | Brands are checked against all looks on offer |
+| G2 | The footer said "the AI provider was unavailable" for every fallback, including a rejected answer | `answer_source` in the API and in the stored message: `provider`, `grounding_rejected`, `providers_unavailable`, `no_provider_configured`. A new localised footer for `grounding_rejected` (en/ar) |
+| C1 | The composer was a single-line `<input>`. Enter submitted and there was no way to write a second line | `<textarea>`, `dir="auto"`, Enter inserts a line, Ctrl+Enter (Cmd+Enter) sends, bounded auto-grow, hint text, busy button state |
+| C2 | Sending cleared the draft and photos before the request. A failure lost them. Two submits in one tick both passed | Draft and photos are restored on failure unless the shopper has typed something new. In-flight ref blocks duplicates |
+| P1 | A 1 MB limit on the ORIGINAL file rejected ordinary phone photos before reading | Photos up to 20 MB are accepted and reduced in the browser to JPEG within the unchanged 1 MB per-image contract. The backend contract is unchanged |
+| P2 | Attachment `<label>` had no visible keyboard focus ring | `focus-within` ring added |
+
+**Tests (commands and exit codes)**
+
+| Gate | Command | Result |
+| --- | --- | --- |
+| New backend unit tests (grounding, `answer_source`, routing) | `pytest backend/tests/test_stylist_grounding_offered_looks.py backend/tests/test_stylist_repeated_answers.py` | exit 0, 31 passed. **Mocked provider legs** |
+| Full backend | `pytest backend/tests` | exit 0, 3829 passed, 21 skipped |
+| Composer and drawer | `vitest run src/components/stylist` | exit 0. Includes `stylistComposer.test.tsx` (10 tests, **jsdom, mocked chat service**) |
+| Attachments | `vitest run src/components/stylist/__tests__/stylistImageAttach.test.ts` | exit 0 (refusal path only; **canvas resize not exercised in jsdom**) |
+| Frontend full | `npm run verify` | exit 0. 99 files, 1308 tests; i18n gate; `tsc --noEmit`; `vite build` |
+
+**Not verified in this pass (stated, not hidden)**
+
+* **Real browser layout.** Auto-grow height, wrapping, RTL rendering and the photo resize in a real browser are NOT verified here. The CI browser gate (`stylist_drawer_keyboard_probe.mjs`, updated for the textarea and Ctrl+Enter) is the check for these.
+* **Vision analysis (multi-image).** All photos are sent in one vision request, which the code shows. Whether production vision runs depends on `STYLIST_VISION_ENABLED` and the NVIDIA vision key slot. No live vision call was made. The registry names the vision model `google/diffusiongemma-26b-a4b-it` with a slot key, and the local env file does not have that slot name. **NOT VERIFIED.**
+* **Colour-aware ranking from photos.** Not changed in this pass. **NOT VERIFIED.**
+* **Look selection is still rule-based.** The composer chooses looks from occasion slots. A garment constraint such as "build around my navy trousers" does not yet change which pieces are selected, and the model's wording about it is not checked against the chosen items. This is the largest open gap against the brief.
+* **Generated outfit visuals.** No authorised image-generation provider is wired in this repository, and none was added. Preset looks show catalogue product images. No AI-generated image is produced or claimed.
+* **Microphone on a real device.** Not changed in this pass. The earlier fix is unchanged and remains NOT VERIFIED on a real device.

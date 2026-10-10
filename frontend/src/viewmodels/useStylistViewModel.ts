@@ -4,7 +4,11 @@ import { useState, useCallback, useRef } from "react";
 import { stylistService } from "../services/apiServices";
 import { StylistMessage, Outfit } from "../models";
 import { useCartStore } from "../stores/cartStore";
-import { validateStylistImage, readAsDataUrl } from "../components/stylist/stylistImageAttach";
+import {
+  validateStylistImage,
+  prepareStylistImage,
+  type StylistAttachError,
+} from "../components/stylist/stylistImageAttach";
 import { useUIStore } from "../stores/uiStore";
 
 // Minimal typing for the Web Speech API (not in default TS DOM lib).
@@ -68,6 +72,9 @@ export function useStylistViewModel() {
   const [messages, setMessages] = useState<StylistMessage[]>([]);
   const [inputPrompt, setInputPrompt] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  // Synchronous duplicate-submit guard. `isTyping` is state, so two submits in the
+  // same tick (double Enter, double click) would both pass a state check.
+  const inFlightRef = useRef(false);
   const [isRecording, setIsRecording] = useState(false);
   // The failure the shopper sees is a KEY, resolved at the render boundary — a view
   // model has no i18n context, and the previous code put the raw transport string on
@@ -94,18 +101,24 @@ export function useStylistViewModel() {
 
   // Mode A: photos the shopper attached to the next message (data URIs).
   const [pendingImages, setPendingImages] = useState<string[]>([]);
-  const [attachError, setAttachError] = useState<"type" | "size" | "count" | null>(null);
+  const [attachError, setAttachError] = useState<StylistAttachError | null>(null);
 
   const addImages = useCallback(async (files: File[]) => {
     let next = [...pendingImages];
-    let firstError: "type" | "size" | "count" | null = null;
+    let firstError: StylistAttachError | null = null;
     for (const file of files) {
       const problem = validateStylistImage(file, next.length);
       if (problem) {
         firstError = firstError ?? problem;
         continue;
       }
-      next = [...next, await readAsDataUrl(file)];
+      // Reduced in the browser to the 1 MB per-image contract the backend enforces.
+      const prepared = await prepareStylistImage(file);
+      if ("error" in prepared) {
+        firstError = firstError ?? prepared.error;
+        continue;
+      }
+      next = [...next, prepared.dataUrl];
     }
     setPendingImages(next);
     setAttachError(firstError);
@@ -138,6 +151,8 @@ export function useStylistViewModel() {
     ) => {
       const textToSend = promptText || inputPrompt;
       if (!textToSend.trim()) return;
+      if (inFlightRef.current) return;
+      inFlightRef.current = true;
 
       const userMsg: StylistMessage = {
         id: Date.now(),
@@ -149,6 +164,11 @@ export function useStylistViewModel() {
       };
 
       const imagesToSend = pendingImages;
+      // A failed request must not cost the shopper their words or photos.
+      const restoreDraft = () => {
+        setInputPrompt((prev) => (prev.trim() ? prev : textToSend));
+        setPendingImages((prev) => (prev.length ? prev : imagesToSend));
+      };
       const usedVoice = voiceTurnRef.current;
       voiceTurnRef.current = false;
       // The earlier turns of this chat travel with the request, so a follow-up
@@ -187,6 +207,7 @@ export function useStylistViewModel() {
           setError({ key: "errors.empty_answer" });
           setErrorRetryable(true);
           setIsTyping(false);
+          restoreDraft();
           showToast(msg("stylist.error_toast"), "error");
           return;
         }
@@ -202,7 +223,10 @@ export function useStylistViewModel() {
         setError(apiErrorDescriptor(err));
         setErrorRetryable(isRetryable(err));
         setIsTyping(false);
+        restoreDraft();
         showToast(msg("stylist.error_toast"), "error");
+      } finally {
+        inFlightRef.current = false;
       }
     },
     [inputPrompt, showToast, pendingImages],

@@ -1,0 +1,126 @@
+[
+ {
+  "prompt": "What should I wear to a formal wedding?",
+  "occasion": "Formal & Wedding",
+  "style_source": "default",
+  "llm_sees_history": false,
+  "llm_user_prompt_contains_question": true,
+  "selected_items": [
+   "Silk Slip Column Maxi Dress with Drape Neckline",
+   "Strappy Metallic Leather Heeled Sandals",
+   "Structured Metallic Evening Box Clutch"
+  ],
+  "n_alternates": 1,
+  "content_engine_recs": [
+   "The Formal & Wedding Silk Column Silhouette",
+   "The Modern Tonal Formal & Wedding Look"
+  ]
+ },
+ {
+  "prompt": "Analyze this outfit and tell me why the colors don't work.",
+  "occasion": "Smart Casual",
+  "style_source": "default",
+  "llm_sees_history": false,
+  "llm_user_prompt_contains_question": true,
+  "selected_items": [
+   "Tuxedo Peak Lapel Evening Dinner Jacket",
+   "Relaxed Organic Poplin Oxford Shirt",
+   "Pleated Tapered Virgin Wool Trousers",
+   "Strappy Metallic Leather Heeled Sandals"
+  ],
+  "n_alternates": 1,
+  "content_engine_recs": [
+   "The Essential Smart Casual Tailored Look",
+   "The Modern Tonal Smart Casual Look"
+  ]
+ },
+ {
+  "prompt": "Build an outfit around these navy trousers.",
+  "occasion": "Smart Casual",
+  "style_source": "default",
+  "llm_sees_history": false,
+  "llm_user_prompt_contains_question": true,
+  "selected_items": [
+   "Tailored Italian Wool Double-Breasted Blazer",
+   "Relaxed Organic Poplin Oxford Shirt",
+   "Pleated Tapered Virgin Wool Trousers",
+   "Strappy Metallic Leather Heeled Sandals"
+  ],
+  "n_alternates": 1,
+  "content_engine_recs": [
+   "The Essential Smart Casual Tailored Look",
+   "The Modern Tonal Smart Casual Look"
+  ]
+ },
+ {
+  "prompt": "Recommend an affordable casual outfit using items I already own.",
+  "occasion": "Casual Weekend",
+  "style_source": "default",
+  "llm_sees_history": false,
+  "llm_user_prompt_contains_question": true,
+  "selected_items": [
+   "Tailored Italian Wool Double-Breasted Blazer",
+   "Relaxed Organic Poplin Oxford Shirt",
+   "Strappy Metallic Leather Heeled Sandals"
+  ],
+  "n_alternates": 1,
+  "content_engine_recs": [
+   "The Essential Casual Weekend Tailored Look",
+   "The Modern Tonal Casual Weekend Look"
+  ]
+ },
+ {
+  "prompt": "I have a white shirt, black vest, olive trousers and black jeans. Make 6 formal outfits for work.",
+  "occasion": "Work & Business",
+  "style_source": "default",
+  "llm_sees_history": false,
+  "llm_user_prompt_contains_question": true,
+  "selected_items": [
+   "Tailored Italian Wool Double-Breasted Blazer",
+   "Relaxed Organic Poplin Oxford Shirt",
+   "Pleated Tapered Virgin Wool Trousers",
+   "Strappy Metallic Leather Heeled Sandals"
+  ],
+  "n_alternates": 1,
+  "content_engine_recs": [
+   "The Essential Work & Business Tailored Look",
+   "The Modern Tonal Work & Business Look"
+  ]
+ },
+ {
+  "prompt": "ما هو أفضل لون حذاء للبدلة الكحلية؟",
+  "occasion": "Formal & Wedding",
+  "style_source": "default",
+  "llm_sees_history": false,
+  "llm_user_prompt_contains_question": true,
+  "selected_items": [
+   "Tuxedo Peak Lapel Evening Dinner Jacket",
+   "Relaxed Organic Poplin Oxford Shirt",
+   "Pleated Tapered Virgin Wool Trousers",
+   "Goodyear Welted Leather Oxford Shoes",
+   "Silk Jacquard Evening Necktie"
+  ],
+  "n_alternates": 1,
+  "content_engine_recs": [
+   "The Essential Formal & Wedding Tailored Look",
+   "The Contemporary Formal & Wedding Drape"
+  ]
+ },
+ {
+  "prompt": "Give me a weekend look for brunch in Cairo.",
+  "occasion": "Casual Weekend",
+  "style_source": "default",
+  "llm_sees_history": false,
+  "llm_user_prompt_contains_question": true,
+  "selected_items": [
+   "Tailored Italian Wool Double-Breasted Blazer",
+   "Relaxed Organic Poplin Oxford Shirt",
+   "Strappy Metallic Leather Heeled Sandals"
+  ],
+  "n_alternates": 1,
+  "content_engine_recs": [
+   "The Essential Casual Weekend Tailored Look",
+   "The Modern Tonal Casual Weekend Look"
+  ]
+ }
+]

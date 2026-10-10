@@ -386,3 +386,42 @@ Scope: PR #335 (`009-stylelist-ai-modes` to `main`). Local checks below ran on t
 * **Playwright browser:** the gate needs `playwright-core` revision 1243. A newer install did not match and the probes failed before running. This is an environment note, not a product defect.
 
 Not re-run in this pass: the backend suites (last run on this code: 439 passed, 1 skipped, stylist subset, exit 0; full backend 3798 passed in §3), the PostgreSQL migration chain (CI only), the release gate (CI only), and the secret scan (CI, gitleaks).
+
+### 10.12 Repeated-answer and microphone fix (production report, 2026-10-10)
+
+Reported on production: the stylist gave the same reply for different questions, and voice styling showed "Microphone permission denied" with permission granted. Reproduced and traced on the seeded test database (no provider calls; the model call was stubbed and its inputs recorded). Evidence: `evidence/2026-10-10/repeat-answer-repro/` (before.json, after.json, capture_prompts.py).
+
+**Root causes confirmed in code**
+
+| # | Cause | Where | Fix |
+| --- | --- | --- | --- |
+| R1 | The model was never sent earlier turns, and the frontend sent no session ID, so every turn was a new backend session | `useStylistViewModel.ts`, `stylist_service.py` | `history` (bounded, text only, role-validated) sent with each turn and passed to the model; the latest message is labelled as the one to answer |
+| R2 | A correct answer that did not quote catalogue brands or titles was discarded and replaced with a fixed template | `orchestrator._verify_grounding` | Refuse only a brand that exists in the catalogue but was not offered; an honest answer is kept |
+| R3 | Occasion detection was a first-match substring scan: "formal ... for work" read as Formal; "don't work" read as Work | `styling_engine.detect_occasion` | Word boundaries; negated words ignored; an explicit purpose phrase ("for work") wins; "smart casual" is a style |
+| R4 | Stated look count and "items I own" were not given to the model, so it could present them as catalogue pieces | `stylist_service.py` | Request facts stated to the model: looks asked vs shown, wardrobe used or not, described-owned-items warning |
+| M1 | `vercel.json` set `Permissions-Policy: microphone=()`, which disables the microphone for the whole site, so Chrome fails recognition with `not-allowed` | `vercel.json` | `microphone=(self)`; the header test is updated |
+| M2 | Every speech error (including `service-not-allowed` and `audio-capture`) showed the permission message | `useStylistViewModel.ts` | `classifySpeechError`: one message per cause, en and ar |
+| M3 | A recording that ended with nothing heard did nothing; voice turns used a stale closure (`voice_input_used` always false; stale history) | `useStylistViewModel.ts` | Empty-end feedback; refs for messages and the voice flag |
+
+**Tests added (all pass locally)**
+
+* Backend: `backend/tests/test_stylist_repeated_answers.py`, 19 tests. Occasion cases; grounding (kept, unoffered brand refused, empty refused); the prompt the model receives (history and latest message first); different questions give different answers (stub echoes the prompt); follow-up reaches the model with earlier turns; look count stated; described owned items flagged; schema bounds.
+* Frontend: `useStylistViewModel.voice.test.tsx`, 18 tests, with a **simulated** SpeechRecognition (not a real microphone): each error code, cancel, empty end, transcript submitted, history on a follow-up, no history on the first turn.
+* Updated: `test_deployment_security_headers.py` (`microphone=(self)`).
+
+**Results (commands and exit codes)**
+
+| Gate | Result |
+| --- | --- |
+| `npm run verify` (frontend) | exit 0. 98 files, 1292 tests passed; i18n check; type-check; build |
+| Backend full suite (`pytest backend/tests`) | exit 0. 3818 passed, 21 skipped |
+| Targeted stylist, AI, wardrobe, eval, header tests | exit 0 after fixes (69 passed in the wardrobe/eval/occasion group) |
+
+**Before and after (same prompts, real composer, stubbed model):** "formal ... for work" now reads Work & Business and selects work pieces; "Analyze ... don't work" no longer reads as Work.
+
+**Not fixed in this pass (stated, not hidden)**
+
+* **Look selection is still rule-based.** The composer chooses looks from occasion slots, so a garment constraint such as "build around these navy trousers" does not yet change the selected pieces. Brunch and casual requests still receive a blazer. The model now answers the question and is told when the looks do not fit, but a true constraint-aware composer is a separate change.
+* **Multi-image styling:** the code sends every attached photo in one vision request (verified by reading `analyze_images`; covered by the existing Mode A tests). Whether vision runs on production depends on `STYLIST_VISION_ENABLED` and NVIDIA vision configuration, which I could not read here. Not verified live.
+* **Microphone on a real device:** not verified. The header fix is verified by a config test and the error mapping by simulated tests. A real permitted-microphone smoke test on the HTTPS origin is still required.
+* **Live-provider quality:** not verified. No paid provider call was made.

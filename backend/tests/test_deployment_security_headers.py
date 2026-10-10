@@ -59,4 +59,4 @@ def test_csp_contract():
 def test_permissions_policy_allows_camera_for_tryon():
     pp = _global_headers().get("Permissions-Policy", "")
     assert "camera=(self)" in pp
-    assert "microphone=()" in pp
+    assert "microphone=(self)" in pp  # voice styling needs the site's own origin

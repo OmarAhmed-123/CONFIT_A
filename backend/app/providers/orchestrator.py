@@ -1,3 +1,4 @@
+import re
 import time
 import httpx
 from typing import Dict, Any, List, Optional, Tuple
@@ -84,8 +85,16 @@ class MultiProviderAIOrchestrator:
         alternate_outfits: Optional[List[Dict[str, Any]]] = None,
         intent: Optional[Dict[str, Any]] = None,
         extra_context: Optional[str] = None,
+        conversation: Optional[List[Dict[str, str]]] = None,
+        catalogue_brands: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         """Orchestrates live AI stylist requests grounded strictly in selected outfit products.
+
+        ``conversation`` holds the EARLIER turns of this chat (oldest first, text
+        only). It is context for follow-up questions; the latest message is
+        always the one to answer. ``catalogue_brands`` lists every brand the
+        shopper could be shown, so an answer that names a brand outside the
+        offered looks can be rejected.
 
         ``extra_context`` carries facts the service has already established and
         verified (the shopper's image analysis, their owned wardrobe pieces). It
@@ -143,15 +152,28 @@ class MultiProviderAIOrchestrator:
             "If it is 'default' or 'unknown', do NOT describe it as their profile or as a stored preference — say it is a starting point. "
             "Do not state any other fact about the shopper that is not in the request or the selected items. "
             "IMPORTANT: Your response must be strictly grounded in the exact selected items below. Explicitly reference the chosen products, "
-            "their brand names, colors, and how they harmonize for the target occasion. Keep the tone refined, warm, and concise (2-3 sentences max)."
+            "their brand names, colors, and how they harmonize for the target occasion. Keep the tone refined and warm. Answer the shopper's latest question first, in 2-5 sentences, and never repeat a previous answer."
         )
+        history_block = ""
+        if conversation:
+            lines = []
+            for turn in conversation:
+                who = "Shopper" if turn.get("role") == "user" else "CONFIT"
+                lines.append(f"- {who}: {turn.get('content', '')}")
+            history_block = (
+                "Earlier in this conversation (context only, oldest first; do not "
+                "answer these again):\n" + "\n".join(lines) + "\n\n"
+            )
         user_prompt = (
-            f"User Prompt: '{prompt}'\n"
+            history_block
+            + f"LATEST SHOPPER MESSAGE (answer this, and only this): '{prompt}'\n"
             f"Target Occasion: {occasion}\n"
             f"Aesthetic: {aesthetic}\n"
             f"Total Look Price: ${total_price:.2f}\n"
             f"Selected Recommended Items:\n{grounded_context}\n"
-            f"Explain why these exact items work together perfectly for this occasion."
+            f"Answer the latest message directly first. The selected items are the "
+            f"closest catalogue match, not a guarantee: if they do not fit what the "
+            f"message asks, say so plainly and say what would fit better."
         )
         if alternate_blocks:
             user_prompt += (
@@ -193,8 +215,7 @@ class MultiProviderAIOrchestrator:
                         text, model_id = res
                         return self._format_response(
                             text, prompt, intent, f"Self-hosted {model_id}",
-                            selected_outfit,
-                        )
+                            selected_outfit, catalogue_brands)
 
                 elif provider in ["nvidia", "nvidia2", "nemotron"] and not nvidia_walked and (
                     settings.NVIDIA_API_KEY or settings.NVIDIA_CHAT_KEY_2 or _stylist_nvidia_client.configured
@@ -203,31 +224,31 @@ class MultiProviderAIOrchestrator:
                     res = await self._call_nvidia_chain(system_prompt, user_prompt)
                     if self._is_usable(res):
                         text, model_id = res
-                        return self._format_response(text, prompt, intent, f"NVIDIA {model_id}", selected_outfit)
+                        return self._format_response(text, prompt, intent, f"NVIDIA {model_id}", selected_outfit, catalogue_brands)
 
                 elif provider in ["groq", "grok"] and settings.groq_api_key:
                     res = await self._call_groq(system_prompt, user_prompt)
                     if self._is_usable(res):
                         text, model_id = res
-                        return self._format_response(text, prompt, intent, f"Groq {model_id}", selected_outfit)
+                        return self._format_response(text, prompt, intent, f"Groq {model_id}", selected_outfit, catalogue_brands)
 
                 elif provider == "gemini" and settings.GEMINI_API_KEY:
                     res = await self._call_gemini(system_prompt, user_prompt)
                     if self._is_usable(res):
                         text, model_id = res
-                        return self._format_response(text, prompt, intent, f"Google {model_id}", selected_outfit)
+                        return self._format_response(text, prompt, intent, f"Google {model_id}", selected_outfit, catalogue_brands)
 
                 elif provider == "openai" and settings.OPENAI_API_KEY:
                     res = await self._call_openai(system_prompt, user_prompt)
                     if self._is_usable(res):
                         text, model_id = res
-                        return self._format_response(text, prompt, intent, f"OpenAI {model_id}", selected_outfit)
+                        return self._format_response(text, prompt, intent, f"OpenAI {model_id}", selected_outfit, catalogue_brands)
 
                 elif provider == "unorouter":
                     res = await self._call_unorouter(system_prompt, user_prompt)
                     if self._is_usable(res):
                         text, model_id = res
-                        return self._format_response(text, prompt, intent, f"UnoRouter {model_id}", selected_outfit)
+                        return self._format_response(text, prompt, intent, f"UnoRouter {model_id}", selected_outfit, catalogue_brands)
 
             except httpx.HTTPStatusError as exc:
                 if exc.response.status_code in [401, 402, 404, 429]:
@@ -603,47 +624,41 @@ class MultiProviderAIOrchestrator:
             action_required="failover to the next configured provider",
         )
 
-    def _verify_grounding(self, ai_text: str, outfit: Optional[Dict[str, Any]]) -> bool:
+    def _verify_grounding(
+        self,
+        ai_text: str,
+        outfit: Optional[Dict[str, Any]],
+        catalogue_brands: Optional[List[str]] = None,
+    ) -> bool:
+        """Reject an answer that recommends a brand the shopper was not offered.
+
+        The previous rule required the answer to MENTION the selected products
+        (50% of brands or two title words). A correct answer to a follow-up
+        question ("which shoe colour?") rarely names the look, so it was thrown
+        away and replaced by a fixed template: the repeated reply the shopper saw.
+
+        The check that protects the shopper is the opposite one: a brand that
+        exists in the catalogue but is not in the looks on offer means the model
+        invented a recommendation, so the answer is refused. Brands outside the
+        catalogue cannot be checked here and are reported as a limitation.
         """
-        C14 FIX: Styling Engine Grounding Validation.
-        Verify that AI-generated text actually references real catalog products/brands.
-        Prevents hallucinated products/brands/attributes.
-        Returns True if grounded, False if hallucinated.
-        """
+        if not ai_text or not ai_text.strip():
+            return False
         if not outfit or not outfit.get("items"):
-            return True  # No outfit to ground against - fallback will handle
-
+            return True
+        offered = {
+            (item.get("brand_name") or "").strip().lower()
+            for item in outfit.get("items", [])
+        }
+        offered.discard("")
         text_lower = ai_text.lower()
-        items = outfit["items"]
-
-        # Check that at least 50% of brand names appear in text (or generic grounding)
-        brand_matches = 0
-        for item in items:
-            brand = (item.get("brand_name") or "").lower()
-            title = (item.get("product_title") or "").lower()
-            # Check if brand or significant part of title appears
-            if brand and brand in text_lower:
-                brand_matches += 1
-            elif title and len(title.split()) > 1:
-                # Check if at least 2 words from title appear
-                title_words = [w for w in title.split() if len(w) > 3]
-                if sum(1 for w in title_words if w in text_lower) >= 2:
-                    brand_matches += 1
-
-        # Require at least 50% grounding or at least 1 match for small outfits
-        required = max(1, len(items) // 2)
-        is_grounded = brand_matches >= required
-
-        if not is_grounded:
-            logger.warn(
-                "Styling grounding verification failed",
-                brand_matches=brand_matches,
-                required=required,
-                total_items=len(items),
-                ai_text_preview=ai_text[:200],
-            )
-
-        return is_grounded
+        for brand in catalogue_brands or []:
+            name = (brand or "").strip().lower()
+            if not name or name in offered:
+                continue
+            if re.search(r"(?<!\w)" + re.escape(name) + r"(?!\w)", text_lower):
+                return False
+        return True
 
     def _format_response(
         self,
@@ -651,10 +666,11 @@ class MultiProviderAIOrchestrator:
         prompt: str,
         intent: Dict[str, Any],
         provider_name: str,
-        selected_outfit: Optional[Dict[str, Any]]
+        selected_outfit: Optional[Dict[str, Any]],
+        catalogue_brands: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         # C14: Verify grounding before accepting AI response
-        if selected_outfit and not self._verify_grounding(ai_text, selected_outfit):
+        if selected_outfit and not self._verify_grounding(ai_text, selected_outfit, catalogue_brands):
             logger.info("Grounding failed, using deterministic fallback", provider=provider_name)
             return self._deterministic_fallback(prompt, intent, selected_outfit)
 

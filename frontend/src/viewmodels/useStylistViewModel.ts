@@ -20,6 +20,50 @@ type SpeechRecognitionLike = {
   abort: () => void;
 };
 
+/** What went wrong with voice input, from the browser's SpeechRecognition error code. */
+export type VoiceFailure =
+  | "permission"
+  | "no_device"
+  | "network"
+  | "no_speech"
+  | "service_blocked"
+  | "aborted"
+  | "unknown";
+
+/**
+ * Map a SpeechRecognition error code to what actually happened. Only
+ * `not-allowed` is a permission problem. `service-not-allowed` means the
+ * browser's speech service is blocked, which is a different fix, so it has its
+ * own message rather than being reported as a denied microphone.
+ */
+export function classifySpeechError(code?: string): VoiceFailure {
+  switch (code) {
+    case "not-allowed":
+      return "permission";
+    case "audio-capture":
+      return "no_device";
+    case "network":
+      return "network";
+    case "no-speech":
+      return "no_speech";
+    case "service-not-allowed":
+      return "service_blocked";
+    case "aborted":
+      return "aborted";
+    default:
+      return "unknown";
+  }
+}
+
+const VOICE_FAILURE_MESSAGE: Record<Exclude<VoiceFailure, "aborted">, string> = {
+  permission: "stylist.voice_permission_denied",
+  no_device: "stylist.voice_no_device",
+  network: "stylist.voice_network",
+  no_speech: "stylist.voice_no_speech",
+  service_blocked: "stylist.voice_service_blocked",
+  unknown: "stylist.voice_error",
+};
+
 export function useStylistViewModel() {
   const [messages, setMessages] = useState<StylistMessage[]>([]);
   const [inputPrompt, setInputPrompt] = useState("");
@@ -38,6 +82,12 @@ export function useStylistViewModel() {
   // in-flight add at a time, surfaced so the CTA can show a real busy state.
   const [isAddingLook, setIsAddingLook] = useState(false);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
+  // Read by sendPrompt through refs, not closures. A voice transcript is sent from
+  // the recognition `onend` handler, which keeps the sendPrompt of the render that
+  // STARTED recording: without refs its history and voice flag were stale.
+  const messagesRef = useRef<StylistMessage[]>([]);
+  messagesRef.current = messages;
+  const voiceTurnRef = useRef(false);
 
   const { addItem, openCart } = useCartStore();
   const { showToast } = useUIStore();
@@ -99,6 +149,16 @@ export function useStylistViewModel() {
       };
 
       const imagesToSend = pendingImages;
+      const usedVoice = voiceTurnRef.current;
+      voiceTurnRef.current = false;
+      // The earlier turns of this chat travel with the request, so a follow-up
+      // ("and the shoes?") is answered in context. Text only, bounded to the
+      // last 8 turns; the server re-bounds it. Before this, every turn was a new
+      // backend session and the model saw none of the conversation.
+      const historyToSend = messagesRef.current
+        .filter((m) => (m.sender === "user" || m.sender === "assistant") && String(m.content ?? "").trim())
+        .slice(-8)
+        .map((m) => ({ role: m.sender as "user" | "assistant", content: String(m.content).slice(0, 1200) }));
       setMessages((prev) => [...prev, userMsg]);
       setInputPrompt("");
       setPendingImages([]);
@@ -112,9 +172,10 @@ export function useStylistViewModel() {
           prompt: textToSend,
           occasion,
           budget_limit: budget,
-          voice_input_used: isRecording,
+          voice_input_used: usedVoice,
           ...(imagesToSend.length ? { images: imagesToSend } : {}),
           recommendation_constraints: recommendationConstraints,
+          ...(historyToSend.length ? { history: historyToSend } : {}),
         });
 
         // D-4 §14 (empty response). An answer with no usable text must not be
@@ -144,7 +205,7 @@ export function useStylistViewModel() {
         showToast(msg("stylist.error_toast"), "error");
       }
     },
-    [inputPrompt, isRecording, showToast, pendingImages],
+    [inputPrompt, showToast, pendingImages],
   );
 
   // Real voice input via the browser SpeechRecognition (Web Speech) pipeline:
@@ -169,6 +230,7 @@ export function useStylistViewModel() {
     rec.maxAlternatives = 1;
 
     let finalTranscript = "";
+    let voiceFailed = false;
     rec.onresult = (e: any) => {
       let interim = "";
       for (let i = e.resultIndex; i < e.results.length; i++) {
@@ -180,23 +242,32 @@ export function useStylistViewModel() {
     };
     rec.onerror = (e: any) => {
       setIsRecording(false);
-      if (e?.error === "not-allowed" || e?.error === "service-not-allowed") {
-        showToast(msg("stylist.voice_permission_denied"), "error");
-      } else if (e?.error !== "aborted") {
-        // eslint-disable-next-line no-console
-        console.error("[stylist] voice recognition error:", e?.error);
-        showToast(msg("stylist.voice_error"), "error");
-      }
+      voiceFailed = true;
+      voiceTurnRef.current = false;
+      const kind = classifySpeechError(e?.error);
+      if (kind === "aborted") return; // the shopper cancelled; nothing to report
+      // eslint-disable-next-line no-console
+      console.error("[stylist] voice recognition error:", e?.error);
+      showToast(msg(VOICE_FAILURE_MESSAGE[kind]), "error");
     };
     rec.onend = () => {
       setIsRecording(false);
       const text = finalTranscript.trim();
-      if (text) sendPrompt(text);
+      if (text) {
+        sendPrompt(text);
+      } else {
+        voiceTurnRef.current = false;
+      }
+      if (!text && !voiceFailed) {
+        // Ended cleanly with nothing recognised: say so, instead of doing nothing.
+        showToast(msg(VOICE_FAILURE_MESSAGE.no_speech), "error");
+      }
     };
 
     try {
       setInputPrompt("");
       setIsRecording(true);
+      voiceTurnRef.current = true;
       rec.start();
     } catch (err: any) {
       setIsRecording(false);

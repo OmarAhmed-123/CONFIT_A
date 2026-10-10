@@ -264,7 +264,7 @@ export const CircularGalleryShowcase: React.FC<CircularGalleryShowcaseProps> = (
                 <figcaption className="space-y-1 p-4">
                   <span className="block text-sm font-bold text-[#1B1F3B]">{g.common}</span>
                   <span className="block text-xs italic text-slate-500">{g.binomial}</span>
-                  <span className="block text-[10px] text-slate-400">
+                  <span className="block text-[10px] text-slate-600">
                     {t('showcase.gallery_credit', { name: g.photo.by })}
                   </span>
                 </figcaption>

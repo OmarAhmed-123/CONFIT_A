@@ -1,0 +1,128 @@
+[
+  {
+    "lang": "en",
+    "dir": "ltr",
+    "thumbAlt": "1 photo(s) attached",
+    "alertText": "Only JPEG, PNG or WebP photos can be attached.",
+    "expectedAlert": "Only JPEG, PNG or WebP photos can be attached.",
+    "pageErrors": [],
+    "violations": [],
+    "incomplete": [
+      {
+        "id": "aria-valid-attr-value",
+        "impact": "critical",
+        "help": "ARIA attributes must conform to valid values",
+        "nodes": [
+          {
+            "target": "#\\:r1\\:-discover-trigger",
+            "summary": "Fix all of the following:\n  Unable to determine if aria-controls referenced ID exists on the page while using aria-haspopup: aria-controls=\":r1:-discover-panel\""
+          },
+          {
+            "target": "#\\:r1\\:-tryon-trigger",
+            "summary": "Fix all of the following:\n  Unable to determine if aria-controls referenced ID exists on the page while using aria-haspopup: aria-controls=\":r1:-tryon-panel\""
+          },
+          {
+            "target": "#\\:r1\\:-wardrobe-trigger",
+            "summary": "Fix all of the following:\n  Unable to determine if aria-controls referenced ID exists on the page while using aria-haspopup: aria-controls=\":r1:-wardrobe-panel\""
+          },
+          {
+            "target": "#\\:r1\\:-shop-trigger",
+            "summary": "Fix all of the following:\n  Unable to determine if aria-controls referenced ID exists on the page while using aria-haspopup: aria-controls=\":r1:-shop-panel\""
+          }
+        ],
+        "nodeCount": 4
+      },
+      {
+        "id": "color-contrast",
+        "impact": "serious",
+        "help": "Elements must meet minimum color contrast ratio thresholds",
+        "nodes": [
+          {
+            "target": ".ms-1 > span[aria-hidden=\"true\"]",
+            "summary": "Fix any of the following:\n  Element content contains only non-text characters"
+          },
+          {
+            "target": ".px-3\\.5 > span:nth-child(2)",
+            "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+          },
+          {
+            "target": "#\\:r3\\:",
+            "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+          },
+          {
+            "target": ".sm\\:leading-relaxed.text-slate-200.max-w-xl",
+            "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+          },
+          {
+            "target": ".sm\\:leading-relaxed.max-w-xl.text-slate-400",
+            "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+          }
+        ],
+        "nodeCount": 85
+      }
+    ]
+  },
+  {
+    "lang": "ar",
+    "dir": "rtl",
+    "thumbAlt": "تم إرفاق 1 صورة",
+    "alertText": "يمكن إرفاق صور بصيغة JPEG أو PNG أو WebP فقط.",
+    "expectedAlert": "يمكن إرفاق صور بصيغة JPEG أو PNG أو WebP فقط.",
+    "pageErrors": [],
+    "violations": [],
+    "incomplete": [
+      {
+        "id": "aria-valid-attr-value",
+        "impact": "critical",
+        "help": "ARIA attributes must conform to valid values",
+        "nodes": [
+          {
+            "target": "#\\:r1\\:-discover-trigger",
+            "summary": "Fix all of the following:\n  Unable to determine if aria-controls referenced ID exists on the page while using aria-haspopup: aria-controls=\":r1:-discover-panel\""
+          },
+          {
+            "target": "#\\:r1\\:-tryon-trigger",
+            "summary": "Fix all of the following:\n  Unable to determine if aria-controls referenced ID exists on the page while using aria-haspopup: aria-controls=\":r1:-tryon-panel\""
+          },
+          {
+            "target": "#\\:r1\\:-wardrobe-trigger",
+            "summary": "Fix all of the following:\n  Unable to determine if aria-controls referenced ID exists on the page while using aria-haspopup: aria-controls=\":r1:-wardrobe-panel\""
+          },
+          {
+            "target": "#\\:r1\\:-shop-trigger",
+            "summary": "Fix all of the following:\n  Unable to determine if aria-controls referenced ID exists on the page while using aria-haspopup: aria-controls=\":r1:-shop-panel\""
+          }
+        ],
+        "nodeCount": 4
+      },
+      {
+        "id": "color-contrast",
+        "impact": "serious",
+        "help": "Elements must meet minimum color contrast ratio thresholds",
+        "nodes": [
+          {
+            "target": ".ms-1 > span[aria-hidden=\"true\"]",
+            "summary": "Fix any of the following:\n  Element content contains only non-text characters"
+          },
+          {
+            "target": ".px-3\\.5 > span:nth-child(2)",
+            "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+          },
+          {
+            "target": ".sm\\:leading-relaxed.text-slate-200.max-w-xl",
+            "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+          },
+          {
+            "target": ".sm\\:leading-relaxed.max-w-xl.text-slate-400",
+            "summary": "Fix any of the following:\n  Element's background color could not be determined because it partially overlaps other elements"
+          },
+          {
+            "target": ".bg-white\\/10 > span:nth-child(2)",
+            "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+          }
+        ],
+        "nodeCount": 79
+      }
+    ]
+  }
+]

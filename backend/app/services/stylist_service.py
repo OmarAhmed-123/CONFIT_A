@@ -1,5 +1,5 @@
 import json
-from typing import Dict, Any, Optional
+from typing import Dict, Any, List, Optional
 from sqlalchemy.orm import Session
 from backend.app.repositories.stylist_repository import StylistRepository
 from backend.app.repositories.catalog_repository import CatalogRepository
@@ -18,6 +18,15 @@ from backend.app.services.styling.garment_gender import (
     is_compatible as is_gender_compatible,
 )
 from backend.app.services.recommendation_constraints import constraints_from_payload, apply_constraints
+from backend.app.services.styling.color_harmony import ColorHarmonyEngine
+from backend.app.services.stylist_image_intake import (
+    ParsedImage,
+    PaletteColor,
+    color_family_for_rgb,
+    extract_palette,
+    merge_palettes,
+)
+from backend.app.services.stylist_vision import VisionAnalysis, analyze_images
 from backend.app.services.content_safety_service import (
     POLICY_VERSION as SAFETY_POLICY_VERSION,
     content_safety_service,
@@ -44,8 +53,17 @@ class StylistService:
         occasion: Optional[str] = None,
         budget_limit: Optional[float] = None,
         voice_input_used: bool = False,
-        recommendation_constraints: Optional[Dict[str, Any]] = None
+        recommendation_constraints: Optional[Dict[str, Any]] = None,
+        images: Optional[List[ParsedImage]] = None,
+        include_wardrobe_items: bool = True,
     ) -> Dict[str, Any]:
+        images = list(images or [])
+        # 0. Decode the images BEFORE anything is written. An unreadable picture
+        #    is refused with nothing persisted. The bytes are used for analysis
+        #    and then dropped: neither the message row nor the intent JSON ever
+        #    carries them (FR-008).
+        pixel_palettes = [extract_palette(img) for img in images]
+
         # 1. Retrieve or create session (supports guest user_id=None)
         session = self.stylist_repo.get_or_create_session(user_id, session_id)
 
@@ -145,7 +163,7 @@ class StylistService:
         # 5. Graceful handling of ambiguous / low-signal requests (BRD 21,
         #    E2E-12): ask a clarifying question instead of returning confident
         #    fabricated outfits for gibberish or empty input.
-        if intent.get("is_ambiguous"):
+        if intent.get("is_ambiguous") and not images:
             clarify_text = (
                 "I want to style you well, but I didn't catch a specific occasion, "
                 "style, or budget in that. Could you tell me a bit more — for example "
@@ -174,6 +192,38 @@ class StylistService:
                 "recommendations": [],
                 "created_at": assistant_msg.created_at
             }
+
+        # 5b. Mode A: analyse the shopper's images (vision chain, honest fallback).
+        #     Mode is decided by what actually ran, not by what was requested. If
+        #     vision is unavailable the turn is answered as Mode B and the reason
+        #     is shown to the shopper.
+        mode_requested = "A" if images else "B"
+        mode_used = "B"
+        fallback_reason: Optional[str] = None
+        image_analysis: Optional[Dict[str, Any]] = None
+        palette_items: List[Dict[str, Any]] = []
+        vision: Optional[VisionAnalysis] = None
+        if images:
+            vision = await analyze_images(images, prompt)
+            if vision.available:
+                mode_used = "A"
+                colour_check, palette_items = _cross_check_colours(pixel_palettes, vision)
+                image_analysis = {
+                    **vision.to_public(),
+                    "colours": [
+                        {"hex": c.hex, "family": c.family, "share": c.share}
+                        for c in merge_palettes(pixel_palettes)
+                    ],
+                    "colour_check": colour_check,
+                    "images": len(images),
+                }
+            else:
+                fallback_reason = vision.reason
+                image_analysis = {"available": False, "reason": vision.reason, "images": len(images)}
+        intent["mode_requested"] = mode_requested
+        intent["mode_used"] = mode_used
+        if fallback_reason:
+            intent["fallback_reason"] = fallback_reason
 
         # 6. Retrieve candidate products from the real catalog. Availability
         #    gate (BRD 15): only products with at least one in-stock SKU are
@@ -215,7 +265,63 @@ class StylistService:
         if alternatives_meta.get("suppressed"):
             intent["alternatives"] = alternatives_meta
 
+        # 6c. Mode A colour coordination. The image's extracted palette is scored
+        #     against each composed look with the same ColorHarmonyEngine used
+        #     everywhere else, and the looks are ordered by that score. A missing
+        #     or uncertain palette changes nothing: the order then stays as composed.
+        if mode_used == "A" and palette_items:
+            for outfit in recommended_outfits:
+                outfit["color_coordination"] = _coordinate_with_palette(outfit, palette_items)
+            recommended_outfits.sort(
+                key=lambda o: (o.get("color_coordination") or {}).get("score", -1),
+                reverse=True,
+            )
+            intent["image_colour_coordination"] = [
+                {"outfit_id": o.get("id"), **(o.get("color_coordination") or {})}
+                for o in recommended_outfits
+            ]
+
+        # 6d. Wardrobe grounding (STY-03). Only a signed-in shopper has a wardrobe,
+        #     and the response records whether it was actually consulted.
+        wardrobe_meta: Dict[str, Any] = {"requested": bool(include_wardrobe_items), "used": False, "reason": None}
+        owned_pieces: List[Any] = []
+        if include_wardrobe_items:
+            if not user_id:
+                wardrobe_meta["reason"] = "Sign in to pair this look with the pieces you already own."
+            else:
+                owned_pieces = self.wardrobe_repo.get_user_items(user_id)
+                if owned_pieces:
+                    wardrobe_meta["used"] = True
+                    wardrobe_meta["owned_items_considered"] = len(owned_pieces)
+                else:
+                    wardrobe_meta["reason"] = "Your wardrobe has no items yet."
+        wardrobe_context_lines: List[str] = []
+        if owned_pieces:
+            for outfit in recommended_outfits:
+                pairings = _wardrobe_pairings(outfit, owned_pieces)
+                outfit["wardrobe_pairings"] = pairings
+                wardrobe_meta["pairings"] = wardrobe_meta.get("pairings", 0) + len(pairings)
+            primary_pairings = (recommended_outfits[0].get("wardrobe_pairings") if recommended_outfits else None) or []
+            for pairing in primary_pairings:
+                wardrobe_context_lines.append(
+                    f"- The shopper already owns {pairing['title']} ({pairing['color_name']} {pairing['category']}); "
+                    f"it pairs with the look's {', '.join(pairing['pairs_with'])}."
+                )
+        intent["wardrobe"] = wardrobe_meta
+
         primary_outfit = recommended_outfits[0] if recommended_outfits else None
+
+        # Facts handed to the model as verified context (never as open invitations
+        # to invent). Image analysis and wardrobe pieces are both checked facts.
+        extra_context_parts: List[str] = []
+        if mode_used == "A" and vision and vision.summary:
+            extra_context_parts.append(f"Image analysis: {vision.summary}")
+        if mode_used == "A" and image_analysis and image_analysis.get("colours"):
+            colours = ", ".join(c["family"] for c in image_analysis["colours"][:4])
+            extra_context_parts.append(f"Dominant colours in the shopper's photo(s): {colours}.")
+        if wardrobe_context_lines:
+            extra_context_parts.append("Owned pieces that pair with the primary look:\n" + "\n".join(wardrobe_context_lines))
+        extra_context = "\n".join(extra_context_parts) or None
 
         # 7. Generate Natural Language Explanation GROUNDED ON THE SELECTED OUTFIT
         ai_result = await self.orchestrator.generate_styling_advice(
@@ -228,7 +334,8 @@ class StylistService:
             # outfit[0] meant the second recommendation reached the shopper
             # with a template string that never named what was in it.
             alternate_outfits=recommended_outfits[1:],
-            intent=intent
+            intent=intent,
+            extra_context=extra_context,
         )
 
         # Split the reply and attach each grounded sentence to its outfit.
@@ -292,6 +399,142 @@ class StylistService:
             "audio_url": None,
             "intent_detected": intent,
             "engine": engine,
+            "mode": mode_used,
+            "fallback_reason": fallback_reason,
+            "image_analysis": image_analysis,
             "recommendations": recommended_outfits,
             "created_at": assistant_msg.created_at
         }
+
+
+# ---------------------------------------------------------------------------
+# Mode A helpers. Pure functions over already-validated data.
+# ---------------------------------------------------------------------------
+
+#: Palette shares below this are sampling noise (anti-aliasing, shadows).
+_MIN_DOMINANT_SHARE = 0.05
+
+_WARDROBE_CATEGORY_FOR_POSITION = {
+    "top": "Tops",
+    "dress": "Tops",
+    "bottom": "Bottoms",
+    "outerwear": "Outerwear",
+    "footwear": "Footwear",
+    "shoes": "Footwear",
+    "accessory": "Accessories",
+}
+
+
+def _cross_check_colours(
+    pixel_palettes: List[List[PaletteColor]], vision: VisionAnalysis
+) -> "tuple[List[Dict[str, Any]], List[Dict[str, Any]]]":
+    """Compare the model's colour words with what the pixels actually show.
+
+    A model colour counts only if the sampled pixels support it. Anything else is
+    reported as uncertain and kept out of the palette used for coordination, so a
+    hallucinated colour cannot steer the advice.
+    """
+    merged = merge_palettes(pixel_palettes)
+    dominant = [c for c in merged if c.share >= _MIN_DOMINANT_SHARE]
+    dominant_families = {c.family for c in dominant}
+    checks: List[Dict[str, Any]] = []
+    for garment in vision.garments:
+        if not garment.color_family:
+            continue
+        corroborated = garment.color_family in dominant_families
+        checks.append({
+            "garment": garment.description or garment.category,
+            "model_colour": garment.color_family,
+            "corroborated_by_pixels": corroborated,
+            "status": "confirmed" if corroborated else "uncertain",
+        })
+    palette_items = [
+        {"color_family": c.family, "position": "image", "product_title": "", "hex": c.hex}
+        for c in dominant
+    ]
+    return checks, palette_items
+
+
+def _coordinate_with_palette(outfit: Dict[str, Any], palette_items: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Score a look against the photo's palette with ColorHarmonyEngine."""
+    look_items = [
+        {
+            "color_family": (it.get("color_family") or it.get("color_name") or "").lower(),
+            "position": it.get("position"),
+            "product_title": it.get("product_title", ""),
+        }
+        for it in (outfit.get("items") or [])
+    ]
+    evaluation = ColorHarmonyEngine.evaluate_palette(look_items + palette_items)
+    return {
+        "score": evaluation.get("color_harmony_score"),
+        "harmony_type": evaluation.get("harmony_type"),
+        "verdict": evaluation.get("verdict"),
+        "image_colours": [p["color_family"] for p in palette_items],
+        "method": "ColorHarmonyEngine over the look plus the pixel-extracted photo palette",
+    }
+
+
+def _hex_family(color_hex: Optional[str]) -> Optional[str]:
+    value = (color_hex or "").strip().lstrip("#")
+    if len(value) != 6:
+        return None
+    try:
+        rgb = tuple(int(value[i:i + 2], 16) for i in (0, 2, 4))
+    except ValueError:
+        return None
+    return color_family_for_rgb(rgb)
+
+
+def _wardrobe_pairings(outfit: Dict[str, Any], owned: List[Any], limit: int = 3) -> List[Dict[str, Any]]:
+    """Owned pieces that pair with a look.
+
+    A piece qualifies when its category is NOT already in the look (a second pair
+    of trousers is not a pairing) and its colour harmonises with at least one
+    piece in the look. Ranked by how many look pieces it harmonises with.
+    """
+    look = [
+        {
+            "position": it.get("position"),
+            "family": (it.get("color_family") or "").lower(),
+        }
+        for it in (outfit.get("items") or [])
+    ]
+    present_categories = {
+        _WARDROBE_CATEGORY_FOR_POSITION.get(p["position"]) for p in look if p["position"]
+    }
+    scored: List[tuple] = []
+    for piece in owned:
+        category = (piece.category or "").strip().title()
+        if category in present_categories:
+            continue
+        if category not in {"Tops", "Bottoms", "Outerwear", "Footwear", "Accessories"}:
+            continue
+        family = _hex_family(piece.color_hex) or (piece.color_name or "").lower()
+        if not family:
+            continue
+        pairs_with = []
+        for look_piece in look:
+            if not look_piece["family"]:
+                continue
+            if ColorHarmonyEngine._pairs_harmonize(family, look_piece["family"]):
+                pairs_with.append(look_piece["position"])
+        if not pairs_with:
+            continue
+        scored.append((len(pairs_with), piece, family, sorted(set(pairs_with))))
+    scored.sort(key=lambda row: (-row[0], row[1].id))
+    return [
+        {
+            "wardrobe_item_id": piece.id,
+            "title": piece.title,
+            "category": category_label(piece.category),
+            "color_name": piece.color_name,
+            "color_family": family,
+            "pairs_with": pairs,
+        }
+        for _, piece, family, pairs in scored[:limit]
+    ]
+
+
+def category_label(value: Optional[str]) -> str:
+    return (value or "").strip().title()

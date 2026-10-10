@@ -1,0 +1,6 @@
+[en] dir=ltr thumbAlt="1 photo(s) attached" alert="Only JPEG, PNG or WebP photos can be attached."
+[en] axe violations=0 serious/critical=0 color-contrast violations=0 incomplete=85
+[ar] dir=rtl thumbAlt="تم إرفاق 1 صورة" alert="يمكن إرفاق صور بصيغة JPEG أو PNG أو WebP فقط."
+[ar] axe violations=0 serious/critical=0 color-contrast violations=0 incomplete=79
+wrote /tmp/gate_out3/a11y-probe.json
+PROBE PASSED: no serious/critical axe violations; structure checks passed.

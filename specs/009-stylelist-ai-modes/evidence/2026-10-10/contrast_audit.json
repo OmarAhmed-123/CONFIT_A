@@ -1,0 +1,16 @@
+[
+  {
+    "lang": "en",
+    "surface": "en:drawer",
+    "sel": ".min-h-\\[56px\\].py-4.text-start:nth-child(2) > .group-hover\\:text-\\[\\#1B1F3B\\].tabular-nums.w-8",
+    "text": "02",
+    "fg": "rgb(138, 106, 52)",
+    "worst": 4.76,
+    "median": 4.76,
+    "threshold": 4.5,
+    "pass": true,
+    "size": 18,
+    "weight": 900,
+    "large": false
+  }
+]

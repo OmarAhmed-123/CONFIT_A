@@ -1,0 +1,31 @@
+catalogue products: 9
+PASS - B1 text chat 200 for signed-in shopper | 200
+PASS - B2 text chat reports mode B and no fallback reason | ('B', None)
+PASS - B3 engine honestly named (no fake provider name) | CONFIT Grounded Styling Engine (Grounded & Resilient)
+PASS - B4 at least one recommendation returned | 2
+PASS - B5 every recommended product id exists in the catalogue | 8 ids, all in catalogue=True
+PASS - A1 guest text chat answered (by design) with grounded Mode B | 200
+PASS - MA1 photo request accepted (200) through the real service | 200
+PASS - MA2 honest fallback: mode B with a reason, not a fabricated analysis | {'mode': 'B', 'reason': 'Image analysis is not configured on this deployment.', 'ia': {'available': False, 'reason': 'Image analysis is not configured on this deployment.', 'images': 1}}
+PASS - MA3 no image colours reported as analysed 
+PASS - MA4 photo-turn recommendations still grounded in catalogue | 8
+PASS - L1 four images refused (limit 3) | HTTP 422
+PASS - L2 image over 1 MB refused | HTTP 422
+PASS - L3 GIF data refused (only PNG/JPEG/WebP) | HTTP 422
+PASS - L4 mislabelled bytes refused (magic check) | HTTP 422
+PASS - L5 non-data URL refused | HTTP 422
+PASS - L6 guest photo budget enforced (image-budget 429, no 5xx) | [200, 200, 200, 200, 429]
+PASS - ST1 no data:image / base64 image text in stylist/outfit/wardrobe tables | tables=18 hits=0
+PASS - W0 wardrobe item created for shopper | 201
+PASS - W1 wardrobe OFF: chat 200, wardrobe not requested/used, item absent | (200, {'requested': False, 'used': False, 'reason': None})
+PASS - W2 wardrobe ON: engine consulted the shopper's wardrobe (used=true, >=1 piece) | (200, {'requested': True, 'used': True, 'reason': None, 'owned_items_considered': 4, 'pairings': 3})
+PASS - W3 other user (admin): chat 200 and shopper's wardrobe item never appears | (200, {'requested': True, 'used': False, 'reason': 'Your wardrobe has no items yet.'})
+PASS - W4 other user's wardrobe listing does not contain shopper's item | 200
+PASS - W5 anonymous cannot read a wardrobe item | 401
+PASS - S1 signed-in save returns 201 with is_saved true | (201, True)
+PASS - S2 saved look retrievable by the owner via GET /outfits | 4 looks
+PASS - S3 other user cannot see the shopper's look 
+PASS - S4 signed-out save rejected | 401
+PASS - S5 rejected signed-out save persisted nothing (row count unchanged) | before=3 after=3
+
+SUMMARY 28/28 passed

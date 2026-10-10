@@ -336,6 +336,17 @@ export interface StylistMessage {
    * is never told that fallback prose is a live model answer.
    */
   engine?: string | null;
+  /** "A" (photos analysed) or "B" (text-only). Absent on older rows. */
+  mode?: string | null;
+  /** Set when photos were attached but this reply could not use them. */
+  fallback_reason?: string | null;
+  /** What the photo analysis produced. Never image bytes. Null for text turns. */
+  image_analysis?: {
+    available: boolean;
+    engine?: string | null;
+    reason?: string | null;
+    images?: number;
+  } | null;
   recommendations: Outfit[];
   created_at: string;
 }

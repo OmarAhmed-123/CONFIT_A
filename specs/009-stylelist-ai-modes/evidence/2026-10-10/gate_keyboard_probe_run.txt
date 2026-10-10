@@ -1,0 +1,32 @@
+[en]
+  PASS opener reachable by Tab
+  PASS opener shows a visible focus indicator
+  PASS Enter on opener opens dialog
+  PASS focus moves into dialog on open
+  PASS dialog is aria-modal
+  PASS Tab focus is trapped inside the dialog
+  PASS every Tab stop shows a visible focus indicator
+  PASS remove-photo control reachable by keyboard
+  PASS keyboard Enter removes a photo
+  PASS focus stays inside dialog after removing a photo
+  PASS prompt input has an accessible name (not placeholder-only)
+  PASS submit with Enter reaches a live-region state (loading or error)
+  PASS Escape closes the dialog
+  PASS focus returns to the opener after close
+[ar]
+  PASS opener reachable by Tab
+  PASS opener shows a visible focus indicator
+  PASS Enter on opener opens dialog
+  PASS focus moves into dialog on open
+  PASS dialog is aria-modal
+  PASS Tab focus is trapped inside the dialog
+  PASS every Tab stop shows a visible focus indicator
+  PASS remove-photo control reachable by keyboard
+  PASS keyboard Enter removes a photo
+  PASS focus stays inside dialog after removing a photo
+  PASS prompt input has an accessible name (not placeholder-only)
+  PASS submit with Enter reaches a live-region state (loading or error)
+  PASS Escape closes the dialog
+  PASS focus returns to the opener after close
+wrote /tmp/gate_out3/keyboard-probe.json
+KEYBOARD PROBE PASSED

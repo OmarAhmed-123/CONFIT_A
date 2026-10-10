@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-09
 
-**Status**: Draft (planning only)
+**Status**: Implemented for Mode A, wardrobe, failover, colour, safety/budget and the T-STY-07 frontend (2026-10-10). Live-provider quality, streaming (STY-11), eval-harness extension (STY-15) and Try-On handoff (STY-17) remain open. See `verification.md` §8–§9.
 
 **Input**: Findings STY-01..17 (`STYLELIST_AI_REPAIR_PLAN.md`). Constitution Principle IV (honest AI, grounded in real catalog) and I.
 
@@ -20,7 +20,7 @@
 
 **Verified positives to preserve:** Mode B catalog grounding + honest fallback (STY-12); outfit items reference real products with currency (STY-13, `OutfitItemOut`).
 
-**Model research (from audit):** a multimodal/vision model is reachable through the existing OpenAI-compatible NVIDIA path (e.g., an NVIDIA multimodal NIM such as `nvidia/nemotron-3-nano-omni-30b-a3b-reasoning`); Google `gemini-3-pro-preview` / `gemini-2.5-flash(-lite)`; OpenAI `gpt-5.2` / `gpt-5-mini`. The served model MUST be reported truthfully (Principle IV).
+**Model research (from audit; SUPERSEDED 2026-10-10):** the model names below are the audit's original research. Retired or unverified IDs (for example `gemini-3-pro-preview`, shut down 2026-03-09 per the Gemini deprecations page) must not be used. The current, measured routing is `docs/STYLIST_MODEL_ROUTING.md`; the vision primary is `google/diffusiongemma-26b-a4b-it`. a multimodal/vision model is reachable through the existing OpenAI-compatible NVIDIA path (e.g., an NVIDIA multimodal NIM such as `nvidia/nemotron-3-nano-omni-30b-a3b-reasoning`); Google `gemini-3-pro-preview` / `gemini-2.5-flash(-lite)`; OpenAI `gpt-5.2` / `gpt-5-mini`. The served model MUST be reported truthfully (Principle IV).
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -106,11 +106,13 @@ As the platform, stylist image uploads are content-safety screened and per-user 
 - **FR-008**: Stylist uploads MUST be content-safety screened and size/format-guarded; images MUST NOT be stored as raw base64 in the DB (short-TTL/discard). (STY-09, privacy)
 - **FR-009**: Per-user AI cost/rate budgets MUST be enforced. (STY-08)
 - **FR-010**: Model IDs/providers MUST be centrally documented and validated. (STY-16)
+- **FR-011** (STY-10 scope, amendment 2026-10-10): a signed-in user MUST be able to save a Mode A look through the existing `POST /outfits/save` with no schema change; a guest MUST see a sign-in prompt and nothing is persisted; the saved look MUST contain no image data.
+- **FR-012** (T-STY-07): when attached photos could not be used, the shopper MUST see a localized reason, not the API's English sentence; every interactive control MUST be reachable and operable by keyboard with a visible focus indicator; the drawer MUST be a named modal dialog that traps focus, closes on Escape and restores focus to its opener.
 
 ### Key Entities
 
-- **ChatRequest**: text fields + optional `images[]`; derived `mode`.
-- **StylistResponse**: recommendations, served-model, mode, honest fallback reason; `OutfitItemOut` real products (existing positive).
+- **ChatRequest** (code class: `StylistPromptRequest`, `backend/app/schemas/stylist.py`): text fields + optional `images[]`; derived `mode`. The spec name is kept for continuity; the code name is authoritative.
+- **StylistResponse** (code: `StylistMessageOut`): recommendations, served model (`engine`), `mode`, honest `fallback_reason`, `image_analysis`; `OutfitItemOut` real products (existing positive). "served-model" in the requirements means the `engine` field.
 - **Provider Registry**: ordered failover chain; vision-capable + text providers.
 
 ## Success Criteria *(mandatory)*
@@ -121,8 +123,16 @@ As the platform, stylist image uploads are content-safety screened and per-user 
 - **SC-004**: In Mode A, extracted image colors change the coordination palette vs rules-only (test-verified).
 - **SC-005**: Unsafe/oversized uploads rejected; over-budget users limited; 0 raw base64 images in DB.
 - **SC-006**: Mode B catalog grounding + honest fallback (STY-12) and real-product/currency outputs (STY-13) remain green.
+- **SC-007** (FR-011/FR-012): In a real browser, a signed-in shopper can save a Mode A look and find it via `GET /outfits`; a double click creates one look; a server failure and a signed-out save show honest, localized messages; keyboard and RTL checks pass in English and Arabic; colour contrast is measured, not assumed, for text axe cannot resolve. Evidence: `verification.md` §8.
 
 ## Assumptions
 
-- Vision reaches through the existing OpenAI-compatible NVIDIA path and/or Gemini; exact model IDs are configuration-driven and centrally documented; no paid AI request is triggered during planning (tests mock/record providers).
-- Shareable "looks" from Mode A (STY-10), streaming/agentic multi-turn (STY-11), eval harness (STY-15), and Mode-A→VTON handoff (STY-17) are P2/P3 scheduled later; drawer a11y/i18n (STY-14) aligns with workstream 010.
+- Vision reaches through the existing OpenAI-compatible NVIDIA path only (Gemini vision is not wired; deferred and recorded); exact model IDs are configuration-driven and centrally documented; no paid AI request is triggered during planning (tests mock/record providers).
+- Shareable "looks" from Mode A (STY-10), streaming/agentic multi-turn (STY-11), eval harness (STY-15), and Mode-A→VTON handoff (STY-17) are P2/P3 scheduled later; drawer a11y/i18n (STY-14): the drawer's keyboard, RTL and contrast behaviour was verified in this workstream (FR-012, SC-007); the shared UI primitives remain under workstream 010 (0/12 complete).
+
+## Amendment (2026-10-10): scope of STY-10 and STY-11
+
+* **STY-10 (shareable looks / save-as-look) is partially in scope.** Limited to Mode A and signed-in users. It reuses the existing `POST /outfits/save`, with no schema change or migration. Guests see a sign-in prompt.
+* **STY-11 (streaming / multi-turn) stays deferred.** It needs a product decision: SSE on serverless, and grounding must be verified before streaming products.
+* STY-15 and STY-17 stay deferred. STY-17 is blocked on workstream 008.
+* Stale model IDs named in the older plan are superseded by `docs/STYLIST_MODEL_ROUTING.md`. The primary vision model is `google/diffusiongemma-26b-a4b-it`.

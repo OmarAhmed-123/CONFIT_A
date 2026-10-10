@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+### StyleList AI — Mode A (photo styling), grounding and failover (spec 009)
+
+- Mode A: optional `images[]` on the stylist chat (max 3 photos, JPEG/PNG/WebP, 1 MB each). Vision runs through the NVIDIA `GARMENT_VISION` chain; the served model is reported; an unavailable vision leg falls back to Mode B with a stated reason.
+- `include_wardrobe_items` now changes the looks (deterministic pairings with owned pieces).
+- Photo colours are extracted from pixels and feed `ColorHarmonyEngine`.
+- NVIDIA text failover walks the full registry chain and reports an honest unavailable state on total failure.
+- Upload guardrails: image safety screen (fails closed when unmeasured), per-caller image-turn budget, no base64 images stored.
+- Eval harness and regression tests added. Model routing documented in `docs/STYLIST_MODEL_ROUTING.md`.
+- Not included: Gemini vision, streaming, save-as-look, VTON handoff.
+
+---
+
 ## [1.3.0] — September 2026
 
 ### Group 5 — Commerce, Payments & Fulfillment

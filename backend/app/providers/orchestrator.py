@@ -8,6 +8,12 @@ from backend.app.services.styling.attribution import (
     style_attribution_phrase,
 )
 from backend.app.services.styling_engine import StylingEngine
+from backend.app.providers.nvidia import ModelRole, NvidiaClient
+
+#: Shared NVIDIA client for the stylist text chain. One credential attempt per
+#: model: a shopper-facing turn must not stack key rotations on top of model
+#: failover inside the 4s provider budget (STY-04).
+_stylist_nvidia_client = NvidiaClient(key_attempts=1)
 
 
 class MultiProviderAIOrchestrator:
@@ -76,9 +82,16 @@ class MultiProviderAIOrchestrator:
         budget_limit: Optional[float] = None,
         selected_outfit: Optional[Dict[str, Any]] = None,
         alternate_outfits: Optional[List[Dict[str, Any]]] = None,
-        intent: Optional[Dict[str, Any]] = None
+        intent: Optional[Dict[str, Any]] = None,
+        extra_context: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """Orchestrates live AI stylist requests grounded strictly in selected outfit products."""
+        """Orchestrates live AI stylist requests grounded strictly in selected outfit products.
+
+        ``extra_context`` carries facts the service has already established and
+        verified (the shopper's image analysis, their owned wardrobe pieces). It
+        is appended to the user turn so the model can refer to them, and it is
+        labelled as context so the model is not asked to invent it.
+        """
         user_styles = user_style_tags or ["Smart Casual", "Quiet Luxury"]
         user_colors = preferred_colors or ["Navy", "Beige", "Black"]
 
@@ -150,7 +163,15 @@ class MultiProviderAIOrchestrator:
                 "(and OUTFIT_3, OUTFIT_4 if present)"
             )
 
+        if extra_context and extra_context.strip():
+            user_prompt += "\n\nVerified context (use only what is listed here):\n" + extra_context.strip()
+
         providers = [p.strip().lower() for p in settings.AI_PROVIDERS.split(",") if p.strip()]
+        # The NVIDIA registry chain is walked as ONE leg. Listing nvidia and
+        # nvidia2/nemotron in AI_PROVIDERS used to mean two positional calls, and
+        # the rest of the chain was unreachable (STY-04). Walking it once here
+        # reaches every verified candidate exactly once per request.
+        nvidia_walked = False
 
         for provider in providers:
             if not self.is_provider_available(provider):
@@ -175,14 +196,11 @@ class MultiProviderAIOrchestrator:
                             selected_outfit,
                         )
 
-                elif provider == "nvidia" and settings.NVIDIA_API_KEY:
-                    res = await self._call_nvidia_primary(system_prompt, user_prompt)
-                    if self._is_usable(res):
-                        text, model_id = res
-                        return self._format_response(text, prompt, intent, f"NVIDIA {model_id}", selected_outfit)
-
-                elif provider in ["nvidia2", "nemotron"] and (settings.NVIDIA_CHAT_KEY_2 or settings.NVIDIA_API_KEY):
-                    res = await self._call_nvidia_secondary(system_prompt, user_prompt)
+                elif provider in ["nvidia", "nvidia2", "nemotron"] and not nvidia_walked and (
+                    settings.NVIDIA_API_KEY or settings.NVIDIA_CHAT_KEY_2 or _stylist_nvidia_client.configured
+                ):
+                    nvidia_walked = True
+                    res = await self._call_nvidia_chain(system_prompt, user_prompt)
                     if self._is_usable(res):
                         text, model_id = res
                         return self._format_response(text, prompt, intent, f"NVIDIA {model_id}", selected_outfit)
@@ -295,6 +313,27 @@ class MultiProviderAIOrchestrator:
         return await self._call_nvidia_at(
             1, "nvidia2", settings.NVIDIA_CHAT_KEY_2 or settings.NVIDIA_API_KEY,
             system_prompt, user_prompt)
+
+    async def _call_nvidia_chain(
+        self, system_prompt: str, user_prompt: str
+    ) -> Optional[Tuple[str, str]]:
+        """Walk the registry's STYLIST_CHAT chain (primary, then each failover).
+
+        Returns ``(text, model_id)`` where ``model_id`` is the model that actually
+        served the answer. Raises if every candidate failed; the caller records the
+        failure and moves on to the next configured provider, so the honest
+        degradation path is unchanged.
+        """
+        if not _stylist_nvidia_client.configured:
+            return None
+        result = await _stylist_nvidia_client.chat(
+            ModelRole.STYLIST_CHAT,
+            system=system_prompt,
+            user=user_prompt,
+            max_tokens=self._max_tokens(),
+            timeout_s=self._timeout("chat"),
+        )
+        return result.text, result.model_id
 
     async def _call_local_gpu(
         self, system_prompt: str, user_prompt: str

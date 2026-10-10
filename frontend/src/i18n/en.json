@@ -206,7 +206,21 @@
     "catalogue_badge": "Verified catalogue pieces only",
     "formality": "Formality",
     "palette_label": "Look colour palette ({{count}} tones)",
-    "missing_slots_label": "Missing pieces:"
+    "missing_slots_label": "Missing pieces:",
+    "attach_photo": "Attach outfit photo",
+    "attach_photo_hint": "Up to 3 photos, JPEG, PNG or WebP, 1 MB each",
+    "attach_error_type": "Only JPEG, PNG or WebP photos can be attached.",
+    "attach_error_size": "Each photo must be 1 MB or smaller.",
+    "attach_error_count": "You can attach up to 3 photos per message.",
+    "remove_photo": "Remove photo {{n}}",
+    "photos_attached": "{{count}} photo(s) attached",
+    "mode_fallback_note": "Your photos could not be analysed, so this reply uses your text request only.",
+    "save_look": "Save look",
+    "saving_look": "Saving look…",
+    "look_saved": "Look saved",
+    "save_look_signin": "Sign in to save this look.",
+    "save_look_failed": "We could not save this look. Please try again.",
+    "input_label": "Describe your outfit request"
   },
   "outfit_builder": {
     "title": "Interactive Outfit Canvas",

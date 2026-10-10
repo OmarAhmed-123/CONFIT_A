@@ -120,8 +120,14 @@ class RecentlyViewed(Base):
     One row per (user, product) — re-viewing a product updates `viewed_at` and
     moves it to the front of the recency list (upsert semantics). Guests are not
     tracked; only authenticated users persist history.
+
+    DB-01 fix: unique (user_id, product_id) enforced at DB level (migration
+    0035_recently_viewed_unique) to prevent race-induced duplicates.
     """
     __tablename__ = "recently_viewed"
+    __table_args__ = (
+        UniqueConstraint("user_id", "product_id", name="uq_recently_viewed_user_product"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)

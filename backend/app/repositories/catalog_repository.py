@@ -175,7 +175,15 @@ class CatalogRepository:
         return query.offset(offset).limit(limit).all()
 
     def record_product_view(self, user_id: int, product_id: int) -> None:
-        """Upsert a recently-viewed row (re-viewing refreshes recency)."""
+        """Upsert a recently-viewed row (re-viewing refreshes recency).
+
+        DB-01 fix: relies on unique (user_id, product_id) constraint
+        (0035_recently_viewed_unique). Handles race-induced duplicate inserts
+        by catching IntegrityError and converting to an update, so concurrent
+        views never create duplicate rows.
+        """
+        from sqlalchemy.exc import IntegrityError
+
         row = (
             self.db.query(RecentlyViewed)
             .filter(RecentlyViewed.user_id == user_id, RecentlyViewed.product_id == product_id)
@@ -183,9 +191,38 @@ class CatalogRepository:
         )
         if row:
             row.viewed_at = datetime.now(timezone.utc)
-        else:
+            try:
+                self.db.commit()
+            except IntegrityError:
+                # Rare race where another transaction inserted same key between
+                # our SELECT and COMMIT. Rollback and update the now-existing row.
+                self.db.rollback()
+                existing = (
+                    self.db.query(RecentlyViewed)
+                    .filter(RecentlyViewed.user_id == user_id, RecentlyViewed.product_id == product_id)
+                    .first()
+                )
+                if existing:
+                    existing.viewed_at = datetime.now(timezone.utc)
+                    self.db.commit()
+            return
+
+        # No existing row - try insert
+        try:
             self.db.add(RecentlyViewed(user_id=user_id, product_id=product_id))
-        self.db.commit()
+            self.db.commit()
+        except IntegrityError:
+            # Another concurrent request inserted same (user, product) between
+            # our SELECT and INSERT. Convert to update of recency.
+            self.db.rollback()
+            existing = (
+                self.db.query(RecentlyViewed)
+                .filter(RecentlyViewed.user_id == user_id, RecentlyViewed.product_id == product_id)
+                .first()
+            )
+            if existing:
+                existing.viewed_at = datetime.now(timezone.utc)
+                self.db.commit()
 
     def get_recently_viewed(self, user_id: int, limit: int = 10) -> List[Product]:
         """Most-recently viewed products for a user, newest first."""

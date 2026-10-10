@@ -219,7 +219,8 @@
     "saving_look": "Saving look…",
     "look_saved": "Look saved",
     "save_look_signin": "Sign in to save this look.",
-    "save_look_failed": "We could not save this look. Please try again."
+    "save_look_failed": "We could not save this look. Please try again.",
+    "input_label": "Describe your outfit request"
   },
   "outfit_builder": {
     "title": "Interactive Outfit Canvas",

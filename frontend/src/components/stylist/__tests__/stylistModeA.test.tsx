@@ -313,3 +313,26 @@ describe("Mode A — Arabic (RTL) and localization", () => {
     expect(serious, JSON.stringify(serious.map((v) => ({ id: v.id, nodes: v.nodes.length })))).toEqual([]);
   });
 });
+
+describe("Mode A — keyboard and focus (WCAG 2.1.1, 2.1.2, 2.4.3, 4.1.2)", () => {
+  it("names the prompt input, not only its placeholder", () => {
+    renderDrawer();
+    const input = screen.getByRole("textbox", { name: en("stylist.input_label") });
+    expect(input.getAttribute("placeholder")).toBeTruthy();
+  });
+
+  it("moves focus into the dialog on open", () => {
+    renderDrawer();
+    const dialog = screen.getByRole("dialog", { name: en("stylist.dialog_label") });
+    expect(dialog.getAttribute("aria-modal")).toBe("true");
+    expect(dialog.contains(document.activeElement)).toBe(true);
+  });
+
+  it("closes on Escape from inside the dialog", () => {
+    closeStylistMock.mockClear();
+    renderDrawer();
+    const inside = document.activeElement as HTMLElement;
+    fireEvent.keyDown(inside, { key: "Escape" });
+    expect(closeStylistMock).toHaveBeenCalledTimes(1);
+  });
+});

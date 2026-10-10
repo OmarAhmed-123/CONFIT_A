@@ -843,6 +843,7 @@ export const VirtualStylistDrawer: React.FC = () => {
                 onChange={(e) => setInputPrompt(e.target.value)}
                 maxLength={STYLIST_PROMPT_MAX_CHARS}
                 aria-describedby={inputPrompt.length > STYLIST_PROMPT_MAX_CHARS * 0.9 ? "stylist-prompt-limit" : undefined}
+                aria-label={t("stylist.input_label")}
                 placeholder={t("stylist.input_placeholder")}
                 className={`flex-1 px-4 py-3 min-h-[48px] rounded-2xl border border-slate-200 focus:outline-none focus:border-[#C5A059] focus-visible:ring-2 focus-visible:ring-[#C5A059]/40 text-xs sm:text-sm bg-[#FAF9F6] ${LUX}`}
               />

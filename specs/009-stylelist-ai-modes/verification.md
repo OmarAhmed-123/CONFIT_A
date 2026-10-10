@@ -498,3 +498,22 @@ Colour extraction feeds `ColorHarmonyEngine` (`_coordinate_with_palette`). **Lim
 **Not verified.** Composer formality (see above). Colour-based selection. Partial-analysis UI rendering in a browser. Image-generation visuals (no authorised provider; the 2026-10-10 image-generation request was received truncated and is still awaiting a complete brief). Real-device microphone.
 
 **Live request budget used this round: 12 of 30** (6 in the isolated probes, 6 in the chat turn). No retries beyond those listed.
+
+### 10.15 Hard occasion gate in the outfit composer (2026-10-10)
+
+**Root cause.** `composer.compose_outfits` used occasion only as a score bonus, so an evening tuxedo (tags: wedding, gala, black_tie, party) and metallic evening sandals could be selected for "shoes for work". The live turn in §10.14 showed this.
+
+**Fix.** `backend/app/services/styling/occasion_gate.py`: a deterministic EXCLUSION before classification. A product with non-empty `occasion_tags` that shares no tag with the target occasion is excluded. Untagged products are kept. An unstated occasion applies no gate. Excluded IDs are reported in `meta.occasion_excluded`.
+
+**Effect on the seeded catalogue (real composer, no provider calls):**
+* "shoes for work" / "navy trousers for work": excluded 2, 5, 7, 9 (tuxedo, dress, sandals, clutch). Look 1 is complete (blazer, shirt, trousers, shoes).
+* "formal wedding": no exclusions. Tuxedo and sandals remain eligible.
+
+**Still open (not fixed here).**
+* Look 2 for work has only a shirt and an evening necktie (no bottoms, no footwear). The composer publishes incomplete looks.
+* The navy-trousers constraint is not enforced; navy trousers appear only through the colour bonus.
+* The seeded e2e catalogue has 9 products, so several requests return one or two looks.
+
+**Tests.** `backend/tests/test_stylist_occasion_gate.py` (6 new, unit). Focused stylist and composer set (11 files): exit 0, 134 passed. Full `pytest backend/tests`: exit 0, 3841 passed, 21 skipped.
+
+**Live budget.** No live provider calls in this increment. Round total remains 12 of 30 (§10.14). The local env has NVIDIA_KEY_* names only, not NVIDIA_API_KEY, so a live stylist turn is currently not configured locally (production key state UNKNOWN).

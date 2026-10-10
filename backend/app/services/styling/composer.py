@@ -4,6 +4,7 @@ from typing import List, Dict, Any, Optional
 from backend.app.core.money import to_decimal, to_float, money_sum, quantize_money
 from backend.app.services.styling.ontology import SlotType, classify_product_slot
 from backend.app.services.styling.attribution import resolve_style_source
+from backend.app.services.styling.occasion_gate import gate_products
 from backend.app.services.styling.diversity import MIN_DISTINCTNESS_OVERLAP, is_distinct, suppression_reason
 from backend.app.services.styling.rules import StylingRulesEngine
 
@@ -270,6 +271,16 @@ class OutfitComposer:
             return []
 
         occasion = intent.get("occasion", "Smart Casual")
+        # Hard gate: products catalogued only for other occasions are excluded
+        # before any outfit is built (see occasion_gate.py).
+        available_products, occasion_excluded = gate_products(available_products, occasion)
+        if not available_products:
+            if meta_out is not None:
+                meta_out.clear()
+                meta_out.update({"requested": max_outfits, "published": 0, "suppressed": 0,
+                                 "reasons": [f"no products suit the '{occasion}' occasion"],
+                                 "occasion_excluded": occasion_excluded})
+            return []
         formality = intent.get("formality", "smart_casual")
         budget_limit = intent.get("detected_budget", 450.0)
         aesthetic = intent.get("aesthetic", "Quiet Luxury")
@@ -584,6 +595,7 @@ class OutfitComposer:
                 "published": len(outfits),
                 "suppressed": len(suppressed_alternatives),
                 "reasons": suppressed_alternatives,
+                "occasion_excluded": occasion_excluded,
             })
         return outfits
 

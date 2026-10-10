@@ -64,13 +64,15 @@ def test_classifier_accepts_flat_lay():
 
 
 def test_classifier_conservative_when_inconclusive():
-    # busy two-colour checker backdrop (no uniform dominance, no skin chroma)
+    # busy THREE-colour checker backdrop: no uniform dominance, no edge
+    # dominance, no skin chroma -> conservative 'model'
     img = np.zeros((H, W, 3), np.uint8)
-    ys = (np.arange(H) // 8) % 2
-    xs = (np.arange(W) // 8) % 2
-    checker = (ys[:, None] ^ xs[None, :]).astype(bool)
-    img[checker] = (0, 90, 0)
-    img[~checker] = (90, 0, 90)
+    idx = ((np.arange(H) // 8) % 3)[:, None] * 3 + ((np.arange(W) // 8) % 3)[None, :]
+    palette = {0: (0, 90, 0), 1: (90, 0, 90), 2: (0, 0, 90),
+               3: (90, 0, 90), 4: (0, 0, 90), 5: (0, 90, 0),
+               6: (0, 0, 90), 7: (0, 90, 0), 8: (90, 0, 90)}
+    for k, c in palette.items():
+        img[idx == k] = c
     img[H // 3 : 2 * H // 3, W // 4 : 3 * W // 4] = NAVY  # garment, no person
     photo_type, ev = classify_garment_photo(Image.fromarray(img))
     assert photo_type == "model"
@@ -91,3 +93,28 @@ def test_gate_allows_flat_lay_and_prepared_assets():
 
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))
+
+
+def test_beige_fabric_not_counted_as_skin():
+    # v2 regression (measured 2026-10-10): beige/tan garments sit inside the
+    # YCrCb skin chroma bounds; the human-scale blob filter must discard the
+    # garment-sized chroma match so a beige sweater on a plain backdrop is
+    # accepted as a ready flat-lay, not blocked as a worn photo.
+    img = np.zeros((H, W, 3), np.uint8)
+    img[:] = (248, 248, 248)
+    img[H // 4 : 3 * H // 4, W // 4 : 3 * W // 4] = (214, 196, 172)  # beige knit
+    photo_type, ev = classify_garment_photo(Image.fromarray(img))
+    assert photo_type == "flat-lay"
+    assert ev["skin_ratio"] < 0.015
+
+
+def test_small_skin_blobs_still_flag_worn():
+    # hands-sized skin blobs must SURVIVE the blob filter (recall guard)
+    img = _flat_lay()
+    yy, xx = np.ogrid[:H, :W]
+    for cx in (W // 2 - 50, W // 2 + 50):
+        blob = ((yy - int(0.8 * H)) ** 2) // 4 + (xx - cx) ** 2 <= 12**2
+        img[blob] = SKIN
+    photo_type, ev = classify_garment_photo(Image.fromarray(img))
+    assert photo_type == "model"
+    assert ev["detector"] == "skin-ratio"

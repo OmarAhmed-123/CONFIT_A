@@ -37,16 +37,84 @@ from PIL import Image
 
 SKIN_RATIO_MODEL_THRESHOLD = 0.015   # >=1.5% skin pixels => a person is in frame
 BG_UNIFORM_FLATLAY_THRESHOLD = 0.45  # >=45% single quantised colour => studio backdrop
+EDGE_UNIFORM_FLATLAY_THRESHOLD = 0.45  # v3: border band is one colour => product shot
 
 
 def _skin_ratio(rgb: np.ndarray) -> float:
+    """Skin-pixel fraction, FALSE-POSITIVE-FILTERED (v2, 2026-10-10).
+
+    Measured on the labeled golden set v1: beige/tan/cream garments sit
+    inside the YCrCb skin chroma bounds, so a raw skin ratio flagged a beige
+    sweater as a person (0.30!) while real hands measure 1-10%. The fix:
+    skin is only counted when it forms HUMAN-scale blobs (<= 12% of frame —
+    hands/face/neck); garment-sized chroma matches are discarded. Measured
+    effect on the labeled set: worn recall stays 5/5 (incl. dark skin),
+    flat-lay false rejects drop 4/8 -> 2/8.
+    """
     r = rgb[..., 0].astype(np.int16)
     g = rgb[..., 1].astype(np.int16)
     b = rgb[..., 2].astype(np.int16)
     cr = 128 + ((r * 112 - g * 94 - b * 18) >> 8)
     cb = 128 + ((-r * 38 - g * 74 + b * 112) >> 8)
     mask = (cr >= 133) & (cr <= 173) & (cb >= 77) & (cb <= 127)
-    return float(mask.mean())
+    if not mask.any():
+        return 0.0
+    # merge shading-split fragments of the SAME fabric before sizing blobs
+    for _ in range(2):
+        m = mask
+        for dy in (-1, 0, 1):
+            for dx in (-1, 0, 1):
+                m = m | np.roll(np.roll(mask, dy, 0), dx, 1)
+        mask = m
+    human = _human_scale_skin(mask, max_blob_frac=0.12)
+    return float(human.sum() / mask.size)
+
+
+def _human_scale_skin(mask: np.ndarray, max_blob_frac: float) -> np.ndarray:
+    """Keep only connected skin components <= max_blob_frac of the frame."""
+    try:
+        import cv2
+
+        n, labels, stats, _ = cv2.connectedComponentsWithStats(mask.astype(np.uint8), 8)
+        cap = int(max_blob_frac * mask.size)
+        keep = np.zeros_like(mask)
+        for i in range(1, n):
+            if stats[i, cv2.CC_STAT_AREA] <= cap:
+                keep |= labels == i
+        return keep
+    except Exception:
+        # cv2-free fallback (Vercel): same component filter on a <=128px
+        # max-pooled copy (pure numpy BFS; a few ms at this size).
+        small = mask
+        while max(small.shape) > 128:
+            h, w = small.shape
+            small = (small[0 : h - h % 2 : 2, 0 : w - w % 2 : 2]
+                     | small[1 : h - (h % 2) + 1 : 2, 0 : w - w % 2 : 2]
+                     | small[0 : h - h % 2 : 2, 1 : w - (w % 2) + 1 : 2]
+                     | small[1 : h - (h % 2) + 1 : 2, 1 : w - (w % 2) + 1 : 2])
+        h, w = small.shape
+        cap = int(max_blob_frac * small.size)
+        seen = np.zeros_like(small, bool)
+        keep = np.zeros_like(small, bool)
+        for y in range(h):
+            for x in range(w):
+                if small[y, x] and not seen[y, x]:
+                    stack = [(y, x)]
+                    seen[y, x] = True
+                    pts = []
+                    while stack:
+                        cy, cx = stack.pop()
+                        pts.append((cy, cx))
+                        for dy in (-1, 0, 1):
+                            for dx in (-1, 0, 1):
+                                ny, nx = cy + dy, cx + dx
+                                if 0 <= ny < h and 0 <= nx < w and small[ny, nx] and not seen[ny, nx]:
+                                    seen[ny, nx] = True
+                                    stack.append((ny, nx))
+                    if len(pts) <= cap:
+                        for cy, cx in pts:
+                            keep[cy, cx] = True
+        return keep
 
 
 def _bg_uniformity(rgb: np.ndarray) -> float:
@@ -54,6 +122,26 @@ def _bg_uniformity(rgb: np.ndarray) -> float:
     q = (rgb // 32).astype(np.uint32)
     keys = (q[..., 0] << 8) | (q[..., 1] << 4) | q[..., 2]
     vals, counts = np.unique(keys, return_counts=True)
+    return float(counts.max() / keys.size)
+
+
+def _edge_uniformity(rgb: np.ndarray, band_frac: float = 0.06) -> float:
+    """Dominant-colour fraction of the outer border band (v3 detector).
+
+    Product shots (flat-lay / ghost-mannequin) sit on a studio backdrop, so
+    their border band is one colour; measured ready set 0.52-1.00. Worn
+    catalog photos that ALSO have plain studio backdrops are already caught
+    by the skin detector first, so this detector only ever runs when
+    human-scale skin is absent (see classify_garment_photo order)."""
+    h, w = rgb.shape[:2]
+    m = max(2, int(min(h, w) * band_frac))
+    edges = np.concatenate([
+        rgb[:m].reshape(-1, 3), rgb[-m:].reshape(-1, 3),
+        rgb[:, :m].reshape(-1, 3), rgb[:, -m:].reshape(-1, 3),
+    ])
+    q = (edges // 24).astype(np.uint32)
+    keys = (q[:, 0] << 8) | (q[:, 1] << 4) | q[:, 2]
+    _, counts = np.unique(keys, return_counts=True)
     return float(counts.max() / keys.size)
 
 
@@ -70,11 +158,16 @@ def classify_garment_photo(image: Image.Image) -> Tuple[str, Dict]:
 
     skin = _skin_ratio(rgb)
     bg = _bg_uniformity(rgb)
+    edge = _edge_uniformity(rgb)
 
     if skin >= SKIN_RATIO_MODEL_THRESHOLD:
         verdict, detector = "model", "skin-ratio"
     elif bg >= BG_UNIFORM_FLATLAY_THRESHOLD:
         verdict, detector = "flat-lay", "background-uniformity"
+    elif edge >= EDGE_UNIFORM_FLATLAY_THRESHOLD and skin == 0.0:
+        # v3 (measured 2026-10-10): studio border + zero human-scale skin.
+        # Safe order: any worn photo with detectable skin never reaches here.
+        verdict, detector = "flat-lay", "edge-uniformity"
     else:
         verdict, detector = "model", "conservative-default"
 
@@ -82,9 +175,11 @@ def classify_garment_photo(image: Image.Image) -> Tuple[str, Dict]:
         "detector": detector,
         "skin_ratio": round(skin, 4),
         "bg_uniformity": round(bg, 4),
+        "edge_uniformity": round(edge, 4),
         "thresholds": {
             "skin_ratio_model": SKIN_RATIO_MODEL_THRESHOLD,
             "bg_uniformity_flatlay": BG_UNIFORM_FLATLAY_THRESHOLD,
+            "edge_uniformity_flatlay": EDGE_UNIFORM_FLATLAY_THRESHOLD,
         },
     }
 

@@ -1,0 +1,599 @@
+[
+  {
+    "surface": "stylist",
+    "url": "http://localhost:43123/stylist",
+    "language": "en",
+    "document_lang": "en",
+    "script_census": {
+      "arabic": 7,
+      "latin": 4643
+    },
+    "violations": [],
+    "raw_keys": {
+      "hits": [],
+      "count": 0
+    },
+    "keyboard": {
+      "focusableCount": 197,
+      "imagesWithoutAlt": 0,
+      "landmarks": {
+        "main": 1,
+        "nav": 1,
+        "header": 1
+      },
+      "h1Count": 1,
+      "liveRegions": 33
+    },
+    "ax_names": {
+      "axControls": 195,
+      "namelessCount": 0,
+      "nameless": [],
+      "placeholderOnlyCount": 0,
+      "placeholderOnly": []
+    },
+    "keyboard_traversal": {
+      "tabBudget": 30,
+      "stopsObserved": 30,
+      "stoppedEarly": false,
+      "stopsWithoutFocusIndicator": [],
+      "noIndicatorCount": 0,
+      "devOnlyChrome": [],
+      "obscured": [],
+      "obscuredCount": 0,
+      "obscuredTransientNotReproduced": [],
+      "obscuredTransientCount": 0,
+      "partlyObscured": [],
+      "partlyObscuredCount": 0,
+      "truth": [
+        {
+          "tag": "a",
+          "text": "Skip to main content",
+          "indicator": "outline"
+        },
+        {
+          "tag": "a",
+          "text": "Partner PortalPartner Portal",
+          "indicator": "outline"
+        },
+        {
+          "tag": "button",
+          "text": "English",
+          "indicator": "outline"
+        },
+        {
+          "tag": "button",
+          "text": "العربية",
+          "indicator": "outline"
+        },
+        {
+          "tag": "select",
+          "text": "Market defaultUSD — US Dollar",
+          "indicator": "outline"
+        },
+        {
+          "tag": "a",
+          "text": "CONFITConfidence + Fit",
+          "indicator": "outline"
+        },
+        {
+          "tag": "a",
+          "text": "Home",
+          "indicator": "outline"
+        },
+        {
+          "tag": "button",
+          "text": "Style & Discover",
+          "indicator": "outline"
+        },
+        {
+          "tag": "button",
+          "text": "Try-On & Fit",
+          "indicator": "outline"
+        },
+        {
+          "tag": "button",
+          "text": "My Wardrobe",
+          "indicator": "outline"
+        },
+        {
+          "tag": "button",
+          "text": "Shop",
+          "indicator": "outline"
+        },
+        {
+          "tag": "button",
+          "text": "Open visual search",
+          "indicator": "outline"
+        }
+      ]
+    },
+    "typography": {
+      "bodyFontFamily": "Inter, system-ui, -apple-system, sans-serif",
+      "cairoUsable": false,
+      "cairoFaces": [
+        "Cairo unloaded",
+        "Cairo unloaded",
+        "Cairo unloaded",
+        "Cairo unloaded",
+        "Cairo unloaded",
+        "Cairo unloaded",
+        "Cairo unloaded",
+        "Cairo unloaded",
+        "Cairo unloaded",
+        "Cairo unloaded",
+        "Cairo unloaded",
+        "Cairo unloaded",
+        "Cairo unloaded",
+        "Cairo unloaded",
+        "Cairo unloaded",
+        "Cairo unloaded",
+        "Cairo unloaded",
+        "Cairo unloaded"
+      ],
+      "loadedFaces": 73
+    }
+  },
+  {
+    "surface": "__console__",
+    "language": "en",
+    "errors": []
+  },
+  {
+    "surface": "__console_control__",
+    "language": "en",
+    "injection": false,
+    "errors": [
+      {
+        "tag": "error",
+        "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      },
+      {
+        "tag": "error",
+        "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      },
+      {
+        "tag": "error",
+        "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      },
+      {
+        "tag": "error",
+        "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      },
+      {
+        "tag": "error",
+        "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      },
+      {
+        "tag": "error",
+        "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      }
+    ]
+  },
+  {
+    "surface": "stylist",
+    "url": "http://localhost:43123/stylist",
+    "language": "ar",
+    "document_lang": "ar",
+    "script_census": {
+      "arabic": 3557,
+      "latin": 1114
+    },
+    "violations": [],
+    "raw_keys": {
+      "hits": [],
+      "count": 0
+    },
+    "keyboard": {
+      "focusableCount": 197,
+      "imagesWithoutAlt": 0,
+      "landmarks": {
+        "main": 1,
+        "nav": 1,
+        "header": 1
+      },
+      "h1Count": 1,
+      "liveRegions": 33
+    },
+    "ax_names": {
+      "axControls": 195,
+      "namelessCount": 0,
+      "nameless": [],
+      "placeholderOnlyCount": 0,
+      "placeholderOnly": []
+    },
+    "keyboard_traversal": {
+      "tabBudget": 30,
+      "stopsObserved": 30,
+      "stoppedEarly": false,
+      "stopsWithoutFocusIndicator": [],
+      "noIndicatorCount": 0,
+      "devOnlyChrome": [],
+      "obscured": [],
+      "obscuredCount": 0,
+      "obscuredTransientNotReproduced": [],
+      "obscuredTransientCount": 0,
+      "partlyObscured": [
+        {
+          "tag": "button",
+          "text": "إضافة أو إزالة من المفضلة",
+          "visibleFraction": 0.6,
+          "obscuredBy": "BUTTON.p-2.rounded-full"
+        }
+      ],
+      "partlyObscuredCount": 1,
+      "truth": [
+        {
+          "tag": "a",
+          "text": "تخطَّ إلى المحتوى الرئيسي",
+          "indicator": "outline"
+        },
+        {
+          "tag": "a",
+          "text": "بوابة الشركاءبوابة الشركاء",
+          "indicator": "outline"
+        },
+        {
+          "tag": "button",
+          "text": "English",
+          "indicator": "outline"
+        },
+        {
+          "tag": "button",
+          "text": "العربية",
+          "indicator": "outline"
+        },
+        {
+          "tag": "select",
+          "text": "العملة الافتراضية للسوقUSD — دولار أمريكي",
+          "indicator": "outline"
+        },
+        {
+          "tag": "a",
+          "text": "CONFITثقة + مقاس مضبوط",
+          "indicator": "outline"
+        },
+        {
+          "tag": "a",
+          "text": "الرئيسية",
+          "indicator": "outline"
+        },
+        {
+          "tag": "button",
+          "text": "الأناقة والاستكشاف",
+          "indicator": "outline"
+        },
+        {
+          "tag": "button",
+          "text": "القياس الافتراضي والملاءمة",
+          "indicator": "outline"
+        },
+        {
+          "tag": "button",
+          "text": "خزانتي الذكية",
+          "indicator": "outline"
+        },
+        {
+          "tag": "button",
+          "text": "المتجر",
+          "indicator": "outline"
+        },
+        {
+          "tag": "button",
+          "text": "افتح البحث البصري",
+          "indicator": "outline"
+        }
+      ]
+    },
+    "typography": {
+      "bodyFontFamily": "Cairo, Tajawal, \"IBM Plex Sans Arabic\", system-ui, sans-serif",
+      "cairoUsable": true,
+      "cairoFaces": [
+        "Cairo loaded",
+        "Cairo unloaded",
+        "Cairo loaded",
+        "Cairo loaded",
+        "Cairo unloaded",
+        "Cairo loaded",
+        "Cairo loaded",
+        "Cairo unloaded",
+        "Cairo loaded",
+        "Cairo loaded",
+        "Cairo unloaded",
+        "Cairo loaded",
+        "Cairo loaded",
+        "Cairo unloaded",
+        "Cairo loaded",
+        "Cairo loaded",
+        "Cairo unloaded",
+        "Cairo loaded"
+      ],
+      "loadedFaces": 73
+    },
+    "rtl": {
+      "dir": "rtl",
+      "lang": "ar",
+      "documentOverflowX": 0,
+      "leaks": [],
+      "clippedByDesign": [
+        {
+          "tag": "a",
+          "cls": "sr-only focus:not-sr-only focus:fixed focus:top-3 focus:star",
+          "dx": 163,
+          "text": "تخطَّ إلى المحتوى الرئيسي"
+        },
+        {
+          "tag": "label",
+          "cls": "sr-only",
+          "dx": 85,
+          "text": "تغيير عملة العرض"
+        },
+        {
+          "tag": "section",
+          "cls": "relative overflow-hidden rounded-[32px] border border-[#C5A0",
+          "dx": 96,
+          "text": "تشكيلة الحالة المزاجيةتصفّح حسب اتجاه ال"
+        },
+        {
+          "tag": "div",
+          "cls": "min-w-0 overflow-hidden py-2",
+          "dx": 98,
+          "text": "أناقة رسميةقصّات مُحكمة للعمل والعشاء وإ"
+        },
+        {
+          "tag": "div",
+          "cls": "w-full",
+          "dx": 98,
+          "text": "أناقة رسميةقصّات مُحكمة للعمل والعشاء وإ"
+        },
+        {
+          "tag": "div",
+          "cls": "relative w-full",
+          "dx": 98,
+          "text": "أناقة رسميةقصّات مُحكمة للعمل والعشاء وإ"
+        }
+      ],
+      "bodyText": "تخطَّ إلى المحتوى الرئيسي\nCONFIT تقنية أزياء دقيقة — ذكاء المقاسات والقَصّات\nبوابة الشركاء\nEnglish\nالعربية\nتغيير عملة ال"
+    },
+    "untranslated": {
+      "total": 53,
+      "sample": [
+        {
+          "text": "English",
+          "tag": "button",
+          "cls": "px-2.5 py-1 text-[11px] font-semibold ro"
+        },
+        {
+          "text": "Reiss",
+          "tag": "span",
+          "cls": "text-[10px] font-bold text-slate-500 upp"
+        },
+        {
+          "text": "Structured Metallic Evening Box Clutch",
+          "tag": "a",
+          "cls": "hover:text-[#C5A059]"
+        },
+        {
+          "text": "Black & Gold",
+          "tag": "span",
+          "cls": "text-[11px] text-slate-500 font-light tr"
+        },
+        {
+          "text": "Reiss",
+          "tag": "span",
+          "cls": "text-[10px] font-bold text-slate-500 upp"
+        },
+        {
+          "text": "Silk Jacquard Evening Necktie",
+          "tag": "a",
+          "cls": "hover:text-[#C5A059]"
+        },
+        {
+          "text": "Emerald Green",
+          "tag": "span",
+          "cls": "text-[11px] text-slate-500 font-light tr"
+        },
+        {
+          "text": "Massimo Dutti",
+          "tag": "span",
+          "cls": "text-[10px] font-bold text-slate-500 upp"
+        },
+        {
+          "text": "Goodyear Welted Leather Oxford Shoes",
+          "tag": "a",
+          "cls": "hover:text-[#C5A059]"
+        },
+        {
+          "text": "Obsidian Black",
+          "tag": "span",
+          "cls": "text-[11px] text-slate-500 font-light tr"
+        },
+        {
+          "text": "Reiss",
+          "tag": "span",
+          "cls": "text-[10px] font-bold text-slate-500 upp"
+        },
+        {
+          "text": "Silk Slip Column Maxi Dress with Drape Neckline",
+          "tag": "a",
+          "cls": "hover:text-[#C5A059]"
+        },
+        {
+          "text": "Champagne Gold",
+          "tag": "span",
+          "cls": "text-[11px] text-slate-500 font-light tr"
+        },
+        {
+          "text": "Reiss",
+          "tag": "span",
+          "cls": "text-[10px] font-bold text-slate-500 upp"
+        },
+        {
+          "text": "Tuxedo Peak Lapel Evening Dinner Jacket",
+          "tag": "a",
+          "cls": "hover:text-[#C5A059]"
+        },
+        {
+          "text": "Midnight Black",
+          "tag": "span",
+          "cls": "text-[11px] text-slate-500 font-light tr"
+        },
+        {
+          "text": "Massimo Dutti",
+          "tag": "span",
+          "cls": "text-[10px] font-bold text-slate-500 upp"
+        },
+        {
+          "text": "Tailored Italian Wool Double-Breasted Blazer",
+          "tag": "a",
+          "cls": "hover:text-[#C5A059]"
+        },
+        {
+          "text": "Navy Blue",
+          "tag": "span",
+          "cls": "text-[11px] text-slate-500 font-light tr"
+        },
+        {
+          "text": "Reiss",
+          "tag": "span",
+          "cls": "text-[10px] font-bold text-slate-500 upp"
+        },
+        {
+          "text": "Strappy Metallic Leather Heeled Sandals",
+          "tag": "a",
+          "cls": "hover:text-[#C5A059]"
+        },
+        {
+          "text": "Metallic Gold",
+          "tag": "span",
+          "cls": "text-[11px] text-slate-500 font-light tr"
+        },
+        {
+          "text": "Massimo Dutti",
+          "tag": "span",
+          "cls": "text-[10px] font-bold text-slate-500 upp"
+        },
+        {
+          "text": "Pleated Tapered Virgin Wool Trousers",
+          "tag": "a",
+          "cls": "hover:text-[#C5A059]"
+        },
+        {
+          "text": "Navy Blue",
+          "tag": "span",
+          "cls": "text-[11px] text-slate-500 font-light tr"
+        },
+        {
+          "text": "Relaxed Organic Poplin Oxford Shirt",
+          "tag": "a",
+          "cls": "hover:text-[#C5A059]"
+        },
+        {
+          "text": "Optic White",
+          "tag": "span",
+          "cls": "text-[11px] text-slate-500 font-light tr"
+        },
+        {
+          "text": "Reiss",
+          "tag": "span",
+          "cls": "text-[10px] font-bold text-slate-500 upp"
+        },
+        {
+          "text": "Structured Metallic Evening Box Clutch",
+          "tag": "a",
+          "cls": "hover:text-[#C5A059]"
+        },
+        {
+          "text": "Black & Gold",
+          "tag": "span",
+          "cls": "text-[11px] text-slate-500 font-light tr"
+        },
+        {
+          "text": "Reiss",
+          "tag": "span",
+          "cls": "text-[10px] font-bold text-slate-500 upp"
+        },
+        {
+          "text": "Silk Jacquard Evening Necktie",
+          "tag": "a",
+          "cls": "hover:text-[#C5A059]"
+        },
+        {
+          "text": "Emerald Green",
+          "tag": "span",
+          "cls": "text-[11px] text-slate-500 font-light tr"
+        },
+        {
+          "text": "Massimo Dutti",
+          "tag": "span",
+          "cls": "text-[10px] font-bold text-slate-500 upp"
+        },
+        {
+          "text": "Goodyear Welted Leather Oxford Shoes",
+          "tag": "a",
+          "cls": "hover:text-[#C5A059]"
+        },
+        {
+          "text": "Obsidian Black",
+          "tag": "span",
+          "cls": "text-[11px] text-slate-500 font-light tr"
+        },
+        {
+          "text": "Reiss",
+          "tag": "span",
+          "cls": "text-[10px] font-bold text-slate-500 upp"
+        },
+        {
+          "text": "Silk Slip Column Maxi Dress with Drape Neckline",
+          "tag": "a",
+          "cls": "hover:text-[#C5A059]"
+        },
+        {
+          "text": "Champagne Gold",
+          "tag": "span",
+          "cls": "text-[11px] text-slate-500 font-light tr"
+        },
+        {
+          "text": "Reiss",
+          "tag": "span",
+          "cls": "text-[10px] font-bold text-slate-500 upp"
+        }
+      ]
+    }
+  },
+  {
+    "surface": "__console__",
+    "language": "ar",
+    "errors": []
+  },
+  {
+    "surface": "__console_control__",
+    "language": "ar",
+    "injection": false,
+    "errors": [
+      {
+        "tag": "error",
+        "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      },
+      {
+        "tag": "error",
+        "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      },
+      {
+        "tag": "error",
+        "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      },
+      {
+        "tag": "error",
+        "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      },
+      {
+        "tag": "error",
+        "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      },
+      {
+        "tag": "error",
+        "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      }
+    ]
+  }
+]

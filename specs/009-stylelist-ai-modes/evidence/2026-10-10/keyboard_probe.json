@@ -1,0 +1,326 @@
+[
+  {
+    "lang": "en",
+    "pageErrors": [],
+    "checks": [
+      {
+        "id": "opener reachable by Tab",
+        "ok": true,
+        "detail": {
+          "trace": [
+            {
+              "tag": "a",
+              "role": null,
+              "type": null,
+              "name": "Skip to main content",
+              "inDialog": false,
+              "visibleFocus": true,
+              "focusIndicator": "box-shadow"
+            },
+            {
+              "tag": "a",
+              "role": null,
+              "type": null,
+              "name": "Partner PortalPartner Portal",
+              "inDialog": false,
+              "visibleFocus": true,
+              "focusIndicator": "outline"
+            },
+            {
+              "tag": "button",
+              "role": null,
+              "type": "button",
+              "name": "English",
+              "inDialog": false,
+              "visibleFocus": true,
+              "focusIndicator": "box-shadow"
+            },
+            {
+              "tag": "button",
+              "role": null,
+              "type": "button",
+              "name": "Open AI Virtual Stylist",
+              "inDialog": false,
+              "visibleFocus": true,
+              "focusIndicator": "box-shadow"
+            }
+          ]
+        }
+      },
+      {
+        "id": "opener shows a visible focus indicator",
+        "ok": true,
+        "detail": {
+          "tag": "button",
+          "role": null,
+          "type": "button",
+          "name": "Open AI Virtual Stylist",
+          "inDialog": false,
+          "visibleFocus": true,
+          "focusIndicator": "box-shadow"
+        }
+      },
+      {
+        "id": "Enter on opener opens dialog",
+        "ok": true,
+        "detail": {
+          "dialogLabel": "AI stylist"
+        }
+      },
+      {
+        "id": "focus moves into dialog on open",
+        "ok": true,
+        "detail": {
+          "tag": "button",
+          "role": null,
+          "type": null,
+          "name": "Close",
+          "inDialog": true,
+          "visibleFocus": true,
+          "focusIndicator": "box-shadow"
+        }
+      },
+      {
+        "id": "dialog is aria-modal",
+        "ok": true
+      },
+      {
+        "id": "Tab focus is trapped inside the dialog",
+        "ok": true,
+        "detail": {
+          "escaped": false
+        }
+      },
+      {
+        "id": "every Tab stop shows a visible focus indicator",
+        "ok": true,
+        "detail": {
+          "noFocusVisible": []
+        }
+      },
+      {
+        "id": "remove-photo control reachable by keyboard",
+        "ok": true,
+        "detail": {
+          "removeCount": 2
+        }
+      },
+      {
+        "id": "keyboard Enter removes a photo",
+        "ok": true,
+        "detail": {
+          "beforeRemove": 2,
+          "afterRemove": 1
+        }
+      },
+      {
+        "id": "focus stays inside dialog after removing a photo",
+        "ok": true,
+        "detail": {
+          "tag": "button",
+          "role": null,
+          "type": "button",
+          "name": "Remove photo 1",
+          "inDialog": true,
+          "visibleFocus": true,
+          "focusIndicator": "box-shadow"
+        }
+      },
+      {
+        "id": "prompt input has an accessible name (not placeholder-only)",
+        "ok": true,
+        "detail": {
+          "ariaLabel": "Describe your outfit request",
+          "labelCount": 0,
+          "placeholder": "Describe what you want to wear, an occasion, or budget (e.g. 'Smart casual dinner outfit within my budget')..."
+        }
+      },
+      {
+        "id": "submit with Enter reaches a live-region state (loading or error)",
+        "ok": true
+      },
+      {
+        "id": "Escape closes the dialog",
+        "ok": true,
+        "detail": {
+          "dialogStillOpen": 0
+        }
+      },
+      {
+        "id": "focus returns to the opener after close",
+        "ok": true,
+        "detail": {
+          "tag": "button",
+          "role": null,
+          "type": "button",
+          "name": "Open AI Virtual Stylist",
+          "inDialog": false,
+          "visibleFocus": true,
+          "focusIndicator": "box-shadow"
+        }
+      }
+    ]
+  },
+  {
+    "lang": "ar",
+    "pageErrors": [],
+    "checks": [
+      {
+        "id": "opener reachable by Tab",
+        "ok": true,
+        "detail": {
+          "trace": [
+            {
+              "tag": "a",
+              "role": null,
+              "type": null,
+              "name": "تخطَّ إلى المحتوى الرئيسي",
+              "inDialog": false,
+              "visibleFocus": true,
+              "focusIndicator": "box-shadow"
+            },
+            {
+              "tag": "a",
+              "role": null,
+              "type": null,
+              "name": "بوابة الشركاءبوابة الشركاء",
+              "inDialog": false,
+              "visibleFocus": true,
+              "focusIndicator": "outline"
+            },
+            {
+              "tag": "button",
+              "role": null,
+              "type": "button",
+              "name": "English",
+              "inDialog": false,
+              "visibleFocus": true,
+              "focusIndicator": "outline"
+            },
+            {
+              "tag": "button",
+              "role": null,
+              "type": "button",
+              "name": "افتح المنسق الافتراضي بالذكاء الاصطناعي",
+              "inDialog": false,
+              "visibleFocus": true,
+              "focusIndicator": "box-shadow"
+            }
+          ]
+        }
+      },
+      {
+        "id": "opener shows a visible focus indicator",
+        "ok": true,
+        "detail": {
+          "tag": "button",
+          "role": null,
+          "type": "button",
+          "name": "افتح المنسق الافتراضي بالذكاء الاصطناعي",
+          "inDialog": false,
+          "visibleFocus": true,
+          "focusIndicator": "box-shadow"
+        }
+      },
+      {
+        "id": "Enter on opener opens dialog",
+        "ok": true,
+        "detail": {
+          "dialogLabel": "المنسّق الافتراضي"
+        }
+      },
+      {
+        "id": "focus moves into dialog on open",
+        "ok": true,
+        "detail": {
+          "tag": "button",
+          "role": null,
+          "type": null,
+          "name": "إغلاق",
+          "inDialog": true,
+          "visibleFocus": true,
+          "focusIndicator": "box-shadow"
+        }
+      },
+      {
+        "id": "dialog is aria-modal",
+        "ok": true
+      },
+      {
+        "id": "Tab focus is trapped inside the dialog",
+        "ok": true,
+        "detail": {
+          "escaped": false
+        }
+      },
+      {
+        "id": "every Tab stop shows a visible focus indicator",
+        "ok": true,
+        "detail": {
+          "noFocusVisible": []
+        }
+      },
+      {
+        "id": "remove-photo control reachable by keyboard",
+        "ok": true,
+        "detail": {
+          "removeCount": 2
+        }
+      },
+      {
+        "id": "keyboard Enter removes a photo",
+        "ok": true,
+        "detail": {
+          "beforeRemove": 2,
+          "afterRemove": 1
+        }
+      },
+      {
+        "id": "focus stays inside dialog after removing a photo",
+        "ok": true,
+        "detail": {
+          "tag": "button",
+          "role": null,
+          "type": "button",
+          "name": "إزالة الصورة 1",
+          "inDialog": true,
+          "visibleFocus": true,
+          "focusIndicator": "box-shadow"
+        }
+      },
+      {
+        "id": "prompt input has an accessible name (not placeholder-only)",
+        "ok": true,
+        "detail": {
+          "ariaLabel": "صف طلب الإطلالة الذي تريده",
+          "labelCount": 0,
+          "placeholder": "صف ما تريد ارتداءه، المناسبة، أو الميزانية (مثال: \"إطلالة عشاء كاجوال أنيق ضمن ميزانيتي\")..."
+        }
+      },
+      {
+        "id": "submit with Enter reaches a live-region state (loading or error)",
+        "ok": true
+      },
+      {
+        "id": "Escape closes the dialog",
+        "ok": true,
+        "detail": {
+          "dialogStillOpen": 0
+        }
+      },
+      {
+        "id": "focus returns to the opener after close",
+        "ok": true,
+        "detail": {
+          "tag": "button",
+          "role": null,
+          "type": "button",
+          "name": "افتح المنسق الافتراضي بالذكاء الاصطناعي",
+          "inDialog": false,
+          "visibleFocus": true,
+          "focusIndicator": "box-shadow"
+        }
+      }
+    ]
+  }
+]

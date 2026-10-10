@@ -1,0 +1,118 @@
+{
+  "persisted": {
+    "id": 4,
+    "title": "The Evening & Party Silk Column Silhouette",
+    "occasion": "Evening & Party",
+    "items": 3
+  },
+  "checks": [
+    {
+      "id": "shopper login via real endpoint returns 200",
+      "ok": true,
+      "detail": {
+        "sLogin": 200
+      }
+    },
+    {
+      "id": "Mode A answer shows the Save look control",
+      "ok": true
+    },
+    {
+      "id": "saved state announced with role=status",
+      "ok": true
+    },
+    {
+      "id": "the saved look's Save control is removed (count drops by exactly one)",
+      "ok": true,
+      "detail": {
+        "saveButtonsBefore": 2
+      }
+    },
+    {
+      "id": "exactly one save request sent for a double click",
+      "ok": true,
+      "detail": {
+        "sentPosts": 1
+      }
+    },
+    {
+      "id": "save request carries product ids (numbers) and a title",
+      "ok": true,
+      "detail": {
+        "title": "The Evening & Party Silk Column Silhouette",
+        "occasion": "Evening & Party",
+        "product_ids": [
+          5,
+          7,
+          9
+        ]
+      }
+    },
+    {
+      "id": "save request carries no image payload",
+      "ok": true,
+      "detail": {}
+    },
+    {
+      "id": "exactly one look persisted (count +1)",
+      "ok": true,
+      "detail": {
+        "beforeCount": 3,
+        "afterCount": 4
+      }
+    },
+    {
+      "id": "persisted look is retrievable via GET /api/v1/outfits with the same title",
+      "ok": true,
+      "detail": {
+        "title": "The Evening & Party Silk Column Silhouette"
+      }
+    },
+    {
+      "id": "other user's login succeeds (isolation test is meaningful)",
+      "ok": true,
+      "detail": {
+        "oLogin": 200
+      }
+    },
+    {
+      "id": "other user cannot see the shopper's look",
+      "ok": true,
+      "detail": {
+        "leaked": false
+      }
+    },
+    {
+      "id": "no data:image base64 stored in any text column of the test DB",
+      "ok": true,
+      "detail": {
+        "hits": 0
+      }
+    },
+    {
+      "id": "server failure shows the generic localized error",
+      "ok": true
+    },
+    {
+      "id": "server failure does not leak the raw server detail",
+      "ok": true
+    },
+    {
+      "id": "save button stays available to retry after a failure",
+      "ok": true
+    },
+    {
+      "id": "guest sees the sign-in message (401), not a silent failure",
+      "ok": true
+    },
+    {
+      "id": "guest save does not show success",
+      "ok": true
+    },
+    {
+      "id": "guest save persists nothing",
+      "ok": true,
+      "detail": {}
+    }
+  ]
+}

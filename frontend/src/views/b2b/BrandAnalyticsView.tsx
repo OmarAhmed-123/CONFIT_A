@@ -17,7 +17,7 @@ export const BrandAnalyticsView: React.FC = () => {
     // actionable error (the C6 no-silent-failure rule extended to B2B).
     return (
       <EmptyState
-        title="Telemetry unavailable"
+        title={t("brand_analytics.telemetry_unavailable")}
         description={fetchErrors.analytics || 'The analytics service could not be reached. Your data is intact — retry when the service is back.'}
         actionText="Retry"
         onAction={refresh}
@@ -112,8 +112,8 @@ export const BrandAnalyticsView: React.FC = () => {
                   <th className="py-2">Product</th>
                   <th className="py-2">Views</th>
                   <th className="py-2">Try-Ons</th>
-                  <th className="py-2">Add-to-Cart</th>
-                  <th className="py-2">Purchases</th>
+                  <th className="py-2">{t("brand_analytics.add_to_cart")}</th>
+                  <th className="py-2">{t("brand_analytics.purchases")}</th>
                   <th className="py-2">Conv %</th>
                 </tr>
               </thead>
@@ -145,14 +145,14 @@ export const BrandAnalyticsView: React.FC = () => {
         </h3>
         <div className="grid grid-cols-2 gap-4 text-xs">
           <div className="p-3 rounded-xl bg-white border">
-            <span className="text-slate-400 text-[10px] block uppercase">Non-Try-On cohort</span>
+            <span className="text-slate-400 text-[10px] block uppercase">{t("brand_analytics.non_tryon_cohort")}</span>
             <span className="font-mono text-lg font-bold text-rose-600">{percent(analytics.return_rate_before_vton)}</span>
             <span className="text-[11px] text-slate-500 block">Observed non-try-on order lines; no benchmark fallback</span>
           </div>
           <div className="p-3 rounded-xl bg-white border">
             <span className="text-slate-400 text-[10px] block uppercase">{t('b2b.tryon_assisted_cohort')}</span>
             <span className="font-mono text-lg font-bold text-emerald-600">{percent(analytics.return_rate_after_vton)}</span>
-            <span className="text-[11px] text-slate-500 block">Try-on assisted orders</span>
+            <span className="text-[11px] text-slate-500 block">{t("brand_analytics.tryon_assisted_orders")}</span>
           </div>
         </div>
         <p className="text-xs text-slate-600 leading-relaxed max-w-3xl">

@@ -18,6 +18,7 @@ import {
   UserIcon,
 } from '../../components/icons/ConfitIcons';
 import { BNPLBadge } from '../../components/common/CommonComponents';
+import { HonestProductImage } from '../../components/common/HonestProductImage';
 import { StatusIcon } from '../../components/common/InteractionPrimitives';
 
 function marketCode(country: string): string {
@@ -531,7 +532,7 @@ export const CheckoutView: React.FC = () => {
               {(cart?.items || []).map((it) => (
                 <div key={it.id} className="flex gap-3 text-xs">
                   <div className="w-12 h-14 rounded-xl bg-slate-100 overflow-hidden shrink-0 border border-slate-200/60">
-                    <img src={it.image_url} alt={it.product_title} className="w-full h-full object-cover" />
+                    <HonestProductImage src={it.image_url} alt={it.product_title} className="w-full h-full object-cover" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="font-bold text-slate-900 truncate">{it.product_title}</div>

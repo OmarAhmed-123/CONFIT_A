@@ -7,6 +7,7 @@ import { CardStackShowcase } from '../../components/showcase/DesignShowcases';
 import { ReadinessBanner } from '../../components/admin/ReadinessBanner';
 import { Reveal } from '../../components/common/Surface';
 import { BrandReportDownloadButton } from '../../components/admin/BrandReportDownloadButton';
+import { HonestProductImage } from '../../components/common/HonestProductImage';
 import type { StyleHeatmapCell } from '../../models';
 
 const HeatmapDimension: React.FC<{
@@ -393,7 +394,7 @@ export const AdminAnalyticsView: React.FC = () => {
             {adminAnalytics.most_styled_items.slice(0, 6).map((item, idx) => (
               <div key={item.product_id} className="flex items-center gap-3 p-3 rounded-2xl bg-[#FAF9F6] border">
                 <div className="w-8 h-8 rounded-xl bg-[#1B1F3B] text-white flex items-center justify-center font-bold text-xs">#{idx + 1}</div>
-                <div className="w-10 h-12 rounded bg-white overflow-hidden"><img src={item.thumbnail_url} alt={item.title} className="w-full h-full object-cover" /></div>
+                <div className="w-10 h-12 rounded bg-white overflow-hidden"><HonestProductImage src={item.thumbnail_url} alt={item.title} className="w-full h-full object-cover" /></div>
                 <div className="flex-1 min-w-0">
                   <div className="text-xs font-bold truncate">{item.title}</div>
                   <div className="text-[10px] text-slate-600">

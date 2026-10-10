@@ -21,6 +21,7 @@ import { compressImageToDataUrl } from "../../lib/imageUpload";
 import { usePhotoConsent } from "../../privacy/usePhotoConsent";
 import { formatMoney } from '../../i18n/format';
 import { StatusIcon } from '../common/InteractionPrimitives';
+import { HonestProductImage } from '../common/HonestProductImage';
 
 export const VirtualTryOnModal: React.FC = () => {
   const { t, i18n } = useTranslation();
@@ -431,10 +432,11 @@ export const VirtualTryOnModal: React.FC = () => {
                       <span>{t('tryon.custom_photo_active')}</span>
                       <button
                         onClick={() => setUploadedUserImage(null)}
-                        className="text-xs hover:text-rose-600 ml-1"
+                        className="text-xs hover:text-rose-600 ml-1 min-w-[44px] min-h-[44px] flex items-center justify-center"
                         title={t('tryon.remove_photo')}
+                        aria-label={t('tryon.remove_photo')}
                       >
-                        ✕
+                        <span aria-hidden="true">✕</span>
                       </button>
                     </div>
                   )}
@@ -506,9 +508,9 @@ export const VirtualTryOnModal: React.FC = () => {
                     </span>
                   </div>
                 ) : activePreviewTab === "animation" && animationResult ? (
-                  /* 2. Layer Assembly Sequence Player */
+                  /* 2. Layer Assembly Sequence Player — honest placeholder on failure */
                   <div className="relative w-full h-full flex flex-col justify-between p-4 bg-slate-950">
-                    <img
+                    <HonestProductImage
                       src={
                         animationResult.keyframes_sequence[activeKeyframeIndex]
                           ?.image_url || activeDisplayImage
@@ -568,9 +570,9 @@ export const VirtualTryOnModal: React.FC = () => {
                     </div>
                   </div>
                 ) : (
-                  /* 3. Static High-Fidelity Generative Try-On Stage */
+                  /* 3. Static High-Fidelity Generative Try-On Stage — honest placeholder on failure */
                   <div className="relative w-full h-full flex items-center justify-center">
-                    <img
+                    <HonestProductImage
                       src={activeDisplayImage}
                       alt="Try-On Canvas"
                       className="w-full h-full object-cover select-none"
@@ -705,7 +707,7 @@ export const VirtualTryOnModal: React.FC = () => {
                         key={slot}
                         className="inline-flex items-center gap-2 bg-[#FAF9F6] border border-slate-200 rounded-xl px-2.5 py-1 text-xs"
                       >
-                        <img
+                        <HonestProductImage
                           src={item.thumbnail_url}
                           alt={item.title}
                           className="w-5 h-5 rounded object-cover"
@@ -721,10 +723,11 @@ export const VirtualTryOnModal: React.FC = () => {
                         </span>
                         <button
                           onClick={() => removeGarmentFromCanvas(slot)}
-                          className="w-4 h-4 rounded-full bg-slate-200 hover:bg-rose-500 hover:text-white text-slate-600 flex items-center justify-center text-[9px] transition-colors"
+                          className="w-4 h-4 rounded-full bg-slate-200 hover:bg-rose-500 hover:text-white text-slate-600 flex items-center justify-center text-[9px] transition-colors min-w-[44px] min-h-[44px]"
                           title={t('tryon.remove_item')}
+                          aria-label={t('tryon.remove_item')}
                         >
-                          ✕
+                          <span aria-hidden="true">✕</span>
                         </button>
                       </div>
                     ))}
@@ -828,7 +831,7 @@ export const VirtualTryOnModal: React.FC = () => {
                       >
                         <div>
                           <div className="aspect-[3/4] rounded-xl overflow-hidden bg-white mb-2 relative shadow-2xs">
-                            <img
+                            <HonestProductImage
                               src={p.thumbnail_url}
                               alt={p.title}
                               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"

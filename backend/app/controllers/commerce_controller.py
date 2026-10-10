@@ -422,18 +422,11 @@ def get_order_by_number(
         service.assert_order_access(order, user, session_token=x_session_token, guest_email=guest_email)
     except AuthenticationError:
         if user is None:
-            # Registered orders: anonymous must get 401 AUTH_FAILED, not 404.
-            # Guest orders without correct second factor get 404 to prevent enumeration.
-            if order.get("user_id"):
-                raise
             _public_order_not_found()
         raise
     except AuthorizationError:
-        # Anonymous should never hit AuthorizationError for registered orders
-        # (they hit AuthenticationError above). For guest orders, normalize to 404.
         if user is None:
-            if not order.get("user_id"):
-                _public_order_not_found()
+            _public_order_not_found()
         raise
     return order
 
@@ -459,20 +452,12 @@ def get_order_tracking_timeline(
         if user is None:
             _public_order_not_found()
         raise
-    except AuthenticationError as e:
+    except AuthenticationError:
         if user is None:
-            # Registered customer orders must return 401 AUTH_FAILED for anonymous,
-            # not 404 — see test_g5_access_control_regression. Guest orders without
-            # valid second factor return 404 to prevent enumeration oracle.
-            if "registered customer" in str(e):
-                raise
             _public_order_not_found()
         raise
     except AuthorizationError:
         if user is None:
-            # For guest orders, normalize cross-user to 404; for registered orders
-            # this path should not be hit (AuthenticationError above), but keep 404
-            # for guest enumeration safety.
             _public_order_not_found()
         raise
 

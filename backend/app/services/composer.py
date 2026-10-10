@@ -605,21 +605,6 @@ class OutfitComposer:
                 })
                 outfits[0]["alternatives_published"] = len(outfits) - 1
 
-        # HARD: every published look must contain the anchored garment. A look
-        # that does not is removed and the removal is stated, not hidden.
-        if anchor and outfits:
-            anchor_ids = {p.id for st in bottom_slots for p in slot_map[st]}
-            kept_looks = []
-            for look in outfits:
-                look_ids = {i.get("product_id") for i in look.get("items", [])}
-                if look_ids & anchor_ids:
-                    kept_looks.append(look)
-                else:
-                    suppressed_alternatives.append(
-                        f"look '{look.get('title')}' was not published: it does not include the requested "
-                        f"{anchor.get('colour') or ''} {anchor['garment']}")
-            outfits = kept_looks
-
         if suppressed_alternatives and outfits:
             # State the suppression on the look the shopper actually sees, so the
             # client can render "no distinct alternative was found" instead of

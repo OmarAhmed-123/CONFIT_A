@@ -258,7 +258,9 @@ class StylistService:
             all_products, constraint_meta = apply_constraints(all_products, constraints)
             intent["recommendation_constraints"] = constraint_meta
 
-        # 7. Compose strict slot-based complete outfits grounded in the catalog
+        # 7. Compose strict slot-based complete outfits grounded in the catalog.
+        # Only pixel-supported photo colours (palette_items) steer the selection.
+        intent["image_palette"] = [p["color_family"] for p in palette_items if p.get("color_family")]
         recommended_outfits, alternatives_meta = StylingEngine.compose_outfits_with_meta(
             available_products=all_products,
             intent=intent,

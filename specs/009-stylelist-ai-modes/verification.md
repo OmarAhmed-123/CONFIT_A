@@ -517,3 +517,23 @@ Colour extraction feeds `ColorHarmonyEngine` (`_coordinate_with_palette`). **Lim
 **Tests.** `backend/tests/test_stylist_occasion_gate.py` (6 new, unit). Focused stylist and composer set (11 files): exit 0, 134 passed. Full `pytest backend/tests`: exit 0, 3841 passed, 21 skipped.
 
 **Live budget.** No live provider calls in this increment. Round total remains 12 of 30 (§10.14). The local env has NVIDIA_KEY_* names only, not NVIDIA_API_KEY, so a live stylist turn is currently not configured locally (production key state UNKNOWN).
+
+### 10.16 Colour and anchor in the selection pipeline (directive 2026-10-10, no live calls)
+
+**Environment note.** The sandbox lost `.cache`, `/tmp` contents and the clone's `.git` between steps. Work was re-cloned to `/tmp/work` and the venv rebuilt at `/home/user/.venv-confit`.
+
+**Changes.**
+* `styling/constraints.py` (new): `parse_anchor` (hard anchor only with an explicit cue: "around", "with my", "go with my"...), `anchor_matches` (real product fields), `palette_bonus` (preference: +8 per harmonising pixel colour, −8 per clash, capped ±20, via `ColorHarmonyEngine._pairs_harmonize`).
+* `composer.py`: parses the anchor into the intent; HARD: bottoms restricted to the anchor, and a look without the anchored garment is removed and the removal is stated; if no anchor product exists, the reply says what is missing (no look is invented). PREFERENCE: `image_palette` adds `palette_bonus` to candidate scores. Composer meta reports `anchor`, `anchor_satisfied`, `image_palette`, and `occasion_excluded`.
+* `stylist_service.py`: passes only pixel-supported photo colours (`palette_items`) into the intent before composition.
+
+**Evidence (real composer, seeded catalogue, no provider).**
+* "Build an outfit around navy trousers for work": 1 look published, containing product 4 (Pleated Tapered Virgin Wool Trousers, Navy Blue). The second look without trousers was removed and stated.
+* "...black trousers for work": 0 looks; reason "No catalogue black trousers are available to build the look around."
+* Palette variants (none, navy, emerald green, champagne gold, burgundy+red) on formal and work requests: **the selected products did NOT change.** Each slot has one candidate in this 9-product catalogue, so colour can only reorder candidates. The palette wiring is real but has no measurable effect yet. This does not satisfy the directive's "colours affect the selection" criterion and remains OPEN. It needs a catalogue with several candidates per slot.
+
+**Tests.** `test_stylist_constraints_and_palette.py` (11 new). Focused set (11 files): exit 0, 141 passed. Full `pytest backend/tests`: exit 0, 3852 passed, 21 skipped.
+
+**Still open.** Shoe, bag, and belt coverage; a complete look for every request; colour choice with more candidates; Arabic anchor parsing; the look still includes the tuxedo for "smart casual" (no gate for the un-stated occasion); live provider checks (not run in this increment: live budget 12 of 30 unchanged).
+
+**Image generation.** Not implemented. See `image-generation-provider-decision.md`. Interim visuals: catalogue or stock only, labelled as such.

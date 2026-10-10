@@ -213,7 +213,13 @@
     "attach_error_size": "Each photo must be 1 MB or smaller.",
     "attach_error_count": "You can attach up to 3 photos per message.",
     "remove_photo": "Remove photo {{n}}",
-    "photos_attached": "{{count}} photo(s) attached"
+    "photos_attached": "{{count}} photo(s) attached",
+    "mode_fallback_note": "Your photos could not be analysed, so this reply uses your text request only.",
+    "save_look": "Save look",
+    "saving_look": "Saving look…",
+    "look_saved": "Look saved",
+    "save_look_signin": "Sign in to save this look.",
+    "save_look_failed": "We could not save this look. Please try again."
   },
   "outfit_builder": {
     "title": "Interactive Outfit Canvas",

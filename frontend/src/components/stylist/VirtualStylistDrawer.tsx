@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useModalFocus } from "../../hooks/useModalFocus";
 import { useTranslation } from "react-i18next";
 import { resolveMessage } from "../../i18n/messages";
@@ -6,6 +6,8 @@ import { STYLIST_PROMPT_MAX_CHARS } from "../../i18n/promptBounds";
 import { formatMoney, formatNumber } from '../../i18n/format';
 import { useUIStore } from "../../stores/uiStore";
 import { useStylistViewModel } from "../../viewmodels/useStylistViewModel";
+import { stylistService } from "../../services/apiServices";
+import { ApiError } from "../../services/apiClient";
 import {
   StylistIcon,
   SparkleIcon,
@@ -134,6 +136,32 @@ export const VirtualStylistDrawer: React.FC = () => {
     addCompleteLookToCart,
   } = useStylistViewModel();
 
+  // Save-as-look state per outfit id (Mode A looks only). Terminal "saved" hides the button.
+  const [saveStates, setSaveStates] = useState<Record<number, "saving" | "saved" | "signin" | "failed">>({});
+
+  const saveLook = async (outfit: any) => {
+    const productIds: number[] = Array.from(
+      new Set<number>(
+        getResolvedOutfitItems(outfit)
+          .map((i: any) => Number(i.product_id))
+          .filter((id: number) => Number.isFinite(id) && id > 0),
+      ),
+    );
+    if (productIds.length === 0) return;
+    setSaveStates((s) => ({ ...s, [outfit.id]: "saving" }));
+    try {
+      await stylistService.saveOutfit({
+        title: outfit.title,
+        occasion: outfit.occasion ?? "",
+        product_ids: productIds,
+      });
+      setSaveStates((s) => ({ ...s, [outfit.id]: "saved" }));
+    } catch (err: any) {
+      const unauthenticated = err instanceof ApiError && err.status === 401;
+      setSaveStates((s) => ({ ...s, [outfit.id]: unauthenticated ? "signin" : "failed" }));
+    }
+  };
+
   // Prefill occasion or guided-first-look intent if opened with a shortcut.
   useEffect(() => {
     if (
@@ -237,7 +265,7 @@ export const VirtualStylistDrawer: React.FC = () => {
 
           {/* Occasion Quick Chips */}
           <div className="px-4 py-2.5 bg-[#FAF9F6] border-b border-slate-200/80 flex items-center gap-2 overflow-x-auto">
-            <span className="text-[10px] font-bold text-[#A37E44] uppercase tracking-wider shrink-0">
+            <span className="text-[10px] font-bold text-[#8A6A34] uppercase tracking-wider shrink-0">
               {t("stylist.style_prompts")}
             </span>
             {/* CONTRACT VALUES: `value` is sent to the API as the occasion hint and
@@ -268,7 +296,7 @@ export const VirtualStylistDrawer: React.FC = () => {
                   <h4 className="font-serif text-2xl font-bold text-[#1B1F3B] leading-snug max-w-xs">
                     {t("stylist.empty_title")}
                   </h4>
-                  <p className="text-xs text-slate-500 max-w-sm mt-2 font-light leading-relaxed">
+                  <p className="text-xs text-slate-600 max-w-sm mt-2 font-light leading-relaxed">
                     {t("stylist.empty_body")}
                   </p>
                 </div>
@@ -302,7 +330,7 @@ export const VirtualStylistDrawer: React.FC = () => {
                       className={`group w-full min-h-[56px] py-4 flex items-center gap-4 text-start hover:bg-white ${LUX} ${RING}`}
                     >
                       <span
-                        className="font-serif text-lg font-black text-[#C5A059]/50 group-hover:text-[#C5A059] tabular-nums shrink-0 w-8"
+                        className="font-serif text-lg font-black text-[#8A6A34] group-hover:text-[#1B1F3B] tabular-nums shrink-0 w-8"
                         aria-hidden="true"
                         dir="ltr"
                       >
@@ -373,6 +401,17 @@ export const VirtualStylistDrawer: React.FC = () => {
                           : t("stylist.engine_provider", { engine: msg.engine })}
                     </p>
                   )}
+                  {/* Photos were attached but this reply could not use them. The
+                      reason is stated in the shopper's language, not the API's English. */}
+                  {msg.sender === "assistant" && msg.fallback_reason && (
+                    <p
+                      role="status"
+                      data-testid="stylist-mode-note"
+                      className="mt-2 text-[11px] font-semibold text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2"
+                    >
+                      {t("stylist.mode_fallback_note")}
+                    </p>
+                  )}
                 </div>
 
                 {/* Render Recommended Outfits */}
@@ -386,7 +425,7 @@ export const VirtualStylistDrawer: React.FC = () => {
                         <div className="flex justify-between items-start">
                           <div>
                             <div className="flex items-center gap-2 mb-1">
-                              <span className="text-[10px] font-bold text-[#A37E44] uppercase tracking-wider">
+                              <span className="text-[10px] font-bold text-[#8A6A34] uppercase tracking-wider">
                                 {occasionLabel(outfit.occasion)}
                               </span>
                               <span
@@ -441,7 +480,7 @@ export const VirtualStylistDrawer: React.FC = () => {
                               {formatNumber(outfit.compatibility_score, lang)}
                               <span className="text-sm text-[#C5A059] align-super">%</span>
                             </div>
-                            <div className="text-[9px] font-bold uppercase tracking-widest text-[#A37E44] mt-0.5">
+                            <div className="text-[9px] font-bold uppercase tracking-widest text-[#8A6A34] mt-0.5">
                               {t("stylist.match")}
                             </div>
                           </div>
@@ -619,6 +658,31 @@ export const VirtualStylistDrawer: React.FC = () => {
                               {itemMoney(outfit.total_price, outfit.currency)}
                             </div>
                           </div>
+                          <div className="flex flex-col items-end gap-1">
+                          {msg.mode === "A" && saveStates[outfit.id] !== "saved" && (
+                            <button
+                              type="button"
+                              onClick={() => saveLook(outfit)}
+                              aria-busy={saveStates[outfit.id] === "saving"}
+                              disabled={saveStates[outfit.id] === "saving" || getResolvedOutfitItems(outfit).length === 0}
+                              className={`inline-flex items-center gap-2 px-4 py-2.5 min-h-[44px] rounded-xl border border-[#C5A059] text-[#1B1F3B] bg-white hover:bg-[#FDF8EE] text-xs font-bold disabled:cursor-not-allowed disabled:opacity-50 ${LUX} ${RING}`}
+                            >
+                              <span>
+                                {saveStates[outfit.id] === "saving" ? t("stylist.saving_look") : t("stylist.save_look")}
+                              </span>
+                            </button>
+                          )}
+                          {msg.mode === "A" && saveStates[outfit.id] === "saved" && (
+                            <span role="status" aria-label={t("stylist.look_saved")} className="text-[11px] font-bold text-emerald-700">
+                              {t("stylist.look_saved")}
+                            </span>
+                          )}
+                          {msg.mode === "A" && saveStates[outfit.id] === "signin" && (
+                            <span role="alert" className="text-[11px] text-rose-700">{t("stylist.save_look_signin")}</span>
+                          )}
+                          {msg.mode === "A" && saveStates[outfit.id] === "failed" && (
+                            <span role="alert" className="text-[11px] text-rose-700">{t("stylist.save_look_failed")}</span>
+                          )}
                           <button
                             onClick={() => addCompleteLookToCart(outfit)}
                             aria-busy={isAddingLook}
@@ -636,6 +700,7 @@ export const VirtualStylistDrawer: React.FC = () => {
                                   : t("stylist.add_core_to_bag")}
                             </span>
                           </button>
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -725,7 +790,7 @@ export const VirtualStylistDrawer: React.FC = () => {
                   </div>
                 ))}
                 {attachError && (
-                  <p role="alert" className="text-[11px] text-rose-600">
+                  <p role="alert" className="text-[11px] text-rose-700">
                     {t(`stylist.attach_error_${attachError}`)}
                   </p>
                 )}

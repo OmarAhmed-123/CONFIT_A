@@ -336,6 +336,12 @@ export interface StylistMessage {
    * is never told that fallback prose is a live model answer.
    */
   engine?: string | null;
+  /**
+   * WHY the text is what it is. "provider" (a model answered), "grounding_rejected"
+   * (a model answered but named a brand outside the looks shown, so the grounded
+   * description was used), "providers_unavailable", "no_provider_configured".
+   */
+  answer_source?: string | null;
   /** "A" (photos analysed) or "B" (text-only). Absent on older rows. */
   mode?: string | null;
   /** Set when photos were attached but this reply could not use them. */

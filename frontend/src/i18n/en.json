@@ -153,6 +153,7 @@
     "engine_label": "Answer engine",
     "engine_provider": "Answered by {{engine}}",
     "engine_grounded": "Answered by CONFIT's grounded styling engine — the AI provider was unavailable",
+    "engine_rejected": "Answered by CONFIT's grounded styling engine — the AI reply named a brand outside the looks shown, so the looks shown were described instead",
     "engine_none": "No styling engine was used for this reply",
     "you_label": "You",
     "assistant_label": "CONFIT AI Stylist",
@@ -212,9 +213,10 @@
     "palette_label": "Look colour palette ({{count}} tones)",
     "missing_slots_label": "Missing pieces:",
     "attach_photo": "Attach outfit photo",
-    "attach_photo_hint": "Up to 3 photos, JPEG, PNG or WebP, 1 MB each",
+    "attach_photo_hint": "Up to 3 photos, JPEG, PNG or WebP. Large photos are resized automatically",
     "attach_error_type": "Only JPEG, PNG or WebP photos can be attached.",
     "attach_error_size": "Each photo must be 1 MB or smaller.",
+    "attach_error_source_size": "Photo is too large to attach. Choose one under 20 MB.",
     "attach_error_count": "You can attach up to 3 photos per message.",
     "remove_photo": "Remove photo {{n}}",
     "photos_attached": "{{count}} photo(s) attached",
@@ -224,7 +226,9 @@
     "look_saved": "Look saved",
     "save_look_signin": "Sign in to save this look.",
     "save_look_failed": "We could not save this look. Please try again.",
-    "input_label": "Describe your outfit request"
+    "input_label": "Describe your outfit request",
+    "composer_hint": "Enter adds a new line · Ctrl+Enter (⌘+Enter on Mac) sends",
+    "sending": "Sending…"
   },
   "outfit_builder": {
     "title": "Interactive Outfit Canvas",

@@ -218,6 +218,13 @@ class StylistMessageOut(BaseModel):
     #: What the image analysis produced (colours, garments, engine). Never the
     #: image bytes. None for text-only turns.
     image_analysis: Optional[Dict[str, Any]] = None
+    #: WHY this text is what it is. "provider": a model answered and passed the
+    #: grounding check. "grounding_rejected": a model answered but named a brand
+    #: the shopper was not offered, so the grounded template was used instead.
+    #: "providers_unavailable": every available provider leg failed.
+    #: "no_provider_configured": no provider leg was available. None on
+    #: clarifying questions and for rows saved before this field existed.
+    answer_source: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 

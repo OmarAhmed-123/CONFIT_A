@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useModalFocus } from "../../hooks/useModalFocus";
 import { useTranslation } from "react-i18next";
 import { resolveMessage } from "../../i18n/messages";
@@ -20,6 +20,8 @@ import { useTryOnAvailability } from "../../hooks/useTryOnAvailability";
 import { StatusIcon } from '../common/InteractionPrimitives';
 
 /** House luxury curve + unified focus ring — single source for this drawer. */
+const COMPOSER_MAX_HEIGHT_PX = 160;
+
 const LUX = "motion-safe:transition-all motion-safe:duration-300 ease-[cubic-bezier(0.25,1,0.5,1)]";
 const RING = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059] focus-visible:ring-offset-2";
 
@@ -163,6 +165,17 @@ export const VirtualStylistDrawer: React.FC = () => {
   };
 
   // Prefill occasion or guided-first-look intent if opened with a shortcut.
+  // Composer: a multiline textarea. Grows with its text up to a bounded height,
+  // then scrolls. Height is recalculated on every change, including the reset
+  // after a send, so a long draft never leaves a stale tall box behind.
+  const composerRef = useRef<HTMLTextAreaElement | null>(null);
+  useLayoutEffect(() => {
+    const el = composerRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, COMPOSER_MAX_HEIGHT_PX)}px`;
+  }, [inputPrompt]);
+
   useEffect(() => {
     if (
       isStylistDrawerOpen &&
@@ -396,9 +409,11 @@ export const VirtualStylistDrawer: React.FC = () => {
                     >
                       {msg.engine === "none"
                         ? t("stylist.engine_none")
-                        : String(msg.engine).includes("Grounded Styling Engine")
-                          ? t("stylist.engine_grounded")
-                          : t("stylist.engine_provider", { engine: msg.engine })}
+                        : msg.answer_source === "grounding_rejected"
+                          ? t("stylist.engine_rejected")
+                          : String(msg.engine).includes("Grounded Styling Engine")
+                            ? t("stylist.engine_grounded")
+                            : t("stylist.engine_provider", { engine: msg.engine })}
                     </p>
                   )}
                   {/* Photos were attached but this reply could not use them. The
@@ -805,7 +820,7 @@ export const VirtualStylistDrawer: React.FC = () => {
             >
               <label
                 title={t("stylist.attach_photo_hint")}
-                className={`p-3 min-h-[48px] min-w-[48px] flex items-center justify-center rounded-2xl border cursor-pointer bg-slate-50 border-slate-200 text-slate-600 hover:text-[#C5A059] hover:bg-[#FDF8EE] focus-within:ring-2 focus-within:ring-[#C5A059]/40 ${LUX}`}
+                className={`p-3 min-h-[48px] min-w-[48px] flex items-center justify-center rounded-2xl border cursor-pointer focus-within:ring-2 focus-within:ring-[#C5A059]/40 bg-slate-50 border-slate-200 text-slate-600 hover:text-[#C5A059] hover:bg-[#FDF8EE] focus-within:ring-2 focus-within:ring-[#C5A059]/40 ${LUX}`}
               >
                 <span className="sr-only">{t("stylist.attach_photo")}</span>
                 <span aria-hidden="true" className="text-lg leading-none">＋</span>
@@ -837,26 +852,43 @@ export const VirtualStylistDrawer: React.FC = () => {
                 <MicIcon size={18} color="currentColor" />
               </button>
 
-              <input
-                type="text"
+              <textarea
+                ref={composerRef}
+                rows={1}
+                dir="auto"
                 value={inputPrompt}
                 onChange={(e) => setInputPrompt(e.target.value)}
+                onKeyDown={(e) => {
+                  // Enter inserts a line (multi-paragraph requests). Ctrl+Enter, or
+                  // Cmd+Enter on Mac, sends. IME composition is never interrupted.
+                  if (e.key === "Enter" && (e.ctrlKey || e.metaKey) && !e.nativeEvent.isComposing) {
+                    e.preventDefault();
+                    if (inputPrompt.trim() && !isTyping) sendPrompt();
+                  }
+                }}
                 maxLength={STYLIST_PROMPT_MAX_CHARS}
-                aria-describedby={inputPrompt.length > STYLIST_PROMPT_MAX_CHARS * 0.9 ? "stylist-prompt-limit" : undefined}
+                aria-describedby={[
+                  "stylist-composer-hint",
+                  inputPrompt.length > STYLIST_PROMPT_MAX_CHARS * 0.9 ? "stylist-prompt-limit" : null,
+                ].filter(Boolean).join(" ")}
                 aria-label={t("stylist.input_label")}
                 placeholder={t("stylist.input_placeholder")}
-                className={`flex-1 px-4 py-3 min-h-[48px] rounded-2xl border border-slate-200 focus:outline-none focus:border-[#C5A059] focus-visible:ring-2 focus-visible:ring-[#C5A059]/40 text-xs sm:text-sm bg-[#FAF9F6] ${LUX}`}
+                className={`flex-1 resize-none overflow-y-auto whitespace-pre-wrap break-words px-4 py-3 min-h-[48px] rounded-2xl border border-slate-200 focus:outline-none focus:border-[#C5A059] focus-visible:ring-2 focus-visible:ring-[#C5A059]/40 text-xs sm:text-sm leading-relaxed bg-[#FAF9F6] ${LUX}`}
               />
 
               <button
                 type="submit"
                 disabled={!inputPrompt.trim() || isTyping}
-                className={`px-6 py-3 min-h-[48px] rounded-2xl bg-[#1B1F3B] hover:bg-[#0C0E1E] disabled:opacity-40 text-white text-xs font-bold shadow-md flex items-center gap-1.5 ${LUX} ${RING}`}
+                aria-busy={isTyping}
+                className={`px-6 py-3 min-h-[48px] rounded-2xl bg-[#1B1F3B] hover:bg-[#0C0E1E] disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold shadow-md flex items-center gap-1.5 ${LUX} ${RING}`}
               >
                 <SparkleIcon size={14} color="#C5A059" />
-                <span>{t("stylist.submit")}</span>
+                <span>{isTyping ? t("stylist.sending") : t("stylist.submit")}</span>
               </button>
             </form>
+            <p id="stylist-composer-hint" className="mt-1.5 text-[10px] text-slate-500 text-center">
+              {t("stylist.composer_hint")}
+            </p>
             {inputPrompt.length > STYLIST_PROMPT_MAX_CHARS * 0.9 && (
               <p id="stylist-prompt-limit"
                  className="mt-1.5 text-[10px] text-slate-500 text-center"

@@ -213,3 +213,41 @@ jobs:
         # dev chain is covered by the tailwind 4 migration tracking item
         # (4.3.3 drops chokidar entirely).
         run: npm audit --omit=dev --audit-level=high
+
+  # T029 (spec 009): focused StyleList drawer browser gate. Real Chromium against
+  # the production build: axe (WCAG 2.x A/AA, colour contrast on; fails on
+  # serious/critical only, `incomplete` is reported not passed), and keyboard /
+  # focus / accessible-name checks in English and Arabic. Needs no backend and
+  # makes no provider calls. Same script as the local command:
+  #   cd frontend && npm ci && npm run build && bash scripts/stylist_browser_gate.sh
+  # Not included: browser_a11y_rtl.py, whose exit code also counts catalogue copy
+  # that is English in the Arabic bundle (T030/T031, cross-workstream).
+  stylist-browser-gate:
+    name: stylist drawer browser gate (a11y, keyboard, RTL)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install dependencies (locked)
+        working-directory: frontend
+        run: npm ci
+      - name: Build production bundle (served by the gate)
+        working-directory: frontend
+        run: npm run build
+      - name: Install Chromium and its system libraries
+        working-directory: frontend
+        run: npx playwright-core install --with-deps chromium
+      - name: Drawer gate (axe + keyboard/focus, en + ar)
+        working-directory: frontend
+        run: bash scripts/stylist_browser_gate.sh
+      - name: Upload probe results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stylist-browser-gate
+          path: frontend/gate-artifacts/
+          if-no-files-found: warn

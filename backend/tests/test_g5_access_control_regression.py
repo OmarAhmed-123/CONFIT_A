@@ -286,7 +286,20 @@ def test_anonymous_read_is_guest_only_and_owned_orders_are_denied(client: TestCl
     assert guest.get("user_id") is None, "fixture guard: this order must have no owning account"
 
     client.cookies.clear()   # the guest order is placed with a token header, not a cookie
-    guest_read = client.get(f"/api/v1/commerce/orders/{guest_number}")
+    # Guest orders now require second factor (email or session token) per CUS-09 anti-enumeration.
+    # The capability is preserved: guest can read their own order with email or session token,
+    # but anonymous with just order number gets 404 to prevent enumeration oracle.
+    guest_read = client.get(
+        f"/api/v1/commerce/orders/{guest_number}",
+        params={"guest_email": "g5ac.guest@example.com"},
+        headers={"X-Session-Token": guest_token},
+    )
     assert guest_read.status_code == 200, guest_read.text
     assert guest_read.json()["order_number"] == guest_number
-    assert client.get(f"/api/v1/commerce/orders/{guest_number}/tracking").status_code == 200
+    assert client.get(
+        f"/api/v1/commerce/orders/{guest_number}/tracking",
+        params={"guest_email": "g5ac.guest@example.com"},
+        headers={"X-Session-Token": guest_token},
+    ).status_code == 200
+    # Without second factor, guest order should be 404 (anti-enumeration), not 200
+    assert client.get(f"/api/v1/commerce/orders/{guest_number}").status_code == 404

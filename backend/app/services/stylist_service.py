@@ -209,6 +209,10 @@ class StylistService:
             vision = await analyze_images(images, prompt)
             if vision.available:
                 mode_used = "A"
+                # A partial analysis (some photos failed) is stated to the shopper,
+                # in the same photo note used for an unavailable analysis.
+                if vision.reason:
+                    fallback_reason = vision.reason
                 colour_check, palette_items = _cross_check_colours(pixel_palettes, vision)
                 image_analysis = {
                     **vision.to_public(),

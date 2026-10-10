@@ -466,3 +466,35 @@ Nine real NVIDIA HTTP requests were made in total in this session: one orchestra
 * **Look selection is still rule-based.** The composer chooses looks from occasion slots. A garment constraint such as "build around my navy trousers" does not yet change which pieces are selected, and the model's wording about it is not checked against the chosen items. This is the largest open gap against the brief.
 * **Generated outfit visuals.** No authorised image-generation provider is wired in this repository, and none was added. Preset looks show catalogue product images. No AI-generated image is produced or claimed.
 * **Microphone on a real device.** Not changed in this pass. The earlier fix is unchanged and remains NOT VERIFIED on a real device.
+
+### 10.14 Multi-photo vision: one request per photo (verification round, 2026-10-10)
+
+**Authorisation.** Medium budget: up to 30 live NVIDIA requests for this round, counting retries and failover. Vision on NVIDIA only. Voice: not run here (no live transcription provider call is needed by the current implementation).
+
+**Root cause found live.** Two catalogue photos sent in ONE vision request both timed out at the 15s budget (both candidate models). Each photo alone answered (3.7s, 5.0s). The multi-image request therefore silently lost the photos.
+
+**Fix.** `analyze_images` now makes one vision request per photo, in parallel. Each garment keeps its `image_index`. The result reports `images_total` and `images_analysed`, and a partial result is stated to the shopper in the photo note. A failed photo is never presented as analysed.
+
+| Step | Requests | Result |
+| --- | --- | --- |
+| Two photos, one request (before fix) | 2 | Both candidates timed out at 15s. `available: false` (honest) |
+| Photo b alone | 1 | `available: true`, `google/diffusiongemma-26b-a4b-it`, 5.0s, 6 garments with colour families |
+| Photo a alone | 1 | `available: true`, same model, 3.7s, 7 garments |
+| Two photos, per photo (after fix) | 2 | `available: true`, 2/2 analysed, 14 garments with photo indices |
+| One real chat turn, two photos, "shoes for work" (HTTP 200) | 6 (2 vision + 4 text) | mode A, 2/2 analysed, `answer_source: provider`, real colours extracted from pixels |
+
+Colour extraction feeds `ColorHarmonyEngine` (`_coordinate_with_palette`). **Limitation:** colour changes the ORDER of already-composed looks only. It does not change which products are selected. In the live turn both looks scored 100, so colour did not separate them.
+
+**Defects found in the live turn, NOT fixed in this round (highest priority next):**
+* Outfit 102, titled "Work & Business", contains an evening tuxedo jacket, a dinner shoe and a silk evening necktie. The request was for work. The composer does not enforce formality as a hard constraint.
+* Outfit 101 includes metallic heeled sandals. The model's own answer says they are "not ideal for a professional work setting".
+* The composer already has the data for this (`occasion_tags` per product). A hard exclusion of conflicting formality needs its own change and a verified run.
+
+**Tests (commands, exit codes).**
+* `pytest backend/tests/test_stylist_vision_multi_image.py` (new, 6 tests): one request per photo, index kept, partial reported as partial, all-failed honest, single photo, disabled never calls provider, no image content in public payload. **Provider stubbed.**
+* Focused subset (vision, grounding, repeated answers, wardrobe, eval): exit 0, 47 passed.
+* Full backend `pytest backend/tests`: exit 0, 3835 passed, 21 skipped.
+
+**Not verified.** Composer formality (see above). Colour-based selection. Partial-analysis UI rendering in a browser. Image-generation visuals (no authorised provider; the 2026-10-10 image-generation request was received truncated and is still awaiting a complete brief). Real-device microphone.
+
+**Live request budget used this round: 12 of 30** (6 in the isolated probes, 6 in the chat turn). No retries beyond those listed.

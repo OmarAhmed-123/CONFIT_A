@@ -2,6 +2,7 @@ import React from 'react';
 import { useCartStore } from '../../stores/cartStore';
 import { DuplicateAlertIcon, SparkleIcon, WardrobeIcon } from '../icons/ConfitIcons';
 import { Link } from 'react-router-dom';
+import { HonestProductImage } from '../common/HonestProductImage';
 import { useTranslation } from 'react-i18next';
 
 export const DuplicateAlertModal: React.FC = () => {
@@ -34,7 +35,7 @@ export const DuplicateAlertModal: React.FC = () => {
         <div className="p-6 space-y-4">
           <div className="bg-[#FAF9F6] border border-slate-200 rounded-2xl p-3.5 flex items-center gap-3.5">
             <div className="w-18 h-22 rounded-xl overflow-hidden bg-slate-200 shrink-0">
-              <img src={owned.image_url} alt={owned.title} className="w-full h-full object-cover" />
+              <HonestProductImage src={owned.image_url} alt={owned.title} className="w-full h-full object-cover" />
             </div>
             <div className="flex-1 min-w-0">
               <span className="text-[10px] font-bold text-[#B8935A] uppercase tracking-wider">

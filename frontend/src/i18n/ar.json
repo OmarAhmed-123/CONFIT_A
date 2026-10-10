@@ -457,7 +457,10 @@
     "vs_sample_blazer": "بليزر صوف كحلي",
     "vs_sample_dress": "فستان حرير انسيابي",
     "vs_sample_shirt": "قميص أوكسفورد أنيق",
-    "ruler_privacy_subtitle": "تحليل مقاسات يحافظ على الخصوصية 100٪ لـ {{title}}"
+    "ruler_privacy_subtitle": "تحليل مقاسات يحافظ على الخصوصية 100٪ لـ {{title}}",
+    "scan_canvas_shoulder_guide": "الكتف: {cm} سم",
+    "scan_canvas_waistline": "الخصر: {cm} سم",
+    "scan_field_waistline": "محيط الخصر"
   },
   "wardrobe": {
     "title": "الخزانة الذكية وإعادة الاستثمار",
@@ -792,7 +795,9 @@
     "next": "التالي",
     "sign_in_to_continue": "سجّل الدخول للمتابعة — اختيارك محفوظ.",
     "offline_retry": "يبدو أنك غير متصل بالإنترنت — تحقّق من الاتصال وحاول مرة أخرى.",
-    "image_unavailable": "الصورة غير متاحة"
+    "image_unavailable": "الصورة غير متاحة",
+    "error": "خطأ",
+    "live_updating": "تحديث مباشر"
   },
   "layout": {
     "ai_stylist_director": "المدير الأسلوبي بالذكاء الاصطناعي",
@@ -2138,7 +2143,8 @@
     "download_report": "تحميل تقرير المنتجات والمبيعات لبراند {{brand}} (PDF)",
     "report_pending": "جارٍ تجهيز التقرير…",
     "report_done": "تم تنزيل التقرير.",
-    "report_failed": "تعذّر إنشاء التقرير. السيرفر رفض أو غير متاح — لم يتم تنزيل أي شيء."
+    "report_failed": "تعذّر إنشاء التقرير. السيرفر رفض أو غير متاح — لم يتم تنزيل أي شيء.",
+    "deactivate_title": "إلغاء تفعيل المنتج؟"
   },
   "brand_orders": {
     "title": "الطلبات وحركة المخزون",
@@ -2497,5 +2503,37 @@
   },
   "field": {
     "optional_marker": "اختياري"
+  },
+  "brand_analytics": {
+    "add_to_cart": "إضافة إلى السلة",
+    "non_tryon_cohort": "مجموعة بدون تجربة افتراضية",
+    "purchases": "المشتريات",
+    "telemetry_unavailable": "بيانات القياس غير متوفرة حالياً",
+    "tryon_assisted_orders": "طلبات بمساعدة التجربة الافتراضية"
+  },
+  "brand_inventory": {
+    "add_bopis_store": "إضافة متجر BOPIS",
+    "add_store": "إضافة متجر",
+    "create_store": "إنشاء متجر",
+    "inventory_failed": "فشل تحميل المخزون",
+    "live_inventory_title": "المخزون المباشر",
+    "longitude": "خط الطول",
+    "no_store_stock": "لا يوجد مخزون في المتجر",
+    "no_stores": "لا توجد متاجر",
+    "no_stores_desc": "أنشئ أول متجر لتمكين الاستلام من المتجر والمخزون في الوقت الفعلي",
+    "real_from_store": "مخزون حقيقي من المتجر",
+    "store_breakdown": "تفصيل المتاجر",
+    "store_network_failed": "فشل تحميل شبكة المتاجر",
+    "warehouse": "المستودع"
+  },
+  "brand_placements": {
+    "bid_exceeds_budget": "المزايدة تتجاوز الميزانية اليومية",
+    "create_placement": "إنشاء موضع",
+    "fit_recommendation_top": "أعلى توصية مقاس",
+    "no_placements": "لا توجد مواضع بعد",
+    "placement_type": "نوع الموضع",
+    "sponsored_failed": "فشل تحميل المواضع الممولة",
+    "stylist_featured": "مميز من المنسق",
+    "trending_hero": "بطل رائج"
   }
 }

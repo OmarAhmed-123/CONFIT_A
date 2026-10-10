@@ -1,6 +1,6 @@
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
 const mocks = vi.hoisted(() => ({
@@ -85,10 +85,13 @@ describe('explicit admin catalog', () => {
   });
 
   it('uses reversible deactivation instead of fabricating a hard-delete success', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
     renderView();
     await screen.findByText('Structured Coat');
     fireEvent.click(screen.getByRole('button', { name: 'Deactivate' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog).toBeTruthy();
+    const confirmBtn = within(dialog).getByRole('button', { name: 'Deactivate' });
+    fireEvent.click(confirmBtn);
     await waitFor(() => expect(mocks.deactivate).toHaveBeenCalledWith(7, 91));
     expect(mocks.toast).toHaveBeenCalledWith(
       'Product deactivated; historical data was retained.', 'success',

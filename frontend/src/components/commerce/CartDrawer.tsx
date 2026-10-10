@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useCartStore } from '../../stores/cartStore';
 import { BagIcon, SparkleIcon } from '../icons/ConfitIcons';
 import { BNPLBadge } from '../common/CommonComponents';
+import { HonestProductImage } from '../common/HonestProductImage';
 import { formatMoney } from '../../i18n/format';
 
 export const CartDrawer: React.FC = () => {
@@ -82,7 +83,7 @@ export const CartDrawer: React.FC = () => {
                   className="flex gap-3.5 p-3 rounded-2xl bg-[#FAF9F6] border border-slate-200/80 hover:border-slate-300 transition-all"
                 >
                   <div className="w-20 h-24 rounded-xl overflow-hidden bg-white shrink-0">
-                    <img src={item.image_url} alt={item.product_title} className="w-full h-full object-cover" />
+                    <HonestProductImage src={item.image_url} alt={item.product_title} className="w-full h-full object-cover" />
                   </div>
 
                   <div className="flex-1 min-w-0 flex flex-col justify-between">
@@ -93,10 +94,11 @@ export const CartDrawer: React.FC = () => {
                         </span>
                         <button
                           onClick={() => removeItem(item.id)}
-                          className="text-slate-500 hover:text-rose-500 text-xs"
+                          className="min-w-[44px] min-h-[44px] text-slate-500 hover:text-rose-500 text-xs flex items-center justify-center rounded"
                           title={t('commerce.remove_item')}
+                          aria-label={t('commerce.remove_item')}
                         >
-                          ✕
+                          <span aria-hidden="true">✕</span>
                         </button>
                       </div>
                       <h4 className="text-xs font-bold text-[#1B1F3B] truncate">{item.product_title}</h4>
@@ -115,16 +117,18 @@ export const CartDrawer: React.FC = () => {
                       <div className="flex items-center border border-slate-200 rounded-lg bg-white">
                         <button
                           onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                          className="px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-100 rounded-l"
+                          className="min-w-[44px] min-h-[44px] px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-100 rounded-l flex items-center justify-center"
+                          aria-label={`Decrease quantity of ${item.product_title}`}
                         >
-                          -
+                          <span aria-hidden="true">-</span>
                         </button>
-                        <span className="px-2 text-xs font-bold text-slate-800">{item.quantity}</span>
+                        <span className="px-2 text-xs font-bold text-slate-800" aria-live="polite">{item.quantity}</span>
                         <button
                           onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                          className="px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-100 rounded-r"
+                          className="min-w-[44px] min-h-[44px] px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-100 rounded-r flex items-center justify-center"
+                          aria-label={`Increase quantity of ${item.product_title}`}
                         >
-                          +
+                          <span aria-hidden="true">+</span>
                         </button>
                       </div>
                       <span className="text-xs font-bold text-[#1B1F3B]">

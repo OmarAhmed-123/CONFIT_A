@@ -26,6 +26,7 @@ import {
   EmptyState,
   FitScoreBadge,
 } from "../../components/common/CommonComponents";
+import { HonestProductImage } from "../../components/common/HonestProductImage";
 import {
   CardStackShowcase,
   CircularGalleryShowcase,
@@ -488,9 +489,7 @@ export const WardrobeView: React.FC = () => {
                       key={src}
                       className="overflow-hidden rounded-3xl border border-slate-200 bg-slate-100 shadow-sm"
                     >
-                      <img
-                        src={src}
-                        alt={`Example wardrobe upload ${exampleIndex + 1}`}
+                      <HonestProductImage src={src} alt={`Example wardrobe upload ${exampleIndex + 1}`}
                         className="h-56 w-full object-cover"
                       />
                     </div>
@@ -511,9 +510,7 @@ export const WardrobeView: React.FC = () => {
                 >
                   <div>
                     <div className="h-64 rounded-2xl overflow-hidden bg-slate-100 mb-3 relative">
-                      <img
-                        src={item.image_url}
-                        alt={item.title}
+                      <HonestProductImage src={item.image_url} alt={item.title}
                         className="w-full h-full object-cover"
                       />
                       {/* Spec 01: always visible (no hover-only control), ≥44px
@@ -688,9 +685,7 @@ export const WardrobeView: React.FC = () => {
                           className="rounded-2xl border border-emerald-200 bg-emerald-50/40 p-2"
                         >
                           <div className="h-24 rounded-xl overflow-hidden bg-white mb-1.5">
-                            <img
-                              src={it.image_url}
-                              alt={it.product_title}
+                            <HonestProductImage src={it.image_url} alt={it.product_title}
                               className="w-full h-full object-cover"
                             />
                           </div>
@@ -721,9 +716,7 @@ export const WardrobeView: React.FC = () => {
                           className="rounded-2xl border border-slate-200 bg-white p-2"
                         >
                           <div className="h-24 rounded-xl overflow-hidden bg-slate-100 mb-1.5">
-                            <img
-                              src={it.image_url}
-                              alt={it.product_title}
+                            <HonestProductImage src={it.image_url} alt={it.product_title}
                               className="w-full h-full object-cover"
                             />
                           </div>
@@ -937,8 +930,7 @@ export const WardrobeView: React.FC = () => {
                         className="flex items-center gap-3 p-2.5 rounded-2xl bg-white border border-slate-200 hover:border-[#B8935A] transition-all group"
                       >
                         <div className="w-14 h-16 rounded-xl overflow-hidden bg-slate-100 shrink-0">
-                          <img
-                            src={rec.image_url}
+                          <HonestProductImage src={rec.image_url}
                             alt={rec.title}
                             className="w-full h-full object-cover"
                           />

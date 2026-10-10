@@ -9,6 +9,7 @@ import {
 } from '../../services/apiServices';
 import { Reveal } from '../../components/common/Surface';
 import { BrandReportDownloadButton } from '../../components/admin/BrandReportDownloadButton';
+import { HonestProductImage } from '../../components/common/HonestProductImage';
 import type {
   AdminCatalogBrandSummary,
   AdminCatalogProduct,
@@ -17,6 +18,7 @@ import type {
 } from '../../models';
 import { useUIStore } from '../../stores/uiStore';
 import { EmptyState, LoadingSpinner } from '../../components/common/CommonComponents';
+import { ConfirmationDialog } from '../../components/common/StateComponents';
 
 const fieldClass = 'min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-[#B8935A] focus:outline-none focus:ring-2 focus:ring-[#B8935A]/30';
 const buttonFocus = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B8935A] focus-visible:ring-offset-2';
@@ -199,6 +201,7 @@ export const AdminCatalogView: React.FC = () => {
   const [editing, setEditing] = React.useState<AdminCatalogProduct | 'new' | null>(null);
   const [form, setForm] = React.useState<ProductFormState>(() => emptyForm());
   const [saving, setSaving] = React.useState(false);
+  const [pendingDeactivate, setPendingDeactivate] = React.useState<AdminCatalogProduct | null>(null);
   // Preserve only the direct-entry selection. Writing brand_id back to the URL
   // must not re-run the organization request and flash the entire page away.
   const requestedBrandId = React.useRef(Number(searchParams.get('brand_id')));
@@ -335,17 +338,35 @@ export const AdminCatalogView: React.FC = () => {
 
   const setProductActive = async (product: AdminCatalogProduct, active: boolean) => {
     if (selectedBrandId === null) return;
-    if (!active && !window.confirm(t('admin_catalog.deactivate_confirm', { title: product.title }))) return;
+    if (!active) {
+      // Use shared ConfirmationDialog for consequential admin action (FR-006, ADM-18)
+      setPendingDeactivate(product);
+      return;
+    }
     setSaving(true);
     try {
-      if (active) await adminService.reactivateCatalogProduct(selectedBrandId, product.id);
-      else await adminService.deactivateCatalogProduct(selectedBrandId, product.id);
-      showToast(t(active ? 'admin_catalog.toast_product_reactivated' : 'admin_catalog.toast_product_deactivated'), 'success');
+      await adminService.reactivateCatalogProduct(selectedBrandId, product.id);
+      showToast(t('admin_catalog.toast_product_reactivated'), 'success');
       await Promise.all([refresh(), loadBrands()]);
     } catch (mutationError) {
       showToast(errorText(mutationError, t('admin_catalog.error_mutation')), 'error');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const confirmDeactivate = async () => {
+    if (selectedBrandId === null || !pendingDeactivate) return;
+    setSaving(true);
+    try {
+      await adminService.deactivateCatalogProduct(selectedBrandId, pendingDeactivate.id);
+      showToast(t('admin_catalog.toast_product_deactivated'), 'success');
+      await Promise.all([refresh(), loadBrands()]);
+    } catch (mutationError) {
+      showToast(errorText(mutationError, t('admin_catalog.error_mutation')), 'error');
+    } finally {
+      setSaving(false);
+      setPendingDeactivate(null);
     }
   };
 
@@ -503,7 +524,7 @@ export const AdminCatalogView: React.FC = () => {
                 <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
                   {snapshot.products.map((product) => (
                     <article key={product.id} className={`overflow-hidden rounded-3xl border bg-white shadow-sm ${product.is_active ? 'border-slate-200' : 'border-slate-300 opacity-75'}`}>
-                      <img src={product.thumbnail_url} alt="" className="h-44 w-full bg-slate-100 object-cover" />
+                      <HonestProductImage src={product.thumbnail_url} alt={product.title} className="h-44 w-full bg-slate-100 object-cover" />
                       <div className="space-y-3 p-5">
                         <div className="flex items-start justify-between gap-3">
                           <div><h3 className="font-serif text-lg font-bold text-[#1B1F3B]">{i18n.dir() === 'rtl' ? product.title_ar : product.title}</h3><p className="text-xs text-slate-500">{product.category_name}</p></div>
@@ -566,6 +587,19 @@ export const AdminCatalogView: React.FC = () => {
             </section>
           )}
         </>
+      )}
+      {pendingDeactivate && (
+        <ConfirmationDialog
+          isOpen={!!pendingDeactivate}
+          title={t('admin_catalog.deactivate_title', { defaultValue: 'Deactivate product?' })}
+          message={t('admin_catalog.deactivate_confirm', { title: pendingDeactivate.title })}
+          confirmLabel={t('admin_catalog.deactivate', { defaultValue: 'Deactivate' })}
+          cancelLabel={t('admin_catalog.cancel')}
+          variant="danger"
+          isLoading={saving}
+          onClose={() => setPendingDeactivate(null)}
+          onConfirm={() => void confirmDeactivate()}
+        />
       )}
     </div>
   );

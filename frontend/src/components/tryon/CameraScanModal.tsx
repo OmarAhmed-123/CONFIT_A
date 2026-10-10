@@ -243,7 +243,7 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
       // Caliper Label
       ctx.font = 'bold 11px Inter, sans-serif';
       ctx.fillStyle = '#C5A059';
-      ctx.fillText(`Guide (your input): shoulder ${shoulderCm} cm`, headCx - 50, shoulderY - 10);
+      ctx.fillText(t('tryon.scan_canvas_shoulder_guide', { cm: shoulderCm }), headCx - 50, shoulderY - 10);
 
       // 3. Torso Bounding Guide
       ctx.strokeStyle = 'rgba(197, 160, 89, 0.4)';
@@ -262,11 +262,11 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
 
       // Waist Label
       ctx.fillStyle = '#FAF9F6';
-      ctx.fillText(`Waistline: ${waistCm}cm`, headCx - 40, waistY - 6);
+      ctx.fillText(t('tryon.scan_canvas_waistline', { cm: waistCm }), headCx - 40, waistY - 6);
     }
 
     animFrameId.current = requestAnimationFrame(drawPoseOverlay);
-  }, [cameraActive, shoulderCm, waistCm]);
+  }, [cameraActive, shoulderCm, waistCm, t]);
 
   useEffect(() => {
     if (cameraActive) {
@@ -1037,7 +1037,7 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
                   </div>
 
                   <div className="p-3 rounded-2xl bg-[#FAF9F6] border border-slate-200/80">
-                    <span className="text-slate-400 text-[10px] block">Waistline</span>
+                    <span className="text-slate-400 text-[10px] block">{t('tryon.scan_field_waistline')}</span>
                     <span className="text-sm font-bold text-slate-900">{estimatedData.waist_cm} cm</span>
                     <span className="text-[10px] text-slate-500 block font-light">{t('tryon.scan_your_value')}</span>
                   </div>

@@ -45,7 +45,7 @@ export const BrandPlacementsView: React.FC = () => {
       return;
     }
     if (bidCpc > dailyBudget) {
-      alert('Bid cannot exceed daily budget');
+      alert(t("brand_placements.bid_exceeds_budget"));
       return;
     }
     setSaving(true);
@@ -80,7 +80,7 @@ export const BrandPlacementsView: React.FC = () => {
       {actionMessage && <p role="status">{actionMessage}</p>}
       {placementsError && (
         <div role="alert" className="p-4 rounded-2xl bg-rose-50 border border-rose-200">
-          <p className="text-[11px] font-bold text-rose-800">Sponsored network data failed to load</p>
+          <p className="text-[11px] font-bold text-rose-800">{t("brand_placements.sponsored_failed")}</p>
           <p className="text-[11px] text-rose-600 mt-1">{placementsError} An empty list below means "no campaigns", not "API down" — retry to reconcile.</p>
           <button onClick={refresh} className="mt-2 px-3 py-1.5 rounded-lg bg-white border border-rose-200 text-[11px] font-bold text-rose-700 hover:bg-rose-50">Retry</button>
         </div>
@@ -135,9 +135,9 @@ export const BrandPlacementsView: React.FC = () => {
         {placements.length === 0 ? (
           <div className="bg-white rounded-3xl border border-slate-200 p-12 text-center space-y-3">
             <div className="text-4xl">🎯</div>
-            <h3 className="font-bold text-slate-700">No sponsored placements yet</h3>
+            <h3 className="font-bold text-slate-700">{t("brand_placements.no_placements")}</h3>
             <p className="text-xs text-slate-500">Create your first sponsored slot to bid for featured placement in Virtual Stylist results. Budget enforcement prevents overspend.</p>
-            <button onClick={() => setModalOpen(true)} className="mt-2 px-4 py-2 rounded-xl bg-[#B8935A] text-slate-900 text-xs font-bold">Create Placement</button>
+            <button onClick={() => setModalOpen(true)} className="mt-2 px-4 py-2 rounded-xl bg-[#B8935A] text-slate-900 text-xs font-bold">{t("brand_placements.create_placement")}</button>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -237,11 +237,11 @@ export const BrandPlacementsView: React.FC = () => {
               </div>
 
               <div>
-                <label className="font-bold text-slate-700 block mb-1">Placement Type</label>
+                <label className="font-bold text-slate-700 block mb-1">{t("brand_placements.placement_type")}</label>
                 <select aria-label={t('b2b.field_placement_type')} value={placementType} onChange={(e) => setPlacementType(e.target.value)} className="w-full p-2.5 rounded-xl border">
-                  <option value="stylist_featured">Stylist Featured</option>
-                  <option value="trending_hero">Trending Hero</option>
-                  <option value="fit_recom_top">Fit Recommendation Top</option>
+                  <option value="stylist_featured">{t("brand_placements.stylist_featured")}</option>
+                  <option value="trending_hero">{t("brand_placements.trending_hero")}</option>
+                  <option value="fit_recom_top">{t("brand_placements.fit_recommendation_top")}</option>
                 </select>
               </div>
 
@@ -276,7 +276,7 @@ export const BrandPlacementsView: React.FC = () => {
                 </div>
               </div>
 
-              {bidCpc > dailyBudget && <div className="text-[11px] text-rose-600 bg-rose-50 p-2 rounded">Bid cannot exceed daily budget</div>}
+              {bidCpc > dailyBudget && <div className="text-[11px] text-rose-600 bg-rose-50 p-2 rounded">{t("brand_placements.bid_exceeds_budget")}</div>}
 
               <div className="flex gap-2 pt-2">
                 <button

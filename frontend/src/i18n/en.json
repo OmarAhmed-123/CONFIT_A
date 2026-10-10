@@ -457,7 +457,10 @@
     "vs_sample_blazer": "Navy Wool Blazer",
     "vs_sample_dress": "Silk Slip Dress",
     "vs_sample_shirt": "Crisp Oxford Shirt",
-    "ruler_privacy_subtitle": "100% privacy-preserving measurement analysis for {{title}}"
+    "ruler_privacy_subtitle": "100% privacy-preserving measurement analysis for {{title}}",
+    "scan_canvas_shoulder_guide": "Shoulder: {cm} cm",
+    "scan_canvas_waistline": "Waist: {cm} cm",
+    "scan_field_waistline": "Waistline"
   },
   "wardrobe": {
     "title": "Virtual Wardrobe & Smart Reuse",
@@ -792,7 +795,9 @@
     "next": "Next",
     "sign_in_to_continue": "Sign in to continue — your selection is kept.",
     "offline_retry": "You appear to be offline — check your connection and try again.",
-    "image_unavailable": "Image unavailable"
+    "image_unavailable": "Image unavailable",
+    "error": "Error",
+    "live_updating": "Live updating"
   },
   "layout": {
     "ai_stylist_director": "AI Stylist Director",
@@ -2138,7 +2143,8 @@
     "download_report": "Download the product & sales report for {{brand}} (PDF)",
     "report_pending": "Preparing the report…",
     "report_done": "Report downloaded.",
-    "report_failed": "The report could not be generated. The server refused or is unreachable — nothing was downloaded."
+    "report_failed": "The report could not be generated. The server refused or is unreachable — nothing was downloaded.",
+    "deactivate_title": "Deactivate product?"
   },
   "brand_orders": {
     "title": "Orders & Stock Movement",
@@ -2497,5 +2503,37 @@
   },
   "field": {
     "optional_marker": "Optional"
+  },
+  "brand_analytics": {
+    "add_to_cart": "Add to Cart",
+    "non_tryon_cohort": "Non-Try-On Cohort",
+    "purchases": "Purchases",
+    "telemetry_unavailable": "Telemetry unavailable",
+    "tryon_assisted_orders": "Try-On Assisted Orders"
+  },
+  "brand_inventory": {
+    "add_bopis_store": "Add BOPIS Store",
+    "add_store": "Add Store",
+    "create_store": "Create Store",
+    "inventory_failed": "Failed to load inventory",
+    "live_inventory_title": "Live Inventory",
+    "longitude": "Longitude",
+    "no_store_stock": "No store stock",
+    "no_stores": "No stores found",
+    "no_stores_desc": "Create your first store to enable BOPIS and real-time inventory",
+    "real_from_store": "Real inventory from store",
+    "store_breakdown": "Store Breakdown",
+    "store_network_failed": "Failed to load store network",
+    "warehouse": "Warehouse"
+  },
+  "brand_placements": {
+    "bid_exceeds_budget": "Bid exceeds daily budget",
+    "create_placement": "Create Placement",
+    "fit_recommendation_top": "Fit Recommendation Top",
+    "no_placements": "No placements yet",
+    "placement_type": "Placement Type",
+    "sponsored_failed": "Failed to load sponsored placements",
+    "stylist_featured": "Stylist Featured",
+    "trending_hero": "Trending Hero"
   }
 }

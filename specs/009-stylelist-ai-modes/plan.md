@@ -8,7 +8,7 @@ Add multi-image/vision Mode A to StyleList: extend `ChatRequest` with optional `
 
 ## Technical Context
 
-**Language/Version**: Python 3.12; TypeScript/React 18
+**Language/Version**: Python 3.13 (Dockerfile `python:3.13-slim`); TypeScript/React 18
 **Primary Dependencies**: FastAPI, Pydantic v2 (`schemas/stylist.py`); provider abstraction (local_gpu, nvidia, groq, gemini, openai, unorouter); `ColorHarmonyEngine`; OpenAI-compatible NVIDIA path; Gemini vision
 **Storage**: No new persistent image storage in DB; short-TTL/discard for uploads; recommendations reference existing catalog (`OutfitItemOut`)
 **Testing**: pytest with provider mocks/recordings (Mode A grounding, wardrobe influence, failover, color extraction, safety/budget); frontend (upload UI)
@@ -21,7 +21,7 @@ Add multi-image/vision Mode A to StyleList: extend `ChatRequest` with optional `
 - **I. Evidence Before Appearance**: PASS — Mode A proven by grounding + served-model tests; failover proven by induced-failure tests.
 - **IV. Honest AI & Integrations**: PASS/core — real catalog grounding, honest unavailability, truthful served-model, honest `include_wardrobe_items`.
 - **Data/privacy**: PASS — images not persisted as base64; short-TTL/discard.
-- **III**: uploads safety-screened + budgeted. **II**: N/A. **V**: PASS.
+- **IV** (no fabricated analysis, honest fallback) and **V** (tests first, E2E): upload safety and budgets are covered by backend tests; the save-as-look flow has an authenticated browser E2E. **I** and **II**: N/A to the safety pieces. (Principle III is authorization and is not the basis for upload safety.)
 
 No violations.
 
@@ -40,7 +40,8 @@ backend/
     ├── test_stylist_color_extraction.py   # NEW (SC-004, STY-06)
     └── test_stylist_upload_safety_budget.py # NEW (SC-005)
 frontend/
-└── src/components/VirtualStylistDrawer* (image upload UI; a11y/i18n via workstream 010)
+└── src/components/stylist/VirtualStylistDrawer.tsx (image upload, save look, honest note; a11y/i18n via workstream 010 primitives)
+    scripts/stylist_*.mjs (browser keyboard, contrast and save-look probes; not in CI, see verification.md §9)
 docs/
 └── (central model-ID/provider registry doc — STY-16)
 ```

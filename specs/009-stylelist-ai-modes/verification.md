@@ -466,3 +466,108 @@ Nine real NVIDIA HTTP requests were made in total in this session: one orchestra
 * **Look selection is still rule-based.** The composer chooses looks from occasion slots. A garment constraint such as "build around my navy trousers" does not yet change which pieces are selected, and the model's wording about it is not checked against the chosen items. This is the largest open gap against the brief.
 * **Generated outfit visuals.** No authorised image-generation provider is wired in this repository, and none was added. Preset looks show catalogue product images. No AI-generated image is produced or claimed.
 * **Microphone on a real device.** Not changed in this pass. The earlier fix is unchanged and remains NOT VERIFIED on a real device.
+
+### 10.14 Multi-photo vision: one request per photo (verification round, 2026-10-10)
+
+**Authorisation.** Medium budget: up to 30 live NVIDIA requests for this round, counting retries and failover. Vision on NVIDIA only. Voice: not run here (no live transcription provider call is needed by the current implementation).
+
+**Root cause found live.** Two catalogue photos sent in ONE vision request both timed out at the 15s budget (both candidate models). Each photo alone answered (3.7s, 5.0s). The multi-image request therefore silently lost the photos.
+
+**Fix.** `analyze_images` now makes one vision request per photo, in parallel. Each garment keeps its `image_index`. The result reports `images_total` and `images_analysed`, and a partial result is stated to the shopper in the photo note. A failed photo is never presented as analysed.
+
+| Step | Requests | Result |
+| --- | --- | --- |
+| Two photos, one request (before fix) | 2 | Both candidates timed out at 15s. `available: false` (honest) |
+| Photo b alone | 1 | `available: true`, `google/diffusiongemma-26b-a4b-it`, 5.0s, 6 garments with colour families |
+| Photo a alone | 1 | `available: true`, same model, 3.7s, 7 garments |
+| Two photos, per photo (after fix) | 2 | `available: true`, 2/2 analysed, 14 garments with photo indices |
+| One real chat turn, two photos, "shoes for work" (HTTP 200) | 6 (2 vision + 4 text) | mode A, 2/2 analysed, `answer_source: provider`, real colours extracted from pixels |
+
+Colour extraction feeds `ColorHarmonyEngine` (`_coordinate_with_palette`). **Limitation:** colour changes the ORDER of already-composed looks only. It does not change which products are selected. In the live turn both looks scored 100, so colour did not separate them.
+
+**Defects found in the live turn, NOT fixed in this round (highest priority next):**
+* Outfit 102, titled "Work & Business", contains an evening tuxedo jacket, a dinner shoe and a silk evening necktie. The request was for work. The composer does not enforce formality as a hard constraint.
+* Outfit 101 includes metallic heeled sandals. The model's own answer says they are "not ideal for a professional work setting".
+* The composer already has the data for this (`occasion_tags` per product). A hard exclusion of conflicting formality needs its own change and a verified run.
+
+**Tests (commands, exit codes).**
+* `pytest backend/tests/test_stylist_vision_multi_image.py` (new, 6 tests): one request per photo, index kept, partial reported as partial, all-failed honest, single photo, disabled never calls provider, no image content in public payload. **Provider stubbed.**
+* Focused subset (vision, grounding, repeated answers, wardrobe, eval): exit 0, 47 passed.
+* Full backend `pytest backend/tests`: exit 0, 3835 passed, 21 skipped.
+
+**Not verified.** Composer formality (see above). Colour-based selection. Partial-analysis UI rendering in a browser. Image-generation visuals (no authorised provider; the 2026-10-10 image-generation request was received truncated and is still awaiting a complete brief). Real-device microphone.
+
+**Live request budget used this round: 12 of 30** (6 in the isolated probes, 6 in the chat turn). No retries beyond those listed.
+
+### 10.15 Hard occasion gate in the outfit composer (2026-10-10)
+
+**Root cause.** `composer.compose_outfits` used occasion only as a score bonus, so an evening tuxedo (tags: wedding, gala, black_tie, party) and metallic evening sandals could be selected for "shoes for work". The live turn in §10.14 showed this.
+
+**Fix.** `backend/app/services/styling/occasion_gate.py`: a deterministic EXCLUSION before classification. A product with non-empty `occasion_tags` that shares no tag with the target occasion is excluded. Untagged products are kept. An unstated occasion applies no gate. Excluded IDs are reported in `meta.occasion_excluded`.
+
+**Effect on the seeded catalogue (real composer, no provider calls):**
+* "shoes for work" / "navy trousers for work": excluded 2, 5, 7, 9 (tuxedo, dress, sandals, clutch). Look 1 is complete (blazer, shirt, trousers, shoes).
+* "formal wedding": no exclusions. Tuxedo and sandals remain eligible.
+
+**Still open (not fixed here).**
+* Look 2 for work has only a shirt and an evening necktie (no bottoms, no footwear). The composer publishes incomplete looks.
+* The navy-trousers constraint is not enforced; navy trousers appear only through the colour bonus.
+* The seeded e2e catalogue has 9 products, so several requests return one or two looks.
+
+**Tests.** `backend/tests/test_stylist_occasion_gate.py` (6 new, unit). Focused stylist and composer set (11 files): exit 0, 134 passed. Full `pytest backend/tests`: exit 0, 3841 passed, 21 skipped.
+
+**Live budget.** No live provider calls in this increment. Round total corrected in §10.17 to about 20 of 30 (estimate, see §10.17). The local env has NVIDIA_KEY_* names only, not NVIDIA_API_KEY, so a live stylist turn is currently not configured locally (production key state UNKNOWN).
+
+### 10.16 Colour and anchor in the selection pipeline (directive 2026-10-10, no live calls)
+
+**Environment note.** The sandbox lost `.cache`, `/tmp` contents and the clone's `.git` between steps. Work was re-cloned to `/tmp/work` and the venv rebuilt at `/home/user/.venv-confit`.
+
+**Changes.**
+* `styling/constraints.py` (new): `parse_anchor` (hard anchor only with an explicit cue: "around", "with my", "go with my"...), `anchor_matches` (real product fields), `palette_bonus` (preference: +8 per harmonising pixel colour, −8 per clash, capped ±20, via `ColorHarmonyEngine._pairs_harmonize`).
+* `composer.py`: parses the anchor into the intent; HARD: bottoms restricted to the anchor, and a look without the anchored garment is removed and the removal is stated; if no anchor product exists, the reply says what is missing (no look is invented). PREFERENCE: `image_palette` adds `palette_bonus` to candidate scores. Composer meta reports `anchor`, `anchor_satisfied`, `image_palette`, and `occasion_excluded`.
+* `stylist_service.py`: passes only pixel-supported photo colours (`palette_items`) into the intent before composition.
+
+**Evidence (real composer, seeded catalogue, no provider).**
+* "Build an outfit around navy trousers for work": 1 look published, containing product 4 (Pleated Tapered Virgin Wool Trousers, Navy Blue). The second look without trousers was removed and stated.
+* "...black trousers for work": 0 looks; reason "No catalogue black trousers are available to build the look around."
+* Palette variants (none, navy, emerald green, champagne gold, burgundy+red) on formal and work requests: **the selected products did NOT change.** Each slot has one candidate in this 9-product catalogue, so colour can only reorder candidates. The palette wiring is real but has no measurable effect yet. This does not satisfy the directive's "colours affect the selection" criterion and remains OPEN. It needs a catalogue with several candidates per slot.
+
+**Tests.** `test_stylist_constraints_and_palette.py` (11 new). Focused set (11 files): exit 0, 141 passed. Full `pytest backend/tests`: exit 0, 3852 passed, 21 skipped.
+
+**Still open.** Shoe, bag, and belt coverage; a complete look for every request; colour choice with more candidates; Arabic anchor parsing; the look still includes the tuxedo for "smart casual" (no gate for the un-stated occasion); live provider checks (not run in this increment: live budget 12 of 30 unchanged).
+
+**Image generation.** Not implemented. See `image-generation-provider-decision.md`. Interim visuals: catalogue or stock only, labelled as such.
+
+### 10.17 Completeness, colour proof, vision status (branch `feat/stylist-vision-colour-constraints`, 2026-10-10)
+
+**Commits.** `3d06d3b` (publish gate, colour selection, fixture, tests); `23cf8d8` (honest limitations, test corrections). Earlier `45a7185` is the base of this round. Both commits are on the PR #339 branch.
+
+**Identity note.** The first push of `3d06d3b` was correct. A later commit (`4c49400`) was made with an empty author email because the variable was not loaded in that shell. It was replaced by `23cf8d8` using `--force-with-lease` on this feature branch only. No `main` history was changed.
+
+**What changed.**
+* Publish gate: one completeness rule (`rules.look_completeness`), shared by evaluation and publishing. An incomplete look is never published. Before this change, the second look could be published with no bottoms or shoes.
+* Honest limitation: when no complete look is built, `fallback_reason` states the composer's reasons. When exactly one complete look is built, the limitation is stored in `intent.composition_limitations` only. **Gap:** the shopper does not see the one-look limitation yet. The frontend stage must surface it.
+* Eval metric (`_grounded`): a turn with no recommendations counts as grounded only when it states why. An empty result without a reason still fails.
+* Colour: `palette_bonus` (same colour +12, harmonising +8, clash -8, capped at +/-20). Neutrals are never penalised.
+
+**Tests (mocked providers; labelled MOCKED-PROVIDER where stubs are used).**
+* Full backend suite on `23cf8d8`: **3872 passed, 21 skipped, 0 failed**, exit 0 (531 s).
+* Frontend `npm run verify` on the same tree (no frontend files changed this round): i18n gate ok, `tsc --noEmit` ok, vitest **99 files, 1308 tests passed**, `vite build` ok.
+* Colour proof (real composer, candidate-rich fixture, real Pillow palette, MOCKED-PROVIDER): the olive photo and the navy photo each change the first look's selected product IDs compared with no photo. Forcing the palette term to 0 fails 5 colour tests (`mutation_palette.py`).
+* Vision outage (MOCKED-PROVIDER): reported, and the reply falls back to the no-photo selection.
+
+**Live provider evidence (NVIDIA only).**
+* Per-photo vision (`live_vision5.py`): 2 of 2 analysed. Olive cardigan: outerwear, olive. Navy suit: blazer and trousers, labelled "blue", so the model's colour name is coarser than the photo.
+* One real stylist turn with both photos (`live_turn2.py`): **not a success.** Photo 1: primary `google/diffusiongemma-26b-a4b-it` returned no parseable JSON (one request). Photo 2: primary exceeded the 15 s limit, then the failover returned HTTP 503 "Worker local total request limit reached (16/16)" (two attempts). The service reported "analysis did not answer" and answered from the text request only. Nothing was invented. Output: one complete look (navy blazer, optic white shirt, navy trousers, obsidian shoes). No photo colour steered the look in that turn.
+* Conclusion: **multi-image vision is not reliably available right now.** Failures are provider-side (timeout, empty JSON, per-worker capacity). The degraded path works. Real multi-image success has not been demonstrated on this branch.
+
+**Live budget (estimate).** The exact count was not captured because provider HTTP lines are suppressed in the logs. Counted from client attempt logs: about 14 before this round, + 2 per-photo vision, + about 4 in the turn run (1 photo-1 request, 2 photo-2 attempts, 1 text answer). **Total about 20 of 30.** The earlier figure "12 of 30" in §10.15 is superseded.
+
+**Catalogue limitations (seeded catalogue).**
+* No complete casual look. Casual-tagged items are a shirt, an overshirt and a tote. "Casual weekend" now returns no look with a stated reason.
+* Only one complete formal-work look for the test request.
+
+**Not done.** Frontend composer, attachments, microphone, acceptance scenarios A–J, live multi-image vision success, image-generation provider (pending user confirmation). Production configuration was not inspected.
+
+**Merge status.** PR #339 is `open`, base `main`, mergeable state `behind`. `main` is now `c67c11a`, one commit ahead of the branch base `8873ed8`. The branch has not been merged or rebased, and this round does not merge.
+

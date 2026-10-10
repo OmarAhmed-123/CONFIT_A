@@ -209,6 +209,10 @@ class StylistService:
             vision = await analyze_images(images, prompt)
             if vision.available:
                 mode_used = "A"
+                # A partial analysis (some photos failed) is stated to the shopper,
+                # in the same photo note used for an unavailable analysis.
+                if vision.reason:
+                    fallback_reason = vision.reason
                 colour_check, palette_items = _cross_check_colours(pixel_palettes, vision)
                 image_analysis = {
                     **vision.to_public(),
@@ -217,6 +221,8 @@ class StylistService:
                         for c in merge_palettes(pixel_palettes)
                     ],
                     "colour_check": colour_check,
+                    # The pixel-supported colour families that actually steered the ranking.
+                    "palette_used": [p["color_family"] for p in palette_items if p.get("color_family")],
                     "images": len(images),
                 }
             else:
@@ -254,7 +260,9 @@ class StylistService:
             all_products, constraint_meta = apply_constraints(all_products, constraints)
             intent["recommendation_constraints"] = constraint_meta
 
-        # 7. Compose strict slot-based complete outfits grounded in the catalog
+        # 7. Compose strict slot-based complete outfits grounded in the catalog.
+        # Only pixel-supported photo colours (palette_items) steer the selection.
+        intent["image_palette"] = [p["color_family"] for p in palette_items if p.get("color_family")]
         recommended_outfits, alternatives_meta = StylingEngine.compose_outfits_with_meta(
             available_products=all_products,
             intent=intent,
@@ -266,6 +274,23 @@ class StylistService:
         # detail (styling/diversity.py explains the rule).
         if alternatives_meta.get("suppressed"):
             intent["alternatives"] = alternatives_meta
+
+        # Honest limitation: when fewer than two complete looks exist, the reply says
+        # why, using the composer's own reasons (never a generated excuse).
+        limits = list(alternatives_meta.get("reasons") or [])
+        if limits and len(recommended_outfits) < 2:
+            if recommended_outfits:
+                note = f"Only {len(recommended_outfits)} complete look could be built from the catalogue. "
+            else:
+                note = "No complete outfit could be built from the catalogue for this request. "
+            note += " ".join(limits)
+            intent["composition_limitations"] = limits
+            # fallback_reason is shown to the shopper only when NO complete look was built.
+            # A one-look reply keeps fallback_reason unset (it is not a fallback); its
+            # limitation is stored in intent and must be surfaced by the frontend stage.
+            if not recommended_outfits:
+                fallback_reason = f"{fallback_reason} {note}" if fallback_reason else note
+                intent["fallback_reason"] = fallback_reason
 
         # 6c. Mode A colour coordination. The image's extracted palette is scored
         #     against each composed look with the same ColorHarmonyEngine used

@@ -15,6 +15,7 @@ answer is treated as a CLAIM to be checked, not as a fact:
 """
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Sequence
 
@@ -46,6 +47,8 @@ class GarmentObservation:
     category: str
     description: str
     color_family: Optional[str]  # None when the model gave no usable colour word
+    #: Which attached photo (0-based, in upload order) this came from.
+    image_index: Optional[int] = None
 
 
 @dataclass
@@ -55,6 +58,12 @@ class VisionAnalysis:
     engine: Optional[str] = None  # "NVIDIA <model id that actually served>"
     garments: List[GarmentObservation] = field(default_factory=list)
     summary: Optional[str] = None
+    #: How many photos the shopper attached, and how many were actually analysed.
+    #: A partial result says so; it is never presented as the full set.
+    images_total: int = 0
+    images_analysed: int = 0
+    #: One entry per photo: {"index", "analysed", "summary"} (no image content).
+    per_image: List[Dict[str, Any]] = field(default_factory=list)
 
     def to_public(self) -> Dict[str, Any]:
         return {
@@ -62,11 +71,15 @@ class VisionAnalysis:
             "reason": self.reason,
             "engine": self.engine,
             "summary": self.summary,
+            "images_total": self.images_total,
+            "images_analysed": self.images_analysed,
+            "per_image": self.per_image,
             "garments": [
                 {
                     "category": g.category,
                     "description": g.description,
                     "color_family": g.color_family,
+                    "image_index": g.image_index,
                 }
                 for g in self.garments
             ],
@@ -104,22 +117,13 @@ def _parse_analysis(data: Dict[str, Any], engine: str) -> VisionAnalysis:
     )
 
 
-async def analyze_images(images: Sequence[ParsedImage], shopper_request: str) -> VisionAnalysis:
-    """Analyse the shopper's images with the vision chain. Never raises."""
-    if not images:
-        return VisionAnalysis(available=False, reason="No images were attached.")
-    if not settings.STYLIST_VISION_ENABLED:
-        return VisionAnalysis(available=False, reason="Image styling is turned off on this deployment.")
-    if not _vision_client.configured:
-        return VisionAnalysis(available=False, reason="Image analysis is not configured on this deployment.")
-
+async def _analyse_one(image: ParsedImage, index: int, shopper_request: str) -> VisionAnalysis:
+    """One photo, one vision request. Never raises."""
     import base64
 
-    urls = [
-        f"data:{img.mime};base64,{base64.b64encode(img.data).decode('ascii')}" for img in images
-    ]
+    url = f"data:{image.mime};base64,{base64.b64encode(image.data).decode('ascii')}"
     user = (
-        "Analyse the photo(s) for a stylist. The shopper said: "
+        "Analyse the photo for a stylist. The shopper said: "
         f"{shopper_request[:400]!r}. Return the JSON object only."
     )
     try:
@@ -127,21 +131,95 @@ async def analyze_images(images: Sequence[ParsedImage], shopper_request: str) ->
             ModelRole.GARMENT_VISION,
             system=_SYSTEM,
             user=user,
-            images=[ImagePart(url=u) for u in urls],
+            images=[ImagePart(url=url)],
             timeout_s=settings.STYLIST_VISION_TIMEOUT_SECONDS,
         )
     except Exception as exc:  # noqa: BLE001 - every failure is an honest "unavailable"
-        logger.warn("stylist_vision_unavailable", error_type=type(exc).__name__, error=str(exc)[:200])
+        logger.warn(
+            "stylist_vision_unavailable",
+            image_index=index,
+            error_type=type(exc).__name__,
+            error=str(exc)[:200],
+        )
         return VisionAnalysis(
             available=False,
-            reason="The image analysis service did not answer, so this reply uses your text request only.",
+            reason="The image analysis service did not answer for this photo.",
         )
 
     served = parsed.get("_model_id") or "unknown"
     engine = f"NVIDIA {served}"
     if not isinstance(parsed, dict):  # pragma: no cover - chat_json guarantees a dict
         return VisionAnalysis(available=False, reason="The image model returned an unreadable analysis.")
-    return _parse_analysis(parsed, engine)
+    result = _parse_analysis(parsed, engine)
+    for garment in result.garments:
+        garment.image_index = index
+    return result
+
+
+async def analyze_images(images: Sequence[ParsedImage], shopper_request: str) -> VisionAnalysis:
+    """Analyse every attached photo, one vision request per photo. Never raises.
+
+    WHY ONE REQUEST PER PHOTO. Measured 2026-10-10 against the live NVIDIA chain
+    with the same two catalogue photos: a single request carrying BOTH images
+    timed out at the 15s budget on both candidate models, while each photo alone
+    answered in 3.7s and 5.0s with structured observations. Sending the photos in
+    one request therefore silently lost them. Each photo is now analysed on its
+    own, in parallel, and the observations are merged with their photo index.
+
+    A partial result is reported as partial (images_analysed < images_total).
+    It is never presented as an analysis of photos that failed.
+    """
+    total = len(images)
+    if not images:
+        return VisionAnalysis(available=False, reason="No images were attached.")
+    if not settings.STYLIST_VISION_ENABLED:
+        return VisionAnalysis(available=False, reason="Image styling is turned off on this deployment.", images_total=total)
+    if not _vision_client.configured:
+        return VisionAnalysis(available=False, reason="Image analysis is not configured on this deployment.", images_total=total)
+
+    results = await asyncio.gather(
+        *(_analyse_one(img, i, shopper_request) for i, img in enumerate(images))
+    )
+
+    per_image: List[Dict[str, Any]] = []
+    garments: List[GarmentObservation] = []
+    engines: List[str] = []
+    summaries: List[str] = []
+    for index, result in enumerate(results):
+        per_image.append({
+            "index": index,
+            "analysed": result.available,
+            "summary": result.summary if result.available else None,
+        })
+        if result.available:
+            garments.extend(result.garments)
+            if result.engine:
+                engines.append(result.engine)
+            if result.summary:
+                summaries.append(result.summary)
+
+    analysed = sum(1 for r in results if r.available)
+    if analysed == 0:
+        return VisionAnalysis(
+            available=False,
+            reason="The image analysis service did not answer for any of your photos, so this reply uses your text request only.",
+            images_total=total,
+            images_analysed=0,
+            per_image=per_image,
+        )
+    reason = None
+    if analysed < total:
+        reason = f"Analysis worked for {analysed} of {total} photos. The other photo(s) were not used."
+    return VisionAnalysis(
+        available=True,
+        reason=reason,
+        engine=engines[0] if engines else None,
+        garments=garments,
+        summary=" ".join(summaries)[:400] or None,
+        images_total=total,
+        images_analysed=analysed,
+        per_image=per_image,
+    )
 
 
 def stylist_model_routing_report() -> Dict[str, Any]:

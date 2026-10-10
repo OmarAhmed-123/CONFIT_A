@@ -4,6 +4,9 @@ from typing import List, Dict, Any, Optional
 from backend.app.core.money import to_decimal, to_float, money_sum, quantize_money
 from backend.app.services.styling.ontology import SlotType, classify_product_slot
 from backend.app.services.styling.attribution import resolve_style_source
+from backend.app.services.styling.occasion_gate import gate_products
+from backend.app.services.styling.rules import look_completeness
+from backend.app.services.styling.constraints import anchor_matches, palette_bonus, parse_anchor
 from backend.app.services.styling.diversity import MIN_DISTINCTNESS_OVERLAP, is_distinct, suppression_reason
 from backend.app.services.styling.rules import StylingRulesEngine
 
@@ -245,6 +248,7 @@ class OutfitComposer:
             "requested_linen": requested_linen,
             "requested_silk": requested_silk,
             "requested_navy": requested_navy,
+            "anchor": parse_anchor(prompt),
             "requested_black": requested_black,
             "requested_white": requested_white,
             "requested_monochrome": requested_monochrome,
@@ -270,6 +274,16 @@ class OutfitComposer:
             return []
 
         occasion = intent.get("occasion", "Smart Casual")
+        # Hard gate: products catalogued only for other occasions are excluded
+        # before any outfit is built (see occasion_gate.py).
+        available_products, occasion_excluded = gate_products(available_products, occasion)
+        if not available_products:
+            if meta_out is not None:
+                meta_out.clear()
+                meta_out.update({"requested": max_outfits, "published": 0, "suppressed": 0,
+                                 "reasons": [f"no products suit the '{occasion}' occasion"],
+                                 "occasion_excluded": occasion_excluded})
+            return []
         formality = intent.get("formality", "smart_casual")
         budget_limit = intent.get("detected_budget", 450.0)
         aesthetic = intent.get("aesthetic", "Quiet Luxury")
@@ -312,6 +326,8 @@ class OutfitComposer:
 
             if intent.get("requested_navy") and "navy" in p_color:
                 score += 20
+            if palette_families:
+                score += palette_bonus(p_color, palette_families)
             if intent.get("requested_black") and ("black" in p_color or "midnight" in p_color):
                 score += 20
             if intent.get("requested_linen") and "linen" in p_title:
@@ -320,6 +336,31 @@ class OutfitComposer:
                 score += 25
 
             return score
+
+        # HARD: an explicitly named anchor garment must be in every look. Restrict
+        # the bottom slots to matching catalogue products; if none exist, say so.
+        anchor = intent.get("anchor")
+        anchor_missing = None
+        if anchor:
+            bottom_slots = [st for st in slot_map if "BOTTOM" in st.name]
+            anchored = [p for st in bottom_slots for p in slot_map[st] if anchor_matches(p, anchor)]
+            if not anchored:
+                anchor_missing = (
+                    f"No catalogue {anchor.get('colour') or ''} {anchor['garment']} are available to build the look around."
+                ).replace("  ", " ")
+            for st in bottom_slots:
+                slot_map[st] = [p for p in slot_map[st] if p in anchored]
+            if anchor_missing:
+                if meta_out is not None:
+                    meta_out.clear()
+                    meta_out.update({"requested": max_outfits, "published": 0, "suppressed": 0,
+                                     "reasons": [anchor_missing], "occasion_excluded": occasion_excluded,
+                                     "anchor": anchor, "anchor_satisfied": False})
+                return []
+
+        # PREFERENCE: pixel-supported photo colours shift candidate scores through
+        # ColorHarmonyEngine (see constraints.palette_bonus). They never exclude.
+        palette_families = [f for f in (intent.get("image_palette") or []) if f]
 
         for st in slot_map:
             slot_map[st].sort(key=lambda p: score_item_for_context(p, st), reverse=True)
@@ -565,6 +606,38 @@ class OutfitComposer:
                 })
                 outfits[0]["alternatives_published"] = len(outfits) - 1
 
+        # PUBLISH GATE: a look is shown only when it is a complete outfit. An
+        # incomplete look is never published to reach a target count; the gap is
+        # stated instead (see rules.look_completeness).
+        if outfits:
+            complete_looks = []
+            for look in outfits:
+                ok, missing = look_completeness(look.get("items", []))
+                if ok:
+                    complete_looks.append(look)
+                else:
+                    why = (f"; {len(occasion_excluded)} catalogue product(s) are tagged for other "
+                           f"occasions and were excluded" if occasion_excluded else "")
+                    suppressed_alternatives.append(
+                        f"look '{look.get('title')}' was not published: no {' or '.join(missing)} "
+                        f"is available for this request{why}")
+            outfits = complete_looks
+
+        # HARD: every published look must contain the anchored garment. A look
+        # that does not is removed and the removal is stated, not hidden.
+        if anchor and outfits:
+            anchor_ids = {p.id for st in bottom_slots for p in slot_map[st]}
+            kept_looks = []
+            for look in outfits:
+                look_ids = {i.get("product_id") for i in look.get("items", [])}
+                if look_ids & anchor_ids:
+                    kept_looks.append(look)
+                else:
+                    suppressed_alternatives.append(
+                        f"look '{look.get('title')}' was not published: it does not include the requested "
+                        f"{anchor.get('colour') or ''} {anchor['garment']}")
+            outfits = kept_looks
+
         if suppressed_alternatives and outfits:
             # State the suppression on the look the shopper actually sees, so the
             # client can render "no distinct alternative was found" instead of
@@ -584,6 +657,10 @@ class OutfitComposer:
                 "published": len(outfits),
                 "suppressed": len(suppressed_alternatives),
                 "reasons": suppressed_alternatives,
+                "occasion_excluded": occasion_excluded,
+                "anchor": anchor,
+                "anchor_satisfied": (True if anchor else None),
+                "image_palette": palette_families,
             })
         return outfits
 

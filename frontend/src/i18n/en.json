@@ -153,7 +153,6 @@
     "engine_label": "Answer engine",
     "engine_provider": "Answered by {{engine}}",
     "engine_grounded": "Answered by CONFIT's grounded styling engine — the AI provider was unavailable",
-    "engine_rejected": "Answered by CONFIT's grounded styling engine — the AI reply named a brand outside the looks shown, so the looks shown were described instead",
     "engine_none": "No styling engine was used for this reply",
     "you_label": "You",
     "assistant_label": "CONFIT AI Stylist",
@@ -194,10 +193,6 @@
     "voice_permission_denied": "Microphone permission denied. Enable microphone access to use voice styling.",
     "voice_error": "Voice recognition failed. Please type your request instead.",
     "voice_start_failed": "Could not start voice input. Please type your request instead.",
-    "voice_no_device": "No microphone was found. Check that a microphone is connected and enabled, or type your request.",
-    "voice_network": "Voice recognition could not reach its service. Check your connection, or type your request.",
-    "voice_no_speech": "No speech was heard. Try again, or type your request.",
-    "voice_service_blocked": "This browser blocked its speech service. Type your request instead.",
     "prompt_limit_hint": "{{remaining}} characters left",
     "position_outerwear": "Outerwear",
     "position_bottom": "Trousers",
@@ -211,24 +206,7 @@
     "catalogue_badge": "Verified catalogue pieces only",
     "formality": "Formality",
     "palette_label": "Look colour palette ({{count}} tones)",
-    "missing_slots_label": "Missing pieces:",
-    "attach_photo": "Attach outfit photo",
-    "attach_photo_hint": "Up to 3 photos, JPEG, PNG or WebP. Large photos are resized automatically",
-    "attach_error_type": "Only JPEG, PNG or WebP photos can be attached.",
-    "attach_error_size": "Each photo must be 1 MB or smaller.",
-    "attach_error_source_size": "Photo is too large to attach. Choose one under 20 MB.",
-    "attach_error_count": "You can attach up to 3 photos per message.",
-    "remove_photo": "Remove photo {{n}}",
-    "photos_attached": "{{count}} photo(s) attached",
-    "mode_fallback_note": "Your photos could not be analysed, so this reply uses your text request only.",
-    "save_look": "Save look",
-    "saving_look": "Saving look…",
-    "look_saved": "Look saved",
-    "save_look_signin": "Sign in to save this look.",
-    "save_look_failed": "We could not save this look. Please try again.",
-    "input_label": "Describe your outfit request",
-    "composer_hint": "Enter adds a new line · Ctrl+Enter (⌘+Enter on Mac) sends",
-    "sending": "Sending…"
+    "missing_slots_label": "Missing pieces:"
   },
   "outfit_builder": {
     "title": "Interactive Outfit Canvas",
@@ -458,9 +436,9 @@
     "vs_sample_dress": "Silk Slip Dress",
     "vs_sample_shirt": "Crisp Oxford Shirt",
     "ruler_privacy_subtitle": "100% privacy-preserving measurement analysis for {{title}}",
-    "scan_canvas_shoulder_guide": "Shoulder: {cm} cm",
-    "scan_canvas_waistline": "Waist: {cm} cm",
-    "scan_field_waistline": "Waistline"
+    "scan_field_waistline": "Waistline",
+    "scan_canvas_shoulder_guide": "Guide (your input): shoulder {{cm}} cm",
+    "scan_canvas_waistline": "Waistline: {{cm}}cm"
   },
   "wardrobe": {
     "title": "Virtual Wardrobe & Smart Reuse",
@@ -796,7 +774,7 @@
     "sign_in_to_continue": "Sign in to continue — your selection is kept.",
     "offline_retry": "You appear to be offline — check your connection and try again.",
     "image_unavailable": "Image unavailable",
-    "error": "Error",
+    "error": "Something went wrong",
     "live_updating": "Live updating"
   },
   "layout": {
@@ -2504,36 +2482,36 @@
   "field": {
     "optional_marker": "Optional"
   },
-  "brand_analytics": {
-    "add_to_cart": "Add to Cart",
-    "non_tryon_cohort": "Non-Try-On Cohort",
-    "purchases": "Purchases",
-    "telemetry_unavailable": "Telemetry unavailable",
-    "tryon_assisted_orders": "Try-On Assisted Orders"
-  },
   "brand_inventory": {
-    "add_bopis_store": "Add BOPIS Store",
+    "store_network_failed": "Store network lookup failed",
+    "no_stores": "No stores yet",
+    "no_stores_desc": "Add your first BOPIS-enabled boutique to enable Buy Online Pickup In Store.",
     "add_store": "Add Store",
-    "create_store": "Create Store",
-    "inventory_failed": "Failed to load inventory",
-    "live_inventory_title": "Live Inventory",
-    "longitude": "Longitude",
-    "no_store_stock": "No store stock",
-    "no_stores": "No stores found",
-    "no_stores_desc": "Create your first store to enable BOPIS and real-time inventory",
-    "real_from_store": "Real inventory from store",
+    "real_from_store": "Real from StoreLocation",
+    "live_inventory_title": "Live Inventory by SKU and Location - Real from StoreInventory",
+    "inventory_failed": "Inventory lookup failed",
+    "warehouse": "Warehouse",
     "store_breakdown": "Store Breakdown",
-    "store_network_failed": "Failed to load store network",
-    "warehouse": "Warehouse"
+    "no_store_stock": "No store stock",
+    "add_bopis_store": "Add BOPIS Store Location",
+    "create_store": "Create Store",
+    "longitude": "Longitude"
+  },
+  "brand_analytics": {
+    "telemetry_unavailable": "Telemetry unavailable",
+    "add_to_cart": "Add-to-Cart",
+    "purchases": "Purchases",
+    "non_tryon_cohort": "Non-Try-On cohort",
+    "tryon_assisted_orders": "Try-on assisted orders"
   },
   "brand_placements": {
-    "bid_exceeds_budget": "Bid exceeds daily budget",
+    "sponsored_failed": "Sponsored network data failed to load",
+    "no_placements": "No sponsored placements yet",
     "create_placement": "Create Placement",
-    "fit_recommendation_top": "Fit Recommendation Top",
-    "no_placements": "No placements yet",
     "placement_type": "Placement Type",
-    "sponsored_failed": "Failed to load sponsored placements",
     "stylist_featured": "Stylist Featured",
-    "trending_hero": "Trending Hero"
+    "trending_hero": "Trending Hero",
+    "fit_recommendation_top": "Fit Recommendation Top",
+    "bid_exceeds_budget": "Bid cannot exceed daily budget"
   }
 }

@@ -71,7 +71,7 @@ async function probe(browser, lang, dict) {
   const fabLabel = dict.layout.open_ai_stylist;
   let reachedFab = false;
   const trace = [];
-  for (let i = 0; i < 80 && !reachedFab; i++) {
+  for (let i = 0; i < 200 && !reachedFab; i++) {
     await page.keyboard.press("Tab");
     const f = await describeFocus(page);
     if (f.name === fabLabel) reachedFab = true;

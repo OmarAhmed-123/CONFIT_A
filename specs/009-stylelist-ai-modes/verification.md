@@ -357,3 +357,32 @@ Head `56d914f` (remote SHA verified equal to local). Two runs per push and pull-
 * Branch protection on `main` (readable): required checks are `backend`, `frontend`, `release gate (production schema parity)`. All three passed.
 * PR #335: open, **draft**, not merged. `mergeable_state` is `unstable`, because the non-required Workers check fails.
 * The PR is not marked ready for review, not merged, and not deployed.
+
+### 10.11 Final execution pass (2026-10-10): what was re-run and what it shows
+
+Scope: PR #335 (`009-stylelist-ai-modes` to `main`). Local checks below ran on the working tree that includes the commit that carries this section. Each row names its exit code and counts. Mock-only evidence is labelled as such.
+
+| Gate | Command or source | Result |
+| --- | --- | --- |
+| Frontend verify (i18n check, `tsc --noEmit`, vitest, `vite build`) | `npm run verify` in `frontend/` | **exit 0**. 97 files, **1274 tests passed**; build ok |
+| `actionButton` race, fixed test (current file) | `vitest run actionButton.test.tsx -t "checkout contract"`, 25 runs | **25 pass / 0 fail** |
+| `actionButton` race, pre-fix test (`ef3edea^`, same assertions, 10 ms timer) | same filter, 25 runs, file copied temporarily and removed | **0 pass / 25 fail**, symptom `data-state="idle"` where `pending` is asserted (line 322). This reproduces the CI failure. The earlier figure of 1 in 12 was a CI-loaded rate; in this environment it failed every time |
+| Browser gate (production build, no backend, no provider) | `GATE_OUT=... bash frontend/scripts/stylist_browser_gate.sh` | **exit 0, `gate: result=PASS`**. Axe drawer probe 0 serious/critical in en and ar. Keyboard/focus probe **29/29 checks, 0 failing** across en and ar |
+| Live local API scenarios (real backend, seeded test DB, **no provider keys**) | `evidence/2026-10-10/e2e_live_api_scenarios.py` | **28/28 PASS**, exit 0 (log `e2e_live_api_run.txt`). Covers Mode B, guest text, Mode A validation (L1-L5), image budget (L6), base64 scan of 18 tables (0 hits), wardrobe on/off and cross-user isolation, save-as-look, signed-out save |
+
+**Corrections made during this pass (recorded, not hidden):**
+
+* Two checks were wrong expectations and are now corrected to the intended rule. Guest text chat is by design (the controller accepts anonymous callers and limits them to 20/hour; only saving requires sign-in, FR-011). Guest photos are allowed and limited by the per-caller image budget (`STYLIST_IMAGE_TURNS_PER_HOUR`, 429 "styling with photos this hour"). A wardrobe check had looked for the wrong field; the engine reports wardrobe use in `intent_detected.wardrobe` (`used`, `owned_items_considered`, `pairings`).
+* Two checks passed or failed for the wrong reason while the chat limiter was exhausted (20/hour, keyed to 127.0.0.1, in-process). The chat endpoint returned 429 bodies with no `content`, so a "not in answer" check passed vacuously. The checks now require HTTP 200 first. The backend was restarted to reset the in-process counter. Any future run on the same host must respect the same budget.
+* Keyboard probe (`stylist_drawer_keyboard_probe.mjs`): the Tab search cap was 80 presses. On the current page the "Open AI Virtual Stylist" control is the 141st Tab stop (it is a fixed element at the end of the DOM). The cap is now 200. The assertion (the opener must be reached by Tab, then opened with Enter) is unchanged. **Keyboard users need about 140 Tab presses to reach the AI stylist opener**, which is a usability limitation to track, not a gate regression.
+* `.specify/scripts/bash/*` and `frontend/scripts/stylist_browser_gate.sh`: the gate script's executable bit now matches git mode `100755`. The six `.specify` mode-only changes from before this pass were left in place, untouched.
+
+**Still not verified, and what it means for release:**
+
+* **Vision (Mode A image analysis) is not verified live.** `NVIDIA` vision is not configured on this deployment, so the honest fallback ("Image analysis is not configured on this deployment.") is what the live run shows. The image-colour path into colour harmony runs only when vision succeeds; that path is covered by mocked tests only and is labelled mock-only.
+* **The configured-but-failing safety provider (503 fail-closed branch) is not exercised live.** Covered by code reading and mocked tests only.
+* **Live-provider quality, latency and availability (T016): not verified.** No budget was authorized, so no paid or live-provider call was made (`AGENTS.md`).
+* **Workers Builds `confit-a` (T028): unresolved.** It fails on the head (check `114198546729`, no log text). The Cloudflare dashboard needs credentials that are not configured. Its cause is unknown. It is **not** a required check on `main`.
+* **Playwright browser:** the gate needs `playwright-core` revision 1243. A newer install did not match and the probes failed before running. This is an environment note, not a product defect.
+
+Not re-run in this pass: the backend suites (last run on this code: 439 passed, 1 skipped, stylist subset, exit 0; full backend 3798 passed in §3), the PostgreSQL migration chain (CI only), the release gate (CI only), and the secret scan (CI, gitleaks).

@@ -1,0 +1,3 @@
+gate: axe drawer probe exit=0
+gate: keyboard/focus probe exit=0
+gate: result=PASS

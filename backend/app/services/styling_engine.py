@@ -1,5 +1,11 @@
+import re
 from typing import List, Dict, Any, Optional
 from backend.app.services.styling.color_harmony import ColorHarmonyEngine
+
+# Occasion-word context (see StylingEngine.detect_occasion).
+_NEGATED_LEAD = re.compile(r"(?:\bdon'?t|\bdoesn'?t|\bdidn'?t|\bnot|\bnever|\bwon'?t|\bcan'?t|n't)\s+(?:\w+\s+){0,2}$")
+_STYLE_MODIFIER_LEAD = re.compile(r"\b(?:smart|semi)[\s-]+$")
+_PURPOSE_LEAD = re.compile(r"\b(?:for|to|at|into|as)\s+(?:(?:my|a|an|the|some|our|this|that)\s+)?$")
 from backend.app.services.styling.rules import StylingRulesEngine
 from backend.app.services.styling.composer import OutfitComposer
 from backend.app.services.styling.grounding import GroundingGenerator
@@ -105,14 +111,32 @@ class StylingEngine:
         difference between styling and guessing.
         """
         lowered = (text or "").lower().strip()
+        matches = []  # (is_purpose_phrase, position, occasion, formality)
         for occasion, formality, words in cls.OCCASION_RULES:
-            if any(w in lowered for w in words):
-                if occasion == "Formal & Wedding" and any(
-                    w in lowered for w in cls.BLACK_TIE_WORDS
-                ):
-                    return occasion, "black_tie"
-                return occasion, formality
-        return None, None
+            for word in words:
+                for m in re.finditer(r"(?<!\w)" + re.escape(word) + r"(?!\w)", lowered):
+                    lead = lowered[max(0, m.start() - 40): m.start()]
+                    # "don't work", "not for work": the word is negated, so it
+                    # does not name the occasion ("why the colours don't work").
+                    if _NEGATED_LEAD.search(lead):
+                        continue
+                    # "smart casual" is a style, not an occasion: in "a smart casual
+                    # dinner look" the occasion is the dinner.
+                    if word == "casual" and _STYLE_MODIFIER_LEAD.search(lead):
+                        continue
+                    is_purpose = bool(_PURPOSE_LEAD.search(lead))
+                    matches.append((not is_purpose, m.start(), occasion, formality))
+        if not matches:
+            return None, None
+        # An explicit purpose phrase ("formal ... for work") names the occasion;
+        # the adjective before it only sets the level. Otherwise the earliest
+        # occasion word in the sentence wins.
+        _, _, occasion, formality = min(matches, key=lambda t: (t[0], t[1]))
+        if occasion == "Formal & Wedding" and any(
+            w in lowered for w in cls.BLACK_TIE_WORDS
+        ):
+            return occasion, "black_tie"
+        return occasion, formality
 
     _OCCASION_KEYWORDS = {
         "formal": ["formal", "black tie", "black-tie", "black_tie", "gala", "tuxedo", "wedding", "reception", "ball"],

@@ -1,4 +1,5 @@
 import json
+import re
 from typing import Dict, Any, List, Optional
 from sqlalchemy.orm import Session
 from backend.app.repositories.stylist_repository import StylistRepository
@@ -56,6 +57,7 @@ class StylistService:
         recommendation_constraints: Optional[Dict[str, Any]] = None,
         images: Optional[List[ParsedImage]] = None,
         include_wardrobe_items: bool = True,
+        history: Optional[List[Dict[str, str]]] = None,
     ) -> Dict[str, Any]:
         images = list(images or [])
         # 0. Decode the images BEFORE anything is written. An unreadable picture
@@ -314,6 +316,26 @@ class StylistService:
         # Facts handed to the model as verified context (never as open invitations
         # to invent). Image analysis and wardrobe pieces are both checked facts.
         extra_context_parts: List[str] = []
+        # Facts the model must respect, stated by the service (not inferred by the
+        # model): how many looks were asked for against how many are shown, and
+        # whether the shopper's own wardrobe was actually used.
+        requested_looks = _requested_look_count(prompt)
+        if requested_looks and requested_looks != len(recommended_outfits):
+            extra_context_parts.append(
+                f"The shopper asked for {requested_looks} looks; this reply shows "
+                f"{len(recommended_outfits)}. Say so, and do not claim the others are shown."
+            )
+        if include_wardrobe_items and not wardrobe_meta.get("used"):
+            extra_context_parts.append(
+                "The shopper's own wardrobe was NOT used for this reply"
+                + (f" ({wardrobe_meta['reason']})." if wardrobe_meta.get("reason") else ".")
+            )
+        if _mentions_own_items(prompt):
+            extra_context_parts.append(
+                "The shopper describes pieces they own in their message. Those pieces are "
+                "not in CONFIT's records: do not present them as catalogue items, and do "
+                "not say the look was built from them unless they are listed under owned pieces."
+            )
         if mode_used == "A" and vision and vision.summary:
             extra_context_parts.append(f"Image analysis: {vision.summary}")
         if mode_used == "A" and image_analysis and image_analysis.get("colours"):
@@ -322,6 +344,23 @@ class StylistService:
         if wardrobe_context_lines:
             extra_context_parts.append("Owned pieces that pair with the primary look:\n" + "\n".join(wardrobe_context_lines))
         extra_context = "\n".join(extra_context_parts) or None
+
+        # Earlier turns: text only, oldest first, bounded. Client-supplied, so
+        # they are context for the model and are never trusted as facts.
+        conversation = [
+            {"role": str(t.get("role", "user")), "content": str(t.get("content", ""))[:1200]}
+            for t in (history or [])[-STYLIST_HISTORY_MAX_TURNS:]
+            if t.get("content")
+        ]
+        # Every brand the shopper could be offered. The orchestrator refuses an
+        # answer that names a catalogue brand outside the looks on offer.
+        catalogue_brands = sorted(
+            {
+                p.brand.brand_name
+                for p in all_products
+                if getattr(p, "brand", None) is not None and getattr(p.brand, "brand_name", None)
+            }
+        )
 
         # 7. Generate Natural Language Explanation GROUNDED ON THE SELECTED OUTFIT
         ai_result = await self.orchestrator.generate_styling_advice(
@@ -336,6 +375,8 @@ class StylistService:
             alternate_outfits=recommended_outfits[1:],
             intent=intent,
             extra_context=extra_context,
+            conversation=conversation,
+            catalogue_brands=catalogue_brands,
         )
 
         # Split the reply and attach each grounded sentence to its outfit.
@@ -405,6 +446,39 @@ class StylistService:
             "recommendations": recommended_outfits,
             "created_at": assistant_msg.created_at
         }
+
+
+#: Earlier turns sent to the model. Matches the request schema bound; a longer
+#: history is truncated to the most recent turns, never refused.
+STYLIST_HISTORY_MAX_TURNS = 8
+
+
+# ---------------------------------------------------------------------------
+# Request-fact helpers. Pure functions over the shopper's text.
+# ---------------------------------------------------------------------------
+
+_LOOK_COUNT_RE = re.compile(
+    r"(?<![\w.])(\d{1,2})\s+(?:[a-z]+\s+){0,2}(?:outfits?|looks?|combinations?|sets?)\b", re.IGNORECASE
+)
+_OWN_ITEM_RE = re.compile(
+    r"\b(?:i (?:have|own)|my (?:own|wardrobe|shirt|trousers|pants|jeans|jacket|shoes|vest|blazer|dress)|"
+    r"items? i (?:already )?own|what i (?:already )?have)\b|عندي|عندى|ملابسي|ملابسى|عنديّ",
+    re.IGNORECASE,
+)
+
+
+def _requested_look_count(prompt: str) -> Optional[int]:
+    """The number of looks the shopper asked for, when they state one."""
+    match = _LOOK_COUNT_RE.search(prompt or "")
+    if not match:
+        return None
+    count = int(match.group(1))
+    return count if 1 <= count <= 20 else None
+
+
+def _mentions_own_items(prompt: str) -> bool:
+    """Whether the shopper talks about clothes they already have."""
+    return bool(_OWN_ITEM_RE.search(prompt or ""))
 
 
 # ---------------------------------------------------------------------------

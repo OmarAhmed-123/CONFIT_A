@@ -130,6 +130,7 @@ async def _interact(service, user_id, payload, fx, images):
         recommendation_constraints=(payload.recommendation_constraints.model_dump(exclude_none=True) if payload.recommendation_constraints else None),
         images=images,
         include_wardrobe_items=payload.include_wardrobe_items,
+        history=[{"role": t.role, "content": t.content} for t in (payload.history or [])],
     )
 
 

@@ -54,6 +54,20 @@ class GuidedRecommendationConstraints(BaseModel):
 STYLIST_PROMPT_MAX_CHARS = 2000
 
 
+STYLIST_HISTORY_MAX_TURNS = 8
+STYLIST_HISTORY_TURN_MAX_CHARS = 1200
+
+
+class StylistHistoryTurn(BaseModel):
+    """One EARLIER turn of the chat, sent back so follow-up questions have context.
+
+    Text only. Images are never resent: a photo was analysed once, and its
+    result travels in the stored answer, not as raw bytes (FR-008).
+    """
+    role: str = Field(pattern="^(user|assistant)$")
+    content: str = Field(min_length=1, max_length=STYLIST_HISTORY_TURN_MAX_CHARS)
+
+
 class StylistPromptRequest(BaseModel):
     session_id: Optional[int] = None
     prompt: str = Field(
@@ -85,6 +99,11 @@ class StylistPromptRequest(BaseModel):
         return value
     occasion: Optional[str] = None
     budget_limit: Optional[float] = Field(default=None, ge=0, allow_inf_nan=False)
+    # Earlier turns of this chat, oldest first. The server keeps only the most
+    # recent STYLIST_HISTORY_MAX_TURNS; the latest message is always `prompt`.
+    history: Optional[List[StylistHistoryTurn]] = Field(
+        default=None, max_length=STYLIST_HISTORY_MAX_TURNS
+    )
     voice_input_used: bool = False
     #: Use the shopper's own wardrobe when composing advice (STY-03). Honoured
     #: only for a signed-in shopper who has wardrobe items; the response says

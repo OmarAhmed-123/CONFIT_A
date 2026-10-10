@@ -462,6 +462,8 @@ export const stylistService = {
   chat: (payload: {
     prompt: string;
     session_id?: number;
+    /** Earlier turns of this chat, oldest first (text only, server keeps the last 8). */
+    history?: { role: "user" | "assistant"; content: string }[];
     occasion?: string;
     budget_limit?: number;
     voice_input_used?: boolean;

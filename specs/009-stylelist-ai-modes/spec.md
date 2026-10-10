@@ -126,3 +126,10 @@ As the platform, stylist image uploads are content-safety screened and per-user 
 
 - Vision reaches through the existing OpenAI-compatible NVIDIA path and/or Gemini; exact model IDs are configuration-driven and centrally documented; no paid AI request is triggered during planning (tests mock/record providers).
 - Shareable "looks" from Mode A (STY-10), streaming/agentic multi-turn (STY-11), eval harness (STY-15), and Mode-A→VTON handoff (STY-17) are P2/P3 scheduled later; drawer a11y/i18n (STY-14) aligns with workstream 010.
+
+## Amendment (2026-10-10): scope of STY-10 and STY-11
+
+* **STY-10 (shareable looks / save-as-look) is partially in scope.** Limited to Mode A and signed-in users. It reuses the existing `POST /outfits/save`, with no schema change or migration. Guests see a sign-in prompt.
+* **STY-11 (streaming / multi-turn) stays deferred.** It needs a product decision: SSE on serverless, and grounding must be verified before streaming products.
+* STY-15 and STY-17 stay deferred. STY-17 is blocked on workstream 008.
+* Stale model IDs named in the older plan are superseded by `docs/STYLIST_MODEL_ROUTING.md`. The primary vision model is `google/diffusiongemma-26b-a4b-it`.

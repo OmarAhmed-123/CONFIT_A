@@ -83,3 +83,46 @@ Several files fail at import on the baseline because the modules do not exist th
 * **Rollout default:** `STYLIST_VISION_ENABLED` defaults to `true` (documented in `.env.example` and the routing doc). It is a kill switch.
 * **Historical plan:** `docs/audits/STYLELIST_AI_REPAIR_PLAN.md` is one of the five historical forensic plans and was not rewritten, per AGENTS.md. This file is the result record instead.
 * **Pre-existing:** the `user_msg` unused variable in `stylist_service.py`.
+
+## 7. Execution record: 2026-10-10 (T-STY-07 frontend, Mode A)
+
+> **Correction (2026-10-10).** Section 6 above labels streaming as STY-10 and save-as-look as STY-11. That is backwards. Per `spec.md` (deferred scope, line 128): **STY-10 = shareable looks (save-as-look)**, **STY-11 = streaming / multi-turn**, STY-15 = eval harness, STY-17 = Mode-A→Try-On handoff. Section 6 is kept as the historical record and is not rewritten.
+
+### 7.1 Red then green (frontend)
+
+* `frontend/src/components/stylist/__tests__/stylistModeA.test.tsx` (12 tests) was written first. Against the code before this pass, **5 failed** (fallback note, save-as-look ×3, colour-contrast axe run). The other 7 passed, and they cover behaviour that already existed.
+* After the change, **12/12 pass**.
+* `npm run verify` exit 0: **97 files, 1271 tests passed** (was 96 files, 1259 before this pass).
+* `tsc --noEmit` exit 0. `npm run i18n:check` exit 0. Logs: `/home/user/logs/fe_verify2.log`, `fe_tsc2.log`, `fe_i18n2.log`.
+
+### 7.2 What changed (T-STY-07 items)
+
+| Item | Status | Evidence |
+| --- | --- | --- |
+| Honest fallback shown to the shopper (FR-003) | Done for the UI. The note is localized and does not show the API's English sentence. | `stylistModeA.test.tsx`; screenshot in `/home/user/logs/` |
+| Save look (STY-10), Mode A only, signed-in | Done, reusing `POST /outfits/save`. No schema change. Saving, saved, sign-in (401), and generic error states. | 3 tests in `stylistModeA.test.tsx` |
+| RTL | Verified in a real browser: `dir="rtl"` on `<html>`, drawer mirrored, Arabic strings render. | `frontend/scripts/stylist_drawer_a11y_probe.mjs`; `/home/user/logs/stylist_drawer_a11y_run.log` |
+| Axe with colour contrast enabled (real browser) | **Passes with 0 serious/critical violations in en and ar.** Found and fixed 4 real contrast issues (gold labels, attachment error text, step numerals, body copy). 75 (en) and 70 (ar) checks are **incomplete**, because axe cannot resolve the gradient backgrounds. Those are **not verified**. | `/home/user/logs/stylist_drawer_a11y.json` |
+| Keyboard and focus order | **Not verified in this pass.** Only the existing jsdom checks. A keyboard walk in a browser is still needed. | none |
+| Streaming (STY-11) | **Deferred.** It needs a decision: SSE on serverless, and grounding must be verified before streaming products. | spec deferred scope |
+| Errors and loading | Attachment rejection is announced in an alert; save states are covered by tests. | `stylistModeA.test.tsx`, `stylistImageAttach.test.ts` |
+
+### 7.3 Caveats
+
+* **Save-as-look was not exercised in the browser.** The browser probe does not sign in and does not send chat requests, because no backend was run. The save flow is covered by the jsdom test, which mocks `stylistService.saveOutfit`. A signed-in browser run is still needed.
+* The browser probe is a **reporting tool**. It exits non-zero on serious or critical violations. It needs `npm run dev` on port 43123, and it uses the repo's `playwright-core` and its Chromium build with system libraries installed (`install-deps`).
+* The repo's existing Python tool `frontend/scripts/browser_a11y_rtl.py` was **not run**. It needs `pip install playwright`, and its surface list points at `/stylist`, not the drawer.
+
+### 7.4 Git
+
+* Branch `009-stylelist-ai-modes`, identity `OmarAhmed-123`.
+* `865e0c6` feat(stylist): Mode A honest fallback note and save-as-look (T-STY-07). Grouped: the fix for the contrast issues is in the same file as the feature, so it is not a separate commit.
+* `2fc71cf` chore(stylist): browser a11y probe for the drawer.
+
+### 7.5 Still open (stated plainly)
+
+* Live provider calls: none. Real-model accuracy and latency are unverified.
+* `/speckit.analyze`: not run.
+* T-STY-09 (Try-On handoff, STY-17) is **blocked on workstream 008** (0/16 complete).
+* Migration head: repo `0034`, production head unverified. No migration was created or run.
+* `Workers Builds: confit-a` check: pre-existing, dashboard-only, out of scope unless the owner provides its log.

@@ -51,3 +51,14 @@ description: "Task list for StyleList AI Mode A / grounding / failover"
 
 ## Dependencies
 - T002/T003 block Mode A. Upload privacy pattern shared with workstream 008. Mode-A→VTON (STY-17) depends on workstream 008.
+
+## T-STY-07 frontend status (2026-10-10)
+
+- [x] T017 [FE] Mode A fallback note rendered from `mode` / `fallback_reason` (localized). Evidence: `stylistModeA.test.tsx`, `verification.md` §7.
+- [x] T018 [FE] Save look (Mode A, signed-in) via `POST /outfits/save`, with saving / saved / sign-in / error states. Evidence: `stylistModeA.test.tsx`. Not yet exercised in a signed-in browser.
+- [x] T019 [FE] Real-browser axe with colour contrast enabled: 0 serious/critical in en and ar. Evidence: `frontend/scripts/stylist_drawer_a11y_probe.mjs`. Incomplete (gradient) checks remain unverified.
+- [x] T020 [FE] RTL drawer verified in Chromium (en ltr, ar rtl). Evidence: `/home/user/logs/stylist-drawer-ar.png`.
+- [ ] T021 [FE] Keyboard and focus-order walk in a browser. Not done.
+- [ ] T022 [FE] Streaming (STY-11). Deferred; needs a product decision (SSE on serverless; grounding first).
+- [ ] T023 [FE] T-STY-09 Try-On handoff. Blocked on workstream 008 (T004–T006).
+

@@ -2515,7 +2515,7 @@
     "add_to_cart": "Add to Cart",
     "non_tryon_cohort": "Non-Try-On Cohort",
     "purchases": "Purchases",
-    "telemetry_unavailable": "Telemetry data is currently unavailable",
+    "telemetry_unavailable": "Telemetry unavailable",
     "tryon_assisted_orders": "Try-On Assisted Orders"
   },
   "brand_inventory": {

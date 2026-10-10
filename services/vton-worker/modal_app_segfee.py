@@ -386,20 +386,66 @@ class FashnInferenceService:
         except Exception as e:
             raise HTTPException(status_code=422, detail={"error": {"code": "INPUT_INVALID", "message": f"Invalid garment image: {type(e).__name__}: {str(e)[:200]}"}})
 
-        # Run inference
+        # Run inference — QA-gated seed ladder (ghost-hands remediation).
+        # A single fixed seed with a content-blind verify gate is how the
+        # 2026-10 "ghost hands" render shipped as success: the old gate only
+        # proves the image changed. Now every candidate render must pass the
+        # content QA gate (no invented skin / face / background drift); the
+        # first passing seed wins and identity regions are pasted back from
+        # the person input. If NO seed passes, the job fails LOUDLY
+        # (QA_GATE_FAILED) instead of returning a contaminated image.
         import torch
+        from vton_qa import QA_SEED_LADDER, paste_back_identity, qa_gate
+
         start_inference = time.time()
+        rendered: Image.Image | None = None
+        qa: dict | None = None
+        qa_attempts: list[dict] = []
         try:
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
-            rendered = self.engine.render(
-                person_image=person,
-                garment_image=garment,
-                category=category,
-                seed=42,
-                num_timesteps=30,
-            )
+            for seed in QA_SEED_LADDER:
+                candidate = self.engine.render(
+                    person_image=person,
+                    garment_image=garment,
+                    category=category,
+                    seed=seed,
+                    num_timesteps=30,
+                )
+                q = qa_gate(person, candidate, garment)
+                qa_attempts.append(
+                    {
+                        "seed": seed,
+                        "qa_PASS": q["qa_PASS"],
+                        "ghost_skin_blobs": q["ghost_skin_blobs"],
+                        "face_drift": q["face_drift"],
+                        "background_drift": q["background_drift"],
+                        "reasons": q["qa_reasons"],
+                    }
+                )
+                if q["qa_PASS"]:
+                    rendered = paste_back_identity(person, candidate)
+                    qa = q
+                    break
+            if rendered is None:
+                raise HTTPException(
+                    status_code=503,
+                    detail={
+                        "error": {
+                            "code": "QA_GATE_FAILED",
+                            "message": (
+                                "No seed produced a render that passed the "
+                                "ghost-limb/identity QA gate; failing honestly "
+                                "instead of returning a contaminated image."
+                            ),
+                            "attempts": qa_attempts,
+                        },
+                        "job_id": request_id,
+                    },
+                )
             inference_s = round(time.time() - start_inference, 3)
+        except HTTPException:
+            raise
         except torch.cuda.OutOfMemoryError as e:
             try:
                 if torch.cuda.is_available():
@@ -433,6 +479,14 @@ class FashnInferenceService:
         verify = {"PASS": None}
         try:
             verify = self._verify_output(person, rendered)
+            if qa is not None:
+                # Content QA travels inside verify so the backend's canonical
+                # per-layer gate and observability see exactly what ran.
+                verify["qa"] = qa
+                verify["qa_attempts"] = qa_attempts
+                verify["identity_paste_back"] = True
+                if not qa["qa_PASS"]:
+                    verify["PASS"] = False
         except Exception as e:
             print(f"[process] verify failed job {request_id}: {e}", flush=True)
 
@@ -456,6 +510,7 @@ class FashnInferenceService:
             "slot_type": slot,
             "category": category,
             "verify": verify,
+            "qa_attempts": qa_attempts,
             "parser_present": _parser_status,
             "commercial": True,
         }

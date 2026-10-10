@@ -2,6 +2,12 @@ from datetime import datetime
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, Field, ConfigDict, field_validator
 
+from backend.app.services.stylist_image_intake import (
+    STYLIST_MAX_IMAGES,
+    ImageIntakeError,
+    parse_images,
+)
+
 
 class GuidedRecommendationConstraints(BaseModel):
     """Structured constraints for the guided first-look contract.
@@ -80,8 +86,29 @@ class StylistPromptRequest(BaseModel):
     occasion: Optional[str] = None
     budget_limit: Optional[float] = Field(default=None, ge=0, allow_inf_nan=False)
     voice_input_used: bool = False
+    #: Use the shopper's own wardrobe when composing advice (STY-03). Honoured
+    #: only for a signed-in shopper who has wardrobe items; the response says
+    #: whether it was actually used.
     include_wardrobe_items: bool = True
     recommendation_constraints: Optional[GuidedRecommendationConstraints] = None
+    #: Optional outfit / garment photos as ``data:image/(png|jpeg|webp);base64``
+    #: URLs (Mode A). Validated here, at the boundary: type by magic bytes, size
+    #: capped per image, at most STYLIST_MAX_IMAGES. Never persisted.
+    images: List[str] = Field(default_factory=list, max_length=STYLIST_MAX_IMAGES)
+
+    @field_validator("images", mode="after")
+    @classmethod
+    def _validate_images(cls, value: List[str]) -> List[str]:
+        try:
+            parse_images(value)
+        except ImageIntakeError as exc:
+            raise ValueError(str(exc)) from None
+        return value
+
+    @property
+    def mode(self) -> str:
+        """``A`` when images are attached (multi-image styling), else ``B``."""
+        return "A" if self.images else "B"
 
 
 class OutfitItemOut(BaseModel):
@@ -139,6 +166,12 @@ class OutfitOut(BaseModel):
     share_url: Optional[str] = None
     share_expires_at: Optional[datetime] = None
     share_view_count: Optional[int] = 0
+    #: Owned wardrobe items that pair with this look (STY-03). Present only when
+    #: the shopper asked for wardrobe grounding and it was actually used.
+    wardrobe_pairings: Optional[List[Dict[str, Any]]] = None
+    #: Colour coordination of this look against the colours extracted from the
+    #: shopper's images (Mode A). None for text-only turns.
+    color_coordination: Optional[Dict[str, Any]] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -159,6 +192,13 @@ class StylistMessageOut(BaseModel):
     #: the client cannot tell generated advice from fallback prose — see the
     #: comment in stylist_service.interact_with_stylist.
     engine: Optional[str] = None
+    #: "A" (images analysed) or "B" (text-only). Additive; absent on old rows.
+    mode: Optional[str] = None
+    #: Set when Mode A was requested but ran as Mode B. Shopper-safe reason.
+    fallback_reason: Optional[str] = None
+    #: What the image analysis produced (colours, garments, engine). Never the
+    #: image bytes. None for text-only turns.
+    image_analysis: Optional[Dict[str, Any]] = None
 
     model_config = ConfigDict(from_attributes=True)
 

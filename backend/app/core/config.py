@@ -374,6 +374,14 @@ class Settings(BaseSettings):
     # against the SAME budget, so the previous 300 regularly produced
     # finish_reason="length" with empty content.
     AI_MAX_TOKENS: int = 900
+    # StyleList Mode A (multi-image styling). When False, image turns are refused
+    # with a 503 instead of being analysed; text-only Mode B is unaffected.
+    STYLIST_VISION_ENABLED: bool = True
+    # Per-attempt budget for the vision call. Vision is slower than text: the
+    # registry measured nano-omni at 24.6s, diffusiongemma at ~1-3s.
+    STYLIST_VISION_TIMEOUT_SECONDS: float = 15.0
+    # Image-carrying stylist turns per caller per hour (cost control, STY-08).
+    STYLIST_IMAGE_TURNS_PER_HOUR: int = 5
     AI_STYLIST_PROVIDER: str = "hybrid"
     VTON_PROVIDER: str = "hybrid"
     # Server-decided production VTON engine (the frontend never selects this).

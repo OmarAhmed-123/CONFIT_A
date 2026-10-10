@@ -131,6 +131,13 @@ MIGRATION_ONLY_TABLES: frozenset[str] = frozenset({
     # downgrade() on purpose (dropping evidence on rollback would be worse
     # than an extra table).
     "store_inventories_tenant_quarantine",
+    # 0035 — product_images table reconciles production 0035_product_images.
+    # No ORM model exists in this codebase (table is not read by any code path
+    # in main, but repair scripts and backups reference it). It is created by
+    # migration 0035_product_images idempotently. Declared MIGRATION_ONLY so
+    # that a create_all database (dev/test) may legitimately lack it, while an
+    # Alembic-managed database (prod, CI) must have it and the gate accepts it.
+    "product_images",
 })
 
 REQUIRED_COLUMNS: Dict[str, tuple[str, ...]] = {

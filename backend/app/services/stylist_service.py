@@ -284,9 +284,13 @@ class StylistService:
             else:
                 note = "No complete outfit could be built from the catalogue for this request. "
             note += " ".join(limits)
-            fallback_reason = f"{fallback_reason} {note}" if fallback_reason else note
             intent["composition_limitations"] = limits
-            intent["fallback_reason"] = fallback_reason
+            # fallback_reason is shown to the shopper only when NO complete look was built.
+            # A one-look reply keeps fallback_reason unset (it is not a fallback); its
+            # limitation is stored in intent and must be surfaced by the frontend stage.
+            if not recommended_outfits:
+                fallback_reason = f"{fallback_reason} {note}" if fallback_reason else note
+                intent["fallback_reason"] = fallback_reason
 
         # 6c. Mode A colour coordination. The image's extracted palette is scored
         #     against each composed look with the same ColorHarmonyEngine used

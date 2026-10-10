@@ -4,6 +4,7 @@ import { useState, useCallback, useRef } from "react";
 import { stylistService } from "../services/apiServices";
 import { StylistMessage, Outfit } from "../models";
 import { useCartStore } from "../stores/cartStore";
+import { validateStylistImage, readAsDataUrl } from "../components/stylist/stylistImageAttach";
 import { useUIStore } from "../stores/uiStore";
 
 // Minimal typing for the Web Speech API (not in default TS DOM lib).
@@ -41,6 +42,30 @@ export function useStylistViewModel() {
   const { addItem, openCart } = useCartStore();
   const { showToast } = useUIStore();
 
+  // Mode A: photos the shopper attached to the next message (data URIs).
+  const [pendingImages, setPendingImages] = useState<string[]>([]);
+  const [attachError, setAttachError] = useState<"type" | "size" | "count" | null>(null);
+
+  const addImages = useCallback(async (files: File[]) => {
+    let next = [...pendingImages];
+    let firstError: "type" | "size" | "count" | null = null;
+    for (const file of files) {
+      const problem = validateStylistImage(file, next.length);
+      if (problem) {
+        firstError = firstError ?? problem;
+        continue;
+      }
+      next = [...next, await readAsDataUrl(file)];
+    }
+    setPendingImages(next);
+    setAttachError(firstError);
+  }, [pendingImages]);
+
+  const removeImage = useCallback((index: number) => {
+    setPendingImages((prev) => prev.filter((_, i) => i !== index));
+    setAttachError(null);
+  }, []);
+
   const sendPrompt = useCallback(
     async (
       promptText?: string,
@@ -73,8 +98,11 @@ export function useStylistViewModel() {
         created_at: new Date().toISOString(),
       };
 
+      const imagesToSend = pendingImages;
       setMessages((prev) => [...prev, userMsg]);
       setInputPrompt("");
+      setPendingImages([]);
+      setAttachError(null);
       setIsTyping(true);
       setError(null);
       setErrorRetryable(true);
@@ -85,6 +113,7 @@ export function useStylistViewModel() {
           occasion,
           budget_limit: budget,
           voice_input_used: isRecording,
+          ...(imagesToSend.length ? { images: imagesToSend } : {}),
           recommendation_constraints: recommendationConstraints,
         });
 
@@ -115,7 +144,7 @@ export function useStylistViewModel() {
         showToast(msg("stylist.error_toast"), "error");
       }
     },
-    [inputPrompt, isRecording, showToast],
+    [inputPrompt, isRecording, showToast, pendingImages],
   );
 
   // Real voice input via the browser SpeechRecognition (Web Speech) pipeline:
@@ -230,6 +259,10 @@ export function useStylistViewModel() {
     errorRetryable,
     isAddingLook,
     sendPrompt,
+    pendingImages,
+    attachError,
+    addImages,
+    removeImage,
     startVoiceInput,
     addCompleteLookToCart,
   };

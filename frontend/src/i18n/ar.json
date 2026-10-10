@@ -206,7 +206,14 @@
     "catalogue_badge": "قطع موثّقة من الكتالوج فقط",
     "formality": "درجة الرسمية",
     "palette_label": "لوحة ألوان الإطلالة ({{count}} درجات)",
-    "missing_slots_label": "القطع الناقصة:"
+    "missing_slots_label": "القطع الناقصة:",
+    "attach_photo": "إرفاق صورة للإطلالة",
+    "attach_photo_hint": "حتى 3 صور، بصيغة JPEG أو PNG أو WebP، بحد 1 ميغابايت لكل صورة",
+    "attach_error_type": "يمكن إرفاق صور بصيغة JPEG أو PNG أو WebP فقط.",
+    "attach_error_size": "يجب ألا تتجاوز كل صورة 1 ميغابايت.",
+    "attach_error_count": "يمكنك إرفاق 3 صور كحد أقصى في الرسالة الواحدة.",
+    "remove_photo": "إزالة الصورة {{n}}",
+    "photos_attached": "تم إرفاق {{count}} صورة"
   },
   "outfit_builder": {
     "title": "لوحة تصميم الإطلالات التفاعلية",

@@ -126,6 +126,10 @@ export const VirtualStylistDrawer: React.FC = () => {
     errorRetryable,
     isAddingLook,
     sendPrompt,
+    pendingImages,
+    attachError,
+    addImages,
+    removeImage,
     startVoiceInput,
     addCompleteLookToCart,
   } = useStylistViewModel();
@@ -701,6 +705,32 @@ export const VirtualStylistDrawer: React.FC = () => {
 
           {/* Drawer Footer Input */}
           <div className="p-4 border-t border-slate-200 bg-white">
+            {(pendingImages.length > 0 || attachError) && (
+              <div className="mb-2 flex flex-wrap items-center gap-2" aria-live="polite">
+                {pendingImages.map((src, index) => (
+                  <div key={index} className="relative">
+                    <img
+                      src={src}
+                      alt={t("stylist.photos_attached", { count: pendingImages.length })}
+                      className="h-14 w-14 rounded-xl object-cover border border-slate-200"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeImage(index)}
+                      aria-label={t("stylist.remove_photo", { n: index + 1 })}
+                      className={`absolute -top-1.5 -right-1.5 h-6 w-6 min-h-[24px] min-w-[24px] rounded-full bg-slate-900 text-white text-xs ${RING}`}
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+                {attachError && (
+                  <p role="alert" className="text-[11px] text-rose-600">
+                    {t(`stylist.attach_error_${attachError}`)}
+                  </p>
+                )}
+              </div>
+            )}
             <form
               onSubmit={(e) => {
                 e.preventDefault();
@@ -708,6 +738,25 @@ export const VirtualStylistDrawer: React.FC = () => {
               }}
               className="flex items-center gap-2"
             >
+              <label
+                title={t("stylist.attach_photo_hint")}
+                className={`p-3 min-h-[48px] min-w-[48px] flex items-center justify-center rounded-2xl border cursor-pointer bg-slate-50 border-slate-200 text-slate-600 hover:text-[#C5A059] hover:bg-[#FDF8EE] focus-within:ring-2 focus-within:ring-[#C5A059]/40 ${LUX}`}
+              >
+                <span className="sr-only">{t("stylist.attach_photo")}</span>
+                <span aria-hidden="true" className="text-lg leading-none">＋</span>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  multiple
+                  className="sr-only"
+                  onChange={(e) => {
+                    const files = Array.from(e.target.files ?? []);
+                    e.target.value = "";
+                    if (files.length) void addImages(files);
+                  }}
+                />
+              </label>
+
               <button
                 type="button"
                 onClick={startVoiceInput}

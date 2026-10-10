@@ -465,6 +465,8 @@ export const stylistService = {
     occasion?: string;
     budget_limit?: number;
     voice_input_used?: boolean;
+    /** Mode A: photos as data:image/(jpeg|png|webp);base64 URIs (max 3, 1 MB each). */
+    images?: string[];
     recommendation_constraints?: {
       palette?: string;
       avoid_palette?: string;

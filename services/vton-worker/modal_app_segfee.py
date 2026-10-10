@@ -265,9 +265,11 @@ class VTONJobRequest(BaseModel):
     gpu="A10G",
     image=_image,  # noqa: F821  (defined below; pydantic/modal resolve at build)
     secrets=[modal.Secret.from_name("confit-worker-admin-token"),
-             # optional per-deployment tuning (staging raises rate limits
-             # for golden-set runs; absent in production => strict defaults)
-             modal.Secret.from_name("confit-staging-tuning", required=False)],
+             # per-deployment tuning (rate limits etc.). The secret MUST exist
+             # in every deployed environment: production creates it with the
+             # strict values (VTON_RATE_LIMIT_PER_MIN=6, ..._GLOBAL=20);
+             # staging uses raised values for golden-set runs. See runbook.
+             modal.Secret.from_name("confit-staging-tuning")],
     scaledown_window=300,
     volumes={WEIGHTS_DIR: modal.Volume.from_name("confit-vton-fashn-weights")},
 )

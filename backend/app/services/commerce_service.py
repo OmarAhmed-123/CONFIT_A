@@ -738,6 +738,7 @@ class CommerceService:
             "order_number": order.order_number,
             "user_id": order.user_id,
             "guest_email": order.guest_email,
+            "guest_session_token": order.guest_session_token,
             "status": order.status,
             "total_amount": order.total_amount,
             "subtotal_amount": order.subtotal_amount,
@@ -775,7 +776,11 @@ class CommerceService:
         }
 
     def assert_order_access(
-        self, order: Dict[str, Any], user, session_token: Optional[str] = None
+        self,
+        order: Dict[str, Any],
+        user,
+        session_token: Optional[str] = None,
+        guest_email: Optional[str] = None,
     ) -> None:
         from backend.app.models.user import UserRole
 
@@ -785,10 +790,10 @@ class CommerceService:
             return
         if user and order.get("user_id") and order.get("user_id") != user.id:
             raise AuthorizationError("Access denied: You cannot view order details of another customer.")
-        # Anonymous callers get the guest capability for GENUINE guest orders only —
-        # orders with no owning account. It must never cover an order that belongs to
-        # a registered customer, or the order number becomes the only thing between a
-        # stranger and that customer's name, address and line items.
+        # Anonymous callers must prove guest ownership via second factor (CUS-09).
+        # Genuine guest orders have no owning account (user_id None) but still
+        # require either matching guest_session_token (credential from cart) or
+        # matching guest_email (second factor). Order number alone is NOT enough.
         #
         # Measured 2026-09-23: GET /api/v1/orders/{number} returned 200 with the
         # recipient name, address line, city and items to a caller sending NO
@@ -802,24 +807,39 @@ class CommerceService:
         # control checks are essential. If attackers obtain URLs for unauthorized
         # objects, the application should still block their access attempts." The
         # 32-bit random order number is defence in depth, never the authorisation.
+        # Fixed 2026-10-10 Cycle5: require second factor for guest orders (email or session token).
         if user is None:
             if order.get("user_id"):
                 raise AuthenticationError(
                     "Authentication required: this order belongs to a registered customer."
                 )
-            return
+            # Guest order — require second factor
+            if session_token and order.get("guest_session_token"):
+                if order.get("guest_session_token") == session_token:
+                    return
+            if guest_email and order.get("guest_email"):
+                if order.get("guest_email").lower() == guest_email.lower():
+                    return
+            raise AuthenticationError(
+                "Guest order access requires matching email or session token as second factor."
+            )
 
     def get_order_tracking(
-        self, order_number: str, user=None, session_token: Optional[str] = None
+        self, order_number: str, user=None, session_token: Optional[str] = None, guest_email: Optional[str] = None
     ) -> Dict[str, Any]:
         order = self.commerce_repo.get_order_by_number(order_number)
         if not order:
             raise ResourceNotFoundError("Order", order_number)
         # Ownership authorization, mirroring the /orders/{n} detail route.
         # An authenticated user must never read another customer's fulfilment
-        # state (pickup code, store address, shipment info). Anonymous guests
-        # retain the unguessable-order-number capability.
-        self.assert_order_access({"user_id": order.user_id}, user, session_token)
+        # state (pickup code, store address, shipment info). Guest orders require
+        # second factor (email or session token) per CUS-09.
+        self.assert_order_access(
+            {"user_id": order.user_id, "guest_email": order.guest_email, "guest_session_token": order.guest_session_token},
+            user,
+            session_token=session_token,
+            guest_email=guest_email,
+        )
 
         is_bopis = order.fulfillment_type == "bopis"
         events = sorted(order.events or [], key=lambda e: e.created_at)

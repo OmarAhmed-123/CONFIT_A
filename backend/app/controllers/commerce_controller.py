@@ -32,10 +32,22 @@ from backend.app.schemas.commerce import (
     BNPLQuoteResponse
 )
 from backend.app.core.exceptions import (
+    AuthenticationError,
     AuthorizationError,
     ResourceNotFoundError,
     ValidationDomainError,
 )
+
+
+# Anti-enumeration: for anonymous public lookups, normalize all failure cases
+# (nonexistent, missing factor, wrong email, wrong token, registered order
+# accessed anonymously) to the same 404 response so existence is not revealed.
+# Internal service retains precise domain errors; normalization happens at
+# public API boundary. Message is generic and does not reveal order data.
+def _public_order_not_found():
+    # Generic 404 that does not include the actual order number, so response
+    # shape is identical for existent vs nonexistent.
+    raise ResourceNotFoundError("Order", "not found or access denied")
 from pydantic import BaseModel
 
 router = APIRouter(tags=["Commerce, Payments & Fulfillment"])
@@ -380,8 +392,9 @@ def get_user_orders(
 # Threat: the order number is the lookup key for an anonymous capability (guest
 # orders) drawn from a 32-bit space, which makes this endpoint an enumeration
 # oracle — for order existence unconditionally, and before the ownership fix
-# above, for order contents. Bounded per caller; the answers themselves
-# (404 / 401 / 200) are unchanged.
+# above, for order contents. Bounded per caller; Cycle7 normalizes anonymous
+# failures to 404 (ORDER_NOT_FOUND generic) so nonexistent vs unauthorized are
+# indistinguishable. Authorized 200 and authenticated 403 remain distinct.
 @router.get("/commerce/orders/{order_number}", response_model=OrderOut)
 @router.get("/orders/{order_number}", response_model=OrderOut)
 # NOTE ON DECORATOR ORDER (measured 2026-09-23): this must sit BELOW the router
@@ -393,28 +406,60 @@ def get_user_orders(
 def get_order_by_number(
     request: Request,
     order_number: str,
+    guest_email: Optional[str] = None,
+    x_session_token: Optional[str] = Header(None, alias="X-Session-Token"),
     user: Optional[User] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
     service = CommerceService(db)
-    order = service.get_order(order_number)
-    service.assert_order_access(order, user)
+    try:
+        order = service.get_order(order_number)
+    except ResourceNotFoundError:
+        if user is None:
+            _public_order_not_found()
+        raise
+    try:
+        service.assert_order_access(order, user, session_token=x_session_token, guest_email=guest_email)
+    except AuthenticationError:
+        if user is None:
+            _public_order_not_found()
+        raise
+    except AuthorizationError:
+        if user is None:
+            _public_order_not_found()
+        raise
     return order
 
 
 # Same enumeration surface as the detail route above: tracking exposes pickup
-# codes and shipment state, so it carries the same bound.
+# codes and shipment state, so it carries the same bound. Anonymous failures
+# are normalized to 404 to prevent existence oracle.
 @router.get("/commerce/orders/{order_number}/tracking", response_model=OrderTrackingTimelineOut)
 @router.get("/orders/{order_number}/tracking", response_model=OrderTrackingTimelineOut)
 @limiter.limit("30/minute")
 def get_order_tracking_timeline(
     request: Request,
     order_number: str,
+    guest_email: Optional[str] = None,
+    x_session_token: Optional[str] = Header(None, alias="X-Session-Token"),
     user: Optional[User] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
     service = CommerceService(db)
-    return service.get_order_tracking(order_number, user=user)
+    try:
+        return service.get_order_tracking(order_number, user=user, session_token=x_session_token, guest_email=guest_email)
+    except ResourceNotFoundError:
+        if user is None:
+            _public_order_not_found()
+        raise
+    except AuthenticationError:
+        if user is None:
+            _public_order_not_found()
+        raise
+    except AuthorizationError:
+        if user is None:
+            _public_order_not_found()
+        raise
 
 
 @router.post("/commerce/returns", response_model=ReturnRequestOut, status_code=status.HTTP_201_CREATED)
@@ -431,6 +476,58 @@ def submit_return(
         reason=payload.reason,
         details=payload.details,
         item_ids=payload.item_ids
+    )
+
+
+class GuestReturnRequestCreate(BaseModel):
+    order_number: str
+    guest_email: Optional[str] = None
+    reason: str
+    details: Optional[str] = None
+    item_ids: List[int]
+
+
+@router.post("/commerce/returns/guest", response_model=ReturnRequestOut, status_code=status.HTTP_201_CREATED)
+@limiter.limit("30/minute")
+def submit_guest_return(
+    request: Request,
+    payload: GuestReturnRequestCreate,
+    x_session_token: Optional[str] = Header(None, alias="X-Session-Token"),
+    db: Session = Depends(get_db)
+):
+    """Guest returns with second factor (CUS-10). Requires order_number + matching guest_email or session token.
+    No authenticated user required, but second factor enforced via assert_order_access.
+
+    Before ownership is established, missing orders and invalid guest auth are
+    normalized to 404 to prevent existence oracle. After ownership, business
+    validation (eligibility, item membership, duplicate) remains distinct.
+    """
+    service = CommerceService(db)
+    try:
+        order_dict = service.get_order(payload.order_number)
+    except ResourceNotFoundError:
+        _public_order_not_found()
+    # Enforce second factor for guest orders
+    try:
+        service.assert_order_access(
+            order_dict,
+            user=None,
+            session_token=x_session_token,
+            guest_email=payload.guest_email,
+        )
+    except (AuthenticationError, AuthorizationError):
+        _public_order_not_found()
+    # Retrieve full order model for ID
+    order_model = service.commerce_repo.get_order_by_number(payload.order_number)
+    if not order_model:
+        _public_order_not_found()
+    return service.create_return(
+        user_id=None,
+        order_id=order_model.id,
+        reason=payload.reason,
+        details=payload.details,
+        item_ids=payload.item_ids,
+        guest_email=order_model.guest_email,
     )
 
 

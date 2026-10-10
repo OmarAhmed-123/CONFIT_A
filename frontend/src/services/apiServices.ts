@@ -462,13 +462,9 @@ export const stylistService = {
   chat: (payload: {
     prompt: string;
     session_id?: number;
-    /** Earlier turns of this chat, oldest first (text only, server keeps the last 8). */
-    history?: { role: "user" | "assistant"; content: string }[];
     occasion?: string;
     budget_limit?: number;
     voice_input_used?: boolean;
-    /** Mode A: photos as data:image/(jpeg|png|webp);base64 URIs (max 3, 1 MB each). */
-    images?: string[];
     recommendation_constraints?: {
       palette?: string;
       avoid_palette?: string;
@@ -1213,11 +1209,15 @@ export const commerceService = {
 
   getOrders: () => request<Order[]>("/commerce/orders"),
 
-  getOrderDetail: (orderNumber: string) =>
-    request<Order>(`/commerce/orders/${orderNumber}`),
+  getOrderDetail: (orderNumber: string, guestEmail?: string) => {
+    const qs = guestEmail ? `?guest_email=${encodeURIComponent(guestEmail)}` : "";
+    return request<Order>(`/commerce/orders/${orderNumber}${qs}`);
+  },
 
-  getOrderTracking: (orderNumber: string) =>
-    request<OrderTrackingTimeline>(`/commerce/orders/${orderNumber}/tracking`),
+  getOrderTracking: (orderNumber: string, guestEmail?: string) => {
+    const qs = guestEmail ? `?guest_email=${encodeURIComponent(guestEmail)}` : "";
+    return request<OrderTrackingTimeline>(`/commerce/orders/${orderNumber}/tracking${qs}`);
+  },
 
   createReturn: (payload: {
     order_id: number;
@@ -1226,6 +1226,18 @@ export const commerceService = {
     details?: string;
   }) =>
     request<any>("/commerce/returns", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+
+  createGuestReturn: (payload: {
+    order_number: string;
+    guest_email?: string;
+    reason: string;
+    details?: string;
+    item_ids: number[];
+  }) =>
+    request<any>("/commerce/returns/guest", {
       method: "POST",
       body: JSON.stringify(payload),
     }),

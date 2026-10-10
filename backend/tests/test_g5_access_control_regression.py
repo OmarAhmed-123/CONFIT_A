@@ -129,11 +129,14 @@ def test_order_tracking_blocks_cross_user_access(client: TestClient) -> None:
     # the only thing that measures the anonymous path.
     client.cookies.clear()
     anonymous = client.get(f"/api/v1/commerce/orders/{order_number}/tracking")
-    assert anonymous.status_code == 401, (
+    # Anti-enumeration (Cycle 7): anonymous gets 404 not 401 to prevent existence oracle.
+    # The critical security property is that anonymous cannot read registered order data (not 200).
+    assert anonymous.status_code in {401, 404}, (
         f"an anonymous caller read an order that belongs to a registered customer: "
         f"{anonymous.status_code} {anonymous.text[:200]}"
     )
-    assert anonymous.json()["error"]["code"] == "AUTH_FAILED"
+    assert anonymous.status_code == 404, f"expected 404 per anti-enumeration, got {anonymous.status_code}"
+    assert anonymous.json()["error"]["code"] == "RESOURCE_NOT_FOUND"
 
     # A *different* authenticated consumer must be denied.
     intruder_email = f"g5ac_intruder_{uuid.uuid4().hex[:6]}@confit.io"
@@ -265,13 +268,18 @@ def test_anonymous_read_is_guest_only_and_owned_orders_are_denied(client: TestCl
     # not an anonymous caller.
     client.cookies.clear()
     no_credentials = client.get(f"/api/v1/commerce/orders/{owned_number}")
-    assert no_credentials.status_code == 401, no_credentials.text
-    assert client.get(f"/api/v1/commerce/orders/{owned_number}/tracking").status_code == 401
+    # Anti-enumeration (Cycle 7): anonymous access to registered order is normalized to 404
+    # to prevent existence oracle. Previously expected 401, but 404 also blocks and hides existence.
+    # The critical security property is NOT 200 — anonymous must not read registered order data.
+    assert no_credentials.status_code in {401, 404}, no_credentials.text
+    # For consistency with anti-enumeration, we now expect 404
+    assert no_credentials.status_code == 404, f"expected 404 per anti-enumeration, got {no_credentials.status_code}"
+    assert client.get(f"/api/v1/commerce/orders/{owned_number}/tracking").status_code == 404
 
     # A bearer token that does not resolve is still an anonymous caller; treating it as
     # "some other authenticated user" would leak the same data through a wrong backend.
     invalid = {"Authorization": "Bearer not-a-real-token"}
-    assert client.get(f"/api/v1/commerce/orders/{owned_number}", headers=invalid).status_code == 401
+    assert client.get(f"/api/v1/commerce/orders/{owned_number}", headers=invalid).status_code in {401, 404}
 
     # The owner keeps full access, on both prefixes.
     assert client.get(f"/api/v1/commerce/orders/{owned_number}", headers=owner_h).status_code == 200
@@ -286,7 +294,20 @@ def test_anonymous_read_is_guest_only_and_owned_orders_are_denied(client: TestCl
     assert guest.get("user_id") is None, "fixture guard: this order must have no owning account"
 
     client.cookies.clear()   # the guest order is placed with a token header, not a cookie
-    guest_read = client.get(f"/api/v1/commerce/orders/{guest_number}")
+    # Guest orders now require second factor (email or session token) per CUS-09 anti-enumeration.
+    # The capability is preserved: guest can read their own order with email or session token,
+    # but anonymous with just order number gets 404 to prevent enumeration oracle.
+    guest_read = client.get(
+        f"/api/v1/commerce/orders/{guest_number}",
+        params={"guest_email": "g5ac.guest@example.com"},
+        headers={"X-Session-Token": guest_token},
+    )
     assert guest_read.status_code == 200, guest_read.text
     assert guest_read.json()["order_number"] == guest_number
-    assert client.get(f"/api/v1/commerce/orders/{guest_number}/tracking").status_code == 200
+    assert client.get(
+        f"/api/v1/commerce/orders/{guest_number}/tracking",
+        params={"guest_email": "g5ac.guest@example.com"},
+        headers={"X-Session-Token": guest_token},
+    ).status_code == 200
+    # Without second factor, guest order should be 404 (anti-enumeration), not 200
+    assert client.get(f"/api/v1/commerce/orders/{guest_number}").status_code == 404

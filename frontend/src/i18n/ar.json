@@ -1646,7 +1646,14 @@
     "reason_style": "عدم توافق الأسلوب",
     "reason_changed_mind": "تغيير الرأي",
     "reason_quality": "مشكلة في الجودة",
-    "submit_return": "إرسال طلب الإرجاع"
+    "submit_return": "إرسال طلب الإرجاع",
+    "guest_email_label": "البريد الإلكتروني للضيف",
+    "guest_lookup_retry": "إعادة المحاولة",
+    "guest_return_note": "مرتجعات الضيوف تتطلب تأكيد البريد الإلكتروني",
+    "verify_failed": "فشل التحقق",
+    "verify_neutral": "أدخل بريدك الإلكتروني للتحقق من طلبك",
+    "verify_prompt_desc": "لحماية الخصوصية، طلبات الضيوف تحتاج تأكيد البريد الإلكتروني لعرض التفاصيل",
+    "verify_prompt_title": "تحقق من طلبك"
   },
   "discover": {
     "search_label": "ابحث في المنتجات",

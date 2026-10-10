@@ -1646,7 +1646,14 @@
     "reason_style": "Style Mismatch",
     "reason_changed_mind": "Changed Mind",
     "reason_quality": "Quality Issue",
-    "submit_return": "Submit return"
+    "submit_return": "Submit return",
+    "guest_email_label": "Guest Email",
+    "guest_lookup_retry": "Retry lookup",
+    "guest_return_note": "Guest returns require email verification",
+    "verify_failed": "Verification failed",
+    "verify_neutral": "Enter your email to verify your order",
+    "verify_prompt_desc": "For privacy, guest orders need email verification to view details",
+    "verify_prompt_title": "Verify your order"
   },
   "discover": {
     "search_label": "Search the catalogue",

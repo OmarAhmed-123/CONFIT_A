@@ -90,7 +90,11 @@ def test_a_later_catalogue_price_change_does_not_move_a_settled_order(client, db
         sku.price_override = None
     db_session.commit()
 
-    again = client.get(f"/api/v1/commerce/orders/{number}")
+    again = client.get(
+        f"/api/v1/commerce/orders/{number}",
+        params={"guest_email": "qa-pricelock@confit-portal-qa.example.com"},
+        headers={"X-Session-Token": "lock-a"},
+    )
     assert again.status_code == 200, again.text
     body = again.json()
     assert body["total_amount"] == locked_total
@@ -122,7 +126,11 @@ def test_an_unconverted_order_records_rate_1_not_null(client, db_session):
 
 def test_the_rate_is_exposed_on_the_api_contract(client, db_session):
     order = _place_order(client, db_session, "lock-d")
-    body = client.get(f"/api/v1/commerce/orders/{order['order_number']}").json()
+    body = client.get(
+        f"/api/v1/commerce/orders/{order['order_number']}",
+        params={"guest_email": "qa-pricelock@confit-portal-qa.example.com"},
+        headers={"X-Session-Token": "lock-d"},
+    ).json()
     assert body["pricing_currency"] == body["currency"]
     assert float(body["fx_rate_used"]) == 1.0
 

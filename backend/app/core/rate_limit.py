@@ -334,6 +334,9 @@ def build_limiter(storage_uri: Optional[str] = None, key_func: Optional[Any] = N
     )
 
 
+limiter = build_limiter()
+
+
 def rate_limit_store_report(storage_uri: Optional[str] = None) -> Dict[str, Any]:
     """What the limiter's counters actually are, in words that cannot overclaim.
 
@@ -367,7 +370,123 @@ def rate_limit_store_report(storage_uri: Optional[str] = None) -> Dict[str, Any]
     }
 
 
-limiter = build_limiter()
+def _is_limiter_degraded(limiter_instance) -> bool:
+    """Is the limiter currently using its in-memory fallback?
+
+    slowapi sets ``_storage_dead`` True when the primary store fails and
+    ``_in_memory_fallback_enabled`` True when fallback is configured. Both
+    are cheap boolean checks, not a Redis network round-trip.
+    """
+    try:
+        dead = bool(getattr(limiter_instance, "_storage_dead", False))
+        fallback_enabled = bool(getattr(limiter_instance, "_in_memory_fallback_enabled", False))
+        return dead and fallback_enabled
+    except Exception:
+        return False
+
+
+def rate_limit_runtime_report(
+    limiter_instance: Optional[Any] = None,
+    storage_uri: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Configured vs active enforcement — what the operator needs to know.
+
+    Distinguishes:
+    1. Shared store configured and operating
+    2. No shared store configured — in-process
+    3. Shared store configured but unavailable — degraded to in-process
+    4. Status cannot be determined — fallback to configured report with degraded=False
+
+    The active check is a cheap boolean (``_storage_dead``), not a Redis ping,
+    so calling this from ``/health/ready`` does not add a network hop per health
+    probe.
+
+    Returned shape (operator surface only):
+    {
+      "configured": <old report>,
+      "active": {
+        "store": "memory" | "redis" | ...,
+        "shared_across_instances": bool,
+        "degraded": bool,
+        "quota_semantics": str,
+        "active_reason": str
+      },
+      "degraded": bool  # top-level convenience
+    }
+    """
+    configured = rate_limit_store_report(storage_uri)
+    lim = limiter_instance if limiter_instance is not None else limiter
+
+    try:
+        degraded = _is_limiter_degraded(lim)
+    except Exception:
+        degraded = False
+
+    if configured.get("shared_across_instances") and degraded:
+        active = {
+            "store": "memory",
+            "shared_across_instances": False,
+            "degraded": True,
+            "quota_semantics": (
+                "per-instance (degraded): bounds burst against one instance; "
+                "NOT global quota until shared store recovers"
+            ),
+            "active_reason": "shared store configured but unreachable — degraded to in-process counters",
+        }
+    else:
+        # Not degraded — active matches configured
+        active = {
+            "store": configured.get("store"),
+            "shared_across_instances": configured.get("shared_across_instances", False),
+            "degraded": False,
+            "quota_semantics": configured.get("quota_semantics"),
+            "active_reason": (
+                "operating normally (in-process)"
+                if not configured.get("shared_across_instances")
+                else "shared store operating — global quota enforced"
+            ),
+        }
+
+    return {
+        "configured": configured,
+        "active": active,
+        "degraded": active["degraded"],
+    }
+
+
+def rate_limit_health_report(
+    limiter_instance: Optional[Any] = None,
+    storage_uri: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Health surface report — configured + active + degraded flag.
+
+    Returns both the legacy flat fields (for backward compat with existing
+    tests that check ``store``/``shared_across_instances``) reflecting the
+    **active** enforcement, plus nested ``configured`` and ``active`` for full
+    observability. No URI, credentials, or topology beyond scheme name is
+    exposed.
+    """
+    runtime = rate_limit_runtime_report(limiter_instance, storage_uri)
+    configured = runtime.get("configured", {})
+    active = runtime.get("active", {})
+    # Top-level backward compat: expose active state as flat fields, plus
+    # nested for new observability. This keeps old tests that check
+    # ``report[\"store\"]`` and ``shared_across_instances`` passing while
+    # allowing new code to read ``configured`` vs ``active``.
+    merged = {
+        # Legacy flat — now reflects ACTIVE enforcement (what is actually happening)
+        "store": active.get("store", configured.get("store")),
+        "shared_across_instances": active.get("shared_across_instances", configured.get("shared_across_instances", False)),
+        "configured_from": configured.get("configured_from"),
+        "quota_semantics": active.get("quota_semantics", configured.get("quota_semantics")),
+        "on_store_failure": configured.get("on_store_failure"),
+        # New observability
+        "configured": configured,
+        "active": active,
+        "degraded": runtime.get("degraded", False),
+        "active_reason": active.get("active_reason"),
+    }
+    return merged
 
 
 def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded) -> Response:

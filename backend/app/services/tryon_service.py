@@ -401,6 +401,13 @@ class TryOnService:
                 + VTON_UNSUPPORTED_SLOTS_MESSAGE.format(slots=", ".join(unsupported))
             )
 
+        # P0 ghost-hands gate: an ON-MODEL catalog photo may never reach the
+        # segmentation-free engine as a garment (its person would bleed into
+        # the render). Every not-yet-validated product is classified on CPU;
+        # worn photos fail loud with VTON_GARMENT_ASSET_INVALID unless a
+        # validated clean asset (garment_assets.tryon_ready) exists.
+        gate_enabled = os.environ.get("VTON_ASSET_GATE_ENABLED", "true").strip().lower() in ("1", "true", "yes")
+
         garments = []
         for p in products:
             slot = CATEGORY_TO_VTON_SLOT.get(
@@ -411,6 +418,46 @@ class TryOnService:
 
             # Try to fetch as base64 first for reliability (avoids worker SSRF/fetch issues)
             b64 = await self._fetch_image_as_base64(p.thumbnail_url)
+
+            if gate_enabled:
+                from backend.app.models.tryon import GarmentAsset
+                from backend.app.services.garment_asset_guard import (
+                    asset_gate_error,
+                    classify_garment_photo,
+                )
+
+                asset = (
+                    self.db.query(GarmentAsset)
+                    .filter(GarmentAsset.product_id == p.id)
+                    .first()
+                )
+                if not (asset and asset.tryon_ready):
+                    import base64 as _b64
+                    import io as _io
+
+                    from PIL import Image as _PILImage
+
+                    raw = None
+                    if b64:
+                        try:
+                            raw = _b64.b64decode(b64.split(",", 1)[1])
+                        except Exception:
+                            raw = None
+                    if raw is None:
+                        raise ValidationDomainError(
+                            f"VTON_GARMENT_ASSET_INVALID: product {p.id} "
+                            f"({p.title!r}) has no validated clean asset and its "
+                            "catalog image could not be fetched for validation. "
+                            "Refusing to render unvalidated input (fail closed)."
+                        )
+                    photo_type, evidence = classify_garment_photo(
+                        _PILImage.open(_io.BytesIO(raw))
+                    )
+                    err = asset_gate_error(
+                        photo_type, evidence, p.id, p.title, has_prepared_asset=False
+                    )
+                    if err:
+                        raise ValidationDomainError(err)
             if b64:
                 garments.append({
                     "product_id": p.id,
@@ -1632,6 +1679,9 @@ class TryOnService:
                 "flat_image_url": asset.flat_image_url,
                 "segmented_garment_url": asset.segmented_garment_url,
                 "garment_mask_url": asset.garment_mask_url,
+                "photo_type": asset.photo_type,
+                "tryon_ready": bool(asset.tryon_ready),
+                "clean_image_url": asset.clean_image_url,
                 "created_at": asset.created_at
             }
 
@@ -1639,13 +1689,43 @@ class TryOnService:
         if not product:
             raise ResourceNotFoundError("Product", product_id)
 
+        # HONEST placeholder (ghost-hands remediation): the old code copied
+        # the raw thumbnail into segmented_garment_url/garment_mask_url and
+        # invented a bounding box — i.e. it PRETENDED preprocessing existed.
+        # Now: only the source URL is recorded, the photo is classified
+        # (measured, never assumed), and tryon_ready stays False until the
+        # P1 prep pipeline stores a validated clean asset.
+        from backend.app.services.garment_asset_guard import classify_garment_photo
+
+        photo_type, evidence = "unknown", {}
+        try:
+            import base64 as _b64
+            import io as _io
+
+            from PIL import Image as _PILImage
+
+            b64 = None
+            # classify synchronously only for data URLs; remote thumbs are
+            # classified by the prep pipeline (this method must stay cheap)
+            if product.thumbnail_url.startswith("data:image"):
+                b64 = product.thumbnail_url
+            if b64:
+                raw = _b64.b64decode(b64.split(",", 1)[1])
+                photo_type, evidence = classify_garment_photo(_PILImage.open(_io.BytesIO(raw)))
+        except Exception as e:  # classification is best-effort here
+            logger.warn("garment_asset_classify_failed", product_id=product.id, error=str(e)[:120])
+
         new_asset = GarmentAsset(
             product_id=product.id,
             slot_type=CATEGORY_TO_VTON_SLOT.get(product.category.slug, DEFAULT_VTON_SLOT) if product.category else DEFAULT_VTON_SLOT,
             flat_image_url=product.thumbnail_url,
-            segmented_garment_url=product.thumbnail_url,
-            garment_mask_url=product.thumbnail_url,
-            bounding_box_json=json.dumps({"x": 0.2, "y": 0.25, "w": 0.6, "h": 0.5})
+            segmented_garment_url=None,
+            garment_mask_url=None,
+            bounding_box_json=json.dumps({}),
+            photo_type=photo_type,
+            tryon_ready=False,
+            clean_image_url=None,
+            classification_json=json.dumps(evidence),
         )
         self.db.add(new_asset)
         self.db.commit()
@@ -1657,6 +1737,9 @@ class TryOnService:
             "flat_image_url": new_asset.flat_image_url,
             "segmented_garment_url": new_asset.segmented_garment_url,
             "garment_mask_url": new_asset.garment_mask_url,
+            "photo_type": new_asset.photo_type,
+            "tryon_ready": bool(new_asset.tryon_ready),
+            "clean_image_url": new_asset.clean_image_url,
             "created_at": new_asset.created_at
         }
 

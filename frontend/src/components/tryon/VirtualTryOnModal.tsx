@@ -621,8 +621,28 @@ export const VirtualTryOnModal: React.FC = () => {
                       </>
                     )}
 
+                    {/* Ghost-hands remediation (P0): the render result must
+                        surface the engine's per-layer verification instead of
+                        presenting any image as a clean success. */}
+                    {multiTryOnResult?.verification &&
+                      multiTryOnResult.verification.all_layers_verified === false &&
+                      !isRendering && (
+                        <div className="absolute inset-x-3 bottom-14 rounded-2xl border border-red-300/60 bg-red-50/95 p-3 text-[11px] font-semibold text-red-900 shadow-lg">
+                          Quality gate: the engine did NOT verify every garment
+                          layer in this render — it may be incomplete or show
+                          artifacts from the catalog photo. Treat it as a
+                          preview, not a final fit.
+                        </div>
+                      )}
+
                     {capabilityMessage && !isRendering && (
-                      <div className="absolute inset-x-3 bottom-14 rounded-2xl border border-amber-300/50 bg-amber-50/95 p-3 text-[11px] font-semibold text-amber-900 shadow-lg">
+                      <div
+                        className={`absolute inset-x-3 rounded-2xl border border-amber-300/50 bg-amber-50/95 p-3 text-[11px] font-semibold text-amber-900 shadow-lg ${
+                          multiTryOnResult?.verification?.all_layers_verified === false
+                            ? "bottom-32"
+                            : "bottom-14"
+                        }`}
+                      >
                         {capabilityMessage}
                       </div>
                     )}

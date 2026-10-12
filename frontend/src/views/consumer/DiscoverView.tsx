@@ -52,7 +52,7 @@ const FilterPill: React.FC<{
     type="button"
     aria-pressed={selected}
     onClick={onClick}
-    className={`inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full px-4 text-xs font-semibold transition-all duration-300 ease-luxury focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal ${
+    className={`inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full px-4 text-xs font-semibold transition-all duration-300 ease-luxury focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white ${
       selected
         ? "bg-brand-charcoal text-white shadow-xs"
         : "bg-white border border-slate-200 text-brand-charcoal hover:bg-brand-wash"
@@ -460,7 +460,7 @@ export const DiscoverView: React.FC = () => {
             onClick={openVisualSearch}
             type="button"
             aria-label={t('discover.search_by_photo')}
-            className="min-h-11 px-4 py-3 rounded-2xl bg-brand-wash hover:bg-brand-charcoal hover:text-white border border-brand-field text-brand-charcoal text-xs font-semibold shadow-2xs transition-all flex items-center gap-1.5 shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal"
+            className="min-h-11 px-4 py-3 rounded-2xl bg-brand-wash hover:bg-brand-charcoal hover:text-white border border-brand-field text-brand-charcoal text-xs font-semibold shadow-2xs transition-all flex items-center gap-1.5 shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white"
           >
             <span aria-hidden="true"><VisualSearchIcon size={16} color="currentColor" /></span>
             <span className="hidden sm:inline">{t('discover.photo_match')}</span>

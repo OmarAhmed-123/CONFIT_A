@@ -601,7 +601,7 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
               aria-selected={activeTab === tab.id}
               aria-controls={`camera-scan-panel-${tab.id}`}
               onClick={() => selectTab(tab.id)}
-              className={`min-h-11 min-w-0 rounded-xl px-2 py-2.5 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059] ${
+              className={`min-h-11 min-w-0 rounded-xl px-2 py-2.5 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white ${
                 activeTab === tab.id
                   ? 'bg-[#1B1F3B] text-white shadow-xs'
                   : 'text-slate-600 hover:bg-slate-200/60'

@@ -342,7 +342,7 @@ export const TryOnFitView: React.FC = () => {
                       !isTryOnSupported(p.category_name) ||
                       tryOnKind === "blocked"
                     }
-                    className="min-h-11 py-2 px-2 rounded-xl bg-[#1B1F3B] hover:bg-[#2A3C78] text-white text-[11px] font-semibold flex items-center justify-center gap-1 shadow-sm disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059]"
+                    className="min-h-11 py-2 px-2 rounded-xl bg-[#1B1F3B] hover:bg-[#2A3C78] text-white text-[11px] font-semibold flex items-center justify-center gap-1 shadow-sm disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white"
                   >
                     {isTryOnSupported(p.category_name) &&
                     tryOnKind === "render" ? (

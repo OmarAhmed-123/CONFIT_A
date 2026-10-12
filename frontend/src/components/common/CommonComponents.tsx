@@ -257,7 +257,7 @@ export const EmptyState: React.FC<{
     {actionText && onAction && (
       <button
         onClick={onAction}
-        className="min-h-12 px-6 rounded-xl bg-[#1B1F3B] hover:bg-[#0C0E1E] text-white text-xs font-semibold shadow-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A37E44]"
+        className="min-h-12 px-6 rounded-xl bg-[#1B1F3B] hover:bg-[#0C0E1E] text-white text-xs font-semibold shadow-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white"
         type="button"
       >
         {actionText}

@@ -74,7 +74,7 @@ export const TryOnStudioErrorBoundary: React.FC<{ children: React.ReactNode }> =
             <button
               type="button"
               onClick={reset}
-              className="min-h-11 rounded-xl bg-[#1B1F3B] px-5 py-2.5 text-sm font-bold text-white hover:bg-[#0C0E1E] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059]"
+              className="min-h-11 rounded-xl bg-[#1B1F3B] px-5 py-2.5 text-sm font-bold text-white hover:bg-[#0C0E1E] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white"
             >
               {t('tryon.studio_error_retry')}
             </button>

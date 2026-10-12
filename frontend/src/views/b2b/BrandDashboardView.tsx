@@ -91,7 +91,7 @@ export const BrandDashboardView: React.FC = () => {
         <button
           type="button"
           onClick={refresh}
-          className="mt-5 inline-flex min-h-12 items-center gap-2 rounded-xl bg-[var(--confit-navy)] px-6 text-xs font-semibold text-white transition-colors duration-300 ease-luxury hover:bg-[#0C0E1E] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--confit-focus)]"
+          className="mt-5 inline-flex min-h-12 items-center gap-2 rounded-xl bg-[var(--confit-navy)] px-6 text-xs font-semibold text-white transition-colors duration-300 ease-luxury hover:bg-[#0C0E1E] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white"
         >
           {t('common.retry')}
         </button>
@@ -112,7 +112,7 @@ export const BrandDashboardView: React.FC = () => {
         <button
           type="button"
           onClick={refresh}
-          className="mt-5 inline-flex min-h-12 items-center gap-2 rounded-xl bg-[var(--confit-navy)] px-6 text-xs font-semibold text-white transition-colors duration-300 ease-luxury hover:bg-[#0C0E1E] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--confit-focus)]"
+          className="mt-5 inline-flex min-h-12 items-center gap-2 rounded-xl bg-[var(--confit-navy)] px-6 text-xs font-semibold text-white transition-colors duration-300 ease-luxury hover:bg-[#0C0E1E] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white"
         >
           {t('common.retry')}
         </button>

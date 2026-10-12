@@ -146,7 +146,7 @@ export const SharedLookView: React.FC = () => {
           <p className="text-slate-600 leading-relaxed">{t('shared_look.unavailable_body')}</p>
           <Link
             to="/"
-            className="inline-flex min-h-11 items-center px-6 rounded-full bg-[#1B1F3B] text-white text-sm tracking-wide hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059]"
+            className="inline-flex min-h-11 items-center px-6 rounded-full bg-[#1B1F3B] text-white text-sm tracking-wide hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white"
           >
             {t('shared_look.back_home')}
           </Link>
@@ -203,7 +203,7 @@ export const SharedLookView: React.FC = () => {
             onClick={downloadPng}
             disabled={exporting}
             type="button"
-            className="inline-flex min-h-11 items-center px-6 py-3 rounded-full bg-[#1B1F3B] text-white text-sm tracking-wide hover:opacity-90 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059]"
+            className="inline-flex min-h-11 items-center px-6 py-3 rounded-full bg-[#1B1F3B] text-white text-sm tracking-wide hover:opacity-90 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white"
           >
             {exporting ? t('shared_look.generating') : t('shared_look.download_png')}
           </button>

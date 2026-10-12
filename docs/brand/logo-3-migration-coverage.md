@@ -247,3 +247,22 @@ A row is `PASS` only when its own checks were run after its own changes and the 
 - Discover status: IMPLEMENTED, not PASS. Verified: desktop and mobile fold, AR fold captured, selected-chip focus. NOT verified: product rails (no backend in the sandbox, so no data-backed states), loading and empty states with data, filters and search with live data, full-page mobile review.
 - Known, shared, not changed here: the floating AI Stylist pill covers carousel content on mobile (390px). It is a fixed control by design and stays open in the shell row.
 - Still legacy in other files (not in this sweep): navy `#1B1F3B` and `#0C0E1E` fills in `CameraScanModal` hover and several b2b pages. Each is fixed in its page pass.
+
+## Mobile AI Stylist overlap and shared showcase tokens (rollout 2, pass 2)
+
+**Measured defect (before).** Discover at 390x844: the FAB is a 66x50 pill at (300,714). Its rectangle overlaps 8 visible elements: the carousel card images and captions "Evening Silk", "Minimal Capsule", and "Quiet luxury essentials built for repeat". At 1280x800 it overlaps 0. Method: `brand_build/fabmeasure.mjs` (element rectangle intersection, same build).
+
+**Change.** `ConsumerLayout`: the mobile control is a 48px icon-only circle (`h-12 w-12`; the pill returns at `sm`), keeps `aria-label`, and anchors with `stylist-fab-anchor` at `bottom-4` (desktop `bottom-8`). `index.css`: the `.stylist-fab-anchor` rules, plus `body:has([data-sticky-cta]) .stylist-fab-anchor { bottom: 5rem }` below 1024px, so the PDP sticky CTA is still cleared. `ProductDetailView`: sticky bar marked `data-sticky-cta`.
+
+**Measured (after, same method).** 390x844: 48x48 at (326,780), 6 overlapping elements, down from 8 and from 66x50. The overlaps are the back cards of the Discover mood stack, and they remain. 1280x800: 0 overlaps.
+
+**Status: PARTIALLY MITIGATED, not fixed.** A fixed bottom control in the first mobile fold of a carousel cannot clear the carousel's back-card captions without one of the following: hiding the control on scroll, moving it, or changing the carousel layout. The brief rules out hiding and moving. Decision needed from the owner (see the PR).
+
+- Tried and reverted: a shorter mobile stack height (`h-[430px] sm:h-[540px]` on the non-compact variant). Discover already uses the compact `h-[430px]`, so it had no effect there, and it would have changed Home, Orders, and Admin without evidence.
+
+**Shared component: `DesignShowcases.tsx`.** Legacy gold, cream, navy, and slate tokens are now brand tokens, with no legacy tokens left in the file. Gold blur blobs became lilac and mint at low opacity. Focus ring is charcoal. Consumers: `CardStackShowcase` is used by Home, Discover, Order tracking, and Admin analytics. `CircularGalleryShowcase` is used by Profile and Try-on. **None of these pages is marked PASS by this change.**
+
+**Tests.** `fabLayout.brand.test.tsx` (5 source contracts). `shellBrand.brand.test.tsx`: 2 contracts updated to the new classes, same intent (logical end placement, white pill). `tsc --noEmit` exit 0. `npm run build` exit 0. `vitest run`: 120 files, 1482 tests passed.
+
+**Discover status.** Still IMPLEMENTED, not PASS. The showcase tokens above were missed in the earlier Discover pass and are now fixed. Backend-dependent rails and states remain unverified.
+

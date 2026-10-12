@@ -61,7 +61,9 @@ export const ConsumerLayout: React.FC = () => {
       </main>
 
       {/* Floating AI Stylist FAB */}
-      <div className="fixed bottom-20 lg:bottom-8 end-6 z-40">
+      {/* Mobile: 48px icon-only control, bottom-4. Overlay footprint is measured (see
+          coverage doc). A sticky CTA on the page raises it via .stylist-fab-anchor. */}
+      <div className="stylist-fab-anchor fixed end-4 sm:end-6 z-40">
         {/* px-4.5 is not a Tailwind token (same class of defect as the
             p-4.5 card fixed in C03 pass 2) — the pill rendered with NO
             horizontal padding and its label touched the rounded edge
@@ -69,7 +71,7 @@ export const ConsumerLayout: React.FC = () => {
             the nearest real step. */}
         <button
           onClick={() => openStylist()}
-          className="group flex items-center gap-2.5 px-5 py-3 rounded-full bg-white hover:bg-brand-wash text-brand-charcoal shadow-lg hover:scale-105 active:scale-95 transition-all border border-brand-field"
+          className="group flex h-12 w-12 items-center justify-center gap-2.5 rounded-full bg-white p-0 hover:bg-brand-wash text-brand-charcoal shadow-lg hover:scale-105 active:scale-95 transition-all border border-brand-field sm:h-auto sm:w-auto sm:px-5 sm:py-3"
           aria-label={t('layout.ai_stylist_director')}
           type="button"
         >

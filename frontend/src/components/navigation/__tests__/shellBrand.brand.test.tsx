@@ -40,13 +40,13 @@ describe('consumer shell brand contract', () => {
   });
 
   it('AI Stylist pill is white with a charcoal icon chip and charcoal label', () => {
-    expect(FILES.layout).toMatch(/rounded-full bg-white hover:bg-brand-wash text-brand-charcoal shadow-lg/);
+    expect(FILES.layout).toMatch(/rounded-full bg-white p-0 hover:bg-brand-wash text-brand-charcoal shadow-lg/);
     expect(FILES.layout).toMatch(/bg-brand-charcoal flex items-center justify-center text-white/);
     expect(FILES.layout).toMatch(/font-serif font-bold text-xs tracking-wider text-brand-charcoal/);
   });
 
   it('AI Stylist pill keeps logical end placement (RTL)', () => {
-    expect(FILES.layout).toMatch(/fixed bottom-20 lg:bottom-8 end-6 z-40/);
+    expect(FILES.layout).toMatch(/stylist-fab-anchor fixed end-4 sm:end-6 z-40/);
   });
 
   it('TrustFooter keeps semantic emerald status for live items', () => {

@@ -1334,7 +1334,7 @@ export const ProductDetailView: React.FC = () => {
         <div
           role="region"
           aria-label={t("product.quick_buy_bar")}
-          data-testid="pdp-sticky-bar"
+          data-testid="pdp-sticky-bar" data-sticky-cta
           className="lg:hidden fixed bottom-0 inset-x-0 z-40 confit-slide-up border-t border-brand-hairline bg-white shadow-[0_-8px_24px_rgb(37_39_41/0.08)]"
           style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
         >

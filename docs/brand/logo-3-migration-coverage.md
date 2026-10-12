@@ -28,9 +28,9 @@ A row is `PASS` only when its own checks were run after its own changes and the 
 | `/email/unsubscribe` | EmailUnsubscribeView | PASS (ready, working, done, expired, invalid, error, mobile, AR/RTL reviewed; API states mocked; see evidence below) |
 | `/reset-password` | ResetPasswordView | PASS (form, policy checklist, error, done, missing-token, focus, mobile, AR/RTL reviewed; API states mocked; see evidence below) |
 | `/verify-email` | VerifyEmailView | PASS (ready, keyboard focus, working, done, expired, missing-token/resend, mobile, AR/RTL reviewed; API states mocked; see evidence below) |
-| `/privacy`, `/privacy-policy` | PrivacyPolicyView | IMPLEMENTED, not PASS. Shared `LegalViews` colour pass; tab focus indicator OPEN (see Legal evidence) |
-| `/terms`, `/terms-of-service` | TermsOfServiceView | IMPLEMENTED, not PASS. Same shared pass; tab focus indicator OPEN |
-| `/gdpr` | GdprView | IMPLEMENTED, not PASS. Same shared pass; tab focus indicator OPEN |
+| `/privacy`, `/privacy-policy` | PrivacyPolicyView | IMPLEMENTED, not PASS. Shared `LegalViews` colour pass; tab focus verified; AR/RTL not reviewed (see Legal evidence) |
+| `/terms`, `/terms-of-service` | TermsOfServiceView | IMPLEMENTED, not PASS. Same shared pass; tab focus verified; AR/RTL not reviewed |
+| `/gdpr` | GdprView | IMPLEMENTED, not PASS. Same shared pass; tab focus verified; AR/RTL not reviewed |
 | `*` (404) | NotFoundView | IMPLEMENTED, not PASS. White page, charcoal primary CTA, brand-wash glyph tile, brand-muted secondary text, charcoal focus ring (was gold `#C5A059`). Desktop, mobile and keyboard focus captured. AR/RTL not yet reviewed. See 404 evidence below. |
 
 ## Consumer (storefront) routes
@@ -161,11 +161,13 @@ A row is `PASS` only when its own checks were run after its own changes and the 
 
 ## Legal pages — evidence (LegalViews: Privacy, Terms, GDPR)
 
-- Status: IMPLEMENTED, not PASS. Colour pass applied to the shared `LegalViews` file. Not PASS because the tab focus indicator is unresolved, and AR/RTL and the full long-form content were not reviewed.
+- Status: IMPLEMENTED, not PASS. Colour pass applied to the shared `LegalViews` file. Tab focus is verified (settled gold indicator). Not PASS yet: AR/RTL and the full long-form content were not reviewed.
 - Changes: hero navy-to-black gradient with gold chip → `brand-charcoal` panel with white text (white on charcoal 14.99:1). Active tab navy → charcoal. Inactive tabs slate border and text → `brand-field` boundary and `brand-muted` text, charcoal hover. Article headings navy → charcoal. Body, list, and table text slate-600 → `brand-muted`. Table headers slate-400 (about 2.5:1 on white, fails AA) → `brand-muted`. Code chips → `brand-wash`. Contact link → charcoal underlined. Neutral slate dividers and borders kept.
 - Tests: `views/legal/__tests__/legalBrand.contract.test.tsx` (4 contracts). Related suites (legal routes, accessibility RTL, i18n parity): 4 files, 75 tests pass.
 - Captures: `shots/pre_legal_{privacy,terms,gdpr}_{desk,mob}.png` (HEAD, before) and `shots/post_legal_*` (after). No page errors in either run.
-- OPEN, tab focus indicator: on the active tab, the probe reached it with real Tab presses. It matches `:focus-visible` and the ring class selector, but the computed box-shadow shows no ring and the computed outline is the global 3px white, which is invisible on white. The global token `--confit-focus` resolves to `#A37E44` on every route, so the cause is not yet isolated. I tried explicit ring classes on the tabs. They did not render, so I reverted them to avoid removing the only indicator. Next step: isolate the cascade with a page-level computed-style trace, then fix at the source.
+- Tab focus, resolved (not a defect): the focused tab's outline reads white for about 150ms, then settles at `rgb(163,126,68)` (`#A37E44`, the global `--confit-focus` token, 3.73:1 on white, non-text). The cause was `transition-all` on the tab class animating `outline-color` from `currentColor`. Evidence: `focus_settle.mjs` reads immediately (white) and after 600ms (gold); crop `shots/qa_legal_tab_settled_crop.png` shows the gold ring around the active "Privacy Policy" tab. No tab-specific focus classes were added.
+- Lesson recorded: measure focus styles after transitions settle. Immediate reads of `outline-color` on `transition-all` elements are unreliable.
+
 - Limits: AR/RTL not captured. Long-form article content not reviewed beyond the first section.
 
 ## Register system — open decision

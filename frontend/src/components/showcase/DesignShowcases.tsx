@@ -160,6 +160,11 @@ export const CardStackShowcase: React.FC<CardStackShowcaseProps> = ({
               spreadDeg={compact ? 28 : 34}
               overlap={compact ? 0.6 : 0.55}
               showDots
+              /* Mobile only: the fixed AI Stylist control (48px, end-4, bottom-4)
+                 sits over the lower-right of the stack and the controls row.
+                 Lift the cards and keep the controls clear of it. sm+ unchanged. */
+              stageClassName="!bottom-28 sm:!bottom-16 lg:!bottom-0"
+              controlsClassName="mt-8 sm:mt-4 sm:pe-28 lg:mt-4 lg:pe-0"
               labels={{
                 carousel: t('showcase.stack_region'),
                 previous: t('carousel.previous'),

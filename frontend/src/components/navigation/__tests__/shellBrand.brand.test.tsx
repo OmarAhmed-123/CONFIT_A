@@ -53,3 +53,35 @@ describe('consumer shell brand contract', () => {
     expect(FILES.trust).toMatch(/bg-emerald-50 text-emerald-700/);
   });
 });
+
+/**
+ * Logo #3 shell regressions added with the navigation-rule pass.
+ *  - The register accent under the header is brand charcoal (was gold #C9A227).
+ *  - Body text selection uses charcoal, not the legacy bronze/navy pair.
+ *  - The floating AI Stylist button's accessible name contains its visible
+ *    label (WCAG 2.5.3 Label in Name). Visible label: layout.ai_stylist_director.
+ */
+describe('shell navigation rule, selection and FAB name', () => {
+  const indexHtml = read('index.html');
+  const registers = read('src/design/registers.ts');
+  const en = JSON.parse(read('src/i18n/en.json'));
+  const ar = JSON.parse(read('src/i18n/ar.json'));
+
+  it('editorial register accent (navigation rule under the header) is brand charcoal', () => {
+    expect(registers).toMatch(/editorial: \{\s*id: "editorial",\s*accent: "#252729"/);
+    expect(registers).not.toMatch(/accent: "#C9A227"/);
+  });
+
+  it('body selection colours are charcoal, with no legacy bronze or navy', () => {
+    expect(indexHtml).not.toMatch(/selection:bg-\[#B8935A\]/);
+    expect(indexHtml).not.toMatch(/selection:text-\[#1B1F3B\]/);
+    expect(indexHtml).toMatch(/selection:text-\[#252729\]/);
+  });
+
+  it('AI Stylist button uses the visible label as its accessible name', () => {
+    expect(FILES.layout).toMatch(/aria-label=\{t\('layout\.ai_stylist_director'\)\}/);
+    expect(FILES.layout).not.toMatch(/aria-label=\{t\('layout\.open_ai_stylist'\)\}/);
+    expect(en.layout.ai_stylist_director).toBe('AI Stylist Director');
+    expect(ar.layout.ai_stylist_director.length).toBeGreaterThan(0);
+  });
+});

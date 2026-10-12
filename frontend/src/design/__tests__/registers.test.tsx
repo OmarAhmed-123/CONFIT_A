@@ -105,16 +105,13 @@ describe("palette is measured, not asserted", () => {
     expect(new Set(accents).size).toBe(ALL.length);
   });
 
-  it("non-editorial accents clear 3:1 on the body; editorial gold is documented decorative-only", () => {
+  it("every accent clears 3:1 on the body; editorial uses brand charcoal (Logo #3 rollout)", () => {
     for (const id of ALL) {
-      if (id === "editorial") {
-        // 2.30:1 — allowed ONLY because the accent is pure decoration
-        // (hairline/dot), never text and never a control boundary.
-        expect(contrast(REGISTERS.editorial.accent, BODY)).toBeLessThan(3);
-      } else {
-        expect(contrast(REGISTERS[id].accent, BODY)).toBeGreaterThanOrEqual(3);
-      }
+      expect(contrast(REGISTERS[id].accent, BODY), id).toBeGreaterThanOrEqual(3);
     }
+    // Was gold #C9A227 (2.30:1, decorative-only). The navigation rule under the
+    // header now uses the brand charcoal, so the gold exception is retired.
+    expect(REGISTERS.editorial.accent.toUpperCase()).toBe("#252729");
   });
 });
 

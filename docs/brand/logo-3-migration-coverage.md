@@ -47,7 +47,7 @@ A row is `PASS` only when its own checks were run after its own changes and the 
 | `/fit`, `/fit-finder` | FitFinderView | NOT_STARTED |
 | `/wardrobe`, `/wardrobe/item/:id` | WardrobeView | NOT_STARTED |
 | `/cart`, `/checkout` | CheckoutView | NOT_STARTED (commerce path: light scheme only) |
-| `/orders`, `/orders/:orderNumber`, `/returns` | OrderTrackingView | NOT_STARTED |
+| `/orders`, `/orders/:orderNumber`, `/returns` | OrderTrackingView | IMPLEMENTED, not PASS. Light scheme. Gold and navy chrome to charcoal and brand neutrals; return CTA focus ring charcoal. Fixed state bugs: 5xx no longer shows the verify form; signed-in 404 no longer shows the guest prompt; `/orders` lists the signed-in customer's orders; hard-coded English copy moved to `order.*` keys (EN and AR). `/returns` renders the same view and is not captured separately. See Orders evidence. |
 | `/profile`, `/settings`, `/notifications` | UserProfileView | NOT_STARTED |
 
 ## Brand (partner) routes — `/b2b` and `/partner`
@@ -204,3 +204,34 @@ A row is `PASS` only when its own checks were run after its own changes and the 
 - Captures (`/home/user/brand_build/shots/`): `pre_mylooks_*` and `post_mylooks_*` for populated (desktop, mobile, AR mobile), empty, and error states, plus `*_mylooks_cta_focus_mocked.png`. Captures recorded no page errors.
 - Limits: AR and mobile not yet reviewed visually. The Try On pills are shared with other pages and were checked only on this page.
 - CI: the first push (`e46d38f`) failed the `frontend` job at `npm run i18n:check`. The gate treated the Arabic plural forms as drift and rejected the bare `t('my_looks.pieces')`. It was reproduced locally and fixed in `frontend/scripts/check_i18n.mjs`, which now uses the same CLDR rule as the parity test. Negative probe: a missing key still fails with exit 1. `npm audit --omit=dev --audit-level=high`: 0 vulnerabilities.
+
+## Orders — evidence (OrderTrackingView, `/orders`, `/orders/:orderNumber`, `/returns`)
+
+- Routes: `/orders/:orderNumber` is public. `/orders` and `/returns` are under `ProtectedRoute`. `/returns` renders the same view, so for a signed-in customer with no order number it shows the order list. It is not captured separately.
+- Session simulated with `confit_user` and a mocked `/auth/me` (user has `has_profile: true`). Commerce API MOCKED (`_mocked`): `GET /commerce/orders/:n`, `/tracking`, and `GET /commerce/orders`. Fixture: order `CF-240918-0042` (items 1 and 2, timeline of 4 steps, current `shipped`). A 404 state uses `CF-000000-0000`. The backend is not running, so the states are not PASS evidence against live data.
+- Changes in `OrderTrackingView.tsx`:
+  - Server faults (5xx or network status 0) show `order.load_failed` with `order.load_failed_title` and a Retry action. They never show the guest verify form. Status is checked before message text, so a 5xx whose body says "Order not found" is still a load failure.
+  - Signed-in 404 shows `order.not_found` with `order.not_found_desc` and no guest prompt. Anonymous 404 keeps the neutral verify prompt (anti-enumeration).
+  - Signed-in 403 shows `order.access_denied`. Backend English text is no longer rendered in the UI, in either locale.
+  - Signed-in `/orders` lists the customer's orders through `commerceService.getOrders()`. Each row links to `/orders/:order_number`. A list error has Retry. An empty list has its own copy. Anonymous `/orders` shows `order.no_number`, with no API call.
+  - Dates use the app language through `formatDate` and `formatDateTime`. They previously used the browser locale.
+  - Palette: `slate-*`, navy, and gold mapped to brand tokens. The current step, pickup panel, and status pill use charcoal or wash, not gold. The return CTA focus ring is `focus-visible:outline-brand-charcoal`.
+- Locale keys: 13 new `order.*` keys in `en.json` and `ar.json`, all with Arabic script in AR. `npm run i18n:check` passes.
+- Focus: return CTA settled focus measured 700ms after keyboard focus. Pre gold `rgb(163,126,68)` → post charcoal `rgb(37,39,41)`.
+- Tests:
+  - `orderTrackingBrand.contract.test.tsx`: source contracts for palette, focus ring, no hard-coded English, server-fault ordering, locale-aware dates, list link, and EN/AR keys.
+  - `orderTrackingStates.test.tsx`: runtime states for anonymous 500 (Retry, no verify), anonymous 404 (verify kept), signed-in 404, 403, 500, 5xx-with-"not found" text, Retry reloads, list, list error and retry, empty list, anonymous `/orders`, and AR load-failed copy.
+  - Result: 35 tests pass. `tsc` 0. Full Vitest 117 files, 1465 tests passed. `npm run i18n:check` 0. `npm run build` 0.
+- Captures (`/home/user/brand_build/shots/`): `pre_orders_*` and `post_orders_*` for detail OK (desktop, mobile, AR mobile), 404, 500, and list, plus `cta_focus` in the capture log. All recorded no page errors.
+- Before and after:
+  - Pre: the 500 state showed "Verify your order". The cause was the message-text heuristic in the signed-in branch, since the mock's 500 body said "Order not found". Anonymous 500 also showed the verify form because the anonymous branch caught every failure. Both paths are now covered (signed-in capture, anonymous runtime test).
+  - Pre: the 404 state showed the verify form to a signed-in user. Post: "Order not found" with no guest prompt.
+  - Pre: `/orders` with no number showed "No order number was provided." Post: the signed-in order list.
+  - Pre: English copy on the AR page (eyebrow, description, loading, not-found text). Post: localized.
+- Limits, not PASS:
+  - Timeline step titles and descriptions, and the item names, come from the backend, so they stay English on the AR page.
+  - The Arabic mobile capture shows the step titles in English for this reason.
+  - The AI Stylist pill sits close to the card edge on desktop and overlaps the Try On overlay at 390px. This is the shared shell and remains open.
+  - `/returns` is not captured separately.
+  - The pre-captures were taken before the fixture gained `status` and `total_amount`, and before the mock's 500 body was corrected. The post-captures use the corrected fixtures.
+

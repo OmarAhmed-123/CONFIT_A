@@ -1654,7 +1654,21 @@
     "verify_failed": "Verification failed",
     "verify_neutral": "Enter your email to verify your order",
     "verify_prompt_desc": "For privacy, guest orders need email verification to view details",
-    "verify_prompt_title": "Verify your order"
+    "verify_prompt_title": "Verify your order",
+    "loading": "Loading your order…",
+    "no_number": "Enter an order number to see its status.",
+    "load_failed": "We could not load this order right now. Please try again.",
+    "retry": "Try again",
+    "story_eyebrow": "Order status",
+    "story_description": "Follow packing, courier, pickup, and return checkpoints in one place.",
+    "list_title": "Your orders",
+    "list_subtitle": "Open an order to see its progress and items.",
+    "list_empty_title": "No orders yet",
+    "list_empty": "Orders you place will appear here.",
+    "list_error_title": "Orders unavailable",
+    "not_found_desc": "Check the order number and try again.",
+    "access_denied": "This order is not available on your account.",
+    "load_failed_title": "Order unavailable"
   },
   "discover": {
     "search_label": "Search the catalogue",

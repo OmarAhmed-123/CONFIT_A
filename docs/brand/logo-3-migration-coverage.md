@@ -73,7 +73,7 @@ A row is `PASS` only when its own checks were run after its own changes and the 
 
 | Surface | Status |
 |---|---|
-| `ConsumerLayout`, `ConsumerNavbar` (header, nav, footer) | NOT_STARTED. Still gold and navy: the gold rule under the header, the navy Sign In button, and the floating "AI Stylist Director" pill (dark, gold text). Seen in the HomeView captures |
+| `ConsumerLayout`, `ConsumerNavbar` (header, nav, footer), `TrustFooter` | IMPLEMENTED, not PASS. Shared by every consumer page. White page root; light utility strip; charcoal Sign In and avatar; white AI Stylist pill with charcoal icon chip; light footer with charcoal headings and muted links; semantic emerald status kept in TrustFooter. Still legacy: the gold-dark focus token `--confit-focus` (#A37E44, 3.73:1 on white, pinned by `surfaceSystem.test.tsx`) and the register palette in `design/registers.ts` (commerce ink #1B1F3B, editorial gold accent). See Shell evidence |
 | `BrandLayout`, `BrandNavbar`, `BrandSidebar` | NOT_STARTED |
 | `AuthModal` (login, register, MFA, recovery) | PASS |
 
@@ -117,6 +117,20 @@ A row is `PASS` only when its own checks were run after its own changes and the 
 - Tests: `homeHero.brand.test.tsx` (8 source-level contracts: no legacy tokens in HeroSection; no legacy tokens in HomeView outside `palette:` data; primary CTA charcoal; no white focus ring; charcoal focus rings). Full vitest 108 files / 1387 tests passed. `tsc --noEmit` exit 0. `npm run build` exit 0.
 - Captures (`/home/user/brand_build/shots/`): `pre_home_desk.png`, `pre_home_mob.png`, `post_home_desk.png`, `post_home_mob.png` (full page at 1280px and 390px), `*_fold.png`, and `qa_home_desk_sheet.png` (before and after side by side). Keyboard: a real Tab sequence reaches the primary CTA with `:focus-visible` (`post_home_focus_kbd_desk.png`).
 - Limits: backend is not running, so the "Today's style picks" and "New in" rails show their error state in both before and after captures. The occasion cards, editorial stack and footer were reviewed only at half scale in the contact sheet. Arabic and RTL were not captured for the homepage in this pass.
+
+## Consumer shell — evidence (ConsumerLayout, ConsumerNavbar, TrustFooter, AI Stylist pill)
+
+- Status: IMPLEMENTED, not PASS. The shell is shared by all consumer routes. Only `/` (homepage) was captured for the shell. Other consumer pages are not marked PASS by this change.
+- Changes: root `bg-[#FAF9F6] text-[#1B1F3B]` → `bg-white text-brand-charcoal`. Gold rule and text links → charcoal. Navy Sign In and avatar → `brand-charcoal` with white text. Cream accent fills → `brand-wash`. Gold accent icons → charcoal (`#252729`). AI Stylist pill: navy with gold label → white with charcoal icon chip and charcoal label, `shadow-lg`, `border-brand-field`. Footer: `bg-brand-wash`, charcoal headings, muted text and links, charcoal brand-portal CTA. TrustFooter: dark-panel text (`slate-300/400`) → brand tokens. Live status stays emerald (`bg-emerald-50 text-emerald-700`).
+- Unchanged on purpose: the neutral slate surface fills and borders (`bg-slate-100`, `border-slate-200/80`) and the `backdrop-blur-md` header. Neutrals are not brand colours.
+- Captures (`/home/user/brand_build/shots/`): `pre_shell_*` and `post_shell_*` for desktop fold, desktop dropdown menu, footer, mobile fold, mobile drawer, keyboard focus on nav and FAB. Side-by-side: `qa_shell_desk_fold_pre_post.png`, `qa_shell_mob_fold_pre_post.png`, `qa_shell_footer_pre_post.png`.
+- Focus check: the global focus outline is a 3px ring. An earlier white reading was taken while the splash overlay covered the page, so it was not a real defect. The gold-dark ring (`#A37E44`) is visible on the focused FAB (`pre_fab_focus_desk.png`, `post_fab_focus_desk.png`). Decision open: whether to move `--confit-focus` to charcoal. That would need the `surfaceSystem` test updated.
+- Tests: `components/navigation/__tests__/shellBrand.brand.test.tsx` (10 contracts: no legacy tokens and no slate text in the three files; root white; pill styling; RTL `end-6`; emerald kept). Focused suite across navigation, a11y, commerce, design and layouts: 13 files, 230 tests passed.
+- CI gate (`scripts/stylist_browser_gate.sh`, same as CI): PASS locally. axe 0 serious/critical and 0 colour-contrast violations in EN and AR. Keyboard probe PASS in EN and AR. 59 axe "incomplete" items per locale are reported and not counted as passes.
+
+## Register system — open decision
+
+- `design/registers.ts` sets an accent and ink per surface family (editorial gold `#C9A227` accent, commerce ink `#1B1F3B`, and others). Its test pins these values. It affects every page's `main`. Changing it is a design-system decision and is not part of the shell pass. Not changed.
 
 ## Known pre-existing issues (not caused by this migration)
 

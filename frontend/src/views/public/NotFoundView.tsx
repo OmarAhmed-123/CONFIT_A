@@ -71,7 +71,7 @@ export const NotFoundView: React.FC = () => {
         <div className="mx-auto mt-8 flex max-w-sm flex-col gap-3 sm:flex-row sm:justify-center">
           <Link
             to="/"
-            className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-brand-charcoal px-5 text-sm font-bold text-white hover:bg-[#1A1B1D] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal"
+            className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-brand-charcoal px-5 text-sm font-bold text-white hover:bg-[#1A1B1D] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white"
           >
             <span aria-hidden="true"><Home size={16} /></span>
             {t('not_found.home_cta')}

@@ -459,7 +459,7 @@ export const BrandCatalogView: React.FC = () => {
                         <td className="py-3 text-end">
                           {editingSkuId === sku.id ? (
                             <span className="flex justify-end gap-1.5">
-                              <button type="button" disabled={saving} onClick={() => handleSaveSku(sku.id)} className="min-h-12 rounded-xl bg-[var(--confit-navy)] px-4 text-[11px] font-bold text-white transition-colors duration-300 ease-luxury hover:bg-[#0C0E1E] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--confit-focus)] disabled:opacity-50">
+                              <button type="button" disabled={saving} onClick={() => handleSaveSku(sku.id)} className="min-h-12 rounded-xl bg-[var(--confit-navy)] px-4 text-[11px] font-bold text-white transition-colors duration-300 ease-luxury hover:bg-[#0C0E1E] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:opacity-50">
                                 {t('b2b.cat.save')}
                               </button>
                               <button type="button" onClick={() => setEditingSkuId(null)} className="min-h-12 rounded-xl border border-slate-300 px-3 text-[11px] font-semibold text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--confit-focus)]">
@@ -539,7 +539,7 @@ export const BrandCatalogView: React.FC = () => {
             <div className="border-t border-slate-100 pt-3 text-[11px] text-slate-500">
               <div className="flex items-center justify-between gap-2">
                 <span className="font-bold text-slate-700">{t('b2b.cat.sample_title')}</span>
-                <button type="button" onClick={downloadSampleCsv} className="min-h-12 rounded-xl border border-[var(--confit-navy)] px-3 text-[11px] font-semibold text-[var(--confit-navy)] transition-colors duration-300 ease-luxury hover:bg-[var(--confit-navy)] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--confit-focus)]">
+                <button type="button" onClick={downloadSampleCsv} className="min-h-12 rounded-xl border border-[var(--confit-navy)] px-3 text-[11px] font-semibold text-[var(--confit-navy)] transition-colors duration-300 ease-luxury hover:bg-[var(--confit-navy)] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white">
                   {t('b2b.cat.sample_dl')}
                 </button>
               </div>

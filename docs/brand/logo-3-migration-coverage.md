@@ -239,3 +239,11 @@ A row is `PASS` only when its own checks were run after its own changes and the 
   - `/returns` is not captured separately.
   - The pre-captures were taken before the fixture gained `status` and `total_amount`, and before the mock's 500 body was corrected. The post-captures use the corrected fixtures.
 
+## Focus-ring sweep and Discover re-check (rollout 2)
+
+- Defect class: a charcoal focus ring on a charcoal- or navy-filled control merges into the fill and is invisible. Fix: `focus-visible:ring-offset-2 focus-visible:ring-offset-white` on every such control, and legacy gold rings (`ring-[#A37E44]`, `ring-[#C5A059]`) switched to `ring-brand-charcoal`. Done by a repository sweep of 11 files and 16 class strings: `DiscoverView`, `NotFoundView`, `SharedLookView`, `TryOnFitView`, `PartnerGatewayView`, `BrandCatalogView`, `BrandDashboardView`, `LeadForm`, `CommonComponents`, `CameraScanModal`, `TryOnStudioErrorBoundary`. Class strings only; no logic change.
+- Evidence: selected Discover chip "All Categories", before `brand_build/shots/pre_chipsel_focus.png` (no visible ring), after `post_chipsel_focus.png` (white gap, charcoal ring). Sign In after: `post2_focus_signin_desk.png`.
+- Tests: `tsc --noEmit` exit 0; `npm run build` exit 0; `vitest run` 119 files / 1477 tests passed.
+- Discover status: IMPLEMENTED, not PASS. Verified: desktop and mobile fold, AR fold captured, selected-chip focus. NOT verified: product rails (no backend in the sandbox, so no data-backed states), loading and empty states with data, filters and search with live data, full-page mobile review.
+- Known, shared, not changed here: the floating AI Stylist pill covers carousel content on mobile (390px). It is a fixed control by design and stays open in the shell row.
+- Still legacy in other files (not in this sweep): navy `#1B1F3B` and `#0C0E1E` fills in `CameraScanModal` hover and several b2b pages. Each is fixed in its page pass.

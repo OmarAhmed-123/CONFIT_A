@@ -137,7 +137,7 @@ export const PartnerGatewayView: React.FC = () => {
             <button
               type="button"
               onClick={scrollToForm}
-              className="inline-flex min-h-[48px] items-center rounded-[14px] bg-[#1B1F3B] px-6 text-xs font-bold uppercase tracking-wider text-white transition-colors duration-[140ms] ease-luxury hover:bg-[#13162C] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A37E44] focus-visible:ring-offset-2"
+              className="inline-flex min-h-[48px] items-center rounded-[14px] bg-[#1B1F3B] px-6 text-xs font-bold uppercase tracking-wider text-white transition-colors duration-[140ms] ease-luxury hover:bg-[#13162C] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white focus-visible:ring-offset-2"
             >
               {t("partner.request_partnership")}
             </button>
@@ -317,7 +317,7 @@ export const PartnerGatewayView: React.FC = () => {
         <button
           type="button"
           onClick={scrollToForm}
-          className="inline-flex min-h-[48px] items-center rounded-[14px] bg-[#1B1F3B] px-8 text-xs font-bold uppercase tracking-wider text-white transition-colors duration-[140ms] ease-luxury hover:bg-[#13162C] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A37E44] focus-visible:ring-offset-2"
+          className="inline-flex min-h-[48px] items-center rounded-[14px] bg-[#1B1F3B] px-8 text-xs font-bold uppercase tracking-wider text-white transition-colors duration-[140ms] ease-luxury hover:bg-[#13162C] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white focus-visible:ring-offset-2"
         >
           {t("partner.request_partnership")}
         </button>

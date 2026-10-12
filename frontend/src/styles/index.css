@@ -164,6 +164,19 @@
   .confit-slide-up {
     animation: confit-slide-up 0.45s cubic-bezier(0.25, 1, 0.5, 1) both;
   }
+
+  /* ── Brand splash progress rule (Logo #3 splash) ─────────────────────
+     A single charcoal hairline that draws across the splash for its
+     duration. Reduced-motion users get the global 0.001ms collapse, which
+     ends on the final frame (full rule) — no information is lost. */
+  .confit-splash-rule {
+    transform-origin: 0 50%;
+    animation: confit-splash-rule 1.1s cubic-bezier(0.25, 1, 0.5, 1) both;
+  }
+  @keyframes confit-splash-rule {
+    from { transform: scaleX(0); }
+    to { transform: scaleX(1); }
+  }
   @keyframes confit-slide-up {
     from { opacity: 0; transform: translateY(12px); }
     to { opacity: 1; transform: translateY(0); }

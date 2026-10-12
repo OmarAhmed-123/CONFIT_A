@@ -203,3 +203,4 @@ A row is `PASS` only when its own checks were run after its own changes and the 
 - Checks: `tsc` 0; full Vitest 115 files, 1430 tests passed; `npm run build` 0.
 - Captures (`/home/user/brand_build/shots/`): `pre_mylooks_*` and `post_mylooks_*` for populated (desktop, mobile, AR mobile), empty, and error states, plus `*_mylooks_cta_focus_mocked.png`. Captures recorded no page errors.
 - Limits: AR and mobile not yet reviewed visually. The Try On pills are shared with other pages and were checked only on this page.
+- CI: the first push (`e46d38f`) failed the `frontend` job at `npm run i18n:check`. The gate treated the Arabic plural forms as drift and rejected the bare `t('my_looks.pieces')`. It was reproduced locally and fixed in `frontend/scripts/check_i18n.mjs`, which now uses the same CLDR rule as the parity test. Negative probe: a missing key still fails with exit 1. `npm audit --omit=dev --audit-level=high`: 0 vulnerabilities.

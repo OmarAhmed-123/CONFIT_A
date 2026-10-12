@@ -82,6 +82,17 @@ function flatten(obj, prefix = '', out = {}) {
   return out;
 }
 
+// CLDR plural variants (i18next `key_one`, `key_few`, ...) are one logical key.
+// Arabic needs more forms than English, so parity compares logical keys, while
+// a literal t('key') is satisfied by any of its plural variants.
+const PLURAL_SUFFIX = /_(zero|one|two|few|many|other)$/;
+function logicalKeySet(keys) {
+  return new Set(keys.map((k) => k.replace(PLURAL_SUFFIX, '')));
+}
+function hasLeaf(leaves, key) {
+  return key in leaves || `${key}_one` in leaves || `${key}_other` in leaves;
+}
+
 function readJson(file) {
   const raw = fs.readFileSync(file, 'utf8');
   try {
@@ -160,7 +171,7 @@ function main() {
   const usedKeys = extractKeys();
   const usedButUndefined = [];
   for (const [key, files] of [...usedKeys].sort((a, b) => a[0].localeCompare(b[0]))) {
-    if (!(key in flat[SOURCE_LOCALE])) {
+    if (!hasLeaf(flat[SOURCE_LOCALE], key)) {
       usedButUndefined.push({ key, files: [...files] });
     }
   }
@@ -171,9 +182,10 @@ function main() {
   // ---- Check 2: locale parity (missing AND extra) ----
   for (const [name, leaves] of Object.entries(flat)) {
     if (name === SOURCE_LOCALE) continue;
-    const keys = new Set(Object.keys(leaves));
-    const missing = sourceKeys.filter((k) => !keys.has(k));
-    const extra = [...keys].filter((k) => !(k in flat[SOURCE_LOCALE])).sort();
+    const srcLogical = logicalKeySet(sourceKeys);
+    const localeLogical = logicalKeySet(Object.keys(leaves));
+    const missing = [...srcLogical].filter((k) => !localeLogical.has(k)).sort();
+    const extra = [...localeLogical].filter((k) => !srcLogical.has(k)).sort();
     if (missing.length) {
       fail('parity', `${name}.json is missing ${missing.length} key(s) present in ${SOURCE_LOCALE}.json`, missing.slice(0, 20).join(', ') + (missing.length > 20 ? ` … +${missing.length - 20}` : ''));
     }
@@ -223,7 +235,7 @@ function main() {
   }
 
   // ---- Check 5: dead keys (defined but never referenced) — reported, not fatal ----
-  const dead = sourceKeys.filter((k) => !usedKeys.has(k));
+  const dead = [...logicalKeySet(sourceKeys)].filter((k) => !usedKeys.has(k)).sort();
   if (dead.length) notes.push({ kind: 'dead-keys', message: `${dead.length} key(s) defined but never referenced via a literal t('…') call`, keys: dead });
 
   // ---- Check 6: the ratchet against new untranslated user-facing copy ----

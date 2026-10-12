@@ -440,7 +440,7 @@ export const HomeView: React.FC = () => {
                     <h2 className="mt-3 font-serif text-2xl font-bold">
                       {t('home.example_look_title')}
                     </h2>
-                    <p className="mt-1 text-xs text-slate-200">
+                    <p className="mt-1 text-xs text-white/90">
                       {t('home.example_look_body')}
                     </p>
                   </>
@@ -483,14 +483,14 @@ export const HomeView: React.FC = () => {
             <h2 className="mt-2 font-serif text-3xl font-bold text-brand-charcoal">
               {t('home.guided_title')}
             </h2>
-            <p className="mt-3 text-sm font-light leading-relaxed text-slate-500">
+            <p className="mt-3 text-sm font-light leading-relaxed text-brand-muted">
               {t('home.guided_body')}
             </p>
           </div>
 
           <div className="space-y-4">
             <div>
-              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-brand-muted">
                 {t('home.intent_question')}
               </p>
               <div className="mt-2 flex flex-wrap gap-2">
@@ -500,7 +500,7 @@ export const HomeView: React.FC = () => {
                     type="button"
                   aria-pressed={guideOccasion === occasion.value}
                   onClick={() => setGuideOccasion(occasion.value)}
-                    className={`rounded-full px-3 py-2 text-xs font-semibold transition ${guideOccasion === occasion.value ? "bg-brand-charcoal text-white" : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"}`}
+                    className={`rounded-full px-3 py-2 text-xs font-semibold transition ${guideOccasion === occasion.value ? "bg-brand-charcoal text-white" : "border border-slate-200 bg-white text-brand-charcoal hover:bg-slate-50"}`}
                   >
                     {t(occasion.labelKey)}
                   </button>
@@ -509,8 +509,8 @@ export const HomeView: React.FC = () => {
             </div>
 
             <div className="grid gap-3 sm:grid-cols-3">
-              <label className="space-y-2 text-xs font-semibold text-slate-600">
-                <span className="block text-[11px] font-bold uppercase tracking-wider text-slate-500">
+              <label className="space-y-2 text-xs font-semibold text-brand-muted">
+                <span className="block text-[11px] font-bold uppercase tracking-wider text-brand-muted">
                   {t('home.budget_guide')}
                 </span>
                 <select
@@ -525,8 +525,8 @@ export const HomeView: React.FC = () => {
                   ))}
                 </select>
               </label>
-              <label className="space-y-2 text-xs font-semibold text-slate-600">
-                <span className="block text-[11px] font-bold uppercase tracking-wider text-slate-500">
+              <label className="space-y-2 text-xs font-semibold text-brand-muted">
+                <span className="block text-[11px] font-bold uppercase tracking-wider text-brand-muted">
                   {t('home.palette_preference')}
                 </span>
                 <select
@@ -541,8 +541,8 @@ export const HomeView: React.FC = () => {
                   ))}
                 </select>
               </label>
-              <label className="space-y-2 text-xs font-semibold text-slate-600">
-                <span className="block text-[11px] font-bold uppercase tracking-wider text-slate-500">
+              <label className="space-y-2 text-xs font-semibold text-brand-muted">
+                <span className="block text-[11px] font-bold uppercase tracking-wider text-brand-muted">
                   {t('home.fit_preference')}
                 </span>
                 <select
@@ -567,7 +567,7 @@ export const HomeView: React.FC = () => {
               >
                 {t('home.ask_stylist_cta')}
               </button>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-brand-muted">
                 {t('home.guest_friendly')}
               </p>
             </div>
@@ -584,7 +584,7 @@ export const HomeView: React.FC = () => {
           <h2 className="mt-2 font-serif text-3xl font-bold text-brand-charcoal sm:text-4xl">
             {t('home.lookbook_title')}
           </h2>
-          <p className="mt-3 text-sm font-light leading-relaxed text-slate-500">
+          <p className="mt-3 text-sm font-light leading-relaxed text-brand-muted">
             {t('home.lookbook_body')}
           </p>
         </div>
@@ -713,7 +713,7 @@ export const HomeView: React.FC = () => {
                   <h3 className="font-serif text-base font-bold text-brand-charcoal transition-colors group-hover:underline">
                     {brand.name}
                   </h3>
-                  <span className="block text-[11px] font-light text-slate-500">
+                  <span className="block text-[11px] font-light text-brand-muted">
                     {brand.items.length === 1
                       ? t("home.brand_pieces_one")
                       : t("home.brand_pieces_many", {
@@ -780,7 +780,7 @@ export const HomeView: React.FC = () => {
         )}
         {!isLoading && !catalogError && products.length === 0 && (
           <div className="bg-white rounded-3xl border border-slate-200/80 p-8 text-center">
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-brand-muted">
               {t('home.picks_empty')}
             </p>
           </div>
@@ -836,14 +836,14 @@ export const HomeView: React.FC = () => {
                 className="w-full h-full object-cover motion-safe:group-hover:scale-105 transition-transform duration-700 ease-luxury brightness-75 group-hover:brightness-90"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/35 to-transparent p-6 flex flex-col justify-end">
-                <span className="text-[10px] font-bold text-brand-charcoal uppercase tracking-wider mb-1 flex items-center gap-1">
-                  <SparkleIcon size={12} color="#252729" />
+                <span className="text-[10px] font-bold text-white uppercase tracking-wider mb-1 flex items-center gap-1">
+                  <SparkleIcon size={12} color="#FFFFFF" />
                   <span>{t('home.instant_ai_stylist')}</span>
                 </span>
                 <h2 className="font-serif text-xl font-bold text-white mb-1">
                   {occ.title}
                 </h2>
-                <p className="text-xs text-slate-300 line-clamp-1 font-light mb-2">
+                <p className="text-xs text-white/90 line-clamp-1 font-light mb-2">
                   {occ.desc}
                 </p>
                 {/* Palette chips are purely decorative colour hints. */}
@@ -856,7 +856,7 @@ export const HomeView: React.FC = () => {
                     />
                   ))}
                 </div>
-                <div className="flex items-center gap-1 text-xs font-semibold text-brand-charcoal motion-safe:group-hover:translate-x-1 rtl:motion-safe:group-hover:-translate-x-1 transition-transform duration-300 ease-luxury">
+                <div className="flex items-center gap-1 text-xs font-semibold text-white motion-safe:group-hover:translate-x-1 rtl:motion-safe:group-hover:-translate-x-1 transition-transform duration-300 ease-luxury">
                   <span>{t('home.style_occasion_cta')}</span>
                 </div>
               </div>
@@ -901,11 +901,11 @@ export const HomeView: React.FC = () => {
                     // states the true fact; the real figure
                     // (server-computed, currency-converted) appears on the
                     // product page and in the cart.
-                    <span className="text-[11px] text-slate-600">
+                    <span className="text-[11px] text-brand-muted">
                       {t('commerce.bnpl_available_checkout')}
                     </span>
                   ) : (
-                    <span className="text-[11px] text-slate-500">
+                    <span className="text-[11px] text-brand-muted">
                       {t('commerce.bnpl_not_live')}
                     </span>
                   )
@@ -920,25 +920,25 @@ export const HomeView: React.FC = () => {
       <section className="rounded-3xl bg-brand-wash border border-brand-hairline p-6 sm:p-10 shadow-2xs">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 text-center sm:text-left">
           <div className="space-y-2">
-            <div className="w-10 h-10 rounded-2xl bg-brand-charcoal text-brand-charcoal flex items-center justify-center font-bold shadow-xs mx-auto sm:mx-0">
+            <div className="w-10 h-10 rounded-2xl bg-brand-charcoal text-white flex items-center justify-center font-bold shadow-xs mx-auto sm:mx-0">
               <SparkleIcon size={20} color="#FFFFFF" />
             </div>
             <h2 className="font-serif text-sm font-bold text-brand-charcoal">
               {t('home.fit_studio_title')}
             </h2>
-            <p className="text-xs text-slate-500 font-light leading-relaxed">
+            <p className="text-xs text-brand-muted font-light leading-relaxed">
               {t('home.fit_studio_body')}
             </p>
           </div>
 
           <div className="space-y-2">
-            <div className="w-10 h-10 rounded-2xl bg-brand-charcoal text-brand-charcoal flex items-center justify-center font-bold shadow-xs mx-auto sm:mx-0">
+            <div className="w-10 h-10 rounded-2xl bg-brand-charcoal text-white flex items-center justify-center font-bold shadow-xs mx-auto sm:mx-0">
               <BopisIcon size={20} color="#FFFFFF" />
             </div>
             <h2 className="font-serif text-sm font-bold text-brand-charcoal">
               {t('home.bopis_feature_title')}
             </h2>
-            <p className="text-xs text-slate-500 font-light leading-relaxed">
+            <p className="text-xs text-brand-muted font-light leading-relaxed">
               {capabilities.bopis_live
                 ? capabilities.bopis_store_count === 1
                   ? t('home.bopis_live_single')
@@ -948,25 +948,25 @@ export const HomeView: React.FC = () => {
           </div>
 
           <div className="space-y-2">
-            <div className="w-10 h-10 rounded-2xl bg-brand-charcoal text-brand-charcoal flex items-center justify-center font-bold shadow-xs mx-auto sm:mx-0">
+            <div className="w-10 h-10 rounded-2xl bg-brand-charcoal text-white flex items-center justify-center font-bold shadow-xs mx-auto sm:mx-0">
               <ShieldIcon size={20} color="#FFFFFF" />
             </div>
             <h2 className="font-serif text-sm font-bold text-brand-charcoal">
               {t('home.returns_title')}
             </h2>
-            <p className="text-xs text-slate-500 font-light leading-relaxed">
+            <p className="text-xs text-brand-muted font-light leading-relaxed">
               {t('home.returns_body')}
             </p>
           </div>
 
           <div className="space-y-2">
-            <div className="w-10 h-10 rounded-2xl bg-brand-charcoal text-brand-charcoal flex items-center justify-center font-bold shadow-xs mx-auto sm:mx-0">
+            <div className="w-10 h-10 rounded-2xl bg-brand-charcoal text-white flex items-center justify-center font-bold shadow-xs mx-auto sm:mx-0">
               <BagIcon size={20} color="#FFFFFF" />
             </div>
             <h2 className="font-serif text-sm font-bold text-brand-charcoal">
               {t('home.bnpl_title')}
             </h2>
-            <p className="text-xs text-slate-500 font-light leading-relaxed">
+            <p className="text-xs text-brand-muted font-light leading-relaxed">
               {t('home.bnpl_body')}
               {!capabilities.bnpl_live && (
                 <span className="block mt-1 text-[10px] font-bold text-amber-700">

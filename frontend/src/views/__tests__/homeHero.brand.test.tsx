@@ -47,6 +47,16 @@ describe('HomeView brand contract', () => {
     expect(home).toMatch(/bg-brand-charcoal hover:bg-\[#1A1B1D\] text-white font-bold/);
   });
 
+  it('no legacy slate text remains (slate-500 is 4.4:1 on brand-wash and fails AA)', () => {
+    expect(home).not.toMatch(/text-slate-\d+/);
+  });
+
+  it('photo-overlay labels are light text, not charcoal (charcoal on the black scrim is illegible)', () => {
+    expect(home).toMatch(/text-white uppercase tracking-wider mb-1 flex items-center gap-1/);
+    expect(home).toMatch(/text-xs font-semibold text-white motion-safe:group-hover:translate-x-1/);
+    expect(home).not.toMatch(/text-brand-charcoal uppercase tracking-wider mb-1 flex items-center gap-1/);
+  });
+
   it('no focus ring is white on the white page', () => {
     expect(home).not.toMatch(/focus-visible:ring-white/);
   });

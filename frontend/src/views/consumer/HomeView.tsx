@@ -827,7 +827,7 @@ export const HomeView: React.FC = () => {
             <button
               key={occ.tag}
               onClick={() => openStylist(occ.title)}
-              className="group relative h-80 rounded-3xl overflow-hidden shadow-2xs hover:shadow-xl transition-all duration-300 text-left border border-slate-200/60"
+              className="focus-on-dark group relative h-80 rounded-3xl overflow-hidden shadow-2xs hover:shadow-xl transition-all duration-300 text-left border border-slate-200/60"
             >
               <img
                 src={occ.img}

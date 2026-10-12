@@ -359,7 +359,7 @@ export const ConsumerNavbar: React.FC = () => {
                       <Link
                         to={isAdmin ? '/admin' : '/b2b'}
                         onClick={() => setOpenMenu(null)}
-                        className="flex min-h-11 items-center px-3 py-2 rounded-xl bg-brand-wash text-brand-charcoal font-bold hover:bg-brand-charcoal hover:text-white transition-colors mt-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal"
+                        className="flex min-h-11 items-center px-3 py-2 rounded-xl bg-brand-wash text-brand-charcoal font-bold hover:bg-brand-charcoal hover:text-white transition-colors mt-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white"
                       >
                         {isAdmin ? t('account.admin_panel') : t('account.partner_dashboard')}
                       </Link>
@@ -381,7 +381,7 @@ export const ConsumerNavbar: React.FC = () => {
               <button
                 onClick={() => openAuthModal('login')}
                 type="button"
-                className="inline-flex min-h-11 items-center gap-1.5 px-4 py-2 rounded-xl bg-brand-charcoal hover:bg-[#1A1B1D] text-white font-medium text-xs transition-all shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal"
+                className="inline-flex min-h-11 items-center gap-1.5 px-4 py-2 rounded-xl bg-brand-charcoal hover:bg-[#1A1B1D] text-white font-medium text-xs transition-all shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white"
               >
                 <span aria-hidden="true"><UserIcon size={15} color="#FFFFFF" /></span>
                 <span>{t('common.sign_in')}</span>
@@ -560,7 +560,7 @@ const MobileNavDrawer: React.FC<{
             <button
               type="button"
               onClick={onSignIn}
-              className="w-full min-h-11 rounded-xl bg-brand-charcoal px-3 py-2.5 text-sm font-semibold text-white hover:bg-[#1A1B1D] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal"
+              className="w-full min-h-11 rounded-xl bg-brand-charcoal px-3 py-2.5 text-sm font-semibold text-white hover:bg-[#1A1B1D] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white"
             >
               {t('common.sign_in')}
             </button>

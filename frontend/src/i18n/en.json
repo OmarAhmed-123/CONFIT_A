@@ -914,7 +914,7 @@
     "timeout": "The request timed out. Please try again.",
     "api_unreachable": "The server returned an unexpected response. The API may not be deployed.",
     "not_found": "We could not find that item.",
-    "rate_limited": "Too many requests. Please wait a moment and try again.",
+    "rate_limited": "You've sent quite a few styling requests in a short time. Please wait a little, then try again — your draft is kept.",
     "image_unsupported": "Unsupported image format. Please upload a JPG, PNG or WebP photo.",
     "image_too_large": "That photo is too large ({{size}} MB). The maximum is {{max}} MB — try a smaller photo.",
     "image_empty": "The selected file is empty.",

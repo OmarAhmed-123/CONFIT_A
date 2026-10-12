@@ -40,7 +40,7 @@ A row is `PASS` only when its own checks were run after its own changes and the 
 | `/` | HomeView | IMPLEMENTED, not PASS. Hero and in-page sections moved to white-first tokens; focus ring fixed (was `ring-white`, invisible on white). Still open: shared navbar and floating AI Stylist pill are legacy (see Global shells); product rails show "could not be loaded" without backend, so rails are unverified with live data. See evidence below. |
 | `/discover`, `/products`, `/stylist` | DiscoverView | IMPLEMENTED, not PASS. Class-level brand mapping applied (gold, navy, cream, slate text, eyebrow labels, search and sort focus rings). Shared `HeroSection` and `ProductCard` changes included. Still open: loading and empty states, filter and search behaviour with live data, mobile and AR/RTL review. The AI Stylist pill label was measured and is not clipped. See Discover evidence below. |
 | `ProductCard` (shared component: Home, Discover, Wardrobe, MyLooks, `InteractionPrimitives`, `TryOnButton`) | ProductCard | IMPLEMENTED, not PASS. Legacy class and icon colours mapped. Changes reach every consumer above, so those pages are NOT marked PASS by this change and each still needs its own review |
-| `/product/:slug`, `/products/:slug` | ProductDetailView | NOT_STARTED |
+| `/product/:slug`, `/products/:slug` | ProductDetailView | IMPLEMENTED, not PASS. Light scheme. Navy, gold, cream, and slate chrome mapped to charcoal, brand-wash, and brand-muted; sale badge charcoal; savings line emerald (semantic). Primary CTA and sticky CTA focus ring charcoal (global gold ring was the settled focus). Rose, amber, and emerald status kept. Mobile and AR captured; AR/mobile not yet visually reviewed. See Product detail evidence. |
 | `/builder`, `/outfits/:id` | OutfitBuilderView | NOT_STARTED |
 | `/outfits`, `/my-looks` | MyLooksView | NOT_STARTED |
 | `/tryon-studio`, `/try-on`, `/try-on/:sessionId`, `/visual-search` | TryOnFitView (error boundary) | NOT_STARTED |
@@ -182,3 +182,13 @@ A row is `PASS` only when its own checks were run after its own changes and the 
 - Backend API is not running in the sandbox; pages show 502 responses for data calls. Visual checks cover layout only; data-driven states need a running backend.
 - `origin/main` was merged into this branch at `412c341` (no conflicts). Re-check `behind` status before any merge.
 - `npm run build` prints a rolldown plugin-timing notice (`vite:css-post`). It is informational and exits 0.
+
+## Product detail — evidence (ProductDetailView, light scheme)
+
+- Changes: legacy class mapping in `ProductDetailView.tsx` (code only; the swatch `color_hex` data and the semantic rose, amber, and emerald colours are unchanged). Overlay Try On moved from the dark glass to light glass. Secondary Try On moved from cream and gold to white with a charcoal hover. Map link underlined charcoal.
+- Focus: the primary CTA and the mobile sticky CTA read the global `:focus-visible` outline (gold `rgb(163,126,68)`, settled). Both now add `focus-visible:outline-brand-charcoal`, settled `rgb(37,39,41)`. Measured with `product_detail_capture.mjs`, reading 700ms after focus so the `transition-all` has settled. Earlier immediate readings were transition artefacts, not the real ring.
+- Tests: `productDetailBrand.contract.test.tsx` (6 source-level contracts; fails 5 of 5 on the HEAD view before the fix). Existing `productDetailContract.test.tsx` unchanged and passing. Together 35/35 at the time of the change.
+- Checks: `tsc` 0; full Vitest 114 files, 1423 tests passed; `npm run build` 0.
+- Captures (`/home/user/brand_build/shots/`): `pre_product_*` (HEAD build, port 43131) and `post_product_*` (this change). Desktop, mobile 390px, and AR/RTL mobile, plus the not-found and error states.
+- API states are MOCKED (Playwright routes) and labelled `_mocked`: the product payload, a 404, and a 500. Backend not running. Image hosts are replaced by a neutral placeholder. Captures recorded no page errors.
+- Limits: not yet reviewed visually for AR and mobile. The overall Try On overlay, wardrobe-linked, and BOPIS live states are not covered by these captures.

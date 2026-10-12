@@ -315,7 +315,7 @@ export const AuthModal: React.FC = () => {
   const activeStep = mfaRequired ? 'mfa' : view;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md animate-in fade-in duration-150">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-brand-charcoal/50 duration-150">
       <motion.div
         ref={panelRef}
         role="dialog"
@@ -329,15 +329,15 @@ export const AuthModal: React.FC = () => {
             ? { duration: 0 }
             : { duration: 0.35, ease: [0.25, 1, 0.5, 1] }
         }
-        className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-100"
+        className="w-full max-w-md bg-white rounded-3xl shadow-xl overflow-hidden border border-brand-hairline"
       >
         {/* Luxury Top Banner */}
-        <div className="p-6 bg-[#0C0E1E] text-white flex justify-between items-center border-b border-slate-800">
-          <ConfitLogo variant="compact" theme="light" size="md" />
+        <div className="p-6 bg-white flex justify-between items-center border-b border-brand-hairline">
+          <ConfitLogo variant="compact" theme="dark" size="md" />
           <button
             onClick={closeAuthModal}
             aria-label={t('common.close')}
-            className="min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-400 hover:text-white text-sm"
+            className="min-w-[44px] min-h-[44px] flex items-center justify-center text-brand-muted hover:text-brand-charcoal text-sm"
           >
             <span aria-hidden="true">✕</span>
           </button>
@@ -347,7 +347,7 @@ export const AuthModal: React.FC = () => {
             from field shapes. Same node carries the dialog's accessible name. */}
         <h2
           id="auth-modal-heading"
-          className="px-6 pt-5 font-serif text-lg font-bold text-[#1B1F3B] tracking-tight"
+          className="px-6 pt-5 font-serif text-lg font-bold text-brand-charcoal tracking-tight"
         >
           {heading}
         </h2>
@@ -370,8 +370,8 @@ export const AuthModal: React.FC = () => {
 
         {/* Development-only 1-Click Demo Persona Shortcuts */}
         {IS_DEV && !mfaRequired && (
-          <div className="p-4 bg-[#FAF9F6] border-b border-slate-200/80 space-y-2">
-            <span className="text-[10px] font-bold text-[#C5A059] uppercase tracking-wider block">
+          <div className="p-4 bg-brand-wash border-b border-brand-hairline space-y-2">
+            <span className="text-[10px] font-bold text-brand-muted uppercase tracking-wider block">
               Dev-only quick-login (never shipped to production):
             </span>
             <div className="grid grid-cols-2 gap-2 text-xs">
@@ -382,7 +382,7 @@ export const AuthModal: React.FC = () => {
                   setPassword('Password123!');
                   switchView('signin');
                 }}
-                className="py-2 px-3 rounded-xl bg-white border border-slate-200 hover:border-[#C5A059] text-slate-800 font-semibold hover:bg-[#FDF8EE] transition-all text-start truncate shadow-2xs"
+                className="py-2 px-3 rounded-xl bg-white border border-brand-field hover:border-brand-charcoal text-brand-charcoal font-semibold hover:bg-brand-wash transition-all text-start truncate shadow-2xs"
               >
                 👤 Fill shopper creds
               </button>
@@ -393,7 +393,7 @@ export const AuthModal: React.FC = () => {
                   setPassword('Password123!');
                   switchView('signin');
                 }}
-                className="py-2 px-3 rounded-xl bg-white border border-slate-200 hover:border-[#C5A059] text-slate-800 font-semibold hover:bg-[#FDF8EE] transition-all text-start truncate shadow-2xs"
+                className="py-2 px-3 rounded-xl bg-white border border-brand-field hover:border-brand-charcoal text-brand-charcoal font-semibold hover:bg-brand-wash transition-all text-start truncate shadow-2xs"
               >
                 🏢 Fill brand creds
               </button>
@@ -410,7 +410,7 @@ export const AuthModal: React.FC = () => {
               <div
                 role="radiogroup"
                 aria-label={t('auth.mfa_method_label')}
-                className="relative grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1"
+                className="relative grid grid-cols-2 gap-1 rounded-xl bg-brand-wash p-1"
               >
                 {(['app', 'email'] as const).map((m) => (
                   <button
@@ -419,8 +419,8 @@ export const AuthModal: React.FC = () => {
                     role="radio"
                     aria-checked={mfaMethod === m}
                     onClick={() => { setMfaMethod(m); resetError(); }}
-                    className={`relative min-h-9 rounded-lg px-2 font-bold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059] ${
-                      mfaMethod === m ? 'text-[#1B1F3B]' : 'text-slate-500 hover:text-slate-700'
+                    className={`relative min-h-9 rounded-lg px-2 font-bold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal ${
+                      mfaMethod === m ? 'text-brand-charcoal' : 'text-brand-muted hover:text-brand-charcoal'
                     }`}
                   >
                     {mfaMethod === m && (
@@ -438,7 +438,7 @@ export const AuthModal: React.FC = () => {
                 ))}
               </div>
 
-              <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs">
+              <div className="p-3 rounded-xl bg-brand-wash border border-brand-hairline text-brand-charcoal text-xs">
                 {mfaMethod === 'app' ? t('auth.mfa_instructions') : t('auth.mfa_instructions_email')}
               </div>
 
@@ -450,7 +450,7 @@ export const AuthModal: React.FC = () => {
                       onClick={handleSendEmailCode}
                       disabled={emailCodePhase === 'sending'}
                       aria-busy={emailCodePhase === 'sending'}
-                      className="w-full min-h-10 rounded-xl border border-[#C5A059]/60 bg-[#FDF8EE] px-4 font-bold text-[#1B1F3B] hover:border-[#A37E44] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059] disabled:opacity-60"
+                      className="w-full min-h-10 rounded-xl border border-brand-field bg-white px-4 font-bold text-brand-charcoal hover:border-brand-charcoal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal disabled:opacity-60"
                     >
                       {emailCodePhase === 'sending' ? t('auth.mfa_email_sending') : t('auth.mfa_email_send')}
                     </button>
@@ -465,7 +465,7 @@ export const AuthModal: React.FC = () => {
                           type="button"
                           onClick={handleSendEmailCode}
                           disabled={resendIn > 0}
-                          className="font-bold text-emerald-900 underline-offset-2 hover:underline disabled:no-underline disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059] rounded"
+                          className="font-bold text-emerald-900 underline-offset-2 hover:underline disabled:no-underline disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal rounded"
                         >
                           {resendIn > 0
                             ? t('auth.mfa_email_resend_in', { seconds: resendIn })
@@ -488,7 +488,7 @@ export const AuthModal: React.FC = () => {
                 </div>
               )}
               <div>
-                <label htmlFor="auth-mfa-code" className="font-bold text-slate-700 block mb-1">
+                <label htmlFor="auth-mfa-code" className="font-bold text-brand-charcoal block mb-1">
                   {mfaMethod === 'app' ? t('auth.mfa_code_label') : t('auth.mfa_email_code_label')}
                 </label>
                 {/* Codes stay LTR in the Arabic page — they are tokens. */}
@@ -540,7 +540,7 @@ export const AuthModal: React.FC = () => {
                     </div>
                   )}
                   <div>
-                    <label htmlFor="auth-forgot-email" className="font-bold text-slate-700 block mb-1">
+                    <label htmlFor="auth-forgot-email" className="font-bold text-brand-charcoal block mb-1">
                       {t('auth.email_label')}
                     </label>
                     <input
@@ -572,7 +572,7 @@ export const AuthModal: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => switchView('signin')}
-                  className="min-h-[44px] px-2 text-[#C5A059] font-bold hover:underline"
+                  className="min-h-[44px] px-2 text-brand-charcoal font-bold underline underline-offset-4 decoration-brand-field hover:decoration-brand-charcoal"
                 >
                   {t('auth.back_to_signin')}
                 </button>
@@ -591,7 +591,7 @@ export const AuthModal: React.FC = () => {
 
               {view === 'signup' && (
                 <div>
-                  <label htmlFor="auth-full-name" className="font-bold text-slate-700 block mb-1">
+                  <label htmlFor="auth-full-name" className="font-bold text-brand-charcoal block mb-1">
                     {t('auth.full_name_label')}
                   </label>
                   <input
@@ -608,7 +608,7 @@ export const AuthModal: React.FC = () => {
               )}
 
               <div>
-                <label htmlFor="auth-email" className="font-bold text-slate-700 block mb-1">
+                <label htmlFor="auth-email" className="font-bold text-brand-charcoal block mb-1">
                   {t('auth.email_label')}
                 </label>
                 <input
@@ -628,7 +628,7 @@ export const AuthModal: React.FC = () => {
               </div>
 
               <div>
-                <label htmlFor="auth-password" className="font-bold text-slate-700 block mb-1">
+                <label htmlFor="auth-password" className="font-bold text-brand-charcoal block mb-1">
                   {t('auth.password_label')}
                 </label>
                 <div className="relative">
@@ -649,7 +649,7 @@ export const AuthModal: React.FC = () => {
                     onClick={() => setShowPassword((v) => !v)}
                     aria-label={showPassword ? t('reset_password.hide_password') : t('reset_password.show_password')}
                     aria-pressed={showPassword}
-                    className="absolute end-0.5 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-lg text-slate-500 transition-colors duration-300 ease-luxury hover:text-[#1B1F3B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059]"
+                    className="absolute end-0.5 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-lg text-brand-muted transition-colors duration-300 ease-luxury hover:text-brand-charcoal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal"
                   >
                     <span aria-hidden="true">{showPassword ? <EyeOff size={16} /> : <Eye size={16} />}</span>
                   </button>
@@ -665,7 +665,7 @@ export const AuthModal: React.FC = () => {
 
               {view === 'signup' && (
                 <div>
-                  <label htmlFor="auth-phone" className="font-bold text-slate-700 block mb-1">
+                  <label htmlFor="auth-phone" className="font-bold text-brand-charcoal block mb-1">
                     {t('auth.phone_label')}
                   </label>
                   <input
@@ -705,7 +705,7 @@ export const AuthModal: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => switchView('forgot')}
-                    className="min-h-[44px] px-2 text-[#C5A059] font-bold hover:underline"
+                    className="min-h-[44px] px-2 text-brand-charcoal font-bold underline underline-offset-4 decoration-brand-field hover:decoration-brand-charcoal"
                   >
                     {t('auth.forgot_link')}
                   </button>
@@ -719,7 +719,7 @@ export const AuthModal: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => switchView('signup')}
-                      className="min-h-[44px] px-2 text-[#C5A059] font-bold hover:underline"
+                      className="min-h-[44px] px-2 text-brand-charcoal font-bold underline underline-offset-4 decoration-brand-field hover:decoration-brand-charcoal"
                     >
                       {t('auth.create_account')}
                     </button>
@@ -730,7 +730,7 @@ export const AuthModal: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => switchView('signin')}
-                      className="min-h-[44px] px-2 text-[#C5A059] font-bold hover:underline"
+                      className="min-h-[44px] px-2 text-brand-charcoal font-bold underline underline-offset-4 decoration-brand-field hover:decoration-brand-charcoal"
                     >
                       {t('auth.sign_in')}
                     </button>

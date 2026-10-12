@@ -12,7 +12,7 @@ A row is `PASS` only when its own checks were run after its own changes and the 
 | Logo SVG assets (`frontend/public/brand/`) | PASS | Rendered and inspected; tests `confitLogo.brand.test.tsx` |
 | `ConfitLogo` component (inline SVG, official geometry) | PASS | 7 brand-contract tests; tsc; full vitest |
 | Favicon, apple-touch-icon, `index.html` body | PASS | Asset files present; `index.html` diff reviewed |
-| Design tokens (`index.css`, `tailwind.config.js`) — centralised palette | NOT_STARTED | Navy/gold still driven from Tailwind `confit.*` tokens; decision pending |
+| Design tokens — `tailwind.config.js` `brand.*` group (official reference colours, neutral control/text tokens) | IMPLEMENTED | Additive only; `confit.*` navy/gold left in place. Accents documented as non-text. Central remap rejected by decision: rollout is per screen. Covered by `authModal.brand.test.tsx` |
 
 ## Loading and splash
 
@@ -25,9 +25,9 @@ A row is `PASS` only when its own checks were run after its own changes and the 
 | Route | Component | Status |
 |---|---|---|
 | `/looks/:token` | SharedLookView | NOT_STARTED |
-| `/email/unsubscribe` | EmailUnsubscribeView | NOT_STARTED |
-| `/reset-password` | ResetPasswordView | NOT_STARTED |
-| `/verify-email` | VerifyEmailView | NOT_STARTED |
+| `/email/unsubscribe` | EmailUnsubscribeView | IMPLEMENTED (shared auth field/button styles only; page-level brand pass pending; backend-token states not captured) |
+| `/reset-password` | ResetPasswordView | IMPLEMENTED (shared auth styles applied; cream page background and gold key-icon chip are its own legacy accents, pending page pass; token-valid states need backend) |
+| `/verify-email` | VerifyEmailView | IMPLEMENTED (shared auth styles applied; page-level brand pass pending; token-valid states need backend) |
 | `/privacy`, `/privacy-policy` | PrivacyPolicyView | NOT_STARTED |
 | `/terms`, `/terms-of-service` | TermsOfServiceView | NOT_STARTED |
 | `/gdpr` | GdprView | NOT_STARTED |
@@ -75,7 +75,12 @@ A row is `PASS` only when its own checks were run after its own changes and the 
 |---|---|
 | `ConsumerLayout`, `ConsumerNavbar` (header, nav, footer) | NOT_STARTED |
 | `BrandLayout`, `BrandNavbar`, `BrandSidebar` | NOT_STARTED |
-| `AuthModal` (login, register, MFA, recovery) | NOT_STARTED |
+| `AuthModal` (login, register, MFA, recovery) | PASS |
+
+`AuthModal` evidence: white banner with the official mark (theme `dark`), charcoal primary action, charcoal underlined links (gold `#C5A059` was 2.46:1 on white), field border `#8A8D93` (3.33:1, WCAG 1.4.11), legacy navy/gold/cream and `backdrop-blur` removed. Logic, routes, and API calls unchanged.
+- Checks run: `tsc` 0; focused auth suites 12 files passed; `authModal.brand.test.tsx` 7/7; full vitest 106 files / 1371 tests passed; `npm run build` 0.
+- Screenshots reviewed (sandbox at `/home/user/brand_build/shots/`): `before_*` vs `after_*` for sign-in, sign-up, forgot, focus, error, loading, mobile (390px), and Arabic RTL (`after_rtl_mob.png`, `dir=rtl` confirmed).
+- Limits: the MFA step, the forgot "sent" and "unconfigured" states, and data-backed success states were not captured because the backend is not running. ESLint is not configured for this repo (`eslint` fails before linting), so lint was not run.
 | `AuthPageShell`, `RoleGuard` (logo on guard/denial screens) | NOT_STARTED |
 | `ShareCard` (shared look image text) | NOT_STARTED |
 | Shared UI primitives (buttons, inputs, tables, cards, modals, toasts) | NOT_STARTED |
@@ -92,4 +97,5 @@ A row is `PASS` only when its own checks were run after its own changes and the 
 ## Known pre-existing issues (not caused by this migration)
 
 - Backend API is not running in the sandbox; pages show 502 responses for data calls. Visual checks cover layout only; data-driven states need a running backend.
-- PR #345 is `behind` `main`; reconciliation is required before any merge.
+- `origin/main` was merged into this branch at `412c341` (no conflicts). Re-check `behind` status before any merge.
+- `npm run build` prints a rolldown plugin-timing notice (`vite:css-post`). It is informational and exits 0.

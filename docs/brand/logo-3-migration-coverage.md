@@ -266,3 +266,38 @@ A row is `PASS` only when its own checks were run after its own changes and the 
 
 **Discover status.** Still IMPLEMENTED, not PASS. The showcase tokens above were missed in the earlier Discover pass and are now fixed. Backend-dependent rails and states remain unverified.
 
+## Mood-stack mobile composition fix (rollout 2, pass 3, option 2)
+
+**Measured source.** The earlier 48px icon-only FAB (`cab56d0`) still overlapped the Discover mood stack at 390px: the lower-right back-card captions and the active card's "Open" link. The collision was in the stack's own layout (the card layer is `absolute bottom-0`, so padding on its parent does not move it), not in the FAB size.
+
+**Change (smallest that fixes the measured collision).** `CardStack` (`ui/card-stack.tsx`) gains two opt-in props, `stageClassName` (card layer) and `controlsClassName` (controls row). Defaults add no classes, so other consumers are unchanged. `CardStackShowcase` passes:
+- `stageClassName="!bottom-28 sm:!bottom-16 lg:!bottom-0"`: raises the cards by 112px below sm, 64px at sm–lg, and restores the desktop position at lg.
+- `controlsClassName="mt-8 sm:mt-4 sm:pe-28 lg:mt-4 lg:pe-0"`: below sm the controls row moves below the FAB's band (no horizontal reserve, because four controls plus dots do not fit beside the 48px FAB in a 310px card; a horizontal reserve clipped the previous-slide button). At sm–lg, where the 189px pill is wider, the row keeps a horizontal end reserve.
+
+**Browser measurement (Discover, `fab2.mjs`, FAB rect vs. meaningful text and controls; decorative image edges counted separately).**
+
+| Viewport | Before (cab56d0) text / control hits | After text / control hits |
+|---|---|---|
+| 320x844 | 5 / 0 | 0 / 0 (1 decorative image edge) |
+| 360x844 | 3 / 1 | 0 / 0 |
+| 390x844 | 3 / 1 | 0 / 0 |
+| 414x844 | 3 / 1 | 0 / 0 |
+| 640x844 | not measured | 0 / 0 |
+| 768x844 | 1 / 0 | 0 / 0 |
+| 390x800 | not measured | 0 / 0 |
+| 640x800 | not measured | 0 / 0 |
+| 768x800 | 3 / 0 | 0 / 0 |
+| 320x800 | not measured | **3 / 0 (open: caption overlap at 320 wide x 800 tall)** |
+| 1024x800, 1280x800 | 0 / 0 | 0 / 0 (desktop unchanged) |
+| 1024x844, 1280x844 | 0 / 2 ("Search by Photo" button, pre-existing) | 0 / 2 (unchanged, not from this change) |
+
+Screenshots (`brand_build/shots/`): `cab56d0_390.png` (before), `fix8_390.png` (after), `fix8h_*` (800-tall), `fix8d_1280.png` (desktop 800), `fix8d844_1280.png`.
+
+**Status.** PARTIALLY RESOLVED. Zero overlap with text or controls at 360–768 at both heights measured, and at 320–414 x 844. Open: (1) 320x800 caption overlap; (2) Discover "Search by Photo" at 1024–1280 x 844 (pre-existing, Discover header, needs a design decision); (3) the scroll-dependent overlap of the fixed control with any content it scrolls over, which is inherent to a fixed control.
+
+**Other consumers of the shared component.** `CardStackShowcase` is used by Home, Discover, Order tracking, and Admin analytics. The layout change applies to all four. Measured only Discover and `/` with `/orders` and `/profile` in the first fold. Home's text overlaps ("Photo optional for fit checks", "Privacy details before uploads") and Try-on's gallery credit ("Photo: Tamara Bellis") are **identical on the pre-change build**, so they are pre-existing route-level collisions, not caused by this change. They belong to those routes' reviews. Circular-gallery consumers (Profile, Try-on) use a different component and were not changed.
+
+**Tests.** `src/components/__tests__/mobileStackReserve.brand.test.tsx` (5 tests): source contract for both reserves; `CardStack` applies the opt-in classes; the no-prop default is unchanged; prev, next, and open-link controls keep accessible names. `tsc --noEmit` exit 0. `npm run build` exit 0. `vitest run`: 121 files, 1487 tests passed.
+
+**Status of affected pages.** Discover: IMPLEMENTED (not PASS). Home, Order tracking, Admin analytics: not PASS, not reviewed for this change. Try-on: not PASS.
+

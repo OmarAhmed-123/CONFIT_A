@@ -37,8 +37,8 @@ A row is `PASS` only when its own checks were run after its own changes and the 
 
 | Route | Component | Status |
 |---|---|---|
-| `/` | HomeView | NOT_STARTED (old navy/gold hero visible in baseline screenshot) |
-| `/discover`, `/products`, `/stylist` | DiscoverView | NOT_STARTED |
+| `/` | HomeView | IMPLEMENTED, not PASS. Hero and in-page sections moved to white-first tokens; focus ring fixed (was `ring-white`, invisible on white). Still open: shared navbar and floating AI Stylist pill are legacy (see Global shells); product rails show "could not be loaded" without backend, so rails are unverified with live data. See evidence below. |
+| `/discover`, `/products`, `/stylist` | DiscoverView | NOT_STARTED as a page. Its hero is the shared `HeroSection`, so it already renders white-first; the rest of the page is still legacy and unreviewed |
 | `/product/:slug`, `/products/:slug` | ProductDetailView | NOT_STARTED |
 | `/builder`, `/outfits/:id` | OutfitBuilderView | NOT_STARTED |
 | `/outfits`, `/my-looks` | MyLooksView | NOT_STARTED |
@@ -73,7 +73,7 @@ A row is `PASS` only when its own checks were run after its own changes and the 
 
 | Surface | Status |
 |---|---|
-| `ConsumerLayout`, `ConsumerNavbar` (header, nav, footer) | NOT_STARTED |
+| `ConsumerLayout`, `ConsumerNavbar` (header, nav, footer) | NOT_STARTED. Still gold and navy: the gold rule under the header, the navy Sign In button, and the floating "AI Stylist Director" pill (dark, gold text). Seen in the HomeView captures |
 | `BrandLayout`, `BrandNavbar`, `BrandSidebar` | NOT_STARTED |
 | `AuthModal` (login, register, MFA, recovery) | PASS |
 
@@ -104,6 +104,17 @@ A row is `PASS` only when its own checks were run after its own changes and the 
 - Keyboard: a real Tab press on VerifyEmail focuses the primary button with `:focus-visible` and a charcoal ring (`post_ve_focus_kbd_desk.png`). ResetPassword input focus ring checked (`post_rp_focus_desk.png`).
 - API states are MOCKED in the browser (Playwright route fixtures), labelled `_mocked`. The backend is not running in the sandbox. Request counts were recorded to confirm the mocked calls fired.
 - Known finding, NOT changed (pre-existing): a server `AUTH_FAILED` on verify-email shows "Your session has expired. Please sign in again." (`errors.auth_failed` mapping in `apiErrors.ts`). That copy is wrong for a verification link. Out of brand scope; flagged for a copy/mapping fix.
+
+## Homepage (`/`) — evidence (HomeView + shared HeroSection)
+
+- Status: IMPLEMENTED, not PASS. The page sits inside the legacy consumer shell (see Global shells), and the product rails could not be checked with live data.
+- Shared change: `HeroSection` (also used by DiscoverView) is now a white panel (`bg-white`, `border-brand-hairline`, charcoal heading, `brand-muted` support text). Glows are light lilac and mint at low opacity, decorative only. The photo caption overlay keeps white text on its black scrim. The no-photo placeholder is a plain charcoal fill. The light aside card's focus ring offset is white.
+- Per-page changes in HomeView: dark glass eyebrow, facts pills and secondary button → white or `brand-wash` with charcoal text. Gold primary CTA → charcoal with white text (14.99:1). Gold link → charcoal underlined link. Gold focus rings → charcoal. Section labels, chips, and icon colours moved to charcoal and white. Photo-palette metadata arrays (`palette:` lines, around 306–327) are kept unchanged, because they describe image colours and are not UI styling.
+- Fixed in this pass: the primary CTA focus ring was `ring-white`, which is invisible on a white page. It is now `ring-brand-charcoal` with a white offset. Pixel check shows the charcoal ring and the white gap.
+- Contrast (computed): charcoal on white 14.99:1; white on charcoal 14.99:1; charcoal on lilac badge 5.91:1; muted on wash 6.2:1; field boundary on white 3.33:1.
+- Tests: `homeHero.brand.test.tsx` (6 source-level contracts: no legacy tokens in HeroSection; no legacy tokens in HomeView outside `palette:` data; primary CTA charcoal; no white focus ring; charcoal focus rings). Full vitest 108 files / 1385 tests passed. `tsc --noEmit` exit 0. `npm run build` exit 0.
+- Captures (`/home/user/brand_build/shots/`): `pre_home_desk.png`, `pre_home_mob.png`, `post_home_desk.png`, `post_home_mob.png` (full page at 1280px and 390px), `*_fold.png`, and `qa_home_desk_sheet.png` (before and after side by side). Keyboard: a real Tab sequence reaches the primary CTA with `:focus-visible` (`post_home_focus_kbd_desk.png`).
+- Limits: backend is not running, so the "Today's style picks" and "New in" rails show their error state in both before and after captures. The occasion cards, editorial stack and footer were reviewed only at half scale in the contact sheet. Arabic and RTL were not captured for the homepage in this pass.
 
 ## Known pre-existing issues (not caused by this migration)
 

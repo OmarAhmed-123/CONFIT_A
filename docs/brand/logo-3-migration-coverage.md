@@ -301,3 +301,41 @@ Screenshots (`brand_build/shots/`): `cab56d0_390.png` (before), `fix8_390.png` (
 
 **Status of affected pages.** Discover: IMPLEMENTED (not PASS). Home, Order tracking, Admin analytics: not PASS, not reviewed for this change. Try-on: not PASS.
 
+## Discover mobile-fold fix: final measurements (rollout 2, pass 3, follow-up)
+
+Supersedes the "Mood-stack mobile composition fix" numbers above where they differ. The layout change itself is in `6eb12b7`. Browser measurements are on the built `6eb12b7` tree.
+
+- **Discover, 390x844.** Text/control hits 0/0, one decorative image edge. Screenshot `brand_build/shots/fix8_390.png`. Before: `cab56d0_390.png`.
+- **320x844, 360x844, 414x844, 640x844, 768x844.** 0/0 at every width.
+- **390x800, 640x800, 768x800.** 0/0.
+- **320x800.** 3 caption hits, **still open**.
+- **1024x800, 1280x800.** 0/0, unchanged from baseline.
+- **1024x844, 1280x844.** "Search by Photo" button overlapped (2 control hits). **Identical on the baseline, pre-existing, not caused by this change, still open.** It is in the Discover header, not the stack.
+
+**Other routes measured with the same method (390x844), not PASS.** `/` (Home): "Photo optional for fit checks" and "Privacy details before uploads" overlap, identical on the baseline. `/try-on`: "Photo: Tamara Bellis" gallery credit overlaps, identical on the baseline. `/orders` and `/profile`: 0 hits in the first fold.
+
+**Regression found and fixed during this pass.** Centering the controls row inside a 64px end reserve clipped the previous-slide button at 390px. Final rule: below sm the controls row moves below the FAB band (`mt-8`), and the horizontal reserve applies only at sm–lg.
+
+**Tests.** `src/components/__tests__/mobileStackReserve.brand.test.tsx` (5). `tsc --noEmit` 0. `vite build` 0. `vitest run`: 122 files, 1492 tests passed (including Checkout below).
+
+**Hook and secret scan.** The pre-commit hook was **missing** from this restored clone when `6eb12b7` was committed, so that commit ran without the hook. I then ran `pre-commit install` (executable, `.git/hooks/pre-commit`) and ran gitleaks manually: `pre-commit run gitleaks --all-files` exit 0, and `--from-ref HEAD~1 --to-ref HEAD` exit 0 (Passed). The hook is now installed for later commits.
+
+## Checkout (`/checkout`): first consumer route after the shared layout fix
+
+**Status: IMPLEMENTED, not PASS.** Backend-dependent flows are unverified: payment methods (the page says they "could not be loaded" in this environment), cart with items, order placement, promo validation, and the loading and error states from live APIs.
+
+**Changes (`CheckoutView.tsx`, brand tokens only, semantics kept).**
+- Gold `#C5A059`, `#A37E44` text and rings, navy `#1B1F3B` and `#0C0E1E` fills, and cream `#FDF8EE`/`#FAF9F6` surfaces were moved to brand charcoal, wash, and field.
+- Input and option borders (`border-slate-200`) moved to `brand-field` (3.33:1, control boundary). Dividers and card containers moved to `brand-hairline`.
+- Inputs' gold focus border moved to charcoal.
+- Icons that sat on white or wash use charcoal. The icon on the charcoal badge and on the charcoal CTA is white.
+- Semantic emerald, amber, and rose are unchanged. The field error and promo error keep `role="alert"`.
+
+**Focus treatment (finding).** The shared `.focus-on-dark` class draws a white ring. On the off-white wash card that ring is about 1.08:1, so it is not a usable focus indicator on light surfaces. I added `.focus-on-light-fill` (charcoal 2px ring, 3px outside the control, about 13.9:1 against the wash) and applied it to the four dark-filled Checkout controls. The shared `.focus-on-dark` is unchanged, so photo overlays are unaffected. Checkout buttons use `transition-all`, so focus must be measured after about 450ms. Screenshots taken at focus time show a transition frame.
+
+**Browser evidence.** Before: `brand_build/shots/ckout_before_390.png`, `ckout_before_1280.png`. After: `ckout_after_390.png`, `ckout_after_1280.png`. Focus crop: `ckout_after3_390_focus.png` (settled: charcoal outline, offset 3px, on the card).
+
+**Tests.** `src/views/__tests__/checkoutBrand.brand.test.tsx` (5 contracts): no legacy tokens; semantic colours kept; dark-filled controls use `focus-on-light-fill`; the new ring is charcoal, offset 3px, no white and no box-shadow; error alerts kept. `checkoutActionStates.test.tsx` (9) still passes.
+
+**Limitations.** **Open at desktop 1280x800: the fixed AI Stylist control (1067,718, 189x50) covers the right-hand Subtotal and Tax amounts in the Order summary card in the first fold.** This is the same fixed-control collision class as Discover; it needs a Checkout-specific decision (for example, a summary-aware offset at lg, or scroll-hide) and is not fixed in this commit. Checkout is therefore NOT PASS. The empty-cart state is what this environment shows. Keyboard focus was verified on the guest "Sign In" button only. Checkout's loading, error, and empty-payment states are not browser-verified.
+

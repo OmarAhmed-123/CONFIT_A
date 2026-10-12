@@ -52,10 +52,10 @@ const FilterPill: React.FC<{
     type="button"
     aria-pressed={selected}
     onClick={onClick}
-    className={`inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full px-4 text-xs font-semibold transition-all duration-300 ease-luxury focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059] ${
+    className={`inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full px-4 text-xs font-semibold transition-all duration-300 ease-luxury focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal ${
       selected
-        ? "bg-[#1B1F3B] text-white shadow-xs"
-        : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
+        ? "bg-brand-charcoal text-white shadow-xs"
+        : "bg-white border border-slate-200 text-brand-charcoal hover:bg-brand-wash"
     }`}
   >
     {children}
@@ -290,14 +290,14 @@ export const DiscoverView: React.FC = () => {
         compact
         headingLevel="h1"
         eyebrow={
-          <span className="inline-flex rounded-full border border-[#C5A059]/40 bg-[#C5A059]/15 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-[#E2BF70]">
+          <span className="inline-flex rounded-full border border-brand-hairline bg-brand-wash px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-brand-charcoal">
             {t('discover.badge_multi_brand')}
           </span>
         }
         title={t("nav.style_discover")}
         lede={t('discover.subtitle')}
         aside={
-          <HeroLightCard className="w-full lg:max-w-md lg:justify-self-end bg-white/95 border-white/40">
+          <HeroLightCard className="w-full lg:max-w-md lg:justify-self-end bg-white border-brand-hairline">
             <div className="flex items-center gap-2 relative" data-search-cluster>
           <div className="relative flex-1">
             {/* A placeholder is not an accessible name: it disappears as soon
@@ -358,7 +358,7 @@ export const DiscoverView: React.FC = () => {
               }}
               aria-label={t('discover.search_label')}
               placeholder={t('discover.search_placeholder')}
-              className="w-full ps-4 pe-10 py-3 rounded-2xl border border-slate-200 text-xs focus:outline-none focus:border-[#C5A059] bg-white shadow-2xs placeholder:text-slate-500"
+              className="w-full ps-4 pe-10 py-3 rounded-2xl border border-slate-200 text-xs focus:outline-none focus:border-brand-charcoal focus:ring-2 focus:ring-brand-charcoal focus:ring-offset-2 focus:ring-offset-white bg-white shadow-2xs placeholder:text-brand-muted"
             />
             {searchQuery && (
               <button
@@ -369,7 +369,7 @@ export const DiscoverView: React.FC = () => {
                   setShowSuggestions(false);
                   syncParams({ q: null });
                 }}
-                className="absolute end-2 top-1/2 -translate-y-1/2 inline-flex h-8 w-8 items-center justify-center rounded-lg text-xs text-slate-500 transition-colors duration-300 ease-luxury hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059]"
+                className="absolute end-2 top-1/2 -translate-y-1/2 inline-flex h-8 w-8 items-center justify-center rounded-lg text-xs text-brand-muted transition-colors duration-300 ease-luxury hover:text-brand-charcoal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal"
               >
                 <span aria-hidden="true">✕</span>
               </button>
@@ -378,7 +378,7 @@ export const DiscoverView: React.FC = () => {
             {/* Instant Autocomplete Dropdown */}
             {showSuggestions && autocompleteSuggestions.length > 0 && (
               <div className="absolute top-full start-0 end-0 mt-2 bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden z-50 animate-in fade-in duration-100 divide-y divide-slate-100">
-                <div className="p-2.5 bg-[#FAF9F6] text-[10px] font-bold text-[#C5A059] uppercase tracking-wider">
+                <div className="p-2.5 bg-brand-wash text-[10px] font-bold text-brand-charcoal uppercase tracking-wider">
                   {t('discover.suggested_matches')}
                 </div>
                 {/* Screen readers hear how many matches arrived without
@@ -410,8 +410,8 @@ export const DiscoverView: React.FC = () => {
                     onMouseEnter={() => setActiveSugIdx(idx)}
                     className={`w-full p-3 cursor-pointer flex items-center justify-between gap-2 text-xs text-start transition-colors duration-300 ease-luxury ${
                       activeSugIdx === idx
-                        ? "bg-[#FAF9F6] ring-2 ring-inset ring-[#C5A059]"
-                        : "hover:bg-[#FAF9F6]"
+                        ? "bg-brand-wash ring-2 ring-inset ring-brand-charcoal"
+                        : "hover:bg-brand-wash"
                     }`}
                   >
                     <div className="flex items-center gap-3">
@@ -424,23 +424,23 @@ export const DiscoverView: React.FC = () => {
                       ) : (
                         <span
                           aria-hidden="true"
-                          className="w-9 h-9 rounded-xl bg-[#FDF8EE] text-[#C5A059] flex items-center justify-center font-serif font-bold text-sm"
+                          className="w-9 h-9 rounded-xl bg-brand-wash text-brand-charcoal flex items-center justify-center font-serif font-bold text-sm"
                         >
                           {(sug.title || "?").charAt(0).toUpperCase()}
                         </span>
                       )}
                       <span>
-                        <span className="font-bold text-[#1B1F3B] block">
+                        <span className="font-bold text-brand-charcoal block">
                           {sug.title}
                         </span>
                         {sug.subtitle && (
-                          <span className="text-[10px] text-slate-500 font-light">
+                          <span className="text-[10px] text-brand-muted font-light">
                             {sug.subtitle}
                           </span>
                         )}
                       </span>
                     </div>
-                    <span className="text-[9px] px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 font-semibold uppercase shrink-0">
+                    <span className="text-[9px] px-2.5 py-0.5 rounded-full bg-brand-wash text-brand-muted font-semibold uppercase shrink-0">
                       {t(
                         sug.type === "product"
                           ? 'discover.sug_type_product'
@@ -460,7 +460,7 @@ export const DiscoverView: React.FC = () => {
             onClick={openVisualSearch}
             type="button"
             aria-label={t('discover.search_by_photo')}
-            className="min-h-11 px-4 py-3 rounded-2xl bg-[#FDF8EE] hover:bg-[#C5A059] hover:text-white border border-[#C5A059]/40 text-[#7A5C28] text-xs font-semibold shadow-2xs transition-all flex items-center gap-1.5 shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059]"
+            className="min-h-11 px-4 py-3 rounded-2xl bg-brand-wash hover:bg-brand-charcoal hover:text-white border border-brand-field text-brand-charcoal text-xs font-semibold shadow-2xs transition-all flex items-center gap-1.5 shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal"
           >
             <span aria-hidden="true"><VisualSearchIcon size={16} color="currentColor" /></span>
             <span className="hidden sm:inline">{t('discover.photo_match')}</span>
@@ -476,10 +476,10 @@ export const DiscoverView: React.FC = () => {
           RTL-correct, no autoplay, honest loading/error/empty states. */}
       <Surface as="section" variant="raised" reveal className="space-y-3 rounded-2xl p-4 sm:p-6">
         <div>
-          <span className="text-[10px] font-bold uppercase tracking-widest text-[#7A5C28]">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-brand-muted">
             {t('discover.rail_eyebrow')}
           </span>
-          <h2 className="mt-1 font-serif text-2xl font-bold text-[#1B1F3B]">
+          <h2 className="mt-1 font-serif text-2xl font-bold text-brand-charcoal">
             {t('discover.rail_title')}
           </h2>
         </div>
@@ -530,7 +530,7 @@ export const DiscoverView: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2 overflow-x-auto pb-1">
-          <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider shrink-0">
+          <span className="text-[11px] font-bold text-brand-muted uppercase tracking-wider shrink-0">
             {t('discover.occasion_label')}
           </span>
           <FilterPill
@@ -560,7 +560,7 @@ export const DiscoverView: React.FC = () => {
         <div className="flex flex-wrap items-center justify-between gap-4 pt-1">
           {/* Color Swatch Filters */}
           <div className="flex items-center gap-2 overflow-x-auto">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+            <span className="text-[11px] font-bold text-brand-muted uppercase tracking-wider">
               {t('discover.palette_label')}
             </span>
             {COLOR_SWATCHES.map((col) => (
@@ -590,7 +590,7 @@ export const DiscoverView: React.FC = () => {
           {/* Sort Selector */}
           <div className="flex items-center gap-2">
             <span
-              className="text-[11px] text-slate-500"
+              className="text-[11px] text-brand-muted"
               title={t('discover.sort_hint')}
             >
               {t('discover.sort_label')}
@@ -604,7 +604,7 @@ export const DiscoverView: React.FC = () => {
                   sort: e.target.value === "recommended" ? null : e.target.value,
                 });
               }}
-              className="min-h-11 text-xs font-semibold bg-white border border-slate-200 rounded-xl px-3 py-2 transition-colors duration-300 ease-luxury focus:outline-none focus:border-[#C5A059]"
+              className="min-h-11 text-xs font-semibold bg-white border border-slate-200 rounded-xl px-3 py-2 transition-colors duration-300 ease-luxury focus:outline-none focus:border-brand-charcoal focus:ring-2 focus:ring-brand-charcoal focus:ring-offset-2 focus:ring-offset-white"
             >
               <option value="recommended">{t('discover.sort_recommended')}</option>
               <option value="price_asc">{t('discover.sort_price_asc')}</option>
@@ -618,20 +618,20 @@ export const DiscoverView: React.FC = () => {
 
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-2xs">
         <div className="flex flex-wrap items-center gap-2 text-xs">
-          <span className="font-bold text-slate-500 uppercase tracking-wider">
+          <span className="font-bold text-brand-muted uppercase tracking-wider">
             {t('discover.browsing_prefix')}
           </span>
           {activeFilters.length > 0 ? (
             activeFilters.map((filter) => (
               <span
                 key={filter}
-                className="rounded-full bg-[#FDF8EE] px-3 py-1 font-semibold text-[#7A5C28]"
+                className="rounded-full bg-brand-wash px-3 py-1 font-semibold text-brand-charcoal"
               >
                 {filter}
               </span>
             ))
           ) : (
-            <span className="text-slate-500">
+            <span className="text-brand-muted">
               {t('discover.browsing_all')}
             </span>
           )}
@@ -645,7 +645,7 @@ export const DiscoverView: React.FC = () => {
               setSearchQuery("");
               syncParams({ category: null, occasion: null, palette: null, q: null });
             }}
-            className="inline-flex min-h-11 items-center text-xs font-bold text-[#1B1F3B] transition-colors duration-300 ease-luxury hover:text-[#C5A059] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059] rounded-lg"
+            className="inline-flex min-h-11 items-center text-xs font-bold text-brand-charcoal underline underline-offset-4 transition-colors duration-300 ease-luxury hover:text-brand-charcoal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal rounded-lg"
           >
             {t('discover.clear_filters')}
           </button>
@@ -704,16 +704,16 @@ export const DiscoverView: React.FC = () => {
                       // browser — claims the API never made. The real figure
                       // (server-computed, currency-converted) lives on the
                       // product page and in the cart.
-                      <span className="text-[11px] text-slate-600">
+                      <span className="text-[11px] text-brand-muted">
                         {t('commerce.bnpl_available_checkout')}
                       </span>
                     ) : (
-                      <span className="text-[11px] text-slate-500">
+                      <span className="text-[11px] text-brand-muted">
                         {t('commerce.bnpl_not_live')}
                       </span>
                     )}
                   </div>
-                  <div className="rounded-2xl bg-[#FAF9F6] px-3 py-2 text-[11px] text-slate-600">
+                  <div className="rounded-2xl bg-brand-wash px-3 py-2 text-[11px] text-brand-muted">
                     {p.fit_available && p.recommended_size
                       ? t('discover.likely_fit', { size: p.recommended_size })
                       : t('discover.set_measurements')}

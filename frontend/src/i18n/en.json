@@ -2468,6 +2468,7 @@
     "signin_cta": "Sign in",
     "no_token_title": "This link is incomplete",
     "no_token_detail": "The reset link is missing its token — it may have been cut off by your email app. Request a fresh link below.",
+    "link_invalid": "This reset link is invalid, has already been used, or has expired. Request a new one below.",
     "expired_hint": "Link expired or already used?",
     "request_new_link": "Request a new reset link"
   },
@@ -2482,6 +2483,7 @@
     "continue_cta": "Continue to Discover",
     "error_title": "This link did not work",
     "no_token_detail": "The verification link is missing its token — it may have been cut off by your email app.",
+    "link_invalid": "This link is invalid, has already been used, or has expired. Request a new one below.",
     "resend_label": "Send a fresh verification link to",
     "resend_cta": "Send new link",
     "resend_pending": "Sending…",

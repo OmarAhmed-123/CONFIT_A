@@ -57,7 +57,15 @@ export const VerifyEmailView: React.FC = () => {
       await authService.verifyEmail(token);
       setPhase('done');
     } catch (err) {
-      setServerError(localizeApiError(err, t, 'errors.generic'));
+      // The backend answers every invalid, used, or expired link with AUTH_FAILED.
+      // The shared mapping would show "session expired" here, which is wrong for
+      // this flow, so this view uses its own copy for that code only.
+      const code = (err as { code?: string } | null)?.code;
+      setServerError(
+        code === 'AUTH_FAILED'
+          ? t('verify_email.link_invalid')
+          : localizeApiError(err, t, 'errors.generic'),
+      );
       setPhase('error');
     }
   };

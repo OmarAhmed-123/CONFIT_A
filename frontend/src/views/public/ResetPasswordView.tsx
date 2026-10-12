@@ -75,7 +75,14 @@ export const ResetPasswordView: React.FC = () => {
     } catch (err) {
       // Invalid / used / expired token, policy rejection, or transport —
       // the server's verdict, localized; never a fake success.
-      setServerError(localizeApiError(err, t, 'errors.generic'));
+      // Invalid, used, or expired reset links come back as AUTH_FAILED. The
+      // shared mapping would say "session expired", which is wrong on this page.
+      const code = (err as { code?: string } | null)?.code;
+      setServerError(
+        code === 'AUTH_FAILED'
+          ? t('reset_password.link_invalid')
+          : localizeApiError(err, t, 'errors.generic'),
+      );
       setPhase('error');
     }
   };

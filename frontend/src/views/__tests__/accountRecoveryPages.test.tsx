@@ -125,6 +125,9 @@ describe('ResetPasswordView', () => {
         .toHaveAttribute('href', '/?auth=forgot'),
     );
     expect(screen.queryByText(i18n.t('reset_password.done_title'))).not.toBeInTheDocument();
+    // AUTH_FAILED on a reset link is not a session expiry: show the link copy.
+    expect(screen.getByText(i18n.t('reset_password.link_invalid'))).toBeInTheDocument();
+    expect(screen.queryByText(i18n.t('errors.auth_failed'))).toBeNull();
   });
 
   it('missing token → honest dead end, no form', async () => {
@@ -180,6 +183,29 @@ describe('VerifyEmailView', () => {
       expect(screen.getByText(i18n.t('verify_email.resend_sent'))).toBeInTheDocument(),
     );
     expect(requestVerification).toHaveBeenCalledWith('omar@example.com');
+  });
+
+  it('AUTH_FAILED on a link is NOT shown as "session expired"', async () => {
+    // The backend answers invalid, used and expired links with AUTH_FAILED.
+    // The shared mapping would say "session expired" here, which is wrong.
+    verifyEmail.mockRejectedValue({ code: 'AUTH_FAILED', message: 'Verification link is invalid or has already been used.' });
+    renderAt('/verify-email?token=vtokUsed', '/verify-email', <VerifyEmailView />);
+    fireEvent.click(screen.getByRole('button', { name: i18n.t('verify_email.confirm_cta') }));
+    await waitFor(() =>
+      expect(screen.getByText(i18n.t('verify_email.link_invalid'))).toBeInTheDocument(),
+    );
+    expect(screen.queryByText(i18n.t('errors.auth_failed'))).toBeNull();
+    expect(screen.queryByText(/session has expired/i)).toBeNull();
+  });
+
+  it('non-auth failure keeps the shared localized message (not the link copy)', async () => {
+    verifyEmail.mockRejectedValue({ code: 'INTERNAL_ERROR', message: '' });
+    renderAt('/verify-email?token=vtokNet', '/verify-email', <VerifyEmailView />);
+    fireEvent.click(screen.getByRole('button', { name: i18n.t('verify_email.confirm_cta') }));
+    await waitFor(() =>
+      expect(screen.getByText(i18n.t('errors.generic'))).toBeInTheDocument(),
+    );
+    expect(screen.queryByText(i18n.t('verify_email.link_invalid'))).toBeNull();
   });
 
   it('missing token → straight to the recovery form; axe clean', async () => {

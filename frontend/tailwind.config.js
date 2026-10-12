@@ -7,6 +7,20 @@ export default {
   theme: {
     extend: {
       colors: {
+        // Brand (Logo #3 "Individual Grid"). Accents coral/lilac/mint are
+        // decorative fills and indicators only: each fails 4.5:1 as text on
+        // white (2.3-2.6:1). Use charcoal for text; field/muted for control
+        // boundaries and secondary text.
+        brand: {
+          coral: '#EF826D',
+          lilac: '#A99AD6',
+          mint: '#89B799',
+          charcoal: '#252729',
+          hairline: '#E8E6E2', // decorative dividers only (1.25:1)
+          field: '#8A8D93', // input/control boundaries (3.33:1, WCAG 1.4.11)
+          muted: '#595C63', // secondary text (6.7:1)
+          wash: '#F7F6F3', // subtle surfaces
+        },
         border: 'hsl(var(--border))',
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',

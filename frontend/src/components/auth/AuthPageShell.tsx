@@ -22,14 +22,14 @@ export const AuthPageShell: React.FC<{ children: React.ReactNode }> = ({
 }) => {
   const reduce = usePrefersReducedMotion();
   return (
-    <main className="min-h-screen bg-[#FAF9F6] px-4 py-14">
+    <main className="min-h-screen bg-white px-4 py-14">
       <motion.section
         initial={reduce ? false : { opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={
           reduce ? { duration: 0 } : { duration: 0.4, ease: [0.25, 1, 0.5, 1] }
         }
-        className="mx-auto w-full max-w-md rounded-3xl border border-slate-200/80 bg-white p-8 text-center shadow-sm"
+        className="mx-auto w-full max-w-md rounded-3xl border border-brand-hairline bg-white p-8 text-center shadow-sm"
       >
         <div className="mx-auto mb-5 flex justify-center">
           <ConfitLogo variant="compact" theme="dark" size="sm" />

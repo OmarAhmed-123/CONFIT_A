@@ -32,7 +32,7 @@ export const ConsumerLayout: React.FC = () => {
   }, [fetchCart]);
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#FAF9F6] text-[#1B1F3B]">
+    <div className="min-h-screen flex flex-col bg-white text-brand-charcoal">
       {/* WCAG 2.4.1 — first focusable element on the page. Hidden with
           sr-only (not display:none) and revealed on focus. */}
       <SkipLink />
@@ -69,14 +69,14 @@ export const ConsumerLayout: React.FC = () => {
             the nearest real step. */}
         <button
           onClick={() => openStylist()}
-          className="group flex items-center gap-2.5 px-5 py-3 rounded-full bg-[#0C0E1E] hover:bg-[#1B1F3B] text-white shadow-2xl hover:scale-105 active:scale-95 transition-all border border-[#C5A059]/40"
-          aria-label={t('layout.open_ai_stylist')}
+          className="group flex items-center gap-2.5 px-5 py-3 rounded-full bg-white hover:bg-brand-wash text-brand-charcoal shadow-lg hover:scale-105 active:scale-95 transition-all border border-brand-field"
+          aria-label={t('layout.ai_stylist_director')}
           type="button"
         >
-          <div className="w-6 h-6 rounded-full bg-[#C5A059] flex items-center justify-center text-slate-950 shadow-xs">
-            <SparkleIcon size={14} color="#0C0E1E" />
+          <div className="w-6 h-6 rounded-full bg-brand-charcoal flex items-center justify-center text-white shadow-xs">
+            <SparkleIcon size={14} color="#FFFFFF" />
           </div>
-          <span className="hidden sm:inline font-serif font-bold text-xs tracking-wider text-[#C5A059]">
+          <span className="hidden sm:inline font-serif font-bold text-xs tracking-wider text-brand-charcoal">
             {t('layout.ai_stylist_director')}
           </span>
         </button>
@@ -98,59 +98,59 @@ export const ConsumerLayout: React.FC = () => {
           Combined with `scroll-padding-bottom` in styles/index.css, this is the
           WCAG 2.2 SC 2.4.11 (Focus Not Obscured) fix — without trailing space the
           page cannot scroll any further and the links stay under the FAB. */}
-      <footer className="bg-[#0C0E1E] text-slate-300 text-xs border-t border-slate-800 pt-14 pb-28 px-4 sm:px-8 mt-auto">
+      <footer className="bg-brand-wash text-brand-muted text-xs border-t border-brand-hairline pt-14 pb-28 px-4 sm:px-8 mt-auto">
         <div className="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10">
           <div className="space-y-3">
-            <div className="font-serif tracking-widest text-2xl font-bold text-white flex items-center gap-2">
+            <div className="font-serif tracking-widest text-2xl font-bold text-brand-charcoal flex items-center gap-2">
               {/* Latin wordmark inside a possibly-RTL page: isolate it so
                   bidi reordering cannot mangle the letter order. */}
               <span dir="ltr" className="force-ltr">CONFIT</span>
-              <span className="text-[10px] px-2 py-0.5 rounded bg-[#C5A059]/20 text-[#C5A059] font-sans font-semibold">
+              <span className="text-[10px] px-2 py-0.5 rounded bg-brand-lilac/30 text-brand-charcoal font-sans font-semibold">
                 {t('footer.haute_tech')}
               </span>
             </div>
-            <p className="text-slate-400 text-xs leading-relaxed font-light max-w-xs">
+            <p className="text-brand-muted text-xs leading-relaxed font-light max-w-xs">
               {t('footer.tagline_full')}
             </p>
           </div>
 
           <div className="space-y-3">
-            <div className="font-bold text-white uppercase tracking-wider text-[11px]">{t('footer.experiences_heading')}</div>
+            <div className="font-bold text-brand-charcoal uppercase tracking-wider text-[11px]">{t('footer.experiences_heading')}</div>
             <ul className="space-y-2 font-light">
-              <li><Link to="/discover" className="hover:text-[#C5A059] transition-colors">{t('footer.exp_catalog')}</Link></li>
-              <li><Link to="/builder" className="hover:text-[#C5A059] transition-colors">{t('footer.exp_builder')}</Link></li>
-              <li><Link to="/tryon-studio" className="hover:text-[#C5A059] transition-colors">{t('footer.exp_tryon')}</Link></li>
-              <li><Link to="/wardrobe" className="hover:text-[#C5A059] transition-colors">{t('footer.exp_wardrobe')}</Link></li>
+              <li><Link to="/discover" className="hover:text-brand-charcoal hover:underline transition-colors">{t('footer.exp_catalog')}</Link></li>
+              <li><Link to="/builder" className="hover:text-brand-charcoal hover:underline transition-colors">{t('footer.exp_builder')}</Link></li>
+              <li><Link to="/tryon-studio" className="hover:text-brand-charcoal hover:underline transition-colors">{t('footer.exp_tryon')}</Link></li>
+              <li><Link to="/wardrobe" className="hover:text-brand-charcoal hover:underline transition-colors">{t('footer.exp_wardrobe')}</Link></li>
             </ul>
           </div>
 
           <div className="space-y-3">
-            <div className="font-bold text-white uppercase tracking-wider text-[11px]">{t('footer.commerce_trust')}</div>
+            <div className="font-bold text-brand-charcoal uppercase tracking-wider text-[11px]">{t('footer.commerce_trust')}</div>
             {/* Claims are read from the deployment's own /catalog/capabilities —
                 see TrustFooter for why each one is gated. */}
             <TrustFooter />
           </div>
 
           <div className="space-y-3">
-            <div className="font-bold text-white uppercase tracking-wider text-[11px]">{t('footer.for_brands')}</div>
-            <p className="text-slate-400 text-xs font-light leading-relaxed">
+            <div className="font-bold text-brand-charcoal uppercase tracking-wider text-[11px]">{t('footer.for_brands')}</div>
+            <p className="text-brand-muted text-xs font-light leading-relaxed">
               {t('footer.brands_pitch')}
             </p>
             <Link
               to="/b2b"
-              className="inline-block mt-2 px-4 py-2.5 rounded-xl bg-[#C5A059] hover:bg-[#E2BF70] text-[#0C0E1E] font-bold text-xs shadow-md transition-all"
+              className="inline-block mt-2 px-4 py-2.5 rounded-xl bg-brand-charcoal hover:bg-[#1A1B1D] text-white font-bold text-xs shadow-md transition-all"
             >
               {t('footer.open_brand_portal')}
             </Link>
           </div>
         </div>
 
-        <div className="max-w-7xl mx-auto pt-8 mt-10 border-t border-slate-800 flex flex-col sm:flex-row justify-between items-center gap-4 text-[11px] text-slate-400 font-light">
+        <div className="max-w-7xl mx-auto pt-8 mt-10 border-t border-brand-hairline flex flex-col sm:flex-row justify-between items-center gap-4 text-[11px] text-brand-muted font-light">
           <div>© {new Date().getFullYear()} {t('footer.rights')}</div>
           <div className="flex gap-6">
-            <Link to="/privacy" className="text-slate-300 hover:text-slate-400">{t('footer.privacy')}</Link>
-            <Link to="/terms" className="text-slate-300 hover:text-slate-400">{t('footer.terms')}</Link>
-            <Link to="/gdpr" className="text-slate-300 hover:text-slate-400">{t('footer.gdpr')}</Link>
+            <Link to="/privacy" className="text-brand-muted hover:text-brand-charcoal underline">{t('footer.privacy')}</Link>
+            <Link to="/terms" className="text-brand-muted hover:text-brand-charcoal underline">{t('footer.terms')}</Link>
+            <Link to="/gdpr" className="text-brand-muted hover:text-brand-charcoal underline">{t('footer.gdpr')}</Link>
           </div>
         </div>
       </footer>

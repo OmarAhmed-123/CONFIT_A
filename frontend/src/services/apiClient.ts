@@ -287,7 +287,7 @@ export async function request<T>(
     if (
       res.status === 401 &&
       !isRetry &&
-      !/^\/auth\/(login|register|refresh|mfa|forgot-password|reset-password|social-login)/.test(endpoint)
+      !/^\/auth\/(login|register|refresh|mfa|forgot-password|reset-password|verify-email|social-login)/.test(endpoint)
     ) {
       if (await trySessionRefresh()) {
         return request<T>(endpoint, options, true);
@@ -316,7 +316,7 @@ export async function request<T>(
       // remains correct for OTHER endpoints, where 401 means the session is
       // missing/expired. Cycle 9: change-password 401s are re-authentication
       // failures ("Current password is incorrect."), not session expiry.
-      const isAuthAttempt = /^\/auth\/(login|register|mfa|change-password)/.test(endpoint);
+      const isAuthAttempt = /^\/auth\/(login|register|mfa|change-password|verify-email)/.test(endpoint);
       if (
         (res.status === 401 ||
           (userFriendlyMessage && userFriendlyMessage.toLowerCase().includes('bearer token'))) &&

@@ -68,7 +68,7 @@ async function probe(browser, lang, dict) {
   const check = (id, ok, detail) => checks.push({ id, ok: !!ok, detail });
 
   // 1. Reach the opener with Tab from the top of the page, then open with Enter.
-  const fabLabel = dict.layout.open_ai_stylist;
+  const fabLabel = dict.layout.ai_stylist_director; // accessible name = visible label (WCAG 2.5.3)
   let reachedFab = false;
   const trace = [];
   for (let i = 0; i < 200 && !reachedFab; i++) {

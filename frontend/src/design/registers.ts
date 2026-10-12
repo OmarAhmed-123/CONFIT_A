@@ -25,7 +25,7 @@
  *
  *   accent (hairline/dot — decorative, WCAG 1.4.11 does not apply to pure
  *   decoration; ratios vs #FAF9F6 documented for honesty):
- *   · editorial #C9A227 2.30 — decorative ONLY, never text, never a control
+ *   · editorial #252729 14.99 — brand charcoal (Logo #3 rollout; was gold #C9A227 at 2.30, decorative only)
  *   · atelier   #A5718B 3.74 · fit #4E7C6A 4.52 · commerce #1B1F3B 15.28
  *   · account   #555A73 6.44 · partner #3E5C76 6.65 · admin #5A5E6A 6.15
  *
@@ -63,7 +63,7 @@ export interface Register {
 export const REGISTERS: Record<RegisterId, Register> = {
   editorial: {
     id: "editorial",
-    accent: "#C9A227",
+    accent: "#252729",
     ink: "#6B4F1E",
     labelKey: "registers.editorial.label",
     scheme: "light",

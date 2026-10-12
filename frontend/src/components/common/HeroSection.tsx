@@ -99,7 +99,7 @@ export const HeroSection: React.FC<{
   return (
     <section
       aria-labelledby={headingId}
-      className={`relative overflow-hidden rounded-3xl sm:rounded-[36px] bg-gradient-to-br from-[#0C0E1E] via-[#1B1F3B] to-[#0A0C18] text-white border border-slate-800/80 shadow-2xl ${
+      className={`relative overflow-hidden rounded-3xl sm:rounded-[36px] bg-white text-brand-charcoal border border-brand-hairline shadow-sm ${
         compact ? 'p-5 sm:p-8 lg:p-10' : 'p-6 sm:p-12 lg:p-20'
       } ${className}`}
     >
@@ -107,12 +107,12 @@ export const HeroSection: React.FC<{
           They breathe slowly when motion is allowed — pure decoration. */}
       <motion.div
         {...breathe(0)}
-        className="absolute -top-32 -end-32 w-[500px] h-[500px] bg-[#C5A059]/15 rounded-full blur-3xl pointer-events-none"
+        className="absolute -top-32 -end-32 w-[500px] h-[500px] bg-brand-lilac/20 rounded-full blur-3xl pointer-events-none"
         aria-hidden="true"
       />
       <motion.div
         {...breathe(6)}
-        className="absolute -bottom-32 -start-32 w-[400px] h-[400px] bg-[#3D5296]/20 rounded-full blur-3xl pointer-events-none"
+        className="absolute -bottom-32 -start-32 w-[400px] h-[400px] bg-brand-mint/20 rounded-full blur-3xl pointer-events-none"
         aria-hidden="true"
       />
 
@@ -126,7 +126,7 @@ export const HeroSection: React.FC<{
           <motion.div {...enter(1)}>
             <Heading
               id={headingId}
-              className={`font-serif font-bold tracking-tight text-white ${
+              className={`font-serif font-bold tracking-tight text-brand-charcoal ${
                 compact
                   ? 'text-2xl sm:text-4xl leading-[1.15]'
                   : 'text-3xl sm:text-5xl lg:text-6xl leading-[1.1]'
@@ -138,7 +138,7 @@ export const HeroSection: React.FC<{
           {lede && (
             <motion.p
               {...enter(2)}
-              className="text-sm sm:leading-relaxed text-slate-200 font-light max-w-xl"
+              className="text-sm sm:leading-relaxed text-brand-charcoal font-light max-w-xl"
             >
               {lede}
             </motion.p>
@@ -146,7 +146,7 @@ export const HeroSection: React.FC<{
           {support && (
             <motion.p
               {...enter(3)}
-              className="text-xs sm:text-sm sm:leading-relaxed text-slate-400 font-light max-w-xl"
+              className="text-xs sm:text-sm sm:leading-relaxed text-brand-muted font-light max-w-xl"
             >
               {support}
             </motion.p>
@@ -214,7 +214,7 @@ export const HeroMedia: React.FC<{
     ) : (
       // No image at all is a legitimate state (§5 no-image): the solid
       // panel + scrim keep the caption fully readable.
-      <div className="h-full w-full bg-gradient-to-br from-[#1B1F3B] to-[#0C0E1E]" aria-hidden="true" />
+      <div className="h-full w-full bg-brand-charcoal" aria-hidden="true" />
     )}
     {/* The constant scrim — present in EVERY branch above. */}
     <div
@@ -244,13 +244,13 @@ export const HeroLightCard: React.FC<{
 }> = ({ to, label, children, className = '' }) => {
   // Spec 09: the card is a contextual overlay on the hero gradient —
   // glass via the surface system (solid fallback, forced-colors border).
-  const base = `surface-glass-dark block rounded-[32px] border-[#C5A059]/30 p-4 shadow-2xl ${className}`;
+  const base = `block rounded-[32px] border border-brand-hairline bg-white p-4 shadow-sm ${className}`;
   if (to) {
     return (
       <Link
         to={to}
         aria-label={label}
-        className={`${base} min-h-11 transition-transform hover:scale-[1.01] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0C0E1E]`}
+        className={`${base} min-h-11 transition-transform hover:scale-[1.01] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white`}
       >
         {children}
       </Link>

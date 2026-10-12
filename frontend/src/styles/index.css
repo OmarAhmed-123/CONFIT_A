@@ -8,13 +8,14 @@
     --confit-gold: #B8935A;
     --confit-cream: #FAF9F6;
     --confit-grey: #777777;
-    /* Focus indicator color (spec 09 §9 "focus ≈3:1"). Measured 2026-10-01:
-       the brand gold #B8935A is only 2.71:1 against the cream body surface —
-       below the non-text 3:1 minimum this file previously claimed. #A37E44
-       is the darkened brand gold: 3.55:1 on cream AND 4.31:1 on navy, so one
-       token works on both scheme extremes. Verified by computation in
-       surfaceSystem.test.tsx — not by eye. */
-    --confit-focus: #A37E44;
+    /* Focus indicator color (spec 09 §9 "focus ≈3:1"). Logo #3 migration:
+       the global focus outline moves from the gold-dark #A37E44 (3.73:1 on
+       white, and it reads as a legacy gold ring) to brand charcoal #252729
+       (14.99:1 on white and on the white page body). Controls that sit over
+       dark photo overlays opt in to `.focus-on-dark` below, which uses white
+       (contrast against the dark photo). Verified by computation in
+       surfaceSystem.test.tsx and focusToken.brand.test.tsx. */
+    --confit-focus: #252729;
 
     /* ── Spec 09: Embossed Depth / Surface tokens ─────────────────────────
        Three-layer hierarchy with a SOLID fallback first:
@@ -67,6 +68,14 @@
     outline: 3px solid var(--confit-focus);
     outline-offset: 2px;
     border-radius: 4px;
+  }
+
+  /* Opt-in for focusable controls drawn over dark photography or dark
+     gradients. A charcoal outline would disappear there, so the outline turns
+     white. Keep outline only: the focus contract forbids box-shadow. */
+  .focus-on-dark:focus-visible {
+    outline-color: #ffffff;
+    outline-offset: -6px;
   }
 
   /* A focused element must never be hidden behind the sticky headers
@@ -163,6 +172,19 @@
 
   .confit-slide-up {
     animation: confit-slide-up 0.45s cubic-bezier(0.25, 1, 0.5, 1) both;
+  }
+
+  /* ── Brand splash progress rule (Logo #3 splash) ─────────────────────
+     A single charcoal hairline that draws across the splash for its
+     duration. Reduced-motion users get the global 0.001ms collapse, which
+     ends on the final frame (full rule) — no information is lost. */
+  .confit-splash-rule {
+    transform-origin: 0 50%;
+    animation: confit-splash-rule 1.1s cubic-bezier(0.25, 1, 0.5, 1) both;
+  }
+  @keyframes confit-splash-rule {
+    from { transform: scaleX(0); }
+    to { transform: scaleX(1); }
   }
   @keyframes confit-slide-up {
     from { opacity: 0; transform: translateY(12px); }

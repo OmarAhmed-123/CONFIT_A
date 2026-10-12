@@ -88,7 +88,7 @@ export const CurrencySwitcher: React.FC<{ className?: string }> = ({ className =
         id="confit-currency-switcher"
         value={selected ?? ''}
         onChange={onChange}
-        className="max-w-[8.5rem] sm:max-w-none px-2.5 py-1 text-[11px] font-semibold rounded-full border border-slate-200 bg-white text-slate-700 hover:bg-[#FDF8EE] focus:outline-hidden focus:ring-2 focus:ring-[#7A5C28]"
+        className="max-w-[8.5rem] sm:max-w-none px-2.5 py-1 text-[11px] font-semibold rounded-full border border-slate-200 bg-white text-brand-charcoal hover:bg-brand-wash focus:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-charcoal"
       >
         <option value="">{t('a11y.currency_market_default')}</option>
         <optgroup label={t('a11y.currency_group_markets')}>

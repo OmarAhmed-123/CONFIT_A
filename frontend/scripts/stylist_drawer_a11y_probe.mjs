@@ -4,7 +4,8 @@
  *
  * jsdom cannot compute colour contrast or layout, so this drives real Chromium
  * against a running frontend (no backend required; nothing is sent to the chat API):
- *   1. opens the real "Open AI Virtual Stylist" floating button,
+ *   1. opens the real floating AI Stylist button (accessible name = its visible label,
+ *      layout.ai_stylist_director; WCAG 2.5.3 Label in Name),
  *   2. attaches a valid PNG and a rejected GIF,
  *   3. runs axe-core with colour-contrast ENABLED and the WCAG 2.x A/AA tags,
  *   4. checks the document direction for English (ltr) and Arabic (rtl).
@@ -65,7 +66,7 @@ async function probe(browser, lang, dict) {
   page.on("pageerror", (e) => errors.push(String(e.message).slice(0, 200)));
 
   await page.goto(BASE_URL, { waitUntil: "load", timeout: 90000 });
-  const fab = page.getByRole("button", { name: dict.layout.open_ai_stylist });
+  const fab = page.getByRole("button", { name: dict.layout.ai_stylist_director });
   await fab.first().waitFor({ state: "visible", timeout: 90000 });
   await fab.first().click();
   const dialog = page.getByRole("dialog").first();

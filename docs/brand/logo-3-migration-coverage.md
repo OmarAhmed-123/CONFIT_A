@@ -25,9 +25,9 @@ A row is `PASS` only when its own checks were run after its own changes and the 
 | Route | Component | Status |
 |---|---|---|
 | `/looks/:token` | SharedLookView | NOT_STARTED |
-| `/email/unsubscribe` | EmailUnsubscribeView | IMPLEMENTED (shared auth field/button styles only; page-level brand pass pending; backend-token states not captured) |
-| `/reset-password` | ResetPasswordView | IMPLEMENTED (shared auth styles applied; cream page background and gold key-icon chip are its own legacy accents, pending page pass; token-valid states need backend) |
-| `/verify-email` | VerifyEmailView | IMPLEMENTED (shared auth styles applied; page-level brand pass pending; token-valid states need backend) |
+| `/email/unsubscribe` | EmailUnsubscribeView | PASS (ready, working, done, expired, invalid, error, mobile, AR/RTL reviewed; API states mocked; see evidence below) |
+| `/reset-password` | ResetPasswordView | PASS (form, policy checklist, error, done, missing-token, focus, mobile, AR/RTL reviewed; API states mocked; see evidence below) |
+| `/verify-email` | VerifyEmailView | PASS (ready, keyboard focus, working, done, expired, missing-token/resend, mobile, AR/RTL reviewed; API states mocked; see evidence below) |
 | `/privacy`, `/privacy-policy` | PrivacyPolicyView | NOT_STARTED |
 | `/terms`, `/terms-of-service` | TermsOfServiceView | NOT_STARTED |
 | `/gdpr` | GdprView | NOT_STARTED |
@@ -81,7 +81,8 @@ A row is `PASS` only when its own checks were run after its own changes and the 
 - Checks run: `tsc` 0; focused auth suites 12 files passed; `authModal.brand.test.tsx` 7/7; full vitest 106 files / 1371 tests passed; `npm run build` 0.
 - Screenshots reviewed (sandbox at `/home/user/brand_build/shots/`): `before_*` vs `after_*` for sign-in, sign-up, forgot, focus, error, loading, mobile (390px), and Arabic RTL (`after_rtl_mob.png`, `dir=rtl` confirmed).
 - Limits: the MFA step, the forgot "sent" and "unconfigured" states, and data-backed success states were not captured because the backend is not running. ESLint is not configured for this repo (`eslint` fails before linting), so lint was not run.
-| `AuthPageShell`, `RoleGuard` (logo on guard/denial screens) | NOT_STARTED |
+| `AuthPageShell` (email-landing card shell, used only by the three account pages above) | PASS | White page, hairline card. Verified through the three pages' checks below |
+| `RoleGuard` (logo on guard/denial screens) | NOT_STARTED |
 | `ShareCard` (shared look image text) | NOT_STARTED |
 | Shared UI primitives (buttons, inputs, tables, cards, modals, toasts) | NOT_STARTED |
 
@@ -93,6 +94,16 @@ A row is `PASS` only when its own checks were run after its own changes and the 
 | Transactional templates (order, payment failed, shipping, saved look, outfit ready, fit result, price drop, partner approval, admin alert, newsletter) | `email_templates.py` | NOT_STARTED |
 | Brand/admin PDF report | `backend/app/services/brand_report_pdf.py` (`draw_logo`, navy/gold header) | NOT_STARTED |
 | CSV exports | brand/admin controllers | NOT_STARTED (data contract must stay unchanged) |
+
+## Account pages — evidence (VerifyEmail, ResetPassword, EmailUnsubscribe)
+
+- Shared change: `AuthPageShell` page background cream `#FAF9F6` → white; card hairline. Shared auth field/button styles from the AuthModal pass.
+- Per-page changes: cream icon chips → `brand-wash`; navy headings → charcoal; gold-dark `#A37E44` icons and links → charcoal; gold focus ring → charcoal; secondary text → `brand-muted`; links charcoal and underlined by default (`#A37E44` on white is 3.73:1, below 4.5:1 for text). Semantic emerald success, rose error, and amber warning (decorative `StatusIcon`) kept.
+- Tests: `accountRecovery.brand.test.tsx` (7 source-level brand contracts). Existing `accountRecoveryPages.test.tsx` (15 behaviour and axe tests) unchanged and passing. Together: 22/22.
+- Browser captures in sandbox at `/home/user/brand_build/shots/`: `pre_*` (committed state before this pass) and `post_*` (after), desktop 1280px, mobile 390px, AR/RTL on mobile.
+- Keyboard: a real Tab press on VerifyEmail focuses the primary button with `:focus-visible` and a charcoal ring (`post_ve_focus_kbd_desk.png`). ResetPassword input focus ring checked (`post_rp_focus_desk.png`).
+- API states are MOCKED in the browser (Playwright route fixtures), labelled `_mocked`. The backend is not running in the sandbox. Request counts were recorded to confirm the mocked calls fired.
+- Known finding, NOT changed (pre-existing): a server `AUTH_FAILED` on verify-email shows "Your session has expired. Please sign in again." (`errors.auth_failed` mapping in `apiErrors.ts`). That copy is wrong for a verification link. Out of brand scope; flagged for a copy/mapping fix.
 
 ## Known pre-existing issues (not caused by this migration)
 

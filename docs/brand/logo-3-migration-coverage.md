@@ -46,7 +46,7 @@ A row is `PASS` only when its own checks were run after its own changes and the 
 | `/tryon-studio`, `/try-on`, `/try-on/:sessionId`, `/visual-search` | TryOnFitView (error boundary) | NOT_STARTED |
 | `/fit`, `/fit-finder` | FitFinderView | NOT_STARTED |
 | `/wardrobe`, `/wardrobe/item/:id` | WardrobeView | NOT_STARTED |
-| `/cart`, `/checkout` | CheckoutView | NOT_STARTED (commerce path: light scheme only) |
+| `/cart`, `/checkout` | CheckoutView | IMPLEMENTED, not PASS. Gold, navy, cream and slate mapped to brand tokens; semantic colours kept; dark-filled controls use `.focus-on-light-fill` (charcoal ring, offset 3px). OPEN: fixed AI Stylist control covers Subtotal/Tax amounts at 1024-1280 in the first fold. Padding reserve tried and reverted (did not clear 1024). Backend-dependent flows unverified. See Checkout section. |
 | `/orders`, `/orders/:orderNumber`, `/returns` | OrderTrackingView | IMPLEMENTED, not PASS. Light scheme. Gold and navy chrome to charcoal and brand neutrals; return CTA focus ring charcoal. Fixed state bugs: 5xx no longer shows the verify form; signed-in 404 no longer shows the guest prompt; `/orders` lists the signed-in customer's orders; hard-coded English copy moved to `order.*` keys (EN and AR). `/returns` renders the same view and is not captured separately. See Orders evidence. |
 | `/profile`, `/settings`, `/notifications` | UserProfileView | NOT_STARTED |
 
@@ -338,4 +338,8 @@ Supersedes the "Mood-stack mobile composition fix" numbers above where they diff
 **Tests.** `src/views/__tests__/checkoutBrand.brand.test.tsx` (5 contracts): no legacy tokens; semantic colours kept; dark-filled controls use `focus-on-light-fill`; the new ring is charcoal, offset 3px, no white and no box-shadow; error alerts kept. `checkoutActionStates.test.tsx` (9) still passes.
 
 **Limitations.** **Open at desktop 1280x800: the fixed AI Stylist control (1067,718, 189x50) covers the right-hand Subtotal and Tax amounts in the Order summary card in the first fold.** This is the same fixed-control collision class as Discover; it needs a Checkout-specific decision (for example, a summary-aware offset at lg, or scroll-hide) and is not fixed in this commit. Checkout is therefore NOT PASS. The empty-cart state is what this environment shows. Keyboard focus was verified on the guest "Sign In" button only. Checkout's loading, error, and empty-payment states are not browser-verified.
+
+### Checkout: summary collision attempt (reverted)
+
+Tried an `lg:pe-20` reserve inside the Order summary card. Browser result: the amounts still overlap the fixed control at 1280x800 (`$0.00` at x 1035–1071 against control x 1067) and at 1024 (control x 811–1000, amounts x 875–911). A padding reserve cannot clear 1024 without distorting the card. Reverted; the file is at `e6330f8`. **Decision needed:** accept the first-fold overlap, or choose a Checkout-specific layout (e.g. move the summary totals above the fold band), before this route can be PASS.
 

@@ -794,13 +794,20 @@ export const VirtualStylistDrawer: React.FC = () => {
                       alt={t("stylist.photos_attached", { count: pendingImages.length })}
                       className="h-14 w-14 rounded-xl object-cover border border-slate-200"
                     />
+                    {/* 48px effective hit area via the invisible ::after
+                        extension — the visible disc stays proportionate to a
+                        56px thumbnail, but a thumb on a phone gets the full
+                        touch minimum (the control was 24×24). Logical `end`
+                        keeps it on the trailing corner in RTL. */}
                     <button
                       type="button"
                       onClick={() => removeImage(index)}
                       aria-label={t("stylist.remove_photo", { n: index + 1 })}
-                      className={`absolute -top-1.5 -right-1.5 h-6 w-6 min-h-[24px] min-w-[24px] rounded-full bg-slate-900 text-white text-xs ${RING}`}
+                      className={`absolute -top-1.5 -end-1.5 h-7 w-7 rounded-full bg-slate-900 text-white flex items-center justify-center shadow-xs hover:bg-slate-700 after:absolute after:-inset-2.5 after:content-[''] ${LUX} ${RING}`}
                     >
-                      ×
+                      <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true">
+                        <path d="M1 1l8 8M9 1L1 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                      </svg>
                     </button>
                   </div>
                 ))}
@@ -820,10 +827,14 @@ export const VirtualStylistDrawer: React.FC = () => {
             >
               <label
                 title={t("stylist.attach_photo_hint")}
-                className={`p-3 min-h-[48px] min-w-[48px] flex items-center justify-center rounded-2xl border cursor-pointer focus-within:ring-2 focus-within:ring-[#C5A059]/40 bg-slate-50 border-slate-200 text-slate-600 hover:text-[#C5A059] hover:bg-[#FDF8EE] focus-within:ring-2 focus-within:ring-[#C5A059]/40 ${LUX}`}
+                className={`p-3 min-h-[48px] min-w-[48px] flex items-center justify-center rounded-2xl border cursor-pointer focus-within:ring-2 focus-within:ring-[#C5A059]/40 bg-slate-50 border-slate-200 text-slate-600 hover:text-[#C5A059] hover:bg-[#FDF8EE] ${LUX}`}
               >
                 <span className="sr-only">{t("stylist.attach_photo")}</span>
-                <span aria-hidden="true" className="text-lg leading-none">＋</span>
+                {/* Real SVG, not the fullwidth ＋ text glyph: platform fonts
+                    render that character off-centre and at arbitrary weights. */}
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                  <path d="M8 2v12M2 8h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                </svg>
                 <input
                   type="file"
                   accept="image/jpeg,image/png,image/webp"
@@ -886,7 +897,10 @@ export const VirtualStylistDrawer: React.FC = () => {
                 <span>{isTyping ? t("stylist.sending") : t("stylist.submit")}</span>
               </button>
             </form>
-            <p id="stylist-composer-hint" className="mt-1.5 text-[10px] text-slate-500 text-center">
+            {/* Ctrl/⌘+Enter is meaningless without a hardware keyboard; on a
+                phone the line was pure cognitive noise in a cramped footer.
+                It stays in the a11y tree via aria-describedby either way. */}
+            <p id="stylist-composer-hint" className="mt-1.5 text-[10px] text-slate-500 text-center hidden sm:block">
               {t("stylist.composer_hint")}
             </p>
             {inputPrompt.length > STYLIST_PROMPT_MAX_CHARS * 0.9 && (

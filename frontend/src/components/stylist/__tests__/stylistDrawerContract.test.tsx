@@ -307,6 +307,48 @@ describe("VirtualStylistDrawer — behavioral contract (C05)", () => {
     expect(input.getAttribute("placeholder")).not.toContain("$");
   });
 
+  it("GOAL rate-limit honesty: a 429 shows the localized wait message WITHOUT a futile Retry button, and the draft survives", async () => {
+    const err: any = new Error("You have reached the limit for styling with photos this hour.");
+    err.code = "RATE_LIMITED";
+    err.status = 429;
+    chatMock.mockRejectedValue(err);
+    renderDrawer();
+    const input = screen.getByPlaceholderText(en("stylist.input_placeholder"));
+    fireEvent.change(input, { target: { value: "gala look please" } });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: new RegExp(en("stylist.submit")) }));
+    });
+    // localized sentence, not the server's English diagnostic
+    expect(await screen.findByText(en("errors.rate_limited"))).toBeTruthy();
+    expect(screen.queryByText(/reached the limit/i)).toBeNull();
+    // retrying immediately extends the throttle window — no Retry affordance
+    expect(screen.queryByRole("button", { name: new RegExp(en("stylist.retry")) })).toBeNull();
+    // the shopper's words were not spent on the failure
+    expect((input as HTMLTextAreaElement).value).toBe("gala look please");
+  });
+
+  it("GOAL attach flow: a photo attached through the real input renders a preview whose remove control has an accessible name and actually removes it", async () => {
+    chatMock.mockResolvedValue(assistantMessage());
+    const { container } = renderDrawer();
+    const file = new File([new Uint8Array([137, 80, 78, 71])], "jacket.png", { type: "image/png" });
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
+    await act(async () => {
+      fireEvent.change(fileInput, { target: { files: [file] } });
+      // FileReader resolves on a macrotask in jsdom
+      await new Promise((r) => setTimeout(r, 50));
+    });
+    const remove = await screen.findByRole("button", { name: en("stylist.remove_photo", { n: 1 }) });
+    // the regression that was actually shipped: a 24×24 physical-right glyph.
+    // Contract: extended hit area + logical end positioning survive.
+    expect(remove.className).toContain("after:-inset-2.5");
+    expect(remove.className).toContain("-end-1.5");
+    expect(remove.className).not.toContain("-right-1.5");
+    await act(async () => {
+      fireEvent.click(remove);
+    });
+    expect(screen.queryByRole("button", { name: en("stylist.remove_photo", { n: 1 }) })).toBeNull();
+  });
+
   it("ARABIC truth: the Arabic drawer carries no hard-coded English slot labels or banner prose", async () => {
     await act(async () => {
       await i18n.changeLanguage("ar");

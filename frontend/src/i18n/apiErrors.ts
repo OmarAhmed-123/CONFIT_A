@@ -49,6 +49,10 @@ export const API_ERROR_KEYS: Record<string, string> = {
   NETWORK_ERROR: 'errors.network',
   API_NOT_REACHABLE: 'errors.api_unreachable',
   IMAGE_TOO_LARGE: 'errors.image_too_large',
+  // 429 from any throttle (stylist chat 20/h, image turns, partner leads).
+  // Unmapped, the drawer showed either a generic failure or the server's
+  // English diagnostic verbatim in an Arabic transcript.
+  RATE_LIMITED: 'errors.rate_limited',
 };
 
 type ApiErrorLike = {
@@ -84,6 +88,9 @@ export function localizeApiError(
 
 /** Codes for which pressing "Retry" cannot possibly help. */
 export const NON_RETRYABLE_CODES = new Set([
+  // Retrying a rate limit immediately is not just useless — it extends the
+  // window (see RateLimitExceededError's own contract note in the backend).
+  'RATE_LIMITED',
   'VALIDATION_ERROR',
   'FORBIDDEN_ACCESS',
   'RESOURCE_NOT_FOUND',

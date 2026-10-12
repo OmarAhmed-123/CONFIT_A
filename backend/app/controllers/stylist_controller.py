@@ -7,6 +7,7 @@ from backend.app.core.config import settings
 from backend.app.core.database import get_db
 from backend.app.core.dependencies import get_current_user_optional, get_presentation_currency
 from backend.app.services.pricing_presentation import PresentationCurrency, present
+from backend.app.core.exceptions import RateLimitExceededError
 from backend.app.core.rate_limit import client_key, limiter
 from backend.app.models.user import User
 from backend.app.services.content_safety_service import (
@@ -41,12 +42,16 @@ def _enforce_image_budget(request: Request) -> None:
         parse_rate_limit(f"{settings.STYLIST_IMAGE_TURNS_PER_HOUR}/hour"), key
     )
     if not allowed:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=(
-                "You have reached the limit for styling with photos this hour. "
-                "Text styling is still available."
-            ),
+        # Same envelope as every other throttle in this API: stable code
+        # RATE_LIMITED the client can branch on. The raw HTTPException this
+        # replaced produced FastAPI's {"detail": ...} shape — no error.code —
+        # so the drawer showed a generic failure with a futile Retry button
+        # and, worse, could surface this English diagnostic verbatim to an
+        # Arabic shopper.
+        raise RateLimitExceededError(
+            "You have reached the limit for styling with photos this hour. "
+            "Text styling is still available.",
+            scope="stylist_image_turns",
         )
 
 

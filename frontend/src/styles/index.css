@@ -399,3 +399,15 @@ html {
     transform: translateX(-100%);
   }
 }
+
+/* ── Floating AI Stylist control: position ─────────────────────────────
+   Mobile (<1024px): bottom-4. Desktop: bottom-8. A page with a fixed sticky
+   CTA (ProductDetailView, data-sticky-cta) raises the control on mobile so it
+   does not cover that bar. :has() is supported by current Chromium, Safari
+   and Firefox. Without it, the control stays at bottom-4 and only the
+   sticky-CTA case is affected. */
+.stylist-fab-anchor { bottom: 1rem; }
+@media (min-width: 1024px) { .stylist-fab-anchor { bottom: 2rem; } }
+@media (max-width: 1023px) {
+  body:has([data-sticky-cta]) .stylist-fab-anchor { bottom: 5rem; }
+}

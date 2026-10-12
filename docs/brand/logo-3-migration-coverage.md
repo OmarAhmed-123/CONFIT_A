@@ -42,7 +42,7 @@ A row is `PASS` only when its own checks were run after its own changes and the 
 | `ProductCard` (shared component: Home, Discover, Wardrobe, MyLooks, `InteractionPrimitives`, `TryOnButton`) | ProductCard | IMPLEMENTED, not PASS. Legacy class and icon colours mapped. Changes reach every consumer above, so those pages are NOT marked PASS by this change and each still needs its own review |
 | `/product/:slug`, `/products/:slug` | ProductDetailView | IMPLEMENTED, not PASS. Light scheme. Navy, gold, cream, and slate chrome mapped to charcoal, brand-wash, and brand-muted; sale badge charcoal; savings line emerald (semantic). Primary CTA and sticky CTA focus ring charcoal (global gold ring was the settled focus). Rose, amber, and emerald status kept. Mobile and AR captured; AR/mobile not yet visually reviewed. See Product detail evidence. |
 | `/builder`, `/outfits/:id` | OutfitBuilderView | NOT_STARTED |
-| `/outfits`, `/my-looks` | MyLooksView | NOT_STARTED |
+| `/outfits`, `/my-looks` | MyLooksView | IMPLEMENTED, not PASS. Light scheme. Gold CTA to charcoal; navy, slate chrome mapped; `TryOnButton` (shared) mapped to charcoal and white. Amber partial-look and missing-slot status and rose delete kept. "1 pieces" bug fixed with CLDR plurals (EN, AR). Charcoal focus ring on CTAs. AR/mobile captured; not yet visually reviewed for AR. See My Looks evidence. |
 | `/tryon-studio`, `/try-on`, `/try-on/:sessionId`, `/visual-search` | TryOnFitView (error boundary) | NOT_STARTED |
 | `/fit`, `/fit-finder` | FitFinderView | NOT_STARTED |
 | `/wardrobe`, `/wardrobe/item/:id` | WardrobeView | NOT_STARTED |
@@ -192,3 +192,14 @@ A row is `PASS` only when its own checks were run after its own changes and the 
 - Captures (`/home/user/brand_build/shots/`): `pre_product_*` (HEAD build, port 43131) and `post_product_*` (this change). Desktop, mobile 390px, and AR/RTL mobile, plus the not-found and error states.
 - API states are MOCKED (Playwright routes) and labelled `_mocked`: the product payload, a 404, and a 500. Backend not running. Image hosts are replaced by a neutral placeholder. Captures recorded no page errors.
 - Limits: not yet reviewed visually for AR and mobile. The overall Try On overlay, wardrobe-linked, and BOPIS live states are not covered by these captures.
+
+## My Looks — evidence (MyLooksView, TryOnButton shared primitive)
+
+- Route: `/my-looks` (and `/outfits`) under `ProtectedRoute`. Session simulated with `confit_user` and a mocked `/auth/me` (user has `has_profile: true`). Saved-looks API MOCKED (`_mocked`). The backend is not running; other `/api/v1` calls return `[]` through a catch-all route.
+- Changes: `MyLooksView.tsx` and `components/product/TryOnButton.tsx` (shared; also used on ProductCard). Navy and gold to charcoal and brand neutrals. Semantic amber and rose kept.
+- Bug fixed: the item count read "1 pieces". `my_looks.pieces` is now a CLDR plural in EN (`one`/`other`) and AR (`one`/`two`/`few`/`many`/`other`). The i18n parity test now treats plural variants as one logical key, and it still requires exact keys otherwise. A runtime test covers EN 1/2 and AR 1/2/5.
+- Focus: "Build a new look" settled focus measured 700ms after a keyboard focus: pre gold `rgb(163,126,68)`, post charcoal `rgb(37,39,41)`.
+- Tests: `myLooksBrand.contract.test.tsx` (7 tests). Source contracts fail 4 of 4 on the HEAD view and shared primitive. Existing `useMyLooksViewModel.test.tsx`, `tryOnGateCoverage.test.tsx` unchanged and passing.
+- Checks: `tsc` 0; full Vitest 115 files, 1430 tests passed; `npm run build` 0.
+- Captures (`/home/user/brand_build/shots/`): `pre_mylooks_*` and `post_mylooks_*` for populated (desktop, mobile, AR mobile), empty, and error states, plus `*_mylooks_cta_focus_mocked.png`. Captures recorded no page errors.
+- Limits: AR and mobile not yet reviewed visually. The Try On pills are shared with other pages and were checked only on this page.

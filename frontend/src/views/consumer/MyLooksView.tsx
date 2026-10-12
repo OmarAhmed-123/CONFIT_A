@@ -39,8 +39,8 @@ const SharePanel: React.FC<{
 
   if (!isLive) {
     return (
-      <div className="pt-3 border-t border-slate-100 space-y-2">
-        <p className="text-[11px] text-slate-500 font-light">
+      <div className="pt-3 border-t border-brand-hairline space-y-2">
+        <p className="text-[11px] text-brand-muted font-light">
           {t('my_looks.private_note')}
         </p>
         {/* Spec 08: Publish is a critical action — unified kinetic CTA.
@@ -57,19 +57,19 @@ const SharePanel: React.FC<{
             error: t('my_looks.publish_failed_retry'),
           }}
           data-testid="publish-look-cta"
-          className="w-full py-2.5 rounded-xl bg-[#1B1F3B] hover:bg-[#0C0E1E] text-white text-xs font-bold transition-all"
+          className="w-full py-2.5 rounded-xl bg-brand-charcoal hover:bg-[#1A1B1D] text-white text-xs font-bold transition-all focus-visible:outline-brand-charcoal"
         />
       </div>
     );
   }
 
   return (
-    <div className="pt-3 border-t border-slate-100 space-y-2">
+    <div className="pt-3 border-t border-brand-hairline space-y-2">
       <div className="flex items-center justify-between">
         <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700">
           {t('my_looks.link_active')}
         </span>
-        <span className="text-[10px] text-slate-500">
+        <span className="text-[10px] text-brand-muted">
           {link?.view_count ?? 0} {t('my_looks.views')}
         </span>
       </div>
@@ -80,14 +80,14 @@ const SharePanel: React.FC<{
         dir="ltr"
         value={absolute}
         aria-label={t('my_looks.public_link_for', { title: look.title })}
-        className="w-full text-[11px] bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-slate-600"
+        className="w-full text-[11px] bg-brand-wash border border-brand-hairline rounded-lg px-2 py-1.5 text-brand-muted"
       />
 
       {/* Spec 06: shared copy/native-share affordance with honest, announced
           states. Mounted only here, where the server-minted link is LIVE. */}
       <ShareActions url={absolute} title={look.title} compact />
 
-      <p className="text-[10px] text-slate-500">
+      <p className="text-[10px] text-brand-muted">
         {t('my_looks.expiry_note', { date: formatDate(link?.expires_at) })}
       </p>
 
@@ -96,7 +96,7 @@ const SharePanel: React.FC<{
           href={link!.share_url!}
           target="_blank"
           rel="noreferrer"
-          className="flex-1 text-center py-2 rounded-xl border border-slate-300 text-[11px] font-semibold hover:bg-slate-100"
+          className="flex-1 text-center py-2 rounded-xl border border-brand-field text-[11px] font-semibold hover:bg-brand-wash"
         >
           {t('my_looks.open')}
         </a>
@@ -111,7 +111,7 @@ const SharePanel: React.FC<{
             error: t('my_looks.rotate_failed_retry'),
           }}
           data-testid="rotate-link-cta"
-          className="flex-1 py-2 rounded-xl border border-slate-300 text-[11px] font-semibold hover:bg-slate-100"
+          className="flex-1 py-2 rounded-xl border border-brand-field text-[11px] font-semibold hover:bg-brand-wash"
         />
         <ActionButton
           metricsId="looks.revoke_link"
@@ -146,14 +146,14 @@ const LookCard: React.FC<{
   const complete = look.completeness_status === 'complete_look';
 
   return (
-    <article className="bg-white rounded-3xl border border-slate-200/80 p-5 shadow-2xs space-y-3">
+    <article className="bg-white rounded-3xl border border-brand-hairline p-5 shadow-2xs space-y-3">
       <div className="flex items-start justify-between gap-3">
         <input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           onBlur={() => title !== look.title && onRename(title)}
           aria-label={t('my_looks.look_title_label')}
-          className="font-serif text-lg font-bold text-[#1B1F3B] bg-transparent border-b border-transparent hover:border-slate-200 focus:border-[#C5A059] focus:outline-none flex-1"
+          className="font-serif text-lg font-bold text-brand-charcoal bg-transparent border-b border-transparent hover:border-brand-hairline focus:border-brand-charcoal focus:outline-none flex-1"
         />
         <span
           className={`shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full border ${
@@ -166,12 +166,12 @@ const LookCard: React.FC<{
         </span>
       </div>
 
-      <div className="flex items-center gap-3 text-xs text-slate-500">
+      <div className="flex items-center gap-3 text-xs text-brand-muted">
         <span>{look.occasion}</span>
         <span>·</span>
-        <span>{look.items.length} {t('my_looks.pieces')}</span>
+        <span>{t('my_looks.pieces', { count: look.items.length })}</span>
         <span>·</span>
-        <span className="font-bold text-[#1B1F3B]">
+        <span className="font-bold text-brand-charcoal">
           <bdi dir="ltr">{formatMoney(Math.round(Number(look.total_price ?? 0) * 100), 'USD', lookCardLang)}</bdi>
         </span>
       </div>
@@ -180,7 +180,7 @@ const LookCard: React.FC<{
       <div className="flex gap-2 overflow-x-auto pb-1">
         {look.items.map((item) => (
           <div key={item.id} className="shrink-0 w-16">
-            <div className="h-20 w-16 rounded-lg overflow-hidden bg-slate-100">
+            <div className="h-20 w-16 rounded-lg overflow-hidden bg-brand-wash">
               {item.image_url ? (
                 <img
                   src={item.image_url}
@@ -189,7 +189,7 @@ const LookCard: React.FC<{
                 />
               ) : null}
             </div>
-            <span className="text-[9px] text-slate-500 block truncate mt-0.5">
+            <span className="text-[9px] text-brand-muted block truncate mt-0.5">
               {item.position}
             </span>
             {/* A saved look is the surface a shopper most wants to try on,
@@ -221,14 +221,14 @@ const LookCard: React.FC<{
       <div className="flex gap-2">
         <Link
           to={`/outfits/${look.id}`}
-          className="flex-1 text-center py-2 rounded-xl border border-slate-300 text-[11px] font-semibold hover:bg-slate-100"
+          className="flex-1 text-center py-2 rounded-xl border border-brand-field text-[11px] font-semibold hover:bg-brand-wash"
         >
           {t('my_looks.edit_in_composer')}
         </Link>
         <button
           onClick={onDelete}
           disabled={busy}
-          className="px-3 py-2 rounded-xl border border-slate-300 text-[11px] font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-40"
+          className="px-3 py-2 rounded-xl border border-brand-field text-[11px] font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-40"
         >
           {t('my_looks.delete')}
         </button>
@@ -262,7 +262,7 @@ export const MyLooksView: React.FC = () => {
 
   if (state === 'loading') {
     return (
-      <div className="py-24 text-center text-slate-500" role="status">
+      <div className="py-24 text-center text-brand-muted" role="status">
         {t('my_looks.loading')}
       </div>
     );
@@ -271,10 +271,10 @@ export const MyLooksView: React.FC = () => {
   if (state === 'error') {
     return (
       <div className="py-24 text-center space-y-3">
-        <p className="text-slate-600">{error ?? t('my_looks.something_wrong')}</p>
+        <p className="text-brand-muted">{error ?? t('my_looks.something_wrong')}</p>
         <button
           onClick={() => void reload()}
-          className="px-4 py-2 rounded-xl border border-slate-300 text-xs font-semibold hover:bg-slate-100"
+          className="px-4 py-2 rounded-xl border border-brand-field text-xs font-semibold hover:bg-brand-wash"
         >
           {t('my_looks.try_again')}
         </button>
@@ -284,36 +284,36 @@ export const MyLooksView: React.FC = () => {
 
   return (
     <div className="space-y-6 pb-24">
-      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200/80 pb-6">
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-brand-hairline pb-6">
         <div>
           <div className="flex items-center gap-2">
-            <SavedLooksIcon size={24} color="#1B1F3B" />
-            <h1 className="font-serif text-3xl font-bold text-[#1B1F3B] tracking-tight">
+            <SavedLooksIcon size={24} color="#252729" />
+            <h1 className="font-serif text-3xl font-bold text-brand-charcoal tracking-tight">
               {t('my_looks.title')}
             </h1>
           </div>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1 font-light">
+          <p className="text-xs sm:text-sm text-brand-muted mt-1 font-light">
             {t('my_looks.subtitle')}
           </p>
         </div>
         <Link
           to="/builder"
-          className="px-5 py-2 rounded-xl bg-[#C5A059] hover:bg-[#A37E44] text-slate-950 font-bold text-xs flex items-center gap-1.5"
+          className="px-5 py-2 rounded-xl bg-brand-charcoal hover:bg-[#1A1B1D] text-white font-bold text-xs flex items-center gap-1.5 focus-visible:outline-brand-charcoal"
         >
-          <SparkleIcon size={16} color="#0C0E1E" />
+          <SparkleIcon size={16} color="#FFFFFF" />
           <span>{t('my_looks.build_new')}</span>
         </Link>
       </header>
 
       {looks.length === 0 ? (
         <div className="py-20 text-center space-y-3">
-          <p className="font-serif text-xl text-[#1B1F3B]">{t('my_looks.empty_title')}</p>
-          <p className="text-sm text-slate-500 font-light">
+          <p className="font-serif text-xl text-brand-charcoal">{t('my_looks.empty_title')}</p>
+          <p className="text-sm text-brand-muted font-light">
             {t('my_looks.empty_body')}
           </p>
           <Link
             to="/builder"
-            className="inline-block px-5 py-2.5 rounded-xl bg-[#1B1F3B] text-white text-xs font-bold"
+            className="inline-block px-5 py-2.5 rounded-xl bg-brand-charcoal text-white text-xs font-bold focus-visible:outline-brand-charcoal"
           >
             {t('my_looks.open_composer')}
           </Link>

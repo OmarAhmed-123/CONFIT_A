@@ -50,14 +50,14 @@ export interface TryOnButtonProps {
 
 const VARIANT_CLASS: Record<TryOnButtonVariant, string> = {
   icon:
-    "p-2 rounded-full bg-[#1B1F3B]/90 hover:bg-[#C5A059] text-white " +
-    "hover:text-slate-950 shadow-sm backdrop-blur-xs",
+    "p-2 rounded-full bg-brand-charcoal/90 hover:bg-[#1A1B1D] text-white " +
+    "shadow-sm backdrop-blur-xs",
   compact:
-    "px-2.5 py-1.5 rounded-lg border border-[#7A5C28]/40 bg-[#FDF8EE] " +
-    "text-[#7A5C28] hover:bg-[#7A5C28] hover:text-white text-[11px] font-semibold",
+    "px-2.5 py-1.5 rounded-lg border border-brand-field bg-white " +
+    "text-brand-charcoal hover:bg-brand-charcoal hover:text-white hover:border-brand-charcoal text-[11px] font-semibold",
   full:
-    "py-2.5 px-3 rounded-xl border border-[#7A5C28]/40 bg-[#FDF8EE] " +
-    "text-[#7A5C28] hover:bg-[#7A5C28] hover:text-white text-xs font-semibold",
+    "py-2.5 px-3 rounded-xl border border-brand-field bg-white " +
+    "text-brand-charcoal hover:bg-brand-charcoal hover:text-white hover:border-brand-charcoal text-xs font-semibold",
 };
 
 export const TryOnButton: React.FC<TryOnButtonProps> = ({

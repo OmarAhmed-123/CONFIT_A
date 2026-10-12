@@ -28,17 +28,18 @@ A row is `PASS` only when its own checks were run after its own changes and the 
 | `/email/unsubscribe` | EmailUnsubscribeView | PASS (ready, working, done, expired, invalid, error, mobile, AR/RTL reviewed; API states mocked; see evidence below) |
 | `/reset-password` | ResetPasswordView | PASS (form, policy checklist, error, done, missing-token, focus, mobile, AR/RTL reviewed; API states mocked; see evidence below) |
 | `/verify-email` | VerifyEmailView | PASS (ready, keyboard focus, working, done, expired, missing-token/resend, mobile, AR/RTL reviewed; API states mocked; see evidence below) |
-| `/privacy`, `/privacy-policy` | PrivacyPolicyView | NOT_STARTED |
-| `/terms`, `/terms-of-service` | TermsOfServiceView | NOT_STARTED |
-| `/gdpr` | GdprView | NOT_STARTED |
-| `*` (404) | NotFoundView | NOT_STARTED |
+| `/privacy`, `/privacy-policy` | PrivacyPolicyView | IMPLEMENTED, not PASS. Shared `LegalViews` colour pass; tab focus indicator OPEN (see Legal evidence) |
+| `/terms`, `/terms-of-service` | TermsOfServiceView | IMPLEMENTED, not PASS. Same shared pass; tab focus indicator OPEN |
+| `/gdpr` | GdprView | IMPLEMENTED, not PASS. Same shared pass; tab focus indicator OPEN |
+| `*` (404) | NotFoundView | IMPLEMENTED, not PASS. White page, charcoal primary CTA, brand-wash glyph tile, brand-muted secondary text, charcoal focus ring (was gold `#C5A059`). Desktop, mobile and keyboard focus captured. AR/RTL not yet reviewed. See 404 evidence below. |
 
 ## Consumer (storefront) routes
 
 | Route | Component | Status |
 |---|---|---|
 | `/` | HomeView | IMPLEMENTED, not PASS. Hero and in-page sections moved to white-first tokens; focus ring fixed (was `ring-white`, invisible on white). Still open: shared navbar and floating AI Stylist pill are legacy (see Global shells); product rails show "could not be loaded" without backend, so rails are unverified with live data. See evidence below. |
-| `/discover`, `/products`, `/stylist` | DiscoverView | NOT_STARTED as a page. Its hero is the shared `HeroSection`, so it already renders white-first; the rest of the page is still legacy and unreviewed |
+| `/discover`, `/products`, `/stylist` | DiscoverView | IMPLEMENTED, not PASS. Class-level brand mapping applied (gold, navy, cream, slate text, eyebrow labels, search and sort focus rings). Shared `HeroSection` and `ProductCard` changes included. Still open: loading and empty states, filter and search behaviour with live data, mobile and AR/RTL review. The AI Stylist pill label was measured and is not clipped. See Discover evidence below. |
+| `ProductCard` (shared component: Home, Discover, Wardrobe, MyLooks, `InteractionPrimitives`, `TryOnButton`) | ProductCard | IMPLEMENTED, not PASS. Legacy class and icon colours mapped. Changes reach every consumer above, so those pages are NOT marked PASS by this change and each still needs its own review |
 | `/product/:slug`, `/products/:slug` | ProductDetailView | NOT_STARTED |
 | `/builder`, `/outfits/:id` | OutfitBuilderView | NOT_STARTED |
 | `/outfits`, `/my-looks` | MyLooksView | NOT_STARTED |
@@ -73,7 +74,7 @@ A row is `PASS` only when its own checks were run after its own changes and the 
 
 | Surface | Status |
 |---|---|
-| `ConsumerLayout`, `ConsumerNavbar` (header, nav, footer), `TrustFooter` | IMPLEMENTED, not PASS. Shared by every consumer page. White page root; light utility strip; charcoal Sign In and avatar; white AI Stylist pill with charcoal icon chip; light footer with charcoal headings and muted links; semantic emerald status kept in TrustFooter. Still legacy: the gold-dark focus token `--confit-focus` (#A37E44, 3.73:1 on white, pinned by `surfaceSystem.test.tsx`) and the register palette in `design/registers.ts` (commerce ink #1B1F3B, editorial gold accent). See Shell evidence |
+| `ConsumerLayout`, `ConsumerNavbar` (header, nav, footer), `TrustFooter` | IMPLEMENTED, not PASS. Shared by every consumer page. White page root; light utility strip; charcoal Sign In and avatar; white AI Stylist pill with charcoal icon chip; light footer with charcoal headings and muted links; semantic emerald status kept in TrustFooter. Still legacy: the gold-dark focus token `--confit-focus` (#A37E44, 3.73:1 on white, pinned by `surfaceSystem.test.tsx`) and the register palette in `design/registers.ts` (commerce ink #1B1F3B, editorial ink #6B4F1E, other register accents). The editorial accent (navigation rule under the header) is now charcoal. See Shell evidence |
 | `BrandLayout`, `BrandNavbar`, `BrandSidebar` | NOT_STARTED |
 | `AuthModal` (login, register, MFA, recovery) | PASS |
 
@@ -128,9 +129,49 @@ A row is `PASS` only when its own checks were run after its own changes and the 
 - Tests: `components/navigation/__tests__/shellBrand.brand.test.tsx` (10 contracts: no legacy tokens and no slate text in the three files; root white; pill styling; RTL `end-6`; emerald kept). Focused suite across navigation, a11y, commerce, design and layouts: 13 files, 230 tests passed.
 - CI gate (`scripts/stylist_browser_gate.sh`, same as CI): PASS locally. axe 0 serious/critical and 0 colour-contrast violations in EN and AR. Keyboard probe PASS in EN and AR. 59 axe "incomplete" items per locale are reported and not counted as passes.
 
+- Navigation-rule pass (this change): the editorial register accent under the header is charcoal (`main` top border measured `rgb(37,39,41)` 3px at 1280px). Body text selection changed from bronze `#B8935A` and navy `#1B1F3B` to charcoal in `frontend/index.html`. The AI Stylist button's accessible name is now its visible label (`layout.ai_stylist_director`, "AI Stylist Director"); before, it was "Open AI Virtual Stylist", which fails WCAG 2.5.3 Label in Name. Covered by `shellBrand.brand.test.tsx` (3 new contracts) and `registers.test.tsx`.
+- Pill label clipping: an earlier concern was checked and is not a defect in the pill. `pill_label.mjs` measures the label ending 21px inside the pill's right edge at 1280px and 1024px. The apparent clip in the screenshots came from a round badge in the bottom-right corner of the preview frame, which overlaps the pill and is not app markup.
+- Keyboard focus, FAB: the AI Stylist button shows a solid 3px charcoal focus outline (`fab_focus_pixels.mjs`; crop `qa_post2_fab_focus_crop.png`).
+- Shell status stays IMPLEMENTED, not PASS. Checked: desktop and mobile home captures, keyboard focus on nav and FAB. Not yet checked: mobile drawer and menu states in AR/RTL, `RoleGuard`, and every other consumer page that uses this shell.
+
+## Discover — evidence (DiscoverView + shared ProductCard)
+
+- Status: IMPLEMENTED, not PASS. Pass is blocked by items listed under Limits.
+- Changes in DiscoverView: gold → charcoal, cream → `brand-wash`, navy → charcoal, slate text → `brand-muted`. Eyebrow labels `#7A5C28` → `brand-muted`. The search input and sort select use a charcoal border and a 2px charcoal focus ring with a white offset (was a gold ring at 25% opacity, too faint for a focus indicator). Colour-name swatch hex values (`#1B1F3B`, `#FAF9F6`, `#D4AF37`) stay: they are product colour data, not chrome.
+- Changes in ProductCard: all legacy class and icon colours mapped (`RulerIcon` → `#252729`). `StatusIcon` is not changed.
+- Tests: `views/__tests__/discoverBrand.contract.test.tsx` (4 Discover contracts, 2 ProductCard contracts). The 20 related Discover and ProductCard suites pass (325 tests). `tsc` exit 0.
+- Captures (`/home/user/brand_build/shots/`): `pre_live_*` and `post_live_*` (backend down, 502 error state, no page errors). `pre_mocked__*` and `post_mocked__*` (`_mocked` fixtures, populated 6-product grid, no page errors). Review images: `qa_{pre,post}_discover_mocked_desk_{fold,grid}.png` (pre and post pairs).
+- Keyboard focus: `discover_focus.mjs` tabs to the search input. Probe: border `rgb(37,39,41)`, box-shadow ring `rgb(37,39,41)` 2px with a white 2px offset. Pixel review: `qa_post_discover_search_focus.png`.
+- Limits (why not PASS):
+  - Backend not running. Catalogue, cart and try-on endpoints return 502 in live captures. Populated states are `_mocked` only.
+  - Loading and empty states not captured separately.
+  - Filter, search and sort behaviour not verified with live data.
+  - Mobile captures (`*_mob_*`) taken but not yet reviewed. No AR/RTL review.
+  - Pill label: measured, not clipped (21px inside the pill edge at 1280px and 1024px). The apparent clip in screenshots is a preview-frame badge that overlaps the pill.
+  - Shared `ProductCard` change affects Home, Wardrobe, MyLooks and try-on. Those pages need their own review.
+
+## 404 — evidence (NotFoundView, catch-all route)
+
+- Status: IMPLEMENTED, not PASS. Static page; no backend dependency. AR/RTL not yet verified.
+- Changes: page root `#FAF9F6` → white. Glyph tile cream gradient → `brand-wash`. Navy text and CTA → charcoal (`#1A1B1D` hover, matching the consumer shell CTA). Slate text → `brand-muted`. Secondary button border `slate-300` → `brand-field` (3.33:1 control boundary), hover border gold → charcoal. Focus rings gold `#C5A059` → charcoal (3 places).
+- Tests: `views/__tests__/notFound.brand.test.tsx` (4 contracts). `accountRecoveryPages`, `outfitBuilderContract` and the new suite pass (44 tests).
+- Captures: `shots/pre_404_{desk,mob}.png` (HEAD version, before), `shots/post_404_{desk,mob}.png` (after), review sheet `qa_404_desk_pre_post.png`.
+- Keyboard focus: first Tab lands on "Go home". Computed focus shadow before `rgb(197,160,89)` (gold), after `rgb(37,39,41)` 2px at both 1280px and 390px. Viewport captures: `shots/post_404_*_focus_viewport.png`.
+- Limits: AR/RTL layout not captured. Backend not needed for this page.
+
+## Legal pages — evidence (LegalViews: Privacy, Terms, GDPR)
+
+- Status: IMPLEMENTED, not PASS. Colour pass applied to the shared `LegalViews` file. Not PASS because the tab focus indicator is unresolved, and AR/RTL and the full long-form content were not reviewed.
+- Changes: hero navy-to-black gradient with gold chip → `brand-charcoal` panel with white text (white on charcoal 14.99:1). Active tab navy → charcoal. Inactive tabs slate border and text → `brand-field` boundary and `brand-muted` text, charcoal hover. Article headings navy → charcoal. Body, list, and table text slate-600 → `brand-muted`. Table headers slate-400 (about 2.5:1 on white, fails AA) → `brand-muted`. Code chips → `brand-wash`. Contact link → charcoal underlined. Neutral slate dividers and borders kept.
+- Tests: `views/legal/__tests__/legalBrand.contract.test.tsx` (4 contracts). Related suites (legal routes, accessibility RTL, i18n parity): 4 files, 75 tests pass.
+- Captures: `shots/pre_legal_{privacy,terms,gdpr}_{desk,mob}.png` (HEAD, before) and `shots/post_legal_*` (after). No page errors in either run.
+- OPEN, tab focus indicator: on the active tab, the probe reached it with real Tab presses. It matches `:focus-visible` and the ring class selector, but the computed box-shadow shows no ring and the computed outline is the global 3px white, which is invisible on white. The global token `--confit-focus` resolves to `#A37E44` on every route, so the cause is not yet isolated. I tried explicit ring classes on the tabs. They did not render, so I reverted them to avoid removing the only indicator. Next step: isolate the cascade with a page-level computed-style trace, then fix at the source.
+- Limits: AR/RTL not captured. Long-form article content not reviewed beyond the first section.
+
 ## Register system — open decision
 
-- `design/registers.ts` sets an accent and ink per surface family (editorial gold `#C9A227` accent, commerce ink `#1B1F3B`, and others). Its test pins these values. It affects every page's `main`. Changing it is a design-system decision and is not part of the shell pass. Not changed.
+- Changed in the navigation-rule pass (directed by the brief): the editorial register accent, which draws the 3px rule under the header on every editorial page (`/`, `/discover`, `/stylist`, `/products`, unknown routes), is now brand charcoal `#252729` (was gold `#C9A227`, 2.30:1, decorative only). The register test now requires every accent to clear 3:1.
+- Still open (design-system decision, not changed): editorial ink `#6B4F1E` (text-grade eyebrow colour), commerce ink and accent `#1B1F3B`, and the other register accents and inks (atelier, fit, account, partner, admin). Each still affects its own surface family.
 
 ## Known pre-existing issues (not caused by this migration)
 

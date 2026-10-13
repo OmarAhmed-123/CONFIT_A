@@ -295,9 +295,13 @@ export const DiscoverView: React.FC = () => {
           </span>
         }
         title={t("nav.style_discover")}
+        /* lg: the search card moves under the title (left column). In the right
+           column it sat inside the fixed AI Stylist footprint at 1024-1280
+           (y 762-812 at 844 high); no width clears x 811+ at 1024. */
+        asideClassName="lg:col-start-1 lg:row-start-2"
         lede={t('discover.subtitle')}
         aside={
-          <HeroLightCard className="w-full lg:max-w-md lg:justify-self-end bg-white border-brand-hairline">
+          <HeroLightCard className="w-full lg:max-w-md lg:justify-self-start bg-white border-brand-hairline">
             <div className="flex items-center gap-2 relative" data-search-cluster>
           <div className="relative flex-1">
             {/* A placeholder is not an accessible name: it disappears as soon

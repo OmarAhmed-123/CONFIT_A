@@ -47,6 +47,8 @@ export const HeroSection: React.FC<{
   facts?: React.ReactNode;
   /** The structured light card / media panel (HeroLightCard, HeroMedia…). */
   aside?: React.ReactNode;
+  /** Opt-in classes for the aside grid wrapper (e.g. lg placement). Default: none. */
+  asideClassName?: string;
   /** h1 on the page that owns the title; h2 elsewhere. */
   headingLevel?: 'h1' | 'h2';
   /** Tighter paddings for list-page heroes (Discover). */
@@ -60,6 +62,7 @@ export const HeroSection: React.FC<{
   actions,
   facts,
   aside,
+  asideClassName,
   headingLevel = 'h1',
   compact = false,
   className = '',
@@ -165,7 +168,7 @@ export const HeroSection: React.FC<{
         {/* `grid` wrapper keeps the aside's own justify-self/max-w behaviour
             intact while giving the entrance animation a real box. */}
         {aside && (
-          <motion.div {...enter(3)} className="grid w-full min-w-0">
+          <motion.div {...enter(3)} className={`grid w-full min-w-0 ${asideClassName ?? ''}`}>
             {aside}
           </motion.div>
         )}

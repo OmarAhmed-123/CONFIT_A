@@ -55,7 +55,7 @@ export const BrandReportDownloadButton: React.FC<{
         onClick={download}
         aria-busy={phase === 'pending'}
         aria-label={t('admin_catalog.download_report', { brand: brandName })}
-        className="inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-[11px] font-bold text-slate-700 shadow-2xs transition-colors hover:border-[#B8935A] hover:text-[#8A6A2F] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B8935A]"
+        className="inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-[11px] font-bold text-slate-700 shadow-2xs transition-colors hover:border-brand-hairline hover:text-brand-charcoal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal"
       >
         <span aria-hidden="true"><FileDown className="h-3.5 w-3.5" /></span>
         <span>{t('admin_catalog.report_pdf')}</span>

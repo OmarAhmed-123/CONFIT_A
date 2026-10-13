@@ -352,7 +352,7 @@ const BrandNavDrawer: React.FC<{
         aria-modal="true"
         aria-label={t('brand_nav.drawer_label')}
         data-testid="brand-nav-drawer"
-        className="absolute inset-y-0 start-0 flex w-[85vw] max-w-sm flex-col bg-[#0C0E1E] text-white shadow-2xl"
+        className="absolute inset-y-0 start-0 flex w-[85vw] max-w-sm flex-col bg-slate-950 text-white shadow-2xl"
       >
         {/* Domain ribbon — the register accent of THIS trust domain. */}
         <span
@@ -466,7 +466,7 @@ export const BrandNavbar: React.FC = () => {
   return (
     <>
       {/* ── Mobile top bar (lg:hidden): the way into the drawer ── */}
-      <header className="sticky top-0 z-40 border-b border-slate-800 bg-[#0C0E1E] text-white lg:hidden">
+      <header className="sticky top-0 z-40 border-b border-slate-800 bg-slate-950 text-white lg:hidden">
         {/* Same domain ribbon as the drawer/sidebar — one visual identity
             per trust domain on every surface. */}
         <span
@@ -511,7 +511,7 @@ export const BrandNavbar: React.FC = () => {
       {/* ── Desktop sidebar (hidden below lg) ── */}
       <aside
         data-testid="brand-sidebar"
-        className={`sticky top-0 z-30 hidden h-screen shrink-0 flex-col border-e border-slate-800 bg-[#0C0E1E] text-white transition-[width] duration-200 motion-reduce:transition-none lg:flex ${
+        className={`sticky top-0 z-30 hidden h-screen shrink-0 flex-col border-e border-slate-800 bg-slate-950 text-white transition-[width] duration-200 motion-reduce:transition-none lg:flex ${
           collapsed ? 'w-[4.5rem]' : 'w-64'
         }`}
       >

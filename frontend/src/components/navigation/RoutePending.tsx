@@ -29,7 +29,7 @@ export const RoutePending: React.FC = () => {
       >
         <span
           aria-hidden="true"
-          className="inline-block h-5 w-5 rounded-full border-2 border-[#C5A059]/40 border-t-[#C5A059] motion-safe:animate-spin"
+          className="inline-block h-5 w-5 rounded-full border-2 border-brand-charcoal/20 border-t-brand-charcoal motion-safe:animate-spin"
         />
         <span>{t('nav.section_loading')}</span>
       </div>

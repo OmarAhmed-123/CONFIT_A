@@ -63,10 +63,10 @@ export const AnnouncementBar: React.FC<{
       role="region"
       data-testid="announcement-bar"
       aria-label={t("home.announcement_aria")}
-      className="flex items-center justify-center gap-3 rounded-2xl border border-[#C5A059]/30 bg-[#0C0E1E] px-4 py-2.5"
+      className="flex items-center justify-center gap-3 rounded-2xl border border-brand-hairline bg-brand-charcoal px-4 py-2.5"
     >
-      <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-[#C5A059]" />
-      <p className="text-[11px] font-semibold tracking-wide text-[#FAF9F6] sm:text-xs">
+      <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-brand-coral" />
+      <p className="text-[11px] font-semibold tracking-wide text-white sm:text-xs">
         {t("home.announce_free_shipping", {
           amount: formatMoney(Math.round(threshold * 100), currency, lang),
         })}
@@ -75,7 +75,7 @@ export const AnnouncementBar: React.FC<{
         type="button"
         onClick={dismiss}
         aria-label={t("a11y.dismiss_announcement")}
-        className="ms-1 flex h-6 w-6 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059]"
+        className="ms-1 flex h-6 w-6 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
       >
         <span aria-hidden="true">✕</span>
       </button>

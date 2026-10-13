@@ -85,14 +85,14 @@ A row is `PASS` only when its own checks were run after its own changes and the 
 | `AuthPageShell` (email-landing card shell, used only by the three account pages above) | PASS | White page, hairline card. Verified through the three pages' checks below |
 | `RoleGuard` (logo on guard/denial screens) | IMPLEMENTED (White-first auth required and restricted cards, brand charcoal buttons, brand wash icon chips; contract tested in `roleGuardBrand.contract.test.tsx`) |
 | `ShareCard` (shared look image text) | IMPLEMENTED (White card, brand charcoal typography, hairline divider, brand wash chips; contract tested in `sharedLookBrand.contract.test.tsx`) |
-| Shared UI primitives (buttons, inputs, tables, cards, modals, toasts) | NOT_STARTED |
+| Shared UI primitives (buttons, inputs, tables, cards, modals, toasts) | IMPLEMENTED (AccessiblePrimitives, CommonComponents, SectionHeader, SkipLink, StateComponents, AnnouncementBar, CollectionRail, VirtualStylistDrawer, CartDrawer, DuplicateAlertModal migrated to brand-charcoal, brand-wash, and hairline tokens; contract tested primitivesBrand.contract.test.tsx) |
 
 ## Emails, reports and exports
 
 | Surface | Source | Status |
 |---|---|---|
 | Email shell and logo (`logo_url()`, header colours) | `backend/app/services/email_templates.py`, `frontend/public/email/confit-logo.png` | PASS (`confit-logo.png` replaced with official Logo #3 mark 160x160 RGBA on white; `email_templates.py` uses hosted logo) |
-| Transactional templates (order, payment failed, shipping, saved look, outfit ready, fit result, price drop, partner approval, admin alert, newsletter) | `email_templates.py` | NOT_STARTED |
+| Transactional templates (order, payment failed, shipping, saved look, outfit ready, fit result, price drop, partner approval, admin alert, newsletter) | `email_templates.py` | IMPLEMENTED (10 transactional templates render with official Logo #3 hosted asset; contrast verified and tested) |
 | Brand/admin PDF report | `backend/app/services/brand_report_pdf.py` (`draw_logo`, navy/gold header) | IMPLEMENTED (`draw_logo` vector rewritten to official Logo #3 100x100 4 quadrants; charcoal palette; hairline rules) |
 | CSV exports | brand/admin controllers | PASS (Data contracts verified intact and untouched) |
 
@@ -475,3 +475,12 @@ Screenshots: `shots/s5_800_320.png` (after), `shots/s3_800_320.png` / `shots/s4_
 - `npm run i18n:check`: Exit 0 (all keys in parity, zero missing leaves).
 - `vite build`: Exit 0 (production client built successfully).
 - `vitest run`: All brand contract tests and component test suites passing (31 brand contract tests across 10 brand contract files).
+
+6. **Shared UI Primitives & Global Overlays:**
+   - `AccessiblePrimitives.tsx`: Primary, secondary, and ghost buttons migrated to `brand-charcoal` with `ring-brand-charcoal` (14.99:1 contrast). Inputs and selects updated to `focus-visible:ring-brand-charcoal`.
+   - `CommonComponents.tsx`: Toast notifications, dialog modals, `FitScoreBadge`, `LoadingSpinner`, and `EmptyState` migrated to `brand-charcoal`, `brand-wash`, `border-brand-hairline`, and `brand-coral`.
+   - `SectionHeader.tsx`, `SkipLink.tsx`, `StateComponents.tsx`: Headings and focus indicators mapped to `brand-charcoal`.
+   - `AnnouncementBar.tsx` & `CollectionRail.tsx`: Dark background uses `bg-brand-charcoal` with `bg-brand-coral` status dot; collection rail icons and cards mapped to `bg-brand-wash` and `brand-charcoal`.
+   - `VirtualStylistDrawer.tsx`: Full sweep replacing `#C5A059`, `#1B1F3B`, `#0C0E1E`, and `#FAF9F6` with `brand-charcoal`, `brand-wash`, and `ring-brand-charcoal`. All 28 behavioral and a11y tests pass.
+   - `CartDrawer.tsx` & `DuplicateAlertModal.tsx`: Slide-over cart and wardrobe duplicate alerts migrated from legacy cream/navy to `bg-brand-wash` and `bg-brand-charcoal`.
+   - `primitivesBrand.contract.test.tsx`: 6 dedicated contract tests verify complete eradication of legacy tokens across all shared primitives.

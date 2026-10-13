@@ -99,7 +99,7 @@ const isItemActive = (href: string, path: string) =>
   path === href || (href === '/admin' && path === '/b2b/admin-platform');
 
 const focusRing =
-  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E2BF70] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0C0E1E]';
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900';
 
 const COLLAPSE_KEY = 'confit.b2b.sidebar_collapsed';
 
@@ -123,7 +123,7 @@ const ActiveMarker: React.FC<{ layoutId: string; reduce: boolean }> = ({ layoutI
     <span
       data-testid="nav-active-marker"
       aria-hidden="true"
-      className="absolute inset-y-2 start-0 w-1 rounded-full bg-[#E2BF70]"
+      className="absolute inset-y-2 start-0 w-1 rounded-full bg-brand-coral"
     />
   ) : (
     <motion.span
@@ -131,7 +131,7 @@ const ActiveMarker: React.FC<{ layoutId: string; reduce: boolean }> = ({ layoutI
       aria-hidden="true"
       layoutId={layoutId}
       transition={{ type: 'tween', duration: 0.25, ease: 'easeOut' }}
-      className="absolute inset-y-2 start-0 w-1 rounded-full bg-[#E2BF70]"
+      className="absolute inset-y-2 start-0 w-1 rounded-full bg-brand-coral"
     />
   );
 
@@ -178,7 +178,7 @@ export const BrandBreadcrumbs: React.FC = () => {
           ) : (
             <Link
               to={home.href}
-              className="inline-flex min-h-11 items-center rounded px-1 underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B8935A]"
+              className="inline-flex min-h-11 items-center rounded px-1 underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal"
             >
               {home.label}
             </Link>
@@ -252,7 +252,7 @@ const NavLinks: React.FC<{
                     title={collapsed ? t(labelKey) : undefined}
                     className={`relative flex min-h-11 items-center gap-3 rounded-xl px-3 text-xs font-semibold ${focusRing} ${
                       active
-                        ? 'bg-slate-800 text-[#E2BF70]'
+                        ? 'bg-slate-800 text-white font-semibold'
                         : 'text-slate-200 hover:bg-slate-800'
                     } ${collapsed ? 'justify-center px-0' : ''}`}
                   >
@@ -364,7 +364,7 @@ const BrandNavDrawer: React.FC<{
         <div className="flex items-center justify-between border-b border-slate-800 px-4 py-4">
           <div className="flex min-w-0 items-center gap-3">
             <ConfitLogo variant="compact" theme="light" size="sm" />
-            <span className="truncate text-xs font-bold text-[#C5A059]">{portalTitle}</span>
+            <span className="truncate text-xs font-bold text-white">{portalTitle}</span>
           </div>
           <button
             type="button"
@@ -492,7 +492,7 @@ export const BrandNavbar: React.FC = () => {
             aria-label={t('b2b.dashboard_link_label')}
           >
             <ConfitLogo variant="compact" theme="light" size="sm" />
-            <span className="truncate text-xs font-bold text-[#C5A059]">{portalTitle}</span>
+            <span className="truncate text-xs font-bold text-white">{portalTitle}</span>
           </Link>
           <LanguageSwitcher />
         </div>
@@ -529,7 +529,7 @@ export const BrandNavbar: React.FC = () => {
           >
             <ConfitLogo variant="compact" theme="light" size="sm" />
             {!collapsed && (
-              <span className="truncate text-xs font-bold text-[#C5A059]">{portalTitle}</span>
+              <span className="truncate text-xs font-bold text-white">{portalTitle}</span>
             )}
           </Link>
         </div>

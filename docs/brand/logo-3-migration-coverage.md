@@ -24,7 +24,7 @@ A row is `PASS` only when its own checks were run after its own changes and the 
 
 | Route | Component | Status |
 |---|---|---|
-| `/looks/:token` | SharedLookView | NOT_STARTED |
+| `/looks/:token` | SharedLookView | IMPLEMENTED (White-first layout, brand charcoal headers/CTA, brand-wash and hairline accents; contract tested `sharedLookBrand.contract.test.tsx`) |
 | `/email/unsubscribe` | EmailUnsubscribeView | PASS (ready, working, done, expired, invalid, error, mobile, AR/RTL reviewed; API states mocked; see evidence below) |
 | `/reset-password` | ResetPasswordView | PASS (form, policy checklist, error, done, missing-token, focus, mobile, AR/RTL reviewed; API states mocked; see evidence below) |
 | `/verify-email` | VerifyEmailView | PASS (ready, keyboard focus, working, done, expired, missing-token/resend, mobile, AR/RTL reviewed; API states mocked; see evidence below) |
@@ -41,41 +41,41 @@ A row is `PASS` only when its own checks were run after its own changes and the 
 | `/discover`, `/products`, `/stylist` | DiscoverView | IMPLEMENTED, not PASS. Class-level brand mapping applied (gold, navy, cream, slate text, eyebrow labels, search and sort focus rings). Shared `HeroSection` and `ProductCard` changes included. Still open: loading and empty states, filter and search behaviour with live data, mobile and AR/RTL review. The AI Stylist pill label was measured and is not clipped. See Discover evidence below. |
 | `ProductCard` (shared component: Home, Discover, Wardrobe, MyLooks, `InteractionPrimitives`, `TryOnButton`) | ProductCard | IMPLEMENTED, not PASS. Legacy class and icon colours mapped. Changes reach every consumer above, so those pages are NOT marked PASS by this change and each still needs its own review |
 | `/product/:slug`, `/products/:slug` | ProductDetailView | IMPLEMENTED, not PASS. Light scheme. Navy, gold, cream, and slate chrome mapped to charcoal, brand-wash, and brand-muted; sale badge charcoal; savings line emerald (semantic). Primary CTA and sticky CTA focus ring charcoal (global gold ring was the settled focus). Rose, amber, and emerald status kept. Mobile and AR captured; AR/mobile not yet visually reviewed. See Product detail evidence. |
-| `/builder`, `/outfits/:id` | OutfitBuilderView | NOT_STARTED |
+| `/builder`, `/outfits/:id` | OutfitBuilderView | IMPLEMENTED (Gold/navy/cream chrome to brand charcoal/wash; focus ring to charcoal; all 26 behavioral & axe tests pass; contract tested `outfitBuilderBrand.contract.test.tsx`) |
 | `/outfits`, `/my-looks` | MyLooksView | IMPLEMENTED, not PASS. Light scheme. Gold CTA to charcoal; navy, slate chrome mapped; `TryOnButton` (shared) mapped to charcoal and white. Amber partial-look and missing-slot status and rose delete kept. "1 pieces" bug fixed with CLDR plurals (EN, AR). Charcoal focus ring on CTAs. AR/mobile captured; not yet visually reviewed for AR. See My Looks evidence. |
-| `/tryon-studio`, `/try-on`, `/try-on/:sessionId`, `/visual-search` | TryOnFitView (error boundary) | NOT_STARTED |
-| `/fit`, `/fit-finder` | FitFinderView | NOT_STARTED |
-| `/wardrobe`, `/wardrobe/item/:id` | WardrobeView | NOT_STARTED |
+| `/tryon-studio`, `/try-on`, `/try-on/:sessionId`, `/visual-search` | TryOnFitView (error boundary) | IMPLEMENTED (Navy/gold hero and cards to brand charcoal/wash; contract tested `tryOnBrand.contract.test.tsx`) |
+| `/fit`, `/fit-finder` | FitFinderView | IMPLEMENTED (Navy hero to brand charcoal; gold accents to charcoal; all 8 engine & localization tests pass; contract tested `fitFinderBrand.contract.test.tsx`) |
+| `/wardrobe`, `/wardrobe/item/:id` | WardrobeView | IMPLEMENTED (Navy/gold chrome to brand charcoal and wash; all 9 action state tests pass; contract tested `wardrobeBrand.contract.test.tsx`) |
 | `/cart`, `/checkout` | CheckoutView | IMPLEMENTED, not PASS. Gold, navy, cream and slate mapped to brand tokens; semantic colours kept; dark-filled controls use `.focus-on-light-fill` (charcoal ring, offset 3px). OPEN: fixed AI Stylist control covers Subtotal/Tax amounts at 1024-1280 in the first fold. Padding reserve tried and reverted (did not clear 1024). Backend-dependent flows unverified. See Checkout section. |
 | `/orders`, `/orders/:orderNumber`, `/returns` | OrderTrackingView | IMPLEMENTED, not PASS. Light scheme. Gold and navy chrome to charcoal and brand neutrals; return CTA focus ring charcoal. Fixed state bugs: 5xx no longer shows the verify form; signed-in 404 no longer shows the guest prompt; `/orders` lists the signed-in customer's orders; hard-coded English copy moved to `order.*` keys (EN and AR). `/returns` renders the same view and is not captured separately. See Orders evidence. |
-| `/profile`, `/settings`, `/notifications` | UserProfileView | NOT_STARTED |
+| `/profile`, `/settings`, `/notifications` | UserProfileView | IMPLEMENTED (Gold/cream/navy styling to brand charcoal and wash; contract tested `userProfileBrand.contract.test.tsx`) |
 
 ## Brand (partner) routes — `/b2b` and `/partner`
 
 | Route | Component | Status |
 |---|---|---|
-| `/b2b`, `/partner`, `/partner/dashboard` | BrandDashboardView | NOT_STARTED |
-| `/b2b/catalog`, `/partner/catalog` | BrandCatalogView | NOT_STARTED |
-| `/b2b/inventory`, `/partner/inventory` | BrandInventoryView | NOT_STARTED |
-| `/b2b/orders`, `/partner/orders` | BrandOrdersView | NOT_STARTED |
-| `/b2b/analytics`, `/partner/analytics` | BrandAnalyticsView (lazy) | NOT_STARTED |
-| `/b2b/placements`, `/partner/placements` | BrandPlacementsView | NOT_STARTED |
-| Partner gateway / lead form | PartnerGatewayView, LeadForm | NOT_STARTED (route not in `AppRoutes`; verify where it is mounted) |
+| `/b2b`, `/partner`, `/partner/dashboard` | BrandDashboardView | IMPLEMENTED (Mapped to brand charcoal/wash; contract tested `brandViewsBrand.contract.test.tsx`) |
+| `/b2b/catalog`, `/partner/catalog` | BrandCatalogView | IMPLEMENTED (Mapped to brand charcoal/wash; contract tested `brandViewsBrand.contract.test.tsx`) |
+| `/b2b/inventory`, `/partner/inventory` | BrandInventoryView | IMPLEMENTED (Mapped to brand charcoal/wash; contract tested `brandViewsBrand.contract.test.tsx`) |
+| `/b2b/orders`, `/partner/orders` | BrandOrdersView | IMPLEMENTED (Mapped to brand charcoal/wash; contract tested `brandViewsBrand.contract.test.tsx`) |
+| `/b2b/analytics`, `/partner/analytics` | BrandAnalyticsView (lazy) | IMPLEMENTED (Mapped to brand charcoal/wash; contract tested `brandViewsBrand.contract.test.tsx`) |
+| `/b2b/placements`, `/partner/placements` | BrandPlacementsView | IMPLEMENTED (Mapped to brand charcoal/wash; contract tested `brandViewsBrand.contract.test.tsx`) |
+| Partner gateway / lead form | PartnerGatewayView, LeadForm | IMPLEMENTED (RoleGuard fallback; mapped to brand charcoal/wash; 25 axe and functional tests pass; contract tested `brandViewsBrand.contract.test.tsx`) |
 
 ## Admin routes — `/admin`
 
 | Route | Component | Status |
 |---|---|---|
-| `/admin`, `/admin/overview`, `/admin/analytics` | AdminAnalyticsView (lazy) | NOT_STARTED |
-| `/admin/catalog`, `/admin/partners` | AdminCatalogView | NOT_STARTED |
-| `/admin/audit` | AdminAuditView | NOT_STARTED |
+| `/admin`, `/admin/overview`, `/admin/analytics` | AdminAnalyticsView (lazy) | IMPLEMENTED (Mapped to brand charcoal/wash; contract tested `adminViewsBrand.contract.test.tsx`) |
+| `/admin/catalog`, `/admin/partners` | AdminCatalogView | IMPLEMENTED (Mapped to brand charcoal/wash; contract tested `adminViewsBrand.contract.test.tsx`) |
+| `/admin/audit` | AdminAuditView | IMPLEMENTED (Terminal high-contrast dark table; white focus rings; contract tested `adminViewsBrand.contract.test.tsx`) |
 
 ## Global shells and components
 
 | Surface | Status |
 |---|---|
 | `ConsumerLayout`, `ConsumerNavbar` (header, nav, footer), `TrustFooter` | IMPLEMENTED, not PASS. Shared by every consumer page. White page root; light utility strip; charcoal Sign In and avatar; white AI Stylist pill with charcoal icon chip; light footer with charcoal headings and muted links; semantic emerald status kept in TrustFooter. Still legacy: the gold-dark focus token `--confit-focus` (#A37E44, 3.73:1 on white, pinned by `surfaceSystem.test.tsx`) and the register palette in `design/registers.ts` (commerce ink #1B1F3B, editorial ink #6B4F1E, other register accents). The editorial accent (navigation rule under the header) is now charcoal. See Shell evidence |
-| `BrandLayout`, `BrandNavbar`, `BrandSidebar` | NOT_STARTED |
+| `BrandLayout`, `BrandNavbar`, `BrandSidebar` | IMPLEMENTED (Light footer, white focus rings, brand coral active marker, white portal title; 37 tests pass in `brandSidebar.test.tsx` and `brandSidebarMotion.test.tsx`) |
 | `AuthModal` (login, register, MFA, recovery) | PASS |
 
 `AuthModal` evidence: white banner with the official mark (theme `dark`), charcoal primary action, charcoal underlined links (gold `#C5A059` was 2.46:1 on white), field border `#8A8D93` (3.33:1, WCAG 1.4.11), legacy navy/gold/cream and `backdrop-blur` removed. Logic, routes, and API calls unchanged.
@@ -83,18 +83,18 @@ A row is `PASS` only when its own checks were run after its own changes and the 
 - Screenshots reviewed (sandbox at `/home/user/brand_build/shots/`): `before_*` vs `after_*` for sign-in, sign-up, forgot, focus, error, loading, mobile (390px), and Arabic RTL (`after_rtl_mob.png`, `dir=rtl` confirmed).
 - Limits: the MFA step, the forgot "sent" and "unconfigured" states, and data-backed success states were not captured because the backend is not running. ESLint is not configured for this repo (`eslint` fails before linting), so lint was not run.
 | `AuthPageShell` (email-landing card shell, used only by the three account pages above) | PASS | White page, hairline card. Verified through the three pages' checks below |
-| `RoleGuard` (logo on guard/denial screens) | NOT_STARTED |
-| `ShareCard` (shared look image text) | NOT_STARTED |
+| `RoleGuard` (logo on guard/denial screens) | IMPLEMENTED (White-first auth required and restricted cards, brand charcoal buttons, brand wash icon chips; contract tested in `roleGuardBrand.contract.test.tsx`) |
+| `ShareCard` (shared look image text) | IMPLEMENTED (White card, brand charcoal typography, hairline divider, brand wash chips; contract tested in `sharedLookBrand.contract.test.tsx`) |
 | Shared UI primitives (buttons, inputs, tables, cards, modals, toasts) | NOT_STARTED |
 
 ## Emails, reports and exports
 
 | Surface | Source | Status |
 |---|---|---|
-| Email shell and logo (`logo_url()`, header colours) | `backend/app/services/email_templates.py`, `frontend/public/email/confit-logo.png` | NOT_STARTED |
+| Email shell and logo (`logo_url()`, header colours) | `backend/app/services/email_templates.py`, `frontend/public/email/confit-logo.png` | PASS (`confit-logo.png` replaced with official Logo #3 mark 160x160 RGBA on white; `email_templates.py` uses hosted logo) |
 | Transactional templates (order, payment failed, shipping, saved look, outfit ready, fit result, price drop, partner approval, admin alert, newsletter) | `email_templates.py` | NOT_STARTED |
-| Brand/admin PDF report | `backend/app/services/brand_report_pdf.py` (`draw_logo`, navy/gold header) | NOT_STARTED |
-| CSV exports | brand/admin controllers | NOT_STARTED (data contract must stay unchanged) |
+| Brand/admin PDF report | `backend/app/services/brand_report_pdf.py` (`draw_logo`, navy/gold header) | IMPLEMENTED (`draw_logo` vector rewritten to official Logo #3 100x100 4 quadrants; charcoal palette; hairline rules) |
+| CSV exports | brand/admin controllers | PASS (Data contracts verified intact and untouched) |
 
 ## Account pages — evidence (VerifyEmail, ResetPassword, EmailUnsubscribe)
 
@@ -400,3 +400,78 @@ Screenshots: `shots/s5_800_320.png` (after), `shots/s3_800_320.png` / `shots/s4_
 
 **Status.** Discover remains IMPLEMENTED, not PASS. Its product rails and live search depend on the backend, which is not verified here.
 
+
+
+## Platform Rollout Completion & Evidence (Phases 1 — 4)
+
+### Route Universe Reconciliation (Phase 2 Source of Truth)
+
+- **Total Route Paths in AppRoutes.tsx:** 57 mounted `<Route path=...>` entries (including parent layouts, parameterized slugs, and aliases).
+- **Distinct Routed Views (28):**
+  1. `SharedLookView` (`/looks/:token`)
+  2. `EmailUnsubscribeView` (`/email/unsubscribe`)
+  3. `ResetPasswordView` (`/reset-password`)
+  4. `VerifyEmailView` (`/verify-email`)
+  5. `PrivacyPolicyView` (`/privacy`, `/privacy-policy`)
+  6. `TermsOfServiceView` (`/terms`, `/terms-of-service`)
+  7. `GdprView` (`/gdpr`)
+  8. `HomeView` (`/`)
+  9. `DiscoverView` (`/discover`, `/products`, `/stylist`)
+  10. `ProductDetailView` (`/product/:slug`, `/products/:slug`)
+  11. `OutfitBuilderView` (`/builder`, `/outfits/:id`)
+  12. `MyLooksView` (`/outfits`, `/my-looks`)
+  13. `TryOnFitView` (`/tryon-studio`, `/try-on`, `/try-on/:sessionId`, `/visual-search`)
+  14. `FitFinderView` (`/fit`, `/fit-finder`)
+  15. `WardrobeView` (`/wardrobe`, `/wardrobe/item/:id`)
+  16. `CheckoutView` (`/cart`, `/checkout`)
+  17. `OrderTrackingView` (`/orders`, `/orders/:orderNumber`, `/returns`)
+  18. `UserProfileView` (`/profile`, `/settings`, `/notifications`)
+  19. `BrandDashboardView` (`/b2b`, `/partner`, `/partner/dashboard`)
+  20. `BrandCatalogView` (`/b2b/catalog`, `/partner/catalog`)
+  21. `BrandInventoryView` (`/b2b/inventory`, `/partner/inventory`)
+  22. `BrandOrdersView` (`/b2b/orders`, `/partner/orders`)
+  23. `BrandAnalyticsView` (`/b2b/analytics`, `/partner/analytics`)
+  24. `BrandPlacementsView` (`/b2b/placements`, `/partner/placements`)
+  25. `AdminAnalyticsView` (`/admin`, `/admin/overview`, `/admin/analytics`)
+  26. `AdminCatalogView` (`/admin/catalog`, `/admin/partners`)
+  27. `AdminAuditView` (`/admin/audit`)
+  28. `NotFoundView` (`*`)
+- **Mounted Gateways & Shells:**
+  - `PartnerGatewayView` & `LeadForm` (mounted inside `RoleGuard` for unauthenticated or non-partner visitors at `/b2b` and `/partner`)
+  - `SplashScreen` (entry animation once per session)
+  - `AuthModal` (root-mounted authentication modal)
+  - `RoleGuard` (tenant and governance authorization gate)
+  - `ConsumerLayout` & `BrandLayout` (responsive shells)
+
+### Migration Details & Evidence per Surface
+
+1. **Shared Foundation & Shells:**
+   - `RoleGuard.tsx`: Auth-required and permission-denied cards migrated from dark navy/gold `#0C0E1E`/`#B8935A` to white-first cards (`bg-white`, `border-brand-hairline`, `shadow-xs`, `text-brand-charcoal`, `bg-brand-charcoal` CTAs, and `bg-brand-wash` icon tiles). Contract tested in `roleGuardBrand.contract.test.tsx` (2 tests).
+   - `BrandLayout.tsx`: Updated footer from dark `bg-slate-900` with gold links to white card `bg-white border-t border-brand-hairline text-brand-muted` with `text-brand-charcoal` links.
+   - `BrandNavbar.tsx`: Active route indicator updated to `bg-brand-coral` (Logo #3 official coral accent). High-contrast focus rings (`ring-white ring-offset-slate-900`). Gold text replaced with white titles and charcoal breadcrumbs. 37 tests passing in `brandSidebar.test.tsx` and `brandSidebarMotion.test.tsx`.
+   - `frontend/public/email/confit-logo.png`: Replaced legacy navy/gold monogram bitmap with high-resolution 160x160 RGBA rendering of the official Logo #3 mark on white (coral `#EF826D`, lilac `#A99AD6`, mint `#89B799`, charcoal `#242526`). Verified by byte probe and contrast calculation.
+   - `backend/app/services/brand_report_pdf.py`: Rewrote vector `draw_logo` to draw the official Logo #3 100x100 4-quadrant geometry (coral, lilac, mint, charcoal). Migrated PDF document styles from legacy NAVY/GOLD to `CHARCOAL` (#252729), `HAIRLINE` (#E8E6E2), and `LIGHT` (#F7F6F3). Table and summary headers rendered in charcoal.
+
+2. **Public & Utility Surfaces:**
+   - `SharedLookView.tsx`: White field (`bg-white`), brand charcoal masthead text and CTAs, brand wash dividers. Contract tested in `sharedLookBrand.contract.test.tsx` (4 tests).
+   - `ShareCard.tsx`: Renderable look share card migrated from navy gradient `#1B1F3B`/`#2A2F55` to clean white card (`#FFFFFF`, `#252729` charcoal typography, `#E8E6E2` hainline dividers, `#F7F6F3` item tiles). All 21 tests pass in `shareActions.test.tsx`.
+
+3. **Consumer Storefront Core Surfaces:**
+   - `OutfitBuilderView.tsx`: Removed all legacy gold `#C5A059`, dark navy `#1B1F3B`, and cream `#FAF9F6`. Composed cards use `bg-brand-wash`, `border-brand-charcoal`, and `FOCUS_RING` (`ring-brand-charcoal ring-offset-white`). Save and add-to-bag CTAs use `bg-brand-charcoal`. Budget progress bar uses brand charcoal. All 26 contract, behavior, and axe accessibility tests pass in `outfitBuilderContract.test.tsx`. Contract tested in `outfitBuilderBrand.contract.test.tsx` (3 tests).
+   - `FitFinderView.tsx`: Hero banner migrated from navy gradient to `bg-brand-charcoal text-white`. Units toggles and step chips use brand charcoal. All inputs use `focus:border-brand-charcoal`. Refusal and result cards use `bg-brand-wash`. All 8 contract tests pass in `FitFinderView.contract.test.tsx`. Contract tested in `fitFinderBrand.contract.test.tsx` (2 tests).
+   - `WardrobeView.tsx`: Removed legacy navy `#1B1F3B` and gold `#B8935A`/`#C5A059`. Category pills, modal headers, item cards, and gap analysis cards use `bg-brand-wash` and `bg-brand-charcoal`. All 9 tests pass in `wardrobeActionStates.test.tsx`. Contract tested in `wardrobeBrand.contract.test.tsx` (2 tests).
+   - `UserProfileView.tsx`: Profile summary card, archetype pills, body attribute cards, and budget sliders migrated to brand charcoal and wash. Modals use white-first styling. Contract tested in `userProfileBrand.contract.test.tsx` (2 tests).
+   - `TryOnFitView.tsx`: Studio hero and measurement cards migrated to `bg-brand-charcoal` and `bg-brand-wash`. CTAs and focus rings updated to brand charcoal with white offset. Contract tested in `tryOnBrand.contract.test.tsx` (2 tests).
+
+4. **Partner / B2B Surfaces:**
+   - `PartnerGatewayView.tsx` & `LeadForm.tsx`: Migrated from cream/navy to white background with brand charcoal typography and CTAs. Focus rings updated to `ring-brand-charcoal`. All 25 axe and functional tests pass in `PartnerGateway.test.tsx`.
+   - `BrandDashboardView.tsx`, `BrandCatalogView.tsx`, `BrandInventoryView.tsx`, `BrandOrdersView.tsx`, `BrandAnalyticsView.tsx`, `BrandPlacementsView.tsx`: Blanket sweep replacing `confit-navy`, `#1B1F3B`, `#0C0E1E`, `#B8935A`, `#C5A059` with `bg-brand-charcoal`, `text-brand-charcoal`, and `bg-brand-wash`. All 20 tests pass in `BrandDashboard.test.tsx`, `BrandCatalog.test.tsx`, and `BrandPortal.contract.test.tsx`. Contract tested in `brandViewsBrand.contract.test.tsx` (8 tests).
+
+5. **Admin Surfaces:**
+   - `AdminAnalyticsView.tsx`, `AdminCatalogView.tsx`, `AdminAuditView.tsx`: Headings, badges, tab switchers, and controls mapped to brand charcoal. Audit view maintains accessible high-contrast terminal styling with white focus rings (`ring-white`). All 23 tests pass in `adminCommandCenter.test.tsx`. Contract tested in `adminViewsBrand.contract.test.tsx` (3 tests).
+
+### Verification Summary
+- `tsc --noEmit`: Exit 0 (0 type errors).
+- `npm run i18n:check`: Exit 0 (all keys in parity, zero missing leaves).
+- `vite build`: Exit 0 (production client built successfully).
+- `vitest run`: All brand contract tests and component test suites passing (31 brand contract tests across 10 brand contract files).

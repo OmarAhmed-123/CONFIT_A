@@ -72,7 +72,7 @@ const FORMULAS: Array<{ id: string; labelKey: string }> = [
 /** Shared focus ring: the old view had NO focus-visible treatment anywhere,
  * so keyboard users tabbed through an invisible interface. */
 const FOCUS_RING =
-  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059] focus-visible:ring-offset-2';
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white';
 
 /* ── C04 pass 2: page-scoped design tokens (DRY) ─────────────────────────
    One easing curve, one surface recipe, one hover-lift recipe — declared
@@ -119,10 +119,10 @@ const DraggableProduct: React.FC<{
         {...attributes}
         onClick={() => onAdd(product)}
         aria-label={t('outfit_builder.add_to_outfit', { name: product.title })}
-        className={`w-full text-start bg-[#FAF9F6] border rounded-2xl p-2 cursor-grab flex flex-col justify-between group ${FOCUS_RING} ${
+        className={`w-full text-start bg-brand-wash border rounded-2xl p-2 cursor-grab flex flex-col justify-between group ${FOCUS_RING} ${
           isDragging
-            ? 'opacity-50 border-[#C5A059] shadow-lg z-50 transition-all'
-            : `border-slate-200/80 hover:border-[#C5A059] ${LIFT}`
+            ? 'opacity-50 border-brand-charcoal shadow-lg z-50 transition-all'
+            : `border-slate-200/80 hover:border-brand-charcoal ${LIFT}`
         }`}
       >
         <div className="h-28 rounded-xl overflow-hidden bg-white mb-1.5 relative w-full">
@@ -144,10 +144,10 @@ const DraggableProduct: React.FC<{
           <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider block truncate">
             {product.brand_name}
           </span>
-          <span className="text-[11px] font-bold text-[#1B1F3B] line-clamp-1">{product.title}</span>
+          <span className="text-[11px] font-bold text-brand-charcoal line-clamp-1">{product.title}</span>
           {/* Was a raw interpolation of the base price with a hard-coded
               dollar sign, printing Latin digits inside the Arabic RTL page. */}
-          <span className="text-xs font-bold text-[#1B1F3B] mt-0.5 block">
+          <span className="text-xs font-bold text-brand-charcoal mt-0.5 block">
             {formatMoney(Math.round(product.base_price * 100), product.currency || 'USD', lang)}
           </span>
         </div>
@@ -172,7 +172,7 @@ const DraggableProduct: React.FC<{
         aria-label={t(tryOnKind === 'render' ? 'tryon.cta_try_on' : 'tryon.cta_fit_check')}
         className={`absolute top-0.5 end-0.5 h-11 w-11 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed group/tryon ${FOCUS_RING}`}
       >
-        <span className="h-7 w-7 rounded-full bg-[#1B1F3B]/90 group-hover/tryon:bg-[#C5A059] text-white group-hover/tryon:text-slate-950 shadow-sm backdrop-blur-sm motion-safe:transition-[background-color,color] motion-safe:duration-300 flex items-center justify-center">
+        <span className="h-7 w-7 rounded-full bg-brand-charcoal/90 group-hover/tryon:bg-brand-charcoal text-white text-white group-hover/tryon:text-slate-950 shadow-sm backdrop-blur-sm motion-safe:transition-[background-color,color] motion-safe:duration-300 flex items-center justify-center">
           {tryOnKind === 'render'
             ? <TryOnIcon size={13} color="currentColor" />
             : <RulerIcon size={13} color="currentColor" />}
@@ -210,9 +210,9 @@ const DroppableSlot: React.FC<{
       data-testid={`slot-${slot.key}`}
       className={`${isPortrait ? 'min-h-[16rem] sm:min-h-0 sm:h-full' : 'h-64'} rounded-2xl border motion-safe:transition-[border-color,background-color,box-shadow] motion-safe:duration-300 ${LUX_EASE} p-3 flex flex-col justify-between relative group ${
         isOver
-          ? 'border-[#C5A059] bg-[#C5A059]/10 ring-2 ring-[#C5A059]/40'
+          ? 'border-brand-charcoal bg-brand-wash ring-2 ring-brand-charcoal/20'
           : item
-            ? 'border-[#C5A059]/60 bg-[#FAF9F6] shadow-sm'
+            ? 'border-brand-charcoal/60 bg-brand-wash shadow-sm'
             : 'border-dashed border-slate-300 bg-slate-50/50'
       }`}
     >
@@ -248,7 +248,7 @@ const DroppableSlot: React.FC<{
             <span className="text-[10px] text-slate-500 font-semibold block truncate">
               {item.product.brand_name}
             </span>
-            <span className="text-xs font-bold text-[#1B1F3B] block truncate">
+            <span className="text-xs font-bold text-brand-charcoal block truncate">
               {item.product.title}
             </span>
             {item.skuStatus === 'pending' && (
@@ -264,7 +264,7 @@ const DroppableSlot: React.FC<{
                 {t('outfit_builder.size_label', { size: item.selectedSku.size })}
               </span>
             )}
-            <span className="text-xs font-bold text-[#A37E44]">
+            <span className="text-xs font-bold text-brand-charcoal">
               {formatMoney(
                 Math.round(item.product.base_price * 100),
                 item.product.currency || 'USD',
@@ -284,9 +284,9 @@ const DroppableSlot: React.FC<{
               type="button"
               onClick={() => onSuggest(slot.key)}
               aria-label={t('outfit_builder.suggest_for_slot', { slot: t(slot.labelKey) })}
-              className={`mt-2 inline-flex items-center gap-1.5 px-3 py-2 min-h-[44px] rounded-xl border border-[#C5A059]/50 text-[11px] font-bold text-[#7A5C28] hover:bg-[#C5A059]/10 motion-safe:transition-[background-color,transform] motion-safe:duration-300 ${LUX_EASE} ${FOCUS_RING}`}
+              className={`mt-2 inline-flex items-center gap-1.5 px-3 py-2 min-h-[44px] rounded-xl border border-brand-charcoal/50 text-[11px] font-bold text-brand-muted hover:bg-brand-charcoal text-white/10 motion-safe:transition-[background-color,transform] motion-safe:duration-300 ${LUX_EASE} ${FOCUS_RING}`}
             >
-              <SparkleIcon size={12} color="#C5A059" />
+              <SparkleIcon size={12} color="#252729" />
               {t('outfit_builder.suggest_piece')}
             </button>
           )}
@@ -371,7 +371,7 @@ const EditShareCard: React.FC<{ outfitId: number; title: string }> = ({ outfitId
               error: t('my_looks.publish_failed_retry'),
             }}
             data-testid="builder-publish-link"
-            className={`w-full py-2.5 min-h-[44px] rounded-xl bg-[#1B1F3B] hover:bg-[#0C0E1E] text-white text-xs font-bold motion-safe:transition-[background-color,transform,opacity] motion-safe:duration-300 ${LUX_EASE}`}
+            className={`w-full py-2.5 min-h-[44px] rounded-xl bg-brand-charcoal hover:bg-black text-white text-xs font-bold motion-safe:transition-[background-color,transform,opacity] motion-safe:duration-300 ${LUX_EASE}`}
           />
         </div>
       )}
@@ -573,7 +573,7 @@ export const OutfitBuilderView: React.FC = () => {
   if (loadError) {
     return (
       <div className="py-24 text-center space-y-3">
-        <h1 className="font-serif text-2xl text-[#1B1F3B]">
+        <h1 className="font-serif text-2xl text-brand-charcoal">
           {resolveMessage(loadError, t)}
         </h1>
         <Link
@@ -608,8 +608,8 @@ export const OutfitBuilderView: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200/80 pb-6">
         <div>
           <div className="flex items-center gap-2">
-            <OutfitBuilderIcon size={24} color="#1B1F3B" />
-            <h1 className="font-serif text-3xl font-bold text-[#1B1F3B] tracking-tight">
+            <OutfitBuilderIcon size={24} color="#252729" />
+            <h1 className="font-serif text-3xl font-bold text-brand-charcoal tracking-tight">
               {t('outfit_builder.title')}
             </h1>
           </div>
@@ -645,9 +645,9 @@ export const OutfitBuilderView: React.FC = () => {
               success: t('outfit_builder.saved_confirm'),
               error: t('outfit_builder.save_failed_retry'),
             }}
-            icon={<SavedLooksIcon size={16} color="#0C0E1E" />}
+            icon={<SavedLooksIcon size={16} color="#FFFFFF" />}
             data-testid="save-look-cta"
-            className={`px-5 py-2 rounded-xl bg-[#C5A059] hover:bg-[#A37E44] active:scale-[0.98] disabled:opacity-40 text-slate-950 font-bold text-xs shadow-sm motion-safe:transition-[background-color,transform,opacity] motion-safe:duration-300 ${LUX_EASE}`}
+            className={`px-5 py-2 rounded-xl bg-brand-charcoal text-white hover:bg-black active:scale-[0.98] disabled:opacity-40 text-slate-950 font-bold text-xs shadow-sm motion-safe:transition-[background-color,transform,opacity] motion-safe:duration-300 ${LUX_EASE}`}
           />
         </div>
       </div>
@@ -657,11 +657,11 @@ export const OutfitBuilderView: React.FC = () => {
           gold hairline instead of a full border — structurally DIFFERENT
           from the canvas and summary surfaces so the page reads as curated
           tiers, not a stack of clones. Handlers and copy are unchanged. */}
-      <section className="relative ps-5 py-1 border-s-2 border-[#C5A059]/60">
+      <section className="relative ps-5 py-1 border-s-2 border-brand-charcoal/60">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <span className="text-[10px] font-bold uppercase tracking-widest text-[#7A5C28]">{t('outfit_builder.guided_mode')}</span>
-            <h2 className="font-serif text-2xl font-bold text-[#1B1F3B]">{t('outfit_builder.replace_hint')}</h2>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-brand-muted">{t('outfit_builder.guided_mode')}</span>
+            <h2 className="font-serif text-2xl font-bold text-brand-charcoal">{t('outfit_builder.replace_hint')}</h2>
             <p className="mt-1 text-sm font-light text-slate-500">
               {t('outfit_builder.guided_intro')}
             </p>
@@ -671,7 +671,7 @@ export const OutfitBuilderView: React.FC = () => {
               <button
                 key={formula.id}
                 onClick={() => applyStarterFormula(t(formula.labelKey))}
-                className={`rounded-2xl bg-[#1B1F3B] px-4 py-2.5 min-h-[44px] text-xs font-bold text-white motion-safe:transition-[background-color,color,transform] motion-safe:duration-300 ${LUX_EASE} hover:bg-[#C5A059] hover:text-[#0C0E1E] active:scale-[0.98] ${FOCUS_RING}`}
+                className={`rounded-2xl bg-brand-charcoal px-4 py-2.5 min-h-[44px] text-xs font-bold text-white motion-safe:transition-[background-color,color,transform] motion-safe:duration-300 ${LUX_EASE} hover:bg-black active:scale-[0.98] ${FOCUS_RING}`}
               >
                 {t('outfit_builder.use_formula', { name: t(formula.labelKey) })}
               </button>
@@ -728,13 +728,13 @@ export const OutfitBuilderView: React.FC = () => {
                   onChange={(e) => setOutfitTitle(e.target.value)}
                   placeholder={t('outfit_builder.name_placeholder')}
                   aria-label={t('outfit_builder.name_label')}
-                  className="flex-1 font-serif text-base font-bold text-[#1B1F3B] border-b border-slate-200 focus:outline-none focus:border-[#C5A059] py-1"
+                  className="flex-1 font-serif text-base font-bold text-brand-charcoal border-b border-slate-200 focus:outline-none focus:border-brand-charcoal py-1"
                 />
                 <select
                   aria-label={t('outfit_builder.target_occasion')}
                   value={targetOccasion}
                   onChange={(e) => setTargetOccasion(e.target.value)}
-                  className="text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 min-h-[44px] focus:outline-none focus:border-[#C5A059]"
+                  className="text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 min-h-[44px] focus:outline-none focus:border-brand-charcoal"
                 >
                   {/* Preserve a hydrated value that is not one of the current
                       locale's options (saved in another language, or a formula
@@ -782,12 +782,12 @@ export const OutfitBuilderView: React.FC = () => {
               {(isSuggesting || suggestError || suggestions) && (
                 <div
                   data-testid="builder-suggestions"
-                  className="rounded-2xl border border-[#C5A059]/30 bg-[#FAF9F6] p-4 space-y-3 confit-fade-in"
+                  className="rounded-2xl border border-brand-charcoal/30 bg-brand-wash p-4 space-y-3 confit-fade-in"
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1.5 min-w-0">
-                      <SparkleIcon size={14} color="#C5A059" />
-                      <span className="text-xs font-bold text-[#1B1F3B] truncate">
+                      <SparkleIcon size={14} color="#252729" />
+                      <span className="text-xs font-bold text-brand-charcoal truncate">
                         {suggestions
                           ? t('outfit_builder.suggestions_for', {
                               slot: t(SLOT_LABEL_KEY[suggestions.slot]),
@@ -811,7 +811,7 @@ export const OutfitBuilderView: React.FC = () => {
                       type="button"
                       onClick={dismissSuggestions}
                       aria-label={t('common.close')}
-                      className={`h-11 w-11 shrink-0 flex items-center justify-center text-slate-500 hover:text-[#1B1F3B] ${FOCUS_RING}`}
+                      className={`h-11 w-11 shrink-0 flex items-center justify-center text-slate-500 hover:text-brand-charcoal ${FOCUS_RING}`}
                     >
                       ✕
                     </button>
@@ -850,9 +850,9 @@ export const OutfitBuilderView: React.FC = () => {
                             dismissSuggestions();
                           }}
                           aria-label={t('outfit_builder.add_suggestion', { name: p.title })}
-                          className={`group text-start rounded-xl border border-slate-200/80 bg-white p-2 hover:border-[#C5A059] ${LIFT} ${FOCUS_RING}`}
+                          className={`group text-start rounded-xl border border-slate-200/80 bg-white p-2 hover:border-brand-charcoal ${LIFT} ${FOCUS_RING}`}
                         >
-                          <div className="h-20 rounded-lg overflow-hidden bg-[#FAF9F6] mb-1.5">
+                          <div className="h-20 rounded-lg overflow-hidden bg-brand-wash mb-1.5">
                             <HonestProductImage
                               src={p.thumbnail_url}
                               alt={p.title}
@@ -860,10 +860,10 @@ export const OutfitBuilderView: React.FC = () => {
                               className={`w-full h-full object-cover ${MEDIA_ZOOM}`}
                             />
                           </div>
-                          <span className="text-[10px] font-bold text-[#1B1F3B] line-clamp-1 block">
+                          <span className="text-[10px] font-bold text-brand-charcoal line-clamp-1 block">
                             {p.title}
                           </span>
-                          <span className="text-[10px] font-bold text-[#A37E44] block">
+                          <span className="text-[10px] font-bold text-brand-charcoal block">
                             {formatMoney(Math.round(p.base_price * 100), p.currency || displayCurrency || 'EGP', lang)}
                           </span>
                         </button>
@@ -876,7 +876,7 @@ export const OutfitBuilderView: React.FC = () => {
 
             {/* Catalog Mix & Match Selector (draggable) */}
             <div className={`${SURFACE} p-5 space-y-4`}>
-              <h3 className="font-serif text-base font-bold text-[#1B1F3B]">
+              <h3 className="font-serif text-base font-bold text-brand-charcoal">
                 {t('outfit_builder.drop_garment_here')}
               </h3>
               {/* C04 pass 3 — the palette now tells the TRUTH about why it is
@@ -962,7 +962,7 @@ export const OutfitBuilderView: React.FC = () => {
                   <span className="text-sm text-slate-600 font-light">
                     {t('outfit_builder.running_total')}:
                   </span>
-                  <span data-testid="builder-running-total" className="text-2xl font-serif font-black text-[#1B1F3B]">
+                  <span data-testid="builder-running-total" className="text-2xl font-serif font-black text-brand-charcoal">
                     {formattedTotal}
                   </span>
                 </div>
@@ -1001,7 +1001,7 @@ export const OutfitBuilderView: React.FC = () => {
                     className={`h-full rounded-full motion-safe:transition-[width,background-color] motion-safe:duration-500 ${LUX_EASE} ${
                       isOverBudget
                         ? 'bg-rose-500'
-                        : 'bg-gradient-to-r from-[#B8935A] via-[#C5A059] to-[#E2BF70]'
+                        : 'bg-brand-charcoal'
                     }`}
                     style={{ width: `${Math.min(100, (runningTotal / userBudgetLimit) * 100)}%` }}
                   ></div>
@@ -1013,8 +1013,8 @@ export const OutfitBuilderView: React.FC = () => {
             <div className={`${SURFACE} p-6 space-y-4`}>
               <div className="flex justify-between items-center pb-3 border-b border-slate-100">
                 <div className="flex items-center gap-1.5">
-                  <SparkleIcon size={16} color="#C5A059" />
-                  <span className="text-xs font-bold text-[#1B1F3B]">
+                  <SparkleIcon size={16} color="#252729" />
+                  <span className="text-xs font-bold text-brand-charcoal">
                     {t('outfit_builder.compatibility_rating')}
                   </span>
                 </div>
@@ -1042,7 +1042,7 @@ export const OutfitBuilderView: React.FC = () => {
                   <span className="font-bold text-slate-700 block mb-0.5">
                     {t('outfit_builder.color_harmony')}:
                   </span>
-                  <p className="text-slate-500 leading-relaxed bg-[#FAF9F6] p-2.5 rounded-xl border border-slate-100 font-light">
+                  <p className="text-slate-500 leading-relaxed bg-brand-wash p-2.5 rounded-xl border border-slate-100 font-light">
                     {compatibility?.color_harmony_verdict ||
                       t(isAuthenticated ? 'outfit_builder.harmony_empty' : 'outfit_builder.sign_in_to_evaluate')}
                   </p>
@@ -1052,7 +1052,7 @@ export const OutfitBuilderView: React.FC = () => {
                   <span className="font-bold text-slate-700 block mb-0.5">
                     {t('outfit_builder.aesthetic_synergy')}:
                   </span>
-                  <p className="text-slate-500 leading-relaxed bg-[#FAF9F6] p-2.5 rounded-xl border border-slate-100 font-light">
+                  <p className="text-slate-500 leading-relaxed bg-brand-wash p-2.5 rounded-xl border border-slate-100 font-light">
                     {compatibility?.aesthetic_consistency_verdict ||
                       t(isAuthenticated ? 'outfit_builder.synergy_empty' : 'outfit_builder.sign_in_to_evaluate')}
                   </p>
@@ -1068,7 +1068,7 @@ export const OutfitBuilderView: React.FC = () => {
                   disabled={selectedItems.length === 0 || isAddingAll}
                   aria-busy={isAddingAll}
                   data-testid="builder-add-all"
-                  className={`w-full py-3.5 min-h-[48px] rounded-2xl bg-[#1B1F3B] hover:bg-[#0C0E1E] active:scale-[0.99] disabled:opacity-40 text-white font-bold text-xs shadow-md motion-safe:transition-[background-color,transform,opacity] motion-safe:duration-300 ${LUX_EASE} flex items-center justify-center gap-2 ${FOCUS_RING}`}
+                  className={`w-full py-3.5 min-h-[48px] rounded-2xl bg-brand-charcoal hover:bg-black active:scale-[0.99] disabled:opacity-40 text-white font-bold text-xs shadow-md motion-safe:transition-[background-color,transform,opacity] motion-safe:duration-300 ${LUX_EASE} flex items-center justify-center gap-2 ${FOCUS_RING}`}
                 >
                   <BagIcon size={16} color="#FFFFFF" />
                   <span>{t('outfit_builder.add_look_to_bag', { total: formattedTotal })}</span>

@@ -367,3 +367,36 @@ Tried an `lg:pe-20` reserve inside the Order summary card. Browser result: the a
 
 **Status.** Checkout stays IMPLEMENTED, not PASS: payment methods, cart with items, order placement, and promo are backend-dependent and unverified.
 
+## Discover: search button and 320x800 captions (decisions: fix, not accept)
+
+**Search by Photo (1024-1280).** The button sat at x 806-934 (1024) and 1062-1190 (1280), y 785-831, inside the hero's right column. The fixed AI Stylist footprint is x 811-1000 / 1067-1256, y 762-812 at 844 high (718-768 at 800 high). In the right column the search row cannot clear x 811+ at 1024 (the column is 402 wide from x 549), and the column starts too high for the control to rise out of the band.
+
+**Fix (lg only).** The search card moves to the left column under the title, through a new opt-in `asideClassName` on the shared `HeroSection` (default empty, so other callers are unchanged). Discover passes `lg:col-start-1 lg:row-start-2`.
+
+| Viewport | Button before | Button after | Intersection |
+|---|---|---|---|
+| 1024x844 / 800 | 806,785 - 934,831 (overlaps) | 372,934 - 500,980 | none |
+| 1280x844 / 800 | 1062,774 - 1190,820 (overlaps) | 376,911 - 504,957 | none |
+| 768x844 | 566,1090 - 694,1136 | identical | unchanged |
+| 390x844 | 286,1143 - 336,1189 | identical | unchanged |
+
+**Trade-off (recorded).** At 1024-1280 the search row is now just below the first 844px fold (y 911-980), not in it. It is fully reachable by scrolling and no longer covered. Keeping it in the first fold would need a design change to the hero's right column that the measurements do not support.
+
+**Mood stack at 320x800 (fix, not accept).** Two defects:
+1. Overlap: 3 caption hits at 320x800 after the earlier fix. Raising the stage below 360px (`!bottom-40` at 320 only) removed them: 0 text / 0 control hits.
+2. Clipping: at 320 the 300px compact card is wider than the ~246px stack container, so the active card was clipped at both sides and "Tailored Power" lost its first letter. Fixed below 360px only: `scale-[0.8]` from `origin-bottom` on the card layer. The card now fits and the caption reads in full.
+
+| Viewport | Text / control hits (after) |
+|---|---|
+| 320x800 | 0 / 0 (one decorative image edge) |
+| 320x844 | 0 / 0 |
+| 360x800 | 0 / 0 |
+| 375x844 | 0 / 0 |
+| 390x800 / 844 | 0 / 0 |
+
+Screenshots: `shots/s5_800_320.png` (after), `shots/s3_800_320.png` / `shots/s4_800_320.png` (intermediate, clipped).
+
+**Tests.** `mobileStackReserve.brand.test.tsx` (8): mood-stack reserves; the 320-only scale and lift; the Discover aside placement; the opt-in `HeroSection` prop. `tsc --noEmit` 0. `vite build` 0. `vitest run`: 122 files, 1498 tests passed.
+
+**Status.** Discover remains IMPLEMENTED, not PASS. Its product rails and live search depend on the backend, which is not verified here.
+

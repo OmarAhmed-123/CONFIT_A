@@ -227,9 +227,8 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: Optional[str] = None
 
     # Where the SPA lives — used to build action links (reset/verify) inside
-    # transactional emails. No default magic-prod value: previews and local
-    # dev point at themselves; production MUST set it explicitly.
-    FRONTEND_BASE_URL: str = "http://localhost:43123"
+    # transactional emails. Defaults to live canonical deployment URL.
+    FRONTEND_BASE_URL: str = "https://confit-4qa8g1ytg-omarsafealden-3943s-projects.vercel.app"
 
     # Database & Redis
     DATABASE_URL: str = "sqlite:///./backend/data/confit.db"

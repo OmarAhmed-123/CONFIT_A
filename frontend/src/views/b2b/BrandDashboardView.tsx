@@ -91,7 +91,7 @@ export const BrandDashboardView: React.FC = () => {
         <button
           type="button"
           onClick={refresh}
-          className="mt-5 inline-flex min-h-12 items-center gap-2 rounded-xl bg-[var(--confit-navy)] px-6 text-xs font-semibold text-white transition-colors duration-300 ease-luxury hover:bg-[#0C0E1E] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white"
+          className="mt-5 inline-flex min-h-12 items-center gap-2 rounded-xl bg-brand-charcoal px-6 text-xs font-semibold text-white transition-colors duration-300 ease-luxury hover:bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white"
         >
           {t('common.retry')}
         </button>
@@ -112,7 +112,7 @@ export const BrandDashboardView: React.FC = () => {
         <button
           type="button"
           onClick={refresh}
-          className="mt-5 inline-flex min-h-12 items-center gap-2 rounded-xl bg-[var(--confit-navy)] px-6 text-xs font-semibold text-white transition-colors duration-300 ease-luxury hover:bg-[#0C0E1E] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white"
+          className="mt-5 inline-flex min-h-12 items-center gap-2 rounded-xl bg-brand-charcoal px-6 text-xs font-semibold text-white transition-colors duration-300 ease-luxury hover:bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white"
         >
           {t('common.retry')}
         </button>
@@ -345,7 +345,7 @@ export const BrandDashboardView: React.FC = () => {
             <ol className="space-y-3">
               {analytics.outfit_appearance_rankings.map((rank: any, idx: number) => (
                 <li key={rank.product_id} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-[var(--confit-cream)] p-2.5">
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--confit-navy)] text-xs font-bold text-white">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-charcoal text-xs font-bold text-white">
                     #{idx + 1}
                   </span>
                   <span className="h-14 w-12 shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-white">

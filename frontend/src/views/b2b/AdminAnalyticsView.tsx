@@ -31,11 +31,11 @@ const HeatmapDimension: React.FC<{
         <div key={cell.raw_name ?? cell.name} className="space-y-1 text-xs">
           <div className="flex justify-between font-bold text-slate-700">
             <span>{cell.name}</span>
-            <span className="text-[#B8935A]">{cellLabel(cell)}</span>
+            <span className="text-brand-charcoal font-semibold">{cellLabel(cell)}</span>
           </div>
           <div className="w-full h-3 rounded-full bg-slate-100 overflow-hidden">
             <div
-              className="h-full bg-[#1B1F3B] rounded-full"
+              className="h-full bg-brand-charcoal rounded-full"
               style={{ width: `${Math.min(100, cell.share)}%` }}
               role="presentation"
             />
@@ -156,7 +156,7 @@ export const AdminAnalyticsView: React.FC = () => {
         description={t('admin_analytics.showcase_desc')}
       />
       <div className="border-b border-slate-200 pb-4">
-        <h1 className="font-serif text-2xl font-bold text-[#1B1F3B] sm:text-3xl">
+        <h1 className="font-serif text-2xl font-bold text-brand-charcoal sm:text-3xl">
           {t('admin_analytics.title')}
         </h1>
         <p className="mt-1 text-xs text-slate-500 sm:text-sm">
@@ -192,9 +192,9 @@ export const AdminAnalyticsView: React.FC = () => {
               type="button"
               onClick={() => setWindow(days)}
               aria-pressed={analyticsDays === days}
-              className={`min-h-11 rounded-xl border px-4 text-xs font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B8935A] ${
+              className={`min-h-11 rounded-xl border px-4 text-xs font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white ${
                 analyticsDays === days
-                  ? 'border-[#1B1F3B] bg-[#1B1F3B] text-white'
+                  ? 'border-brand-charcoal bg-brand-charcoal text-white'
                   : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-100'
               }`}
             >
@@ -205,9 +205,9 @@ export const AdminAnalyticsView: React.FC = () => {
             type="button"
             onClick={() => setWindow(undefined)}
             aria-pressed={analyticsDays === undefined}
-            className={`min-h-11 rounded-xl border px-4 text-xs font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B8935A] ${
+            className={`min-h-11 rounded-xl border px-4 text-xs font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white ${
               analyticsDays === undefined
-                ? 'border-[#1B1F3B] bg-[#1B1F3B] text-white'
+                ? 'border-brand-charcoal bg-brand-charcoal text-white'
                 : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-100'
             }`}
           >
@@ -216,7 +216,7 @@ export const AdminAnalyticsView: React.FC = () => {
           <button
             type="button"
             onClick={refresh}
-            className="min-h-11 rounded-xl border border-slate-300 bg-white px-4 text-xs font-bold text-slate-700 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B8935A]"
+            className="min-h-11 rounded-xl border border-slate-300 bg-white px-4 text-xs font-bold text-slate-700 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white"
           >
             {t('admin_analytics.refresh')}
           </button>
@@ -228,7 +228,7 @@ export const AdminAnalyticsView: React.FC = () => {
       <Reveal className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         <div className="bg-white rounded-3xl border border-slate-200 p-5 shadow-sm space-y-1">
           <span className="text-xs font-bold uppercase text-slate-500">{t('admin_analytics.gmv_title')}</span>
-          <div className="font-serif text-2xl font-black text-[#1B1F3B]" dir="ltr">
+          <div className="font-serif text-2xl font-black text-brand-charcoal" dir="ltr">
             {money(adminAnalytics.total_gmv, adminAnalytics.currency)}
           </div>
           {gmvEntries.length > 0 && adminAnalytics.currency_status === 'mixed_currencies' && (
@@ -249,7 +249,7 @@ export const AdminAnalyticsView: React.FC = () => {
 
         <div className="bg-white rounded-3xl border border-slate-200 p-5 shadow-sm space-y-1">
           <span className="text-xs font-bold uppercase text-slate-500">{t('admin_analytics.orders_title')}</span>
-          <div className="font-serif text-2xl font-black text-[#1B1F3B]">
+          <div className="font-serif text-2xl font-black text-brand-charcoal">
             {adminAnalytics.total_orders.toLocaleString()}
           </div>
           <div className="text-[11px] font-medium text-slate-600">
@@ -283,7 +283,7 @@ export const AdminAnalyticsView: React.FC = () => {
       <Reveal delay={0.1} className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         <div className="lg:col-span-6 bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-4">
           <div className="pb-3 border-b border-slate-100">
-            <h2 className="font-serif text-lg font-bold text-[#1B1F3B]">
+            <h2 className="font-serif text-lg font-bold text-brand-charcoal">
               {t('admin_analytics.attribution_title')}
             </h2>
             <p className="text-xs text-slate-600">{t('admin_analytics.attribution_subtitle')}</p>
@@ -300,11 +300,11 @@ export const AdminAnalyticsView: React.FC = () => {
                   <h3 className="mb-2 font-mono text-[11px] font-bold text-slate-600">{currencyCode}</h3>
                   <div className="space-y-2">
                     {Object.entries(channels).map(([feat, rev]) => (
-                      <div key={feat} className="flex items-center justify-between gap-3 rounded-2xl border border-slate-100 bg-[#FAF9F6] p-3">
+                      <div key={feat} className="flex items-center justify-between gap-3 rounded-2xl border border-slate-100 bg-brand-wash p-3">
                         <span className="font-bold text-slate-800">
                           {t(`admin_analytics.channel.${feat}`, { defaultValue: feat.replace(/_/g, ' ') })}
                         </span>
-                        <span className="font-mono text-sm font-bold text-[#1B1F3B]" dir="ltr">
+                        <span className="font-mono text-sm font-bold text-brand-charcoal" dir="ltr">
                           {money(rev, currencyCode)}
                         </span>
                       </div>
@@ -314,11 +314,11 @@ export const AdminAnalyticsView: React.FC = () => {
               ))
             ) : (
               Object.entries(adminAnalytics.revenue_attribution).map(([feat, rev]) => (
-                <div key={feat} className="flex items-center justify-between gap-3 rounded-2xl border border-slate-100 bg-[#FAF9F6] p-3">
+                <div key={feat} className="flex items-center justify-between gap-3 rounded-2xl border border-slate-100 bg-brand-wash p-3">
                   <span className="font-bold text-slate-800">
                     {t(`admin_analytics.channel.${feat}`, { defaultValue: feat.replace(/_/g, ' ') })}
                   </span>
-                  <span className="font-mono text-sm font-bold text-[#1B1F3B]" dir="ltr">
+                  <span className="font-mono text-sm font-bold text-brand-charcoal" dir="ltr">
                     {money(rev, adminAnalytics.currency)}
                   </span>
                 </div>
@@ -334,7 +334,7 @@ export const AdminAnalyticsView: React.FC = () => {
 
         <div className="lg:col-span-6 bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-4">
           <div className="pb-3 border-b border-slate-100">
-            <h3 className="font-serif text-lg font-bold text-[#1B1F3B]">
+            <h3 className="font-serif text-lg font-bold text-brand-charcoal">
               {t('admin_heatmap.title', { scope: heatmap.region })}
             </h3>
             <p className="text-xs text-slate-500">{t('admin_heatmap.subtitle')}</p>
@@ -388,12 +388,12 @@ export const AdminAnalyticsView: React.FC = () => {
       {/* Most Styled Items - REAL */}
       {adminAnalytics.most_styled_items?.length ? (
         <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-4">
-          <h2 className="font-serif text-lg font-bold text-[#1B1F3B]">{t('admin_analytics.most_styled_title')}</h2>
+          <h2 className="font-serif text-lg font-bold text-brand-charcoal">{t('admin_analytics.most_styled_title')}</h2>
           <p className="text-[11px] text-slate-600">{t('admin_analytics.most_styled_methodology')}</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {adminAnalytics.most_styled_items.slice(0, 6).map((item, idx) => (
-              <div key={item.product_id} className="flex items-center gap-3 p-3 rounded-2xl bg-[#FAF9F6] border">
-                <div className="w-8 h-8 rounded-xl bg-[#1B1F3B] text-white flex items-center justify-center font-bold text-xs">#{idx + 1}</div>
+              <div key={item.product_id} className="flex items-center gap-3 p-3 rounded-2xl bg-brand-wash border">
+                <div className="w-8 h-8 rounded-xl bg-brand-charcoal text-white flex items-center justify-center font-bold text-xs">#{idx + 1}</div>
                 <div className="w-10 h-12 rounded bg-white overflow-hidden"><HonestProductImage src={item.thumbnail_url} alt={item.title} className="w-full h-full object-cover" /></div>
                 <div className="flex-1 min-w-0">
                   <div className="text-xs font-bold truncate">{item.title}</div>
@@ -425,13 +425,13 @@ export const AdminAnalyticsView: React.FC = () => {
         });
         return (
       <Reveal delay={0.15} className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-4">
-        <h2 className="font-serif text-lg font-bold text-[#1B1F3B]">{t('admin_analytics.brand_perf_title')}</h2>
+        <h2 className="font-serif text-lg font-bold text-brand-charcoal">{t('admin_analytics.brand_perf_title')}</h2>
         <p className="text-[11px] text-slate-600">{t('admin_analytics.brand_perf_methodology')}</p>
         <div
           role="region"
           aria-label={t('admin_analytics.brand_table_caption')}
           tabIndex={0}
-          className="overflow-x-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B8935A]"
+          className="overflow-x-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white"
         >
           <table className="min-w-[760px] w-full text-left text-xs">
             <caption className="sr-only">{t('admin_analytics.brand_table_caption')}</caption>
@@ -442,7 +442,7 @@ export const AdminAnalyticsView: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => toggleSort('products')}
-                    className="inline-flex min-h-11 items-center gap-1 font-bold uppercase focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B8935A]"
+                    className="inline-flex min-h-11 items-center gap-1 font-bold uppercase focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white"
                   >
                     {t('admin_analytics.products')}
                     <span aria-hidden="true">{sortKey === 'products' ? (sortDir === 'desc' ? '↓' : '↑') : ''}</span>
@@ -452,7 +452,7 @@ export const AdminAnalyticsView: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => toggleSort('views')}
-                    className="inline-flex min-h-11 items-center gap-1 font-bold uppercase focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B8935A]"
+                    className="inline-flex min-h-11 items-center gap-1 font-bold uppercase focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white"
                   >
                     {t('admin_analytics.views')}
                     <span aria-hidden="true">{sortKey === 'views' ? (sortDir === 'desc' ? '↓' : '↑') : ''}</span>
@@ -463,7 +463,7 @@ export const AdminAnalyticsView: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => toggleSort('orders')}
-                    className="inline-flex min-h-11 items-center gap-1 font-bold uppercase focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B8935A]"
+                    className="inline-flex min-h-11 items-center gap-1 font-bold uppercase focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white"
                   >
                     {t('admin_analytics.orders')}
                     <span aria-hidden="true">{sortKey === 'orders' ? (sortDir === 'desc' ? '↓' : '↑') : ''}</span>
@@ -473,7 +473,7 @@ export const AdminAnalyticsView: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => toggleSort('conversion_rate')}
-                    className="inline-flex min-h-11 items-center gap-1 font-bold uppercase focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B8935A]"
+                    className="inline-flex min-h-11 items-center gap-1 font-bold uppercase focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white"
                   >
                     {t('admin_analytics.conversion')}
                     <span aria-hidden="true">{sortKey === 'conversion_rate' ? (sortDir === 'desc' ? '↓' : '↑') : ''}</span>
@@ -500,7 +500,7 @@ export const AdminAnalyticsView: React.FC = () => {
                          view already reads brand_id from the URL. */
                       <Link
                         to={`/admin/catalog?brand_id=${brand.brand_id}`}
-                        className="inline-flex min-h-11 items-center underline decoration-[#B8935A] underline-offset-2 hover:text-[#8A6A2F] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B8935A]"
+                        className="inline-flex min-h-11 items-center underline decoration-brand-charcoal underline-offset-2 hover:text-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white"
                         aria-label={t('admin_analytics.drill_down', { brand: brand.brand })}
                       >
                         {brand.brand}
@@ -559,7 +559,7 @@ export const AdminAnalyticsView: React.FC = () => {
         </div>
         <div className="p-4 rounded-2xl bg-white border border-slate-200">
           <span className="block text-[10px] uppercase text-slate-500">{t('admin_analytics.tryon_adoption')}</span>
-          <span className="font-bold text-lg text-[#B8935A]">{pct(adminAnalytics.tryon_adoption_rate)}</span>
+          <span className="font-bold text-lg text-brand-charcoal font-semibold">{pct(adminAnalytics.tryon_adoption_rate)}</span>
         </div>
         <div className="p-4 rounded-2xl bg-white border border-slate-200">
           <span className="block text-[10px] uppercase text-slate-500">{t('admin_analytics.outfit_to_purchase')}</span>

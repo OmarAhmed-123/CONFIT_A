@@ -330,7 +330,7 @@ export const FitFinderView: React.FC = () => {
           aria-invalid={Boolean(validationErrors[key])}
           aria-describedby={validationErrors[key] ? `fit-${key}-error` : undefined}
           onChange={(e) => set(key, e.target.value === '' ? null : Number(e.target.value))}
-          className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-[#C5A059]"
+          className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-brand-charcoal focus:ring-1 focus:ring-brand-charcoal"
         />
         <span className="text-[10px] text-slate-500 font-semibold w-6">{unitLabel}</span>
       </div>
@@ -347,10 +347,10 @@ export const FitFinderView: React.FC = () => {
   return (
     <div className="space-y-8 pb-20">
       {/* Header */}
-      <div className="bg-gradient-to-r from-[#1B1F3B] to-[#0C0E1E] rounded-3xl text-white p-8 sm:p-10 shadow-xl border border-slate-800">
+      <div className="bg-brand-charcoal rounded-3xl text-white p-8 sm:p-10 shadow-xl border border-slate-800">
         <div className="max-w-2xl space-y-3">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#C5A059]/20 border border-[#C5A059]/40 text-[#E2BF70] text-xs font-semibold uppercase tracking-wider">
-            <RulerIcon size={14} color="#E2BF70" />
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/20 text-white text-xs font-semibold uppercase tracking-wider">
+            <RulerIcon size={14} color="currentColor" />
             <span>{t('fit_finder.badge')}</span>
           </div>
           <h1 className="font-serif text-3xl sm:text-4xl font-bold leading-tight">
@@ -363,9 +363,9 @@ export const FitFinderView: React.FC = () => {
             {t('fit_finder.photo_studio_q')}{' '}
             <button
               onClick={() => navigate('/tryon-studio')}
-              className="text-[#C5A059] font-semibold hover:underline inline-flex items-center gap-1"
+              className="text-brand-charcoal font-semibold hover:underline inline-flex items-center gap-1"
             >
-              {t('fit_finder.open_tryon')} <TryOnIcon size={12} color="#C5A059" />
+              {t('fit_finder.open_tryon')} <TryOnIcon size={12} color="#252729" />
             </button>
           </p>
         </div>
@@ -375,8 +375,8 @@ export const FitFinderView: React.FC = () => {
         {/* Inputs */}
         <div className="lg:col-span-3 space-y-6">
           <div className="bg-white rounded-3xl border border-slate-200/80 p-5 shadow-2xs space-y-3">
-            <h3 className="font-serif text-base font-bold text-[#1B1F3B] flex items-center gap-2">
-              <span className="w-6 h-6 rounded-lg bg-[#1B1F3B] text-white text-[11px] flex items-center justify-center font-sans font-bold">1</span>
+            <h3 className="font-serif text-base font-bold text-brand-charcoal flex items-center gap-2">
+              <span className="w-6 h-6 rounded-lg bg-brand-charcoal text-white text-[11px] flex items-center justify-center font-sans font-bold">1</span>
               {t('fit_finder.step_garment')}
             </h3>
             {catalogLoading ? (
@@ -392,7 +392,7 @@ export const FitFinderView: React.FC = () => {
                   setCalcError(null);
                   calcSeq.current += 1;
                 }}
-                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold focus:outline-none focus:border-[#C5A059]"
+                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold focus:outline-none focus:border-brand-charcoal focus:ring-1 focus:ring-brand-charcoal"
               >
                 <option value="">— Select a product —</option>
                 {products.map((p) => (
@@ -420,8 +420,8 @@ export const FitFinderView: React.FC = () => {
           {/* Measurements */}
           <div className="bg-white rounded-3xl border border-slate-200/80 p-5 shadow-2xs space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="font-serif text-base font-bold text-[#1B1F3B] flex items-center gap-2">
-                <span className="w-6 h-6 rounded-lg bg-[#1B1F3B] text-white text-[11px] flex items-center justify-center font-sans font-bold">2</span>
+              <h3 className="font-serif text-base font-bold text-brand-charcoal flex items-center gap-2">
+                <span className="w-6 h-6 rounded-lg bg-brand-charcoal text-white text-[11px] flex items-center justify-center font-sans font-bold">2</span>
                 {t('fit_finder.step_measurements')}
               </h3>
               <div className="flex items-center bg-slate-100 rounded-xl p-1 text-[11px] font-bold" role="group" aria-label={t('fit_finder.unit_system')}>
@@ -429,7 +429,7 @@ export const FitFinderView: React.FC = () => {
                   type="button"
                   onClick={() => switchUnits('metric')}
                   aria-pressed={units === 'metric'}
-                  className={`px-3 py-1 rounded-lg transition-all ${units === 'metric' ? 'bg-white shadow-2xs text-[#1B1F3B]' : 'text-slate-600'}`}
+                  className={`px-3 py-1 rounded-lg transition-all ${units === 'metric' ? 'bg-white shadow-2xs text-brand-charcoal' : 'text-slate-600'}`}
                 >
                   cm / kg
                 </button>
@@ -437,7 +437,7 @@ export const FitFinderView: React.FC = () => {
                   type="button"
                   onClick={() => switchUnits('imperial')}
                   aria-pressed={units === 'imperial'}
-                  className={`px-3 py-1 rounded-lg transition-all ${units === 'imperial' ? 'bg-white shadow-2xs text-[#1B1F3B]' : 'text-slate-600'}`}
+                  className={`px-3 py-1 rounded-lg transition-all ${units === 'imperial' ? 'bg-white shadow-2xs text-brand-charcoal' : 'text-slate-600'}`}
                 >
                   in / lbs
                 </button>
@@ -460,7 +460,7 @@ export const FitFinderView: React.FC = () => {
                     aria-invalid={Boolean(validationErrors.height)}
                     aria-describedby={validationErrors.height ? 'fit-height-error' : undefined}
                     onChange={(e) => set('height', Number(e.target.value))}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-[#C5A059]"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-brand-charcoal focus:ring-1 focus:ring-brand-charcoal"
                   />
                   <span className="text-[10px] text-slate-500 font-semibold w-6">{unitLabel}</span>
                 </div>
@@ -486,7 +486,7 @@ export const FitFinderView: React.FC = () => {
                     aria-invalid={Boolean(validationErrors.weight)}
                     aria-describedby={validationErrors.weight ? 'fit-weight-error' : undefined}
                     onChange={(e) => set('weight', Number(e.target.value))}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-[#C5A059]"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-brand-charcoal focus:ring-1 focus:ring-brand-charcoal"
                   />
                   <span className="text-[10px] text-slate-500 font-semibold w-6">{weightLabel}</span>
                 </div>
@@ -509,7 +509,7 @@ export const FitFinderView: React.FC = () => {
                   id="fit-shape"
                   value={form.bodyShape}
                   onChange={(e) => set('bodyShape', e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-[#C5A059]"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-brand-charcoal focus:ring-1 focus:ring-brand-charcoal"
                 >
                   {BODY_SHAPES.map((s) => (
                     <option key={s} value={s}>{t(SHAPE_LABEL_KEYS[s] ?? s, s)}</option>
@@ -525,7 +525,7 @@ export const FitFinderView: React.FC = () => {
                   id="fit-demographic"
                   value={form.demographic}
                   onChange={(e) => set('demographic', e.target.value as FormState['demographic'])}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-[#C5A059]"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-brand-charcoal focus:ring-1 focus:ring-brand-charcoal"
                 >
                   {DEMOGRAPHICS.map((d) => (
                     <option key={d.value} value={d.value}>{t(d.labelKey)}</option>
@@ -548,7 +548,7 @@ export const FitFinderView: React.FC = () => {
               className={`rounded-2xl px-3 py-2 text-[11px] leading-relaxed border ${
                 measuredCount === 0
                   ? 'bg-amber-50 border-amber-200 text-amber-800'
-                  : 'bg-[#FAF9F6] border-slate-200 text-slate-600'
+                  : 'bg-brand-wash border-slate-200 text-slate-600'
               }`}
             >
               {measuredCount === 0 ? (
@@ -571,7 +571,7 @@ export const FitFinderView: React.FC = () => {
                     aria-pressed={form.preferredFit === f.value}
                     className={`py-2 rounded-xl border text-[11px] font-bold transition-all ${
                       form.preferredFit === f.value
-                        ? 'border-[#C5A059] bg-[#FDF8EE] text-[#7A5C28]'
+                        ? 'border-brand-charcoal bg-brand-wash text-brand-charcoal'
                         : 'border-slate-200 text-slate-600 hover:border-slate-300'
                     }`}
                   >
@@ -584,9 +584,9 @@ export const FitFinderView: React.FC = () => {
             <button
               onClick={handleCalculate}
               disabled={calcLoading || !selectedProduct}
-              className="w-full py-3.5 rounded-2xl bg-[#1B1F3B] hover:bg-[#0C0E1E] disabled:opacity-40 text-white font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2"
+              className="w-full py-3.5 rounded-2xl bg-brand-charcoal hover:bg-black disabled:opacity-40 text-white font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2"
             >
-              <RulerIcon size={16} color="#C5A059" />
+              <RulerIcon size={16} color="#252729" />
               <span>{calcLoading ? t('fit_finder.computing') : t('fit_finder.calculate')}</span>
             </button>
             <p className="text-[10px] text-slate-500 text-center font-light">
@@ -620,7 +620,7 @@ export const FitFinderView: React.FC = () => {
           )}
 
           {!result && !calcLoading && !calcError && (
-            <div className="bg-[#FAF9F6] rounded-3xl border border-dashed border-slate-300 p-6 text-center space-y-2">
+            <div className="bg-brand-wash rounded-3xl border border-dashed border-slate-300 p-6 text-center space-y-2">
               <RulerIcon size={26} color="#94A3B8" />
               <h3 className="font-serif text-base font-bold text-slate-700">{t('fit_finder.recommendation_placeholder')}</h3>
               <p className="text-[11px] text-slate-500 font-light leading-relaxed">
@@ -665,13 +665,13 @@ export const FitFinderView: React.FC = () => {
 
           {/* ── Recommendation ── */}
           {result && result.recommended && !calcLoading && (
-            <Surface variant="raised" reveal className="rounded-3xl border-2 border-[#C5A059]/50 p-6 space-y-4" aria-live="polite">
+            <Surface variant="raised" reveal className="rounded-3xl border-2 border-brand-charcoal/50 p-6 space-y-4" aria-live="polite">
               <div className="flex items-start justify-between">
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
                     {t('fit_finder.rec_size')}
                   </p>
-                  <p className="font-serif text-5xl font-black text-[#1B1F3B] leading-tight">
+                  <p className="font-serif text-5xl font-black text-brand-charcoal leading-tight">
                     {result.recommended_size}
                   </p>
                   <p className="text-[11px] text-slate-500 font-light">
@@ -701,15 +701,15 @@ export const FitFinderView: React.FC = () => {
               </div>
 
               {result.confidence_band_reason && (
-                <p className="text-[11px] text-slate-600 leading-relaxed bg-[#FAF9F6] border border-slate-100 rounded-2xl px-3 py-2">
+                <p className="text-[11px] text-slate-600 leading-relaxed bg-brand-wash border border-slate-100 rounded-2xl px-3 py-2">
                   {result.confidence_band_reason}{' '}
                   <span className="text-slate-400">{t('fit_finder.band_rule_note')}</span>
                 </p>
               )}
 
               {result.is_between_sizes && result.alternative_size && (
-                <div className="bg-[#FDF8EE] border border-[#C5A059]/40 rounded-2xl px-3 py-2">
-                  <p className="text-[11px] text-[#7A5C28] leading-relaxed">
+                <div className="bg-brand-wash border border-brand-charcoal/40 rounded-2xl px-3 py-2">
+                  <p className="text-[11px] text-brand-charcoal leading-relaxed">
                     <strong>{t('fit_finder.between_sizes')}</strong> {t('fit_finder.between_body', { rec: result.recommended_size, alt: result.alternative_size })}
                   </p>
                 </div>
@@ -725,7 +725,7 @@ export const FitFinderView: React.FC = () => {
 
               {/* Provenance — which chart, whose, how fresh */}
               {chartSource && (
-                <div className="bg-[#FAF9F6] rounded-2xl p-3 border border-slate-100">
+                <div className="bg-brand-wash rounded-2xl p-3 border border-slate-100">
                   <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
                     {t('fit_finder.chart_used')}
                   </p>
@@ -752,8 +752,8 @@ export const FitFinderView: React.FC = () => {
                 </p>
                 <ul className="space-y-1.5">
                   {Object.entries(result.fit_breakdown).map(([region, verdict]) => (
-                    <li key={region} className="flex gap-2 text-xs text-slate-600 bg-[#FAF9F6] rounded-xl px-3 py-2 border border-slate-100">
-                      <SparkleIcon size={13} color="#C5A059" />
+                    <li key={region} className="flex gap-2 text-xs text-slate-600 bg-brand-wash rounded-xl px-3 py-2 border border-slate-100">
+                      <SparkleIcon size={13} color="#252729" />
                       <span>
                         <span className="font-bold capitalize text-slate-800">{region.replace(/_/g, ' ')}:</span>{' '}
                         {verdict}
@@ -785,7 +785,7 @@ export const FitFinderView: React.FC = () => {
                         return (
                           <tr
                             key={row.size}
-                            className={`border-t border-slate-100 ${row.is_recommended ? 'bg-[#FDF8EE] font-bold text-[#1B1F3B]' : 'text-slate-600'}`}
+                            className={`border-t border-slate-100 ${row.is_recommended ? 'bg-brand-wash font-bold text-brand-charcoal' : 'text-slate-600'}`}
                           >
                             <td className="py-1.5">
                               {row.size}
@@ -810,7 +810,7 @@ export const FitFinderView: React.FC = () => {
               )}
 
               <div className="grid grid-cols-2 gap-3">
-                <div className="bg-[#FAF9F6] rounded-2xl p-3 border border-slate-100">
+                <div className="bg-brand-wash rounded-2xl p-3 border border-slate-100">
                   <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{t('fit_finder.brand_tendency')}</p>
                   <p className="text-xs text-slate-700 font-semibold mt-1">
                     {result.brand_sizing_tendency?.summary}
@@ -821,7 +821,7 @@ export const FitFinderView: React.FC = () => {
                     </p>
                   )}
                 </div>
-                <div className="bg-[#FAF9F6] rounded-2xl p-3 border border-slate-100">
+                <div className="bg-brand-wash rounded-2xl p-3 border border-slate-100">
                   <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{t('fit_finder.return_risk')}</p>
                   <p className="text-xs text-slate-700 font-semibold mt-1">{result.return_risk?.label}</p>
                   <p className="text-[10px] text-slate-500 mt-1">{result.return_risk?.basis}</p>
@@ -830,7 +830,7 @@ export const FitFinderView: React.FC = () => {
 
               {/* How the confidence was built — auditable, not asserted */}
               {result.confidence_factors?.length > 0 && (
-                <details className="bg-[#FAF9F6] rounded-2xl border border-slate-100 px-3 py-2">
+                <details className="bg-brand-wash rounded-2xl border border-slate-100 px-3 py-2">
                   <summary className="text-[11px] font-bold text-slate-700 cursor-pointer">
                     {t('fit_finder.confidence_how', { band: result.confidence_band ? t(`fit_finder.band_${result.confidence_band}`, result.confidence_band) : t('fit_finder.band_unrated') })}
                   </summary>
@@ -875,7 +875,7 @@ export const FitFinderView: React.FC = () => {
                     <button
                       onClick={handleSave}
                       disabled={!saveConsent || saveState === 'saving' || saveState === 'saved'}
-                      className="w-full py-2.5 rounded-xl border border-[#C5A059]/50 text-[#A37E44] hover:bg-[#FDF8EE] disabled:opacity-50 text-[11px] font-bold transition-all"
+                      className="w-full py-2.5 rounded-xl border border-brand-charcoal/50 text-brand-charcoal hover:bg-brand-wash disabled:opacity-50 text-[11px] font-bold transition-all"
                     >
                       {saveState === 'saving'
                         ? t('fit_finder.saving')
@@ -886,7 +886,7 @@ export const FitFinderView: React.FC = () => {
                   </>
                 ) : (
                   <p className="text-[10px] text-slate-500 text-center">
-                    <Link to="/" onClick={() => useUIStore.getState().openAuthModal('login')} className="text-[#C5A059] font-bold hover:underline">
+                    <Link to="/" onClick={() => useUIStore.getState().openAuthModal('login')} className="text-brand-charcoal font-bold hover:underline">
                       {t('auth.sign_in')}
                     </Link>{' '}
                     {t('fit_finder.signin_keep')}
@@ -894,7 +894,7 @@ export const FitFinderView: React.FC = () => {
                 )}
                 <button
                   onClick={() => navigate(`/product/${selectedProduct?.slug}`)}
-                  className="w-full py-2.5 rounded-xl bg-[#1B1F3B] hover:bg-[#0C0E1E] text-white text-[11px] font-bold transition-all"
+                  className="w-full py-2.5 rounded-xl bg-brand-charcoal hover:bg-black text-white text-[11px] font-bold transition-all"
                 >
                   {t('fit_finder.open_product', { brand: selectedProduct?.brand_name })}
                 </button>

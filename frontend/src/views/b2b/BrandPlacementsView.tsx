@@ -87,7 +87,7 @@ export const BrandPlacementsView: React.FC = () => {
       )}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-6">
         <div>
-          <h1 className="font-serif text-3xl font-bold text-[#1B1F3B]">
+          <h1 className="font-serif text-3xl font-bold text-brand-charcoal">
             Sponsored AI Stylist & Trending Placements - Real
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
@@ -98,7 +98,7 @@ export const BrandPlacementsView: React.FC = () => {
 
         <button
           onClick={() => setModalOpen(true)}
-          className="px-5 py-2.5 rounded-2xl bg-[#B8935A] hover:bg-[#A37E44] text-slate-950 font-bold text-xs shadow-md transition-all flex items-center gap-1.5"
+          className="px-5 py-2.5 rounded-2xl bg-brand-charcoal text-white hover:bg-black text-slate-950 font-bold text-xs shadow-md transition-all flex items-center gap-1.5"
         >
           <SparkleIcon size={16} color="#0F172A" />
           <span>+ Create Sponsored Slot</span>
@@ -131,13 +131,13 @@ export const BrandPlacementsView: React.FC = () => {
 
       {/* Placements List - REAL */}
       <div className="space-y-4">
-        <h3 className="font-serif text-lg font-bold text-[#1B1F3B]">Active Placements ({placements.length}) - Real from DB</h3>
+        <h3 className="font-serif text-lg font-bold text-brand-charcoal">Active Placements ({placements.length}) - Real from DB</h3>
         {placements.length === 0 ? (
           <div className="bg-white rounded-3xl border border-slate-200 p-12 text-center space-y-3">
             <div className="text-4xl">🎯</div>
             <h3 className="font-bold text-slate-700">{t("brand_placements.no_placements")}</h3>
             <p className="text-xs text-slate-500">Create your first sponsored slot to bid for featured placement in Virtual Stylist results. Budget enforcement prevents overspend.</p>
-            <button onClick={() => setModalOpen(true)} className="mt-2 px-4 py-2 rounded-xl bg-[#B8935A] text-slate-900 text-xs font-bold">{t("brand_placements.create_placement")}</button>
+            <button onClick={() => setModalOpen(true)} className="mt-2 px-4 py-2 rounded-xl bg-brand-charcoal text-white text-slate-900 text-xs font-bold">{t("brand_placements.create_placement")}</button>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -145,10 +145,10 @@ export const BrandPlacementsView: React.FC = () => {
               <div key={plc.id} className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-4">
                 <div className="flex justify-between items-start">
                   <div className="flex-1 min-w-0">
-                    <span className="text-[10px] font-bold text-[#B8935A] uppercase tracking-wider">
+                    <span className="text-[10px] font-bold text-brand-charcoal uppercase tracking-wider">
                       Slot #{plc.id} · {plc.placement_type.replace('_', ' ').toUpperCase()} · {plc.status}
                     </span>
-                    <h3 className="font-serif text-base font-bold text-[#1B1F3B] mt-0.5 truncate">
+                    <h3 className="font-serif text-base font-bold text-brand-charcoal mt-0.5 truncate">
                       {plc.product_title}
                     </h3>
                     <span className="text-[10px] text-slate-400">Product ID: {plc.product_id} · Created: {new Date(plc.created_at).toLocaleDateString()}</span>
@@ -159,16 +159,16 @@ export const BrandPlacementsView: React.FC = () => {
                 </div>
 
                 <div className="grid grid-cols-3 gap-2 text-center text-xs py-3 border-y border-slate-100">
-                  <div className="p-2 rounded-xl bg-[#FAF9F6]">
+                  <div className="p-2 rounded-xl bg-brand-wash">
                     <span className="text-slate-400 text-[10px] block">CPC Bid (Real)</span>
                     <span className="font-bold text-slate-900">${plc.bid_amount_per_click}</span>
                   </div>
-                  <div className="p-2 rounded-xl bg-[#FAF9F6]">
+                  <div className="p-2 rounded-xl bg-brand-wash">
                     <span className="text-slate-400 text-[10px] block">Clicks (Real)</span>
                     <span className="font-bold text-slate-900">{plc.clicks}</span>
                     <span className="text-[9px] text-slate-400 block">{plc.impressions} impr</span>
                   </div>
-                  <div className="p-2 rounded-xl bg-[#FAF9F6]">
+                  <div className="p-2 rounded-xl bg-brand-wash">
                     <span className="text-slate-400 text-[10px] block">Conversions (Real)</span>
                     <span className="font-bold text-emerald-600">{plc.conversions}</span>
                   </div>
@@ -180,7 +180,7 @@ export const BrandPlacementsView: React.FC = () => {
                     <span className="text-slate-500">Spent: <strong className={plc.spent_today >= plc.daily_budget ? 'text-rose-600' : 'text-slate-900'}>${plc.spent_today}</strong></span>
                   </div>
                   <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
-                    <div className="h-full bg-[#B8935A] rounded-full" style={{ width: `${Math.min(100, (plc.spent_today / plc.daily_budget) * 100)}%` }}></div>
+                    <div className="h-full bg-brand-charcoal text-white rounded-full" style={{ width: `${Math.min(100, (plc.spent_today / plc.daily_budget) * 100)}%` }}></div>
                   </div>
                   <div className="flex justify-between text-[11px]">
                     <span className="text-slate-400">Remaining: ${(plc.daily_budget - plc.spent_today).toFixed(2)}</span>
@@ -191,7 +191,7 @@ export const BrandPlacementsView: React.FC = () => {
                 <button disabled={saving || plc.status === 'budget_exhausted'} onClick={() => changeStatus(plc.id, plc.status === 'active' ? 'paused' : 'active')} className="rounded border px-3 py-2 text-xs">
                   {plc.status === 'active' ? 'Pause placement' : 'Resume placement'}
                 </button>
-                <div className="text-[10px] text-slate-400 p-2 bg-[#FAF9F6] rounded-xl">
+                <div className="text-[10px] text-slate-400 p-2 bg-brand-wash rounded-xl">
                   Recorded counters are not independently verified ad delivery or a billing ledger. Daily reset and event deduplication are not established by this screen.
                 </div>
               </div>
@@ -204,7 +204,7 @@ export const BrandPlacementsView: React.FC = () => {
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-150">
           <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={t('b2b.form_create_placement')} tabIndex={-1} className="w-full max-w-md bg-white rounded-3xl p-6 shadow-2xl space-y-4">
-            <h3 className="font-serif text-lg font-bold text-[#1B1F3B]">
+            <h3 className="font-serif text-lg font-bold text-brand-charcoal">
               Bid for Featured AI Stylist Slot - Real
             </h3>
             <p className="text-[11px] text-slate-500">Real validation: bid 0-100, budget 0-10000, bid ≤ budget, product ownership verified, tenant isolated.</p>
@@ -289,7 +289,7 @@ export const BrandPlacementsView: React.FC = () => {
                 <button
                   type="submit"
                   disabled={saving || !products.length}
-                  className="flex-1 py-2.5 rounded-xl bg-[#1B1F3B] text-white font-semibold shadow-md"
+                  className="flex-1 py-2.5 rounded-xl bg-brand-charcoal text-white font-semibold shadow-md"
                 >
                   {saving ? 'Saving…' : 'Save placement'}
                 </button>

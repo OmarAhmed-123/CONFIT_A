@@ -118,7 +118,7 @@ export const BrandInventoryView: React.FC = () => {
     <div className="space-y-8 pb-20">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
         <div>
-          <h1 className="font-serif text-3xl font-bold text-[#1B1F3B]">
+          <h1 className="font-serif text-3xl font-bold text-brand-charcoal">
             BOPIS Store Network & Live Inventory - Real
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
@@ -128,12 +128,12 @@ export const BrandInventoryView: React.FC = () => {
           {/* Spec 14: honest freshness status — stock is where stale data hurts. */}
           <CatalogFreshnessIndicator className="mt-2" />
         </div>
-        <button onClick={() => setShowStoreModal(true)} className="px-4 py-2.5 rounded-2xl bg-[#1B1F3B] text-white text-xs font-semibold">+ Add Store</button>
+        <button onClick={() => setShowStoreModal(true)} className="px-4 py-2.5 rounded-2xl bg-brand-charcoal text-white text-xs font-semibold">+ Add Store</button>
       </div>
 
       {/* Stores - REAL */}
       <div className="space-y-4">
-        <h3 className="font-serif text-lg font-bold text-[#1B1F3B]">
+        <h3 className="font-serif text-lg font-bold text-brand-charcoal">
           {fetchErrors.stores ? 'Store Locations (unknown — lookup failed)' : `Store Locations (${stores.length})`}
         </h3>
         {/* P1 consistency guard. The count and the per-SKU breakdown below are
@@ -160,29 +160,29 @@ export const BrandInventoryView: React.FC = () => {
             <div className="text-4xl" aria-hidden="true">🏪</div>
             <h3 className="font-bold text-slate-700">{t('brand_inventory.no_stores')}</h3>
             <p className="text-xs text-slate-500">{t('brand_inventory.no_stores_desc')}</p>
-            <button onClick={() => setShowStoreModal(true)} className="mt-2 px-4 py-2 rounded-xl bg-[#1B1F3B] text-white text-xs font-semibold min-h-[44px]">{t('brand_inventory.add_store')}</button>
+            <button onClick={() => setShowStoreModal(true)} className="mt-2 px-4 py-2 rounded-xl bg-brand-charcoal text-white text-xs font-semibold min-h-[44px]">{t('brand_inventory.add_store')}</button>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {stores.map((b) => (
               <div key={b.id} className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-[#FAF9F6] border border-slate-200 flex items-center justify-center text-[#1B1F3B]">
-                    <BopisIcon size={20} color="#1B1F3B" />
+                  <div className="w-10 h-10 rounded-xl bg-brand-wash border border-slate-200 flex items-center justify-center text-brand-charcoal">
+                    <BopisIcon size={20} color="#252729" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-serif text-base font-bold text-[#1B1F3B] truncate">{b.name}</h3>
+                    <h3 className="font-serif text-base font-bold text-brand-charcoal truncate">{b.name}</h3>
                     <span className="text-xs text-slate-500">{b.city}, {b.country}</span>
                     <div className="text-[10px] text-slate-400 truncate">{b.address}</div>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 text-xs pt-2 border-t border-slate-100">
-                  <div className="p-2.5 rounded-xl bg-[#FAF9F6]">
+                  <div className="p-2.5 rounded-xl bg-brand-wash">
                     <span className="text-slate-400 text-[10px] block">BOPIS</span>
                     <span className={`font-bold ${b.is_bopis_enabled ? 'text-emerald-600' : 'text-slate-400'}`}>{b.is_bopis_enabled ? 'Enabled' : 'Disabled'}</span>
                   </div>
-                  <div className="p-2.5 rounded-xl bg-[#FAF9F6]">
+                  <div className="p-2.5 rounded-xl bg-brand-wash">
                     <span className="text-slate-400 text-[10px] block">Store ID</span>
                     <span className="font-mono font-bold">#{b.id}</span>
                   </div>
@@ -221,7 +221,7 @@ export const BrandInventoryView: React.FC = () => {
 
       {/* Inventory - REAL */}
       <div className="space-y-4">
-        <h3 className="font-serif text-lg font-bold text-[#1B1F3B]">{t('brand_inventory.live_inventory_title')}</h3>
+        <h3 className="font-serif text-lg font-bold text-brand-charcoal">{t('brand_inventory.live_inventory_title')}</h3>
         <p className="text-[11px] text-slate-500">Stock levels per SKU per location, reserved quantity tracking, available = quantity - reserved. No negative inventory enforced. Only stores belonging to your brand are shown.</p>
         {orphanStoreIds.length > 0 && (
           <div role="alert" className="p-4 rounded-2xl bg-rose-50 border border-rose-300">
@@ -250,7 +250,7 @@ export const BrandInventoryView: React.FC = () => {
                 <div className="flex items-center gap-3 mb-3">
                   <div className="w-12 h-14 rounded bg-slate-100 overflow-hidden"><HonestProductImage src={item.thumbnail_url} alt={item.title} className="w-full h-full object-cover" /></div>
                   <div>
-                    <h4 className="font-bold text-sm text-[#1B1F3B]">{item.title}</h4>
+                    <h4 className="font-bold text-sm text-brand-charcoal">{item.title}</h4>
                     <span className="text-xs text-slate-500">Total Stock: {item.total_stock} units across {item.skus.length} SKUs</span>
                   </div>
                 </div>
@@ -305,7 +305,7 @@ export const BrandInventoryView: React.FC = () => {
       {showStoreModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm">
           <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={t('b2b.modal_add_store')} tabIndex={-1} className="w-full max-w-md bg-white rounded-3xl p-6 shadow-2xl space-y-4">
-            <h3 className="font-serif text-lg font-bold text-[#1B1F3B]">{t('brand_inventory.add_bopis_store')}</h3>
+            <h3 className="font-serif text-lg font-bold text-brand-charcoal">{t('brand_inventory.add_bopis_store')}</h3>
             <p className="text-[11px] text-slate-500">Real StoreLocation creation with brand_id tenant isolation, BOPIS support, coordinates for map.</p>
             <form onSubmit={handleCreateStore} className="space-y-3 text-xs">
               <div>
@@ -342,7 +342,7 @@ export const BrandInventoryView: React.FC = () => {
               </div>
               <div className="flex gap-2 pt-2">
                 <button type="button" onClick={() => setShowStoreModal(false)} className="flex-1 py-2.5 rounded-xl border font-semibold">Cancel</button>
-                <button type="submit" className="flex-1 py-2.5 rounded-xl bg-[#1B1F3B] text-white font-semibold min-h-[44px]">{t('brand_inventory.create_store')}</button>
+                <button type="submit" className="flex-1 py-2.5 rounded-xl bg-brand-charcoal text-white font-semibold min-h-[44px]">{t('brand_inventory.create_store')}</button>
               </div>
             </form>
           </div>

@@ -103,7 +103,7 @@ export const BrandOrdersView: React.FC = () => {
   return (
     <div className="space-y-6">
       <header className="border-b border-slate-200/80 pb-4">
-        <h1 className="font-serif text-2xl font-bold text-[#1B1F3B]">
+        <h1 className="font-serif text-2xl font-bold text-brand-charcoal">
           {t("brand_orders.title")}
         </h1>
         <p className="text-xs sm:text-sm text-slate-500 mt-1 font-light">
@@ -127,7 +127,7 @@ export const BrandOrdersView: React.FC = () => {
               key={k}
               className={`rounded-2xl border p-4 ${
                 k === "net"
-                  ? "bg-[#1B1F3B] border-[#1B1F3B] text-white"
+                  ? "bg-brand-charcoal border-brand-charcoal text-white"
                   : k === "discount"
                     ? "bg-[#FDF1F2] border-[#7A1F2B]/20"
                     : "bg-white border-slate-200/80"
@@ -135,7 +135,7 @@ export const BrandOrdersView: React.FC = () => {
             >
               <span
                 className={`block text-[10px] font-bold uppercase tracking-wider ${
-                  k === "net" ? "text-[#C5A059]" : "text-slate-500"
+                  k === "net" ? "text-brand-charcoal" : "text-slate-500"
                 }`}
               >
                 {t(`brand_orders.total_${k}`)}
@@ -178,7 +178,7 @@ export const BrandOrdersView: React.FC = () => {
         <div className="overflow-x-auto rounded-3xl border border-slate-200/80 bg-white shadow-2xs">
           <table className="w-full text-left text-xs">
             <caption className="sr-only">{t("brand_orders.table_caption")}</caption>
-            <thead className="bg-[#FAF9F6] text-[10px] uppercase tracking-wider text-slate-500">
+            <thead className="bg-brand-wash text-[10px] uppercase tracking-wider text-slate-500">
               <tr>
                 <th scope="col" className="px-4 py-3">{t("brand_orders.col_item")}</th>
                 <th scope="col" className="px-4 py-3">{t("brand_orders.col_order")}</th>
@@ -203,7 +203,7 @@ export const BrandOrdersView: React.FC = () => {
                         />
                       </div>
                       <div className="min-w-0">
-                        <span className="block font-semibold text-[#1B1F3B] truncate max-w-[180px]">
+                        <span className="block font-semibold text-brand-charcoal truncate max-w-[180px]">
                           {line.product_title}
                         </span>
                         <span className="block text-[11px] text-slate-500">
@@ -218,7 +218,7 @@ export const BrandOrdersView: React.FC = () => {
                   </td>
 
                   <td className="px-4 py-3 align-top">
-                    <span className="block font-mono text-[11px] text-[#1B1F3B]">
+                    <span className="block font-mono text-[11px] text-brand-charcoal">
                       {line.order_number}
                     </span>
                     <span className="block text-[11px] text-slate-500">
@@ -236,7 +236,7 @@ export const BrandOrdersView: React.FC = () => {
                   </td>
 
                   <td className="px-4 py-3 align-top">
-                    <span className="block font-semibold text-[#1B1F3B]">
+                    <span className="block font-semibold text-brand-charcoal">
                       {line.customer_name}
                     </span>
                     <span className="block text-[11px] text-slate-500">
@@ -245,7 +245,7 @@ export const BrandOrdersView: React.FC = () => {
                   </td>
 
                   <td className="px-4 py-3 align-top">
-                    <span className="block font-semibold text-[#1B1F3B]">
+                    <span className="block font-semibold text-brand-charcoal">
                       {t("brand_orders.units_pulled", { count: line.quantity })}
                     </span>
                     <span className="block text-[11px] text-slate-500">
@@ -275,7 +275,7 @@ export const BrandOrdersView: React.FC = () => {
                       </span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-right align-top tabular-nums font-bold text-[#1B1F3B]">
+                  <td className="px-4 py-3 text-right align-top tabular-nums font-bold text-brand-charcoal">
                     {money(line.net_amount, line.currency)}
                   </td>
                 </tr>
@@ -283,7 +283,7 @@ export const BrandOrdersView: React.FC = () => {
             </tbody>
           </table>
 
-          <div className="flex items-center justify-between gap-3 px-4 py-3 border-t border-slate-100 bg-[#FAF9F6]">
+          <div className="flex items-center justify-between gap-3 px-4 py-3 border-t border-slate-100 bg-brand-wash">
             <span className="text-[11px] text-slate-500">
               {t("brand_orders.showing", {
                 from: data.pagination.offset + 1,

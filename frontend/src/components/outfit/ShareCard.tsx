@@ -20,10 +20,9 @@ export interface ShareCardProps {
 }
 
 /**
- * C7 — the real, renderable share card. `html-to-image` rasterizes this exact
- * DOM node into a PNG; there is no server-side card URL and none is claimed.
- * Product images that fail to load are hidden so a broken image never makes
- * it into the exported card.
+ * C7 — the real, renderable share card in the Logo #3 white-first brand system.
+ * `html-to-image` rasterizes this exact DOM node into a PNG.
+ * Clean white background with brand charcoal typography and hairline dividers.
  */
 export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(function ShareCard(
   { title, occasion, items, totalPrice, compatibilityScore, currency = 'EGP' },
@@ -36,19 +35,21 @@ export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(function Sha
       style={{
         width: 600,
         padding: 32,
-        background: 'linear-gradient(160deg, #1B1F3B 0%, #2A2F55 100%)',
-        color: '#F8F6F2',
-        fontFamily: 'Georgia, serif',
+        background: '#FFFFFF',
+        color: '#252729',
+        border: '1px solid #E8E6E2',
+        boxShadow: '0 4px 20px -4px rgba(37,39,41,0.08)',
+        fontFamily: 'Inter, system-ui, sans-serif',
         borderRadius: 16,
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-        <span style={{ letterSpacing: 4, fontSize: 14, opacity: 0.85 }}>CONFIT</span>
-        {occasion ? <span style={{ fontSize: 13, opacity: 0.75 }}>{occasion}</span> : null}
+        <span style={{ letterSpacing: 4, fontSize: 14, fontWeight: 700, color: '#252729' }}>CONFIT</span>
+        {occasion ? <span style={{ fontSize: 13, color: '#595C63' }}>{occasion}</span> : null}
       </div>
 
-      <h2 style={{ fontSize: 28, margin: '16px 0 4px', fontWeight: 700 }}>{title}</h2>
-      <div style={{ fontSize: 13, opacity: 0.8, marginBottom: 20 }}>
+      <h2 style={{ fontSize: 24, margin: '16px 0 4px', fontWeight: 700, color: '#252729', fontFamily: 'Playfair Display, Georgia, serif' }}>{title}</h2>
+      <div style={{ fontSize: 13, color: '#595C63', marginBottom: 20 }}>
         {items.length} item{items.length === 1 ? '' : 's'}
         {typeof compatibilityScore === 'number' ? ` · Compatibility ${compatibilityScore}%` : ''}
       </div>
@@ -58,7 +59,8 @@ export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(function Sha
           <div
             key={`${item.product_title}-${idx}`}
             style={{
-              background: 'rgba(255,255,255,0.06)',
+              background: '#F7F6F3',
+              border: '1px solid #E8E6E2',
               borderRadius: 12,
               padding: 12,
               display: 'flex',
@@ -76,11 +78,12 @@ export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(function Sha
               style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 8, background: '#fff' }}
             />
             <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 12, opacity: 0.7 }}>{item.brand_name}</div>
+              <div style={{ fontSize: 12, color: '#595C63' }}>{item.brand_name}</div>
               <div
                 style={{
                   fontSize: 14,
                   fontWeight: 600,
+                  color: '#252729',
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
@@ -88,7 +91,7 @@ export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(function Sha
               >
                 {item.product_title}
               </div>
-              <div style={{ fontSize: 13, marginTop: 2 }}>
+              <div style={{ fontSize: 13, marginTop: 2, fontWeight: 600, color: '#252729' }}>
                 {currency} {item.price.toFixed(2)}
               </div>
             </div>
@@ -100,14 +103,15 @@ export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(function Sha
         style={{
           marginTop: 20,
           paddingTop: 16,
-          borderTop: '1px solid rgba(255,255,255,0.2)',
+          borderTop: '1px solid #E8E6E2',
           display: 'flex',
           justifyContent: 'space-between',
           fontSize: 15,
+          color: '#252729',
         }}
       >
-        <span style={{ opacity: 0.8 }}>Total</span>
-        <strong>
+        <span style={{ color: '#595C63' }}>Total</span>
+        <strong style={{ fontWeight: 700, color: '#252729' }}>
           {currency} {totalPrice.toFixed(2)}
         </strong>
       </div>

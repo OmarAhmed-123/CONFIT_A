@@ -343,3 +343,27 @@ Supersedes the "Mood-stack mobile composition fix" numbers above where they diff
 
 Tried an `lg:pe-20` reserve inside the Order summary card. Browser result: the amounts still overlap the fixed control at 1280x800 (`$0.00` at x 1035–1071 against control x 1067) and at 1024 (control x 811–1000, amounts x 875–911). A padding reserve cannot clear 1024 without distorting the card. Reverted; the file is at `e6330f8`. **Decision needed:** accept the first-fold overlap, or choose a Checkout-specific layout (e.g. move the summary totals above the fold band), before this route can be PASS.
 
+## Checkout: Order summary reflow (decision: fix, not accept)
+
+**Cause.** The summary column sat at y 556–929 in the first fold. Its Subtotal, Tax, Shipping, Total, and Place order rows (y 731–904) lie inside the fixed AI Stylist footprint (y 762–812 at 844 high; 718–768 at 800 high; x 811–1000 at 1024, x 1067–1256 at 1280). Inline padding cannot fix this, because the rows are full-width blocks. Earlier `lg:pe-20` was reverted.
+
+**Fix (lg only).** The outer wrapper becomes a 12-column grid at lg. The header (demo banner, title, guest card) takes columns 1–7. The `<form>` becomes `lg:contents`, so the Order summary takes columns 8–12 at row 1, spanning rows 1–3. The fulfillment form stays in columns 1–7 below the header. Mobile (below lg) is unchanged, and the form is the same element, so the submit button stays inside it.
+
+**Measured (browser, `co_geom.mjs`).**
+
+| Viewport | Summary before | Summary after | Control footprint | Intersection |
+|---|---|---|---|---|
+| 1024x844 | 611,556 – 992,929 | 611,198 – 992,571 | 811,762 – 1000,812 | **none** (was: totals and CTA) |
+| 1280x844 | 744,556 – 1152,929 | 744,198 – 1152,571 | 1067,762 – 1256,812 | **none** |
+| 1024x800 | — | 611,198 – 992,571 | 811,718 – 1000,768 | none |
+| 1280x800 | — | 744,198 – 1152,571 | 1067,718 – 1256,768 | none |
+| 390x844 (mobile) | 16,1628 – 374,2001 | 16,1628 – 374,2001 | 326,780 – 374,828 | unchanged (0 change) |
+
+**Keyboard.** Tab order is unchanged by DOM order. The first stops match before (Sign In, Create Account, Home Delivery, Standard). **Limitation:** the Place order button is disabled with an empty cart, so focus never reaches it in this environment. Its keyboard reach needs a cart fixture (not verified).
+
+**Screenshots.** Before: `shots/co_head_1024x844.png`, `shots/co_head_1280x844.png`. After: `shots/co_new_1024x844.png`, `shots/co_new_1280x844.png`, `shots/co_new_1024x800.png`, `shots/co_new_1280x800.png`, `shots/co_new_390x844.png`.
+
+**Tests.** `checkoutBrand.brand.test.tsx` now has 8 contracts (adds the reflow, the submit-in-form order, and the mobile base classes). `tsc --noEmit` 0. `vitest run`: 122 files, 1495 tests passed. `vite build` 0.
+
+**Status.** Checkout stays IMPLEMENTED, not PASS: payment methods, cart with items, order placement, and promo are backend-dependent and unverified.
+

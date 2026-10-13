@@ -47,4 +47,28 @@ describe('Checkout brand contract', () => {
     expect(src).toMatch(/id="guest-email-error" role="alert"/);
     expect(src).toMatch(/promoError && <p role="alert"/);
   });
+
+  it('reflows the summary beside the header at lg (clear of the fixed AI Stylist footprint)', () => {
+    // Measured: summary was y 556-929 (overlapping the control at 762-812 / 718-768).
+    // Now y 198-571 at 1024 and 1280. Source contract for the reflow.
+    expect(src).toMatch(/className="space-y-8 lg:space-y-0 lg:grid lg:grid-cols-12 lg:gap-8 lg:items-start pb-24 max-w-5xl mx-auto"/);
+    expect(src).toMatch(/className="grid grid-cols-1 gap-8 lg:contents"/);
+    expect(src).toMatch(/lg:col-span-5 lg:col-start-8 lg:row-start-1 lg:row-span-3/);
+  });
+
+  it('keeps the Place order submit button inside the form (DOM and tab order preserved)', () => {
+    const formStart = src.indexOf('<form noValidate onSubmit={handleSubmitOrder}');
+    const formEnd = src.indexOf('</form>', formStart);
+    expect(formStart).toBeGreaterThan(-1);
+    expect(formEnd).toBeGreaterThan(formStart);
+    const inside = src.slice(formStart, formEnd);
+    expect(inside).toMatch(/data-testid="place-order-cta"/);
+    expect(inside).toMatch(/type="submit"|<ActionButton/);
+  });
+
+  it('mobile stays single-column: lg-only classes do not alter the base form', () => {
+    const base = src.match(/<form noValidate onSubmit=\{handleSubmitOrder\} className="([^"]+)"/);
+    expect(base).not.toBeNull();
+    expect(base![1].split(' ').filter((c) => !c.startsWith('lg:'))).toEqual(['grid', 'grid-cols-1', 'gap-8']);
+  });
 });

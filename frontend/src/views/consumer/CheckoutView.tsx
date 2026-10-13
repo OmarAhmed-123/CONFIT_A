@@ -214,9 +214,9 @@ export const CheckoutView: React.FC = () => {
   };
 
   return (
-    <div className="space-y-8 pb-24 max-w-5xl mx-auto">
+    <div className="space-y-8 lg:space-y-0 lg:grid lg:grid-cols-12 lg:gap-8 lg:items-start pb-24 max-w-5xl mx-auto">
       {/* C4 FIX: Payment Demo Safety - unmistakable banner when PAYMENTS_LIVE=false */}
-      <div className="bg-amber-50 border-2 border-amber-400 rounded-2xl p-4 flex items-start gap-3">
+      <div className="bg-amber-50 border-2 border-amber-400 rounded-2xl p-4 flex items-start gap-3 lg:col-span-7">
         <div aria-hidden="true" className="text-amber-600"><StatusIcon status="warning" size={22} className="text-amber-600" /></div>
         <div className="flex-1">
           <p className="text-xs font-black text-amber-900 uppercase tracking-widest">{t('checkout.demo_mode_title')}</p>
@@ -226,7 +226,7 @@ export const CheckoutView: React.FC = () => {
         </div>
       </div>
 
-      <div className="border-b border-brand-hairline pb-4">
+      <div className="border-b border-brand-hairline pb-4 lg:col-span-7">
         <h1 className="font-serif text-3xl font-bold text-brand-charcoal tracking-tight">
           {t('commerce.checkout')}
         </h1>
@@ -236,7 +236,7 @@ export const CheckoutView: React.FC = () => {
       </div>
 
       {cart && cart.items_count === 0 ? (
-        <div className="bg-white rounded-3xl border border-brand-hairline p-10 shadow-2xs text-center space-y-4">
+        <div className="lg:col-span-12 bg-white rounded-3xl border border-brand-hairline p-10 shadow-2xs text-center space-y-4">
           <div className="w-14 h-14 rounded-2xl bg-brand-wash border border-brand-charcoal/40 flex items-center justify-center mx-auto">
             <OrdersIcon size={26} color="#252729" />
           </div>
@@ -253,7 +253,7 @@ export const CheckoutView: React.FC = () => {
       ) : (
       <>
       {!isAuthenticated && (
-        <div className="bg-brand-wash border border-brand-charcoal/40 rounded-3xl p-5 sm:p-6 shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="lg:col-span-7 bg-brand-wash border border-brand-charcoal/40 rounded-3xl p-5 sm:p-6 shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3.5">
             <div className="w-11 h-11 rounded-2xl bg-brand-charcoal text-white flex items-center justify-center font-bold shrink-0 shadow-2xs">
               <UserIcon size={20} color="#FFFFFF" />
@@ -286,7 +286,9 @@ export const CheckoutView: React.FC = () => {
         </div>
       )}
 
-      <form noValidate onSubmit={handleSubmitOrder} className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+      {/* lg: the form is `display: contents`, so the summary column can sit beside the header.
+          Mobile keeps the single-column form. Summary stays in the form (submit button). */}
+      <form noValidate onSubmit={handleSubmitOrder} className="grid grid-cols-1 gap-8 lg:contents">
         <div className="lg:col-span-7 space-y-6">
           <div className="bg-white rounded-3xl border border-brand-hairline p-6 shadow-2xs space-y-4">
             <h2 className="font-serif text-base font-bold text-brand-charcoal">{t('checkout.step_fulfillment')}</h2>
@@ -514,7 +516,7 @@ export const CheckoutView: React.FC = () => {
           </div>
         </div>
 
-        <div className="lg:col-span-5 space-y-6">
+        <div className="lg:col-span-5 lg:col-start-8 lg:row-start-1 lg:row-span-3 space-y-6">
           <div className="bg-white rounded-3xl border border-brand-hairline p-6 shadow-2xs space-y-4">
             <h2 className="font-serif text-base font-bold text-brand-charcoal pb-3 border-b border-brand-hairline">
               {t('checkout.order_summary')} ({cart?.items_count || 0})

@@ -212,7 +212,7 @@ const CircularGallery = React.forwardRef<HTMLDivElement, CircularGalleryProps>(
             type="button"
             onClick={() => step(-1)}
             aria-label={L.previous}
-            className="min-h-11 min-w-11 flex items-center justify-center rounded-xl border border-white/30 bg-black/40 text-white backdrop-blur-sm hover:bg-black/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A37E44]"
+            className="min-h-11 min-w-11 flex items-center justify-center rounded-xl border border-white/30 bg-black/40 text-white backdrop-blur-sm hover:bg-black/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal"
           >
             <span aria-hidden="true" className="rtl:rotate-180">
               <ChevronLeft size={18} />
@@ -228,7 +228,7 @@ const CircularGallery = React.forwardRef<HTMLDivElement, CircularGalleryProps>(
             type="button"
             onClick={() => step(1)}
             aria-label={L.next}
-            className="min-h-11 min-w-11 flex items-center justify-center rounded-xl border border-white/30 bg-black/40 text-white backdrop-blur-sm hover:bg-black/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A37E44]"
+            className="min-h-11 min-w-11 flex items-center justify-center rounded-xl border border-white/30 bg-black/40 text-white backdrop-blur-sm hover:bg-black/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal"
           >
             <span aria-hidden="true" className="rtl:rotate-180">
               <ChevronRight size={18} />

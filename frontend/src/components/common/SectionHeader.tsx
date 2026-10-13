@@ -50,7 +50,7 @@ export const SectionHeader: React.FC<{
     <div className="flex flex-col justify-between gap-2 border-b border-slate-200/80 pb-4 sm:flex-row sm:items-end">
       <div>
         {eyebrow && (
-          <span className="block text-[10px] font-bold uppercase tracking-widest text-[#7A5C28]">
+          <span className="block text-[10px] font-bold uppercase tracking-widest text-brand-coral">
             {eyebrow}
           </span>
         )}

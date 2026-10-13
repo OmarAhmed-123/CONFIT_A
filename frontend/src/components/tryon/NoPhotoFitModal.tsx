@@ -119,7 +119,7 @@ export const NoPhotoFitModal: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsCameraScanOpen(true)}
-                  className="px-3 py-1.5 rounded-xl bg-brand-charcoal hover:bg-black text-slate-950 text-[11px] font-bold shadow-sm"
+                  className="px-3 py-1.5 rounded-xl bg-brand-charcoal hover:bg-black text-white text-[11px] font-bold shadow-sm"
                 >
                   📸 Open Camera
                 </button>

@@ -211,7 +211,7 @@ class Settings(BaseSettings):
     # services/email_service.py) — a provider flag without SMTP_HOST is a
     # configuration error and refuses to boot in production (validator below).
     EMAIL_PROVIDER: Optional[str] = None  # "smtp" | "brevo_api" | None
-    EMAIL_FROM_ADDRESS: Optional[str] = None
+    EMAIL_FROM_ADDRESS: Optional[str] = "omarsafealden@gmail.com"
     # Brevo transactional HTTP API (https://api.brevo.com/v3/smtp/email).
     # WHY IT EXISTS (measured 2026-09-30 → 2026-10-06): Brevo's SMTP relay
     # enforces an IP allow-list and Vercel sends from a rotating pool —

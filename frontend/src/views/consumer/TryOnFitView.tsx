@@ -66,16 +66,16 @@ export const TryOnFitView: React.FC = () => {
         description={t('tryon.gallery_description')}
       />
       {/* Header */}
-      <div className="bg-brand-charcoal rounded-3xl text-white p-8 sm:p-12 shadow-xl border border-slate-800">
+      <div className="rounded-3xl border border-brand-hairline bg-white p-8 shadow-2xs sm:p-12">
         <div className="max-w-2xl space-y-3">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/20 text-white text-xs font-semibold uppercase tracking-wider">
+          <div className="inline-flex items-center gap-2 rounded-full border border-brand-hairline bg-brand-wash px-3 py-1 text-xs font-semibold uppercase tracking-wider text-brand-charcoal">
             <SparkleIcon size={14} color="currentColor" />
             <span>{t('tryon.studio_badge')}</span>
           </div>
-          <h1 className="font-serif text-3xl sm:text-4xl font-bold leading-tight">
+          <h1 className="font-serif text-3xl font-bold leading-tight text-brand-charcoal sm:text-4xl">
             {t('tryon.studio_headline')}
           </h1>
-          <p className="text-xs sm:text-sm text-slate-300 font-light leading-relaxed">
+          <p className="text-xs font-light leading-relaxed text-slate-600 sm:text-sm">
             {t('tryon.studio_lede')}
           </p>
         </div>
@@ -90,7 +90,7 @@ export const TryOnFitView: React.FC = () => {
       <section className="rounded-3xl border border-brand-hairline bg-white p-5 shadow-2xs">
         <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
           <div>
-            <span className="text-[10px] font-bold uppercase tracking-widest text-[#7A5C28]">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-brand-coral">
               {t('tryon.privacy_eyebrow')}
             </span>
             <h2 className="mt-1 font-serif text-2xl font-bold text-brand-charcoal">
@@ -153,7 +153,7 @@ export const TryOnFitView: React.FC = () => {
                 : t("tryon.vton_card_caption")}
             </p>
           </div>
-          <span className="text-xs font-bold text-[#7A5C28] mt-4 block">
+          <span className="text-xs font-bold text-brand-charcoal mt-4 block">
             {tryOnKind === "render"
               ? t("tryon.cta_try_on")
               : t("tryon.cta_fit_check")}{" "}
@@ -174,7 +174,7 @@ export const TryOnFitView: React.FC = () => {
           }`}
         >
           <div className="space-y-2">
-            <div className="w-10 h-10 rounded-xl bg-brand-charcoal text-white flex items-center justify-center text-slate-950 shadow-xs">
+            <div className="w-10 h-10 rounded-xl bg-brand-charcoal text-white flex items-center justify-center shadow-xs">
               <SparkleIcon size={22} color="#FFFFFF" />
             </div>
             <h3 className="font-serif text-base font-bold text-brand-charcoal">
@@ -185,7 +185,7 @@ export const TryOnFitView: React.FC = () => {
               profile; raw video is not uploaded by this flow.
             </p>
           </div>
-          <span className="mt-4 block text-xs font-bold text-[#7A5C28]">
+          <span className="mt-4 block text-xs font-bold text-brand-charcoal">
             {t('tryon.scan_feature_cta')} <span aria-hidden="true">→</span>
           </span>
         </div>
@@ -239,7 +239,7 @@ export const TryOnFitView: React.FC = () => {
               Upload a moodboard image to search matching real catalog pieces.
             </p>
           </div>
-          <span className="text-xs font-bold text-[#7A5C28] mt-4 block">
+          <span className="text-xs font-bold text-brand-charcoal mt-4 block">
             Match Outfit →
           </span>
         </div>

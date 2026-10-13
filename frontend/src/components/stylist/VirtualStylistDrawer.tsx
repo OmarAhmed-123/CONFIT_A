@@ -216,7 +216,7 @@ export const VirtualStylistDrawer: React.FC = () => {
   };
   const slotTone = (pos: string) =>
     pos?.toLowerCase?.() === "dress"
-      ? "bg-brand-charcoal text-slate-950 font-bold border border-brand-hairline"
+      ? "bg-brand-coral/10 text-brand-charcoal font-bold border border-brand-coral/30"
       : "bg-brand-charcoal text-white border border-brand-hairline/30";
 
   // Money honesty: render ONLY the currency the server declared for this
@@ -233,7 +233,7 @@ export const VirtualStylistDrawer: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-hidden bg-slate-950/60 backdrop-blur-sm confit-fade-in">
+    <div className="fixed inset-0 z-50 overflow-hidden bg-slate-900/40 backdrop-blur-sm confit-fade-in">
       <div className="absolute inset-y-0 right-0 max-w-full flex pl-6 sm:pl-10">
         <div
           ref={panelRef}
@@ -241,26 +241,26 @@ export const VirtualStylistDrawer: React.FC = () => {
           aria-modal="true"
           aria-label={t("stylist.dialog_label")}
           tabIndex={-1}
-          className="w-screen max-w-2xl bg-white shadow-2xl flex flex-col border-l border-slate-200 confit-drawer-in"
+          className="w-screen max-w-2xl bg-white shadow-2xl flex flex-col border-l border-brand-hairline confit-drawer-in"
         >
           {/* Drawer Header */}
-          <div className="p-4 sm:p-6 border-b border-slate-800 bg-brand-charcoal text-white flex items-center justify-between">
+          <div className="p-4 sm:p-6 border-b border-brand-hairline bg-white text-brand-charcoal flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-brand-charcoal flex items-center justify-center text-slate-950 shadow-xs">
-                <StylistIcon size={22} color="#FFFFFF" />
+              <div className="w-10 h-10 rounded-xl bg-brand-wash border border-brand-hairline flex items-center justify-center text-brand-charcoal shadow-xs">
+                <StylistIcon size={22} color="#252729" />
               </div>
               <div>
-                <h2 className="font-serif text-lg font-bold text-white flex items-center gap-2">
+                <h2 className="font-serif text-lg font-bold text-brand-charcoal flex items-center gap-2">
                   <span>{t("stylist.title")}</span>
                   {/* The old static badge claimed "Rules-Grounded Engine" on
                       every reply — false whenever a live provider answered
                       (per-message attribution is the engine truth). The one
                       claim true in BOTH paths: verified catalogue pieces. */}
-                  <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-brand-charcoal/20 text-white font-sans font-semibold">
+                  <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-brand-wash border border-brand-hairline text-brand-charcoal font-sans font-semibold">
                     {t("stylist.catalogue_badge")}
                   </span>
                 </h2>
-                <p className="text-xs text-slate-400 font-light">
+                <p className="text-xs text-slate-500 font-light">
                   {t("stylist.subtitle")}
                 </p>
               </div>
@@ -268,7 +268,7 @@ export const VirtualStylistDrawer: React.FC = () => {
             <button
               onClick={closeStylist}
               aria-label={t("common.close")}
-              className={`w-11 h-11 rounded-full bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 flex items-center justify-center ${LUX} ${RING}`}
+              className={`w-11 h-11 rounded-full bg-slate-100 text-slate-600 hover:text-brand-charcoal hover:bg-slate-200 flex items-center justify-center ${LUX} ${RING}`}
             >
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
                 <path d="M1 1l12 12M13 1L1 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />

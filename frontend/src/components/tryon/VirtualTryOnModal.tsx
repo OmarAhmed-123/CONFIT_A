@@ -272,36 +272,36 @@ export const VirtualTryOnModal: React.FC = () => {
   return (
     <>
       {consentDialog}
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/85 backdrop-blur-md animate-in fade-in duration-150">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-150">
         <div
           ref={tryOnPanelRef}
           role="dialog"
           aria-modal="true"
           aria-label={t('tryon.studio_aria')}
           tabIndex={-1}
-          className="w-full max-w-6xl bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden max-h-[96vh] flex flex-col"
+          className="w-full max-w-6xl bg-white rounded-3xl shadow-2xl border border-brand-hairline overflow-hidden max-h-[96vh] flex flex-col"
         >
           {/* Header */}
-          <div className="p-4 sm:p-5 bg-brand-charcoal text-white flex justify-between items-center border-b border-slate-800 shrink-0">
+          <div className="p-4 sm:p-5 bg-white text-brand-charcoal flex justify-between items-center border-b border-brand-hairline shrink-0">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-brand-charcoal flex items-center justify-center text-slate-950 shadow-xs">
-                <TryOnIcon size={22} color="#FFFFFF" isAi={true} />
+              <div className="w-10 h-10 rounded-xl bg-brand-wash border border-brand-hairline flex items-center justify-center text-brand-charcoal shadow-xs">
+                <TryOnIcon size={22} color="#252729" isAi={true} />
               </div>
               <div>
-                <h3 className="font-serif text-base sm:text-lg font-bold text-white flex items-center gap-2">
+                <h3 className="font-serif text-base sm:text-lg font-bold text-brand-charcoal flex items-center gap-2">
                   <span>{t('tryon.studio_title')}</span>
-                  <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-brand-charcoal/20 text-white font-sans font-semibold">
+                  <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-brand-wash border border-brand-hairline text-brand-charcoal font-sans font-semibold">
                     Multi-Layer Dressing Engine
                   </span>
                 </h3>
-                <p className="text-xs text-slate-400 font-light hidden sm:block">
+                <p className="text-xs text-slate-500 font-light hidden sm:block">
                   Applies the selected garments to the person in your photo.
                 </p>
               </div>
             </div>
             <button
               onClick={closeTryOn}
-              className="w-8 h-8 rounded-full bg-slate-800 text-slate-300 hover:text-white flex items-center justify-center transition-colors"
+              className="w-8 h-8 rounded-full bg-slate-100 text-slate-600 hover:text-brand-charcoal hover:bg-slate-200 flex items-center justify-center transition-colors"
             >
               ✕
             </button>
@@ -334,7 +334,7 @@ export const VirtualTryOnModal: React.FC = () => {
                     </button>
                     <button
                       onClick={() => setIsCameraScanOpen(true)}
-                      className="px-3 py-1.5 rounded-xl bg-brand-wash border border-brand-hairline/40 hover:bg-brand-charcoal hover:text-slate-950 text-brand-charcoal text-xs font-semibold flex items-center gap-1 shadow-2xs transition-all"
+                      className="px-3 py-1.5 rounded-xl bg-brand-wash border border-brand-hairline/40 hover:bg-brand-charcoal hover:text-white text-brand-charcoal text-xs font-semibold flex items-center gap-1 shadow-2xs transition-all"
                     >
                       <span>🎥 Live Scan</span>
                     </button>
@@ -384,7 +384,7 @@ export const VirtualTryOnModal: React.FC = () => {
                       }}
                       className={`px-3 py-1 rounded-lg transition-all ${
                         isBeforeAfterActive
-                          ? "bg-brand-charcoal text-slate-950 shadow-xs"
+                          ? "bg-brand-charcoal text-white shadow-xs"
                           : "text-slate-600 hover:text-slate-900"
                       }`}
                     >

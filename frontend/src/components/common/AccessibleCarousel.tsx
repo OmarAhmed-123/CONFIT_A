@@ -234,7 +234,7 @@ export function AccessibleCarousel<T>({
         tabIndex={0}
         aria-label={label}
         onKeyDown={onKeyDown}
-        className="flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth pb-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A37E44]"
+        className="flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth pb-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal"
       >
         {items.map((item, index) => (
           <div

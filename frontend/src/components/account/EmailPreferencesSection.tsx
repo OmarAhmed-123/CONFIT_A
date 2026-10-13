@@ -117,7 +117,7 @@ export const EmailPreferencesSection: React.FC = () => {
           <button
             type="button"
             onClick={load}
-            className="inline-flex min-h-9 items-center rounded-xl border border-slate-300 px-4 text-xs font-bold text-brand-charcoal hover:border-[#A37E44] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal"
+            className="inline-flex min-h-9 items-center rounded-xl border border-slate-300 px-4 text-xs font-bold text-brand-charcoal hover:border-brand-hairline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal"
           >
             {t('email_prefs.retry')}
           </button>

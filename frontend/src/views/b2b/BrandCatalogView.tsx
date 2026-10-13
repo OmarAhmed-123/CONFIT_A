@@ -146,9 +146,9 @@ export const BrandCatalogView: React.FC = () => {
   };
 
   const btnPrimary =
-    'inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-brand-charcoal px-5 text-xs font-semibold text-white transition-colors duration-300 ease-luxury hover:bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--confit-focus)] disabled:opacity-50';
+    'inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-brand-charcoal px-5 text-xs font-semibold text-white transition-colors duration-300 ease-luxury hover:bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal disabled:opacity-50';
   const btnGhost =
-    'inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-slate-300 px-4 text-xs font-semibold text-[var(--confit-navy)] transition-colors duration-300 ease-luxury hover:border-[var(--confit-gold)] hover:text-[#7A5C28] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--confit-focus)] disabled:opacity-50';
+    'inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-slate-300 px-4 text-xs font-semibold text-brand-charcoal transition-colors duration-300 ease-luxury hover:border-brand-charcoal hover:text-brand-charcoal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal disabled:opacity-50';
 
   if (isLoading) {
     return (
@@ -190,12 +190,12 @@ export const BrandCatalogView: React.FC = () => {
       <header className="flex flex-col justify-between gap-4 border-b border-slate-200 pb-6 sm:flex-row sm:items-end">
         <div>
           <div className="flex items-center gap-2">
-            <span className="h-px w-8 bg-[var(--confit-gold)]" aria-hidden="true" />
-            <span className="text-[11px] font-bold uppercase tracking-widest text-[#7A5C28]">
+            <span className="h-px w-8 bg-brand-charcoal" aria-hidden="true" />
+            <span className="text-[11px] font-bold uppercase tracking-widest text-brand-charcoal">
               {t('b2b.cat.eyebrow')}
             </span>
           </div>
-          <h1 className="mt-2 font-serif text-3xl font-bold text-[var(--confit-navy)]">
+          <h1 className="mt-2 font-serif text-3xl font-bold text-brand-charcoal">
             {t('b2b.cat.header_title')}
           </h1>
           <p className="mt-1 max-w-xl text-xs leading-relaxed text-slate-600 sm:text-sm">
@@ -212,7 +212,7 @@ export const BrandCatalogView: React.FC = () => {
       {fetchErrors.imports && (
         <div role="alert" className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-rose-300 bg-rose-50 p-4 text-xs text-rose-800">
           <span>{t('b2b.cat.jobs_err', { reason: fetchErrors.imports })}</span>
-          <button type="button" onClick={refresh} className="min-h-12 rounded-xl bg-rose-700 px-4 font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--confit-focus)]">
+          <button type="button" onClick={refresh} className="min-h-12 rounded-xl bg-rose-700 px-4 font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal">
             {t('common.retry')}
           </button>
         </div>
@@ -220,7 +220,7 @@ export const BrandCatalogView: React.FC = () => {
 
       {importJobs.length > 0 && (
         <Surface variant="solid" as="section" className="rounded-2xl p-6">
-          <h2 className="border-b border-slate-200 pb-3 font-serif text-lg font-bold text-[var(--confit-navy)]">
+          <h2 className="border-b border-slate-200 pb-3 font-serif text-lg font-bold text-brand-charcoal">
             {t('b2b.cat.jobs_title')}
           </h2>
           <div className="overflow-x-auto">
@@ -270,7 +270,7 @@ export const BrandCatalogView: React.FC = () => {
             : 'border-rose-300 bg-rose-50'
           }`}
         >
-          <h3 className="text-sm font-bold text-[var(--confit-navy)]">
+          <h3 className="text-sm font-bold text-brand-charcoal">
             {t('b2b.cat.last_title', { status: statusLabel(lastImportResult.status) })}
           </h3>
           <div className="grid grid-cols-2 gap-3 text-xs sm:grid-cols-4">
@@ -316,8 +316,8 @@ export const BrandCatalogView: React.FC = () => {
                   </span>
                   <div>
                     <span className="block text-[11px] font-bold uppercase tracking-wider text-slate-600">{p.category_name}</span>
-                    <h2 className="font-serif text-base font-bold text-[var(--confit-navy)]">{p.title}</h2>
-                    <span className="text-xs font-bold text-[#7A5C28]">{p.currency} {p.base_price}</span>
+                    <h2 className="font-serif text-base font-bold text-brand-charcoal">{p.title}</h2>
+                    <span className="text-xs font-bold text-brand-charcoal">{p.currency} {p.base_price}</span>
                     <span className="ms-2 text-[11px] text-slate-500">ID: {p.id}</span>
                   </div>
                 </div>
@@ -334,7 +334,7 @@ export const BrandCatalogView: React.FC = () => {
 
               {/* ------------------------------------------ AI tag preview/apply */}
               {tagState.phase !== 'idle' && (
-                <div className="space-y-3 rounded-xl border border-slate-200 bg-[var(--confit-cream)] p-4" role="status">
+                <div className="space-y-3 rounded-xl border border-slate-200 bg-brand-wash p-4" role="status">
                   {(tagState.phase === 'previewing' || tagState.phase === 'applying') && (
                     <p className="text-xs font-semibold text-slate-600">
                       {tagState.phase === 'previewing' ? t('b2b.cat.tag_previewing') : t('b2b.cat.tag_applying')}
@@ -348,7 +348,7 @@ export const BrandCatalogView: React.FC = () => {
                   {(tagState.phase === 'preview' || tagState.phase === 'applied') && (
                     <>
                       <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-600">
-                        <span className="font-bold text-[var(--confit-navy)]">
+                        <span className="font-bold text-brand-charcoal">
                           {t('b2b.cat.tag_quality')}: {tagState.data.quality}
                         </span>
                         <span>{t('b2b.cat.tag_models')}: {(tagState.data.models || []).join(', ')}</span>
@@ -426,7 +426,7 @@ export const BrandCatalogView: React.FC = () => {
                               type="number"
                               value={editStock}
                               onChange={(e) => setEditStock(Number(e.target.value))}
-                              className="w-20 rounded-lg border border-slate-300 px-2 py-1 text-xs font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--confit-focus)]"
+                              className="w-20 rounded-lg border border-slate-300 px-2 py-1 text-xs font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal"
                               min={0}
                               max={100000}
                             />
@@ -445,7 +445,7 @@ export const BrandCatalogView: React.FC = () => {
                               value={editPrice ?? ''}
                               onChange={(e) => setEditPrice(e.target.value ? Number(e.target.value) : undefined)}
                               placeholder={String(p.base_price)}
-                              className="w-20 rounded-lg border border-slate-300 px-2 py-1 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--confit-focus)]"
+                              className="w-20 rounded-lg border border-slate-300 px-2 py-1 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal"
                             />
                           ) : (
                             <span className="font-mono">{p.currency} {sku.price_override ?? p.base_price}</span>
@@ -462,7 +462,7 @@ export const BrandCatalogView: React.FC = () => {
                               <button type="button" disabled={saving} onClick={() => handleSaveSku(sku.id)} className="min-h-12 rounded-xl bg-brand-charcoal px-4 text-[11px] font-bold text-white transition-colors duration-300 ease-luxury hover:bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:opacity-50">
                                 {t('b2b.cat.save')}
                               </button>
-                              <button type="button" onClick={() => setEditingSkuId(null)} className="min-h-12 rounded-xl border border-slate-300 px-3 text-[11px] font-semibold text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--confit-focus)]">
+                              <button type="button" onClick={() => setEditingSkuId(null)} className="min-h-12 rounded-xl border border-slate-300 px-3 text-[11px] font-semibold text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal">
                                 {t('b2b.cat.cancel')}
                               </button>
                             </span>
@@ -470,7 +470,7 @@ export const BrandCatalogView: React.FC = () => {
                             <button
                               type="button"
                               onClick={() => { setEditingSkuId(sku.id); setEditStock(sku.stock_level); setEditPrice(sku.price_override); }}
-                              className="min-h-12 rounded-xl px-3 text-xs font-bold text-[#7A5C28] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--confit-focus)]"
+                              className="min-h-12 rounded-xl px-3 text-xs font-bold text-brand-charcoal hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal"
                             >
                               {t('b2b.cat.edit_stock')}
                             </button>
@@ -490,7 +490,7 @@ export const BrandCatalogView: React.FC = () => {
       {bulkModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm">
           <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={t('b2b.import_catalog')} tabIndex={-1} className="w-full max-w-lg space-y-4 rounded-2xl bg-white p-6 shadow-2xl">
-            <h2 className="font-serif text-lg font-bold text-[var(--confit-navy)]">{t('b2b.cat.modal_title')}</h2>
+            <h2 className="font-serif text-lg font-bold text-brand-charcoal">{t('b2b.cat.modal_title')}</h2>
             <div className="space-y-2 text-xs text-slate-600">
               <p>{t('b2b.cat.modal_required', { cols: 'title, category_slug, base_price, color_family, thumbnail_url' })}</p>
               <p>{t('b2b.cat.modal_optional', { cols: 'title_ar, description, material, currency, style_tags, sku_code, size, color, stock_level, price_override, images' })}</p>
@@ -504,17 +504,17 @@ export const BrandCatalogView: React.FC = () => {
               onDragLeave={() => setDragActive(false)}
               onDrop={handleDrop}
               onClick={() => fileInputRef.current?.click()}
-              className={`cursor-pointer rounded-2xl border-2 border-dashed p-8 text-center transition-colors duration-300 ease-luxury ${dragActive ? 'border-[var(--confit-navy)] bg-brand-charcoal/5' : 'border-slate-300 bg-[var(--confit-cream)]'} ${isUploading ? 'pointer-events-none opacity-50' : ''}`}
+              className={`cursor-pointer rounded-2xl border-2 border-dashed p-8 text-center transition-colors duration-300 ease-luxury ${dragActive ? 'border-brand-charcoal bg-brand-charcoal/5' : 'border-slate-300 bg-brand-wash'} ${isUploading ? 'pointer-events-none opacity-50' : ''}`}
             >
               <input ref={fileInputRef} type="file" accept=".csv" onChange={(e) => { if (e.target.files && e.target.files[0]) handleFileUpload(e.target.files[0]); }} className="hidden" />
               {isUploading ? (
                 <div className="space-y-2">
-                  <RefreshCw size={22} className="mx-auto motion-safe:animate-spin text-[var(--confit-navy)]" aria-hidden="true" />
-                  <p className="text-xs font-semibold text-[var(--confit-navy)]">{t('b2b.cat.drop_processing')}</p>
+                  <RefreshCw size={22} className="mx-auto motion-safe:animate-spin text-brand-charcoal" aria-hidden="true" />
+                  <p className="text-xs font-semibold text-brand-charcoal">{t('b2b.cat.drop_processing')}</p>
                 </div>
               ) : (
                 <div className="space-y-2">
-                  <Upload size={22} className="mx-auto text-[#7A5C28]" aria-hidden="true" />
+                  <Upload size={22} className="mx-auto text-brand-charcoal" aria-hidden="true" />
                   <p className="text-xs font-semibold text-slate-600">{t('b2b.cat.drop_cta')}</p>
                   <p className="text-[11px] text-slate-500">{t('b2b.cat.drop_hint')}</p>
                 </div>
@@ -539,7 +539,7 @@ export const BrandCatalogView: React.FC = () => {
             <div className="border-t border-slate-100 pt-3 text-[11px] text-slate-500">
               <div className="flex items-center justify-between gap-2">
                 <span className="font-bold text-slate-700">{t('b2b.cat.sample_title')}</span>
-                <button type="button" onClick={downloadSampleCsv} className="min-h-12 rounded-xl border border-[var(--confit-navy)] px-3 text-[11px] font-semibold text-[var(--confit-navy)] transition-colors duration-300 ease-luxury hover:bg-brand-charcoal hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white">
+                <button type="button" onClick={downloadSampleCsv} className="min-h-12 rounded-xl border border-brand-charcoal px-3 text-[11px] font-semibold text-brand-charcoal transition-colors duration-300 ease-luxury hover:bg-brand-charcoal hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white">
                   {t('b2b.cat.sample_dl')}
                 </button>
               </div>

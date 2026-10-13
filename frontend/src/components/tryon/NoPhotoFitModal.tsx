@@ -83,13 +83,13 @@ export const NoPhotoFitModal: React.FC = () => {
           aria-labelledby="no-photo-fit-title"
         >
           {/* Modal Header */}
-          <div className="p-4 sm:p-6 border-b border-slate-100 bg-[#FAF9F6] flex items-center justify-between">
+          <div className="p-4 sm:p-6 border-b border-slate-100 bg-brand-wash flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-[#1B1F3B]">
-                <RulerIcon size={22} color="#1B1F3B" />
+              <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-brand-charcoal">
+                <RulerIcon size={22} color="#242526" />
               </div>
               <div>
-                <h3 id="no-photo-fit-title" className="font-serif text-lg font-bold text-[#1B1F3B]">
+                <h3 id="no-photo-fit-title" className="font-serif text-lg font-bold text-brand-charcoal">
                   {t('tryon.ruler_mode')}
                 </h3>
                 <p className="text-xs text-slate-500 font-light">
@@ -111,15 +111,15 @@ export const NoPhotoFitModal: React.FC = () => {
           <div className="p-6 overflow-y-auto flex-1 grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Left Inputs */}
             <div className="space-y-4">
-              <div className="flex justify-between items-center bg-[#FDF8EE] p-3 rounded-2xl border border-[#C5A059]/30">
+              <div className="flex justify-between items-center bg-brand-wash p-3 rounded-2xl border border-brand-hairline/30">
                 <div className="text-xs">
-                  <div className="font-bold text-[#1B1F3B]">{t('tryon.nophoto_scan')}</div>
+                  <div className="font-bold text-brand-charcoal">{t('tryon.nophoto_scan')}</div>
                   <div className="text-[10px] text-slate-500 font-light">Estimate dimensions in 2s via live camera</div>
                 </div>
                 <button
                   type="button"
                   onClick={() => setIsCameraScanOpen(true)}
-                  className="px-3 py-1.5 rounded-xl bg-[#C5A059] hover:bg-[#A37E44] text-slate-950 text-[11px] font-bold shadow-sm"
+                  className="px-3 py-1.5 rounded-xl bg-brand-charcoal hover:bg-black text-slate-950 text-[11px] font-bold shadow-sm"
                 >
                   📸 Open Camera
                 </button>
@@ -136,7 +136,7 @@ export const NoPhotoFitModal: React.FC = () => {
                   max="210"
                   value={height}
                   onChange={(e) => setHeight(Number(e.target.value))}
-                  className="w-full accent-[#C5A059]"
+                  className="w-full accent-brand-charcoal"
                 />
               </div>
 
@@ -151,7 +151,7 @@ export const NoPhotoFitModal: React.FC = () => {
                   max="140"
                   value={weight}
                   onChange={(e) => setWeight(Number(e.target.value))}
-                  className="w-full accent-[#C5A059]"
+                  className="w-full accent-brand-charcoal"
                 />
               </div>
 
@@ -164,7 +164,7 @@ export const NoPhotoFitModal: React.FC = () => {
                       onClick={() => setShape(s)}
                       className={`py-2 px-1.5 text-center text-xs rounded-xl border transition-all truncate ${
                         shape === s
-                          ? 'border-[#C5A059] bg-[#FDF8EE] text-[#A37E44] font-bold'
+                          ? 'border-brand-hairline bg-brand-wash text-brand-charcoal font-bold'
                           : 'border-slate-200 text-slate-600 hover:bg-slate-50'
                       }`}
                     >
@@ -187,7 +187,7 @@ export const NoPhotoFitModal: React.FC = () => {
                       onClick={() => setFitPref(f.id)}
                       className={`py-2 px-2 text-center text-xs rounded-xl border transition-all ${
                         fitPref === f.id
-                          ? 'border-[#1B1F3B] bg-[#1B1F3B] text-white font-bold'
+                          ? 'border-brand-charcoal bg-brand-charcoal text-white font-bold'
                           : 'border-slate-200 text-slate-600 hover:bg-slate-50'
                       }`}
                     >
@@ -200,14 +200,14 @@ export const NoPhotoFitModal: React.FC = () => {
               <button
                 onClick={() => handleCalculate()}
                 disabled={rulerLoading}
-                className="w-full py-3.5 rounded-xl bg-[#1B1F3B] hover:bg-[#0C0E1E] text-white font-semibold text-xs shadow-md transition-all flex items-center justify-center gap-2"
+                className="w-full py-3.5 rounded-xl bg-brand-charcoal hover:bg-brand-charcoal text-white font-semibold text-xs shadow-md transition-all flex items-center justify-center gap-2"
               >
                 {rulerLoading ? 'Calculating Brand Proportions...' : 'Compute Precision Fit Verdict'}
               </button>
             </div>
 
             {/* Right Verdict Result */}
-            <div className="bg-[#FAF9F6] border border-slate-200/80 rounded-2xl p-5 flex flex-col justify-between">
+            <div className="bg-brand-wash border border-slate-200/80 rounded-2xl p-5 flex flex-col justify-between">
               {noPhotoResult && !noPhotoResult.recommended ? (
                 /* The engine declined to name a size. Show the reason — never
                    fall back to a guess just to fill the card. */
@@ -227,7 +227,7 @@ export const NoPhotoFitModal: React.FC = () => {
                   <div className="flex justify-between items-center pb-3 border-b border-slate-200">
                     <div>
                       <span className="text-[10px] text-slate-400 font-bold uppercase">{t('tryon.scan_recommended_size')}</span>
-                      <div className="text-2xl font-serif font-black text-[#1B1F3B]">
+                      <div className="text-2xl font-serif font-black text-brand-charcoal">
                         Size {noPhotoResult.recommended_size}
                       </div>
                       {/* Band, not a percentage. The 0-100 score is an internal
@@ -247,7 +247,7 @@ export const NoPhotoFitModal: React.FC = () => {
                   </div>
 
                   {noPhotoResult.is_between_sizes && noPhotoResult.alternative_size && (
-                    <p className="text-[11px] text-[#7A5C28] bg-[#FDF8EE] border border-[#C5A059]/40 rounded-xl p-2.5">
+                    <p className="text-[11px] text-brand-charcoal bg-brand-wash border border-brand-hairline/40 rounded-xl p-2.5">
                       Between sizes — {noPhotoResult.recommended_size} is closer-fitting,{' '}
                       {noPhotoResult.alternative_size} is roomier.
                     </p>
@@ -299,15 +299,15 @@ export const NoPhotoFitModal: React.FC = () => {
                         openCart();
                       }
                     }}
-                    className="w-full py-3.5 rounded-xl bg-[#C5A059] hover:bg-[#A37E44] text-slate-950 font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2"
+                    className="w-full py-3.5 rounded-xl bg-brand-charcoal hover:bg-black text-slate-950 font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2"
                   >
-                    <BagIcon size={14} color="#0C0E1E" />
+                    <BagIcon size={14} color="#FFFFFF" />
                     <span>Add Size {noPhotoResult.recommended_size} to Bag</span>
                   </button>
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-center h-full text-center p-6 text-slate-400">
-                  <RulerIcon size={36} color="#C5A059" />
+                  <RulerIcon size={36} color="#242526" />
                   <span className="text-xs font-semibold text-slate-700 mt-3">{t('tryon.nophoto_adjust')}</span>
                   <span className="text-[11px] text-slate-400 font-light mt-1 max-w-xs">
                     We cross-reference your height, weight, and silhouette against {rulerProduct.brand_name}'s precise pattern specifications.

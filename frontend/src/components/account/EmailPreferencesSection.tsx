@@ -69,7 +69,7 @@ export const EmailPreferencesSection: React.FC = () => {
     return (
       <div className="flex items-start justify-between gap-4 pt-1">
         <div>
-          <div className="text-sm font-bold text-[#1B1F3B]">{title}</div>
+          <div className="text-sm font-bold text-brand-charcoal">{title}</div>
           <p className="mt-0.5 text-xs leading-relaxed text-slate-500">{detail}</p>
         </div>
         <button
@@ -80,7 +80,7 @@ export const EmailPreferencesSection: React.FC = () => {
           aria-label={title}
           disabled={isBusy}
           onClick={() => toggle(category)}
-          className={`relative mt-0.5 h-7 w-12 shrink-0 rounded-full transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059] disabled:cursor-wait ${
+          className={`relative mt-0.5 h-7 w-12 shrink-0 rounded-full transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal disabled:cursor-wait ${
             on ? 'bg-emerald-500' : 'bg-slate-300'
           }`}
         >
@@ -99,14 +99,14 @@ export const EmailPreferencesSection: React.FC = () => {
 
   return (
     <div className="bg-white rounded-3xl border border-slate-200/80 p-6 shadow-2xs space-y-4">
-      <h3 className="flex items-center gap-2 border-b border-slate-100 pb-2 font-serif text-base font-bold text-[#1B1F3B]">
-        <span aria-hidden="true" className="text-[#A37E44]"><Mail size={16} /></span>
+      <h3 className="flex items-center gap-2 border-b border-slate-100 pb-2 font-serif text-base font-bold text-brand-charcoal">
+        <span aria-hidden="true" className="text-brand-charcoal"><Mail size={16} /></span>
         {t('email_prefs.title')}
       </h3>
 
       {loadState === 'loading' && (
         <p role="status" className="flex items-center gap-2 text-xs text-slate-500">
-          <StatusIcon status="loading" size={14} className="text-[#A37E44]" />
+          <StatusIcon status="loading" size={14} className="text-brand-charcoal" />
           {t('email_prefs.loading')}
         </p>
       )}
@@ -117,7 +117,7 @@ export const EmailPreferencesSection: React.FC = () => {
           <button
             type="button"
             onClick={load}
-            className="inline-flex min-h-9 items-center rounded-xl border border-slate-300 px-4 text-xs font-bold text-[#1B1F3B] hover:border-[#A37E44] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059]"
+            className="inline-flex min-h-9 items-center rounded-xl border border-slate-300 px-4 text-xs font-bold text-brand-charcoal hover:border-[#A37E44] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal"
           >
             {t('email_prefs.retry')}
           </button>
@@ -140,7 +140,7 @@ export const EmailPreferencesSection: React.FC = () => {
           {/* Transactional: no switch BY DESIGN — say why. */}
           <div className="flex items-start justify-between gap-4 border-t border-slate-100 pt-3">
             <div>
-              <div className="text-sm font-bold text-[#1B1F3B]">
+              <div className="text-sm font-bold text-brand-charcoal">
                 {t('email_prefs.transactional_title')}
               </div>
               <p className="mt-0.5 text-xs leading-relaxed text-slate-500">
@@ -160,7 +160,7 @@ export const EmailPreferencesSection: React.FC = () => {
             {error && <p className="text-xs font-bold text-rose-600">{error}</p>}
             {busy && (
               <p className="flex items-center gap-2 text-xs text-slate-500">
-                <StatusIcon status="loading" size={12} className="text-[#A37E44]" />
+                <StatusIcon status="loading" size={12} className="text-brand-charcoal" />
                 {t('email_prefs.saving')}
               </p>
             )}

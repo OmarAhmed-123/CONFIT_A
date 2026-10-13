@@ -23,7 +23,7 @@ import { StatusIcon } from '../common/InteractionPrimitives';
 const COMPOSER_MAX_HEIGHT_PX = 160;
 
 const LUX = "motion-safe:transition-all motion-safe:duration-300 ease-[cubic-bezier(0.25,1,0.5,1)]";
-const RING = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059] focus-visible:ring-offset-2";
+const RING = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2";
 
 const getResolvedOutfitItems = (outfit: any) => {
   if (outfit.items && outfit.items.length > 0) {
@@ -88,11 +88,11 @@ const ScoreMeter: React.FC<{
       </span>
       <div className="h-px flex-1 bg-slate-200 relative overflow-visible" aria-hidden="true">
         <div
-          className="absolute inset-y-0 start-0 h-[3px] -top-[1px] rounded-full bg-[#C5A059] motion-safe:transition-[width] motion-safe:duration-700 ease-[cubic-bezier(0.25,1,0.5,1)]"
+          className="absolute inset-y-0 start-0 h-[3px] -top-[1px] rounded-full bg-brand-charcoal motion-safe:transition-[width] motion-safe:duration-700 ease-[cubic-bezier(0.25,1,0.5,1)]"
           style={{ width: `${clamped}%` }}
         />
       </div>
-      <span className="text-[10px] font-bold text-[#1B1F3B] tabular-nums" dir="ltr">
+      <span className="text-[10px] font-bold text-brand-charcoal tabular-nums" dir="ltr">
         {formatNumber(clamped, lang)}%
       </span>
     </div>
@@ -216,8 +216,8 @@ export const VirtualStylistDrawer: React.FC = () => {
   };
   const slotTone = (pos: string) =>
     pos?.toLowerCase?.() === "dress"
-      ? "bg-[#C5A059] text-slate-950 font-bold border border-[#C5A059]"
-      : "bg-[#0C0E1E]/85 text-[#E2BF70] border border-[#C5A059]/30";
+      ? "bg-brand-charcoal text-slate-950 font-bold border border-brand-hairline"
+      : "bg-brand-charcoal text-white border border-brand-hairline/30";
 
   // Money honesty: render ONLY the currency the server declared for this
   // item/look. No declared currency (legacy persisted messages) -> an honest
@@ -244,10 +244,10 @@ export const VirtualStylistDrawer: React.FC = () => {
           className="w-screen max-w-2xl bg-white shadow-2xl flex flex-col border-l border-slate-200 confit-drawer-in"
         >
           {/* Drawer Header */}
-          <div className="p-4 sm:p-6 border-b border-slate-800 bg-[#0C0E1E] text-white flex items-center justify-between">
+          <div className="p-4 sm:p-6 border-b border-slate-800 bg-brand-charcoal text-white flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-[#C5A059] flex items-center justify-center text-slate-950 shadow-xs">
-                <StylistIcon size={22} color="#0C0E1E" />
+              <div className="w-10 h-10 rounded-xl bg-brand-charcoal flex items-center justify-center text-slate-950 shadow-xs">
+                <StylistIcon size={22} color="#FFFFFF" />
               </div>
               <div>
                 <h2 className="font-serif text-lg font-bold text-white flex items-center gap-2">
@@ -256,7 +256,7 @@ export const VirtualStylistDrawer: React.FC = () => {
                       every reply — false whenever a live provider answered
                       (per-message attribution is the engine truth). The one
                       claim true in BOTH paths: verified catalogue pieces. */}
-                  <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-[#C5A059]/20 text-[#E2BF70] font-sans font-semibold">
+                  <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-brand-charcoal/20 text-white font-sans font-semibold">
                     {t("stylist.catalogue_badge")}
                   </span>
                 </h2>
@@ -277,8 +277,8 @@ export const VirtualStylistDrawer: React.FC = () => {
           </div>
 
           {/* Occasion Quick Chips */}
-          <div className="px-4 py-2.5 bg-[#FAF9F6] border-b border-slate-200/80 flex items-center gap-2 overflow-x-auto">
-            <span className="text-[10px] font-bold text-[#8A6A34] uppercase tracking-wider shrink-0">
+          <div className="px-4 py-2.5 bg-brand-wash border-b border-slate-200/80 flex items-center gap-2 overflow-x-auto">
+            <span className="text-[10px] font-bold text-brand-charcoal uppercase tracking-wider shrink-0">
               {t("stylist.style_prompts")}
             </span>
             {/* CONTRACT VALUES: `value` is sent to the API as the occasion hint and
@@ -291,7 +291,7 @@ export const VirtualStylistDrawer: React.FC = () => {
                   sendPrompt(`Style an outfit for ${occ.value}`, occ.value, undefined,
                              undefined, t(occ.labelKey))
                 }
-                className={`px-3 py-2.5 min-h-[44px] rounded-full bg-white border border-slate-200 text-[11px] font-medium text-slate-700 hover:border-[#C5A059] hover:bg-[#FDF8EE] shrink-0 shadow-2xs ${LUX} ${RING}`}
+                className={`px-3 py-2.5 min-h-[44px] rounded-full bg-white border border-slate-200 text-[11px] font-medium text-slate-700 hover:border-brand-hairline hover:bg-brand-wash shrink-0 shadow-2xs ${LUX} ${RING}`}
               >
                 {t(occ.labelKey)}
               </button>
@@ -300,13 +300,13 @@ export const VirtualStylistDrawer: React.FC = () => {
 
           {/* Messages & Recommendations Feed */}
           <div data-conversation
-               className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5 bg-[#FAF9F6]">
+               className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5 bg-brand-wash">
             {messages.length === 0 && (
               <div className="confit-fade-in">
                 {/* Editorial intro — start-aligned, not a centered widget. */}
                 <div className="pt-6 pb-5">
-                  <div className="w-10 h-px bg-[#C5A059] mb-4" aria-hidden="true" />
-                  <h4 className="font-serif text-2xl font-bold text-[#1B1F3B] leading-snug max-w-xs">
+                  <div className="w-10 h-px bg-brand-charcoal mb-4" aria-hidden="true" />
+                  <h4 className="font-serif text-2xl font-bold text-brand-charcoal leading-snug max-w-xs">
                     {t("stylist.empty_title")}
                   </h4>
                   <p className="text-xs text-slate-600 max-w-sm mt-2 font-light leading-relaxed">
@@ -343,7 +343,7 @@ export const VirtualStylistDrawer: React.FC = () => {
                       className={`group w-full min-h-[56px] py-4 flex items-center gap-4 text-start hover:bg-white ${LUX} ${RING}`}
                     >
                       <span
-                        className="font-serif text-lg font-black text-[#8A6A34] group-hover:text-[#1B1F3B] tabular-nums shrink-0 w-8"
+                        className="font-serif text-lg font-black text-brand-charcoal group-hover:text-brand-charcoal tabular-nums shrink-0 w-8"
                         aria-hidden="true"
                         dir="ltr"
                       >
@@ -353,7 +353,7 @@ export const VirtualStylistDrawer: React.FC = () => {
                         {t(ex.labelKey)}
                       </span>
                       <span
-                        className={`text-[#C5A059] opacity-0 group-hover:opacity-100 motion-safe:group-hover:translate-x-0 motion-safe:-translate-x-1 rtl:rotate-180 ${LUX}`}
+                        className={`text-brand-charcoal opacity-0 group-hover:opacity-100 motion-safe:group-hover:translate-x-0 motion-safe:-translate-x-1 rtl:rotate-180 ${LUX}`}
                         aria-hidden="true"
                       >
                         →
@@ -372,13 +372,13 @@ export const VirtualStylistDrawer: React.FC = () => {
                 <div
                   className={`max-w-[92%] rounded-2xl p-4 text-xs sm:text-sm shadow-2xs leading-relaxed ${
                     msg.sender === "user"
-                      ? "bg-[#1B1F3B] text-white rounded-br-none"
+                      ? "bg-brand-charcoal text-white rounded-br-none"
                       : "bg-white border border-slate-200/80 text-slate-800 rounded-bl-none shadow-sm"
                   }`}
                 >
                   <div
                     className={`flex items-center gap-2 mb-1 text-[10px] font-bold uppercase tracking-wider ${
-                      msg.sender === "user" ? "text-[#E2BF70]/80" : "text-slate-400"
+                      msg.sender === "user" ? "text-white/80" : "text-slate-400"
                     }`}
                   >
                     <span>
@@ -440,7 +440,7 @@ export const VirtualStylistDrawer: React.FC = () => {
                         <div className="flex justify-between items-start">
                           <div>
                             <div className="flex items-center gap-2 mb-1">
-                              <span className="text-[10px] font-bold text-[#8A6A34] uppercase tracking-wider">
+                              <span className="text-[10px] font-bold text-brand-charcoal uppercase tracking-wider">
                                 {occasionLabel(outfit.occasion)}
                               </span>
                               <span
@@ -462,7 +462,7 @@ export const VirtualStylistDrawer: React.FC = () => {
                                   : t("stylist.core_look")}
                               </span>
                             </div>
-                            <h4 className="font-serif font-bold text-base text-[#1B1F3B]">
+                            <h4 className="font-serif font-bold text-base text-brand-charcoal">
                               {outfit.title}
                             </h4>
                             {/* Real palette from the API — colour dots, zero
@@ -491,11 +491,11 @@ export const VirtualStylistDrawer: React.FC = () => {
                               look. The meters below it are the REAL
                               color_harmony_score / formality_score fields. */}
                           <div className="text-end shrink-0 ps-3">
-                            <div className="font-serif font-black text-3xl leading-none text-[#1B1F3B]" dir="ltr">
+                            <div className="font-serif font-black text-3xl leading-none text-brand-charcoal" dir="ltr">
                               {formatNumber(outfit.compatibility_score, lang)}
-                              <span className="text-sm text-[#C5A059] align-super">%</span>
+                              <span className="text-sm text-brand-charcoal align-super">%</span>
                             </div>
-                            <div className="text-[9px] font-bold uppercase tracking-widest text-[#8A6A34] mt-0.5">
+                            <div className="text-[9px] font-bold uppercase tracking-widest text-brand-charcoal mt-0.5">
                               {t("stylist.match")}
                             </div>
                           </div>
@@ -526,7 +526,7 @@ export const VirtualStylistDrawer: React.FC = () => {
                             return (
                               <div
                                 key={item.id}
-                                className={`group relative bg-[#FAF9F6] border border-slate-200/80 rounded-2xl p-2.5 flex flex-col justify-between confit-fade-in ${isAnchor ? "sm:row-span-2" : ""}`}
+                                className={`group relative bg-brand-wash border border-slate-200/80 rounded-2xl p-2.5 flex flex-col justify-between confit-fade-in ${isAnchor ? "sm:row-span-2" : ""}`}
                                 style={{ animationDelay: `${Math.min(itemIdx, 5) * 70}ms` }}
                               >
                                 <div>
@@ -553,7 +553,7 @@ export const VirtualStylistDrawer: React.FC = () => {
                                       </span>
                                     )}
                                   </div>
-                                  <span className="text-xs font-bold text-[#1B1F3B] line-clamp-1 block mt-0.5">
+                                  <span className="text-xs font-bold text-brand-charcoal line-clamp-1 block mt-0.5">
                                     {item.product_title}
                                   </span>
                                   {item.role_in_outfit && (
@@ -564,7 +564,7 @@ export const VirtualStylistDrawer: React.FC = () => {
                                 </div>
 
                                 <div className="flex items-center justify-between pt-2 border-t border-slate-100 mt-2">
-                                  <span className="text-xs font-bold text-[#1B1F3B]" dir="ltr">
+                                  <span className="text-xs font-bold text-brand-charcoal" dir="ltr">
                                     {itemMoney(item.price, item.currency)}
                                   </span>
                                   <button
@@ -585,14 +585,14 @@ export const VirtualStylistDrawer: React.FC = () => {
                                           outfit.compatibility_score,
                                       } as any)
                                     }
-                                    className={`px-2 py-2 min-h-[36px] rounded-lg bg-white border border-slate-200 hover:border-[#C5A059] disabled:opacity-50 disabled:cursor-not-allowed text-[10px] font-semibold text-slate-700 flex items-center gap-1 shadow-2xs ${LUX} ${RING}`}
+                                    className={`px-2 py-2 min-h-[36px] rounded-lg bg-white border border-slate-200 hover:border-brand-hairline disabled:opacity-50 disabled:cursor-not-allowed text-[10px] font-semibold text-slate-700 flex items-center gap-1 shadow-2xs ${LUX} ${RING}`}
                                     title={
                                       tryOnKind === "blocked" && tryOn.userMessage
                                         ? resolveMessage(tryOn.userMessage, t)
                                         : t("stylist.try_item")
                                     }
                                   >
-                                    <TryOnIcon size={11} color="#C5A059" />
+                                    <TryOnIcon size={11} color="#242526" />
                                     <span>{t("stylist.try")}</span>
                                   </button>
                                 </div>
@@ -669,7 +669,7 @@ export const VirtualStylistDrawer: React.FC = () => {
                               {formatNumber(getResolvedOutfitItems(outfit).length, lang)}{" "}
                               {t("stylist.items_count")}):
                             </span>
-                            <div className="text-base font-serif font-black text-[#1B1F3B]" dir="ltr" data-testid="stylist-ensemble-total">
+                            <div className="text-base font-serif font-black text-brand-charcoal" dir="ltr" data-testid="stylist-ensemble-total">
                               {itemMoney(outfit.total_price, outfit.currency)}
                             </div>
                           </div>
@@ -680,7 +680,7 @@ export const VirtualStylistDrawer: React.FC = () => {
                               onClick={() => saveLook(outfit)}
                               aria-busy={saveStates[outfit.id] === "saving"}
                               disabled={saveStates[outfit.id] === "saving" || getResolvedOutfitItems(outfit).length === 0}
-                              className={`inline-flex items-center gap-2 px-4 py-2.5 min-h-[44px] rounded-xl border border-[#C5A059] text-[#1B1F3B] bg-white hover:bg-[#FDF8EE] text-xs font-bold disabled:cursor-not-allowed disabled:opacity-50 ${LUX} ${RING}`}
+                              className={`inline-flex items-center gap-2 px-4 py-2.5 min-h-[44px] rounded-xl border border-brand-hairline text-brand-charcoal bg-white hover:bg-brand-wash text-xs font-bold disabled:cursor-not-allowed disabled:opacity-50 ${LUX} ${RING}`}
                             >
                               <span>
                                 {saveStates[outfit.id] === "saving" ? t("stylist.saving_look") : t("stylist.save_look")}
@@ -704,7 +704,7 @@ export const VirtualStylistDrawer: React.FC = () => {
                             disabled={
                               getResolvedOutfitItems(outfit).length === 0
                             }
-                            className={`inline-flex items-center gap-2 px-5 py-3 min-h-[48px] rounded-xl bg-[#1B1F3B] hover:bg-[#0C0E1E] text-white text-xs font-bold shadow-md disabled:cursor-not-allowed disabled:opacity-50 ${LUX} ${RING}`}
+                            className={`inline-flex items-center gap-2 px-5 py-3 min-h-[48px] rounded-xl bg-brand-charcoal hover:bg-black text-white text-xs font-bold shadow-md disabled:cursor-not-allowed disabled:opacity-50 ${LUX} ${RING}`}
                           >
                             <BagIcon size={14} color="#FFFFFF" />
                             <span>
@@ -727,9 +727,9 @@ export const VirtualStylistDrawer: React.FC = () => {
             {isTyping && (
               <div role="status" aria-label={t("stylist.thinking")} className="space-y-3 confit-fade-in" data-testid="stylist-thinking">
                 <div className="flex items-center gap-2 p-3.5 bg-white border border-slate-200 rounded-2xl w-32 shadow-2xs">
-                  <span className="w-2 h-2 rounded-full bg-[#C5A059] motion-safe:animate-bounce"></span>
-                  <span className="w-2 h-2 rounded-full bg-[#C5A059] motion-safe:animate-bounce [animation-delay:0.2s]"></span>
-                  <span className="w-2 h-2 rounded-full bg-[#C5A059] motion-safe:animate-bounce [animation-delay:0.4s]"></span>
+                  <span className="w-2 h-2 rounded-full bg-brand-charcoal motion-safe:animate-bounce"></span>
+                  <span className="w-2 h-2 rounded-full bg-brand-charcoal motion-safe:animate-bounce [animation-delay:0.2s]"></span>
+                  <span className="w-2 h-2 rounded-full bg-brand-charcoal motion-safe:animate-bounce [animation-delay:0.4s]"></span>
                   <span className="text-[10px] font-bold text-slate-400 ms-1">
                     {t("stylist.thinking")}
                   </span>
@@ -827,7 +827,7 @@ export const VirtualStylistDrawer: React.FC = () => {
             >
               <label
                 title={t("stylist.attach_photo_hint")}
-                className={`p-3 min-h-[48px] min-w-[48px] flex items-center justify-center rounded-2xl border cursor-pointer focus-within:ring-2 focus-within:ring-[#C5A059]/40 bg-slate-50 border-slate-200 text-slate-600 hover:text-[#C5A059] hover:bg-[#FDF8EE] ${LUX}`}
+                className={`p-3 min-h-[48px] min-w-[48px] flex items-center justify-center rounded-2xl border cursor-pointer focus-within:ring-2 focus-within:ring-brand-charcoal bg-slate-50 border-slate-200 text-slate-600 hover:text-brand-charcoal hover:bg-brand-wash ${LUX}`}
               >
                 <span className="sr-only">{t("stylist.attach_photo")}</span>
                 {/* Real SVG, not the fullwidth ＋ text glyph: platform fonts
@@ -856,7 +856,7 @@ export const VirtualStylistDrawer: React.FC = () => {
                 className={`p-3 min-h-[48px] min-w-[48px] flex items-center justify-center rounded-2xl border ${LUX} ${RING} ${
                   isRecording
                     ? "bg-rose-500 text-white border-rose-600 motion-safe:animate-pulse"
-                    : "bg-slate-50 border-slate-200 text-slate-600 hover:text-[#C5A059] hover:bg-[#FDF8EE]"
+                    : "bg-slate-50 border-slate-200 text-slate-600 hover:text-brand-charcoal hover:bg-brand-wash"
                 }`}
                 title={t("stylist.hold_voice")}
               >
@@ -884,16 +884,16 @@ export const VirtualStylistDrawer: React.FC = () => {
                 ].filter(Boolean).join(" ")}
                 aria-label={t("stylist.input_label")}
                 placeholder={t("stylist.input_placeholder")}
-                className={`flex-1 resize-none overflow-y-auto whitespace-pre-wrap break-words px-4 py-3 min-h-[48px] rounded-2xl border border-slate-200 focus:outline-none focus:border-[#C5A059] focus-visible:ring-2 focus-visible:ring-[#C5A059]/40 text-xs sm:text-sm leading-relaxed bg-[#FAF9F6] ${LUX}`}
+                className={`flex-1 resize-none overflow-y-auto whitespace-pre-wrap break-words px-4 py-3 min-h-[48px] rounded-2xl border border-slate-200 focus:outline-none focus:border-brand-hairline focus-visible:ring-2 focus-visible:ring-brand-charcoal/40 text-xs sm:text-sm leading-relaxed bg-brand-wash ${LUX}`}
               />
 
               <button
                 type="submit"
                 disabled={!inputPrompt.trim() || isTyping}
                 aria-busy={isTyping}
-                className={`px-6 py-3 min-h-[48px] rounded-2xl bg-[#1B1F3B] hover:bg-[#0C0E1E] disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold shadow-md flex items-center gap-1.5 ${LUX} ${RING}`}
+                className={`px-6 py-3 min-h-[48px] rounded-2xl bg-brand-charcoal hover:bg-black disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold shadow-md flex items-center gap-1.5 ${LUX} ${RING}`}
               >
-                <SparkleIcon size={14} color="#C5A059" />
+                <SparkleIcon size={14} color="#242526" />
                 <span>{isTyping ? t("stylist.sending") : t("stylist.submit")}</span>
               </button>
             </form>

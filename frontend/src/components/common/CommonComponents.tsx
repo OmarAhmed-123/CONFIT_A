@@ -25,7 +25,7 @@ export const Toast: React.FC<{
       ? 'bg-[#0F291E] border-emerald-500/40 text-emerald-100 shadow-emerald-950/40'
       : type === 'error'
       ? 'bg-[#2A1115] border-rose-500/40 text-rose-100 shadow-rose-950/40'
-      : 'bg-[#0C0E1E] border-[#C5A059]/40 text-slate-100 shadow-black/60';
+      : 'bg-slate-900 border-slate-700 text-slate-100 shadow-black/60';
 
   // A store has no t(); it emits { key, params } and the translated sentence
   // is produced HERE, at the render boundary, in the user's active language.
@@ -46,7 +46,7 @@ export const Toast: React.FC<{
         <StatusIcon
           status={type === 'success' ? 'success' : type === 'error' ? 'error' : 'info'}
           size={16}
-          className={type === 'info' ? 'text-[#C5A059]' : ''}
+          className={type === 'info' ? 'text-brand-coral' : ''}
           data-testid="toast-status-icon"
         />
         <span className="text-xs font-medium tracking-wide leading-relaxed">{text}</span>
@@ -57,7 +57,7 @@ export const Toast: React.FC<{
             /* min-h/min-w 44px: the spec's touch target floor. The visible
                pill is smaller, so the tap area is grown rather than the
                label, keeping the toast compact on a 390px screen. */
-            className="ms-1 shrink-0 min-h-[44px] min-w-[44px] px-3 inline-flex items-center justify-center rounded-xl border border-[#C5A059]/50 text-[#E9D8A6] hover:bg-[#C5A059]/15 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[#C5A059] text-xs font-semibold tracking-wide transition-colors"
+            className="ms-1 shrink-0 min-h-[44px] min-w-[44px] px-3 inline-flex items-center justify-center rounded-xl border border-slate-700 text-white hover:bg-white/10 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-white text-xs font-semibold tracking-wide transition-colors"
           >
             {action.label}
           </button>
@@ -65,7 +65,7 @@ export const Toast: React.FC<{
         <button
           onClick={onClose}
           /* 44px touch floor (spec 14 §7) — grown tap area, compact pill. */
-          className="ms-auto shrink-0 min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-xl text-slate-400 hover:text-white focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[#C5A059] transition-colors"
+          className="ms-auto shrink-0 min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-xl text-slate-400 hover:text-white focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-white transition-colors"
           aria-label={t('a11y.dismiss_notification')}
           type="button"
         >
@@ -100,9 +100,9 @@ export const Modal: React.FC<{
         aria-labelledby={titleId}
       >
         {title && (
-          <div className="flex items-center justify-between px-6 py-4.5 border-b border-slate-100 bg-[#FAF9F6]">
+          <div className="flex items-center justify-between px-6 py-4.5 border-b border-slate-100 bg-brand-wash">
             <div>
-              <h3 id={titleId} className="font-serif text-lg font-bold text-[#1B1F3B] tracking-tight">
+              <h3 id={titleId} className="font-serif text-lg font-bold text-brand-charcoal tracking-tight">
                 {title}
               </h3>
               {subtitle && <p className="text-xs text-slate-500 mt-0.5 font-light">{subtitle}</p>}
@@ -134,10 +134,10 @@ export const FitScoreBadge: React.FC<{ score?: number | null; verdict?: string; 
   }
   return (
     <div
-      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FDF8EE] border border-[#C5A059]/30 shadow-sm ${className}`}
+      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-brand-wash border border-brand-hairline shadow-sm ${className}`}
     >
-      <SparkleIcon size={13} color="#C5A059" />
-      <span className="text-[11px] font-bold text-[#7A5C28]">{score}% {label}</span>
+      <SparkleIcon size={13} color="#242526" />
+      <span className="text-[11px] font-bold text-brand-charcoal">{score}% {label}</span>
       <span className="text-[10px] text-slate-600 font-medium tracking-wide">· {verdict}</span>
     </div>
   );
@@ -220,7 +220,7 @@ export const LoadingSpinner: React.FC<{ text?: string }> = ({ text }) => {
       role="status"
       aria-live="polite"
     >
-      <div className="w-8 h-8 border-2 border-slate-200 border-t-[#C5A059] rounded-full motion-safe:animate-spin" aria-hidden="true"></div>
+      <div className="w-8 h-8 border-2 border-slate-200 border-t-brand-charcoal rounded-full motion-safe:animate-spin" aria-hidden="true"></div>
       <span className="text-xs font-medium text-slate-600 tracking-wide">{text ?? t('common.loading')}</span>
     </div>
   );
@@ -249,15 +249,15 @@ export const EmptyState: React.FC<{
   icon?: React.ReactNode;
 }> = ({ title, description, actionText, onAction, icon }) => (
   <div className="flex flex-col items-center justify-center text-center p-12 bg-white rounded-3xl border border-slate-200/80 shadow-sm my-6">
-    <div className="w-14 h-14 rounded-2xl bg-[#FDF8EE] border border-[#C5A059]/20 flex items-center justify-center text-[#C5A059] mb-3.5 shadow-sm">
-      {icon || <SparkleIcon size={26} color="#C5A059" />}
+    <div className="w-14 h-14 rounded-2xl bg-brand-wash border border-brand-hairline flex items-center justify-center text-brand-charcoal mb-3.5 shadow-sm">
+      {icon || <SparkleIcon size={26} color="#242526" />}
     </div>
-    <h2 className="font-serif text-lg font-bold text-[#1B1F3B] mb-1">{title}</h2>
+    <h2 className="font-serif text-lg font-bold text-brand-charcoal mb-1">{title}</h2>
     <p className="text-xs text-slate-500 max-w-sm mb-4 leading-relaxed font-light">{description}</p>
     {actionText && onAction && (
       <button
         onClick={onAction}
-        className="min-h-12 px-6 rounded-xl bg-[#1B1F3B] hover:bg-[#0C0E1E] text-white text-xs font-semibold shadow-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white"
+        className="min-h-12 px-6 rounded-xl bg-brand-charcoal hover:bg-black text-white text-xs font-semibold shadow-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white"
         type="button"
       >
         {actionText}

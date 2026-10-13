@@ -30,7 +30,7 @@ export const PortalBackButton: React.FC = () => {
       type="button"
       onClick={goBack}
       aria-label={t('portal_back.aria_label')}
-      className="mb-5 inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-[#B8935A] hover:text-[#8A6A2F] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B8935A] focus-visible:ring-offset-2"
+      className="mb-5 inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-brand-charcoal hover:text-brand-charcoal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2"
     >
       <span aria-hidden="true" className="text-lg leading-none">
         {i18n.dir() === 'rtl' ? '→' : '←'}

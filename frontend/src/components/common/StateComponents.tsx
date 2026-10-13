@@ -40,7 +40,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
       <div className="mb-4 rounded-full bg-slate-100 p-4">
         {icon ?? <Inbox size={24} aria-hidden="true" className="text-slate-400" />}
       </div>
-      <h3 className="text-lg font-semibold text-[#1B1F3B] mb-1">{title}</h3>
+      <h3 className="text-lg font-semibold text-brand-charcoal mb-1">{title}</h3>
       {description && <p className="text-sm text-slate-500 max-w-sm mb-4">{description}</p>}
       {action && (
         <AccessibleButton variant="primary" onClick={action.onClick}>
@@ -70,7 +70,7 @@ export const LoadingState: React.FC<LoadingStateProps> = ({
       aria-live="polite"
       aria-busy="true"
     >
-      <Loader2 size={24} aria-hidden="true" className="motion-safe:animate-spin text-[#C5A059] mb-3" />
+      <Loader2 size={24} aria-hidden="true" className="motion-safe:animate-spin text-brand-charcoal mb-3" />
       <p className="text-sm text-slate-600">{loadingLabel}</p>
       <span className="sr-only">{loadingLabel}</span>
     </div>
@@ -98,7 +98,7 @@ export const ErrorState: React.FC<ErrorStateProps> = ({
       <div className="mb-4 rounded-full bg-rose-50 p-4">
         <AlertTriangle size={24} aria-hidden="true" className="text-rose-500" />
       </div>
-      <h3 className="text-lg font-semibold text-[#1B1F3B] mb-1">{errorTitle}</h3>
+      <h3 className="text-lg font-semibold text-brand-charcoal mb-1">{errorTitle}</h3>
       <p className="text-sm text-slate-600 max-w-sm mb-2">{message}</p>
       {details && <p className="text-xs text-slate-500 max-w-sm mb-4">{details}</p>}
       {retry && (
@@ -184,7 +184,7 @@ export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
         aria-describedby="confirm-message"
       >
         <div className="px-6 py-5">
-          <h3 id="confirm-title" className="font-serif text-lg font-bold text-[#1B1F3B] mb-2">
+          <h3 id="confirm-title" className="font-serif text-lg font-bold text-brand-charcoal mb-2">
             {title}
           </h3>
           <p id="confirm-message" className="text-sm text-slate-600">

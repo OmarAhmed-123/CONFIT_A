@@ -26,7 +26,7 @@ const items: CardStackItem[] = [
 
 describe('mobile mood-stack reserve: shared-component wiring', () => {
   it('CardStackShowcase lifts the layer below lg and restores it at lg', () => {
-    expect(showcases).toContain('stageClassName="!bottom-28 sm:!bottom-16 lg:!bottom-0"');
+    expect(showcases).toContain('stageClassName="!bottom-28 max-[359px]:!bottom-40 max-[359px]:origin-bottom max-[359px]:scale-[0.8] sm:!bottom-16 lg:!bottom-0"');
   });
 
   it('CardStackShowcase keeps the controls row clear of the FAB band below sm and restores desktop spacing at lg', () => {
@@ -74,5 +74,25 @@ describe('mobile mood-stack reserve: shared-component wiring', () => {
     expect(screen.getByRole('button', { name: 'Previous card' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Next card' })).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Open Alpha' }).getAttribute('href')).toBe('/a');
+  });
+
+  it('320px only: the card layer is scaled 0.8 from the bottom so the 300px active card fits its ~246px container', () => {
+    // Measured: unscaled, "Tailored Power" lost its first letter at 320 wide (card clipped both sides).
+    expect(showcases).toMatch(/max-\[359px\]:origin-bottom max-\[359px\]:scale-\[0\.8\]/);
+    expect(showcases).toMatch(/max-\[359px\]:!bottom-40/);
+  });
+});
+
+describe('Discover search card: lg placement (clear of the fixed AI Stylist footprint)', () => {
+  const discover = readFileSync(resolve(process.cwd(), 'src/views/consumer/DiscoverView.tsx'), 'utf8');
+  const hero = readFileSync(resolve(process.cwd(), 'src/components/common/HeroSection.tsx'), 'utf8');
+
+  it('Discover moves the search aside into the left column, row 2, at lg', () => {
+    expect(discover).toMatch(/asideClassName="lg:col-start-1 lg:row-start-2"/);
+  });
+
+  it('HeroSection applies asideClassName to the aside wrapper only (opt-in; default unchanged)', () => {
+    expect(hero).toMatch(/asideClassName\?: string;/);
+    expect(hero).toMatch(/className=\{`grid w-full min-w-0 \$\{asideClassName \?\? ''\}`\}/);
   });
 });

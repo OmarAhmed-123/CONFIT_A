@@ -137,14 +137,14 @@ export const PartnerGatewayView: React.FC = () => {
             <button
               type="button"
               onClick={scrollToForm}
-              className="inline-flex min-h-[48px] items-center rounded-[14px] bg-brand-charcoal px-6 text-xs font-bold uppercase tracking-wider text-white transition-colors duration-[140ms] ease-luxury hover:bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white"
+              className="inline-flex min-h-[48px] items-center rounded-[14px] bg-brand-coral px-6 text-xs font-bold uppercase tracking-wider text-white transition-colors duration-[140ms] ease-luxury hover:bg-[#E76A52] shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-coral focus-visible:ring-offset-2 focus-visible:ring-offset-white"
             >
               {t("partner.request_partnership")}
             </button>
             <button
               type="button"
               onClick={() => openAuthModal("login")}
-              className="inline-flex min-h-[48px] items-center rounded-[14px] border border-slate-300 px-6 text-xs font-bold uppercase tracking-wider transition-colors duration-[140ms] ease-luxury hover:border-slate-400 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2"
+              className="inline-flex min-h-[48px] items-center rounded-[14px] border border-slate-300 bg-white px-6 text-xs font-bold uppercase tracking-wider text-brand-charcoal transition-colors duration-[140ms] ease-luxury hover:border-brand-charcoal hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2"
             >
               {t("partner.existing_sign_in")}
             </button>

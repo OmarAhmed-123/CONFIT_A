@@ -128,7 +128,7 @@ export const BrandInventoryView: React.FC = () => {
           {/* Spec 14: honest freshness status — stock is where stale data hurts. */}
           <CatalogFreshnessIndicator className="mt-2" />
         </div>
-        <button onClick={() => setShowStoreModal(true)} className="px-4 py-2.5 rounded-2xl bg-brand-charcoal text-white text-xs font-semibold">+ Add Store</button>
+        <button onClick={() => setShowStoreModal(true)} className="px-5 py-2.5 rounded-xl bg-brand-coral text-white hover:bg-[#E76A52] text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-colors">+ Add Store</button>
       </div>
 
       {/* Stores - REAL */}
@@ -165,10 +165,10 @@ export const BrandInventoryView: React.FC = () => {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {stores.map((b) => (
-              <div key={b.id} className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-4">
+              <div key={b.id} className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xs space-y-4 hover:border-brand-hairline transition-colors">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-brand-wash border border-slate-200 flex items-center justify-center text-brand-charcoal">
-                    <BopisIcon size={20} color="#252729" />
+                  <div className="w-10 h-10 rounded-xl bg-brand-coral/15 border border-brand-coral/30 flex items-center justify-center text-brand-coral">
+                    <BopisIcon size={20} color="#EF826D" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <h3 className="font-serif text-base font-bold text-brand-charcoal truncate">{b.name}</h3>
@@ -178,19 +178,19 @@ export const BrandInventoryView: React.FC = () => {
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 text-xs pt-2 border-t border-slate-100">
-                  <div className="p-2.5 rounded-xl bg-brand-wash">
+                  <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
                     <span className="text-slate-400 text-[10px] block">BOPIS</span>
-                    <span className={`font-bold ${b.is_bopis_enabled ? 'text-emerald-600' : 'text-slate-400'}`}>{b.is_bopis_enabled ? 'Enabled' : 'Disabled'}</span>
+                    <span className={`font-bold ${b.is_bopis_enabled ? 'text-[#065F46]' : 'text-slate-400'}`}>{b.is_bopis_enabled ? 'Enabled' : 'Disabled'}</span>
                   </div>
-                  <div className="p-2.5 rounded-xl bg-brand-wash">
+                  <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
                     <span className="text-slate-400 text-[10px] block">Store ID</span>
-                    <span className="font-mono font-bold">#{b.id}</span>
+                    <span className="font-mono font-bold text-brand-charcoal">#{b.id}</span>
                   </div>
                 </div>
 
                 <div className="flex items-center justify-between text-xs pt-1">
-                  <span className="text-emerald-700 font-semibold text-[11px] flex items-center gap-1">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                  <span className="text-[#065F46] font-semibold text-[11px] flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-brand-mint"></span>
                     <span>{t('brand_inventory.real_from_store')}</span>
                   </span>
                   <span className="text-[10px] text-slate-400">{b.created_at ? new Date(b.created_at).toLocaleDateString() : ''}</span>

@@ -146,9 +146,9 @@ export const BrandCatalogView: React.FC = () => {
   };
 
   const btnPrimary =
-    'inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-brand-charcoal px-5 text-xs font-semibold text-white transition-colors duration-300 ease-luxury hover:bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal disabled:opacity-50';
+    'inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-brand-charcoal px-5 text-xs font-semibold text-white transition-colors duration-300 ease-luxury hover:bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-coral disabled:opacity-50';
   const btnGhost =
-    'inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-slate-300 px-4 text-xs font-semibold text-brand-charcoal transition-colors duration-300 ease-luxury hover:border-brand-charcoal hover:text-brand-charcoal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal disabled:opacity-50';
+    'inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-brand-lilac/60 bg-brand-lilac/10 px-4 text-xs font-semibold text-brand-charcoal transition-colors duration-300 ease-luxury hover:bg-brand-lilac/20 hover:border-brand-lilac focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-lilac disabled:opacity-50';
 
   if (isLoading) {
     return (
@@ -190,7 +190,7 @@ export const BrandCatalogView: React.FC = () => {
       <header className="flex flex-col justify-between gap-4 border-b border-slate-200 pb-6 sm:flex-row sm:items-end">
         <div>
           <div className="flex items-center gap-2">
-            <span className="h-px w-8 bg-brand-charcoal" aria-hidden="true" />
+            <span className="h-px w-8 bg-brand-coral" aria-hidden="true" />
             <span className="text-[11px] font-bold uppercase tracking-widest text-brand-charcoal">
               {t('b2b.cat.eyebrow')}
             </span>
@@ -202,7 +202,11 @@ export const BrandCatalogView: React.FC = () => {
             {t('b2b.cat.header_hint')}
           </p>
         </div>
-        <button type="button" onClick={() => { setFileError(null); setBulkModalOpen(true); }} className={btnPrimary}>
+        <button
+          type="button"
+          onClick={() => { setFileError(null); setBulkModalOpen(true); }}
+          className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-brand-coral px-5 text-xs font-semibold text-white transition-colors duration-300 ease-luxury hover:bg-[#E76A52] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-coral shadow-xs"
+        >
           <Upload size={14} aria-hidden="true" />
           {t('b2b.cat.bulk_cta')}
         </button>
@@ -452,7 +456,7 @@ export const BrandCatalogView: React.FC = () => {
                           )}
                         </td>
                         <td className="py-3 pe-3">
-                          <span className={`rounded-full border px-2.5 py-1 text-[11px] font-bold ${sku.is_in_stock ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-rose-200 bg-rose-50 text-rose-700'}`}>
+                          <span className={`rounded-full border px-2.5 py-1 text-[11px] font-bold ${sku.is_in_stock ? 'border-brand-mint/50 bg-brand-mint/20 text-[#065F46]' : 'border-rose-200 bg-rose-50 text-rose-700'}`}>
                             {sku.is_in_stock ? t('b2b.cat.in_stock') : t('b2b.cat.out_stock')}
                           </span>
                         </td>

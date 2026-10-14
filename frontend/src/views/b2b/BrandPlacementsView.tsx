@@ -98,33 +98,33 @@ export const BrandPlacementsView: React.FC = () => {
 
         <button
           onClick={() => setModalOpen(true)}
-          className="px-5 py-2.5 rounded-2xl bg-brand-charcoal text-white hover:bg-black text-slate-950 font-bold text-xs shadow-md transition-all flex items-center gap-1.5"
+          className="px-5 py-2.5 rounded-xl bg-brand-coral text-white hover:bg-[#E76A52] font-bold text-xs shadow-xs transition-all flex items-center gap-1.5"
         >
-          <SparkleIcon size={16} color="#0F172A" />
+          <SparkleIcon size={16} color="#FFFFFF" />
           <span>+ Create Sponsored Slot</span>
         </button>
       </div>
 
       {/* Summary KPIs - REAL */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
-        <div className="p-4 rounded-2xl bg-white border border-slate-200">
+        <div className="p-4 rounded-2xl bg-white border border-slate-200 border-t-4 border-t-brand-lilac shadow-xs">
           <span className="text-slate-400 text-[10px] uppercase block">Total Impressions (Real)</span>
-          <span className="font-bold text-lg">{totalImpressions.toLocaleString()}</span>
+          <span className="font-bold text-lg text-brand-charcoal">{totalImpressions.toLocaleString()}</span>
           <span className="text-[10px] text-slate-500 block">From SponsoredPlacement.impressions</span>
         </div>
-        <div className="p-4 rounded-2xl bg-white border border-slate-200">
+        <div className="p-4 rounded-2xl bg-white border border-slate-200 border-t-4 border-t-brand-coral shadow-xs">
           <span className="text-slate-400 text-[10px] uppercase block">Total Clicks (Real)</span>
-          <span className="font-bold text-lg">{totalClicks.toLocaleString()}</span>
+          <span className="font-bold text-lg text-brand-charcoal">{totalClicks.toLocaleString()}</span>
           <span className="text-[10px] text-slate-500 block">From SponsoredPlacement.clicks</span>
         </div>
-        <div className="p-4 rounded-2xl bg-white border border-slate-200">
+        <div className="p-4 rounded-2xl bg-white border border-slate-200 border-t-4 border-t-brand-charcoal shadow-xs">
           <span className="text-slate-400 text-[10px] uppercase block">Total Spent (Real)</span>
-          <span className="font-bold text-lg">${totalSpent.toFixed(2)}</span>
+          <span className="font-bold text-lg text-brand-charcoal">${totalSpent.toFixed(2)}</span>
           <span className="text-[10px] text-slate-500 block">From spent_today SUM, budget enforced</span>
         </div>
-        <div className="p-4 rounded-2xl bg-white border border-slate-200">
+        <div className="p-4 rounded-2xl bg-white border border-slate-200 border-t-4 border-t-brand-mint shadow-xs">
           <span className="text-slate-400 text-[10px] uppercase block">Revenue Generated (Real)</span>
-          <span className="font-bold text-lg text-emerald-600">${totalRevenue.toFixed(2)}</span>
+          <span className="font-bold text-lg text-[#065F46]">${totalRevenue.toFixed(2)}</span>
           <span className="text-[10px] text-slate-500 block">ROAS: {totalSpent > 0 ? (totalRevenue / totalSpent).toFixed(1) + 'x' : 'N/A'}</span>
         </div>
       </div>
@@ -137,12 +137,12 @@ export const BrandPlacementsView: React.FC = () => {
             <div className="text-4xl">🎯</div>
             <h3 className="font-bold text-slate-700">{t("brand_placements.no_placements")}</h3>
             <p className="text-xs text-slate-500">Create your first sponsored slot to bid for featured placement in Virtual Stylist results. Budget enforcement prevents overspend.</p>
-            <button onClick={() => setModalOpen(true)} className="mt-2 px-4 py-2 rounded-xl bg-brand-charcoal text-white text-slate-900 text-xs font-bold">{t("brand_placements.create_placement")}</button>
+            <button onClick={() => setModalOpen(true)} className="mt-2 px-4 py-2 rounded-xl bg-brand-charcoal text-white text-xs font-bold">{t("brand_placements.create_placement")}</button>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {placements.map((plc) => (
-              <div key={plc.id} className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-4">
+              <div key={plc.id} className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xs space-y-4 hover:border-brand-hairline transition-colors">
                 <div className="flex justify-between items-start">
                   <div className="flex-1 min-w-0">
                     <span className="text-[10px] font-bold text-brand-charcoal uppercase tracking-wider">
@@ -153,24 +153,24 @@ export const BrandPlacementsView: React.FC = () => {
                     </h3>
                     <span className="text-[10px] text-slate-400">Product ID: {plc.product_id} · Created: {new Date(plc.created_at).toLocaleDateString()}</span>
                   </div>
-                  <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${plc.status === 'active' ? 'bg-emerald-100 text-emerald-800' : plc.status === 'budget_exhausted' ? 'bg-rose-100 text-rose-800' : 'bg-slate-100 text-slate-600'}`}>
+                  <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${plc.status === 'active' ? 'bg-brand-mint/20 text-[#064E3B] border border-brand-mint/40' : plc.status === 'budget_exhausted' ? 'bg-rose-100 text-rose-800' : 'bg-slate-100 text-slate-600'}`}>
                     {plc.status}
                   </span>
                 </div>
 
                 <div className="grid grid-cols-3 gap-2 text-center text-xs py-3 border-y border-slate-100">
-                  <div className="p-2 rounded-xl bg-brand-wash">
+                  <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
                     <span className="text-slate-400 text-[10px] block">CPC Bid (Real)</span>
                     <span className="font-bold text-slate-900">${plc.bid_amount_per_click}</span>
                   </div>
-                  <div className="p-2 rounded-xl bg-brand-wash">
+                  <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
                     <span className="text-slate-400 text-[10px] block">Clicks (Real)</span>
                     <span className="font-bold text-slate-900">{plc.clicks}</span>
                     <span className="text-[9px] text-slate-400 block">{plc.impressions} impr</span>
                   </div>
-                  <div className="p-2 rounded-xl bg-brand-wash">
+                  <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
                     <span className="text-slate-400 text-[10px] block">Conversions (Real)</span>
-                    <span className="font-bold text-emerald-600">{plc.conversions}</span>
+                    <span className="font-bold text-[#065F46]">{plc.conversions}</span>
                   </div>
                 </div>
 
@@ -180,18 +180,18 @@ export const BrandPlacementsView: React.FC = () => {
                     <span className="text-slate-500">Spent: <strong className={plc.spent_today >= plc.daily_budget ? 'text-rose-600' : 'text-slate-900'}>${plc.spent_today}</strong></span>
                   </div>
                   <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
-                    <div className="h-full bg-brand-charcoal text-white rounded-full" style={{ width: `${Math.min(100, (plc.spent_today / plc.daily_budget) * 100)}%` }}></div>
+                    <div className="h-full bg-brand-coral rounded-full" style={{ width: `${Math.min(100, (plc.spent_today / plc.daily_budget) * 100)}%` }}></div>
                   </div>
                   <div className="flex justify-between text-[11px]">
                     <span className="text-slate-400">Remaining: ${(plc.daily_budget - plc.spent_today).toFixed(2)}</span>
-                    <span className="text-emerald-700 font-semibold">Revenue: ${plc.revenue_generated} · ROAS: {plc.spent_today > 0 ? (plc.revenue_generated / plc.spent_today).toFixed(1) + 'x' : 'N/A'}</span>
+                    <span className="text-[#065F46] font-semibold">Revenue: ${plc.revenue_generated} · ROAS: {plc.spent_today > 0 ? (plc.revenue_generated / plc.spent_today).toFixed(1) + 'x' : 'N/A'}</span>
                   </div>
                 </div>
 
-                <button disabled={saving || plc.status === 'budget_exhausted'} onClick={() => changeStatus(plc.id, plc.status === 'active' ? 'paused' : 'active')} className="rounded border px-3 py-2 text-xs">
+                <button disabled={saving || plc.status === 'budget_exhausted'} onClick={() => changeStatus(plc.id, plc.status === 'active' ? 'paused' : 'active')} className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold hover:border-brand-charcoal transition-colors">
                   {plc.status === 'active' ? 'Pause placement' : 'Resume placement'}
                 </button>
-                <div className="text-[10px] text-slate-400 p-2 bg-brand-wash rounded-xl">
+                <div className="text-[10px] text-slate-400 p-2.5 bg-slate-50 rounded-xl border border-slate-100">
                   Recorded counters are not independently verified ad delivery or a billing ledger. Daily reset and event deduplication are not established by this screen.
                 </div>
               </div>

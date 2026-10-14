@@ -50,6 +50,12 @@ export const BrandAnalyticsView: React.FC = () => {
   // Bars must encode the data, not a decorative staircase. The previous
   // `100 - idx*25` made an empty funnel look like a healthy one.
   const maxCount = Math.max(1, ...funnelSteps.map((s) => s.count));
+  const stepColors = [
+    'bg-brand-lilac',
+    'bg-brand-coral',
+    'bg-brand-mint',
+    'bg-brand-charcoal',
+  ];
 
   return (
     <div className="space-y-8 pb-20">
@@ -63,7 +69,7 @@ export const BrandAnalyticsView: React.FC = () => {
       </div>
 
       {/* Funnel Visualization - REAL DATA */}
-      <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-sm space-y-6">
+      <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-xs space-y-6">
         <h3 className="font-serif text-xl font-bold text-brand-charcoal">
           Commerce activity snapshot — not a linked-session funnel
         </h3>
@@ -78,7 +84,7 @@ export const BrandAnalyticsView: React.FC = () => {
               </div>
               <div className="w-full h-4 rounded-full bg-slate-100 overflow-hidden">
                 <div
-                  className="h-full rounded-full transition-all duration-500 bg-brand-charcoal"
+                  className={`h-full rounded-full transition-all duration-500 ${stepColors[idx % stepColors.length]}`}
                   style={{ width: `${step.count === 0 ? 0 : Math.max(2, (step.count / maxCount) * 100)}%` }}
                 ></div>
               </div>
@@ -102,7 +108,7 @@ export const BrandAnalyticsView: React.FC = () => {
         </div>
       )}
       {conversionPerSku.length > 0 && (
-        <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-4">
+        <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xs space-y-4">
           <h3 className="font-serif text-lg font-bold text-brand-charcoal">{t('b2b.sku_conversion_title')}</h3>
           <p className="text-[11px] text-slate-500">Funnel per SKU: views → tryons → add-to-cart → purchases, sorted by conversion rate DESC</p>
           <div className="overflow-x-auto">
@@ -139,27 +145,32 @@ export const BrandAnalyticsView: React.FC = () => {
       )}
 
       {/* Return Rate Benchmark Card - REAL */}
-      <div className="bg-brand-wash rounded-3xl border border-slate-200 p-6 sm:p-8 space-y-4">
-        <h3 className="font-serif text-lg font-bold text-brand-charcoal">
-          Observed return-marked line comparison
-        </h3>
+      <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 space-y-5 shadow-xs">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
+          <h3 className="font-serif text-lg font-bold text-brand-charcoal">
+            Observed return-marked line comparison
+          </h3>
+          <span className="rounded-full bg-brand-mint/25 border border-brand-mint/50 px-3 py-1 text-[11px] font-bold text-[#064E3B]">
+            Return reduction {percent(analytics.return_reduction_percentage)}
+          </span>
+        </div>
         <div className="grid grid-cols-2 gap-4 text-xs">
-          <div className="p-3 rounded-xl bg-white border">
+          <div className="p-4 rounded-2xl bg-white border border-slate-200 border-t-4 border-t-brand-coral shadow-xs">
             <span className="text-slate-400 text-[10px] block uppercase">{t("brand_analytics.non_tryon_cohort")}</span>
-            <span className="font-mono text-lg font-bold text-rose-600">{percent(analytics.return_rate_before_vton)}</span>
-            <span className="text-[11px] text-slate-500 block">Observed non-try-on order lines; no benchmark fallback</span>
+            <span className="font-mono text-xl font-bold text-brand-coral">{percent(analytics.return_rate_before_vton)}</span>
+            <span className="text-[11px] text-slate-500 block mt-1">Observed non-try-on order lines; no benchmark fallback</span>
           </div>
-          <div className="p-3 rounded-xl bg-white border">
+          <div className="p-4 rounded-2xl bg-white border border-slate-200 border-t-4 border-t-brand-mint shadow-xs">
             <span className="text-slate-400 text-[10px] block uppercase">{t('b2b.tryon_assisted_cohort')}</span>
-            <span className="font-mono text-lg font-bold text-emerald-600">{percent(analytics.return_rate_after_vton)}</span>
-            <span className="text-[11px] text-slate-500 block">{t("brand_analytics.tryon_assisted_orders")}</span>
+            <span className="font-mono text-xl font-bold text-[#065F46]">{percent(analytics.return_rate_after_vton)}</span>
+            <span className="text-[11px] text-slate-500 block mt-1">{t("brand_analytics.tryon_assisted_orders")}</span>
           </div>
         </div>
         <p className="text-xs text-slate-600 leading-relaxed max-w-3xl">
-          Return reduction <strong>{percent(analytics.return_reduction_percentage)}</strong> {analytics.return_cohorts?.methodology}
+          {analytics.return_cohorts?.methodology}
         </p>
-        <div className="text-[11px] text-slate-500 p-2 bg-white rounded border">
-          <span className="font-bold">BOPIS Fulfillment:</span> {percent(analytics.bopis_store_fulfillment_rate)} of eligible pickup groups completed. Ad Spend: ${analytics.ad_spend_total}, Ad Revenue: ${analytics.ad_revenue_total} from recorded placement counters; not verified billing.
+        <div className="text-[11px] text-slate-500 p-3 bg-slate-50 rounded-xl border border-slate-200">
+          <span className="font-bold text-brand-charcoal">BOPIS Fulfillment:</span> {percent(analytics.bopis_store_fulfillment_rate)} of eligible pickup groups completed. Ad Spend: ${analytics.ad_spend_total}, Ad Revenue: ${analytics.ad_revenue_total} from recorded placement counters.
         </div>
       </div>
     </div>

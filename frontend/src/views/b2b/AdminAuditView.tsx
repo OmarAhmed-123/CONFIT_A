@@ -194,7 +194,7 @@ export const AdminAuditView: React.FC = () => {
       {/* Reveal = spec-09 entrance; reduced-motion renders the identical
           static element (§7). */}
       <Reveal as="header" className="border-b border-slate-200 pb-4">
-        <span className="text-[10px] font-bold uppercase tracking-widest text-[#765515]">
+        <span className="text-[10px] font-bold uppercase tracking-widest text-brand-muted">
           {t('admin_audit.eyebrow')}
         </span>
         <h1 className="font-serif text-3xl font-bold">{t('admin_audit.title')}</h1>
@@ -238,7 +238,7 @@ export const AdminAuditView: React.FC = () => {
           >
             {t('admin_audit.integrity_tamper', {
               value: String(integrity.tamper_evident),
-              note: integrity.limitations[0] ?? '',
+              note: integrity.limitations?.[0] ?? '',
             })}
           </p>
           {integrity.chain && (

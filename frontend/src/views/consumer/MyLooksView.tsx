@@ -46,7 +46,9 @@ const SharePanel: React.FC<{
         {/* Spec 08: Publish is a critical action — unified kinetic CTA.
             Success only when the server returned a live link; a null
             result keeps the toast's reason and relabels actionable. */}
+        {/* Motion intent “share” — minting a share link is a hand-off, not a save. */}
         <ActionButton
+          intent="share"
           metricsId="looks.publish_link"
           onAction={async () => ((await onShare(false)) ? 'success' : 'error')}
           softDisabled={busy}
@@ -100,7 +102,9 @@ const SharePanel: React.FC<{
         >
           {t('my_looks.open')}
         </a>
+        {/* Motion intent “share” — rotating a link is the same outward hand-off. */}
         <ActionButton
+          intent="share"
           metricsId="looks.rotate_link"
           onAction={async () => ((await onShare(true)) ? 'success' : 'error')}
           softDisabled={busy}
@@ -113,7 +117,9 @@ const SharePanel: React.FC<{
           data-testid="rotate-link-cta"
           className="flex-1 py-2 rounded-xl border border-brand-field text-[11px] font-semibold hover:bg-brand-wash"
         />
+        {/* Motion intent “destructive” — revoking kills a live link — rose + amber, never celebratory. */}
         <ActionButton
+          intent="destructive"
           metricsId="looks.revoke_link"
           onAction={async () => ((await onRevoke()) ? 'success' : 'error')}
           softDisabled={busy}
@@ -225,7 +231,7 @@ const LookCard: React.FC<{
         >
           {t('my_looks.edit_in_composer')}
         </Link>
-        <button
+        <button data-motion="destructive"
           onClick={onDelete}
           disabled={busy}
           className="px-3 py-2 rounded-xl border border-brand-field text-[11px] font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-40"
@@ -272,7 +278,7 @@ export const MyLooksView: React.FC = () => {
     return (
       <div className="py-24 text-center space-y-3">
         <p className="text-brand-muted">{error ?? t('my_looks.something_wrong')}</p>
-        <button
+        <button data-motion="recovery"
           onClick={() => void reload()}
           className="px-4 py-2 rounded-xl border border-brand-field text-xs font-semibold hover:bg-brand-wash"
         >

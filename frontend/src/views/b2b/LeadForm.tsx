@@ -386,7 +386,9 @@ export const LeadForm: React.FC = () => {
         />
       )}
 
+      {/* Motion intent “progressive” — the forward action of the partner funnel. */}
       <ActionButton
+        intent="progressive"
         type="submit"
         state={buttonState}
         labels={{

@@ -78,6 +78,15 @@
     outline-offset: -6px;
   }
 
+  /* Dark-filled control on a LIGHT surface (e.g. charcoal button on the
+     off-white wash card). A white ring there is ~1.07:1 and disappears, so the
+     ring is charcoal and sits outside the control, offset 3px, over the light
+     surface (~14:1). Outline only: box-shadow is forbidden on focus. */
+  .focus-on-light-fill:focus-visible {
+    outline: 2px solid #252729;
+    outline-offset: 3px;
+  }
+
   /* A focused element must never be hidden behind the sticky headers
      (WCAG 2.2 §2.4.12 Focus Not Obscured). */
   :target,
@@ -398,4 +407,16 @@ html {
   100% {
     transform: translateX(-100%);
   }
+}
+
+/* ── Floating AI Stylist control: position ─────────────────────────────
+   Mobile (<1024px): bottom-4. Desktop: bottom-8. A page with a fixed sticky
+   CTA (ProductDetailView, data-sticky-cta) raises the control on mobile so it
+   does not cover that bar. :has() is supported by current Chromium, Safari
+   and Firefox. Without it, the control stays at bottom-4 and only the
+   sticky-CTA case is affected. */
+.stylist-fab-anchor { bottom: 1rem; }
+@media (min-width: 1024px) { .stylist-fab-anchor { bottom: 2rem; } }
+@media (max-width: 1023px) {
+  body:has([data-sticky-cta]) .stylist-fab-anchor { bottom: 5rem; }
 }

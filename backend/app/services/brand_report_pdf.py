@@ -7,11 +7,9 @@ from ever disagreeing: there is exactly one place that decides what "units sold"
 means, and it is not here.
 
 Design notes:
-  * The CONFIT logo is drawn as VECTOR geometry (the same interlocking C+F
-    monogram as `frontend/src/components/common/ConfitLogo.tsx`, gold #C5A059 on
-    navy), positioned top-LEFT of page 1. There is no raster logo in the
-    repository, and embedding a bitmap would print badly; vector stays sharp at
-    any zoom and adds no binary asset to the tree.
+  * The CONFIT logo is drawn as VECTOR geometry (the official Logo #3 "Individual Grid"
+    mark with coral, lilac, mint, and charcoal quadrants), positioned top-LEFT of page 1.
+    Vector stays sharp at any zoom and adds no binary asset to the tree.
   * Tables repeat their header row on every page and never split a row across a
     page break (ReportLab's `repeatRows` + flowable splitting), which is the
     usual way these reports become unreadable.
@@ -38,11 +36,14 @@ from reportlab.platypus import (BaseDocTemplate, Frame, KeepTogether,
                                 PageBreak, PageTemplate, Paragraph, Spacer,
                                 Table, TableStyle)
 
-NAVY = colors.HexColor("#1B1F3B")
-NAVY_DEEP = colors.HexColor("#0C0E1E")
-GOLD = colors.HexColor("#C5A059")
-GREY = colors.HexColor("#6B7280")
-LIGHT = colors.HexColor("#F3F4F6")
+# Official Logo #3 "Individual Grid" Palette
+CHARCOAL = colors.HexColor("#252729")
+CORAL = colors.HexColor("#EF826D")
+LILAC = colors.HexColor("#A99AD6")
+MINT = colors.HexColor("#89B799")
+GREY = colors.HexColor("#595C63")
+HAIRLINE = colors.HexColor("#E8E6E2")
+LIGHT = colors.HexColor("#F7F6F3")
 
 PAGE = landscape(A4)
 MARGIN = 14 * mm
@@ -62,45 +63,28 @@ def _pct(value: Any) -> str:
 
 
 def draw_logo(canvas, x: float, y: float, size: float = 17 * mm) -> None:
-    """Draw the CONFIT monogram as vector art with its bottom-left at (x, y).
-
-    Mirrors the app's ConfitLogo SVG (40x40 viewBox) so the printed report and
-    the product carry the same mark.
-    """
+    """Draw the official CONFIT Logo #3 mark with bottom-left at (x, y)."""
     canvas.saveState()
-    s = size / 40.0  # viewBox is 40x40
+    s = size / 100.0  # 100x100 reference grid
     canvas.translate(x, y)
     canvas.scale(s, s)
 
-    # Rounded navy tile.
-    canvas.setFillColor(NAVY_DEEP)
-    canvas.roundRect(0, 0, 40, 40, 10, stroke=0, fill=1)
+    # 4 quadrants: cells 44x44, gap 12
+    # Top-left: coral
+    canvas.setFillColor(CORAL)
+    canvas.roundRect(0, 56, 44, 44, 12, stroke=0, fill=1)
 
-    # SVG's y-axis points down; PDF's points up. Flip so the path coordinates
-    # below can be copied straight from the component.
-    canvas.translate(0, 40)
-    canvas.scale(1, -1)
+    # Top-right: lilac
+    canvas.setFillColor(LILAC)
+    canvas.roundRect(56, 56, 44, 44, 12, stroke=0, fill=1)
 
-    # Outer gold arc -- the 'C'.
-    canvas.setStrokeColor(GOLD)
-    canvas.setLineWidth(2.75)
-    canvas.setLineCap(1)
-    p = canvas.beginPath()
-    p.moveTo(26, 12)
-    p.curveTo(23.5, 9.8, 19.8, 9.5, 16.5, 11.2)
-    p.curveTo(13.2, 12.9, 11, 16.3, 11, 20)
-    p.curveTo(11, 23.7, 13.2, 27.1, 16.5, 28.8)
-    p.curveTo(19.8, 30.5, 23.5, 30.2, 26, 28)
-    canvas.drawPath(p, stroke=1, fill=0)
+    # Bottom-left: mint
+    canvas.setFillColor(MINT)
+    canvas.roundRect(0, 0, 44, 44, 12, stroke=0, fill=1)
 
-    # Inner white 'F'.
-    canvas.setStrokeColor(colors.white)
-    canvas.setLineWidth(2.5)
-    f = canvas.beginPath()
-    f.moveTo(18, 15.5); f.lineTo(27, 15.5)
-    f.moveTo(18, 20.5); f.lineTo(24, 20.5)
-    f.moveTo(18, 15.5); f.lineTo(18, 26)
-    canvas.drawPath(f, stroke=1, fill=0)
+    # Bottom-right: charcoal
+    canvas.setFillColor(CHARCOAL)
+    canvas.circle(78, 22, 22, stroke=0, fill=1)
 
     canvas.restoreState()
 
@@ -117,11 +101,6 @@ class _ReportDoc(BaseDocTemplate):
         self.meta = meta
         first_top = 46 * mm  # room for the logo block on page 1
         self.addPageTemplates([
-            # autoNextPageTemplate is essential: without it EVERY page keeps the
-            # first page's short frame (which reserves 46mm for the logo block)
-            # and the logo header is redrawn on every page. Worse, a flowable
-            # that needs the full height then raises LayoutError instead of
-            # flowing on -- observed with long wrapped product titles.
             PageTemplate(id="first",
                          frames=[Frame(MARGIN, self.bottomMargin,
                                        PAGE[0] - 2 * MARGIN,
@@ -135,7 +114,6 @@ class _ReportDoc(BaseDocTemplate):
                          onPage=self._later_page),
         ])
 
-    # -- page furniture --------------------------------------------------
     def _footer(self, canvas):
         canvas.saveState()
         canvas.setFont("Helvetica", 7.5)
@@ -144,7 +122,7 @@ class _ReportDoc(BaseDocTemplate):
                           f"CONFIT · {self.meta['brand_name']} · generated {self.meta['generated']}")
         canvas.drawRightString(PAGE[0] - MARGIN, 9 * mm,
                                f"Page {canvas.getPageNumber()} of {self.meta.get('total_pages', '?')}")
-        canvas.setStrokeColor(LIGHT)
+        canvas.setStrokeColor(HAIRLINE)
         canvas.setLineWidth(0.5)
         canvas.line(MARGIN, 12 * mm, PAGE[0] - MARGIN, 12 * mm)
         canvas.restoreState()
@@ -153,19 +131,19 @@ class _ReportDoc(BaseDocTemplate):
         canvas.saveState()
         top = PAGE[1] - MARGIN
 
-        # LOGO: top-left of page one, as required.
+        # LOGO: top-left of page one.
         draw_logo(canvas, MARGIN, top - 17 * mm, 17 * mm)
 
-        # Wordmark beside the monogram.
-        canvas.setFillColor(NAVY)
+        # Wordmark beside the mark.
+        canvas.setFillColor(CHARCOAL)
         canvas.setFont("Helvetica-Bold", 15)
         canvas.drawString(MARGIN + 21 * mm, top - 7 * mm, "CONFIT")
         canvas.setFont("Helvetica", 7)
-        canvas.setFillColor(GOLD)
+        canvas.setFillColor(GREY)
         canvas.drawString(MARGIN + 21 * mm, top - 11.5 * mm, "FASHION INTELLIGENCE")
 
         # Title block, right aligned.
-        canvas.setFillColor(NAVY)
+        canvas.setFillColor(CHARCOAL)
         canvas.setFont("Helvetica-Bold", 17)
         canvas.drawRightString(PAGE[0] - MARGIN, top - 6 * mm,
                                "Product & Sales Report")
@@ -178,7 +156,7 @@ class _ReportDoc(BaseDocTemplate):
         canvas.drawRightString(PAGE[0] - MARGIN, top - 20.5 * mm,
                                f"Generated: {self.meta['generated']}  ·  Tenant ID: {self.meta['brand_id']}")
 
-        canvas.setStrokeColor(GOLD)
+        canvas.setStrokeColor(HAIRLINE)
         canvas.setLineWidth(1.2)
         canvas.line(MARGIN, top - 25 * mm, PAGE[0] - MARGIN, top - 25 * mm)
         self._footer(canvas)
@@ -188,11 +166,11 @@ class _ReportDoc(BaseDocTemplate):
         canvas.saveState()
         top = PAGE[1] - MARGIN
         draw_logo(canvas, MARGIN, top - 9 * mm, 9 * mm)
-        canvas.setFillColor(NAVY)
+        canvas.setFillColor(CHARCOAL)
         canvas.setFont("Helvetica-Bold", 9)
         canvas.drawString(MARGIN + 12 * mm, top - 6 * mm,
                           f"CONFIT · Product & Sales Report · {self.meta['brand_name']}")
-        canvas.setStrokeColor(LIGHT)
+        canvas.setStrokeColor(HAIRLINE)
         canvas.setLineWidth(0.5)
         canvas.line(MARGIN, top - 11 * mm, PAGE[0] - MARGIN, top - 11 * mm)
         self._footer(canvas)
@@ -203,16 +181,14 @@ def render_report_pdf(data: Dict[str, Any]) -> bytes:
     """Render the dataset from BrandReportService into PDF bytes."""
     ss = getSampleStyleSheet()
     body = ParagraphStyle("body", parent=ss["BodyText"], fontSize=8, leading=10,
-                          textColor=NAVY)
+                          textColor=CHARCOAL)
     cell = ParagraphStyle("cell", parent=body, fontSize=7.6, leading=9)
     cell_r = ParagraphStyle("cellr", parent=cell, alignment=TA_RIGHT)
-    # A TableStyle TEXTCOLOR does NOT override a Paragraph's own colour, so the
-    # header must carry white explicitly or it renders navy-on-navy (invisible).
     head_s = ParagraphStyle("head", parent=cell, textColor=colors.white,
                             fontName="Helvetica-Bold")
     head_r = ParagraphStyle("headr", parent=head_s, alignment=TA_RIGHT)
     h2 = ParagraphStyle("h2", parent=ss["Heading2"], fontSize=11, leading=13,
-                        textColor=NAVY, spaceBefore=4, spaceAfter=5)
+                        textColor=CHARCOAL, spaceBefore=4, spaceAfter=5)
     note = ParagraphStyle("note", parent=body, fontSize=7.2, leading=9.4,
                           textColor=GREY, alignment=TA_LEFT)
 
@@ -226,16 +202,8 @@ def render_report_pdf(data: Dict[str, Any]) -> bytes:
     }
 
     def build_story() -> List[Any]:
-        """Construct a FRESH flowable list for every build pass.
-
-        ReportLab MUTATES flowables while laying them out (tables are split in
-        place), so passing the same objects to a second build reuses exhausted
-        state and raises LayoutError on long documents. `list(story)` only
-        shallow-copies the container, not the flowables, so it does not help.
-        """
         story: List[Any] = []
 
-            # ---- summary tiles --------------------------------------------------
         summary = [[
             Paragraph("<b>Products</b><br/><br/><font size=13>%d</font>" % totals["products"], body),
             Paragraph("<b>Units sold</b><br/><br/><font size=13>%d</font>" % totals["units_sold"], body),
@@ -249,7 +217,7 @@ def render_report_pdf(data: Dict[str, Any]) -> bytes:
         t = Table(summary, colWidths=[(PAGE[0] - 2 * MARGIN) / 6.0] * 6)
         t.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (-1, -1), LIGHT),
-            ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#E5E7EB")),
+            ("BOX", (0, 0), (-1, -1), 0.5, HAIRLINE),
             ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.white),
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
             ("TOPPADDING", (0, 0), (-1, -1), 7),
@@ -258,7 +226,6 @@ def render_report_pdf(data: Dict[str, Any]) -> bytes:
         ]))
         story += [t, Spacer(1, 7)]
 
-        # ---- main table -----------------------------------------------------
         story.append(Paragraph("Products", h2))
         rows = data["rows"]
         if not rows:
@@ -270,7 +237,6 @@ def render_report_pdf(data: Dict[str, Any]) -> bytes:
             head = ["Product", "Category", "Colour", "SKUs", "Units sold",
                     f"Gross ({cur})", f"Net ({cur})", "Returns", "Return rate",
                     "Sellable stock", "BOPIS qty", "BOPIS reserved"]
-            # Numeric columns are right-aligned in the body, so their headers are too.
             numeric_from = 3
             table_rows: List[List[Any]] = [[
                 Paragraph(h, head_s if i < numeric_from else head_r)
@@ -306,19 +272,18 @@ def render_report_pdf(data: Dict[str, Any]) -> bytes:
             widths = [avail * w / sum(weights) for w in weights]
             main = Table(table_rows, colWidths=widths, repeatRows=1)
             main.setStyle(TableStyle([
-                ("BACKGROUND", (0, 0), (-1, 0), NAVY),
+                ("BACKGROUND", (0, 0), (-1, 0), CHARCOAL),
                 ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
                 ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#E5E7EB")),
-                ("ROWBACKGROUNDS", (0, 1), (-1, -2), [colors.white, colors.HexColor("#FAFAFA")]),
-                ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#FDF6E8")),
-                ("LINEABOVE", (0, -1), (-1, -1), 0.9, GOLD),
+                ("GRID", (0, 0), (-1, -1), 0.4, HAIRLINE),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -2), [colors.white, LIGHT]),
+                ("BACKGROUND", (0, -1), (-1, -1), LIGHT),
+                ("LINEABOVE", (0, -1), (-1, -1), 0.9, CHARCOAL),
                 ("TOPPADDING", (0, 0), (-1, -1), 3.5),
                 ("BOTTOMPADDING", (0, 0), (-1, -1), 3.5),
             ]))
             story.append(main)
 
-        # ---- methodology ----------------------------------------------------
         story += [Spacer(1, 9), Paragraph("How these numbers are produced", h2),
                   Paragraph(data["methodology"], note), Spacer(1, 5),
                   Paragraph(
@@ -329,8 +294,6 @@ def render_report_pdf(data: Dict[str, Any]) -> bytes:
                           "above rather than substituted with a zero.", note)]
         return story
 
-    # Two-pass build so the footer can print "Page N of M": pass one counts the
-    # pages, pass two renders with that count. Each pass gets its own flowables.
     doc = _ReportDoc(BytesIO(), meta)
     doc.build(build_story())
     meta["total_pages"] = doc.page

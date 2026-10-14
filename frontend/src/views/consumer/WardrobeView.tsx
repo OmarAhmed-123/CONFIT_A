@@ -332,8 +332,8 @@ export const WardrobeView: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-6">
         <div>
           <div className="flex items-center gap-2">
-            <WardrobeIcon size={24} color="#1B1F3B" />
-            <h1 className="font-serif text-3xl font-bold text-[#1B1F3B]">
+            <WardrobeIcon size={24} color="#252729" />
+            <h1 className="font-serif text-3xl font-bold text-brand-charcoal">
               {t("wardrobe.title")}
             </h1>
           </div>
@@ -349,7 +349,7 @@ export const WardrobeView: React.FC = () => {
               onClick={() => setActiveTab("closet")}
               className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
                 activeTab === "closet"
-                  ? "bg-white text-[#1B1F3B] shadow-xs"
+                  ? "bg-white text-brand-charcoal shadow-xs"
                   : "text-slate-600 hover:text-slate-900"
               }`}
             >
@@ -359,7 +359,7 @@ export const WardrobeView: React.FC = () => {
               onClick={() => setActiveTab("looks")}
               className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
                 activeTab === "looks"
-                  ? "bg-white text-[#1B1F3B] shadow-xs"
+                  ? "bg-white text-brand-charcoal shadow-xs"
                   : "text-slate-600 hover:text-slate-900"
               }`}
             >
@@ -372,11 +372,11 @@ export const WardrobeView: React.FC = () => {
               }}
               className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1 ${
                 activeTab === "gaps"
-                  ? "bg-white text-[#B8935A] shadow-xs"
+                  ? "bg-white text-brand-charcoal shadow-xs"
                   : "text-slate-600 hover:text-slate-900"
               }`}
             >
-              <GapAnalysisIcon size={14} color="#B8935A" />
+              <GapAnalysisIcon size={14} color="#252729" />
               <span>{t("nav.gap_analysis")}</span>
             </button>
             <button
@@ -386,7 +386,7 @@ export const WardrobeView: React.FC = () => {
               }}
               className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
                 activeTab === "boards"
-                  ? "bg-white text-[#B8935A] shadow-xs"
+                  ? "bg-white text-brand-charcoal shadow-xs"
                   : "text-slate-600 hover:text-slate-900"
               }`}
             >
@@ -396,7 +396,7 @@ export const WardrobeView: React.FC = () => {
 
           <button
             onClick={() => setUploadModalOpen(true)}
-            className="px-4 py-2.5 rounded-2xl bg-[#1B1F3B] hover:bg-[#2A3C78] text-white text-xs font-semibold shadow-sm transition-all"
+            className="px-4 py-2.5 rounded-2xl bg-brand-charcoal hover:bg-black text-white text-xs font-semibold shadow-sm transition-all"
           >
             + Upload Piece
           </button>
@@ -421,7 +421,7 @@ export const WardrobeView: React.FC = () => {
                 onClick={() => setActiveCategory(cat)}
                 className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all ${
                   activeCategory === cat
-                    ? "bg-[#1B1F3B] text-white shadow-xs"
+                    ? "bg-brand-charcoal text-white shadow-xs"
                     : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
                 }`}
               >
@@ -446,19 +446,19 @@ export const WardrobeView: React.FC = () => {
               <p className="text-xs text-rose-700 mt-1">{isClosetError}</p>
               <button
                 onClick={() => fetchWardrobe(activeCategory)}
-                className="mt-4 px-5 py-2.5 rounded-2xl bg-[#1B1F3B] text-white text-xs font-bold hover:bg-[#2A3C78] transition-all"
+                className="mt-4 px-5 py-2.5 rounded-2xl bg-brand-charcoal text-white text-xs font-bold hover:bg-black transition-all"
               >
                 {t("common.try_again")}
               </button>
             </div>
           ) : items.length === 0 ? (
-            <div className="rounded-[32px] border border-[#C5A059]/25 bg-white p-6 shadow-2xs">
+            <div className="rounded-[32px] border border-brand-hairline bg-white p-6 shadow-2xs">
               <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
                 <div className="space-y-4">
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-[#7A5C28]">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-brand-charcoal">
                     Wardrobe retention engine
                   </span>
-                  <h2 className="font-serif text-3xl font-bold text-[#1B1F3B]">
+                  <h2 className="font-serif text-3xl font-bold text-brand-charcoal">
                     Upload a few pieces to see what you can wear next
                   </h2>
                   <p className="text-sm font-light leading-relaxed text-slate-500">
@@ -467,14 +467,14 @@ export const WardrobeView: React.FC = () => {
                     available; manual entries remain editable and clearly marked
                     as no-photo items.
                   </p>
-                  <div className="rounded-2xl bg-[#FAF9F6] p-3 text-xs text-slate-600">
+                  <div className="rounded-2xl bg-brand-wash p-3 text-xs text-slate-600">
                     Privacy note: garment photos are sent to the wardrobe
                     backend for this workflow. In this deployment, photo upload
                     availability depends on configured persistent storage.
                   </div>
                   <button
                     onClick={() => setUploadModalOpen(true)}
-                    className="rounded-2xl bg-[#1B1F3B] px-5 py-3 text-xs font-bold text-white transition hover:bg-[#C5A059] hover:text-[#0C0E1E]"
+                    className="rounded-2xl bg-brand-charcoal px-5 py-3 text-xs font-bold text-white transition hover:bg-black hover:text-white"
                   >
                     Batch upload from gallery →
                   </button>
@@ -494,7 +494,7 @@ export const WardrobeView: React.FC = () => {
                       />
                     </div>
                   ))}
-                  <div className="col-span-3 rounded-2xl border border-[#C5A059]/25 bg-[#FDF8EE] p-4 text-center text-xs font-semibold text-[#7A5C28]">
+                  <div className="col-span-3 rounded-2xl border border-brand-hairline bg-brand-wash p-4 text-center text-xs font-semibold text-brand-charcoal">
                     Upload pieces → see realistic combinations from what you
                     own.
                   </div>
@@ -536,7 +536,7 @@ export const WardrobeView: React.FC = () => {
                         aria-busy={itemBusy?.id === item.id && itemBusy.op === "favorite"}
                         className={`absolute top-1.5 start-1.5 w-11 h-11 rounded-full flex items-center justify-center transition-colors ${
                           item.is_favorite
-                            ? "bg-[#B8935A] text-white"
+                            ? "bg-brand-charcoal text-white"
                             : "bg-black/40 hover:bg-black/60 focus-visible:bg-black/60 text-white"
                         }`}
                       >
@@ -569,7 +569,7 @@ export const WardrobeView: React.FC = () => {
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                       {item.brand_name}
                     </span>
-                    <h2 className="font-serif text-sm font-bold text-[#1B1F3B] truncate mt-0.5">
+                    <h2 className="font-serif text-sm font-bold text-brand-charcoal truncate mt-0.5">
                       {item.title}
                     </h2>
                     <p className="text-xs text-slate-500">
@@ -595,7 +595,7 @@ export const WardrobeView: React.FC = () => {
                         {item.ai_tags.slice(0, 2).map((t) => (
                           <span
                             key={t}
-                            className="text-[9px] px-2 py-0.5 rounded-md bg-[#FDF8EE] text-[#B8935A] font-medium border border-[#B8935A]/20"
+                            className="text-[9px] px-2 py-0.5 rounded-md bg-brand-wash text-brand-charcoal font-medium border border-brand-hairline"
                           >
                             {t}
                           </span>
@@ -620,7 +620,7 @@ export const WardrobeView: React.FC = () => {
                     ) : (
                       <button
                         onClick={() => navigate("/builder")}
-                        className="w-full py-2 rounded-xl bg-slate-100 hover:bg-[#1B1F3B] hover:text-white text-xs font-semibold text-slate-800 transition-all"
+                        className="w-full py-2 rounded-xl bg-slate-100 hover:bg-brand-charcoal hover:text-white text-xs font-semibold text-slate-800 transition-all"
                       >
                         {t("wardrobe.style_in_canvas")}
                       </button>
@@ -641,8 +641,8 @@ export const WardrobeView: React.FC = () => {
           <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm">
             <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 mb-4">
               <div>
-                <h3 className="font-serif text-lg font-bold text-[#1B1F3B] flex items-center gap-2">
-                  <SparkleIcon size={18} color="#B8935A" />
+                <h3 className="font-serif text-lg font-bold text-brand-charcoal flex items-center gap-2">
+                  <SparkleIcon size={18} color="#252729" />
                   {t("wardrobe.shop_first_title")}
                 </h3>
                 <p className="text-xs text-slate-500">
@@ -653,7 +653,7 @@ export const WardrobeView: React.FC = () => {
                 onClick={() => { if (!isOutfitLoading) fetchOutfitSuggestion("Smart Casual"); }}
                 aria-busy={isOutfitLoading}
                 aria-disabled={isOutfitLoading}
-                className="px-4 min-h-11 py-2 rounded-xl bg-[#B8935A] hover:bg-[#a07f4c] text-white text-xs font-semibold shadow-sm flex items-center justify-center gap-1.5"
+                className="px-4 min-h-11 py-2 rounded-xl bg-brand-charcoal hover:bg-black text-white text-xs font-semibold shadow-sm flex items-center justify-center gap-1.5"
               >
                 {isOutfitLoading && (
                   <span aria-hidden="true" className="w-3.5 h-3.5 rounded-full border-2 border-white/40 border-t-white motion-safe:animate-spin" />
@@ -664,10 +664,10 @@ export const WardrobeView: React.FC = () => {
 
             {outfitSuggestion && (
               <div className="space-y-4">
-                <p className="text-xs text-slate-600 bg-[#FAF9F6] border border-slate-100 rounded-xl p-3">
+                <p className="text-xs text-slate-600 bg-brand-wash border border-slate-100 rounded-xl p-3">
                   {outfitSuggestion.message}
                   {outfitSuggestion.owned_count > 0 && (
-                    <span className="ml-1 font-semibold text-[#1B1F3B]">
+                    <span className="ml-1 font-semibold text-brand-charcoal">
                       Compatibility: {outfitSuggestion.compatibility_score}%
                     </span>
                   )}
@@ -692,7 +692,7 @@ export const WardrobeView: React.FC = () => {
                           <span className="text-[9px] font-bold text-emerald-700 uppercase">
                             {it.position} · owned
                           </span>
-                          <p className="text-[11px] font-semibold text-[#1B1F3B] truncate">
+                          <p className="text-[11px] font-semibold text-brand-charcoal truncate">
                             {it.product_title}
                           </p>
                           <p className="text-[10px] text-slate-500">
@@ -706,7 +706,7 @@ export const WardrobeView: React.FC = () => {
 
                 {outfitSuggestion.purchase_suggestions.length > 0 && (
                   <div>
-                    <span className="text-[10px] font-bold text-[#B8935A] uppercase tracking-wider">
+                    <span className="text-[10px] font-bold text-brand-charcoal uppercase tracking-wider">
                       Missing pieces — suggested for purchase
                     </span>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-2">
@@ -723,10 +723,10 @@ export const WardrobeView: React.FC = () => {
                           <span className="text-[9px] font-bold text-slate-400 uppercase">
                             {it.position} · {it.brand_name}
                           </span>
-                          <p className="text-[11px] font-semibold text-[#1B1F3B] truncate">
+                          <p className="text-[11px] font-semibold text-brand-charcoal truncate">
                             {it.product_title}
                           </p>
-                          <p className="text-[11px] font-bold text-[#B8935A]">
+                          <p className="text-[11px] font-bold text-brand-charcoal">
                             {formatMoney(Math.round(it.price * 100), it.currency || 'USD', lang)}
                           </p>
                         </div>
@@ -741,7 +741,7 @@ export const WardrobeView: React.FC = () => {
           <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm">
             <div className="flex justify-between items-center mb-4">
               <div>
-                <h3 className="font-serif text-lg font-bold text-[#1B1F3B]">
+                <h3 className="font-serif text-lg font-bold text-brand-charcoal">
                   Saved Curated Ensembles
                 </h3>
                 <p className="text-xs text-slate-500">
@@ -750,14 +750,14 @@ export const WardrobeView: React.FC = () => {
               </div>
               <button
                 onClick={() => navigate("/builder")}
-                className="px-4 py-2 rounded-xl bg-[#1B1F3B] text-white text-xs font-semibold shadow-sm"
+                className="px-4 py-2 rounded-xl bg-brand-charcoal text-white text-xs font-semibold shadow-sm"
               >
                 + Build New Look
               </button>
             </div>
 
             {!isAuthenticated ? (
-              <div className="bg-[#FAF9F6] rounded-2xl border border-dashed border-slate-300 p-6 text-center">
+              <div className="bg-brand-wash rounded-2xl border border-dashed border-slate-300 p-6 text-center">
                 <p className="text-xs text-slate-600 font-medium">
                   Sign in to see your saved looks.
                 </p>
@@ -772,7 +772,7 @@ export const WardrobeView: React.FC = () => {
                 <div className="h-20 rounded-2xl bg-slate-100 animate-pulse" />
               </div>
             ) : savedLooks.length === 0 ? (
-              <div className="bg-[#FAF9F6] rounded-2xl border border-dashed border-slate-300 p-6 text-center">
+              <div className="bg-brand-wash rounded-2xl border border-dashed border-slate-300 p-6 text-center">
                 <p className="text-xs text-slate-600 font-medium">
                   No saved looks yet.
                 </p>
@@ -786,14 +786,14 @@ export const WardrobeView: React.FC = () => {
                 {savedLooks.map((look) => (
                   <div
                     key={look.id}
-                    className="bg-[#FAF9F6] rounded-2xl border border-slate-200 p-4 space-y-3"
+                    className="bg-brand-wash rounded-2xl border border-slate-200 p-4 space-y-3"
                   >
                     <div className="flex justify-between items-start">
                       <div>
-                        <span className="text-[10px] font-bold text-[#B8935A] uppercase">
+                        <span className="text-[10px] font-bold text-brand-charcoal uppercase">
                           {look.occasion}
                         </span>
-                        <h4 className="font-serif text-base font-bold text-[#1B1F3B]">
+                        <h4 className="font-serif text-base font-bold text-brand-charcoal">
                           {look.title}
                         </h4>
                       </div>
@@ -803,7 +803,7 @@ export const WardrobeView: React.FC = () => {
                         verdict={t("wardrobe.match_verdict")}
                       />
                     </div>
-                    <div className="flex justify-between items-center pt-2 text-xs font-bold text-[#1B1F3B]">
+                    <div className="flex justify-between items-center pt-2 text-xs font-bold text-brand-charcoal">
                       <span>
                         {t("wardrobe.look_total")}{" "}
                         <bdi dir="ltr">{formatMoney(Math.round(Number(look.total_price ?? 0) * 100), "USD", lang)}</bdi>
@@ -832,10 +832,10 @@ export const WardrobeView: React.FC = () => {
       {/* TAB 3: Wardrobe Gap Analysis (PDF Feature G4.1) */}
       {activeTab === "gaps" && (
         <div className="space-y-6">
-          <div className="bg-[#FDF8EE] border border-[#B8935A]/30 rounded-3xl p-6">
+          <div className="bg-brand-wash border border-brand-hairline rounded-3xl p-6">
             <div className="flex items-center gap-2 mb-2">
-              <GapAnalysisIcon size={22} color="#B8935A" />
-              <h3 className="font-serif text-xl font-bold text-[#1B1F3B]">
+              <GapAnalysisIcon size={22} color="#252729" />
+              <h3 className="font-serif text-xl font-bold text-brand-charcoal">
                 {t("wardrobe.gap_analysis_title")}
               </h3>
             </div>
@@ -845,7 +845,7 @@ export const WardrobeView: React.FC = () => {
           </div>
 
           {!isAuthenticated ? (
-            <div className="bg-[#FAF9F6] rounded-2xl border border-dashed border-slate-300 p-6 text-center">
+            <div className="bg-brand-wash rounded-2xl border border-dashed border-slate-300 p-6 text-center">
               <p className="text-xs text-slate-600 font-medium">
                 {t("wardrobe.gaps_signin")}
               </p>
@@ -869,7 +869,7 @@ export const WardrobeView: React.FC = () => {
               className="text-xs text-rose-700 mt-1">{isGapError}</p>
               <button
                 onClick={() => fetchGaps()}
-                className="mt-4 px-5 py-2.5 rounded-2xl bg-[#1B1F3B] text-white text-xs font-bold hover:bg-[#2A3C78] transition-all"
+                className="mt-4 px-5 py-2.5 rounded-2xl bg-brand-charcoal text-white text-xs font-bold hover:bg-black transition-all"
               >
                 {t("common.try_again")}
               </button>
@@ -893,10 +893,10 @@ export const WardrobeView: React.FC = () => {
               >
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
                   <div>
-                    <span className="text-[10px] font-bold text-[#B8935A] uppercase tracking-wider">
+                    <span className="text-[10px] font-bold text-brand-charcoal uppercase tracking-wider">
                       Identified Closet Gap #{gap.id}
                     </span>
-                    <h4 className="font-serif text-lg font-bold text-[#1B1F3B]">
+                    <h4 className="font-serif text-lg font-bold text-brand-charcoal">
                       Missing: {gap.missing_subcategory} ({gap.missing_category}
                       )
                     </h4>
@@ -914,7 +914,7 @@ export const WardrobeView: React.FC = () => {
                   )}
                 </div>
 
-                <p className="text-xs text-slate-600 leading-relaxed bg-[#FAF9F6] p-3 rounded-xl border border-slate-100">
+                <p className="text-xs text-slate-600 leading-relaxed bg-brand-wash p-3 rounded-xl border border-slate-100">
                   💡 <strong>AI Analysis:</strong> {gap.rationale}
                 </p>
 
@@ -927,7 +927,7 @@ export const WardrobeView: React.FC = () => {
                     {gap.recommended_products.map((rec) => (
                       <div
                         key={rec.product_id}
-                        className="flex items-center gap-3 p-2.5 rounded-2xl bg-white border border-slate-200 hover:border-[#B8935A] transition-all group"
+                        className="flex items-center gap-3 p-2.5 rounded-2xl bg-white border border-slate-200 hover:border-brand-hairline transition-all group"
                       >
                         <div className="w-14 h-16 rounded-xl overflow-hidden bg-slate-100 shrink-0">
                           <HonestProductImage src={rec.image_url}
@@ -939,10 +939,10 @@ export const WardrobeView: React.FC = () => {
                           <span className="text-[9px] font-bold text-slate-400 block truncate">
                             {rec.brand_name}
                           </span>
-                          <span className="text-xs font-bold text-[#1B1F3B] block truncate">
+                          <span className="text-xs font-bold text-brand-charcoal block truncate">
                             {rec.title}
                           </span>
-                          <span className="text-xs font-bold text-[#B8935A]">
+                          <span className="text-xs font-bold text-brand-charcoal">
                             {formatMoney(Math.round(rec.price * 100), rec.currency || 'USD', lang)}
                           </span>
                         </div>
@@ -976,7 +976,7 @@ export const WardrobeView: React.FC = () => {
       {activeTab === "boards" && (
         <div className="space-y-6">
           {!isAuthenticated ? (
-            <div className="bg-[#FAF9F6] rounded-2xl border border-dashed border-slate-300 p-6 text-center">
+            <div className="bg-brand-wash rounded-2xl border border-dashed border-slate-300 p-6 text-center">
               <p className="text-xs text-slate-600 font-medium">
                 {t("wardrobe.boards_signin_title")}
               </p>
@@ -997,7 +997,7 @@ export const WardrobeView: React.FC = () => {
               className="text-xs text-rose-700 mt-1">{isBoardsError}</p>
               <button
                 onClick={() => fetchMoodBoards()}
-                className="mt-4 px-5 py-2.5 rounded-2xl bg-[#1B1F3B] text-white text-xs font-bold hover:bg-[#2A3C78] transition-all"
+                className="mt-4 px-5 py-2.5 rounded-2xl bg-brand-charcoal text-white text-xs font-bold hover:bg-black transition-all"
               >
                 {t("common.try_again")}
               </button>
@@ -1006,7 +1006,7 @@ export const WardrobeView: React.FC = () => {
             <>
               {/* New board */}
               <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm">
-                <h3 className="font-serif text-lg font-bold text-[#1B1F3B] mb-3">
+                <h3 className="font-serif text-lg font-bold text-brand-charcoal mb-3">
                   {t("wardrobe.boards_new_title")}
                 </h3>
                 <form
@@ -1023,12 +1023,12 @@ export const WardrobeView: React.FC = () => {
                     onChange={(e) => setNewBoardTitle(e.target.value)}
                     placeholder={t("wardrobe.boards_new_placeholder")}
                     maxLength={255}
-                    className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-[#B8935A]"
+                    className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-brand-hairline"
                   />
                   <button
                     type="submit"
                     disabled={!newBoardTitle.trim()}
-                    className="px-4 py-2.5 rounded-xl bg-[#1B1F3B] text-white text-xs font-semibold disabled:opacity-40 hover:bg-[#2A3C78] transition-all"
+                    className="px-4 py-2.5 rounded-xl bg-brand-charcoal text-white text-xs font-semibold disabled:opacity-40 hover:bg-black transition-all"
                   >
                     + {t("wardrobe.boards_new_create")}
                   </button>
@@ -1037,7 +1037,7 @@ export const WardrobeView: React.FC = () => {
 
               {/* Boards list */}
               {hasLoadedBoards && moodBoards.length === 0 ? (
-                <div className="bg-[#FAF9F6] rounded-2xl border border-dashed border-slate-300 p-8 text-center">
+                <div className="bg-brand-wash rounded-2xl border border-dashed border-slate-300 p-8 text-center">
                   <p className="text-xs text-slate-600 font-medium">{t("wardrobe.boards_empty_title")}</p>
                   <p className="text-[11px] text-slate-400 mt-1">
                     {t("wardrobe.boards_empty_sub")}
@@ -1066,9 +1066,9 @@ export const WardrobeView: React.FC = () => {
                               value={renameTitle}
                               onChange={(e) => setRenameTitle(e.target.value)}
                               maxLength={255}
-                              className="flex-1 px-3 py-1.5 rounded-lg border border-slate-200 text-xs focus:outline-none focus:border-[#B8935A]"
+                              className="flex-1 px-3 py-1.5 rounded-lg border border-slate-200 text-xs focus:outline-none focus:border-brand-hairline"
                             />
-                            <button type="submit" className="text-xs font-bold text-[#B8935A]">
+                            <button type="submit" className="text-xs font-bold text-brand-charcoal">
                               {t("common.save")}
                             </button>
                             <button
@@ -1081,7 +1081,7 @@ export const WardrobeView: React.FC = () => {
                           </form>
                         ) : (
                           <div className="min-w-0">
-                            <h4 className="font-serif text-base font-bold text-[#1B1F3B] truncate">
+                            <h4 className="font-serif text-base font-bold text-brand-charcoal truncate">
                               {board.title}
                             </h4>
                             {board.description && (
@@ -1095,7 +1095,7 @@ export const WardrobeView: React.FC = () => {
                               setRenamingBoardId(board.id);
                               setRenameTitle(board.title);
                             }}
-                            className="text-slate-400 hover:text-[#B8935A]"
+                            className="text-slate-400 hover:text-brand-charcoal"
                           >
                             {t("common.rename")}
                           </button>
@@ -1132,7 +1132,7 @@ export const WardrobeView: React.FC = () => {
                                 </a>
                               ) : (
                                 <div className="h-28 w-full flex flex-col items-center justify-center text-center px-2">
-                                  <BagIcon size={20} color="#B8935A" />
+                                  <BagIcon size={20} color="#252729" />
                                   <span className="text-[10px] font-bold text-slate-500 mt-1">
                                     {t("wardrobe.boards_product_tile", { id: tile.payload.product_id })}
                                   </span>
@@ -1169,17 +1169,17 @@ export const WardrobeView: React.FC = () => {
                             value={newTileUrl}
                             onChange={(e) => setNewTileUrl(e.target.value)}
                             placeholder={t("wardrobe.boards_link_placeholder")}
-                            className="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-[#B8935A]"
+                            className="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-brand-hairline"
                           />
                           <button
                             type="submit"
                             disabled={busyBoardId === board.id}
-                            className="px-3 py-2 rounded-xl bg-slate-100 text-[#1B1F3B] text-xs font-semibold disabled:opacity-40"
+                            className="px-3 py-2 rounded-xl bg-slate-100 text-brand-charcoal text-xs font-semibold disabled:opacity-40"
                           >
                             {t("wardrobe.boards_add_link")}
                           </button>
                         </form>
-                        <label className="px-3 py-2 rounded-xl bg-slate-100 text-[#1B1F3B] text-xs font-semibold cursor-pointer hover:bg-slate-200 transition-all">
+                        <label className="px-3 py-2 rounded-xl bg-slate-100 text-brand-charcoal text-xs font-semibold cursor-pointer hover:bg-slate-200 transition-all">
                           {t("wardrobe.boards_upload_photo")}
                           <input
                             type="file"
@@ -1221,7 +1221,7 @@ export const WardrobeView: React.FC = () => {
             tabIndex={-1}
             className="w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden max-h-[90vh] overflow-y-auto"
           >
-            <div className="p-5 bg-[#1B1F3B] text-white flex justify-between items-center">
+            <div className="p-5 bg-brand-charcoal text-white flex justify-between items-center">
               <h3 className="font-serif text-base font-bold text-white flex items-center gap-2">
                 <span>{t('wardrobe.upload_photos_title')}</span>
               </h3>
@@ -1262,7 +1262,7 @@ export const WardrobeView: React.FC = () => {
                   accept="image/jpeg,image/png,image/webp"
                   multiple
                   onChange={handleFileChange}
-                  className="w-full text-xs text-slate-600 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-[#1B1F3B] file:text-white file:text-xs file:font-semibold hover:file:bg-[#2A3C78] file:cursor-pointer"
+                  className="w-full text-xs text-slate-600 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-brand-charcoal file:text-white file:text-xs file:font-semibold hover:file:bg-black file:cursor-pointer"
                 />
                 {selectedFiles.length > 0 && (
                   <p className="text-[11px] text-slate-500 mt-1.5">
@@ -1294,7 +1294,7 @@ export const WardrobeView: React.FC = () => {
                 disabled={!selectedFiles.length}
                 aria-busy={isUploading || isCompressing}
                 aria-disabled={!selectedFiles.length || isUploading || isCompressing}
-                className="w-full min-h-11 py-3 rounded-xl bg-[#B8935A] hover:bg-[#a07f4c] text-white font-semibold text-xs transition-colors shadow-md flex items-center justify-center gap-1.5 disabled:opacity-50"
+                className="w-full min-h-11 py-3 rounded-xl bg-brand-charcoal hover:bg-black text-white font-semibold text-xs transition-colors shadow-md flex items-center justify-center gap-1.5 disabled:opacity-50"
               >
                 {isUploading || isCompressing ? (
                   <span aria-hidden="true" className="w-3.5 h-3.5 rounded-full border-2 border-white/40 border-t-white motion-safe:animate-spin" />
@@ -1369,7 +1369,7 @@ export const WardrobeView: React.FC = () => {
                     const f = e.target.files?.[0] ?? null;
                     setOutfitFile(f);
                   }}
-                  className="w-full text-xs text-slate-600 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-[#1B1F3B] file:text-white file:text-xs file:font-semibold hover:file:bg-[#2A3C78] file:cursor-pointer"
+                  className="w-full text-xs text-slate-600 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-brand-charcoal file:text-white file:text-xs file:font-semibold hover:file:bg-black file:cursor-pointer"
                 />
                 {outfitFile && (
                   <p className="text-[11px] text-slate-500 mt-1.5">
@@ -1453,7 +1453,7 @@ export const WardrobeView: React.FC = () => {
                   value={newTitle}
                   onChange={(e) => setNewTitle(e.target.value)}
                   placeholder={t('wardrobe.eg_title')}
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-[#B8935A]"
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-brand-hairline"
                 />
               </div>
 
@@ -1492,7 +1492,7 @@ export const WardrobeView: React.FC = () => {
               <div className="pt-2">
                 <button
                   type="submit"
-                  className="w-full py-3 rounded-xl bg-[#1B1F3B] hover:bg-[#2A3C78] text-white font-semibold text-xs transition-all shadow-md"
+                  className="w-full py-3 rounded-xl bg-brand-charcoal hover:bg-black text-white font-semibold text-xs transition-all shadow-md"
                 >
                   Save Piece Manually
                 </button>

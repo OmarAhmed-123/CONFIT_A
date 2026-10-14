@@ -108,19 +108,19 @@ export const CardStackShowcase: React.FC<CardStackShowcaseProps> = ({
   }));
 
   return (
-    <section className={cx('relative overflow-hidden rounded-[32px] border border-[#C5A059]/25 bg-white shadow-2xs', compact ? 'p-5' : 'p-6 sm:p-9', className)}>
-      <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-[#C5A059]/10 blur-3xl" />
-      <div className="absolute -bottom-24 -left-24 h-72 w-72 rounded-full bg-[#1B1F3B]/10 blur-3xl" />
+    <section className={cx('relative overflow-hidden rounded-[32px] border border-brand-hairline bg-white shadow-2xs', compact ? 'p-5' : 'p-6 sm:p-9', className)}>
+      <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-brand-lilac/15 blur-3xl" />
+      <div className="absolute -bottom-24 -left-24 h-72 w-72 rounded-full bg-brand-mint/15 blur-3xl" />
       <div className={cx('relative z-10 grid items-center gap-6', compact ? 'lg:grid-cols-[0.95fr_1.15fr]' : 'lg:grid-cols-[0.85fr_1.35fr]')}>
         <div className="space-y-4">
-          <div className="inline-flex items-center gap-2 rounded-full border border-[#C5A059]/30 bg-[#FDF8EE] px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-[#7A5C28]">
+          <div className="inline-flex items-center gap-2 rounded-full border border-brand-field bg-brand-wash px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-brand-charcoal">
             <span aria-hidden="true"><Icon className="h-3.5 w-3.5" /></span>
             <span>{eyebrow || t(`showcase.tones.${tone}.label`)}</span>
           </div>
-          <h2 className={cx('font-serif font-bold leading-tight text-[#1B1F3B]', compact ? 'text-2xl' : 'text-3xl sm:text-4xl')}>
+          <h2 className={cx('font-serif font-bold leading-tight text-brand-charcoal', compact ? 'text-2xl' : 'text-3xl sm:text-4xl')}>
             {title || t(`showcase.tones.${tone}.title`)}
           </h2>
-          <p className="text-sm font-light leading-relaxed text-slate-500">
+          <p className="text-sm font-light leading-relaxed text-brand-muted">
             {description || t(`showcase.tones.${tone}.description`)}
           </p>
         </div>
@@ -136,7 +136,7 @@ export const CardStackShowcase: React.FC<CardStackShowcaseProps> = ({
               renderItem={(it) => (
                 <Link
                   to={it.href ?? '/discover'}
-                  className="block overflow-hidden rounded-2xl border border-[#C5A059]/25 bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A37E44]"
+                  className="block overflow-hidden rounded-2xl border border-brand-hairline bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal"
                 >
                   <img
                     src={it.imageSrc}
@@ -145,8 +145,8 @@ export const CardStackShowcase: React.FC<CardStackShowcaseProps> = ({
                     className="h-40 w-full object-cover"
                   />
                   <div className="space-y-1 p-4">
-                    <h3 className="text-sm font-bold text-[#1B1F3B]">{it.title}</h3>
-                    <p className="text-xs leading-relaxed text-slate-500">{it.description}</p>
+                    <h3 className="text-sm font-bold text-brand-charcoal">{it.title}</h3>
+                    <p className="text-xs leading-relaxed text-brand-muted">{it.description}</p>
                   </div>
                 </Link>
               )}
@@ -160,6 +160,11 @@ export const CardStackShowcase: React.FC<CardStackShowcaseProps> = ({
               spreadDeg={compact ? 28 : 34}
               overlap={compact ? 0.6 : 0.55}
               showDots
+              /* Mobile only: the fixed AI Stylist control (48px, end-4, bottom-4)
+                 sits over the lower-right of the stack and the controls row.
+                 Lift the cards and keep the controls clear of it. sm+ unchanged. */
+              stageClassName="!bottom-28 max-[359px]:!bottom-40 max-[359px]:origin-bottom max-[359px]:scale-[0.8] sm:!bottom-16 lg:!bottom-0"
+              controlsClassName="mt-8 sm:mt-4 sm:pe-28 lg:mt-4 lg:pe-0"
               labels={{
                 carousel: t('showcase.stack_region'),
                 previous: t('carousel.previous'),
@@ -209,17 +214,17 @@ export const CircularGalleryShowcase: React.FC<CircularGalleryShowcaseProps> = (
   }));
 
   return (
-    <section className={cx('relative overflow-hidden rounded-[32px] border border-[#C5A059]/25 bg-gradient-to-b from-[#FAF9F6] via-white to-[#F0F2F8] shadow-2xs', compact ? 'p-5' : 'p-6 sm:p-9', className)}>
-      <div className="pointer-events-none absolute inset-x-0 top-12 mx-auto h-56 w-2/3 rounded-full bg-[#C5A059]/10 blur-3xl" />
+    <section className={cx('relative overflow-hidden rounded-[32px] border border-brand-hairline bg-white shadow-2xs', compact ? 'p-5' : 'p-6 sm:p-9', className)}>
+      <div className="pointer-events-none absolute inset-x-0 top-12 mx-auto h-56 w-2/3 rounded-full bg-brand-lilac/15 blur-3xl" />
       <div className="relative z-10 mx-auto max-w-3xl text-center">
-        <div className="inline-flex items-center gap-2 rounded-full border border-[#C5A059]/30 bg-white px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-[#7A5C28] backdrop-blur">
+        <div className="inline-flex items-center gap-2 rounded-full border border-brand-field bg-white px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-brand-charcoal backdrop-blur">
           <span aria-hidden="true"><Icon className="h-3.5 w-3.5" /></span>
           <span>{eyebrow || `${t(`showcase.tones.${tone}.label`)} — ${t('showcase.gallery_eyebrow_suffix')}`}</span>
         </div>
-        <h2 className={cx('mt-3 font-serif font-bold leading-tight text-[#1B1F3B]', compact ? 'text-2xl' : 'text-3xl sm:text-4xl')}>
+        <h2 className={cx('mt-3 font-serif font-bold leading-tight text-brand-charcoal', compact ? 'text-2xl' : 'text-3xl sm:text-4xl')}>
           {title || t('showcase.gallery_title')}
         </h2>
-        <p className="mx-auto mt-3 max-w-2xl text-sm font-light leading-relaxed text-slate-500">
+        <p className="mx-auto mt-3 max-w-2xl text-sm font-light leading-relaxed text-brand-muted">
           {description || t('showcase.gallery_description')}
         </p>
       </div>
@@ -252,7 +257,7 @@ export const CircularGalleryShowcase: React.FC<CircularGalleryShowcaseProps> = (
             label={t('showcase.gallery_region')}
             data-testid="depth-gallery-2d"
             renderItem={(g) => (
-              <figure className="overflow-hidden rounded-2xl border border-[#C5A059]/25 bg-white">
+              <figure className="overflow-hidden rounded-2xl border border-brand-hairline bg-white">
                 <img
                   src={g.photo.url}
                   alt={g.photo.text}
@@ -262,9 +267,9 @@ export const CircularGalleryShowcase: React.FC<CircularGalleryShowcaseProps> = (
                   style={{ objectPosition: g.photo.pos || 'center' }}
                 />
                 <figcaption className="space-y-1 p-4">
-                  <span className="block text-sm font-bold text-[#1B1F3B]">{g.common}</span>
-                  <span className="block text-xs italic text-slate-500">{g.binomial}</span>
-                  <span className="block text-[10px] text-slate-600">
+                  <span className="block text-sm font-bold text-brand-charcoal">{g.common}</span>
+                  <span className="block text-xs italic text-brand-muted">{g.binomial}</span>
+                  <span className="block text-[10px] text-brand-muted">
                     {t('showcase.gallery_credit', { name: g.photo.by })}
                   </span>
                 </figcaption>

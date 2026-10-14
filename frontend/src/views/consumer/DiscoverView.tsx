@@ -52,7 +52,7 @@ const FilterPill: React.FC<{
     type="button"
     aria-pressed={selected}
     onClick={onClick}
-    className={`inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full px-4 text-xs font-semibold transition-all duration-300 ease-luxury focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal ${
+    className={`inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full px-4 text-xs font-semibold transition-all duration-300 ease-luxury focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white ${
       selected
         ? "bg-brand-charcoal text-white shadow-xs"
         : "bg-white border border-slate-200 text-brand-charcoal hover:bg-brand-wash"
@@ -295,9 +295,13 @@ export const DiscoverView: React.FC = () => {
           </span>
         }
         title={t("nav.style_discover")}
+        /* lg: the search card moves under the title (left column). In the right
+           column it sat inside the fixed AI Stylist footprint at 1024-1280
+           (y 762-812 at 844 high); no width clears x 811+ at 1024. */
+        asideClassName="lg:col-start-1 lg:row-start-2"
         lede={t('discover.subtitle')}
         aside={
-          <HeroLightCard className="w-full lg:max-w-md lg:justify-self-end bg-white border-brand-hairline">
+          <HeroLightCard className="w-full lg:max-w-md lg:justify-self-start bg-white border-brand-hairline">
             <div className="flex items-center gap-2 relative" data-search-cluster>
           <div className="relative flex-1">
             {/* A placeholder is not an accessible name: it disappears as soon
@@ -460,7 +464,7 @@ export const DiscoverView: React.FC = () => {
             onClick={openVisualSearch}
             type="button"
             aria-label={t('discover.search_by_photo')}
-            className="min-h-11 px-4 py-3 rounded-2xl bg-brand-wash hover:bg-brand-charcoal hover:text-white border border-brand-field text-brand-charcoal text-xs font-semibold shadow-2xs transition-all flex items-center gap-1.5 shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal"
+            className="min-h-11 px-4 py-3 rounded-2xl bg-brand-wash hover:bg-brand-charcoal hover:text-white border border-brand-field text-brand-charcoal text-xs font-semibold shadow-2xs transition-all flex items-center gap-1.5 shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white"
           >
             <span aria-hidden="true"><VisualSearchIcon size={16} color="currentColor" /></span>
             <span className="hidden sm:inline">{t('discover.photo_match')}</span>

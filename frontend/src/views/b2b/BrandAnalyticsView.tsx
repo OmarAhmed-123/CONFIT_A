@@ -54,7 +54,7 @@ export const BrandAnalyticsView: React.FC = () => {
   return (
     <div className="space-y-8 pb-20">
       <div className="border-b border-slate-200 pb-4">
-        <h1 className="font-serif text-3xl font-bold text-[#1B1F3B]">
+        <h1 className="font-serif text-3xl font-bold text-brand-charcoal">
           Conversion Funnel & Return Telemetry
         </h1>
         <p className="text-xs sm:text-sm text-slate-500 mt-1">
@@ -64,7 +64,7 @@ export const BrandAnalyticsView: React.FC = () => {
 
       {/* Funnel Visualization - REAL DATA */}
       <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-sm space-y-6">
-        <h3 className="font-serif text-xl font-bold text-[#1B1F3B]">
+        <h3 className="font-serif text-xl font-bold text-brand-charcoal">
           Commerce activity snapshot — not a linked-session funnel
         </h3>
         <p className="text-[11px] text-slate-500">Ratios mix different measurement units and may exceed 100%. A current cart line is not a lifetime add-to-cart event. Order lines exclude cancelled, refunded and failed orders.</p>
@@ -74,11 +74,11 @@ export const BrandAnalyticsView: React.FC = () => {
             <div key={step.label} className="space-y-1.5">
               <div className="flex justify-between text-xs font-bold text-slate-700">
                 <span>{step.label} <span className="text-[10px] text-slate-400 font-normal">({step.source})</span></span>
-                <span className="font-mono text-sm text-[#1B1F3B]">{step.count.toLocaleString()} ({step.pct})</span>
+                <span className="font-mono text-sm text-brand-charcoal">{step.count.toLocaleString()} ({step.pct})</span>
               </div>
               <div className="w-full h-4 rounded-full bg-slate-100 overflow-hidden">
                 <div
-                  className="h-full rounded-full transition-all duration-500 bg-gradient-to-r from-[#1B1F3B] to-[#B8935A]"
+                  className="h-full rounded-full transition-all duration-500 bg-brand-charcoal"
                   style={{ width: `${step.count === 0 ? 0 : Math.max(2, (step.count / maxCount) * 100)}%` }}
                 ></div>
               </div>
@@ -103,7 +103,7 @@ export const BrandAnalyticsView: React.FC = () => {
       )}
       {conversionPerSku.length > 0 && (
         <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-4">
-          <h3 className="font-serif text-lg font-bold text-[#1B1F3B]">{t('b2b.sku_conversion_title')}</h3>
+          <h3 className="font-serif text-lg font-bold text-brand-charcoal">{t('b2b.sku_conversion_title')}</h3>
           <p className="text-[11px] text-slate-500">Funnel per SKU: views → tryons → add-to-cart → purchases, sorted by conversion rate DESC</p>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
@@ -139,8 +139,8 @@ export const BrandAnalyticsView: React.FC = () => {
       )}
 
       {/* Return Rate Benchmark Card - REAL */}
-      <div className="bg-[#FAF9F6] rounded-3xl border border-slate-200 p-6 sm:p-8 space-y-4">
-        <h3 className="font-serif text-lg font-bold text-[#1B1F3B]">
+      <div className="bg-brand-wash rounded-3xl border border-slate-200 p-6 sm:p-8 space-y-4">
+        <h3 className="font-serif text-lg font-bold text-brand-charcoal">
           Observed return-marked line comparison
         </h3>
         <div className="grid grid-cols-2 gap-4 text-xs">

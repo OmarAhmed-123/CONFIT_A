@@ -214,9 +214,9 @@ export const CheckoutView: React.FC = () => {
   };
 
   return (
-    <div className="space-y-8 pb-24 max-w-5xl mx-auto">
+    <div className="space-y-8 lg:space-y-0 lg:grid lg:grid-cols-12 lg:gap-8 lg:items-start pb-24 max-w-5xl mx-auto">
       {/* C4 FIX: Payment Demo Safety - unmistakable banner when PAYMENTS_LIVE=false */}
-      <div className="bg-amber-50 border-2 border-amber-400 rounded-2xl p-4 flex items-start gap-3">
+      <div className="bg-amber-50 border-2 border-amber-400 rounded-2xl p-4 flex items-start gap-3 lg:col-span-7">
         <div aria-hidden="true" className="text-amber-600"><StatusIcon status="warning" size={22} className="text-amber-600" /></div>
         <div className="flex-1">
           <p className="text-xs font-black text-amber-900 uppercase tracking-widest">{t('checkout.demo_mode_title')}</p>
@@ -226,26 +226,26 @@ export const CheckoutView: React.FC = () => {
         </div>
       </div>
 
-      <div className="border-b border-slate-200/80 pb-4">
-        <h1 className="font-serif text-3xl font-bold text-[#1B1F3B] tracking-tight">
+      <div className="border-b border-brand-hairline pb-4 lg:col-span-7">
+        <h1 className="font-serif text-3xl font-bold text-brand-charcoal tracking-tight">
           {t('commerce.checkout')}
         </h1>
-        <p className="text-xs sm:text-sm text-slate-500 mt-1 font-light">
+        <p className="text-xs sm:text-sm text-brand-muted mt-1 font-light">
           {t('checkout.subtitle_server_totals')}
         </p>
       </div>
 
       {cart && cart.items_count === 0 ? (
-        <div className="bg-white rounded-3xl border border-slate-200/80 p-10 shadow-2xs text-center space-y-4">
-          <div className="w-14 h-14 rounded-2xl bg-[#FDF8EE] border border-[#C5A059]/40 flex items-center justify-center mx-auto">
-            <OrdersIcon size={26} color="#C5A059" />
+        <div className="lg:col-span-12 bg-white rounded-3xl border border-brand-hairline p-10 shadow-2xs text-center space-y-4">
+          <div className="w-14 h-14 rounded-2xl bg-brand-wash border border-brand-charcoal/40 flex items-center justify-center mx-auto">
+            <OrdersIcon size={26} color="#252729" />
           </div>
-          <h2 className="font-serif text-xl font-bold text-[#1B1F3B]">{t('commerce.cart_title')}</h2>
-          <p className="text-sm text-slate-500 font-light max-w-md mx-auto">{t('commerce.cart_empty')}</p>
+          <h2 className="font-serif text-xl font-bold text-brand-charcoal">{t('commerce.cart_title')}</h2>
+          <p className="text-sm text-brand-muted font-light max-w-md mx-auto">{t('commerce.cart_empty')}</p>
           <button
             type="button"
             onClick={() => navigate('/discover')}
-            className="px-6 py-3 rounded-xl bg-[#1B1F3B] hover:bg-[#0C0E1E] text-white text-xs font-semibold shadow-2xs transition-all"
+            className="focus-on-light-fill px-6 py-3 rounded-xl bg-brand-charcoal hover:bg-brand-charcoal text-white text-xs font-semibold shadow-2xs transition-all"
           >
             {t('commerce.cart_explore')}
           </button>
@@ -253,16 +253,16 @@ export const CheckoutView: React.FC = () => {
       ) : (
       <>
       {!isAuthenticated && (
-        <div className="bg-[#FAF9F6] border border-[#C5A059]/40 rounded-3xl p-5 sm:p-6 shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="lg:col-span-7 bg-brand-wash border border-brand-charcoal/40 rounded-3xl p-5 sm:p-6 shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3.5">
-            <div className="w-11 h-11 rounded-2xl bg-[#0C0E1E] text-[#C5A059] flex items-center justify-center font-bold shrink-0 shadow-2xs">
-              <UserIcon size={20} color="#C5A059" />
+            <div className="w-11 h-11 rounded-2xl bg-brand-charcoal text-white flex items-center justify-center font-bold shrink-0 shadow-2xs">
+              <UserIcon size={20} color="#FFFFFF" />
             </div>
             <div>
-              <h2 className="font-serif text-base font-bold text-[#1B1F3B]">
+              <h2 className="font-serif text-base font-bold text-brand-charcoal">
                 {t('checkout.guest_checkout')}
               </h2>
-              <p className="text-xs text-slate-500 font-light mt-0.5">
+              <p className="text-xs text-brand-muted font-light mt-0.5">
                 {t('checkout.guest_intro')}
               </p>
             </div>
@@ -271,14 +271,14 @@ export const CheckoutView: React.FC = () => {
             <button
               type="button"
               onClick={() => openAuthModal('login')}
-              className="flex-1 sm:flex-initial px-5 py-2.5 rounded-xl bg-[#1B1F3B] hover:bg-[#0C0E1E] text-white text-xs font-semibold shadow-2xs transition-all"
+              className="focus-on-light-fill flex-1 sm:flex-initial px-5 py-2.5 rounded-xl bg-brand-charcoal hover:bg-brand-charcoal text-white text-xs font-semibold shadow-2xs transition-all"
             >
               {t('common.sign_in')}
             </button>
             <button
               type="button"
               onClick={() => openAuthModal('register')}
-              className="flex-1 sm:flex-initial px-5 py-2.5 rounded-xl bg-[#FDF8EE] hover:bg-[#C5A059] text-[#C5A059] hover:text-white border border-[#C5A059]/40 text-xs font-semibold shadow-2xs transition-all"
+              className="flex-1 sm:flex-initial px-5 py-2.5 rounded-xl bg-brand-wash hover:bg-brand-charcoal text-brand-charcoal hover:text-white border border-brand-charcoal/40 text-xs font-semibold shadow-2xs transition-all"
             >
               {t('common.create_account')}
             </button>
@@ -286,40 +286,42 @@ export const CheckoutView: React.FC = () => {
         </div>
       )}
 
-      <form noValidate onSubmit={handleSubmitOrder} className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+      {/* lg: the form is `display: contents`, so the summary column can sit beside the header.
+          Mobile keeps the single-column form. Summary stays in the form (submit button). */}
+      <form noValidate onSubmit={handleSubmitOrder} className="grid grid-cols-1 gap-8 lg:contents">
         <div className="lg:col-span-7 space-y-6">
-          <div className="bg-white rounded-3xl border border-slate-200/80 p-6 shadow-2xs space-y-4">
-            <h2 className="font-serif text-base font-bold text-[#1B1F3B]">{t('checkout.step_fulfillment')}</h2>
+          <div className="bg-white rounded-3xl border border-brand-hairline p-6 shadow-2xs space-y-4">
+            <h2 className="font-serif text-base font-bold text-brand-charcoal">{t('checkout.step_fulfillment')}</h2>
             <div className="grid grid-cols-2 gap-3">
               <button
                 type="button"
                 onClick={() => setFulfillmentType('delivery')}
                 className={`p-4 rounded-2xl border text-left transition-all ${
                   fulfillmentType === 'delivery'
-                    ? 'border-[#1B1F3B] bg-[#FAF9F6] ring-1 ring-[#1B1F3B]'
-                    : 'border-slate-200 hover:bg-slate-50'
+                    ? 'border-brand-charcoal bg-brand-wash ring-1 ring-brand-charcoal'
+                    : 'border-brand-field hover:bg-brand-wash'
                 }`}
               >
                 <div className="flex items-center gap-2 mb-2">
-                  <OrdersIcon size={20} color={fulfillmentType === 'delivery' ? '#1B1F3B' : '#777777'} />
-                  <span className="text-xs font-bold text-slate-900">{t('commerce.delivery')}</span>
+                  <OrdersIcon size={20} color={fulfillmentType === 'delivery' ? '#252729' : '#777777'} />
+                  <span className="text-xs font-bold text-brand-charcoal">{t('commerce.delivery')}</span>
                 </div>
-                <span className="text-[11px] text-slate-500 font-light">{t('checkout.shipping_estimate')}</span>
+                <span className="text-[11px] text-brand-muted font-light">{t('checkout.shipping_estimate')}</span>
               </button>
               <button
                 type="button"
                 onClick={() => setFulfillmentType('bopis')}
                 className={`p-4 rounded-2xl border text-left transition-all ${
                   fulfillmentType === 'bopis'
-                    ? 'border-[#C5A059] bg-[#FDF8EE] ring-1 ring-[#C5A059]'
-                    : 'border-slate-200 hover:bg-slate-50'
+                    ? 'border-brand-charcoal bg-brand-wash ring-1 ring-brand-charcoal'
+                    : 'border-brand-field hover:bg-brand-wash'
                 }`}
               >
                 <div className="flex items-center gap-2 mb-2">
-                  <BopisIcon size={20} color={fulfillmentType === 'bopis' ? '#C5A059' : '#777777'} />
-                  <span className="text-xs font-bold text-slate-900">{t('commerce.bopis')}</span>
+                  <BopisIcon size={20} color={fulfillmentType === 'bopis' ? '#252729' : '#777777'} />
+                  <span className="text-xs font-bold text-brand-charcoal">{t('commerce.bopis')}</span>
                 </div>
-                <span className="text-[11px] text-[#A37E44] font-semibold">{t('checkout.pickup_live_stock')}</span>
+                <span className="text-[11px] text-brand-charcoal font-semibold">{t('checkout.pickup_live_stock')}</span>
               </button>
             </div>
 
@@ -331,7 +333,7 @@ export const CheckoutView: React.FC = () => {
                     type="button"
                     onClick={() => setShippingMethod(m)}
                     className={`px-4 py-2 rounded-xl text-xs font-bold border ${
-                      shippingMethod === m ? 'border-[#1B1F3B] bg-[#1B1F3B] text-white' : 'border-slate-200'
+                      shippingMethod === m ? 'focus-on-light-fill border-brand-charcoal bg-brand-charcoal text-white' : 'border-brand-field'
                     }`}
                   >
                     {m === 'standard' ? t('checkout.shipping_standard') : t('checkout.shipping_express')}
@@ -341,18 +343,18 @@ export const CheckoutView: React.FC = () => {
             )}
 
             {fulfillmentType === 'bopis' && (
-              <div className="pt-3 border-t border-slate-100 space-y-2">
-                <label className="text-xs font-bold text-slate-800 block">{t('checkout.boutique_with_stock')}</label>
+              <div className="pt-3 border-t border-brand-hairline space-y-2">
+                <label className="text-xs font-bold text-brand-charcoal block">{t('checkout.boutique_with_stock')}</label>
                 {bopisStores.length === 0 ? (
-                  <p className="text-xs text-slate-500">{t('checkout.no_store_for_sku')}</p>
+                  <p className="text-xs text-brand-muted">{t('checkout.no_store_for_sku')}</p>
                 ) : (
                   bopisStores.map((s) => (
                     <label
                       key={s.store_id}
                       className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer ${
                         selectedBopisStoreId === s.store_id
-                          ? 'border-[#C5A059] bg-white ring-1 ring-[#C5A059]'
-                          : 'border-slate-200 bg-[#FAF9F6]'
+                          ? 'border-brand-charcoal bg-white ring-1 ring-brand-charcoal'
+                          : 'border-brand-field bg-brand-wash'
                       }`}
                     >
                       <div className="flex items-center gap-2.5">
@@ -361,11 +363,11 @@ export const CheckoutView: React.FC = () => {
                           name="bopis_store"
                           checked={selectedBopisStoreId === s.store_id}
                           onChange={() => setSelectedBopisStoreId(s.store_id)}
-                          className="accent-[#C5A059]"
+                          className="accent-brand-charcoal"
                         />
                         <div className="text-xs">
-                          <div className="font-bold text-slate-900">{s.store_name}</div>
-                          <div className="text-[10px] text-slate-500">{s.address}</div>
+                          <div className="font-bold text-brand-charcoal">{s.store_name}</div>
+                          <div className="text-[10px] text-brand-muted">{s.address}</div>
                           <div className="text-[10px] text-emerald-600 font-semibold">{s.quantity_available} available</div>
                         </div>
                       </div>
@@ -376,11 +378,11 @@ export const CheckoutView: React.FC = () => {
             )}
           </div>
 
-          <div className="bg-white rounded-3xl border border-slate-200/80 p-6 shadow-2xs space-y-4">
-            <h2 className="font-serif text-base font-bold text-[#1B1F3B]">{t('checkout.step_contact')}</h2>
+          <div className="bg-white rounded-3xl border border-brand-hairline p-6 shadow-2xs space-y-4">
+            <h2 className="font-serif text-base font-bold text-brand-charcoal">{t('checkout.step_contact')}</h2>
             {!isAuthenticated && (
               <div>
-                <label className="text-xs font-bold text-slate-800 block mb-1" htmlFor="guest-email">
+                <label className="text-xs font-bold text-brand-charcoal block mb-1" htmlFor="guest-email">
                   {t('checkout.guest_email')}
                 </label>
                 <input
@@ -392,7 +394,7 @@ export const CheckoutView: React.FC = () => {
                   value={guestEmail}
                   onChange={(e) => { setGuestEmail(e.target.value); if (fieldError === 'guest_email') setFieldError(null); }}
                   placeholder={t('checkout.email_placeholder')}
-                  className={`w-full px-4 py-2.5 rounded-xl border text-xs focus:outline-none focus:border-[#C5A059] ${fieldError === 'guest_email' ? 'border-rose-400 bg-rose-50' : 'border-slate-200'}`}
+                  className={`w-full px-4 py-2.5 rounded-xl border text-xs focus:outline-none focus:border-brand-charcoal ${fieldError === 'guest_email' ? 'border-rose-400 bg-rose-50' : 'border-brand-field'}`}
                 />
                 {fieldError === 'guest_email' && (
                   <p id="guest-email-error" role="alert" className="text-[11px] text-rose-600 font-semibold mt-1">
@@ -405,62 +407,62 @@ export const CheckoutView: React.FC = () => {
             )}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="text-xs font-bold text-slate-800 block mb-1" htmlFor="full-name">{t('checkout.full_name')}</label>
+                <label className="text-xs font-bold text-brand-charcoal block mb-1" htmlFor="full-name">{t('checkout.full_name')}</label>
                 <input
                   id="full-name"
                   type="text"
                   required
                   value={recipientName}
                   onChange={(e) => setRecipientName(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-[#C5A059]"
+                  className="w-full px-4 py-2.5 rounded-xl border border-brand-field text-xs focus:outline-none focus:border-brand-charcoal"
                 />
               </div>
               <div>
-                <label className="text-xs font-bold text-slate-800 block mb-1" htmlFor="phone">{t('checkout.phone')}</label>
+                <label className="text-xs font-bold text-brand-charcoal block mb-1" htmlFor="phone">{t('checkout.phone')}</label>
                 <input
                   id="phone"
                   type="tel"
                   required
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-[#C5A059]"
+                  className="w-full px-4 py-2.5 rounded-xl border border-brand-field text-xs focus:outline-none focus:border-brand-charcoal"
                 />
               </div>
             </div>
             {fulfillmentType === 'delivery' && (
               <>
                 <div>
-                  <label className="text-xs font-bold text-slate-800 block mb-1" htmlFor="address">{t('checkout.delivery_address')}</label>
+                  <label className="text-xs font-bold text-brand-charcoal block mb-1" htmlFor="address">{t('checkout.delivery_address')}</label>
                   <input
                     id="address"
                     type="text"
                     required
                     value={addressLine}
                     onChange={(e) => setAddressLine(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-[#C5A059]"
+                    className="w-full px-4 py-2.5 rounded-xl border border-brand-field text-xs focus:outline-none focus:border-brand-charcoal"
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs font-bold text-slate-800 block mb-1" htmlFor="city">{t('checkout.city')}</label>
+                    <label className="text-xs font-bold text-brand-charcoal block mb-1" htmlFor="city">{t('checkout.city')}</label>
                     <input
                       id="city"
                       type="text"
                       required
                       value={city}
                       onChange={(e) => setCity(e.target.value)}
-                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs"
+                      className="w-full px-4 py-2.5 rounded-xl border border-brand-field text-xs"
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-bold text-slate-800 block mb-1" htmlFor="country">{t('checkout.country')}</label>
+                    <label className="text-xs font-bold text-brand-charcoal block mb-1" htmlFor="country">{t('checkout.country')}</label>
                     <input
                       id="country"
                       type="text"
                       required
                       value={country}
                       onChange={(e) => setCountry(e.target.value)}
-                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs"
+                      className="w-full px-4 py-2.5 rounded-xl border border-brand-field text-xs"
                     />
                   </div>
                 </div>
@@ -468,10 +470,10 @@ export const CheckoutView: React.FC = () => {
             )}
           </div>
 
-          <div className="bg-white rounded-3xl border border-slate-200/80 p-6 shadow-2xs space-y-4">
-            <h2 className="font-serif text-base font-bold text-[#1B1F3B]">{t('checkout.step_payment')}</h2>
+          <div className="bg-white rounded-3xl border border-brand-hairline p-6 shadow-2xs space-y-4">
+            <h2 className="font-serif text-base font-bold text-brand-charcoal">{t('checkout.step_payment')}</h2>
             {paymentOptions.length === 0 ? (
-              <p className="text-xs text-slate-500">{t('checkout.payment_methods_unavailable')}</p>
+              <p className="text-xs text-brand-muted">{t('checkout.payment_methods_unavailable')}</p>
             ) : (
               <div className="space-y-2.5">
                 {paymentOptions.map((pm) => (
@@ -479,8 +481,8 @@ export const CheckoutView: React.FC = () => {
                     key={pm.id}
                     className={`flex items-center justify-between p-3.5 rounded-2xl border cursor-pointer ${
                       paymentMethod === pm.id
-                        ? 'border-[#C5A059] bg-[#FDF8EE] ring-1 ring-[#C5A059]'
-                        : 'border-slate-200 bg-white hover:bg-slate-50'
+                        ? 'border-brand-charcoal bg-brand-wash ring-1 ring-brand-charcoal'
+                        : 'border-brand-field bg-white hover:bg-brand-wash'
                     }`}
                   >
                     <div className="flex items-center gap-3">
@@ -489,15 +491,15 @@ export const CheckoutView: React.FC = () => {
                         name="payment_method"
                         checked={paymentMethod === pm.id}
                         onChange={() => setPaymentMethod(pm.id)}
-                        className="accent-[#C5A059]"
+                        className="accent-brand-charcoal"
                       />
                       <div>
                         {/* Localized: the API ships both languages, and an Arabic
                             shopper was being shown the English `title_en`. */}
-                        <div className="text-xs font-bold text-slate-900">
+                        <div className="text-xs font-bold text-brand-charcoal">
                           {isArabic && pm.title_ar ? pm.title_ar : pm.title_en}
                         </div>
-                        <div className="text-[11px] text-slate-500 font-light">
+                        <div className="text-[11px] text-brand-muted font-light">
                           {isArabic && pm.description_ar ? pm.description_ar : pm.description_en}
                         </div>
                         {pm.is_live === false && (
@@ -514,13 +516,13 @@ export const CheckoutView: React.FC = () => {
           </div>
         </div>
 
-        <div className="lg:col-span-5 space-y-6">
-          <div className="bg-white rounded-3xl border border-slate-200/80 p-6 shadow-2xs space-y-4">
-            <h2 className="font-serif text-base font-bold text-[#1B1F3B] pb-3 border-b border-slate-100">
+        <div className="lg:col-span-5 lg:col-start-8 lg:row-start-1 lg:row-span-3 space-y-6">
+          <div className="bg-white rounded-3xl border border-brand-hairline p-6 shadow-2xs space-y-4">
+            <h2 className="font-serif text-base font-bold text-brand-charcoal pb-3 border-b border-brand-hairline">
               {t('checkout.order_summary')} ({cart?.items_count || 0})
             </h2>
             {cart?.fit_summary && cart.fit_summary.length > 0 && (
-              <ul className="text-[11px] text-slate-600 space-y-1">
+              <ul className="text-[11px] text-brand-muted space-y-1">
                 {cart.fit_summary.map((row) => (
                   <li key={row.cart_item_id}>
                     {row.title} — {row.verdict}
@@ -531,15 +533,15 @@ export const CheckoutView: React.FC = () => {
             <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
               {(cart?.items || []).map((it) => (
                 <div key={it.id} className="flex gap-3 text-xs">
-                  <div className="w-12 h-14 rounded-xl bg-slate-100 overflow-hidden shrink-0 border border-slate-200/60">
+                  <div className="w-12 h-14 rounded-xl bg-brand-wash overflow-hidden shrink-0 border border-brand-hairline">
                     <HonestProductImage src={it.image_url} alt={it.product_title} className="w-full h-full object-cover" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="font-bold text-slate-900 truncate">{it.product_title}</div>
-                    <div className="text-slate-500 text-[11px] font-light">
+                    <div className="font-bold text-brand-charcoal truncate">{it.product_title}</div>
+                    <div className="text-brand-muted text-[11px] font-light">
                       {it.brand_name} · {t('checkout.size')} {it.size}
                     </div>
-                    <div className="text-slate-900 font-bold mt-0.5"><bdi dir="ltr">{formatMoney(Math.round((it.subtotal) * 100), cart?.currency || 'USD', lang)}</bdi></div>
+                    <div className="text-brand-charcoal font-bold mt-0.5"><bdi dir="ltr">{formatMoney(Math.round((it.subtotal) * 100), cart?.currency || 'USD', lang)}</bdi></div>
                     <div className="flex items-center gap-1.5 mt-1">
                       <button
                         type="button"
@@ -547,11 +549,11 @@ export const CheckoutView: React.FC = () => {
                         disabled={it.quantity <= 1}
                         aria-busy={cartBusyId === it.id}
                         onClick={() => runCartOp(it.id, () => updateQuantity(it.id, it.quantity - 1), t('checkout.qty_update_failed'))}
-                        className="w-11 h-11 rounded-lg border border-slate-200 text-slate-700 font-bold leading-none hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                        className="w-11 h-11 rounded-lg border border-brand-field text-brand-charcoal font-bold leading-none hover:bg-brand-wash disabled:opacity-40 disabled:cursor-not-allowed"
                       >
                         −
                       </button>
-                      <span className="text-[11px] text-slate-600 font-medium w-10 text-center" aria-live="polite">
+                      <span className="text-[11px] text-brand-muted font-medium w-10 text-center" aria-live="polite">
                         {t('checkout.qty')} {it.quantity}
                       </span>
                       <button
@@ -560,7 +562,7 @@ export const CheckoutView: React.FC = () => {
                         disabled={it.quantity >= 10}
                         aria-busy={cartBusyId === it.id}
                         onClick={() => runCartOp(it.id, () => updateQuantity(it.id, it.quantity + 1), t('checkout.qty_update_failed'))}
-                        className="w-11 h-11 rounded-lg border border-slate-200 text-slate-700 font-bold leading-none hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                        className="w-11 h-11 rounded-lg border border-brand-field text-brand-charcoal font-bold leading-none hover:bg-brand-wash disabled:opacity-40 disabled:cursor-not-allowed"
                       >
                         +
                       </button>
@@ -569,7 +571,7 @@ export const CheckoutView: React.FC = () => {
                         aria-label={t('commerce.remove_item')}
                         aria-busy={cartBusyId === it.id}
                         onClick={() => runCartOp(it.id, () => removeItem(it.id), t('checkout.remove_failed'))}
-                        className="ms-auto min-h-11 text-[10px] font-semibold text-slate-400 hover:text-rose-600 underline underline-offset-2"
+                        className="ms-auto min-h-11 text-[10px] font-semibold text-brand-muted hover:text-rose-600 underline underline-offset-2"
                       >
                         {t('commerce.remove_item')}
                       </button>
@@ -585,26 +587,26 @@ export const CheckoutView: React.FC = () => {
                 onChange={(e) => setPromoInput(e.target.value)}
                 placeholder={t('checkout.promo_code')}
                 aria-label={t('checkout.promo_code')}
-                className="flex-1 px-3.5 py-2 rounded-xl border border-slate-200 text-xs uppercase font-semibold focus:outline-none focus:border-[#C5A059]"
+                className="flex-1 px-3.5 py-2 rounded-xl border border-brand-field text-xs uppercase font-semibold focus:outline-none focus:border-brand-charcoal"
               />
               <button
                 type="button"
                 onClick={handleApplyPromo}
                 aria-busy={isApplyingPromo}
                 aria-disabled={isApplyingPromo}
-                className="px-3.5 min-h-11 py-2 rounded-xl bg-slate-100 text-xs font-bold text-slate-700 hover:bg-slate-200 transition-colors flex items-center gap-1.5"
+                className="px-3.5 min-h-11 py-2 rounded-xl bg-brand-wash text-xs font-bold text-brand-charcoal hover:bg-brand-hairline transition-colors flex items-center gap-1.5"
               >
                 {isApplyingPromo && (
-                  <span aria-hidden="true" className="w-3 h-3 rounded-full border-2 border-slate-300 border-t-slate-700 motion-safe:animate-spin" />
+                  <span aria-hidden="true" className="w-3 h-3 rounded-full border-2 border-brand-field border-t-brand-charcoal motion-safe:animate-spin" />
                 )}
                 {isApplyingPromo ? t('checkout.applying') : t('common.apply')}
               </button>
             </div>
             {promoError && <p role="alert" className="text-[11px] text-rose-600">{promoError}</p>}
-            <div className="space-y-2 text-xs text-slate-600 pt-3 border-t border-slate-100 font-light">
+            <div className="space-y-2 text-xs text-brand-muted pt-3 border-t border-brand-hairline font-light">
               <div className="flex justify-between">
                 <span>{t('commerce.subtotal')}</span>
-                <span className="font-medium text-slate-900"><bdi dir="ltr">{formatMoney(Math.round((subtotal) * 100), cart?.currency || 'USD', lang)}</bdi></span>
+                <span className="font-medium text-brand-charcoal"><bdi dir="ltr">{formatMoney(Math.round((subtotal) * 100), cart?.currency || 'USD', lang)}</bdi></span>
               </div>
               {discount > 0 && (
                 <div className="flex justify-between text-emerald-600 font-medium">
@@ -620,7 +622,7 @@ export const CheckoutView: React.FC = () => {
                 <span>{t('commerce.shipping')}</span>
                 <span>{fulfillmentType === 'bopis' ? t('checkout.pickup') : <bdi dir="ltr">{formatMoney(Math.round(shipping * 100), cart?.currency || 'USD', lang)}</bdi>}</span>
               </div>
-              <div className="flex justify-between text-base font-bold text-[#1B1F3B] pt-3 border-t border-slate-200">
+              <div className="flex justify-between text-base font-bold text-brand-charcoal pt-3 border-t border-brand-hairline">
                 <span>{t('commerce.total')}</span>
                 <span><bdi dir="ltr">{formatMoney(Math.round((total) * 100), cart?.currency || 'USD', lang)}</bdi></span>
               </div>
@@ -649,9 +651,9 @@ export const CheckoutView: React.FC = () => {
                 pending: t('checkout.placing_order'),
                 error: t('checkout.order_failed_retry'),
               }}
-              icon={<SparkleIcon size={16} color="#C5A059" />}
+              icon={<SparkleIcon size={16} color="#FFFFFF" />}
               data-testid="place-order-cta"
-              className="w-full py-4 rounded-2xl bg-[#1B1F3B] hover:bg-[#0C0E1E] disabled:opacity-50 text-white font-bold text-xs shadow-md transition-all"
+              className="focus-on-light-fill w-full py-4 rounded-2xl bg-brand-charcoal hover:bg-brand-charcoal disabled:opacity-50 text-white font-bold text-xs shadow-md transition-all"
             />
           </div>
         </div>

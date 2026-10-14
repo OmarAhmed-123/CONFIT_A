@@ -63,12 +63,12 @@ export const CollectionRail: React.FC<{
     <section aria-labelledby="home-collections-title" className="space-y-5">
       <div className="flex items-end justify-between border-b border-slate-200/80 pb-4">
         <div>
-          <span className="block text-[10px] font-bold uppercase tracking-widest text-[#7A5C28]">
+          <span className="block text-[10px] font-bold uppercase tracking-widest text-brand-charcoal">
             {t("home.collections_eyebrow")}
           </span>
           <h2
             id="home-collections-title"
-            className="mt-1 font-serif text-2xl font-bold text-[#1B1F3B]"
+            className="mt-1 font-serif text-2xl font-bold text-brand-charcoal"
           >
             {t("home.collections_title")}
           </h2>
@@ -95,20 +95,20 @@ export const CollectionRail: React.FC<{
               const tile = (
                 <Link
                   to={`/discover?category=${encodeURIComponent(cat.slug)}`}
-                  className="group flex h-full flex-col items-start gap-3 rounded-3xl border border-slate-200/80 bg-white p-4 shadow-2xs transition-all duration-300 hover:border-[#C5A059]/60 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059]"
+                  className="group flex h-full flex-col items-start gap-3 rounded-3xl border border-slate-200/80 bg-white p-4 shadow-2xs transition-all duration-300 hover:border-brand-charcoal hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal"
                 >
                   <span
                     aria-hidden="true"
-                    className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#1B1F3B] shadow-xs transition-transform duration-300 motion-safe:group-hover:scale-110"
+                    className="flex h-11 w-11 items-center justify-center rounded-2xl bg-brand-wash shadow-xs transition-transform duration-300 motion-safe:group-hover:scale-110"
                   >
-                    <Icon size={20} color="#C5A059" />
+                    <Icon size={20} color="#242526" />
                   </span>
-                  <span className="min-h-10 text-sm font-semibold leading-snug text-[#1B1F3B] transition-colors group-hover:text-[#7A5C28]">
+                  <span className="min-h-10 text-sm font-semibold leading-snug text-brand-charcoal transition-colors group-hover:text-brand-charcoal">
                     {label(cat)}
                   </span>
                   <span
                     aria-hidden="true"
-                    className="block h-0.5 w-6 rounded-full bg-[#C5A059] transition-all duration-300 motion-safe:group-hover:w-12"
+                    className="block h-0.5 w-6 rounded-full bg-brand-charcoal transition-all duration-300 motion-safe:group-hover:w-12"
                   />
                 </Link>
               );

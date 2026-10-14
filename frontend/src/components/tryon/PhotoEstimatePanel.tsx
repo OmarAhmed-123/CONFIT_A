@@ -149,15 +149,15 @@ export const PhotoEstimatePanel: React.FC<Props> = ({
   const canEstimate = Boolean(file) && consent && !busy;
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-[#FAF9F6] overflow-hidden">
+    <div className="rounded-2xl border border-slate-200 bg-brand-wash overflow-hidden">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         className="w-full flex items-center justify-between px-4 py-3 text-left"
       >
-        <span className="flex items-center gap-2 text-xs font-bold text-[#1B1F3B]">
-          <SparkleIcon size={16} color="#C5A059" />
+        <span className="flex items-center gap-2 text-xs font-bold text-brand-charcoal">
+          <SparkleIcon size={16} color="#242526" />
           {t('fit_finder.photo_estimate.title')}
         </span>
         <span className="text-[10px] text-slate-500 font-semibold">
@@ -185,7 +185,7 @@ export const PhotoEstimatePanel: React.FC<Props> = ({
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="flex-1 py-2.5 rounded-xl border border-dashed border-slate-300 text-[11px] font-bold text-slate-600 hover:border-[#C5A059] transition-all"
+              className="flex-1 py-2.5 rounded-xl border border-dashed border-slate-300 text-[11px] font-bold text-slate-600 hover:border-brand-hairline transition-all"
             >
               {file ? file.name : t('fit_finder.photo_estimate.choose_file')}
             </button>
@@ -254,7 +254,7 @@ export const PhotoEstimatePanel: React.FC<Props> = ({
             type="button"
             onClick={estimate}
             disabled={!canEstimate}
-            className="w-full py-2.5 rounded-xl bg-[#1B1F3B] hover:bg-[#0C0E1E] disabled:opacity-40 text-white text-[11px] font-bold transition-all"
+            className="w-full py-2.5 rounded-xl bg-brand-charcoal hover:bg-brand-charcoal disabled:opacity-40 text-white text-[11px] font-bold transition-all"
           >
             {busy ? t('fit_finder.photo_estimate.working') : t('fit_finder.photo_estimate.estimate')}
           </button>
@@ -283,7 +283,7 @@ export const PhotoEstimatePanel: React.FC<Props> = ({
           {state.phase === 'done' && (
             <div className="rounded-xl bg-white border border-slate-200 px-3 py-3 space-y-2">
               <div className="flex items-center justify-between">
-                <p className="text-[11px] font-bold text-[#1B1F3B]">
+                <p className="text-[11px] font-bold text-brand-charcoal">
                   {t('fit_finder.photo_estimate.result_title')}
                 </p>
                 <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
@@ -338,7 +338,7 @@ export const PhotoEstimatePanel: React.FC<Props> = ({
                 type="button"
                 onClick={() => apply(state.result)}
                 disabled={applied}
-                className="w-full py-2 rounded-xl border border-[#C5A059]/50 text-[#A37E44] hover:bg-[#FDF8EE] disabled:opacity-50 text-[11px] font-bold transition-all"
+                className="w-full py-2 rounded-xl border border-brand-hairline/50 text-brand-charcoal hover:bg-brand-wash disabled:opacity-50 text-[11px] font-bold transition-all"
               >
                 {applied
                   ? t('fit_finder.photo_estimate.applied_short')

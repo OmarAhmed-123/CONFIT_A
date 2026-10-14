@@ -83,7 +83,7 @@ export interface FieldProps {
 const CONTROL_MIN_HEIGHT = "min-h-[48px]";
 
 const CONTROL_BASE = [
-  "w-full rounded-[14px] border bg-white px-4 py-3 text-sm text-[#1B1F3B]",
+  "w-full rounded-[14px] border bg-white px-4 py-3 text-sm text-brand-charcoal",
   "transition-[border-color,box-shadow] duration-[180ms] ease-luxury",
   // slate-500, not slate-400: 400 measures 2.56:1 on white and placeholder
   // text is text — WCAG 2.2 AA asks 4.5:1. slate-500 is 4.76:1. This is a
@@ -95,7 +95,7 @@ const CONTROL_BASE = [
 
 const CONTROL_TONE = {
   invalid: "border-rose-400 focus:border-rose-500 focus:ring-rose-500/25",
-  valid: "border-slate-200 focus:border-[#A37E44] focus:ring-[#A37E44]/25",
+  valid: "border-slate-200 focus:border-brand-charcoal focus:ring-brand-charcoal/20",
 } as const;
 
 export const Field: React.FC<FieldProps> = ({
@@ -164,14 +164,14 @@ export const Field: React.FC<FieldProps> = ({
     <div className="flex flex-col gap-1.5">
       <label
         htmlFor={id}
-        className="flex items-baseline justify-between gap-2 text-xs font-semibold text-[#1B1F3B]"
+        className="flex items-baseline justify-between gap-2 text-xs font-semibold text-brand-charcoal"
       >
         <span>
           {label}
           {/* Required is stated in text, not inferred from an asterisk the
               screen reader may or may not announce. */}
           {required && (
-            <span className="ms-1 text-[#A37E44]" aria-hidden="true">
+            <span className="ms-1 text-brand-coral font-bold" aria-hidden="true">
               *
             </span>
           )}

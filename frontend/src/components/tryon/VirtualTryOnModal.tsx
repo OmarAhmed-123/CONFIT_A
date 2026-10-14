@@ -272,36 +272,36 @@ export const VirtualTryOnModal: React.FC = () => {
   return (
     <>
       {consentDialog}
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/85 backdrop-blur-md animate-in fade-in duration-150">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-150">
         <div
           ref={tryOnPanelRef}
           role="dialog"
           aria-modal="true"
           aria-label={t('tryon.studio_aria')}
           tabIndex={-1}
-          className="w-full max-w-6xl bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden max-h-[96vh] flex flex-col"
+          className="w-full max-w-6xl bg-white rounded-3xl shadow-2xl border border-brand-hairline overflow-hidden max-h-[96vh] flex flex-col"
         >
           {/* Header */}
-          <div className="p-4 sm:p-5 bg-[#0C0E1E] text-white flex justify-between items-center border-b border-slate-800 shrink-0">
+          <div className="p-4 sm:p-5 bg-white text-brand-charcoal flex justify-between items-center border-b border-brand-hairline shrink-0">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-[#C5A059] flex items-center justify-center text-slate-950 shadow-xs">
-                <TryOnIcon size={22} color="#0C0E1E" isAi={true} />
+              <div className="w-10 h-10 rounded-xl bg-brand-wash border border-brand-hairline flex items-center justify-center text-brand-charcoal shadow-xs">
+                <TryOnIcon size={22} color="#252729" isAi={true} />
               </div>
               <div>
-                <h3 className="font-serif text-base sm:text-lg font-bold text-white flex items-center gap-2">
+                <h3 className="font-serif text-base sm:text-lg font-bold text-brand-charcoal flex items-center gap-2">
                   <span>{t('tryon.studio_title')}</span>
-                  <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-[#C5A059]/20 text-[#E2BF70] font-sans font-semibold">
+                  <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-brand-wash border border-brand-hairline text-brand-charcoal font-sans font-semibold">
                     Multi-Layer Dressing Engine
                   </span>
                 </h3>
-                <p className="text-xs text-slate-400 font-light hidden sm:block">
+                <p className="text-xs text-slate-500 font-light hidden sm:block">
                   Applies the selected garments to the person in your photo.
                 </p>
               </div>
             </div>
             <button
               onClick={closeTryOn}
-              className="w-8 h-8 rounded-full bg-slate-800 text-slate-300 hover:text-white flex items-center justify-center transition-colors"
+              className="w-8 h-8 rounded-full bg-slate-100 text-slate-600 hover:text-brand-charcoal hover:bg-slate-200 flex items-center justify-center transition-colors"
             >
               ✕
             </button>
@@ -310,12 +310,12 @@ export const VirtualTryOnModal: React.FC = () => {
           {/* Main 2-Column Split */}
           <div className="flex-1 overflow-y-auto grid grid-cols-1 lg:grid-cols-12 divide-y lg:divide-y-0 lg:divide-x divide-slate-200">
             {/* LEFT: Dynamic Dressing Canvas & Controls (7 cols) */}
-            <div className="lg:col-span-7 p-4 sm:p-6 bg-[#FAF9F6] flex flex-col justify-between space-y-4">
+            <div className="lg:col-span-7 p-4 sm:p-6 bg-brand-wash flex flex-col justify-between space-y-4">
               {/* Top Bar: Subject Selector & Mode Switchers */}
               <div className="space-y-3">
                 <div className="flex flex-wrap justify-between items-center gap-2">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-[#1B1F3B]">
+                    <span className="text-xs font-bold text-brand-charcoal">
                       Person Reference:
                     </span>
                     <button
@@ -324,7 +324,7 @@ export const VirtualTryOnModal: React.FC = () => {
                       aria-label={
                         isCompressing ? "Processing photo" : "Upload your photo"
                       }
-                      className="px-3 py-1.5 rounded-xl bg-white border border-slate-200 hover:border-[#C5A059] text-slate-700 text-xs font-semibold flex items-center gap-1 shadow-2xs transition-all disabled:opacity-60"
+                      className="px-3 py-1.5 rounded-xl bg-white border border-slate-200 hover:border-brand-hairline text-slate-700 text-xs font-semibold flex items-center gap-1 shadow-2xs transition-all disabled:opacity-60"
                     >
                       <span>
                         {isCompressing
@@ -334,7 +334,7 @@ export const VirtualTryOnModal: React.FC = () => {
                     </button>
                     <button
                       onClick={() => setIsCameraScanOpen(true)}
-                      className="px-3 py-1.5 rounded-xl bg-[#FDF8EE] border border-[#C5A059]/40 hover:bg-[#C5A059] hover:text-slate-950 text-[#A37E44] text-xs font-semibold flex items-center gap-1 shadow-2xs transition-all"
+                      className="px-3 py-1.5 rounded-xl bg-brand-wash border border-brand-hairline/40 hover:bg-brand-charcoal hover:text-white text-brand-charcoal text-xs font-semibold flex items-center gap-1 shadow-2xs transition-all"
                     >
                       <span>🎥 Live Scan</span>
                     </button>
@@ -356,7 +356,7 @@ export const VirtualTryOnModal: React.FC = () => {
                       }}
                       className={`px-3 py-1 rounded-lg transition-all ${
                         activePreviewTab === "static" && !isBeforeAfterActive
-                          ? "bg-[#1B1F3B] text-white shadow-xs"
+                          ? "bg-brand-charcoal text-white shadow-xs"
                           : "text-slate-600 hover:text-slate-900"
                       }`}
                     >
@@ -370,11 +370,11 @@ export const VirtualTryOnModal: React.FC = () => {
                       }}
                       className={`px-3 py-1 rounded-lg transition-all flex items-center gap-1 ${
                         activePreviewTab === "animation" && !isBeforeAfterActive
-                          ? "bg-[#1B1F3B] text-[#E2BF70] shadow-xs"
+                          ? "bg-brand-charcoal text-white shadow-xs"
                           : "text-slate-600 hover:text-slate-900"
                       }`}
                     >
-                      <SparkleIcon size={12} color="#C5A059" />
+                      <SparkleIcon size={12} color="#242526" />
                       <span>{t('tryon.layer_assembly')}</span>
                     </button>
                     <button
@@ -384,7 +384,7 @@ export const VirtualTryOnModal: React.FC = () => {
                       }}
                       className={`px-3 py-1 rounded-lg transition-all ${
                         isBeforeAfterActive
-                          ? "bg-[#C5A059] text-slate-950 shadow-xs"
+                          ? "bg-brand-charcoal text-white shadow-xs"
                           : "text-slate-600 hover:text-slate-900"
                       }`}
                     >
@@ -408,7 +408,7 @@ export const VirtualTryOnModal: React.FC = () => {
                       }}
                       className={`flex items-center gap-2 p-1.5 pr-3 rounded-xl border text-left transition-all shrink-0 ${
                         selectedAvatar === av.id && !uploadedUserImage
-                          ? "border-[#C5A059] bg-white ring-2 ring-[#C5A059]/30 shadow-2xs"
+                          ? "border-brand-hairline bg-white ring-2 ring-brand-charcoal/30 shadow-2xs"
                           : "border-slate-200 bg-white/70 hover:bg-white text-slate-600"
                       }`}
                     >
@@ -423,7 +423,7 @@ export const VirtualTryOnModal: React.FC = () => {
                     </button>
                   ))}
                   {uploadedUserImage && (
-                    <div className="flex items-center gap-2 p-1.5 pr-3 rounded-xl border border-[#C5A059] bg-[#FDF8EE] text-[#1B1F3B] text-[11px] font-bold shrink-0 shadow-2xs">
+                    <div className="flex items-center gap-2 p-1.5 pr-3 rounded-xl border border-brand-hairline bg-brand-wash text-brand-charcoal text-[11px] font-bold shrink-0 shadow-2xs">
                       <img
                         src={uploadedUserImage}
                         alt="User"
@@ -450,7 +450,7 @@ export const VirtualTryOnModal: React.FC = () => {
                 onDrop={handleDropOnCanvas}
                 className={`relative h-[400px] sm:h-[480px] rounded-3xl overflow-hidden bg-slate-950 border-2 transition-all flex items-center justify-center shadow-inner ${
                   isDragOver
-                    ? "border-[#C5A059] ring-4 ring-[#C5A059]/30 bg-slate-900"
+                    ? "border-brand-hairline ring-4 ring-brand-charcoal/30 bg-slate-900"
                     : "border-slate-300"
                 }`}
               >
@@ -482,10 +482,10 @@ export const VirtualTryOnModal: React.FC = () => {
 
                     {/* Divider Line & Draggable Handle */}
                     <div
-                      className="absolute top-0 bottom-0 w-1 bg-[#C5A059] shadow-[0_0_12px_#C5A059] cursor-ew-resize flex items-center justify-center pointer-events-none"
+                      className="absolute top-0 bottom-0 w-1 bg-brand-charcoal shadow-[0_0_12px_#242526] cursor-ew-resize flex items-center justify-center pointer-events-none"
                       style={{ left: `${splitSliderPosition}%` }}
                     >
-                      <div className="w-7 h-7 rounded-full bg-[#C5A059] text-slate-950 text-xs font-black flex items-center justify-center shadow-xl border-2 border-white">
+                      <div className="w-7 h-7 rounded-full bg-brand-charcoal text-slate-950 text-xs font-black flex items-center justify-center shadow-xl border-2 border-white">
                         ↔
                       </div>
                     </div>
@@ -499,7 +499,7 @@ export const VirtualTryOnModal: React.FC = () => {
                       onChange={(e) =>
                         setSplitSliderPosition(Number(e.target.value))
                       }
-                      className="absolute inset-x-4 bottom-4 opacity-80 hover:opacity-100 accent-[#C5A059] z-20 cursor-ew-resize"
+                      className="absolute inset-x-4 bottom-4 opacity-80 hover:opacity-100 accent-brand-charcoal z-20 cursor-ew-resize"
                     />
 
                     <span className="absolute top-3 left-3 px-3 py-1 rounded-full bg-slate-950/85 backdrop-blur-md text-white text-[10px] font-bold border border-white/20 z-10">
@@ -522,7 +522,7 @@ export const VirtualTryOnModal: React.FC = () => {
 
                     {/* Top Aspect & Animation Status */}
                     <div className="relative z-10 flex justify-between items-center">
-                      <span className="px-2.5 py-1 rounded-full bg-[#C5A059] text-slate-950 text-[10px] font-bold">
+                      <span className="px-2.5 py-1 rounded-full bg-brand-charcoal text-slate-950 text-[10px] font-bold">
                         🎬 Layer Assembly Sequence
                       </span>
                       <div className="flex gap-1 bg-black/60 p-0.5 rounded-lg border border-white/10 text-[9px] text-white">
@@ -530,7 +530,7 @@ export const VirtualTryOnModal: React.FC = () => {
                           <button
                             key={asp}
                             onClick={() => setOutputAspect(asp)}
-                            className={`px-1.5 py-0.5 rounded ${outputAspect === asp ? "bg-[#C5A059] text-slate-950 font-bold" : "hover:bg-white/20"}`}
+                            className={`px-1.5 py-0.5 rounded ${outputAspect === asp ? "bg-brand-charcoal text-slate-950 font-bold" : "hover:bg-white/20"}`}
                           >
                             {asp}
                           </button>
@@ -541,7 +541,7 @@ export const VirtualTryOnModal: React.FC = () => {
                     {/* Bottom Step-by-Step Motion Timeline */}
                     <div className="relative z-10 space-y-2 bg-black/75 backdrop-blur-md p-3 rounded-2xl border border-white/10">
                       <div className="flex justify-between items-center text-xs text-white">
-                        <span className="font-bold text-[#E2BF70]">
+                        <span className="font-bold text-white">
                           Step {activeKeyframeIndex + 1} of{" "}
                           {animationResult.keyframes_sequence.length}:
                         </span>
@@ -560,7 +560,7 @@ export const VirtualTryOnModal: React.FC = () => {
                             onClick={() => setActiveKeyframeIndex(idx)}
                             className={`flex-1 h-1.5 rounded-full transition-all ${
                               activeKeyframeIndex === idx
-                                ? "bg-[#C5A059]"
+                                ? "bg-brand-charcoal"
                                 : "bg-white/20 hover:bg-white/40"
                             }`}
                             title={kf.product_title}
@@ -613,7 +613,7 @@ export const VirtualTryOnModal: React.FC = () => {
                       <>
                         <button
                           onClick={handleDownloadRenderedResult}
-                          className="absolute bottom-3 right-3 px-3 py-1.5 rounded-full bg-[#C5A059] text-slate-950 text-[11px] font-bold shadow-lg hover:brightness-110 active:scale-95 transition-all"
+                          className="absolute bottom-3 right-3 px-3 py-1.5 rounded-full bg-brand-charcoal text-slate-950 text-[11px] font-bold shadow-lg hover:brightness-110 active:scale-95 transition-all"
                         >
                           ⬇ Download Result
                         </button>
@@ -632,7 +632,7 @@ export const VirtualTryOnModal: React.FC = () => {
                     {/* Active Rendering Overlay */}
                     {isRendering && (
                       <div className="absolute inset-0 bg-slate-950/70 backdrop-blur-xs flex flex-col items-center justify-center p-6 text-center space-y-3 animate-in fade-in duration-150">
-                        <div className="w-10 h-10 border-3 border-[#C5A059] border-t-transparent rounded-full motion-safe:animate-spin"></div>
+                        <div className="w-10 h-10 border-3 border-brand-hairline border-t-transparent rounded-full motion-safe:animate-spin"></div>
                         <div>
                           <h4 className="font-serif text-sm font-bold text-white">
                             Synthesizing Virtual Try-On Layer...
@@ -677,7 +677,7 @@ export const VirtualTryOnModal: React.FC = () => {
                           error: t('tryon.retry_render'),
                         }}
                         data-testid="run-tryon-cta"
-                        className="px-3 rounded-xl bg-[#1B1F3B] hover:bg-[#0C0E1E] text-white text-[11px] font-bold transition-all"
+                        className="px-3 rounded-xl bg-brand-charcoal hover:bg-brand-charcoal text-white text-[11px] font-bold transition-all"
                       />
                     )}
                     <button
@@ -705,7 +705,7 @@ export const VirtualTryOnModal: React.FC = () => {
                     {appliedList.map(([slot, item]) => (
                       <div
                         key={slot}
-                        className="inline-flex items-center gap-2 bg-[#FAF9F6] border border-slate-200 rounded-xl px-2.5 py-1 text-xs"
+                        className="inline-flex items-center gap-2 bg-brand-wash border border-slate-200 rounded-xl px-2.5 py-1 text-xs"
                       >
                         <HonestProductImage
                           src={item.thumbnail_url}
@@ -718,7 +718,7 @@ export const VirtualTryOnModal: React.FC = () => {
                         <span className="font-semibold text-slate-800 line-clamp-1 max-w-[120px]">
                           {item.title}
                         </span>
-                        <span className="font-bold text-[#A37E44]">
+                        <span className="font-bold text-brand-charcoal">
                           {formatMoney(Math.round(item.base_price * 100), item.currency || 'USD', lang)}
                         </span>
                         <button
@@ -741,7 +741,7 @@ export const VirtualTryOnModal: React.FC = () => {
                   <span className="text-[10px] text-slate-400 block">
                     Total Dressed Look:
                   </span>
-                  <span className="font-serif text-lg font-black text-[#1B1F3B]">
+                  <span className="font-serif text-lg font-black text-brand-charcoal">
                     ${totalPrice.toFixed(2)}
                   </span>
                 </div>
@@ -749,9 +749,9 @@ export const VirtualTryOnModal: React.FC = () => {
                   <button
                     onClick={runAnimatedTryOn}
                     disabled={isAnimating || appliedList.length === 0}
-                    className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl bg-[#1B1F3B] hover:bg-[#0C0E1E] disabled:opacity-40 text-[#E2BF70] font-bold text-xs shadow-md transition-all flex items-center justify-center gap-1.5"
+                    className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl bg-brand-charcoal hover:bg-brand-charcoal disabled:opacity-40 text-white font-bold text-xs shadow-md transition-all flex items-center justify-center gap-1.5"
                   >
-                    <SparkleIcon size={14} color="#C5A059" />
+                    <SparkleIcon size={14} color="#242526" />
                     <span>
                       {isAnimating ? "Synthesizing..." : "Play Layer Sequence"}
                     </span>
@@ -759,9 +759,9 @@ export const VirtualTryOnModal: React.FC = () => {
                   <button
                     onClick={addAllDressedToCart}
                     disabled={appliedList.length === 0}
-                    className="flex-1 sm:flex-none px-6 py-2.5 rounded-xl bg-[#C5A059] hover:bg-[#A37E44] disabled:opacity-40 text-slate-950 font-bold text-xs shadow-md transition-all flex items-center justify-center gap-1.5"
+                    className="flex-1 sm:flex-none px-6 py-2.5 rounded-xl bg-brand-charcoal hover:bg-black disabled:opacity-40 text-slate-950 font-bold text-xs shadow-md transition-all flex items-center justify-center gap-1.5"
                   >
-                    <BagIcon size={14} color="#0C0E1E" />
+                    <BagIcon size={14} color="#FFFFFF" />
                     <span>Add {appliedList.length} Items to Bag</span>
                   </button>
                 </div>
@@ -773,8 +773,8 @@ export const VirtualTryOnModal: React.FC = () => {
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-1.5">
-                    <OutfitBuilderIcon size={18} color="#1B1F3B" />
-                    <h4 className="font-serif text-sm sm:text-base font-bold text-[#1B1F3B]">
+                    <OutfitBuilderIcon size={18} color="#242526" />
+                    <h4 className="font-serif text-sm sm:text-base font-bold text-brand-charcoal">
                       Multi-Brand Catalog Shelf
                     </h4>
                   </div>
@@ -799,7 +799,7 @@ export const VirtualTryOnModal: React.FC = () => {
                       onClick={() => setActiveCategoryFilter(cat)}
                       className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition-all ${
                         activeCategoryFilter === cat
-                          ? "bg-[#1B1F3B] text-white shadow-2xs"
+                          ? "bg-brand-charcoal text-white shadow-2xs"
                           : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                       }`}
                     >
@@ -825,8 +825,8 @@ export const VirtualTryOnModal: React.FC = () => {
                         }}
                         className={`p-3 rounded-2xl border transition-all flex flex-col justify-between ${canDragForTryOn ? "cursor-grab active:cursor-grabbing" : "cursor-default"} group select-none ${
                           isAlreadyDressed
-                            ? "border-[#C5A059] bg-[#FDF8EE] ring-1 ring-[#C5A059]"
-                            : "border-slate-200 bg-[#FAF9F6] hover:border-[#C5A059] hover:shadow-sm"
+                            ? "border-brand-hairline bg-brand-wash ring-1 ring-brand-charcoal"
+                            : "border-slate-200 bg-brand-wash hover:border-brand-hairline hover:shadow-sm"
                         }`}
                       >
                         <div>
@@ -848,10 +848,10 @@ export const VirtualTryOnModal: React.FC = () => {
                           <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider block truncate">
                             {p.brand_name}
                           </span>
-                          <h5 className="font-serif text-xs font-bold text-[#1B1F3B] line-clamp-1 mt-0.5">
+                          <h5 className="font-serif text-xs font-bold text-brand-charcoal line-clamp-1 mt-0.5">
                             {p.title}
                           </h5>
-                          <span className="text-xs font-bold text-[#A37E44] mt-0.5 block">
+                          <span className="text-xs font-bold text-brand-charcoal mt-0.5 block">
                             {formatMoney(Math.round(p.base_price * 100), p.currency || 'USD', lang)}
                           </span>
                         </div>
@@ -898,7 +898,7 @@ export const VirtualTryOnModal: React.FC = () => {
                                   ? "bg-slate-200 text-slate-700 hover:bg-rose-100 hover:text-rose-700"
                                   : disabled
                                     ? "bg-slate-100 text-slate-400 cursor-not-allowed"
-                                    : "bg-white border border-slate-300 hover:bg-[#C5A059] hover:text-slate-950 text-slate-800 shadow-2xs"
+                                    : "bg-white border border-slate-300 hover:bg-brand-charcoal hover:text-slate-950 text-slate-800 shadow-2xs"
                               }`}
                             >
                               {label}

@@ -477,7 +477,7 @@ export const HomeView: React.FC = () => {
       >
         <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
           <div>
-            <span className="text-[10px] font-bold uppercase tracking-widest text-[#7A5C28]">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-brand-muted">
               {t('home.guided_eyebrow')}
             </span>
             <h2 className="mt-2 font-serif text-3xl font-bold text-brand-charcoal">
@@ -578,7 +578,7 @@ export const HomeView: React.FC = () => {
       {/* 2. Scroll-Driven 3D Editorial Gallery */}
       <section className="relative -mx-4 overflow-hidden rounded-[36px] border border-brand-hairline bg-white py-10 shadow-2xs sm:-mx-6 lg:-mx-8">
         <div className="relative z-10 mx-auto mb-6 max-w-2xl px-6 text-center">
-          <span className="text-[10px] font-bold uppercase tracking-widest text-[#7A5C28]">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-brand-muted">
             {t('home.lookbook_eyebrow')}
           </span>
           <h2 className="mt-2 font-serif text-3xl font-bold text-brand-charcoal sm:text-4xl">

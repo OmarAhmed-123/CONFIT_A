@@ -20,8 +20,8 @@ import { useUIStore } from '../../stores/uiStore';
 import { EmptyState, LoadingSpinner } from '../../components/common/CommonComponents';
 import { ConfirmationDialog } from '../../components/common/StateComponents';
 
-const fieldClass = 'min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-[#B8935A] focus:outline-none focus:ring-2 focus:ring-[#B8935A]/30';
-const buttonFocus = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B8935A] focus-visible:ring-offset-2';
+const fieldClass = 'min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-brand-charcoal focus:outline-none focus:ring-2 focus:ring-brand-charcoal/20';
+const buttonFocus = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white focus-visible:ring-offset-2';
 
 type Tab = 'products' | 'inventory' | 'placements' | 'imports';
 type ProductFormState = {
@@ -174,7 +174,7 @@ const StockEditor: React.FC<{
         type="button"
         onClick={save}
         disabled={saving || stock === ''}
-        className={`min-h-11 rounded-xl bg-[#1B1F3B] px-4 py-2 text-xs font-bold text-white disabled:opacity-50 ${buttonFocus}`}
+        className={`min-h-11 rounded-xl bg-brand-charcoal px-4 py-2 text-xs font-bold text-white disabled:opacity-50 ${buttonFocus}`}
       >
         {saving ? t('admin_catalog.saving') : t('admin_catalog.save')}
       </button>
@@ -388,7 +388,7 @@ export const AdminCatalogView: React.FC = () => {
           static element (§7). */}
       <Reveal as="section" className="overflow-hidden rounded-3xl bg-[#10152C] p-6 text-white shadow-xl sm:p-8">
         <div className="max-w-3xl">
-          <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#E2BF70]">{t('admin_catalog.eyebrow')}</p>
+          <p className="text-xs font-bold uppercase tracking-[0.2em] text-brand-muted">{t('admin_catalog.eyebrow')}</p>
           <h1 className="mt-2 font-serif text-3xl font-black sm:text-4xl">{t('admin_catalog.title')}</h1>
           <p className="mt-3 text-sm leading-6 text-slate-300">{t('admin_catalog.lede')}</p>
         </div>
@@ -445,7 +445,7 @@ export const AdminCatalogView: React.FC = () => {
             ].map(([label, value]) => (
               <div key={String(label)} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                 <div className="text-xs font-bold uppercase tracking-wide text-slate-500">{label}</div>
-                <div className="mt-1 font-serif text-2xl font-black text-[#1B1F3B]">{value}</div>
+                <div className="mt-1 font-serif text-2xl font-black text-brand-charcoal">{value}</div>
               </div>
             ))}
           </section>
@@ -458,7 +458,7 @@ export const AdminCatalogView: React.FC = () => {
                 role="tab"
                 aria-selected={tab === item.id}
                 onClick={() => setTab(item.id)}
-                className={`min-h-11 shrink-0 rounded-xl px-4 text-sm font-bold ${buttonFocus} ${tab === item.id ? 'bg-[#1B1F3B] text-white' : 'bg-white text-slate-700 hover:bg-slate-100'}`}
+                className={`min-h-11 shrink-0 rounded-xl px-4 text-sm font-bold ${buttonFocus} ${tab === item.id ? 'bg-brand-charcoal text-white' : 'bg-white text-slate-700 hover:bg-slate-100'}`}
               >
                 {item.label} <span className="ms-1 opacity-70">({item.count})</span>
               </button>
@@ -469,10 +469,10 @@ export const AdminCatalogView: React.FC = () => {
             <section className="space-y-5" aria-labelledby="catalog-products-heading">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <h2 id="catalog-products-heading" className="font-serif text-2xl font-bold text-[#1B1F3B]">{t('admin_catalog.products_heading')}</h2>
+                  <h2 id="catalog-products-heading" className="font-serif text-2xl font-bold text-brand-charcoal">{t('admin_catalog.products_heading')}</h2>
                   <p className="mt-1 text-sm text-slate-500">{t('admin_catalog.products_help')}</p>
                 </div>
-                <button type="button" onClick={startCreate} className={`min-h-11 rounded-xl bg-[#B8935A] px-5 py-2 text-sm font-bold text-white hover:bg-[#9C7842] ${buttonFocus}`}>
+                <button type="button" onClick={startCreate} className={`min-h-11 rounded-xl bg-brand-charcoal px-5 py-2 text-sm font-bold text-white hover:bg-black ${buttonFocus}`}>
                   {t('admin_catalog.add_product')}
                 </button>
               </div>
@@ -480,7 +480,7 @@ export const AdminCatalogView: React.FC = () => {
               {editing && (
                 <form onSubmit={submitProduct} className="space-y-5 rounded-3xl border border-[#DCC8A5] bg-[#FFFCF5] p-5 shadow-sm" aria-label={t(editing === 'new' ? 'admin_catalog.create_form_label' : 'admin_catalog.edit_form_label')}>
                   <div className="flex items-center justify-between gap-3">
-                    <h3 className="font-serif text-xl font-bold text-[#1B1F3B]">{t(editing === 'new' ? 'admin_catalog.create_heading' : 'admin_catalog.edit_heading')}</h3>
+                    <h3 className="font-serif text-xl font-bold text-brand-charcoal">{t(editing === 'new' ? 'admin_catalog.create_heading' : 'admin_catalog.edit_heading')}</h3>
                     <button type="button" onClick={() => setEditing(null)} className={`min-h-11 rounded-xl px-3 text-sm font-bold text-slate-600 hover:bg-white ${buttonFocus}`}>{t('admin_catalog.cancel')}</button>
                   </div>
                   <div className="grid gap-4 md:grid-cols-2">
@@ -505,7 +505,7 @@ export const AdminCatalogView: React.FC = () => {
 
                   {editing === 'new' && (
                     <fieldset className="grid gap-4 rounded-2xl border border-slate-200 bg-white p-4 md:grid-cols-3">
-                      <legend className="px-2 text-sm font-bold text-[#1B1F3B]">{t('admin_catalog.initial_sku')}</legend>
+                      <legend className="px-2 text-sm font-bold text-brand-charcoal">{t('admin_catalog.initial_sku')}</legend>
                       <label className="text-xs font-bold text-slate-700">{t('admin_catalog.field_sku')}<input required pattern="[A-Za-z0-9_-]{3,100}" value={form.sku_code} onChange={updateForm('sku_code')} className={`${fieldClass} mt-1`} /></label>
                       <label className="text-xs font-bold text-slate-700">{t('admin_catalog.field_size')}<input required value={form.sku_size} onChange={updateForm('sku_size')} className={`${fieldClass} mt-1`} /></label>
                       <label className="text-xs font-bold text-slate-700">{t('admin_catalog.field_sku_color')}<input required value={form.sku_color} onChange={updateForm('sku_color')} className={`${fieldClass} mt-1`} /></label>
@@ -514,7 +514,7 @@ export const AdminCatalogView: React.FC = () => {
                       <label className="text-xs font-bold text-slate-700">{t('admin_catalog.field_color_hex')}<input required type="color" value={form.sku_color_hex} onChange={updateForm('sku_color_hex')} className={`${fieldClass} mt-1 p-1`} /></label>
                     </fieldset>
                   )}
-                  <button type="submit" disabled={saving} className={`min-h-11 rounded-xl bg-[#1B1F3B] px-6 py-2 text-sm font-bold text-white disabled:opacity-50 ${buttonFocus}`}>{saving ? t('admin_catalog.saving') : t(editing === 'new' ? 'admin_catalog.create_product' : 'admin_catalog.save_changes')}</button>
+                  <button type="submit" disabled={saving} className={`min-h-11 rounded-xl bg-brand-charcoal px-6 py-2 text-sm font-bold text-white disabled:opacity-50 ${buttonFocus}`}>{saving ? t('admin_catalog.saving') : t(editing === 'new' ? 'admin_catalog.create_product' : 'admin_catalog.save_changes')}</button>
                 </form>
               )}
 
@@ -527,12 +527,12 @@ export const AdminCatalogView: React.FC = () => {
                       <HonestProductImage src={product.thumbnail_url} alt={product.title} className="h-44 w-full bg-slate-100 object-cover" />
                       <div className="space-y-3 p-5">
                         <div className="flex items-start justify-between gap-3">
-                          <div><h3 className="font-serif text-lg font-bold text-[#1B1F3B]">{i18n.dir() === 'rtl' ? product.title_ar : product.title}</h3><p className="text-xs text-slate-500">{product.category_name}</p></div>
+                          <div><h3 className="font-serif text-lg font-bold text-brand-charcoal">{i18n.dir() === 'rtl' ? product.title_ar : product.title}</h3><p className="text-xs text-slate-500">{product.category_name}</p></div>
                           <span className={`rounded-full px-2 py-1 text-[10px] font-bold uppercase ${product.is_active ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-700'}`}>{t(product.is_active ? 'admin_catalog.active' : 'admin_catalog.inactive')}</span>
                         </div>
                         <div className="flex items-center justify-between text-sm"><span className="font-mono font-bold text-[#8A6A2F]">{product.currency} {product.base_price.toLocaleString()}</span><span className="text-xs text-slate-500">{t('admin_catalog.sku_count', { count: product.skus.length })}</span></div>
                         <div className="flex flex-wrap gap-2 border-t border-slate-100 pt-3">
-                          <button type="button" onClick={() => startEdit(product)} className={`min-h-11 rounded-xl border border-slate-300 px-4 text-xs font-bold text-slate-700 hover:border-[#B8935A] ${buttonFocus}`}>{t('admin_catalog.edit')}</button>
+                          <button type="button" onClick={() => startEdit(product)} className={`min-h-11 rounded-xl border border-slate-300 px-4 text-xs font-bold text-slate-700 hover:border-brand-charcoal ${buttonFocus}`}>{t('admin_catalog.edit')}</button>
                           <button type="button" disabled={saving} onClick={() => void setProductActive(product, !product.is_active)} className={`min-h-11 rounded-xl px-4 text-xs font-bold ${buttonFocus} ${product.is_active ? 'bg-rose-50 text-rose-700 hover:bg-rose-100' : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100'}`}>{t(product.is_active ? 'admin_catalog.deactivate' : 'admin_catalog.reactivate')}</button>
                         </div>
                       </div>
@@ -545,7 +545,7 @@ export const AdminCatalogView: React.FC = () => {
 
           {tab === 'inventory' && (
             <section className="space-y-5">
-              <div><h2 className="font-serif text-2xl font-bold text-[#1B1F3B]">{t('admin_catalog.inventory_heading')}</h2><p className="mt-1 text-sm text-slate-500">{t('admin_catalog.inventory_help')}</p></div>
+              <div><h2 className="font-serif text-2xl font-bold text-brand-charcoal">{t('admin_catalog.inventory_heading')}</h2><p className="mt-1 text-sm text-slate-500">{t('admin_catalog.inventory_help')}</p></div>
               {snapshot.inventory.flatMap((product) => product.skus.map((sku) => ({ product, sku }))).map(({ product, sku }) => (
                 <div key={sku.id} className="space-y-2">
                   <div className="text-xs font-bold text-slate-500">{product.title}</div>
@@ -559,7 +559,7 @@ export const AdminCatalogView: React.FC = () => {
 
           {tab === 'placements' && (
             <section className="space-y-4">
-              <div><h2 className="font-serif text-2xl font-bold text-[#1B1F3B]">{t('admin_catalog.placements_heading')}</h2><p className="mt-1 text-sm text-slate-500">{t('admin_catalog.placements_help')}</p></div>
+              <div><h2 className="font-serif text-2xl font-bold text-brand-charcoal">{t('admin_catalog.placements_heading')}</h2><p className="mt-1 text-sm text-slate-500">{t('admin_catalog.placements_help')}</p></div>
               {snapshot.placements.map((placement) => (
                 <div key={String(placement.id)} className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-sm sm:grid-cols-4">
                   <div><span className="block text-[10px] font-bold uppercase text-slate-500">{t('admin_catalog.product')}</span>{String(placement.product_title)}</div>
@@ -574,7 +574,7 @@ export const AdminCatalogView: React.FC = () => {
 
           {tab === 'imports' && (
             <section className="space-y-4">
-              <div><h2 className="font-serif text-2xl font-bold text-[#1B1F3B]">{t('admin_catalog.imports_heading')}</h2><p className="mt-1 text-sm text-slate-500">{t('admin_catalog.imports_help')}</p></div>
+              <div><h2 className="font-serif text-2xl font-bold text-brand-charcoal">{t('admin_catalog.imports_heading')}</h2><p className="mt-1 text-sm text-slate-500">{t('admin_catalog.imports_help')}</p></div>
               {snapshot.imports.map((job) => (
                 <div key={String(job.job_id)} className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-sm sm:grid-cols-4">
                   <div><span className="block text-[10px] font-bold uppercase text-slate-500">{t('admin_catalog.file')}</span>{String(job.file_name ?? '—')}</div>

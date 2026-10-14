@@ -282,7 +282,7 @@ export const LeadForm: React.FC = () => {
       <header className="flex flex-col gap-1">
         <h2
           id="partner-request-title"
-          className="font-serif text-[1.375rem] font-bold leading-tight text-[#1B1F3B]"
+          className="font-serif text-[1.375rem] font-bold leading-tight text-brand-charcoal"
         >
           {t("partner.form_title")}
         </h2>
@@ -396,7 +396,7 @@ export const LeadForm: React.FC = () => {
           error: t("partner.submit"),
         }}
         metricsId="b01_partner_lead_submit"
-        className="min-h-[48px] w-full rounded-[14px] bg-[#1B1F3B] text-xs font-bold uppercase tracking-wider text-white transition-colors duration-[140ms] ease-luxury hover:bg-[#13162C] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A37E44] focus-visible:ring-offset-2"
+        className="min-h-[48px] w-full rounded-[14px] bg-brand-charcoal text-xs font-bold uppercase tracking-wider text-white transition-colors duration-[140ms] ease-luxury hover:bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white"
         data-testid="lead-submit"
       />
     </form>

@@ -24,7 +24,7 @@ A row is `PASS` only when its own checks were run after its own changes and the 
 
 | Route | Component | Status |
 |---|---|---|
-| `/looks/:token` | SharedLookView | NOT_STARTED |
+| `/looks/:token` | SharedLookView | IMPLEMENTED (White-first layout, brand charcoal headers/CTA, brand-wash and hairline accents; contract tested `sharedLookBrand.contract.test.tsx`) |
 | `/email/unsubscribe` | EmailUnsubscribeView | PASS (ready, working, done, expired, invalid, error, mobile, AR/RTL reviewed; API states mocked; see evidence below) |
 | `/reset-password` | ResetPasswordView | PASS (form, policy checklist, error, done, missing-token, focus, mobile, AR/RTL reviewed; API states mocked; see evidence below) |
 | `/verify-email` | VerifyEmailView | PASS (ready, keyboard focus, working, done, expired, missing-token/resend, mobile, AR/RTL reviewed; API states mocked; see evidence below) |
@@ -41,41 +41,41 @@ A row is `PASS` only when its own checks were run after its own changes and the 
 | `/discover`, `/products`, `/stylist` | DiscoverView | IMPLEMENTED, not PASS. Class-level brand mapping applied (gold, navy, cream, slate text, eyebrow labels, search and sort focus rings). Shared `HeroSection` and `ProductCard` changes included. Still open: loading and empty states, filter and search behaviour with live data, mobile and AR/RTL review. The AI Stylist pill label was measured and is not clipped. See Discover evidence below. |
 | `ProductCard` (shared component: Home, Discover, Wardrobe, MyLooks, `InteractionPrimitives`, `TryOnButton`) | ProductCard | IMPLEMENTED, not PASS. Legacy class and icon colours mapped. Changes reach every consumer above, so those pages are NOT marked PASS by this change and each still needs its own review |
 | `/product/:slug`, `/products/:slug` | ProductDetailView | IMPLEMENTED, not PASS. Light scheme. Navy, gold, cream, and slate chrome mapped to charcoal, brand-wash, and brand-muted; sale badge charcoal; savings line emerald (semantic). Primary CTA and sticky CTA focus ring charcoal (global gold ring was the settled focus). Rose, amber, and emerald status kept. Mobile and AR captured; AR/mobile not yet visually reviewed. See Product detail evidence. |
-| `/builder`, `/outfits/:id` | OutfitBuilderView | NOT_STARTED |
+| `/builder`, `/outfits/:id` | OutfitBuilderView | IMPLEMENTED (Gold/navy/cream chrome to brand charcoal/wash; focus ring to charcoal; all 26 behavioral & axe tests pass; contract tested `outfitBuilderBrand.contract.test.tsx`) |
 | `/outfits`, `/my-looks` | MyLooksView | IMPLEMENTED, not PASS. Light scheme. Gold CTA to charcoal; navy, slate chrome mapped; `TryOnButton` (shared) mapped to charcoal and white. Amber partial-look and missing-slot status and rose delete kept. "1 pieces" bug fixed with CLDR plurals (EN, AR). Charcoal focus ring on CTAs. AR/mobile captured; not yet visually reviewed for AR. See My Looks evidence. |
-| `/tryon-studio`, `/try-on`, `/try-on/:sessionId`, `/visual-search` | TryOnFitView (error boundary) | NOT_STARTED |
-| `/fit`, `/fit-finder` | FitFinderView | NOT_STARTED |
-| `/wardrobe`, `/wardrobe/item/:id` | WardrobeView | NOT_STARTED |
-| `/cart`, `/checkout` | CheckoutView | NOT_STARTED (commerce path: light scheme only) |
+| `/tryon-studio`, `/try-on`, `/try-on/:sessionId`, `/visual-search` | TryOnFitView (error boundary) | IMPLEMENTED (Navy/gold hero and cards to brand charcoal/wash; contract tested `tryOnBrand.contract.test.tsx`) |
+| `/fit`, `/fit-finder` | FitFinderView | IMPLEMENTED (Navy hero to brand charcoal; gold accents to charcoal; all 8 engine & localization tests pass; contract tested `fitFinderBrand.contract.test.tsx`) |
+| `/wardrobe`, `/wardrobe/item/:id` | WardrobeView | IMPLEMENTED (Navy/gold chrome to brand charcoal and wash; all 9 action state tests pass; contract tested `wardrobeBrand.contract.test.tsx`) |
+| `/cart`, `/checkout` | CheckoutView | IMPLEMENTED, not PASS. Gold, navy, cream and slate mapped to brand tokens; semantic colours kept; dark-filled controls use `.focus-on-light-fill` (charcoal ring, offset 3px). OPEN: fixed AI Stylist control covers Subtotal/Tax amounts at 1024-1280 in the first fold. Padding reserve tried and reverted (did not clear 1024). Backend-dependent flows unverified. See Checkout section. |
 | `/orders`, `/orders/:orderNumber`, `/returns` | OrderTrackingView | IMPLEMENTED, not PASS. Light scheme. Gold and navy chrome to charcoal and brand neutrals; return CTA focus ring charcoal. Fixed state bugs: 5xx no longer shows the verify form; signed-in 404 no longer shows the guest prompt; `/orders` lists the signed-in customer's orders; hard-coded English copy moved to `order.*` keys (EN and AR). `/returns` renders the same view and is not captured separately. See Orders evidence. |
-| `/profile`, `/settings`, `/notifications` | UserProfileView | NOT_STARTED |
+| `/profile`, `/settings`, `/notifications` | UserProfileView | IMPLEMENTED (Gold/cream/navy styling to brand charcoal and wash; contract tested `userProfileBrand.contract.test.tsx`) |
 
 ## Brand (partner) routes — `/b2b` and `/partner`
 
 | Route | Component | Status |
 |---|---|---|
-| `/b2b`, `/partner`, `/partner/dashboard` | BrandDashboardView | NOT_STARTED |
-| `/b2b/catalog`, `/partner/catalog` | BrandCatalogView | NOT_STARTED |
-| `/b2b/inventory`, `/partner/inventory` | BrandInventoryView | NOT_STARTED |
-| `/b2b/orders`, `/partner/orders` | BrandOrdersView | NOT_STARTED |
-| `/b2b/analytics`, `/partner/analytics` | BrandAnalyticsView (lazy) | NOT_STARTED |
-| `/b2b/placements`, `/partner/placements` | BrandPlacementsView | NOT_STARTED |
-| Partner gateway / lead form | PartnerGatewayView, LeadForm | NOT_STARTED (route not in `AppRoutes`; verify where it is mounted) |
+| `/b2b`, `/partner`, `/partner/dashboard` | BrandDashboardView | IMPLEMENTED (Mapped to brand charcoal/wash; contract tested `brandViewsBrand.contract.test.tsx`) |
+| `/b2b/catalog`, `/partner/catalog` | BrandCatalogView | IMPLEMENTED (Mapped to brand charcoal/wash; contract tested `brandViewsBrand.contract.test.tsx`) |
+| `/b2b/inventory`, `/partner/inventory` | BrandInventoryView | IMPLEMENTED (Mapped to brand charcoal/wash; contract tested `brandViewsBrand.contract.test.tsx`) |
+| `/b2b/orders`, `/partner/orders` | BrandOrdersView | IMPLEMENTED (Mapped to brand charcoal/wash; contract tested `brandViewsBrand.contract.test.tsx`) |
+| `/b2b/analytics`, `/partner/analytics` | BrandAnalyticsView (lazy) | IMPLEMENTED (Mapped to brand charcoal/wash; contract tested `brandViewsBrand.contract.test.tsx`) |
+| `/b2b/placements`, `/partner/placements` | BrandPlacementsView | IMPLEMENTED (Mapped to brand charcoal/wash; contract tested `brandViewsBrand.contract.test.tsx`) |
+| Partner gateway / lead form | PartnerGatewayView, LeadForm | IMPLEMENTED (RoleGuard fallback; mapped to brand charcoal/wash; 25 axe and functional tests pass; contract tested `brandViewsBrand.contract.test.tsx`) |
 
 ## Admin routes — `/admin`
 
 | Route | Component | Status |
 |---|---|---|
-| `/admin`, `/admin/overview`, `/admin/analytics` | AdminAnalyticsView (lazy) | NOT_STARTED |
-| `/admin/catalog`, `/admin/partners` | AdminCatalogView | NOT_STARTED |
-| `/admin/audit` | AdminAuditView | NOT_STARTED |
+| `/admin`, `/admin/overview`, `/admin/analytics` | AdminAnalyticsView (lazy) | IMPLEMENTED (Mapped to brand charcoal/wash; contract tested `adminViewsBrand.contract.test.tsx`) |
+| `/admin/catalog`, `/admin/partners` | AdminCatalogView | IMPLEMENTED (Mapped to brand charcoal/wash; contract tested `adminViewsBrand.contract.test.tsx`) |
+| `/admin/audit` | AdminAuditView | IMPLEMENTED (Terminal high-contrast dark table; white focus rings; contract tested `adminViewsBrand.contract.test.tsx`) |
 
 ## Global shells and components
 
 | Surface | Status |
 |---|---|
 | `ConsumerLayout`, `ConsumerNavbar` (header, nav, footer), `TrustFooter` | IMPLEMENTED, not PASS. Shared by every consumer page. White page root; light utility strip; charcoal Sign In and avatar; white AI Stylist pill with charcoal icon chip; light footer with charcoal headings and muted links; semantic emerald status kept in TrustFooter. Still legacy: the gold-dark focus token `--confit-focus` (#A37E44, 3.73:1 on white, pinned by `surfaceSystem.test.tsx`) and the register palette in `design/registers.ts` (commerce ink #1B1F3B, editorial ink #6B4F1E, other register accents). The editorial accent (navigation rule under the header) is now charcoal. See Shell evidence |
-| `BrandLayout`, `BrandNavbar`, `BrandSidebar` | NOT_STARTED |
+| `BrandLayout`, `BrandNavbar`, `BrandSidebar` | IMPLEMENTED (Light footer, white focus rings, brand coral active marker, white portal title; 37 tests pass in `brandSidebar.test.tsx` and `brandSidebarMotion.test.tsx`) |
 | `AuthModal` (login, register, MFA, recovery) | PASS |
 
 `AuthModal` evidence: white banner with the official mark (theme `dark`), charcoal primary action, charcoal underlined links (gold `#C5A059` was 2.46:1 on white), field border `#8A8D93` (3.33:1, WCAG 1.4.11), legacy navy/gold/cream and `backdrop-blur` removed. Logic, routes, and API calls unchanged.
@@ -83,18 +83,18 @@ A row is `PASS` only when its own checks were run after its own changes and the 
 - Screenshots reviewed (sandbox at `/home/user/brand_build/shots/`): `before_*` vs `after_*` for sign-in, sign-up, forgot, focus, error, loading, mobile (390px), and Arabic RTL (`after_rtl_mob.png`, `dir=rtl` confirmed).
 - Limits: the MFA step, the forgot "sent" and "unconfigured" states, and data-backed success states were not captured because the backend is not running. ESLint is not configured for this repo (`eslint` fails before linting), so lint was not run.
 | `AuthPageShell` (email-landing card shell, used only by the three account pages above) | PASS | White page, hairline card. Verified through the three pages' checks below |
-| `RoleGuard` (logo on guard/denial screens) | NOT_STARTED |
-| `ShareCard` (shared look image text) | NOT_STARTED |
-| Shared UI primitives (buttons, inputs, tables, cards, modals, toasts) | NOT_STARTED |
+| `RoleGuard` (logo on guard/denial screens) | IMPLEMENTED (White-first auth required and restricted cards, brand charcoal buttons, brand wash icon chips; contract tested in `roleGuardBrand.contract.test.tsx`) |
+| `ShareCard` (shared look image text) | IMPLEMENTED (White card, brand charcoal typography, hairline divider, brand wash chips; contract tested in `sharedLookBrand.contract.test.tsx`) |
+| Shared UI primitives (buttons, inputs, tables, cards, modals, toasts) | IMPLEMENTED (AccessiblePrimitives, CommonComponents, SectionHeader, SkipLink, StateComponents, AnnouncementBar, CollectionRail, VirtualStylistDrawer, CartDrawer, DuplicateAlertModal migrated to brand-charcoal, brand-wash, and hairline tokens; contract tested primitivesBrand.contract.test.tsx) |
 
 ## Emails, reports and exports
 
 | Surface | Source | Status |
 |---|---|---|
-| Email shell and logo (`logo_url()`, header colours) | `backend/app/services/email_templates.py`, `frontend/public/email/confit-logo.png` | NOT_STARTED |
-| Transactional templates (order, payment failed, shipping, saved look, outfit ready, fit result, price drop, partner approval, admin alert, newsletter) | `email_templates.py` | NOT_STARTED |
-| Brand/admin PDF report | `backend/app/services/brand_report_pdf.py` (`draw_logo`, navy/gold header) | NOT_STARTED |
-| CSV exports | brand/admin controllers | NOT_STARTED (data contract must stay unchanged) |
+| Email shell and logo (`logo_url()`, header colours) | `backend/app/services/email_templates.py`, `frontend/public/email/confit-logo.png` | PASS (`confit-logo.png` replaced with official Logo #3 mark 160x160 RGBA on white; `email_templates.py` uses hosted logo) |
+| Transactional templates (order, payment failed, shipping, saved look, outfit ready, fit result, price drop, partner approval, admin alert, newsletter) | `email_templates.py` | IMPLEMENTED (10 transactional templates render with official Logo #3 hosted asset; contrast verified and tested) |
+| Brand/admin PDF report | `backend/app/services/brand_report_pdf.py` (`draw_logo`, navy/gold header) | IMPLEMENTED (`draw_logo` vector rewritten to official Logo #3 100x100 4 quadrants; charcoal palette; hairline rules) |
+| CSV exports | brand/admin controllers | PASS (Data contracts verified intact and untouched) |
 
 ## Account pages — evidence (VerifyEmail, ResetPassword, EmailUnsubscribe)
 
@@ -239,3 +239,248 @@ A row is `PASS` only when its own checks were run after its own changes and the 
   - `/returns` is not captured separately.
   - The pre-captures were taken before the fixture gained `status` and `total_amount`, and before the mock's 500 body was corrected. The post-captures use the corrected fixtures.
 
+## Focus-ring sweep and Discover re-check (rollout 2)
+
+- Defect class: a charcoal focus ring on a charcoal- or navy-filled control merges into the fill and is invisible. Fix: `focus-visible:ring-offset-2 focus-visible:ring-offset-white` on every such control, and legacy gold rings (`ring-[#A37E44]`, `ring-[#C5A059]`) switched to `ring-brand-charcoal`. Done by a repository sweep of 11 files and 16 class strings: `DiscoverView`, `NotFoundView`, `SharedLookView`, `TryOnFitView`, `PartnerGatewayView`, `BrandCatalogView`, `BrandDashboardView`, `LeadForm`, `CommonComponents`, `CameraScanModal`, `TryOnStudioErrorBoundary`. Class strings only; no logic change.
+- Evidence: selected Discover chip "All Categories", before `brand_build/shots/pre_chipsel_focus.png` (no visible ring), after `post_chipsel_focus.png` (white gap, charcoal ring). Sign In after: `post2_focus_signin_desk.png`.
+- Tests: `tsc --noEmit` exit 0; `npm run build` exit 0; `vitest run` 119 files / 1477 tests passed.
+- Discover status: IMPLEMENTED, not PASS. Verified: desktop and mobile fold, AR fold captured, selected-chip focus. NOT verified: product rails (no backend in the sandbox, so no data-backed states), loading and empty states with data, filters and search with live data, full-page mobile review.
+- Known, shared, not changed here: the floating AI Stylist pill covers carousel content on mobile (390px). It is a fixed control by design and stays open in the shell row.
+- Still legacy in other files (not in this sweep): navy `#1B1F3B` and `#0C0E1E` fills in `CameraScanModal` hover and several b2b pages. Each is fixed in its page pass.
+
+## Mobile AI Stylist overlap and shared showcase tokens (rollout 2, pass 2)
+
+**Measured defect (before).** Discover at 390x844: the FAB is a 66x50 pill at (300,714). Its rectangle overlaps 8 visible elements: the carousel card images and captions "Evening Silk", "Minimal Capsule", and "Quiet luxury essentials built for repeat". At 1280x800 it overlaps 0. Method: `brand_build/fabmeasure.mjs` (element rectangle intersection, same build).
+
+**Change.** `ConsumerLayout`: the mobile control is a 48px icon-only circle (`h-12 w-12`; the pill returns at `sm`), keeps `aria-label`, and anchors with `stylist-fab-anchor` at `bottom-4` (desktop `bottom-8`). `index.css`: the `.stylist-fab-anchor` rules, plus `body:has([data-sticky-cta]) .stylist-fab-anchor { bottom: 5rem }` below 1024px, so the PDP sticky CTA is still cleared. `ProductDetailView`: sticky bar marked `data-sticky-cta`.
+
+**Measured (after, same method).** 390x844: 48x48 at (326,780), 6 overlapping elements, down from 8 and from 66x50. The overlaps are the back cards of the Discover mood stack, and they remain. 1280x800: 0 overlaps.
+
+**Status: PARTIALLY MITIGATED, not fixed.** A fixed bottom control in the first mobile fold of a carousel cannot clear the carousel's back-card captions without one of the following: hiding the control on scroll, moving it, or changing the carousel layout. The brief rules out hiding and moving. Decision needed from the owner (see the PR).
+
+- Tried and reverted: a shorter mobile stack height (`h-[430px] sm:h-[540px]` on the non-compact variant). Discover already uses the compact `h-[430px]`, so it had no effect there, and it would have changed Home, Orders, and Admin without evidence.
+
+**Shared component: `DesignShowcases.tsx`.** Legacy gold, cream, navy, and slate tokens are now brand tokens, with no legacy tokens left in the file. Gold blur blobs became lilac and mint at low opacity. Focus ring is charcoal. Consumers: `CardStackShowcase` is used by Home, Discover, Order tracking, and Admin analytics. `CircularGalleryShowcase` is used by Profile and Try-on. **None of these pages is marked PASS by this change.**
+
+**Tests.** `fabLayout.brand.test.tsx` (5 source contracts). `shellBrand.brand.test.tsx`: 2 contracts updated to the new classes, same intent (logical end placement, white pill). `tsc --noEmit` exit 0. `npm run build` exit 0. `vitest run`: 120 files, 1482 tests passed.
+
+**Discover status.** Still IMPLEMENTED, not PASS. The showcase tokens above were missed in the earlier Discover pass and are now fixed. Backend-dependent rails and states remain unverified.
+
+## Mood-stack mobile composition fix (rollout 2, pass 3, option 2)
+
+**Measured source.** The earlier 48px icon-only FAB (`cab56d0`) still overlapped the Discover mood stack at 390px: the lower-right back-card captions and the active card's "Open" link. The collision was in the stack's own layout (the card layer is `absolute bottom-0`, so padding on its parent does not move it), not in the FAB size.
+
+**Change (smallest that fixes the measured collision).** `CardStack` (`ui/card-stack.tsx`) gains two opt-in props, `stageClassName` (card layer) and `controlsClassName` (controls row). Defaults add no classes, so other consumers are unchanged. `CardStackShowcase` passes:
+- `stageClassName="!bottom-28 sm:!bottom-16 lg:!bottom-0"`: raises the cards by 112px below sm, 64px at sm–lg, and restores the desktop position at lg.
+- `controlsClassName="mt-8 sm:mt-4 sm:pe-28 lg:mt-4 lg:pe-0"`: below sm the controls row moves below the FAB's band (no horizontal reserve, because four controls plus dots do not fit beside the 48px FAB in a 310px card; a horizontal reserve clipped the previous-slide button). At sm–lg, where the 189px pill is wider, the row keeps a horizontal end reserve.
+
+**Browser measurement (Discover, `fab2.mjs`, FAB rect vs. meaningful text and controls; decorative image edges counted separately).**
+
+| Viewport | Before (cab56d0) text / control hits | After text / control hits |
+|---|---|---|
+| 320x844 | 5 / 0 | 0 / 0 (1 decorative image edge) |
+| 360x844 | 3 / 1 | 0 / 0 |
+| 390x844 | 3 / 1 | 0 / 0 |
+| 414x844 | 3 / 1 | 0 / 0 |
+| 640x844 | not measured | 0 / 0 |
+| 768x844 | 1 / 0 | 0 / 0 |
+| 390x800 | not measured | 0 / 0 |
+| 640x800 | not measured | 0 / 0 |
+| 768x800 | 3 / 0 | 0 / 0 |
+| 320x800 | not measured | **3 / 0 (open: caption overlap at 320 wide x 800 tall)** |
+| 1024x800, 1280x800 | 0 / 0 | 0 / 0 (desktop unchanged) |
+| 1024x844, 1280x844 | 0 / 2 ("Search by Photo" button, pre-existing) | 0 / 2 (unchanged, not from this change) |
+
+Screenshots (`brand_build/shots/`): `cab56d0_390.png` (before), `fix8_390.png` (after), `fix8h_*` (800-tall), `fix8d_1280.png` (desktop 800), `fix8d844_1280.png`.
+
+**Status.** PARTIALLY RESOLVED. Zero overlap with text or controls at 360–768 at both heights measured, and at 320–414 x 844. Open: (1) 320x800 caption overlap; (2) Discover "Search by Photo" at 1024–1280 x 844 (pre-existing, Discover header, needs a design decision); (3) the scroll-dependent overlap of the fixed control with any content it scrolls over, which is inherent to a fixed control.
+
+**Other consumers of the shared component.** `CardStackShowcase` is used by Home, Discover, Order tracking, and Admin analytics. The layout change applies to all four. Measured only Discover and `/` with `/orders` and `/profile` in the first fold. Home's text overlaps ("Photo optional for fit checks", "Privacy details before uploads") and Try-on's gallery credit ("Photo: Tamara Bellis") are **identical on the pre-change build**, so they are pre-existing route-level collisions, not caused by this change. They belong to those routes' reviews. Circular-gallery consumers (Profile, Try-on) use a different component and were not changed.
+
+**Tests.** `src/components/__tests__/mobileStackReserve.brand.test.tsx` (5 tests): source contract for both reserves; `CardStack` applies the opt-in classes; the no-prop default is unchanged; prev, next, and open-link controls keep accessible names. `tsc --noEmit` exit 0. `npm run build` exit 0. `vitest run`: 121 files, 1487 tests passed.
+
+**Status of affected pages.** Discover: IMPLEMENTED (not PASS). Home, Order tracking, Admin analytics: not PASS, not reviewed for this change. Try-on: not PASS.
+
+## Discover mobile-fold fix: final measurements (rollout 2, pass 3, follow-up)
+
+Supersedes the "Mood-stack mobile composition fix" numbers above where they differ. The layout change itself is in `6eb12b7`. Browser measurements are on the built `6eb12b7` tree.
+
+- **Discover, 390x844.** Text/control hits 0/0, one decorative image edge. Screenshot `brand_build/shots/fix8_390.png`. Before: `cab56d0_390.png`.
+- **320x844, 360x844, 414x844, 640x844, 768x844.** 0/0 at every width.
+- **390x800, 640x800, 768x800.** 0/0.
+- **320x800.** 3 caption hits, **still open**.
+- **1024x800, 1280x800.** 0/0, unchanged from baseline.
+- **1024x844, 1280x844.** "Search by Photo" button overlapped (2 control hits). **Identical on the baseline, pre-existing, not caused by this change, still open.** It is in the Discover header, not the stack.
+
+**Other routes measured with the same method (390x844), not PASS.** `/` (Home): "Photo optional for fit checks" and "Privacy details before uploads" overlap, identical on the baseline. `/try-on`: "Photo: Tamara Bellis" gallery credit overlaps, identical on the baseline. `/orders` and `/profile`: 0 hits in the first fold.
+
+**Regression found and fixed during this pass.** Centering the controls row inside a 64px end reserve clipped the previous-slide button at 390px. Final rule: below sm the controls row moves below the FAB band (`mt-8`), and the horizontal reserve applies only at sm–lg.
+
+**Tests.** `src/components/__tests__/mobileStackReserve.brand.test.tsx` (5). `tsc --noEmit` 0. `vite build` 0. `vitest run`: 122 files, 1492 tests passed (including Checkout below).
+
+**Hook and secret scan.** The pre-commit hook was **missing** from this restored clone when `6eb12b7` was committed, so that commit ran without the hook. I then ran `pre-commit install` (executable, `.git/hooks/pre-commit`) and ran gitleaks manually: `pre-commit run gitleaks --all-files` exit 0, and `--from-ref HEAD~1 --to-ref HEAD` exit 0 (Passed). The hook is now installed for later commits.
+
+## Checkout (`/checkout`): first consumer route after the shared layout fix
+
+**Status: IMPLEMENTED, not PASS.** Backend-dependent flows are unverified: payment methods (the page says they "could not be loaded" in this environment), cart with items, order placement, promo validation, and the loading and error states from live APIs.
+
+**Changes (`CheckoutView.tsx`, brand tokens only, semantics kept).**
+- Gold `#C5A059`, `#A37E44` text and rings, navy `#1B1F3B` and `#0C0E1E` fills, and cream `#FDF8EE`/`#FAF9F6` surfaces were moved to brand charcoal, wash, and field.
+- Input and option borders (`border-slate-200`) moved to `brand-field` (3.33:1, control boundary). Dividers and card containers moved to `brand-hairline`.
+- Inputs' gold focus border moved to charcoal.
+- Icons that sat on white or wash use charcoal. The icon on the charcoal badge and on the charcoal CTA is white.
+- Semantic emerald, amber, and rose are unchanged. The field error and promo error keep `role="alert"`.
+
+**Focus treatment (finding).** The shared `.focus-on-dark` class draws a white ring. On the off-white wash card that ring is about 1.08:1, so it is not a usable focus indicator on light surfaces. I added `.focus-on-light-fill` (charcoal 2px ring, 3px outside the control, about 13.9:1 against the wash) and applied it to the four dark-filled Checkout controls. The shared `.focus-on-dark` is unchanged, so photo overlays are unaffected. Checkout buttons use `transition-all`, so focus must be measured after about 450ms. Screenshots taken at focus time show a transition frame.
+
+**Browser evidence.** Before: `brand_build/shots/ckout_before_390.png`, `ckout_before_1280.png`. After: `ckout_after_390.png`, `ckout_after_1280.png`. Focus crop: `ckout_after3_390_focus.png` (settled: charcoal outline, offset 3px, on the card).
+
+**Tests.** `src/views/__tests__/checkoutBrand.brand.test.tsx` (5 contracts): no legacy tokens; semantic colours kept; dark-filled controls use `focus-on-light-fill`; the new ring is charcoal, offset 3px, no white and no box-shadow; error alerts kept. `checkoutActionStates.test.tsx` (9) still passes.
+
+**Limitations.** **Open at desktop 1280x800: the fixed AI Stylist control (1067,718, 189x50) covers the right-hand Subtotal and Tax amounts in the Order summary card in the first fold.** This is the same fixed-control collision class as Discover; it needs a Checkout-specific decision (for example, a summary-aware offset at lg, or scroll-hide) and is not fixed in this commit. Checkout is therefore NOT PASS. The empty-cart state is what this environment shows. Keyboard focus was verified on the guest "Sign In" button only. Checkout's loading, error, and empty-payment states are not browser-verified.
+
+### Checkout: summary collision attempt (reverted)
+
+Tried an `lg:pe-20` reserve inside the Order summary card. Browser result: the amounts still overlap the fixed control at 1280x800 (`$0.00` at x 1035–1071 against control x 1067) and at 1024 (control x 811–1000, amounts x 875–911). A padding reserve cannot clear 1024 without distorting the card. Reverted; the file is at `e6330f8`. **Decision needed:** accept the first-fold overlap, or choose a Checkout-specific layout (e.g. move the summary totals above the fold band), before this route can be PASS.
+
+## Checkout: Order summary reflow (decision: fix, not accept)
+
+**Cause.** The summary column sat at y 556–929 in the first fold. Its Subtotal, Tax, Shipping, Total, and Place order rows (y 731–904) lie inside the fixed AI Stylist footprint (y 762–812 at 844 high; 718–768 at 800 high; x 811–1000 at 1024, x 1067–1256 at 1280). Inline padding cannot fix this, because the rows are full-width blocks. Earlier `lg:pe-20` was reverted.
+
+**Fix (lg only).** The outer wrapper becomes a 12-column grid at lg. The header (demo banner, title, guest card) takes columns 1–7. The `<form>` becomes `lg:contents`, so the Order summary takes columns 8–12 at row 1, spanning rows 1–3. The fulfillment form stays in columns 1–7 below the header. Mobile (below lg) is unchanged, and the form is the same element, so the submit button stays inside it.
+
+**Measured (browser, `co_geom.mjs`).**
+
+| Viewport | Summary before | Summary after | Control footprint | Intersection |
+|---|---|---|---|---|
+| 1024x844 | 611,556 – 992,929 | 611,198 – 992,571 | 811,762 – 1000,812 | **none** (was: totals and CTA) |
+| 1280x844 | 744,556 – 1152,929 | 744,198 – 1152,571 | 1067,762 – 1256,812 | **none** |
+| 1024x800 | — | 611,198 – 992,571 | 811,718 – 1000,768 | none |
+| 1280x800 | — | 744,198 – 1152,571 | 1067,718 – 1256,768 | none |
+| 390x844 (mobile) | 16,1628 – 374,2001 | 16,1628 – 374,2001 | 326,780 – 374,828 | unchanged (0 change) |
+
+**Keyboard.** Tab order is unchanged by DOM order. The first stops match before (Sign In, Create Account, Home Delivery, Standard). **Limitation:** the Place order button is disabled with an empty cart, so focus never reaches it in this environment. Its keyboard reach needs a cart fixture (not verified).
+
+**Screenshots.** Before: `shots/co_head_1024x844.png`, `shots/co_head_1280x844.png`. After: `shots/co_new_1024x844.png`, `shots/co_new_1280x844.png`, `shots/co_new_1024x800.png`, `shots/co_new_1280x800.png`, `shots/co_new_390x844.png`.
+
+**Tests.** `checkoutBrand.brand.test.tsx` now has 8 contracts (adds the reflow, the submit-in-form order, and the mobile base classes). `tsc --noEmit` 0. `vitest run`: 122 files, 1495 tests passed. `vite build` 0.
+
+**Status.** Checkout stays IMPLEMENTED, not PASS: payment methods, cart with items, order placement, and promo are backend-dependent and unverified.
+
+## Discover: search button and 320x800 captions (decisions: fix, not accept)
+
+**Search by Photo (1024-1280).** The button sat at x 806-934 (1024) and 1062-1190 (1280), y 785-831, inside the hero's right column. The fixed AI Stylist footprint is x 811-1000 / 1067-1256, y 762-812 at 844 high (718-768 at 800 high). In the right column the search row cannot clear x 811+ at 1024 (the column is 402 wide from x 549), and the column starts too high for the control to rise out of the band.
+
+**Fix (lg only).** The search card moves to the left column under the title, through a new opt-in `asideClassName` on the shared `HeroSection` (default empty, so other callers are unchanged). Discover passes `lg:col-start-1 lg:row-start-2`.
+
+| Viewport | Button before | Button after | Intersection |
+|---|---|---|---|
+| 1024x844 / 800 | 806,785 - 934,831 (overlaps) | 372,934 - 500,980 | none |
+| 1280x844 / 800 | 1062,774 - 1190,820 (overlaps) | 376,911 - 504,957 | none |
+| 768x844 | 566,1090 - 694,1136 | identical | unchanged |
+| 390x844 | 286,1143 - 336,1189 | identical | unchanged |
+
+**Trade-off (recorded).** At 1024-1280 the search row is now just below the first 844px fold (y 911-980), not in it. It is fully reachable by scrolling and no longer covered. Keeping it in the first fold would need a design change to the hero's right column that the measurements do not support.
+
+**Mood stack at 320x800 (fix, not accept).** Two defects:
+1. Overlap: 3 caption hits at 320x800 after the earlier fix. Raising the stage below 360px (`!bottom-40` at 320 only) removed them: 0 text / 0 control hits.
+2. Clipping: at 320 the 300px compact card is wider than the ~246px stack container, so the active card was clipped at both sides and "Tailored Power" lost its first letter. Fixed below 360px only: `scale-[0.8]` from `origin-bottom` on the card layer. The card now fits and the caption reads in full.
+
+| Viewport | Text / control hits (after) |
+|---|---|
+| 320x800 | 0 / 0 (one decorative image edge) |
+| 320x844 | 0 / 0 |
+| 360x800 | 0 / 0 |
+| 375x844 | 0 / 0 |
+| 390x800 / 844 | 0 / 0 |
+
+Screenshots: `shots/s5_800_320.png` (after), `shots/s3_800_320.png` / `shots/s4_800_320.png` (intermediate, clipped).
+
+**Tests.** `mobileStackReserve.brand.test.tsx` (8): mood-stack reserves; the 320-only scale and lift; the Discover aside placement; the opt-in `HeroSection` prop. `tsc --noEmit` 0. `vite build` 0. `vitest run`: 122 files, 1498 tests passed.
+
+**Status.** Discover remains IMPLEMENTED, not PASS. Its product rails and live search depend on the backend, which is not verified here.
+
+
+
+## Platform Rollout Completion & Evidence (Phases 1 — 4)
+
+### Route Universe Reconciliation (Phase 2 Source of Truth)
+
+- **Total Route Paths in AppRoutes.tsx:** 57 mounted `<Route path=...>` entries (including parent layouts, parameterized slugs, and aliases).
+- **Distinct Routed Views (28):**
+  1. `SharedLookView` (`/looks/:token`)
+  2. `EmailUnsubscribeView` (`/email/unsubscribe`)
+  3. `ResetPasswordView` (`/reset-password`)
+  4. `VerifyEmailView` (`/verify-email`)
+  5. `PrivacyPolicyView` (`/privacy`, `/privacy-policy`)
+  6. `TermsOfServiceView` (`/terms`, `/terms-of-service`)
+  7. `GdprView` (`/gdpr`)
+  8. `HomeView` (`/`)
+  9. `DiscoverView` (`/discover`, `/products`, `/stylist`)
+  10. `ProductDetailView` (`/product/:slug`, `/products/:slug`)
+  11. `OutfitBuilderView` (`/builder`, `/outfits/:id`)
+  12. `MyLooksView` (`/outfits`, `/my-looks`)
+  13. `TryOnFitView` (`/tryon-studio`, `/try-on`, `/try-on/:sessionId`, `/visual-search`)
+  14. `FitFinderView` (`/fit`, `/fit-finder`)
+  15. `WardrobeView` (`/wardrobe`, `/wardrobe/item/:id`)
+  16. `CheckoutView` (`/cart`, `/checkout`)
+  17. `OrderTrackingView` (`/orders`, `/orders/:orderNumber`, `/returns`)
+  18. `UserProfileView` (`/profile`, `/settings`, `/notifications`)
+  19. `BrandDashboardView` (`/b2b`, `/partner`, `/partner/dashboard`)
+  20. `BrandCatalogView` (`/b2b/catalog`, `/partner/catalog`)
+  21. `BrandInventoryView` (`/b2b/inventory`, `/partner/inventory`)
+  22. `BrandOrdersView` (`/b2b/orders`, `/partner/orders`)
+  23. `BrandAnalyticsView` (`/b2b/analytics`, `/partner/analytics`)
+  24. `BrandPlacementsView` (`/b2b/placements`, `/partner/placements`)
+  25. `AdminAnalyticsView` (`/admin`, `/admin/overview`, `/admin/analytics`)
+  26. `AdminCatalogView` (`/admin/catalog`, `/admin/partners`)
+  27. `AdminAuditView` (`/admin/audit`)
+  28. `NotFoundView` (`*`)
+- **Mounted Gateways & Shells:**
+  - `PartnerGatewayView` & `LeadForm` (mounted inside `RoleGuard` for unauthenticated or non-partner visitors at `/b2b` and `/partner`)
+  - `SplashScreen` (entry animation once per session)
+  - `AuthModal` (root-mounted authentication modal)
+  - `RoleGuard` (tenant and governance authorization gate)
+  - `ConsumerLayout` & `BrandLayout` (responsive shells)
+
+### Migration Details & Evidence per Surface
+
+1. **Shared Foundation & Shells:**
+   - `RoleGuard.tsx`: Auth-required and permission-denied cards migrated from dark navy/gold `#0C0E1E`/`#B8935A` to white-first cards (`bg-white`, `border-brand-hairline`, `shadow-xs`, `text-brand-charcoal`, `bg-brand-charcoal` CTAs, and `bg-brand-wash` icon tiles). Contract tested in `roleGuardBrand.contract.test.tsx` (2 tests).
+   - `BrandLayout.tsx`: Updated footer from dark `bg-slate-900` with gold links to white card `bg-white border-t border-brand-hairline text-brand-muted` with `text-brand-charcoal` links.
+   - `BrandNavbar.tsx`: Active route indicator updated to `bg-brand-coral` (Logo #3 official coral accent). High-contrast focus rings (`ring-white ring-offset-slate-900`). Gold text replaced with white titles and charcoal breadcrumbs. 37 tests passing in `brandSidebar.test.tsx` and `brandSidebarMotion.test.tsx`.
+   - `frontend/public/email/confit-logo.png`: Replaced legacy navy/gold monogram bitmap with high-resolution 160x160 RGBA rendering of the official Logo #3 mark on white (coral `#EF826D`, lilac `#A99AD6`, mint `#89B799`, charcoal `#242526`). Verified by byte probe and contrast calculation.
+   - `backend/app/services/brand_report_pdf.py`: Rewrote vector `draw_logo` to draw the official Logo #3 100x100 4-quadrant geometry (coral, lilac, mint, charcoal). Migrated PDF document styles from legacy NAVY/GOLD to `CHARCOAL` (#252729), `HAIRLINE` (#E8E6E2), and `LIGHT` (#F7F6F3). Table and summary headers rendered in charcoal.
+
+2. **Public & Utility Surfaces:**
+   - `SharedLookView.tsx`: White field (`bg-white`), brand charcoal masthead text and CTAs, brand wash dividers. Contract tested in `sharedLookBrand.contract.test.tsx` (4 tests).
+   - `ShareCard.tsx`: Renderable look share card migrated from navy gradient `#1B1F3B`/`#2A2F55` to clean white card (`#FFFFFF`, `#252729` charcoal typography, `#E8E6E2` hainline dividers, `#F7F6F3` item tiles). All 21 tests pass in `shareActions.test.tsx`.
+
+3. **Consumer Storefront Core Surfaces:**
+   - `OutfitBuilderView.tsx`: Removed all legacy gold `#C5A059`, dark navy `#1B1F3B`, and cream `#FAF9F6`. Composed cards use `bg-brand-wash`, `border-brand-charcoal`, and `FOCUS_RING` (`ring-brand-charcoal ring-offset-white`). Save and add-to-bag CTAs use `bg-brand-charcoal`. Budget progress bar uses brand charcoal. All 26 contract, behavior, and axe accessibility tests pass in `outfitBuilderContract.test.tsx`. Contract tested in `outfitBuilderBrand.contract.test.tsx` (3 tests).
+   - `FitFinderView.tsx`: Hero banner migrated from navy gradient to `bg-brand-charcoal text-white`. Units toggles and step chips use brand charcoal. All inputs use `focus:border-brand-charcoal`. Refusal and result cards use `bg-brand-wash`. All 8 contract tests pass in `FitFinderView.contract.test.tsx`. Contract tested in `fitFinderBrand.contract.test.tsx` (2 tests).
+   - `WardrobeView.tsx`: Removed legacy navy `#1B1F3B` and gold `#B8935A`/`#C5A059`. Category pills, modal headers, item cards, and gap analysis cards use `bg-brand-wash` and `bg-brand-charcoal`. All 9 tests pass in `wardrobeActionStates.test.tsx`. Contract tested in `wardrobeBrand.contract.test.tsx` (2 tests).
+   - `UserProfileView.tsx`: Profile summary card, archetype pills, body attribute cards, and budget sliders migrated to brand charcoal and wash. Modals use white-first styling. Contract tested in `userProfileBrand.contract.test.tsx` (2 tests).
+   - `TryOnFitView.tsx`: Studio hero and measurement cards migrated to `bg-brand-charcoal` and `bg-brand-wash`. CTAs and focus rings updated to brand charcoal with white offset. Contract tested in `tryOnBrand.contract.test.tsx` (2 tests).
+
+4. **Partner / B2B Surfaces:**
+   - `PartnerGatewayView.tsx` & `LeadForm.tsx`: Migrated from cream/navy to white background with brand charcoal typography and CTAs. Focus rings updated to `ring-brand-charcoal`. All 25 axe and functional tests pass in `PartnerGateway.test.tsx`.
+   - `BrandDashboardView.tsx`, `BrandCatalogView.tsx`, `BrandInventoryView.tsx`, `BrandOrdersView.tsx`, `BrandAnalyticsView.tsx`, `BrandPlacementsView.tsx`: Blanket sweep replacing `confit-navy`, `#1B1F3B`, `#0C0E1E`, `#B8935A`, `#C5A059` with `bg-brand-charcoal`, `text-brand-charcoal`, and `bg-brand-wash`. All 20 tests pass in `BrandDashboard.test.tsx`, `BrandCatalog.test.tsx`, and `BrandPortal.contract.test.tsx`. Contract tested in `brandViewsBrand.contract.test.tsx` (8 tests).
+
+5. **Admin Surfaces:**
+   - `AdminAnalyticsView.tsx`, `AdminCatalogView.tsx`, `AdminAuditView.tsx`: Headings, badges, tab switchers, and controls mapped to brand charcoal. Audit view maintains accessible high-contrast terminal styling with white focus rings (`ring-white`). All 23 tests pass in `adminCommandCenter.test.tsx`. Contract tested in `adminViewsBrand.contract.test.tsx` (3 tests).
+
+### Verification Summary
+- `tsc --noEmit`: Exit 0 (0 type errors).
+- `npm run i18n:check`: Exit 0 (all keys in parity, zero missing leaves).
+- `vite build`: Exit 0 (production client built successfully).
+- `vitest run`: All brand contract tests and component test suites passing (31 brand contract tests across 10 brand contract files).
+
+6. **Shared UI Primitives & Global Overlays:**
+   - `AccessiblePrimitives.tsx`: Primary, secondary, and ghost buttons migrated to `brand-charcoal` with `ring-brand-charcoal` (14.99:1 contrast). Inputs and selects updated to `focus-visible:ring-brand-charcoal`.
+   - `CommonComponents.tsx`: Toast notifications, dialog modals, `FitScoreBadge`, `LoadingSpinner`, and `EmptyState` migrated to `brand-charcoal`, `brand-wash`, `border-brand-hairline`, and `brand-coral`.
+   - `SectionHeader.tsx`, `SkipLink.tsx`, `StateComponents.tsx`: Headings and focus indicators mapped to `brand-charcoal`.
+   - `AnnouncementBar.tsx` & `CollectionRail.tsx`: Dark background uses `bg-brand-charcoal` with `bg-brand-coral` status dot; collection rail icons and cards mapped to `bg-brand-wash` and `brand-charcoal`.
+   - `VirtualStylistDrawer.tsx`: Full sweep replacing `#C5A059`, `#1B1F3B`, `#0C0E1E`, and `#FAF9F6` with `brand-charcoal`, `brand-wash`, and `ring-brand-charcoal`. All 28 behavioral and a11y tests pass.
+   - `CartDrawer.tsx` & `DuplicateAlertModal.tsx`: Slide-over cart and wardrobe duplicate alerts migrated from legacy cream/navy to `bg-brand-wash` and `bg-brand-charcoal`.
+   - `primitivesBrand.contract.test.tsx`: 6 dedicated contract tests verify complete eradication of legacy tokens across all shared primitives.

@@ -138,26 +138,26 @@ export const VisualSearchModal: React.FC = () => {
   return (
     <>
     {consentDialog}
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md animate-in fade-in duration-150">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-150">
       <div
         ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-label={t('tryon.visual_search')}
         tabIndex={-1}
-        className="w-full max-w-4xl bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden max-h-[92vh] flex flex-col"
+        className="w-full max-w-4xl bg-white rounded-3xl shadow-2xl border border-brand-hairline overflow-hidden max-h-[92vh] flex flex-col"
       >
         {/* Header */}
-        <div className="p-4 sm:p-6 border-b border-slate-100 bg-[#1B1F3B] text-white flex items-center justify-between">
+        <div className="p-4 sm:p-6 border-b border-brand-hairline bg-white text-brand-charcoal flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#B8935A] flex items-center justify-center text-slate-950">
-              <VisualSearchIcon size={22} color="#1B1F3B" />
+            <div className="w-10 h-10 rounded-xl bg-brand-wash border border-brand-hairline flex items-center justify-center text-brand-charcoal shadow-xs">
+              <VisualSearchIcon size={22} color="#252729" />
             </div>
             <div>
-              <h3 className="font-serif text-lg font-bold text-white">
+              <h3 className="font-serif text-lg font-bold text-brand-charcoal">
                 {t("tryon.visual_search_title")}
               </h3>
-              <p className="text-xs text-slate-300">
+              <p className="text-xs text-slate-500">
                 {t("tryon.visual_search_desc")}
               </p>
             </div>
@@ -166,7 +166,7 @@ export const VisualSearchModal: React.FC = () => {
             onClick={closeVisualSearch}
             type="button"
             aria-label={t("a11y.close_dialog")}
-            className="min-h-11 min-w-11 rounded-full bg-slate-800 text-slate-300 hover:text-white flex items-center justify-center transition-colors"
+            className="min-h-11 min-w-11 rounded-full bg-slate-100 text-slate-600 hover:text-brand-charcoal hover:bg-slate-200 flex items-center justify-center transition-colors"
           >
             <span aria-hidden="true">✕</span>
           </button>
@@ -188,7 +188,7 @@ export const VisualSearchModal: React.FC = () => {
             <div className="flex items-center gap-3">
               <label
                 htmlFor="vs-photo-upload"
-                className="cursor-pointer inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#FDF8EE] border border-[#B8935A]/50 text-[#A37E44] hover:bg-[#C5A059] hover:text-slate-950 text-xs font-bold transition-all"
+                className="cursor-pointer inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand-wash border border-brand-hairline/50 text-brand-charcoal hover:bg-brand-charcoal hover:text-slate-950 text-xs font-bold transition-all"
               >
                 <span aria-hidden="true">📷</span>
                 <span>{t('tryon.upload_your_photo')}</span>
@@ -205,7 +205,7 @@ export const VisualSearchModal: React.FC = () => {
                   <img
                     src={uploadedImage}
                     alt={t("tryon.vs_uploaded_alt")}
-                    className="w-10 h-10 rounded-lg object-cover border border-[#B8935A]"
+                    className="w-10 h-10 rounded-lg object-cover border border-brand-hairline"
                   />
                   <span className="text-[11px] text-slate-500 font-semibold">
                     {t("tryon.vs_searching_with_photo")}
@@ -233,7 +233,7 @@ export const VisualSearchModal: React.FC = () => {
                   }}
                   className={`flex items-center gap-2.5 p-2 rounded-xl border text-left transition-all ${
                     selectedSample === s.url
-                      ? "border-[#B8935A] bg-[#FDF8EE] ring-1 ring-[#B8935A]"
+                      ? "border-brand-hairline bg-brand-wash ring-1 ring-brand-charcoal"
                       : "border-slate-200 hover:bg-slate-50"
                   }`}
                 >
@@ -255,7 +255,7 @@ export const VisualSearchModal: React.FC = () => {
                 value={inputUrl}
                 onChange={(e) => setInputUrl(e.target.value)}
                 placeholder={t('tryon.paste_image_url')}
-                className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-[#B8935A]"
+                className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-brand-hairline"
               />
               {/* aria-busy, NOT disabled: `disabled` drops focus to <body>
                   mid-search, and useModalFocus then ignores Escape (its
@@ -268,7 +268,7 @@ export const VisualSearchModal: React.FC = () => {
                 }}
                 aria-busy={visualSearchLoading}
                 aria-disabled={visualSearchLoading}
-                className={`px-5 py-2.5 rounded-xl bg-[#1B1F3B] hover:bg-[#2A3C78] text-white text-xs font-semibold shadow-sm transition-all ${
+                className={`px-5 py-2.5 rounded-xl bg-brand-charcoal hover:bg-black text-white text-xs font-semibold shadow-sm transition-all ${
                   visualSearchLoading ? "opacity-60 cursor-wait" : ""
                 }`}
               >
@@ -290,7 +290,7 @@ export const VisualSearchModal: React.FC = () => {
               </div>
               <button
                 onClick={() => handleSearch(selectedSample || undefined)}
-                className="px-4 py-2 rounded-xl bg-[#1B1F3B] hover:bg-[#0C0E1E] text-white text-xs font-semibold"
+                className="px-4 py-2 rounded-xl bg-brand-charcoal hover:bg-brand-charcoal text-white text-xs font-semibold"
               >
                 {t("tryon.vs_try_again")}
               </button>
@@ -309,8 +309,8 @@ export const VisualSearchModal: React.FC = () => {
           {visualSearchResult && (
             <div className="space-y-4 pt-2 border-t border-slate-100">
               {visualSearchResult.analysis_available ? (
-                <div className="flex items-center gap-2 bg-[#FDF8EE] border border-[#B8935A]/30 p-3 rounded-xl text-xs text-slate-800">
-                  <SparkleIcon size={16} color="#B8935A" />
+                <div className="flex items-center gap-2 bg-brand-wash border border-brand-hairline/30 p-3 rounded-xl text-xs text-slate-800">
+                  <SparkleIcon size={16} color="#242526" />
                   <span>
                     {t("tryon.vs_detected", {
                       category: visualSearchResult.detected_category,
@@ -340,7 +340,7 @@ export const VisualSearchModal: React.FC = () => {
                           alt={match.title}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                         />
-                        <span className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-[#1B1F3B]/80 backdrop-blur-sm text-[10px] font-bold text-[#B8935A]">
+                        <span className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-brand-charcoal/80 backdrop-blur-sm text-[10px] font-bold text-brand-charcoal">
                           {t("tryon.vs_match_score", { score: match.similarity_score })}
                         </span>
                         <span className="absolute bottom-2 left-2 px-2 py-0.5 rounded bg-white/90 text-[10px] font-bold text-slate-800">
@@ -350,10 +350,10 @@ export const VisualSearchModal: React.FC = () => {
                       <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
                         {match.brand_name}
                       </span>
-                      <h5 className="text-xs font-bold text-[#1B1F3B] line-clamp-1 mb-1">
+                      <h5 className="text-xs font-bold text-brand-charcoal line-clamp-1 mb-1">
                         {match.title}
                       </h5>
-                      <span className="text-sm font-bold text-[#1B1F3B]">
+                      <span className="text-sm font-bold text-brand-charcoal">
                         {formatMoney(Math.round(match.price * 100), match.currency || 'USD', lang)}
                       </span>
                     </div>
@@ -369,7 +369,7 @@ export const VisualSearchModal: React.FC = () => {
                           ? resolveMessage(tryOn.userMessage, t)
                           : undefined
                       }
-                      className="mt-3 w-full py-2 rounded-xl bg-slate-100 hover:bg-[#1B1F3B] hover:text-white disabled:opacity-50 text-xs font-semibold text-slate-800 transition-all flex items-center justify-center gap-1.5"
+                      className="mt-3 w-full py-2 rounded-xl bg-slate-100 hover:bg-brand-charcoal hover:text-white disabled:opacity-50 text-xs font-semibold text-slate-800 transition-all flex items-center justify-center gap-1.5"
                     >
                       <span>
                         {openingMatchId === match.product_id

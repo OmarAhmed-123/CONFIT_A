@@ -317,7 +317,7 @@ export const AdminAuditView: React.FC = () => {
             value={draft.action}
             onChange={(e) => setDraft({ ...draft, action: e.target.value })}
             placeholder="ADMIN_ORDER_TRANSITION"
-            className="min-h-11 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-xs normal-case tracking-normal text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E2BF70]"
+            className="min-h-11 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-xs normal-case tracking-normal text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
           />
           <datalist id="audit-actions">
             {(facets?.actions ?? []).map((facet) => (
@@ -333,7 +333,7 @@ export const AdminAuditView: React.FC = () => {
             value={draft.resource_type}
             onChange={(e) => setDraft({ ...draft, resource_type: e.target.value })}
             placeholder="Order"
-            className="min-h-11 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-xs normal-case tracking-normal text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E2BF70]"
+            className="min-h-11 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-xs normal-case tracking-normal text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
           />
           <datalist id="audit-resources">
             {(facets?.resource_types ?? []).map((facet) => (
@@ -348,7 +348,7 @@ export const AdminAuditView: React.FC = () => {
             value={draft.resource_id}
             onChange={(e) => setDraft({ ...draft, resource_id: e.target.value })}
             placeholder="CONF-…"
-            className="min-h-11 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-xs normal-case tracking-normal text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E2BF70]"
+            className="min-h-11 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-xs normal-case tracking-normal text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
           />
         </label>
 
@@ -358,7 +358,7 @@ export const AdminAuditView: React.FC = () => {
             value={draft.search}
             onChange={(e) => setDraft({ ...draft, search: e.target.value })}
             placeholder={t('admin_audit.placeholder_search')}
-            className="min-h-11 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-xs normal-case tracking-normal text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E2BF70]"
+            className="min-h-11 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-xs normal-case tracking-normal text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
           />
         </label>
 
@@ -368,7 +368,7 @@ export const AdminAuditView: React.FC = () => {
             type="date"
             value={draft.date_from}
             onChange={(e) => setDraft({ ...draft, date_from: e.target.value })}
-            className="min-h-11 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-xs normal-case tracking-normal text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E2BF70]"
+            className="min-h-11 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-xs normal-case tracking-normal text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
           />
         </label>
 
@@ -378,14 +378,14 @@ export const AdminAuditView: React.FC = () => {
             type="date"
             value={draft.date_to}
             onChange={(e) => setDraft({ ...draft, date_to: e.target.value })}
-            className="min-h-11 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-xs normal-case tracking-normal text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E2BF70]"
+            className="min-h-11 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-xs normal-case tracking-normal text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
           />
         </label>
 
         <label className="flex min-h-11 cursor-pointer items-center gap-2 text-[11px] text-slate-300">
           <input
             type="checkbox"
-            className="h-6 w-6 rounded border-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E2BF70]"
+            className="h-6 w-6 rounded border-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
             checked={draft.only_admin_actions}
             onChange={(e) => setDraft({ ...draft, only_admin_actions: e.target.checked })}
           />
@@ -395,14 +395,14 @@ export const AdminAuditView: React.FC = () => {
         <div className="flex items-end gap-2">
           <button
             type="submit"
-            className="min-h-11 flex-1 rounded-xl bg-[#C5A059] px-4 py-2 text-[11px] font-bold uppercase tracking-wider text-[#0C0E1E] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E2BF70] focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
+            className="min-h-11 flex-1 rounded-xl bg-white px-4 py-2 text-[11px] font-bold uppercase tracking-wider text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
           >
             {t('admin_audit.filters_apply')}
           </button>
           <button
             type="button"
             onClick={reset}
-            className="min-h-11 rounded-xl border border-slate-700 px-4 py-2 text-[11px] uppercase tracking-wider text-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E2BF70] focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
+            className="min-h-11 rounded-xl border border-slate-700 px-4 py-2 text-[11px] uppercase tracking-wider text-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
           >
             {t('admin_audit.filters_reset')}
           </button>
@@ -429,7 +429,7 @@ export const AdminAuditView: React.FC = () => {
         role="region"
         aria-label={t('admin_audit.audit_table_caption')}
         tabIndex={0}
-        className="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-950 text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059] focus-visible:ring-offset-2"
+        className="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-950 text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2"
       >
         <table className="min-w-[980px] w-full text-left text-xs">
           <caption className="sr-only">{t('admin_audit.audit_table_caption')}</caption>
@@ -458,7 +458,7 @@ export const AdminAuditView: React.FC = () => {
                         { id: row.id },
                       )}
                       onClick={() => setExpanded(expanded === row.id ? null : row.id)}
-                      className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-slate-700 px-3 text-base text-[#E2BF70] hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E2BF70] focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+                      className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-slate-700 px-3 text-base text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
                     >
                       <span aria-hidden="true">{expanded === row.id ? '−' : '+'}</span>
                     </button>
@@ -468,7 +468,7 @@ export const AdminAuditView: React.FC = () => {
                       ? new Date(row.timestamp).toISOString().replace('T', ' ').slice(0, 19)
                       : '—'}
                   </td>
-                  <td className="px-3 py-2 font-mono text-[11px] text-[#E2BF70]">{row.action}</td>
+                  <td className="px-3 py-2 font-mono text-[11px] text-white">{row.action}</td>
                   <td className="px-3 py-2">
                     <div className="font-semibold">{row.actor}</div>
                     <div className="text-[10px] text-slate-500">
@@ -551,14 +551,14 @@ export const AdminAuditView: React.FC = () => {
             <button
               disabled={!meta.has_previous}
               onClick={() => setPage(Math.max(1, page - 1))}
-              className="min-h-11 rounded-xl border border-slate-700 px-3 py-2 text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B8935A] disabled:opacity-40"
+              className="min-h-11 rounded-xl border border-slate-700 px-3 py-2 text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white disabled:opacity-40"
             >
               ← {t('admin_audit.previous')}
             </button>
             <button
               disabled={!meta.has_next}
               onClick={() => setPage(page + 1)}
-              className="min-h-11 rounded-xl border border-slate-700 px-3 py-2 text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B8935A] disabled:opacity-40"
+              className="min-h-11 rounded-xl border border-slate-700 px-3 py-2 text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white disabled:opacity-40"
             >
               {t('admin_audit.next')} →
             </button>

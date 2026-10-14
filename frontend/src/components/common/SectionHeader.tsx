@@ -44,13 +44,13 @@ export const SectionHeader: React.FC<{
     </>
   ) : null;
   const actionClass =
-    "group/shaction inline-flex min-h-11 items-center gap-1 self-start text-xs font-semibold text-[#1B1F3B] transition-colors duration-300 ease-luxury hover:text-[#C5A059] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059] rounded-lg sm:self-auto";
+    "group/shaction inline-flex min-h-11 items-center gap-1 self-start text-xs font-semibold text-brand-charcoal transition-colors duration-300 ease-luxury hover:text-brand-charcoal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal rounded-lg sm:self-auto";
 
   return (
     <div className="flex flex-col justify-between gap-2 border-b border-slate-200/80 pb-4 sm:flex-row sm:items-end">
       <div>
         {eyebrow && (
-          <span className="block text-[10px] font-bold uppercase tracking-widest text-[#7A5C28]">
+          <span className="block text-[10px] font-bold uppercase tracking-widest text-brand-muted">
             {eyebrow}
           </span>
         )}
@@ -58,7 +58,7 @@ export const SectionHeader: React.FC<{
           {icon && <span aria-hidden="true">{icon}</span>}
           <h2
             id={titleId}
-            className="font-serif text-2xl font-bold text-[#1B1F3B]"
+            className="font-serif text-2xl font-bold text-brand-charcoal"
           >
             {title}
           </h2>

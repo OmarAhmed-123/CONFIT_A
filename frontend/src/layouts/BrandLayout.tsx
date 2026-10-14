@@ -38,13 +38,13 @@ export const BrandLayout: React.FC = () => {
         </main>
       </div>
 
-      <footer className="bg-slate-900 border-t border-slate-800 text-slate-500 text-xs py-8 px-4 sm:px-8 mt-auto">
+      <footer className="bg-white border-t border-brand-hairline text-brand-muted text-xs py-8 px-4 sm:px-8 mt-auto">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
           <div>
             {t('b2b_layout.platform_title')} · 1.0.0
           </div>
           <div className="flex gap-4">
-            <Link to="/" className="text-[#B8935A] hover:underline">
+            <Link to="/" className="text-brand-charcoal hover:underline">
               {t('b2b_layout.switch_to_consumer')}
             </Link>
           </div>

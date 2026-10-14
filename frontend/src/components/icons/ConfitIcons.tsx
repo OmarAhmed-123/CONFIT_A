@@ -42,7 +42,7 @@ const IconWrapper: React.FC<{
       {children}
     </svg>
     {typeof badge === 'number' && badge > 0 && (
-      <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#C5A059] px-1 text-[9px] font-bold text-slate-950 shadow-xs ring-1 ring-white">
+      <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-coral px-1 text-[9px] font-bold text-white shadow-xs ring-1 ring-white">
         {badge > 99 ? '99+' : badge}
       </span>
     )}

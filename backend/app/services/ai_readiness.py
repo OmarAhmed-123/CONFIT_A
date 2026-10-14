@@ -136,9 +136,22 @@ def _configured_providers() -> Dict[str, Dict[str, str]]:
             "url": f"https://generativelanguage.googleapis.com/v1beta/models?key={settings.GEMINI_API_KEY}",
             "auth": "",
         }
-    if settings.NVIDIA_API_KEY:
+    # MEASURED 2026-10-14: nineteen live per-model keys and no legacy shared key
+    # used to land right here as "nvidia: not configured", because this gate only
+    # looked at NVIDIA_API_KEY. A readiness probe that disagrees with the pool it
+    # is reporting on is worse than no probe, so the pool is the authority and the
+    # legacy names are just the first choice of key to test with.
+    nvidia_key = settings.NVIDIA_API_KEY or settings.NVIDIA_CHAT_KEY_2
+    if not nvidia_key:
+        try:
+            from backend.app.providers.nvidia import key_pool
+
+            nvidia_key = next(iter(key_pool.candidates()), None)
+        except Exception:  # pragma: no cover - import or registry problem
+            nvidia_key = None
+    if nvidia_key:
         out["nvidia"] = {"url": "https://integrate.api.nvidia.com/v1/models",
-                         "auth": f"Bearer {settings.NVIDIA_API_KEY}"}
+                         "auth": f"Bearer {nvidia_key}"}
     return out
 
 

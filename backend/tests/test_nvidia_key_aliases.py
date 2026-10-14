@@ -149,7 +149,12 @@ def test_a_pool_only_deployment_counts_as_configured(monkeypatch):
         assert key_pool.configured is True
         assert MultiProviderAIOrchestrator._nvidia_pool_configured() is True
     finally:
-        key_pool.reload()  # leave the module singleton as the environment found it
+        # The module singleton is shared with the rest of the suite, so it is put
+        # back to a state that matches the environment at teardown: clear the var
+        # this test set, THEN re-read. A stale credential left in the singleton
+        # would make a later "hermetic" assertion fail somewhere unrelated.
+        monkeypatch.delenv("NVIDIA_API_KEY_KIMI_K3", raising=False)
+        key_pool.reload()
 
 
 def test_readiness_probes_the_pool_and_not_only_the_legacy_key(monkeypatch):
@@ -167,6 +172,7 @@ def test_readiness_probes_the_pool_and_not_only_the_legacy_key(monkeypatch):
         assert configured["nvidia"]["auth"] == f"Bearer {FAKE_KEY}"
         assert "nvidia" in ai_readiness.configured_provider_names()
     finally:
+        monkeypatch.delenv("NVIDIA_API_KEY_KIMI_K3", raising=False)
         key_pool.reload()
 
 

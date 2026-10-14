@@ -1,8 +1,9 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { FileDown } from 'lucide-react';
+
 import { adminService } from '../../services/apiServices';
 import { localizeApiError } from '../../i18n/apiErrors';
+import { DownloadIcon } from '../icons/ConfitIcons';
 
 /**
  * Spec 12 export — the download control next to each brand name.
@@ -57,7 +58,10 @@ export const BrandReportDownloadButton: React.FC<{
         aria-label={t('admin_catalog.download_report', { brand: brandName })}
         className="inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-[11px] font-bold text-slate-700 shadow-2xs transition-colors hover:border-brand-hairline hover:text-brand-charcoal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal"
       >
-        <span aria-hidden="true"><FileDown className="h-3.5 w-3.5" /></span>
+        {/* The glyph states the verb: the arrow falls into the tray while the
+            report is being fetched, and the tray keeps it when it lands. The
+            control's own `data-state` drives it — see button-glyph-motion.css. */}
+        <DownloadIcon size={14} />
         <span>{t('admin_catalog.report_pdf')}</span>
       </button>
       {/* State as TEXT, politely announced — never colour/animation alone. */}

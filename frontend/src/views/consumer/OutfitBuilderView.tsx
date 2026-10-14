@@ -25,6 +25,7 @@ import {
   SparkleIcon,
   BagIcon,
   SavedLooksIcon,
+  BookmarkIcon,
   TryOnIcon,
   RulerIcon,
 } from '../../components/icons/ConfitIcons';
@@ -647,7 +648,7 @@ export const OutfitBuilderView: React.FC = () => {
               success: t('outfit_builder.saved_confirm'),
               error: t('outfit_builder.save_failed_retry'),
             }}
-            icon={<SavedLooksIcon size={16} color="#FFFFFF" />}
+            icon={<BookmarkIcon size={16} color="#FFFFFF" />}
             data-testid="save-look-cta"
             className={`px-5 py-2 rounded-xl bg-brand-charcoal text-white hover:bg-black active:scale-[0.98] disabled:opacity-40 text-slate-950 font-bold text-xs shadow-sm motion-safe:transition-[background-color,transform,opacity] motion-safe:duration-300 ${LUX_EASE}`}
           />

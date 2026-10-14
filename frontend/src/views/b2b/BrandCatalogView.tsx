@@ -2,7 +2,8 @@ import { useTranslation } from 'react-i18next';
 import { useModalFocus } from '../../hooks/useModalFocus';
 import { useCallback, useEffect, useRef } from 'react';
 import React, { useState } from 'react';
-import { Upload, Tags, RefreshCw } from 'lucide-react';
+import { Tags, RefreshCw } from 'lucide-react';
+import { UploadIcon } from '../../components/icons/ConfitIcons';
 import { useBrandViewModel, CatalogImportJob } from '../../viewmodels/useBrandViewModel';
 import { Surface } from '../../components/common/Surface';
 import { HonestProductImage } from '../../components/common/HonestProductImage';
@@ -203,7 +204,7 @@ export const BrandCatalogView: React.FC = () => {
           </p>
         </div>
         <button data-motion="upload" type="button" onClick={() => { setFileError(null); setBulkModalOpen(true); }} className={btnPrimary}>
-          <Upload size={14} aria-hidden="true" />
+          <UploadIcon size={14} />
           {t('b2b.cat.bulk_cta')}
         </button>
       </header>
@@ -514,7 +515,8 @@ export const BrandCatalogView: React.FC = () => {
                 </div>
               ) : (
                 <div className="space-y-2">
-                  <Upload size={22} className="mx-auto text-brand-charcoal" aria-hidden="true" />
+                  {/* the arrow rises while the file is being read, and the tray keeps it */}
+                  <UploadIcon size={22} className="mx-auto text-brand-charcoal" />
                   <p className="text-xs font-semibold text-slate-600">{t('b2b.cat.drop_cta')}</p>
                   <p className="text-[11px] text-slate-500">{t('b2b.cat.drop_hint')}</p>
                 </div>

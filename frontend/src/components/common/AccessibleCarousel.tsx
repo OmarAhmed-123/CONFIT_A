@@ -151,7 +151,7 @@ export function AccessibleCarousel<T>({
           {error}
         </p>
         {onRetry && (
-          <button
+          <button data-motion="recovery"
             type="button"
             onClick={onRetry}
             className="mt-3 min-h-11 rounded-xl border border-slate-300 px-4 text-xs font-semibold hover:bg-slate-100"
@@ -197,7 +197,7 @@ export function AccessibleCarousel<T>({
           {active + 1} / {count}
         </span>
         <div className="flex items-center gap-2">
-          <button
+          <button data-motion="neutral" data-motion-tone="icon"
             type="button"
             onClick={() => goTo(active - 1)}
             disabled={active === 0}
@@ -209,7 +209,7 @@ export function AccessibleCarousel<T>({
               <ChevronLeft size={18} />
             </span>
           </button>
-          <button
+          <button data-motion="neutral" data-motion-tone="icon"
             type="button"
             onClick={() => goTo(active + 1)}
             disabled={active === count - 1}

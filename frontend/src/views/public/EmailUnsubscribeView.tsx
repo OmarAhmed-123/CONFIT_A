@@ -126,7 +126,7 @@ export const EmailUnsubscribeView: React.FC = () => {
         </div>
 
         {phase === 'ready' && (
-          <button
+          <button data-motion="filter"
             type="button"
             onClick={confirm}
             className={`${AUTH_PRIMARY_BTN_CLASS} mt-6`}
@@ -136,7 +136,7 @@ export const EmailUnsubscribeView: React.FC = () => {
         )}
 
         {phase === 'error' && (
-          <button
+          <button data-motion="recovery"
             type="button"
             onClick={confirm}
             className={`${AUTH_PRIMARY_BTN_CLASS} mt-6`}

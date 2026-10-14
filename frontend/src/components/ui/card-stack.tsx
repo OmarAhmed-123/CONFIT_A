@@ -367,7 +367,7 @@ export function CardStack<T extends CardStackItem>({
           announcement; dots are secondary jump targets at the WCAG 2.5.8
           minimum (24px). */}
       <div className={cn("mt-4 flex items-center justify-center gap-3", controlsClassName)}>
-        <button
+        <button data-motion="neutral" data-motion-tone="icon"
           type="button"
           onClick={prev}
           disabled={!canGoPrev}
@@ -391,7 +391,7 @@ export function CardStack<T extends CardStackItem>({
             {items.map((it, idx) => {
               const on = idx === active;
               return (
-                <button
+                <button data-motion="filter" data-motion-tone="icon"
                   key={it.id}
                   type="button"
                   onClick={() => setActive(idx)}
@@ -414,7 +414,7 @@ export function CardStack<T extends CardStackItem>({
           </div>
         ) : null}
 
-        <button
+        <button data-motion="neutral" data-motion-tone="icon"
           type="button"
           onClick={next}
           disabled={!canGoNext}

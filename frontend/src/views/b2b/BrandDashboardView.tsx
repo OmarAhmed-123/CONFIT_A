@@ -88,7 +88,7 @@ export const BrandDashboardView: React.FC = () => {
         <p className="mx-auto mt-2 max-w-md text-xs leading-relaxed text-slate-600">
           {fetchErrors.analytics ?? t('b2b.dash.unavailable_body')}
         </p>
-        <button
+        <button data-motion="recovery"
           type="button"
           onClick={refresh}
           className="mt-5 inline-flex min-h-12 items-center gap-2 rounded-xl bg-brand-charcoal px-6 text-xs font-semibold text-white transition-colors duration-300 ease-luxury hover:bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white"
@@ -109,7 +109,7 @@ export const BrandDashboardView: React.FC = () => {
         <p className="mx-auto mt-2 max-w-md text-xs leading-relaxed text-slate-600">
           {fetchErrors.analytics || t('b2b.dash.unavailable_body')}
         </p>
-        <button
+        <button data-motion="recovery"
           type="button"
           onClick={refresh}
           className="mt-5 inline-flex min-h-12 items-center gap-2 rounded-xl bg-brand-charcoal px-6 text-xs font-semibold text-white transition-colors duration-300 ease-luxury hover:bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white"
@@ -194,7 +194,7 @@ export const BrandDashboardView: React.FC = () => {
                 {analytics.methodology}
               </p>
             </div>
-            <button
+            <button data-motion="recovery"
               type="button"
               onClick={refresh}
               className="inline-flex min-h-12 shrink-0 items-center gap-2 rounded-xl border border-slate-300 px-4 text-xs font-semibold text-brand-charcoal transition-colors duration-300 ease-luxury hover:border-brand-charcoal hover:text-brand-charcoal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal"

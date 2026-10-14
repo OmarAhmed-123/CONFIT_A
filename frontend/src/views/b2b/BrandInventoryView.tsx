@@ -128,7 +128,7 @@ export const BrandInventoryView: React.FC = () => {
           {/* Spec 14: honest freshness status — stock is where stale data hurts. */}
           <CatalogFreshnessIndicator className="mt-2" />
         </div>
-        <button onClick={() => setShowStoreModal(true)} className="px-4 py-2.5 rounded-2xl bg-brand-charcoal text-white text-xs font-semibold">+ Add Store</button>
+        <button data-motion="admin" onClick={() => setShowStoreModal(true)} className="px-4 py-2.5 rounded-2xl bg-brand-charcoal text-white text-xs font-semibold">+ Add Store</button>
       </div>
 
       {/* Stores - REAL */}
@@ -152,7 +152,7 @@ export const BrandInventoryView: React.FC = () => {
           <div role="alert" className="p-4 rounded-2xl bg-rose-50 border border-rose-200">
             <p className="text-[11px] font-bold text-rose-800">{t('brand_inventory.store_network_failed')}</p>
             <p className="text-[11px] text-rose-600 mt-1">{fetchErrors.stores} The count above is unknown while this fails — it is not “no stores”.</p>
-            <button onClick={fetchData} className="mt-2 px-3 py-1.5 rounded-lg bg-white border border-rose-200 text-[11px] font-bold text-rose-700 hover:bg-rose-50">Retry</button>
+            <button data-motion="recovery" onClick={fetchData} className="mt-2 px-3 py-1.5 rounded-lg bg-white border border-rose-200 text-[11px] font-bold text-rose-700 hover:bg-rose-50">Retry</button>
           </div>
         )}
         {!fetchErrors.stores && stores.length === 0 ? (
@@ -160,7 +160,7 @@ export const BrandInventoryView: React.FC = () => {
             <div className="text-4xl" aria-hidden="true">🏪</div>
             <h3 className="font-bold text-slate-700">{t('brand_inventory.no_stores')}</h3>
             <p className="text-xs text-slate-500">{t('brand_inventory.no_stores_desc')}</p>
-            <button onClick={() => setShowStoreModal(true)} className="mt-2 px-4 py-2 rounded-xl bg-brand-charcoal text-white text-xs font-semibold min-h-[44px]">{t('brand_inventory.add_store')}</button>
+            <button data-motion="admin" onClick={() => setShowStoreModal(true)} className="mt-2 px-4 py-2 rounded-xl bg-brand-charcoal text-white text-xs font-semibold min-h-[44px]">{t('brand_inventory.add_store')}</button>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -214,7 +214,7 @@ export const BrandInventoryView: React.FC = () => {
             {inventory.flatMap(item => item.skus.map(sku => <option key={sku.id} value={sku.id}>{item.title} — {sku.sku_code}</option>))}
           </select>
           <input aria-label={t('b2b.field_on_hand')} required type="number" min="0" max="100000" step="1" value={stockForm.quantity} onChange={e => setStockForm({...stockForm, quantity: e.target.value})} className="border rounded p-2" />
-          <button disabled={savingStock || !!fetchErrors.stores || !!fetchErrors.inventory} className="rounded bg-slate-900 text-white px-4 py-2">{savingStock ? t('common.saving') : t('b2b.save_store_stock')}</button>
+          <button data-motion="admin" data-motion-tone="icon" disabled={savingStock || !!fetchErrors.stores || !!fetchErrors.inventory} className="rounded bg-slate-900 text-white px-4 py-2">{savingStock ? t('common.saving') : t('b2b.save_store_stock')}</button>
         </div>
         {stockMessage && <p role="status" className="text-sm">{stockMessage}</p>}
       </form>
@@ -236,7 +236,7 @@ export const BrandInventoryView: React.FC = () => {
           <div role="alert" className="p-4 rounded-2xl bg-rose-50 border border-rose-200">
             <p className="text-[11px] font-bold text-rose-800">{t('brand_inventory.inventory_failed')}</p>
             <p className="text-[11px] text-rose-600 mt-1">{fetchErrors.inventory} Stock is unknown while this fails — never assumed zero.</p>
-            <button onClick={fetchData} className="mt-2 px-3 py-1.5 rounded-lg bg-white border border-rose-200 text-[11px] font-bold text-rose-700 hover:bg-rose-50">Retry</button>
+            <button data-motion="recovery" onClick={fetchData} className="mt-2 px-3 py-1.5 rounded-lg bg-white border border-rose-200 text-[11px] font-bold text-rose-700 hover:bg-rose-50">Retry</button>
           </div>
         )}
         {!fetchErrors.inventory && inventory.length === 0 ? (
@@ -341,8 +341,8 @@ export const BrandInventoryView: React.FC = () => {
                 <input aria-label={t('b2b.field_store_phone')} value={newStore.phone} onChange={(e) => setNewStore({ ...newStore, phone: e.target.value })} className="w-full p-2.5 rounded-xl border" placeholder="+971 4 123 4567" />
               </div>
               <div className="flex gap-2 pt-2">
-                <button type="button" onClick={() => setShowStoreModal(false)} className="flex-1 py-2.5 rounded-xl border font-semibold">Cancel</button>
-                <button type="submit" className="flex-1 py-2.5 rounded-xl bg-brand-charcoal text-white font-semibold min-h-[44px]">{t('brand_inventory.create_store')}</button>
+                <button data-motion="neutral" type="button" onClick={() => setShowStoreModal(false)} className="flex-1 py-2.5 rounded-xl border font-semibold">Cancel</button>
+                <button data-motion="admin" type="submit" className="flex-1 py-2.5 rounded-xl bg-brand-charcoal text-white font-semibold min-h-[44px]">{t('brand_inventory.create_store')}</button>
               </div>
             </form>
           </div>

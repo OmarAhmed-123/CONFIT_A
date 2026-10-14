@@ -76,7 +76,7 @@ export const SectionHeader: React.FC<{
             {actionInner}
           </Link>
         ) : (
-          <button type="button" onClick={action.onClick} className={actionClass}>
+          <button data-motion="neutral" data-motion-tone="icon" type="button" onClick={action.onClick} className={actionClass}>
             {actionInner}
           </button>
         ))}

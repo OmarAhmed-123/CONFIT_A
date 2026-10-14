@@ -334,7 +334,7 @@ export const AuthModal: React.FC = () => {
         {/* Luxury Top Banner */}
         <div className="p-6 bg-white flex justify-between items-center border-b border-brand-hairline">
           <ConfitLogo variant="compact" theme="dark" size="md" />
-          <button
+          <button data-motion="neutral" data-motion-tone="icon"
             onClick={closeAuthModal}
             aria-label={t('common.close')}
             className="min-w-[44px] min-h-[44px] flex items-center justify-center text-brand-muted hover:text-brand-charcoal text-sm"
@@ -375,7 +375,7 @@ export const AuthModal: React.FC = () => {
               Dev-only quick-login (never shipped to production):
             </span>
             <div className="grid grid-cols-2 gap-2 text-xs">
-              <button
+              <button data-motion="auth"
                 type="button"
                 onClick={() => {
                   setEmail('shopper@confit.io');
@@ -386,7 +386,7 @@ export const AuthModal: React.FC = () => {
               >
                 👤 Fill shopper creds
               </button>
-              <button
+              <button data-motion="admin"
                 type="button"
                 onClick={() => {
                   setEmail('brand@massimodutti.com');
@@ -413,7 +413,7 @@ export const AuthModal: React.FC = () => {
                 className="relative grid grid-cols-2 gap-1 rounded-xl bg-brand-wash p-1"
               >
                 {(['app', 'email'] as const).map((m) => (
-                  <button
+                  <button data-motion="filter" data-motion-tone="icon"
                     key={m}
                     type="button"
                     role="radio"
@@ -445,7 +445,7 @@ export const AuthModal: React.FC = () => {
               {mfaMethod === 'email' && (
                 <div className="space-y-2">
                   {emailCodePhase !== 'sent' && (
-                    <button
+                    <button data-motion="auth" data-motion-tone="icon"
                       type="button"
                       onClick={handleSendEmailCode}
                       disabled={emailCodePhase === 'sending'}
@@ -461,7 +461,7 @@ export const AuthModal: React.FC = () => {
                         <p className="font-medium">
                           {t('auth.mfa_email_sent_to', { email: emailCodeInfo.sentTo, minutes: emailCodeInfo.minutes })}
                         </p>
-                        <button
+                        <button data-motion="progressive"
                           type="button"
                           onClick={handleSendEmailCode}
                           disabled={resendIn > 0}
@@ -506,7 +506,7 @@ export const AuthModal: React.FC = () => {
                   className={`${inputClass} font-mono tracking-wider`}
                 />
               </div>
-              <button type="submit" disabled={isLoading} aria-busy={isLoading} className={primaryButtonClass}>
+              <button data-motion="auth" data-motion-tone="icon" type="submit" disabled={isLoading} aria-busy={isLoading} className={primaryButtonClass}>
                 {isLoading && (
                   <span aria-hidden="true">
                     <StatusIcon status="loading" size={14} className="text-white" />
@@ -558,7 +558,7 @@ export const AuthModal: React.FC = () => {
                       className={inputClass}
                     />
                   </div>
-                  <button
+                  <button data-motion="auth" data-motion-tone="icon"
                     type="submit"
                     disabled={forgotPhase === 'pending'}
                     aria-busy={forgotPhase === 'pending'}
@@ -569,7 +569,7 @@ export const AuthModal: React.FC = () => {
                 </>
               )}
               <div className="text-center pt-2 text-slate-500">
-                <button
+                <button data-motion="neutral"
                   type="button"
                   onClick={() => switchView('signin')}
                   className="min-h-[44px] px-2 text-brand-charcoal font-bold underline underline-offset-4 decoration-brand-field hover:decoration-brand-charcoal"
@@ -644,7 +644,7 @@ export const AuthModal: React.FC = () => {
                     className={`${inputClass} pe-11`}
                     {...capsLockProps}
                   />
-                  <button
+                  <button data-motion="filter" data-motion-tone="icon"
                     type="button"
                     onClick={() => setShowPassword((v) => !v)}
                     aria-label={showPassword ? t('reset_password.hide_password') : t('reset_password.show_password')}
@@ -681,7 +681,7 @@ export const AuthModal: React.FC = () => {
                 </div>
               )}
 
-              <button type="submit" disabled={isLoading} aria-busy={isLoading} className={primaryButtonClass}>
+              <button data-motion="auth" data-motion-tone="icon" type="submit" disabled={isLoading} aria-busy={isLoading} className={primaryButtonClass}>
                 {/* Decorative: aria-hidden keeps the accessible name equal to
                     the visible label ("Sign in"), not "User Account Sign in". */}
                 <span aria-hidden="true">
@@ -702,7 +702,7 @@ export const AuthModal: React.FC = () => {
 
               {view === 'signin' && (
                 <div className="text-center text-slate-500">
-                  <button
+                  <button data-motion="auth"
                     type="button"
                     onClick={() => switchView('forgot')}
                     className="min-h-[44px] px-2 text-brand-charcoal font-bold underline underline-offset-4 decoration-brand-field hover:decoration-brand-charcoal"
@@ -716,7 +716,7 @@ export const AuthModal: React.FC = () => {
                 {view === 'signin' ? (
                   <span>
                     {t('auth.new_to_confit')}{' '}
-                    <button
+                    <button data-motion="auth"
                       type="button"
                       onClick={() => switchView('signup')}
                       className="min-h-[44px] px-2 text-brand-charcoal font-bold underline underline-offset-4 decoration-brand-field hover:decoration-brand-charcoal"
@@ -727,7 +727,7 @@ export const AuthModal: React.FC = () => {
                 ) : (
                   <span>
                     {t('auth.already_have_account')}{' '}
-                    <button
+                    <button data-motion="auth"
                       type="button"
                       onClick={() => switchView('signin')}
                       className="min-h-[44px] px-2 text-brand-charcoal font-bold underline underline-offset-4 decoration-brand-field hover:decoration-brand-charcoal"

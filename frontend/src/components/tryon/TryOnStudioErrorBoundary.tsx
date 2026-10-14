@@ -71,14 +71,14 @@ export const TryOnStudioErrorBoundary: React.FC<{ children: React.ReactNode }> =
             {t('tryon.studio_error_detail')}
           </p>
           <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
-            <button
+            <button data-motion="recovery"
               type="button"
               onClick={reset}
               className="min-h-11 rounded-xl bg-brand-charcoal px-5 py-2.5 text-sm font-bold text-white hover:bg-brand-charcoal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white"
             >
               {t('tryon.studio_error_retry')}
             </button>
-            <button
+            <button data-motion="neutral"
               type="button"
               onClick={leaveStudio}
               className="min-h-11 rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal"

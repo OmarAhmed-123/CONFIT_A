@@ -292,14 +292,14 @@ export const BrandOrdersView: React.FC = () => {
               })}
             </span>
             <div className="flex gap-2">
-              <button
+              <button data-motion="neutral"
                 onClick={() => setOffset(Math.max(0, offset - limit))}
                 disabled={offset === 0 || loading}
                 className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-[11px] font-semibold disabled:opacity-40"
               >
                 {t("common.previous")}
               </button>
-              <button
+              <button data-motion="neutral"
                 onClick={() => setOffset(offset + limit)}
                 disabled={!data.pagination.has_more || loading}
                 className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-[11px] font-semibold disabled:opacity-40"

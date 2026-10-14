@@ -321,7 +321,7 @@ export const TryOnFitView: React.FC = () => {
                     min-h-11 = 44px touch target (§7); labels are i18n text,
                     never icon-only. */}
                 <div className="pt-3 border-t border-slate-100 mt-3 grid grid-cols-2 gap-2">
-                  <button
+                  <button data-motion="progressive"
                     type="button"
                     onClick={() => openRuler(p)}
                     className="min-h-11 py-2 px-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-[11px] font-semibold text-slate-700 flex items-center justify-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white"
@@ -329,7 +329,7 @@ export const TryOnFitView: React.FC = () => {
                     <RulerIcon size={13} />
                     <span>{t('tryon.ruler_button')}</span>
                   </button>
-                  <button
+                  <button data-motion="creative" data-motion-tone="icon"
                     type="button"
                     onClick={tryOn.gate({
                       render: () =>

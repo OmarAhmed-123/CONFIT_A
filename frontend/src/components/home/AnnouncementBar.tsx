@@ -71,7 +71,7 @@ export const AnnouncementBar: React.FC<{
           amount: formatMoney(Math.round(threshold * 100), currency, lang),
         })}
       </p>
-      <button
+      <button data-motion="neutral" data-motion-tone="icon"
         type="button"
         onClick={dismiss}
         aria-label={t("a11y.dismiss_announcement")}

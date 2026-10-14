@@ -136,7 +136,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
     >
       <div className="relative overflow-hidden bg-slate-100">
         {onOpenDetails ? (
-          <button
+          <button data-motion="progressive" data-motion-tone="icon"
             onClick={openDetails}
             className={`block w-full text-left cursor-pointer ${
               isCompact ? "h-44" : "h-56"
@@ -199,7 +199,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
         {/* Quick try-on, always present on the image itself. */}
         <div className="absolute bottom-2.5 right-2.5 flex items-center gap-1.5">
-          <button
+          <button data-motion="progressive" data-motion-tone="icon"
             onClick={() => openRuler(product)}
             className="p-2 rounded-full bg-white/90 hover:bg-white text-brand-charcoal shadow-sm backdrop-blur-xs transition-all"
             title={t("a11y.no_photo_fit")}
@@ -218,7 +218,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           </span>
           <h3 className="font-serif text-xs sm:text-sm font-bold text-brand-charcoal line-clamp-1 mt-0.5">
             {onOpenDetails ? (
-              <button
+              <button data-motion="progressive" data-motion-tone="icon"
                 onClick={openDetails}
                 className="text-left hover:underline text-brand-charcoal cursor-pointer"
               >
@@ -262,7 +262,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
         <div className="mt-auto pt-3 border-t border-slate-100 grid grid-cols-2 gap-2">
           {onOpenDetails ? (
-            <button
+            <button data-motion="progressive"
               onClick={openDetails}
               className="py-2.5 rounded-xl bg-brand-charcoal hover:bg-[#1A1B1D] text-white text-xs font-semibold transition-all shadow-2xs"
             >

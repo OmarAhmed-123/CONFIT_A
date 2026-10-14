@@ -265,7 +265,7 @@ export const VirtualStylistDrawer: React.FC = () => {
                 </p>
               </div>
             </div>
-            <button
+            <button data-motion="neutral" data-motion-tone="icon"
               onClick={closeStylist}
               aria-label={t("common.close")}
               className={`w-11 h-11 rounded-full bg-slate-100 text-slate-600 hover:text-brand-charcoal hover:bg-slate-200 flex items-center justify-center ${LUX} ${RING}`}
@@ -285,7 +285,7 @@ export const VirtualStylistDrawer: React.FC = () => {
                 the backend matches ENGLISH keywords, so it is never translated.
                 Only the label is localized (see the module docstring). */}
             {OCCASION_PROMPTS.map((occ) => (
-              <button
+              <button data-motion="creative" data-motion-tone="icon"
                 key={occ.value}
                 onClick={() =>
                   sendPrompt(`Style an outfit for ${occ.value}`, occ.value, undefined,
@@ -335,7 +335,7 @@ export const VirtualStylistDrawer: React.FC = () => {
                       labelKey: "stylist.example_evening_gala",
                     },
                   ].map((ex, i) => (
-                    <button
+                    <button data-motion="filter"
                       key={ex.labelKey}
                       onClick={() =>
                         sendPrompt(ex.prompt, ex.occasion, ex.budget, undefined, t(ex.labelKey))
@@ -567,7 +567,7 @@ export const VirtualStylistDrawer: React.FC = () => {
                                   <span className="text-xs font-bold text-brand-charcoal" dir="ltr">
                                     {itemMoney(item.price, item.currency)}
                                   </span>
-                                  <button
+                                  <button data-motion="creative"
                                     disabled={tryOnKind === "blocked"}
                                     onClick={() =>
                                       (tryOnKind === "fit_check"
@@ -675,7 +675,7 @@ export const VirtualStylistDrawer: React.FC = () => {
                           </div>
                           <div className="flex flex-col items-end gap-1">
                           {msg.mode === "A" && saveStates[outfit.id] !== "saved" && (
-                            <button
+                            <button data-motion="progressive" data-motion-tone="icon"
                               type="button"
                               onClick={() => saveLook(outfit)}
                               aria-busy={saveStates[outfit.id] === "saving"}
@@ -698,7 +698,7 @@ export const VirtualStylistDrawer: React.FC = () => {
                           {msg.mode === "A" && saveStates[outfit.id] === "failed" && (
                             <span role="alert" className="text-[11px] text-rose-700">{t("stylist.save_look_failed")}</span>
                           )}
-                          <button
+                          <button data-motion="commerce" data-motion-tone="icon"
                             onClick={() => addCompleteLookToCart(outfit)}
                             aria-busy={isAddingLook}
                             disabled={
@@ -772,7 +772,7 @@ export const VirtualStylistDrawer: React.FC = () => {
                 {/* Retry only where retrying can change the outcome: a validation
                     rejection cannot be fixed by pressing the same button again. */}
                 {errorRetryable && (
-                  <button
+                  <button data-motion="recovery"
                     onClick={() => sendPrompt()}
                     className="text-xs font-bold underline ml-2"
                   >
@@ -799,7 +799,7 @@ export const VirtualStylistDrawer: React.FC = () => {
                         56px thumbnail, but a thumb on a phone gets the full
                         touch minimum (the control was 24×24). Logical `end`
                         keeps it on the trailing corner in RTL. */}
-                    <button
+                    <button data-motion="neutral" data-motion-tone="icon"
                       type="button"
                       onClick={() => removeImage(index)}
                       aria-label={t("stylist.remove_photo", { n: index + 1 })}
@@ -848,7 +848,7 @@ export const VirtualStylistDrawer: React.FC = () => {
                 />
               </label>
 
-              <button
+              <button data-motion="filter" data-motion-tone="icon"
                 type="button"
                 onClick={startVoiceInput}
                 aria-label={isRecording ? t("stylist.voice_stop") : t("stylist.hold_voice")}
@@ -887,7 +887,7 @@ export const VirtualStylistDrawer: React.FC = () => {
                 className={`flex-1 resize-none overflow-y-auto whitespace-pre-wrap break-words px-4 py-3 min-h-[48px] rounded-2xl border border-slate-200 focus:outline-none focus:border-brand-hairline focus-visible:ring-2 focus-visible:ring-brand-charcoal/40 text-xs sm:text-sm leading-relaxed bg-brand-wash ${LUX}`}
               />
 
-              <button
+              <button data-motion="creative" data-motion-tone="icon"
                 type="submit"
                 disabled={!inputPrompt.trim() || isTyping}
                 aria-busy={isTyping}

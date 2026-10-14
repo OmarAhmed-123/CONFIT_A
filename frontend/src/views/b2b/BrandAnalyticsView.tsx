@@ -98,7 +98,7 @@ export const BrandAnalyticsView: React.FC = () => {
         <div role="alert" className="p-4 rounded-2xl bg-rose-50 border border-rose-200">
           <p className="text-[11px] font-bold text-rose-800">{t('b2b.sku_conversion_failed')}</p>
           <p className="text-[11px] text-rose-600 mt-1">{fetchErrors.conversion}</p>
-          <button onClick={refresh} className="mt-2 px-3 py-1.5 rounded-lg bg-white border border-rose-200 text-[11px] font-bold text-rose-700 hover:bg-rose-50">Retry</button>
+          <button data-motion="recovery" onClick={refresh} className="mt-2 px-3 py-1.5 rounded-lg bg-white border border-rose-200 text-[11px] font-bold text-rose-700 hover:bg-rose-50">Retry</button>
         </div>
       )}
       {conversionPerSku.length > 0 && (

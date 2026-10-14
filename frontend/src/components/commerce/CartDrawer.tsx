@@ -44,7 +44,7 @@ export const CartDrawer: React.FC = () => {
                 </span>
               </div>
             </div>
-            <button
+            <button data-motion="neutral" data-motion-tone="icon"
               onClick={closeCart}
               aria-label={t('common.close')}
               className="min-w-[44px] min-h-[44px] rounded-full bg-slate-100 text-slate-500 hover:text-slate-900 flex items-center justify-center transition-colors"
@@ -66,7 +66,7 @@ export const CartDrawer: React.FC = () => {
                 <p className="text-xs text-slate-500 max-w-xs mx-auto mb-4">
                   {t('commerce.cart_empty_body')}
                 </p>
-                <button
+                <button data-motion="progressive"
                   onClick={() => {
                     closeCart();
                     navigate('/discover');
@@ -92,7 +92,7 @@ export const CartDrawer: React.FC = () => {
                         <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
                           {item.brand_name}
                         </span>
-                        <button
+                        <button data-motion="destructive" data-motion-tone="icon"
                           onClick={() => removeItem(item.id)}
                           className="min-w-[44px] min-h-[44px] text-slate-500 hover:text-rose-500 text-xs flex items-center justify-center rounded"
                           title={t('commerce.remove_item')}
@@ -115,7 +115,7 @@ export const CartDrawer: React.FC = () => {
 
                     <div className="flex items-center justify-between pt-2 border-t border-slate-200/60 mt-1">
                       <div className="flex items-center border border-slate-200 rounded-lg bg-white">
-                        <button
+                        <button data-motion="commerce" data-motion-tone="icon"
                           onClick={() => updateQuantity(item.id, item.quantity - 1)}
                           className="min-w-[44px] min-h-[44px] px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-100 rounded-l flex items-center justify-center"
                           aria-label={`Decrease quantity of ${item.product_title}`}
@@ -123,7 +123,7 @@ export const CartDrawer: React.FC = () => {
                           <span aria-hidden="true">-</span>
                         </button>
                         <span className="px-2 text-xs font-bold text-slate-800" aria-live="polite">{item.quantity}</span>
-                        <button
+                        <button data-motion="commerce" data-motion-tone="icon"
                           onClick={() => updateQuantity(item.id, item.quantity + 1)}
                           className="min-w-[44px] min-h-[44px] px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-100 rounded-r flex items-center justify-center"
                           aria-label={`Increase quantity of ${item.product_title}`}
@@ -187,7 +187,7 @@ export const CartDrawer: React.FC = () => {
                 </div>
               )}
 
-              <button
+              <button data-motion="financial"
                 onClick={() => {
                   closeCart();
                   navigate('/checkout');

@@ -345,7 +345,7 @@ export const WardrobeView: React.FC = () => {
         {/* Tab Selector & Add Piece Button */}
         <div className="flex items-center gap-3">
           <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200">
-            <button
+            <button data-motion="progressive"
               onClick={() => setActiveTab("closet")}
               className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
                 activeTab === "closet"
@@ -355,7 +355,7 @@ export const WardrobeView: React.FC = () => {
             >
               {t("nav.my_closet")}
             </button>
-            <button
+            <button data-motion="progressive"
               onClick={() => setActiveTab("looks")}
               className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
                 activeTab === "looks"
@@ -365,7 +365,7 @@ export const WardrobeView: React.FC = () => {
             >
               {t("nav.my_looks")}
             </button>
-            <button
+            <button data-motion="progressive"
               onClick={() => {
                 setActiveTab("gaps");
                 if (isAuthenticated) fetchGaps();
@@ -379,7 +379,7 @@ export const WardrobeView: React.FC = () => {
               <GapAnalysisIcon size={14} color="#252729" />
               <span>{t("nav.gap_analysis")}</span>
             </button>
-            <button
+            <button data-motion="progressive"
               onClick={() => {
                 setActiveTab("boards");
                 if (isAuthenticated && !hasLoadedBoards) fetchMoodBoards();
@@ -394,7 +394,7 @@ export const WardrobeView: React.FC = () => {
             </button>
           </div>
 
-          <button
+          <button data-motion="upload"
             onClick={() => setUploadModalOpen(true)}
             className="px-4 py-2.5 rounded-2xl bg-brand-charcoal hover:bg-black text-white text-xs font-semibold shadow-sm transition-all"
           >
@@ -416,7 +416,7 @@ export const WardrobeView: React.FC = () => {
               "Footwear",
               "Accessories",
             ].map((cat) => (
-              <button
+              <button data-motion="progressive" data-motion-tone="icon"
                 key={cat}
                 onClick={() => setActiveCategory(cat)}
                 className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all ${
@@ -444,7 +444,7 @@ export const WardrobeView: React.FC = () => {
               {/* Measured 2026-09-23 (axe, real browser): rose-600 on the
                   rose-50 panel is 4.27:1 at 12px — below AA. rose-700 clears it. */}
               <p className="text-xs text-rose-700 mt-1">{isClosetError}</p>
-              <button
+              <button data-motion="recovery"
                 onClick={() => fetchWardrobe(activeCategory)}
                 className="mt-4 px-5 py-2.5 rounded-2xl bg-brand-charcoal text-white text-xs font-bold hover:bg-black transition-all"
               >
@@ -472,7 +472,7 @@ export const WardrobeView: React.FC = () => {
                     backend for this workflow. In this deployment, photo upload
                     availability depends on configured persistent storage.
                   </div>
-                  <button
+                  <button data-motion="upload"
                     onClick={() => setUploadModalOpen(true)}
                     className="rounded-2xl bg-brand-charcoal px-5 py-3 text-xs font-bold text-white transition hover:bg-black hover:text-white"
                   >
@@ -516,7 +516,7 @@ export const WardrobeView: React.FC = () => {
                       {/* Spec 01: always visible (no hover-only control), ≥44px
                           target, aria-busy pending, label is a real accessible
                           name — not a title tooltip. */}
-                      <button
+                      <button data-motion="destructive" data-motion-tone="icon"
                         onClick={() => runItemOp(item.id, "delete", () => deleteItem(item.id))}
                         aria-label={t('wardrobe.delete_aria')}
                         aria-busy={itemBusy?.id === item.id && itemBusy.op === "delete"}
@@ -529,7 +529,7 @@ export const WardrobeView: React.FC = () => {
                         )}
                       </button>
                       {/* Favorite toggle (BRD 4.1: persistent Favorite state) */}
-                      <button
+                      <button data-motion="filter" data-motion-tone="icon"
                         onClick={() => runItemOp(item.id, "favorite", () => toggleFavorite(item))}
                         aria-pressed={item.is_favorite}
                         aria-label={item.is_favorite ? t("wardrobe.fav_remove") : t("wardrobe.fav_mark")}
@@ -606,7 +606,7 @@ export const WardrobeView: React.FC = () => {
 
                   <div className="pt-3 border-t border-slate-100 mt-3 flex items-center gap-2">
                     {item.processing_status === "failed" ? (
-                      <button
+                      <button data-motion="recovery" data-motion-tone="icon"
                         onClick={() => { if (retryingItemId == null) retryAnalysis(item.id); }}
                         aria-busy={retryingItemId === item.id}
                         aria-disabled={retryingItemId === item.id}
@@ -618,7 +618,7 @@ export const WardrobeView: React.FC = () => {
                         {retryingItemId === item.id ? t("wardrobe.retrying") : t("wardrobe.retry_analysis")}
                       </button>
                     ) : (
-                      <button
+                      <button data-motion="progressive"
                         onClick={() => navigate("/builder")}
                         className="w-full py-2 rounded-xl bg-slate-100 hover:bg-brand-charcoal hover:text-white text-xs font-semibold text-slate-800 transition-all"
                       >
@@ -649,7 +649,7 @@ export const WardrobeView: React.FC = () => {
                   {t("wardrobe.shop_first_desc")}
                 </p>
               </div>
-              <button
+              <button data-motion="neutral" data-motion-tone="icon"
                 onClick={() => { if (!isOutfitLoading) fetchOutfitSuggestion("Smart Casual"); }}
                 aria-busy={isOutfitLoading}
                 aria-disabled={isOutfitLoading}
@@ -748,7 +748,7 @@ export const WardrobeView: React.FC = () => {
                   Your personalized styling collections
                 </p>
               </div>
-              <button
+              <button data-motion="progressive"
                 onClick={() => navigate("/builder")}
                 className="px-4 py-2 rounded-xl bg-brand-charcoal text-white text-xs font-semibold shadow-sm"
               >
@@ -808,7 +808,7 @@ export const WardrobeView: React.FC = () => {
                         {t("wardrobe.look_total")}{" "}
                         <bdi dir="ltr">{formatMoney(Math.round(Number(look.total_price ?? 0) * 100), "USD", lang)}</bdi>
                       </span>
-                      <button
+                      <button data-motion="destructive" data-motion-tone="icon"
                         onClick={() => { if (deletingLookId == null) handleDeleteLook(look.id); }}
                         aria-busy={deletingLookId === look.id}
                         aria-disabled={deletingLookId === look.id}
@@ -867,7 +867,7 @@ export const WardrobeView: React.FC = () => {
               <p /* Measured 2026-09-23 (axe, real browser): rose-600 on the rose-50 panel is
                   4.27:1 at 12px — below AA. rose-700 clears it. */
               className="text-xs text-rose-700 mt-1">{isGapError}</p>
-              <button
+              <button data-motion="recovery"
                 onClick={() => fetchGaps()}
                 className="mt-4 px-5 py-2.5 rounded-2xl bg-brand-charcoal text-white text-xs font-bold hover:bg-black transition-all"
               >
@@ -995,7 +995,7 @@ export const WardrobeView: React.FC = () => {
               <p /* Measured 2026-09-23 (axe, real browser): rose-600 on the rose-50 panel is
                   4.27:1 at 12px — below AA. rose-700 clears it. */
               className="text-xs text-rose-700 mt-1">{isBoardsError}</p>
-              <button
+              <button data-motion="recovery"
                 onClick={() => fetchMoodBoards()}
                 className="mt-4 px-5 py-2.5 rounded-2xl bg-brand-charcoal text-white text-xs font-bold hover:bg-black transition-all"
               >
@@ -1025,7 +1025,7 @@ export const WardrobeView: React.FC = () => {
                     maxLength={255}
                     className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-brand-hairline"
                   />
-                  <button
+                  <button data-motion="progressive"
                     type="submit"
                     disabled={!newBoardTitle.trim()}
                     className="px-4 py-2.5 rounded-xl bg-brand-charcoal text-white text-xs font-semibold disabled:opacity-40 hover:bg-black transition-all"
@@ -1068,10 +1068,10 @@ export const WardrobeView: React.FC = () => {
                               maxLength={255}
                               className="flex-1 px-3 py-1.5 rounded-lg border border-slate-200 text-xs focus:outline-none focus:border-brand-hairline"
                             />
-                            <button type="submit" className="text-xs font-bold text-brand-charcoal">
+                            <button data-motion="progressive" type="submit" className="text-xs font-bold text-brand-charcoal">
                               {t("common.save")}
                             </button>
-                            <button
+                            <button data-motion="neutral" data-motion-tone="edge"
                               type="button"
                               onClick={() => setRenamingBoardId(null)}
                               className="text-xs font-bold text-slate-400"
@@ -1090,7 +1090,7 @@ export const WardrobeView: React.FC = () => {
                           </div>
                         )}
                         <div className="flex items-center gap-3 shrink-0 text-xs font-bold">
-                          <button
+                          <button data-motion="progressive" data-motion-tone="edge"
                             onClick={() => {
                               setRenamingBoardId(board.id);
                               setRenameTitle(board.title);
@@ -1099,7 +1099,7 @@ export const WardrobeView: React.FC = () => {
                           >
                             {t("common.rename")}
                           </button>
-                          <button
+                          <button data-motion="destructive"
                             onClick={() => deleteMoodBoard(board.id)}
                             className="text-rose-400 hover:text-rose-600"
                           >
@@ -1138,7 +1138,7 @@ export const WardrobeView: React.FC = () => {
                                   </span>
                                 </div>
                               )}
-                              <button
+                              <button data-motion="destructive" data-motion-tone="icon"
                                 onClick={() => removeMoodBoardTile(board.id, tile.id)}
                                 title={t("wardrobe.boards_remove_tile")}
                                 className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/60 text-white text-[10px] opacity-0 group-hover:opacity-100 hover:bg-rose-600 transition-all"
@@ -1171,7 +1171,7 @@ export const WardrobeView: React.FC = () => {
                             placeholder={t("wardrobe.boards_link_placeholder")}
                             className="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-brand-hairline"
                           />
-                          <button
+                          <button data-motion="progressive"
                             type="submit"
                             disabled={busyBoardId === board.id}
                             className="px-3 py-2 rounded-xl bg-slate-100 text-brand-charcoal text-xs font-semibold disabled:opacity-40"
@@ -1225,7 +1225,7 @@ export const WardrobeView: React.FC = () => {
               <h3 className="font-serif text-base font-bold text-white flex items-center gap-2">
                 <span>{t('wardrobe.upload_photos_title')}</span>
               </h3>
-              <button
+              <button data-motion="progressive" data-motion-tone="icon"
                 onClick={() => {
                   setUploadModalOpen(false);
                   setSelectedFiles([]);
@@ -1289,7 +1289,7 @@ export const WardrobeView: React.FC = () => {
                 )}
               </div>
 
-              <button
+              <button data-motion="upload"
                 type="submit"
                 disabled={!selectedFiles.length}
                 aria-busy={isUploading || isCompressing}
@@ -1378,7 +1378,7 @@ export const WardrobeView: React.FC = () => {
                 )}
               </div>
 
-              <button
+              <button data-motion="creative" data-motion-tone="icon"
                 type="submit"
                 disabled={!outfitFile || isImportingOutfit}
                 className="w-full py-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs transition-all shadow-md flex items-center justify-center gap-1.5 disabled:opacity-50"
@@ -1490,7 +1490,7 @@ export const WardrobeView: React.FC = () => {
               </div>
 
               <div className="pt-2">
-                <button
+                <button data-motion="commerce"
                   type="submit"
                   className="w-full py-3 rounded-xl bg-brand-charcoal hover:bg-black text-white font-semibold text-xs transition-all shadow-md"
                 >

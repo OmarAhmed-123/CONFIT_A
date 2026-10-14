@@ -208,7 +208,7 @@ const CircularGallery = React.forwardRef<HTMLDivElement, CircularGalleryProps>(
             Real ≥44px buttons, visible "n / N" (kept LTR — numeric code),
             and one polite live region fed only by user steps. */}
         <div className="absolute inset-x-0 bottom-3 z-10 flex items-center justify-center gap-3">
-          <button
+          <button data-motion="neutral" data-motion-tone="icon"
             type="button"
             onClick={() => step(-1)}
             aria-label={L.previous}
@@ -224,7 +224,7 @@ const CircularGallery = React.forwardRef<HTMLDivElement, CircularGalleryProps>(
           >
             {frontIndex + 1} / {items.length}
           </span>
-          <button
+          <button data-motion="neutral" data-motion-tone="icon"
             type="button"
             onClick={() => step(1)}
             aria-label={L.next}

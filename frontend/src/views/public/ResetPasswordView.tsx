@@ -169,7 +169,7 @@ export const ResetPasswordView: React.FC = () => {
             className={`${AUTH_FIELD_CLASS} pe-11`}
             {...capsLockProps}
           />
-          <button
+          <button data-motion="filter" data-motion-tone="icon"
             type="button"
             onClick={() => setShow((v) => !v)}
             aria-label={show ? t('reset_password.hide_password') : t('reset_password.show_password')}
@@ -209,7 +209,7 @@ export const ResetPasswordView: React.FC = () => {
           )}
         </div>
 
-        <button
+        <button data-motion="auth"
           type="submit"
           disabled={!ready}
           aria-busy={phase === 'submitting'}

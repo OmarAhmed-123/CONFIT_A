@@ -242,7 +242,7 @@ export const CheckoutView: React.FC = () => {
           </div>
           <h2 className="font-serif text-xl font-bold text-brand-charcoal">{t('commerce.cart_title')}</h2>
           <p className="text-sm text-brand-muted font-light max-w-md mx-auto">{t('commerce.cart_empty')}</p>
-          <button
+          <button data-motion="progressive"
             type="button"
             onClick={() => navigate('/discover')}
             className="focus-on-light-fill px-6 py-3 rounded-xl bg-brand-charcoal hover:bg-brand-charcoal text-white text-xs font-semibold shadow-2xs transition-all"
@@ -268,14 +268,14 @@ export const CheckoutView: React.FC = () => {
             </div>
           </div>
           <div className="flex gap-2.5 shrink-0 w-full sm:w-auto">
-            <button
+            <button data-motion="auth"
               type="button"
               onClick={() => openAuthModal('login')}
               className="focus-on-light-fill flex-1 sm:flex-initial px-5 py-2.5 rounded-xl bg-brand-charcoal hover:bg-brand-charcoal text-white text-xs font-semibold shadow-2xs transition-all"
             >
               {t('common.sign_in')}
             </button>
-            <button
+            <button data-motion="auth"
               type="button"
               onClick={() => openAuthModal('register')}
               className="flex-1 sm:flex-initial px-5 py-2.5 rounded-xl bg-brand-wash hover:bg-brand-charcoal text-brand-charcoal hover:text-white border border-brand-charcoal/40 text-xs font-semibold shadow-2xs transition-all"
@@ -293,7 +293,7 @@ export const CheckoutView: React.FC = () => {
           <div className="bg-white rounded-3xl border border-brand-hairline p-6 shadow-2xs space-y-4">
             <h2 className="font-serif text-base font-bold text-brand-charcoal">{t('checkout.step_fulfillment')}</h2>
             <div className="grid grid-cols-2 gap-3">
-              <button
+              <button data-motion="financial"
                 type="button"
                 onClick={() => setFulfillmentType('delivery')}
                 className={`p-4 rounded-2xl border text-left transition-all ${
@@ -308,7 +308,7 @@ export const CheckoutView: React.FC = () => {
                 </div>
                 <span className="text-[11px] text-brand-muted font-light">{t('checkout.shipping_estimate')}</span>
               </button>
-              <button
+              <button data-motion="admin"
                 type="button"
                 onClick={() => setFulfillmentType('bopis')}
                 className={`p-4 rounded-2xl border text-left transition-all ${
@@ -328,7 +328,7 @@ export const CheckoutView: React.FC = () => {
             {fulfillmentType === 'delivery' && (
               <div className="flex gap-2">
                 {(['standard', 'express'] as const).map((m) => (
-                  <button
+                  <button data-motion="progressive" data-motion-tone="icon"
                     key={m}
                     type="button"
                     onClick={() => setShippingMethod(m)}
@@ -543,7 +543,7 @@ export const CheckoutView: React.FC = () => {
                     </div>
                     <div className="text-brand-charcoal font-bold mt-0.5"><bdi dir="ltr">{formatMoney(Math.round((it.subtotal) * 100), cart?.currency || 'USD', lang)}</bdi></div>
                     <div className="flex items-center gap-1.5 mt-1">
-                      <button
+                      <button data-motion="financial" data-motion-tone="icon"
                         type="button"
                         aria-label={t('commerce.qty_decrease')}
                         disabled={it.quantity <= 1}
@@ -556,7 +556,7 @@ export const CheckoutView: React.FC = () => {
                       <span className="text-[11px] text-brand-muted font-medium w-10 text-center" aria-live="polite">
                         {t('checkout.qty')} {it.quantity}
                       </span>
-                      <button
+                      <button data-motion="financial" data-motion-tone="icon"
                         type="button"
                         aria-label={t('commerce.qty_increase')}
                         disabled={it.quantity >= 10}
@@ -566,7 +566,7 @@ export const CheckoutView: React.FC = () => {
                       >
                         +
                       </button>
-                      <button
+                      <button data-motion="financial"
                         type="button"
                         aria-label={t('commerce.remove_item')}
                         aria-busy={cartBusyId === it.id}
@@ -589,7 +589,7 @@ export const CheckoutView: React.FC = () => {
                 aria-label={t('checkout.promo_code')}
                 className="flex-1 px-3.5 py-2 rounded-xl border border-brand-field text-xs uppercase font-semibold focus:outline-none focus:border-brand-charcoal"
               />
-              <button
+              <button data-motion="progressive" data-motion-tone="icon"
                 type="button"
                 onClick={handleApplyPromo}
                 aria-busy={isApplyingPromo}

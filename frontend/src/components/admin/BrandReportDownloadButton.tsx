@@ -50,7 +50,7 @@ export const BrandReportDownloadButton: React.FC<{
 
   return (
     <span className={className}>
-      <button
+      <button data-motion="download"
         type="button"
         onClick={download}
         aria-busy={phase === 'pending'}

@@ -298,6 +298,21 @@ npx vitest run src/components/__tests__/buttonMotion.contract.test.tsx
 npm run verify                                    # i18n · tsc · all tests · build
 ```
 
+### Reviewing it without a browser
+
+The system ships with a generated spec sheet — every family in every state, on both surface
+weights, plus the three geometries, the Arabic panel and the reduced-motion fallback:
+
+```bash
+node scripts/button-motion-preview.mjs           # writes docs/button-motion-preview.html
+node scripts/button-motion-preview.mjs --check   # exits 1 if it is stale
+```
+
+It is generated from the stylesheet, not written alongside it: the engine is inlined verbatim
+and the two pointer states are the engine's own declarations re-pointed at a demo attribute,
+so there is no second copy of any recipe to drift. Open the HTML and the loading gestures are
+*live*, not screenshots — which is the only honest way to review an animation.
+
 ### Opting a control out
 
 `data-motion="none"` removes the layers and keeps the call site's own transitions. It exists
@@ -324,8 +339,10 @@ presence is asserted so the escape hatch cannot be deleted by accident.
 | `frontend/src/components/common/buttonMotion.ts` | the typed contract: intents, tones, phase→state aliasing, `buttonMotion()` |
 | `frontend/scripts/apply-button-motion.mjs` | the assignment tool and the coverage oracle |
 | `frontend/src/components/__tests__/buttonMotion.contract.test.tsx` | 41 contract assertions |
+| `frontend/scripts/button-motion-preview.mjs` | generates the reviewable spec sheet from the stylesheet |
 | `docs/BUTTON_MOTION_SYSTEM.md` | this document |
 | `docs/button-motion-catalog.csv` | all 313 controls: role, file, line, family, geometry, label, reason |
+| `docs/button-motion-preview.html` | the generated spec sheet: every family in every state, live |
 
 **Changed**
 

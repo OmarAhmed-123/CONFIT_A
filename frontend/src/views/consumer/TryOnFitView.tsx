@@ -90,7 +90,7 @@ export const TryOnFitView: React.FC = () => {
       <section className="rounded-3xl border border-brand-hairline bg-white p-5 shadow-2xs">
         <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
           <div>
-            <span className="text-[10px] font-bold uppercase tracking-widest text-brand-coral">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-brand-muted">
               {t('tryon.privacy_eyebrow')}
             </span>
             <h2 className="mt-1 font-serif text-2xl font-bold text-brand-charcoal">

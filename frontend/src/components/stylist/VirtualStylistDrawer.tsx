@@ -11,6 +11,7 @@ import { ApiError } from "../../services/apiClient";
 import {
   StylistIcon,
   SparkleIcon,
+  SendIcon,
   BagIcon,
   TryOnIcon,
   MicIcon,
@@ -893,7 +894,10 @@ export const VirtualStylistDrawer: React.FC = () => {
                 aria-busy={isTyping}
                 className={`px-6 py-3 min-h-[48px] rounded-2xl bg-brand-charcoal hover:bg-black disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold shadow-md flex items-center gap-1.5 ${LUX} ${RING}`}
               >
-                <SparkleIcon size={14} color="#242526" />
+                {/* Send: the plane leaves while the answer is being written, and is
+                  gone when the reply arrives. Colour is inherited (the previous
+                  hard-coded #242526 was near-invisible on this charcoal fill). */}
+                  <SendIcon size={14} />
                 <span>{isTyping ? t("stylist.sending") : t("stylist.submit")}</span>
               </button>
             </form>

@@ -1,0 +1,467 @@
+/* ═════════════════════════════════════════════════════════════════════════════
+   CONFIT — FUNCTIONAL GLYPH MOTION · Part 3
+   ═════════════════════════════════════════════════════════════════════════════
+
+   A control's icon should say what the control DOES, while it does it. This file
+   is the second layer of the motion system: `button-motion.css` animates the
+   control's BACKGROUND (which family, how urgent), and this animates the GLYPH
+   inside it (which verb, and what stage of it).
+
+   THE CONTRACT — one state source, two layers
+
+     The glyph reads the SAME state the background does, from the same attributes
+     the product already publishes. It never invents one:
+
+       :hover · :focus-visible · :active        pointer and keyboard
+       [aria-busy="true"] · [data-state="pending"] · [data-motion-state="loading"]
+       [data-state="success"] · [data-state="error"|"offline"]
+       [aria-pressed="true"]                    toggles (save, play, wishlist)
+       :disabled · [aria-disabled="true"]       (excluding pending)
+
+     A test asserts this list equals the map in button-motion.css, so the two
+     layers can never disagree about what "loading" means.
+
+   WHY THE MOTION IS SCOPED TO THE GLYPH, NOT THE FAMILY
+
+     `.confit-glyph--upload` decides HOW an upload arrow moves. The button's
+     `data-motion` family decides nothing here. That separation matters because
+     the same glyph appears in different families (a download tray inside a
+     `financial` invoice button) and the glyph must still read as "download".
+
+   WHAT EACH VERB SAYS
+
+     upload      shaft+head rise on hover, loop upward while busy, tray takes the
+                 load on success — the arrow leaves and the tray stays full
+     download    the same arrow falling: dips on hover, falls repeatedly while
+                 busy, tray accepts on success
+     send        the plane winds up on hover, flies out while busy, and a check
+                 takes its place on success (it left)
+     retry       the ring turns a little on hover, spins while busy, and stops
+                 on either outcome — a retry has no known duration, so it never
+                 shows progress, only motion
+     trash       the lid lifts on hover, the bin empties while busy, and the
+                 whole glyph retracts on success: restrained, never celebratory
+     bookmark    outline → filled on success or `aria-pressed`, with the fill
+                 arriving as a small pop
+     playpause   the triangle is replaced by the bars on `aria-pressed` — a
+                 morph, not a swap, so the control never jumps
+     share       the nodes pop outward in sequence on hover; the links brighten
+                 on success
+     check       draws itself: the universal "it went through"
+
+   RULES THE FILE KEEPS (same as the background layer)
+
+     · No layout shift. Every animated property is `transform`, `opacity`,
+       `stroke-dashoffset` or `fill-opacity`. Nothing here can move a pixel of
+       layout, and the wrapper is `shrink-0` with a fixed box.
+     · Nothing moves at rest. Every animation is bound to a state or a pointer.
+     · `prefers-reduced-motion: reduce` keeps every STATE and removes every
+       MOVEMENT: a filled bookmark is still filled, a delivered check still
+       arrives (it is drawn instantly rather than drawn out).
+     · `forced-colors: active` removes the motion and keeps `currentColor`.
+     · RTL mirrors the two gestures that have a direction (the plane's flight and
+       the share nodes' pop), and leaves the vertical ones alone — an upload
+       arrow rises in Cairo exactly as it does in London.
+   ═════════════════════════════════════════════════════════════════════════════ */
+
+/* ── 1 · THE BOX ─────────────────────────────────────────────────────────────
+   The wrapper is the only thing that could shift layout, so it is pinned: the
+   inline-flex box and a square that cannot grow. The svg is allowed to overflow
+   so a glyph may travel beyond its own box without clipping. */
+.confit-glyph {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+  contain: layout;
+}
+.confit-glyph-svg {
+  display: block;
+  overflow: visible;
+}
+.confit-glyph-svg > * {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+/* ── 2 · THE STATE MACHINE ──────────────────────────────────────────────────
+   Every verb below keys off these five states, and nothing else. They are the
+   states the PRODUCT already publishes — this file adds no sixth meaning to
+   "loading".
+
+   Written as explicit ancestor selectors rather than an indirection through a
+   custom property, because a custom property cannot be read by a selector: a
+   `[style*='--g-state: 1']` rule can never match, since CSS-set properties do
+   not appear in the style attribute. (That mistake was made and caught in
+   review here — recording it so it is not made again.)
+
+     hover / focus-visible .. the pointer or the keyboard is on the control
+     busy ................... aria-busy, data-state=pending, motion-state loading
+     success ................ the server said yes
+     error .................. the server said no (or the network did)
+     disabled ............... read-only: no motion, just a dimmed glyph
+   ──────────────────────────────────────────────────────────────────────────── */
+
+.confit-glyph {
+  --g-dur: 240ms;
+  --g-ease: cubic-bezier(0.25, 1, 0.5, 1);
+  --g-lift: 2px;   /* hover travel */
+  --g-spin: 900ms; /* busy loop    */
+}
+
+/* One place decides what counts as "busy", "done" or "failed" for the glyph —
+   and a test asserts it is the same list the background layer uses. */
+:is(button, a, [role='button']):is(:hover, :focus-visible) > .confit-glyph,
+:is(button, a, [role='button']):active > .confit-glyph,
+:is(button, a, [role='button']):is(
+    [aria-busy='true'], [data-state='pending'], [data-motion-state='loading'], [data-motion-state='pending']
+  ) > .confit-glyph,
+:is(button, a, [role='button']):is([data-state='success'], [data-motion-state='success'], [data-motion-state='done']) > .confit-glyph,
+:is(button, a, [role='button']):is(
+    [data-state='error'], [data-state='offline'], [data-motion-state='error'], [data-motion-state='failed']
+  ) > .confit-glyph {
+  transition: transform var(--g-dur) var(--g-ease);
+}
+
+/* ── 3 · THE VERBS ─────────────────────────────────────────────────────────── */
+
+/* ── upload ─────────────────────────────────────────────────────────────────
+   Hover: the arrow rises (it is about to leave). Busy: it rises, leaves and
+   re-enters from below, so the gesture reads as a stream going out rather than
+   a spinner. Success: the tray has it — the arrow is gone, the tray holds. */
+.confit-glyph--upload .confit-glyph-shaft,
+.confit-glyph--upload .confit-glyph-head {
+  transition: transform var(--g-dur) var(--g-ease), opacity var(--g-dur) linear;
+}
+:is(button, a, [role='button']):is(:hover, :focus-visible) > .confit-glyph--upload .confit-glyph-shaft,
+:is(button, a, [role='button']):is(:hover, :focus-visible) > .confit-glyph--upload .confit-glyph-head {
+  transform: translateY(calc(-1 * var(--g-lift)));
+}
+:is(button, a, [role='button']):is([aria-busy='true'], [data-state='pending'], [data-motion-state='loading'], [data-motion-state='pending']) > .confit-glyph--upload .confit-glyph-shaft,
+:is(button, a, [role='button']):is([aria-busy='true'], [data-state='pending'], [data-motion-state='loading'], [data-motion-state='pending']) > .confit-glyph--upload .confit-glyph-head {
+  animation: confit-glyph-lift var(--g-spin) var(--g-ease) infinite;
+}
+:is(button, a, [role='button']):is([data-state='success'], [data-motion-state='success'], [data-motion-state='done']) > .confit-glyph--upload .confit-glyph-shaft,
+:is(button, a, [role='button']):is([data-state='success'], [data-motion-state='success'], [data-motion-state='done']) > .confit-glyph--upload .confit-glyph-head {
+  opacity: 0;
+  transform: translateY(-6px);
+}
+:is(button, a, [role='button']):is([data-state='success'], [data-motion-state='success'], [data-motion-state='done']) > .confit-glyph--upload .confit-glyph-tray {
+  animation: confit-glyph-accept 520ms var(--g-ease) 1 both;
+}
+:is(button, a, [role='button']):is([data-state='error'], [data-state='offline'], [data-motion-state='error'], [data-motion-state='failed']) > .confit-glyph--upload .confit-glyph-shaft,
+:is(button, a, [role='button']):is([data-state='error'], [data-state='offline'], [data-motion-state='error'], [data-motion-state='failed']) > .confit-glyph--upload .confit-glyph-head {
+  animation: confit-glyph-nudge 320ms ease-in-out 1;
+}
+
+/* ── download ───────────────────────────────────────────────────────────────
+   The mirror: the arrow dips toward the tray on hover, falls in repeatedly
+   while busy, and on success the tray accepts it. */
+.confit-glyph--download .confit-glyph-shaft,
+.confit-glyph--download .confit-glyph-head {
+  transition: transform var(--g-dur) var(--g-ease), opacity var(--g-dur) linear;
+}
+:is(button, a, [role='button']):is(:hover, :focus-visible) > .confit-glyph--download .confit-glyph-shaft,
+:is(button, a, [role='button']):is(:hover, :focus-visible) > .confit-glyph--download .confit-glyph-head {
+  transform: translateY(var(--g-lift));
+}
+:is(button, a, [role='button']):is([aria-busy='true'], [data-state='pending'], [data-motion-state='loading'], [data-motion-state='pending']) > .confit-glyph--download .confit-glyph-shaft,
+:is(button, a, [role='button']):is([aria-busy='true'], [data-state='pending'], [data-motion-state='loading'], [data-motion-state='pending']) > .confit-glyph--download .confit-glyph-head {
+  animation: confit-glyph-drop var(--g-spin) var(--g-ease) infinite;
+}
+:is(button, a, [role='button']):is([data-state='success'], [data-motion-state='success'], [data-motion-state='done']) > .confit-glyph--download .confit-glyph-shaft,
+:is(button, a, [role='button']):is([data-state='success'], [data-motion-state='success'], [data-motion-state='done']) > .confit-glyph--download .confit-glyph-head {
+  opacity: 0;
+  transform: translateY(6px);
+}
+:is(button, a, [role='button']):is([data-state='success'], [data-motion-state='success'], [data-motion-state='done']) > .confit-glyph--download .confit-glyph-tray {
+  animation: confit-glyph-accept 520ms var(--g-ease) 1 both;
+}
+:is(button, a, [role='button']):is([data-state='error'], [data-state='offline'], [data-motion-state='error'], [data-motion-state='failed']) > .confit-glyph--download .confit-glyph-shaft,
+:is(button, a, [role='button']):is([data-state='error'], [data-state='offline'], [data-motion-state='error'], [data-motion-state='failed']) > .confit-glyph--download .confit-glyph-head {
+  animation: confit-glyph-nudge 320ms ease-in-out 1;
+}
+
+/* ── send ───────────────────────────────────────────────────────────────────
+   Hover: the plane winds up (nose dips back). Busy: it flies out of the top
+   right and re-enters from the bottom left — the message leaving. Success: the
+   plane is gone and the check has taken its place, because it was delivered. */
+.confit-glyph--send .confit-glyph-body {
+  transition: transform var(--g-dur) var(--g-ease), opacity var(--g-dur) linear;
+}
+:is(button, a, [role='button']):is(:hover, :focus-visible) > .confit-glyph--send .confit-glyph-body {
+  transform: translate(-1px, 1px) rotate(-6deg);
+}
+:is(button, a, [role='button']):is([aria-busy='true'], [data-state='pending'], [data-motion-state='loading'], [data-motion-state='pending']) > .confit-glyph--send .confit-glyph-body {
+  animation: confit-glyph-fly var(--g-spin) var(--g-ease) infinite;
+}
+:is(button, a, [role='button']):is([data-state='success'], [data-motion-state='success'], [data-motion-state='done']) > .confit-glyph--send .confit-glyph-body {
+  opacity: 0;
+  transform: translate(9px, -9px) rotate(-6deg);
+}
+:is(button, a, [role='button']):is([data-state='error'], [data-state='offline'], [data-motion-state='error'], [data-motion-state='failed']) > .confit-glyph--send .confit-glyph-body {
+  animation: confit-glyph-nudge 320ms ease-in-out 1;
+}
+
+/* ── retry ──────────────────────────────────────────────────────────────────
+   A retry has no known duration, so it never shows progress: it turns. It
+   spins only while busy and stops on either outcome — the same honesty rule the
+   background layer applies to bars. */
+.confit-glyph--retry .confit-glyph-ring,
+.confit-glyph--retry .confit-glyph-head {
+  transition: transform var(--g-dur) var(--g-ease);
+}
+:is(button, a, [role='button']):is(:hover, :focus-visible) > .confit-glyph--retry .confit-glyph-ring,
+:is(button, a, [role='button']):is(:hover, :focus-visible) > .confit-glyph--retry .confit-glyph-head {
+  transform: rotate(38deg);
+}
+:is(button, a, [role='button']):is([aria-busy='true'], [data-state='pending'], [data-motion-state='loading'], [data-motion-state='pending']) > .confit-glyph--retry .confit-glyph-ring,
+:is(button, a, [role='button']):is([aria-busy='true'], [data-state='pending'], [data-motion-state='loading'], [data-motion-state='pending']) > .confit-glyph--retry .confit-glyph-head {
+  animation: confit-glyph-turn var(--g-spin) linear infinite;
+}
+:is(button, a, [role='button']):is([data-state='error'], [data-state='offline'], [data-motion-state='error'], [data-motion-state='failed']) > .confit-glyph--retry .confit-glyph-ring,
+:is(button, a, [role='button']):is([data-state='error'], [data-state='offline'], [data-motion-state='error'], [data-motion-state='failed']) > .confit-glyph--retry .confit-glyph-head {
+  animation: confit-glyph-turn-back 420ms var(--g-ease) 1;
+}
+
+/* ── trash (destructive) ────────────────────────────────────────────────────
+   Restrained by design: the lid lifts on hover (it is open), the bin drains
+   while busy, and on success the whole glyph retracts. Nothing celebrates a
+   deletion. Busy never shows a percentage, because nothing here can know one. */
+.confit-glyph--trash .confit-glyph-lid,
+.confit-glyph--trash .confit-glyph-body,
+.confit-glyph--trash .confit-glyph-fill {
+  transition: transform var(--g-dur) var(--g-ease), opacity var(--g-dur) linear;
+}
+:is(button, a, [role='button']):is(:hover, :focus-visible) > .confit-glyph--trash .confit-glyph-lid {
+  transform: translateY(-2px);
+}
+:is(button, a, [role='button']):is([aria-busy='true'], [data-state='pending'], [data-motion-state='loading'], [data-motion-state='pending']) > .confit-glyph--trash .confit-glyph-fill {
+  animation: confit-glyph-drain var(--g-spin) var(--g-ease) infinite;
+}
+:is(button, a, [role='button']):is([data-state='success'], [data-motion-state='success'], [data-motion-state='done']) > .confit-glyph--trash .confit-glyph-lid,
+:is(button, a, [role='button']):is([data-state='success'], [data-motion-state='success'], [data-motion-state='done']) > .confit-glyph--trash .confit-glyph-body,
+:is(button, a, [role='button']):is([data-state='success'], [data-motion-state='success'], [data-motion-state='done']) > .confit-glyph--trash .confit-glyph-fill {
+  opacity: 0;
+  transform: translateY(4px) scale(0.9);
+}
+:is(button, a, [role='button']):is([data-state='error'], [data-state='offline'], [data-motion-state='error'], [data-motion-state='failed']) > .confit-glyph--trash .confit-glyph-body {
+  animation: confit-glyph-nudge 320ms ease-in-out 1;
+}
+
+/* ── bookmark (save) ────────────────────────────────────────────────────────
+   The classic: an outline becomes a fill. Driven by `aria-pressed`, so the
+   visual can never disagree with the accessible state. */
+.confit-glyph--bookmark .confit-glyph-body {
+  transition: fill-opacity 220ms linear, fill 220ms linear, transform var(--g-dur) var(--g-ease);
+}
+:is(button, a, [role='button']):is(:hover, :focus-visible) > .confit-glyph--bookmark .confit-glyph-body {
+  transform: scale(1.06);
+}
+:is(button, a, [role='button']):is([aria-busy='true'], [data-state='pending'], [data-motion-state='loading'], [data-motion-state='pending']) > .confit-glyph--bookmark .confit-glyph-body {
+  animation: confit-glyph-pulse 1200ms ease-in-out infinite;
+}
+:is(button, a, [role='button']):is([data-state='success'], [data-motion-state='success'], [data-motion-state='done']) > .confit-glyph--bookmark .confit-glyph-body,
+:is(button, a, [role='button'])[aria-pressed='true'] > .confit-glyph--bookmark .confit-glyph-body {
+  animation: confit-glyph-pop 320ms var(--g-ease) 1 both;
+}
+
+/* ── play / pause ───────────────────────────────────────────────────────────
+   A morph, not a swap: both glyphs are always in the DOM, and the state decides
+   which one is present. Nothing jumps, and the box never changes size. */
+.confit-glyph--playpause .confit-glyph-play,
+.confit-glyph--playpause .confit-glyph-pause {
+  transition: opacity 180ms linear, transform 220ms var(--g-ease);
+}
+.confit-glyph--playpause .confit-glyph-pause {
+  opacity: 0;
+  transform: scale(0.6);
+}
+:is(button, a, [role='button'])[aria-pressed='true'] > .confit-glyph--playpause .confit-glyph-play {
+  opacity: 0;
+  transform: scale(0.6);
+}
+:is(button, a, [role='button'])[aria-pressed='true'] > .confit-glyph--playpause .confit-glyph-pause {
+  opacity: 1;
+  transform: scale(1);
+}
+:is(button, a, [role='button']):is([aria-busy='true'], [data-state='pending'], [data-motion-state='loading'], [data-motion-state='pending']) > .confit-glyph--playpause .confit-glyph-play,
+:is(button, a, [role='button']):is([aria-busy='true'], [data-state='pending'], [data-motion-state='loading'], [data-motion-state='pending']) > .confit-glyph--playpause .confit-glyph-pause {
+  animation: confit-glyph-pulse 1200ms ease-in-out infinite;
+}
+
+/* ── share ──────────────────────────────────────────────────────────────────
+   The hand-off: on hover the nodes pop outward in sequence — one, two, three —
+   and the links brighten. On success the whole cluster settles. */
+.confit-glyph--share .confit-glyph-node,
+.confit-glyph--share .confit-glyph-link {
+  transition: transform var(--g-dur) var(--g-ease), opacity var(--g-dur) linear;
+}
+:is(button, a, [role='button']):is(:hover, :focus-visible) > .confit-glyph--share .confit-glyph-node-a {
+  transform: translate(1.2px, -1.2px);
+}
+:is(button, a, [role='button']):is(:hover, :focus-visible) > .confit-glyph--share .confit-glyph-node-b {
+  transition-delay: 40ms;
+  transform: translate(-1.4px, 0);
+}
+:is(button, a, [role='button']):is(:hover, :focus-visible) > .confit-glyph--share .confit-glyph-node-c {
+  transition-delay: 80ms;
+  transform: translate(1.2px, 1.4px);
+}
+:is(button, a, [role='button']):is([data-state='success'], [data-motion-state='success'], [data-motion-state='done']) > .confit-glyph--share .confit-glyph-link {
+  opacity: 0.55;
+}
+
+/* ── check ──────────────────────────────────────────────────────────────────
+   Draws itself. A finite gesture for a finite event, and the one glyph that is
+   allowed to be purely positive. */
+.confit-glyph--check .confit-glyph-check {
+  stroke-dasharray: 26;
+  stroke-dashoffset: 26;
+  transition: stroke-dashoffset 320ms var(--g-ease);
+}
+:is(button, a, [role='button']):is([data-state='success'], [data-motion-state='success'], [data-motion-state='done']) > .confit-glyph--check .confit-glyph-check,
+:is(button, a, [role='button'])[data-state='success'] > .confit-glyph--check .confit-glyph-check {
+  animation: confit-glyph-draw 420ms var(--g-ease) 1 both;
+}
+
+/* Disabled reads as "not now": the glyph stays, dimmed and still. */
+:is(button, a, [role='button']):disabled > .confit-glyph,
+:is(button, a, [role='button'])[aria-disabled='true'] > .confit-glyph {
+  opacity: 0.7;
+}
+
+/* ── 4 · KEYFRAMES ──────────────────────────────────────────────────────────
+   Seven loops, each starting and ending at the same place so the wrap is
+   invisible. Every one animates transform or opacity only — no property in
+   this file can change layout. */
+@keyframes confit-glyph-lift {
+  0%   { transform: translateY(0); opacity: 1; }
+  45%  { transform: translateY(-6px); opacity: 0; }
+  46%  { transform: translateY(5px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+@keyframes confit-glyph-drop {
+  0%   { transform: translateY(-5px); opacity: 0; }
+  45%  { transform: translateY(5px); opacity: 1; }
+  55%  { transform: translateY(5px); opacity: 0; }
+  100% { transform: translateY(-5px); opacity: 0; }
+}
+@keyframes confit-glyph-fly {
+  0%   { transform: translate(0, 0) rotate(0deg); opacity: 1; }
+  55%  { transform: translate(10px, -10px) rotate(-8deg); opacity: 0; }
+  56%  { transform: translate(-7px, 7px) rotate(4deg); opacity: 0; }
+  100% { transform: translate(0, 0) rotate(0deg); opacity: 1; }
+}
+@keyframes confit-glyph-turn {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+@keyframes confit-glyph-turn-back {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(-120deg); }
+}
+@keyframes confit-glyph-drain {
+  0%   { transform: translateY(-3px); opacity: 0; }
+  40%  { transform: translateY(3px); opacity: 1; }
+  70%  { transform: translateY(8px); opacity: 0; }
+  100% { transform: translateY(8px); opacity: 0; }
+}
+@keyframes confit-glyph-accept {
+  0%   { transform: scale(1); }
+  45%  { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+@keyframes confit-glyph-pop {
+  0%   { transform: scale(0.82); }
+  60%  { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+@keyframes confit-glyph-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.55; }
+}
+@keyframes confit-glyph-nudge {
+  0%, 100% { transform: translateX(0); }
+  30%      { transform: translateX(-1.5px); }
+  65%      { transform: translateX(1.5px); }
+}
+@keyframes confit-glyph-draw {
+  from { stroke-dashoffset: 26; }
+  to   { stroke-dashoffset: 0; }
+}
+
+/* ── 5 · DIRECTION (RTL) ────────────────────────────────────────────────────
+   Vertical verbs are left alone: an upload arrow rises in Arabic too. Only the
+   two horizontal gestures mirror — the plane's flight and the share pop — and
+   they mirror through the same token idea as the background layer, so there is
+   no second copy of any chained gesture. */
+[dir='rtl'] :is(button, a, [role='button']):is([aria-busy='true'], [data-state='pending'], [data-motion-state='loading'], [data-motion-state='pending']) > .confit-glyph--send .confit-glyph-body {
+  animation: confit-glyph-fly-rtl var(--g-spin) var(--g-ease) infinite;
+}
+@keyframes confit-glyph-fly-rtl {
+  0%   { transform: translate(0, 0) rotate(0deg); opacity: 1; }
+  55%  { transform: translate(-10px, -10px) rotate(8deg); opacity: 0; }
+  56%  { transform: translate(7px, 7px) rotate(-4deg); opacity: 0; }
+  100% { transform: translate(0, 0) rotate(0deg); opacity: 1; }
+}
+[dir='rtl'] :is(button, a, [role='button']):is(:hover, :focus-visible) > .confit-glyph--share .confit-glyph-node-a {
+  transform: translate(-1.2px, -1.2px);
+}
+[dir='rtl'] :is(button, a, [role='button']):is(:hover, :focus-visible) > .confit-glyph--share .confit-glyph-node-b {
+  transform: translate(1.4px, 0);
+}
+[dir='rtl'] :is(button, a, [role='button']):is(:hover, :focus-visible) > .confit-glyph--share .confit-glyph-node-c {
+  transform: translate(-1.2px, 1.4px);
+}
+
+/* ── 6 · REDUCED MOTION ─────────────────────────────────────────────────────
+   Every MOVEMENT goes; every STATE stays. A saved bookmark is still filled, a
+   delivered check still arrives (drawn instantly, not drawn out), a busy
+   control still shows its busy colour from the background layer. Nothing in
+   this file carries meaning that exists only as motion. */
+@media (prefers-reduced-motion: reduce) {
+  .confit-glyph,
+  .confit-glyph * {
+    animation: none !important;
+    transition-duration: 1ms !important;
+    transform: none !important;
+  }
+  /* the two states that are a transform rather than a colour: keep them legible */
+  :is(button, a, [role='button']):is([data-state='success'], [data-motion-state='success'], [data-motion-state='done']) > .confit-glyph--upload .confit-glyph-shaft,
+  :is(button, a, [role='button']):is([data-state='success'], [data-motion-state='success'], [data-motion-state='done']) > .confit-glyph--upload .confit-glyph-head,
+  :is(button, a, [role='button']):is([data-state='success'], [data-motion-state='success'], [data-motion-state='done']) > .confit-glyph--download .confit-glyph-shaft,
+  :is(button, a, [role='button']):is([data-state='success'], [data-motion-state='success'], [data-motion-state='done']) > .confit-glyph--download .confit-glyph-head,
+  :is(button, a, [role='button']):is([data-state='success'], [data-motion-state='success'], [data-motion-state='done']) > .confit-glyph--send .confit-glyph-body,
+  :is(button, a, [role='button']):is([data-state='success'], [data-motion-state='success'], [data-motion-state='done']) > .confit-glyph--trash .confit-glyph-lid,
+  :is(button, a, [role='button']):is([data-state='success'], [data-motion-state='success'], [data-motion-state='done']) > .confit-glyph--trash .confit-glyph-body,
+  :is(button, a, [role='button']):is([data-state='success'], [data-motion-state='success'], [data-motion-state='done']) > .confit-glyph--trash .confit-glyph-fill {
+    opacity: 0;
+  }
+  .confit-glyph--check .confit-glyph-check {
+    stroke-dashoffset: 0;
+  }
+  :is(button, a, [role='button'])[aria-pressed='true'] > .confit-glyph--playpause .confit-glyph-play {
+    opacity: 0;
+  }
+  :is(button, a, [role='button'])[aria-pressed='true'] > .confit-glyph--playpause .confit-glyph-pause {
+    opacity: 1;
+  }
+}
+
+/* ── 7 · FORCED COLORS ──────────────────────────────────────────────────────
+   The OS owns the palette, so the glyph keeps `currentColor` and stops moving.
+   Structure and text remain; decoration does not. */
+@media (forced-colors: active) {
+  .confit-glyph,
+  .confit-glyph * {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+  }
+  .confit-glyph-svg {
+    color: CanvasText;
+  }
+}

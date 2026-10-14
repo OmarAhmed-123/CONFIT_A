@@ -308,3 +308,174 @@ export const MicIcon: React.FC<IconProps> = ({ size = 20, className = '', isActi
     </IconWrapper>
   );
 };
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   FUNCTIONAL VERB GLYPHS — Part 3
+
+   The set above names PLACES (Home, Wardrobe, Bag, Orders): it tells a user
+   where a control goes. These name ACTIONS, so a control can tell a user what
+   it is about to do — an upload arrow that rises, a download arrow that falls
+   into a tray, a paper plane that flies, a play triangle that becomes a pause
+   bar, a bookmark outline that fills, a bin that empties.
+
+   Two deliberate differences from the icons above:
+
+   1 · Every part that moves carries a `confit-glyph-*` class. The motion lives
+       in `src/styles/button-glyph-motion.css`, keyed off the same
+       `data-motion` + state attributes the background engine already reads, so
+       a glyph cannot animate in a state the product does not publish.
+   2 · They are DECORATIVE by default (aria-hidden), because they are authored
+       for use INSIDE a labelled control. The icons above default to
+       role="img" + aria-label, which is correct for a standalone icon and
+       wrong inside a button: the label would be read twice (once for the icon,
+       once for the text). Pass `ariaLabel` explicitly to opt back in.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+export interface VerbIconProps extends IconProps {
+  /** Overrides the decorative default; only for standalone use. */
+  label?: string;
+}
+
+const VerbWrapper: React.FC<{
+  size: number;
+  glyph: string;
+  className: string;
+  label?: string;
+  children: React.ReactNode;
+}> = ({ size, glyph, className, label, children }) => (
+  <span
+    className={`confit-glyph confit-glyph--${glyph} relative inline-flex shrink-0 items-center justify-center ${className}`}
+    {...(label ? { role: 'img', 'aria-label': label } : { 'aria-hidden': 'true' })}
+  >
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className="confit-glyph-svg transition-colors duration-200"
+      style={{ overflow: 'visible' }}
+    >
+      {children}
+    </svg>
+  </span>
+);
+
+// 23. Upload — an arrow lifting out of a tray.
+export const UploadIcon: React.FC<VerbIconProps> = ({ size = 20, className = '', color, label }) => {
+  const stroke = color || 'currentColor';
+  return (
+    <VerbWrapper size={size} glyph="upload" className={className} label={label}>
+      <path className="confit-glyph-tray" d="M4 16.5V19C4 19.55 4.45 20 5 20H19C19.55 20 20 19.55 20 19V16.5" stroke={stroke} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+      <path className="confit-glyph-shaft" d="M12 15.5V4.5" stroke={stroke} strokeWidth="1.75" strokeLinecap="round" />
+      <path className="confit-glyph-head" d="M7.5 9L12 4.5L16.5 9" stroke={stroke} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+    </VerbWrapper>
+  );
+};
+
+// 24. Download — the same arrow, received by the tray.
+export const DownloadIcon: React.FC<VerbIconProps> = ({ size = 20, className = '', color, label }) => {
+  const stroke = color || 'currentColor';
+  return (
+    <VerbWrapper size={size} glyph="download" className={className} label={label}>
+      <path className="confit-glyph-tray" d="M4 16.5V19C4 19.55 4.45 20 5 20H19C19.55 20 20 19.55 20 19V16.5" stroke={stroke} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+      <path className="confit-glyph-shaft" d="M12 4.5V15.5" stroke={stroke} strokeWidth="1.75" strokeLinecap="round" />
+      <path className="confit-glyph-head" d="M7.5 11L12 15.5L16.5 11" stroke={stroke} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+    </VerbWrapper>
+  );
+};
+
+// 25. Send — a paper plane, for submit/ask/publish.
+export const SendIcon: React.FC<VerbIconProps> = ({ size = 20, className = '', color, label }) => {
+  const stroke = color || 'currentColor';
+  return (
+    <VerbWrapper size={size} glyph="send" className={className} label={label}>
+      <path className="confit-glyph-body" d="M21 3L10.8 13.2" stroke={stroke} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+      <path className="confit-glyph-body" d="M21 3L14.4 21L10.8 13.2L3 9.6L21 3Z" stroke={stroke} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+    </VerbWrapper>
+  );
+};
+
+// 26. Retry — an arrow chasing its own tail.
+export const RetryIcon: React.FC<VerbIconProps> = ({ size = 20, className = '', color, label }) => {
+  const stroke = color || 'currentColor';
+  return (
+    <VerbWrapper size={size} glyph="retry" className={className} label={label}>
+      <path className="confit-glyph-ring" d="M20 12C20 16.42 16.42 20 12 20C7.58 20 4 16.42 4 12C4 7.58 7.58 4 12 4C15.1 4 17.8 5.76 19.1 8.35" stroke={stroke} strokeWidth="1.75" strokeLinecap="round" />
+      <path className="confit-glyph-head" d="M19.5 4V8.75H14.75" stroke={stroke} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+    </VerbWrapper>
+  );
+};
+
+// 27. Trash — a lid that lifts and a bin that empties.
+export const TrashIcon: React.FC<VerbIconProps> = ({ size = 20, className = '', color, label }) => {
+  const stroke = color || 'currentColor';
+  return (
+    <VerbWrapper size={size} glyph="trash" className={className} label={label}>
+      <path className="confit-glyph-lid" d="M4 7H20" stroke={stroke} strokeWidth="1.75" strokeLinecap="round" />
+      <path className="confit-glyph-lid" d="M9.5 7V4.8C9.5 4.36 9.86 4 10.3 4H13.7C14.14 4 14.5 4.36 14.5 4.8V7" stroke={stroke} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+      <path className="confit-glyph-body" d="M6.5 7L7.4 19.2C7.44 19.65 7.82 20 8.27 20H15.73C16.18 20 16.56 19.65 16.6 19.2L17.5 7" stroke={stroke} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+      <path className="confit-glyph-fill" d="M10.5 11V16.5" stroke={stroke} strokeWidth="1.75" strokeLinecap="round" />
+      <path className="confit-glyph-fill" d="M13.5 11V16.5" stroke={stroke} strokeWidth="1.75" strokeLinecap="round" />
+    </VerbWrapper>
+  );
+};
+
+// 28. Bookmark — the outline that fills when something is saved.
+export const BookmarkIcon: React.FC<VerbIconProps & { isSaved?: boolean }> = ({
+  size = 20, className = '', color, label, isSaved = false,
+}) => {
+  const stroke = color || 'currentColor';
+  return (
+    <VerbWrapper size={size} glyph="bookmark" className={className} label={label}>
+      <path
+        className="confit-glyph-body"
+        d="M7 4H17C17.55 4 18 4.45 18 5V20L12 16.3L6 20V5C6 4.45 6.45 4 7 4Z"
+        stroke={stroke}
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill={isSaved ? stroke : 'none'}
+        fillOpacity={isSaved ? 0.9 : 0}
+      />
+    </VerbWrapper>
+  );
+};
+
+// 29. Play / Pause — two glyphs in one control, swapped by state.
+export const PlayPauseIcon: React.FC<VerbIconProps & { isPlaying?: boolean }> = ({
+  size = 20, className = '', color, label, isPlaying = false,
+}) => {
+  const stroke = color || 'currentColor';
+  return (
+    <VerbWrapper size={size} glyph="playpause" className={className} label={label}>
+      <path className="confit-glyph-play" d="M8.5 5.6V18.4L19 12L8.5 5.6Z" stroke={stroke} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" fill={isPlaying ? 'none' : stroke} fillOpacity={isPlaying ? 0 : 0.9} />
+      <path className="confit-glyph-pause" d="M9.5 6V18" stroke={stroke} strokeWidth="2.25" strokeLinecap="round" />
+      <path className="confit-glyph-pause" d="M14.5 6V18" stroke={stroke} strokeWidth="2.25" strokeLinecap="round" />
+    </VerbWrapper>
+  );
+};
+
+// 30. Share — the outward hand-off (link / invite / publish).
+export const ShareGlyph: React.FC<VerbIconProps> = ({ size = 20, className = '', color, label }) => {
+  const stroke = color || 'currentColor';
+  return (
+    <VerbWrapper size={size} glyph="share" className={className} label={label}>
+      <circle className="confit-glyph-node confit-glyph-node-a" cx="17.5" cy="5.5" r="2.6" stroke={stroke} strokeWidth="1.75" />
+      <circle className="confit-glyph-node confit-glyph-node-b" cx="6.5" cy="12" r="2.6" stroke={stroke} strokeWidth="1.75" />
+      <circle className="confit-glyph-node confit-glyph-node-c" cx="17.5" cy="18.5" r="2.6" stroke={stroke} strokeWidth="1.75" />
+      <path className="confit-glyph-link" d="M8.9 10.7L15.1 6.7" stroke={stroke} strokeWidth="1.75" strokeLinecap="round" />
+      <path className="confit-glyph-link" d="M8.9 13.3L15.1 17.3" stroke={stroke} strokeWidth="1.75" strokeLinecap="round" />
+    </VerbWrapper>
+  );
+};
+
+// 31. Check — the confirmation a finite action earns.
+export const CheckIcon: React.FC<VerbIconProps> = ({ size = 20, className = '', color, label }) => {
+  const stroke = color || 'currentColor';
+  return (
+    <VerbWrapper size={size} glyph="check" className={className} label={label}>
+      <path className="confit-glyph-check" d="M5 12.8L9.8 17.5L19 6.5" stroke={stroke} strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
+    </VerbWrapper>
+  );
+};

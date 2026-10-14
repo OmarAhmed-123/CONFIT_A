@@ -759,6 +759,7 @@ export interface BrandProfile {
   return_rate_benchmark: number;
   current_return_rate: number;
   is_verified: boolean;
+  publication_status?: string;
   created_at: string;
 }
 
@@ -1238,3 +1239,173 @@ export interface BrandOrderLinesResponse {
   };
   filters: Record<string, unknown>;
 }
+
+// ============================================================================
+// Customer Brand Discovery, Store Locator & Branch-Level Product Availability
+// ============================================================================
+
+export interface BrandPromotion {
+  id: number;
+  code: string;
+  description: string;
+  discount_type: 'percent' | 'fixed';
+  discount_value: number;
+  min_order_amount: number;
+  currency: string;
+  starts_at?: string | null;
+  expires_at?: string | null;
+  is_active: boolean;
+}
+
+export interface StoreBranchSummary {
+  id: number;
+  brand_id: number;
+  brand_name: string;
+  brand_slug: string;
+  name: string;
+  name_ar: string;
+  address: string;
+  city: string;
+  country: string;
+  latitude: number;
+  longitude: number;
+  phone?: string | null;
+  pickup_instructions?: string | null;
+  is_bopis_enabled: boolean;
+  distance_km?: number | null;
+  google_maps_url: string;
+  in_stock_skus_count: number;
+  active_promotions: BrandPromotion[];
+}
+
+export interface CustomerBrand {
+  id: number;
+  brand_name: string;
+  slug: string;
+  logo_url?: string | null;
+  banner_url?: string | null;
+  description?: string | null;
+  description_ar?: string | null;
+  website?: string | null;
+  is_verified: boolean;
+  return_rate_benchmark: number;
+  current_return_rate: number;
+  total_products: number;
+  stores_count: number;
+  cities: string[];
+  categories: string[];
+  active_promotions_count: number;
+  promotions: BrandPromotion[];
+  sample_products: Product[];
+}
+
+export interface CustomerBrandDetail extends CustomerBrand {
+  stores: StoreBranchSummary[];
+  all_promotions: BrandPromotion[];
+}
+
+export interface BranchSKUAvailability {
+  sku_id: number;
+  sku_code: string;
+  size: string;
+  color: string;
+  color_hex: string;
+  quantity_available: number;
+  reserved_quantity: number;
+  is_in_stock: boolean;
+  availability_status: 'in_stock' | 'low_stock' | 'out_of_stock';
+}
+
+export interface BranchProductItem extends Product {
+  branch_id: number;
+  branch_name: string;
+  branch_total_units: number;
+  branch_in_stock: boolean;
+  branch_availability_status: 'in_stock' | 'low_stock' | 'out_of_stock';
+  branch_skus: BranchSKUAvailability[];
+  discount_percent?: number | null;
+}
+
+export interface BranchInventoryCatalog {
+  store: StoreBranchSummary;
+  brand: BrandSummary;
+  total_items: number;
+  products: BranchProductItem[];
+  categories: string[];
+  available_sizes: string[];
+  active_promotions: BrandPromotion[];
+}
+
+export interface BrandRegistrationPayload {
+  brand_name: string;
+  email: string;
+  password: string;
+  full_name: string;
+  phone?: string;
+  description?: string;
+  description_ar?: string;
+  website?: string;
+  logo_url?: string;
+  country?: string;
+  city?: string;
+  preferred_language?: string;
+}
+
+export interface BrandRegistrationResponse {
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
+  brand: BrandProfile;
+  message: string;
+  status: 'created' | 'existing';
+  next_step: string;
+  is_verified: boolean;
+}
+
+export interface BrandOnboardingStep {
+  key: string;
+  title: string;
+  description: string;
+  is_completed: boolean;
+  action_url: string;
+}
+
+export interface BrandOnboardingStatus {
+  brand_id: number;
+  brand_name: string;
+  is_verified: boolean;
+  is_published: boolean;
+  publication_status: 'active' | 'pending_review' | 'draft';
+  welcome_message: string;
+  primary_cta_label: string;
+  primary_cta_url: string;
+  completed_steps_count: number;
+  total_steps_count: number;
+  completion_percentage: number;
+  steps: BrandOnboardingStep[];
+  stores_count: number;
+  products_count: number;
+  active_promotions_count: number;
+}
+
+export interface PartnerStoreDetail {
+  id: number;
+  brand_id: number;
+  name: string;
+  name_ar: string;
+  city: string;
+  country: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+  phone?: string | null;
+  pickup_instructions?: string | null;
+  is_bopis_enabled: boolean;
+  is_location_verified: boolean;
+  inventory_items_count: number;
+  total_stock_units: number;
+  google_maps_url: string;
+  created_at: string;
+}
+
+

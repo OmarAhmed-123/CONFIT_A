@@ -180,3 +180,83 @@ class PartnerLeadOut(BaseModel):
 class BrandProductOut(ProductSummaryOut):
     """Partner catalog needs variants; public product summaries omit them."""
     skus: List[ProductSKUOut]
+
+
+class BrandRegistrationRequest(BaseModel):
+    brand_name: str = Field(min_length=2, max_length=255)
+    email: str = Field(min_length=5, max_length=255)
+    password: str = Field(min_length=8, max_length=128)
+    full_name: str = Field(min_length=2, max_length=255)
+    phone: Optional[str] = Field(None, max_length=50)
+    description: Optional[str] = Field(None, max_length=2000)
+    description_ar: Optional[str] = Field(None, max_length=2000)
+    website: Optional[str] = Field(None, max_length=500)
+    logo_url: Optional[str] = Field(None, max_length=1000)
+    country: Optional[str] = Field("UAE", max_length=100)
+    city: Optional[str] = Field("Dubai", max_length=100)
+    preferred_language: Optional[str] = Field("en", max_length=10)
+
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+
+class BrandRegistrationResponse(BaseModel):
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+    brand: BrandProfileOut
+    message: str
+    status: str  # "created" | "existing"
+    next_step: str
+    is_verified: bool
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class BrandOnboardingStep(BaseModel):
+    key: str
+    title: str
+    description: str
+    is_completed: bool
+    action_url: str
+
+
+class BrandOnboardingStatusOut(BaseModel):
+    brand_id: int
+    brand_name: str
+    is_verified: bool
+    is_published: bool
+    publication_status: str  # "active" | "pending_review" | "draft"
+    welcome_message: str
+    primary_cta_label: str
+    primary_cta_url: str
+    completed_steps_count: int
+    total_steps_count: int
+    completion_percentage: int
+    steps: List[BrandOnboardingStep]
+    stores_count: int
+    products_count: int
+    active_promotions_count: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PartnerStoreDetailOut(BaseModel):
+    id: int
+    brand_id: int
+    name: str
+    name_ar: str
+    city: str
+    country: str
+    address: str
+    latitude: float
+    longitude: float
+    phone: Optional[str] = None
+    pickup_instructions: Optional[str] = None
+    is_bopis_enabled: bool
+    is_location_verified: bool
+    inventory_items_count: int
+    total_stock_units: int
+    google_maps_url: str
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)

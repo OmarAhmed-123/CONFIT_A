@@ -64,3 +64,12 @@ vendor/test_assets/
 
 # StyleList browser gate output (T029), local runs only
 frontend/gate-artifacts/
+
+*.db
+*.db-wal
+*.db-shm
+email_previews/
+backend/confit.db
+report_page-1.png
+shots_vercel_home.png
+/capture_*.mjs

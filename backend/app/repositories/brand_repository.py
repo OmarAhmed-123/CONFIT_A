@@ -37,6 +37,62 @@ class BrandRepository:
     def get_by_user_id(self, user_id: int) -> Optional[BrandProfile]:
         return self.db.query(BrandProfile).filter(BrandProfile.user_id == user_id).first()
 
+    def get_by_name(self, brand_name: str) -> Optional[BrandProfile]:
+        return self.db.query(BrandProfile).filter(func.lower(BrandProfile.brand_name) == brand_name.strip().lower()).first()
+
+    def get_by_slug(self, slug: str) -> Optional[BrandProfile]:
+        return self.db.query(BrandProfile).filter(BrandProfile.slug == slug.strip().lower()).first()
+
+    def create_brand_profile(
+        self,
+        user_id: int,
+        brand_name: str,
+        slug: str,
+        description: Optional[str] = None,
+        description_ar: Optional[str] = None,
+        website: Optional[str] = None,
+        logo_url: Optional[str] = None,
+        is_verified: bool = False,
+    ) -> BrandProfile:
+        bp = BrandProfile(
+            user_id=user_id,
+            brand_name=brand_name.strip(),
+            slug=slug.strip().lower(),
+            description=description,
+            description_ar=description_ar or description,
+            website=website,
+            logo_url=logo_url,
+            is_verified=is_verified,
+            commission_rate=15,
+            return_rate_benchmark=28,
+            current_return_rate=11,
+            created_at=datetime.now(timezone.utc),
+        )
+        self.db.add(bp)
+        self.db.commit()
+        self.db.refresh(bp)
+        return bp
+
+    def set_brand_verification(self, brand_id: int, is_verified: bool) -> BrandProfile:
+        bp = self.db.get(BrandProfile, brand_id)
+        if not bp:
+            raise ValueError(f"Brand {brand_id} not found")
+        bp.is_verified = is_verified
+        self.db.commit()
+        self.db.refresh(bp)
+        return bp
+
+    def delete_store(self, store_id: int, brand_id: int) -> bool:
+        store = self.db.query(StoreLocation).filter(
+            StoreLocation.id == store_id,
+            StoreLocation.brand_id == brand_id
+        ).first()
+        if not store:
+            raise ValueError(f"Store {store_id} not found for brand {brand_id}")
+        self.db.delete(store)
+        self.db.commit()
+        return True
+
     def get_by_id(self, brand_id: int) -> Optional[BrandProfile]:
         # Session.get() consults the identity map BEFORE emitting SQL, while
         # query(...).filter(...).first() always goes to the database. Within one

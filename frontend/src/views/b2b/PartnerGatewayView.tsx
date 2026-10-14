@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown } from "lucide-react";
@@ -134,6 +135,12 @@ export const PartnerGatewayView: React.FC = () => {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
+            <Link
+              to="/brand/register"
+              className="inline-flex min-h-[48px] items-center rounded-[14px] bg-brand-charcoal px-6 text-xs font-bold uppercase tracking-wider text-white transition-colors duration-[140ms] ease-luxury hover:bg-black shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2"
+            >
+              {t("brand_reg.submit_btn", "Register Brand Workspace")} &rarr;
+            </Link>
             <button
               type="button"
               onClick={scrollToForm}
@@ -314,20 +321,28 @@ export const PartnerGatewayView: React.FC = () => {
             {t("partner.close_title")}
           </h2>
         </div>
-        <button
-          type="button"
-          onClick={scrollToForm}
-          className="inline-flex min-h-[48px] items-center rounded-[14px] bg-brand-charcoal px-8 text-xs font-bold uppercase tracking-wider text-white transition-colors duration-[140ms] ease-luxury hover:bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white"
-        >
-          {t("partner.request_partnership")}
-        </button>
-        <button
-          type="button"
-          onClick={() => openAuthModal("login")}
-          className="inline-flex min-h-[48px] items-center px-4 text-[0.875rem] underline underline-offset-4 decoration-brand-charcoal transition-colors duration-[140ms] ease-luxury hover:text-[var(--register-ink)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2"
-        >
-          {t("partner.existing_sign_in")}
-        </button>
+        <div className="flex flex-wrap items-center justify-center gap-4">
+          <Link
+            to="/brand/register"
+            className="inline-flex min-h-[48px] items-center rounded-[14px] bg-brand-charcoal px-8 text-xs font-bold uppercase tracking-wider text-white transition-colors duration-[140ms] ease-luxury hover:bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white"
+          >
+            {t("brand_reg.submit_btn", "Register Brand Workspace")} &rarr;
+          </Link>
+          <button
+            type="button"
+            onClick={scrollToForm}
+            className="inline-flex min-h-[48px] items-center rounded-[14px] bg-brand-coral px-8 text-xs font-bold uppercase tracking-wider text-white transition-colors duration-[140ms] ease-luxury hover:bg-[#E76A52] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-coral focus-visible:ring-offset-2 focus-visible:ring-offset-white"
+          >
+            {t("partner.request_partnership")}
+          </button>
+          <button
+            type="button"
+            onClick={() => openAuthModal("login")}
+            className="inline-flex min-h-[48px] items-center px-4 text-[0.875rem] underline underline-offset-4 decoration-brand-charcoal transition-colors duration-[140ms] ease-luxury hover:text-[var(--register-ink)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2"
+          >
+            {t("partner.existing_sign_in")}
+          </button>
+        </div>
       </section>
     </main>
   );

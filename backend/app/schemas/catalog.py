@@ -1,4 +1,5 @@
 from typing import Optional, List, Dict, Any
+from datetime import datetime
 from pydantic import BaseModel, ConfigDict, field_validator
 
 
@@ -226,3 +227,108 @@ class AutocompleteSuggestion(BaseModel):
 class AutocompleteResponse(BaseModel):
     query: str
     suggestions: List[AutocompleteSuggestion]
+
+
+# ============================================================================
+# Customer Brand Discovery, Store Locator & Branch Inventory Schemas
+# ============================================================================
+
+class BrandPromotionOut(BaseModel):
+    id: int
+    code: str
+    description: str
+    discount_type: str  # "percent" | "fixed"
+    discount_value: float
+    min_order_amount: float = 0.0
+    currency: str = "USD"
+    starts_at: Optional[datetime] = None
+    expires_at: Optional[datetime] = None
+    is_active: bool = True
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class StoreBranchSummaryOut(BaseModel):
+    id: int
+    brand_id: int
+    brand_name: str
+    brand_slug: str
+    name: str
+    name_ar: str
+    address: str
+    city: str
+    country: str
+    latitude: float
+    longitude: float
+    phone: Optional[str] = None
+    pickup_instructions: Optional[str] = None
+    is_bopis_enabled: bool = True
+    distance_km: Optional[float] = None
+    google_maps_url: str
+    in_stock_skus_count: int = 0
+    active_promotions: List[BrandPromotionOut] = []
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class CustomerBrandOut(BaseModel):
+    id: int
+    brand_name: str
+    slug: str
+    logo_url: Optional[str] = None
+    banner_url: Optional[str] = None
+    description: Optional[str] = None
+    description_ar: Optional[str] = None
+    website: Optional[str] = None
+    is_verified: bool = True
+    return_rate_benchmark: int = 28
+    current_return_rate: int = 11
+    total_products: int = 0
+    stores_count: int = 0
+    cities: List[str] = []
+    categories: List[str] = []
+    active_promotions_count: int = 0
+    promotions: List[BrandPromotionOut] = []
+    sample_products: List[ProductSummaryOut] = []
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class CustomerBrandDetailOut(CustomerBrandOut):
+    stores: List[StoreBranchSummaryOut] = []
+    all_promotions: List[BrandPromotionOut] = []
+
+
+class BranchSKUAvailabilityOut(BaseModel):
+    sku_id: int
+    sku_code: str
+    size: str
+    color: str
+    color_hex: str
+    quantity_available: int
+    reserved_quantity: int
+    is_in_stock: bool
+    availability_status: str  # "in_stock" | "low_stock" | "out_of_stock"
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class BranchProductItemOut(ProductSummaryOut):
+    branch_id: int
+    branch_name: str
+    branch_total_units: int
+    branch_in_stock: bool
+    branch_availability_status: str  # "in_stock" | "low_stock" | "out_of_stock"
+    branch_skus: List[BranchSKUAvailabilityOut] = []
+    discount_percent: Optional[int] = None
+
+
+class BranchInventoryCatalogOut(BaseModel):
+    store: StoreBranchSummaryOut
+    brand: BrandSummaryOut
+    total_items: int
+    products: List[BranchProductItemOut]
+    categories: List[str]
+    available_sizes: List[str]
+    active_promotions: List[BrandPromotionOut] = []
+

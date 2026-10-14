@@ -482,8 +482,9 @@ def seed_database(target_engine=None, force=False):
             sku_objs.append(sku)
     db.flush()
 
-    # 6. Physical Stores (for BOPIS)
+    # 6. Physical Stores (for BOPIS and Store Locator)
     stores_data = [
+        # Massimo Dutti
         {
             "brand_id": brand_objs[0].id,
             "name": "Massimo Dutti — The Dubai Mall",
@@ -492,9 +493,116 @@ def seed_database(target_engine=None, force=False):
             "city": "Dubai",
             "country": "UAE",
             "latitude": 25.1972,
-            "longitude": 55.2744,
-            "phone": "+97143398700",
-            "pickup_instructions": "Visit Fashion Avenue VIP Concierge desk.",
+            "longitude": 55.2796,
+            "phone": "+971 4 339 8888",
+            "pickup_instructions": "Collect at the Fashion Avenue VIP Concierge desk, Level 1.",
+            "is_bopis_enabled": True
+        },
+        {
+            "brand_id": brand_objs[0].id,
+            "name": "Massimo Dutti — Mall of the Emirates",
+            "name_ar": "ماسيمو دوتي — مول الإمارات",
+            "address": "Sheikh Zayed Rd, Al Barsha 1",
+            "city": "Dubai",
+            "country": "UAE",
+            "latitude": 25.1181,
+            "longitude": 55.2003,
+            "phone": "+971 4 409 9000",
+            "pickup_instructions": "Ground floor, opposite the central atrium.",
+            "is_bopis_enabled": True
+        },
+        {
+            "brand_id": brand_objs[0].id,
+            "name": "Massimo Dutti — Cairo Festival City",
+            "name_ar": "ماسيمو دوتي — كايرو فستيفال سيتي",
+            "address": "Level 1, North Wing, Cairo Festival City Mall",
+            "city": "Cairo",
+            "country": "Egypt",
+            "latitude": 30.0315,
+            "longitude": 31.4087,
+            "phone": "+20 2 2618 6000",
+            "pickup_instructions": "Direct Level 1 North Wing customer collection counter.",
+            "is_bopis_enabled": True
+        },
+        # COS
+        {
+            "brand_id": brand_objs[1].id,
+            "name": "COS — Mall of Arabia",
+            "name_ar": "كوس — مول العرب",
+            "address": "Juffali St, Al Hamra District",
+            "city": "Jeddah",
+            "country": "Saudi Arabia",
+            "latitude": 21.5810,
+            "longitude": 39.1585,
+            "phone": "+966 12 606 7000",
+            "pickup_instructions": "Ask at the main till for online orders collection.",
+            "is_bopis_enabled": True
+        },
+        {
+            "brand_id": brand_objs[1].id,
+            "name": "COS — The Dubai Mall",
+            "name_ar": "كوس — دبي مول",
+            "address": "Ground Floor, Grand Atrium, The Dubai Mall",
+            "city": "Dubai",
+            "country": "UAE",
+            "latitude": 25.1990,
+            "longitude": 55.2780,
+            "phone": "+971 4 330 8000",
+            "pickup_instructions": "Collection point next to the fitting suites.",
+            "is_bopis_enabled": True
+        },
+        # Reiss
+        {
+            "brand_id": brand_objs[2].id,
+            "name": "Reiss — Mall of Egypt",
+            "name_ar": "ريس — مول مصر",
+            "address": "Wahat Rd, Al Wahat Rd, 6th of October City",
+            "city": "Giza",
+            "country": "Egypt",
+            "latitude": 29.9723,
+            "longitude": 31.0170,
+            "phone": "+20 2 3826 0000",
+            "pickup_instructions": "Collection desk located at the store entrance.",
+            "is_bopis_enabled": True
+        },
+        {
+            "brand_id": brand_objs[2].id,
+            "name": "Reiss — City Centre Almaza",
+            "name_ar": "ريس — سيتي سنتر ألماظة",
+            "address": "Suez Rd, Sheraton Al Matar, El Nozha",
+            "city": "Cairo",
+            "country": "Egypt",
+            "latitude": 30.0900,
+            "longitude": 31.3700,
+            "phone": "+20 2 2480 0000",
+            "pickup_instructions": "First floor, next to customer service desk.",
+            "is_bopis_enabled": True
+        },
+        # Arket
+        {
+            "brand_id": brand_objs[3].id,
+            "name": "Arket — Dubai Hills Mall",
+            "name_ar": "آركت — دبي هيلز مول",
+            "address": "Al Khail Rd, Dubai Hills Estate",
+            "city": "Dubai",
+            "country": "UAE",
+            "latitude": 25.1010,
+            "longitude": 55.2478,
+            "phone": "+971 4 520 7000",
+            "pickup_instructions": "Pickup counter beside the fitting rooms and café.",
+            "is_bopis_enabled": True
+        },
+        {
+            "brand_id": brand_objs[3].id,
+            "name": "Arket — Zamalek Concept Space",
+            "name_ar": "آركت — فضاء الزمالك الإبداعي",
+            "address": "14 Hassan Sabry St, Zamalek",
+            "city": "Cairo",
+            "country": "Egypt",
+            "latitude": 30.0626,
+            "longitude": 31.2201,
+            "phone": "+20 2 2735 4410",
+            "pickup_instructions": "Ask at the botanical espresso bar checkout.",
             "is_bopis_enabled": True
         }
     ]
@@ -506,10 +614,17 @@ def seed_database(target_engine=None, force=False):
         store_objs.append(store)
     db.flush()
 
-    for sku in sku_objs:
-        for store in store_objs:
-            inv = StoreInventory(store_id=store.id, sku_id=sku.id, quantity=6, reserved_quantity=0)
-            db.add(inv)
+    # Seed branch inventory: every SKU is stocked at its brand's stores
+    sku_by_id = {sku.id: sku for sku in sku_objs}
+    for store in store_objs:
+        for sku in sku_objs:
+            # Only stock SKUs of the same brand
+            prod = next((p for p in product_objs if p.id == sku.product_id), None)
+            if prod and prod.brand_id == store.brand_id:
+                qty = 8 if (sku.id + store.id) % 3 != 0 else 2
+                res = 1 if qty > 2 and (sku.id % 2 == 0) else 0
+                inv = StoreInventory(store_id=store.id, sku_id=sku.id, brand_id=store.brand_id, quantity=qty, reserved_quantity=res)
+                db.add(inv)
     db.flush()
 
     # 7. Wardrobe Item
@@ -633,6 +748,50 @@ def seed_database(target_engine=None, force=False):
         min_order_amount=50.0,
         currency="USD",
         max_per_user=3,
+        is_active=True,
+    ))
+    db.add(Promotion(
+        code="MDTAILOR20",
+        description="20% off tailoring pieces in-store and online",
+        discount_type="percent",
+        discount_value=20.0,
+        min_order_amount=0.0,
+        currency="USD",
+        brand_id=brand_objs[0].id,
+        max_per_user=5,
+        is_active=True,
+    ))
+    db.add(Promotion(
+        code="ARKETECO",
+        description="$30 off sustainable essentials with in-store recycling",
+        discount_type="fixed",
+        discount_value=30.0,
+        min_order_amount=100.0,
+        currency="USD",
+        brand_id=brand_objs[3].id,
+        max_per_user=3,
+        is_active=True,
+    ))
+    db.add(Promotion(
+        code="COS15",
+        description="15% off minimalist collection at all flagship branches",
+        discount_type="percent",
+        discount_value=15.0,
+        min_order_amount=0.0,
+        currency="USD",
+        brand_id=brand_objs[1].id,
+        max_per_user=5,
+        is_active=True,
+    ))
+    db.add(Promotion(
+        code="REISSVIP",
+        description="10% off luxury evening wear and outerwear",
+        discount_type="percent",
+        discount_value=10.0,
+        min_order_amount=0.0,
+        currency="USD",
+        brand_id=brand_objs[2].id,
+        max_per_user=5,
         is_active=True,
     ))
 

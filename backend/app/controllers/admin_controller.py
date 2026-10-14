@@ -12,7 +12,7 @@ from backend.app.core.dependencies import require_role, require_admin_recent
 from backend.app.core.exceptions import ResourceNotFoundError, ValidationDomainError
 from backend.app.core.timeutils import TimeRange, TimeRangeError
 from backend.app.core.request_context import client_ip, request_id as current_request_id
-from backend.app.models.user import User, UserRole
+from backend.app.models.user import User, UserRole, BrandProfile
 from backend.app.repositories.audit_repository import AuditQuery
 from backend.app.repositories.brand_repository import BrandRepository
 from backend.app.repositories.user_repository import UserRepository
@@ -628,6 +628,42 @@ def get_admin_catalog_brands(
 ):
     """Brands an admin may deliberately select; no implicit admin tenant."""
     return AdminCatalogService(db).list_brands()
+
+
+@router.post("/catalog/brands/{brand_id}/verify")
+def verify_admin_brand(
+    brand_id: int,
+    request: Request,
+    user: User = Depends(require_role([UserRole.ADMIN])),
+    db: Session = Depends(get_db),
+):
+    """Admin publication gate: verifies a brand so it appears on public customer discovery."""
+    brand = db.get(BrandProfile, brand_id)
+    if not brand:
+        raise ResourceNotFoundError("BrandProfile", brand_id)
+    brand.is_verified = True
+    db.commit()
+    db.refresh(brand)
+    _audit_admin(request, db, user, "ADMIN_BRAND_VERIFIED", "BrandProfile", str(brand_id), {}, {"is_verified": True})
+    return {"status": "verified", "brand_id": brand.id, "is_verified": brand.is_verified}
+
+
+@router.post("/catalog/brands/{brand_id}/unverify")
+def unverify_admin_brand(
+    brand_id: int,
+    request: Request,
+    user: User = Depends(require_role([UserRole.ADMIN])),
+    db: Session = Depends(get_db),
+):
+    """Admin publication gate: removes verification so the brand is unlisted from public discovery."""
+    brand = db.get(BrandProfile, brand_id)
+    if not brand:
+        raise ResourceNotFoundError("BrandProfile", brand_id)
+    brand.is_verified = False
+    db.commit()
+    db.refresh(brand)
+    _audit_admin(request, db, user, "ADMIN_BRAND_UNVERIFIED", "BrandProfile", str(brand_id), {}, {"is_verified": False})
+    return {"status": "unverified", "brand_id": brand.id, "is_verified": brand.is_verified}
 
 
 @router.get("/catalog/brands/{brand_id}", response_model=AdminCatalogSnapshotOut)

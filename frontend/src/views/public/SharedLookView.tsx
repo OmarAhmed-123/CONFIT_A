@@ -179,7 +179,7 @@ export const SharedLookView: React.FC = () => {
         </motion.div>
 
         <motion.div {...enter(0.24)} className="flex flex-col items-center gap-3">
-          <button
+          <button data-motion="download" data-motion-tone="icon"
             onClick={downloadPng}
             disabled={exporting}
             type="button"

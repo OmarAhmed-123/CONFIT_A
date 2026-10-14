@@ -115,7 +115,7 @@ export const ShareActions: React.FC<{
   return (
     <div className={compact ? 'space-y-1.5' : 'space-y-2'}>
       <div className="flex gap-2">
-        <button
+        <button data-motion="share" data-motion-tone="icon"
           type="button"
           onClick={() => void copy()}
           disabled={status === 'copying'}
@@ -133,7 +133,7 @@ export const ShareActions: React.FC<{
         </button>
 
         {canNativeShare && (
-          <button
+          <button data-motion="share"
             type="button"
             onClick={() => void nativeShare()}
             className={`${btnBase} flex-1 bg-brand-charcoal text-white hover:bg-black`}

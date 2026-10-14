@@ -86,7 +86,7 @@ export const TryOnButton: React.FC<TryOnButtonProps> = ({
   });
 
   return (
-    <button
+    <button data-motion="progressive"
       type="button"
       onClick={onClick}
       disabled={kind === "blocked"}

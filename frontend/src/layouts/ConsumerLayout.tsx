@@ -69,7 +69,7 @@ export const ConsumerLayout: React.FC = () => {
             horizontal padding and its label touched the rounded edge
             (visible in the 2026-10-08 production screenshot). px-5 is
             the nearest real step. */}
-        <button
+        <button data-motion="creative"
           onClick={() => openStylist()}
           className="group flex h-12 w-12 items-center justify-center gap-2.5 rounded-full bg-white p-0 hover:bg-brand-wash text-brand-charcoal shadow-lg hover:scale-105 active:scale-95 transition-all border border-brand-field sm:h-auto sm:w-auto sm:px-5 sm:py-3"
           aria-label={t('layout.ai_stylist_director')}

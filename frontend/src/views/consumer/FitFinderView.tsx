@@ -361,7 +361,7 @@ export const FitFinderView: React.FC = () => {
           </p>
           <p className="text-[11px] text-slate-500">
             {t('fit_finder.photo_studio_q')}{' '}
-            <button
+            <button data-motion="creative"
               onClick={() => navigate('/tryon-studio')}
               className="text-brand-charcoal font-semibold hover:underline inline-flex items-center gap-1"
             >
@@ -425,7 +425,7 @@ export const FitFinderView: React.FC = () => {
                 {t('fit_finder.step_measurements')}
               </h3>
               <div className="flex items-center bg-slate-100 rounded-xl p-1 text-[11px] font-bold" role="group" aria-label={t('fit_finder.unit_system')}>
-                <button
+                <button data-motion="filter"
                   type="button"
                   onClick={() => switchUnits('metric')}
                   aria-pressed={units === 'metric'}
@@ -433,7 +433,7 @@ export const FitFinderView: React.FC = () => {
                 >
                   cm / kg
                 </button>
-                <button
+                <button data-motion="filter"
                   type="button"
                   onClick={() => switchUnits('imperial')}
                   aria-pressed={units === 'imperial'}
@@ -564,7 +564,7 @@ export const FitFinderView: React.FC = () => {
               <span className="text-xs font-bold text-slate-800 block mb-1">{t('fit_finder.preferred_fit')}</span>
               <div className="grid grid-cols-3 gap-2">
                 {FIT_PREFS.map((f) => (
-                  <button
+                  <button data-motion="filter" data-motion-tone="icon"
                     key={f.value}
                     type="button"
                     onClick={() => set('preferredFit', f.value)}
@@ -581,7 +581,7 @@ export const FitFinderView: React.FC = () => {
               </div>
             </div>
 
-            <button
+            <button data-motion="filter" data-motion-tone="icon"
               onClick={handleCalculate}
               disabled={calcLoading || !selectedProduct}
               className="w-full py-3.5 rounded-2xl bg-brand-charcoal hover:bg-black disabled:opacity-40 text-white font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2"
@@ -610,7 +610,7 @@ export const FitFinderView: React.FC = () => {
             <div className="bg-rose-50 border border-rose-200 rounded-3xl p-6 space-y-2" role="alert">
               <h3 className="font-serif text-base font-bold text-rose-800">{t('fit_finder.engine_error')}</h3>
               <p className="text-xs text-rose-700 leading-relaxed">{calcError}</p>
-              <button
+              <button data-motion="recovery"
                 onClick={handleCalculate}
                 className="mt-1 px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-bold"
               >
@@ -872,7 +872,7 @@ export const FitFinderView: React.FC = () => {
                         {t('fit_finder.consent_store')}
                       </span>
                     </label>
-                    <button
+                    <button data-motion="progressive" data-motion-tone="icon"
                       onClick={handleSave}
                       disabled={!saveConsent || saveState === 'saving' || saveState === 'saved'}
                       className="w-full py-2.5 rounded-xl border border-brand-charcoal/50 text-brand-charcoal hover:bg-brand-wash disabled:opacity-50 text-[11px] font-bold transition-all"
@@ -892,7 +892,7 @@ export const FitFinderView: React.FC = () => {
                     {t('fit_finder.signin_keep')}
                   </p>
                 )}
-                <button
+                <button data-motion="admin"
                   onClick={() => navigate(`/product/${selectedProduct?.slug}`)}
                   className="w-full py-2.5 rounded-xl bg-brand-charcoal hover:bg-black text-white text-[11px] font-bold transition-all"
                 >

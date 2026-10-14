@@ -84,7 +84,7 @@ export const RoleGuard: React.FC<RoleGuardProps> = ({
           </div>
 
           <div className="space-y-3 pt-2">
-            <button
+            <button data-motion="auth"
               onClick={() => openAuthModal("login")}
               className="w-full min-h-[48px] py-3.5 rounded-xl bg-brand-charcoal hover:bg-black text-white font-bold text-xs tracking-wider uppercase shadow-xs transition-all flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2"
             >
@@ -92,7 +92,7 @@ export const RoleGuard: React.FC<RoleGuardProps> = ({
               <span>{t('partner.sign_in_to_continue')}</span>
             </button>
 
-            <button
+            <button data-motion="auth"
               onClick={() => openAuthModal("register")}
               className="w-full min-h-[48px] py-3 rounded-xl bg-white hover:bg-brand-wash text-brand-charcoal font-semibold text-xs border border-brand-field transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2"
             >
@@ -160,7 +160,7 @@ export const RoleGuard: React.FC<RoleGuardProps> = ({
               <span>{t('guard.return_storefront')}</span>
             </Link>
 
-            <button
+            <button data-motion="auth"
               onClick={() => openAuthModal("login")}
               className="w-full min-h-[48px] py-2.5 rounded-xl text-xs text-brand-muted hover:text-brand-charcoal hover:underline"
             >

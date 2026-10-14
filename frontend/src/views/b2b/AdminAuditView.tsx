@@ -393,13 +393,13 @@ export const AdminAuditView: React.FC = () => {
         </label>
 
         <div className="flex items-end gap-2">
-          <button
+          <button data-motion="progressive"
             type="submit"
             className="min-h-11 flex-1 rounded-xl bg-white px-4 py-2 text-[11px] font-bold uppercase tracking-wider text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
           >
             {t('admin_audit.filters_apply')}
           </button>
-          <button
+          <button data-motion="admin" data-motion-tone="edge"
             type="button"
             onClick={reset}
             className="min-h-11 rounded-xl border border-slate-700 px-4 py-2 text-[11px] uppercase tracking-wider text-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
@@ -415,7 +415,7 @@ export const AdminAuditView: React.FC = () => {
           className="rounded-xl border border-rose-500/40 bg-rose-500/10 p-3 text-xs text-rose-200"
         >
           {error}{' '}
-          <button
+          <button data-motion="recovery"
             type="button"
             onClick={load}
             className="inline-flex min-h-11 items-center rounded px-2 underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-200"
@@ -447,7 +447,7 @@ export const AdminAuditView: React.FC = () => {
               <React.Fragment key={row.id}>
                 <tr className="hover:bg-slate-900/60">
                   <td className="px-3 py-2">
-                    <button
+                    <button data-motion="admin" data-motion-tone="icon"
                       type="button"
                       aria-expanded={expanded === row.id}
                       aria-controls={`audit-row-details-${row.id}`}
@@ -548,14 +548,14 @@ export const AdminAuditView: React.FC = () => {
             })}
           </span>
           <div className="flex gap-2">
-            <button
+            <button data-motion="filter"
               disabled={!meta.has_previous}
               onClick={() => setPage(Math.max(1, page - 1))}
               className="min-h-11 rounded-xl border border-slate-700 px-3 py-2 text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white disabled:opacity-40"
             >
               ← {t('admin_audit.previous')}
             </button>
-            <button
+            <button data-motion="neutral"
               disabled={!meta.has_next}
               onClick={() => setPage(page + 1)}
               className="min-h-11 rounded-xl border border-slate-700 px-3 py-2 text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white disabled:opacity-40"

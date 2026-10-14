@@ -58,7 +58,7 @@ export const AccessibleButton: React.FC<AccessibleButtonProps> = ({
   };
 
   return (
-    <button
+    <button data-motion="neutral" data-motion-tone="icon"
       type="button"
       className={`${base} ${sizes[size]} ${variants[variant]} ${className}`}
       disabled={disabled || isLoading}
@@ -183,7 +183,7 @@ export const IconButton: React.FC<{
   disabled?: boolean;
 }> = ({ icon, label, onClick, className = '', disabled }) => {
   return (
-    <button
+    <button data-motion="neutral" data-motion-tone="icon"
       type="button"
       aria-label={label}
       onClick={onClick}

@@ -469,7 +469,7 @@ export const AsyncActionButton: React.FC<AsyncActionButtonProps> = ({
                 : idleLabel;
 
   return (
-    <button
+    <button data-motion="commerce"
       type="button"
       onClick={run}
       disabled={disabled || isPending}
@@ -552,7 +552,7 @@ export const WishlistToggle: React.FC<{
   };
 
   return (
-    <button
+    <button data-motion="filter"
       type="button"
       onClick={handleClick}
       aria-label={t("a11y.toggle_wishlist")}

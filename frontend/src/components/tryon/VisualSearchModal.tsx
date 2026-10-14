@@ -162,7 +162,7 @@ export const VisualSearchModal: React.FC = () => {
               </p>
             </div>
           </div>
-          <button
+          <button data-motion="neutral" data-motion-tone="icon"
             onClick={closeVisualSearch}
             type="button"
             aria-label={t("a11y.close_dialog")}
@@ -224,7 +224,7 @@ export const VisualSearchModal: React.FC = () => {
 
             <div className="grid grid-cols-3 gap-3">
               {samples.map((s) => (
-                <button
+                <button data-motion="creative" data-motion-tone="icon"
                   key={s.label}
                   onClick={() => {
                     setUploadedImage(null);
@@ -262,7 +262,7 @@ export const VisualSearchModal: React.FC = () => {
                   top-most-modal guard requires focus inside the panel) —
                   the shopper could no longer close the dialog from the
                   keyboard. Found by the C02 goal E2E (G10). */}
-              <button
+              <button data-motion="creative" data-motion-tone="icon"
                 onClick={() => {
                   if (!visualSearchLoading) handleSearch();
                 }}
@@ -288,7 +288,7 @@ export const VisualSearchModal: React.FC = () => {
                 <StatusIcon status="error" size={14} className="mt-0.5 shrink-0" />
                 <span>{visualSearchError}</span>
               </div>
-              <button
+              <button data-motion="recovery"
                 onClick={() => handleSearch(selectedSample || undefined)}
                 className="px-4 py-2 rounded-xl bg-brand-charcoal hover:bg-brand-charcoal text-white text-xs font-semibold"
               >
@@ -358,7 +358,7 @@ export const VisualSearchModal: React.FC = () => {
                       </span>
                     </div>
 
-                    <button
+                    <button data-motion="creative" data-motion-tone="icon"
                       onClick={() => openMatchInTryOn(match.product_id)}
                       disabled={
                         openingMatchId === match.product_id ||

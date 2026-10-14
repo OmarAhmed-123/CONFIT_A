@@ -366,7 +366,7 @@ const BrandNavDrawer: React.FC<{
             <ConfitLogo variant="compact" theme="light" size="sm" />
             <span className="truncate text-xs font-bold text-white">{portalTitle}</span>
           </div>
-          <button
+          <button data-motion="neutral" data-motion-tone="icon"
             type="button"
             data-drawer-close
             onClick={onClose}
@@ -397,7 +397,7 @@ const BrandNavDrawer: React.FC<{
             <span aria-hidden="true"><Store size={16} /></span>
             {t('brand_nav.storefront')}
           </Link>
-          <button
+          <button data-motion="neutral"
             type="button"
             onClick={onSignOut}
             className={`flex w-full min-h-11 items-center gap-3 rounded-xl px-3 text-start text-xs text-slate-200 hover:bg-slate-800 ${focusRing}`}
@@ -476,7 +476,7 @@ export const BrandNavbar: React.FC = () => {
           style={{ backgroundColor: DOMAIN_ACCENT[domain].ribbon }}
         />
         <div className="flex min-h-16 items-center justify-between gap-2 px-4">
-          <button
+          <button data-motion="neutral" data-motion-tone="icon"
             type="button"
             onClick={() => setDrawerOpen(true)}
             aria-expanded={drawerOpen}
@@ -572,7 +572,7 @@ export const BrandNavbar: React.FC = () => {
               <LanguageSwitcher />
             </div>
           )}
-          <button
+          <button data-motion="neutral" data-motion-tone="icon"
             type="button"
             onClick={handleLogout}
             aria-label={collapsed ? t('brand_nav.sign_out') : undefined}
@@ -582,7 +582,7 @@ export const BrandNavbar: React.FC = () => {
             <span aria-hidden="true"><LogOut size={16} /></span>
             {!collapsed && t('brand_nav.sign_out')}
           </button>
-          <button
+          <button data-motion="filter" data-motion-tone="icon"
             type="button"
             onClick={toggleCollapsed}
             aria-pressed={collapsed}

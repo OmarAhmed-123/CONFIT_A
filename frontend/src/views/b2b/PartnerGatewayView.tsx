@@ -134,14 +134,14 @@ export const PartnerGatewayView: React.FC = () => {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            <button
+            <button data-motion="admin"
               type="button"
               onClick={scrollToForm}
               className="inline-flex min-h-[48px] items-center rounded-[14px] bg-brand-charcoal px-6 text-xs font-bold uppercase tracking-wider text-white transition-colors duration-[140ms] ease-luxury hover:bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white"
             >
               {t("partner.request_partnership")}
             </button>
-            <button
+            <button data-motion="auth"
               type="button"
               onClick={() => openAuthModal("login")}
               className="inline-flex min-h-[48px] items-center rounded-[14px] border border-slate-300 px-6 text-xs font-bold uppercase tracking-wider transition-colors duration-[140ms] ease-luxury hover:border-slate-400 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2"
@@ -260,7 +260,7 @@ export const PartnerGatewayView: React.FC = () => {
             return (
               <div key={p.title} className="border-b border-slate-200">
                 <h2>
-                  <button
+                  <button data-motion="admin" data-motion-tone="icon"
                     type="button"
                     aria-expanded={isOpen}
                     aria-controls={`pillar-panel-${i}`}
@@ -314,14 +314,14 @@ export const PartnerGatewayView: React.FC = () => {
             {t("partner.close_title")}
           </h2>
         </div>
-        <button
+        <button data-motion="admin"
           type="button"
           onClick={scrollToForm}
           className="inline-flex min-h-[48px] items-center rounded-[14px] bg-brand-charcoal px-8 text-xs font-bold uppercase tracking-wider text-white transition-colors duration-[140ms] ease-luxury hover:bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white"
         >
           {t("partner.request_partnership")}
         </button>
-        <button
+        <button data-motion="auth"
           type="button"
           onClick={() => openAuthModal("login")}
           className="inline-flex min-h-[48px] items-center px-4 text-[0.875rem] underline underline-offset-4 decoration-brand-charcoal transition-colors duration-[140ms] ease-luxury hover:text-[var(--register-ink)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2"

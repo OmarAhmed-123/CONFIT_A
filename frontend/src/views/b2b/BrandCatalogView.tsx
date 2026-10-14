@@ -202,7 +202,7 @@ export const BrandCatalogView: React.FC = () => {
             {t('b2b.cat.header_hint')}
           </p>
         </div>
-        <button type="button" onClick={() => { setFileError(null); setBulkModalOpen(true); }} className={btnPrimary}>
+        <button data-motion="upload" type="button" onClick={() => { setFileError(null); setBulkModalOpen(true); }} className={btnPrimary}>
           <Upload size={14} aria-hidden="true" />
           {t('b2b.cat.bulk_cta')}
         </button>
@@ -212,7 +212,7 @@ export const BrandCatalogView: React.FC = () => {
       {fetchErrors.imports && (
         <div role="alert" className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-rose-300 bg-rose-50 p-4 text-xs text-rose-800">
           <span>{t('b2b.cat.jobs_err', { reason: fetchErrors.imports })}</span>
-          <button type="button" onClick={refresh} className="min-h-12 rounded-xl bg-rose-700 px-4 font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal">
+          <button data-motion="recovery" type="button" onClick={refresh} className="min-h-12 rounded-xl bg-rose-700 px-4 font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal">
             {t('common.retry')}
           </button>
         </div>
@@ -300,7 +300,7 @@ export const BrandCatalogView: React.FC = () => {
         <Surface variant="solid" className="space-y-3 rounded-2xl p-12 text-center">
           <h2 className="font-serif text-lg font-bold text-slate-700">{t('b2b.cat.empty_title')}</h2>
           <p className="mx-auto max-w-md text-xs leading-relaxed text-slate-600">{t('b2b.cat.empty_body')}</p>
-          <button type="button" onClick={() => setBulkModalOpen(true)} className={btnPrimary}>
+          <button data-motion="upload" type="button" onClick={() => setBulkModalOpen(true)} className={btnPrimary}>
             {t('b2b.cat.empty_cta')}
           </button>
         </Surface>
@@ -321,7 +321,7 @@ export const BrandCatalogView: React.FC = () => {
                     <span className="ms-2 text-[11px] text-slate-500">ID: {p.id}</span>
                   </div>
                 </div>
-                <button
+                <button data-motion="creative"
                   type="button"
                   disabled={tagState.phase === 'previewing' || tagState.phase === 'applying'}
                   onClick={() => runTag(p.id, true)}
@@ -383,7 +383,7 @@ export const BrandCatalogView: React.FC = () => {
                         </div>
                       ) : (
                         <div className="flex flex-wrap gap-2 pt-1">
-                          <button type="button" onClick={() => runTag(p.id, false)} className={btnPrimary}>
+                          <button data-motion="admin" type="button" onClick={() => runTag(p.id, false)} className={btnPrimary}>
                             {t('b2b.cat.tag_apply')}
                           </button>
                         </div>
@@ -459,15 +459,15 @@ export const BrandCatalogView: React.FC = () => {
                         <td className="py-3 text-end">
                           {editingSkuId === sku.id ? (
                             <span className="flex justify-end gap-1.5">
-                              <button type="button" disabled={saving} onClick={() => handleSaveSku(sku.id)} className="min-h-12 rounded-xl bg-brand-charcoal px-4 text-[11px] font-bold text-white transition-colors duration-300 ease-luxury hover:bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:opacity-50">
+                              <button data-motion="admin" type="button" disabled={saving} onClick={() => handleSaveSku(sku.id)} className="min-h-12 rounded-xl bg-brand-charcoal px-4 text-[11px] font-bold text-white transition-colors duration-300 ease-luxury hover:bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:opacity-50">
                                 {t('b2b.cat.save')}
                               </button>
-                              <button type="button" onClick={() => setEditingSkuId(null)} className="min-h-12 rounded-xl border border-slate-300 px-3 text-[11px] font-semibold text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal">
+                              <button data-motion="neutral" type="button" onClick={() => setEditingSkuId(null)} className="min-h-12 rounded-xl border border-slate-300 px-3 text-[11px] font-semibold text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal">
                                 {t('b2b.cat.cancel')}
                               </button>
                             </span>
                           ) : (
-                            <button
+                            <button data-motion="admin"
                               type="button"
                               onClick={() => { setEditingSkuId(sku.id); setEditStock(sku.stock_level); setEditPrice(sku.price_override); }}
                               className="min-h-12 rounded-xl px-3 text-xs font-bold text-brand-charcoal hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal"
@@ -528,10 +528,10 @@ export const BrandCatalogView: React.FC = () => {
             )}
 
             <div className="flex justify-end gap-2 pt-1">
-              <button type="button" onClick={() => setBulkModalOpen(false)} disabled={isUploading} className={btnGhost}>
+              <button data-motion="neutral" type="button" onClick={() => setBulkModalOpen(false)} disabled={isUploading} className={btnGhost}>
                 {t('b2b.cat.modal_cancel')}
               </button>
-              <button type="button" onClick={() => fileInputRef.current?.click()} disabled={isUploading} className={btnPrimary}>
+              <button data-motion="upload" type="button" onClick={() => fileInputRef.current?.click()} disabled={isUploading} className={btnPrimary}>
                 {t('b2b.cat.modal_browse')}
               </button>
             </div>
@@ -539,7 +539,7 @@ export const BrandCatalogView: React.FC = () => {
             <div className="border-t border-slate-100 pt-3 text-[11px] text-slate-500">
               <div className="flex items-center justify-between gap-2">
                 <span className="font-bold text-slate-700">{t('b2b.cat.sample_title')}</span>
-                <button type="button" onClick={downloadSampleCsv} className="min-h-12 rounded-xl border border-brand-charcoal px-3 text-[11px] font-semibold text-brand-charcoal transition-colors duration-300 ease-luxury hover:bg-brand-charcoal hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white">
+                <button data-motion="download" type="button" onClick={downloadSampleCsv} className="min-h-12 rounded-xl border border-brand-charcoal px-3 text-[11px] font-semibold text-brand-charcoal transition-colors duration-300 ease-luxury hover:bg-brand-charcoal hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white">
                   {t('b2b.cat.sample_dl')}
                 </button>
               </div>

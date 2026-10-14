@@ -573,7 +573,7 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
               </p>
             </div>
           </div>
-          <button
+          <button data-motion="filter" data-motion-tone="icon"
             type="button"
             onClick={handleClose}
             aria-label={t('tryon.scan_close')}
@@ -593,7 +593,7 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
             { id: 'preset' as const, icon: '👤', label: t('tryon.scan_tab_preset') },
             { id: 'ruler' as const, icon: '📐', label: t('tryon.scan_tab_ruler') },
           ].map((tab) => (
-            <button
+            <button data-motion="filter" data-motion-tone="icon"
               key={tab.id}
               type="button"
               role="tab"
@@ -657,21 +657,21 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
                     <div role="alert" className="space-y-3 rounded-2xl border border-amber-200 bg-amber-50 p-3.5 text-xs text-amber-900">
                       <p className="font-medium leading-relaxed">{resolveMessage(cameraError, t)}</p>
                       <div className="flex flex-wrap gap-2">
-                        <button
+                        <button data-motion="recovery"
                           type="button"
                           onClick={() => startCamera()}
                           className="min-h-10 rounded-lg bg-amber-700 px-3 py-2 text-[11px] font-bold text-white hover:bg-amber-800"
                         >
                           {t('tryon.scan_camera_retry')}
                         </button>
-                        <button
+                        <button data-motion="filter"
                           type="button"
                           onClick={() => selectTab('upload')}
                           className="min-h-10 rounded-lg border border-amber-300 bg-white px-3 py-2 text-[11px] font-bold text-amber-900 hover:bg-amber-100"
                         >
                           {t('tryon.scan_camera_use_upload')}
                         </button>
-                        <button
+                        <button data-motion="filter"
                           type="button"
                           onClick={() => selectTab('ruler')}
                           className="min-h-10 rounded-lg border border-amber-300 bg-white px-3 py-2 text-[11px] font-bold text-amber-900 hover:bg-amber-100"
@@ -726,7 +726,7 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
                         <p className="mx-auto max-w-sm text-[11px] font-light leading-relaxed text-slate-300 sm:text-xs">
                           {t('tryon.scan_camera_start_hint')}
                         </p>
-                        <button
+                        <button data-motion="upload"
                           type="button"
                           onClick={() => startCamera()}
                           className="min-h-11 rounded-xl bg-white px-5 py-2.5 text-xs font-bold text-brand-charcoal shadow-md transition-all hover:bg-slate-100 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
@@ -747,7 +747,7 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
                   {cameraActive && (
                     <div className="flex flex-col gap-2.5 sm:flex-row">
                       {hasMultipleCameras && (
-                        <button
+                        <button data-motion="upload"
                           type="button"
                           onClick={toggleCameraFacing}
                           className="min-h-11 rounded-xl border border-slate-300 px-4 py-3 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50"
@@ -755,7 +755,7 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
                           {t('tryon.scan_camera_switch')}
                         </button>
                       )}
-                      <button
+                      <button data-motion="creative"
                         type="button"
                         onClick={captureCameraFrame}
                         className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-2xl bg-brand-charcoal py-3.5 text-xs font-bold text-white shadow-md transition-all hover:bg-brand-charcoal"
@@ -776,7 +776,7 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
                   aria-labelledby="camera-scan-tab-upload"
                   className="space-y-4"
                 >
-                  <button
+                  <button data-motion="upload"
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
                     className="w-full space-y-3 rounded-3xl border-2 border-dashed border-slate-300 bg-brand-wash p-6 text-center transition-all hover:border-brand-hairline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal sm:p-8"
@@ -815,7 +815,7 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
                   </h4>
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     {silhouettePresets.map((preset) => (
-                      <button
+                      <button data-motion="creative"
                         type="button"
                         key={preset.shape}
                         onClick={() => applyPresetSilhouette(preset)}
@@ -921,7 +921,7 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
                     </div>
                   </div>
 
-                  <button
+                  <button data-motion="filter"
                     onClick={() => runVisionAnalysis('manual_ruler')}
                     className="w-full py-3 rounded-xl bg-brand-charcoal hover:bg-brand-charcoal text-white font-bold text-xs shadow-md transition-all"
                   >
@@ -1064,14 +1064,14 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
 
               {/* Actions */}
               <div className="flex gap-3 pt-2">
-                <button
+                <button data-motion="progressive"
                   type="button"
                   onClick={handleRetake}
                   className="flex-1 py-3 rounded-xl border border-slate-300 hover:bg-slate-50 text-slate-700 font-semibold text-xs transition-colors"
                 >
                   {t('tryon.scan_retake')}
                 </button>
-                <button
+                <button data-motion="creative"
                   type="button"
                   onClick={handleApply}
                   className="flex-1 py-3 rounded-xl bg-brand-charcoal hover:bg-brand-charcoal text-white font-bold text-xs shadow-md transition-all flex items-center justify-center gap-1.5"

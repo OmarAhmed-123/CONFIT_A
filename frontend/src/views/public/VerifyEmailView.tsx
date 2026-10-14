@@ -125,7 +125,7 @@ export const VerifyEmailView: React.FC = () => {
         </div>
 
         {phase === 'ready' && (
-          <button
+          <button data-motion="auth"
             type="button"
             onClick={confirm}
             className={`${AUTH_PRIMARY_BTN_CLASS} mt-6`}
@@ -176,7 +176,7 @@ export const VerifyEmailView: React.FC = () => {
                 </p>
               )}
             </div>
-            <button
+            <button data-motion="progressive"
               type="submit"
               disabled={!resendEmail.trim() || resendPhase === 'pending'}
               aria-busy={resendPhase === 'pending'}

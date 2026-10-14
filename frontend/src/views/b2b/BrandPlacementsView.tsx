@@ -82,7 +82,7 @@ export const BrandPlacementsView: React.FC = () => {
         <div role="alert" className="p-4 rounded-2xl bg-rose-50 border border-rose-200">
           <p className="text-[11px] font-bold text-rose-800">{t("brand_placements.sponsored_failed")}</p>
           <p className="text-[11px] text-rose-600 mt-1">{placementsError} An empty list below means "no campaigns", not "API down" — retry to reconcile.</p>
-          <button onClick={refresh} className="mt-2 px-3 py-1.5 rounded-lg bg-white border border-rose-200 text-[11px] font-bold text-rose-700 hover:bg-rose-50">Retry</button>
+          <button data-motion="recovery" onClick={refresh} className="mt-2 px-3 py-1.5 rounded-lg bg-white border border-rose-200 text-[11px] font-bold text-rose-700 hover:bg-rose-50">Retry</button>
         </div>
       )}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-6">
@@ -96,7 +96,7 @@ export const BrandPlacementsView: React.FC = () => {
           <p className="text-[11px] text-slate-400 mt-1">Lifecycle: Brand → Campaign/Bid → Budget → Eligibility → Placement → Impression → Click → Conversion → Billing. Bid validation, budget validation, campaign status, start/end date, spend limits, duplicate prevention.</p>
         </div>
 
-        <button
+        <button data-motion="admin"
           onClick={() => setModalOpen(true)}
           className="px-5 py-2.5 rounded-2xl bg-brand-charcoal text-white hover:bg-black text-slate-950 font-bold text-xs shadow-md transition-all flex items-center gap-1.5"
         >
@@ -137,7 +137,7 @@ export const BrandPlacementsView: React.FC = () => {
             <div className="text-4xl">🎯</div>
             <h3 className="font-bold text-slate-700">{t("brand_placements.no_placements")}</h3>
             <p className="text-xs text-slate-500">Create your first sponsored slot to bid for featured placement in Virtual Stylist results. Budget enforcement prevents overspend.</p>
-            <button onClick={() => setModalOpen(true)} className="mt-2 px-4 py-2 rounded-xl bg-brand-charcoal text-white text-slate-900 text-xs font-bold">{t("brand_placements.create_placement")}</button>
+            <button data-motion="admin" onClick={() => setModalOpen(true)} className="mt-2 px-4 py-2 rounded-xl bg-brand-charcoal text-white text-slate-900 text-xs font-bold">{t("brand_placements.create_placement")}</button>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -188,7 +188,7 @@ export const BrandPlacementsView: React.FC = () => {
                   </div>
                 </div>
 
-                <button disabled={saving || plc.status === 'budget_exhausted'} onClick={() => changeStatus(plc.id, plc.status === 'active' ? 'paused' : 'active')} className="rounded border px-3 py-2 text-xs">
+                <button data-motion="admin" data-motion-tone="icon" disabled={saving || plc.status === 'budget_exhausted'} onClick={() => changeStatus(plc.id, plc.status === 'active' ? 'paused' : 'active')} className="rounded border px-3 py-2 text-xs">
                   {plc.status === 'active' ? 'Pause placement' : 'Resume placement'}
                 </button>
                 <div className="text-[10px] text-slate-400 p-2 bg-brand-wash rounded-xl">
@@ -279,14 +279,14 @@ export const BrandPlacementsView: React.FC = () => {
               {bidCpc > dailyBudget && <div className="text-[11px] text-rose-600 bg-rose-50 p-2 rounded">{t("brand_placements.bid_exceeds_budget")}</div>}
 
               <div className="flex gap-2 pt-2">
-                <button
+                <button data-motion="neutral"
                   type="button"
                   onClick={() => setModalOpen(false)}
                   className="flex-1 py-2.5 rounded-xl border border-slate-200 font-semibold"
                 >
                   Cancel
                 </button>
-                <button
+                <button data-motion="admin" data-motion-tone="icon"
                   type="submit"
                   disabled={saving || !products.length}
                   className="flex-1 py-2.5 rounded-xl bg-brand-charcoal text-white font-semibold shadow-md"

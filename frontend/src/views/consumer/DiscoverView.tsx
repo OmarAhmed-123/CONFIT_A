@@ -48,7 +48,7 @@ const FilterPill: React.FC<{
   onClick: () => void;
   children: React.ReactNode;
 }> = ({ selected, onClick, children }) => (
-  <button
+  <button data-motion="filter" data-motion-tone="icon"
     type="button"
     aria-pressed={selected}
     onClick={onClick}
@@ -365,7 +365,7 @@ export const DiscoverView: React.FC = () => {
               className="w-full ps-4 pe-10 py-3 rounded-2xl border border-slate-200 text-xs focus:outline-none focus:border-brand-charcoal focus:ring-2 focus:ring-brand-charcoal focus:ring-offset-2 focus:ring-offset-white bg-white shadow-2xs placeholder:text-brand-muted"
             />
             {searchQuery && (
-              <button
+              <button data-motion="progressive" data-motion-tone="icon"
                 type="button"
                 aria-label={t('discover.clear_search')}
                 onClick={() => {
@@ -460,7 +460,7 @@ export const DiscoverView: React.FC = () => {
             )}
           </div>
 
-          <button
+          <button data-motion="creative"
             onClick={openVisualSearch}
             type="button"
             aria-label={t('discover.search_by_photo')}
@@ -641,7 +641,7 @@ export const DiscoverView: React.FC = () => {
           )}
         </div>
         {activeFilters.length > 0 && (
-          <button
+          <button data-motion="filter"
             onClick={() => {
               setSelectedCategory("");
               setSelectedOccasion("");

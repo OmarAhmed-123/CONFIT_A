@@ -32,7 +32,7 @@ from __future__ import annotations
 import os
 import threading
 from pathlib import Path
-from typing import Dict, Iterator, List, Optional
+from typing import Dict, Iterator, List, Optional, Tuple
 
 #: Env var carrying the credential for each registry slot, in the order the
 #: keys were supplied. Order matters only for deterministic rotation.
@@ -61,6 +61,37 @@ SLOT_KEY_ENV_VARS: List[str] = [
 #: Legacy names already consumed by orchestrator.py / ai_readiness.py. Kept so
 #: the pool is a superset of the existing contract rather than a replacement.
 LEGACY_KEY_ENV_VARS: List[str] = ["NVIDIA_API_KEY", "NVIDIA_CHAT_KEY_2"]
+
+#: MEASURED 2026-10-14. An operator env file names the per-model keys after the
+#: PLATFORM credential (`NVIDIA_API_KEY_KIMI_K3`); this repo names the SLOT
+#: (`NVIDIA_KEY_KIMI_K3`). Both are correct and neither is worth a rename: a
+#: slot whose key exists under a name the pool never reads is a slot the product
+#: does not have. Without this table, a file holding nineteen live keys reported
+#: `slots_missing: 19`, the stylist fell through to a provider it was not meant
+#: to use, and `/health` called NVIDIA unconfigured.
+#:
+#: Names that follow the mechanical rule are derived; the four below do not
+#: (the supply distinguished two keys for one model by suffix, and abbreviated
+#: two model names), so they are listed rather than guessed.
+SLOT_KEY_ENV_ALIASES: Dict[str, Tuple[str, ...]] = {
+    "NVIDIA_KEY_ISING_CALIBRATION_1_5_31B": ("NVIDIA_API_KEY_ISING_CALIBRATION_A",),
+    "NVIDIA_KEY_ISING_CALIBRATION_1_5_31B_2": ("NVIDIA_API_KEY_ISING_CALIBRATION_B",),
+    "NVIDIA_KEY_DIFFUSIONGEMMA_26B_A4B_IT": ("NVIDIA_API_KEY_DIFFUSIONGEMMA_26B_A4B",),
+    "NVIDIA_KEY_NEMOTRON_3_NANO_OMNI_30B_A3B_REASONING": ("NVIDIA_API_KEY_NEMOTRON_3_NANO_OMNI_30B_A3B",),
+}
+
+
+def alias_env_names(slot: str) -> Tuple[str, ...]:
+    """Every accepted alternate name for one slot var, in precedence order.
+
+    The canonical name always wins (it is tried first by :meth:`_discover`), so
+    an explicit rename in a deployment still behaves exactly as it did.
+    """
+    names: List[str] = []
+    if slot.startswith("NVIDIA_KEY_"):
+        names.append("NVIDIA_API_KEY_" + slot[len("NVIDIA_KEY_"):])
+    names.extend(SLOT_KEY_ENV_ALIASES.get(slot, ()))
+    return tuple(dict.fromkeys(name for name in names if name != slot))
 
 _KEY_PREFIX = "nvapi-"
 _DOTENV_CANDIDATES = (".env.nvidia", "backend/.env", ".env")
@@ -134,18 +165,26 @@ class NvidiaKeyPool:
     def __init__(self, keys: Optional[Dict[str, str]] = None) -> None:
         self._lock = threading.Lock()
         self._cursor = 0
+        self._alias_sources: Dict[str, str] = {}
         self._keys: Dict[str, str] = keys if keys is not None else self._discover()
 
     # ── discovery ────────────────────────────────────────────────────────────
 
-    @staticmethod
-    def _discover() -> Dict[str, str]:
+    def _discover(self) -> Dict[str, str]:
         dotenv = _load_dotenv_values()
         found: Dict[str, str] = {}
+        sources: Dict[str, str] = {}
         for name in SLOT_KEY_ENV_VARS + LEGACY_KEY_ENV_VARS:
             value = os.environ.get(name) or dotenv.get(name)
+            if not value:
+                for alias in alias_env_names(name):
+                    value = os.environ.get(alias) or dotenv.get(alias)
+                    if value:
+                        sources[name] = alias
+                        break
             if value and value.startswith(_KEY_PREFIX):
                 found[name] = value
+        self._alias_sources = sources
         return found
 
     def reload(self) -> None:
@@ -153,6 +192,15 @@ class NvidiaKeyPool:
         with self._lock:
             self._keys = self._discover()
             self._cursor = 0
+
+    def alias_sources(self) -> Dict[str, str]:
+        """slot var -> the alternate env name that actually supplied it.
+
+        Diagnostics only. A deployment that reads this and finds entries is one
+        whose file names differ from the repo's; it is working, and the mapping
+        is what proves where each credential came from.
+        """
+        return dict(self._alias_sources)
 
     # ── state ────────────────────────────────────────────────────────────────
 
@@ -222,6 +270,9 @@ class NvidiaKeyPool:
             "slots_present": sorted(n for n in self._keys if n in SLOT_KEY_ENV_VARS),
             "slots_missing": sorted(n for n in SLOT_KEY_ENV_VARS if n not in self._keys),
             "legacy_present": sorted(n for n in self._keys if n in LEGACY_KEY_ENV_VARS),
+            # Credential-free: names only, never values. Present so a rename in
+            # an operator's file is visible in /health instead of invisible.
+            "aliased_slots": dict(sorted(self._alias_sources.items())),
         }
 
     def __repr__(self) -> str:  # pragma: no cover - defensive

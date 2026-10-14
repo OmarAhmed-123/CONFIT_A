@@ -11,16 +11,20 @@ export interface IconProps {
 }
 
 export const ConfitColors = {
-  navy: '#1B1F3B',
-  gold: '#C5A059',
-  goldLight: '#FDF8EE',
-  goldHover: '#E2BF70',
-  cream: '#FAF9F6',
-  slateDark: '#0C0E1E',
-  grey: '#64748B',
-  lightGrey: '#E2E8F0',
+  navy: '#111827',
+  gold: '#EF826D',
+  goldLight: '#FFF1EE',
+  goldHover: '#E76A52',
+  cream: '#FAFAF9',
+  slateDark: '#111827',
+  grey: '#6B7280',
+  lightGrey: '#E5E7EB',
   emerald: '#059669',
-  rose: '#E11D48',
+  rose: '#EF826D',
+  coral: '#EF826D',
+  lilac: '#B9B3E3',
+  mint: '#80C2AF',
+  ink: '#111827',
 };
 
 const IconWrapper: React.FC<{

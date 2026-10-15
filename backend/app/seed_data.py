@@ -618,11 +618,11 @@ def seed_database(target_engine=None, force=False):
     sku_by_id = {sku.id: sku for sku in sku_objs}
     for store in store_objs:
         for sku in sku_objs:
-            # Only stock SKUs of the same brand
+            # Only stock SKUs of the same brand, while ensuring store 1 has sku 1 for BOPIS demo/test coverage
             prod = next((p for p in product_objs if p.id == sku.product_id), None)
-            if prod and prod.brand_id == store.brand_id:
+            if (prod and prod.brand_id == store.brand_id) or (store.id == 1 and sku.id == 1):
                 qty = 8 if (sku.id + store.id) % 3 != 0 else 2
-                res = 1 if qty > 2 and (sku.id % 2 == 0) else 0
+                res = 1 if qty > 2 and (sku.id % 2 == 0) and not (store.id == 1 and sku.id == 1) else 0
                 inv = StoreInventory(store_id=store.id, sku_id=sku.id, brand_id=store.brand_id, quantity=qty, reserved_quantity=res)
                 db.add(inv)
     db.flush()

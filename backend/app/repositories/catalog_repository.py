@@ -1,9 +1,31 @@
+import json
+import math
+import urllib.parse
 from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import or_, desc, asc
 from backend.app.models.catalog import Category, Product, ProductSKU, StoreLocation, StoreInventory, RecentlyViewed
 from backend.app.models.user import BrandProfile
+from backend.app.models.commerce import Promotion
+
+
+def haversine_distance_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Calculate the great circle distance between two points in kilometers."""
+    r = 6371.0
+    dlat = math.radians(lat2 - lat1)
+    dlon = math.radians(lon2 - lon1)
+    a = math.sin(dlat / 2) ** 2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2) ** 2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    return round(r * c, 1)
+
+
+def build_google_maps_url(address: str, latitude: Optional[float], longitude: Optional[float]) -> str:
+    """Generate high-reliability Google Maps universal navigation link with fallback."""
+    if latitude is not None and longitude is not None and not (latitude == 0.0 and longitude == 0.0):
+        return f"https://www.google.com/maps/dir/?api=1&destination={latitude:.6f},{longitude:.6f}"
+    return f"https://www.google.com/maps/search/?api=1&query={urllib.parse.quote_plus(address)}"
+
 
 
 def purchasable_criterion():
@@ -282,3 +304,446 @@ class CatalogRepository:
                 "longitude": store.longitude
             })
         return output
+
+    # =========================================================================
+    # Customer Brand Discovery, Store Locator & Branch-Level Product Inventory
+    # =========================================================================
+
+    def _get_active_promotions_for_brand(self, brand_id: int) -> List[Promotion]:
+        now = datetime.now(timezone.utc)
+        return (
+            self.db.query(Promotion)
+            .filter(
+                Promotion.brand_id == brand_id,
+                Promotion.is_active == True,
+                or_(Promotion.starts_at.is_(None), Promotion.starts_at <= now),
+                or_(Promotion.expires_at.is_(None), Promotion.expires_at >= now),
+            )
+            .all()
+        )
+
+    def get_customer_brands(
+        self,
+        q: Optional[str] = None,
+        category: Optional[str] = None,
+        city: Optional[str] = None,
+        has_offers: Optional[bool] = None,
+        sort: str = "alphabetical",
+    ) -> List[Dict[str, Any]]:
+        """Fetch all public verified brands decorated with store counts, active promotions, and categories."""
+        query = self.db.query(BrandProfile).filter(BrandProfile.is_verified.is_(True))
+
+        if q and q.strip():
+            token = f"%{q.strip()}%"
+            query = query.filter(
+                or_(
+                    BrandProfile.brand_name.ilike(token),
+                    BrandProfile.description.ilike(token),
+                    BrandProfile.description_ar.ilike(token),
+                )
+            )
+
+        brands = query.all()
+        now = datetime.now(timezone.utc)
+        results = []
+
+        for b in brands:
+            # Gather brand's active products
+            brand_products = (
+                self.db.query(Product)
+                .options(joinedload(Product.category), joinedload(Product.brand))
+                .filter(Product.brand_id == b.id, Product.is_active == True)
+                .all()
+            )
+            categories = sorted(list({p.category.name for p in brand_products if p.category}))
+
+            # Filter by category if requested
+            if category and category.strip():
+                req_cat = category.strip().lower()
+                matches_category = any(
+                    req_cat in c.lower() or (p.category and req_cat == p.category.slug.lower())
+                    for c in categories for p in brand_products
+                )
+                if not matches_category:
+                    continue
+
+            # Gather stores
+            stores = self.db.query(StoreLocation).filter(StoreLocation.brand_id == b.id).all()
+            cities = sorted(list({s.city for s in stores if s.city}))
+
+            # Filter by city if requested
+            if city and city.strip():
+                req_city = city.strip().lower()
+                if not any(req_city in c.lower() for c in cities):
+                    continue
+
+            # Gather active promotions
+            promotions = (
+                self.db.query(Promotion)
+                .filter(
+                    Promotion.brand_id == b.id,
+                    Promotion.is_active == True,
+                    or_(Promotion.starts_at.is_(None), Promotion.starts_at <= now),
+                    or_(Promotion.expires_at.is_(None), Promotion.expires_at >= now),
+                )
+                .all()
+            )
+
+            if has_offers is True and not promotions:
+                continue
+
+            # Sample products (up to 4)
+            sample_prods = brand_products[:4]
+
+            results.append({
+                "brand": b,
+                "total_products": len(brand_products),
+                "stores_count": len(stores),
+                "cities": cities,
+                "categories": categories,
+                "active_promotions_count": len(promotions),
+                "promotions": promotions,
+                "sample_products": sample_prods,
+            })
+
+        # Apply sorting
+        if sort == "stores":
+            results.sort(key=lambda x: x["stores_count"], reverse=True)
+        elif sort == "products":
+            results.sort(key=lambda x: x["total_products"], reverse=True)
+        elif sort == "offers":
+            results.sort(key=lambda x: x["active_promotions_count"], reverse=True)
+        else:  # alphabetical
+            results.sort(key=lambda x: x["brand"].brand_name.lower())
+
+        return results
+
+    def get_customer_brand_detail(
+        self,
+        slug_or_id: str,
+        lat: Optional[float] = None,
+        lng: Optional[float] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """Fetch complete brand profile, branches with coordinates/distance, promotions, and sample items."""
+        brand = None
+        if slug_or_id.isdigit():
+            brand = self.db.query(BrandProfile).filter(BrandProfile.id == int(slug_or_id)).first()
+        if not brand:
+            brand = self.db.query(BrandProfile).filter(BrandProfile.slug == slug_or_id).first()
+        if not brand:
+            return None
+        if not brand.is_verified:
+            return None
+
+        # Fetch all stores for this brand
+        stores = (
+            self.db.query(StoreLocation)
+            .filter(StoreLocation.brand_id == brand.id)
+            .all()
+        )
+
+        stores_summary = []
+        for s in stores:
+            # Count in-stock SKUs at this branch
+            in_stock_count = (
+                self.db.query(StoreInventory)
+                .filter(
+                    StoreInventory.store_id == s.id,
+                    (StoreInventory.quantity - StoreInventory.reserved_quantity) > 0,
+                )
+                .count()
+            )
+
+            # Distance calculation if coordinates provided
+            dist = None
+            if lat is not None and lng is not None:
+                dist = haversine_distance_km(lat, lng, s.latitude, s.longitude)
+
+            gmaps_url = build_google_maps_url(s.address, s.latitude, s.longitude)
+
+            stores_summary.append({
+                "store": s,
+                "distance_km": dist,
+                "google_maps_url": gmaps_url,
+                "in_stock_skus_count": in_stock_count,
+            })
+
+        if lat is not None and lng is not None:
+            stores_summary.sort(key=lambda x: (x["distance_km"] if x["distance_km"] is not None else 99999))
+
+        # Brand products
+        brand_products = (
+            self.db.query(Product)
+            .options(joinedload(Product.category), joinedload(Product.brand))
+            .filter(Product.brand_id == brand.id, Product.is_active == True)
+            .all()
+        )
+        categories = sorted(list({p.category.name for p in brand_products if p.category}))
+        cities = sorted(list({s.city for s in stores if s.city}))
+
+        # Active promotions
+        promos = self._get_active_promotions_for_brand(brand.id)
+
+        return {
+            "brand": brand,
+            "total_products": len(brand_products),
+            "stores_count": len(stores),
+            "cities": cities,
+            "categories": categories,
+            "active_promotions_count": len(promos),
+            "promotions": promos,
+            "sample_products": brand_products[:6],
+            "stores": stores_summary,
+        }
+
+    def get_customer_stores(
+        self,
+        brand_id: Optional[int] = None,
+        city: Optional[str] = None,
+        q: Optional[str] = None,
+        lat: Optional[float] = None,
+        lng: Optional[float] = None,
+    ) -> List[Dict[str, Any]]:
+        """Retrieve physical stores with brand details, promotions, and proximity sorting."""
+        query = (
+            self.db.query(StoreLocation)
+            .options(joinedload(StoreLocation.brand))
+        )
+
+        if brand_id:
+            query = query.filter(StoreLocation.brand_id == brand_id)
+        if city and city.strip():
+            query = query.filter(StoreLocation.city.ilike(f"%{city.strip()}%"))
+        if q and q.strip():
+            token = f"%{q.strip()}%"
+            query = query.filter(
+                or_(
+                    StoreLocation.name.ilike(token),
+                    StoreLocation.address.ilike(token),
+                    StoreLocation.city.ilike(token),
+                )
+            )
+
+        stores = query.all()
+        results = []
+
+        for s in stores:
+            in_stock_count = (
+                self.db.query(StoreInventory)
+                .filter(
+                    StoreInventory.store_id == s.id,
+                    (StoreInventory.quantity - StoreInventory.reserved_quantity) > 0,
+                )
+                .count()
+            )
+            dist = None
+            if lat is not None and lng is not None:
+                dist = haversine_distance_km(lat, lng, s.latitude, s.longitude)
+
+            gmaps_url = build_google_maps_url(s.address, s.latitude, s.longitude)
+            promos = self._get_active_promotions_for_brand(s.brand_id)
+
+            results.append({
+                "store": s,
+                "distance_km": dist,
+                "google_maps_url": gmaps_url,
+                "in_stock_skus_count": in_stock_count,
+                "active_promotions": promos,
+            })
+
+        if lat is not None and lng is not None:
+            results.sort(key=lambda x: (x["distance_km"] if x["distance_km"] is not None else 99999))
+        else:
+            results.sort(key=lambda x: (x["store"].city, x["store"].name))
+
+        return results
+
+    def get_customer_store_detail(
+        self,
+        store_id: int,
+        lat: Optional[float] = None,
+        lng: Optional[float] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """Retrieve specific store branch profile."""
+        store = (
+            self.db.query(StoreLocation)
+            .options(joinedload(StoreLocation.brand))
+            .filter(StoreLocation.id == store_id)
+            .first()
+        )
+        if not store:
+            return None
+
+        in_stock_count = (
+            self.db.query(StoreInventory)
+            .filter(
+                StoreInventory.store_id == store.id,
+                (StoreInventory.quantity - StoreInventory.reserved_quantity) > 0,
+            )
+            .count()
+        )
+        dist = None
+        if lat is not None and lng is not None:
+            dist = haversine_distance_km(lat, lng, store.latitude, store.longitude)
+
+        gmaps_url = build_google_maps_url(store.address, store.latitude, store.longitude)
+        promos = self._get_active_promotions_for_brand(store.brand_id)
+
+        return {
+            "store": store,
+            "distance_km": dist,
+            "google_maps_url": gmaps_url,
+            "in_stock_skus_count": in_stock_count,
+            "active_promotions": promos,
+        }
+
+    def get_branch_inventory_catalog(
+        self,
+        store_id: int,
+        category: Optional[str] = None,
+        in_stock_only: bool = False,
+        search: Optional[str] = None,
+        sort_by: str = "newest",
+    ) -> Optional[Dict[str, Any]]:
+        """Fetch clothing items and available stock at this branch."""
+        store = (
+            self.db.query(StoreLocation)
+            .options(joinedload(StoreLocation.brand))
+            .filter(StoreLocation.id == store_id)
+            .first()
+        )
+        if not store:
+            return None
+
+        # Fetch StoreInventory records joined with ProductSKU and Product
+        inv_query = (
+            self.db.query(StoreInventory, ProductSKU, Product)
+            .join(ProductSKU, StoreInventory.sku_id == ProductSKU.id)
+            .join(Product, ProductSKU.product_id == Product.id)
+            .options(joinedload(Product.category), joinedload(Product.brand))
+            .filter(StoreInventory.store_id == store_id, Product.is_active == True)
+        )
+
+        rows = inv_query.all()
+
+        # Group SKUs by Product
+        products_map: Dict[int, Dict[str, Any]] = {}
+        all_categories = set()
+        all_sizes = set()
+
+        for inv, sku, prod in rows:
+            if prod.category:
+                all_categories.add(prod.category.name)
+            all_sizes.add(sku.size)
+
+            avail_qty = max(0, inv.quantity - inv.reserved_quantity)
+            if avail_qty == 0:
+                avail_status = "out_of_stock"
+            elif avail_qty <= 3:
+                avail_status = "low_stock"
+            else:
+                avail_status = "in_stock"
+
+            sku_info = {
+                "sku_id": sku.id,
+                "sku_code": sku.sku_code,
+                "size": sku.size,
+                "color": sku.color,
+                "color_hex": sku.color_hex or "#212529",
+                "quantity_available": avail_qty,
+                "reserved_quantity": inv.reserved_quantity,
+                "is_in_stock": avail_qty > 0,
+                "availability_status": avail_status,
+            }
+
+            if prod.id not in products_map:
+                products_map[prod.id] = {
+                    "product": prod,
+                    "skus": [],
+                    "total_available": 0,
+                }
+            products_map[prod.id]["skus"].append(sku_info)
+            products_map[prod.id]["total_available"] += avail_qty
+
+        # Build list of BranchProductItemOut
+        product_items = []
+        for prod_id, data in products_map.items():
+            prod = data["product"]
+            total_avail = data["total_available"]
+
+            # Filter in_stock_only
+            if in_stock_only and total_avail <= 0:
+                continue
+
+            # Filter by category
+            if category and category.strip():
+                req_cat = category.strip().lower()
+                cat_match = (
+                    (prod.category and req_cat in prod.category.name.lower())
+                    or (prod.category and req_cat == prod.category.slug.lower())
+                )
+                if not cat_match:
+                    continue
+
+            # Filter by search term
+            if search and search.strip():
+                req_search = search.strip().lower()
+                text_match = (
+                    req_search in prod.title.lower()
+                    or req_search in prod.description.lower()
+                    or (prod.category and req_search in prod.category.name.lower())
+                )
+                if not text_match:
+                    continue
+
+            if total_avail == 0:
+                p_status = "out_of_stock"
+            elif total_avail <= 3:
+                p_status = "low_stock"
+            else:
+                p_status = "in_stock"
+
+            discount_pct = None
+            if prod.compare_at_price and prod.compare_at_price > prod.base_price:
+                discount_pct = int(round(((float(prod.compare_at_price) - float(prod.base_price)) / float(prod.compare_at_price)) * 100))
+
+            product_items.append({
+                "product": prod,
+                "branch_id": store.id,
+                "branch_name": store.name,
+                "branch_total_units": total_avail,
+                "branch_in_stock": total_avail > 0,
+                "branch_availability_status": p_status,
+                "branch_skus": sorted(data["skus"], key=lambda s: s["size"]),
+                "discount_percent": discount_pct,
+            })
+
+        # Sort product items
+        if sort_by == "price_asc":
+            product_items.sort(key=lambda x: x["product"].base_price)
+        elif sort_by == "price_desc":
+            product_items.sort(key=lambda x: x["product"].base_price, reverse=True)
+        elif sort_by == "stock":
+            product_items.sort(key=lambda x: x["branch_total_units"], reverse=True)
+        else:  # newest
+            product_items.sort(key=lambda x: x["product"].created_at, reverse=True)
+
+        promos = self._get_active_promotions_for_brand(store.brand_id)
+        gmaps_url = build_google_maps_url(store.address, store.latitude, store.longitude)
+
+        return {
+            "store": {
+                "store": store,
+                "distance_km": None,
+                "google_maps_url": gmaps_url,
+                "in_stock_skus_count": sum(1 for p in product_items if p["branch_in_stock"]),
+                "active_promotions": promos,
+            },
+            "brand": store.brand,
+            "total_items": len(product_items),
+            "products": product_items,
+            "categories": sorted(list(all_categories)),
+            "available_sizes": sorted(list(all_sizes)),
+            "active_promotions": promos,
+        }
+

@@ -127,20 +127,24 @@ export const BrandOrdersView: React.FC = () => {
               key={k}
               className={`rounded-2xl border p-4 ${
                 k === "net"
-                  ? "bg-brand-charcoal border-brand-charcoal text-white"
+                  ? "bg-brand-charcoal border-brand-charcoal text-white shadow-xs"
                   : k === "discount"
-                    ? "bg-[#FDF1F2] border-[#7A1F2B]/20"
-                    : "bg-white border-slate-200/80"
+                    ? "bg-brand-coral/10 border-brand-coral/30 text-brand-charcoal"
+                    : k === "orders"
+                      ? "bg-white border-slate-200 border-t-4 border-t-brand-lilac shadow-xs"
+                      : k === "units"
+                        ? "bg-white border-slate-200 border-t-4 border-t-brand-mint shadow-xs"
+                        : "bg-white border-slate-200 border-t-4 border-t-brand-coral shadow-xs"
               }`}
             >
               <span
                 className={`block text-[10px] font-bold uppercase tracking-wider ${
-                  k === "net" ? "text-brand-charcoal" : "text-slate-500"
+                  k === "net" ? "text-slate-300" : k === "discount" ? "text-brand-coral" : "text-slate-500"
                 }`}
               >
                 {t(`brand_orders.total_${k}`)}
               </span>
-              <span className="block font-serif text-lg font-bold mt-1">{v}</span>
+              <span className={`block font-serif text-lg font-bold mt-1 ${k === "discount" ? "text-brand-coral" : ""}`}>{v}</span>
             </div>
           ))}
           {/* The totals describe every matching line, not the visible page. */}

@@ -8,6 +8,7 @@ from backend.app.core.money import to_decimal, to_float, validate_money, money_a
 
 from backend.app.core.database import get_db
 from backend.app.core.dependencies import require_role, BRAND_ROLES
+from backend.app.core.exceptions import ResourceNotFoundError, ValidationDomainError, AuthorizationError
 from backend.app.models.user import User
 from backend.app.services.brand_service import BrandService
 from backend.app.services.brand_catalog_service import BrandCatalogService
@@ -21,10 +22,15 @@ from backend.app.schemas.brand import (
     SponsoredPlacementCreate,
     SponsoredPlacementOut,
     PartnerLeadCreate,
-    PartnerLeadOut
+    PartnerLeadOut,
+    BrandRegistrationRequest,
+    BrandRegistrationResponse,
+    BrandOnboardingStatusOut,
+    PartnerStoreDetailOut,
 )
 from backend.app.schemas.catalog import ProductSummaryOut, ProductSKUOut
 from backend.app.services.partner_lead_service import PartnerLeadService
+from backend.app.repositories.catalog_repository import build_google_maps_url
 from backend.app.core.rate_limit import limiter
 
 router = APIRouter(tags=["Brand & Admin Management (B2B)"])
@@ -64,6 +70,83 @@ def request_partner_demo(
         duplicate=lead["duplicate"],
         message="Request received. The CONFIT team will review it using the persisted lead workflow.",
     )
+
+
+# ============================================================================
+# Automated Brand Registration & Workspace Provisioning
+# ============================================================================
+
+@router.post(
+    "/brand/register",
+    response_model=BrandRegistrationResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+@router.post(
+    "/auth/brand/register",
+    response_model=BrandRegistrationResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+@limiter.limit("10/minute")
+def register_brand_account(
+    request: Request,
+    payload: BrandRegistrationRequest,
+    db: Session = Depends(get_db),
+):
+    """Automated brand registration.
+
+    Provisions the brand owner user, creates the BrandProfile entity, generates
+    a unique slug, provisions the tenant workspace, logs the audit record,
+    and returns session tokens and onboarding guidance.
+    """
+    service = BrandService(db)
+    client_ip = request.client.host if request.client else None
+    user_agent = request.headers.get("user-agent")
+
+    try:
+        result = service.register_brand(
+            brand_name=payload.brand_name,
+            email=payload.email,
+            password=payload.password,
+            full_name=payload.full_name,
+            phone=payload.phone,
+            description=payload.description,
+            description_ar=payload.description_ar,
+            website=payload.website,
+            logo_url=payload.logo_url,
+            country=payload.country,
+            city=payload.city,
+            preferred_language=payload.preferred_language or "en",
+            ip_address=client_ip,
+            user_agent=user_agent,
+        )
+        _audit(db, None, "BRAND_REGISTERED", "BrandProfile", result["brand"]["id"], {
+            "brand_name": payload.brand_name,
+            "email": payload.email,
+            "status": result["status"]
+        })
+        return BrandRegistrationResponse(**result)
+    except ValidationDomainError as exc:
+        err_msg = str(exc)
+        status_code = (
+            status.HTTP_409_CONFLICT
+            if "already registered" in err_msg.lower() or "already exists" in err_msg.lower()
+            else status.HTTP_422_UNPROCESSABLE_ENTITY
+        )
+        raise HTTPException(
+            status_code=status_code,
+            detail=err_msg,
+        )
+
+
+@router.get("/partner/onboarding-status", response_model=BrandOnboardingStatusOut)
+@router.get("/brand/onboarding-status", response_model=BrandOnboardingStatusOut)
+def get_brand_onboarding_status(
+    user: User = Depends(brand_auth),
+    db: Session = Depends(get_db),
+):
+    """Calculates guided onboarding progress across 7 dimensions."""
+    service = BrandService(db)
+    return service.get_onboarding_status(user)
 
 
 def _audit(db: Session, user: User, action: str, resource_type: str,
@@ -136,6 +219,15 @@ class InventoryUpdateRequest(BaseModel):
     quantity: int = Field(ge=0, le=100000, strict=True)
 
 
+class BrandProfileUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    description: Optional[str] = Field(None, max_length=2000)
+    description_ar: Optional[str] = Field(None, max_length=2000)
+    website: Optional[str] = Field(None, max_length=500)
+    logo_url: Optional[str] = Field(None, max_length=1000)
+    banner_url: Optional[str] = Field(None, max_length=1000)
+
+
 # 1. Brand Partner Profile
 @router.get("/brand/profile", response_model=BrandProfileOut)
 @router.get("/partner/profile", response_model=BrandProfileOut)
@@ -145,6 +237,25 @@ def get_brand_profile(
 ):
     service = BrandService(db)
     return service.get_brand_profile_by_user(user)
+
+
+@router.patch("/brand/profile", response_model=BrandProfileOut)
+@router.patch("/partner/profile", response_model=BrandProfileOut)
+def patch_brand_profile(
+    payload: BrandProfileUpdate,
+    user: User = Depends(brand_auth),
+    db: Session = Depends(get_db),
+):
+    service = BrandService(db)
+    bp_dict = service.get_brand_profile_by_user(user)
+    from backend.app.models.user import BrandProfile
+    bp = db.get(BrandProfile, bp_dict["id"])
+    for key, value in payload.model_dump(exclude_unset=True).items():
+        setattr(bp, key, value)
+    db.commit()
+    db.refresh(bp)
+    _audit(db, user, "BRAND_PROFILE_UPDATED", "BrandProfile", bp.id, payload.model_dump(exclude_unset=True))
+    return service._format_brand(bp)
 
 
 # 2. Brand Analytics & Conversion - REAL DATA
@@ -261,15 +372,87 @@ def import_catalog_bulk(
     return BrandCatalogService(db).process_json_import(payload.products, bp["id"], actor_id=user.id)
 
 
-@router.post("/partner/catalog/upload/csv", status_code=status.HTTP_202_ACCEPTED)
-async def upload_catalog_csv(
+@router.get("/partner/catalog/template.csv")
+@router.get("/brand/catalog/template.csv")
+def download_catalog_template():
+    """Download official CSV template matching CONFIT_A schema."""
+    from fastapi.responses import Response
+    csv_text = "\ufeff" + BrandCatalogService.generate_sample_csv()
+    return Response(
+        content=csv_text,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="confit-catalog-template.csv"'}
+    )
+
+
+@router.post("/partner/catalog/preview-csv")
+@router.post("/brand/catalog/preview-csv")
+async def preview_catalog_csv(
     file: UploadFile = File(...),
+    target_store_id: Optional[int] = Query(None),
     user: User = Depends(brand_auth),
     db: Session = Depends(get_db)
 ):
     """
-    Bulk SKU import via CSV with image assets.
-    Real implementation with validation, idempotency, transactional behavior.
+    Parses and validates CSV catalog file without database mutations.
+    Returns row breakdown, summary stats, field-level errors and preview records.
+    """
+    bp = BrandService(db).get_brand_profile_by_user(user)
+
+    if not (file.filename or '').lower().endswith('.csv'):
+        raise HTTPException(status_code=400, detail="File must be CSV")
+
+    content = await file.read(BrandCatalogService.MAX_BYTES + 1)
+    if len(content) > BrandCatalogService.MAX_BYTES:
+        raise HTTPException(status_code=400, detail="File exceeds 10MB limit")
+    if len(content) == 0:
+        raise HTTPException(status_code=400, detail="CSV file is empty")
+
+    try:
+        csv_text = content.decode('utf-8-sig')
+    except UnicodeDecodeError:
+        try:
+            csv_text = content.decode('latin-1')
+        except Exception:
+            raise HTTPException(status_code=400, detail="Invalid CSV encoding, must be UTF-8")
+
+    catalog_service = BrandCatalogService(db)
+    result = catalog_service.preview_csv(csv_text, bp["id"], target_store_id=target_store_id)
+    return result
+
+
+@router.post("/partner/catalog/export-errors")
+@router.post("/brand/catalog/export-errors")
+def export_catalog_import_errors(
+    payload: Dict[str, Any],
+    user: User = Depends(brand_auth),
+    db: Session = Depends(get_db)
+):
+    """
+    Generates and returns downloadable CSV error report with spreadsheet formula injection protection.
+    """
+    from fastapi.responses import Response
+    errors = payload.get("errors", [])
+    csv_text = "\ufeff" + BrandCatalogService.generate_error_report_csv(errors)
+    return Response(
+        content=csv_text,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="confit-import-errors.csv"'}
+    )
+
+
+@router.post("/partner/catalog/confirm-import", status_code=status.HTTP_202_ACCEPTED)
+@router.post("/partner/catalog/upload/csv", status_code=status.HTTP_202_ACCEPTED)
+async def upload_catalog_csv(
+    file: UploadFile = File(...),
+    target_store_id: Optional[int] = Query(None),
+    send_notifications: bool = Query(True),
+    user: User = Depends(brand_auth),
+    db: Session = Depends(get_db)
+):
+    """
+    Bulk SKU import via CSV with image assets, branch inventory association,
+    and automated customer notification dispatch.
     """
     service = BrandService(db)
     bp = service.get_brand_profile_by_user(user)
@@ -290,19 +473,20 @@ async def upload_catalog_csv(
         csv_text = content.decode('utf-8-sig')
     except UnicodeDecodeError:
         try:
-            csv_text = content.decode('utf-8-sig')
-        except:
+            csv_text = content.decode('latin-1')
+        except Exception:
             raise HTTPException(status_code=400, detail="Invalid CSV encoding, must be UTF-8")
-
-    # MIME validation
-    if not file.content_type or "csv" not in file.content_type.lower():
-        # Allow if filename is csv even if mime not csv (some browsers)
-        if not file.filename.lower().endswith('.csv'):
-            raise HTTPException(status_code=400, detail="Invalid file type, must be CSV")
 
     catalog_service = BrandCatalogService(db)
     try:
-        result = catalog_service.process_csv_import(csv_text, bp["id"], file.filename, actor_id=user.id)
+        result = catalog_service.process_csv_import(
+            csv_text,
+            bp["id"],
+            file.filename,
+            actor_id=user.id,
+            target_store_id=target_store_id,
+            send_notifications=send_notifications,
+        )
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail="Import interrupted; inspect import history before retrying")
@@ -545,6 +729,7 @@ def update_partner_inventory(
 
 
 @router.get("/partner/stores")
+@router.get("/brand/stores")
 def get_partner_stores(
     user: User = Depends(brand_auth),
     db: Session = Depends(get_db)
@@ -553,9 +738,33 @@ def get_partner_stores(
     bp = service.get_brand_profile_by_user(user)
     repo = BrandRepository(db)
     stores = repo.get_brand_stores(bp["id"])
-    return [
-        {
+    from backend.app.models.catalog import StoreInventory
+    from sqlalchemy import func
+
+    # Fetch store inventories count for each store
+    stats = (
+        db.query(
+            StoreInventory.store_id,
+            func.count(StoreInventory.id).label("item_count"),
+            func.coalesce(func.sum(StoreInventory.quantity), 0).label("total_units"),
+        )
+        .group_by(StoreInventory.store_id)
+        .all()
+    )
+    stat_map = {row.store_id: (row.item_count, row.total_units) for row in stats}
+
+    results = []
+    for s in stores:
+        item_count, total_units = stat_map.get(s.id, (0, 0))
+        is_verified = bool(
+            (s.latitude != 0.0 or s.longitude != 0.0)
+            and -90 <= s.latitude <= 90
+            and -180 <= s.longitude <= 180
+        )
+        gmaps_url = build_google_maps_url(s.address, s.latitude, s.longitude)
+        results.append({
             "id": s.id,
+            "brand_id": s.brand_id,
             "name": s.name,
             "name_ar": s.name_ar,
             "city": s.city,
@@ -564,14 +773,70 @@ def get_partner_stores(
             "latitude": s.latitude,
             "longitude": s.longitude,
             "phone": s.phone,
+            "pickup_instructions": s.pickup_instructions,
             "is_bopis_enabled": s.is_bopis_enabled,
-            "created_at": s.created_at
-        }
-        for s in stores
-    ]
+            "is_location_verified": is_verified,
+            "inventory_items_count": item_count,
+            "total_stock_units": total_units,
+            "google_maps_url": gmaps_url,
+            "created_at": s.created_at,
+        })
+    return results
+
+
+@router.get("/partner/stores/{store_id}")
+@router.get("/brand/stores/{store_id}")
+def get_partner_store_detail(
+    store_id: int,
+    user: User = Depends(brand_auth),
+    db: Session = Depends(get_db)
+):
+    service = BrandService(db)
+    bp = service.get_brand_profile_by_user(user)
+    from backend.app.models.catalog import StoreLocation, StoreInventory
+    store = db.query(StoreLocation).filter(
+        StoreLocation.id == store_id,
+        StoreLocation.brand_id == bp["id"]
+    ).first()
+    if not store:
+        raise HTTPException(status_code=404, detail=f"Store {store_id} not found for this brand.")
+
+    item_count = db.query(StoreInventory).filter(StoreInventory.store_id == store.id).count()
+    from sqlalchemy import func
+    total_units = (
+        db.query(func.coalesce(func.sum(StoreInventory.quantity), 0))
+        .filter(StoreInventory.store_id == store.id)
+        .scalar()
+        or 0
+    )
+    is_verified = bool(
+        (store.latitude != 0.0 or store.longitude != 0.0)
+        and -90 <= store.latitude <= 90
+        and -180 <= store.longitude <= 180
+    )
+    return {
+        "id": store.id,
+        "brand_id": store.brand_id,
+        "name": store.name,
+        "name_ar": store.name_ar,
+        "city": store.city,
+        "country": store.country,
+        "address": store.address,
+        "latitude": store.latitude,
+        "longitude": store.longitude,
+        "phone": store.phone,
+        "pickup_instructions": store.pickup_instructions,
+        "is_bopis_enabled": store.is_bopis_enabled,
+        "is_location_verified": is_verified,
+        "inventory_items_count": item_count,
+        "total_stock_units": total_units,
+        "google_maps_url": build_google_maps_url(store.address, store.latitude, store.longitude),
+        "created_at": store.created_at,
+    }
 
 
 @router.post("/partner/stores", status_code=status.HTTP_201_CREATED)
+@router.post("/brand/stores", status_code=status.HTTP_201_CREATED)
 def create_partner_store(
     payload: StoreCreateRequest,
     user: User = Depends(brand_auth),
@@ -590,13 +855,15 @@ def create_partner_store(
             "name": store.name,
             "city": store.city,
             "country": store.country,
-            "is_bopis_enabled": store.is_bopis_enabled
+            "is_bopis_enabled": store.is_bopis_enabled,
+            "google_maps_url": build_google_maps_url(store.address, store.latitude, store.longitude),
         }
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.patch("/partner/stores/{store_id}")
+@router.patch("/brand/stores/{store_id}")
 def patch_partner_store(
     store_id: int,
     payload: StoreUpdateRequest,
@@ -615,10 +882,29 @@ def patch_partner_store(
             "name": store.name,
             "city": store.city,
             "country": store.country,
-            "is_bopis_enabled": store.is_bopis_enabled
+            "is_bopis_enabled": store.is_bopis_enabled,
+            "google_maps_url": build_google_maps_url(store.address, store.latitude, store.longitude),
         }
     except ValueError as e:
         raise HTTPException(status_code=404 if "not found" in str(e).lower() else 400, detail=str(e))
+
+
+@router.delete("/partner/stores/{store_id}")
+@router.delete("/brand/stores/{store_id}")
+def delete_partner_store(
+    store_id: int,
+    user: User = Depends(brand_auth),
+    db: Session = Depends(get_db)
+):
+    service = BrandService(db)
+    bp = service.get_brand_profile_by_user(user)
+    repo = BrandRepository(db)
+    try:
+        repo.delete_store(store_id, bp["id"])
+        _audit(db, user, "BRAND_STORE_DELETED", "Store", store_id, {"brand_id": bp["id"]})
+        return {"status": "deleted", "store_id": store_id}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
 
 # 5. Sponsored Placements - REAL WITH VALIDATION

@@ -1,11 +1,14 @@
 import { useTranslation } from 'react-i18next';
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, CheckCircle2, Circle } from 'lucide-react';
 import { useBrandViewModel } from '../../viewmodels/useBrandViewModel';
 import { Surface } from '../../components/common/Surface';
 import { HonestProductImage } from '../../components/common/HonestProductImage';
 import { usePrefersReducedMotion } from '../../components/common/InteractionPrimitives';
+import { brandService } from '../../services/apiServices';
+import type { BrandOnboardingStatus } from '../../models';
 
 /**
  * B02 — Partner Command Center, re-pass (see docs/B02_PARTNER_DASHBOARD_REDESIGN.md).
@@ -29,6 +32,20 @@ export const BrandDashboardView: React.FC = () => {
   const reduceMotion = usePrefersReducedMotion();
   const { profile, analytics, fetchErrors, isLoading, loadFailed, refresh } =
     useBrandViewModel();
+
+  const [onboarding, setOnboarding] = useState<BrandOnboardingStatus | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    brandService.getOnboardingStatus()
+      .then((data) => {
+        if (isMounted) setOnboarding(data);
+      })
+      .catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const [stamp, setStamp] = useState<string | null>(null);
   useEffect(() => {
@@ -130,15 +147,22 @@ export const BrandDashboardView: React.FC = () => {
     {
       label: t('b2b.dash.cohort_before'),
       rate: analytics.return_rate_before_vton,
-      bar: 'bg-rose-700',
-      text: 'text-rose-700',
+      bar: 'bg-brand-coral',
+      text: 'text-brand-coral',
     },
     {
       label: t('b2b.dash.cohort_after'),
       rate: analytics.return_rate_after_vton,
-      bar: 'bg-emerald-700',
-      text: 'text-emerald-700',
+      bar: 'bg-brand-mint',
+      text: 'text-[#065F46] font-bold',
     },
+  ];
+
+  const rankPillStyles = [
+    'bg-brand-coral text-white',
+    'bg-brand-lilac text-brand-charcoal',
+    'bg-brand-mint text-brand-charcoal',
+    'bg-brand-charcoal text-white',
   ];
 
   return (
@@ -147,7 +171,7 @@ export const BrandDashboardView: React.FC = () => {
       <header className="grid grid-cols-12 items-start gap-8">
         <div className="col-span-12 lg:col-span-7">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="h-px w-8 bg-brand-charcoal" aria-hidden="true" />
+            <span className="h-px w-8 bg-brand-coral" aria-hidden="true" />
             <span className="text-[11px] font-bold uppercase tracking-widest text-brand-charcoal">
               {t('b2b.dash.eyebrow')}
             </span>
@@ -155,7 +179,7 @@ export const BrandDashboardView: React.FC = () => {
               className={
                 'rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide ' +
                 (profile?.is_verified
-                  ? 'bg-emerald-800 text-white'
+                  ? 'bg-brand-mint/25 text-[#064E3B] border border-brand-mint/50'
                   : 'bg-slate-200 text-slate-700')
               }
             >
@@ -184,7 +208,7 @@ export const BrandDashboardView: React.FC = () => {
           )}
         </div>
 
-        <Surface variant="solid" reveal revealDelay={0.06} className="col-span-12 rounded-2xl p-5 lg:col-span-5">
+        <Surface variant="solid" reveal revealDelay={0.06} className="col-span-12 rounded-2xl p-5 lg:col-span-5 bg-white border border-slate-200">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
               <span className="block text-[11px] font-bold uppercase tracking-widest text-slate-600">
@@ -197,7 +221,7 @@ export const BrandDashboardView: React.FC = () => {
             <button data-motion="recovery"
               type="button"
               onClick={refresh}
-              className="inline-flex min-h-12 shrink-0 items-center gap-2 rounded-xl border border-slate-300 px-4 text-xs font-semibold text-brand-charcoal transition-colors duration-300 ease-luxury hover:border-brand-charcoal hover:text-brand-charcoal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal"
+              className="inline-flex min-h-12 shrink-0 items-center gap-2 rounded-xl border border-slate-300 px-4 text-xs font-semibold text-brand-charcoal transition-colors duration-300 ease-luxury hover:border-brand-coral hover:text-brand-coral focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-coral"
             >
               <RefreshCw size={14} aria-hidden="true" />
               {t('b2b.dash.refresh')}
@@ -211,9 +235,93 @@ export const BrandDashboardView: React.FC = () => {
         </Surface>
       </header>
 
+      {/* ----------------------------------------------- 1b · Guided Onboarding & Welcome Hub */}
+      {onboarding && (
+        <Surface variant="solid" reveal className="rounded-3xl border border-neutral-200 bg-neutral-50/70 p-6 sm:p-8 space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-brand-coral">
+                  {t('brand_onboard.title', 'Brand Onboarding & Setup')}
+                </span>
+                <span
+                  className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                    onboarding.is_verified
+                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                      : 'bg-amber-50 text-amber-700 border border-amber-200'
+                  }`}
+                >
+                  {onboarding.publication_status === 'active'
+                    ? t('brand_onboard.active', 'Active & Published')
+                    : onboarding.publication_status === 'pending_review'
+                    ? t('brand_onboard.pending', 'Pending Review')
+                    : t('brand_onboard.incomplete', 'Setup Incomplete')}
+                </span>
+              </div>
+              <h2 className="font-serif text-lg sm:text-xl font-bold text-brand-charcoal">
+                {onboarding.welcome_message}
+              </h2>
+            </div>
+
+            <Link
+              to={onboarding.primary_cta_url}
+              className="inline-flex shrink-0 items-center gap-1.5 px-5 py-2.5 rounded-xl bg-brand-charcoal text-white text-xs font-bold hover:bg-neutral-800 transition-colors shadow-sm self-start sm:self-center"
+            >
+              {onboarding.primary_cta_label} &rarr;
+            </Link>
+          </div>
+
+          {/* Progress Bar */}
+          <div className="space-y-2 pt-2 border-t border-neutral-200">
+            <div className="flex items-center justify-between text-xs font-semibold text-neutral-600">
+              <span>{t('brand_onboard.checklist_title', { completed: onboarding.completed_steps_count, total: onboarding.total_steps_count, defaultValue: `Setup Checklist (${onboarding.completed_steps_count} of ${onboarding.total_steps_count} completed)` })}</span>
+              <span>{onboarding.completion_percentage}%</span>
+            </div>
+            <div className="h-2 w-full rounded-full bg-neutral-200 overflow-hidden">
+              <div
+                className="h-full bg-brand-coral transition-all duration-500 rounded-full"
+                style={{ width: `${onboarding.completion_percentage}%` }}
+              />
+            </div>
+          </div>
+
+          {/* Steps Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 pt-2">
+            {onboarding.steps.map((step) => (
+              <Link
+                key={step.key}
+                to={step.action_url}
+                className={`p-3.5 rounded-2xl border transition-all flex flex-col justify-between space-y-2 ${
+                  step.is_completed
+                    ? 'bg-white border-neutral-200 hover:border-neutral-400'
+                    : 'bg-white/80 border-dashed border-neutral-300 hover:border-brand-charcoal'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <span className="text-xs font-bold text-brand-charcoal line-clamp-1">
+                    {step.title}
+                  </span>
+                  {step.is_completed ? (
+                    <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+                  ) : (
+                    <Circle size={16} className="text-neutral-300 shrink-0" />
+                  )}
+                </div>
+                <p className="text-[11px] text-neutral-500 line-clamp-2 leading-relaxed">
+                  {step.description}
+                </p>
+                <span className="text-[10px] font-bold text-brand-coral block pt-1">
+                  {step.is_completed ? t('brand_onboard.review_step', 'Review Step →') : t('brand_onboard.complete_step', 'Complete Step →')}
+                </span>
+              </Link>
+            ))}
+          </div>
+        </Surface>
+      )}
+
       {/* ------------------------------------------------- 2 · hairline ledger */}
-      <Surface variant="solid" reveal className="grid grid-cols-2 lg:grid-cols-4">
-        <div className="space-y-1.5 p-5">
+      <Surface variant="solid" reveal className="grid grid-cols-2 lg:grid-cols-4 bg-white rounded-2xl overflow-hidden border border-slate-200 shadow-xs">
+        <div className="space-y-1.5 p-5 border-t-4 border-t-brand-lilac bg-white">
           <span className="block text-[11px] font-bold uppercase tracking-wider text-slate-600">
             {t('b2b.dash.kpi_views')}
           </span>
@@ -227,7 +335,7 @@ export const BrandDashboardView: React.FC = () => {
             </span>
           )}
         </div>
-        <div className="space-y-1.5 border-s border-t border-slate-200 p-5 lg:border-t-0">
+        <div className="space-y-1.5 border-s border-t-4 border-t-brand-coral border-slate-200 p-5 bg-white">
           <span className="block text-[11px] font-bold uppercase tracking-wider text-slate-600">
             {t('b2b.dash.kpi_tryons')}
           </span>
@@ -240,7 +348,7 @@ export const BrandDashboardView: React.FC = () => {
               : t('b2b.dash.kpi_tryons_note_plain')}
           </span>
         </div>
-        <div className="space-y-1.5 border-t border-slate-200 p-5 lg:border-s lg:border-t-0">
+        <div className="space-y-1.5 border-s border-t-4 border-t-brand-charcoal border-slate-200 p-5 bg-white">
           <span className="block text-[11px] font-bold uppercase tracking-wider text-slate-600">
             {t('b2b.dash.kpi_ratio')}
           </span>
@@ -253,7 +361,7 @@ export const BrandDashboardView: React.FC = () => {
               : t('b2b.dash.kpi_ratio_note')}
           </span>
         </div>
-        <div className="space-y-1.5 border-s border-t border-slate-200 p-5 lg:border-t-0">
+        <div className="space-y-1.5 border-s border-t-4 border-t-brand-mint border-slate-200 p-5 bg-white">
           <span className="block text-[11px] font-bold uppercase tracking-wider text-slate-600">
             {t('b2b.dash.kpi_return')}
           </span>
@@ -263,7 +371,7 @@ export const BrandDashboardView: React.FC = () => {
               'block font-serif text-2xl font-black ' +
               (analytics.return_rate_after_vton == null
                 ? 'text-brand-charcoal'
-                : 'text-emerald-700')
+                : 'text-[#065F46]')
             }
           >
             {percent(analytics.return_rate_after_vton)}
@@ -276,7 +384,7 @@ export const BrandDashboardView: React.FC = () => {
 
       {/* ------------------------- 3+4 · cohort bars (7) / most styled (5) */}
       <div className="grid grid-cols-12 gap-8">
-        <Surface variant="solid" reveal as="section" className="col-span-12 space-y-6 rounded-2xl p-6 lg:col-span-7">
+        <Surface variant="solid" reveal as="section" className="col-span-12 space-y-6 rounded-2xl p-6 lg:col-span-7 bg-white border border-slate-200 shadow-xs">
           <div className="flex flex-wrap items-end justify-between gap-3 border-b border-slate-200 pb-3">
             <div>
               <h2 className="font-serif text-lg font-bold text-brand-charcoal">
@@ -284,7 +392,7 @@ export const BrandDashboardView: React.FC = () => {
               </h2>
               <p className="mt-0.5 text-[11px] text-slate-500">{t('b2b.dash.cohort_hint')}</p>
             </div>
-            <span className="rounded-full bg-emerald-800 px-3 py-1 text-[11px] font-bold text-white">
+            <span className="rounded-full bg-brand-mint/25 border border-brand-mint/50 px-3 py-1 text-[11px] font-bold text-[#064E3B]">
               {t('b2b.dash.cohort_diff', { rate: percent(analytics.return_reduction_percentage) })}
             </span>
           </div>
@@ -308,7 +416,7 @@ export const BrandDashboardView: React.FC = () => {
             ))}
           </div>
 
-          <div className="space-y-1.5 rounded-xl border border-slate-200 bg-brand-wash p-4 text-[11px] leading-relaxed text-slate-600">
+          <div className="space-y-1.5 rounded-xl border border-slate-200 bg-slate-50/70 p-4 text-[11px] leading-relaxed text-slate-600">
             <p>
               <strong className="font-bold text-brand-charcoal">
                 {t('b2b.dash.methodology')}:
@@ -326,7 +434,7 @@ export const BrandDashboardView: React.FC = () => {
           </div>
         </Surface>
 
-        <Surface variant="solid" reveal revealDelay={0.06} as="section" className="col-span-12 space-y-4 rounded-2xl p-6 lg:col-span-5">
+        <Surface variant="solid" reveal revealDelay={0.06} as="section" className="col-span-12 space-y-4 rounded-2xl p-6 lg:col-span-5 bg-white border border-slate-200 shadow-xs">
           <div className="border-b border-slate-200 pb-3">
             <h2 className="font-serif text-lg font-bold text-brand-charcoal">
               {t('b2b.dash.styled_title')}
@@ -344,8 +452,8 @@ export const BrandDashboardView: React.FC = () => {
           ) : (
             <ol className="space-y-3">
               {analytics.outfit_appearance_rankings.map((rank: any, idx: number) => (
-                <li key={rank.product_id} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-brand-wash p-2.5">
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-charcoal text-xs font-bold text-white">
+                <li key={rank.product_id} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-2.5 hover:border-brand-hairline transition-colors">
+                  <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-bold ${rankPillStyles[idx % rankPillStyles.length]}`}>
                     #{idx + 1}
                   </span>
                   <span className="h-14 w-12 shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-white">
@@ -370,7 +478,7 @@ export const BrandDashboardView: React.FC = () => {
                     </span>
                   </span>
                   <span className="text-end text-[11px]">
-                    <span className="block font-bold text-emerald-700">{rank.purchase_rate}%</span>
+                    <span className="block font-bold text-[#065F46]">{rank.purchase_rate}%</span>
                     <span className="block text-slate-500">{t('b2b.dash.conversion')}</span>
                   </span>
                 </li>

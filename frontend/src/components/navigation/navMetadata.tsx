@@ -106,8 +106,9 @@ export const CONSUMER_NAV: readonly NavSection[] = [
     id: 'shop',
     labelKey: 'nav.shop',
     icon: BagIcon,
-    match: ['/products', '/product', '/orders', '/returns', '/cart', '/checkout'],
+    match: ['/products', '/product', '/orders', '/returns', '/cart', '/checkout', '/brands', '/stores'],
     children: [
+      { id: 'brands', labelKey: 'nav.brands_stores', descKey: 'nav_desc.brands_stores', href: '/brands', icon: SparkleIcon, accent: true },
       { id: 'collections', labelKey: 'nav.all_collections', descKey: 'nav_desc.catalog', href: '/discover', icon: BagIcon },
       { id: 'orders', labelKey: 'nav.orders_tracking', descKey: 'nav_desc.orders_timeline', href: '/orders', icon: OrdersIcon },
     ],

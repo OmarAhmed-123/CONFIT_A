@@ -3,6 +3,7 @@ from fastapi.testclient import TestClient
 from backend.app.main import app
 from backend.app.models.user import User, UserRole, BrandProfile
 from backend.app.core.security import get_password_hash
+from backend.tests.conftest import TestingSessionLocal
 
 
 @pytest.fixture
@@ -12,8 +13,7 @@ def client():
 
 def test_automated_brand_registration_workflow(client):
     """Verify end-to-end brand registration: profile creation, slug generation, workspace."""
-    from backend.app.core.database import SessionLocal
-    db_session = SessionLocal()
+    db_session = TestingSessionLocal()
     unique_name = "Maison L'Atelier Haute"
     unique_email = "director@atelier-haute.com"
 
@@ -166,3 +166,4 @@ def test_automated_brand_registration_workflow(client):
 
     # Store no longer exists
     assert client.get(f"/api/v1/partner/stores/{store_id}", headers=headers).status_code == 404
+    db_session.close()

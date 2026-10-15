@@ -19,6 +19,7 @@ from backend.app.core.security import create_access_token
 
 @pytest.fixture()
 def test_env():
+    old_override = app.dependency_overrides.get(get_db)
     engine = create_engine(
         "sqlite://",
         connect_args={"check_same_thread": False},
@@ -156,7 +157,10 @@ def test_env():
         "db": db,
     }
 
-    app.dependency_overrides.clear()
+    if old_override is not None:
+        app.dependency_overrides[get_db] = old_override
+    else:
+        app.dependency_overrides.pop(get_db, None)
     db.close()
 
 

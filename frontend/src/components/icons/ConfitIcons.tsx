@@ -410,6 +410,7 @@ export const RetryIcon: React.FC<VerbIconProps> = ({ size = 20, className = '', 
     </VerbWrapper>
   );
 };
+export const RefreshIcon = RetryIcon;
 
 // 27. Trash — a lid that lifts and a bin that empties.
 export const TrashIcon: React.FC<VerbIconProps> = ({ size = 20, className = '', color, label }) => {

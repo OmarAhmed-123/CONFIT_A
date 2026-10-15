@@ -1759,6 +1759,36 @@ export const adminService = {
     request<AuditStats>(`/admin/audit/stats?window_days=${windowDays}`),
   getAuditIntegrity: (windowDays = 30) =>
     request<AuditIntegrity>(`/admin/audit/integrity?window_days=${windowDays}`),
+
+  getAdminBiDashboard: (params: {
+    dateFrom?: string;
+    dateTo?: string;
+    days?: number;
+    brandId?: number;
+    compare?: boolean;
+  } = {}) => {
+    const q = new URLSearchParams();
+    if (params.dateFrom) q.set("date_from", params.dateFrom);
+    if (params.dateTo) q.set("date_to", params.dateTo);
+    if (params.days != null) q.set("days", String(params.days));
+    if (params.brandId != null) q.set("brand_id", String(params.brandId));
+    if (params.compare != null) q.set("compare", String(params.compare));
+    return request<AdminBiDashboardResponse>(`/admin/analytics/bi-dashboard?${q.toString()}`);
+  },
+
+  downloadAdminBiCsv: (params: {
+    dateFrom?: string;
+    dateTo?: string;
+    days?: number;
+    brandId?: number;
+  } = {}) => {
+    const q = new URLSearchParams();
+    if (params.dateFrom) q.set("date_from", params.dateFrom);
+    if (params.dateTo) q.set("date_to", params.dateTo);
+    if (params.days != null) q.set("days", String(params.days));
+    if (params.brandId != null) q.set("brand_id", String(params.brandId));
+    return requestBlob(`/admin/analytics/export.csv?${q.toString()}`);
+  },
 };
 
 /* ------------------------------------------------------------------ */

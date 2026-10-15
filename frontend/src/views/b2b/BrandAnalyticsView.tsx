@@ -363,6 +363,7 @@ export const BrandAnalyticsView: React.FC = () => {
                 ins.severity === 'alert'
                   ? 'bg-rose-50/70 border-rose-200 text-rose-900'
                   : ins.severity === 'warning'
+                  ? 'bg-amber-50/70 border-amber-200 text-amber-900'
                   : ins.severity === 'positive'
                   ? 'bg-emerald-50/70 border-emerald-200 text-emerald-900'
                   : 'bg-slate-50 border-slate-200 text-slate-800'

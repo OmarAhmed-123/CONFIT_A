@@ -103,11 +103,9 @@ class BrandCatalogService:
             if row.get(field) in (None, ''):
                 row[field] = default
 
-        # If color_family missing but color provided, derive color_family
-        if not row.get('color_family') and row.get('color'):
+        # If color_family was not provided in source at all but color provided, derive color_family
+        if 'color_family' not in source and row.get('color'):
             row['color_family'] = row['color']
-        if not row.get('color_family'):
-            row['color_family'] = 'Classic'
 
         # Resolve category if given as name or name_ar instead of raw slug
         slug = row.get('category_slug')

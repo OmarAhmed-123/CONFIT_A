@@ -74,7 +74,7 @@ describe('role-gated nav config', () => {
     const adminHrefs = sectionsForRole(true).flatMap((s) => s.items.map((i) => i.href));
     expect(partnerHrefs.every((h) => h.startsWith('/b2b'))).toBe(true);
     expect(adminHrefs.every((h) => h.startsWith('/admin'))).toBe(true);
-    expect(partnerHrefs).toHaveLength(6);
+    expect(partnerHrefs).toHaveLength(7);
     expect(adminHrefs).toHaveLength(4);
   });
 

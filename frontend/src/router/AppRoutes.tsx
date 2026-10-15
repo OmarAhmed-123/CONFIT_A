@@ -38,6 +38,7 @@ import { FitFinderView } from '../views/consumer/FitFinderView';
 import { WardrobeView } from '../views/consumer/WardrobeView';
 import { MyLooksView } from '../views/consumer/MyLooksView';
 import { ProductDetailView } from '../views/consumer/ProductDetailView';
+import { BrandsView } from '../views/consumer/BrandsView';
 import { CheckoutView } from '../views/consumer/CheckoutView';
 import { OrderTrackingView } from '../views/consumer/OrderTrackingView';
 import { UserProfileView } from '../views/consumer/UserProfileView';
@@ -64,6 +65,8 @@ const BrandAnalyticsView = React.lazy(() =>
   import('../views/b2b/BrandAnalyticsView').then((m) => ({ default: m.BrandAnalyticsView })),
 );
 import { BrandPlacementsView } from '../views/b2b/BrandPlacementsView';
+import { BrandRegistrationView } from '../views/b2b/BrandRegistrationView';
+import { BrandBranchesView } from '../views/b2b/BrandBranchesView';
 const AdminAnalyticsView = React.lazy(() =>
   import('../views/b2b/AdminAnalyticsView').then((m) => ({ default: m.AdminAnalyticsView })),
 );
@@ -146,6 +149,8 @@ export const AppRoutes: React.FC = () => {
           <Route path="terms" element={<TermsOfServiceView />} />
           <Route path="terms-of-service" element={<TermsOfServiceView />} />
           <Route path="gdpr" element={<GdprView />} />
+          <Route path="brand/register" element={<BrandRegistrationView />} />
+          <Route path="partner/register" element={<BrandRegistrationView />} />
         </Route>
 
         {/* 1. Consumer Storefront Routes (Browse-First / Guest-Friendly).
@@ -157,6 +162,9 @@ export const AppRoutes: React.FC = () => {
           <Route index element={<HomeView />} />
           <Route path="discover" element={<DiscoverView />} />
           <Route path="products" element={<DiscoverView />} />
+          <Route path="brands" element={<BrandsView />} />
+          <Route path="brands/:slug" element={<BrandsView />} />
+          <Route path="stores" element={<BrandsView />} />
           <Route path="product/:slug" element={<ProductDetailView />} />
           <Route path="products/:slug" element={<ProductDetailView />} />
           
@@ -245,6 +253,8 @@ export const AppRoutes: React.FC = () => {
           <Route index element={<BrandDashboardView />} />
           <Route path="catalog" element={<BrandCatalogView />} />
           <Route path="inventory" element={<BrandInventoryView />} />
+          <Route path="branches" element={<BrandBranchesView />} />
+          <Route path="stores" element={<BrandBranchesView />} />
           <Route path="orders" element={<BrandOrdersView />} />
           <Route path="analytics" element={suspended(<BrandAnalyticsView />)} />
           <Route path="placements" element={<BrandPlacementsView />} />
@@ -266,6 +276,8 @@ export const AppRoutes: React.FC = () => {
           <Route path="dashboard" element={<BrandDashboardView />} />
           <Route path="catalog" element={<BrandCatalogView />} />
           <Route path="inventory" element={<BrandInventoryView />} />
+          <Route path="branches" element={<BrandBranchesView />} />
+          <Route path="stores" element={<BrandBranchesView />} />
           <Route path="orders" element={<BrandOrdersView />} />
           <Route path="analytics" element={suspended(<BrandAnalyticsView />)} />
           <Route path="placements" element={<BrandPlacementsView />} />

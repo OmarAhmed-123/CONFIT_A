@@ -398,7 +398,7 @@ export const LeadForm: React.FC = () => {
           error: t("partner.submit"),
         }}
         metricsId="b01_partner_lead_submit"
-        className="min-h-[48px] w-full rounded-[14px] bg-brand-charcoal text-xs font-bold uppercase tracking-wider text-white transition-colors duration-[140ms] ease-luxury hover:bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white"
+        className="min-h-[48px] w-full rounded-[14px] bg-brand-coral text-xs font-bold uppercase tracking-wider text-white transition-colors duration-[140ms] ease-luxury hover:bg-[#E76A52] shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-coral focus-visible:ring-offset-2 focus-visible:ring-offset-white"
         data-testid="lead-submit"
       />
     </form>

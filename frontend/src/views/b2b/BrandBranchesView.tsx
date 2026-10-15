@@ -177,7 +177,7 @@ export const BrandBranchesView: React.FC = () => {
           </p>
         </div>
 
-        <button
+        <button data-motion="progressive"
           type="button"
           aria-label={t('brand_branches.add_branch_btn')}
           onClick={openCreateModal}
@@ -246,7 +246,7 @@ export const BrandBranchesView: React.FC = () => {
         </div>
 
         {searchQuery && (
-          <button
+          <button data-motion="admin"
             type="button"
             onClick={() => setSearchQuery('')}
             className="text-xs font-bold text-brand-coral hover:underline"
@@ -285,7 +285,7 @@ export const BrandBranchesView: React.FC = () => {
           <p className="text-xs text-neutral-500 max-w-sm mx-auto">
             {t('brand_branches.no_branches_desc')}
           </p>
-          <button
+          <button data-motion="progressive"
             type="button"
             onClick={openCreateModal}
             className="mt-2 px-6 py-2.5 rounded-xl bg-brand-charcoal text-white text-xs font-bold hover:bg-neutral-800 transition-colors"
@@ -371,14 +371,14 @@ export const BrandBranchesView: React.FC = () => {
                 </a>
 
                 <div className="flex items-center gap-2">
-                  <button
+                  <button data-motion="admin"
                     type="button"
                     onClick={() => openEditModal(b)}
                     className="px-3.5 py-2 rounded-xl border border-neutral-300 text-xs font-bold text-neutral-700 hover:bg-neutral-50 transition-colors"
                   >
                     {t('brand_branches.edit')}
                   </button>
-                  <button
+                  <button data-motion="destructive" data-motion-tone="icon"
                     type="button"
                     disabled={deletingId === b.id}
                     onClick={() => handleDelete(b.id)}
@@ -407,7 +407,7 @@ export const BrandBranchesView: React.FC = () => {
                   ? t('brand_branches.modal_edit_title')
                   : t('brand_branches.modal_create_title')}
               </h3>
-              <button
+              <button data-motion="admin" data-motion-tone="icon"
                 type="button"
                 onClick={() => setIsModalOpen(false)}
                 className="text-neutral-400 hover:text-neutral-600 text-sm font-bold"
@@ -563,14 +563,14 @@ export const BrandBranchesView: React.FC = () => {
               </div>
 
               <div className="pt-3 flex items-center justify-end gap-3">
-                <button
+                <button data-motion="neutral"
                   type="button"
                   onClick={() => setIsModalOpen(false)}
                   className="px-5 py-2.5 rounded-xl border border-neutral-200 text-xs font-bold text-neutral-600 hover:bg-neutral-50"
                 >
                   {t('brand_branches.cancel')}
                 </button>
-                <button
+                <button data-motion="progressive" data-motion-tone="icon"
                   type="submit"
                   disabled={isSaving}
                   className="px-6 py-2.5 rounded-xl bg-brand-charcoal text-white text-xs font-bold hover:bg-neutral-800 disabled:opacity-50"

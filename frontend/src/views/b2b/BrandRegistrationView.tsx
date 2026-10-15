@@ -143,14 +143,14 @@ export const BrandRegistrationView: React.FC = () => {
             </div>
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
-              <button
+              <button data-motion="admin"
                 type="button"
                 onClick={() => navigate('/b2b/branches')}
                 className="w-full sm:w-auto px-8 py-3.5 rounded-2xl bg-brand-charcoal text-white text-xs font-bold hover:bg-neutral-800 transition-colors shadow-sm"
               >
                 {t('brand_reg.complete_setup_cta')} &rarr;
               </button>
-              <button
+              <button data-motion="admin"
                 type="button"
                 onClick={() => navigate('/b2b')}
                 className="w-full sm:w-auto px-8 py-3.5 rounded-2xl border border-neutral-300 bg-white text-neutral-700 text-xs font-bold hover:bg-neutral-50 transition-colors"
@@ -319,7 +319,7 @@ export const BrandRegistrationView: React.FC = () => {
 
               {/* Submit CTA */}
               <div className="pt-2 space-y-4">
-                <button
+                <button data-motion="auth" data-motion-tone="icon"
                   type="submit"
                   disabled={isSubmitting}
                   className="w-full py-4 rounded-2xl bg-brand-charcoal text-white text-xs font-bold hover:bg-neutral-800 disabled:opacity-50 transition-colors shadow-sm"

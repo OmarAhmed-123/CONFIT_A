@@ -37,11 +37,13 @@ export const BrandDashboardView: React.FC = () => {
 
   useEffect(() => {
     let isMounted = true;
-    brandService.getOnboardingStatus()
-      .then((data) => {
-        if (isMounted) setOnboarding(data);
-      })
-      .catch(() => {});
+    if (typeof brandService?.getOnboardingStatus === 'function') {
+      brandService.getOnboardingStatus()
+        .then((data) => {
+          if (isMounted) setOnboarding(data);
+        })
+        .catch(() => {});
+    }
     return () => {
       isMounted = false;
     };

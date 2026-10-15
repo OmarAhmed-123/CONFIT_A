@@ -185,7 +185,7 @@ export const CSVProductImportModal: React.FC<CSVProductImportModalProps> = ({
               </h2>
             </div>
           </div>
-          <button
+          <button data-motion="neutral" data-motion-tone="icon"
             type="button"
             onClick={onClose}
             className="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-brand-charcoal transition-colors"
@@ -280,7 +280,7 @@ export const CSVProductImportModal: React.FC<CSVProductImportModalProps> = ({
                 />
                 {isAnalyzing ? (
                   <div className="space-y-3">
-                    <RefreshCw size={28} className="mx-auto text-brand-coral animate-spin" />
+                    <RefreshCw size={28} className="mx-auto text-brand-coral motion-safe:animate-spin" />
                     <p className="text-sm font-semibold text-brand-charcoal">
                       {t('b2b.cat.drop_processing')}
                     </p>
@@ -312,7 +312,7 @@ export const CSVProductImportModal: React.FC<CSVProductImportModalProps> = ({
                     product_name, sku, description, category, price, stock, color, size...
                   </span>
                 </div>
-                <button
+                <button data-motion="download"
                   type="button"
                   onClick={handleDownloadTemplate}
                   className="inline-flex items-center gap-1.5 font-bold text-brand-coral hover:underline shrink-0"
@@ -370,7 +370,7 @@ export const CSVProductImportModal: React.FC<CSVProductImportModalProps> = ({
                     {t('b2b.cat.preview_title')}
                   </div>
                   {previewData.error_rows_count > 0 && (
-                    <button
+                    <button data-motion="download"
                       type="button"
                       onClick={handleDownloadErrorReport}
                       className="inline-flex items-center gap-1.5 text-xs font-semibold text-rose-700 hover:underline"
@@ -536,14 +536,14 @@ export const CSVProductImportModal: React.FC<CSVProductImportModalProps> = ({
         <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50/50 px-6 py-4">
           {step === 'upload' && (
             <>
-              <button
+              <button data-motion="neutral"
                 type="button"
                 onClick={onClose}
                 className="rounded-xl px-4 py-2.5 text-xs font-semibold text-slate-600 hover:text-brand-charcoal"
               >
                 {t('b2b.cat.modal_cancel')}
               </button>
-              <button
+              <button data-motion="upload"
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isAnalyzing}
@@ -556,7 +556,7 @@ export const CSVProductImportModal: React.FC<CSVProductImportModalProps> = ({
 
           {step === 'preview' && (
             <>
-              <button
+              <button data-motion="upload"
                 type="button"
                 onClick={() => setStep('upload')}
                 disabled={isImporting}
@@ -565,7 +565,7 @@ export const CSVProductImportModal: React.FC<CSVProductImportModalProps> = ({
                 <ArrowLeft size={14} />
                 {t('b2b.cat.btn_back_upload')}
               </button>
-              <button
+              <button data-motion="upload"
                 type="button"
                 onClick={handleConfirmImport}
                 disabled={isImporting || !previewData?.can_import}
@@ -573,7 +573,7 @@ export const CSVProductImportModal: React.FC<CSVProductImportModalProps> = ({
               >
                 {isImporting ? (
                   <>
-                    <RefreshCw size={14} className="animate-spin" />
+                    <RefreshCw size={14} className="motion-safe:animate-spin" />
                     <span>{t('b2b.cat.status_processing')}</span>
                   </>
                 ) : (
@@ -592,7 +592,7 @@ export const CSVProductImportModal: React.FC<CSVProductImportModalProps> = ({
 
           {step === 'result' && (
             <div className="w-full flex justify-end">
-              <button
+              <button data-motion="neutral"
                 type="button"
                 onClick={handleDone}
                 className="inline-flex items-center gap-2 rounded-xl bg-brand-charcoal px-6 py-2.5 text-xs font-bold text-white hover:bg-black transition-colors"

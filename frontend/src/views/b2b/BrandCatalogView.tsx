@@ -33,7 +33,7 @@ export const BrandCatalogView: React.FC = () => {
   const { t } = useTranslation();
   const {
     products, updateSKUInventory, isLoading, importJobs,
-    fetchErrors, refresh, getImportJobStatus,
+    fetchErrors, refresh, getImportJobStatus, uploadCatalogCSV, isUploading,
   } = useBrandViewModel();
 
   const [editingSkuId, setEditingSkuId] = useState<number | null>(null);
@@ -41,13 +41,60 @@ export const BrandCatalogView: React.FC = () => {
   const [editStock, setEditStock] = useState<number>(20);
   const [editPrice, setEditPrice] = useState<number | undefined>(undefined);
   const [importModalOpen, setImportModalOpen] = useState(false);
+  const [bulkModalOpen, setBulkModalOpen] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
+  const [fileError, setFileError] = useState<string | null>(null);
   const [lastImportResult, setLastImportResult] = useState<CatalogImportResult | CatalogImportJob | null>(null);
   const [tag, setTag] = useState<Record<number, TagPhase>>({});
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const pollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => () => { if (pollTimer.current) clearTimeout(pollTimer.current); }, []);
+
+  const closeBulkDialog = useCallback(() => { if (!isUploading) setBulkModalOpen(false); }, [isUploading]);
+
+  const downloadSampleCsv = useCallback(() => {
+    const blob = new Blob(['\ufeff' + SAMPLE_CSV], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'confit-catalog-template.csv';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }, []);
+
+  const handleFileUpload = async (file: File) => {
+    setFileError(null);
+    if (!file.name.toLowerCase().endsWith('.csv')) {
+      setFileError(t('b2b.cat.file_err_type'));
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setFileError(t('b2b.cat.file_err_size'));
+      return;
+    }
+    try {
+      const result = await uploadCatalogCSV(file);
+      setLastImportResult(result);
+      if (result?.job_id != null && !TERMINAL.has(result.status)) {
+        followJob(result.job_id, Date.now());
+      } else {
+        refresh();
+      }
+    } catch (err) {
+      /* the view-model already toasts the failure; nothing to fabricate here */
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragActive(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) handleFileUpload(e.dataTransfer.files[0]);
+  };
 
   const followJob = useCallback((jobId: number, startedAt: number) => {
     const step = async () => {
@@ -171,14 +218,23 @@ export const BrandCatalogView: React.FC = () => {
             {t('b2b.cat.header_hint')}
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            data-motion="upload"
+            type="button"
+            onClick={() => { setFileError(null); setBulkModalOpen(true); }}
+            className={btnPrimary}
+          >
+            <UploadIcon size={14} />
+            {t('b2b.cat.bulk_cta')}
+          </button>
           <button
             data-motion="upload"
             type="button"
             onClick={() => setImportModalOpen(true)}
             className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-brand-coral px-5 text-xs font-semibold text-white transition-colors duration-300 ease-luxury hover:bg-[#E76A52] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-coral shadow-xs"
           >
-            <UploadIcon size={14} />
+            <Upload size={14} aria-hidden="true" />
             {t('b2b.cat.import_products_cta')}
           </button>
         </div>
@@ -375,6 +431,17 @@ export const BrandCatalogView: React.FC = () => {
                           ))}
                         </ul>
                       )}
+                      {Array.isArray(tagState.data.axes_unresolved) && tagState.data.axes_unresolved.length > 0 ? (
+                        <div className="text-[11px] text-slate-600">
+                          <span className="font-bold text-amber-700">{t('b2b.cat.tag_unresolved')}:</span>{' '}
+                          {tagState.data.axes_unresolved.map((u: any) => `${u.axis} (${u.reason})`).join(' · ')}
+                        </div>
+                      ) : (
+                        <p className="text-[11px] text-slate-500">{t('b2b.cat.tag_resolved')}</p>
+                      )}
+                      {tagState.data.disclaimer && (
+                        <p className="text-[11px] text-slate-500">{tagState.data.disclaimer}</p>
+                      )}
                       {tagState.phase === 'applied' ? (
                         <div className="text-[11px] text-slate-600">
                           <span className="font-bold text-emerald-700">{t('b2b.cat.tag_applied')}:</span>{' '}
@@ -491,6 +558,69 @@ export const BrandCatalogView: React.FC = () => {
         onClose={() => setImportModalOpen(false)}
         onSuccess={handleImportComplete}
       />
+
+      {/* ------------------------------------------------------ bulk CSV modal */}
+      {bulkModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm">
+          <div role="dialog" aria-modal="true" aria-label={t('b2b.import_catalog')} tabIndex={-1} className="w-full max-w-lg space-y-4 rounded-2xl bg-white p-6 shadow-2xl">
+            <h2 className="font-serif text-lg font-bold text-brand-charcoal">{t('b2b.cat.modal_title')}</h2>
+            <div className="space-y-2 text-xs text-slate-600">
+              <p>{t('b2b.cat.modal_required', { cols: 'title, category_slug, base_price, color_family, thumbnail_url' })}</p>
+              <p>{t('b2b.cat.modal_optional', { cols: 'title_ar, description, material, currency, style_tags, sku_code, size, color, stock_level, price_override, images' })}</p>
+              <p className="rounded-lg bg-amber-50 p-2 text-[11px] leading-relaxed text-amber-700">{t('b2b.cat.modal_limits')}</p>
+            </div>
+
+            <div
+              role="button" tabIndex={0} aria-label={t('b2b.choose_csv')}
+              onKeyDown={e => { if ((e.key === 'Enter' || e.key === ' ') && !isUploading) { e.preventDefault(); fileInputRef.current?.click(); } }}
+              onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
+              onDragLeave={() => setDragActive(false)}
+              onDrop={handleDrop}
+              onClick={() => fileInputRef.current?.click()}
+              className={`cursor-pointer rounded-2xl border-2 border-dashed p-8 text-center transition-colors duration-300 ease-luxury ${dragActive ? 'border-brand-charcoal bg-brand-charcoal/5' : 'border-slate-300 bg-brand-wash'} ${isUploading ? 'pointer-events-none opacity-50' : ''}`}
+            >
+              <input ref={fileInputRef} type="file" accept=".csv" onChange={(e) => { if (e.target.files && e.target.files[0]) handleFileUpload(e.target.files[0]); }} className="hidden" />
+              {isUploading ? (
+                <div className="space-y-2">
+                  <RefreshCw size={22} className="mx-auto motion-safe:animate-spin text-brand-charcoal" aria-hidden="true" />
+                  <p className="text-xs font-semibold text-brand-charcoal">{t('b2b.cat.drop_processing')}</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <UploadIcon size={22} className="mx-auto text-brand-charcoal" />
+                  <p className="text-xs font-semibold text-slate-600">{t('b2b.cat.drop_cta')}</p>
+                  <p className="text-[11px] text-slate-500">{t('b2b.cat.drop_hint')}</p>
+                </div>
+              )}
+            </div>
+
+            {fileError && (
+              <p role="alert" className="rounded-lg border border-rose-300 bg-rose-50 p-2 text-xs font-semibold text-rose-700">
+                {fileError}
+              </p>
+            )}
+
+            <div className="flex justify-end gap-2 pt-1">
+              <button data-motion="neutral" type="button" onClick={() => setBulkModalOpen(false)} disabled={isUploading} className={btnGhost}>
+                {t('b2b.cat.modal_cancel')}
+              </button>
+              <button data-motion="upload" type="button" onClick={() => fileInputRef.current?.click()} disabled={isUploading} className={btnPrimary}>
+                {t('b2b.cat.modal_browse')}
+              </button>
+            </div>
+
+            <div className="border-t border-slate-100 pt-3 text-[11px] text-slate-500">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-bold text-slate-700">{t('b2b.cat.sample_title')}</span>
+                <button data-motion="download" type="button" onClick={downloadSampleCsv} className="min-h-12 rounded-xl border border-brand-charcoal px-3 text-[11px] font-semibold text-brand-charcoal transition-colors duration-300 ease-luxury hover:bg-brand-charcoal hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white">
+                  {t('b2b.cat.sample_dl')}
+                </button>
+              </div>
+              <pre className="mt-1 whitespace-pre-wrap break-all rounded-lg bg-slate-50 p-2 text-[11px] leading-relaxed">{SAMPLE_CSV}</pre>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

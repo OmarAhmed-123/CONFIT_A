@@ -140,7 +140,7 @@ export const StoreBranchCard: React.FC<StoreBranchCardProps> = ({
           </a>
         )}
 
-        <button
+        <button data-motion="admin" data-motion-tone="icon"
           type="button"
           onClick={() => onSelect(branch.id)}
           className={`px-3 py-2 rounded-xl text-xs font-semibold border transition-colors ${

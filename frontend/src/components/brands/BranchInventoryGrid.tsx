@@ -133,7 +133,7 @@ export const BranchInventoryGrid: React.FC<BranchInventoryGridProps> = ({
                     const isOut = sku.quantity_available <= 0;
 
                     return (
-                      <button
+                      <button data-motion="admin" data-motion-tone="icon"
                         key={sku.sku_id}
                         type="button"
                         onClick={() => handleSelectSku(item.id, sku.sku_id)}
@@ -164,7 +164,7 @@ export const BranchInventoryGrid: React.FC<BranchInventoryGridProps> = ({
                   {t('brands.view_garment')}
                 </Link>
 
-                <button
+                <button data-motion="admin"
                   type="button"
                   disabled={!activeSku || activeSku.quantity_available <= 0}
                   onClick={() => activeSku && onReserveClick?.(item, activeSku)}

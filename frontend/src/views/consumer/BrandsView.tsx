@@ -263,7 +263,7 @@ export const BrandsView: React.FC = () => {
           </nav>
 
           {/* Quick Geolocation Trigger */}
-          <button
+          <button data-motion="progressive" data-motion-tone="icon"
             type="button"
             onClick={requestLocation}
             disabled={geoStatus === 'loading'}
@@ -393,7 +393,7 @@ export const BrandsView: React.FC = () => {
                 </label>
 
                 {(searchQuery || selectedCategory || selectedCity || hasOffersOnly) && (
-                  <button
+                  <button data-motion="destructive"
                     type="button"
                     onClick={() => {
                       setSearchQuery('');
@@ -415,7 +415,7 @@ export const BrandsView: React.FC = () => {
               <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-center text-xs text-red-800">
                 <p className="font-bold">{t('brands.error_loading_brands')}</p>
                 <p className="mt-1">{brandsError}</p>
-                <button
+                <button data-motion="recovery"
                   type="button"
                   onClick={fetchBrands}
                   className="mt-3 px-4 py-2 rounded-xl bg-red-800 text-white font-bold"
@@ -482,7 +482,7 @@ export const BrandsView: React.FC = () => {
           <div className="space-y-8">
             {/* Back button & Brand Header */}
             <div>
-              <button
+              <button data-motion="neutral"
                 type="button"
                 onClick={handleBackToBrands}
                 className="inline-flex items-center gap-1.5 text-xs font-bold text-neutral-600 hover:text-brand-charcoal mb-4 transition-colors"
@@ -743,7 +743,7 @@ export const BrandsView: React.FC = () => {
                 <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
                 {t('brands.bopis_hold_requested')}
               </span>
-              <button
+              <button data-motion="neutral" data-motion-tone="icon"
                 type="button"
                 onClick={() => setReservationNotice(null)}
                 className="text-neutral-400 hover:text-neutral-600 text-sm font-bold"
@@ -786,7 +786,7 @@ export const BrandsView: React.FC = () => {
             </p>
 
             <div className="pt-2">
-              <button
+              <button data-motion="progressive"
                 type="button"
                 onClick={() => setReservationNotice(null)}
                 className="w-full py-3 rounded-xl bg-brand-charcoal text-white text-xs font-bold hover:bg-neutral-800 transition-colors"

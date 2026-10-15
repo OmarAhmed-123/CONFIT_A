@@ -46,7 +46,7 @@ export const StoreMapCanvas: React.FC<StoreMapCanvasProps> = ({
           {branches.map((b) => {
             const isTarget = b.id === selectedBranch?.id;
             return (
-              <button
+              <button data-motion="neutral"
                 key={b.id}
                 type="button"
                 onClick={() => onSelectBranch(b.id)}

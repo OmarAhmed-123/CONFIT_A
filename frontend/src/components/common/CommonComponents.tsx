@@ -51,7 +51,7 @@ export const Toast: React.FC<{
         />
         <span className="text-xs font-medium tracking-wide leading-relaxed">{text}</span>
         {action ? (
-          <button
+          <button data-motion="neutral" data-motion-tone="icon"
             type="button"
             onClick={() => { action.onAction(); onClose(); }}
             /* min-h/min-w 44px: the spec's touch target floor. The visible
@@ -62,7 +62,7 @@ export const Toast: React.FC<{
             {action.label}
           </button>
         ) : null}
-        <button
+        <button data-motion="neutral" data-motion-tone="icon"
           onClick={onClose}
           /* 44px touch floor (spec 14 §7) — grown tap area, compact pill. */
           className="ms-auto shrink-0 min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-xl text-slate-400 hover:text-white focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-white transition-colors"
@@ -107,7 +107,7 @@ export const Modal: React.FC<{
               </h3>
               {subtitle && <p className="text-xs text-slate-500 mt-0.5 font-light">{subtitle}</p>}
             </div>
-            <button
+            <button data-motion="neutral" data-motion-tone="icon"
               onClick={onClose}
               className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-800 hover:bg-slate-200/70 transition-colors"
               aria-label={t('a11y.close_dialog')}
@@ -255,7 +255,7 @@ export const EmptyState: React.FC<{
     <h2 className="font-serif text-lg font-bold text-brand-charcoal mb-1">{title}</h2>
     <p className="text-xs text-slate-500 max-w-sm mb-4 leading-relaxed font-light">{description}</p>
     {actionText && onAction && (
-      <button
+      <button data-motion="neutral" data-motion-tone="icon"
         onClick={onAction}
         className="min-h-12 px-6 rounded-xl bg-brand-charcoal hover:bg-black text-white text-xs font-semibold shadow-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white"
         type="button"

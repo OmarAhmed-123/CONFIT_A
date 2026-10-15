@@ -77,7 +77,7 @@ const PdpSkeleton: React.FC<{ slow: boolean; onRetry: () => void }> = ({
           <p className="text-xs text-brand-muted text-center">
             {t("product.loading_cold_start")}
           </p>
-          <button
+          <button data-motion="recovery"
             onClick={onRetry}
             className="min-h-11 px-4 py-2 rounded-xl border border-brand-hairline bg-white text-xs font-semibold text-brand-charcoal hover:border-brand-charcoal"
           >
@@ -138,7 +138,7 @@ const TryOnCta: React.FC<{
   const blocked = kind === "blocked";
   const iconSize = variant === "overlay" ? 18 : 16;
   return (
-    <button
+    <button data-motion="creative" data-motion-tone="icon"
       onClick={tryOn.gate({
         render: () => openTryOn(product),
         fitCheck: () => openRuler(product),
@@ -191,7 +191,7 @@ const AccordionSection: React.FC<{
         page's sections by heading navigation. Preflight zeroes the
         h3's own margin/size, so the visual stays identical. */}
     <h3>
-      <button
+      <button data-motion="progressive" data-motion-tone="icon"
         onClick={onToggle}
         aria-expanded={open}
         className="w-full min-h-12 flex justify-between items-center font-bold text-brand-charcoal text-start"
@@ -620,7 +620,7 @@ export const ProductDetailView: React.FC = () => {
                 700ms luxury transition collapses under reduced motion
                 (user-initiated state change — an instant swap is the
                 correct reduced-motion behaviour). */}
-            <button
+            <button data-motion="filter" data-motion-tone="icon"
               type="button"
               aria-label={t("a11y.zoom_toggle")}
               aria-pressed={!!zoomOrigin}
@@ -736,7 +736,7 @@ export const ProductDetailView: React.FC = () => {
               }}
             >
               {images.map((img, idx) => (
-                <button
+                <button data-motion="filter" data-motion-tone="icon"
                   key={idx}
                   ref={(el) => {
                     thumbRefs.current[idx] = el;
@@ -845,7 +845,7 @@ export const ProductDetailView: React.FC = () => {
               </div>
               {/* Was a bare text link with a ~16px hit area — a primary
                   entry into the fit flow needs a real target (44px). */}
-              <button
+              <button data-motion="filter"
                 onClick={() => openRuler(product)}
                 className="min-h-11 px-2 -me-2 text-xs font-bold text-brand-charcoal hover:underline flex items-center gap-1"
               >
@@ -907,7 +907,7 @@ export const ProductDetailView: React.FC = () => {
                     {colours.map((c) => {
                       const active = c.color === selectedColour;
                       return (
-                        <button
+                        <button data-motion="filter" data-motion-tone="icon"
                           key={c.color}
                           onClick={() => {
                             const next = skuForColour(
@@ -990,7 +990,7 @@ export const ProductDetailView: React.FC = () => {
                 aria-label={t('a11y.select_size')}
               >
                 {sizesForColour.map((sku) => (
-                  <button
+                  <button data-motion="filter" data-motion-tone="icon"
                     key={sku.id}
                     onClick={() => setSelectedSkuId(sku.id)}
                     disabled={!sku.is_in_stock}
@@ -1114,7 +1114,7 @@ export const ProductDetailView: React.FC = () => {
                           the raw code rendered on screen. */}
                       {bopisError || t("product.bopis_fallback_error")}
                     </p>
-                    <button
+                    <button data-motion="recovery"
                       onClick={() =>
                         selectedSkuId && fetchBopisStores(selectedSkuId)
                       }

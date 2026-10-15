@@ -26,7 +26,7 @@ export const PortalBackButton: React.FC = () => {
   };
 
   return (
-    <button
+    <button data-motion="neutral"
       type="button"
       onClick={goBack}
       aria-label={t('portal_back.aria_label')}

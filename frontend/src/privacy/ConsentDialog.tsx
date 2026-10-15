@@ -112,7 +112,7 @@ export const ConsentDialog: React.FC<ConsentDialogProps> = ({ purpose, onAccept,
         </div>
 
         <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          <button
+          <button data-motion="neutral"
             type="button"
             onClick={onDecline}
             className="confit-tap-target rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
@@ -120,7 +120,7 @@ export const ConsentDialog: React.FC<ConsentDialogProps> = ({ purpose, onAccept,
           >
             {t('consent.decline')}
           </button>
-          <button
+          <button data-motion="progressive"
             type="button"
             onClick={() => onAccept({ rememberForSession })}
             className="confit-tap-target rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800"

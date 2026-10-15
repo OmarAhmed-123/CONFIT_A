@@ -95,7 +95,7 @@ const CONTROL_BASE = [
 
 const CONTROL_TONE = {
   invalid: "border-rose-400 focus:border-rose-500 focus:ring-rose-500/25",
-  valid: "border-slate-200 focus:border-[#A37E44] focus:ring-[#A37E44]/25",
+  valid: "border-slate-200 focus:border-brand-charcoal focus:ring-brand-charcoal/20",
 } as const;
 
 export const Field: React.FC<FieldProps> = ({
@@ -171,7 +171,7 @@ export const Field: React.FC<FieldProps> = ({
           {/* Required is stated in text, not inferred from an asterisk the
               screen reader may or may not announce. */}
           {required && (
-            <span className="ms-1 text-[#A37E44]" aria-hidden="true">
+            <span className="ms-1 text-brand-coral font-bold" aria-hidden="true">
               *
             </span>
           )}

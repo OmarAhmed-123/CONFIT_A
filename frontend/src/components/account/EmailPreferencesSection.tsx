@@ -72,7 +72,7 @@ export const EmailPreferencesSection: React.FC = () => {
           <div className="text-sm font-bold text-brand-charcoal">{title}</div>
           <p className="mt-0.5 text-xs leading-relaxed text-slate-500">{detail}</p>
         </div>
-        <button
+        <button data-motion="filter" data-motion-tone="icon"
           type="button"
           role="switch"
           aria-checked={on}
@@ -114,10 +114,10 @@ export const EmailPreferencesSection: React.FC = () => {
       {loadState === 'error' && (
         <div role="status" className="space-y-2">
           <p className="text-xs font-bold text-rose-600">{t('email_prefs.load_failed')}</p>
-          <button
+          <button data-motion="recovery"
             type="button"
             onClick={load}
-            className="inline-flex min-h-9 items-center rounded-xl border border-slate-300 px-4 text-xs font-bold text-brand-charcoal hover:border-[#A37E44] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal"
+            className="inline-flex min-h-9 items-center rounded-xl border border-slate-300 px-4 text-xs font-bold text-brand-charcoal hover:border-brand-hairline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal"
           >
             {t('email_prefs.retry')}
           </button>

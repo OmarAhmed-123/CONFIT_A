@@ -363,14 +363,11 @@ def send_email(
 def render_platform_test_email(recipient_note: str = "") -> tuple[str, str, str]:
     """The operator-triggered deliverability proof.
 
-    Deliberately NOT a marketing template: its job is to be evidence that the
-    whole chain works — relay auth, sender acceptance, DKIM/SPF, HTML and
-    plain-text parts, RTL Arabic rendering and inbox placement. So it states
-    what it is, carries no tracking pixel and asks for nothing.
-
-    Bilingual because the product is EN/AR and a template that renders only
-    one of them is half-tested.
+    Bilingual test email rendered in the full white-first luxury identity with
+    hosted Logo #3, quad-brand ribbon, high contrast charcoal copy and clear proof details.
     """
+    from backend.app.services.email_templates import _ENHANCEMENT_CSS, logo_url, EMAIL_COLORS
+    C = EMAIL_COLORS
     subject = "CONFIT — email delivery verified / تم التحقق من إرسال البريد"
     text = (
         "CONFIT — transactional email is live\n"
@@ -398,38 +395,55 @@ def render_platform_test_email(recipient_note: str = "") -> tuple[str, str, str]
         "This is an automated message. No action is required.\n"
         "رسالة آلية — لا يلزم اتخاذ أي إجراء.\n"
     )
+    note_html = f'<p style="margin:0 0 16px 0;font-size:15px;line-height:1.65;">{_h(recipient_note)}</p>' if recipient_note else ""
     html = (
-        '<!DOCTYPE html><html><head><meta charset="utf-8">'
-        '<meta name="viewport" content="width=device-width,initial-scale=1"></head>'
-        '<body style="margin:0;padding:0;background:#FDF8EE;'
-        'font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif;">'
+        '<!DOCTYPE html><html lang="en" dir="ltr"><head><meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width,initial-scale=1">'
+        '<meta name="color-scheme" content="light dark">'
+        '<meta name="supported-color-schemes" content="light dark">'
+        '<title>CONFIT — Email Delivery Verified</title>'
+        f'<style>{_ENHANCEMENT_CSS}</style></head>'
+        f'<body style="margin:0;padding:0;background:{C["cream"]};font-family:'
+        "-apple-system,BlinkMacSystemFont,'Segoe UI',Tahoma,Helvetica,Arial,sans-serif;\">"
         '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
-        'style="background:#FDF8EE;padding:32px 16px;"><tr><td align="center">'
+        f'style="background:{C["cream"]};padding:36px 16px;"><tr><td align="center">'
         '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
-        'style="max-width:600px;background:#ffffff;border-radius:14px;overflow:hidden;'
-        'border:1px solid #EADFC8;">'
-        # header
-        '<tr><td style="background:#1B1F3B;padding:28px 32px;">'
-        '<div style="color:#C9A227;font-size:12px;letter-spacing:3px;'
-        'text-transform:uppercase;font-weight:700;">CONFIT</div>'
-        '<div style="color:#ffffff;font-size:21px;font-weight:600;margin-top:6px;">'
+        f'class="cf-card" style="max-width:600px;background:{C["card"]};border-radius:16px;overflow:hidden;'
+        f'border:1px solid {C["hairline"]};box-shadow:0 4px 20px rgba(0,0,0,0.03);">'
+        '<tr><td style="padding:0;font-size:0;line-height:0;">'
+        '<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>'
+        f'<td width="25%" style="height:4px;background:{C["coral"]};font-size:0;line-height:0;">&nbsp;</td>'
+        f'<td width="25%" style="height:4px;background:{C["lilac"]};font-size:0;line-height:0;">&nbsp;</td>'
+        f'<td width="25%" style="height:4px;background:{C["mint"]};font-size:0;line-height:0;">&nbsp;</td>'
+        f'<td width="25%" style="height:4px;background:{C["ink"]};font-size:0;line-height:0;">&nbsp;</td>'
+        '</tr></table></td></tr>'
+        f'<tr><td style="background:#FFFFFF;padding:36px 32px 22px 32px;text-align:center;border-bottom:1px solid {C["hairline"]};">'
+        '<table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin:0 auto 14px auto;border-collapse:separate;border-spacing:3px;">'
+        f'<tr><td width="16" height="16" style="width:16px;height:16px;background:{C["coral"]};border-radius:4px;font-size:0;line-height:0;">&nbsp;</td>'
+        f'<td width="16" height="16" style="width:16px;height:16px;background:{C["lilac"]};border-radius:4px;font-size:0;line-height:0;">&nbsp;</td></tr>'
+        f'<tr><td width="16" height="16" style="width:16px;height:16px;background:{C["mint"]};border-radius:4px;font-size:0;line-height:0;">&nbsp;</td>'
+        f'<td width="16" height="16" style="width:16px;height:16px;background:{C["ink"]};border-radius:4px;font-size:0;line-height:0;">&nbsp;</td></tr>'
+        '</table>'
+        f'<div style="color:{C["gold_wordmark"]};font-size:15px;letter-spacing:5px;'
+        "text-transform:uppercase;font-weight:700;font-family:'Playfair Display',Georgia,'Times New Roman',serif;\">CONFIT"
+        f'<span style="color:{C["gold_deco"]};">&#183;</span></div>'
+        f'<div style="color:{C["ink"]};font-size:22px;font-weight:600;margin-top:10px;'
+        "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;\">"
         'Transactional email is live</div>'
-        '<div style="color:#B9BEd6;font-size:13px;margin-top:4px;">'
-        'Where Style Meets Your Character in Every Moment</div>'
-        '</td></tr>'
-        # english body
-        '<tr><td style="padding:30px 32px 8px 32px;color:#1B1F3B;">'
-        f'<p style="margin:0 0 16px 0;font-size:15px;line-height:1.65;">{recipient_note}</p>'
+        f'<div class="cf-rule" style="height:2px;width:44px;background:{C["coral"]};'
+        'margin:14px auto 0 auto;font-size:0;border-radius:1px;">&nbsp;</div></td></tr>'
+        f'<tr><td style="padding:32px 32px 12px 32px;color:{C["ink"]};">'
+        f'{note_html}'
         '<p style="margin:0 0 16px 0;font-size:15px;line-height:1.65;">'
         'This message was sent by the CONFIT platform itself, from '
         '<strong>production</strong>, through its configured SMTP relay. It is the '
         'first transactional email the platform has successfully delivered.</p>'
         '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
-        'style="background:#FDF8EE;border-left:3px solid #C9A227;border-radius:6px;'
+        f'style="background:{C["cream"]};border-left:3px solid {C["coral"]};border-radius:6px;'
         'margin:18px 0;"><tr><td style="padding:16px 18px;">'
-        '<div style="font-size:12px;font-weight:700;letter-spacing:1.5px;'
-        'text-transform:uppercase;color:#7A5C28;margin-bottom:10px;">What this proves</div>'
-        '<div style="font-size:14px;line-height:1.9;color:#1B1F3B;">'
+        f'<div style="font-size:12px;font-weight:700;letter-spacing:1.5px;'
+        f'text-transform:uppercase;color:{C["coral"]};margin-bottom:10px;">What this proves</div>'
+        f'<div style="font-size:14px;line-height:1.9;color:{C["ink"]};">'
         '&#10003; the relay accepted our credentials and our sending IP<br>'
         '&#10003; the sender address was accepted<br>'
         '&#10003; HTML and plain-text alternatives both render<br>'
@@ -437,31 +451,26 @@ def render_platform_test_email(recipient_note: str = "") -> tuple[str, str, str]
         '</td></tr></table>'
         '<p style="margin:0 0 22px 0;font-size:15px;line-height:1.65;">'
         'It unlocks <strong>password reset</strong>, <strong>email verification</strong> '
-        'and <strong>order notifications</strong> — all of which were previously refused '
-        'with an honest <code style="background:#F2EEE4;padding:1px 5px;border-radius:3px;'
-        'font-size:13px;">HTTP 501</code> rather than pretending to send.</p>'
+        'and <strong>order notifications</strong> — all of which are actively available in the platform.</p>'
         '</td></tr>'
-        # divider
-        '<tr><td style="padding:0 32px;"><div style="height:1px;background:#EADFC8;"></div></td></tr>'
-        # arabic body
-        '<tr><td dir="rtl" lang="ar" style="padding:24px 32px 10px 32px;color:#1B1F3B;'
+        f'<tr><td style="padding:0 32px;"><div style="height:1px;background:{C["hairline"]};"></div></td></tr>'
+        f'<tr><td dir="rtl" lang="ar" style="padding:24px 32px 28px 32px;color:{C["ink"]};'
         'text-align:right;">'
         '<div style="font-size:17px;font-weight:600;margin-bottom:12px;">تم تفعيل البريد</div>'
         '<p style="margin:0 0 14px 0;font-size:15px;line-height:1.9;">'
         'أُرسلت هذه الرسالة من منصة CONFIT نفسها، من بيئة الإنتاج، عبر خادم البريد '
         'المهيّأ لها. وهي أول رسالة بريد تعاملية تنجح المنصة في تسليمها.</p>'
-        '<p style="margin:0 0 20px 0;font-size:15px;line-height:1.9;">'
+        '<p style="margin:0 0 16px 0;font-size:15px;line-height:1.9;">'
         'تفتح هذه الخطوة: إعادة تعيين كلمة المرور، وتأكيد البريد الإلكتروني، '
         'وإشعارات الطلبات.</p>'
         '</td></tr>'
-        # footer
-        '<tr><td style="background:#FAF7F0;padding:18px 32px;border-top:1px solid #EADFC8;">'
-        '<div style="font-size:12px;color:#7A7E92;line-height:1.7;">'
+        f'<tr><td style="background:{C["footer_bg"]};padding:20px 32px;border-top:1px solid {C["hairline"]};">'
+        f'<div style="font-size:11px;color:{C["footer_text"]};line-height:1.7;">'
         'This is an automated message. No action is required.<br>'
         '<span dir="rtl">رسالة آلية — لا يلزم اتخاذ أي إجراء.</span></div>'
-        '</td></tr>'
-        '</table></td></tr></table></body></html>'
+        '</td></tr></table></td></tr></table></body></html>'
     )
+    return subject, html, text
     return subject, html, text
 
 
@@ -592,12 +601,13 @@ def _h(value) -> str:
 
 def _auth_shell(*, preheader: str, title: str, title_ar: str, body_en: str,
                 body_ar: str, cta_label: str, cta_url: str) -> str:
-    """Bilingual auth-mail shell: same visual language as email_templates
-    (navy/gold/cream, text wordmark, hidden preheader, ONE bulletproof CTA,
-    footer) but EN + AR in one message because the user's locale is unknown
-    at password-reset time. Inline CSS, table layout, no images, no emoji."""
+    """Bilingual auth-mail shell: white-first luxury visual language
+    (white card, #FAFAF9 wash, Brand Charcoal #252729, coral #EF826D accent,
+    hosted logo above wordmark, hidden preheader, ONE bulletproof CTA, footer).
+    Inline CSS, table layout, no emoji."""
     cta_url_safe = _h(cta_url)
-    from backend.app.services.email_templates import _ENHANCEMENT_CSS, logo_url
+    from backend.app.services.email_templates import _ENHANCEMENT_CSS, logo_url, EMAIL_COLORS
+    C = EMAIL_COLORS
     return (
         '<!DOCTYPE html><html lang="en" dir="ltr"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width,initial-scale=1">'
@@ -605,42 +615,189 @@ def _auth_shell(*, preheader: str, title: str, title_ar: str, body_en: str,
         '<meta name="supported-color-schemes" content="light dark">'
         f'<title>{_h(title)}</title>'
         f'<style>{_ENHANCEMENT_CSS}</style></head>'
-        '<body style="margin:0;padding:0;background:#FDF8EE;font-family:'
+        f'<body style="margin:0;padding:0;background:{C["cream"]};font-family:'
         "-apple-system,BlinkMacSystemFont,'Segoe UI',Tahoma,Helvetica,Arial,sans-serif;\">"
         '<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">'
         f'{_h(preheader)}</div>'
+        f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
+        f'style="background:{C["cream"]};padding:36px 16px;"><tr><td align="center">'
         '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
-        'style="background:#FDF8EE;padding:32px 16px;"><tr><td align="center">'
-        '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
-        'class="cf-card" style="max-width:600px;background:#FFFFFF;border-radius:16px;overflow:hidden;'
-        'border:1px solid #EADFC8;">'
-        '<tr><td style="background:#1B1F3B;padding:30px 32px 26px 32px;text-align:center;">'
+        f'class="cf-card" style="max-width:600px;background:{C["card"]};border-radius:16px;overflow:hidden;'
+        f'border:1px solid {C["hairline"]};box-shadow:0 4px 20px rgba(0,0,0,0.03);">'
+        '<tr><td style="padding:0;font-size:0;line-height:0;">'
+        '<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>'
+        f'<td width="25%" style="height:4px;background:{C["coral"]};font-size:0;line-height:0;">&nbsp;</td>'
+        f'<td width="25%" style="height:4px;background:{C["lilac"]};font-size:0;line-height:0;">&nbsp;</td>'
+        f'<td width="25%" style="height:4px;background:{C["mint"]};font-size:0;line-height:0;">&nbsp;</td>'
+        f'<td width="25%" style="height:4px;background:{C["ink"]};font-size:0;line-height:0;">&nbsp;</td>'
+        '</tr></table></td></tr>'
+        f'<tr><td style="background:#FFFFFF;padding:36px 32px 22px 32px;text-align:center;border-bottom:1px solid {C["hairline"]};">'
+        f'<table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin:0 auto 14px auto;">'
+        '<tr><td align="center">'
         f'<img src="{_h(logo_url())}" width="56" height="56" alt="CONFIT" '
-        'style="display:block;margin:0 auto 12px auto;border-radius:14px;" />'
-        '<div style="color:#E2BF70;font-size:14px;letter-spacing:5px;'
-        "text-transform:uppercase;font-weight:700;font-family:Georgia,'Times New Roman',serif;\">CONFIT"
-        '<span style="color:#C9A227;">&#183;</span></div>'
-        f'<div style="color:#FFFFFF;font-size:22px;font-weight:600;margin-top:10px;">'
+        'style="display:block;margin:0 auto;border-radius:12px;border:none;" />'
+        '</td></tr></table>'
+        f'<div style="color:{C["gold_wordmark"]};font-size:15px;letter-spacing:5px;'
+        "text-transform:uppercase;font-weight:700;font-family:'Playfair Display',Georgia,'Times New Roman',serif;\">CONFIT"
+        f'<span style="color:{C["gold_deco"]};">&#183;</span></div>'
+        f'<div style="color:{C["ink"]};font-size:22px;font-weight:600;margin-top:10px;'
+        "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;\">"
         f'{_h(title)}</div>'
-        '<div class="cf-rule" style="height:2px;width:48px;background:#C9A227;'
-        'margin:14px auto 0 auto;font-size:0;">&nbsp;</div></td></tr>'
-        f'<tr><td style="padding:28px 32px 4px 32px;color:#1B1F3B;">'
+        f'<div class="cf-rule" style="height:2px;width:44px;background:{C["coral"]};'
+        'margin:14px auto 0 auto;font-size:0;border-radius:1px;">&nbsp;</div></td></tr>'
+        f'<tr><td style="padding:32px 32px 8px 32px;color:{C["ink"]};">'
         f'<p style="margin:0 0 16px 0;font-size:15px;line-height:1.8;">{body_en}</p>'
         '<table role="presentation" cellpadding="0" cellspacing="0" '
-        'style="margin:10px 0 22px 0;"><tr>'
-        '<td bgcolor="#1B1F3B" style="border-radius:12px;">'
+        'style="margin:16px 0 24px 0;"><tr>'
+        f'<td bgcolor="{C["navy"]}" style="border-radius:12px;border-bottom:3px solid {C["coral"]};">'
         f'<a href="{cta_url_safe}" style="display:inline-block;padding:14px 30px;'
-        'font-size:15px;font-weight:700;color:#FFFFFF;text-decoration:none;">'
+        'font-size:15px;font-weight:700;color:#FFFFFF;text-decoration:none;letter-spacing:0.3px;">'
         f'{_h(cta_label)}</a></td></tr></table></td></tr>'
-        '<tr><td style="padding:0 32px;"><div style="height:1px;background:#EADFC8;">'
+        f'<tr><td style="padding:0 32px;"><div style="height:1px;background:{C["hairline"]};">'
         '</div></td></tr>'
-        '<tr><td dir="rtl" lang="ar" style="padding:22px 32px 26px 32px;'
-        'color:#1B1F3B;text-align:right;">'
+        f'<tr><td dir="rtl" lang="ar" style="padding:24px 32px 28px 32px;'
+        f'color:{C["ink"]};text-align:right;">'
         f'<div style="font-size:17px;font-weight:600;margin-bottom:10px;">{_h(title_ar)}</div>'
         f'<p style="margin:0;font-size:15px;line-height:1.9;">{body_ar}</p></td></tr>'
-        '<tr><td style="background:#FAF7F0;padding:18px 32px;border-top:1px solid #EADFC8;">'
-        '<div style="font-size:12px;color:#7A7E92;line-height:1.7;">'
+        f'<tr><td style="background:{C["footer_bg"]};padding:20px 32px;border-top:1px solid {C["hairline"]};">'
+        f'<div style="font-size:11px;color:{C["footer_text"]};line-height:1.7;">'
         'This is a service message about your CONFIT account.<br>'
         '<span dir="rtl">رسالة خدمية تخص حسابك على كونفيت.</span></div>'
         '</td></tr></table></td></tr></table></body></html>'
     )
+
+
+def render_new_arrivals_email(
+    brand_name: str,
+    brand_slug: str,
+    products: list[dict],
+    branch_name: Optional[str] = None,
+    unsubscribe_url: str = "",
+) -> tuple[str, str, str]:
+    """New arrivals marketing email announcing imported and published products.
+    Bilingual EN/AR, Logo #3 luxury palette, bulletproof CTA, unsubscribe footer."""
+    from backend.app.services.email_templates import _ENHANCEMENT_CSS, logo_url, EMAIL_COLORS
+    import re
+    C = EMAIL_COLORS
+    brand_url = f"{settings.FRONTEND_BASE_URL.rstrip('/')}/brands/{brand_slug}"
+    brand_url_safe = _h(brand_url)
+    unsub_url_safe = _h(unsubscribe_url)
+
+    subject = f"New Arrivals from {brand_name} / وصل حديثاً من {brand_name}"
+
+    # Plain text version
+    text_lines = [
+        f"New Arrivals from {brand_name}",
+        "=" * 40,
+        f"Discover the latest collection from {brand_name} on CONFIT."
+        + (f" Now available at {branch_name} boutique." if branch_name else ""),
+        "",
+        "NEW PRODUCTS:",
+    ]
+    for p in products[:4]:
+        text_lines.append(f"- {p.get('name') or p.get('title')}: {p.get('price')} {p.get('currency', 'EGP')}")
+    text_lines.extend([
+        "",
+        f"Explore the collection: {brand_url}",
+        "",
+        "-----------------------------------------------------------------",
+        f"تشكيلة جديدة من {brand_name} متوفرة الآن على منصة كونفيت.",
+    ])
+    if unsubscribe_url:
+        text_lines.append(f"Unsubscribe: {unsubscribe_url}")
+    text = "\n".join(text_lines)
+
+    # HTML Product Cards
+    cards_html = []
+    for p in products[:4]:
+        p_name = _h(p.get("name") or p.get("title") or "Luxury Garment")
+        p_price = _h(f"{p.get('price', '')} {p.get('currency', 'EGP')}")
+        thumb = p.get("thumbnail_url")
+        thumb_cell = ""
+        if thumb and re.match(r"^https?://", str(thumb)):
+            thumb_cell = (
+                f'<td width="64" style="vertical-align:middle;padding-right:12px;">'
+                f'<img src="{_h(thumb)}" alt="{p_name}" width="56" height="64" '
+                f'style="display:block;border-radius:8px;object-fit:cover;border:1px solid {C["hairline"]};background:{C["cream"]};" />'
+                f'</td>'
+            )
+        cards_html.append(
+            '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
+            f'style="margin-bottom:10px;background:{C["cream"]};border-radius:12px;padding:10px 14px;border:1px solid {C["hairline"]};">'
+            '<tr>'
+            f'{thumb_cell}'
+            '<td style="vertical-align:middle;">'
+            f'<div style="font-weight:600;font-size:14px;color:{C["ink"]};margin-bottom:2px;">{p_name}</div>'
+            f'<div style="font-size:13px;font-weight:700;color:{C["coral"]};"><bdi dir="ltr">{p_price}</bdi></div>'
+            '</td>'
+            '</tr>'
+            '</table>'
+        )
+
+    branch_badge_en = f" at our {branch_name} boutique" if branch_name else ""
+    branch_badge_ar = f" لدى فرع {branch_name}" if branch_name else ""
+
+    html = (
+        '<!DOCTYPE html><html lang="en" dir="ltr"><head><meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width,initial-scale=1">'
+        '<meta name="color-scheme" content="light dark">'
+        '<meta name="supported-color-schemes" content="light dark">'
+        f'<title>{_h(subject)}</title>'
+        f'<style>{_ENHANCEMENT_CSS}</style></head>'
+        f'<body style="margin:0;padding:0;background:{C["cream"]};font-family:'
+        "-apple-system,BlinkMacSystemFont,'Segoe UI',Tahoma,Helvetica,Arial,sans-serif;\">"
+        '<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">'
+        f'Explore new arrivals from {_h(brand_name)} on CONFIT.</div>'
+        f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
+        f'style="background:{C["cream"]};padding:36px 16px;"><tr><td align="center">'
+        '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
+        f'class="cf-card" style="max-width:600px;background:{C["card"]};border-radius:16px;overflow:hidden;'
+        f'border:1px solid {C["hairline"]};box-shadow:0 4px 20px rgba(0,0,0,0.03);">'
+        '<tr><td style="padding:0;font-size:0;line-height:0;">'
+        '<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>'
+        f'<td width="25%" style="height:4px;background:{C["coral"]};font-size:0;line-height:0;">&nbsp;</td>'
+        f'<td width="25%" style="height:4px;background:{C["lilac"]};font-size:0;line-height:0;">&nbsp;</td>'
+        f'<td width="25%" style="height:4px;background:{C["mint"]};font-size:0;line-height:0;">&nbsp;</td>'
+        f'<td width="25%" style="height:4px;background:{C["ink"]};font-size:0;line-height:0;">&nbsp;</td>'
+        '</tr></table></td></tr>'
+        f'<tr><td style="background:#FFFFFF;padding:36px 32px 22px 32px;text-align:center;border-bottom:1px solid {C["hairline"]};">'
+        f'<table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin:0 auto 14px auto;">'
+        '<tr><td align="center">'
+        f'<img src="{_h(logo_url())}" width="56" height="56" alt="CONFIT" '
+        'style="display:block;margin:0 auto;border-radius:12px;border:none;" />'
+        '</td></tr></table>'
+        f'<div style="color:{C["gold_wordmark"]};font-size:15px;letter-spacing:5px;'
+        "text-transform:uppercase;font-weight:700;font-family:'Playfair Display',Georgia,'Times New Roman',serif;\">CONFIT"
+        f'<span style="color:{C["gold_deco"]};">&#183;</span></div>'
+        f'<div style="color:{C["ink"]};font-size:22px;font-weight:600;margin-top:10px;'
+        "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;\">"
+        f'New Arrivals from {_h(brand_name)}</div>'
+        f'<div class="cf-rule" style="height:2px;width:44px;background:{C["coral"]};'
+        'margin:14px auto 0 auto;font-size:0;border-radius:1px;">&nbsp;</div></td></tr>'
+        f'<tr><td style="padding:28px 32px 12px 32px;color:{C["ink"]};">'
+        f'<p style="margin:0 0 16px 0;font-size:15px;line-height:1.8;color:{C["ink_soft"]};">'
+        f'Discover the latest curated luxury offerings from <strong>{_h(brand_name)}</strong>{branch_badge_en}, '
+        f'now available to explore and reserve on CONFIT.</p>'
+        + "".join(cards_html) +
+        '<table role="presentation" cellpadding="0" cellspacing="0" '
+        'style="margin:20px 0 24px 0;"><tr>'
+        f'<td bgcolor="{C["navy"]}" style="border-radius:12px;border-bottom:3px solid {C["coral"]};">'
+        f'<a href="{brand_url_safe}" style="display:inline-block;padding:14px 30px;'
+        'font-size:15px;font-weight:700;color:#FFFFFF;text-decoration:none;letter-spacing:0.3px;">'
+        'Explore Collection / استكشف التشكيلة</a></td></tr></table></td></tr>'
+        f'<tr><td style="padding:0 32px;"><div style="height:1px;background:{C["hairline"]};">'
+        '</div></td></tr>'
+        f'<tr><td dir="rtl" lang="ar" style="padding:24px 32px 28px 32px;'
+        f'color:{C["ink"]};text-align:right;">'
+        f'<div style="font-size:17px;font-weight:600;margin-bottom:10px;">تشكيلة جديدة من {_h(brand_name)}</div>'
+        f'<p style="margin:0;font-size:15px;line-height:1.9;color:{C["ink_soft"]};">'
+        f'يسعدنا تقديم أحدث المنتجات من <strong>{_h(brand_name)}</strong>{branch_badge_ar}. '
+        'يمكنكم الآن استكشاف التشكيلة وحجز المقاسات عبر المنصة.</p></td></tr>'
+        f'<tr><td style="background:{C["footer_bg"]};padding:20px 32px;border-top:1px solid {C["hairline"]};">'
+        f'<div style="font-size:11px;color:{C["footer_text"]};line-height:1.7;">'
+        f'You received this email because you opted in to new product alerts from CONFIT brands.<br>'
+        f'<span dir="rtl">تصلك هذه الرسالة لاشتراكك في تنبيهات المنتجات الجديدة.</span><br>'
+        + (f'<a href="{unsub_url_safe}" style="color:{C["footer_text"]};text-decoration:underline;">Unsubscribe / إلغاء الاشتراك</a>' if unsubscribe_url else '') +
+        '</div></td></tr></table></td></tr></table></body></html>'
+    )
+    return subject, html, text

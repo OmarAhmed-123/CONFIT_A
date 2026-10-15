@@ -151,7 +151,7 @@ export const ConsumerNavbar: React.FC = () => {
         {inner}
       </Link>
     ) : (
-      <button key={item.id} type="button" onClick={() => runAction(item.action!)} className={itemClass}>
+      <button data-motion="neutral" data-motion-tone="icon" key={item.id} type="button" onClick={() => runAction(item.action!)} className={itemClass}>
         {inner}
       </button>
     );
@@ -188,7 +188,7 @@ export const ConsumerNavbar: React.FC = () => {
         onBlur={closeOnFocusOut(section.id)}
         onKeyDown={closeOnEscape(section.id, triggerId)}
       >
-        <button
+        <button data-motion="neutral" data-motion-tone="icon"
           type="button"
           id={triggerId}
           aria-expanded={open}
@@ -257,7 +257,7 @@ export const ConsumerNavbar: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
           <div className="flex min-w-0 items-center gap-4 lg:gap-8">
             {/* Hamburger — the mobile way IN. 44px floor, named, stateful. */}
-            <button
+            <button data-motion="neutral" data-motion-tone="icon"
               type="button"
               onClick={() => setDrawerOpen(true)}
               aria-expanded={drawerOpen}
@@ -284,7 +284,7 @@ export const ConsumerNavbar: React.FC = () => {
 
           {/* Utility cluster */}
           <div className="flex items-center gap-1 sm:gap-3">
-            <button
+            <button data-motion="creative" data-motion-tone="icon"
               onClick={() => openVisualSearch()}
               type="button"
               className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-brand-muted hover:text-brand-charcoal hover:bg-brand-wash transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal"
@@ -293,7 +293,7 @@ export const ConsumerNavbar: React.FC = () => {
               <VisualSearchIcon size={20} color="#252729" />
             </button>
 
-            <button
+            <button data-motion="commerce" data-motion-tone="icon"
               onClick={openCart}
               type="button"
               className="relative inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-brand-charcoal hover:text-brand-charcoal hover:bg-slate-100 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal"
@@ -311,7 +311,7 @@ export const ConsumerNavbar: React.FC = () => {
                 onBlur={closeOnFocusOut('user_menu')}
                 onKeyDown={closeOnEscape('user_menu', `${baseId}-user-trigger`)}
               >
-                <button
+                <button data-motion="neutral" data-motion-tone="icon"
                   type="button"
                   id={`${baseId}-user-trigger`}
                   aria-expanded={openMenu === 'user_menu'}
@@ -366,7 +366,7 @@ export const ConsumerNavbar: React.FC = () => {
                     )}
 
                     <div className="border-t border-slate-100 mt-1 pt-1">
-                      <button
+                      <button data-motion="neutral"
                         type="button"
                         onClick={handleLogout}
                         className="w-full min-h-11 text-start px-3 py-2 rounded-xl text-rose-600 hover:bg-rose-50 font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400"
@@ -378,7 +378,7 @@ export const ConsumerNavbar: React.FC = () => {
                 )}
               </div>
             ) : (
-              <button
+              <button data-motion="auth"
                 onClick={() => openAuthModal('login')}
                 type="button"
                 className="inline-flex min-h-11 items-center gap-1.5 px-4 py-2 rounded-xl bg-brand-charcoal hover:bg-[#1A1B1D] text-white font-medium text-xs transition-all shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white"
@@ -480,7 +480,7 @@ const MobileNavDrawer: React.FC<{
       >
         <div className="flex items-center justify-between px-4 py-4 border-b border-slate-100">
           <ConfitLogo variant="full" theme="dark" size="sm" />
-          <button
+          <button data-motion="neutral" data-motion-tone="icon"
             type="button"
             data-drawer-close
             onClick={onClose}
@@ -533,7 +533,7 @@ const MobileNavDrawer: React.FC<{
                             <span>{t(item.labelKey)}</span>
                           </Link>
                         ) : (
-                          <button type="button" onClick={() => onAction(item.action!)} className={cls}>
+                          <button data-motion="neutral" data-motion-tone="icon" type="button" onClick={() => onAction(item.action!)} className={cls}>
                             <span aria-hidden="true"><ItemIcon size={18} color={item.accent ? '#252729' : undefined} /></span>
                             <span>{t(item.labelKey)}</span>
                           </button>
@@ -549,7 +549,7 @@ const MobileNavDrawer: React.FC<{
 
         <div className="border-t border-slate-100 p-3">
           {isAuthenticated ? (
-            <button
+            <button data-motion="neutral"
               type="button"
               onClick={onSignOut}
               className="w-full min-h-11 rounded-xl px-3 py-2.5 text-start text-sm font-semibold text-rose-600 hover:bg-rose-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400"
@@ -557,7 +557,7 @@ const MobileNavDrawer: React.FC<{
               {t('account.sign_out')}
             </button>
           ) : (
-            <button
+            <button data-motion="auth"
               type="button"
               onClick={onSignIn}
               className="w-full min-h-11 rounded-xl bg-brand-charcoal px-3 py-2.5 text-sm font-semibold text-white hover:bg-[#1A1B1D] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white"

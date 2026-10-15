@@ -1,10 +1,15 @@
 import json
+import re
 from typing import List, Dict, Any, Optional
+from datetime import datetime, timezone
 from sqlalchemy.orm import Session
-from backend.app.models.catalog import Product, ProductSKU
+from backend.app.models.catalog import Product, ProductSKU, StoreLocation, StoreInventory
+from backend.app.models.brand_analytics import SponsoredPlacement
 from backend.app.models.user import BrandProfile, User, UserRole
 from backend.app.repositories.brand_repository import BrandRepository
 from backend.app.core.exceptions import ResourceNotFoundError, ValidationDomainError, AuthorizationError
+from backend.app.core.security import get_password_hash, verify_password
+from backend.app.services.auth_service import AuthService
 
 
 class BrandService:
@@ -235,4 +240,255 @@ class BrandService:
             "current_return_rate": bp.current_return_rate,
             "is_verified": bp.is_verified,
             "created_at": bp.created_at
+        }
+
+    def register_brand(
+        self,
+        *,
+        brand_name: str,
+        email: str,
+        password: str,
+        full_name: str,
+        phone: Optional[str] = None,
+        description: Optional[str] = None,
+        description_ar: Optional[str] = None,
+        website: Optional[str] = None,
+        logo_url: Optional[str] = None,
+        country: Optional[str] = "UAE",
+        city: Optional[str] = "Dubai",
+        preferred_language: str = "en",
+        ip_address: Optional[str] = None,
+        user_agent: Optional[str] = None,
+        requesting_user: Optional[User] = None,
+    ) -> Dict[str, Any]:
+        """Automatically registers a brand owner and provisions their BrandProfile and workspace.
+
+        Idempotent: if the brand or user already exists and matches credentials, resolves existing.
+        """
+        clean_name = brand_name.strip()
+        if len(clean_name) < 2:
+            raise ValidationDomainError("Brand name must be at least 2 characters.")
+
+        clean_email = email.strip().lower()
+        if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", clean_email):
+            raise ValidationDomainError("Please enter a valid work email address.")
+
+        if len(password) < 8:
+            raise ValidationDomainError("Password must be at least 8 characters.")
+
+        # Check existing user
+        user = requesting_user
+        if user is None:
+            user = self.db.query(User).filter(User.email == clean_email).first()
+            if user:
+                # Existing user: verify credentials
+                if not verify_password(password, user.hashed_password):
+                    raise ValidationDomainError("An account with this email already exists. Please verify your password.")
+                # Upgrade role if needed
+                if user.role == UserRole.CONSUMER:
+                    user.role = UserRole.BRAND_OWNER
+                    self.db.commit()
+            else:
+                # Create brand owner user
+                user = User(
+                    email=clean_email,
+                    hashed_password=get_password_hash(password),
+                    full_name=full_name.strip(),
+                    role=UserRole.BRAND_OWNER,
+                    phone=phone.strip() if phone else None,
+                    preferred_language=preferred_language if preferred_language in ["en", "ar"] else "en",
+                    is_active=True,
+                    is_verified=False,
+                    created_at=datetime.now(timezone.utc),
+                    updated_at=datetime.now(timezone.utc),
+                )
+                self.db.add(user)
+                self.db.commit()
+                self.db.refresh(user)
+
+        # Check if user already has a brand profile
+        existing_profile = self.brand_repo.get_by_user_id(user.id)
+        if existing_profile:
+            # Idempotent response
+            tokens = AuthService(self.db)._issue_session_tokens(user, ip_address, user_agent)
+            return {
+                "access_token": tokens["access_token"],
+                "refresh_token": tokens["refresh_token"],
+                "token_type": "bearer",
+                "brand": self._format_brand(existing_profile),
+                "status": "existing",
+                "next_step": "branches",
+                "is_verified": existing_profile.is_verified,
+                "message": "Welcome back! Your brand profile is already established on CONFIT_A.",
+            }
+
+        # Check for brand name duplicate across other tenants
+        name_conflict = self.brand_repo.get_by_name(clean_name)
+        if name_conflict and name_conflict.user_id != user.id:
+            raise ValidationDomainError(f"A brand named '{clean_name}' is already registered on CONFIT_A.")
+
+        # Generate unique slug
+        base_slug = re.sub(r"[^a-z0-9]+", "-", clean_name.lower()).strip("-")
+        if not base_slug:
+            base_slug = "brand"
+        candidate_slug = base_slug
+        suffix = 2
+        while True:
+            existing_slug = self.brand_repo.get_by_slug(candidate_slug)
+            if not existing_slug:
+                break
+            candidate_slug = f"{base_slug}-{suffix}"
+            suffix += 1
+
+        # Create BrandProfile (unverified by default — requires platform moderation/review)
+        bp = self.brand_repo.create_brand_profile(
+            user_id=user.id,
+            brand_name=clean_name,
+            slug=candidate_slug,
+            description=description.strip() if description else None,
+            description_ar=description_ar.strip() if description_ar else description,
+            website=website.strip() if website else None,
+            logo_url=logo_url.strip() if logo_url else None,
+            is_verified=False,
+        )
+
+        # Issue tokens
+        tokens = AuthService(self.db)._issue_session_tokens(user, ip_address, user_agent)
+
+        return {
+            "access_token": tokens["access_token"],
+            "refresh_token": tokens["refresh_token"],
+            "token_type": "bearer",
+            "brand": self._format_brand(bp),
+            "status": "created",
+            "next_step": "branches",
+            "is_verified": bp.is_verified,
+            "message": "Welcome to CONFIT_A! Your brand profile has been created successfully. You can now set up your stores, add products, and build your brand's presence on the platform.",
+        }
+
+    def get_onboarding_status(self, user: User) -> Dict[str, Any]:
+        """Calculates granular 7-step onboarding progress and real verification status."""
+        bp = self._resolve_brand(user)
+        stores = self.brand_repo.get_brand_stores(bp.id)
+        products = self.brand_repo.get_brand_products(bp.id)
+        promos = self.db.query(SponsoredPlacement).filter(
+            SponsoredPlacement.brand_id == bp.id,
+            SponsoredPlacement.status == "active"
+        ).all()
+        inventory_rows_count = (
+            self.db.query(StoreInventory)
+            .join(StoreLocation, StoreLocation.id == StoreInventory.store_id)
+            .filter(StoreLocation.brand_id == bp.id)
+            .count()
+        )
+
+        step_profile = bool(bp.logo_url and bp.description and len(bp.description.strip()) >= 10)
+        step_branches = len(stores) > 0
+        step_locations = any(
+            (s.latitude != 0.0 or s.longitude != 0.0) and -90 <= s.latitude <= 90 and -180 <= s.longitude <= 180
+            for s in stores
+        )
+        step_products = len(products) > 0
+        step_inventory = inventory_rows_count > 0
+        step_promotions = len(promos) > 0
+        step_published = bool(bp.is_verified)
+
+        steps = [
+            {
+                "key": "profile",
+                "title": "Complete Brand Profile",
+                "description": "Upload high-resolution logo, official description, and contact details.",
+                "is_completed": step_profile,
+                "action_url": "/partner/profile",
+            },
+            {
+                "key": "branches",
+                "title": "Add Physical Boutique or Branch",
+                "description": "Add store addresses, opening hours, contact numbers, and BOPIS instructions.",
+                "is_completed": step_branches,
+                "action_url": "/partner/branches",
+            },
+            {
+                "key": "locations",
+                "title": "Verify Branch Coordinates",
+                "description": "Ensure accurate latitude/longitude coordinates for turn-by-turn Google Maps navigation.",
+                "is_completed": step_locations,
+                "action_url": "/partner/branches",
+            },
+            {
+                "key": "products",
+                "title": "Populate Clothing Catalog",
+                "description": "Import products, sizes, prices, and high-fashion imagery.",
+                "is_completed": step_products,
+                "action_url": "/partner/catalog",
+            },
+            {
+                "key": "inventory",
+                "title": "Configure In-Store Stock Levels",
+                "description": "Assign size-level SKU stock quantities across your boutique network.",
+                "is_completed": step_inventory,
+                "action_url": "/partner/inventory",
+            },
+            {
+                "key": "promotions",
+                "title": "Launch Brand Offers & Placements",
+                "description": "Set up promotional discounts or sponsored stylist placements.",
+                "is_completed": step_promotions,
+                "action_url": "/partner/placements",
+            },
+            {
+                "key": "verification",
+                "title": "Platform Review & Publication",
+                "description": "Admin verification verifies your brand house for customer discovery.",
+                "is_completed": step_published,
+                "action_url": f"/brands/{bp.slug}",
+            },
+        ]
+
+        completed_count = sum(1 for s in steps if s["is_completed"])
+        total_count = len(steps)
+        percentage = int(round((completed_count / total_count) * 100))
+
+        # Dynamic, honest messaging based on brand verification state
+        if bp.is_verified:
+            pub_status = "active"
+            welcome_msg = (
+                "Welcome back! Your brand is registered and visible to customers. "
+                "Keep your store locations and product availability up to date."
+            )
+            cta_label = "Manage Branches & Stock"
+            cta_url = "/partner/branches"
+        elif completed_count >= 5:
+            pub_status = "pending_review"
+            welcome_msg = (
+                "Your brand profile has been created and submitted for review. "
+                "You can continue preparing your branch information and product catalog while approval is pending."
+            )
+            cta_label = "Preview Customer Experience"
+            cta_url = f"/brands/{bp.slug}"
+        else:
+            pub_status = "draft"
+            welcome_msg = (
+                "Your brand profile is ready. Add your first branch and products to help customers discover your business."
+            )
+            first_incomplete = next((s for s in steps if not s["is_completed"]), steps[1])
+            cta_label = "Complete Your Brand Setup"
+            cta_url = first_incomplete["action_url"]
+
+        return {
+            "brand_id": bp.id,
+            "brand_name": bp.brand_name,
+            "is_verified": bp.is_verified,
+            "is_published": bp.is_verified,
+            "publication_status": pub_status,
+            "welcome_message": welcome_msg,
+            "primary_cta_label": cta_label,
+            "primary_cta_url": cta_url,
+            "completed_steps_count": completed_count,
+            "total_steps_count": total_count,
+            "completion_percentage": percentage,
+            "steps": steps,
+            "stores_count": len(stores),
+            "products_count": len(products),
+            "active_promotions_count": len(promos),
         }

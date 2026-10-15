@@ -150,7 +150,7 @@ export const PhotoEstimatePanel: React.FC<Props> = ({
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-brand-wash overflow-hidden">
-      <button
+      <button data-motion="creative"
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
@@ -182,7 +182,7 @@ export const PhotoEstimatePanel: React.FC<Props> = ({
               className="hidden"
               onChange={(e) => pickFile(e.target.files?.[0] ?? null)}
             />
-            <button
+            <button data-motion="upload" data-motion-tone="icon"
               type="button"
               onClick={() => fileInputRef.current?.click()}
               className="flex-1 py-2.5 rounded-xl border border-dashed border-slate-300 text-[11px] font-bold text-slate-600 hover:border-brand-hairline transition-all"
@@ -250,7 +250,7 @@ export const PhotoEstimatePanel: React.FC<Props> = ({
             <span>{t('fit_finder.photo_estimate.consent')}</span>
           </label>
 
-          <button
+          <button data-motion="creative" data-motion-tone="icon"
             type="button"
             onClick={estimate}
             disabled={!canEstimate}
@@ -334,7 +334,7 @@ export const PhotoEstimatePanel: React.FC<Props> = ({
                 })}
               </p>
 
-              <button
+              <button data-motion="progressive" data-motion-tone="icon"
                 type="button"
                 onClick={() => apply(state.result)}
                 disabled={applied}

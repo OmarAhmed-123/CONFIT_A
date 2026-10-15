@@ -84,6 +84,23 @@ regexes = [
   # and the dedicated rule below still covers it.
   # ---------------------------------------------------------------------
   '''NVIDIA_KEY_[A-Z0-9_]+''',
+  # ---------------------------------------------------------------------
+  # 2026-10-14: the SAME shape under the platform naming.
+  #
+  # The credential verifier had to name the alias form the operator uses
+  # (`NVIDIA_API_KEY_KIMI_K3`, not `NVIDIA_KEY_KIMI_K3`) in order to map one
+  # onto the other — and `generic-api-key` fired five times on those identifiers
+  # alone (gitleaks 8.24.3, backend/scripts/verify_provider_credentials.py
+  # lines 270-281). The anchor above did not cover them: `NVIDIA_API_KEY_X`
+  # does not contain the substring `NVIDIA_KEY_`.
+  #
+  # Measured before widening, not assumed: every NVIDIA_API_KEY_* literal in the
+  # tree is a NAME with no value beside it, and `git grep -E 'nvapi-[A-Za-z0-9_-]{32,}'`
+  # over every ref returns nothing. The dedicated `nvidia-nim-api-key` rule below
+  # is untouched and still catches any real key, because a value carrying the
+  # `nvapi-` prefix cannot match a pattern anchored on `NVIDIA_...KEY_`.
+  # ---------------------------------------------------------------------
+  '''NVIDIA_API_KEY_[A-Z0-9_]+''',
 ]
 
 # ---------------------------------------------------------------------------

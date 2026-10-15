@@ -46,6 +46,15 @@ class MultiProviderAIOrchestrator:
                 action_required="check API key validity and account billing/credit",
             )
 
+    @staticmethod
+    def _nvidia_pool_configured() -> bool:
+        try:
+            from backend.app.providers.nvidia import key_pool
+
+            return bool(key_pool.configured)
+        except Exception:  # pragma: no cover - defensive, status must never raise
+            return False
+
     def provider_status(self) -> Dict[str, Any]:
         """Live status for observability: which providers have keys configured
         and which are currently quarantined (with remaining cooldown)."""
@@ -65,7 +74,9 @@ class MultiProviderAIOrchestrator:
                 "cooling_for_seconds": max(0, round(self.cooldowns["gemini"] - now, 1)) if "gemini" in self.cooldowns else 0,
             },
             "nvidia": {
-                "configured": bool(settings.NVIDIA_API_KEY),
+                # The slot pool is the authority (a deployment may hold nineteen
+                # per-model keys and no legacy shared key); see keypool.py.
+                "configured": bool(settings.NVIDIA_API_KEY) or self._nvidia_pool_configured(),
                 "cooling_for_seconds": max(0, round(self.cooldowns["nvidia"] - now, 1)) if "nvidia" in self.cooldowns else 0,
             },
             "unorouter": {

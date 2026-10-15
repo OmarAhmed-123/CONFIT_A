@@ -170,7 +170,7 @@ const StockEditor: React.FC<{
           placeholder={t('admin_catalog.base_price_fallback')}
         />
       </label>
-      <button
+      <button data-motion="progressive" data-motion-tone="icon"
         type="button"
         onClick={save}
         disabled={saving || stock === ''}
@@ -427,7 +427,7 @@ export const AdminCatalogView: React.FC = () => {
       {error && (
         <div role="alert" className="flex flex-col gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 sm:flex-row sm:items-center sm:justify-between">
           <span>{error}</span>
-          <button type="button" onClick={refresh} className={`min-h-11 rounded-xl border border-rose-300 px-4 font-bold ${buttonFocus}`}>
+          <button data-motion="recovery" type="button" onClick={refresh} className={`min-h-11 rounded-xl border border-rose-300 px-4 font-bold ${buttonFocus}`}>
             {t('admin_catalog.retry')}
           </button>
         </div>
@@ -452,7 +452,7 @@ export const AdminCatalogView: React.FC = () => {
 
           <div className="flex gap-2 overflow-x-auto border-b border-slate-200 pb-2" role="tablist" aria-label={t('admin_catalog.tabs_label')}>
             {tabs.map((item) => (
-              <button
+              <button data-motion="filter" data-motion-tone="icon"
                 key={item.id}
                 type="button"
                 role="tab"
@@ -472,7 +472,7 @@ export const AdminCatalogView: React.FC = () => {
                   <h2 id="catalog-products-heading" className="font-serif text-2xl font-bold text-brand-charcoal">{t('admin_catalog.products_heading')}</h2>
                   <p className="mt-1 text-sm text-slate-500">{t('admin_catalog.products_help')}</p>
                 </div>
-                <button type="button" onClick={startCreate} className={`min-h-11 rounded-xl bg-brand-charcoal px-5 py-2 text-sm font-bold text-white hover:bg-black ${buttonFocus}`}>
+                <button data-motion="admin" type="button" onClick={startCreate} className={`min-h-11 rounded-xl bg-brand-charcoal px-5 py-2 text-sm font-bold text-white hover:bg-black ${buttonFocus}`}>
                   {t('admin_catalog.add_product')}
                 </button>
               </div>
@@ -481,7 +481,7 @@ export const AdminCatalogView: React.FC = () => {
                 <form onSubmit={submitProduct} className="space-y-5 rounded-3xl border border-[#DCC8A5] bg-[#FFFCF5] p-5 shadow-sm" aria-label={t(editing === 'new' ? 'admin_catalog.create_form_label' : 'admin_catalog.edit_form_label')}>
                   <div className="flex items-center justify-between gap-3">
                     <h3 className="font-serif text-xl font-bold text-brand-charcoal">{t(editing === 'new' ? 'admin_catalog.create_heading' : 'admin_catalog.edit_heading')}</h3>
-                    <button type="button" onClick={() => setEditing(null)} className={`min-h-11 rounded-xl px-3 text-sm font-bold text-slate-600 hover:bg-white ${buttonFocus}`}>{t('admin_catalog.cancel')}</button>
+                    <button data-motion="neutral" type="button" onClick={() => setEditing(null)} className={`min-h-11 rounded-xl px-3 text-sm font-bold text-slate-600 hover:bg-white ${buttonFocus}`}>{t('admin_catalog.cancel')}</button>
                   </div>
                   <div className="grid gap-4 md:grid-cols-2">
                     <label className="text-xs font-bold text-slate-700">{t('admin_catalog.field_title')}<input required maxLength={255} value={form.title} onChange={updateForm('title')} className={`${fieldClass} mt-1`} /></label>
@@ -514,7 +514,7 @@ export const AdminCatalogView: React.FC = () => {
                       <label className="text-xs font-bold text-slate-700">{t('admin_catalog.field_color_hex')}<input required type="color" value={form.sku_color_hex} onChange={updateForm('sku_color_hex')} className={`${fieldClass} mt-1 p-1`} /></label>
                     </fieldset>
                   )}
-                  <button type="submit" disabled={saving} className={`min-h-11 rounded-xl bg-brand-charcoal px-6 py-2 text-sm font-bold text-white disabled:opacity-50 ${buttonFocus}`}>{saving ? t('admin_catalog.saving') : t(editing === 'new' ? 'admin_catalog.create_product' : 'admin_catalog.save_changes')}</button>
+                  <button data-motion="admin" data-motion-tone="icon" type="submit" disabled={saving} className={`min-h-11 rounded-xl bg-brand-charcoal px-6 py-2 text-sm font-bold text-white disabled:opacity-50 ${buttonFocus}`}>{saving ? t('admin_catalog.saving') : t(editing === 'new' ? 'admin_catalog.create_product' : 'admin_catalog.save_changes')}</button>
                 </form>
               )}
 
@@ -532,8 +532,8 @@ export const AdminCatalogView: React.FC = () => {
                         </div>
                         <div className="flex items-center justify-between text-sm"><span className="font-mono font-bold text-[#8A6A2F]">{product.currency} {product.base_price.toLocaleString()}</span><span className="text-xs text-slate-500">{t('admin_catalog.sku_count', { count: product.skus.length })}</span></div>
                         <div className="flex flex-wrap gap-2 border-t border-slate-100 pt-3">
-                          <button type="button" onClick={() => startEdit(product)} className={`min-h-11 rounded-xl border border-slate-300 px-4 text-xs font-bold text-slate-700 hover:border-brand-charcoal ${buttonFocus}`}>{t('admin_catalog.edit')}</button>
-                          <button type="button" disabled={saving} onClick={() => void setProductActive(product, !product.is_active)} className={`min-h-11 rounded-xl px-4 text-xs font-bold ${buttonFocus} ${product.is_active ? 'bg-rose-50 text-rose-700 hover:bg-rose-100' : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100'}`}>{t(product.is_active ? 'admin_catalog.deactivate' : 'admin_catalog.reactivate')}</button>
+                          <button data-motion="admin" type="button" onClick={() => startEdit(product)} className={`min-h-11 rounded-xl border border-slate-300 px-4 text-xs font-bold text-slate-700 hover:border-brand-charcoal ${buttonFocus}`}>{t('admin_catalog.edit')}</button>
+                          <button data-motion="admin" data-motion-tone="icon" type="button" disabled={saving} onClick={() => void setProductActive(product, !product.is_active)} className={`min-h-11 rounded-xl px-4 text-xs font-bold ${buttonFocus} ${product.is_active ? 'bg-rose-50 text-rose-700 hover:bg-rose-100' : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100'}`}>{t(product.is_active ? 'admin_catalog.deactivate' : 'admin_catalog.reactivate')}</button>
                         </div>
                       </div>
                     </article>

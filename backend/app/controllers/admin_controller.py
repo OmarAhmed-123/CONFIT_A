@@ -12,7 +12,7 @@ from backend.app.core.dependencies import require_role, require_admin_recent
 from backend.app.core.exceptions import ResourceNotFoundError, ValidationDomainError
 from backend.app.core.timeutils import TimeRange, TimeRangeError
 from backend.app.core.request_context import client_ip, request_id as current_request_id
-from backend.app.models.user import User, UserRole
+from backend.app.models.user import User, UserRole, BrandProfile
 from backend.app.repositories.audit_repository import AuditQuery
 from backend.app.repositories.brand_repository import BrandRepository
 from backend.app.repositories.user_repository import UserRepository
@@ -468,6 +468,84 @@ def get_brand_performance_table(
     }
 
 
+@router.get("/analytics/bi-dashboard")
+def get_admin_bi_dashboard_endpoint(
+    date_from: Optional[str] = Query(None, description="ISO date (YYYY-MM-DD), inclusive"),
+    date_to: Optional[str] = Query(None, description="ISO date (YYYY-MM-DD), inclusive"),
+    days: Optional[int] = Query(None, description="Preset window in days"),
+    brand_id: Optional[int] = Query(None, description="Filter by brand ID"),
+    compare: bool = Query(True, description="Compare against preceding equivalent period"),
+    user: User = Depends(require_role([UserRole.ADMIN])),
+    db: Session = Depends(get_db),
+):
+    """Platform-wide commercial BI dashboard for authorized administrators."""
+    from backend.app.services.business_intelligence_service import BusinessIntelligenceService
+    df = datetime.fromisoformat(date_from) if date_from else None
+    dt = datetime.fromisoformat(date_to) if date_to else None
+    svc = BusinessIntelligenceService(db)
+    return svc.get_admin_bi_dashboard(
+        date_from=df,
+        date_to=dt,
+        days=days,
+        brand_id=brand_id,
+        compare=compare,
+    )
+
+
+@router.get("/analytics/export.csv")
+def export_admin_bi_csv_endpoint(
+    date_from: Optional[str] = Query(None, description="ISO date (YYYY-MM-DD), inclusive"),
+    date_to: Optional[str] = Query(None, description="ISO date (YYYY-MM-DD), inclusive"),
+    days: Optional[int] = Query(None, description="Preset window in days"),
+    brand_id: Optional[int] = Query(None, description="Filter by brand ID"),
+    user: User = Depends(require_role([UserRole.ADMIN])),
+    db: Session = Depends(get_db),
+):
+    """Download platform-wide commercial performance CSV with formula protection."""
+    from fastapi.responses import Response
+    from backend.app.services.business_intelligence_service import BusinessIntelligenceService
+    df = datetime.fromisoformat(date_from) if date_from else None
+    dt = datetime.fromisoformat(date_to) if date_to else None
+    svc = BusinessIntelligenceService(db)
+    data = svc.get_admin_bi_dashboard(date_from=df, date_to=dt, days=days, brand_id=brand_id, compare=False)
+
+    import io, csv
+    from backend.app.services.business_intelligence_service import sanitize_csv_cell
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow(["CONFIT_A — Platform Commercial & Operational Administration Report"])
+    writer.writerow(["Period", sanitize_csv_cell(data["period"]["label"])])
+    writer.writerow(["Generated At", sanitize_csv_cell(data["generated_at"])])
+    writer.writerow([])
+    writer.writerow(["PLATFORM MACRO KPIS"])
+    writer.writerow(["Metric", "Value"])
+    writer.writerow(["Total Orders", sanitize_csv_cell(data["kpis"]["orders_count"])])
+    writer.writerow(["Total Units Sold", sanitize_csv_cell(data["kpis"]["units_sold"])])
+    writer.writerow(["Average Order Value", sanitize_csv_cell(f"{data['kpis']['average_order_value']:.2f}")])
+    writer.writerow([])
+    writer.writerow(["CROSS-BRAND COMMERCIAL PERFORMANCE"])
+    writer.writerow(["Brand ID", "Brand Name", "Verified", "Catalog Products", "Physical Stores", "Orders Placed", "Gross Sales", "Currency", "Return Rate"])
+    for b in data["brands_performance"]:
+        writer.writerow([
+            sanitize_csv_cell(b["brand_id"]),
+            sanitize_csv_cell(b["brand_name"]),
+            sanitize_csv_cell(b["is_verified"]),
+            sanitize_csv_cell(b["products_count"]),
+            sanitize_csv_cell(b["stores_count"]),
+            sanitize_csv_cell(b["orders_count"]),
+            sanitize_csv_cell(f"{b['gross_sales']:.2f}"),
+            sanitize_csv_cell(b["currency"]),
+            sanitize_csv_cell(f"{b['return_rate']}%" if b["return_rate"] is not None else "N/A"),
+        ])
+
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d")
+    return Response(
+        content=buf.getvalue(),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="confit-admin-bi-{stamp}.csv"'},
+    )
+
+
 @router.get("/audit", response_model=AuditTrailPage)
 def get_audit_trail(
     request: Request,
@@ -628,6 +706,42 @@ def get_admin_catalog_brands(
 ):
     """Brands an admin may deliberately select; no implicit admin tenant."""
     return AdminCatalogService(db).list_brands()
+
+
+@router.post("/catalog/brands/{brand_id}/verify")
+def verify_admin_brand(
+    brand_id: int,
+    request: Request,
+    user: User = Depends(require_role([UserRole.ADMIN])),
+    db: Session = Depends(get_db),
+):
+    """Admin publication gate: verifies a brand so it appears on public customer discovery."""
+    brand = db.get(BrandProfile, brand_id)
+    if not brand:
+        raise ResourceNotFoundError("BrandProfile", brand_id)
+    brand.is_verified = True
+    db.commit()
+    db.refresh(brand)
+    _audit_admin(request, db, user, "ADMIN_BRAND_VERIFIED", "BrandProfile", str(brand_id), {}, {"is_verified": True})
+    return {"status": "verified", "brand_id": brand.id, "is_verified": brand.is_verified}
+
+
+@router.post("/catalog/brands/{brand_id}/unverify")
+def unverify_admin_brand(
+    brand_id: int,
+    request: Request,
+    user: User = Depends(require_role([UserRole.ADMIN])),
+    db: Session = Depends(get_db),
+):
+    """Admin publication gate: removes verification so the brand is unlisted from public discovery."""
+    brand = db.get(BrandProfile, brand_id)
+    if not brand:
+        raise ResourceNotFoundError("BrandProfile", brand_id)
+    brand.is_verified = False
+    db.commit()
+    db.refresh(brand)
+    _audit_admin(request, db, user, "ADMIN_BRAND_UNVERIFIED", "BrandProfile", str(brand_id), {}, {"is_verified": False})
+    return {"status": "unverified", "brand_id": brand.id, "is_verified": brand.is_verified}
 
 
 @router.get("/catalog/brands/{brand_id}", response_model=AdminCatalogSnapshotOut)

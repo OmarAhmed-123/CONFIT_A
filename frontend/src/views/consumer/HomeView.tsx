@@ -358,7 +358,7 @@ export const HomeView: React.FC = () => {
         support={t("home.hero_subtitle")}
         actions={
           <>
-            <button
+            <button data-motion="neutral"
               onClick={() =>
                 document
                   .getElementById("guided-first-look")
@@ -375,7 +375,7 @@ export const HomeView: React.FC = () => {
               <span>{t('home.get_first_look')}</span>
             </button>
 
-            <button
+            <button data-motion="creative" data-motion-tone="icon"
               onClick={() =>
                 // The studio still opens: it hosts the no-photo fit check too.
                 // Only the *label* changes, and only when a render is off the
@@ -477,7 +477,7 @@ export const HomeView: React.FC = () => {
       >
         <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
           <div>
-            <span className="text-[10px] font-bold uppercase tracking-widest text-[#7A5C28]">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-brand-muted">
               {t('home.guided_eyebrow')}
             </span>
             <h2 className="mt-2 font-serif text-3xl font-bold text-brand-charcoal">
@@ -495,7 +495,7 @@ export const HomeView: React.FC = () => {
               </p>
               <div className="mt-2 flex flex-wrap gap-2">
                 {guideOccasions.map((occasion) => (
-                  <button
+                  <button data-motion="filter" data-motion-tone="icon"
                   key={occasion.value}
                     type="button"
                   aria-pressed={guideOccasion === occasion.value}
@@ -560,7 +560,7 @@ export const HomeView: React.FC = () => {
             </div>
 
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-              <button
+              <button data-motion="creative"
                 type="button"
                 onClick={startGuidedLook}
                 className="rounded-2xl bg-brand-charcoal px-5 py-3 text-xs font-bold text-white transition hover:bg-[#1A1B1D]"
@@ -578,7 +578,7 @@ export const HomeView: React.FC = () => {
       {/* 2. Scroll-Driven 3D Editorial Gallery */}
       <section className="relative -mx-4 overflow-hidden rounded-[36px] border border-brand-hairline bg-white py-10 shadow-2xs sm:-mx-6 lg:-mx-8">
         <div className="relative z-10 mx-auto mb-6 max-w-2xl px-6 text-center">
-          <span className="text-[10px] font-bold uppercase tracking-widest text-[#7A5C28]">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-brand-muted">
             {t('home.lookbook_eyebrow')}
           </span>
           <h2 className="mt-2 font-serif text-3xl font-bold text-brand-charcoal sm:text-4xl">
@@ -638,7 +638,7 @@ export const HomeView: React.FC = () => {
               <p className="text-xs font-semibold text-rose-600">
                 {t("home.new_in_error")}
               </p>
-              <button
+              <button data-motion="recovery"
                 type="button"
                 onClick={() => newInQuery.refetch()}
                 className="rounded-xl bg-brand-charcoal px-4 py-2 text-xs font-bold text-white"
@@ -770,7 +770,7 @@ export const HomeView: React.FC = () => {
             <p className="text-xs text-rose-600 font-semibold">
               {t('home.picks_error')}
             </p>
-            <button
+            <button data-motion="recovery"
               onClick={refreshCatalog}
               className="px-4 py-2 rounded-xl bg-brand-charcoal text-white text-xs font-bold"
             >
@@ -824,7 +824,7 @@ export const HomeView: React.FC = () => {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
           {occasionCards.map((occ) => (
-            <button
+            <button data-motion="creative"
               key={occ.tag}
               onClick={() => openStylist(occ.title)}
               className="focus-on-dark group relative h-80 rounded-3xl overflow-hidden shadow-2xs hover:shadow-xl transition-all duration-300 text-left border border-slate-200/60"

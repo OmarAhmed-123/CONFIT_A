@@ -169,7 +169,7 @@ export const OrderTrackingView: React.FC = () => {
               className="mt-1 w-full p-2.5 rounded-xl border border-brand-hairline text-xs"
             />
           </label>
-          <button type="submit" className="w-full py-2.5 rounded-xl bg-brand-charcoal text-white text-xs font-semibold">
+          <button data-motion="recovery" type="submit" className="w-full py-2.5 rounded-xl bg-brand-charcoal text-white text-xs font-semibold">
             {t('order.guest_lookup_retry')}
           </button>
         </form>
@@ -299,7 +299,7 @@ export const OrderTrackingView: React.FC = () => {
             <p className="text-[10px] text-brand-muted mt-1">{t('order.guest_return_note')}</p>
           )}
         </div>
-        <button
+        <button data-motion="progressive"
           onClick={() => {
             setReturnModalOpen(true);
             setReturnError(null);
@@ -409,7 +409,7 @@ export const OrderTrackingView: React.FC = () => {
                 <a href={returnLabelUrl} className="text-xs font-bold text-brand-charcoal underline" target="_blank" rel="noreferrer">
                   {t('order.download_authorisation')}
                 </a>
-                <button
+                <button data-motion="neutral"
                   onClick={() => setReturnModalOpen(false)}
                   className="mt-4 px-5 py-2 rounded-xl bg-brand-charcoal text-white text-xs font-semibold min-h-11"
                 >
@@ -448,10 +448,10 @@ export const OrderTrackingView: React.FC = () => {
                 )}
                 {returnError && <p className="text-rose-600" role="alert">{returnError}</p>}
                 <div className="flex gap-2 pt-2">
-                  <button type="button" onClick={() => setReturnModalOpen(false)} className="flex-1 py-2.5 rounded-xl border border-brand-hairline font-semibold min-h-11">
+                  <button data-motion="neutral" type="button" onClick={() => setReturnModalOpen(false)} className="flex-1 py-2.5 rounded-xl border border-brand-hairline font-semibold min-h-11">
                     {t('common.cancel')}
                   </button>
-                  <button type="submit" disabled={returnSubmitting} className="flex-1 py-2.5 rounded-xl bg-brand-charcoal text-white font-semibold shadow-md disabled:opacity-50 min-h-11">
+                  <button data-motion="progressive" data-motion-tone="icon" type="submit" disabled={returnSubmitting} className="flex-1 py-2.5 rounded-xl bg-brand-charcoal text-white font-semibold shadow-md disabled:opacity-50 min-h-11">
                     {returnSubmitting ? 'Submitting...' : t('order.submit_return')}
                   </button>
                 </div>

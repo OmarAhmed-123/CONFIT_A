@@ -138,35 +138,35 @@ export const VisualSearchModal: React.FC = () => {
   return (
     <>
     {consentDialog}
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md animate-in fade-in duration-150">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-150">
       <div
         ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-label={t('tryon.visual_search')}
         tabIndex={-1}
-        className="w-full max-w-4xl bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden max-h-[92vh] flex flex-col"
+        className="w-full max-w-4xl bg-white rounded-3xl shadow-2xl border border-brand-hairline overflow-hidden max-h-[92vh] flex flex-col"
       >
         {/* Header */}
-        <div className="p-4 sm:p-6 border-b border-slate-100 bg-brand-charcoal text-white flex items-center justify-between">
+        <div className="p-4 sm:p-6 border-b border-brand-hairline bg-white text-brand-charcoal flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-brand-wash flex items-center justify-center text-slate-950">
-              <VisualSearchIcon size={22} color="#242526" />
+            <div className="w-10 h-10 rounded-xl bg-brand-wash border border-brand-hairline flex items-center justify-center text-brand-charcoal shadow-xs">
+              <VisualSearchIcon size={22} color="#252729" />
             </div>
             <div>
-              <h3 className="font-serif text-lg font-bold text-white">
+              <h3 className="font-serif text-lg font-bold text-brand-charcoal">
                 {t("tryon.visual_search_title")}
               </h3>
-              <p className="text-xs text-slate-300">
+              <p className="text-xs text-slate-500">
                 {t("tryon.visual_search_desc")}
               </p>
             </div>
           </div>
-          <button
+          <button data-motion="neutral" data-motion-tone="icon"
             onClick={closeVisualSearch}
             type="button"
             aria-label={t("a11y.close_dialog")}
-            className="min-h-11 min-w-11 rounded-full bg-slate-800 text-slate-300 hover:text-white flex items-center justify-center transition-colors"
+            className="min-h-11 min-w-11 rounded-full bg-slate-100 text-slate-600 hover:text-brand-charcoal hover:bg-slate-200 flex items-center justify-center transition-colors"
           >
             <span aria-hidden="true">✕</span>
           </button>
@@ -224,7 +224,7 @@ export const VisualSearchModal: React.FC = () => {
 
             <div className="grid grid-cols-3 gap-3">
               {samples.map((s) => (
-                <button
+                <button data-motion="creative" data-motion-tone="icon"
                   key={s.label}
                   onClick={() => {
                     setUploadedImage(null);
@@ -262,7 +262,7 @@ export const VisualSearchModal: React.FC = () => {
                   top-most-modal guard requires focus inside the panel) —
                   the shopper could no longer close the dialog from the
                   keyboard. Found by the C02 goal E2E (G10). */}
-              <button
+              <button data-motion="creative" data-motion-tone="icon"
                 onClick={() => {
                   if (!visualSearchLoading) handleSearch();
                 }}
@@ -288,7 +288,7 @@ export const VisualSearchModal: React.FC = () => {
                 <StatusIcon status="error" size={14} className="mt-0.5 shrink-0" />
                 <span>{visualSearchError}</span>
               </div>
-              <button
+              <button data-motion="recovery"
                 onClick={() => handleSearch(selectedSample || undefined)}
                 className="px-4 py-2 rounded-xl bg-brand-charcoal hover:bg-brand-charcoal text-white text-xs font-semibold"
               >
@@ -358,7 +358,7 @@ export const VisualSearchModal: React.FC = () => {
                       </span>
                     </div>
 
-                    <button
+                    <button data-motion="creative" data-motion-tone="icon"
                       onClick={() => openMatchInTryOn(match.product_id)}
                       disabled={
                         openingMatchId === match.product_id ||

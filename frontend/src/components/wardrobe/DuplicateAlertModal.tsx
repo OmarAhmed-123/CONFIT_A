@@ -57,7 +57,7 @@ export const DuplicateAlertModal: React.FC = () => {
 
           {/* Decision Actions */}
           <div className="grid grid-cols-2 gap-3 pt-2">
-            <button
+            <button data-motion="creative"
               onClick={() => {
                 dismissDuplicate();
               }}
@@ -67,7 +67,7 @@ export const DuplicateAlertModal: React.FC = () => {
               <span>{t('wardrobe.style_what_i_own')}</span>
             </button>
 
-            <button
+            <button data-motion="progressive"
               onClick={confirmAddDuplicate}
               className="py-2.5 px-4 rounded-xl bg-brand-charcoal hover:bg-black text-white font-semibold text-xs transition-all shadow-sm text-center"
             >

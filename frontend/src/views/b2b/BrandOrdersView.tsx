@@ -127,20 +127,24 @@ export const BrandOrdersView: React.FC = () => {
               key={k}
               className={`rounded-2xl border p-4 ${
                 k === "net"
-                  ? "bg-brand-charcoal border-brand-charcoal text-white"
+                  ? "bg-brand-charcoal border-brand-charcoal text-white shadow-xs"
                   : k === "discount"
-                    ? "bg-[#FDF1F2] border-[#7A1F2B]/20"
-                    : "bg-white border-slate-200/80"
+                    ? "bg-brand-coral/10 border-brand-coral/30 text-brand-charcoal"
+                    : k === "orders"
+                      ? "bg-white border-slate-200 border-t-4 border-t-brand-lilac shadow-xs"
+                      : k === "units"
+                        ? "bg-white border-slate-200 border-t-4 border-t-brand-mint shadow-xs"
+                        : "bg-white border-slate-200 border-t-4 border-t-brand-coral shadow-xs"
               }`}
             >
               <span
                 className={`block text-[10px] font-bold uppercase tracking-wider ${
-                  k === "net" ? "text-brand-charcoal" : "text-slate-500"
+                  k === "net" ? "text-slate-300" : k === "discount" ? "text-brand-coral" : "text-slate-500"
                 }`}
               >
                 {t(`brand_orders.total_${k}`)}
               </span>
-              <span className="block font-serif text-lg font-bold mt-1">{v}</span>
+              <span className={`block font-serif text-lg font-bold mt-1 ${k === "discount" ? "text-brand-coral" : ""}`}>{v}</span>
             </div>
           ))}
           {/* The totals describe every matching line, not the visible page. */}
@@ -292,14 +296,14 @@ export const BrandOrdersView: React.FC = () => {
               })}
             </span>
             <div className="flex gap-2">
-              <button
+              <button data-motion="neutral"
                 onClick={() => setOffset(Math.max(0, offset - limit))}
                 disabled={offset === 0 || loading}
                 className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-[11px] font-semibold disabled:opacity-40"
               >
                 {t("common.previous")}
               </button>
-              <button
+              <button data-motion="neutral"
                 onClick={() => setOffset(offset + limit)}
                 disabled={!data.pagination.has_more || loading}
                 className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-[11px] font-semibold disabled:opacity-40"

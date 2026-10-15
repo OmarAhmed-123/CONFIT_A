@@ -35,6 +35,16 @@ import {
   AuditStats,
   AdminCatalogBrandSummary,
   AdminCatalogSnapshot,
+  CustomerBrand,
+  CustomerBrandDetail,
+  StoreBranchSummary,
+  BranchInventoryCatalog,
+  BrandRegistrationPayload,
+  BrandRegistrationResponse,
+  BrandOnboardingStatus,
+  PartnerStoreDetail,
+  BiDashboardResponse,
+  AdminBiDashboardResponse,
 } from "../models";
 
 // 1. Authentication Services (G1)
@@ -435,6 +445,72 @@ export const catalogService = {
   getDashboard: (coords?: { lat: number; lon: number }) => {
     const query = coords ? `?lat=${coords.lat}&lon=${coords.lon}` : "";
     return request<any>(`/catalog/dashboard${query}`);
+  },
+
+  getBrands: (params?: {
+    q?: string;
+    category?: string;
+    city?: string;
+    has_offers?: boolean;
+    sort?: string;
+  }) => {
+    const clean = Object.fromEntries(
+      Object.entries(params ?? {}).filter(
+        ([, v]) => v !== undefined && v !== null && v !== "",
+      ),
+    );
+    const query = new URLSearchParams(clean as Record<string, string>).toString();
+    return request<CustomerBrand[]>(`/catalog/brands${query ? `?${query}` : ""}`);
+  },
+
+  getBrandDetail: (slugOrId: string | number, coords?: { lat?: number; lng?: number }) => {
+    const params = new URLSearchParams();
+    if (coords?.lat !== undefined) params.append("lat", String(coords.lat));
+    if (coords?.lng !== undefined) params.append("lng", String(coords.lng));
+    const qs = params.toString();
+    return request<CustomerBrandDetail>(`/catalog/brands/${slugOrId}${qs ? `?${qs}` : ""}`);
+  },
+
+  getStores: (params?: {
+    brand_id?: number;
+    city?: string;
+    q?: string;
+    lat?: number;
+    lng?: number;
+  }) => {
+    const clean = Object.fromEntries(
+      Object.entries(params ?? {}).filter(
+        ([, v]) => v !== undefined && v !== null && v !== "",
+      ),
+    );
+    const query = new URLSearchParams(clean as Record<string, string>).toString();
+    return request<StoreBranchSummary[]>(`/catalog/stores${query ? `?${query}` : ""}`);
+  },
+
+  getStoreDetail: (storeId: number, coords?: { lat?: number; lng?: number }) => {
+    const params = new URLSearchParams();
+    if (coords?.lat !== undefined) params.append("lat", String(coords.lat));
+    if (coords?.lng !== undefined) params.append("lng", String(coords.lng));
+    const qs = params.toString();
+    return request<StoreBranchSummary>(`/catalog/stores/${storeId}${qs ? `?${qs}` : ""}`);
+  },
+
+  getBranchInventory: (
+    storeId: number,
+    params?: {
+      category?: string;
+      in_stock_only?: boolean;
+      search?: string;
+      sort_by?: string;
+    },
+  ) => {
+    const clean = Object.fromEntries(
+      Object.entries(params ?? {}).filter(
+        ([, v]) => v !== undefined && v !== null && v !== "",
+      ),
+    );
+    const query = new URLSearchParams(clean as Record<string, string>).toString();
+    return request<BranchInventoryCatalog>(`/catalog/stores/${storeId}/inventory${query ? `?${query}` : ""}`);
   },
 };
 
@@ -1272,6 +1348,56 @@ export const brandService = {
   getAnalyticsDashboard: () =>
     request<BrandAnalyticsDashboard>("/brand/analytics"),
 
+  getBiDashboard: (params: {
+    dateFrom?: string;
+    dateTo?: string;
+    days?: number;
+    branchId?: number;
+    categoryId?: number;
+    compare?: boolean;
+  } = {}) => {
+    const q = new URLSearchParams();
+    if (params.dateFrom) q.set("date_from", params.dateFrom);
+    if (params.dateTo) q.set("date_to", params.dateTo);
+    if (params.days != null) q.set("days", String(params.days));
+    if (params.branchId != null) q.set("branch_id", String(params.branchId));
+    if (params.categoryId != null) q.set("category_id", String(params.categoryId));
+    if (params.compare != null) q.set("compare", String(params.compare));
+    return request<BiDashboardResponse>(`/partner/analytics/bi-dashboard?${q.toString()}`);
+  },
+
+  downloadBiPdf: (params: {
+    dateFrom?: string;
+    dateTo?: string;
+    days?: number;
+    branchId?: number;
+    categoryId?: number;
+  } = {}) => {
+    const q = new URLSearchParams();
+    if (params.dateFrom) q.set("date_from", params.dateFrom);
+    if (params.dateTo) q.set("date_to", params.dateTo);
+    if (params.days != null) q.set("days", String(params.days));
+    if (params.branchId != null) q.set("branch_id", String(params.branchId));
+    if (params.categoryId != null) q.set("category_id", String(params.categoryId));
+    return requestBlob(`/partner/analytics/export.pdf?${q.toString()}`);
+  },
+
+  downloadBiCsv: (params: {
+    dateFrom?: string;
+    dateTo?: string;
+    days?: number;
+    branchId?: number;
+    categoryId?: number;
+  } = {}) => {
+    const q = new URLSearchParams();
+    if (params.dateFrom) q.set("date_from", params.dateFrom);
+    if (params.dateTo) q.set("date_to", params.dateTo);
+    if (params.days != null) q.set("days", String(params.days));
+    if (params.branchId != null) q.set("branch_id", String(params.branchId));
+    if (params.categoryId != null) q.set("category_id", String(params.categoryId));
+    return requestBlob(`/partner/analytics/export.csv?${q.toString()}`);
+  },
+
   getProducts: () => request<Product[]>("/brand/products"),
 
   /**
@@ -1331,7 +1457,145 @@ export const brandService = {
       body: JSON.stringify(payload),
     }),
 
+  registerBrand: (payload: BrandRegistrationPayload) =>
+    request<BrandRegistrationResponse>("/brand/register", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+
+  getOnboardingStatus: () =>
+    request<BrandOnboardingStatus>("/partner/onboarding-status"),
+
+  getStores: () => request<PartnerStoreDetail[]>("/partner/stores"),
+
+  getStore: (storeId: number) =>
+    request<PartnerStoreDetail>(`/partner/stores/${storeId}`),
+
+  createStore: (data: {
+    name: string;
+    name_ar?: string;
+    city: string;
+    country: string;
+    address: string;
+    latitude: number;
+    longitude: number;
+    phone?: string;
+    pickup_instructions?: string;
+    is_bopis_enabled?: boolean;
+  }) =>
+    request<any>("/partner/stores", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  updateStore: (
+    storeId: number,
+    data: {
+      name?: string;
+      name_ar?: string;
+      city?: string;
+      country?: string;
+      address?: string;
+      latitude?: number;
+      longitude?: number;
+      phone?: string;
+      pickup_instructions?: string;
+      is_bopis_enabled?: boolean;
+    },
+  ) =>
+    request<any>(`/partner/stores/${storeId}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+
+  deleteStore: (storeId: number) =>
+    request<{ status: string; store_id: number }>(`/partner/stores/${storeId}`, {
+      method: "DELETE",
+    }),
+
+  updateProfile: (data: {
+    description?: string;
+    description_ar?: string;
+    website?: string;
+    logo_url?: string;
+    banner_url?: string;
+  }) =>
+    request<BrandProfile>("/partner/profile", {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+
+  verifyBrand: (brandId: number) =>
+    request<{ status: string; brand_id: number; is_verified: boolean }>(
+      `/admin/catalog/brands/${brandId}/verify`,
+      { method: "POST" },
+    ),
+
+  unverifyBrand: (brandId: number) =>
+    request<{ status: string; brand_id: number; is_verified: boolean }>(
+      `/admin/catalog/brands/${brandId}/unverify`,
+      { method: "POST" },
+    ),
+
   getAdminAnalytics: () => request<AdminPlatformAnalytics>("/admin/analytics"),
+
+  getAdminBiDashboard: (params: {
+    dateFrom?: string;
+    dateTo?: string;
+    days?: number;
+    brandId?: number;
+    compare?: boolean;
+  } = {}) => {
+    const q = new URLSearchParams();
+    if (params.dateFrom) q.set("date_from", params.dateFrom);
+    if (params.dateTo) q.set("date_to", params.dateTo);
+    if (params.days != null) q.set("days", String(params.days));
+    if (params.brandId != null) q.set("brand_id", String(params.brandId));
+    if (params.compare != null) q.set("compare", String(params.compare));
+    return request<AdminBiDashboardResponse>(`/admin/analytics/bi-dashboard?${q.toString()}`);
+  },
+
+  downloadAdminBiCsv: (params: {
+    dateFrom?: string;
+    dateTo?: string;
+    days?: number;
+    brandId?: number;
+  } = {}) => {
+    const q = new URLSearchParams();
+    if (params.dateFrom) q.set("date_from", params.dateFrom);
+    if (params.dateTo) q.set("date_to", params.dateTo);
+    if (params.days != null) q.set("days", String(params.days));
+    if (params.brandId != null) q.set("brand_id", String(params.brandId));
+    return requestBlob(`/admin/analytics/export.csv?${q.toString()}`);
+  },
+
+  previewCatalogCSV: (file: File, targetStoreId?: number) => {
+    const form = new FormData();
+    form.append('file', file);
+    const q = targetStoreId != null ? `?target_store_id=${targetStoreId}` : '';
+    return request<any>(`/partner/catalog/preview-csv${q}`, {
+      method: 'POST',
+      body: form,
+    });
+  },
+
+  confirmCatalogImport: (file: File, targetStoreId?: number, sendNotifications: boolean = true) => {
+    const form = new FormData();
+    form.append('file', file);
+    const params = new URLSearchParams();
+    if (targetStoreId != null) params.set('target_store_id', String(targetStoreId));
+    params.set('send_notifications', String(sendNotifications));
+    return request<any>(`/partner/catalog/confirm-import?${params.toString()}`, {
+      method: 'POST',
+      body: form,
+    });
+  },
+
+  exportImportErrors: (errors: any[]) =>
+    request<string>('/partner/catalog/export-errors', {
+      method: 'POST',
+      body: JSON.stringify({ errors }),
+    }),
 };
 
 /**

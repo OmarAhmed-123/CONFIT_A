@@ -8,6 +8,8 @@ import { ReadinessBanner } from '../../components/admin/ReadinessBanner';
 import { Reveal } from '../../components/common/Surface';
 import { BrandReportDownloadButton } from '../../components/admin/BrandReportDownloadButton';
 import { HonestProductImage } from '../../components/common/HonestProductImage';
+import { DownloadIcon } from '../../components/icons/ConfitIcons';
+import { adminService } from '../../services/apiServices';
 import type { StyleHeatmapCell } from '../../models';
 
 const HeatmapDimension: React.FC<{
@@ -63,9 +65,32 @@ export const AdminAnalyticsView: React.FC = () => {
 
   // Freshness is MEASURED, not decorative: stamped when a payload lands.
   const [fetchedAt, setFetchedAt] = React.useState<Date | null>(null);
+  const [isExportingCsv, setIsExportingCsv] = React.useState(false);
   React.useEffect(() => {
     if (adminAnalytics) setFetchedAt(new Date());
   }, [adminAnalytics]);
+
+  const handleExportAdminCsv = async () => {
+    if (isExportingCsv) return;
+    setIsExportingCsv(true);
+    try {
+      const { blob, filename } = await adminService.downloadAdminBiCsv({
+        days: analyticsDays,
+      });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = filename || 'confit-admin-bi-report.csv';
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+    } catch (e: any) {
+      alert('Failed to export platform CSV: ' + (e?.message || 'Unknown error'));
+    } finally {
+      setIsExportingCsv(false);
+    }
+  };
 
   const setWindow = (days?: number) => {
     setSearchParams(
@@ -187,7 +212,7 @@ export const AdminAnalyticsView: React.FC = () => {
 
         <div className="mt-3 flex flex-wrap items-center gap-2" role="group" aria-label={t('admin_analytics.window_label')}>
           {WINDOW_CHOICES.map((days) => (
-            <button
+            <button data-motion="filter"
               key={days}
               type="button"
               onClick={() => setWindow(days)}
@@ -201,7 +226,7 @@ export const AdminAnalyticsView: React.FC = () => {
               {t('admin_analytics.window_days', { days: days })}
             </button>
           ))}
-          <button
+          <button data-motion="filter"
             type="button"
             onClick={() => setWindow(undefined)}
             aria-pressed={analyticsDays === undefined}
@@ -213,12 +238,21 @@ export const AdminAnalyticsView: React.FC = () => {
           >
             {t('admin_analytics.window_all')}
           </button>
-          <button
+          <button data-motion="recovery"
             type="button"
             onClick={refresh}
             className="min-h-11 rounded-xl border border-slate-300 bg-white px-4 text-xs font-bold text-slate-700 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white"
           >
             {t('admin_analytics.refresh')}
+          </button>
+          <button data-motion-tone="icon" data-motion="download"
+            type="button"
+            onClick={handleExportAdminCsv}
+            disabled={isExportingCsv}
+            className="inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-4 text-xs font-bold text-slate-700 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white"
+          >
+            <DownloadIcon size={14} />
+            <span>{isExportingCsv ? t('bi.exporting_csv', 'Exporting...') : t('admin_analytics.export_csv', 'Export Platform CSV')}</span>
           </button>
         </div>
       </div>
@@ -439,7 +473,7 @@ export const AdminAnalyticsView: React.FC = () => {
               <tr className="border-b border-slate-100 text-[10px] uppercase text-slate-500">
                 <th scope="col" className="py-2">{t('admin_analytics.brand')}</th>
                 <th scope="col" className="py-2" aria-sort={sortKey === 'products' ? (sortDir === 'desc' ? 'descending' : 'ascending') : undefined}>
-                  <button
+                  <button data-motion="filter"
                     type="button"
                     onClick={() => toggleSort('products')}
                     className="inline-flex min-h-11 items-center gap-1 font-bold uppercase focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white"
@@ -449,7 +483,7 @@ export const AdminAnalyticsView: React.FC = () => {
                   </button>
                 </th>
                 <th scope="col" className="py-2" aria-sort={sortKey === 'views' ? (sortDir === 'desc' ? 'descending' : 'ascending') : undefined}>
-                  <button
+                  <button data-motion="filter"
                     type="button"
                     onClick={() => toggleSort('views')}
                     className="inline-flex min-h-11 items-center gap-1 font-bold uppercase focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white"
@@ -460,7 +494,7 @@ export const AdminAnalyticsView: React.FC = () => {
                 </th>
                 <th scope="col" className="py-2">{t('admin_analytics.tryons')}</th>
                 <th scope="col" className="py-2" aria-sort={sortKey === 'orders' ? (sortDir === 'desc' ? 'descending' : 'ascending') : undefined}>
-                  <button
+                  <button data-motion="filter"
                     type="button"
                     onClick={() => toggleSort('orders')}
                     className="inline-flex min-h-11 items-center gap-1 font-bold uppercase focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white"
@@ -470,7 +504,7 @@ export const AdminAnalyticsView: React.FC = () => {
                   </button>
                 </th>
                 <th scope="col" className="py-2" aria-sort={sortKey === 'conversion_rate' ? (sortDir === 'desc' ? 'descending' : 'ascending') : undefined}>
-                  <button
+                  <button data-motion="filter"
                     type="button"
                     onClick={() => toggleSort('conversion_rate')}
                     className="inline-flex min-h-11 items-center gap-1 font-bold uppercase focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white"

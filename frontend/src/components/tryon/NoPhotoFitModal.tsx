@@ -97,7 +97,7 @@ export const NoPhotoFitModal: React.FC = () => {
                 </p>
               </div>
             </div>
-            <button
+            <button data-motion="neutral" data-motion-tone="icon"
               type="button"
               onClick={closeRuler}
               aria-label={t('common.close')}
@@ -116,10 +116,10 @@ export const NoPhotoFitModal: React.FC = () => {
                   <div className="font-bold text-brand-charcoal">{t('tryon.nophoto_scan')}</div>
                   <div className="text-[10px] text-slate-500 font-light">Estimate dimensions in 2s via live camera</div>
                 </div>
-                <button
+                <button data-motion="upload"
                   type="button"
                   onClick={() => setIsCameraScanOpen(true)}
-                  className="px-3 py-1.5 rounded-xl bg-brand-charcoal hover:bg-black text-slate-950 text-[11px] font-bold shadow-sm"
+                  className="px-3 py-1.5 rounded-xl bg-brand-charcoal hover:bg-black text-white text-[11px] font-bold shadow-sm"
                 >
                   📸 Open Camera
                 </button>
@@ -159,7 +159,7 @@ export const NoPhotoFitModal: React.FC = () => {
                 <label className="text-xs font-bold text-slate-800 block mb-1.5">Body Silhouette Type:</label>
                 <div className="grid grid-cols-3 gap-1.5">
                   {['Athletic', 'Hourglass', 'Rectangle', 'Pear', 'Inverted Triangle'].map((s) => (
-                    <button
+                    <button data-motion="creative" data-motion-tone="icon"
                       key={s}
                       onClick={() => setShape(s)}
                       className={`py-2 px-1.5 text-center text-xs rounded-xl border transition-all truncate ${
@@ -182,7 +182,7 @@ export const NoPhotoFitModal: React.FC = () => {
                     { id: 'regular', label: 'Classic Regular' },
                     { id: 'oversized', label: 'Relaxed Drape' },
                   ].map((f) => (
-                    <button
+                    <button data-motion="creative" data-motion-tone="icon"
                       key={f.id}
                       onClick={() => setFitPref(f.id)}
                       className={`py-2 px-2 text-center text-xs rounded-xl border transition-all ${
@@ -197,7 +197,7 @@ export const NoPhotoFitModal: React.FC = () => {
                 </div>
               </div>
 
-              <button
+              <button data-motion="creative" data-motion-tone="icon"
                 onClick={() => handleCalculate()}
                 disabled={rulerLoading}
                 className="w-full py-3.5 rounded-xl bg-brand-charcoal hover:bg-brand-charcoal text-white font-semibold text-xs shadow-md transition-all flex items-center justify-center gap-2"
@@ -285,7 +285,7 @@ export const NoPhotoFitModal: React.FC = () => {
                     </p>
                   </div>
 
-                  <button
+                  <button data-motion="commerce"
                     onClick={async () => {
                       const sku = rulerProduct.skus?.[0];
                       if (sku) {

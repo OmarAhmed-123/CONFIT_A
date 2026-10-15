@@ -25,6 +25,7 @@ import {
   SparkleIcon,
   BagIcon,
   SavedLooksIcon,
+  BookmarkIcon,
   TryOnIcon,
   RulerIcon,
 } from '../../components/icons/ConfitIcons';
@@ -112,7 +113,7 @@ const DraggableProduct: React.FC<{
   // controls independently clickable and independently focusable.
   return (
     <div className="relative" style={{ transform: CSS.Translate.toString(transform) }}>
-      <button
+      <button data-motion="upload"
         ref={setNodeRef}
         type="button"
         {...listeners}
@@ -157,7 +158,7 @@ const DraggableProduct: React.FC<{
           The button now owns a 44×44 target while the visual circle stays
           compact inside it. Positions are logical (end-*) so the control does
           not collide with the drag badge when the page flips to RTL. */}
-      <button
+      <button data-motion="creative" data-motion-tone="icon"
         type="button"
         onClick={tryOn.gate({
           render: () => openTryOn(product),
@@ -224,7 +225,7 @@ const DroppableSlot: React.FC<{
         <>
           {/* C04: was a 24×24 target — below the 44px minimum — anchored with
               a physical `right-2` that landed on the wrong side in RTL. */}
-          <button
+          <button data-motion="destructive" data-motion-tone="icon"
             onClick={() => onRemove(slot.key)}
             className={`absolute top-0 end-0 h-11 w-11 flex items-center justify-center z-10 group/remove ${FOCUS_RING}`}
             title={t('tryon.remove_item')}
@@ -280,7 +281,7 @@ const DroppableSlot: React.FC<{
             {t('outfit_builder.drop_or_enter_hint')}
           </span>
           {onSuggest && (
-            <button
+            <button data-motion="creative"
               type="button"
               onClick={() => onSuggest(slot.key)}
               aria-label={t('outfit_builder.suggest_for_slot', { slot: t(slot.labelKey) })}
@@ -353,7 +354,9 @@ const EditShareCard: React.FC<{ outfitId: number; title: string }> = ({ outfitId
       ) : (
         <div className="space-y-2">
           <p className="text-[11px] text-slate-500 font-light">{t('my_looks.private_note')}</p>
+          {/* Motion intent “share” — publishing a look is a hand-off, not a save. */}
           <ActionButton
+            intent="share"
             metricsId="builder.publish_link"
             onAction={async () => {
               try {
@@ -619,7 +622,7 @@ export const OutfitBuilderView: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-3">
-          <button
+          <button data-motion="destructive"
             onClick={clearCanvas}
             disabled={selectedItems.length === 0}
             className={`px-4 py-2 min-h-[44px] rounded-xl border border-slate-300 hover:bg-slate-100 active:scale-[0.98] disabled:opacity-40 text-xs font-semibold text-slate-700 motion-safe:transition-[background-color,transform] motion-safe:duration-300 ${LUX_EASE} ${FOCUS_RING}`}
@@ -645,7 +648,7 @@ export const OutfitBuilderView: React.FC = () => {
               success: t('outfit_builder.saved_confirm'),
               error: t('outfit_builder.save_failed_retry'),
             }}
-            icon={<SavedLooksIcon size={16} color="#FFFFFF" />}
+            icon={<BookmarkIcon size={16} color="#FFFFFF" />}
             data-testid="save-look-cta"
             className={`px-5 py-2 rounded-xl bg-brand-charcoal text-white hover:bg-black active:scale-[0.98] disabled:opacity-40 text-slate-950 font-bold text-xs shadow-sm motion-safe:transition-[background-color,transform,opacity] motion-safe:duration-300 ${LUX_EASE}`}
           />
@@ -668,7 +671,7 @@ export const OutfitBuilderView: React.FC = () => {
           </div>
           <div className="flex flex-wrap gap-2">
             {FORMULAS.map((formula) => (
-              <button
+              <button data-motion="progressive"
                 key={formula.id}
                 onClick={() => applyStarterFormula(t(formula.labelKey))}
                 className={`rounded-2xl bg-brand-charcoal px-4 py-2.5 min-h-[44px] text-xs font-bold text-white motion-safe:transition-[background-color,color,transform] motion-safe:duration-300 ${LUX_EASE} hover:bg-black active:scale-[0.98] ${FOCUS_RING}`}
@@ -807,7 +810,7 @@ export const OutfitBuilderView: React.FC = () => {
                         </span>
                       )}
                     </div>
-                    <button
+                    <button data-motion="neutral" data-motion-tone="icon"
                       type="button"
                       onClick={dismissSuggestions}
                       aria-label={t('common.close')}
@@ -842,7 +845,7 @@ export const OutfitBuilderView: React.FC = () => {
                   ) : suggestions ? (
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                       {suggestions.items.map((p) => (
-                        <button
+                        <button data-motion="progressive" data-motion-tone="icon"
                           key={p.id}
                           type="button"
                           onClick={() => {
@@ -906,7 +909,7 @@ export const OutfitBuilderView: React.FC = () => {
                   <p className="text-sm font-light text-slate-600">
                     {t('outfit_builder.palette_error')}
                   </p>
-                  <button
+                  <button data-motion="recovery"
                     type="button"
                     onClick={retryCatalog}
                     className={`px-5 py-2.5 min-h-[44px] rounded-xl border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-100 motion-safe:transition-[background-color,transform] motion-safe:duration-300 ${LUX_EASE} ${FOCUS_RING}`}
@@ -1063,7 +1066,7 @@ export const OutfitBuilderView: React.FC = () => {
               <div className="pt-3 border-t border-slate-100 space-y-2">
                 {/* C04: disabled + aria-busy while the batch is in flight —
                     a double-click must never duplicate the bag. */}
-                <button
+                <button data-motion="commerce"
                   onClick={addAllToCart}
                   disabled={selectedItems.length === 0 || isAddingAll}
                   aria-busy={isAddingAll}

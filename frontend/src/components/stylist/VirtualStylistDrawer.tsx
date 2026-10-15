@@ -11,6 +11,7 @@ import { ApiError } from "../../services/apiClient";
 import {
   StylistIcon,
   SparkleIcon,
+  SendIcon,
   BagIcon,
   TryOnIcon,
   MicIcon,
@@ -216,7 +217,7 @@ export const VirtualStylistDrawer: React.FC = () => {
   };
   const slotTone = (pos: string) =>
     pos?.toLowerCase?.() === "dress"
-      ? "bg-brand-charcoal text-slate-950 font-bold border border-brand-hairline"
+      ? "bg-brand-coral/10 text-brand-charcoal font-bold border border-brand-coral/30"
       : "bg-brand-charcoal text-white border border-brand-hairline/30";
 
   // Money honesty: render ONLY the currency the server declared for this
@@ -233,7 +234,7 @@ export const VirtualStylistDrawer: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-hidden bg-slate-950/60 backdrop-blur-sm confit-fade-in">
+    <div className="fixed inset-0 z-50 overflow-hidden bg-slate-900/40 backdrop-blur-sm confit-fade-in">
       <div className="absolute inset-y-0 right-0 max-w-full flex pl-6 sm:pl-10">
         <div
           ref={panelRef}
@@ -241,34 +242,34 @@ export const VirtualStylistDrawer: React.FC = () => {
           aria-modal="true"
           aria-label={t("stylist.dialog_label")}
           tabIndex={-1}
-          className="w-screen max-w-2xl bg-white shadow-2xl flex flex-col border-l border-slate-200 confit-drawer-in"
+          className="w-screen max-w-2xl bg-white shadow-2xl flex flex-col border-l border-brand-hairline confit-drawer-in"
         >
           {/* Drawer Header */}
-          <div className="p-4 sm:p-6 border-b border-slate-800 bg-brand-charcoal text-white flex items-center justify-between">
+          <div className="p-4 sm:p-6 border-b border-brand-hairline bg-white text-brand-charcoal flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-brand-charcoal flex items-center justify-center text-slate-950 shadow-xs">
-                <StylistIcon size={22} color="#FFFFFF" />
+              <div className="w-10 h-10 rounded-xl bg-brand-wash border border-brand-hairline flex items-center justify-center text-brand-charcoal shadow-xs">
+                <StylistIcon size={22} color="#252729" />
               </div>
               <div>
-                <h2 className="font-serif text-lg font-bold text-white flex items-center gap-2">
+                <h2 className="font-serif text-lg font-bold text-brand-charcoal flex items-center gap-2">
                   <span>{t("stylist.title")}</span>
                   {/* The old static badge claimed "Rules-Grounded Engine" on
                       every reply — false whenever a live provider answered
                       (per-message attribution is the engine truth). The one
                       claim true in BOTH paths: verified catalogue pieces. */}
-                  <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-brand-charcoal/20 text-white font-sans font-semibold">
+                  <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-brand-wash border border-brand-hairline text-brand-charcoal font-sans font-semibold">
                     {t("stylist.catalogue_badge")}
                   </span>
                 </h2>
-                <p className="text-xs text-slate-400 font-light">
+                <p className="text-xs text-slate-500 font-light">
                   {t("stylist.subtitle")}
                 </p>
               </div>
             </div>
-            <button
+            <button data-motion="neutral" data-motion-tone="icon"
               onClick={closeStylist}
               aria-label={t("common.close")}
-              className={`w-11 h-11 rounded-full bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 flex items-center justify-center ${LUX} ${RING}`}
+              className={`w-11 h-11 rounded-full bg-slate-100 text-slate-600 hover:text-brand-charcoal hover:bg-slate-200 flex items-center justify-center ${LUX} ${RING}`}
             >
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
                 <path d="M1 1l12 12M13 1L1 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
@@ -285,7 +286,7 @@ export const VirtualStylistDrawer: React.FC = () => {
                 the backend matches ENGLISH keywords, so it is never translated.
                 Only the label is localized (see the module docstring). */}
             {OCCASION_PROMPTS.map((occ) => (
-              <button
+              <button data-motion="creative" data-motion-tone="icon"
                 key={occ.value}
                 onClick={() =>
                   sendPrompt(`Style an outfit for ${occ.value}`, occ.value, undefined,
@@ -335,7 +336,7 @@ export const VirtualStylistDrawer: React.FC = () => {
                       labelKey: "stylist.example_evening_gala",
                     },
                   ].map((ex, i) => (
-                    <button
+                    <button data-motion="filter"
                       key={ex.labelKey}
                       onClick={() =>
                         sendPrompt(ex.prompt, ex.occasion, ex.budget, undefined, t(ex.labelKey))
@@ -567,7 +568,7 @@ export const VirtualStylistDrawer: React.FC = () => {
                                   <span className="text-xs font-bold text-brand-charcoal" dir="ltr">
                                     {itemMoney(item.price, item.currency)}
                                   </span>
-                                  <button
+                                  <button data-motion="creative"
                                     disabled={tryOnKind === "blocked"}
                                     onClick={() =>
                                       (tryOnKind === "fit_check"
@@ -675,7 +676,7 @@ export const VirtualStylistDrawer: React.FC = () => {
                           </div>
                           <div className="flex flex-col items-end gap-1">
                           {msg.mode === "A" && saveStates[outfit.id] !== "saved" && (
-                            <button
+                            <button data-motion="progressive" data-motion-tone="icon"
                               type="button"
                               onClick={() => saveLook(outfit)}
                               aria-busy={saveStates[outfit.id] === "saving"}
@@ -698,7 +699,7 @@ export const VirtualStylistDrawer: React.FC = () => {
                           {msg.mode === "A" && saveStates[outfit.id] === "failed" && (
                             <span role="alert" className="text-[11px] text-rose-700">{t("stylist.save_look_failed")}</span>
                           )}
-                          <button
+                          <button data-motion="commerce" data-motion-tone="icon"
                             onClick={() => addCompleteLookToCart(outfit)}
                             aria-busy={isAddingLook}
                             disabled={
@@ -772,7 +773,7 @@ export const VirtualStylistDrawer: React.FC = () => {
                 {/* Retry only where retrying can change the outcome: a validation
                     rejection cannot be fixed by pressing the same button again. */}
                 {errorRetryable && (
-                  <button
+                  <button data-motion="recovery"
                     onClick={() => sendPrompt()}
                     className="text-xs font-bold underline ml-2"
                   >
@@ -799,7 +800,7 @@ export const VirtualStylistDrawer: React.FC = () => {
                         56px thumbnail, but a thumb on a phone gets the full
                         touch minimum (the control was 24×24). Logical `end`
                         keeps it on the trailing corner in RTL. */}
-                    <button
+                    <button data-motion="neutral" data-motion-tone="icon"
                       type="button"
                       onClick={() => removeImage(index)}
                       aria-label={t("stylist.remove_photo", { n: index + 1 })}
@@ -848,7 +849,7 @@ export const VirtualStylistDrawer: React.FC = () => {
                 />
               </label>
 
-              <button
+              <button data-motion="filter" data-motion-tone="icon"
                 type="button"
                 onClick={startVoiceInput}
                 aria-label={isRecording ? t("stylist.voice_stop") : t("stylist.hold_voice")}
@@ -887,13 +888,16 @@ export const VirtualStylistDrawer: React.FC = () => {
                 className={`flex-1 resize-none overflow-y-auto whitespace-pre-wrap break-words px-4 py-3 min-h-[48px] rounded-2xl border border-slate-200 focus:outline-none focus:border-brand-hairline focus-visible:ring-2 focus-visible:ring-brand-charcoal/40 text-xs sm:text-sm leading-relaxed bg-brand-wash ${LUX}`}
               />
 
-              <button
+              <button data-motion="creative" data-motion-tone="icon"
                 type="submit"
                 disabled={!inputPrompt.trim() || isTyping}
                 aria-busy={isTyping}
                 className={`px-6 py-3 min-h-[48px] rounded-2xl bg-brand-charcoal hover:bg-black disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold shadow-md flex items-center gap-1.5 ${LUX} ${RING}`}
               >
-                <SparkleIcon size={14} color="#242526" />
+                {/* Send: the plane leaves while the answer is being written, and is
+                  gone when the reply arrives. Colour is inherited (the previous
+                  hard-coded #242526 was near-invisible on this charcoal fill). */}
+                  <SendIcon size={14} />
                 <span>{isTyping ? t("stylist.sending") : t("stylist.submit")}</span>
               </button>
             </form>

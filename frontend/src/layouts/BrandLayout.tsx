@@ -44,7 +44,7 @@ export const BrandLayout: React.FC = () => {
             {t('b2b_layout.platform_title')} · 1.0.0
           </div>
           <div className="flex gap-4">
-            <Link to="/" className="text-brand-charcoal hover:underline">
+            <Link to="/" className="inline-flex min-h-6 items-center text-brand-charcoal hover:underline">
               {t('b2b_layout.switch_to_consumer')}
             </Link>
           </div>

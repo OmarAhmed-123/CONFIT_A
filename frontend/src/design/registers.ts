@@ -15,10 +15,10 @@
  * that breaks a ratio fails CI):
  *
  *   ink on body #FAF9F6 / on card #FFFFFF
- *   · editorial #6B4F1E   7.22 / 7.60   (AAA)
+ *   · editorial #242526  14.58 / 15.36  (AAA) — Logo #3 charcoal (was bronze #6B4F1E)
  *   · atelier   #6E4458   7.58 / 7.98   (AAA)
  *   · fit       #2F5547   7.94 / 8.36   (AAA)
- *   · commerce  #1B1F3B  15.28 / 16.08  (AAA)
+ *   · commerce  #242526  14.58 / 15.36  (AAA) — Logo #3 charcoal (was navy #1B1F3B)
  *   · account   #555A73   6.44 / 6.78   (AA+)
  *   · partner   #35506A   7.96 / 8.38   (AAA)
  *   · admin     #43464F   8.95 / 9.43   (AAA)
@@ -26,7 +26,8 @@
  *   accent (hairline/dot — decorative, WCAG 1.4.11 does not apply to pure
  *   decoration; ratios vs #FAF9F6 documented for honesty):
  *   · editorial #252729 14.99 — brand charcoal (Logo #3 rollout; was gold #C9A227 at 2.30, decorative only)
- *   · atelier   #A5718B 3.74 · fit #4E7C6A 4.52 · commerce #1B1F3B 15.28
+ *   · atelier   #A5718B 3.74 · fit #4E7C6A 4.52 · commerce #C2553F 4.28 — deep tone of
+ *     the brand coral (#EF826D is 2.47:1 and cannot carry a 3:1 rule; was navy #1B1F3B)
  *   · account   #555A73 6.44 · partner #3E5C76 6.65 · admin #5A5E6A 6.15
  *
  * RULES (spec 07 + spec 13 constraints, enforced by tests):
@@ -64,7 +65,7 @@ export const REGISTERS: Record<RegisterId, Register> = {
   editorial: {
     id: "editorial",
     accent: "#252729",
-    ink: "#6B4F1E",
+    ink: "#242526",
     labelKey: "registers.editorial.label",
     scheme: "light",
   },
@@ -84,8 +85,8 @@ export const REGISTERS: Record<RegisterId, Register> = {
   },
   commerce: {
     id: "commerce",
-    accent: "#1B1F3B",
-    ink: "#1B1F3B",
+    accent: "#C2553F",
+    ink: "#242526",
     labelKey: "registers.commerce.label",
     scheme: "light",
   },
@@ -124,7 +125,7 @@ const ROUTE_TABLE: ReadonlyArray<readonly [prefix: string, id: RegisterId]> = [
   // Partner operations (both aliases).
   ["/b2b", "partner"],
   ["/partner", "partner"],
-  // Money path — always light, always navy (spec 07).
+  // Money path — always light (spec 07); charcoal ink, deep-coral rule.
   ["/cart", "commerce"],
   ["/checkout", "commerce"],
   ["/orders", "commerce"],

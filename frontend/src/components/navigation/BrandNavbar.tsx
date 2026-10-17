@@ -99,7 +99,7 @@ const isItemActive = (href: string, path: string) =>
   path === href || (href === '/admin' && path === '/b2b/admin-platform');
 
 const focusRing =
-  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900';
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-brand-charcoal';
 
 const COLLAPSE_KEY = 'confit.b2b.sidebar_collapsed';
 
@@ -165,7 +165,7 @@ export const BrandBreadcrumbs: React.FC = () => {
   // Re-pass: the trail nudges in on every route change — a quiet, LOCAL
   // movement (4px fade-rise) that marks "you moved"; reduced motion ⇒ none.
   return (
-    <nav aria-label={t('brand_nav.breadcrumbs_aria')} className="mb-4 text-xs text-slate-500">
+    <nav aria-label={t('brand_nav.breadcrumbs_aria')} className="mb-4 text-xs text-brand-muted">
       <motion.ol
         key={path}
         initial={reduce ? false : { opacity: 0, y: 4 }}
@@ -174,7 +174,7 @@ export const BrandBreadcrumbs: React.FC = () => {
         className="flex flex-wrap items-center gap-1">
         <li>
           {item && item.href === home.href ? (
-            <span aria-current="page" className="font-bold text-slate-800">{home.label}</span>
+            <span aria-current="page" className="font-bold text-brand-charcoal">{home.label}</span>
           ) : (
             <Link
               to={home.href}
@@ -186,11 +186,11 @@ export const BrandBreadcrumbs: React.FC = () => {
         </li>
         {section && item && item.href !== home.href && (
           <>
-            <li aria-hidden="true" className="text-slate-300">/</li>
-            <li className="text-slate-500">{t(section.labelKey)}</li>
-            <li aria-hidden="true" className="text-slate-300">/</li>
+            <li aria-hidden="true" className="text-brand-field">/</li>
+            <li className="text-brand-muted">{t(section.labelKey)}</li>
+            <li aria-hidden="true" className="text-brand-field">/</li>
             <li>
-              <span aria-current="page" className="font-bold text-slate-800">
+              <span aria-current="page" className="font-bold text-brand-charcoal">
                 {t(item.labelKey)}
               </span>
             </li>
@@ -223,7 +223,7 @@ const NavLinks: React.FC<{
       {sections.map((section) => (
         <div key={section.id} role="group" aria-label={t(section.labelKey)}>
           <p
-            className={`px-3 pb-1 text-[10px] font-bold uppercase tracking-widest text-slate-500 ${
+            className={`px-3 pb-1 text-[10px] font-bold uppercase tracking-widest text-neutral-400 ${
               collapsed ? 'sr-only' : ''
             }`}
           >
@@ -252,8 +252,8 @@ const NavLinks: React.FC<{
                     title={collapsed ? t(labelKey) : undefined}
                     className={`relative flex min-h-11 items-center gap-3 rounded-xl px-3 text-xs font-semibold ${focusRing} ${
                       active
-                        ? 'bg-slate-800 text-white font-semibold'
-                        : 'text-slate-200 hover:bg-slate-800'
+                        ? 'bg-white/10 text-white font-semibold'
+                        : 'text-neutral-200 hover:bg-white/10'
                     } ${collapsed ? 'justify-center px-0' : ''}`}
                   >
                     {active && <ActiveMarker layoutId={markerId} reduce={reduce} />}
@@ -339,7 +339,8 @@ const BrandNavDrawer: React.FC<{
         initial={reduce ? false : { opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: reduce ? 0 : 0.2 }}
-        className="absolute inset-0 bg-slate-950/70"
+        className="absolute inset-0 bg-black/60"
+        data-testid="brand-nav-scrim"
         onClick={onClose}
         aria-hidden="true"
       />
@@ -352,7 +353,7 @@ const BrandNavDrawer: React.FC<{
         aria-modal="true"
         aria-label={t('brand_nav.drawer_label')}
         data-testid="brand-nav-drawer"
-        className="absolute inset-y-0 start-0 flex w-[85vw] max-w-sm flex-col bg-slate-950 text-white shadow-2xl"
+        className="absolute inset-y-0 start-0 flex w-[85vw] max-w-sm flex-col bg-brand-charcoal text-white shadow-2xl"
       >
         {/* Domain ribbon — the register accent of THIS trust domain. */}
         <span
@@ -361,7 +362,7 @@ const BrandNavDrawer: React.FC<{
           className="h-1 w-full shrink-0"
           style={{ backgroundColor: DOMAIN_ACCENT[domain].ribbon }}
         />
-        <div className="flex items-center justify-between border-b border-slate-800 px-4 py-4">
+        <div className="flex items-center justify-between border-b border-white/10 px-4 py-4">
           <div className="flex min-w-0 items-center gap-3">
             <ConfitLogo variant="compact" theme="light" size="sm" />
             <span className="truncate text-xs font-bold text-white">{portalTitle}</span>
@@ -371,7 +372,7 @@ const BrandNavDrawer: React.FC<{
             data-drawer-close
             onClick={onClose}
             aria-label={t('brand_nav.close_menu')}
-            className={`inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl text-slate-300 hover:bg-slate-800 ${focusRing}`}
+            className={`inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl text-neutral-300 hover:bg-white/10 ${focusRing}`}
           >
             <X size={22} aria-hidden="true" />
           </button>
@@ -388,11 +389,11 @@ const BrandNavDrawer: React.FC<{
             stagger
           />
         </nav>
-        <div className="space-y-1 border-t border-slate-800 px-3 py-3">
+        <div className="space-y-1 border-t border-white/10 px-3 py-3">
           <Link
             to="/"
             onClick={onClose}
-            className={`flex min-h-11 items-center gap-3 rounded-xl px-3 text-xs text-slate-200 hover:bg-slate-800 ${focusRing}`}
+            className={`flex min-h-11 items-center gap-3 rounded-xl px-3 text-xs text-neutral-200 hover:bg-white/10 ${focusRing}`}
           >
             <span aria-hidden="true"><Store size={16} /></span>
             {t('brand_nav.storefront')}
@@ -400,7 +401,7 @@ const BrandNavDrawer: React.FC<{
           <button data-motion="neutral"
             type="button"
             onClick={onSignOut}
-            className={`flex w-full min-h-11 items-center gap-3 rounded-xl px-3 text-start text-xs text-slate-200 hover:bg-slate-800 ${focusRing}`}
+            className={`flex w-full min-h-11 items-center gap-3 rounded-xl px-3 text-start text-xs text-neutral-200 hover:bg-white/10 ${focusRing}`}
           >
             <span aria-hidden="true"><LogOut size={16} /></span>
             {t('brand_nav.sign_out')}
@@ -466,7 +467,7 @@ export const BrandNavbar: React.FC = () => {
   return (
     <>
       {/* ── Mobile top bar (lg:hidden): the way into the drawer ── */}
-      <header className="sticky top-0 z-40 border-b border-slate-800 bg-slate-950 text-white lg:hidden">
+      <header className="sticky top-0 z-40 border-b border-white/10 bg-brand-charcoal text-white lg:hidden">
         {/* Same domain ribbon as the drawer/sidebar — one visual identity
             per trust domain on every surface. */}
         <span
@@ -482,7 +483,7 @@ export const BrandNavbar: React.FC = () => {
             aria-expanded={drawerOpen}
             aria-haspopup="dialog"
             aria-label={t('brand_nav.open_menu')}
-            className={`inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl text-slate-200 hover:bg-slate-800 ${focusRing}`}
+            className={`inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl text-neutral-200 hover:bg-white/10 ${focusRing}`}
           >
             <Menu size={22} aria-hidden="true" />
           </button>
@@ -511,7 +512,7 @@ export const BrandNavbar: React.FC = () => {
       {/* ── Desktop sidebar (hidden below lg) ── */}
       <aside
         data-testid="brand-sidebar"
-        className={`sticky top-0 z-30 hidden h-screen shrink-0 flex-col border-e border-slate-800 bg-slate-950 text-white transition-[width] duration-200 motion-reduce:transition-none lg:flex ${
+        className={`sticky top-0 z-30 hidden h-screen shrink-0 flex-col border-e border-white/10 bg-brand-charcoal text-white transition-[width] duration-200 motion-reduce:transition-none lg:flex ${
           collapsed ? 'w-[4.5rem]' : 'w-64'
         }`}
       >
@@ -521,7 +522,7 @@ export const BrandNavbar: React.FC = () => {
           className="h-1 w-full shrink-0"
           style={{ backgroundColor: DOMAIN_ACCENT[domain].ribbon }}
         />
-        <div className={`flex items-center gap-3 border-b border-slate-800 px-4 py-5 ${collapsed ? 'justify-center px-0' : ''}`}>
+        <div className={`flex items-center gap-3 border-b border-white/10 px-4 py-5 ${collapsed ? 'justify-center px-0' : ''}`}>
           <Link
             to={isAdmin ? '/admin' : '/b2b'}
             className={`flex min-h-11 min-w-0 items-center gap-3 rounded-lg ${focusRing}`}
@@ -552,9 +553,9 @@ export const BrandNavbar: React.FC = () => {
           {collapsed ? t('brand_nav.state_collapsed') : t('brand_nav.state_expanded')}
         </span>
 
-        <div className="space-y-1 border-t border-slate-800 px-3 py-3">
+        <div className="space-y-1 border-t border-white/10 px-3 py-3">
           {!collapsed && (
-            <p className="truncate px-3 pb-1 text-[10px] text-slate-500">
+            <p className="truncate px-3 pb-1 text-[10px] text-neutral-400">
               {user?.full_name || 'Partner'}
             </p>
           )}
@@ -562,7 +563,7 @@ export const BrandNavbar: React.FC = () => {
             to="/"
             aria-label={collapsed ? t('brand_nav.storefront') : undefined}
             title={collapsed ? t('brand_nav.storefront') : undefined}
-            className={`flex min-h-11 items-center gap-3 rounded-xl px-3 text-xs text-slate-200 hover:bg-slate-800 ${focusRing} ${collapsed ? 'justify-center px-0' : ''}`}
+            className={`flex min-h-11 items-center gap-3 rounded-xl px-3 text-xs text-neutral-200 hover:bg-white/10 ${focusRing} ${collapsed ? 'justify-center px-0' : ''}`}
           >
             <span aria-hidden="true"><Store size={16} /></span>
             {!collapsed && t('brand_nav.storefront')}
@@ -577,7 +578,7 @@ export const BrandNavbar: React.FC = () => {
             onClick={handleLogout}
             aria-label={collapsed ? t('brand_nav.sign_out') : undefined}
             title={collapsed ? t('brand_nav.sign_out') : undefined}
-            className={`flex w-full min-h-11 items-center gap-3 rounded-xl px-3 text-start text-xs text-slate-200 hover:bg-slate-800 ${focusRing} ${collapsed ? 'justify-center px-0' : ''}`}
+            className={`flex w-full min-h-11 items-center gap-3 rounded-xl px-3 text-start text-xs text-neutral-200 hover:bg-white/10 ${focusRing} ${collapsed ? 'justify-center px-0' : ''}`}
           >
             <span aria-hidden="true"><LogOut size={16} /></span>
             {!collapsed && t('brand_nav.sign_out')}
@@ -587,7 +588,7 @@ export const BrandNavbar: React.FC = () => {
             onClick={toggleCollapsed}
             aria-pressed={collapsed}
             aria-label={collapsed ? t('brand_nav.expand_sidebar') : t('brand_nav.collapse_sidebar')}
-            className={`flex w-full min-h-11 items-center gap-3 rounded-xl px-3 text-start text-xs text-slate-400 hover:bg-slate-800 hover:text-slate-200 ${focusRing} ${collapsed ? 'justify-center px-0' : ''}`}
+            className={`flex w-full min-h-11 items-center gap-3 rounded-xl px-3 text-start text-xs text-neutral-300 hover:bg-white/10 hover:text-white ${focusRing} ${collapsed ? 'justify-center px-0' : ''}`}
           >
             <span aria-hidden="true" className="rtl:rotate-180">
               {collapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}

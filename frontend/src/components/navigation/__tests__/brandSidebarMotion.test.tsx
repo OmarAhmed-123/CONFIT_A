@@ -237,7 +237,7 @@ describe('prefers-reduced-motion', () => {
   it('scrim click still closes', () => {
     const { container } = renderNav('/b2b');
     openDrawer();
-    const scrim = document.body.querySelector('.bg-slate-950\\/70');
+    const scrim = screen.getByTestId('brand-nav-scrim');
     expect(scrim).not.toBeNull();
     fireEvent.click(scrim!);
     expect(screen.queryByTestId('brand-nav-drawer')).not.toBeInTheDocument();

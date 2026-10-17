@@ -85,10 +85,10 @@ describe("palette is measured, not asserted", () => {
 
   it("the documented ratios in registers.ts match recomputation (±0.01)", () => {
     const documented: Record<RegisterId, [number, number]> = {
-      editorial: [7.22, 7.6],
+      editorial: [14.58, 15.36],
       atelier: [7.58, 7.98],
       fit: [7.94, 8.36],
-      commerce: [15.28, 16.08],
+      commerce: [14.58, 15.36],
       account: [6.44, 6.78],
       partner: [7.96, 8.38],
       admin: [8.95, 9.43],

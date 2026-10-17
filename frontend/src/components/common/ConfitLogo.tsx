@@ -14,7 +14,8 @@ import { useTranslation } from 'react-i18next';
  *   - 'mark'    symbol only
  *
  * `theme="light"` means "placed on a dark surface": the charcoal quadrant and
- * the wordmark switch to the brand cream so the mark keeps its four-part
+ * the wordmark switch to white — exactly as the official reversed asset
+ * (/public/brand/confit-logo-reversed.svg) — so the mark keeps its four-part
  * structure. The coloured quadrants stay exactly as specified.
  */
 
@@ -23,7 +24,8 @@ export const BRAND_COLORS = {
   lilac: '#A99AD6',
   mint: '#89B799',
   charcoal: '#242526',
-  cream: '#FAF9F6',
+  /** Reversed (on-dark) ink — matches confit-logo-reversed.svg. */
+  white: '#FFFFFF',
 } as const;
 
 // Symbol — 100×100 grid, cells 44, gap 12
@@ -68,8 +70,8 @@ export const ConfitLogo: React.FC<ConfitLogoProps> = ({
   const symbolPx = size === 'sm' ? 28 : size === 'lg' ? 44 : 36;
   const tagSize = size === 'sm' ? 'text-[8px]' : 'text-[9px]';
 
-  const ink = onDark ? BRAND_COLORS.cream : BRAND_COLORS.charcoal;
-  const charcoalQuadrant = onDark ? BRAND_COLORS.cream : BRAND_COLORS.charcoal;
+  const ink = onDark ? BRAND_COLORS.white : BRAND_COLORS.charcoal;
+  const charcoalQuadrant = onDark ? BRAND_COLORS.white : BRAND_COLORS.charcoal;
 
   const showWordmark = variant !== 'mark';
   const wordmarkW = WORDMARK_UNITS * CAP_SCALE;

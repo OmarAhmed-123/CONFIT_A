@@ -476,21 +476,26 @@ html {
   bottom: var(--fab-offset);
   transition:
     transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
-    opacity 180ms linear,
-    visibility 0s linear 0s;
+    opacity 180ms linear;
 }
 .stylist-fab-anchor[data-fab-hidden='true'] {
   transform: translateY(calc(100% + var(--fab-offset) + 0.5rem));
   opacity: 0;
   pointer-events: none;
-  /* Delayed by the transition duration so the slide-out is still visible;
-     visibility also removes it from the tab order while it is away. */
-  visibility: hidden;
-  transition:
-    transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
-    opacity 180ms linear,
-    visibility 0s linear 220ms;
 }
+/* DELIBERATELY NOT visibility:hidden, AND NOT aria-hidden.
+   -------------------------------------------------------
+   `visibility: hidden` removes a control from the TAB ORDER. The stylist
+   drawer browser gate proved the consequence: it tabs the whole page to reach
+   this control, that scrolls the page, the scroll deferral hides it, and the
+   focus restoration every dialog performs on close (Escape included) then
+   silently drops to <body> - because you cannot focus a hidden subtree.
+
+   The deferral exists so the control does not sit ON TOP of content. A
+   keyboard user is not blocked by a control that is merely translated away:
+   it returns the instant it receives focus (see the focusin handler in
+   ConsumerLayout) and is then visible and fully interactive. Removing it from
+   the tab order would trade a cosmetic overlap for a real 2.4.3 failure. */
 /* Reduced motion: move instantly, do not animate. Suppressing the transform
    instead would leave an invisible control still geometrically on top of the
    page, which is the defect this whole block exists to remove. */

@@ -72,10 +72,24 @@ describe('floating AI Stylist control: mobile overlap contract', () => {
     expect(layout).toMatch(/addEventListener\('scroll', onScroll, \{ passive: true \}\)/);
   });
 
-  it('hiding the anchor takes it out of hit-testing AND the tab order', () => {
-    // pointer-events alone would leave it focusable by keyboard.
-    expect(css).toMatch(/\.stylist-fab-anchor\[data-fab-hidden='true'\][\s\S]*?visibility:\s*hidden/);
+  it('deferring the anchor takes it out of hit-testing but NOT the tab order', () => {
     expect(css).toMatch(/\.stylist-fab-anchor\[data-fab-hidden='true'\][\s\S]*?pointer-events:\s*none/);
+    expect(css).toMatch(/\.stylist-fab-anchor\[data-fab-hidden='true'\][\s\S]*?opacity:\s*0/);
+    // A hidden control cannot receive focus, so every dialog's focus
+    // restoration would drop to <body>. The gate catches exactly that.
+    // Bounded to the rule block: [\s\S]*? would run past the closing brace
+    // and match an unrelated visibility:hidden further down the stylesheet.
+    const block = css.match(/\.stylist-fab-anchor\[data-fab-hidden='true'\]\s*\{[^}]*\}/);
+    expect(block, 'the deferral rule block exists').not.toBeNull();
+    expect(block![0]).not.toMatch(/visibility\s*:\s*hidden/);
+    expect(layout).not.toMatch(/aria-hidden=\{fabHidden/);
+  });
+
+  it('focus arriving at the control clears the scroll deferral too', () => {
+    // scrollHidden alone would keep it hidden while it holds focus.
+    expect(layout).toMatch(
+      /if \(anchor\.contains\(el\)\) \{ setScrollHidden\(false\); setFocusHidden\(false\); return; \}/,
+    );
   });
 
   it('a route change restores the control so it can never be unreachable', () => {

@@ -93,12 +93,24 @@ export const ConsumerLayout: React.FC = () => {
     const anchor = document.querySelector('.stylist-fab-anchor');
     if (!anchor) return;
     const evaluate = () => {
+      /* While a modal is open the control sits behind that modal's overlay,
+         so "occlusion" is meaningless - and hiding it here is actively
+         harmful: a visibility:hidden subtree cannot receive focus, so the
+         focus restoration every dialog performs on close (Escape included)
+         would silently drop to <body>. The stylist drawer browser gate
+         catches exactly that ("focus returns to the opener after close"). */
+      const openDialog = document.querySelector('[role="dialog"]');
+      if (openDialog) { setFocusHidden(false); return; }
+
       const el = document.activeElement as HTMLElement | null;
       if (!el || el === document.body || el === document.documentElement) {
         setFocusHidden(false);
         return;
       }
-      if (anchor.contains(el)) { setFocusHidden(false); return; }
+      /* Focus is arriving AT the control: it must become visible and stay
+         focusable. Clearing the scroll deferral as well is what lets a dialog
+         restore focus to it after close — see the note in styles/index.css. */
+      if (anchor.contains(el)) { setScrollHidden(false); setFocusHidden(false); return; }
       const r = el.getBoundingClientRect();
       const f = anchor.getBoundingClientRect();
       if (!r.width && !r.height) { setFocusHidden(false); return; }
@@ -162,7 +174,6 @@ export const ConsumerLayout: React.FC = () => {
       <div
         className="stylist-fab-anchor fixed end-4 sm:end-6 z-40"
         data-fab-hidden={fabHidden ? 'true' : 'false'}
-        aria-hidden={fabHidden || undefined}
       >
         {/* px-4.5 is not a Tailwind token (same class of defect as the
             p-4.5 card fixed in C03 pass 2) — the pill rendered with NO

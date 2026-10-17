@@ -112,7 +112,18 @@ def test_legacy_images_remain_when_no_registered_rows(client: TestClient):
             .first()
         )
         assert product is not None, "expected at least one product without media rows"
-        legacy = [product.thumbnail_url]
+        # Mirror the API's documented precedence (catalog_controller): the
+        # product's legacy `images` JSON wins when present; the thumbnail is
+        # the fallback only for products that carry no images list. The
+        # original assertion assumed thumbnail == images[0], which seed pass
+        # #323 (verified product visuals) legitimately decoupled.
+        import json as _json
+        try:
+            parsed = _json.loads(product.images) if product.images else []
+        except (TypeError, ValueError):
+            parsed = []
+        legacy = parsed if isinstance(parsed, list) and parsed else [product.thumbnail_url]
+        expected_thumb = product.thumbnail_url
         slug = product.slug
     finally:
         db.close()
@@ -122,7 +133,7 @@ def test_legacy_images_remain_when_no_registered_rows(client: TestClient):
     data = res.json()
     assert data["media"] == []
     assert data["images"] == legacy
-    assert data["thumbnail_url"] == legacy[0]
+    assert data["thumbnail_url"] == expected_thumb  # detail thumbnail is the product row's own
 
 
 def test_list_endpoint_uses_registered_hero(client: TestClient, product_with_media):

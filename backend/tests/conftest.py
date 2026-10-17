@@ -215,6 +215,25 @@ def setup_test_db():
             text("UPDATE store_inventories SET quantity = :qty, reserved_quantity = 0"),
             {"qty": 500},
         )
+        # The P0 ghost-hands asset gate (PR #336) fail-closes any product
+        # without a validated clean garment asset. The throwaway DB has no
+        # P1 prep-pipeline output, so register every seeded product as a
+        # validated flat-lay HERE — test-only, mirrors the state a verified
+        # asset row represents in production. The gate's own semantics
+        # (on-model photo -> refusal, missing fetch -> refusal) stay pinned
+        # by backend/tests/test_vton_garment_asset_guard.py, which synthesises
+        # its images and never relies on this seeding.
+        conn.execute(
+            text(
+                "INSERT INTO garment_assets "
+                "(product_id, slot_type, flat_image_url, bounding_box_json, "
+                " photo_type, tryon_ready, created_at) "
+                "SELECT id, 'upper_outer', COALESCE(thumbnail_url, ''), '{}', "
+                "       'flat-lay', :ready, CURRENT_TIMESTAMP "
+                "FROM products WHERE id NOT IN (SELECT product_id FROM garment_assets)"
+            ),
+            {"ready": True},
+        )
     # Also seed the app-level engine so tests that use SessionLocal directly
     # (i.e. not via the get_db override) have the same seed data available.
     # Both engines resolve to file-scoped SQLite DBs, so this is cheap.

@@ -15,13 +15,13 @@ export const BrandLayout: React.FC = () => {
   // and /admin (gate actions, brand CRUD) render identically. The local
   // Toast here previously double-rendered with the global one.
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900">
+    <div className="min-h-screen flex flex-col bg-white text-brand-charcoal">
       {/* WCAG 2.4.1: the brand portal has an even longer nav (catalog,
           inventory, analytics, placements, admin) before any content. */}
       <SkipLink />
       {/* Spec 13: desktop = sidebar + content row; mobile = top bar +
           drawer (both rendered by BrandNavbar). */}
-      <div className="flex flex-1 lg:flex-row flex-col min-w-0">
+      <div className="flex flex-1 lg:flex-row flex-col min-w-0 bg-white">
         <BrandNavbar />
 
         <main
@@ -29,7 +29,7 @@ export const BrandLayout: React.FC = () => {
           tabIndex={-1}
           data-register={register}
           style={registerStyle(register) as React.CSSProperties}
-          className="flex-1 min-w-0 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-8 outline-none"
+          className="flex-1 min-w-0 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-8 outline-none bg-white"
         >
           <RegisterBanner register={register} />
           <BrandBreadcrumbs />

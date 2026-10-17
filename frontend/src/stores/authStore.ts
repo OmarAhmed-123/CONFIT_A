@@ -29,6 +29,7 @@ interface AuthState {
   login: (email: string, password: string) => Promise<any>;
   completeMfaLogin: (email: string, password: string, mfaCode: string) => Promise<any>;
   register: (payload: any) => Promise<any>;
+  setSession: (accessToken: string, refreshToken: string, user: User) => void;
   logout: () => Promise<void>;
   fetchMe: () => Promise<void>;
   resetError: () => void;
@@ -132,6 +133,12 @@ export const useAuthStore = create<AuthState>((set) => ({
       set({ user: null, isAuthenticated: false, isLoading: false, error: err?.message || 'Registration failed', errorCode: err?.code ?? null });
       throw err;
     }
+  },
+
+  setSession: (accessToken: string, refreshToken: string, user: User) => {
+    setAuthTokens(accessToken, refreshToken);
+    localStorage.setItem('confit_user', JSON.stringify(user));
+    set({ user, isAuthenticated: true, isLoading: false, error: null, errorCode: null });
   },
 
   logout: async () => {

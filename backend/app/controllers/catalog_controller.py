@@ -27,6 +27,14 @@ from backend.app.schemas.catalog import (
     SearchResponseOut,
     AutocompleteResponse,
     OccasionTagOut,
+    CustomerBrandOut,
+    CustomerBrandDetailOut,
+    StoreBranchSummaryOut,
+    BranchInventoryCatalogOut,
+    BranchProductItemOut,
+    BrandPromotionOut,
+    BranchSKUAvailabilityOut,
+    BrandSummaryOut,
 )
 from backend.app.core.exceptions import ResourceNotFoundError
 from backend.app.models.catalog import StoreLocation
@@ -546,3 +554,249 @@ def get_capability_flags(
         flags["shipping_currency"] = fx.code
 
     return CapabilityFlagsOut(**flags)
+
+
+# ============================================================================
+# Customer Brand Discovery, Store Locator & Branch-Level Product Availability
+# ============================================================================
+
+def _promo_out(p) -> BrandPromotionOut:
+    return BrandPromotionOut(
+        id=p.id,
+        code=p.code,
+        description=p.description,
+        discount_type=p.discount_type,
+        discount_value=float(p.discount_value),
+        min_order_amount=float(p.min_order_amount or 0.0),
+        currency=p.currency,
+        starts_at=p.starts_at,
+        expires_at=p.expires_at,
+        is_active=p.is_active,
+    )
+
+
+def _store_summary_out(s_dict) -> StoreBranchSummaryOut:
+    store = s_dict["store"]
+    return StoreBranchSummaryOut(
+        id=store.id,
+        brand_id=store.brand_id,
+        brand_name=store.brand.brand_name if store.brand else "CONFIT Partner",
+        brand_slug=store.brand.slug if store.brand else "brand",
+        name=store.name,
+        name_ar=store.name_ar,
+        address=store.address,
+        city=store.city,
+        country=store.country,
+        latitude=store.latitude,
+        longitude=store.longitude,
+        phone=store.phone,
+        pickup_instructions=store.pickup_instructions,
+        is_bopis_enabled=store.is_bopis_enabled,
+        distance_km=s_dict.get("distance_km"),
+        google_maps_url=s_dict["google_maps_url"],
+        in_stock_skus_count=s_dict.get("in_stock_skus_count", 0),
+        active_promotions=[_promo_out(p) for p in s_dict.get("active_promotions", [])],
+    )
+
+
+@router.get("/brands", response_model=List[CustomerBrandOut])
+def list_customer_brands(
+    q: Optional[str] = Query(None, description="Search brand name or bio"),
+    category: Optional[str] = Query(None, description="Filter by clothing category"),
+    city: Optional[str] = Query(None, description="Filter by physical store presence in city"),
+    has_offers: Optional[bool] = Query(None, description="Filter brands with active promotional offers"),
+    sort: str = Query("alphabetical", description="alphabetical | stores | products | offers"),
+    db: Session = Depends(get_db),
+):
+    """Customer Brand Discovery directory: list all brands with real store counts and promotions."""
+    repo = CatalogRepository(db)
+    items = repo.get_customer_brands(
+        q=q,
+        category=category,
+        city=city,
+        has_offers=has_offers,
+        sort=sort,
+    )
+
+    results = []
+    for it in items:
+        b = it["brand"]
+        sample_prods = [_product_summary(p) for p in it["sample_products"]]
+        promos = [_promo_out(p) for p in it["promotions"]]
+        results.append(
+            CustomerBrandOut(
+                id=b.id,
+                brand_name=b.brand_name,
+                slug=b.slug,
+                logo_url=b.logo_url,
+                banner_url=b.banner_url,
+                description=b.description,
+                description_ar=b.description_ar,
+                website=b.website,
+                is_verified=b.is_verified,
+                return_rate_benchmark=b.return_rate_benchmark,
+                current_return_rate=b.current_return_rate,
+                total_products=it["total_products"],
+                stores_count=it["stores_count"],
+                cities=it["cities"],
+                categories=it["categories"],
+                active_promotions_count=it["active_promotions_count"],
+                promotions=promos,
+                sample_products=sample_prods,
+            )
+        )
+    return results
+
+
+@router.get("/brands/{slug_or_id}", response_model=CustomerBrandDetailOut)
+def get_customer_brand_detail(
+    slug_or_id: str,
+    lat: Optional[float] = Query(None, description="User latitude for proximity calculation"),
+    lng: Optional[float] = Query(None, description="User longitude for proximity calculation"),
+    db: Session = Depends(get_db),
+):
+    """Detailed view for a specific brand, its physical branches, active promotions, and preview catalog."""
+    repo = CatalogRepository(db)
+    detail = repo.get_customer_brand_detail(slug_or_id, lat=lat, lng=lng)
+    if not detail:
+        raise ResourceNotFoundError("Brand", slug_or_id)
+
+    b = detail["brand"]
+    sample_prods = [_product_summary(p) for p in detail["sample_products"]]
+    promos = [_promo_out(p) for p in detail["promotions"]]
+    stores_out = [_store_summary_out(s) for s in detail["stores"]]
+
+    return CustomerBrandDetailOut(
+        id=b.id,
+        brand_name=b.brand_name,
+        slug=b.slug,
+        logo_url=b.logo_url,
+        banner_url=b.banner_url,
+        description=b.description,
+        description_ar=b.description_ar,
+        website=b.website,
+        is_verified=b.is_verified,
+        return_rate_benchmark=b.return_rate_benchmark,
+        current_return_rate=b.current_return_rate,
+        total_products=detail["total_products"],
+        stores_count=detail["stores_count"],
+        cities=detail["cities"],
+        categories=detail["categories"],
+        active_promotions_count=detail["active_promotions_count"],
+        promotions=promos,
+        sample_products=sample_prods,
+        stores=stores_out,
+        all_promotions=promos,
+    )
+
+
+@router.get("/stores", response_model=List[StoreBranchSummaryOut])
+def list_customer_stores(
+    brand_id: Optional[int] = Query(None, description="Filter stores by brand ID"),
+    city: Optional[str] = Query(None, description="Filter stores by city"),
+    q: Optional[str] = Query(None, description="Search store name or address"),
+    lat: Optional[float] = Query(None, description="User latitude for proximity sorting"),
+    lng: Optional[float] = Query(None, description="User longitude for proximity sorting"),
+    db: Session = Depends(get_db),
+):
+    """Customer Store & Branch Directory: locate physical stores, distance calculation, Google Maps links."""
+    repo = CatalogRepository(db)
+    stores = repo.get_customer_stores(
+        brand_id=brand_id,
+        city=city,
+        q=q,
+        lat=lat,
+        lng=lng,
+    )
+    return [_store_summary_out(s) for s in stores]
+
+
+@router.get("/stores/{store_id}", response_model=StoreBranchSummaryOut)
+def get_customer_store(
+    store_id: int,
+    lat: Optional[float] = Query(None, description="User latitude for distance calculation"),
+    lng: Optional[float] = Query(None, description="User longitude for distance calculation"),
+    db: Session = Depends(get_db),
+):
+    """Retrieve details for a single physical branch."""
+    repo = CatalogRepository(db)
+    item = repo.get_customer_store_detail(store_id, lat=lat, lng=lng)
+    if not item:
+        raise ResourceNotFoundError("Store", store_id)
+    return _store_summary_out(item)
+
+
+@router.get("/stores/{store_id}/inventory", response_model=BranchInventoryCatalogOut)
+@router.get("/stores/{store_id}/products", response_model=BranchInventoryCatalogOut)
+def get_store_inventory_catalog(
+    store_id: int,
+    category: Optional[str] = Query(None, description="Filter branch inventory by category name or slug"),
+    in_stock_only: bool = Query(False, description="Only return products currently in stock at this branch"),
+    search: Optional[str] = Query(None, description="Search products available at this branch"),
+    sort_by: str = Query("newest", description="newest | price_asc | price_desc | stock"),
+    db: Session = Depends(get_db),
+):
+    """Branch-specific product catalog with live SKU stock curves, prices, and active in-store offers."""
+    repo = CatalogRepository(db)
+    result = repo.get_branch_inventory_catalog(
+        store_id=store_id,
+        category=category,
+        in_stock_only=in_stock_only,
+        search=search,
+        sort_by=sort_by,
+    )
+    if not result:
+        raise ResourceNotFoundError("Store", store_id)
+
+    store_out = _store_summary_out(result["store"])
+    brand = result["brand"]
+    brand_out = BrandSummaryOut(
+        id=brand.id,
+        brand_name=brand.brand_name,
+        slug=brand.slug,
+        logo_url=brand.logo_url,
+        return_rate_benchmark=brand.return_rate_benchmark,
+        current_return_rate=brand.current_return_rate,
+    )
+
+    product_items = []
+    for it in result["products"]:
+        p = it["product"]
+        summary = _product_summary(p)
+        sku_list = [
+            BranchSKUAvailabilityOut(
+                sku_id=s["sku_id"],
+                sku_code=s["sku_code"],
+                size=s["size"],
+                color=s["color"],
+                color_hex=s["color_hex"],
+                quantity_available=s["quantity_available"],
+                reserved_quantity=s["reserved_quantity"],
+                is_in_stock=s["is_in_stock"],
+                availability_status=s["availability_status"],
+            )
+            for s in it["branch_skus"]
+        ]
+        product_items.append(
+            BranchProductItemOut(
+                **summary.model_dump(),
+                branch_id=it["branch_id"],
+                branch_name=it["branch_name"],
+                branch_total_units=it["branch_total_units"],
+                branch_in_stock=it["branch_in_stock"],
+                branch_availability_status=it["branch_availability_status"],
+                branch_skus=sku_list,
+                discount_percent=it["discount_percent"],
+            )
+        )
+
+    return BranchInventoryCatalogOut(
+        store=store_out,
+        brand=brand_out,
+        total_items=len(product_items),
+        products=product_items,
+        categories=result["categories"],
+        available_sizes=result["available_sizes"],
+        active_promotions=[_promo_out(p) for p in result["active_promotions"]],
+    )
+

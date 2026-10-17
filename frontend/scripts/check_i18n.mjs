@@ -61,6 +61,8 @@ const NON_TRANSLATABLE = new Set([
   'footer.bnpl_brand_name',
   'common.email',
   'common.password',
+  'brand_reg.email_placeholder',
+  'brand_reg.website_placeholder',
 ]);
 
 const problems = [];

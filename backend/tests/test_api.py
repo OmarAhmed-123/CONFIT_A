@@ -206,7 +206,7 @@ def test_commerce_cart_checkout_and_tracking(client: TestClient):
         "promo_code": "CONFIT10",
         "try_on_assisted": True
     })
-    assert checkout_res.status_code == 200
+    assert checkout_res.status_code == 200, checkout_res.text
     order_data = checkout_res.json()
     assert order_data["order_number"].startswith("CONF-")
     assert order_data["payment_method"] == "bnpl_tabby"

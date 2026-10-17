@@ -23,10 +23,10 @@ export const DuplicateAlertModal: React.FC = () => {
           </div>
           <div>
             <h3 className="font-serif text-base font-bold text-brand-charcoal">
-              Smart Duplicate Purchase Alert
+              {t("wardrobe.dup_alert_title")}
             </h3>
             <p className="text-xs text-slate-600 mt-0.5">
-              CONFIT's smart shopping engine detected strong aesthetic similarity to a piece in your virtual wardrobe.
+              {t("wardrobe.dup_alert_message")}
             </p>
           </div>
         </div>
@@ -39,12 +39,12 @@ export const DuplicateAlertModal: React.FC = () => {
             </div>
             <div className="flex-1 min-w-0">
               <span className="text-[10px] font-bold text-brand-charcoal uppercase tracking-wider">
-                Already in your closet
+                {t("wardrobe.dup_already_in_closet")}
               </span>
               <h4 className="text-sm font-bold text-brand-charcoal truncate">{owned.title}</h4>
               <p className="text-xs text-slate-500">{owned.color_name} · {owned.category}</p>
               <div className="flex items-center gap-2 mt-1.5 text-[11px] text-slate-600">
-                <span>Worn {owned.wear_count || 0} times</span>
+                <span>{t("wardrobe.dup_worn")} {owned.wear_count || 0} times</span>
                 <span>•</span>
                 <span className="capitalize">{owned.wear_frequency}</span>
               </div>
@@ -52,7 +52,7 @@ export const DuplicateAlertModal: React.FC = () => {
           </div>
 
           <p className="text-xs text-slate-600 leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-100">
-            💡 <strong>Stylist Recommendation:</strong> Shopping sustainably means styling what you own first. Would you like to style this owned piece with new pairings, or proceed with purchasing the new item?
+            💡 <strong>{t("wardrobe.dup_stylist_recommendation")}</strong> {t("wardrobe.dup_stylist_message")}
           </p>
 
           {/* Decision Actions */}
@@ -71,7 +71,7 @@ export const DuplicateAlertModal: React.FC = () => {
               onClick={confirmAddDuplicate}
               className="py-2.5 px-4 rounded-xl bg-brand-charcoal hover:bg-black text-white font-semibold text-xs transition-all shadow-sm text-center"
             >
-              Proceed to Add Anyway
+              {t("wardrobe.dup_proceed_anyway")}
             </button>
           </div>
         </div>

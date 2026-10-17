@@ -477,16 +477,13 @@ export const WardrobeView: React.FC = () => {
               <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
                 <div className="space-y-4">
                   <span className="text-[10px] font-bold uppercase tracking-widest text-brand-charcoal">
-                    Wardrobe retention engine
+                    {t("wardrobe.retention_engine_eyebrow")}
                   </span>
                   <h2 className="font-serif text-3xl font-bold text-brand-charcoal">
-                    Upload a few pieces to see what you can wear next
+                    {t("wardrobe.retention_engine_headline")}
                   </h2>
                   <p className="text-sm font-light leading-relaxed text-brand-muted">
-                    Start with three everyday garments. Photo uploads are
-                    auto-tagged when persistent storage and analysis are
-                    available; manual entries remain editable and clearly marked
-                    as no-photo items.
+                    {t("wardrobe.retention_engine_body")}
                   </p>
                   <div className="rounded-2xl bg-brand-wash p-3 text-xs text-slate-600">
                     Privacy note: garment photos are sent to the wardrobe
@@ -689,7 +686,7 @@ export const WardrobeView: React.FC = () => {
                   {outfitSuggestion.message}
                   {outfitSuggestion.owned_count > 0 && (
                     <span className="ml-1 font-semibold text-brand-charcoal">
-                      Compatibility: {outfitSuggestion.compatibility_score}%
+                      {t("wardrobe.gap_compat_score", { score: outfitSuggestion.compatibility_score })}
                     </span>
                   )}
                 </p>
@@ -697,7 +694,7 @@ export const WardrobeView: React.FC = () => {
                 {outfitSuggestion.owned_items.length > 0 && (
                   <div>
                     <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">
-                      From your closet ({outfitSuggestion.owned_count})
+                      {t("wardrobe.gap_from_closet", { count: outfitSuggestion.owned_count })}
                     </span>
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 mt-2">
                       {outfitSuggestion.owned_items.map((it) => (
@@ -763,10 +760,10 @@ export const WardrobeView: React.FC = () => {
             <div className="flex justify-between items-center mb-4">
               <div>
                 <h3 className="font-serif text-lg font-bold text-brand-charcoal">
-                  Saved Curated Ensembles
+                  {t("wardrobe.boards_title")}
                 </h3>
                 <p className="text-xs text-brand-muted">
-                  Your personalized styling collections
+                  {t("wardrobe.boards_subtitle")}
                 </p>
               </div>
               <button data-motion="progressive"
@@ -780,11 +777,10 @@ export const WardrobeView: React.FC = () => {
             {!isAuthenticated ? (
               <div className="bg-brand-wash rounded-2xl border border-dashed border-slate-300 p-6 text-center">
                 <p className="text-xs text-slate-600 font-medium">
-                  Sign in to see your saved looks.
+                  {t("wardrobe.boards_signin_body")}
                 </p>
                 <p className="text-[11px] text-brand-muted mt-1">
-                  Ensembles you save in the Builder appear here — synced to your
-                  account.
+                  {t("wardrobe.boards_signin_note")}
                 </p>
               </div>
             ) : savedLooksQuery.isLoading ? (
@@ -795,11 +791,10 @@ export const WardrobeView: React.FC = () => {
             ) : savedLooks.length === 0 ? (
               <div className="bg-brand-wash rounded-2xl border border-dashed border-slate-300 p-6 text-center">
                 <p className="text-xs text-slate-600 font-medium">
-                  No saved looks yet.
+                  {t("wardrobe.boards_empty_body")}
                 </p>
                 <p className="text-[11px] text-brand-muted mt-1">
-                  Build an outfit in the Canvas and press “Save Ensemble” — it
-                  lands here.
+                  {t("wardrobe.boards_empty_note")}
                 </p>
               </div>
             ) : (
@@ -915,18 +910,17 @@ export const WardrobeView: React.FC = () => {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
                   <div>
                     <span className="text-[10px] font-bold text-brand-charcoal uppercase tracking-wider">
-                      Identified Closet Gap #{gap.id}
+                      {t("wardrobe.gap_card_eyebrow", { id: gap.id })}
                     </span>
                     <h4 className="font-serif text-lg font-bold text-brand-charcoal">
-                      Missing: {gap.missing_subcategory} ({gap.missing_category}
-                      )
+                      {t("wardrobe.gap_missing", { subcategory: gap.missing_subcategory, category: gap.missing_category })}
                     </h4>
                   </div>
                   {/* Honest figure: 0 (no core pieces yet) is a real state,
                       shown as "Starter staple" instead of a fake count. */}
                   {gap.unlocks_outfit_count > 0 ? (
                     <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold self-start sm:self-auto">
-                      Unlocks +{gap.unlocks_outfit_count} New Outfits
+                      {t("wardrobe.gap_unlocks_outfits", { count: gap.unlocks_outfit_count })}
                     </span>
                   ) : (
                     <span className="px-3 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-bold self-start sm:self-auto">
@@ -936,13 +930,13 @@ export const WardrobeView: React.FC = () => {
                 </div>
 
                 <p className="text-xs text-slate-600 leading-relaxed bg-brand-wash p-3 rounded-xl border border-slate-100">
-                  💡 <strong>AI Analysis:</strong> {gap.rationale}
+                  💡 <strong>{t("wardrobe.gap_ai_analysis")}</strong> {gap.rationale}
                 </p>
 
                 {/* Recommended Catalog Bridges */}
                 <div>
                   <span className="text-xs font-bold text-slate-700 block mb-2">
-                    Recommended Catalog Pieces to Bridge this Gap:
+                    {t("wardrobe.gap_recommended")}
                   </span>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     {gap.recommended_products.map((rec) => (
@@ -1264,17 +1258,14 @@ export const WardrobeView: React.FC = () => {
             >
               <div>
                 <label className="text-xs font-bold text-slate-800 block mb-1">
-                  Garment Photos{" "}
+                  {t("wardrobe.form_photos_label")}{" "}
                   <span className="text-brand-muted font-normal">
-                    (JPEG/PNG/WebP, up to 15MB each, max 20)
+                    {t("wardrobe.form_photos_hint")}
                   </span>
                 </label>
                 {photoUploadUnavailable && (
                   <p className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-3 mb-2 leading-relaxed">
-                    Heads up: photo uploads are not configured in this
-                    environment (no persistent object storage yet) — the server
-                    will reject them with a clear error. Use manual add below,
-                    which works fully.
+                    {t("wardrobe.form_photo_unavailable")}
                   </p>
                 )}
                 <input
@@ -1350,14 +1341,14 @@ export const WardrobeView: React.FC = () => {
                       <span className="truncate font-medium">{r.filename}</span>
                       <span className="font-bold ml-2 shrink-0">
                         {r.status === "failed"
-                          ? "Failed"
+                          ? t("wardrobe.upload_status_failed")
                           : r.status === "duplicate"
-                            ? "Duplicate — already owned"
+                            ? t("wardrobe.upload_status_duplicate")
                             : r.item?.processing_status === "ready"
-                              ? "Analyzed"
+                              ? t("wardrobe.upload_status_analyzed")
                               : r.item?.processing_status === "failed"
-                                ? "Saved (AI retryable)"
-                                : "Processing…"}
+                                ? t("wardrobe.upload_status_saved_retryable")
+                                : t("wardrobe.upload_status_processing")}
                       </span>
                     </div>
                   ))}
@@ -1462,11 +1453,11 @@ export const WardrobeView: React.FC = () => {
             {/* Mode 2: manual entry fallback (metadata-complete -> ready immediately) */}
             <form onSubmit={handleAddSubmit} className="p-6 space-y-4">
               <p className="text-[11px] font-bold text-brand-muted uppercase tracking-wider">
-                Or add manually (no photo)
+                {t("wardrobe.form_manual_heading")}
               </p>
               <div>
                 <label className="text-xs font-bold text-slate-800 block mb-1">
-                  Garment Title
+                  {t("wardrobe.form_title_label")}
                 </label>
                 <input
                   type="text"
@@ -1481,7 +1472,7 @@ export const WardrobeView: React.FC = () => {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-bold text-slate-800 block mb-1">
-                    Category
+                    {t("wardrobe.form_category_label")}
                   </label>
                   <select
                     value={newCategory}
@@ -1498,7 +1489,7 @@ export const WardrobeView: React.FC = () => {
 
                 <div>
                   <label className="text-xs font-bold text-slate-800 block mb-1">
-                    Color Family
+                    {t("wardrobe.form_color_family_label")}
                   </label>
                   <input
                     type="text"
@@ -1515,7 +1506,7 @@ export const WardrobeView: React.FC = () => {
                   type="submit"
                   className="w-full py-3 rounded-xl bg-brand-charcoal hover:bg-black text-white font-semibold text-xs transition-all shadow-md"
                 >
-                  Save Piece Manually
+                  {t("wardrobe.form_save_manual")}
                 </button>
               </div>
             </form>

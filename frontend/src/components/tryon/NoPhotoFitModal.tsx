@@ -114,7 +114,7 @@ export const NoPhotoFitModal: React.FC = () => {
               <div className="flex justify-between items-center bg-brand-wash p-3 rounded-2xl border border-brand-hairline/30">
                 <div className="text-xs">
                   <div className="font-bold text-brand-charcoal">{t('tryon.nophoto_scan')}</div>
-                  <div className="text-[10px] text-slate-500 font-light">Estimate dimensions in 2s via live camera</div>
+                  <div className="text-[10px] text-slate-500 font-light">{t("fit_finder.camera_estimate_note")}</div>
                 </div>
                 <button data-motion="upload"
                   type="button"
@@ -127,7 +127,7 @@ export const NoPhotoFitModal: React.FC = () => {
 
               <div>
                 <div className="flex justify-between text-xs font-bold text-slate-800 mb-1">
-                  <span>Height: {height} cm</span>
+                  <span>{t("fit_finder.label_height_colon")} {height} cm</span>
                   <span className="text-slate-400 font-light">({Math.floor(height / 30.48)}' {Math.round((height % 30.48) / 2.54)}")</span>
                 </div>
                 <input
@@ -142,7 +142,7 @@ export const NoPhotoFitModal: React.FC = () => {
 
               <div>
                 <div className="flex justify-between text-xs font-bold text-slate-800 mb-1">
-                  <span>Weight: {weight} kg</span>
+                  <span>{t("fit_finder.label_weight_colon")} {weight} kg</span>
                   <span className="text-slate-400 font-light">({Math.round(weight * 2.204)} lbs)</span>
                 </div>
                 <input
@@ -156,7 +156,7 @@ export const NoPhotoFitModal: React.FC = () => {
               </div>
 
               <div>
-                <label className="text-xs font-bold text-slate-800 block mb-1.5">Body Silhouette Type:</label>
+                <label className="text-xs font-bold text-slate-800 block mb-1.5">{t("fit_finder.body_silhouette")}</label>
                 <div className="grid grid-cols-3 gap-1.5">
                   {['Athletic', 'Hourglass', 'Rectangle', 'Pear', 'Inverted Triangle'].map((s) => (
                     <button data-motion="creative" data-motion-tone="icon"
@@ -175,7 +175,7 @@ export const NoPhotoFitModal: React.FC = () => {
               </div>
 
               <div>
-                <label className="text-xs font-bold text-slate-800 block mb-1.5">Preferred Fit:</label>
+                <label className="text-xs font-bold text-slate-800 block mb-1.5">{t("fit_finder.preferred_fit_colon")}</label>
                 <div className="grid grid-cols-3 gap-2">
                   {[
                     { id: 'slim', label: 'Tailored Slim' },
@@ -218,7 +218,7 @@ export const NoPhotoFitModal: React.FC = () => {
                   </p>
                   {noPhotoResult.missing && noPhotoResult.missing.length > 0 && (
                     <p className="text-[11px] text-slate-600">
-                      Add: {noPhotoResult.missing.map((m) => m.replace(/_cm$/, '')).join(', ')}
+                      {t("fit_finder.add_colon")} {noPhotoResult.missing.map((m) => m.replace(/_cm$/, '')).join(', ')}
                     </p>
                   )}
                 </div>
@@ -228,20 +228,20 @@ export const NoPhotoFitModal: React.FC = () => {
                     <div>
                       <span className="text-[10px] text-slate-400 font-bold uppercase">{t('tryon.scan_recommended_size')}</span>
                       <div className="text-2xl font-serif font-black text-brand-charcoal">
-                        Size {noPhotoResult.recommended_size}
+                        {t("fit_finder.size_value", { size: noPhotoResult.recommended_size })}
                       </div>
                       {/* Band, not a percentage. The 0-100 score is an internal
                           evidence tally and is NOT calibrated against real fit
                           outcomes, so rendering it as "N% confidence" would
                           imply a frequency nobody has measured. */}
                       <span className="text-[10px] text-slate-500 capitalize">
-                        {noPhotoResult.confidence_band ?? 'unrated'} confidence
-                        {noPhotoResult.is_estimated ? ' · partly estimated' : ''}
+                        {t("fit_finder.confidence_band", { band: noPhotoResult.confidence_band ?? t("fit_finder.unrated") })}
+                        {noPhotoResult.is_estimated ? t("fit_finder.partly_estimated_suffix") : ''}
                       </span>
                     </div>
                     <div className="text-right">
                       <span className="text-xs font-bold text-slate-700 bg-slate-100 px-2.5 py-1 rounded-full border border-slate-200 block">
-                        Return risk: {noPhotoResult.return_risk?.label}
+                        {t("fit_finder.return_risk_colon")} {noPhotoResult.return_risk?.label}
                       </span>
                     </div>
                   </div>
@@ -255,7 +255,7 @@ export const NoPhotoFitModal: React.FC = () => {
 
                   {/* Fit Breakdown */}
                   <div className="space-y-2">
-                    <span className="text-xs font-bold text-slate-800">Zone Fit Breakdown:</span>
+                    <span className="text-xs font-bold text-slate-800">{t("fit_finder.zone_fit_breakdown")}</span>
                     <div className="bg-white rounded-xl p-3 border border-slate-200 space-y-1.5 text-xs">
                       {Object.entries(noPhotoResult.fit_breakdown).map(([zone, desc]) => (
                         <div key={zone} className="flex justify-between items-center text-slate-700">
@@ -270,7 +270,7 @@ export const NoPhotoFitModal: React.FC = () => {
                     <p className="text-[10px] text-slate-500 leading-relaxed">
                       {noPhotoResult.confidence_band_reason}{' '}
                       <span className="text-slate-400">
-                        Rule-based rating of the evidence, not a statistical probability.
+                        {t("fit_finder.rule_based_rating")}
                       </span>
                     </p>
                   )}
@@ -278,7 +278,7 @@ export const NoPhotoFitModal: React.FC = () => {
                   <div className="text-[11px] text-slate-500 font-light bg-white/80 p-2.5 rounded-lg border border-slate-100 space-y-1">
                     <p>ℹ️ {noPhotoResult.brand_sizing_tendency?.summary}</p>
                     <p className="text-[10px]">
-                      Chart: {noPhotoResult.size_chart_source?.label}
+                      {t("fit_finder.chart_colon")} {noPhotoResult.size_chart_source?.label}
                       {noPhotoResult.size_chart_source?.updated_at
                         ? ` · updated ${noPhotoResult.size_chart_source.updated_at}`
                         : ''}
@@ -302,7 +302,7 @@ export const NoPhotoFitModal: React.FC = () => {
                     className="w-full py-3.5 rounded-xl bg-brand-charcoal hover:bg-black text-white font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2"
                   >
                     <BagIcon size={14} color="#FFFFFF" />
-                    <span>Add Size {noPhotoResult.recommended_size} to Bag</span>
+                    <span>{t("fit_finder.add_size")} {noPhotoResult.recommended_size} to Bag</span>
                   </button>
                 </div>
               ) : (
@@ -310,7 +310,7 @@ export const NoPhotoFitModal: React.FC = () => {
                   <RulerIcon size={36} color="#242526" />
                   <span className="text-xs font-semibold text-slate-700 mt-3">{t('tryon.nophoto_adjust')}</span>
                   <span className="text-[11px] text-slate-400 font-light mt-1 max-w-xs">
-                    We cross-reference your height, weight, and silhouette against {rulerProduct.brand_name}'s precise pattern specifications.
+                    {t("fit_finder.cross_reference_note", { brand: rulerProduct.brand_name })}
                   </span>
                 </div>
               )}

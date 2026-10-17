@@ -160,7 +160,7 @@ export const BrandAnalyticsView: React.FC = () => {
         <div className="mx-auto w-12 h-12 rounded-2xl bg-rose-50 flex items-center justify-center mb-4">
           <AlertCircle size={22} className="text-rose-500" />
         </div>
-        <h1 className="font-serif text-xl font-bold text-brand-charcoal">Analytics unavailable</h1>
+        <h1 className="font-serif text-xl font-bold text-brand-charcoal">{t("b2b.analytics_view.unavailable_title")}</h1>
         <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-slate-500">
           {fetchErrors.analytics || "The analytics service could not be reached. Your data is intact — retry when the service is back."}
         </p>
@@ -198,9 +198,9 @@ export const BrandAnalyticsView: React.FC = () => {
           <div>
             <div className="flex items-center gap-3">
               <span className="h-px w-8 bg-brand-charcoal hidden sm:block" aria-hidden="true" />
-              <p className="text-[10px] font-semibold tracking-[0.16em] uppercase text-brand-muted">Business intelligence</p>
+              <p className="text-[10px] font-semibold tracking-[0.16em] uppercase text-brand-muted">{t("b2b.analytics_view.eyebrow")}</p>
             </div>
-            <h1 className="font-serif text-3xl font-bold text-brand-charcoal mt-1.5">Commerce performance</h1>
+            <h1 className="font-serif text-3xl font-bold text-brand-charcoal mt-1.5">{t("b2b.analytics_view.heading")}</h1>
             <p className="text-sm text-slate-500 mt-2 max-w-2xl leading-relaxed">
               {analytics.methodology || "Snapshot of live commerce activity. Ratios compare lifetime units — not linked-session funnels."}
             </p>
@@ -225,7 +225,7 @@ export const BrandAnalyticsView: React.FC = () => {
           <Surface variant="solid" className="rounded-2xl p-6 flex items-start gap-4 bg-amber-50/60 border-amber-200">
             <Info size={18} className="text-amber-600 mt-0.5 shrink-0" />
             <div>
-              <p className="text-sm font-semibold text-amber-800">No commerce activity yet</p>
+              <p className="text-sm font-semibold text-amber-800">{t("b2b.analytics_view.no_activity")}</p>
               <p className="text-xs text-amber-700/80 mt-1 leading-relaxed">
                 Your storefront is live. Once shoppers browse, try on, and purchase, this dashboard will populate with conversion funnels and cohort insights.
               </p>
@@ -287,7 +287,7 @@ export const BrandAnalyticsView: React.FC = () => {
               <div className="w-8 h-8 rounded-xl bg-brand-charcoal flex items-center justify-center">
                 <BarChart3 size={14} className="text-white" />
               </div>
-              <h2 className="font-serif text-lg font-bold text-brand-charcoal">Commerce funnel</h2>
+              <h2 className="font-serif text-lg font-bold text-brand-charcoal">{t("b2b.analytics_view.funnel_title")}</h2>
               <span className="ml-auto text-[11px] text-brand-muted bg-slate-50 border border-slate-200 rounded-full px-2.5 py-1">Snapshot · not linked sessions</span>
             </div>
 
@@ -323,7 +323,7 @@ export const BrandAnalyticsView: React.FC = () => {
               <div className="w-8 h-8 rounded-xl bg-[#EF826D]/15 flex items-center justify-center">
                 <Target size={14} className="text-[#C2553F]" />
               </div>
-              <h2 className="font-serif text-lg font-bold text-brand-charcoal">Top converting SKUs</h2>
+              <h2 className="font-serif text-lg font-bold text-brand-charcoal">{t("b2b.analytics_view.top_skus")}</h2>
             </div>
 
             {!conversionPerSku || conversionPerSku.length === 0 ? (
@@ -331,7 +331,7 @@ export const BrandAnalyticsView: React.FC = () => {
                 <div className="mx-auto w-10 h-10 rounded-2xl bg-slate-100 flex items-center justify-center mb-3">
                   <PackageCheck size={18} className="text-slate-400" />
                 </div>
-                <p className="text-sm font-semibold text-slate-600">No SKU conversions yet</p>
+                <p className="text-sm font-semibold text-slate-600">{t("b2b.analytics_view.no_skus")}</p>
                 <p className="text-xs text-slate-400 mt-1 max-w-[260px] mx-auto leading-relaxed">
                   Conversion ranks appear once orders contain catalog SKUs with measurable view-to-purchase rates.
                 </p>
@@ -367,8 +367,8 @@ export const BrandAnalyticsView: React.FC = () => {
               <div className="w-8 h-8 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center">
                 <Users size={14} className="text-emerald-600" />
               </div>
-              <h2 className="font-serif text-lg font-bold text-brand-charcoal">Return-rate cohorts</h2>
-              <span className="ml-auto text-[11px] text-slate-500">VTON impact on returns</span>
+              <h2 className="font-serif text-lg font-bold text-brand-charcoal">{t("b2b.analytics_view.cohort_title")}</h2>
+              <span className="ml-auto text-[11px] text-slate-500">{t("b2b.analytics_view.cohort_subtitle")}</span>
             </div>
             <div className="grid grid-cols-2 gap-4">
               {[

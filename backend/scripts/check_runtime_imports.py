@@ -90,6 +90,11 @@ VERCEL_OPTIONAL = {
     # inside try/except and falls back to inline analysis when the broker or
     # the package is unavailable. Vercel runs no Celery worker.
     "celery": "workers/ package; wardrobe_service guards enqueue failure and runs inline",
+    # cv2 is used only in garment_asset_guard._human_scale_skin for connected-component
+    # filtering; the same function has a pure-numpy BFS fallback (<=128px pooled copy) when
+    # cv2 is absent. Vercel never renders try-on (Modal worker does), so the fallback is
+    # the production path there — no FUNCTION_INVOCATION_FAILED, just slower filtering.
+    "cv2": "garment asset guard: try/except cv2 -> pure-numpy fallback; Vercel runs no CV pipeline",
     # test-only tooling that lives in backend/tests, never in backend/app
     "pytest": "test suite only (backend/tests, never imported by backend/app)",
     "pytest_asyncio": "test suite only (backend/tests, never imported by backend/app)",
@@ -120,7 +125,7 @@ TARGETS = {
         "code_dirs": [ROOT / "backend" / "app", ROOT / "backend" / "tests"],
         "manifest": ROOT / "backend" / "requirements.txt",
         "mirror": None,
-        "optional": set(),
+        "optional": {"cv2"},  # garment asset guard: try/except -> numpy fallback; CI has no GPU CV pipeline
     },
 }
 

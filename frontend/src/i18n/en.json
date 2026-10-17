@@ -898,7 +898,18 @@
     "inv_orphan_stores": "Store id(s) {{ids}} are not in your store list. These rows are highlighted below and must not be treated as your stock.",
     "inv_total_stock_value": "Total Stock: {{stock}} units across {{skus}} SKUs",
     "analytics_bopis_line": "{{rate}} of eligible pickup groups completed. Ad Spend: ${{spend}}, Ad Revenue: ${{revenue}} from recorded placement counters; not verified billing.",
-    "placements_created_at": "Created:"
+    "placements_created_at": "Created:",
+    "analytics_view": {
+      "unavailable_title": "Analytics unavailable",
+      "eyebrow": "Business intelligence",
+      "heading": "Commerce performance",
+      "no_activity": "No commerce activity yet",
+      "funnel_title": "Commerce funnel",
+      "top_skus": "Top converting SKUs",
+      "no_skus": "No SKU conversions yet",
+      "cohort_title": "Return-rate cohorts",
+      "cohort_subtitle": "VTON impact on returns"
+    }
   },
   "common": {
     "sign_in": "Sign In",

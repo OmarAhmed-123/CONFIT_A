@@ -653,7 +653,7 @@ export const CheckoutView: React.FC = () => {
               }}
               icon={<SparkleIcon size={16} color="#FFFFFF" />}
               data-testid="place-order-cta"
-              className="focus-on-light-fill w-full py-4 rounded-2xl bg-brand-charcoal hover:bg-brand-charcoal disabled:opacity-50 text-white font-bold text-xs shadow-md transition-all"
+              className="focus-on-light-fill w-full py-4 rounded-2xl bg-brand-charcoal hover:bg-brand-charcoal disabled:opacity-50 text-white font-bold text-xs shadow-md transition-all confit-pressable"
             />
           </div>
         </div>

@@ -515,6 +515,37 @@ def reset_storage():
         _probe_cache.clear()
 
 
+def read_media_object(relative_path: str) -> Optional[bytes]:
+    """Read ONE object for public media serving. Never returns a private URL.
+
+    Distinct from ``storage_public_url`` on purpose. Presigned URLs exist for
+    PRIVATE, per-user objects (wardrobe, mood boards) where a durable public URL
+    would be an exposure. Catalogue media is the opposite case: it is meant to
+    be public, it must be cacheable by a CDN for a year, and a URL that expires
+    makes every warm cache entry useless. So the API streams the bytes and the
+    response carries immutable caching — the object itself stays private in the
+    bucket, and only registered keys are ever requested (see media_controller).
+
+    Failure semantics, so a caller cannot mistake one for the other:
+      * backend unconfigured -> FeatureNotConfiguredError (501): nothing was
+        read and nothing is claimed;
+      * object absent/unreadable -> None (the caller answers 404).
+    """
+    try:
+        storage = get_storage()
+    except FeatureNotConfiguredError:
+        raise
+    except ValidationDomainError as e:
+        # S3 selected but incomplete (bucket/credentials missing). The message
+        # names env vars, so it is safe and useful as a configuration hint.
+        raise FeatureNotConfiguredError("product_media", hint=str(e)) from e
+    try:
+        return storage.read(relative_path)
+    except Exception as e:  # noqa: BLE001 - never a 500 for a missing picture
+        logger.error(f"media read failed for {relative_path}: {e}")
+        return None
+
+
 def storage_public_url(public_url: Optional[str]) -> Optional[str]:
     """Browser-ready URL for any image reference (call at API boundaries).
 

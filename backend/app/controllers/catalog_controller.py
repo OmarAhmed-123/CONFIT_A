@@ -13,10 +13,16 @@ from backend.app.repositories.catalog_repository import CatalogRepository
 from backend.app.services.search_service import SearchService
 from backend.app.services.dashboard_service import DashboardService
 from backend.app.services.product_context_service import ProductContextService
+from backend.app.services.product_media_service import (
+    gallery_images,
+    media_payload,
+    primary_url,
+)
 from backend.app.schemas.catalog import (
     CategoryOut,
     ProductSummaryOut,
     ProductDetailOut,
+    ProductMediaOut,
     StoreInventoryOut,
     SearchResponseOut,
     AutocompleteResponse,
@@ -35,7 +41,7 @@ from backend.app.services.pricing_presentation import (
 router = APIRouter(prefix="/catalog", tags=["Catalog & Products"])
 
 
-def _product_summary(p, fit_score=None, style_score=None) -> ProductSummaryOut:
+def _product_summary(p, fit_score=None, style_score=None, hero_url=None) -> ProductSummaryOut:
     return ProductSummaryOut(
         id=p.id,
         brand_id=p.brand_id,
@@ -53,7 +59,7 @@ def _product_summary(p, fit_score=None, style_score=None) -> ProductSummaryOut:
         # database has one.
         compare_at_price=p.compare_at_price,
         currency=p.currency,
-        thumbnail_url=p.thumbnail_url,
+        thumbnail_url=hero_url or p.thumbnail_url,
         color_family=p.color_family,
         dominant_hex=p.dominant_hex,
         style_tags=json.loads(p.style_tags) if p.style_tags else [],
@@ -193,7 +199,10 @@ def list_products(
 
     # List views do not invent fit/style percentages. Those scores are
     # computed on the product page against the shopper's profile.
-    return present([_product_summary(p).model_dump() for p in products], fx)
+    # One grouped query for every card's hero image (registered 4:5 asset
+    # when present, legacy stock URL otherwise) — see primary_media_urls.
+    heroes = repo.primary_media_urls([p.id for p in products])
+    return present([_product_summary(p, hero_url=heroes.get(p.id)).model_dump() for p in products], fx)
 
 
 @router.get("/products/{slug_or_id}", response_model=ProductDetailOut)
@@ -251,6 +260,28 @@ def get_product_detail(
     bnpl = context.get("bnpl") or {}
     installment = bnpl.get("installment_amount") if bnpl.get("eligible") else None
 
+    # ── Media ────────────────────────────────────────────────────────────────
+    # The registered set is the source of truth. It carries five derived ratios
+    # per product, so the page can show a 4:5 portrait, a 1:1 swatch frame and a
+    # 16:9 band from real files instead of cropping one stock 3:2 into every
+    # slot (measured 2026-10-08: 52 of 201 rendered images contradicted their own
+    # ratio). When a product has no registered rows the legacy JSON column is
+    # still honoured — a page must not go blank because a catalogue pass has not
+    # reached that product yet.
+    media_rows = repo.images_for_product(p.id)
+    media_out = [ProductMediaOut(**m) for m in media_payload(media_rows)]
+    registered_images = gallery_images(media_rows)
+    primary_media_url = primary_url(media_rows)
+    legacy_images = []
+    if p.images:
+        try:
+            parsed = json.loads(p.images)
+            legacy_images = parsed if isinstance(parsed, list) else []
+        except (TypeError, ValueError):
+            legacy_images = []
+    if not legacy_images and p.thumbnail_url:
+        legacy_images = [p.thumbnail_url]
+
     detail = ProductDetailOut(
         id=p.id,
         brand_id=p.brand_id,
@@ -269,7 +300,7 @@ def get_product_detail(
         # database has one.
         compare_at_price=p.compare_at_price,
         currency=p.currency,
-        thumbnail_url=p.thumbnail_url,
+        thumbnail_url=primary_media_url or p.thumbnail_url,
         color_family=p.color_family,
         dominant_hex=p.dominant_hex,
         style_tags=json.loads(p.style_tags) if p.style_tags else [],
@@ -282,7 +313,8 @@ def get_product_detail(
         description_ar=p.description_ar,
         material=p.material,
         care_instructions=p.care_instructions,
-        images=json.loads(p.images) if p.images else [p.thumbnail_url],
+        images=registered_images or legacy_images,
+        media=media_out,
         size_chart=size_chart,
         skus=skus_out,
         bnpl_monthly_installment=installment,

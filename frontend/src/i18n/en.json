@@ -485,11 +485,10 @@
     "dressed_with_layers": "Dressed with {{count}} Garment Layer",
     "dressed_with_layers_plural": "Dressed with {{count}} Garment Layers",
     "dress_to_style_hint": "Add a garment and tap \"+ Dress\" to style this person.",
-    "person_ref_value": "Person Reference:",
     "btn_synthesizing": "Synthesizing...",
     "btn_play_sequence": "Play Layer Sequence",
-    "add_items_to_bag_one": "Add {{count}} Item to Bag",
-    "add_items_to_bag_other": "Add {{count}} Items to Bag",
+    "add_items_to_bag_one": "Add 1 item to bag",
+    "add_items_to_bag_other": "Add {{count}} items to bag",
     "processing_photo": "Processing photo",
     "avatar_athletic_m": "Athletic Male",
     "avatar_hourglass_f": "Hourglass Female",
@@ -628,7 +627,6 @@
     "dup_alert_title": "Smart Duplicate Purchase Alert",
     "dup_alert_message": "CONFIT's smart shopping engine detected strong aesthetic similarity to a piece in your virtual wardrobe.",
     "dup_already_in_closet": "Already in your closet",
-    "dup_worn": "Worn",
     "dup_stylist_recommendation": "Stylist Recommendation:",
     "dup_stylist_message": "Shopping sustainably means styling what you own first. Would you like to style this owned piece with new pairings, or proceed with purchasing the new item?",
     "dup_proceed_anyway": "Proceed to Add Anyway",
@@ -636,7 +634,9 @@
     "upload_status_duplicate": "Duplicate — already owned",
     "upload_status_analyzed": "Analyzed",
     "upload_status_saved_retryable": "Saved (AI retryable)",
-    "upload_status_processing": "Processing…"
+    "upload_status_processing": "Processing…",
+    "dup_worn_times_one": "Worn once",
+    "dup_worn_times_other": "Worn {{count}} times"
   },
   "commerce": {
     "add_to_cart": "Add to Bag",

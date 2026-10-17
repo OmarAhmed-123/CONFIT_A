@@ -44,7 +44,7 @@ export const DuplicateAlertModal: React.FC = () => {
               <h4 className="text-sm font-bold text-brand-charcoal truncate">{owned.title}</h4>
               <p className="text-xs text-slate-500">{owned.color_name} · {owned.category}</p>
               <div className="flex items-center gap-2 mt-1.5 text-[11px] text-slate-600">
-                <span>{t("wardrobe.dup_worn")} {owned.wear_count || 0} times</span>
+                <span>{t("wardrobe.dup_worn_times", { count: owned.wear_count || 0 })}</span>
                 <span>•</span>
                 <span className="capitalize">{owned.wear_frequency}</span>
               </div>

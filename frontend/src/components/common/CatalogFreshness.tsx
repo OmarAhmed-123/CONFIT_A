@@ -77,7 +77,7 @@ export const CatalogFreshnessIndicator: React.FC<{ className?: string }> = ({
       <StatusIcon status={status} size={14} />
       <span>{text}</span>
       {revision ? (
-        <span dir="ltr" className="font-mono text-[10px] text-slate-400">
+        <span dir="ltr" className="font-mono text-[10px] text-brand-muted">
           {revision.slice(0, 8)}
         </span>
       ) : null}

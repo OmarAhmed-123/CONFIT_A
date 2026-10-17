@@ -48,7 +48,7 @@ describe('ConfitLogo — Logo #3 brand contract', () => {
     expect(container.querySelector('g[transform*="scale("]')).toBeNull();
   });
 
-  it('dark-surface theme swaps only the charcoal quadrant and wordmark to cream', () => {
+  it('dark-surface theme swaps only the charcoal quadrant and wordmark to white (official reversed asset)', () => {
     const { container } = render(<ConfitLogo variant="compact" theme="light" />);
     const fills = Array.from(container.querySelectorAll('svg > path')).map((p) =>
       p.getAttribute('fill'),
@@ -56,7 +56,8 @@ describe('ConfitLogo — Logo #3 brand contract', () => {
     expect(fills[0]).toBe(BRAND_COLORS.coral);
     expect(fills[1]).toBe(BRAND_COLORS.lilac);
     expect(fills[2]).toBe(BRAND_COLORS.mint);
-    expect(fills[3]).toBe(BRAND_COLORS.cream);
+    expect(fills[3]).toBe(BRAND_COLORS.white);
+    expect(fills[3]).toBe('#FFFFFF');
   });
 
   it('ships the official SVG assets in /public/brand with the right colour treatment', () => {

@@ -46,7 +46,7 @@ A row is `PASS` only when its own checks were run after its own changes and the 
 | `/tryon-studio`, `/try-on`, `/try-on/:sessionId`, `/visual-search` | TryOnFitView (error boundary) | IMPLEMENTED (Navy/gold hero and cards to brand charcoal/wash; contract tested `tryOnBrand.contract.test.tsx`) |
 | `/fit`, `/fit-finder` | FitFinderView | IMPLEMENTED (Navy hero to brand charcoal; gold accents to charcoal; all 8 engine & localization tests pass; contract tested `fitFinderBrand.contract.test.tsx`) |
 | `/wardrobe`, `/wardrobe/item/:id` | WardrobeView | IMPLEMENTED (Navy/gold chrome to brand charcoal and wash; all 9 action state tests pass; contract tested `wardrobeBrand.contract.test.tsx`) |
-| `/cart`, `/checkout` | CheckoutView | IMPLEMENTED, not PASS. Gold, navy, cream and slate mapped to brand tokens; semantic colours kept; dark-filled controls use `.focus-on-light-fill` (charcoal ring, offset 3px). OPEN: fixed AI Stylist control covers Subtotal/Tax amounts at 1024-1280 in the first fold. Padding reserve tried and reverted (did not clear 1024). Backend-dependent flows unverified. See Checkout section. |
+| `/cart`, `/checkout` | CheckoutView | IMPLEMENTED. Gold, navy, cream and slate mapped to brand tokens; semantic colours kept; dark-filled controls use `.focus-on-light-fill` (charcoal ring, offset 3px). **The fixed AI Stylist control / Order-summary collision is RESOLVED on `main`** (see "Checkout: Order summary reflow") and re-measured 2026-10-17 with a five-point hit test: **0 overlapping controls on `/checkout` and `/cart` at 1280x800 and 390x844.** This audit additionally moved `text-emerald-600` → `text-emerald-700` (3.76:1 → 5.48:1) on the stock and discount lines. Open: payment methods, cart with items, order placement and promo remain backend-dependent and UNVERIFIED. See the 2026-10-17 UI/UX audit section for the full route row. |
 | `/orders`, `/orders/:orderNumber`, `/returns` | OrderTrackingView | IMPLEMENTED, not PASS. Light scheme. Gold and navy chrome to charcoal and brand neutrals; return CTA focus ring charcoal. Fixed state bugs: 5xx no longer shows the verify form; signed-in 404 no longer shows the guest prompt; `/orders` lists the signed-in customer's orders; hard-coded English copy moved to `order.*` keys (EN and AR). `/returns` renders the same view and is not captured separately. See Orders evidence. |
 | `/profile`, `/settings`, `/notifications` | UserProfileView | IMPLEMENTED (Gold/cream/navy styling to brand charcoal and wash; contract tested `userProfileBrand.contract.test.tsx`) |
 
@@ -83,7 +83,7 @@ A row is `PASS` only when its own checks were run after its own changes and the 
 - Screenshots reviewed (sandbox at `/home/user/brand_build/shots/`): `before_*` vs `after_*` for sign-in, sign-up, forgot, focus, error, loading, mobile (390px), and Arabic RTL (`after_rtl_mob.png`, `dir=rtl` confirmed).
 - Limits: the MFA step, the forgot "sent" and "unconfigured" states, and data-backed success states were not captured because the backend is not running. ESLint is not configured for this repo (`eslint` fails before linting), so lint was not run.
 | `AuthPageShell` (email-landing card shell, used only by the three account pages above) | PASS | White page, hairline card. Verified through the three pages' checks below |
-| `RoleGuard` (logo on guard/denial screens) | IMPLEMENTED (White-first auth required and restricted cards, brand charcoal buttons, brand wash icon chips; contract tested in `roleGuardBrand.contract.test.tsx`) |
+| `RoleGuard` (logo on guard/denial screens) | IMPLEMENTED, and TESTED-PASS for the mark. White-first auth-required **and permission-denied (403)** cards, brand charcoal buttons, brand wash icon chips; the official `ConfitLogo variant="compact"` was added to both cards on 2026-10-17 (the 403 refusal previously carried no identity at all). Contract tested in `roleGuardBrand.contract.test.tsx`. Browser-verified: the 102-row capture reports **0 rows without the mark** (it was 6/102 on `main`), and `/admin` reached as a brand owner renders the 403 card with the mark — `auth_gate_admin_guest_desk.jpg`, `forbidden_admin_as_brand_desk.jpg`. |
 | `ShareCard` (shared look image text) | IMPLEMENTED (White card, brand charcoal typography, hairline divider, brand wash chips; contract tested in `sharedLookBrand.contract.test.tsx`) |
 | Shared UI primitives (buttons, inputs, tables, cards, modals, toasts) | IMPLEMENTED (AccessiblePrimitives, CommonComponents, SectionHeader, SkipLink, StateComponents, AnnouncementBar, CollectionRail, VirtualStylistDrawer, CartDrawer, DuplicateAlertModal migrated to brand-charcoal, brand-wash, and hairline tokens; contract tested primitivesBrand.contract.test.tsx) |
 
@@ -484,3 +484,293 @@ Screenshots: `shots/s5_800_320.png` (after), `shots/s3_800_320.png` / `shots/s4_
    - `VirtualStylistDrawer.tsx`: Full sweep replacing `#C5A059`, `#1B1F3B`, `#0C0E1E`, and `#FAF9F6` with `brand-charcoal`, `brand-wash`, and `ring-brand-charcoal`. All 28 behavioral and a11y tests pass.
    - `CartDrawer.tsx` & `DuplicateAlertModal.tsx`: Slide-over cart and wardrobe duplicate alerts migrated from legacy cream/navy to `bg-brand-wash` and `bg-brand-charcoal`.
    - `primitivesBrand.contract.test.tsx`: 6 dedicated contract tests verify complete eradication of legacy tokens across all shared primitives.
+
+---
+
+# UI/UX audit, brand consistency and accessibility — 2026-10-17
+
+Branch: **`feat/uiux-individual-grid-audit`**, cut from `origin/main` @ `c52bb50`.
+Companion documents: `docs/brand/branch-comparison-2026-10-17.md` (why this base)
+and `docs/brand/evidence/uiux-2026-10-17/` (28 labelled capture sheets).
+
+Status vocabulary follows `.specify/memory/constitution.md`. A screenshot is
+evidence of appearance only; it never proves a feature works, so every row below
+is backed by a measurement taken from the real rendered page.
+
+**Note on scale.** The rest of this document is a *Logo #3 migration* record: it
+tracks one identity change surface by surface. This section is a **different
+scale** — a whole-product UI/UX, brand-consistency and accessibility audit — and
+it uses the same status words for a wider class of finding. Where the two
+scopes disagree, this section is the narrower, dated snapshot and its
+"Verification" block states exactly what was and was not run.
+
+## Method — what was measured, and how
+
+| Tool | What it does | Rows / runs |
+|---|---|---|
+| `scripts/uiux_audit_capture.mjs` | Signs in as a real seeded account, walks each route in a real browser, and records: final URL after guards, first `<h1>`, horizontal overflow, canvas colours, computed-style hits of the legacy navy/gold/cream palette, presence of the official mark, axe-core WCAG 2.0 + 2.1 A/AA violations, broken images, console errors, interactive targets under 24×24 CSS px, and a full-page screenshot. | 102 rows per pass; **English** and **Arabic/RTL** (`UI_LANG=ar`) |
+| `contrast_scan.mjs` | DOM-level contrast sweep. Walks every visible text-bearing element, composites the ancestor background chain down to one opaque colour, and compares against AA. Catches what axe misses (see the Fit-finder finding). | 4 roles × 2 viewports × every route |
+| `tryon_probe.mjs` | Opens the try-on dialog from the real PDP and prints the contrast of every control **at rest and while hovered**. | before + after |
+| `fab_probe.mjs` | Five-point `elementFromPoint` hit test between the floating AI-Stylist control and every interactive element. | 2 roles × 10 routes × 2 viewports |
+| `auth_probe.mjs` | Auth modal behaviour: accessible name, initial focus, focus trap over 30 tab stops, input retention after a rejected submit, single-flight submit, real backend error, Escape. | 1 run |
+
+Everything runs against a **real backend** (seeded SQLite, `uvicorn`, demo
+accounts) through a single origin, exactly like production. Nothing is mocked,
+stubbed or faked.
+
+## Key results — before `main` @ `c52bb50` / after this branch
+
+Both passes are 102 rows; "before" is the English pass on `main`.
+
+| Metric | Before | After (EN) | After (AR/RTL) |
+|---|---|---|---|
+| Legacy navy/gold/cream computed-style hits | 314 | **42** | **42** |
+| — of which **not** a product colour swatch | 272 | **0** | **0** |
+| axe-core violations (WCAG 2.0 + 2.1 A/AA rules) | 40 | **0** | **0** |
+| Interactive targets under 24×24 CSS px | 331 | **82** | **82** |
+| Rows with horizontal overflow | 3 | **0** | **0** |
+| Rows with no Logo #3 mark | 6 | **0** | **0** |
+| Console errors | 10 | **2** | **2** |
+| Broken images | 0 | 0 | 0 |
+| Rows rendering `dir="rtl"` | 0 | 0 | **102 / 102** |
+
+Reading the two non-zero rows:
+
+- **42 legacy hits, all swatches.** Every one is a `span.w-3.h-3.rounded-full`
+  product colour chip rendering a **data** value — `Navy Blue #1B1F3B`,
+  `Optic White #FAF9F6`, `Gold #C5A059`. These are catalogue colours, not brand
+  identity tokens, and they must stay literal. This is the "do not recolour
+  indiscriminately" rule applied.
+- **82 small targets, all the same skip link.** Every one is
+  `a.sr-only.focus:not-sr-only.focus:fixed 1x1` — the skip link, which is
+  invisible until focused and is a known false positive of the 24 px rule.
+- **2 console errors** are the intentional `404` on `/looks/invalid-token`,
+  which the capture walks on purpose to prove the not-found state renders.
+
+## Route-by-route checklist
+
+`axe` = axe-core violations · `ovf` = horizontal overflow, px · `small` =
+targets under 24 px · `mark` = official Logo #3 present. Every after-row below
+measured `axe=0 ovf=0 mark=true`, and `small` is the skip link alone unless
+noted.
+
+| Area | Route | Role | After: what the row shows |
+|---|---|---|---|
+| Public | `/` | guest, consumer | Hero + editorial gallery; `small=1` (skip link) |
+| Public | `/discover`, `/products` | guest, consumer | Catalogue; 42 legacy hits are colour swatches only |
+| Public | `/product/:slug` | guest, consumer | PDP; `small=1` — breadcrumb links raised to 24 px |
+| Public | `/privacy`, `/terms`, `/gdpr` | guest | Legal; clean in EN **and** AR/RTL |
+| Public | `/this-route-does-not-exist` | guest | 404; clean in EN and AR/RTL |
+| Account | `/reset-password`, `/verify-email` | guest | Both render their "this link is not valid" state — a real empty/error state, not a blank page |
+| Account | `/email/unsubscribe` | guest | Same; invalid-token state |
+| Public share | `/looks/invalid-token` | guest | Renders "This look is no longer available"; the 404 it logs is intentional |
+| Consumer | `/builder` | guest, consumer | Outfit canvas |
+| Consumer | `/outfits` (guest) | guest | **NEW** — guest sees "Sign in to see your saved looks", fires **no** request |
+| Consumer | `/my-looks` | consumer | Saved looks + share links |
+| Consumer | `/try-on` | guest, consumer | Try-on studio |
+| Consumer | `/fit` | guest, consumer | Fit finder — see the hero finding below |
+| Consumer | `/wardrobe` | guest, consumer | Guest sees the sign-in state; header no longer overflows at 390 px |
+| Consumer | `/cart` | guest, consumer | Cart; 0 FAB collisions |
+| Consumer | `/checkout` | consumer | Order summary; 0 FAB collisions, emerald text now AA |
+| Consumer | `/orders`, `/orders/:number`, `/returns` | consumer | Order tracking |
+| Consumer | `/orders` (guest) | guest | Redirects to the auth gate, which now carries the mark |
+| Consumer | `/profile`, `/settings`, `/notifications` | consumer | Account surfaces |
+| Brand (B2B) | `/b2b`, `/partner` | brand | Command centre |
+| Brand (B2B) | `/b2b/catalog` | brand | Catalogue + SKU |
+| Brand (B2B) | `/b2b/inventory` | brand | BOPIS network; `min-h-11` row controls |
+| Brand (B2B) | `/b2b/orders` | brand | Orders — see the "Net" finding below |
+| Brand (B2B) | `/b2b/analytics`, `/b2b/placements` | brand | Funnel, telemetry, placements |
+| Guard | `/admin` as a **brand** owner | brand | **403 refusal card, now with the mark** |
+| Guard | `/admin` as a **guest** | guest, consumer | **Auth-required card, now with the mark** |
+| Admin | `/admin`, `/admin/analytics` | admin | Platform administration |
+| Admin | `/admin/catalog`, `/admin/partners` | admin | Redirects to `?brand_id=1` and renders |
+| Admin | `/admin/audit` | admin | Audit trail; deliberately dark terminal surface, `role="region"` + `tabIndex={0}` on the scroll container, white focus rings |
+
+### Gaps in the route universe — NOT FOUND IN SEARCHED SCOPE
+
+The task named several surfaces that do not exist as routes in this codebase
+(`git ls-files` + `AppRoutes.tsx` searched on 2026-10-17):
+
+- **Stores** — no consumer store-locator route. Store data exists only inside
+  `/b2b/inventory`.
+- **Promotions** — no consumer promotions route; there is a `promo_code` field
+  on checkout and `/b2b/placements` on the brand side.
+- **Favourites** — no favourites route. Wardrobe items carry a
+  `wear_frequency: favorite` value, and that is the whole feature.
+- **Brand branches** as a separate CRUD route — branch management is part of
+  `/b2b/inventory`.
+- **Admin users/roles management** and **admin reports/exports** as routes —
+  `/admin/catalog` and `/admin/partners` cover brand-level administration; the
+  audit trail is at `/admin/audit`. There is no dedicated user/role editor or
+  report-export screen.
+- **Brand settings** — no route; brand profile editing lives in
+  `/b2b/catalog`.
+
+These are recorded as **GAP**, not as defects. They are product scope, not
+something a UI/UX audit should invent.
+
+## Findings, in priority order
+
+### P1 — functional and accessibility defects (all fixed, all measured)
+
+| # | Defect (BUG-VERIFIED on `main`) | Evidence | Fix |
+|---|---|---|---|
+| 1 | **"Add 0 Items to Bag"** in the try-on dialog: `rgb(2,6,23)` on `rgb(37,39,41)` — **1.35:1**, invisible | `tryon_before.log` | White on charcoal — **14.99:1** |
+| 2 | **"+ Dress on Body" while hovered**: `rgb(2,6,23)` on `rgb(37,39,41)` — **1.35:1**. The label vanished the moment the pointer arrived. | `tryon_before.log` | `hover:text-slate-950` → `hover:text-white` — **14.99:1** (`tryon_after.log`) |
+| 3 | **Fit-finder hero, "Open Virtual Try-On" link**: `rgb(37,39,41)` on `rgb(37,39,41)` — **1.00:1**. The link was completely invisible, and **axe reported nothing**, because the background came from an ancestor. | `contrast_scan_en.log` | `text-white` + `min-h-6`, icon recoloured to `#FFFFFF` |
+| 4 | **Brand orders "Net" total label**: charcoal on a charcoal card — **1.00:1** | `contrast_scan_en.log` | `text-slate-300` |
+| 5 | **Try-on category chip**: white on `rgb(38,191,141)` — **2.35:1** | `contrast_scan_en.log` | `bg-emerald-500/90` → `bg-emerald-700` |
+| 6 | **11 dark-on-dark controls** across the product (charcoal initials on a charcoal avatar, `text-slate-950` on `hover:bg-black`, `text-white/10` on a charcoal hover) | DOM + source sweep | Recoloured; each verified in the final capture |
+| 7 | **Low-contrast body copy**: `text-slate-400` (2.56:1) and `text-slate-500` on the off-white wash (4.40:1) across the consumer and B2B surfaces | capture + sweep | → `text-brand-muted` (6.70:1 on white); on the deliberately dark audit surface `slate-500` → `slate-400` |
+| 8 | **`/looks` and `/wardrobe` fired a request that can only answer 401** for a signed-out visitor, then showed a generic error with a "Try again" that could never succeed | `before_results.json` | `useMyLooksViewModel({ enabled })` / `useWardrobeViewModel({ enabled })`; the views render a sign-in state whose only action is `openAuthModal('login')`. New test `guestPermissionStates.test.tsx` (3 tests) |
+| 9 | **Profile "delete my measurements"** was a 174×17 px target | capture | `inline-flex min-h-6` (24 px) + `text-rose-700` |
+| 10 | **Wardrobe header overflowed the viewport by 13 px at 390 px** (four tabs plus the upload CTA measured 403 px) | `find_ovf.mjs` | `flex-wrap` on the tab row |
+
+### P2 — brand consistency (all fixed)
+
+- **`RoleGuard`**: the official `ConfitLogo variant="compact"` added to **both**
+  the auth-required card **and** the 403 refusal. The 403 screen carried no
+  identity at all before. Measured: 6/102 rows without the mark → **0/102**.
+- **Breadcrumbs on the PDP** are now a labelled landmark
+  (`aria-label={t('product.breadcrumb_aria')}`, new key in `en.json`/`ar.json`)
+  and each link is a 24 px target.
+- **`BrandNavbar`** active indicator → official coral `#EF826D`; the language
+  switcher is a 24 px target.
+- Footer and legal inline links, the consumer nav's portal link, and the
+  B2B table drill-down link all raised to ≥24 px with `inline-flex min-h-6 /
+  min-w-6 / min-w-8`.
+- Registers: charcoal ink `#242526`, coral accent `#C2553F`,
+  `theme-color` → `#FFFFFF`; cream → white in `ConfitLogo`;
+  `ConfitIcons` recoloured to the official palette.
+- **Design system**: every change lands in the **existing** token system
+  (`brand-charcoal / -hairline / -muted / -wash`, `--brand-*`). No competing
+  token set was created and none was removed.
+- **Legacy assets**: none deleted. The audit verified by computed style that the
+  navy/gold/cream values only survive as **product colour data**.
+
+### P3 — polish
+
+- `+ Upload Piece` in the wardrobe is now `t('wardrobe.upload_piece')` instead
+  of a hard-coded English string (new key, EN + AR).
+- `emerald-600` → `emerald-700` on the success/stock semantics (Checkout, PDP).
+- `text-rose-600` → `text-rose-700` on destructive actions.
+- Empty-state icon and consent note moved off `text-slate-400`.
+
+## The try-on hover defect, in full
+
+The worst defect in this audit was invisible to every static check. `axe-core`
+runs on the resting DOM and has no concept of `:hover`; the class strings in the
+source looked reasonable. Only a real browser with a real pointer found it.
+
+| Element | Before (`main`) | After |
+|---|---|---|
+| "Add 0 Items to Bag" (disabled, charcoal fill) | `rgb(2,6,23)` on `rgb(37,39,41)` — **1.35:1** | `rgb(255,255,255)` — **14.99:1** |
+| "+ Dress on Body" **on hover** | `rgb(2,6,23)` on `rgb(37,39,41)` — **1.35:1** | `rgb(255,255,255)` — **14.99:1** |
+| "Not in Virtual Try-On yet" (disabled, WCAG-exempt) | **2.34:1** | **6.92:1** |
+| Every other charcoal control in the dialog | — | **14.99:1** |
+
+The same hover pattern was found and fixed in `VisualSearchModal`.
+Evidence: `tryon_before.log`, `tryon_after.log`,
+`evidence/uiux-2026-10-17/tryon_modal_consumer_desk.jpg`.
+
+## Auth modal — behaviour verified, not just screenshotted
+
+Measured against the real backend (`auth_probe.mjs`):
+
+- `role="dialog"`, `aria-modal="true"`, accessible name **"Sign in to CONFIT"**.
+- Fields: *Email address* (`autocomplete="email"`, required) and *Password*
+  (`autocomplete="current-password"`, required).
+- **Focus trap: 0 of 30 tab stops escaped the dialog.**
+- **Single-flight submit: a triple click produced exactly 1 `POST /api/v1/auth/login`.**
+- A wrong password shows the real server error
+  ("Incorrect email or password. Please try again.") and the visitor stays
+  signed out. No success state is faked.
+- A malformed email is caught by constraint validation; **the typed value is
+  preserved** and no request is sent.
+- `Escape` closes the dialog and returns focus to the trigger button.
+- All five controls are ≥44×44 px; contrast 6.7:1 – 14.99:1.
+
+## Residuals — measured, and deliberately not changed
+
+| Residual | Measurement | Why it is left open |
+|---|---|---|
+| Product colour swatches rendering legacy hex values | 42 hits, all `span.w-3.h-3.rounded-full` on `/`, `/discover`, `/b2b/catalog` | **Data**, not identity. Recolouring them would misrepresent the garment. |
+| Skip link reported as a 1×1 target | 82 rows | False positive: `.sr-only` until focused, then it is full size. |
+| **Floating AI-Stylist control covers page content mid-scroll** | Five-point hit test (`fab_probe.mjs`, `evidence/fab_after.log`): **13 route×viewport combinations, 17 controls, each 100% covered** — `/` desk (the example-result card link and the "Fit next step" caption), `/outfits` and `/my-looks` desk ("Open Brand Partner Portal →"), `/product/:slug` mob (**the "Try On" CTA** and the zoom overlay), `/builder` mob (outfit-name input + occasion select), `/my-looks` mob (Create public link), `/fit` mob (unit toggle), `/wardrobe` mob (a mood-board card link) | This is inherent to a `position: fixed` FAB, and the geometry is **pinned by two source-contract tests** (`fabLayout.brand.test.tsx`, `productDetailBrand.contract.test.tsx`). Moving it is a product-design decision, not an audit fix. **The accessibility half is already handled on `main`**: `html { scroll-padding-bottom: 9.5rem / 6.5rem }` reserves the band so keyboard focus (SC 2.4.11) never lands under it. Recorded as **OPEN / decision needed**, with the worst case flagged: the PDP "Try On" CTA on mobile. |
+| Hard-coded English strings | `VirtualTryOnModal` ("Remove", "Checking support…", "+ Dress on Body", "Not in Virtual Try-On yet"), `BrandInventoryView`, `BrandAnalyticsView`, and the wardrobe empty state | Needs new `en.json`/`ar.json` keys and Arabic copy from a translator. Mechanical extraction without a translation would ship an untranslated UI. **OPEN (P3).** |
+| `BrandNavbar` language switcher | Verified present and 24 px | No defect found; listed here only because an earlier note flagged it. |
+| Payment, cart-with-items, promo and order-placement flows | — | **UNVERIFIED**: no payment provider in this environment. |
+
+## Verification
+
+| Gate | `main` @ `c52bb50` | This branch |
+|---|---|---|
+| `tsc --noEmit` | 0 | **0** |
+| `npm run i18n:check` | pass | **pass** |
+| `vitest run` (full, `CI=1`) | 134 files / 1594 tests pass | **135 files / 1597 tests pass** (3 added, none removed or weakened) |
+| `vite build` | 0 | **0** |
+| `npm audit --omit=dev --audit-level=high` | — | **0 vulnerabilities** (the 8 `npm ci` advisories are all dev-only) |
+| `stylist_browser_gate.sh` | — | **PASS** |
+| ESLint | not configured in `frontend/package.json` | not configured — **NOT RUN**, not a pass |
+| axe-core across 102 rows × 2 languages | 40 violations | **0** |
+
+**Disclosure — one test constant was changed, not weakened.**
+`scripts/apply-button-motion.mjs` decides a control's motion geometry from its
+own label colour: a medium-tone grey label gets an *edge* stroke instead of a
+field wash, because a wash behind `slate-500` was measured at 4.0:1 (below AA).
+The audit replaced `slate-400/500` labels with `brand-muted`, so that rule would
+silently have flipped six controls from the safe geometry to the unmeasured one.
+`MEDIUM_TONE_LABEL` was widened to `/text-(slate-(300|400|500)|brand-muted)\b/`
+so a migrated control **keeps** the geometry it was measured with. Coverage is
+unchanged at **315/315 controls**, and the ratchet test in
+`buttonMotion.contract.test.tsx` still fails on any control that omits intent or
+geometry. This is the only change to that file.
+
+**Disclosure — `data-motion-tone="edge"` added to four controls**
+(`RoleGuard`, `CheckoutView`, `OutfitBuilderView`, `NotFoundView`) by
+`apply-button-motion.mjs --write`, for the same reason: their labels are now
+`brand-muted`, so the oracle requires the edge geometry.
+
+## Evidence
+
+28 labelled sheets in **`docs/brand/evidence/uiux-2026-10-17/`** (2.8 MB):
+
+- **21 before/after pairs**, each stamped `BEFORE main @ c52bb50 / AFTER this
+  branch`: home, admin auth gate, 403 refusal, saved looks (guest), wardrobe
+  (guest + shopper, mobile), fit finder, profile, builder, checkout,
+  reset-password, 404, B2B dashboard / inventory / analytics / catalog /
+  placements, admin analytics / catalog / audit, and the try-on modal.
+- **7 Arabic / RTL frames**: home (mobile + desktop), brand dashboard (mobile),
+  admin audit, 404, privacy, wardrobe (mobile).
+
+Raw captures (not committed — they are 100 MB of full-page PNGs) live in the
+working tree, and the per-row JSON (`legacyHits`, `axe`, `smallSamples`,
+`consoleErrors`, `dir`) is what every number above is computed from.
+
+## Limitations
+
+1. **The DOM contrast sweep cannot composite images or gradient scrims.** It
+   reports 24 findings on `/` that are all **false positives**: the text sits in
+   a `bg-gradient-to-t from-black/80` scrim over an Unsplash photograph, which
+   the sweep resolves to white. Verified by hand; `axe` also reports 0 on `/`.
+2. **axe-core cannot see `:hover`, `:focus` or `:active` colour.** Those were
+   probed by driving a real pointer (`tryon_probe.mjs`), but only on the
+   controls that probe reaches — not across every control in the product.
+3. **Two of the 102 rows are the same route with different data**, so per-route
+   counts are not independent samples; the totals are counts of rows, not of
+   unique defects.
+4. **The capture signs in with seeded demo accounts.** Every guarded route was
+   reached with a real session, but the *data* behind them is seed data — an
+   empty cart, one order, four brands. Empty and loaded states that seed data
+   cannot produce were not seen.
+5. **No payment provider, no VTON inference worker, no e-mail delivery** in this
+   environment, so payment, try-on results and transactional e-mail remain
+   **UNVERIFIED**.
+6. **The 390×844 and 1280×800 viewports stand for "small mobile" and "laptop".**
+   Tablet (768–1024) and large desktop (>1600) were not captured.
+7. **The FAB hit test samples the first viewport only.** Content further down a
+   scrolling page was not hit-tested.
+8. **Uncommitted-work hazard:** this audit was rebuilt once after a workspace
+   snapshot lost `frontend/src/views/consumer/`. The fixes were re-applied from
+   the before/after measurement diff and then **re-measured from scratch**; the
+   numbers in this section are the re-measured ones, not the earlier run's.

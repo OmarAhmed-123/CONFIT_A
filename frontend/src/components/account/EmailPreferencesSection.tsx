@@ -148,7 +148,7 @@ export const EmailPreferencesSection: React.FC = () => {
               </p>
             </div>
             <span
-              className="mt-1 flex shrink-0 items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-500"
+              className="mt-1 flex shrink-0 items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-600"
               title={t('email_prefs.transactional_always')}
             >
               <span aria-hidden="true"><Lock size={10} /></span>

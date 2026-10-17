@@ -188,7 +188,7 @@ export const VisualSearchModal: React.FC = () => {
             <div className="flex items-center gap-3">
               <label
                 htmlFor="vs-photo-upload"
-                className="cursor-pointer inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand-wash border border-brand-hairline/50 text-brand-charcoal hover:bg-brand-charcoal hover:text-slate-950 text-xs font-bold transition-all"
+                className="cursor-pointer inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand-wash border border-brand-hairline/50 text-brand-charcoal hover:bg-brand-charcoal hover:text-white text-xs font-bold transition-all"
               >
                 <span aria-hidden="true">📷</span>
                 <span>{t('tryon.upload_your_photo')}</span>
@@ -340,7 +340,7 @@ export const VisualSearchModal: React.FC = () => {
                           alt={match.title}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                         />
-                        <span className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-brand-charcoal/80 backdrop-blur-sm text-[10px] font-bold text-brand-charcoal">
+                        <span className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-brand-charcoal/80 backdrop-blur-sm text-[10px] font-bold text-white">
                           {t("tryon.vs_match_score", { score: match.similarity_score })}
                         </span>
                         <span className="absolute bottom-2 left-2 px-2 py-0.5 rounded bg-white/90 text-[10px] font-bold text-slate-800">

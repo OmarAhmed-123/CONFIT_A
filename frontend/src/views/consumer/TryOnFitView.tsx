@@ -96,7 +96,7 @@ export const TryOnFitView: React.FC = () => {
             <h2 className="mt-1 font-serif text-2xl font-bold text-brand-charcoal">
               {t('tryon.privacy_title')}
             </h2>
-            <p className="mt-2 text-sm font-light leading-relaxed text-slate-500">
+            <p className="mt-2 text-sm font-light leading-relaxed text-brand-muted">
               {t('tryon.privacy_body')}
             </p>
           </div>
@@ -180,7 +180,7 @@ export const TryOnFitView: React.FC = () => {
             <h3 className="font-serif text-base font-bold text-brand-charcoal">
               {t('tryon.scan_feature_title')}
             </h3>
-            <p className="text-xs text-slate-500 font-light">
+            <p className="text-xs text-brand-muted font-light">
               Browser camera or manual measurements for a self-reported size
               profile; raw video is not uploaded by this flow.
             </p>
@@ -206,7 +206,7 @@ export const TryOnFitView: React.FC = () => {
             <h3 className="font-serif text-base font-bold text-brand-charcoal">
               {t("nav.no_photo_fit")}
             </h3>
-            <p className="text-xs text-slate-500 font-light">
+            <p className="text-xs text-brand-muted font-light">
               Zero-photo measurement calculator using the backend fit contract
               where product data supports it.
             </p>
@@ -235,7 +235,7 @@ export const TryOnFitView: React.FC = () => {
             <h3 className="font-serif text-base font-bold text-brand-charcoal">
               {t("nav.visual_search")}
             </h3>
-            <p className="text-xs text-slate-500 font-light">
+            <p className="text-xs text-brand-muted font-light">
               Upload a moodboard image to search matching real catalog pieces.
             </p>
           </div>
@@ -251,7 +251,7 @@ export const TryOnFitView: React.FC = () => {
           <h3 className="font-serif text-xl font-bold text-brand-charcoal">
             {t('tryon.catalog_heading')}
           </h3>
-          <span className="text-xs text-slate-500 font-light">
+          <span className="text-xs text-brand-muted font-light">
             {isLoading
               ? t('tryon.catalog_loading')
               : catalogError && products.length === 0
@@ -293,7 +293,7 @@ export const TryOnFitView: React.FC = () => {
                         className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider ${
                           isTryOnSupported(p.category_name) &&
                           tryOnKind === "render"
-                            ? "bg-emerald-500/90 text-white"
+                            ? "bg-emerald-700 text-white"
                             : "bg-slate-950/80 text-slate-200"
                         }`}
                       >
@@ -304,7 +304,7 @@ export const TryOnFitView: React.FC = () => {
                       </span>
                     </div>
                   </div>
-                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                  <span className="text-[10px] font-bold text-brand-muted uppercase tracking-wider">
                     {p.brand_name}
                   </span>
                   <h4 className="font-serif text-sm font-bold text-brand-charcoal truncate">

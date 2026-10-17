@@ -48,7 +48,7 @@ const StatusPill: React.FC<{ value: string | null; tone?: "neutral" | "warn" }> 
   value,
   tone = "neutral",
 }) => {
-  if (!value) return <span className="text-slate-400">—</span>;
+  if (!value) return <span className="text-brand-muted">—</span>;
   const cls =
     tone === "warn"
       ? "bg-amber-50 text-amber-800 border-amber-200"
@@ -106,7 +106,7 @@ export const BrandOrdersView: React.FC = () => {
         <h1 className="font-serif text-2xl font-bold text-brand-charcoal">
           {t("brand_orders.title")}
         </h1>
-        <p className="text-xs sm:text-sm text-slate-500 mt-1 font-light">
+        <p className="text-xs sm:text-sm text-brand-muted mt-1 font-light">
           {t("brand_orders.subtitle")}
         </p>
       </header>
@@ -135,7 +135,7 @@ export const BrandOrdersView: React.FC = () => {
             >
               <span
                 className={`block text-[10px] font-bold uppercase tracking-wider ${
-                  k === "net" ? "text-brand-charcoal" : "text-slate-500"
+                  k === "net" ? "text-slate-300" : "text-brand-muted"
                 }`}
               >
                 {t(`brand_orders.total_${k}`)}
@@ -144,7 +144,7 @@ export const BrandOrdersView: React.FC = () => {
             </div>
           ))}
           {/* The totals describe every matching line, not the visible page. */}
-          <p className="col-span-2 lg:col-span-5 text-[11px] text-slate-500">
+          <p className="col-span-2 lg:col-span-5 text-[11px] text-brand-muted">
             {t("brand_orders.totals_scope", { count: data.pagination.total_lines })}
           </p>
         </section>
@@ -175,10 +175,10 @@ export const BrandOrdersView: React.FC = () => {
       )}
 
       {data && data.lines.length > 0 && (
-        <div className="overflow-x-auto rounded-3xl border border-slate-200/80 bg-white shadow-2xs">
+        <div role="region" aria-label={t("brand_orders.table_caption")} tabIndex={0} className="overflow-x-auto rounded-3xl border border-slate-200/80 bg-white shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white">
           <table className="w-full text-left text-xs">
             <caption className="sr-only">{t("brand_orders.table_caption")}</caption>
-            <thead className="bg-brand-wash text-[10px] uppercase tracking-wider text-slate-500">
+            <thead className="bg-brand-wash text-[10px] uppercase tracking-wider text-brand-muted">
               <tr>
                 <th scope="col" className="px-4 py-3">{t("brand_orders.col_item")}</th>
                 <th scope="col" className="px-4 py-3">{t("brand_orders.col_order")}</th>
@@ -206,7 +206,7 @@ export const BrandOrdersView: React.FC = () => {
                         <span className="block font-semibold text-brand-charcoal truncate max-w-[180px]">
                           {line.product_title}
                         </span>
-                        <span className="block text-[11px] text-slate-500">
+                        <span className="block text-[11px] text-brand-muted">
                           {line.size} · {line.color}
                           {line.sku_code ? ` · ${line.sku_code}` : ""}
                         </span>
@@ -221,7 +221,7 @@ export const BrandOrdersView: React.FC = () => {
                     <span className="block font-mono text-[11px] text-brand-charcoal">
                       {line.order_number}
                     </span>
-                    <span className="block text-[11px] text-slate-500">
+                    <span className="block text-[11px] text-brand-muted">
                       {line.placed_at
                         ? new Date(line.placed_at).toLocaleDateString(lang)
                         : "—"}
@@ -239,7 +239,7 @@ export const BrandOrdersView: React.FC = () => {
                     <span className="block font-semibold text-brand-charcoal">
                       {line.customer_name}
                     </span>
-                    <span className="block text-[11px] text-slate-500">
+                    <span className="block text-[11px] text-brand-muted">
                       {line.customer_city ?? "—"} · {line.fulfillment_type}
                     </span>
                   </td>
@@ -248,10 +248,10 @@ export const BrandOrdersView: React.FC = () => {
                     <span className="block font-semibold text-brand-charcoal">
                       {t("brand_orders.units_pulled", { count: line.quantity })}
                     </span>
-                    <span className="block text-[11px] text-slate-500">
+                    <span className="block text-[11px] text-brand-muted">
                       {line.store_name ?? t("brand_orders.no_store")}
                     </span>
-                    <span className="block text-[11px] text-slate-500">
+                    <span className="block text-[11px] text-brand-muted">
                       {/* null means the SKU row is gone, so remaining stock is
                           genuinely unknown. Printing 0 would claim sold out. */}
                       {line.sku_stock_remaining == null
@@ -270,7 +270,7 @@ export const BrandOrdersView: React.FC = () => {
                       ? `− ${money(line.discount_amount, line.currency)}`
                       : "—"}
                     {line.promo_code && (
-                      <span className="block text-[10px] text-slate-400 font-mono">
+                      <span className="block text-[10px] text-brand-muted font-mono">
                         {line.promo_code}
                       </span>
                     )}
@@ -284,7 +284,7 @@ export const BrandOrdersView: React.FC = () => {
           </table>
 
           <div className="flex items-center justify-between gap-3 px-4 py-3 border-t border-slate-100 bg-brand-wash">
-            <span className="text-[11px] text-slate-500">
+            <span className="text-[11px] text-brand-muted">
               {t("brand_orders.showing", {
                 from: data.pagination.offset + 1,
                 to: data.pagination.offset + data.pagination.returned,

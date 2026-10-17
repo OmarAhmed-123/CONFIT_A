@@ -18,7 +18,7 @@ const HeatmapDimension: React.FC<{
   const { t } = useTranslation();
   if (!cells || cells.length === 0) {
     return (
-      <div className="text-[11px] text-slate-400">
+      <div className="text-[11px] text-brand-muted">
         <span className="font-bold text-slate-600">{title}: </span>
         {t('admin_heatmap.dimension_empty')}
       </div>
@@ -159,10 +159,10 @@ export const AdminAnalyticsView: React.FC = () => {
         <h1 className="font-serif text-2xl font-bold text-brand-charcoal sm:text-3xl">
           {t('admin_analytics.title')}
         </h1>
-        <p className="mt-1 text-xs text-slate-500 sm:text-sm">
+        <p className="mt-1 text-xs text-brand-muted sm:text-sm">
           {t('admin_analytics.lede')}
         </p>
-        <p className="mt-1 text-[11px] text-slate-500">
+        <p className="mt-1 text-[11px] text-brand-muted">
           {t('admin_analytics.methodology')}
         </p>
 
@@ -227,7 +227,7 @@ export const AdminAnalyticsView: React.FC = () => {
           translate only, reduced-motion renders the identical static grid). */}
       <Reveal className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         <div className="bg-white rounded-3xl border border-slate-200 p-5 shadow-sm space-y-1">
-          <span className="text-xs font-bold uppercase text-slate-500">{t('admin_analytics.gmv_title')}</span>
+          <span className="text-xs font-bold uppercase text-brand-muted">{t('admin_analytics.gmv_title')}</span>
           <div className="font-serif text-2xl font-black text-brand-charcoal" dir="ltr">
             {money(adminAnalytics.total_gmv, adminAnalytics.currency)}
           </div>
@@ -248,7 +248,7 @@ export const AdminAnalyticsView: React.FC = () => {
         </div>
 
         <div className="bg-white rounded-3xl border border-slate-200 p-5 shadow-sm space-y-1">
-          <span className="text-xs font-bold uppercase text-slate-500">{t('admin_analytics.orders_title')}</span>
+          <span className="text-xs font-bold uppercase text-brand-muted">{t('admin_analytics.orders_title')}</span>
           <div className="font-serif text-2xl font-black text-brand-charcoal">
             {adminAnalytics.total_orders.toLocaleString()}
           </div>
@@ -258,7 +258,7 @@ export const AdminAnalyticsView: React.FC = () => {
         </div>
 
         <div className="bg-white rounded-3xl border border-slate-200 p-5 shadow-sm space-y-1">
-          <span className="text-xs font-bold uppercase text-slate-500">{t('admin_analytics.outfit_ratio_title')}</span>
+          <span className="text-xs font-bold uppercase text-brand-muted">{t('admin_analytics.outfit_ratio_title')}</span>
           <div className="font-serif text-2xl font-black text-[#8A6A2F]">
             {pct(adminAnalytics.stylist_conversion_ratio)}
           </div>
@@ -266,7 +266,7 @@ export const AdminAnalyticsView: React.FC = () => {
         </div>
 
         <div className="bg-white rounded-3xl border border-slate-200 p-5 shadow-sm space-y-1">
-          <span className="text-xs font-bold uppercase text-slate-500">{t('admin_analytics.return_rate_title')}</span>
+          <span className="text-xs font-bold uppercase text-brand-muted">{t('admin_analytics.return_rate_title')}</span>
           <div className="font-serif text-2xl font-black text-emerald-700">
             {pct(adminAnalytics.platform_avg_return_rate)}
           </div>
@@ -287,7 +287,7 @@ export const AdminAnalyticsView: React.FC = () => {
               {t('admin_analytics.attribution_title')}
             </h2>
             <p className="text-xs text-slate-600">{t('admin_analytics.attribution_subtitle')}</p>
-            <p className="mt-1 text-[10px] text-slate-500">{t('admin_analytics.attribution_methodology')}</p>
+            <p className="mt-1 text-[10px] text-brand-muted">{t('admin_analytics.attribution_methodology')}</p>
             <p className="mt-2 rounded-lg border border-amber-300 bg-amber-50 px-2 py-1.5 text-[10px] font-semibold text-amber-900">
               {t('admin_analytics.financial_warning')}
             </p>
@@ -337,8 +337,8 @@ export const AdminAnalyticsView: React.FC = () => {
             <h3 className="font-serif text-lg font-bold text-brand-charcoal">
               {t('admin_heatmap.title', { scope: heatmap.region })}
             </h3>
-            <p className="text-xs text-slate-500">{t('admin_heatmap.subtitle')}</p>
-            <p className="text-[10px] text-slate-400 mt-1">{heatmap.privacy_threshold}</p>
+            <p className="text-xs text-brand-muted">{t('admin_heatmap.subtitle')}</p>
+            <p className="text-[10px] text-brand-muted mt-1">{heatmap.privacy_threshold}</p>
           </div>
 
           {heatmap.data_available === false ? (
@@ -376,7 +376,7 @@ export const AdminAnalyticsView: React.FC = () => {
           )}
 
           {!!heatmap.limitations?.length && (
-            <ul className="space-y-1 border-t border-slate-100 pt-3 text-[10px] leading-relaxed text-slate-400">
+            <ul className="space-y-1 border-t border-slate-100 pt-3 text-[10px] leading-relaxed text-brand-muted">
               {heatmap.limitations.map((limitation) => (
                 <li key={limitation}>· {limitation}</li>
               ))}
@@ -436,7 +436,7 @@ export const AdminAnalyticsView: React.FC = () => {
           <table className="min-w-[760px] w-full text-left text-xs">
             <caption className="sr-only">{t('admin_analytics.brand_table_caption')}</caption>
             <thead>
-              <tr className="border-b border-slate-100 text-[10px] uppercase text-slate-500">
+              <tr className="border-b border-slate-100 text-[10px] uppercase text-brand-muted">
                 <th scope="col" className="py-2">{t('admin_analytics.brand')}</th>
                 <th scope="col" className="py-2" aria-sort={sortKey === 'products' ? (sortDir === 'desc' ? 'descending' : 'ascending') : undefined}>
                   <button data-motion="filter"
@@ -500,7 +500,7 @@ export const AdminAnalyticsView: React.FC = () => {
                          view already reads brand_id from the URL. */
                       <Link
                         to={`/admin/catalog?brand_id=${brand.brand_id}`}
-                        className="inline-flex min-h-11 items-center underline decoration-brand-charcoal underline-offset-2 hover:text-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white"
+                        className="inline-flex min-h-11 min-w-6 items-center underline decoration-brand-charcoal underline-offset-2 hover:text-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white"
                         aria-label={t('admin_analytics.drill_down', { brand: brand.brand })}
                       >
                         {brand.brand}
@@ -512,7 +512,7 @@ export const AdminAnalyticsView: React.FC = () => {
                   <td className="py-3" dir="ltr">{brand.products ?? na}</td>
                   <td className="py-3" dir="ltr">{brand.views ?? na}</td>
                   <td className="py-3" dir="ltr">{brand.tryons ?? na}</td>
-                  <td className="py-3 font-bold text-emerald-600" dir="ltr">{brand.orders}</td>
+                  <td className="py-3 font-bold text-emerald-700" dir="ltr">{brand.orders}</td>
                   <td className="py-3 font-mono" dir="ltr">
                     {brand.conversion_rate === undefined || brand.conversion_rate === null
                       ? na
@@ -529,7 +529,7 @@ export const AdminAnalyticsView: React.FC = () => {
                     ) : (
                       /* No brand_id on the row ⇒ no real endpoint to call —
                          say so instead of a dead button (§2 honesty). */
-                      <span className="text-[11px] text-slate-400">{na}</span>
+                      <span className="text-[11px] text-brand-muted">{na}</span>
                     )}
                   </td>
                 </tr>
@@ -550,20 +550,20 @@ export const AdminAnalyticsView: React.FC = () => {
       {/* System Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
         <div className="p-4 rounded-2xl bg-white border border-slate-200">
-          <span className="block text-[10px] uppercase text-slate-500">{t('admin_analytics.total_users')}</span>
+          <span className="block text-[10px] uppercase text-brand-muted">{t('admin_analytics.total_users')}</span>
           <span className="font-bold text-lg">{adminAnalytics.total_users_count}</span>
         </div>
         <div className="p-4 rounded-2xl bg-white border border-slate-200">
-          <span className="block text-[10px] uppercase text-slate-500">{t('admin_analytics.total_brands')}</span>
+          <span className="block text-[10px] uppercase text-brand-muted">{t('admin_analytics.total_brands')}</span>
           <span className="font-bold text-lg">{adminAnalytics.total_brands_count}</span>
         </div>
         <div className="p-4 rounded-2xl bg-white border border-slate-200">
-          <span className="block text-[10px] uppercase text-slate-500">{t('admin_analytics.tryon_adoption')}</span>
+          <span className="block text-[10px] uppercase text-brand-muted">{t('admin_analytics.tryon_adoption')}</span>
           <span className="font-bold text-lg text-brand-charcoal font-semibold">{pct(adminAnalytics.tryon_adoption_rate)}</span>
         </div>
         <div className="p-4 rounded-2xl bg-white border border-slate-200">
-          <span className="block text-[10px] uppercase text-slate-500">{t('admin_analytics.outfit_to_purchase')}</span>
-          <span className="font-bold text-lg text-emerald-600">{pct(adminAnalytics.stylist_conversion_ratio)}</span>
+          <span className="block text-[10px] uppercase text-brand-muted">{t('admin_analytics.outfit_to_purchase')}</span>
+          <span className="font-bold text-lg text-emerald-700">{pct(adminAnalytics.stylist_conversion_ratio)}</span>
         </div>
       </div>
     </div>

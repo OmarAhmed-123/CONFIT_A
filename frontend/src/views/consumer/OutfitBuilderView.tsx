@@ -142,7 +142,7 @@ const DraggableProduct: React.FC<{
           </span>
         </div>
         <div>
-          <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider block truncate">
+          <span className="text-[9px] font-bold text-brand-muted uppercase tracking-wider block truncate">
             {product.brand_name}
           </span>
           <span className="text-[11px] font-bold text-brand-charcoal line-clamp-1">{product.title}</span>
@@ -173,7 +173,7 @@ const DraggableProduct: React.FC<{
         aria-label={t(tryOnKind === 'render' ? 'tryon.cta_try_on' : 'tryon.cta_fit_check')}
         className={`absolute top-0.5 end-0.5 h-11 w-11 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed group/tryon ${FOCUS_RING}`}
       >
-        <span className="h-7 w-7 rounded-full bg-brand-charcoal/90 group-hover/tryon:bg-brand-charcoal text-white text-white group-hover/tryon:text-slate-950 shadow-sm backdrop-blur-sm motion-safe:transition-[background-color,color] motion-safe:duration-300 flex items-center justify-center">
+        <span className="h-7 w-7 rounded-full bg-brand-charcoal/90 group-hover/tryon:bg-brand-charcoal text-white text-white group-hover/tryon:text-white shadow-sm backdrop-blur-sm motion-safe:transition-[background-color,color] motion-safe:duration-300 flex items-center justify-center">
           {tryOnKind === 'render'
             ? <TryOnIcon size={13} color="currentColor" />
             : <RulerIcon size={13} color="currentColor" />}
@@ -217,7 +217,7 @@ const DroppableSlot: React.FC<{
             : 'border-dashed border-slate-300 bg-slate-50/50'
       }`}
     >
-      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block text-center">
+      <span className="text-[10px] font-bold text-brand-muted uppercase tracking-wider block text-center">
         {t(slot.labelKey)}
       </span>
 
@@ -246,14 +246,14 @@ const DroppableSlot: React.FC<{
             />
           </div>
           <div className="text-center mt-1">
-            <span className="text-[10px] text-slate-500 font-semibold block truncate">
+            <span className="text-[10px] text-brand-muted font-semibold block truncate">
               {item.product.brand_name}
             </span>
             <span className="text-xs font-bold text-brand-charcoal block truncate">
               {item.product.title}
             </span>
             {item.skuStatus === 'pending' && (
-              <span role="status" className="text-[10px] text-slate-500 font-medium block">
+              <span role="status" className="text-[10px] text-brand-muted font-medium block">
                 {t('outfit_builder.checking_size')}
               </span>
             )}
@@ -261,7 +261,7 @@ const DroppableSlot: React.FC<{
               <span className="text-[10px] text-rose-600 font-semibold block">{t('outfit_builder.no_size')}</span>
             )}
             {item.skuStatus === 'ready' && item.selectedSku && (
-              <span className="text-[10px] text-slate-500 font-medium block">
+              <span className="text-[10px] text-brand-muted font-medium block">
                 {t('outfit_builder.size_label', { size: item.selectedSku.size })}
               </span>
             )}
@@ -275,17 +275,17 @@ const DroppableSlot: React.FC<{
           </div>
         </>
       ) : (
-        <div className="flex flex-col items-center justify-center my-auto text-center p-2 text-slate-500">
+        <div className="flex flex-col items-center justify-center my-auto text-center p-2 text-brand-muted">
           <OutfitBuilderIcon size={22} color="#CBD5E1" />
-          <span className="text-[11px] font-light mt-1 text-slate-500">
+          <span className="text-[11px] font-light mt-1 text-brand-muted">
             {t('outfit_builder.drop_or_enter_hint')}
           </span>
           {onSuggest && (
-            <button data-motion="creative"
+            <button data-motion="creative" data-motion-tone="edge"
               type="button"
               onClick={() => onSuggest(slot.key)}
               aria-label={t('outfit_builder.suggest_for_slot', { slot: t(slot.labelKey) })}
-              className={`mt-2 inline-flex items-center gap-1.5 px-3 py-2 min-h-[44px] rounded-xl border border-brand-charcoal/50 text-[11px] font-bold text-brand-muted hover:bg-brand-charcoal text-white/10 motion-safe:transition-[background-color,transform] motion-safe:duration-300 ${LUX_EASE} ${FOCUS_RING}`}
+              className={`mt-2 inline-flex items-center gap-1.5 px-3 py-2 min-h-[44px] rounded-xl border border-brand-charcoal/50 text-[11px] font-bold text-brand-muted hover:bg-brand-charcoal hover:text-white motion-safe:transition-[background-color,transform] motion-safe:duration-300 ${LUX_EASE} ${FOCUS_RING}`}
             >
               <SparkleIcon size={12} color="#252729" />
               {t('outfit_builder.suggest_piece')}
@@ -320,7 +320,7 @@ const EditShareCard: React.FC<{ outfitId: number; title: string }> = ({ outfitId
   return (
     <div className={`${SURFACE} p-6 space-y-3`} data-testid="builder-share-card">
       <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-        <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+        <span className="text-xs font-bold uppercase tracking-wider text-brand-muted">
           {t('outfit_builder.share_look')}
         </span>
         {isLive && (
@@ -342,7 +342,7 @@ const EditShareCard: React.FC<{ outfitId: number; title: string }> = ({ outfitId
           />
           <ShareActions url={absolute} title={title} compact />
           {link?.expires_at && (
-            <p className="text-[10px] text-slate-500">
+            <p className="text-[10px] text-brand-muted">
               {t('my_looks.expiry_note', {
                 date: new Date(link.expires_at).toLocaleDateString(
                   i18n.resolvedLanguage === 'ar' ? 'ar-EG' : 'en-GB',
@@ -353,7 +353,7 @@ const EditShareCard: React.FC<{ outfitId: number; title: string }> = ({ outfitId
         </div>
       ) : (
         <div className="space-y-2">
-          <p className="text-[11px] text-slate-500 font-light">{t('my_looks.private_note')}</p>
+          <p className="text-[11px] text-brand-muted font-light">{t('my_looks.private_note')}</p>
           {/* Motion intent “share” — publishing a look is a hand-off, not a save. */}
           <ActionButton
             intent="share"
@@ -616,7 +616,7 @@ export const OutfitBuilderView: React.FC = () => {
               {t('outfit_builder.title')}
             </h1>
           </div>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1 font-light">
+          <p className="text-xs sm:text-sm text-brand-muted mt-1 font-light">
             {t('outfit_builder.subtitle')}
           </p>
         </div>
@@ -650,7 +650,7 @@ export const OutfitBuilderView: React.FC = () => {
             }}
             icon={<BookmarkIcon size={16} color="#FFFFFF" />}
             data-testid="save-look-cta"
-            className={`px-5 py-2 rounded-xl bg-brand-charcoal text-white hover:bg-black active:scale-[0.98] disabled:opacity-40 text-slate-950 font-bold text-xs shadow-sm motion-safe:transition-[background-color,transform,opacity] motion-safe:duration-300 ${LUX_EASE}`}
+            className={`px-5 py-2 rounded-xl bg-brand-charcoal text-white hover:bg-black active:scale-[0.98] disabled:opacity-40 font-bold text-xs shadow-sm motion-safe:transition-[background-color,transform,opacity] motion-safe:duration-300 ${LUX_EASE}`}
           />
         </div>
       </div>
@@ -665,7 +665,7 @@ export const OutfitBuilderView: React.FC = () => {
           <div>
             <span className="text-[10px] font-bold uppercase tracking-widest text-brand-muted">{t('outfit_builder.guided_mode')}</span>
             <h2 className="font-serif text-2xl font-bold text-brand-charcoal">{t('outfit_builder.replace_hint')}</h2>
-            <p className="mt-1 text-sm font-light text-slate-500">
+            <p className="mt-1 text-sm font-light text-brand-muted">
               {t('outfit_builder.guided_intro')}
             </p>
           </div>
@@ -798,7 +798,7 @@ export const OutfitBuilderView: React.FC = () => {
                           : t('outfit_builder.suggest_piece')}
                       </span>
                       {suggestions?.engine && (
-                        <span className="text-[10px] font-semibold text-slate-500 shrink-0 flex items-center gap-1">
+                        <span className="text-[10px] font-semibold text-brand-muted shrink-0 flex items-center gap-1">
                           <span aria-hidden="true">·</span>
                           <span>
                             {t(
@@ -814,7 +814,7 @@ export const OutfitBuilderView: React.FC = () => {
                       type="button"
                       onClick={dismissSuggestions}
                       aria-label={t('common.close')}
-                      className={`h-11 w-11 shrink-0 flex items-center justify-center text-slate-500 hover:text-brand-charcoal ${FOCUS_RING}`}
+                      className={`h-11 w-11 shrink-0 flex items-center justify-center text-brand-muted hover:text-brand-charcoal ${FOCUS_RING}`}
                     >
                       ✕
                     </button>
@@ -837,7 +837,7 @@ export const OutfitBuilderView: React.FC = () => {
                         {t('outfit_builder.suggestions_unavailable')}
                       </p>
                       {suggestions.unavailableReason && (
-                        <p className="text-[10px] text-slate-400" dir="ltr">
+                        <p className="text-[10px] text-brand-muted" dir="ltr">
                           {suggestions.unavailableReason}
                         </p>
                       )}
@@ -918,7 +918,7 @@ export const OutfitBuilderView: React.FC = () => {
                   </button>
                 </div>
               ) : products.length === 0 ? (
-                <p className="py-10 text-center text-sm font-light text-slate-500">
+                <p className="py-10 text-center text-sm font-light text-brand-muted">
                   {t('outfit_builder.palette_empty')}
                 </p>
               ) : (
@@ -946,7 +946,7 @@ export const OutfitBuilderView: React.FC = () => {
             {/* Live Budget Tracker Module */}
             <div className={`${SURFACE} p-6 space-y-4`}>
               <div className="flex justify-between items-center pb-3 border-b border-slate-100">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                <span className="text-xs font-bold uppercase tracking-wider text-brand-muted">
                   {t('outfit_builder.look_summary')}
                 </span>
                 <span
@@ -969,7 +969,7 @@ export const OutfitBuilderView: React.FC = () => {
                     {formattedTotal}
                   </span>
                 </div>
-                <div className="flex justify-between text-xs text-slate-500">
+                <div className="flex justify-between text-xs text-brand-muted">
                   <span>{t('outfit_builder.allocated_budget')}:</span>
                   <span data-testid="builder-budget-limit">{formattedBudget}</span>
                 </div>
@@ -979,7 +979,7 @@ export const OutfitBuilderView: React.FC = () => {
                     allocation; the over-budget badge owns the other case. */}
                 {!isOverBudget && selectedItems.length > 0 && displayCurrency && (
                   <div className="flex justify-between text-xs">
-                    <span className="text-slate-500">{t('outfit_builder.remaining_label')}:</span>
+                    <span className="text-brand-muted">{t('outfit_builder.remaining_label')}:</span>
                     <span data-testid="builder-budget-remaining" className="font-bold text-emerald-700">
                       {formatMoney(Math.round((userBudgetLimit - runningTotal) * 100), displayCurrency, lang)}
                     </span>
@@ -1032,7 +1032,7 @@ export const OutfitBuilderView: React.FC = () => {
                   it — stale verdicts displayed as current while the server was
                   still scoring. An honest in-flight indicator. */}
               {isEvaluating && (
-                <p role="status" className="text-[11px] font-medium text-slate-500">
+                <p role="status" className="text-[11px] font-medium text-brand-muted">
                   {t('outfit_builder.evaluating')}
                 </p>
               )}
@@ -1045,7 +1045,7 @@ export const OutfitBuilderView: React.FC = () => {
                   <span className="font-bold text-slate-700 block mb-0.5">
                     {t('outfit_builder.color_harmony')}:
                   </span>
-                  <p className="text-slate-500 leading-relaxed bg-brand-wash p-2.5 rounded-xl border border-slate-100 font-light">
+                  <p className="text-brand-muted leading-relaxed bg-brand-wash p-2.5 rounded-xl border border-slate-100 font-light">
                     {compatibility?.color_harmony_verdict ||
                       t(isAuthenticated ? 'outfit_builder.harmony_empty' : 'outfit_builder.sign_in_to_evaluate')}
                   </p>
@@ -1055,7 +1055,7 @@ export const OutfitBuilderView: React.FC = () => {
                   <span className="font-bold text-slate-700 block mb-0.5">
                     {t('outfit_builder.aesthetic_synergy')}:
                   </span>
-                  <p className="text-slate-500 leading-relaxed bg-brand-wash p-2.5 rounded-xl border border-slate-100 font-light">
+                  <p className="text-brand-muted leading-relaxed bg-brand-wash p-2.5 rounded-xl border border-slate-100 font-light">
                     {compatibility?.aesthetic_consistency_verdict ||
                       t(isAuthenticated ? 'outfit_builder.synergy_empty' : 'outfit_builder.sign_in_to_evaluate')}
                   </p>

@@ -307,7 +307,7 @@ export const AdminAuditView: React.FC = () => {
 
       <form
         onSubmit={apply}
-        className="grid gap-3 rounded-2xl border border-slate-800 bg-slate-900/60 p-4 sm:grid-cols-2 lg:grid-cols-4"
+        className="grid gap-3 rounded-2xl border border-slate-800 bg-slate-900 p-4 sm:grid-cols-2 lg:grid-cols-4"
         aria-label={t('admin_audit.filters_aria')}
       >
         <label className="space-y-1 text-[10px] uppercase tracking-wider text-slate-400">
@@ -471,7 +471,7 @@ export const AdminAuditView: React.FC = () => {
                   <td className="px-3 py-2 font-mono text-[11px] text-white">{row.action}</td>
                   <td className="px-3 py-2">
                     <div className="font-semibold">{row.actor}</div>
-                    <div className="text-[10px] text-slate-500">
+                    <div className="text-[10px] text-slate-400">
                       {row.actor_role ?? t('admin_audit.role_unknown')}
                     </div>
                   </td>
@@ -484,10 +484,10 @@ export const AdminAuditView: React.FC = () => {
                   <td className="px-3 py-2 font-mono text-[10px] text-slate-300">
                     {row.changed_fields.length ? row.changed_fields.join(', ') : '—'}
                   </td>
-                  <td className="px-3 py-2 font-mono text-[10px] text-slate-500">
+                  <td className="px-3 py-2 font-mono text-[10px] text-slate-400">
                     {row.request_id ? row.request_id.slice(0, 12) : '—'}
                   </td>
-                  <td className="px-3 py-2 font-mono text-[10px] text-slate-500">
+                  <td className="px-3 py-2 font-mono text-[10px] text-slate-400">
                     {row.ip_address ?? '—'}
                   </td>
                 </tr>
@@ -496,13 +496,13 @@ export const AdminAuditView: React.FC = () => {
                     <td colSpan={columns.length} className="space-y-2 bg-slate-900 px-3 py-3">
                       <div className="grid gap-3 sm:grid-cols-2">
                         <div>
-                          <div className="mb-1 text-[10px] uppercase tracking-wider text-slate-500">
+                          <div className="mb-1 text-[10px] uppercase tracking-wider text-slate-400">
                             {t('admin_audit.before')}
                           </div>
                           <Json value={row.before} label="before" />
                         </div>
                         <div>
-                          <div className="mb-1 text-[10px] uppercase tracking-wider text-slate-500">
+                          <div className="mb-1 text-[10px] uppercase tracking-wider text-slate-400">
                             {t('admin_audit.after')}
                           </div>
                           <Json value={row.after} label="after" />
@@ -510,7 +510,7 @@ export const AdminAuditView: React.FC = () => {
                       </div>
                       {row.details && (
                         <div>
-                          <div className="mb-1 text-[10px] uppercase tracking-wider text-slate-500">
+                          <div className="mb-1 text-[10px] uppercase tracking-wider text-slate-400">
                             {t('admin_audit.details')}
                           </div>
                           <p className="rounded-xl bg-slate-950/60 p-2 text-[11px] text-slate-300">
@@ -518,7 +518,7 @@ export const AdminAuditView: React.FC = () => {
                           </p>
                         </div>
                       )}
-                      <div className="font-mono text-[10px] text-slate-500">
+                      <div className="font-mono text-[10px] text-slate-400">
                         {t('admin_audit.row_meta', {
                           id: row.id,
                           request: row.request_id ?? t('admin_audit.not_available'),
@@ -534,7 +534,7 @@ export const AdminAuditView: React.FC = () => {
         </table>
 
         {items.length === 0 && (
-          <div className="p-8 text-center text-xs text-slate-500">{t('admin_audit.empty')}</div>
+          <div className="p-8 text-center text-xs text-slate-400">{t('admin_audit.empty')}</div>
         )}
       </div>
 

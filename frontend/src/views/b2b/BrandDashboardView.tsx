@@ -190,7 +190,7 @@ export const BrandDashboardView: React.FC = () => {
               <span className="block text-[11px] font-bold uppercase tracking-widest text-slate-600">
                 {t('b2b.dash.methodology')}
               </span>
-              <p className="mt-1.5 text-[11px] leading-relaxed text-slate-500">
+              <p className="mt-1.5 text-[11px] leading-relaxed text-brand-muted">
                 {analytics.methodology}
               </p>
             </div>
@@ -204,7 +204,7 @@ export const BrandDashboardView: React.FC = () => {
             </button>
           </div>
           {stamp && (
-            <p className="mt-3 border-t border-slate-200 pt-2 text-[11px] text-slate-500">
+            <p className="mt-3 border-t border-slate-200 pt-2 text-[11px] text-brand-muted">
               {t('b2b.dash.updated', { time: stamp })}
             </p>
           )}
@@ -220,7 +220,7 @@ export const BrandDashboardView: React.FC = () => {
           <span className="block font-serif text-2xl font-black text-brand-charcoal">
             {analytics.total_views.toLocaleString(i18n.language)}
           </span>
-          <span className="block text-[11px] text-slate-500">{t('b2b.dash.kpi_views_note')}</span>
+          <span className="block text-[11px] text-brand-muted">{t('b2b.dash.kpi_views_note')}</span>
           {!hasData && (
             <span className="block rounded-lg bg-amber-50 px-2 py-1 text-[11px] font-medium text-amber-700">
               {t('b2b.dash.kpi_views_empty')}
@@ -234,7 +234,7 @@ export const BrandDashboardView: React.FC = () => {
           <span className="block font-serif text-2xl font-black text-brand-charcoal">
             {analytics.total_tryons.toLocaleString(i18n.language)}
           </span>
-          <span className="block text-[11px] text-slate-500">
+          <span className="block text-[11px] text-brand-muted">
             {sessionsPerView != null
               ? t('b2b.dash.kpi_tryons_note', { rate: sessionsPerView })
               : t('b2b.dash.kpi_tryons_note_plain')}
@@ -247,7 +247,7 @@ export const BrandDashboardView: React.FC = () => {
           <span className="block font-serif text-2xl font-black text-brand-charcoal">
             {analytics.funnel_conversion_rate == null ? 'N/A' : `${analytics.funnel_conversion_rate}%`}
           </span>
-          <span className="block text-[11px] text-slate-500">
+          <span className="block text-[11px] text-brand-muted">
             {analytics.funnel_conversion_rate == null
               ? t('b2b.dash.kpi_ratio_na')
               : t('b2b.dash.kpi_ratio_note')}
@@ -268,7 +268,7 @@ export const BrandDashboardView: React.FC = () => {
           >
             {percent(analytics.return_rate_after_vton)}
           </span>
-          <span className="block text-[11px] text-slate-500">
+          <span className="block text-[11px] text-brand-muted">
             {t('b2b.dash.kpi_return_note', { rate: percent(analytics.return_rate_before_vton) })}
           </span>
         </div>
@@ -282,7 +282,7 @@ export const BrandDashboardView: React.FC = () => {
               <h2 className="font-serif text-lg font-bold text-brand-charcoal">
                 {t('b2b.dash.cohort_title')}
               </h2>
-              <p className="mt-0.5 text-[11px] text-slate-500">{t('b2b.dash.cohort_hint')}</p>
+              <p className="mt-0.5 text-[11px] text-brand-muted">{t('b2b.dash.cohort_hint')}</p>
             </div>
             <span className="rounded-full bg-emerald-800 px-3 py-1 text-[11px] font-bold text-white">
               {t('b2b.dash.cohort_diff', { rate: percent(analytics.return_reduction_percentage) })}
@@ -315,14 +315,14 @@ export const BrandDashboardView: React.FC = () => {
               </strong>{' '}
               {analytics.return_cohorts?.methodology}
             </p>
-            <p className="text-slate-500">
+            <p className="text-brand-muted">
               {t('b2b.dash.spend_line', {
                 spend: `$${analytics.ad_spend_total}`,
                 revenue: `$${analytics.ad_revenue_total}`,
                 bopis: percent(analytics.bopis_store_fulfillment_rate),
               })}
             </p>
-            <p className="text-slate-500">{t('b2b.dash.source_note')}</p>
+            <p className="text-brand-muted">{t('b2b.dash.source_note')}</p>
           </div>
         </Surface>
 
@@ -331,13 +331,13 @@ export const BrandDashboardView: React.FC = () => {
             <h2 className="font-serif text-lg font-bold text-brand-charcoal">
               {t('b2b.dash.styled_title')}
             </h2>
-            <p className="mt-0.5 text-[11px] text-slate-500">{t('b2b.ranked_by_appearances')}</p>
+            <p className="mt-0.5 text-[11px] text-brand-muted">{t('b2b.ranked_by_appearances')}</p>
           </div>
 
           {analytics.outfit_appearance_rankings.length === 0 ? (
             <div className="space-y-1.5 py-8 text-center">
               <p className="text-xs font-semibold text-slate-600">{t('b2b.dash.styled_empty')}</p>
-              <p className="mx-auto max-w-xs text-[11px] leading-relaxed text-slate-500">
+              <p className="mx-auto max-w-xs text-[11px] leading-relaxed text-brand-muted">
                 {t('b2b.dash.styled_empty_note')}
               </p>
             </div>
@@ -359,10 +359,10 @@ export const BrandDashboardView: React.FC = () => {
                     <span className="block truncate text-xs font-bold text-brand-charcoal">
                       {rank.product_title}
                     </span>
-                    <span className="block text-[11px] text-slate-500">
+                    <span className="block text-[11px] text-brand-muted">
                       {t('b2b.dash.styled_note', { count: rank.outfit_appearances })}
                     </span>
-                    <span className="block text-[11px] text-slate-500">
+                    <span className="block text-[11px] text-brand-muted">
                       {t('b2b.dash.styled_rates', {
                         cart: rank.add_to_cart_rate,
                         purchase: rank.purchase_rate,
@@ -371,7 +371,7 @@ export const BrandDashboardView: React.FC = () => {
                   </span>
                   <span className="text-end text-[11px]">
                     <span className="block font-bold text-emerald-700">{rank.purchase_rate}%</span>
-                    <span className="block text-slate-500">{t('b2b.dash.conversion')}</span>
+                    <span className="block text-brand-muted">{t('b2b.dash.conversion')}</span>
                   </span>
                 </li>
               ))}

@@ -317,7 +317,7 @@ export const FitFinderView: React.FC = () => {
   ) => (
     <div>
       <label htmlFor={`fit-${key}`} className="text-xs font-bold text-slate-800 block mb-1">
-        {label} <span className="text-slate-500 font-light">{t('fit_finder.optional_suffix')}</span>
+        {label} <span className="text-brand-muted font-light">{t('fit_finder.optional_suffix')}</span>
       </label>
       <div className="flex items-center gap-2">
         <input
@@ -332,7 +332,7 @@ export const FitFinderView: React.FC = () => {
           onChange={(e) => set(key, e.target.value === '' ? null : Number(e.target.value))}
           className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-brand-charcoal focus:ring-1 focus:ring-brand-charcoal"
         />
-        <span className="text-[10px] text-slate-500 font-semibold w-6">{unitLabel}</span>
+        <span className="text-[10px] text-brand-muted font-semibold w-6">{unitLabel}</span>
       </div>
       {validationErrors[key] && (
         <p id={`fit-${key}-error`} className="text-[10px] text-rose-600 mt-1" role="alert">
@@ -359,13 +359,17 @@ export const FitFinderView: React.FC = () => {
           <p className="text-xs sm:text-sm text-slate-300 font-light leading-relaxed">
             {t('fit_finder.lede')}
           </p>
-          <p className="text-[11px] text-slate-500">
+          {/* Both colours below sit on the charcoal hero. They were inherited
+              from the light surfaces (slate-500 body text, charcoal link) and
+              measured 1.00:1 and 2.23:1 — the link was invisible. The hero is
+              dark, so its own copy has to be light. */}
+          <p className="text-[11px] text-slate-300">
             {t('fit_finder.photo_studio_q')}{' '}
             <button data-motion="creative"
               onClick={() => navigate('/tryon-studio')}
-              className="text-brand-charcoal font-semibold hover:underline inline-flex items-center gap-1"
+              className="inline-flex min-h-6 items-center gap-1 font-semibold text-white underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-brand-charcoal"
             >
-              {t('fit_finder.open_tryon')} <TryOnIcon size={12} color="#252729" />
+              {t('fit_finder.open_tryon')} <TryOnIcon size={12} color="#FFFFFF" />
             </button>
           </p>
         </div>
@@ -409,7 +413,7 @@ export const FitFinderView: React.FC = () => {
               </select>
             )}
             {selectedProduct && (
-              <p className="text-[11px] text-slate-500 font-light">
+              <p className="text-[11px] text-brand-muted font-light">
                 Sizing is computed against{' '}
                 <span className="font-semibold text-slate-700">{selectedProduct.brand_name}</span>'s
                 own chart when they publish one — the result below states which chart was used.
@@ -462,7 +466,7 @@ export const FitFinderView: React.FC = () => {
                     onChange={(e) => set('height', Number(e.target.value))}
                     className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-brand-charcoal focus:ring-1 focus:ring-brand-charcoal"
                   />
-                  <span className="text-[10px] text-slate-500 font-semibold w-6">{unitLabel}</span>
+                  <span className="text-[10px] text-brand-muted font-semibold w-6">{unitLabel}</span>
                 </div>
                 {validationErrors.height && (
                   <p id="fit-height-error" className="text-[10px] text-rose-600 mt-1" role="alert">
@@ -488,7 +492,7 @@ export const FitFinderView: React.FC = () => {
                     onChange={(e) => set('weight', Number(e.target.value))}
                     className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-brand-charcoal focus:ring-1 focus:ring-brand-charcoal"
                   />
-                  <span className="text-[10px] text-slate-500 font-semibold w-6">{weightLabel}</span>
+                  <span className="text-[10px] text-brand-muted font-semibold w-6">{weightLabel}</span>
                 </div>
                 {validationErrors.weight && (
                   <p id="fit-weight-error" className="text-[10px] text-rose-600 mt-1" role="alert">
@@ -589,7 +593,7 @@ export const FitFinderView: React.FC = () => {
               <RulerIcon size={16} color="#252729" />
               <span>{calcLoading ? t('fit_finder.computing') : t('fit_finder.calculate')}</span>
             </button>
-            <p className="text-[10px] text-slate-500 text-center font-light">
+            <p className="text-[10px] text-brand-muted text-center font-light">
               {t('fit_finder.privacy_line')}
             </p>
           </div>
@@ -602,7 +606,7 @@ export const FitFinderView: React.FC = () => {
               <div className="h-8 w-32 rounded-lg bg-slate-100 animate-pulse" />
               <div className="h-4 w-full rounded bg-slate-100 animate-pulse" />
               <div className="h-4 w-5/6 rounded bg-slate-100 animate-pulse" />
-              <p className="text-[11px] text-slate-500">{t('fit_finder.comparing')}</p>
+              <p className="text-[11px] text-brand-muted">{t('fit_finder.comparing')}</p>
             </div>
           )}
 
@@ -623,7 +627,7 @@ export const FitFinderView: React.FC = () => {
             <div className="bg-brand-wash rounded-3xl border border-dashed border-slate-300 p-6 text-center space-y-2">
               <RulerIcon size={26} color="#94A3B8" />
               <h3 className="font-serif text-base font-bold text-slate-700">{t('fit_finder.recommendation_placeholder')}</h3>
-              <p className="text-[11px] text-slate-500 font-light leading-relaxed">
+              <p className="text-[11px] text-brand-muted font-light leading-relaxed">
                 {t('fit_finder.placeholder_body')}
               </p>
             </div>
@@ -668,13 +672,13 @@ export const FitFinderView: React.FC = () => {
             <Surface variant="raised" reveal className="rounded-3xl border-2 border-brand-charcoal/50 p-6 space-y-4" aria-live="polite">
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-brand-muted">
                     {t('fit_finder.rec_size')}
                   </p>
                   <p className="font-serif text-5xl font-black text-brand-charcoal leading-tight">
                     {result.recommended_size}
                   </p>
-                  <p className="text-[11px] text-slate-500 font-light">
+                  <p className="text-[11px] text-brand-muted font-light">
                     {t('fit_finder.rec_for', { brand: selectedProduct?.brand_name, title: selectedProduct?.title })}
                   </p>
                 </div>
@@ -682,7 +686,7 @@ export const FitFinderView: React.FC = () => {
                     internal evidence tally, not a calibrated probability, so it
                     is NOT rendered as a percentage here. */}
                 <div className="text-right shrink-0">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-brand-muted">
                     {t('fit_finder.confidence')}
                   </p>
                   <p
@@ -696,14 +700,14 @@ export const FitFinderView: React.FC = () => {
                   >
                     {result.confidence_band ? t(`fit_finder.band_${result.confidence_band}`, result.confidence_band) : t('fit_finder.band_unrated')}
                   </p>
-                  <p className="text-[10px] text-slate-500">{result.fit_verdict}</p>
+                  <p className="text-[10px] text-brand-muted">{result.fit_verdict}</p>
                 </div>
               </div>
 
               {result.confidence_band_reason && (
                 <p className="text-[11px] text-slate-600 leading-relaxed bg-brand-wash border border-slate-100 rounded-2xl px-3 py-2">
                   {result.confidence_band_reason}{' '}
-                  <span className="text-slate-400">{t('fit_finder.band_rule_note')}</span>
+                  <span className="text-brand-muted">{t('fit_finder.band_rule_note')}</span>
                 </p>
               )}
 
@@ -726,11 +730,11 @@ export const FitFinderView: React.FC = () => {
               {/* Provenance — which chart, whose, how fresh */}
               {chartSource && (
                 <div className="bg-brand-wash rounded-2xl p-3 border border-slate-100">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-brand-muted">
                     {t('fit_finder.chart_used')}
                   </p>
                   <p className="text-xs text-slate-700 font-semibold mt-1">{chartSource.label}</p>
-                  <p className="text-[10px] text-slate-500 mt-0.5">
+                  <p className="text-[10px] text-brand-muted mt-0.5">
                     {chartSource.is_brand_published
                       ? chartSource.updated_at
                         ? t('fit_finder.chart_brand_dated', { date: chartSource.updated_at })
@@ -740,14 +744,14 @@ export const FitFinderView: React.FC = () => {
                         : t('fit_finder.chart_public_nostd')}
                   </p>
                   {chartSource.notes?.map((note) => (
-                    <p key={note} className="text-[10px] text-slate-500 mt-1">{note}</p>
+                    <p key={note} className="text-[10px] text-brand-muted mt-1">{note}</p>
                   ))}
                 </div>
               )}
 
               {/* Why this size — per-section evidence */}
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-brand-muted mb-2">
                   {t('fit_finder.why_size')}
                 </p>
                 <ul className="space-y-1.5">
@@ -771,7 +775,7 @@ export const FitFinderView: React.FC = () => {
                       {t('fit_finder.table_caption')}
                     </caption>
                     <thead>
-                      <tr className="text-slate-500 uppercase tracking-wider text-[9px]">
+                      <tr className="text-brand-muted uppercase tracking-wider text-[9px]">
                         <th scope="col" className="text-start py-1">{t('fit_finder.th_size')}</th>
                         <th scope="col" className="text-start py-1">{t('fit_finder.th_chest')}</th>
                         <th scope="col" className="text-start py-1">{t('fit_finder.th_waist')}</th>
@@ -811,20 +815,20 @@ export const FitFinderView: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="bg-brand-wash rounded-2xl p-3 border border-slate-100">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{t('fit_finder.brand_tendency')}</p>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-brand-muted">{t('fit_finder.brand_tendency')}</p>
                   <p className="text-xs text-slate-700 font-semibold mt-1">
                     {result.brand_sizing_tendency?.summary}
                   </p>
                   {result.brand_sizing_tendency?.return_rate_signal && (
-                    <p className="text-[10px] text-slate-500 mt-1">
+                    <p className="text-[10px] text-brand-muted mt-1">
                       {result.brand_sizing_tendency.return_rate_signal}
                     </p>
                   )}
                 </div>
                 <div className="bg-brand-wash rounded-2xl p-3 border border-slate-100">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{t('fit_finder.return_risk')}</p>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-brand-muted">{t('fit_finder.return_risk')}</p>
                   <p className="text-xs text-slate-700 font-semibold mt-1">{result.return_risk?.label}</p>
-                  <p className="text-[10px] text-slate-500 mt-1">{result.return_risk?.basis}</p>
+                  <p className="text-[10px] text-brand-muted mt-1">{result.return_risk?.basis}</p>
                 </div>
               </div>
 
@@ -839,7 +843,7 @@ export const FitFinderView: React.FC = () => {
                       <li key={i} className="text-[10px] text-slate-600 font-mono">{factor}</li>
                     ))}
                   </ul>
-                  <p className="text-[10px] text-slate-500 mt-2">
+                  <p className="text-[10px] text-brand-muted mt-2">
                     {t('fit_finder.engine_note', { version: result.engine_version })}
                   </p>
                 </details>
@@ -848,7 +852,7 @@ export const FitFinderView: React.FC = () => {
               {result.notes?.length > 0 && (
                 <ul className="space-y-1">
                   {result.notes.map((note, i) => (
-                    <li key={i} className="text-[10px] text-slate-500 leading-relaxed">• {note}</li>
+                    <li key={i} className="text-[10px] text-brand-muted leading-relaxed">• {note}</li>
                   ))}
                 </ul>
               )}
@@ -885,7 +889,7 @@ export const FitFinderView: React.FC = () => {
                     </button>
                   </>
                 ) : (
-                  <p className="text-[10px] text-slate-500 text-center">
+                  <p className="text-[10px] text-brand-muted text-center">
                     <Link to="/" onClick={() => useUIStore.getState().openAuthModal('login')} className="text-brand-charcoal font-bold hover:underline">
                       {t('auth.sign_in')}
                     </Link>{' '}

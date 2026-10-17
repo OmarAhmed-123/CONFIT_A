@@ -85,7 +85,7 @@ export const NotFoundView: React.FC = () => {
           </Link>
         </div>
 
-        <button data-motion="neutral"
+        <button data-motion="neutral" data-motion-tone="edge"
           type="button"
           onClick={() => navigate(-1)}
           className="mx-auto mt-5 inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl px-4 text-xs font-bold text-brand-muted hover:text-brand-charcoal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal"

@@ -93,7 +93,7 @@ export const ConsentManager: React.FC = () => {
         </>
       )}
 
-      <p className="text-[11px] text-slate-400">{t('consent.manage_scope_note')}</p>
+      <p className="text-[11px] text-brand-muted">{t('consent.manage_scope_note')}</p>
     </section>
   );
 };

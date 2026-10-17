@@ -505,7 +505,7 @@ integrityNote = t('profile.exported_integrity', {
       {!isAuthenticated && (
         <div className="bg-brand-wash border border-brand-hairline rounded-3xl p-6 shadow-2xs flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div className="flex items-center gap-3.5">
-            <div className="w-12 h-12 rounded-2xl bg-brand-charcoal text-brand-charcoal flex items-center justify-center font-bold text-lg shadow-2xs shrink-0">
+            <div className="w-12 h-12 rounded-2xl bg-brand-charcoal text-white flex items-center justify-center font-bold text-lg shadow-2xs shrink-0">
               <UserIcon size={22} color="#252729" />
             </div>
             <div>
@@ -517,7 +517,7 @@ integrityNote = t('profile.exported_integrity', {
                   {t('profile.guest_badge')}
                 </span>
               </div>
-              <p className="text-xs text-slate-500 font-light mt-0.5">
+              <p className="text-xs text-brand-muted font-light mt-0.5">
                 {t('profile.guest_body')}
               </p>
             </div>
@@ -532,7 +532,7 @@ integrityNote = t('profile.exported_integrity', {
             </button>
             <button data-motion="auth"
               onClick={() => openAuthModal('register')}
-              className="flex-1 sm:flex-initial px-5 py-2.5 rounded-xl bg-brand-wash hover:bg-brand-charcoal text-white text-brand-charcoal hover:text-white border border-brand-hairline text-xs font-semibold shadow-2xs transition-all"
+              className="flex-1 sm:flex-initial px-5 py-2.5 rounded-xl bg-brand-wash hover:bg-brand-charcoal text-brand-charcoal hover:text-white border border-brand-hairline text-xs font-semibold shadow-2xs transition-all"
             >
               {t('common.create_account')}
             </button>
@@ -557,7 +557,7 @@ integrityNote = t('profile.exported_integrity', {
                 </span>
               )}
             </div>
-            <p className="text-xs text-slate-500 font-light mt-0.5">{user?.email || t('profile.anonymous_session')}</p>
+            <p className="text-xs text-brand-muted font-light mt-0.5">{user?.email || t('profile.anonymous_session')}</p>
           </div>
         </div>
 
@@ -566,7 +566,7 @@ integrityNote = t('profile.exported_integrity', {
             setIsQuizOpen(true);
             setQuizStep(1);
           }}
-          className="px-5 py-2.5 rounded-2xl bg-brand-charcoal text-white hover:bg-black text-slate-950 font-bold text-xs shadow-2xs transition-all flex items-center gap-1.5"
+          className="px-5 py-2.5 rounded-2xl bg-brand-charcoal text-white hover:bg-black font-bold text-xs shadow-2xs transition-all flex items-center gap-1.5"
         >
           <SparkleIcon size={14} color="#FFFFFF" />
           <span>{t('profile.retake_quiz')}</span>
@@ -584,7 +584,7 @@ integrityNote = t('profile.exported_integrity', {
             </div>
 
             <div>
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">
+              <span className="text-[10px] font-bold text-brand-muted uppercase tracking-wider block mb-1.5">
                 {t('profile.primary_aesthetics')}
               </span>
               <div className="flex flex-wrap gap-1.5">
@@ -597,7 +597,7 @@ integrityNote = t('profile.exported_integrity', {
             </div>
 
             <div>
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">
+              <span className="text-[10px] font-bold text-brand-muted uppercase tracking-wider block mb-1.5">
                 {t('profile.preferred_colors')}
               </span>
               <div className="flex flex-wrap gap-1.5">
@@ -610,7 +610,7 @@ integrityNote = t('profile.exported_integrity', {
             </div>
 
             <div>
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">
+              <span className="text-[10px] font-bold text-brand-muted uppercase tracking-wider block mb-1.5">
                 {t('profile.budget_constraints')}
               </span>
               <div className="text-xs text-slate-700 font-light">
@@ -638,7 +638,7 @@ integrityNote = t('profile.exported_integrity', {
 
             <div className="grid grid-cols-2 gap-3 text-xs">
               <div className="p-3 rounded-2xl bg-brand-wash border border-slate-100">
-                <span className="text-slate-400 block text-[10px]">{t('profile.height_weight')}</span>
+                <span className="text-brand-muted block text-[10px]">{t('profile.height_weight')}</span>
                 <span className="font-bold text-slate-900">
                   {usp.body_attributes?.height_cm
                     ? `${formatNumber(usp.body_attributes.height_cm, lang)} ${t('profile.unit_cm')}`
@@ -650,7 +650,7 @@ integrityNote = t('profile.exported_integrity', {
                 </span>
               </div>
               <div className="p-3 rounded-2xl bg-brand-wash border border-slate-100">
-                <span className="text-slate-400 block text-[10px]">{t('profile.silhouette')}</span>
+                <span className="text-brand-muted block text-[10px]">{t('profile.silhouette')}</span>
                   {usp.body_shape_tag
                     ? labelKeyFor('shapes', usp.body_shape_tag)
                       ? t(labelKeyFor('shapes', usp.body_shape_tag)!)
@@ -658,11 +658,11 @@ integrityNote = t('profile.exported_integrity', {
                     : t('profile.not_set')}
               </div>
               <div className="p-3 rounded-2xl bg-brand-wash border border-slate-100">
-                <span className="text-slate-400 block text-[10px]">{t('profile.tops_bottoms')}</span>
+                <span className="text-brand-muted block text-[10px]">{t('profile.tops_bottoms')}</span>
                 <span className="font-bold text-slate-900">{usp.size_tops} / {usp.size_bottoms}</span>
               </div>
               <div className="p-3 rounded-2xl bg-brand-wash border border-slate-100">
-                <span className="text-slate-400 block text-[10px]">{t('profile.fit_preference')}</span>
+                <span className="text-brand-muted block text-[10px]">{t('profile.fit_preference')}</span>
                   {usp.fit_preference
                     ? labelKeyFor('fits', usp.fit_preference)
                       ? t(labelKeyFor('fits', usp.fit_preference)!)
@@ -671,14 +671,14 @@ integrityNote = t('profile.exported_integrity', {
               </div>
             </div>
 
-            <p className="text-[10px] text-slate-400 font-light leading-relaxed">
+            <p className="text-[10px] text-brand-muted font-light leading-relaxed">
               {t('profile.privacy_note')}
             </p>
 
             {usp.body_attributes && (
               <button data-motion="destructive"
                 onClick={handleDeleteBodyAttributes}
-                className="text-[11px] font-semibold text-rose-600 hover:text-rose-700 hover:underline"
+                className="inline-flex min-h-6 items-center text-[11px] font-semibold text-rose-700 hover:text-rose-800 hover:underline"
               >
                 {t('profile.delete_my_measurements')}
               </button>
@@ -700,7 +700,7 @@ integrityNote = t('profile.exported_integrity', {
               <div className="text-xs font-bold text-slate-900">
                 MFA is {mfaEnabled ? t('profile.mfa_is_enabled') : t('profile.mfa_is_disabled')}
               </div>
-              <div className="text-[11px] text-slate-500 font-light">
+              <div className="text-[11px] text-brand-muted font-light">
                 {mfaEnabled
                   ? t('profile.mfa_enrolled_body')
                   : t('profile.mfa_intro_body')}
@@ -736,7 +736,7 @@ integrityNote = t('profile.exported_integrity', {
                 <button data-motion="auth"
                   onClick={verifyMfaEnrollment}
                   disabled={mfaBusy || mfaCode.trim().length < 6}
-                  className="px-4 py-2 rounded-xl bg-brand-charcoal text-white hover:bg-black text-slate-950 text-xs font-bold disabled:opacity-50"
+                  className="px-4 py-2 rounded-xl bg-brand-charcoal text-white hover:bg-black text-xs font-bold disabled:opacity-50"
                 >
                   {t('profile.mfa_verify_enable')}
                 </button>
@@ -875,7 +875,7 @@ integrityNote = t('profile.exported_integrity', {
           <div className="flex items-center justify-between gap-3">
             <div>
               <div className="text-xs font-bold text-slate-900">{t('profile.password_label')}</div>
-              <div className="text-[11px] text-slate-500 font-light">
+              <div className="text-[11px] text-brand-muted font-light">
                 {t('profile.password_intro')}
               </div>
             </div>
@@ -938,7 +938,7 @@ integrityNote = t('profile.exported_integrity', {
                   !pwConfirm ||
                   (mfaEnabled && pwMfa.trim().length < 6)
                 }
-                className="px-4 py-2 rounded-xl bg-brand-charcoal text-white hover:bg-black text-slate-950 text-xs font-bold disabled:opacity-50"
+                className="px-4 py-2 rounded-xl bg-brand-charcoal text-white hover:bg-black text-xs font-bold disabled:opacity-50"
               >
                 {t('profile.update_password')}
               </button>
@@ -961,7 +961,7 @@ integrityNote = t('profile.exported_integrity', {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pt-1">
           <div>
             <div className="text-xs font-bold text-slate-900">{t('profile.export_title')}</div>
-            <div className="text-[11px] text-slate-500 font-light">{t('profile.export_body')}</div>
+            <div className="text-[11px] text-brand-muted font-light">{t('profile.export_body')}</div>
           </div>
           <button data-motion="download"
             onClick={handleGdprExport}
@@ -976,7 +976,7 @@ integrityNote = t('profile.exported_integrity', {
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
               <div>
                 <div className="text-xs font-bold text-rose-600">{t('profile.delete_section_title')}</div>
-                <div className="text-[11px] text-slate-500 font-light">{t('profile.delete_body')}</div>
+                <div className="text-[11px] text-brand-muted font-light">{t('profile.delete_body')}</div>
               </div>
               <button data-motion="neutral" data-motion-tone="icon"
                 onClick={() => setDeletePanelOpen((v) => !v)}
@@ -1094,7 +1094,7 @@ integrityNote = t('profile.exported_integrity', {
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <h4 className="text-sm font-bold text-slate-900">{t('profile.q_body_title')}</h4>
-                      <p className="text-[10px] text-slate-500 mt-0.5">
+                      <p className="text-[10px] text-brand-muted mt-0.5">
                         {t('profile.q_body_body')}
                       </p>
                     </div>
@@ -1224,7 +1224,7 @@ integrityNote = t('profile.exported_integrity', {
                   </div>
 
                   <div className="pt-2 border-t border-slate-100">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">
+                    <span className="text-[10px] font-bold text-brand-muted uppercase tracking-wider block mb-2">
                       {t('profile.week_split')}
                     </span>
                     <div className="grid grid-cols-2 gap-2">
@@ -1249,7 +1249,7 @@ integrityNote = t('profile.exported_integrity', {
 
               {quizStep === 2 && (
                 <div className="pt-4 border-t border-slate-100 space-y-2">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  <span className="text-[10px] font-bold text-brand-muted uppercase tracking-wider block">
                     {t('profile.avoid_colors')}
                   </span>
                   <div className="grid grid-cols-3 gap-2">
@@ -1261,7 +1261,7 @@ integrityNote = t('profile.exported_integrity', {
                       </button>
                     ))}
                   </div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block pt-2">
+                  <span className="text-[10px] font-bold text-brand-muted uppercase tracking-wider block pt-2">
                     {t('profile.fashion_aesthetics')}
                   </span>
                   <div className="flex flex-wrap gap-2">
@@ -1280,7 +1280,7 @@ integrityNote = t('profile.exported_integrity', {
                 <div className="space-y-4">
                   <h4 className="text-sm font-bold text-slate-900">{t('profile.brands_privacy')}</h4>
                   <div>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">{t('profile.preferred_brands')}</span>
+                    <span className="text-[10px] font-bold text-brand-muted uppercase tracking-wider block mb-2">{t('profile.preferred_brands')}</span>
                     <div className="flex flex-wrap gap-2">
                       {PROFILE_OPTIONS.preferredBrands.map(b => (
                         <button data-motion="filter" data-motion-tone="icon" key={b} type="button"
@@ -1292,7 +1292,7 @@ integrityNote = t('profile.exported_integrity', {
                     </div>
                   </div>
                   <div>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">{t('profile.blacklist')}</span>
+                    <span className="text-[10px] font-bold text-brand-muted uppercase tracking-wider block mb-2">{t('profile.blacklist')}</span>
                     <div className="flex flex-wrap gap-2">
                       {PROFILE_OPTIONS.blacklist.map(b => (
                         <button data-motion="filter" data-motion-tone="icon" key={b.value} type="button"
@@ -1338,7 +1338,7 @@ integrityNote = t('profile.exported_integrity', {
               ) : (
                 <button data-motion="progressive"
                   onClick={handleSaveQuiz}
-                  className="px-5 py-2 rounded-xl bg-brand-charcoal text-white text-slate-950 font-bold text-xs"
+                  className="px-5 py-2 rounded-xl bg-brand-charcoal text-white font-bold text-xs"
                 >
                   {t('profile.finish_save')}
                 </button>

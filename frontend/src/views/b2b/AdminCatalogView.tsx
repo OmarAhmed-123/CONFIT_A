@@ -142,7 +142,7 @@ const StockEditor: React.FC<{
     <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 sm:grid-cols-[1fr_8rem_9rem_auto] sm:items-end">
       <div className="min-w-0">
         <div className="truncate font-mono text-xs font-bold text-slate-800">{sku.sku_code}</div>
-        <div className="mt-1 text-xs text-slate-500">{sku.size} · {sku.color}</div>
+        <div className="mt-1 text-xs text-brand-muted">{sku.size} · {sku.color}</div>
       </div>
       <label className="text-xs font-semibold text-slate-700">
         {t('admin_catalog.stock')}
@@ -386,9 +386,9 @@ export const AdminCatalogView: React.FC = () => {
     <div className="space-y-7 pb-20">
       {/* Reveal = spec-09 entrance; reduced-motion renders the identical
           static element (§7). */}
-      <Reveal as="section" className="overflow-hidden rounded-3xl bg-[#10152C] p-6 text-white shadow-xl sm:p-8">
+      <Reveal as="section" className="overflow-hidden rounded-3xl bg-brand-charcoal p-6 text-white shadow-xl sm:p-8">
         <div className="max-w-3xl">
-          <p className="text-xs font-bold uppercase tracking-[0.2em] text-brand-muted">{t('admin_catalog.eyebrow')}</p>
+          <p className="text-xs font-bold uppercase tracking-[0.2em] text-neutral-300">{t('admin_catalog.eyebrow')}</p>
           <h1 className="mt-2 font-serif text-3xl font-black sm:text-4xl">{t('admin_catalog.title')}</h1>
           <p className="mt-3 text-sm leading-6 text-slate-300">{t('admin_catalog.lede')}</p>
         </div>
@@ -444,7 +444,7 @@ export const AdminCatalogView: React.FC = () => {
               [t('admin_catalog.metric_placements'), snapshot.brand.placement_count],
             ].map(([label, value]) => (
               <div key={String(label)} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                <div className="text-xs font-bold uppercase tracking-wide text-slate-500">{label}</div>
+                <div className="text-xs font-bold uppercase tracking-wide text-brand-muted">{label}</div>
                 <div className="mt-1 font-serif text-2xl font-black text-brand-charcoal">{value}</div>
               </div>
             ))}
@@ -470,7 +470,7 @@ export const AdminCatalogView: React.FC = () => {
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <h2 id="catalog-products-heading" className="font-serif text-2xl font-bold text-brand-charcoal">{t('admin_catalog.products_heading')}</h2>
-                  <p className="mt-1 text-sm text-slate-500">{t('admin_catalog.products_help')}</p>
+                  <p className="mt-1 text-sm text-brand-muted">{t('admin_catalog.products_help')}</p>
                 </div>
                 <button data-motion="admin" type="button" onClick={startCreate} className={`min-h-11 rounded-xl bg-brand-charcoal px-5 py-2 text-sm font-bold text-white hover:bg-black ${buttonFocus}`}>
                   {t('admin_catalog.add_product')}
@@ -527,10 +527,10 @@ export const AdminCatalogView: React.FC = () => {
                       <HonestProductImage src={product.thumbnail_url} alt={product.title} className="h-44 w-full bg-slate-100 object-cover" />
                       <div className="space-y-3 p-5">
                         <div className="flex items-start justify-between gap-3">
-                          <div><h3 className="font-serif text-lg font-bold text-brand-charcoal">{i18n.dir() === 'rtl' ? product.title_ar : product.title}</h3><p className="text-xs text-slate-500">{product.category_name}</p></div>
+                          <div><h3 className="font-serif text-lg font-bold text-brand-charcoal">{i18n.dir() === 'rtl' ? product.title_ar : product.title}</h3><p className="text-xs text-brand-muted">{product.category_name}</p></div>
                           <span className={`rounded-full px-2 py-1 text-[10px] font-bold uppercase ${product.is_active ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-700'}`}>{t(product.is_active ? 'admin_catalog.active' : 'admin_catalog.inactive')}</span>
                         </div>
-                        <div className="flex items-center justify-between text-sm"><span className="font-mono font-bold text-[#8A6A2F]">{product.currency} {product.base_price.toLocaleString()}</span><span className="text-xs text-slate-500">{t('admin_catalog.sku_count', { count: product.skus.length })}</span></div>
+                        <div className="flex items-center justify-between text-sm"><span className="font-mono font-bold text-[#8A6A2F]">{product.currency} {product.base_price.toLocaleString()}</span><span className="text-xs text-brand-muted">{t('admin_catalog.sku_count', { count: product.skus.length })}</span></div>
                         <div className="flex flex-wrap gap-2 border-t border-slate-100 pt-3">
                           <button data-motion="admin" type="button" onClick={() => startEdit(product)} className={`min-h-11 rounded-xl border border-slate-300 px-4 text-xs font-bold text-slate-700 hover:border-brand-charcoal ${buttonFocus}`}>{t('admin_catalog.edit')}</button>
                           <button data-motion="admin" data-motion-tone="icon" type="button" disabled={saving} onClick={() => void setProductActive(product, !product.is_active)} className={`min-h-11 rounded-xl px-4 text-xs font-bold ${buttonFocus} ${product.is_active ? 'bg-rose-50 text-rose-700 hover:bg-rose-100' : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100'}`}>{t(product.is_active ? 'admin_catalog.deactivate' : 'admin_catalog.reactivate')}</button>
@@ -545,45 +545,45 @@ export const AdminCatalogView: React.FC = () => {
 
           {tab === 'inventory' && (
             <section className="space-y-5">
-              <div><h2 className="font-serif text-2xl font-bold text-brand-charcoal">{t('admin_catalog.inventory_heading')}</h2><p className="mt-1 text-sm text-slate-500">{t('admin_catalog.inventory_help')}</p></div>
+              <div><h2 className="font-serif text-2xl font-bold text-brand-charcoal">{t('admin_catalog.inventory_heading')}</h2><p className="mt-1 text-sm text-brand-muted">{t('admin_catalog.inventory_help')}</p></div>
               {snapshot.inventory.flatMap((product) => product.skus.map((sku) => ({ product, sku }))).map(({ product, sku }) => (
                 <div key={sku.id} className="space-y-2">
-                  <div className="text-xs font-bold text-slate-500">{product.title}</div>
+                  <div className="text-xs font-bold text-brand-muted">{product.title}</div>
                   <StockEditor brandId={snapshot.brand.id} sku={sku} onSaved={refresh} />
-                  {sku.store_inventories.length > 0 && <div className="ps-3 text-xs text-slate-500">{sku.store_inventories.map((row) => `${row.store_name}: ${row.available}`).join(' · ')}</div>}
+                  {sku.store_inventories.length > 0 && <div className="ps-3 text-xs text-brand-muted">{sku.store_inventories.map((row) => `${row.store_name}: ${row.available}`).join(' · ')}</div>}
                 </div>
               ))}
-              {snapshot.inventory.length === 0 && <p className="rounded-2xl bg-white p-5 text-sm text-slate-500">{t('admin_catalog.no_inventory')}</p>}
+              {snapshot.inventory.length === 0 && <p className="rounded-2xl bg-white p-5 text-sm text-brand-muted">{t('admin_catalog.no_inventory')}</p>}
             </section>
           )}
 
           {tab === 'placements' && (
             <section className="space-y-4">
-              <div><h2 className="font-serif text-2xl font-bold text-brand-charcoal">{t('admin_catalog.placements_heading')}</h2><p className="mt-1 text-sm text-slate-500">{t('admin_catalog.placements_help')}</p></div>
+              <div><h2 className="font-serif text-2xl font-bold text-brand-charcoal">{t('admin_catalog.placements_heading')}</h2><p className="mt-1 text-sm text-brand-muted">{t('admin_catalog.placements_help')}</p></div>
               {snapshot.placements.map((placement) => (
                 <div key={String(placement.id)} className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-sm sm:grid-cols-4">
-                  <div><span className="block text-[10px] font-bold uppercase text-slate-500">{t('admin_catalog.product')}</span>{String(placement.product_title)}</div>
-                  <div><span className="block text-[10px] font-bold uppercase text-slate-500">{t('admin_catalog.status')}</span>{String(placement.status)}</div>
-                  <div><span className="block text-[10px] font-bold uppercase text-slate-500">{t('admin_catalog.budget')}</span>{String(placement.daily_budget)}</div>
-                  <div><span className="block text-[10px] font-bold uppercase text-slate-500">{t('admin_catalog.performance')}</span>{t('admin_catalog.clicks_conversions', { clicks: placement.clicks, conversions: placement.conversions })}</div>
+                  <div><span className="block text-[10px] font-bold uppercase text-brand-muted">{t('admin_catalog.product')}</span>{String(placement.product_title)}</div>
+                  <div><span className="block text-[10px] font-bold uppercase text-brand-muted">{t('admin_catalog.status')}</span>{String(placement.status)}</div>
+                  <div><span className="block text-[10px] font-bold uppercase text-brand-muted">{t('admin_catalog.budget')}</span>{String(placement.daily_budget)}</div>
+                  <div><span className="block text-[10px] font-bold uppercase text-brand-muted">{t('admin_catalog.performance')}</span>{t('admin_catalog.clicks_conversions', { clicks: placement.clicks, conversions: placement.conversions })}</div>
                 </div>
               ))}
-              {snapshot.placements.length === 0 && <p className="rounded-2xl bg-white p-5 text-sm text-slate-500">{t('admin_catalog.no_placements')}</p>}
+              {snapshot.placements.length === 0 && <p className="rounded-2xl bg-white p-5 text-sm text-brand-muted">{t('admin_catalog.no_placements')}</p>}
             </section>
           )}
 
           {tab === 'imports' && (
             <section className="space-y-4">
-              <div><h2 className="font-serif text-2xl font-bold text-brand-charcoal">{t('admin_catalog.imports_heading')}</h2><p className="mt-1 text-sm text-slate-500">{t('admin_catalog.imports_help')}</p></div>
+              <div><h2 className="font-serif text-2xl font-bold text-brand-charcoal">{t('admin_catalog.imports_heading')}</h2><p className="mt-1 text-sm text-brand-muted">{t('admin_catalog.imports_help')}</p></div>
               {snapshot.imports.map((job) => (
                 <div key={String(job.job_id)} className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-sm sm:grid-cols-4">
-                  <div><span className="block text-[10px] font-bold uppercase text-slate-500">{t('admin_catalog.file')}</span>{String(job.file_name ?? '—')}</div>
-                  <div><span className="block text-[10px] font-bold uppercase text-slate-500">{t('admin_catalog.status')}</span>{String(job.status)}</div>
-                  <div><span className="block text-[10px] font-bold uppercase text-slate-500">{t('admin_catalog.accepted')}</span>{String(job.accepted_rows)}</div>
-                  <div><span className="block text-[10px] font-bold uppercase text-slate-500">{t('admin_catalog.rejected')}</span>{String(job.rejected_rows)}</div>
+                  <div><span className="block text-[10px] font-bold uppercase text-brand-muted">{t('admin_catalog.file')}</span>{String(job.file_name ?? '—')}</div>
+                  <div><span className="block text-[10px] font-bold uppercase text-brand-muted">{t('admin_catalog.status')}</span>{String(job.status)}</div>
+                  <div><span className="block text-[10px] font-bold uppercase text-brand-muted">{t('admin_catalog.accepted')}</span>{String(job.accepted_rows)}</div>
+                  <div><span className="block text-[10px] font-bold uppercase text-brand-muted">{t('admin_catalog.rejected')}</span>{String(job.rejected_rows)}</div>
                 </div>
               ))}
-              {snapshot.imports.length === 0 && <p className="rounded-2xl bg-white p-5 text-sm text-slate-500">{t('admin_catalog.no_imports')}</p>}
+              {snapshot.imports.length === 0 && <p className="rounded-2xl bg-white p-5 text-sm text-brand-muted">{t('admin_catalog.no_imports')}</p>}
             </section>
           )}
         </>

@@ -368,7 +368,7 @@ export const CheckoutView: React.FC = () => {
                         <div className="text-xs">
                           <div className="font-bold text-brand-charcoal">{s.store_name}</div>
                           <div className="text-[10px] text-brand-muted">{s.address}</div>
-                          <div className="text-[10px] text-emerald-600 font-semibold">{s.quantity_available} available</div>
+                          <div className="text-[10px] text-emerald-700 font-semibold">{s.quantity_available} available</div>
                         </div>
                       </div>
                     </label>
@@ -566,7 +566,7 @@ export const CheckoutView: React.FC = () => {
                       >
                         +
                       </button>
-                      <button data-motion="financial"
+                      <button data-motion="financial" data-motion-tone="edge"
                         type="button"
                         aria-label={t('commerce.remove_item')}
                         aria-busy={cartBusyId === it.id}
@@ -609,7 +609,7 @@ export const CheckoutView: React.FC = () => {
                 <span className="font-medium text-brand-charcoal"><bdi dir="ltr">{formatMoney(Math.round((subtotal) * 100), cart?.currency || 'USD', lang)}</bdi></span>
               </div>
               {discount > 0 && (
-                <div className="flex justify-between text-emerald-600 font-medium">
+                <div className="flex justify-between text-emerald-700 font-medium">
                   <span>{t('commerce.discount')} {cart?.promo_code ? `(${cart.promo_code})` : ''}</span>
                   <span><bdi dir="ltr">-{formatMoney(Math.round(discount * 100), cart?.currency || 'USD', lang)}</bdi></span>
                 </div>

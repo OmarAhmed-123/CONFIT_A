@@ -67,6 +67,11 @@ export const RoleGuard: React.FC<RoleGuardProps> = ({
     return (
       <div className="min-h-[70vh] flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white text-brand-charcoal border border-brand-hairline rounded-3xl p-8 shadow-xs text-center space-y-6">
+          {/* Official mark: the admin sign-in gate was the only portal entry
+              without the Logo #3 identity (the partner gate already shows it). */}
+          <div className="flex justify-center">
+            <ConfitLogo variant="compact" size="sm" />
+          </div>
           <div className="w-16 h-16 rounded-2xl bg-brand-wash border border-brand-hairline mx-auto flex items-center justify-center text-brand-charcoal shadow-2xs">
             <LockIcon size={32} color="#252729" />
           </div>
@@ -102,7 +107,7 @@ export const RoleGuard: React.FC<RoleGuardProps> = ({
             <div className="pt-2">
               <Link
                 to="/"
-                className="text-[11px] text-brand-muted hover:text-brand-charcoal underline-offset-2 hover:underline transition-colors inline-block"
+                className="text-[11px] text-brand-muted hover:text-brand-charcoal underline-offset-2 hover:underline transition-colors inline-flex min-h-11 items-center px-2 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal"
               >
                 {t('partner.return_to_storefront')}
               </Link>
@@ -122,6 +127,11 @@ export const RoleGuard: React.FC<RoleGuardProps> = ({
     return (
       <div className="min-h-[70vh] flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white text-brand-charcoal border border-rose-200 rounded-3xl p-8 shadow-xs text-center space-y-6">
+          {/* Same Logo #3 identity as the sign-in gate above: a refusal is
+              still a CONFIT surface, not an anonymous error box. */}
+          <div className="flex justify-center">
+            <ConfitLogo variant="compact" size="sm" />
+          </div>
           <div className="w-16 h-16 rounded-2xl bg-rose-50 border border-rose-200 mx-auto flex items-center justify-center text-rose-600 shadow-2xs">
             <ShieldIcon size={32} color="#E11D48" />
           </div>
@@ -160,7 +170,7 @@ export const RoleGuard: React.FC<RoleGuardProps> = ({
               <span>{t('guard.return_storefront')}</span>
             </Link>
 
-            <button data-motion="auth"
+            <button data-motion="auth" data-motion-tone="edge"
               onClick={() => openAuthModal("login")}
               className="w-full min-h-[48px] py-2.5 rounded-xl text-xs text-brand-muted hover:text-brand-charcoal hover:underline"
             >

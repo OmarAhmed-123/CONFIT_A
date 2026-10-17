@@ -166,7 +166,7 @@ export const TrustFooter: React.FC = () => {
 
       <li className="pt-1">
         <Link to="/privacy" // brand-muted (#595C63) on brand-wash is 6.2:1 at 10px (AA+).
-        className="text-[10px] text-brand-muted hover:text-brand-charcoal underline">
+        className="inline-flex min-h-6 items-center text-[10px] text-brand-muted hover:text-brand-charcoal underline">
           {t('footer.disclosure_source')}
         </Link>
       </li>

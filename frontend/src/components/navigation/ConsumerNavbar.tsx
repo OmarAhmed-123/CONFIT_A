@@ -230,7 +230,7 @@ export const ConsumerNavbar: React.FC = () => {
           {isPrivileged ? (
             <Link
               to={isAdmin ? '/admin' : '/b2b'}
-              className="inline-flex min-h-8 items-center gap-1.5 text-brand-charcoal hover:underline font-semibold transition-colors text-xs"
+              className="inline-flex min-h-8 min-w-8 items-center justify-center sm:justify-start gap-1.5 text-brand-charcoal hover:underline font-semibold transition-colors text-xs"
             >
               <span aria-hidden="true">{isAdmin ? <ShieldIcon size={14} color="#252729" /> : <BrandDashboardIcon size={14} color="#252729" />}</span>
               <span className="hidden sm:inline">{isAdmin ? t('nav.admin_governance') : t('nav.brand_partner_hub')}</span>
@@ -239,7 +239,7 @@ export const ConsumerNavbar: React.FC = () => {
           ) : (
             <Link
               to="/b2b"
-              className="inline-flex min-h-8 items-center gap-1.5 text-brand-muted hover:text-brand-charcoal font-medium transition-colors text-xs"
+              className="inline-flex min-h-8 min-w-8 items-center justify-center sm:justify-start gap-1.5 text-brand-muted hover:text-brand-charcoal font-medium transition-colors text-xs"
             >
               <span aria-hidden="true"><BrandDashboardIcon size={14} color="#252729" /></span>
               <span className="hidden sm:inline">{t('nav.partner_portal')}</span>

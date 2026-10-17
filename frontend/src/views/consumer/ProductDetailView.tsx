@@ -524,8 +524,8 @@ export const ProductDetailView: React.FC = () => {
           hardcoded EN caption written for developers. A PDP is a purchase
           surface — the product opens the page; the REAL, API-driven
           "complete the look" section below keeps the styling story. */}
-      <nav className="text-xs text-brand-muted flex items-center gap-2 font-light">
-        <Link to="/discover" className="hover:text-brand-charcoal transition-colors">
+      <nav aria-label={t('product.breadcrumb_aria')} className="text-xs text-brand-muted flex items-center gap-2 font-light">
+        <Link to="/discover" className="inline-flex min-h-6 items-center hover:text-brand-charcoal transition-colors">
           {t('product.breadcrumb_catalog')}
         </Link>
         <span>/</span>
@@ -539,7 +539,7 @@ export const ProductDetailView: React.FC = () => {
               ? `/discover?category=${product.category_slug}`
               : "/discover"
           }
-          className="hover:text-brand-charcoal transition-colors"
+          className="inline-flex min-h-6 items-center hover:text-brand-charcoal transition-colors"
         >
           {product.category_name}
         </Link>
@@ -1169,7 +1169,7 @@ export const ProductDetailView: React.FC = () => {
                             {/* text-right forced LEFT-page alignment in RTL;
                                 text-end follows the writing direction. */}
                             <div className="text-end">
-                              <span className="text-[11px] font-bold text-emerald-600">
+                              <span className="text-[11px] font-bold text-emerald-700">
                                 {store.quantity_available} {t('product.in_stock')}
                               </span>
                             </div>

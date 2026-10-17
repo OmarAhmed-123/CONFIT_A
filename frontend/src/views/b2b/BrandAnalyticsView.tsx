@@ -164,7 +164,7 @@ export const BrandAnalyticsView: React.FC = () => {
         <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-slate-500">
           {fetchErrors.analytics || "The analytics service could not be reached. Your data is intact — retry when the service is back."}
         </p>
-        <button
+        <button data-motion="recovery"
           type="button" onClick={refresh}
           className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl bg-brand-charcoal px-6 text-xs font-semibold text-white hover:bg-black transition-colors"
         >
@@ -210,7 +210,7 @@ export const BrandAnalyticsView: React.FC = () => {
               <span className="confit-live-dot confit-live-dot--coral" aria-hidden="true" />
               Live data
             </span>
-            <button
+            <button data-motion="recovery"
               type="button" onClick={refresh}
               className="inline-flex min-h-9 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 text-xs font-semibold text-brand-charcoal hover:bg-slate-50 transition-colors"
             >

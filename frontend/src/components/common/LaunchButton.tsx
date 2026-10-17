@@ -141,7 +141,7 @@ export const LaunchButton: React.FC<LaunchButtonProps> = ({
   const isLaunched = launchState === "launched";
 
   return (
-    <button
+    <button data-motion="neutral" data-motion-tone="icon"
       type={type}
       onClick={handleClick}
       disabled={disabled}

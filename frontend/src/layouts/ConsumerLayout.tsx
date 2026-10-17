@@ -119,10 +119,10 @@ export const ConsumerLayout: React.FC = () => {
           <div className="space-y-3">
             <div className="font-bold text-brand-charcoal uppercase tracking-wider text-[11px]">{t('footer.experiences_heading')}</div>
             <ul className="space-y-2 font-light">
-              <li><Link to="/discover" className="hover:text-brand-charcoal hover:underline transition-colors">{t('footer.exp_catalog')}</Link></li>
-              <li><Link to="/builder" className="hover:text-brand-charcoal hover:underline transition-colors">{t('footer.exp_builder')}</Link></li>
-              <li><Link to="/tryon-studio" className="hover:text-brand-charcoal hover:underline transition-colors">{t('footer.exp_tryon')}</Link></li>
-              <li><Link to="/wardrobe" className="hover:text-brand-charcoal hover:underline transition-colors">{t('footer.exp_wardrobe')}</Link></li>
+              <li><Link to="/discover" className="inline-flex min-h-6 items-center hover:text-brand-charcoal hover:underline transition-colors">{t('footer.exp_catalog')}</Link></li>
+              <li><Link to="/builder" className="inline-flex min-h-6 items-center hover:text-brand-charcoal hover:underline transition-colors">{t('footer.exp_builder')}</Link></li>
+              <li><Link to="/tryon-studio" className="inline-flex min-h-6 items-center hover:text-brand-charcoal hover:underline transition-colors">{t('footer.exp_tryon')}</Link></li>
+              <li><Link to="/wardrobe" className="inline-flex min-h-6 items-center hover:text-brand-charcoal hover:underline transition-colors">{t('footer.exp_wardrobe')}</Link></li>
             </ul>
           </div>
 
@@ -150,9 +150,9 @@ export const ConsumerLayout: React.FC = () => {
         <div className="max-w-7xl mx-auto pt-8 mt-10 border-t border-brand-hairline flex flex-col sm:flex-row justify-between items-center gap-4 text-[11px] text-brand-muted font-light">
           <div>© {new Date().getFullYear()} {t('footer.rights')}</div>
           <div className="flex gap-6">
-            <Link to="/privacy" className="text-brand-muted hover:text-brand-charcoal underline">{t('footer.privacy')}</Link>
-            <Link to="/terms" className="text-brand-muted hover:text-brand-charcoal underline">{t('footer.terms')}</Link>
-            <Link to="/gdpr" className="text-brand-muted hover:text-brand-charcoal underline">{t('footer.gdpr')}</Link>
+            <Link to="/privacy" className="inline-flex min-h-6 items-center text-brand-muted hover:text-brand-charcoal underline">{t('footer.privacy')}</Link>
+            <Link to="/terms" className="inline-flex min-h-6 items-center text-brand-muted hover:text-brand-charcoal underline">{t('footer.terms')}</Link>
+            <Link to="/gdpr" className="inline-flex min-h-6 items-center text-brand-muted hover:text-brand-charcoal underline">{t('footer.gdpr')}</Link>
           </div>
         </div>
       </footer>

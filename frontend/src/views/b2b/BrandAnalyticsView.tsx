@@ -61,7 +61,7 @@ export const BrandAnalyticsView: React.FC = () => {
     <div className="space-y-8 pb-20">
       <div className="border-b border-slate-200 pb-4">
         <h1 className="font-serif text-3xl font-bold text-brand-charcoal">
-          Conversion Funnel & Return Telemetry
+          {t("b2b.analytics_funnel_heading")}
         </h1>
         <p className="text-xs sm:text-sm text-brand-muted mt-1">
           {analytics.methodology}
@@ -73,7 +73,7 @@ export const BrandAnalyticsView: React.FC = () => {
         <h3 className="font-serif text-xl font-bold text-brand-charcoal">
           Commerce activity snapshot — not a linked-session funnel
         </h3>
-        <p className="text-[11px] text-brand-muted">Ratios mix different measurement units and may exceed 100%. A current cart line is not a lifetime add-to-cart event. Order lines exclude cancelled, refunded and failed orders.</p>
+        <p className="text-[11px] text-brand-muted">{t("b2b.analytics_ratios_note")}</p>
 
         <div className="space-y-4">
           {funnelSteps.map((step, idx) => (
@@ -94,7 +94,7 @@ export const BrandAnalyticsView: React.FC = () => {
 
         {analytics.total_views === 0 && (
           <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-800">
-            No funnel data yet. Views tracked via RecentlyViewed when users view your products. Try-Ons via TryOnSession. Add-to-Cart via CartItem. Purchases via OrderItem.
+            {t("b2b.analytics_empty")}
           </div>
         )}
       </div>
@@ -104,7 +104,7 @@ export const BrandAnalyticsView: React.FC = () => {
         <div role="alert" className="p-4 rounded-2xl bg-rose-50 border border-rose-200">
           <p className="text-[11px] font-bold text-rose-800">{t('b2b.sku_conversion_failed')}</p>
           <p className="text-[11px] text-rose-700 mt-1">{fetchErrors.conversion}</p>
-          <button data-motion="recovery" onClick={refresh} className="mt-2 px-3 py-1.5 rounded-lg bg-white border border-rose-200 text-[11px] font-bold text-rose-700 hover:bg-rose-50">Retry</button>
+          <button data-motion="recovery" onClick={refresh} className="mt-2 px-3 py-1.5 rounded-lg bg-white border border-rose-200 text-[11px] font-bold text-rose-700 hover:bg-rose-50">{t("common.retry")}</button>
         </div>
       )}
       {conversionPerSku.length > 0 && (
@@ -115,12 +115,12 @@ export const BrandAnalyticsView: React.FC = () => {
             <table className="w-full text-left text-xs">
               <thead>
                 <tr className="border-b border-slate-100 text-brand-muted uppercase text-[10px]">
-                  <th className="py-2">Product</th>
-                  <th className="py-2">Views</th>
-                  <th className="py-2">Try-Ons</th>
+                  <th className="py-2">{t("b2b.analytics_col_product")}</th>
+                  <th className="py-2">{t("b2b.analytics_col_views")}</th>
+                  <th className="py-2">{t("b2b.analytics_col_tryons")}</th>
                   <th className="py-2">{t("brand_analytics.add_to_cart")}</th>
                   <th className="py-2">{t("brand_analytics.purchases")}</th>
-                  <th className="py-2">Conv %</th>
+                  <th className="py-2">{t("b2b.analytics_col_conv")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -147,7 +147,7 @@ export const BrandAnalyticsView: React.FC = () => {
       {/* Return Rate Benchmark Card - REAL */}
       <div className="bg-brand-wash rounded-3xl border border-slate-200 p-6 sm:p-8 space-y-4">
         <h3 className="font-serif text-lg font-bold text-brand-charcoal">
-          Observed return-marked line comparison
+          {t("b2b.analytics_return_comparison")}
         </h3>
         <div className="grid grid-cols-2 gap-4 text-xs">
           <div className="p-3 rounded-xl bg-white border">
@@ -162,10 +162,10 @@ export const BrandAnalyticsView: React.FC = () => {
           </div>
         </div>
         <p className="text-xs text-slate-600 leading-relaxed max-w-3xl">
-          Return reduction <strong>{percent(analytics.return_reduction_percentage, t('b2b.dash.not_enough_data'))}</strong> {analytics.return_cohorts?.methodology}
+          {t("b2b.analytics_return_reduction")} <strong>{percent(analytics.return_reduction_percentage, t('b2b.dash.not_enough_data'))}</strong> {analytics.return_cohorts?.methodology}
         </p>
         <div className="text-[11px] text-brand-muted p-2 bg-white rounded border">
-          <span className="font-bold">BOPIS Fulfillment:</span> {percent(analytics.bopis_store_fulfillment_rate, t('b2b.dash.not_enough_data'))} of eligible pickup groups completed. Ad Spend: ${analytics.ad_spend_total}, Ad Revenue: ${analytics.ad_revenue_total} from recorded placement counters; not verified billing.
+          <span className="font-bold">{t("b2b.analytics_bopis_fulfillment")}</span> {t("b2b.analytics_bopis_line", { rate: percent(analytics.bopis_store_fulfillment_rate, t('b2b.dash.not_enough_data')), spend: analytics.ad_spend_total, revenue: analytics.ad_revenue_total })}
         </div>
       </div>
     </div>

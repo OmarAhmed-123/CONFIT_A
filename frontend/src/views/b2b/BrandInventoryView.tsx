@@ -119,10 +119,10 @@ export const BrandInventoryView: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
         <div>
           <h1 className="font-serif text-3xl font-bold text-brand-charcoal">
-            BOPIS Store Network & Live Inventory - Real
+            {t("b2b.inv_heading")}
           </h1>
           <p className="text-xs sm:text-sm text-brand-muted mt-1">
-            Real store locations from StoreLocation table, inventory from StoreInventory with SKU-level and location-level stock, reserved/available tracking. Tenant isolated, transactional.
+            {t("b2b.inv_heading_note")}
           </p>
           <p className="text-[11px] text-brand-muted mt-1">Inventory model: Brand → SKU → Location → Stock → Reserved → Available. Concurrency with SELECT FOR UPDATE, no negative inventory, no double deduction.</p>
           {/* Spec 14: honest freshness status — stock is where stale data hurts. */}
@@ -152,7 +152,7 @@ export const BrandInventoryView: React.FC = () => {
           <div role="alert" className="p-4 rounded-2xl bg-rose-50 border border-rose-200">
             <p className="text-[11px] font-bold text-rose-800">{t('brand_inventory.store_network_failed')}</p>
             <p className="text-[11px] text-rose-600 mt-1">{fetchErrors.stores} The count above is unknown while this fails — it is not “no stores”.</p>
-            <button data-motion="recovery" onClick={fetchData} className="mt-2 px-3 py-1.5 rounded-lg bg-white border border-rose-200 text-[11px] font-bold text-rose-700 hover:bg-rose-50">Retry</button>
+            <button data-motion="recovery" onClick={fetchData} className="mt-2 px-3 py-1.5 rounded-lg bg-white border border-rose-200 text-[11px] font-bold text-rose-700 hover:bg-rose-50">{t("common.retry")}</button>
           </div>
         )}
         {!fetchErrors.stores && stores.length === 0 ? (
@@ -179,11 +179,11 @@ export const BrandInventoryView: React.FC = () => {
 
                 <div className="grid grid-cols-2 gap-2 text-xs pt-2 border-t border-slate-100">
                   <div className="p-2.5 rounded-xl bg-brand-wash">
-                    <span className="text-brand-muted text-[10px] block">BOPIS</span>
+                    <span className="text-brand-muted text-[10px] block">{t("b2b.inv_bopis_title")}</span>
                     <span className={`font-bold ${b.is_bopis_enabled ? 'text-emerald-600' : 'text-brand-muted'}`}>{b.is_bopis_enabled ? 'Enabled' : 'Disabled'}</span>
                   </div>
                   <div className="p-2.5 rounded-xl bg-brand-wash">
-                    <span className="text-brand-muted text-[10px] block">Store ID</span>
+                    <span className="text-brand-muted text-[10px] block">{t("b2b.inv_store_id")}</span>
                     <span className="font-mono font-bold">#{b.id}</span>
                   </div>
                 </div>
@@ -203,7 +203,7 @@ export const BrandInventoryView: React.FC = () => {
 
       <form onSubmit={saveStoreStock} aria-label={t('b2b.form_set_stock')} className="rounded-2xl border border-slate-200 bg-white p-5 space-y-3">
         <h3 className="font-serif text-lg font-bold text-brand-charcoal">{t('b2b.form_set_stock_title')}</h3>
-        <p className="text-xs text-brand-muted">Absolute on-hand quantity, including reserved units. This does not transfer stock from the warehouse.</p>
+        <p className="text-xs text-brand-muted">{t("b2b.inv_on_hand_note")}</p>
         <div className="flex flex-wrap gap-3">
           <select aria-label={t('b2b.field_store')} required value={stockForm.store_id} onChange={e => setStockForm({...stockForm, store_id: e.target.value})} className="min-h-11 w-full min-w-0 sm:w-auto sm:max-w-xs rounded-xl border border-brand-field bg-white px-3 text-xs text-brand-charcoal">
             <option value="">{t('b2b.choose_store')}</option>
@@ -227,8 +227,7 @@ export const BrandInventoryView: React.FC = () => {
           <div role="alert" className="p-4 rounded-2xl bg-rose-50 border border-rose-300">
             <p className="text-[11px] font-bold text-rose-900">{t('b2b.inv_orphan_title')}</p>
             <p className="text-[11px] text-rose-700 mt-1">
-              Store id(s) {orphanStoreIds.join(', ')} are not in your store list. These rows are highlighted
-              below and must not be treated as your stock.
+              {t("b2b.inv_orphan_stores", { ids: orphanStoreIds.join(', ') })}
             </p>
           </div>
         )}
@@ -236,12 +235,12 @@ export const BrandInventoryView: React.FC = () => {
           <div role="alert" className="p-4 rounded-2xl bg-rose-50 border border-rose-200">
             <p className="text-[11px] font-bold text-rose-800">{t('brand_inventory.inventory_failed')}</p>
             <p className="text-[11px] text-rose-600 mt-1">{fetchErrors.inventory} Stock is unknown while this fails — never assumed zero.</p>
-            <button data-motion="recovery" onClick={fetchData} className="mt-2 px-3 py-1.5 rounded-lg bg-white border border-rose-200 text-[11px] font-bold text-rose-700 hover:bg-rose-50">Retry</button>
+            <button data-motion="recovery" onClick={fetchData} className="mt-2 px-3 py-1.5 rounded-lg bg-white border border-rose-200 text-[11px] font-bold text-rose-700 hover:bg-rose-50">{t("common.retry")}</button>
           </div>
         )}
         {!fetchErrors.inventory && inventory.length === 0 ? (
           <div className="bg-white rounded-3xl border border-slate-200 p-8 text-center text-xs text-brand-muted">
-            No inventory data. Products will appear here with SKU-level stock and store-level breakdown from StoreInventory table.
+            {t("b2b.inv_empty")}
           </div>
         ) : (
           <div className="space-y-4">
@@ -251,15 +250,15 @@ export const BrandInventoryView: React.FC = () => {
                   <div className="w-12 h-14 rounded bg-slate-100 overflow-hidden"><HonestProductImage src={item.thumbnail_url} alt={item.title} className="w-full h-full object-cover" /></div>
                   <div>
                     <h4 className="font-bold text-sm text-brand-charcoal">{item.title}</h4>
-                    <span className="text-xs text-brand-muted">Total Stock: {item.total_stock} units across {item.skus.length} SKUs</span>
+                    <span className="text-xs text-brand-muted">{t("b2b.inv_total_stock_value", { stock: item.total_stock, skus: item.skus.length })}</span>
                   </div>
                 </div>
                 <div role="region" aria-label={item.title} tabIndex={0} className="overflow-x-auto rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white">
                   <table className="w-full text-left text-xs">
                     <thead>
                       <tr className="border-b border-slate-100 text-brand-muted uppercase text-[10px]">
-                        <th className="py-2">SKU</th>
-                        <th className="py-2">Size/Color</th>
+                        <th className="py-2">{t("b2b.inv_sku")}</th>
+                        <th className="py-2">{t("b2b.inv_size_color")}</th>
                         <th className="py-2">{t('brand_inventory.warehouse')}</th>
                         <th className="py-2">{t('brand_inventory.store_breakdown')}</th>
                       </tr>
@@ -328,7 +327,7 @@ export const BrandInventoryView: React.FC = () => {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="font-bold block mb-1">Latitude</label>
+                  <label className="font-bold block mb-1">{t("b2b.inv_latitude")}</label>
                   <input type="number" step="0.000001" aria-label={t('b2b.field_store_lat')} value={newStore.latitude} onChange={(e) => setNewStore({ ...newStore, latitude: Number(e.target.value) })} className="w-full p-2.5 rounded-xl border" />
                 </div>
                 <div>
@@ -337,11 +336,11 @@ export const BrandInventoryView: React.FC = () => {
                 </div>
               </div>
               <div>
-                <label className="font-bold block mb-1">Phone</label>
+                <label className="font-bold block mb-1">{t("b2b.inv_phone")}</label>
                 <input aria-label={t('b2b.field_store_phone')} value={newStore.phone} onChange={(e) => setNewStore({ ...newStore, phone: e.target.value })} className="w-full p-2.5 rounded-xl border" placeholder="+971 4 123 4567" />
               </div>
               <div className="flex gap-2 pt-2">
-                <button data-motion="neutral" type="button" onClick={() => setShowStoreModal(false)} className="flex-1 py-2.5 rounded-xl border font-semibold">Cancel</button>
+                <button data-motion="neutral" type="button" onClick={() => setShowStoreModal(false)} className="flex-1 py-2.5 rounded-xl border font-semibold">{t("common.cancel")}</button>
                 <button data-motion="admin" type="submit" className="flex-1 py-2.5 rounded-xl bg-brand-charcoal text-white font-semibold min-h-[44px]">{t('brand_inventory.create_store')}</button>
               </div>
             </form>

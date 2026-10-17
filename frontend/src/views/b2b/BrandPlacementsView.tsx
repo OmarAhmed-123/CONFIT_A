@@ -82,16 +82,16 @@ export const BrandPlacementsView: React.FC = () => {
         <div role="alert" className="p-4 rounded-2xl bg-rose-50 border border-rose-200">
           <p className="text-[11px] font-bold text-rose-800">{t("brand_placements.sponsored_failed")}</p>
           <p className="text-[11px] text-rose-600 mt-1">{placementsError} An empty list below means "no campaigns", not "API down" — retry to reconcile.</p>
-          <button data-motion="recovery" onClick={refresh} className="mt-2 px-3 py-1.5 rounded-lg bg-white border border-rose-200 text-[11px] font-bold text-rose-700 hover:bg-rose-50">Retry</button>
+          <button data-motion="recovery" onClick={refresh} className="mt-2 px-3 py-1.5 rounded-lg bg-white border border-rose-200 text-[11px] font-bold text-rose-700 hover:bg-rose-50">{t("common.retry")}</button>
         </div>
       )}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-6">
         <div>
           <h1 className="font-serif text-3xl font-bold text-brand-charcoal">
-            Sponsored AI Stylist & Trending Placements - Real
+            {t("b2b.placements_heading")}
           </h1>
           <p className="text-xs sm:text-sm text-brand-muted mt-1">
-            Manage placement settings and recorded counters. Saving a placement does not prove live ad delivery, daily budget reset, or verified billing.
+            {t("b2b.placements_heading_note")}
           </p>
           <p className="text-[11px] text-brand-muted mt-1">Lifecycle: Brand → Campaign/Bid → Budget → Eligibility → Placement → Impression → Click → Conversion → Billing. Bid validation, budget validation, campaign status, start/end date, spend limits, duplicate prevention.</p>
         </div>
@@ -108,35 +108,35 @@ export const BrandPlacementsView: React.FC = () => {
       {/* Summary KPIs - REAL */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
         <div className="p-4 rounded-2xl bg-white border border-slate-200">
-          <span className="text-brand-muted text-[10px] uppercase block">Total Impressions (Real)</span>
+          <span className="text-brand-muted text-[10px] uppercase block">{t("b2b.placements_impressions")}</span>
           <span className="font-bold text-lg">{totalImpressions.toLocaleString()}</span>
-          <span className="text-[10px] text-brand-muted block">From SponsoredPlacement.impressions</span>
+          <span className="text-[10px] text-brand-muted block">{t("b2b.placements_impressions_src")}</span>
         </div>
         <div className="p-4 rounded-2xl bg-white border border-slate-200">
-          <span className="text-brand-muted text-[10px] uppercase block">Total Clicks (Real)</span>
+          <span className="text-brand-muted text-[10px] uppercase block">{t("b2b.placements_clicks_total")}</span>
           <span className="font-bold text-lg">{totalClicks.toLocaleString()}</span>
-          <span className="text-[10px] text-brand-muted block">From SponsoredPlacement.clicks</span>
+          <span className="text-[10px] text-brand-muted block">{t("b2b.placements_clicks_src")}</span>
         </div>
         <div className="p-4 rounded-2xl bg-white border border-slate-200">
-          <span className="text-brand-muted text-[10px] uppercase block">Total Spent (Real)</span>
+          <span className="text-brand-muted text-[10px] uppercase block">{t("b2b.placements_spent_total")}</span>
           <span className="font-bold text-lg">${totalSpent.toFixed(2)}</span>
           <span className="text-[10px] text-brand-muted block">From spent_today SUM, budget enforced</span>
         </div>
         <div className="p-4 rounded-2xl bg-white border border-slate-200">
-          <span className="text-brand-muted text-[10px] uppercase block">Revenue Generated (Real)</span>
+          <span className="text-brand-muted text-[10px] uppercase block">{t("b2b.placements_revenue")}</span>
           <span className="font-bold text-lg text-emerald-700">${totalRevenue.toFixed(2)}</span>
-          <span className="text-[10px] text-brand-muted block">ROAS: {totalSpent > 0 ? (totalRevenue / totalSpent).toFixed(1) + 'x' : 'N/A'}</span>
+          <span className="text-[10px] text-brand-muted block">{t("b2b.placements_roas")} {totalSpent > 0 ? (totalRevenue / totalSpent).toFixed(1) + 'x' : 'N/A'}</span>
         </div>
       </div>
 
       {/* Placements List - REAL */}
       <div className="space-y-4">
-        <h3 className="font-serif text-lg font-bold text-brand-charcoal">Active Placements ({placements.length}) - Real from DB</h3>
+        <h3 className="font-serif text-lg font-bold text-brand-charcoal">{t("b2b.placements_active", { count: placements.length })} {t("b2b.placements_real_from_db")}</h3>
         {placements.length === 0 ? (
           <div className="bg-white rounded-3xl border border-slate-200 p-12 text-center space-y-3">
             <div className="text-4xl">🎯</div>
             <h3 className="font-bold text-slate-700">{t("brand_placements.no_placements")}</h3>
-            <p className="text-xs text-brand-muted">Create your first sponsored slot to bid for featured placement in Virtual Stylist results. Budget enforcement prevents overspend.</p>
+            <p className="text-xs text-brand-muted">{t("b2b.placements_empty")}</p>
             <button data-motion="admin" onClick={() => setModalOpen(true)} className="mt-2 px-4 py-2 rounded-xl bg-brand-charcoal text-white text-xs font-bold">{t("brand_placements.create_placement")}</button>
           </div>
         ) : (
@@ -151,7 +151,7 @@ export const BrandPlacementsView: React.FC = () => {
                     <h3 className="font-serif text-base font-bold text-brand-charcoal mt-0.5 truncate">
                       {plc.product_title}
                     </h3>
-                    <span className="text-[10px] text-brand-muted">Product ID: {plc.product_id} · Created: {new Date(plc.created_at).toLocaleDateString()}</span>
+                    <span className="text-[10px] text-brand-muted">{t("b2b.placements_product_id")} {plc.product_id} · {t("b2b.placements_created_at")} {new Date(plc.created_at).toLocaleDateString()}</span>
                   </div>
                   <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${plc.status === 'active' ? 'bg-emerald-100 text-emerald-800' : plc.status === 'budget_exhausted' ? 'bg-rose-100 text-rose-800' : 'bg-slate-100 text-slate-600'}`}>
                     {plc.status}
@@ -160,24 +160,24 @@ export const BrandPlacementsView: React.FC = () => {
 
                 <div className="grid grid-cols-3 gap-2 text-center text-xs py-3 border-y border-slate-100">
                   <div className="p-2 rounded-xl bg-brand-wash">
-                    <span className="text-brand-muted text-[10px] block">CPC Bid (Real)</span>
+                    <span className="text-brand-muted text-[10px] block">{t("b2b.placements_cpc_bid")}</span>
                     <span className="font-bold text-slate-900">${plc.bid_amount_per_click}</span>
                   </div>
                   <div className="p-2 rounded-xl bg-brand-wash">
-                    <span className="text-brand-muted text-[10px] block">Clicks (Real)</span>
+                    <span className="text-brand-muted text-[10px] block">{t("b2b.placements_clicks")}</span>
                     <span className="font-bold text-slate-900">{plc.clicks}</span>
                     <span className="text-[9px] text-brand-muted block">{plc.impressions} impr</span>
                   </div>
                   <div className="p-2 rounded-xl bg-brand-wash">
-                    <span className="text-brand-muted text-[10px] block">Conversions (Real)</span>
+                    <span className="text-brand-muted text-[10px] block">{t("b2b.placements_conversions")}</span>
                     <span className="font-bold text-emerald-700">{plc.conversions}</span>
                   </div>
                 </div>
 
                 <div className="space-y-2 text-xs">
                   <div className="flex justify-between items-center">
-                    <span className="text-brand-muted">Daily Budget: <strong>${plc.daily_budget}</strong></span>
-                    <span className="text-brand-muted">Spent: <strong className={plc.spent_today >= plc.daily_budget ? 'text-rose-600' : 'text-slate-900'}>${plc.spent_today}</strong></span>
+                    <span className="text-brand-muted">{t("b2b.placements_daily_budget")} <strong>${plc.daily_budget}</strong></span>
+                    <span className="text-brand-muted">{t("b2b.placements_spent")} <strong className={plc.spent_today >= plc.daily_budget ? 'text-rose-600' : 'text-slate-900'}>${plc.spent_today}</strong></span>
                   </div>
                   <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
                     <div className="h-full bg-brand-charcoal text-white rounded-full" style={{ width: `${Math.min(100, (plc.spent_today / plc.daily_budget) * 100)}%` }}></div>
@@ -192,7 +192,7 @@ export const BrandPlacementsView: React.FC = () => {
                   {plc.status === 'active' ? 'Pause placement' : 'Resume placement'}
                 </button>
                 <div className="text-[10px] text-brand-muted p-2 bg-brand-wash rounded-xl">
-                  Recorded counters are not independently verified ad delivery or a billing ledger. Daily reset and event deduplication are not established by this screen.
+                  {t("b2b.placements_counters_note")}
                 </div>
               </div>
             ))}
@@ -205,12 +205,12 @@ export const BrandPlacementsView: React.FC = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-150">
           <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={t('b2b.form_create_placement')} tabIndex={-1} className="w-full max-w-md bg-white rounded-3xl p-6 shadow-2xl space-y-4">
             <h3 className="font-serif text-lg font-bold text-brand-charcoal">
-              Bid for Featured AI Stylist Slot - Real
+              {t("b2b.placements_form_heading")}
             </h3>
             <p className="text-[11px] text-brand-muted">Real validation: bid 0-100, budget 0-10000, bid ≤ budget, product ownership verified, tenant isolated.</p>
             <form onSubmit={handleCreate} className="space-y-4 text-xs">
               <div>
-                <label className="font-bold text-slate-700 block mb-1">Select Catalog Product (must belong to your brand)</label>
+                <label className="font-bold text-slate-700 block mb-1">{t("b2b.placements_select_product")}</label>
                 <select
                   aria-label={t('b2b.field_placement_product')}
                   value={selectedProductId || products[0]?.id || ''}
@@ -284,7 +284,7 @@ export const BrandPlacementsView: React.FC = () => {
                   onClick={() => setModalOpen(false)}
                   className="flex-1 py-2.5 rounded-xl border border-slate-200 font-semibold"
                 >
-                  Cancel
+                  {t("common.cancel")}
                 </button>
                 <button data-motion="admin" data-motion-tone="icon"
                   type="submit"

@@ -123,8 +123,12 @@ def catalogue_ids():
 
 
 def _grounded(data, real_ids) -> bool:
+    """Every recommended item is a real catalogue product. A turn that recommends
+    NOTHING is grounded only when it states why (no invented look to fill the gap)."""
     items = [i for o in data["recommendations"] for i in o["items"]]
-    return bool(items) and all(i["product_id"] in real_ids for i in items)
+    if not items:
+        return bool(data.get("fallback_reason"))
+    return all(i["product_id"] in real_ids for i in items)
 
 
 def _no_base64_in_storage() -> bool:

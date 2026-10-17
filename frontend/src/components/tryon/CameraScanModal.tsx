@@ -704,7 +704,7 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
                     {cameraActive && (
                       <>
                         <div className="pointer-events-none absolute inset-x-3 top-3 z-10 flex items-start justify-between gap-2">
-                          <div className="flex items-center gap-1.5 rounded-full border border-brand-hairline/40 bg-slate-950/80 px-3 py-1 font-mono text-[10px] font-bold text-brand-charcoal shadow-xs backdrop-blur-md">
+                          <div className="flex items-center gap-1.5 rounded-full border border-brand-hairline/40 bg-slate-950/80 px-3 py-1 font-mono text-[10px] font-bold text-white shadow-xs backdrop-blur-md">
                             <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-emerald-400"></span>
                             <span>{t('tryon.scan_align_hint')}</span>
                           </div>
@@ -760,7 +760,7 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
                         onClick={captureCameraFrame}
                         className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-2xl bg-brand-charcoal py-3.5 text-xs font-bold text-white shadow-md transition-all hover:bg-brand-charcoal"
                       >
-                        <SparkleIcon size={16} color="#242526" />
+                        <SparkleIcon size={16} color="currentColor" />
                         <span>{t('tryon.scan_capture_cta')}</span>
                       </button>
                     </div>
@@ -1011,7 +1011,7 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
                 {capturedImage && (
                   <div className="w-32 h-40 rounded-2xl overflow-hidden bg-slate-950 border border-brand-hairline/40 relative shrink-0 shadow-md">
                     <img src={capturedImage} alt="Scanned" className="w-full h-full object-cover" />
-                    <div className="absolute bottom-1 inset-x-1 py-0.5 rounded bg-slate-950/80 text-[8px] font-mono text-center text-brand-charcoal">
+                    <div className="absolute bottom-1 inset-x-1 py-0.5 rounded bg-slate-950/80 text-[8px] font-mono text-center text-white">
                       <StatusIcon status="success" size={9} className="me-0.5 align-middle text-brand-charcoal" /> Calibrated
                     </div>
                   </div>
@@ -1076,7 +1076,7 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
                   onClick={handleApply}
                   className="flex-1 py-3 rounded-xl bg-brand-charcoal hover:bg-brand-charcoal text-white font-bold text-xs shadow-md transition-all flex items-center justify-center gap-1.5"
                 >
-                  <SparkleIcon size={14} color="#242526" />
+                  <SparkleIcon size={14} color="currentColor" />
                   <span>{t('tryon.scan_apply_cta')}</span>
                 </button>
               </div>

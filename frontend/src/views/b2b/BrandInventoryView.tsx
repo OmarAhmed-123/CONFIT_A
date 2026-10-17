@@ -121,10 +121,10 @@ export const BrandInventoryView: React.FC = () => {
           <h1 className="font-serif text-3xl font-bold text-brand-charcoal">
             BOPIS Store Network & Live Inventory - Real
           </h1>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1">
+          <p className="text-xs sm:text-sm text-brand-muted mt-1">
             Real store locations from StoreLocation table, inventory from StoreInventory with SKU-level and location-level stock, reserved/available tracking. Tenant isolated, transactional.
           </p>
-          <p className="text-[11px] text-slate-400 mt-1">Inventory model: Brand → SKU → Location → Stock → Reserved → Available. Concurrency with SELECT FOR UPDATE, no negative inventory, no double deduction.</p>
+          <p className="text-[11px] text-brand-muted mt-1">Inventory model: Brand → SKU → Location → Stock → Reserved → Available. Concurrency with SELECT FOR UPDATE, no negative inventory, no double deduction.</p>
           {/* Spec 14: honest freshness status — stock is where stale data hurts. */}
           <CatalogFreshnessIndicator className="mt-2" />
         </div>
@@ -159,7 +159,7 @@ export const BrandInventoryView: React.FC = () => {
           <div className="bg-white rounded-3xl border border-slate-200 p-12 text-center space-y-3">
             <div className="text-4xl" aria-hidden="true">🏪</div>
             <h3 className="font-bold text-slate-700">{t('brand_inventory.no_stores')}</h3>
-            <p className="text-xs text-slate-500">{t('brand_inventory.no_stores_desc')}</p>
+            <p className="text-xs text-brand-muted">{t('brand_inventory.no_stores_desc')}</p>
             <button data-motion="admin" onClick={() => setShowStoreModal(true)} className="mt-2 px-4 py-2 rounded-xl bg-brand-charcoal text-white text-xs font-semibold min-h-[44px]">{t('brand_inventory.add_store')}</button>
           </div>
         ) : (
@@ -172,18 +172,18 @@ export const BrandInventoryView: React.FC = () => {
                   </div>
                   <div className="flex-1 min-w-0">
                     <h3 className="font-serif text-base font-bold text-brand-charcoal truncate">{b.name}</h3>
-                    <span className="text-xs text-slate-500">{b.city}, {b.country}</span>
-                    <div className="text-[10px] text-slate-400 truncate">{b.address}</div>
+                    <span className="text-xs text-brand-muted">{b.city}, {b.country}</span>
+                    <div className="text-[10px] text-brand-muted truncate">{b.address}</div>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 text-xs pt-2 border-t border-slate-100">
                   <div className="p-2.5 rounded-xl bg-brand-wash">
-                    <span className="text-slate-400 text-[10px] block">BOPIS</span>
-                    <span className={`font-bold ${b.is_bopis_enabled ? 'text-emerald-600' : 'text-slate-400'}`}>{b.is_bopis_enabled ? 'Enabled' : 'Disabled'}</span>
+                    <span className="text-brand-muted text-[10px] block">BOPIS</span>
+                    <span className={`font-bold ${b.is_bopis_enabled ? 'text-emerald-600' : 'text-brand-muted'}`}>{b.is_bopis_enabled ? 'Enabled' : 'Disabled'}</span>
                   </div>
                   <div className="p-2.5 rounded-xl bg-brand-wash">
-                    <span className="text-slate-400 text-[10px] block">Store ID</span>
+                    <span className="text-brand-muted text-[10px] block">Store ID</span>
                     <span className="font-mono font-bold">#{b.id}</span>
                   </div>
                 </div>
@@ -193,7 +193,7 @@ export const BrandInventoryView: React.FC = () => {
                     <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
                     <span>{t('brand_inventory.real_from_store')}</span>
                   </span>
-                  <span className="text-[10px] text-slate-400">{b.created_at ? new Date(b.created_at).toLocaleDateString() : ''}</span>
+                  <span className="text-[10px] text-brand-muted">{b.created_at ? new Date(b.created_at).toLocaleDateString() : ''}</span>
                 </div>
               </div>
             ))}
@@ -201,20 +201,20 @@ export const BrandInventoryView: React.FC = () => {
         )}
       </div>
 
-      <form onSubmit={saveStoreStock} aria-label={t('b2b.form_set_stock')} className="rounded-2xl border bg-white p-5 space-y-3">
-        <h3 className="font-bold">{t('b2b.form_set_stock_title')}</h3>
-        <p className="text-xs text-slate-500">Absolute on-hand quantity, including reserved units. This does not transfer stock from the warehouse.</p>
+      <form onSubmit={saveStoreStock} aria-label={t('b2b.form_set_stock')} className="rounded-2xl border border-slate-200 bg-white p-5 space-y-3">
+        <h3 className="font-serif text-lg font-bold text-brand-charcoal">{t('b2b.form_set_stock_title')}</h3>
+        <p className="text-xs text-brand-muted">Absolute on-hand quantity, including reserved units. This does not transfer stock from the warehouse.</p>
         <div className="flex flex-wrap gap-3">
-          <select aria-label={t('b2b.field_store')} required value={stockForm.store_id} onChange={e => setStockForm({...stockForm, store_id: e.target.value})} className="border rounded p-2">
+          <select aria-label={t('b2b.field_store')} required value={stockForm.store_id} onChange={e => setStockForm({...stockForm, store_id: e.target.value})} className="min-h-11 w-full min-w-0 sm:w-auto sm:max-w-xs rounded-xl border border-brand-field bg-white px-3 text-xs text-brand-charcoal">
             <option value="">{t('b2b.choose_store')}</option>
             {stores.map(store => <option key={store.id} value={store.id}>{store.name}</option>)}
           </select>
-          <select aria-label={t('b2b.field_sku')} required value={stockForm.sku_id} onChange={e => setStockForm({...stockForm, sku_id: e.target.value})} className="border rounded p-2">
+          <select aria-label={t('b2b.field_sku')} required value={stockForm.sku_id} onChange={e => setStockForm({...stockForm, sku_id: e.target.value})} className="min-h-11 w-full min-w-0 sm:w-auto sm:max-w-xs rounded-xl border border-brand-field bg-white px-3 text-xs text-brand-charcoal">
             <option value="">{t('b2b.choose_sku')}</option>
             {inventory.flatMap(item => item.skus.map(sku => <option key={sku.id} value={sku.id}>{item.title} — {sku.sku_code}</option>))}
           </select>
-          <input aria-label={t('b2b.field_on_hand')} required type="number" min="0" max="100000" step="1" value={stockForm.quantity} onChange={e => setStockForm({...stockForm, quantity: e.target.value})} className="border rounded p-2" />
-          <button data-motion="admin" data-motion-tone="icon" disabled={savingStock || !!fetchErrors.stores || !!fetchErrors.inventory} className="rounded bg-slate-900 text-white px-4 py-2">{savingStock ? t('common.saving') : t('b2b.save_store_stock')}</button>
+          <input aria-label={t('b2b.field_on_hand')} required type="number" min="0" max="100000" step="1" value={stockForm.quantity} onChange={e => setStockForm({...stockForm, quantity: e.target.value})} className="min-h-11 w-full min-w-0 sm:w-auto sm:max-w-xs rounded-xl border border-brand-field bg-white px-3 text-xs text-brand-charcoal" />
+          <button data-motion="admin" data-motion-tone="icon" disabled={savingStock || !!fetchErrors.stores || !!fetchErrors.inventory} className="focus-on-light-fill min-h-11 w-full sm:w-auto rounded-xl bg-brand-charcoal px-5 text-xs font-bold text-white hover:bg-black disabled:cursor-not-allowed disabled:opacity-50">{savingStock ? t('common.saving') : t('b2b.save_store_stock')}</button>
         </div>
         {stockMessage && <p role="status" className="text-sm">{stockMessage}</p>}
       </form>
@@ -222,7 +222,7 @@ export const BrandInventoryView: React.FC = () => {
       {/* Inventory - REAL */}
       <div className="space-y-4">
         <h3 className="font-serif text-lg font-bold text-brand-charcoal">{t('brand_inventory.live_inventory_title')}</h3>
-        <p className="text-[11px] text-slate-500">Stock levels per SKU per location, reserved quantity tracking, available = quantity - reserved. No negative inventory enforced. Only stores belonging to your brand are shown.</p>
+        <p className="text-[11px] text-brand-muted">Stock levels per SKU per location, reserved quantity tracking, available = quantity - reserved. No negative inventory enforced. Only stores belonging to your brand are shown.</p>
         {orphanStoreIds.length > 0 && (
           <div role="alert" className="p-4 rounded-2xl bg-rose-50 border border-rose-300">
             <p className="text-[11px] font-bold text-rose-900">{t('b2b.inv_orphan_title')}</p>
@@ -240,7 +240,7 @@ export const BrandInventoryView: React.FC = () => {
           </div>
         )}
         {!fetchErrors.inventory && inventory.length === 0 ? (
-          <div className="bg-white rounded-3xl border border-slate-200 p-8 text-center text-xs text-slate-500">
+          <div className="bg-white rounded-3xl border border-slate-200 p-8 text-center text-xs text-brand-muted">
             No inventory data. Products will appear here with SKU-level stock and store-level breakdown from StoreInventory table.
           </div>
         ) : (
@@ -251,13 +251,13 @@ export const BrandInventoryView: React.FC = () => {
                   <div className="w-12 h-14 rounded bg-slate-100 overflow-hidden"><HonestProductImage src={item.thumbnail_url} alt={item.title} className="w-full h-full object-cover" /></div>
                   <div>
                     <h4 className="font-bold text-sm text-brand-charcoal">{item.title}</h4>
-                    <span className="text-xs text-slate-500">Total Stock: {item.total_stock} units across {item.skus.length} SKUs</span>
+                    <span className="text-xs text-brand-muted">Total Stock: {item.total_stock} units across {item.skus.length} SKUs</span>
                   </div>
                 </div>
-                <div className="overflow-x-auto">
+                <div role="region" aria-label={item.title} tabIndex={0} className="overflow-x-auto rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white">
                   <table className="w-full text-left text-xs">
                     <thead>
-                      <tr className="border-b border-slate-100 text-slate-400 uppercase text-[10px]">
+                      <tr className="border-b border-slate-100 text-brand-muted uppercase text-[10px]">
                         <th className="py-2">SKU</th>
                         <th className="py-2">Size/Color</th>
                         <th className="py-2">{t('brand_inventory.warehouse')}</th>
@@ -273,7 +273,7 @@ export const BrandInventoryView: React.FC = () => {
                           <td className="py-2">
                             <div className="flex flex-wrap gap-1">
                               {sku.store_inventories.length === 0 ? (
-                                <span className="text-slate-400">{t('brand_inventory.no_store_stock')}</span>
+                                <span className="text-brand-muted">{t('brand_inventory.no_store_stock')}</span>
                               ) : (
                                 sku.store_inventories.map((si) => (
                                   <span
@@ -306,7 +306,7 @@ export const BrandInventoryView: React.FC = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm">
           <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={t('b2b.modal_add_store')} tabIndex={-1} className="w-full max-w-md bg-white rounded-3xl p-6 shadow-2xl space-y-4">
             <h3 className="font-serif text-lg font-bold text-brand-charcoal">{t('brand_inventory.add_bopis_store')}</h3>
-            <p className="text-[11px] text-slate-500">Real StoreLocation creation with brand_id tenant isolation, BOPIS support, coordinates for map.</p>
+            <p className="text-[11px] text-brand-muted">Real StoreLocation creation with brand_id tenant isolation, BOPIS support, coordinates for map.</p>
             <form onSubmit={handleCreateStore} className="space-y-3 text-xs">
               <div>
                 <label className="font-bold block mb-1">Store Name *</label>

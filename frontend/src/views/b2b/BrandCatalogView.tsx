@@ -224,7 +224,7 @@ export const BrandCatalogView: React.FC = () => {
           <h2 className="border-b border-slate-200 pb-3 font-serif text-lg font-bold text-brand-charcoal">
             {t('b2b.cat.jobs_title')}
           </h2>
-          <div className="overflow-x-auto">
+          <div role="region" aria-label={t('b2b.cat.caption_jobs')} tabIndex={0} className="overflow-x-auto rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white">
             <table className="w-full text-start text-xs">
               <caption className="sr-only">{t('b2b.cat.caption_jobs')}</caption>
               <thead>
@@ -395,7 +395,7 @@ export const BrandCatalogView: React.FC = () => {
               )}
 
               {/* ---------------------------------------------------- SKU table */}
-              <div className="overflow-x-auto">
+              <div role="region" aria-label={t('b2b.cat.caption_products')} tabIndex={0} className="overflow-x-auto rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white">
                 <table className="w-full text-start text-xs">
                   <caption className="sr-only">{t('b2b.cat.caption_products')}</caption>
                   <thead>

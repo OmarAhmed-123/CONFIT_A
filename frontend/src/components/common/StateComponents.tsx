@@ -38,7 +38,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
       aria-live="polite"
     >
       <div className="mb-4 rounded-full bg-slate-100 p-4">
-        {icon ?? <Inbox size={24} aria-hidden="true" className="text-slate-400" />}
+        {icon ?? <Inbox size={24} aria-hidden="true" className="text-brand-muted" />}
       </div>
       <h3 className="text-lg font-semibold text-brand-charcoal mb-1">{title}</h3>
       {description && <p className="text-sm text-slate-500 max-w-sm mb-4">{description}</p>}

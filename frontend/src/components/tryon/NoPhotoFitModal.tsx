@@ -299,7 +299,7 @@ export const NoPhotoFitModal: React.FC = () => {
                         openCart();
                       }
                     }}
-                    className="w-full py-3.5 rounded-xl bg-brand-charcoal hover:bg-black text-slate-950 font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2"
+                    className="w-full py-3.5 rounded-xl bg-brand-charcoal hover:bg-black text-white font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2"
                   >
                     <BagIcon size={14} color="#FFFFFF" />
                     <span>Add Size {noPhotoResult.recommended_size} to Bag</span>

@@ -160,7 +160,7 @@ export const PhotoEstimatePanel: React.FC<Props> = ({
           <SparkleIcon size={16} color="#242526" />
           {t('fit_finder.photo_estimate.title')}
         </span>
-        <span className="text-[10px] text-slate-500 font-semibold">
+        <span className="text-[10px] text-brand-muted font-semibold">
           {open ? t('fit_finder.photo_estimate.hide') : t('fit_finder.photo_estimate.show')}
         </span>
       </button>

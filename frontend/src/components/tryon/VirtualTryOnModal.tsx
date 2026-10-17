@@ -374,7 +374,7 @@ export const VirtualTryOnModal: React.FC = () => {
                           : "text-slate-600 hover:text-slate-900"
                       }`}
                     >
-                      <SparkleIcon size={12} color="#242526" />
+                      <SparkleIcon size={12} color="currentColor" />
                       <span>{t('tryon.layer_assembly')}</span>
                     </button>
                     <button data-motion="creative"
@@ -485,7 +485,7 @@ export const VirtualTryOnModal: React.FC = () => {
                       className="absolute top-0 bottom-0 w-1 bg-brand-charcoal shadow-[0_0_12px_#242526] cursor-ew-resize flex items-center justify-center pointer-events-none"
                       style={{ left: `${splitSliderPosition}%` }}
                     >
-                      <div className="w-7 h-7 rounded-full bg-brand-charcoal text-slate-950 text-xs font-black flex items-center justify-center shadow-xl border-2 border-white">
+                      <div className="w-7 h-7 rounded-full bg-brand-charcoal text-white text-xs font-black flex items-center justify-center shadow-xl border-2 border-white">
                         ↔
                       </div>
                     </div>
@@ -522,7 +522,7 @@ export const VirtualTryOnModal: React.FC = () => {
 
                     {/* Top Aspect & Animation Status */}
                     <div className="relative z-10 flex justify-between items-center">
-                      <span className="px-2.5 py-1 rounded-full bg-brand-charcoal text-slate-950 text-[10px] font-bold">
+                      <span className="px-2.5 py-1 rounded-full bg-brand-charcoal text-white text-[10px] font-bold">
                         🎬 Layer Assembly Sequence
                       </span>
                       <div className="flex gap-1 bg-black/60 p-0.5 rounded-lg border border-white/10 text-[9px] text-white">
@@ -530,7 +530,7 @@ export const VirtualTryOnModal: React.FC = () => {
                           <button data-motion="creative" data-motion-tone="icon"
                             key={asp}
                             onClick={() => setOutputAspect(asp)}
-                            className={`px-1.5 py-0.5 rounded ${outputAspect === asp ? "bg-brand-charcoal text-slate-950 font-bold" : "hover:bg-white/20"}`}
+                            className={`px-1.5 py-0.5 rounded ${outputAspect === asp ? "bg-brand-charcoal text-white font-bold" : "hover:bg-white/20"}`}
                           >
                             {asp}
                           </button>
@@ -613,7 +613,7 @@ export const VirtualTryOnModal: React.FC = () => {
                       <>
                         <button data-motion="download"
                           onClick={handleDownloadRenderedResult}
-                          className="absolute bottom-3 right-3 px-3 py-1.5 rounded-full bg-brand-charcoal text-slate-950 text-[11px] font-bold shadow-lg hover:brightness-110 active:scale-95 transition-all"
+                          className="absolute bottom-3 right-3 px-3 py-1.5 rounded-full bg-brand-charcoal text-white text-[11px] font-bold shadow-lg hover:brightness-110 active:scale-95 transition-all"
                         >
                           ⬇ Download Result
                         </button>
@@ -683,13 +683,13 @@ export const VirtualTryOnModal: React.FC = () => {
                     )}
                     <button data-motion="recovery" data-motion-tone="edge"
                       onClick={undoLastAction}
-                      className="text-[11px] font-semibold text-slate-500 hover:text-slate-900"
+                      className="inline-flex min-h-6 items-center text-[11px] font-semibold text-slate-500 hover:text-slate-900"
                     >
                       ↩ Undo
                     </button>
                     <button data-motion="destructive"
                       onClick={clearCanvas}
-                      className="text-[11px] font-semibold text-rose-600 hover:underline"
+                      className="inline-flex min-h-6 items-center text-[11px] font-semibold text-rose-700 hover:underline"
                     >
                       Clear All
                     </button>
@@ -752,7 +752,7 @@ export const VirtualTryOnModal: React.FC = () => {
                     disabled={isAnimating || appliedList.length === 0}
                     className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl bg-brand-charcoal hover:bg-brand-charcoal disabled:opacity-40 text-white font-bold text-xs shadow-md transition-all flex items-center justify-center gap-1.5"
                   >
-                    <SparkleIcon size={14} color="#242526" />
+                    <SparkleIcon size={14} color="currentColor" />
                     <span>
                       {isAnimating ? "Synthesizing..." : "Play Layer Sequence"}
                     </span>
@@ -760,7 +760,7 @@ export const VirtualTryOnModal: React.FC = () => {
                   <button data-motion="commerce"
                     onClick={addAllDressedToCart}
                     disabled={appliedList.length === 0}
-                    className="flex-1 sm:flex-none px-6 py-2.5 rounded-xl bg-brand-charcoal hover:bg-black disabled:opacity-40 text-slate-950 font-bold text-xs shadow-md transition-all flex items-center justify-center gap-1.5"
+                    className="flex-1 sm:flex-none px-6 py-2.5 rounded-xl bg-brand-charcoal hover:bg-black disabled:opacity-40 text-white font-bold text-xs shadow-md transition-all flex items-center justify-center gap-1.5"
                   >
                     <BagIcon size={14} color="#FFFFFF" />
                     <span>Add {appliedList.length} Items to Bag</span>
@@ -898,8 +898,8 @@ export const VirtualTryOnModal: React.FC = () => {
                                 isAlreadyDressed
                                   ? "bg-slate-200 text-slate-700 hover:bg-rose-100 hover:text-rose-700"
                                   : disabled
-                                    ? "bg-slate-100 text-slate-400 cursor-not-allowed"
-                                    : "bg-white border border-slate-300 hover:bg-brand-charcoal hover:text-slate-950 text-slate-800 shadow-2xs"
+                                    ? "bg-slate-100 text-slate-600 cursor-not-allowed"
+                                    : "bg-white border border-slate-300 hover:bg-brand-charcoal hover:text-white text-slate-800 shadow-2xs"
                               }`}
                             >
                               {label}

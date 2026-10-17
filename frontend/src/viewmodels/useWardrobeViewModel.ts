@@ -7,7 +7,12 @@ import { WardrobeItem, GapAnalysisItem } from '../models';
 import { useUndoableRemove } from '../hooks/useUndoableRemove';
 import { useUIStore } from '../stores/uiStore';
 
-export function useWardrobeViewModel() {
+/**
+ * `enabled: false` skips the initial closet fetch for signed-out visitors (the
+ * request can only 401 and would raise a misleading "couldn't load" toast).
+ * Defaults to `true`, so existing call sites keep their behaviour.
+ */
+export function useWardrobeViewModel({ enabled = true }: { enabled?: boolean } = {}) {
   const [items, setItems] = useState<WardrobeItem[]>([]);
   const [activeCategory, setActiveCategory] = useState<string>('All');
   const [isLoading, setIsLoading] = useState(false);
@@ -401,8 +406,12 @@ export function useWardrobeViewModel() {
   }, [items, activeCategory, fetchWardrobe, undoableRemove, showToast]);
 
   useEffect(() => {
+    if (!enabled) {
+      setIsLoading(false);
+      return;
+    }
     fetchWardrobe(activeCategory);
-  }, [activeCategory, fetchWardrobe]);
+  }, [activeCategory, fetchWardrobe, enabled]);
 
   return {
     items,

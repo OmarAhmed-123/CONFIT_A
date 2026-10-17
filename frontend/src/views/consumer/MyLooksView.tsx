@@ -8,6 +8,8 @@ import { Outfit, ShareLink } from '../../models';
 import { ShareActions } from '../../components/outfit/ShareActions';
 import { SavedLooksIcon, SparkleIcon } from '../../components/icons/ConfitIcons';
 import { TryOnButton } from '../../components/product/TryOnButton';
+import { useAuthStore } from '../../stores/authStore';
+import { useUIStore } from '../../stores/uiStore';
 
 /**
  * My Looks — saved outfits plus honest, fully manageable share links.
@@ -253,6 +255,8 @@ const LookCard: React.FC<{
 
 export const MyLooksView: React.FC = () => {
   const { t } = useTranslation();
+  const { isAuthenticated } = useAuthStore();
+  const { openAuthModal } = useUIStore();
   const {
     looks,
     state,
@@ -264,7 +268,32 @@ export const MyLooksView: React.FC = () => {
     remove,
     rename,
     reload,
-  } = useMyLooksViewModel();
+  } = useMyLooksViewModel({ enabled: isAuthenticated });
+
+  /* A signed-out visitor has no looks to fetch: GET /outfits can only answer
+     401, and the old generic error card offered a "Try again" that could never
+     succeed. Name what is missing and offer the one action that resolves it. */
+  if (!isAuthenticated) {
+    return (
+      <div className="mx-auto max-w-xl py-24 text-center">
+        <div className="rounded-[32px] border border-brand-hairline bg-white p-8 shadow-2xs">
+          <h1 className="font-serif text-2xl font-bold text-brand-charcoal">
+            {t('my_looks.signin_title')}
+          </h1>
+          <p className="mt-2 text-sm font-light leading-relaxed text-brand-muted">
+            {t('my_looks.signin_body')}
+          </p>
+          <button data-motion="progressive"
+            type="button"
+            onClick={() => openAuthModal('login')}
+            className="mt-6 inline-flex min-h-11 items-center rounded-2xl bg-brand-charcoal px-5 py-2.5 text-xs font-bold text-white transition-colors hover:bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white"
+          >
+            {t('auth.sign_in')}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (state === 'loading') {
     return (

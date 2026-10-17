@@ -186,7 +186,7 @@ export const WardrobeView: React.FC = () => {
     outfitSuggestion,
     isOutfitLoading,
     fetchOutfitSuggestion,
-  } = useWardrobeViewModel();
+  } = useWardrobeViewModel({ enabled: isAuthenticated });
 
   // Mood-board local UI state (form + per-board busy flags)
   const [newBoardTitle, setNewBoardTitle] = useState("");
@@ -198,7 +198,7 @@ export const WardrobeView: React.FC = () => {
   // `openTryOn` was destructured here but never called — dead since the
   // wardrobe grid has no try-on control. Removed 2026-09-27 so it cannot be
   // picked up later as a convenient ungated entry point.
-  const { showToast } = useUIStore();
+  const { showToast, openAuthModal } = useUIStore();
 
   const handleAddSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -337,13 +337,15 @@ export const WardrobeView: React.FC = () => {
               {t("wardrobe.title")}
             </h1>
           </div>
-          <p className="text-sm text-slate-500 mt-1">
+          <p className="text-sm text-brand-muted mt-1">
             {t("wardrobe.subtitle")}
           </p>
         </div>
 
         {/* Tab Selector & Add Piece Button */}
-        <div className="flex items-center gap-3">
+        {/* flex-wrap: at 390px the four tabs plus the upload CTA measured 403px
+            against a 390px viewport, so the page scrolled sideways by 13px. */}
+        <div className="flex flex-wrap items-center gap-3">
           <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200">
             <button data-motion="progressive"
               onClick={() => setActiveTab("closet")}
@@ -398,7 +400,7 @@ export const WardrobeView: React.FC = () => {
             onClick={() => setUploadModalOpen(true)}
             className="px-4 py-2.5 rounded-2xl bg-brand-charcoal hover:bg-black text-white text-xs font-semibold shadow-sm transition-all"
           >
-            + Upload Piece
+            {t("wardrobe.upload_piece")}
           </button>
         </div>
       </div>
@@ -430,7 +432,26 @@ export const WardrobeView: React.FC = () => {
             ))}
           </div>
 
-          {isLoading ? (
+          {!isAuthenticated ? (
+            /* A signed-out visitor has no closet to fetch — the request can
+               only answer 401 and would raise a "couldn't load" toast for a
+               state that is not an error. Say what is missing instead. */
+            <div className="rounded-[32px] border border-brand-hairline bg-white p-8 text-center shadow-2xs">
+              <h2 className="font-serif text-2xl font-bold text-brand-charcoal">
+                {t("wardrobe.closet_signin_title")}
+              </h2>
+              <p className="mx-auto mt-2 max-w-md text-sm font-light leading-relaxed text-brand-muted">
+                {t("wardrobe.closet_signin_body")}
+              </p>
+              <button data-motion="progressive"
+                type="button"
+                onClick={() => openAuthModal("login")}
+                className="mt-6 inline-flex min-h-11 items-center rounded-2xl bg-brand-charcoal px-5 py-2.5 text-xs font-bold text-white transition-colors hover:bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white"
+              >
+                {t("auth.sign_in")}
+              </button>
+            </div>
+          ) : isLoading ? (
             <LoadingSpinner text={t("wardrobe.scanning")} />
           ) : isClosetError ? (
             /* Honest error state: a failed fetch is NOT an empty wardrobe. */
@@ -461,7 +482,7 @@ export const WardrobeView: React.FC = () => {
                   <h2 className="font-serif text-3xl font-bold text-brand-charcoal">
                     Upload a few pieces to see what you can wear next
                   </h2>
-                  <p className="text-sm font-light leading-relaxed text-slate-500">
+                  <p className="text-sm font-light leading-relaxed text-brand-muted">
                     Start with three everyday garments. Photo uploads are
                     auto-tagged when persistent storage and analysis are
                     available; manual entries remain editable and clearly marked
@@ -566,13 +587,13 @@ export const WardrobeView: React.FC = () => {
                         )}
                     </div>
 
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    <span className="text-[10px] font-bold text-brand-muted uppercase tracking-wider">
                       {item.brand_name}
                     </span>
                     <h2 className="font-serif text-sm font-bold text-brand-charcoal truncate mt-0.5">
                       {item.title}
                     </h2>
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-brand-muted">
                       {item.color_name} · {item.category}
                     </p>
 
@@ -645,7 +666,7 @@ export const WardrobeView: React.FC = () => {
                   <SparkleIcon size={18} color="#252729" />
                   {t("wardrobe.shop_first_title")}
                 </h3>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-brand-muted">
                   {t("wardrobe.shop_first_desc")}
                 </p>
               </div>
@@ -695,7 +716,7 @@ export const WardrobeView: React.FC = () => {
                           <p className="text-[11px] font-semibold text-brand-charcoal truncate">
                             {it.product_title}
                           </p>
-                          <p className="text-[10px] text-slate-500">
+                          <p className="text-[10px] text-brand-muted">
                             {it.color_family}
                           </p>
                         </div>
@@ -720,7 +741,7 @@ export const WardrobeView: React.FC = () => {
                               className="w-full h-full object-cover"
                             />
                           </div>
-                          <span className="text-[9px] font-bold text-slate-400 uppercase">
+                          <span className="text-[9px] font-bold text-brand-muted uppercase">
                             {it.position} · {it.brand_name}
                           </span>
                           <p className="text-[11px] font-semibold text-brand-charcoal truncate">
@@ -744,7 +765,7 @@ export const WardrobeView: React.FC = () => {
                 <h3 className="font-serif text-lg font-bold text-brand-charcoal">
                   Saved Curated Ensembles
                 </h3>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-brand-muted">
                   Your personalized styling collections
                 </p>
               </div>
@@ -761,7 +782,7 @@ export const WardrobeView: React.FC = () => {
                 <p className="text-xs text-slate-600 font-medium">
                   Sign in to see your saved looks.
                 </p>
-                <p className="text-[11px] text-slate-400 mt-1">
+                <p className="text-[11px] text-brand-muted mt-1">
                   Ensembles you save in the Builder appear here — synced to your
                   account.
                 </p>
@@ -776,7 +797,7 @@ export const WardrobeView: React.FC = () => {
                 <p className="text-xs text-slate-600 font-medium">
                   No saved looks yet.
                 </p>
-                <p className="text-[11px] text-slate-400 mt-1">
+                <p className="text-[11px] text-brand-muted mt-1">
                   Build an outfit in the Canvas and press “Save Ensemble” — it
                   lands here.
                 </p>
@@ -936,7 +957,7 @@ export const WardrobeView: React.FC = () => {
                           />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <span className="text-[9px] font-bold text-slate-400 block truncate">
+                          <span className="text-[9px] font-bold text-brand-muted block truncate">
                             {rec.brand_name}
                           </span>
                           <span className="text-xs font-bold text-brand-charcoal block truncate">
@@ -980,7 +1001,7 @@ export const WardrobeView: React.FC = () => {
               <p className="text-xs text-slate-600 font-medium">
                 {t("wardrobe.boards_signin_title")}
               </p>
-              <p className="text-[11px] text-slate-400 mt-1">
+              <p className="text-[11px] text-brand-muted mt-1">
                 {t("wardrobe.boards_signin_sub")}
               </p>
             </div>
@@ -1039,7 +1060,7 @@ export const WardrobeView: React.FC = () => {
               {hasLoadedBoards && moodBoards.length === 0 ? (
                 <div className="bg-brand-wash rounded-2xl border border-dashed border-slate-300 p-8 text-center">
                   <p className="text-xs text-slate-600 font-medium">{t("wardrobe.boards_empty_title")}</p>
-                  <p className="text-[11px] text-slate-400 mt-1">
+                  <p className="text-[11px] text-brand-muted mt-1">
                     {t("wardrobe.boards_empty_sub")}
                   </p>
                 </div>
@@ -1074,7 +1095,7 @@ export const WardrobeView: React.FC = () => {
                             <button data-motion="neutral" data-motion-tone="edge"
                               type="button"
                               onClick={() => setRenamingBoardId(null)}
-                              className="text-xs font-bold text-slate-400"
+                              className="text-xs font-bold text-brand-muted"
                             >
                               {t("common.cancel")}
                             </button>
@@ -1085,7 +1106,7 @@ export const WardrobeView: React.FC = () => {
                               {board.title}
                             </h4>
                             {board.description && (
-                              <p className="text-xs text-slate-500 truncate">{board.description}</p>
+                              <p className="text-xs text-brand-muted truncate">{board.description}</p>
                             )}
                           </div>
                         )}
@@ -1095,7 +1116,7 @@ export const WardrobeView: React.FC = () => {
                               setRenamingBoardId(board.id);
                               setRenameTitle(board.title);
                             }}
-                            className="text-slate-400 hover:text-brand-charcoal"
+                            className="text-brand-muted hover:text-brand-charcoal"
                           >
                             {t("common.rename")}
                           </button>
@@ -1133,7 +1154,7 @@ export const WardrobeView: React.FC = () => {
                               ) : (
                                 <div className="h-28 w-full flex flex-col items-center justify-center text-center px-2">
                                   <BagIcon size={20} color="#252729" />
-                                  <span className="text-[10px] font-bold text-slate-500 mt-1">
+                                  <span className="text-[10px] font-bold text-brand-muted mt-1">
                                     {t("wardrobe.boards_product_tile", { id: tile.payload.product_id })}
                                   </span>
                                 </div>
@@ -1244,7 +1265,7 @@ export const WardrobeView: React.FC = () => {
               <div>
                 <label className="text-xs font-bold text-slate-800 block mb-1">
                   Garment Photos{" "}
-                  <span className="text-slate-400 font-normal">
+                  <span className="text-brand-muted font-normal">
                     (JPEG/PNG/WebP, up to 15MB each, max 20)
                   </span>
                 </label>
@@ -1265,7 +1286,7 @@ export const WardrobeView: React.FC = () => {
                   className="w-full text-xs text-slate-600 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-brand-charcoal file:text-white file:text-xs file:font-semibold hover:file:bg-black file:cursor-pointer"
                 />
                 {selectedFiles.length > 0 && (
-                  <p className="text-[11px] text-slate-500 mt-1.5">
+                  <p className="text-[11px] text-brand-muted mt-1.5">
                     {selectedFiles.length} file(s) selected:{" "}
                     {selectedFiles
                       .map((f) => f.name)
@@ -1353,7 +1374,7 @@ export const WardrobeView: React.FC = () => {
               <div>
                 <label className="text-xs font-bold text-slate-800 block mb-1">
                   {t('wardrobe.import_outfit_title')}{" "}
-                  <span className="text-slate-400 font-normal">
+                  <span className="text-brand-muted font-normal">
                     {t('wardrobe.import_outfit_hint')}
                   </span>
                 </label>
@@ -1372,7 +1393,7 @@ export const WardrobeView: React.FC = () => {
                   className="w-full text-xs text-slate-600 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-brand-charcoal file:text-white file:text-xs file:font-semibold hover:file:bg-black file:cursor-pointer"
                 />
                 {outfitFile && (
-                  <p className="text-[11px] text-slate-500 mt-1.5">
+                  <p className="text-[11px] text-brand-muted mt-1.5">
                     {outfitFile.name}
                   </p>
                 )}
@@ -1387,7 +1408,7 @@ export const WardrobeView: React.FC = () => {
               </button>
 
               {isImportingOutfit && (
-                <p className="text-[11px] text-slate-500 text-center animate-pulse">
+                <p className="text-[11px] text-brand-muted text-center animate-pulse">
                   {t('wardrobe.import_outfit_wait')}
                 </p>
               )}
@@ -1423,7 +1444,7 @@ export const WardrobeView: React.FC = () => {
                     </div>
                   ))}
                   {importReport.extraction.skipped.length > 0 && (
-                    <p className="text-[11px] text-slate-500">
+                    <p className="text-[11px] text-brand-muted">
                       {t('wardrobe.import_skipped_note', {
                         labels: importReport.extraction.skipped
                           .map((s) => s.label ?? s.reason)
@@ -1431,7 +1452,7 @@ export const WardrobeView: React.FC = () => {
                       })}
                     </p>
                   )}
-                  <p className="text-[10px] text-slate-400">
+                  <p className="text-[10px] text-brand-muted">
                     {importReport.extraction.engine} · {t('wardrobe.import_engine_note')}
                   </p>
                 </div>
@@ -1440,7 +1461,7 @@ export const WardrobeView: React.FC = () => {
 
             {/* Mode 2: manual entry fallback (metadata-complete -> ready immediately) */}
             <form onSubmit={handleAddSubmit} className="p-6 space-y-4">
-              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+              <p className="text-[11px] font-bold text-brand-muted uppercase tracking-wider">
                 Or add manually (no photo)
               </p>
               <div>

@@ -33,7 +33,7 @@ from sqlalchemy import inspect, text
 
 
 revision: str = "0038_vton_job_retention"
-down_revision: Union[str, None] = "0037_recently_viewed_unique"
+down_revision: Union[str, None] = "0037_garment_asset_gate"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

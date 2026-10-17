@@ -15,8 +15,8 @@ Revises: 0034_mfa_email_codes
 from alembic import op
 import sqlalchemy as sa
 
-revision = "0036_garment_asset_gate"
-down_revision = "0035_product_images"
+revision = "0037_garment_asset_gate"
+down_revision = "0036_recently_viewed_unique"
 branch_labels = None
 depends_on = None
 

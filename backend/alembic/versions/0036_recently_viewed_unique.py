@@ -32,8 +32,8 @@ Money columns: untouched (DB-19 preserved).
 from alembic import op
 import sqlalchemy as sa
 
-revision = "0037_recently_viewed_unique"
-down_revision = "0036_garment_asset_gate"
+revision = "0036_recently_viewed_unique"
+down_revision = "0035_product_images"
 branch_labels = None
 depends_on = None
 

@@ -62,7 +62,7 @@ class TestModelAndChain:
         downs = {d for d in chain.values() if d}
         heads = [r for r in chain if r not in downs]
         assert heads == ["0038_vton_job_retention"] == [expected_head_revision()]
-        assert chain["0038_vton_job_retention"] == "0037_recently_viewed_unique"
+        assert chain["0038_vton_job_retention"] == "0037_garment_asset_gate"
 
 
 class TestPurgeTaskCoversJobs:

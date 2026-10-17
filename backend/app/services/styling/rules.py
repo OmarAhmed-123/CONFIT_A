@@ -3,6 +3,23 @@ from typing import List, Dict, Any
 from backend.app.services.styling.color_harmony import ColorHarmonyEngine
 
 
+
+def look_completeness(items) -> "tuple[bool, list]":
+    """SINGLE definition of a complete look, shared by evaluation and publishing.
+
+    A complete look is a dress, or a top (or outerwear) with bottoms, plus footwear.
+    Returns (is_complete, missing_slots). Accessories and layers are optional.
+    """
+    positions = {it.get("position") for it in items}
+    missing = []
+    if not ("top" in positions or "outerwear" in positions or "dress" in positions):
+        missing.append("top")
+    if not ("bottom" in positions or "dress" in positions):
+        missing.append("bottom")
+    if "footwear" not in positions:
+        missing.append("footwear")
+    return (not missing), missing
+
 class RuleResult:
     def __init__(self, passed: bool, score: float, penalty: float, explanation: str):
         self.passed = passed
@@ -184,19 +201,10 @@ class StylingRulesEngine:
         color_score = color_eval["color_harmony_score"]
 
         # Completeness Check
-        positions = {it.get("position") for it in items}
-        is_complete = ("dress" in positions or ("top" in positions or "outerwear" in positions) and "bottom" in positions) and "footwear" in positions
+        is_complete, missing_slots = look_completeness(items)
 
         completeness_status = "complete_look" if is_complete else "core_base_look"
         completeness_label = "Complete Ensemble" if is_complete else "Core Base Look"
-
-        missing_slots = []
-        if not ("top" in positions or "outerwear" in positions or "dress" in positions):
-            missing_slots.append("top")
-        if not ("bottom" in positions or "dress" in positions):
-            missing_slots.append("bottom")
-        if not ("footwear" in positions):
-            missing_slots.append("footwear")
 
         # Honest composite score (GROUP 2 fix): blend the mean rule score with
         # the color-harmony score, then subtract accumulated rule penalties.

@@ -211,6 +211,10 @@ def setup_test_db():
             text("UPDATE product_skus SET stock_level = :stock, is_in_stock = :in_stock"),
             {"stock": 500, "in_stock": True},
         )
+        conn.execute(
+            text("UPDATE store_inventories SET quantity = :qty, reserved_quantity = 0"),
+            {"qty": 500},
+        )
     # Also seed the app-level engine so tests that use SessionLocal directly
     # (i.e. not via the get_db override) have the same seed data available.
     # Both engines resolve to file-scoped SQLite DBs, so this is cheap.

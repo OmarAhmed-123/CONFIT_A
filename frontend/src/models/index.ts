@@ -1460,5 +1460,177 @@ export interface CatalogImportResult {
   errors?: any[];
 }
 
+// -------------------------------------------------------------------------
+// Business Intelligence & Advanced Analytics Models
+// -------------------------------------------------------------------------
+export interface BiKpis {
+  gross_sales: number;
+  net_sales: number;
+  discount_total: number;
+  returned_value: number;
+  orders_count: number;
+  units_sold: number;
+  returned_units: number;
+  average_order_value: number;
+  return_rate: number | null;
+  tryon_assisted_orders: number;
+  tryon_share_pct: number | null;
+  currency: string;
+}
+
+export interface BiTrendPoint {
+  date: string;
+  orders: number;
+  units: number;
+  gross_sales: number;
+  net_sales: number;
+}
+
+export interface BiCategoryItem {
+  category_id: number;
+  category_name: string;
+  category_name_ar?: string;
+  units_sold: number;
+  gross_sales: number;
+  share_pct: number;
+}
+
+export interface BiProductItem {
+  product_id: number;
+  title: string;
+  category: string;
+  base_price: number;
+  currency: string;
+  units_sold: number;
+  gross_sales: number;
+  returned_units: number;
+  return_rate: number | null;
+  stock_level: number;
+}
+
+export interface BiBranchItem {
+  store_id: number;
+  name: string;
+  name_ar?: string;
+  city: string;
+  country: string;
+  address: string;
+  is_bopis_enabled: boolean;
+  orders_count: number;
+  units_sold: number;
+  gross_sales: number;
+  available_stock: number;
+  reserved_stock: number;
+  low_stock_skus: number;
+}
+
+export interface BiReplenishmentItem {
+  sku_id: number;
+  sku_code: string;
+  product_id: number;
+  product_title: string;
+  size: string;
+  color: string;
+  stock_level: number;
+  status: 'out_of_stock' | 'low_stock';
+  recommended_reorder: number;
+}
+
+export interface BiInventoryHealth {
+  total_skus: number;
+  total_warehouse_units: number;
+  total_branch_bopis_units: number;
+  in_stock_count: number;
+  low_stock_count: number;
+  out_of_stock_count: number;
+  replenishment_items: BiReplenishmentItem[];
+}
+
+export interface BiPromotionItem {
+  id: number;
+  code: string;
+  description?: string;
+  discount_type: string;
+  discount_value: number;
+  is_active: boolean;
+  is_expired: boolean;
+  redemptions: number;
+  total_discount: number;
+  revenue_generated: number;
+}
+
+export interface BiInsightItem {
+  type: string;
+  severity: 'positive' | 'warning' | 'alert' | 'info';
+  title: string;
+  message: string;
+}
+
+export interface BiDashboardResponse {
+  brand: {
+    id: number;
+    name: string;
+    slug: string;
+    commission_rate: number;
+    return_rate_benchmark: number;
+    current_return_rate: number;
+  };
+  generated_at: string;
+  period: {
+    from: string | null;
+    to: string | null;
+    label: string;
+    comparison_from: string | null;
+    comparison_to: string | null;
+    comparison_label: string | null;
+  };
+  filters: {
+    branch_id?: number | null;
+    category_id?: number | null;
+  };
+  kpis: BiKpis;
+  comparison_kpis?: BiKpis | null;
+  growth: Record<string, number | null>;
+  trends: BiTrendPoint[];
+  categories: BiCategoryItem[];
+  products: BiProductItem[];
+  branches: BiBranchItem[];
+  inventory: BiInventoryHealth;
+  promotions: BiPromotionItem[];
+  insights: BiInsightItem[];
+  methodology: string;
+}
+
+export interface AdminBiBrandPerformance {
+  brand_id: number;
+  brand_name: string;
+  slug: string;
+  is_verified: boolean;
+  products_count: number;
+  stores_count: number;
+  orders_count: number;
+  gross_sales: number;
+  currency: string;
+  return_rate: number | null;
+}
+
+export interface AdminBiDashboardResponse {
+  period: {
+    from: string | null;
+    to: string | null;
+    label: string;
+    comparison_label?: string | null;
+  };
+  kpis: BiKpis;
+  comparison_kpis?: BiKpis | null;
+  growth: Record<string, number | null>;
+  gmv_by_currency: Record<string, number>;
+  brands_performance: AdminBiBrandPerformance[];
+  trends: BiTrendPoint[];
+  total_brands: number;
+  generated_at: string;
+}
+
+
 
 

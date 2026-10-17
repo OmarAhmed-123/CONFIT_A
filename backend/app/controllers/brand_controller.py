@@ -1,4 +1,5 @@
 from decimal import Decimal
+from datetime import datetime, timezone
 from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, Query, status, UploadFile, File, HTTPException, Request
 from sqlalchemy.orm import Session
@@ -1336,3 +1337,130 @@ def brand_product_sales_report_pdf(
         content=pdf, media_type="application/pdf",
         headers={"Content-Disposition":
                  f'attachment; filename="confit-{slug}-product-sales-{stamp}.pdf"'})
+
+
+# -------------------------------------------------------------------------
+# Advanced Business Intelligence, Analytics & Export System
+# -------------------------------------------------------------------------
+@router.get("/partner/analytics/bi-dashboard")
+@router.get("/brand/analytics/bi-dashboard")
+def get_brand_bi_dashboard_endpoint(
+    date_from: Optional[str] = Query(None, description="ISO date (YYYY-MM-DD), inclusive"),
+    date_to: Optional[str] = Query(None, description="ISO date (YYYY-MM-DD), inclusive"),
+    days: Optional[int] = Query(None, description="Preset window in days (e.g. 7, 30, 90)"),
+    branch_id: Optional[int] = Query(None, description="Filter to a specific branch/store location"),
+    category_id: Optional[int] = Query(None, description="Filter to a specific category"),
+    compare: bool = Query(True, description="Compare against preceding equivalent period"),
+    user: User = Depends(brand_auth),
+    db: Session = Depends(get_db),
+):
+    """Authoritative Business Intelligence dashboard for brand owners & branch managers."""
+    from backend.app.services.business_intelligence_service import BusinessIntelligenceService
+    bp = BrandService(db).get_brand_profile_by_user(user)
+
+    # Branch managers scoped check: If user has store restrictions, enforce branch_id
+    df = datetime.fromisoformat(date_from) if date_from else None
+    dt = datetime.fromisoformat(date_to) if date_to else None
+
+    # Validate that branch_id belongs to this brand if supplied
+    if branch_id is not None:
+        store = db.query(StoreLocation).filter(StoreLocation.id == branch_id, StoreLocation.brand_id == bp["id"]).first()
+        if not store:
+            raise HTTPException(status_code=404, detail="Branch location not found for this brand tenant.")
+
+    svc = BusinessIntelligenceService(db)
+    return svc.get_brand_bi_dashboard(
+        brand_id=bp["id"],
+        date_from=df,
+        date_to=dt,
+        days=days,
+        branch_id=branch_id,
+        category_id=category_id,
+        compare=compare,
+    )
+
+
+@router.get("/partner/analytics/export.csv")
+@router.get("/brand/analytics/export.csv")
+def export_brand_bi_csv_endpoint(
+    date_from: Optional[str] = Query(None, description="ISO date (YYYY-MM-DD), inclusive"),
+    date_to: Optional[str] = Query(None, description="ISO date (YYYY-MM-DD), inclusive"),
+    days: Optional[int] = Query(None, description="Preset window in days"),
+    branch_id: Optional[int] = Query(None, description="Filter by branch ID"),
+    category_id: Optional[int] = Query(None, description="Filter by category ID"),
+    user: User = Depends(brand_auth),
+    db: Session = Depends(get_db),
+):
+    """Download sanitized CSV report with active reporting filters."""
+    from fastapi.responses import Response
+    from backend.app.services.business_intelligence_service import BusinessIntelligenceService
+    bp = BrandService(db).get_brand_profile_by_user(user)
+
+    df = datetime.fromisoformat(date_from) if date_from else None
+    dt = datetime.fromisoformat(date_to) if date_to else None
+
+    if branch_id is not None:
+        store = db.query(StoreLocation).filter(StoreLocation.id == branch_id, StoreLocation.brand_id == bp["id"]).first()
+        if not store:
+            raise HTTPException(status_code=404, detail="Branch location not found for this brand tenant.")
+
+    svc = BusinessIntelligenceService(db)
+    csv_content = svc.export_brand_bi_csv(
+        brand_id=bp["id"],
+        date_from=df,
+        date_to=dt,
+        days=days,
+        branch_id=branch_id,
+        category_id=category_id,
+    )
+
+    slug = bp.get("slug") or f"brand-{bp['id']}"
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d")
+    return Response(
+        content=csv_content,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="confit-bi-{slug}-{stamp}.csv"'},
+    )
+
+
+@router.get("/partner/analytics/export.pdf")
+@router.get("/brand/analytics/export.pdf")
+def export_brand_bi_pdf_endpoint(
+    date_from: Optional[str] = Query(None, description="ISO date (YYYY-MM-DD), inclusive"),
+    date_to: Optional[str] = Query(None, description="ISO date (YYYY-MM-DD), inclusive"),
+    days: Optional[int] = Query(None, description="Preset window in days"),
+    branch_id: Optional[int] = Query(None, description="Filter by branch ID"),
+    category_id: Optional[int] = Query(None, description="Filter by category ID"),
+    user: User = Depends(brand_auth),
+    db: Session = Depends(get_db),
+):
+    """Download executive BI PDF report with official Logo #3 vector branding."""
+    from fastapi.responses import Response
+    from backend.app.services.business_intelligence_service import BusinessIntelligenceService
+    bp = BrandService(db).get_brand_profile_by_user(user)
+
+    df = datetime.fromisoformat(date_from) if date_from else None
+    dt = datetime.fromisoformat(date_to) if date_to else None
+
+    if branch_id is not None:
+        store = db.query(StoreLocation).filter(StoreLocation.id == branch_id, StoreLocation.brand_id == bp["id"]).first()
+        if not store:
+            raise HTTPException(status_code=404, detail="Branch location not found for this brand tenant.")
+
+    svc = BusinessIntelligenceService(db)
+    pdf_content = svc.render_brand_bi_pdf(
+        brand_id=bp["id"],
+        date_from=df,
+        date_to=dt,
+        days=days,
+        branch_id=branch_id,
+        category_id=category_id,
+    )
+
+    slug = bp.get("slug") or f"brand-{bp['id']}"
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d")
+    return Response(
+        content=pdf_content,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="confit-bi-report-{slug}-{stamp}.pdf"'},
+    )

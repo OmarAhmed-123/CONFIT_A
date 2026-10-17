@@ -1,11 +1,14 @@
 import { useTranslation } from 'react-i18next';
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, CheckCircle2, Circle } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { useBrandViewModel } from '../../viewmodels/useBrandViewModel';
 import { Surface } from '../../components/common/Surface';
 import { HonestProductImage } from '../../components/common/HonestProductImage';
 import { usePrefersReducedMotion } from '../../components/common/InteractionPrimitives';
+import { brandService } from '../../services/apiServices';
+import type { BrandOnboardingStatus } from '../../models';
 
 /**
  * B02 — Partner Command Center, re-pass (see docs/B02_PARTNER_DASHBOARD_REDESIGN.md).
@@ -29,6 +32,23 @@ export const BrandDashboardView: React.FC = () => {
   const reduceMotion = usePrefersReducedMotion();
   const { profile, analytics, fetchErrors, isLoading, loadFailed, refresh } =
     useBrandViewModel();
+
+  // PR #352 — guided onboarding status (endpoint: /brand/onboarding-status).
+  const [onboarding, setOnboarding] = useState<BrandOnboardingStatus | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    if (typeof brandService?.getOnboardingStatus === 'function') {
+      brandService.getOnboardingStatus()
+        .then((data) => {
+          if (isMounted) setOnboarding(data);
+        })
+        .catch(() => {});
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const [stamp, setStamp] = useState<string | null>(null);
   useEffect(() => {
@@ -210,6 +230,90 @@ export const BrandDashboardView: React.FC = () => {
           )}
         </Surface>
       </header>
+
+      {/* ----------------------------------------------- 1b · Guided Onboarding & Welcome Hub */}
+      {onboarding && (
+        <Surface variant="solid" reveal className="rounded-3xl border border-neutral-200 bg-neutral-50/70 p-6 sm:p-8 space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-brand-coral">
+                  {t('brand_onboard.title', 'Brand Onboarding & Setup')}
+                </span>
+                <span
+                  className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                    onboarding.is_verified
+                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                      : 'bg-amber-50 text-amber-700 border border-amber-200'
+                  }`}
+                >
+                  {onboarding.publication_status === 'active'
+                    ? t('brand_onboard.active', 'Active & Published')
+                    : onboarding.publication_status === 'pending_review'
+                    ? t('brand_onboard.pending', 'Pending Review')
+                    : t('brand_onboard.incomplete', 'Setup Incomplete')}
+                </span>
+              </div>
+              <h2 className="font-serif text-lg sm:text-xl font-bold text-brand-charcoal">
+                {onboarding.welcome_message}
+              </h2>
+            </div>
+
+            <Link
+              to={onboarding.primary_cta_url}
+              className="inline-flex shrink-0 items-center gap-1.5 px-5 py-2.5 rounded-xl bg-brand-charcoal text-white text-xs font-bold hover:bg-neutral-800 transition-colors shadow-sm self-start sm:self-center"
+            >
+              {onboarding.primary_cta_label} &rarr;
+            </Link>
+          </div>
+
+          {/* Progress Bar */}
+          <div className="space-y-2 pt-2 border-t border-neutral-200">
+            <div className="flex items-center justify-between text-xs font-semibold text-neutral-600">
+              <span>{t('brand_onboard.checklist_title', { completed: onboarding.completed_steps_count, total: onboarding.total_steps_count, defaultValue: `Setup Checklist (${onboarding.completed_steps_count} of ${onboarding.total_steps_count} completed)` })}</span>
+              <span>{onboarding.completion_percentage}%</span>
+            </div>
+            <div className="h-2 w-full rounded-full bg-neutral-200 overflow-hidden">
+              <div
+                className="h-full bg-brand-coral transition-all duration-500 rounded-full"
+                style={{ width: `${onboarding.completion_percentage}%` }}
+              />
+            </div>
+          </div>
+
+          {/* Steps Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 pt-2">
+            {onboarding.steps.map((step) => (
+              <Link
+                key={step.key}
+                to={step.action_url}
+                className={`p-3.5 rounded-2xl border transition-all flex flex-col justify-between space-y-2 ${
+                  step.is_completed
+                    ? 'bg-white border-neutral-200 hover:border-neutral-400'
+                    : 'bg-white/80 border-dashed border-neutral-300 hover:border-brand-charcoal'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <span className="text-xs font-bold text-brand-charcoal line-clamp-1">
+                    {step.title}
+                  </span>
+                  {step.is_completed ? (
+                    <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+                  ) : (
+                    <Circle size={16} className="text-neutral-300 shrink-0" />
+                  )}
+                </div>
+                <p className="text-[11px] text-neutral-500 line-clamp-2 leading-relaxed">
+                  {step.description}
+                </p>
+                <span className="text-[10px] font-bold text-brand-coral block pt-1">
+                  {step.is_completed ? t('brand_onboard.review_step', 'Review Step →') : t('brand_onboard.complete_step', 'Complete Step →')}
+                </span>
+              </Link>
+            ))}
+          </div>
+        </Surface>
+      )}
 
       {/* ------------------------------------------------- 2 · hairline ledger */}
       <Surface variant="solid" reveal className="grid grid-cols-2 lg:grid-cols-4">

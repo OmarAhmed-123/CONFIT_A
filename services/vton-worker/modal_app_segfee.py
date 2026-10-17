@@ -39,7 +39,10 @@ import modal
 from fastapi import HTTPException, Header
 from pydantic import BaseModel, field_validator
 
-app = modal.App("confit-vton-worker-segfee")
+# App name is env-overridable so a STAGING deployment of this exact
+# code can run as a separate Modal app (golden-set measurement) without
+# touching production: CONFIT_VTON_APP_NAME=confit-vton-worker-qa-staging.
+app = modal.App(os.environ.get("CONFIT_VTON_APP_NAME", "confit-vton-worker-segfee"))
 
 # Security and resource limits
 MAX_IMAGE_BYTES = 15 * 1024 * 1024  # 15MB
@@ -47,6 +50,33 @@ MIN_IMAGE_BYTES = 100
 MAX_IMAGE_DIMENSION = 4096
 MIN_IMAGE_DIMENSION = 32
 MAX_GARMENTS = 1  # FASHN is single-category; do not accept more than one.
+
+# P4 rate limits (per container; max_inputs=1 already serializes GPU work):
+# protect the GPU bill from abuse/misconfiguration. 429 RATE_LIMITED when hit.
+RATE_LIMIT_PER_MIN = int(os.environ.get("VTON_RATE_LIMIT_PER_MIN", "6"))
+RATE_LIMIT_GLOBAL_PER_MIN = int(os.environ.get("VTON_RATE_LIMIT_GLOBAL_PER_MIN", "20"))
+
+
+class _SlidingWindow:
+    def __init__(self) -> None:
+        import collections, threading
+        self._hits: dict[str, list] = {}
+        self._lock = threading.Lock()
+
+    def allow(self, key: str, limit: int, window_s: float = 60.0) -> bool:
+        import time as _t
+        now = _t.monotonic()
+        with self._lock:
+            hits = self._hits.setdefault(key, [])
+            while hits and now - hits[0] > window_s:
+                hits.pop(0)
+            if len(hits) >= limit:
+                return False
+            hits.append(now)
+            return True
+
+
+_RATE = _SlidingWindow()
 
 WEIGHTS_DIR = "/weights"
 
@@ -104,6 +134,7 @@ BUILD_GIT_SHA = _resolve_build_git_sha()
 # <repo>/; <repo>/vendor/fashn-vton-segfee is the segmentation-free fork source.
 _FORK_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "vendor", "fashn-vton-segfee"))
 _ENGINE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "engine"))
+_QA_FILE = os.path.abspath(os.path.join(os.path.dirname(__file__), "vton_qa.py"))
 
 _image = (
     modal.Image.debian_slim(python_version="3.11")
@@ -116,6 +147,7 @@ _image = (
     )
     .add_local_dir(_FORK_DIR, remote_path="/root/fashn-vton-segfee", copy=True)
     .add_local_dir(_ENGINE_DIR, remote_path="/root/vton-worker/engine", copy=True)
+    .add_local_file(_QA_FILE, remote_path="/root/vton-worker/vton_qa.py", copy=True)
     .run_commands("pip install --no-deps /root/fashn-vton-segfee")
     .env({"PYTHONPATH": "/root/fashn-vton-segfee:/root/vton-worker:",
           "CONFIT_GIT_SHA": BUILD_GIT_SHA})
@@ -232,7 +264,12 @@ class VTONJobRequest(BaseModel):
 @app.cls(
     gpu="A10G",
     image=_image,  # noqa: F821  (defined below; pydantic/modal resolve at build)
-    secrets=[modal.Secret.from_name("confit-worker-admin-token")],
+    secrets=[modal.Secret.from_name("confit-worker-admin-token"),
+             # per-deployment tuning (rate limits etc.). The secret MUST exist
+             # in every deployed environment: production creates it with the
+             # strict values (VTON_RATE_LIMIT_PER_MIN=6, ..._GLOBAL=20);
+             # staging uses raised values for golden-set runs. See runbook.
+             modal.Secret.from_name("confit-staging-tuning")],
     scaledown_window=300,
     volumes={WEIGHTS_DIR: modal.Volume.from_name("confit-vton-fashn-weights")},
 )
@@ -309,7 +346,14 @@ class FashnInferenceService:
             )
         return {"ready": True, "engine": "fashn_vton_segfee", "model_loaded": True}
 
-    @modal.fastapi_endpoint(method="POST")
+    @modal.fastapi_endpoint(
+        method="POST",
+        # P4 (2026-10-10): Modal-native proxy auth at the edge when the
+        # deployment opts in (staging/prod hardening). The backend then sends
+        # the workspace token via VTON_WORKER_GATEWAY_AUTHORIZATION; the
+        # app-level X-VTON-Admin check below remains as defense in depth.
+        requires_proxy_auth=os.environ.get("VTON_ENABLE_PROXY_AUTH", "").strip().lower() in ("1", "true", "yes"),
+    )
     def process(self, payload: VTONJobRequest, x_vton_admin: str | None = Header(None, alias="X-VTON-Admin")) -> dict:
         # Authentication. The worker receives the admin token from the Modal
         # secret `confit-worker-admin-token` (injected into the container env as
@@ -318,6 +362,18 @@ class FashnInferenceService:
         expected = os.environ.get("VTON_WORKER_ADMIN_TOKEN") or os.environ.get("CONFIT_WORKER_ADMIN_TOKEN", "")
         if not expected or x_vton_admin != expected:
             raise HTTPException(status_code=401, detail={"error": {"code": "UNAUTHORIZED", "message": "Missing or wrong X-VTON-Admin header."}})
+
+        # P4 rate limiting (after auth so limits are per authenticated token)
+        if not _RATE.allow("global", RATE_LIMIT_GLOBAL_PER_MIN) or not _RATE.allow(
+            f"tok:{(x_vton_admin or '')[:8]}", RATE_LIMIT_PER_MIN
+        ):
+            raise HTTPException(
+                status_code=429,
+                detail={"error": {"code": "RATE_LIMITED",
+                                  "message": f"VTON render rate limit exceeded "
+                                             f"({RATE_LIMIT_PER_MIN}/min per token, "
+                                             f"{RATE_LIMIT_GLOBAL_PER_MIN}/min global)."}},
+            )
         if not self.model_loaded:
             raise HTTPException(status_code=503, detail={"error": {"code": "VTON_ENGINE_UNAVAILABLE", "message": "Reason: engine not loaded", "details": self.load_error}})
 
@@ -386,20 +442,66 @@ class FashnInferenceService:
         except Exception as e:
             raise HTTPException(status_code=422, detail={"error": {"code": "INPUT_INVALID", "message": f"Invalid garment image: {type(e).__name__}: {str(e)[:200]}"}})
 
-        # Run inference
+        # Run inference — QA-gated seed ladder (ghost-hands remediation).
+        # A single fixed seed with a content-blind verify gate is how the
+        # 2026-10 "ghost hands" render shipped as success: the old gate only
+        # proves the image changed. Now every candidate render must pass the
+        # content QA gate (no invented skin / face / background drift); the
+        # first passing seed wins and identity regions are pasted back from
+        # the person input. If NO seed passes, the job fails LOUDLY
+        # (QA_GATE_FAILED) instead of returning a contaminated image.
         import torch
+        from vton_qa import QA_SEED_LADDER, paste_back_identity, qa_gate
+
         start_inference = time.time()
+        rendered: Image.Image | None = None
+        qa: dict | None = None
+        qa_attempts: list[dict] = []
         try:
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
-            rendered = self.engine.render(
-                person_image=person,
-                garment_image=garment,
-                category=category,
-                seed=42,
-                num_timesteps=30,
-            )
+            for seed in QA_SEED_LADDER:
+                candidate = self.engine.render(
+                    person_image=person,
+                    garment_image=garment,
+                    category=category,
+                    seed=seed,
+                    num_timesteps=30,
+                )
+                q = qa_gate(person, candidate, garment)
+                qa_attempts.append(
+                    {
+                        "seed": seed,
+                        "qa_PASS": q["qa_PASS"],
+                        "ghost_skin_blobs": q["ghost_skin_blobs"],
+                        "face_drift": q["face_drift"],
+                        "background_drift": q["background_drift"],
+                        "reasons": q["qa_reasons"],
+                    }
+                )
+                if q["qa_PASS"]:
+                    rendered = paste_back_identity(person, candidate)
+                    qa = q
+                    break
+            if rendered is None:
+                raise HTTPException(
+                    status_code=503,
+                    detail={
+                        "error": {
+                            "code": "QA_GATE_FAILED",
+                            "message": (
+                                "No seed produced a render that passed the "
+                                "ghost-limb/identity QA gate; failing honestly "
+                                "instead of returning a contaminated image."
+                            ),
+                            "attempts": qa_attempts,
+                        },
+                        "job_id": request_id,
+                    },
+                )
             inference_s = round(time.time() - start_inference, 3)
+        except HTTPException:
+            raise
         except torch.cuda.OutOfMemoryError as e:
             try:
                 if torch.cuda.is_available():
@@ -433,6 +535,14 @@ class FashnInferenceService:
         verify = {"PASS": None}
         try:
             verify = self._verify_output(person, rendered)
+            if qa is not None:
+                # Content QA travels inside verify so the backend's canonical
+                # per-layer gate and observability see exactly what ran.
+                verify["qa"] = qa
+                verify["qa_attempts"] = qa_attempts
+                verify["identity_paste_back"] = True
+                if not qa["qa_PASS"]:
+                    verify["PASS"] = False
         except Exception as e:
             print(f"[process] verify failed job {request_id}: {e}", flush=True)
 
@@ -456,6 +566,7 @@ class FashnInferenceService:
             "slot_type": slot,
             "category": category,
             "verify": verify,
+            "qa_attempts": qa_attempts,
             "parser_present": _parser_status,
             "commercial": True,
         }

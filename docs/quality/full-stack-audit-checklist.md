@@ -27,6 +27,20 @@ A row is `PASS` only when the verification was actually run and is recorded here
 | Required reviews | none configured | NOT_APPLICABLE |
 | Open PRs at baseline | 10 (incl. #352 `feat/brand-logo-individual-grid` → main) | PASS (inventory) |
 
+## 2b. Database (read-only, 2026-10-17) — see `docs/quality/database-audit-2026-10-17.md`
+
+| Item | Status |
+| --- | --- |
+| Live DB reachable through app role, read-only | PASS |
+| Applied head == repo head (0036), no pending migrations | PASS |
+| Repo schema gate (production) on live DB | PASS |
+| ORM vs live schema comparison | PASS with open findings (see doc §2) |
+| `product_skus` / `store_inventories` `brand_id` ORM nullability mismatch | FAIL (open; fix plan documented; naive fix reverted, 59 test errors) |
+| `store_inventories_tenant_quarantine` (11 rows) disposition | BLOCKED (needs business decision) |
+| Backup and PITR verification | BLOCKED (no Neon API access) |
+| Restore drill | NOT_STARTED |
+| Migration chain on real PostgreSQL (CI job) | BLOCKED (no local Postgres) |
+
 ## 3. Inventory, roles, traceability, UI, database, deployment
 
 All remaining sections are `NOT_STARTED`: role/permission matrix, feature traceability matrix, frontend↔backend contract checks, database integrity and migration verification (production head read-only check pending), authorization boundary tests, E2E journeys, accessibility/responsive review, Logo #3 visual audit, deployment verification.

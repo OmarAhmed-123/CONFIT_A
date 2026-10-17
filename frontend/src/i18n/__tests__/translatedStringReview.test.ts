@@ -105,6 +105,12 @@ const EXTRACTED = [
   'b2b.placements_clicks', 'b2b.placements_conversions', 'b2b.placements_daily_budget',
   'b2b.placements_counters_note', 'b2b.placements_form_heading',
   'b2b.placements_select_product',
+  // b2b analytics_view (BrandAnalyticsView professional redesign)
+  'b2b.analytics_view.unavailable_title', 'b2b.analytics_view.eyebrow',
+  'b2b.analytics_view.heading', 'b2b.analytics_view.no_activity',
+  'b2b.analytics_view.funnel_title', 'b2b.analytics_view.top_skus',
+  'b2b.analytics_view.no_skus', 'b2b.analytics_view.cohort_title',
+  'b2b.analytics_view.cohort_subtitle',
 ];
 
 describe('extracted strings: presence and shape', () => {

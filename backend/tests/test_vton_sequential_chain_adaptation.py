@@ -35,6 +35,15 @@ from PIL import Image
 
 UNIQUE = uuid.uuid4().hex[:8]
 
+
+@pytest.fixture(autouse=True)
+def _disable_p0_asset_gate(monkeypatch):
+    """These tests pin the SEQUENTIAL-CHAIN transport contract; the P0
+    garment-asset gate (2026-10-10, ghost-hands remediation) is a separate
+    contract pinned in test_vton_garment_asset_guard.py. Keep them isolated
+    so chain fixtures (synthetic garment pixels) are not re-judged here."""
+    monkeypatch.setenv("VTON_ASSET_GATE_ENABLED", "false")
+
 # The deployed worker's EXACT rejection body (fashn_vton_segfee, pydantic
 # value_error on garments) — pinned so the adaptation's signature match
 # stays aligned with production reality.

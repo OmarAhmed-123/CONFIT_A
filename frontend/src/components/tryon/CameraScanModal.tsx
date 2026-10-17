@@ -214,7 +214,7 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
       const headRx = w * 0.11;
       const headRy = h * 0.13;
 
-      ctx.strokeStyle = '#C5A059';
+      ctx.strokeStyle = '#EF826D';
       ctx.lineWidth = 2;
       ctx.setLineDash([6, 6]);
       ctx.beginPath();
@@ -226,7 +226,7 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
       const shoulderLeft = w * 0.28;
       const shoulderRight = w * 0.72;
 
-      ctx.strokeStyle = '#FAF9F6';
+      ctx.strokeStyle = '#FFFFFF';
       ctx.setLineDash([]);
       ctx.beginPath();
       ctx.moveTo(shoulderLeft, shoulderY);
@@ -234,7 +234,7 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
       ctx.stroke();
 
       // Caliper Handles
-      ctx.fillStyle = '#C5A059';
+      ctx.fillStyle = '#EF826D';
       ctx.beginPath();
       ctx.arc(shoulderLeft, shoulderY, 4, 0, 2 * Math.PI);
       ctx.arc(shoulderRight, shoulderY, 4, 0, 2 * Math.PI);
@@ -242,7 +242,7 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
 
       // Caliper Label
       ctx.font = 'bold 11px Inter, sans-serif';
-      ctx.fillStyle = '#C5A059';
+      ctx.fillStyle = '#EF826D';
       ctx.fillText(t('tryon.scan_canvas_shoulder_guide', { cm: shoulderCm }), headCx - 50, shoulderY - 10);
 
       // 3. Torso Bounding Guide
@@ -261,7 +261,7 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
       ctx.stroke();
 
       // Waist Label
-      ctx.fillStyle = '#FAF9F6';
+      ctx.fillStyle = '#FFFFFF';
       ctx.fillText(t('tryon.scan_canvas_waistline', { cm: waistCm }), headCx - 40, waistY - 6);
     }
 
@@ -542,7 +542,7 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
   return (
     <>
       {consentDialog}
-    <div data-testid="camera-modal-overlay" className="fixed inset-0 z-50 !m-0 flex items-center justify-center bg-slate-950/85 p-0 backdrop-blur-md animate-in fade-in duration-150 sm:p-4">
+    <div data-testid="camera-modal-overlay" className="fixed inset-0 z-50 !m-0 flex items-center justify-center bg-slate-900/40 p-0 backdrop-blur-sm animate-in fade-in duration-150 sm:p-4">
       <div
         ref={panelRef}
         role="dialog"
@@ -551,34 +551,34 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
         aria-describedby="camera-scan-summary"
         tabIndex={-1}
         dir={i18n.dir()}
-        className="flex h-[100dvh] max-h-[100dvh] w-full min-w-0 flex-col overflow-hidden border border-slate-100 bg-white shadow-2xl sm:h-auto sm:max-w-2xl sm:max-h-[92dvh] sm:rounded-3xl"
+        className="flex h-[100dvh] max-h-[100dvh] w-full min-w-0 flex-col overflow-hidden border border-brand-hairline bg-white shadow-2xl sm:h-auto sm:max-w-2xl sm:max-h-[92dvh] sm:rounded-3xl"
       >
         {/* Header */}
-        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-slate-800 bg-[#0C0E1E] p-4 text-white sm:items-center sm:p-5">
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-brand-hairline bg-white p-4 text-brand-charcoal sm:items-center sm:p-5">
           <div className="flex min-w-0 items-start gap-3 sm:items-center">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#C5A059] font-bold text-slate-950 shadow-xs">
-              <RulerIcon size={22} color="#0C0E1E" />
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-wash border border-brand-hairline font-bold text-brand-charcoal shadow-xs">
+              <RulerIcon size={22} color="#252729" />
             </div>
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <h3 id="camera-scan-title" className="font-serif text-base font-bold text-white sm:text-lg">
+                <h3 id="camera-scan-title" className="font-serif text-base font-bold text-brand-charcoal sm:text-lg">
                   {t('tryon.scan_studio_title')}
                 </h3>
-                <span className="rounded-full border border-emerald-500/30 bg-emerald-500/20 px-2 py-0.5 font-mono text-[10px] text-emerald-400">
+                <span className="rounded-full border border-emerald-500/30 bg-emerald-50 px-2 py-0.5 font-mono text-[10px] text-emerald-700 font-semibold">
                   {t('tryon.scan_privacy_badge')}
                 </span>
               </div>
-              <p id="camera-scan-summary" className="mt-1 text-[11px] font-light leading-relaxed text-slate-400">
+              <p id="camera-scan-summary" className="mt-1 text-[11px] font-light leading-relaxed text-slate-500">
                 {t('tryon.scan_privacy_summary')}
               </p>
             </div>
           </div>
-          <button
+          <button data-motion="filter" data-motion-tone="icon"
             type="button"
             onClick={handleClose}
             aria-label={t('tryon.scan_close')}
             title={t('tryon.scan_close')}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-slate-800 text-sm text-slate-300 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059]"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-slate-100 text-sm text-slate-600 transition-colors hover:bg-slate-200 hover:text-brand-charcoal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal"
           >
             <span aria-hidden="true">✕</span>
           </button>
@@ -586,14 +586,14 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
 
         {/* Two rows on narrow screens keep every target readable and visible;
             a four-column strip returns at the first practical tablet width. */}
-        <div role="tablist" aria-label={t('tryon.scan_modes')} className="grid shrink-0 grid-cols-2 gap-1.5 border-b border-slate-200 bg-[#FAF9F6] p-1.5 text-xs font-semibold sm:grid-cols-4">
+        <div role="tablist" aria-label={t('tryon.scan_modes')} className="grid shrink-0 grid-cols-2 gap-1.5 border-b border-slate-200 bg-brand-wash p-1.5 text-xs font-semibold sm:grid-cols-4">
           {[
             { id: 'camera' as const, icon: '📹', label: t('tryon.scan_tab_camera') },
             { id: 'upload' as const, icon: '🖼️', label: t('tryon.scan_tab_upload') },
             { id: 'preset' as const, icon: '👤', label: t('tryon.scan_tab_preset') },
             { id: 'ruler' as const, icon: '📐', label: t('tryon.scan_tab_ruler') },
           ].map((tab) => (
-            <button
+            <button data-motion="filter" data-motion-tone="icon"
               key={tab.id}
               type="button"
               role="tab"
@@ -601,9 +601,9 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
               aria-selected={activeTab === tab.id}
               aria-controls={`camera-scan-panel-${tab.id}`}
               onClick={() => selectTab(tab.id)}
-              className={`min-h-11 min-w-0 rounded-xl px-2 py-2.5 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059] ${
+              className={`min-h-11 min-w-0 rounded-xl px-2 py-2.5 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white ${
                 activeTab === tab.id
-                  ? 'bg-[#1B1F3B] text-white shadow-xs'
+                  ? 'bg-brand-charcoal text-white shadow-xs'
                   : 'text-slate-600 hover:bg-slate-200/60'
               }`}
             >
@@ -618,9 +618,9 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
           {scanStep === 'ready' && (
             <>
               {/* Reference Height Calibration Input */}
-              <div className="flex flex-col gap-3 rounded-2xl border border-[#C5A059]/30 bg-[#FDF8EE] p-3.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+              <div className="flex flex-col gap-3 rounded-2xl border border-brand-hairline/30 bg-brand-wash p-3.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                 <div className="min-w-0">
-                  <label htmlFor="camera-calibration-height" className="block text-xs font-bold text-[#1B1F3B]">
+                  <label htmlFor="camera-calibration-height" className="block text-xs font-bold text-brand-charcoal">
                     {t('tryon.scan_calibration_label')}
                   </label>
                   <span className="text-[11px] font-light leading-relaxed text-slate-600">
@@ -639,7 +639,7 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
                       setUserCalibrationHeightCm(Number(e.target.value));
                       markModified('height');
                     }}
-                    className="w-24 rounded-xl border border-slate-300 bg-white px-2.5 py-2 text-center text-xs font-bold text-slate-900 focus:border-[#C5A059] focus:outline-none"
+                    className="w-24 rounded-xl border border-slate-300 bg-white px-2.5 py-2 text-center text-xs font-bold text-slate-900 focus:border-brand-hairline focus:outline-none"
                   />
                   <span className="text-xs font-bold text-slate-700">{t('tryon.scan_unit_cm')}</span>
                 </div>
@@ -657,21 +657,21 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
                     <div role="alert" className="space-y-3 rounded-2xl border border-amber-200 bg-amber-50 p-3.5 text-xs text-amber-900">
                       <p className="font-medium leading-relaxed">{resolveMessage(cameraError, t)}</p>
                       <div className="flex flex-wrap gap-2">
-                        <button
+                        <button data-motion="recovery"
                           type="button"
                           onClick={() => startCamera()}
                           className="min-h-10 rounded-lg bg-amber-700 px-3 py-2 text-[11px] font-bold text-white hover:bg-amber-800"
                         >
                           {t('tryon.scan_camera_retry')}
                         </button>
-                        <button
+                        <button data-motion="filter"
                           type="button"
                           onClick={() => selectTab('upload')}
                           className="min-h-10 rounded-lg border border-amber-300 bg-white px-3 py-2 text-[11px] font-bold text-amber-900 hover:bg-amber-100"
                         >
                           {t('tryon.scan_camera_use_upload')}
                         </button>
-                        <button
+                        <button data-motion="filter"
                           type="button"
                           onClick={() => selectTab('ruler')}
                           className="min-h-10 rounded-lg border border-amber-300 bg-white px-3 py-2 text-[11px] font-bold text-amber-900 hover:bg-amber-100"
@@ -704,7 +704,7 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
                     {cameraActive && (
                       <>
                         <div className="pointer-events-none absolute inset-x-3 top-3 z-10 flex items-start justify-between gap-2">
-                          <div className="flex items-center gap-1.5 rounded-full border border-[#C5A059]/40 bg-slate-950/80 px-3 py-1 font-mono text-[10px] font-bold text-[#C5A059] shadow-xs backdrop-blur-md">
+                          <div className="flex items-center gap-1.5 rounded-full border border-brand-hairline/40 bg-slate-950/80 px-3 py-1 font-mono text-[10px] font-bold text-white shadow-xs backdrop-blur-md">
                             <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-emerald-400"></span>
                             <span>{t('tryon.scan_align_hint')}</span>
                           </div>
@@ -714,22 +714,22 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
                         </div>
 
                         {/* Animated Laser Scanning Beam */}
-                        <div className="pointer-events-none absolute inset-x-0 h-1 animate-[scan_2.5s_ease-in-out_infinite] bg-gradient-to-r from-transparent via-[#C5A059] to-transparent shadow-[0_0_15px_#C5A059]" />
+                        <div className="pointer-events-none absolute inset-x-0 h-1 animate-[scan_2.5s_ease-in-out_infinite] bg-gradient-to-r from-transparent via-brand-coral to-transparent shadow-[0_0_15px_#EF826D]" />
                       </>
                     )}
 
                     {!cameraActive && !cameraLoading && (
                       <div data-testid="camera-empty-state" className="absolute inset-0 flex flex-col items-center justify-center gap-3 overflow-y-auto p-4 text-center sm:p-6">
-                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-slate-700 bg-slate-900 text-[#C5A059] shadow-md sm:h-14 sm:w-14">
-                          <TryOnIcon size={28} color="#C5A059" isAi={true} />
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-slate-700 bg-slate-900 text-white shadow-md sm:h-14 sm:w-14">
+                          <TryOnIcon size={28} color="#FFFFFF" isAi={true} />
                         </div>
                         <p className="mx-auto max-w-sm text-[11px] font-light leading-relaxed text-slate-300 sm:text-xs">
                           {t('tryon.scan_camera_start_hint')}
                         </p>
-                        <button
+                        <button data-motion="upload"
                           type="button"
                           onClick={() => startCamera()}
-                          className="min-h-11 rounded-xl bg-[#C5A059] px-5 py-2.5 text-xs font-bold text-slate-950 shadow-md transition-all hover:bg-[#E2BF70] active:scale-95"
+                          className="min-h-11 rounded-xl bg-white px-5 py-2.5 text-xs font-bold text-brand-charcoal shadow-md transition-all hover:bg-slate-100 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
                         >
                           {t('tryon.scan_camera_enable')}
                         </button>
@@ -738,7 +738,7 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
 
                     {cameraLoading && (
                       <div role="status" className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-4 text-center">
-                        <div className="h-8 w-8 motion-safe:animate-spin rounded-full border-3 border-[#C5A059] border-t-transparent"></div>
+                        <div className="h-8 w-8 motion-safe:animate-spin rounded-full border-3 border-brand-hairline border-t-transparent"></div>
                         <span className="text-xs text-slate-300">{t('tryon.scan_init_stream')}</span>
                       </div>
                     )}
@@ -747,7 +747,7 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
                   {cameraActive && (
                     <div className="flex flex-col gap-2.5 sm:flex-row">
                       {hasMultipleCameras && (
-                        <button
+                        <button data-motion="upload"
                           type="button"
                           onClick={toggleCameraFacing}
                           className="min-h-11 rounded-xl border border-slate-300 px-4 py-3 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50"
@@ -755,12 +755,12 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
                           {t('tryon.scan_camera_switch')}
                         </button>
                       )}
-                      <button
+                      <button data-motion="creative"
                         type="button"
                         onClick={captureCameraFrame}
-                        className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-2xl bg-[#1B1F3B] py-3.5 text-xs font-bold text-white shadow-md transition-all hover:bg-[#0C0E1E]"
+                        className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-2xl bg-brand-charcoal py-3.5 text-xs font-bold text-white shadow-md transition-all hover:bg-brand-charcoal"
                       >
-                        <SparkleIcon size={16} color="#C5A059" />
+                        <SparkleIcon size={16} color="currentColor" />
                         <span>{t('tryon.scan_capture_cta')}</span>
                       </button>
                     </div>
@@ -776,15 +776,15 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
                   aria-labelledby="camera-scan-tab-upload"
                   className="space-y-4"
                 >
-                  <button
+                  <button data-motion="upload"
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="w-full space-y-3 rounded-3xl border-2 border-dashed border-slate-300 bg-[#FAF9F6] p-6 text-center transition-all hover:border-[#C5A059] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059] sm:p-8"
+                    className="w-full space-y-3 rounded-3xl border-2 border-dashed border-slate-300 bg-brand-wash p-6 text-center transition-all hover:border-brand-hairline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal sm:p-8"
                   >
-                    <span aria-hidden="true" className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-white text-[#C5A059] shadow-xs">
+                    <span aria-hidden="true" className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-white text-brand-charcoal shadow-xs">
                       📸
                     </span>
-                    <span className="block font-serif text-sm font-bold text-[#1B1F3B]">
+                    <span className="block font-serif text-sm font-bold text-brand-charcoal">
                       {t('tryon.scan_upload_title')}
                     </span>
                     <span className="mx-auto block max-w-sm text-xs font-light leading-relaxed text-slate-500">
@@ -810,19 +810,19 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
                   aria-labelledby="camera-scan-tab-preset"
                   className="space-y-3"
                 >
-                  <h4 className="font-serif text-sm font-bold text-[#1B1F3B]">
+                  <h4 className="font-serif text-sm font-bold text-brand-charcoal">
                     {t('tryon.scan_preset_title')}
                   </h4>
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     {silhouettePresets.map((preset) => (
-                      <button
+                      <button data-motion="creative"
                         type="button"
                         key={preset.shape}
                         onClick={() => applyPresetSilhouette(preset)}
-                        className="space-y-1.5 rounded-2xl border border-slate-200 bg-white p-4 text-start shadow-2xs transition-all hover:border-[#C5A059] hover:bg-[#FDF8EE] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059]"
+                        className="space-y-1.5 rounded-2xl border border-slate-200 bg-white p-4 text-start shadow-2xs transition-all hover:border-brand-hairline hover:bg-brand-wash focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal"
                       >
                         <span className="flex items-start justify-between gap-2">
-                          <span className="font-serif text-xs font-bold text-[#1B1F3B]">
+                          <span className="font-serif text-xs font-bold text-brand-charcoal">
                             {preset.label}
                           </span>
                           <span className="shrink-0 rounded border border-slate-200 bg-white px-2 py-0.5 font-mono text-[10px] font-bold">
@@ -849,9 +849,9 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
                   id="camera-scan-panel-ruler"
                   role="tabpanel"
                   aria-labelledby="camera-scan-tab-ruler"
-                  className="space-y-4 rounded-2xl border border-slate-200 bg-[#FAF9F6] p-4 sm:p-5"
+                  className="space-y-4 rounded-2xl border border-slate-200 bg-brand-wash p-4 sm:p-5"
                 >
-                  <h4 className="font-serif text-sm font-bold text-[#1B1F3B]">
+                  <h4 className="font-serif text-sm font-bold text-brand-charcoal">
                     {t('tryon.scan_manual_title')}
                   </h4>
 
@@ -859,7 +859,7 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
                     <div>
                       <div className="flex justify-between mb-1 font-semibold text-slate-700">
                         <span>{t('tryon.scan_height')}:</span>
-                        <span className="font-bold text-[#1B1F3B]">{heightCm} cm</span>
+                        <span className="font-bold text-brand-charcoal">{heightCm} cm</span>
                       </div>
                       <input
                         type="range"
@@ -871,14 +871,14 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
                           setUserCalibrationHeightCm(Number(e.target.value));
                           markModified('height');
                         }}
-                        className="w-full accent-[#C5A059]"
+                        className="w-full accent-brand-charcoal"
                       />
                     </div>
 
                     <div>
                       <div className="flex justify-between mb-1 font-semibold text-slate-700">
                         <span>{t('tryon.scan_shoulder')}:</span>
-                        <span className="font-bold text-[#1B1F3B]">{shoulderCm} cm</span>
+                        <span className="font-bold text-brand-charcoal">{shoulderCm} cm</span>
                       </div>
                       <input
                         type="range"
@@ -886,14 +886,14 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
                         max="56"
                         value={shoulderCm}
                         onChange={(e) => { setShoulderCm(Number(e.target.value)); markModified('shoulder'); }}
-                        className="w-full accent-[#C5A059]"
+                        className="w-full accent-brand-charcoal"
                       />
                     </div>
 
                     <div>
                       <div className="flex justify-between mb-1 font-semibold text-slate-700">
                         <span>{t('tryon.scan_chest')}:</span>
-                        <span className="font-bold text-[#1B1F3B]">{chestCm} cm</span>
+                        <span className="font-bold text-brand-charcoal">{chestCm} cm</span>
                       </div>
                       <input
                         type="range"
@@ -901,14 +901,14 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
                         max="125"
                         value={chestCm}
                         onChange={(e) => { setChestCm(Number(e.target.value)); markModified('chest'); }}
-                        className="w-full accent-[#C5A059]"
+                        className="w-full accent-brand-charcoal"
                       />
                     </div>
 
                     <div>
                       <div className="flex justify-between mb-1 font-semibold text-slate-700">
                         <span>{t('tryon.scan_waist')}:</span>
-                        <span className="font-bold text-[#1B1F3B]">{waistCm} cm</span>
+                        <span className="font-bold text-brand-charcoal">{waistCm} cm</span>
                       </div>
                       <input
                         type="range"
@@ -916,14 +916,14 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
                         max="115"
                         value={waistCm}
                         onChange={(e) => { setWaistCm(Number(e.target.value)); markModified('waist'); }}
-                        className="w-full accent-[#C5A059]"
+                        className="w-full accent-brand-charcoal"
                       />
                     </div>
                   </div>
 
-                  <button
+                  <button data-motion="filter"
                     onClick={() => runVisionAnalysis('manual_ruler')}
-                    className="w-full py-3 rounded-xl bg-[#1B1F3B] hover:bg-[#0C0E1E] text-white font-bold text-xs shadow-md transition-all"
+                    className="w-full py-3 rounded-xl bg-brand-charcoal hover:bg-brand-charcoal text-white font-bold text-xs shadow-md transition-all"
                   >
                     {t('tryon.scan_compile_profile')}
                   </button>
@@ -935,7 +935,7 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
           {/* --- STEP 2: CINEMATIC ACTIVE SCANNING ANIMATION WITH PERSON PREVIEW --- */}
           {scanStep === 'analyzing' && (
             <div className="py-6 space-y-6">
-              <div className="relative w-64 h-80 mx-auto rounded-3xl overflow-hidden bg-slate-950 border-2 border-[#C5A059]/60 shadow-2xl flex items-center justify-center">
+              <div className="relative w-64 h-80 mx-auto rounded-3xl overflow-hidden bg-slate-950 border-2 border-brand-hairline/60 shadow-2xl flex items-center justify-center">
                 {capturedImage ? (
                   <img
                     src={capturedImage}
@@ -943,32 +943,32 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
                     className="w-full h-full object-cover brightness-90"
                   />
                 ) : (
-                  <div className="w-full h-full bg-gradient-to-b from-slate-900 via-[#1B1F3B] to-slate-950 flex flex-col items-center justify-center p-6 text-center">
-                    <RulerIcon size={48} color="#C5A059" />
+                  <div className="w-full h-full bg-gradient-to-b from-slate-900 via-slate-950 to-black flex flex-col items-center justify-center p-6 text-center">
+                    <RulerIcon size={48} color="#242526" />
                     <span className="text-xs text-slate-300 mt-2 font-mono">Camera preview unavailable — guide view</span>
                   </div>
                 )}
 
                 {/* Laser Sweep Bar */}
-                <div className="absolute inset-x-0 h-1.5 bg-gradient-to-r from-transparent via-[#C5A059] to-transparent shadow-[0_0_20px_#C5A059] animate-[scan_1.5s_ease-in-out_infinite]" />
+                <div className="absolute inset-x-0 h-1.5 bg-gradient-to-r from-transparent via-brand-coral to-transparent shadow-[0_0_20px_#EF826D] animate-[scan_1.5s_ease-in-out_infinite]" />
 
                 {/* Corner Calipers */}
-                <div className="absolute top-2 left-2 w-4 h-4 border-t-2 border-l-2 border-[#C5A059]" />
-                <div className="absolute top-2 right-2 w-4 h-4 border-t-2 border-r-2 border-[#C5A059]" />
-                <div className="absolute bottom-2 left-2 w-4 h-4 border-b-2 border-l-2 border-[#C5A059]" />
-                <div className="absolute bottom-2 right-2 w-4 h-4 border-b-2 border-r-2 border-[#C5A059]" />
+                <div className="absolute top-2 left-2 w-4 h-4 border-t-2 border-l-2 border-brand-hairline" />
+                <div className="absolute top-2 right-2 w-4 h-4 border-t-2 border-r-2 border-brand-hairline" />
+                <div className="absolute bottom-2 left-2 w-4 h-4 border-b-2 border-l-2 border-brand-hairline" />
+                <div className="absolute bottom-2 right-2 w-4 h-4 border-b-2 border-r-2 border-brand-hairline" />
               </div>
 
               {/* Progress and Radar Logs */}
               <div className="max-w-md mx-auto space-y-3">
                 <div className="flex justify-between items-center text-xs font-mono text-slate-700">
-                  <span className="font-bold text-[#1B1F3B]">{t('tryon.scan_compiling')}</span>
-                  <span className="font-bold text-[#C5A059]">{scanProgress}%</span>
+                  <span className="font-bold text-brand-charcoal">{t('tryon.scan_compiling')}</span>
+                  <span className="font-bold text-brand-charcoal">{scanProgress}%</span>
                 </div>
 
                 <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden border border-slate-200">
                   <div
-                    className="h-full bg-gradient-to-r from-[#1B1F3B] via-[#C5A059] to-[#E2BF70] transition-all duration-300"
+                    className="h-full bg-gradient-to-r from-brand-charcoal via-brand-coral to-brand-lilac transition-all duration-300"
                     style={{ width: `${scanProgress}%` }}
                   />
                 </div>
@@ -991,10 +991,10 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
             <div className="space-y-5">
               <div className="flex justify-between items-center pb-3 border-b border-slate-100">
                 <div>
-                  <span className="text-[10px] font-bold text-[#C5A059] uppercase tracking-wider">
+                  <span className="text-[10px] font-bold text-brand-charcoal uppercase tracking-wider">
                     Size Profile Ready — self-reported ({estimatedData.source.replace('_', ' ')})
                   </span>
-                  <h4 className="font-serif text-lg font-bold text-[#1B1F3B]">
+                  <h4 className="font-serif text-lg font-bold text-brand-charcoal">
                     Your Measurements & Size Match
                   </h4>
                 </div>
@@ -1002,81 +1002,81 @@ export const CameraScanModal: React.FC<CameraScanModalProps> = ({
                   <FitScoreBadge score={estimatedData.confidence_score} label="Confidence" verdict="self-reported inputs" />
                 </span>
               </div>
-              <p className="text-[11px] text-slate-600 bg-[#FAF9F6] border border-slate-100 rounded-xl px-3 py-2 leading-relaxed">
+              <p className="text-[11px] text-slate-600 bg-brand-wash border border-slate-100 rounded-xl px-3 py-2 leading-relaxed">
                 {estimatedData.confidence_disclosure}
               </p>
 
               {/* Person Scanned Thumbnail & Derived Dimension Grid */}
               <div className="flex flex-col sm:flex-row gap-4 items-center">
                 {capturedImage && (
-                  <div className="w-32 h-40 rounded-2xl overflow-hidden bg-slate-950 border border-[#C5A059]/40 relative shrink-0 shadow-md">
+                  <div className="w-32 h-40 rounded-2xl overflow-hidden bg-slate-950 border border-brand-hairline/40 relative shrink-0 shadow-md">
                     <img src={capturedImage} alt="Scanned" className="w-full h-full object-cover" />
-                    <div className="absolute bottom-1 inset-x-1 py-0.5 rounded bg-slate-950/80 text-[8px] font-mono text-center text-[#C5A059]">
-                      <StatusIcon status="success" size={9} className="me-0.5 align-middle text-[#C5A059]" /> Calibrated
+                    <div className="absolute bottom-1 inset-x-1 py-0.5 rounded bg-slate-950/80 text-[8px] font-mono text-center text-white">
+                      <StatusIcon status="success" size={9} className="me-0.5 align-middle text-brand-charcoal" /> Calibrated
                     </div>
                   </div>
                 )}
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 text-xs flex-1 w-full">
-                  <div className="p-3 rounded-2xl bg-[#FAF9F6] border border-slate-200/80">
+                  <div className="p-3 rounded-2xl bg-brand-wash border border-slate-200/80">
                     <span className="text-slate-400 text-[10px] block">{t('tryon.scan_field_height')}</span>
                     <span className="text-sm font-bold text-slate-900">{estimatedData.height_cm} cm</span>
                     <span className="text-[10px] text-slate-500 block font-medium">{estimatedData.confidence_score}% · self-reported</span>
                   </div>
 
-                  <div className="p-3 rounded-2xl bg-[#FAF9F6] border border-slate-200/80">
+                  <div className="p-3 rounded-2xl bg-brand-wash border border-slate-200/80">
                     <span className="text-slate-400 text-[10px] block">{t('tryon.scan_field_shoulder')}</span>
                     <span className="text-sm font-bold text-slate-900">{estimatedData.shoulder_cm} cm</span>
                     <span className="text-[10px] text-slate-500 block font-light">{t('tryon.scan_your_value')}</span>
                   </div>
 
-                  <div className="p-3 rounded-2xl bg-[#FAF9F6] border border-slate-200/80">
+                  <div className="p-3 rounded-2xl bg-brand-wash border border-slate-200/80">
                     <span className="text-slate-400 text-[10px] block">{t('tryon.scan_field_chest')}</span>
                     <span className="text-sm font-bold text-slate-900">{estimatedData.chest_cm} cm</span>
                     <span className="text-[10px] text-slate-500 block font-light">{t('tryon.scan_your_value')}</span>
                   </div>
 
-                  <div className="p-3 rounded-2xl bg-[#FAF9F6] border border-slate-200/80">
+                  <div className="p-3 rounded-2xl bg-brand-wash border border-slate-200/80">
                     <span className="text-slate-400 text-[10px] block">{t('tryon.scan_field_waistline')}</span>
                     <span className="text-sm font-bold text-slate-900">{estimatedData.waist_cm} cm</span>
                     <span className="text-[10px] text-slate-500 block font-light">{t('tryon.scan_your_value')}</span>
                   </div>
 
-                  <div className="p-3 rounded-2xl bg-[#FAF9F6] border border-slate-200/80">
+                  <div className="p-3 rounded-2xl bg-brand-wash border border-slate-200/80">
                     <span className="text-slate-400 text-[10px] block">{t('tryon.scan_field_silhouette')}</span>
                     <span className="text-sm font-bold text-slate-900">{estimatedData.body_shape}</span>
                     <span className="text-[10px] text-slate-500 block font-light">V-Drop ratio</span>
                   </div>
 
-                  <div className="p-3 rounded-2xl bg-[#FDF8EE] border border-[#C5A059]/40">
-                    <span className="text-[#C5A059] text-[10px] font-bold block">{t('tryon.scan_recommended_size')}</span>
-                    <span className="text-sm font-bold text-[#1B1F3B]">{estimatedData.predicted_size}</span>
+                  <div className="p-3 rounded-2xl bg-brand-wash border border-brand-hairline/40">
+                    <span className="text-brand-charcoal text-[10px] font-bold block">{t('tryon.scan_recommended_size')}</span>
+                    <span className="text-sm font-bold text-brand-charcoal">{estimatedData.predicted_size}</span>
                     <span className="text-[10px] text-slate-500 block font-semibold">Size-chart match — try-on fit still verified by the render engine</span>
                   </div>
                 </div>
               </div>
 
               {/* Privacy Shield Notice */}
-              <p className="flex items-start gap-2 rounded-xl border border-slate-200 bg-[#FAF9F6] p-3 text-[11px] font-light leading-relaxed text-slate-600">
-                <span className="mt-0.5 shrink-0"><LockIcon size={16} color="#C5A059" /></span>
+              <p className="flex items-start gap-2 rounded-xl border border-slate-200 bg-brand-wash p-3 text-[11px] font-light leading-relaxed text-slate-600">
+                <span className="mt-0.5 shrink-0"><LockIcon size={16} color="#242526" /></span>
                 <span>{t('tryon.scan_privacy_result')}</span>
               </p>
 
               {/* Actions */}
               <div className="flex gap-3 pt-2">
-                <button
+                <button data-motion="progressive"
                   type="button"
                   onClick={handleRetake}
                   className="flex-1 py-3 rounded-xl border border-slate-300 hover:bg-slate-50 text-slate-700 font-semibold text-xs transition-colors"
                 >
                   {t('tryon.scan_retake')}
                 </button>
-                <button
+                <button data-motion="creative"
                   type="button"
                   onClick={handleApply}
-                  className="flex-1 py-3 rounded-xl bg-[#1B1F3B] hover:bg-[#0C0E1E] text-white font-bold text-xs shadow-md transition-all flex items-center justify-center gap-1.5"
+                  className="flex-1 py-3 rounded-xl bg-brand-charcoal hover:bg-brand-charcoal text-white font-bold text-xs shadow-md transition-all flex items-center justify-center gap-1.5"
                 >
-                  <SparkleIcon size={14} color="#C5A059" />
+                  <SparkleIcon size={14} color="currentColor" />
                   <span>{t('tryon.scan_apply_cta')}</span>
                 </button>
               </div>

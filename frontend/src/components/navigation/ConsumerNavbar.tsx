@@ -52,8 +52,8 @@ import { CONSUMER_NAV, isSectionActive, isItemActive, type NavAction, type NavIt
  */
 
 const deskTrigger = (active: boolean) =>
-  `flex min-h-11 items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold tracking-wide transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059] ${
-    active ? 'text-[#1B1F3B] bg-slate-100 font-bold' : 'text-slate-600 hover:text-[#1B1F3B] hover:bg-slate-50'
+  `flex min-h-11 items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold tracking-wide transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal ${
+    active ? 'text-brand-charcoal bg-slate-100 font-bold' : 'text-brand-muted hover:text-brand-charcoal hover:bg-slate-50'
   }`;
 
 export const ConsumerNavbar: React.FC = () => {
@@ -127,18 +127,18 @@ export const ConsumerNavbar: React.FC = () => {
       <>
         <div
           aria-hidden="true"
-          className={`p-2 rounded-lg transition-colors ${item.accent ? 'bg-[#FDF8EE] group-hover:bg-[#C5A059]' : 'bg-slate-100 group-hover:bg-slate-200'}`}
+          className={`p-2 rounded-lg transition-colors ${item.accent ? 'bg-brand-wash group-hover:bg-brand-lilac' : 'bg-slate-100 group-hover:bg-slate-200'}`}
         >
-          <IconComp size={20} color={item.accent ? '#C5A059' : undefined} />
+          <IconComp size={20} color={item.accent ? '#252729' : undefined} />
         </div>
         <div className="min-w-0">
-          <div className="text-xs font-bold text-[#1B1F3B] group-hover:text-[#C5A059]">{t(item.labelKey)}</div>
-          {item.descKey && <div className="text-[11px] text-slate-500">{t(item.descKey)}</div>}
+          <div className="text-xs font-bold text-brand-charcoal group-hover:underline">{t(item.labelKey)}</div>
+          {item.descKey && <div className="text-[11px] text-brand-muted">{t(item.descKey)}</div>}
         </div>
       </>
     );
-    const itemClass = `flex w-full min-h-11 items-start gap-3 p-2.5 rounded-xl text-start transition-colors group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059] ${
-      item.accent ? 'hover:bg-[#FDF8EE]' : 'hover:bg-slate-50'
+    const itemClass = `flex w-full min-h-11 items-start gap-3 p-2.5 rounded-xl text-start transition-colors group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal ${
+      item.accent ? 'hover:bg-brand-wash' : 'hover:bg-slate-50'
     }`;
     return item.href ? (
       <Link
@@ -151,7 +151,7 @@ export const ConsumerNavbar: React.FC = () => {
         {inner}
       </Link>
     ) : (
-      <button key={item.id} type="button" onClick={() => runAction(item.action!)} className={itemClass}>
+      <button data-motion="neutral" data-motion-tone="icon" key={item.id} type="button" onClick={() => runAction(item.action!)} className={itemClass}>
         {inner}
       </button>
     );
@@ -188,7 +188,7 @@ export const ConsumerNavbar: React.FC = () => {
         onBlur={closeOnFocusOut(section.id)}
         onKeyDown={closeOnEscape(section.id, triggerId)}
       >
-        <button
+        <button data-motion="neutral" data-motion-tone="icon"
           type="button"
           id={triggerId}
           aria-expanded={open}
@@ -199,10 +199,10 @@ export const ConsumerNavbar: React.FC = () => {
           aria-current={active ? 'page' : undefined}
         >
           <span aria-hidden="true">
-            <SectionIcon size={18} isActive={open || active} color={section.id === 'discover' ? '#C5A059' : undefined} />
+            <SectionIcon size={18} isActive={open || active} color={section.id === 'discover' ? '#252729' : undefined} />
           </span>
           <span>{t(section.labelKey)}</span>
-          <ChevronDown size={12} aria-hidden="true" className={`text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+          <ChevronDown size={12} aria-hidden="true" className={`text-brand-field transition-transform ${open ? 'rotate-180' : ''}`} />
         </button>
 
         {open && (
@@ -220,28 +220,28 @@ export const ConsumerNavbar: React.FC = () => {
   return (
     <header className="z-40">
       {/* Top thin luxury bar */}
-      <div className="bg-[#0C0E1E] text-slate-400 text-xs py-1.5 px-4 sm:px-8 flex justify-between items-center border-b border-slate-800/80">
+      <div className="bg-brand-wash text-brand-muted text-xs py-1.5 px-4 sm:px-8 flex justify-between items-center border-b border-brand-hairline">
         <div className="flex items-center gap-2">
-          <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#C5A059] animate-pulse" aria-hidden="true"></span>
-          <span className="hidden sm:inline text-slate-300 font-light tracking-wide">{t('nav.brand_line')}</span>
-          <span className="sm:hidden text-slate-300">{t('nav_desc.studio')}</span>
+          <span className="inline-block w-1.5 h-1.5 rounded-full bg-brand-lilac animate-pulse" aria-hidden="true"></span>
+          <span className="hidden sm:inline text-brand-charcoal font-light tracking-wide">{t('nav.brand_line')}</span>
+          <span className="sm:hidden text-brand-charcoal">{t('nav_desc.studio')}</span>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-x-4 gap-y-1">
           {isPrivileged ? (
             <Link
               to={isAdmin ? '/admin' : '/b2b'}
-              className="inline-flex min-h-8 items-center gap-1.5 text-[#C5A059] hover:text-[#E2BF70] font-semibold transition-colors text-xs"
+              className="inline-flex min-h-8 min-w-8 items-center justify-center sm:justify-start gap-1.5 text-brand-charcoal hover:underline font-semibold transition-colors text-xs"
             >
-              <span aria-hidden="true">{isAdmin ? <ShieldIcon size={14} color="#C5A059" /> : <BrandDashboardIcon size={14} color="#C5A059" />}</span>
+              <span aria-hidden="true">{isAdmin ? <ShieldIcon size={14} color="#252729" /> : <BrandDashboardIcon size={14} color="#252729" />}</span>
               <span className="hidden sm:inline">{isAdmin ? t('nav.admin_governance') : t('nav.brand_partner_hub')}</span>
               <span className="sr-only sm:hidden">{isAdmin ? t('nav.admin_governance') : t('nav.brand_partner_hub')}</span>
             </Link>
           ) : (
             <Link
               to="/b2b"
-              className="inline-flex min-h-8 items-center gap-1.5 text-slate-400 hover:text-[#C5A059] font-medium transition-colors text-xs"
+              className="inline-flex min-h-8 min-w-8 items-center justify-center sm:justify-start gap-1.5 text-brand-muted hover:text-brand-charcoal font-medium transition-colors text-xs"
             >
-              <span aria-hidden="true"><BrandDashboardIcon size={14} color="#C5A059" /></span>
+              <span aria-hidden="true"><BrandDashboardIcon size={14} color="#252729" /></span>
               <span className="hidden sm:inline">{t('nav.partner_portal')}</span>
               <span className="sr-only sm:hidden">{t('nav.partner_portal')}</span>
             </Link>
@@ -257,20 +257,20 @@ export const ConsumerNavbar: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
           <div className="flex min-w-0 items-center gap-4 lg:gap-8">
             {/* Hamburger — the mobile way IN. 44px floor, named, stateful. */}
-            <button
+            <button data-motion="neutral" data-motion-tone="icon"
               type="button"
               onClick={() => setDrawerOpen(true)}
               aria-expanded={drawerOpen}
               aria-haspopup="dialog"
               aria-label={t('a11y.open_menu')}
-              className="lg:hidden inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl text-slate-700 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059]"
+              className="lg:hidden inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl text-brand-charcoal hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal"
             >
               <Menu size={22} aria-hidden="true" />
             </button>
 
             <Link
               to="/"
-              className="flex shrink-0 items-center group rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059]"
+              className="flex shrink-0 items-center group rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal"
             >
               <ConfitLogo variant="mark" theme="dark" size="sm" className="sm:hidden" />
               <ConfitLogo variant="full" theme="dark" size="md" className="hidden sm:inline-flex" />
@@ -284,19 +284,19 @@ export const ConsumerNavbar: React.FC = () => {
 
           {/* Utility cluster */}
           <div className="flex items-center gap-1 sm:gap-3">
-            <button
+            <button data-motion="creative" data-motion-tone="icon"
               onClick={() => openVisualSearch()}
               type="button"
-              className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-slate-600 hover:text-[#C5A059] hover:bg-[#FDF8EE] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059]"
+              className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-brand-muted hover:text-brand-charcoal hover:bg-brand-wash transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal"
               aria-label={t('a11y.open_visual_search')}
             >
-              <VisualSearchIcon size={20} color="#C5A059" />
+              <VisualSearchIcon size={20} color="#252729" />
             </button>
 
-            <button
+            <button data-motion="commerce" data-motion-tone="icon"
               onClick={openCart}
               type="button"
-              className="relative inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-slate-700 hover:text-[#1B1F3B] hover:bg-slate-100 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059]"
+              className="relative inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-brand-charcoal hover:text-brand-charcoal hover:bg-slate-100 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal"
               aria-label={t('a11y.open_shopping_bag')}
             >
               <BagIcon size={20} badge={itemsCount} />
@@ -311,7 +311,7 @@ export const ConsumerNavbar: React.FC = () => {
                 onBlur={closeOnFocusOut('user_menu')}
                 onKeyDown={closeOnEscape('user_menu', `${baseId}-user-trigger`)}
               >
-                <button
+                <button data-motion="neutral" data-motion-tone="icon"
                   type="button"
                   id={`${baseId}-user-trigger`}
                   aria-expanded={openMenu === 'user_menu'}
@@ -319,15 +319,15 @@ export const ConsumerNavbar: React.FC = () => {
                   aria-controls={`${baseId}-user-panel`}
                   aria-label={t('a11y.account_menu')}
                   onClick={() => setOpenMenu(openMenu === 'user_menu' ? null : 'user_menu')}
-                  className="flex min-h-11 items-center gap-2 p-1.5 pe-3 rounded-full hover:bg-slate-100 border border-slate-200/80 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059]"
+                  className="flex min-h-11 items-center gap-2 p-1.5 pe-3 rounded-full hover:bg-slate-100 border border-slate-200/80 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal"
                 >
-                  <div className="w-8 h-8 rounded-full bg-[#1B1F3B] text-[#C5A059] flex items-center justify-center font-bold text-xs shadow-2xs" aria-hidden="true">
+                  <div className="w-8 h-8 rounded-full bg-brand-charcoal text-white flex items-center justify-center font-bold text-xs shadow-2xs" aria-hidden="true">
                     {user.full_name.charAt(0)}
                   </div>
-                  <span className="hidden md:inline text-xs font-semibold text-slate-800">
+                  <span className="hidden md:inline text-xs font-semibold text-brand-charcoal">
                     {user.full_name.split(' ')[0]}
                   </span>
-                  <ChevronDown size={12} aria-hidden="true" className="hidden md:inline text-slate-400" />
+                  <ChevronDown size={12} aria-hidden="true" className="hidden md:inline text-brand-field" />
                 </button>
 
                 {openMenu === 'user_menu' && (
@@ -336,22 +336,22 @@ export const ConsumerNavbar: React.FC = () => {
                     className="absolute top-full end-0 w-60 bg-white border border-slate-100 rounded-2xl shadow-xl p-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150 text-xs"
                   >
                     <div className="p-2.5 border-b border-slate-100 mb-1">
-                      <div className="font-bold text-slate-900 truncate">{user.full_name}</div>
+                      <div className="font-bold text-brand-charcoal truncate">{user.full_name}</div>
                       {/* Email is Latin — keep it LTR inside the Arabic shell. */}
-                      <div className="text-[10px] text-slate-500 truncate" dir="ltr">{user.email}</div>
-                      <div className="mt-1 inline-block px-2 py-0.5 rounded bg-slate-100 text-[10px] font-medium text-slate-700 capitalize">
+                      <div className="text-[10px] text-brand-muted truncate" dir="ltr">{user.email}</div>
+                      <div className="mt-1 inline-block px-2 py-0.5 rounded bg-slate-100 text-[10px] font-medium text-brand-charcoal capitalize">
                         {t('account.role_label')}{' '}
                         <span dir="ltr">{user.role?.replace('_', ' ')}</span>
                       </div>
                     </div>
 
-                    <Link to="/profile" onClick={() => setOpenMenu(null)} className="flex min-h-11 items-center px-3 py-2 rounded-xl hover:bg-slate-50 text-slate-700 font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059]">
+                    <Link to="/profile" onClick={() => setOpenMenu(null)} className="flex min-h-11 items-center px-3 py-2 rounded-xl hover:bg-slate-50 text-brand-charcoal font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal">
                       {t('account.style_profile')}
                     </Link>
-                    <Link to="/orders" onClick={() => setOpenMenu(null)} className="flex min-h-11 items-center px-3 py-2 rounded-xl hover:bg-slate-50 text-slate-700 font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059]">
+                    <Link to="/orders" onClick={() => setOpenMenu(null)} className="flex min-h-11 items-center px-3 py-2 rounded-xl hover:bg-slate-50 text-brand-charcoal font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal">
                       {t('account.orders_tracking')}
                     </Link>
-                    <Link to="/wardrobe" onClick={() => setOpenMenu(null)} className="flex min-h-11 items-center px-3 py-2 rounded-xl hover:bg-slate-50 text-slate-700 font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059]">
+                    <Link to="/wardrobe" onClick={() => setOpenMenu(null)} className="flex min-h-11 items-center px-3 py-2 rounded-xl hover:bg-slate-50 text-brand-charcoal font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal">
                       {t('account.virtual_wardrobe')}
                     </Link>
 
@@ -359,14 +359,14 @@ export const ConsumerNavbar: React.FC = () => {
                       <Link
                         to={isAdmin ? '/admin' : '/b2b'}
                         onClick={() => setOpenMenu(null)}
-                        className="flex min-h-11 items-center px-3 py-2 rounded-xl bg-[#FDF8EE] text-[#C5A059] font-bold hover:bg-[#C5A059] hover:text-white transition-colors mt-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059]"
+                        className="flex min-h-11 items-center px-3 py-2 rounded-xl bg-brand-wash text-brand-charcoal font-bold hover:bg-brand-charcoal hover:text-white transition-colors mt-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white"
                       >
                         {isAdmin ? t('account.admin_panel') : t('account.partner_dashboard')}
                       </Link>
                     )}
 
                     <div className="border-t border-slate-100 mt-1 pt-1">
-                      <button
+                      <button data-motion="neutral"
                         type="button"
                         onClick={handleLogout}
                         className="w-full min-h-11 text-start px-3 py-2 rounded-xl text-rose-600 hover:bg-rose-50 font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400"
@@ -378,10 +378,10 @@ export const ConsumerNavbar: React.FC = () => {
                 )}
               </div>
             ) : (
-              <button
+              <button data-motion="auth"
                 onClick={() => openAuthModal('login')}
                 type="button"
-                className="inline-flex min-h-11 items-center gap-1.5 px-4 py-2 rounded-xl bg-[#1B1F3B] hover:bg-[#0C0E1E] text-white font-medium text-xs transition-all shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059]"
+                className="inline-flex min-h-11 items-center gap-1.5 px-4 py-2 rounded-xl bg-brand-charcoal hover:bg-[#1A1B1D] text-white font-medium text-xs transition-all shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white"
               >
                 <span aria-hidden="true"><UserIcon size={15} color="#FFFFFF" /></span>
                 <span>{t('common.sign_in')}</span>
@@ -469,7 +469,7 @@ const MobileNavDrawer: React.FC<{
   return (
     <div className="lg:hidden fixed inset-0 z-50" onKeyDown={onKeyDown}>
       {/* Scrim: plain colour, no backdrop-filter (spec §8). Click closes. */}
-      <div className="absolute inset-0 bg-slate-950/70" onClick={onClose} aria-hidden="true" />
+      <div className="absolute inset-0 bg-brand-charcoal/60" onClick={onClose} aria-hidden="true" />
 
       <div
         ref={panelRef}
@@ -480,12 +480,12 @@ const MobileNavDrawer: React.FC<{
       >
         <div className="flex items-center justify-between px-4 py-4 border-b border-slate-100">
           <ConfitLogo variant="full" theme="dark" size="sm" />
-          <button
+          <button data-motion="neutral" data-motion-tone="icon"
             type="button"
             data-drawer-close
             onClick={onClose}
             aria-label={t('a11y.close_menu')}
-            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl text-slate-600 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059]"
+            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl text-brand-muted hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal"
           >
             <X size={22} aria-hidden="true" />
           </button>
@@ -501,8 +501,8 @@ const MobileNavDrawer: React.FC<{
                   key={section.id}
                   to={section.href!}
                   aria-current={active ? 'page' : undefined}
-                  className={`flex min-h-11 items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059] ${
-                    active ? 'bg-[#FDF8EE] text-[#7A5C28]' : 'text-slate-700 hover:bg-slate-50'
+                  className={`flex min-h-11 items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal ${
+                    active ? 'bg-brand-wash text-brand-charcoal' : 'text-brand-charcoal hover:bg-slate-50'
                   }`}
                 >
                   <span aria-hidden="true"><SectionIcon size={20} isActive={active} /></span>
@@ -514,7 +514,7 @@ const MobileNavDrawer: React.FC<{
               <div key={section.id}>
                 {/* Group header: static text, not a toggle — one tap reaches
                     any destination; nothing is hidden two levels deep. */}
-                <div className="flex items-center gap-2 px-3 pb-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                <div className="flex items-center gap-2 px-3 pb-1.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted">
                   <span aria-hidden="true"><SectionIcon size={14} /></span>
                   <span>{t(section.labelKey)}</span>
                 </div>
@@ -522,19 +522,19 @@ const MobileNavDrawer: React.FC<{
                   {section.children.map((item) => {
                     const ItemIcon = item.icon;
                     const itemActive = isItemActive(item, location.pathname);
-                    const cls = `flex w-full min-h-11 items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059] ${
-                      itemActive ? 'bg-[#FDF8EE] text-[#7A5C28] font-bold' : 'text-slate-700 hover:bg-slate-50'
+                    const cls = `flex w-full min-h-11 items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal ${
+                      itemActive ? 'bg-brand-wash text-brand-charcoal font-bold' : 'text-brand-charcoal hover:bg-slate-50'
                     }`;
                     return (
                       <li key={item.id}>
                         {item.href ? (
                           <Link to={item.href} aria-current={itemActive ? 'page' : undefined} className={cls}>
-                            <span aria-hidden="true"><ItemIcon size={18} color={item.accent ? '#C5A059' : undefined} /></span>
+                            <span aria-hidden="true"><ItemIcon size={18} color={item.accent ? '#252729' : undefined} /></span>
                             <span>{t(item.labelKey)}</span>
                           </Link>
                         ) : (
-                          <button type="button" onClick={() => onAction(item.action!)} className={cls}>
-                            <span aria-hidden="true"><ItemIcon size={18} color={item.accent ? '#C5A059' : undefined} /></span>
+                          <button data-motion="neutral" data-motion-tone="icon" type="button" onClick={() => onAction(item.action!)} className={cls}>
+                            <span aria-hidden="true"><ItemIcon size={18} color={item.accent ? '#252729' : undefined} /></span>
                             <span>{t(item.labelKey)}</span>
                           </button>
                         )}
@@ -549,7 +549,7 @@ const MobileNavDrawer: React.FC<{
 
         <div className="border-t border-slate-100 p-3">
           {isAuthenticated ? (
-            <button
+            <button data-motion="neutral"
               type="button"
               onClick={onSignOut}
               className="w-full min-h-11 rounded-xl px-3 py-2.5 text-start text-sm font-semibold text-rose-600 hover:bg-rose-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400"
@@ -557,10 +557,10 @@ const MobileNavDrawer: React.FC<{
               {t('account.sign_out')}
             </button>
           ) : (
-            <button
+            <button data-motion="auth"
               type="button"
               onClick={onSignIn}
-              className="w-full min-h-11 rounded-xl bg-[#1B1F3B] px-3 py-2.5 text-sm font-semibold text-white hover:bg-[#0C0E1E] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059]"
+              className="w-full min-h-11 rounded-xl bg-brand-charcoal px-3 py-2.5 text-sm font-semibold text-white hover:bg-[#1A1B1D] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white"
             >
               {t('common.sign_in')}
             </button>

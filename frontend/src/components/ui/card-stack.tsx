@@ -57,6 +57,10 @@ export type CardStackProps<T extends CardStackItem> = {
 
   /** UI */
   showDots?: boolean;
+  /** Extra classes on the card layer (e.g. mobile bottom reserve). Default: none. */
+  stageClassName?: string;
+  /** Extra classes on the controls row (e.g. mobile end reserve). Default: none. */
+  controlsClassName?: string;
   className?: string;
 
   /** Hooks */
@@ -120,6 +124,8 @@ export function CardStack<T extends CardStackItem>({
 
   showDots = true,
   className,
+  stageClassName,
+  controlsClassName,
 
   onChangeIndex,
   renderCard,
@@ -233,7 +239,7 @@ export function CardStack<T extends CardStackItem>({
         />
 
         <div
-          className="absolute inset-0 flex items-end justify-center"
+          className={cn("absolute inset-0 flex items-end justify-center", stageClassName)}
           style={{
             perspective: `${perspectivePx}px`,
           }}
@@ -360,8 +366,8 @@ export function CardStack<T extends CardStackItem>({
           real ≥44px buttons; the position is visible text AND a polite
           announcement; dots are secondary jump targets at the WCAG 2.5.8
           minimum (24px). */}
-      <div className="mt-4 flex items-center justify-center gap-3">
-        <button
+      <div className={cn("mt-4 flex items-center justify-center gap-3", controlsClassName)}>
+        <button data-motion="neutral" data-motion-tone="icon"
           type="button"
           onClick={prev}
           disabled={!canGoPrev}
@@ -385,7 +391,7 @@ export function CardStack<T extends CardStackItem>({
             {items.map((it, idx) => {
               const on = idx === active;
               return (
-                <button
+                <button data-motion="filter" data-motion-tone="icon"
                   key={it.id}
                   type="button"
                   onClick={() => setActive(idx)}
@@ -408,7 +414,7 @@ export function CardStack<T extends CardStackItem>({
           </div>
         ) : null}
 
-        <button
+        <button data-motion="neutral" data-motion-tone="icon"
           type="button"
           onClick={next}
           disabled={!canGoNext}

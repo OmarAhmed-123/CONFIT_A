@@ -80,11 +80,11 @@ export const EmailUnsubscribeView: React.FC = () => {
       : t('email_unsubscribe.category_engagement');
 
   const icon: Record<Phase, React.ReactNode> = {
-    validating: <StatusIcon status="loading" size={22} className="text-[#A37E44]" />,
+    validating: <StatusIcon status="loading" size={22} className="text-brand-charcoal" />,
     invalid: <StatusIcon status="error" size={22} />,
     expired: <StatusIcon status="warning" size={22} />,
-    ready: <span aria-hidden="true" className="text-[#A37E44]"><MailX size={22} /></span>,
-    submitting: <StatusIcon status="loading" size={22} className="text-[#A37E44]" />,
+    ready: <span aria-hidden="true" className="text-brand-charcoal"><MailX size={22} /></span>,
+    submitting: <StatusIcon status="loading" size={22} className="text-brand-charcoal" />,
     done: <StatusIcon status="success" size={22} />,
     error: <StatusIcon status="error" size={22} />,
   };
@@ -111,22 +111,22 @@ export const EmailUnsubscribeView: React.FC = () => {
 
   return (
     <AuthPageShell>
-        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#FDF8EE]">
+        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-wash">
           {icon[phase]}
         </div>
 
         {/* The state is TEXT in a polite region — never animation-only. */}
         <div role="status" aria-live="polite">
-          <h1 className="font-serif text-xl font-bold text-[#1B1F3B]">
+          <h1 className="font-serif text-xl font-bold text-brand-charcoal">
             {heading[phase]}
           </h1>
-          <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-slate-600">
+          <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-brand-muted">
             {detail[phase]}
           </p>
         </div>
 
         {phase === 'ready' && (
-          <button
+          <button data-motion="filter"
             type="button"
             onClick={confirm}
             className={`${AUTH_PRIMARY_BTN_CLASS} mt-6`}
@@ -136,7 +136,7 @@ export const EmailUnsubscribeView: React.FC = () => {
         )}
 
         {phase === 'error' && (
-          <button
+          <button data-motion="recovery"
             type="button"
             onClick={confirm}
             className={`${AUTH_PRIMARY_BTN_CLASS} mt-6`}
@@ -153,7 +153,7 @@ export const EmailUnsubscribeView: React.FC = () => {
             {t('email_unsubscribe.manage_hint')}{' '}
             <Link
               to="/settings"
-              className="font-bold text-[#A37E44] underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059] rounded"
+              className="font-bold text-brand-charcoal underline underline-offset-4 decoration-brand-field hover:decoration-brand-charcoal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal rounded"
             >
               {t('email_unsubscribe.manage_link')}
             </Link>

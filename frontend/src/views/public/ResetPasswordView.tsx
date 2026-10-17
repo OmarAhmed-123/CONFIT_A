@@ -75,7 +75,14 @@ export const ResetPasswordView: React.FC = () => {
     } catch (err) {
       // Invalid / used / expired token, policy rejection, or transport —
       // the server's verdict, localized; never a fake success.
-      setServerError(localizeApiError(err, t, 'errors.generic'));
+      // Invalid, used, or expired reset links come back as AUTH_FAILED. The
+      // shared mapping would say "session expired", which is wrong on this page.
+      const code = (err as { code?: string } | null)?.code;
+      setServerError(
+        code === 'AUTH_FAILED'
+          ? t('reset_password.link_invalid')
+          : localizeApiError(err, t, 'errors.generic'),
+      );
       setPhase('error');
     }
   };
@@ -84,14 +91,14 @@ export const ResetPasswordView: React.FC = () => {
   if (!token) {
     return (
       <AuthPageShell>
-        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#FDF8EE]">
+        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-wash">
           <StatusIcon status="error" size={22} />
         </div>
         <div role="status" aria-live="polite">
-          <h1 className="font-serif text-xl font-bold text-[#1B1F3B]">
+          <h1 className="font-serif text-xl font-bold text-brand-charcoal">
             {t('reset_password.no_token_title')}
           </h1>
-          <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-slate-600">
+          <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-brand-muted">
             {t('reset_password.no_token_detail')}
           </p>
         </div>
@@ -118,10 +125,10 @@ export const ResetPasswordView: React.FC = () => {
           <StatusIcon status="success" size={24} />
         </motion.div>
         <div role="status" aria-live="polite">
-          <h1 className="font-serif text-xl font-bold text-[#1B1F3B]">
+          <h1 className="font-serif text-xl font-bold text-brand-charcoal">
             {t('reset_password.done_title')}
           </h1>
-          <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-slate-600">
+          <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-brand-muted">
             {t('reset_password.done_detail')}
           </p>
         </div>
@@ -138,18 +145,18 @@ export const ResetPasswordView: React.FC = () => {
   // ---- the form ------------------------------------------------------------
   return (
     <AuthPageShell>
-      <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#FDF8EE] text-[#A37E44]">
+      <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-wash text-brand-charcoal">
         <span aria-hidden="true"><KeyRound size={22} /></span>
       </div>
-      <h1 className="font-serif text-xl font-bold text-[#1B1F3B]">
+      <h1 className="font-serif text-xl font-bold text-brand-charcoal">
         {t('reset_password.title')}
       </h1>
-      <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-slate-600">
+      <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-brand-muted">
         {t('reset_password.subtitle')}
       </p>
 
       <form onSubmit={submit} className="mt-6 text-start" noValidate>
-        <label htmlFor="rp-new" className="block text-xs font-bold text-slate-700">
+        <label htmlFor="rp-new" className="block text-xs font-bold text-brand-charcoal">
           {t('reset_password.new_password_label')}
         </label>
         <div className="relative mt-1">
@@ -162,19 +169,19 @@ export const ResetPasswordView: React.FC = () => {
             className={`${AUTH_FIELD_CLASS} pe-11`}
             {...capsLockProps}
           />
-          <button
+          <button data-motion="filter" data-motion-tone="icon"
             type="button"
             onClick={() => setShow((v) => !v)}
             aria-label={show ? t('reset_password.hide_password') : t('reset_password.show_password')}
             aria-pressed={show}
-            className="absolute end-0.5 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-lg text-slate-500 hover:text-[#1B1F3B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059]"
+            className="absolute end-0.5 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-lg text-brand-muted hover:text-brand-charcoal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal"
           >
             <span aria-hidden="true">{show ? <EyeOff size={16} /> : <Eye size={16} />}</span>
           </button>
         </div>
         <CapsLockHint on={capsLockOn} />
 
-        <label htmlFor="rp-confirm" className="mt-4 block text-xs font-bold text-slate-700">
+        <label htmlFor="rp-confirm" className="mt-4 block text-xs font-bold text-brand-charcoal">
           {t('reset_password.confirm_label')}
         </label>
         <input
@@ -196,13 +203,13 @@ export const ResetPasswordView: React.FC = () => {
           )}
           {phase === 'submitting' && (
             <p className="flex items-center gap-2 text-xs text-slate-500">
-              <StatusIcon status="loading" size={14} className="text-[#A37E44]" />
+              <StatusIcon status="loading" size={14} className="text-brand-charcoal" />
               {t('reset_password.working')}
             </p>
           )}
         </div>
 
-        <button
+        <button data-motion="auth"
           type="submit"
           disabled={!ready}
           aria-busy={phase === 'submitting'}
@@ -217,7 +224,7 @@ export const ResetPasswordView: React.FC = () => {
             {t('reset_password.expired_hint')}{' '}
             <Link
               to="/?auth=forgot"
-              className="font-bold text-[#A37E44] underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059] rounded"
+              className="font-bold text-brand-charcoal underline underline-offset-4 decoration-brand-field hover:decoration-brand-charcoal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal rounded"
             >
               {t('reset_password.request_new_link')}
             </Link>

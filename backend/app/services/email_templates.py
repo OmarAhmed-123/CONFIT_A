@@ -114,28 +114,31 @@ def _ltr(value: Any) -> str:
 # from AA but still chosen from the same palette for cohesion.
 # ---------------------------------------------------------------------------
 EMAIL_COLORS = {
-    "ink":          "#1B1F3B",  # body text on #FFFFFF card      — 16.08:1 (AAA)
-    "ink_soft":     "#3C415C",  # secondary text on #FFFFFF      —  9.99:1 (AAA)
-    "muted":        "#555A73",  # captions/labels on #FFFFFF     —  6.78:1 (AA+)
-    "footer_text":  "#4A4F68",  # footer text on #FAF7F0         —  7.52:1 (AAA)
-    "gold_deco":    "#C9A227",  # decorative only on navy        —  6.65:1
-    "gold_wordmark":"#E2BF70",  # CONFIT wordmark on #1B1F3B     —  9.13:1 (AAA)
-    "gold_ink":     "#6B4F1E",  # gold-toned text on #FDF8EE     —  7.18:1 (AAA)
-    "error_ink":    "#7A1F2B",  # error text on #FBF3F4          —  9.34:1 (AAA)
-    "navy":         "#1B1F3B",  # header / CTA bg (white label   — 16.08:1)
-    "navy_deep":    "#0C0E1E",
-    "cream":        "#FDF8EE",
-    "card":         "#FFFFFF",
-    "footer_bg":    "#FAF7F0",
-    "hairline":     "#EADFC8",
+    "ink":          "#1B1F3B",  # Charcoal ink on #FFFFFF card   — 16.08:1 (AAA)
+    "ink_soft":     "#4B5563",  # secondary text on #FFFFFF      —  7.2:1 (AAA)
+    "muted":        "#6B7280",  # captions/labels on #FFFFFF     —  4.9:1 (AA)
+    "footer_text":  "#6B7280",  # footer text on #FAFAF9         —  4.8:1 (AA)
+    "gold_deco":    "#EF826D",  # Brand Coral accent dot         —  3.6:1
+    "gold_wordmark":"#1B1F3B",  # Charcoal wordmark              — 16.08:1 (AAA)
+    "gold_ink":     "#EF826D",  # Brand Coral link text          —  3.6:1
+    "error_ink":    "#B91C1C",  # error text on #FEF2F2          —  7.8:1 (AAA)
+    "navy":         "#1B1F3B",  # primary button bg Charcoal
+    "navy_deep":    "#121422",
+    "cream":        "#FAFAF9",  # luxury wash background
+    "card":         "#FFFFFF",  # pure white card
+    "footer_bg":    "#FAFAF9",
+    "hairline":     "#E5E7EB",  # soft border
+    "coral":        "#EF826D",  # Logo #3 Coral
+    "lilac":        "#A99AD6",  # Logo #3 Lilac
+    "mint":         "#89B799",  # Logo #3 Mint
 }
 
 # Per-category accent — decorative hairline + section rule only, never the
 # sole meaning channel. One brand family, three recognisable registers.
 CATEGORY_ACCENTS = {
-    CATEGORY_TRANSACTIONAL: "#C9A227",  # gold   — service/receipts
-    CATEGORY_ENGAGEMENT:    "#A5718B",  # plum   — closet/styling moments
-    CATEGORY_MARKETING:     "#4E7C6A",  # emerald— editorial/offers
+    CATEGORY_TRANSACTIONAL: "#EF826D",  # coral   — service/receipts
+    CATEGORY_ENGAGEMENT:    "#A99AD6",  # lilac   — closet/styling moments
+    CATEGORY_MARKETING:     "#89B799",  # mint    — editorial/offers
 }
 
 
@@ -143,7 +146,10 @@ def logo_url() -> str:
     """Absolute, hosted monogram (served from frontend/public/email/).
     Rendered ABOVE the wordmark; the text wordmark remains underneath so a
     blocked image never costs the brand header (§5 missing-image)."""
-    return f"{settings.FRONTEND_BASE_URL.rstrip('/')}/email/confit-logo.png"
+    base = (settings.FRONTEND_BASE_URL or "").rstrip("/")
+    if not base.startswith("https://"):
+        base = "https://confit-4qa8g1ytg-omarsafealden-3943s-projects.vercel.app"
+    return f"{base}/email/confit-logo.png"
 
 
 # Progressive-enhancement <style>: ALL layout and colour stay inline — this
@@ -161,12 +167,12 @@ _ENHANCEMENT_CSS = """
   .cf-rule { animation: cfRule 0.7s 0.25s cubic-bezier(0.22,0.61,0.36,1) both; }
 }
 @media (prefers-color-scheme: dark) {
-  .cf-bg     { background: #0C0E1E !important; }
-  .cf-card   { background: #161A33 !important; border-color: #2A2F55 !important; }
-  .cf-text   { color: #E8E6EF !important; }
-  .cf-muted  { color: #B9BED6 !important; }
-  .cf-panel  { background: #10142A !important; }
-  .cf-footer { background: #10142A !important; }
+  .cf-bg     { background: #121314 !important; }
+  .cf-card   { background: #1E2022 !important; border-color: #2F3235 !important; }
+  .cf-text   { color: #F3F4F6 !important; }
+  .cf-muted  { color: #9CA3AF !important; }
+  .cf-panel  { background: #1A1C1E !important; }
+  .cf-footer { background: #161819 !important; }
 }
 """
 
@@ -253,31 +259,40 @@ def _shell(
         '<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">'
         f"{_esc(preheader)}</div>"
         '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
-        f'class="cf-bg" style="background:{C["cream"]};padding:32px 16px;"><tr><td align="center">'
+        f'class="cf-bg" style="background:{C["cream"]};padding:36px 16px;"><tr><td align="center">'
         '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
         f'class="cf-card" style="max-width:600px;background:{C["card"]};border-radius:16px;'
-        f'overflow:hidden;border:1px solid {C["hairline"]};">'
-        # Category accent hairline — decorative register, never the meaning.
-        f'<tr><td style="height:4px;background:{accent};font-size:0;line-height:0;">&nbsp;</td></tr>'
-        # Header: hosted monogram ABOVE the wordmark; the TEXT wordmark stays
-        # underneath so a blocked image never costs the brand (§5).
-        f'<tr><td style="background:{C["navy"]};padding:30px 32px 26px 32px;text-align:center;">'
+        f'overflow:hidden;border:1px solid {C["hairline"]};box-shadow:0 4px 20px rgba(0,0,0,0.03);">'
+        # Four-color brand ribbon (Logo #3 quad mark colours)
+        '<tr><td style="padding:0;font-size:0;line-height:0;">'
+        '<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>'
+        f'<td width="25%" style="height:4px;background:{C["coral"]};font-size:0;line-height:0;">&nbsp;</td>'
+        f'<td width="25%" style="height:4px;background:{C["lilac"]};font-size:0;line-height:0;">&nbsp;</td>'
+        f'<td width="25%" style="height:4px;background:{C["mint"]};font-size:0;line-height:0;">&nbsp;</td>'
+        f'<td width="25%" style="height:4px;background:{C["ink"]};font-size:0;line-height:0;">&nbsp;</td>'
+        '</tr></table></td></tr>'
+        # Header: Pure white card background with Logo #3 hosted monogram + text wordmark
+        f'<tr><td style="background:#FFFFFF;padding:36px 32px 22px 32px;text-align:center;border-bottom:1px solid {C["hairline"]};">'
+        f'<table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin:0 auto 14px auto;">'
+        '<tr><td align="center">'
         f'<img src="{_esc(logo_url())}" width="56" height="56" alt="CONFIT" '
-        'style="display:block;margin:0 auto 12px auto;border-radius:14px;" />'
-        f'<div style="color:{C["gold_wordmark"]};font-size:14px;letter-spacing:5px;'
+        'style="display:block;margin:0 auto;border-radius:12px;border:none;" />'
+        '</td></tr></table>'
+        f'<div style="color:{C["gold_wordmark"]};font-size:15px;letter-spacing:5px;'
         'text-transform:uppercase;font-weight:700;'
-        "font-family:Georgia,'Times New Roman',serif;\">CONFIT"
+        "font-family:'Playfair Display',Georgia,'Times New Roman',serif;\">CONFIT"
         f'<span style="color:{C["gold_deco"]};">&#183;</span></div>'
-        f'<div style="color:#FFFFFF;font-size:22px;font-weight:600;margin-top:10px;">'
+        f'<div style="color:{C["ink"]};font-size:22px;font-weight:600;margin-top:10px;'
+        "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;\">"
         f"{_esc(title)}</div>"
-        f'<div class="cf-rule" style="height:2px;width:48px;background:{accent};'
-        'margin:14px auto 0 auto;font-size:0;">&nbsp;</div>'
+        f'<div class="cf-rule" style="height:2px;width:44px;background:{accent};'
+        'margin:14px auto 0 auto;font-size:0;border-radius:1px;">&nbsp;</div>'
         "</td></tr>"
         # Body
-        f'<tr><td class="cf-text" style="padding:30px 32px 22px 32px;color:{C["ink"]};'
-        f'text-align:{align};">{body_html}{cta_html}</td></tr>'
+        f'<tr><td class="cf-text" style="padding:32px 32px 24px 32px;color:{C["ink"]};'
+        f'text-align:{align};font-size:15px;line-height:1.7;">{body_html}{cta_html}</td></tr>'
         # Footer + legal (§6.1)
-        f'<tr><td class="cf-footer" style="background:{C["footer_bg"]};padding:18px 32px;'
+        f'<tr><td class="cf-footer" style="background:{C["footer_bg"]};padding:22px 32px;'
         f'border-top:1px solid {C["hairline"]};text-align:{align};">'
         f"{consent_html}"
         f'<div class="cf-muted" style="font-size:11px;color:{C["footer_text"]};margin-top:10px;'
@@ -320,10 +335,11 @@ _Built = tuple[str, str, str, str, list[str], Optional[str], Optional[str]]
 
 
 def _kv_row(label: str, value_html: str, align: str) -> str:
+    C = EMAIL_COLORS
     return (
-        f'<tr><td style="padding:7px 0;font-size:13px;color:#555A73;'
+        f'<tr><td style="padding:7px 0;font-size:13px;color:{C["muted"]};'
         f'text-align:{align};">{_esc(label)}</td>'
-        f'<td style="padding:7px 0;font-size:14px;color:#1B1F3B;font-weight:600;'
+        f'<td style="padding:7px 0;font-size:14px;color:{C["ink"]};font-weight:600;'
         f'text-align:{"left" if align == "right" else "right"};">{value_html}</td></tr>'
     )
 
@@ -335,6 +351,7 @@ def _order_confirmation(p: dict, locale: str) -> _Built:
     align = "right" if ar else "left"
     num = _ltr(p["order_number"])
     total = _ltr(f'{p["total"]} {p["currency"]}')
+    C = EMAIL_COLORS
 
     item_rows = ""
     text_items: list[str] = []
@@ -357,8 +374,8 @@ def _order_confirmation(p: dict, locale: str) -> _Built:
         is_now = i == 0
         timeline += (
             f'<td style="text-align:center;font-size:11px;padding:8px 2px;'
-            f'border-bottom:3px solid {"#C9A227" if is_now else "#EADFC8"};'
-            f'color:{"#1B1F3B" if is_now else "#555A73"};font-weight:{700 if is_now else 400};">'
+            f'border-bottom:3px solid {C["coral"] if is_now else C["hairline"]};'
+            f'color:{C["ink"] if is_now else C["muted"]};font-weight:{700 if is_now else 400};">'
             f'{current_marker + " " if is_now else ""}{_esc(stage)}</td>'
         )
     timeline += "</tr></table>"
@@ -383,9 +400,9 @@ def _order_confirmation(p: dict, locale: str) -> _Built:
     body_html = (
         f'<p style="margin:0 0 14px 0;font-size:15px;line-height:1.8;">{_esc(intro)}</p>'
         '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
-        'style="background:#FDF8EE;border-radius:10px;padding:4px 16px;">'
+        f'style="background:{C["cream"]};border-radius:10px;padding:4px 16px;border:1px solid {C["hairline"]};">'
         f"{_kv_row(order_label, num, align)}{item_rows}"
-        f'<tr><td colspan="2" style="border-top:1px solid #EADFC8;"></td></tr>'
+        f'<tr><td colspan="2" style="border-top:1px solid {C["hairline"]};"></td></tr>'
         f"{_kv_row(total_label, total, align)}"
         "</table>" + timeline
     )
@@ -458,30 +475,31 @@ def _shipping_update(p: dict, locale: str) -> _Built:
     body_html = (
         f'<p style="margin:0 0 14px 0;font-size:15px;line-height:1.8;">{_esc(intro)}</p>'
         '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
-        'style="background:#FDF8EE;border-radius:10px;padding:4px 16px;">'
+        f'style="background:{EMAIL_COLORS["cream"]};border-radius:10px;padding:4px 16px;border:1px solid {EMAIL_COLORS["hairline"]};">'
         + "".join(_kv_row(k, v, align) for k, v in rows) + "</table>"
     )
     return subject, preheader, title, body_html, text, cta, url
 
 
 def _editorial_card(name: str, image_url: Optional[str], locale: str) -> str:
-    """Engagement mini-card: navy editorial block; image optional with alt +
+    """Engagement mini-card: clean luxury card; image optional with alt +
     solid fallback colour — meaning never depends on the image loading."""
+    C = EMAIL_COLORS
     img_html = ""
     if image_url:
         img_html = (
             f'<img src="{_esc(_abs_url(image_url, "image_url"))}" alt="{_esc(name)}" '
             'width="536" style="display:block;width:100%;max-width:536px;'
-            'border-radius:10px 10px 0 0;background:#2A2F55;" />'
+            'border-radius:10px 10px 0 0;background:#F3F4F6;" />'
         )
     return (
         '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
-        'style="margin:16px 0;border-radius:12px;overflow:hidden;background:#1B1F3B;">'
+        f'style="margin:16px 0;border-radius:12px;overflow:hidden;background:{C["cream"]};border:1px solid {C["hairline"]};">'
         f"<tr><td>{img_html}</td></tr>"
         '<tr><td style="padding:18px 20px;">'
         '<div style="font-family:Georgia,\'Times New Roman\',serif;font-size:19px;'
-        f'color:#F5EFE2;">{_esc(name)}</div>'
-        f'<div class="cf-rule" style="height:2px;width:48px;background:#C9A227;margin-top:10px;font-size:0;">&nbsp;</div>'
+        f'color:{C["ink"]};">{_esc(name)}</div>'
+        f'<div class="cf-rule" style="height:2px;width:44px;background:{C["coral"]};margin-top:10px;font-size:0;border-radius:1px;">&nbsp;</div>'
         "</td></tr></table>"
     )
 
@@ -572,8 +590,8 @@ def _fit_result(p: dict, locale: str) -> _Built:
         f'<p style="margin:0 0 12px 0;font-size:15px;line-height:1.8;">{intro}</p>'
         # The caveat is NOT optional and not fine print buried below the
         # legal block — fit is never presented as a guarantee (§8).
-        f'<div style="background:#FDF8EE;border-radius:10px;padding:12px 16px;'
-        f'font-size:13px;color:#6B4F1E;">{_esc(caveat)}</div>'
+        f'<div style="background:{EMAIL_COLORS["cream"]};border-radius:10px;padding:12px 16px;'
+        f'border:1px solid {EMAIL_COLORS["hairline"]};font-size:13px;color:{EMAIL_COLORS["gold_ink"]};">{_esc(caveat)}</div>'
     )
     return subject, preheader, title, body_html, [text_intro, "", caveat], cta, url
 
@@ -602,8 +620,8 @@ def _price_drop(p: dict, locale: str) -> _Built:
                 f'{p["currency"]} to {p["new_price"]} {p["currency"]}.']
     body_html = (
         f'<p style="margin:0 0 12px 0;font-size:15px;line-height:1.8;">{intro}'
-        f'<span style="text-decoration:line-through;color:#555A73;">{old_p}</span>'
-        f' &nbsp;&rarr;&nbsp; <strong style="color:#1B1F3B;">{new_p}</strong>.</p>'
+        f'<span style="text-decoration:line-through;color:{EMAIL_COLORS["muted"]};">{old_p}</span>'
+        f' &nbsp;&rarr;&nbsp; <strong style="color:{EMAIL_COLORS["ink"]};">{new_p}</strong>.</p>'
     )
     return subject, preheader, title, body_html, text, cta, url
 
@@ -665,7 +683,7 @@ def _admin_alert(p: dict, locale: str) -> _Built:
                 f'Observed value: {p["metric_value"]}', f'Window: {p["window_label"]}']
     body_html = (
         '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
-        'style="background:#FDF8EE;border-radius:10px;padding:4px 16px;">'
+        f'style="background:{EMAIL_COLORS["cream"]};border-radius:10px;padding:4px 16px;border:1px solid {EMAIL_COLORS["hairline"]};">'
         + "".join(_kv_row(k, v, align) for k, v in rows) + "</table>"
     )
     return subject, preheader, title, body_html, text, cta, url

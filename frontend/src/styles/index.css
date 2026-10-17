@@ -4,17 +4,22 @@
 
 @layer base {
   :root {
-    --confit-navy: #1B1F3B;
-    --confit-gold: #B8935A;
-    --confit-cream: #FAF9F6;
-    --confit-grey: #777777;
-    /* Focus indicator color (spec 09 §9 "focus ≈3:1"). Measured 2026-10-01:
-       the brand gold #B8935A is only 2.71:1 against the cream body surface —
-       below the non-text 3:1 minimum this file previously claimed. #A37E44
-       is the darkened brand gold: 3.55:1 on cream AND 4.31:1 on navy, so one
-       token works on both scheme extremes. Verified by computation in
-       surfaceSystem.test.tsx — not by eye. */
-    --confit-focus: #A37E44;
+    /* Logo #3 "Individual Grid" — official reference colours (sampled from
+       /public/brand/confit-logo.svg). The legacy --confit-navy / -gold /
+       -cream custom properties were removed: no stylesheet, component or
+       test consumed them (repository search, 2026-10-17). */
+    --brand-charcoal: #242526;
+    --brand-coral: #EF826D;
+    --brand-lilac: #A99AD6;
+    --brand-mint: #89B799;
+    /* Focus indicator color (spec 09 §9 "focus ≈3:1"). Logo #3 migration:
+       the global focus outline moves from the gold-dark #A37E44 (3.73:1 on
+       white, and it reads as a legacy gold ring) to brand charcoal #252729
+       (14.99:1 on white and on the white page body). Controls that sit over
+       dark photo overlays opt in to `.focus-on-dark` below, which uses white
+       (contrast against the dark photo). Verified by computation in
+       surfaceSystem.test.tsx and focusToken.brand.test.tsx. */
+    --confit-focus: #252729;
 
     /* ── Spec 09: Embossed Depth / Surface tokens ─────────────────────────
        Three-layer hierarchy with a SOLID fallback first:
@@ -23,7 +28,7 @@
     --surface-border: rgb(203 213 225 / 0.8);
     --surface-solid-bg: #FFFFFF;
     --surface-raised-bg: #FFFFFF;
-    --surface-raised-shadow: 0 10px 30px -12px rgb(27 31 59 / 0.18);
+    --surface-raised-shadow: 0 10px 30px -12px rgb(36 37 38 / 0.16);
     /* Fallback composites are near-opaque so text stays readable over the
        WORST-case image (computed: dark fallback over a white photo is
        16.8:1 for white text; light fallback over a black photo is 14.7:1
@@ -34,20 +39,23 @@
     --surface-glass-dark: rgb(12 14 30 / 0.62);
 
     /* shadcn-compatible semantic tokens used by /components/ui primitives. */
-    --background: 48 29% 97%;
-    --foreground: 232 37% 17%;
+    --background: 0 0% 100%;
+    --foreground: 210 3% 15%;
     --card: 0 0% 100%;
-    --card-foreground: 232 37% 17%;
+    --card-foreground: 210 3% 15%;
     --muted: 220 14% 96%;
     --muted-foreground: 215 16% 47%;
     --secondary: 220 14% 96%;
-    --secondary-foreground: 232 37% 17%;
+    --secondary-foreground: 210 3% 15%;
     --border: 214 32% 91%;
   }
 
+  /* White-first canvas (Logo #3): white page, charcoal text. Was cream
+     #FAF9F6 / navy #1B1F3B, visible wherever a layout did not paint its own
+     background (e.g. before hydration and on overscroll). */
   body {
-    background-color: #FAF9F6;
-    color: #1B1F3B;
+    background-color: #FFFFFF;
+    color: #242526;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
   }
 
@@ -67,6 +75,23 @@
     outline: 3px solid var(--confit-focus);
     outline-offset: 2px;
     border-radius: 4px;
+  }
+
+  /* Opt-in for focusable controls drawn over dark photography or dark
+     gradients. A charcoal outline would disappear there, so the outline turns
+     white. Keep outline only: the focus contract forbids box-shadow. */
+  .focus-on-dark:focus-visible {
+    outline-color: #ffffff;
+    outline-offset: -6px;
+  }
+
+  /* Dark-filled control on a LIGHT surface (e.g. charcoal button on the
+     off-white wash card). A white ring there is ~1.07:1 and disappears, so the
+     ring is charcoal and sits outside the control, offset 3px, over the light
+     surface (~14:1). Outline only: box-shadow is forbidden on focus. */
+  .focus-on-light-fill:focus-visible {
+    outline: 2px solid #252729;
+    outline-offset: 3px;
   }
 
   /* A focused element must never be hidden behind the sticky headers
@@ -163,6 +188,19 @@
 
   .confit-slide-up {
     animation: confit-slide-up 0.45s cubic-bezier(0.25, 1, 0.5, 1) both;
+  }
+
+  /* ── Brand splash progress rule (Logo #3 splash) ─────────────────────
+     A single charcoal hairline that draws across the splash for its
+     duration. Reduced-motion users get the global 0.001ms collapse, which
+     ends on the final frame (full rule) — no information is lost. */
+  .confit-splash-rule {
+    transform-origin: 0 50%;
+    animation: confit-splash-rule 1.1s cubic-bezier(0.25, 1, 0.5, 1) both;
+  }
+  @keyframes confit-splash-rule {
+    from { transform: scaleX(0); }
+    to { transform: scaleX(1); }
   }
   @keyframes confit-slide-up {
     from { opacity: 0; transform: translateY(12px); }
@@ -376,4 +414,92 @@ html {
   100% {
     transform: translateX(-100%);
   }
+}
+
+/* ── Floating AI Stylist control: the non-occlusion contract ─────────────
+   WHY THIS REPLACED THE OLD RULES
+   --------------------------------
+   The previous rules only moved the anchor (bottom: 1rem / 2rem / 5rem under
+   a sticky CTA) and relied on `html { scroll-padding-bottom }` above. Measured
+   with scripts/fab_probe.mjs on 2026-10-17, that still left 15 elements
+   covered across 6 routes x 2 viewports, five of them interactive controls
+   the user must be able to reach:
+
+       guest mob /builder   "Outfit name" input + the occasion <select>
+       guest mob /fit       the "in / lbs" unit toggle
+       guest mob /cart      the "Store Pickup (BOPIS)" button
+       guest mob /wardrobe  an "Evening Silk" collection card link
+
+   scroll-padding-bottom cannot fix that class of defect: it only moves
+   browser-driven FOCUS scrolling. It does nothing for a control that is
+   already in the viewport at the current scroll offset, and nothing at all
+   for pointer input.
+
+   THE CONTRACT — two rules that together actually hold
+   ---------------------------------------------------
+   1. FLOW RESERVATION. --fab-safe-bottom is the full height of the band the
+      control occupies (offset + footprint + margin). The shell's <main>
+      applies it as padding-bottom, so the last block of ANY page scrolls
+      clear of the control instead of ending underneath it. This is the part
+      that makes "the user can always reach the last control" a structural
+      guarantee rather than a per-page patch.
+
+   2. SCROLL DEFERENCE. While the user scrolls DOWN they are pulling content
+      up into the band, so the control slides out of the way; on scroll UP it
+      returns. It never auto-returns while idle-after-down — otherwise it
+      would simply re-cover what the user just scrolled to.
+
+   A page that owns a fixed bottom action bar (ProductDetailView carries
+   data-sticky-cta) raises both the anchor AND the reservation, via the same
+   variable, so the two can never disagree. */
+:root {
+  --fab-size: 3rem;    /* mobile: 48px icon-only circle */
+  --fab-offset: 1rem;
+  /* offset above + footprint + offset below, so the last row clears it */
+  --fab-safe-bottom: calc(var(--fab-offset) * 2 + var(--fab-size));
+}
+@media (min-width: 1024px) {
+  :root {
+    --fab-size: 3.125rem;  /* desktop pill is ~50px tall */
+    --fab-offset: 2rem;
+  }
+}
+/* A sticky bottom action bar owns the bottom band; the control sits above it
+   and the reservation grows to match. :has() is supported by current
+   Chromium, Safari and Firefox; without it the control stays at the default
+   offset and only the sticky-CTA routes are affected. */
+@media (max-width: 1023px) {
+  body:has([data-sticky-cta]) { --fab-offset: 5rem; }
+}
+
+.stylist-fab-anchor {
+  bottom: var(--fab-offset);
+  transition:
+    transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 180ms linear;
+}
+.stylist-fab-anchor[data-fab-hidden='true'] {
+  transform: translateY(calc(100% + var(--fab-offset) + 0.5rem));
+  opacity: 0;
+  pointer-events: none;
+}
+/* DELIBERATELY NOT visibility:hidden, AND NOT aria-hidden.
+   -------------------------------------------------------
+   `visibility: hidden` removes a control from the TAB ORDER. The stylist
+   drawer browser gate proved the consequence: it tabs the whole page to reach
+   this control, that scrolls the page, the scroll deferral hides it, and the
+   focus restoration every dialog performs on close (Escape included) then
+   silently drops to <body> - because you cannot focus a hidden subtree.
+
+   The deferral exists so the control does not sit ON TOP of content. A
+   keyboard user is not blocked by a control that is merely translated away:
+   it returns the instant it receives focus (see the focusin handler in
+   ConsumerLayout) and is then visible and fully interactive. Removing it from
+   the tab order would trade a cosmetic overlap for a real 2.4.3 failure. */
+/* Reduced motion: move instantly, do not animate. Suppressing the transform
+   instead would leave an invisible control still geometrically on top of the
+   page, which is the defect this whole block exists to remove. */
+@media (prefers-reduced-motion: reduce) {
+  .stylist-fab-anchor,
+  .stylist-fab-anchor[data-fab-hidden='true'] { transition: none; }
 }

@@ -136,7 +136,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
     >
       <div className="relative overflow-hidden bg-slate-100">
         {onOpenDetails ? (
-          <button
+          <button data-motion="progressive" data-motion-tone="icon"
             onClick={openDetails}
             className={`block w-full text-left cursor-pointer ${
               isCompact ? "h-44" : "h-56"
@@ -191,7 +191,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           <WishlistToggle
             isWishlisted={isWishlisted}
             onToggle={() => onToggleWishlist(product.id)}
-            className="absolute top-1 end-1 rounded-full bg-white/90 hover:bg-white text-slate-700 shadow-sm backdrop-blur-xs transition-all"
+            className="absolute top-1 end-1 rounded-full bg-white/90 hover:bg-white text-brand-charcoal shadow-sm backdrop-blur-xs transition-all"
           >
             <HeartIcon size={15} isLiked={isWishlisted} />
           </WishlistToggle>
@@ -199,13 +199,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
         {/* Quick try-on, always present on the image itself. */}
         <div className="absolute bottom-2.5 right-2.5 flex items-center gap-1.5">
-          <button
+          <button data-motion="progressive" data-motion-tone="icon"
             onClick={() => openRuler(product)}
-            className="p-2 rounded-full bg-white/90 hover:bg-white text-slate-800 shadow-sm backdrop-blur-xs transition-all"
+            className="p-2 rounded-full bg-white/90 hover:bg-white text-brand-charcoal shadow-sm backdrop-blur-xs transition-all"
             title={t("a11y.no_photo_fit")}
             aria-label={t("a11y.no_photo_fit")}
           >
-            <RulerIcon size={14} color="#1B1F3B" />
+            <RulerIcon size={14} color="#252729" />
           </button>
           <TryOnButton product={product} variant="icon" />
         </div>
@@ -213,19 +213,19 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
       <div className="p-4 flex flex-col flex-1 gap-2">
         <div>
-          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+          <span className="text-[10px] font-bold text-brand-muted uppercase tracking-wider">
             {product.brand_name}
           </span>
-          <h3 className="font-serif text-xs sm:text-sm font-bold text-[#1B1F3B] line-clamp-1 mt-0.5">
+          <h3 className="font-serif text-xs sm:text-sm font-bold text-brand-charcoal line-clamp-1 mt-0.5">
             {onOpenDetails ? (
-              <button
+              <button data-motion="progressive" data-motion-tone="icon"
                 onClick={openDetails}
-                className="text-left hover:text-[#C5A059] cursor-pointer"
+                className="text-left hover:underline text-brand-charcoal cursor-pointer"
               >
                 {product.title}
               </button>
             ) : (
-              <Link to={detailsHref} className="hover:text-[#C5A059]">
+              <Link to={detailsHref} className="hover:underline text-brand-charcoal">
                 {product.title}
               </Link>
             )}
@@ -233,7 +233,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
           <div className="flex items-center justify-between mt-1 gap-2">
             <span className="flex items-baseline gap-1.5 min-w-0">
-              <span className="text-xs sm:text-sm font-bold text-[#1B1F3B]">
+              <span className="text-xs sm:text-sm font-bold text-brand-charcoal">
                 {formatMoney(
                   Math.round(product.base_price * 100),
                   product.currency || "USD",
@@ -241,7 +241,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                 )}
               </span>
               {discount && (
-                <span className="text-[11px] text-slate-400 line-through shrink-0">
+                <span className="text-[11px] text-brand-muted line-through shrink-0">
                   {formatMoney(
                     Math.round(discount.compareAt * 100),
                     product.currency || "USD",
@@ -251,7 +251,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               )}
             </span>
             {product.color_family && (
-              <span className="text-[11px] text-slate-500 font-light truncate max-w-[80px]">
+              <span className="text-[11px] text-brand-muted font-light truncate max-w-[80px]">
                 {product.color_family}
               </span>
             )}
@@ -262,16 +262,16 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
         <div className="mt-auto pt-3 border-t border-slate-100 grid grid-cols-2 gap-2">
           {onOpenDetails ? (
-            <button
+            <button data-motion="progressive"
               onClick={openDetails}
-              className="py-2.5 rounded-xl bg-[#1B1F3B] hover:bg-[#0C0E1E] text-white text-xs font-semibold transition-all shadow-2xs"
+              className="py-2.5 rounded-xl bg-brand-charcoal hover:bg-[#1A1B1D] text-white text-xs font-semibold transition-all shadow-2xs"
             >
               {t("discover.view_details")}
             </button>
           ) : (
             <Link
               to={detailsHref}
-              className="inline-flex items-center justify-center py-2.5 rounded-xl bg-[#1B1F3B] hover:bg-[#0C0E1E] text-white text-xs font-semibold transition-all shadow-2xs"
+              className="inline-flex items-center justify-center py-2.5 rounded-xl bg-brand-charcoal hover:bg-[#1A1B1D] text-white text-xs font-semibold transition-all shadow-2xs"
             >
               {t("discover.view_details")}
             </Link>
@@ -284,7 +284,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               idleLabel={t("commerce.add_to_cart")}
               icon={<BagIcon size={14} color="currentColor" />}
               data-testid="product-card-add-to-bag"
-              className="col-span-2 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 disabled:opacity-60 text-slate-800 text-xs font-semibold"
+              className="col-span-2 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 disabled:opacity-60 text-brand-charcoal text-xs font-semibold"
             />
           )}
         </div>

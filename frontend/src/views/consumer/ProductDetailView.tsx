@@ -73,41 +73,41 @@ const PdpSkeleton: React.FC<{ slow: boolean; onRetry: () => void }> = ({
         {slow ? t("product.loading_cold_start") : t("product.loading_details")}
       </span>
       {slow && (
-        <div className="flex flex-col items-center gap-2 p-3 rounded-2xl bg-[#FDF8EE] border border-[#C5A059]/30">
-          <p className="text-xs text-slate-600 text-center">
+        <div className="flex flex-col items-center gap-2 p-3 rounded-2xl bg-brand-wash border border-brand-hairline">
+          <p className="text-xs text-brand-muted text-center">
             {t("product.loading_cold_start")}
           </p>
-          <button
+          <button data-motion="recovery"
             onClick={onRetry}
-            className="min-h-11 px-4 py-2 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:border-[#C5A059]"
+            className="min-h-11 px-4 py-2 rounded-xl border border-brand-hairline bg-white text-xs font-semibold text-brand-charcoal hover:border-brand-charcoal"
           >
             {t("common.retry_now")}
           </button>
         </div>
       )}
       <div aria-hidden="true" className="space-y-10">
-        <div className="h-4 w-56 max-w-full rounded-full bg-slate-100 skeleton-shimmer" />
+        <div className="h-4 w-56 max-w-full rounded-full bg-brand-wash skeleton-shimmer" />
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
           <div className="lg:col-span-7 space-y-4">
-            <div className="aspect-[3/4] sm:h-[540px] rounded-3xl bg-slate-100 skeleton-shimmer" />
+            <div className="aspect-[3/4] sm:h-[540px] rounded-3xl bg-brand-wash skeleton-shimmer" />
             <div className="flex gap-3">
               {[0, 1, 2].map((i) => (
                 <div
                   key={i}
-                  className="w-20 h-24 rounded-2xl bg-slate-100 skeleton-shimmer"
+                  className="w-20 h-24 rounded-2xl bg-brand-wash skeleton-shimmer"
                 />
               ))}
             </div>
           </div>
           <div className="lg:col-span-5 space-y-6">
             <div className="space-y-3">
-              <div className="h-3 w-24 rounded-full bg-slate-100 skeleton-shimmer" />
-              <div className="h-7 w-4/5 rounded-xl bg-slate-100 skeleton-shimmer" />
-              <div className="h-6 w-32 rounded-xl bg-slate-100 skeleton-shimmer" />
+              <div className="h-3 w-24 rounded-full bg-brand-wash skeleton-shimmer" />
+              <div className="h-7 w-4/5 rounded-xl bg-brand-wash skeleton-shimmer" />
+              <div className="h-6 w-32 rounded-xl bg-brand-wash skeleton-shimmer" />
             </div>
-            <div className="h-48 rounded-2xl bg-slate-100 skeleton-shimmer" />
-            <div className="h-[52px] rounded-2xl bg-slate-100 skeleton-shimmer" />
-            <div className="h-[46px] rounded-2xl bg-slate-100 skeleton-shimmer" />
+            <div className="h-48 rounded-2xl bg-brand-wash skeleton-shimmer" />
+            <div className="h-[52px] rounded-2xl bg-brand-wash skeleton-shimmer" />
+            <div className="h-[46px] rounded-2xl bg-brand-wash skeleton-shimmer" />
           </div>
         </div>
       </div>
@@ -138,7 +138,7 @@ const TryOnCta: React.FC<{
   const blocked = kind === "blocked";
   const iconSize = variant === "overlay" ? 18 : 16;
   return (
-    <button
+    <button data-motion="creative" data-motion-tone="icon"
       onClick={tryOn.gate({
         render: () => openTryOn(product),
         fitCheck: () => openRuler(product),
@@ -151,8 +151,8 @@ const TryOnCta: React.FC<{
       }
       className={
         variant === "overlay"
-          ? "surface-glass-dark absolute bottom-4 end-4 min-h-11 px-5 py-3 rounded-2xl hover:bg-[#C5A059] hover:text-slate-950 text-xs font-bold transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-          : "w-full min-h-12 py-3.5 rounded-2xl bg-[#FDF8EE] hover:bg-[#C5A059] text-[#7A5C28] hover:text-white border border-[#C5A059]/40 font-bold text-xs shadow-sm transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          ? "surface-glass-light absolute bottom-4 end-4 min-h-11 px-5 py-3 rounded-2xl hover:bg-brand-charcoal hover:text-white text-brand-charcoal text-xs font-bold transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          : "w-full min-h-12 py-3.5 rounded-2xl bg-white hover:bg-brand-wash text-brand-charcoal border border-brand-field hover:border-brand-charcoal font-bold text-xs shadow-sm transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
       }
     >
       {kind === "render" ? (
@@ -191,15 +191,15 @@ const AccordionSection: React.FC<{
         page's sections by heading navigation. Preflight zeroes the
         h3's own margin/size, so the visual stays identical. */}
     <h3>
-      <button
+      <button data-motion="progressive" data-motion-tone="icon"
         onClick={onToggle}
         aria-expanded={open}
-        className="w-full min-h-12 flex justify-between items-center font-bold text-slate-800 text-start"
+        className="w-full min-h-12 flex justify-between items-center font-bold text-brand-charcoal text-start"
       >
         <span>{title}</span>
         <span
           aria-hidden="true"
-          className="text-[#C5A059] transition-transform duration-300 ease-luxury"
+          className="text-brand-charcoal transition-transform duration-300 ease-luxury"
         >
           {open ? "−" : "+"}
         </span>
@@ -524,8 +524,8 @@ export const ProductDetailView: React.FC = () => {
           hardcoded EN caption written for developers. A PDP is a purchase
           surface — the product opens the page; the REAL, API-driven
           "complete the look" section below keeps the styling story. */}
-      <nav className="text-xs text-slate-500 flex items-center gap-2 font-light">
-        <Link to="/discover" className="hover:text-[#1B1F3B] transition-colors">
+      <nav aria-label={t('product.breadcrumb_aria')} className="text-xs text-brand-muted flex items-center gap-2 font-light">
+        <Link to="/discover" className="inline-flex min-h-6 items-center hover:text-brand-charcoal transition-colors">
           {t('product.breadcrumb_catalog')}
         </Link>
         <span>/</span>
@@ -539,12 +539,12 @@ export const ProductDetailView: React.FC = () => {
               ? `/discover?category=${product.category_slug}`
               : "/discover"
           }
-          className="hover:text-[#1B1F3B] transition-colors"
+          className="inline-flex min-h-6 items-center hover:text-brand-charcoal transition-colors"
         >
           {product.category_name}
         </Link>
         <span>/</span>
-        <span className="font-semibold text-slate-800 truncate max-w-xs">
+        <span className="font-semibold text-brand-charcoal truncate max-w-xs">
           {product.title}
         </span>
       </nav>
@@ -552,7 +552,7 @@ export const ProductDetailView: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
         <div className="lg:col-span-7 space-y-4">
           <div
-            className="aspect-[3/4] sm:h-[540px] rounded-3xl overflow-hidden bg-slate-100 border border-slate-200/80 relative group shadow-sm"
+            className="aspect-[3/4] sm:h-[540px] rounded-3xl overflow-hidden bg-brand-wash border border-brand-hairline relative group shadow-sm"
             // Pass 5 — the natural mobile gesture. Horizontal-dominant
             // swipes ≥48px step the gallery (clamped, no wrap); vertical
             // scrolling is untouched. Direction follows the writing
@@ -620,7 +620,7 @@ export const ProductDetailView: React.FC = () => {
                 700ms luxury transition collapses under reduced motion
                 (user-initiated state change — an instant swap is the
                 correct reduced-motion behaviour). */}
-            <button
+            <button data-motion="filter" data-motion-tone="icon"
               type="button"
               aria-label={t("a11y.zoom_toggle")}
               aria-pressed={!!zoomOrigin}
@@ -694,7 +694,7 @@ export const ProductDetailView: React.FC = () => {
             <WishlistToggle
               isWishlisted={isInWishlist(product.id)}
               onToggle={() => toggleWishlist(product.id)}
-              className="surface-glass-light absolute top-3 end-3 rounded-full hover:bg-white text-slate-800 transition-all"
+              className="surface-glass-light absolute top-3 end-3 rounded-full hover:bg-white text-brand-charcoal transition-all"
             >
               <HeartIcon size={18} isLiked={isInWishlist(product.id)} />
             </WishlistToggle>
@@ -736,7 +736,7 @@ export const ProductDetailView: React.FC = () => {
               }}
             >
               {images.map((img, idx) => (
-                <button
+                <button data-motion="filter" data-motion-tone="icon"
                   key={idx}
                   ref={(el) => {
                     thumbRefs.current[idx] = el;
@@ -747,8 +747,8 @@ export const ProductDetailView: React.FC = () => {
                   aria-pressed={activeImageIndex === idx}
                   className={`w-20 h-24 rounded-2xl overflow-hidden border-2 transition-all shrink-0 ${
                     activeImageIndex === idx
-                      ? "border-[#C5A059] ring-2 ring-[#C5A059]/30"
-                      : "border-slate-200 hover:border-slate-300"
+                      ? "border-brand-charcoal ring-2 ring-brand-charcoal/30"
+                      : "border-brand-hairline hover:border-brand-field"
                   }`}
                 >
                   <HonestProductImage
@@ -768,14 +768,14 @@ export const ProductDetailView: React.FC = () => {
             decision context (price, size, CTA) never leaves the screen. */}
         <div className="lg:col-span-5 space-y-6 lg:sticky lg:top-24 lg:self-start">
           <div>
-            <span className="text-xs font-bold text-[#7A5C28] uppercase tracking-widest block mb-1">
+            <span className="text-xs font-bold text-brand-muted uppercase tracking-widest block mb-1">
               {product.brand_name}
             </span>
-            <h1 className="font-serif text-2xl sm:text-3xl font-bold text-[#1B1F3B] leading-tight">
+            <h1 className="font-serif text-2xl sm:text-3xl font-bold text-brand-charcoal leading-tight">
               {product.title}
             </h1>
             <div className="flex items-baseline flex-wrap gap-x-3 gap-y-1 mt-2">
-              <span className="text-2xl font-serif font-black text-[#1B1F3B]">
+              <span className="text-2xl font-serif font-black text-brand-charcoal">
                 {formatMoney(
                   Math.round(product.base_price * 100),
                   product.currency || "USD",
@@ -788,14 +788,14 @@ export const ProductDetailView: React.FC = () => {
               {product.compare_at_price != null &&
                 product.compare_at_price > product.base_price && (
                   <>
-                    <span className="text-sm text-slate-400 line-through">
+                    <span className="text-sm text-brand-muted line-through">
                       {formatMoney(
                         Math.round(product.compare_at_price * 100),
                         product.currency || "USD",
                         lang,
                       )}
                     </span>
-                    <span className="px-2 py-0.5 rounded-full bg-[#7A1F2B] text-white text-[11px] font-bold">
+                    <span className="px-2 py-0.5 rounded-full bg-brand-charcoal text-white text-[11px] font-bold">
                       {t("product.percent_off", {
                         percent: Math.round(
                           ((product.compare_at_price - product.base_price) /
@@ -804,7 +804,7 @@ export const ProductDetailView: React.FC = () => {
                         ),
                       })}
                     </span>
-                    <span className="w-full text-[11px] font-semibold text-[#7A1F2B]">
+                    <span className="w-full text-[11px] font-semibold text-emerald-700">
                       {t("product.you_save", {
                         amount: formatMoney(
                           Math.round(
@@ -820,7 +820,7 @@ export const ProductDetailView: React.FC = () => {
             </div>
 
             {bnpl?.eligible && bnpl.installment_amount != null && (
-              <div className="mt-3 p-3 rounded-2xl bg-[#FDF8EE] border border-[#C5A059]/30">
+              <div className="mt-3 p-3 rounded-2xl bg-brand-wash border border-brand-hairline">
                 <BNPLBadge
                   currency={product.currency || "USD"}
                   provider={bnpl.provider || undefined}
@@ -836,20 +836,20 @@ export const ProductDetailView: React.FC = () => {
               not in the config) — this card rendered with NO padding from
               that token. p-5 is the nearest real step. */}
           <Surface variant="raised" reveal className="p-5 rounded-2xl space-y-3.5">
-            <div className="flex justify-between items-center pb-2 border-b border-slate-100">
+            <div className="flex justify-between items-center pb-2 border-b border-brand-hairline">
               <div className="flex items-center gap-1.5">
-                <SparkleIcon size={16} color="#C5A059" />
-                <span className="text-xs font-bold text-[#1B1F3B]">
+                <SparkleIcon size={16} color="#252729" />
+                <span className="text-xs font-bold text-brand-charcoal">
                   {t('product.size_and_fit')}
                 </span>
               </div>
               {/* Was a bare text link with a ~16px hit area — a primary
                   entry into the fit flow needs a real target (44px). */}
-              <button
+              <button data-motion="filter"
                 onClick={() => openRuler(product)}
-                className="min-h-11 px-2 -me-2 text-xs font-bold text-[#7A5C28] hover:underline flex items-center gap-1"
+                className="min-h-11 px-2 -me-2 text-xs font-bold text-brand-charcoal hover:underline flex items-center gap-1"
               >
-                <RulerIcon size={14} color="#C5A059" />
+                <RulerIcon size={14} color="#252729" />
                 <span>{t('product.find_my_size')}</span>
               </button>
             </div>
@@ -859,7 +859,7 @@ export const ProductDetailView: React.FC = () => {
                 "unclear text" complaint) and sits at slate-600 (7.6:1)
                 instead of slate-500 (4.8:1). */}
             {product.fit_available ? (
-              <p className="text-xs text-slate-600 leading-relaxed">
+              <p className="text-xs text-brand-muted leading-relaxed">
                 {/* The fallback was a hand-built English template literal,
                     which rendered untranslated Latin text inside the Arabic
                     RTL page whenever fit_reasoning was absent. */}
@@ -874,7 +874,7 @@ export const ProductDetailView: React.FC = () => {
                 )}
               </p>
             ) : (
-              <p className="text-xs text-slate-600 leading-relaxed">
+              <p className="text-xs text-brand-muted leading-relaxed">
                 {t('product.complete_profile_for_size')}
               </p>
             )}
@@ -885,7 +885,7 @@ export const ProductDetailView: React.FC = () => {
             {colours.length > 0 && (
               <div>
                 <div className="flex justify-between items-center mb-1.5">
-                  <span className="text-xs font-bold text-slate-700">
+                  <span className="text-xs font-bold text-brand-charcoal">
                     {t("product.colour")}
                   </span>
                   {/* The selection readout only earns its place when there
@@ -893,7 +893,7 @@ export const ProductDetailView: React.FC = () => {
                       printed the SAME name twice two lines apart
                       (production screenshot, 2026-10-08). */}
                   {colours.length > 1 && (
-                    <span className="text-[11px] text-slate-600">
+                    <span className="text-[11px] text-brand-muted">
                       {selectedColour}
                     </span>
                   )}
@@ -907,7 +907,7 @@ export const ProductDetailView: React.FC = () => {
                     {colours.map((c) => {
                       const active = c.color === selectedColour;
                       return (
-                        <button
+                        <button data-motion="filter" data-motion-tone="icon"
                           key={c.color}
                           onClick={() => {
                             const next = skuForColour(
@@ -922,10 +922,10 @@ export const ProductDetailView: React.FC = () => {
                           title={c.color}
                           className={`h-9 pl-1.5 pr-3 rounded-xl border flex items-center gap-2 text-[11px] font-semibold transition-all ${
                             active
-                              ? "border-[#1B1F3B] bg-[#1B1F3B] text-white"
+                              ? "border-brand-charcoal bg-brand-charcoal text-white"
                               : c.inStock
-                                ? "border-slate-200 hover:border-slate-300 bg-white text-slate-800"
-                                : "border-slate-100 bg-slate-50 text-slate-300 cursor-not-allowed line-through"
+                                ? "border-brand-hairline hover:border-brand-field bg-white text-brand-charcoal"
+                                : "border-brand-hairline bg-brand-wash text-brand-field cursor-not-allowed line-through"
                           }`}
                         >
                           <span
@@ -945,7 +945,7 @@ export const ProductDetailView: React.FC = () => {
                       className="w-5 h-5 rounded-lg border border-black/10"
                       style={{ backgroundColor: colours[0].hex }}
                     />
-                    <span className="text-xs text-slate-700">
+                    <span className="text-xs text-brand-charcoal">
                       {colours[0].color}
                     </span>
                   </div>
@@ -955,7 +955,7 @@ export const ProductDetailView: React.FC = () => {
 
             <div>
               <div className="flex justify-between items-center mb-1.5">
-                <span className="text-xs font-bold text-slate-700">
+                <span className="text-xs font-bold text-brand-charcoal">
                   {t('product.available_sizes')}
                 </span>
                 {/* Was a hand-built English string, which rendered Latin text
@@ -974,7 +974,7 @@ export const ProductDetailView: React.FC = () => {
                     currentSku?.is_in_stock &&
                     currentSku.stock_level <= LOW_STOCK_THRESHOLD
                       ? "text-amber-700"
-                      : "text-slate-500"
+                      : "text-brand-muted"
                   }`}
                 >
                   {currentSku?.is_in_stock
@@ -990,17 +990,17 @@ export const ProductDetailView: React.FC = () => {
                 aria-label={t('a11y.select_size')}
               >
                 {sizesForColour.map((sku) => (
-                  <button
+                  <button data-motion="filter" data-motion-tone="icon"
                     key={sku.id}
                     onClick={() => setSelectedSkuId(sku.id)}
                     disabled={!sku.is_in_stock}
                     aria-pressed={selectedSkuId === sku.id}
                     className={`min-w-[48px] h-11 px-3 rounded-xl border text-xs font-bold transition-all ${
                       selectedSkuId === sku.id
-                        ? "border-[#1B1F3B] bg-[#1B1F3B] text-white shadow-sm"
+                        ? "border-brand-charcoal bg-brand-charcoal text-white shadow-sm"
                         : sku.is_in_stock
-                          ? "border-slate-200 hover:border-slate-300 text-slate-800 bg-white"
-                          : "border-slate-100 text-slate-300 bg-slate-50 cursor-not-allowed line-through"
+                          ? "border-brand-hairline hover:border-brand-field text-brand-charcoal bg-white"
+                          : "border-brand-hairline text-brand-field bg-brand-wash cursor-not-allowed line-through"
                     }`}
                   >
                     {sku.size}
@@ -1011,7 +1011,7 @@ export const ProductDetailView: React.FC = () => {
               {/* Total sellable units across every variant. Kept separate from
                   the per-store pickup quantities further down: those are a
                   different pool and adding them together would double-count. */}
-              <p className="mt-2 text-[11px] text-slate-500">
+              <p className="mt-2 text-[11px] text-brand-muted">
                 {/* "21 units available across 1 variants" — the raw counts
                     were interpolated with no grammatical number agreement
                     (production screenshot, 2026-10-07). Each count now picks
@@ -1043,7 +1043,7 @@ export const ProductDetailView: React.FC = () => {
                   : t("product.add_to_bag_price", { price: skuPriceLabel })
               }
               data-testid="pdp-add-to-bag"
-              className="w-full py-4 rounded-2xl bg-[#1B1F3B] hover:bg-[#0C0E1E] disabled:opacity-50 text-white font-bold text-xs shadow-md"
+              className="w-full py-4 rounded-2xl bg-brand-charcoal hover:bg-[#1A1B1D] disabled:opacity-50 text-white font-bold text-xs shadow-md focus-visible:outline-brand-charcoal"
             />
 
             <TryOnCta
@@ -1054,7 +1054,7 @@ export const ProductDetailView: React.FC = () => {
             />
           </div>
 
-          <div className="border-t border-slate-200/80 pt-2 divide-y divide-slate-100 text-xs">
+          <div className="border-t border-brand-hairline pt-2 divide-y divide-brand-hairline text-xs">
             <AccordionSection
               title={t('product.fabric_care_details')}
               open={activeAccordion === "materials"}
@@ -1064,7 +1064,7 @@ export const ProductDetailView: React.FC = () => {
                 )
               }
             >
-              <div className="text-slate-600 space-y-1.5 leading-relaxed">
+              <div className="text-brand-muted space-y-1.5 leading-relaxed">
                 <div>
                   <strong>{t('product.composition_label')}</strong>{" "}
                   {product.material || t('product.not_specified')}
@@ -1099,7 +1099,7 @@ export const ProductDetailView: React.FC = () => {
                     <span className="sr-only">{t('product.bopis_checking')}</span>
                     <div
                       aria-hidden="true"
-                      className="h-16 rounded-xl bg-slate-100 skeleton-shimmer"
+                      className="h-16 rounded-xl bg-brand-wash skeleton-shimmer"
                     />
                   </div>
                 )}
@@ -1114,7 +1114,7 @@ export const ProductDetailView: React.FC = () => {
                           the raw code rendered on screen. */}
                       {bopisError || t("product.bopis_fallback_error")}
                     </p>
-                    <button
+                    <button data-motion="recovery"
                       onClick={() =>
                         selectedSkuId && fetchBopisStores(selectedSkuId)
                       }
@@ -1125,14 +1125,14 @@ export const ProductDetailView: React.FC = () => {
                   </div>
                 )}
                 {bopisStatus === "empty" && (
-                  <p className="text-slate-600 text-xs">
+                  <p className="text-brand-muted text-xs">
                     {t('product.bopis_no_store')}
                   </p>
                 )}
                 {bopisStatus === "success" &&
                   bopisStores.filter((s) => s.is_available_for_pickup)
                     .length === 0 && (
-                    <p className="text-slate-600 text-xs">
+                    <p className="text-brand-muted text-xs">
                       {t('product.bopis_no_store_stock')}
                     </p>
                   )}
@@ -1145,19 +1145,19 @@ export const ProductDetailView: React.FC = () => {
                         .map((store) => (
                           <div
                             key={store.store_id}
-                            className="p-2.5 rounded-xl bg-[#FAF9F6] border border-slate-200/80 flex justify-between items-center gap-2"
+                            className="p-2.5 rounded-xl bg-brand-wash border border-brand-hairline flex justify-between items-center gap-2"
                           >
                             <div>
-                              <div className="font-bold text-slate-800 text-xs">
+                              <div className="font-bold text-brand-charcoal text-xs">
                                 {store.store_name}
                               </div>
-                              <div className="text-[11px] text-slate-600">
+                              <div className="text-[11px] text-brand-muted">
                                 {store.address}
                               </div>
                               {store.latitude != null &&
                                 store.longitude != null && (
                                   <a
-                                    className="text-[11px] text-[#C5A059] font-semibold"
+                                    className="text-[11px] text-brand-charcoal font-semibold underline underline-offset-2"
                                     href={`https://www.openstreetmap.org/?mlat=${store.latitude}&mlon=${store.longitude}#map=16/${store.latitude}/${store.longitude}`}
                                     target="_blank"
                                     rel="noreferrer"
@@ -1169,7 +1169,7 @@ export const ProductDetailView: React.FC = () => {
                             {/* text-right forced LEFT-page alignment in RTL;
                                 text-end follows the writing direction. */}
                             <div className="text-end">
-                              <span className="text-[11px] font-bold text-emerald-600">
+                              <span className="text-[11px] font-bold text-emerald-700">
                                 {store.quantity_available} {t('product.in_stock')}
                               </span>
                             </div>
@@ -1189,7 +1189,7 @@ export const ProductDetailView: React.FC = () => {
                 )
               }
             >
-              <div className="text-slate-600 space-y-1.5 leading-relaxed">
+              <div className="text-brand-muted space-y-1.5 leading-relaxed">
                 <div>
                   {t('product.delivery_note')}
                 </div>
@@ -1204,7 +1204,7 @@ export const ProductDetailView: React.FC = () => {
 
       {product.related_outfits && product.related_outfits.length > 0 && (
         <section className="space-y-4">
-          <h2 className="font-serif text-xl font-bold text-[#1B1F3B]">
+          <h2 className="font-serif text-xl font-bold text-brand-charcoal">
             {t('product.complete_the_look')}
           </h2>
           {/* C03 pass 2: the outfit cards sat on a symmetric 2-col grid with
@@ -1226,7 +1226,7 @@ export const ProductDetailView: React.FC = () => {
                     : ["md:col-span-7", "md:col-span-5", "md:col-span-5", "md:col-span-7"][idx % 4]
                 }`}
               >
-                <h3 className="text-sm font-bold text-[#1B1F3B]">
+                <h3 className="text-sm font-bold text-brand-charcoal">
                   {outfit.title}
                 </h3>
                 <div className="grid grid-cols-2 gap-3">
@@ -1234,7 +1234,7 @@ export const ProductDetailView: React.FC = () => {
                     <Link
                       key={item.product_id}
                       to={item.slug ? `/product/${item.slug}` : `/discover`}
-                      className="group rounded-2xl border border-slate-100 p-2 hover:border-[#C5A059] transition-colors flex flex-col"
+                      className="group rounded-2xl border border-brand-hairline p-2 hover:border-brand-charcoal transition-colors flex flex-col"
                     >
                       {item.image_url && (
                         <div className="overflow-hidden rounded-xl mb-2">
@@ -1255,10 +1255,10 @@ export const ProductDetailView: React.FC = () => {
                           now wrap in full — the grid equalises row
                           heights and mt-auto keeps prices pinned, so
                           nothing is ever amputated. */}
-                      <div className="text-[11px] font-bold text-slate-800 leading-snug min-h-[2.75em] break-words">
+                      <div className="text-[11px] font-bold text-brand-charcoal leading-snug min-h-[2.75em] break-words">
                         {item.product_title}
                       </div>
-                      <div className="text-[11px] text-slate-600">
+                      <div className="text-[11px] text-brand-muted">
                         {item.brand_name}
                       </div>
                       {item.price != null && (
@@ -1286,7 +1286,7 @@ export const ProductDetailView: React.FC = () => {
           the device has no other history: no dead section. */}
       {recentlyViewed.length > 0 && (
         <section className="space-y-4" data-testid="pdp-recently-viewed">
-          <h2 className="font-serif text-xl font-bold text-[#1B1F3B]">
+          <h2 className="font-serif text-xl font-bold text-brand-charcoal">
             {t('product.recently_viewed')}
           </h2>
           <div className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory">
@@ -1294,7 +1294,7 @@ export const ProductDetailView: React.FC = () => {
               <Link
                 key={item.id}
                 to={`/product/${item.slug}`}
-                className="group snap-start shrink-0 w-36 sm:w-40 rounded-2xl border border-slate-100 p-2 hover:border-[#C5A059] transition-colors flex flex-col bg-white"
+                className="group snap-start shrink-0 w-36 sm:w-40 rounded-2xl border border-brand-hairline p-2 hover:border-brand-charcoal transition-colors flex flex-col bg-white"
               >
                 <div className="overflow-hidden rounded-xl mb-2">
                   <HonestProductImage
@@ -1308,10 +1308,10 @@ export const ProductDetailView: React.FC = () => {
                 {/* Same contract as the look cards: the full name, always —
                     no truncate, no clamp (tiles widened to w-36/40 so most
                     names sit in two lines; longer ones simply take three). */}
-                <div className="text-[11px] font-bold text-slate-800 leading-snug min-h-[2.75em] break-words">
+                <div className="text-[11px] font-bold text-brand-charcoal leading-snug min-h-[2.75em] break-words">
                   {(lang === "ar" && item.title_ar) || item.title}
                 </div>
-                <div className="text-[11px] font-semibold text-slate-600 mt-auto pt-0.5">
+                <div className="text-[11px] font-semibold text-brand-muted mt-auto pt-0.5">
                   {formatMoney(
                     Math.round(item.base_price * 100),
                     item.currency || "USD",
@@ -1334,14 +1334,14 @@ export const ProductDetailView: React.FC = () => {
         <div
           role="region"
           aria-label={t("product.quick_buy_bar")}
-          data-testid="pdp-sticky-bar"
-          className="lg:hidden fixed bottom-0 inset-x-0 z-40 confit-slide-up border-t border-slate-200 bg-white shadow-[0_-8px_24px_rgb(12_14_30/0.08)]"
+          data-testid="pdp-sticky-bar" data-sticky-cta
+          className="lg:hidden fixed bottom-0 inset-x-0 z-40 confit-slide-up border-t border-brand-hairline bg-white shadow-[0_-8px_24px_rgb(37_39_41/0.08)]"
           style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
         >
           <div className="max-w-6xl mx-auto px-4 py-2.5 flex items-center gap-3">
             <div
               aria-hidden="true"
-              className="w-10 h-12 rounded-lg overflow-hidden bg-slate-100 shrink-0"
+              className="w-10 h-12 rounded-lg overflow-hidden bg-brand-wash shrink-0"
             >
               <HonestProductImage
                     unavailableLabel={t('common.image_unavailable')}
@@ -1352,10 +1352,10 @@ export const ProductDetailView: React.FC = () => {
               />
             </div>
             <div className="min-w-0 flex-1">
-              <div className="text-[11px] font-bold text-slate-800 truncate">
+              <div className="text-[11px] font-bold text-brand-charcoal truncate">
                 {product.title}
               </div>
-              <div className="text-sm font-serif font-black text-[#1B1F3B]">
+              <div className="text-sm font-serif font-black text-brand-charcoal">
                 {skuPriceLabel}
               </div>
             </div>
@@ -1365,7 +1365,7 @@ export const ProductDetailView: React.FC = () => {
               icon={<BagIcon size={14} color="#FFFFFF" />}
               idleLabel={t("product.add_to_bag")}
               data-testid="pdp-add-to-bag-sticky"
-              className="shrink-0 min-h-12 px-5 rounded-xl bg-[#1B1F3B] hover:bg-[#0C0E1E] disabled:opacity-50 text-white font-bold text-xs"
+              className="shrink-0 min-h-12 px-5 rounded-xl bg-brand-charcoal hover:bg-[#1A1B1D] disabled:opacity-50 text-white font-bold text-xs focus-visible:outline-brand-charcoal"
             />
           </div>
         </div>

@@ -66,16 +66,16 @@ export const TryOnFitView: React.FC = () => {
         description={t('tryon.gallery_description')}
       />
       {/* Header */}
-      <div className="bg-gradient-to-r from-[#1B1F3B] to-[#2A3C78] rounded-3xl text-white p-8 sm:p-12 shadow-xl border border-slate-800">
+      <div className="rounded-3xl border border-brand-hairline bg-white p-8 shadow-2xs sm:p-12">
         <div className="max-w-2xl space-y-3">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#C5A059]/20 border border-[#C5A059]/40 text-[#E2BF70] text-xs font-semibold uppercase tracking-wider">
-            <SparkleIcon size={14} color="#E2BF70" />
+          <div className="inline-flex items-center gap-2 rounded-full border border-brand-hairline bg-brand-wash px-3 py-1 text-xs font-semibold uppercase tracking-wider text-brand-charcoal">
+            <SparkleIcon size={14} color="currentColor" />
             <span>{t('tryon.studio_badge')}</span>
           </div>
-          <h1 className="font-serif text-3xl sm:text-4xl font-bold leading-tight">
+          <h1 className="font-serif text-3xl font-bold leading-tight text-brand-charcoal sm:text-4xl">
             {t('tryon.studio_headline')}
           </h1>
-          <p className="text-xs sm:text-sm text-slate-300 font-light leading-relaxed">
+          <p className="text-xs font-light leading-relaxed text-slate-600 sm:text-sm">
             {t('tryon.studio_lede')}
           </p>
         </div>
@@ -87,16 +87,16 @@ export const TryOnFitView: React.FC = () => {
           the GPU worker was offline and every job failed. */}
       <TryOnEngineStatus />
 
-      <section className="rounded-3xl border border-[#C5A059]/25 bg-white p-5 shadow-2xs">
+      <section className="rounded-3xl border border-brand-hairline bg-white p-5 shadow-2xs">
         <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
           <div>
-            <span className="text-[10px] font-bold uppercase tracking-widest text-[#7A5C28]">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-brand-muted">
               {t('tryon.privacy_eyebrow')}
             </span>
-            <h2 className="mt-1 font-serif text-2xl font-bold text-[#1B1F3B]">
+            <h2 className="mt-1 font-serif text-2xl font-bold text-brand-charcoal">
               {t('tryon.privacy_title')}
             </h2>
-            <p className="mt-2 text-sm font-light leading-relaxed text-slate-500">
+            <p className="mt-2 text-sm font-light leading-relaxed text-brand-muted">
               {t('tryon.privacy_body')}
             </p>
           </div>
@@ -109,9 +109,9 @@ export const TryOnFitView: React.FC = () => {
             ].map((step, index) => (
               <div
                 key={step}
-                className="rounded-2xl bg-[#FAF9F6] p-3 text-slate-700"
+                className="rounded-2xl bg-brand-wash p-3 text-slate-700"
               >
-                <span className="mb-1 block font-serif text-lg font-bold text-[#1B1F3B]">
+                <span className="mb-1 block font-serif text-lg font-bold text-brand-charcoal">
                   {index + 1}
                 </span>
                 {step}
@@ -132,19 +132,19 @@ export const TryOnFitView: React.FC = () => {
           aria-disabled={tryOnKind === "blocked"}
           className={`p-5 rounded-3xl border-2 transition-all cursor-pointer flex flex-col justify-between ${
             activeTab === "vton"
-              ? "border-[#C5A059] bg-[#FDF8EE] shadow-md"
+              ? "border-brand-charcoal bg-brand-wash shadow-md"
               : "border-slate-200 bg-white hover:border-slate-300"
           } ${tryOnKind === "blocked" ? "opacity-60" : ""}`}
         >
           <div className="space-y-2">
-            <div className="w-10 h-10 rounded-xl bg-[#1B1F3B] flex items-center justify-center text-white">
+            <div className="w-10 h-10 rounded-xl bg-brand-charcoal flex items-center justify-center text-white">
               {tryOnKind === "render" ? (
-                <TryOnIcon size={22} color="#C5A059" isAi={true} />
+                <TryOnIcon size={22} color="currentColor" isAi={true} />
               ) : (
-                <RulerIcon size={22} color="#C5A059" />
+                <RulerIcon size={22} color="currentColor" />
               )}
             </div>
-            <h3 className="font-serif text-base font-bold text-[#1B1F3B]">
+            <h3 className="font-serif text-base font-bold text-brand-charcoal">
               {t("nav.virtual_tryon")}
             </h3>
             <p className="text-xs text-slate-600 font-light">
@@ -153,7 +153,7 @@ export const TryOnFitView: React.FC = () => {
                 : t("tryon.vton_card_caption")}
             </p>
           </div>
-          <span className="text-xs font-bold text-[#7A5C28] mt-4 block">
+          <span className="text-xs font-bold text-brand-charcoal mt-4 block">
             {tryOnKind === "render"
               ? t("tryon.cta_try_on")
               : t("tryon.cta_fit_check")}{" "}
@@ -169,23 +169,23 @@ export const TryOnFitView: React.FC = () => {
           }}
           className={`p-5 rounded-3xl border-2 transition-all cursor-pointer flex flex-col justify-between ${
             activeTab === "scan"
-              ? "border-[#C5A059] bg-[#FDF8EE] shadow-md"
+              ? "border-brand-charcoal bg-brand-wash shadow-md"
               : "border-slate-200 bg-white hover:border-slate-300"
           }`}
         >
           <div className="space-y-2">
-            <div className="w-10 h-10 rounded-xl bg-[#C5A059] flex items-center justify-center text-slate-950 shadow-xs">
-              <SparkleIcon size={22} color="#0C0E1E" />
+            <div className="w-10 h-10 rounded-xl bg-brand-charcoal text-white flex items-center justify-center shadow-xs">
+              <SparkleIcon size={22} color="#FFFFFF" />
             </div>
-            <h3 className="font-serif text-base font-bold text-[#1B1F3B]">
+            <h3 className="font-serif text-base font-bold text-brand-charcoal">
               {t('tryon.scan_feature_title')}
             </h3>
-            <p className="text-xs text-slate-500 font-light">
+            <p className="text-xs text-brand-muted font-light">
               Browser camera or manual measurements for a self-reported size
               profile; raw video is not uploaded by this flow.
             </p>
           </div>
-          <span className="mt-4 block text-xs font-bold text-[#7A5C28]">
+          <span className="mt-4 block text-xs font-bold text-brand-charcoal">
             {t('tryon.scan_feature_cta')} <span aria-hidden="true">→</span>
           </span>
         </div>
@@ -195,18 +195,18 @@ export const TryOnFitView: React.FC = () => {
           onClick={() => navigate("/fit")}
           className={`p-5 rounded-3xl border-2 transition-all cursor-pointer flex flex-col justify-between ${
             activeTab === "ruler"
-              ? "border-[#1B1F3B] bg-[#FAF9F6] shadow-md"
+              ? "border-brand-charcoal bg-brand-wash shadow-md"
               : "border-slate-200 bg-white hover:border-slate-300"
           }`}
         >
           <div className="space-y-2">
             <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-900">
-              <RulerIcon size={22} color="#1B1F3B" />
+              <RulerIcon size={22} color="#252729" />
             </div>
-            <h3 className="font-serif text-base font-bold text-[#1B1F3B]">
+            <h3 className="font-serif text-base font-bold text-brand-charcoal">
               {t("nav.no_photo_fit")}
             </h3>
-            <p className="text-xs text-slate-500 font-light">
+            <p className="text-xs text-brand-muted font-light">
               Zero-photo measurement calculator using the backend fit contract
               where product data supports it.
             </p>
@@ -224,22 +224,22 @@ export const TryOnFitView: React.FC = () => {
           }}
           className={`p-5 rounded-3xl border-2 transition-all cursor-pointer flex flex-col justify-between ${
             activeTab === "visual"
-              ? "border-[#C5A059] bg-[#FDF8EE] shadow-md"
+              ? "border-brand-charcoal bg-brand-wash shadow-md"
               : "border-slate-200 bg-white hover:border-slate-300"
           }`}
         >
           <div className="space-y-2">
-            <div className="w-10 h-10 rounded-xl bg-[#FDF8EE] flex items-center justify-center text-[#A37E44]">
-              <VisualSearchIcon size={22} color="#C5A059" />
+            <div className="w-10 h-10 rounded-xl bg-brand-wash flex items-center justify-center text-brand-charcoal">
+              <VisualSearchIcon size={22} color="currentColor" />
             </div>
-            <h3 className="font-serif text-base font-bold text-[#1B1F3B]">
+            <h3 className="font-serif text-base font-bold text-brand-charcoal">
               {t("nav.visual_search")}
             </h3>
-            <p className="text-xs text-slate-500 font-light">
+            <p className="text-xs text-brand-muted font-light">
               Upload a moodboard image to search matching real catalog pieces.
             </p>
           </div>
-          <span className="text-xs font-bold text-[#7A5C28] mt-4 block">
+          <span className="text-xs font-bold text-brand-charcoal mt-4 block">
             Match Outfit →
           </span>
         </div>
@@ -248,10 +248,10 @@ export const TryOnFitView: React.FC = () => {
       {/* Selectable Garments for Try-On */}
       <div className="space-y-4">
         <div className="flex justify-between items-center">
-          <h3 className="font-serif text-xl font-bold text-[#1B1F3B]">
+          <h3 className="font-serif text-xl font-bold text-brand-charcoal">
             {t('tryon.catalog_heading')}
           </h3>
-          <span className="text-xs text-slate-500 font-light">
+          <span className="text-xs text-brand-muted font-light">
             {isLoading
               ? t('tryon.catalog_loading')
               : catalogError && products.length === 0
@@ -293,7 +293,7 @@ export const TryOnFitView: React.FC = () => {
                         className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider ${
                           isTryOnSupported(p.category_name) &&
                           tryOnKind === "render"
-                            ? "bg-emerald-500/90 text-white"
+                            ? "bg-emerald-700 text-white"
                             : "bg-slate-950/80 text-slate-200"
                         }`}
                       >
@@ -304,14 +304,14 @@ export const TryOnFitView: React.FC = () => {
                       </span>
                     </div>
                   </div>
-                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                  <span className="text-[10px] font-bold text-brand-muted uppercase tracking-wider">
                     {p.brand_name}
                   </span>
-                  <h4 className="font-serif text-sm font-bold text-[#1B1F3B] truncate">
+                  <h4 className="font-serif text-sm font-bold text-brand-charcoal truncate">
                     {p.title}
                   </h4>
                   {/* Price stays LTR inside the Arabic page (§7). */}
-                  <div className="text-sm font-bold text-[#1B1F3B] mt-1" dir="ltr">
+                  <div className="text-sm font-bold text-brand-charcoal mt-1" dir="ltr">
                     ${p.base_price.toFixed(2)}
                   </div>
                 </div>
@@ -321,15 +321,15 @@ export const TryOnFitView: React.FC = () => {
                     min-h-11 = 44px touch target (§7); labels are i18n text,
                     never icon-only. */}
                 <div className="pt-3 border-t border-slate-100 mt-3 grid grid-cols-2 gap-2">
-                  <button
+                  <button data-motion="progressive"
                     type="button"
                     onClick={() => openRuler(p)}
-                    className="min-h-11 py-2 px-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-[11px] font-semibold text-slate-700 flex items-center justify-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059]"
+                    className="min-h-11 py-2 px-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-[11px] font-semibold text-slate-700 flex items-center justify-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white"
                   >
                     <RulerIcon size={13} />
                     <span>{t('tryon.ruler_button')}</span>
                   </button>
-                  <button
+                  <button data-motion="creative" data-motion-tone="icon"
                     type="button"
                     onClick={tryOn.gate({
                       render: () =>
@@ -342,13 +342,13 @@ export const TryOnFitView: React.FC = () => {
                       !isTryOnSupported(p.category_name) ||
                       tryOnKind === "blocked"
                     }
-                    className="min-h-11 py-2 px-2 rounded-xl bg-[#1B1F3B] hover:bg-[#2A3C78] text-white text-[11px] font-semibold flex items-center justify-center gap-1 shadow-sm disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059]"
+                    className="min-h-11 py-2 px-2 rounded-xl bg-brand-charcoal hover:bg-black text-white text-[11px] font-semibold flex items-center justify-center gap-1 shadow-sm disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white"
                   >
                     {isTryOnSupported(p.category_name) &&
                     tryOnKind === "render" ? (
-                      <TryOnIcon size={13} color="#C5A059" />
+                      <TryOnIcon size={13} color="currentColor" />
                     ) : (
-                      <RulerIcon size={13} color="#C5A059" />
+                      <RulerIcon size={13} color="currentColor" />
                     )}
                     <span>
                       {isTryOnSupported(p.category_name) &&

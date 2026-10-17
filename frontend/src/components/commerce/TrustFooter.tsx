@@ -45,7 +45,7 @@ export const TrustFooter: React.FC = () => {
   const badge = (live: boolean, liveKey: string, offKey: string) => (
     <span
       className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${
-        live ? 'bg-emerald-500/15 text-emerald-300' : 'bg-slate-600/30 text-slate-400'
+        live ? 'bg-emerald-50 text-emerald-700' : 'bg-brand-wash text-brand-muted'
       }`}
     >
       {live ? t(liveKey) : t(offKey)}
@@ -60,9 +60,9 @@ export const TrustFooter: React.FC = () => {
   if (isLoading) {
     return (
       <ul className="space-y-2 font-light" aria-busy="true">
-        <li className="h-4 w-40 bg-slate-700/40 rounded animate-pulse" />
-        <li className="h-4 w-52 bg-slate-700/40 rounded animate-pulse" />
-        <li className="h-4 w-44 bg-slate-700/40 rounded animate-pulse" />
+        <li className="h-4 w-40 bg-brand-wash rounded animate-pulse" />
+        <li className="h-4 w-52 bg-brand-wash rounded animate-pulse" />
+        <li className="h-4 w-44 bg-brand-wash rounded animate-pulse" />
       </ul>
     );
   }
@@ -115,7 +115,7 @@ export const TrustFooter: React.FC = () => {
       {/* Payments — always stated, because the mode is what a shopper needs. */}
       <li className="flex items-start gap-2">
         {badge(payments_live, 'footer.badge_live', 'footer.badge_demo')}
-        <span className="text-slate-300">
+        <span className="text-brand-charcoal">
           {payments_live ? t('footer.payments_live') : t(paymentDisclosureKey)}
         </span>
       </li>
@@ -123,7 +123,7 @@ export const TrustFooter: React.FC = () => {
       {/* BNPL — "Tabby & Tamara 0% interest" only when the flag is live. */}
       <li className="flex items-start gap-2">
         {badge(bnpl_live, 'footer.badge_live', 'footer.badge_unavailable')}
-        <span className="text-slate-300">
+        <span className="text-brand-charcoal">
           {bnpl_live
             ? t('footer.bnpl_available', { providers: t('footer.bnpl_brand_name_full') })
             : t('footer.bnpl_unavailable')}
@@ -133,7 +133,7 @@ export const TrustFooter: React.FC = () => {
       {/* BOPIS — the store count is a real COUNT() from the stores table. */}
       <li className="flex items-start gap-2">
         {badge(bopisAvailable, 'footer.badge_live', 'footer.badge_unavailable')}
-        <span className="text-slate-300">
+        <span className="text-brand-charcoal">
           {bopisAvailable
             ? t('footer.bopis_available', { count: storeCount })
             : t('footer.bopis_unavailable')}
@@ -143,7 +143,7 @@ export const TrustFooter: React.FC = () => {
       {/* Returns — the window is the server's value, never a typed constant. */}
       <li className="flex items-start gap-2">
         {badge(returnsLive, 'footer.badge_live', 'footer.badge_unavailable')}
-        <span className="text-slate-300">
+        <span className="text-brand-charcoal">
           {returnsLive
             ? t('footer.returns_available', { days: returnsDays })
             : t('footer.returns_unavailable')}
@@ -153,21 +153,20 @@ export const TrustFooter: React.FC = () => {
       {/* Privacy — states only what the product does. No biometrics claim. */}
       <li className="flex items-start gap-2">
         {badge(true, 'footer.badge_live', 'footer.badge_live')}
-        <span className="text-slate-300">{t('footer.trust_privacy')}</span>
+        <span className="text-brand-charcoal">{t('footer.trust_privacy')}</span>
       </li>
 
       {/* Storage — the deployment reports its real storage mode. */}
       {capabilities.storage_mode === 'local' && (
         <li className="flex items-start gap-2">
           {badge(false, 'footer.badge_live', 'footer.badge_unavailable')}
-          <span className="text-slate-400">{t('footer.trust_storage_local_note')}</span>
+          <span className="text-brand-muted">{t('footer.trust_storage_local_note')}</span>
         </li>
       )}
 
       <li className="pt-1">
-        <Link to="/privacy" // Measured 2026-09-23 (axe, real browser): slate-500 on this panel is
-        // 4.02:1 at 10px — below the 4.5:1 AA threshold. slate-400 clears it.
-        className="text-[10px] text-slate-400 hover:text-slate-300 underline">
+        <Link to="/privacy" // brand-muted (#595C63) on brand-wash is 6.2:1 at 10px (AA+).
+        className="inline-flex min-h-6 items-center text-[10px] text-brand-muted hover:text-brand-charcoal underline">
           {t('footer.disclosure_source')}
         </Link>
       </li>

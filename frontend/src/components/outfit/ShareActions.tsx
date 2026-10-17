@@ -110,12 +110,12 @@ export const ShareActions: React.FC<{
   };
 
   const btnBase =
-    'inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-[11px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059] disabled:opacity-50';
+    'inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-[11px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal disabled:opacity-50';
 
   return (
     <div className={compact ? 'space-y-1.5' : 'space-y-2'}>
       <div className="flex gap-2">
-        <button
+        <button data-motion="share" data-motion-tone="icon"
           type="button"
           onClick={() => void copy()}
           disabled={status === 'copying'}
@@ -133,10 +133,10 @@ export const ShareActions: React.FC<{
         </button>
 
         {canNativeShare && (
-          <button
+          <button data-motion="share"
             type="button"
             onClick={() => void nativeShare()}
-            className={`${btnBase} flex-1 bg-[#1B1F3B] text-white hover:bg-[#0C0E1E]`}
+            className={`${btnBase} flex-1 bg-brand-charcoal text-white hover:bg-black`}
           >
             <span aria-hidden="true"><Share2 size={14} /></span>
             <span>{t('share.native_share')}</span>

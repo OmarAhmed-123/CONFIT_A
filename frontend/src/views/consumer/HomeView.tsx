@@ -348,8 +348,8 @@ export const HomeView: React.FC = () => {
           and failure-proof via HeroMedia/HonestProductImage. */}
       <HeroSection
         eyebrow={
-          <div className="surface-glass-dark inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border-[#C5A059]/30 !text-[#E2BF70] text-[11px] font-semibold uppercase tracking-widest">
-            <span aria-hidden="true"><SparkleIcon size={13} color="#E2BF70" /></span>
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-brand-hairline bg-brand-wash text-brand-charcoal text-[11px] font-semibold uppercase tracking-widest">
+            <span aria-hidden="true"><SparkleIcon size={13} color="#252729" /></span>
             <span>{t('home.hero_badge')}</span>
           </div>
         }
@@ -358,7 +358,7 @@ export const HomeView: React.FC = () => {
         support={t("home.hero_subtitle")}
         actions={
           <>
-            <button
+            <button data-motion="neutral"
               onClick={() =>
                 document
                   .getElementById("guided-first-look")
@@ -369,13 +369,13 @@ export const HomeView: React.FC = () => {
                   })
               }
               type="button"
-              className="min-h-11 px-7 py-3.5 rounded-2xl bg-[#C5A059] hover:bg-[#E2BF70] text-[#0C0E1E] font-bold text-xs sm:text-sm tracking-wide shadow-lg hover:shadow-[#C5A059]/20 transition-all flex items-center gap-2 active:scale-98 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+              className="min-h-11 px-7 py-3.5 rounded-2xl bg-brand-charcoal hover:bg-[#1A1B1D] text-white font-bold text-xs sm:text-sm tracking-wide shadow-md transition-all flex items-center gap-2 active:scale-98 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white"
             >
-              <span aria-hidden="true"><SparkleIcon size={16} color="#0C0E1E" /></span>
+              <span aria-hidden="true"><SparkleIcon size={16} color="#FFFFFF" /></span>
               <span>{t('home.get_first_look')}</span>
             </button>
 
-            <button
+            <button data-motion="creative" data-motion-tone="icon"
               onClick={() =>
                 // The studio still opens: it hosts the no-photo fit check too.
                 // Only the *label* changes, and only when a render is off the
@@ -383,13 +383,13 @@ export const HomeView: React.FC = () => {
                 navigate(tryOnKind === "render" ? "/tryon-studio" : "/fit-finder")
               }
               type="button"
-              className="min-h-11 px-5 py-3.5 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold text-xs sm:text-sm backdrop-blur-md transition-all flex items-center gap-2 active:scale-98 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059]"
+              className="min-h-11 px-5 py-3.5 rounded-2xl bg-white border border-brand-field text-brand-charcoal font-semibold text-xs sm:text-sm hover:bg-brand-wash transition-all flex items-center gap-2 active:scale-98 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal"
             >
               <span aria-hidden="true">
                 {tryOnKind === "render" ? (
-                  <TryOnIcon size={16} color="#FFFFFF" isAi={true} />
+                  <TryOnIcon size={16} color="#252729" isAi={true} />
                 ) : (
-                  <RulerIcon size={16} color="#FFFFFF" />
+                  <RulerIcon size={16} color="#252729" />
                 )}
               </span>
               <span>
@@ -403,7 +403,7 @@ export const HomeView: React.FC = () => {
 
             <Link
               to="/discover"
-              className="inline-flex min-h-11 items-center px-4 py-3.5 rounded-2xl text-slate-300 hover:text-[#E2BF70] font-semibold text-xs sm:text-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059]"
+              className="inline-flex min-h-11 items-center px-4 py-3.5 rounded-2xl text-brand-charcoal underline underline-offset-4 decoration-brand-field hover:decoration-brand-charcoal font-semibold text-xs sm:text-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal"
             >
               {t('home.shop_catalog_cta')}
             </Link>
@@ -418,7 +418,7 @@ export const HomeView: React.FC = () => {
             ].map((item) => (
               <div
                 key={item}
-                className="surface-glass-dark rounded-2xl border-white/10 px-3 py-2 text-[11px] !text-slate-300"
+                className="rounded-2xl border border-brand-hairline bg-brand-wash px-3 py-2 text-[11px] text-brand-muted"
               >
                 {item}
               </div>
@@ -434,27 +434,27 @@ export const HomeView: React.FC = () => {
                 unavailableLabel={t('common.image_unavailable')}
                 caption={
                   <>
-                    <span className="rounded-full bg-[#C5A059] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-[#0C0E1E]">
+                    <span className="rounded-full bg-brand-lilac px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-brand-charcoal">
                       {t('home.example_result')}
                     </span>
                     <h2 className="mt-3 font-serif text-2xl font-bold">
                       {t('home.example_look_title')}
                     </h2>
-                    <p className="mt-1 text-xs text-slate-200">
+                    <p className="mt-1 text-xs text-white/90">
                       {t('home.example_look_body')}
                     </p>
                   </>
                 }
               />
               <div className="mt-4 grid grid-cols-2 gap-3 text-xs">
-                <div className="rounded-2xl bg-white/90 p-3 text-[#1B1F3B]">
-                  <span className="block text-[10px] font-bold uppercase tracking-wider text-[#A37E44]">
+                <div className="rounded-2xl bg-white border border-brand-hairline p-3 text-brand-charcoal">
+                  <span className="block text-[10px] font-bold uppercase tracking-wider text-brand-charcoal">
                     {t('home.why_this_works')}
                   </span>
                   {t('home.why_this_works_body')}
                 </div>
-                <div className="rounded-2xl bg-[#0C0E1E]/90 p-3 text-white">
-                  <span className="block text-[10px] font-bold uppercase tracking-wider text-[#C5A059]">
+                <div className="rounded-2xl bg-brand-wash p-3 text-brand-charcoal">
+                  <span className="block text-[10px] font-bold uppercase tracking-wider text-brand-charcoal">
                     {t('home.fit_next_step')}
                   </span>
                   {t('home.fit_next_step_body')}
@@ -473,34 +473,34 @@ export const HomeView: React.FC = () => {
 
       <section
         id="guided-first-look"
-        className="rounded-[32px] border border-[#C5A059]/25 bg-white p-6 shadow-2xs sm:p-8"
+        className="rounded-[32px] border border-brand-hairline bg-white p-6 shadow-2xs sm:p-8"
       >
         <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
           <div>
-            <span className="text-[10px] font-bold uppercase tracking-widest text-[#7A5C28]">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-brand-muted">
               {t('home.guided_eyebrow')}
             </span>
-            <h2 className="mt-2 font-serif text-3xl font-bold text-[#1B1F3B]">
+            <h2 className="mt-2 font-serif text-3xl font-bold text-brand-charcoal">
               {t('home.guided_title')}
             </h2>
-            <p className="mt-3 text-sm font-light leading-relaxed text-slate-500">
+            <p className="mt-3 text-sm font-light leading-relaxed text-brand-muted">
               {t('home.guided_body')}
             </p>
           </div>
 
           <div className="space-y-4">
             <div>
-              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-brand-muted">
                 {t('home.intent_question')}
               </p>
               <div className="mt-2 flex flex-wrap gap-2">
                 {guideOccasions.map((occasion) => (
-                  <button
+                  <button data-motion="filter" data-motion-tone="icon"
                   key={occasion.value}
                     type="button"
                   aria-pressed={guideOccasion === occasion.value}
                   onClick={() => setGuideOccasion(occasion.value)}
-                    className={`rounded-full px-3 py-2 text-xs font-semibold transition ${guideOccasion === occasion.value ? "bg-[#1B1F3B] text-white" : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"}`}
+                    className={`rounded-full px-3 py-2 text-xs font-semibold transition ${guideOccasion === occasion.value ? "bg-brand-charcoal text-white" : "border border-slate-200 bg-white text-brand-charcoal hover:bg-slate-50"}`}
                   >
                     {t(occasion.labelKey)}
                   </button>
@@ -509,14 +509,14 @@ export const HomeView: React.FC = () => {
             </div>
 
             <div className="grid gap-3 sm:grid-cols-3">
-              <label className="space-y-2 text-xs font-semibold text-slate-600">
-                <span className="block text-[11px] font-bold uppercase tracking-wider text-slate-500">
+              <label className="space-y-2 text-xs font-semibold text-brand-muted">
+                <span className="block text-[11px] font-bold uppercase tracking-wider text-brand-muted">
                   {t('home.budget_guide')}
                 </span>
                 <select
                   value={guideBudget}
                   onChange={(event) => setGuideBudget(event.target.value)}
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm text-[#1B1F3B] focus:border-[#C5A059] focus:outline-none"
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm text-brand-charcoal focus:border-brand-charcoal focus:outline-none focus:ring-2 focus:ring-brand-charcoal/25"
                 >
                   {guideBudgets.map((budget) => (
                     <option key={budget} value={budget}>
@@ -525,14 +525,14 @@ export const HomeView: React.FC = () => {
                   ))}
                 </select>
               </label>
-              <label className="space-y-2 text-xs font-semibold text-slate-600">
-                <span className="block text-[11px] font-bold uppercase tracking-wider text-slate-500">
+              <label className="space-y-2 text-xs font-semibold text-brand-muted">
+                <span className="block text-[11px] font-bold uppercase tracking-wider text-brand-muted">
                   {t('home.palette_preference')}
                 </span>
                 <select
                   value={guidePalette}
                   onChange={(event) => setGuidePalette(event.target.value)}
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm text-[#1B1F3B] focus:border-[#C5A059] focus:outline-none"
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm text-brand-charcoal focus:border-brand-charcoal focus:outline-none focus:ring-2 focus:ring-brand-charcoal/25"
                 >
                   {guidePalettes.map((palette) => (
                     <option key={palette.value} value={palette.value}>
@@ -541,14 +541,14 @@ export const HomeView: React.FC = () => {
                   ))}
                 </select>
               </label>
-              <label className="space-y-2 text-xs font-semibold text-slate-600">
-                <span className="block text-[11px] font-bold uppercase tracking-wider text-slate-500">
+              <label className="space-y-2 text-xs font-semibold text-brand-muted">
+                <span className="block text-[11px] font-bold uppercase tracking-wider text-brand-muted">
                   {t('home.fit_preference')}
                 </span>
                 <select
                   value={guideFit}
                   onChange={(event) => setGuideFit(event.target.value)}
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm text-[#1B1F3B] focus:border-[#C5A059] focus:outline-none"
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm text-brand-charcoal focus:border-brand-charcoal focus:outline-none focus:ring-2 focus:ring-brand-charcoal/25"
                 >
                   {guideFits.map((fit) => (
                     <option key={fit.value} value={fit.value}>
@@ -560,14 +560,14 @@ export const HomeView: React.FC = () => {
             </div>
 
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-              <button
+              <button data-motion="creative"
                 type="button"
                 onClick={startGuidedLook}
-                className="rounded-2xl bg-[#1B1F3B] px-5 py-3 text-xs font-bold text-white transition hover:bg-[#C5A059] hover:text-[#0C0E1E]"
+                className="rounded-2xl bg-brand-charcoal px-5 py-3 text-xs font-bold text-white transition hover:bg-[#1A1B1D]"
               >
                 {t('home.ask_stylist_cta')}
               </button>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-brand-muted">
                 {t('home.guest_friendly')}
               </p>
             </div>
@@ -576,15 +576,15 @@ export const HomeView: React.FC = () => {
       </section>
 
       {/* 2. Scroll-Driven 3D Editorial Gallery */}
-      <section className="relative -mx-4 overflow-hidden rounded-[36px] border border-[#C5A059]/25 bg-gradient-to-b from-[#FAF9F6] via-white to-[#F0F2F8] py-10 shadow-2xs sm:-mx-6 lg:-mx-8">
+      <section className="relative -mx-4 overflow-hidden rounded-[36px] border border-brand-hairline bg-white py-10 shadow-2xs sm:-mx-6 lg:-mx-8">
         <div className="relative z-10 mx-auto mb-6 max-w-2xl px-6 text-center">
-          <span className="text-[10px] font-bold uppercase tracking-widest text-[#7A5C28]">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-brand-muted">
             {t('home.lookbook_eyebrow')}
           </span>
-          <h2 className="mt-2 font-serif text-3xl font-bold text-[#1B1F3B] sm:text-4xl">
+          <h2 className="mt-2 font-serif text-3xl font-bold text-brand-charcoal sm:text-4xl">
             {t('home.lookbook_title')}
           </h2>
-          <p className="mt-3 text-sm font-light leading-relaxed text-slate-500">
+          <p className="mt-3 text-sm font-light leading-relaxed text-brand-muted">
             {t('home.lookbook_body')}
           </p>
         </div>
@@ -638,10 +638,10 @@ export const HomeView: React.FC = () => {
               <p className="text-xs font-semibold text-rose-600">
                 {t("home.new_in_error")}
               </p>
-              <button
+              <button data-motion="recovery"
                 type="button"
                 onClick={() => newInQuery.refetch()}
-                className="rounded-xl bg-[#1B1F3B] px-4 py-2 text-xs font-bold text-white"
+                className="rounded-xl bg-brand-charcoal px-4 py-2 text-xs font-bold text-white"
               >
                 {t("common.retry")}
               </button>
@@ -690,7 +690,7 @@ export const HomeView: React.FC = () => {
               <Link
                 key={brand.name}
                 to="/discover"
-                className="group flex flex-col justify-between rounded-3xl border border-slate-200/80 bg-white p-5 shadow-2xs transition-all duration-300 hover:border-[#C5A059]/50 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059]"
+                className="group flex flex-col justify-between rounded-3xl border border-slate-200/80 bg-white p-5 shadow-2xs transition-all duration-300 hover:border-brand-charcoal/40 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal"
               >
                 <div className="mb-4 grid h-44 grid-cols-2 gap-2">
                   {brand.items.slice(0, 2).map((item) => (
@@ -710,10 +710,10 @@ export const HomeView: React.FC = () => {
                 </div>
 
                 <div>
-                  <h3 className="font-serif text-base font-bold text-[#1B1F3B] transition-colors group-hover:text-[#C5A059]">
+                  <h3 className="font-serif text-base font-bold text-brand-charcoal transition-colors group-hover:underline">
                     {brand.name}
                   </h3>
-                  <span className="block text-[11px] font-light text-slate-500">
+                  <span className="block text-[11px] font-light text-brand-muted">
                     {brand.items.length === 1
                       ? t("home.brand_pieces_one")
                       : t("home.brand_pieces_many", {
@@ -722,7 +722,7 @@ export const HomeView: React.FC = () => {
                   </span>
                 </div>
 
-                <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-4 text-xs font-semibold text-[#1B1F3B] group-hover:text-[#C5A059]">
+                <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-4 text-xs font-semibold text-brand-charcoal group-hover:underline">
                   <span>{t("home.open_catalog")}</span>
                   <span aria-hidden="true" className="rtl:rotate-180 transition-transform duration-300 ease-luxury motion-safe:group-hover:translate-x-1 rtl:motion-safe:group-hover:-translate-x-1">→</span>
                 </div>
@@ -737,7 +737,7 @@ export const HomeView: React.FC = () => {
         <SectionHeader
           title={t("home.todays_picks")}
           hint={t("home.todays_picks_desc")}
-          icon={<SparkleIcon size={20} color="#C5A059" />}
+          icon={<SparkleIcon size={20} color="#252729" />}
           action={{ label: t("home.ask_stylist_alt"), onClick: () => openStylist() }}
         />
 
@@ -770,9 +770,9 @@ export const HomeView: React.FC = () => {
             <p className="text-xs text-rose-600 font-semibold">
               {t('home.picks_error')}
             </p>
-            <button
+            <button data-motion="recovery"
               onClick={refreshCatalog}
-              className="px-4 py-2 rounded-xl bg-[#1B1F3B] text-white text-xs font-bold"
+              className="px-4 py-2 rounded-xl bg-brand-charcoal text-white text-xs font-bold"
             >
               {t('my_looks.try_again')}
             </button>
@@ -780,7 +780,7 @@ export const HomeView: React.FC = () => {
         )}
         {!isLoading && !catalogError && products.length === 0 && (
           <div className="bg-white rounded-3xl border border-slate-200/80 p-8 text-center">
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-brand-muted">
               {t('home.picks_empty')}
             </p>
           </div>
@@ -824,10 +824,10 @@ export const HomeView: React.FC = () => {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
           {occasionCards.map((occ) => (
-            <button
+            <button data-motion="creative"
               key={occ.tag}
               onClick={() => openStylist(occ.title)}
-              className="group relative h-80 rounded-3xl overflow-hidden shadow-2xs hover:shadow-xl transition-all duration-300 text-left border border-slate-200/60"
+              className="focus-on-dark group relative h-80 rounded-3xl overflow-hidden shadow-2xs hover:shadow-xl transition-all duration-300 text-left border border-slate-200/60"
             >
               <img
                 src={occ.img}
@@ -836,14 +836,14 @@ export const HomeView: React.FC = () => {
                 className="w-full h-full object-cover motion-safe:group-hover:scale-105 transition-transform duration-700 ease-luxury brightness-75 group-hover:brightness-90"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/35 to-transparent p-6 flex flex-col justify-end">
-                <span className="text-[10px] font-bold text-[#C5A059] uppercase tracking-wider mb-1 flex items-center gap-1">
-                  <SparkleIcon size={12} color="#C5A059" />
+                <span className="text-[10px] font-bold text-white uppercase tracking-wider mb-1 flex items-center gap-1">
+                  <SparkleIcon size={12} color="#FFFFFF" />
                   <span>{t('home.instant_ai_stylist')}</span>
                 </span>
                 <h2 className="font-serif text-xl font-bold text-white mb-1">
                   {occ.title}
                 </h2>
-                <p className="text-xs text-slate-300 line-clamp-1 font-light mb-2">
+                <p className="text-xs text-white/90 line-clamp-1 font-light mb-2">
                   {occ.desc}
                 </p>
                 {/* Palette chips are purely decorative colour hints. */}
@@ -856,7 +856,7 @@ export const HomeView: React.FC = () => {
                     />
                   ))}
                 </div>
-                <div className="flex items-center gap-1 text-xs font-semibold text-[#C5A059] motion-safe:group-hover:translate-x-1 rtl:motion-safe:group-hover:-translate-x-1 transition-transform duration-300 ease-luxury">
+                <div className="flex items-center gap-1 text-xs font-semibold text-white motion-safe:group-hover:translate-x-1 rtl:motion-safe:group-hover:-translate-x-1 transition-transform duration-300 ease-luxury">
                   <span>{t('home.style_occasion_cta')}</span>
                 </div>
               </div>
@@ -878,7 +878,7 @@ export const HomeView: React.FC = () => {
             title={t("home.sale_title")}
             titleId="home-sale-title"
             hint={t("home.sale_hint")}
-            icon={<FlameIcon size={22} color="#C5A059" />}
+            icon={<FlameIcon size={22} color="#252729" />}
             action={{
               label:
                 products.length > 0
@@ -901,11 +901,11 @@ export const HomeView: React.FC = () => {
                     // states the true fact; the real figure
                     // (server-computed, currency-converted) appears on the
                     // product page and in the cart.
-                    <span className="text-[11px] text-slate-600">
+                    <span className="text-[11px] text-brand-muted">
                       {t('commerce.bnpl_available_checkout')}
                     </span>
                   ) : (
-                    <span className="text-[11px] text-slate-500">
+                    <span className="text-[11px] text-brand-muted">
                       {t('commerce.bnpl_not_live')}
                     </span>
                   )
@@ -917,28 +917,28 @@ export const HomeView: React.FC = () => {
       )}
 
       {/* 6. Precision Luxury Technology Reassurance */}
-      <section className="rounded-3xl bg-[#FAF9F6] border border-[#C5A059]/30 p-6 sm:p-10 shadow-2xs">
+      <section className="rounded-3xl bg-brand-wash border border-brand-hairline p-6 sm:p-10 shadow-2xs">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 text-center sm:text-left">
           <div className="space-y-2">
-            <div className="w-10 h-10 rounded-2xl bg-[#1B1F3B] text-[#C5A059] flex items-center justify-center font-bold shadow-xs mx-auto sm:mx-0">
-              <SparkleIcon size={20} color="#C5A059" />
+            <div className="w-10 h-10 rounded-2xl bg-brand-charcoal text-white flex items-center justify-center font-bold shadow-xs mx-auto sm:mx-0">
+              <SparkleIcon size={20} color="#FFFFFF" />
             </div>
-            <h2 className="font-serif text-sm font-bold text-[#1B1F3B]">
+            <h2 className="font-serif text-sm font-bold text-brand-charcoal">
               {t('home.fit_studio_title')}
             </h2>
-            <p className="text-xs text-slate-500 font-light leading-relaxed">
+            <p className="text-xs text-brand-muted font-light leading-relaxed">
               {t('home.fit_studio_body')}
             </p>
           </div>
 
           <div className="space-y-2">
-            <div className="w-10 h-10 rounded-2xl bg-[#1B1F3B] text-[#C5A059] flex items-center justify-center font-bold shadow-xs mx-auto sm:mx-0">
-              <BopisIcon size={20} color="#C5A059" />
+            <div className="w-10 h-10 rounded-2xl bg-brand-charcoal text-white flex items-center justify-center font-bold shadow-xs mx-auto sm:mx-0">
+              <BopisIcon size={20} color="#FFFFFF" />
             </div>
-            <h2 className="font-serif text-sm font-bold text-[#1B1F3B]">
+            <h2 className="font-serif text-sm font-bold text-brand-charcoal">
               {t('home.bopis_feature_title')}
             </h2>
-            <p className="text-xs text-slate-500 font-light leading-relaxed">
+            <p className="text-xs text-brand-muted font-light leading-relaxed">
               {capabilities.bopis_live
                 ? capabilities.bopis_store_count === 1
                   ? t('home.bopis_live_single')
@@ -948,25 +948,25 @@ export const HomeView: React.FC = () => {
           </div>
 
           <div className="space-y-2">
-            <div className="w-10 h-10 rounded-2xl bg-[#1B1F3B] text-[#C5A059] flex items-center justify-center font-bold shadow-xs mx-auto sm:mx-0">
-              <ShieldIcon size={20} color="#C5A059" />
+            <div className="w-10 h-10 rounded-2xl bg-brand-charcoal text-white flex items-center justify-center font-bold shadow-xs mx-auto sm:mx-0">
+              <ShieldIcon size={20} color="#FFFFFF" />
             </div>
-            <h2 className="font-serif text-sm font-bold text-[#1B1F3B]">
+            <h2 className="font-serif text-sm font-bold text-brand-charcoal">
               {t('home.returns_title')}
             </h2>
-            <p className="text-xs text-slate-500 font-light leading-relaxed">
+            <p className="text-xs text-brand-muted font-light leading-relaxed">
               {t('home.returns_body')}
             </p>
           </div>
 
           <div className="space-y-2">
-            <div className="w-10 h-10 rounded-2xl bg-[#1B1F3B] text-[#C5A059] flex items-center justify-center font-bold shadow-xs mx-auto sm:mx-0">
-              <BagIcon size={20} color="#C5A059" />
+            <div className="w-10 h-10 rounded-2xl bg-brand-charcoal text-white flex items-center justify-center font-bold shadow-xs mx-auto sm:mx-0">
+              <BagIcon size={20} color="#FFFFFF" />
             </div>
-            <h2 className="font-serif text-sm font-bold text-[#1B1F3B]">
+            <h2 className="font-serif text-sm font-bold text-brand-charcoal">
               {t('home.bnpl_title')}
             </h2>
-            <p className="text-xs text-slate-500 font-light leading-relaxed">
+            <p className="text-xs text-brand-muted font-light leading-relaxed">
               {t('home.bnpl_body')}
               {!capabilities.bnpl_live && (
                 <span className="block mt-1 text-[10px] font-bold text-amber-700">

@@ -186,7 +186,7 @@ export const WardrobeView: React.FC = () => {
     outfitSuggestion,
     isOutfitLoading,
     fetchOutfitSuggestion,
-  } = useWardrobeViewModel();
+  } = useWardrobeViewModel({ enabled: isAuthenticated });
 
   // Mood-board local UI state (form + per-board busy flags)
   const [newBoardTitle, setNewBoardTitle] = useState("");
@@ -198,7 +198,7 @@ export const WardrobeView: React.FC = () => {
   // `openTryOn` was destructured here but never called — dead since the
   // wardrobe grid has no try-on control. Removed 2026-09-27 so it cannot be
   // picked up later as a convenient ungated entry point.
-  const { showToast } = useUIStore();
+  const { showToast, openAuthModal } = useUIStore();
 
   const handleAddSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -332,61 +332,63 @@ export const WardrobeView: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-6">
         <div>
           <div className="flex items-center gap-2">
-            <WardrobeIcon size={24} color="#1B1F3B" />
-            <h1 className="font-serif text-3xl font-bold text-[#1B1F3B]">
+            <WardrobeIcon size={24} color="#252729" />
+            <h1 className="font-serif text-3xl font-bold text-brand-charcoal">
               {t("wardrobe.title")}
             </h1>
           </div>
-          <p className="text-sm text-slate-500 mt-1">
+          <p className="text-sm text-brand-muted mt-1">
             {t("wardrobe.subtitle")}
           </p>
         </div>
 
         {/* Tab Selector & Add Piece Button */}
-        <div className="flex items-center gap-3">
+        {/* flex-wrap: at 390px the four tabs plus the upload CTA measured 403px
+            against a 390px viewport, so the page scrolled sideways by 13px. */}
+        <div className="flex flex-wrap items-center gap-3">
           <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200">
-            <button
+            <button data-motion="progressive"
               onClick={() => setActiveTab("closet")}
               className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
                 activeTab === "closet"
-                  ? "bg-white text-[#1B1F3B] shadow-xs"
+                  ? "bg-white text-brand-charcoal shadow-xs"
                   : "text-slate-600 hover:text-slate-900"
               }`}
             >
               {t("nav.my_closet")}
             </button>
-            <button
+            <button data-motion="progressive"
               onClick={() => setActiveTab("looks")}
               className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
                 activeTab === "looks"
-                  ? "bg-white text-[#1B1F3B] shadow-xs"
+                  ? "bg-white text-brand-charcoal shadow-xs"
                   : "text-slate-600 hover:text-slate-900"
               }`}
             >
               {t("nav.my_looks")}
             </button>
-            <button
+            <button data-motion="progressive"
               onClick={() => {
                 setActiveTab("gaps");
                 if (isAuthenticated) fetchGaps();
               }}
               className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1 ${
                 activeTab === "gaps"
-                  ? "bg-white text-[#B8935A] shadow-xs"
+                  ? "bg-white text-brand-charcoal shadow-xs"
                   : "text-slate-600 hover:text-slate-900"
               }`}
             >
-              <GapAnalysisIcon size={14} color="#B8935A" />
+              <GapAnalysisIcon size={14} color="#252729" />
               <span>{t("nav.gap_analysis")}</span>
             </button>
-            <button
+            <button data-motion="progressive"
               onClick={() => {
                 setActiveTab("boards");
                 if (isAuthenticated && !hasLoadedBoards) fetchMoodBoards();
               }}
               className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
                 activeTab === "boards"
-                  ? "bg-white text-[#B8935A] shadow-xs"
+                  ? "bg-white text-brand-charcoal shadow-xs"
                   : "text-slate-600 hover:text-slate-900"
               }`}
             >
@@ -394,11 +396,11 @@ export const WardrobeView: React.FC = () => {
             </button>
           </div>
 
-          <button
+          <button data-motion="upload"
             onClick={() => setUploadModalOpen(true)}
-            className="px-4 py-2.5 rounded-2xl bg-[#1B1F3B] hover:bg-[#2A3C78] text-white text-xs font-semibold shadow-sm transition-all"
+            className="px-4 py-2.5 rounded-2xl bg-brand-charcoal hover:bg-black text-white text-xs font-semibold shadow-sm transition-all"
           >
-            + Upload Piece
+            {t("wardrobe.upload_piece")}
           </button>
         </div>
       </div>
@@ -416,12 +418,12 @@ export const WardrobeView: React.FC = () => {
               "Footwear",
               "Accessories",
             ].map((cat) => (
-              <button
+              <button data-motion="progressive" data-motion-tone="icon"
                 key={cat}
                 onClick={() => setActiveCategory(cat)}
                 className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all ${
                   activeCategory === cat
-                    ? "bg-[#1B1F3B] text-white shadow-xs"
+                    ? "bg-brand-charcoal text-white shadow-xs"
                     : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
                 }`}
               >
@@ -430,7 +432,26 @@ export const WardrobeView: React.FC = () => {
             ))}
           </div>
 
-          {isLoading ? (
+          {!isAuthenticated ? (
+            /* A signed-out visitor has no closet to fetch — the request can
+               only answer 401 and would raise a "couldn't load" toast for a
+               state that is not an error. Say what is missing instead. */
+            <div className="rounded-[32px] border border-brand-hairline bg-white p-8 text-center shadow-2xs">
+              <h2 className="font-serif text-2xl font-bold text-brand-charcoal">
+                {t("wardrobe.closet_signin_title")}
+              </h2>
+              <p className="mx-auto mt-2 max-w-md text-sm font-light leading-relaxed text-brand-muted">
+                {t("wardrobe.closet_signin_body")}
+              </p>
+              <button data-motion="progressive"
+                type="button"
+                onClick={() => openAuthModal("login")}
+                className="mt-6 inline-flex min-h-11 items-center rounded-2xl bg-brand-charcoal px-5 py-2.5 text-xs font-bold text-white transition-colors hover:bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white"
+              >
+                {t("auth.sign_in")}
+              </button>
+            </div>
+          ) : isLoading ? (
             <LoadingSpinner text={t("wardrobe.scanning")} />
           ) : isClosetError ? (
             /* Honest error state: a failed fetch is NOT an empty wardrobe. */
@@ -444,37 +465,34 @@ export const WardrobeView: React.FC = () => {
               {/* Measured 2026-09-23 (axe, real browser): rose-600 on the
                   rose-50 panel is 4.27:1 at 12px — below AA. rose-700 clears it. */}
               <p className="text-xs text-rose-700 mt-1">{isClosetError}</p>
-              <button
+              <button data-motion="recovery"
                 onClick={() => fetchWardrobe(activeCategory)}
-                className="mt-4 px-5 py-2.5 rounded-2xl bg-[#1B1F3B] text-white text-xs font-bold hover:bg-[#2A3C78] transition-all"
+                className="mt-4 px-5 py-2.5 rounded-2xl bg-brand-charcoal text-white text-xs font-bold hover:bg-black transition-all"
               >
                 {t("common.try_again")}
               </button>
             </div>
           ) : items.length === 0 ? (
-            <div className="rounded-[32px] border border-[#C5A059]/25 bg-white p-6 shadow-2xs">
+            <div className="rounded-[32px] border border-brand-hairline bg-white p-6 shadow-2xs">
               <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
                 <div className="space-y-4">
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-[#7A5C28]">
-                    Wardrobe retention engine
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-brand-charcoal">
+                    {t("wardrobe.retention_engine_eyebrow")}
                   </span>
-                  <h2 className="font-serif text-3xl font-bold text-[#1B1F3B]">
-                    Upload a few pieces to see what you can wear next
+                  <h2 className="font-serif text-3xl font-bold text-brand-charcoal">
+                    {t("wardrobe.retention_engine_headline")}
                   </h2>
-                  <p className="text-sm font-light leading-relaxed text-slate-500">
-                    Start with three everyday garments. Photo uploads are
-                    auto-tagged when persistent storage and analysis are
-                    available; manual entries remain editable and clearly marked
-                    as no-photo items.
+                  <p className="text-sm font-light leading-relaxed text-brand-muted">
+                    {t("wardrobe.retention_engine_body")}
                   </p>
-                  <div className="rounded-2xl bg-[#FAF9F6] p-3 text-xs text-slate-600">
+                  <div className="rounded-2xl bg-brand-wash p-3 text-xs text-slate-600">
                     Privacy note: garment photos are sent to the wardrobe
                     backend for this workflow. In this deployment, photo upload
                     availability depends on configured persistent storage.
                   </div>
-                  <button
+                  <button data-motion="upload"
                     onClick={() => setUploadModalOpen(true)}
-                    className="rounded-2xl bg-[#1B1F3B] px-5 py-3 text-xs font-bold text-white transition hover:bg-[#C5A059] hover:text-[#0C0E1E]"
+                    className="rounded-2xl bg-brand-charcoal px-5 py-3 text-xs font-bold text-white transition hover:bg-black hover:text-white"
                   >
                     Batch upload from gallery →
                   </button>
@@ -494,7 +512,7 @@ export const WardrobeView: React.FC = () => {
                       />
                     </div>
                   ))}
-                  <div className="col-span-3 rounded-2xl border border-[#C5A059]/25 bg-[#FDF8EE] p-4 text-center text-xs font-semibold text-[#7A5C28]">
+                  <div className="col-span-3 rounded-2xl border border-brand-hairline bg-brand-wash p-4 text-center text-xs font-semibold text-brand-charcoal">
                     Upload pieces → see realistic combinations from what you
                     own.
                   </div>
@@ -516,7 +534,7 @@ export const WardrobeView: React.FC = () => {
                       {/* Spec 01: always visible (no hover-only control), ≥44px
                           target, aria-busy pending, label is a real accessible
                           name — not a title tooltip. */}
-                      <button
+                      <button data-motion="destructive" data-motion-tone="icon"
                         onClick={() => runItemOp(item.id, "delete", () => deleteItem(item.id))}
                         aria-label={t('wardrobe.delete_aria')}
                         aria-busy={itemBusy?.id === item.id && itemBusy.op === "delete"}
@@ -529,14 +547,14 @@ export const WardrobeView: React.FC = () => {
                         )}
                       </button>
                       {/* Favorite toggle (BRD 4.1: persistent Favorite state) */}
-                      <button
+                      <button data-motion="filter" data-motion-tone="icon"
                         onClick={() => runItemOp(item.id, "favorite", () => toggleFavorite(item))}
                         aria-pressed={item.is_favorite}
                         aria-label={item.is_favorite ? t("wardrobe.fav_remove") : t("wardrobe.fav_mark")}
                         aria-busy={itemBusy?.id === item.id && itemBusy.op === "favorite"}
                         className={`absolute top-1.5 start-1.5 w-11 h-11 rounded-full flex items-center justify-center transition-colors ${
                           item.is_favorite
-                            ? "bg-[#B8935A] text-white"
+                            ? "bg-brand-charcoal text-white"
                             : "bg-black/40 hover:bg-black/60 focus-visible:bg-black/60 text-white"
                         }`}
                       >
@@ -566,13 +584,13 @@ export const WardrobeView: React.FC = () => {
                         )}
                     </div>
 
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    <span className="text-[10px] font-bold text-brand-muted uppercase tracking-wider">
                       {item.brand_name}
                     </span>
-                    <h2 className="font-serif text-sm font-bold text-[#1B1F3B] truncate mt-0.5">
+                    <h2 className="font-serif text-sm font-bold text-brand-charcoal truncate mt-0.5">
                       {item.title}
                     </h2>
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-brand-muted">
                       {item.color_name} · {item.category}
                     </p>
 
@@ -595,7 +613,7 @@ export const WardrobeView: React.FC = () => {
                         {item.ai_tags.slice(0, 2).map((t) => (
                           <span
                             key={t}
-                            className="text-[9px] px-2 py-0.5 rounded-md bg-[#FDF8EE] text-[#B8935A] font-medium border border-[#B8935A]/20"
+                            className="text-[9px] px-2 py-0.5 rounded-md bg-brand-wash text-brand-charcoal font-medium border border-brand-hairline"
                           >
                             {t}
                           </span>
@@ -606,7 +624,7 @@ export const WardrobeView: React.FC = () => {
 
                   <div className="pt-3 border-t border-slate-100 mt-3 flex items-center gap-2">
                     {item.processing_status === "failed" ? (
-                      <button
+                      <button data-motion="recovery" data-motion-tone="icon"
                         onClick={() => { if (retryingItemId == null) retryAnalysis(item.id); }}
                         aria-busy={retryingItemId === item.id}
                         aria-disabled={retryingItemId === item.id}
@@ -618,9 +636,9 @@ export const WardrobeView: React.FC = () => {
                         {retryingItemId === item.id ? t("wardrobe.retrying") : t("wardrobe.retry_analysis")}
                       </button>
                     ) : (
-                      <button
+                      <button data-motion="progressive"
                         onClick={() => navigate("/builder")}
-                        className="w-full py-2 rounded-xl bg-slate-100 hover:bg-[#1B1F3B] hover:text-white text-xs font-semibold text-slate-800 transition-all"
+                        className="w-full py-2 rounded-xl bg-slate-100 hover:bg-brand-charcoal hover:text-white text-xs font-semibold text-slate-800 transition-all"
                       >
                         {t("wardrobe.style_in_canvas")}
                       </button>
@@ -641,19 +659,19 @@ export const WardrobeView: React.FC = () => {
           <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm">
             <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 mb-4">
               <div>
-                <h3 className="font-serif text-lg font-bold text-[#1B1F3B] flex items-center gap-2">
-                  <SparkleIcon size={18} color="#B8935A" />
+                <h3 className="font-serif text-lg font-bold text-brand-charcoal flex items-center gap-2">
+                  <SparkleIcon size={18} color="#252729" />
                   {t("wardrobe.shop_first_title")}
                 </h3>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-brand-muted">
                   {t("wardrobe.shop_first_desc")}
                 </p>
               </div>
-              <button
+              <button data-motion="neutral" data-motion-tone="icon"
                 onClick={() => { if (!isOutfitLoading) fetchOutfitSuggestion("Smart Casual"); }}
                 aria-busy={isOutfitLoading}
                 aria-disabled={isOutfitLoading}
-                className="px-4 min-h-11 py-2 rounded-xl bg-[#B8935A] hover:bg-[#a07f4c] text-white text-xs font-semibold shadow-sm flex items-center justify-center gap-1.5"
+                className="px-4 min-h-11 py-2 rounded-xl bg-brand-charcoal hover:bg-black text-white text-xs font-semibold shadow-sm flex items-center justify-center gap-1.5"
               >
                 {isOutfitLoading && (
                   <span aria-hidden="true" className="w-3.5 h-3.5 rounded-full border-2 border-white/40 border-t-white motion-safe:animate-spin" />
@@ -664,11 +682,11 @@ export const WardrobeView: React.FC = () => {
 
             {outfitSuggestion && (
               <div className="space-y-4">
-                <p className="text-xs text-slate-600 bg-[#FAF9F6] border border-slate-100 rounded-xl p-3">
+                <p className="text-xs text-slate-600 bg-brand-wash border border-slate-100 rounded-xl p-3">
                   {outfitSuggestion.message}
                   {outfitSuggestion.owned_count > 0 && (
-                    <span className="ml-1 font-semibold text-[#1B1F3B]">
-                      Compatibility: {outfitSuggestion.compatibility_score}%
+                    <span className="ml-1 font-semibold text-brand-charcoal">
+                      {t("wardrobe.gap_compat_score", { score: outfitSuggestion.compatibility_score })}
                     </span>
                   )}
                 </p>
@@ -676,7 +694,7 @@ export const WardrobeView: React.FC = () => {
                 {outfitSuggestion.owned_items.length > 0 && (
                   <div>
                     <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">
-                      From your closet ({outfitSuggestion.owned_count})
+                      {t("wardrobe.gap_from_closet", { count: outfitSuggestion.owned_count })}
                     </span>
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 mt-2">
                       {outfitSuggestion.owned_items.map((it) => (
@@ -692,10 +710,10 @@ export const WardrobeView: React.FC = () => {
                           <span className="text-[9px] font-bold text-emerald-700 uppercase">
                             {it.position} · owned
                           </span>
-                          <p className="text-[11px] font-semibold text-[#1B1F3B] truncate">
+                          <p className="text-[11px] font-semibold text-brand-charcoal truncate">
                             {it.product_title}
                           </p>
-                          <p className="text-[10px] text-slate-500">
+                          <p className="text-[10px] text-brand-muted">
                             {it.color_family}
                           </p>
                         </div>
@@ -706,7 +724,7 @@ export const WardrobeView: React.FC = () => {
 
                 {outfitSuggestion.purchase_suggestions.length > 0 && (
                   <div>
-                    <span className="text-[10px] font-bold text-[#B8935A] uppercase tracking-wider">
+                    <span className="text-[10px] font-bold text-brand-charcoal uppercase tracking-wider">
                       Missing pieces — suggested for purchase
                     </span>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-2">
@@ -720,13 +738,13 @@ export const WardrobeView: React.FC = () => {
                               className="w-full h-full object-cover"
                             />
                           </div>
-                          <span className="text-[9px] font-bold text-slate-400 uppercase">
+                          <span className="text-[9px] font-bold text-brand-muted uppercase">
                             {it.position} · {it.brand_name}
                           </span>
-                          <p className="text-[11px] font-semibold text-[#1B1F3B] truncate">
+                          <p className="text-[11px] font-semibold text-brand-charcoal truncate">
                             {it.product_title}
                           </p>
-                          <p className="text-[11px] font-bold text-[#B8935A]">
+                          <p className="text-[11px] font-bold text-brand-charcoal">
                             {formatMoney(Math.round(it.price * 100), it.currency || 'USD', lang)}
                           </p>
                         </div>
@@ -741,29 +759,28 @@ export const WardrobeView: React.FC = () => {
           <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm">
             <div className="flex justify-between items-center mb-4">
               <div>
-                <h3 className="font-serif text-lg font-bold text-[#1B1F3B]">
-                  Saved Curated Ensembles
+                <h3 className="font-serif text-lg font-bold text-brand-charcoal">
+                  {t("wardrobe.boards_title")}
                 </h3>
-                <p className="text-xs text-slate-500">
-                  Your personalized styling collections
+                <p className="text-xs text-brand-muted">
+                  {t("wardrobe.boards_subtitle")}
                 </p>
               </div>
-              <button
+              <button data-motion="progressive"
                 onClick={() => navigate("/builder")}
-                className="px-4 py-2 rounded-xl bg-[#1B1F3B] text-white text-xs font-semibold shadow-sm"
+                className="px-4 py-2 rounded-xl bg-brand-charcoal text-white text-xs font-semibold shadow-sm"
               >
                 + Build New Look
               </button>
             </div>
 
             {!isAuthenticated ? (
-              <div className="bg-[#FAF9F6] rounded-2xl border border-dashed border-slate-300 p-6 text-center">
+              <div className="bg-brand-wash rounded-2xl border border-dashed border-slate-300 p-6 text-center">
                 <p className="text-xs text-slate-600 font-medium">
-                  Sign in to see your saved looks.
+                  {t("wardrobe.boards_signin_body")}
                 </p>
-                <p className="text-[11px] text-slate-400 mt-1">
-                  Ensembles you save in the Builder appear here — synced to your
-                  account.
+                <p className="text-[11px] text-brand-muted mt-1">
+                  {t("wardrobe.boards_signin_note")}
                 </p>
               </div>
             ) : savedLooksQuery.isLoading ? (
@@ -772,13 +789,12 @@ export const WardrobeView: React.FC = () => {
                 <div className="h-20 rounded-2xl bg-slate-100 animate-pulse" />
               </div>
             ) : savedLooks.length === 0 ? (
-              <div className="bg-[#FAF9F6] rounded-2xl border border-dashed border-slate-300 p-6 text-center">
+              <div className="bg-brand-wash rounded-2xl border border-dashed border-slate-300 p-6 text-center">
                 <p className="text-xs text-slate-600 font-medium">
-                  No saved looks yet.
+                  {t("wardrobe.boards_empty_body")}
                 </p>
-                <p className="text-[11px] text-slate-400 mt-1">
-                  Build an outfit in the Canvas and press “Save Ensemble” — it
-                  lands here.
+                <p className="text-[11px] text-brand-muted mt-1">
+                  {t("wardrobe.boards_empty_note")}
                 </p>
               </div>
             ) : (
@@ -786,14 +802,14 @@ export const WardrobeView: React.FC = () => {
                 {savedLooks.map((look) => (
                   <div
                     key={look.id}
-                    className="bg-[#FAF9F6] rounded-2xl border border-slate-200 p-4 space-y-3"
+                    className="bg-brand-wash rounded-2xl border border-slate-200 p-4 space-y-3"
                   >
                     <div className="flex justify-between items-start">
                       <div>
-                        <span className="text-[10px] font-bold text-[#B8935A] uppercase">
+                        <span className="text-[10px] font-bold text-brand-charcoal uppercase">
                           {look.occasion}
                         </span>
-                        <h4 className="font-serif text-base font-bold text-[#1B1F3B]">
+                        <h4 className="font-serif text-base font-bold text-brand-charcoal">
                           {look.title}
                         </h4>
                       </div>
@@ -803,12 +819,12 @@ export const WardrobeView: React.FC = () => {
                         verdict={t("wardrobe.match_verdict")}
                       />
                     </div>
-                    <div className="flex justify-between items-center pt-2 text-xs font-bold text-[#1B1F3B]">
+                    <div className="flex justify-between items-center pt-2 text-xs font-bold text-brand-charcoal">
                       <span>
                         {t("wardrobe.look_total")}{" "}
                         <bdi dir="ltr">{formatMoney(Math.round(Number(look.total_price ?? 0) * 100), "USD", lang)}</bdi>
                       </span>
-                      <button
+                      <button data-motion="destructive" data-motion-tone="icon"
                         onClick={() => { if (deletingLookId == null) handleDeleteLook(look.id); }}
                         aria-busy={deletingLookId === look.id}
                         aria-disabled={deletingLookId === look.id}
@@ -832,10 +848,10 @@ export const WardrobeView: React.FC = () => {
       {/* TAB 3: Wardrobe Gap Analysis (PDF Feature G4.1) */}
       {activeTab === "gaps" && (
         <div className="space-y-6">
-          <div className="bg-[#FDF8EE] border border-[#B8935A]/30 rounded-3xl p-6">
+          <div className="bg-brand-wash border border-brand-hairline rounded-3xl p-6">
             <div className="flex items-center gap-2 mb-2">
-              <GapAnalysisIcon size={22} color="#B8935A" />
-              <h3 className="font-serif text-xl font-bold text-[#1B1F3B]">
+              <GapAnalysisIcon size={22} color="#252729" />
+              <h3 className="font-serif text-xl font-bold text-brand-charcoal">
                 {t("wardrobe.gap_analysis_title")}
               </h3>
             </div>
@@ -845,7 +861,7 @@ export const WardrobeView: React.FC = () => {
           </div>
 
           {!isAuthenticated ? (
-            <div className="bg-[#FAF9F6] rounded-2xl border border-dashed border-slate-300 p-6 text-center">
+            <div className="bg-brand-wash rounded-2xl border border-dashed border-slate-300 p-6 text-center">
               <p className="text-xs text-slate-600 font-medium">
                 {t("wardrobe.gaps_signin")}
               </p>
@@ -867,9 +883,9 @@ export const WardrobeView: React.FC = () => {
               <p /* Measured 2026-09-23 (axe, real browser): rose-600 on the rose-50 panel is
                   4.27:1 at 12px — below AA. rose-700 clears it. */
               className="text-xs text-rose-700 mt-1">{isGapError}</p>
-              <button
+              <button data-motion="recovery"
                 onClick={() => fetchGaps()}
-                className="mt-4 px-5 py-2.5 rounded-2xl bg-[#1B1F3B] text-white text-xs font-bold hover:bg-[#2A3C78] transition-all"
+                className="mt-4 px-5 py-2.5 rounded-2xl bg-brand-charcoal text-white text-xs font-bold hover:bg-black transition-all"
               >
                 {t("common.try_again")}
               </button>
@@ -893,19 +909,18 @@ export const WardrobeView: React.FC = () => {
               >
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
                   <div>
-                    <span className="text-[10px] font-bold text-[#B8935A] uppercase tracking-wider">
-                      Identified Closet Gap #{gap.id}
+                    <span className="text-[10px] font-bold text-brand-charcoal uppercase tracking-wider">
+                      {t("wardrobe.gap_card_eyebrow", { id: gap.id })}
                     </span>
-                    <h4 className="font-serif text-lg font-bold text-[#1B1F3B]">
-                      Missing: {gap.missing_subcategory} ({gap.missing_category}
-                      )
+                    <h4 className="font-serif text-lg font-bold text-brand-charcoal">
+                      {t("wardrobe.gap_missing", { subcategory: gap.missing_subcategory, category: gap.missing_category })}
                     </h4>
                   </div>
                   {/* Honest figure: 0 (no core pieces yet) is a real state,
                       shown as "Starter staple" instead of a fake count. */}
                   {gap.unlocks_outfit_count > 0 ? (
                     <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold self-start sm:self-auto">
-                      Unlocks +{gap.unlocks_outfit_count} New Outfits
+                      {t("wardrobe.gap_unlocks_outfits", { count: gap.unlocks_outfit_count })}
                     </span>
                   ) : (
                     <span className="px-3 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-bold self-start sm:self-auto">
@@ -914,20 +929,20 @@ export const WardrobeView: React.FC = () => {
                   )}
                 </div>
 
-                <p className="text-xs text-slate-600 leading-relaxed bg-[#FAF9F6] p-3 rounded-xl border border-slate-100">
-                  💡 <strong>AI Analysis:</strong> {gap.rationale}
+                <p className="text-xs text-slate-600 leading-relaxed bg-brand-wash p-3 rounded-xl border border-slate-100">
+                  💡 <strong>{t("wardrobe.gap_ai_analysis")}</strong> {gap.rationale}
                 </p>
 
                 {/* Recommended Catalog Bridges */}
                 <div>
                   <span className="text-xs font-bold text-slate-700 block mb-2">
-                    Recommended Catalog Pieces to Bridge this Gap:
+                    {t("wardrobe.gap_recommended")}
                   </span>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     {gap.recommended_products.map((rec) => (
                       <div
                         key={rec.product_id}
-                        className="flex items-center gap-3 p-2.5 rounded-2xl bg-white border border-slate-200 hover:border-[#B8935A] transition-all group"
+                        className="flex items-center gap-3 p-2.5 rounded-2xl bg-white border border-slate-200 hover:border-brand-hairline transition-all group"
                       >
                         <div className="w-14 h-16 rounded-xl overflow-hidden bg-slate-100 shrink-0">
                           <HonestProductImage src={rec.image_url}
@@ -936,13 +951,13 @@ export const WardrobeView: React.FC = () => {
                           />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <span className="text-[9px] font-bold text-slate-400 block truncate">
+                          <span className="text-[9px] font-bold text-brand-muted block truncate">
                             {rec.brand_name}
                           </span>
-                          <span className="text-xs font-bold text-[#1B1F3B] block truncate">
+                          <span className="text-xs font-bold text-brand-charcoal block truncate">
                             {rec.title}
                           </span>
-                          <span className="text-xs font-bold text-[#B8935A]">
+                          <span className="text-xs font-bold text-brand-charcoal">
                             {formatMoney(Math.round(rec.price * 100), rec.currency || 'USD', lang)}
                           </span>
                         </div>
@@ -976,11 +991,11 @@ export const WardrobeView: React.FC = () => {
       {activeTab === "boards" && (
         <div className="space-y-6">
           {!isAuthenticated ? (
-            <div className="bg-[#FAF9F6] rounded-2xl border border-dashed border-slate-300 p-6 text-center">
+            <div className="bg-brand-wash rounded-2xl border border-dashed border-slate-300 p-6 text-center">
               <p className="text-xs text-slate-600 font-medium">
                 {t("wardrobe.boards_signin_title")}
               </p>
-              <p className="text-[11px] text-slate-400 mt-1">
+              <p className="text-[11px] text-brand-muted mt-1">
                 {t("wardrobe.boards_signin_sub")}
               </p>
             </div>
@@ -995,9 +1010,9 @@ export const WardrobeView: React.FC = () => {
               <p /* Measured 2026-09-23 (axe, real browser): rose-600 on the rose-50 panel is
                   4.27:1 at 12px — below AA. rose-700 clears it. */
               className="text-xs text-rose-700 mt-1">{isBoardsError}</p>
-              <button
+              <button data-motion="recovery"
                 onClick={() => fetchMoodBoards()}
-                className="mt-4 px-5 py-2.5 rounded-2xl bg-[#1B1F3B] text-white text-xs font-bold hover:bg-[#2A3C78] transition-all"
+                className="mt-4 px-5 py-2.5 rounded-2xl bg-brand-charcoal text-white text-xs font-bold hover:bg-black transition-all"
               >
                 {t("common.try_again")}
               </button>
@@ -1006,7 +1021,7 @@ export const WardrobeView: React.FC = () => {
             <>
               {/* New board */}
               <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm">
-                <h3 className="font-serif text-lg font-bold text-[#1B1F3B] mb-3">
+                <h3 className="font-serif text-lg font-bold text-brand-charcoal mb-3">
                   {t("wardrobe.boards_new_title")}
                 </h3>
                 <form
@@ -1023,12 +1038,12 @@ export const WardrobeView: React.FC = () => {
                     onChange={(e) => setNewBoardTitle(e.target.value)}
                     placeholder={t("wardrobe.boards_new_placeholder")}
                     maxLength={255}
-                    className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-[#B8935A]"
+                    className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-brand-hairline"
                   />
-                  <button
+                  <button data-motion="progressive"
                     type="submit"
                     disabled={!newBoardTitle.trim()}
-                    className="px-4 py-2.5 rounded-xl bg-[#1B1F3B] text-white text-xs font-semibold disabled:opacity-40 hover:bg-[#2A3C78] transition-all"
+                    className="px-4 py-2.5 rounded-xl bg-brand-charcoal text-white text-xs font-semibold disabled:opacity-40 hover:bg-black transition-all"
                   >
                     + {t("wardrobe.boards_new_create")}
                   </button>
@@ -1037,9 +1052,9 @@ export const WardrobeView: React.FC = () => {
 
               {/* Boards list */}
               {hasLoadedBoards && moodBoards.length === 0 ? (
-                <div className="bg-[#FAF9F6] rounded-2xl border border-dashed border-slate-300 p-8 text-center">
+                <div className="bg-brand-wash rounded-2xl border border-dashed border-slate-300 p-8 text-center">
                   <p className="text-xs text-slate-600 font-medium">{t("wardrobe.boards_empty_title")}</p>
-                  <p className="text-[11px] text-slate-400 mt-1">
+                  <p className="text-[11px] text-brand-muted mt-1">
                     {t("wardrobe.boards_empty_sub")}
                   </p>
                 </div>
@@ -1066,40 +1081,40 @@ export const WardrobeView: React.FC = () => {
                               value={renameTitle}
                               onChange={(e) => setRenameTitle(e.target.value)}
                               maxLength={255}
-                              className="flex-1 px-3 py-1.5 rounded-lg border border-slate-200 text-xs focus:outline-none focus:border-[#B8935A]"
+                              className="flex-1 px-3 py-1.5 rounded-lg border border-slate-200 text-xs focus:outline-none focus:border-brand-hairline"
                             />
-                            <button type="submit" className="text-xs font-bold text-[#B8935A]">
+                            <button data-motion="progressive" type="submit" className="text-xs font-bold text-brand-charcoal">
                               {t("common.save")}
                             </button>
-                            <button
+                            <button data-motion="neutral" data-motion-tone="edge"
                               type="button"
                               onClick={() => setRenamingBoardId(null)}
-                              className="text-xs font-bold text-slate-400"
+                              className="text-xs font-bold text-brand-muted"
                             >
                               {t("common.cancel")}
                             </button>
                           </form>
                         ) : (
                           <div className="min-w-0">
-                            <h4 className="font-serif text-base font-bold text-[#1B1F3B] truncate">
+                            <h4 className="font-serif text-base font-bold text-brand-charcoal truncate">
                               {board.title}
                             </h4>
                             {board.description && (
-                              <p className="text-xs text-slate-500 truncate">{board.description}</p>
+                              <p className="text-xs text-brand-muted truncate">{board.description}</p>
                             )}
                           </div>
                         )}
                         <div className="flex items-center gap-3 shrink-0 text-xs font-bold">
-                          <button
+                          <button data-motion="progressive" data-motion-tone="edge"
                             onClick={() => {
                               setRenamingBoardId(board.id);
                               setRenameTitle(board.title);
                             }}
-                            className="text-slate-400 hover:text-[#B8935A]"
+                            className="text-brand-muted hover:text-brand-charcoal"
                           >
                             {t("common.rename")}
                           </button>
-                          <button
+                          <button data-motion="destructive"
                             onClick={() => deleteMoodBoard(board.id)}
                             className="text-rose-400 hover:text-rose-600"
                           >
@@ -1132,13 +1147,13 @@ export const WardrobeView: React.FC = () => {
                                 </a>
                               ) : (
                                 <div className="h-28 w-full flex flex-col items-center justify-center text-center px-2">
-                                  <BagIcon size={20} color="#B8935A" />
-                                  <span className="text-[10px] font-bold text-slate-500 mt-1">
+                                  <BagIcon size={20} color="#252729" />
+                                  <span className="text-[10px] font-bold text-brand-muted mt-1">
                                     {t("wardrobe.boards_product_tile", { id: tile.payload.product_id })}
                                   </span>
                                 </div>
                               )}
-                              <button
+                              <button data-motion="destructive" data-motion-tone="icon"
                                 onClick={() => removeMoodBoardTile(board.id, tile.id)}
                                 title={t("wardrobe.boards_remove_tile")}
                                 className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/60 text-white text-[10px] opacity-0 group-hover:opacity-100 hover:bg-rose-600 transition-all"
@@ -1169,17 +1184,17 @@ export const WardrobeView: React.FC = () => {
                             value={newTileUrl}
                             onChange={(e) => setNewTileUrl(e.target.value)}
                             placeholder={t("wardrobe.boards_link_placeholder")}
-                            className="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-[#B8935A]"
+                            className="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-brand-hairline"
                           />
-                          <button
+                          <button data-motion="progressive"
                             type="submit"
                             disabled={busyBoardId === board.id}
-                            className="px-3 py-2 rounded-xl bg-slate-100 text-[#1B1F3B] text-xs font-semibold disabled:opacity-40"
+                            className="px-3 py-2 rounded-xl bg-slate-100 text-brand-charcoal text-xs font-semibold disabled:opacity-40"
                           >
                             {t("wardrobe.boards_add_link")}
                           </button>
                         </form>
-                        <label className="px-3 py-2 rounded-xl bg-slate-100 text-[#1B1F3B] text-xs font-semibold cursor-pointer hover:bg-slate-200 transition-all">
+                        <label className="px-3 py-2 rounded-xl bg-slate-100 text-brand-charcoal text-xs font-semibold cursor-pointer hover:bg-slate-200 transition-all">
                           {t("wardrobe.boards_upload_photo")}
                           <input
                             type="file"
@@ -1221,11 +1236,11 @@ export const WardrobeView: React.FC = () => {
             tabIndex={-1}
             className="w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden max-h-[90vh] overflow-y-auto"
           >
-            <div className="p-5 bg-[#1B1F3B] text-white flex justify-between items-center">
+            <div className="p-5 bg-brand-charcoal text-white flex justify-between items-center">
               <h3 className="font-serif text-base font-bold text-white flex items-center gap-2">
                 <span>{t('wardrobe.upload_photos_title')}</span>
               </h3>
-              <button
+              <button data-motion="progressive" data-motion-tone="icon"
                 onClick={() => {
                   setUploadModalOpen(false);
                   setSelectedFiles([]);
@@ -1243,17 +1258,14 @@ export const WardrobeView: React.FC = () => {
             >
               <div>
                 <label className="text-xs font-bold text-slate-800 block mb-1">
-                  Garment Photos{" "}
-                  <span className="text-slate-400 font-normal">
-                    (JPEG/PNG/WebP, up to 15MB each, max 20)
+                  {t("wardrobe.form_photos_label")}{" "}
+                  <span className="text-brand-muted font-normal">
+                    {t("wardrobe.form_photos_hint")}
                   </span>
                 </label>
                 {photoUploadUnavailable && (
                   <p className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-3 mb-2 leading-relaxed">
-                    Heads up: photo uploads are not configured in this
-                    environment (no persistent object storage yet) — the server
-                    will reject them with a clear error. Use manual add below,
-                    which works fully.
+                    {t("wardrobe.form_photo_unavailable")}
                   </p>
                 )}
                 <input
@@ -1262,10 +1274,10 @@ export const WardrobeView: React.FC = () => {
                   accept="image/jpeg,image/png,image/webp"
                   multiple
                   onChange={handleFileChange}
-                  className="w-full text-xs text-slate-600 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-[#1B1F3B] file:text-white file:text-xs file:font-semibold hover:file:bg-[#2A3C78] file:cursor-pointer"
+                  className="w-full text-xs text-slate-600 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-brand-charcoal file:text-white file:text-xs file:font-semibold hover:file:bg-black file:cursor-pointer"
                 />
                 {selectedFiles.length > 0 && (
-                  <p className="text-[11px] text-slate-500 mt-1.5">
+                  <p className="text-[11px] text-brand-muted mt-1.5">
                     {selectedFiles.length} file(s) selected:{" "}
                     {selectedFiles
                       .map((f) => f.name)
@@ -1289,12 +1301,12 @@ export const WardrobeView: React.FC = () => {
                 )}
               </div>
 
-              <button
+              <button data-motion="upload"
                 type="submit"
                 disabled={!selectedFiles.length}
                 aria-busy={isUploading || isCompressing}
                 aria-disabled={!selectedFiles.length || isUploading || isCompressing}
-                className="w-full min-h-11 py-3 rounded-xl bg-[#B8935A] hover:bg-[#a07f4c] text-white font-semibold text-xs transition-colors shadow-md flex items-center justify-center gap-1.5 disabled:opacity-50"
+                className="w-full min-h-11 py-3 rounded-xl bg-brand-charcoal hover:bg-black text-white font-semibold text-xs transition-colors shadow-md flex items-center justify-center gap-1.5 disabled:opacity-50"
               >
                 {isUploading || isCompressing ? (
                   <span aria-hidden="true" className="w-3.5 h-3.5 rounded-full border-2 border-white/40 border-t-white motion-safe:animate-spin" />
@@ -1329,14 +1341,14 @@ export const WardrobeView: React.FC = () => {
                       <span className="truncate font-medium">{r.filename}</span>
                       <span className="font-bold ml-2 shrink-0">
                         {r.status === "failed"
-                          ? "Failed"
+                          ? t("wardrobe.upload_status_failed")
                           : r.status === "duplicate"
-                            ? "Duplicate — already owned"
+                            ? t("wardrobe.upload_status_duplicate")
                             : r.item?.processing_status === "ready"
-                              ? "Analyzed"
+                              ? t("wardrobe.upload_status_analyzed")
                               : r.item?.processing_status === "failed"
-                                ? "Saved (AI retryable)"
-                                : "Processing…"}
+                                ? t("wardrobe.upload_status_saved_retryable")
+                                : t("wardrobe.upload_status_processing")}
                       </span>
                     </div>
                   ))}
@@ -1353,7 +1365,7 @@ export const WardrobeView: React.FC = () => {
               <div>
                 <label className="text-xs font-bold text-slate-800 block mb-1">
                   {t('wardrobe.import_outfit_title')}{" "}
-                  <span className="text-slate-400 font-normal">
+                  <span className="text-brand-muted font-normal">
                     {t('wardrobe.import_outfit_hint')}
                   </span>
                 </label>
@@ -1369,16 +1381,16 @@ export const WardrobeView: React.FC = () => {
                     const f = e.target.files?.[0] ?? null;
                     setOutfitFile(f);
                   }}
-                  className="w-full text-xs text-slate-600 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-[#1B1F3B] file:text-white file:text-xs file:font-semibold hover:file:bg-[#2A3C78] file:cursor-pointer"
+                  className="w-full text-xs text-slate-600 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-brand-charcoal file:text-white file:text-xs file:font-semibold hover:file:bg-black file:cursor-pointer"
                 />
                 {outfitFile && (
-                  <p className="text-[11px] text-slate-500 mt-1.5">
+                  <p className="text-[11px] text-brand-muted mt-1.5">
                     {outfitFile.name}
                   </p>
                 )}
               </div>
 
-              <button
+              <button data-motion="creative" data-motion-tone="icon"
                 type="submit"
                 disabled={!outfitFile || isImportingOutfit}
                 className="w-full py-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs transition-all shadow-md flex items-center justify-center gap-1.5 disabled:opacity-50"
@@ -1387,7 +1399,7 @@ export const WardrobeView: React.FC = () => {
               </button>
 
               {isImportingOutfit && (
-                <p className="text-[11px] text-slate-500 text-center animate-pulse">
+                <p className="text-[11px] text-brand-muted text-center animate-pulse">
                   {t('wardrobe.import_outfit_wait')}
                 </p>
               )}
@@ -1423,7 +1435,7 @@ export const WardrobeView: React.FC = () => {
                     </div>
                   ))}
                   {importReport.extraction.skipped.length > 0 && (
-                    <p className="text-[11px] text-slate-500">
+                    <p className="text-[11px] text-brand-muted">
                       {t('wardrobe.import_skipped_note', {
                         labels: importReport.extraction.skipped
                           .map((s) => s.label ?? s.reason)
@@ -1431,7 +1443,7 @@ export const WardrobeView: React.FC = () => {
                       })}
                     </p>
                   )}
-                  <p className="text-[10px] text-slate-400">
+                  <p className="text-[10px] text-brand-muted">
                     {importReport.extraction.engine} · {t('wardrobe.import_engine_note')}
                   </p>
                 </div>
@@ -1440,12 +1452,12 @@ export const WardrobeView: React.FC = () => {
 
             {/* Mode 2: manual entry fallback (metadata-complete -> ready immediately) */}
             <form onSubmit={handleAddSubmit} className="p-6 space-y-4">
-              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                Or add manually (no photo)
+              <p className="text-[11px] font-bold text-brand-muted uppercase tracking-wider">
+                {t("wardrobe.form_manual_heading")}
               </p>
               <div>
                 <label className="text-xs font-bold text-slate-800 block mb-1">
-                  Garment Title
+                  {t("wardrobe.form_title_label")}
                 </label>
                 <input
                   type="text"
@@ -1453,14 +1465,14 @@ export const WardrobeView: React.FC = () => {
                   value={newTitle}
                   onChange={(e) => setNewTitle(e.target.value)}
                   placeholder={t('wardrobe.eg_title')}
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-[#B8935A]"
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-brand-hairline"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-bold text-slate-800 block mb-1">
-                    Category
+                    {t("wardrobe.form_category_label")}
                   </label>
                   <select
                     value={newCategory}
@@ -1477,7 +1489,7 @@ export const WardrobeView: React.FC = () => {
 
                 <div>
                   <label className="text-xs font-bold text-slate-800 block mb-1">
-                    Color Family
+                    {t("wardrobe.form_color_family_label")}
                   </label>
                   <input
                     type="text"
@@ -1490,11 +1502,11 @@ export const WardrobeView: React.FC = () => {
               </div>
 
               <div className="pt-2">
-                <button
+                <button data-motion="commerce"
                   type="submit"
-                  className="w-full py-3 rounded-xl bg-[#1B1F3B] hover:bg-[#2A3C78] text-white font-semibold text-xs transition-all shadow-md"
+                  className="w-full py-3 rounded-xl bg-brand-charcoal hover:bg-black text-white font-semibold text-xs transition-all shadow-md"
                 >
-                  Save Piece Manually
+                  {t("wardrobe.form_save_manual")}
                 </button>
               </div>
             </form>

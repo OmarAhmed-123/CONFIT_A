@@ -103,7 +103,7 @@ export const PartnerGatewayView: React.FC = () => {
   return (
     <main
       style={surfaceStyle}
-      className="min-h-[80vh] bg-[#FAF9F6] text-[#1B1F3B]"
+      className="min-h-[80vh] bg-white text-brand-charcoal"
       data-testid="partner-gateway"
     >
       {/* ── TIER 1 · editorial masthead, 7/5, form above the fold ───────── */}
@@ -134,17 +134,17 @@ export const PartnerGatewayView: React.FC = () => {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            <button
+            <button data-motion="admin"
               type="button"
               onClick={scrollToForm}
-              className="inline-flex min-h-[48px] items-center rounded-[14px] bg-[#1B1F3B] px-6 text-xs font-bold uppercase tracking-wider text-white transition-colors duration-[140ms] ease-luxury hover:bg-[#13162C] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A37E44] focus-visible:ring-offset-2"
+              className="inline-flex min-h-[48px] items-center rounded-[14px] bg-brand-charcoal px-6 text-xs font-bold uppercase tracking-wider text-white transition-colors duration-[140ms] ease-luxury hover:bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white"
             >
               {t("partner.request_partnership")}
             </button>
-            <button
+            <button data-motion="auth"
               type="button"
               onClick={() => openAuthModal("login")}
-              className="inline-flex min-h-[48px] items-center rounded-[14px] border border-slate-300 px-6 text-xs font-bold uppercase tracking-wider transition-colors duration-[140ms] ease-luxury hover:border-slate-400 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A37E44] focus-visible:ring-offset-2"
+              className="inline-flex min-h-[48px] items-center rounded-[14px] border border-slate-300 px-6 text-xs font-bold uppercase tracking-wider transition-colors duration-[140ms] ease-luxury hover:border-slate-400 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2"
             >
               {t("partner.existing_sign_in")}
             </button>
@@ -215,9 +215,9 @@ export const PartnerGatewayView: React.FC = () => {
                 than as media pretending to load. */}
             <div
               aria-hidden="true"
-              className="relative aspect-[4/5] overflow-hidden rounded-[20px] bg-[#1B1F3B] lg:aspect-[16/9]"
+              className="relative aspect-[4/5] overflow-hidden rounded-[20px] bg-brand-charcoal lg:aspect-[16/9]"
             >
-              <div className="absolute inset-0 bg-gradient-to-br from-[#1B1F3B] via-[#3D5296] to-[#B8935A]" />
+              <div className="absolute inset-0 bg-gradient-to-br from-brand-charcoal via-slate-800 to-brand-muted" />
               {/* Hairline register rule, bottom-aligned: the same motif the
                   masthead eyebrow uses, so the panel reads as part of the
                   register system rather than as an unexplained colour block. */}
@@ -260,13 +260,13 @@ export const PartnerGatewayView: React.FC = () => {
             return (
               <div key={p.title} className="border-b border-slate-200">
                 <h2>
-                  <button
+                  <button data-motion="admin" data-motion-tone="icon"
                     type="button"
                     aria-expanded={isOpen}
                     aria-controls={`pillar-panel-${i}`}
                     id={`pillar-trigger-${i}`}
                     onClick={() => setOpenPillar(isOpen ? null : i)}
-                    className="group flex min-h-[48px] w-full items-center justify-between gap-4 py-5 text-start transition-colors duration-[140ms] ease-luxury focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A37E44] focus-visible:ring-offset-2"
+                    className="group flex min-h-[48px] w-full items-center justify-between gap-4 py-5 text-start transition-colors duration-[140ms] ease-luxury focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2"
                     data-testid={`pillar-trigger-${i}`}
                   >
                     <span className="font-serif text-[1.25rem] font-bold leading-snug transition-colors duration-[140ms] ease-luxury group-hover:text-[var(--register-ink)]">
@@ -314,17 +314,17 @@ export const PartnerGatewayView: React.FC = () => {
             {t("partner.close_title")}
           </h2>
         </div>
-        <button
+        <button data-motion="admin"
           type="button"
           onClick={scrollToForm}
-          className="inline-flex min-h-[48px] items-center rounded-[14px] bg-[#1B1F3B] px-8 text-xs font-bold uppercase tracking-wider text-white transition-colors duration-[140ms] ease-luxury hover:bg-[#13162C] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A37E44] focus-visible:ring-offset-2"
+          className="inline-flex min-h-[48px] items-center rounded-[14px] bg-brand-charcoal px-8 text-xs font-bold uppercase tracking-wider text-white transition-colors duration-[140ms] ease-luxury hover:bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white"
         >
           {t("partner.request_partnership")}
         </button>
-        <button
+        <button data-motion="auth"
           type="button"
           onClick={() => openAuthModal("login")}
-          className="inline-flex min-h-[48px] items-center px-4 text-[0.875rem] underline underline-offset-4 decoration-[#A37E44] transition-colors duration-[140ms] ease-luxury hover:text-[var(--register-ink)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A37E44] focus-visible:ring-offset-2"
+          className="inline-flex min-h-[48px] items-center px-4 text-[0.875rem] underline underline-offset-4 decoration-brand-charcoal transition-colors duration-[140ms] ease-luxury hover:text-[var(--register-ink)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2"
         >
           {t("partner.existing_sign_in")}
         </button>

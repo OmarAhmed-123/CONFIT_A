@@ -13,11 +13,7 @@ interface RoleGuardProps {
   fallbackTitle?: string;
   fallbackMessage?: string;
   /**
-   * Which trust domain this guard protects (spec 05 §6.5). Previously the
-   * partner-portal experience was selected by SNIFFING the English
-   * `fallbackTitle` for the words "brand"/"partner" — a translated or
-   * reworded title silently swapped the partner onboarding page for the
-   * generic auth wall. The domain is now declared, not inferred.
+   * Which trust domain this guard protects (spec 05 §6.5).
    */
   portal?: 'partner' | 'admin';
 }
@@ -44,9 +40,9 @@ export const RoleGuard: React.FC<RoleGuardProps> = ({
         role="status"
         aria-live="polite"
       >
-        <div className="flex flex-col items-center gap-4 text-slate-400">
-          <div className="w-10 h-10 rounded-full border-2 border-[#B8935A]/30 border-t-[#B8935A] motion-safe:animate-spin" aria-hidden="true" />
-          <span className="text-[11px] tracking-widest uppercase font-semibold">
+        <div className="flex flex-col items-center gap-4 text-brand-muted">
+          <div className="w-10 h-10 rounded-full border-2 border-brand-hairline border-t-brand-charcoal motion-safe:animate-spin" aria-hidden="true" />
+          <span className="text-[11px] tracking-widest uppercase font-semibold text-brand-muted">
             {t('guard.verifying_session')}
           </span>
         </div>
@@ -64,47 +60,46 @@ export const RoleGuard: React.FC<RoleGuardProps> = ({
   const needsPartnerOnboarding = isPartnerPortal && user?.role === 'consumer';
   // Public onboarding never grants a role; logged-in consumers see it too.
   if (!isAuthenticated || !user || needsPartnerOnboarding) {
-
     if (isPartnerPortal) {
-      // The public partner gateway is its own view, not a branch of a route
-      // guard. Keeping a 300-line marketing surface plus a lead-capture form
-      // inside this file is what put the conversion action third in the DOM
-      // and stacked three identical grids: the layout was shaped by where the
-      // code happened to live. The guard now owns the decision only.
       return <PartnerGatewayView />;
     }
 
     return (
       <div className="min-h-[70vh] flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-[#0C0E1E] text-white border border-[#B8935A]/40 rounded-3xl p-8 shadow-2xl text-center space-y-6 animate-in fade-in zoom-in-95 duration-200">
-          <div className="w-16 h-16 rounded-2xl bg-[#1B1F3B] border border-[#B8935A]/50 mx-auto flex items-center justify-center text-[#B8935A] shadow-lg">
-            <LockIcon size={32} color="#B8935A" />
+        <div className="max-w-md w-full bg-white text-brand-charcoal border border-brand-hairline rounded-3xl p-8 shadow-xs text-center space-y-6">
+          {/* Official mark: the admin sign-in gate was the only portal entry
+              without the Logo #3 identity (the partner gate already shows it). */}
+          <div className="flex justify-center">
+            <ConfitLogo variant="compact" size="sm" />
+          </div>
+          <div className="w-16 h-16 rounded-2xl bg-brand-wash border border-brand-hairline mx-auto flex items-center justify-center text-brand-charcoal shadow-2xs">
+            <LockIcon size={32} color="#252729" />
           </div>
 
           <div className="space-y-2">
-            <span className="text-[10px] font-bold tracking-widest text-[#B8935A] uppercase">
+            <span className="text-[10px] font-bold tracking-widest text-brand-muted uppercase">
               {t('partner.governance_label')}
             </span>
-            <h2 className="font-serif text-2xl font-bold text-white">
+            <h2 className="font-serif text-2xl font-bold text-brand-charcoal">
               {fallbackTitle || t('partner.auth_required')}
             </h2>
-            <p className="text-xs text-slate-400 font-light leading-relaxed">
+            <p className="text-xs text-brand-muted font-light leading-relaxed">
               {fallbackMessage || t('partner.auth_required_body')}
             </p>
           </div>
 
           <div className="space-y-3 pt-2">
-            <button
+            <button data-motion="auth"
               onClick={() => openAuthModal("login")}
-              className="w-full min-h-[48px] py-3.5 rounded-xl bg-[#B8935A] hover:bg-[#E2BF70] text-[#0C0E1E] font-bold text-xs tracking-wider uppercase shadow-md transition-all flex items-center justify-center gap-2"
+              className="w-full min-h-[48px] py-3.5 rounded-xl bg-brand-charcoal hover:bg-black text-white font-bold text-xs tracking-wider uppercase shadow-xs transition-all flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2"
             >
-              <span aria-hidden="true"><UserIcon size={16} color="#0C0E1E" /></span>
+              <span aria-hidden="true"><UserIcon size={16} color="#FFFFFF" /></span>
               <span>{t('partner.sign_in_to_continue')}</span>
             </button>
 
-            <button
+            <button data-motion="auth"
               onClick={() => openAuthModal("register")}
-              className="w-full min-h-[48px] py-3 rounded-xl bg-[#1B1F3B] hover:bg-slate-800 text-white font-semibold text-xs border border-slate-700 transition-all"
+              className="w-full min-h-[48px] py-3 rounded-xl bg-white hover:bg-brand-wash text-brand-charcoal font-semibold text-xs border border-brand-field transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2"
             >
               {t('partner.create_account')}
             </button>
@@ -112,7 +107,7 @@ export const RoleGuard: React.FC<RoleGuardProps> = ({
             <div className="pt-2">
               <Link
                 to="/"
-                className="text-[11px] text-slate-400 hover:text-[#B8935A] transition-colors inline-block"
+                className="text-[11px] text-brand-muted hover:text-brand-charcoal underline-offset-2 hover:underline transition-colors inline-flex min-h-11 items-center px-2 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal"
               >
                 {t('partner.return_to_storefront')}
               </Link>
@@ -131,31 +126,36 @@ export const RoleGuard: React.FC<RoleGuardProps> = ({
   if (!hasRole) {
     return (
       <div className="min-h-[70vh] flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-[#0C0E1E] text-white border border-rose-500/40 rounded-3xl p-8 shadow-2xl text-center space-y-6 animate-in fade-in duration-200">
-          <div className="w-16 h-16 rounded-2xl bg-rose-950/60 border border-rose-500/50 mx-auto flex items-center justify-center text-rose-400 shadow-lg">
-            <ShieldIcon size={32} color="#F43F5E" />
+        <div className="max-w-md w-full bg-white text-brand-charcoal border border-rose-200 rounded-3xl p-8 shadow-xs text-center space-y-6">
+          {/* Same Logo #3 identity as the sign-in gate above: a refusal is
+              still a CONFIT surface, not an anonymous error box. */}
+          <div className="flex justify-center">
+            <ConfitLogo variant="compact" size="sm" />
+          </div>
+          <div className="w-16 h-16 rounded-2xl bg-rose-50 border border-rose-200 mx-auto flex items-center justify-center text-rose-600 shadow-2xs">
+            <ShieldIcon size={32} color="#E11D48" />
           </div>
 
           <div className="space-y-2">
             {/* State is text, not colour alone: the badge names the refusal. */}
-            <span className="text-[10px] font-bold tracking-widest text-rose-400 uppercase">
+            <span className="text-[10px] font-bold tracking-widest text-rose-600 uppercase">
               {t('guard.forbidden_badge')}
             </span>
-            <h2 className="font-serif text-2xl font-bold text-white">
+            <h2 className="font-serif text-2xl font-bold text-brand-charcoal">
               {t('guard.access_restricted')}
             </h2>
-            <p className="text-xs text-slate-400 font-light leading-relaxed">
+            <p className="text-xs text-brand-muted font-light leading-relaxed">
               {t('guard.registered_as')}{' '}
               {/* Email and role codes are Latin identifiers — keep them LTR
                   inside the Arabic sentence (spec §7). */}
-              <strong className="text-white" dir="ltr">{user.email}</strong>
+              <strong className="text-brand-charcoal" dir="ltr">{user.email}</strong>
               {' · '}
-              <span className="px-2 py-0.5 rounded bg-slate-800 text-[#B8935A] font-mono text-[11px]" dir="ltr">
+              <span className="px-2 py-0.5 rounded bg-brand-wash text-brand-charcoal font-mono text-[11px] border border-brand-hairline" dir="ltr">
                 {user.role}
               </span>
               {'. '}
               {t('guard.requires_roles')}{' '}
-              <span className="text-slate-300 font-medium" dir="ltr">
+              <span className="text-brand-charcoal font-medium" dir="ltr">
                 {allowedRoles?.join(', ')}
               </span>
               .
@@ -165,14 +165,14 @@ export const RoleGuard: React.FC<RoleGuardProps> = ({
           <div className="space-y-3 pt-2">
             <Link
               to="/"
-              className="w-full min-h-[48px] py-3.5 rounded-xl bg-[#1B1F3B] hover:bg-slate-800 text-white font-bold text-xs border border-slate-700 tracking-wider uppercase shadow-md transition-all flex items-center justify-center gap-2"
+              className="w-full min-h-[48px] py-3.5 rounded-xl bg-brand-charcoal hover:bg-black text-white font-bold text-xs tracking-wider uppercase shadow-xs transition-all flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2"
             >
               <span>{t('guard.return_storefront')}</span>
             </Link>
 
-            <button
+            <button data-motion="auth" data-motion-tone="edge"
               onClick={() => openAuthModal("login")}
-              className="w-full min-h-[48px] py-2.5 rounded-xl text-xs text-[#B8935A] hover:underline"
+              className="w-full min-h-[48px] py-2.5 rounded-xl text-xs text-brand-muted hover:text-brand-charcoal hover:underline"
             >
               {t('guard.switch_account')}
             </button>

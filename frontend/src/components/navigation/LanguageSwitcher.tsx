@@ -51,7 +51,7 @@ export const LanguageSwitcher: React.FC<{ className?: string }> = ({ className =
         {SUPPORTED_LANGUAGES.map((code) => {
           const isActive = language === code;
           return (
-            <button
+            <button data-motion="filter" data-motion-tone="icon"
               key={code}
               type="button"
               onClick={() => select(code)}
@@ -59,8 +59,8 @@ export const LanguageSwitcher: React.FC<{ className?: string }> = ({ className =
               lang={code}
               className={`px-2.5 py-1 text-[11px] font-semibold rounded-full transition-all ${
                 isActive
-                  ? 'bg-[#1B1F3B] text-white shadow-2xs'
-                  : 'text-slate-600 hover:bg-[#FDF8EE] hover:text-[#7A5C28]'
+                  ? 'bg-brand-charcoal text-white shadow-2xs'
+                  : 'text-brand-muted hover:bg-brand-wash hover:text-brand-charcoal'
               }`}
             >
               {languageDisplayName(code)}

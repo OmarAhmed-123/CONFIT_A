@@ -57,7 +57,15 @@ export const VerifyEmailView: React.FC = () => {
       await authService.verifyEmail(token);
       setPhase('done');
     } catch (err) {
-      setServerError(localizeApiError(err, t, 'errors.generic'));
+      // The backend answers every invalid, used, or expired link with AUTH_FAILED.
+      // The shared mapping would show "session expired" here, which is wrong for
+      // this flow, so this view uses its own copy for that code only.
+      const code = (err as { code?: string } | null)?.code;
+      setServerError(
+        code === 'AUTH_FAILED'
+          ? t('verify_email.link_invalid')
+          : localizeApiError(err, t, 'errors.generic'),
+      );
       setPhase('error');
     }
   };
@@ -80,12 +88,12 @@ export const VerifyEmailView: React.FC = () => {
 
   return (
     <AuthPageShell>
-        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#FDF8EE]">
+        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-wash">
           {phase === 'ready' && (
-            <span aria-hidden="true" className="text-[#A37E44]"><MailCheck size={22} /></span>
+            <span aria-hidden="true" className="text-brand-charcoal"><MailCheck size={22} /></span>
           )}
           {phase === 'submitting' && (
-            <StatusIcon status="loading" size={22} className="text-[#A37E44]" />
+            <StatusIcon status="loading" size={22} className="text-brand-charcoal" />
           )}
           {phase === 'done' && (
             <motion.span
@@ -102,13 +110,13 @@ export const VerifyEmailView: React.FC = () => {
         </div>
 
         <div role="status" aria-live="polite">
-          <h1 className="font-serif text-xl font-bold text-[#1B1F3B]">
+          <h1 className="font-serif text-xl font-bold text-brand-charcoal">
             {phase === 'ready' && t('verify_email.ready_title')}
             {phase === 'submitting' && t('verify_email.working')}
             {phase === 'done' && t('verify_email.done_title')}
             {phase === 'error' && t('verify_email.error_title')}
           </h1>
-          <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-slate-600">
+          <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-brand-muted">
             {phase === 'ready' && t('verify_email.ready_detail')}
             {phase === 'submitting' && t('verify_email.working_detail')}
             {phase === 'done' && t('verify_email.done_detail')}
@@ -117,7 +125,7 @@ export const VerifyEmailView: React.FC = () => {
         </div>
 
         {phase === 'ready' && (
-          <button
+          <button data-motion="auth"
             type="button"
             onClick={confirm}
             className={`${AUTH_PRIMARY_BTN_CLASS} mt-6`}
@@ -138,7 +146,7 @@ export const VerifyEmailView: React.FC = () => {
         {/* Recovery: expired/used link → request a fresh one. */}
         {phase === 'error' && (
           <form onSubmit={resend} className="mt-6 text-start" noValidate>
-            <label htmlFor="ve-email" className="block text-xs font-bold text-slate-700">
+            <label htmlFor="ve-email" className="block text-xs font-bold text-brand-charcoal">
               {t('verify_email.resend_label')}
             </label>
             <input
@@ -163,12 +171,12 @@ export const VerifyEmailView: React.FC = () => {
               )}
               {resendPhase === 'pending' && (
                 <p className="flex items-center gap-2 text-xs text-slate-500">
-                  <StatusIcon status="loading" size={14} className="text-[#A37E44]" />
+                  <StatusIcon status="loading" size={14} className="text-brand-charcoal" />
                   {t('verify_email.resend_pending')}
                 </p>
               )}
             </div>
-            <button
+            <button data-motion="progressive"
               type="submit"
               disabled={!resendEmail.trim() || resendPhase === 'pending'}
               aria-busy={resendPhase === 'pending'}

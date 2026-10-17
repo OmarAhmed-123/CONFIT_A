@@ -64,24 +64,24 @@ export const TryOnStudioErrorBoundary: React.FC<{ children: React.ReactNode }> =
           <span aria-hidden="true" className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-50">
             <StatusIcon status="warning" size={24} className="text-amber-600" />
           </span>
-          <h1 className="mt-4 font-serif text-2xl font-bold text-[#1B1F3B]">
+          <h1 className="mt-4 font-serif text-2xl font-bold text-brand-charcoal">
             {t('tryon.studio_error_title')}
           </h1>
           <p className="mx-auto mt-2 max-w-lg text-sm leading-relaxed text-slate-600">
             {t('tryon.studio_error_detail')}
           </p>
           <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
-            <button
+            <button data-motion="recovery"
               type="button"
               onClick={reset}
-              className="min-h-11 rounded-xl bg-[#1B1F3B] px-5 py-2.5 text-sm font-bold text-white hover:bg-[#0C0E1E] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059]"
+              className="min-h-11 rounded-xl bg-brand-charcoal px-5 py-2.5 text-sm font-bold text-white hover:bg-brand-charcoal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white"
             >
               {t('tryon.studio_error_retry')}
             </button>
-            <button
+            <button data-motion="neutral"
               type="button"
               onClick={leaveStudio}
-              className="min-h-11 rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059]"
+              className="min-h-11 rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal"
             >
               <span aria-hidden="true">{i18n.dir() === 'rtl' ? '→' : '←'} </span>
               {t('tryon.studio_error_back')}

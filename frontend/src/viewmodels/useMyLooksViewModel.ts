@@ -17,7 +17,13 @@ type LoadState = 'loading' | 'ready' | 'error';
  * only shown as "shared" when the server reports a live token — never because
  * the user once pressed Share.
  */
-export function useMyLooksViewModel() {
+/**
+ * `enabled: false` skips the initial fetch. The view passes the auth state so a
+ * signed-out visitor never fires a request the server can only answer with 401
+ * (the same rule `authStore` applies to `/auth/me`). Defaults to `true`, so
+ * every existing call site keeps its behaviour.
+ */
+export function useMyLooksViewModel({ enabled = true }: { enabled?: boolean } = {}) {
   const [looks, setLooks] = useState<Outfit[]>([]);
   const [state, setState] = useState<LoadState>('loading');
   const [error, setError] = useState<string | null>(null);
@@ -56,8 +62,9 @@ export function useMyLooksViewModel() {
   }, []);
 
   useEffect(() => {
+    if (!enabled) return;
     void load();
-  }, [load]);
+  }, [load, enabled]);
 
   const share = useCallback(
     async (id: number, opts?: { rotate?: boolean }) => {

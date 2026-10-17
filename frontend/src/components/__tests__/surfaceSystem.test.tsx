@@ -133,10 +133,11 @@ describe('surface contrast (computed, not trusted)', () => {
   });
 
   it('focus token ≥3:1 on BOTH scheme extremes — and pins the measured failure of the old gold', () => {
-    expect(css).toContain('--confit-focus: #A37E44');
-    // The fix:
-    expect(contrast('#A37E44', '#FAF9F6')).toBeGreaterThanOrEqual(3); // cream body
-    expect(contrast('#A37E44', '#1B1F3B')).toBeGreaterThanOrEqual(3); // dark hero
+    // Logo #3 migration: the token is charcoal (superseded the gold-dark #A37E44).
+    expect(css).toContain('--confit-focus: #252729');
+    // Light surfaces: charcoal ≥3:1 on the white body and on the cream/wash surface.
+    expect(contrast('#252729', '#FFFFFF')).toBeGreaterThanOrEqual(3);
+    expect(contrast('#252729', '#FAF9F6')).toBeGreaterThanOrEqual(3);
     // The regression pin: the ORIGINAL brand gold genuinely fails on cream
     // (measured 2.71:1) — if someone "simplifies" the token back, this
     // documents why that is a real WCAG non-text-contrast failure.

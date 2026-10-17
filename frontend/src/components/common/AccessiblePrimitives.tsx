@@ -44,21 +44,21 @@ export const AccessibleButton: React.FC<AccessibleButtonProps> = ({
   ...props
 }) => {
   const base =
-    'inline-flex items-center justify-center rounded-xl font-semibold tracking-wide transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059] focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none';
+    'inline-flex items-center justify-center rounded-xl font-semibold tracking-wide transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none';
   const sizes = {
     sm: 'min-h-[44px] min-w-[44px] px-3 py-2 text-xs',
     md: 'min-h-[44px] min-w-[44px] px-4 py-2.5 text-sm',
     lg: 'min-h-[48px] min-w-[48px] px-6 py-3 text-sm',
   };
   const variants = {
-    primary: 'bg-[#1B1F3B] text-white hover:bg-[#2A2F5A] border border-[#1B1F3B]',
-    secondary: 'bg-white text-[#1B1F3B] hover:bg-slate-50 border border-slate-200',
-    ghost: 'bg-transparent text-[#1B1F3B] hover:bg-slate-100 border border-transparent',
+    primary: 'bg-brand-charcoal text-white hover:bg-black border border-brand-charcoal',
+    secondary: 'bg-white text-brand-charcoal hover:bg-brand-wash border border-brand-hairline',
+    ghost: 'bg-transparent text-brand-charcoal hover:bg-brand-wash border border-transparent',
     danger: 'bg-rose-600 text-white hover:bg-rose-700 border border-rose-600',
   };
 
   return (
-    <button
+    <button data-motion="neutral" data-motion-tone="icon"
       type="button"
       className={`${base} ${sizes[size]} ${variants[variant]} ${className}`}
       disabled={disabled || isLoading}
@@ -98,12 +98,12 @@ export const AccessibleInput: React.FC<AccessibleInputProps> = ({
 
   return (
     <div className="flex flex-col gap-1.5">
-      <label htmlFor={inputId} className="text-sm font-medium text-[#1B1F3B]">
+      <label htmlFor={inputId} className="text-sm font-medium text-brand-charcoal">
         {label}
       </label>
       <input
         id={inputId}
-        className={`min-h-[44px] w-full rounded-xl border px-3 py-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059] ${
+        className={`min-h-[44px] w-full rounded-xl border px-3 py-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal ${
           error ? 'border-rose-300 bg-rose-50' : 'border-slate-200 bg-white'
         } ${className}`}
         aria-invalid={!!error}
@@ -144,12 +144,12 @@ export const AccessibleSelect: React.FC<AccessibleSelectProps> = ({
 
   return (
     <div className="flex flex-col gap-1.5">
-      <label htmlFor={selectId} className="text-sm font-medium text-[#1B1F3B]">
+      <label htmlFor={selectId} className="text-sm font-medium text-brand-charcoal">
         {label}
       </label>
       <select
         id={selectId}
-        className={`min-h-[44px] w-full rounded-xl border px-3 py-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059] ${
+        className={`min-h-[44px] w-full rounded-xl border px-3 py-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal ${
           error ? 'border-rose-300 bg-rose-50' : 'border-slate-200 bg-white'
         } ${className}`}
         aria-invalid={!!error}
@@ -183,12 +183,12 @@ export const IconButton: React.FC<{
   disabled?: boolean;
 }> = ({ icon, label, onClick, className = '', disabled }) => {
   return (
-    <button
+    <button data-motion="neutral" data-motion-tone="icon"
       type="button"
       aria-label={label}
       onClick={onClick}
       disabled={disabled}
-      className={`min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-xl hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A059] disabled:opacity-50 ${className}`}
+      className={`min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-xl hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal disabled:opacity-50 ${className}`}
     >
       <span aria-hidden="true">{icon}</span>
     </button>

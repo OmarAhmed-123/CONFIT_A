@@ -77,6 +77,15 @@ function keysReferencedInSource(): Map<string, string[]> {
   return found;
 }
 
+// CLDR plural variants (i18next `key_one`, `key_few`, ...) are one logical key.
+// Arabic needs more forms than English, so the drift check compares logical keys.
+const PLURAL_SUFFIX = /_(zero|one|two|few|many|other)$/;
+function logicalKeys(flat: Record<string, string>): Set<string> {
+  return new Set(Object.keys(flat).map((k) => k.replace(PLURAL_SUFFIX, '')));
+}
+function hasKey(flat: Record<string, string>, key: string): boolean {
+  return key in flat || `${key}_one` in flat || `${key}_other` in flat;
+}
 const flatEn = flatten(en as Record<string, unknown>);
 const flatAr = flatten(ar as Record<string, unknown>);
 
@@ -99,9 +108,10 @@ describe('i18n bundle — static parity', () => {
 
   it('every key in en.json exists in ar.json and vice versa (no drift either way)', () => {
     const enKeys = Object.keys(flatEn).sort();
-    const arKeys = Object.keys(flatAr).sort();
-    expect(arKeys.filter((k) => !(k in flatEn))).toEqual([]);
-    expect(enKeys.filter((k) => !(k in flatAr))).toEqual([]);
+    const enLogical = logicalKeys(flatEn);
+    const arLogical = logicalKeys(flatAr);
+    expect([...arLogical].filter((k) => !enLogical.has(k))).toEqual([]);
+    expect([...enLogical].filter((k) => !arLogical.has(k))).toEqual([]);
     expect(enKeys.length).toBeGreaterThan(400);
   });
 
@@ -128,7 +138,7 @@ describe('i18n bundle — static parity', () => {
   });
 
   it('every literal t() key used in source exists in en.json', () => {
-    const orphaned = [...keysReferencedInSource().keys()].filter((k) => !(k in flatEn));
+    const orphaned = [...keysReferencedInSource().keys()].filter((k) => !hasKey(flatEn, k));
     expect(orphaned).toEqual([]);
   });
 

@@ -69,7 +69,7 @@ export const ConsentManager: React.FC = () => {
                       {t('consent.notice_version', { version: record.noticeVersion })}
                     </td>
                     <td>
-                      <button
+                      <button data-motion="destructive"
                         type="button"
                         onClick={() => withdraw(purpose)}
                         className="confit-tap-target rounded-lg border border-slate-300 px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
@@ -83,7 +83,7 @@ export const ConsentManager: React.FC = () => {
             </tbody>
           </table>
 
-          <button
+          <button data-motion="destructive"
             type="button"
             onClick={withdrawAll}
             className="confit-tap-target mt-2 rounded-lg border border-rose-300 px-3 py-1.5 text-[11px] font-semibold text-rose-700 hover:bg-rose-50"
@@ -93,7 +93,7 @@ export const ConsentManager: React.FC = () => {
         </>
       )}
 
-      <p className="text-[11px] text-slate-400">{t('consent.manage_scope_note')}</p>
+      <p className="text-[11px] text-brand-muted">{t('consent.manage_scope_note')}</p>
     </section>
   );
 };

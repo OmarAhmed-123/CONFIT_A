@@ -503,36 +503,36 @@ integrityNote = t('profile.exported_integrity', {
       />
       {/* Guest Mode Callout Banner */}
       {!isAuthenticated && (
-        <div className="bg-[#FAF9F6] border border-[#C5A059]/40 rounded-3xl p-6 shadow-2xs flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="bg-brand-wash border border-brand-hairline rounded-3xl p-6 shadow-2xs flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div className="flex items-center gap-3.5">
-            <div className="w-12 h-12 rounded-2xl bg-[#0C0E1E] text-[#C5A059] flex items-center justify-center font-bold text-lg shadow-2xs shrink-0">
-              <UserIcon size={22} color="#C5A059" />
+            <div className="w-12 h-12 rounded-2xl bg-brand-charcoal text-white flex items-center justify-center font-bold text-lg shadow-2xs shrink-0">
+              <UserIcon size={22} color="#252729" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="font-serif text-lg font-bold text-[#1B1F3B]">
+                <h2 className="font-serif text-lg font-bold text-brand-charcoal">
                   {t('profile.guest_title')}
                 </h2>
-                <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-[#FDF8EE] text-[#A37E44] font-bold border border-[#C5A059]/30">
+                <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-brand-wash text-brand-charcoal font-bold border border-brand-hairline">
                   {t('profile.guest_badge')}
                 </span>
               </div>
-              <p className="text-xs text-slate-500 font-light mt-0.5">
+              <p className="text-xs text-brand-muted font-light mt-0.5">
                 {t('profile.guest_body')}
               </p>
             </div>
           </div>
 
           <div className="flex gap-2.5 shrink-0 w-full sm:w-auto">
-            <button
+            <button data-motion="auth"
               onClick={() => openAuthModal('login')}
-              className="flex-1 sm:flex-initial px-5 py-2.5 rounded-xl bg-[#1B1F3B] hover:bg-[#0C0E1E] text-white text-xs font-semibold shadow-2xs transition-all"
+              className="flex-1 sm:flex-initial px-5 py-2.5 rounded-xl bg-brand-charcoal hover:bg-brand-charcoal text-white text-xs font-semibold shadow-2xs transition-all"
             >
               {t('common.sign_in')}
             </button>
-            <button
+            <button data-motion="auth"
               onClick={() => openAuthModal('register')}
-              className="flex-1 sm:flex-initial px-5 py-2.5 rounded-xl bg-[#FDF8EE] hover:bg-[#C5A059] text-[#C5A059] hover:text-white border border-[#C5A059]/40 text-xs font-semibold shadow-2xs transition-all"
+              className="flex-1 sm:flex-initial px-5 py-2.5 rounded-xl bg-brand-wash hover:bg-brand-charcoal text-brand-charcoal hover:text-white border border-brand-hairline text-xs font-semibold shadow-2xs transition-all"
             >
               {t('common.create_account')}
             </button>
@@ -543,32 +543,32 @@ integrityNote = t('profile.exported_integrity', {
       {/* Header Profile Card */}
       <div className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-8 shadow-2xs flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-[#1B1F3B] text-white flex items-center justify-center font-bold text-xl shadow-md">
+          <div className="w-14 h-14 rounded-2xl bg-brand-charcoal text-white flex items-center justify-center font-bold text-xl shadow-md">
             {user?.full_name?.charAt(0) || 'G'}
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="font-serif text-2xl font-bold text-[#1B1F3B]">
+              <h1 className="font-serif text-2xl font-bold text-brand-charcoal">
                 {user?.full_name || t('profile.guest_explorer')}
               </h1>
               {isAuthenticated && (
-                <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-[#FDF8EE] text-[#A37E44] font-bold border border-[#C5A059]/30">
+                <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-brand-wash text-brand-charcoal font-bold border border-brand-hairline">
                   {t('profile.verified_badge')}
                 </span>
               )}
             </div>
-            <p className="text-xs text-slate-500 font-light mt-0.5">{user?.email || t('profile.anonymous_session')}</p>
+            <p className="text-xs text-brand-muted font-light mt-0.5">{user?.email || t('profile.anonymous_session')}</p>
           </div>
         </div>
 
-        <button
+        <button data-motion="neutral"
           onClick={() => {
             setIsQuizOpen(true);
             setQuizStep(1);
           }}
-          className="px-5 py-2.5 rounded-2xl bg-[#C5A059] hover:bg-[#A37E44] text-slate-950 font-bold text-xs shadow-2xs transition-all flex items-center gap-1.5"
+          className="px-5 py-2.5 rounded-2xl bg-brand-charcoal text-white hover:bg-black font-bold text-xs shadow-2xs transition-all flex items-center gap-1.5"
         >
-          <SparkleIcon size={14} color="#0C0E1E" />
+          <SparkleIcon size={14} color="#FFFFFF" />
           <span>{t('profile.retake_quiz')}</span>
         </button>
       </div>
@@ -579,12 +579,12 @@ integrityNote = t('profile.exported_integrity', {
           {/* Style Preferences */}
           <div className="bg-white rounded-3xl border border-slate-200/80 p-6 shadow-2xs space-y-4">
             <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
-              <SparkleIcon size={18} color="#C5A059" />
-              <h3 className="font-serif text-base font-bold text-[#1B1F3B]">{t('profile.archetypes_title')}</h3>
+              <SparkleIcon size={18} color="#252729" />
+              <h3 className="font-serif text-base font-bold text-brand-charcoal">{t('profile.archetypes_title')}</h3>
             </div>
 
             <div>
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">
+              <span className="text-[10px] font-bold text-brand-muted uppercase tracking-wider block mb-1.5">
                 {t('profile.primary_aesthetics')}
               </span>
               <div className="flex flex-wrap gap-1.5">
@@ -597,12 +597,12 @@ integrityNote = t('profile.exported_integrity', {
             </div>
 
             <div>
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">
+              <span className="text-[10px] font-bold text-brand-muted uppercase tracking-wider block mb-1.5">
                 {t('profile.preferred_colors')}
               </span>
               <div className="flex flex-wrap gap-1.5">
                 {usp.preferred_colors.map((c) => (
-                  <span key={c} className="px-3 py-1 rounded-xl bg-[#FDF8EE] text-[#A37E44] border border-[#C5A059]/30 text-xs font-semibold">
+                  <span key={c} className="px-3 py-1 rounded-xl bg-brand-wash text-brand-charcoal border border-brand-hairline text-xs font-semibold">
                     {labelKeyFor('colors', c) ? t(labelKeyFor('colors', c)!) : c}
                   </span>
                 ))}
@@ -610,7 +610,7 @@ integrityNote = t('profile.exported_integrity', {
             </div>
 
             <div>
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">
+              <span className="text-[10px] font-bold text-brand-muted uppercase tracking-wider block mb-1.5">
                 {t('profile.budget_constraints')}
               </span>
               <div className="text-xs text-slate-700 font-light">
@@ -628,8 +628,8 @@ integrityNote = t('profile.exported_integrity', {
           <div className="bg-white rounded-3xl border border-slate-200/80 p-6 shadow-2xs space-y-4">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
               <div className="flex items-center gap-2">
-                <RulerIcon size={18} color="#1B1F3B" />
-                <h3 className="font-serif text-base font-bold text-[#1B1F3B]">{t('profile.body_attrs_title')}</h3>
+                <RulerIcon size={18} color="#252729" />
+                <h3 className="font-serif text-base font-bold text-brand-charcoal">{t('profile.body_attrs_title')}</h3>
               </div>
               <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
                 {t('profile.encrypted_badge')}
@@ -637,8 +637,8 @@ integrityNote = t('profile.exported_integrity', {
             </div>
 
             <div className="grid grid-cols-2 gap-3 text-xs">
-              <div className="p-3 rounded-2xl bg-[#FAF9F6] border border-slate-100">
-                <span className="text-slate-400 block text-[10px]">{t('profile.height_weight')}</span>
+              <div className="p-3 rounded-2xl bg-brand-wash border border-slate-100">
+                <span className="text-brand-muted block text-[10px]">{t('profile.height_weight')}</span>
                 <span className="font-bold text-slate-900">
                   {usp.body_attributes?.height_cm
                     ? `${formatNumber(usp.body_attributes.height_cm, lang)} ${t('profile.unit_cm')}`
@@ -649,20 +649,20 @@ integrityNote = t('profile.exported_integrity', {
                     : t('profile.not_set')}
                 </span>
               </div>
-              <div className="p-3 rounded-2xl bg-[#FAF9F6] border border-slate-100">
-                <span className="text-slate-400 block text-[10px]">{t('profile.silhouette')}</span>
+              <div className="p-3 rounded-2xl bg-brand-wash border border-slate-100">
+                <span className="text-brand-muted block text-[10px]">{t('profile.silhouette')}</span>
                   {usp.body_shape_tag
                     ? labelKeyFor('shapes', usp.body_shape_tag)
                       ? t(labelKeyFor('shapes', usp.body_shape_tag)!)
                       : usp.body_shape_tag
                     : t('profile.not_set')}
               </div>
-              <div className="p-3 rounded-2xl bg-[#FAF9F6] border border-slate-100">
-                <span className="text-slate-400 block text-[10px]">{t('profile.tops_bottoms')}</span>
+              <div className="p-3 rounded-2xl bg-brand-wash border border-slate-100">
+                <span className="text-brand-muted block text-[10px]">{t('profile.tops_bottoms')}</span>
                 <span className="font-bold text-slate-900">{usp.size_tops} / {usp.size_bottoms}</span>
               </div>
-              <div className="p-3 rounded-2xl bg-[#FAF9F6] border border-slate-100">
-                <span className="text-slate-400 block text-[10px]">{t('profile.fit_preference')}</span>
+              <div className="p-3 rounded-2xl bg-brand-wash border border-slate-100">
+                <span className="text-brand-muted block text-[10px]">{t('profile.fit_preference')}</span>
                   {usp.fit_preference
                     ? labelKeyFor('fits', usp.fit_preference)
                       ? t(labelKeyFor('fits', usp.fit_preference)!)
@@ -671,14 +671,14 @@ integrityNote = t('profile.exported_integrity', {
               </div>
             </div>
 
-            <p className="text-[10px] text-slate-400 font-light leading-relaxed">
+            <p className="text-[10px] text-brand-muted font-light leading-relaxed">
               {t('profile.privacy_note')}
             </p>
 
             {usp.body_attributes && (
-              <button
+              <button data-motion="destructive"
                 onClick={handleDeleteBodyAttributes}
-                className="text-[11px] font-semibold text-rose-600 hover:text-rose-700 hover:underline"
+                className="inline-flex min-h-6 items-center text-[11px] font-semibold text-rose-700 hover:text-rose-800 hover:underline"
               >
                 {t('profile.delete_my_measurements')}
               </button>
@@ -691,8 +691,8 @@ integrityNote = t('profile.exported_integrity', {
       {isAuthenticated && (
         <div className="bg-white rounded-3xl border border-slate-200/80 p-6 shadow-2xs space-y-4">
           <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
-            <ShieldIcon size={18} color="#C5A059" />
-            <h3 className="font-serif text-base font-bold text-[#1B1F3B]">{t('profile.mfa_title')}</h3>
+            <ShieldIcon size={18} color="#252729" />
+            <h3 className="font-serif text-base font-bold text-brand-charcoal">{t('profile.mfa_title')}</h3>
           </div>
 
           <div className="flex items-center justify-between gap-3">
@@ -700,7 +700,7 @@ integrityNote = t('profile.exported_integrity', {
               <div className="text-xs font-bold text-slate-900">
                 MFA is {mfaEnabled ? t('profile.mfa_is_enabled') : t('profile.mfa_is_disabled')}
               </div>
-              <div className="text-[11px] text-slate-500 font-light">
+              <div className="text-[11px] text-brand-muted font-light">
                 {mfaEnabled
                   ? t('profile.mfa_enrolled_body')
                   : t('profile.mfa_intro_body')}
@@ -731,12 +731,12 @@ integrityNote = t('profile.exported_integrity', {
                   placeholder={t('profile.mfa_code_placeholder')}
                   value={mfaCode}
                   onChange={(e) => setMfaCode(e.target.value)}
-                  className="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-[#C5A059]"
+                  className="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-brand-charcoal"
                 />
-                <button
+                <button data-motion="auth"
                   onClick={verifyMfaEnrollment}
                   disabled={mfaBusy || mfaCode.trim().length < 6}
-                  className="px-4 py-2 rounded-xl bg-[#C5A059] hover:bg-[#A37E44] text-slate-950 text-xs font-bold disabled:opacity-50"
+                  className="px-4 py-2 rounded-xl bg-brand-charcoal text-white hover:bg-black text-xs font-bold disabled:opacity-50"
                 >
                   {t('profile.mfa_verify_enable')}
                 </button>
@@ -758,7 +758,7 @@ integrityNote = t('profile.exported_integrity', {
                   </code>
                 ))}
               </div>
-              <button
+              <button data-motion="progressive"
                 onClick={() => { setMfaPanel('idle'); setMfaBackupCodes([]); }}
                 className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-800"
               >
@@ -789,10 +789,10 @@ integrityNote = t('profile.exported_integrity', {
                   onChange={(e) => setMfaDisableCode(e.target.value)}
                   className="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-slate-400"
                 />
-                <button
+                <button data-motion="creative"
                   onClick={regenerateMfaCodes}
                   disabled={mfaBusy || !mfaPassword || !mfaDisableCode.trim()}
-                  className="px-4 py-2 rounded-xl bg-[#1B1F3B] hover:bg-[#2A2F52] text-white text-xs font-semibold disabled:opacity-50"
+                  className="px-4 py-2 rounded-xl bg-brand-charcoal hover:bg-black text-white text-xs font-semibold disabled:opacity-50"
                 >
                   {t('profile.mfa_regen_short')}
                 </button>
@@ -822,7 +822,7 @@ integrityNote = t('profile.exported_integrity', {
                   onChange={(e) => setMfaDisableCode(e.target.value)}
                   className="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-rose-400"
                 />
-                <button
+                <button data-motion="auth"
                   onClick={disableMfa}
                   disabled={mfaBusy || !mfaPassword || !mfaDisableCode.trim()}
                   className="px-4 py-2 rounded-xl border border-rose-200 hover:bg-rose-50 text-xs font-semibold text-rose-600 disabled:opacity-50"
@@ -837,23 +837,23 @@ integrityNote = t('profile.exported_integrity', {
           {mfaPanel === 'idle' && (
             <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-100">
               {!mfaEnabled ? (
-                <button
+                <button data-motion="auth"
                   onClick={startMfaEnrollment}
                   disabled={mfaBusy}
-                  className="px-4 py-2 rounded-xl bg-[#1B1F3B] hover:bg-[#2A2F52] text-white text-xs font-semibold disabled:opacity-50"
+                  className="px-4 py-2 rounded-xl bg-brand-charcoal hover:bg-black text-white text-xs font-semibold disabled:opacity-50"
                 >
                   {t('profile.enable_mfa')}
                 </button>
               ) : (
                 <>
-                  <button
+                  <button data-motion="creative"
                     onClick={() => { setMfaPassword(''); setMfaDisableCode(''); setMfaPanel('regenerate'); }}
                     disabled={mfaBusy}
                     className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-800 disabled:opacity-50"
                   >
                     {t('profile.mfa_regenerate')}
                   </button>
-                  <button
+                  <button data-motion="auth"
                     onClick={() => { setMfaPassword(''); setMfaPanel('disable'); }}
                     disabled={mfaBusy}
                     className="px-4 py-2 rounded-xl border border-rose-200 hover:bg-rose-50 text-xs font-semibold text-rose-600 disabled:opacity-50"
@@ -875,11 +875,11 @@ integrityNote = t('profile.exported_integrity', {
           <div className="flex items-center justify-between gap-3">
             <div>
               <div className="text-xs font-bold text-slate-900">{t('profile.password_label')}</div>
-              <div className="text-[11px] text-slate-500 font-light">
+              <div className="text-[11px] text-brand-muted font-light">
                 {t('profile.password_intro')}
               </div>
             </div>
-            <button
+            <button data-motion="neutral" data-motion-tone="icon"
               onClick={() => {
                 setPwPanel(!pwPanel);
                 setPwCurrent(''); setPwNew(''); setPwConfirm(''); setPwMfa('');
@@ -903,21 +903,21 @@ integrityNote = t('profile.exported_integrity', {
                 placeholder={t('profile.current_password')}
                 value={pwCurrent}
                 onChange={(e) => setPwCurrent(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-[#C5A059]"
+                className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-brand-charcoal"
               />
               <input
                 type="password"
                 placeholder={t('profile.new_password_placeholder')}
                 value={pwNew}
                 onChange={(e) => setPwNew(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-[#C5A059]"
+                className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-brand-charcoal"
               />
               <input
                 type="password"
                 placeholder={t('profile.confirm_new_password')}
                 value={pwConfirm}
                 onChange={(e) => setPwConfirm(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-[#C5A059]"
+                className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-brand-charcoal"
               />
               {mfaEnabled && (
                 <input
@@ -926,10 +926,10 @@ integrityNote = t('profile.exported_integrity', {
                   placeholder={t('profile.mfa_code_mfa')}
                   value={pwMfa}
                   onChange={(e) => setPwMfa(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-[#C5A059]"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-brand-charcoal"
                 />
               )}
-              <button
+              <button data-motion="auth"
                 onClick={changePassword}
                 disabled={
                   pwBusy ||
@@ -938,7 +938,7 @@ integrityNote = t('profile.exported_integrity', {
                   !pwConfirm ||
                   (mfaEnabled && pwMfa.trim().length < 6)
                 }
-                className="px-4 py-2 rounded-xl bg-[#C5A059] hover:bg-[#A37E44] text-slate-950 text-xs font-bold disabled:opacity-50"
+                className="px-4 py-2 rounded-xl bg-brand-charcoal text-white hover:bg-black text-xs font-bold disabled:opacity-50"
               >
                 {t('profile.update_password')}
               </button>
@@ -954,16 +954,16 @@ integrityNote = t('profile.exported_integrity', {
 
       {/* GDPR & Privacy Controls */}
       <div className="bg-white rounded-3xl border border-slate-200/80 p-6 shadow-2xs space-y-4">
-        <h3 className="font-serif text-base font-bold text-[#1B1F3B] pb-2 border-b border-slate-100">
+        <h3 className="font-serif text-base font-bold text-brand-charcoal pb-2 border-b border-slate-100">
           {t('profile.privacy_title')}
         </h3>
 
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pt-1">
           <div>
             <div className="text-xs font-bold text-slate-900">{t('profile.export_title')}</div>
-            <div className="text-[11px] text-slate-500 font-light">{t('profile.export_body')}</div>
+            <div className="text-[11px] text-brand-muted font-light">{t('profile.export_body')}</div>
           </div>
-          <button
+          <button data-motion="download"
             onClick={handleGdprExport}
             className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-800 transition-all shrink-0"
           >
@@ -976,9 +976,9 @@ integrityNote = t('profile.exported_integrity', {
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
               <div>
                 <div className="text-xs font-bold text-rose-600">{t('profile.delete_section_title')}</div>
-                <div className="text-[11px] text-slate-500 font-light">{t('profile.delete_body')}</div>
+                <div className="text-[11px] text-brand-muted font-light">{t('profile.delete_body')}</div>
               </div>
-              <button
+              <button data-motion="neutral" data-motion-tone="icon"
                 onClick={() => setDeletePanelOpen((v) => !v)}
                 className="px-4 py-2 rounded-xl border border-rose-200 hover:bg-rose-50 text-xs font-semibold text-rose-600 transition-all shrink-0"
               >
@@ -1008,7 +1008,7 @@ integrityNote = t('profile.exported_integrity', {
                       className="flex-1 px-3 py-2 rounded-xl border border-rose-200 text-xs focus:outline-none focus:border-rose-400"
                     />
                   )}
-                  <button
+                  <button data-motion="destructive" data-motion-tone="icon"
                     onClick={handleDeleteAccount}
                     disabled={deleteBusy || !deletePassword || (mfaEnabled && !deleteMfaCode.trim())}
                     className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold disabled:opacity-50 shrink-0"
@@ -1026,16 +1026,16 @@ integrityNote = t('profile.exported_integrity', {
       {isQuizOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md animate-in fade-in duration-150">
           <div className="w-full max-w-xl bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] border border-slate-100">
-            <div className="p-5 bg-[#0C0E1E] text-white flex justify-between items-center border-b border-slate-800">
+            <div className="p-5 bg-brand-charcoal text-white flex justify-between items-center border-b border-slate-800">
               <div>
-                <span className="text-[10px] font-bold text-[#C5A059] uppercase tracking-wider">
+                <span className="text-[10px] font-bold text-brand-charcoal uppercase tracking-wider">
                   {t('profile.step_of', { step: quizStep })}
                 </span>
                 <h3 className="font-serif text-base font-bold text-white">
                   {t('profile.wizard_title')}
                 </h3>
               </div>
-              <button onClick={() => setIsQuizOpen(false)} className="text-slate-300 hover:text-white">
+              <button data-motion="progressive" data-motion-tone="icon" onClick={() => setIsQuizOpen(false)} className="text-slate-300 hover:text-white">
                 ✕
               </button>
             </div>
@@ -1046,7 +1046,7 @@ integrityNote = t('profile.exported_integrity', {
                   <h4 className="text-sm font-bold text-slate-900">{t('profile.q_aesthetics')}</h4>
                   <div className="grid grid-cols-2 gap-2">
                     {PROFILE_OPTIONS.archetypes.map((arch) => (
-                      <button
+                      <button data-motion="progressive" data-motion-tone="icon"
                         key={arch.value}
                         onClick={() => {
                           if (archetypes.includes(arch.value)) setArchetypes(archetypes.filter((a) => a !== arch.value));
@@ -1054,7 +1054,7 @@ integrityNote = t('profile.exported_integrity', {
                         }}
                         className={`p-3 rounded-2xl border text-xs font-semibold transition-all text-left ${
                           archetypes.includes(arch.value)
-                            ? 'border-[#C5A059] bg-[#FDF8EE] text-[#A37E44]'
+                            ? 'border-brand-charcoal bg-brand-wash text-brand-charcoal'
                             : 'border-slate-200 text-slate-700'
                         }`}
                       >
@@ -1070,7 +1070,7 @@ integrityNote = t('profile.exported_integrity', {
                   <h4 className="text-sm font-bold text-slate-900">{t('profile.q_colors')}</h4>
                   <div className="grid grid-cols-3 gap-2">
                     {PROFILE_OPTIONS.colors.map((col) => (
-                      <button
+                      <button data-motion="filter" data-motion-tone="icon"
                         key={col.value}
                         onClick={() => {
                           if (colors.includes(col.value)) setColors(colors.filter((c) => c !== col.value));
@@ -1078,7 +1078,7 @@ integrityNote = t('profile.exported_integrity', {
                         }}
                         className={`p-2.5 rounded-xl border text-xs font-semibold text-center transition-all ${
                           colors.includes(col.value)
-                            ? 'border-[#C5A059] bg-[#FDF8EE] text-[#A37E44]'
+                            ? 'border-brand-charcoal bg-brand-wash text-brand-charcoal'
                             : 'border-slate-200 text-slate-700'
                         }`}
                       >
@@ -1094,12 +1094,12 @@ integrityNote = t('profile.exported_integrity', {
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <h4 className="text-sm font-bold text-slate-900">{t('profile.q_body_title')}</h4>
-                      <p className="text-[10px] text-slate-500 mt-0.5">
+                      <p className="text-[10px] text-brand-muted mt-0.5">
                         {t('profile.q_body_body')}
                       </p>
                     </div>
                     {bodyTouched && (
-                      <button
+                      <button data-motion="progressive"
                         type="button"
                         onClick={() => { setHeight(null); setWeight(null); setShape(''); setBodyTouched(false); }}
                         className="text-[10px] font-semibold text-rose-500 hover:underline shrink-0"
@@ -1172,12 +1172,12 @@ integrityNote = t('profile.exported_integrity', {
                     <label className="text-[10px] font-bold text-slate-700 block mb-1">{t('profile.preferred_fit')}</label>
                     <div className="grid grid-cols-4 gap-2">
                       {PROFILE_OPTIONS.fits.map(f => (
-                        <button
+                        <button data-motion="progressive" data-motion-tone="icon"
                           key={f.value}
                           type="button"
                           onClick={() => setFitPref(f.value)}
                           className={`p-2 rounded-xl border text-[11px] font-semibold capitalize transition-all ${
-                            fitPref === f.value ? 'border-[#C5A059] bg-[#FDF8EE] text-[#A37E44]' : 'border-slate-200 text-slate-700'
+                            fitPref === f.value ? 'border-brand-charcoal bg-brand-wash text-brand-charcoal' : 'border-slate-200 text-slate-700'
                           }`}
                         >
                           {t(f.labelKey)}
@@ -1195,36 +1195,36 @@ integrityNote = t('profile.exported_integrity', {
                   <div>
                     <div className="flex justify-between text-xs font-bold text-slate-800 mb-1">
                       <span>{t('profile.monthly_budget_min')}</span>
-                      <span className="text-[#A37E44]">{formatMoney(Math.round((budgetMonthlyMin ?? 0) * 100), 'USD', lang)}</span>
+                      <span className="text-brand-charcoal">{formatMoney(Math.round((budgetMonthlyMin ?? 0) * 100), 'USD', lang)}</span>
                     </div>
                     <input type="range" min={0} max={2000} step={50}
                       value={budgetMonthlyMin ?? 0}
                       onChange={(e) => setBudgetMonthlyMin(Number(e.target.value))}
-                      className="w-full accent-[#C5A059]" />
+                      className="w-full accent-slate-900" />
                   </div>
                   <div>
                     <div className="flex justify-between text-xs font-bold text-slate-800 mb-1">
                       <span>{t('profile.monthly_budget_max')}</span>
-                      <span className="text-[#A37E44]">{formatMoney(Math.round((budgetMonthlyMax ?? 0) * 100), 'USD', lang)}</span>
+                      <span className="text-brand-charcoal">{formatMoney(Math.round((budgetMonthlyMax ?? 0) * 100), 'USD', lang)}</span>
                     </div>
                     <input type="range" min={0} max={5000} step={50}
                       value={budgetMonthlyMax ?? 0}
                       onChange={(e) => setBudgetMonthlyMax(Number(e.target.value))}
-                      className="w-full accent-[#C5A059]" />
+                      className="w-full accent-slate-900" />
                   </div>
                   <div>
                     <div className="flex justify-between text-xs font-bold text-slate-800 mb-1">
                       <span>{t('profile.max_per_outfit')}</span>
-                      <span className="text-[#A37E44]">{formatMoney(Math.round((budgetOutfitMax ?? 0) * 100), 'USD', lang)}</span>
+                      <span className="text-brand-charcoal">{formatMoney(Math.round((budgetOutfitMax ?? 0) * 100), 'USD', lang)}</span>
                     </div>
                     <input type="range" min={50} max={2000} step={25}
                       value={budgetOutfitMax ?? 0}
                       onChange={(e) => setBudgetOutfitMax(Number(e.target.value))}
-                      className="w-full accent-[#C5A059]" />
+                      className="w-full accent-slate-900" />
                   </div>
 
                   <div className="pt-2 border-t border-slate-100">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">
+                    <span className="text-[10px] font-bold text-brand-muted uppercase tracking-wider block mb-2">
                       {t('profile.week_split')}
                     </span>
                     <div className="grid grid-cols-2 gap-2">
@@ -1249,26 +1249,26 @@ integrityNote = t('profile.exported_integrity', {
 
               {quizStep === 2 && (
                 <div className="pt-4 border-t border-slate-100 space-y-2">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  <span className="text-[10px] font-bold text-brand-muted uppercase tracking-wider block">
                     {t('profile.avoid_colors')}
                   </span>
                   <div className="grid grid-cols-3 gap-2">
                     {PROFILE_OPTIONS.avoidColors.map(col => (
-                      <button key={col.value} type="button"
+                      <button data-motion="filter" data-motion-tone="icon" key={col.value} type="button"
                         onClick={() => setAvoidedColors(avoidedColors.includes(col.value) ? avoidedColors.filter(c=>c!==col.value) : [...avoidedColors, col.value])}
                         className={`p-2 rounded-xl border text-xs font-semibold ${avoidedColors.includes(col.value) ? 'border-rose-400 bg-rose-50 text-rose-700' : 'border-slate-200 text-slate-700'}`}>
                         {t(col.labelKey)}
                       </button>
                     ))}
                   </div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block pt-2">
+                  <span className="text-[10px] font-bold text-brand-muted uppercase tracking-wider block pt-2">
                     {t('profile.fashion_aesthetics')}
                   </span>
                   <div className="flex flex-wrap gap-2">
                     {PROFILE_OPTIONS.aesthetics.map(a => (
-                      <button key={a.value} type="button"
+                      <button data-motion="filter" data-motion-tone="icon" key={a.value} type="button"
                         onClick={() => setAesthetics(aesthetics.includes(a.value) ? aesthetics.filter(x=>x!==a.value) : [...aesthetics, a.value])}
-                        className={`px-3 py-1.5 rounded-xl border text-[11px] font-semibold ${aesthetics.includes(a.value) ? 'border-[#C5A059] bg-[#FDF8EE] text-[#A37E44]' : 'border-slate-200 text-slate-700'}`}>
+                        className={`px-3 py-1.5 rounded-xl border text-[11px] font-semibold ${aesthetics.includes(a.value) ? 'border-brand-charcoal bg-brand-wash text-brand-charcoal' : 'border-slate-200 text-slate-700'}`}>
                         {t(a.labelKey)}
                       </button>
                     ))}
@@ -1280,22 +1280,22 @@ integrityNote = t('profile.exported_integrity', {
                 <div className="space-y-4">
                   <h4 className="text-sm font-bold text-slate-900">{t('profile.brands_privacy')}</h4>
                   <div>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">{t('profile.preferred_brands')}</span>
+                    <span className="text-[10px] font-bold text-brand-muted uppercase tracking-wider block mb-2">{t('profile.preferred_brands')}</span>
                     <div className="flex flex-wrap gap-2">
                       {PROFILE_OPTIONS.preferredBrands.map(b => (
-                        <button key={b} type="button"
+                        <button data-motion="filter" data-motion-tone="icon" key={b} type="button"
                           onClick={() => setPreferredBrands(preferredBrands.includes(b) ? preferredBrands.filter(x=>x!==b) : [...preferredBrands, b])}
-                          className={`px-3 py-1.5 rounded-xl border text-[11px] font-semibold ${preferredBrands.includes(b) ? 'border-[#C5A059] bg-[#FDF8EE] text-[#A37E44]' : 'border-slate-200 text-slate-700'}`}>
+                          className={`px-3 py-1.5 rounded-xl border text-[11px] font-semibold ${preferredBrands.includes(b) ? 'border-brand-charcoal bg-brand-wash text-brand-charcoal' : 'border-slate-200 text-slate-700'}`}>
                           {b}
                         </button>
                       ))}
                     </div>
                   </div>
                   <div>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">{t('profile.blacklist')}</span>
+                    <span className="text-[10px] font-bold text-brand-muted uppercase tracking-wider block mb-2">{t('profile.blacklist')}</span>
                     <div className="flex flex-wrap gap-2">
                       {PROFILE_OPTIONS.blacklist.map(b => (
-                        <button key={b.value} type="button"
+                        <button data-motion="filter" data-motion-tone="icon" key={b.value} type="button"
                           onClick={() => setBlacklistedBrands(blacklistedBrands.includes(b.value) ? blacklistedBrands.filter(x=>x!==b.value) : [...blacklistedBrands, b.value])}
                           className={`px-3 py-1.5 rounded-xl border text-[11px] font-semibold ${blacklistedBrands.includes(b.value) ? 'border-rose-400 bg-rose-50 text-rose-700' : 'border-slate-200 text-slate-700'}`}>
                         {t(b.labelKey)}
@@ -1309,7 +1309,7 @@ integrityNote = t('profile.exported_integrity', {
                         type="checkbox"
                         checked={consentTryon}
                         onChange={(e) => setConsentTryon(e.target.checked)}
-                        className="accent-[#C5A059]"
+                        className="accent-slate-900"
                       />
                       <span>{t('profile.vton_consent')}</span>
                     </label>
@@ -1320,7 +1320,7 @@ integrityNote = t('profile.exported_integrity', {
 
             <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-between items-center">
               {quizStep > 1 ? (
-                <button
+                <button data-motion="neutral"
                   onClick={() => setQuizStep(quizStep - 1)}
                   className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700"
                 >
@@ -1329,16 +1329,16 @@ integrityNote = t('profile.exported_integrity', {
               ) : <div />}
 
               {quizStep < 5 ? (
-                <button
+                <button data-motion="neutral"
                   onClick={() => setQuizStep(quizStep + 1)}
-                  className="px-5 py-2 rounded-xl bg-[#1B1F3B] text-white text-xs font-semibold"
+                  className="px-5 py-2 rounded-xl bg-brand-charcoal text-white text-xs font-semibold"
                 >
                   {t('profile.next_step')}
                 </button>
               ) : (
-                <button
+                <button data-motion="progressive"
                   onClick={handleSaveQuiz}
-                  className="px-5 py-2 rounded-xl bg-[#C5A059] text-slate-950 font-bold text-xs"
+                  className="px-5 py-2 rounded-xl bg-brand-charcoal text-white font-bold text-xs"
                 >
                   {t('profile.finish_save')}
                 </button>

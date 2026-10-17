@@ -30,13 +30,13 @@ export const CartDrawer: React.FC = () => {
       <div className="absolute inset-y-0 right-0 max-w-full flex pl-10">
         <div className="w-screen max-w-md bg-white shadow-2xl flex flex-col border-l border-slate-200">
           {/* Header */}
-          <div className="p-4 sm:p-6 border-b border-slate-100 flex items-center justify-between bg-[#FAF9F6]">
+          <div className="p-4 sm:p-6 border-b border-slate-100 flex items-center justify-between bg-brand-wash">
             <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-[#1B1F3B] text-white flex items-center justify-center">
+              <div className="w-9 h-9 rounded-xl bg-brand-charcoal text-white flex items-center justify-center">
                 <BagIcon size={20} color="#FFFFFF" />
               </div>
               <div>
-                <h3 className="font-serif text-base font-bold text-[#1B1F3B]">
+                <h3 className="font-serif text-base font-bold text-brand-charcoal">
                   {t('commerce.cart_title')}
                 </h3>
                 <span className="text-xs text-slate-500" aria-live="polite">
@@ -44,7 +44,7 @@ export const CartDrawer: React.FC = () => {
                 </span>
               </div>
             </div>
-            <button
+            <button data-motion="neutral" data-motion-tone="icon"
               onClick={closeCart}
               aria-label={t('common.close')}
               className="min-w-[44px] min-h-[44px] rounded-full bg-slate-100 text-slate-500 hover:text-slate-900 flex items-center justify-center transition-colors"
@@ -60,18 +60,18 @@ export const CartDrawer: React.FC = () => {
                 <div className="w-16 h-16 rounded-full bg-slate-100 mx-auto flex items-center justify-center text-slate-500 mb-3">
                   <BagIcon size={28} />
                 </div>
-                <h4 className="font-serif text-base font-bold text-[#1B1F3B] mb-1">
+                <h4 className="font-serif text-base font-bold text-brand-charcoal mb-1">
                   {t('commerce.cart_empty_title')}
                 </h4>
                 <p className="text-xs text-slate-500 max-w-xs mx-auto mb-4">
                   {t('commerce.cart_empty_body')}
                 </p>
-                <button
+                <button data-motion="progressive"
                   onClick={() => {
                     closeCart();
                     navigate('/discover');
                   }}
-                  className="px-5 py-2.5 rounded-full bg-[#1B1F3B] text-white text-xs font-semibold hover:bg-[#2A3C78] transition-all"
+                  className="px-5 py-2.5 rounded-full bg-brand-charcoal text-white text-xs font-semibold hover:bg-black transition-all"
                 >
                   {t('commerce.explore_catalog')}
                 </button>
@@ -80,7 +80,7 @@ export const CartDrawer: React.FC = () => {
               items.map((item) => (
                 <div
                   key={item.id}
-                  className="flex gap-3.5 p-3 rounded-2xl bg-[#FAF9F6] border border-slate-200/80 hover:border-slate-300 transition-all"
+                  className="flex gap-3.5 p-3 rounded-2xl bg-brand-wash border border-slate-200/80 hover:border-slate-300 transition-all"
                 >
                   <div className="w-20 h-24 rounded-xl overflow-hidden bg-white shrink-0">
                     <HonestProductImage src={item.image_url} alt={item.product_title} className="w-full h-full object-cover" />
@@ -92,7 +92,7 @@ export const CartDrawer: React.FC = () => {
                         <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
                           {item.brand_name}
                         </span>
-                        <button
+                        <button data-motion="destructive" data-motion-tone="icon"
                           onClick={() => removeItem(item.id)}
                           className="min-w-[44px] min-h-[44px] text-slate-500 hover:text-rose-500 text-xs flex items-center justify-center rounded"
                           title={t('commerce.remove_item')}
@@ -101,7 +101,7 @@ export const CartDrawer: React.FC = () => {
                           <span aria-hidden="true">✕</span>
                         </button>
                       </div>
-                      <h4 className="text-xs font-bold text-[#1B1F3B] truncate">{item.product_title}</h4>
+                      <h4 className="text-xs font-bold text-brand-charcoal truncate">{item.product_title}</h4>
                       <div className="flex items-center gap-2 mt-0.5 text-[11px] text-slate-600">
                         <span>Size: <strong>{item.size}</strong></span>
                         <span>•</span>
@@ -115,7 +115,7 @@ export const CartDrawer: React.FC = () => {
 
                     <div className="flex items-center justify-between pt-2 border-t border-slate-200/60 mt-1">
                       <div className="flex items-center border border-slate-200 rounded-lg bg-white">
-                        <button
+                        <button data-motion="commerce" data-motion-tone="icon"
                           onClick={() => updateQuantity(item.id, item.quantity - 1)}
                           className="min-w-[44px] min-h-[44px] px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-100 rounded-l flex items-center justify-center"
                           aria-label={`Decrease quantity of ${item.product_title}`}
@@ -123,7 +123,7 @@ export const CartDrawer: React.FC = () => {
                           <span aria-hidden="true">-</span>
                         </button>
                         <span className="px-2 text-xs font-bold text-slate-800" aria-live="polite">{item.quantity}</span>
-                        <button
+                        <button data-motion="commerce" data-motion-tone="icon"
                           onClick={() => updateQuantity(item.id, item.quantity + 1)}
                           className="min-w-[44px] min-h-[44px] px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-100 rounded-r flex items-center justify-center"
                           aria-label={`Increase quantity of ${item.product_title}`}
@@ -131,7 +131,7 @@ export const CartDrawer: React.FC = () => {
                           <span aria-hidden="true">+</span>
                         </button>
                       </div>
-                      <span className="text-xs font-bold text-[#1B1F3B]">
+                      <span className="text-xs font-bold text-brand-charcoal">
                         {formatMoney(Math.round(item.subtotal * 100), cart?.currency || 'USD', lang)}
                       </span>
                     </div>
@@ -170,14 +170,14 @@ export const CartDrawer: React.FC = () => {
                   <span>{t('commerce.shipping')}</span>
                   <span><bdi dir="ltr">{formatMoney(Math.round((cart?.shipping_amount ?? 0) * 100), cart?.currency || 'USD', lang)}</bdi></span>
                 </div>
-                <div className="flex justify-between text-sm font-bold text-[#1B1F3B] pt-2 border-t border-slate-100">
+                <div className="flex justify-between text-sm font-bold text-brand-charcoal pt-2 border-t border-slate-100">
                   <span>{t('commerce.total')}</span>
                   <span><bdi dir="ltr">{formatMoney(Math.round(total * 100), cart?.currency || 'USD', lang)}</bdi></span>
                 </div>
               </div>
 
               {cart && cart.bnpl_monthly_quote > 0 && (
-                <div className="p-2.5 rounded-xl bg-[#FDF8EE] border border-[#B8935A]/30 text-center">
+                <div className="p-2.5 rounded-xl bg-brand-wash border border-brand-hairline text-center">
                   <BNPLBadge
                     currency={cart.currency || 'USD'}
                     installmentAmount={cart.bnpl_monthly_quote}
@@ -187,12 +187,12 @@ export const CartDrawer: React.FC = () => {
                 </div>
               )}
 
-              <button
+              <button data-motion="financial"
                 onClick={() => {
                   closeCart();
                   navigate('/checkout');
                 }}
-                className="w-full py-3.5 rounded-xl bg-[#1B1F3B] hover:bg-[#2A3C78] text-white font-bold text-xs shadow-lg transition-all flex items-center justify-center gap-2"
+                className="w-full py-3.5 rounded-xl bg-brand-charcoal hover:bg-black text-white font-bold text-xs shadow-lg transition-all flex items-center justify-center gap-2"
               >
                 <span>{t('commerce.checkout')}</span>
                 <span>→</span>

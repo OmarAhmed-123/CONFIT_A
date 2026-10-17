@@ -4,6 +4,11 @@ import { WifiOff, Lock, PackageX } from "lucide-react";
 import { useUIStore } from "../../stores/uiStore";
 import { recordCtaMetric } from "../../lib/ctaMetrics";
 import {
+  buttonMotion,
+  type ButtonIntent,
+  type ButtonMotionTone,
+} from "./buttonMotion";
+import {
   useAsyncAction,
   usePrefersReducedMotion,
   classifyActionError,
@@ -73,8 +78,19 @@ export interface ActionButtonProps {
    * Marks a money-moving action. Purely declarative today — the honesty
    * guarantees hold for every button — but it documents intent at the call
    * site and is asserted in tests (financial CTAs never self-flash success).
+   * It also selects the motion recipe when no explicit `intent` is given.
    */
   financial?: boolean;
+  /**
+   * Semantic intent for the background-motion engine (button-motion.css).
+   * Defaults to `financial` for money-moving controls and `progressive`
+   * otherwise. Every state the machine can reach is already published on the
+   * control as `data-state` / `aria-busy`, so the animation follows the real
+   * state machine with no extra wiring and cannot outrun it.
+   */
+  intent?: ButtonIntent;
+  /** Geometry variant for the motion engine. */
+  motionTone?: ButtonMotionTone;
   /** Fired on "unauthorized" (uncontrolled). Defaults to the auth modal. */
   onUnauthorized?: () => void;
   /** Leading icon for the idle state; rendered decorative (aria-hidden). */
@@ -120,6 +136,8 @@ export const ActionButton: React.FC<ActionButtonProps> = ({
   type = "button",
   metricsId,
   financial = false,
+  intent,
+  motionTone = "auto",
   onUnauthorized,
   icon,
   disabled = false,
@@ -242,6 +260,13 @@ export const ActionButton: React.FC<ActionButtonProps> = ({
     "aria-busy": isPending,
     "data-state": state,
     "data-financial": financial || undefined,
+    /* Part 1 — background motion. The recipe follows the semantic intent; the
+       choreography follows `data-state` above, so pending/success/error are
+       painted by CSS from the machine's own output. */
+    ...buttonMotion({
+      intent: intent ?? (financial ? "financial" : "progressive"),
+      tone: motionTone,
+    }),
     "data-testid": dataTestId,
     className: [
       "relative min-h-[44px] select-none",
@@ -256,7 +281,7 @@ export const ActionButton: React.FC<ActionButtonProps> = ({
 
   // Reduced motion: a perfectly plain button — the state is text either way.
   if (reduceMotion) {
-    return <button {...sharedProps}>{body}</button>;
+    return <button data-motion="neutral" data-motion-tone="icon" {...sharedProps}>{body}</button>;
   }
 
   // Kinetic variant: transform/opacity only (§2 — no spring/bounce, no

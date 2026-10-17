@@ -91,16 +91,16 @@ const Shell: React.FC<{
 
   return (
     <div className="space-y-8 pb-20">
-      <div className="bg-gradient-to-r from-[#0C0E1E] to-[#1B1F3B] rounded-3xl text-white p-8 sm:p-10 shadow-xl border border-slate-800">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#C5A059]/20 border border-[#C5A059]/40 text-[#E2BF70] text-xs font-semibold uppercase tracking-wider mb-3">
-          <ShieldIcon size={14} color="#E2BF70" />
+      <div className="bg-brand-charcoal rounded-3xl text-white p-8 sm:p-10 shadow-xl border border-brand-charcoal">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/30 text-white text-xs font-semibold uppercase tracking-wider mb-3">
+          <ShieldIcon size={14} color="#FFFFFF" />
           <span>{t('legal.label_version', { version: LEGAL_VERSION })}</span>
         </div>
         <h1 className="font-serif text-3xl sm:text-4xl font-bold">{t(titleKey)}</h1>
-        <p className="text-xs sm:text-sm text-slate-300 font-light mt-2 max-w-2xl leading-relaxed">
+        <p className="text-xs sm:text-sm text-white/90 font-light mt-2 max-w-2xl leading-relaxed">
           {t(subtitleKey)}
         </p>
-        <p className="text-[11px] text-slate-400 mt-3">
+        <p className="text-[11px] text-white/75 mt-3">
           {t('legal.last_updated', { date: formatDate(LEGAL_LAST_UPDATED, lang) })} · {t('legal.scope')}
         </p>
       </div>
@@ -113,8 +113,8 @@ const Shell: React.FC<{
             aria-current={active === tab.key ? 'page' : undefined}
             className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
               active === tab.key
-                ? 'bg-[#1B1F3B] text-white shadow-2xs'
-                : 'bg-white border border-slate-200 text-slate-600 hover:border-[#C5A059]'
+                ? 'bg-brand-charcoal text-white shadow-2xs'
+                : 'bg-white border border-brand-field text-brand-muted hover:border-brand-charcoal'
             }`}
           >
             {tab.label}
@@ -122,14 +122,14 @@ const Shell: React.FC<{
         ))}
       </nav>
 
-      <article className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-10 shadow-2xs space-y-6 max-w-4xl [&_h2]:font-serif [&_h2]:text-xl [&_h2]:font-bold [&_h2]:text-[#1B1F3B] [&_h2]:pt-2 [&_p]:text-sm [&_p]:text-slate-600 [&_p]:leading-relaxed [&_li]:text-sm [&_li]:text-slate-600 [&_li]:leading-relaxed [&_ul]:list-disc [&_ul]:ps-6 [&_ul]:space-y-1.5 [&_table]:w-full [&_table]:text-xs [&_th]:text-start [&_th]:py-2 [&_th]:text-slate-400 [&_th]:uppercase [&_th]:text-[10px] [&_th]:tracking-wider [&_td]:py-2 [&_td]:border-t [&_td]:border-slate-100 [&_td]:text-slate-600 [&_code]:text-[11px] [&_code]:bg-slate-100 [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded">
+      <article className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-10 shadow-2xs space-y-6 max-w-4xl [&_h2]:font-serif [&_h2]:text-xl [&_h2]:font-bold [&_h2]:text-brand-charcoal [&_h2]:pt-2 [&_p]:text-sm [&_p]:text-brand-muted [&_p]:leading-relaxed [&_li]:text-sm [&_li]:text-brand-muted [&_li]:leading-relaxed [&_ul]:list-disc [&_ul]:ps-6 [&_ul]:space-y-1.5 [&_table]:w-full [&_table]:text-xs [&_th]:text-start [&_th]:py-2 [&_th]:text-brand-muted [&_th]:uppercase [&_th]:text-[10px] [&_th]:tracking-wider [&_td]:py-2 [&_td]:border-t [&_td]:border-slate-100 [&_td]:text-brand-muted [&_code]:text-[11px] [&_code]:bg-brand-wash [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded">
         {children}
 
         <section aria-labelledby="legal-changelog" className="pt-4 border-t border-slate-100">
-          <h2 id="legal-changelog" className="font-serif text-base font-bold text-[#1B1F3B] pb-2">
+          <h2 id="legal-changelog" className="font-serif text-base font-bold text-brand-charcoal pb-2">
             {t('legal.change_log_title')}
           </h2>
-          <ul className="text-xs text-slate-500 space-y-1">
+          <ul className="text-xs text-brand-muted space-y-1">
             {LEGAL_CHANGE_LOG.map((entry) => (
               <li key={entry.version}>
                 {t('legal.change_log_entry', {
@@ -142,11 +142,11 @@ const Shell: React.FC<{
           </ul>
         </section>
 
-        <div className="pt-4 border-t border-slate-100 text-xs text-slate-500">
+        <div className="pt-4 border-t border-slate-100 text-xs text-brand-muted">
           {LEGAL_CONTACT ? (
             <>
               {t('legal.contact_prompt')}{' '}
-              <a className="font-semibold text-slate-700 underline" href={`mailto:${LEGAL_CONTACT}`}>
+              <a className="font-semibold text-brand-charcoal underline" href={`mailto:${LEGAL_CONTACT}`}>
                 {LEGAL_CONTACT}
               </a>
               . {t('legal.contact_in_app')}

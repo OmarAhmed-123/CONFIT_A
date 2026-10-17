@@ -48,7 +48,7 @@ const StatusPill: React.FC<{ value: string | null; tone?: "neutral" | "warn" }> 
   value,
   tone = "neutral",
 }) => {
-  if (!value) return <span className="text-slate-400">—</span>;
+  if (!value) return <span className="text-brand-muted">—</span>;
   const cls =
     tone === "warn"
       ? "bg-amber-50 text-amber-800 border-amber-200"
@@ -103,10 +103,10 @@ export const BrandOrdersView: React.FC = () => {
   return (
     <div className="space-y-6">
       <header className="border-b border-slate-200/80 pb-4">
-        <h1 className="font-serif text-2xl font-bold text-[#1B1F3B]">
+        <h1 className="font-serif text-2xl font-bold text-brand-charcoal">
           {t("brand_orders.title")}
         </h1>
-        <p className="text-xs sm:text-sm text-slate-500 mt-1 font-light">
+        <p className="text-xs sm:text-sm text-brand-muted mt-1 font-light">
           {t("brand_orders.subtitle")}
         </p>
       </header>
@@ -127,7 +127,7 @@ export const BrandOrdersView: React.FC = () => {
               key={k}
               className={`rounded-2xl border p-4 ${
                 k === "net"
-                  ? "bg-[#1B1F3B] border-[#1B1F3B] text-white"
+                  ? "bg-brand-charcoal border-brand-charcoal text-white"
                   : k === "discount"
                     ? "bg-[#FDF1F2] border-[#7A1F2B]/20"
                     : "bg-white border-slate-200/80"
@@ -135,7 +135,7 @@ export const BrandOrdersView: React.FC = () => {
             >
               <span
                 className={`block text-[10px] font-bold uppercase tracking-wider ${
-                  k === "net" ? "text-[#C5A059]" : "text-slate-500"
+                  k === "net" ? "text-slate-300" : "text-brand-muted"
                 }`}
               >
                 {t(`brand_orders.total_${k}`)}
@@ -144,7 +144,7 @@ export const BrandOrdersView: React.FC = () => {
             </div>
           ))}
           {/* The totals describe every matching line, not the visible page. */}
-          <p className="col-span-2 lg:col-span-5 text-[11px] text-slate-500">
+          <p className="col-span-2 lg:col-span-5 text-[11px] text-brand-muted">
             {t("brand_orders.totals_scope", { count: data.pagination.total_lines })}
           </p>
         </section>
@@ -175,10 +175,10 @@ export const BrandOrdersView: React.FC = () => {
       )}
 
       {data && data.lines.length > 0 && (
-        <div className="overflow-x-auto rounded-3xl border border-slate-200/80 bg-white shadow-2xs">
+        <div role="region" aria-label={t("brand_orders.table_caption")} tabIndex={0} className="overflow-x-auto rounded-3xl border border-slate-200/80 bg-white shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white">
           <table className="w-full text-left text-xs">
             <caption className="sr-only">{t("brand_orders.table_caption")}</caption>
-            <thead className="bg-[#FAF9F6] text-[10px] uppercase tracking-wider text-slate-500">
+            <thead className="bg-brand-wash text-[10px] uppercase tracking-wider text-brand-muted">
               <tr>
                 <th scope="col" className="px-4 py-3">{t("brand_orders.col_item")}</th>
                 <th scope="col" className="px-4 py-3">{t("brand_orders.col_order")}</th>
@@ -203,10 +203,10 @@ export const BrandOrdersView: React.FC = () => {
                         />
                       </div>
                       <div className="min-w-0">
-                        <span className="block font-semibold text-[#1B1F3B] truncate max-w-[180px]">
+                        <span className="block font-semibold text-brand-charcoal truncate max-w-[180px]">
                           {line.product_title}
                         </span>
-                        <span className="block text-[11px] text-slate-500">
+                        <span className="block text-[11px] text-brand-muted">
                           {line.size} · {line.color}
                           {line.sku_code ? ` · ${line.sku_code}` : ""}
                         </span>
@@ -218,10 +218,10 @@ export const BrandOrdersView: React.FC = () => {
                   </td>
 
                   <td className="px-4 py-3 align-top">
-                    <span className="block font-mono text-[11px] text-[#1B1F3B]">
+                    <span className="block font-mono text-[11px] text-brand-charcoal">
                       {line.order_number}
                     </span>
-                    <span className="block text-[11px] text-slate-500">
+                    <span className="block text-[11px] text-brand-muted">
                       {line.placed_at
                         ? new Date(line.placed_at).toLocaleDateString(lang)
                         : "—"}
@@ -236,22 +236,22 @@ export const BrandOrdersView: React.FC = () => {
                   </td>
 
                   <td className="px-4 py-3 align-top">
-                    <span className="block font-semibold text-[#1B1F3B]">
+                    <span className="block font-semibold text-brand-charcoal">
                       {line.customer_name}
                     </span>
-                    <span className="block text-[11px] text-slate-500">
+                    <span className="block text-[11px] text-brand-muted">
                       {line.customer_city ?? "—"} · {line.fulfillment_type}
                     </span>
                   </td>
 
                   <td className="px-4 py-3 align-top">
-                    <span className="block font-semibold text-[#1B1F3B]">
+                    <span className="block font-semibold text-brand-charcoal">
                       {t("brand_orders.units_pulled", { count: line.quantity })}
                     </span>
-                    <span className="block text-[11px] text-slate-500">
+                    <span className="block text-[11px] text-brand-muted">
                       {line.store_name ?? t("brand_orders.no_store")}
                     </span>
-                    <span className="block text-[11px] text-slate-500">
+                    <span className="block text-[11px] text-brand-muted">
                       {/* null means the SKU row is gone, so remaining stock is
                           genuinely unknown. Printing 0 would claim sold out. */}
                       {line.sku_stock_remaining == null
@@ -270,12 +270,12 @@ export const BrandOrdersView: React.FC = () => {
                       ? `− ${money(line.discount_amount, line.currency)}`
                       : "—"}
                     {line.promo_code && (
-                      <span className="block text-[10px] text-slate-400 font-mono">
+                      <span className="block text-[10px] text-brand-muted font-mono">
                         {line.promo_code}
                       </span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-right align-top tabular-nums font-bold text-[#1B1F3B]">
+                  <td className="px-4 py-3 text-right align-top tabular-nums font-bold text-brand-charcoal">
                     {money(line.net_amount, line.currency)}
                   </td>
                 </tr>
@@ -283,8 +283,8 @@ export const BrandOrdersView: React.FC = () => {
             </tbody>
           </table>
 
-          <div className="flex items-center justify-between gap-3 px-4 py-3 border-t border-slate-100 bg-[#FAF9F6]">
-            <span className="text-[11px] text-slate-500">
+          <div className="flex items-center justify-between gap-3 px-4 py-3 border-t border-slate-100 bg-brand-wash">
+            <span className="text-[11px] text-brand-muted">
               {t("brand_orders.showing", {
                 from: data.pagination.offset + 1,
                 to: data.pagination.offset + data.pagination.returned,
@@ -292,14 +292,14 @@ export const BrandOrdersView: React.FC = () => {
               })}
             </span>
             <div className="flex gap-2">
-              <button
+              <button data-motion="neutral"
                 onClick={() => setOffset(Math.max(0, offset - limit))}
                 disabled={offset === 0 || loading}
                 className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-[11px] font-semibold disabled:opacity-40"
               >
                 {t("common.previous")}
               </button>
-              <button
+              <button data-motion="neutral"
                 onClick={() => setOffset(offset + limit)}
                 disabled={!data.pagination.has_more || loading}
                 className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-[11px] font-semibold disabled:opacity-40"

@@ -1,0 +1,719 @@
+/* ═════════════════════════════════════════════════════════════════════════════
+   CONFIT · Button Motion System — Part 1
+   ─────────────────────────────────────────────────────────────────────────────
+   WHAT THIS FILE IS
+     The single engine that gives every functional control in the product a
+     context-aware, semantic *background* animation: hover, focus, press,
+     loading, success and error. It is plain CSS. No animation library takes
+     part in any of it — framer-motion is nowhere in this file, and the layers
+     below are gradients moved by `background-position` / `background-size`.
+
+   THE ONE MECHANISM
+     A control opts in with a single attribute:
+
+         <button data-motion="financial">Pay now</button>
+
+     The attribute carries the SEMANTIC INTENT (what the button *does*), and
+     the engine supplies the geometry, the palette and the state choreography
+     for that intent. Two gradient layers are painted onto the button's own
+     `background-image`:
+
+       layer 1 · the STREAK — a narrow highlight that crosses the control
+       layer 2 · the WASH   — the broad semantic tint that slides in and stays
+
+     Painting them on the element's own background (instead of a ::before /
+     ::after pill) is deliberate: it needs no `position: relative`, no
+     `overflow: hidden` (which would clip the cart-count badges and focus
+     rings the app relies on) and no z-index negotiation with label text,
+     icons or children. Text is always painted above the element's own
+     background, so the label can never be obscured by the animation.
+
+   WHY THE CONTROL LOOKS UNCHANGED AT REST
+     At rest both layers sit *completely outside the padding box* — the wash at
+     `--_mo-wash-rest`, the streak at `--_mo-streak-rest` (see the percentage
+     arithmetic note below). An off-canvas gradient paints nothing, so adding
+     this system to a button is a visual no-op until the user interacts with
+     it. That is what makes it safe to apply to the whole application at once:
+     there is no resting-state regression to review, no contrast re-check at
+     rest, and no layout to move.
+
+   NO LAYOUT SHIFT — BY CONSTRUCTION
+     Only `background-position`, `background-size`, `transform` (the error
+     nudge only) and colours are animated. Not one keyframe in this file
+     touches width, height, margin, padding, font-size or any other property
+     that participates in layout. The control is as wide and as tall during
+     the animation as it was before it.
+
+   THE PERCENTAGE ARITHMETIC (why "off-canvas" is a number)
+     For a background image scaled to N× the padding box width, CSS resolves
+     `background-position-x: P%` to `(W - N·W) · P/100`. With the wash at
+     N = 210%: P = -100% → the image starts at +1.1W (off the inline-end edge);
+     P = 200% → it ends at -0.1W (off the inline-start edge); P = 100% → the
+     visible window is the image's trailing 47.6%, which is where the wash
+     ramp is strongest. The streak uses N = 260%, so its travel from 200% to
+     -100% crosses the whole control with room to spare on both sides — which
+     is also what makes the infinite loading loop seamless: the animation
+     restarts from a position where nothing is visible, so the wrap is
+     invisible.
+
+   DIRECTION (ARABIC / RTL)
+     The product ships Arabic and English. Everything directional is expressed
+     through `--_mo-angle` (gradient angle) and the four position tokens, which
+     the `[dir="rtl"]` block mirrors in one place. A sheen therefore enters
+     from the inline-start edge in both languages, and no keyframe needs an
+     RTL twin.
+
+   STATE CONTRACT (the animation reflects the real state — it never invents one)
+     loading  ← [aria-busy="true"] | [data-state="pending"] | [data-motion-state="loading"]
+     success  ← [data-state="success"] | [data-motion-state="success"|"done"]
+     error    ← [data-state="error"|"offline"] | [data-motion-state="error"|"failed"]
+     quiet    ← [data-state="unavailable"|"unauthorized"]  · no celebratory motion
+     disabled ← :disabled | [aria-disabled="true"] (never while busy — the
+                ActionButton keeps `aria-disabled` true DURING pending, so the
+                disabled rule is explicitly excluded from the pending phase)
+
+     `data-state` is the attribute ActionButton already emits for its state
+     machine, so the existing CTAs animate correctly with no call-site change.
+
+   ACCESSIBILITY
+     · `prefers-reduced-motion: reduce` — every animation is switched off
+       explicitly (not merely collapsed by the global rule in index.css) and
+       each state keeps a *static* wash, so state is still legible without
+       motion. The label text remains the primary carrier of state.
+     · `forced-colors` — gradient layers are dropped; the OS palette owns the
+       control and no animation is claimed.
+     · The animation never changes the accessible name, never moves focus and
+       never blocks a click.
+
+   PERFORMANCE
+     · Layers are off-canvas at rest → nothing is painted until interaction.
+     · `will-change: background-position` is claimed only while the pointer is
+       on the control, then released — the correct, short-lived use.
+     · Alpha ceilings are MEASURED, not chosen by eye. Worst case for the
+       product's secondary text token (muted #595C63) over the brand cream
+       surface, under the strongest field wash at its highest stop: 4.82:1
+       (AA needs 4.5:1). The white streak over the charcoal fill leaves white
+       labels at 6.39:1 and slate-100 at 5.83:1. The numbers are asserted in
+       src/components/__tests__/buttonMotion.contract.test.tsx, so an intent
+       cannot quietly spend the margin.
+     · One measured DEFECT is documented here rather than hidden: a field tint
+       behind a `text-slate-500` label measured 4.0–4.3:1 — a real WCAG 1.4.3
+       failure. Those controls do not get a field wash at all; they get the
+       `edge` geometry below. The rule lives in the codemod, not in a note.
+   ═════════════════════════════════════════════════════════════════════════════ */
+
+/* ── 1 · THE ENGINE ─────────────────────────────────────────────────────────
+   Every token below is a default, so a control that sets `data-motion` and
+   nothing else still renders a complete, correct animation. Intents override
+   tokens only — they never restate the mechanism. */
+[data-motion] {
+  /* Geometry */
+  --_mo-angle: 105deg;
+  --_mo-stroke: 2px;
+
+  /* Layer 1 · the streak (painted above the wash) */
+  --_mo-streak: linear-gradient(
+    var(--_mo-angle),
+    rgba(255, 255, 255, 0) 0 38%,
+    rgba(255, 255, 255, 0.24) 50%,
+    rgba(255, 255, 255, 0) 62% 100%
+  );
+  --_mo-streak-size: 260% 100%;
+  --_mo-streak-size-end: var(--_mo-streak-size);
+  --_mo-streak-rest: 200% 0;
+  --_mo-streak-end: -100% 0;
+
+  /* Layer 2 · the wash */
+  --_mo-wash: linear-gradient(
+    var(--_mo-angle),
+    rgba(27, 31, 59, 0.0) 0 44%,
+    rgba(61, 82, 150, 0.13) 62%,
+    rgba(27, 31, 59, 0.13) 100%
+  );
+  --_mo-wash-size: 210% 100%;
+  --_mo-wash-size-end: var(--_mo-wash-size);
+  --_mo-wash-rest: 200% 0;
+  --_mo-wash-end: 100% 0;
+
+  /* Choreography */
+  --_mo-duration: 620ms;
+  --_mo-active-duration: 420ms;
+  --_mo-load-duration: 1400ms;
+  --_mo-ease: cubic-bezier(0.25, 1, 0.5, 1);
+  --_mo-load-from: var(--_mo-streak-rest), var(--_mo-wash-end);
+  --_mo-load-to: var(--_mo-streak-end), var(--_mo-wash-end);
+  --_mo-load-name: confit-mo-travel;
+  --_mo-stripe-step: 44px;
+
+  /* State palettes — shared by every intent so one product = one language */
+  --_mo-wash-ok: linear-gradient(
+    var(--_mo-angle),
+    rgba(22, 163, 74, 0.0) 0 44%,
+    rgba(22, 163, 74, 0.12) 62%,
+    rgba(137, 183, 153, 0.14) 100%
+  );
+  --_mo-wash-err: linear-gradient(
+    var(--_mo-angle),
+    rgba(190, 18, 60, 0.0) 0 42%,
+    rgba(190, 18, 60, 0.12) 60%,
+    rgba(225, 29, 72, 0.14) 100%
+  );
+  --_mo-wash-quiet: linear-gradient(
+    var(--_mo-angle),
+    rgba(37, 39, 41, 0.0) 0 44%,
+    rgba(37, 39, 41, 0.06) 62%,
+    rgba(37, 39, 41, 0.09) 100%
+  );
+
+  background-image: var(--_mo-streak), var(--_mo-wash);
+  background-repeat: no-repeat, no-repeat;
+  background-size: var(--_mo-streak-size), var(--_mo-wash-size);
+  background-position: var(--_mo-streak-rest), var(--_mo-wash-rest);
+  background-attachment: scroll, scroll;
+
+  /* A superset of the colour/transform transitions call sites already relied
+     on (`transition-colors`, `transition-all`, `duration-*`), plus the two
+     properties this engine animates. Declared here so the sweep interpolates
+     even on a control that carries no transition utility of its own. */
+  transition-property: background-position, background-size, background-color,
+    border-color, color, box-shadow, opacity, transform;
+  transition-duration: var(--_mo-duration), var(--_mo-duration), 220ms, 220ms,
+    220ms, 260ms, 220ms, 180ms;
+  transition-timing-function: var(--_mo-ease), var(--_mo-ease), ease, ease,
+    ease, ease, ease, ease-out;
+}
+
+/* Opt-out that survives a global sweep: a control that must keep its own
+   bespoke surface states so explicitly. */
+[data-motion="none"] {
+  background-image: none;
+  transition-property: background-color, border-color, color, box-shadow,
+    opacity, transform;
+}
+
+/* ── 2 · INTERACTION ────────────────────────────────────────────────────────
+   Hover and keyboard focus are the same affordance and get the same sweep
+   (WCAG 2.4.7 parity). The wash slides in from the inline-start edge and
+   settles; the streak crosses and leaves. */
+[data-motion]:not([data-motion="none"]):hover,
+[data-motion]:not([data-motion="none"]):focus-visible {
+  background-position: var(--_mo-streak-end), var(--_mo-wash-end);
+  background-size: var(--_mo-streak-size-end), var(--_mo-wash-size-end);
+  /* Claimed only while the pointer/keyboard is here — released on the way out
+     by the base rule, so no layer is kept alive for the other 319 controls. */
+  will-change: background-position;
+}
+
+/* Press: the streak re-fires in 420ms and the wash holds — tactility from the
+   same two layers, so nothing has to fight a call site's `active:scale-*`. */
+[data-motion]:not([data-motion="none"]):active {
+  animation: confit-mo-travel var(--_mo-active-duration) var(--_mo-ease) 1 both;
+}
+
+/* ── 3 · STATE MACHINE ─────────────────────────────────────────────────────
+   Loading and success/error are read from the attributes the product already
+   publishes (`aria-busy`, `data-state`), with `data-motion-state` available
+   for surfaces that own their own phase variable. */
+
+/* LOADING — the streak loops through the control for as long as the work is
+   genuinely in flight. No timeout, no fake progress, no completion: the loop
+   ends when the real state changes. */
+[data-motion][aria-busy="true"],
+[data-motion][data-state="pending"],
+[data-motion][data-motion-state="loading"],
+[data-motion][data-motion-state="pending"] {
+  background-position: var(--_mo-load-from);
+  animation: var(--_mo-load-name) var(--_mo-load-duration) linear infinite;
+}
+
+/* SUCCESS — one crossing of the streak and a green wash that stays. The
+   iteration count is 1: the confirmation is a single, finite gesture, exactly
+   like the real event it reports. */
+[data-motion][data-state="success"],
+[data-motion][data-motion-state="success"],
+[data-motion][data-motion-state="done"] {
+  --_mo-wash: var(--_mo-wash-ok);
+  background-position: var(--_mo-streak-end), var(--_mo-wash-end);
+  animation: confit-mo-travel 900ms var(--_mo-ease) 1 both;
+}
+
+/* ERROR — the red wash arrives and stays, and the control nudges once. The
+   nudge is the only transform in the file and it is motion-safe only. */
+[data-motion][data-state="error"],
+[data-motion][data-state="offline"],
+[data-motion][data-motion-state="error"],
+[data-motion][data-motion-state="failed"] {
+  --_mo-wash: var(--_mo-wash-err);
+  background-position: var(--_mo-streak-end), var(--_mo-wash-end);
+}
+@media (prefers-reduced-motion: no-preference) {
+  [data-motion][data-state="error"],
+  [data-motion][data-state="offline"],
+  [data-motion][data-motion-state="error"],
+  [data-motion][data-motion-state="failed"] {
+    animation: confit-mo-nudge 340ms ease-in-out 1 both;
+  }
+}
+
+/* UNAVAILABLE / UNAUTHORIZED — honest "not now, and not your fault yet". A
+   neutral wash and, deliberately, no celebratory or alarming motion: the
+   control is not failing, it is waiting for a precondition. */
+[data-motion][data-state="unavailable"],
+[data-motion][data-state="unauthorized"],
+[data-motion][data-motion-state="quiet"] {
+  --_mo-wash: var(--_mo-wash-quiet);
+  background-position: var(--_mo-streak-end), var(--_mo-wash-end);
+  animation: none;
+}
+
+/* DISABLED — no layers, no animation, nothing to claim. The exclusion guards
+   are load-bearing: ActionButton reports `aria-disabled="true"` *while
+   pending* (to keep focus), and freezing a running action's animation would
+   report "stopped" for work that is still going. */
+[data-motion]:disabled,
+[data-motion][aria-disabled="true"]:not([aria-busy="true"]):not(
+    [data-state="pending"]
+  ):not([data-motion-state="loading"]):not([data-motion-state="pending"]) {
+  background-image: none;
+  animation: none;
+  will-change: auto;
+}
+
+/* ── 4 · INTENT RECIPES ────────────────────────────────────────────────────
+   One recipe per functional family. Colour psychology is fixed here and
+   nowhere else: growth/trust = navy·mint, money = gold, generative = lilac,
+   destructive = rose·amber, caution/authority = navy·gold, transfer = mint·sky,
+   recovery = amber→green, neutral/inert = graphite.
+
+   `--_mo-load-name` picks the gesture family the intent loads with:
+     confit-mo-travel  — the streak crosses (progress, money, authority, AI)
+     confit-mo-stripes — hazard tape slides (destructive work)
+     confit-mo-pulse   — the wash breathes (retry, inert chrome)
+     confit-mo-wipe    — the wash grows (chips, filters, icon controls) */
+
+/* PROGRESSIVE — the forward action: create, save, continue, submit. */
+[data-motion="progressive"] {
+  --_mo-wash: linear-gradient(
+    var(--_mo-angle),
+    rgba(137, 183, 153, 0.0) 0 44%,
+    rgba(61, 82, 150, 0.13) 62%,
+    rgba(27, 31, 59, 0.13) 100%
+  );
+  --_mo-duration: 560ms;
+}
+
+/* CREATIVE — the generative surfaces: try-on, stylist, "generate". The wash
+   drifts instead of crossing, so a thinking control never reads as a progress
+   bar for work that has no measurable progress. */
+[data-motion="creative"] {
+  --_mo-angle: 105deg;
+  --_mo-wash: linear-gradient(
+    var(--_mo-angle),
+    rgba(169, 154, 214, 0.0) 0 42%,
+    rgba(124, 107, 196, 0.14) 60%,
+    rgba(169, 154, 214, 0.14) 100%
+  );
+  --_mo-duration: 900ms;
+  --_mo-load-name: confit-mo-pulse;
+  --_mo-load-duration: 1300ms;
+}
+
+/* FINANCIAL — money moves here. Deliberately the slowest sweep in the system:
+   gold arrives, it does not flash. */
+[data-motion="financial"] {
+  --_mo-wash: linear-gradient(
+    var(--_mo-angle),
+    rgba(212, 175, 55, 0.0) 0 44%,
+    rgba(184, 147, 90, 0.14) 62%,
+    rgba(212, 175, 55, 0.14) 100%
+  );
+  --_mo-streak: linear-gradient(
+    var(--_mo-angle),
+    rgba(255, 255, 255, 0) 0 36%,
+    rgba(255, 255, 255, 0.26) 50%,
+    rgba(255, 255, 255, 0) 64% 100%
+  );
+  --_mo-duration: 720ms;
+  --_mo-load-duration: 1600ms;
+}
+
+/* DESTRUCTIVE — delete, revoke, archive, disconnect. Warning colour, and a
+   hazard-tape loop while the irreversible work runs. */
+[data-motion="destructive"] {
+  --_mo-angle: 45deg;
+  --_mo-streak: linear-gradient(
+    var(--_mo-angle),
+    rgba(255, 255, 255, 0) 0 40%,
+    rgba(255, 255, 255, 0.18) 52%,
+    rgba(255, 255, 255, 0) 64% 100%
+  );
+  --_mo-wash: linear-gradient(
+    var(--_mo-angle),
+    rgba(225, 29, 72, 0.0) 0 44%,
+    rgba(225, 29, 72, 0.13) 62%,
+    rgba(245, 158, 11, 0.14) 100%
+  );
+  --_mo-duration: 720ms;
+  --_mo-load-name: confit-mo-stripes;
+  --_mo-load-duration: 1100ms;
+}
+
+/* ADMIN — the authority verbs: approve, publish, feature, verify, bulk-run.
+   Navy authority resolving into the brand gold. */
+[data-motion="admin"] {
+  --_mo-streak: linear-gradient(
+    var(--_mo-angle),
+    rgba(255, 255, 255, 0) 0 38%,
+    rgba(255, 255, 255, 0.2) 50%,
+    rgba(255, 255, 255, 0) 62% 100%
+  );
+  --_mo-wash: linear-gradient(
+    var(--_mo-angle),
+    rgba(27, 31, 59, 0.0) 0 44%,
+    rgba(27, 31, 59, 0.14) 62%,
+    rgba(184, 147, 90, 0.13) 100%
+  );
+  --_mo-duration: 640ms;
+  --_mo-load-duration: 1300ms;
+}
+
+/* UPLOAD — the control gains content, so the wash RISES: it enters from below
+   and settles at the bottom of the box, like a vessel filling. */
+[data-motion="upload"] {
+  --_mo-angle: 180deg;
+  --_mo-streak-size: 100% 260%;
+  --_mo-streak-rest: 0 -100%;
+  --_mo-streak-end: 0 200%;
+  --_mo-wash-size: 100% 210%;
+  --_mo-wash-rest: 0 -100%;
+  --_mo-wash-end: 0 100%;
+  --_mo-wash: linear-gradient(
+    var(--_mo-angle),
+    rgba(47, 143, 131, 0.0) 0 44%,
+    rgba(137, 183, 153, 0.13) 62%,
+    rgba(47, 143, 131, 0.13) 100%
+  );
+  --_mo-load-from: var(--_mo-streak-rest), var(--_mo-wash-end);
+  --_mo-load-to: var(--_mo-streak-end), var(--_mo-wash-end);
+  --_mo-duration: 660ms;
+}
+
+/* DOWNLOAD · EXPORT — content leaves, so the wash FALLS and settles high. */
+[data-motion="download"] {
+  --_mo-angle: 0deg;
+  --_mo-streak-size: 100% 260%;
+  --_mo-streak-rest: 0 200%;
+  --_mo-streak-end: 0 -100%;
+  --_mo-wash-size: 100% 210%;
+  --_mo-wash-rest: 0 200%;
+  --_mo-wash-end: 0 100%;
+  --_mo-wash: linear-gradient(
+    var(--_mo-angle),
+    rgba(100, 116, 139, 0.0) 0 44%,
+    rgba(100, 116, 139, 0.12) 62%,
+    rgba(27, 31, 59, 0.13) 100%
+  );
+  --_mo-load-from: var(--_mo-streak-rest), var(--_mo-wash-end);
+  --_mo-load-to: var(--_mo-streak-end), var(--_mo-wash-end);
+  --_mo-duration: 620ms;
+}
+
+/* SHARE — a quick outward gesture: the fastest sweep in the system. */
+[data-motion="share"] {
+  --_mo-wash: linear-gradient(
+    var(--_mo-angle),
+    rgba(56, 189, 248, 0.0) 0 42%,
+    rgba(137, 183, 153, 0.14) 58%,
+    rgba(56, 189, 248, 0.13) 100%
+  );
+  --_mo-duration: 520ms;
+  --_mo-load-duration: 1100ms;
+}
+
+/* RECOVERY — retry, refresh, restore, resend: amber turning into green. The
+   loading gesture is a pulse, never a bar: a retry has no known duration and
+   must not imply measured progress. */
+[data-motion="recovery"] {
+  --_mo-wash: linear-gradient(
+    var(--_mo-angle),
+    rgba(245, 158, 11, 0.0) 0 42%,
+    rgba(245, 158, 11, 0.13) 58%,
+    rgba(22, 163, 74, 0.13) 100%
+  );
+  --_mo-duration: 420ms;
+  --_mo-load-name: confit-mo-pulse;
+  --_mo-load-duration: 1200ms;
+}
+
+/* AUTH — identity: sign in, verify, OTP, password. Unhurried navy → lilac. */
+[data-motion="auth"] {
+  --_mo-streak: linear-gradient(
+    var(--_mo-angle),
+    rgba(255, 255, 255, 0) 0 36%,
+    rgba(255, 255, 255, 0.22) 50%,
+    rgba(255, 255, 255, 0) 64% 100%
+  );
+  --_mo-wash: linear-gradient(
+    var(--_mo-angle),
+    rgba(27, 31, 59, 0.0) 0 44%,
+    rgba(61, 82, 150, 0.14) 62%,
+    rgba(169, 154, 214, 0.14) 100%
+  );
+  --_mo-duration: 680ms;
+}
+
+/* NEUTRAL — cancel, back, close, dismiss, stepper, pagination: chrome. The
+   wash is graphite at a whisper and the streak is a dark hairline, because a
+   white highlight is invisible on the white surfaces this chrome sits on. */
+[data-motion="neutral"] {
+  --_mo-streak: linear-gradient(
+    var(--_mo-angle),
+    rgba(37, 39, 41, 0.0) 0 40%,
+    rgba(37, 39, 41, 0.07) 52%,
+    rgba(37, 39, 41, 0.0) 64% 100%
+  );
+  --_mo-wash: linear-gradient(
+    var(--_mo-angle),
+    rgba(37, 39, 41, 0.0) 0 46%,
+    rgba(37, 39, 41, 0.05) 66%,
+    rgba(37, 39, 41, 0.07) 100%
+  );
+  --_mo-duration: 460ms;
+  --_mo-load-name: confit-mo-pulse;
+  --_mo-load-duration: 1200ms;
+}
+
+/* FILTER — chips, segments, sort toggles, tabs: the single largest family in
+   the app. These carry their own `aria-pressed` fills, so instead of a full
+   wash they draw a rule under the label — an affordance, not a repaint. */
+[data-motion="filter"] {
+  --_mo-angle: 90deg;
+  --_mo-streak: linear-gradient(
+    var(--_mo-angle),
+    rgba(37, 39, 41, 0.0) 0 42%,
+    rgba(37, 39, 41, 0.05) 54%,
+    rgba(37, 39, 41, 0.0) 66% 100%
+  );
+  --_mo-wash: linear-gradient(
+    90deg,
+    rgba(27, 31, 59, 0.73),
+    rgba(61, 82, 150, 0.73)
+  );
+  --_mo-wash-size: 0% var(--_mo-stroke);
+  --_mo-wash-size-end: 100% var(--_mo-stroke);
+  --_mo-wash-rest: 0 100%;
+  --_mo-wash-end: 100% 100%;
+  --_mo-load-name: confit-mo-wipe;
+  --_mo-load-duration: 900ms;
+  --_mo-duration: 380ms;
+}
+
+/* COMMERCE — add to bag, wishlist, quantity: the brand's own commerce verbs. */
+[data-motion="commerce"] {
+  --_mo-wash: linear-gradient(
+    var(--_mo-angle),
+    rgba(184, 147, 90, 0.0) 0 44%,
+    rgba(37, 39, 41, 0.13) 62%,
+    rgba(184, 147, 90, 0.14) 100%
+  );
+  --_mo-duration: 560ms;
+}
+
+/* ── 5 · GEOMETRY VARIANTS ─────────────────────────────────────────────────
+   Icon-only controls have no label to sweep behind, so their wash BLOOMS from
+   the centre of the target instead of sliding across it. */
+[data-motion-tone="icon"] {
+  --_mo-wash-size: 0% 0%;
+  --_mo-wash-size-end: 240% 240%;
+  --_mo-wash-rest: 50% 50%;
+  --_mo-wash-end: 50% 50%;
+  --_mo-load-name: confit-mo-wipe;
+  --_mo-load-duration: 1000ms;
+  --_mo-duration: 420ms;
+}
+
+/* EDGE — the geometry for controls whose LABEL is a medium-tone grey
+   (slate-300/400/500). Measured defect (see the contract test): a field tint
+   darkens the surface behind such a label, and slate-500 — 4.76:1 on white at
+   rest — drops to 4.0–4.3:1 while the pointer is on the control. That is a
+   real WCAG 1.4.3 regression, not a rounding error. So for these controls the
+   wash is not a field: it is a stroke pinned to the outer edge of the box,
+   where the label never sits. Everything else — colour, timing, direction,
+   the streak, every state — is unchanged; only the geometry that could sit
+   under the text is. */
+[data-motion-tone="edge"] {
+  --_mo-wash-size: 210% var(--_mo-stroke);
+  --_mo-wash-size-end: 210% var(--_mo-stroke);
+  --_mo-wash-rest: 200% 100%;
+  --_mo-wash-end: 100% 100%;
+}
+
+/* A dense table or list row can ask for the quietest possible presence. */
+[data-motion-tone="quiet"] {
+  --_mo-streak: linear-gradient(
+    var(--_mo-angle),
+    rgba(37, 39, 41, 0.0) 0 42%,
+    rgba(37, 39, 41, 0.05) 54%,
+    rgba(37, 39, 41, 0.0) 66% 100%
+  );
+  --_mo-duration: 400ms;
+}
+
+/* ── 6 · GESTURE FAMILIES ──────────────────────────────────────────────────
+   Five keyframes carry all thirteen intents. Everything they move is a token,
+   which is why there is no per-intent and no RTL duplicate anywhere below. */
+
+/* The streak crosses while the wash holds its settled position. */
+@keyframes confit-mo-travel {
+  from { background-position: var(--_mo-load-from); }
+  to   { background-position: var(--_mo-load-to); }
+}
+
+/* Hazard tape: the stripe layer slides exactly one tile period, so the loop
+   wraps without a seam. */
+@keyframes confit-mo-stripes {
+  from { background-position: 0 0, var(--_mo-wash-end); }
+  to   { background-position: var(--_mo-stripe-step) 0, var(--_mo-wash-end); }
+}
+
+/* No measurable progress exists — so the wash breathes instead of pretending. */
+@keyframes confit-mo-pulse {
+  from { background-position: var(--_mo-streak-rest), var(--_mo-wash-end); }
+  to   { background-position: var(--_mo-streak-rest), var(--_mo-wash-rest); }
+}
+
+/* The wash grows into place (chips, icon controls). */
+@keyframes confit-mo-wipe {
+  from { background-size: var(--_mo-streak-size), 0% var(--_mo-wash-size-end); }
+  to   { background-size: var(--_mo-streak-size), var(--_mo-wash-size-end); }
+}
+
+/* The only transform in the system: a 2px acknowledgement of a real failure.
+   Motion-safe only, one iteration, and it returns to 0 so nothing is left
+   displaced when it ends. */
+@keyframes confit-mo-nudge {
+  0%, 100% { transform: translateX(0); }
+  20%      { transform: translateX(-2px); }
+  45%      { transform: translateX(2px); }
+  70%      { transform: translateX(-1.5px); }
+  90%      { transform: translateX(1px); }
+}
+
+/* Destructive intents load with tape, not with a bare streak. */
+[data-motion="destructive"][aria-busy="true"],
+[data-motion="destructive"][data-state="pending"],
+[data-motion="destructive"][data-motion-state="loading"] {
+  background-image: repeating-linear-gradient(
+      var(--_mo-angle),
+      rgba(225, 29, 72, 0.0) 0 9px,
+      rgba(225, 29, 72, 0.14) 9px 18px
+    ),
+    var(--_mo-wash);
+  background-size: var(--_mo-stripe-step) 100%, var(--_mo-wash-size);
+  background-repeat: repeat, no-repeat;
+}
+
+/* ── 7 · DIRECTION (RTL) ───────────────────────────────────────────────────
+   One block mirrors the whole system for Arabic: the gradient angle moves to
+   its mirror (θ → 360° − θ) and the four travel tokens swap sides, so a sheen
+   enters from the inline start — the right edge — exactly as it does from the
+   left in English. Vertical intents keep their own angle, and the two
+   intents whose gradient is an absolute direction (the risen wash, the
+   bottom-anchored chip rule) declare their mirror explicitly. */
+[dir="rtl"] [data-motion] {
+  --_mo-angle: 255deg;
+  --_mo-streak-rest: -100% 0;
+  --_mo-streak-end: 200% 0;
+  --_mo-wash-rest: -100% 0;
+  --_mo-wash-end: 0% 0;
+}
+[dir="rtl"] [data-motion="upload"],
+[dir="rtl"] [data-motion="download"] {
+  --_mo-angle: 180deg;
+}
+[dir="rtl"] [data-motion="upload"] {
+  --_mo-wash-rest: 0 -100%;
+  --_mo-wash-end: 0 100%;
+}
+[dir="rtl"] [data-motion="download"] {
+  --_mo-angle: 0deg;
+  --_mo-wash-rest: 0 200%;
+  --_mo-wash-end: 0 100%;
+}
+[dir="rtl"] [data-motion="destructive"] {
+  --_mo-angle: -45deg;
+}
+[data-motion-tone="edge"][data-motion="upload"] {
+  --_mo-wash-size: var(--_mo-stroke) 210%;
+  --_mo-wash-size-end: var(--_mo-stroke) 210%;
+  --_mo-wash-rest: 100% -100%;
+  --_mo-wash-end: 100% 100%;
+}
+[data-motion-tone="edge"][data-motion="download"] {
+  --_mo-wash-size: var(--_mo-stroke) 210%;
+  --_mo-wash-size-end: var(--_mo-stroke) 210%;
+  --_mo-wash-rest: 100% 200%;
+  --_mo-wash-end: 100% 100%;
+}
+[dir="rtl"] [data-motion-tone="edge"] {
+  /* the stroke keeps its y anchor (the bottom edge) and mirrors only its x */
+  --_mo-wash-rest: -100% 100%;
+  --_mo-wash-end: 0% 100%;
+}
+[dir="rtl"] [data-motion="filter"] {
+  --_mo-wash-rest: 100% 100%;
+  --_mo-wash-end: 0% 100%;
+}
+
+/* ── 8 · REDUCED MOTION ────────────────────────────────────────────────────
+   Switched off explicitly rather than left to the global 0.001ms collapse in
+   index.css, because collapsing an INFINITE animation still leaves the
+   browser claiming it. With motion gone, interaction still has to be visible:
+   hover/focus settle the wash instantly, and every state keeps its static
+   palette — success is still green, failure is still red, work in flight is
+   still amber. The label carries the words; the wash carries the colour. */
+@media (prefers-reduced-motion: reduce) {
+  [data-motion],
+  [data-motion]:hover,
+  [data-motion]:focus-visible,
+  [data-motion]:active,
+  [data-motion][aria-busy="true"],
+  [data-motion][data-state="pending"],
+  [data-motion][data-motion-state="loading"],
+  [data-motion][data-motion-state="pending"],
+  [data-motion][data-state="success"],
+  [data-motion][data-motion-state="success"],
+  [data-motion][data-motion-state="done"],
+  [data-motion][data-state="error"],
+  [data-motion][data-state="offline"],
+  [data-motion][data-motion-state="error"],
+  [data-motion][data-motion-state="failed"] {
+    animation: none;
+    will-change: auto;
+  }
+  [data-motion]:hover,
+  [data-motion]:focus-visible,
+  [data-motion][aria-busy="true"],
+  [data-motion][data-state="pending"],
+  [data-motion][data-state="success"],
+  [data-motion][data-state="error"],
+  [data-motion][data-state="offline"],
+  [data-motion][data-state="unavailable"],
+  [data-motion][data-state="unauthorized"] {
+    background-position: var(--_mo-streak-rest), var(--_mo-wash-end);
+    background-size: var(--_mo-streak-size), var(--_mo-wash-size-end);
+  }
+}
+
+/* ── 9 · FORCED COLORS ─────────────────────────────────────────────────────
+   Windows High Contrast owns the palette; a gradient is either dropped or
+   flattened into a block the user cannot distinguish. So the engine steps
+   aside completely, and the control keeps its text, its border and its focus
+   ring — which is what the user asked their OS for. */
+@media (forced-colors: active) {
+  [data-motion] {
+    background-image: none;
+    animation: none;
+    will-change: auto;
+  }
+}

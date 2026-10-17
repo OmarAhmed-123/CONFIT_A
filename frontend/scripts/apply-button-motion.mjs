@@ -109,11 +109,15 @@ const INTENTS = [
  *          slate-500 drops it to ~4.0:1 (measured); the wash becomes an edge
  *          stroke instead, where no label can sit. This is the one rule in
  *          this file that exists because a measurement failed.
+ *          `brand-muted` is in the same class on purpose: it is the UI audit's
+ *          AA-safe replacement for slate-400/500 (6.70:1 on white), so a
+ *          migrated control keeps the geometry it was measured with instead of
+ *          silently switching from an edge stroke to a field wash.
  *   auto → the field wash. Safe for the other two label classes by
  *          measurement: dark labels gain contrast as the surface darkens, and
  *          light labels sit on fills with a 15:1 budget.
  */
-const MEDIUM_TONE_LABEL = /text-slate-(300|400|500)\b/;
+const MEDIUM_TONE_LABEL = /text-(slate-(300|400|500)|brand-muted)\b/;
 
 function toneFor(control) {
   if (control.isIconOnly) return 'icon';

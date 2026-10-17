@@ -428,7 +428,12 @@ describe('D · the wash can never cost a label its contrast', () => {
     const medium = report.rows.filter(
       (r) => /text-slate-(300|400|500)\b/.test(r.className) && !(r as { glyphOnly?: boolean }).glyphOnly,
     );
-    expect(medium.length, 'the catalog should still contain medium-tone labels').toBeGreaterThan(2);
+    // Floor = the measured count after the 2026-10-17 contrast pass, which
+    // moved failing slate-400/500 labels (2.56–4.76:1) to `text-brand-muted`
+    // (6.70:1, field-safe per the 4.82 floor above). The remaining two —
+    // VirtualTryOnModal (slate-500) and AdminAudit (slate-300 on dark) — keep
+    // this rule exercised; the rule assertion below is unchanged.
+    expect(medium.length, 'the catalog should still contain medium-tone labels').toBeGreaterThanOrEqual(2);
     const wrong = medium.filter((r) => r.tone !== 'edge');
     expect(
       wrong.map((r) => `${r.file}:${r.line} (${r.tone})`),

@@ -416,14 +416,85 @@ html {
   }
 }
 
-/* ── Floating AI Stylist control: position ─────────────────────────────
-   Mobile (<1024px): bottom-4. Desktop: bottom-8. A page with a fixed sticky
-   CTA (ProductDetailView, data-sticky-cta) raises the control on mobile so it
-   does not cover that bar. :has() is supported by current Chromium, Safari
-   and Firefox. Without it, the control stays at bottom-4 and only the
-   sticky-CTA case is affected. */
-.stylist-fab-anchor { bottom: 1rem; }
-@media (min-width: 1024px) { .stylist-fab-anchor { bottom: 2rem; } }
+/* ── Floating AI Stylist control: the non-occlusion contract ─────────────
+   WHY THIS REPLACED THE OLD RULES
+   --------------------------------
+   The previous rules only moved the anchor (bottom: 1rem / 2rem / 5rem under
+   a sticky CTA) and relied on `html { scroll-padding-bottom }` above. Measured
+   with scripts/fab_probe.mjs on 2026-10-17, that still left 15 elements
+   covered across 6 routes x 2 viewports, five of them interactive controls
+   the user must be able to reach:
+
+       guest mob /builder   "Outfit name" input + the occasion <select>
+       guest mob /fit       the "in / lbs" unit toggle
+       guest mob /cart      the "Store Pickup (BOPIS)" button
+       guest mob /wardrobe  an "Evening Silk" collection card link
+
+   scroll-padding-bottom cannot fix that class of defect: it only moves
+   browser-driven FOCUS scrolling. It does nothing for a control that is
+   already in the viewport at the current scroll offset, and nothing at all
+   for pointer input.
+
+   THE CONTRACT — two rules that together actually hold
+   ---------------------------------------------------
+   1. FLOW RESERVATION. --fab-safe-bottom is the full height of the band the
+      control occupies (offset + footprint + margin). The shell's <main>
+      applies it as padding-bottom, so the last block of ANY page scrolls
+      clear of the control instead of ending underneath it. This is the part
+      that makes "the user can always reach the last control" a structural
+      guarantee rather than a per-page patch.
+
+   2. SCROLL DEFERENCE. While the user scrolls DOWN they are pulling content
+      up into the band, so the control slides out of the way; on scroll UP it
+      returns. It never auto-returns while idle-after-down — otherwise it
+      would simply re-cover what the user just scrolled to.
+
+   A page that owns a fixed bottom action bar (ProductDetailView carries
+   data-sticky-cta) raises both the anchor AND the reservation, via the same
+   variable, so the two can never disagree. */
+:root {
+  --fab-size: 3rem;    /* mobile: 48px icon-only circle */
+  --fab-offset: 1rem;
+  /* offset above + footprint + offset below, so the last row clears it */
+  --fab-safe-bottom: calc(var(--fab-offset) * 2 + var(--fab-size));
+}
+@media (min-width: 1024px) {
+  :root {
+    --fab-size: 3.125rem;  /* desktop pill is ~50px tall */
+    --fab-offset: 2rem;
+  }
+}
+/* A sticky bottom action bar owns the bottom band; the control sits above it
+   and the reservation grows to match. :has() is supported by current
+   Chromium, Safari and Firefox; without it the control stays at the default
+   offset and only the sticky-CTA routes are affected. */
 @media (max-width: 1023px) {
-  body:has([data-sticky-cta]) .stylist-fab-anchor { bottom: 5rem; }
+  body:has([data-sticky-cta]) { --fab-offset: 5rem; }
+}
+
+.stylist-fab-anchor {
+  bottom: var(--fab-offset);
+  transition:
+    transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 180ms linear,
+    visibility 0s linear 0s;
+}
+.stylist-fab-anchor[data-fab-hidden='true'] {
+  transform: translateY(calc(100% + var(--fab-offset) + 0.5rem));
+  opacity: 0;
+  pointer-events: none;
+  /* Delayed by the transition duration so the slide-out is still visible;
+     visibility also removes it from the tab order while it is away. */
+  visibility: hidden;
+  transition:
+    transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 180ms linear,
+    visibility 0s linear 220ms;
+}
+/* Reduced motion: move instantly, do not animate. Suppressing the transform
+   instead would leave an invisible control still geometrically on top of the
+   page, which is the defect this whole block exists to remove. */
+@media (prefers-reduced-motion: reduce) {
+  .stylist-fab-anchor,
+  .stylist-fab-anchor[data-fab-hidden='true'] { transition: none; }
 }

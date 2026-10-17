@@ -205,6 +205,33 @@ def check_person_bytes(raw: bytes, why: str = "image") -> None:
         )
 
 
+def _purge_vton_row_if_expired(obj: Any) -> bool:
+    """Opportunistic GDPR Art. 17 purge for ONE try-on row (job or session).
+
+    Port of PR #119. Serverless production does not run the Celery beat
+    worker, so the hourly purge daemon alone cannot enforce the 24h
+    retention on Vercel. This helper enforces the retention property at
+    read time: an expired, unconsented row has its person-photo
+    references replaced in place. Returns True when a purge happened.
+    """
+    expires_at = getattr(obj, "expires_at", None)
+    consent = getattr(obj, "consent_retained", False)
+    if expires_at is None or consent is True:
+        return False
+    if expires_at.tzinfo is None:  # SQLite returns naive datetimes; treat as UTC
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+    if expires_at > datetime.now(timezone.utc):
+        return False
+    changed = False
+    for attr in ("input_user_image_url", "user_image_url", "rendered_result_url",
+                 "input_person_image_url"):
+        val = getattr(obj, attr, None)
+        if val and val.startswith("data:image/"):
+            setattr(obj, attr, "[PURGED_FOR_PRIVACY]")
+            changed = True
+    return changed
+
+
 def _mime_from_bytes(raw: bytes) -> str:
     if raw[:8].startswith(b"\x89PNG"):
         return "image/png"
@@ -1086,6 +1113,12 @@ class TryOnService:
             ),
             model_used="pending (no render yet)",
             delivery_token_hash=delivery_token_hash,
+            # GDPR Art. 17 (port of PR #119): the job row itself carries the
+            # retention clock so the purge daemon can reach input_person_image_url.
+            expires_at=datetime.fromtimestamp(
+                time.time() + (720 if consent_retain_photo else 24) * 3600, tz=timezone.utc
+            ),
+            consent_retained=bool(consent_retain_photo),
             metrics_json=json.dumps({"queued_at": str(datetime.now(timezone.utc))})
         )
         self.db.add(job)
@@ -1467,6 +1500,11 @@ class TryOnService:
         job = self.db.query(TryOnJob).filter(TryOnJob.job_id == job_id).first()
         if not job:
             raise ResourceNotFoundError("TryOnJob", job_id)
+        # GDPR Art. 17 retention enforcement at read time (the hourly purge
+        # daemon may not run on serverless; an expired unconsented row is
+        # purged in place before it is ever reported). Port of PR #119.
+        if _purge_vton_row_if_expired(job):
+            self.db.commit()
         if job.user_id is not None:
             if job.user_id != caller_user_id:
                 raise ResourceNotFoundError("TryOnJob", job_id)

@@ -56,6 +56,13 @@ class TryOnJob(Base):
     progress_pct = Column(Integer, default=0, nullable=False)
     current_stage = Column(String(50), default="queued", nullable=False)
     input_person_image_url = Column(Text, nullable=False)
+    # GDPR Art. 17 retention lifecycle ON THE JOB ROW (port of PR #119's
+    # 2026-09-19 gap audit; migration 0038): input_person_image_url holds the
+    # uploaded person photo (data URL). Without these columns the hourly purge
+    # daemon and the read-time purge could only reach session rows, so
+    # job-row person photos were retained indefinitely.
+    consent_retained = Column(Boolean, default=False, nullable=True)
+    expires_at = Column(DateTime, nullable=True)
     garment_ids_json = Column(Text, default="[]", nullable=False)
     garment_layers_json = Column(Text, default="[]", nullable=False)
     model_used = Column(String(50), default="unset", nullable=False)

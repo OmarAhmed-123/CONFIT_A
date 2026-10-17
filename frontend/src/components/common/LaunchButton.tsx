@@ -156,8 +156,8 @@ export const LaunchButton: React.FC<LaunchButtonProps> = ({
       className={[
         "relative inline-flex items-center justify-center",
         "rounded-xl font-semibold tracking-wide",
-        "bg-brand-charcoal text-white",
-        "hover:bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white",
+        "bg-brand-charcoal text-white font-bold",
+        "hover:bg-[#1A1B1D] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white",
         "disabled:opacity-50 disabled:cursor-not-allowed",
         "transition-colors duration-200",
         SIZE_CLASSES[size],

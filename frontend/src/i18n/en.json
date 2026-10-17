@@ -900,7 +900,7 @@
     "analytics_bopis_line": "{{rate}} of eligible pickup groups completed. Ad Spend: ${{spend}}, Ad Revenue: ${{revenue}} from recorded placement counters; not verified billing.",
     "placements_created_at": "Created:",
     "analytics_view": {
-      "unavailable_title": "Analytics unavailable",
+      "unavailable_title": "Telemetry unavailable",
       "eyebrow": "Business intelligence",
       "heading": "Commerce performance",
       "no_activity": "No commerce activity yet",

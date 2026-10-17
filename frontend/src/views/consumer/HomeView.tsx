@@ -372,7 +372,7 @@ export const HomeView: React.FC = () => {
                     block: "start",
                   })
               }
-              className="shadow-md"
+              className="shadow-md bg-brand-charcoal hover:bg-[#1A1B1D] text-white font-bold"
             >
               {t('home.get_first_look')}
             </LaunchButton>

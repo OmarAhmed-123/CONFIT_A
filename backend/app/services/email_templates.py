@@ -652,6 +652,32 @@ def _partner_approval(p: dict, locale: str) -> _Built:
     return subject, preheader, title, body_html, [text_intro], cta, url
 
 
+def _brand_invitation(p: dict, locale: str) -> _Built:
+    _require(p, ["brand_name", "inviter_name", "role_label", "accept_url"], "brand_invitation")
+    url = _abs_url(p["accept_url"], "accept_url")
+    ar = locale == "ar"
+    if ar:
+        subject = f"دعوة للانضمام إلى {p['brand_name']} على كونفيت"
+        preheader = "أدارك العلامة يدعوكم لتولي دور ضمن فريق العلامة."
+        title = "دعوة لفريق العلامة"
+        intro = (f'مرحباً، تمت دعوتك للانضمام إلى فريق علامة {p["brand_name"]} '
+                 f'بدور: {p["role_label"]}. تقبل الدعوة من بوابة الشركاء قبل انتهائها.')
+        text_intro = (f'تمت دعوتك للانضمام إلى فريق علامة {p["brand_name"]} بدور: {p["role_label"]}.')
+        cta = "قبول الدعوة"
+    else:
+        subject = f"You're invited to join {p['brand_name']} on CONFIT"
+        preheader = "A brand owner wants you on their partner team."
+        title = "Brand team invitation"
+        intro = (f'{_esc(p["inviter_name"])} invited you to join the {p["brand_name"]} '
+                 f'team on CONFIT as {p["role_label"]}. Accept from the partner portal '
+                 "before the invitation expires (7 days).")
+        text_intro = (f'{p["inviter_name"]} invited you to join {p["brand_name"]} '
+                      f'as {p["role_label"]}. Accept before it expires (7 days).')
+        cta = "Accept invitation"
+    body_html = f'<p style="margin:0;font-size:15px;line-height:1.8;">{intro}</p>'
+    return subject, preheader, title, body_html, [text_intro], cta, url
+
+
 def _admin_alert(p: dict, locale: str) -> _Built:
     _require(p, ["alert_title", "metric_name", "metric_value", "window_label", "dashboard_url"], "admin_alert")
     # The filtered link points at the admin surface already scoped to the
@@ -730,6 +756,7 @@ TEMPLATES: dict[str, TemplateSpec] = {
     "price_drop": TemplateSpec(_price_drop, CATEGORY_MARKETING),
     "partner_approval": TemplateSpec(_partner_approval, CATEGORY_TRANSACTIONAL),
     "admin_alert": TemplateSpec(_admin_alert, CATEGORY_TRANSACTIONAL),
+    "brand_invitation": TemplateSpec(_brand_invitation, CATEGORY_TRANSACTIONAL),
     "newsletter": TemplateSpec(_newsletter, CATEGORY_MARKETING),
 }
 
@@ -823,6 +850,11 @@ def sample_payload(template: str) -> dict:
             "product_name": "Sample silk scarf", "old_price": "900.00",
             "new_price": "720.00", "currency": "EGP",
             "product_url": f"{base}/discover", "unsubscribe_url": unsub,
+        },
+        "brand_invitation": {
+            "brand_name": "SAMPLE Thread Co.", "inviter_name": "SAMPLE Owner",
+            "role_label": "Manager",
+            "accept_url": f"{base}/b2b/team/accept?token=SAMPLE-NOT-A-REAL-TOKEN",
         },
         "partner_approval": {
             "partner_name": "Sample Brand Co.", "portal_url": f"{base}/b2b",

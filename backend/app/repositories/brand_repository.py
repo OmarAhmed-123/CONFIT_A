@@ -71,6 +71,13 @@ class BrandRepository:
         self.db.add(bp)
         self.db.commit()
         self.db.refresh(bp)
+        # BRD-02: the founder gets an active owner membership in the same
+        # operation that creates the tenant — there is no window where a brand
+        # exists without a governable member, and rollback (0039 downgrade)
+        # leaves the founder anchor untouched.
+        from backend.app.services.brand_membership_service import BrandMembershipService
+        BrandMembershipService(self.db).ensure_founder_membership(bp)
+        self.db.commit()
         return bp
 
     def set_brand_verification(self, brand_id: int, is_verified: bool) -> BrandProfile:

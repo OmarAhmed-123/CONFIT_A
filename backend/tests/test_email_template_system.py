@@ -86,6 +86,12 @@ PAYLOADS: dict[str, dict] = {
     "partner_approval": {
         "partner_name": "Nile Thread Co.", "portal_url": f"{BASE}/b2b",
     },
+    # 0039/BRD-02: brand team invitations ride the same outbox contract.
+    "brand_invitation": {
+        "brand_name": "Nile Thread Co.", "inviter_name": "Owner person",
+        "role_label": "Manager",
+        "accept_url": f"{BASE}/b2b/team/accept?token=EXAMPLE-ONE-TIME-TOKEN",
+    },
     "admin_alert": {
         "alert_title": "Payment failure spike",
         "metric_name": "payment_failed_count", "metric_value": "17",
@@ -127,11 +133,13 @@ def _lint(html: str) -> _Balanced:
 
 def test_registry_has_the_ten_spec_templates_with_correct_categories():
     assert set(TEMPLATES) == set(PAYLOADS)
-    assert len(TEMPLATES) == 10
+    # 10 spec templates + brand_invitation (BRD-02, 0039).
+    assert len(TEMPLATES) == 11
     assert TEMPLATES["order_confirmation"].category == CATEGORY_TRANSACTIONAL
     assert TEMPLATES["payment_failed"].category == CATEGORY_TRANSACTIONAL
     assert TEMPLATES["shipping_update"].category == CATEGORY_TRANSACTIONAL
     assert TEMPLATES["partner_approval"].category == CATEGORY_TRANSACTIONAL
+    assert TEMPLATES["brand_invitation"].category == CATEGORY_TRANSACTIONAL
     assert TEMPLATES["admin_alert"].category == CATEGORY_TRANSACTIONAL
     assert TEMPLATES["saved_look"].category == CATEGORY_ENGAGEMENT
     assert TEMPLATES["outfit_ready"].category == CATEGORY_ENGAGEMENT
@@ -532,7 +540,7 @@ def test_admin_lists_and_previews_sample_only(client: TestClient):
     listed = client.get("/api/v1/admin/diagnostics/email/templates", headers=admin)
     assert listed.status_code == 200
     body = listed.json()
-    assert len(body["templates"]) == 10
+    assert len(body["templates"]) == 11
     assert body["locales"] == ["en", "ar"]
 
     preview = client.get(

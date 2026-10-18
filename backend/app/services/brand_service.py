@@ -27,13 +27,27 @@ class BrandService:
         self._brand_by_user: Dict[int, BrandProfile] = {}
 
     def _resolve_brand(self, user: User) -> BrandProfile:
-        """Single place that turns an authenticated user into their tenant row."""
+        """Single place that turns an authenticated user into their tenant row.
+
+        Membership-aware (0039/BRD-02): an ACTIVE BrandMembership row is the
+        grant; the legacy 1:1 ``brand_profiles.user_id`` founder link stays as
+        the fallback so pre-membership data and a migration rollback keep
+        working. Fail-closed either way — no membership, no tenant.
+        """
         cached = self._brand_by_user.get(user.id)
         if cached is not None:
             return cached
-        bp = self.brand_repo.get_by_user_id(user.id)
-        if not bp:
-            raise AuthorizationError("No Brand Organization linked to this account. Request partner onboarding; administrators must use explicit admin routes.")
+        from backend.app.services.brand_membership_service import (
+            BrandAccessDenied,
+            BrandMembershipService,
+        )
+        try:
+            bp = BrandMembershipService(self.db).tenant_brand(user)
+        except BrandAccessDenied:
+            raise AuthorizationError(
+                "No Brand Organization linked to this account. Request partner "
+                "onboarding; administrators must use explicit admin routes."
+            )
         self._brand_by_user[user.id] = bp
         return bp
 

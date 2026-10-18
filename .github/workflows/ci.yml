@@ -111,6 +111,7 @@ jobs:
           backend/tests/test_brand_portal_regressions.py
           backend/tests/test_brand_portal_analytics.py
           backend/tests/test_brand_portal_postgres.py
+          backend/tests/test_brand_memberships_postgres.py
 
       # MFA single-use invariants under REAL concurrency (6 parallel attempts per
       # invariant: TOTP replay, recovery-code reuse, duplicate enrollment).

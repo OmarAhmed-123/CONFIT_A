@@ -54,6 +54,8 @@ import { BrandDashboardView } from '../views/b2b/BrandDashboardView';
 import { BrandCatalogView } from '../views/b2b/BrandCatalogView';
 import { BrandInventoryView } from '../views/b2b/BrandInventoryView';
 import { BrandOrdersView } from '../views/b2b/BrandOrdersView';
+import { BrandTeamView } from '../views/b2b/BrandTeamView';
+import { BrandTeamAcceptView } from '../views/b2b/BrandTeamAcceptView';
 // Spec "Magic Navigation" §5: the two ANALYTICS views are the heaviest
 // modules in the app (recharts + dashboards — the 'b2b-analytics' chunk).
 // They are code-split with React.lazy so a SHOPPER never downloads partner/
@@ -254,6 +256,7 @@ export const AppRoutes: React.FC = () => {
           <Route path="catalog" element={<BrandCatalogView />} />
           <Route path="inventory" element={<BrandInventoryView />} />
           <Route path="branches" element={<BrandBranchesView />} />
+          <Route path="team" element={<BrandTeamView />} />
           <Route path="stores" element={<BrandBranchesView />} />
           <Route path="orders" element={<BrandOrdersView />} />
           <Route path="analytics" element={suspended(<BrandAnalyticsView />)} />

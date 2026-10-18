@@ -7,7 +7,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   BarChart3, Boxes, ClipboardList, FolderCog, LayoutDashboard, LogOut,
   MapPin, Megaphone, Menu, Package, PanelLeftClose, PanelLeftOpen, ScrollText,
-  ShieldCheck, Store, X, type LucideIcon,
+  ShieldCheck, Store, Users, X, type LucideIcon,
 } from 'lucide-react';
 import { ConfitLogo } from '../common/ConfitLogo';
 import { LanguageSwitcher } from './LanguageSwitcher';
@@ -51,6 +51,7 @@ const PARTNER_SECTIONS: NavSection[] = [
       { href: '/b2b/catalog', labelKey: 'brand_nav.catalog', icon: Package },
       { href: '/b2b/inventory', labelKey: 'brand_nav.inventory', icon: Boxes },
       { href: '/b2b/orders', labelKey: 'brand_nav.orders', icon: ClipboardList },
+      { href: '/b2b/team', labelKey: 'brand_nav.team', icon: Users },
     ],
   },
   {

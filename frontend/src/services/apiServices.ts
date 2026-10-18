@@ -1834,3 +1834,79 @@ export const emailService = {
       body: JSON.stringify({ token }),
     }),
 };
+
+
+// 14. Brand team memberships & invitations (BRD-02 · PR 356 backend contract).
+export interface BrandTeamMember {
+  id: number
+  brand_id: number
+  user_id: number
+  full_name: string
+  email: string | null   // masked server-side for viewers below manager
+  role: 'owner' | 'manager' | 'staff'
+  status: 'active' | 'revoked'
+  created_at: string
+  revoked_at: string | null
+}
+
+export interface BrandTeamInvitation {
+  id: number
+  brand_id: number
+  email: string
+  role: 'owner' | 'manager' | 'staff'
+  status: 'pending' | 'accepted' | 'revoked' | 'expired'
+  created_at: string
+  expires_at: string
+}
+
+export interface MyBrandMembership {
+  brand_id: number
+  brand_name: string
+  slug: string
+  role: 'owner' | 'manager' | 'staff'
+  status: 'active' | 'revoked'
+}
+
+export const membersService = {
+  /** Portal identity for ANY authenticated account (empty list = not a
+   * member). Drives RoleGuard admission for invited members whose global
+   * role is still 'consumer'. */
+  myMemberships: () => request<MyBrandMembership[]>("/partner/members/me"),
+
+  listMembers: () => request<BrandTeamMember[]>("/partner/members"),
+
+  listInvitations: () => request<BrandTeamInvitation[]>("/partner/members/invitations"),
+
+  invite: (payload: { email: string; role: 'owner' | 'manager' | 'staff' }) =>
+    request<BrandTeamInvitation>("/partner/members/invitations", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+
+  revokeInvitation: (id: number) =>
+    request<{ status: string; id: number }>(`/partner/members/invitations/${id}`, {
+      method: "DELETE",
+    }),
+
+  resendInvitation: (id: number) =>
+    request<BrandTeamInvitation>(`/partner/members/invitations/${id}/resend`, {
+      method: "POST",
+    }),
+
+  changeRole: (membershipId: number, role: 'owner' | 'manager' | 'staff') =>
+    request<BrandTeamMember>(`/partner/members/${membershipId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ role }),
+    }),
+
+  removeMember: (membershipId: number) =>
+    request<{ status: string; id: number }>(`/partner/members/${membershipId}`, {
+      method: "DELETE",
+    }),
+
+  accept: (token: string) =>
+    request<{ brand_id: number; role: string; already_member: boolean }>(
+      "/partner/members/invitations/accept",
+      { method: "POST", body: JSON.stringify({ token }) },
+    ),
+}

@@ -62,6 +62,48 @@ describe('partner/admin route separation', () => {
   });
 });
 
+
+describe('BRD-02 tenant-membership admission', () => {
+  const renderB2b = () =>
+    render(
+      <MemoryRouter initialEntries={['/b2b/team']}>
+        <Routes>
+          <Route
+            path="/b2b/*"
+            element={<PartnerPortalBoundary><p>partner tenant content</p></PartnerPortalBoundary>}
+          />
+          <Route path="/admin/*" element={<Path />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+  it('admits a global-consumer account that holds an active brand membership', () => {
+    useAuthStore.setState({
+      user: { id: 9, email: 'invited@confit.test', full_name: 'Invited', role: 'consumer' } as any,
+      isAuthenticated: true,
+      isLoading: false,
+      hasAttemptedBootstrap: true,
+      brandMemberships: [{ brand_id: 7, brand_name: 'Atelier Noir', slug: 'atelier-noir', role: 'staff', status: 'active' }],
+      brandMembershipsStatus: 'ready',
+    });
+    renderB2b();
+    expect(screen.getByText('partner tenant content')).toBeTruthy();
+  });
+
+  it('keeps the gateway up when the resolved membership list is empty', () => {
+    useAuthStore.setState({
+      user: { id: 9, email: 'nobody@confit.test', full_name: 'Nobody', role: 'consumer' } as any,
+      isAuthenticated: true,
+      isLoading: false,
+      hasAttemptedBootstrap: true,
+      brandMemberships: [],
+      brandMembershipsStatus: 'ready',
+    });
+    renderB2b();
+    expect(screen.queryByText('partner tenant content')).toBeNull();
+  });
+});
+
 describe('portal back navigation', () => {
   it('returns to the previous portal page when an in-app history entry exists', () => {
     render(

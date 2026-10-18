@@ -597,7 +597,12 @@ def test_migration_chain_has_a_single_head_at_0036() -> None:
     #    the GDPR Art.17 retention clock so the purge reaches job-row person
     #    photos; additive nullable columns, backfill makes rows immediately
     #    purge-eligible.
-    assert expected_head_revision() == "0038_vton_job_retention"
+    # -> 0039 (brand_memberships, BRD-02 / spec 005 / #150 residue): multiple
+    #    members per brand tenant with invitation lifecycle and last-owner
+    #    protection. Additive tables + founder back-fill; the founder anchor
+    #    brand_profiles.user_id stays as the documented rollback fallback.
+    assert expected_head_revision() == "0039_brand_memberships"
+    assert chain["0039_brand_memberships"] == "0038_vton_job_retention"
     assert chain["0036_recently_viewed_unique"] == "0035_product_images"
     assert chain["0035_product_images"] == "0034_mfa_email_codes"
     assert chain["0034_mfa_email_codes"] == "0033_email_preferences"

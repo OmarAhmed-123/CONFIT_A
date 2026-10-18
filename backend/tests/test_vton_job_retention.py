@@ -61,8 +61,12 @@ class TestModelAndChain:
         chain = migration_chain()
         downs = {d for d in chain.values() if d}
         heads = [r for r in chain if r not in downs]
-        assert heads == ["0038_vton_job_retention"] == [expected_head_revision()]
+        # Head advances whenever a migration is appended (0038 -> 0039 by the
+        # memberships work); the pinned contract is LINEAR single-head +
+        # the retention link, which stays below the head.
+        assert heads == [expected_head_revision()]
         assert chain["0038_vton_job_retention"] == "0037_garment_asset_gate"
+        assert chain["0039_brand_memberships"] == "0038_vton_job_retention"
 
 
 class TestPurgeTaskCoversJobs:

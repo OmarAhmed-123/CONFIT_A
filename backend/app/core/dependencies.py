@@ -145,6 +145,67 @@ def require_role(allowed_roles: List[UserRole]):
     return role_checker
 
 
+def require_brand_access(capability: str = "brand:read", *, allow_admin: bool = True):
+    """Tenant-scoped RBAC for partner (B2B) routes — membership is the grant.
+
+    Successor of ``require_role(BRAND_ROLES)`` on brand routes: the acting
+    user's CAPABILITY comes from their ACTIVE BrandMembership row (role
+    owner|manager|staff), never from the global ``users.role`` alone and never
+    from a client-supplied brand id (brief §5.2). The legacy founder path
+    (global BRAND_OWNER owning a BrandProfile row) keeps working unchanged, so
+    pre-membership data and a migration rollback both stay functional.
+
+    Like require_role, a DENIED privileged access is itself audited (ASVS
+    V16.3.2) and the audit can never convert a denial into access.
+    ``allow_admin=False`` removes the platform-admin override — used by
+    members:manage so tenant governance cannot be exercised through the
+    partner API by a platform admin.
+    """
+    def brand_checker(
+        request: Request,
+        user: User = Depends(get_current_user),
+        db: Session = Depends(get_db),
+    ) -> User:
+        from backend.app.services.brand_membership_service import (
+            BrandAccessDenied,
+            BrandMembershipService,
+        )
+        try:
+            resolved = BrandMembershipService(db).resolve_access(
+                user, capability, allow_admin=allow_admin,
+            )
+        except BrandAccessDenied:
+            try:
+                UserRepository(db).log_audit(
+                    action="AUTHORIZATION_DENIED",
+                    resource_type="BrandAccess",
+                    resource_id=request.url.path[:255],
+                    user_id=user.id,
+                    ip_address=client_ip(request),
+                    request_id=current_request_id(request),
+                    after={
+                        "method": request.method,
+                        "path": request.url.path,
+                        "capability": capability,
+                        "actual_role": user.role.value,
+                    },
+                )
+            except Exception as exc:  # audit must never flip denial into access
+                db.rollback()
+                logger.warning(
+                    "authorization_denial_audit_failed",
+                    path=request.url.path, method=request.method,
+                    user_id=user.id, error_type=type(exc).__name__,
+                )
+            raise AuthorizationError(
+                "Brand tenant access denied for this operation."
+            )
+        # Handlers may consume the resolved tenant context without a re-query.
+        request.state.brand_access = resolved
+        return user
+    return brand_checker
+
+
 def require_admin_recent(max_age_minutes: int = 60):
     """ADMIN-01 step-up policy: sensitive admin mutations need a FRESH sign-in.
 

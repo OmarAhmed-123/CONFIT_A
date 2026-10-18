@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Literal
 from decimal import Decimal
 from pydantic import BaseModel, ConfigDict, Field
 from backend.app.schemas.catalog import ProductSummaryOut, ProductSKUOut
@@ -258,5 +258,59 @@ class PartnerStoreDetailOut(BaseModel):
     total_stock_units: int
     google_maps_url: str
     created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class BrandMemberOut(BaseModel):
+    """One membership row for the team list. ``email`` is nulled for viewers
+    below manager (the controller strips it) — never the API trusting the UI."""
+    id: int
+    brand_id: int
+    user_id: int
+    full_name: str
+    email: Optional[str] = None
+    role: Literal["owner", "manager", "staff"]
+    status: Literal["active", "revoked"]
+    created_at: datetime
+    revoked_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class BrandInvitationOut(BaseModel):
+    id: int
+    brand_id: int
+    email: str
+    role: Literal["owner", "manager", "staff"]
+    status: Literal["pending", "accepted", "revoked", "expired"]
+    created_at: datetime
+    expires_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class MemberInviteRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    email: str = Field(min_length=3, max_length=255)
+    role: Literal["owner", "manager", "staff"]
+
+
+class MemberRoleUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    role: Literal["owner", "manager", "staff"]
+
+
+class InvitationAcceptRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    token: str = Field(min_length=20, max_length=128)
+
+
+class MyMembershipOut(BaseModel):
+    brand_id: int
+    brand_name: str
+    slug: str
+    role: Literal["owner", "manager", "staff"]
+    status: Literal["active", "revoked"]
 
     model_config = ConfigDict(from_attributes=True)

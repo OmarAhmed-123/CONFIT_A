@@ -8,15 +8,24 @@ import json
 from backend.app.core.money import to_decimal, to_float, validate_money, money_add, money_sub, MoneyValueError, MoneyRangeError
 
 from backend.app.core.database import get_db
-from backend.app.core.dependencies import require_role, BRAND_ROLES
+from backend.app.core.dependencies import (
+    require_role, BRAND_ROLES, require_brand_access, get_current_user,
+)
 from backend.app.core.exceptions import ResourceNotFoundError, ValidationDomainError, AuthorizationError
-from backend.app.models.user import User
+from backend.app.models.user import User, UserRole, BrandProfile
+from backend.app.models.membership import BrandMembership
 from backend.app.services.brand_service import BrandService
 from backend.app.services.brand_catalog_service import BrandCatalogService
 from backend.app.services.product_tagging_service import ProductTaggingService
 from backend.app.repositories.brand_repository import BrandRepository
 from backend.app.schemas.brand import (
     BrandProfileOut,
+    BrandMemberOut,
+    BrandInvitationOut,
+    MemberInviteRequest,
+    MemberRoleUpdate,
+    InvitationAcceptRequest,
+    MyMembershipOut,
     BrandProductOut,
     CatalogBulkImportRequest,
     BrandAnalyticsDashboardOut,
@@ -36,7 +45,20 @@ from backend.app.core.rate_limit import limiter
 
 router = APIRouter(tags=["Brand & Admin Management (B2B)"])
 
-brand_auth = require_role(BRAND_ROLES)
+# BRD-02 (0039): partner access is TENANT-scoped. ``brand_auth`` keeps the
+# read-level capability every active member holds; mutation routes declare the
+# specific capability they need below. Membership (not users.role) is the
+# grant, resolved server-side; the legacy founder path still resolves.
+brand_auth = require_brand_access("brand:read")
+brand_inventory = require_brand_access("inventory:write")
+brand_catalog = require_brand_access("catalog:write")
+brand_stores = require_brand_access("stores:write")
+brand_placements = require_brand_access("placements:manage")
+brand_profile = require_brand_access("profile:write")
+brand_billing = require_brand_access("billing:read")
+# Tenant governance: owner-only and NO admin override (platform admin must not
+# manage who belongs to a brand through the partner API).
+brand_members = require_brand_access("members:manage", allow_admin=False)
 
 
 @router.post("/brand/request-demo", response_model=PartnerLeadOut, status_code=status.HTTP_201_CREATED)
@@ -151,7 +173,8 @@ def get_brand_onboarding_status(
 
 
 def _audit(db: Session, user: User, action: str, resource_type: str,
-           resource_id, details: dict | None = None) -> None:
+           resource_id, details: dict | None = None,
+           before: dict | None = None, after: dict | None = None) -> None:
     """Persist a B2B admin audit event.
 
     Final truth audit finding: none of the brand/admin mutating endpoints
@@ -170,6 +193,7 @@ def _audit(db: Session, user: User, action: str, resource_type: str,
             resource_id=str(resource_id) if resource_id is not None else None,
             user_id=getattr(user, "id", None),
             details=json.dumps(details or {}, default=str)[:2000],
+            before=before, after=after,
         )
     except Exception as _e:  # pragma: no cover - defensive
         import logging
@@ -244,7 +268,7 @@ def get_brand_profile(
 @router.patch("/partner/profile", response_model=BrandProfileOut)
 def patch_brand_profile(
     payload: BrandProfileUpdate,
-    user: User = Depends(brand_auth),
+    user: User = Depends(brand_profile),
     db: Session = Depends(get_db),
 ):
     service = BrandService(db)
@@ -366,7 +390,7 @@ def get_brand_products(
 @router.post("/brand/catalog/upload", status_code=status.HTTP_202_ACCEPTED)
 def import_catalog_bulk(
     payload: CatalogBulkImportRequest,
-    user: User = Depends(brand_auth),
+    user: User = Depends(brand_catalog),
     db: Session = Depends(get_db)
 ):
     bp = BrandService(db).get_brand_profile_by_user(user)
@@ -391,7 +415,7 @@ def download_catalog_template():
 async def preview_catalog_csv(
     file: UploadFile = File(...),
     target_store_id: Optional[int] = Query(None),
-    user: User = Depends(brand_auth),
+    user: User = Depends(brand_catalog),
     db: Session = Depends(get_db)
 ):
     """
@@ -426,7 +450,7 @@ async def preview_catalog_csv(
 @router.post("/brand/catalog/export-errors")
 def export_catalog_import_errors(
     payload: Dict[str, Any],
-    user: User = Depends(brand_auth),
+    user: User = Depends(brand_catalog),
     db: Session = Depends(get_db)
 ):
     """
@@ -448,7 +472,7 @@ async def upload_catalog_csv(
     file: UploadFile = File(...),
     target_store_id: Optional[int] = Query(None),
     send_notifications: bool = Query(True),
-    user: User = Depends(brand_auth),
+    user: User = Depends(brand_catalog),
     db: Session = Depends(get_db)
 ):
     """
@@ -567,7 +591,7 @@ async def auto_tag_product(
     request: Request,
     product_id: int,
     dry_run: bool = Query(False, description="Run the models and report what would change, writing nothing."),
-    user: User = Depends(brand_auth),
+    user: User = Depends(brand_catalog),
     db: Session = Depends(get_db)
 ):
     """Auto-tag one of YOUR products with FashionCLIP (image, MIT) + GLiNER2
@@ -594,7 +618,7 @@ def update_sku_inventory(
     stock_level: int = Query(..., ge=0, le=100000, description="New stock level"),
     price_override: Optional[Decimal] = Query(None, gt=0, le=100000, max_digits=12, decimal_places=2,
                                                description="Price override (2dp, > 0)"),
-    user: User = Depends(brand_auth),
+    user: User = Depends(brand_inventory),
     db: Session = Depends(get_db)
 ):
     service = BrandService(db)
@@ -669,7 +693,7 @@ def get_partner_inventory(
 @router.post("/partner/inventory")
 def set_partner_inventory(
     payload: InventoryUpdateRequest,
-    user: User = Depends(brand_auth),
+    user: User = Depends(brand_inventory),
     db: Session = Depends(get_db)
 ):
     """Explicit store/SKU upsert; PATCH continues to require a real inventory ID."""
@@ -689,7 +713,7 @@ def set_partner_inventory(
 def update_partner_inventory(
     inventory_id: int,
     payload: InventoryUpdateRequest,
-    user: User = Depends(brand_auth),
+    user: User = Depends(brand_inventory),
     db: Session = Depends(get_db)
 ):
     """Update store inventory with tenant isolation and concurrency control"""
@@ -840,7 +864,7 @@ def get_partner_store_detail(
 @router.post("/brand/stores", status_code=status.HTTP_201_CREATED)
 def create_partner_store(
     payload: StoreCreateRequest,
-    user: User = Depends(brand_auth),
+    user: User = Depends(brand_stores),
     db: Session = Depends(get_db)
 ):
     service = BrandService(db)
@@ -868,7 +892,7 @@ def create_partner_store(
 def patch_partner_store(
     store_id: int,
     payload: StoreUpdateRequest,
-    user: User = Depends(brand_auth),
+    user: User = Depends(brand_stores),
     db: Session = Depends(get_db)
 ):
     service = BrandService(db)
@@ -894,7 +918,7 @@ def patch_partner_store(
 @router.delete("/brand/stores/{store_id}")
 def delete_partner_store(
     store_id: int,
-    user: User = Depends(brand_auth),
+    user: User = Depends(brand_stores),
     db: Session = Depends(get_db)
 ):
     service = BrandService(db)
@@ -924,7 +948,7 @@ def get_placements(
 @router.post("/partner/placements", response_model=SponsoredPlacementOut, status_code=status.HTTP_201_CREATED)
 def create_placement(
     payload: SponsoredPlacementCreate,
-    user: User = Depends(brand_auth),
+    user: User = Depends(brand_placements),
     db: Session = Depends(get_db)
 ):
     service = BrandService(db)
@@ -943,7 +967,7 @@ def create_placement(
 def patch_placement(
     placement_id: int,
     payload: Dict[str, Any],
-    user: User = Depends(brand_auth),
+    user: User = Depends(brand_placements),
     db: Session = Depends(get_db)
 ):
     service = BrandService(db)
@@ -990,7 +1014,7 @@ def patch_placement(
 @router.delete("/partner/placements/{placement_id}")
 def delete_placement(
     placement_id: int,
-    user: User = Depends(brand_auth),
+    user: User = Depends(brand_placements),
     db: Session = Depends(get_db)
 ):
     service = BrandService(db)
@@ -1124,7 +1148,7 @@ def track_conversion(
 def placement_reconciliation(
     placement_id: int,
     on_date: Optional[str] = Query(None, description="ISO date (YYYY-MM-DD); defaults to today UTC"),
-    user: User = Depends(brand_auth),
+    user: User = Depends(brand_billing),
     db: Session = Depends(get_db)
 ):
     """Independent reconciliation: ledger sum vs the cached spend counter.
@@ -1160,7 +1184,7 @@ def placement_reconciliation(
 def brand_billing_statement(
     start_date: Optional[str] = Query(None, description="ISO date, default 30 days ago"),
     end_date: Optional[str] = Query(None, description="ISO date, default today"),
-    user: User = Depends(brand_auth),
+    user: User = Depends(brand_billing),
     db: Session = Depends(get_db)
 ):
     """Per-day ad billing statement derived ONLY from the append-only ledger."""
@@ -1464,3 +1488,338 @@ def export_brand_bi_pdf_endpoint(
         media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="confit-bi-report-{slug}-{stamp}.pdf"'},
     )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# TEAM · brand memberships & invitations (BRD-02 · spec 005 · #150 residue)
+# ═══════════════════════════════════════════════════════════════════════════
+# Tenant-scoped staff management. Authoritative rules live in
+# backend/app/services/brand_membership_service.py; the endpoints here add
+# input validation, the uniform error envelope, the outbox email dispatch, and
+# hash-chained audit rows (0020 mapper listener). Joining a brand NEVER touches
+# users.role — platform roles stay separate from tenant roles.
+
+from datetime import date as _date
+
+
+def _membership_error(exc):
+    from backend.app.services.brand_membership_service import BrandMembershipError
+    if isinstance(exc, BrandMembershipError):
+        return HTTPException(status_code=exc.status,
+                             detail={"error": {"code": exc.code, "message": exc.message}})
+    return exc
+
+
+def _role_of(request: Request) -> str:
+    access = getattr(request.state, "brand_access", None) or {}
+    return access.get("role", "")
+
+
+@router.get("/partner/members/me", response_model=List[MyMembershipOut],
+            summary="The acting user's brand memberships (any authenticated user)")
+def get_my_memberships(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Powers role-aware navigation: consumers with an invited membership see
+    the partner portal, everyone else sees the gate. Empty list is the honest
+    no-membership answer, never an error."""
+    from backend.app.services.brand_membership_service import BrandMembershipService
+    from backend.app.models.membership import BrandMembership
+    svc = BrandMembershipService(db)
+    rows = (
+        db.query(BrandMembership, BrandProfile)
+        .join(BrandProfile, BrandProfile.id == BrandMembership.brand_id)
+        .filter(BrandMembership.user_id == user.id,
+                BrandMembership.status == "active")
+        .all()
+    )
+    # Legacy founder without a membership row (pre-0039 data / rollback):
+    # surface the founder tenant so the portal is reachable in every state.
+    # A REVOKED row suppresses the anchor (same rule as the service).
+    if (user.brand_profile is not None
+            and not db.query(BrandMembership).filter(
+                BrandMembership.user_id == user.id).count()):
+        bp = user.brand_profile
+        legacy_role = {UserRole.BRAND_OWNER: "owner", UserRole.BRAND_MANAGER: "manager",
+                       UserRole.BRAND_STAFF: "staff"}.get(user.role)
+        if legacy_role:
+            return [MyMembershipOut(brand_id=bp.id, brand_name=bp.brand_name,
+                                    slug=bp.slug, role=legacy_role, status="active")]
+    return [
+        MyMembershipOut(brand_id=bp.id, brand_name=bp.brand_name, slug=bp.slug,
+                        role=m.role, status=m.status)
+        for m, bp in rows
+    ]
+
+
+@router.get("/partner/members", response_model=List[BrandMemberOut],
+            summary="List brand team members (active; revoked rows owner-only)")
+def list_brand_members(
+    request: Request,
+    user: User = Depends(brand_auth),
+    db: Session = Depends(get_db),
+):
+    from backend.app.services.brand_membership_service import (
+        BrandAccessDenied, BrandMembershipService,
+    )
+    svc = BrandMembershipService(db)
+    try:
+        bp = svc.tenant_brand(user)
+    except BrandAccessDenied:
+        raise HTTPException(status_code=403, detail={
+            "error": {"code": "BRAND_ACCESS_DENIED",
+                      "message": "No active brand tenant is linked to this account."}})
+    # Read-repair for legacy data: if the founder somehow has no membership row
+    # (e.g. raw-SQL brand creation that bypassed provisioning), give them the
+    # owner row now instead of showing an impossible empty team.
+    if not svc.list_members(bp.id, include_revoked=True):
+        svc.ensure_founder_membership(bp)
+        db.commit()
+    viewer = _role_of(request)
+    show_revoked = viewer in ("owner", "admin")
+    members = svc.list_members(bp.id, include_revoked=show_revoked)
+    # Email is only disclosed to owner/manager (and admin oversight). Staff
+    # see presence + role, which is all the floor-operations view needs.
+    if viewer not in ("owner", "manager", "admin"):
+        for m in members:
+            m["email"] = None
+    return [BrandMemberOut(**m) for m in members]
+
+
+@router.post("/partner/members/invitations", response_model=BrandInvitationOut,
+             status_code=status.HTTP_201_CREATED,
+             summary="Invite a member (owner only; pending request is idempotent)")
+@limiter.limit("20/minute")
+def create_member_invitation(
+    request: Request,
+    payload: MemberInviteRequest,
+    user: User = Depends(brand_members),
+    db: Session = Depends(get_db),
+):
+    from backend.app.services.brand_membership_service import (
+        BrandMembershipService, hash_token as _h,
+    )
+    from backend.app.core.config import settings as _settings
+    svc = BrandMembershipService(db)
+    bp = svc.tenant_brand(user)
+    try:
+        outcome = svc.create_invitation(brand_id=bp.id, email=payload.email,
+                                       role=payload.role, actor=user)
+    except Exception as exc:
+        raise _membership_error(exc)
+    inv = outcome["invitation"]
+
+    # Delivery: queued through the durable outbox (exactly-once per day per
+    # invitation). The provider itself may be unconfigured in demo mode — that
+    # is recorded, honestly, as 'queued' vs 'sent'; nothing pretends otherwise.
+    delivery = "unavailable"
+    if outcome["created"] and outcome["raw_token"]:
+        try:
+            from backend.app.services.email_outbox import dispatch
+            accept_url = (f"{_settings.FRONTEND_BASE_URL.rstrip('/')}"
+                          f"/b2b/team/accept?token={outcome['raw_token']}")
+            role_label = {"owner": "Owner", "manager": "Manager", "staff": "Staff"}[payload.role]
+            row = dispatch(
+                db,
+                event_key=f"brand_invitation:{inv.id}:{_date.today().isoformat()}",
+                template="brand_invitation",
+                locale=(user.preferred_language or "en"),
+                recipient=inv.email,
+                payload={
+                    "brand_name": bp.brand_name,
+                    "inviter_name": user.full_name or "A brand owner",
+                    "role_label": role_label,
+                    "accept_url": accept_url,
+                },
+            )
+            delivery = "sent" if getattr(row, "status", "") == "sent" else "queued"
+        except Exception:
+            # Outbox enqueue failure must NOT roll back the invitation; the
+            # owner can still resend from the UI. Honest status, no pretense.
+            delivery = "unavailable"
+
+    _audit(db, user, "BRAND_MEMBER_INVITED", "BrandInvitation", inv.id, {
+        "brand_id": bp.id, "email_domain": inv.email.split("@")[-1],
+        "role": payload.role, "created": outcome["created"], "delivery": delivery,
+    })
+    return BrandInvitationOut.model_validate(inv)
+
+
+@router.post("/partner/members/invitations/{invitation_id}/resend",
+             response_model=BrandInvitationOut,
+             summary="Re-issue + re-mail a pending invitation (old token dies)")
+@limiter.limit("6/hour")
+def resend_member_invitation(
+    request: Request,
+    invitation_id: int,
+    user: User = Depends(brand_members),
+    db: Session = Depends(get_db),
+):
+    import secrets as _secrets
+    from backend.app.services.brand_membership_service import (
+        BrandMembershipService, hash_token as _h,
+    )
+    from backend.app.core.config import settings as _settings
+    from backend.app.services.email_outbox import dispatch
+    svc = BrandMembershipService(db)
+    bp = svc.tenant_brand(user)
+    try:
+        inv = svc.resend_invitation_email(brand_id=bp.id, invitation_id=invitation_id)
+        raw = _secrets.token_urlsafe(32)
+        inv.token_hash = _h(raw)  # rotation: the previous email's link stops working
+        db.commit()
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise _membership_error(exc)
+    try:
+        dispatch(
+            db,
+            event_key=f"brand_invitation:{inv.id}:resend:{_date.today().isoformat()}",
+            template="brand_invitation",
+            locale=(user.preferred_language or "en"),
+            recipient=inv.email,
+            payload={
+                "brand_name": bp.brand_name,
+                "inviter_name": user.full_name or "A brand owner",
+                "role_label": {"owner": "Owner", "manager": "Manager", "staff": "Staff"}[inv.role],
+                "accept_url": (f"{_settings.FRONTEND_BASE_URL.rstrip('/')}"
+                               f"/b2b/team/accept?token={raw}"),
+            },
+        )
+    except Exception:
+        pass  # token is rotated + persisted; a same-day mail collision is benign
+    _audit(db, user, "BRAND_MEMBER_INVITATION_RESENT", "BrandInvitation", inv.id,
+           {"brand_id": bp.id, "role": inv.role})
+    return BrandInvitationOut.model_validate(inv)
+
+
+@router.get("/partner/members/invitations", response_model=List[BrandInvitationOut],
+            summary="Pending invitations (owner + manager)")
+def list_member_invitations(
+    request: Request,
+    user: User = Depends(brand_auth),
+    db: Session = Depends(get_db),
+):
+    from backend.app.services.brand_membership_service import (
+        BrandAccessDenied, BrandMembershipService,
+    )
+    viewer = _role_of(request)
+    if viewer == "staff":
+        raise HTTPException(status_code=403, detail={
+            "error": {"code": "CAP_DENIED",
+                      "message": "Invitations are visible to owners and managers."}})
+    svc = BrandMembershipService(db)
+    try:
+        bp = svc.tenant_brand(user)
+    except BrandAccessDenied:
+        raise HTTPException(status_code=403, detail={
+            "error": {"code": "BRAND_ACCESS_DENIED",
+                      "message": "No active brand tenant is linked to this account."}})
+    return [BrandInvitationOut.model_validate(i) for i in svc.list_invitations(bp.id)]
+
+
+@router.delete("/partner/members/invitations/{invitation_id}",
+               summary="Revoke a pending invitation (owner only)")
+def revoke_member_invitation(
+    request: Request,
+    invitation_id: int,
+    user: User = Depends(brand_members),
+    db: Session = Depends(get_db),
+):
+    from backend.app.services.brand_membership_service import BrandMembershipService
+    svc = BrandMembershipService(db)
+    bp = svc.tenant_brand(user)
+    try:
+        inv = svc.revoke_invitation(brand_id=bp.id, invitation_id=invitation_id, actor=user)
+    except Exception as exc:
+        raise _membership_error(exc)
+    _audit(db, user, "BRAND_MEMBER_INVITATION_REVOKED", "BrandInvitation", inv.id,
+           {"brand_id": bp.id})
+    return {"status": "revoked", "id": inv.id}
+
+
+@router.post("/partner/members/invitations/accept",
+             summary="Consume an invitation token for the authenticated account")
+@limiter.limit("10/minute")
+def accept_member_invitation(
+    request: Request,
+    payload: InvitationAcceptRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Acceptance is bound to the authenticated account's email and consumes
+    the token exactly once. Every rejection (unknown/expired/revoked/consumed/
+    email-mismatch) returns the SAME code+message — the endpoint cannot be
+    used to enumerate invitation states. Re-accepting one's own consumed,
+    still-active invitation is an idempotent success (safe retry)."""
+    from backend.app.services.brand_membership_service import BrandMembershipService
+    svc = BrandMembershipService(db)
+    try:
+        result = svc.accept_invitation(raw_token=payload.token, user=user)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise _membership_error(exc)
+    _audit(db, user, "BRAND_MEMBER_JOINED", "BrandMembership", result["brand_id"], {
+        "brand_id": result["brand_id"], "role": result["role"],
+        "already": bool(result.get("already")),
+    })
+    return {"brand_id": result["brand_id"], "role": result["role"],
+            "already_member": bool(result.get("already"))}
+
+
+@router.patch("/partner/members/{membership_id}", response_model=BrandMemberOut,
+              summary="Change a member's tenant role (owner only; last-owner guarded)")
+def update_member_role(
+    request: Request,
+    membership_id: int,
+    payload: MemberRoleUpdate,
+    user: User = Depends(brand_members),
+    db: Session = Depends(get_db),
+):
+    from backend.app.services.brand_membership_service import BrandMembershipService
+    svc = BrandMembershipService(db)
+    bp = svc.tenant_brand(user)
+    before = db.get(BrandMembership, membership_id)
+    before_role = before.role if before and before.brand_id == bp.id else None
+    try:
+        m = svc.change_member_role(brand_id=bp.id, membership_id=membership_id,
+                                   new_role=payload.role, actor=user)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise _membership_error(exc)
+    _audit(db, user, "BRAND_MEMBER_ROLE_CHANGED", "BrandMembership", m.id, {
+        "brand_id": bp.id}, before={"role": before_role}, after={"role": m.role})
+    u = db.get(User, m.user_id)
+    return BrandMemberOut(id=m.id, brand_id=m.brand_id, user_id=m.user_id,
+                          full_name=u.full_name if u else "", email=u.email if u else None,
+                          role=m.role, status=m.status, created_at=m.created_at,
+                          revoked_at=m.revoked_at)
+
+
+@router.delete("/partner/members/{membership_id}",
+               summary="Remove a member (owner only; last-owner guarded; idempotent)")
+def remove_member(
+    request: Request,
+    membership_id: int,
+    user: User = Depends(brand_members),
+    db: Session = Depends(get_db),
+):
+    from backend.app.services.brand_membership_service import BrandMembershipService
+    svc = BrandMembershipService(db)
+    bp = svc.tenant_brand(user)
+    before = db.get(BrandMembership, membership_id)
+    before_state = ({"role": before.role, "status": before.status}
+                    if before and before.brand_id == bp.id else None)
+    try:
+        m = svc.remove_member(brand_id=bp.id, membership_id=membership_id, actor=user)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise _membership_error(exc)
+    _audit(db, user, "BRAND_MEMBER_REMOVED", "BrandMembership", m.id,
+           {"brand_id": bp.id}, before=before_state, after={"status": m.status})
+    return {"status": m.status, "id": m.id}

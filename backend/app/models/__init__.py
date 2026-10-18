@@ -28,6 +28,7 @@ from backend.app.models.brand_analytics import SponsoredPlacement, StyleHeatmapA
 # Without this, autogenerate would propose DROPPING brand_analytics_events /
 # catalog_import_jobs because it could not see their mappers.
 from backend.app.models.catalog_import import CatalogImportJob, BrandAnalyticsEvent
+from backend.app.models.membership import BrandMembership, BrandInvitation
 # Email outbox (spec 15): registered so create_all/alembic autogenerate see it.
 from backend.app.models.email_outbox import EmailOutbox
 from backend.app.models.email_preference import EmailPreference
@@ -81,4 +82,6 @@ __all__ = [
     "StyleHeatmapAggregate",
     "CatalogImportJob",
     "BrandAnalyticsEvent",
+    "BrandMembership",
+    "BrandInvitation",
 ]

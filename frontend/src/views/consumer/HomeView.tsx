@@ -39,6 +39,8 @@ import { HonestProductImage } from "../../components/common/HonestProductImage";
 import { catalogService } from "../../services/apiServices";
 import { queryKeys } from "../../lib/queryClient";
 import type { Product } from "../../models";
+import { Reveal, RevealGroup } from "../../components/common/Reveal";
+import { LaunchButton } from "../../components/common/LaunchButton";
 
 const editorialGalleryData: GalleryItem[] = [
   {
@@ -358,22 +360,22 @@ export const HomeView: React.FC = () => {
         support={t("home.hero_subtitle")}
         actions={
           <>
-            <button data-motion="neutral"
+            <LaunchButton
+              variant="arrow-rocket"
+              intent="progressive"
+              size="md"
               onClick={() =>
                 document
                   .getElementById("guided-first-look")
                   ?.scrollIntoView({
-                    // Smooth scroll is motion: honor the OS preference (§7).
                     behavior: reduceMotion ? "auto" : "smooth",
                     block: "start",
                   })
               }
-              type="button"
-              className="min-h-11 px-7 py-3.5 rounded-2xl bg-brand-charcoal hover:bg-[#1A1B1D] text-white font-bold text-xs sm:text-sm tracking-wide shadow-md transition-all flex items-center gap-2 active:scale-98 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-white"
+              className="shadow-md bg-brand-charcoal hover:bg-[#1A1B1D] text-white font-bold"
             >
-              <span aria-hidden="true"><SparkleIcon size={16} color="#FFFFFF" /></span>
-              <span>{t('home.get_first_look')}</span>
-            </button>
+              {t('home.get_first_look')}
+            </LaunchButton>
 
             <button data-motion="creative" data-motion-tone="icon"
               onClick={() =>
@@ -471,9 +473,10 @@ export const HomeView: React.FC = () => {
           deep links into the filtered Discover view. */}
       <CollectionRail categories={categories} isLoading={isLoading} />
 
+      <Reveal>
       <section
         id="guided-first-look"
-        className="rounded-[32px] border border-brand-hairline bg-white p-6 shadow-2xs sm:p-8"
+        className="rounded-[32px] border border-brand-hairline bg-white p-6 shadow-2xs sm:p-8 confit-card-interactive"
       >
         <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
           <div>
@@ -560,13 +563,14 @@ export const HomeView: React.FC = () => {
             </div>
 
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-              <button data-motion="creative"
-                type="button"
+              <LaunchButton
+                variant="spark-magic"
+                intent="creative"
+                size="md"
                 onClick={startGuidedLook}
-                className="rounded-2xl bg-brand-charcoal px-5 py-3 text-xs font-bold text-white transition hover:bg-[#1A1B1D]"
               >
                 {t('home.ask_stylist_cta')}
-              </button>
+              </LaunchButton>
               <p className="text-xs text-brand-muted">
                 {t('home.guest_friendly')}
               </p>
@@ -574,6 +578,7 @@ export const HomeView: React.FC = () => {
           </div>
         </div>
       </section>
+      </Reveal>
 
       {/* 2. Scroll-Driven 3D Editorial Gallery */}
       <section className="relative -mx-4 overflow-hidden rounded-[36px] border border-brand-hairline bg-white py-10 shadow-2xs sm:-mx-6 lg:-mx-8">

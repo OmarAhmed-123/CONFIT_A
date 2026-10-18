@@ -589,7 +589,15 @@ def test_migration_chain_has_a_single_head_at_0036() -> None:
     # shopper without their phone. One-time 6-digit codes delivered by
     # email: hashed at rest, 10-minute expiry, single-use atomic claim,
     # per-row attempt counter against brute force.
-    assert expected_head_revision() == "0036_recently_viewed_unique"
+    # -> 0037 (garment_asset_gate, PR #336): renumbered to sit AFTER the
+    #    production-applied 0036_recently_viewed_unique so production can
+    #    upgrade head without a rewritten revision ID (2026-10-17 integration;
+    #    a production-upgrade simulation at 0036 → head is green).
+    # -> 0038 (vton_job_retention, port of PR #119's 0019): tryon_jobs gains
+    #    the GDPR Art.17 retention clock so the purge reaches job-row person
+    #    photos; additive nullable columns, backfill makes rows immediately
+    #    purge-eligible.
+    assert expected_head_revision() == "0038_vton_job_retention"
     assert chain["0036_recently_viewed_unique"] == "0035_product_images"
     assert chain["0035_product_images"] == "0034_mfa_email_codes"
     assert chain["0034_mfa_email_codes"] == "0033_email_preferences"

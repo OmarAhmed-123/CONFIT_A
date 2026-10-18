@@ -29,6 +29,7 @@ from backend.app.controllers.brand_controller import router as brand_router
 from backend.app.controllers.admin_controller import router as admin_router
 from backend.app.controllers.telemetry_controller import router as telemetry_router
 from backend.app.controllers.moodboard_controller import router as moodboard_router
+from backend.app.controllers.media_controller import router as media_router
 from backend.app.core.rate_limit import limiter, rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
@@ -313,6 +314,7 @@ for prefix in [settings.API_V1_STR, "/v1", ""]:
     app.include_router(brand_router, prefix=prefix)
     app.include_router(admin_router, prefix=prefix)
     app.include_router(moodboard_router, prefix=prefix)
+    app.include_router(media_router, prefix=prefix)
 
 # Mount static files for user uploads only. The legacy /tryon_results static
 # mount was removed together with the purged pre-rendered assets: try-on

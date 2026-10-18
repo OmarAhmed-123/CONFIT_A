@@ -1,4 +1,5 @@
 from typing import Optional, List, Dict, Any
+from datetime import datetime
 from pydantic import BaseModel, ConfigDict, field_validator
 
 
@@ -123,6 +124,29 @@ class ProductSummaryOut(BaseModel):
 ProductOut = ProductSummaryOut
 
 
+class ProductMediaOut(BaseModel):
+    """One registered asset of a product's media set.
+
+    Sent alongside ``images`` so the UI can pick the frame by ratio instead of
+    cropping one picture into every slot, and so attribution travels with the
+    file (a stock editorial image must never be presented as a boutique's own
+    product photograph).
+    """
+
+    url: str
+    storage_key: str
+    ratio: str
+    format: str
+    width: int
+    height: int
+    bytes: int
+    role: str
+    is_primary: bool = False
+    source_type: str
+    provider: Optional[str] = None
+    attribution: Optional[str] = None
+
+
 class ProductDetailOut(ProductSummaryOut):
     #: Category slug for storefront deep links (/discover?category=<slug>).
     #: The PDP breadcrumb previously linked with category_id, which the
@@ -133,6 +157,8 @@ class ProductDetailOut(ProductSummaryOut):
     material: Optional[str]
     care_instructions: Optional[str]
     images: List[str]
+    #: Metadata for every registered asset (additive; older clients ignore it).
+    media: List[ProductMediaOut] = []
     size_chart: Dict[str, Any]
     skus: List[ProductSKUOut]
     bnpl_monthly_installment: Optional[float] = None
@@ -226,3 +252,108 @@ class AutocompleteSuggestion(BaseModel):
 class AutocompleteResponse(BaseModel):
     query: str
     suggestions: List[AutocompleteSuggestion]
+
+
+# ============================================================================
+# Customer Brand Discovery, Store Locator & Branch Inventory Schemas
+# ============================================================================
+
+class BrandPromotionOut(BaseModel):
+    id: int
+    code: str
+    description: str
+    discount_type: str  # "percent" | "fixed"
+    discount_value: float
+    min_order_amount: float = 0.0
+    currency: str = "USD"
+    starts_at: Optional[datetime] = None
+    expires_at: Optional[datetime] = None
+    is_active: bool = True
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class StoreBranchSummaryOut(BaseModel):
+    id: int
+    brand_id: int
+    brand_name: str
+    brand_slug: str
+    name: str
+    name_ar: str
+    address: str
+    city: str
+    country: str
+    latitude: float
+    longitude: float
+    phone: Optional[str] = None
+    pickup_instructions: Optional[str] = None
+    is_bopis_enabled: bool = True
+    distance_km: Optional[float] = None
+    google_maps_url: str
+    in_stock_skus_count: int = 0
+    active_promotions: List[BrandPromotionOut] = []
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class CustomerBrandOut(BaseModel):
+    id: int
+    brand_name: str
+    slug: str
+    logo_url: Optional[str] = None
+    banner_url: Optional[str] = None
+    description: Optional[str] = None
+    description_ar: Optional[str] = None
+    website: Optional[str] = None
+    is_verified: bool = True
+    return_rate_benchmark: int = 28
+    current_return_rate: int = 11
+    total_products: int = 0
+    stores_count: int = 0
+    cities: List[str] = []
+    categories: List[str] = []
+    active_promotions_count: int = 0
+    promotions: List[BrandPromotionOut] = []
+    sample_products: List[ProductSummaryOut] = []
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class CustomerBrandDetailOut(CustomerBrandOut):
+    stores: List[StoreBranchSummaryOut] = []
+    all_promotions: List[BrandPromotionOut] = []
+
+
+class BranchSKUAvailabilityOut(BaseModel):
+    sku_id: int
+    sku_code: str
+    size: str
+    color: str
+    color_hex: str
+    quantity_available: int
+    reserved_quantity: int
+    is_in_stock: bool
+    availability_status: str  # "in_stock" | "low_stock" | "out_of_stock"
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class BranchProductItemOut(ProductSummaryOut):
+    branch_id: int
+    branch_name: str
+    branch_total_units: int
+    branch_in_stock: bool
+    branch_availability_status: str  # "in_stock" | "low_stock" | "out_of_stock"
+    branch_skus: List[BranchSKUAvailabilityOut] = []
+    discount_percent: Optional[int] = None
+
+
+class BranchInventoryCatalogOut(BaseModel):
+    store: StoreBranchSummaryOut
+    brand: BrandSummaryOut
+    total_items: int
+    products: List[BranchProductItemOut]
+    categories: List[str]
+    available_sizes: List[str]
+    active_promotions: List[BrandPromotionOut] = []
+

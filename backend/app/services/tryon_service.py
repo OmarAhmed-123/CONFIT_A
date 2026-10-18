@@ -205,6 +205,33 @@ def check_person_bytes(raw: bytes, why: str = "image") -> None:
         )
 
 
+def _purge_vton_row_if_expired(obj: Any) -> bool:
+    """Opportunistic GDPR Art. 17 purge for ONE try-on row (job or session).
+
+    Port of PR #119. Serverless production does not run the Celery beat
+    worker, so the hourly purge daemon alone cannot enforce the 24h
+    retention on Vercel. This helper enforces the retention property at
+    read time: an expired, unconsented row has its person-photo
+    references replaced in place. Returns True when a purge happened.
+    """
+    expires_at = getattr(obj, "expires_at", None)
+    consent = getattr(obj, "consent_retained", False)
+    if expires_at is None or consent is True:
+        return False
+    if expires_at.tzinfo is None:  # SQLite returns naive datetimes; treat as UTC
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+    if expires_at > datetime.now(timezone.utc):
+        return False
+    changed = False
+    for attr in ("input_user_image_url", "user_image_url", "rendered_result_url",
+                 "input_person_image_url"):
+        val = getattr(obj, attr, None)
+        if val and val.startswith("data:image/"):
+            setattr(obj, attr, "[PURGED_FOR_PRIVACY]")
+            changed = True
+    return changed
+
+
 def _mime_from_bytes(raw: bytes) -> str:
     if raw[:8].startswith(b"\x89PNG"):
         return "image/png"
@@ -401,6 +428,13 @@ class TryOnService:
                 + VTON_UNSUPPORTED_SLOTS_MESSAGE.format(slots=", ".join(unsupported))
             )
 
+        # P0 ghost-hands gate: an ON-MODEL catalog photo may never reach the
+        # segmentation-free engine as a garment (its person would bleed into
+        # the render). Every not-yet-validated product is classified on CPU;
+        # worn photos fail loud with VTON_GARMENT_ASSET_INVALID unless a
+        # validated clean asset (garment_assets.tryon_ready) exists.
+        gate_enabled = os.environ.get("VTON_ASSET_GATE_ENABLED", "true").strip().lower() in ("1", "true", "yes")
+
         garments = []
         for p in products:
             slot = CATEGORY_TO_VTON_SLOT.get(
@@ -411,6 +445,46 @@ class TryOnService:
 
             # Try to fetch as base64 first for reliability (avoids worker SSRF/fetch issues)
             b64 = await self._fetch_image_as_base64(p.thumbnail_url)
+
+            if gate_enabled:
+                from backend.app.models.tryon import GarmentAsset
+                from backend.app.services.garment_asset_guard import (
+                    asset_gate_error,
+                    classify_garment_photo,
+                )
+
+                asset = (
+                    self.db.query(GarmentAsset)
+                    .filter(GarmentAsset.product_id == p.id)
+                    .first()
+                )
+                if not (asset and asset.tryon_ready):
+                    import base64 as _b64
+                    import io as _io
+
+                    from PIL import Image as _PILImage
+
+                    raw = None
+                    if b64:
+                        try:
+                            raw = _b64.b64decode(b64.split(",", 1)[1])
+                        except Exception:
+                            raw = None
+                    if raw is None:
+                        raise ValidationDomainError(
+                            f"VTON_GARMENT_ASSET_INVALID: product {p.id} "
+                            f"({p.title!r}) has no validated clean asset and its "
+                            "catalog image could not be fetched for validation. "
+                            "Refusing to render unvalidated input (fail closed)."
+                        )
+                    photo_type, evidence = classify_garment_photo(
+                        _PILImage.open(_io.BytesIO(raw))
+                    )
+                    err = asset_gate_error(
+                        photo_type, evidence, p.id, p.title, has_prepared_asset=False
+                    )
+                    if err:
+                        raise ValidationDomainError(err)
             if b64:
                 garments.append({
                     "product_id": p.id,
@@ -1039,6 +1113,12 @@ class TryOnService:
             ),
             model_used="pending (no render yet)",
             delivery_token_hash=delivery_token_hash,
+            # GDPR Art. 17 (port of PR #119): the job row itself carries the
+            # retention clock so the purge daemon can reach input_person_image_url.
+            expires_at=datetime.fromtimestamp(
+                time.time() + (720 if consent_retain_photo else 24) * 3600, tz=timezone.utc
+            ),
+            consent_retained=bool(consent_retain_photo),
             metrics_json=json.dumps({"queued_at": str(datetime.now(timezone.utc))})
         )
         self.db.add(job)
@@ -1420,6 +1500,11 @@ class TryOnService:
         job = self.db.query(TryOnJob).filter(TryOnJob.job_id == job_id).first()
         if not job:
             raise ResourceNotFoundError("TryOnJob", job_id)
+        # GDPR Art. 17 retention enforcement at read time (the hourly purge
+        # daemon may not run on serverless; an expired unconsented row is
+        # purged in place before it is ever reported). Port of PR #119.
+        if _purge_vton_row_if_expired(job):
+            self.db.commit()
         if job.user_id is not None:
             if job.user_id != caller_user_id:
                 raise ResourceNotFoundError("TryOnJob", job_id)
@@ -1632,6 +1717,9 @@ class TryOnService:
                 "flat_image_url": asset.flat_image_url,
                 "segmented_garment_url": asset.segmented_garment_url,
                 "garment_mask_url": asset.garment_mask_url,
+                "photo_type": asset.photo_type,
+                "tryon_ready": bool(asset.tryon_ready),
+                "clean_image_url": asset.clean_image_url,
                 "created_at": asset.created_at
             }
 
@@ -1639,13 +1727,43 @@ class TryOnService:
         if not product:
             raise ResourceNotFoundError("Product", product_id)
 
+        # HONEST placeholder (ghost-hands remediation): the old code copied
+        # the raw thumbnail into segmented_garment_url/garment_mask_url and
+        # invented a bounding box — i.e. it PRETENDED preprocessing existed.
+        # Now: only the source URL is recorded, the photo is classified
+        # (measured, never assumed), and tryon_ready stays False until the
+        # P1 prep pipeline stores a validated clean asset.
+        from backend.app.services.garment_asset_guard import classify_garment_photo
+
+        photo_type, evidence = "unknown", {}
+        try:
+            import base64 as _b64
+            import io as _io
+
+            from PIL import Image as _PILImage
+
+            b64 = None
+            # classify synchronously only for data URLs; remote thumbs are
+            # classified by the prep pipeline (this method must stay cheap)
+            if product.thumbnail_url.startswith("data:image"):
+                b64 = product.thumbnail_url
+            if b64:
+                raw = _b64.b64decode(b64.split(",", 1)[1])
+                photo_type, evidence = classify_garment_photo(_PILImage.open(_io.BytesIO(raw)))
+        except Exception as e:  # classification is best-effort here
+            logger.warn("garment_asset_classify_failed", product_id=product.id, error=str(e)[:120])
+
         new_asset = GarmentAsset(
             product_id=product.id,
             slot_type=CATEGORY_TO_VTON_SLOT.get(product.category.slug, DEFAULT_VTON_SLOT) if product.category else DEFAULT_VTON_SLOT,
             flat_image_url=product.thumbnail_url,
-            segmented_garment_url=product.thumbnail_url,
-            garment_mask_url=product.thumbnail_url,
-            bounding_box_json=json.dumps({"x": 0.2, "y": 0.25, "w": 0.6, "h": 0.5})
+            segmented_garment_url=None,
+            garment_mask_url=None,
+            bounding_box_json=json.dumps({}),
+            photo_type=photo_type,
+            tryon_ready=False,
+            clean_image_url=None,
+            classification_json=json.dumps(evidence),
         )
         self.db.add(new_asset)
         self.db.commit()
@@ -1657,6 +1775,9 @@ class TryOnService:
             "flat_image_url": new_asset.flat_image_url,
             "segmented_garment_url": new_asset.segmented_garment_url,
             "garment_mask_url": new_asset.garment_mask_url,
+            "photo_type": new_asset.photo_type,
+            "tryon_ready": bool(new_asset.tryon_ready),
+            "clean_image_url": new_asset.clean_image_url,
             "created_at": new_asset.created_at
         }
 

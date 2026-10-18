@@ -4,7 +4,7 @@ from backend.app.workers.celery_app import celery_app
 from backend.app.core.database import SessionLocal
 from backend.app.core.logging import logger
 from backend.app.models.wardrobe import WardrobeItem
-from backend.app.models.tryon import TryOnSession
+from backend.app.models.tryon import TryOnSession, TryOnJob
 
 
 # NOTE: there is deliberately NO Celery VTON task. The only virtual try-on
@@ -52,7 +52,15 @@ def auto_tag_wardrobe_task(self, item_id: int):
 
 @celery_app.task
 def purge_expired_sessions_task():
-    """GDPR Article 17 maintenance task: Purges unconsented Try-On photos exceeding 24h retention."""
+    """GDPR Article 17 maintenance task: Purges unconsented Try-On photos exceeding 24h retention.
+
+    Covers BOTH retention-bearing VTON tables (port of PR #119):
+    * ``tryon_sessions`` — the session row's person-photo references;
+    * ``tryon_jobs`` — the job row's ``input_person_image_url`` (the
+      uploaded person photo, stored as a data URL). Before this port the
+      job rows had no retention columns and the person photos they hold
+      would be retained indefinitely.
+    """
     logger.info("Running GDPR Privacy Purge daemon")
     db = SessionLocal()
     try:
@@ -68,9 +76,20 @@ def purge_expired_sessions_task():
         for s in expired_sessions:
             s.input_user_image_url = "[PURGED_FOR_PRIVACY]"
             s.rendered_result_url = "[PURGED_FOR_PRIVACY]"
+
+        # Job rows (migration 0038: job rows now carry expires_at/consent_retained).
+        expired_jobs = (
+            db.query(TryOnJob)
+            .filter(TryOnJob.consent_retained == False)
+            .filter(TryOnJob.expires_at < now)
+            .all()
+        )
+        job_count = len(expired_jobs)
+        for j in expired_jobs:
+            j.input_person_image_url = "[PURGED_FOR_PRIVACY]"
         db.commit()
-        logger.info("Purged expired privacy assets", count=count)
-        return {"purged_count": count}
+        logger.info("Purged expired privacy assets", sessions=count, jobs=job_count)
+        return {"purged_count": count, "purged_job_count": job_count}
     finally:
         db.close()
 

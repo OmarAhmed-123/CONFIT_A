@@ -1,0 +1,504 @@
+/* ═════════════════════════════════════════════════════════════════════════════
+   CONFIT · Interactive Animation Suite — Realistic Micro-interactions
+   ─────────────────────────────────────────────────────────────────────────────
+   Extends the existing button-motion + button-glyph-motion systems with
+   physics-informed, purpose-revealing animations for every interactive
+   element. Every animation ANSWERS the user's question "what did I just do?"
+
+   DESIGN PHILOSOPHY
+   · Realistic, not cartoonish — subtle physics, material weight, restrained
+   · Each animation mirrors its function's real-world metaphor
+   · White background (#FFFFFF) + brand palette (#242526 charcoal) anchor
+   · Respects prefers-reduced-motion and forced-colors
+   · No layout shift — transform/opacity only
+
+   ANIMATION FAMILIES
+   1. Launch sequence — arrow → rocket with exhaust bubbles (commit/launch/send)
+   2. Reveal — content breathes into view (stagger, elevation)
+   3. Tactile feedback — press depth, elastic return
+   4. Progress — honest loading that reflects real state
+   5. Page transitions — seamless route changes
+   ═════════════════════════════════════════════════════════════════════════════ */
+
+/* ── Shared tokens ──────────────────────────────────────────────────────── */
+:root {
+  --anim-luxury: cubic-bezier(0.25, 1, 0.5, 1);
+  --anim-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --anim-gentle: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --anim-sharp: cubic-bezier(0.4, 0, 0.2, 1);
+  --anim-duration-fast: 200ms;
+  --anim-duration-normal: 380ms;
+  --anim-duration-slow: 620ms;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   1 · LAUNCH SEQUENCE — arrow → rocket with exhaust particles
+   The signature interaction: a directional cue transforms into propulsion.
+   Used for: Try On, Launch Style, Send, Publish, Complete Purchase,
+   Start Fitting, Generate Look — any COMMIT action.
+
+   States (driven by data-launch-state on the control):
+   · idle — arrow glyph visible
+   · hover — arrow nudges forward, hinting at motion
+   · active — arrow compresses (pre-launch tension)
+   · launching — arrow morphs to rocket, exhaust particles rise
+   · launched — rocket trails off, success check settles
+
+   Implementation: the button's icon slot contains BOTH glyphs stacked;
+   CSS crossfades between them. Particles are pseudo-elements that rise
+   only during --launching. Pure CSS, no JS animation loop.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Container establishes particle origin */
+[data-launch] {
+  position: relative;
+  overflow: visible;
+  isolation: isolate;
+}
+
+/* Prevent parent overflow: hidden from clipping exhaust during launch.
+   Applied via :has() — browsers without it simply clip, no breakage. */
+@supports selector(:has(*)) {
+  body:has([data-launch][data-launch-state="launching"]) [data-launch] {
+    overflow: visible;
+  }
+}
+
+/* ── Glyph morph: arrow ↔ rocket ─────────────────────────────────────── */
+.confit-launch-glyph {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25em;
+  height: 1.25em;
+  flex-shrink: 0;
+}
+
+.confit-launch-glyph .confit-launch-arrow,
+.confit-launch-glyph .confit-launch-rocket {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    opacity 280ms var(--anim-luxury),
+    transform 380ms var(--anim-luxury);
+}
+
+/* Idle: arrow visible, rocket hidden */
+.confit-launch-glyph .confit-launch-arrow {
+  opacity: 1;
+  transform: translateX(0) rotate(0deg) scale(1);
+}
+.confit-launch-glyph .confit-launch-rocket {
+  opacity: 0;
+  transform: translateX(-8px) rotate(-12deg) scale(0.7);
+  pointer-events: none;
+}
+
+/* Hover: arrow leans forward — anticipation */
+[data-launch]:is(:hover, :focus-visible) .confit-launch-arrow {
+  transform: translateX(3px) scale(1.05);
+}
+[data-launch]:is(:hover, :focus-visible) .confit-launch-rocket {
+  transform: translateX(-4px) rotate(-6deg) scale(0.75);
+}
+
+/* Active: tension — arrow compresses slightly */
+[data-launch]:active .confit-launch-arrow {
+  transform: translateX(1px) scale(0.92);
+}
+
+/* Launching: arrow → rocket morph + exhaust */
+[data-launch][data-launch-state="launching"] .confit-launch-arrow {
+  opacity: 0;
+  transform: translateX(6px) scale(0.6) rotate(8deg);
+}
+[data-launch][data-launch-state="launching"] .confit-launch-rocket {
+  opacity: 1;
+  transform: translateX(0) rotate(0deg) scale(1);
+  animation: confit-rocket-ascend 680ms var(--anim-luxury) both;
+}
+[data-launch][data-launch-state="launching"] .confit-launch-rocket svg {
+  animation: confit-rocket-vibrate 80ms linear infinite alternate;
+  transform-origin: center bottom;
+}
+
+/* Launched: rocket trails off, check settles */
+[data-launch][data-launch-state="launched"] .confit-launch-arrow {
+  opacity: 0;
+  transform: translateX(8px) scale(0.4);
+}
+[data-launch][data-launch-state="launched"] .confit-launch-rocket {
+  opacity: 0;
+  transform: translateY(-14px) scale(0.85);
+  transition: opacity 420ms ease, transform 520ms var(--anim-gentle);
+}
+
+/* Success check that replaces the rocket */
+.confit-launch-success {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transform: scale(0.5);
+  pointer-events: none;
+  transition: opacity 260ms ease, transform 340ms var(--anim-spring);
+}
+[data-launch][data-launch-state="launched"] .confit-launch-success {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* ── Exhaust particles (bubbles/dots rising behind the rocket) ────────── */
+.confit-launch-exhaust {
+  position: absolute;
+  bottom: 20%;
+  left: 50%;
+  width: 2px;
+  height: 2px;
+  pointer-events: none;
+  opacity: 0;
+}
+
+.confit-launch-exhaust::before,
+.confit-launch-exhaust::after {
+  content: "";
+  position: absolute;
+  border-radius: 50%;
+  background: var(--brand-coral, #EF826D);
+  opacity: 0;
+}
+
+/* Particle 1 — larger, slower */
+.confit-launch-exhaust::before {
+  width: 5px;
+  height: 5px;
+  left: -3px;
+  background: radial-gradient(circle, rgba(239,130,109,0.85) 0%, rgba(239,130,109,0) 70%);
+}
+/* Particle 2 — smaller, faster */
+.confit-launch-exhaust::after {
+  width: 3px;
+  height: 3px;
+  left: 2px;
+  background: radial-gradient(circle, rgba(169,154,214,0.8) 0%, rgba(169,154,214,0) 70%);
+}
+
+[data-launch][data-launch-state="launching"] .confit-launch-exhaust {
+  opacity: 1;
+}
+[data-launch][data-launch-state="launching"] .confit-launch-exhaust::before {
+  animation: confit-bubble-rise 560ms var(--anim-gentle) 80ms both;
+}
+[data-launch][data-launch-state="launching"] .confit-launch-exhaust::after {
+  animation: confit-bubble-rise 480ms var(--anim-gentle) 140ms both;
+}
+
+/* Additional trailing dots via child spans for richer exhaust */
+.confit-launch-particle {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  opacity: 0;
+}
+.confit-launch-particle:nth-child(1) {
+  width: 4px; height: 4px;
+  left: -6px; bottom: 2px;
+  background: radial-gradient(circle, rgba(137,183,119,0.7) 0%, transparent 70%);
+}
+.confit-launch-particle:nth-child(2) {
+  width: 3px; height: 3px;
+  left: 4px; bottom: 1px;
+  background: radial-gradient(circle, rgba(239,130,109,0.6) 0%, transparent 70%);
+}
+.confit-launch-particle:nth-child(3) {
+  width: 2px; height: 2px;
+  left: -1px; bottom: 0;
+  background: rgba(36,37,38,0.25);
+}
+
+[data-launch][data-launch-state="launching"] .confit-launch-particle:nth-child(1) {
+  animation: confit-bubble-rise 520ms var(--anim-gentle) 40ms both;
+}
+[data-launch][data-launch-state="launching"] .confit-launch-particle:nth-child(2) {
+  animation: confit-bubble-rise 460ms var(--anim-gentle) 100ms both;
+}
+[data-launch][data-launch-state="launching"] .confit-launch-particle:nth-child(3) {
+  animation: confit-bubble-rise 400ms var(--anim-gentle) 160ms both;
+}
+
+/* ── Keyframes: launch family ─────────────────────────────────────────── */
+@keyframes confit-rocket-ascend {
+  0% { transform: translateY(0) scale(1) rotate(0deg); }
+  40% { transform: translateY(-2px) scale(1.04) rotate(-1deg); }
+  100% { transform: translateY(-6px) scale(1) rotate(0deg); }
+}
+@keyframes confit-rocket-vibrate {
+  0% { transform: translateX(-0.3px) translateY(0); }
+  100% { transform: translateX(0.3px) translateY(0.4px); }
+}
+@keyframes confit-bubble-rise {
+  0% { opacity: 0; transform: translateY(0) scale(0.6); }
+  20% { opacity: 0.9; transform: translateY(-4px) scale(1); }
+  60% { opacity: 0.5; transform: translateY(-10px) scale(0.85); }
+  100% { opacity: 0; transform: translateY(-16px) scale(0.4); }
+}
+@keyframes confit-check-pop {
+  0% { opacity: 0; transform: scale(0.4) rotate(-8deg); }
+  55% { opacity: 1; transform: scale(1.12) rotate(2deg); }
+  100% { opacity: 1; transform: scale(1) rotate(0deg); }
+}
+
+/* Launching button itself gets subtle lift + glow */
+[data-launch][data-launch-state="launching"] {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px -4px rgba(36,37,38,0.18), 0 1px 4px rgba(36,37,38,0.08);
+  transition: transform 200ms var(--anim-gentle), box-shadow 260ms ease;
+}
+[data-launch][data-launch-state="launched"] {
+  transform: translateY(0);
+  box-shadow: 0 1px 4px rgba(36,37,38,0.06);
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   2 · REVEAL ANIMATIONS — content enters with purpose
+   Staggered children, elevation, and subtle scale create depth on the
+   white (#FFFFFF) canvas without competing with product imagery.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Container that staggers its children */
+.confit-reveal-group {
+  --reveal-stagger: 70ms;
+  --reveal-duration: 480ms;
+}
+
+.confit-reveal-item {
+  opacity: 0;
+  transform: translateY(12px);
+  animation: confit-reveal-enter var(--reveal-duration) var(--anim-luxury) both;
+}
+
+/* Stagger via nth-child — up to 12 items, then flat delay */
+.confit-reveal-group .confit-reveal-item:nth-child(1)  { animation-delay: calc(var(--reveal-stagger) * 0); }
+.confit-reveal-group .confit-reveal-item:nth-child(2)  { animation-delay: calc(var(--reveal-stagger) * 1); }
+.confit-reveal-group .confit-reveal-item:nth-child(3)  { animation-delay: calc(var(--reveal-stagger) * 2); }
+.confit-reveal-group .confit-reveal-item:nth-child(4)  { animation-delay: calc(var(--reveal-stagger) * 3); }
+.confit-reveal-group .confit-reveal-item:nth-child(5)  { animation-delay: calc(var(--reveal-stagger) * 4); }
+.confit-reveal-group .confit-reveal-item:nth-child(6)  { animation-delay: calc(var(--reveal-stagger) * 5); }
+.confit-reveal-group .confit-reveal-item:nth-child(7)  { animation-delay: calc(var(--reveal-stagger) * 6); }
+.confit-reveal-group .confit-reveal-item:nth-child(8)  { animation-delay: calc(var(--reveal-stagger) * 7); }
+.confit-reveal-group .confit-reveal-item:nth-child(n+9) { animation-delay: calc(var(--reveal-stagger) * 8); }
+
+@keyframes confit-reveal-enter {
+  from { opacity: 0; transform: translateY(12px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Card hover: gentle lift with shadow bloom — material depth */
+.confit-card-interactive {
+  transition:
+    transform 280ms var(--anim-gentle),
+    box-shadow 320ms var(--anim-gentle),
+    border-color 200ms ease;
+}
+.confit-card-interactive:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 32px -12px rgba(36,37,38,0.16), 0 4px 12px -4px rgba(36,37,38,0.08);
+  border-color: rgba(36,37,38,0.10);
+}
+.confit-card-interactive:active {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px -8px rgba(36,37,38,0.12);
+  transition-duration: 120ms;
+}
+
+/* Image zoom on card hover — subtle, restrained */
+.confit-card-interactive .confit-card-media {
+  overflow: hidden;
+}
+.confit-card-interactive .confit-card-media img {
+  transition: transform 560ms var(--anim-luxury);
+}
+.confit-card-interactive:hover .confit-card-media img {
+  transform: scale(1.04);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   3 · TACTILE FEEDBACK — every press has weight
+   ═══════════════════════════════════════════════════════════════════════════ */
+.confit-pressable {
+  transition: transform 140ms var(--anim-sharp), box-shadow 140ms ease;
+}
+.confit-pressable:active {
+  transform: scale(0.97);
+}
+.confit-pressable--subtle:active {
+  transform: scale(0.98);
+}
+
+/* Press creates a soft inner shadow — "pushing into" the surface */
+.confit-pressable--depth:active {
+  box-shadow: inset 0 2px 8px rgba(36,37,38,0.10);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   4 · PROGRESS INDICATORS — honest, measured, calm
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Shimmer bar — directional, brand-tinted */
+.confit-progress-shimmer {
+  position: relative;
+  overflow: hidden;
+  background: #F1F5F9;
+  border-radius: 9999px;
+  height: 3px;
+}
+.confit-progress-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    rgba(36,37,38,0.12) 50%,
+    transparent 100%);
+  transform: translateX(-100%);
+  animation: confit-progress-sweep 1.6s var(--anim-gentle) infinite;
+}
+[dir="rtl"] .confit-progress-shimmer::after {
+  transform: translateX(100%);
+  animation-name: confit-progress-sweep-rtl;
+}
+
+@keyframes confit-progress-sweep {
+  to { transform: translateX(100%); }
+}
+@keyframes confit-progress-sweep-rtl {
+  to { transform: translateX(-100%); }
+}
+
+/* Determinate progress fill */
+.confit-progress-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #242526, #3D4A5C);
+  transition: width 420ms var(--anim-gentle);
+}
+.confit-progress-fill--success {
+  background: linear-gradient(90deg, #059669, #89B799);
+}
+.confit-progress-fill--brand {
+  background: linear-gradient(90deg, #EF826D, #E87A5D);
+}
+
+/* Pulsing dot — for "live" / "processing" states */
+.confit-live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #22C55E;
+  animation: confit-live-pulse 2s ease-in-out infinite;
+}
+.confit-live-dot--amber { background: #F59E0B; }
+.confit-live-dot--coral { background: #EF826D; }
+.confit-live-dot--muted { background: #94A3B8; }
+
+@keyframes confit-live-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); box-shadow: 0 0 0 0 rgba(34,197,94,0.3); }
+  50% { opacity: 0.9; transform: scale(1.05); box-shadow: 0 0 0 4px rgba(34,197,94,0); }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   5 · PAGE TRANSITIONS — seamless navigation
+   ═══════════════════════════════════════════════════════════════════════════ */
+.confit-page-enter {
+  animation: confit-page-in 420ms var(--anim-luxury) both;
+}
+@keyframes confit-page-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Section divider that draws itself */
+.confit-divider-draw {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #E8E6E2 20% 80%, transparent);
+  transform-origin: center;
+  animation: confit-divider-grow 600ms var(--anim-luxury) both;
+}
+@keyframes confit-divider-grow {
+  from { transform: scaleX(0); opacity: 0; }
+  to   { transform: scaleX(1); opacity: 1; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   6 · NUMBER COUNT-UP — for KPI reveals
+   The number itself is handled by JS, but the container gets a subtle
+   emphasis that marks "this value just computed".
+   ═══════════════════════════════════════════════════════════════════════════ */
+.confit-kpi-reveal {
+  animation: confit-kpi-settle 520ms var(--anim-luxury) both;
+}
+@keyframes confit-kpi-settle {
+  0% { opacity: 0; transform: translateY(6px) scale(0.96); letter-spacing: 0.04em; }
+  100% { opacity: 1; transform: translateY(0) scale(1); letter-spacing: 0; }
+}
+
+/* Trend arrow micro-animation */
+.confit-trend-up {
+  display: inline-flex;
+  animation: confit-trend-nudge 600ms var(--anim-gentle) both;
+}
+@keyframes confit-trend-nudge {
+  0% { transform: translateY(4px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   7 · FOCUS & ACCESSIBILITY
+   ═══════════════════════════════════════════════════════════════════════════ */
+@media (prefers-reduced-motion: reduce) {
+  [data-launch] *,
+  .confit-reveal-item,
+  .confit-card-interactive,
+  .confit-card-interactive .confit-card-media img,
+  .confit-pressable,
+  .confit-progress-shimmer::after,
+  .confit-live-dot,
+  .confit-page-enter,
+  .confit-divider-draw,
+  .confit-kpi-reveal,
+  .confit-trend-up {
+    animation: none !important;
+    transition-duration: 0.001ms !important;
+  }
+  /* State remains visible as static end-frames */
+  .confit-reveal-item { opacity: 1; transform: none; }
+  [data-launch][data-launch-state="launching"] .confit-launch-arrow { opacity: 0; }
+  [data-launch][data-launch-state="launching"] .confit-launch-rocket { opacity: 1; transform: none; }
+  .confit-launch-exhaust,
+  .confit-launch-particle { display: none; }
+  .confit-card-interactive:hover { transform: none; }
+}
+
+@media (forced-colors: active) {
+  .confit-progress-shimmer,
+  .confit-progress-fill,
+  .confit-live-dot,
+  .confit-divider-draw { background: CanvasText; }
+  .confit-launch-exhaust,
+  .confit-launch-particle { display: none; }
+}
+
+/* High contrast: motion still works but particles become solid */
+@media (prefers-contrast: more) {
+  .confit-launch-exhaust::before,
+  .confit-launch-exhaust::after {
+    background: currentColor;
+  }
+}

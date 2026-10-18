@@ -185,6 +185,11 @@ def test_commerce_cart_checkout_and_tracking(client: TestClient):
     token = login_res.json()["access_token"]
     headers = {"Authorization": f"Bearer {token}", "X-Session-Token": "test_session_123"}
 
+    # Clear any residual cart items from previous tests
+    existing_cart = client.get("/api/v1/commerce/cart", headers=headers).json()
+    for item in list(existing_cart.get("items") or []):
+        client.delete(f"/api/v1/commerce/cart/items/{item['id']}", headers=headers)
+
     # Add item to cart
     add_res = client.post("/api/v1/commerce/cart/items", headers=headers, json={
         "product_sku_id": 1,
@@ -206,7 +211,7 @@ def test_commerce_cart_checkout_and_tracking(client: TestClient):
         "promo_code": "CONFIT10",
         "try_on_assisted": True
     })
-    assert checkout_res.status_code == 200
+    assert checkout_res.status_code == 200, checkout_res.text
     order_data = checkout_res.json()
     assert order_data["order_number"].startswith("CONF-")
     assert order_data["payment_method"] == "bnpl_tabby"

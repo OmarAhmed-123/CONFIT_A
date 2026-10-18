@@ -4,6 +4,7 @@ import { App } from './App';
 import './styles/index.css';
 import './styles/button-motion.css'
 import './styles/button-glyph-motion.css';
+import './styles/interactive-animations.css';
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>

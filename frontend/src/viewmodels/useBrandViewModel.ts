@@ -13,6 +13,8 @@ export interface CatalogImportJob {
   accepted_rows: number;
   rejected_rows: number;
   duplicate_rows: number;
+  notifications_queued?: number;
+  notification_recipients_count?: number;
   created_at?: string;
   completed_at?: string;
   errors?: any[];

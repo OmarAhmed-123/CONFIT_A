@@ -56,6 +56,13 @@ class TryOnJob(Base):
     progress_pct = Column(Integer, default=0, nullable=False)
     current_stage = Column(String(50), default="queued", nullable=False)
     input_person_image_url = Column(Text, nullable=False)
+    # GDPR Art. 17 retention lifecycle ON THE JOB ROW (port of PR #119's
+    # 2026-09-19 gap audit; migration 0038): input_person_image_url holds the
+    # uploaded person photo (data URL). Without these columns the hourly purge
+    # daemon and the read-time purge could only reach session rows, so
+    # job-row person photos were retained indefinitely.
+    consent_retained = Column(Boolean, default=False, nullable=True)
+    expires_at = Column(DateTime, nullable=True)
     garment_ids_json = Column(Text, default="[]", nullable=False)
     garment_layers_json = Column(Text, default="[]", nullable=False)
     model_used = Column(String(50), default="unset", nullable=False)
@@ -93,6 +100,15 @@ class GarmentAsset(Base):
     segmented_garment_url = Column(Text, nullable=True)
     garment_mask_url = Column(Text, nullable=True)
     bounding_box_json = Column(Text, default="{}", nullable=False)
+    # Ghost-hands remediation (P0/P1): provenance metadata for the asset gate.
+    # photo_type: 'flat-lay' | 'model' | 'ghost-mannequin' | 'unknown' as
+    # measured by the ingestion classifier (never assumed).
+    # tryon_ready: True ONLY after a validated clean asset exists; the P0
+    # gate blocks on-model products without it.
+    photo_type = Column(String(24), nullable=True)
+    tryon_ready = Column(Boolean, nullable=False, default=False, server_default="0")
+    clean_image_url = Column(Text, nullable=True)
+    classification_json = Column(Text, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
     product = relationship("Product")

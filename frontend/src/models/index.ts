@@ -759,6 +759,7 @@ export interface BrandProfile {
   return_rate_benchmark: number;
   current_return_rate: number;
   is_verified: boolean;
+  publication_status?: string;
   created_at: string;
 }
 
@@ -1238,3 +1239,398 @@ export interface BrandOrderLinesResponse {
   };
   filters: Record<string, unknown>;
 }
+
+// ============================================================================
+// Customer Brand Discovery, Store Locator & Branch-Level Product Availability
+// ============================================================================
+
+export interface BrandPromotion {
+  id: number;
+  code: string;
+  description: string;
+  discount_type: 'percent' | 'fixed';
+  discount_value: number;
+  min_order_amount: number;
+  currency: string;
+  starts_at?: string | null;
+  expires_at?: string | null;
+  is_active: boolean;
+}
+
+export interface StoreBranchSummary {
+  id: number;
+  brand_id: number;
+  brand_name: string;
+  brand_slug: string;
+  name: string;
+  name_ar: string;
+  address: string;
+  city: string;
+  country: string;
+  latitude: number;
+  longitude: number;
+  phone?: string | null;
+  pickup_instructions?: string | null;
+  is_bopis_enabled: boolean;
+  distance_km?: number | null;
+  google_maps_url: string;
+  in_stock_skus_count: number;
+  active_promotions: BrandPromotion[];
+}
+
+export interface CustomerBrand {
+  id: number;
+  brand_name: string;
+  slug: string;
+  logo_url?: string | null;
+  banner_url?: string | null;
+  description?: string | null;
+  description_ar?: string | null;
+  website?: string | null;
+  is_verified: boolean;
+  return_rate_benchmark: number;
+  current_return_rate: number;
+  total_products: number;
+  stores_count: number;
+  cities: string[];
+  categories: string[];
+  active_promotions_count: number;
+  promotions: BrandPromotion[];
+  sample_products: Product[];
+}
+
+export interface CustomerBrandDetail extends CustomerBrand {
+  stores: StoreBranchSummary[];
+  all_promotions: BrandPromotion[];
+}
+
+export interface BranchSKUAvailability {
+  sku_id: number;
+  sku_code: string;
+  size: string;
+  color: string;
+  color_hex: string;
+  quantity_available: number;
+  reserved_quantity: number;
+  is_in_stock: boolean;
+  availability_status: 'in_stock' | 'low_stock' | 'out_of_stock';
+}
+
+export interface BranchProductItem extends Product {
+  branch_id: number;
+  branch_name: string;
+  branch_total_units: number;
+  branch_in_stock: boolean;
+  branch_availability_status: 'in_stock' | 'low_stock' | 'out_of_stock';
+  branch_skus: BranchSKUAvailability[];
+  discount_percent?: number | null;
+}
+
+export interface BranchInventoryCatalog {
+  store: StoreBranchSummary;
+  brand: BrandSummary;
+  total_items: number;
+  products: BranchProductItem[];
+  categories: string[];
+  available_sizes: string[];
+  active_promotions: BrandPromotion[];
+}
+
+export interface BrandRegistrationPayload {
+  brand_name: string;
+  email: string;
+  password: string;
+  full_name: string;
+  phone?: string;
+  description?: string;
+  description_ar?: string;
+  website?: string;
+  logo_url?: string;
+  country?: string;
+  city?: string;
+  preferred_language?: string;
+}
+
+export interface BrandRegistrationResponse {
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
+  brand: BrandProfile;
+  message: string;
+  status: 'created' | 'existing';
+  next_step: string;
+  is_verified: boolean;
+}
+
+export interface BrandOnboardingStep {
+  key: string;
+  title: string;
+  description: string;
+  is_completed: boolean;
+  action_url: string;
+}
+
+export interface BrandOnboardingStatus {
+  brand_id: number;
+  brand_name: string;
+  is_verified: boolean;
+  is_published: boolean;
+  publication_status: 'active' | 'pending_review' | 'draft';
+  welcome_message: string;
+  primary_cta_label: string;
+  primary_cta_url: string;
+  completed_steps_count: number;
+  total_steps_count: number;
+  completion_percentage: number;
+  steps: BrandOnboardingStep[];
+  stores_count: number;
+  products_count: number;
+  active_promotions_count: number;
+}
+
+export interface PartnerStoreDetail {
+  id: number;
+  brand_id: number;
+  name: string;
+  name_ar: string;
+  city: string;
+  country: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+  phone?: string | null;
+  pickup_instructions?: string | null;
+  is_bopis_enabled: boolean;
+  is_location_verified: boolean;
+  inventory_items_count: number;
+  total_stock_units: number;
+  google_maps_url: string;
+  created_at: string;
+}
+
+export interface CatalogImportPreviewRecord {
+  row_number: number;
+  status: 'valid' | 'warning' | 'error';
+  action: 'create' | 'update' | 'error';
+  product_name: string;
+  sku: string;
+  category: string;
+  price: string;
+  original_price?: string | null;
+  currency: string;
+  stock: number;
+  size: string;
+  color: string;
+  thumbnail_url?: string;
+  branch_id?: number | null;
+  error_message?: string;
+}
+
+export interface CatalogImportPreviewResponse {
+  total_rows: number;
+  valid_rows_count: number;
+  error_rows_count: number;
+  warning_rows_count: number;
+  duplicate_rows_count: number;
+  can_import: boolean;
+  preview_records: CatalogImportPreviewRecord[];
+  errors: Array<{
+    row: number;
+    field: string;
+    message: string;
+    value?: string | null;
+    suggestion?: string;
+  }>;
+  warnings: Array<{
+    row: number;
+    field: string;
+    message: string;
+  }>;
+}
+
+export interface CatalogImportResult {
+  job_id: number;
+  status: 'completed' | 'partially_completed' | 'failed' | 'processing';
+  total_rows: number;
+  accepted_rows: number;
+  rejected_rows: number;
+  duplicate_rows: number;
+  notifications_queued?: number;
+  notification_recipients_count?: number;
+  errors?: any[];
+}
+
+// -------------------------------------------------------------------------
+// Business Intelligence & Advanced Analytics Models
+// -------------------------------------------------------------------------
+export interface BiKpis {
+  gross_sales: number;
+  net_sales: number;
+  discount_total: number;
+  returned_value: number;
+  orders_count: number;
+  units_sold: number;
+  returned_units: number;
+  average_order_value: number;
+  return_rate: number | null;
+  tryon_assisted_orders: number;
+  tryon_share_pct: number | null;
+  currency: string;
+}
+
+export interface BiTrendPoint {
+  date: string;
+  orders: number;
+  units: number;
+  gross_sales: number;
+  net_sales: number;
+}
+
+export interface BiCategoryItem {
+  category_id: number;
+  category_name: string;
+  category_name_ar?: string;
+  units_sold: number;
+  gross_sales: number;
+  share_pct: number;
+}
+
+export interface BiProductItem {
+  product_id: number;
+  title: string;
+  category: string;
+  base_price: number;
+  currency: string;
+  units_sold: number;
+  gross_sales: number;
+  returned_units: number;
+  return_rate: number | null;
+  stock_level: number;
+}
+
+export interface BiBranchItem {
+  store_id: number;
+  name: string;
+  name_ar?: string;
+  city: string;
+  country: string;
+  address: string;
+  is_bopis_enabled: boolean;
+  orders_count: number;
+  units_sold: number;
+  gross_sales: number;
+  available_stock: number;
+  reserved_stock: number;
+  low_stock_skus: number;
+}
+
+export interface BiReplenishmentItem {
+  sku_id: number;
+  sku_code: string;
+  product_id: number;
+  product_title: string;
+  size: string;
+  color: string;
+  stock_level: number;
+  status: 'out_of_stock' | 'low_stock';
+  recommended_reorder: number;
+}
+
+export interface BiInventoryHealth {
+  total_skus: number;
+  total_warehouse_units: number;
+  total_branch_bopis_units: number;
+  in_stock_count: number;
+  low_stock_count: number;
+  out_of_stock_count: number;
+  replenishment_items: BiReplenishmentItem[];
+}
+
+export interface BiPromotionItem {
+  id: number;
+  code: string;
+  description?: string;
+  discount_type: string;
+  discount_value: number;
+  is_active: boolean;
+  is_expired: boolean;
+  redemptions: number;
+  total_discount: number;
+  revenue_generated: number;
+}
+
+export interface BiInsightItem {
+  type: string;
+  severity: 'positive' | 'warning' | 'alert' | 'info';
+  title: string;
+  message: string;
+}
+
+export interface BiDashboardResponse {
+  brand: {
+    id: number;
+    name: string;
+    slug: string;
+    commission_rate: number;
+    return_rate_benchmark: number;
+    current_return_rate: number;
+  };
+  generated_at: string;
+  period: {
+    from: string | null;
+    to: string | null;
+    label: string;
+    comparison_from: string | null;
+    comparison_to: string | null;
+    comparison_label: string | null;
+  };
+  filters: {
+    branch_id?: number | null;
+    category_id?: number | null;
+  };
+  kpis: BiKpis;
+  comparison_kpis?: BiKpis | null;
+  growth: Record<string, number | null>;
+  trends: BiTrendPoint[];
+  categories: BiCategoryItem[];
+  products: BiProductItem[];
+  branches: BiBranchItem[];
+  inventory: BiInventoryHealth;
+  promotions: BiPromotionItem[];
+  insights: BiInsightItem[];
+  methodology: string;
+}
+
+export interface AdminBiBrandPerformance {
+  brand_id: number;
+  brand_name: string;
+  slug: string;
+  is_verified: boolean;
+  products_count: number;
+  stores_count: number;
+  orders_count: number;
+  gross_sales: number;
+  currency: string;
+  return_rate: number | null;
+}
+
+export interface AdminBiDashboardResponse {
+  period: {
+    from: string | null;
+    to: string | null;
+    label: string;
+    comparison_label?: string | null;
+  };
+  kpis: BiKpis;
+  comparison_kpis?: BiKpis | null;
+  growth: Record<string, number | null>;
+  gmv_by_currency: Record<string, number>;
+  brands_performance: AdminBiBrandPerformance[];
+  trends: BiTrendPoint[];
+  total_brands: number;
+  generated_at: string;
+}
+
+
+
+

@@ -128,7 +128,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
     <article
       className={[
         "bg-white rounded-3xl border border-slate-200/80 shadow-2xs",
-        "overflow-hidden group hover:shadow-md transition-all flex flex-col",
+        "overflow-hidden group confit-card-interactive flex flex-col",
         className,
       ].join(" ")}
       data-testid="product-card"
@@ -148,7 +148,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               alt={product.title}
               loading={priority ? "eager" : "lazy"}
               decoding="async"
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-luxury"
             />
           </button>
         ) : (
@@ -164,7 +164,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               alt={product.title}
               loading={priority ? "eager" : "lazy"}
               decoding="async"
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-luxury"
             />
           </Link>
         )}

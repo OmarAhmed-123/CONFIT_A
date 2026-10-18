@@ -1,0 +1,122 @@
+{
+  "version": 1,
+  "generated_utc": "2026-10-18",
+  "purpose": "Reproducible pre-launch dataset for catalog media contract tests. Every case replicates a REAL production row shape or a real failure class measured in the 2026-10-18 root-cause session (54 product_images rows, 12 products, live curl probes of every URL class). URLs are fixture material for contract tests, NOT verified inventory claims about the third-party hosts.",
+  "provenance": {
+    "measured_by": "session 2026-10-18 (Arena agent), read-only queries + bounded HTTP probes",
+    "prod_db": "Neon production product_images: 54 rows, all storage_key in provider:photo_id:ratio:role shape, 0 in products/<id>/<file> ingest shape (counted via SQL, read-only)",
+    "prod_cdn_probe": "representative public_url values returned HTTP 200 image/jpeg with Range support (206) from the same network that renders VTON fetches",
+    "local_dev_db": "product_images = 0 rows; explains why the defect was invisible locally and red in production"
+  },
+  "cases": [
+    {
+      "id": "plm-001-ingest-key-registered",
+      "class": "ingested_object_served_by_media_route",
+      "inputs": {"storage_key": "products/1/1-4x5.jpg", "public_url": "/api/v1/media/products/1/1-4x5.jpg", "ratio": "4x5", "role": "hero", "is_primary": true, "object_in_bucket": true},
+      "expect": {"display_url": "/api/v1/media/products/1/1-4x5.jpg", "route_status": 200},
+      "evidence": "The intended final state after bucket ingestion; pinned by test_product_media.py since PR #336."
+    },
+    {
+      "id": "plm-002-prod-pexels-colon-live",
+      "class": "upstream_source_row_live_https",
+      "inputs": {"storage_key": "pexels:883362:4x5:hero", "public_url": "https://images.pexels.com/photos/883362/pexels-photo-883362.jpeg?auto=compress&cs=tinysrgb&w=800&h=1000&fit=crop", "ratio": "4x5", "role": "hero", "is_primary": true, "object_in_bucket": false},
+      "expect": {"display_url": "https://images.pexels.com/photos/883362/pexels-photo-883362.jpeg?auto=compress&cs=tinysrgb&w=800&h=1000&fit=crop", "route_status": null},
+      "evidence": "Exact prod row id 224-228 family; live 200 image/jpeg measured twice this session; CSP img-src allowlists images.pexels.com (vercel.json, read this session)."
+    },
+    {
+      "id": "plm-003-prod-unsplash-colon-live",
+      "class": "upstream_source_row_live_https",
+      "inputs": {"storage_key": "unsplash:1589756823695-278bc923f962:4x5:hero", "public_url": "https://images.unsplash.com/photo-1589756823695-278bc923f962?auto=format&fit=crop&w=800&h=1000&q=80", "ratio": "4x5", "role": "hero", "is_primary": true, "object_in_bucket": false},
+      "expect": {"display_url": "https://images.unsplash.com/photo-1589756823695-278bc923f962?auto=format&fit=crop&w=800&h=1000&q=80", "route_status": null},
+      "evidence": "Prod row (product silk-jacquard-evening-necktie); images.unsplash.com on CSP allowlist."
+    },
+    {
+      "id": "plm-004-generated-same-origin",
+      "class": "generated_illustration_same_origin_static",
+      "inputs": {"storage_key": "generated:structured-metallic-evening-box-clutch:4x5:hero", "public_url": "https://confit-a.vercel.app/product-media/structured-metallic-evening-box-clutch/hero-4x5.jpg", "ratio": "4x5", "role": "hero", "is_primary": true, "object_in_bucket": false},
+      "expect": {"display_url": "https://confit-a.vercel.app/product-media/structured-metallic-evening-box-clutch/hero-4x5.jpg", "route_status": null},
+      "evidence": "Prod row; static file served 200 in production this session. Generated AI illustrations stay labelled source_type=generated and must never be presented as verified product photos (plan rule, product_image_plan_2026-10-09.json)."
+    },
+    {
+      "id": "plm-005-colon-key-empty-public-url",
+      "class": "registered_but_undeliverable",
+      "inputs": {"storage_key": "pexels:883362:master:gallery", "public_url": "", "ratio": "master", "role": "gallery", "is_primary": false, "object_in_bucket": false},
+      "expect": {"display_url": null, "route_status": null, "serializer_falls_back_to_legacy": true},
+      "evidence": "No URL may be invented; the page falls back to the legacy column and HonestProductImage shows the localized unavailable state only when nothing at all can be served."
+    },
+    {
+      "id": "plm-006-insecure-http-public-url",
+      "class": "scheme_rejected",
+      "inputs": {"storage_key": "pexels:1:4x5:hero", "public_url": "http://images.pexels.com/photos/1/x.jpeg", "ratio": "4x5", "role": "hero", "is_primary": true, "object_in_bucket": false},
+      "expect": {"display_url": null, "route_status": null},
+      "evidence": "Mixed content + CSP img-src (https-only hosts) would block it at the browser; rejected at the derivation layer instead so the fallback is deterministic."
+    },
+    {
+      "id": "plm-007-protocol-relative-public-url",
+      "class": "scheme_rejected",
+      "inputs": {"storage_key": "pexels:1:4x5:hero", "public_url": "//evil.example/a.jpg", "ratio": "4x5", "role": "hero", "is_primary": true, "object_in_bucket": false},
+      "expect": {"display_url": null, "route_status": null},
+      "evidence": "Protocol-relative values are never trustworthy; must not reach an <img> tag."
+    },
+    {
+      "id": "plm-008-traversal-key",
+      "class": "media_route_whitelist_denial",
+      "inputs": {"storage_key": "products/1/../../etc/passwd", "public_url": "/x.jpg", "ratio": "4x5", "role": "gallery", "is_primary": false, "object_in_bucket": false},
+      "expect": {"display_url": "/x.jpg", "route_status": 404},
+      "evidence": "Even if a row smuggled a dot-segment key, the route pattern rejects it before any query (test_product_media.py refusal matrix; database is the ACL)."
+    },
+    {
+      "id": "plm-009-unregistered-ingest-shaped-key",
+      "class": "media_route_whitelist_denial",
+      "inputs": {"storage_key": "products/99999/99999-4x5.jpg", "public_url": "/x.jpg", "ratio": "4x5", "role": "gallery", "is_primary": false, "object_in_bucket": false},
+      "expect": {"display_url": "/api/v1/media/products/99999/99999-4x5.jpg", "route_status": 404, "note": "Two surfaces: derivation would emit the route for ANY row with an ingest-shaped key (a registered row is the ACL); the ROUTE re-checks its own registry and 404s when no row exists. This case constrains the route (see the refusal matrix); it is not a derivation expectation."},
+      "evidence": "Key pattern alone is not enough: no row registered -> 404 RESOURCE_NOT_FOUND."
+    },
+    {
+      "id": "plm-010-registered_object-missing",
+      "class": "honest_missing_object",
+      "inputs": {"storage_key": "products/2/2-4x5.jpg", "public_url": "/api/v1/media/products/2/2-4x5.jpg", "ratio": "4x5", "role": "hero", "is_primary": true, "object_in_bucket": false},
+      "expect": {"display_url": "/api/v1/media/products/2/2-4x5.jpg", "route_status": 404},
+      "evidence": "Registered in the DB but absent from the bucket: 404 + operator-visible log line naming the key (media_controller design constraint 3), never a blank 200."
+    },
+    {
+      "id": "plm-011-upstream_dead_404",
+      "class": "plan_verification_rejects_dead_source",
+      "inputs": {"url": "https://images.pexels.com/photos/000000/gone.jpeg", "verify_status": 404},
+      "expect": {"plan_entry_allowed_into_canonical_data": false},
+      "evidence": "repair_product_images.verify_plan_against_upstream records per-rendition HTTP status; a 404 rendition must never be written into products.thumbnail_url/images or become a registry row ('never persist unverified URLs')."
+    },
+    {
+      "id": "plm-012-upstream_forbidden_403",
+      "class": "plan_verification_rejects_forbidden_source",
+      "inputs": {"url": "https://images.pexels.com/photos/1/private.jpeg", "verify_status": 403},
+      "expect": {"plan_entry_allowed_into_canonical_data": false},
+      "evidence": "Hotlink/permission failures are a real ingestion outcome; classified and refused, not retried into the canonical tables."
+    },
+    {
+      "id": "plm-013-upstream_rate_limited_429",
+      "class": "plan_verification_rejects_rate_limited_source",
+      "inputs": {"url": "https://images.pexels.com/photos/1/x.jpeg?rate=429", "verify_status": 429, "retry_after_s": 60},
+      "expect": {"plan_entry_allowed_into_canonical_data": false, "bounded_backoff_only": true},
+      "evidence": "Requests are bounded (timeout + single bounded retry window); 429 must not degrade into silently writing the unverified URL."
+    },
+    {
+      "id": "plm-014-upstream_non_image_content",
+      "class": "plan_verification_rejects_non_image",
+      "inputs": {"url": "https://images.unsplash.com/deleted?auto=format", "verify_status": 200, "content_type": "text/html"},
+      "expect": {"plan_entry_allowed_into_canonical_data": false},
+      "evidence": "A 200 whose body is an error page is not decodable image content; liveness checks require image content-type (measured near-miss this session: pexels clamp URLs with bad params still return 1 KB images — size/type must be checked, not just status)."
+    },
+    {
+      "id": "plm-015-no-image-at-all",
+      "class": "genuinely_missing_asset_honest_placeholder",
+      "inputs": {"product_without_any_image_fields": true},
+      "expect": {"display_url": null, "ui_state": "Image unavailable (localized, accessible)"},
+      "evidence": "Products with no legacy images and no registry rows must keep the honest placeholder; substituting an unrelated garment photo is a trust defect (plan rule)."
+    }
+  ],
+  "products_note": {
+    "prod_counts": {"products": 12, "product_images_rows": 54, "serveable_ingest_keys": 0, "media_route_polluted_products_thumbnail_url": 0},
+    "sleeve_length": "0040 added products.sleeve_length (nullable). Pre-launch expectation: outerwear products carry long/short/three_quarter; products with no sleeves keep null so the VTON sleeve gate never claims data it lacks."
+  }
+}

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { User } from '../models';
-import { authService } from '../services/apiServices';
+import { authService, membersService, type MyBrandMembership } from '../services/apiServices';
 import { setAuthTokens, clearAuthTokens, SESSION_EXPIRED_EVENT } from '../services/apiClient';
 
 interface AuthState {
@@ -24,6 +24,14 @@ interface AuthState {
   // MFA_REQUIRED, we flip this flag; the AuthModal renders the challenge
   // form and calls completeMfaLogin to finish.
   mfaRequired: boolean;
+  // BRD-02 tenant identity: active brand memberships of the logged-in user
+  // (null = never loaded). Partner-portal admission accepts consumers whose
+  // membership list is non-empty — joining a brand never changes users.role,
+  // so the ONLY honest tenant signal is this server-resolved list.
+  brandMemberships: MyBrandMembership[] | null;
+  brandMembershipsStatus: 'idle' | 'loading' | 'ready' | 'error';
+  loadBrandMemberships: () => Promise<void>;
+  clearBrandMemberships: () => void;
   // Resolves with the raw TokenResponse (user included) so call sites can
   // route by the authenticated role; rejects with ApiError on failure.
   login: (email: string, password: string) => Promise<any>;
@@ -55,7 +63,7 @@ export const hasSessionEvidence = (): boolean => {
   }
 };
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   isAuthenticated: false,
   isLoading: false,
@@ -63,6 +71,22 @@ export const useAuthStore = create<AuthState>((set) => ({
   errorCode: null,
   hasAttemptedBootstrap: false,
   mfaRequired: false,
+  brandMemberships: null,
+  brandMembershipsStatus: 'idle',
+
+  loadBrandMemberships: async () => {
+    set({ brandMembershipsStatus: 'loading' });
+    try {
+      const rows = await membersService.myMemberships();
+      set({ brandMemberships: rows, brandMembershipsStatus: 'ready' });
+    } catch {
+      // 401/403/5xx: keep whatever was known, mark the attempt; gates fall
+      // back to the global-role decision (fail closed for consumers).
+      set({ brandMembershipsStatus: 'error' });
+    }
+  },
+
+  clearBrandMemberships: () => set({ brandMemberships: null, brandMembershipsStatus: 'idle' }),
 
   resetError: () => set({ error: null, errorCode: null }),
 
@@ -73,6 +97,8 @@ export const useAuthStore = create<AuthState>((set) => ({
       setAuthTokens(res.access_token, res.refresh_token);
       localStorage.setItem('confit_user', JSON.stringify(res.user));
       set({ user: res.user, isAuthenticated: true, isLoading: false, error: null, errorCode: null, mfaRequired: false });
+      // Tenant identity refresh (BRD-02): never blocks or fails the login.
+      void get().loadBrandMemberships();
       // Return the server response so call sites (AuthModal role landing)
       // can route by the authenticated role without a second /auth/me call.
       return res;
@@ -151,7 +177,8 @@ export const useAuthStore = create<AuthState>((set) => ({
       /* still fall through to local clear */
     }
     clearAuthTokens();
-    set({ user: null, isAuthenticated: false, mfaRequired: false, error: null, errorCode: null });
+    set({ user: null, isAuthenticated: false, mfaRequired: false, error: null, errorCode: null,
+      brandMemberships: null, brandMembershipsStatus: 'idle' });
   },
 
   fetchMe: async () => {
@@ -166,6 +193,9 @@ export const useAuthStore = create<AuthState>((set) => ({
       const user = await authService.getMe();
       localStorage.setItem('confit_user', JSON.stringify(user));
       set({ user, isAuthenticated: true, hasAttemptedBootstrap: true });
+      // Bootstrap refresh of tenant identity; gated consumers re-render
+      // into the portal the moment it resolves.
+      void get().loadBrandMemberships();
     };
     try {
       await attempt();

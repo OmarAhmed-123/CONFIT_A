@@ -54,6 +54,8 @@ import { BrandDashboardView } from '../views/b2b/BrandDashboardView';
 import { BrandCatalogView } from '../views/b2b/BrandCatalogView';
 import { BrandInventoryView } from '../views/b2b/BrandInventoryView';
 import { BrandOrdersView } from '../views/b2b/BrandOrdersView';
+import { BrandTeamView } from '../views/b2b/BrandTeamView';
+import { BrandTeamAcceptView } from '../views/b2b/BrandTeamAcceptView';
 // Spec "Magic Navigation" §5: the two ANALYTICS views are the heaviest
 // modules in the app (recharts + dashboards — the 'b2b-analytics' chunk).
 // They are code-split with React.lazy so a SHOPPER never downloads partner/
@@ -138,6 +140,11 @@ export const AppRoutes: React.FC = () => {
             home page via the silent catch-all. PUBLIC: the one-time token
             in the URL is the credential. */}
         <Route path="/reset-password" element={<ResetPasswordView />} />
+        {/* Invitation acceptance is PUBLIC by design: the invited account is a
+            consumer until the authenticated POST resolves the token — the link
+            only carries it to this screen, it never grants access itself. */}
+        <Route path="/b2b/team/accept" element={<BrandTeamAcceptView />} />
+        <Route path="/partner/team/accept" element={<BrandTeamAcceptView />} />
         <Route path="/verify-email" element={<VerifyEmailView />} />
 
         {/* 0b. LEGAL-01: real legal pages — public, not gated behind /profile.
@@ -254,6 +261,7 @@ export const AppRoutes: React.FC = () => {
           <Route path="catalog" element={<BrandCatalogView />} />
           <Route path="inventory" element={<BrandInventoryView />} />
           <Route path="branches" element={<BrandBranchesView />} />
+          <Route path="team" element={<BrandTeamView />} />
           <Route path="stores" element={<BrandBranchesView />} />
           <Route path="orders" element={<BrandOrdersView />} />
           <Route path="analytics" element={suspended(<BrandAnalyticsView />)} />
@@ -277,6 +285,7 @@ export const AppRoutes: React.FC = () => {
           <Route path="catalog" element={<BrandCatalogView />} />
           <Route path="inventory" element={<BrandInventoryView />} />
           <Route path="branches" element={<BrandBranchesView />} />
+            <Route path="team" element={<BrandTeamView />} />
           <Route path="stores" element={<BrandBranchesView />} />
           <Route path="orders" element={<BrandOrdersView />} />
           <Route path="analytics" element={suspended(<BrandAnalyticsView />)} />

@@ -210,8 +210,9 @@ export async function requestBlob(
   let code = 'API_ERROR';
   try {
     const body = await res.json();
-    message = body?.error?.message || body?.detail || message;
-    code = body?.error?.code || code;
+    const env = body?.error ?? body?.detail?.error;
+    message = env?.message || (typeof body?.detail === 'string' ? body.detail : undefined) || message;
+    code = env?.code || code;
   } catch {
     /* non-JSON error body: keep the status-based message */
   }
@@ -306,8 +307,15 @@ export async function request<T>(
         errJson = await res.json();
       } catch (e) {}
 
-      const err = errJson.error || {};
-      let userFriendlyMessage = err.message || `Request failed with status ${res.status}`;
+      // Two server error shapes exist and both must work:
+      //   · the domain envelope  { "error": { code, message, details } }
+      //   · FastAPI's HTTPException wrapper { "detail": { "error": … } } —
+      //     48 controllers raise this shape; reading only the top level made
+      //     every refusal from them (e.g. a membership 409 LAST_ACTIVE_OWNER)
+      //     look like a generic failure to the UI.
+      const err = errJson.error || (errJson.detail && typeof errJson.detail === 'object' && errJson.detail.error) || {};
+      const detailMessage = typeof errJson.detail === 'string' ? errJson.detail : undefined;
+      let userFriendlyMessage = err.message || detailMessage || `Request failed with status ${res.status}`;
 
       // Audit round-2 (R9): an AUTH ATTEMPT must surface the server's own
       // message ("Invalid email or password."). Rewriting EVERY 401 into the

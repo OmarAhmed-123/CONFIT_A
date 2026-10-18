@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuthStore } from "../../stores/authStore";
 import { useUIStore } from "../../stores/uiStore";
@@ -27,8 +27,24 @@ export const RoleGuard: React.FC<RoleGuardProps> = ({
 }) => {
   const { t } = useTranslation();
   const location = useLocation();
-  const { user, isAuthenticated, hasAttemptedBootstrap } = useAuthStore();
+  const { user, isAuthenticated, hasAttemptedBootstrap, brandMemberships,
+          brandMembershipsStatus, loadBrandMemberships } = useAuthStore();
   const { openAuthModal } = useUIStore();
+
+  // BRD-02: partner-portal admission is TENANT-aware. Members whose global
+  // role is still 'consumer' (by design — joining a brand never promotes
+  // users.role) enter through their server-resolved active memberships.
+  const isPartnerPortalEarly =
+    portal === 'partner' ||
+    (!portal &&
+      ((fallbackTitle || '').toLowerCase().includes('brand') ||
+       (fallbackTitle || '').toLowerCase().includes('partner')));
+  useEffect(() => {
+    if (isAuthenticated && isPartnerPortalEarly && brandMemberships === null
+        && brandMembershipsStatus === 'idle') {
+      void loadBrandMemberships();
+    }
+  }, [isAuthenticated, isPartnerPortalEarly, brandMemberships, brandMembershipsStatus, loadBrandMemberships]);
 
   // 0. AUTH-02 FIX: session bootstrap is in flight — we do not yet know
   // whether the visitor holds a valid httpOnly session. Rendering the guest
@@ -57,7 +73,28 @@ export const RoleGuard: React.FC<RoleGuardProps> = ({
     (!portal &&
       ((fallbackTitle || '').toLowerCase().includes('brand') ||
         (fallbackTitle || '').toLowerCase().includes('partner')));
-  const needsPartnerOnboarding = isPartnerPortal && user?.role === 'consumer';
+  const isPartnerMember = Boolean(brandMemberships && brandMemberships.length > 0);
+  const needsPartnerOnboarding =
+    isPartnerPortal && user?.role === 'consumer' && !isPartnerMember;
+  // A consumer at the portal door while their membership list is still
+  // resolving: honest pending state, never a premature wall.
+  if (isPartnerPortal && isAuthenticated && user?.role === 'consumer' && !isPartnerMember
+      && (brandMembershipsStatus === 'loading' || brandMembershipsStatus === 'idle')) {
+    return (
+      <div
+        className="min-h-[70vh] flex items-center justify-center p-4"
+        role="status"
+        aria-live="polite"
+      >
+        <div className="flex flex-col items-center gap-4 text-brand-muted">
+          <div className="w-10 h-10 rounded-full border-2 border-brand-hairline border-t-brand-charcoal motion-safe:animate-spin" aria-hidden="true" />
+          <span className="text-[11px] tracking-widest uppercase font-semibold text-brand-muted">
+            {t('guard.verifying_session')}
+          </span>
+        </div>
+      </div>
+    );
+  }
   // Public onboarding never grants a role; logged-in consumers see it too.
   if (!isAuthenticated || !user || needsPartnerOnboarding) {
     if (isPartnerPortal) {
@@ -121,7 +158,12 @@ export const RoleGuard: React.FC<RoleGuardProps> = ({
   // 2. Role Verification
   const userRole = user.role?.toLowerCase();
   const hasRole =
-    !allowedRoles || allowedRoles.includes(userRole) || userRole === "admin";
+    !allowedRoles ||
+    allowedRoles.includes(userRole) ||
+    userRole === "admin" ||
+    // Tenant members of THIS brand pass the partner-portal gate by their
+    // server-verified membership (never by anything the client asserts).
+    (isPartnerPortal && isPartnerMember);
 
   if (!hasRole) {
     return (

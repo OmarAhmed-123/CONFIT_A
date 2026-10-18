@@ -123,3 +123,16 @@ Backend full pytest (count + time), sleeve suites, migration upgrade/
 downgrade rehearsal, frontend `npm run verify` (i18n gate + tsc + vitest +
 build), Playwright PR#357 brand-journeys re-run unchanged (shared surfaces
 were only additively extended).
+
+## Addendum 2026-10-18 (late session): catalog media defect found alongside the gate
+
+While root-causing the "Image unavailable" screenshots (workstream E), the
+same fetch path that feeds the try-on asset gate was implicated: the media
+route 404'd for every registry-derived URL (54/54 prod rows in an un-ingested
+key shape). Fix `1ff5209` makes `product_media_service` emit only deliverable
+URLs; measured consequence for this gate's environment: VTON garment fetches
+against catalog URLs now hit live CDN sources (200/206 verified) instead of a
+404 JSON envelope, removing one recurring `garment_fetch_failed` cause class
+from staging runs. No gate logic changed; capabilities contract still reports
+the tri-state honestly (journey test 5 in test_prelaunch_journeys.py pins
+calibrated=None when mode=off).

@@ -28,8 +28,6 @@ DESIGN CONSTRAINTS (each one is a defect this file must not reintroduce)
 """
 from __future__ import annotations
 
-import re
-
 from fastapi import APIRouter, Depends, Request, Response
 from sqlalchemy.orm import Session
 
@@ -37,13 +35,17 @@ from backend.app.core.database import get_db
 from backend.app.core.exceptions import ResourceNotFoundError
 from backend.app.core.logging import logger
 from backend.app.models.catalog import ProductImage
+from backend.app.services.product_media_service import SERVEABLE_KEY_RE
 from backend.app.services.storage_service import read_media_object
 
 router = APIRouter(prefix="/media", tags=["Media"])
 
 #: products/<digits>/<name>.<ext> — the registry's own key shape. Anchored and
 #: dot-segment free; anything else is rejected before a query is issued.
-_KEY_RE = re.compile(r"^products/\d{1,12}/[A-Za-z0-9][A-Za-z0-9._-]{0,120}$")
+#: Imported, never re-typed: the serializer decides which keys are client-
+#: visible using this exact pattern (product_media_service), so the URL a
+#: client is given and the URL this route accepts are one and the same rule.
+_KEY_RE = SERVEABLE_KEY_RE
 
 _IMMUTABLE = "public, max-age=31536000, s-maxage=31536000, immutable"
 

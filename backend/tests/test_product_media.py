@@ -213,3 +213,130 @@ def test_order_media_is_deterministic_and_ratio_aware():
     assert ordered == ["4x5", "1x1", "3x2", "16x9"]
     assert [r.ratio for r in pms.order_media(rows)] == ordered, "must be deterministic"
     assert [r.ratio for r in pms.order_media(rows)][0] != "16x9"
+
+
+# ── 2026-10-18 production defect: upstream-source rows must render their
+# verified public URL, never a media-route URL for bytes that were never
+# ingested. These fixtures mirror the REAL production row shape measured on
+# 2026-10-18 (product_images.storage_key = "provider:photo_id:ratio:role",
+# public_url = live Pexels/Unsplash or same-origin static file; 54 rows, zero
+# keys in the products/<id>/ ingest shape). They are data-shape replicas for a
+# contract test — not a claim about current prod content.
+
+
+def _add_upstream_rows(db, product_id: int, rows: list[tuple[str, str, str, bool]]) -> None:
+    for key, public_url, ratio, primary in rows:
+        db.add(
+            ProductImage(
+                product_id=product_id,
+                storage_key=key,
+                public_url=public_url,
+                ratio=ratio,
+                format="jpg",
+                width=800,
+                height=1000,
+                bytes=66840,
+                role="hero" if primary else "gallery",
+                is_primary=primary,
+                source_type="stock",
+                provider="pexels",
+                source_ref="https://www.pexels.com/photo/883362/",
+                attribution="Photo: Pexels",
+                checksum="b" * 32,
+                created_at=datetime.now(timezone.utc),
+            )
+        )
+    db.commit()
+
+
+def test_upstream_source_rows_render_public_url_not_dead_media_route(client: TestClient):
+    """Colon-shaped keys (the prod reality) resolve to their live public_url."""
+    hero = "https://images.pexels.com/photos/883362/pexels-photo-883362.jpeg?auto=compress&cs=tinysrgb&w=800&h=1000&fit=crop"
+    square = "https://images.pexels.com/photos/883362/pexels-photo-883362.jpeg?auto=compress&cs=tinysrgb&w=800&h=800&fit=crop"
+    db = TestingSessionLocal()
+    try:
+        product = db.query(Product).order_by(Product.id).first()
+        assert product is not None
+        pid, slug = product.id, product.slug
+        rows = [
+            ("pexels:883362:4x5:hero", hero, "4x5", True),
+            ("pexels:883362:1x1:gallery", square, "1x1", False),
+            ("pexels:883362:master:gallery", "", "master", False),  # empty = registered, undeliverable
+        ]
+        _add_upstream_rows(db, pid, rows)
+    finally:
+        db.close()
+    try:
+        res = client.get(f"/api/v1/catalog/products/{slug}")
+        assert res.status_code == 200, res.text
+        data = res.json()
+        assert data["thumbnail_url"] == hero, "card hero must be the row's verified live URL"
+        assert data["images"] == [hero, square], "gallery must skip master and unreachable rows"
+        urls = [m["url"] for m in data["media"]]
+        assert "/api/v1/media/" not in urls, "no media-route URL may be invented for un-ingested keys"
+        assert None not in urls and all(u for u in urls)
+        # Whitelist invariant: the media route still refuses these keys —
+        # correctness lives in not pointing clients at it.
+        blocked = client.get("/api/v1/media/pexels:883362:4x5:hero")
+        assert blocked.status_code == 404
+        lst = client.get("/api/v1/catalog/products", params={"limit": 100}).json()
+        card = {p["id"]: p for p in lst}[pid]
+        assert card["thumbnail_url"] == hero, "list cards and the detail page must agree"
+    finally:
+        db = TestingSessionLocal()
+        try:
+            db.query(ProductImage).filter(ProductImage.product_id == pid).delete()
+            db.commit()
+        finally:
+            db.close()
+
+
+def test_upstream_row_without_deliverable_url_falls_back_to_legacy(client: TestClient):
+    """No ingest key AND no usable public_url -> no URL is invented; the
+    serializer falls back to the legacy column (never a blank or a dead img)."""
+    db = TestingSessionLocal()
+    try:
+        product = db.query(Product).order_by(Product.id).first()
+        pid, slug = product.id, product.slug
+        legacy_thumb = product.thumbnail_url
+        _add_upstream_rows(db, pid, [("pexels:883362:4x5:hero", "", "4x5", True)])
+    finally:
+        db.close()
+    try:
+        res = client.get(f"/api/v1/catalog/products/{slug}")
+        assert res.status_code == 200
+        data = res.json()
+        assert data["media"] == []
+        assert data["thumbnail_url"] == legacy_thumb, "detail thumbnail must fall back to the legacy column"
+        assert not data["thumbnail_url"].startswith("/api/v1/media/"), "never a dead media-route URL"
+        assert data["images"], "legacy images must still render"
+        assert all(not u.startswith("/api/v1/media/") for u in data["images"])
+    finally:
+        db = TestingSessionLocal()
+        try:
+            db.query(ProductImage).filter(ProductImage.product_id == pid).delete()
+            db.commit()
+        finally:
+            db.close()
+
+
+def test_display_url_for_row_rule_is_exhaustive():
+    """The capability ladder in one unit: ingest key > https/relative public
+    URL > nothing. Insecure, protocol-relative and bogus values never pass."""
+    from types import SimpleNamespace
+
+    def row(**kw):
+        return SimpleNamespace(**kw)
+
+    svc = pms
+    assert svc.display_url_for_row(row(storage_key="products/7/7-4x5.jpg", public_url="https://x/y.jpg")) == "/api/v1/media/products/7/7-4x5.jpg"
+    assert svc.display_url_for_row(row(storage_key="pexels:1:4x5:hero", public_url="https://images.pexels.com/a.jpg")) == "https://images.pexels.com/a.jpg"
+    assert svc.display_url_for_row(row(storage_key="generated:slug:4x5:hero", public_url="/product-media/slug/hero-4x5.jpg")) == "/product-media/slug/hero-4x5.jpg"
+    assert svc.display_url_for_row(row(storage_key="pexels:1:4x5:hero", public_url="http://insecure.example/a.jpg")) is None
+    assert svc.display_url_for_row(row(storage_key="pexels:1:4x5:hero", public_url="//evil.example/a.jpg")) is None
+    assert svc.display_url_for_row(row(storage_key="pexels:1:4x5:hero", public_url="ftp://nope")) is None
+    assert svc.display_url_for_row(row(storage_key="pexels:1:4x5:hero", public_url=None)) is None
+    assert svc.display_url_for_row(row(storage_key="products/7/../../etc/passwd", public_url=None)) is None
+    assert svc.is_serveable_storage_key("products/7/7-4x5.jpg") is True
+    assert svc.is_serveable_storage_key("products/7/../8/8.jpg") is False
+    assert svc.is_serveable_storage_key(None) is False

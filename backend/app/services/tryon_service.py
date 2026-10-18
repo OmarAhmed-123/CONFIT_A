@@ -489,14 +489,18 @@ class TryOnService:
                 garments.append({
                     "product_id": p.id,
                     "slot_type": slot,
-                    "image_base64": b64
+                    "image_base64": b64,
+                    # Gate-only authoritative metadata (stripped from the worker wire
+                    # payload — see _worker_garment_payload); never client-supplied.
+                    "sleeve_length": getattr(p, "sleeve_length", None),
                 })
             else:
                 # Fallback to URL - worker may still handle it with its own SSRF protection
                 garments.append({
                     "product_id": p.id,
                     "slot_type": slot,
-                    "image_url": p.thumbnail_url
+                    "image_url": p.thumbnail_url,
+                    "sleeve_length": getattr(p, "sleeve_length", None),
                 })
         # Deterministic anatomical layering (single source of truth:
         # SlotLayeringEngine.LAYER_HIERARCHY — inner -> outer -> bottom ->
@@ -535,6 +539,7 @@ class TryOnService:
         """
         current_person = person_image
         layers: List[Dict[str, Any]] = []
+        sleeve_layers: List[Dict[str, Any]] = []
         last_data: Dict[str, Any] = {}
         for idx, garment in enumerate(garments, start=1):
             layer_job_id = f"{job_id}_L{idx}"
@@ -557,12 +562,16 @@ class TryOnService:
                     "as applied — the outfit render was aborted rather than "
                     "reporting a partial result as success."
                 )
+            _stage_sg = layer_data.get("sleeve_gate") or {}
+            for _d in (_stage_sg.get("layers") or []):
+                sleeve_layers.append({**_d, "layer": idx})
             layers.append({
                 "layer": idx,
                 "product_id": garment.get("product_id"),
                 "slot_type": garment.get("slot_type"),
                 "execution_time_ms": layer_data.get("execution_time_ms"),
                 "verify": verify,
+                "sleeve": (_stage_sg.get("layers") or [None])[0],
             })
             current_person = rendered
             logger.info(
@@ -576,6 +585,12 @@ class TryOnService:
         # outfit result, and every layer's verification travels in `layers`.
         result = dict(last_data)
         result["layers"] = layers
+        if sleeve_layers:
+            _proto = dict(last_data.get("sleeve_gate") or {})
+            from backend.app.services import vton_sleeve_gate as _sg
+            _proto["layers"] = sleeve_layers
+            _proto["aggregate"] = _sg.aggregate_layer_decisions(sleeve_layers)
+            result["sleeve_gate"] = _proto
         return result
 
     async def _prepare_person_image(self, person_ref: str) -> str:
@@ -715,6 +730,119 @@ class TryOnService:
         # apart again.
         pilot_failure: dict = {"detail": None}
 
+        async def _apply_sleeve_gate(gpu_data_obj: Dict[str, Any]) -> Dict[str, Any]:
+            """Sleeve-integrity gate for the render this call produced.
+
+            Applied at the single choke point every VTON transport passes
+            through (worker one-shot, sequential per-layer calls, pilot
+            fallback), immediately after the canonical per-layer verification
+            gate. Modes: off = untouched; observe = measure + record, never
+            block; enforce = refuse the render on any REFUSE verdict
+            (VTON_SLEEVES_NOT_VERIFIED, no image delivered). Enforcement is
+            additionally locked behind a valid calibration manifest for the
+            current engine build — without one, enforce refuses (it never
+            falls back to defaults or to 'pass').
+            """
+            from backend.app.services import vton_sleeve_gate as _sg
+            from backend.app.services.vton_sleeve_gate import (
+                SleeveGateConfigError,
+                SleevesNotVerifiedError,
+            )
+
+            try:
+                mode = _sg.resolve_mode()
+            except SleeveGateConfigError as exc:
+                raise SleevesNotVerifiedError(f"sleeve gate mode invalid: {exc}") from exc
+            if mode == "off":
+                return gpu_data_obj
+            gate_res = _sg.load_manifest()
+            th = _sg.active_thresholds(gate_res["manifest"] if gate_res["ok"] else None)
+            result: Dict[str, Any] = {
+                "mode": mode,
+                "gate_version": _sg.SLEEVE_GATE_VERSION,
+                "calibrated": bool(gate_res["ok"]),
+                "threshold_source": "manifest" if gate_res["ok"] else "historical-defaults(unfrozen)",
+                "calibration_reasons": [] if gate_res["ok"] else [r[:200] for r in gate_res["reasons"][:4]],
+                "layers": [],
+            }
+
+            def _garment_ref(g: Dict[str, Any]) -> Optional[str]:
+                ref = g.get("image_base64") or g.get("image_url")
+                if isinstance(ref, str) and ref and not ref.startswith("data:") and g.get("image_base64"):
+                    # raw b64 as sent to the worker — re-wrap for decoding
+                    # (PIL sniffs the actual format; the declared type is moot)
+                    ref = "data:image/png;base64," + ref
+                return ref
+
+            try:
+                output_ref = gpu_data_obj.get("rendered_image_data_url")
+                if len(garments or []) > 1:
+                    # Whole-outfit single call (fashn_v15 contract) or pilot
+                    # composite: inner layers may be OCCLUDED by outer ones, so
+                    # probing them against the person baseline would
+                    # mis-refuse. Probe only the OUTERMOST sleeve-relevant
+                    # garment; occluded long-sleeve layers are recorded N/A
+                    # with the reason — never silently skipped. Per-layer
+                    # verification of every layer requires sequential-chain
+                    # composition (each stage gets its own calibrated probe).
+                    _order = SlotLayeringEngine.LAYER_HIERARCHY
+                    _idx = max(range(len(garments)),
+                               key=lambda i: _order.get(garments[i].get("slot_type"), 10))
+                    targets = [garments[_idx]]
+                    skip = [g for i, g in enumerate(garments) if i != _idx]
+                else:
+                    targets = list(garments or [])
+                    skip = []
+                for g in targets:
+                    d = _sg.decide_layer(
+                        slot_type=g.get("slot_type"),
+                        sleeve_length=g.get("sleeve_length"),
+                        output_ref=output_ref,
+                        input_ref=person_image,
+                        garment_ref=_garment_ref(g),
+                        thresholds=th,
+                    )
+                    d["product_id"] = g.get("product_id")
+                    d["slot_type"] = g.get("slot_type")
+                    result["layers"].append(d)
+                for g in skip:
+                    if g.get("slot_type") in _sg.SLEEVE_RELEVANT_SLOTS and g.get("sleeve_length") == "long":
+                        result["layers"].append({
+                            "status": "N/A",
+                            "product_id": g.get("product_id"),
+                            "slot_type": g.get("slot_type"),
+                            "sleeve_length": g.get("sleeve_length"),
+                            "reason": "inner layer of a whole-outfit render — occlusion makes the sleeve probe inapplicable on this transport; sequential-chain composition verifies every layer",
+                        })
+                result["aggregate"] = _sg.aggregate_layer_decisions(result["layers"])
+                if mode == "enforce" and not gate_res["ok"]:
+                    raise SleevesNotVerifiedError(
+                        "enforce mode has no valid calibration manifest for the current engine build — "
+                        + "; ".join(gate_res["reasons"][:3])
+                        + "; refusing to claim verified sleeves without calibration (never falls back to defaults or pass)"
+                    )
+                refused = [d for d in result["layers"] if d.get("status") == "REFUSE"]
+                if refused:
+                    detail = "; ".join(
+                        f"product {d.get('product_id')} ({d.get('slot_type')}): {str(d.get('reason'))[:180]}"
+                        for d in refused)
+                    if mode == "enforce":
+                        logger.error("vton_sleeve_gate_refused", job_id=job_id, refused_layers=len(refused))
+                        raise SleevesNotVerifiedError(detail)
+                    logger.warn("vton_sleeve_gate_observe_refusal", job_id=job_id, refused_layers=len(refused))
+            except SleevesNotVerifiedError:
+                raise
+            except Exception as exc:  # noqa: BLE001 — the gate failing must fail closed
+                if mode == "enforce":
+                    raise SleevesNotVerifiedError(
+                        f"sleeve-integrity gate could not run ({type(exc).__name__}: {str(exc)[:160]}); "
+                        "missing verification is never a pass") from exc
+                result["error"] = f"{type(exc).__name__}: {str(exc)[:200]}"
+                logger.warn("vton_sleeve_gate_observe_error", job_id=job_id, error=result["error"])
+            gpu_data_obj["sleeve_gate"] = result
+            return gpu_data_obj
+
+
         async def _try_pilot_render(reason: str):
             """Render with the pilot chain, or return None if it may not.
 
@@ -764,7 +892,7 @@ class TryOnService:
         if not worker_url:
             served = await _try_pilot_render("worker_not_configured")
             if served is not None:
-                return served
+                return await _apply_sleeve_gate(served)
             raise RuntimeError(
                 "VTON_ENGINE_UNAVAILABLE: No GPU worker configured "
                 "(VTON_WORKER_URL) and no pilot engine may serve"
@@ -906,7 +1034,7 @@ class TryOnService:
                 # unused, is what made try-on look broken.
                 served = await _try_pilot_render(classified["code"])
                 if served is not None:
-                    return served
+                    return await _apply_sleeve_gate(served)
 
                 # Carry the pilot reason too. Without it the caller sees only
                 # "worker unreachable" and cannot tell whether the fallback
@@ -925,7 +1053,10 @@ class TryOnService:
                     json={
                         "job_id": job_id,
                         "user_image_base64_or_url": person_image,
-                        "garments": garments,
+                        "garments": [
+                            {k: v for k, v in g.items() if k != "sleeve_length"}
+                            for g in garments
+                        ],
                         "gender_mode": gender_mode or "infer_from_image",
                         "output_aspect": output_aspect or "9:16"
                     },
@@ -1033,6 +1164,8 @@ class TryOnService:
                 # Hard, canonical gate: fail truthfully (VTON_LAYER_NOT_APPLIED)
                 # if this garment layer was not verified as applied.
                 assert_layer_applied(verify, job_id)
+
+                gpu_data = await _apply_sleeve_gate(gpu_data)
 
                 logger.info(
                     "vton_inference_success",
@@ -1246,6 +1379,8 @@ class TryOnService:
                     }
                     for l in (gpu_data.get("layers") or [])
                 ]
+                for _lm, _gl in zip(layers_meta, (gpu_data.get("layers") or [])):
+                    _lm["sleeve"] = _gl.get("sleeve")
                 if not layers_meta:
                     # Fallback shape (e.g. pilot-tier renderer without
                     # per-layer reporting): synthesize ONE layer from the
@@ -1264,6 +1399,7 @@ class TryOnService:
                 # garment was not applied (verify_pass != True) must not be
                 # reported as a clean "verified" complete-outfit result.
                 _verif_agg = aggregate_layer_verification(layers_meta)
+                _sleeve_gate = gpu_data.get("sleeve_gate") or {}
                 # The worker served real inference traffic: close the circuit so
                 # a previously opened breaker recovers on the first success
                 # instead of waiting out its window.
@@ -1314,6 +1450,10 @@ class TryOnService:
                 # (single-garment worker adaptation). Observable, never
                 # assumed.
                 _metrics["composition_mode"] = composition_mode
+                if _sleeve_gate:
+                    # Honest per-layer sleeve-integrity verdicts (measured or
+                    # explicitly recorded as not-verifiable); never inferred.
+                    _metrics["sleeve_gate"] = _sleeve_gate
                 if len(garments) > 1:
                     # Prove the WHOLE selected outfit was applied, in order.
                     _metrics["outfit_layers"] = layers_meta
@@ -1384,6 +1524,8 @@ class TryOnService:
                     error_code = "VTON_WORKER_COLD_START"
                 elif "VTON_LAYER_NOT_APPLIED" in error_str:
                     error_code = "VTON_LAYER_NOT_APPLIED"
+                elif "VTON_SLEEVES_NOT_VERIFIED" in error_str:
+                    error_code = "VTON_SLEEVES_NOT_VERIFIED"
                 elif "VTON_INPUT_INVALID" in error_str or "VTON_GARMENT_ASSET_INVALID" in error_str:
                     error_code = "VTON_INPUT_INVALID"
                 elif "VTON_OUTPUT_INVALID" in error_str:
@@ -1417,7 +1559,7 @@ class TryOnService:
                 # A layer-not-applied failure already carries a complete, honest
                 # message from the render contract; do not prefix it as a generic
                 # worker failure (it is the engine not applying the garment).
-                if error_code == "VTON_LAYER_NOT_APPLIED":
+                if error_code in ("VTON_LAYER_NOT_APPLIED", "VTON_SLEEVES_NOT_VERIFIED"):
                     job.error_message = error_str[:500]
                 elif error_code == "VTON_INPUT_INVALID":
                     # Input problems carry an actionable reason already.
@@ -2028,6 +2170,7 @@ class TryOnService:
                 # outfit (this is what previously surfaced as a false
                 # "Optimal Garment Fit / Identity Preserved" success).
                 _sync_verif = aggregate_layer_verification(sync_layers_meta)
+                _sync_sleeve = gpu_data.get("sleeve_gate") or {}
                 _sync_failed = _sync_verif["failed_layers"]
                 _sync_all_verified = _sync_verif["all_layers_verified"]
                 _sync_verified_count = _sync_verif["verified_layers"]
@@ -2059,6 +2202,9 @@ class TryOnService:
                               or settings.VTON_ENGINE)
                     ),
                     "composition_mode": composition_mode,
+                    # Sleeve-integrity gate verdicts (only when the gate ran —
+                    # off mode never produces this key; honesty over silence).
+                    **({"sleeve_gate": _sync_sleeve} if _sync_sleeve else {}),
                     "dynamic_prompt_generated": "",
                     "model_used": gpu_data.get("model_used"),
                     "execution_time_ms": gpu_data.get("execution_time_ms"),
@@ -2182,6 +2328,9 @@ class TryOnService:
             # The frontend reads this to show a truthful quality warning when
             # a garment layer was not confirmed applied.
             "verification": vton_result.get("verification"),
+            # Sleeve-integrity verdicts ride the same explicit copy —
+            # present only when the gate ran (never defaulted, never inferred).
+            "sleeve_gate": vton_result.get("sleeve_gate"),
             # How the outfit was composed on the worker: one whole-outfit
             # call (fashn_v15 contract) or the sequential chain (single-
             # garment worker adaptation). Observable, never assumed.

@@ -303,6 +303,7 @@ class AdminCatalogService:
             currency=payload.currency,
             material=payload.material,
             care_instructions=payload.care_instructions,
+            sleeve_length=payload.sleeve_length,
             color_family=payload.color_family,
             dominant_hex=payload.dominant_hex,
             thumbnail_url=str(payload.thumbnail_url),

@@ -432,6 +432,10 @@ class CapabilityFlagsOut(BaseModel):
     bopis_store_count: int
     storage_mode: str
     returns_window_days: int
+    #: VTON sleeve-integrity gate state (mode / calibrated / reasons).
+    #: Derived from real config + manifest validation; a missing key or
+    #: calibrated=false never means renders 'passed' a sleeve check.
+    vton_sleeve_gate: Optional[Dict[str, Any]] = None
     #: Free-shipping threshold for THIS request's display currency, converted
     #: with the SAME rate table the cart totals use (one authority — the bar
     #: in the storefront and the shipping row at checkout cannot disagree).

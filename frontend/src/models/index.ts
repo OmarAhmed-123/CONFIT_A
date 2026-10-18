@@ -415,6 +415,38 @@ export interface OutfitVerification {
   failed_layers: GarmentLayerVerification[];
 }
 
+// Sleeve-integrity gate (recovered 2026-10-18). The FASHN-class engine can
+// drop a long-sleeve garment's sleeves and still self-report PASS; this is the
+// independent per-layer verdict. It is NEVER inferred: absent/off means the
+// gate did not run, and that must never be displayed as "verified".
+export interface SleeveGateLayerDecision {
+  layer?: number | null;
+  product_id?: number | null;
+  slot_type?: string | null;
+  sleeve_length?: string | null;
+  status: 'PASS' | 'REFUSE' | 'N/A' | string;
+  reason?: string | null;
+  coverage?: Record<string, number> | null;
+  anatomy?: Record<string, Record<string, number>> | null;
+}
+
+export interface SleeveGateState {
+  mode: 'observe' | 'enforce' | string;
+  gate_version?: string | null;
+  calibrated?: boolean | null;
+  threshold_source?: string | null;
+  calibration_reasons?: string[];
+  layers?: SleeveGateLayerDecision[];
+  aggregate?: {
+    layers_relevant: number;
+    layers_verified: number;
+    layers_refused: number;
+    all_sleeves_verified: boolean;
+    not_applicable_layers?: number;
+  } | null;
+  error?: string | null;
+}
+
 export interface MultiGarmentTryOnResult {
   session_id: number;
   status: string;
@@ -435,6 +467,9 @@ export interface MultiGarmentTryOnResult {
   // results). all_layers_verified=false means one or more garments were NOT
   // confirmed applied by the engine — the UI must show a truthful warning.
   verification?: OutfitVerification | null;
+  // Sleeve-integrity gate verdicts for this render (only present when the
+  // gate ran — observe or enforce; see SleeveGateState).
+  sleeve_gate?: SleeveGateState | null;
   // How the outfit was composed on the worker: "single_call" (whole outfit in
   // one GPU call — fashn_v15 contract) or "sequential_chain" (single-garment
   // worker adaptation). Observable, never assumed.

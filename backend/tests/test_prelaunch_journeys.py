@@ -179,5 +179,8 @@ class TestJourney5CapabilitiesUnchanged:
         assert res.status_code == 200
         gate = res.json()["vton_sleeve_gate"]
         assert gate["mode"] == "off"
-        assert gate["calibrated"] is False
+        # Contract (capability_service): with the gate off, calibration is NOT
+        # evaluated, so it reports None — neither a claim of calibration nor a
+        # failure claim. False would only appear on the module-error branch.
+        assert gate["calibrated"] is None
         assert isinstance(gate["reasons"], list)

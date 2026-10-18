@@ -403,6 +403,15 @@ class Settings(BaseSettings):
     # rather than reorders, so a research engine cannot survive as a
     # "temporary" fallback once the platform starts trading.
     VTON_LICENSE_TIER: str = "pilot"
+
+    # --- VTON sleeve-integrity gate (recovered 2026-10-18) ---------------
+    # off | observe | enforce (default off until a calibration manifest is
+    # approved for the CURRENT engine build). An unrecognised value fails
+    # startup (vton_sleeve_gate.startup_check) — a typo must not silently
+    # disable a safety gate. enforce refuses to initialize without a valid
+    # VTON_SLEEVE_CALIBRATION_MANIFEST; missing verification is never a pass.
+    VTON_SLEEVE_GATE_MODE: str = "off"
+    VTON_SLEEVE_CALIBRATION_MANIFEST: str = ""
     # GPU worker (Modal). VTON_WORKER_URL is the /process endpoint. Modal
     # generates one hostname per web endpoint and hash-truncates long labels,
     # so health/readiness cannot always be derived — set them explicitly.

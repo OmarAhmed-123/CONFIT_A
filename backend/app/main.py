@@ -42,6 +42,13 @@ setup_logging(debug=settings.DEBUG)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Initializing CONFIT API Engine", version=settings.VERSION, env=settings.ENVIRONMENT)
+    # Sleeve-integrity gate fail-fast (recovered 2026-10-18): an
+    # unrecognised VTON_SLEEVE_GATE_MODE, or enforce mode without a valid
+    # calibration manifest for the current engine build, REFUSES startup.
+    # Never a silent fallback to "off" or to "pass" — see
+    # backend/app/services/vton_sleeve_gate.py.
+    from backend.app.services import vton_sleeve_gate as _sleeve_gate
+    app.state.vton_sleeve_gate = _sleeve_gate.startup_check()
     # Group 1 §40: production schema is managed by Alembic
     #     PYTHONPATH=. alembic -c backend/alembic.ini upgrade head
     # We STILL call create_all() below for the dev/CI convenience path so

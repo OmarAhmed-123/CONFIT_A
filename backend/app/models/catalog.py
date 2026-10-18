@@ -41,6 +41,12 @@ class Product(Base):
     currency = Column(String(10), default="USD", nullable=False)
     material = Column(String(255), nullable=True)
     care_instructions = Column(String(500), nullable=True)
+    # Authoritative sleeve construction for the try-on sleeve-integrity gate:
+    # "long" | "short" | "none" | NULL = undeclared. The gate NEVER guesses
+    # (an upper-body garment with NULL is not verifiable and is refused under
+    # enforce mode). Client-supplied product data flows through the admin
+    # catalog schemas only — never through the consumer request body.
+    sleeve_length = Column(String(10), nullable=True)
 
     # Styling and AI taxonomy
     style_tags = Column(Text, default="[]", nullable=False)       # JSON: ["smart_casual", "minimalist"]

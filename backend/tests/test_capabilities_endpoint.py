@@ -52,6 +52,11 @@ def test_capabilities_contract_shape(client):
         "bopis_store_count",
         "storage_mode",
         "returns_window_days",
+        # Added 2026-10-18 (sleeve gate): honest gate state {mode, gate_version,
+        # calibrated, reasons} — configuration + manifest validation, measured by
+        # re-hashing the calibration dataset; presence of the key NEVER means the
+        # gate passed a render, and enforce without a valid manifest is impossible.
+        "vton_sleeve_gate",
         # Added 2026-10-08 (home re-pass): the storefront announcement bar
         # binds to a REAL free-shipping policy, currency-converted with the
         # same rate table the cart uses — never to a hardcoded figure.

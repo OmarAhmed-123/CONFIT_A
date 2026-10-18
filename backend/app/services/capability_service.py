@@ -518,7 +518,7 @@ def capability_flags(
     live_method_ids = [m for m in payment_method_ids() if payment_method_is_live(m)]
     psp_methods_live = [m for m in live_method_ids if m != "cod"]
 
-    return {
+    flags = {
         "payments_live": bool(psp_methods_live),
         "payments_live_methods": live_method_ids,
         "cod_live": "cod" in live_method_ids,
@@ -570,6 +570,26 @@ def capability_flags(
         "photo_upload_available": uploads_ready(),
         "returns_window_days": RETURNS_WINDOW_DAYS,
     }
+    # Sleeve-integrity gate — honest state, never inferred from "files exist".
+    # mode: off/observe/enforce; calibrated: valid manifest for the CURRENT
+    # engine build + gate version (dataset re-hashed, rater approvals checked).
+    # reasons: why enforcement is blocked. A green worker never means the
+    # sleeve gate is calibrated, and vice versa.
+    try:
+        from backend.app.services import vton_sleeve_gate as _sg
+        _sg_mode = _sg.resolve_mode()
+        _sg_state = {"mode": _sg_mode, "gate_version": _sg.SLEEVE_GATE_VERSION,
+                     "calibrated": None, "reasons": []}
+        if _sg_mode != "off":
+            _sg_man = _sg.load_manifest()
+            _sg_state["calibrated"] = bool(_sg_man["ok"])
+            _sg_state["reasons"] = [] if _sg_man["ok"] else [r[:160] for r in _sg_man["reasons"][:3]]
+        flags["vton_sleeve_gate"] = _sg_state
+    except Exception as _sg_exc:  # noqa: BLE001 — capability reporting must not break commerce
+        flags["vton_sleeve_gate"] = {"mode": "error", "gate_version": None,
+                                     "calibrated": False,
+                                     "reasons": [str(_sg_exc)[:200]]}
+    return flags
 
 
 

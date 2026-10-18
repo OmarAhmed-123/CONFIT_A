@@ -5,7 +5,7 @@ routes where an administrator must select a brand explicitly; partner contracts
 remain scoped to the caller's linked BrandProfile.
 """
 from datetime import datetime
-from typing import Annotated, List, Optional
+from typing import Annotated, List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl, model_validator
 
@@ -44,6 +44,9 @@ class AdminCatalogProductCreate(BaseModel):
     images: List[HttpUrl] = Field(default_factory=list, max_length=20)
     style_tags: List[CatalogTag] = Field(default_factory=list, max_length=30)
     occasion_tags: List[CatalogTag] = Field(default_factory=list, max_length=30)
+    #: Authoritative sleeve construction (try-on sleeve gate input).
+    #: NULL/omitted = undeclared; the gate refuses to guess for upper garments.
+    sleeve_length: Optional[Literal["long", "short", "none"]] = None
     is_featured: bool = False
     skus: List[AdminCatalogSKUCreate] = Field(min_length=1, max_length=100)
 
@@ -52,6 +55,7 @@ class AdminCatalogProductPatch(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
     category_id: Optional[int] = Field(None, gt=0, strict=True)
+    sleeve_length: Optional[Literal["long", "short", "none"]] = None
     title: Optional[str] = Field(None, min_length=2, max_length=255)
     title_ar: Optional[str] = Field(None, min_length=2, max_length=255)
     description: Optional[str] = Field(None, min_length=2, max_length=4000)

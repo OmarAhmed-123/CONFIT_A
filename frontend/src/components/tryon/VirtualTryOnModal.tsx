@@ -22,6 +22,7 @@ import { usePhotoConsent } from "../../privacy/usePhotoConsent";
 import { formatMoney } from '../../i18n/format';
 import { StatusIcon } from '../common/InteractionPrimitives';
 import { HonestProductImage } from '../common/HonestProductImage';
+import { sleeveGateDisplay } from './sleeveGateDisplay';
 
 export const VirtualTryOnModal: React.FC = () => {
   const { t, i18n } = useTranslation();
@@ -69,6 +70,13 @@ export const VirtualTryOnModal: React.FC = () => {
     runTryOn,
     runAnimatedTryOn,
   } = useTryOnViewModel(tryOnProduct);
+
+  // Sleeve-gate chip display mapping lives in sleeveGateDisplay (pure,
+  // unit-tested): absent state is never rendered as a claim of verification.
+  const sleeveChip = sleeveGateDisplay(multiTryOnResult?.sleeve_gate, {
+    verificationFailed:
+      multiTryOnResult?.verification?.all_layers_verified === false,
+  });
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   // This hook must run on EVERY render. The modal stays mounted globally and
@@ -636,10 +644,28 @@ export const VirtualTryOnModal: React.FC = () => {
                         </div>
                       )}
 
+                    {/* Sleeve-integrity gate (recovered 2026-10-18): the
+                        engine can drop long sleeves and still self-report
+                        PASS — this chip shows the INDEPENDENT verdict.
+                        Absent state (off / legacy) is never rendered as a
+                        claim; uncalibrated gate says "advisory". */}
+                    {sleeveChip && !isRendering && (
+                      <div
+                        role="status"
+                        className={`absolute inset-x-3 bottom-14 rounded-2xl border p-3 text-[11px] font-semibold shadow-lg ${
+                          sleeveChip.tone === 'verified'
+                            ? 'border-emerald-300/60 bg-emerald-50/95 text-emerald-900'
+                            : 'border-amber-300/60 bg-amber-50/95 text-amber-900'
+                        }`}
+                      >
+                        {sleeveChip.text}
+                      </div>
+                    )}
+
                     {capabilityMessage && !isRendering && (
                       <div
                         className={`absolute inset-x-3 rounded-2xl border border-amber-300/50 bg-amber-50/95 p-3 text-[11px] font-semibold text-amber-900 shadow-lg ${
-                          multiTryOnResult?.verification?.all_layers_verified === false
+                          multiTryOnResult?.verification?.all_layers_verified === false || sleeveChip
                             ? "bottom-32"
                             : "bottom-14"
                         }`}

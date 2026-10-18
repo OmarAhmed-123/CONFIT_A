@@ -152,6 +152,10 @@ class ProductDetailOut(ProductSummaryOut):
     #: The PDP breadcrumb previously linked with category_id, which the
     #: Discover filter (slug-based) silently ignored. Additive + optional.
     category_slug: Optional[str] = None
+    #: Authoritative sleeve construction ("long"|"short"|"none"|""). Read-only
+    #: exposure of catalog metadata for the try-on sleeve gate audit; consumers
+    #: can never set it.
+    sleeve_length: Optional[str] = None
     description: str
     description_ar: str
     material: Optional[str]

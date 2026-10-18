@@ -119,6 +119,29 @@ describe('BrandTeamView — owner surface', () => {
   });
 });
 
+describe('BrandTeamView — confirm dialog honesty', () => {
+  it('interpolates the member name into the confirm copy (no raw braces)', async () => {
+    renderView();
+    const removeButtons = await screen.findAllByRole('button', { name: 'Remove' });
+    fireEvent.click(removeButtons[1]);
+    const body = screen.getByText(/Sam Staff loses access to this brand immediately/);
+    expect(body).toBeTruthy();
+    expect(document.body.textContent).not.toContain('{name}');
+  });
+
+  it('a refusal closes the dialog and leaves the visible inline reason', async () => {
+    vi.mocked(membersService.removeMember).mockRejectedValue(
+      new ApiError('guard', 'LAST_ACTIVE_OWNER', 409),
+    );
+    renderView();
+    const removeButtons = await screen.findAllByRole('button', { name: 'Remove' });
+    fireEvent.click(removeButtons[0]); // Ada — the sole owner row
+    fireEvent.click(screen.getByRole('button', { name: /remove access/i }));
+    expect(await screen.findByText(/at least one active owner/i)).toBeTruthy();
+    expect(screen.queryByRole('alertdialog')).toBeNull(); // error never stranded behind a modal
+  });
+});
+
 describe('BrandTeamView — role-gated surfaces', () => {
   it('staff sees a read-only roster without the invitations section', async () => {
     ownerIdentity('staff');
@@ -188,5 +211,55 @@ describe('BrandTeamAcceptView — public acceptance journey', () => {
     renderView('/b2b/team/accept');
     expect(await screen.findByText(/nothing to accept/i)).toBeTruthy();
     expect(membersService.accept).not.toHaveBeenCalled();
+  });
+});
+
+describe('BrandTeamView — dialog focus and keyboard contract', () => {
+  it('invite dialog: Escape closes and focus returns to the trigger button', async () => {
+    renderView();
+    const trigger = await screen.findByRole('button', { name: /invite member/i });
+    trigger.focus();
+    fireEvent.click(trigger);
+    expect(document.activeElement).toBe(screen.getByLabelText(/work email/i)); // initial focus
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(document.activeElement).toBe(trigger); // restored, not dropped to body
+  });
+
+  it('confirm dialog: destructive action receives initial focus and Escape dismisses', async () => {
+    renderView();
+    const removeButtons = await screen.findAllByRole('button', { name: 'Remove' });
+    const trigger = removeButtons[1];
+    trigger.focus();
+    fireEvent.click(trigger);
+    const dialog = screen.getByRole('alertdialog');
+    expect(dialog).toBeTruthy();
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: /remove access/i }));
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+  });
+});
+
+describe('BrandTeamAcceptView + roster — remaining lifecycle states', () => {
+  it('a token for an account that is already a member reports the duplicate honestly', async () => {
+    vi.mocked(membersService.accept).mockResolvedValue({ brand_id: 7, role: 'manager', already_member: true });
+    renderView('/b2b/team/accept?token=tok-dup');
+    expect(await screen.findByText(/already a member/i)).toBeTruthy();
+  });
+
+  it('empty invitations list renders the honest empty state (owner view)', async () => {
+    vi.mocked(membersService.listInvitations).mockResolvedValue([]);
+    renderView();
+    expect(await screen.findByText('No pending invitations.')).toBeTruthy();
+  });
+
+  it('revoked history line renders with the Arabic-verified plural (single member)', async () => {
+    vi.mocked(membersService.listMembers).mockResolvedValue([
+      ...MEMBERS,
+      { id: 13, brand_id: 7, user_id: 3, full_name: 'Ex', email: 'ex@brand.test', role: 'staff', status: 'revoked', created_at: '2026-01-01T00:00:00Z', revoked_at: '2026-04-01T00:00:00Z' },
+    ]);
+    renderView();
+    expect(await screen.findByText(/One revoked membership kept for the audit trail/i)).toBeTruthy();
   });
 });

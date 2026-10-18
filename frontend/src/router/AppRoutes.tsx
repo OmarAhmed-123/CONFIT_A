@@ -140,6 +140,11 @@ export const AppRoutes: React.FC = () => {
             home page via the silent catch-all. PUBLIC: the one-time token
             in the URL is the credential. */}
         <Route path="/reset-password" element={<ResetPasswordView />} />
+        {/* Invitation acceptance is PUBLIC by design: the invited account is a
+            consumer until the authenticated POST resolves the token — the link
+            only carries it to this screen, it never grants access itself. */}
+        <Route path="/b2b/team/accept" element={<BrandTeamAcceptView />} />
+        <Route path="/partner/team/accept" element={<BrandTeamAcceptView />} />
         <Route path="/verify-email" element={<VerifyEmailView />} />
 
         {/* 0b. LEGAL-01: real legal pages — public, not gated behind /profile.
@@ -280,6 +285,7 @@ export const AppRoutes: React.FC = () => {
           <Route path="catalog" element={<BrandCatalogView />} />
           <Route path="inventory" element={<BrandInventoryView />} />
           <Route path="branches" element={<BrandBranchesView />} />
+            <Route path="team" element={<BrandTeamView />} />
           <Route path="stores" element={<BrandBranchesView />} />
           <Route path="orders" element={<BrandOrdersView />} />
           <Route path="analytics" element={suspended(<BrandAnalyticsView />)} />

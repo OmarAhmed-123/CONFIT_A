@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { formatDate } from '../../i18n/format';
 import { useAuthStore } from '../../stores/authStore';
 import {
   membersService,
@@ -51,7 +52,7 @@ function errCode(err: unknown): string | null {
 }
 
 const BrandTeamView: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { user, brandMemberships, loadBrandMemberships } = useAuthStore();
 
   const role: Role | null = useMemo(() => {
@@ -67,20 +68,24 @@ const BrandTeamView: React.FC = () => {
   const [invitations, setInvitations] = useState<BrandTeamInvitation[] | null>(null);
   const [membersError, setMembersError] = useState(false);
   const [invitationsError, setInvitationsError] = useState(false);
-  const [notice, setNotice] = useState<{ tone: 'ok' | 'warn'; text: string } | null>(null);
+  const [notice, setNotice] = useState<{ tone: 'ok' | 'warn'; textKey: string } | null>(null);
 
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<Role>('manager');
   const [inviteBusy, setInviteBusy] = useState(false);
-  const [inviteError, setInviteError] = useState<string | null>(null);
+  const [inviteErrorKey, setInviteErrorKey] = useState<string | null>(null);
   const inviteRef = useRef<HTMLDivElement | null>(null);
   const firstFieldRef = useRef<HTMLInputElement | null>(null);
+  // Focus management contract (WCAG 2.4.3): capture the trigger, restore
+  // focus to it when either dialog closes.
+  const restoreFocusRef = useRef<HTMLElement | null>(null);
+  const confirmRef = useRef<HTMLButtonElement | null>(null);
 
   const [confirmRemove, setConfirmRemove] = useState<BrandTeamMember | null>(null);
   const [removeBusy, setRemoveBusy] = useState<number | null>(null);
   const [roleBusy, setRoleBusy] = useState<number | null>(null);
-  const [rowError, setRowError] = useState<string | null>(null);
+  const [rowErrorKey, setRowErrorKey] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setMembersError(false);
@@ -101,6 +106,7 @@ const BrandTeamView: React.FC = () => {
   // Invite dialog a11y: focus on open, Tab-cycle within, Escape closes.
   useEffect(() => {
     if (!inviteOpen) return;
+    restoreFocusRef.current = document.activeElement as HTMLElement | null;
     firstFieldRef.current?.focus();
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') { setInviteOpen(false); return; }
@@ -115,26 +121,43 @@ const BrandTeamView: React.FC = () => {
       else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
     };
     document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      restoreFocusRef.current?.focus?.();
+      restoreFocusRef.current = null;
+    };
   }, [inviteOpen]);
+
+  // Confirm dialog: focus the destructive action, Escape dismisses, focus
+  // returns to the row button that opened it.
+  useEffect(() => {
+    if (!confirmRemove) return;
+    restoreFocusRef.current = document.activeElement as HTMLElement | null;
+    confirmRef.current?.focus();
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setConfirmRemove(null); };
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      restoreFocusRef.current?.focus?.();
+      restoreFocusRef.current = null;
+    };
+  }, [confirmRemove]);
 
   const submitInvite = async () => {
     setInviteBusy(true);
-    setInviteError(null);
+    setInviteErrorKey(null);
     try {
       const res = await membersService.invite({ email: inviteEmail.trim(), role: inviteRole });
       const created = Boolean(res?.id);
       setInviteOpen(false);
       setInviteEmail('');
-      setNotice({ tone: 'ok', text: created ? t('brand_team.invite_queued') : t('brand_team.invite_reused') });
+      setNotice({ tone: 'ok', textKey: created ? 'brand_team.invite_queued' : 'brand_team.invite_reused' });
       await load();
     } catch (err) {
       const code = errCode(err);
       const known = code && ['MULTI_BRAND_NOT_SUPPORTED', 'ALREADY_MEMBER', 'EMAIL_SEND_UNAVAILABLE']
         .includes(code) ? code : null;
-      setInviteError(known
-        ? t(`brand_team.err.${known}`)
-        : t('brand_team.invite_failed', { defaultValue: t('brand_team.action_failed') }));
+      setInviteErrorKey(known ? `brand_team.err.${known}` : 'brand_team.action_failed');
     } finally {
       setInviteBusy(false);
     }
@@ -143,32 +166,32 @@ const BrandTeamView: React.FC = () => {
   const doResend = async (id: number) => {
     try {
       await membersService.resendInvitation(id);
-      setNotice({ tone: 'ok', text: t('brand_team.invite_re_sent') });
+      setNotice({ tone: 'ok', textKey: 'brand_team.invite_re_sent' });
     } catch {
-      setNotice({ tone: 'warn', text: t('brand_team.action_failed') });
+      setNotice({ tone: 'warn', textKey: 'brand_team.action_failed' });
     }
   };
 
   const doRevokeInvite = async (id: number) => {
     try {
       await membersService.revokeInvitation(id);
-      setNotice({ tone: 'ok', text: t('brand_team.invite_revoked') });
+      setNotice({ tone: 'ok', textKey: 'brand_team.invite_revoked' });
       await load();
     } catch {
-      setNotice({ tone: 'warn', text: t('brand_team.action_failed') });
+      setNotice({ tone: 'warn', textKey: 'brand_team.action_failed' });
     }
   };
 
   const doChangeRole = async (m: BrandTeamMember, next: Role) => {
     setRoleBusy(m.id);
-    setRowError(null);
+    setRowErrorKey(null);
     try {
       await membersService.changeRole(m.id, next);
       await load();
     } catch (err) {
-      setRowError(errCode(err) === 'LAST_ACTIVE_OWNER'
-        ? t('brand_team.err.LAST_ACTIVE_OWNER')
-        : t('brand_team.action_failed'));
+      setRowErrorKey(errCode(err) === 'LAST_ACTIVE_OWNER'
+        ? 'brand_team.err.LAST_ACTIVE_OWNER'
+        : 'brand_team.action_failed');
     } finally {
       setRoleBusy(null);
     }
@@ -176,25 +199,26 @@ const BrandTeamView: React.FC = () => {
 
   const doRemove = async (m: BrandTeamMember) => {
     setRemoveBusy(m.id);
-    setRowError(null);
+    setRowErrorKey(null);
     try {
       await membersService.removeMember(m.id);
-      setNotice({ tone: 'ok', text: t('brand_team.member_removed') });
+      setNotice({ tone: 'ok', textKey: 'brand_team.member_removed' });
       setConfirmRemove(null);
       await load();
     } catch (err) {
-      setRowError(errCode(err) === 'LAST_ACTIVE_OWNER'
-        ? t('brand_team.err.LAST_ACTIVE_OWNER')
-        : t('brand_team.action_failed'));
+      // The server refused — close the confirm dialog so the inline reason
+      // (e.g. LAST_ACTIVE_OWNER) is actually visible, and refresh the roster
+      // so the user sees the unchanged truth.
+      setConfirmRemove(null);
+      setRowErrorKey(errCode(err) === 'LAST_ACTIVE_OWNER'
+        ? 'brand_team.err.LAST_ACTIVE_OWNER'
+        : 'brand_team.action_failed');
     } finally {
       setRemoveBusy(null);
     }
   };
 
-  const fmtDate = (iso: string) => {
-    try { return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }); }
-    catch { return iso; }
-  };
+  const fmtDate = (iso: string) => formatDate(iso, i18n.language) || iso;
 
   const activeMembers = (members ?? []).filter((m) => m.status === 'active');
   const ownerCount = activeMembers.filter((m) => m.role === 'owner').length;
@@ -224,7 +248,7 @@ const BrandTeamView: React.FC = () => {
       {notice ? (
         <div role="status" aria-live="polite"
           className={`rounded-2xl border px-4 py-3 text-sm ${notice.tone === 'ok' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-amber-50 border-amber-200 text-amber-800'}`}
-        >{notice.text}</div>
+        >{t(notice.textKey)}</div>
       ) : null}
 
       {/* ── Members ─────────────────────────────────────────────────────── */}
@@ -236,7 +260,7 @@ const BrandTeamView: React.FC = () => {
           </h2>
           {isOwner ? (
             <button type="button" data-motion="send" className={btnPrimary}
-              onClick={() => { setInviteError(null); setInviteOpen(true); }}>
+              onClick={() => { setInviteErrorKey(null); setInviteOpen(true); }}>
               {t('brand_team.invite_button')}
             </button>
           ) : (
@@ -290,7 +314,7 @@ const BrandTeamView: React.FC = () => {
                     <button type="button" data-motion="admin" className={btnDanger}
                       disabled={removeBusy === m.id}
                       title={ownerCount <= 1 && m.role === 'owner' ? t('brand_team.err.LAST_ACTIVE_OWNER') : undefined}
-                      onClick={() => { setRowError(null); setConfirmRemove(m); }}>
+                      onClick={() => { setRowErrorKey(null); setConfirmRemove(m); }}>
                       {t('brand_team.remove_button')}
                     </button>
                   </div>
@@ -301,7 +325,7 @@ const BrandTeamView: React.FC = () => {
             ))}
           </ul>
         )}
-        {rowError ? <p role="alert" className="text-xs text-rose-700">{rowError}</p> : null}
+        {rowErrorKey ? <p role="alert" className="text-xs text-rose-700">{t(rowErrorKey)}</p> : null}
         {members && members.some((m) => m.status === 'revoked') ? (
           <p className="text-[11px] text-brand-muted">{t('brand_team.revoked_note', { count: members.filter((m) => m.status === 'revoked').length })}</p>
         ) : null}
@@ -385,7 +409,7 @@ const BrandTeamView: React.FC = () => {
               </select>
               <p className="text-[11px] text-brand-muted font-light leading-relaxed">{t(`brand_team.role_hint_${inviteRole}`)}</p>
             </div>
-            {inviteError ? <p role="alert" className="text-xs text-rose-700">{inviteError}</p> : null}
+            {inviteErrorKey ? <p role="alert" className="text-xs text-rose-700">{t(inviteErrorKey)}</p> : null}
             <div className="flex justify-end gap-2 pt-1">
               <button type="button" data-motion="neutral" className={btnGhost} onClick={() => setInviteOpen(false)}>
                 {t('common.cancel', { defaultValue: 'Cancel' })}
@@ -413,7 +437,7 @@ const BrandTeamView: React.FC = () => {
               <button type="button" data-motion="neutral" className={btnGhost} onClick={() => setConfirmRemove(null)}>
                 {t('common.cancel', { defaultValue: 'Cancel' })}
               </button>
-              <button data-motion-tone="icon" type="button" data-motion="admin" className={btnDanger} disabled={removeBusy === confirmRemove.id}
+              <button ref={confirmRef} data-motion-tone="icon" type="button" data-motion="admin" className={btnDanger} disabled={removeBusy === confirmRemove.id}
                 onClick={() => void doRemove(confirmRemove)}>
                 {removeBusy === confirmRemove.id ? t('brand_team.remove_busy') : t('brand_team.remove_confirm')}
               </button>

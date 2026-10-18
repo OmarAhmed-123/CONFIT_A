@@ -127,3 +127,21 @@ describe('portal back navigation', () => {
     expect(screen.getByText('/admin')).toBeTruthy();
   });
 });
+
+describe('route wiring (static guard — the journey that must never 404)', () => {
+  // A silently-failed string patch once left /b2b/team/accept unregistered while
+  // every unit test stayed green (they mount views directly). This test closes
+  // that gap at CI level: the router source must wire each team surface.
+  const routerSrc = require('node:fs').readFileSync(
+    require.resolve('../AppRoutes.tsx'),
+    'utf8',
+  ) as string;
+
+  it.each([
+    ['<Route path="team" element={<BrandTeamView />} />', 2, 'team view under BOTH portal prefixes'],
+    ['<Route path="/b2b/team/accept" element={<BrandTeamAcceptView />} />', 1, 'public b2b accept route'],
+    ['<Route path="/partner/team/accept" element={<BrandTeamAcceptView />} />', 1, 'public partner accept route'],
+  ])('contains %s — %s', (needle, count) => {
+    expect(routerSrc.split(needle).length - 1).toBe(count);
+  });
+});

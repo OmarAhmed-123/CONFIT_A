@@ -408,3 +408,84 @@ describe('legal pages render translated content', () => {
     expect(document.body.textContent).not.toContain('privacy@confit.io');
   });
 });
+
+/* ─────────────────── brand_team plurals + interpolation (BRD-02) ─────────────────── */
+
+describe('brand_team — CLDR plurals and named interpolation in both locales', () => {
+  afterEach(async () => {
+    await act(async () => {
+      await setAppLanguage('en');
+    });
+  });
+
+  const resolve = async (lng: 'en' | 'ar', key: string, opts: Record<string, unknown> = {}) => {
+    await act(async () => {
+      await setAppLanguage(lng);
+    });
+    return String(i18n.t(key, opts as never));
+  };
+
+  it('English selects one/other at real boundaries (zero rides the other form)', async () => {
+    clearMissingTranslations();
+    expect(await resolve('en', 'brand_team.revoked_note', { count: 0 }))
+      .toBe('0 revoked memberships kept for the audit trail — they have no access.');
+    expect(await resolve('en', 'brand_team.revoked_note', { count: 1 }))
+      .toBe('One revoked membership kept for the audit trail — it has no access.');
+    expect(await resolve('en', 'brand_team.revoked_note', { count: 2 }))
+      .toBe('2 revoked memberships kept for the audit trail — they have no access.');
+    expect(await resolve('en', 'brand_team.revoked_note', { count: 100 }))
+      .toBe('100 revoked memberships kept for the audit trail — they have no access.');
+    expect(getMissingTranslations()).toEqual({});
+  });
+
+  it('Arabic resolves its own CLDR categories — zero/one/two/few/many/other', async () => {
+    clearMissingTranslations();
+    const out: Record<number, string> = {};
+    for (const count of [0, 1, 2, 3, 11, 100]) {
+      out[count] = await resolve('ar', 'brand_team.revoked_note', { count });
+    }
+    expect(out[0]).toContain('لا توجد عمليات سحب وصول');
+    expect(out[1]).toContain('سحب وصول واحد');
+    expect(out[2]).toContain('سحبا وصول محفوظان');   // dual — English has no equivalent
+    expect(out[3]).toContain('3 عمليات');            // few
+    expect(out[11]).toContain('11 عملية');           // many
+    expect(out[100]).toContain('100 عملية');         // other
+    // Six categories must NOT collapse into two mechanically-copied English forms:
+    expect(new Set(Object.values(out)).size).toBe(6);
+    for (const value of Object.values(out)) {
+      expect(value).not.toContain('{{');
+      expect(value).not.toContain('revoked_note');
+    }
+    expect(getMissingTranslations()).toEqual({});
+  });
+
+  it('no resource in either locale carries a single-brace placeholder (invisible to {{}} checks)', () => {
+    const stray = /(?<!\{)\{[A-Za-z_][A-Za-z0-9_]*\}(?!\})/;
+    const offenders: string[] = [];
+    const scan = (obj: Record<string, unknown>, locale: string, path = '') => {
+      for (const [key, value] of Object.entries(obj)) {
+        const p2 = path ? `${path}.${key}` : key;
+        if (value && typeof value === 'object') scan(value as Record<string, unknown>, locale, p2);
+        else if (typeof value === 'string' && stray.test(value)) offenders.push(`${locale}:${p2}`);
+      }
+    };
+    scan(en as Record<string, unknown>, 'en');
+    scan(ar as Record<string, unknown>, 'ar');
+    expect(offenders).toEqual([]);
+  });
+
+  it('named interpolation reaches the rendered text in both locales', async () => {
+    expect(await resolve('en', 'brand_team.role_label', { name: 'Ada' })).toBe('Role for Ada');
+    expect(await resolve('ar', 'brand_team.role_label', { name: 'آدا' })).toBe('دور آدا');
+    expect(await resolve('en', 'brand_team.joined', { date: 'Jan 1, 2026' })).toBe('joined Jan 1, 2026');
+    expect(await resolve('ar', 'brand_team.expires', { date: '8/3/2026' })).toContain('8/3/2026');
+  });
+
+  it('a wrong parameter name does not silently leak the placeholder', async () => {
+    clearMissingTranslations();
+    const leaked = await resolve('en', 'brand_team.role_label', { userName: 'Ada' } as never);
+    // i18next leaves the token unresolved when the option is missing — the UI
+    // layer must never render that raw; assert the failure mode is loud, not silent English prose.
+    expect(leaked).toContain('{{name}}');
+  });
+});

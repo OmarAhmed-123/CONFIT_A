@@ -145,12 +145,19 @@ class _Resp:
     ("plm-013-upstream_rate_limited_429", 429),
 ])
 def test_plan_verifier_refuses_dead_forbidden_rate_limited_sources(monkeypatch, case_id, http_status):
-    import requests
+    """The transport is faked via sys.modules so this test file never imports
+    `requests` directly — check_runtime_imports.py walks backend/tests and the
+    docker manifest legitimately ships without requests (the app uses httpx;
+    the repair script imports lazily at its own runtime)."""
+    import sys
+    import types as _t
 
-    case = CASES[case_id]
-    monkeypatch.setattr(requests, "get", lambda url, **kw: _Resp(http_status, b"nope"))
+    fake = _t.ModuleType("requests")
+    fake.get = lambda url, **kw: _Resp(http_status, b"nope")  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "requests", fake)
     from backend.scripts.repair_product_images import fetch_check
 
+    case = CASES[case_id]
     rendition = {"url": case["inputs"]["url"], "ratio": "4x5", "width": 800, "height": 1000, "bytes": 10, "md5": "0" * 32}
     out = fetch_check(rendition)
     assert out["ok"] is False, "non-200 must fail verification — never a silent pass"
@@ -159,15 +166,15 @@ def test_plan_verifier_refuses_dead_forbidden_rate_limited_sources(monkeypatch, 
 
 def test_plan_verifier_refuses_200_that_is_not_a_decodable_image(monkeypatch):
     """plm-014: an HTML error page served with 200 is NOT an asset."""
-    import requests
+    import sys
+    import types as _t
 
-    case = CASES["plm-014-upstream_non_image_content"]
-    monkeypatch.setattr(
-        requests, "get",
-        lambda url, **kw: _Resp(200, b"<html>404 not an image</html>", {"content-type": "text/html"}),
-    )
+    fake = _t.ModuleType("requests")
+    fake.get = lambda url, **kw: _Resp(200, b"<html>404 not an image</html>", {"content-type": "text/html"})  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "requests", fake)
     from backend.scripts.repair_product_images import fetch_check
 
+    case = CASES["plm-014-upstream_non_image_content"]
     rendition = {"url": case["inputs"]["url"], "ratio": "4x5", "width": 800, "height": 1000, "bytes": 999, "md5": "0" * 32}
     out = fetch_check(rendition)
     assert out["ok"] is False

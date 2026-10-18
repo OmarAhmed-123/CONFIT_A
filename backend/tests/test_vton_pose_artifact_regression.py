@@ -157,4 +157,10 @@ def test_worker_payload_keeps_person_and_garments_separate():
     # different sources.
     src = inspect.getsource(TryOnService._call_gpu_worker)
     assert '"user_image_base64_or_url": person_image' in src
-    assert '"garments": garments' in src
+    # 2026-10-18 (sleeve gate): the garments field is still built from the
+    # `garments` list — a field distinct from the person image — now filtered
+    # to strip gate-only metadata (sleeve_length) that must never reach the
+    # worker wire. The separation this test pins is unchanged.
+    assert '"garments": [' in src
+    assert 'if k != "sleeve_length"}' in src
+    assert "for g in garments" in src

@@ -104,11 +104,18 @@ or deleted; it is documented here and in the PR #357 comment (id
   protocol for the operator; rows 14–15 cover this PR's new UI states.
 * Attempted automated supplement: installed `python3-pyatspi` +
   `at-spi2-core` + `xvfb` + `orca`/`espeak-ng`/`speech-dispatcher`
-  (apt, root available). [Poll results appended below once the AT probe
-  run completes — recorded honestly either way, including if the container
-  could not host the session.] An automated AT-SPI probe, even if it runs,
-  validates tree/event plumbing only — it is NOT the manual acceptance
-  criterion.
+  (apt, root available); automated AT-SPI probe ATTEMPTED, PARTIALLY PROVEN,
+  then stopped (timeboxed): Xvfb + private D-Bus session with
+  `org.a11y.Status.IsEnabled/ScreenReaderEnabled=true`, real Chromium
+  (`--force-renderer-accessibility`) against the LIVE app (uvicorn + vite
+  dev). The browser REGISTERED on the AT-SPI bus (application node readable)
+  but this headless build never exposed the page `document web area` node —
+  its first-run Terms-of-Service dialog renders as unexposed views-widgets
+  (xdotool and AT-SPI action queries found no pressable button), so
+  page-level SR semantics could not be captured in-container. That outcome
+  is itself evidence for why the manual desktop session is required; rows
+  1–15 of `SCREEN_READER_TEST_PROTOCOL_2026-10-18.md` remain the operator's
+  to execute. No SR pass is claimed either way.
 
 ## E. Regression suite performed (see PR body for exact commands/results)
 

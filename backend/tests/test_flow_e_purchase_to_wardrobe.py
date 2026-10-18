@@ -601,7 +601,11 @@ def test_migration_chain_has_a_single_head_at_0036() -> None:
     #    members per brand tenant with invitation lifecycle and last-owner
     #    protection. Additive tables + founder back-fill; the founder anchor
     #    brand_profiles.user_id stays as the documented rollback fallback.
-    assert expected_head_revision() == "0039_brand_memberships"
+    # -> 0040 (product_sleeve_length, sleeve-gate recovery 2026-10-18): additive
+    #    nullable metadata column the sleeve gate reads; no backfill, no guessing
+    #    (NULL on an upper garment means UNDECLARED -> not verifiable by design).
+    assert expected_head_revision() == "0040_product_sleeve_length"
+    assert chain["0040_product_sleeve_length"] == "0039_brand_memberships"
     assert chain["0039_brand_memberships"] == "0038_vton_job_retention"
     assert chain["0036_recently_viewed_unique"] == "0035_product_images"
     assert chain["0035_product_images"] == "0034_mfa_email_codes"

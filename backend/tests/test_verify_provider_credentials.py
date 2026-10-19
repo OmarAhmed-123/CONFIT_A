@@ -438,9 +438,20 @@ def test_runpod_s3_does_not_borrow_the_aws_endpoint(monkeypatch, tmp_path):
     )
     monkeypatch.setattr(vpc, "repo_root", lambda: tmp_path)
     monkeypatch.setattr(vpc, "DOTENV_CANDIDATES", (".env",))
-    for n in ("RUNPOD_S3_ACCESS_KEY", "RUNPOD_S3_SECRET_KEY", "AWS_ENDPOINT_URL_S3",
-              "RUNPOD_S3_ENDPOINT_URL", "RUNPOD_ENDPOINT_URL", "AWS_ACCESS_KEY_ID",
-              "AWS_SECRET_ACCESS_KEY"):
+    # One name per line, deliberately: `gitleaks`' generic-api-key rule reads a
+    # quoted "*_ACCESS_KEY" token followed by another quoted string as an
+    # assignment and flags the pair as a leak. The names are variable names, not
+    # values, so the config must not be weakened to silence it — reformatting is
+    # the fix (same precedent as the NVIDIA slot table in the verifier).
+    for n in (
+        "RUNPOD_S3_ACCESS_KEY",
+        "RUNPOD_S3_SECRET_KEY",
+        "AWS_ENDPOINT_URL_S3",
+        "RUNPOD_S3_ENDPOINT_URL",
+        "RUNPOD_ENDPOINT_URL",
+        "AWS_ACCESS_KEY_ID",
+        "AWS_SECRET_ACCESS_KEY",
+    ):
         monkeypatch.delenv(n, raising=False)
 
     import asyncio
@@ -457,8 +468,14 @@ def test_runpod_s3_uses_its_own_endpoint_when_one_is_configured(monkeypatch, tmp
         "RUNPOD_S3_ENDPOINT_URL=https://runpod.example.invalid\n", encoding="utf-8")
     monkeypatch.setattr(vpc, "repo_root", lambda: tmp_path)
     monkeypatch.setattr(vpc, "DOTENV_CANDIDATES", (".env",))
-    for n in ("RUNPOD_S3_ACCESS_KEY", "RUNPOD_S3_SECRET_KEY", "RUNPOD_S3_ENDPOINT_URL",
-              "AWS_ENDPOINT_URL_S3", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"):
+    for n in (
+        "RUNPOD_S3_ACCESS_KEY",
+        "RUNPOD_S3_SECRET_KEY",
+        "RUNPOD_S3_ENDPOINT_URL",
+        "AWS_ENDPOINT_URL_S3",
+        "AWS_ACCESS_KEY_ID",
+        "AWS_SECRET_ACCESS_KEY",
+    ):
         monkeypatch.delenv(n, raising=False)
 
     vault = vpc.Vault()

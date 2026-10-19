@@ -150,6 +150,10 @@ class Vault:
                 return value.strip(), name
         return None, None
 
+    def configured_names(self) -> List[str]:
+        """Every variable NAME this vault can see. Names only — never values."""
+        return sorted(set(self._env) | set(self._dotenv))
+
     @staticmethod
     def fingerprint(value: str) -> str:
         return hashlib.sha256(value.encode("utf-8")).hexdigest()[:8]
@@ -228,7 +232,14 @@ async def probe_http(
     value: Optional[str] = None,
     name: Optional[str] = None,
     http_status_offset: bool = False,
+    capture: Optional[Dict[str, Any]] = None,
 ) -> Result:
+    """Probe one endpoint and classify the answer.
+
+    `capture`, when given, receives the parsed response body under "body".
+    Callers that need to inspect a payload opt in explicitly rather than
+    widening the Result, so nothing is retained unless it is asked for.
+    """
     started = time.perf_counter()
     fingerprint = Vault.fingerprint(value) if value else None
     try:
@@ -238,9 +249,36 @@ async def probe_http(
             provider, capability, UNREACHABLE, f"{type(exc).__name__}: {str(exc)[:120]}",
             name, fingerprint, int((time.perf_counter() - started) * 1000),
         )
+    if capture is not None:
+        capture["body"] = body
     latency = int((time.perf_counter() - started) * 1000)
     verdict, detail = classify_http(status, body)
     return Result(provider, capability, verdict, detail, name, fingerprint, latency)
+
+
+def near_miss(candidates: Sequence[str], vault: Vault) -> Optional[str]:
+    """Return a configured NAME that looks like one of `candidates`.
+
+    "Not configured" and "configured under a name nothing reads" are different
+    facts, and only one of them tells the operator to go and buy a credential.
+    The match is deliberately strict — one name must be a prefix of the other
+    on the model-bearing part — so it never claims two unrelated variables are
+    the same credential.
+    """
+    configured = vault.configured_names()
+    for candidate in candidates:
+        for name in configured:
+            if name == candidate or not name.startswith("NVIDIA_"):
+                continue
+            shorter, longer = sorted((candidate, name), key=len)
+            # Compare at least "<PREFIX>_<MODEL-TOKENS>" so `..._ULTRA` matches
+            # `..._ULTRA_550B_A55B`, but `..._GLM_5_3` does not match
+            # `..._GLM_5_3_FLASH` (that is a different model, not a spelling).
+            if longer.startswith(shorter) and len(shorter) - len("NVIDIA_API_KEY_") >= 12:
+                remainder = longer[len(shorter):]
+                if remainder.startswith("_"):
+                    return name
+    return None
 
 
 def tcp_reachable(host: str, port: int, timeout: float = TIMEOUT) -> Tuple[bool, str]:
@@ -303,9 +341,12 @@ async def probe_nvidia(vault: Vault, only_slots: bool = False) -> List[Result]:
     for canonical, alias, model in NVIDIA_SLOTS:
         value, name = vault.get(canonical, alias)
         if not value:
+            hint = near_miss((canonical, alias), vault)
             results.append(Result(
                 "nvidia", model, NOT_CONFIGURED,
-                f"neither {canonical} nor {alias} is set",
+                f"neither {canonical} nor {alias} is set"
+                + (f" — but {hint} IS configured under a name this app never reads, "
+                   f"so the slot stays empty until it is renamed" if hint else ""),
             ))
             continue
         result = await probe_http(
@@ -326,6 +367,28 @@ async def probe_nvidia(vault: Vault, only_slots: bool = False) -> List[Result]:
         results.append(await probe_http(
             "nvidia", label, f"{base}/models",
             headers={"Authorization": f"Bearer {value}"}, value=value, name=name,
+        ))
+
+    # Enumerate, by NAME, every NVIDIA key present in the environment that no
+    # slot above consumed. Fuzzy "did you mean" matching is only sound for a
+    # few spellings; an enumeration is sound for all of them, and it answers the
+    # question an operator actually asks — "I gave you 19 keys, why do you say
+    # 8?" — without ever asserting two names are the same credential.
+    consumed = {name for r in results if r.name for name in (r.name,)}
+    known = {canonical for canonical, _, _ in NVIDIA_SLOTS}
+    known |= {alias for _, alias, _ in NVIDIA_SLOTS}
+    unread = [
+        n for n in vault.configured_names()
+        if (n.startswith("NVIDIA_KEY_") or n.startswith("NVIDIA_API_KEY"))
+        and n not in known and n not in consumed
+    ]
+    if unread:
+        results.append(Result(
+            "nvidia", "keys present but read by no slot", SHAPE_ONLY,
+            f"{len(unread)} NVIDIA key name(s) are configured under names neither "
+            f"the pool nor this script reads, so they contribute nothing at runtime: "
+            + ", ".join(sorted(unread)),
+            extra={"unread_names": sorted(unread)},
         ))
     return results
 
@@ -402,12 +465,19 @@ async def probe_unorouter(vault: Vault) -> List[Result]:
     )]
 
 
+#: (accepted env names, label). The operator's secret file orders these
+#: `<role>_<database>` (`DATABASE_URL_OWNER_NEONDB`) while this table originally
+#: assumed `<database>_<role>` (`DATABASE_URL_NEONDB_OWNER`). Both are accepted:
+#: the mismatch made the report print "Neon owner role: not configured" for a
+#: DSN that was configured, which is the exact failure mode this tool exists to
+#: prevent — an operator re-issuing a working credential because a checker could
+#: not spell it.
 DATABASES = (
-    ("DATABASE_URL", "primary application database"),
-    ("DATABASE_URL_NEONDB_OWNER", "Neon owner role"),
-    ("DATABASE_URL_NEONDB_APP_RW", "Neon app read-write role"),
-    ("DATABASE_URL_FIXVERIFY_OWNER", "fixverify owner role"),
-    ("DATABASE_URL_FIXVERIFY_APP_RW", "fixverify app read-write role"),
+    (("DATABASE_URL",), "primary application database"),
+    (("DATABASE_URL_NEONDB_OWNER", "DATABASE_URL_OWNER_NEONDB"), "Neon owner role"),
+    (("DATABASE_URL_NEONDB_APP_RW", "DATABASE_URL_APP_NEONDB"), "Neon app read-write role"),
+    (("DATABASE_URL_FIXVERIFY_OWNER", "DATABASE_URL_OWNER"), "fixverify owner role"),
+    (("DATABASE_URL_FIXVERIFY_APP_RW",), "fixverify app read-write role"),
 )
 
 
@@ -424,10 +494,11 @@ def describe_database(url: str) -> Dict[str, Any]:
 
 async def probe_databases(vault: Vault) -> List[Result]:
     results: List[Result] = []
-    for var, label in DATABASES:
-        value, name = vault.get(var)
+    for names, label in DATABASES:
+        value, name = vault.get(*names)
         if not value:
-            results.append(Result("neon", label, NOT_CONFIGURED, f"{var} is not set"))
+            results.append(Result("neon", label, NOT_CONFIGURED,
+                                  f"none of {', '.join(names)} is set"))
             continue
         info = describe_database(value)
         if not info["host"]:
@@ -472,9 +543,19 @@ async def probe_databases(vault: Vault) -> List[Result]:
 
 async def probe_s3_compatible(vault: Vault) -> List[Result]:
     results: List[Result] = []
+    # Each target carries its OWN endpoint. RunPod used to borrow
+    # AWS_ENDPOINT_URL_S3, so a valid RunPod key was presented to the AWS host
+    # and rejected — reported as `auth_failed`, i.e. "your credential is bad",
+    # when the truth was "this probe asked the wrong server". A credential is
+    # only ever proven wrong against the endpoint it belongs to.
     targets = (
-        ("Neon S3 / AWS", ("AWS_ACCESS_KEY_ID",), ("AWS_SECRET_ACCESS_KEY",), ("AWS_ENDPOINT_URL_S3",), ("AWS_S3_BUCKET",)),
-        ("RunPod S3", ("RUNPOD_S3_ACCESS_KEY",), ("RUNPOD_S3_SECRET_KEY",), ("AWS_ENDPOINT_URL_S3",), ("AWS_S3_BUCKET",)),
+        ("Neon S3 / AWS",
+         ("AWS_ACCESS_KEY_ID",), ("AWS_SECRET_ACCESS_KEY",),
+         ("AWS_ENDPOINT_URL_S3",), ("AWS_S3_BUCKET",)),
+        ("RunPod S3",
+         ("RUNPOD_S3_ACCESS_KEY",), ("RUNPOD_S3_SECRET_KEY",),
+         ("RUNPOD_S3_ENDPOINT_URL", "RUNPOD_ENDPOINT_URL"),
+         ("RUNPOD_S3_BUCKET", "AWS_S3_BUCKET")),
     )
     for label, ak_names, sk_names, ep_names, bucket_names in targets:
         access, ak_name = vault.get(*ak_names)
@@ -485,8 +566,14 @@ async def probe_s3_compatible(vault: Vault) -> List[Result]:
             results.append(Result("s3", label, NOT_CONFIGURED, f"{ak_names[0]} / {sk_names[0]} not both set"))
             continue
         if not endpoint:
-            results.append(Result("s3", label, SHAPE_ONLY, "credentials present but no endpoint configured",
-                                  ak_name, Vault.fingerprint(access)))
+            results.append(Result(
+                "s3", label, SHAPE_ONLY,
+                f"credentials present but no endpoint of its own is configured "
+                f"(looked for {', '.join(ep_names)}) — deliberately NOT tried against "
+                f"another provider's host, because a rejection there would say nothing "
+                f"about this credential",
+                ak_name, Vault.fingerprint(access),
+            ))
             continue
         host = urlparse(endpoint).hostname
         started = time.perf_counter()
@@ -525,10 +612,49 @@ async def probe_brevo_api(vault: Vault) -> List[Result]:
     value, name = vault.get("BREVO_API_KEY")
     if not value:
         return [Result("brevo", "transactional email (API)", NOT_CONFIGURED, "BREVO_API_KEY is not set")]
-    return [await probe_http(
+
+    results = [await probe_http(
         "brevo", "transactional email (API)", "https://api.brevo.com/v3/account",
         headers={"api-key": value, "accept": "application/json"}, value=value, name=name,
     )]
+
+    # The account probe proves the key works; it says nothing about whether the
+    # configured From address is allowed to send. That is what the earlier
+    # compliance note flagged, and `GET /v3/senders` answers it without sending
+    # anything. Without this, "the API key is valid" gets read as "mail will be
+    # delivered" — two different facts.
+    captured: Dict[str, Any] = {}
+    sender = await probe_http(
+        "brevo", "sender / domain verification", "https://api.brevo.com/v3/senders",
+        headers={"api-key": value, "accept": "application/json"}, value=value, name=name,
+        capture=captured,
+    )
+    if sender.status == OK:
+        # The endpoint answers `{"senders": [...]}`. Reading only the bare-list
+        # shape made this probe report "no active sender" for an account with
+        # one — a false FAIL on the money path, which is worse than no probe.
+        body = captured.get("body")
+        rows = body.get("senders") if isinstance(body, dict) else body
+        if not isinstance(rows, list):
+            sender.status = ENDPOINT_UNKNOWN
+            sender.detail = (
+                "the sender endpoint answered 2xx but the payload is not the documented "
+                "{\"senders\": [...]} shape — the list was not actually read"
+            )
+        else:
+            active = [
+                r.get("email") for r in rows
+                if isinstance(r, dict) and r.get("active") and r.get("email")
+            ]
+            sender.detail = (
+                f"HTTP 200 · {len(active)} active sender(s): {', '.join(active)}"
+                if active else
+                "HTTP 200 · the sender list is readable but contains NO active sender — "
+                "transactional mail will be rejected at send time"
+            )
+            sender.extra["active_senders"] = active
+    results.append(sender)
+    return results
 
 
 async def probe_smtp(vault: Vault) -> List[Result]:
@@ -603,15 +729,32 @@ async def probe_sentry(vault: Vault) -> List[Result]:
     results: List[Result] = []
     value, name = vault.get("SENTRY_AUTH_TOKEN")
     if not value:
-        results.append(Result("sentry", "error tracking", NOT_CONFIGURED, "SENTRY_AUTH_TOKEN is not set"))
+        # An operator may supply SENTRY_DSN_TOKEN instead. It is NOT
+        # interchangeable: a DSN token is a project-key string the SDK embeds,
+        # and `GET /api/0/organizations/` rejects it. Reporting "not configured"
+        # for a credential that IS configured is the defect this branch exists
+        # to catch, so name it and classify the gap instead.
+        dsn_token, dsn_name = vault.get("SENTRY_DSN_TOKEN")
+        if dsn_token:
+            results.append(Result(
+                "sentry", "error tracking", SKIPPED,
+                "SENTRY_DSN_TOKEN is present but is not an API auth token — it cannot list "
+                "organizations; a read-only check needs an auth token (SENTRY_AUTH_TOKEN) "
+                "and a full DSN (https://<key>@<host>/<project>) for the SDK itself",
+                dsn_name, Vault.fingerprint(dsn_token),
+            ))
+        else:
+            results.append(Result("sentry", "error tracking", NOT_CONFIGURED,
+                                  "SENTRY_AUTH_TOKEN is not set"))
     else:
         results.append(await probe_http(
             "sentry", "error tracking", "https://sentry.io/api/0/organizations/",
             headers={"Authorization": f"Bearer {value}"}, value=value, name=name,
         ))
-    glitch, glitch_name = vault.get("GLITCHTIP_KEY")
+    glitch, glitch_name = vault.get("GLITCHTIP_KEY", "GLITCHTIP_TOKEN")
     if not glitch:
-        results.append(Result("glitchtip", "error tracking (self-hosted)", NOT_CONFIGURED, "GLITCHTIP_KEY is not set"))
+        results.append(Result("glitchtip", "error tracking (self-hosted)", NOT_CONFIGURED,
+                              "neither GLITCHTIP_KEY nor GLITCHTIP_TOKEN is set"))
     else:
         # A DSN is a public in-app identifier, not a bearer token: what can be
         # verified is its shape and that its ingest host answers.
@@ -629,10 +772,10 @@ async def probe_sentry(vault: Vault) -> List[Result]:
             ))
         else:
             results.append(Result(
-                "glitchtip", "error tracking (self-hosted)",
-                SHAPE_ONLY if len(glitch) >= 32 and " " not in glitch else HTTP_ERROR,
-                "value is a project key, not a DSN — the SDK needs the full "
-                "https://<key>@<host>/<project> form (this is what the app must be given)",
+                "glitchtip", "error tracking (self-hosted)", SKIPPED,
+                "value is a bare project key, not a DSN — no host or project id, so there is "
+                "no endpoint to call. The SDK needs the full https://<key>@<host>/<project> "
+                "form; that is what the app must be given",
                 glitch_name, Vault.fingerprint(glitch),
             ))
     return results
@@ -739,6 +882,49 @@ async def probe_fitroom(vault: Vault) -> List[Result]:
     return [result]
 
 
+#: PSP credentials the seam would read, in the order a real integration would
+#: prefer them. None is referenced by the application today — checked by
+#: reading `backend/app/providers/payment/orchestrator.py`, whose
+#: `LIVE_PSP_ADAPTERS` is an empty dict — so a configured value here would be a
+#: credential nothing uses, which is its own finding.
+PSP_CREDENTIALS: Sequence[Tuple[str, str]] = (
+    ("PAYMOB_API_KEY", "Paymob (Egypt)"),
+    ("STRIPE_SECRET_KEY", "Stripe"),
+    ("TABBY_SECRET_KEY", "Tabby"),
+    ("TAMARA_API_TOKEN", "Tamara"),
+)
+
+
+async def probe_payments(vault: Vault) -> List[Result]:
+    """PSP seam (spec 012). Read-only by construction.
+
+    There is deliberately NO balance/account call here: no live adapter exists,
+    so there is no documented read-only endpoint to call and inventing one would
+    produce a verdict that means nothing. The honest report is which of the two
+    facts is true — credential present with nothing consuming it, or nothing
+    configured at all — plus the explicit statement that no charge path exists.
+    """
+    configured = [(var, label) for var, label in PSP_CREDENTIALS if vault.get(var)[0]]
+    if not configured:
+        return [Result(
+            "payments", "PSP (live card / wallet charging)", SKIPPED,
+            "no PSP credential configured and no live adapter implemented "
+            "(LIVE_PSP_ADAPTERS is empty) — checkout runs in demo mode; a real "
+            "charge path does not exist yet (spec 012 seam only)",
+        )]
+    rows: List[Result] = []
+    for var, label in configured:
+        value, name = vault.get(var)
+        rows.append(Result(
+            "payments", f"PSP credential · {label}", SKIPPED,
+            "credential present but NOT read by the application and no live adapter "
+            "exists — validating it read-only is impossible until the adapter "
+            "declares an endpoint. Not probed live, by design",
+            name, Vault.fingerprint(value or ""),
+        ))
+    return rows
+
+
 async def probe_platforms(vault: Vault) -> List[Result]:
     results: List[Result] = []
     vercel, name = vault.get("VERCEL_TOKEN")
@@ -771,11 +957,12 @@ async def probe_platforms(vault: Vault) -> List[Result]:
                      "Accept": "application/vnd.github+json"}, value=github, name=name,
         ))
 
-    hub, hub_name = vault.get("CONFIT_HUB_API_KEY")
+    hub, hub_name = vault.get("CONFIT_HUB_API_KEY", "CONFITHUB_API_KEY")
     results.append(Result(
         "confit-hub", "internal hub API",
         SHAPE_ONLY if hub else NOT_CONFIGURED,
-        "credential present · no endpoint declared in the repo" if hub else "CONFIT_HUB_API_KEY is not set",
+        "credential present · no endpoint declared in the repo" if hub
+        else "neither CONFIT_HUB_API_KEY nor CONFITHUB_API_KEY is set",
         hub_name, Vault.fingerprint(hub) if hub else None,
     ))
     return results
@@ -843,6 +1030,7 @@ PROBE_GROUPS: Sequence[Tuple[str, Callable[[Vault], Awaitable[List[Result]]]]] =
     ("kaggle", probe_kaggle),
     ("gpu", probe_gpu_platforms),
     ("fitroom", probe_fitroom),
+    ("payments", probe_payments),
     ("platforms", probe_platforms),
     ("dns", probe_dns),
 )

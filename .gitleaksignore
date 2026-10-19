@@ -28,3 +28,29 @@ b49ab275c8e8139133bb886537c7ba88f58847f7:backend/app/core/database.py:database-d
 37b12ac3565ade1feaa6964a2ae2fcdd66feb85c:frontend/src/viewmodels/useWardrobeViewModel.ts:generic-api-key:348
 37b12ac3565ade1feaa6964a2ae2fcdd66feb85c:frontend/src/viewmodels/__tests__/useWardrobeUndo.test.tsx:generic-api-key:125
 37b12ac3565ade1feaa6964a2ae2fcdd66feb85c:frontend/src/viewmodels/__tests__/useWardrobeUndo.test.tsx:generic-api-key:142
+
+# ── FALSE POSITIVES, 2026-10-19 (Slice C) ───────────────────────────────────
+# gitleaks' generic-api-key rule matched a TUPLE OF VARIABLE NAMES in a test
+# that lists the env vars to unset:
+#
+#     for n in (  # one tuple of names, on a single source line
+#         ...
+#     )
+#
+# It reads `"<something>_KEY", "<next string>"` as an assignment `name = value`.
+# The "secret" it captured is the NAME `RUNPOD_S3_SECRET_KEY`; no value appears
+# anywhere in that file, and the surrounding code writes literal `ak` / `sk`
+# placeholders into a temp .env to prove name resolution only.
+#
+# The REAL fix landed forward in the follow-up commit on this branch: both tuples were reformatted one name
+# per line, which the rule does not match (verified against gitleaks 8.24.3 —
+# the one-line form matches, the one-per-line form does not). Same precedent as
+# the NVIDIA slot table in backend/scripts/verify_provider_credentials.py:
+# reformatting a false positive beats allowlisting a shape.
+#
+# These two entries exist only because 5c0599f is already published and the
+# check scans FULL HISTORY; rewriting published history to silence a false
+# positive is more dangerous than the finding. Nothing to rotate: no secret
+# material ever existed at these locations.
+5c0599f6aed41424e4918e97583c8cd010a16076:backend/tests/test_verify_provider_credentials.py:generic-api-key:441
+5c0599f6aed41424e4918e97583c8cd010a16076:backend/tests/test_verify_provider_credentials.py:generic-api-key:460

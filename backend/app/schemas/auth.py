@@ -108,6 +108,21 @@ class UserOut(BaseModel):
     brand_id: Optional[int] = None
     has_profile: bool = False
 
+    # Phase 0.2 — server-side onboarding completion truth. The client gate must
+    # read these, never `has_profile`: a row exists as soon as the wizard saves
+    # anything, so `has_profile` answered True for users who never finished and
+    # the first-run wizard kept reappearing on every fresh session.
+    #
+    #   onboarding_completed    — the wizard was submitted to completion.
+    #   onboarding_completed_at — when (None when never completed, or for
+    #                             legacy rows whose completion instant was
+    #                             never recorded).
+    #   onboarding_version      — which ONBOARDING_WIZARD_VERSION that
+    #                             completion satisfied.
+    onboarding_completed: bool = False
+    onboarding_completed_at: Optional[datetime] = None
+    onboarding_version: Optional[int] = None
+
     model_config = ConfigDict(from_attributes=True)
 
 

@@ -28,11 +28,19 @@ class ProfileService:
         return self._format_usp(usp)
 
     def save_quiz_and_preferences(
-        self, user_id: int, quiz_data: Dict[str, Any], *, is_onboarding: bool = True
+        self, user_id: int, quiz_data: Dict[str, Any], *, is_onboarding: bool = False
     ) -> Dict[str, Any]:
         # Tag the payload so the repository can flip onboarding_completed
         # only for the full-quiz submission path. Split PATCHes to /me/*
         # deliberately do NOT complete onboarding.
+        #
+        # The default is FAIL-CLOSED (False) on purpose. It used to default to
+        # True, and every split PATCH (`/me/budget`, `/me/size-fit`, ...)
+        # called this helper without the keyword — so saving a single budget
+        # field marked the whole wizard complete. That is the same lie as the
+        # `has_profile` gate this slice removes: a shopper who never finished
+        # onboarding would be told they had. Only the endpoint that actually
+        # receives the full wizard payload may opt in, explicitly.
         payload = dict(quiz_data)
         if is_onboarding:
             payload["_mark_onboarding_completed"] = True

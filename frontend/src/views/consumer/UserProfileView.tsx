@@ -3,7 +3,12 @@ import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { profileService, authService } from '../../services/apiServices';
 import { UserStyleProfile } from '../../models';
-import { useAuthStore } from '../../stores/authStore';
+import {
+  useAuthStore,
+  dismissOnboarding,
+  isOnboardingDismissed,
+  clearOnboardingDismissed,
+} from '../../stores/authStore';
 import { CircularGalleryShowcase } from '../../components/showcase/DesignShowcases';
 import { useUIStore } from '../../stores/uiStore';
 import { SparkleIcon, UserIcon, RulerIcon, ShieldIcon } from '../../components/icons/ConfitIcons';
@@ -148,8 +153,8 @@ export const UserProfileView: React.FC = () => {
   // Active UI language drives number/currency rendering; stored profile
   // tokens stay English regardless (see PROFILE_OPTIONS).
   const lang = i18n.resolvedLanguage ?? 'en';
-  const [searchParams] = useSearchParams();
-  const { user, isAuthenticated, logout } = useAuthStore();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { user, isAuthenticated, logout, fetchMe } = useAuthStore();
   const { showToast, openAuthModal } = useUIStore();
   const forceOnboarding = searchParams.get('onboarding') === '1';
 
@@ -359,11 +364,38 @@ export const UserProfileView: React.FC = () => {
   // First-run onboarding auto-open (G1 §23): if the URL says onboarding=1
   // or the profile hasn't been completed yet, pop the wizard automatically.
   useEffect(() => {
-    if (isAuthenticated && !isLoading && (forceOnboarding || (user && !user.has_profile))) {
+    if (
+      isAuthenticated &&
+      !isLoading &&
+      (forceOnboarding || (user && !user.onboarding_completed && !isOnboardingDismissed()))
+    ) {
       setIsQuizOpen(true);
       setQuizStep(1);
     }
   }, [isAuthenticated, isLoading, forceOnboarding, user]);
+
+  // Drop ?onboarding=1 after the wizard is closed/finished so the auto-open
+  // effect (which force-opens while that param is present) cannot immediately
+  // reopen it — this is what makes "complete, then it reopens" impossible on
+  // the gate-redirect path.
+  const dropOnboardingParam = () => {
+    if (!forceOnboarding) return;
+    const next = new URLSearchParams(searchParams);
+    next.delete('onboarding');
+    setSearchParams(next, { replace: true });
+  };
+
+  // Closing the first-run wizard WITHOUT completing it is a skip, and a skip
+  // must be non-blocking (G1 §23): record a session dismissal so the gate and
+  // the auto-open effect stop firing until the profile is actually completed
+  // (or a fresh session). A completed onboarding (onboarding_completed) makes
+  // this moot — note that is NOT `has_profile`, which is true as soon as the
+  // wizard saves one field.
+  const closeQuiz = () => {
+    setIsQuizOpen(false);
+    if (user && !user.onboarding_completed) dismissOnboarding();
+    dropOnboardingParam();
+  };
 
   const handleSaveQuiz = async () => {
     // Build a payload that ONLY contains fields the user actually
@@ -399,7 +431,16 @@ export const UserProfileView: React.FC = () => {
     try {
       const updated = await profileService.submitOnboardingQuiz(payload);
       setUsp(updated as any);
+      // The submission stamped onboarding_completed/onboarding_completed_at
+      // server-side. Refresh the authoritative user so `onboarding_completed`
+      // flips true in the store AND the persisted confit_user cache —
+      // otherwise OnboardingGate and the auto-open effect keep firing on every
+      // navigation/refresh until a full re-login (the "wizard reappears after
+      // completion" bug). fetchMe never rethrows.
+      clearOnboardingDismissed();
+      await fetchMe();
       setIsQuizOpen(false);
+      dropOnboardingParam();
       showToast(t('profile.usp_saved'), 'success');
     } catch (err: any) {
       showToast(t('profile.save_failed', { detail: err.message }), 'error');
@@ -1035,7 +1076,7 @@ integrityNote = t('profile.exported_integrity', {
                   {t('profile.wizard_title')}
                 </h3>
               </div>
-              <button data-motion="progressive" data-motion-tone="icon" onClick={() => setIsQuizOpen(false)} className="text-slate-300 hover:text-white">
+              <button data-motion="progressive" data-motion-tone="icon" onClick={closeQuiz} className="text-slate-300 hover:text-white">
                 ✕
               </button>
             </div>

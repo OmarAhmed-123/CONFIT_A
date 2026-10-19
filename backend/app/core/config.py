@@ -647,6 +647,14 @@ class Settings(BaseSettings):
     STORAGE_PROBE_TTL_SECONDS: float = 300.0
 
 
+    # Onboarding wizard version (Phase 0.2). Stamped onto
+    # `user_style_profiles.onboarding_version` when a user completes the
+    # wizard, so completion is a server-side fact keyed to a specific wizard
+    # revision. Bump this ONLY when the wizard asks something new that an
+    # existing profile cannot satisfy — a bump makes every profile below the
+    # new version eligible for a re-prompt.
+    ONBOARDING_WIZARD_VERSION: int = 1
+
     # Privacy & Retention
     POLICY_VERSION: int = 3
     ANALYTICS_K_MIN: int = 20

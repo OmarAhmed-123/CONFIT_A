@@ -63,6 +63,38 @@ export const hasSessionEvidence = (): boolean => {
   }
 };
 
+/**
+ * G1 §23 onboarding dismissal (session-scoped). The first-run onboarding
+ * prompt must be DISMISSIBLE: once a user skips it, it must not bounce them
+ * across routes (OnboardingGate) or auto-reopen the wizard for the rest of the
+ * session. It returns on a fresh session until the profile is actually
+ * completed, at which point `has_profile` makes it moot. Wrapped like
+ * hasSessionEvidence so a private-mode / disabled-storage throw never breaks
+ * routing.
+ */
+const ONBOARDING_DISMISSED_KEY = 'confit_onboarding_dismissed';
+export const isOnboardingDismissed = (): boolean => {
+  try {
+    return sessionStorage.getItem(ONBOARDING_DISMISSED_KEY) === '1';
+  } catch {
+    return false;
+  }
+};
+export const dismissOnboarding = (): void => {
+  try {
+    sessionStorage.setItem(ONBOARDING_DISMISSED_KEY, '1');
+  } catch {
+    /* storage unavailable — the in-memory gate still falls back safely */
+  }
+};
+export const clearOnboardingDismissed = (): void => {
+  try {
+    sessionStorage.removeItem(ONBOARDING_DISMISSED_KEY);
+  } catch {
+    /* ignore */
+  }
+};
+
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   isAuthenticated: false,
@@ -177,6 +209,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       /* still fall through to local clear */
     }
     clearAuthTokens();
+    clearOnboardingDismissed();
     set({ user: null, isAuthenticated: false, mfaRequired: false, error: null, errorCode: null,
       brandMemberships: null, brandMembershipsStatus: 'idle' });
   },
@@ -224,9 +257,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 }));
 
-// Small helper exposed for callers that need to know if the current
-// authenticated user has completed onboarding — used by AppRoutes to
-// gate the first-run onboarding redirect (G1 §23).
+// Phase 0.2 — the ONLY correct "does this shopper still need onboarding?"
+// answer. Server-computed from `onboarding_completed` + `onboarding_version`.
+// Absent field (cached pre-Phase-0.2 session) reads as false → the wizard is
+// offered, which is the fail-safe direction: a spurious prompt is dismissible,
+// a silently skipped onboarding is not.
+export const selectOnboardingCompleted = (state: AuthState) =>
+  Boolean(state.user?.onboarding_completed);
+
+// Kept for callers that genuinely need "a profile row exists" (e.g. deciding
+// whether to fetch prefill values). It is NOT an onboarding-completed signal:
+// the row is created by the first saved field, so a user who opened the
+// wizard and closed it is `has_profile: true`. Do not gate the wizard on it.
 export const selectHasProfile = (state: AuthState) => Boolean(state.user?.has_profile);
 // CYCLE-3 (BLOCKER J): the API client renews an expired access cookie
 // transparently (single-flight /auth/refresh + one retry). When renewal

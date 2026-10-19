@@ -63,6 +63,38 @@ export const hasSessionEvidence = (): boolean => {
   }
 };
 
+/**
+ * G1 §23 onboarding dismissal (session-scoped). The first-run onboarding
+ * prompt must be DISMISSIBLE: once a user skips it, it must not bounce them
+ * across routes (OnboardingGate) or auto-reopen the wizard for the rest of the
+ * session. It returns on a fresh session until the profile is actually
+ * completed, at which point `has_profile` makes it moot. Wrapped like
+ * hasSessionEvidence so a private-mode / disabled-storage throw never breaks
+ * routing.
+ */
+const ONBOARDING_DISMISSED_KEY = 'confit_onboarding_dismissed';
+export const isOnboardingDismissed = (): boolean => {
+  try {
+    return sessionStorage.getItem(ONBOARDING_DISMISSED_KEY) === '1';
+  } catch {
+    return false;
+  }
+};
+export const dismissOnboarding = (): void => {
+  try {
+    sessionStorage.setItem(ONBOARDING_DISMISSED_KEY, '1');
+  } catch {
+    /* storage unavailable — the in-memory gate still falls back safely */
+  }
+};
+export const clearOnboardingDismissed = (): void => {
+  try {
+    sessionStorage.removeItem(ONBOARDING_DISMISSED_KEY);
+  } catch {
+    /* ignore */
+  }
+};
+
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   isAuthenticated: false,
@@ -177,6 +209,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       /* still fall through to local clear */
     }
     clearAuthTokens();
+    clearOnboardingDismissed();
     set({ user: null, isAuthenticated: false, mfaRequired: false, error: null, errorCode: null,
       brandMemberships: null, brandMembershipsStatus: 'idle' });
   },

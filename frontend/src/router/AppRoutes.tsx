@@ -4,7 +4,7 @@ import { ConsumerLayout } from '../layouts/ConsumerLayout';
 import { BrandLayout } from '../layouts/BrandLayout';
 import { RoleGuard, ProtectedRoute } from '../components/auth/RoleGuard';
 import { RoutePending } from '../components/navigation/RoutePending';
-import { useAuthStore } from '../stores/authStore';
+import { useAuthStore, isOnboardingDismissed } from '../stores/authStore';
 
 /**
  * OnboardingGate — Group 1 §23 first-run flow.
@@ -13,7 +13,7 @@ import { useAuthStore } from '../stores/authStore';
  * to /profile (the wizard host). Applies only to consumer-scoped routes;
  * B2B / admin surfaces are unaffected.
  */
-const OnboardingGate: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const OnboardingGate: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, isAuthenticated } = useAuthStore();
   const location = useLocation();
   const skipPaths = ['/profile', '/settings', '/onboarding'];
@@ -21,6 +21,7 @@ const OnboardingGate: React.FC<{ children: React.ReactNode }> = ({ children }) =
     isAuthenticated &&
     user &&
     !user.has_profile &&
+    !isOnboardingDismissed() &&
     !skipPaths.some((p) => location.pathname.startsWith(p));
   if (shouldRedirect) {
     return <Navigate to="/profile?onboarding=1" replace />;

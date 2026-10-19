@@ -1,7 +1,8 @@
 # CONFIT_A — Status Matrix
 
 **Generated:** 2026-10-19 · **Workspace:** cloud workspace, clone of `OmarAhmed-123/CONFIT_A`
-**Working branch:** `fix/wizard-reappearing` — head `0763c8b` (PR #359, open, **not merged**)
+**Working branch:** `fix/wizard-reappearing` — PR #359, open, **not merged**
+**Commits:** `0763c8b` (Slice A code) · `1b70978` (this reconciliation)
 **Status vocabulary:** VERIFIED (ran & passed) · FAILED (ran & failed) · BLOCKED (cannot run — environment/policy) · NOT TESTED (not attempted / no surface)
 
 > **Evidence rule (constitution Principle I):** every row cites something run or read. "Verified by running" and "verified by reading" are labelled distinctly. Implementation status and verification status are tracked separately. No value of any credential appears in this document.
@@ -144,20 +145,47 @@ The verifier script named in the previous revision (`backend/scripts/verify_prov
 | Commit identity | `OmarAhmed-123 <omarsafealden@gmail.com>`, no `Co-authored-by`, no AI attribution (`AGENTS.md` §6.2) |
 | Token handling | askpass helper; the token never appears in a URL, in `.git/config`, or in any file |
 
-### Required checks on `0763c8b` (by SHA)
+### Check results, by SHA
 
-| Check | Conclusion |
-|---|---|
-| `backend` | **success** |
-| `frontend` | **success** |
-| `postgres migration chain + schema gate` | **success** |
-| `production parity (deployment contract)` | **success** |
-| `gitleaks secret scan (full history)` | **success** |
-| `stylist drawer browser gate (a11y, keyboard, RTL)` | **success** |
-| `Vercel Preview Comments` | **success** |
-| `Workers Builds: confit-a` | **failure — non-required**, classified not suppressed |
+Read per commit; no result is borrowed across SHAs.
 
-`Workers Builds: confit-a` is an external Cloudflare Workers pipeline that **has no definition in this repository** — verified: no `wrangler.toml`, `wrangler.json(c)`, `_worker.js`, `_routes.json`, or `functions/`. It cannot be fixed from code here; it needs the Cloudflare project's settings. It is also why the PR reports `mergeable_state = blocked` despite every required check being green.
+| Check | `0763c8b` (code) | `1b70978` (docs) |
+|---|---|---|
+| `backend` | **success** | **success** |
+| `frontend` | **success** | **success** |
+| `postgres migration chain + schema gate` | **success** | **success** |
+| `production parity (deployment contract)` | **success** | **success** |
+| `gitleaks secret scan (full history)` | **success** | **success** |
+| `stylist drawer browser gate (a11y, keyboard, RTL)` | **success** | **success** |
+| `Vercel Preview Comments` | **success** | **success** |
+| `release gate (production schema parity)` | *did not run* | **failure — REQUIRED** |
+| `Workers Builds: confit-a` | failure — non-required | failure — non-required |
+
+#### `release gate (production schema parity)` — FAILED, and correctly so
+
+The gate is not flaky and not a code defect. It compares the migration head this commit requires against the head production actually reports, and refuses to let a merge deploy code production cannot run. Its own output:
+
+```
+RELEASE GATE: BLOCK
+  commit requires : 0040_onboarding_completion_metadata
+  production has  : 0039_brand_memberships
+  production health verdict: ok (acceptable=True)
+  ...Merging now would deploy code production cannot run: the startup schema gate
+  would refuse to boot and the API would return 500 (this is the 2026-09-20 incident).
+```
+
+**Resolving it requires applying migration `0040` to the production Neon database** — a production mutation, which is outside this workspace's mandate and was **not performed**. Until the owner runs it, this required check stays red on every commit, by design. Order of operations, per the gate:
+
+```
+ALEMBIC_DATABASE_URL='<owner DSN>' PYTHONPATH=. alembic -c backend/alembic.ini upgrade head
+ALEMBIC_DATABASE_URL='<owner DSN>' PYTHONPATH=. alembic -c backend/alembic.ini current
+```
+
+The migration is additive and every column is nullable, so applying it before the code merge is safe — that is precisely the ordering this gate exists to enforce.
+
+#### `Workers Builds: confit-a` — non-required, classified
+
+An external Cloudflare Workers pipeline that **has no definition in this repository** — verified: no `wrangler.toml`, `wrangler.json(c)`, `_worker.js`, `_routes.json`, or `functions/`. It cannot be fixed from code here; it needs the Cloudflare project's settings. Together with the release gate it is why the PR reports `mergeable_state = blocked`.
 
 ---
 
@@ -166,6 +194,7 @@ The verifier script named in the previous revision (`backend/scripts/verify_prov
 1. **Live browser E2E — NOT TESTED.** No deployed backend or browser in this workspace. The wizard behaviour is covered by unit/API-integration tests and by reading, not by a click-through.
 2. **Live provider verification — NOT TESTED here.** See §1. This is the substance of a separate slice (a real, in-repo verifier + a recorded run), not something this matrix can assert.
 3. **`npm audit`: 8 vulnerabilities (2 moderate, 6 high)** — measured on the committed lockfile. No automated fix applied; deliberately out of scope for a metadata slice.
-4. **`Workers Builds: confit-a`** — external to the repo; owner action in Cloudflare.
-5. **PR #358** remains open by the owner's instruction.
-6. **Merge is the owner's decision and has not happened.** Nothing was deployed.
+4. **`release gate (production schema parity)` is RED and required** — migration `0040` is not applied to production. Owner action: run the upgrade against the production DSN, then re-run the gate. Nothing has been merged, so no deploy is at risk in the meantime.
+5. **`Workers Builds: confit-a`** — external to the repo; owner action in Cloudflare.
+6. **PR #358** remains open by the owner's instruction.
+7. **Merge is the owner's decision and has not happened.** Nothing was deployed.

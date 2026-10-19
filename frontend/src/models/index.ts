@@ -12,7 +12,21 @@ export interface User {
   mfa_enabled: boolean;
   created_at: string;
   brand_id?: number | null;
+  /** A `user_style_profiles` row exists. This is NOT the same as finishing
+   *  onboarding — the row appears as soon as the wizard saves any single
+   *  field. Never gate the first-run wizard on this; use
+   *  `onboarding_completed` (Phase 0.2). */
   has_profile: boolean;
+  /** Server-side truth: the shopper submitted the wizard to completion.
+   *  Optional because a cached pre-Phase-0.2 `/auth/me` payload won't carry
+   *  it — absent is treated as "not completed", which is the safe default. */
+  onboarding_completed?: boolean;
+  /** When that completed submission landed (ISO-8601). Null/undefined means
+   *  either "never completed" or a legacy row whose instant was never
+   *  recorded — never invent one. */
+  onboarding_completed_at?: string | null;
+  /** Which wizard revision the completion satisfied. */
+  onboarding_version?: number | null;
 }
 
 export interface BodyAttributes {

@@ -74,6 +74,9 @@ export const BrandRegistrationView: React.FC = () => {
           mfa_enabled: false,
           created_at: new Date().toISOString(),
           has_profile: true,
+          // Brand accounts never go through the consumer first-run wizard, so
+          // the onboarding gate must treat them as complete (Phase 0.2).
+          onboarding_completed: true,
           brand_id: res.brand.id,
         };
         setSession(res.access_token, res.refresh_token, dummyUser);

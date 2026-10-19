@@ -39,6 +39,22 @@ class UserStyleProfile(Base):
     # Status
     onboarding_completed = Column(Boolean, default=False, nullable=False)
 
+    # Onboarding completion metadata (Phase 0.2) — server-side truth so the
+    # client never has to infer "has the wizard been finished?" from the mere
+    # existence of a row (`has_profile` was true for a user who opened the
+    # wizard and saved nothing, which is what made the wizard reappear).
+    #
+    #   onboarding_completed_at — when the most recent COMPLETED onboarding
+    #       submission landed. NULL means "never completed" and is the honest
+    #       answer for profiles created before this column existed: the
+    #       completion instant was not recorded then and we refuse to invent it
+    #       (migration 0040 backfills the version, not the timestamp).
+    #   onboarding_version — the ONBOARDING_WIZARD_VERSION in effect for that
+    #       submission. Lets the gate re-prompt only when the wizard itself
+    #       changed, instead of guessing.
+    onboarding_completed_at = Column(DateTime, nullable=True)
+    onboarding_version = Column(Integer, nullable=True)
+
     # Consent state — real persistent columns replacing the previous mock
     # `/me/consents` handler. Group 1 §17.
     privacy_consent_tryon_storage = Column(Boolean, default=False, nullable=False)

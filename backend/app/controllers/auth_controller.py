@@ -107,6 +107,12 @@ def _user_out(user: User) -> UserOut:
         created_at=user.created_at,
         brand_id=user.brand_profile.id if user.brand_profile else None,
         has_profile=user.profile is not None,
+        # Phase 0.2 — the completion facts ride on the profile row. Absent
+        # profile → not completed, which is the truthful answer (nothing was
+        # ever submitted), never an assumed True.
+        onboarding_completed=bool(user.profile is not None and user.profile.onboarding_completed),
+        onboarding_completed_at=user.profile.onboarding_completed_at if user.profile else None,
+        onboarding_version=user.profile.onboarding_version if user.profile else None,
     )
 
 

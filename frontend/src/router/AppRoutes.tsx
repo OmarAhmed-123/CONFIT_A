@@ -9,9 +9,16 @@ import { useAuthStore, isOnboardingDismissed } from '../stores/authStore';
 /**
  * OnboardingGate — Group 1 §23 first-run flow.
  *
- * Authenticated users who have not completed the style profile are routed
+ * Authenticated users who have not COMPLETED the onboarding wizard are routed
  * to /profile (the wizard host). Applies only to consumer-scoped routes;
  * B2B / admin surfaces are unaffected.
+ *
+ * Phase 0.2: the predicate is `user.onboarding_completed`, the server's
+ * record that the wizard was submitted to completion — NOT `user.has_profile`.
+ * `has_profile` only means "a profile row exists", which becomes true the
+ * moment the wizard saves a single field; gating on it let a half-finished
+ * onboarding be treated as done and the wizard reappear from the
+ * UserProfileView auto-open path instead.
  */
 export const OnboardingGate: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, isAuthenticated } = useAuthStore();
@@ -20,7 +27,7 @@ export const OnboardingGate: React.FC<{ children: React.ReactNode }> = ({ childr
   const shouldRedirect =
     isAuthenticated &&
     user &&
-    !user.has_profile &&
+    !user.onboarding_completed &&
     !isOnboardingDismissed() &&
     !skipPaths.some((p) => location.pathname.startsWith(p));
   if (shouldRedirect) {

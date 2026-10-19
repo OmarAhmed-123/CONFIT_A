@@ -29,9 +29,16 @@ const renderAt = (path: string) =>
     </MemoryRouter>,
   );
 
-const setUser = (has_profile: boolean) =>
+const setUser = (onboarding_completed: boolean, has_profile = onboarding_completed) =>
   useAuthStore.setState({
-    user: { id: 1, email: 'a@b.c', full_name: 'A', role: 'consumer', has_profile } as never,
+    user: {
+      id: 1,
+      email: 'a@b.c',
+      full_name: 'A',
+      role: 'consumer',
+      has_profile,
+      onboarding_completed,
+    } as never,
     isAuthenticated: true,
     isLoading: false,
     hasAttemptedBootstrap: true,
@@ -50,10 +57,37 @@ describe('OnboardingGate — G1 §23 first-run, dismissible (regression: wizard 
     expect(screen.getByTestId('where').textContent).toBe('/profile?onboarding=1');
   });
 
-  it('does NOT redirect once the profile is completed (the reported bug: no reappear after completion/refresh/re-login)', () => {
+  it('does NOT redirect once onboarding is completed (the reported bug: no reappear after completion/refresh/re-login)', () => {
     setUser(true);
     renderAt('/discover');
     expect(screen.getByText('discover content')).toBeTruthy();
+  });
+
+  // PHASE 0.2 REGRESSION — the exact state that made the wizard reappear.
+  // A profile row exists (the wizard saved one field, or a split PATCH landed)
+  // but the wizard was never finished. The old gate read `has_profile` and
+  // concluded "onboarded"; the server said otherwise and the wizard came back.
+  it('STILL redirects when a profile row exists but onboarding was never completed', () => {
+    setUser(false, true);
+    renderAt('/discover');
+    expect(screen.getByTestId('where').textContent).toBe('/profile?onboarding=1');
+  });
+
+  it('does not redirect a completed user even though has_profile is also true', () => {
+    setUser(true, true);
+    renderAt('/discover');
+    expect(screen.getByText('discover content')).toBeTruthy();
+  });
+
+  it('treats a missing onboarding_completed field (cached old session) as not completed', () => {
+    useAuthStore.setState({
+      user: { id: 1, email: 'a@b.c', full_name: 'A', role: 'consumer', has_profile: true } as never,
+      isAuthenticated: true,
+      isLoading: false,
+      hasAttemptedBootstrap: true,
+    });
+    renderAt('/discover');
+    expect(screen.getByTestId('where').textContent).toBe('/profile?onboarding=1');
   });
 
   it('does NOT redirect after the user skips/dismisses onboarding (non-blocking across routes)', () => {

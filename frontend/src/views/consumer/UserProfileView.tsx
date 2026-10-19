@@ -367,7 +367,7 @@ export const UserProfileView: React.FC = () => {
     if (
       isAuthenticated &&
       !isLoading &&
-      (forceOnboarding || (user && !user.has_profile && !isOnboardingDismissed()))
+      (forceOnboarding || (user && !user.onboarding_completed && !isOnboardingDismissed()))
     ) {
       setIsQuizOpen(true);
       setQuizStep(1);
@@ -388,10 +388,12 @@ export const UserProfileView: React.FC = () => {
   // Closing the first-run wizard WITHOUT completing it is a skip, and a skip
   // must be non-blocking (G1 §23): record a session dismissal so the gate and
   // the auto-open effect stop firing until the profile is actually completed
-  // (or a fresh session). A completed profile (has_profile) makes this moot.
+  // (or a fresh session). A completed onboarding (onboarding_completed) makes
+  // this moot — note that is NOT `has_profile`, which is true as soon as the
+  // wizard saves one field.
   const closeQuiz = () => {
     setIsQuizOpen(false);
-    if (user && !user.has_profile) dismissOnboarding();
+    if (user && !user.onboarding_completed) dismissOnboarding();
     dropOnboardingParam();
   };
 
@@ -429,11 +431,12 @@ export const UserProfileView: React.FC = () => {
     try {
       const updated = await profileService.submitOnboardingQuiz(payload);
       setUsp(updated as any);
-      // The profile now exists server-side (create_or_update_profile). Refresh
-      // the authoritative user so `has_profile` flips true in the store AND the
-      // persisted confit_user cache — otherwise OnboardingGate and the auto-open
-      // effect keep firing on every navigation/refresh until a full re-login
-      // (the "wizard reappears after completion" bug). fetchMe never rethrows.
+      // The submission stamped onboarding_completed/onboarding_completed_at
+      // server-side. Refresh the authoritative user so `onboarding_completed`
+      // flips true in the store AND the persisted confit_user cache —
+      // otherwise OnboardingGate and the auto-open effect keep firing on every
+      // navigation/refresh until a full re-login (the "wizard reappears after
+      // completion" bug). fetchMe never rethrows.
       clearOnboardingDismissed();
       await fetchMe();
       setIsQuizOpen(false);

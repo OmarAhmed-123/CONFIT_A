@@ -68,6 +68,59 @@
 
 ---
 
+## 2A. Phase 0.2 · Slice A — server-side onboarding completion metadata
+
+**Session:** 2026-10-19 (second pass) · **Branch:** `phase-0.2/onboarding-completion-metadata` (stacked on `fix/wizard-reappearing` @ `98af062`)
+
+### Why §2 was not enough
+
+§2 fixed the *client* half: refresh `user.has_profile` after saving. But `has_profile` is the wrong predicate — it only means "a `user_style_profiles` row exists", and that row is created by the **first saved field**. So a shopper who opened the wizard, saved one budget value and closed it was `has_profile = true` → the gate said "onboarded, never prompt" while the auto-open effect read the same stale/partial state as "not onboarded". Two paths, one ambiguous flag, wizard reappears.
+
+Slice A replaces the inference with a server-recorded fact.
+
+### Changes
+
+| File | Change | Status |
+|---|---|---|
+| `backend/app/models/profile.py` | `onboarding_completed_at` (DateTime, nullable), `onboarding_version` (Integer, nullable) on `UserStyleProfile` | IMPLEMENTED |
+| `backend/app/core/config.py` | `ONBOARDING_WIZARD_VERSION: int = 1` — the only place the wizard revision is declared | IMPLEMENTED |
+| `backend/app/repositories/profile_repository.py` | `create_or_update_profile` stamps completion + timestamp + version in the same transaction | IMPLEMENTED |
+| `backend/app/services/profile_service.py` | **Defect fix:** `save_quiz_and_preferences(is_onboarding=…)` defaulted to **True**, so every split PATCH (`/me/budget`, `/me/size-fit`, `/me/brands`, `/me/style-profile`, …) marked the whole wizard complete. Default is now fail-closed (`False`) and only the two full-wizard endpoints opt in | BUG-VERIFIED → FIXED |
+| `backend/app/schemas/auth.py` | `UserOut` gains `onboarding_completed`, `onboarding_completed_at`, `onboarding_version` | IMPLEMENTED |
+| `backend/app/controllers/auth_controller.py` | `_user_out` derives them from the profile row; no profile → `False` / `None` (never assumed) | IMPLEMENTED |
+| `backend/alembic/versions/0040_onboarding_completion_metadata.py` | Additive migration; backfills `onboarding_version = 1` for already-completed rows and deliberately leaves `onboarding_completed_at` NULL | VERIFIED |
+| `frontend/src/router/AppRoutes.tsx` | `OnboardingGate` keys on `user.onboarding_completed`, not `has_profile` | VERIFIED |
+| `frontend/src/views/consumer/UserProfileView.tsx` | auto-open effect + skip-dismissal use `onboarding_completed` | VERIFIED |
+| `frontend/src/stores/authStore.ts` | `selectOnboardingCompleted`; `selectHasProfile` kept but documented as NOT an onboarding signal | VERIFIED |
+| `frontend/src/models/index.ts` | `User` gains the three optional fields (absent = not completed, the fail-safe direction) | VERIFIED |
+| `frontend/src/views/b2b/BrandRegistrationView.tsx` | brand accounts are `onboarding_completed: true` (never routed through the consumer wizard) | VERIFIED |
+
+### Evidence (this session, local only)
+
+| Check | Command | Result |
+|---|---|---|
+| New backend regression suite | `pytest backend/tests/test_onboarding_completion_metadata.py` | **VERIFIED** — 5 passed |
+| Identity/profile + GDPR + migration chain neighbours | `pytest test_group1_identity_profile test_gdpr_export_completeness test_migration_single_head test_migration_roundtrip test_schema_drift_gate test_api_contract_schema_alignment` | **VERIFIED** — 155 passed, 1 skipped |
+| Migration applies on a fresh DB | `alembic upgrade head` against `sqlite:////tmp/migcheck.db` | **VERIFIED** — chain 0001→`0040_onboarding_completion_metadata`, both columns present |
+| Migration is reversible | `alembic downgrade -1` then `upgrade head` | **VERIFIED** — columns dropped, then restored, version round-trips to `0040` |
+| Backfill policy | seed a completed row on the `0039` schema, then `upgrade head` | **VERIFIED** — `(onboarding_completed, version, completed_at) = (1, 1, None)` — version backfilled, instant left NULL (never invented) |
+| Frontend gate suite | `vitest run src/router/__tests__/onboardingGate.test.tsx` | **VERIFIED** — 7 passed (incl. the new "row exists but onboarding not completed → still redirects" regression) |
+| Frontend full gate | `npm run verify` (i18n + tsc + vitest + build) | **VERIFIED** — i18n ✓ · tsc ✓ · 142 files / all tests pass · build ✓ · exit 0 |
+| Backend full suite (post-change) | `pytest backend/tests` | see §3A |
+
+### The regression test that pins the bug
+
+`backend/tests/test_onboarding_completion_metadata.py::test_profile_row_without_completion_is_not_reported_as_onboarded`
+— creates a profile row through a split PATCH and asserts `has_profile is True` **and** `onboarding_completed is False`. If anyone ever re-derives the gate from row existence, this fails.
+`::test_split_patches_do_not_complete_onboarding` — exercises four split PATCHes and asserts none of them stamps completion (the fail-closed fix).
+
+### Not verified
+
+- The change was **not** exercised against a running browser + live backend (no deployed environment in this workspace). Covered by unit/API-integration tests and code reading. Marked **NOT TESTED (live E2E)**.
+- No production database was touched: every migration run used a disposable SQLite file under `/tmp`.
+
+---
+
 ## 3. Test suites
 
 | Suite | Command | Result |
@@ -82,6 +135,25 @@
 - **4** VTON pose-artifact tests → `libEGL.so.1` missing (headless-GL system lib not installed). **BLOCKED (missing system dep)**.
 - **~6** stylist/vision/capabilities/visual-search → NVIDIA/Gemini egress-blocked → honest `503` where the test wants `200`. **BLOCKED (env)**.
 - **5** Groq key-spelling / verifier dotenv-precedence → pre-existing env-handling failures. **FAILED (pre-existing, needs maintainer follow-up)**.
+
+---
+
+## 3A. Test suites — measured again this session (supersedes §3 numbers)
+
+§3's row for the backend suite recorded **40 failures**. On this workspace those 40 do **not reproduce**: they were consequences of the egress allowlist described in §0, which does not apply here. Re-measured on the identical commit (`98af062`) before any Slice A edit:
+
+| Suite | Command | Result |
+|---|---|---|
+| Backend baseline (pre-change, pristine worktree @ `98af062`) | `PYTHONPATH=. CONFIT_IGNORE_DOTENV=1 pytest backend/tests -q` | **VERIFIED** — **4071 passed · 0 failed · 24 skipped** (652s, exit 0) |
+| Backend full suite (post-Slice-A) | same | **VERIFIED** — **4076 passed · 0 failed · 24 skipped** (632s, exit 0) — the +5 are the new Phase 0.2 regression tests |
+| Frontend full gate (post-Slice-A) | `npm run verify` | **VERIFIED** — i18n ✓ · tsc ✓ · 142 files pass · build ✓ · exit 0 |
+
+**One test needed a conscious expectation update, not a loosening:**
+`test_flow_e_purchase_to_wardrobe.py::test_migration_chain_has_a_single_head_at_0036` hard-pins the Alembic head. Migration `0040` moves that head, which is exactly the event that test exists to force a human to document — so the assertion and the chain-rationale comment were both extended to `0040_onboarding_completion_metadata` with its reason. No assertion was deleted, skipped, or made permissive.
+
+**Corrections to §0** (both were true of the earlier session's environment, not this one):
+- *Egress*: `github.com`, `api.github.com`, `pypi.org`, `registry.npmjs.org`, `generativelanguage.googleapis.com` and `integrate.api.nvidia.com` all answered from this workspace. The "only Gemini reachable" constraint did not hold, which is why §3's provider failures were absent.
+- *GitHub*: push/PR **worked** over REST + git-with-askpass; see §6A.
 
 ---
 
@@ -102,6 +174,15 @@
 
 - Push/PR/merge: **BLOCKED** (session GitHub not linked). Nothing pushed, merged, or deployed.
 - Reviewable patch: `/home/user/confit-secrets/../scratchpad/wizard_fix.patch` (tracked-file changes) + 2 new untracked test files (listed in §2). Final patch re-exported after the full gate passes.
+
+---
+
+## 6A. Delivery — this session
+
+- Branch `phase-0.2/onboarding-completion-metadata` cut from `fix/wizard-reappearing` @ `98af062`.
+- Push + PR via `git`/REST with an askpass helper; the token never appears in a URL, in `.git/config`, or in any file (§5 rules unchanged).
+- Commit identity: `OmarAhmed-123 <omarsafealden@gmail.com>`, no `Co-authored-by`, no AI attribution (`AGENTS.md` §6.2).
+- **Nothing was merged.** Merge is the owner's decision and was explicitly withheld.
 
 ---
 

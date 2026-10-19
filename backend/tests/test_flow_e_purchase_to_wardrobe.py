@@ -601,7 +601,16 @@ def test_migration_chain_has_a_single_head_at_0036() -> None:
     #    members per brand tenant with invitation lifecycle and last-owner
     #    protection. Additive tables + founder back-fill; the founder anchor
     #    brand_profiles.user_id stays as the documented rollback fallback.
-    assert expected_head_revision() == "0039_brand_memberships"
+    # -> 0040 (onboarding_completion_metadata, Phase 0.2): the head moved
+    #    consciously. `user_style_profiles.onboarding_completed` was the only
+    #    completion record, and the client could not distinguish "profile row
+    #    exists" from "wizard finished" — the row appears on the first saved
+    #    field, so a half-finished onboarding read as done and the first-run
+    #    wizard reappeared. Adds the completion instant and the wizard
+    #    revision that was satisfied (both nullable; the instant is
+    #    deliberately NOT backfilled — it was never recorded).
+    assert expected_head_revision() == "0040_onboarding_completion_metadata"
+    assert chain["0040_onboarding_completion_metadata"] == "0039_brand_memberships"
     assert chain["0039_brand_memberships"] == "0038_vton_job_retention"
     assert chain["0036_recently_viewed_unique"] == "0035_product_images"
     assert chain["0035_product_images"] == "0034_mfa_email_codes"

@@ -81,7 +81,9 @@ def submit_onboarding_quiz(
     - `onboarding_completed=True` is set atomically alongside the payload.
     """
     service = ProfileService(db)
-    result = service.save_quiz_and_preferences(user.id, payload.model_dump(exclude_unset=True))
+    result = service.save_quiz_and_preferences(
+        user.id, payload.model_dump(exclude_unset=True), is_onboarding=True
+    )
     UserRepository(db).log_audit(
         "ONBOARDING_COMPLETED",
         "UserStyleProfile",
@@ -187,7 +189,15 @@ def update_preferences(
     db: Session = Depends(get_db),
 ):
     service = ProfileService(db)
-    return service.save_quiz_and_preferences(user.id, payload.model_dump(exclude_unset=True))
+    # Legacy full-wizard submission path: it takes the same complete
+    # `OnboardingQuizInput` as POST /profile/onboarding-quiz, so it is a
+    # genuine completion and must keep stamping it — otherwise a cached
+    # pre-Phase-0.2 client would submit the whole wizard and still be
+    # re-prompted forever (the bug this slice fixes). Opted in explicitly
+    # because the service default is now fail-closed.
+    return service.save_quiz_and_preferences(
+        user.id, payload.model_dump(exclude_unset=True), is_onboarding=True
+    )
 
 
 # -----------------------------------------------------------------------------

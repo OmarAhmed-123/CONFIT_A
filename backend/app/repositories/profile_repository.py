@@ -16,6 +16,7 @@ from typing import Optional, Dict, Any
 from sqlalchemy.orm import Session
 from backend.app.models.profile import UserStyleProfile
 from backend.app.core.security import encrypt_sensitive_data, decrypt_sensitive_data
+from backend.app.core.config import settings
 from backend.app.core.exceptions import EncryptionError, ValidationDomainError
 from backend.app.core.logging import logger
 from backend.app.schemas.profile import (
@@ -158,8 +159,15 @@ class ProfileRepository:
         # which always includes at least one of the wizard steps). A pure
         # single-field PATCH (e.g. `/me/budget`) does NOT mark onboarding
         # as complete — respect the state the user explicitly reached.
+        #
+        # Phase 0.2: completing stamps the metadata pair the same transaction,
+        # so "completed" and "when/which wizard" can never disagree. A
+        # re-submission (e.g. after the wizard version was bumped) moves the
+        # timestamp forward and records the version actually completed.
         if profile_data.get("_mark_onboarding_completed"):
             usp.onboarding_completed = True
+            usp.onboarding_completed_at = datetime.now(timezone.utc)
+            usp.onboarding_version = settings.ONBOARDING_WIZARD_VERSION
 
         usp.updated_at = datetime.now(timezone.utc)
         self.db.commit()

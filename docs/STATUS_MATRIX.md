@@ -1,192 +1,171 @@
 # CONFIT_A — Status Matrix
 
-**Generated:** 2026-10-19 · **Session:** cloud workspace (read-only clone of `OmarAhmed-123/CONFIT_A`, branch `main`)
+**Generated:** 2026-10-19 · **Workspace:** cloud workspace, clone of `OmarAhmed-123/CONFIT_A`
+**Working branch:** `fix/wizard-reappearing` — head `0763c8b` (PR #359, open, **not merged**)
 **Status vocabulary:** VERIFIED (ran & passed) · FAILED (ran & failed) · BLOCKED (cannot run — environment/policy) · NOT TESTED (not attempted / no surface)
 
-> **Evidence rule (constitution Principle I):** every row cites something run or read. "Reviewed by reading" and "Verified by running" are labelled distinctly. No value of any credential appears in this document.
+> **Evidence rule (constitution Principle I):** every row cites something run or read. "Verified by running" and "verified by reading" are labelled distinctly. Implementation status and verification status are tracked separately. No value of any credential appears in this document.
 
 ---
 
-## 0. Environment constraints that shape this matrix
+## 0. Environment (measured, not assumed)
 
-| Constraint | State | Effect |
+| Constraint | State | Evidence |
 |---|---|---|
-| Outbound egress | Allowlisted proxy; **only Gemini (`generativelanguage.googleapis.com`) reachable** | All other live provider checks are BLOCKED by `403 CONNECT` policy denial or DNS refusal — not by bad keys |
-| GitHub (push/PR/merge) | **BLOCKED** — account not linked to session (`add_repo push` → "link your GitHub account"); PAT also rejected via proxy | Deliverable is a **patch**, not a PR |
-| Database | SQLite (local) only; Neon unreachable (DNS) | All tests on disposable SQLite; **no production DB touched** |
-| Secrets | `backend/.env` (73 vars) + `/home/user/confit-secrets/env.secrets`, both git-ignored, `-rw-------` | Tracked-file secret scan: **clean** |
+| Outbound egress | **Open.** `github.com`, `api.github.com`, `pypi.org`, `registry.npmjs.org`, `generativelanguage.googleapis.com`, `integrate.api.nvidia.com` all answered | HTTP probes returned 200/404 — i.e. reached the host |
+| GitHub push / PR | **Works.** Branch updated `98af062..0763c8b`; PRs opened and closed over REST | `git push` exit 0, REST 200/204 |
+| Database | **Local SQLite only.** No external database was contacted at any point | every migration ran against a disposable file under `/tmp` |
+| Secrets | `/home/user/.env` — 80 vars, `chmod 600`, outside every git tree. Names mirrored in `.env.example` with empty values | `stat`, key-parity check |
+| VCS persistence | The workspace **drops `.git` between turns** (working tree survives, history does not) | observed twice; repositories are re-cloned and every git action is completed inside a single call |
+
+**This supersedes the previous revision of this section**, which asserted a restricted egress proxy and a blocked GitHub. Those statements were true of an earlier session's sandbox and are false here; the provider rows they produced are corrected in §1.
 
 ---
 
-## 1. Credentials & providers (read-only verifier: `backend/scripts/verify_provider_credentials.py`, from `backend/.env`)
+## 1. Credentials & providers — recorded earlier, NOT re-run in this workspace
 
-| Provider / capability | Configured | Live result | Cause / evidence |
+The verifier script named in the previous revision (`backend/scripts/verify_provider_credentials.py`) **does not exist in the repository** — verified by listing `backend/scripts/`. The results below therefore come from an earlier session's environment and are retained only as history. **They are not evidence about the keys themselves**, because in that session the hosts were policy-denied before any key was presented.
+
+| Provider / capability | Configured | Earlier-session result | Standing in this workspace |
 |---|---|---|---|
-| **Gemini** (vision + stylist) | ✅ | **VERIFIED (PASS)** | `generateContent` on `gemini-flash-latest` → HTTP 200; auth + model + endpoint OK |
-| NVIDIA NIM pool (19 model slots) | ✅ 19/19 canonical `NVIDIA_KEY_<MODEL>` | **BLOCKED** | `integrate.api.nvidia.com` → 403 CONNECT policy denial (key never reached provider) |
-| OpenAI | ✅ | BLOCKED | `api.openai.com` 403 policy denial |
-| Groq | ✅ | BLOCKED | 403 policy denial |
-| UnoRouter / OpenRouter | ✅ | BLOCKED | host(s) unreachable (403) |
-| Neon Postgres (4 role DSNs) | ✅ | BLOCKED | DNS `Name or service not known` (raw TCP egress not permitted) |
-| Neon S3 / RunPod S3 | ✅ | BLOCKED | proxy connect error / host denied |
-| Brevo (API + SMTP), Resend | ✅ | BLOCKED | 403 policy denial / SMTP DNS refusal |
-| FX (exchangerate, fixer) | ✅ | BLOCKED | 403 policy denial |
-| Sentry, BetterStack | ✅ | BLOCKED | 403 policy denial |
-| HuggingFace, Kaggle | ✅ | BLOCKED | 403 policy denial |
-| Baseten, Cerebrium, RunPod (GPU) | ✅ | BLOCKED | 403 policy denial |
-| Vercel | ✅ | BLOCKED | 403 policy denial |
-| Dynu (DNS) | ✅ | BLOCKED | 403 policy denial |
-| Modal | ✅ (id+secret+secure token) | NOT TESTED | no public REST surface; needs `modal app list` |
-| GlitchTip | ⚠ project key only | NOT TESTED | needs full DSN `https://<key>@<host>/<project>` |
-| DNSHE, DigitalPlat, confit-HUB, FitRoom | ⚠ present | NOT TESTED | no documented read-only endpoint in repo |
-| GitHub | ✅ PAT present | BLOCKED | session not linked; PAT rejected via proxy |
+| Gemini (vision + stylist) | ✅ | 200 on `generateContent` | **NOT RE-RUN** |
+| NVIDIA NIM pool (19 slots) | ✅ 19/19 canonical `NVIDIA_KEY_<MODEL>` | BLOCKED (403 at the proxy) | host reachable now → **NOT TESTED** |
+| OpenAI · Groq · UnoRouter/OpenRouter | ✅ | BLOCKED (403) | **NOT TESTED** |
+| Neon Postgres (4 role DSNs) | ✅ | DNS refusal | **NOT TESTED** — and deliberately not contacted: it is production |
+| Neon S3 / RunPod S3 · Modal · Baseten · Cerebrium | ✅ | BLOCKED / no REST surface | **NOT TESTED** |
+| Brevo (API + SMTP) · Resend | ✅ | BLOCKED | **NOT TESTED** |
+| FX (exchangerate, fixer) | ✅ | BLOCKED | **NOT TESTED** |
+| Sentry · BetterStack · GlitchTip | ✅ / ⚠ project key only | BLOCKED / needs full DSN | **NOT TESTED** |
+| HuggingFace · Kaggle · Vercel · Dynu (DNS) | ✅ | BLOCKED | **NOT TESTED** |
+| GitHub (PAT) | ✅ | — | **VERIFIED** — authenticated REST + git push/PR this session |
 
-**Fingerprint-collision recheck:** the verifier's "same value in two slots" for `GITHUB_TOKEN`/`AWS_ACCESS_KEY_ID` is a **false positive** — full SHA-256 differ (`76c8376d…` vs `eb44d8c7…`, lengths 93 vs 41). Distinct credentials; the 8-char fingerprint prefix coincided. (Minor verifier bug: fingerprint prefix too short.)
-
-**To unblock live verification:** add these hosts to the environment's Allowed domains (or raise the access level): `integrate.api.nvidia.com`, `api.openai.com`, `api.groq.com`, `*.neon.tech`, `api.brevo.com`, `api.resend.com`, plus any others above you want validated.
+**Open credential findings (unchanged, still the owner's to resolve):** `GITHUB_ACCOUNT_PASSWORD` is identical to the GitHub username; two `neondb_owner` passwords are on file; `NVIDIA_API_KEY_ISING_CALIB_B` contains a placeholder marker; Brevo sender verification pending for the Gmail address. Live provider verification remains a whole slice of its own (§ Known limitations).
 
 ---
 
-## 2. Onboarding wizard reappearing bug — FIXED (frontend regression VERIFIED)
+## 2. Onboarding wizard reappearing — the client half (PR #359, `98af062`)
 
-**Root cause (confirmed by reading):** `UserProfileView.handleSaveQuiz()` POSTed the quiz and closed the modal but **never refreshed `user.has_profile`**. Both gates — `AppRoutes.OnboardingGate` (route redirect) and the `UserProfileView` auto-open effect — key off `user.has_profile`, which the store only sets from login/`fetchMe` and caches in `localStorage.confit_user`. So after completion the stale `false` kept re-triggering the wizard on every navigation/refresh until a full re-login. Backend was already correct: `/auth/me` sets `has_profile = user.profile is not None`, and the quiz's `create_or_update_profile` creates exactly that row.
+**Root cause (verified by reading):** `UserProfileView.handleSaveQuiz()` POSTed the quiz and closed the modal but never refreshed `user`. Both gates — `AppRoutes.OnboardingGate` and the `UserProfileView` auto-open effect — keyed off `user.has_profile`, which the store only sets on login/`fetchMe` and caches in `localStorage.confit_user`. After completion the stale value kept re-triggering the wizard on every navigation/refresh until a full re-login.
 
-**Fix (smallest correct; frontend only):**
 | File | Change |
 |---|---|
-| `frontend/src/views/consumer/UserProfileView.tsx` | After successful `submitOnboardingQuiz`, `await fetchMe()` (existing pattern) to refresh `has_profile` in store + persisted cache; added dismissible `closeQuiz` for skip |
-| `frontend/src/router/AppRoutes.tsx` | `OnboardingGate` exported + respects session dismissal (skip = non-blocking across routes) |
-| `frontend/src/stores/authStore.ts` | `isOnboardingDismissed` / `dismissOnboarding` / `clearOnboardingDismissed` (session-scoped, storage-safe); cleared on logout |
+| `UserProfileView.tsx` | `await fetchMe()` after a successful `submitOnboardingQuiz`; dismissible `closeQuiz` for skip |
+| `AppRoutes.tsx` | `OnboardingGate` exported and honours the session dismissal |
+| `authStore.ts` | `isOnboardingDismissed` / `dismissOnboarding` / `clearOnboardingDismissed` — session-scoped, storage-safe, cleared on logout |
 
-**Regression tests (VERIFIED — 33 passed, 0 failed):**
-- `router/__tests__/onboardingGate.test.tsx` (new): completed → no reappear; skip → non-blocking; first-run redirect; guest passthrough.
-- `stores/__tests__/onboardingDismissal.test.ts` (new): dismissal set/clear/default.
-- Existing `authStore.session`, `authStore.bootstrap`, `PartnerPortalBoundary` suites still green (refresh/persist across reload covered).
-- `tsc --noEmit`: exit 0.
-
-**Not verified live:** the running app flow (click-through) was not exercised against a browser — egress/no-backend-server here. Covered by unit/contract tests + reading.
+**VERIFIED at the time:** 33 frontend tests passed across the gate + dismissal + neighbouring auth-store suites; `tsc --noEmit` exit 0. **NOT TESTED:** click-through against a running browser (no deployed backend in this workspace).
 
 ---
 
-## 2A. Phase 0.2 · Slice A — server-side onboarding completion metadata
-
-**Session:** 2026-10-19 (second pass) · **Branch:** `phase-0.2/onboarding-completion-metadata` (stacked on `fix/wizard-reappearing` @ `98af062`)
+## 3. Phase 0.2 · Slice A — server-side onboarding completion metadata (`0763c8b`)
 
 ### Why §2 was not enough
 
-§2 fixed the *client* half: refresh `user.has_profile` after saving. But `has_profile` is the wrong predicate — it only means "a `user_style_profiles` row exists", and that row is created by the **first saved field**. So a shopper who opened the wizard, saved one budget value and closed it was `has_profile = true` → the gate said "onboarded, never prompt" while the auto-open effect read the same stale/partial state as "not onboarded". Two paths, one ambiguous flag, wizard reappears.
-
-Slice A replaces the inference with a server-recorded fact.
+`has_profile` only means *"a `user_style_profiles` row exists"* — and that row is created by the **first saved field**. A shopper who opened the wizard, saved one budget value and closed it was `has_profile = true`: the route gate concluded "onboarded, never prompt" while the profile page's auto-open effect read the same partial state as "not onboarded". §2 stopped the client caching a stale `false`; it never gave the server a record of *completion*.
 
 ### Changes
 
 | File | Change | Status |
 |---|---|---|
-| `backend/app/models/profile.py` | `onboarding_completed_at` (DateTime, nullable), `onboarding_version` (Integer, nullable) on `UserStyleProfile` | IMPLEMENTED |
-| `backend/app/core/config.py` | `ONBOARDING_WIZARD_VERSION: int = 1` — the only place the wizard revision is declared | IMPLEMENTED |
-| `backend/app/repositories/profile_repository.py` | `create_or_update_profile` stamps completion + timestamp + version in the same transaction | IMPLEMENTED |
-| `backend/app/services/profile_service.py` | **Defect fix:** `save_quiz_and_preferences(is_onboarding=…)` defaulted to **True**, so every split PATCH (`/me/budget`, `/me/size-fit`, `/me/brands`, `/me/style-profile`, …) marked the whole wizard complete. Default is now fail-closed (`False`) and only the two full-wizard endpoints opt in | BUG-VERIFIED → FIXED |
-| `backend/app/schemas/auth.py` | `UserOut` gains `onboarding_completed`, `onboarding_completed_at`, `onboarding_version` | IMPLEMENTED |
-| `backend/app/controllers/auth_controller.py` | `_user_out` derives them from the profile row; no profile → `False` / `None` (never assumed) | IMPLEMENTED |
-| `backend/alembic/versions/0040_onboarding_completion_metadata.py` | Additive migration; backfills `onboarding_version = 1` for already-completed rows and deliberately leaves `onboarding_completed_at` NULL | VERIFIED |
-| `frontend/src/router/AppRoutes.tsx` | `OnboardingGate` keys on `user.onboarding_completed`, not `has_profile` | VERIFIED |
-| `frontend/src/views/consumer/UserProfileView.tsx` | auto-open effect + skip-dismissal use `onboarding_completed` | VERIFIED |
-| `frontend/src/stores/authStore.ts` | `selectOnboardingCompleted`; `selectHasProfile` kept but documented as NOT an onboarding signal | VERIFIED |
-| `frontend/src/models/index.ts` | `User` gains the three optional fields (absent = not completed, the fail-safe direction) | VERIFIED |
+| `backend/app/models/profile.py` | `onboarding_completed_at` (DateTime, nullable), `onboarding_version` (Integer, nullable) | IMPLEMENTED |
+| `backend/app/core/config.py` | `ONBOARDING_WIZARD_VERSION = 1` — the single declaration of the wizard revision | IMPLEMENTED |
+| `backend/app/repositories/profile_repository.py` | `create_or_update_profile` stamps flag + instant + version in one transaction | IMPLEMENTED |
+| `backend/app/services/profile_service.py` | **Defect fix:** the helper defaulted `is_onboarding=True` and every split PATCH (`/me/budget`, `/me/size-fit`, `/me/brands`, `/me/style-profile`, …) called it without the keyword — a single budget field marked the whole wizard complete. Default is now fail-closed; only the two endpoints receiving a full `OnboardingQuizInput` opt in | BUG-VERIFIED → FIXED |
+| `backend/app/schemas/auth.py`, `controllers/auth_controller.py` | `/auth/me` exposes the three fields; no profile → `false` / `null`, never assumed | IMPLEMENTED |
+| `backend/alembic/versions/0040_onboarding_completion_metadata.py` | Additive, nullable; backfills `onboarding_version = 1` for completed rows and leaves the instant NULL | VERIFIED |
+| `frontend/src/router/AppRoutes.tsx`, `views/consumer/UserProfileView.tsx`, `stores/authStore.ts`, `models/index.ts` | every gate keys on `onboarding_completed` | VERIFIED |
 | `frontend/src/views/b2b/BrandRegistrationView.tsx` | brand accounts are `onboarding_completed: true` (never routed through the consumer wizard) | VERIFIED |
 
-### Evidence (this session, local only)
+### Migration 0040 backfill policy
 
-| Check | Command | Result |
-|---|---|---|
-| New backend regression suite | `pytest backend/tests/test_onboarding_completion_metadata.py` | **VERIFIED** — 5 passed |
-| Identity/profile + GDPR + migration chain neighbours | `pytest test_group1_identity_profile test_gdpr_export_completeness test_migration_single_head test_migration_roundtrip test_schema_drift_gate test_api_contract_schema_alignment` | **VERIFIED** — 155 passed, 1 skipped |
-| Migration applies on a fresh DB | `alembic upgrade head` against `sqlite:////tmp/migcheck.db` | **VERIFIED** — chain 0001→`0040_onboarding_completion_metadata`, both columns present |
-| Migration is reversible | `alembic downgrade -1` then `upgrade head` | **VERIFIED** — columns dropped, then restored, version round-trips to `0040` |
-| Backfill policy | seed a completed row on the `0039` schema, then `upgrade head` | **VERIFIED** — `(onboarding_completed, version, completed_at) = (1, 1, None)` — version backfilled, instant left NULL (never invented) |
-| Frontend gate suite | `vitest run src/router/__tests__/onboardingGate.test.tsx` | **VERIFIED** — 7 passed (incl. the new "row exists but onboarding not completed → still redirects" regression) |
-| Frontend full gate | `npm run verify` (i18n + tsc + vitest + build) | **VERIFIED** — i18n ✓ · tsc ✓ · 142 files / all tests pass · build ✓ · exit 0 |
-| Backend full suite (post-change) | `pytest backend/tests` | see §3A |
+`onboarding_version = 1` is backfilled for rows already flagged complete — only v1 has ever existed, so that is a recorded fact. `onboarding_completed_at` is deliberately **left NULL**: the instant was never captured and `updated_at` is not it; filling it in would manufacture evidence.
 
-### The regression test that pins the bug
+### Evidence
 
-`backend/tests/test_onboarding_completion_metadata.py::test_profile_row_without_completion_is_not_reported_as_onboarded`
-— creates a profile row through a split PATCH and asserts `has_profile is True` **and** `onboarding_completed is False`. If anyone ever re-derives the gate from row existence, this fails.
-`::test_split_patches_do_not_complete_onboarding` — exercises four split PATCHes and asserts none of them stamps completion (the fail-closed fix).
+| Check | Result |
+|---|---|
+| `pytest backend/tests/test_onboarding_completion_metadata.py` | **VERIFIED** — 5 passed |
+| Neighbours: identity/profile, GDPR export, migration single-head, roundtrip, schema drift, release parity, API contract | **VERIFIED** — 155 passed, 1 skipped |
+| `alembic upgrade head` on `sqlite:////tmp/migcheck.db` | **VERIFIED** — chain `0001 → 0040`, both columns present |
+| `downgrade -1` → `upgrade head` | **VERIFIED** — columns dropped, restored, version round-trips to `0040` |
+| Backfill assertion (seed a completed row at `0039`, then upgrade) | **VERIFIED** — `(completed, version, completed_at) = (1, 1, None)` |
 
-### Not verified
+### The regression tests that pin it
 
-- The change was **not** exercised against a running browser + live backend (no deployed environment in this workspace). Covered by unit/API-integration tests and code reading. Marked **NOT TESTED (live E2E)**.
-- No production database was touched: every migration run used a disposable SQLite file under `/tmp`.
+`test_profile_row_without_completion_is_not_reported_as_onboarded` — creates a profile row through a split PATCH and asserts `has_profile is True` **and** `onboarding_completed is False`. If anyone re-derives the gate from row existence, this fails.
+`test_split_patches_do_not_complete_onboarding` — exercises four split PATCHes and asserts none stamps completion.
+`onboardingGate.test.tsx` — "row exists but onboarding never completed → **still** redirects", plus "missing field (cached old session) → treated as not completed".
 
 ---
 
-## 3. Test suites
+## 4. Test suites (current measurements)
 
 | Suite | Command | Result |
 |---|---|---|
-| Frontend targeted (fix + neighbors) | `vitest run <5 files>` | **VERIFIED** — 5 files, 33 tests, 0 fail (6.65s) |
-| Frontend typecheck | `tsc --noEmit` | **VERIFIED** — exit 0 |
-| Frontend full gate | `npm run verify` (i18n + tsc + vitest + build) | **VERIFIED** — i18n ✓ · 142 files / **2060 tests pass** · tsc ✓ · build ✓ (exit 0) |
-| Backend hermetic | `PYTHONPATH=. CONFIT_IGNORE_DOTENV=1 pytest backend/tests` (SQLite) | **4031 passed · 40 FAILED · 24 skipped** — all 40 pre-existing & environmental (triage below); none caused by this change |
+| Backend, pristine `98af062`, before any edit | `PYTHONPATH=. CONFIT_IGNORE_DOTENV=1 pytest backend/tests -q` | **VERIFIED** — **4071 passed · 0 failed · 24 skipped** (652 s, exit 0) |
+| Backend, full suite with this work | same | **VERIFIED** — **4076 passed · 0 failed · 24 skipped** (632 s, exit 0) — the +5 are the new Phase 0.2 tests |
+| Frontend full gate | `npm run verify` (i18n → tsc → vitest → vite build) | **VERIFIED** — i18n ✓ · tsc ✓ · **142 test files pass** · build ✓ · exit 0 |
 
-**Backend failure triage** — backend code is byte-identical to `origin/main`, and the 5 non-VTON failures fail even with `backend/.env` moved aside, so none are caused by this change:
-- **~25** VTON image-fetch / worker-chain tests → egress blocks image/worker fetch; app fails *honestly* (`VTON_INPUT_INVALID`, job `failed`). **BLOCKED (env)**.
-- **4** VTON pose-artifact tests → `libEGL.so.1` missing (headless-GL system lib not installed). **BLOCKED (missing system dep)**.
-- **~6** stylist/vision/capabilities/visual-search → NVIDIA/Gemini egress-blocked → honest `503` where the test wants `200`. **BLOCKED (env)**.
-- **5** Groq key-spelling / verifier dotenv-precedence → pre-existing env-handling failures. **FAILED (pre-existing, needs maintainer follow-up)**.
+**A previous revision recorded 40 backend failures / 24 skips.** They did not reproduce on the identical commit in this workspace: all 40 were consequences of the restricted proxy described in the old §0 (VTON image fetches, provider calls, a missing headless-GL library surfaced only under that configuration). This is an environment difference, **not evidence that those defects do not exist** — re-run the suite under a restricted-egress configuration before drawing a conclusion about them.
+
+**One test needed a conscious expectation update, not a loosening:** `test_flow_e_purchase_to_wardrobe.py::test_migration_chain_has_a_single_head_at_0036` pins the Alembic head. `0040` moves it — the exact event that test exists to force a human to document — so the assertion and the chain rationale were extended to `0040` with its reason. No assertion was deleted, skipped, or made permissive.
 
 ---
 
-## 3A. Test suites — measured again this session (supersedes §3 numbers)
+## 5. Database safety
 
-§3's row for the backend suite recorded **40 failures**. On this workspace those 40 do **not reproduce**: they were consequences of the egress allowlist described in §0, which does not apply here. Re-measured on the identical commit (`98af062`) before any Slice A edit:
-
-| Suite | Command | Result |
-|---|---|---|
-| Backend baseline (pre-change, pristine worktree @ `98af062`) | `PYTHONPATH=. CONFIT_IGNORE_DOTENV=1 pytest backend/tests -q` | **VERIFIED** — **4071 passed · 0 failed · 24 skipped** (652s, exit 0) |
-| Backend full suite (post-Slice-A) | same | **VERIFIED** — **4076 passed · 0 failed · 24 skipped** (632s, exit 0) — the +5 are the new Phase 0.2 regression tests |
-| Frontend full gate (post-Slice-A) | `npm run verify` | **VERIFIED** — i18n ✓ · tsc ✓ · 142 files pass · build ✓ · exit 0 |
-
-**One test needed a conscious expectation update, not a loosening:**
-`test_flow_e_purchase_to_wardrobe.py::test_migration_chain_has_a_single_head_at_0036` hard-pins the Alembic head. Migration `0040` moves that head, which is exactly the event that test exists to force a human to document — so the assertion and the chain-rationale comment were both extended to `0040_onboarding_completion_metadata` with its reason. No assertion was deleted, skipped, or made permissive.
-
-**Corrections to §0** (both were true of the earlier session's environment, not this one):
-- *Egress*: `github.com`, `api.github.com`, `pypi.org`, `registry.npmjs.org`, `generativelanguage.googleapis.com` and `integrate.api.nvidia.com` all answered from this workspace. The "only Gemini reachable" constraint did not hold, which is why §3's provider failures were absent.
-- *GitHub*: push/PR **worked** over REST + git-with-askpass; see §6A.
+- Automated tests ran on **local SQLite only**.
+- Every migration in this work ran against a disposable file under `/tmp`; `backend/data/confit.db` was not modified.
+- **Nothing was written, migrated, or seeded against any external database.** Neon was not contacted, reachable or not — it is production, and this work needed nothing from it.
+- No seed data, no production schema change, no production mutation.
 
 ---
 
-## 4. Database safety
+## 6. Security
 
-- Automated tests ran on **local SQLite** only (`sqlite:///./backend/data/confit.db`).
-- Neon (`neondb` = production, `confit_fixverify` = harness) was **not reachable** (DNS), and **nothing was written, migrated, or seeded** against any external DB.
-- No schema change, no seed, no production mutation.
-
-## 5. Security
-
-- Tracked-file secret scan (strict, full-length token patterns): **clean**.
-- `backend/.env` git-ignored and never staged; `secrets.env` gap noted earlier (fix available, not yet applied to `.gitignore`).
-- Fix diff self-scan: no `console.log`/`debugger`/TODO/secret markers.
-- **Exposure/rotation:** the provided credentials were pasted in chat earlier this engagement → treat as exposed; rotation advised after the engagement (owner's decision; not performed).
-
-## 6. GitHub & delivery
-
-- Push/PR/merge: **BLOCKED** (session GitHub not linked). Nothing pushed, merged, or deployed.
-- Reviewable patch: `/home/user/confit-secrets/../scratchpad/wizard_fix.patch` (tracked-file changes) + 2 new untracked test files (listed in §2). Final patch re-exported after the full gate passes.
+- Secret guard (`scripts/check-secrets.sh`) run in `staged` mode before commit and `push` mode before push: **clean** — no literal credential in either scope.
+- `.env` is git-ignored, `chmod 600`, and outside every git tree; `.env.example` carries the 80 names with values stripped.
+- `gitleaks` runs in CI and is **green** on `0763c8b`.
+- The guard itself was corrected twice while doing this work: the Resend-key pattern (`re_…`) was anchored to a token boundary after it false-positived on Python test names, and the pre-push hook was moved from a whole-tree scan to the actual push range (`80 .env values × N files` made the tree scan minutes long and blocked pushes by timeout).
+- **Exposure/rotation:** credentials supplied earlier in this engagement were pasted into chat → treat as exposed, rotate after the engagement. Not performed here; owner's decision.
 
 ---
 
-## 6A. Delivery — this session
+## 7. Delivery (this workspace)
 
-- Branch `phase-0.2/onboarding-completion-metadata` cut from `fix/wizard-reappearing` @ `98af062`.
-- Push + PR via `git`/REST with an askpass helper; the token never appears in a URL, in `.git/config`, or in any file (§5 rules unchanged).
-- Commit identity: `OmarAhmed-123 <omarsafealden@gmail.com>`, no `Co-authored-by`, no AI attribution (`AGENTS.md` §6.2).
-- **Nothing was merged.** Merge is the owner's decision and was explicitly withheld.
+| Item | State |
+|---|---|
+| Branch | **one branch: `fix/wizard-reappearing`**, head `0763c8b` |
+| Consolidation | `98af062..0763c8b` — a **fast-forward**, explicitly not a force-push (`git merge-base --is-ancestor` checked before sending) |
+| PR #359 | open, head `0763c8b`, base `main`, **19 files, +899 / −16** |
+| PR #360 | **closed** — it was opened from a second branch, which broke the one-branch rule; its commit now lives on `fix/wizard-reappearing`. GitHub records `merged_at` because the head commit became an ancestor of its base (`fix/wizard-reappearing`) at 18:05:21Z; **`main` did not move** |
+| Second branch | `phase-0.2/onboarding-completion-metadata` **deleted** |
+| `main` | still `6636356` — **no merge occurred** |
+| Commit identity | `OmarAhmed-123 <omarsafealden@gmail.com>`, no `Co-authored-by`, no AI attribution (`AGENTS.md` §6.2) |
+| Token handling | askpass helper; the token never appears in a URL, in `.git/config`, or in any file |
+
+### Required checks on `0763c8b` (by SHA)
+
+| Check | Conclusion |
+|---|---|
+| `backend` | **success** |
+| `frontend` | **success** |
+| `postgres migration chain + schema gate` | **success** |
+| `production parity (deployment contract)` | **success** |
+| `gitleaks secret scan (full history)` | **success** |
+| `stylist drawer browser gate (a11y, keyboard, RTL)` | **success** |
+| `Vercel Preview Comments` | **success** |
+| `Workers Builds: confit-a` | **failure — non-required**, classified not suppressed |
+
+`Workers Builds: confit-a` is an external Cloudflare Workers pipeline that **has no definition in this repository** — verified: no `wrangler.toml`, `wrangler.json(c)`, `_worker.js`, `_routes.json`, or `functions/`. It cannot be fixed from code here; it needs the Cloudflare project's settings. It is also why the PR reports `mergeable_state = blocked` despite every required check being green.
 
 ---
 
-## Known blockers (owner action)
+## 8. Known limitations & open items
 
-1. **Network allowlist** — add the provider hosts in §1 to verify the remaining integrations live.
-2. **GitHub link** — connect at `claude.ai/connect-github` + install the Claude GitHub App on the repo + start a session with it selected, to enable PRs/merges.
+1. **Live browser E2E — NOT TESTED.** No deployed backend or browser in this workspace. The wizard behaviour is covered by unit/API-integration tests and by reading, not by a click-through.
+2. **Live provider verification — NOT TESTED here.** See §1. This is the substance of a separate slice (a real, in-repo verifier + a recorded run), not something this matrix can assert.
+3. **`npm audit`: 8 vulnerabilities (2 moderate, 6 high)** — measured on the committed lockfile. No automated fix applied; deliberately out of scope for a metadata slice.
+4. **`Workers Builds: confit-a`** — external to the repo; owner action in Cloudflare.
+5. **PR #358** remains open by the owner's instruction.
+6. **Merge is the owner's decision and has not happened.** Nothing was deployed.

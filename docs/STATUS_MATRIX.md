@@ -74,8 +74,14 @@
 |---|---|---|
 | Frontend targeted (fix + neighbors) | `vitest run <5 files>` | **VERIFIED** — 5 files, 33 tests, 0 fail (6.65s) |
 | Frontend typecheck | `tsc --noEmit` | **VERIFIED** — exit 0 |
-| Frontend full gate | `npm run verify` (i18n + tsc + vitest + build) | _running in background — final result pending_ |
-| Backend hermetic | `pytest backend/tests` (SQLite, `CONFIT_IGNORE_DOTENV=1`) | _running — ~2 pre-existing failures observed (frontend-only change cannot be the cause); identities pending_ |
+| Frontend full gate | `npm run verify` (i18n + tsc + vitest + build) | **VERIFIED** — i18n ✓ · 142 files / **2060 tests pass** · tsc ✓ · build ✓ (exit 0) |
+| Backend hermetic | `PYTHONPATH=. CONFIT_IGNORE_DOTENV=1 pytest backend/tests` (SQLite) | **4031 passed · 40 FAILED · 24 skipped** — all 40 pre-existing & environmental (triage below); none caused by this change |
+
+**Backend failure triage** — backend code is byte-identical to `origin/main`, and the 5 non-VTON failures fail even with `backend/.env` moved aside, so none are caused by this change:
+- **~25** VTON image-fetch / worker-chain tests → egress blocks image/worker fetch; app fails *honestly* (`VTON_INPUT_INVALID`, job `failed`). **BLOCKED (env)**.
+- **4** VTON pose-artifact tests → `libEGL.so.1` missing (headless-GL system lib not installed). **BLOCKED (missing system dep)**.
+- **~6** stylist/vision/capabilities/visual-search → NVIDIA/Gemini egress-blocked → honest `503` where the test wants `200`. **BLOCKED (env)**.
+- **5** Groq key-spelling / verifier dotenv-precedence → pre-existing env-handling failures. **FAILED (pre-existing, needs maintainer follow-up)**.
 
 ---
 

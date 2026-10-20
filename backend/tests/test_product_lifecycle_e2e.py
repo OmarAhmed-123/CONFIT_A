@@ -544,3 +544,49 @@ def test_a_storage_failure_mid_ladder_registers_nothing(
     finally:
         db.close()
     assert title not in _public_titles()
+
+
+# ---------------------------------------------------------------------------
+# D2. Recovery: the same row imports cleanly once the failure is resolved
+# ---------------------------------------------------------------------------
+def test_a_failed_import_succeeds_on_retry_after_the_image_host_recovers(
+    storage, cleanup, monkeypatch
+):
+    """Failure must be recoverable by retrying, not by editing the database.
+
+    The failing case above proves nothing is left behind; this proves the brand
+    owner's next action works. Driven through the same endpoint with the same
+    payload, changing only the thing that was broken.
+    """
+    from backend.app.services import media_materialization_service as mms
+
+    headers = _login(RIVEN)
+    title = f"E2E Retry Jacket {uuid.uuid4().hex[:8]}"
+    cleanup.append(title)
+    payload = _jpeg()
+
+    # 1. the host is down
+    monkeypatch.setattr(mms.MediaMaterializationService, "_get_fetch",
+                        lambda self: (lambda url: (_ for _ in ()).throw(OSError("down"))))
+    first = client.post("/api/v1/brand/catalog/upload", headers=headers,
+                        json={"products": [_row(title)]})
+    assert first.json()["accepted_rows"] == 0
+    assert title not in _public_titles()
+
+    # 2. the host is back; the operator retries the same request
+    monkeypatch.setattr(mms.MediaMaterializationService, "_get_fetch",
+                        lambda self: (lambda url: payload))
+    second = client.post("/api/v1/brand/catalog/upload", headers=headers,
+                         json={"products": [_row(title)]})
+    assert second.status_code == 202, second.text
+    assert second.json()["accepted_rows"] == 1, second.json()
+
+    db = TestingSessionLocal()
+    try:
+        products = db.query(Product).filter(Product.title == title).all()
+        assert len(products) == 1, "the retry created a duplicate product"
+        rows = db.query(ProductImage).filter(ProductImage.product_id == products[0].id).all()
+        assert len(rows) == 10, f"the recovered product has {len(rows)} media rows, not 10"
+    finally:
+        db.close()
+    assert title in _public_titles(), "the recovered product never reached the catalogue"

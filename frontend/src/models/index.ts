@@ -74,6 +74,26 @@ export interface Category {
   icon_name: string;
 }
 
+/**
+ * One registered asset, as the catalogue API serialises it.
+ *
+ * `source_type` is the honesty field: `stock` means the photograph is licensed
+ * editorial imagery, not the boutique's own product shot, and `attribution`
+ * names whose it is. The storefront must surface that distinction rather than
+ * letting a stock picture pass as first-party product photography.
+ */
+export interface ProductMedia {
+  ratio: "4x5" | "1x1" | "3x2" | "16x9" | "master" | string;
+  url: string;
+  width: number;
+  height: number;
+  format: string;
+  source_type: "stock" | "own" | "partner" | string;
+  attribution?: string | null;
+  is_primary: boolean;
+  bytes?: number | null;
+}
+
 export interface ProductSKU {
   id: number;
   product_id: number;
@@ -131,6 +151,16 @@ export interface Product {
   material?: string;
   care_instructions?: string;
   images?: string[];
+  /**
+   * Every registered asset with the facts needed to attribute it.
+   *
+   * The server has shipped this since the media pass, including `source_type`
+   * (`stock` | `own` | `partner`) and a human `attribution` string, but the
+   * client model did not declare it — so the field was dropped on parse and a
+   * stock photograph was rendered exactly like the boutique's own shot. It is
+   * optional because list payloads do not carry the full registry.
+   */
+  media?: ProductMedia[];
   size_chart?: Record<string, any>;
   skus?: ProductSKU[];
   bnpl_monthly_installment?: number | null;

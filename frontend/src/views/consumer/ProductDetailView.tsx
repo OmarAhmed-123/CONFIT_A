@@ -455,6 +455,24 @@ export const ProductDetailView: React.FC = () => {
     product.images && product.images.length > 0
       ? product.images
       : [product.thumbnail_url];
+
+  /*
+   * Whose photograph is on screen.
+   *
+   * The registry labels every asset `stock` | `own` | `partner` and carries an
+   * attribution string, but this page rendered the picture and dropped the
+   * facts — so licensed editorial imagery looked exactly like the boutique's
+   * own studio shot. The disclosure below restores the distinction the server
+   * already made. It is derived ONLY from served fields: no attribution is
+   * invented, and a payload without media simply renders nothing.
+   */
+  const stockMedia = (product.media ?? []).filter(
+    (m) => m.source_type === "stock",
+  );
+  const stockAttribution = Array.from(
+    new Set(stockMedia.map((m) => (m.attribution || "").trim()).filter(Boolean)),
+  );
+  const showsStockPhotography = stockMedia.length > 0;
   const bnpl = product.bnpl;
   const styleScore = product.style_compatibility_available
     ? product.style_compatibility_score
@@ -761,6 +779,19 @@ export const ProductDetailView: React.FC = () => {
                 </button>
               ))}
             </div>
+          )}
+
+          {showsStockPhotography && (
+            <p
+              className="mt-2 text-[11px] leading-relaxed text-brand-muted"
+              data-testid="product-photo-attribution"
+            >
+              {stockAttribution.length > 0
+                ? t("product.photo_attribution_licensed", {
+                    credits: stockAttribution.join(" · "),
+                  })
+                : t("product.photo_attribution_licence_only")}
+            </p>
           )}
         </div>
 

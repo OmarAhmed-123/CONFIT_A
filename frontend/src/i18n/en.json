@@ -1964,6 +1964,8 @@
     "complete_the_look": "Complete the look",
     "fit_color_harmony": "Color Harmony",
     "percent_off": "{{percent}}% off",
+    "photo_attribution_licensed": "Licensed stock photography — {{credits}}. Not this boutique's own product shot.",
+    "photo_attribution_licence_only": "Licensed stock photography. Not this boutique's own product shot.",
     "in_stock_count": "{{count}} in stock",
     "low_stock_count": "Only {{count}} left",
     "available_at_stores": "Available at stores",

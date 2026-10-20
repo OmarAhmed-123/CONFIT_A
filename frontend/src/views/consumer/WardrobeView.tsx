@@ -3,6 +3,7 @@ import { useModalFocus } from "../../hooks/useModalFocus";
 import { useUndoableRemove } from '../../hooks/useUndoableRemove';
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { MANUAL_WARDROBE_IMAGE as WARDROBE_PLACEHOLDER_IMAGE } from "../../lib/wardrobePlaceholder";
 import { compressImageToDataUrl } from "../../lib/imageUpload";
 import { usePhotoConsent } from "../../privacy/usePhotoConsent";
 import { useCapabilities } from "../../hooks/useCapabilities";
@@ -44,11 +45,7 @@ import { TryOnButton } from '../../components/product/TryOnButton';
  * text in images). The accessible name now lives on the <img alt>, which is a
  * real translated string.
  */
-const MANUAL_WARDROBE_IMAGE =
-  "data:image/svg+xml;utf8," +
-  encodeURIComponent(
-    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 750"><rect width="600" height="750" fill="%23F8FAFC"/><rect x="90" y="120" width="420" height="510" rx="42" fill="%23FFFFFF" stroke="%23CBD5E1" stroke-width="4"/></svg>',
-  );
+const MANUAL_WARDROBE_IMAGE = WARDROBE_PLACEHOLDER_IMAGE;
 
 export const WardrobeView: React.FC = () => {
   const { t, i18n } = useTranslation();

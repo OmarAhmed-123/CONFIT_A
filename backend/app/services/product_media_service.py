@@ -69,17 +69,29 @@ def gallery_images(rows: Sequence[ProductImage]) -> List[str]:
     Two ratios never collapse into each other: 4:5 is the portrait card frame,
     1:1 the thumbnail/swatch frame, 3:2 and 16:9 the editorial bands. Serving all
     four lets the UI pick instead of cropping a single 3:2 into seven heights.
+
+    ONE FRAME PER PHOTOGRAPH, NOT PER FILE
+    --------------------------------------
+    The registry stores each ratio twice (``jpg`` for the compatibility list,
+    ``webp`` for a ``<picture>``) and ``order_media`` puts the JPEG first, so
+    the key to de-duplicate on is the RATIO. De-duplicating on the URL — which
+    this did until 2026-10-20 — compares two different strings, so nothing was
+    ever removed: a four-photograph product advertised eight gallery frames in
+    production and every photograph appeared twice in a row (the PDP rail
+    exposed ``View image 1`` … ``View image 8``).
+
+    ``media[]`` still carries both formats; a caller that wants ``<picture>``
+    reads it there. This list is the plain ``images`` contract: one decodable
+    URL per photograph, in ladder order, master excluded.
     """
     ordered = order_media(rows)
     out: List[str] = []
-    seen: set[str] = set()
+    seen_ratios: set[str] = set()
     for row in ordered:
-        if row.ratio == "master":
+        if row.ratio == "master" or row.ratio in seen_ratios:
             continue
-        url = media_url_for_key(row.storage_key)
-        if url not in seen:
-            seen.add(url)
-            out.append(url)
+        seen_ratios.add(row.ratio)
+        out.append(media_url_for_key(row.storage_key))
     return out
 
 

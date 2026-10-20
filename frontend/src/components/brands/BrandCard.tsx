@@ -10,6 +10,27 @@ interface BrandCardProps {
 export const BrandCard: React.FC<BrandCardProps> = ({ brand, onSelect }) => {
   const { t } = useTranslation();
 
+  /*
+   * LOGO FAILURE IS A FIRST-CLASS STATE.
+   *
+   * `logo_url` is a third-party URL (the live catalogue serves Unsplash for all
+   * four brands), so it can 404, be rate-limited, or be blocked by an image
+   * proxy. The card previously rendered a bare <img> with no handler: a failed
+   * logo produced the browser's broken-image glyph inside a 56px tile, which
+   * reads as a bug in the shop rather than a missing asset. Falling back to the
+   * monogram we already render when no logo exists is honest — it asserts the
+   * initials and nothing more.
+   *
+   * Reset on `logo_url` change so a card that fails for brand A does not show
+   * brand B's initials after a re-render in a list.
+   */
+  const [logoFailed, setLogoFailed] = React.useState(false);
+  React.useEffect(() => {
+    setLogoFailed(false);
+  }, [brand.logo_url]);
+
+  const showLogo = Boolean(brand.logo_url) && !logoFailed;
+
   return (
     <div
       onClick={() => onSelect(brand.slug)}
@@ -28,14 +49,20 @@ export const BrandCard: React.FC<BrandCardProps> = ({ brand, onSelect }) => {
         {/* Brand Header */}
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-3.5">
-            {brand.logo_url ? (
+            {showLogo ? (
               <img
-                src={brand.logo_url}
+                src={brand.logo_url as string}
                 alt={`${brand.brand_name} logo`}
+                data-testid="brand-logo"
+                onError={() => setLogoFailed(true)}
                 className="h-14 w-14 rounded-xl object-cover border border-neutral-100 shadow-xs"
               />
             ) : (
-              <div className="h-14 w-14 rounded-xl bg-neutral-100 border border-neutral-200 flex items-center justify-center font-serif font-bold text-lg text-brand-charcoal">
+              <div
+                data-testid="brand-monogram"
+                aria-hidden="true"
+                className="h-14 w-14 rounded-xl bg-neutral-100 border border-neutral-200 flex items-center justify-center font-serif font-bold text-lg text-brand-charcoal"
+              >
                 {brand.brand_name.slice(0, 2).toUpperCase()}
               </div>
             )}
@@ -53,9 +80,18 @@ export const BrandCard: React.FC<BrandCardProps> = ({ brand, onSelect }) => {
                   </span>
                 )}
               </div>
-              <p className="text-xs text-neutral-500 line-clamp-1 mt-0.5">
-                {brand.description || 'Curated European fashion house'}
-              </p>
+              {/*
+                Only a description the brand actually supplied. The previous
+                fallback asserted "Curated European fashion house" for every
+                brand that had not written one — a fabricated claim about a
+                company, rendered in the same type as real copy. An absent
+                description now renders nothing.
+              */}
+              {brand.description ? (
+                <p className="text-xs text-neutral-500 line-clamp-1 mt-0.5">
+                  {brand.description}
+                </p>
+              ) : null}
             </div>
           </div>
 

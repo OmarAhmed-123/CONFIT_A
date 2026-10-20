@@ -1967,6 +1967,8 @@
     "complete_the_look": "أكمل الإطلالة",
     "fit_color_harmony": "تناسق الألوان",
     "percent_off": "خصم {{percent}}%",
+    "photo_attribution_licensed": "صورة من مكتبة صور مرخّصة — {{credits}}. وليست تصويرًا خاصًّا بالمتجر.",
+    "photo_attribution_licence_only": "صورة من مكتبة صور مرخّصة، وليست تصويرًا خاصًّا بالمتجر.",
     "in_stock_count": "متوفر {{count}}",
     "low_stock_count": "باقي {{count}} فقط",
     "available_at_stores": "متوفر في المتاجر",

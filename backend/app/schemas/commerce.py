@@ -1,6 +1,7 @@
 from datetime import datetime
-from typing import Optional, List, Dict, Any
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from typing import Annotated, Any, Dict, List, Optional
+from decimal import Decimal, ROUND_HALF_UP
+from pydantic import BaseModel, ConfigDict, Field, PlainSerializer, model_validator
 from backend.app.schemas.money_types import PositiveMoney
 
 
@@ -19,6 +20,39 @@ class PromoApplyRequest(BaseModel):
     promo_code: Optional[str] = None
 
 
+# ── Money at the JSON boundary ─────────────────────────────────────────────
+# Money is a Decimal everywhere it is COMPUTED (core.money). At the boundary it
+# is declared as Decimal here too, so no float arithmetic is reachable inside
+# the contract, and every figure is quantised to 2dp with ROUND_HALF_UP on the
+# way out. Previously OrderItemOut.net_amount did
+# ``round(float(subtotal) - float(discount or 0.0), 2)`` — a float subtraction
+# inside the response model, which is precisely the kind of thing that drifts.
+#
+# The serialised type stays a JSON *number* rather than a string: the storefront
+# types these fields as ``number`` (frontend/src/models/index.ts) and does
+# arithmetic on them (cartStore multiplies unit_price by quantity), so emitting
+# strings would break the client contract. A 2dp value round-trips exactly
+# through a double within NUMERIC(12,2), so the number form is exact in range --
+# see backend/tests/test_money_boundary_decimal.py for the proof.
+_CENT = Decimal("0.01")
+
+
+def _money_to_json(value: Any) -> float:
+    """Serialise a monetary Decimal as an exact 2-decimal-place JSON number."""
+    if value is None:
+        return 0.0
+    if not isinstance(value, Decimal):
+        value = Decimal(str(value))
+    return float(value.quantize(_CENT, rounding=ROUND_HALF_UP))
+
+
+#: Monetary field type: exact ``Decimal`` in Python, exact 2dp number on the wire.
+Money = Annotated[
+    Decimal,
+    PlainSerializer(_money_to_json, return_type=float, when_used="json"),
+]
+
+
 class CartItemOut(BaseModel):
     id: int
     product_sku_id: int
@@ -28,9 +62,9 @@ class CartItemOut(BaseModel):
     brand_name: str
     size: str
     color: str
-    unit_price: float
+    unit_price: Money
     quantity: int
-    subtotal: float
+    subtotal: Money
     image_url: str
     ai_fit_verdict: str
     in_stock: bool = True
@@ -42,11 +76,14 @@ class CartItemOut(BaseModel):
 class CartOut(BaseModel):
     id: int
     items: List[CartItemOut]
-    subtotal: float
-    discount_amount: float
-    tax_amount: float
-    shipping_amount: float
-    total: float
+    subtotal: Money
+    discount_amount: Money
+    tax_amount: Money
+    shipping_amount: Money
+    #: The delivery method this quote actually priced (CUS-01). Previously the
+    #: cart silently quoted standard no matter what checkout would charge.
+    shipping_method: str = "standard"
+    total: Money
     currency: str = "USD"
     items_count: int
     bnpl_monthly_quote: float
@@ -60,6 +97,19 @@ class CartOut(BaseModel):
 
 
 class CheckoutRequest(BaseModel):
+    """Checkout intake. Carries NO monetary field, by design.
+
+    Every amount on the resulting order is recomputed server-side from the cart
+    and the catalog (see CommerceService.checkout). ``extra="forbid"`` makes
+    that contract explicit at the boundary: a client that POSTs ``total``,
+    ``discount_amount`` or any other unknown key gets a 422 naming the field,
+    instead of the earlier behaviour where the value was accepted and silently
+    dropped. Silence is what made "ignored" indistinguishable from "honoured"
+    to anyone reading the code.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
     payment_method: str = Field(description="'card', 'bnpl_tabby', 'bnpl_tamara', 'apple_pay', 'cod'")
     fulfillment_type: str = Field(description="'delivery' or 'bopis'")
     bopis_store_id: Optional[int] = None
@@ -83,9 +133,9 @@ class OrderItemOut(BaseModel):
     brand_name: str
     size: str
     color: str
-    unit_price: float
+    unit_price: Money
     quantity: int
-    subtotal: float
+    subtotal: Money
     #: This line's apportioned share of the order-level promo discount
     #: (migration 0025, largest-remainder allocation).
     #:
@@ -94,11 +144,11 @@ class OrderItemOut(BaseModel):
     #: discount returned `discount_amount: null` on every line, and neither
     #: the shopper nor the brand could see where the money went. The value
     #: existed; the contract hid it.
-    discount_amount: float = 0.0
+    discount_amount: Money = Decimal("0.00")
     #: subtotal - discount_amount. Served rather than left to each client to
     #: recompute, because a client that forgets the subtraction shows the
     #: pre-discount figure as if it were what was charged.
-    net_amount: float = 0.0
+    net_amount: Money = Decimal("0.00")
     is_returned: bool
     outfit_id: Optional[int] = None
     fulfillment_group_id: Optional[int] = None
@@ -112,8 +162,14 @@ class OrderItemOut(BaseModel):
         Done here so every endpoint returning an order line agrees, instead
         of each caller subtracting (or forgetting to).
         """
+        gross = self.subtotal if isinstance(self.subtotal, Decimal) else Decimal(str(self.subtotal))
+        disc = self.discount_amount or Decimal("0.00")
+        if not isinstance(disc, Decimal):
+            disc = Decimal(str(disc))
+        # Exact Decimal subtraction, quantised once. No float() anywhere on the
+        # money path — that was the only float arithmetic in this contract.
         object.__setattr__(
-            self, "net_amount", round(float(self.subtotal) - float(self.discount_amount or 0.0), 2)
+            self, "net_amount", (gross - disc).quantize(_CENT, rounding=ROUND_HALF_UP)
         )
         return self
 
@@ -122,11 +178,11 @@ class OrderOut(BaseModel):
     id: int
     order_number: str
     status: str
-    total_amount: float
-    subtotal_amount: float
-    discount_amount: float
-    tax_amount: float
-    shipping_amount: float
+    total_amount: Money
+    subtotal_amount: Money
+    discount_amount: Money
+    tax_amount: Money
+    shipping_amount: Money
     currency: str
     #: Denomination of the price book the amounts were converted FROM, and the
     #: exact rate used. Null for orders created before migration 0028; the

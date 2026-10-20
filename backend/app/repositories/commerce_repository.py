@@ -1,6 +1,7 @@
 import json
 import uuid
 
+from backend.app.core.exceptions import AuthorizationError
 from backend.app.core.money import allocate_proportionally
 from decimal import Decimal
 from datetime import datetime, timedelta, timezone
@@ -23,7 +24,7 @@ def _json_default(obj: Any) -> Any:
     raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
 
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import update
+from sqlalchemy import func, or_, update
 
 from backend.app.models.commerce import (
     Cart,
@@ -59,12 +60,40 @@ class CommerceRepository:
                 .first()
             )
         if not cart and session_token:
+            # A session token is NOT an authorization to a signed-in shopper's
+            # cart. The token travels in a header, is readable by any script on
+            # the page and is trivially leaked, so an anonymous caller holding
+            # one must never adopt the account's cart. Only a guest-owned cart
+            # may be resolved by token alone.
             cart = (
                 self.db.query(Cart)
                 .options(joinedload(Cart.items))
-                .filter(Cart.session_token == session_token, Cart.status == "active")
+                .filter(
+                    Cart.session_token == session_token,
+                    Cart.status == "active",
+                    Cart.user_id.is_(None),
+                )
                 .first()
             )
+            if not cart:
+                # Distinguish "no cart yet" from "this token is not yours":
+                # without this, the INSERT below would collide with
+                # UNIQUE(session_token) and surface as a 500 instead of a
+                # clean refusal.
+                owner = (
+                    self.db.query(Cart)
+                    .filter(
+                        Cart.session_token == session_token,
+                        Cart.status == "active",
+                        Cart.user_id.isnot(None),
+                    )
+                    .first()
+                )
+                if owner is not None:
+                    raise AuthorizationError(
+                        "This cart belongs to a signed-in shopper. "
+                        "Sign in to continue with it."
+                    )
 
         if not cart:
             token = session_token or str(uuid.uuid4())
@@ -296,6 +325,51 @@ class CommerceRepository:
         if user_id:
             q = q.filter(PromotionRedemption.user_id == user_id)
         return q.count()
+
+    def count_redemptions_for_identity(
+        self,
+        promotion_id: int,
+        user_id: Optional[int] = None,
+        guest_email: Optional[str] = None,
+    ) -> int:
+        """Redemptions attributable to ONE natural person.
+
+        A person has two possible identity links in ``promotion_redemptions``:
+        ``user_id`` when they checked out signed in, and ``guest_email`` when
+        they checked out as a guest. Counting only ``user_id`` let the same
+        person spend their ``max_per_user`` allowance a second time as a guest
+        (proven live: 18.00 granted twice), because the guest row carried
+        ``user_id = NULL`` and was invisible to the counter.
+
+        Both links are matched together, in both directions, and the email
+        comparison is case-insensitive because an email address is not
+        case-sensitive in practice.
+        """
+        if not user_id and not guest_email:
+            return 0
+        clauses = []
+        if user_id:
+            clauses.append(PromotionRedemption.user_id == user_id)
+        if guest_email:
+            clauses.append(
+                func.lower(PromotionRedemption.guest_email)
+                == guest_email.strip().lower()
+            )
+        return (
+            self.db.query(PromotionRedemption)
+            .filter(
+                PromotionRedemption.promotion_id == promotion_id,
+                or_(*clauses),
+            )
+            .count()
+        )
+
+    def get_user_email(self, user_id: int) -> Optional[str]:
+        """The account email that links a signed-in user to their guest orders."""
+        from backend.app.models.user import User
+
+        row = self.db.query(User.email).filter(User.id == user_id).first()
+        return row[0] if row else None
 
     def lock_sku(self, sku_id: int) -> Optional[ProductSKU]:
         return (

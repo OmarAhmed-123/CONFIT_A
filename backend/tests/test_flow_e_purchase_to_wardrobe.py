@@ -29,6 +29,7 @@ from decimal import Decimal
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import text
 from sqlalchemy import create_engine, inspect, text
 
 from backend.tests.conftest import TestingSessionLocal
@@ -206,27 +207,54 @@ def test_wardrobe_fields_are_catalog_derived_not_client_supplied(client: TestCli
 
 def test_client_cannot_inject_ownership_category_price_or_title(client: TestClient) -> None:
     """A tampering client sends its own owner/category/price/title in the
-    checkout body. None of it may reach the wardrobe."""
+    checkout body. None of it may reach the wardrobe.
+
+    TIGHTENED CONTRACT: this used to assert the injection was *ignored* on the
+    way through (checkout 200, wardrobe synced from server data). CheckoutRequest
+    now sets extra="forbid", so the injected body is refused at the boundary and
+    nothing is created or synchronised at all — a stronger guarantee than
+    "silently dropped". The wardrobe-side ownership/price assertions live on in
+    the sync tests that use a legitimate purchase.
+    """
     email, token = _register(client)
     headers = _headers(token, f"flowe_tamper_{uuid.uuid4().hex[:8]}")
-    order = _buy_one(client, headers, extra={
+    _empty_cart(client, headers)
+    sku = _in_stock_sku(client)
+    added = client.post("/api/v1/commerce/cart/items",
+                        json={"product_sku_id": sku["id"], "quantity": 1}, headers=headers)
+    assert added.status_code in (200, 201), added.text
+
+    injected = {
+        "payment_method": "cod",
+        "fulfillment_type": "delivery",
+        "recipient_name": "Flow E Buyer",
+        "phone": "+971500000000",
+        "address_line": "1 Corniche",
+        "city": "Dubai",
+        "country": "AE",
         "user_id": 999999,
         "category": "HACKED",
         "purchase_price": 1.0,
         "title": "HACKED TITLE",
         "brand_name": "HACKED BRAND",
         "image_url": "https://evil.example/hack.png",
-    })
-    rows = _synced_rows(order["order_number"])
-    assert rows, "purchase must still synchronise"
-    for row in rows:
-        assert row["user_id"] == row["owner_id"]
-        assert row["category"] != "HACKED"
-        assert row["title"] != "HACKED TITLE"
-        assert row["brand_name"] != "HACKED BRAND"
-        assert row["image_url"] != "https://evil.example/hack.png"
-        assert Decimal(str(row["purchase_price"])) == Decimal(str(row["unit_price"]))
-        assert Decimal(str(row["purchase_price"])) != Decimal("1.00")
+    }
+    r = client.post("/api/v1/commerce/checkout", headers=headers, json=injected)
+    assert r.status_code == 422, r.text
+    for field in ("user_id", "category", "purchase_price", "title"):
+        assert field in r.text, f"the rejection must name '{field}'"
+
+    # Nothing was purchased, so nothing can have been written to the wardrobe.
+    db = TestingSessionLocal()
+    try:
+        wardrobe_rows = db.execute(
+            text("select count(*) from wardrobe_items where user_id = "
+                 "(select id from users where email = :e)"),
+            {"e": email},
+        ).scalar()
+    finally:
+        db.close()
+    assert not wardrobe_rows, "a rejected injection still produced wardrobe rows"
 
 
 # --------------------------------------------------------------------------

@@ -256,6 +256,61 @@ class BrandService:
             "created_at": bp.created_at
         }
 
+    # --- Identity rename (imitation-free catalogue) -----------------------
+    def rename_brand(self, brand_id: int, brand_name: str, slug: Optional[str] = None,
+                     commit: bool = True) -> Dict[str, Any]:
+        """Rename a brand and (optionally) its public slug, in one validated step.
+
+        Validation is the point: a rename must be as strict as registration, so
+        an empty name, an over-long name, or a duplicate slug is refused here
+        rather than written and discovered later by a broken link. The slug is
+        derived from the new name when not supplied, exactly as registration
+        derives it.
+        """
+        clean = (brand_name or "").strip()
+        if len(clean) < 2:
+            raise ValidationDomainError("brand_name must be at least 2 characters")
+        if len(clean) > 120:
+            raise ValidationDomainError("brand_name must be at most 120 characters")
+
+        brand = self.brand_repo.get_by_id(brand_id) if hasattr(self.brand_repo, "get_by_id") else None
+        if brand is None:
+            brand = self.db.query(BrandProfile).filter(BrandProfile.id == brand_id).first()
+        if brand is None:
+            raise ResourceNotFoundError("Brand", brand_id)
+
+        target_slug = (slug or "").strip().lower()
+        if not target_slug:
+            target_slug = re.sub(r"[^a-z0-9]+", "-", clean.lower()).strip("-") or f"brand-{brand_id}"
+        clash = self.brand_repo.get_by_slug(target_slug)
+        if clash is not None and clash.id != brand_id:
+            raise ValidationDomainError(f"slug '{target_slug}' already belongs to another brand")
+
+        before = {"brand_name": brand.brand_name, "slug": brand.slug}
+        updated = self.brand_repo.set_brand_identity(brand_id, clean, target_slug)
+        if commit:
+            self.db.commit()
+            self.db.refresh(updated)
+        return {"id": updated.id, "before": before,
+                "after": {"brand_name": updated.brand_name, "slug": updated.slug}}
+
+    def rename_store(self, store_id: int, brand_id: int, name: str, commit: bool = True) -> Dict[str, Any]:
+        """Rename a store location inside its own tenant. Cross-tenant is refused."""
+        clean = (name or "").strip()
+        if len(clean) < 2:
+            raise ValidationDomainError("store name must be at least 2 characters")
+        store = self.db.query(StoreLocation).filter(StoreLocation.id == store_id).first()
+        if store is None:
+            raise ResourceNotFoundError("Store", store_id)
+        if store.brand_id != brand_id:
+            raise AuthorizationError("Tenant scope violation: store does not belong to this brand")
+        before = store.name
+        updated = self.brand_repo.set_store_name(store_id, clean)
+        if commit:
+            self.db.commit()
+            self.db.refresh(updated)
+        return {"id": updated.id, "before": before, "after": updated.name}
+
     def register_brand(
         self,
         *,
